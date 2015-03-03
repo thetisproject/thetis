@@ -1,38 +1,9 @@
-# The wave equation
-# =================
+# Idealised channel flow in 3D
+# ============================
 #
-# Linear shallow water equations with no Coriolis, friction, advection of momentum etc.
+# Solves hydrostatic flow in a rectangular channel.
 #
-# .. math::
-#
-#    \frac{\partial \eta}{\partial t} + h \nabla\cdot u = 0
-#
-#    \frac{\partial u}{\partial t} + g\nabla \eta = 0
-#
-#    \nabla u \cdot n = 0 \ \textrm{on}\ \Gamma
-#
-# where :math:`\Gamma` is the domain boundary and :math:`\nu` is a
-# constant scalar viscosity. The solution :math:`u` is sought in some
-# suitable vector-valued function space :math:`V`. We take the inner
-# product with an arbitrary test function :math:`v\in V` and integrate
-# the viscosity term by parts:
-#
-# .. math::
-#
-#    \int_\Omega\frac{\partial u}{\partial t}\cdot v +
-#    (u\cdot\nabla u)\cdot v + \nu\nabla u\cdot\nabla v \ \mathrm d x = 0.
-#
-# The boundary condition has been used to discard the surface
-# integral. Next, we need to discretise in time. For simplicity and
-# stability we elect to use a backward Euler discretisation:
-#
-# .. math::
-#
-#    \int_\Omega\frac{u^{n+1}-u^n}{dt}\cdot v +
-#    (u^{n+1}\cdot\nabla u^{n+1})\cdot v + \nu\nabla u^{n+1}\cdot\nabla v \ \mathrm d x = 0.
-#
-# We can now proceed to set up the problem. We choose a resolution and set
-# up a square mesh::
+# Tuomas Karna 2015-03-03
 
 from firedrake import *
 import numpy as np
@@ -115,7 +86,6 @@ def bath(x, y, z):
 #define a bath func depending on x,y,z
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 h_mean.dat.data[:] = bath(x_func.dat.data, 0, 0)
-#h_mean.dat.data[:] = depth
 
 outputDir = createDirectory('outputs')
 bathfile = File(os.path.join(outputDir, 'bath.pvd'))
@@ -167,8 +137,6 @@ salt_eq3d = mode3d.tracerEquation(mesh, H, salt3d, eta3d, uv3d, w3d,
 
 T = 2 * 24 * 3600  # 100*24*3600
 TExport = 80.0
-#dt_2d = 3.0
-#dt = 40.0  # for implicit schemes
 Umag = Constant(1.5)
 mesh_dt = swe2d.getTimeStepAdvection(Umag=Umag)
 dt = float(np.floor(mesh_dt.dat.data.min()/20.0))
@@ -176,7 +144,6 @@ mesh2d_dt = swe2d.getTimeStep(Umag=Umag)
 dt_2d = mesh2d_dt.dat.data.min()/20.0
 M_modesplit = int(np.ceil(dt/dt_2d))
 dt_2d = float(dt/M_modesplit)
-#dt = float(swe2d.getTimeStep().vector().array().min()/2.0)/6.0
 if commrank == 0:
     print 'dt =', dt
     print '2D dt =', dt_2d, M_modesplit
@@ -204,30 +171,18 @@ river_funcs_3d = {'flux': river_flux_3d}
 #swe2d.bnd_functions = {2: ocean_funcs, 1: river_funcs}
 #mom_eq3d.bnd_functions = {2: ocean_funcs_3d, 1: river_funcs_3d}
 
-#timeStepper2d = mode2d.DIRK3(swe2d, dt)
 timeStepper2d = mode2d.AdamsBashforth3(swe2d, dt_2d)
 uv2d_old, eta2d_old = timeStepper2d.solution_old.split()
 
-#timeStepper_mom3d = mode3d.AdamsBashforth3(mom_eq3d, dt)
-#timeStepper_salt3d = mode3d.AdamsBashforth3(salt_eq3d, dt)
 timeStepper_mom3d = mode3d.LeapFrogAM3(mom_eq3d, dt)
 timeStepper_salt3d = mode3d.LeapFrogAM3(salt_eq3d, dt)
 
-# Set up the functions used to write fields to file.
-U_2d_outfunc = Function(U_visu_2d, name='Depth averaged velocity')
-eta_2d_outfunc = Function(P1_2d, name='Elevation')
-eta_3d_outfunc = Function(P1, name='Elevation')
-uv_3d_outfunc = Function(U_visu, name='Velocity')
-w_3d_outfunc = Function(P1, name='V.Velocity')
-salt_3d_outfunc = Function(P1, name='Salinity')
-
-# Set up the output stream
-U_2d_outfile = File(os.path.join(outputDir, 'Velocity2d.pvd'))
-eta_2d_outfile = File(os.path.join(outputDir, 'Elevation2d.pvd'))
-eta_3d_outfile = File(os.path.join(outputDir, 'Elevation3d.pvd'))
-uv_3d_outfile = File(os.path.join(outputDir, 'Velocity3d.pvd'))
-w_3d_outfile = File(os.path.join(outputDir, 'VertVelo3d.pvd'))
-salt_3d_outfile = File(os.path.join(outputDir, 'Salinity3d.pvd'))
+U_2d_file = exporter(U_visu_2d, 'Depth averaged velocity', outputDir, 'Velocity2d.pvd')
+eta_2d_file = exporter(P1_2d, 'Elevation', outputDir, 'Elevation2d.pvd')
+eta_3d_file = exporter(P1, 'Elevation', outputDir, 'Elevation3d.pvd')
+uv_3d_file = exporter(U_visu, 'Velocity', outputDir, 'Velocity3d.pvd')
+w_3d_file = exporter(P1, 'V.Velocity', outputDir, 'VertVelo3d.pvd')
+salt_3d_file = exporter(P1, 'Salinity', outputDir, 'Salinity3d.pvd')
 
 # assign initial conditions
 uv2d, eta2d = swe2d.solution.split()
@@ -239,25 +194,13 @@ salt3d.interpolate(Expression('x[0]/1.0e5*10.0+2.0'))
 timeStepper_salt3d.solution_old.assign(salt3d)
 copy2dFieldTo3d(elev_init, eta3d)
 
-# Write initial conditions to file
-
-U_2d_outfunc.assign(project(timeStepper2d.solution_old.split()[0], U_visu_2d))
-U_2d_outfile << U_2d_outfunc
-eta_2d_outfunc.assign(project(timeStepper2d.solution_old.split()[1], P1_2d))
-eta_2d_outfile << eta_2d_outfunc
-eta_3d_outfunc.assign(project(eta3d, P1))
-eta_3d_outfile << eta_3d_outfunc
-uv_3d_outfunc.assign(project(uv3d, U_visu))
-uv_3d_outfile << uv_3d_outfunc
-w_3d_outfunc.assign(project(w3d, P1))
-w_3d_outfile << w_3d_outfunc
-salt_3d_outfunc.assign(project(salt3d, P1))
-salt_3d_outfile << salt_3d_outfunc
-
-moving_bath = Function(P1_2d, name='moving_bath')
-#wd_bathfile = File(os.path.join(outputDir, 'moving_bath2d.pvd'))
-#wd_bathfile << moving_bath.assign(project(h_mean +
-                       #swe2d.wd_bath_displacement(swe2d.solution.split()[1]), P1_2d))
+# Export initial conditions
+U_2d_file.export(timeStepper2d.solution_old.split()[0])
+eta_2d_file.export(timeStepper2d.solution_old.split()[1])
+eta_3d_file.export(eta3d)
+uv_3d_file.export(uv3d)
+w_3d_file.export(w3d)
+salt_3d_file.export(w3d)
 
 # The time-stepping loop
 T_epsilon = 1.0e-14
@@ -281,6 +224,7 @@ from pyop2.profiling import timed_region, timed_function, timing
 
 while t <= T + T_epsilon:
 
+    # For DIRK3 2d time integrator
     #print('solving 2d mode')
     #timeStepper2d.advance(t, dt, swe2d.solution, updateForcings)
     #print('preparing 3d fields')
@@ -294,7 +238,6 @@ while t <= T + T_epsilon:
 
     # LF-AM3 time integration loop
     with timed_region('aux_functions'):
-        #eta_n = swe2d.solution.split()[1]
         eta_n = timeStepper2d.solution_nplushalf.split()[1]
         copy2dFieldTo3d(eta_n, eta3d)  # at t_{n+1/2}
     #print('solving 3d tracers')  # salt3d is at t_{n+1/2}
@@ -338,33 +281,24 @@ while t <= T + T_epsilon:
             print(line.format(iexp=iExp, i=i, t=t, e=norm_h,
                               u=norm_u, cpu=cputime))
             sys.stdout.flush()
-        U_2d_outfunc.assign(project(swe2d.solution.split()[0], U_visu_2d))
-        U_2d_outfile << U_2d_outfunc
-        eta_2d_outfunc.assign(project(swe2d.solution.split()[1], P1_2d))
-        eta_2d_outfile << eta_2d_outfunc
-        eta_3d_outfunc.assign(project(eta3d, P1))
-        eta_3d_outfile << eta_3d_outfunc
-        uv_3d_outfunc.assign(project(uv3d, U_visu))
-        uv_3d_outfile << uv_3d_outfunc
-        w_3d_outfunc.assign(project(w3d, P1))
-        w_3d_outfile << w_3d_outfunc
-        salt_3d_outfunc.assign(project(salt3d, P1))
-        salt_3d_outfile << salt_3d_outfunc
-        #wd_bathfile << moving_bath.assign(
-            #project(h_mean + swe2d.wd_bath_displacement(swe2d.solution.split()[1]),
-                    #P1_2d))
+        U_2d_file.export(timeStepper2d.solution_old.split()[0])
+        eta_2d_file.export(timeStepper2d.solution_old.split()[1])
+        eta_3d_file.export(eta3d)
+        uv_3d_file.export(uv3d)
+        w_3d_file.export(w3d)
+        salt_3d_file.export(salt3d)
         next_export_t += TExport
         iExp += 1
 
         if commrank == 0:
             print 'iter', i, 'dt', dt
             labels = ['mode2d', 'momentumEq', 'saltEq', 'continuityEq',
-                          'aux_functions']
+                      'aux_functions']
             cost = {}
             relcost = {}
             totcost = 0
             for label in labels:
-                value = timing(label,reset=True)
+                value = timing(label, reset=True)
                 cost[label] = value
                 totcost += value
             for label in labels:
