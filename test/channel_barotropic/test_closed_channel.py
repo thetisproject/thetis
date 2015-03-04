@@ -1,5 +1,5 @@
-# Idealised channel flow in 3D
-# ============================
+# Barotropic flow in a closed channel
+# ===================================
 #
 # Solves hydrostatic flow in a rectangular channel.
 #
@@ -39,7 +39,7 @@ def createDirectory(path):
             os.makedirs(path)
     return path
 
-mesh2d = Mesh('channel_mesh.msh')
+mesh2d = Mesh('mesh_coarse.msh')
 
 # Function spaces for 2d mode
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -56,20 +56,6 @@ nonlin = True
 swe2d = mode2d.freeSurfaceEquations(mesh2d, U_2d, H_2d, h_mean,
                                     nonlin=nonlin, use_wd=use_wd)
 
-# TODO add friction in mom3d
-# TODO stabilize 3d momentum eq?
-# TODO add uv correction
-# TODO implement SSPRK3 for tracers
-# TODO add vertical advection of momentum NOTE only works for moving mesh
-# TODO add timers in solver loop DONE
-# TODO FIXME advection of mom is unstable on full DG mesh
-# TODO FIXME closed boundaries of mom3d incorrect uv!=0
-
-# TODO find candidates for good element pairs
-# TODO try mimetic (RT1, P1DG) for 2D solver only
-
-#bath_x = np.array([0, 10e3, 30e3, 45e3, 100e3])
-#bath_v = np.array([20, 20, 6, 15, 5])
 depth_oce = 20.0
 depth_riv = 5.0
 bath_x = np.array([0, 100e3])
@@ -109,7 +95,7 @@ elev_init.dat.data[:] = elevation(x_func.dat.data, 0, 0,
 # create 3d equations
 
 # extrude mesh
-n_layers = 6
+n_layers = 4
 mesh = extrudeMeshSigma(mesh2d, n_layers, h_mean)
 
 # function spaces
@@ -135,8 +121,6 @@ salt_eq3d = mode3d.tracerEquation(mesh, H, salt3d, eta3d, uv3d, w3d,
                                   swe2d.boundary_markers,
                                   swe2d.boundary_len)
 
-T = 2 * 24 * 3600  # 100*24*3600
-TExport = 80.0
 Umag = Constant(1.5)
 mesh_dt = swe2d.getTimeStepAdvection(Umag=Umag)
 dt = float(np.floor(mesh_dt.dat.data.min()/20.0))
@@ -148,6 +132,9 @@ if commrank == 0:
     print 'dt =', dt
     print '2D dt =', dt_2d, M_modesplit
     sys.stdout.flush()
+
+T = 2 * 24 * 3600  # 100*24*3600
+TExport = dt
 
 # weak boundary conditions
 solution_ext_2d = Function(swe2d.space)
@@ -238,7 +225,7 @@ while t <= T + T_epsilon:
 
     # LF-AM3 time integration loop
     with timed_region('aux_functions'):
-        eta_n = timeStepper2d.solution_n.split()[1]
+        eta_n = timeStepper2d.solution_nplushalf.split()[1]
         copy2dFieldTo3d(eta_n, eta3d)  # at t_{n+1/2}
     #print('solving 3d tracers')  # salt3d is at t_{n+1/2}
     with timed_region('saltEq'):

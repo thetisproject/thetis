@@ -378,11 +378,11 @@ class momentumEquation(equation):
             if funcs is None:
                 # assume land boundary
                 continue
-                if self.nonlin:
-                    G += (self.test[0]*solution[0]*solution[0]*self.normal[0] +
-                          self.test[0]*solution[0]*solution[1]*self.normal[1] +
-                          self.test[1]*solution[1]*solution[0]*self.normal[0] +
-                          self.test[1]*solution[1]*solution[1]*self.normal[1])*(ds_bnd)
+                #if self.nonlin:
+                    #G += (self.test[0]*solution[0]*solution[0]*self.normal[0] +
+                          #self.test[0]*solution[0]*solution[1]*self.normal[1] +
+                          #self.test[1]*solution[1]*solution[0]*self.normal[0] +
+                          #self.test[1]*solution[1]*solution[1]*self.normal[1])*(ds_bnd)
 
             elif 'elev' in funcs:
                 # prescribe elevation only

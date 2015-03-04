@@ -39,35 +39,6 @@ def extrudeMeshLinear(mesh2d, n_layers, xmin, xmax, dmin, dmax):
     return mesh
 
 
-def extrudeMeshSigmaOld(mesh2d, n_layers, bathymetry):
-    """Extrudes 2d surface mesh with bathymetry data defined in a field."""
-    layer_height = 1.0/n_layers
-    base_coords = mesh2d.coordinates
-    extrusion_kernel = op2.Kernel("""
-            void uniform_extrusion_kernel(double **base_coords,
-                        double **ext_coords,
-                        double **aux_data,
-                        int **layer,
-                        double *layer_height) {
-                for ( int d = 0; d < %(base_map_arity)d; d++ ) {
-                    for ( int c = 0; c < %(base_coord_dim)d; c++ ) {
-                        ext_coords[2*d][c] = base_coords[d][c];
-                        ext_coords[2*d+1][c] = base_coords[d][c];
-                    }
-                    double depth = aux_data[0][0];
-                    ext_coords[2*d][%(base_coord_dim)d] = -depth*layer_height[0]*layer[0][0];
-                    ext_coords[2*d+1][%(base_coord_dim)d] = -depth*layer_height[0]*(layer[0][0]+1);
-                }
-            }""" % {'base_map_arity': base_coords.cell_node_map().arity,
-                    'base_coord_dim': base_coords.function_space().cdim},
-                                'uniform_extrusion_kernel')
-    mesh = ExtrudedMesh(mesh2d, layers=n_layers,
-                        layer_height=layer_height,
-                        extrusion_type='custom',
-                        kernel=extrusion_kernel, gdim=3, aux_data=bathymetry)
-    return mesh
-
-
 def extrudeMeshSigma(mesh2d, n_layers, bathymetry2d):
     """Extrudes 2d surface mesh with bathymetry data defined in a 2d field."""
     mesh = ExtrudedMesh(mesh2d, layers=n_layers, layer_height=1.0/n_layers)
