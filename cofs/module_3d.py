@@ -10,6 +10,8 @@ g_grav = physical_constants['g_grav']
 viscosity = physical_constants['viscosity']
 wd_alpha = physical_constants['wd_alpha']
 mu_manning = physical_constants['mu_manning']
+z0_friction = physical_constants['z0_friction']
+von_karman = physical_constants['von_karman']
 
 
 class ForwardEuler(timeIntegrator):
@@ -241,15 +243,19 @@ class CrankNicolson(timeIntegrator):
 
 class momentumEquation(equation):
     """3D momentum equation for hydrostatic Boussinesq flow."""
-    def __init__(self, mesh, space, space_scalar, solution, eta, w, bathymetry,
+    def __init__(self, mesh, space, space_scalar, solution, eta, w,
+                 uv_bottom, bottom_drag, bathymetry,
                  bnd_markers, bnd_len, nonlin=True):
         self.mesh = mesh
         self.space = space
         self.space_scalar = space_scalar
         self.nonlin = nonlin
-        # this dict holds all args to the equation (at current time step)
         self.solution = solution
+        # this dict holds all args to the equation (at current time step)
         self.kwargs = {'eta': eta, 'w': w}
+        if uv_bottom is not None:
+            self.kwargs['uv_bottom'] = uv_bottom
+            self.kwargs['bottom_drag'] = bottom_drag
         # time independent arg
         self.bathymetry = bathymetry
 
@@ -257,7 +263,8 @@ class momentumEquation(equation):
         self.test = TestFunction(self.space)
         self.tri = TrialFunction(self.space)
 
-        self.solution_is_DG = True  # HACK FIXME
+        self.horizontal_DG = self.space.ufl_element()._A.family() != 'Lagrange'
+        self.vertical_DG = self.space.ufl_element()._B.family() != 'Lagrange'
 
         # mesh dependent variables
         self.normal = FacetNormal(mesh)
@@ -318,7 +325,7 @@ class momentumEquation(equation):
         """
         return inner(solution, self.test) * self.dx
 
-    def RHS(self, solution, eta, w, **kwargs):
+    def RHS(self, solution, eta, w, uv_bottom, bottom_drag, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0  # holds all dx volume integral terms
@@ -334,7 +341,7 @@ class momentumEquation(equation):
                       Dx(self.test[1], 0)*solution[1]*solution[0] +
                       Dx(self.test[1], 1)*solution[1]*solution[1])
             F += Adv_h * self.dx
-            if self.solution_is_DG:
+            if self.horizontal_DG:
                 uv_rie = avg(solution)
                 s = 0.5*(sign(uv_rie[0]*self.normal('-')[0] +
                               uv_rie[1]*self.normal('-')[1]) + 1.0)
@@ -359,7 +366,7 @@ class momentumEquation(equation):
             #Adv_v = -(Dx(self.test[0], 2)*solution[0]*w +
                       #Dx(self.test[1], 2)*solution[1]*w)
             #F += Adv_v * self.dx
-            ##if self.solution_is_DG:
+            ##if self.horizontal_DG:
                 ##w_rie = avg(w)
                 ##uv_rie = avg(solution)
                 ##G += (uv_rie[0]*w_rie*jump(self.test[0], self.normal[2]) +
@@ -425,6 +432,11 @@ class momentumEquation(equation):
                 if self.nonlin:
                     G += un_ext*un_ext*inner(self.normal, self.test)*ds_bnd
 
+        # bottom friction
+        stress = bottom_drag*sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)*uv_bottom
+        BotFriction = (stress[0]*self.test[0] + stress[1]*self.test[1])*ds_t
+        F += BotFriction
+
         ## viscosity
         ## A double dot product of the stress tensor and grad(w).
         #K_momentum = -viscosity * (Dx(uv[0], 0) * Dx(self.U_test[0], 0) +
@@ -453,7 +465,8 @@ class tracerEquation(equation):
         self.test = TestFunction(self.space)
         self.tri = TrialFunction(self.space)
 
-        self.solution_is_DG = False  # HACK FIXME
+        self.horizontal_DG = self.space.ufl_element()._A.family() != 'Lagrange'
+        self.vertical_DG = self.space.ufl_element()._B.family() != 'Lagrange'
 
         # mesh dependent variables
         self.normal = FacetNormal(mesh)

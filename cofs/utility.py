@@ -7,7 +7,7 @@ from firedrake import *
 import os
 import numpy as np
 import sys
-
+from cofs.physical_constants import physical_constants
 
 def extrudeMeshLinear(mesh2d, n_layers, xmin, xmax, dmin, dmax):
     """Extrudes 2d surface mesh with defined by two endpoints in x axis."""
@@ -162,7 +162,7 @@ def copyLayerValueOverVertical(input, output, useBottomValue=True):
     return output
 
 
-def copy3dFieldTo2d(input3d, output2d, useBottomValue=True):
+def copy3dFieldTo2d(input3d, output2d, useBottomValue=True, level=None):
     """
     Assings the top/bottom value of the input field to 2d output field.
     """
@@ -176,6 +176,15 @@ def copy3dFieldTo2d(input3d, output2d, useBottomValue=True):
             iSource = NVert-1
         else:
             iSource = 0
+        if level is not None:
+            # map positive values to nodes from surface
+            # negative values as nodes from bottom
+            if level == 0:
+                raise Exception('level must be between 1 and NVert')
+            if level > 0:
+                iSource = level-1
+            else:
+                iSource = NVert + level
         # TODO can the loop be circumvented?
         if len(input3d.dat.data.shape) > 1:
             for iNode in range(NNodes):
@@ -192,9 +201,19 @@ def copy3dFieldTo2d(input3d, output2d, useBottomValue=True):
         NElem = input3d.dat.data.shape[0]/NVert
         # for P1DGxL1CG
         if useBottomValue:
-            faceNodes = np.array([2, 1, 0]) + NVert - 3
+            iSource = NVert - 3
         else:
-            faceNodes = np.array([0, 1, 2])
+            iSource = 0
+        if level is not None:
+            # map positive values to nodes from surface
+            # negative values as nodes from bottom
+            if level == 0:
+                raise Exception('level must be between 1 and NVert')
+            if level > 0:
+                iSource = 3*(level-1)
+            else:
+                iSource = NVert + 3*level
+        faceNodes = np.array([0, 1, 2]) + iSource
         ix = (np.tile((NVert*np.arange(NElem)), (3, 1)).T + faceNodes).ravel()
         if len(input3d.dat.data.shape) > 1:
             output2d.dat.data[:, 0] = input3d.dat.data[ix, 0]
@@ -262,6 +281,14 @@ def correct3dVelocity(UV2d, uv3d, uv3d_dav, bathymetry):
     copy2dFieldTo3d(diff, uv3d_dav)
     # correct 3d field
     uv3d.dat.data[:] += uv3d_dav.dat.data
+
+
+def computeBottomDrag(uv_bottom, z_bottom, bathymetry, drag):
+    """Computes bottom drag coefficient (Cd) from boundary log layer."""
+    von_karman = physical_constants['von_karman']
+    z0_friction = physical_constants['z0_friction']
+    drag.assign((von_karman / ln((z_bottom)/z0_friction))**2)
+    return drag
 
 
 class exporter(object):

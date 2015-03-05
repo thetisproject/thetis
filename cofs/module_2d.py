@@ -343,6 +343,7 @@ class DIRK3(timeIntegrator):
 class freeSurfaceEquations(equation):
     """2D depth averaged shallow water equations"""
     def __init__(self, mesh, U_space, eta_space, bathymetry,
+                 uv_bottom, bottom_drag,
                  nonlin=True, use_wd=True):
         self.mesh = mesh
         self.eta_space = eta_space
@@ -350,6 +351,8 @@ class freeSurfaceEquations(equation):
         self.bathymetry = bathymetry
         self.use_wd = use_wd
         self.nonlin = nonlin
+        self.uv_bottom = uv_bottom
+        self.bottom_drag = bottom_drag
 
         # create mixed function space
         self.space = MixedFunctionSpace([U_space, eta_space])
@@ -583,6 +586,12 @@ class freeSurfaceEquations(equation):
         BottomFri = g_grav * mu_manning ** 2 * \
             total_H ** (-4. / 3.) * sqrt(dot(uv_old, uv_old)) * inner(self.U_test, uv)*self.dx
         F += BottomFri
+
+        # bottom friction from a 3D model
+        stress = self.bottom_drag*sqrt(self.uv_bottom[0]**2 +
+                                       self.uv_bottom[1]**2)*self.uv_bottom
+        BotFriction = total_H**-1.*(stress[0]*self.U_test[0] + stress[1]*self.U_test[1])*self.dx
+        F += BotFriction
 
         # viscosity
         # A double dot product of the stress tensor and grad(w).

@@ -42,6 +42,7 @@ def createDirectory(path):
 
 # set physical constants
 physical_constants['mu_manning'].assign(0.2)
+physical_constants['z0_friction'].assign(1.0e-5)
 
 mesh2d = Mesh('channel_mesh.msh')
 
@@ -53,16 +54,24 @@ U_scalar_2d = FunctionSpace(mesh2d, 'DG', 1)
 H_2d = FunctionSpace(mesh2d, 'CG', 2)
 
 # Mean free surface height (bathymetry)
-h_mean = Function(P1_2d, name='Bathymetry')
+bathymetry2d = Function(P1_2d, name='Bathymetry')
+
+uv_bottom2d = Function(U_2d, name='Bottom Velocity')
+z_bottom2d = Function(P1_2d, name='Bot. Vel. z coord')
+bottom_drag2d = Function(P1_2d, name='Bottom Drag')
 
 use_wd = False
 nonlin = True
-swe2d = mode2d.freeSurfaceEquations(mesh2d, U_2d, H_2d, h_mean,
+swe2d = mode2d.freeSurfaceEquations(mesh2d, U_2d, H_2d, bathymetry2d,
+                                    uv_bottom2d, bottom_drag2d,
                                     nonlin=nonlin, use_wd=use_wd)
 
 # TODO try with open boundaries
+# TODO try in parallel
+# TODO move all numpy operations to PyOP2/firedrake world
 # TODO add moving mesh to 3d mode
 # TODO add friction in mom3d
+# TODO add Pacanowski-Philander turbulence parametrisation
 # TODO stabilize 3d momentum eq?
 # TODO implement SSPRK3 for tracers
 # TODO add vertical advection of momentum NOTE only works for moving mesh
@@ -71,6 +80,7 @@ swe2d = mode2d.freeSurfaceEquations(mesh2d, U_2d, H_2d, h_mean,
 
 # TODO find candidates for good element pairs
 # TODO try mimetic (RT1, P1DG) for 2D solver only
+
 
 #bath_x = np.array([0, 10e3, 30e3, 45e3, 100e3])
 #bath_v = np.array([20, 20, 6, 15, 5])
@@ -89,11 +99,11 @@ def bath(x, y, z):
 
 #define a bath func depending on x,y,z
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
-h_mean.dat.data[:] = bath(x_func.dat.data, 0, 0)
+bathymetry2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
 outputDir = createDirectory('outputs')
 bathfile = File(os.path.join(outputDir, 'bath.pvd'))
-bathfile << h_mean
+bathfile << bathymetry2d
 
 elev_x = np.array([0, 30e3, 100e3])
 elev_v = np.array([2, 0, 0])
@@ -114,7 +124,7 @@ elev_init.dat.data[:] = elevation(x_func.dat.data, 0, 0,
 
 # extrude mesh
 n_layers = 6
-mesh = extrudeMeshSigma(mesh2d, n_layers, h_mean)
+mesh = extrudeMeshSigma(mesh2d, n_layers, bathymetry2d)
 
 # function spaces
 P1 = FunctionSpace(mesh, 'CG', 1, vfamily='CG', vdegree=1)
@@ -127,13 +137,29 @@ eta3d = Function(H, name='Elevation')
 bathymetry3d = Function(P1, name='Bathymetry')
 copy2dFieldTo3d(swe2d.bathymetry, bathymetry3d)
 uv3d = Function(U, name='Velocity')
-uv3d_dav = Function(U, name='Velocity')
-uv2d_dav = Function(U_2d, name='Velocity')
-w3d = Function(H, name='Velocity')
+uv_bottom3d = Function(U, name='Bottom Velocity')
+z_bottom3d = Function(P1, name='Bot. Vel. z coord')
+z_coord3d = Function(P1, name='Bot. Vel. z coord')
+bottom_drag3d = Function(P1, name='Bottom Drag')
+uv3d_dav = Function(U, name='Depth Averaged Velocity')
+uv2d_dav = Function(U_2d, name='Depth Averaged Velocity')
+w3d = Function(H, name='Vertical Velocity')
 salt3d = Function(H, name='Salinity')
 
+
+def getZCoord(zcoord):
+    fs = zcoord.function_space()
+    tri = TrialFunction(fs)
+    test = TestFunction(fs)
+    a = tri*test*dx
+    L = fs.mesh().coordinates[2]*test*dx
+    solve(a == L, zcoord)
+    return zcoord
+
+getZCoord(z_coord3d)
+
 mom_eq3d = mode3d.momentumEquation(mesh, U, U_scalar, uv3d, eta3d,
-                                   w3d,
+                                   w3d, uv_bottom3d, bottom_drag3d,
                                    bathymetry3d,
                                    swe2d.boundary_markers,
                                    swe2d.boundary_len, nonlin=nonlin)
@@ -188,6 +214,8 @@ eta_3d_file = exporter(P1, 'Elevation', outputDir, 'Elevation3d.pvd')
 uv_3d_file = exporter(U_visu, 'Velocity', outputDir, 'Velocity3d.pvd')
 w_3d_file = exporter(P1, 'V.Velocity', outputDir, 'VertVelo3d.pvd')
 salt_3d_file = exporter(P1, 'Salinity', outputDir, 'Salinity3d.pvd')
+uv_dav_2d_file = exporter(U_visu_2d, 'Depth Averaged Velocity', outputDir, 'DAVelocity2d.pvd')
+uv_bot_2d_file = exporter(U_visu_2d, 'Bottom Velocity', outputDir, 'BotVelocity2d.pvd')
 
 # assign initial conditions
 uv2d, eta2d = swe2d.solution.split()
@@ -208,6 +236,8 @@ eta_3d_file.export(eta3d)
 uv_3d_file.export(uv3d)
 w_3d_file.export(w3d)
 salt_3d_file.export(w3d)
+uv_dav_2d_file.export(uv2d_dav)
+uv_bot_2d_file.export(uv_bottom2d)
 
 # The time-stepping loop
 T_epsilon = 1.0e-14
@@ -226,6 +256,16 @@ def updateForcings(t_new):
 def updateForcings3d(t_new):
     ocean_elev_3d.dat.data[:] = ocean_elev_func(t_new)
     river_flux_3d.dat.data[:] = river_flux_func(t_new)
+
+
+def computeBottomFriction():
+    copy3dFieldTo2d(uv3d, uv_bottom2d, level=-2)
+    copy2dFieldTo3d(uv_bottom2d, uv_bottom3d)
+    copy3dFieldTo2d(z_coord3d, z_bottom2d, level=-2)
+    copy2dFieldTo3d(z_bottom2d, z_bottom3d)
+    z_bottom2d.dat.data[:] += bathymetry2d.dat.data[:]
+    computeBottomDrag(uv_bottom2d, z_bottom2d, bathymetry2d, bottom_drag2d)
+    copy2dFieldTo3d(bottom_drag2d, bottom_drag3d)
 
 from pyop2.profiling import timed_region, timed_function, timing
 
@@ -247,6 +287,7 @@ while t <= T + T_epsilon:
     with timed_region('aux_functions'):
         eta_n = timeStepper2d.solution_n.split()[1]
         copy2dFieldTo3d(eta_n, eta3d)  # at t_{n}
+        computeBottomFriction()
     # prediction step, update 3d fields from t_{n-1/2} to t_{n+1/2}
     with timed_region('saltEq'):
         timeStepper_salt3d.predict(t, dt, salt3d, updateForcings3d)
@@ -260,6 +301,7 @@ while t <= T + T_epsilon:
     with timed_region('aux_functions'):
         eta_nplushalf = timeStepper2d.solution_nplushalf.split()[1]
         copy2dFieldTo3d(eta_nplushalf, eta3d)  # at t_{n+1/2}
+        computeBottomFriction()
     with timed_region('saltEq'):
         timeStepper_salt3d.correct(t, dt, salt3d, updateForcings3d)  # at t{n+1}
     with timed_region('momentumEq'):
@@ -294,6 +336,9 @@ while t <= T + T_epsilon:
         uv_3d_file.export(uv3d)
         w_3d_file.export(w3d)
         salt_3d_file.export(salt3d)
+        uv_dav_2d_file.export(uv2d_dav)
+        uv_bot_2d_file.export(uv_bottom2d)
+
         next_export_t += TExport
         iExp += 1
 
