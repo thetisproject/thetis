@@ -15,6 +15,7 @@ from scipy.interpolate import interp1d
 import cofs.module_2d as mode2d
 import cofs.module_3d as mode3d
 from cofs.utility import *
+from cofs.physical_constants import physical_constants
 
 # HACK to fix unknown node: XXX / (F0) COFFEE errors
 op2.init()
@@ -39,6 +40,9 @@ def createDirectory(path):
             os.makedirs(path)
     return path
 
+# set physical constants
+physical_constants['mu_manning'].assign(0.2)
+
 mesh2d = Mesh('channel_mesh.msh')
 
 # Function spaces for 2d mode
@@ -56,12 +60,12 @@ nonlin = True
 swe2d = mode2d.freeSurfaceEquations(mesh2d, U_2d, H_2d, h_mean,
                                     nonlin=nonlin, use_wd=use_wd)
 
+# TODO try with open boundaries
+# TODO add moving mesh to 3d mode
 # TODO add friction in mom3d
 # TODO stabilize 3d momentum eq?
-# TODO add uv correction
 # TODO implement SSPRK3 for tracers
 # TODO add vertical advection of momentum NOTE only works for moving mesh
-# TODO add timers in solver loop DONE
 # TODO FIXME advection of mom is unstable on full DG mesh
 # TODO FIXME closed boundaries of mom3d incorrect uv!=0
 
@@ -123,7 +127,8 @@ eta3d = Function(H, name='Elevation')
 bathymetry3d = Function(P1, name='Bathymetry')
 copy2dFieldTo3d(swe2d.bathymetry, bathymetry3d)
 uv3d = Function(U, name='Velocity')
-uv3dint = Function(U, name='Velocity')
+uv3d_dav = Function(U, name='Velocity')
+uv2d_dav = Function(U_2d, name='Velocity')
 w3d = Function(H, name='Velocity')
 salt3d = Function(H, name='Salinity')
 
@@ -136,7 +141,7 @@ salt_eq3d = mode3d.tracerEquation(mesh, H, salt3d, eta3d, uv3d, w3d,
                                   swe2d.boundary_markers,
                                   swe2d.boundary_len)
 
-T = 2 * 24 * 3600  # 100*24*3600
+T = 0.7 * 24 * 3600  # 100*24*3600
 TExport = 80.0
 Umag = Constant(1.5)
 mesh_dt = swe2d.getTimeStepAdvection(Umag=Umag)
@@ -191,10 +196,10 @@ U_n, eta_n = timeStepper2d.solution_n.split()
 eta2d.assign(elev_init)
 eta2d_old.assign(elev_init)
 eta_n.assign(elev_init)
+copy2dFieldTo3d(elev_init, eta3d)
 salt3d.interpolate(Expression('x[0]/1.0e5*10.0+2.0'))
 timeStepper_salt3d.solution_nminushalf.assign(salt3d)
 timeStepper_salt3d.solution_n.assign(salt3d)
-copy2dFieldTo3d(elev_init, eta3d)
 
 # Export initial conditions
 U_2d_file.export(timeStepper2d.solution_old.split()[0])
@@ -250,23 +255,23 @@ while t <= T + T_epsilon:
     with timed_region('continuityEq'):
         computeVertVelocity(w3d, uv3d, bathymetry3d)
     with timed_region('mode2d'):
-        #timeStepper2d.advance(t, dt, swe2d.solution, updateForcings)
         timeStepper2d.advanceMacroStep(t, dt_2d, M_modesplit,
                                        swe2d.solution, updateForcings)
-    #print('preparing 3d fields')
     with timed_region('aux_functions'):
         eta_nplushalf = timeStepper2d.solution_nplushalf.split()[1]
         copy2dFieldTo3d(eta_nplushalf, eta3d)  # at t_{n+1/2}
-    #print('solving 3d tracers')
     with timed_region('saltEq'):
         timeStepper_salt3d.correct(t, dt, salt3d, updateForcings3d)  # at t{n+1}
-    #print('solving 3d mode')
     with timed_region('momentumEq'):
         timeStepper_mom3d.correct(t, dt, uv3d, None)  # at t{n+1}
     with timed_region('aux_functions'):
         UV_n = timeStepper2d.solution_n.split()[0]
-        correct3dVelocity(UV_n, uv3d, uv3dint, bathymetry3d)
-    #print('solving 3d continuity')
+        bndValue = Constant((0.0, 0.0, 0.0))
+        computeVerticalIntegral(uv3d, uv3d_dav, U,
+                                bottomToTop=True, bndValue=bndValue,
+                                average=True, bathymetry=bathymetry3d)
+        copy3dFieldTo2d(uv3d_dav, uv2d_dav, useBottomValue=False)
+        UV_n.assign(uv2d_dav)
     with timed_region('continuityEq'):
         computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
 
