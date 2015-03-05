@@ -6,10 +6,10 @@ Tuomas Karna 2015-02-23
 from utility import *
 from physical_constants import *
 
-g_grav = physical_parameters['g_grav']
-viscosity = physical_parameters['viscosity']
-wd_alpha = physical_parameters['wd_alpha']
-mu_manning = physical_parameters['mu_manning']
+g_grav = physical_constants['g_grav']
+viscosity = physical_constants['viscosity']
+wd_alpha = physical_constants['wd_alpha']
+mu_manning = physical_constants['mu_manning']
 
 
 class AdamsBashforth3(timeIntegrator):

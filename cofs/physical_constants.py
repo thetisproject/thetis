@@ -5,7 +5,7 @@ Tuomas Karna 2015-02-23
 """
 from firedrake import *
 
-physical_parameters = \
+physical_constants = \
     {'g_grav': Constant(9.81),     # gravitational acceleration
      'rho0': Constant(1000.0),     # reference water density
      'f0': Constant(1e-4),         # beta plane approximation
