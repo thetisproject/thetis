@@ -123,6 +123,7 @@ eta3d = Function(H, name='Elevation')
 bathymetry3d = Function(P1, name='Bathymetry')
 copy2dFieldTo3d(swe2d.bathymetry, bathymetry3d)
 uv3d = Function(U, name='Velocity')
+uv3dint = Function(U, name='Velocity')
 w3d = Function(H, name='Velocity')
 salt3d = Function(H, name='Salinity')
 
@@ -172,7 +173,6 @@ river_funcs_3d = {'flux': river_flux_3d}
 #mom_eq3d.bnd_functions = {2: ocean_funcs_3d, 1: river_funcs_3d}
 
 timeStepper2d = mode2d.AdamsBashforth3(swe2d, dt_2d)
-uv2d_old, eta2d_old = timeStepper2d.solution_old.split()
 
 timeStepper_mom3d = mode3d.LeapFrogAM3(mom_eq3d, dt)
 timeStepper_salt3d = mode3d.LeapFrogAM3(salt_eq3d, dt)
@@ -186,12 +186,14 @@ salt_3d_file = exporter(P1, 'Salinity', outputDir, 'Salinity3d.pvd')
 
 # assign initial conditions
 uv2d, eta2d = swe2d.solution.split()
+uv2d_old, eta2d_old = timeStepper2d.solution_old.split()
+U_n, eta_n = timeStepper2d.solution_n.split()
 eta2d.assign(elev_init)
 eta2d_old.assign(elev_init)
-U_n, eta_n = timeStepper2d.solution_n.split()
 eta_n.assign(elev_init)
 salt3d.interpolate(Expression('x[0]/1.0e5*10.0+2.0'))
-timeStepper_salt3d.solution_old.assign(salt3d)
+timeStepper_salt3d.solution_nminushalf.assign(salt3d)
+timeStepper_salt3d.solution_n.assign(salt3d)
 copy2dFieldTo3d(elev_init, eta3d)
 
 # Export initial conditions
@@ -239,17 +241,14 @@ while t <= T + T_epsilon:
     # LF-AM3 time integration loop
     with timed_region('aux_functions'):
         eta_n = timeStepper2d.solution_n.split()[1]
-        copy2dFieldTo3d(eta_n, eta3d)  # at t_{n+1/2}
-    #print('solving 3d tracers')  # salt3d is at t_{n+1/2}
+        copy2dFieldTo3d(eta_n, eta3d)  # at t_{n}
+    # prediction step, update 3d fields from t_{n-1/2} to t_{n+1/2}
     with timed_region('saltEq'):
         timeStepper_salt3d.predict(t, dt, salt3d, updateForcings3d)
-    #print('solving 3d mode')  # uv3d is at t_{n+1/2}
     with timed_region('momentumEq'):
         timeStepper_mom3d.predict(t, dt, uv3d, None)
-    #print('solving 3d continuity')  # w3d is at t_{n+1/2}
     with timed_region('continuityEq'):
         computeVertVelocity(w3d, uv3d, bathymetry3d)
-    #print('solving 2d mode')  # swe2d.solution is at t_{n+1}
     with timed_region('mode2d'):
         #timeStepper2d.advance(t, dt, swe2d.solution, updateForcings)
         timeStepper2d.advanceMacroStep(t, dt_2d, M_modesplit,
@@ -264,6 +263,9 @@ while t <= T + T_epsilon:
     #print('solving 3d mode')
     with timed_region('momentumEq'):
         timeStepper_mom3d.correct(t, dt, uv3d, None)  # at t{n+1}
+    with timed_region('aux_functions'):
+        UV_n = timeStepper2d.solution_n.split()[0]
+        correct3dVelocity(UV_n, uv3d, uv3dint, bathymetry3d)
     #print('solving 3d continuity')
     with timed_region('continuityEq'):
         computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}

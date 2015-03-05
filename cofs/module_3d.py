@@ -4,7 +4,12 @@
 Tuomas Karna 2015-02-23
 """
 from utility import *
-from parameters import *
+from physical_constants import *
+
+g_grav = physical_parameters['g_grav']
+viscosity = physical_parameters['viscosity']
+wd_alpha = physical_parameters['wd_alpha']
+mu_manning = physical_parameters['mu_manning']
 
 
 class ForwardEuler(timeIntegrator):
@@ -73,29 +78,22 @@ class LeapFrogAM3(timeIntegrator):
 
         invdt = Constant(1.0/dt)
 
-        self.solution_old = Function(self.equation.space)
         self.solution_nminushalf = Function(self.equation.space)
         self.solution_nplushalf = Function(self.equation.space)
+        self.solution_nminusone = Function(self.equation.space)
+        self.solution_n = Function(self.equation.space)
 
         # dict of all input functions at t_{n}
         self.funcs = self.equation.kwargs
-        # dict of all input functions at t_{n+1/2}
-        self.funcs_nplushalf = {}
-        for k in self.funcs:
-            self.funcs_nplushalf[k] = Function(self.funcs[k].function_space())
-        # assing values to old functions
-        for k in self.funcs:
-            self.funcs_nplushalf[k].assign(self.funcs[k])
 
         u = self.equation.solution
-        u_old = self.solution_old
         u_tri = self.equation.tri
 
         self.gamma = 1.0/12.0
         self.A = (invdt*massTerm(u_tri))
         self.L_predict = (invdt*massTerm(self.solution_nminushalf) +
-                          RHS(self.solution_old, **self.funcs))
-        self.L_correct = (invdt*massTerm(self.solution_old) +
+                          RHS(self.solution_n, **self.funcs))
+        self.L_correct = (invdt*massTerm(self.solution_n) +
                           RHS(self.solution_nplushalf, **self.funcs))
 
     def predict(self, t, dt, solution, updateForcings):
@@ -108,9 +106,8 @@ class LeapFrogAM3(timeIntegrator):
         if updateForcings is not None:
             updateForcings(t)
         # all self.funcs_old need to be at t_{n}
-        solution_current = self.equation.solution
-        self.solution_nminushalf.assign((0.5-2*self.gamma)*self.solution_old +
-                                        (0.5+2*self.gamma)*solution_current)
+        self.solution_nminushalf.assign((0.5-2*self.gamma)*self.solution_nminusone +
+                                        (0.5+2*self.gamma)*self.solution_n)
         solve(self.A == self.L_predict, solution)
         self.solution_nplushalf.assign(solution)
 
@@ -126,7 +123,9 @@ class LeapFrogAM3(timeIntegrator):
         # all self.funcs_nplushalf need to be at t_{n+1/2}
 
         solve(self.A == self.L_correct, solution)
-        self.solution_old.assign(solution)
+        # shift time
+        self.solution_nminusone.assign(self.solution_n)
+        self.solution_n.assign(solution)
 
 
 class AdamsBashforth3(timeIntegrator):
@@ -337,16 +336,19 @@ class momentumEquation(equation):
             F += Adv_h * self.dx
             if self.solution_is_DG:
                 uv_rie = avg(solution)
-                G += (uv_rie[0]*uv_rie[0]*jump(self.test[0], self.normal[0]) +
-                      uv_rie[0]*uv_rie[1]*jump(self.test[0], self.normal[1]) +
-                      uv_rie[1]*uv_rie[0]*jump(self.test[1], self.normal[0]) +
-                      uv_rie[1]*uv_rie[1]*jump(self.test[1], self.normal[1]))*(self.dS_v)
+                s = 0.5*(sign(uv_rie[0]*self.normal('-')[0] +
+                              uv_rie[1]*self.normal('-')[1]) + 1.0)
+                uv_up = solution('-')*s + solution('+')*(1-s)
+                G += (uv_up[0]*uv_rie[0]*jump(self.test[0], self.normal[0]) +
+                      uv_up[0]*uv_rie[1]*jump(self.test[0], self.normal[1]) +
+                      uv_up[1]*uv_rie[0]*jump(self.test[1], self.normal[0]) +
+                      uv_up[1]*uv_rie[1]*jump(self.test[1], self.normal[1]))*(self.dS_v)
                 # NOTE bottom bnd doesn't work for DG vertical mesh
                 #G += (uv_rie[0]*uv_rie[0]*jump(self.test[0], self.normal[0]) +
                       #uv_rie[0]*uv_rie[1]*jump(self.test[0], self.normal[1]) +
                       #uv_rie[1]*uv_rie[0]*jump(self.test[1], self.normal[0]) +
                       #uv_rie[1]*uv_rie[1]*jump(self.test[1], self.normal[1]))*(self.dS_h)
-                # Lax-Friedrichs stabilization
+                ## Lax-Friedrichs stabilization
                 #gamma = Constant(0.05)
                 #G += gamma*dot(jump(self.test), jump(solution))*self.dS_v
             G += (solution[0]*solution[0]*self.test[0]*self.normal[0] +

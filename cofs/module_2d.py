@@ -4,7 +4,12 @@ Depth averaged shallow water equations
 Tuomas Karna 2015-02-23
 """
 from utility import *
-from parameters import *
+from physical_constants import *
+
+g_grav = physical_parameters['g_grav']
+viscosity = physical_parameters['viscosity']
+wd_alpha = physical_parameters['wd_alpha']
+mu_manning = physical_parameters['mu_manning']
 
 
 class AdamsBashforth3(timeIntegrator):
@@ -88,36 +93,40 @@ class AdamsBashforth3(timeIntegrator):
         U_old.assign(U_n)
         eta_old.assign(eta_n)
         # reset time filtered solutions
-        eta_nph.dat.data[:] = eta_old.dat.data[:]/(M+1)
-        U_nph.dat.data[:] = U_old.dat.data[:]/(M+1)
-        eta_n.dat.data[:] = eta_old.dat.data[:]/(2*M+1)
-        U_n.dat.data[:] = U_old.dat.data[:]/(2*M+1)
+        eta_nph.dat.data[:] = eta_old.dat.data[:]
+        U_nph.dat.data[:] = U_old.dat.data[:]
+        eta_n.dat.data[:] = eta_old.dat.data[:]
+        U_n.dat.data[:] = U_old.dat.data[:]
 
         # advance fields from T_{n} to T{n+1}
         sys.stdout.write('Solving 2D ')
-        for i in range(M):
+        for i in range(M-1):
             self.advance(t + i*dt, dt, solution, updateForcings)
             U_old.assign(U)
             eta_old.assign(eta)
-            eta_nph.dat.data[:] += eta.dat.data[:]/(M+1)
-            U_nph.dat.data[:] += U.dat.data[:]/(M+1)
-            eta_n.dat.data[:] += eta.dat.data[:]/(2*M+1)
-            U_n.dat.data[:] += U.dat.data[:]/(2*M+1)
+            eta_nph.dat.data[:] += eta.dat.data[:]
+            U_nph.dat.data[:] += U.dat.data[:]
+            eta_n.dat.data[:] += eta.dat.data[:]
+            U_n.dat.data[:] += U.dat.data[:]
             sys.stdout.write('.')
             sys.stdout.flush()
         sys.stdout.write('|')
         sys.stdout.flush()
+        eta_nph.dat.data[:] /= M
+        U_nph.dat.data[:] /= M
         # advance fields from T_{n+1} to T{n+2}
         for i in range(M):
-            self.advance(t + (M+1)*i*dt, dt, solution, updateForcings)
+            self.advance(t + (M)*i*dt, dt, solution, updateForcings)
             U_old.assign(U)
             eta_old.assign(eta)
-            eta_n.dat.data[:] += eta.dat.data[:]/(2*M+1)
-            U_n.dat.data[:] += U.dat.data[:]/(2*M+1)
+            eta_n.dat.data[:] += eta.dat.data[:]
+            U_n.dat.data[:] += U.dat.data[:]
             sys.stdout.write('.')
             sys.stdout.flush()
         sys.stdout.write('\n')
         sys.stdout.flush()
+        eta_n.dat.data[:] /= 2*M
+        U_n.dat.data[:] /= 2*M
         # use filtered solution as output
         U.assign(U_n)
         eta.assign(eta_n)

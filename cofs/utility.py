@@ -105,7 +105,8 @@ class timeIntegrator(object):
 
 
 def computeVerticalIntegral(input, output, space, bottomToTop=True,
-                            bndValue=Constant(0.0)):
+                            bndValue=Constant(0.0), average=False,
+                            bathymetry=None):
     """
     Computes vertical integral of the input scalar field in the given
     function space.
@@ -114,14 +115,17 @@ def computeVerticalIntegral(input, output, space, bottomToTop=True,
     phi = TestFunction(space)
 
     if bottomToTop:
-        bnd_term = bndValue*phi*ds_b
-        mass_bnd_term = tri*phi*ds_b
+        bnd_term = inner(bndValue, phi)*ds_t
+        mass_bnd_term = inner(tri, phi)*ds_t
     else:
-        bnd_term = bndValue*phi*ds_t
-        mass_bnd_term = tri*phi*ds_t
+        bnd_term = inner(bndValue, phi)*ds_b
+        mass_bnd_term = inner(tri, phi)*ds_b
 
-    a_w = Dx(tri, 2)*phi*dx + mass_bnd_term
-    L_w = input*phi*dx + bnd_term
+    a_w = inner(Dx(tri, 2), phi)*dx + mass_bnd_term
+    source = input
+    if average:
+        source = input/bathymetry
+    L_w = inner(source, phi)*dx + bnd_term
     solve(a_w == L_w, output)
 
     return output
@@ -134,6 +138,8 @@ def copyLayerValueOverVertical(input, output, useBottomValue=True):
     """
     H = input.function_space()
     NVert = H.dofs_per_column[0]
+    if NVert == 0:
+        raise NotImplementedError('this method doesn\'t support the given function space')
     NNodes = input.dat.data.shape[0]/NVert
     #iNode = 0
     #for i in range(4*NVert):
@@ -146,9 +152,56 @@ def copyLayerValueOverVertical(input, output, useBottomValue=True):
     else:
         iSource = 0
     # TODO can the loop be circumvented?
-    for iNode in range(NNodes):
-        output.dat.data[iNode*NVert:iNode*NVert+NVert] = input.dat.data[iNode*NVert+iSource]
+    if len(input.dat.data.shape) > 1:
+        for iNode in range(NNodes):
+            for p in range(input.dat.data.shape[1]):
+                output.dat.data[iNode*NVert:iNode*NVert+NVert, p] = input.dat.data[iNode*NVert+iSource, p]
+    else:
+        for iNode in range(NNodes):
+            output.dat.data[iNode*NVert:iNode*NVert+NVert] = input.dat.data[iNode*NVert+iSource]
     return output
+
+
+def copy3dFieldTo2d(input3d, output2d, useBottomValue=True):
+    """
+    Assings the top/bottom value of the input field to 2d output field.
+    """
+    H = input3d.function_space()
+    parentIsCG = H.dofs_per_column[0] != 0
+    if parentIsCG:
+        # extruded nodes are laid out for each vertical line
+        NVert = H.dofs_per_column[0]
+        NNodes = output2d.dat.data.shape[0]
+        if useBottomValue:
+            iSource = NVert-1
+        else:
+            iSource = 0
+        # TODO can the loop be circumvented?
+        if len(input3d.dat.data.shape) > 1:
+            for iNode in range(NNodes):
+                output2d.dat.data[iNode, 0] = input3d.dat.data[iNode*NVert+iSource, 0]
+                output2d.dat.data[iNode, 1] = input3d.dat.data[iNode*NVert+iSource, 1]
+        else:
+            for iNode in range(NNodes):
+                output2d.dat.data[iNode] = input3d.dat.data[iNode*NVert+iSource]
+    else:
+        # extruded nodes are laid out by elements
+        NVert = H.dofs_per_column[2]
+        if NVert == 0:
+            raise Exception('Unsupported function space, NVert is zero')
+        NElem = input3d.dat.data.shape[0]/NVert
+        # for P1DGxL1CG
+        if useBottomValue:
+            faceNodes = np.array([2, 1, 0]) + NVert - 3
+        else:
+            faceNodes = np.array([0, 1, 2])
+        ix = (np.tile((NVert*np.arange(NElem)), (3, 1)).T + faceNodes).ravel()
+        if len(input3d.dat.data.shape) > 1:
+            output2d.dat.data[:, 0] = input3d.dat.data[ix, 0]
+            output2d.dat.data[:, 1] = input3d.dat.data[ix, 1]
+        else:
+            output2d.dat.data[:] = input3d.dat.data[ix]
+    return output2d
 
 
 def copy2dFieldTo3d(input2d, output3d):
@@ -157,13 +210,58 @@ def copy2dFieldTo3d(input2d, output3d):
     vertical dimension. Horizontal function space must be the same.
     """
     H = output3d.function_space()
-    NVert = H.dofs_per_column[0]
-    NNodes = output3d.dat.data.shape[0]/NVert
-    iSource = 0
-    # TODO can the loop be circumvented?
-    for iNode in range(NNodes):
-        output3d.dat.data[iNode*NVert:iNode*NVert+NVert] = input2d.dat.data[iNode]
+    parentIsCG = H.dofs_per_column[0] != 0
+    if parentIsCG:
+        # extruded nodes are laid out for each vertical line
+        NVert = output3d.dat.data.shape[0]/input2d.dat.data.shape[0]
+        NNodes = output3d.dat.data.shape[0]/NVert
+        # TODO can the loop be circumvented?
+        if len(input2d.dat.data.shape) > 1:
+            for iNode in range(NNodes):
+                output3d.dat.data[iNode*NVert:iNode*NVert+NVert, 0] = input2d.dat.data[iNode, 0]
+                output3d.dat.data[iNode*NVert:iNode*NVert+NVert, 1] = input2d.dat.data[iNode, 1]
+        else:
+            for iNode in range(NNodes):
+                output3d.dat.data[iNode*NVert:iNode*NVert+NVert] = input2d.dat.data[iNode]
+    else:
+        # extruded nodes are laid out by elements
+        NVert = H.dofs_per_column[2]
+        if NVert == 0:
+            raise Exception('Unsupported function space, NVert is zero')
+        NElem = output3d.dat.data.shape[0]/NVert
+        # for P1DGxL1CG
+        faceNodes = np.array([0, 1, 2])
+        ix = (np.tile((NVert*np.arange(NElem)), (3, 1)).T + faceNodes).ravel()
+        if len(output3d.dat.data.shape) > 1:
+            for i in range(NVert-len(faceNodes)+1):
+                output3d.dat.data[ix+i, 0] = input2d.dat.data[:, 0]
+                output3d.dat.data[ix+i, 1] = input2d.dat.data[:, 1]
+        else:
+            for i in range(NVert-len(faceNodes)+1):
+                output3d.dat.data[ix+i] = input2d.dat.data[:]
     return output3d
+
+
+def correct3dVelocity(UV2d, uv3d, uv3d_dav, bathymetry):
+    """Corrects 3d Horizontal velocity field so that it's depth average
+    matches the 2d velocity field."""
+    H = uv3d.function_space()
+    H2d = UV2d.function_space()
+    # compute depth averaged velocity
+    bndValue = Constant((0.0, 0.0, 0.0))
+    computeVerticalIntegral(uv3d, uv3d_dav, H,
+                            bottomToTop=True, bndValue=bndValue,
+                            average=True, bathymetry=bathymetry)
+    # copy on 2d mesh
+    diff = Function(H2d)
+    copy3dFieldTo2d(uv3d_dav, diff, useBottomValue=False)
+    print 'uv3d_dav', diff.dat.data.min(), diff.dat.data.max()
+    # compute difference = UV2d - uv3d_dav
+    diff.dat.data[:] *= -1
+    diff.dat.data[:] += UV2d.dat.data[:]
+    copy2dFieldTo3d(diff, uv3d_dav)
+    # correct 3d field
+    uv3d.dat.data[:] += uv3d_dav.dat.data
 
 
 class exporter(object):
