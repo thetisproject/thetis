@@ -100,7 +100,7 @@ class AdamsBashforth3(timeIntegrator):
 
         # advance fields from T_{n} to T{n+1}
         sys.stdout.write('Solving 2D ')
-        for i in range(M-1):
+        for i in range(M):
             self.advance(t + i*dt, dt, solution, updateForcings)
             U_old.assign(U)
             eta_old.assign(eta)
@@ -112,11 +112,11 @@ class AdamsBashforth3(timeIntegrator):
             sys.stdout.flush()
         sys.stdout.write('|')
         sys.stdout.flush()
-        eta_nph.dat.data[:] /= M
-        U_nph.dat.data[:] /= M
+        eta_nph.dat.data[:] /= (M+1)
+        U_nph.dat.data[:] /= (M+1)
         # advance fields from T_{n+1} to T{n+2}
         for i in range(M):
-            self.advance(t + (M)*i*dt, dt, solution, updateForcings)
+            self.advance(t + (M+1)*i*dt, dt, solution, updateForcings)
             U_old.assign(U)
             eta_old.assign(eta)
             eta_n.dat.data[:] += eta.dat.data[:]
@@ -125,8 +125,8 @@ class AdamsBashforth3(timeIntegrator):
             sys.stdout.flush()
         sys.stdout.write('\n')
         sys.stdout.flush()
-        eta_n.dat.data[:] /= 2*M
-        U_n.dat.data[:] /= 2*M
+        eta_n.dat.data[:] /= (2*M+1)
+        U_n.dat.data[:] /= (2*M+1)
         # use filtered solution as output
         U.assign(U_n)
         eta.assign(eta_n)
