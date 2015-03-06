@@ -589,8 +589,8 @@ class freeSurfaceEquations(equation):
 
         # bottom friction from a 3D model
         stress = self.bottom_drag*sqrt(self.uv_bottom[0]**2 +
-                                       self.uv_bottom[1]**2)*self.uv_bottom
-        BotFriction = total_H**-1.*(stress[0]*self.U_test[0] + stress[1]*self.U_test[1])*self.dx
+                                       self.uv_bottom[1]**2)*self.uv_bottom/total_H
+        BotFriction = (stress[0]*self.U_test[0] + stress[1]*self.U_test[1])*self.dx
         F += BotFriction
 
         # viscosity

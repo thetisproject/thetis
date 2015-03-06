@@ -22,6 +22,7 @@ class ForwardEuler(timeIntegrator):
         massTerm = self.equation.massTerm
         massTermBasic = self.equation.massTermBasic
         RHS = self.equation.RHS
+        Source = self.equation.RHS
 
         invdt = Constant(1.0/dt)
 
@@ -46,7 +47,8 @@ class ForwardEuler(timeIntegrator):
 
         self.A = (invdt*massTerm(u_tri))
         self.L = (invdt*massTerm(u_old) +
-                  RHS(u_old, **self.funcs_old))
+                  RHS(u_old, **self.funcs_old) +
+                  Source(**self.funcs_old))
 
     def advance(self, t, dt, solution, updateForcings):
         """Advances equations for one time step."""
@@ -76,6 +78,7 @@ class LeapFrogAM3(timeIntegrator):
         massTerm = self.equation.massTerm
         massTermBasic = self.equation.massTermBasic
         RHS = self.equation.RHS
+        Source = self.equation.Source
 
         invdt = Constant(1.0/dt)
 
@@ -93,9 +96,11 @@ class LeapFrogAM3(timeIntegrator):
         self.gamma = 1.0/12.0
         self.A = (invdt*massTerm(u_tri))
         self.L_predict = (invdt*massTerm(self.solution_nminushalf) +
-                          RHS(self.solution_n, **self.funcs))
+                          RHS(self.solution_n, **self.funcs) +
+                          Source(**self.funcs))
         self.L_correct = (invdt*massTerm(self.solution_n) +
-                          RHS(self.solution_nplushalf, **self.funcs))
+                          RHS(self.solution_nplushalf, **self.funcs) +
+                          Source(**self.funcs))
 
     def predict(self, t, dt, solution, updateForcings):
         """Advances equations from t_{n-1/2} to t_{n+1/2}.
@@ -138,6 +143,7 @@ class AdamsBashforth3(timeIntegrator):
         massTerm = self.equation.massTerm
         massTermBasic = self.equation.massTermBasic
         RHS = self.equation.RHS
+        Source = self.equation.Source
 
         self.solution_old = Function(self.equation.space)
 
@@ -161,7 +167,7 @@ class AdamsBashforth3(timeIntegrator):
 
         # mass matrix for a linear equation
         self.A = massTermBasic(u_tri)
-        self.RHS = RHS(u_old, **self.funcs_old)
+        self.RHS = RHS(u_old, **self.funcs_old) + Source(**self.funcs_old)
 
     def advance(self, t, dt, solution, updateForcings):
         """Advances equations for one time step."""
@@ -196,6 +202,7 @@ class CrankNicolson(timeIntegrator):
         massTerm = self.equation.massTerm
         massTermBasic = self.equation.massTermBasic
         RHS = self.equation.RHS
+        Source = self.equation.Source
 
         invdt = Constant(1.0/dt)
 
@@ -219,27 +226,30 @@ class CrankNicolson(timeIntegrator):
         gamma_const = Constant(gamma)
         self.F = (invdt*massTerm(u) - invdt*massTerm(u_old) -
                   gamma_const*RHS(u, **self.funcs) -
-                  (1-gamma_const)*RHS(u_old, **self.funcs_old))
+                  gamma_const*Source(**self.funcs) -
+                  (1-gamma_const)*RHS(u_old, **self.funcs_old) -
+                  (1-gamma_const)*Source(**self.funcs_old))
 
         self.A = (invdt*massTerm(u_tri) -
                   gamma_const*RHS(u_tri, **self.funcs))
-        self.L = (invdt*massTerm(u_old) +
-                  (1-gamma_const)*RHS(u_old, **self.funcs_old))
+        self.L = (invdt*massTerm(u_old) + gamma_const*Source(**self.funcs) +
+                  (1-gamma_const)*RHS(u_old, **self.funcs_old) +
+                  (1-gamma_const)*Source(**self.funcs_old))
 
     def advance(self, t, dt, solution, updateForcings):
         """Advances equations for one time step."""
-        solver_parameters = {
-            'snes_type': 'newtonls',
-            'snes_monitor': True,
-        }
         #solver_parameters = {
-            #'snes_type': 'ksponly',
+            #'snes_type': 'newtonls',
+            #'snes_monitor': True,
         #}
+        solver_parameters = {
+            'snes_type': 'ksponly',
+        }
         if updateForcings is not None:
             updateForcings(t+dt)
         self.solution_old.assign(solution)
-        solve(self.F == 0, solution, solver_parameters=solver_parameters)
-        #solve(self.A == self.L, solution, solver_parameters=solver_parameters)
+        #solve(self.F == 0, solution, solver_parameters=solver_parameters)
+        solve(self.A == self.L, solution, solver_parameters=solver_parameters)
         # shift time
         for k in self.funcs_old:
             self.funcs_old[k].assign(self.funcs[k])
@@ -386,9 +396,6 @@ class momentumEquation(equation):
         else:
             total_H = self.bathymetry
 
-        # external pressure gradient
-        F += g_grav * inner(nabla_grad(eta), self.test) * self.dx
-
         # boundary conditions
         for bnd_marker in self.boundary_markers:
             funcs = self.bnd_functions.get(bnd_marker)
@@ -424,22 +431,6 @@ class momentumEquation(equation):
 
                 if self.nonlin:
                     G += un_riemann * dot(uv_riemann, self.test) * ds_bnd
-                # added correct flux for eta
-                G += g_grav * ((h_ext - eta) / 2) * \
-                    inner(self.normal, self.test) * ds_bnd
-
-            elif 'flux' in funcs:
-                # prescribe normal volume flux
-                sect_len = Constant(self.boundary_len[bnd_marker])
-                un_in = dot(solution, self.normal)
-                un_ext = funcs['flux'] / total_H / sect_len
-                if self.nonlin:
-                    un_riemann = un_ext
-                else:
-                    # lin eqns doesn't compile without this
-                    un_riemann = (un_in + un_ext)/2
-                if self.nonlin:
-                    G += un_ext*un_ext*inner(self.normal, self.test)*ds_bnd
 
         ## viscosity
         ## A double dot product of the stress tensor and grad(w).
@@ -462,13 +453,54 @@ class momentumEquation(equation):
                 # G += -(avg(viscflux[0])*jump(self.test[0], normal[2]) +
                 #        avg(viscflux[0])*jump(self.test[1], normal[2]))
 
+        return -F - G
+
+    def Source(self, eta, w=None, viscosity_v=None,
+               uv_bottom=None, bottom_drag=None, **kwargs):
+        """Returns the right hand side of the source terms.
+        These terms do not depend on the solution."""
+        F = 0  # holds all dx volume integral terms
+        G = 0
+
+        # external pressure gradient
+        F += g_grav * inner(nabla_grad(eta), self.test) * self.dx
+
+        if self.nonlin:
+            total_H = self.bathymetry + eta
+        else:
+            total_H = self.bathymetry
+
+        # boundary conditions
+        for bnd_marker in self.boundary_markers:
+            funcs = self.bnd_functions.get(bnd_marker)
+            ds_bnd = ds_v(int(bnd_marker), domain=self.mesh)
+            if funcs is None:
+                # assume land boundary
+                continue
+
+            elif 'elev' in funcs:
+                # prescribe elevation only
+                h_ext = funcs['elev']
+                G += g_grav * ((h_ext - eta) / 2) * \
+                    inner(self.normal, self.test) * ds_bnd
+
+            elif 'flux' in funcs:
+                # prescribe normal volume flux
+                sect_len = Constant(self.boundary_len[bnd_marker])
+                un_ext = funcs['flux'] / total_H / sect_len
+                if self.nonlin:
+                    G += un_ext*un_ext*inner(self.normal, self.test)*ds_bnd
+
+        if viscosity_v is not None:
             # bottom friction
             if bottom_drag is not None and uv_bottom is not None:
-                stress = bottom_drag*sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)*uv_bottom
-                BotFriction = (stress[0]*self.test[0] + stress[1]*self.test[1])*ds_t
+                stress = bottom_drag*sqrt(uv_bottom[0]**2 +
+                                          uv_bottom[1]**2)*uv_bottom
+                BotFriction = (stress[0]*self.test[0] +
+                               stress[1]*self.test[1])*ds_t
                 F += BotFriction
 
-        return -F - G
+        return -F
 
 
 class verticalMomentumEquation(equation):
@@ -536,7 +568,7 @@ class verticalMomentumEquation(equation):
     def RHS(self, solution, w=None, viscosity_v=None,
             uv_bottom=None, bottom_drag=None, **kwargs):
         """Returns the right hand side of the equations.
-        RHS is all terms that depend on the solution (eta,uv)"""
+        Contains all terms that depend on the solution."""
         F = 0  # holds all dx volume integral terms
         G = 0  # holds all ds boundary interface terms
 
@@ -564,13 +596,24 @@ class verticalMomentumEquation(equation):
                 # G += -(avg(viscflux[0])*jump(self.test[0], normal[2]) +
                 #        avg(viscflux[0])*jump(self.test[1], normal[2]))
 
+        return -F - G
+
+    def Source(self, w=None, viscosity_v=None,
+               uv_bottom=None, bottom_drag=None, **kwargs):
+        """Returns the right hand side of the source terms.
+        These terms do not depend on the solution."""
+        F = 0  # holds all dx volume integral terms
+
+        if viscosity_v is not None:
             # bottom friction
             if bottom_drag is not None and uv_bottom is not None:
-                stress = bottom_drag*sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)*uv_bottom
-                BotFriction = (stress[0]*self.test[0] + stress[1]*self.test[1])*ds_t
+                stress = bottom_drag*sqrt(uv_bottom[0]**2 +
+                                          uv_bottom[1]**2)*uv_bottom
+                BotFriction = (stress[0]*self.test[0] +
+                               stress[1]*self.test[1])*ds_t
                 F += BotFriction
 
-        return -F - G
+        return -F
 
 
 class tracerEquation(equation):
@@ -663,3 +706,10 @@ class tracerEquation(equation):
                             self.normal[1]*uv[1])*self.test*ds_bnd
 
         return -F - G
+
+    def Source(self, eta, uv, w, **kwargs):
+        """Returns the right hand side of the source terms.
+        These terms do not depend on the solution."""
+        F = 0  # holds all dx volume integral terms
+
+        return -F

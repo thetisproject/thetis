@@ -92,6 +92,10 @@ class equation(object):
         raise NotImplementedError(('This method must be implemented '
                                    'in the derived class'))
 
+    def Source(self, *args, **kwargs):
+        """Returns weak for for terms that do not depend on the solution."""
+        raise NotImplementedError(('This method must be implemented '
+                                   'in the derived class'))
 
 class timeIntegrator(object):
     """Base class for all time integrator objects."""
