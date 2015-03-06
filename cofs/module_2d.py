@@ -292,7 +292,7 @@ class DIRK3(timeIntegrator):
                         self.alpha_const * self.K2_RHS)
         # last step is linear => separate bilinear form a, with trial funcs,
         # and linear form L
-        self.a = invdt*massTermBasic(eta_tri, U_tri)
+        self.a = massTermBasic(eta_tri, U_tri)
 
     def advance(self, t, dt, solution, updateForcings):
         """Advances equations for one time step."""
@@ -315,22 +315,23 @@ class DIRK3(timeIntegrator):
         bcs = []
         K1_mix = 0.5
         K2_mix = 0.5
-        dt_const_inv = Constant(1.0/dt)
         # 3rd order DIRK
         # updateForcings(t+dt)
         updateForcings(t + self.alpha * dt)
+        self.solution1.assign(solution)
         ## if commrank==0 : print 'Solving F1'
         solve(self.F_step1 == 0, self.solution1, bcs=bcs,
               solver_parameters=solver_parameters)
         ## if commrank==0 : print 'Solving K1'
-        solve(self.a == dt_const_inv * self.K1_RHS, self.K1,
+        solve(self.a == self.K1_RHS, self.K1,
               solver_parameters={'ksp_type': 'cg'})
         updateForcings(t + (1 - self.alpha) * dt)
+        self.solution2.assign(self.solution1)
         # if commrank==0 : print 'Solving F2'
         solve(self.F_step2 == 0, self.solution2, bcs=bcs,
               solver_parameters=solver_parameters)
         # if commrank==0 : print 'Solving K2'
-        solve(self.a == dt_const_inv * self.K2_RHS, self.K2,
+        solve(self.a == self.K2_RHS, self.K2,
               solver_parameters={'ksp_type': 'cg'})
         # if commrank==0 : print 'Solving F'
         solution.assign(self.solution_old + dt*K1_mix*self.K1 +
@@ -343,7 +344,7 @@ class DIRK3(timeIntegrator):
 class freeSurfaceEquations(equation):
     """2D depth averaged shallow water equations"""
     def __init__(self, mesh, U_space, eta_space, bathymetry,
-                 uv_bottom, bottom_drag,
+                 uv_bottom=None, bottom_drag=None,
                  nonlin=True, use_wd=True):
         self.mesh = mesh
         self.eta_space = eta_space
@@ -492,10 +493,25 @@ class freeSurfaceEquations(equation):
                         Dx(uv[1]*self.U_test[1], 1)*uv[1])
             #Adv_mom = -inner(nabla_div(outer(uv, self.U_test)), uv)
             if self.U_is_DG:
-                G += (jump(uv[0]*self.U_test[0], self.normal[0]*uv[0]) +
-                      jump(uv[0]*self.U_test[1], self.normal[0]*uv[1]) +
-                      jump(uv[1]*self.U_test[0], self.normal[1]*uv[0]) +
-                      jump(uv[1]*self.U_test[1], self.normal[1]*uv[1]))*self.dS
+                #H = self.bathymetry + eta
+                ##un = dot(uv, self.normal)
+                ##c_roe = avg(sqrt(g_grav*H))
+                ##s2 = sign(avg(un) + c_roe) # 1
+                ##s3 = sign(avg(un) - c_roe) # -1
+                ##Huv = H*uv
+                ##un_roe = avg(sqrt(H)*un)/avg(sqrt(H))
+                ##Huv_rie = avg(Huv) + (s2+s3)/2*jump(Huv) + (s2-s3)/2*un_roe/c_roe*(jump(Huv))
+                ##uv_rie = Huv_rie/avg(H)
+
+                ##Huv_rie = avg(Huv) + un_roe/c_roe*(jump(Huv))
+                ##uv_rie = Huv_rie/avg(H)
+
+                uv_roe = avg(uv)  # = avg(sqrt(H)*uv)/avg(sqrt(H))
+                G += (uv_roe[0]*jump(self.U_test[0]*uv[0], self.normal[0]) +
+                      uv_roe[0]*jump(self.U_test[1]*uv[1], self.normal[0]) +
+                      uv_roe[1]*jump(self.U_test[0]*uv[0], self.normal[1]) +
+                      uv_roe[1]*jump(self.U_test[1]*uv[1], self.normal[1]))*self.dS
+
             F += Adv_mom * self.dx
 
         # External pressure gradient
@@ -588,10 +604,12 @@ class freeSurfaceEquations(equation):
         F += BottomFri
 
         # bottom friction from a 3D model
-        stress = self.bottom_drag*sqrt(self.uv_bottom[0]**2 +
-                                       self.uv_bottom[1]**2)*self.uv_bottom/total_H
-        BotFriction = (stress[0]*self.U_test[0] + stress[1]*self.U_test[1])*self.dx
-        F += BotFriction
+        if self.bottom_drag is not None and self.uv_bottom is not None:
+            uvb_mag = sqrt(self.uv_bottom[0]**2 + self.uv_bottom[1]**2)
+            stress = self.bottom_drag*uvb_mag*self.uv_bottom/total_H
+            BotFriction = (stress[0]*self.U_test[0] +
+                           stress[1]*self.U_test[1]) * self.dx
+            F += BotFriction
 
         # viscosity
         # A double dot product of the stress tensor and grad(w).

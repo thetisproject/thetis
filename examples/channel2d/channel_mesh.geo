@@ -1,6 +1,6 @@
 L = 1e5;
-W = 1e3;
-lc = 700;
+W = 3e3;
+lc = 1200;
 Point(1) = {0, 0, 0, lc};
 Point(2) = {L, 0, 0, lc};
 Point(3) = {L, W, 0, lc};
@@ -16,5 +16,5 @@ Physical Line(2) = {4};
 Physical Line(3) = {1,3};
 Physical Surface(11) = {6};
 
-Mesh.Algorithm = 5; // frontal=6, delannay=5, meshadapt=1
+Mesh.Algorithm = 6; // frontal=6, delannay=5, meshadapt=1
 
