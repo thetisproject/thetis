@@ -41,7 +41,6 @@ def createDirectory(path):
     return path
 
 # set physical constants
-physical_constants['mu_manning'].assign(0.2)
 physical_constants['z0_friction'].assign(1.0e-5)
 
 mesh2d = Mesh('channel_mesh.msh')
@@ -340,9 +339,15 @@ while t <= T + T_epsilon:
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
             print(line.format(iexp=iExp, i=i, t=t, e=norm_h,
                               u=norm_u, cpu=cputime))
+            line = '{0:8s} {1:8.4f} {2:8.4f}'
             sys.stdout.flush()
-        U_2d_file.export(timeStepper2d.solution_old.split()[0])
-        eta_2d_file.export(timeStepper2d.solution_old.split()[1])
+            print(line.format('uv3d',
+                              uv3d.dat.data.min(), uv3d.dat.data.max()))
+            print(line.format('uv2d',
+                              swe2d.solution.split()[0].dat.data.min(),
+                              swe2d.solution.split()[0].dat.data.max()))
+        U_2d_file.export(timeStepper2d.solution_n.split()[0])
+        eta_2d_file.export(timeStepper2d.solution_n.split()[1])
         eta_3d_file.export(eta3d)
         uv_3d_file.export(uv3d)
         w_3d_file.export(w3d)
