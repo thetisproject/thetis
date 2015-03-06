@@ -7,7 +7,6 @@ from utility import *
 from physical_constants import *
 
 g_grav = physical_constants['g_grav']
-viscosity = physical_constants['viscosity']
 wd_alpha = physical_constants['wd_alpha']
 mu_manning = physical_constants['mu_manning']
 z0_friction = physical_constants['z0_friction']
@@ -207,9 +206,10 @@ class CrankNicolson(timeIntegrator):
         # create functions to hold the values of previous time step
         self.funcs_old = {}
         for k in self.funcs:
-            self.funcs_old[k] = Function(self.funcs[k].function_space())
+            if self.funcs[k] is not None:
+                self.funcs_old[k] = Function(self.funcs[k].function_space())
         # assing values to old functions
-        for k in self.funcs:
+        for k in self.funcs_old:
             self.funcs_old[k].assign(self.funcs[k])
 
         u = self.equation.solution
@@ -232,30 +232,37 @@ class CrankNicolson(timeIntegrator):
             'snes_type': 'newtonls',
             'snes_monitor': True,
         }
+        #solver_parameters = {
+            #'snes_type': 'ksponly',
+        #}
         if updateForcings is not None:
             updateForcings(t+dt)
-        #solve(self.F == 0, solution, solver_parameters=solver_parameters)
-        solve(self.A == self.L, solution, solver_parameters=solver_parameters)
-        # store old values
-        for k in self.funcs:
+        self.solution_old.assign(solution)
+        solve(self.F == 0, solution, solver_parameters=solver_parameters)
+        #solve(self.A == self.L, solution, solver_parameters=solver_parameters)
+        # shift time
+        for k in self.funcs_old:
             self.funcs_old[k].assign(self.funcs[k])
 
 
 class momentumEquation(equation):
     """3D momentum equation for hydrostatic Boussinesq flow."""
-    def __init__(self, mesh, space, space_scalar, solution, eta, w,
-                 uv_bottom, bottom_drag, bathymetry,
-                 bnd_markers, bnd_len, nonlin=True):
+    def __init__(self, mesh, space, space_scalar, bnd_markers, bnd_len,
+                 solution, eta, bathymetry, w=None,
+                 uv_bottom=None, bottom_drag=None, viscosity_v=None,
+                 nonlin=True):
         self.mesh = mesh
         self.space = space
         self.space_scalar = space_scalar
         self.nonlin = nonlin
         self.solution = solution
-        # this dict holds all args to the equation (at current time step)
-        self.kwargs = {'eta': eta, 'w': w}
-        if uv_bottom is not None:
-            self.kwargs['uv_bottom'] = uv_bottom
-            self.kwargs['bottom_drag'] = bottom_drag
+        # this dict holds all time dep. args to the equation
+        self.kwargs = {'eta': eta,
+                       'w': w,
+                       'uv_bottom': uv_bottom,
+                       'bottom_drag': bottom_drag,
+                       'viscosity_v': viscosity_v,
+                       }
         # time independent arg
         self.bathymetry = bathymetry
 
@@ -325,7 +332,8 @@ class momentumEquation(equation):
         """
         return inner(solution, self.test) * self.dx
 
-    def RHS(self, solution, eta, w, uv_bottom, bottom_drag, **kwargs):
+    def RHS(self, solution, eta, w=None, viscosity_v=None,
+            uv_bottom=None, bottom_drag=None, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0  # holds all dx volume integral terms
@@ -350,14 +358,15 @@ class momentumEquation(equation):
                       uv_up[0]*uv_rie[1]*jump(self.test[0], self.normal[1]) +
                       uv_up[1]*uv_rie[0]*jump(self.test[1], self.normal[0]) +
                       uv_up[1]*uv_rie[1]*jump(self.test[1], self.normal[1]))*(self.dS_v)
-                # NOTE bottom bnd doesn't work for DG vertical mesh
-                #G += (uv_rie[0]*uv_rie[0]*jump(self.test[0], self.normal[0]) +
-                      #uv_rie[0]*uv_rie[1]*jump(self.test[0], self.normal[1]) +
-                      #uv_rie[1]*uv_rie[0]*jump(self.test[1], self.normal[0]) +
-                      #uv_rie[1]*uv_rie[1]*jump(self.test[1], self.normal[1]))*(self.dS_h)
                 # Lax-Friedrichs stabilization
                 gamma = Constant(0.05)
                 G += gamma*dot(jump(self.test), jump(solution))*self.dS_v
+            if self.vertical_DG:
+                # NOTE bottom bnd doesn't work for DG vertical mesh
+                G += (uv_rie[0]*uv_rie[0]*jump(self.test[0], self.normal[0]) +
+                      uv_rie[0]*uv_rie[1]*jump(self.test[0], self.normal[1]) +
+                      uv_rie[1]*uv_rie[0]*jump(self.test[1], self.normal[0]) +
+                      uv_rie[1]*uv_rie[1]*jump(self.test[1], self.normal[1]))*(self.dS_h)
             G += (solution[0]*solution[0]*self.test[0]*self.normal[0] +
                   solution[0]*solution[1]*self.test[0]*self.normal[1] +
                   solution[1]*solution[0]*self.test[1]*self.normal[0] +
@@ -432,11 +441,6 @@ class momentumEquation(equation):
                 if self.nonlin:
                     G += un_ext*un_ext*inner(self.normal, self.test)*ds_bnd
 
-        # bottom friction
-        stress = bottom_drag*sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)*uv_bottom
-        BotFriction = (stress[0]*self.test[0] + stress[1]*self.test[1])*ds_t
-        F += BotFriction
-
         ## viscosity
         ## A double dot product of the stress tensor and grad(w).
         #K_momentum = -viscosity * (Dx(uv[0], 0) * Dx(self.U_test[0], 0) +
@@ -446,6 +450,125 @@ class momentumEquation(equation):
         #K_momentum += viscosity/total_H*inner(dot(grad(total_H), grad(uv)),
                                               #self.U_test)
         #F -= K_momentum * self.dx
+
+        # vertical viscosity
+        if viscosity_v is not None:
+            F += viscosity_v*(Dx(self.test[0], 2)*Dx(solution[0], 2) +
+                              Dx(self.test[1], 2)*Dx(solution[1], 2))*dx
+            if self.vertical_DG:
+                raise NotImplementedError('Vertical diffusion has not been implemented for DG')
+                # G += -viscosity_v * dot(psi, du/dz) * normal[2]
+                # viscflux = viscosity_v*Dx(solution, 2)
+                # G += -(avg(viscflux[0])*jump(self.test[0], normal[2]) +
+                #        avg(viscflux[0])*jump(self.test[1], normal[2]))
+
+            # bottom friction
+            if bottom_drag is not None and uv_bottom is not None:
+                stress = bottom_drag*sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)*uv_bottom
+                BotFriction = (stress[0]*self.test[0] + stress[1]*self.test[1])*ds_t
+                F += BotFriction
+
+        return -F - G
+
+
+class verticalMomentumEquation(equation):
+    """Vertical advection and diffusion terms of 3D momentum equation for
+    hydrostatic Boussinesq flow."""
+    def __init__(self, mesh, space, space_scalar, solution, w=None,
+                 viscosity_v=None, uv_bottom=None, bottom_drag=None):
+        self.mesh = mesh
+        self.space = space
+        self.space_scalar = space_scalar
+        self.solution = solution
+        # this dict holds all time dep. args to the equation
+        self.kwargs = {'w': w,
+                       'viscosity_v': viscosity_v,
+                       'uv_bottom': uv_bottom,
+                       'bottom_drag': bottom_drag,
+                       }
+
+        # test and trial functions
+        self.test = TestFunction(self.space)
+        self.tri = TrialFunction(self.space)
+
+        self.horizontal_DG = self.space.ufl_element()._A.family() != 'Lagrange'
+        self.vertical_DG = self.space.ufl_element()._B.family() != 'Lagrange'
+
+        # mesh dependent variables
+        self.normal = FacetNormal(mesh)
+        self.cellsize = CellSize(mesh)
+        self.xyz = SpatialCoordinate(mesh)
+        self.e_x, self.e_y, self.e_y = unit_vectors(3)
+
+        # integral measures
+        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere')
+        self.dS_v = dS_v(domain=self.mesh)
+        self.dS_h = dS_h(domain=self.mesh)
+
+        # set boundary conditions
+        # maps bnd_marker to dict of external functions e.g. {'elev':eta_ext}
+        self.bnd_functions = {}
+
+    def ds_v(self, bnd_marker):
+        """Returns boundary measure for the appropriate mesh"""
+        return ds_v(int(bnd_marker), domain=self.mesh)
+
+    def getTimeStep(self, Umag=Constant(1.0)):
+        raise NotImplementedError('getTimeStep not implemented')
+
+    def massTerm(self, solution):
+        """All time derivative terms on the LHS, without the actual time
+        derivative.
+
+        Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
+        """
+        return inner(solution, self.test) * self.dx
+        #return (solution[0]*self.test[0] + solution[1]*self.test[1]) * self.dx
+
+    def massTermBasic(self, solution):
+        """All time derivative terms on the LHS, without the actual time
+        derivative.
+
+        Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
+        """
+        return inner(solution, self.test) * self.dx
+
+    def RHS(self, solution, w=None, viscosity_v=None,
+            uv_bottom=None, bottom_drag=None, **kwargs):
+        """Returns the right hand side of the equations.
+        RHS is all terms that depend on the solution (eta,uv)"""
+        F = 0  # holds all dx volume integral terms
+        G = 0  # holds all ds boundary interface terms
+
+        # Advection term
+        if w is not None:
+            # Vertical advection
+            Adv_v = -(Dx(self.test[0], 2)*solution[0]*w +
+                      Dx(self.test[1], 2)*solution[1]*w)
+            F += Adv_v * self.dx
+            if self.horizontal_DG:
+                raise NotImplementedError('Adv term not implemented for DG')
+                #w_rie = avg(w)
+                #uv_rie = avg(solution)
+                #G += (uv_rie[0]*w_rie*jump(self.test[0], self.normal[2]) +
+                      #uv_rie[1]*w_rie*jump(self.test[1], self.normal[2]))*self.dS_h
+
+        # vertical viscosity
+        if viscosity_v is not None:
+            F += viscosity_v*(Dx(self.test[0], 2)*Dx(solution[0], 2) +
+                              Dx(self.test[1], 2)*Dx(solution[1], 2))*dx
+            if self.vertical_DG:
+                raise NotImplementedError('Vertical diffusion has not been implemented for DG')
+                # G += -viscosity_v * dot(psi, du/dz) * normal[2]
+                # viscflux = viscosity_v*Dx(solution, 2)
+                # G += -(avg(viscflux[0])*jump(self.test[0], normal[2]) +
+                #        avg(viscflux[0])*jump(self.test[1], normal[2]))
+
+            # bottom friction
+            if bottom_drag is not None and uv_bottom is not None:
+                stress = bottom_drag*sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)*uv_bottom
+                BotFriction = (stress[0]*self.test[0] + stress[1]*self.test[1])*ds_t
+                F += BotFriction
 
         return -F - G
 

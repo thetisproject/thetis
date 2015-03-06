@@ -145,7 +145,7 @@ uv3d_dav = Function(U, name='Depth Averaged Velocity')
 uv2d_dav = Function(U_2d, name='Depth Averaged Velocity')
 w3d = Function(H, name='Vertical Velocity')
 salt3d = Function(H, name='Salinity')
-
+viscosity_v3d = Function(P1, name='Vertical Velocity')
 
 def getZCoord(zcoord):
     fs = zcoord.function_space()
@@ -158,14 +158,18 @@ def getZCoord(zcoord):
 
 getZCoord(z_coord3d)
 
-mom_eq3d = mode3d.momentumEquation(mesh, U, U_scalar, uv3d, eta3d,
-                                   w3d, uv_bottom3d, bottom_drag3d,
-                                   bathymetry3d,
-                                   swe2d.boundary_markers,
-                                   swe2d.boundary_len, nonlin=nonlin)
+mom_eq3d = mode3d.momentumEquation(mesh, U, U_scalar, swe2d.boundary_markers,
+                                   swe2d.boundary_len, uv3d, eta3d,
+                                   bathymetry3d, w=None,
+                                   viscosity_v=None,
+                                   nonlin=nonlin)
 salt_eq3d = mode3d.tracerEquation(mesh, H, salt3d, eta3d, uv3d, w3d,
                                   swe2d.boundary_markers,
                                   swe2d.boundary_len)
+vmom_eq3d = mode3d.verticalMomentumEquation(mesh, U, U_scalar, uv3d, w=None,
+                                            viscosity_v=viscosity_v3d,
+                                            uv_bottom=uv_bottom3d,
+                                            bottom_drag=bottom_drag3d)
 
 T = 0.7 * 24 * 3600  # 100*24*3600
 TExport = 80.0
@@ -207,6 +211,7 @@ timeStepper2d = mode2d.AdamsBashforth3(swe2d, dt_2d)
 
 timeStepper_mom3d = mode3d.LeapFrogAM3(mom_eq3d, dt)
 timeStepper_salt3d = mode3d.LeapFrogAM3(salt_eq3d, dt)
+timeStepper_vmom3d = mode3d.CrankNicolson(vmom_eq3d, dt, gamma=0.6)
 
 U_2d_file = exporter(U_visu_2d, 'Depth averaged velocity', outputDir, 'Velocity2d.pvd')
 eta_2d_file = exporter(P1_2d, 'Elevation', outputDir, 'Elevation2d.pvd')
@@ -216,6 +221,7 @@ w_3d_file = exporter(P1, 'V.Velocity', outputDir, 'VertVelo3d.pvd')
 salt_3d_file = exporter(P1, 'Salinity', outputDir, 'Salinity3d.pvd')
 uv_dav_2d_file = exporter(U_visu_2d, 'Depth Averaged Velocity', outputDir, 'DAVelocity2d.pvd')
 uv_bot_2d_file = exporter(U_visu_2d, 'Bottom Velocity', outputDir, 'BotVelocity2d.pvd')
+visc_3d_file = exporter(P1, 'Vertical Viscosity', outputDir, 'Viscosity3d.pvd')
 
 # assign initial conditions
 uv2d, eta2d = swe2d.solution.split()
@@ -238,6 +244,7 @@ w_3d_file.export(w3d)
 salt_3d_file.export(w3d)
 uv_dav_2d_file.export(uv2d_dav)
 uv_bot_2d_file.export(uv_bottom2d)
+visc_3d_file.export(viscosity_v3d)
 
 # The time-stepping loop
 T_epsilon = 1.0e-14
@@ -302,10 +309,14 @@ while t <= T + T_epsilon:
         eta_nplushalf = timeStepper2d.solution_nplushalf.split()[1]
         copy2dFieldTo3d(eta_nplushalf, eta3d)  # at t_{n+1/2}
         computeBottomFriction()
+        computeParabolicViscosity(uv_bottom3d, bottom_drag3d, bathymetry3d, 
+                                  viscosity_v3d)
     with timed_region('saltEq'):
         timeStepper_salt3d.correct(t, dt, salt3d, updateForcings3d)  # at t{n+1}
     with timed_region('momentumEq'):
         timeStepper_mom3d.correct(t, dt, uv3d, None)  # at t{n+1}
+    with timed_region('vert_diffusion'):
+        timeStepper_vmom3d.advance(t, dt, uv3d, None)
     with timed_region('aux_functions'):
         UV_n = timeStepper2d.solution_n.split()[0]
         bndValue = Constant((0.0, 0.0, 0.0))
@@ -338,14 +349,15 @@ while t <= T + T_epsilon:
         salt_3d_file.export(salt3d)
         uv_dav_2d_file.export(uv2d_dav)
         uv_bot_2d_file.export(uv_bottom2d)
+        visc_3d_file.export(viscosity_v3d)
 
         next_export_t += TExport
         iExp += 1
 
         if commrank == 0:
             print 'iter', i, 'dt', dt
-            labels = ['mode2d', 'momentumEq', 'saltEq', 'continuityEq',
-                      'aux_functions']
+            labels = ['mode2d', 'momentumEq', 'vert_diffusion',
+                      'continuityEq', 'saltEq', 'aux_functions']
             cost = {}
             relcost = {}
             totcost = 0

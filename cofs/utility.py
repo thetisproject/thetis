@@ -291,6 +291,29 @@ def computeBottomDrag(uv_bottom, z_bottom, bathymetry, drag):
     return drag
 
 
+def computeParabolicViscosity(uv_bottom, bottom_drag, bathymetry, nu):
+    """Computes parabolic eddy viscosity profile assuming log layer flow
+    nu = kappa * u_bf * (-z) * (bath + z0 + z) / (bath + z0)
+    with
+    u_bf = sqrt(Cd)*|uv_bottom|
+    """
+    kappa = physical_constants['von_karman']
+    z0 = physical_constants['z0_friction']
+    H = nu.function_space()
+    x = H.mesh().coordinates
+    test = TestFunction(H)
+    tri = TrialFunction(H)
+    a = tri*test*dx
+    uv_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
+    parabola = -x[2]*(bathymetry + z0 + x[2])/(bathymetry + z0)
+    L = kappa*sqrt(bottom_drag)*uv_mag*parabola*test*dx
+    solve(a == L, nu)
+    # remove negative values
+    neg_ix = nu.dat.data[:] < 1e-10
+    nu.dat.data[neg_ix] = 1e-10
+    return nu
+
+
 class exporter(object):
     """Class that handles Paraview file exports."""
     def __init__(self, fs_visu, func_name, outputDir, filename):

@@ -7,7 +7,7 @@ from utility import *
 from physical_constants import *
 
 g_grav = physical_constants['g_grav']
-viscosity = physical_constants['viscosity']
+viscosity_h = physical_constants['viscosity_h']
 wd_alpha = physical_constants['wd_alpha']
 mu_manning = physical_constants['mu_manning']
 
@@ -528,8 +528,8 @@ class freeSurfaceEquations(equation):
                 t = self.normal[1] * self.e_x - self.normal[0] * self.e_y
                 ut = dot(uv, t)
                 slipFactor = funcs['slip_alpha']
-                G += viscosity * \
-                    inner(slipFactor*viscosity*ut*t, self.U_test)*ds_bnd
+                G += viscosity_h * \
+                    inner(slipFactor*viscosity_h*ut*t, self.U_test)*ds_bnd
 
             elif 'elev' in funcs:
                 # prescribe elevation only
@@ -595,12 +595,12 @@ class freeSurfaceEquations(equation):
 
         # viscosity
         # A double dot product of the stress tensor and grad(w).
-        Diff_mom = -viscosity * (Dx(uv[0], 0) * Dx(self.U_test[0], 0) +
-                                 Dx(uv[0], 1) * Dx(self.U_test[0], 1) +
-                                 Dx(uv[1], 0) * Dx(self.U_test[1], 0) +
-                                 Dx(uv[1], 1) * Dx(self.U_test[1], 1))
-        Diff_mom += viscosity/total_H*inner(dot(grad(total_H), grad(uv)),
-                                            self.U_test)
+        Diff_mom = -viscosity_h * (Dx(uv[0], 0) * Dx(self.U_test[0], 0) +
+                                   Dx(uv[0], 1) * Dx(self.U_test[0], 1) +
+                                   Dx(uv[1], 0) * Dx(self.U_test[1], 0) +
+                                   Dx(uv[1], 1) * Dx(self.U_test[1], 1))
+        Diff_mom += viscosity_h/total_H*inner(dot(grad(total_H), grad(uv)),
+                                              self.U_test)
         F -= Diff_mom * self.dx
 
         return -F - G

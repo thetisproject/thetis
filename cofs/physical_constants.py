@@ -13,8 +13,8 @@ physical_constants = \
      'mu_manning': Constant(0.0),   # manning bottom friction coefficient
      'z0_friction': Constant(0.0),  # bot roughness length for 3D model
      'von_karman': Constant(0.4),   # von Karman constant for bottom log layer
-     'viscosity': Constant(0.0),    # horizontal viscosity
      'wd_alpha': Constant(0.3),     # wetting-dryinh depth parameter
+     'viscosity_h': Constant(0.0),  # horizontal viscosity
      }
 
 
