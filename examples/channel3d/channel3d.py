@@ -27,6 +27,7 @@ parameters['form_compiler']['cpp_optimize'] = True
 parameters['form_compiler']['cpp_optimize_flags'] = '-O3 -xhost'
 
 #from pyop2 import op2
+comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
 op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
@@ -42,6 +43,7 @@ def createDirectory(path):
 
 # set physical constants
 physical_constants['z0_friction'].assign(1.0e-5)
+physical_constants['viscosity_h'].assign(10.0)
 
 mesh2d = Mesh('channel_mesh.msh')
 
@@ -175,8 +177,10 @@ TExport = 80.0
 Umag = Constant(1.5)
 mesh_dt = swe2d.getTimeStepAdvection(Umag=Umag)
 dt = float(np.floor(mesh_dt.dat.data.min()/20.0))
+dt = comm.allreduce(dt, dt, op=MPI.MIN)
 mesh2d_dt = swe2d.getTimeStep(Umag=Umag)
 dt_2d = mesh2d_dt.dat.data.min()/20.0
+dt_2d = comm.allreduce(dt_2d, dt_2d, op=MPI.MIN)
 M_modesplit = int(np.ceil(dt/dt_2d))
 dt_2d = float(dt/M_modesplit)
 if commrank == 0:
@@ -206,8 +210,10 @@ river_funcs_3d = {'flux': river_flux_3d}
 #swe2d.bnd_functions = {2: ocean_funcs, 1: river_funcs}
 #mom_eq3d.bnd_functions = {2: ocean_funcs_3d, 1: river_funcs_3d}
 
-timeStepper2d = mode2d.AdamsBashforth3(swe2d, dt_2d)
+#timeStepper2d = mode2d.AdamsBashforth3(swe2d, dt_2d)
+timeStepper2d = mode2d.DIRK3(swe2d, dt)
 
+#timeStepper_mom3d = mode3d.CrankNicolson(mom_eq3d, dt, gamma=0.5)
 timeStepper_mom3d = mode3d.LeapFrogAM3(mom_eq3d, dt)
 timeStepper_salt3d = mode3d.LeapFrogAM3(salt_eq3d, dt)
 timeStepper_vmom3d = mode3d.CrankNicolson(vmom_eq3d, dt, gamma=0.6)
@@ -225,10 +231,10 @@ visc_3d_file = exporter(P1, 'Vertical Viscosity', outputDir, 'Viscosity3d.pvd')
 # assign initial conditions
 uv2d, eta2d = swe2d.solution.split()
 uv2d_old, eta2d_old = timeStepper2d.solution_old.split()
-U_n, eta_n = timeStepper2d.solution_n.split()
 eta2d.assign(elev_init)
 eta2d_old.assign(elev_init)
-eta_n.assign(elev_init)
+#U_n, eta_n = timeStepper2d.solution_n.split()
+#eta_n.assign(elev_init)
 copy2dFieldTo3d(elev_init, eta3d)
 salt3d.interpolate(Expression('x[0]/1.0e5*10.0+2.0'))
 timeStepper_salt3d.solution_nminushalf.assign(salt3d)
@@ -289,9 +295,29 @@ while t <= T + T_epsilon:
     #print('solving 3d tracers')
     #timeStepper_salt3d.advance(t, dt, salt3d, None)
 
+    ## CrankNicolson time integration loop
+    #with timed_region('mode2d'):
+        #timeStepper2d.advance(t, dt, swe2d.solution, updateForcings)
+    #with timed_region('aux_functions'):
+        #eta_n = swe2d.solution.split()[1]
+        #copy2dFieldTo3d(eta_n, eta3d)  # at t_{n+1/2}
+        #computeBottomFriction()
+    #with timed_region('momentumEq'):
+        #timeStepper_mom3d.advance(t, dt, uv3d, None)
+    #with timed_region('aux_functions'):
+        #bndValue = Constant((0.0, 0.0, 0.0))
+        #computeVerticalIntegral(uv3d, uv3d_dav, U,
+                                #bottomToTop=True, bndValue=bndValue,
+                                #average=True, bathymetry=bathymetry3d)
+        #copy3dFieldTo2d(uv3d_dav, uv2d_dav, useBottomValue=False)
+        #swe2d.solution.split()[0].assign(uv2d_dav)
+        #timeStepper2d.solution_old.split()[0].assign(uv2d_dav)
+    #with timed_region('continuityEq'):
+        #computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
+
     # LF-AM3 time integration loop
     with timed_region('aux_functions'):
-        eta_n = timeStepper2d.solution_n.split()[1]
+        eta_n = swe2d.solution.split()[1]
         copy2dFieldTo3d(eta_n, eta3d)  # at t_{n}
         computeBottomFriction()
     # prediction step, update 3d fields from t_{n-1/2} to t_{n+1/2}
@@ -302,8 +328,9 @@ while t <= T + T_epsilon:
     with timed_region('continuityEq'):
         computeVertVelocity(w3d, uv3d, bathymetry3d)
     with timed_region('mode2d'):
-        timeStepper2d.advanceMacroStep(t, dt_2d, M_modesplit,
-                                       swe2d.solution, updateForcings)
+        timeStepper2d.advance(t, dt, swe2d.solution, updateForcings)
+        #timeStepper2d.advanceMacroStep(t, dt_2d, M_modesplit,
+                                       #swe2d.solution, updateForcings)
     with timed_region('aux_functions'):
         eta_nplushalf = timeStepper2d.solution_nplushalf.split()[1]
         copy2dFieldTo3d(eta_nplushalf, eta3d)  # at t_{n+1/2}
@@ -317,7 +344,7 @@ while t <= T + T_epsilon:
     with timed_region('vert_diffusion'):
         timeStepper_vmom3d.advance(t, dt, uv3d, None)
     with timed_region('aux_functions'):
-        UV_n = timeStepper2d.solution_n.split()[0]
+        UV_n = swe2d.solution.split()[0]
         bndValue = Constant((0.0, 0.0, 0.0))
         computeVerticalIntegral(uv3d, uv3d_dav, U,
                                 bottomToTop=True, bndValue=bndValue,
@@ -339,15 +366,15 @@ while t <= T + T_epsilon:
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
             print(line.format(iexp=iExp, i=i, t=t, e=norm_h,
                               u=norm_u, cpu=cputime))
-            line = '{0:8s} {1:8.4f} {2:8.4f}'
+            #line = '{0:8s} {1:8.4f} {2:8.4f}'
+            #print(line.format('uv3d',
+                              #uv3d.dat.data.min(), uv3d.dat.data.max()))
+            #print(line.format('uv2d',
+                              #swe2d.solution.split()[0].dat.data.min(),
+                              #swe2d.solution.split()[0].dat.data.max()))
             sys.stdout.flush()
-            print(line.format('uv3d',
-                              uv3d.dat.data.min(), uv3d.dat.data.max()))
-            print(line.format('uv2d',
-                              swe2d.solution.split()[0].dat.data.min(),
-                              swe2d.solution.split()[0].dat.data.max()))
-        U_2d_file.export(timeStepper2d.solution_n.split()[0])
-        eta_2d_file.export(timeStepper2d.solution_n.split()[1])
+        U_2d_file.export(swe2d.solution.split()[0])
+        eta_2d_file.export(swe2d.solution.split()[1])
         eta_3d_file.export(eta3d)
         uv_3d_file.export(uv3d)
         w_3d_file.export(w3d)
@@ -360,7 +387,6 @@ while t <= T + T_epsilon:
         iExp += 1
 
         if commrank == 0:
-            print 'iter', i, 'dt', dt
             labels = ['mode2d', 'momentumEq', 'vert_diffusion',
                       'continuityEq', 'saltEq', 'aux_functions']
             cost = {}
