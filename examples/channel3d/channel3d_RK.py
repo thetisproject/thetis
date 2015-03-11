@@ -68,7 +68,7 @@ swe2d = mode2d.freeSurfaceEquations(mesh2d, U_2d, H_2d, bathymetry2d,
                                     nonlin=nonlin, use_wd=use_wd)
 
 # NOTE open elev bnd conditions unstable?
-# NOTE flux bnd can be made stable for BE 2d time stepper, not Cr-Ni or DIRK3
+# NOTE flux bnd stable, needs ramp-up for HO DIRK3 scheme
 # TODO try running open channel test with AB3-LF-AM3
 # TODO update git
 # TODO try with open boundaries DONE
@@ -82,10 +82,6 @@ swe2d = mode2d.freeSurfaceEquations(mesh2d, U_2d, H_2d, bathymetry2d,
 
 # TODO find candidates for good element pairs
 # TODO try mimetic (RT1, P1DG) for 2D solver only
-
-# NOTE DG is monononious iff limited and solved with SSP
-# NOTE CG is monononious iff stabilized with SUPG and solved with SSP
-# NOTE Implicit SSP schemes do not exist
 
 #bath_x = np.array([0, 10e3, 30e3, 45e3, 100e3])
 #bath_v = np.array([20, 20, 6, 15, 5])
@@ -106,7 +102,7 @@ def bath(x, y, z):
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 bathymetry2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
-outputDir = createDirectory('outputs_river')
+outputDir = createDirectory('outputs_profile')
 bathfile = File(os.path.join(outputDir, 'bath.pvd'))
 bathfile << bathymetry2d
 
@@ -202,16 +198,16 @@ if commrank == 0:
 solution_ext_2d = Function(swe2d.space)
 u_ext_2d, h_ext_2d = split(solution_ext_2d)
 h_amp = 2.0
-flux_amp = -2.0
+flux_amp = -1.2
 h_T = 12 * 3600  # 44714.0
 uv_river = -0.05
 flux_river = -750.0*4
 t = 0.0
-T_ramp = 1200.0
+T_ramp = 3600.0
 ocean_elev_func = lambda t: h_amp * sin(2 * pi * t / h_T)  # + 3*pi/2)
 ocean_elev = Function(swe2d.space.sub(1)).interpolate(Expression(ocean_elev_func(t)))
 ocean_elev_3d = Function(H).interpolate(Expression(ocean_elev_func(t)))
-ocean_un_func = lambda t: flux_amp * sin(2 * pi * t / h_T)
+ocean_un_func = lambda t: flux_amp * sin(2 * pi * t / h_T)*min(t/T_ramp, 1.0)
 ocean_un = Function(H_2d).interpolate(Expression(ocean_un_func(t)))
 ocean_un_3d = Function(H).interpolate(Expression(ocean_un_func(t)))
 river_flux_func = lambda t: flux_river*min(t/T_ramp, 1.0)
@@ -227,8 +223,8 @@ swe2d.bnd_functions = {2: ocean_funcs, 1: river_funcs}
 mom_eq3d.bnd_functions = {2: ocean_funcs_3d, 1: river_funcs_3d}
 salt_eq3d.bnd_functions = {2: ocean_salt_3d, 1: river_salt_3d}
 
-#timeStepper2d = mode2d.DIRK3(swe2d, dt)
-timeStepper2d = mode2d.CrankNicolson(swe2d, dt, gamma=1.0)
+timeStepper2d = mode2d.DIRK3(swe2d, dt)
+#timeStepper2d = mode2d.CrankNicolson(swe2d, dt, gamma=1.0)
 
 timeStepper_mom3d = mode3d.SSPRK33(mom_eq3d, dt)
 timeStepper_salt3d = mode3d.SSPRK33(salt_eq3d, dt)
