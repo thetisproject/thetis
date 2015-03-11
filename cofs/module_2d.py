@@ -202,6 +202,8 @@ class CrankNicolson(timeIntegrator):
 
         self.solution_old = Function(self.equation.space)
         self.U_old, self.eta_old = split(self.solution_old)
+        self.solution_nplushalf = Function(self.equation.space)
+
         eta = self.equation.eta
         U = self.equation.U
         #Crank-Nicolson
@@ -232,6 +234,7 @@ class CrankNicolson(timeIntegrator):
         updateForcings(t+dt)
         solve(self.F == 0, solution, solver_parameters=solver_parameters)
         # store old values
+        self.solution_nplushalf.assign(0.5*solution + 0.5*self.solution_old)
         self.solution_old.assign(solution)
 
 
@@ -569,7 +572,7 @@ class freeSurfaceEquations(equation):
 
                 G += H_riemann * un_riemann * self.eta_test * ds_bnd
                 if self.nonlin:
-                    G += un_riemann * dot(uv_riemann, self.U_test) * ds_bnd
+                    G += un_riemann * un_riemann * dot(self.normal, self.U_test) * ds_bnd
                 # added correct flux for eta
                 G += g_grav * ((h_ext - eta) / 2) * \
                     inner(self.normal, self.U_test) * ds_bnd
@@ -577,21 +580,21 @@ class freeSurfaceEquations(equation):
             elif 'un' in funcs:
                 # prescribe normal velocity (negative into domain)
                 un_ext = funcs['un']
-                G += total_H * un_ext * self.eta_test * ds_bnd
-                G += un_ext * un_ext * inner(self.normal, self.U_test) * ds_bnd
+                un_in = dot(uv, self.normal)
+                un_riemann = (un_in + un_ext)/2
+                G += total_H * un_riemann * self.eta_test * ds_bnd
+                if self.nonlin:
+                    G += un_riemann*un_riemann*inner(self.normal, self.U_test)*ds_bnd
+
             elif 'flux' in funcs:
                 # prescribe normal volume flux
                 sect_len = Constant(self.boundary_len[bnd_marker])
                 un_in = dot(uv, self.normal)
                 un_ext = funcs['flux'] / total_H / sect_len
-                if self.nonlin:
-                    un_riemann = un_ext
-                else:
-                    # lin eqns doesn't compile without this
-                    un_riemann = (un_in + un_ext)/2
+                un_riemann = (un_in + un_ext)/2
                 G += total_H * un_riemann * self.eta_test * ds_bnd
                 if self.nonlin:
-                    G += un_ext*un_ext*inner(self.normal, self.U_test)*ds_bnd
+                    G += un_riemann*un_riemann*inner(self.normal, self.U_test)*ds_bnd
             elif 'radiation':
                 # prescribe radiation condition that allows waves to pass tru
                 un_ext = sqrt(g_grav / total_H) * eta

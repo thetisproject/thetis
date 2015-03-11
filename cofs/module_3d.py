@@ -538,7 +538,30 @@ class momentumEquation(equation):
                 uv_riemann = un_riemann * self.normal + ut_riemann * t
 
                 if self.nonlin:
-                    G += un_riemann * dot(uv_riemann, self.test) * ds_bnd
+                    # NOTE just symmetric 3D flux with 2D eta correction
+                    G += un_riemann * un_riemann * dot(self.normal, self.test) * ds_bnd
+
+            elif 'un' in funcs:
+                # prescribe normal volume flux
+                un_in = dot(solution, self.normal)
+                un_ext = funcs['un']
+                if self.nonlin:
+                    #un_av = 0.5*(un_ext+un_in)
+                    #G += un_av*un_av*inner(self.normal, self.test)*ds_bnd
+                    G += un_ext*un_in*inner(self.normal, self.test)*ds_bnd
+                    # Lax-Friedrichs stabilization
+                    gamma = abs(self.normal[0]*(solution[0]) +
+                                self.normal[1]*(solution[1]))
+                    G += gamma*dot((self.test), (solution-self.normal*un_ext))*ds_bnd
+
+            elif 'flux' in funcs:
+                # prescribe normal volume flux
+                sect_len = Constant(self.boundary_len[bnd_marker])
+                un_in = dot(solution, self.normal)
+                un_ext = funcs['flux'] / total_H / sect_len
+                if self.nonlin:
+                    # NOTE symmetric normal flux -- forced in 2D
+                    G += un_in*un_in*inner(self.normal, self.test)*ds_bnd
 
         ## viscosity
         ## A double dot product of the stress tensor and grad(w).
