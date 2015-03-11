@@ -102,7 +102,7 @@ def bath(x, y, z):
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 bathymetry2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
-outputDir = createDirectory('outputs_profile')
+outputDir = createDirectory('outputs')
 bathfile = File(os.path.join(outputDir, 'bath.pvd'))
 bathfile << bathymetry2d
 
@@ -179,11 +179,11 @@ vmom_eq3d = mode3d.verticalMomentumEquation(mesh, U, U_scalar, uv3d, w=None,
                                             bottom_drag=bottom_drag3d)
 
 T = 48 * 3600  # 100*24*3600
-TExport = 122.0
 Umag = Constant(2.0)
 mesh_dt = swe2d.getTimeStepAdvection(Umag=Umag)
-dt = float(np.floor(mesh_dt.dat.data.min()/10.0))
-dt = comm.allreduce(dt, dt, op=MPI.MIN)
+dt = float(np.floor(mesh_dt.dat.data.min()/10.0))*0.80
+dt = round(comm.allreduce(dt, dt, op=MPI.MIN))
+TExport = 2*dt
 mesh2d_dt = swe2d.getTimeStep(Umag=Umag)
 dt_2d = mesh2d_dt.dat.data.min()/20.0
 dt_2d = comm.allreduce(dt_2d, dt_2d, op=MPI.MIN)
@@ -198,16 +198,17 @@ if commrank == 0:
 solution_ext_2d = Function(swe2d.space)
 u_ext_2d, h_ext_2d = split(solution_ext_2d)
 h_amp = 2.0
-flux_amp = -1.2
+flux_amp = -2.0
 h_T = 12 * 3600  # 44714.0
-uv_river = -0.05
-flux_river = -750.0*4
+uv_river = -0.3
+flux_river = 1500*depth_riv*uv_river
 t = 0.0
 T_ramp = 3600.0
 ocean_elev_func = lambda t: h_amp * sin(2 * pi * t / h_T)  # + 3*pi/2)
 ocean_elev = Function(swe2d.space.sub(1)).interpolate(Expression(ocean_elev_func(t)))
 ocean_elev_3d = Function(H).interpolate(Expression(ocean_elev_func(t)))
-ocean_un_func = lambda t: flux_amp * sin(2 * pi * t / h_T)*min(t/T_ramp, 1.0)
+ocean_un_func = lambda t: (flux_amp*sin(2 * pi * t / h_T) -
+                           uv_river)*min(t/T_ramp, 1.0)
 ocean_un = Function(H_2d).interpolate(Expression(ocean_un_func(t)))
 ocean_un_3d = Function(H).interpolate(Expression(ocean_un_func(t)))
 river_flux_func = lambda t: flux_river*min(t/T_ramp, 1.0)
