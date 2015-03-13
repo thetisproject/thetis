@@ -22,6 +22,7 @@ class AdamsBashforth3(timeIntegrator):
         massTermBasic = self.equation.massTermBasic
         supgMassTerm = self.equation.supgMassTerm
         RHS = self.equation.RHS
+        Source = self.equation.Source
         tri = self.equation.tri
 
         self.dt = dt
@@ -52,7 +53,8 @@ class AdamsBashforth3(timeIntegrator):
         U = self.equation.U
         # mass matrix for a linear equation
         self.a = massTermBasic(tri)
-        self.RHS = RHS(self.solution_old, **self.funcs_old)
+        self.RHS = (RHS(self.solution_old, **self.funcs_old) +
+                    Source(**self.funcs_old))
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -152,6 +154,7 @@ class ForwardEuler(timeIntegrator):
         massTermBasic = self.equation.massTermBasic
         supgMassTerm = self.equation.supgMassTerm
         RHS = self.equation.RHS
+        Source = self.equation.Source
 
         invdt = Constant(1.0/dt)
 
@@ -169,10 +172,12 @@ class ForwardEuler(timeIntegrator):
 
         solution = self.equation.solution
         self.F = (invdt*massTerm(solution) - invdt*massTerm(self.solution_old) -
-                  RHS(self.solution_old, **self.funcs_old))
+                  RHS(self.solution_old, **self.funcs_old) -
+                  Source(**self.funcs_old))
         self.a = invdt*massTerm(self.equation.tri)
         self.L = (invdt*massTerm(self.solution_old) +
-                  RHS(self.solution_old, **self.funcs_old))
+                  RHS(self.solution_old, **self.funcs_old) +
+                  Source(**self.funcs_old))
 
     def advanceNonLin(self, t, dt, solution, updateForcings):
         """Advances equations for one time step."""
@@ -220,6 +225,7 @@ class CrankNicolson(timeIntegrator):
         massTermBasic = self.equation.massTermBasic
         supgMassTerm = self.equation.supgMassTerm
         RHS = self.equation.RHS
+        Source = self.equation.Source
 
         invdt = Constant(1.0/dt)
 
@@ -241,7 +247,9 @@ class CrankNicolson(timeIntegrator):
         gamma_const = Constant(gamma)
         self.F = (invdt*massTerm(solution) - invdt*massTerm(self.solution_old) -
                   gamma_const*RHS(solution, **self.funcs) -
-                  (1-gamma_const)*RHS(self.solution_old, **self.funcs_old))
+                  gamma_const*Source(**self.funcs) -
+                  (1-gamma_const)*RHS(self.solution_old, **self.funcs_old) -
+                  (1-gamma_const)*Source(**self.funcs_old))
 
     def advance(self, t, dt, solution, updateForcings):
         """Advances equations for one time step."""
@@ -271,9 +279,9 @@ class CrankNicolson(timeIntegrator):
 
 class DIRK3(timeIntegrator):
     """Implements 3rd order Diagonally Implicit Runge Kutta time integration
-    method.
+    method, DIRK(2, 3, 3).
 
-    This method has the Butcher tableau
+    This method has the Butcher tableau (Asher et al. 1997)
 
     gamma   | gamma     0
     1-gamma | 1-2*gamma gamma
@@ -289,6 +297,7 @@ class DIRK3(timeIntegrator):
         massTermBasic = self.equation.massTermBasic
         supgMassTerm = self.equation.supgMassTerm
         RHS = self.equation.RHS
+        Source = self.equation.Source
         test = self.equation.test
 
         invdt = Constant(1.0/dt)
@@ -322,11 +331,13 @@ class DIRK3(timeIntegrator):
         self.alpha_const = Constant(self.alpha)
         # first 2 steps are implicit => dump all in F, use solution instead of
         # trial functions
-        self.K1_RHS = RHS(self.solution1, **self.funcs_old)
+        self.K1_RHS = (RHS(self.solution1, **self.funcs_old) +
+                       Source(**self.funcs_old))
         self.F_step1 = (invdt*massTerm(self.solution1) -
                         invdt*massTerm(self.solution_old) -
                         self.alpha_const*self.K1_RHS)
-        self.K2_RHS = RHS(self.solution2, **self.funcs_old)
+        self.K2_RHS = (RHS(self.solution2, **self.funcs_old) +
+                       Source(**self.funcs_old))
         self.F_step2 = (invdt*massTerm(self.solution2) -
                         invdt*massTerm(self.solution_old) -
                         (1 - 2*self.alpha_const)*inner(test, self.K1)*dx -
@@ -678,3 +689,10 @@ class freeSurfaceEquations(equation):
         F -= Diff_mom * self.dx
 
         return -F - G
+
+    def Source(self, uv_old=None, uv_bottom=None, bottom_drag=None, **kwargs):
+        """Returns the right hand side of the source terms.
+        These terms do not depend on the solution."""
+        F = 0  # holds all dx volume integral terms
+
+        return -F
