@@ -68,7 +68,8 @@ class AdamsBashforth3(timeIntegrator):
             'fieldsplit_1_pc_type': 'jacobi',
         }
         dt_const_inv = Constant(1.0/dt)
-        updateForcings(t+dt)
+        if updateForcings is not None:
+            updateForcings(t+dt)
         solve(self.a == self.RHS, self.K1)
         K1_mix = 23.0/12.0
         K2_mix = -4.0/3.0
@@ -80,6 +81,7 @@ class AdamsBashforth3(timeIntegrator):
         # shift tendencies for next time step
         self.K3.assign(self.K2)
         self.K2.assign(self.K1)
+        self.solution_old.assign(solution)
 
     def advanceMacroStep(self, t, dt, M, solution, updateForcings):
         """Advances equations for one macro time step DT=M*dt"""
@@ -102,8 +104,6 @@ class AdamsBashforth3(timeIntegrator):
         sys.stdout.write('Solving 2D ')
         for i in range(M):
             self.advance(t + i*dt, dt, solution, updateForcings)
-            U_old.assign(U)
-            eta_old.assign(eta)
             eta_nph.dat.data[:] += eta.dat.data[:]
             U_nph.dat.data[:] += U.dat.data[:]
             eta_n.dat.data[:] += eta.dat.data[:]
@@ -117,8 +117,6 @@ class AdamsBashforth3(timeIntegrator):
         # advance fields from T_{n+1} to T{n+2}
         for i in range(M):
             self.advance(t + (M+1)*i*dt, dt, solution, updateForcings)
-            U_old.assign(U)
-            eta_old.assign(eta)
             eta_n.dat.data[:] += eta.dat.data[:]
             U_n.dat.data[:] += U.dat.data[:]
             sys.stdout.write('.')
@@ -176,7 +174,8 @@ class ForwardEuler(timeIntegrator):
             'fieldsplit_0_pc_type': 'jacobi',  # 'jacobi', #'gamg',
             'fieldsplit_1_pc_type': 'jacobi',
         }
-        updateForcings(t+dt)
+        if updateForcings is not None:
+            updateForcings(t+dt)
         solve(self.F == 0, solution, solver_parameters=solver_parameters)
         # store old values
         self.solution_old.assign(solution)
@@ -231,7 +230,8 @@ class CrankNicolson(timeIntegrator):
             'fieldsplit_0_pc_type': 'jacobi',  # 'jacobi', #'gamg',
             'fieldsplit_1_pc_type': 'jacobi',
         }
-        updateForcings(t+dt)
+        if updateForcings is not None:
+            updateForcings(t+dt)
         solve(self.F == 0, solution, solver_parameters=solver_parameters)
         # store old values
         self.solution_nplushalf.assign(0.5*solution + 0.5*self.solution_old)
@@ -320,7 +320,8 @@ class DIRK3(timeIntegrator):
         K2_mix = 0.5
         # 3rd order DIRK
         # updateForcings(t+dt)
-        updateForcings(t + self.alpha * dt)
+        if updateForcings is not None:
+            updateForcings(t + self.alpha * dt)
         self.solution1.assign(solution)
         ## if commrank==0 : print 'Solving F1'
         solve(self.F_step1 == 0, self.solution1, bcs=bcs,
@@ -328,7 +329,8 @@ class DIRK3(timeIntegrator):
         ## if commrank==0 : print 'Solving K1'
         solve(self.a == self.K1_RHS, self.K1,
               solver_parameters={'ksp_type': 'cg'})
-        updateForcings(t + (1 - self.alpha) * dt)
+        if updateForcings is not None:
+            updateForcings(t + (1 - self.alpha) * dt)
         self.solution2.assign(self.solution1)
         # if commrank==0 : print 'Solving F2'
         solve(self.F_step2 == 0, self.solution2, bcs=bcs,
