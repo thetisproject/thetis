@@ -22,16 +22,21 @@ class AdamsBashforth3(timeIntegrator):
         massTermBasic = self.equation.massTermBasic
         supgMassTerm = self.equation.supgMassTerm
         RHS = self.equation.RHS
-        dx = self.equation.dx
-        U_test = self.equation.U_test
-        U_tri = self.equation.U_tri
-        eta_test = self.equation.eta_test
-        eta_tri = self.equation.eta_tri
+        tri = self.equation.tri
 
         self.dt = dt
 
         self.solution_old = Function(self.equation.space)
-        self.U_old, self.eta_old = split(self.solution_old)
+        # dict of all input functions needed for the equation
+        self.funcs = self.equation.kwargs
+        # create functions to hold the values of previous time step
+        self.funcs_old = {}
+        for k in self.funcs:
+            if self.funcs[k] is not None:
+                self.funcs_old[k] = Function(self.funcs[k].function_space())
+        # assing values to old functions
+        for k in self.funcs_old:
+            self.funcs_old[k].assign(self.funcs[k])
 
         # time filtered solutions for coupling with 3D equations
         self.solution_n = Function(self.equation.space)
@@ -46,8 +51,12 @@ class AdamsBashforth3(timeIntegrator):
         eta = self.equation.eta
         U = self.equation.U
         # mass matrix for a linear equation
-        self.a = massTermBasic(eta_tri, U_tri)
-        self.RHS = RHS(self.eta_old, self.U_old, self.U_old)
+        self.a = massTermBasic(tri)
+        self.RHS = RHS(self.solution_old, **self.funcs_old)
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(solution)
 
     def advance(self, t, dt, solution, updateForcings):
         """Advances equations for one time step."""
@@ -81,6 +90,9 @@ class AdamsBashforth3(timeIntegrator):
         # shift tendencies for next time step
         self.K3.assign(self.K2)
         self.K2.assign(self.K1)
+        # store old values
+        for k in self.funcs_old:
+            self.funcs_old[k].assign(self.funcs[k])
         self.solution_old.assign(solution)
 
     def advanceMacroStep(self, t, dt, M, solution, updateForcings):
@@ -140,23 +152,29 @@ class ForwardEuler(timeIntegrator):
         massTermBasic = self.equation.massTermBasic
         supgMassTerm = self.equation.supgMassTerm
         RHS = self.equation.RHS
-        dx = self.equation.dx
-        U_test = self.equation.U_test
-        U_tri = self.equation.U_tri
-        eta_test = self.equation.eta_test
-        eta_tri = self.equation.eta_tri
 
         invdt = Constant(1.0/dt)
 
         self.solution_old = Function(self.equation.space)
-        self.U_old, self.eta_old = split(self.solution_old)
-        eta = self.equation.eta
-        U = self.equation.U
-        self.F = (invdt*massTerm(eta, U) - invdt*massTerm(self.eta_old, self.U_old) +
-                  supgMassTerm(eta-self.eta_old, U-self.U_old, eta, U) -
-                  RHS(self.eta_old, self.U_old, self.U_old))
+        # dict of all input functions needed for the equation
+        self.funcs = self.equation.kwargs
+        # create functions to hold the values of previous time step
+        self.funcs_old = {}
+        for k in self.funcs:
+            if self.funcs[k] is not None:
+                self.funcs_old[k] = Function(self.funcs[k].function_space())
+        # assing values to old functions
+        for k in self.funcs_old:
+            self.funcs_old[k].assign(self.funcs[k])
 
-    def advance(self, t, dt, solution, updateForcings):
+        solution = self.equation.solution
+        self.F = (invdt*massTerm(solution) - invdt*massTerm(self.solution_old) -
+                  RHS(self.solution_old, **self.funcs_old))
+        self.a = invdt*massTerm(self.equation.tri)
+        self.L = (invdt*massTerm(self.solution_old) +
+                  RHS(self.solution_old, **self.funcs_old))
+
+    def advanceNonLin(self, t, dt, solution, updateForcings):
         """Advances equations for one time step."""
         solver_parameters = {
             'snes_type': 'newtonls',
@@ -180,6 +198,17 @@ class ForwardEuler(timeIntegrator):
         # store old values
         self.solution_old.assign(solution)
 
+    def advance(self, t, dt, solution, updateForcings):
+        """Advances equations for one time step."""
+        solver_parameters = {
+            'snes_type': 'ksponly',
+        }
+        if updateForcings is not None:
+            updateForcings(t+dt)
+        solve(self.a == self.L, solution, solver_parameters=solver_parameters)
+        # store old values
+        self.solution_old.assign(solution)
+
 
 class CrankNicolson(timeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
@@ -191,26 +220,28 @@ class CrankNicolson(timeIntegrator):
         massTermBasic = self.equation.massTermBasic
         supgMassTerm = self.equation.supgMassTerm
         RHS = self.equation.RHS
-        dx = self.equation.dx
-        U_test = self.equation.U_test
-        U_tri = self.equation.U_tri
-        eta_test = self.equation.eta_test
-        eta_tri = self.equation.eta_tri
 
         invdt = Constant(1.0/dt)
 
         self.solution_old = Function(self.equation.space)
-        self.U_old, self.eta_old = split(self.solution_old)
         self.solution_nplushalf = Function(self.equation.space)
+        # dict of all input functions needed for the equation
+        self.funcs = self.equation.kwargs
+        # create functions to hold the values of previous time step
+        self.funcs_old = {}
+        for k in self.funcs:
+            if self.funcs[k] is not None:
+                self.funcs_old[k] = Function(self.funcs[k].function_space())
+        # assing values to old functions
+        for k in self.funcs_old:
+            self.funcs_old[k].assign(self.funcs[k])
 
-        eta = self.equation.eta
-        U = self.equation.U
+        solution = self.equation.solution
         #Crank-Nicolson
         gamma_const = Constant(gamma)
-        self.F = (invdt*massTerm(eta, U) - invdt*massTerm(self.eta_old, self.U_old) +
-                  supgMassTerm(eta-self.eta_old, U-self.U_old, eta, U) -
-                  gamma_const*RHS(eta, U, self.U_old) -
-                  (1-gamma_const)*RHS(self.eta_old, self.U_old, self.U_old))
+        self.F = (invdt*massTerm(solution) - invdt*massTerm(self.solution_old) -
+                  gamma_const*RHS(solution, **self.funcs) -
+                  (1-gamma_const)*RHS(self.solution_old, **self.funcs_old))
 
     def advance(self, t, dt, solution, updateForcings):
         """Advances equations for one time step."""
@@ -239,8 +270,15 @@ class CrankNicolson(timeIntegrator):
 
 
 class DIRK3(timeIntegrator):
-    """Implements 3rd order DIRK time integration method.
-    DIRK = Diagonally Implicit Runge Kutta
+    """Implements 3rd order Diagonally Implicit Runge Kutta time integration
+    method.
+
+    This method has the Butcher tableau
+
+    gamma   | gamma     0
+    1-gamma | 1-2*gamma gamma
+    -------------------------
+            | 0.5       0.5
     """
 
     def __init__(self, equation, dt):
@@ -251,21 +289,28 @@ class DIRK3(timeIntegrator):
         massTermBasic = self.equation.massTermBasic
         supgMassTerm = self.equation.supgMassTerm
         RHS = self.equation.RHS
-        dx = self.equation.dx
-        U_test = self.equation.U_test
-        U_tri = self.equation.U_tri
-        eta_test = self.equation.eta_test
-        eta_tri = self.equation.eta_tri
+        test = self.equation.test
 
         invdt = Constant(1.0/dt)
         self.solution1 = Function(self.equation.space)
-        self.U1, self.eta1 = split(self.solution1)
         self.solution2 = Function(self.equation.space)
-        self.U2, self.eta2 = split(self.solution2)
 
         self.solution_old = Function(self.equation.space)
-        self.U_old, self.eta_old = split(self.solution_old)
         self.solution_nplushalf = Function(self.equation.space)
+        # dict of all input functions needed for the equation
+        self.funcs = self.equation.kwargs
+        # create functions to hold the values of previous time step
+        self.funcs_old = {}
+        for k in self.funcs:
+            if self.funcs[k] is not None:
+                self.funcs_old[k] = Function(self.funcs[k].function_space())
+        # assing values to old functions
+        for k in self.funcs_old:
+            self.funcs_old[k].assign(self.funcs[k])
+        # the values to feed to the RHS
+        self.args = {}
+        for k in self.funcs_old:
+            self.args[k] = Function(self.funcs[k].function_space())
 
         self.K1 = Function(self.equation.space)
         K1_u, K1_h = split(self.K1)
@@ -277,25 +322,20 @@ class DIRK3(timeIntegrator):
         self.alpha_const = Constant(self.alpha)
         # first 2 steps are implicit => dump all in F, use solution instead of
         # trial functions
-        self.K1_RHS = RHS(self.eta1, self.U1, self.U_old)
-        self.F_step1 = (invdt*massTerm(self.eta1, self.U1) -
-                        invdt*massTerm(self.eta_old, self.U_old) +
-                        supgMassTerm(self.eta1 - self.eta_old,
-                                     self.U1 - self.U_old,
-                                     self.eta1, self.U1) -
+        self.K1_RHS = RHS(self.solution1, **self.funcs_old)
+        self.F_step1 = (invdt*massTerm(self.solution1) -
+                        invdt*massTerm(self.solution_old) -
                         self.alpha_const*self.K1_RHS)
-        self.K2_RHS = RHS(self.eta2, self.U2, self.U_old)
-        self.F_step2 = (invdt*massTerm(self.eta2, self.U2) -
-                        invdt*massTerm(self.eta_old, self.U_old) +
-                        supgMassTerm(self.eta2 - self.eta_old,
-                                     self.U2 - self.U_old,
-                                     self.eta2, self.U2) -
-                        (1 - 2*self.alpha_const)*(inner(U_test, K1_u) +
-                                      inner(eta_test, K1_h))*dx -
+        self.K2_RHS = RHS(self.solution2, **self.funcs_old)
+        self.F_step2 = (invdt*massTerm(self.solution2) -
+                        invdt*massTerm(self.solution_old) -
+                        (1 - 2*self.alpha_const)*inner(test, self.K1)*dx -
                         self.alpha_const * self.K2_RHS)
+        self.K1_mix = 0.5
+        self.K2_mix = 0.5
         # last step is linear => separate bilinear form a, with trial funcs,
         # and linear form L
-        self.a = massTermBasic(eta_tri, U_tri)
+        self.a = massTermBasic(self.equation.tri)
 
     def advance(self, t, dt, solution, updateForcings):
         """Advances equations for one time step."""
@@ -316,12 +356,13 @@ class DIRK3(timeIntegrator):
             'fieldsplit_1_pc_type': 'jacobi',
         }
         bcs = []
-        K1_mix = 0.5
-        K2_mix = 0.5
         # 3rd order DIRK
         # updateForcings(t+dt)
         if updateForcings is not None:
             updateForcings(t + self.alpha * dt)
+        for k in self.funcs_old:
+            self.funcs_old[k].assign(self.alpha*self.funcs[k] +
+                                     (1.0-self.alpha)*self.funcs_old[k])
         self.solution1.assign(solution)
         ## if commrank==0 : print 'Solving F1'
         solve(self.F_step1 == 0, self.solution1, bcs=bcs,
@@ -331,6 +372,9 @@ class DIRK3(timeIntegrator):
               solver_parameters={'ksp_type': 'cg'})
         if updateForcings is not None:
             updateForcings(t + (1 - self.alpha) * dt)
+        for k in self.funcs_old:
+            self.funcs_old[k].assign((1.0-self.alpha)*self.funcs[k] +
+                                     self.alpha*self.funcs_old[k])
         self.solution2.assign(self.solution1)
         # if commrank==0 : print 'Solving F2'
         solve(self.F_step2 == 0, self.solution2, bcs=bcs,
@@ -339,8 +383,8 @@ class DIRK3(timeIntegrator):
         solve(self.a == self.K2_RHS, self.K2,
               solver_parameters={'ksp_type': 'cg'})
         # if commrank==0 : print 'Solving F'
-        solution.assign(self.solution_old + dt*K1_mix*self.K1 +
-                        dt*K2_mix*self.K2)
+        solution.assign(self.solution_old + dt*self.K1_mix*self.K1 +
+                        dt*self.K2_mix*self.K2)
         # store old values
         self.solution_nplushalf.assign(0.5*solution + 0.5*self.solution_old)
         self.solution_old.assign(solution)
@@ -348,25 +392,31 @@ class DIRK3(timeIntegrator):
 
 class freeSurfaceEquations(equation):
     """2D depth averaged shallow water equations"""
-    def __init__(self, mesh, U_space, eta_space, bathymetry,
+    def __init__(self, mesh, space, solution, bathymetry,
                  uv_bottom=None, bottom_drag=None,
                  nonlin=True, use_wd=True):
         self.mesh = mesh
-        self.eta_space = eta_space
-        self.U_space = U_space
+        self.space = space
+        self.U_space, self.eta_space = self.space.split()
+        self.solution = solution
+        self.U, self.eta = split(self.solution)
         self.bathymetry = bathymetry
         self.use_wd = use_wd
         self.nonlin = nonlin
-        self.uv_bottom = uv_bottom
-        self.bottom_drag = bottom_drag
+        # this dict holds all time dep. args to the equation
+        self.kwargs = {'uv_old': self.solution.split()[0],
+                       'uv_bottom': uv_bottom,
+                       'bottom_drag': bottom_drag,
+                       }
 
         # create mixed function space
-        self.space = MixedFunctionSpace([U_space, eta_space])
+        self.tri = TrialFunction(self.space)
+        self.test = TestFunction(self.space)
         self.U_test, self.eta_test = TestFunctions(self.space)
         self.U_tri, self.eta_tri = TrialFunctions(self.space)
 
-        self.U_is_DG = 'DG' in U_space.ufl_element().shortstr()
-        self.eta_is_DG = 'DG' in eta_space.ufl_element().shortstr()
+        self.U_is_DG = 'DG' in self.U_space.ufl_element().shortstr()
+        self.eta_is_DG = 'DG' in self.eta_space.ufl_element().shortstr()
 
         # mesh dependent variables
         self.normal = FacetNormal(mesh)
@@ -391,10 +441,6 @@ class freeSurfaceEquations(equation):
         # set boundary conditions
         # maps bnd_marker to dict of external functions e.g. {'elev':eta_ext}
         self.bnd_functions = {}
-
-        # create solution fields
-        self.solution = Function(self.space)
-        self.U, self.eta = split(self.solution)
 
     def ds(self, bnd_marker):
         """Returns boundary measure for the appropriate mesh"""
@@ -432,13 +478,14 @@ class freeSurfaceEquations(equation):
         return 0.5 * (sqrt((eta + self.bathymetry)**2 + wd_alpha**2) -
                       (eta + self.bathymetry)) + h_add
 
-    def massTerm(self, eta, uv):
+    def massTerm(self, solution):
         """All time derivative terms on the LHS, without the actual time
         derivative.
 
         Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
         """
         F = 0
+        uv, eta = split(solution)
 
         # Mass term of momentum equation
         M_momentum = inner(uv, self.U_test)
@@ -453,13 +500,14 @@ class freeSurfaceEquations(equation):
 
         return F * self.dx
 
-    def massTermBasic(self, eta, uv):
+    def massTermBasic(self, solution):
         """All time derivative terms on the LHS, without the actual time
         derivative.
 
         Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
         """
         F = 0
+        uv, eta = split(solution)
 
         # Mass term of momentum equation
         M_momentum = inner(uv, self.U_test)
@@ -471,9 +519,11 @@ class freeSurfaceEquations(equation):
 
         return F * self.dx
 
-    def supgMassTerm(self, eta_diff, uv_diff, eta, uv):
+    def supgMassTerm(self, solution, eta, uv):
         """Additional term for SUPG stabilization"""
         F = 0
+        uv_diff, eta_diff = split(solution)
+
         residual = eta_diff
         # F += (1.0/dt_const)*stabilization_SU*inner(residual,dot(uv,
         # nabla_grad(v)) ) #+ (eta+h_mean)*tr(nabla_grad(w)))
@@ -483,11 +533,12 @@ class freeSurfaceEquations(equation):
         # diag(nabla_grad(w))) ) #+ (eta+h_mean)*nabla_grad(v) )
         return F * self.dx
 
-    def RHS(self, eta, uv, uv_old):
+    def RHS(self, solution, uv_old=None, uv_bottom=None, bottom_drag=None):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0  # holds all dx volume integral terms
         G = 0  # holds all ds boundary interface terms
+        uv, eta = split(solution)
 
         # Advection of momentum
         if self.nonlin:
@@ -609,9 +660,9 @@ class freeSurfaceEquations(equation):
         F += BottomFri
 
         # bottom friction from a 3D model
-        if self.bottom_drag is not None and self.uv_bottom is not None:
-            uvb_mag = sqrt(self.uv_bottom[0]**2 + self.uv_bottom[1]**2)
-            stress = self.bottom_drag*uvb_mag*self.uv_bottom/total_H
+        if bottom_drag is not None and uv_bottom is not None:
+            uvb_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
+            stress = bottom_drag*uvb_mag*uv_bottom/total_H
             BotFriction = (stress[0]*self.U_test[0] +
                            stress[1]*self.U_test[1]) * self.dx
             F += BotFriction
