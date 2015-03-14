@@ -25,15 +25,13 @@ class macroTimeStepIntegrator(object):
         space = self.timeStepper.solution_old.function_space()
         self.solution_n = Function(space)
         self.solution_nplushalf = Function(space)
-        if not self.restartFromAv:
-            self.solution_start = Function(space)
+        self.solution_start = Function(space)
 
     def initialize(self, solution):
         self.timeStepper.initialize(solution)
         self.solution_n.assign(solution)
         self.solution_nplushalf.assign(solution)
-        if not self.restartFromAv:
-            self.solution_start.assign(solution)
+        self.solution_start.assign(solution)
 
     def advance(self, t, dt, solution, updateForcings):
         """Advances equations for one macro time step DT=M*dt"""
@@ -44,15 +42,19 @@ class macroTimeStepIntegrator(object):
         U_nph, eta_nph = self.solution_nplushalf.split()
         # filtered to T_{n+1}
         U_n, eta_n = self.solution_n.split()
+        U_start, eta_start = self.solution_start.split()
         if self.restartFromAv:
             # initialize from time averages NOTE this is very diffusive!
             U_old.assign(U_n)
             eta_old.assign(eta_n)
+            U.assign(U_n)
+            eta.assign(eta_n)
         else:
             # start from saved istantaneous state
-            U_start, eta_start = self.solution_start.split()
             U_old.assign(U_start)
             eta_old.assign(eta_start)
+            U.assign(U_start)
+            eta.assign(eta_start)
         # reset time filtered solutions
         eta_nph.dat.data[:] = eta_old.dat.data[:]/2
         U_nph.dat.data[:] = U_old.dat.data[:]/2
@@ -75,10 +77,9 @@ class macroTimeStepIntegrator(object):
         U_nph.dat.data[:] -= U.dat.data[:]/2
         eta_nph.dat.data[:] /= (M)
         U_nph.dat.data[:] /= (M)
-        if not self.restartFromAv:
-            # store restart state from T_{n+1} solution
-            U_start.assign(U)
-            eta_start.assign(eta)
+        # store state at T_{n+1}
+        U_start.assign(U)
+        eta_start.assign(eta)
         # advance fields from T_{n+1} to T{n+2}
         for i in range(M):
             self.timeStepper.advance(t + (M+i)*dt, dt, solution, updateForcings)
