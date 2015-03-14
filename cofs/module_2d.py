@@ -12,11 +12,193 @@ wd_alpha = physical_constants['wd_alpha']
 mu_manning = physical_constants['mu_manning']
 
 
+class macroTimeStepIntegrator(object):
+    """Takes an explicit time integrator and iterates it over M time steps.
+    Computes time averages to represent solution at M*dt resolution."""
+    # NOTE the time averages are very diffusive, destroying 3rd order solution
+    # NOTE diffusivity depends on M.
+    def __init__(self, timeStepperCls, M, restartFromAv=False):
+        self.timeStepper = timeStepperCls
+        self.M = M
+        self.restartFromAv = restartFromAv
+        # functions to hold time averaged solutions
+        space = self.timeStepper.solution_old.function_space()
+        self.solution_n = Function(space)
+        self.solution_nplushalf = Function(space)
+        if not self.restartFromAv:
+            self.solution_start = Function(space)
+
+    def initialize(self, solution):
+        self.timeStepper.initialize(solution)
+        self.solution_n.assign(solution)
+        self.solution_nplushalf.assign(solution)
+        if not self.restartFromAv:
+            self.solution_start.assign(solution)
+
+    def advance(self, t, dt, solution, updateForcings):
+        """Advances equations for one macro time step DT=M*dt"""
+        M = self.M
+        U, eta = solution.split()
+        U_old, eta_old = self.timeStepper.solution_old.split()
+        # filtered to T_{n+1/2}
+        U_nph, eta_nph = self.solution_nplushalf.split()
+        # filtered to T_{n+1}
+        U_n, eta_n = self.solution_n.split()
+        if self.restartFromAv:
+            # initialize from time averages NOTE this is very diffusive!
+            U_old.assign(U_n)
+            eta_old.assign(eta_n)
+        else:
+            # start from saved istantaneous state
+            U_start, eta_start = self.solution_start.split()
+            U_old.assign(U_start)
+            eta_old.assign(eta_start)
+        # reset time filtered solutions
+        eta_nph.dat.data[:] = eta_old.dat.data[:]/2
+        U_nph.dat.data[:] = U_old.dat.data[:]/2
+        eta_n.dat.data[:] = eta_old.dat.data[:]/2
+        U_n.dat.data[:] = U_old.dat.data[:]/2
+
+        # advance fields from T_{n} to T{n+1}
+        sys.stdout.write('Solving 2D ')
+        for i in range(M):
+            self.timeStepper.advance(t + i*dt, dt, solution, updateForcings)
+            eta_nph.dat.data[:] += eta.dat.data[:]
+            U_nph.dat.data[:] += U.dat.data[:]
+            eta_n.dat.data[:] += eta.dat.data[:]
+            U_n.dat.data[:] += U.dat.data[:]
+            sys.stdout.write('.')
+            sys.stdout.flush()
+        sys.stdout.write('|')
+        sys.stdout.flush()
+        eta_nph.dat.data[:] -= eta.dat.data[:]/2
+        U_nph.dat.data[:] -= U.dat.data[:]/2
+        eta_nph.dat.data[:] /= (M)
+        U_nph.dat.data[:] /= (M)
+        if not self.restartFromAv:
+            # store restart state from T_{n+1} solution
+            U_start.assign(U)
+            eta_start.assign(eta)
+        # advance fields from T_{n+1} to T{n+2}
+        for i in range(M):
+            self.timeStepper.advance(t + (M+i)*dt, dt, solution, updateForcings)
+            eta_n.dat.data[:] += eta.dat.data[:]
+            U_n.dat.data[:] += U.dat.data[:]
+            sys.stdout.write('.')
+            sys.stdout.flush()
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+        eta_n.dat.data[:] -= eta.dat.data[:]/2
+        U_n.dat.data[:] -= U.dat.data[:]/2
+        eta_n.dat.data[:] /= (2*M)
+        U_n.dat.data[:] /= (2*M)
+        # use filtered solution as output
+        U.assign(U_n)
+        eta.assign(eta_n)
+
+
+class SSPRK33(timeIntegrator):
+    """
+    3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).
+
+    This scheme has Butcher tableau
+    0   |
+    1   | 1
+    1/2 | 1/4 1/4
+    ---------------
+        | 1/6 1/6 2/3
+
+    CFL coefficient is 1.0
+    """
+    def __init__(self, equation, dt):
+        """Creates forms for the time integrator"""
+        timeIntegrator.__init__(self, equation)
+        self.explicit = True
+        self.CFL_coeff = 1.0
+
+        massTerm = self.equation.massTerm
+        RHS = self.equation.RHS
+        Source = self.equation.Source
+
+        self.solution_old = Function(self.equation.space)
+
+        self.K0 = Function(self.equation.space)
+        self.K1 = Function(self.equation.space)
+        self.K2 = Function(self.equation.space)
+
+        # dict of all input functions needed for the equation
+        self.funcs = self.equation.kwargs
+        # create functions to hold the values of previous time step
+        self.funcs_old = {}
+        for k in self.funcs:
+            if self.funcs[k] is not None:
+                self.funcs_old[k] = Function(self.funcs[k].function_space())
+        # values used in equations
+        self.args = {}
+        for k in self.funcs_old:
+            self.args[k] = Function(self.funcs[k].function_space())
+
+        u_old = self.solution_old
+        u_tri = self.equation.tri
+
+        dt_const = Constant(dt)
+        a_RK = massTerm(u_tri)
+        L_RK = dt_const*(RHS(u_old, **self.args) + Source(**self.args))
+
+        probK0 = LinearVariationalProblem(a_RK, L_RK, self.K0)
+        self.solverK0 = LinearVariationalSolver(probK0)
+        probK1 = LinearVariationalProblem(a_RK, L_RK, self.K1)
+        self.solverK1 = LinearVariationalSolver(probK1)
+        probK2 = LinearVariationalProblem(a_RK, L_RK, self.K2)
+        self.solverK2 = LinearVariationalSolver(probK2)
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(solution)
+        # assing values to old functions
+        for k in self.funcs_old:
+            self.funcs_old[k].assign(self.funcs[k])
+
+    def advance(self, t, dt, solution, updateForcings):
+        """Advances equations for one time step."""
+
+        # stage 0
+        for k in self.args:  # set args to t
+            self.args[k].assign(self.funcs_old[k])
+        if updateForcings is not None:
+            updateForcings(t)
+        self.solverK0.solve()
+        # stage 1
+        self.solution_old.assign(solution + self.K0)
+        for k in self.args:  # set args to t+dt
+            self.args[k].assign(self.funcs[k])
+        if updateForcings is not None:
+            updateForcings(t+dt)
+        self.solverK1.solve()
+        # stage 2
+        self.solution_old.assign(solution + 0.25*self.K0 + 0.25*self.K1)
+        for k in self.args:  # set args to t+dt/2
+            self.args[k].assign(0.5*self.funcs[k] + 0.5*self.funcs_old[k])
+        if updateForcings is not None:
+            updateForcings(t+dt/2)
+        self.solverK2.solve()
+        # final solution
+        solution.assign(solution + (1.0/6.0)*self.K0 + (1.0/6.0)*self.K1 +
+                        (2.0/3.0)*self.K2)
+
+        # store old values
+        for k in self.funcs_old:
+            self.funcs_old[k].assign(self.funcs[k])
+        self.solution_old.assign(solution)
+
+
 class AdamsBashforth3(timeIntegrator):
     """Standard 3rd order Adams-Bashforth scheme."""
     def __init__(self, equation, dt):
         """Creates forms for the time integrator"""
         timeIntegrator.__init__(self, equation)
+        self.explicit = True
+        self.CFL_coeff = 1.0
 
         massTerm = self.equation.massTerm
         massTermBasic = self.equation.massTermBasic
@@ -35,13 +217,6 @@ class AdamsBashforth3(timeIntegrator):
         for k in self.funcs:
             if self.funcs[k] is not None:
                 self.funcs_old[k] = Function(self.funcs[k].function_space())
-        # assing values to old functions
-        for k in self.funcs_old:
-            self.funcs_old[k].assign(self.funcs[k])
-
-        # time filtered solutions for coupling with 3D equations
-        self.solution_n = Function(self.equation.space)
-        self.solution_nplushalf = Function(self.equation.space)
 
         self.K1 = Function(self.equation.space)
         K1_u, K1_h = split(self.K1)
@@ -59,6 +234,9 @@ class AdamsBashforth3(timeIntegrator):
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
+        # assing values to old functions
+        for k in self.funcs_old:
+            self.funcs_old[k].assign(self.funcs[k])
 
     def advance(self, t, dt, solution, updateForcings):
         """Advances equations for one time step."""
@@ -97,58 +275,14 @@ class AdamsBashforth3(timeIntegrator):
             self.funcs_old[k].assign(self.funcs[k])
         self.solution_old.assign(solution)
 
-    def advanceMacroStep(self, t, dt, M, solution, updateForcings):
-        """Advances equations for one macro time step DT=M*dt"""
-        U, eta = solution.split()
-        U_old, eta_old = self.solution_old.split()
-        # filtered to T_{n+1/2}
-        U_nph, eta_nph = self.solution_nplushalf.split()
-        # filtered to T_{n+1}
-        U_n, eta_n = self.solution_n.split()
-        # initialize from time averages
-        U_old.assign(U_n)
-        eta_old.assign(eta_n)
-        # reset time filtered solutions
-        eta_nph.dat.data[:] = eta_old.dat.data[:]
-        U_nph.dat.data[:] = U_old.dat.data[:]
-        eta_n.dat.data[:] = eta_old.dat.data[:]
-        U_n.dat.data[:] = U_old.dat.data[:]
-
-        # advance fields from T_{n} to T{n+1}
-        sys.stdout.write('Solving 2D ')
-        for i in range(M):
-            self.advance(t + i*dt, dt, solution, updateForcings)
-            eta_nph.dat.data[:] += eta.dat.data[:]
-            U_nph.dat.data[:] += U.dat.data[:]
-            eta_n.dat.data[:] += eta.dat.data[:]
-            U_n.dat.data[:] += U.dat.data[:]
-            sys.stdout.write('.')
-            sys.stdout.flush()
-        sys.stdout.write('|')
-        sys.stdout.flush()
-        eta_nph.dat.data[:] /= (M+1)
-        U_nph.dat.data[:] /= (M+1)
-        # advance fields from T_{n+1} to T{n+2}
-        for i in range(M):
-            self.advance(t + (M+1)*i*dt, dt, solution, updateForcings)
-            eta_n.dat.data[:] += eta.dat.data[:]
-            U_n.dat.data[:] += U.dat.data[:]
-            sys.stdout.write('.')
-            sys.stdout.flush()
-        sys.stdout.write('\n')
-        sys.stdout.flush()
-        eta_n.dat.data[:] /= (2*M+1)
-        U_n.dat.data[:] /= (2*M+1)
-        # use filtered solution as output
-        U.assign(U_n)
-        eta.assign(eta_n)
-
 
 class ForwardEuler(timeIntegrator):
     """Standard forward Euler time integration scheme."""
     def __init__(self, equation, dt):
         """Creates forms for the time integrator"""
         timeIntegrator.__init__(self, equation)
+        self.explicit = True
+        self.CFL_coeff = 0.5
 
         massTerm = self.equation.massTerm
         massTermBasic = self.equation.massTermBasic
@@ -166,9 +300,6 @@ class ForwardEuler(timeIntegrator):
         for k in self.funcs:
             if self.funcs[k] is not None:
                 self.funcs_old[k] = Function(self.funcs[k].function_space())
-        # assing values to old functions
-        for k in self.funcs_old:
-            self.funcs_old[k].assign(self.funcs[k])
 
         solution = self.equation.solution
         self.F = (invdt*massTerm(solution) - invdt*massTerm(self.solution_old) -
@@ -178,6 +309,13 @@ class ForwardEuler(timeIntegrator):
         self.L = (invdt*massTerm(self.solution_old) +
                   RHS(self.solution_old, **self.funcs_old) +
                   Source(**self.funcs_old))
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(solution)
+        # assing values to old functions
+        for k in self.funcs_old:
+            self.funcs_old[k].assign(self.funcs[k])
 
     def advanceNonLin(self, t, dt, solution, updateForcings):
         """Advances equations for one time step."""
@@ -220,6 +358,8 @@ class CrankNicolson(timeIntegrator):
     def __init__(self, equation, dt, gamma=0.6):
         """Creates forms for the time integrator"""
         timeIntegrator.__init__(self, equation)
+        self.explicit = False
+        self.CFL_coeff = 0.0
 
         massTerm = self.equation.massTerm
         massTermBasic = self.equation.massTermBasic
@@ -238,9 +378,6 @@ class CrankNicolson(timeIntegrator):
         for k in self.funcs:
             if self.funcs[k] is not None:
                 self.funcs_old[k] = Function(self.funcs[k].function_space())
-        # assing values to old functions
-        for k in self.funcs_old:
-            self.funcs_old[k].assign(self.funcs[k])
 
         solution = self.equation.solution
         #Crank-Nicolson
@@ -250,6 +387,13 @@ class CrankNicolson(timeIntegrator):
                   gamma_const*Source(**self.funcs) -
                   (1-gamma_const)*RHS(self.solution_old, **self.funcs_old) -
                   (1-gamma_const)*Source(**self.funcs_old))
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(solution)
+        # assing values to old functions
+        for k in self.funcs_old:
+            self.funcs_old[k].assign(self.funcs[k])
 
     def advance(self, t, dt, solution, updateForcings):
         """Advances equations for one time step."""
@@ -292,6 +436,8 @@ class DIRK3(timeIntegrator):
     def __init__(self, equation, dt):
         """Creates forms for the time integrator"""
         timeIntegrator.__init__(self, equation)
+        self.explicit = False
+        self.CFL_coeff = 0.0
 
         massTerm = self.equation.massTerm
         massTermBasic = self.equation.massTermBasic
@@ -299,6 +445,7 @@ class DIRK3(timeIntegrator):
         RHS = self.equation.RHS
         Source = self.equation.Source
         test = self.equation.test
+        dx = self.equation.dx
 
         invdt = Constant(1.0/dt)
         self.solution1 = Function(self.equation.space)
@@ -313,9 +460,6 @@ class DIRK3(timeIntegrator):
         for k in self.funcs:
             if self.funcs[k] is not None:
                 self.funcs_old[k] = Function(self.funcs[k].function_space())
-        # assing values to old functions
-        for k in self.funcs_old:
-            self.funcs_old[k].assign(self.funcs[k])
         # the values to feed to the RHS
         self.args = {}
         for k in self.funcs_old:
@@ -347,6 +491,13 @@ class DIRK3(timeIntegrator):
         # last step is linear => separate bilinear form a, with trial funcs,
         # and linear form L
         self.a = massTermBasic(self.equation.tri)
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(solution)
+        # assing values to old functions
+        for k in self.funcs_old:
+            self.funcs_old[k].assign(self.funcs[k])
 
     def advance(self, t, dt, solution, updateForcings):
         """Advances equations for one time step."""
@@ -693,6 +844,6 @@ class freeSurfaceEquations(equation):
     def Source(self, uv_old=None, uv_bottom=None, bottom_drag=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
-        F = 0  # holds all dx volume integral terms
+        F = 0*self.dx  # holds all dx volume integral terms
 
         return -F
