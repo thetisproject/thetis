@@ -116,7 +116,9 @@ if commrank == 0:
 
 #timeStepper2d = mode2d.ForwardEuler(swe2d, dt)  # divide dt by 4
 #timeStepper2d = mode2d.AdamsBashforth3(swe2d, dt)
-timeStepper2d = mode2d.macroTimeStepIntegrator(mode2d.SSPRK33(swe2d, dt_2d),
+#subIterator = mode2d.SSPRK33(swe2d, dt_2d)
+subIterator = mode2d.AdamsBashforth3(swe2d, dt)
+timeStepper2d = mode2d.macroTimeStepIntegrator(subIterator,
                                                M_modesplit,
                                                restartFromAv=False)
 #timeStepper2d = mode2d.CrankNicolson(swe2d, dt, gamma=0.50)

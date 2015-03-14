@@ -228,9 +228,11 @@ class AdamsBashforth3(timeIntegrator):
         eta = self.equation.eta
         U = self.equation.U
         # mass matrix for a linear equation
-        self.a = massTermBasic(tri)
-        self.RHS = (RHS(self.solution_old, **self.funcs_old) +
-                    Source(**self.funcs_old))
+        a = massTermBasic(tri)
+        L = (RHS(self.solution_old, **self.funcs_old) +
+                 Source(**self.funcs_old))
+        probK1 = LinearVariationalProblem(a, L, self.K1)
+        self.solverK1 = LinearVariationalSolver(probK1)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -260,7 +262,7 @@ class AdamsBashforth3(timeIntegrator):
         dt_const_inv = Constant(1.0/dt)
         if updateForcings is not None:
             updateForcings(t+dt)
-        solve(self.a == self.RHS, self.K1)
+        self.solverK1.solve()
         K1_mix = 23.0/12.0
         K2_mix = -4.0/3.0
         K3_mix = 5.0/12.0
