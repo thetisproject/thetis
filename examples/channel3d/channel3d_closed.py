@@ -42,7 +42,7 @@ def createDirectory(path):
     return path
 
 # set physical constants
-physical_constants['z0_friction'].assign(5.0e-5)
+physical_constants['z0_friction'].assign(1.0e-6)
 #physical_constants['viscosity_h'].assign(0.0)
 
 mesh2d = Mesh('channel_mesh.msh')
@@ -69,26 +69,10 @@ swe2d = mode2d.freeSurfaceEquations(mesh2d, W_2d, solution2d, bathymetry2d,
                                     uv_bottom2d, bottom_drag2d,
                                     nonlin=nonlin, use_wd=use_wd)
 
-# NOTE open elev bnd conditions unstable?
-# NOTE flux bnd stable, needs ramp-up for HO DIRK3 scheme
-# TODO try running open channel test with AB3-LF-AM3
-# TODO update git
-# TODO try with open boundaries DONE
-# TODO try in parallel DONE
-# TODO move all numpy operations to PyOP2/firedrake world
-# TODO add moving mesh to 3d mode
-# TODO add Pacanowski-Philander turbulence parametrisation
-# TODO add vertical advection of momentum NOTE only works for moving mesh
-# TODO FIXME advection of mom is unstable on full DG mesh
-# TODO FIXME closed boundaries of mom3d incorrect uv!=0
-
-# TODO find candidates for good element pairs
-# TODO try mimetic (RT1, P1DG) for 2D solver only
-
 #bath_x = np.array([0, 10e3, 30e3, 45e3, 100e3])
 #bath_v = np.array([20, 20, 6, 15, 5])
 depth_oce = 20.0
-depth_riv = 7.0
+depth_riv = 5.0
 bath_x = np.array([0, 100e3])
 bath_v = np.array([depth_oce, depth_riv])
 depth = 20.0
@@ -104,7 +88,7 @@ def bath(x, y, z):
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 bathymetry2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
-outputDir = createDirectory('outputs')
+outputDir = createDirectory('outputs_closed')
 bathfile = File(os.path.join(outputDir, 'bath.pvd'))
 bathfile << bathymetry2d
 
@@ -120,9 +104,8 @@ def elevation(x, y, z, x_array, val_array):
 
 x_func = Function(H_2d).interpolate(Expression('x[0]'))
 elev_init = Function(H_2d)
-#elev_init.dat.data[:] = elevation(x_func.dat.data, 0, 0,
-                                  #elev_x, elev_v)
-#elev_init.dat.data[:] = 2.0
+elev_init.dat.data[:] = elevation(x_func.dat.data, 0, 0,
+                                  elev_x, elev_v)
 
 # create 3d equations
 
@@ -222,9 +205,9 @@ ocean_funcs_3d = {'un': ocean_un_3d}
 river_funcs_3d = {'flux': river_flux_3d}
 ocean_salt_3d = {'value': salt_init3d}
 river_salt_3d = {'value': salt_init3d}
-swe2d.bnd_functions = {2: ocean_funcs, 1: river_funcs}
-mom_eq3d.bnd_functions = {2: ocean_funcs_3d, 1: river_funcs_3d}
-salt_eq3d.bnd_functions = {2: ocean_salt_3d, 1: river_salt_3d}
+#swe2d.bnd_functions = {2: ocean_funcs, 1: river_funcs}
+#mom_eq3d.bnd_functions = {2: ocean_funcs_3d, 1: river_funcs_3d}
+#salt_eq3d.bnd_functions = {2: ocean_salt_3d, 1: river_salt_3d}
 
 #timeStepper2d = mode2d.DIRK3(swe2d, dt)
 subIterator = mode2d.SSPRK33(swe2d, dt_2d)
