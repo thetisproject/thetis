@@ -36,66 +36,47 @@ class macroTimeStepIntegrator(object):
     def advance(self, t, dt, solution, updateForcings):
         """Advances equations for one macro time step DT=M*dt"""
         M = self.M
-        U, eta = solution.split()
-        U_old, eta_old = self.timeStepper.solution_old.split()
-        # filtered to T_{n+1/2}
-        U_nph, eta_nph = self.solution_nplushalf.split()
-        # filtered to T_{n+1}
-        U_n, eta_n = self.solution_n.split()
-        U_start, eta_start = self.solution_start.split()
+        solution_old = self.timeStepper.solution_old
         if self.restartFromAv:
             # initialize from time averages NOTE this is very diffusive!
-            U_old.assign(U_n)
-            eta_old.assign(eta_n)
-            U.assign(U_n)
-            eta.assign(eta_n)
+            solution_old.assign(self.solution_n)
+            solution.assign(self.solution_n)
         else:
             # start from saved istantaneous state
-            U_old.assign(U_start)
-            eta_old.assign(eta_start)
-            U.assign(U_start)
-            eta.assign(eta_start)
+            solution_old.assign(self.solution_start)
+            solution.assign(self.solution_start)
         # reset time filtered solutions
-        eta_nph.dat.data[:] = eta_old.dat.data[:]/2
-        U_nph.dat.data[:] = U_old.dat.data[:]/2
-        eta_n.dat.data[:] = eta_old.dat.data[:]/2
-        U_n.dat.data[:] = U_old.dat.data[:]/2
+        # filtered to T_{n+1/2}
+        self.solution_nplushalf.assign(0.5*solution_old)
+        # filtered to T_{n+1}
+        self.solution_n.assign(0.5*solution_old)
 
         # advance fields from T_{n} to T{n+1}
         sys.stdout.write('Solving 2D ')
         for i in range(M):
             self.timeStepper.advance(t + i*dt, dt, solution, updateForcings)
-            eta_nph.dat.data[:] += eta.dat.data[:]
-            U_nph.dat.data[:] += U.dat.data[:]
-            eta_n.dat.data[:] += eta.dat.data[:]
-            U_n.dat.data[:] += U.dat.data[:]
+            self.solution_nplushalf += solution
+            self.solution_n += solution
             sys.stdout.write('.')
             sys.stdout.flush()
         sys.stdout.write('|')
         sys.stdout.flush()
-        eta_nph.dat.data[:] -= eta.dat.data[:]/2
-        U_nph.dat.data[:] -= U.dat.data[:]/2
-        eta_nph.dat.data[:] /= (M)
-        U_nph.dat.data[:] /= (M)
+        self.solution_nplushalf -= 0.5*solution
+        self.solution_nplushalf /= M
         # store state at T_{n+1}
-        U_start.assign(U)
-        eta_start.assign(eta)
+        self.solution_start.assign(solution)
         # advance fields from T_{n+1} to T{n+2}
         for i in range(M):
             self.timeStepper.advance(t + (M+i)*dt, dt, solution, updateForcings)
-            eta_n.dat.data[:] += eta.dat.data[:]
-            U_n.dat.data[:] += U.dat.data[:]
+            self.solution_n += solution
             sys.stdout.write('.')
             sys.stdout.flush()
         sys.stdout.write('\n')
         sys.stdout.flush()
-        eta_n.dat.data[:] -= eta.dat.data[:]/2
-        U_n.dat.data[:] -= U.dat.data[:]/2
-        eta_n.dat.data[:] /= (2*M)
-        U_n.dat.data[:] /= (2*M)
+        self.solution_n -= 0.5*solution
+        self.solution_n /= (2*M)
         # use filtered solution as output
-        U.assign(U_n)
-        eta.assign(eta_n)
+        solution.assign(self.solution_n)
 
 
 class SSPRK33(timeIntegrator):
