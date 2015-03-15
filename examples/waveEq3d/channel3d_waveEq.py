@@ -53,7 +53,9 @@ U_2d = VectorFunctionSpace(mesh2d, 'DG', 1)
 U_visu_2d = VectorFunctionSpace(mesh2d, 'CG', 1)
 U_scalar_2d = FunctionSpace(mesh2d, 'DG', 1)
 H_2d = FunctionSpace(mesh2d, 'CG', 2)
+W_2d = MixedFunctionSpace([U_2d, H_2d])
 
+solution2d = Function(W_2d, name='solution2d')
 # Mean free surface height (bathymetry)
 bathymetry2d = Function(P1_2d, name='Bathymetry')
 
@@ -63,7 +65,7 @@ bottom_drag2d = Function(P1_2d, name='Bottom Drag')
 
 use_wd = False
 nonlin = False
-swe2d = mode2d.freeSurfaceEquations(mesh2d, U_2d, H_2d, bathymetry2d,
+swe2d = mode2d.freeSurfaceEquations(mesh2d, W_2d, solution2d, bathymetry2d,
                                     uv_bottom2d, bottom_drag2d,
                                     nonlin=nonlin, use_wd=use_wd)
 
@@ -161,19 +163,27 @@ n_steps = 20
 dt = round(float(T_cycle/n_steps))
 TExport = dt
 T = 10*T_cycle + 1e-3
-## explicit model
-#Umag = Constant(0.2)
-#mesh_dt = swe2d.getTimeStep(Umag=Umag)
-#dt = float(np.floor(mesh_dt.dat.data.min()/20.0))*0.8
-#dt = round(comm.allreduce(dt, dt, op=MPI.MIN))
-#print 'dt', dt
-#dt = float(TExport/np.ceil(TExport/dt))
-
+# explicit model
+Umag = Constant(0.2)
+mesh2d_dt = swe2d.getTimeStep(Umag=Umag)
+dt_2d = float(np.floor(mesh2d_dt.dat.data.min()/20.0))
+dt_2d = round(comm.allreduce(dt_2d, dt_2d, op=MPI.MIN))
+dt_2d = float(dt/np.ceil(dt/dt_2d))
+M_modesplit = int(dt/dt_2d)
 if commrank == 0:
     print 'dt =', dt
+    print '2D dt =', dt_2d, M_modesplit
     sys.stdout.flush()
 
-timeStepper2d = mode2d.DIRK3(swe2d, dt)
+#timeStepper2d = mode2d.ForwardEuler(swe2d, dt)  # divide dt by 4
+#timeStepper2d = mode2d.AdamsBashforth3(swe2d, dt)
+subIterator = mode2d.SSPRK33(swe2d, dt_2d)
+#subIterator = mode2d.AdamsBashforth3(swe2d, dt_2d) # blows up!
+timeStepper2d = mode2d.macroTimeStepIntegrator(subIterator,
+                                               M_modesplit,
+                                               restartFromAv=False)
+#timeStepper2d = mode2d.CrankNicolson(swe2d, dt, gamma=0.50)
+#timeStepper2d = mode2d.DIRK3(swe2d, dt)
 #timeStepper2d = mode2d.CrankNicolson(swe2d, dt, gamma=1.0)
 
 timeStepper_mom3d = mode3d.SSPRK33(mom_eq3d, dt)
@@ -191,20 +201,19 @@ uv_bot_2d_file = exporter(U_visu_2d, 'Bottom Velocity', outputDir, 'BotVelocity2
 visc_3d_file = exporter(P1, 'Vertical Viscosity', outputDir, 'Viscosity3d.pvd')
 
 # assign initial conditions
-uv2d, eta2d = swe2d.solution.split()
-uv2d_old, eta2d_old = timeStepper2d.solution_old.split()
+uv2d, eta2d = solution2d.split()
 eta2d.assign(elev_init)
-eta2d_old.assign(elev_init)
 copy2dFieldTo3d(elev_init, eta3d)
 salt3d.assign(salt_init3d)
 
+timeStepper2d.initialize(solution2d)
 timeStepper_mom3d.initialize(uv3d)
 timeStepper_salt3d.initialize(salt3d)
 timeStepper_vmom3d.initialize(uv3d)
 
 # Export initial conditions
-U_2d_file.export(timeStepper2d.solution_old.split()[0])
-eta_2d_file.export(timeStepper2d.solution_old.split()[1])
+U_2d_file.export(solution2d.split()[0])
+eta_2d_file.export(solution2d.split()[1])
 eta_3d_file.export(eta3d)
 uv_3d_file.export(uv3d)
 w_3d_file.export(w3d)
@@ -249,9 +258,9 @@ while t <= T + T_epsilon:
 
     # SSPRK33 time integration loop
     with timed_region('mode2d'):
-        timeStepper2d.advance(t-dt/2, dt, swe2d.solution, updateForcings)
+        timeStepper2d.advance(t, dt_2d, solution2d, updateForcings)
     with timed_region('aux_functions'):
-        eta_n = swe2d.solution.split()[1]
+        eta_n = solution2d.split()[1]
         copy2dFieldTo3d(eta_n, eta3d)  # at t_{n+1/2}
         computeBottomFriction()
     with timed_region('momentumEq'):
@@ -269,8 +278,9 @@ while t <= T + T_epsilon:
                                 bottomToTop=True, bndValue=bndValue,
                                 average=True, bathymetry=bathymetry3d)
         copy3dFieldTo2d(uv3d_dav, uv2d_dav, useBottomValue=False)
-        swe2d.solution.split()[0].assign(uv2d_dav)
-        timeStepper2d.solution_old.split()[0].assign(uv2d_dav)
+        # 2d-3d coupling: restart 2d mode from depth ave 3d velocity
+        # NOTE this filters out frequencies above macro time step from 2d mode
+        timeStepper2d.solution_start.split()[0].assign(uv2d_dav)
     with timed_region('continuityEq'):
         computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
 
@@ -282,8 +292,8 @@ while t <= T + T_epsilon:
     if t >= next_export_t - T_epsilon:
         cputime = timeMod.clock() - cputimestamp
         cputimestamp = timeMod.clock()
-        norm_h = norm(swe2d.solution.split()[1])
-        norm_u = norm(swe2d.solution.split()[0])
+        norm_h = norm(solution2d.split()[1])
+        norm_u = norm(solution2d.split()[0])
 
         if commrank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
@@ -291,11 +301,11 @@ while t <= T + T_epsilon:
             print(line.format(iexp=iExp, i=i, t=t, e=norm_h,
                               u=norm_u, cpu=cputime))
             line = 'Rel. vol. error {0:8.4e}'
-            print(line.format((Vol_0 - compVolume(swe2d.solution.split()[1]))/Vol_0))
+            print(line.format((Vol_0 - compVolume(solution2d.split()[1]))/Vol_0))
 
             sys.stdout.flush()
-        U_2d_file.export(swe2d.solution.split()[0])
-        eta_2d_file.export(swe2d.solution.split()[1])
+        U_2d_file.export(solution2d.split()[0])
+        eta_2d_file.export(solution2d.split()[1])
         eta_3d_file.export(eta3d)
         uv_3d_file.export(uv3d)
         w_3d_file.export(w3d)

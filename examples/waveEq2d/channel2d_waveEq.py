@@ -105,7 +105,7 @@ T = 10*T_cycle + 1e-3
 # explicit model
 Umag = Constant(0.2)
 mesh2d_dt = swe2d.getTimeStep(Umag=Umag)
-dt_2d = float(np.floor(mesh2d_dt.dat.data.min()/20.0))*0.8
+dt_2d = float(np.floor(mesh2d_dt.dat.data.min()/20.0))
 dt_2d = round(comm.allreduce(dt_2d, dt_2d, op=MPI.MIN))
 dt_2d = float(dt/np.ceil(dt/dt_2d))
 M_modesplit = int(dt/dt_2d)
@@ -116,8 +116,8 @@ if commrank == 0:
 
 #timeStepper2d = mode2d.ForwardEuler(swe2d, dt)  # divide dt by 4
 #timeStepper2d = mode2d.AdamsBashforth3(swe2d, dt)
-#subIterator = mode2d.SSPRK33(swe2d, dt_2d)
-subIterator = mode2d.AdamsBashforth3(swe2d, dt)
+subIterator = mode2d.SSPRK33(swe2d, dt_2d)
+#subIterator = mode2d.AdamsBashforth3(swe2d, dt_2d) # blows up!
 timeStepper2d = mode2d.macroTimeStepIntegrator(subIterator,
                                                M_modesplit,
                                                restartFromAv=False)

@@ -230,7 +230,7 @@ class AdamsBashforth3(timeIntegrator):
         # mass matrix for a linear equation
         a = massTermBasic(tri)
         L = (RHS(self.solution_old, **self.funcs_old) +
-                 Source(**self.funcs_old))
+             Source(**self.funcs_old))
         probK1 = LinearVariationalProblem(a, L, self.K1)
         self.solverK1 = LinearVariationalSolver(probK1)
 
@@ -259,7 +259,6 @@ class AdamsBashforth3(timeIntegrator):
             'fieldsplit_0_pc_type': 'jacobi',  # 'jacobi', #'gamg',
             'fieldsplit_1_pc_type': 'jacobi',
         }
-        dt_const_inv = Constant(1.0/dt)
         if updateForcings is not None:
             updateForcings(t+dt)
         self.solverK1.solve()
