@@ -57,7 +57,7 @@ def extrudeMeshSigma(mesh2d, n_layers, bathymetry2d):
     return mesh
 
 
-def computeVertVelocity(solution, uv3d, bathymetry):
+def computeVertVelocity(solution, uv, bathymetry):
     """Computes vertical velocity from 3d continuity equation."""
     # continuity equation must be solved in the space of w (and tracers)
     H = solution.function_space()
@@ -66,13 +66,13 @@ def computeVertVelocity(solution, uv3d, bathymetry):
     tri = TrialFunction(H)
     normal = FacetNormal(mesh)
 
-    w_bottom = -(uv3d[0]*Dx(bathymetry, 0) + uv3d[1]*Dx(bathymetry, 1))
+    w_bottom = -(uv[0]*Dx(bathymetry, 0) + uv[1]*Dx(bathymetry, 1))
     a_w = tri*phi*normal[2]*ds_b - Dx(phi, 2)*tri*dx
-    #L_w = (-(Dx(uv3d[0], 0) + Dx(uv3d[1], 1))*phi*dx -
+    #L_w = (-(Dx(uv[0], 0) + Dx(uv[1], 1))*phi*dx -
            #w_bottom*phi*normal[2]*ds_t)
-    # NOTE this is better for DG uv3d
-    L_w = ((uv3d[0]*Dx(phi, 0) + uv3d[1]*Dx(phi, 1))*dx -
-           (uv3d[0]*normal[0] + uv3d[1]*normal[1])*phi*(ds_v + ds_t + ds_b) -
+    # NOTE this is better for DG uv
+    L_w = ((uv[0]*Dx(phi, 0) + uv[1]*Dx(phi, 1))*dx -
+           (uv[0]*normal[0] + uv[1]*normal[1])*phi*(ds_v + ds_t + ds_b) -
            w_bottom*phi*normal[2]*ds_t)
     solve(a_w == L_w, solution)
 
@@ -96,6 +96,7 @@ class equation(object):
         """Returns weak for for terms that do not depend on the solution."""
         raise NotImplementedError(('This method must be implemented '
                                    'in the derived class'))
+
 
 class timeIntegrator(object):
     """Base class for all time integrator objects."""

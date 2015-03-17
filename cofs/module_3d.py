@@ -751,13 +751,17 @@ class verticalMomentumEquation(equation):
 
 class tracerEquation(equation):
     """3D tracer advection-diffusion equation"""
-    def __init__(self, mesh, space, solution, eta, uv, w,
+    def __init__(self, mesh, space, solution, eta, uv, w, w_mesh, dw_mesh_dz,
                  bnd_markers, bnd_len, nonlin=True):
         self.mesh = mesh
         self.space = space
         # this dict holds all args to the equation (at current time step)
         self.solution = solution
-        self.kwargs = {'eta': eta, 'uv': uv, 'w': w}
+        self.kwargs = {'eta': eta,
+                       'uv': uv,
+                       'w': w,
+                       'w_mesh': w_mesh,
+                       'dw_mesh_dz': dw_mesh_dz}
         # time independent arg
 
         # trial and test functions
@@ -797,7 +801,8 @@ class tracerEquation(equation):
         """
         return inner(solution, self.test) * self.dx
 
-    def RHS(self, solution, eta, uv, w, **kwargs):
+    def RHS(self, solution, eta, uv, w, w_mesh=None, dw_mesh_dz=None,
+            **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0  # holds all dx volume integral terms
@@ -808,7 +813,14 @@ class tracerEquation(equation):
         F += -solution*(uv[0]*Dx(self.test, 0) +
                         uv[1]*Dx(self.test, 1))*dx
         # Vertical advection term
-        F += -solution*w*Dx(self.test, 2)*dx
+        vertvelo = w
+        if w_mesh is not None:
+            vertvelo += -w_mesh
+        F += -solution*vertvelo*Dx(self.test, 2)*dx
+
+        # Non-conservative ALE source term
+        if dw_mesh_dz is not None:
+            F += solution*dw_mesh_dz*self.test*dx
 
         # Bottom/top impermeability boundary conditions
         G += +solution*(uv[0]*self.normal[0] +
