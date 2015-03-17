@@ -21,7 +21,7 @@ class ForwardEuler(timeIntegrator):
 
         massTerm = self.equation.massTerm
         RHS = self.equation.RHS
-        Source = self.equation.RHS
+        Source = self.equation.Source
 
         invdt = Constant(1.0/dt)
 
@@ -33,9 +33,6 @@ class ForwardEuler(timeIntegrator):
         self.funcs_old = {}
         for k in self.funcs:
             self.funcs_old[k] = Function(self.funcs[k].function_space())
-        # assing values to old functions
-        for k in self.funcs:
-            self.funcs_old[k].assign(self.funcs[k])
 
         u = self.equation.solution
         u_old = self.solution_old
@@ -44,13 +41,18 @@ class ForwardEuler(timeIntegrator):
         #self.F = (invdt*massTerm(u) - invdt*massTerm(u_old) -
                   #RHS(u_old, **self.funcs_old))
 
-        self.A = (invdt*massTerm(u_tri))
-        self.L = (invdt*massTerm(u_old) +
-                  RHS(u_old, **self.funcs_old) +
-                  Source(**self.funcs_old))
+        a = (invdt*massTerm(u_tri))
+        L = (invdt*massTerm(u_old) +
+             RHS(u_old, **self.funcs_old) +
+             Source(**self.funcs_old))
+        prob = LinearVariationalProblem(a, L, self.equation.solution)
+        self.solver = LinearVariationalSolver(prob)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
+        # assing values to old functions
+        for k in self.funcs_old:
+            self.funcs_old[k].assign(self.funcs[k])
         self.solution_old.assign(solution)
 
     def advance(self, t, dt, solution, updateForcings):
@@ -65,9 +67,10 @@ class ForwardEuler(timeIntegrator):
             #self.funcs_old[k].assign(0.5*(self.funcs[k]+self.funcs_old[k]))
 
         #solve(self.F == 0, solution, solver_parameters=solver_parameters)
-        solve(self.A == self.L, solution)
+        self.solver.solve()
+        #solve(self.A == self.L, solution)
         # store old values
-        for k in self.funcs:
+        for k in self.funcs_old:
             self.funcs_old[k].assign(self.funcs[k])
         self.solution_old.assign(solution)
 
@@ -374,6 +377,7 @@ class momentumEquation(equation):
     """3D momentum equation for hydrostatic Boussinesq flow."""
     def __init__(self, mesh, space, space_scalar, bnd_markers, bnd_len,
                  solution, eta, bathymetry, w=None,
+                 w_mesh=None, dw_mesh_dz=None,
                  uv_bottom=None, bottom_drag=None, viscosity_v=None,
                  nonlin=True):
         self.mesh = mesh
@@ -384,6 +388,8 @@ class momentumEquation(equation):
         # this dict holds all time dep. args to the equation
         self.kwargs = {'eta': eta,
                        'w': w,
+                       'w_mesh': w_mesh,
+                       'dw_mesh_dz': dw_mesh_dz,
                        'uv_bottom': uv_bottom,
                        'bottom_drag': bottom_drag,
                        'viscosity_v': viscosity_v,
@@ -450,7 +456,8 @@ class momentumEquation(equation):
         #return (solution[0]*self.test[0] + solution[1]*self.test[1]) * self.dx
 
     def RHS(self, solution, eta, w=None, viscosity_v=None,
-            uv_bottom=None, bottom_drag=None, **kwargs):
+            uv_bottom=None, bottom_drag=None,
+            w_mesh=None, dw_mesh_dz=None, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0  # holds all dx volume integral terms
@@ -489,15 +496,26 @@ class momentumEquation(equation):
                   solution[0]*solution[1]*self.test[0]*self.normal[1] +
                   solution[1]*solution[0]*self.test[1]*self.normal[0] +
                   solution[1]*solution[1]*self.test[1]*self.normal[1])*(ds_t + ds_b)
-            ## Vertical advection
-            #Adv_v = -(Dx(self.test[0], 2)*solution[0]*w +
-                      #Dx(self.test[1], 2)*solution[1]*w)
-            #F += Adv_v * self.dx
-            ##if self.horizontal_DG:
-                ##w_rie = avg(w)
-                ##uv_rie = avg(solution)
-                ##G += (uv_rie[0]*w_rie*jump(self.test[0], self.normal[2]) +
-                      ##uv_rie[1]*w_rie*jump(self.test[1], self.normal[2]))*self.dS_h
+            # Vertical advection term
+            vertvelo = w
+            if w_mesh is not None:
+                vertvelo = w-w_mesh
+            #F += -solution*vertvelo*Dx(self.test, 2)*dx
+            # Vertical advection
+            Adv_v = -(Dx(self.test[0], 2)*solution[0]*vertvelo +
+                      Dx(self.test[1], 2)*solution[1]*vertvelo)
+            F += Adv_v * self.dx
+            G += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
+                  solution[1]*vertvelo*self.test[1]*self.normal[2])*(ds_t + ds_b)
+            #if self.horizontal_DG:
+                #w_rie = avg(w)
+                #uv_rie = avg(solution)
+                #G += (uv_rie[0]*w_rie*jump(self.test[0], self.normal[2]) +
+                      #uv_rie[1]*w_rie*jump(self.test[1], self.normal[2]))*self.dS_h
+
+            # Non-conservative ALE source term
+            if dw_mesh_dz is not None:
+                F += solution*dw_mesh_dz*self.test*dx
 
         if self.nonlin:
             total_H = self.bathymetry + eta
@@ -811,28 +829,30 @@ class tracerEquation(equation):
         # NOTE advection terms must be exactly as in 3d continuity equation
         # Horizontal advection term
         F += -solution*(uv[0]*Dx(self.test, 0) +
-                        uv[1]*Dx(self.test, 1))*dx
+                        uv[1]*Dx(self.test, 1))*self.dx
         # Vertical advection term
         vertvelo = w
         if w_mesh is not None:
-            vertvelo += -w_mesh
-        F += -solution*vertvelo*Dx(self.test, 2)*dx
+            vertvelo = w-w_mesh
+        F += -solution*vertvelo*Dx(self.test, 2)*self.dx
 
         # Non-conservative ALE source term
         if dw_mesh_dz is not None:
-            F += solution*dw_mesh_dz*self.test*dx
+            F += solution*dw_mesh_dz*self.test*self.dx
 
         # Bottom/top impermeability boundary conditions
         G += +solution*(uv[0]*self.normal[0] +
                         uv[1]*self.normal[1])*self.test*(ds_t + ds_b)
-        G += +solution*w*self.normal[2]*self.test*(ds_t + ds_b)
+        # TODO what is the correct free surf bnd condition?
+        G += +solution*vertvelo*self.normal[2]*self.test*(ds_t + ds_b)
 
         # boundary conditions
         for bnd_marker in self.boundary_markers:
             funcs = self.bnd_functions.get(bnd_marker)
             ds_bnd = ds_v(int(bnd_marker), domain=self.mesh)
             if funcs is None:
-                # assume land boundary NOTE uv.n should be very close to 0
+                ## assume land boundary NOTE uv.n should be very close to 0
+                #continue
                 G += solution*(self.normal[0]*uv[0] +
                                self.normal[1]*uv[1])*self.test*ds_bnd
 
