@@ -799,10 +799,10 @@ class freeSurfaceEquations(equation):
                 G += total_H * un_ext * self.eta_test * ds_bnd
                 G += un_ext * un_ext * inner(self.normal, self.U_test) * ds_bnd
 
-        ## Quadratic drag
-        #BottomFri = g_grav * mu_manning ** 2 * \
-            #total_H ** (-4. / 3.) * sqrt(dot(uv_old, uv_old)) * inner(self.U_test, uv)*self.dx
-        #F += BottomFri
+        # Quadratic drag
+        BottomFri = g_grav * mu_manning ** 2 * \
+            total_H ** (-4. / 3.) * sqrt(dot(uv_old, uv_old)) * inner(self.U_test, uv)*self.dx
+        F += BottomFri
 
         # bottom friction from a 3D model
         if bottom_drag is not None and uv_bottom is not None:

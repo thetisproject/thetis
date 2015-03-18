@@ -41,7 +41,9 @@ def createDirectory(path):
             os.makedirs(path)
     return path
 
-# TODO run with larger deformation/smaller depth to test for w effects
+# TODO update tracer advection test for cofs - implement SUPG
+# NOTE solution with large deformations is not periodic - bnd conditions?
+# NOTE discrepancy in tracer value may be due to lack of SUPG in adv?
 
 # set physical constants
 physical_constants['z0_friction'].assign(0.0)
@@ -99,7 +101,7 @@ bathfile = File(os.path.join(outputDir, 'bath.pvd'))
 bathfile << bathymetry2d
 
 elev_init = Function(H_2d)
-elev_init.project(Expression('eta_amp*sin(pi*x[0]/Lx)', eta_amp=0.5,
+elev_init.project(Expression('eta_amp*sin(pi*x[0]/Lx)', eta_amp=5.0,
                              Lx=Lx))
 
 # create 3d equations
@@ -213,12 +215,16 @@ vmom_eq3d = mode3d.verticalMomentumEquation(mesh, U, U_scalar, uv3d, w=None,
 # set time step, and run duration
 c_wave = float(np.sqrt(9.81*depth_oce))
 T_cycle = Lx/c_wave
-n_steps = 20
+n_steps = 20*2
 dt = round(float(T_cycle/n_steps))
 TExport = dt
 T = 10*T_cycle + 1e-3
 # explicit model
-Umag = Constant(0.2)
+Umag = Constant(2.0)
+#mesh_dt = swe2d.getTimeStepAdvection(Umag=Umag)
+#dt_3d = float(np.floor(mesh_dt.dat.data.min()/20.0))
+##print dt_3d
+#exit(0)
 mesh2d_dt = swe2d.getTimeStep(Umag=Umag)
 dt_2d = float(np.floor(mesh2d_dt.dat.data.min()/20.0))
 dt_2d = round(comm.allreduce(dt_2d, dt_2d, op=MPI.MIN))
