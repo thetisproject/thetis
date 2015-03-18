@@ -9,6 +9,20 @@ import numpy as np
 import sys
 from cofs.physical_constants import physical_constants
 
+comm = op2.MPI.comm
+commrank = op2.MPI.comm.rank
+
+
+def createDirectory(path):
+    if commrank == 0:
+        if os.path.exists(path):
+            if not os.path.isdir(path):
+                raise Exception('file with same name exists', path)
+        else:
+            os.makedirs(path)
+    return path
+
+
 def extrudeMeshLinear(mesh2d, n_layers, xmin, xmax, dmin, dmax):
     """Extrudes 2d surface mesh with defined by two endpoints in x axis."""
     layer_height = 1.0/n_layers

@@ -769,8 +769,10 @@ class verticalMomentumEquation(equation):
 
 class tracerEquation(equation):
     """3D tracer advection-diffusion equation"""
-    def __init__(self, mesh, space, solution, eta, uv, w, w_mesh, dw_mesh_dz,
-                 bnd_markers, bnd_len, nonlin=True):
+    def __init__(self, mesh, space, solution, eta, uv, w,
+                 w_mesh=None, dw_mesh_dz=None,
+                 test_supg_h=None, test_supg_v=None, test_supg_mass=None,
+                 bnd_markers=None, bnd_len=None, nonlin=True):
         self.mesh = mesh
         self.space = space
         # this dict holds all args to the equation (at current time step)
@@ -780,7 +782,10 @@ class tracerEquation(equation):
                        'w': w,
                        'w_mesh': w_mesh,
                        'dw_mesh_dz': dw_mesh_dz}
-        # time independent arg
+        # SUPG terms (add to forms)
+        self.test_supg_h = test_supg_h
+        self.test_supg_v = test_supg_v
+        self.test_supg_mass = test_supg_mass
 
         # trial and test functions
         self.test = TestFunction(self.space)
@@ -817,7 +822,10 @@ class tracerEquation(equation):
 
         Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
         """
-        return inner(solution, self.test) * self.dx
+        test = self.test
+        if self.test_supg_mass is not None:
+            test = self.test + self.test_supg_mass
+        return inner(solution, test) * self.dx
 
     def RHS(self, solution, eta, uv, w, w_mesh=None, dw_mesh_dz=None,
             **kwargs):
@@ -861,6 +869,13 @@ class tracerEquation(equation):
                 c_ext = funcs['value']
                 G += c_ext*(self.normal[0]*uv[0] +
                             self.normal[1]*uv[1])*self.test*ds_bnd
+
+        # SUPG stabilization
+        if self.test_supg_h is not None:
+            F += self.test_supg_h*(uv[0]*Dx(solution, 0) +
+                                   uv[1]*Dx(solution, 1))*self.dx
+        if self.test_supg_v is not None:
+            F += self.test_supg_v*vertvelo*Dx(solution, 2)*self.dx
 
         return -F - G
 
