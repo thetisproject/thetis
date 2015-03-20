@@ -115,6 +115,7 @@ import os
 import numpy as np
 import sys
 import time as timeMod
+from mpi4py import MPI
 import cofs.module_2d as mode2d
 import cofs.module_3d as mode3d
 from cofs.utility import *
@@ -137,7 +138,7 @@ op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 order = 2
 
 mesh2d = Mesh('channel_mesh_p{0:d}.msh'.format(order))
-mesh = ExtrudedMesh(mesh2d, layers=100/order, layer_height=0.1*order)
+mesh = ExtrudedMesh(mesh2d, layers=100/order, layer_height=-0.1*order)
 commrank = op2.MPI.comm.rank
 op2.init(log_level=CRITICAL)
 outputDir = createDirectory('outputs' + '_p' + str(order))
@@ -155,25 +156,31 @@ U_scalar_2d = FunctionSpace(mesh2d, 'DG', 1)
 H_2d = FunctionSpace(mesh2d, 'CG', order)
 W_2d = MixedFunctionSpace([U_2d, H_2d])
 
-P1 = FunctionSpace(mesh, 'CG', 1, vfamily='CG', vdegree=1)
-#U = VectorFunctionSpace(mesh, 'DG', 1, vfamily='CG', vdegree=1)
-#U_visu = VectorFunctionSpace(mesh, 'CG', 1, vfamily='CG', vdegree=1)
-#U_scalar = FunctionSpace(mesh, 'DG', 1, vfamily='CG', vdegree=1)
-#H = FunctionSpace(mesh, 'CG', order, vfamily='CG', vdegree=1)
-
-U = VectorFunctionSpace(mesh, 'CG', order, vfamily='CG', vdegree=order)
-U_visu = VectorFunctionSpace(mesh, 'CG', 1, vfamily='CG', vdegree=1)
-U_scalar = FunctionSpace(mesh, 'CG', order, vfamily='CG', vdegree=order)
-H = FunctionSpace(mesh, 'CG', order, vfamily='CG', vdegree=order)
-
 solution2d = Function(W_2d, name='solution2d')
 bathymetry2d = Function(P1_2d, name='Bathymetry')
+
+use_wd = False
+nonlin = False
+swe2d = mode2d.freeSurfaceEquations(mesh2d, W_2d, solution2d, bathymetry2d,
+                                    nonlin=nonlin, use_wd=use_wd)
+
+P1 = FunctionSpace(mesh, 'CG', 1, vfamily='CG', vdegree=1)
+U = VectorFunctionSpace(mesh, 'DG', 1, vfamily='CG', vdegree=1)
+U_visu = VectorFunctionSpace(mesh, 'CG', 1, vfamily='CG', vdegree=1)
+U_scalar = FunctionSpace(mesh, 'DG', 1, vfamily='CG', vdegree=1)
+H = FunctionSpace(mesh, 'CG', order, vfamily='CG', vdegree=1)
+
+#U = VectorFunctionSpace(mesh, 'CG', order, vfamily='CG', vdegree=order)
+#U_visu = VectorFunctionSpace(mesh, 'CG', 1, vfamily='CG', vdegree=1)
+#U_scalar = FunctionSpace(mesh, 'CG', order, vfamily='CG', vdegree=order)
+#H = FunctionSpace(mesh, 'CG', order, vfamily='CG', vdegree=order)
 
 eta3d = Function(H, name='Elevation')
 bathymetry3d = Function(P1, name='Bathymetry')
 uv3d = Function(U, name='Velocity')
 w3d = Function(H, name='Vertical Velocity')
 salt3d = Function(H, name='Salinity')
+diffusivity_h = Function(P1, name='H. diffusivity').assign(100.0)
 
 # Initial conditions
 eta3d.assign(0.0)
@@ -195,7 +202,8 @@ density_mag = 1.0
 # Test 2
 density = Expression(('density_mag*(x[0] > 0.5*L_x) ? 0.0 : 1.0'), L_x=L_x,
                      density_mag=density_mag)
-salt3d.interpolate(density)
+salt_init = Function(P1, name='salt init').interpolate(density)
+salt3d.project(salt_init)
 
 # Compute vertical velocity
 computeVertVelocity(w3d, uv3d, bathymetry3d)
@@ -211,47 +219,17 @@ salt_3d_file.export(salt3d)
 
 # Define tracer advection equations
 
-dt = 100.0 #133.3333  # TODO use CFL
-if order == 2:
-    dt *= 2400.0/700.0/2
-dt_const = Constant(dt)
 T = 60*3600
 TExport = 400.0
+dt = 100.0 #133.3333  # TODO use CFL
+mesh2d_dt = swe2d.getTimeStepAdvection(Umag=u_mag)
+dt = float(np.floor(mesh2d_dt.dat.data.min()/20.0))
+dt = round(comm.allreduce(dt, dt, op=MPI.MIN))
+dt = float(TExport/np.ceil(TExport/dt))
+if commrank == 0:
+    print 'dt =', dt
+    sys.stdout.flush()
 
-# SUPG stabilization parameters
-alpha = Constant(0.2)
-
-# TODO get these from mesh
-h_h = Constant(700.0) if order == 1 else Constant(2400.0)  # mesh horiz. length
-h_v = Constant(0.1*order)
-u_mag_func = Function(U_scalar)
-u_mag_func_h = Function(U_scalar)
-u_mag_func_v = Function(U_scalar)
-# TODO provide test functions to the equations
-test = TestFunction(H)
-test_supg_mass = alpha/u_mag_func*(h_h*uv3d[0]*Dx(test, 0) +
-                                   h_h*uv3d[1]*Dx(test, 1) +
-                                   h_v*w3d*Dx(test, 2))
-scale_h = Constant(1.1)
-scale_v = Constant(0.6)
-test_supg_h = scale_h*alpha/u_mag_func_h*(h_h*uv3d[0]*Dx(test, 0) + h_h*uv3d[1]*Dx(test, 1))
-test_supg_v = scale_h*alpha/u_mag_func_v*(h_v*w3d*Dx(test, 2))
-#test_supg_mass = test_supg_h = test_supg_v = None
-
-# equations
-use_wd = False
-nonlin = False
-swe2d = mode2d.freeSurfaceEquations(mesh2d, W_2d, solution2d, bathymetry2d,
-                                    nonlin=nonlin, use_wd=use_wd)
-
-salt_eq3d = mode3d.tracerEquation(mesh, H, salt3d, eta3d, uv3d, w=w3d,
-                                  test_supg_h=test_supg_h,
-                                  test_supg_v=test_supg_v,
-                                  test_supg_mass=test_supg_mass,
-                                  bnd_markers=swe2d.boundary_markers,
-                                  bnd_len=swe2d.boundary_len)
-timeStepper_salt3d = mode3d.SSPRK33(salt_eq3d, dt)
-timeStepper_salt3d.initialize(salt3d)
 
 def computeMagnitude(solution, u=None, w=None):
     """
@@ -273,9 +251,53 @@ def computeMagnitude(solution, u=None, w=None):
     solve(a == L, solution)
     solution.dat.data[:] = np.maximum(solution.dat.data[:], 1e-6)
 
+hElemSize3d = getHorzontalElemSize(P1_2d, P1)
+vElemSize3d = getVerticalElemSize(P1_2d, P1)
+
+# SUPG stabilization parameters
+alpha = Constant(0.2)  # between 0 and 1
+
+u_mag_func = Function(U_scalar)
+u_mag_func_h = Function(U_scalar)
+u_mag_func_v = Function(U_scalar)
+scale_h = Constant(2.4)  # can be increased
+scale_v = Constant(2.0)
 computeMagnitude(u_mag_func, u=uv3d, w=w3d)
 computeMagnitude(u_mag_func_h, u=uv3d)
 computeMagnitude(u_mag_func_v, w=w3d)
+# k = (uh)_e/2 xi
+# xi = coth(alpha) - 1/alpha
+# alpha = uh/2k
+# w_SUPG = w + k u_j/|u| w_,j /|u| = w + (uh)_e/2*xi*u_j*w_,j/|u|**2
+# (uh)_e = (uh)_h + (wh)_v ~= (uh)_h
+# (uh)_e/|u| = (h)_h + (wh)_v/|u| ~= (h)_h ???
+# w_SUPG = w + (h)_e/2*xi/|u|*u_j*w_,j
+gamma_h = Function(U_scalar, name='gamma_h')
+gamma_h.project(hElemSize3d/2*alpha/u_mag_func)
+gamma_v = Function(U_scalar, name='gamma_v')
+gamma_v.project(vElemSize3d/2*alpha/u_mag_func)
+test = TestFunction(H)
+test_supg_mass = alpha/u_mag_func*(hElemSize3d/2*uv3d[0]*Dx(test, 0) +
+                                   hElemSize3d/2*uv3d[1]*Dx(test, 1) +
+                                   vElemSize3d/2*w3d*Dx(test, 2))
+test_supg_h = scale_h*gamma_h*(uv3d[0]*Dx(test, 0) + uv3d[1]*Dx(test, 1))
+test_supg_v = scale_v*gamma_v*(w3d*Dx(test, 2))
+#test_supg_mass = test_supg_h = test_supg_v = None
+
+# equations
+salt_eq3d = mode3d.tracerEquation(mesh, H, salt3d, eta3d, uv3d, w=w3d,
+                                  test_supg_h=test_supg_h,
+                                  test_supg_v=test_supg_v,
+                                  test_supg_mass=test_supg_mass,
+                                  diffusivity_h=diffusivity_h,
+                                  bnd_markers=swe2d.boundary_markers,
+                                  bnd_len=swe2d.boundary_len)
+ocean_salt_3d = {'value': Constant(1.0)}
+river_salt_3d = {'value': Constant(0.0)}
+#salt_eq3d.bnd_functions = {2: ocean_salt_3d, 1: river_salt_3d}
+
+timeStepper_salt3d = mode3d.SSPRK33(salt_eq3d, dt)
+timeStepper_salt3d.initialize(salt3d)
 
 from pyop2.profiling import timed_region, timed_function
 
@@ -308,6 +330,8 @@ while t <= T + T_epsilon:
                                                             t=t, e=norm_C,
                                                             u=norm_u,
                                                             cpu=cputime))
+            line = 'density {0:11.6f} {1:11.6f}'
+            print line.format(salt3d.dat.data.min(), salt3d.dat.data.max()-1.0)
             sys.stdout.flush()
         uv_3d_file.export(uv3d)
         w_3d_file.export(w3d)

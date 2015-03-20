@@ -884,10 +884,10 @@ class tracerEquation(equation):
                 #c_up = (1-alpha)*(c_ext-c_in)/4  # for direct adv term
                 G += c_up*un*self.test*ds_bnd
 
-            if diffusivity_h is not None:
-                dflux = diffusivity_h*(Dx(solution, 0)*self.normal[0] +
-                                        Dx(solution, 1)*self.normal[1])
-                G += -dflux*self.test*ds_bnd
+            #if diffusivity_h is not None:
+                #dflux = diffusivity_h*(Dx(solution, 0)*self.normal[0] +
+                                       #Dx(solution, 1)*self.normal[1])/2
+                #G += -dflux*self.test*ds_bnd
 
 
         # diffusion
@@ -899,6 +899,9 @@ class tracerEquation(equation):
         if self.test_supg_h is not None:
             F += self.test_supg_h*(uv[0]*Dx(solution, 0) +
                                    uv[1]*Dx(solution, 1))*self.dx
+            if diffusivity_h is not None:
+                F += -diffusivity_h*self.test_supg_h*(Dx(Dx(solution, 0), 0) +
+                                                      Dx(Dx(solution, 1), 1))*self.dx
         if self.test_supg_v is not None:
             F += self.test_supg_v*vertvelo*Dx(solution, 2)*self.dx
 
