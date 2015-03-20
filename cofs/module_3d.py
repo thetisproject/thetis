@@ -32,7 +32,8 @@ class ForwardEuler(timeIntegrator):
         # create functions to hold the values of previous time step
         self.funcs_old = {}
         for k in self.funcs:
-            self.funcs_old[k] = Function(self.funcs[k].function_space())
+            if self.funcs[k] is not None:
+                self.funcs_old[k] = Function(self.funcs[k].function_space())
 
         u = self.equation.solution
         u_old = self.solution_old
@@ -834,10 +835,16 @@ class tracerEquation(equation):
         F = 0  # holds all dx volume integral terms
         G = 0  # holds all ds boundary interface terms
 
+        #test_h = self.test
+        #if self.test_supg_h is not None:
+            #test_h = self.test + self.test_supg_h
+
         # NOTE advection terms must be exactly as in 3d continuity equation
         # Horizontal advection term
         F += -solution*(uv[0]*Dx(self.test, 0) +
                         uv[1]*Dx(self.test, 1))*self.dx
+        #F += self.test*(uv[0]*Dx(solution, 0) +
+                        #uv[1]*Dx(solution, 1))*self.dx
         # Vertical advection term
         vertvelo = w
         if w_mesh is not None:
@@ -859,16 +866,21 @@ class tracerEquation(equation):
             funcs = self.bnd_functions.get(bnd_marker)
             ds_bnd = ds_v(int(bnd_marker), domain=self.mesh)
             if funcs is None:
-                ## assume land boundary NOTE uv.n should be very close to 0
+                # assume land boundary NOTE uv.n should be very close to 0
                 #continue
                 G += solution*(self.normal[0]*uv[0] +
                                self.normal[1]*uv[1])*self.test*ds_bnd
 
             elif 'value' in funcs:
                 # prescribe external tracer value
-                c_ext = funcs['value']
-                G += c_ext*(self.normal[0]*uv[0] +
-                            self.normal[1]*uv[1])*self.test*ds_bnd
+                nudge = 1.00
+                c_in = solution
+                c_ext = nudge*funcs['value'] + (1-nudge)*c_in
+                un = self.normal[0]*uv[0] + self.normal[1]*uv[1]
+                alpha = 0.5*(tanh(4 * un / 0.02) + 1)
+                c_up = alpha*c_in + (1-alpha)*c_ext  # for inv.part adv term
+                #c_up = (1-alpha)*(c_ext-c_in)/4  # for direct adv term
+                G += c_up*un*self.test*ds_bnd
 
         # SUPG stabilization
         if self.test_supg_h is not None:

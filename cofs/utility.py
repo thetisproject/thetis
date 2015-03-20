@@ -341,5 +341,5 @@ class exporter(object):
         self.outfile = File(os.path.join(outputDir, filename))
 
     def export(self, function):
-        self.outfunc.assign(project(function, self.fs_visu))
+        self.outfunc.project(function)
         self.outfile << self.outfunc
