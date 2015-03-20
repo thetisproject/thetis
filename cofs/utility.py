@@ -310,6 +310,46 @@ def computeBottomDrag(uv_bottom, z_bottom, bathymetry, drag):
     return drag
 
 
+def getHorzontalElemSize(P1_2d, P1_3d=None):
+    """
+    Computes horizontal element size from the 2D mesh, the copies it over a 3D
+    field.
+    """
+    cellsize = CellSize(P1_2d.mesh())
+    test = TestFunction(P1_2d)
+    tri = TrialFunction(P1_2d)
+    sol2d = Function(P1_2d)
+    dx_2d = Measure('dx', domain=P1_2d.mesh(), subdomain_id='everywhere')
+    a = test * tri * dx_2d
+    L = test * cellsize * dx_2d
+    solve(a == L, sol2d)
+    if P1_3d is None:
+        return sol2d
+    sol3d = Function(P1_3d)
+    copy2dFieldTo3d(sol2d, sol3d)
+    return sol3d
+
+
+def getVerticalElemSize(P1_2d, P1_3d):
+    """
+    Computes horizontal element size from the 2D mesh, the copies it over a 3D
+    field.
+    """
+    # compute total depth
+    depth2d = Function(P1_2d)
+    zbot2d = Function(P1_2d)
+    zcoord3d = Function(P1_3d)
+    project(Expression('x[2]'), zcoord3d)
+    copy3dFieldTo2d(zcoord3d, depth2d, useBottomValue=False)
+    copy3dFieldTo2d(zcoord3d, zbot2d, useBottomValue=True)
+    depth2d += - zbot2d
+    # divide by number of element layers
+    n_layers = P1_3d.mesh().layers - 1
+    depth2d /= n_layers
+    copy2dFieldTo3d(depth2d, zcoord3d)
+    return zcoord3d
+
+
 def computeParabolicViscosity(uv_bottom, bottom_drag, bathymetry, nu):
     """Computes parabolic eddy viscosity profile assuming log layer flow
     nu = kappa * u_bf * (-z) * (bath + z0 + z) / (bath + z0)

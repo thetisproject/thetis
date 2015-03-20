@@ -180,6 +180,7 @@ bathymetry3d = Function(P1, name='Bathymetry')
 uv3d = Function(U, name='Velocity')
 w3d = Function(H, name='Vertical Velocity')
 salt3d = Function(H, name='Salinity')
+diffusivity_h = None  # Function(P1, name='H. diffusivity').assign(100.0)
 
 # Initial conditions
 eta3d.assign(0.0)
@@ -202,7 +203,6 @@ density_mag = 1.0
 density = Expression(('density_mag*(x[0] > 0.25*L_x) ? 0.0 : 1.0'), L_x=L_x,
                      density_mag=density_mag)
 salt_init = Function(P1, name='salt init').interpolate(density)
-#salt3d.interpolate(density)
 salt3d.project(salt_init)
 
 # Compute vertical velocity
@@ -219,7 +219,7 @@ salt_3d_file.export(salt3d)
 
 # Define tracer advection equations
 
-T = 60*3600
+T = 100000.0
 TExport = 400.0
 dt = 100.0 #133.3333  # TODO use CFL
 mesh2d_dt = swe2d.getTimeStepAdvection(Umag=u_mag)
@@ -251,58 +251,16 @@ def computeMagnitude(solution, u=None, w=None):
     solve(a == L, solution)
     solution.dat.data[:] = np.maximum(solution.dat.data[:], 1e-6)
 
-
-def getHorzontalElemSize(P1_2d, P1_3d=None):
-    """
-    Computes horizontal element size from the 2D mesh, the copies it over a 3D
-    field.
-    """
-    cellsize = CellSize(P1_2d.mesh())
-    test = TestFunction(P1_2d)
-    tri = TrialFunction(P1_2d)
-    sol2d = Function(P1_2d)
-    dx_2d = Measure('dx', domain=mesh2d, subdomain_id='everywhere')
-    a = test * tri * dx_2d
-    L = test * cellsize * dx_2d
-    solve(a == L, sol2d)
-    if P1_3d is None:
-        return sol2d
-    sol3d = Function(P1_3d)
-    copy2dFieldTo3d(sol2d, sol3d)
-    return sol3d
-
-
-def getVerticalElemSize(P1_2d, P1_3d):
-    """
-    Computes horizontal element size from the 2D mesh, the copies it over a 3D
-    field.
-    """
-    # compute total depth
-    depth2d = Function(P1_2d)
-    zbot2d = Function(P1_2d)
-    zcoord3d = Function(P1_3d)
-    project(Expression('x[2]'), zcoord3d)
-    copy3dFieldTo2d(zcoord3d, depth2d, useBottomValue=False)
-    copy3dFieldTo2d(zcoord3d, zbot2d, useBottomValue=True)
-    #print depth2d.dat.data.min(), depth2d.dat.data.max()
-    #print zbot2d.dat.data.min(), zbot2d.dat.data.max()
-    depth2d += - zbot2d
-    # divide by number of element layers
-    n_layers = P1_3d.mesh().layers - 1
-    depth2d /= n_layers
-    copy2dFieldTo3d(depth2d, zcoord3d)
-    return zcoord3d
-
 hElemSize3d = getHorzontalElemSize(P1_2d, P1)
 vElemSize3d = getVerticalElemSize(P1_2d, P1)
 
 # SUPG stabilization parameters
-alpha = Constant(0.3)  # cant be too large
+alpha = Constant(0.2)  # between 0 and 1
 
 u_mag_func = Function(U_scalar)
 u_mag_func_h = Function(U_scalar)
 u_mag_func_v = Function(U_scalar)
-scale_h = Constant(1.0)  # can be increased
+scale_h = Constant(2.0)  # can be increased
 scale_v = Constant(1.0)
 computeMagnitude(u_mag_func, u=uv3d, w=w3d)
 computeMagnitude(u_mag_func_h, u=uv3d)
@@ -314,42 +272,20 @@ computeMagnitude(u_mag_func_v, w=w3d)
 # (uh)_e = velocity * elem size in the direction of u !!
 # w_SUPG = w + k u_j/|u| w_,j /|u| = w + (h)_e/2*xi/|u|*u_j*w_,j
 gamma_h = Function(U_scalar, name='gamma_h')
-#gamma_v = Function(U_scalar, name='gamma_v')
 gamma_h.project(hElemSize3d/2*alpha/u_mag_func)
-#gamma_v.project(scale_v*vElemSize3d*alpha/u_mag_func_v)
 test = TestFunction(H)
-#test_supg_mass = alpha/u_mag_func*(hElemSize3d*uv3d[0]*Dx(test, 0) +
-                                   #hElemSize3d*uv3d[1]*Dx(test, 1) +
-                                   #vElemSize3d*w3d*Dx(test, 2))
 test_supg_mass = gamma_h*(uv3d[0]*Dx(test, 0) +
                           uv3d[1]*Dx(test, 1))
 test_supg_h = scale_h*gamma_h*(uv3d[0]*Dx(test, 0) + uv3d[1]*Dx(test, 1))
 test_supg_v = None  # gamma_v*(w3d*Dx(test, 2))
 #test_supg_mass = test_supg_h = test_supg_v = None
 
-sol_old = Function(H)
-sol_old.assign(salt3d)
-dt_const = Constant(dt)
-tri = TrialFunction(H)
-a_RK = inner(tri, test+test_supg_mass)*dx
-L_RK = -dt_const*(test + test_supg_h)*(uv3d[0]*Dx(sol_old, 0) + uv3d[1]*Dx(sol_old, 1))*dx
-
-dsol0 = Function(H, name='drhodt_0')
-dsol1 = Function(H, name='drhodt_1')
-dsol2 = Function(H, name='drhodt_2')
-
-probK0 = LinearVariationalProblem(a_RK, L_RK, dsol0)
-solverK0 = LinearVariationalSolver(probK0)
-probK1 = LinearVariationalProblem(a_RK, L_RK, dsol1)
-solverK1 = LinearVariationalSolver(probK1)
-probK2 = LinearVariationalProblem(a_RK, L_RK, dsol2)
-solverK2 = LinearVariationalSolver(probK2)
-
 # equations
 salt_eq3d = mode3d.tracerEquation(mesh, H, salt3d, eta3d, uv3d, w=w3d,
                                   test_supg_h=test_supg_h,
                                   test_supg_v=test_supg_v,
                                   test_supg_mass=test_supg_mass,
+                                  diffusivity_h=diffusivity_h,
                                   bnd_markers=swe2d.boundary_markers,
                                   bnd_len=swe2d.boundary_len)
 ocean_salt_3d = {'value': Constant(1.0)}
@@ -368,20 +304,12 @@ t = 0
 i = 0
 iExp = 1
 next_export_t = t + TExport
-velocity_flipped = False
 cputimestamp = timeMod.clock()
 
 while t <= T + T_epsilon:
 
     with timed_region('saltEq'):
         timeStepper_salt3d.advance(t, dt, salt3d, None)
-        #solverK0.solve()
-        #sol_old.assign(salt3d + dsol0)
-        #solverK1.solve()
-        #sol_old.assign(salt3d + 0.25*dsol0 + 0.25*dsol1)
-        #solverK2.solve()
-        #salt3d += (1.0/6.0)*dsol0 + (1.0/6.0)*dsol1 + (2.0/3.0)*dsol2
-        #sol_old.assign(salt3d)
 
     norm_C = norm(salt3d)
     norm_u = norm(uv3d)
@@ -408,8 +336,3 @@ while t <= T + T_epsilon:
         cputimestamp = timeMod.clock()
         next_export_t += TExport
         iExp += 1
-
-    if not velocity_flipped and t > T/2:
-        uv3d *= -1
-        w3d *= -1
-        velocity_flipped = True
