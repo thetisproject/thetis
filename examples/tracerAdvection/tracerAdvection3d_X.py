@@ -164,6 +164,7 @@ nonlin = False
 swe2d = mode2d.freeSurfaceEquations(mesh2d, W_2d, solution2d, bathymetry2d,
                                     nonlin=nonlin, use_wd=use_wd)
 
+P0 = FunctionSpace(mesh, 'DG', 0, vfamily='DG', vdegree=0)
 P1 = FunctionSpace(mesh, 'CG', 1, vfamily='CG', vdegree=1)
 U = VectorFunctionSpace(mesh, 'DG', 1, vfamily='CG', vdegree=1)
 U_visu = VectorFunctionSpace(mesh, 'CG', 1, vfamily='CG', vdegree=1)
@@ -255,12 +256,12 @@ hElemSize3d = getHorzontalElemSize(P1_2d, P1)
 vElemSize3d = getVerticalElemSize(P1_2d, P1)
 
 # SUPG stabilization parameters
-alpha = Constant(0.2)  # between 0 and 1
+alpha = Constant(0.5)  # between 0 and 1
 
 u_mag_func = Function(U_scalar)
 u_mag_func_h = Function(U_scalar)
 u_mag_func_v = Function(U_scalar)
-scale_h = Constant(2.0)  # can be increased
+scale_h = Constant(1.0)  # can be increased
 scale_v = Constant(1.0)
 computeMagnitude(u_mag_func, u=uv3d, w=w3d)
 computeMagnitude(u_mag_func_h, u=uv3d)
@@ -270,7 +271,7 @@ computeMagnitude(u_mag_func_v, w=w3d)
 # alpha = uh/2k
 # w_SUPG = w + k u_j/|u| w_,j /|u| = w + (uh)_e/2*xi*u_j*w_,j/|u|**2
 # (uh)_e = velocity * elem size in the direction of u !!
-# w_SUPG = w + k u_j/|u| w_,j /|u| = w + (h)_e/2*xi/|u|*u_j*w_,j
+# w_SUPG = w + (h)_e/2*xi/|u|*u_j*w_,j
 gamma_h = Function(U_scalar, name='gamma_h')
 gamma_h.project(hElemSize3d/2*alpha/u_mag_func)
 test = TestFunction(H)
@@ -280,12 +281,48 @@ test_supg_h = scale_h*gamma_h*(uv3d[0]*Dx(test, 0) + uv3d[1]*Dx(test, 1))
 test_supg_v = None  # gamma_v*(w3d*Dx(test, 2))
 #test_supg_mass = test_supg_h = test_supg_v = None
 
+# non-linear stabilization (suppresses overshoots)
+gjvh = Function(P0, name='nonlin stab param')
+gjvh_file = exporter(P0, 'GJV Parameter', outputDir, 'GJVParam.pvd')
+
+def computeGJVParameter(tracer, param, h, umag, maxval=800.0):
+    """Computes gradient jump viscosity parameter."""
+    P0 = param.function_space()
+    normal = FacetNormal(P0.mesh())
+    test = TestFunction(P0)
+    tri = TrialFunction(P0)
+    a = jump(test, tri)*dS_v
+    avgDx = avg(grad(tracer))
+    inDx = grad(tracer('-'))
+    jumpDx = jump(grad(tracer))
+    jumpGrad = sqrt(jumpDx[0]**2+jumpDx[1]**2)
+    avgGrad = sqrt(avgDx[0]**2+avgDx[1]**2)
+    inGrad = sqrt(inDx[0]**2+inDx[1]**2)
+    avgNorGrad = avgDx[0]*normal('-')[0] + avgDx[1]*normal('-')[1]
+    inNorGrad = inDx[0]*normal('-')[0] + inDx[1]*normal('-')[1]
+    avgNorGrad = avgNorGrad*sign(avgNorGrad)
+    inNorGrad = inNorGrad*sign(inNorGrad)
+    # NOTE factor 2 comes from the formulation
+    #L = Constant(2*0.5*0.5)*avg(h*umag)*jumpGrad/avgNorGrad*inNorGrad/inGrad*avg(test)*dS_v
+    maxgrad = Constant(0.5)/avg(h)
+    L = Constant(2*0.5)*avg(umag*h)*(jumpGrad/maxgrad)*avg(test)*dS_v
+    solve(a == L, param)
+    print param.dat.data.min(), param.dat.data.max()
+    param.dat.data[param.dat.data > maxval] = maxval
+    return param
+
+gjvh_file.export(gjvh)
+computeGJVParameter(salt3d, gjvh, hElemSize3d, u_mag_func_h)
+#print gjvh.dat.data.min(), gjvh.dat.data.max()
+gjvh_file.export(gjvh)
+
 # equations
 salt_eq3d = mode3d.tracerEquation(mesh, H, salt3d, eta3d, uv3d, w=w3d,
                                   test_supg_h=test_supg_h,
                                   test_supg_v=test_supg_v,
                                   test_supg_mass=test_supg_mass,
                                   diffusivity_h=diffusivity_h,
+                                  nonlinStab_h=gjvh,
                                   bnd_markers=swe2d.boundary_markers,
                                   bnd_len=swe2d.boundary_len)
 ocean_salt_3d = {'value': Constant(1.0)}
@@ -310,6 +347,8 @@ while t <= T + T_epsilon:
 
     with timed_region('saltEq'):
         timeStepper_salt3d.advance(t, dt, salt3d, None)
+    with timed_region('aux_functions'):
+        computeGJVParameter(salt3d, gjvh, hElemSize3d, u_mag_func_h)
 
     norm_C = norm(salt3d)
     norm_u = norm(uv3d)
@@ -332,6 +371,7 @@ while t <= T + T_epsilon:
         uv_3d_file.export(uv3d)
         w_3d_file.export(w3d)
         salt_3d_file.export(salt3d)
+        gjvh_file.export(gjvh)
 
         cputimestamp = timeMod.clock()
         next_export_t += TExport
