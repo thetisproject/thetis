@@ -220,8 +220,8 @@ salt_3d_file.export(salt3d)
 
 # Define tracer advection equations
 
-T = 100000.0
-TExport = 400.0
+T = 100000.0/u_mag
+TExport = 400.0/u_mag
 dt = 100.0 #133.3333  # TODO use CFL
 mesh2d_dt = swe2d.getTimeStepAdvection(Umag=u_mag)
 dt = float(np.floor(mesh2d_dt.dat.data.min()/20.0))
@@ -311,8 +311,9 @@ def computeGJVParameter(tracer, param, h, umag, maxval=800.0):
     param.dat.data[param.dat.data > maxval] = maxval
     return param
 
+# TODO compute max stable diffusivity!
 gjvh_file.export(gjvh)
-computeGJVParameter(salt3d, gjvh, hElemSize3d, u_mag_func_h)
+computeGJVParameter(salt3d, gjvh, hElemSize3d, u_mag_func_h, maxval=800.0*u_mag)
 #print gjvh.dat.data.min(), gjvh.dat.data.max()
 gjvh_file.export(gjvh)
 
