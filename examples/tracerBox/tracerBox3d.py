@@ -31,16 +31,6 @@ comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
 op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
-
-def createDirectory(path):
-    if commrank == 0:
-        if os.path.exists(path):
-            if not os.path.isdir(path):
-                raise Exception('file with same name exists', path)
-        else:
-            os.makedirs(path)
-    return path
-
 # TODO update tracer advection test for cofs - implement SUPG
 # NOTE solution with large deformations is not periodic - bnd conditions?
 # NOTE discrepancy in tracer value may be due to lack of SUPG in adv?
@@ -101,7 +91,7 @@ bathfile = File(os.path.join(outputDir, 'bath.pvd'))
 bathfile << bathymetry2d
 
 elev_init = Function(H_2d)
-elev_init.project(Expression('eta_amp*sin(pi*x[0]/Lx)', eta_amp=5.0,
+elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=1.0,
                              Lx=Lx))
 
 # create 3d equations
