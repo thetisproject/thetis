@@ -92,7 +92,7 @@ bathfile = File(os.path.join(outputDir, 'bath.pvd'))
 bathfile << bathymetry2d
 
 elev_init = Function(H_2d)
-elev_init.project(Expression('eta_amp*sin(pi*x[0]/Lx)', eta_amp=0.5,
+elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=1.0,
                              Lx=Lx))
 
 # set time step, and run duration
@@ -103,7 +103,7 @@ dt = round(float(T_cycle/n_steps))
 TExport = dt
 T = 10*T_cycle + 1e-3
 # explicit model
-Umag = Constant(0.2)
+Umag = Constant(0.5)
 mesh2d_dt = swe2d.getTimeStep(Umag=Umag)
 dt_2d = float(np.floor(mesh2d_dt.dat.data.min()/20.0))
 dt_2d = round(comm.allreduce(dt_2d, dt_2d, op=MPI.MIN))
@@ -114,13 +114,23 @@ if commrank == 0:
     print '2D dt =', dt_2d, M_modesplit
     sys.stdout.flush()
 
+solver_parameters = {
+    #'ksp_type': 'fgmres',
+    #'ksp_monitor': True,
+    'ksp_rtol': 1e-12,
+    'ksp_atol': 1e-16,
+    #'pc_type': 'fieldsplit',
+    #'pc_fieldsplit_type': 'multiplicative',
+}
 #timeStepper2d = mode2d.ForwardEuler(swe2d, dt)  # divide dt by 4
 #timeStepper2d = mode2d.AdamsBashforth3(swe2d, dt)
-subIterator = mode2d.SSPRK33(swe2d, dt_2d)
+subIterator = mode2d.SSPRK33(swe2d, dt_2d, solver_parameters)
 #subIterator = mode2d.AdamsBashforth3(swe2d, dt_2d) # blows up!
+# NOTE restarting from time av filters out frequencies above macro time step
+restartFromAv = False
 timeStepper2d = mode2d.macroTimeStepIntegrator(subIterator,
                                                M_modesplit,
-                                               restartFromAv=False)
+                                               restartFromAv=restartFromAv)
 #timeStepper2d = mode2d.CrankNicolson(swe2d, dt, gamma=0.50)
 #timeStepper2d = mode2d.DIRK3(swe2d, dt)
 
@@ -164,6 +174,8 @@ while t <= T + T_epsilon:
     # SSPRK33 time integration loop
     with timed_region('mode2d'):
         timeStepper2d.advance(t, dt_2d, solution2d, updateForcings)
+        #for k in range(M_modesplit):
+            #subIterator.advance(t, dt_2d, solution2d, updateForcings)
 
     # Move to next time step
     t += dt
@@ -183,9 +195,6 @@ while t <= T + T_epsilon:
                               u=norm_u, cpu=cputime))
             line = 'Rel. vol. error {0:8.4e}'
             print(line.format((Vol_0 - compVolume(solution2d.split()[1]))/Vol_0))
-            print (solution2d.split()[1].dat.data.max(),
-                   timeStepper2d.solution_start.split()[1].dat.data.max(),
-                   timeStepper2d.solution_n.split()[1].dat.data.max(),)
 
             sys.stdout.flush()
         U_2d_file.export(solution2d.split()[0])

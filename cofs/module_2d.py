@@ -92,11 +92,12 @@ class SSPRK33(timeIntegrator):
 
     CFL coefficient is 1.0
     """
-    def __init__(self, equation, dt):
+    def __init__(self, equation, dt, solver_parameters=None):
         """Creates forms for the time integrator"""
         timeIntegrator.__init__(self, equation)
         self.explicit = True
         self.CFL_coeff = 1.0
+        self.solver_parameters = solver_parameters
 
         massTerm = self.equation.massTerm
         RHS = self.equation.RHS
@@ -128,11 +129,11 @@ class SSPRK33(timeIntegrator):
         L_RK = dt_const*(RHS(u_old, **self.args) + Source(**self.args))
 
         probK0 = LinearVariationalProblem(a_RK, L_RK, self.K0)
-        self.solverK0 = LinearVariationalSolver(probK0)
+        self.solverK0 = LinearVariationalSolver(probK0, solver_parameters=self.solver_parameters)
         probK1 = LinearVariationalProblem(a_RK, L_RK, self.K1)
-        self.solverK1 = LinearVariationalSolver(probK1)
+        self.solverK1 = LinearVariationalSolver(probK1, solver_parameters=self.solver_parameters)
         probK2 = LinearVariationalProblem(a_RK, L_RK, self.K2)
-        self.solverK2 = LinearVariationalSolver(probK2)
+        self.solverK2 = LinearVariationalSolver(probK2, solver_parameters=self.solver_parameters)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -738,7 +739,7 @@ class freeSurfaceEquations(equation):
             if funcs is None:
                 # assume land boundary
                 continue
-
+            
             elif 'slip_alpha' in funcs:
                 # partial slip bnd condition
                 # viscosity: nu*du/dn*w
