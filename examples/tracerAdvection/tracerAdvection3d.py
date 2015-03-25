@@ -164,7 +164,9 @@ nonlin = False
 swe2d = mode2d.freeSurfaceEquations(mesh2d, W_2d, solution2d, bathymetry2d,
                                     nonlin=nonlin, use_wd=use_wd)
 
+P0 = FunctionSpace(mesh, 'DG', 0, vfamily='DG', vdegree=0)
 P1 = FunctionSpace(mesh, 'CG', 1, vfamily='CG', vdegree=1)
+P2 = FunctionSpace(mesh, 'CG', 2, vfamily='CG', vdegree=2)
 U = VectorFunctionSpace(mesh, 'DG', 1, vfamily='CG', vdegree=1)
 U_visu = VectorFunctionSpace(mesh, 'CG', 1, vfamily='CG', vdegree=1)
 U_scalar = FunctionSpace(mesh, 'DG', 1, vfamily='CG', vdegree=1)
@@ -180,20 +182,31 @@ bathymetry3d = Function(P1, name='Bathymetry')
 uv3d = Function(U, name='Velocity')
 w3d = Function(H, name='Vertical Velocity')
 salt3d = Function(H, name='Salinity')
-diffusivity_h = Function(P1, name='H. diffusivity').assign(100.0)
+diffusivity_h = None  # Function(P1, name='H. diffusivity').assign(100.0)
 
 # Initial conditions
 eta3d.assign(0.0)
 bathymetry3d.assign(L_z)
 bathymetry2d.assign(L_z)
+
 # Horizontal velocity
 u_mag = 1.0
 velocity = Expression(('u_mag*sin(2*pi*x[2]/L_z)*sin(pi*x[0]/L_x)',
                        '0.0',
-                       '-u_mag*L_z/L_x*sin(pi*x[2]/L_z)*sin(2*pi*x[0]/L_x)'),
-                       L_x=L_x, L_z=L_z, u_mag=u_mag)
-
-uv3d.project(velocity)
+                       '0.0'),
+                      L_x=L_x, L_z=L_z, u_mag=u_mag)
+project(velocity, uv3d)
+#radialDist = Function(P2)
+#radialDist.project(Expression(('a*sqrt((x[0]-Lx)/Lx*(x[0]-Lx)/Lx+(-x[2]-Lz)/Lz*(-x[2]-Lz)/Lz)'), Lx=L_x/2, Lz=L_z/2, a=1.0))
+#radialDist.dat.data[radialDist.dat.data > 1.0] = 1.0
+#sinAlpha = Function(P2)
+#sinAlpha.project(Expression(('(-x[2]-Lz)/Lz/sqrt((x[0]-Lx)/Lx*(x[0]-Lx)/Lx+(-x[2]-Lz)/Lz*(-x[2]-Lz)/Lz)'), Lx=L_x/2, Lz=L_z/2))
+#test = TestFunction(U)
+#tri = TrialFunction(U)
+#a = inner(tri, test)*dx
+##L = sin(pi*radialDist)*sinAlpha*test[0]*dx
+#L = 1/0.488*(radialDist/0.5)*exp(-(radialDist/0.5)**2)*sinAlpha*test[0]*dx
+#solve(a == L, uv3d)
 
 # Initial tracer field
 density_mag = 1.0
@@ -216,6 +229,9 @@ salt_3d_file = exporter(P1, 'Salinity', outputDir, 'Salinity3d.pvd')
 uv_3d_file.export(uv3d)
 w_3d_file.export(w3d)
 salt_3d_file.export(salt3d)
+
+uv3d_0 = Function(U, name='Velocity').assign(uv3d)
+w3d_0 = Function(H, name='Vertical Velocity').assign(w3d)
 
 # Define tracer advection equations
 
@@ -260,8 +276,8 @@ alpha = Constant(0.2)  # between 0 and 1
 u_mag_func = Function(U_scalar)
 u_mag_func_h = Function(U_scalar)
 u_mag_func_v = Function(U_scalar)
-scale_h = Constant(2.4)  # can be increased
-scale_v = Constant(2.0)
+scale_h = Constant(1.0)  # can be increased
+scale_v = Constant(1.0)
 computeMagnitude(u_mag_func, u=uv3d, w=w3d)
 computeMagnitude(u_mag_func_h, u=uv3d)
 computeMagnitude(u_mag_func_v, w=w3d)
@@ -273,9 +289,9 @@ computeMagnitude(u_mag_func_v, w=w3d)
 # (uh)_e/|u| = (h)_h + (wh)_v/|u| ~= (h)_h ???
 # w_SUPG = w + (h)_e/2*xi/|u|*u_j*w_,j
 gamma_h = Function(U_scalar, name='gamma_h')
-gamma_h.project(hElemSize3d/2*alpha/u_mag_func)
+gamma_h.project(hElemSize3d/2*alpha/u_mag_func_h)
 gamma_v = Function(U_scalar, name='gamma_v')
-gamma_v.project(vElemSize3d/2*alpha/u_mag_func)
+gamma_v.project(vElemSize3d/2*alpha/u_mag_func_v)
 test = TestFunction(H)
 test_supg_mass = alpha/u_mag_func*(hElemSize3d/2*uv3d[0]*Dx(test, 0) +
                                    hElemSize3d/2*uv3d[1]*Dx(test, 1) +
@@ -284,12 +300,83 @@ test_supg_h = scale_h*gamma_h*(uv3d[0]*Dx(test, 0) + uv3d[1]*Dx(test, 1))
 test_supg_v = scale_v*gamma_v*(w3d*Dx(test, 2))
 #test_supg_mass = test_supg_h = test_supg_v = None
 
+# non-linear stabilization (suppresses overshoots)
+gjv_alpha = Constant(1.5)
+gjvh = Function(P0, name='nonlin stab param')
+gjvh_file = exporter(P0, 'GJV Parameter h', outputDir, 'GJVParam_h.pvd')
+gjvv = Function(P0, name='nonlin stab param')
+gjvv_file = exporter(P0, 'GJV Parameter v', outputDir, 'GJVParam_v.pvd')
+
+def computeHorizGJVParameter(tracer, param, h, umag, maxval=800.0):
+    """Computes gradient jump viscosity parameter."""
+    P0 = param.function_space()
+    normal = FacetNormal(P0.mesh())
+    test = TestFunction(P0)
+    tri = TrialFunction(P0)
+    a = jump(test, tri)*dS_v
+    avgDx = avg(grad(tracer))
+    inDx = grad(tracer('-'))
+    jumpDx = jump(grad(tracer))
+    jumpGrad = sqrt(jumpDx[0]**2+jumpDx[1]**2)
+    avgGrad = sqrt(avgDx[0]**2+avgDx[1]**2)
+    inGrad = sqrt(inDx[0]**2+inDx[1]**2)
+    avgNorGrad = avgDx[0]*normal('-')[0] + avgDx[1]*normal('-')[1]
+    inNorGrad = inDx[0]*normal('-')[0] + inDx[1]*normal('-')[1]
+    avgNorGrad = avgNorGrad*sign(avgNorGrad)
+    inNorGrad = inNorGrad*sign(inNorGrad)
+    # NOTE factor 2 comes from the formulation
+    #L = Constant(2*0.5*0.5)*avg(h*umag)*jumpGrad/avgNorGrad*inNorGrad/inGrad*avg(test)*dS_v
+    maxgrad = Constant(0.5)/avg(h)
+    L = gjv_alpha*Constant(2*0.5)*avg(umag*h)*(jumpGrad/maxgrad)*avg(test)*dS_v
+    solve(a == L, param)
+    print 'GJV h', param.dat.data.min(), param.dat.data.max()
+    param.dat.data[param.dat.data > maxval] = maxval
+    return param
+
+def computeVertGJVParameter(tracer, param, h, umag, maxval=800.0):
+    """Computes gradient jump viscosity parameter."""
+    P0 = param.function_space()
+    normal = FacetNormal(P0.mesh())
+    test = TestFunction(P0)
+    tri = TrialFunction(P0)
+    a = jump(test, tri)*dS_h
+    avgDx = avg(grad(tracer))
+    inDx = grad(tracer('-'))
+    jumpDx = jump(grad(tracer))
+    jumpGrad = sqrt(jumpDx[2]**2)
+    avgGrad = sqrt(avgDx[2]**2)
+    inGrad = sqrt(inDx[2]**2)
+    avgNorGrad = avgDx[2]*normal('-')[2]
+    inNorGrad = inDx[2]*normal('-')[2]
+    avgNorGrad = avgNorGrad*sign(avgNorGrad)
+    inNorGrad = inNorGrad*sign(inNorGrad)
+    # NOTE factor 2 comes from the formulation
+    #L = Constant(2*0.5*0.5)*avg(h*umag)*jumpGrad/avgNorGrad*inNorGrad/inGrad*avg(test)*dS_v
+    maxgrad = Constant(0.5)/avg(h)
+    L = gjv_alpha*Constant(5*2*0.5)*avg(umag*h)*(jumpGrad/maxgrad)*avg(test)*dS_h
+    solve(a == L, param)
+    print 'GJV v', param.dat.data.min(), param.dat.data.max()
+    param.dat.data[param.dat.data > maxval] = maxval
+    return param
+
+# TODO compute max stable diffusivity!
+gjvh_file.export(gjvh)
+computeHorizGJVParameter(salt3d, gjvh, hElemSize3d, u_mag_func_h, maxval=800.0*u_mag)
+#print gjvh.dat.data.min(), gjvh.dat.data.max()
+gjvh_file.export(gjvh)
+
+gjvv_file.export(gjvv)
+computeVertGJVParameter(salt3d, gjvv, vElemSize3d, u_mag_func_v, maxval=800.0*u_mag)
+gjvv_file.export(gjvv)
+
 # equations
 salt_eq3d = mode3d.tracerEquation(mesh, H, salt3d, eta3d, uv3d, w=w3d,
                                   test_supg_h=test_supg_h,
                                   test_supg_v=test_supg_v,
                                   test_supg_mass=test_supg_mass,
                                   diffusivity_h=diffusivity_h,
+                                  nonlinStab_h=gjvh,
+                                  nonlinStab_v=gjvv,
                                   bnd_markers=swe2d.boundary_markers,
                                   bnd_len=swe2d.boundary_len)
 ocean_salt_3d = {'value': Constant(1.0)}
@@ -314,6 +401,9 @@ while t <= T + T_epsilon:
 
     with timed_region('saltEq'):
         timeStepper_salt3d.advance(t, dt, salt3d, None)
+    with timed_region('aux_functions'):
+        computeHorizGJVParameter(salt3d, gjvh, hElemSize3d, u_mag_func_h, maxval=800.0*u_mag)
+        computeVertGJVParameter(salt3d, gjvv, vElemSize3d, u_mag_func_v, maxval=800.0*u_mag)
 
     norm_C = norm(salt3d)
     norm_u = norm(uv3d)
@@ -336,12 +426,17 @@ while t <= T + T_epsilon:
         uv_3d_file.export(uv3d)
         w_3d_file.export(w3d)
         salt_3d_file.export(salt3d)
+        gjvh_file.export(gjvh)
 
         cputimestamp = timeMod.clock()
         next_export_t += TExport
         iExp += 1
 
-    if not velocity_flipped and t > T/2:
-        uv3d *= -1
-        w3d *= -1
-        velocity_flipped = True
+    # smoothly transition from forward to backward flow
+    weight = float(-np.tanh(3*(t-T/2)))
+    uv3d.assign(weight*uv3d_0)
+    w3d.assign(weight*w3d_0)
+    #if not velocity_flipped and t > T/2:
+        #uv3d *= -1
+        #w3d *= -1
+        #velocity_flipped = True

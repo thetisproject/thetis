@@ -774,7 +774,7 @@ class tracerEquation(equation):
                  w_mesh=None, dw_mesh_dz=None,
                  diffusivity_h=None,
                  test_supg_h=None, test_supg_v=None, test_supg_mass=None,
-                 nonlinStab_h=None,
+                 nonlinStab_h=None, nonlinStab_v=None,
                  bnd_markers=None, bnd_len=None, nonlin=True):
         self.mesh = mesh
         self.space = space
@@ -786,7 +786,8 @@ class tracerEquation(equation):
                        'w_mesh': w_mesh,
                        'dw_mesh_dz': dw_mesh_dz,
                        'diffusivity_h': diffusivity_h,
-                       'nonlinStab_h': nonlinStab_h}
+                       'nonlinStab_h': nonlinStab_h,
+                       'nonlinStab_v': nonlinStab_v}
         # SUPG terms (add to forms)
         self.test_supg_h = test_supg_h
         self.test_supg_v = test_supg_v
@@ -833,7 +834,7 @@ class tracerEquation(equation):
         return inner(solution, test) * self.dx
 
     def RHS(self, solution, eta, uv, w, w_mesh=None, dw_mesh_dz=None,
-            diffusivity_h=None, nonlinStab_h=None, **kwargs):
+            diffusivity_h=None, nonlinStab_h=None, nonlinStab_v=None, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0  # holds all dx volume integral terms
@@ -907,9 +908,13 @@ class tracerEquation(equation):
         if self.test_supg_v is not None:
             F += self.test_supg_v*vertvelo*Dx(solution, 2)*self.dx
 
+        # non-linear damping
         if nonlinStab_h is not None:
             F += nonlinStab_h*(Dx(solution, 0)*Dx(self.test, 0) +
                                Dx(solution, 1)*Dx(self.test, 1))*self.dx
+
+        if nonlinStab_v is not None:
+            F += nonlinStab_v*(Dx(solution, 2)*Dx(self.test, 2))*self.dx
 
         return -F - G
 
