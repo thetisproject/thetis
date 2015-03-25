@@ -66,7 +66,8 @@ bottom_drag2d = Function(P1_2d, name='Bottom Drag')
 use_wd = False
 nonlin = False
 swe2d = mode2d.freeSurfaceEquations(mesh2d, W_2d, solution2d, bathymetry2d,
-                                    uv_bottom2d, bottom_drag2d,
+                                    uv_bottom=None, bottom_drag=None,
+                                    #uv_bottom=uv_bottom2d, bottom_drag=bottom_drag2d,
                                     nonlin=nonlin, use_wd=use_wd)
 
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
@@ -97,7 +98,7 @@ bathfile = File(os.path.join(outputDir, 'bath.pvd'))
 bathfile << bathymetry2d
 
 elev_init = Function(H_2d)
-elev_init.project(Expression('eta_amp*sin(pi*x[0]/Lx)', eta_amp=0.5,
+elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=1.0,
                              Lx=Lx))
 
 # create 3d equations
@@ -114,6 +115,7 @@ U_scalar = FunctionSpace(mesh, 'DG', 1, vfamily='CG', vdegree=1)
 H = FunctionSpace(mesh, 'CG', 2, vfamily='CG', vdegree=1)
 
 eta3d = Function(H, name='Elevation')
+eta3d_nplushalf = Function(H, name='Elevation')
 bathymetry3d = Function(P1, name='Bathymetry')
 copy2dFieldTo3d(swe2d.bathymetry, bathymetry3d)
 uv3d = Function(U, name='Velocity')
@@ -149,8 +151,8 @@ mom_eq3d = mode3d.momentumEquation(mesh, U, U_scalar, swe2d.boundary_markers,
                                    viscosity_v=None,
                                    nonlin=nonlin)
 salt_eq3d = mode3d.tracerEquation(mesh, H, salt3d, eta3d, uv3d, w3d,
-                                  swe2d.boundary_markers,
-                                  swe2d.boundary_len)
+                                  bnd_markers=swe2d.boundary_markers,
+                                  bnd_len=swe2d.boundary_len)
 vmom_eq3d = mode3d.verticalMomentumEquation(mesh, U, U_scalar, uv3d, w=None,
                                             viscosity_v=viscosity_v3d,
                                             uv_bottom=uv_bottom3d,
@@ -164,29 +166,41 @@ dt = round(float(T_cycle/n_steps))
 TExport = dt
 T = 10*T_cycle + 1e-3
 # explicit model
-Umag = Constant(0.2)
+Umag = Constant(0.5)
+mesh_dt = swe2d.getTimeStepAdvection(Umag=Umag)
+dt_adv = float(np.floor(mesh_dt.dat.data.min()/20.0))
+dt_adv = round(comm.allreduce(dt_adv, dt_adv, op=MPI.MIN))
 mesh2d_dt = swe2d.getTimeStep(Umag=Umag)
 dt_2d = float(np.floor(mesh2d_dt.dat.data.min()/20.0))
 dt_2d = round(comm.allreduce(dt_2d, dt_2d, op=MPI.MIN))
 dt_2d = float(dt/np.ceil(dt/dt_2d))
 M_modesplit = int(dt/dt_2d)
 if commrank == 0:
-    print 'dt =', dt
+    print 'dt =', dt, dt_adv
     print '2D dt =', dt_2d, M_modesplit
     sys.stdout.flush()
 
+solver_parameters = {
+    #'ksp_type': 'fgmres',
+    #'ksp_monitor': True,
+    'ksp_rtol': 1e-12,
+    'ksp_atol': 1e-16,
+    #'pc_type': 'fieldsplit',
+    #'pc_fieldsplit_type': 'multiplicative',
+}
 #timeStepper2d = mode2d.ForwardEuler(swe2d, dt)  # divide dt by 4
 #timeStepper2d = mode2d.AdamsBashforth3(swe2d, dt)
-subIterator = mode2d.SSPRK33(swe2d, dt_2d)
+subIterator = mode2d.SSPRK33(swe2d, dt_2d, solver_parameters)
 #subIterator = mode2d.AdamsBashforth3(swe2d, dt_2d) # blows up!
 timeStepper2d = mode2d.macroTimeStepIntegrator(subIterator,
                                                M_modesplit,
-                                               restartFromAv=False)
+                                               restartFromAv=True)
 #timeStepper2d = mode2d.CrankNicolson(swe2d, dt, gamma=0.50)
 #timeStepper2d = mode2d.DIRK3(swe2d, dt)
 #timeStepper2d = mode2d.CrankNicolson(swe2d, dt, gamma=1.0)
 
-timeStepper_mom3d = mode3d.SSPRK33(mom_eq3d, dt)
+timeStepper_mom3d = mode3d.SSPRK33(mom_eq3d, dt,
+                                   funcs_nplushalf={'eta':eta3d_nplushalf})
 timeStepper_salt3d = mode3d.SSPRK33(salt_eq3d, dt)
 timeStepper_vmom3d = mode3d.CrankNicolson(vmom_eq3d, dt, gamma=0.6)
 
@@ -261,17 +275,21 @@ while t <= T + T_epsilon:
         timeStepper2d.advance(t, dt_2d, solution2d, updateForcings)
     with timed_region('aux_functions'):
         eta_n = solution2d.split()[1]
-        copy2dFieldTo3d(eta_n, eta3d)  # at t_{n+1/2}
+        copy2dFieldTo3d(eta_n, eta3d)  # at t_{n+1}
+        eta_nph = timeStepper2d.solution_nplushalf.split()[1]
+        copy2dFieldTo3d(eta_nph, eta3d_nplushalf)  # at t_{n+1/2}
         computeBottomFriction()
     with timed_region('momentumEq'):
         timeStepper_mom3d.advance(t, dt, uv3d, updateForcings3d)
+    #with timed_region('vert_diffusion'):
+        #timeStepper_vmom3d.advance(t, dt, uv3d, None)
+    with timed_region('continuityEq'):
+        computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
     with timed_region('aux_functions'):
         computeParabolicViscosity(uv_bottom3d, bottom_drag3d, bathymetry3d,
                                   viscosity_v3d)
-    with timed_region('vert_diffusion'):
-        timeStepper_vmom3d.advance(t, dt, uv3d, None)
-    with timed_region('saltEq'):
-        timeStepper_salt3d.advance(t, dt, salt3d, updateForcings3d)
+    #with timed_region('saltEq'):
+        #timeStepper_salt3d.advance(t, dt, salt3d, updateForcings3d)
     with timed_region('aux_functions'):
         bndValue = Constant((0.0, 0.0, 0.0))
         computeVerticalIntegral(uv3d, uv3d_dav, U,
@@ -280,9 +298,12 @@ while t <= T + T_epsilon:
         copy3dFieldTo2d(uv3d_dav, uv2d_dav, useBottomValue=False)
         # 2d-3d coupling: restart 2d mode from depth ave 3d velocity
         # NOTE this filters out frequencies above macro time step from 2d mode
-        timeStepper2d.solution_start.split()[0].assign(uv2d_dav)
-    with timed_region('continuityEq'):
-        computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
+        start_uv = timeStepper2d.solution_start.split()[0]
+        start_uv.assign(uv2d_dav)
+        #start_eta = timeStepper2d.solution_start.split()[1]
+        #delta = 0.20  # coef to mix 3D fields into 2d init condition
+        #start_uv.assign((1.0-delta)*start_uv + delta*uv2d_dav)
+        #start_eta.assign((1.0-delta)*start_eta + delta*eta_n)
 
     # Move to next time step
     t += dt
@@ -300,8 +321,8 @@ while t <= T + T_epsilon:
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
             print(line.format(iexp=iExp, i=i, t=t, e=norm_h,
                               u=norm_u, cpu=cputime))
-            line = 'Rel. vol. error {0:8.4e}'
-            print(line.format((Vol_0 - compVolume(solution2d.split()[1]))/Vol_0))
+            line = 'Rel. {0:s} error {1:11.4e}'
+            print(line.format('vol  ', (Vol_0 - compVolume(solution2d.split()[1]))/Vol_0))
 
             sys.stdout.flush()
         U_2d_file.export(solution2d.split()[0])

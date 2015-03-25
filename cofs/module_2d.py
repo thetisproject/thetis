@@ -12,11 +12,38 @@ wd_alpha = physical_constants['wd_alpha']
 mu_manning = physical_constants['mu_manning']
 
 
+def cosTimeAvFilter(M):
+    """
+    Raised cos time average filters as in older versions of ROMS.
+    a_i : weights for t_{n+1}
+          sum(a_i) = 1.0, sum(i*a_i/M) = 1.0
+    b_i : weights for t_{n+1/2}
+          sum(b_i) = 1.0, sum(i*b_i/M) = 0.5
+
+    Filters have lenght 2*M.
+    """
+    l = np.arange(1, 2*M+1, dtype=float)/M
+    a = np.zeros_like(l)
+    ix = (l >= 0.5) * (l < 1.5)
+    a[ix] = 1 + np.cos(2*np.pi*(l[ix]-1))
+    a /= sum(a)
+    b = np.cumsum(a[::-1])[::-1]/M
+    # correct b to match 2nd criterion exactly
+    error = sum(l*b)-0.5
+    p = np.linspace(-1,1,len(b))
+    p /= sum(l*p)
+    b -= p*error
+    print 'a', sum(a), sum(l*a)
+    print 'b', sum(b), sum(l*b)
+    return [float(f) for f in a], [float(f) for f in b]
+
+
 class macroTimeStepIntegrator(object):
     """Takes an explicit time integrator and iterates it over M time steps.
     Computes time averages to represent solution at M*dt resolution."""
-    # NOTE the time averages are very diffusive, destroying 3rd order solution
-    # NOTE diffusivity depends on M.
+    # NOTE the time averages can be very diffusive
+    # NOTE diffusivity depends on M and the choise of time av filter
+    # NOTE boxcar filter is very diffusive!
     def __init__(self, timeStepperCls, M, restartFromAv=False):
         self.timeStepper = timeStepperCls
         self.M = M
@@ -26,6 +53,7 @@ class macroTimeStepIntegrator(object):
         self.solution_n = Function(space)
         self.solution_nplushalf = Function(space)
         self.solution_start = Function(space)
+        self.w_full, self.w_half = cosTimeAvFilter(M)
 
     def initialize(self, solution):
         self.timeStepper.initialize(solution)
@@ -38,7 +66,7 @@ class macroTimeStepIntegrator(object):
         M = self.M
         solution_old = self.timeStepper.solution_old
         if self.restartFromAv:
-            # initialize from time averages NOTE this is very diffusive!
+            # initialize from time averages
             solution_old.assign(self.solution_n)
             solution.assign(self.solution_n)
         else:
@@ -47,34 +75,30 @@ class macroTimeStepIntegrator(object):
             solution.assign(self.solution_start)
         # reset time filtered solutions
         # filtered to T_{n+1/2}
-        self.solution_nplushalf.assign(0.5*solution_old)
+        self.solution_nplushalf.assign(0.0)
         # filtered to T_{n+1}
-        self.solution_n.assign(0.5*solution_old)
+        self.solution_n.assign(0.0)
 
         # advance fields from T_{n} to T{n+1}
         sys.stdout.write('Solving 2D ')
         for i in range(M):
             self.timeStepper.advance(t + i*dt, dt, solution, updateForcings)
-            self.solution_nplushalf += solution
-            self.solution_n += solution
+            self.solution_nplushalf += self.w_half[i]*solution
+            self.solution_n += self.w_full[i]*solution
             sys.stdout.write('.')
             sys.stdout.flush()
         sys.stdout.write('|')
         sys.stdout.flush()
-        self.solution_nplushalf -= 0.5*solution
-        self.solution_nplushalf /= M
         # store state at T_{n+1}
         self.solution_start.assign(solution)
         # advance fields from T_{n+1} to T{n+2}
         for i in range(M):
             self.timeStepper.advance(t + (M+i)*dt, dt, solution, updateForcings)
-            self.solution_n += solution
+            self.solution_n += self.w_full[M+i]*solution
             sys.stdout.write('.')
             sys.stdout.flush()
         sys.stdout.write('\n')
         sys.stdout.flush()
-        self.solution_n -= 0.5*solution
-        self.solution_n /= (2*M)
         # use filtered solution as output
         solution.assign(self.solution_n)
 

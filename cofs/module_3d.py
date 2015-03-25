@@ -220,7 +220,7 @@ class SSPRK33(timeIntegrator):
 
     CFL coefficient is 1.0
     """
-    def __init__(self, equation, dt):
+    def __init__(self, equation, dt, funcs_nplushalf={}):
         """Creates forms for the time integrator"""
         timeIntegrator.__init__(self, equation)
 
@@ -241,6 +241,7 @@ class SSPRK33(timeIntegrator):
         for k in self.funcs:
             if self.funcs[k] is not None:
                 self.funcs_old[k] = Function(self.funcs[k].function_space())
+        self.funcs_nplushalf = funcs_nplushalf
         # values used in equations
         self.args = {}
         for k in self.funcs_old:
@@ -286,7 +287,10 @@ class SSPRK33(timeIntegrator):
         # stage 2
         self.solution_old.assign(solution + 0.25*self.K0 + 0.25*self.K1)
         for k in self.args:  # set args to t+dt/2
-            self.args[k].assign(0.5*self.funcs[k] + 0.5*self.funcs_old[k])
+            if k in self.funcs_nplushalf:
+                self.args[k].assign(self.funcs_nplushalf[k])
+            else:
+                self.args[k].assign(0.5*self.funcs[k] + 0.5*self.funcs_old[k])
         if updateForcings is not None:
             updateForcings(t+dt/2)
         self.solverK2.solve()
