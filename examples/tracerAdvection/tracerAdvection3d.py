@@ -271,7 +271,7 @@ hElemSize3d = getHorzontalElemSize(P1_2d, P1)
 vElemSize3d = getVerticalElemSize(P1_2d, P1)
 
 # SUPG stabilization parameters
-alpha = Constant(0.2)  # between 0 and 1
+alpha = Constant(0.1)  # between 0 and 1
 
 u_mag_func = Function(U_scalar)
 u_mag_func_h = Function(U_scalar)
@@ -301,7 +301,7 @@ test_supg_v = scale_v*gamma_v*(w3d*Dx(test, 2))
 #test_supg_mass = test_supg_h = test_supg_v = None
 
 # non-linear stabilization (suppresses overshoots)
-gjv_alpha = Constant(1.5)
+gjv_alpha = Constant(1.0)
 gjvh = Function(P0, name='nonlin stab param')
 gjvh_file = exporter(P0, 'GJV Parameter h', outputDir, 'GJVParam_h.pvd')
 gjvv = Function(P0, name='nonlin stab param')
@@ -353,7 +353,7 @@ def computeVertGJVParameter(tracer, param, h, umag, maxval=800.0):
     # NOTE factor 2 comes from the formulation
     #L = Constant(2*0.5*0.5)*avg(h*umag)*jumpGrad/avgNorGrad*inNorGrad/inGrad*avg(test)*dS_v
     maxgrad = Constant(0.5)/avg(h)
-    L = gjv_alpha*Constant(5*2*0.5)*avg(umag*h)*(jumpGrad/maxgrad)*avg(test)*dS_h
+    L = gjv_alpha*Constant(2*2*0.5)*avg(umag*h)*(jumpGrad/maxgrad)*avg(test)*dS_h
     solve(a == L, param)
     print 'GJV v', param.dat.data.min(), param.dat.data.max()
     param.dat.data[param.dat.data > maxval] = maxval
