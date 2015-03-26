@@ -732,11 +732,15 @@ class freeSurfaceEquations(equation):
                 ##Huv_rie = avg(Huv) + un_roe/c_roe*(jump(Huv))
                 ##uv_rie = Huv_rie/avg(H)
 
+                uv_av = avg(uv)
+                s = 0.5*(sign(uv_av[0]*self.normal('-')[0] +
+                              uv_av[1]*self.normal('-')[1]) + 1.0)
+                uv_up = uv('-')*s + uv('+')*(1-s)
                 uv_roe = avg(uv)  # = avg(sqrt(H)*uv)/avg(sqrt(H))
-                G += (uv_roe[0]*jump(self.U_test[0]*uv[0], self.normal[0]) +
-                      uv_roe[0]*jump(self.U_test[1]*uv[1], self.normal[0]) +
-                      uv_roe[1]*jump(self.U_test[0]*uv[0], self.normal[1]) +
-                      uv_roe[1]*jump(self.U_test[1]*uv[1], self.normal[1]))*self.dS
+                G += (uv_up[0]*jump(self.U_test[0]*uv[0], self.normal[0]) +
+                      uv_up[0]*jump(self.U_test[1]*uv[1], self.normal[0]) +
+                      uv_up[1]*jump(self.U_test[0]*uv[0], self.normal[1]) +
+                      uv_up[1]*jump(self.U_test[1]*uv[1], self.normal[1]))*self.dS
 
             F += Adv_mom * self.dx
 
@@ -814,10 +818,12 @@ class freeSurfaceEquations(equation):
                 sect_len = Constant(self.boundary_len[bnd_marker])
                 un_in = dot(uv, self.normal)
                 un_ext = funcs['flux'] / total_H / sect_len
-                un_riemann = (un_in + un_ext)/2
-                G += total_H * un_riemann * self.eta_test * ds_bnd
+                un_av = (un_in + un_ext)/2
+                G += total_H * un_av * self.eta_test * ds_bnd
                 if self.nonlin:
-                    G += un_riemann*un_riemann*inner(self.normal, self.U_test)*ds_bnd
+                    s = 0.5*(sign(un_av) + 1.0)
+                    un_up = un_in*s + un_ext*(1-s)
+                    G += un_up*un_av*inner(self.normal, self.U_test)*ds_bnd
             elif 'radiation':
                 # prescribe radiation condition that allows waves to pass tru
                 un_ext = sqrt(g_grav / total_H) * eta

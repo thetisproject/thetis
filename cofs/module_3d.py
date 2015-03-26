@@ -520,7 +520,8 @@ class momentumEquation(equation):
 
             # Non-conservative ALE source term
             if dw_mesh_dz is not None:
-                F += solution*dw_mesh_dz*self.test*dx
+                F += dw_mesh_dz*(solution[0]*self.test[0] +
+                                 solution[1]*self.test[1])*dx
 
         if self.nonlin:
             total_H = self.bathymetry + eta
@@ -569,12 +570,25 @@ class momentumEquation(equation):
                 un_in = dot(solution, self.normal)
                 un_ext = funcs['un']
                 if self.nonlin:
-                    un_av = 0.5*(un_ext+un_in)
-                    G += un_av*un_av*inner(self.normal, self.test)*ds_bnd
+                    #un_av = 0.5*(un_ext+un_in)
+                    #G += un_av*un_av*inner(self.normal, self.test)*ds_bnd
+                    ## Lax-Friedrichs stabilization
+                    #gamma = abs(self.normal[0]*(solution[0]) +
+                                #self.normal[1]*(solution[1]))
+                    #G += gamma*dot((self.test), (solution-self.normal*un_ext)/2)*ds_bnd
+                    uv_in = solution
+                    uv_ext = self.normal*un_ext
+                    uv_av = 0.5*(uv_in + uv_ext)
+                    un_av = uv_av[0]*self.normal[0] + uv_av[1]*self.normal[1]
+                    s = 0.5*(sign(un_av) + 1.0)
+                    uv_up = uv_in*s + uv_ext*(1-s)
+                    G += (uv_up[0]*self.test[0]*self.normal[0]*uv_in[0] +
+                          uv_up[0]*self.test[0]*self.normal[1]*uv_in[1] +
+                          uv_up[1]*self.test[1]*self.normal[0]*uv_in[0] +
+                          uv_up[1]*self.test[1]*self.normal[1]*uv_in[1])*ds_bnd
                     # Lax-Friedrichs stabilization
-                    gamma = abs(self.normal[0]*(solution[0]) +
-                                self.normal[1]*(solution[1]))
-                    G += gamma*dot((self.test), (solution-self.normal*un_ext)/2)*ds_bnd
+                    gamma = abs(un_av)
+                    G += gamma*dot(self.test, (uv_in - uv_ext)/2)*ds_bnd
 
             elif 'flux' in funcs:
                 # prescribe normal volume flux
@@ -582,19 +596,26 @@ class momentumEquation(equation):
                 un_in = dot(solution, self.normal)
                 un_ext = funcs['flux'] / total_H / sect_len
                 if self.nonlin:
-                    un_av = 0.5*(un_ext+un_in)
-                    G += un_av*un_av*inner(self.normal, self.test)*ds_bnd
-                    # Lax-Friedrichs stabilization
-                    gamma = abs(self.normal[0]*(solution[0]) +
-                                self.normal[1]*(solution[1]))
-                    G += gamma*dot((self.test), (solution-self.normal*un_ext)/2)*ds_bnd
+                    #un_av = 0.5*(un_ext+un_in)
+                    #G += un_av*un_av*inner(self.normal, self.test)*ds_bnd
+                    ## Lax-Friedrichs stabilization
+                    #gamma = abs(self.normal[0]*(solution[0]) +
+                                #self.normal[1]*(solution[1]))
+                    #G += gamma*dot((self.test), (solution-self.normal*un_ext)/2)*ds_bnd
 
-                #sect_len = Constant(self.boundary_len[bnd_marker])
-                #un_in = dot(solution, self.normal)
-                #un_ext = funcs['flux'] / total_H / sect_len
-                #if self.nonlin:
-                    ## NOTE symmetric normal flux -- forced in 2D
-                    #G += un_in*un_in*inner(self.normal, self.test)*ds_bnd
+                    uv_in = solution
+                    uv_ext = self.normal*un_ext
+                    uv_av = 0.5*(uv_in + uv_ext)
+                    un_av = uv_av[0]*self.normal[0] + uv_av[1]*self.normal[1]
+                    s = 0.5*(sign(un_av) + 1.0)
+                    uv_up = uv_in*s + uv_ext*(1-s)
+                    G += (uv_up[0]*self.test[0]*self.normal[0]*uv_in[0] +
+                          uv_up[0]*self.test[0]*self.normal[1]*uv_in[1] +
+                          uv_up[1]*self.test[1]*self.normal[0]*uv_in[0] +
+                          uv_up[1]*self.test[1]*self.normal[1]*uv_in[1])*ds_bnd
+                    # Lax-Friedrichs stabilization
+                    gamma = abs(un_av)
+                    G += gamma*dot(self.test, (uv_in - uv_ext)/2)*ds_bnd
 
         ## viscosity
         ## A double dot product of the stress tensor and grad(w).
