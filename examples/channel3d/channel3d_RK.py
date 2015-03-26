@@ -31,16 +31,6 @@ comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
 op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
-
-def createDirectory(path):
-    if commrank == 0:
-        if os.path.exists(path):
-            if not os.path.isdir(path):
-                raise Exception('file with same name exists', path)
-        else:
-            os.makedirs(path)
-    return path
-
 # set physical constants
 physical_constants['z0_friction'].assign(5.0e-5)
 #physical_constants['viscosity_h'].assign(0.0)
@@ -138,22 +128,30 @@ U_scalar = FunctionSpace(mesh, 'DG', 1, vfamily='CG', vdegree=1)
 H = FunctionSpace(mesh, 'CG', 2, vfamily='CG', vdegree=1)
 
 eta3d = Function(H, name='Elevation')
+eta3d_nplushalf = Function(H, name='Elevation')
 bathymetry3d = Function(P1, name='Bathymetry')
 copy2dFieldTo3d(swe2d.bathymetry, bathymetry3d)
 uv3d = Function(U, name='Velocity')
 uv_bottom3d = Function(U, name='Bottom Velocity')
 z_bottom3d = Function(P1, name='Bot. Vel. z coord')
+# z coordinate in the strecthed mesh
 z_coord3d = Function(P1, name='Bot. Vel. z coord')
+# z coordinate in the reference mesh (eta=0)
+z_coord_ref3d = Function(P1, name='Bot. Vel. z coord')
 bottom_drag3d = Function(P1, name='Bottom Drag')
 uv3d_dav = Function(U, name='Depth Averaged Velocity')
 uv2d_dav = Function(U_2d, name='Depth Averaged Velocity')
 uv2d_dav_old = Function(U_2d, name='Depth Averaged Velocity')
 w3d = Function(H, name='Vertical Velocity')
+w_mesh3d = Function(H, name='Vertical Velocity')
+dw_mesh_dz_3d = Function(H, name='Vertical Velocity')
+w_mesh_surf3d = Function(H, name='Vertical Velocity')
 salt3d = Function(H, name='Salinity')
 viscosity_v3d = Function(P1, name='Vertical Velocity')
 
 salt_init3d = Function(H, name='initial salinity')
-salt_init3d.interpolate(Expression('x[0]/1.0e5*10.0+2.0'))
+#salt_init3d.interpolate(Expression('x[0]/1.0e5*10.0+2.0'))
+salt_init3d.interpolate(Expression('4.5'))
 
 
 def getZCoord(zcoord):
@@ -166,26 +164,31 @@ def getZCoord(zcoord):
     return zcoord
 
 getZCoord(z_coord3d)
+z_coord_ref3d.assign(z_coord3d)
 
 mom_eq3d = mode3d.momentumEquation(mesh, U, U_scalar, swe2d.boundary_markers,
                                    swe2d.boundary_len, uv3d, eta3d,
-                                   bathymetry3d, w=None,
+                                   bathymetry3d, w=w3d,
+                                   w_mesh=w_mesh3d,
+                                   dw_mesh_dz=dw_mesh_dz_3d,
                                    viscosity_v=None,
                                    nonlin=nonlin)
-salt_eq3d = mode3d.tracerEquation(mesh, H, salt3d, eta3d, uv3d, w3d,
-                                  swe2d.boundary_markers,
-                                  swe2d.boundary_len)
+salt_eq3d = mode3d.tracerEquation(mesh, H, salt3d, eta3d, uv3d, w=w3d,
+                                  w_mesh=w_mesh3d,
+                                  dw_mesh_dz=dw_mesh_dz_3d,
+                                  bnd_markers=swe2d.boundary_markers,
+                                  bnd_len=swe2d.boundary_len)
 vmom_eq3d = mode3d.verticalMomentumEquation(mesh, U, U_scalar, uv3d, w=None,
                                             viscosity_v=viscosity_v3d,
                                             uv_bottom=uv_bottom3d,
                                             bottom_drag=bottom_drag3d)
 
 T = 48 * 3600  # 100*24*3600
-Umag = Constant(2.0)
+Umag = Constant(3.0)
 mesh_dt = swe2d.getTimeStepAdvection(Umag=Umag)
 dt = float(np.floor(mesh_dt.dat.data.min()/10.0))*0.80
 dt = round(comm.allreduce(dt, dt, op=MPI.MIN))
-TExport = 2*dt
+TExport = 100.0
 mesh2d_dt = swe2d.getTimeStep(Umag=Umag)
 dt_2d = mesh2d_dt.dat.data.min()/20.0
 dt_2d = comm.allreduce(dt_2d, dt_2d, op=MPI.MIN)
@@ -226,13 +229,21 @@ swe2d.bnd_functions = {2: ocean_funcs, 1: river_funcs}
 mom_eq3d.bnd_functions = {2: ocean_funcs_3d, 1: river_funcs_3d}
 salt_eq3d.bnd_functions = {2: ocean_salt_3d, 1: river_salt_3d}
 
-#timeStepper2d = mode2d.DIRK3(swe2d, dt)
-subIterator = mode2d.SSPRK33(swe2d, dt_2d)
+solver_parameters = {
+    #'ksp_type': 'fgmres',
+    #'ksp_monitor': True,
+    'ksp_rtol': 1e-12,
+    'ksp_atol': 1e-16,
+    #'pc_type': 'fieldsplit',
+    #'pc_fieldsplit_type': 'multiplicative',
+}
+subIterator = mode2d.SSPRK33(swe2d, dt_2d, solver_parameters)
 timeStepper2d = mode2d.macroTimeStepIntegrator(subIterator,
                                                M_modesplit,
-                                               restartFromAv=False)
+                                               restartFromAv=True)
 
-timeStepper_mom3d = mode3d.SSPRK33(mom_eq3d, dt)
+timeStepper_mom3d = mode3d.SSPRK33(mom_eq3d, dt,
+                                   funcs_nplushalf={'eta': eta3d_nplushalf})
 timeStepper_salt3d = mode3d.SSPRK33(salt_eq3d, dt)
 timeStepper_vmom3d = mode3d.CrankNicolson(vmom_eq3d, dt, gamma=0.6)
 
@@ -241,6 +252,7 @@ eta_2d_file = exporter(P1_2d, 'Elevation', outputDir, 'Elevation2d.pvd')
 eta_3d_file = exporter(P1, 'Elevation', outputDir, 'Elevation3d.pvd')
 uv_3d_file = exporter(U_visu, 'Velocity', outputDir, 'Velocity3d.pvd')
 w_3d_file = exporter(P1, 'V.Velocity', outputDir, 'VertVelo3d.pvd')
+w_mesh_3d_file = exporter(P1, 'Mesh Velocity', outputDir, 'MeshVelo3d.pvd')
 salt_3d_file = exporter(P1, 'Salinity', outputDir, 'Salinity3d.pvd')
 uv_dav_2d_file = exporter(U_visu_2d, 'Depth Averaged Velocity', outputDir, 'DAVelocity2d.pvd')
 uv_bot_2d_file = exporter(U_visu_2d, 'Bottom Velocity', outputDir, 'BotVelocity2d.pvd')
@@ -250,7 +262,13 @@ visc_3d_file = exporter(P1, 'Vertical Viscosity', outputDir, 'Viscosity3d.pvd')
 uv2d, eta2d = solution2d.split()
 eta2d.assign(elev_init)
 copy2dFieldTo3d(elev_init, eta3d)
+#getZCoord(z_coord3d)
+updateCoordinates(mesh, eta3d, bathymetry3d, z_coord3d, z_coord_ref3d)
 salt3d.assign(salt_init3d)
+computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
+computeMeshVelocity(eta3d, uv3d, w3d, w_mesh3d, w_mesh_surf3d,
+                    dw_mesh_dz_3d, bathymetry3d, z_coord_ref3d)
+#computeBottomFriction()
 
 timeStepper2d.initialize(solution2d)
 timeStepper_mom3d.initialize(uv3d)
@@ -263,16 +281,17 @@ eta_2d_file.export(solution2d.split()[1])
 eta_3d_file.export(eta3d)
 uv_3d_file.export(uv3d)
 w_3d_file.export(w3d)
-salt_3d_file.export(w3d)
+w_mesh_3d_file.export(w_mesh3d)
+salt_3d_file.export(salt3d)
 uv_dav_2d_file.export(uv2d_dav)
 uv_bot_2d_file.export(uv_bottom2d)
 visc_3d_file.export(viscosity_v3d)
 
 # The time-stepping loop
-T_epsilon = 1.0e-14
+T_epsilon = 1.0e-5
 cputimestamp = timeMod.clock()
 t = 0
-i = 1
+i = 0
 iExp = 1
 next_export_t = t + TExport
 
@@ -319,8 +338,11 @@ while t <= T + T_epsilon:
         #timeStepper2d.advance(t-dt/2, dt, swe2d.solution, updateForcings)
         timeStepper2d.advance(t, dt_2d, solution2d, updateForcings)
     with timed_region('aux_functions'):
-        eta_n = swe2d.solution.split()[1]
-        copy2dFieldTo3d(eta_n, eta3d)  # at t_{n+1/2}
+        eta_n = solution2d.split()[1]
+        copy2dFieldTo3d(eta_n, eta3d)  # at t_{n+1}
+        eta_nph = timeStepper2d.solution_nplushalf.split()[1]
+        copy2dFieldTo3d(eta_nph, eta3d_nplushalf)  # at t_{n+1/2}
+        updateCoordinates(mesh, eta3d, bathymetry3d, z_coord3d, z_coord_ref3d)
         computeBottomFriction()
     with timed_region('momentumEq'):
         timeStepper_mom3d.advance(t, dt, uv3d, updateForcings3d)
@@ -329,6 +351,13 @@ while t <= T + T_epsilon:
                                   viscosity_v3d)
     with timed_region('vert_diffusion'):
         timeStepper_vmom3d.advance(t, dt, uv3d, None)
+    with timed_region('continuityEq'):
+        computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
+        computeMeshVelocity(eta3d, uv3d, w3d, w_mesh3d, w_mesh_surf3d,
+                            dw_mesh_dz_3d, bathymetry3d, z_coord_ref3d)
+        #dw_mesh_dz_3d.assign(0.0)
+        #w_mesh3d.assign(0.0)
+        computeBottomFriction()
     with timed_region('saltEq'):
         timeStepper_salt3d.advance(t, dt, salt3d, updateForcings3d)
     with timed_region('aux_functions'):
@@ -337,13 +366,14 @@ while t <= T + T_epsilon:
                                 bottomToTop=True, bndValue=bndValue,
                                 average=True, bathymetry=bathymetry3d)
         copy3dFieldTo2d(uv3d_dav, uv2d_dav, useBottomValue=False)
-        #swe2d.solution.split()[0].assign(uv2d_dav)
-        #solution2d.split()[0].assign(uv2d_dav)
         # 2d-3d coupling: restart 2d mode from depth ave 3d velocity
-        # NOTE this filters out frequencies above macro time step from 2d mode
         timeStepper2d.solution_start.split()[0].assign(uv2d_dav)
-    with timed_region('continuityEq'):
-        computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
+    #with timed_region('continuityEq'):
+        #computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
+
+    # Move to next time step
+    t += dt
+    i += 1
 
     ## LF-AM3 time integration loop
     #with timed_region('aux_functions'):
@@ -388,8 +418,8 @@ while t <= T + T_epsilon:
     if t >= next_export_t - T_epsilon:
         cputime = timeMod.clock() - cputimestamp
         cputimestamp = timeMod.clock()
-        norm_h = norm(swe2d.solution.split()[1])
-        norm_u = norm(swe2d.solution.split()[0])
+        norm_h = norm(solution2d.split()[1])
+        norm_u = norm(solution2d.split()[0])
 
         if commrank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
@@ -403,11 +433,12 @@ while t <= T + T_epsilon:
                               #swe2d.solution.split()[0].dat.data.min(),
                               #swe2d.solution.split()[0].dat.data.max()))
             sys.stdout.flush()
-        U_2d_file.export(swe2d.solution.split()[0])
-        eta_2d_file.export(swe2d.solution.split()[1])
+        U_2d_file.export(solution2d.split()[0])
+        eta_2d_file.export(solution2d.split()[1])
         eta_3d_file.export(eta3d)
         uv_3d_file.export(uv3d)
         w_3d_file.export(w3d)
+        w_mesh_3d_file.export(w_mesh3d)
         salt_3d_file.export(salt3d)
         uv_dav_2d_file.export(uv2d_dav)
         uv_bot_2d_file.export(uv_bottom2d)
@@ -416,22 +447,18 @@ while t <= T + T_epsilon:
         next_export_t += TExport
         iExp += 1
 
-        if commrank == 0:
-            labels = ['mode2d', 'momentumEq', 'vert_diffusion',
-                      'continuityEq', 'saltEq', 'aux_functions']
-            cost = {}
-            relcost = {}
-            totcost = 0
-            for label in labels:
-                value = timing(label, reset=True)
-                cost[label] = value
-                totcost += value
-            for label in labels:
-                c = cost[label]
-                relcost = c/totcost
-                print '{0:25s} : {1:11.6f} {2:11.2f}'.format(label, c, relcost)
-                sys.stdout.flush()
-
-    # Move to next time step
-    t += dt
-    i += 1
+        #if commrank == 0:
+            #labels = ['mode2d', 'momentumEq', 'vert_diffusion',
+                      #'continuityEq', 'saltEq', 'aux_functions']
+            #cost = {}
+            #relcost = {}
+            #totcost = 0
+            #for label in labels:
+                #value = timing(label, reset=True)
+                #cost[label] = value
+                #totcost += value
+            #for label in labels:
+                #c = cost[label]
+                #relcost = c/totcost
+                #print '{0:25s} : {1:11.6f} {2:11.2f}'.format(label, c, relcost)
+                #sys.stdout.flush()
