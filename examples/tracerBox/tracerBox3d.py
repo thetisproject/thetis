@@ -31,8 +31,8 @@ comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
 op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
-# TODO update tracer advection test for cofs - implement SUPG
-# NOTE solution with large deformations is not periodic - bnd conditions?
+# TODO tracer RK needs velocities at t_{n+1/2}, implement simult. RK3,3?
+# TODO discrepancy in P2 nodal values is large: mesh - p2 error? NOT?
 # NOTE discrepancy in tracer value may be due to lack of SUPG in adv?
 
 # set physical constants
@@ -60,7 +60,7 @@ bottom_drag2d = Function(P1_2d, name='Bottom Drag')
 use_wd = False
 nonlin = False
 swe2d = mode2d.freeSurfaceEquations(mesh2d, W_2d, solution2d, bathymetry2d,
-                                    uv_bottom2d, bottom_drag2d,
+                                    uv_bottom=None, bottom_drag=None,
                                     nonlin=nonlin, use_wd=use_wd)
 
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
@@ -109,6 +109,7 @@ H = FunctionSpace(mesh, 'CG', 2, vfamily='CG', vdegree=1)
 
 eta3d = Function(H, name='Elevation')
 eta_old3d = Function(H, name='Elevation')
+eta3d_nplushalf = Function(H, name='Elevation')
 bathymetry3d = Function(P1, name='Bathymetry')
 copy2dFieldTo3d(swe2d.bathymetry, bathymetry3d)
 uv3d = Function(U, name='Velocity')
@@ -130,7 +131,6 @@ salt3d = Function(H, name='Salinity')
 viscosity_v3d = Function(P1, name='Vertical Velocity')
 
 salt_init3d = Function(H, name='initial salinity')
-#salt_init3d.interpolate(Expression('x[0]/1.0e5*10.0+2.0'))
 salt_init3d.interpolate(Expression('4.5'))
 
 
@@ -160,7 +160,7 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, dw_mesh_dz_3d,
     # w_mesh_surf = w - eta_grad[0]*uv[0] + eta_grad[1]*uv[1]
     a = tri*test*dx
     eta_grad = nabla_grad(eta)
-    L = (w - eta_grad[0]*uv[0] + eta_grad[1]*uv[1])*test*dx
+    L = (w - eta_grad[0]*uv[0] - eta_grad[1]*uv[1])*test*dx
     solve(a == L, w_mesh_surf)
     copyLayerValueOverVertical(w_mesh_surf, w_mesh_surf, useBottomValue=False)
     # compute w in the whole water column (0 at bed)
@@ -225,18 +225,27 @@ if commrank == 0:
     print '2D dt =', dt_2d, M_modesplit
     sys.stdout.flush()
 
+solver_parameters = {
+    #'ksp_type': 'fgmres',
+    #'ksp_monitor': True,
+    'ksp_rtol': 1e-12,
+    'ksp_atol': 1e-16,
+    #'pc_type': 'fieldsplit',
+    #'pc_fieldsplit_type': 'multiplicative',
+}
 #timeStepper2d = mode2d.ForwardEuler(swe2d, dt)  # divide dt by 4
 #timeStepper2d = mode2d.AdamsBashforth3(swe2d, dt)
-subIterator = mode2d.SSPRK33(swe2d, dt_2d)
+subIterator = mode2d.SSPRK33(swe2d, dt_2d, solver_parameters)
 #subIterator = mode2d.AdamsBashforth3(swe2d, dt_2d) # blows up!
 timeStepper2d = mode2d.macroTimeStepIntegrator(subIterator,
                                                M_modesplit,
-                                               restartFromAv=False)
+                                               restartFromAv=True)
 #timeStepper2d = mode2d.CrankNicolson(swe2d, dt, gamma=0.50)
 #timeStepper2d = mode2d.DIRK3(swe2d, dt)
 #timeStepper2d = mode2d.CrankNicolson(swe2d, dt, gamma=1.0)
 
-timeStepper_mom3d = mode3d.SSPRK33(mom_eq3d, dt)
+timeStepper_mom3d = mode3d.SSPRK33(mom_eq3d, dt,
+                                   funcs_nplushalf={'eta': eta3d_nplushalf})
 timeStepper_salt3d = mode3d.SSPRK33(salt_eq3d, dt)
 #timeStepper_salt3d = mode3d.ForwardEuler(salt_eq3d, dt)
 timeStepper_vmom3d = mode3d.CrankNicolson(vmom_eq3d, dt, gamma=0.6)
@@ -334,33 +343,10 @@ while t <= T + T_epsilon:
     with timed_region('aux_functions'):
         eta_n = solution2d.split()[1]
         eta_old3d.assign(eta3d)
-        copy2dFieldTo3d(eta_n, eta3d)  # at t_{n+1/2}
+        copy2dFieldTo3d(eta_n, eta3d)  # at t_{n+1}
+        eta_nph = timeStepper2d.solution_nplushalf.split()[1]
+        copy2dFieldTo3d(eta_nph, eta3d_nplushalf)  # at t_{n+1/2}
         updateCoordinates(mesh, eta3d, bathymetry3d, z_coord3d, z_coord_ref3d)
-        # TODO mult tracer by mass matrix t_{n}
-        #test = TestFunction(salt3d.function_space())
-        #tri = TrialFunction(salt3d.function_space())
-        #print 'salt ', salt3d.dat.data.min(), salt3d.dat.data.max()
-        #M_old = assemble(test*tri*dx)
-        #M_new_inv = assemble(test*tri*dx, inverse=True)
-        #S = M_old.M.handle.matMult(M_new_inv.M.handle)
-        ##S = M_new_inv.M.handle
-        #ksp = PETSc.KSP().create()
-        #ksp.setOperators(S)
-        #opts = PETSc.Options()
-        #opts['ksp_type'] = 'cg'
-        #opts['ksp_rtol'] = 1e-14
-        #opts['pc_type'] = 'sor'
-        #opts['ksp_monitor'] = None
-        ##new_salt3d = Function(salt3d.function_space())
-        #with salt3d.dat.vec_ro as v:
-            #with salt3d.dat.vec as x:
-                #ksp.solve(v, x)
-        ##tmp = M_new_inv.M.handle.matMult(salt3d.dat.vec)
-        ##Tr = M_new*M_old
-        ##assemble(inv(M_new)*M_old*salt3d, salt3d)
-        #print 'salt ', salt3d.dat.data.min(), salt3d.dat.data.max()
-        #exit(0)
-        # TODO mult tracer by inv mass matrix t_{n+1}
     with timed_region('momentumEq'):
         timeStepper_mom3d.advance(t, dt, uv3d, updateForcings3d)
     #with timed_region('aux_functions'):
@@ -376,14 +362,6 @@ while t <= T + T_epsilon:
         #w_mesh3d.assign(0.0)
         computeBottomFriction()
     with timed_region('saltEq'):
-        ## map tracers from old to new geometry
-        #fs = salt3d.function_space()
-        #test = TestFunction(fs)
-        #tri = TrialFunction(fs)
-        #a = test*tri*dx
-        #L = (eta_old3d+bathymetry3d)/(eta3d+bathymetry3d)*salt3d*test*dx
-        #solve(a == L, salt3d)
-        ##timeStepper_salt3d.initialize(salt3d)
         timeStepper_salt3d.advance(t, dt, salt3d, updateForcings3d)
     with timed_region('aux_functions'):
         bndValue = Constant((0.0, 0.0, 0.0))
@@ -392,7 +370,6 @@ while t <= T + T_epsilon:
                                 average=True, bathymetry=bathymetry3d)
         copy3dFieldTo2d(uv3d_dav, uv2d_dav, useBottomValue=False)
         # 2d-3d coupling: restart 2d mode from depth ave 3d velocity
-        # NOTE this filters out frequencies above macro time step from 2d mode
         timeStepper2d.solution_start.split()[0].assign(uv2d_dav)
     #with timed_region('continuityEq'):
         #computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
