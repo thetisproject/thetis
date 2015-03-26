@@ -350,6 +350,45 @@ def getVerticalElemSize(P1_2d, P1_3d):
     return zcoord3d
 
 
+def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref):
+    """Updates extrusion so that free surface mathces eta3d value"""
+    coords = mesh.coordinates
+    fs = z_coord.function_space()
+    # sigma stretch function
+    new_z = eta*(z_coord_ref + bathymetry)/bathymetry + z_coord_ref
+    # update z_coord
+    tri = TrialFunction(fs)
+    test = TestFunction(fs)
+    a = tri*test*dx
+    L = new_z*test*dx
+    solve(a == L, z_coord)
+    # assign to mesh
+    coords.dat.data[:, 2] = z_coord.dat.data[:]
+
+
+def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, dw_mesh_dz_3d,
+                        bathymetry, z_coord_ref):
+    fs = w.function_space()
+    z = fs.mesh().coordinates[2]
+    tri = TrialFunction(fs)
+    test = TestFunction(fs)
+    # compute w_mesh at the free surface (constant over vertical!)
+    # w_mesh_surf = w - eta_grad[0]*uv[0] + eta_grad[1]*uv[1]
+    a = tri*test*dx
+    eta_grad = nabla_grad(eta)
+    L = (w - eta_grad[0]*uv[0] - eta_grad[1]*uv[1])*test*dx
+    solve(a == L, w_mesh_surf)
+    copyLayerValueOverVertical(w_mesh_surf, w_mesh_surf, useBottomValue=False)
+    # compute w in the whole water column (0 at bed)
+    # w_mesh = w_mesh_surf * (z+h)/(eta+h)
+    H = eta + bathymetry
+    L = (w_mesh_surf*(z+bathymetry)/H)*test*dx
+    solve(a == L, w_mesh)
+    # compute dw_mesh/dz in the whole water column
+    L = (w_mesh_surf/H)*test*dx
+    solve(a == L, dw_mesh_dz_3d)
+
+
 def computeParabolicViscosity(uv_bottom, bottom_drag, bathymetry, nu):
     """Computes parabolic eddy viscosity profile assuming log layer flow
     nu = kappa * u_bf * (-z) * (bath + z0 + z) / (bath + z0)

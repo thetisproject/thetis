@@ -108,7 +108,6 @@ U_scalar = FunctionSpace(mesh, 'DG', 1, vfamily='CG', vdegree=1)
 H = FunctionSpace(mesh, 'CG', 2, vfamily='CG', vdegree=1)
 
 eta3d = Function(H, name='Elevation')
-eta_old3d = Function(H, name='Elevation')
 eta3d_nplushalf = Function(H, name='Elevation')
 bathymetry3d = Function(P1, name='Bathymetry')
 copy2dFieldTo3d(swe2d.bathymetry, bathymetry3d)
@@ -134,45 +133,6 @@ salt_init3d = Function(H, name='initial salinity')
 salt_init3d.interpolate(Expression('4.5'))
 
 
-def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref):
-    """Updates extrusion so that free surface mathces eta3d value"""
-    coords = mesh.coordinates
-    fs = z_coord.function_space()
-    # sigma stretch function
-    new_z = eta*(z_coord_ref + bathymetry)/bathymetry + z_coord_ref
-    # update z_coord
-    tri = TrialFunction(fs)
-    test = TestFunction(fs)
-    a = tri*test*dx
-    L = new_z*test*dx
-    solve(a == L, z_coord)
-    # assign to mesh
-    coords.dat.data[:, 2] = z_coord.dat.data[:]
-
-
-def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, dw_mesh_dz_3d,
-                        bathymetry, z_coord_ref):
-    fs = w.function_space()
-    z = fs.mesh().coordinates[2]
-    tri = TrialFunction(fs)
-    test = TestFunction(fs)
-    # compute w_mesh at the free surface (constant over vertical!)
-    # w_mesh_surf = w - eta_grad[0]*uv[0] + eta_grad[1]*uv[1]
-    a = tri*test*dx
-    eta_grad = nabla_grad(eta)
-    L = (w - eta_grad[0]*uv[0] - eta_grad[1]*uv[1])*test*dx
-    solve(a == L, w_mesh_surf)
-    copyLayerValueOverVertical(w_mesh_surf, w_mesh_surf, useBottomValue=False)
-    # compute w in the whole water column (0 at bed)
-    # w_mesh = w_mesh_surf * (z+h)/(eta+h)
-    H = eta + bathymetry
-    L = (w_mesh_surf*(z+bathymetry)/H)*test*dx
-    solve(a == L, w_mesh)
-    # compute dw_mesh/dz in the whole water column
-    L = (w_mesh_surf/H)*test*dx
-    solve(a == L, dw_mesh_dz_3d)
-
-
 def getZCoord(zcoord):
     fs = zcoord.function_space()
     tri = TrialFunction(fs)
@@ -187,7 +147,7 @@ z_coord_ref3d.assign(z_coord3d)
 
 mom_eq3d = mode3d.momentumEquation(mesh, U, U_scalar, swe2d.boundary_markers,
                                    swe2d.boundary_len, uv3d, eta3d,
-                                   bathymetry3d, w=None,
+                                   bathymetry3d, w=w3d,
                                    w_mesh=w_mesh3d,
                                    dw_mesh_dz=dw_mesh_dz_3d,
                                    viscosity_v=None,
@@ -342,7 +302,6 @@ while t <= T + T_epsilon:
         timeStepper2d.advance(t, dt_2d, solution2d, updateForcings)
     with timed_region('aux_functions'):
         eta_n = solution2d.split()[1]
-        eta_old3d.assign(eta3d)
         copy2dFieldTo3d(eta_n, eta3d)  # at t_{n+1}
         eta_nph = timeStepper2d.solution_nplushalf.split()[1]
         copy2dFieldTo3d(eta_nph, eta3d_nplushalf)  # at t_{n+1/2}
