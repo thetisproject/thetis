@@ -5,6 +5,7 @@ Tuomas Karna 2015-02-23
 """
 from utility import *
 from physical_constants import *
+commrank = op2.MPI.comm.rank
 
 g_grav = physical_constants['g_grav']
 viscosity_h = physical_constants['viscosity_h']
@@ -27,6 +28,7 @@ def cosTimeAvFilter(M):
     ix = (l >= 0.5) * (l < 1.5)
     a[ix] = 1 + np.cos(2*np.pi*(l[ix]-1))
     a /= sum(a)
+    # b as in Shchepetkin and MacWilliams 2005
     b = np.cumsum(a[::-1])[::-1]/M
     # correct b to match 2nd criterion exactly
     error = sum(l*b)-0.5
@@ -80,25 +82,31 @@ class macroTimeStepIntegrator(object):
         self.solution_n.assign(0.0)
 
         # advance fields from T_{n} to T{n+1}
-        sys.stdout.write('Solving 2D ')
+        verbose = False
+        if verbose and commrank == 0:
+            sys.stdout.write('Solving 2D ')
         for i in range(M):
             self.timeStepper.advance(t + i*dt, dt, solution, updateForcings)
             self.solution_nplushalf += self.w_half[i]*solution
             self.solution_n += self.w_full[i]*solution
-            sys.stdout.write('.')
+            if verbose and commrank == 0:
+                sys.stdout.write('.')
+                sys.stdout.flush()
+        if verbose and commrank == 0:
+            sys.stdout.write('|')
             sys.stdout.flush()
-        sys.stdout.write('|')
-        sys.stdout.flush()
         # store state at T_{n+1}
         self.solution_start.assign(solution)
         # advance fields from T_{n+1} to T{n+2}
         for i in range(M):
             self.timeStepper.advance(t + (M+i)*dt, dt, solution, updateForcings)
             self.solution_n += self.w_full[M+i]*solution
-            sys.stdout.write('.')
+            if verbose and commrank == 0:
+                sys.stdout.write('.')
+                sys.stdout.flush()
+        if verbose and commrank == 0:
+            sys.stdout.write('\n')
             sys.stdout.flush()
-        sys.stdout.write('\n')
-        sys.stdout.flush()
         # use filtered solution as output
         solution.assign(self.solution_n)
 
@@ -736,11 +744,14 @@ class freeSurfaceEquations(equation):
                 s = 0.5*(sign(uv_av[0]*self.normal('-')[0] +
                               uv_av[1]*self.normal('-')[1]) + 1.0)
                 uv_up = uv('-')*s + uv('+')*(1-s)
-                uv_roe = avg(uv)  # = avg(sqrt(H)*uv)/avg(sqrt(H))
-                G += (uv_up[0]*jump(self.U_test[0]*uv[0], self.normal[0]) +
-                      uv_up[0]*jump(self.U_test[1]*uv[1], self.normal[0]) +
-                      uv_up[1]*jump(self.U_test[0]*uv[0], self.normal[1]) +
-                      uv_up[1]*jump(self.U_test[1]*uv[1], self.normal[1]))*self.dS
+                G += (uv_av[0]*uv_av[0]*jump(self.U_test[0], self.normal[0]) +
+                      uv_av[0]*uv_av[1]*jump(self.U_test[1], self.normal[0]) +
+                      uv_av[1]*uv_av[0]*jump(self.U_test[0], self.normal[1]) +
+                      uv_av[1]*uv_av[1]*jump(self.U_test[1], self.normal[1]))*self.dS
+                # Lax-Friedrichs stabilization
+                gamma = abs(self.normal[0]('-')*uv_av[0] +
+                            self.normal[1]('-')*uv_av[1])
+                G += gamma*dot(jump(self.U_test), jump(uv))*self.dS
 
             F += Adv_mom * self.dx
 
@@ -767,7 +778,7 @@ class freeSurfaceEquations(equation):
             if funcs is None:
                 # assume land boundary
                 continue
-            
+
             elif 'slip_alpha' in funcs:
                 # partial slip bnd condition
                 # viscosity: nu*du/dn*w
@@ -821,9 +832,20 @@ class freeSurfaceEquations(equation):
                 un_av = (un_in + un_ext)/2
                 G += total_H * un_av * self.eta_test * ds_bnd
                 if self.nonlin:
-                    s = 0.5*(sign(un_av) + 1.0)
-                    un_up = un_in*s + un_ext*(1-s)
-                    G += un_up*un_av*inner(self.normal, self.U_test)*ds_bnd
+                    #s = 0.5*(sign(un_av) + 1.0)
+                    #un_up = un_in*s + un_ext*(1-s)
+                    #G += un_av*un_av*inner(self.normal, self.U_test)*ds_bnd
+                    uv_av = 0.5*(uv + un_ext*self.normal)
+                    G += (uv_av[0]*uv_av[0]*(self.U_test[0]*self.normal[0]) +
+                          uv_av[0]*uv_av[1]*(self.U_test[1]*self.normal[0]) +
+                          uv_av[1]*uv_av[0]*(self.U_test[0]*self.normal[1]) +
+                          uv_av[1]*uv_av[1]*(self.U_test[1]*self.normal[1]))*ds_bnd
+
+                    # Lax-Friedrichs stabilization
+                    gamma = abs(self.normal[0]*uv_av[0] +
+                                self.normal[1]*uv_av[1])
+                    G += gamma*dot(self.U_test, (uv - un_ext*self.normal)/2)*ds_bnd
+
             elif 'radiation':
                 # prescribe radiation condition that allows waves to pass tru
                 un_ext = sqrt(g_grav / total_H) * eta
