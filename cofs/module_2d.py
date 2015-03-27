@@ -8,9 +8,7 @@ from physical_constants import *
 commrank = op2.MPI.comm.rank
 
 g_grav = physical_constants['g_grav']
-viscosity_h = physical_constants['viscosity_h']
 wd_alpha = physical_constants['wd_alpha']
-mu_manning = physical_constants['mu_manning']
 
 
 def cosTimeAvFilter(M):
@@ -568,7 +566,8 @@ class DIRK3(timeIntegrator):
 class freeSurfaceEquations(equation):
     """2D depth averaged shallow water equations"""
     def __init__(self, mesh, space, solution, bathymetry,
-                 uv_bottom=None, bottom_drag=None,
+                 uv_bottom=None, bottom_drag=None, viscosity_h=None,
+                 mu_manning=None,
                  nonlin=True, use_wd=True):
         self.mesh = mesh
         self.space = space
@@ -582,6 +581,8 @@ class freeSurfaceEquations(equation):
         self.kwargs = {'uv_old': self.solution.split()[0],
                        'uv_bottom': uv_bottom,
                        'bottom_drag': bottom_drag,
+                       'viscosity_h': viscosity_h,
+                       'mu_manning': mu_manning,
                        }
 
         # create mixed function space
@@ -708,7 +709,8 @@ class freeSurfaceEquations(equation):
         # diag(nabla_grad(w))) ) #+ (eta+h_mean)*nabla_grad(v) )
         return F * self.dx
 
-    def RHS(self, solution, uv_old=None, uv_bottom=None, bottom_drag=None):
+    def RHS(self, solution, uv_old=None, uv_bottom=None, bottom_drag=None,
+            viscosity_h=None, mu_manning=None):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0  # holds all dx volume integral terms
@@ -782,8 +784,9 @@ class freeSurfaceEquations(equation):
                 t = self.normal[1] * self.e_x - self.normal[0] * self.e_y
                 ut = dot(uv, t)
                 slipFactor = funcs['slip_alpha']
-                G += viscosity_h * \
-                    inner(slipFactor*viscosity_h*ut*t, self.U_test)*ds_bnd
+                if viscosity_h is not None:
+                    G += viscosity_h * \
+                        inner(slipFactor*viscosity_h*ut*t, self.U_test)*ds_bnd
 
             elif 'elev' in funcs:
                 # prescribe elevation only
@@ -850,9 +853,10 @@ class freeSurfaceEquations(equation):
                 G += un_ext * un_ext * inner(self.normal, self.U_test) * ds_bnd
 
         # Quadratic drag
-        BottomFri = g_grav * mu_manning ** 2 * \
-            total_H ** (-4. / 3.) * sqrt(dot(uv_old, uv_old)) * inner(self.U_test, uv)*self.dx
-        F += BottomFri
+        if mu_manning is not None:
+            BottomFri = g_grav * mu_manning ** 2 * \
+                total_H ** (-4. / 3.) * sqrt(dot(uv_old, uv_old)) * inner(self.U_test, uv)*self.dx
+            F += BottomFri
 
         # bottom friction from a 3D model
         if bottom_drag is not None and uv_bottom is not None:
@@ -864,13 +868,14 @@ class freeSurfaceEquations(equation):
 
         # viscosity
         # A double dot product of the stress tensor and grad(w).
-        Diff_mom = -viscosity_h * (Dx(uv[0], 0) * Dx(self.U_test[0], 0) +
-                                   Dx(uv[0], 1) * Dx(self.U_test[0], 1) +
-                                   Dx(uv[1], 0) * Dx(self.U_test[1], 0) +
-                                   Dx(uv[1], 1) * Dx(self.U_test[1], 1))
-        Diff_mom += viscosity_h/total_H*inner(dot(grad(total_H), grad(uv)),
-                                              self.U_test)
-        F -= Diff_mom * self.dx
+        if viscosity_h is not None:
+            Diff_mom = -viscosity_h * (Dx(uv[0], 0) * Dx(self.U_test[0], 0) +
+                                    Dx(uv[0], 1) * Dx(self.U_test[0], 1) +
+                                    Dx(uv[1], 0) * Dx(self.U_test[1], 0) +
+                                    Dx(uv[1], 1) * Dx(self.U_test[1], 1))
+            Diff_mom += viscosity_h/total_H*inner(dot(grad(total_H), grad(uv)),
+                                                self.U_test)
+            F -= Diff_mom * self.dx
 
         return -F - G
 
