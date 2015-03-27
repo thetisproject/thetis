@@ -30,19 +30,13 @@ def cosTimeAvFilter(M):
     a[ix] = 1 + np.cos(2*np.pi*(l[ix]-1))
     a /= sum(a)
 
-    ## b as in Shchepetkin and MacWilliams 2005
-    #b = np.cumsum(a[::-1])[::-1]/M
-    ## correct b to match 2nd criterion exactly
-    #error = sum(l*b)-0.5
-    #p = np.linspace(-1,1,len(b))
-    #p /= sum(l*p)
-    #b -= p*error
-
-    #b raised cos centered at M/2
-    b = np.zeros_like(l)
-    ix = (l <= 1.0)
-    b[ix] = 1 + np.cos(2*np.pi*(l[ix]-0.5))
-    b /= sum(b)
+    # b as in Shchepetkin and MacWilliams 2005
+    b = np.cumsum(a[::-1])[::-1]/M
+    # correct b to match 2nd criterion exactly
+    error = sum(l*b)-0.5
+    p = np.linspace(-1,1,len(b))
+    p /= sum(l*p)
+    b -= p*error
 
     M_star = np.nonzero((np.abs(a) > 1e-10) + (np.abs(b) > 1e-10))[0].max()
     print 'M', M, M_star
