@@ -141,8 +141,7 @@ river_flux_func = lambda t: flux_river*min(t/T_ramp, 1.0)
 river_flux = Function(U_scalar_2d).interpolate(Expression(river_flux_func(t)))
 ocean_funcs = {'flux': ocean_flux}
 river_funcs = {'flux': river_flux}
-#swe2d.bnd_functions = {2: ocean_funcs, 1: river_funcs}
-swe2d.bnd_functions = {2: ocean_funcs}
+swe2d.bnd_functions = {2: ocean_funcs, 1: river_funcs}
 
 solver_parameters = {
     #'ksp_type': 'fgmres',
@@ -155,7 +154,7 @@ solver_parameters = {
 subIterator = mode2d.SSPRK33(swe2d, dt_2d, solver_parameters)
 timeStepper2d = mode2d.macroTimeStepIntegrator(subIterator,
                                                M_modesplit,
-                                               restartFromAv=False)
+                                               restartFromAv=True)
 
 #timeStepper2d = mode2d.DIRK3(swe2d, dt)
 #timeStepper2d = mode2d.CrankNicolson(swe2d, dt, gamma=1.0)
