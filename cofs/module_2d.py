@@ -24,20 +24,31 @@ def cosTimeAvFilter(M):
     Filters have lenght 2*M.
     """
     l = np.arange(1, 2*M+1, dtype=float)/M
+    # a raised cos centered at M
     a = np.zeros_like(l)
-    ix = (l >= 0.5) * (l < 1.5)
+    ix = (l >= 0.5) * (l <= 1.5)
     a[ix] = 1 + np.cos(2*np.pi*(l[ix]-1))
     a /= sum(a)
-    # b as in Shchepetkin and MacWilliams 2005
-    b = np.cumsum(a[::-1])[::-1]/M
-    # correct b to match 2nd criterion exactly
-    error = sum(l*b)-0.5
-    p = np.linspace(-1,1,len(b))
-    p /= sum(l*p)
-    b -= p*error
+
+    ## b as in Shchepetkin and MacWilliams 2005
+    #b = np.cumsum(a[::-1])[::-1]/M
+    ## correct b to match 2nd criterion exactly
+    #error = sum(l*b)-0.5
+    #p = np.linspace(-1,1,len(b))
+    #p /= sum(l*p)
+    #b -= p*error
+
+    #b raised cos centered at M/2
+    b = np.zeros_like(l)
+    ix = (l <= 1.0)
+    b[ix] = 1 + np.cos(2*np.pi*(l[ix]-0.5))
+    b /= sum(b)
+
+    M_star = np.nonzero((np.abs(a) > 1e-10) + (np.abs(b) > 1e-10))[0].max()
+    print 'M', M, M_star
     print 'a', sum(a), sum(l*a)
     print 'b', sum(b), sum(l*b)
-    return [float(f) for f in a], [float(f) for f in b]
+    return M_star, [float(f) for f in a], [float(f) for f in b]
 
 
 class macroTimeStepIntegrator(object):
@@ -55,7 +66,7 @@ class macroTimeStepIntegrator(object):
         self.solution_n = Function(space)
         self.solution_nplushalf = Function(space)
         self.solution_start = Function(space)
-        self.w_full, self.w_half = cosTimeAvFilter(M)
+        self.M_star, self.w_full, self.w_half = cosTimeAvFilter(M)
 
     def initialize(self, solution):
         self.timeStepper.initialize(solution)
@@ -63,7 +74,7 @@ class macroTimeStepIntegrator(object):
         self.solution_nplushalf.assign(solution)
         self.solution_start.assign(solution)
 
-    def advance(self, t, dt, solution, updateForcings):
+    def advance(self, t, dt, solution, updateForcings, verbose=False):
         """Advances equations for one macro time step DT=M*dt"""
         M = self.M
         solution_old = self.timeStepper.solution_old
@@ -82,28 +93,20 @@ class macroTimeStepIntegrator(object):
         self.solution_n.assign(0.0)
 
         # advance fields from T_{n} to T{n+1}
-        verbose = False
         if verbose and commrank == 0:
             sys.stdout.write('Solving 2D ')
-        for i in range(M):
+        for i in range(self.M_star):
             self.timeStepper.advance(t + i*dt, dt, solution, updateForcings)
             self.solution_nplushalf += self.w_half[i]*solution
             self.solution_n += self.w_full[i]*solution
             if verbose and commrank == 0:
                 sys.stdout.write('.')
+                if i == M-1:
+                    sys.stdout.write('|')
                 sys.stdout.flush()
-        if verbose and commrank == 0:
-            sys.stdout.write('|')
-            sys.stdout.flush()
-        # store state at T_{n+1}
-        self.solution_start.assign(solution)
-        # advance fields from T_{n+1} to T{n+2}
-        for i in range(M):
-            self.timeStepper.advance(t + (M+i)*dt, dt, solution, updateForcings)
-            self.solution_n += self.w_full[M+i]*solution
-            if verbose and commrank == 0:
-                sys.stdout.write('.')
-                sys.stdout.flush()
+            if i == M-1:
+                # store state at T_{n+1}
+                self.solution_start.assign(solution)
         if verbose and commrank == 0:
             sys.stdout.write('\n')
             sys.stdout.flush()
