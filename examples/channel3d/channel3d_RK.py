@@ -32,7 +32,8 @@ commrank = op2.MPI.comm.rank
 op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
 # set physical constants
-physical_constants['z0_friction'].assign(5.0e-5)
+#physical_constants['z0_friction'].assign(5.0e-5)
+physical_constants['z0_friction'].assign(0.0)
 #physical_constants['viscosity_h'].assign(0.0)
 
 mesh2d = Mesh('channel_mesh.msh')
@@ -56,7 +57,7 @@ bottom_drag2d = Function(P1_2d, name='Bottom Drag')
 use_wd = False
 nonlin = True
 swe2d = mode2d.freeSurfaceEquations(mesh2d, W_2d, solution2d, bathymetry2d,
-                                    uv_bottom2d, bottom_drag2d,
+                                    #uv_bottom2d, bottom_drag2d,
                                     nonlin=nonlin, use_wd=use_wd)
 
 # NOTE open elev bnd conditions unstable?
@@ -79,8 +80,8 @@ swe2d = mode2d.freeSurfaceEquations(mesh2d, W_2d, solution2d, bathymetry2d,
 #bath_v = np.array([20, 20, 6, 15, 5])
 depth_oce = 20.0
 depth_riv = 7.0
-bath_x = np.array([0, 100e3])
-bath_v = np.array([depth_oce, depth_riv])
+bath_x = np.array([0, 8e3, 100e3])
+bath_v = np.array([depth_oce, depth_oce, depth_riv])
 depth = 20.0
 
 
@@ -184,16 +185,16 @@ vmom_eq3d = mode3d.verticalMomentumEquation(mesh, U, U_scalar, uv3d, w=None,
                                             bottom_drag=bottom_drag3d)
 
 T = 48 * 3600  # 100*24*3600
-Umag = Constant(3.0)
+Umag = Constant(2.5)
 mesh_dt = swe2d.getTimeStepAdvection(Umag=Umag)
-dt = float(np.floor(mesh_dt.dat.data.min()/10.0))*0.80
+dt = float(np.floor(mesh_dt.dat.data.min()/20.0))
 dt = round(comm.allreduce(dt, dt, op=MPI.MIN))
 TExport = 100.0
 mesh2d_dt = swe2d.getTimeStep(Umag=Umag)
-dt_2d = mesh2d_dt.dat.data.min()/20.0
+dt_2d = float(mesh2d_dt.dat.data.min()/20.0)
 dt_2d = comm.allreduce(dt_2d, dt_2d, op=MPI.MIN)
 M_modesplit = int(np.ceil(dt/dt_2d))
-dt_2d = float(dt/M_modesplit)
+dt_2d = dt/M_modesplit
 if commrank == 0:
     print 'dt =', dt
     print '2D dt =', dt_2d, M_modesplit
@@ -202,26 +203,34 @@ if commrank == 0:
 # weak boundary conditions
 solution_ext_2d = Function(swe2d.space)
 u_ext_2d, h_ext_2d = split(solution_ext_2d)
+L_y = 1900
 h_amp = 2.0
-flux_amp = -2.0
+un_amp = -2.0
+flux_amp = L_y*depth_oce*un_amp
 h_T = 12 * 3600  # 44714.0
-uv_river = -0.3
-flux_river = 1500*depth_riv*uv_river
+un_river = -0.3
+flux_river = L_y*depth_riv*un_river
 t = 0.0
-T_ramp = 3600.0
+#T_ramp = 3600.0
+T_ramp = 1000.0
 ocean_elev_func = lambda t: h_amp * sin(2 * pi * t / h_T)  # + 3*pi/2)
 ocean_elev = Function(swe2d.space.sub(1)).interpolate(Expression(ocean_elev_func(t)))
 ocean_elev_3d = Function(H).interpolate(Expression(ocean_elev_func(t)))
-ocean_un_func = lambda t: (flux_amp*sin(2 * pi * t / h_T) -
-                           uv_river)*min(t/T_ramp, 1.0)
+ocean_un_func = lambda t: (un_amp*sin(2 * pi * t / h_T) -
+                           un_river)*min(t/T_ramp, 1.0)
 ocean_un = Function(H_2d).interpolate(Expression(ocean_un_func(t)))
 ocean_un_3d = Function(H).interpolate(Expression(ocean_un_func(t)))
+ocean_flux_func = lambda t: (flux_amp*sin(2 * pi * t / h_T) -
+                             flux_river)*min(t/T_ramp, 1.0)
+#ocean_flux_func = lambda t: (flux_amp)*min(t/T_ramp, 1.0)
+ocean_flux = Function(H_2d).interpolate(Expression(ocean_flux_func(t)))
+ocean_flux_3d = Function(H).interpolate(Expression(ocean_flux_func(t)))
 river_flux_func = lambda t: flux_river*min(t/T_ramp, 1.0)
 river_flux = Function(U_scalar_2d).interpolate(Expression(river_flux_func(t)))
 river_flux_3d = Function(U_scalar).interpolate(Expression(river_flux_func(t)))
-ocean_funcs = {'un': ocean_un}
+ocean_funcs = {'flux': ocean_flux}
 river_funcs = {'flux': river_flux}
-ocean_funcs_3d = {'un': ocean_un_3d}
+ocean_funcs_3d = {'flux': ocean_flux_3d}
 river_funcs_3d = {'flux': river_flux_3d}
 ocean_salt_3d = {'value': salt_init3d}
 river_salt_3d = {'value': salt_init3d}
@@ -299,12 +308,14 @@ next_export_t = t + TExport
 def updateForcings(t_new):
     ocean_elev.dat.data[:] = ocean_elev_func(t_new)
     ocean_un.dat.data[:] = ocean_un_func(t_new)
+    ocean_flux.dat.data[:] = ocean_flux_func(t_new)
     river_flux.dat.data[:] = river_flux_func(t_new)
 
 
 def updateForcings3d(t_new):
     ocean_elev_3d.dat.data[:] = ocean_elev_func(t_new)
     ocean_un_3d.dat.data[:] = ocean_un_func(t_new)
+    ocean_flux_3d.dat.data[:] = ocean_flux_func(t_new)
     river_flux_3d.dat.data[:] = river_flux_func(t_new)
 
 
@@ -349,8 +360,8 @@ while t <= T + T_epsilon:
     with timed_region('aux_functions'):
         computeParabolicViscosity(uv_bottom3d, bottom_drag3d, bathymetry3d,
                                   viscosity_v3d)
-    with timed_region('vert_diffusion'):
-        timeStepper_vmom3d.advance(t, dt, uv3d, None)
+    #with timed_region('vert_diffusion'):
+        #timeStepper_vmom3d.advance(t, dt, uv3d, None)
     with timed_region('continuityEq'):
         computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
         computeMeshVelocity(eta3d, uv3d, w3d, w_mesh3d, w_mesh_surf3d,
@@ -358,14 +369,15 @@ while t <= T + T_epsilon:
         #dw_mesh_dz_3d.assign(0.0)
         #w_mesh3d.assign(0.0)
         computeBottomFriction()
-    with timed_region('saltEq'):
-        timeStepper_salt3d.advance(t, dt, salt3d, updateForcings3d)
+    #with timed_region('saltEq'):
+        #timeStepper_salt3d.advance(t, dt, salt3d, updateForcings3d)
     with timed_region('aux_functions'):
         bndValue = Constant((0.0, 0.0, 0.0))
         computeVerticalIntegral(uv3d, uv3d_dav, U,
                                 bottomToTop=True, bndValue=bndValue,
                                 average=True, bathymetry=bathymetry3d)
         copy3dFieldTo2d(uv3d_dav, uv2d_dav, useBottomValue=False)
+        copy2dFieldTo3d(uv2d_dav, uv3d_dav)
         # 2d-3d coupling: restart 2d mode from depth ave 3d velocity
         timeStepper2d.solution_start.split()[0].assign(uv2d_dav)
     #with timed_region('continuityEq'):

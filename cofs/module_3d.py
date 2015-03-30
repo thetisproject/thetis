@@ -479,24 +479,25 @@ class momentumEquation(equation):
                       Dx(self.test[1], 1)*solution[1]*solution[1])
             F += Adv_h * self.dx
             if self.horizontal_DG:
-                uv_rie = avg(solution)
-                s = 0.5*(sign(uv_rie[0]*self.normal('-')[0] +
-                              uv_rie[1]*self.normal('-')[1]) + 1.0)
+                uv_av = avg(solution)
+                un_av = (uv_av[0]*self.normal('-')[0] +
+                         uv_av[1]*self.normal('-')[1])
+                s = 0.5*(sign(un_av) + 1.0)
                 uv_up = solution('-')*s + solution('+')*(1-s)
                 G += (uv_up[0]*jump(self.test[0], self.normal[0]*solution[0]) +
                       uv_up[0]*jump(self.test[0], self.normal[1]*solution[1]) +
                       uv_up[1]*jump(self.test[1], self.normal[0]*solution[0]) +
                       uv_up[1]*jump(self.test[1], self.normal[1]*solution[1]))*(self.dS_v)
                 # Lax-Friedrichs stabilization
-                gamma = abs(self.normal[0]('-')*avg(solution[0]) +
-                            self.normal[1]('-')*avg(solution[1]))
+                gamma = abs(un_av)
                 G += gamma*dot(jump(self.test), jump(solution))*self.dS_v
             if self.vertical_DG:
                 # NOTE bottom bnd doesn't work for DG vertical mesh
-                G += (uv_rie[0]*uv_rie[0]*jump(self.test[0], self.normal[0]) +
-                      uv_rie[0]*uv_rie[1]*jump(self.test[0], self.normal[1]) +
-                      uv_rie[1]*uv_rie[0]*jump(self.test[1], self.normal[0]) +
-                      uv_rie[1]*uv_rie[1]*jump(self.test[1], self.normal[1]))*(self.dS_h)
+                uv_av = avg(solution)
+                G += (uv_av[0]*uv_av[0]*jump(self.test[0], self.normal[0]) +
+                      uv_av[0]*uv_av[1]*jump(self.test[0], self.normal[1]) +
+                      uv_av[1]*uv_av[0]*jump(self.test[1], self.normal[0]) +
+                      uv_av[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_h)
             G += (solution[0]*solution[0]*self.test[0]*self.normal[0] +
                   solution[0]*solution[1]*self.test[0]*self.normal[1] +
                   solution[1]*solution[0]*self.test[1]*self.normal[0] +
@@ -534,12 +535,12 @@ class momentumEquation(equation):
             ds_bnd = ds_v(int(bnd_marker), domain=self.mesh)
             if funcs is None:
                 # assume land boundary
-                #continue
-                if self.nonlin:
-                    G += (self.test[0]*solution[0]*solution[0]*self.normal[0] +
-                          self.test[0]*solution[0]*solution[1]*self.normal[1] +
-                          self.test[1]*solution[1]*solution[0]*self.normal[0] +
-                          self.test[1]*solution[1]*solution[1]*self.normal[1])*(ds_bnd)
+                continue
+                #if self.nonlin:
+                    #G += (self.test[0]*solution[0]*solution[0]*self.normal[0] +
+                          #self.test[0]*solution[0]*solution[1]*self.normal[1] +
+                          #self.test[1]*solution[1]*solution[0]*self.normal[0] +
+                          #self.test[1]*solution[1]*solution[1]*self.normal[1])*(ds_bnd)
 
             elif 'elev' in funcs:
                 # prescribe elevation only

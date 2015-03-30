@@ -36,10 +36,40 @@ def cosTimeAvFilter(M):
     p /= sum(l*p)
     b -= p*error
 
+    ## weird cos filter
+    ## TODO check with waveEq if this is any better than uncorrected b above
+    #b = np.zeros_like(l)
+    #alpha = 0.40
+
+    ##maxiter = 100
+    ##tol = 1e-8
+    ##ix = (l <= 1.0 + alpha)
+    ##for i in range(maxiter):
+        ##b[:] = 0
+        ##ix = (l <= 1.0 + alpha)
+        ##b[ix] = np.cos(np.pi*(l[ix]-alpha)) + 1
+        ##b /= sum(b)
+        ##err = sum(l*b) - 0.5
+        ##print 'alpha', alpha, err
+        ##if abs(err) < tol :
+            ##break
+        ##alpha -= err
+
+    #gtol = 1e-10
+    #from scipy.optimize import fmin_bfgs as minimize
+    #def costfun(alpha, b, l):
+        #b[:] = 0
+        #ix = (l <= 1.0 + alpha)
+        #b[ix] = np.cos(np.pi*(l[ix]-alpha)) + 1
+        #b /= sum(b)
+        #return (sum(l*b) - 0.5)**2
+    #res = minimize(costfun, 0.4, args=(b, l), gtol=gtol)
+
     M_star = np.nonzero((np.abs(a) > 1e-10) + (np.abs(b) > 1e-10))[0].max()
     print 'M', M, M_star
     print 'a', sum(a), sum(l*a)
     print 'b', sum(b), sum(l*b)
+
     return M_star, [float(f) for f in a], [float(f) for f in b]
 
 
@@ -743,10 +773,10 @@ class freeSurfaceEquations(equation):
                 s = 0.5*(sign(uv_av[0]*self.normal('-')[0] +
                               uv_av[1]*self.normal('-')[1]) + 1.0)
                 uv_up = uv('-')*s + uv('+')*(1-s)
-                G += (uv_av[0]*uv_av[0]*jump(self.U_test[0], self.normal[0]) +
-                      uv_av[0]*uv_av[1]*jump(self.U_test[1], self.normal[0]) +
-                      uv_av[1]*uv_av[0]*jump(self.U_test[0], self.normal[1]) +
-                      uv_av[1]*uv_av[1]*jump(self.U_test[1], self.normal[1]))*self.dS
+                G += (uv_av[0]*uv_up[0]*jump(self.U_test[0], self.normal[0]) +
+                      uv_av[0]*uv_up[1]*jump(self.U_test[1], self.normal[0]) +
+                      uv_av[1]*uv_up[0]*jump(self.U_test[0], self.normal[1]) +
+                      uv_av[1]*uv_up[1]*jump(self.U_test[1], self.normal[1]))*self.dS
                 # Lax-Friedrichs stabilization
                 gamma = abs(self.normal[0]('-')*uv_av[0] +
                             self.normal[1]('-')*uv_av[1])
@@ -835,11 +865,13 @@ class freeSurfaceEquations(equation):
                     #s = 0.5*(sign(un_av) + 1.0)
                     #un_up = un_in*s + un_ext*(1-s)
                     #G += un_av*un_av*inner(self.normal, self.U_test)*ds_bnd
+                    s = 0.5*(sign(un_av) + 1.0)
+                    uv_up = uv*s + un_ext*self.normal*(1-s)
                     uv_av = 0.5*(uv + un_ext*self.normal)
-                    G += (uv_av[0]*uv_av[0]*(self.U_test[0]*self.normal[0]) +
-                          uv_av[0]*uv_av[1]*(self.U_test[1]*self.normal[0]) +
-                          uv_av[1]*uv_av[0]*(self.U_test[0]*self.normal[1]) +
-                          uv_av[1]*uv_av[1]*(self.U_test[1]*self.normal[1]))*ds_bnd
+                    G += (uv_av[0]*uv_up[0]*(self.U_test[0]*self.normal[0]) +
+                          uv_av[0]*uv_up[1]*(self.U_test[1]*self.normal[0]) +
+                          uv_av[1]*uv_up[0]*(self.U_test[0]*self.normal[1]) +
+                          uv_av[1]*uv_up[1]*(self.U_test[1]*self.normal[1]))*ds_bnd
 
                     # Lax-Friedrichs stabilization
                     gamma = abs(self.normal[0]*uv_av[0] +

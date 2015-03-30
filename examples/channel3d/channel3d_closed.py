@@ -167,9 +167,9 @@ vmom_eq3d = mode3d.verticalMomentumEquation(mesh, U, U_scalar, uv3d, w=None,
                                             bottom_drag=bottom_drag3d)
 
 T = 48 * 3600  # 100*24*3600
-Umag = Constant(4.0)
+Umag = Constant(4.2)
 mesh_dt = swe2d.getTimeStepAdvection(Umag=Umag)
-dt = float(np.floor(mesh_dt.dat.data.min()/10.0))*0.80
+dt = float(np.floor(mesh_dt.dat.data.min()/20.0))
 dt = round(comm.allreduce(dt, dt, op=MPI.MIN))
 TExport = 100.0
 mesh2d_dt = swe2d.getTimeStep(Umag=Umag)
@@ -185,26 +185,34 @@ if commrank == 0:
 # weak boundary conditions
 solution_ext_2d = Function(swe2d.space)
 u_ext_2d, h_ext_2d = split(solution_ext_2d)
+L_y = 1900
 h_amp = 2.0
-flux_amp = -2.0
+un_amp = -2.0
+flux_amp = L_y*depth_oce*un_amp
 h_T = 12 * 3600  # 44714.0
-uv_river = -0.3
-flux_river = 1500*depth_riv*uv_river
+un_river = -0.3
+flux_river = L_y*depth_riv*un_river
 t = 0.0
-T_ramp = 3600.0
+#T_ramp = 3600.0
+T_ramp = 1000.0
 ocean_elev_func = lambda t: h_amp * sin(2 * pi * t / h_T)  # + 3*pi/2)
 ocean_elev = Function(swe2d.space.sub(1)).interpolate(Expression(ocean_elev_func(t)))
 ocean_elev_3d = Function(H).interpolate(Expression(ocean_elev_func(t)))
-ocean_un_func = lambda t: (flux_amp*sin(2 * pi * t / h_T) -
-                           uv_river)*min(t/T_ramp, 1.0)
+ocean_un_func = lambda t: (un_amp*sin(2 * pi * t / h_T) -
+                           un_river)*min(t/T_ramp, 1.0)
 ocean_un = Function(H_2d).interpolate(Expression(ocean_un_func(t)))
 ocean_un_3d = Function(H).interpolate(Expression(ocean_un_func(t)))
+ocean_flux_func = lambda t: (flux_amp*sin(2 * pi * t / h_T) -
+                             flux_river)*min(t/T_ramp, 1.0)
+#ocean_flux_func = lambda t: (flux_amp)*min(t/T_ramp, 1.0)
+ocean_flux = Function(H_2d).interpolate(Expression(ocean_flux_func(t)))
+ocean_flux_3d = Function(H).interpolate(Expression(ocean_flux_func(t)))
 river_flux_func = lambda t: flux_river*min(t/T_ramp, 1.0)
 river_flux = Function(U_scalar_2d).interpolate(Expression(river_flux_func(t)))
 river_flux_3d = Function(U_scalar).interpolate(Expression(river_flux_func(t)))
-ocean_funcs = {'un': ocean_un}
+ocean_funcs = {'flux': ocean_flux}
 river_funcs = {'flux': river_flux}
-ocean_funcs_3d = {'un': ocean_un_3d}
+ocean_funcs_3d = {'flux': ocean_flux_3d}
 river_funcs_3d = {'flux': river_flux_3d}
 ocean_salt_3d = {'value': salt_init3d}
 river_salt_3d = {'value': salt_init3d}
@@ -282,12 +290,14 @@ next_export_t = t + TExport
 def updateForcings(t_new):
     ocean_elev.dat.data[:] = ocean_elev_func(t_new)
     ocean_un.dat.data[:] = ocean_un_func(t_new)
+    ocean_flux.dat.data[:] = ocean_flux_func(t_new)
     river_flux.dat.data[:] = river_flux_func(t_new)
 
 
 def updateForcings3d(t_new):
     ocean_elev_3d.dat.data[:] = ocean_elev_func(t_new)
     ocean_un_3d.dat.data[:] = ocean_un_func(t_new)
+    ocean_flux_3d.dat.data[:] = ocean_flux_func(t_new)
     river_flux_3d.dat.data[:] = river_flux_func(t_new)
 
 
