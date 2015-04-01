@@ -16,6 +16,7 @@ import cofs.module_2d as mode2d
 import cofs.module_3d as mode3d
 from cofs.utility import *
 from cofs.physical_constants import physical_constants
+import cofs.timeIntegration as timeIntegration
 
 # HACK to fix unknown node: XXX / (F0) COFFEE errors
 op2.init()
@@ -76,7 +77,7 @@ def bath(x, y, z):
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 bathymetry2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
-outputDir = createDirectory('outputs_closed')
+outputDir = createDirectory('outputs')
 bathfile = File(os.path.join(outputDir, 'bath.pvd'))
 bathfile << bathymetry2d
 
@@ -132,7 +133,8 @@ viscosity_v3d = Function(P1, name='Vertical Velocity')
 
 salt_init3d = Function(H, name='initial salinity')
 #salt_init3d.interpolate(Expression('x[0]/1.0e5*10.0+2.0'))
-salt_init3d.interpolate(Expression('4.5'))
+saltVal = 4.5
+salt_init3d.interpolate(Expression(saltVal))
 
 
 def getZCoord(zcoord):
@@ -226,15 +228,15 @@ solver_parameters = {
     #'pc_type': 'fieldsplit',
     #'pc_fieldsplit_type': 'multiplicative',
 }
-subIterator = mode2d.SSPRK33(swe2d, dt_2d, solver_parameters)
-timeStepper2d = mode2d.macroTimeStepIntegrator(subIterator,
+subIterator = timeIntegration.SSPRK33(swe2d, dt_2d, solver_parameters)
+timeStepper2d = timeIntegration.macroTimeStepIntegrator(subIterator,
                                                M_modesplit,
                                                restartFromAv=True)
 
-timeStepper_mom3d = mode3d.SSPRK33(mom_eq3d, dt,
-                                   funcs_nplushalf={'eta': eta3d_nplushalf})
-timeStepper_salt3d = mode3d.SSPRK33(salt_eq3d, dt)
-timeStepper_vmom3d = mode3d.CrankNicolson(vmom_eq3d, dt, gamma=0.6)
+timeStepper_mom3d = timeIntegration.SSPRK33(mom_eq3d, dt,
+                                            funcs_nplushalf={'eta': eta3d_nplushalf})
+timeStepper_salt3d = timeIntegration.SSPRK33(salt_eq3d, dt, solver_parameters=solver_parameters)
+timeStepper_vmom3d = timeIntegration.CrankNicolson(vmom_eq3d, dt, gamma=0.6)
 
 U_2d_file = exporter(U_visu_2d, 'Depth averaged velocity', outputDir, 'Velocity2d.pvd')
 eta_2d_file = exporter(P1_2d, 'Elevation', outputDir, 'Elevation2d.pvd')
@@ -333,21 +335,8 @@ from pyop2.profiling import timed_region, timed_function, timing
 
 while t <= T + T_epsilon:
 
-    # For DIRK3 2d time integrator
-    #print('solving 2d mode')
-    #timeStepper2d.advance(t, dt, swe2d.solution, updateForcings)
-    #print('preparing 3d fields')
-    #copy2dFieldTo3d(swe2d.solution.split()[1], eta3d)
-    #print('solving 3d mode')
-    #timeStepper_mom3d.advance(t, dt, uv3d, updateForcings3d)
-    #print('solving 3d continuity')
-    #computeVertVelocity(w3d, uv3d, bathymetry3d)
-    #print('solving 3d tracers')
-    #timeStepper_salt3d.advance(t, dt, salt3d, None)
-
     # SSPRK33 time integration loop
     with timed_region('mode2d'):
-        #timeStepper2d.advance(t-dt/2, dt, swe2d.solution, updateForcings)
         timeStepper2d.advance(t, dt_2d, solution2d, updateForcings)
     with timed_region('aux_functions'):
         eta_n = solution2d.split()[1]
@@ -367,8 +356,6 @@ while t <= T + T_epsilon:
         computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
         computeMeshVelocity(eta3d, uv3d, w3d, w_mesh3d, w_mesh_surf3d,
                             dw_mesh_dz_3d, bathymetry3d, z_coord_ref3d)
-        #dw_mesh_dz_3d.assign(0.0)
-        #w_mesh3d.assign(0.0)
         computeBottomFriction()
     with timed_region('saltEq'):
         timeStepper_salt3d.advance(t, dt, salt3d, updateForcings3d)
@@ -380,51 +367,10 @@ while t <= T + T_epsilon:
         copy3dFieldTo2d(uv3d_dav, uv2d_dav, useBottomValue=False)
         # 2d-3d coupling: restart 2d mode from depth ave 3d velocity
         timeStepper2d.solution_start.split()[0].assign(uv2d_dav)
-    #with timed_region('continuityEq'):
-        #computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
 
     # Move to next time step
     t += dt
     i += 1
-
-    ## LF-AM3 time integration loop
-    #with timed_region('aux_functions'):
-        #eta_n = swe2d.solution.split()[1]
-        #copy2dFieldTo3d(eta_n, eta3d)  # at t_{n}
-        #computeBottomFriction()
-    ## prediction step, update 3d fields from t_{n-1/2} to t_{n+1/2}
-    #with timed_region('saltEq'):
-        #timeStepper_salt3d.predict(t, dt, salt3d, updateForcings3d)
-    #with timed_region('momentumEq'):
-        #timeStepper_mom3d.predict(t, dt, uv3d, None)
-    #with timed_region('continuityEq'):
-        #computeVertVelocity(w3d, uv3d, bathymetry3d)
-    #with timed_region('mode2d'):
-        #timeStepper2d.advance(t, dt, swe2d.solution, updateForcings)
-        ##timeStepper2d.advanceMacroStep(t, dt_2d, M_modesplit,
-                                       ##swe2d.solution, updateForcings)
-    #with timed_region('aux_functions'):
-        #eta_nplushalf = timeStepper2d.solution_nplushalf.split()[1]
-        #copy2dFieldTo3d(eta_nplushalf, eta3d)  # at t_{n+1/2}
-        #computeBottomFriction()
-        #computeParabolicViscosity(uv_bottom3d, bottom_drag3d, bathymetry3d, 
-                                  #viscosity_v3d)
-    #with timed_region('saltEq'):
-        #timeStepper_salt3d.correct(t, dt, salt3d, updateForcings3d)  # at t{n+1}
-    #with timed_region('momentumEq'):
-        #timeStepper_mom3d.correct(t, dt, uv3d, None)  # at t{n+1}
-    #with timed_region('vert_diffusion'):
-        #timeStepper_vmom3d.advance(t, dt, uv3d, None)
-    #with timed_region('aux_functions'):
-        #UV_n = swe2d.solution.split()[0]
-        #bndValue = Constant((0.0, 0.0, 0.0))
-        #computeVerticalIntegral(uv3d, uv3d_dav, U,
-                                #bottomToTop=True, bndValue=bndValue,
-                                #average=True, bathymetry=bathymetry3d)
-        #copy3dFieldTo2d(uv3d_dav, uv2d_dav, useBottomValue=False)
-        #UV_n.assign(uv2d_dav)
-    #with timed_region('continuityEq'):
-        #computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
 
     # Write the solution to file
     if t >= next_export_t - T_epsilon:
@@ -433,16 +379,37 @@ while t <= T + T_epsilon:
         norm_h = norm(solution2d.split()[1])
         norm_u = norm(solution2d.split()[0])
 
+        Vol = compVolume(solution2d.split()[1])
+        Vol3d = compVolume3d()
+        Mass3d = compTracerMass3d(salt3d)
+        saltMin = salt3d.dat.data.min()
+        saltMax = salt3d.dat.data.max()
+        saltMin = op2.MPI.COMM.allreduce(saltMin, op=MPI.MIN)
+        saltMax = op2.MPI.COMM.allreduce(saltMax, op=MPI.MAX)
         if commrank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
             print(bold(line.format(iexp=iExp, i=i, t=t, e=norm_h,
                               u=norm_u, cpu=cputime)))
             line = 'Rel. {0:s} error {1:11.4e}'
-            print(line.format('vol  ', (Vol_0 - compVolume(solution2d.split()[1]))/Vol_0))
-            print(line.format('vol3d', (Vol3d_0 - compVolume3d())/Vol3d_0))
-            print(line.format('mass ', (Mass3d_0 - compTracerMass3d(salt3d))/Mass3d_0))
-            print 'salt ', salt3d.dat.data.min()-4.5, salt3d.dat.data.max()-4.5
+            print(line.format('vol  ', (Vol_0 - Vol)/Vol_0))
+            print(line.format('vol3d', (Vol3d_0 - Vol3d)/Vol3d_0))
+            print(line.format('mass ', (Mass3d_0 - Mass3d)/Mass3d_0))
+            print('salt deviation {:g} {:g}'.format((saltMin-saltVal)/saltVal,
+                                                    (saltMax-saltVal)/saltVal))
+            tracDev = max(abs(saltMin-saltVal)/saltVal, abs(saltMax-saltVal)/saltVal)
+            sys.stdout.flush()
+            TOL_vol = 1e-4
+            TOL_mass = 1e-2
+            TOL_nodalval = 1e-1
+            if np.abs((Vol_0 - Vol)/Vol_0) > TOL_vol:
+              raise Exception(red('2D Volume is not conserved'))
+            if np.abs((Vol3d_0 - Vol3d)/Vol3d_0) > TOL_vol:
+              raise Exception(red('3D Volume is not conserved'))
+            if np.abs(tracDev) > TOL_nodalval:
+              raise Exception(red('Tracer deviates from initial conditions'))
+            if np.abs((Mass3d_0 - Mass3d)/Mass3d_0) > TOL_mass:
+              raise Exception(red('Tracer mass is not conserved'))
 
             sys.stdout.flush()
         U_2d_file.export(solution2d.split()[0])
@@ -458,19 +425,3 @@ while t <= T + T_epsilon:
 
         next_export_t += TExport
         iExp += 1
-
-        #if commrank == 0:
-            #labels = ['mode2d', 'momentumEq', 'vert_diffusion',
-                      #'continuityEq', 'saltEq', 'aux_functions']
-            #cost = {}
-            #relcost = {}
-            #totcost = 0
-            #for label in labels:
-                #value = timing(label, reset=True)
-                #cost[label] = value
-                #totcost += value
-            #for label in labels:
-                #c = cost[label]
-                #relcost = c/totcost
-                #print '{0:25s} : {1:11.6f} {2:11.2f}'.format(label, c, relcost)
-                #sys.stdout.flush()

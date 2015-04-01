@@ -1,6 +1,6 @@
 L = 1e5;
-W = 8e3;
-lc = 8000;
+W = 20e3;
+lc = W;
 Point(1) = {0, 0, 0, lc};
 Point(2) = {L, 0, 0, lc};
 Point(3) = {L, W, 0, lc};
