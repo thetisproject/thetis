@@ -300,25 +300,9 @@ def updateForcings3d(t_new):
     ocean_flux_3d.dat.data[:] = ocean_flux_func(t_new)
     river_flux_3d.dat.data[:] = river_flux_func(t_new)
 
-
-def compVolume(eta):
-    val = assemble(eta * swe2d.dx)
-    return val
-
-
-def compVolume3d():
-    one = Constant(1.0)
-    val = assemble(one*dx)
-    return val
-
-
-def compTracerMass3d(scalarFunc):
-    val = assemble(scalarFunc*dx)
-    return val
-
-Vol_0 = compVolume(eta2d)
-Vol3d_0 = compVolume3d()
-Mass3d_0 = compTracerMass3d(salt3d)
+Vol_0 = compVolume2d(eta2d, swe2d.dx)
+Vol3d_0 = compVolume3d(mom_eq3d.dx)
+Mass3d_0 = compTracerMass3d(salt3d, mom_eq3d.dx)
 print 'Initial volume', Vol_0, Vol3d_0
 
 from pyop2.profiling import timed_region, timed_function, timing
@@ -429,17 +413,25 @@ while t <= T + T_epsilon:
         norm_h = norm(solution2d.split()[1])
         norm_u = norm(solution2d.split()[0])
 
+        Vol = compVolume2d(solution2d.split()[1], swe2d.dx)
+        Vol3d = compVolume3d(dx)
+        Mass3d = compTracerMass3d(salt3d, dx)
+        saltMin = salt3d.dat.data.min()
+        saltMax = salt3d.dat.data.max()
+        saltMin = op2.MPI.COMM.allreduce(saltMin, op=MPI.MIN)
+        saltMax = op2.MPI.COMM.allreduce(saltMax, op=MPI.MAX)
+        uvAbsMax = np.hypot(uv3d.dat.data[:, 0], uv3d.dat.data[:, 1]).max()
+        uvAbsMax = op2.MPI.COMM.allreduce(uvAbsMax, op=MPI.MAX)
         if commrank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
-            print(line.format(iexp=iExp, i=i, t=t, e=norm_h,
-                              u=norm_u, cpu=cputime))
+            print(bold(line.format(iexp=iExp, i=i, t=t, e=norm_h,
+                              u=norm_u, cpu=cputime)))
             line = 'Rel. {0:s} error {1:11.4e}'
-            print(line.format('vol  ', (Vol_0 - compVolume(solution2d.split()[1]))/Vol_0))
-            print(line.format('vol3d', (Vol3d_0 - compVolume3d())/Vol3d_0))
-            print(line.format('mass ', (Mass3d_0 - compTracerMass3d(salt3d))/Mass3d_0))
-            print 'salt ', salt3d.dat.data.min()-4.5, salt3d.dat.data.max()-4.5
-
+            print(line.format('vol  ', (Vol_0 - Vol)/Vol_0))
+            print(line.format('vol3d', (Vol3d_0 - Vol3d)/Vol3d_0))
+            print(line.format('mass ', (Mass3d_0 - Mass3d)/Mass3d_0))
+            print('salt deviation {:g} {:g}'.format(saltMin-4.5, saltMax-4.5))
             sys.stdout.flush()
         U_2d_file.export(solution2d.split()[0])
         eta_2d_file.export(solution2d.split()[1])

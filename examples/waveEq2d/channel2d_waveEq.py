@@ -145,12 +145,7 @@ next_export_t = t + TExport
 
 updateForcings = None
 
-
-def compVolume(eta):
-    val = assemble(eta * swe2d.dx)
-    return op2.MPI.COMM.allreduce(val, op=MPI.SUM)
-
-Vol_0 = compVolume(eta2d)
+Vol_0 = compVolume2d(eta2d, swe2d.dx)
 print 'Initial volume', Vol_0
 
 from pyop2.profiling import timed_region, timed_function, timing
@@ -174,13 +169,15 @@ while t <= T + T_epsilon:
         norm_h = norm(solution2d.split()[1])
         norm_u = norm(solution2d.split()[0])
 
+        Vol = compVolume2d(solution2d.split()[1], swe2d.dx)
         if commrank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
-            print(line.format(iexp=iExp, i=i, t=t, e=norm_h,
-                              u=norm_u, cpu=cputime))
-            line = 'Rel. vol. error {0:8.4e}'
-            print(line.format((Vol_0 - compVolume(solution2d.split()[1]))/Vol_0))
+            print(bold(line.format(iexp=iExp, i=i, t=t, e=norm_h,
+                              u=norm_u, cpu=cputime)))
+            line = 'Rel. {0:s} error {1:11.4e}'
+            print(line.format('vol  ', (Vol_0 - Vol)/Vol_0))
+            sys.stdout.flush()
 
             sys.stdout.flush()
         U_2d_file.export(solution2d.split()[0])

@@ -255,25 +255,9 @@ next_export_t = t + TExport
 updateForcings = None
 updateForcings3d = None
 
-
-def compVolume(eta):
-    val = assemble(eta * swe2d.dx)
-    return val
-
-
-def compVolume3d():
-    one = Constant(1.0)
-    val = assemble(one*dx)
-    return val
-
-
-def compTracerMass3d(scalarFunc):
-    val = assemble(scalarFunc*dx)
-    return val
-
-Vol_0 = compVolume(eta2d)
-Vol3d_0 = compVolume3d()
-Mass3d_0 = compTracerMass3d(salt3d)
+Vol_0 = compVolume2d(eta2d, swe2d.dx)
+Vol3d_0 = compVolume3d(mom_eq3d.dx)
+Mass3d_0 = compTracerMass3d(salt3d, mom_eq3d.dx)
 if commrank == 0:
   print 'Initial volume', Vol_0, Vol3d_0
 
@@ -332,9 +316,9 @@ while t <= T + T_epsilon:
         norm_h = norm(solution2d.split()[1])
         norm_u = norm(solution2d.split()[0])
 
-        Vol = compVolume(solution2d.split()[1])
-        Vol3d = compVolume3d()
-        Mass3d = compTracerMass3d(salt3d)
+        Vol = compVolume2d(solution2d.split()[1], swe2d.dx)
+        Vol3d = compVolume3d(dx)
+        Mass3d = compTracerMass3d(salt3d, dx)
         saltMin = salt3d.dat.data.min()
         saltMax = salt3d.dat.data.max()
         saltMin = op2.MPI.COMM.allreduce(saltMin, op=MPI.MIN)

@@ -278,7 +278,6 @@ salt3d.assign(salt_init3d)
 computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
 computeMeshVelocity(eta3d, uv3d, w3d, w_mesh3d, w_mesh_surf3d,
                     dw_mesh_dz_3d, bathymetry3d, z_coord_ref3d)
-#computeBottomFriction()
 
 timeStepper2d.initialize(solution2d)
 timeStepper_mom3d.initialize(uv3d)

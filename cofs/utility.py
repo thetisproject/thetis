@@ -95,6 +95,22 @@ def extrudeMeshSigma(mesh2d, n_layers, bathymetry2d):
     return mesh
 
 
+def compVolume2d(eta, dx):
+    val = assemble(eta*dx)
+    return val
+
+
+def compVolume3d(dx):
+    one = Constant(1.0)
+    val = assemble(one*dx)
+    return val
+
+
+def compTracerMass3d(scalarFunc, dx):
+    val = assemble(scalarFunc*dx)
+    return val
+
+
 def computeVertVelocity(solution, uv, bathymetry):
     """Computes vertical velocity from 3d continuity equation."""
     # continuity equation must be solved in the space of w (and tracers)

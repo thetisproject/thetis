@@ -226,7 +226,6 @@ salt3d.assign(salt_init3d)
 computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
 computeMeshVelocity(eta3d, uv3d, w3d, w_mesh3d, w_mesh_surf3d,
                     dw_mesh_dz_3d, bathymetry3d, z_coord_ref3d)
-#computeBottomFriction()
 
 timeStepper2d.initialize(solution2d)
 timeStepper_mom3d.initialize(uv3d)
@@ -257,35 +256,9 @@ next_export_t = t + TExport
 updateForcings = None
 updateForcings3d = None
 
-
-def computeBottomFriction():
-    copy3dFieldTo2d(uv3d, uv_bottom2d, level=-2)
-    copy2dFieldTo3d(uv_bottom2d, uv_bottom3d)
-    copy3dFieldTo2d(z_coord3d, z_bottom2d, level=-2)
-    copy2dFieldTo3d(z_bottom2d, z_bottom3d)
-    z_bottom2d.dat.data[:] += bathymetry2d.dat.data[:]
-    computeBottomDrag(uv_bottom2d, z_bottom2d, bathymetry2d, bottom_drag2d)
-    copy2dFieldTo3d(bottom_drag2d, bottom_drag3d)
-
-
-def compVolume(eta):
-    val = assemble(eta * swe2d.dx)
-    return val
-
-
-def compVolume3d():
-    one = Constant(1.0)
-    val = assemble(one*dx)
-    return val
-
-
-def compTracerMass3d(scalarFunc):
-    val = assemble(scalarFunc*dx)
-    return val
-
-Vol_0 = compVolume(eta2d)
-Vol3d_0 = compVolume3d()
-Mass3d_0 = compTracerMass3d(salt3d)
+Vol_0 = compVolume2d(eta2d, swe2d.dx)
+Vol3d_0 = compVolume3d(mom_eq3d.dx)
+Mass3d_0 = compTracerMass3d(salt3d, mom_eq3d.dx)
 if commrank == 0:
   print 'Initial volume', Vol_0, Vol3d_0
 
@@ -315,7 +288,10 @@ while t <= T + T_epsilon:
                             dw_mesh_dz_3d, bathymetry3d, z_coord_ref3d)
         #dw_mesh_dz_3d.assign(0.0)
         #w_mesh3d.assign(0.0)
-        computeBottomFriction()
+        computeBottomFriction(uv3d, uv_bottom2d, uv_bottom3d, z_coord3d,
+                              z_bottom2d, z_bottom3d, bathymetry2d,
+                              bottom_drag2d, bottom_drag3d)
+
     with timed_region('saltEq'):
         timeStepper_salt3d.advance(t, dt, salt3d, updateForcings3d)
     with timed_region('aux_functions'):
@@ -341,9 +317,9 @@ while t <= T + T_epsilon:
         norm_h = norm(solution2d.split()[1])
         norm_u = norm(solution2d.split()[0])
 
-        Vol = compVolume(solution2d.split()[1])
-        Vol3d = compVolume3d()
-        Mass3d = compTracerMass3d(salt3d)
+        Vol = compVolume2d(solution2d.split()[1], swe2d.dx)
+        Vol3d = compVolume3d(dx)
+        Mass3d = compTracerMass3d(salt3d, dx)
         saltMin = salt3d.dat.data.min()
         saltMax = salt3d.dat.data.max()
         saltMin = op2.MPI.COMM.allreduce(saltMin, op=MPI.MIN)
