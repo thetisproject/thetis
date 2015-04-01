@@ -66,9 +66,10 @@ def cosTimeAvFilter(M):
     #res = minimize(costfun, 0.4, args=(b, l), gtol=gtol)
 
     M_star = np.nonzero((np.abs(a) > 1e-10) + (np.abs(b) > 1e-10))[0].max()
-    print 'M', M, M_star
-    print 'a', sum(a), sum(l*a)
-    print 'b', sum(b), sum(l*b)
+    if commrank==0:
+      print 'M', M, M_star
+      print 'a', sum(a), sum(l*a)
+      print 'b', sum(b), sum(l*b)
 
     return M_star, [float(f) for f in a], [float(f) for f in b]
 

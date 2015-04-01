@@ -39,7 +39,7 @@ op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 physical_constants['z0_friction'].assign(0.0)
 #physical_constants['viscosity_h'].assign(0.0)
 
-mesh2d = Mesh('channel_waveEq.msh')
+mesh2d = Mesh('mesh_coarse.msh')
 
 # Function spaces for 2d mode
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -97,7 +97,7 @@ elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=1.0,
 # create 3d equations
 
 # extrude mesh
-n_layers = 6
+n_layers = 4
 mesh = extrudeMeshSigma(mesh2d, n_layers, bathymetry2d)
 
 # function spaces
@@ -130,7 +130,8 @@ salt3d = Function(H, name='Salinity')
 viscosity_v3d = Function(P1, name='Vertical Velocity')
 
 salt_init3d = Function(H, name='initial salinity')
-salt_init3d.interpolate(Expression('4.5'))
+saltVal = 4.5
+salt_init3d.interpolate(Expression(saltVal))
 
 
 def getZCoord(zcoord):
@@ -166,9 +167,9 @@ vmom_eq3d = mode3d.verticalMomentumEquation(mesh, U, U_scalar, uv3d, w=None,
 c_wave = float(np.sqrt(9.81*depth_oce))
 T_cycle = Lx/c_wave
 n_steps = 20*2
-dt = round(float(T_cycle/n_steps))
+dt = float(T_cycle/n_steps)
 TExport = dt
-T = 10*T_cycle
+T = 3*T_cycle
 # explicit model
 Umag = Constant(2.0)
 #mesh_dt = swe2d.getTimeStepAdvection(Umag=Umag)
@@ -275,23 +276,24 @@ def computeBottomFriction():
 
 def compVolume(eta):
     val = assemble(eta * swe2d.dx)
-    return op2.MPI.COMM.allreduce(val, op=MPI.SUM)
+    return val  # op2.MPI.COMM.allreduce(val, op=MPI.SUM)
 
 
 def compVolume3d():
     one = Constant(1.0)
     val = assemble(one*dx)
-    return op2.MPI.COMM.allreduce(val, op=MPI.SUM)
+    return val  # op2.MPI.COMM.allreduce(val, op=MPI.SUM)
 
 
 def compTracerMass3d(scalarFunc):
     val = assemble(scalarFunc*dx)
-    return op2.MPI.COMM.allreduce(val, op=MPI.SUM)
+    return val  # op2.MPI.COMM.allreduce(val, op=MPI.SUM)
 
 Vol_0 = compVolume(eta2d)
 Vol3d_0 = compVolume3d()
 Mass3d_0 = compTracerMass3d(salt3d)
-print 'Initial volume', Vol_0, Vol3d_0
+if commrank == 0:
+  print 'Initial volume', Vol_0, Vol3d_0
 
 from pyop2.profiling import timed_region, timed_function, timing
 
@@ -345,18 +347,38 @@ while t <= T + T_epsilon:
         norm_h = norm(solution2d.split()[1])
         norm_u = norm(solution2d.split()[0])
 
+        Vol = compVolume(solution2d.split()[1])
+        Vol3d = compVolume3d()
+        Mass3d = compTracerMass3d(salt3d)
+        saltMin = salt3d.dat.data.min()
+        saltMax = salt3d.dat.data.max()
+        saltMin = op2.MPI.COMM.allreduce(saltMin, op=MPI.MIN)
+        saltMax = op2.MPI.COMM.allreduce(saltMax, op=MPI.MAX)
+        uvAbsMax = np.hypot(uv3d.dat.data[:, 0], uv3d.dat.data[:, 1]).max()
+        uvAbsMax = op2.MPI.COMM.allreduce(uvAbsMax, op=MPI.MAX)
         if commrank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
-            print(line.format(iexp=iExp, i=i, t=t, e=norm_h,
-                              u=norm_u, cpu=cputime))
+            print(bold(line.format(iexp=iExp, i=i, t=t, e=norm_h,
+                              u=norm_u, cpu=cputime)))
             line = 'Rel. {0:s} error {1:11.4e}'
-            print(line.format('vol  ', (Vol_0 - compVolume(solution2d.split()[1]))/Vol_0))
-            print(line.format('vol3d', (Vol3d_0 - compVolume3d())/Vol3d_0))
-            print(line.format('mass ', (Mass3d_0 - compTracerMass3d(salt3d))/Mass3d_0))
-            print 'salt ', salt3d.dat.data.min()-4.5, salt3d.dat.data.max()-4.5
-
+            print(line.format('vol  ', (Vol_0 - Vol)/Vol_0))
+            print(line.format('vol3d', (Vol3d_0 - Vol3d)/Vol3d_0))
+            print(line.format('mass ', (Mass3d_0 - Mass3d)/Mass3d_0))
+            print('salt deviation {:g} {:g}'.format(saltMin-saltVal, saltMax-saltVal))
             sys.stdout.flush()
+            TOL = 1e-4
+            TOL_stall_uv = 0.02
+            if np.abs((Vol_0 - Vol)/Vol_0) > TOL:
+              raise Exception(red('2D Volume is not conserved'))
+            if np.abs((Vol3d_0 - Vol3d)/Vol3d_0) > TOL:
+              raise Exception(red('3D Volume is not conserved'))
+            if np.abs((Mass3d_0 - Mass3d)/Mass3d_0) > TOL:
+              raise Exception(red('Tracer mass is not conserved'))
+            if np.mod(t+ T_epsilon, T_cycle)/T_cycle < 1e-3:
+              print('uv min {:f}'.format(uvAbsMax))
+              if uvAbsMax > TOL_stall_uv:
+                raise Exception(red('Phase error: Velocity is non-zero!'))
         U_2d_file.export(solution2d.split()[0])
         eta_2d_file.export(solution2d.split()[1])
         eta_3d_file.export(eta3d)
@@ -371,18 +393,5 @@ while t <= T + T_epsilon:
         next_export_t += TExport
         iExp += 1
 
-        #if commrank == 0:
-            #labels = ['mode2d', 'momentumEq', 'vert_diffusion',
-                      #'continuityEq', 'saltEq', 'aux_functions']
-            #cost = {}
-            #relcost = {}
-            #totcost = 0
-            #for label in labels:
-                #value = timing(label, reset=True)
-                #cost[label] = value
-                #totcost += value
-            #for label in labels:
-                #c = cost[label]
-                #relcost = c/totcost
-                #print '{0:25s} : {1:11.6f} {2:11.2f}'.format(label, c, relcost)
-                #sys.stdout.flush()
+
+print('  '+green('passed'))
