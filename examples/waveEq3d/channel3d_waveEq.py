@@ -236,16 +236,6 @@ updateForcings = None
 updateForcings3d = None
 
 
-def computeBottomFriction():
-    copy3dFieldTo2d(uv3d, uv_bottom2d, level=-2)
-    copy2dFieldTo3d(uv_bottom2d, uv_bottom3d)
-    copy3dFieldTo2d(z_coord3d, z_bottom2d, level=-2)
-    copy2dFieldTo3d(z_bottom2d, z_bottom3d)
-    z_bottom2d.dat.data[:] += bathymetry2d.dat.data[:]
-    computeBottomDrag(uv_bottom2d, z_bottom2d, bathymetry2d, bottom_drag2d)
-    copy2dFieldTo3d(bottom_drag2d, bottom_drag3d)
-
-
 def compVolume(eta):
     val = assemble(eta * swe2d.dx)
     return op2.MPI.COMM.allreduce(val, op=MPI.SUM)
@@ -265,7 +255,9 @@ while t <= T + T_epsilon:
         copy2dFieldTo3d(eta_n, eta3d)  # at t_{n+1}
         eta_nph = timeStepper2d.solution_nplushalf.split()[1]
         copy2dFieldTo3d(eta_nph, eta3d_nplushalf)  # at t_{n+1/2}
-        computeBottomFriction()
+        computeBottomFriction(uv3d, uv_bottom2d, uv_bottom3d, z_coord3d,
+                              z_bottom2d, z_bottom3d, bathymetry2d,
+                              bottom_drag2d, bottom_drag3d)
     with timed_region('momentumEq'):
         timeStepper_mom3d.advance(t, dt, uv3d, updateForcings3d)
     #with timed_region('vert_diffusion'):

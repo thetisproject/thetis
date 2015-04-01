@@ -260,7 +260,6 @@ salt3d.assign(salt_init3d)
 computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
 computeMeshVelocity(eta3d, uv3d, w3d, w_mesh3d, w_mesh_surf3d,
                     dw_mesh_dz_3d, bathymetry3d, z_coord_ref3d)
-#computeBottomFriction()
 
 timeStepper2d.initialize(solution2d)
 timeStepper_mom3d.initialize(uv3d)
@@ -300,16 +299,6 @@ def updateForcings3d(t_new):
     ocean_un_3d.dat.data[:] = ocean_un_func(t_new)
     ocean_flux_3d.dat.data[:] = ocean_flux_func(t_new)
     river_flux_3d.dat.data[:] = river_flux_func(t_new)
-
-
-def computeBottomFriction():
-    copy3dFieldTo2d(uv3d, uv_bottom2d, level=-2)
-    copy2dFieldTo3d(uv_bottom2d, uv_bottom3d)
-    copy3dFieldTo2d(z_coord3d, z_bottom2d, level=-2)
-    copy2dFieldTo3d(z_bottom2d, z_bottom3d)
-    z_bottom2d.dat.data[:] += bathymetry2d.dat.data[:]
-    computeBottomDrag(uv_bottom2d, z_bottom2d, bathymetry2d, bottom_drag2d)
-    copy2dFieldTo3d(bottom_drag2d, bottom_drag3d)
 
 
 def compVolume(eta):
@@ -358,7 +347,9 @@ while t <= T + T_epsilon:
         eta_nph = timeStepper2d.solution_nplushalf.split()[1]
         copy2dFieldTo3d(eta_nph, eta3d_nplushalf)  # at t_{n+1/2}
         updateCoordinates(mesh, eta3d, bathymetry3d, z_coord3d, z_coord_ref3d)
-        computeBottomFriction()
+        computeBottomFriction(uv3d, uv_bottom2d, uv_bottom3d, z_coord3d,
+                              z_bottom2d, z_bottom3d, bathymetry2d,
+                              bottom_drag2d, bottom_drag3d)
     with timed_region('momentumEq'):
         timeStepper_mom3d.advance(t, dt, uv3d, updateForcings3d)
     with timed_region('aux_functions'):
@@ -372,7 +363,9 @@ while t <= T + T_epsilon:
                             dw_mesh_dz_3d, bathymetry3d, z_coord_ref3d)
         #dw_mesh_dz_3d.assign(0.0)
         #w_mesh3d.assign(0.0)
-        computeBottomFriction()
+        computeBottomFriction(uv3d, uv_bottom2d, uv_bottom3d, z_coord3d,
+                              z_bottom2d, z_bottom3d, bathymetry2d,
+                              bottom_drag2d, bottom_drag3d)
     with timed_region('saltEq'):
         timeStepper_salt3d.advance(t, dt, salt3d, updateForcings3d)
     with timed_region('aux_functions'):

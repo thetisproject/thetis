@@ -29,8 +29,8 @@ def red(text):
 
 @colorify_text(colorama.Back.GREEN + colorama.Fore.BLACK)
 def green(text):
-  """Returns given string in uppercase, black on green background."""
-  return text.upper()
+    """Returns given string in uppercase, black on green background."""
+    return text.upper()
 
 @colorify_text(colorama.Style.BRIGHT + colorama.Fore.WHITE)
 def bold(text):
@@ -332,6 +332,18 @@ def computeBottomDrag(uv_bottom, z_bottom, bathymetry, drag):
     z0_friction = physical_constants['z0_friction']
     drag.assign((von_karman / ln((z_bottom)/z0_friction))**2)
     return drag
+
+
+def computeBottomFriction(uv3d, uv_bottom2d, uv_bottom3d, z_coord3d,
+                          z_bottom2d, z_bottom3d, bathymetry2d,
+                          bottom_drag2d, bottom_drag3d):
+    copy3dFieldTo2d(uv3d, uv_bottom2d, level=-2)
+    copy2dFieldTo3d(uv_bottom2d, uv_bottom3d)
+    copy3dFieldTo2d(z_coord3d, z_bottom2d, level=-2)
+    copy2dFieldTo3d(z_bottom2d, z_bottom3d)
+    z_bottom2d.dat.data[:] += bathymetry2d.dat.data[:]
+    computeBottomDrag(uv_bottom2d, z_bottom2d, bathymetry2d, bottom_drag2d)
+    copy2dFieldTo3d(bottom_drag2d, bottom_drag3d)
 
 
 def getHorzontalElemSize(P1_2d, P1_3d=None):
