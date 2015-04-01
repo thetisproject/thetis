@@ -1,4 +1,4 @@
-# Wave equation in 3D
+# Wave equation in 2D
 # ===================
 #
 # Rectangular channel geometry.
@@ -16,6 +16,7 @@ import cofs.module_2d as mode2d
 import cofs.module_3d as mode3d
 from cofs.utility import *
 from cofs.physical_constants import physical_constants
+import cofs.timeIntegration as timeIntegration
 
 # HACK to fix unknown node: XXX / (F0) COFFEE errors
 op2.init()
@@ -31,15 +32,6 @@ comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
 op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
-
-def createDirectory(path):
-    if commrank == 0:
-        if os.path.exists(path):
-            if not os.path.isdir(path):
-                raise Exception('file with same name exists', path)
-        else:
-            os.makedirs(path)
-    return path
 
 # set physical constants
 physical_constants['z0_friction'].assign(0.0)
@@ -188,21 +180,16 @@ solver_parameters = {
     #'pc_type': 'fieldsplit',
     #'pc_fieldsplit_type': 'multiplicative',
 }
-#timeStepper2d = mode2d.ForwardEuler(swe2d, dt)  # divide dt by 4
-#timeStepper2d = mode2d.AdamsBashforth3(swe2d, dt)
-subIterator = mode2d.SSPRK33(swe2d, dt_2d, solver_parameters)
-#subIterator = mode2d.AdamsBashforth3(swe2d, dt_2d) # blows up!
-timeStepper2d = mode2d.macroTimeStepIntegrator(subIterator,
-                                               M_modesplit,
-                                               restartFromAv=True)
-#timeStepper2d = mode2d.CrankNicolson(swe2d, dt, gamma=0.50)
-#timeStepper2d = mode2d.DIRK3(swe2d, dt)
-#timeStepper2d = mode2d.CrankNicolson(swe2d, dt, gamma=1.0)
+subIterator = timeIntegration.SSPRK33(swe2d, dt_2d, solver_parameters)
+timeStepper2d = timeIntegration.macroTimeStepIntegrator(subIterator,
+                                                        M_modesplit,
+                                                        restartFromAv=True)
 
-timeStepper_mom3d = mode3d.SSPRK33(mom_eq3d, dt,
-                                   funcs_nplushalf={'eta':eta3d_nplushalf})
-timeStepper_salt3d = mode3d.SSPRK33(salt_eq3d, dt)
-timeStepper_vmom3d = mode3d.CrankNicolson(vmom_eq3d, dt, gamma=0.6)
+timeStepper_mom3d = timeIntegration.SSPRK33(mom_eq3d, dt,
+                                            funcs_nplushalf={'eta': eta3d_nplushalf})
+timeStepper_salt3d = timeIntegration.SSPRK33(salt_eq3d, dt)
+timeStepper_vmom3d = timeIntegration.CrankNicolson(vmom_eq3d, dt, gamma=0.6)
+
 
 U_2d_file = exporter(U_visu_2d, 'Depth averaged velocity', outputDir, 'Velocity2d.pvd')
 eta_2d_file = exporter(P1_2d, 'Elevation', outputDir, 'Elevation2d.pvd')

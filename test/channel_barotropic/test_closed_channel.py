@@ -313,18 +313,18 @@ def computeBottomFriction():
 
 def compVolume(eta):
     val = assemble(eta * swe2d.dx)
-    return op2.MPI.COMM.allreduce(val, op=MPI.SUM)
+    return val
 
 
 def compVolume3d():
     one = Constant(1.0)
     val = assemble(one*dx)
-    return op2.MPI.COMM.allreduce(val, op=MPI.SUM)
+    return val
 
 
 def compTracerMass3d(scalarFunc):
     val = assemble(scalarFunc*dx)
-    return op2.MPI.COMM.allreduce(val, op=MPI.SUM)
+    return val
 
 Vol_0 = compVolume(eta2d)
 Vol3d_0 = compVolume3d()

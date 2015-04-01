@@ -16,6 +16,7 @@ import cofs.module_2d as mode2d
 import cofs.module_3d as mode3d
 from cofs.utility import *
 from cofs.physical_constants import physical_constants
+import cofs.timeIntegration as timeIntegration
 
 # HACK to fix unknown node: XXX / (F0) COFFEE errors
 op2.init()
@@ -166,9 +167,9 @@ vmom_eq3d = mode3d.verticalMomentumEquation(mesh, U, U_scalar, uv3d, w=None,
 c_wave = float(np.sqrt(9.81*depth_oce))
 T_cycle = Lx/c_wave
 n_steps = 20*2
-dt = round(float(T_cycle/n_steps))
+dt = float(T_cycle/n_steps)
 TExport = dt
-T = 10*T_cycle
+T = 10*T_cycle + 1e-3
 # explicit model
 Umag = Constant(2.0)
 #mesh_dt = swe2d.getTimeStepAdvection(Umag=Umag)
@@ -193,22 +194,15 @@ solver_parameters = {
     #'pc_type': 'fieldsplit',
     #'pc_fieldsplit_type': 'multiplicative',
 }
-#timeStepper2d = mode2d.ForwardEuler(swe2d, dt)  # divide dt by 4
-#timeStepper2d = mode2d.AdamsBashforth3(swe2d, dt)
-subIterator = mode2d.SSPRK33(swe2d, dt_2d, solver_parameters)
-#subIterator = mode2d.AdamsBashforth3(swe2d, dt_2d) # blows up!
-timeStepper2d = mode2d.macroTimeStepIntegrator(subIterator,
+subIterator = timeIntegration.SSPRK33(swe2d, dt_2d, solver_parameters)
+timeStepper2d = timeIntegration.macroTimeStepIntegrator(subIterator,
                                                M_modesplit,
                                                restartFromAv=True)
-#timeStepper2d = mode2d.CrankNicolson(swe2d, dt, gamma=0.50)
-#timeStepper2d = mode2d.DIRK3(swe2d, dt)
-#timeStepper2d = mode2d.CrankNicolson(swe2d, dt, gamma=1.0)
 
-timeStepper_mom3d = mode3d.SSPRK33(mom_eq3d, dt,
+timeStepper_mom3d = timeIntegration.SSPRK33(mom_eq3d, dt,
                                    funcs_nplushalf={'eta': eta3d_nplushalf})
-timeStepper_salt3d = mode3d.SSPRK33(salt_eq3d, dt)
-#timeStepper_salt3d = mode3d.ForwardEuler(salt_eq3d, dt)
-timeStepper_vmom3d = mode3d.CrankNicolson(vmom_eq3d, dt, gamma=0.6)
+timeStepper_salt3d = timeIntegration.SSPRK33(salt_eq3d, dt)
+timeStepper_vmom3d = timeIntegration.CrankNicolson(vmom_eq3d, dt, gamma=0.6)
 
 U_2d_file = exporter(U_visu_2d, 'Depth averaged velocity', outputDir, 'Velocity2d.pvd')
 eta_2d_file = exporter(P1_2d, 'Elevation', outputDir, 'Elevation2d.pvd')
@@ -275,23 +269,24 @@ def computeBottomFriction():
 
 def compVolume(eta):
     val = assemble(eta * swe2d.dx)
-    return op2.MPI.COMM.allreduce(val, op=MPI.SUM)
+    return val
 
 
 def compVolume3d():
     one = Constant(1.0)
     val = assemble(one*dx)
-    return op2.MPI.COMM.allreduce(val, op=MPI.SUM)
+    return val
 
 
 def compTracerMass3d(scalarFunc):
     val = assemble(scalarFunc*dx)
-    return op2.MPI.COMM.allreduce(val, op=MPI.SUM)
+    return val
 
 Vol_0 = compVolume(eta2d)
 Vol3d_0 = compVolume3d()
 Mass3d_0 = compTracerMass3d(salt3d)
-print 'Initial volume', Vol_0, Vol3d_0
+if commrank == 0:
+  print 'Initial volume', Vol_0, Vol3d_0
 
 from pyop2.profiling import timed_region, timed_function, timing
 
@@ -345,17 +340,25 @@ while t <= T + T_epsilon:
         norm_h = norm(solution2d.split()[1])
         norm_u = norm(solution2d.split()[0])
 
+        Vol = compVolume(solution2d.split()[1])
+        Vol3d = compVolume3d()
+        Mass3d = compTracerMass3d(salt3d)
+        saltMin = salt3d.dat.data.min()
+        saltMax = salt3d.dat.data.max()
+        saltMin = op2.MPI.COMM.allreduce(saltMin, op=MPI.MIN)
+        saltMax = op2.MPI.COMM.allreduce(saltMax, op=MPI.MAX)
+        uvAbsMax = np.hypot(uv3d.dat.data[:, 0], uv3d.dat.data[:, 1]).max()
+        uvAbsMax = op2.MPI.COMM.allreduce(uvAbsMax, op=MPI.MAX)
         if commrank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
-            print(line.format(iexp=iExp, i=i, t=t, e=norm_h,
-                              u=norm_u, cpu=cputime))
+            print(bold(line.format(iexp=iExp, i=i, t=t, e=norm_h,
+                              u=norm_u, cpu=cputime)))
             line = 'Rel. {0:s} error {1:11.4e}'
-            print(line.format('vol  ', (Vol_0 - compVolume(solution2d.split()[1]))/Vol_0))
-            print(line.format('vol3d', (Vol3d_0 - compVolume3d())/Vol3d_0))
-            print(line.format('mass ', (Mass3d_0 - compTracerMass3d(salt3d))/Mass3d_0))
-            print 'salt ', salt3d.dat.data.min()-4.5, salt3d.dat.data.max()-4.5
-
+            print(line.format('vol  ', (Vol_0 - Vol)/Vol_0))
+            print(line.format('vol3d', (Vol3d_0 - Vol3d)/Vol3d_0))
+            print(line.format('mass ', (Mass3d_0 - Mass3d)/Mass3d_0))
+            print('salt deviation {:g} {:g}'.format(saltMin-4.5, saltMax-4.5))
             sys.stdout.flush()
         U_2d_file.export(solution2d.split()[0])
         eta_2d_file.export(solution2d.split()[1])
