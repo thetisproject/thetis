@@ -365,15 +365,21 @@ while t <= T + T_epsilon:
             print(line.format('vol  ', (Vol_0 - Vol)/Vol_0))
             print(line.format('vol3d', (Vol3d_0 - Vol3d)/Vol3d_0))
             print(line.format('mass ', (Mass3d_0 - Mass3d)/Mass3d_0))
-            print('salt deviation {:g} {:g}'.format(saltMin-saltVal, saltMax-saltVal))
+            print('salt deviation {:g} {:g}'.format((saltMin-saltVal)/saltVal,
+                                                    (saltMax-saltVal)/saltVal))
+            tracDev = max(abs(saltMin-saltVal)/saltVal, abs(saltMax-saltVal)/saltVal)
             sys.stdout.flush()
-            TOL = 1e-4
+            TOL_vol = 1e-5
+            TOL_mass = 1e-2
+            TOL_nodalval = 1e-2
             TOL_stall_uv = 0.02
-            if np.abs((Vol_0 - Vol)/Vol_0) > TOL:
+            if np.abs((Vol_0 - Vol)/Vol_0) > TOL_vol:
               raise Exception(red('2D Volume is not conserved'))
-            if np.abs((Vol3d_0 - Vol3d)/Vol3d_0) > TOL:
+            if np.abs((Vol3d_0 - Vol3d)/Vol3d_0) > TOL_vol:
               raise Exception(red('3D Volume is not conserved'))
-            if np.abs((Mass3d_0 - Mass3d)/Mass3d_0) > TOL:
+            if np.abs(tracDev) > TOL_nodalval:
+              raise Exception(red('Tracer deviates from initial conditions'))
+            if np.abs((Mass3d_0 - Mass3d)/Mass3d_0) > TOL_mass:
               raise Exception(red('Tracer mass is not conserved'))
             if np.mod(t+ T_epsilon, T_cycle)/T_cycle < 1e-3:
               print('uv min {:f}'.format(uvAbsMax))
