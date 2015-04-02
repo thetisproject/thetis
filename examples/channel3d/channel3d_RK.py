@@ -33,8 +33,8 @@ commrank = op2.MPI.comm.rank
 op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
 # set physical constants
-#physical_constants['z0_friction'].assign(5.0e-5)
-physical_constants['z0_friction'].assign(0.0)
+physical_constants['z0_friction'].assign(5.0e-5)
+#physical_constants['z0_friction'].assign(0.0)
 #physical_constants['viscosity_h'].assign(0.0)
 
 mesh2d = Mesh('channel_mesh.msh')
@@ -58,7 +58,7 @@ bottom_drag2d = Function(P1_2d, name='Bottom Drag')
 use_wd = False
 nonlin = True
 swe2d = mode2d.freeSurfaceEquations(mesh2d, W_2d, solution2d, bathymetry2d,
-                                    #uv_bottom2d, bottom_drag2d,
+                                    uv_bottom2d, bottom_drag2d,
                                     nonlin=nonlin, use_wd=use_wd)
 
 # NOTE open elev bnd conditions unstable?
@@ -81,8 +81,8 @@ swe2d = mode2d.freeSurfaceEquations(mesh2d, W_2d, solution2d, bathymetry2d,
 #bath_v = np.array([20, 20, 6, 15, 5])
 depth_oce = 20.0
 depth_riv = 7.0
-bath_x = np.array([0, 8e3, 100e3])
-bath_v = np.array([depth_oce, depth_oce, depth_riv])
+bath_x = np.array([0, 100e3])
+bath_v = np.array([depth_oce, depth_riv])
 depth = 20.0
 
 
@@ -344,8 +344,8 @@ while t <= T + T_epsilon:
     with timed_region('aux_functions'):
         computeParabolicViscosity(uv_bottom3d, bottom_drag3d, bathymetry3d,
                                   viscosity_v3d)
-    #with timed_region('vert_diffusion'):
-        #timeStepper_vmom3d.advance(t, dt, uv3d, None)
+    with timed_region('vert_diffusion'):
+        timeStepper_vmom3d.advance(t, dt, uv3d, None)
     with timed_region('continuityEq'):
         computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}
         computeMeshVelocity(eta3d, uv3d, w3d, w_mesh3d, w_mesh_surf3d,
@@ -353,8 +353,8 @@ while t <= T + T_epsilon:
         computeBottomFriction(uv3d, uv_bottom2d, uv_bottom3d, z_coord3d,
                               z_bottom2d, z_bottom3d, bathymetry2d,
                               bottom_drag2d, bottom_drag3d)
-    #with timed_region('saltEq'):
-        #timeStepper_salt3d.advance(t, dt, salt3d, updateForcings3d)
+    with timed_region('saltEq'):
+        timeStepper_salt3d.advance(t, dt, salt3d, updateForcings3d)
     with timed_region('aux_functions'):
         bndValue = Constant((0.0, 0.0, 0.0))
         computeVerticalIntegral(uv3d, uv3d_dav, U,

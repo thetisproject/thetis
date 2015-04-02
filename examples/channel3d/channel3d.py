@@ -10,10 +10,8 @@ import numpy as np
 import os
 import sys
 import time as timeMod
-from mpi4py import MPI
 from scipy.interpolate import interp1d
-import cofs.module_2d as mode2d
-import cofs.module_3d as mode3d
+from mpi4py import MPI
 from cofs.utility import *
 from cofs.physical_constants import physical_constants
 import cofs.timeIntegration as timeIntegration
@@ -34,8 +32,7 @@ commrank = op2.MPI.comm.rank
 op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
 # set physical constants
-#physical_constants['z0_friction'].assign(0.0)
-physical_constants['z0_friction'].assign(1.0e-6)
+physical_constants['z0_friction'].assign(5.0e-5)
 
 use_wd = False
 nonlin = True
@@ -43,7 +40,7 @@ n_layers = 6
 outputDir = createDirectory('outputs')
 mesh2d = Mesh('channel_mesh.msh')
 T = 48 * 3600
-Umag = Constant(4.2)
+Umag = Constant(2.5)  # 4.2 closed
 TExport = 100.0
 
 # bathymetry
@@ -51,7 +48,7 @@ P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry2d = Function(P1_2d, name='Bathymetry')
 
 depth_oce = 20.0
-depth_riv = 5.0
+depth_riv = 7.0  # 5.0 closed
 bath_x = np.array([0, 100e3])
 bath_v = np.array([depth_oce, depth_riv])
 
@@ -97,62 +94,57 @@ def elevation(x, y, z, x_array, val_array):
 
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 elev_init = Function(P1_2d)
-elev_init.dat.data[:] = elevation(x_func.dat.data, 0, 0,
-                                  elev_x, elev_v)
-
+#elev_init.dat.data[:] = elevation(x_func.dat.data, 0, 0,
+                                  #elev_x, elev_v)
 salt_init3d = Constant(4.5)
 
 
-## weak boundary conditions
-#L_y = 1900
-#h_amp = 2.0
-#un_amp = -2.0
-#flux_amp = L_y*depth_oce*un_amp
-#h_T = 12 * 3600  # 44714.0
-#un_river = -0.3
-#flux_river = L_y*depth_riv*un_river
-#t = 0.0
-##T_ramp = 3600.0
-#T_ramp = 1000.0
-#ocean_elev_func = lambda t: h_amp * sin(2 * pi * t / h_T)  # + 3*pi/2)
-#ocean_elev = Function(swe2d.space.sub(1)).interpolate(Expression(ocean_elev_func(t)))
-#ocean_elev_3d = Function(H).interpolate(Expression(ocean_elev_func(t)))
-#ocean_un_func = lambda t: (un_amp*sin(2 * pi * t / h_T) -
-                           #un_river)*min(t/T_ramp, 1.0)
-#ocean_un = Function(H_2d).interpolate(Expression(ocean_un_func(t)))
-#ocean_un_3d = Function(H).interpolate(Expression(ocean_un_func(t)))
-#ocean_flux_func = lambda t: (flux_amp*sin(2 * pi * t / h_T) -
-                             #flux_river)*min(t/T_ramp, 1.0)
-##ocean_flux_func = lambda t: (flux_amp)*min(t/T_ramp, 1.0)
-#ocean_flux = Function(H_2d).interpolate(Expression(ocean_flux_func(t)))
-#ocean_flux_3d = Function(H).interpolate(Expression(ocean_flux_func(t)))
-#river_flux_func = lambda t: flux_river*min(t/T_ramp, 1.0)
-#river_flux = Function(U_scalar_2d).interpolate(Expression(river_flux_func(t)))
-#river_flux_3d = Function(U_scalar).interpolate(Expression(river_flux_func(t)))
-#ocean_funcs = {'flux': ocean_flux}
-#river_funcs = {'flux': river_flux}
-#ocean_funcs_3d = {'flux': ocean_flux_3d}
-#river_funcs_3d = {'flux': river_flux_3d}
-#ocean_salt_3d = {'value': salt_init3d}
-#river_salt_3d = {'value': salt_init3d}
-#swe2d.bnd_functions = {2: ocean_funcs, 1: river_funcs}
-#mom_eq3d.bnd_functions = {2: ocean_funcs_3d, 1: river_funcs_3d}
-#salt_eq3d.bnd_functions = {2: ocean_salt_3d, 1: river_salt_3d}
+# weak boundary conditions
+L_y = 1900
+h_amp = 2.0
+un_amp = -2.0
+flux_amp = L_y*depth_oce*un_amp
+h_T = 12 * 3600  # 44714.0
+un_river = -0.3
+flux_river = L_y*depth_riv*un_river
+t = 0.0
+#T_ramp = 3600.0
+T_ramp = 1000.0
+ocean_elev_func = lambda t: h_amp * sin(2 * pi * t / h_T)  # + 3*pi/2)
+ocean_elev = Constant(ocean_elev_func(t))
+ocean_un_func = lambda t: (un_amp*sin(2 * pi * t / h_T) -
+                           un_river)*min(t/T_ramp, 1.0)
+ocean_un = Constant(ocean_un_func(t))
+ocean_flux_func = lambda t: (flux_amp*sin(2 * pi * t / h_T) -
+                             flux_river)*min(t/T_ramp, 1.0)
+ocean_flux = Constant(ocean_flux_func(t))
+river_flux_func = lambda t: flux_river*min(t/T_ramp, 1.0)
+river_flux = Constant(river_flux_func(t))
 
-# assign initial conditions
+ocean_funcs = {'flux': ocean_flux}
+river_funcs = {'flux': river_flux}
+ocean_funcs_3d = {'flux': ocean_flux}
+river_funcs_3d = {'flux': river_flux}
+ocean_salt_3d = {'value': salt_init3d}
+river_salt_3d = {'value': salt_init3d}
+solver.bnd_functions['shallow_water'] = {2: ocean_funcs, 1: river_funcs}
+solver.bnd_functions['momentum'] = {2: ocean_funcs_3d, 1: river_funcs_3d}
+solver.bnd_functions['salt'] = {2: ocean_salt_3d, 1: river_salt_3d}
+
+def updateForcings(t_new):
+    ocean_elev.dat.data[:] = ocean_elev_func(t_new)
+    ocean_un.dat.data[:] = ocean_un_func(t_new)
+    ocean_flux.dat.data[:] = ocean_flux_func(t_new)
+    river_flux.dat.data[:] = river_flux_func(t_new)
+
+
+def updateForcings3d(t_new):
+    ocean_elev.dat.data[:] = ocean_elev_func(t_new)
+    ocean_un.dat.data[:] = ocean_un_func(t_new)
+    ocean_flux.dat.data[:] = ocean_flux_func(t_new)
+    river_flux.dat.data[:] = river_flux_func(t_new)
+
 solver.assingInitialConditions(elev=elev_init, salt=salt_init3d)
 
-#def updateForcings(t_new):
-    #ocean_elev.dat.data[:] = ocean_elev_func(t_new)
-    #ocean_un.dat.data[:] = ocean_un_func(t_new)
-    #ocean_flux.dat.data[:] = ocean_flux_func(t_new)
-    #river_flux.dat.data[:] = river_flux_func(t_new)
-
-
-#def updateForcings3d(t_new):
-    #ocean_elev_3d.dat.data[:] = ocean_elev_func(t_new)
-    #ocean_un_3d.dat.data[:] = ocean_un_func(t_new)
-    #ocean_flux_3d.dat.data[:] = ocean_flux_func(t_new)
-    #river_flux_3d.dat.data[:] = river_flux_func(t_new)
-
-solver.iterate()
+solver.iterate(updateForcings=updateForcings, updateForcings3d=updateForcings3d)
+#solver.iterate()

@@ -76,18 +76,19 @@ class macroTimeStepIntegrator(object):
     # NOTE diffusivity depends on M and the choise of time av filter
     # NOTE boxcar filter is very diffusive!
     def __init__(self, timeStepperCls, M, restartFromAv=False):
-        self.timeStepper = timeStepperCls
+        self.subiterator = timeStepperCls
+        self.equation = self.subiterator.equation
         self.M = M
         self.restartFromAv = restartFromAv
         # functions to hold time averaged solutions
-        space = self.timeStepper.solution_old.function_space()
+        space = self.subiterator.solution_old.function_space()
         self.solution_n = Function(space)
         self.solution_nplushalf = Function(space)
         self.solution_start = Function(space)
         self.M_star, self.w_full, self.w_half = cosTimeAvFilter(M)
 
     def initialize(self, solution):
-        self.timeStepper.initialize(solution)
+        self.subiterator.initialize(solution)
         self.solution_n.assign(solution)
         self.solution_nplushalf.assign(solution)
         self.solution_start.assign(solution)
@@ -95,7 +96,7 @@ class macroTimeStepIntegrator(object):
     def advance(self, t, dt, solution, updateForcings, verbose=False):
         """Advances equations for one macro time step DT=M*dt"""
         M = self.M
-        solution_old = self.timeStepper.solution_old
+        solution_old = self.subiterator.solution_old
         if self.restartFromAv:
             # initialize from time averages
             solution_old.assign(self.solution_n)
@@ -114,7 +115,7 @@ class macroTimeStepIntegrator(object):
         if verbose and commrank == 0:
             sys.stdout.write('Solving 2D ')
         for i in range(self.M_star):
-            self.timeStepper.advance(t + i*dt, dt, solution, updateForcings)
+            self.subiterator.advance(t + i*dt, dt, solution, updateForcings)
             self.solution_nplushalf += self.w_half[i]*solution
             self.solution_n += self.w_full[i]*solution
             if verbose and commrank == 0:

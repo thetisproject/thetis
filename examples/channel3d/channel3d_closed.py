@@ -33,8 +33,7 @@ commrank = op2.MPI.comm.rank
 op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
 # set physical constants
-physical_constants['z0_friction'].assign(1.0e-6)
-#physical_constants['viscosity_h'].assign(0.0)
+physical_constants['z0_friction'].assign(5.0e-5)
 
 mesh2d = Mesh('channel_mesh.msh')
 

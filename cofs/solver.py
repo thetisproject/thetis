@@ -89,6 +89,9 @@ class flowSolver(object):
                             'continuityEq', 'saltEq', 'aux_functions']
         self.outputDir = 'outputs'
         self.fieldsToExport = ['elev2d', 'uv2d', 'uv3d', 'w3d']
+        self.bnd_functions = {'shallow_water': None,
+                              'momentum': None,
+                              'salt': None,}
 
 
         # solver parameters
@@ -162,39 +165,43 @@ class flowSolver(object):
         # ----- Equations
         self.dt_2d = 0.0
         self.dt = 0.0
-        swe2d = mode2d.freeSurfaceEquations(self.mesh2d, W_2d, self.solution2d, self.bathymetry2d,
+        self.eq_sw = mode2d.freeSurfaceEquations(self.mesh2d, W_2d, self.solution2d, self.bathymetry2d,
                                             self.uv_bottom2d, self.bottom_drag2d,
                                             nonlin=self.nonlin, use_wd=self.use_wd)
-
-        mom_eq3d = mode3d.momentumEquation(self.mesh, U, U_scalar, swe2d.boundary_markers,
-                                        swe2d.boundary_len, self.uv3d, self.eta3d,
+        bnd_len = self.eq_sw.boundary_len
+        bnd_markers = self.eq_sw.boundary_markers
+        self.eq_momentum = mode3d.momentumEquation(self.mesh, U, U_scalar, bnd_markers,
+                                        bnd_len, self.uv3d, self.eta3d,
                                         self.bathymetry3d, w=self.w3d,
                                         w_mesh=self.w_mesh3d,
                                         dw_mesh_dz=self.dw_mesh_dz_3d,
                                         viscosity_v=None,
                                         nonlin=self.nonlin)
-        salt_eq3d = mode3d.tracerEquation(self.mesh, H, self.salt3d, self.eta3d, self.uv3d, w=self.w3d,
+        self.eq_salt = mode3d.tracerEquation(self.mesh, H, self.salt3d, self.eta3d, self.uv3d, w=self.w3d,
                                         w_mesh=self.w_mesh3d,
                                         dw_mesh_dz=self.dw_mesh_dz_3d,
-                                        bnd_markers=swe2d.boundary_markers,
-                                        bnd_len=swe2d.boundary_len)
-        vmom_eq3d = mode3d.verticalMomentumEquation(self.mesh, U, U_scalar, self.uv3d, w=None,
+                                        bnd_markers=bnd_markers,
+                                        bnd_len=bnd_len)
+        self.eq_vertmomentum = mode3d.verticalMomentumEquation(self.mesh, U, U_scalar, self.uv3d, w=None,
                                                     viscosity_v=self.viscosity_v3d,
                                                     uv_bottom=self.uv_bottom3d,
                                                     bottom_drag=self.bottom_drag3d)
+        self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
+        self.eq_momentum.bnd_functions = self.bnd_functions['momentum']
+        self.eq_salt.bnd_functions = self.bnd_functions['salt']
 
         # ----- Time integrators
-        self.setTimeStep(swe2d)
+        self.setTimeStep(self.eq_sw)
 
-        subIterator = timeIntegration.SSPRK33(swe2d, self.dt_2d, self.solver_parameters2d)
+        subIterator = timeIntegration.SSPRK33(self.eq_sw, self.dt_2d, self.solver_parameters2d)
         self.timeStepper2d = timeIntegration.macroTimeStepIntegrator(subIterator,
                                                                      self.M_modesplit,
                                                                      restartFromAv=True)
 
-        self.timeStepper_mom3d = timeIntegration.SSPRK33(mom_eq3d, self.dt,
+        self.timeStepper_mom3d = timeIntegration.SSPRK33(self.eq_momentum, self.dt,
                                                          funcs_nplushalf={'eta': self.eta3d_nplushalf})
-        self.timeStepper_salt3d = timeIntegration.SSPRK33(salt_eq3d, self.dt)
-        self.timeStepper_vmom3d = timeIntegration.CrankNicolson(vmom_eq3d, self.dt, gamma=0.6)
+        self.timeStepper_salt3d = timeIntegration.SSPRK33(self.eq_salt, self.dt)
+        self.timeStepper_vmom3d = timeIntegration.CrankNicolson(self.eq_vertmomentum, self.dt, gamma=0.6)
 
 
         # ----- File exporters
@@ -248,8 +255,9 @@ class flowSolver(object):
         iExp = 1
         next_export_t = t + self.TExport
 
+        # initialize conservation checks
         dx_3d = self.timeStepper_mom3d.equation.dx
-        dx_2d = self.timeStepper2d.timeStepper.equation.dx
+        dx_2d = self.timeStepper2d.equation.dx
         if self.checkVolConservation2d:
             eta = self.solution2d.split()[1]
             Vol_0 = compVolume2d(eta, dx_2d)
@@ -263,6 +271,11 @@ class flowSolver(object):
         if self.checkSaltDeviation:
             saltVal = self.salt3d.dat.data.mean()
             print 'Initial mean salt value', saltVal
+
+        # initial export
+        self.exporter.export()
+        if exportFunc is not None:
+            exportFunc()
 
         while t <= self.T + T_epsilon:
 
