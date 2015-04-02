@@ -15,27 +15,32 @@ commrank = op2.MPI.comm.rank
 
 colorama.init()
 
+
 def colorify_text(color):
-  def painter(func):
-    def func_wrapper(text):
-      return color + func(text) + colorama.Style.RESET_ALL
-    return func_wrapper
-  return painter
+    def painter(func):
+        def func_wrapper(text):
+            return color + func(text) + colorama.Style.RESET_ALL
+        return func_wrapper
+    return painter
+
 
 @colorify_text(colorama.Back.RED + colorama.Fore.WHITE)
 def red(text):
-  """Returns given string in uppercase, white on red background."""
-  return text.upper()
+    """Returns given string in uppercase, white on red background."""
+    return text.upper()
+
 
 @colorify_text(colorama.Back.GREEN + colorama.Fore.BLACK)
 def green(text):
     """Returns given string in uppercase, black on green background."""
     return text.upper()
 
+
 @colorify_text(colorama.Style.BRIGHT + colorama.Fore.WHITE)
 def bold(text):
-  """Returns given string in uppercase, white on green background."""
-  return text.upper()
+    """Returns given string in uppercase, white on green background."""
+    return text.upper()
+
 
 def createDirectory(path):
     if commrank == 0:

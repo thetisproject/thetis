@@ -89,9 +89,9 @@ class flowSolver(object):
                             'continuityEq', 'saltEq', 'aux_functions']
         self.outputDir = 'outputs'
         self.fieldsToExport = ['elev2d', 'uv2d', 'uv3d', 'w3d']
-        self.bnd_functions = {'shallow_water': None,
-                              'momentum': None,
-                              'salt': None,}
+        self.bnd_functions = {'shallow_water': {},
+                              'momentum': {},
+                              'salt': {},}
 
 
         # solver parameters

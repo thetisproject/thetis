@@ -1,34 +1,16 @@
 # Idealised channel flow in 3D
 # ============================
 #
-# Solves hydrostatic flow in a rectangular channel.
+# Solves hydrostatic flow in a rectangular channel forced by tides.
 #
 # Tuomas Karna 2015-03-03
 
-from firedrake import *
-import numpy as np
-import os
-import sys
-import time as timeMod
 from scipy.interpolate import interp1d
-from mpi4py import MPI
 from cofs.utility import *
 from cofs.physical_constants import physical_constants
 import cofs.timeIntegration as timeIntegration
 import cofs.solver as solverMod
 
-# HACK to fix unknown node: XXX / (F0) COFFEE errors
-op2.init()
-parameters['coffee']['O2'] = False
-
-#parameters['form_compiler']['quadrature_degree'] = 6  # 'auto'
-parameters['form_compiler']['optimize'] = False
-parameters['form_compiler']['cpp_optimize'] = True
-parameters['form_compiler']['cpp_optimize_flags'] = '-O3 -xhost'
-
-#from pyop2 import op2
-comm = op2.MPI.comm
-commrank = op2.MPI.comm.rank
 op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
 # set physical constants
@@ -40,7 +22,7 @@ n_layers = 6
 outputDir = createDirectory('outputs')
 mesh2d = Mesh('channel_mesh.msh')
 T = 48 * 3600
-Umag = Constant(2.5)  # 4.2 closed
+Umag = Constant(2.5)
 TExport = 100.0
 
 # bathymetry
@@ -48,7 +30,7 @@ P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry2d = Function(P1_2d, name='Bathymetry')
 
 depth_oce = 20.0
-depth_riv = 7.0  # 5.0 closed
+depth_riv = 7.0
 bath_x = np.array([0, 100e3])
 bath_v = np.array([depth_oce, depth_riv])
 
@@ -59,8 +41,6 @@ def bath(x, y, z):
     vals0 = np.hstack(([bath_v[0]], bath_v, [bath_v[-1]]))
     return interp1d(x0, vals0)(x)
 
-
-#define a bath func depending on x,y,z
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 bathymetry2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
@@ -84,18 +64,6 @@ solver.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
 
 
 # initial conditions
-elev_x = np.array([0, 30e3, 100e3])
-elev_v = np.array([6, 0, 0])
-def elevation(x, y, z, x_array, val_array):
-    padval = 1e20
-    x0 = np.hstack(([-padval], x_array, [padval]))
-    vals0 = np.hstack(([val_array[0]], val_array, [val_array[-1]]))
-    return interp1d(x0, vals0)(x)
-
-x_func = Function(P1_2d).interpolate(Expression('x[0]'))
-elev_init = Function(P1_2d)
-#elev_init.dat.data[:] = elevation(x_func.dat.data, 0, 0,
-                                  #elev_x, elev_v)
 salt_init3d = Constant(4.5)
 
 
@@ -108,7 +76,6 @@ h_T = 12 * 3600  # 44714.0
 un_river = -0.3
 flux_river = L_y*depth_riv*un_river
 t = 0.0
-#T_ramp = 3600.0
 T_ramp = 1000.0
 ocean_elev_func = lambda t: h_amp * sin(2 * pi * t / h_T)  # + 3*pi/2)
 ocean_elev = Constant(ocean_elev_func(t))
@@ -131,6 +98,7 @@ solver.bnd_functions['shallow_water'] = {2: ocean_funcs, 1: river_funcs}
 solver.bnd_functions['momentum'] = {2: ocean_funcs_3d, 1: river_funcs_3d}
 solver.bnd_functions['salt'] = {2: ocean_salt_3d, 1: river_salt_3d}
 
+
 def updateForcings(t_new):
     ocean_elev.dat.data[:] = ocean_elev_func(t_new)
     ocean_un.dat.data[:] = ocean_un_func(t_new)
@@ -144,7 +112,5 @@ def updateForcings3d(t_new):
     ocean_flux.dat.data[:] = ocean_flux_func(t_new)
     river_flux.dat.data[:] = river_flux_func(t_new)
 
-solver.assingInitialConditions(elev=elev_init, salt=salt_init3d)
-
+solver.assingInitialConditions(salt=salt_init3d)
 solver.iterate(updateForcings=updateForcings, updateForcings3d=updateForcings3d)
-#solver.iterate()

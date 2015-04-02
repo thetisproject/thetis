@@ -441,18 +441,18 @@ while t <= T + T_epsilon:
         next_export_t += TExport
         iExp += 1
 
-        #if commrank == 0:
-            #labels = ['mode2d', 'momentumEq', 'vert_diffusion',
-                      #'continuityEq', 'saltEq', 'aux_functions']
-            #cost = {}
-            #relcost = {}
-            #totcost = 0
-            #for label in labels:
-                #value = timing(label, reset=True)
-                #cost[label] = value
-                #totcost += value
-            #for label in labels:
-                #c = cost[label]
-                #relcost = c/totcost
-                #print '{0:25s} : {1:11.6f} {2:11.2f}'.format(label, c, relcost)
-                #sys.stdout.flush()
+        if commrank == 0:
+            labels = ['mode2d', 'momentumEq', 'vert_diffusion',
+                      'continuityEq', 'saltEq', 'aux_functions']
+            cost = {}
+            relcost = {}
+            totcost = 0
+            for label in labels:
+                value = timing(label, reset=True)
+                cost[label] = value
+                totcost += value
+            for label in labels:
+                c = cost[label]
+                relcost = c/totcost
+                print '{0:25s} : {1:11.6f} {2:11.2f}'.format(label, c, relcost)
+                sys.stdout.flush()
