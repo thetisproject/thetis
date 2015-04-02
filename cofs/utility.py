@@ -111,19 +111,24 @@ def compTracerMass3d(scalarFunc, dx):
     return val
 
 
-def getZCoordFromMesh(zcoord):
+def getZCoordFromMesh(zcoord, solver_parameters={}):
+    """Evaluates z coordinates from the 3D mesh"""
+    solver_parameters.setdefault('ksp_atol', 1e-12)
+    solver_parameters.setdefault('ksp_rtol', 1e-16)
     fs = zcoord.function_space()
     tri = TrialFunction(fs)
     test = TestFunction(fs)
     a = tri*test*dx
     L = fs.mesh().coordinates[2]*test*dx
-    solve(a == L, zcoord)
+    solve(a == L, zcoord, solver_parameters=solver_parameters)
     return zcoord
 
 
-def computeVertVelocity(solution, uv, bathymetry):
+def computeVertVelocity(solution, uv, bathymetry, solver_parameters={}):
     """Computes vertical velocity from 3d continuity equation."""
     # continuity equation must be solved in the space of w (and tracers)
+    solver_parameters.setdefault('ksp_atol', 1e-12)
+    solver_parameters.setdefault('ksp_rtol', 1e-16)
     H = solution.function_space()
     mesh = H.mesh()
     phi = TestFunction(H)
@@ -138,7 +143,7 @@ def computeVertVelocity(solution, uv, bathymetry):
     L_w = ((uv[0]*Dx(phi, 0) + uv[1]*Dx(phi, 1))*dx -
            (uv[0]*normal[0] + uv[1]*normal[1])*phi*(ds_v + ds_t + ds_b) -
            w_bottom*phi*normal[2]*ds_t)
-    solve(a_w == L_w, solution)
+    solve(a_w == L_w, solution, solver_parameters=solver_parameters)
 
     return solution
 
@@ -164,11 +169,14 @@ class equation(object):
 
 def computeVerticalIntegral(input, output, space, bottomToTop=True,
                             bndValue=Constant(0.0), average=False,
-                            bathymetry=None):
+                            bathymetry=None,
+                            solver_parameters={}):
     """
     Computes vertical integral of the input scalar field in the given
     function space.
     """
+    solver_parameters.setdefault('ksp_atol', 1e-12)
+    solver_parameters.setdefault('ksp_rtol', 1e-16)
     tri = TrialFunction(space)
     phi = TestFunction(space)
 
@@ -184,7 +192,7 @@ def computeVerticalIntegral(input, output, space, bottomToTop=True,
     if average:
         source = input/bathymetry
     L_w = inner(source, phi)*dx + bnd_term
-    solve(a_w == L_w, output)
+    solve(a_w == L_w, output, solver_parameters=solver_parameters)
 
     return output
 
@@ -402,9 +410,10 @@ def getVerticalElemSize(P1_2d, P1_3d):
 
 
 def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref,
-                      solver_parameters={'ksp_rtol': 1e-12,
-                                         'ksp_atol': 1e-16}):
+                      solver_parameters={}):
     """Updates extrusion so that free surface mathces eta3d value"""
+    solver_parameters.setdefault('ksp_atol', 1e-12)
+    solver_parameters.setdefault('ksp_rtol', 1e-16)
     coords = mesh.coordinates
     fs = z_coord.function_space()
     # sigma stretch function
@@ -420,7 +429,10 @@ def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref,
 
 
 def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, dw_mesh_dz_3d,
-                        bathymetry, z_coord_ref):
+                        bathymetry, z_coord_ref,
+                        solver_parameters={}):
+    solver_parameters.setdefault('ksp_atol', 1e-12)
+    solver_parameters.setdefault('ksp_rtol', 1e-16)
     fs = w.function_space()
     z = fs.mesh().coordinates[2]
     tri = TrialFunction(fs)
@@ -430,24 +442,27 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, dw_mesh_dz_3d,
     a = tri*test*dx
     eta_grad = nabla_grad(eta)
     L = (w - eta_grad[0]*uv[0] - eta_grad[1]*uv[1])*test*dx
-    solve(a == L, w_mesh_surf)
+    solve(a == L, w_mesh_surf, solver_parameters=solver_parameters)
     copyLayerValueOverVertical(w_mesh_surf, w_mesh_surf, useBottomValue=False)
     # compute w in the whole water column (0 at bed)
     # w_mesh = w_mesh_surf * (z+h)/(eta+h)
     H = eta + bathymetry
     L = (w_mesh_surf*(z+bathymetry)/H)*test*dx
-    solve(a == L, w_mesh)
+    solve(a == L, w_mesh, solver_parameters=solver_parameters)
     # compute dw_mesh/dz in the whole water column
     L = (w_mesh_surf/H)*test*dx
-    solve(a == L, dw_mesh_dz_3d)
+    solve(a == L, dw_mesh_dz_3d, solver_parameters=solver_parameters)
 
 
-def computeParabolicViscosity(uv_bottom, bottom_drag, bathymetry, nu):
+def computeParabolicViscosity(uv_bottom, bottom_drag, bathymetry, nu,
+                              solver_parameters={}):
     """Computes parabolic eddy viscosity profile assuming log layer flow
     nu = kappa * u_bf * (-z) * (bath + z0 + z) / (bath + z0)
     with
     u_bf = sqrt(Cd)*|uv_bottom|
     """
+    solver_parameters.setdefault('ksp_atol', 1e-12)
+    solver_parameters.setdefault('ksp_rtol', 1e-16)
     kappa = physical_constants['von_karman']
     z0 = physical_constants['z0_friction']
     H = nu.function_space()
@@ -458,7 +473,7 @@ def computeParabolicViscosity(uv_bottom, bottom_drag, bathymetry, nu):
     uv_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
     parabola = -x[2]*(bathymetry + z0 + x[2])/(bathymetry + z0)
     L = kappa*sqrt(bottom_drag)*uv_mag*parabola*test*dx
-    solve(a == L, nu)
+    solve(a == L, nu, solver_parameters=solver_parameters)
     # remove negative values
     neg_ix = nu.dat.data[:] < 1e-10
     nu.dat.data[neg_ix] = 1e-10
