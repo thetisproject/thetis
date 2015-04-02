@@ -77,6 +77,10 @@ solver.use_wd = use_wd
 solver.TExport = TExport
 solver.T = T
 solver.uAdvection = Umag
+solver.checkVolConservation2d = True
+solver.checkVolConservation3d = True
+solver.checkSaltConservation = True
+solver.checkSaltDeviation = True
 
 # initial conditions
 elev_x = np.array([0, 30e3, 100e3])

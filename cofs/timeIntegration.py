@@ -132,6 +132,17 @@ class macroTimeStepIntegrator(object):
         solution.assign(self.solution_n)
 
 
+class timeIntegrator(object):
+    """Base class for all time integrator objects."""
+    # TODO move to timeIntegrator.py
+    def __init__(self, equation):
+        self.equation = equation
+
+    def advance(self):
+        raise NotImplementedError(('This method must be implemented '
+                                   'in the derived class'))
+
+
 class SSPRK33(timeIntegrator):
     """
     3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).

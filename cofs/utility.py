@@ -162,17 +162,6 @@ class equation(object):
                                    'in the derived class'))
 
 
-class timeIntegrator(object):
-    """Base class for all time integrator objects."""
-    # TODO move to timeIntegrator.py
-    def __init__(self, equation):
-        self.equation = equation
-
-    def advance(self):
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
-
 def computeVerticalIntegral(input, output, space, bottomToTop=True,
                             bndValue=Constant(0.0), average=False,
                             bathymetry=None):
@@ -412,7 +401,9 @@ def getVerticalElemSize(P1_2d, P1_3d):
     return zcoord3d
 
 
-def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref):
+def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref,
+                      solver_parameters={'ksp_rtol': 1e-12,
+                                         'ksp_atol': 1e-16}):
     """Updates extrusion so that free surface mathces eta3d value"""
     coords = mesh.coordinates
     fs = z_coord.function_space()
@@ -423,7 +414,7 @@ def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref):
     test = TestFunction(fs)
     a = tri*test*dx
     L = new_z*test*dx
-    solve(a == L, z_coord)
+    solve(a == L, z_coord, solver_parameters=solver_parameters)
     # assign to mesh
     coords.dat.data[:, 2] = z_coord.dat.data[:]
 

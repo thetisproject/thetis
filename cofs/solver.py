@@ -176,6 +176,22 @@ class flowSolver(object):
         iExp = 1
         next_export_t = t + self.TExport
 
+        dx_3d = self.timeStepper_mom3d.equation.dx
+        dx_2d = self.timeStepper2d.timeStepper.equation.dx
+        if self.checkVolConservation2d:
+            eta = self.solution2d.split()[1]
+            Vol_0 = compVolume2d(eta, dx_2d)
+            print 'Initial volume', Vol_0
+        if self.checkVolConservation3d:
+            Vol3d_0 = compVolume3d(dx_3d)
+            print 'Initial volume 3d', Vol3d_0
+        if self.checkSaltConservation:
+            Mass3d_0 = compTracerMass3d(self.salt3d, dx_3d)
+            print 'Initial salt mass', Mass3d_0
+        if self.checkSaltDeviation:
+            saltVal = self.salt3d.dat.data.mean()
+            print 'Initial mean salt value', saltVal
+
         while t <= self.T + T_epsilon:
 
             # SSPRK33 time integration loop
@@ -228,16 +244,32 @@ class flowSolver(object):
                 norm_h = norm(self.solution2d.split()[1])
                 norm_u = norm(self.solution2d.split()[0])
 
+                if self.checkVolConservation2d:
+                    Vol = compVolume2d(self.solution2d.split()[1], dx_2d)
+                if self.checkVolConservation3d:
+                    Vol3d = compVolume3d(dx_3d)
+                if self.checkSaltConservation:
+                    Mass3d = compTracerMass3d(self.salt3d, dx_3d)
+                if self.checkSaltDeviation:
+                    saltMin = self.salt3d.dat.data.min()
+                    saltMax = self.salt3d.dat.data.max()
+                    saltMin = op2.MPI.COMM.allreduce(saltMin, op=MPI.MIN)
+                    saltMax = op2.MPI.COMM.allreduce(saltMax, op=MPI.MAX)
+                    saltDev = ((saltMin-saltVal)/saltVal, (saltMax-saltVal)/saltVal)
                 if commrank == 0:
                     line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                             'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
                     print(bold(line.format(iexp=iExp, i=i, t=t, e=norm_h,
                                     u=norm_u, cpu=cputime)))
                     line = 'Rel. {0:s} error {1:11.4e}'
-                    #print(line.format('vol  ', (Vol_0 - Vol)/Vol_0))
-                    #print(line.format('vol3d', (Vol3d_0 - Vol3d)/Vol3d_0))
-                    #print(line.format('mass ', (Mass3d_0 - Mass3d)/Mass3d_0))
-                    #print('salt deviation {:g} {:g}'.format(saltMin-4.5, saltMax-4.5))
+                    if self.checkVolConservation2d:
+                        print(line.format('vol  ', (Vol_0 - Vol)/Vol_0))
+                    if self.checkVolConservation3d:
+                        print(line.format('vol3d', (Vol3d_0 - Vol3d)/Vol3d_0))
+                    if self.checkSaltConservation:
+                        print(line.format('mass ', (Mass3d_0 - Mass3d)/Mass3d_0))
+                    if self.checkSaltDeviation:
+                        print('salt deviation {:g} {:g}'.format(*saltDev))
                     sys.stdout.flush()
 
                 if exportFunc is not None:

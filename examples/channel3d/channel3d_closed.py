@@ -302,7 +302,7 @@ def updateForcings3d(t_new):
 Vol_0 = compVolume2d(eta2d, swe2d.dx)
 Vol3d_0 = compVolume3d(mom_eq3d.dx)
 Mass3d_0 = compTracerMass3d(salt3d, mom_eq3d.dx)
-print 'Initial volume', Vol_0, Vol3d_0
+print 'Initial volume', Vol_0, Vol3d_0, Mass3d_0
 
 from pyop2.profiling import timed_region, timed_function, timing
 
