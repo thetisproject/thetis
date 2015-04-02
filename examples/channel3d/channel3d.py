@@ -81,6 +81,10 @@ solver.checkVolConservation2d = True
 solver.checkVolConservation3d = True
 solver.checkSaltConservation = True
 solver.checkSaltDeviation = True
+solver.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
+                         'w3d', 'w3d_mesh', 'salt3d',
+                         'uv2d_dav', 'uv2d_bot', 'nuv3d']
+
 
 # initial conditions
 elev_x = np.array([0, 30e3, 100e3])
@@ -135,33 +139,8 @@ salt_init3d = Constant(4.5)
 #mom_eq3d.bnd_functions = {2: ocean_funcs_3d, 1: river_funcs_3d}
 #salt_eq3d.bnd_functions = {2: ocean_salt_3d, 1: river_salt_3d}
 
-## exporters
-#U_2d_file = exporter(U_visu_2d, 'Depth averaged velocity', outputDir, 'Velocity2d.pvd')
-#eta_2d_file = exporter(P1_2d, 'Elevation', outputDir, 'Elevation2d.pvd')
-#eta_3d_file = exporter(P1, 'Elevation', outputDir, 'Elevation3d.pvd')
-#uv_3d_file = exporter(U_visu, 'Velocity', outputDir, 'Velocity3d.pvd')
-#w_3d_file = exporter(P1, 'V.Velocity', outputDir, 'VertVelo3d.pvd')
-#w_mesh_3d_file = exporter(P1, 'Mesh Velocity', outputDir, 'MeshVelo3d.pvd')
-#salt_3d_file = exporter(P1, 'Salinity', outputDir, 'Salinity3d.pvd')
-#uv_dav_2d_file = exporter(U_visu_2d, 'Depth Averaged Velocity', outputDir, 'DAVelocity2d.pvd')
-#uv_bot_2d_file = exporter(U_visu_2d, 'Bottom Velocity', outputDir, 'BotVelocity2d.pvd')
-#visc_3d_file = exporter(P1, 'Vertical Viscosity', outputDir, 'Viscosity3d.pvd')
-
 # assign initial conditions
 solver.assingInitialConditions(elev=elev_init, salt=salt_init3d)
-
-## Export initial conditions
-#U_2d_file.export(solution2d.split()[0])
-#eta_2d_file.export(solution2d.split()[1])
-#eta_3d_file.export(eta3d)
-#uv_3d_file.export(uv3d)
-#w_3d_file.export(w3d)
-#w_mesh_3d_file.export(w_mesh3d)
-#salt_3d_file.export(salt3d)
-#uv_dav_2d_file.export(uv2d_dav)
-#uv_bot_2d_file.export(uv_bottom2d)
-#visc_3d_file.export(viscosity_v3d)
-
 
 #def updateForcings(t_new):
     #ocean_elev.dat.data[:] = ocean_elev_func(t_new)
@@ -175,6 +154,5 @@ solver.assingInitialConditions(elev=elev_init, salt=salt_init3d)
     #ocean_un_3d.dat.data[:] = ocean_un_func(t_new)
     #ocean_flux_3d.dat.data[:] = ocean_flux_func(t_new)
     #river_flux_3d.dat.data[:] = river_flux_func(t_new)
-
 
 solver.iterate()

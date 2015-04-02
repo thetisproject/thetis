@@ -12,6 +12,57 @@ from mpi4py import MPI
 
 from pyop2.profiling import timed_region, timed_function, timing
 
+class exportManager(object):
+    """Handles a list of file exporter objects"""
+    # maps each fieldname to long name and filename
+    exportRules = {
+                   'uv2d': {'name': 'Depth averaged velocity',
+                            'file': 'Velocity2d.pvd'},
+                   'elev2d': {'name': 'Elevation',
+                              'file':'Elevation2d.pvd'},
+                   'elev3d': {'name': 'Elevation',
+                              'file': 'Elevation3d.pvd'},
+                   'uv3d': {'name': 'Velocity',
+                            'file': 'Velocity3d.pvd'},
+                   'w3d': {'name': 'V.Velocity',
+                           'file': 'VertVelo3d.pvd'},
+                   'w3d_mesh': {'name': 'Mesh Velocity',
+                                'file': 'MeshVelo3d.pvd'},
+                   'salt3d': {'name': 'Salinity',
+                              'file': 'Salinity3d.pvd'},
+                   'uv2d_dav': {'name': 'Depth Averaged Velocity',
+                                'file': 'DAVelocity2d.pvd'},
+                   'uv2d_bot': {'name': 'Bottom Velocity',
+                                'file': 'BotVelocity2d.pvd'},
+                   'nuv3d': {'name': 'Vertical Viscosity',
+                             'file': 'Viscosity3d.pvd'},
+                }
+    def __init__(self, outputDir, fieldsToExport, exportFunctions, verbose=False):
+        self.fieldsToExport = fieldsToExport
+        self.exportFunctions = exportFunctions
+        self.verbose = verbose
+        # for each field create an exporter
+        self.exporters = {}
+        for key in fieldsToExport:
+            name = self.exportRules[key]['name']
+            fn = self.exportRules[key]['file']
+            space = self.exportFunctions[key][1]
+            self.exporters[key] = exporter(space, name, outputDir, fn)
+
+    def export(self):
+        if self.verbose and commrank==0:
+            sys.stdout.write('Exporting: ')
+        for key in self.exporters:
+            if self.verbose and commrank==0:
+                sys.stdout.write(key+' ')
+                sys.stdout.flush()
+            field = self.exportFunctions[key][0]
+            self.exporters[key].export(field)
+        if self.verbose and commrank==0:
+            sys.stdout.write('\n')
+            sys.stdout.flush()
+
+
 class flowSolver(object):
     """Creates and solves coupled 2D-3D equations"""
     def __init__(self, mesh2d, bathymetry2d, n_layers):
@@ -36,6 +87,8 @@ class flowSolver(object):
         self.checkSaltDeviation = False
         self.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion',
                             'continuityEq', 'saltEq', 'aux_functions']
+        self.outputDir = 'outputs'
+        self.fieldsToExport = ['elev2d', 'uv2d', 'uv3d', 'w3d']
 
 
         # solver parameters
@@ -144,7 +197,24 @@ class flowSolver(object):
         self.timeStepper_vmom3d = timeIntegration.CrankNicolson(vmom_eq3d, self.dt, gamma=0.6)
 
 
-        # ----- File exporters TODO
+        # ----- File exporters
+        uv2d, eta2d = self.solution2d.split()
+        # dictionary of all exportable functions and their visualization space
+        exportFuncs = {
+                   'uv2d': (uv2d, U_visu_2d),
+                   'elev2d': (eta2d, P1_2d),
+                   'elev3d': (self.eta3d, P1),
+                   'uv3d': (self.uv3d, U_visu),
+                   'w3d': (self.w3d, P1),
+                   'w3d_mesh': (self.w_mesh3d, P1),
+                   'salt3d': (self.salt3d, P1),
+                   'uv2d_dav': (self.uv2d_dav, U_visu_2d),
+                   'uv2d_bot': (self.uv_bottom2d, U_visu_2d),
+                   'nuv3d': (self.viscosity_v3d, P1),
+                }
+        self.exporter = exportManager(self.outputDir, self.fieldsToExport,
+                                      exportFuncs, verbose=True)
+
         self._initialized = True
 
     def assingInitialConditions(self, elev=None, salt=None):
@@ -274,6 +344,7 @@ class flowSolver(object):
                         print('salt deviation {:g} {:g}'.format(*saltDev))
                     sys.stdout.flush()
 
+                self.exporter.export()
                 if exportFunc is not None:
                     exportFunc()
 
