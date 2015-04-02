@@ -156,16 +156,7 @@ salt_init3d = Function(H, name='initial salinity')
 salt_init3d.interpolate(Expression('4.5'))
 
 
-def getZCoord(zcoord):
-    fs = zcoord.function_space()
-    tri = TrialFunction(fs)
-    test = TestFunction(fs)
-    a = tri*test*dx
-    L = fs.mesh().coordinates[2]*test*dx
-    solve(a == L, zcoord)
-    return zcoord
-
-getZCoord(z_coord3d)
+getZCoordFromMesh(z_coord3d)
 z_coord_ref3d.assign(z_coord3d)
 
 mom_eq3d = mode3d.momentumEquation(mesh, U, U_scalar, swe2d.boundary_markers,
@@ -272,7 +263,6 @@ visc_3d_file = exporter(P1, 'Vertical Viscosity', outputDir, 'Viscosity3d.pvd')
 uv2d, eta2d = solution2d.split()
 eta2d.assign(elev_init)
 copy2dFieldTo3d(elev_init, eta3d)
-#getZCoord(z_coord3d)
 updateCoordinates(mesh, eta3d, bathymetry3d, z_coord3d, z_coord_ref3d)
 salt3d.assign(salt_init3d)
 computeVertVelocity(w3d, uv3d, bathymetry3d)  # at t{n+1}

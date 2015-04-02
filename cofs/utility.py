@@ -111,6 +111,16 @@ def compTracerMass3d(scalarFunc, dx):
     return val
 
 
+def getZCoordFromMesh(zcoord):
+    fs = zcoord.function_space()
+    tri = TrialFunction(fs)
+    test = TestFunction(fs)
+    a = tri*test*dx
+    L = fs.mesh().coordinates[2]*test*dx
+    solve(a == L, zcoord)
+    return zcoord
+
+
 def computeVertVelocity(solution, uv, bathymetry):
     """Computes vertical velocity from 3d continuity equation."""
     # continuity equation must be solved in the space of w (and tracers)

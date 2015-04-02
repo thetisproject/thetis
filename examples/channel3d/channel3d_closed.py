@@ -93,8 +93,7 @@ def elevation(x, y, z, x_array, val_array):
     vals0 = np.hstack(([val_array[0]], val_array, [val_array[-1]]))
     return interp1d(x0, vals0)(x)
 
-x_func = Function(H_2d).interpolate(Expression('x[0]'))
-elev_init = Function(H_2d)
+elev_init = Function(P1_2d)
 elev_init.dat.data[:] = elevation(x_func.dat.data, 0, 0,
                                   elev_x, elev_v)
 
@@ -252,8 +251,8 @@ visc_3d_file = exporter(P1, 'Vertical Viscosity', outputDir, 'Viscosity3d.pvd')
 
 # assign initial conditions
 uv2d, eta2d = solution2d.split()
-eta2d.assign(elev_init)
-copy2dFieldTo3d(elev_init, eta3d)
+eta2d.project(elev_init)
+copy2dFieldTo3d(eta2d, eta3d)
 #getZCoord(z_coord3d)
 updateCoordinates(mesh, eta3d, bathymetry3d, z_coord3d, z_coord_ref3d)
 salt3d.assign(salt_init3d)
