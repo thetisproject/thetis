@@ -34,6 +34,8 @@ class flowSolver(object):
         self.checkVolConservation3d = False
         self.checkSaltConservation = False
         self.checkSaltDeviation = False
+        self.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion',
+                            'continuityEq', 'saltEq', 'aux_functions']
 
 
         # solver parameters
@@ -277,3 +279,17 @@ class flowSolver(object):
 
                 next_export_t += self.TExport
                 iExp += 1
+
+                if commrank == 0 and len(self.timerLabels) > 0:
+                    cost = {}
+                    relcost = {}
+                    totcost = 0
+                    for label in self.timerLabels:
+                        value = timing(label, reset=True)
+                        cost[label] = value
+                        totcost += value
+                    for label in self.timerLabels:
+                        c = cost[label]
+                        relcost = c/totcost
+                        print '{0:25s} : {1:11.6f} {2:11.2f}'.format(label, c, relcost)
+                        sys.stdout.flush()
