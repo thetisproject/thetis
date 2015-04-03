@@ -11,6 +11,7 @@ import time as timeMod
 from mpi4py import MPI
 
 
+# TODO rip name from here, use the name of the funct
 class exportManager(object):
     """Handles a list of file exporter objects"""
     # maps each fieldname to long name and filename
@@ -54,11 +55,12 @@ class exportManager(object):
         if self.verbose and commrank == 0:
             sys.stdout.write('Exporting: ')
         for key in self.exporters:
-            if self.verbose and commrank == 0:
-                sys.stdout.write(key+' ')
-                sys.stdout.flush()
             field = self.exportFunctions[key][0]
-            self.exporters[key].export(field)
+            if field is not None:
+                if self.verbose and commrank == 0:
+                    sys.stdout.write(key+' ')
+                    sys.stdout.flush()
+                self.exporters[key].export(field)
         if self.verbose and commrank == 0:
             sys.stdout.write('\n')
             sys.stdout.flush()
@@ -77,11 +79,18 @@ class flowSolver(object):
         # Time integrator setup
         self.TExport = 100.0  # export interval
         self.T = 1000.0  # Simulation duration
-        self.uAdvection = Constant(0.0)  # magnitude of max horiz. advective velocity
+        self.uAdvection = Constant(0.0)  # magnitude of max horiz. velocity
+        self.dt = None
+        self.dt_2d = None
+        self.M_modesplit = None
 
         # options
         self.nonlin = True  # use nonlinear shallow water equations
         self.use_wd = False  # use wetting-drying
+        self.solveSalt = True  # solve salt transport
+        self.solveVertDiffusion = True  # solve implicit vert diffusion
+        self.useBottomFriction = True  # apply log layer bottom stress
+        self.useALEMovingMesh = True  # 3D mesh tracks free surface
         self.checkVolConservation2d = False
         self.checkVolConservation3d = False
         self.checkSaltConservation = False
@@ -98,120 +107,145 @@ class flowSolver(object):
         self.solver_parameters2d = {'ksp_rtol': 1e-12,
                                     'ksp_atol': 1e-16}
 
-    def setTimeStep(self, swe2d, cfl_3d=1.0, cfl_2d=1.0):
-        mesh_dt = swe2d.getTimeStepAdvection(Umag=self.uAdvection)
+    def setTimeStep(self, cfl_3d=1.0, cfl_2d=1.0):
+        mesh_dt = self.eq_sw.getTimeStepAdvection(Umag=self.uAdvection)
         dt = cfl_3d*float(np.floor(mesh_dt.dat.data.min()/20.0))
         dt = round(comm.allreduce(dt, dt, op=MPI.MIN))
-        mesh2d_dt = swe2d.getTimeStep(Umag=self.uAdvection)
+        if self.dt is None:
+            self.dt = dt
+        else:
+            dt = self.dt
+        mesh2d_dt = self.eq_sw.getTimeStep(Umag=self.uAdvection)
         dt_2d = cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
         dt_2d = comm.allreduce(dt_2d, dt_2d, op=MPI.MIN)
-        M_modesplit = int(np.ceil(dt/dt_2d))
-        dt_2d = dt/M_modesplit
+        if self.dt_2d is None:
+            self.dt_2d = dt_2d
+        self.M_modesplit = int(np.ceil(dt/self.dt_2d))
+        self.dt_2d = dt/self.M_modesplit
+
         if commrank == 0:
-            print 'dt =', dt
-            print '2D dt =', dt_2d, M_modesplit
+            print 'dt =', self.dt
+            print '2D dt =', self.dt_2d, self.M_modesplit
             sys.stdout.flush()
-        self.dt = dt
-        self.dt_2d = dt_2d
-        self.M_modesplit = M_modesplit
 
     def mightyCreator(self):
         """Creates function spaces, functions, equations and time steppers."""
-        # ----- function spaces
-        P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
-        U_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1)
-        U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
-        U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', 1)
-        H_2d = FunctionSpace(self.mesh2d, 'CG', 2)
-        W_2d = MixedFunctionSpace([U_2d, H_2d])
+        # ----- function spaces: elev in H, uv in U, mixed is W
+        self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
+        self.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1)
+        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
+        self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', 1)
+        self.H_2d = FunctionSpace(self.mesh2d, 'CG', 2)
+        self.W_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
 
-        P1 = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
-        U = VectorFunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
-        U_visu = VectorFunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
-        U_scalar = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
-        H = FunctionSpace(self.mesh, 'CG', 2, vfamily='CG', vdegree=1)
+        self.P1 = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
+        self.U = VectorFunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
+        self.U_visu = VectorFunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
+        self.U_scalar = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
+        self.H = FunctionSpace(self.mesh, 'CG', 2, vfamily='CG', vdegree=1)
 
         # ----- fields
-        self.solution2d = Function(W_2d, name='solution2d')
-        self.uv_bottom2d = Function(U_2d, name='Bottom Velocity')
-        self.z_bottom2d = Function(P1_2d, name='Bot. Vel. z coord')
-        self.bottom_drag2d = Function(P1_2d, name='Bottom Drag')
+        self.solution2d = Function(self.W_2d, name='solution2d')
+        if self.useBottomFriction:
+            self.uv_bottom2d = Function(self.U_2d, name='Bottom Velocity')
+            self.z_bottom2d = Function(self.P1_2d, name='Bot. Vel. z coord')
+            self.bottom_drag2d = Function(self.P1_2d, name='Bottom Drag')
+        else:
+            self.uv_bottom2d = None
+            self.z_bottom2d = None
+            self.bottom_drag2d = None
 
-        self.eta3d = Function(H, name='Elevation')
-        self.eta3d_nplushalf = Function(H, name='Elevation')
-        self.bathymetry3d = Function(P1, name='Bathymetry')
-        self.uv3d = Function(U, name='Velocity')
-        self.uv_bottom3d = Function(U, name='Bottom Velocity')
-        self.z_bottom3d = Function(P1, name='Bot. Vel. z coord')
+        self.eta3d = Function(self.H, name='Elevation')
+        self.eta3d_nplushalf = Function(self.H, name='Elevation')
+        self.bathymetry3d = Function(self.P1, name='Bathymetry')
+        self.uv3d = Function(self.U, name='Velocity')
+        if self.useBottomFriction:
+            self.uv_bottom3d = Function(self.U, name='Bottom Velocity')
+            self.z_bottom3d = Function(self.P1, name='Bot. Vel. z coord')
+            self.bottom_drag3d = Function(self.P1, name='Bottom Drag')
+        else:
+            self.uv_bottom3d = None
+            self.z_bottom3d = None
+            self.bottom_drag3d = None
         # z coordinate in the strecthed mesh
-        self.z_coord3d = Function(P1, name='Bot. Vel. z coord')
+        self.z_coord3d = Function(self.P1, name='Bot. Vel. z coord')
         # z coordinate in the reference mesh (eta=0)
-        self.z_coord_ref3d = Function(P1, name='Bot. Vel. z coord')
-        self.bottom_drag3d = Function(P1, name='Bottom Drag')
-        self.uv3d_dav = Function(U, name='Depth Averaged Velocity')
-        self.uv2d_dav = Function(U_2d, name='Depth Averaged Velocity')
-        self.uv2d_dav_old = Function(U_2d, name='Depth Averaged Velocity')
-        self.w3d = Function(H, name='Vertical Velocity')
-        self.w_mesh3d = Function(H, name='Vertical Velocity')
-        self.dw_mesh_dz_3d = Function(H, name='Vertical Velocity')
-        self.w_mesh_surf3d = Function(H, name='Vertical Velocity')
-        self.salt3d = Function(H, name='Salinity')
-        self.viscosity_v3d = Function(P1, name='Vertical Velocity')
-
+        self.z_coord_ref3d = Function(self.P1, name='Bot. Vel. z coord')
+        self.uv3d_dav = Function(self.U, name='Depth Averaged Velocity')
+        self.uv2d_dav = Function(self.U_2d, name='Depth Averaged Velocity')
+        self.uv2d_dav_old = Function(self.U_2d, name='Depth Averaged Velocity')
+        self.w3d = Function(self.H, name='Vertical Velocity')
+        if self.useALEMovingMesh:
+            self.w_mesh3d = Function(self.H, name='Vertical Velocity')
+            self.dw_mesh_dz_3d = Function(self.H, name='Vertical Velocity')
+            self.w_mesh_surf3d = Function(self.H, name='Vertical Velocity')
+        else:
+            self.w_mesh3d = None
+            self.dw_mesh_dz_3d = None
+            self.w_mesh_surf3d = None
+        if self.solveSalt:
+            self.salt3d = Function(self.H, name='Salinity')
+        else:
+            self.salt3d = None
+        if self.solveVertDiffusion:
+            self.viscosity_v3d = Function(self.P1, name='Vertical Velocity')
+        else:
+            self.viscosity_v3d = None
         # set initial values
         copy2dFieldTo3d(self.bathymetry2d, self.bathymetry3d)
         getZCoordFromMesh(self.z_coord_ref3d)
 
         # ----- Equations
-        self.dt_2d = 0.0
-        self.dt = 0.0
         self.eq_sw = mode2d.freeSurfaceEquations(
-            self.mesh2d, W_2d, self.solution2d, self.bathymetry2d,
+            self.mesh2d, self.W_2d, self.solution2d, self.bathymetry2d,
             self.uv_bottom2d, self.bottom_drag2d,
             nonlin=self.nonlin, use_wd=self.use_wd)
         bnd_len = self.eq_sw.boundary_len
         bnd_markers = self.eq_sw.boundary_markers
         self.eq_momentum = mode3d.momentumEquation(
-            self.mesh, U, U_scalar, bnd_markers,
+            self.mesh, self.U, self.U_scalar, bnd_markers,
             bnd_len, self.uv3d, self.eta3d,
             self.bathymetry3d, w=self.w3d,
             w_mesh=self.w_mesh3d,
             dw_mesh_dz=self.dw_mesh_dz_3d,
             viscosity_v=None,
             nonlin=self.nonlin)
-        self.eq_salt = mode3d.tracerEquation(
-            self.mesh, H, self.salt3d, self.eta3d, self.uv3d, w=self.w3d,
-            w_mesh=self.w_mesh3d,
-            dw_mesh_dz=self.dw_mesh_dz_3d,
-            bnd_markers=bnd_markers,
-            bnd_len=bnd_len)
-        self.eq_vertmomentum = mode3d.verticalMomentumEquation(
-            self.mesh, U, U_scalar, self.uv3d, w=None,
-            viscosity_v=self.viscosity_v3d,
-            uv_bottom=self.uv_bottom3d,
-            bottom_drag=self.bottom_drag3d)
+        if self.solveSalt:
+            self.eq_salt = mode3d.tracerEquation(
+                self.mesh, self.H, self.salt3d, self.eta3d, self.uv3d,
+                w=self.w3d, w_mesh=self.w_mesh3d,
+                dw_mesh_dz=self.dw_mesh_dz_3d,
+                bnd_markers=bnd_markers,
+                bnd_len=bnd_len)
+        if self.solveVertDiffusion:
+            self.eq_vertmomentum = mode3d.verticalMomentumEquation(
+                self.mesh, self.U, self.U_scalar, self.uv3d, w=None,
+                viscosity_v=self.viscosity_v3d,
+                uv_bottom=self.uv_bottom3d,
+                bottom_drag=self.bottom_drag3d)
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         self.eq_momentum.bnd_functions = self.bnd_functions['momentum']
-        self.eq_salt.bnd_functions = self.bnd_functions['salt']
+        if self.solveSalt:
+            self.eq_salt.bnd_functions = self.bnd_functions['salt']
 
         # ----- Time integrators
-        self.setTimeStep(self.eq_sw)
+        self.setTimeStep()
         self.timeStepper = timeIntegration.coupledSSPRK(self)
 
         # ----- File exporters
         uv2d, eta2d = self.solution2d.split()
         # dictionary of all exportable functions and their visualization space
         exportFuncs = {
-            'uv2d': (uv2d, U_visu_2d),
-            'elev2d': (eta2d, P1_2d),
-            'elev3d': (self.eta3d, P1),
-            'uv3d': (self.uv3d, U_visu),
-            'w3d': (self.w3d, P1),
-            'w3d_mesh': (self.w_mesh3d, P1),
-            'salt3d': (self.salt3d, P1),
-            'uv2d_dav': (self.uv2d_dav, U_visu_2d),
-            'uv2d_bot': (self.uv_bottom2d, U_visu_2d),
-            'nuv3d': (self.viscosity_v3d, P1),
+            'uv2d': (uv2d, self.U_visu_2d),
+            'elev2d': (eta2d, self.P1_2d),
+            'elev3d': (self.eta3d, self.P1),
+            'uv3d': (self.uv3d, self.U_visu),
+            'w3d': (self.w3d, self.P1),
+            'w3d_mesh': (self.w_mesh3d, self.P1),
+            'salt3d': (self.salt3d, self.P1),
+            'uv2d_dav': (self.uv2d_dav, self.U_visu_2d),
+            'uv2d_bot': (self.uv_bottom2d, self.U_visu_2d),
+            'nuv3d': (self.viscosity_v3d, self.P1),
             }
         self.exporter = exportManager(self.outputDir, self.fieldsToExport,
                                       exportFuncs, verbose=True)
@@ -225,16 +259,22 @@ class flowSolver(object):
             uv2d, eta2d = self.solution2d.split()
             eta2d.project(elev)
             copy2dFieldTo3d(eta2d, self.eta3d)
-            updateCoordinates(self.mesh, self.eta3d, self.bathymetry3d,
-                              self.z_coord3d, self.z_coord_ref3d)
-        if salt is not None:
+            if self.useALEMovingMesh:
+                updateCoordinates(self.mesh, self.eta3d, self.bathymetry3d,
+                                self.z_coord3d, self.z_coord_ref3d)
+        if salt is not None and self.solveSalt:
             self.salt3d.project(salt)
         computeVertVelocity(self.w3d, self.uv3d, self.bathymetry3d)
-        computeMeshVelocity(self.eta3d, self.uv3d, self.w3d, self.w_mesh3d,
-                            self.w_mesh_surf3d, self.dw_mesh_dz_3d,
-                            self.bathymetry3d, self.z_coord_ref3d)
+        if self.useALEMovingMesh:
+            computeMeshVelocity(self.eta3d, self.uv3d, self.w3d, self.w_mesh3d,
+                                self.w_mesh_surf3d, self.dw_mesh_dz_3d,
+                                self.bathymetry3d, self.z_coord_ref3d)
 
         self.timeStepper.initialize()
+
+        self.checkSaltConservation *= self.solveSalt
+        self.checkSaltDeviation *= self.solveSalt
+        self.checkVolConservation3d *= self.useALEMovingMesh
 
     def iterate(self, updateForcings=None, updateForcings3d=None,
                 exportFunc=None):
@@ -253,8 +293,8 @@ class flowSolver(object):
         dx_2d = self.eq_sw.dx
         if self.checkVolConservation2d:
             eta = self.solution2d.split()[1]
-            Vol_0 = compVolume2d(eta, self.bathymetry2d, dx_2d)
-            print 'Initial volume', Vol_0
+            Vol2d_0 = compVolume2d(eta, self.bathymetry2d, dx_2d)
+            print 'Initial volume 2d', Vol2d_0
         if self.checkVolConservation3d:
             Vol3d_0 = compVolume3d(dx_3d)
             print 'Initial volume 3d', Vol3d_0
@@ -287,7 +327,7 @@ class flowSolver(object):
                 norm_u = norm(self.solution2d.split()[0])
 
                 if self.checkVolConservation2d:
-                    Vol = compVolume2d(self.solution2d.split()[1],
+                    Vol2d = compVolume2d(self.solution2d.split()[1],
                                        self.bathymetry2d, dx_2d)
                 if self.checkVolConservation3d:
                     Vol3d = compVolume3d(dx_3d)
@@ -307,9 +347,9 @@ class flowSolver(object):
                                            u=norm_u, cpu=cputime)))
                     line = 'Rel. {0:s} error {1:11.4e}'
                     if self.checkVolConservation2d:
-                        print(line.format('vol  ', (Vol_0 - Vol)/Vol_0))
+                        print(line.format('vol 2d', (Vol2d_0 - Vol2d)/Vol2d_0))
                     if self.checkVolConservation3d:
-                        print(line.format('vol3d', (Vol3d_0 - Vol3d)/Vol3d_0))
+                        print(line.format('vol 3d', (Vol3d_0 - Vol3d)/Vol3d_0))
                     if self.checkSaltConservation:
                         print(line.format('mass ',
                                           (Mass3d_0 - Mass3d)/Mass3d_0))

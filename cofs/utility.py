@@ -10,6 +10,7 @@ import sys
 from cofs.physical_constants import physical_constants
 import colorama
 from pyop2.profiling import timed_region, timed_function, timing
+from mpi4py import MPI
 
 comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
