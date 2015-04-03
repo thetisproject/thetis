@@ -7,7 +7,7 @@ from firedrake import *
 import os
 import numpy as np
 import sys
-from cofs.physical_constants import physical_constants
+from physical_constants import physical_constants
 import colorama
 from pyop2.profiling import timed_region, timed_function, timing
 from mpi4py import MPI

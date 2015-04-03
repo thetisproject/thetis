@@ -4,7 +4,7 @@ Depth averaged shallow water equations
 Tuomas Karna 2015-02-23
 """
 from utility import *
-from physical_constants import *
+
 commrank = op2.MPI.comm.rank
 
 g_grav = physical_constants['g_grav']

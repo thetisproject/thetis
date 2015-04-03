@@ -6,10 +6,7 @@
 # Tuomas Karna 2015-03-03
 
 from scipy.interpolate import interp1d
-from cofs.utility import *
-from cofs.physical_constants import physical_constants
-import cofs.timeIntegration as timeIntegration
-import cofs.solver as solverMod
+from cofs import *
 
 op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
@@ -48,20 +45,20 @@ bathfile = File(os.path.join(outputDir, 'bath.pvd'))
 bathfile << bathymetry2d
 
 # create solver
-solver = solverMod.flowSolver(mesh2d, bathymetry2d, n_layers)
-solver.nonlin = nonlin
-solver.use_wd = use_wd
-solver.TExport = TExport
-solver.T = T
-solver.uAdvection = Umag
-solver.checkVolConservation2d = True
-solver.checkVolConservation3d = True
-solver.checkSaltConservation = True
-solver.checkSaltDeviation = True
-solver.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
-                         'w3d', 'w3d_mesh', 'salt3d',
-                         'uv2d_dav', 'uv2d_bot', 'nuv3d']
-solver.outputDir = 'outputs_closed'
+solverObj = solver.flowSolver(mesh2d, bathymetry2d, n_layers)
+solverObj.nonlin = nonlin
+solverObj.use_wd = use_wd
+solverObj.TExport = TExport
+solverObj.T = T
+solverObj.uAdvection = Umag
+solverObj.checkVolConservation2d = True
+solverObj.checkVolConservation3d = True
+solverObj.checkSaltConservation = True
+solverObj.checkSaltDeviation = True
+solverObj.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
+                            'w3d', 'w3d_mesh', 'salt3d',
+                            'uv2d_dav', 'uv2d_bot', 'nuv3d']
+solverObj.outputDir = 'outputs_closed'
 
 # initial conditions
 elev_x = np.array([0, 30e3, 100e3])
@@ -80,5 +77,5 @@ elev_init.dat.data[:] = elevation(x_func.dat.data, 0, 0,
                                   elev_x, elev_v)
 salt_init3d = Constant(4.5)
 
-solver.assingInitialConditions(elev=elev_init, salt=salt_init3d)
-solver.iterate()
+solverObj.assingInitialConditions(elev=elev_init, salt=salt_init3d)
+solverObj.iterate()

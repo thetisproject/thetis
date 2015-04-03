@@ -3,10 +3,10 @@ Module for coupled 2D-3D flow solver.
 
 Tuomas Karna 2015-04-01
 """
-from cofs.utility import *
-import cofs.module_2d as mode2d
-import cofs.module_3d as mode3d
-import cofs.timeIntegration as timeIntegration
+from utility import *
+import module_2d
+import module_3d
+import timeIntegration as timeIntegration
 import time as timeMod
 from mpi4py import MPI
 
@@ -196,13 +196,13 @@ class flowSolver(object):
         getZCoordFromMesh(self.z_coord_ref3d)
 
         # ----- Equations
-        self.eq_sw = mode2d.freeSurfaceEquations(
+        self.eq_sw = module_2d.freeSurfaceEquations(
             self.mesh2d, self.W_2d, self.solution2d, self.bathymetry2d,
             self.uv_bottom2d, self.bottom_drag2d,
             nonlin=self.nonlin, use_wd=self.use_wd)
         bnd_len = self.eq_sw.boundary_len
         bnd_markers = self.eq_sw.boundary_markers
-        self.eq_momentum = mode3d.momentumEquation(
+        self.eq_momentum = module_3d.momentumEquation(
             self.mesh, self.U, self.U_scalar, bnd_markers,
             bnd_len, self.uv3d, self.eta3d,
             self.bathymetry3d, w=self.w3d,
@@ -211,14 +211,14 @@ class flowSolver(object):
             viscosity_v=None,
             nonlin=self.nonlin)
         if self.solveSalt:
-            self.eq_salt = mode3d.tracerEquation(
+            self.eq_salt = module_3d.tracerEquation(
                 self.mesh, self.H, self.salt3d, self.eta3d, self.uv3d,
                 w=self.w3d, w_mesh=self.w_mesh3d,
                 dw_mesh_dz=self.dw_mesh_dz_3d,
                 bnd_markers=bnd_markers,
                 bnd_len=bnd_len)
         if self.solveVertDiffusion:
-            self.eq_vertmomentum = mode3d.verticalMomentumEquation(
+            self.eq_vertmomentum = module_3d.verticalMomentumEquation(
                 self.mesh, self.U, self.U_scalar, self.uv3d, w=None,
                 viscosity_v=self.viscosity_v3d,
                 uv_bottom=self.uv_bottom3d,
@@ -261,7 +261,7 @@ class flowSolver(object):
             copy2dFieldTo3d(eta2d, self.eta3d)
             if self.useALEMovingMesh:
                 updateCoordinates(self.mesh, self.eta3d, self.bathymetry3d,
-                                self.z_coord3d, self.z_coord_ref3d)
+                                  self.z_coord3d, self.z_coord_ref3d)
         if salt is not None and self.solveSalt:
             self.salt3d.project(salt)
         computeVertVelocity(self.w3d, self.uv3d, self.bathymetry3d)

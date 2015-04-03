@@ -6,10 +6,7 @@
 # Tuomas Karna 2015-03-03
 
 from scipy.interpolate import interp1d
-from cofs.utility import *
-from cofs.physical_constants import physical_constants
-import cofs.timeIntegration as timeIntegration
-import cofs.solver as solverMod
+from cofs import *
 
 op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
@@ -48,16 +45,16 @@ bathfile = File(os.path.join(outputDir, 'bath.pvd'))
 bathfile << bathymetry2d
 
 # create solver
-solver = solverMod.flowSolver(mesh2d, bathymetry2d, n_layers)
-solver.nonlin = nonlin
-solver.use_wd = use_wd
-solver.TExport = TExport
-solver.T = T
-solver.uAdvection = Umag
-solver.checkSaltDeviation = True
-solver.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
-                         'w3d', 'w3d_mesh', 'salt3d',
-                         'uv2d_dav', 'uv2d_bot', 'nuv3d']
+solverObj = solver.flowSolver(mesh2d, bathymetry2d, n_layers)
+solverObj.nonlin = nonlin
+solverObj.use_wd = use_wd
+solverObj.TExport = TExport
+solverObj.T = T
+solverObj.uAdvection = Umag
+solverObj.checkSaltDeviation = True
+solverObj.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
+                            'w3d', 'w3d_mesh', 'salt3d',
+                            'uv2d_dav', 'uv2d_bot', 'nuv3d']
 
 
 # initial conditions
@@ -91,9 +88,9 @@ ocean_funcs_3d = {'flux': ocean_flux}
 river_funcs_3d = {'flux': river_flux}
 ocean_salt_3d = {'value': salt_init3d}
 river_salt_3d = {'value': salt_init3d}
-solver.bnd_functions['shallow_water'] = {2: ocean_funcs, 1: river_funcs}
-solver.bnd_functions['momentum'] = {2: ocean_funcs_3d, 1: river_funcs_3d}
-solver.bnd_functions['salt'] = {2: ocean_salt_3d, 1: river_salt_3d}
+solverObj.bnd_functions['shallow_water'] = {2: ocean_funcs, 1: river_funcs}
+solverObj.bnd_functions['momentum'] = {2: ocean_funcs_3d, 1: river_funcs_3d}
+solverObj.bnd_functions['salt'] = {2: ocean_salt_3d, 1: river_salt_3d}
 
 
 def updateForcings(t_new):
@@ -109,5 +106,6 @@ def updateForcings3d(t_new):
     ocean_flux.dat.data[:] = ocean_flux_func(t_new)
     river_flux.dat.data[:] = river_flux_func(t_new)
 
-solver.assingInitialConditions(salt=salt_init3d)
-solver.iterate(updateForcings=updateForcings, updateForcings3d=updateForcings3d)
+solverObj.assingInitialConditions(salt=salt_init3d)
+solverObj.iterate(updateForcings=updateForcings,
+                  updateForcings3d=updateForcings3d)

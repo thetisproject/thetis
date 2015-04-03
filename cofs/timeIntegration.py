@@ -247,7 +247,7 @@ class SSPRK33(timeIntegrator):
             self.funcs_old[k].assign(self.funcs[k])
         self.solution_old.assign(solution)
 
-    def solveStage(iStage, solution, sol_stage):
+    def solveStage(self, iStage, solution, sol_stage):
         if iStage == 0:
             # stage 0
             self.solution_old.assign(solution)
@@ -280,7 +280,6 @@ class SSPRK33(timeIntegrator):
             # final solution
             solution.assign(solution + (1.0/6.0)*self.K0 + (1.0/6.0)*self.K1 +
                             (2.0/3.0)*self.K2)
-            #sol_stage.assign(solution)
 
 
 class CrankNicolson(timeIntegrator):
@@ -308,7 +307,7 @@ class CrankNicolson(timeIntegrator):
         u = self.equation.solution
         u_old = self.solution_old
         u_tri = self.equation.tri
-        #Crank-Nicolson
+        # Crank-Nicolson
         gamma_const = Constant(gamma)
         self.F = (invdt*massTerm(u) - invdt*massTerm(u_old) -
                   gamma_const*RHS(u, **self.funcs) -
@@ -359,7 +358,15 @@ class CrankNicolson(timeIntegrator):
 
 class coupledTimeIntegrator(object):
     """Base class of all coupled time integrators"""
-    pass
+    def initialize(self):
+        """Assign initial conditions to all necessary fields"""
+        raise NotImplementedError(('This method must be implemented '
+                                   'in the derived class'))
+
+    def advance(self, t, dt, updateForcings=None, updateForcings3d=None):
+        """Advances the equations for one time step"""
+        raise NotImplementedError(('This method must be implemented '
+                                   'in the derived class'))
 
 
 class coupledSSPRK(coupledTimeIntegrator):
@@ -398,6 +405,7 @@ class coupledSSPRK(coupledTimeIntegrator):
             self.timeStepper_vmom3d.initialize(self.solver.uv3d)
 
     def advance(self, t, dt, updateForcings=None, updateForcings3d=None):
+        """Advances the equations for one time step"""
         s = self.solver
         # SSPRK33 time integration loop
         with timed_region('mode2d'):
