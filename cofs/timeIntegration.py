@@ -69,7 +69,20 @@ def cosTimeAvFilter(M):
     return M_star, [float(f) for f in a], [float(f) for f in b]
 
 
-class macroTimeStepIntegrator(object):
+class timeIntegrator(object):
+    """Base class for all time integrator objects."""
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        raise NotImplementedError(('This method must be implemented '
+                                   'in the derived class'))
+
+    def advance(self):
+        """Advances equations for one time step."""
+        raise NotImplementedError(('This method must be implemented '
+                                   'in the derived class'))
+
+
+class macroTimeStepIntegrator(timeIntegrator):
     """Takes an explicit time integrator and iterates it over M time steps.
     Computes time averages to represent solution at M*dt resolution."""
     # NOTE the time averages can be very diffusive
@@ -133,17 +146,6 @@ class macroTimeStepIntegrator(object):
         solution.assign(self.solution_n)
 
 
-class timeIntegrator(object):
-    """Base class for all time integrator objects."""
-    # TODO move to timeIntegrator.py
-    def __init__(self, equation):
-        self.equation = equation
-
-    def advance(self):
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
-
 class SSPRK33(timeIntegrator):
     """
     3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).
@@ -160,7 +162,7 @@ class SSPRK33(timeIntegrator):
     def __init__(self, equation, dt, solver_parameters=None,
                  funcs_nplushalf={}):
         """Creates forms for the time integrator"""
-        timeIntegrator.__init__(self, equation)
+        self.equation = equation
         self.explicit = True
         self.CFL_coeff = 1.0
         self.solver_parameters = solver_parameters
@@ -286,7 +288,7 @@ class CrankNicolson(timeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
     def __init__(self, equation, dt, gamma=0.6):
         """Creates forms for the time integrator"""
-        timeIntegrator.__init__(self, equation)
+        self.equation = equation
 
         massTerm = self.equation.massTerm
         RHS = self.equation.RHS
@@ -356,20 +358,7 @@ class CrankNicolson(timeIntegrator):
             self.funcs_old[k].assign(self.funcs[k])
 
 
-class coupledTimeIntegrator(object):
-    """Base class of all coupled time integrators"""
-    def initialize(self):
-        """Assign initial conditions to all necessary fields"""
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
-    def advance(self, t, dt, updateForcings=None, updateForcings3d=None):
-        """Advances the equations for one time step"""
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
-
-class coupledSSPRK(coupledTimeIntegrator):
+class coupledSSPRK(timeIntegrator):
     """
     Split-explicit time integration that uses SSPRK for both 2d and 3d modes.
     """
