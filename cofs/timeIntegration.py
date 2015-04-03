@@ -355,3 +355,96 @@ class CrankNicolson(timeIntegrator):
         # shift time
         for k in self.funcs_old:
             self.funcs_old[k].assign(self.funcs[k])
+
+
+class coupledTimeIntegrator(object):
+    """Base class of all coupled time integrators"""
+    pass
+
+
+class coupledSSPRK(coupledTimeIntegrator):
+    """
+    Split-explicit time integration that uses SSPRK for both 2d and 3d modes.
+    """
+    def __init__(self, solver):
+        self.solver = solver
+        subIterator = SSPRK33(
+            solver.eq_sw, solver.dt_2d,
+            solver.solver_parameters2d)
+        self.timeStepper2d = macroTimeStepIntegrator(
+            subIterator,
+            solver.M_modesplit,
+            restartFromAv=True)
+
+        self.timeStepper_mom3d = SSPRK33(
+            solver.eq_momentum, solver.dt,
+            funcs_nplushalf={'eta': solver.eta3d_nplushalf})
+        self.timeStepper_salt3d = SSPRK33(
+            solver.eq_salt,
+            solver.dt)
+        self.timeStepper_vmom3d = CrankNicolson(
+            solver.eq_vertmomentum,
+            solver.dt, gamma=0.6)
+
+    def initialize(self):
+        """Assign initial conditions to all necessary fields"""
+        self.timeStepper2d.initialize(self.solver.solution2d)
+        self.timeStepper_mom3d.initialize(self.solver.uv3d)
+        self.timeStepper_salt3d.initialize(self.solver.salt3d)
+        self.timeStepper_vmom3d.initialize(self.solver.uv3d)
+
+    def advance(self, t, dt, updateForcings=None, updateForcings3d=None):
+        s = self.solver
+        # SSPRK33 time integration loop
+        with timed_region('mode2d'):
+            self.timeStepper2d.advance(t, s.dt_2d, s.solution2d,
+                                        updateForcings)
+        with timed_region('aux_functions'):
+            eta_n = s.solution2d.split()[1]
+            copy2dFieldTo3d(eta_n, s.eta3d)  # at t_{n+1}
+            eta_nph = self.timeStepper2d.solution_nplushalf.split()[1]
+            copy2dFieldTo3d(eta_nph, s.eta3d_nplushalf)  # at t_{n+1/2}
+            updateCoordinates(s.mesh, s.eta3d, s.bathymetry3d,
+                                s.z_coord3d, s.z_coord_ref3d)
+            computeBottomFriction(s.uv3d, s.uv_bottom2d,
+                                    s.uv_bottom3d, s.z_coord3d,
+                                    s.z_bottom2d, s.z_bottom3d,
+                                    s.bathymetry2d, s.bottom_drag2d,
+                                    s.bottom_drag3d)
+
+        with timed_region('momentumEq'):
+            self.timeStepper_mom3d.advance(t, s.dt, s.uv3d,
+                                            updateForcings3d)
+        with timed_region('aux_functions'):
+            computeParabolicViscosity(s.uv_bottom3d, s.bottom_drag3d,
+                                        s.bathymetry3d,
+                                        s.viscosity_v3d)
+        with timed_region('vert_diffusion'):
+            self.timeStepper_vmom3d.advance(t, s.dt, s.uv3d, None)
+        with timed_region('continuityEq'):
+            computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d)
+            computeMeshVelocity(s.eta3d, s.uv3d, s.w3d,
+                                s.w_mesh3d, s.w_mesh_surf3d,
+                                s.dw_mesh_dz_3d, s.bathymetry3d,
+                                s.z_coord_ref3d)
+            computeBottomFriction(s.uv3d, s.uv_bottom2d,
+                                    s.uv_bottom3d, s.z_coord3d,
+                                    s.z_bottom2d, s.z_bottom3d,
+                                    s.bathymetry2d, s.bottom_drag2d,
+                                    s.bottom_drag3d)
+        with timed_region('saltEq'):
+            self.timeStepper_salt3d.advance(t, s.dt, s.salt3d,
+                                            updateForcings3d)
+        with timed_region('aux_functions'):
+            bndValue = Constant((0.0, 0.0, 0.0))
+            computeVerticalIntegral(s.uv3d, s.uv3d_dav,
+                                    s.uv3d.function_space(),
+                                    bottomToTop=True, bndValue=bndValue,
+                                    average=True,
+                                    bathymetry=s.bathymetry3d)
+            copy3dFieldTo2d(s.uv3d_dav, s.uv2d_dav,
+                            useBottomValue=False)
+            copy2dFieldTo3d(s.uv2d_dav, s.uv3d_dav)
+            # 2d-3d coupling: restart 2d mode from depth ave 3d velocity
+            uv2d_start = self.timeStepper2d.solution_start.split()[0]
+            uv2d_start.assign(s.uv2d_dav)

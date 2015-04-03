@@ -9,6 +9,7 @@ import numpy as np
 import sys
 from cofs.physical_constants import physical_constants
 import colorama
+from pyop2.profiling import timed_region, timed_function, timing
 
 comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
@@ -100,8 +101,8 @@ def extrudeMeshSigma(mesh2d, n_layers, bathymetry2d):
     return mesh
 
 
-def compVolume2d(eta, dx):
-    val = assemble(eta*dx)
+def compVolume2d(eta, bath, dx):
+    val = assemble((eta+bath)*dx)
     return val
 
 

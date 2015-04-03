@@ -10,7 +10,6 @@ import cofs.timeIntegration as timeIntegration
 import time as timeMod
 from mpi4py import MPI
 
-from pyop2.profiling import timed_region, timed_function, timing
 
 class exportManager(object):
     """Handles a list of file exporter objects"""
@@ -197,24 +196,7 @@ class flowSolver(object):
 
         # ----- Time integrators
         self.setTimeStep(self.eq_sw)
-
-        subIterator = timeIntegration.SSPRK33(
-            self.eq_sw, self.dt_2d,
-            self.solver_parameters2d)
-        self.timeStepper2d = timeIntegration.macroTimeStepIntegrator(
-            subIterator,
-            self.M_modesplit,
-            restartFromAv=True)
-
-        self.timeStepper_mom3d = timeIntegration.SSPRK33(
-            self.eq_momentum, self.dt,
-            funcs_nplushalf={'eta': self.eta3d_nplushalf})
-        self.timeStepper_salt3d = timeIntegration.SSPRK33(
-            self.eq_salt,
-            self.dt)
-        self.timeStepper_vmom3d = timeIntegration.CrankNicolson(
-            self.eq_vertmomentum,
-            self.dt, gamma=0.6)
+        self.timeStepper = timeIntegration.coupledSSPRK(self)
 
         # ----- File exporters
         uv2d, eta2d = self.solution2d.split()
@@ -252,10 +234,7 @@ class flowSolver(object):
                             self.w_mesh_surf3d, self.dw_mesh_dz_3d,
                             self.bathymetry3d, self.z_coord_ref3d)
 
-        self.timeStepper2d.initialize(self.solution2d)
-        self.timeStepper_mom3d.initialize(self.uv3d)
-        self.timeStepper_salt3d.initialize(self.salt3d)
-        self.timeStepper_vmom3d.initialize(self.uv3d)
+        self.timeStepper.initialize()
 
     def iterate(self, updateForcings=None, updateForcings3d=None,
                 exportFunc=None):
@@ -270,11 +249,11 @@ class flowSolver(object):
         next_export_t = t + self.TExport
 
         # initialize conservation checks
-        dx_3d = self.timeStepper_mom3d.equation.dx
-        dx_2d = self.timeStepper2d.equation.dx
+        dx_3d = self.eq_momentum.dx
+        dx_2d = self.eq_sw.dx
         if self.checkVolConservation2d:
             eta = self.solution2d.split()[1]
-            Vol_0 = compVolume2d(eta, dx_2d)
+            Vol_0 = compVolume2d(eta, self.bathymetry2d, dx_2d)
             print 'Initial volume', Vol_0
         if self.checkVolConservation3d:
             Vol3d_0 = compVolume3d(dx_3d)
@@ -293,59 +272,8 @@ class flowSolver(object):
 
         while t <= self.T + T_epsilon:
 
-            # SSPRK33 time integration loop
-            with timed_region('mode2d'):
-                self.timeStepper2d.advance(t, self.dt_2d, self.solution2d,
-                                           updateForcings)
-            with timed_region('aux_functions'):
-                eta_n = self.solution2d.split()[1]
-                copy2dFieldTo3d(eta_n, self.eta3d)  # at t_{n+1}
-                eta_nph = self.timeStepper2d.solution_nplushalf.split()[1]
-                copy2dFieldTo3d(eta_nph, self.eta3d_nplushalf)  # at t_{n+1/2}
-                updateCoordinates(self.mesh, self.eta3d, self.bathymetry3d,
-                                  self.z_coord3d, self.z_coord_ref3d)
-                computeBottomFriction(self.uv3d, self.uv_bottom2d,
-                                      self.uv_bottom3d, self.z_coord3d,
-                                      self.z_bottom2d, self.z_bottom3d,
-                                      self.bathymetry2d, self.bottom_drag2d,
-                                      self.bottom_drag3d)
-
-            with timed_region('momentumEq'):
-                self.timeStepper_mom3d.advance(t, self.dt, self.uv3d,
-                                               updateForcings3d)
-            with timed_region('aux_functions'):
-                computeParabolicViscosity(self.uv_bottom3d, self.bottom_drag3d,
-                                          self.bathymetry3d,
-                                          self.viscosity_v3d)
-            with timed_region('vert_diffusion'):
-                self.timeStepper_vmom3d.advance(t, self.dt, self.uv3d, None)
-            with timed_region('continuityEq'):
-                computeVertVelocity(self.w3d, self.uv3d, self.bathymetry3d)
-                computeMeshVelocity(self.eta3d, self.uv3d, self.w3d,
-                                    self.w_mesh3d, self.w_mesh_surf3d,
-                                    self.dw_mesh_dz_3d, self.bathymetry3d,
-                                    self.z_coord_ref3d)
-                computeBottomFriction(self.uv3d, self.uv_bottom2d,
-                                      self.uv_bottom3d, self.z_coord3d,
-                                      self.z_bottom2d, self.z_bottom3d,
-                                      self.bathymetry2d, self.bottom_drag2d,
-                                      self.bottom_drag3d)
-            with timed_region('saltEq'):
-                self.timeStepper_salt3d.advance(t, self.dt, self.salt3d,
-                                                updateForcings3d)
-            with timed_region('aux_functions'):
-                bndValue = Constant((0.0, 0.0, 0.0))
-                computeVerticalIntegral(self.uv3d, self.uv3d_dav,
-                                        self.uv3d.function_space(),
-                                        bottomToTop=True, bndValue=bndValue,
-                                        average=True,
-                                        bathymetry=self.bathymetry3d)
-                copy3dFieldTo2d(self.uv3d_dav, self.uv2d_dav,
-                                useBottomValue=False)
-                copy2dFieldTo3d(self.uv2d_dav, self.uv3d_dav)
-                # 2d-3d coupling: restart 2d mode from depth ave 3d velocity
-                uv2d_start = self.timeStepper2d.solution_start.split()[0]
-                uv2d_start.assign(self.uv2d_dav)
+            self.timeStepper.advance(t, self.dt, updateForcings,
+                                     updateForcings3d)
 
             # Move to next time step
             t += self.dt
@@ -359,7 +287,8 @@ class flowSolver(object):
                 norm_u = norm(self.solution2d.split()[0])
 
                 if self.checkVolConservation2d:
-                    Vol = compVolume2d(self.solution2d.split()[1], dx_2d)
+                    Vol = compVolume2d(self.solution2d.split()[1],
+                                       self.bathymetry2d, dx_2d)
                 if self.checkVolConservation3d:
                     Vol3d = compVolume3d(dx_3d)
                 if self.checkSaltConservation:

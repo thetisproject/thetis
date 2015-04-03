@@ -54,9 +54,6 @@ solver.use_wd = use_wd
 solver.TExport = TExport
 solver.T = T
 solver.uAdvection = Umag
-solver.checkVolConservation2d = True
-solver.checkVolConservation3d = True
-solver.checkSaltConservation = True
 solver.checkSaltDeviation = True
 solver.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
                          'w3d', 'w3d_mesh', 'salt3d',

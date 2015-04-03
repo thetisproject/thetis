@@ -61,7 +61,7 @@ solver.checkSaltDeviation = True
 solver.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
                          'w3d', 'w3d_mesh', 'salt3d',
                          'uv2d_dav', 'uv2d_bot', 'nuv3d']
-
+solver.outputDir = 'outputs_closed'
 
 # initial conditions
 elev_x = np.array([0, 30e3, 100e3])
