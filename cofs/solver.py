@@ -44,6 +44,7 @@ class exportManager(object):
 
     def __init__(self, outputDir, fieldsToExport, exportFunctions,
                  verbose=False):
+        self.outputDir = outputDir
         self.fieldsToExport = fieldsToExport
         self.exportFunctions = exportFunctions
         self.verbose = verbose
@@ -68,6 +69,10 @@ class exportManager(object):
         if self.verbose and commrank == 0:
             sys.stdout.write('\n')
             sys.stdout.flush()
+
+    def exportBathymetry(self, bathymetry2d):
+        bathfile = File(os.path.join(self.outputDir, 'bath.pvd'))
+        bathfile << bathymetry2d
 
 
 class flowSolver(object):
@@ -325,6 +330,7 @@ class flowSolver(object):
         self.exporter.export()
         if exportFunc is not None:
             exportFunc()
+        self.exporter.exportBathymetry(self.bathymetry2d)
 
         while t <= self.T + T_epsilon:
 

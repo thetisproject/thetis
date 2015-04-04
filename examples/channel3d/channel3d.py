@@ -8,8 +8,6 @@
 from scipy.interpolate import interp1d
 from cofs import *
 
-op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
-
 # set physical constants
 physical_constants['z0_friction'].assign(5.0e-5)
 
@@ -40,9 +38,6 @@ def bath(x, y, z):
 
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 bathymetry2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
-
-bathfile = File(os.path.join(outputDir, 'bath.pvd'))
-bathfile << bathymetry2d
 
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry2d, n_layers)

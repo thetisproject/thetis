@@ -5,10 +5,7 @@
 #
 # Tuomas Karna 2015-03-03
 
-from scipy.interpolate import interp1d
 from cofs import *
-
-op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
 # set physical constants
 physical_constants['z0_friction'].assign(5.0e-5)
@@ -27,9 +24,6 @@ depth = 20.0
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry2d = Function(P1_2d, name='Bathymetry')
 bathymetry2d.assign(depth)
-
-bathfile = File(os.path.join(outputDir, 'bath.pvd'))
-bathfile << bathymetry2d
 
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers[reso_str])
