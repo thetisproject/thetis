@@ -526,11 +526,11 @@ class tracerEquation(equation):
         if dw_mesh_dz is not None:
             F += solution*dw_mesh_dz*self.test*self.dx
 
-        # Bottom/top impermeability boundary conditions
-        G += +solution*(uv[0]*self.normal[0] +
-                        uv[1]*self.normal[1])*self.test*(ds_t + ds_b)
-        # TODO what is the correct free surf bnd condition?
-        G += +solution*vertvelo*self.normal[2]*self.test*(ds_t + ds_b)
+        ## Bottom/top impermeability boundary conditions
+        #G += +solution*(uv[0]*self.normal[0] +
+                        #uv[1]*self.normal[1])*self.test*(ds_t + ds_b)
+        ## TODO what is the correct free surf bnd condition?
+        #G += +solution*vertvelo*self.normal[2]*self.test*(ds_t + ds_b)
 
         # boundary conditions
         for bnd_marker in self.boundary_markers:

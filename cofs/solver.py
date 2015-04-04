@@ -112,6 +112,7 @@ class flowSolver(object):
         self.bnd_functions = {'shallow_water': {},
                               'momentum': {},
                               'salt': {}}
+        self.verbose = 0
 
         # solver parameters
         self.solver_parameters2d = {'ksp_rtol': 1e-12,
@@ -266,7 +267,7 @@ class flowSolver(object):
             'barohead2d': (self.baroHead2d, self.P1_2d),
             }
         self.exporter = exportManager(self.outputDir, self.fieldsToExport,
-                                      exportFuncs, verbose=True)
+                                      exportFuncs, verbose=self.verbose > 0)
 
         self._initialized = True
 

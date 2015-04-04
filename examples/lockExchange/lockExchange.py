@@ -45,6 +45,7 @@ solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
                             'uv2d_dav', 'barohead3d',
                             'barohead2d']
+solverObj.timerLabels = []
 
 solverObj.mightyCreator()
 salt_init3d = Function(solverObj.H, name='initial salinity')
