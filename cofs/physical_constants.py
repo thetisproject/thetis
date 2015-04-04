@@ -17,19 +17,5 @@ physical_constants = \
      'viscosity_h': Constant(0.0),  # horizontal viscosity
      }
 
-
-#g_grav = 9.81
-#rho = 1000
-
-#f0 = 1e-4
-#beta = 2e-11
-
-## manning coefficient for bottom friction
-##mu_manning = 0.02
-#mu_manning = 0.0
-
-## horizontal viscosity (background value)
-#viscosity = 10.0
-
-## wetting-drying parameters
-#wd_alpha = 0.3
+physical_constants['rho0_inv'] = \
+    Constant(1.0/physical_constants['rho0'])

@@ -18,6 +18,7 @@ class momentumEquation(equation):
                  solution, eta, bathymetry, w=None,
                  w_mesh=None, dw_mesh_dz=None,
                  uv_bottom=None, bottom_drag=None, viscosity_v=None,
+                 baro_head=None,
                  nonlin=True):
         self.mesh = mesh
         self.space = space
@@ -32,6 +33,7 @@ class momentumEquation(equation):
                        'uv_bottom': uv_bottom,
                        'bottom_drag': bottom_drag,
                        'viscosity_v': viscosity_v,
+                       'baro_head': baro_head,
                        }
         # time independent arg
         self.bathymetry = bathymetry
@@ -276,14 +278,18 @@ class momentumEquation(equation):
         return -F - G
 
     def Source(self, eta, w=None, viscosity_v=None,
-               uv_bottom=None, bottom_drag=None, **kwargs):
+               uv_bottom=None, bottom_drag=None, baro_head=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
         F = 0  # holds all dx volume integral terms
         G = 0
 
         # external pressure gradient
-        F += g_grav * inner(nabla_grad(eta), self.test) * self.dx
+        head = eta
+        if baro_head is not None:
+            # external + internal
+            head = eta + baro_head
+        F += g_grav * inner(nabla_grad(head), self.test) * self.dx
 
         if self.nonlin:
             total_H = self.bathymetry + eta

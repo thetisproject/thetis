@@ -11,7 +11,7 @@ VISUSTATE=$2
 ./regeneratePVD.bash $OUTDIR
 
 # change input dir in paraview visualization state
-sed "s/outputs/$OUTDIR/g" $VISUSTATE > tmp.pvsm
+sed "s/outputs_coarse/$OUTDIR/g" $VISUSTATE > tmp.pvsm
 
 # launch paraview
 paraview --state=tmp.pvsm &

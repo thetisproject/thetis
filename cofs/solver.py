@@ -36,6 +36,10 @@ class exportManager(object):
                      'file': 'BotVelocity2d.pvd'},
         'nuv3d': {'name': 'Vertical Viscosity',
                   'file': 'Viscosity3d.pvd'},
+        'barohead3d': {'name': 'Baroclinic head',
+                       'file': 'Barohead3d.pvd'},
+        'barohead2d': {'name': 'Dav baroclinic head',
+                       'file': 'Barohead2d.pvd'},
         }
 
     def __init__(self, outputDir, fieldsToExport, exportFunctions,
@@ -91,6 +95,7 @@ class flowSolver(object):
         self.solveVertDiffusion = True  # solve implicit vert diffusion
         self.useBottomFriction = True  # apply log layer bottom stress
         self.useALEMovingMesh = True  # 3D mesh tracks free surface
+        self.baroclinic = False  # comp and use internal pressure gradient
         self.checkVolConservation2d = False
         self.checkVolConservation3d = False
         self.checkSaltConservation = False
@@ -180,9 +185,7 @@ class flowSolver(object):
             self.dw_mesh_dz_3d = Function(self.H, name='Vertical Velocity')
             self.w_mesh_surf3d = Function(self.H, name='Vertical Velocity')
         else:
-            self.w_mesh3d = None
-            self.dw_mesh_dz_3d = None
-            self.w_mesh_surf3d = None
+            self.w_mesh3d = self.dw_mesh_dz_3d = self.w_mesh_surf3d = None
         if self.solveSalt:
             self.salt3d = Function(self.H, name='Salinity')
         else:
@@ -191,6 +194,12 @@ class flowSolver(object):
             self.viscosity_v3d = Function(self.P1, name='Vertical Velocity')
         else:
             self.viscosity_v3d = None
+        if self.baroclinic:
+            self.baroHead3d = Function(self.H, name='Baroclinic head')
+            self.baroHead2d = Function(self.H_2d, name='DAv baroclinic head')
+        else:
+            self.baroHead3d = self.baroHead2d = None
+
         # set initial values
         copy2dFieldTo3d(self.bathymetry2d, self.bathymetry3d)
         getZCoordFromMesh(self.z_coord_ref3d)
@@ -199,6 +208,7 @@ class flowSolver(object):
         self.eq_sw = module_2d.freeSurfaceEquations(
             self.mesh2d, self.W_2d, self.solution2d, self.bathymetry2d,
             self.uv_bottom2d, self.bottom_drag2d,
+            baro_head=self.baroHead2d,
             nonlin=self.nonlin, use_wd=self.use_wd)
         bnd_len = self.eq_sw.boundary_len
         bnd_markers = self.eq_sw.boundary_markers
@@ -206,6 +216,7 @@ class flowSolver(object):
             self.mesh, self.U, self.U_scalar, bnd_markers,
             bnd_len, self.uv3d, self.eta3d,
             self.bathymetry3d, w=self.w3d,
+            baro_head=self.baroHead3d,
             w_mesh=self.w_mesh3d,
             dw_mesh_dz=self.dw_mesh_dz_3d,
             viscosity_v=None,
@@ -246,6 +257,8 @@ class flowSolver(object):
             'uv2d_dav': (self.uv2d_dav, self.U_visu_2d),
             'uv2d_bot': (self.uv_bottom2d, self.U_visu_2d),
             'nuv3d': (self.viscosity_v3d, self.P1),
+            'barohead3d': (self.baroHead3d, self.P1),
+            'barohead2d': (self.baroHead2d, self.P1_2d),
             }
         self.exporter = exportManager(self.outputDir, self.fieldsToExport,
                                       exportFuncs, verbose=True)
@@ -269,6 +282,9 @@ class flowSolver(object):
             computeMeshVelocity(self.eta3d, self.uv3d, self.w3d, self.w_mesh3d,
                                 self.w_mesh_surf3d, self.dw_mesh_dz_3d,
                                 self.bathymetry3d, self.z_coord_ref3d)
+        if self.baroclinic:
+            computeBaroclinicHead(self.salt3d, self.baroHead3d,
+                                  self.baroHead2d, self.bathymetry3d)
 
         self.timeStepper.initialize()
 

@@ -16,6 +16,7 @@ class freeSurfaceEquations(equation):
     def __init__(self, mesh, space, solution, bathymetry,
                  uv_bottom=None, bottom_drag=None, viscosity_h=None,
                  mu_manning=None,
+                 baro_head=None,
                  nonlin=True, use_wd=True):
         self.mesh = mesh
         self.space = space
@@ -31,6 +32,7 @@ class freeSurfaceEquations(equation):
                        'bottom_drag': bottom_drag,
                        'viscosity_h': viscosity_h,
                        'mu_manning': mu_manning,
+                       'baro_head': baro_head,
                        }
 
         # create mixed function space
@@ -158,7 +160,7 @@ class freeSurfaceEquations(equation):
         return F * self.dx
 
     def RHS(self, solution, uv_old=None, uv_bottom=None, bottom_drag=None,
-            viscosity_h=None, mu_manning=None):
+            viscosity_h=None, mu_manning=None, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0  # holds all dx volume integral terms
@@ -320,18 +322,23 @@ class freeSurfaceEquations(equation):
         # A double dot product of the stress tensor and grad(w).
         if viscosity_h is not None:
             Diff_mom = -viscosity_h * (Dx(uv[0], 0) * Dx(self.U_test[0], 0) +
-                                    Dx(uv[0], 1) * Dx(self.U_test[0], 1) +
-                                    Dx(uv[1], 0) * Dx(self.U_test[1], 0) +
-                                    Dx(uv[1], 1) * Dx(self.U_test[1], 1))
+                                       Dx(uv[0], 1) * Dx(self.U_test[0], 1) +
+                                       Dx(uv[1], 0) * Dx(self.U_test[1], 0) +
+                                       Dx(uv[1], 1) * Dx(self.U_test[1], 1))
             Diff_mom += viscosity_h/total_H*inner(dot(grad(total_H), grad(uv)),
-                                                self.U_test)
+                                                  self.U_test)
             F -= Diff_mom * self.dx
 
         return -F - G
 
-    def Source(self, uv_old=None, uv_bottom=None, bottom_drag=None, **kwargs):
+    def Source(self, uv_old=None, uv_bottom=None, bottom_drag=None,
+               baro_head=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
-        F = 0*self.dx  # holds all dx volume integral terms
+        F = 0 * self.dx  # holds all dx volume integral terms
+
+        # External pressure gradient
+        if baro_head is not None:
+            F += g_grav * inner(nabla_grad(baro_head), self.U_test) * self.dx
 
         return -F

@@ -18,7 +18,7 @@ outputDir = createDirectory('outputs_'+reso_str)
 layers = {'coarse': 10, 'medium': 40, 'fine': 160}
 refinement = {'coarse': 1, 'medium': 4, 'fine': 16}
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
-dt = 450.0/refinement[reso_str]
+dt = 100.0/refinement[reso_str]
 T = 70 * 3600
 TExport = 15*60.0
 depth = 20.0
@@ -39,20 +39,26 @@ solverObj.solveSalt = True
 solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False
 solverObj.useALEMovingMesh = True
+solverObj.baroclinic = True
 solverObj.dt = dt
 solverObj.TExport = TExport
 solverObj.T = T
 solverObj.outputDir = outputDir
-solverObj.uAdvection = Constant(0.15)
+solverObj.uAdvection = Constant(1.0)
 solverObj.checkVolConservation2d = True
 solverObj.checkVolConservation3d = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
-                            'uv2d_dav']
+                            'uv2d_dav', 'barohead3d',
+                            'barohead2d']
 
 solverObj.mightyCreator()
 salt_init3d = Function(solverObj.H, name='initial salinity')
-salt_init3d.interpolate(Expression(('(x[0] > 0.0) ? 1025 : 1020')))
+# vertical barrier
+# salt_init3d.interpolate(Expression(('(x[0] > 0.0) ? 20.0 : 25.0')))
+# smooth condition
+salt_init3d.interpolate(Expression('22.5 - 2.5*tanh(x[0]/sigma)',
+                                   sigma=4000.0))
 
 solverObj.assingInitialConditions(salt=salt_init3d)
 solverObj.iterate()

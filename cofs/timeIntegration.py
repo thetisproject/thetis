@@ -416,6 +416,9 @@ class coupledSSPRK(timeIntegrator):
                     s.z_bottom2d, s.z_bottom3d,
                     s.bathymetry2d, s.bottom_drag2d,
                     s.bottom_drag3d)
+            if s.baroclinic:
+                computeBaroclinicHead(s.salt3d, s.baroHead3d, s.baroHead2d,
+                                      s.bathymetry3d)
 
         with timed_region('momentumEq'):
             self.timeStepper_mom3d.advance(t, s.dt, s.uv3d,

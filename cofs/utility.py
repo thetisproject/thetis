@@ -204,6 +204,23 @@ def computeVerticalIntegral(input, output, space, bottomToTop=True,
     return output
 
 
+def computeBaroclinicHead(salt, baroHead3d, baroHead2d, bath3d):
+    """
+    Computes baroclinic head from density field
+
+    r = 1/rho_0 int_{z=-h}^{\eta} rho' dz
+    """
+    fs = baroHead3d.function_space()
+    computeVerticalIntegral(salt, baroHead3d, fs, bottomToTop=False)
+    baroHead3d *= -physical_constants['rho0_inv']
+    print 'head', baroHead3d.dat.data.min(), baroHead3d.dat.data.max()
+    tmp = Function(fs)
+    computeVerticalIntegral(baroHead3d, tmp, fs, bottomToTop=True, average=True,
+                            bathymetry=bath3d)
+    copy3dFieldTo2d(tmp, baroHead2d, useBottomValue=False)
+    print 'head 2d', baroHead2d.dat.data.min(), baroHead2d.dat.data.max()
+
+
 def copyLayerValueOverVertical(input, output, useBottomValue=True):
     """
     Assings the top/bottom value of the input field to the entire vertical
