@@ -219,6 +219,42 @@ def computeBaroclinicHead(salt, baroHead3d, baroHead2d, bath3d):
     copy3dFieldTo2d(tmp, baroHead2d, useBottomValue=False)
 
 
+def computeVelMagnitude(solution, u=None, w=None, minVal=1e-6):
+    """
+    Computes magnitude of (u[0],u[1],w) and stores it in solution
+    """
+
+    function_space = solution.function_space()
+    phi = TestFunction(function_space)
+    magnitude = TrialFunction(function_space)
+
+    a = phi*magnitude*dx
+    s = 0
+    if u is not None:
+        s += u[0]**2 + u[1]**2
+    if w is not None:
+        s += w**2
+    L = phi*sqrt(s)*dx
+
+    solve(a == L, solution)
+    solution.dat.data[:] = np.maximum(solution.dat.data[:], minVal)
+
+
+def updateSUPGGamma(uv, w, u_mag, u_mag_h, u_mag_v, hElemSize, vElemSize,
+                    SUPG_alpha, gamma_h, gamma_v, minVal=1e-6):
+    """Computes velocity magnitudes and updates SUPG gamma parameter"""
+    computeVelMagnitude(u_mag, u=uv, w=w, minVal=1e-3)
+    computeVelMagnitude(u_mag_h, u=uv, minVal=1e-3)
+    computeVelMagnitude(u_mag_v, w=w, minVal=1e-6)
+
+    gamma_h.project(hElemSize/2*SUPG_alpha/u_mag_h)
+    gamma_v.project(vElemSize/2*SUPG_alpha/u_mag_v)
+    gamma_h.dat.data[:] = np.maximum(gamma_h.dat.data[:], minVal)
+    gamma_v.dat.data[:] = np.maximum(gamma_v.dat.data[:], minVal)
+    print 'gamma_h', gamma_h.dat.data.min(), gamma_h.dat.data.max()
+    print 'gamma_v', gamma_v.dat.data.min(), gamma_v.dat.data.max()
+
+
 def copyLayerValueOverVertical(input, output, useBottomValue=True):
     """
     Assings the top/bottom value of the input field to the entire vertical

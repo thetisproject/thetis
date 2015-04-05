@@ -447,6 +447,14 @@ class coupledSSPRK(timeIntegrator):
                     s.z_bottom2d, s.z_bottom3d,
                     s.bathymetry2d, s.bottom_drag2d,
                     s.bottom_drag3d)
+            if s.useSUPG:
+                updateSUPGGamma(
+                    s.uv3d, s.w3d, s.u_mag_func,
+                    s.u_mag_func_h, s.u_mag_func_v,
+                    s.hElemSize3d, s.vElemSize3d,
+                    s.SUPG_alpha,
+                    s.supg_gamma_h, s.supg_gamma_v)
+
         with timed_region('saltEq'):
             if s.solveSalt:
                 self.timeStepper_salt3d.advance(t, s.dt, s.salt3d,

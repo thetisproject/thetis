@@ -34,6 +34,7 @@ solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False
 solverObj.useALEMovingMesh = True
 solverObj.baroclinic = True
+solverObj.useSUPG = True
 solverObj.dt = dt
 solverObj.TExport = TExport
 solverObj.T = T

@@ -100,6 +100,8 @@ class flowSolver(object):
         self.solveVertDiffusion = True  # solve implicit vert diffusion
         self.useBottomFriction = True  # apply log layer bottom stress
         self.useALEMovingMesh = True  # 3D mesh tracks free surface
+        self.useSUPG = False  # SUPG stabilization for tracer advection
+        self.useNonlinDiff = False  # nonlinear stab. for tracer advection
         self.baroclinic = False  # comp and use internal pressure gradient
         self.checkVolConservation2d = False
         self.checkVolConservation3d = False
@@ -205,6 +207,31 @@ class flowSolver(object):
             self.baroHead2d = Function(self.H_2d, name='DAv baroclinic head')
         else:
             self.baroHead3d = self.baroHead2d = None
+        if self.useSUPG:
+            # TODO move these somewhere else? All form are now in equations...
+            test = TestFunction(self.H)
+            self.u_mag_func = Function(self.U_scalar)
+            self.u_mag_func_h = Function(self.U_scalar)
+            self.u_mag_func_v = Function(self.U_scalar)
+            self.SUPG_alpha = Constant(0.1)  # between 0 and 1
+            self.hElemSize3d = getHorzontalElemSize(self.P1_2d, self.P1)
+            self.vElemSize3d = getVerticalElemSize(self.P1_2d, self.P1)
+            self.supg_gamma_h = Function(self.P1, name='gamma_h')
+            self.supg_gamma_v = Function(self.P1, name='gamma_v')
+            self.test_supg_h = self.supg_gamma_h*(self.uv3d[0]*Dx(test, 0) +
+                                                  self.uv3d[1]*Dx(test, 1))
+            self.test_supg_v = self.supg_gamma_v*(self.w3d*Dx(test, 2))
+            self.test_supg_mass = self.SUPG_alpha/self.u_mag_func*(
+                self.hElemSize3d/2*self.uv3d[0]*Dx(test, 0) +
+                self.hElemSize3d/2*self.uv3d[1]*Dx(test, 1) +
+                self.vElemSize3d/2*self.w3d*Dx(test, 2))
+        else:
+            self.test_supg_h = self.test_supg_v = self.test_supg_mass = None
+        if self.useNonlinDiff:
+            self.nonlinStab_h = None
+            self.nonlinStab_v = None
+        else:
+            self.nonlinStab_h = self.nonlinStab_v = None
 
         # set initial values
         copy2dFieldTo3d(self.bathymetry2d, self.bathymetry3d)
@@ -232,6 +259,11 @@ class flowSolver(object):
                 self.mesh, self.H, self.salt3d, self.eta3d, self.uv3d,
                 w=self.w3d, w_mesh=self.w_mesh3d,
                 dw_mesh_dz=self.dw_mesh_dz_3d,
+                test_supg_h=self.test_supg_h,
+                test_supg_v=self.test_supg_v,
+                test_supg_mass=self.test_supg_mass,
+                nonlinStab_h=self.nonlinStab_h,
+                nonlinStab_v=self.nonlinStab_v,
                 bnd_markers=bnd_markers,
                 bnd_len=bnd_len)
         if self.solveVertDiffusion:
@@ -291,6 +323,12 @@ class flowSolver(object):
         if self.baroclinic:
             computeBaroclinicHead(self.salt3d, self.baroHead3d,
                                   self.baroHead2d, self.bathymetry3d)
+        if self.useSUPG:
+            updateSUPGGamma(self.uv3d, self.w3d, self.u_mag_func,
+                            self.u_mag_func_h, self.u_mag_func_v,
+                            self.hElemSize3d, self.vElemSize3d,
+                            self.SUPG_alpha,
+                            self.supg_gamma_h, self.supg_gamma_v)
 
         self.timeStepper.initialize()
 
