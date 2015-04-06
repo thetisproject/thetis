@@ -183,12 +183,19 @@ class SSPRK33(timeIntegrator):
         self.funcs_old = {}
         for k in self.funcs:
             if self.funcs[k] is not None:
-                self.funcs_old[k] = Function(self.funcs[k].function_space())
+                if isinstance(self.funcs[k], Function):
+                    self.funcs_old[k] = Function(
+                        self.funcs[k].function_space())
+                elif isinstance(self.funcs[k], Constant):
+                    self.funcs_old[k] = Constant(self.funcs[k])
         self.funcs_nplushalf = funcs_nplushalf
         # values used in equations
         self.args = {}
         for k in self.funcs_old:
-            self.args[k] = Function(self.funcs[k].function_space())
+            if isinstance(self.funcs[k], Function):
+                self.args[k] = Function(self.funcs[k].function_space())
+            elif isinstance(self.funcs[k], Constant):
+                self.args[k] = Constant(self.funcs[k])
 
         u_old = self.solution_old
         u_tri = self.equation.tri
@@ -400,15 +407,17 @@ class coupledSSPRK(timeIntegrator):
         with timed_region('mode2d'):
             self.timeStepper2d.advance(t, s.dt_2d, s.solution2d,
                                        updateForcings)
-        with timed_region('aux_functions'):
+        with timed_region('aux_eta3d'):
             eta_n = s.solution2d.split()[1]
             copy2dFieldTo3d(eta_n, s.eta3d)  # at t_{n+1}
             eta_nph = self.timeStepper2d.solution_nplushalf.split()[1]
             copy2dFieldTo3d(eta_nph, s.eta3d_nplushalf)  # at t_{n+1/2}
+        with timed_region('aux_mesh_ale'):
             if s.useALEMovingMesh:
                 updateCoordinates(
                     s.mesh, s.eta3d, s.bathymetry3d,
                     s.z_coord3d, s.z_coord_ref3d)
+        with timed_region('aux_friction'):
             if s.useBottomFriction:
                 computeBottomFriction(
                     s.uv3d, s.uv_bottom2d,
@@ -416,30 +425,32 @@ class coupledSSPRK(timeIntegrator):
                     s.z_bottom2d, s.z_bottom3d,
                     s.bathymetry2d, s.bottom_drag2d,
                     s.bottom_drag3d)
+                computeParabolicViscosity(
+                    s.uv_bottom3d, s.bottom_drag3d,
+                    s.bathymetry3d,
+                    s.viscosity_v3d)
+        with timed_region('aux_barolinicity'):
             if s.baroclinic:
-                computeBaroclinicHead(s.salt3d, s.baroHead3d, s.baroHead2d,
+                computeBaroclinicHead(s.salt3d, s.baroHead3d,
+                                      s.baroHead2d,
                                       s.bathymetry3d)
 
         with timed_region('momentumEq'):
             self.timeStepper_mom3d.advance(t, s.dt, s.uv3d,
                                            updateForcings3d)
-        with timed_region('aux_functions'):
-            if s.useBottomFriction:
-                computeParabolicViscosity(
-                    s.uv_bottom3d, s.bottom_drag3d,
-                    s.bathymetry3d,
-                    s.viscosity_v3d)
         with timed_region('vert_diffusion'):
             if s.solveVertDiffusion:
                 self.timeStepper_vmom3d.advance(t, s.dt, s.uv3d, None)
         with timed_region('continuityEq'):
             computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d)
+        with timed_region('aux_mesh_ale'):
             if s.useALEMovingMesh:
                 computeMeshVelocity(
                     s.eta3d, s.uv3d, s.w3d,
                     s.w_mesh3d, s.w_mesh_surf3d,
                     s.dw_mesh_dz_3d, s.bathymetry3d,
                     s.z_coord_ref3d)
+        with timed_region('aux_friction'):
             if s.useBottomFriction:
                 computeBottomFriction(
                     s.uv3d, s.uv_bottom2d,
@@ -468,7 +479,7 @@ class coupledSSPRK(timeIntegrator):
                 computeVertGJVParameter(
                     s.gjv_alpha, s.salt3d, s.nonlinStab_v, s.vElemSize3d,
                     s.u_mag_func_v, maxval=800.0*s.uAdvection.dat.data[0])
-        with timed_region('aux_functions'):
+        with timed_region('aux_mom_coupling'):
             bndValue = Constant((0.0, 0.0, 0.0))
             computeVerticalIntegral(s.uv3d, s.uv3d_dav,
                                     s.uv3d.function_space(),

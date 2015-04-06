@@ -174,6 +174,7 @@ class equation(object):
                                    'in the derived class'))
 
 
+@timed_function('func_vert_int')
 def computeVerticalIntegral(input, output, space, bottomToTop=True,
                             bndValue=Constant(0.0), average=False,
                             bathymetry=None,
@@ -334,6 +335,7 @@ def copyLayerValueOverVertical(input, output, useBottomValue=True):
     return output
 
 
+@timed_function('func_copy3dTo2d')
 def copy3dFieldTo2d(input3d, output2d, useBottomValue=True, level=None):
     """
     Assings the top/bottom value of the input field to 2d output field.
@@ -395,6 +397,7 @@ def copy3dFieldTo2d(input3d, output2d, useBottomValue=True, level=None):
     return output2d
 
 
+@timed_function('func_copy2dTo3d')
 def copy2dFieldTo3d(input2d, output3d):
     """
     Copies a field from 2d mesh to 3d mesh, assigning the same value over the

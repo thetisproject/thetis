@@ -43,7 +43,7 @@ class exportManager(object):
         'gjvAlphaH3d': {'name': 'GJV Parameter h',
                         'file': 'GJVParamH.pvd'},
         'gjvAlphaV3d': {'name': 'GJV Parameter v',
-                        'file': 'GJVParamv.pvd'},
+                        'file': 'GJVParamV.pvd'},
         }
 
     def __init__(self, outputDir, fieldsToExport, exportFunctions,
@@ -104,6 +104,7 @@ class flowSolver(object):
         self.solveVertDiffusion = True  # solve implicit vert diffusion
         self.useBottomFriction = True  # apply log layer bottom stress
         self.useALEMovingMesh = True  # 3D mesh tracks free surface
+        self.hDiffusivity = None  # background diffusivity (set to Constant)
         self.useSUPG = False  # SUPG stabilization for tracer advection
         self.useGJV = False  # nonlin gradient jump viscosity
         self.baroclinic = False  # comp and use internal pressure gradient
@@ -112,7 +113,11 @@ class flowSolver(object):
         self.checkSaltConservation = False
         self.checkSaltDeviation = False
         self.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion',
-                            'continuityEq', 'saltEq', 'aux_functions',
+                            'continuityEq', 'saltEq', 'aux_eta3d',
+                            'aux_mesh_ale', 'aux_friction', 'aux_barolinicity',
+                            'aux_mom_coupling',
+                            'func_copy2dTo3d', 'func_copy3dTo2d',
+                            'func_vert_int',
                             'supg', 'gjv']
         self.outputDir = 'outputs'
         self.fieldsToExport = ['elev2d', 'uv2d', 'uv3d', 'w3d']
@@ -196,8 +201,8 @@ class flowSolver(object):
         self.w3d = Function(self.H, name='Vertical Velocity')
         if self.useALEMovingMesh:
             self.w_mesh3d = Function(self.H, name='Vertical Velocity')
-            self.dw_mesh_dz_3d = Function(self.H, name='Vertical Velocity')
-            self.w_mesh_surf3d = Function(self.H, name='Vertical Velocity')
+            self.dw_mesh_dz_3d = Function(self.H, name='Vertical Velocity dz')
+            self.w_mesh_surf3d = Function(self.H, name='Vertical Velocity Surf')
         else:
             self.w_mesh3d = self.dw_mesh_dz_3d = self.w_mesh_surf3d = None
         if self.solveSalt:
@@ -210,15 +215,16 @@ class flowSolver(object):
             self.viscosity_v3d = None
         if self.baroclinic:
             self.baroHead3d = Function(self.H, name='Baroclinic head')
+            self.baroHeadInt3d = Function(self.H, name='V.int. baroclinic head')
             self.baroHead2d = Function(self.H_2d, name='DAv baroclinic head')
         else:
             self.baroHead3d = self.baroHead2d = None
         if self.useSUPG:
             # TODO move these somewhere else? All form are now in equations...
             test = TestFunction(self.H)
-            self.u_mag_func = Function(self.U_scalar)
-            self.u_mag_func_h = Function(self.U_scalar)
-            self.u_mag_func_v = Function(self.U_scalar)
+            self.u_mag_func = Function(self.U_scalar, name='uvw magnitude')
+            self.u_mag_func_h = Function(self.U_scalar, name='uv magnitude')
+            self.u_mag_func_v = Function(self.U_scalar, name='w magnitude')
             self.SUPG_alpha = Constant(0.1)  # between 0 and 1
             self.hElemSize3d = getHorzontalElemSize(self.P1_2d, self.P1)
             self.vElemSize3d = getVerticalElemSize(self.P1_2d, self.P1)
@@ -266,6 +272,7 @@ class flowSolver(object):
                 self.mesh, self.H, self.salt3d, self.eta3d, self.uv3d,
                 w=self.w3d, w_mesh=self.w_mesh3d,
                 dw_mesh_dz=self.dw_mesh_dz_3d,
+                diffusivity_h=self.hDiffusivity,
                 test_supg_h=self.test_supg_h,
                 test_supg_v=self.test_supg_v,
                 test_supg_mass=self.test_supg_mass,
@@ -331,7 +338,8 @@ class flowSolver(object):
                                 self.bathymetry3d, self.z_coord_ref3d)
         if self.baroclinic:
             computeBaroclinicHead(self.salt3d, self.baroHead3d,
-                                  self.baroHead2d, self.bathymetry3d)
+                                  self.baroHead2d,
+                                  self.bathymetry3d)
         if self.useSUPG:
             updateSUPGGamma(self.uv3d, self.w3d, self.u_mag_func,
                             self.u_mag_func_h, self.u_mag_func_v,
