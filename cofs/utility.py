@@ -251,8 +251,56 @@ def updateSUPGGamma(uv, w, u_mag, u_mag_h, u_mag_v, hElemSize, vElemSize,
     gamma_v.project(vElemSize/2*SUPG_alpha/u_mag_v)
     gamma_h.dat.data[:] = np.maximum(gamma_h.dat.data[:], minVal)
     gamma_v.dat.data[:] = np.maximum(gamma_v.dat.data[:], minVal)
-    print 'gamma_h', gamma_h.dat.data.min(), gamma_h.dat.data.max()
-    print 'gamma_v', gamma_v.dat.data.min(), gamma_v.dat.data.max()
+
+
+def computeHorizGJVParameter(gjv_alpha, tracer, param, h, umag, maxval=800.0):
+    """Computes gradient jump viscosity parameter."""
+    P0 = param.function_space()
+    normal = FacetNormal(P0.mesh())
+    test = TestFunction(P0)
+    tri = TrialFunction(P0)
+    a = jump(test, tri)*dS_v
+    avgDx = avg(grad(tracer))
+    inDx = grad(tracer('-'))
+    jumpDx = jump(grad(tracer))
+    jumpGrad = sqrt(jumpDx[0]**2+jumpDx[1]**2)
+    avgGrad = sqrt(avgDx[0]**2+avgDx[1]**2)
+    inGrad = sqrt(inDx[0]**2+inDx[1]**2)
+    avgNorGrad = avgDx[0]*normal('-')[0] + avgDx[1]*normal('-')[1]
+    inNorGrad = inDx[0]*normal('-')[0] + inDx[1]*normal('-')[1]
+    avgNorGrad = avgNorGrad*sign(avgNorGrad)
+    inNorGrad = inNorGrad*sign(inNorGrad)
+    # NOTE factor 2 comes from the formulation
+    maxgrad = Constant(0.5)/avg(h)
+    L = gjv_alpha*Constant(2*0.5)*avg(umag*h)*(jumpGrad/maxgrad)*avg(test)*dS_v
+    solve(a == L, param)
+    param.dat.data[param.dat.data[:] > maxval] = maxval
+    return param
+
+
+def computeVertGJVParameter(gjv_alpha, tracer, param, h, umag, maxval=800.0):
+    """Computes gradient jump viscosity parameter."""
+    P0 = param.function_space()
+    normal = FacetNormal(P0.mesh())
+    test = TestFunction(P0)
+    tri = TrialFunction(P0)
+    a = jump(test, tri)*dS_h
+    avgDx = avg(grad(tracer))
+    inDx = grad(tracer('-'))
+    jumpDx = jump(grad(tracer))
+    jumpGrad = sqrt(jumpDx[2]**2)
+    avgGrad = sqrt(avgDx[2]**2)
+    inGrad = sqrt(inDx[2]**2)
+    avgNorGrad = avgDx[2]*normal('-')[2]
+    inNorGrad = inDx[2]*normal('-')[2]
+    avgNorGrad = avgNorGrad*sign(avgNorGrad)
+    inNorGrad = inNorGrad*sign(inNorGrad)
+    # NOTE factor 2 comes from the formulation
+    maxgrad = Constant(0.5)/avg(h)
+    L = gjv_alpha*Constant(2*2*0.5)*avg(umag*h)*(jumpGrad/maxgrad)*avg(test)*dS_h
+    solve(a == L, param)
+    param.dat.data[param.dat.data[:] > maxval] = maxval
+    return param
 
 
 def copyLayerValueOverVertical(input, output, useBottomValue=True):

@@ -40,6 +40,10 @@ class exportManager(object):
                        'file': 'Barohead3d.pvd'},
         'barohead2d': {'name': 'Dav baroclinic head',
                        'file': 'Barohead2d.pvd'},
+        'gjvAlphaH3d': {'name': 'GJV Parameter h',
+                        'file': 'GJVParamH.pvd'},
+        'gjvAlphaV3d': {'name': 'GJV Parameter v',
+                        'file': 'GJVParamv.pvd'},
         }
 
     def __init__(self, outputDir, fieldsToExport, exportFunctions,
@@ -101,14 +105,15 @@ class flowSolver(object):
         self.useBottomFriction = True  # apply log layer bottom stress
         self.useALEMovingMesh = True  # 3D mesh tracks free surface
         self.useSUPG = False  # SUPG stabilization for tracer advection
-        self.useNonlinDiff = False  # nonlinear stab. for tracer advection
+        self.useGJV = False  # nonlin gradient jump viscosity
         self.baroclinic = False  # comp and use internal pressure gradient
         self.checkVolConservation2d = False
         self.checkVolConservation3d = False
         self.checkSaltConservation = False
         self.checkSaltDeviation = False
         self.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion',
-                            'continuityEq', 'saltEq', 'aux_functions']
+                            'continuityEq', 'saltEq', 'aux_functions',
+                            'supg', 'gjv']
         self.outputDir = 'outputs'
         self.fieldsToExport = ['elev2d', 'uv2d', 'uv3d', 'w3d']
         self.bnd_functions = {'shallow_water': {},
@@ -151,6 +156,7 @@ class flowSolver(object):
         self.H_2d = FunctionSpace(self.mesh2d, 'CG', 2)
         self.W_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
 
+        self.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0)
         self.P1 = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
         self.U = VectorFunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
         self.U_visu = VectorFunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
@@ -227,11 +233,12 @@ class flowSolver(object):
                 self.vElemSize3d/2*self.w3d*Dx(test, 2))
         else:
             self.test_supg_h = self.test_supg_v = self.test_supg_mass = None
-        if self.useNonlinDiff:
-            self.nonlinStab_h = None
-            self.nonlinStab_v = None
+        if self.useGJV:
+            self.gjv_alpha = Constant(1.0)
+            self.nonlinStab_h = Function(self.P0, name='GJV parameter h')
+            self.nonlinStab_v = Function(self.P0, name='GJV parameter v')
         else:
-            self.nonlinStab_h = self.nonlinStab_v = None
+            self.gjv_alpha = self.nonlinStab_h = self.nonlinStab_v = None
 
         # set initial values
         copy2dFieldTo3d(self.bathymetry2d, self.bathymetry3d)
@@ -297,6 +304,8 @@ class flowSolver(object):
             'nuv3d': (self.viscosity_v3d, self.P1),
             'barohead3d': (self.baroHead3d, self.P1),
             'barohead2d': (self.baroHead2d, self.P1_2d),
+            'gjvAlphaH3d': (self.nonlinStab_h, self.P0),
+            'gjvAlphaV3d': (self.nonlinStab_v, self.P0),
             }
         self.exporter = exportManager(self.outputDir, self.fieldsToExport,
                                       exportFuncs, verbose=self.verbose > 0)
@@ -329,6 +338,17 @@ class flowSolver(object):
                             self.hElemSize3d, self.vElemSize3d,
                             self.SUPG_alpha,
                             self.supg_gamma_h, self.supg_gamma_v)
+        if self.useGJV:
+            computeHorizGJVParameter(
+                self.gjv_alpha, self.salt3d, self.nonlinStab_h,
+                self.hElemSize3d, self.u_mag_func_h,
+                maxval=800.0*self.uAdvection.dat.data[0])
+            computeVertGJVParameter(
+                self.gjv_alpha, self.salt3d, self.nonlinStab_v,
+                self.vElemSize3d, self.u_mag_func_v,
+                maxval=800.0*self.uAdvection.dat.data[0])
+        if self.useGJV and not self.useSUPG:
+            raise Exception('Currently GJV requires SUPG (comp of umag)')
 
         self.timeStepper.initialize()
 

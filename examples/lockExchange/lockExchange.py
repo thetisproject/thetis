@@ -15,7 +15,7 @@ outputDir = createDirectory('outputs_'+reso_str)
 layers = {'coarse': 10, 'medium': 40, 'fine': 160}
 refinement = {'coarse': 1, 'medium': 4, 'fine': 16}
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
-dt = 100.0/refinement[reso_str]
+dt = 60.0/refinement[reso_str]
 T = 70 * 3600
 TExport = 15*60.0
 depth = 20.0
@@ -35,18 +35,19 @@ solverObj.useBottomFriction = False
 solverObj.useALEMovingMesh = True
 solverObj.baroclinic = True
 solverObj.useSUPG = True
+solverObj.useGJV = True
 solverObj.dt = dt
 solverObj.TExport = TExport
 solverObj.T = T
 solverObj.outputDir = outputDir
-solverObj.uAdvection = Constant(1.0)
+solverObj.uAdvection = Constant(1.5)
 solverObj.checkVolConservation2d = True
 solverObj.checkVolConservation3d = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
                             'uv2d_dav', 'barohead3d',
-                            'barohead2d']
-solverObj.timerLabels = []
+                            'barohead2d', 'gjvAlphaH3d', 'gjvAlphaV3d']
+#solverObj.timerLabels = []
 
 solverObj.mightyCreator()
 salt_init3d = Function(solverObj.H, name='initial salinity')
