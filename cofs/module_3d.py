@@ -507,16 +507,10 @@ class tracerEquation(equation):
         F = 0  # holds all dx volume integral terms
         G = 0  # holds all ds boundary interface terms
 
-        #test_h = self.test
-        #if self.test_supg_h is not None:
-            #test_h = self.test + self.test_supg_h
-
         # NOTE advection terms must be exactly as in 3d continuity equation
         # Horizontal advection term
         F += -solution*(uv[0]*Dx(self.test, 0) +
                         uv[1]*Dx(self.test, 1))*self.dx
-        #F += self.test*(uv[0]*Dx(solution, 0) +
-                        #uv[1]*Dx(solution, 1))*self.dx
         # Vertical advection term
         vertvelo = w
         if w_mesh is not None:

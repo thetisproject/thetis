@@ -169,7 +169,7 @@ class flowSolver(object):
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
         self.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1)
-        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
+        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1)
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', 1)
         self.H_2d = FunctionSpace(self.mesh2d, 'CG', 2)
         self.W_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
@@ -177,7 +177,7 @@ class flowSolver(object):
         self.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0)
         self.P1 = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
         self.U = VectorFunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
-        self.U_visu = VectorFunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
+        self.U_visu = VectorFunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1)
         self.U_scalar = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
         self.H = FunctionSpace(self.mesh, 'CG', 2, vfamily='CG', vdegree=1)
 
