@@ -98,6 +98,8 @@ class flowSolver(object):
         self.M_modesplit = None
 
         # options
+        self.cfl_2d = 1.0  # factor to scale the 2d time step
+        self.cfl_3d = 1.0  # factor to scale the 2d time step
         self.nonlin = True  # use nonlinear shallow water equations
         self.use_wd = False  # use wetting-drying
         self.solveSalt = True  # solve salt transport
@@ -141,16 +143,16 @@ class flowSolver(object):
             # 'fieldsplit_1_pc_type': 'jacobi',
             }
 
-    def setTimeStep(self, cfl_3d=1.0, cfl_2d=1.0):
+    def setTimeStep(self):
         mesh_dt = self.eq_sw.getTimeStepAdvection(Umag=self.uAdvection)
-        dt = cfl_3d*float(np.floor(mesh_dt.dat.data.min()/20.0))
+        dt = self.cfl_3d*float(np.floor(mesh_dt.dat.data.min()/20.0))
         dt = round(comm.allreduce(dt, dt, op=MPI.MIN))
         if self.dt is None:
             self.dt = dt
         else:
             dt = self.dt
         mesh2d_dt = self.eq_sw.getTimeStep(Umag=self.uAdvection)
-        dt_2d = cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
+        dt_2d = self.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
         dt_2d = comm.allreduce(dt_2d, dt_2d, op=MPI.MIN)
         if self.dt_2d is None:
             self.dt_2d = dt_2d
