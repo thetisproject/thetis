@@ -323,13 +323,14 @@ class freeSurfaceEquations(equation):
         # viscosity
         # A double dot product of the stress tensor and grad(w).
         if viscosity_h is not None:
-            Diff_mom = -viscosity_h * (Dx(uv[0], 0) * Dx(self.U_test[0], 0) +
-                                       Dx(uv[0], 1) * Dx(self.U_test[0], 1) +
-                                       Dx(uv[1], 0) * Dx(self.U_test[1], 0) +
-                                       Dx(uv[1], 1) * Dx(self.U_test[1], 1))
-            Diff_mom += viscosity_h/total_H*inner(dot(grad(total_H), grad(uv)),
-                                                  self.U_test)
-            F -= Diff_mom * self.dx
+            F_visc = viscosity_h * (Dx(uv[0], 0) * Dx(self.U_test[0], 0) +
+                                    Dx(uv[0], 1) * Dx(self.U_test[0], 1) +
+                                    Dx(uv[1], 0) * Dx(self.U_test[1], 0) +
+                                    Dx(uv[1], 1) * Dx(self.U_test[1], 1))
+            F_visc += -viscosity_h/total_H*inner(
+                dot(grad(total_H), grad(uv)),
+                self.U_test)
+            F += F_visc * self.dx
 
         return -F - G
 

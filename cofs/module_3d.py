@@ -17,7 +17,8 @@ class momentumEquation(equation):
     def __init__(self, mesh, space, space_scalar, bnd_markers, bnd_len,
                  solution, eta, bathymetry, w=None,
                  w_mesh=None, dw_mesh_dz=None,
-                 uv_bottom=None, bottom_drag=None, viscosity_v=None,
+                 uv_bottom=None, bottom_drag=None,
+                 viscosity_v=None, viscosity_h=None,
                  baro_head=None, uvLaxFriedrichs=None,
                  nonlin=True):
         self.mesh = mesh
@@ -33,6 +34,7 @@ class momentumEquation(equation):
                        'uv_bottom': uv_bottom,
                        'bottom_drag': bottom_drag,
                        'viscosity_v': viscosity_v,
+                       'viscosity_h': viscosity_h,
                        'baro_head': baro_head,
                        'uvLaxFriedrichs': uvLaxFriedrichs,
                        }
@@ -61,15 +63,7 @@ class momentumEquation(equation):
         self.boundary_markers = bnd_markers
         self.boundary_len = bnd_len
 
-        ## compute lenth of all boundaries
-        #self.boundary_len = {}
-        #for i in self.boundary_markers:
-            ##ds_restricted = Measure('ds', subdomain_id=int(i))
-            ##one_func = Function(self.space_scalar).interpolate(Expression(1.0))
-            ##self.boundary_len[i] = assemble(one_func * ds_restricted)
-            ##print 'bnd', i, self.boundary_len[i]
-
-        # set boundary conditions
+        # boundary conditions
         # maps bnd_marker to dict of external functions e.g. {'elev':eta_ext}
         self.bnd_functions = {}
 
@@ -97,6 +91,7 @@ class momentumEquation(equation):
         return inner(solution, self.test) * self.dx
 
     def RHS(self, solution, eta, w=None, viscosity_v=None,
+            viscosity_h=None,
             uv_bottom=None, bottom_drag=None,
             w_mesh=None, dw_mesh_dz=None, uvLaxFriedrichs=None, **kwargs):
         """Returns the right hand side of the equations.
@@ -255,20 +250,17 @@ class momentumEquation(equation):
                     gamma = abs(un_av)
                     G += gamma*dot(self.test, (uv_in - uv_ext)/2)*ds_bnd
 
-        ## viscosity
-        ## A double dot product of the stress tensor and grad(w).
-        #K_momentum = -viscosity * (Dx(uv[0], 0) * Dx(self.U_test[0], 0) +
-                                   #Dx(uv[0], 1) * Dx(self.U_test[0], 1) +
-                                   #Dx(uv[1], 0) * Dx(self.U_test[1], 0) +
-                                   #Dx(uv[1], 1) * Dx(self.U_test[1], 1))
-        #K_momentum += viscosity/total_H*inner(dot(grad(total_H), grad(uv)),
-                                              #self.U_test)
-        #F -= K_momentum * self.dx
+        # horizontal viscosity
+        F_visc = viscosity_h * (Dx(solution[0], 0) * Dx(self.test[0], 0) +
+                                Dx(solution[1], 0) * Dx(self.test[1], 0) +
+                                Dx(solution[0], 1) * Dx(self.test[0], 1) +
+                                Dx(solution[1], 1) * Dx(self.test[1], 1))
+        F += F_visc * self.dx
 
         # vertical viscosity
         if viscosity_v is not None:
             F += viscosity_v*(Dx(self.test[0], 2)*Dx(solution[0], 2) +
-                              Dx(self.test[1], 2)*Dx(solution[1], 2))*dx
+                              Dx(self.test[1], 2)*Dx(solution[1], 2)) * self.dx
             if self.vertical_DG:
                 raise NotImplementedError('Vertical diffusion has not been implemented for DG')
                 # G += -viscosity_v * dot(psi, du/dz) * normal[2]
@@ -501,7 +493,8 @@ class tracerEquation(equation):
         return inner(solution, test) * self.dx
 
     def RHS(self, solution, eta, uv, w, w_mesh=None, dw_mesh_dz=None,
-            diffusivity_h=None, nonlinStab_h=None, nonlinStab_v=None, **kwargs):
+            diffusivity_h=None, nonlinStab_h=None, nonlinStab_v=None,
+            **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0  # holds all dx volume integral terms
@@ -521,9 +514,9 @@ class tracerEquation(equation):
         if dw_mesh_dz is not None:
             F += solution*dw_mesh_dz*self.test*self.dx
 
-        ## Bottom/top impermeability boundary conditions
-        #G += +solution*(uv[0]*self.normal[0] +
-                        #uv[1]*self.normal[1])*self.test*(ds_t + ds_b)
+        # Bottom/top impermeability boundary conditions
+        # G += +solution*(uv[0]*self.normal[0] +
+                        # uv[1]*self.normal[1])*self.test*(ds_t + ds_b)
         # TODO what is the correct free surf bnd condition?
         if w_mesh is None:
             G += solution*vertvelo*self.normal[2]*self.test*(ds_b)

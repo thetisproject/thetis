@@ -107,6 +107,7 @@ class flowSolver(object):
         self.useBottomFriction = True  # apply log layer bottom stress
         self.useALEMovingMesh = True  # 3D mesh tracks free surface
         self.hDiffusivity = None  # background diffusivity (set to Constant)
+        self.hViscosity = None  # background viscosity (set to Constant)
         self.useSUPG = False  # SUPG stabilization for tracer advection
         self.useGJV = False  # nonlin gradient jump viscosity
         self.baroclinic = False  # comp and use internal pressure gradient
@@ -268,6 +269,7 @@ class flowSolver(object):
             self.mesh2d, self.W_2d, self.solution2d, self.bathymetry2d,
             self.uv_bottom2d, self.bottom_drag2d,
             baro_head=self.baroHead2d,
+            viscosity_h=self.hViscosity,
             uvLaxFriedrichs=self.uvLaxFriedrichs,
             nonlin=self.nonlin, use_wd=self.use_wd)
         bnd_len = self.eq_sw.boundary_len
@@ -279,7 +281,8 @@ class flowSolver(object):
             baro_head=self.baroHead3d,
             w_mesh=self.w_mesh3d,
             dw_mesh_dz=self.dw_mesh_dz_3d,
-            viscosity_v=None, uvLaxFriedrichs=self.uvLaxFriedrichs,
+            viscosity_v=None, viscosity_h=self.hViscosity,
+            uvLaxFriedrichs=self.uvLaxFriedrichs,
             nonlin=self.nonlin)
         if self.solveSalt:
             self.eq_salt = module_3d.tracerEquation(

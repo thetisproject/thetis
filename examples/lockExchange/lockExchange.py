@@ -10,12 +10,12 @@ from cofs import *
 # set physical constants
 physical_constants['z0_friction'].assign(5.0e-5)
 
-reso_str = 'coarse2'
+reso_str = 'coarse'
 outputDir = createDirectory('outputs_'+reso_str)
 refinement = {'coarse': 1, 'coarse2': 2, 'medium': 4, 'fine': 16}
 layers = 10*refinement[reso_str]
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
-dt = 60.0/refinement[reso_str]
+dt = 45.0/refinement[reso_str]
 T = 70 * 3600
 TExport = 15*60.0
 depth = 20.0
@@ -27,6 +27,7 @@ bathymetry2d.assign(depth)
 
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
+solverObj.cfl_2d = 1.0
 solverObj.nonlin = True
 solverObj.solveSalt = True
 solverObj.solveVertDiffusion = False
@@ -37,18 +38,20 @@ solverObj.useSUPG = False
 solverObj.useGJV = False
 #solverObj.uvLaxFriedrichs = None
 solverObj.hDiffusivity = Constant(100.0)
+solverObj.hViscosity = Constant(100.0)
 solverObj.dt = dt
 solverObj.TExport = TExport
 solverObj.T = T
 solverObj.outputDir = outputDir
-solverObj.uAdvection = Constant(1.5)
+solverObj.uAdvection = Constant(2.5)
 solverObj.checkVolConservation2d = True
 solverObj.checkVolConservation3d = True
+solverObj.checkSaltConservation = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
                             'uv2d_dav', 'barohead3d',
                             'barohead2d', 'gjvAlphaH3d', 'gjvAlphaV3d']
-#solverObj.timerLabels = []
+solverObj.timerLabels = []
 
 solverObj.mightyCreator()
 salt_init3d = Function(solverObj.H, name='initial salinity')
