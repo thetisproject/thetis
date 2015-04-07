@@ -110,14 +110,9 @@ class macroTimeStepIntegrator(timeIntegrator):
         """Advances equations for one macro time step DT=M*dt"""
         M = self.M
         solution_old = self.subiterator.solution_old
-        if self.restartFromAv:
-            # initialize from time averages
-            solution_old.assign(self.solution_n)
-            solution.assign(self.solution_n)
-        else:
-            # start from saved istantaneous state
-            solution_old.assign(self.solution_start)
-            solution.assign(self.solution_start)
+        # initialize
+        solution_old.assign(self.solution_start)
+        solution.assign(self.solution_start)
         # reset time filtered solutions
         # filtered to T_{n+1/2}
         self.solution_nplushalf.assign(0.0)
@@ -136,7 +131,7 @@ class macroTimeStepIntegrator(timeIntegrator):
                 if i == M-1:
                     sys.stdout.write('|')
                 sys.stdout.flush()
-            if i == M-1:
+            if not self.restartFromAv and i == M-1:
                 # store state at T_{n+1}
                 self.solution_start.assign(solution)
         if verbose and commrank == 0:
@@ -144,6 +139,8 @@ class macroTimeStepIntegrator(timeIntegrator):
             sys.stdout.flush()
         # use filtered solution as output
         solution.assign(self.solution_n)
+        if self.restartFromAv:
+            self.solution_start.assign(self.solution_n)
 
 
 class SSPRK33(timeIntegrator):
