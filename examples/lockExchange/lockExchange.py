@@ -10,10 +10,10 @@ from cofs import *
 # set physical constants
 physical_constants['z0_friction'].assign(5.0e-5)
 
-reso_str = 'coarse'
+reso_str = 'coarse2'
 outputDir = createDirectory('outputs_'+reso_str)
-layers = {'coarse': 10, 'medium': 40, 'fine': 160}
-refinement = {'coarse': 1, 'medium': 4, 'fine': 16}
+refinement = {'coarse': 1, 'coarse2': 2, 'medium': 4, 'fine': 16}
+layers = 10*refinement[reso_str]
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
 dt = 60.0/refinement[reso_str]
 T = 70 * 3600
@@ -26,9 +26,8 @@ bathymetry2d = Function(P1_2d, name='Bathymetry')
 bathymetry2d.assign(depth)
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers[reso_str])
-solverObj.nonlin = False
-solverObj.use_wd = False
+solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
+solverObj.nonlin = True
 solverObj.solveSalt = True
 solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False
@@ -36,7 +35,8 @@ solverObj.useALEMovingMesh = True
 solverObj.baroclinic = True
 solverObj.useSUPG = False
 solverObj.useGJV = False
-solverObj.hDiffusivity = Constant(10.0)
+#solverObj.uvLaxFriedrichs = None
+solverObj.hDiffusivity = Constant(100.0)
 solverObj.dt = dt
 solverObj.TExport = TExport
 solverObj.T = T
@@ -56,7 +56,7 @@ salt_init3d = Function(solverObj.H, name='initial salinity')
 # salt_init3d.interpolate(Expression(('(x[0] > 0.0) ? 20.0 : 25.0')))
 # smooth condition
 salt_init3d.interpolate(Expression('22.5 - 2.5*tanh(x[0]/sigma)',
-                                   sigma=4000.0))
+                                   sigma=1000.0))
 
 solverObj.assingInitialConditions(salt=salt_init3d)
 solverObj.iterate()

@@ -18,7 +18,7 @@ class momentumEquation(equation):
                  solution, eta, bathymetry, w=None,
                  w_mesh=None, dw_mesh_dz=None,
                  uv_bottom=None, bottom_drag=None, viscosity_v=None,
-                 baro_head=None,
+                 baro_head=None, uvLaxFriedrichs=None,
                  nonlin=True):
         self.mesh = mesh
         self.space = space
@@ -34,6 +34,7 @@ class momentumEquation(equation):
                        'bottom_drag': bottom_drag,
                        'viscosity_v': viscosity_v,
                        'baro_head': baro_head,
+                       'uvLaxFriedrichs': uvLaxFriedrichs,
                        }
         # time independent arg
         self.bathymetry = bathymetry
@@ -94,11 +95,10 @@ class momentumEquation(equation):
         Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
         """
         return inner(solution, self.test) * self.dx
-        #return (solution[0]*self.test[0] + solution[1]*self.test[1]) * self.dx
 
     def RHS(self, solution, eta, w=None, viscosity_v=None,
             uv_bottom=None, bottom_drag=None,
-            w_mesh=None, dw_mesh_dz=None, **kwargs):
+            w_mesh=None, dw_mesh_dz=None, uvLaxFriedrichs=None, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0  # holds all dx volume integral terms
@@ -125,8 +125,9 @@ class momentumEquation(equation):
                       uv_up[1]*jump(self.test[1], self.normal[0]*solution[0]) +
                       uv_up[1]*jump(self.test[1], self.normal[1]*solution[1]))*(self.dS_v)
                 # Lax-Friedrichs stabilization
-                gamma = abs(un_av)
-                G += gamma*dot(jump(self.test), jump(solution))*self.dS_v
+                if uvLaxFriedrichs is not None:
+                    gamma = abs(un_av)*uvLaxFriedrichs
+                    G += gamma*dot(jump(self.test), jump(solution))*self.dS_v
             if self.vertical_DG:
                 # NOTE bottom bnd doesn't work for DG vertical mesh
                 uv_av = avg(solution)
@@ -529,8 +530,9 @@ class tracerEquation(equation):
         ## Bottom/top impermeability boundary conditions
         #G += +solution*(uv[0]*self.normal[0] +
                         #uv[1]*self.normal[1])*self.test*(ds_t + ds_b)
-        ## TODO what is the correct free surf bnd condition?
-        #G += +solution*vertvelo*self.normal[2]*self.test*(ds_t + ds_b)
+        # TODO what is the correct free surf bnd condition?
+        if w_mesh is None:
+            G += solution*vertvelo*self.normal[2]*self.test*(ds_b)
 
         # boundary conditions
         for bnd_marker in self.boundary_markers:

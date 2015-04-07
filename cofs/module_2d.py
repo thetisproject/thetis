@@ -15,8 +15,8 @@ class freeSurfaceEquations(equation):
     """2D depth averaged shallow water equations"""
     def __init__(self, mesh, space, solution, bathymetry,
                  uv_bottom=None, bottom_drag=None, viscosity_h=None,
-                 mu_manning=None,
-                 baro_head=None,
+                 mu_manning=None, baro_head=None,
+                 uvLaxFriedrichs=None,
                  nonlin=True, use_wd=True):
         self.mesh = mesh
         self.space = space
@@ -33,6 +33,7 @@ class freeSurfaceEquations(equation):
                        'viscosity_h': viscosity_h,
                        'mu_manning': mu_manning,
                        'baro_head': baro_head,
+                       'uvLaxFriedrichs': uvLaxFriedrichs,
                        }
 
         # create mixed function space
@@ -160,7 +161,7 @@ class freeSurfaceEquations(equation):
         return F * self.dx
 
     def RHS(self, solution, uv_old=None, uv_bottom=None, bottom_drag=None,
-            viscosity_h=None, mu_manning=None, **kwargs):
+            viscosity_h=None, mu_manning=None, uvLaxFriedrichs=None, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0  # holds all dx volume integral terms
@@ -198,9 +199,10 @@ class freeSurfaceEquations(equation):
                       uv_av[1]*uv_up[0]*jump(self.U_test[0], self.normal[1]) +
                       uv_av[1]*uv_up[1]*jump(self.U_test[1], self.normal[1]))*self.dS
                 # Lax-Friedrichs stabilization
-                gamma = abs(self.normal[0]('-')*uv_av[0] +
-                            self.normal[1]('-')*uv_av[1])
-                G += gamma*dot(jump(self.U_test), jump(uv))*self.dS
+                if uvLaxFriedrichs is not None:
+                    gamma = abs(self.normal[0]('-')*uv_av[0] +
+                                self.normal[1]('-')*uv_av[1])*uvLaxFriedrichs
+                    G += gamma*dot(jump(self.U_test), jump(uv))*self.dS
 
             F += Adv_mom * self.dx
 

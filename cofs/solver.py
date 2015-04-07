@@ -108,6 +108,7 @@ class flowSolver(object):
         self.useSUPG = False  # SUPG stabilization for tracer advection
         self.useGJV = False  # nonlin gradient jump viscosity
         self.baroclinic = False  # comp and use internal pressure gradient
+        self.uvLaxFriedrichs = Constant(1.0)  # scales uv stab. None omits
         self.checkVolConservation2d = False
         self.checkVolConservation3d = False
         self.checkSaltConservation = False
@@ -255,6 +256,7 @@ class flowSolver(object):
             self.mesh2d, self.W_2d, self.solution2d, self.bathymetry2d,
             self.uv_bottom2d, self.bottom_drag2d,
             baro_head=self.baroHead2d,
+            uvLaxFriedrichs=self.uvLaxFriedrichs,
             nonlin=self.nonlin, use_wd=self.use_wd)
         bnd_len = self.eq_sw.boundary_len
         bnd_markers = self.eq_sw.boundary_markers
@@ -265,7 +267,7 @@ class flowSolver(object):
             baro_head=self.baroHead3d,
             w_mesh=self.w_mesh3d,
             dw_mesh_dz=self.dw_mesh_dz_3d,
-            viscosity_v=None,
+            viscosity_v=None, uvLaxFriedrichs=self.uvLaxFriedrichs,
             nonlin=self.nonlin)
         if self.solveSalt:
             self.eq_salt = module_3d.tracerEquation(
