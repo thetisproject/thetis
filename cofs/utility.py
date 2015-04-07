@@ -168,14 +168,17 @@ def computeVertVelocity(solution, uv, bathymetry, solver_parameters={}):
         tri = TrialFunction(H)
         normal = FacetNormal(mesh)
 
+        ds_surf = ds_b
+        ds_bottom = ds_t
         w_bottom = -(uv[0]*Dx(bathymetry, 0) + uv[1]*Dx(bathymetry, 1))
-        a = tri*phi*normal[2]*ds_b - Dx(phi, 2)*tri*dx
-        # L = (-(Dx(uv[0], 0) + Dx(uv[1], 1))*phi*dx -
-        #        w_bottom*phi*normal[2]*ds_t)
-        # NOTE this is better for DG uv
+        a = tri*phi*normal[2]*ds_surf - Dx(phi, 2)*tri*dx
+        #L = (-(Dx(uv[0], 0) + Dx(uv[1], 1))*phi*dx -
+             #w_bottom*phi*normal[2]*ds_t)
+        # NOTE this is better for DG uv TODO why ds_v is needed here?
+        # NOTE slim has symm at surf, zero at bottom
         L = ((uv[0]*Dx(phi, 0) + uv[1]*Dx(phi, 1))*dx -
-               (uv[0]*normal[0] + uv[1]*normal[1])*phi*(ds_v + ds_t + ds_b) -
-               w_bottom*phi*normal[2]*ds_t)
+             (uv[0]*normal[0] + uv[1]*normal[1])*phi*(ds_v+ds_surf+ds_bottom) -
+             w_bottom*phi*normal[2]*ds_bottom)
         prob = LinearVariationalProblem(a, L, solution)
         solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)

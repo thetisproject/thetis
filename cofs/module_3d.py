@@ -58,6 +58,8 @@ class momentumEquation(equation):
         self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere')
         self.dS_v = dS_v(domain=self.mesh)
         self.dS_h = dS_h(domain=self.mesh)
+        self.ds_surf = ds_b
+        self.ds_bottom = ds_t
 
         # boundary definitions
         self.boundary_markers = bnd_markers
@@ -103,7 +105,6 @@ class momentumEquation(equation):
         if self.nonlin:
             # in 3d: nabla_grad dot (u u)
             # weak form: nabla_grad(psi) : u u
-            # NOTE not validated (term small in channel flow)
             Adv_h = -(Dx(self.test[0], 0)*solution[0]*solution[0] +
                       Dx(self.test[0], 1)*solution[0]*solution[1] +
                       Dx(self.test[1], 0)*solution[1]*solution[0] +
@@ -130,26 +131,27 @@ class momentumEquation(equation):
                       uv_av[0]*uv_av[1]*jump(self.test[0], self.normal[1]) +
                       uv_av[1]*uv_av[0]*jump(self.test[1], self.normal[0]) +
                       uv_av[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_h)
-            G += (solution[0]*solution[0]*self.test[0]*self.normal[0] +
-                  solution[0]*solution[1]*self.test[0]*self.normal[1] +
-                  solution[1]*solution[0]*self.test[1]*self.normal[0] +
-                  solution[1]*solution[1]*self.test[1]*self.normal[1])*(ds_t + ds_b)
+
             # Vertical advection term
             vertvelo = w
             if w_mesh is not None:
                 vertvelo = w-w_mesh
-            #F += -solution*vertvelo*Dx(self.test, 2)*dx
-            # Vertical advection
             Adv_v = -(Dx(self.test[0], 2)*solution[0]*vertvelo +
                       Dx(self.test[1], 2)*solution[1]*vertvelo)
             F += Adv_v * self.dx
-            G += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
-                  solution[1]*vertvelo*self.test[1]*self.normal[2])*(ds_t + ds_b)
             #if self.horizontal_DG:
                 #w_rie = avg(w)
                 #uv_rie = avg(solution)
                 #G += (uv_rie[0]*w_rie*jump(self.test[0], self.normal[2]) +
                       #uv_rie[1]*w_rie*jump(self.test[1], self.normal[2]))*self.dS_h
+
+            # surf/bottom boundary conditions: closed at bed, symmetric at surf
+            G += (solution[0]*solution[0]*self.test[0]*self.normal[0] +
+                  solution[0]*solution[1]*self.test[0]*self.normal[1] +
+                  solution[1]*solution[0]*self.test[1]*self.normal[0] +
+                  solution[1]*solution[1]*self.test[1]*self.normal[1])*(self.ds_surf)
+            G += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
+                  solution[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
 
             # Non-conservative ALE source term
             if dw_mesh_dz is not None:
