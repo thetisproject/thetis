@@ -18,6 +18,29 @@ commrank = op2.MPI.comm.rank
 colorama.init()
 
 
+class problemCache(object):
+    """Holds all variational problems that utility functions depend on."""
+    def __init__(self, verbose=False):
+        self.verbose = verbose
+        self.solvers = {}
+
+    def __getitem__(self, key):
+        return self.solvers[key]
+
+    def __setitem__(self, key, val):
+        self.solvers[key] = val
+
+    def __contains__(self, key):
+        return key in self.solvers
+
+    def add(self, key, val, msg=''):
+        if self.verbose:
+            print('adding solver {0} {1}'.format(msg, key))
+        self.solvers[key] = val
+
+linProblemCache = problemCache(verbose=False)
+
+
 def colorify_text(color):
     def painter(func):
         def func_wrapper(text):
@@ -136,21 +159,29 @@ def computeVertVelocity(solution, uv, bathymetry, solver_parameters={}):
     # continuity equation must be solved in the space of w (and tracers)
     solver_parameters.setdefault('ksp_atol', 1e-12)
     solver_parameters.setdefault('ksp_rtol', 1e-16)
-    H = solution.function_space()
-    mesh = H.mesh()
-    phi = TestFunction(H)
-    tri = TrialFunction(H)
-    normal = FacetNormal(mesh)
 
-    w_bottom = -(uv[0]*Dx(bathymetry, 0) + uv[1]*Dx(bathymetry, 1))
-    a_w = tri*phi*normal[2]*ds_b - Dx(phi, 2)*tri*dx
-    #L_w = (-(Dx(uv[0], 0) + Dx(uv[1], 1))*phi*dx -
-           #w_bottom*phi*normal[2]*ds_t)
-    # NOTE this is better for DG uv
-    L_w = ((uv[0]*Dx(phi, 0) + uv[1]*Dx(phi, 1))*dx -
-           (uv[0]*normal[0] + uv[1]*normal[1])*phi*(ds_v + ds_t + ds_b) -
-           w_bottom*phi*normal[2]*ds_t)
-    solve(a_w == L_w, solution, solver_parameters=solver_parameters)
+    key = '-'.join((solution.name(), uv.name()))
+    if key not in linProblemCache:
+        H = solution.function_space()
+        mesh = H.mesh()
+        phi = TestFunction(H)
+        tri = TrialFunction(H)
+        normal = FacetNormal(mesh)
+
+        w_bottom = -(uv[0]*Dx(bathymetry, 0) + uv[1]*Dx(bathymetry, 1))
+        a = tri*phi*normal[2]*ds_b - Dx(phi, 2)*tri*dx
+        # L = (-(Dx(uv[0], 0) + Dx(uv[1], 1))*phi*dx -
+        #        w_bottom*phi*normal[2]*ds_t)
+        # NOTE this is better for DG uv
+        L = ((uv[0]*Dx(phi, 0) + uv[1]*Dx(phi, 1))*dx -
+               (uv[0]*normal[0] + uv[1]*normal[1])*phi*(ds_v + ds_t + ds_b) -
+               w_bottom*phi*normal[2]*ds_t)
+        prob = LinearVariationalProblem(a, L, solution)
+        solver = LinearVariationalSolver(
+            prob, solver_parameters=solver_parameters)
+        linProblemCache.add(key, solver, 'continuityEq')
+
+    linProblemCache[key].solve()
 
     return solution
 
@@ -173,7 +204,6 @@ class equation(object):
         raise NotImplementedError(('This method must be implemented '
                                    'in the derived class'))
 
-
 @timed_function('func_vert_int')
 def computeVerticalIntegral(input, output, space, bottomToTop=True,
                             bndValue=Constant(0.0), average=False,
@@ -185,27 +215,33 @@ def computeVerticalIntegral(input, output, space, bottomToTop=True,
     """
     solver_parameters.setdefault('ksp_atol', 1e-12)
     solver_parameters.setdefault('ksp_rtol', 1e-16)
-    tri = TrialFunction(space)
-    phi = TestFunction(space)
 
-    if bottomToTop:
-        bnd_term = inner(bndValue, phi)*ds_t
-        mass_bnd_term = inner(tri, phi)*ds_t
-    else:
-        bnd_term = inner(bndValue, phi)*ds_b
-        mass_bnd_term = inner(tri, phi)*ds_b
+    key = '-'.join((input.name(), output.name(), str(average)))
+    if key not in linProblemCache:
+        tri = TrialFunction(space)
+        phi = TestFunction(space)
+        if bottomToTop:
+            bnd_term = inner(bndValue, phi)*ds_t
+            mass_bnd_term = inner(tri, phi)*ds_t
+        else:
+            bnd_term = inner(bndValue, phi)*ds_b
+            mass_bnd_term = inner(tri, phi)*ds_b
 
-    a_w = inner(Dx(tri, 2), phi)*dx + mass_bnd_term
-    source = input
-    if average:
-        source = input/bathymetry
-    L_w = inner(source, phi)*dx + bnd_term
-    solve(a_w == L_w, output, solver_parameters=solver_parameters)
+        a = inner(Dx(tri, 2), phi)*dx + mass_bnd_term
+        source = input
+        if average:
+            source = input/bathymetry
+        L = inner(source, phi)*dx + bnd_term
+        prob = LinearVariationalProblem(a, L, output)
+        solver = LinearVariationalSolver(
+            prob, solver_parameters=solver_parameters)
+        linProblemCache.add(key, solver, 'vertInt')
 
+    linProblemCache[key].solve()
     return output
 
 
-def computeBaroclinicHead(salt, baroHead3d, baroHead2d, bath3d):
+def computeBaroclinicHead(salt, baroHead3d, baroHead2d, baroHeadInt3d, bath3d):
     """
     Computes baroclinic head from density field
 
@@ -214,30 +250,37 @@ def computeBaroclinicHead(salt, baroHead3d, baroHead2d, bath3d):
     fs = baroHead3d.function_space()
     computeVerticalIntegral(salt, baroHead3d, fs, bottomToTop=False)
     baroHead3d *= -physical_constants['rho0_inv']
-    tmp = Function(fs)
-    computeVerticalIntegral(baroHead3d, tmp, fs, bottomToTop=True, average=True,
-                            bathymetry=bath3d)
-    copy3dFieldTo2d(tmp, baroHead2d, useBottomValue=False)
+    computeVerticalIntegral(
+        baroHead3d, baroHeadInt3d, fs, bottomToTop=True,
+        average=True, bathymetry=bath3d)
+    copy3dFieldTo2d(baroHeadInt3d, baroHead2d, useBottomValue=False)
 
 
-def computeVelMagnitude(solution, u=None, w=None, minVal=1e-6):
+def computeVelMagnitude(solution, u=None, w=None, minVal=1e-6,
+                        solver_parameters={}):
     """
     Computes magnitude of (u[0],u[1],w) and stores it in solution
     """
 
-    function_space = solution.function_space()
-    phi = TestFunction(function_space)
-    magnitude = TrialFunction(function_space)
+    key = '-'.join((solution.name(), str(u), str(w)))
+    if key not in linProblemCache:
+        function_space = solution.function_space()
+        phi = TestFunction(function_space)
+        magnitude = TrialFunction(function_space)
 
-    a = phi*magnitude*dx
-    s = 0
-    if u is not None:
-        s += u[0]**2 + u[1]**2
-    if w is not None:
-        s += w**2
-    L = phi*sqrt(s)*dx
+        a = phi*magnitude*dx
+        s = 0
+        if u is not None:
+            s += u[0]**2 + u[1]**2
+        if w is not None:
+            s += w**2
+        L = phi*sqrt(s)*dx
+        prob = LinearVariationalProblem(a, L, solution)
+        solver = LinearVariationalSolver(
+            prob, solver_parameters=solver_parameters)
+        linProblemCache.add(key, solver, 'velMag')
 
-    solve(a == L, solution)
+    linProblemCache[key].solve()
     solution.dat.data[:] = np.maximum(solution.dat.data[:], minVal)
 
 
@@ -254,52 +297,70 @@ def updateSUPGGamma(uv, w, u_mag, u_mag_h, u_mag_v, hElemSize, vElemSize,
     gamma_v.dat.data[:] = np.maximum(gamma_v.dat.data[:], minVal)
 
 
-def computeHorizGJVParameter(gjv_alpha, tracer, param, h, umag, maxval=800.0):
-    """Computes gradient jump viscosity parameter."""
-    P0 = param.function_space()
-    normal = FacetNormal(P0.mesh())
-    test = TestFunction(P0)
-    tri = TrialFunction(P0)
-    a = jump(test, tri)*dS_v
-    avgDx = avg(grad(tracer))
-    inDx = grad(tracer('-'))
-    jumpDx = jump(grad(tracer))
-    jumpGrad = sqrt(jumpDx[0]**2+jumpDx[1]**2)
-    avgGrad = sqrt(avgDx[0]**2+avgDx[1]**2)
-    inGrad = sqrt(inDx[0]**2+inDx[1]**2)
-    avgNorGrad = avgDx[0]*normal('-')[0] + avgDx[1]*normal('-')[1]
-    inNorGrad = inDx[0]*normal('-')[0] + inDx[1]*normal('-')[1]
-    avgNorGrad = avgNorGrad*sign(avgNorGrad)
-    inNorGrad = inNorGrad*sign(inNorGrad)
-    # NOTE factor 2 comes from the formulation
-    maxgrad = Constant(0.5)/avg(h)
-    L = gjv_alpha*Constant(2*0.5)*avg(umag*h)*(jumpGrad/maxgrad)*avg(test)*dS_v
-    solve(a == L, param)
+def computeHorizGJVParameter(gjv_alpha, tracer, param, h, umag, maxval=800.0,
+                             solver_parameters={}):
+    """Computes gradient jump viscosity parameter for horizontal advection."""
+
+    key = '-'.join((param.name(), tracer.name()))
+    if key not in linProblemCache:
+        P0 = param.function_space()
+        normal = FacetNormal(P0.mesh())
+        test = TestFunction(P0)
+        tri = TrialFunction(P0)
+        a = jump(test, tri)*dS_v
+        avgDx = avg(grad(tracer))
+        inDx = grad(tracer('-'))
+        jumpDx = jump(grad(tracer))
+        jumpGrad = sqrt(jumpDx[0]**2+jumpDx[1]**2)
+        avgGrad = sqrt(avgDx[0]**2+avgDx[1]**2)
+        inGrad = sqrt(inDx[0]**2+inDx[1]**2)
+        avgNorGrad = avgDx[0]*normal('-')[0] + avgDx[1]*normal('-')[1]
+        inNorGrad = inDx[0]*normal('-')[0] + inDx[1]*normal('-')[1]
+        avgNorGrad = avgNorGrad*sign(avgNorGrad)
+        inNorGrad = inNorGrad*sign(inNorGrad)
+        # NOTE factor 2 comes from the formulation
+        maxgrad = Constant(0.5)/avg(h)
+        L = gjv_alpha*Constant(2*0.5)*avg(umag*h)*(jumpGrad/maxgrad)*avg(test)*dS_v
+        prob = LinearVariationalProblem(a, L, param)
+        solver = LinearVariationalSolver(
+            prob, solver_parameters=solver_parameters)
+        linProblemCache.add(key, solver, 'GJVh')
+
+    linProblemCache[key].solve()
     param.dat.data[param.dat.data[:] > maxval] = maxval
     return param
 
 
-def computeVertGJVParameter(gjv_alpha, tracer, param, h, umag, maxval=800.0):
-    """Computes gradient jump viscosity parameter."""
-    P0 = param.function_space()
-    normal = FacetNormal(P0.mesh())
-    test = TestFunction(P0)
-    tri = TrialFunction(P0)
-    a = jump(test, tri)*dS_h
-    avgDx = avg(grad(tracer))
-    inDx = grad(tracer('-'))
-    jumpDx = jump(grad(tracer))
-    jumpGrad = sqrt(jumpDx[2]**2)
-    avgGrad = sqrt(avgDx[2]**2)
-    inGrad = sqrt(inDx[2]**2)
-    avgNorGrad = avgDx[2]*normal('-')[2]
-    inNorGrad = inDx[2]*normal('-')[2]
-    avgNorGrad = avgNorGrad*sign(avgNorGrad)
-    inNorGrad = inNorGrad*sign(inNorGrad)
-    # NOTE factor 2 comes from the formulation
-    maxgrad = Constant(0.5)/avg(h)
-    L = gjv_alpha*Constant(2*2*0.5)*avg(umag*h)*(jumpGrad/maxgrad)*avg(test)*dS_h
-    solve(a == L, param)
+def computeVertGJVParameter(gjv_alpha, tracer, param, h, umag, maxval=800.0,
+                            solver_parameters={}):
+    """Computes gradient jump viscosity parameter for vertical advection."""
+
+    key = '-'.join((param.name(), tracer.name()))
+    if key not in linProblemCache:
+        P0 = param.function_space()
+        normal = FacetNormal(P0.mesh())
+        test = TestFunction(P0)
+        tri = TrialFunction(P0)
+        a = jump(test, tri)*dS_h
+        avgDx = avg(grad(tracer))
+        inDx = grad(tracer('-'))
+        jumpDx = jump(grad(tracer))
+        jumpGrad = sqrt(jumpDx[2]**2)
+        avgGrad = sqrt(avgDx[2]**2)
+        inGrad = sqrt(inDx[2]**2)
+        avgNorGrad = avgDx[2]*normal('-')[2]
+        inNorGrad = inDx[2]*normal('-')[2]
+        avgNorGrad = avgNorGrad*sign(avgNorGrad)
+        inNorGrad = inNorGrad*sign(inNorGrad)
+        # NOTE factor 2 comes from the formulation
+        maxgrad = Constant(0.5)/avg(h)
+        L = gjv_alpha*Constant(2*2*0.5)*avg(umag*h)*(jumpGrad/maxgrad)*avg(test)*dS_h
+        prob = LinearVariationalProblem(a, L, param)
+        solver = LinearVariationalSolver(
+            prob, solver_parameters=solver_parameters)
+        linProblemCache.add(key, solver, 'GJVv')
+
+    linProblemCache[key].solve()
     param.dat.data[param.dat.data[:] > maxval] = maxval
     return param
 
@@ -524,15 +585,22 @@ def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref,
     solver_parameters.setdefault('ksp_atol', 1e-12)
     solver_parameters.setdefault('ksp_rtol', 1e-16)
     coords = mesh.coordinates
-    fs = z_coord.function_space()
-    # sigma stretch function
-    new_z = eta*(z_coord_ref + bathymetry)/bathymetry + z_coord_ref
-    # update z_coord
-    tri = TrialFunction(fs)
-    test = TestFunction(fs)
-    a = tri*test*dx
-    L = new_z*test*dx
-    solve(a == L, z_coord, solver_parameters=solver_parameters)
+
+    key = '-'.join((z_coord.name(), eta.name()))
+    if key not in linProblemCache:
+        fs = z_coord.function_space()
+        # sigma stretch function
+        new_z = eta*(z_coord_ref + bathymetry)/bathymetry + z_coord_ref
+        # update z_coord
+        tri = TrialFunction(fs)
+        test = TestFunction(fs)
+        a = tri*test*dx
+        L = new_z*test*dx
+        prob = LinearVariationalProblem(a, L, z_coord)
+        solver = LinearVariationalSolver(
+            prob, solver_parameters=solver_parameters)
+        linProblemCache.add(key, solver, 'updateCoords')
+    linProblemCache[key].solve()
     # assign to mesh
     coords.dat.data[:, 2] = z_coord.dat.data[:]
 
@@ -542,25 +610,56 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, dw_mesh_dz_3d,
                         solver_parameters={}):
     solver_parameters.setdefault('ksp_atol', 1e-12)
     solver_parameters.setdefault('ksp_rtol', 1e-16)
-    fs = w.function_space()
-    z = fs.mesh().coordinates[2]
-    tri = TrialFunction(fs)
-    test = TestFunction(fs)
     # compute w_mesh at the free surface (constant over vertical!)
     # w_mesh_surf = w - eta_grad[0]*uv[0] + eta_grad[1]*uv[1]
-    a = tri*test*dx
-    eta_grad = nabla_grad(eta)
-    L = (w - eta_grad[0]*uv[0] - eta_grad[1]*uv[1])*test*dx
-    solve(a == L, w_mesh_surf, solver_parameters=solver_parameters)
+    key = '-'.join((w_mesh_surf.name(), eta.name()))
+    if key not in linProblemCache:
+        fs = w.function_space()
+        z = fs.mesh().coordinates[2]
+        tri = TrialFunction(fs)
+        test = TestFunction(fs)
+        a = tri*test*dx
+        eta_grad = nabla_grad(eta)
+        L = (w - eta_grad[0]*uv[0] - eta_grad[1]*uv[1])*test*dx
+        prob = LinearVariationalProblem(a, L, w_mesh_surf)
+        solver = LinearVariationalSolver(
+            prob, solver_parameters=solver_parameters)
+        linProblemCache.add(key, solver, 'wMeshSurf')
+    linProblemCache[key].solve()
     copyLayerValueOverVertical(w_mesh_surf, w_mesh_surf, useBottomValue=False)
+
     # compute w in the whole water column (0 at bed)
     # w_mesh = w_mesh_surf * (z+h)/(eta+h)
-    H = eta + bathymetry
-    L = (w_mesh_surf*(z+bathymetry)/H)*test*dx
-    solve(a == L, w_mesh, solver_parameters=solver_parameters)
+    key = '-'.join((w_mesh.name(), w_mesh_surf.name()))
+    if key not in linProblemCache:
+        fs = w.function_space()
+        z = fs.mesh().coordinates[2]
+        tri = TrialFunction(fs)
+        test = TestFunction(fs)
+        a = tri*test*dx
+        H = eta + bathymetry
+        L = (w_mesh_surf*(z+bathymetry)/H)*test*dx
+        prob = LinearVariationalProblem(a, L, w_mesh)
+        solver = LinearVariationalSolver(
+            prob, solver_parameters=solver_parameters)
+        linProblemCache.add(key, solver, 'wMesh')
+    linProblemCache[key].solve()
+
     # compute dw_mesh/dz in the whole water column
-    L = (w_mesh_surf/H)*test*dx
-    solve(a == L, dw_mesh_dz_3d, solver_parameters=solver_parameters)
+    key = '-'.join((dw_mesh_dz_3d.name(), w_mesh_surf.name()))
+    if key not in linProblemCache:
+        fs = w.function_space()
+        z = fs.mesh().coordinates[2]
+        tri = TrialFunction(fs)
+        test = TestFunction(fs)
+        a = tri*test*dx
+        H = eta + bathymetry
+        L = (w_mesh_surf/H)*test*dx
+        prob = LinearVariationalProblem(a, L, dw_mesh_dz_3d)
+        solver = LinearVariationalSolver(
+            prob, solver_parameters=solver_parameters)
+        linProblemCache.add(key, solver, 'dwMeshdz')
+    linProblemCache[key].solve()
 
 
 def computeParabolicViscosity(uv_bottom, bottom_drag, bathymetry, nu,

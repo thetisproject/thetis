@@ -338,7 +338,7 @@ class flowSolver(object):
                                 self.bathymetry3d, self.z_coord_ref3d)
         if self.baroclinic:
             computeBaroclinicHead(self.salt3d, self.baroHead3d,
-                                  self.baroHead2d,
+                                  self.baroHead2d, self.baroHeadInt3d,
                                   self.bathymetry3d)
         if self.useSUPG:
             updateSUPGGamma(self.uv3d, self.w3d, self.u_mag_func,

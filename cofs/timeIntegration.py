@@ -432,7 +432,7 @@ class coupledSSPRK(timeIntegrator):
         with timed_region('aux_barolinicity'):
             if s.baroclinic:
                 computeBaroclinicHead(s.salt3d, s.baroHead3d,
-                                      s.baroHead2d,
+                                      s.baroHead2d, s.baroHeadInt3d,
                                       s.bathymetry3d)
 
         with timed_region('momentumEq'):
