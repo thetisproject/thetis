@@ -13,10 +13,8 @@ op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 # set physical constants
 physical_constants['z0_friction'].assign(0.0)
 
-use_wd = False
-nonlin = False
 n_layers = 6
-outputDir = createDirectory('outputs_waveEq')
+outputDir = createDirectory('outputs')
 mesh2d = Mesh('channel_waveEq.msh')
 Umag = Constant(0.5)
 depth = 50.0
@@ -48,8 +46,8 @@ T = 10*T_cycle + 1e-3
 
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry2d, n_layers)
-solverObj.nonlin = nonlin
-solverObj.use_wd = use_wd
+solverObj.nonlin = False
+solverObj.use_wd = False
 solverObj.solveSalt = False
 solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False
@@ -60,10 +58,11 @@ solverObj.T = T
 solverObj.uAdvection = Umag
 solverObj.checkVolConservation2d = True
 solverObj.checkVolConservation3d = True
-solverObj.timerLabels = ['mode2d', 'momentumEq', 'continuityEq', 'aux_functions']
+solverObj.timerLabels = ['mode2d', 'momentumEq', 'continuityEq',
+                         'aux_functions']
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
-                         'w3d', 'w3d_mesh', 'salt3d',
-                         'uv2d_dav', 'uv2d_bot', 'nuv3d']
+                            'w3d', 'w3d_mesh', 'salt3d',
+                            'uv2d_dav', 'uv2d_bot', 'nuv3d']
 
 
 solverObj.mightyCreator()

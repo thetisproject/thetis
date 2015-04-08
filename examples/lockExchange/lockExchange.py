@@ -10,11 +10,12 @@ from cofs import *
 # set physical constants
 physical_constants['z0_friction'].assign(5.0e-5)
 
-reso_str = 'coarse'
+reso_str = 'coarse2'
 outputDir = createDirectory('outputs_'+reso_str)
 refinement = {'coarse': 1, 'coarse2': 2, 'medium': 4, 'fine': 16}
 layers = 10*refinement[reso_str]
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
+print 'Loaded mesh', mesh2d.name
 dt = 45.0/refinement[reso_str]
 T = 70 * 3600
 TExport = 15*60.0
