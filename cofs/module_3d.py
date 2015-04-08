@@ -253,11 +253,12 @@ class momentumEquation(equation):
                     G += gamma*dot(self.test, (uv_in - uv_ext)/2)*ds_bnd
 
         # horizontal viscosity
-        F_visc = viscosity_h * (Dx(solution[0], 0) * Dx(self.test[0], 0) +
-                                Dx(solution[1], 0) * Dx(self.test[1], 0) +
-                                Dx(solution[0], 1) * Dx(self.test[0], 1) +
-                                Dx(solution[1], 1) * Dx(self.test[1], 1))
-        F += F_visc * self.dx
+        if viscosity_h is not None:
+            F_visc = viscosity_h * (Dx(solution[0], 0) * Dx(self.test[0], 0) +
+                                    Dx(solution[1], 0) * Dx(self.test[1], 0) +
+                                    Dx(solution[0], 1) * Dx(self.test[0], 1) +
+                                    Dx(solution[1], 1) * Dx(self.test[1], 1))
+            F += F_visc * self.dx
 
         # vertical viscosity
         if viscosity_v is not None:
