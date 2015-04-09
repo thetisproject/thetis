@@ -310,7 +310,7 @@ class flowSolver(object):
 
         # ----- Time integrators
         self.setTimeStep()
-        self.timeStepper = timeIntegration.coupledSSPRK(self)
+        self.timeStepper = timeIntegration.coupledSSPRKSync(self)
 
         # ----- File exporters
         uv2d, eta2d = self.solution2d.split()
@@ -480,7 +480,7 @@ class flowSolver(object):
                         totcost += value
                     for label in self.timerLabels:
                         c = cost[label]
-                        relcost = c/totcost
+                        relcost = c/max(totcost, 1e-6)
                         print '{0:25s} : {1:11.6f} {2:11.2f}'.format(
                             label, c, relcost)
                         sys.stdout.flush()
