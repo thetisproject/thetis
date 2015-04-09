@@ -98,7 +98,7 @@ class momentumEquation(equation):
             w_mesh=None, dw_mesh_dz=None, uvLaxFriedrichs=None, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
-        F = 0  # holds all dx volume integral terms
+        F = 0*self.dx  # holds all dx volume integral terms
         G = 0  # holds all ds boundary interface terms
 
         # Advection term
@@ -133,12 +133,13 @@ class momentumEquation(equation):
                       uv_av[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_h)
 
             # Vertical advection term
-            vertvelo = w
-            if w_mesh is not None:
-                vertvelo = w-w_mesh
-            Adv_v = -(Dx(self.test[0], 2)*solution[0]*vertvelo +
-                      Dx(self.test[1], 2)*solution[1]*vertvelo)
-            F += Adv_v * self.dx
+            if w is not None:
+                vertvelo = w
+                if w_mesh is not None:
+                    vertvelo = w-w_mesh
+                Adv_v = -(Dx(self.test[0], 2)*solution[0]*vertvelo +
+                        Dx(self.test[1], 2)*solution[1]*vertvelo)
+                F += Adv_v * self.dx
             #if self.horizontal_DG:
                 #w_rie = avg(w)
                 #uv_rie = avg(solution)
@@ -150,8 +151,9 @@ class momentumEquation(equation):
                   solution[0]*solution[1]*self.test[0]*self.normal[1] +
                   solution[1]*solution[0]*self.test[1]*self.normal[0] +
                   solution[1]*solution[1]*self.test[1]*self.normal[1])*(self.ds_surf)
-            G += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
-                  solution[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
+            if w is not None:
+                G += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
+                      solution[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
 
             # Non-conservative ALE source term
             if dw_mesh_dz is not None:
@@ -322,7 +324,7 @@ class momentumEquation(equation):
                                stress[1]*self.test[1])*ds_t
                 F += BotFriction
 
-        return -F
+        return -F -G
 
 
 class verticalMomentumEquation(equation):
