@@ -370,39 +370,6 @@ def computeVertGJVParameter(gjv_alpha, tracer, param, h, umag, maxval=800.0,
     return param
 
 
-def copyLayerValueOverVertical(input, output, useBottomValue=True):
-    """
-    Assings the top/bottom value of the input field to the entire vertical
-    dimension of the output field.
-    """
-    raise NotImplementedError('This method is suspect. Use pyop2 methods instead')
-
-    H = input.function_space()
-    NVert = H.dofs_per_column[0]
-    if NVert == 0:
-        raise NotImplementedError('this method doesn\'t support the given function space')
-    NNodes = input.dat.data.shape[0]/NVert
-    #iNode = 0
-    #for i in range(4*NVert):
-        #print i, iNode*NVert+i, X.dat.data[iNode*NVert+i], Y.dat.data[iNode*NVert+i], R.dat.data[iNode*NVert+i]
-    #iNode = 55
-    #for i in range(NVert):
-        #print i, iNode*NVert+i, X.dat.data[iNode*NVert+i], Y.dat.data[iNode*NVert+i], R.dat.data[iNode*NVert+i]
-    if useBottomValue:
-        iSource = NVert-1
-    else:
-        iSource = 0
-    # TODO can the loop be circumvented?
-    if len(input.dat.data.shape) > 1:
-        for iNode in range(NNodes):
-            for p in range(input.dat.data.shape[1]):
-                output.dat.data[iNode*NVert:iNode*NVert+NVert, p] = input.dat.data[iNode*NVert+iSource, p]
-    else:
-        for iNode in range(NNodes):
-            output.dat.data[iNode*NVert:iNode*NVert+NVert] = input.dat.data[iNode*NVert+iSource]
-    return output
-
-
 def copy_2d_field_to_3d(input, output):
     """Extract a subfunction from an extracted mesh."""
     # FIXME doesn't work for all spaces (DG over vertical)
@@ -515,62 +482,6 @@ def copy3dFieldTo2d(input3d, output2d, useBottomValue=True,
     extract_level_from_3d(input3d, sub_domain, output2d,
                           bottomNodes=elemBottomValue)
 
-    #H = input3d.function_space()
-    #parentIsCG = H.dofs_per_column[0] != 0
-    #if parentIsCG:
-        ## extruded nodes are laid out for each vertical line
-        #NVert = H.dofs_per_column[0]
-        #NNodes = output2d.dat.data.shape[0]
-        #if useBottomValue:
-            #iSource = NVert-1
-        #else:
-            #iSource = 0
-        #if level is not None:
-            ## map positive values to nodes from surface
-            ## negative values as nodes from bottom
-            #if level == 0:
-                #raise Exception('level must be between 1 and NVert')
-            #if level > 0:
-                #iSource = level-1
-            #else:
-                #iSource = NVert + level
-        ## TODO can the loop be circumvented?
-        #if len(input3d.dat.data.shape) > 1:
-            #for iNode in range(NNodes):
-                #output2d.dat.data[iNode, 0] = input3d.dat.data[iNode*NVert+iSource, 0]
-                #output2d.dat.data[iNode, 1] = input3d.dat.data[iNode*NVert+iSource, 1]
-        #else:
-            #for iNode in range(NNodes):
-                #output2d.dat.data[iNode] = input3d.dat.data[iNode*NVert+iSource]
-    #else:
-        ## extruded nodes are laid out by elements
-        #NVert = H.dofs_per_column[2]
-        #if NVert == 0:
-            #raise Exception('Unsupported function space, NVert is zero')
-        #NElem = input3d.dat.data.shape[0]/NVert
-        ## for P1DGxL1CG
-        #if useBottomValue:
-            #iSource = NVert - 3
-        #else:
-            #iSource = 0
-        #if level is not None:
-            ## map positive values to nodes from surface
-            ## negative values as nodes from bottom
-            #if level == 0:
-                #raise Exception('level must be between 1 and NVert')
-            #if level > 0:
-                #iSource = 3*(level-1)
-            #else:
-                #iSource = NVert + 3*level
-        #faceNodes = np.array([0, 1, 2]) + iSource
-        #ix = (np.tile((NVert*np.arange(NElem)), (3, 1)).T + faceNodes).ravel()
-        #if len(input3d.dat.data.shape) > 1:
-            #output2d.dat.data[:, 0] = input3d.dat.data[ix, 0]
-            #output2d.dat.data[:, 1] = input3d.dat.data[ix, 1]
-        #else:
-            #output2d.dat.data[:] = input3d.dat.data[ix]
-    #return output2d
-
 
 @timed_function('func_copy2dTo3d')
 def copy2dFieldTo3d(input2d, output3d):
@@ -579,38 +490,6 @@ def copy2dFieldTo3d(input2d, output3d):
     vertical dimension. Horizontal function space must be the same.
     """
     copy_2d_field_to_3d(input2d, output3d)
-
-    #H = output3d.function_space()
-    #parentIsCG = H.dofs_per_column[0] != 0
-    #if parentIsCG:
-        ## extruded nodes are laid out for each vertical line
-        #NVert = output3d.dat.data.shape[0]/input2d.dat.data.shape[0]
-        #NNodes = output3d.dat.data.shape[0]/NVert
-        ## TODO can the loop be circumvented?
-        #if len(input2d.dat.data.shape) > 1:
-            #for iNode in range(NNodes):
-                #output3d.dat.data[iNode*NVert:iNode*NVert+NVert, 0] = input2d.dat.data[iNode, 0]
-                #output3d.dat.data[iNode*NVert:iNode*NVert+NVert, 1] = input2d.dat.data[iNode, 1]
-        #else:
-            #for iNode in range(NNodes):
-                #output3d.dat.data[iNode*NVert:iNode*NVert+NVert] = input2d.dat.data[iNode]
-    #else:
-        ## extruded nodes are laid out by elements
-        #NVert = H.dofs_per_column[2]
-        #if NVert == 0:
-            #raise Exception('Unsupported function space, NVert is zero')
-        #NElem = output3d.dat.data.shape[0]/NVert
-        ## for P1DGxL1CG
-        #faceNodes = np.array([0, 1, 2])
-        #ix = (np.tile((NVert*np.arange(NElem)), (3, 1)).T + faceNodes).ravel()
-        #if len(output3d.dat.data.shape) > 1:
-            #for i in range(NVert-len(faceNodes)+1):
-                #output3d.dat.data[ix+i, 0] = input2d.dat.data[:, 0]
-                #output3d.dat.data[ix+i, 1] = input2d.dat.data[:, 1]
-        #else:
-            #for i in range(NVert-len(faceNodes)+1):
-                #output3d.dat.data[ix+i] = input2d.dat.data[:]
-    #return output3d
 
 
 def correct3dVelocity(UV2d, uv3d, uv3d_dav, bathymetry):
@@ -745,7 +624,6 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf2d,
     linProblemCache[key].solve()
     copy3dFieldTo2d(w_mesh_surf, w_mesh_surf2d, useBottomValue=False)
     copy2dFieldTo3d(w_mesh_surf2d, w_mesh_surf)
-    #copyLayerValueOverVertical(w_mesh_surf, w_mesh_surf, useBottomValue=False)
 
     # compute w in the whole water column (0 at bed)
     # w_mesh = w_mesh_surf * (z+h)/(eta+h)
