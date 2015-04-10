@@ -11,6 +11,8 @@ from physical_constants import physical_constants
 import colorama
 from pyop2.profiling import timed_region, timed_function, timing
 from mpi4py import MPI
+import ufl
+import coffee.base as ast
 
 comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
@@ -373,6 +375,8 @@ def copyLayerValueOverVertical(input, output, useBottomValue=True):
     Assings the top/bottom value of the input field to the entire vertical
     dimension of the output field.
     """
+    raise NotImplementedError('This method is suspect. Use pyop2 methods instead')
+
     H = input.function_space()
     NVert = H.dofs_per_column[0]
     if NVert == 0:
@@ -399,66 +403,173 @@ def copyLayerValueOverVertical(input, output, useBottomValue=True):
     return output
 
 
+def copy_2d_field_to_3d(input, output):
+    """Extract a subfunction from an extracted mesh."""
+    # FIXME doesn't work for all spaces (DG over vertical)
+    fs_2d = input.function_space()
+    fs_3d = output.function_space()
+
+    nodes = fs_3d.bt_masks[0]
+    iterate = op2.ALL
+
+    in_nodes = fs_2d.fiat_element.space_dimension()
+    out_nodes = fs_3d.fiat_element.space_dimension()
+    dim = min(fs_2d.dim, fs_3d.dim)
+
+    assert (len(nodes) == in_nodes)
+
+    nodestr = '{%s}' % ', '.join(map(str, nodes))
+    body = [ast.Decl('int', ast.Symbol('idx', (in_nodes,)),
+                     nodestr, ('const',))]
+
+    kernel = op2.Kernel("""
+        void my_kernel(double **func, double **func2d) {
+            for ( int d = 0; d < %(nodes)d; d++ ) {
+                for ( int c = 0; c < %(func_dim)d; c++ ) {
+                    func[2*d][c] = func2d[d][c];
+                    func[2*d+1][c] = func2d[d][c];
+                }
+            }
+        }""" % {'nodes': input.cell_node_map().arity,
+                'func_dim': input.function_space().cdim},
+                'my_kernel')
+    op2.par_loop(
+        kernel, fs_3d.mesh().cell_set,
+        output.dat(op2.WRITE, fs_3d.cell_node_map()),
+        input.dat(op2.READ, fs_2d.cell_node_map()),
+        iterate=iterate)
+
+    return output
+
+
+def extract_level_from_3d(input, sub_domain, output=None, bottomNodes=None):
+    """Extract a subfunction from an extracted mesh."""
+    # NOTE top/bottom are defined differently than in firedrake
+    # FIXME doesn't work for all spaces (DG over vertical)
+    # FIXME move the loop over dim to COFFEE kernel (how?)
+    fs = input.function_space()
+
+    if sub_domain not in ('bottom', 'top'):
+        raise ValueError('subdomain must be "bottom" or "top"')
+
+    out_fs = output.function_space()
+
+    if bottomNodes is None:
+        bottomNodes = sub_domain == 'bottom'
+    if bottomNodes:
+        nodes = fs.bt_masks[1]
+    else:
+        nodes = fs.bt_masks[0]
+    if sub_domain == 'top':
+        # 'top' means free surface, where extrusion started
+        iterate = op2.ON_BOTTOM
+    elif sub_domain == 'bottom':
+        # 'bottom' means the bed, where extrusion ended
+        iterate = op2.ON_TOP
+
+    in_nodes = fs.fiat_element.space_dimension()
+    out_nodes = out_fs.fiat_element.space_dimension()
+    dim = min(out_fs.dim, fs.dim)
+
+    assert (len(nodes) == out_nodes)
+
+    nodestr = '{%s}' % ', '.join(map(str, nodes))
+    body = [ast.Decl('int', ast.Symbol('idx', (out_nodes,)),
+                     nodestr, ('const',))]
+
+    for k in range(dim):
+        i = ast.Symbol('i')
+        body.append(ast.For(ast.Decl('int', i, 0),
+                            ast.Less(i, ast.Symbol(out_nodes)),
+                            ast.Incr(i, ast.Symbol(1)),
+                            ast.Assign(ast.Symbol('out', (i, k)),
+                                       ast.Symbol('in',
+                                                  (ast.Symbol('idx', (i,)), k)))
+                            )
+                    )
+
+        args = (ast.Decl('double *', ast.Symbol('in', (in_nodes,))),
+                ast.Decl('double *', ast.Symbol('out', (out_nodes,))))
+
+        kernel = op2.Kernel(ast.FunDecl('void', 'expression', args,
+                                        ast.Block(body)),
+                            'expression')
+
+        op2.par_loop(
+            kernel, fs.mesh().cell_set,
+            input.dat(op2.READ, fs.cell_node_map()),
+            output.dat(op2.WRITE, out_fs.cell_node_map()), iterate=iterate)
+
+
 @timed_function('func_copy3dTo2d')
-def copy3dFieldTo2d(input3d, output2d, useBottomValue=True, level=None):
+def copy3dFieldTo2d(input3d, output2d, useBottomValue=True,
+                    elemBottomValue=None, level=None):
     """
     Assings the top/bottom value of the input field to 2d output field.
     """
-    H = input3d.function_space()
-    parentIsCG = H.dofs_per_column[0] != 0
-    if parentIsCG:
-        # extruded nodes are laid out for each vertical line
-        NVert = H.dofs_per_column[0]
-        NNodes = output2d.dat.data.shape[0]
-        if useBottomValue:
-            iSource = NVert-1
-        else:
-            iSource = 0
-        if level is not None:
-            # map positive values to nodes from surface
-            # negative values as nodes from bottom
-            if level == 0:
-                raise Exception('level must be between 1 and NVert')
-            if level > 0:
-                iSource = level-1
-            else:
-                iSource = NVert + level
-        # TODO can the loop be circumvented?
-        if len(input3d.dat.data.shape) > 1:
-            for iNode in range(NNodes):
-                output2d.dat.data[iNode, 0] = input3d.dat.data[iNode*NVert+iSource, 0]
-                output2d.dat.data[iNode, 1] = input3d.dat.data[iNode*NVert+iSource, 1]
-        else:
-            for iNode in range(NNodes):
-                output2d.dat.data[iNode] = input3d.dat.data[iNode*NVert+iSource]
-    else:
-        # extruded nodes are laid out by elements
-        NVert = H.dofs_per_column[2]
-        if NVert == 0:
-            raise Exception('Unsupported function space, NVert is zero')
-        NElem = input3d.dat.data.shape[0]/NVert
-        # for P1DGxL1CG
-        if useBottomValue:
-            iSource = NVert - 3
-        else:
-            iSource = 0
-        if level is not None:
-            # map positive values to nodes from surface
-            # negative values as nodes from bottom
-            if level == 0:
-                raise Exception('level must be between 1 and NVert')
-            if level > 0:
-                iSource = 3*(level-1)
-            else:
-                iSource = NVert + 3*level
-        faceNodes = np.array([0, 1, 2]) + iSource
-        ix = (np.tile((NVert*np.arange(NElem)), (3, 1)).T + faceNodes).ravel()
-        if len(input3d.dat.data.shape) > 1:
-            output2d.dat.data[:, 0] = input3d.dat.data[ix, 0]
-            output2d.dat.data[:, 1] = input3d.dat.data[ix, 1]
-        else:
-            output2d.dat.data[:] = input3d.dat.data[ix]
-    return output2d
+    if level is not None:
+        raise NotImplementedError('generic level extraction has not been implemented')
+    if elemBottomValue is None:
+        elemBottomValue = useBottomValue
+    sub_domain = 'bottom' if useBottomValue else 'top'
+    extract_level_from_3d(input3d, sub_domain, output2d,
+                          bottomNodes=elemBottomValue)
+
+    #H = input3d.function_space()
+    #parentIsCG = H.dofs_per_column[0] != 0
+    #if parentIsCG:
+        ## extruded nodes are laid out for each vertical line
+        #NVert = H.dofs_per_column[0]
+        #NNodes = output2d.dat.data.shape[0]
+        #if useBottomValue:
+            #iSource = NVert-1
+        #else:
+            #iSource = 0
+        #if level is not None:
+            ## map positive values to nodes from surface
+            ## negative values as nodes from bottom
+            #if level == 0:
+                #raise Exception('level must be between 1 and NVert')
+            #if level > 0:
+                #iSource = level-1
+            #else:
+                #iSource = NVert + level
+        ## TODO can the loop be circumvented?
+        #if len(input3d.dat.data.shape) > 1:
+            #for iNode in range(NNodes):
+                #output2d.dat.data[iNode, 0] = input3d.dat.data[iNode*NVert+iSource, 0]
+                #output2d.dat.data[iNode, 1] = input3d.dat.data[iNode*NVert+iSource, 1]
+        #else:
+            #for iNode in range(NNodes):
+                #output2d.dat.data[iNode] = input3d.dat.data[iNode*NVert+iSource]
+    #else:
+        ## extruded nodes are laid out by elements
+        #NVert = H.dofs_per_column[2]
+        #if NVert == 0:
+            #raise Exception('Unsupported function space, NVert is zero')
+        #NElem = input3d.dat.data.shape[0]/NVert
+        ## for P1DGxL1CG
+        #if useBottomValue:
+            #iSource = NVert - 3
+        #else:
+            #iSource = 0
+        #if level is not None:
+            ## map positive values to nodes from surface
+            ## negative values as nodes from bottom
+            #if level == 0:
+                #raise Exception('level must be between 1 and NVert')
+            #if level > 0:
+                #iSource = 3*(level-1)
+            #else:
+                #iSource = NVert + 3*level
+        #faceNodes = np.array([0, 1, 2]) + iSource
+        #ix = (np.tile((NVert*np.arange(NElem)), (3, 1)).T + faceNodes).ravel()
+        #if len(input3d.dat.data.shape) > 1:
+            #output2d.dat.data[:, 0] = input3d.dat.data[ix, 0]
+            #output2d.dat.data[:, 1] = input3d.dat.data[ix, 1]
+        #else:
+            #output2d.dat.data[:] = input3d.dat.data[ix]
+    #return output2d
 
 
 @timed_function('func_copy2dTo3d')
@@ -467,37 +578,39 @@ def copy2dFieldTo3d(input2d, output3d):
     Copies a field from 2d mesh to 3d mesh, assigning the same value over the
     vertical dimension. Horizontal function space must be the same.
     """
-    H = output3d.function_space()
-    parentIsCG = H.dofs_per_column[0] != 0
-    if parentIsCG:
-        # extruded nodes are laid out for each vertical line
-        NVert = output3d.dat.data.shape[0]/input2d.dat.data.shape[0]
-        NNodes = output3d.dat.data.shape[0]/NVert
-        # TODO can the loop be circumvented?
-        if len(input2d.dat.data.shape) > 1:
-            for iNode in range(NNodes):
-                output3d.dat.data[iNode*NVert:iNode*NVert+NVert, 0] = input2d.dat.data[iNode, 0]
-                output3d.dat.data[iNode*NVert:iNode*NVert+NVert, 1] = input2d.dat.data[iNode, 1]
-        else:
-            for iNode in range(NNodes):
-                output3d.dat.data[iNode*NVert:iNode*NVert+NVert] = input2d.dat.data[iNode]
-    else:
-        # extruded nodes are laid out by elements
-        NVert = H.dofs_per_column[2]
-        if NVert == 0:
-            raise Exception('Unsupported function space, NVert is zero')
-        NElem = output3d.dat.data.shape[0]/NVert
-        # for P1DGxL1CG
-        faceNodes = np.array([0, 1, 2])
-        ix = (np.tile((NVert*np.arange(NElem)), (3, 1)).T + faceNodes).ravel()
-        if len(output3d.dat.data.shape) > 1:
-            for i in range(NVert-len(faceNodes)+1):
-                output3d.dat.data[ix+i, 0] = input2d.dat.data[:, 0]
-                output3d.dat.data[ix+i, 1] = input2d.dat.data[:, 1]
-        else:
-            for i in range(NVert-len(faceNodes)+1):
-                output3d.dat.data[ix+i] = input2d.dat.data[:]
-    return output3d
+    copy_2d_field_to_3d(input2d, output3d)
+
+    #H = output3d.function_space()
+    #parentIsCG = H.dofs_per_column[0] != 0
+    #if parentIsCG:
+        ## extruded nodes are laid out for each vertical line
+        #NVert = output3d.dat.data.shape[0]/input2d.dat.data.shape[0]
+        #NNodes = output3d.dat.data.shape[0]/NVert
+        ## TODO can the loop be circumvented?
+        #if len(input2d.dat.data.shape) > 1:
+            #for iNode in range(NNodes):
+                #output3d.dat.data[iNode*NVert:iNode*NVert+NVert, 0] = input2d.dat.data[iNode, 0]
+                #output3d.dat.data[iNode*NVert:iNode*NVert+NVert, 1] = input2d.dat.data[iNode, 1]
+        #else:
+            #for iNode in range(NNodes):
+                #output3d.dat.data[iNode*NVert:iNode*NVert+NVert] = input2d.dat.data[iNode]
+    #else:
+        ## extruded nodes are laid out by elements
+        #NVert = H.dofs_per_column[2]
+        #if NVert == 0:
+            #raise Exception('Unsupported function space, NVert is zero')
+        #NElem = output3d.dat.data.shape[0]/NVert
+        ## for P1DGxL1CG
+        #faceNodes = np.array([0, 1, 2])
+        #ix = (np.tile((NVert*np.arange(NElem)), (3, 1)).T + faceNodes).ravel()
+        #if len(output3d.dat.data.shape) > 1:
+            #for i in range(NVert-len(faceNodes)+1):
+                #output3d.dat.data[ix+i, 0] = input2d.dat.data[:, 0]
+                #output3d.dat.data[ix+i, 1] = input2d.dat.data[:, 1]
+        #else:
+            #for i in range(NVert-len(faceNodes)+1):
+                #output3d.dat.data[ix+i] = input2d.dat.data[:]
+    #return output3d
 
 
 def correct3dVelocity(UV2d, uv3d, uv3d_dav, bathymetry):
@@ -608,7 +721,8 @@ def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref,
     coords.dat.data[:, 2] = z_coord.dat.data[:]
 
 
-def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, dw_mesh_dz_3d,
+def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf2d,
+                        dw_mesh_dz_3d,
                         bathymetry, z_coord_ref,
                         solver_parameters={}):
     solver_parameters.setdefault('ksp_atol', 1e-12)
@@ -629,7 +743,9 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, dw_mesh_dz_3d,
             prob, solver_parameters=solver_parameters)
         linProblemCache.add(key, solver, 'wMeshSurf')
     linProblemCache[key].solve()
-    copyLayerValueOverVertical(w_mesh_surf, w_mesh_surf, useBottomValue=False)
+    copy3dFieldTo2d(w_mesh_surf, w_mesh_surf2d, useBottomValue=False)
+    copy2dFieldTo3d(w_mesh_surf2d, w_mesh_surf)
+    #copyLayerValueOverVertical(w_mesh_surf, w_mesh_surf, useBottomValue=False)
 
     # compute w in the whole water column (0 at bed)
     # w_mesh = w_mesh_surf * (z+h)/(eta+h)

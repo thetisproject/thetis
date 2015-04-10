@@ -583,6 +583,7 @@ class coupledSSPRKSync(timeIntegrator):
                     computeMeshVelocity(
                         s.eta3d, s.uv3d, s.w3d,
                         s.w_mesh3d, s.w_mesh_surf3d,
+                        s.w_mesh_surf2d,
                         s.dw_mesh_dz_3d, s.bathymetry3d,
                         s.z_coord_ref3d)
             with timed_region('aux_friction'):

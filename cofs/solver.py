@@ -32,6 +32,8 @@ class exportManager(object):
                    'file': 'Salinity3d.pvd'},
         'uv2d_dav': {'name': 'Depth Averaged Velocity',
                      'file': 'DAVelocity2d.pvd'},
+        'uv3d_dav': {'name': 'Depth Averaged Velocity',
+                     'file': 'DAVelocity3d.pvd'},
         'uv2d_bot': {'name': 'Bottom Velocity',
                      'file': 'BotVelocity2d.pvd'},
         'nuv3d': {'name': 'Vertical Viscosity',
@@ -217,6 +219,7 @@ class flowSolver(object):
             self.w_mesh3d = Function(self.H, name='Vertical Velocity')
             self.dw_mesh_dz_3d = Function(self.H, name='Vertical Velocity dz')
             self.w_mesh_surf3d = Function(self.H, name='Vertical Velocity Surf')
+            self.w_mesh_surf2d = Function(self.H_2d, name='Vertical Velocity Surf')
         else:
             self.w_mesh3d = self.dw_mesh_dz_3d = self.w_mesh_surf3d = None
         if self.solveSalt:
@@ -351,7 +354,8 @@ class flowSolver(object):
         computeVertVelocity(self.w3d, self.uv3d, self.bathymetry3d)
         if self.useALEMovingMesh:
             computeMeshVelocity(self.eta3d, self.uv3d, self.w3d, self.w_mesh3d,
-                                self.w_mesh_surf3d, self.dw_mesh_dz_3d,
+                                self.w_mesh_surf3d, self.w_mesh_surf2d,
+                                self.dw_mesh_dz_3d,
                                 self.bathymetry3d, self.z_coord_ref3d)
         if self.baroclinic:
             computeBaroclinicHead(self.salt3d, self.baroHead3d,
