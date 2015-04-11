@@ -525,9 +525,9 @@ def computeBottomDrag(uv_bottom, z_bottom, bathymetry, drag):
 def computeBottomFriction(uv3d, uv_bottom2d, uv_bottom3d, z_coord3d,
                           z_bottom2d, z_bottom3d, bathymetry2d,
                           bottom_drag2d, bottom_drag3d):
-    copy3dFieldTo2d(uv3d, uv_bottom2d, level=-2)
+    copy3dFieldTo2d(uv3d, uv_bottom2d, useBottomValue=True, elemBottomValue=False)
     copy2dFieldTo3d(uv_bottom2d, uv_bottom3d)
-    copy3dFieldTo2d(z_coord3d, z_bottom2d, level=-2)
+    copy3dFieldTo2d(z_coord3d, z_bottom2d, useBottomValue=True, elemBottomValue=False)
     copy2dFieldTo3d(z_bottom2d, z_bottom3d)
     z_bottom2d.dat.data[:] += bathymetry2d.dat.data[:]
     computeBottomDrag(uv_bottom2d, z_bottom2d, bathymetry2d, bottom_drag2d)
