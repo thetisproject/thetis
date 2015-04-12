@@ -254,6 +254,14 @@ class momentumEquation(equation):
                     gamma = abs(un_av)
                     G += gamma*dot(self.test, (uv_in - uv_ext)/2)*ds_bnd
 
+            elif 'symm' in funcs:
+                if self.nonlin:
+                    uv_in = solution
+                    G += (uv_in[0]*self.test[0]*self.normal[0]*uv_in[0] +
+                          uv_in[0]*self.test[0]*self.normal[1]*uv_in[1] +
+                          uv_in[1]*self.test[1]*self.normal[0]*uv_in[0] +
+                          uv_in[1]*self.test[1]*self.normal[1]*uv_in[1])*ds_bnd
+
         # horizontal viscosity
         if viscosity_h is not None:
             F_visc = viscosity_h * (Dx(solution[0], 0) * Dx(self.test[0], 0) +
@@ -307,13 +315,6 @@ class momentumEquation(equation):
                 h_ext = funcs['elev']
                 G += g_grav * ((h_ext - eta) / 2) * \
                     inner(self.normal, self.test) * ds_bnd
-
-            elif 'flux' in funcs:
-                # prescribe normal volume flux
-                sect_len = Constant(self.boundary_len[bnd_marker])
-                un_ext = funcs['flux'] / total_H / sect_len
-                if self.nonlin:
-                    G += un_ext*un_ext*inner(self.normal, self.test)*ds_bnd
 
         if viscosity_v is not None:
             # bottom friction

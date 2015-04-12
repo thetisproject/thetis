@@ -58,12 +58,12 @@ solverObj.T = T
 solverObj.uAdvection = Umag
 solverObj.checkVolConservation2d = True
 solverObj.checkVolConservation3d = True
-solverObj.timerLabels = ['mode2d', 'momentumEq', 'continuityEq',
-                         'aux_functions']
+solverObj.timerLabels = []
+#solverObj.timerLabels = ['mode2d', 'momentumEq', 'continuityEq',
+                         #'aux_functions']
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
                             'uv2d_dav', 'uv2d_bot', 'nuv3d']
-
 
 solverObj.mightyCreator()
 elev_init = Function(solverObj.H_2d)

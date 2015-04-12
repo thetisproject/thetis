@@ -79,8 +79,8 @@ river_flux = Constant(river_flux_func(t))
 
 ocean_funcs = {'flux': ocean_flux}
 river_funcs = {'flux': river_flux}
-ocean_funcs_3d = {'flux': ocean_flux}
-river_funcs_3d = {'flux': river_flux}
+ocean_funcs_3d = {'symm': None}
+river_funcs_3d = {'symm': None}
 ocean_salt_3d = {'value': salt_init3d}
 river_salt_3d = {'value': salt_init3d}
 solverObj.bnd_functions['shallow_water'] = {2: ocean_funcs, 1: river_funcs}
