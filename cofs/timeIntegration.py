@@ -164,10 +164,6 @@ class SSPRK33(timeIntegrator):
         self.CFL_coeff = 1.0
         self.solver_parameters = solver_parameters
 
-        massTerm = self.equation.massTerm
-        RHS = self.equation.RHS
-        Source = self.equation.Source
-
         self.solution_old = Function(self.equation.space)
         self.solution_n = Function(self.equation.space)  # for single stages
 
@@ -195,10 +191,18 @@ class SSPRK33(timeIntegrator):
             elif isinstance(self.funcs[k], Constant):
                 self.args[k] = Constant(self.funcs[k])
 
+        self.dt_const = Constant(dt)
+        self.updateSolver()
+
+    def updateSolver(self):
+        """Builds linear problems for each stage. These problems need to be
+        re-created after each mesh update."""
+        massTerm = self.equation.massTerm
+        RHS = self.equation.RHS
+        Source = self.equation.Source
+
         u_old = self.solution_old
         u_tri = self.equation.tri
-
-        self.dt_const = Constant(dt)
         a_RK = massTerm(u_tri)
         L_RK = self.dt_const*(RHS(u_old, **self.args) + Source(**self.args))
 
@@ -309,6 +313,11 @@ class CrankNicolson(timeIntegrator):
             if self.funcs[k] is not None:
                 self.funcs_old[k] = Function(self.funcs[k].function_space())
 
+        self.solver_parameters = {
+            'snes_type': 'newtonls',
+            'snes_monitor': False,
+        }
+
         u = self.equation.solution
         u_old = self.solution_old
         u_tri = self.equation.tri
@@ -325,6 +334,12 @@ class CrankNicolson(timeIntegrator):
         self.L = (invdt*massTerm(u_old) + gamma_const*Source(**self.funcs) +
                   (1-gamma_const)*RHS(u_old, **self.funcs_old) +
                   (1-gamma_const)*Source(**self.funcs_old))
+        self.updateSolver()
+
+    def updateSolver(self):
+        prob = NonlinearVariationalProblem(self.F, self.equation.solution)
+        self.solver = LinearVariationalSolver(prob,
+            solver_parameters=self.solver_parameters)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -335,14 +350,11 @@ class CrankNicolson(timeIntegrator):
 
     def advance(self, t, dt, solution, updateForcings=None):
         """Advances equations for one time step."""
-        solver_parameters = {
-            'snes_type': 'newtonls',
-            'snes_monitor': False,
-        }
         if updateForcings is not None:
             updateForcings(t+dt)
         self.solution_old.assign(solution)
-        solve(self.F == 0, solution, solver_parameters=solver_parameters)
+        self.solver.solve()
+        #solve(self.F == 0, solution, solver_parameters=solver_parameters)
         # shift time
         for k in self.funcs_old:
             self.funcs_old[k].assign(self.funcs[k])
@@ -573,6 +585,13 @@ class coupledSSPRKSync(timeIntegrator):
                     updateCoordinates(
                         s.mesh, s.eta3d, s.bathymetry3d,
                         s.z_coord3d, s.z_coord_ref3d)
+                    # need to destroy all cached solvers!
+                    linProblemCache.clear()
+                    self.timeStepper_mom3d.updateSolver()
+                    if s.solveSalt:
+                        self.timeStepper_salt3d.updateSolver()
+                    if s.solveVertDiffusion:
+                        self.timeStepper_vmom3d.updateSolver()
             with timed_region('vert_diffusion'):
                 if doVertDiffusion and s.solveVertDiffusion:
                         self.timeStepper_vmom3d.advance(t, s.dt, s.uv3d)
