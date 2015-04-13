@@ -5,42 +5,74 @@
 #
 # Tuomas Karna 2015-03-11
 
-from firedrake import *
-import numpy as np
-import os
-import sys
-import time as timeMod
-from mpi4py import MPI
-from scipy.interpolate import interp1d
-import cofs.module_2d as mode2d
-import cofs.module_3d as mode3d
-from cofs.utility import *
-from cofs.physical_constants import physical_constants
-import cofs.timeIntegration as timeIntegration
-
-# HACK to fix unknown node: XXX / (F0) COFFEE errors
-op2.init()
-parameters['coffee']['O2'] = False
-
-#parameters['form_compiler']['quadrature_degree'] = 6  # 'auto'
-parameters['form_compiler']['optimize'] = False
-parameters['form_compiler']['cpp_optimize'] = True
-parameters['form_compiler']['cpp_optimize_flags'] = '-O3 -xhost'
-
-#from pyop2 import op2
-comm = op2.MPI.comm
-commrank = op2.MPI.comm.rank
-op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
-
-# TODO tracer RK needs velocities at t_{n+1/2}, implement simult. RK3,3?
-# TODO discrepancy in P2 nodal values is large: mesh - p2 error? NOT?
-# NOTE discrepancy in tracer value may be due to lack of SUPG in adv?
+from cofs import *
 
 # set physical constants
 physical_constants['z0_friction'].assign(0.0)
-#physical_constants['viscosity_h'].assign(0.0)
 
 mesh2d = Mesh('channel_waveEq.msh')
+layers = 6
+
+depth = 50.0
+P1_2d = FunctionSpace(mesh2d, 'CG', 1)
+bathymetry2d = Function(P1_2d, name='Bathymetry')
+bathymetry2d.assign(50.0)
+
+x_func = Function(P1_2d).interpolate(Expression('x[0]'))
+x_min = x_func.dat.data.min()
+x_max = x_func.dat.data.max()
+x_min = comm.allreduce(x_min, x_min, op=MPI.MIN)
+x_max = comm.allreduce(x_max, x_max, op=MPI.MAX)
+Lx = x_max - x_min
+
+# set time step, and run duration
+c_wave = float(np.sqrt(9.81*depth))
+T_cycle = Lx/c_wave
+n_steps = 20*2
+dt = float(T_cycle/n_steps)
+TExport = dt
+T = 10*T_cycle + 1e-3
+# explicit model
+Umag = Constant(2.0)
+
+# create solver
+solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
+solverObj.nonlin = False
+solverObj.solveSalt = True
+solverObj.solveVertDiffusion = False
+solverObj.useBottomFriction = False
+solverObj.useALEMovingMesh = True
+solverObj.baroclinic = False
+solverObj.useSUPG = False
+solverObj.useGJV = False
+solverObj.dt = dt
+solverObj.TExport = TExport
+solverObj.T = T
+solverObj.uAdvection = Umag
+solverObj.checkVolConservation2d = True
+solverObj.checkVolConservation3d = True
+solverObj.checkSaltConservation = True
+solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
+                            'w3d', 'w3d_mesh', 'salt3d',
+                            'uv2d_dav', 'barohead3d',
+                            'barohead2d', 'gjvAlphaH3d', 'gjvAlphaV3d']
+solverObj.timerLabels = []
+
+solverObj.mightyCreator()
+
+elev_init = Function(solverObj.H_2d)
+elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=1.0,
+                             Lx=Lx))
+
+salt_init3d = Function(solverObj.H, name='initial salinity')
+salt_init3d.interpolate(Expression('4.5'))
+
+solverObj.assingInitialConditions(elev=elev_init, salt=salt_init3d)
+solverObj.iterate()
+
+exit(0)
+
+# ------------------ oldies VV
 
 # Function spaces for 2d mode
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
