@@ -150,6 +150,8 @@ class flowSolver(object):
         mesh_dt = self.eq_sw.getTimeStepAdvection(Umag=self.uAdvection)
         dt = self.cfl_3d*float(np.floor(mesh_dt.dat.data.min()/20.0))
         dt = round(comm.allreduce(dt, dt, op=MPI.MIN))
+        if dt == 0:
+            raise Exception('3d advective time step is zero after rounding')
         if self.dt is None:
             self.dt = dt
         else:
