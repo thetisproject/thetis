@@ -191,17 +191,17 @@ class freeSurfaceEquations(equation):
                 ##uv_rie = Huv_rie/avg(H)
 
                 uv_av = avg(uv)
-                s = 0.5*(sign(uv_av[0]*self.normal('-')[0] +
-                              uv_av[1]*self.normal('-')[1]) + 1.0)
+                un_av = dot(uv_av, self.normal('-'))
+                s = 0.5*(sign(un_av) + 1.0)
                 uv_up = uv('-')*s + uv('+')*(1-s)
+                # TODO write this with dot() to speed up!
                 G += (uv_av[0]*uv_up[0]*jump(self.U_test[0], self.normal[0]) +
                       uv_av[0]*uv_up[1]*jump(self.U_test[1], self.normal[0]) +
                       uv_av[1]*uv_up[0]*jump(self.U_test[0], self.normal[1]) +
                       uv_av[1]*uv_up[1]*jump(self.U_test[1], self.normal[1]))*self.dS
                 # Lax-Friedrichs stabilization
                 if uvLaxFriedrichs is not None:
-                    gamma = abs(self.normal[0]('-')*uv_av[0] +
-                                self.normal[1]('-')*uv_av[1])*uvLaxFriedrichs
+                    gamma = abs(un_av)*uvLaxFriedrichs
                     G += gamma*dot(jump(self.U_test), jump(uv))*self.dS
 
             F += Adv_mom * self.dx
@@ -296,8 +296,8 @@ class freeSurfaceEquations(equation):
                           uv_av[1]*uv_up[1]*(self.U_test[1]*self.normal[1]))*ds_bnd
 
                     # Lax-Friedrichs stabilization
-                    gamma = abs(self.normal[0]*uv_av[0] +
-                                self.normal[1]*uv_av[1])
+                    un_av = dot(self.normal, uv_av)
+                    gamma = abs(un_av)
                     G += gamma*dot(self.U_test, (uv - un_ext*self.normal)/2)*ds_bnd
 
             elif 'radiation':
@@ -316,8 +316,7 @@ class freeSurfaceEquations(equation):
         if bottom_drag is not None and uv_bottom is not None:
             uvb_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
             stress = bottom_drag*uvb_mag*uv_bottom/total_H
-            BotFriction = (stress[0]*self.U_test[0] +
-                           stress[1]*self.U_test[1]) * self.dx
+            BotFriction = dot(stress, self.U_test)* self.dx
             F += BotFriction
 
         # viscosity

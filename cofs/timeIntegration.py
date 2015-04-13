@@ -337,7 +337,7 @@ class CrankNicolson(timeIntegrator):
         """Advances equations for one time step."""
         solver_parameters = {
             'snes_type': 'newtonls',
-            'snes_monitor': True,
+            'snes_monitor': False,
         }
         if updateForcings is not None:
             updateForcings(t+dt)

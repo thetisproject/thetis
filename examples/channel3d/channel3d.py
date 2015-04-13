@@ -11,8 +11,6 @@ from cofs import *
 # set physical constants
 physical_constants['z0_friction'].assign(5.0e-5)
 
-use_wd = False
-nonlin = True
 n_layers = 6
 outputDir = createDirectory('outputs')
 mesh2d = Mesh('channel_mesh.msh')
@@ -41,12 +39,12 @@ bathymetry2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry2d, n_layers)
-solverObj.nonlin = nonlin
-solverObj.use_wd = use_wd
+solverObj.nonlin = True
 solverObj.TExport = TExport
 solverObj.T = T
 solverObj.uAdvection = Umag
 solverObj.checkSaltDeviation = True
+solverObj.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion']
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
                             'uv2d_dav', 'uv2d_bot', 'nuv3d']

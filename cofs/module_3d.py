@@ -256,7 +256,7 @@ class momentumEquation(equation):
 
             elif 'symm' in funcs:
                 if self.nonlin:
-                    uv_in = solution
+                    uv_in = dot(solution, self.normal)*self.normal
                     G += (uv_in[0]*self.test[0]*self.normal[0]*uv_in[0] +
                           uv_in[0]*self.test[0]*self.normal[1]*uv_in[1] +
                           uv_in[1]*self.test[1]*self.normal[0]*uv_in[0] +
