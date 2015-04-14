@@ -9,8 +9,8 @@ from scipy.interpolate import interp1d
 from cofs import *
 
 
-# ---- test 1: constant bathymetry
 def test1():
+    # ---- test 1: constant bathymetry
     n_layers = 6
     outputDir = createDirectory('outputs')
     mesh2d = UnitSquareMesh(10,10)
@@ -33,14 +33,17 @@ def test1():
     computeVertVelocity(solverObj.w3d, solverObj.uv3d, solverObj.bathymetry3d)
     print 'w', solverObj.w3d.dat.data.min(), solverObj.w3d.dat.data.max()
     assert(np.allclose(solverObj.w3d.dat.data, 0.0))
+    print 'PASSED'
 
     solverObj.uv3d.interpolate(Expression(('1e-3*x[0]', '0.0', '0.0')))
     computeVertVelocity(solverObj.w3d, solverObj.uv3d, solverObj.bathymetry3d)
     print 'w', solverObj.w3d.dat.data.min(), solverObj.w3d.dat.data.max()
+    assert(np.allclose(solverObj.w3d.dat.data.min(), -1e-3))
+    print 'PASSED'
     linProblemCache.clear()
 
-# ---- test 2: sloping bathymetry
 def test2():
+    # ---- test 2: sloping bathymetry
     n_layers = 6
     outputDir = createDirectory('outputs')
     mesh2d = UnitSquareMesh(10,10)
@@ -48,7 +51,7 @@ def test2():
     # bathymetry
     P1_2d = FunctionSpace(mesh2d, 'CG', 1)
     bathymetry2d = Function(P1_2d, name='Bathymetry')
-    bathymetry2d.interpolate(Expression('1.0+x[0]'))
+    bathymetry2d.interpolate(Expression('1.0 + x[0]'))
 
     solverObj = solver.flowSolver(mesh2d, bathymetry2d, n_layers)
     solverObj.uAdvection = Constant(1e-3)
@@ -62,10 +65,15 @@ def test2():
     computeVertVelocity(solverObj.w3d, solverObj.uv3d, solverObj.bathymetry3d)
     print 'w', solverObj.w3d.dat.data.min(), solverObj.w3d.dat.data.max()
     assert(np.allclose(solverObj.w3d.dat.data, -1e-3))
+    print 'PASSED'
+    solverObj.exporter.export()
 
     solverObj.uv3d.interpolate(Expression(('1e-3*x[0]', '0.0', '0.0')))
     computeVertVelocity(solverObj.w3d, solverObj.uv3d, solverObj.bathymetry3d)
     print 'w', solverObj.w3d.dat.data.min(), solverObj.w3d.dat.data.max()
+    assert(np.allclose(solverObj.w3d.dat.data.min(), -3e-3, rtol=1e-2))
+    print 'PASSED'
+    solverObj.exporter.export()
     linProblemCache.clear()
 
 test1()

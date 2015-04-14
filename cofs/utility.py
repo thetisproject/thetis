@@ -177,13 +177,15 @@ def computeVertVelocity(solution, uv, bathymetry, solver_parameters={}):
         ds_bottom = ds_t
         w_bottom = -(uv[0]*Dx(bathymetry, 0) + uv[1]*Dx(bathymetry, 1))
         a = tri*phi*normal[2]*ds_surf - Dx(phi, 2)*tri*dx
-        L = (-(Dx(uv[0], 0) + Dx(uv[1], 1))*phi*dx -
-             w_bottom*phi*normal[2]*ds_t)
-        # NOTE this is better for DG uv
-        # NOTE slim has symm at surf, zero at bottom
-        #L = ((uv[0]*Dx(phi, 0) + uv[1]*Dx(phi, 1))*dx -
-             #(uv[0]*normal[0] + uv[1]*normal[1])*phi*(ds_v+ds_surf+ds_bottom) -
+        # NOTE pointwise div(uv)
+        #L = (-(Dx(uv[0], 0) + Dx(uv[1], 1))*phi*dx -
              #w_bottom*phi*normal[2]*ds_bottom)
+        # NOTE div(uv) weak - this form is correct for DG uv
+        # NOTE less accurate on deformed mesh bc jacobian is assumed constant
+        L = ((uv[0]*Dx(phi, 0) + uv[1]*Dx(phi, 1))*dx -
+             (uv[0]*normal[0] + uv[1]*normal[1])*phi*(ds_v+ds_surf+ds_bottom) -
+             w_bottom*phi*normal[2]*ds_bottom
+             )
         prob = LinearVariationalProblem(a, L, solution)
         solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
