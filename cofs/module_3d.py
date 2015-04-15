@@ -437,7 +437,7 @@ class tracerEquation(equation):
     """3D tracer advection-diffusion equation"""
     def __init__(self, mesh, space, solution, eta, uv, w,
                  w_mesh=None, dw_mesh_dz=None,
-                 diffusivity_h=None,
+                 diffusivity_h=None, diffusivity_v=None,
                  test_supg_h=None, test_supg_v=None, test_supg_mass=None,
                  nonlinStab_h=None, nonlinStab_v=None,
                  bnd_markers=None, bnd_len=None, nonlin=True):
@@ -451,6 +451,7 @@ class tracerEquation(equation):
                        'w_mesh': w_mesh,
                        'dw_mesh_dz': dw_mesh_dz,
                        'diffusivity_h': diffusivity_h,
+                       'diffusivity_v': diffusivity_v,
                        'nonlinStab_h': nonlinStab_h,
                        'nonlinStab_v': nonlinStab_v}
         # SUPG terms (add to forms)
@@ -499,7 +500,8 @@ class tracerEquation(equation):
         return inner(solution, test) * self.dx
 
     def RHS(self, solution, eta, uv, w, w_mesh=None, dw_mesh_dz=None,
-            diffusivity_h=None, nonlinStab_h=None, nonlinStab_v=None,
+            diffusivity_h=None, diffusivity_v=None,
+            nonlinStab_h=None, nonlinStab_v=None,
             **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
@@ -558,6 +560,9 @@ class tracerEquation(equation):
         if diffusivity_h is not None:
             F += diffusivity_h*(Dx(solution, 0)*Dx(self.test, 0) +
                                 Dx(solution, 1)*Dx(self.test, 1))*self.dx
+
+        if diffusivity_v is not None:
+            F += diffusivity_v*(Dx(solution, 2)*Dx(self.test, 2))*self.dx
 
         # SUPG stabilization
         if self.test_supg_h is not None:

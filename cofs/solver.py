@@ -109,6 +109,7 @@ class flowSolver(object):
         self.useBottomFriction = True  # apply log layer bottom stress
         self.useALEMovingMesh = True  # 3D mesh tracks free surface
         self.hDiffusivity = None  # background diffusivity (set to Constant)
+        self.vDiffusivity = None  # background diffusivity (set to Constant)
         self.hViscosity = None  # background viscosity (set to Constant)
         self.useSUPG = False  # SUPG stabilization for tracer advection
         self.useGJV = False  # nonlin gradient jump viscosity
@@ -295,6 +296,7 @@ class flowSolver(object):
                 w=self.w3d, w_mesh=self.w_mesh3d,
                 dw_mesh_dz=self.dw_mesh_dz_3d,
                 diffusivity_h=self.hDiffusivity,
+                diffusivity_v=self.vDiffusivity,
                 test_supg_h=self.test_supg_h,
                 test_supg_v=self.test_supg_v,
                 test_supg_mass=self.test_supg_mass,
