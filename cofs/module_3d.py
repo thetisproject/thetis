@@ -50,7 +50,6 @@ class momentumEquation(equation):
 
         # mesh dependent variables
         self.normal = FacetNormal(mesh)
-        self.cellsize = CellSize(mesh)
         self.xyz = SpatialCoordinate(mesh)
         self.e_x, self.e_y, self.e_y = unit_vectors(3)
 
@@ -72,17 +71,6 @@ class momentumEquation(equation):
     def ds_v(self, bnd_marker):
         """Returns boundary measure for the appropriate mesh"""
         return ds_v(int(bnd_marker), domain=self.mesh)
-
-    def getTimeStep(self, Umag=Constant(1.0)):
-        csize = CellSize(self.mesh)
-        H = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
-        uu = TestFunction(H)
-        grid_dt = TrialFunction(H)
-        res = Function(H)
-        a = uu * grid_dt * self.dx
-        L = uu * csize / Umag * self.dx
-        solve(a == L, res)
-        return res
 
     def massTerm(self, solution):
         """All time derivative terms on the LHS, without the actual time
@@ -353,7 +341,6 @@ class verticalMomentumEquation(equation):
 
         # mesh dependent variables
         self.normal = FacetNormal(mesh)
-        self.cellsize = CellSize(mesh)
         self.xyz = SpatialCoordinate(mesh)
         self.e_x, self.e_y, self.e_y = unit_vectors(3)
 
@@ -468,7 +455,6 @@ class tracerEquation(equation):
 
         # mesh dependent variables
         self.normal = FacetNormal(mesh)
-        self.cellsize = CellSize(mesh)
         self.xyz = SpatialCoordinate(mesh)
         self.e_x, self.e_y, self.e_y = unit_vectors(3)
 
