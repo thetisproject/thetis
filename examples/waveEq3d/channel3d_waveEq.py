@@ -58,7 +58,7 @@ solverObj.T = T
 solverObj.uAdvection = Umag
 solverObj.checkVolConservation2d = True
 solverObj.checkVolConservation3d = True
-solverObj.timerLabels = []
+#solverObj.timerLabels = []
 #solverObj.timerLabels = ['mode2d', 'momentumEq', 'continuityEq',
                          #'aux_functions']
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',

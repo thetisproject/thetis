@@ -10,7 +10,7 @@ from cofs import *
 # set physical constants
 physical_constants['z0_friction'].assign(5.0e-5)
 
-reso_str = 'coarse2'
+reso_str = 'coarse'
 outputDir = createDirectory('outputs_'+reso_str)
 refinement = {'coarse': 1, 'coarse2': 2, 'medium': 4, 'fine': 16}
 layers = 10*refinement[reso_str]
@@ -38,8 +38,10 @@ solverObj.baroclinic = True
 solverObj.useSUPG = False
 solverObj.useGJV = False
 #solverObj.uvLaxFriedrichs = None
+# how does diffusion scale with mesh size?? nu = Lx^2/dt??
 solverObj.hDiffusivity = Constant(100.0)
 solverObj.hViscosity = Constant(100.0)
+solverObj.vViscosity = Constant(1e-3)
 solverObj.dt = dt
 solverObj.TExport = TExport
 solverObj.T = T

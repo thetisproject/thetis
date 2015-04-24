@@ -111,6 +111,7 @@ class flowSolver(object):
         self.hDiffusivity = None  # background diffusivity (set to Constant)
         self.vDiffusivity = None  # background diffusivity (set to Constant)
         self.hViscosity = None  # background viscosity (set to Constant)
+        self.vViscosity = None  # background viscosity (set to Constant)
         self.useSUPG = False  # SUPG stabilization for tracer advection
         self.useGJV = False  # nonlin gradient jump viscosity
         self.baroclinic = False  # comp and use internal pressure gradient
@@ -232,7 +233,7 @@ class flowSolver(object):
         if self.solveVertDiffusion:
             self.viscosity_v3d = Function(self.P1, name='Vertical Velocity')
         else:
-            self.viscosity_v3d = None
+            self.viscosity_v3d = self.vViscosity
         if self.baroclinic:
             self.baroHead3d = Function(self.H, name='Baroclinic head')
             self.baroHeadInt3d = Function(self.H, name='V.int. baroclinic head')
@@ -287,7 +288,7 @@ class flowSolver(object):
             baro_head=self.baroHead3d,
             w_mesh=self.w_mesh3d,
             dw_mesh_dz=self.dw_mesh_dz_3d,
-            viscosity_v=None, viscosity_h=self.hViscosity,
+            viscosity_v=self.vViscosity, viscosity_h=self.hViscosity,
             uvLaxFriedrichs=self.uvLaxFriedrichs,
             nonlin=self.nonlin)
         if self.solveSalt:

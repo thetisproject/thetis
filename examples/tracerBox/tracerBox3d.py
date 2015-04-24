@@ -52,6 +52,7 @@ solverObj.uAdvection = Umag
 solverObj.checkVolConservation2d = True
 solverObj.checkVolConservation3d = True
 solverObj.checkSaltConservation = True
+solverObj.checkSaltDeviation = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
                             'uv2d_dav', 'barohead3d',
