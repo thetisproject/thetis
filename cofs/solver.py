@@ -108,6 +108,7 @@ class flowSolver(object):
         self.solveVertDiffusion = True  # solve implicit vert diffusion
         self.useBottomFriction = True  # apply log layer bottom stress
         self.useALEMovingMesh = True  # 3D mesh tracks free surface
+        self.useModeSplit = True  # run 2D/3D modes with different dt
         self.hDiffusivity = None  # background diffusivity (set to Constant)
         self.vDiffusivity = None  # background diffusivity (set to Constant)
         self.hViscosity = None  # background viscosity (set to Constant)
@@ -149,22 +150,31 @@ class flowSolver(object):
             }
 
     def setTimeStep(self):
-        mesh_dt = self.eq_sw.getTimeStepAdvection(Umag=self.uAdvection)
-        dt = self.cfl_3d*float(np.floor(mesh_dt.dat.data.min()/20.0))
-        dt = round(comm.allreduce(dt, dt, op=MPI.MIN))
-        if dt == 0:
-            raise Exception('3d advective time step is zero after rounding')
-        if self.dt is None:
-            self.dt = dt
+        if self.useModeSplit:
+            mesh_dt = self.eq_sw.getTimeStepAdvection(Umag=self.uAdvection)
+            dt = self.cfl_3d*float(np.floor(mesh_dt.dat.data.min()/20.0))
+            dt = round(comm.allreduce(dt, dt, op=MPI.MIN))
+            if dt == 0:
+                raise Exception('3d advective time step is zero after rounding')
+            if self.dt is None:
+                self.dt = dt
+            else:
+                dt = self.dt
+            mesh2d_dt = self.eq_sw.getTimeStep(Umag=self.uAdvection)
+            dt_2d = self.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
+            dt_2d = comm.allreduce(dt_2d, dt_2d, op=MPI.MIN)
+            if self.dt_2d is None:
+                self.dt_2d = dt_2d
+            self.M_modesplit = int(np.ceil(dt/self.dt_2d))
+            self.dt_2d = dt/self.M_modesplit
         else:
-            dt = self.dt
-        mesh2d_dt = self.eq_sw.getTimeStep(Umag=self.uAdvection)
-        dt_2d = self.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
-        dt_2d = comm.allreduce(dt_2d, dt_2d, op=MPI.MIN)
-        if self.dt_2d is None:
-            self.dt_2d = dt_2d
-        self.M_modesplit = int(np.ceil(dt/self.dt_2d))
-        self.dt_2d = dt/self.M_modesplit
+            mesh2d_dt = self.eq_sw.getTimeStep(Umag=self.uAdvection)
+            dt_2d = self.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
+            dt_2d = comm.allreduce(dt_2d, dt_2d, op=MPI.MIN)
+            if self.dt is None:
+                self.dt = dt_2d
+            self.dt_2d = self.dt
+            self.M_modesplit = 1
 
         if commrank == 0:
             print 'dt =', self.dt
@@ -272,13 +282,22 @@ class flowSolver(object):
         getZCoordFromMesh(self.z_coord_ref3d)
 
         # ----- Equations
-        self.eq_sw = module_2d.freeSurfaceEquations(
-            self.mesh2d, self.W_2d, self.solution2d, self.bathymetry2d,
-            self.uv_bottom2d, self.bottom_drag2d,
-            baro_head=self.baroHead2d,
-            viscosity_h=self.hViscosity,
-            uvLaxFriedrichs=self.uvLaxFriedrichs,
-            nonlin=self.nonlin, use_wd=self.use_wd)
+        if self.useModeSplit:
+            # full 2D shallow water equations
+            self.eq_sw = module_2d.shallowWaterEquations(
+                self.mesh2d, self.W_2d, self.solution2d, self.bathymetry2d,
+                self.uv_bottom2d, self.bottom_drag2d,
+                baro_head=self.baroHead2d,
+                viscosity_h=self.hViscosity,
+                uvLaxFriedrichs=self.uvLaxFriedrichs,
+                nonlin=self.nonlin, use_wd=self.use_wd)
+        else:
+            # solve elevation only: 2D free surface equation
+            uv, eta = self.solution2d.split()
+            self.eq_sw = module_2d.freeSurfaceEquation(
+                self.mesh2d, self.H_2d, eta, uv, self.bathymetry2d,
+                nonlin=self.nonlin, use_wd=self.use_wd)
+
         bnd_len = self.eq_sw.boundary_len
         bnd_markers = self.eq_sw.boundary_markers
         self.eq_momentum = module_3d.momentumEquation(
@@ -318,7 +337,10 @@ class flowSolver(object):
 
         # ----- Time integrators
         self.setTimeStep()
-        self.timeStepper = timeIntegration.coupledSSPRKSync(self)
+        if self.useModeSplit:
+            self.timeStepper = timeIntegration.coupledSSPRKSync(self)
+        else:
+            self.timeStepper = timeIntegration.coupledSSPRKSingleMode(self)
 
         # ----- File exporters
         uv2d, eta2d = self.solution2d.split()

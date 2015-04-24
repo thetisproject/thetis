@@ -11,8 +11,8 @@ g_grav = physical_constants['g_grav']
 wd_alpha = physical_constants['wd_alpha']
 
 
-class freeSurfaceEquations(equation):
-    """2D depth averaged shallow water equations"""
+class shallowWaterEquations(equation):
+    """2D depth averaged shallow water equations in non-conservative form"""
     def __init__(self, mesh, space, solution, bathymetry,
                  uv_bottom=None, bottom_drag=None, viscosity_h=None,
                  mu_manning=None, baro_head=None,
@@ -58,7 +58,7 @@ class freeSurfaceEquations(equation):
         # boundary definitions
         self.boundary_markers = set(self.mesh.exterior_facets.unique_markers)
 
-        # compute lenth of all boundaries
+        # compute length of all boundaries
         self.boundary_len = {}
         for i in self.boundary_markers:
             ds_restricted = Measure('ds', subdomain_id=int(i))
@@ -339,8 +339,160 @@ class freeSurfaceEquations(equation):
         These terms do not depend on the solution."""
         F = 0 * self.dx  # holds all dx volume integral terms
 
-        # External pressure gradient
+        # Internal pressure gradient
         if baro_head is not None:
             F += g_grav * inner(nabla_grad(baro_head), self.U_test) * self.dx
+
+        return -F
+
+
+class freeSurfaceEquation(equation):
+    """Non-conservative free surface equation written for depth averaged
+    velocity"""
+    def __init__(self, mesh, space, solution, uv, bathymetry,
+                 nonlin=True, use_wd=True):
+        self.mesh = mesh
+        self.space = space
+        self.solution = solution
+        self.bathymetry = bathymetry
+        self.use_wd = use_wd
+        self.nonlin = nonlin
+        # this dict holds all time dep. args to the equation
+        self.kwargs = {'uv': uv,
+                       }
+
+        # create mixed function space
+        self.tri = TrialFunction(self.space)
+        self.test = TestFunction(self.space)
+
+        self.eta_is_DG = 'DG' in self.space.ufl_element().shortstr()
+
+        # mesh dependent variables
+        self.normal = FacetNormal(mesh)
+        self.cellsize = CellSize(mesh)
+        self.xyz = SpatialCoordinate(mesh)
+        self.e_x, self.e_y = unit_vectors(2)
+
+        # integral measures
+        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere')
+        self.dS = dS(domain=self.mesh)
+
+        # boundary definitions
+        self.boundary_markers = set(self.mesh.exterior_facets.unique_markers)
+
+        # compute length of all boundaries
+        self.boundary_len = {}
+        for i in self.boundary_markers:
+            ds_restricted = Measure('ds', subdomain_id=int(i))
+            one_func = Function(self.space).interpolate(Expression(1.0))
+            self.boundary_len[i] = assemble(one_func * ds_restricted)
+
+        # set boundary conditions
+        # maps bnd_marker to dict of external functions e.g. {'elev':eta_ext}
+        self.bnd_functions = {}
+
+    def ds(self, bnd_marker):
+        """Returns boundary measure for the appropriate mesh"""
+        return ds(int(bnd_marker), domain=self.mesh)
+
+    def getTimeStep(self, Umag=Constant(0.0)):
+        csize = CellSize(self.mesh)
+        H = self.bathymetry.function_space()
+        h_pos = Function(H, name='bathymetry')
+        h_pos.assign(self.bathymetry)
+        vect = h_pos.vector()
+        vect.set_local(np.maximum(vect.array(), 0.05))
+        uu = TestFunction(H)
+        grid_dt = TrialFunction(H)
+        res = Function(H)
+        a = uu * grid_dt * self.dx
+        L = uu * csize / (sqrt(g_grav * h_pos) + Umag) * self.dx
+        solve(a == L, res)
+        return res
+
+    def getTimeStepAdvection(self, Umag=Constant(1.0)):
+        csize = CellSize(self.mesh)
+        H = self.bathymetry.function_space()
+        uu = TestFunction(H)
+        grid_dt = TrialFunction(H)
+        res = Function(H)
+        a = uu * grid_dt * self.dx
+        L = uu * csize / Umag * self.dx
+        solve(a == L, res)
+        return res
+
+    def massTerm(self, solution):
+        """All time derivative terms on the LHS, without the actual time
+        derivative.
+
+        Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
+        """
+        F = 0
+        # Mass term of free surface equation
+        M_continuity = inner(solution, self.test)
+        F += M_continuity
+
+        return F * self.dx
+
+    def massTermBasic(self, solution):
+        """All time derivative terms on the LHS, without the actual time
+        derivative.
+
+        Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
+        """
+        F = 0
+        # Mass term of free surface equation
+        M_continuity = inner(solution, self.test)
+        F += M_continuity
+
+        return F * self.dx
+
+    def supgMassTerm(self, solution, eta, uv):
+        """Additional term for SUPG stabilization"""
+        F = 0
+        return F * self.dx
+
+    def RHS(self, solution, uv, **kwargs):
+        """Returns the right hand side of the equations.
+        RHS is all terms that depend on the solution (eta,uv)"""
+        F = 0  # holds all dx volume integral terms
+        G = 0  # holds all ds boundary interface terms
+        eta = solution
+
+        if self.nonlin:
+            total_H = self.bathymetry + eta
+        else:
+            total_H = self.bathymetry
+        # Divergence of depth-integrated velocity
+        F += -total_H * inner(uv, nabla_grad(self.test)) * self.dx
+        if self.eta_is_DG:
+            Hu_star = avg(total_H*uv) +\
+                sqrt(g_grav*avg(total_H))*jump(total_H, self.normal)
+            G += inner(jump(self.test, self.normal), Hu_star)*self.dS
+
+        # boundary conditions
+        for bnd_marker in self.boundary_markers:
+            funcs = self.bnd_functions.get(bnd_marker)
+            ds_bnd = ds(int(bnd_marker), domain=self.mesh)
+            if funcs is None:
+                # assume land boundary
+                continue
+
+            elif 'elev' in funcs:
+                # prescribe elevation only
+                h_ext = funcs['elev']
+
+            elif 'radiation':
+                # prescribe radiation condition that allows waves to pass tru
+                un_ext = sqrt(g_grav / total_H) * eta
+                G += total_H * un_ext * self.test * ds_bnd
+
+        return -F - G
+
+    def Source(self, uv_old=None, uv_bottom=None, bottom_drag=None,
+               baro_head=None, **kwargs):
+        """Returns the right hand side of the source terms.
+        These terms do not depend on the solution."""
+        F = 0 * self.dx  # holds all dx volume integral terms
 
         return -F
