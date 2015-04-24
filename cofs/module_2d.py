@@ -69,6 +69,19 @@ class shallowWaterEquations(equation):
         # maps bnd_marker to dict of external functions e.g. {'elev':eta_ext}
         self.bnd_functions = {}
 
+        # Gauss-Seidel
+        self.solver_parameters = {
+            'ksp_type': 'fgmres',
+            'ksp_rtol': 1e-10,  # 1e-12
+            'ksp_atol': 1e-10,  # 1e-16
+            'pc_type': 'fieldsplit',
+            'pc_fieldsplit_type': 'multiplicative',
+            # 'fieldsplit_0_ksp_type': 'preonly',
+            # 'fieldsplit_0_pc_type': 'jacobi',
+            # 'fieldsplit_1_ksp_type': 'preonly',
+            # 'fieldsplit_1_pc_type': 'jacobi',
+            }
+
     def ds(self, bnd_marker):
         """Returns boundary measure for the appropriate mesh"""
         return ds(int(bnd_marker), domain=self.mesh)
@@ -390,6 +403,13 @@ class freeSurfaceEquation(equation):
         # set boundary conditions
         # maps bnd_marker to dict of external functions e.g. {'elev':eta_ext}
         self.bnd_functions = {}
+
+        # default solver parameters
+        self.solver_parameters = {
+            'ksp_type': 'fgmres',
+            'ksp_rtol': 1e-10,  # 1e-12
+            'ksp_atol': 1e-10,  # 1e-16
+            }
 
     def ds(self, bnd_marker):
         """Returns boundary measure for the appropriate mesh"""

@@ -65,11 +65,6 @@ solverObj.timerLabels = []
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
                             'uv2d_dav', 'uv2d_bot', 'nuv3d']
-solverObj.solver_parameters2d = {
-    'ksp_type': 'fgmres',
-    'ksp_rtol': 1e-10,  # 1e-12
-    'ksp_atol': 1e-10,  # 1e-16
-    }
 
 solverObj.mightyCreator()
 elev_init = Function(solverObj.H_2d)

@@ -291,6 +291,110 @@ class SSPRK33(timeIntegrator):
                             (1.0/6.0)*self.K1 + (2.0/3.0)*self.K2)
 
 
+class SSPRK33Stage(timeIntegrator):
+    """
+    3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).
+    This class only advances one step at a time.
+
+    This scheme has Butcher tableau
+    0   |
+    1   | 1
+    1/2 | 1/4 1/4
+    ---------------
+        | 1/6 1/6 2/3
+
+    CFL coefficient is 1.0
+    """
+    def __init__(self, equation, dt, solver_parameters=None,
+                 funcs_nplushalf={}):
+        """Creates forms for the time integrator"""
+        self.equation = equation
+        self.explicit = True
+        self.CFL_coeff = 1.0
+        self.nstages = 3
+        self.solver_parameters = solver_parameters
+
+        self.solution_old = Function(self.equation.space)
+        self.solution_n = Function(self.equation.space)  # for single stages
+
+        self.K0 = Function(self.equation.space)
+        self.K1 = Function(self.equation.space)
+        self.K2 = Function(self.equation.space)
+
+        # dict of all input functions needed for the equation
+        self.args = self.equation.kwargs
+
+        self.dt_const = Constant(dt)
+        self.updateSolver()
+
+    def updateSolver(self):
+        """Builds linear problems for each stage. These problems need to be
+        re-created after each mesh update."""
+        massTerm = self.equation.massTerm
+        RHS = self.equation.RHS
+        Source = self.equation.Source
+
+        u_old = self.solution_old
+        u_tri = self.equation.tri
+        a_RK = massTerm(u_tri)
+        L_RK = self.dt_const*(RHS(u_old, **self.args) + Source(**self.args))
+
+        probK0 = LinearVariationalProblem(a_RK, L_RK, self.K0)
+        self.solverK0 = LinearVariationalSolver(probK0,
+                                                solver_parameters=self.solver_parameters)
+        probK1 = LinearVariationalProblem(a_RK, L_RK, self.K1)
+        self.solverK1 = LinearVariationalSolver(probK1,
+                                                solver_parameters=self.solver_parameters)
+        probK2 = LinearVariationalProblem(a_RK, L_RK, self.K2)
+        self.solverK2 = LinearVariationalSolver(probK2,
+                                                solver_parameters=self.solver_parameters)
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(solution)
+
+    def solveStage(self, iStage, t, dt, solution, updateForcings=None):
+        """
+        Solves a single stage of step from t to t+dt.
+        All functions that the equation depends on must be at rigth state
+        corresponding to each sub-step.
+        """
+        if iStage == 0:
+            # stage 0
+            self.solution_n.assign(solution)
+            self.solution_old.assign(solution)
+            if updateForcings is not None:
+                updateForcings(t)
+            self.solverK0.solve()
+            solution.assign(self.solution_n + self.K0)
+        elif iStage == 1:
+            # stage 1
+            self.solution_old.assign(solution)
+            if updateForcings is not None:
+                updateForcings(t+dt)
+            self.solverK1.solve()
+            solution.assign(self.solution_n + 0.25*self.K0 + 0.25*self.K1)
+        elif iStage == 2:
+            # stage 2
+            self.solution_old.assign(solution)
+            if updateForcings is not None:
+                updateForcings(t+dt/2)
+            self.solverK2.solve()
+            # final solution
+            solution.assign(self.solution_n + (1.0/6.0)*self.K0 +
+                            (1.0/6.0)*self.K1 + (2.0/3.0)*self.K2)
+
+    def advance(self, t, dt, solution, updateForcings):
+        """Advances one full time step from t to t+dt.
+        This assumes that all the functions that the equation depends on are
+        constants across this interval. If dependent functions need to be
+        updated call solveStage instead.
+        """
+        for k in range(3):
+            self.solveStage(k, t, dt, solution,
+                            updateForcings)
+
+
 class CrankNicolson(timeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
     def __init__(self, equation, dt, gamma=0.6):
@@ -381,7 +485,7 @@ class coupledSSPRK(timeIntegrator):
         self.solver = solver
         subIterator = SSPRK33(
             solver.eq_sw, solver.dt_2d,
-            solver.solver_parameters2d)
+            solver.eq_sw.solver_parameters)
         self.timeStepper2d = macroTimeStepIntegrator(
             subIterator,
             solver.M_modesplit,
@@ -510,14 +614,14 @@ class coupledSSPRKSync(timeIntegrator):
         self.solver = solver
         self.timeStepper2d = SSPRK33(
             solver.eq_sw, solver.dt_2d,
-            solver.solver_parameters2d)
+            solver.eq_sw.solver_parameters)
         fs = self.timeStepper2d.solution_old.function_space()
         self.sol2d_n = Function(fs, name='sol2dtmp')
 
-        self.timeStepper_mom3d = SSPRK33(
+        self.timeStepper_mom3d = SSPRK33Stage(
             solver.eq_momentum, solver.dt)
         if self.solver.solveSalt:
-            self.timeStepper_salt3d = SSPRK33(
+            self.timeStepper_salt3d = SSPRK33Stage(
                 solver.eq_salt,
                 solver.dt)
         if self.solver.solveVertDiffusion:
@@ -690,17 +794,15 @@ class coupledSSPRKSingleMode(timeIntegrator):
     """
     def __init__(self, solver):
         self.solver = solver
-        self.timeStepper2d = SSPRK33(
+        self.timeStepper2d = SSPRK33Stage(
             solver.eq_sw, solver.dt_2d,
-            solver.solver_parameters2d)
-        fs = self.timeStepper2d.solution_old.function_space()
-        self.sol2d_n = Function(fs, name='sol2dtmp')
+            solver.eq_sw.solver_parameters)
 
-        self.timeStepper_mom3d = SSPRK33(
-             solver.eq_momentum,
-             solver.dt_2d)
+        self.timeStepper_mom3d = SSPRK33Stage(
+            solver.eq_momentum,
+            solver.dt_2d)
         if self.solver.solveSalt:
-            self.timeStepper_salt3d = SSPRK33(
+            self.timeStepper_salt3d = SSPRK33Stage(
                 solver.eq_salt,
                 solver.dt_2d)
         if self.solver.solveVertDiffusion:
@@ -719,19 +821,6 @@ class coupledSSPRKSingleMode(timeIntegrator):
         # u_init = 1/3*u_n + 2/3*u_(2)
         # -------------------
 
-        # length of each step (fraction of dt)
-        self.dt_frac = [1.0, 1.0/4.0, 2.0/3.0]
-        # start of each step (fraction of dt)
-        self.start_frac = [0.0, 1.0/4.0, 1.0/3.0]
-        # weight to multiply u_n in weighted average to obtain start value
-        self.stage_w = [1.0 - self.start_frac[0]]
-        for i in range(1, len(self.dt_frac)):
-            prev_end_time = self.start_frac[i-1] + self.dt_frac[i-1]
-            self.stage_w.append(prev_end_time*(1.0 - self.start_frac[i]))
-        print 'dt_frac', self.dt_frac
-        print 'start_frac', self.start_frac
-        print 'stage_w', self.stage_w
-
     def initialize(self):
         """Assign initial conditions to all necessary fields"""
         self.timeStepper2d.initialize(self.solver.solution2d.split()[1])
@@ -740,16 +829,6 @@ class coupledSSPRKSingleMode(timeIntegrator):
             self.timeStepper_salt3d.initialize(self.solver.salt3d)
         if self.solver.solveVertDiffusion:
             self.timeStepper_vmom3d.initialize(self.solver.uv3d)
-
-        # construct 2d time steps for sub-stages
-        self.M = []
-        self.dt_2d = []
-        for i, f in enumerate(self.dt_frac):
-            M = int(np.ceil(f*self.solver.dt/self.solver.dt_2d))
-            dt = f*self.solver.dt/M
-            print 'stage', i, dt, M, f
-            self.M.append(M)
-            self.dt_2d.append(dt)
 
     def advance(self, t, dt, updateForcings=None, updateForcings3d=None):
         """Advances the equations for one time step"""
@@ -763,64 +842,64 @@ class coupledSSPRKSingleMode(timeIntegrator):
             with timed_region('aux_eta3d'):
                 eta = sol2d
                 copy2dFieldTo3d(eta, s.eta3d)  # at t_{n+1}
-            #with timed_region('aux_mesh_ale'):
-                #if s.useALEMovingMesh:
-                    #updateCoordinates(
-                        #s.mesh, s.eta3d, s.bathymetry3d,
-                        #s.z_coord3d, s.z_coord_ref3d)
-                    ## need to destroy all cached solvers!
-                    #linProblemCache.clear()
-                    #self.timeStepper_mom3d.updateSolver()
-                    #if s.solveSalt:
-                        #self.timeStepper_salt3d.updateSolver()
-                    #if s.solveVertDiffusion:
-                        #self.timeStepper_vmom3d.updateSolver()
-            #with timed_region('vert_diffusion'):
-                #if doVertDiffusion and s.solveVertDiffusion:
-                        #self.timeStepper_vmom3d.advance(t, s.dt_2d, s.uv3d)
-            #with timed_region('continuityEq'):
-                #computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d)
-            #with timed_region('aux_mesh_ale'):
-                #if s.useALEMovingMesh:
-                    #computeMeshVelocity(
-                        #s.eta3d, s.uv3d, s.w3d,
-                        #s.w_mesh3d, s.w_mesh_surf3d,
-                        #s.w_mesh_surf2d,
-                        #s.dw_mesh_dz_3d, s.bathymetry3d,
-                        #s.z_coord_ref3d)
-            #with timed_region('aux_friction'):
-                #if s.useBottomFriction:
-                    #computeBottomFriction(
-                        #s.uv3d, s.uv_bottom2d,
-                        #s.uv_bottom3d, s.z_coord3d,
-                        #s.z_bottom2d, s.z_bottom3d,
-                        #s.bathymetry2d, s.bottom_drag2d,
-                        #s.bottom_drag3d)
-                    #computeParabolicViscosity(
-                        #s.uv_bottom3d, s.bottom_drag3d,
-                        #s.bathymetry3d,
-                        #s.viscosity_v3d)
-            #with timed_region('aux_barolinicity'):
-                #if s.baroclinic:
-                    #computeBaroclinicHead(s.salt3d, s.baroHead3d,
-                                          #s.baroHead2d, s.baroHeadInt3d,
-                                          #s.bathymetry3d)
-            #with timed_region('supg'):
-                #if s.useSUPG:
-                    #updateSUPGGamma(
-                        #s.uv3d, s.w3d, s.u_mag_func,
-                        #s.u_mag_func_h, s.u_mag_func_v,
-                        #s.hElemSize3d, s.vElemSize3d,
-                        #s.SUPG_alpha,
-                        #s.supg_gamma_h, s.supg_gamma_v)
-            #with timed_region('gjv'):
-                #if s.useGJV:
-                    #computeHorizGJVParameter(
-                        #s.gjv_alpha, s.salt3d, s.nonlinStab_h, s.hElemSize3d,
-                        #s.u_mag_func_h, maxval=800.0*s.uAdvection.dat.data[0])
-                    #computeVertGJVParameter(
-                        #s.gjv_alpha, s.salt3d, s.nonlinStab_v, s.vElemSize3d,
-                        #s.u_mag_func_v, maxval=800.0*s.uAdvection.dat.data[0])
+            with timed_region('aux_mesh_ale'):
+                if s.useALEMovingMesh:
+                    updateCoordinates(
+                        s.mesh, s.eta3d, s.bathymetry3d,
+                        s.z_coord3d, s.z_coord_ref3d)
+                    # need to destroy all cached solvers!
+                    linProblemCache.clear()
+                    self.timeStepper_mom3d.updateSolver()
+                    if s.solveSalt:
+                        self.timeStepper_salt3d.updateSolver()
+                    if s.solveVertDiffusion:
+                        self.timeStepper_vmom3d.updateSolver()
+            with timed_region('vert_diffusion'):
+                if doVertDiffusion and s.solveVertDiffusion:
+                        self.timeStepper_vmom3d.advance(t, s.dt_2d, s.uv3d)
+            with timed_region('continuityEq'):
+                computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d)
+            with timed_region('aux_mesh_ale'):
+                if s.useALEMovingMesh:
+                    computeMeshVelocity(
+                        s.eta3d, s.uv3d, s.w3d,
+                        s.w_mesh3d, s.w_mesh_surf3d,
+                        s.w_mesh_surf2d,
+                        s.dw_mesh_dz_3d, s.bathymetry3d,
+                        s.z_coord_ref3d)
+            with timed_region('aux_friction'):
+                if s.useBottomFriction:
+                    computeBottomFriction(
+                        s.uv3d, s.uv_bottom2d,
+                        s.uv_bottom3d, s.z_coord3d,
+                        s.z_bottom2d, s.z_bottom3d,
+                        s.bathymetry2d, s.bottom_drag2d,
+                        s.bottom_drag3d)
+                    computeParabolicViscosity(
+                        s.uv_bottom3d, s.bottom_drag3d,
+                        s.bathymetry3d,
+                        s.viscosity_v3d)
+            with timed_region('aux_barolinicity'):
+                if s.baroclinic:
+                    computeBaroclinicHead(s.salt3d, s.baroHead3d,
+                                          s.baroHead2d, s.baroHeadInt3d,
+                                          s.bathymetry3d)
+            with timed_region('supg'):
+                if s.useSUPG:
+                    updateSUPGGamma(
+                        s.uv3d, s.w3d, s.u_mag_func,
+                        s.u_mag_func_h, s.u_mag_func_v,
+                        s.hElemSize3d, s.vElemSize3d,
+                        s.SUPG_alpha,
+                        s.supg_gamma_h, s.supg_gamma_v)
+            with timed_region('gjv'):
+                if s.useGJV:
+                    computeHorizGJVParameter(
+                        s.gjv_alpha, s.salt3d, s.nonlinStab_h, s.hElemSize3d,
+                        s.u_mag_func_h, maxval=800.0*s.uAdvection.dat.data[0])
+                    computeVertGJVParameter(
+                        s.gjv_alpha, s.salt3d, s.nonlinStab_v, s.vElemSize3d,
+                        s.u_mag_func_v, maxval=800.0*s.uAdvection.dat.data[0])
             with timed_region('aux_mom_coupling'):
                 if do2DCoupling:
                     bndValue = Constant((0.0, 0.0, 0.0))
@@ -833,8 +912,7 @@ class coupledSSPRKSingleMode(timeIntegrator):
                     copy3dFieldTo2d(s.uv3d_dav, uv2d,
                                     useBottomValue=False)
 
-        self.sol2d_n.assign(sol2d)  # keep copy of eta_n
-        for k in range(len(self.dt_frac)):
+        for k in range(self.timeStepper2d.nstages):
             with timed_region('saltEq'):
                 if s.solveSalt:
                     self.timeStepper_salt3d.solveStage(k, t, s.dt_2d, s.salt3d,
