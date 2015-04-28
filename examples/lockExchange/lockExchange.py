@@ -10,7 +10,7 @@ from cofs import *
 # set physical constants
 physical_constants['z0_friction'].assign(5.0e-5)
 
-reso_str = 'coarse'
+reso_str = 'coarse2'
 outputDir = createDirectory('outputs_'+reso_str)
 refinement = {'coarse': 1, 'coarse2': 2, 'medium': 4, 'fine': 16}
 layers = 10*refinement[reso_str]
@@ -34,7 +34,7 @@ solverObj.solveSalt = True
 solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False
 solverObj.useALEMovingMesh = True
-solverObj.useModeSplit = False
+#solverObj.useModeSplit = False
 solverObj.baroclinic = True
 solverObj.useSUPG = False
 solverObj.useGJV = False
@@ -43,9 +43,9 @@ solverObj.useGJV = False
 solverObj.hDiffusivity = Constant(100.0)
 solverObj.hViscosity = Constant(100.0)
 solverObj.vViscosity = Constant(1e-3)
-#solverObj.dt = dt
-solverObj.dt = 6
-solverObj.TExport = 12
+if solverObj.useModeSplit:
+    solverObj.dt = dt
+solverObj.TExport = TExport
 solverObj.T = T
 solverObj.outputDir = outputDir
 solverObj.uAdvection = Constant(2.5)
