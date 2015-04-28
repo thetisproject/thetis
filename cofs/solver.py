@@ -113,6 +113,7 @@ class flowSolver(object):
         self.vDiffusivity = None  # background diffusivity (set to Constant)
         self.hViscosity = None  # background viscosity (set to Constant)
         self.vViscosity = None  # background viscosity (set to Constant)
+        self.coriolis = None  # Coriolis parameter (Constant or 2D Function)
         self.useSUPG = False  # SUPG stabilization for tracer advection
         self.useGJV = False  # nonlin gradient jump viscosity
         self.baroclinic = False  # comp and use internal pressure gradient
@@ -236,6 +237,14 @@ class flowSolver(object):
             self.baroHead2d = Function(self.H_2d, name='DAv baroclinic head')
         else:
             self.baroHead3d = self.baroHead2d = None
+        if self.coriolis is not None:
+            if isinstance(self.coriolis, Constant):
+                self.coriolis3d = self.coriolis
+            else:
+                self.coriolis3d = Function(self.P1, name='Coriolis parameter')
+                copy2dFieldTo3d(self.coriolis, self.coriolis3d)
+        else:
+            self.coriolis3d = None
         if self.useSUPG:
             # TODO move these somewhere else? All form are now in equations...
             test = TestFunction(self.H)
@@ -276,6 +285,7 @@ class flowSolver(object):
                 baro_head=self.baroHead2d,
                 viscosity_h=self.hViscosity,
                 uvLaxFriedrichs=self.uvLaxFriedrichs,
+                coriolis=self.coriolis,
                 nonlin=self.nonlin, use_wd=self.use_wd)
         else:
             # solve elevation only: 2D free surface equation
@@ -295,6 +305,7 @@ class flowSolver(object):
             dw_mesh_dz=self.dw_mesh_dz_3d,
             viscosity_v=self.vViscosity, viscosity_h=self.hViscosity,
             uvLaxFriedrichs=self.uvLaxFriedrichs,
+            coriolis=self.coriolis3d,
             nonlin=self.nonlin)
         if self.solveSalt:
             self.eq_salt = module_3d.tracerEquation(

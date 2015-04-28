@@ -19,6 +19,7 @@ class momentumEquation(equation):
                  w_mesh=None, dw_mesh_dz=None,
                  uv_bottom=None, bottom_drag=None,
                  viscosity_v=None, viscosity_h=None,
+                 coriolis=None,
                  baro_head=None, uvLaxFriedrichs=None,
                  nonlin=True):
         self.mesh = mesh
@@ -36,6 +37,7 @@ class momentumEquation(equation):
                        'viscosity_v': viscosity_v,
                        'viscosity_h': viscosity_h,
                        'baro_head': baro_head,
+                       'coriolis': coriolis,
                        'uvLaxFriedrichs': uvLaxFriedrichs,
                        }
         # time independent arg
@@ -81,7 +83,7 @@ class momentumEquation(equation):
         return inner(solution, self.test) * self.dx
 
     def RHS(self, solution, eta, w=None, viscosity_v=None,
-            viscosity_h=None,
+            viscosity_h=None, coriolis=None,
             uv_bottom=None, bottom_drag=None,
             w_mesh=None, dw_mesh_dz=None, uvLaxFriedrichs=None, **kwargs):
         """Returns the right hand side of the equations.
@@ -249,6 +251,11 @@ class momentumEquation(equation):
                           uv_in[0]*self.test[0]*self.normal[1]*uv_in[1] +
                           uv_in[1]*self.test[1]*self.normal[0]*uv_in[0] +
                           uv_in[1]*self.test[1]*self.normal[1]*uv_in[1])*ds_bnd
+
+        # Coriolis
+        if coriolis is not None:
+            F += coriolis*(-solution[1]*self.test[0] +
+                           solution[0]*self.test[1])*self.dx
 
         # horizontal viscosity
         if viscosity_h is not None:

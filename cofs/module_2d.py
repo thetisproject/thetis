@@ -16,6 +16,7 @@ class shallowWaterEquations(equation):
     def __init__(self, mesh, space, solution, bathymetry,
                  uv_bottom=None, bottom_drag=None, viscosity_h=None,
                  mu_manning=None, baro_head=None,
+                 coriolis=None,
                  uvLaxFriedrichs=None,
                  nonlin=True, use_wd=True):
         self.mesh = mesh
@@ -33,6 +34,7 @@ class shallowWaterEquations(equation):
                        'viscosity_h': viscosity_h,
                        'mu_manning': mu_manning,
                        'baro_head': baro_head,
+                       'coriolis': coriolis,
                        'uvLaxFriedrichs': uvLaxFriedrichs,
                        }
 
@@ -174,7 +176,8 @@ class shallowWaterEquations(equation):
         return F * self.dx
 
     def RHS(self, solution, uv_old=None, uv_bottom=None, bottom_drag=None,
-            viscosity_h=None, mu_manning=None, uvLaxFriedrichs=None, **kwargs):
+            viscosity_h=None, mu_manning=None,
+            coriolis=None, uvLaxFriedrichs=None, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0  # holds all dx volume integral terms
@@ -318,6 +321,10 @@ class shallowWaterEquations(equation):
                 un_ext = sqrt(g_grav / total_H) * eta
                 G += total_H * un_ext * self.eta_test * ds_bnd
                 G += un_ext * un_ext * inner(self.normal, self.U_test) * ds_bnd
+
+        # Coriolis
+        if coriolis is not None:
+            F += coriolis*(-uv[1]*self.U_test[0]+uv[0]*self.U_test[1])*self.dx
 
         # Quadratic drag
         if mu_manning is not None:

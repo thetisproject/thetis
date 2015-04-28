@@ -690,6 +690,32 @@ def computeParabolicViscosity(uv_bottom, bottom_drag, bathymetry, nu,
     return nu
 
 
+def betaPlaneCoriolisParams(latitude):
+    """Computes beta plane parameters based on the latitude (given in degrees)."""
+    Omega = 7.2921150e-5  # rad/s Earth rotation rate
+    R = 6371.e3  # Earth radius
+    S = 2*np.pi*R  # circumference
+    # Coriolis parameter f = 2 Omega sin(alpha)
+    # Beta plane approximation f_beta = f_0 + Beta y
+    # f_0 = 2 Omega sin(alpha_0)
+    # Beta = df/dy|_{alpha=alpha_0}
+    #      = (df/dalpha*dalpha/dy)_{alpha=alpha_0}
+    #      = 2 Omega cos(alpha_0) /R
+    alpha_0 = 2*np.pi*latitude/360.0
+    f_0 = 2*Omega*np.sin(alpha_0)
+    beta = 2*Omega*np.cos(alpha_0)/R
+    return f_0, beta
+
+
+def betaPlaneCoriolisFunction(degrees, out_function, y_offset=0.0):
+    """Interpolates beta plane Coriolis parameter to the given functions."""
+    # NOTE assumes that mesh y coordinate spans [-L_y, L_y]
+    f0, beta = betaPlaneCoriolisParams(45.0)
+    out_function.interpolate(
+        Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=y_offset)
+        )
+
+
 class exporter(object):
     """Class that handles Paraview file exports."""
     def __init__(self, fs_visu, func_name, outputDir, filename):
