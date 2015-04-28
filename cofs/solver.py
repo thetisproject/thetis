@@ -107,6 +107,7 @@ class flowSolver(object):
         self.solveSalt = True  # solve salt transport
         self.solveVertDiffusion = True  # solve implicit vert diffusion
         self.useBottomFriction = True  # apply log layer bottom stress
+        self.useParabolicViscosity = False  # compute parabolic eddy viscosity
         self.useALEMovingMesh = True  # 3D mesh tracks free surface
         self.useModeSplit = True  # run 2D/3D modes with different dt
         self.hDiffusivity = None  # background diffusivity (set to Constant)
@@ -114,6 +115,7 @@ class flowSolver(object):
         self.hViscosity = None  # background viscosity (set to Constant)
         self.vViscosity = None  # background viscosity (set to Constant)
         self.coriolis = None  # Coriolis parameter (Constant or 2D Function)
+        self.wind_stress = None  # stress at free surface (2D vector function)
         self.useSUPG = False  # SUPG stabilization for tracer advection
         self.useGJV = False  # nonlin gradient jump viscosity
         self.baroclinic = False  # comp and use internal pressure gradient
@@ -227,8 +229,8 @@ class flowSolver(object):
             self.salt3d = Function(self.H, name='Salinity')
         else:
             self.salt3d = None
-        if self.solveVertDiffusion:
-            self.viscosity_v3d = Function(self.P1, name='Vertical Velocity')
+        if self.solveVertDiffusion and self.useParabolicViscosity:
+            self.viscosity_v3d = Function(self.P1, name='Eddy viscosity')
         else:
             self.viscosity_v3d = self.vViscosity
         if self.baroclinic:
@@ -245,6 +247,11 @@ class flowSolver(object):
                 copy2dFieldTo3d(self.coriolis, self.coriolis3d)
         else:
             self.coriolis3d = None
+        if self.wind_stress is not None:
+            self.wind_stress3d = Function(self.U, name='Wind stress')
+            copy2dFieldTo3d(self.wind_stress, self.wind_stress3d)
+        else:
+            self.wind_stress3d = None
         if self.useSUPG:
             # TODO move these somewhere else? All form are now in equations...
             test = TestFunction(self.H)
@@ -286,6 +293,7 @@ class flowSolver(object):
                 viscosity_h=self.hViscosity,
                 uvLaxFriedrichs=self.uvLaxFriedrichs,
                 coriolis=self.coriolis,
+                wind_stress=self.wind_stress,
                 nonlin=self.nonlin, use_wd=self.use_wd)
         else:
             # solve elevation only: 2D free surface equation
@@ -326,7 +334,8 @@ class flowSolver(object):
                 self.mesh, self.U, self.U_scalar, self.uv3d, w=None,
                 viscosity_v=self.viscosity_v3d,
                 uv_bottom=self.uv_bottom3d,
-                bottom_drag=self.bottom_drag3d)
+                bottom_drag=self.bottom_drag3d,
+                wind_stress=self.wind_stress3d)
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         self.eq_momentum.bnd_functions = self.bnd_functions['momentum']
         if self.solveSalt:

@@ -415,7 +415,11 @@ class CrankNicolson(timeIntegrator):
         self.funcs_old = {}
         for k in self.funcs:
             if self.funcs[k] is not None:
-                self.funcs_old[k] = Function(self.funcs[k].function_space())
+                if isinstance(self.funcs[k], Function):
+                    self.funcs_old[k] = Function(
+                        self.funcs[k].function_space())
+                elif isinstance(self.funcs[k], Constant):
+                    self.funcs_old[k] = Constant(self.funcs[k])
 
         self.solver_parameters = {
             'snes_type': 'newtonls',
@@ -537,6 +541,7 @@ class coupledSSPRK(timeIntegrator):
                     s.z_bottom2d, s.z_bottom3d,
                     s.bathymetry2d, s.bottom_drag2d,
                     s.bottom_drag3d)
+            if s.useParabolicViscosity:
                 computeParabolicViscosity(
                     s.uv_bottom3d, s.bottom_drag3d,
                     s.bathymetry3d,
@@ -717,6 +722,7 @@ class coupledSSPRKSync(timeIntegrator):
                         s.z_bottom2d, s.z_bottom3d,
                         s.bathymetry2d, s.bottom_drag2d,
                         s.bottom_drag3d)
+                if s.useParabolicViscosity:
                     computeParabolicViscosity(
                         s.uv_bottom3d, s.bottom_drag3d,
                         s.bathymetry3d,
@@ -875,6 +881,7 @@ class coupledSSPRKSingleMode(timeIntegrator):
                         s.z_bottom2d, s.z_bottom3d,
                         s.bathymetry2d, s.bottom_drag2d,
                         s.bottom_drag3d)
+                if s.useParabolicViscosity:
                     computeParabolicViscosity(
                         s.uv_bottom3d, s.bottom_drag3d,
                         s.bathymetry3d,

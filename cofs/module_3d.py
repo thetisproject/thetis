@@ -10,6 +10,7 @@ wd_alpha = physical_constants['wd_alpha']
 mu_manning = physical_constants['mu_manning']
 z0_friction = physical_constants['z0_friction']
 von_karman = physical_constants['von_karman']
+rho_0 = physical_constants['rho0']
 
 
 class momentumEquation(equation):
@@ -327,7 +328,8 @@ class verticalMomentumEquation(equation):
     """Vertical advection and diffusion terms of 3D momentum equation for
     hydrostatic Boussinesq flow."""
     def __init__(self, mesh, space, space_scalar, solution, w=None,
-                 viscosity_v=None, uv_bottom=None, bottom_drag=None):
+                 viscosity_v=None, uv_bottom=None, bottom_drag=None,
+                 wind_stress=None):
         self.mesh = mesh
         self.space = space
         self.space_scalar = space_scalar
@@ -337,6 +339,7 @@ class verticalMomentumEquation(equation):
                        'viscosity_v': viscosity_v,
                        'uv_bottom': uv_bottom,
                        'bottom_drag': bottom_drag,
+                       'wind_stress': wind_stress,
                        }
 
         # test and trial functions
@@ -377,7 +380,8 @@ class verticalMomentumEquation(equation):
         #return (solution[0]*self.test[0] + solution[1]*self.test[1]) * self.dx
 
     def RHS(self, solution, w=None, viscosity_v=None,
-            uv_bottom=None, bottom_drag=None, **kwargs):
+            uv_bottom=None, bottom_drag=None,
+            **kwargs):
         """Returns the right hand side of the equations.
         Contains all terms that depend on the solution."""
         F = 0  # holds all dx volume integral terms
@@ -410,7 +414,9 @@ class verticalMomentumEquation(equation):
         return -F - G
 
     def Source(self, w=None, viscosity_v=None,
-               uv_bottom=None, bottom_drag=None, **kwargs):
+               uv_bottom=None, bottom_drag=None,
+               wind_stress=None,
+               **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
         F = 0  # holds all dx volume integral terms
@@ -423,6 +429,10 @@ class verticalMomentumEquation(equation):
                 BotFriction = (stress[0]*self.test[0] +
                                stress[1]*self.test[1])*ds_t
                 F += BotFriction
+            # wind stress
+            if wind_stress is not None:
+                F += (wind_stress[0]*self.test[0] +
+                      wind_stress[1]*self.test[1])/rho_0*ds_b
 
         return -F
 

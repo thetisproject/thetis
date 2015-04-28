@@ -9,6 +9,7 @@ commrank = op2.MPI.comm.rank
 
 g_grav = physical_constants['g_grav']
 wd_alpha = physical_constants['wd_alpha']
+rho_0 = physical_constants['rho0']
 
 
 class shallowWaterEquations(equation):
@@ -17,6 +18,7 @@ class shallowWaterEquations(equation):
                  uv_bottom=None, bottom_drag=None, viscosity_h=None,
                  mu_manning=None, baro_head=None,
                  coriolis=None,
+                 wind_stress=None,
                  uvLaxFriedrichs=None,
                  nonlin=True, use_wd=True):
         self.mesh = mesh
@@ -35,6 +37,7 @@ class shallowWaterEquations(equation):
                        'mu_manning': mu_manning,
                        'baro_head': baro_head,
                        'coriolis': coriolis,
+                       'wind_stress': wind_stress,
                        'uvLaxFriedrichs': uvLaxFriedrichs,
                        }
 
@@ -177,7 +180,8 @@ class shallowWaterEquations(equation):
 
     def RHS(self, solution, uv_old=None, uv_bottom=None, bottom_drag=None,
             viscosity_h=None, mu_manning=None,
-            coriolis=None, uvLaxFriedrichs=None, **kwargs):
+            coriolis=None, wind_stress=None,
+            uvLaxFriedrichs=None, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0  # holds all dx volume integral terms
@@ -325,6 +329,10 @@ class shallowWaterEquations(equation):
         # Coriolis
         if coriolis is not None:
             F += coriolis*(-uv[1]*self.U_test[0]+uv[0]*self.U_test[1])*self.dx
+
+        # Wind stress
+        if wind_stress is not None:
+            F += dot(wind_stress, self.U_test)/total_H/rho_0*self.dx
 
         # Quadratic drag
         if mu_manning is not None:
