@@ -110,6 +110,7 @@ class flowSolver(object):
         self.useParabolicViscosity = False  # compute parabolic eddy viscosity
         self.useALEMovingMesh = True  # 3D mesh tracks free surface
         self.useModeSplit = True  # run 2D/3D modes with different dt
+        self.lin_drag = None  # 2D linear drag parameter tau/H/rho_0 = -drag*u
         self.hDiffusivity = None  # background diffusivity (set to Constant)
         self.vDiffusivity = None  # background diffusivity (set to Constant)
         self.hViscosity = None  # background viscosity (set to Constant)
@@ -294,6 +295,7 @@ class flowSolver(object):
                 uvLaxFriedrichs=self.uvLaxFriedrichs,
                 coriolis=self.coriolis,
                 wind_stress=self.wind_stress,
+                lin_drag=self.lin_drag,
                 nonlin=self.nonlin, use_wd=self.use_wd)
         else:
             # solve elevation only: 2D free surface equation
@@ -314,6 +316,7 @@ class flowSolver(object):
             viscosity_v=self.vViscosity, viscosity_h=self.hViscosity,
             uvLaxFriedrichs=self.uvLaxFriedrichs,
             coriolis=self.coriolis3d,
+            lin_drag=self.lin_drag,
             nonlin=self.nonlin)
         if self.solveSalt:
             self.eq_salt = module_3d.tracerEquation(
@@ -542,7 +545,7 @@ class flowSolver2d(object):
         self.cfl_2d = 1.0  # factor to scale the 2d time step
         self.nonlin = True  # use nonlinear shallow water equations
         self.use_wd = False  # use wetting-drying
-        self.lin_drag = None  # linear drag parameter du/dt + ... = -l*u
+        self.lin_drag = None  # linear drag parameter tau/H/rho_0 = -drag*u
         self.hDiffusivity = None  # background diffusivity (set to Constant)
         self.hViscosity = None  # background viscosity (set to Constant)
         self.coriolis = None  # Coriolis parameter (Constant or 2D Function)

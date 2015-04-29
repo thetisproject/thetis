@@ -672,6 +672,7 @@ class coupledSSPRKSync(timeIntegrator):
     Split-explicit solves equations with simultaneous SSPRK33 stages.
     """
     def __init__(self, solver):
+        self._initialized = False
         self.solver = solver
         self.timeStepper2d = SSPRK33(
             solver.eq_sw, solver.dt_2d,
@@ -732,9 +733,12 @@ class coupledSSPRKSync(timeIntegrator):
             print 'stage', i, dt, M, f
             self.M.append(M)
             self.dt_2d.append(dt)
+        self._initialized = True
 
     def advance(self, t, dt, updateForcings=None, updateForcings3d=None):
         """Advances the equations for one time step"""
+        if not self._initialized:
+            self.initialize()
         s = self.solver
         sol2d_old = self.timeStepper2d.solution_old
         sol2d = self.timeStepper2d.equation.solution

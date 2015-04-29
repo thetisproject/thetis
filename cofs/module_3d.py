@@ -14,7 +14,7 @@ class momentumEquation(equation):
     def __init__(self, mesh, space, space_scalar, bnd_markers, bnd_len,
                  solution, eta, bathymetry, w=None,
                  w_mesh=None, dw_mesh_dz=None,
-                 uv_bottom=None, bottom_drag=None,
+                 uv_bottom=None, bottom_drag=None, lin_drag=None,
                  viscosity_v=None, viscosity_h=None,
                  coriolis=None,
                  baro_head=None, uvLaxFriedrichs=None,
@@ -31,6 +31,7 @@ class momentumEquation(equation):
                        'dw_mesh_dz': dw_mesh_dz,
                        'uv_bottom': uv_bottom,
                        'bottom_drag': bottom_drag,
+                       'lin_drag': lin_drag,
                        'viscosity_v': viscosity_v,
                        'viscosity_h': viscosity_h,
                        'baro_head': baro_head,
@@ -81,7 +82,7 @@ class momentumEquation(equation):
 
     def RHS(self, solution, eta, w=None, viscosity_v=None,
             viscosity_h=None, coriolis=None,
-            uv_bottom=None, bottom_drag=None,
+            uv_bottom=None, bottom_drag=None, lin_drag=None,
             w_mesh=None, dw_mesh_dz=None, uvLaxFriedrichs=None, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
@@ -272,6 +273,11 @@ class momentumEquation(equation):
                 # viscflux = viscosity_v*Dx(solution, 2)
                 # G += -(avg(viscflux[0])*jump(self.test[0], normal[2]) +
                 #        avg(viscflux[0])*jump(self.test[1], normal[2]))
+
+        # Linear drag (consistent with drag in 2D mode)
+        if lin_drag is not None:
+            BottomFri = lin_drag*inner(self.test, solution)*self.dx
+            F += BottomFri
 
         return -F - G
 
