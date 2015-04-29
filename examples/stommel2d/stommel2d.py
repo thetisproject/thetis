@@ -1,9 +1,9 @@
-# Wave equation in 2D
+# Stommel gyre test case
 # ===================
 #
-# Rectangular channel geometry.
+# Setup is according to Comblen et al. (2010).
 #
-# Tuomas Karna 2015-03-11
+# Tuomas Karna 2015-04-28
 
 from cofs import *
 import cofs.timeIntegration as timeIntegration
@@ -16,7 +16,7 @@ mesh2d = Mesh('stommel_square.msh')
 nonlin = False
 depth = 1000.0
 outputDir = createDirectory('outputs')
-T = 100*24*3600
+T = 75*12*2*3600
 TExport = 3600*2
 
 # bathymetry
