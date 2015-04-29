@@ -431,7 +431,7 @@ class verticalMomentumEquation(equation):
                 F += BotFriction
             # wind stress
             if wind_stress is not None:
-                F += (wind_stress[0]*self.test[0] +
+                F -= (wind_stress[0]*self.test[0] +
                       wind_stress[1]*self.test[1])/rho_0*ds_b
 
         return -F

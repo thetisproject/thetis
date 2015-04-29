@@ -16,11 +16,11 @@ class shallowWaterEquations(equation):
     """2D depth averaged shallow water equations in non-conservative form"""
     def __init__(self, mesh, space, solution, bathymetry,
                  uv_bottom=None, bottom_drag=None, viscosity_h=None,
-                 mu_manning=None, baro_head=None,
+                 mu_manning=None, lin_drag=None, baro_head=None,
                  coriolis=None,
                  wind_stress=None,
                  uvLaxFriedrichs=None,
-                 nonlin=True, use_wd=True):
+                 nonlin=True, use_wd=False):
         self.mesh = mesh
         self.space = space
         self.U_space, self.eta_space = self.space.split()
@@ -35,6 +35,7 @@ class shallowWaterEquations(equation):
                        'bottom_drag': bottom_drag,
                        'viscosity_h': viscosity_h,
                        'mu_manning': mu_manning,
+                       'lin_drag': lin_drag,
                        'baro_head': baro_head,
                        'coriolis': coriolis,
                        'wind_stress': wind_stress,
@@ -179,7 +180,7 @@ class shallowWaterEquations(equation):
         return F * self.dx
 
     def RHS(self, solution, uv_old=None, uv_bottom=None, bottom_drag=None,
-            viscosity_h=None, mu_manning=None,
+            viscosity_h=None, mu_manning=None, lin_drag=None,
             coriolis=None, wind_stress=None,
             uvLaxFriedrichs=None, **kwargs):
         """Returns the right hand side of the equations.
@@ -332,12 +333,17 @@ class shallowWaterEquations(equation):
 
         # Wind stress
         if wind_stress is not None:
-            F += dot(wind_stress, self.U_test)/total_H/rho_0*self.dx
+            F += -dot(wind_stress, self.U_test)/total_H/rho_0*self.dx
 
         # Quadratic drag
         if mu_manning is not None:
             BottomFri = g_grav * mu_manning ** 2 * \
                 total_H ** (-4. / 3.) * sqrt(dot(uv_old, uv_old)) * inner(self.U_test, uv)*self.dx
+            F += BottomFri
+
+        # Linear drag
+        if lin_drag is not None:
+            BottomFri = lin_drag*inner(self.U_test, uv)/total_H*self.dx
             F += BottomFri
 
         # bottom friction from a 3D model
