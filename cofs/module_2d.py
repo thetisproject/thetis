@@ -8,7 +8,6 @@ from utility import *
 commrank = op2.MPI.comm.rank
 
 g_grav = physical_constants['g_grav']
-wd_alpha = physical_constants['wd_alpha']
 rho_0 = physical_constants['rho0']
 
 
@@ -343,7 +342,7 @@ class shallowWaterEquations(equation):
 
         # Linear drag
         if lin_drag is not None:
-            BottomFri = lin_drag*inner(self.U_test, uv)/total_H*self.dx
+            BottomFri = lin_drag*inner(self.U_test, uv)*self.dx
             F += BottomFri
 
         # bottom friction from a 3D model

@@ -6,10 +6,6 @@ Tuomas Karna 2015-02-23
 from utility import *
 
 g_grav = physical_constants['g_grav']
-wd_alpha = physical_constants['wd_alpha']
-mu_manning = physical_constants['mu_manning']
-z0_friction = physical_constants['z0_friction']
-von_karman = physical_constants['von_karman']
 rho_0 = physical_constants['rho0']
 
 

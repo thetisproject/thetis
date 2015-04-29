@@ -27,7 +27,10 @@ bathymetry2d.assign(depth)
 
 # Coriolis forcing
 coriolis2d = Function(P1_2d)
-betaPlaneCoriolisFunction(45.0, coriolis2d)
+f0, beta = 1.0e-4, 2.0e-11
+coriolis2d.interpolate(
+    Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0)
+    )
 
 # Wind stress
 windStress2d = Function(P1v_2d, name='wind stress')
@@ -53,5 +56,6 @@ solverObj.uAdvection = Constant(0.01)
 solverObj.checkVolConservation2d = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d']
 solverObj.timerLabels = []
+solverObj.timeStepperType = 'CrankNicolson'
 
 solverObj.iterate()

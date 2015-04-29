@@ -549,6 +549,7 @@ class flowSolver2d(object):
         self.wind_stress = None  # stress at free surface (2D vector function)
         self.uvLaxFriedrichs = Constant(1.0)  # scales uv stab. None omits
         self.checkVolConservation2d = False
+        self.timeStepperType = 'SSPRK33'
         self.timerLabels = ['mode2d']
         self.outputDir = 'outputs'
         self.fieldsToExport = ['elev2d', 'uv2d']
@@ -592,8 +593,17 @@ class flowSolver2d(object):
 
         # ----- Time integrators
         self.setTimeStep()
-        self.timeStepper = timeIntegration.SSPRK33(self.eq_sw, self.dt,
-                                                   self.eq_sw.solver_parameters)
+        if self.timeStepperType.lower() == 'ssprk33':
+            self.timeStepper = timeIntegration.SSPRK33Stage(self.eq_sw, self.dt,
+                                                            self.eq_sw.solver_parameters)
+        elif self.timeStepperType.lower() == 'forwardeuler':
+            self.timeStepper = timeIntegration.ForwardEuler(self.eq_sw, self.dt,
+                                                            self.eq_sw.solver_parameters)
+        elif self.timeStepperType.lower() == 'cranknicolson':
+            self.timeStepper = timeIntegration.CrankNicolson(self.eq_sw, self.dt,
+                                                             self.eq_sw.solver_parameters)
+        else:
+            raise Exception('Unknown time integrator type: '+str(self.timeStepperType))
 
         # ----- File exporters
         uv2d, eta2d = self.solution2d.split()

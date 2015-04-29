@@ -395,12 +395,12 @@ class SSPRK33Stage(timeIntegrator):
                             updateForcings)
 
 
-class CrankNicolson(timeIntegrator):
-    """Standard Crank-Nicolson time integration scheme."""
-    def __init__(self, equation, dt, gamma=0.6):
+class ForwardEuler(timeIntegrator):
+    """Standard forward Euler time integration scheme."""
+    def __init__(self, equation, dt, solver_parameters=None):
         """Creates forms for the time integrator"""
         self.equation = equation
-
+        self.solver_parameters = solver_parameters
         massTerm = self.equation.massTerm
         RHS = self.equation.RHS
         Source = self.equation.Source
@@ -421,10 +421,66 @@ class CrankNicolson(timeIntegrator):
                 elif isinstance(self.funcs[k], Constant):
                     self.funcs_old[k] = Constant(self.funcs[k])
 
-        self.solver_parameters = {
-            'snes_type': 'newtonls',
-            'snes_monitor': False,
-        }
+        u = self.equation.solution
+        u_old = self.solution_old
+        u_tri = self.equation.tri
+        self.A = invdt*massTerm(u_tri)
+        self.L = (invdt*massTerm(u_old) +
+                  RHS(u_old, **self.funcs_old) +
+                  Source(**self.funcs_old))
+        self.updateSolver()
+
+    def updateSolver(self):
+        prob = LinearVariationalProblem(self.A, self.L, self.equation.solution)
+        self.solver = LinearVariationalSolver(prob,
+            solver_parameters=self.solver_parameters)
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(solution)
+        # assing values to old functions
+        for k in self.funcs_old:
+            self.funcs_old[k].assign(self.funcs[k])
+
+    def advance(self, t, dt, solution, updateForcings):
+        """Advances equations for one time step."""
+        if updateForcings is not None:
+            updateForcings(t+dt)
+        self.solution_old.assign(solution)
+        self.solver.solve()
+        # shift time
+        for k in self.funcs_old:
+            self.funcs_old[k].assign(self.funcs[k])
+
+
+class CrankNicolson(timeIntegrator):
+    """Standard Crank-Nicolson time integration scheme."""
+    def __init__(self, equation, dt, solver_parameters={}, gamma=0.6):
+        """Creates forms for the time integrator"""
+        self.equation = equation
+        self.solver_parameters=solver_parameters
+        self.solver_parameters.setdefault('snes_monitor', False)
+        self.solver_parameters.setdefault('snes_type', 'newtonls')
+
+        massTerm = self.equation.massTerm
+        RHS = self.equation.RHS
+        Source = self.equation.Source
+
+        invdt = Constant(1.0/dt)
+
+        self.solution_old = Function(self.equation.space)
+
+        # dict of all input functions needed for the equation
+        self.funcs = self.equation.kwargs
+        # create functions to hold the values of previous time step
+        self.funcs_old = {}
+        for k in self.funcs:
+            if self.funcs[k] is not None:
+                if isinstance(self.funcs[k], Function):
+                    self.funcs_old[k] = Function(
+                        self.funcs[k].function_space())
+                elif isinstance(self.funcs[k], Constant):
+                    self.funcs_old[k] = Constant(self.funcs[k])
 
         u = self.equation.solution
         u_old = self.solution_old
