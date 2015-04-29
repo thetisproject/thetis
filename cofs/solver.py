@@ -616,14 +616,16 @@ class flowSolver2d(object):
                                       exportFuncs, verbose=self.verbose > 0)
         self._initialized = True
 
-    def assingInitialConditions(self, elev=None):
+    def assingInitialConditions(self, elev=None, uv_init=None):
         if not self._initialized:
             self.mightyCreator()
+        uv2d, eta2d = self.solution2d.split()
         if elev is not None:
-            uv2d, eta2d = self.solution2d.split()
             eta2d.project(elev)
+        if uv_init is not None:
+            uv2d.project(uv_init)
 
-        self.timeStepper.initialize()
+        self.timeStepper.initialize(self.solution2d)
 
     def iterate(self, updateForcings=None,
                 exportFunc=None):
