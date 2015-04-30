@@ -178,10 +178,89 @@ class shallowWaterEquations(equation):
         # diag(nabla_grad(w))) ) #+ (eta+h_mean)*nabla_grad(v) )
         return F * self.dx
 
+    def RHS_implicit(self, solution, **kwargs):
+        """Returns all the terms that are treated semi-implicitly.
+        """
+        F = 0  # holds all dx volume integral terms
+        G = 0  # holds all ds boundary interface terms
+        uv, eta = split(solution)
+
+        # External pressure gradient
+        F += g_grav * inner(nabla_grad(eta), self.U_test) * self.dx
+
+        if self.nonlin and self.use_wd:
+            total_H = self.bathymetry + eta + self.wd_bath_displacement(eta)
+        elif self.nonlin:
+            total_H = self.bathymetry + eta
+        else:
+            total_H = self.bathymetry
+        # Divergence of depth-integrated velocity
+        F += -total_H * inner(uv, nabla_grad(self.eta_test)) * self.dx
+        if self.eta_is_DG:
+            Hu_star = avg(total_H*uv) +\
+                sqrt(g_grav*avg(total_H))*jump(total_H, self.normal)
+            G += inner(jump(self.eta_test, self.normal), Hu_star)*self.dS
+
+        # boundary conditions
+        for bnd_marker in self.boundary_markers:
+            funcs = self.bnd_functions.get(bnd_marker)
+            ds_bnd = ds(int(bnd_marker), domain=self.mesh)
+            if funcs is None:
+                # assume land boundary
+                continue
+
+            elif 'elev' in funcs:
+                # prescribe elevation only
+                h_ext = funcs['elev']
+                uv_ext = uv
+                t = self.normal[1] * self.e_x - self.normal[0] * self.e_y
+                ut_in = dot(uv, t)
+                # ut_ext = -dot(uv_ext,t) # assume zero
+                un_in = dot(uv, self.normal)
+                un_ext = dot(uv_ext, self.normal)
+
+                if self.nonlin:
+                    H = self.bathymetry + (eta + h_ext) / 2
+                else:
+                    H = self.bathymetry
+                c_roe = sqrt(g_grav * H)
+                un_riemann = dot(uv, self.normal) + c_roe / H * (eta - h_ext)/2
+                H_riemann = H
+                ut_riemann = tanh(4 * un_riemann / 0.02) * (ut_in)
+                uv_riemann = un_riemann * self.normal + ut_riemann * t
+
+                G += H_riemann * un_riemann * self.eta_test * ds_bnd
+                # added correct flux for eta
+                G += g_grav * ((h_ext - eta) / 2) * \
+                    inner(self.normal, self.U_test) * ds_bnd
+
+            elif 'un' in funcs:
+                # prescribe normal velocity (negative into domain)
+                un_ext = funcs['un']
+                un_in = dot(uv, self.normal)
+                un_riemann = (un_in + un_ext)/2
+                G += total_H * un_riemann * self.eta_test * ds_bnd
+
+            elif 'flux' in funcs:
+                # prescribe normal volume flux
+                sect_len = Constant(self.boundary_len[bnd_marker])
+                un_in = dot(uv, self.normal)
+                un_ext = funcs['flux'] / total_H / sect_len
+                un_av = (un_in + un_ext)/2
+                G += total_H * un_av * self.eta_test * ds_bnd
+
+            elif 'radiation':
+                # prescribe radiation condition that allows waves to pass tru
+                un_ext = sqrt(g_grav / total_H) * eta
+                G += total_H * un_ext * self.eta_test * ds_bnd
+
+        return -F - G
+
     def RHS(self, solution, uv_old=None, uv_bottom=None, bottom_drag=None,
             viscosity_h=None, mu_manning=None, lin_drag=None,
             coriolis=None, wind_stress=None,
-            uvLaxFriedrichs=None, **kwargs):
+            uvLaxFriedrichs=None,
+            **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0  # holds all dx volume integral terms
@@ -226,8 +305,8 @@ class shallowWaterEquations(equation):
 
             F += Adv_mom * self.dx
 
-        # External pressure gradient
-        F += g_grav * inner(nabla_grad(eta), self.U_test) * self.dx
+        ## External pressure gradient
+        #F += g_grav * inner(nabla_grad(eta), self.U_test) * self.dx
 
         if self.nonlin and self.use_wd:
             total_H = self.bathymetry + eta + self.wd_bath_displacement(eta)
@@ -235,12 +314,12 @@ class shallowWaterEquations(equation):
             total_H = self.bathymetry + eta
         else:
             total_H = self.bathymetry
-        # Divergence of depth-integrated velocity
-        F += -total_H * inner(uv, nabla_grad(self.eta_test)) * self.dx
-        if self.eta_is_DG:
-            Hu_star = avg(total_H*uv) +\
-                sqrt(g_grav*avg(total_H))*jump(total_H, self.normal)
-            G += inner(jump(self.eta_test, self.normal), Hu_star)*self.dS
+        ## Divergence of depth-integrated velocity
+        #F += -total_H * inner(uv, nabla_grad(self.eta_test)) * self.dx
+        #if self.eta_is_DG:
+            #Hu_star = avg(total_H*uv) +\
+                #sqrt(g_grav*avg(total_H))*jump(total_H, self.normal)
+            #G += inner(jump(self.eta_test, self.normal), Hu_star)*self.dS
 
         # boundary conditions
         for bnd_marker in self.boundary_markers:
@@ -280,19 +359,19 @@ class shallowWaterEquations(equation):
                 ut_riemann = tanh(4 * un_riemann / 0.02) * (ut_in)
                 uv_riemann = un_riemann * self.normal + ut_riemann * t
 
-                G += H_riemann * un_riemann * self.eta_test * ds_bnd
+                #G += H_riemann * un_riemann * self.eta_test * ds_bnd
                 if self.nonlin:
                     G += un_riemann * un_riemann * dot(self.normal, self.U_test) * ds_bnd
-                # added correct flux for eta
-                G += g_grav * ((h_ext - eta) / 2) * \
-                    inner(self.normal, self.U_test) * ds_bnd
+                ## added correct flux for eta
+                #G += g_grav * ((h_ext - eta) / 2) * \
+                    #inner(self.normal, self.U_test) * ds_bnd
 
             elif 'un' in funcs:
                 # prescribe normal velocity (negative into domain)
                 un_ext = funcs['un']
                 un_in = dot(uv, self.normal)
                 un_riemann = (un_in + un_ext)/2
-                G += total_H * un_riemann * self.eta_test * ds_bnd
+                #G += total_H * un_riemann * self.eta_test * ds_bnd
                 if self.nonlin:
                     G += un_riemann*un_riemann*inner(self.normal, self.U_test)*ds_bnd
 
@@ -302,7 +381,7 @@ class shallowWaterEquations(equation):
                 un_in = dot(uv, self.normal)
                 un_ext = funcs['flux'] / total_H / sect_len
                 un_av = (un_in + un_ext)/2
-                G += total_H * un_av * self.eta_test * ds_bnd
+                #G += total_H * un_av * self.eta_test * ds_bnd
                 if self.nonlin:
                     #s = 0.5*(sign(un_av) + 1.0)
                     #un_up = un_in*s + un_ext*(1-s)
@@ -323,8 +402,9 @@ class shallowWaterEquations(equation):
             elif 'radiation':
                 # prescribe radiation condition that allows waves to pass tru
                 un_ext = sqrt(g_grav / total_H) * eta
-                G += total_H * un_ext * self.eta_test * ds_bnd
-                G += un_ext * un_ext * inner(self.normal, self.U_test) * ds_bnd
+                #G += total_H * un_ext * self.eta_test * ds_bnd
+                if self.nonlin:
+                    G += un_ext * un_ext * inner(self.normal, self.U_test) * ds_bnd
 
         # Coriolis
         if coriolis is not None:
