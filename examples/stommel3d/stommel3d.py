@@ -17,8 +17,8 @@ nonlin = False
 depth = 1000.0
 layers = 6
 outputDir = createDirectory('outputs')
-T = 75*12*2*3600
-TExport = 3600*2
+T = 75*12*2*3600.
+TExport = 3600.*2
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)

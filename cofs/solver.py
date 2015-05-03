@@ -347,8 +347,8 @@ class flowSolver(object):
         # ----- Time integrators
         self.setTimeStep()
         if self.useModeSplit:
-            self.timeStepper = timeIntegration.coupledSSPRKSync(self)
-            #self.timeStepper = timeIntegration.coupledSSPRKSemiImplicit(self)
+            #self.timeStepper = timeIntegration.coupledSSPRKSync(self)
+            self.timeStepper = timeIntegration.coupledSSPRKSemiImplicit(self)
         else:
             self.timeStepper = timeIntegration.coupledSSPRKSingleMode(self)
 

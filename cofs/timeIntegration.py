@@ -414,7 +414,7 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
         self.explicit = True
         self.CFL_coeff = 1.0
         self.nstages = 3
-        self.theta = Constant(0.5)
+        self.theta = Constant(0.0)
         self.solver_parameters = solver_parameters
         self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
@@ -448,6 +448,7 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
                    self.theta*RHSimpl(u_0, **self.args) +
                    (1-self.theta)*RHSimpl(u_old, **self.args) +
                    RHS(u_old, **self.args) +
+                   #RHSimpl(u_old, **self.args) +
                    Source(**self.args))
                )
         F_1 = (massTerm(u_1) - 3.0/4.0*massTerm(u_old) + 1.0/4.0*massTerm(u_0) -
@@ -455,12 +456,14 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
                    self.theta*RHSimpl(u_1, **self.args) +
                    (1-self.theta)*RHSimpl(u_0, **self.args) +
                    RHS(u_0, **self.args) +
+                   #RHSimpl(u_0, **self.args) +
                    Source(**self.args)))
         F_2 = (massTerm(sol) - 1.0/3.0*massTerm(u_old) + 2.0/3.0*massTerm(u_1) -
                2.0/3.0*self.dt_const*(
                    self.theta*RHSimpl(sol, **self.args) +
                    (1-self.theta)*RHSimpl(u_1, **self.args) +
                    RHS(u_1, **self.args) +
+                   #RHSimpl(u_1, **self.args) +
                    Source(**self.args)))
 
         probF0 = NonlinearVariationalProblem(F_0, u_0)
@@ -500,6 +503,7 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
             if updateForcings is not None:
                 updateForcings(t+dt/2)
             self.solverF2.solve()
+            self.solution_old.assign(solution)
 
     def advance(self, t, dt, solution, updateForcings):
         """Advances one full time step from t to t+dt.

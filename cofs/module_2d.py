@@ -76,6 +76,7 @@ class shallowWaterEquations(equation):
 
         # Gauss-Seidel
         self.solver_parameters = {
+            'ksp_initial_guess_nonzero': True,
             'ksp_type': 'fgmres',
             'ksp_rtol': 1e-10,  # 1e-12
             'ksp_atol': 1e-10,  # 1e-16
@@ -178,7 +179,7 @@ class shallowWaterEquations(equation):
         # diag(nabla_grad(w))) ) #+ (eta+h_mean)*nabla_grad(v) )
         return F * self.dx
 
-    def RHS_implicit(self, solution, **kwargs):
+    def RHS_implicit(self, solution, wind_stress=None, **kwargs):
         """Returns all the terms that are treated semi-implicitly.
         """
         F = 0  # holds all dx volume integral terms
@@ -248,11 +249,33 @@ class shallowWaterEquations(equation):
                 un_ext = funcs['flux'] / total_H / sect_len
                 un_av = (un_in + un_ext)/2
                 G += total_H * un_av * self.eta_test * ds_bnd
+                #if self.nonlin:
+                    ##s = 0.5*(sign(un_av) + 1.0)
+                    ##un_up = un_in*s + un_ext*(1-s)
+                    ##G += un_av*un_av*inner(self.normal, self.U_test)*ds_bnd
+                    #s = 0.5*(sign(un_av) + 1.0)
+                    #uv_up = uv*s + un_ext*self.normal*(1-s)
+                    #uv_av = 0.5*(uv + un_ext*self.normal)
+                    #G += (uv_av[0]*uv_up[0]*(self.U_test[0]*self.normal[0]) +
+                          #uv_av[0]*uv_up[1]*(self.U_test[1]*self.normal[0]) +
+                          #uv_av[1]*uv_up[0]*(self.U_test[0]*self.normal[1]) +
+                          #uv_av[1]*uv_up[1]*(self.U_test[1]*self.normal[1]))*ds_bnd
+
+                    ## Lax-Friedrichs stabilization
+                    #un_av = dot(self.normal, uv_av)
+                    #gamma = abs(un_av)
+                    #G += gamma*dot(self.U_test, (uv - un_ext*self.normal)/2)*ds_bnd
 
             elif 'radiation':
                 # prescribe radiation condition that allows waves to pass tru
                 un_ext = sqrt(g_grav / total_H) * eta
                 G += total_H * un_ext * self.eta_test * ds_bnd
+                #if self.nonlin:
+                    #G += un_ext * un_ext * inner(self.normal, self.U_test) * ds_bnd
+
+        ## Wind stress
+        #if wind_stress is not None:
+            #F += -dot(wind_stress, self.U_test)/total_H/rho_0*self.dx
 
         return -F - G
 
@@ -506,6 +529,7 @@ class freeSurfaceEquation(equation):
 
         # default solver parameters
         self.solver_parameters = {
+            'ksp_initial_guess_nonzero': True,
             'ksp_type': 'fgmres',
             'ksp_rtol': 1e-10,  # 1e-12
             'ksp_atol': 1e-10,  # 1e-16
