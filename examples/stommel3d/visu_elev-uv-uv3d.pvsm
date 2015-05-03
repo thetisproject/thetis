@@ -172,15 +172,15 @@
         <Domain name="range" id="4815.NumberOfTableValues.range"/>
       </Property>
       <Property name="RGBPoints" id="4815.RGBPoints" number_of_elements="12">
-        <Element index="0" value="-0.003"/>
+        <Element index="0" value="-0.0343455213399271"/>
         <Element index="1" value="0.231373"/>
         <Element index="2" value="0.298039"/>
         <Element index="3" value="0.752941"/>
-        <Element index="4" value="1.30104260698261e-18"/>
+        <Element index="4" value="2.87097787436477e-05"/>
         <Element index="5" value="0.865003"/>
         <Element index="6" value="0.865003"/>
         <Element index="7" value="0.865003"/>
-        <Element index="8" value="0.003"/>
+        <Element index="8" value="0.0344029408974143"/>
         <Element index="9" value="0.705882"/>
         <Element index="10" value="0.0156863"/>
         <Element index="11" value="0.14902"/>
@@ -430,71 +430,71 @@
         <Domain name="range" id="5005.NumberOfTableValues.range"/>
       </Property>
       <Property name="RGBPoints" id="5005.RGBPoints" number_of_elements="68">
-        <Element index="0" value="-5e-07"/>
+        <Element index="0" value="-3e-06"/>
         <Element index="1" value="0.25098"/>
         <Element index="2" value="0"/>
         <Element index="3" value="0.294118"/>
-        <Element index="4" value="-4.37255e-07"/>
+        <Element index="4" value="-2.62353e-06"/>
         <Element index="5" value="0.383856"/>
         <Element index="6" value="0.103349"/>
         <Element index="7" value="0.431907"/>
-        <Element index="8" value="-3.7451e-07"/>
+        <Element index="8" value="-2.24706e-06"/>
         <Element index="9" value="0.497734"/>
         <Element index="10" value="0.234684"/>
         <Element index="11" value="0.553704"/>
-        <Element index="12" value="-3.117645e-07"/>
+        <Element index="12" value="-1.870587e-06"/>
         <Element index="13" value="0.583856"/>
         <Element index="14" value="0.406928"/>
         <Element index="15" value="0.65214"/>
-        <Element index="16" value="-2.490195e-07"/>
+        <Element index="16" value="-1.494117e-06"/>
         <Element index="17" value="0.681971"/>
         <Element index="18" value="0.545174"/>
         <Element index="19" value="0.742565"/>
-        <Element index="20" value="-1.862745e-07"/>
+        <Element index="20" value="-1.117647e-06"/>
         <Element index="21" value="0.780697"/>
         <Element index="22" value="0.672358"/>
         <Element index="23" value="0.825223"/>
-        <Element index="24" value="-1.235295e-07"/>
+        <Element index="24" value="-7.41177e-07"/>
         <Element index="25" value="0.871748"/>
         <Element index="26" value="0.788006"/>
         <Element index="27" value="0.886732"/>
-        <Element index="28" value="-6.07845e-08"/>
+        <Element index="28" value="-3.64707e-07"/>
         <Element index="29" value="0.930495"/>
         <Element index="30" value="0.885191"/>
         <Element index="31" value="0.932876"/>
-        <Element index="32" value="1.96078499999999e-09"/>
+        <Element index="32" value="1.17647100000001e-08"/>
         <Element index="33" value="0.966323"/>
         <Element index="34" value="0.968093"/>
         <Element index="35" value="0.965866"/>
-        <Element index="36" value="6.47060000000001e-08"/>
+        <Element index="36" value="3.88236e-07"/>
         <Element index="37" value="0.8925"/>
         <Element index="38" value="0.950866"/>
         <Element index="39" value="0.877272"/>
-        <Element index="40" value="1.27451e-07"/>
+        <Element index="40" value="7.64705999999999e-07"/>
         <Element index="41" value="0.796078"/>
         <Element index="42" value="0.918563"/>
         <Element index="43" value="0.772549"/>
-        <Element index="44" value="1.90196e-07"/>
+        <Element index="44" value="1.141176e-06"/>
         <Element index="45" value="0.670588"/>
         <Element index="46" value="0.866896"/>
         <Element index="47" value="0.647059"/>
-        <Element index="48" value="2.52941e-07"/>
+        <Element index="48" value="1.517646e-06"/>
         <Element index="49" value="0.493202"/>
         <Element index="50" value="0.765393"/>
         <Element index="51" value="0.496651"/>
-        <Element index="52" value="3.156865e-07"/>
+        <Element index="52" value="1.894119e-06"/>
         <Element index="53" value="0.314183"/>
         <Element index="54" value="0.649134"/>
         <Element index="55" value="0.354559"/>
-        <Element index="56" value="3.784315e-07"/>
+        <Element index="56" value="2.270589e-06"/>
         <Element index="57" value="0.159167"/>
         <Element index="58" value="0.516258"/>
         <Element index="59" value="0.251209"/>
-        <Element index="60" value="4.411765e-07"/>
+        <Element index="60" value="2.647059e-06"/>
         <Element index="61" value="0.0622873"/>
         <Element index="62" value="0.386618"/>
         <Element index="63" value="0.170474"/>
-        <Element index="64" value="5e-07"/>
+        <Element index="64" value="3e-06"/>
         <Element index="65" value="0"/>
         <Element index="66" value="0.266667"/>
         <Element index="67" value="0.105882"/>
@@ -587,15 +587,15 @@
         <Domain name="range" id="4910.NumberOfTableValues.range"/>
       </Property>
       <Property name="RGBPoints" id="4910.RGBPoints" number_of_elements="12">
-        <Element index="0" value="-0.003"/>
+        <Element index="0" value="-0.0343465087033507"/>
         <Element index="1" value="0.231373"/>
         <Element index="2" value="0.298039"/>
         <Element index="3" value="0.752941"/>
-        <Element index="4" value="0"/>
+        <Element index="4" value="2.87810031710106e-05"/>
         <Element index="5" value="0.865003"/>
         <Element index="6" value="0.865003"/>
         <Element index="7" value="0.865003"/>
-        <Element index="8" value="0.003"/>
+        <Element index="8" value="0.0344040707096927"/>
         <Element index="9" value="0.705882"/>
         <Element index="10" value="0.0156863"/>
         <Element index="11" value="0.14902"/>
@@ -637,11 +637,11 @@
         <Domain name="bool" id="4814.AllowDuplicateScalars.bool"/>
       </Property>
       <Property name="Points" id="4814.Points" number_of_elements="8">
-        <Element index="0" value="-0.003"/>
+        <Element index="0" value="-0.0343455213399271"/>
         <Element index="1" value="0"/>
         <Element index="2" value="0.5"/>
         <Element index="3" value="0"/>
-        <Element index="4" value="0.003"/>
+        <Element index="4" value="0.0344029408974143"/>
         <Element index="5" value="1"/>
         <Element index="6" value="0.5"/>
         <Element index="7" value="0"/>
@@ -677,11 +677,11 @@
         <Domain name="bool" id="5004.AllowDuplicateScalars.bool"/>
       </Property>
       <Property name="Points" id="5004.Points" number_of_elements="8">
-        <Element index="0" value="-5e-07"/>
+        <Element index="0" value="-3e-06"/>
         <Element index="1" value="0"/>
         <Element index="2" value="0.5"/>
         <Element index="3" value="0"/>
-        <Element index="4" value="5e-07"/>
+        <Element index="4" value="3e-06"/>
         <Element index="5" value="1"/>
         <Element index="6" value="0.5"/>
         <Element index="7" value="0"/>
@@ -697,11 +697,11 @@
         <Domain name="bool" id="4909.AllowDuplicateScalars.bool"/>
       </Property>
       <Property name="Points" id="4909.Points" number_of_elements="8">
-        <Element index="0" value="-0.003"/>
+        <Element index="0" value="-0.0343465087033507"/>
         <Element index="1" value="0"/>
         <Element index="2" value="0.5"/>
         <Element index="3" value="0"/>
-        <Element index="4" value="0.003"/>
+        <Element index="4" value="0.0344040707096927"/>
         <Element index="5" value="1"/>
         <Element index="6" value="0.5"/>
         <Element index="7" value="0"/>
@@ -1229,12 +1229,12 @@
         <Element index="2" value="0"/>
       </Property>
       <Property name="DataBounds" id="5298.DataBounds" number_of_elements="6">
-        <Element index="0" value="6.92970455294304e-310"/>
+        <Element index="0" value="0"/>
         <Element index="1" value="0"/>
-        <Element index="2" value="7.23490482972359e-316"/>
+        <Element index="2" value="7.36313502269775e-316"/>
         <Element index="3" value="8.48798316386109e-314"/>
-        <Element index="4" value="1.58101006669199e-322"/>
-        <Element index="5" value="7.23482775548284e-316"/>
+        <Element index="4" value="0"/>
+        <Element index="5" value="0"/>
       </Property>
       <Property name="Diffuse" id="5298.Diffuse" number_of_elements="1">
         <Element index="0" value="1"/>
@@ -1599,7 +1599,7 @@
         <Domain name="bool" id="4732.SelectionVisibility.bool"/>
       </Property>
       <Property name="Visibility" id="4732.Visibility" number_of_elements="1">
-        <Element index="0" value="0"/>
+        <Element index="0" value="1"/>
         <Domain name="bool" id="4732.Visibility.bool"/>
       </Property>
       <Property name="Ambient" id="4732.Ambient" number_of_elements="1">
@@ -1661,6 +1661,7 @@
         <Element index="4" value="Elevation"/>
         <Domain name="array_list" id="4732.ColorArrayName.array_list">
           <String text="Elevation"/>
+          <String text="cellNormals"/>
         </Domain>
         <Domain name="field_list" id="4732.ColorArrayName.field_list">
           <Entry value="0" text="Point Data"/>
@@ -1816,12 +1817,12 @@
         <Element index="2" value="0"/>
       </Property>
       <Property name="DataBounds" id="4732.DataBounds" number_of_elements="6">
-        <Element index="0" value="0"/>
-        <Element index="1" value="0"/>
-        <Element index="2" value="0"/>
-        <Element index="3" value="0"/>
-        <Element index="4" value="0"/>
-        <Element index="5" value="0"/>
+        <Element index="0" value="1.58101006669199e-322"/>
+        <Element index="1" value="5.34294684139734e-316"/>
+        <Element index="2" value="5.34294802715489e-316"/>
+        <Element index="3" value="2.60866661004178e-321"/>
+        <Element index="4" value="3.95252516672997e-322"/>
+        <Element index="5" value="5.34324723331001e-316"/>
       </Property>
       <Property name="Diffuse" id="4732.Diffuse" number_of_elements="1">
         <Element index="0" value="1"/>
@@ -1921,7 +1922,7 @@
       <Property name="Position" id="4732.Position" number_of_elements="3">
         <Element index="0" value="0"/>
         <Element index="1" value="0"/>
-        <Element index="2" value="100000"/>
+        <Element index="2" value="50000"/>
         <Domain name="range" id="4732.Position.range"/>
       </Property>
       <Property name="ScalarOpacityFunction" id="4732.ScalarOpacityFunction" number_of_elements="1">
@@ -2426,10 +2427,10 @@
         <Element index="2" value="0"/>
       </Property>
       <Property name="DataBounds" id="4827.DataBounds" number_of_elements="6">
-        <Element index="0" value="0"/>
-        <Element index="1" value="0"/>
-        <Element index="2" value="5.46173800902083e-316"/>
-        <Element index="3" value="8.48798316386109e-314"/>
+        <Element index="0" value="5.58841881212962e-316"/>
+        <Element index="1" value="8.48798316534329e-314"/>
+        <Element index="2" value="0.5"/>
+        <Element index="3" value="0"/>
         <Element index="4" value="0"/>
         <Element index="5" value="0"/>
       </Property>
@@ -3036,12 +3037,12 @@
         <Element index="2" value="0"/>
       </Property>
       <Property name="DataBounds" id="4922.DataBounds" number_of_elements="6">
-        <Element index="0" value="5.96464545366005e-316"/>
-        <Element index="1" value="8.48798316386109e-314"/>
-        <Element index="2" value="0"/>
+        <Element index="0" value="5.93816669706309e-316"/>
+        <Element index="1" value="8.48798316435515e-314"/>
+        <Element index="2" value="1.23516411460312e-322"/>
         <Element index="3" value="0"/>
-        <Element index="4" value="5.96464703467012e-316"/>
-        <Element index="5" value="8.48798316534329e-314"/>
+        <Element index="4" value="5.93816827807316e-316"/>
+        <Element index="5" value="8.48798316386109e-314"/>
       </Property>
       <Property name="Diffuse" id="4922.Diffuse" number_of_elements="1">
         <Element index="0" value="1"/>
@@ -3419,7 +3420,9 @@
       </Property>
       <Property name="SelectionPointFieldDataArrayName" id="5017.SelectionPointFieldDataArrayName" number_of_elements="1">
         <Element index="0" value="V.Velocity"/>
-        <Domain name="array_list" id="5017.SelectionPointFieldDataArrayName.array_list"/>
+        <Domain name="array_list" id="5017.SelectionPointFieldDataArrayName.array_list">
+          <String text="V.Velocity"/>
+        </Domain>
       </Property>
       <Property name="SelectionVisibility" id="5017.SelectionVisibility" number_of_elements="1">
         <Element index="0" value="1"/>
@@ -3486,7 +3489,10 @@
         <Element index="2" value=""/>
         <Element index="3" value="0"/>
         <Element index="4" value="V.Velocity"/>
-        <Domain name="array_list" id="5017.ColorArrayName.array_list"/>
+        <Domain name="array_list" id="5017.ColorArrayName.array_list">
+          <String text="V.Velocity"/>
+          <String text="cellNormals"/>
+        </Domain>
         <Domain name="field_list" id="5017.ColorArrayName.field_list">
           <Entry value="0" text="Point Data"/>
           <Entry value="1" text="Cell Data"/>
@@ -3641,12 +3647,12 @@
         <Element index="2" value="0"/>
       </Property>
       <Property name="DataBounds" id="5017.DataBounds" number_of_elements="6">
-        <Element index="0" value="6.34320131827123e-316"/>
-        <Element index="1" value="6.34320685180646e-316"/>
-        <Element index="2" value="6.0809133292171e-316"/>
-        <Element index="3" value="6.32283316558204e-316"/>
-        <Element index="4" value="6.32285688073304e-316"/>
-        <Element index="5" value="3.16202013338398e-322"/>
+        <Element index="0" value="6.92427656095318e-310"/>
+        <Element index="1" value="2.12199609432158e-314"/>
+        <Element index="2" value="6.28251227059867e-316"/>
+        <Element index="3" value="8.48798316386109e-314"/>
+        <Element index="4" value="3.95252516672997e-322"/>
+        <Element index="5" value="6.28273954079576e-316"/>
       </Property>
       <Property name="Diffuse" id="5017.Diffuse" number_of_elements="1">
         <Element index="0" value="1"/>
@@ -4254,7 +4260,7 @@
       <Property name="DataBounds" id="5128.DataBounds" number_of_elements="6">
         <Element index="0" value="0"/>
         <Element index="1" value="0"/>
-        <Element index="2" value="6.81449132834423e-316"/>
+        <Element index="2" value="6.78741494994206e-316"/>
         <Element index="3" value="8.48798316386109e-314"/>
         <Element index="4" value="0"/>
         <Element index="5" value="0"/>
@@ -4645,7 +4651,7 @@
         <Domain name="bool" id="5221.SelectionVisibility.bool"/>
       </Property>
       <Property name="Visibility" id="5221.Visibility" number_of_elements="1">
-        <Element index="0" value="1"/>
+        <Element index="0" value="0"/>
         <Domain name="bool" id="5221.Visibility.bool"/>
       </Property>
       <Property name="Ambient" id="5221.Ambient" number_of_elements="1">
@@ -4864,12 +4870,12 @@
         <Element index="2" value="0"/>
       </Property>
       <Property name="DataBounds" id="5221.DataBounds" number_of_elements="6">
-        <Element index="0" value="6.90517727526465e-316"/>
-        <Element index="1" value="6.9051784610222e-316"/>
-        <Element index="2" value="6.90503182233851e-316"/>
+        <Element index="0" value="0"/>
+        <Element index="1" value="3.96125036603553e-318"/>
+        <Element index="2" value="7.03282565653426e-316"/>
         <Element index="3" value="8.48798316386109e-314"/>
-        <Element index="4" value="2.12199579145934e-314"/>
-        <Element index="5" value="4.74303020007597e-322"/>
+        <Element index="4" value="0"/>
+        <Element index="5" value="0"/>
       </Property>
       <Property name="Diffuse" id="5221.Diffuse" number_of_elements="1">
         <Element index="0" value="1"/>
@@ -6977,7 +6983,7 @@
         <Domain name="array_list" id="4637.Scalars.array_list"/>
       </Property>
       <Property name="ScaleFactor" id="4637.ScaleFactor" number_of_elements="1">
-        <Element index="0" value="16250812.7405655"/>
+        <Element index="0" value="2000000"/>
         <Domain name="bounds" id="4637.ScaleFactor.bounds"/>
         <Domain name="scalar_range" id="4637.ScaleFactor.scalar_range"/>
         <Domain name="vector_range" id="4637.ScaleFactor.vector_range"/>
@@ -11021,30 +11027,30 @@
         <Domain name="bool" id="5316.UseTexturedBackground.bool"/>
       </Property>
       <Property name="ViewSize" id="5316.ViewSize" number_of_elements="2">
-        <Element index="0" value="1299"/>
-        <Element index="1" value="899"/>
+        <Element index="0" value="1619"/>
+        <Element index="1" value="783"/>
       </Property>
       <Property name="ViewTime" id="5316.ViewTime" number_of_elements="1">
         <Element index="0" value="0"/>
         <Domain name="range" id="5316.ViewTime.range"/>
       </Property>
       <Property name="CameraClippingRange" id="5316.CameraClippingRange" number_of_elements="2">
-        <Element index="0" value="1598416.83163957"/>
-        <Element index="1" value="4885984.79037549"/>
+        <Element index="0" value="1035021.36681348"/>
+        <Element index="1" value="4424431.29138937"/>
       </Property>
       <Property name="CameraClippingRangeInfo" id="5316.CameraClippingRangeInfo" number_of_elements="2">
-        <Element index="0" value="1598416.83163957"/>
-        <Element index="1" value="4885984.79037549"/>
+        <Element index="0" value="1035021.36681348"/>
+        <Element index="1" value="4424431.29138937"/>
       </Property>
       <Property name="CameraFocalPoint" id="5316.CameraFocalPoint" number_of_elements="3">
-        <Element index="0" value="-13399.953125"/>
-        <Element index="1" value="-10020.984375"/>
-        <Element index="2" value="-195829.107910157"/>
+        <Element index="0" value="-5040.66404421282"/>
+        <Element index="1" value="-64096.3967947007"/>
+        <Element index="2" value="-293768.576987477"/>
       </Property>
       <Property name="CameraFocalPointInfo" id="5316.CameraFocalPointInfo" number_of_elements="3">
-        <Element index="0" value="-13399.953125"/>
-        <Element index="1" value="-10020.984375"/>
-        <Element index="2" value="-195829.107910157"/>
+        <Element index="0" value="-5040.66404421282"/>
+        <Element index="1" value="-64096.3967947007"/>
+        <Element index="2" value="-293768.576987477"/>
       </Property>
       <Property name="CameraParallelProjection" id="5316.CameraParallelProjection" number_of_elements="1">
         <Element index="0" value="0"/>
@@ -11057,27 +11063,27 @@
         <Element index="0" value="788360.290532858"/>
       </Property>
       <Property name="CameraPosition" id="5316.CameraPosition" number_of_elements="3">
-        <Element index="0" value="1187641.62705453"/>
-        <Element index="1" value="-2703089.67286596"/>
-        <Element index="2" value="567673.889397012"/>
+        <Element index="0" value="999740.716127701"/>
+        <Element index="1" value="-2047336.06356477"/>
+        <Element index="2" value="886999.115721311"/>
       </Property>
       <Property name="CameraPositionInfo" id="5316.CameraPositionInfo" number_of_elements="3">
-        <Element index="0" value="1187641.62705453"/>
-        <Element index="1" value="-2703089.67286596"/>
-        <Element index="2" value="567673.889397012"/>
+        <Element index="0" value="999740.716127701"/>
+        <Element index="1" value="-2047336.06356477"/>
+        <Element index="2" value="886999.115721311"/>
       </Property>
       <Property name="CameraViewAngle" id="5316.CameraViewAngle" number_of_elements="1">
         <Element index="0" value="30"/>
       </Property>
       <Property name="CameraViewUp" id="5316.CameraViewUp" number_of_elements="3">
-        <Element index="0" value="-0.101376912104956"/>
-        <Element index="1" value="0.229244249423584"/>
-        <Element index="2" value="0.968075304817906"/>
+        <Element index="0" value="-0.241648362716029"/>
+        <Element index="1" value="0.403094969100518"/>
+        <Element index="2" value="0.882678035686011"/>
       </Property>
       <Property name="CameraViewUpInfo" id="5316.CameraViewUpInfo" number_of_elements="3">
-        <Element index="0" value="-0.101376912104956"/>
-        <Element index="1" value="0.229244249423584"/>
-        <Element index="2" value="0.968075304817906"/>
+        <Element index="0" value="-0.241648362716029"/>
+        <Element index="1" value="0.403094969100518"/>
+        <Element index="2" value="0.882678035686011"/>
       </Property>
       <Property name="EyeAngle" id="5316.EyeAngle" number_of_elements="1">
         <Element index="0" value="2"/>
