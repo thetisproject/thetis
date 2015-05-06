@@ -443,6 +443,7 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
         u_0 = self.sol0
         u_1 = self.sol1
         sol = self.equation.solution
+
         #F_CrNi = (massTerm(sol) - massTerm(u_old) -
                #self.dt_const*(
                    #self.theta*RHSimpl(sol, **self.args) +
@@ -459,7 +460,8 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
                    self.theta*RHSimpl(u_0, **self.args) +
                    (1-self.theta)*RHSimpl(u_old, **self.args) +
                    RHS(u_old, **self.args) +
-                   Source(**self.args))
+                   Source(**self.args)
+                   )
                )
         F_1 = (massTerm(u_1) - 3.0/4.0*massTerm(u_old) - 1.0/4.0*massTerm(u_0) -
                1.0/4.0*self.dt_const*(

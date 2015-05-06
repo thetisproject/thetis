@@ -76,16 +76,16 @@ class shallowWaterEquations(equation):
 
         # Gauss-Seidel
         self.solver_parameters = {
-            'ksp_initial_guess_nonzero': True,
+            #'ksp_initial_guess_nonzero': True,
             'ksp_type': 'fgmres',
             'ksp_rtol': 1e-10,  # 1e-12
             'ksp_atol': 1e-10,  # 1e-16
             'pc_type': 'fieldsplit',
             'pc_fieldsplit_type': 'multiplicative',
-            # 'fieldsplit_0_ksp_type': 'preonly',
-            # 'fieldsplit_0_pc_type': 'jacobi',
-            # 'fieldsplit_1_ksp_type': 'preonly',
-            # 'fieldsplit_1_pc_type': 'jacobi',
+            'fieldsplit_0_ksp_type': 'preonly',
+            'fieldsplit_1_ksp_type': 'preonly',
+            'fieldsplit_0_pc_type': 'jacobi',
+            'fieldsplit_1_pc_type': 'jacobi',
             }
 
     def ds(self, bnd_marker):
@@ -130,21 +130,7 @@ class shallowWaterEquations(equation):
 
         Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
         """
-        F = 0
-        uv, eta = split(solution)
-
-        # Mass term of momentum equation
-        M_momentum = inner(uv, self.U_test)
-        F += M_momentum
-
-        # Mass term of free surface equation
-        M_continuity = inner(eta, self.eta_test)
-        if self.use_wd:
-            M_continuity += inner(self.wd_bath_displacement(eta),
-                                  self.eta_test)
-        F += M_continuity
-
-        return F * self.dx
+        return inner(solution, self.test)*self.dx
 
     def massTermBasic(self, solution):
         """All time derivative terms on the LHS, without the actual time
@@ -152,18 +138,7 @@ class shallowWaterEquations(equation):
 
         Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
         """
-        F = 0
-        uv, eta = split(solution)
-
-        # Mass term of momentum equation
-        M_momentum = inner(uv, self.U_test)
-        F += M_momentum
-
-        # Mass term of free surface equation
-        M_continuity = inner(eta, self.eta_test)
-        F += M_continuity
-
-        return F * self.dx
+        return inner(solution, self.test)*self.dx
 
     def supgMassTerm(self, solution, eta, uv):
         """Additional term for SUPG stabilization"""
@@ -478,6 +453,13 @@ class shallowWaterEquations(equation):
         # Internal pressure gradient
         if baro_head is not None:
             F += g_grav * inner(nabla_grad(baro_head), self.U_test) * self.dx
+            #F -= g_grav * inner(baro_head, nabla_div(self.U_test)) * self.dx
+            #F += g_grav * avg(baro_head)*jump(self.normal, self.U_test) * self.dS
+            ## boundary conditions
+            #for bnd_marker in self.boundary_markers:
+                #funcs = self.bnd_functions.get(bnd_marker)
+                #ds_bnd = ds(int(bnd_marker), domain=self.mesh)
+                #F += g_grav * baro_head*inner(self.normal, self.U_test) * ds_bnd
 
         return -F
 

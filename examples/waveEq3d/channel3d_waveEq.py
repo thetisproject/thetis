@@ -52,8 +52,11 @@ solverObj.solveSalt = False
 solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False
 solverObj.useALEMovingMesh = False
-solverObj.useModeSplit = False
-#solverObj.dt = dt
+#solverObj.useModeSplit = False
+if solverObj.useModeSplit:
+    solverObj.dt = dt/5
+else:
+    solverObj.dt = 4.0
 solverObj.TExport = TExport
 solverObj.T = T
 solverObj.uAdvection = Umag

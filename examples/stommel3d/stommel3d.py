@@ -10,7 +10,7 @@ import cofs.timeIntegration as timeIntegration
 import time as timeMod
 
 #parameters["pyop2_options"]["lazy_evaluation"] = False
-parameters["assembly_cache"]["enabled"] = False
+#parameters["assembly_cache"]["enabled"] = False
 
 # set physical constants
 physical_constants['z0_friction'].assign(0.0)
