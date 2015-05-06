@@ -5,3 +5,4 @@ import timeIntegration
 import solver
 
 op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+parameters['pyop2_options']['profiling'] = True

@@ -29,7 +29,7 @@ class shallowWaterEquations(equation):
         self.use_wd = use_wd
         self.nonlin = nonlin
         # this dict holds all time dep. args to the equation
-        self.kwargs = {'uv_old': self.solution.split()[0],
+        self.kwargs = {'uv_old': split(self.solution)[0],
                        'uv_bottom': uv_bottom,
                        'bottom_drag': bottom_drag,
                        'viscosity_h': viscosity_h,
