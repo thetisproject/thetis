@@ -1095,13 +1095,14 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
         sol2d = self.timeStepper2d.equation.solution
 
         def updateDependencies(do2DCoupling=False,
-                               doVertDiffusion=False):
+                               doVertDiffusion=False,
+                               doALEUpdate=False):
             """Updates all dependencies of the primary variables"""
             with timed_region('aux_eta3d'):
                 eta = sol2d.split()[1]
                 copy2dFieldTo3d(eta, s.eta3d)  # at t_{n+1}
             with timed_region('aux_mesh_ale'):
-                if s.useALEMovingMesh:
+                if s.useALEMovingMesh and doALEUpdate:
                     updateCoordinates(
                         s.mesh, s.eta3d, s.bathymetry3d,
                         s.z_coord3d, s.z_coord_ref3d)
@@ -1193,7 +1194,8 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
             last = (k == 2)
             # move fields to next stage
             updateDependencies(doVertDiffusion=last,
-                               do2DCoupling=last)
+                               do2DCoupling=last,
+                               doALEUpdate=last)
 
 
 class coupledSSPRKSingleMode(timeIntegrator):
