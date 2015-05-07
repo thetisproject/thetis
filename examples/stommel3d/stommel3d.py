@@ -72,6 +72,6 @@ solverObj.timerLabels = []
 #solverObj.timeStepperType = 'CrankNicolson'
 
 solverObj.mightyCreator()
-solverObj.assingInitialConditions()
+solverObj.assignInitialConditions()
 
 solverObj.iterate()

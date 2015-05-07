@@ -101,6 +101,6 @@ def updateForcings3d(t_new):
     ocean_flux.dat.data[:] = ocean_flux_func(t_new)
     river_flux.dat.data[:] = river_flux_func(t_new)
 
-solverObj.assingInitialConditions(salt=salt_init3d)
+solverObj.assignInitialConditions(salt=salt_init3d)
 solverObj.iterate(updateForcings=updateForcings,
                   updateForcings3d=updateForcings3d)

@@ -379,7 +379,7 @@ class flowSolver(object):
 
         self._initialized = True
 
-    def assingInitialConditions(self, elev=None, salt=None):
+    def assignInitialConditions(self, elev=None, salt=None):
         if not self._initialized:
             self.mightyCreator()
         if elev is not None:
@@ -623,7 +623,7 @@ class flowSolver2d(object):
                                       exportFuncs, verbose=self.verbose > 0)
         self._initialized = True
 
-    def assingInitialConditions(self, elev=None, uv_init=None):
+    def assignInitialConditions(self, elev=None, uv_init=None):
         if not self._initialized:
             self.mightyCreator()
         uv2d, eta2d = self.solution2d.split()

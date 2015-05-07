@@ -72,5 +72,5 @@ elev_init.dat.data[:] = elevation(x_func.dat.data, 0, 0,
                                   elev_x, elev_v)
 salt_init3d = Constant(4.5)
 
-solverObj.assingInitialConditions(elev=elev_init, salt=salt_init3d)
+solverObj.assignInitialConditions(elev=elev_init, salt=salt_init3d)
 solverObj.iterate()

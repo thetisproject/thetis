@@ -33,7 +33,7 @@ solverObj.nonlin = True
 solverObj.solveSalt = True
 solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False
-solverObj.useALEMovingMesh = True
+solverObj.useALEMovingMesh = False
 #solverObj.useModeSplit = False
 solverObj.baroclinic = True
 solverObj.useSUPG = False
@@ -66,5 +66,5 @@ salt_init3d = Function(solverObj.H, name='initial salinity')
 salt_init3d.interpolate(Expression('22.5 - 2.5*tanh(x[0]/sigma)',
                                    sigma=1000.0))
 
-solverObj.assingInitialConditions(salt=salt_init3d)
+solverObj.assignInitialConditions(salt=salt_init3d)
 solverObj.iterate()
