@@ -52,6 +52,7 @@ solverObj.solveSalt = False
 solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False
 solverObj.useALEMovingMesh = False
+solverObj.useSemiImplicit2D = False
 #solverObj.useModeSplit = False
 if solverObj.useModeSplit:
     solverObj.dt = dt/5

@@ -578,6 +578,13 @@ class freeSurfaceEquation(equation):
         F = 0
         return F * self.dx
 
+    def RHS_implicit(self, solution, wind_stress=None, **kwargs):
+        """Returns all the terms that are treated semi-implicitly.
+        """
+        F = 0  # holds all dx volume integral terms
+        G = 0  # holds all ds boundary interface terms
+        return -F - G
+
     def RHS(self, solution, uv, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""

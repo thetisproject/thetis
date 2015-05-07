@@ -209,6 +209,11 @@ class equation(object):
         raise NotImplementedError(('This method must be implemented '
                                    'in the derived class'))
 
+    def RHS_implicit(self, *args, **kwargs):
+        """Returns weak form for the right hand side of all implicit terms"""
+        raise NotImplementedError(('This method must be implemented '
+                                   'in the derived class'))
+
     def Source(self, *args, **kwargs):
         """Returns weak for for terms that do not depend on the solution."""
         raise NotImplementedError(('This method must be implemented '

@@ -199,12 +199,15 @@ class SSPRK33(timeIntegrator):
         re-created after each mesh update."""
         massTerm = self.equation.massTerm
         RHS = self.equation.RHS
+        RHSi = self.equation.RHS_implicit
         Source = self.equation.Source
 
         u_old = self.solution_old
         u_tri = self.equation.tri
         a_RK = massTerm(u_tri)
-        L_RK = self.dt_const*(RHS(u_old, **self.args) + Source(**self.args))
+        L_RK = self.dt_const*(RHS(u_old, **self.args) +
+                              RHSi(u_old, **self.args) +
+                              Source(**self.args))
 
         probK0 = LinearVariationalProblem(a_RK, L_RK, self.K0)
         self.solverK0 = LinearVariationalSolver(probK0,
@@ -329,14 +332,18 @@ class SSPRK33Stage(timeIntegrator):
     def updateSolver(self):
         """Builds linear problems for each stage. These problems need to be
         re-created after each mesh update."""
+        # TODO move definition of a, L to __init__ this is very slow
         massTerm = self.equation.massTerm
         RHS = self.equation.RHS
+        RHSi = self.equation.RHS_implicit
         Source = self.equation.Source
 
         u_old = self.solution_old
         u_tri = self.equation.tri
         a_RK = massTerm(u_tri)
-        L_RK = self.dt_const*(RHS(u_old, **self.args) + Source(**self.args))
+        L_RK = self.dt_const*(RHS(u_old, **self.args) +
+                              RHSi(u_old, **self.args) +
+                              Source(**self.args))
 
         probK0 = LinearVariationalProblem(a_RK, L_RK, self.K0)
         self.solverK0 = LinearVariationalSolver(probK0,
@@ -436,7 +443,7 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
         re-created after each mesh update."""
         massTerm = self.equation.massTerm
         RHS = self.equation.RHS
-        RHSimpl = self.equation.RHS_implicit
+        RHSi = self.equation.RHS_implicit
         Source = self.equation.Source
 
         u_old = self.solution_old
@@ -446,8 +453,8 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
 
         #F_CrNi = (massTerm(sol) - massTerm(u_old) -
                #self.dt_const*(
-                   #self.theta*RHSimpl(sol, **self.args) +
-                   #(1-self.theta)*RHSimpl(u_old, **self.args) +
+                   #self.theta*RHSi(sol, **self.args) +
+                   #(1-self.theta)*RHSi(u_old, **self.args) +
                    #RHS(sol, **self.args) +
                    #Source(**self.args))
                #)
@@ -457,22 +464,22 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
 
         F_0 = (massTerm(u_0) - massTerm(u_old) -
                self.dt_const*(
-                   self.theta*RHSimpl(u_0, **self.args) +
-                   (1-self.theta)*RHSimpl(u_old, **self.args) +
+                   self.theta*RHSi(u_0, **self.args) +
+                   (1-self.theta)*RHSi(u_old, **self.args) +
                    RHS(u_old, **self.args) +
                    Source(**self.args)
                    )
                )
         F_1 = (massTerm(u_1) - 3.0/4.0*massTerm(u_old) - 1.0/4.0*massTerm(u_0) -
                1.0/4.0*self.dt_const*(
-                   self.theta*RHSimpl(u_1, **self.args) +
-                   (1-self.theta)*RHSimpl(u_0, **self.args) +
+                   self.theta*RHSi(u_1, **self.args) +
+                   (1-self.theta)*RHSi(u_0, **self.args) +
                    RHS(u_0, **self.args) +
                    Source(**self.args)))
         F_2 = (massTerm(sol) - 1.0/3.0*massTerm(u_old) - 2.0/3.0*massTerm(u_1) -
                2.0/3.0*self.dt_const*(
-                   self.theta*RHSimpl(sol, **self.args) +
-                   (1-self.theta)*RHSimpl(u_1, **self.args) +
+                   self.theta*RHSi(sol, **self.args) +
+                   (1-self.theta)*RHSi(u_1, **self.args) +
                    RHS(u_1, **self.args) +
                    Source(**self.args)))
 
@@ -535,6 +542,7 @@ class ForwardEuler(timeIntegrator):
         self.solver_parameters = solver_parameters
         massTerm = self.equation.massTerm
         RHS = self.equation.RHS
+        RHSi = self.equation.RHS_implicit
         Source = self.equation.Source
 
         invdt = Constant(1.0/dt)
@@ -559,6 +567,7 @@ class ForwardEuler(timeIntegrator):
         self.A = invdt*massTerm(u_tri)
         self.L = (invdt*massTerm(u_old) +
                   RHS(u_old, **self.funcs_old) +
+                  RHSi(u_old, **self.funcs_old) +
                   Source(**self.funcs_old))
         self.updateSolver()
 
@@ -596,6 +605,7 @@ class CrankNicolson(timeIntegrator):
 
         massTerm = self.equation.massTerm
         RHS = self.equation.RHS
+        RHSi = self.equation.RHS_implicit
         Source = self.equation.Source
 
         invdt = Constant(1.0/dt)
@@ -621,14 +631,18 @@ class CrankNicolson(timeIntegrator):
         gamma_const = Constant(gamma)
         self.F = (invdt*massTerm(u) - invdt*massTerm(u_old) -
                   gamma_const*RHS(u, **self.funcs) -
+                  gamma_const*RHSi(u, **self.funcs) -
                   gamma_const*Source(**self.funcs) -
                   (1-gamma_const)*RHS(u_old, **self.funcs_old) -
+                  (1-gamma_const)*RHSi(u_old, **self.funcs_old) -
                   (1-gamma_const)*Source(**self.funcs_old))
 
         self.A = (invdt*massTerm(u_tri) -
-                  gamma_const*RHS(u_tri, **self.funcs))
+                  gamma_const*RHS(u_tri, **self.funcs) -
+                  gamma_const*RHSi(u_tri, **self.funcs))
         self.L = (invdt*massTerm(u_old) + gamma_const*Source(**self.funcs) +
                   (1-gamma_const)*RHS(u_old, **self.funcs_old) +
+                  (1-gamma_const)*RHSi(u_old, **self.funcs_old) +
                   (1-gamma_const)*Source(**self.funcs_old))
         self.updateSolver()
 

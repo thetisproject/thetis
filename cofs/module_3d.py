@@ -80,6 +80,13 @@ class momentumEquation(equation):
         """
         return inner(solution, self.test) * self.dx
 
+    def RHS_implicit(self, solution, wind_stress=None, **kwargs):
+        """Returns all the terms that are treated semi-implicitly.
+        """
+        F = 0  # holds all dx volume integral terms
+        G = 0  # holds all ds boundary interface terms
+        return -F - G
+
     def RHS(self, solution, eta, w=None, viscosity_v=None,
             viscosity_h=None, coriolis=None,
             uv_bottom=None, bottom_drag=None, lin_drag=None,
@@ -381,6 +388,13 @@ class verticalMomentumEquation(equation):
         return inner(solution, self.test) * self.dx
         #return (solution[0]*self.test[0] + solution[1]*self.test[1]) * self.dx
 
+    def RHS_implicit(self, solution, wind_stress=None, **kwargs):
+        """Returns all the terms that are treated semi-implicitly.
+        """
+        F = 0  # holds all dx volume integral terms
+        G = 0  # holds all ds boundary interface terms
+        return -F - G
+
     def RHS(self, solution, w=None, viscosity_v=None,
             uv_bottom=None, bottom_drag=None,
             **kwargs):
@@ -503,6 +517,13 @@ class tracerEquation(equation):
         if self.test_supg_mass is not None:
             test = self.test + self.test_supg_mass
         return inner(solution, test) * self.dx
+
+    def RHS_implicit(self, solution, wind_stress=None, **kwargs):
+        """Returns all the terms that are treated semi-implicitly.
+        """
+        F = 0  # holds all dx volume integral terms
+        G = 0  # holds all ds boundary interface terms
+        return -F - G
 
     def RHS(self, solution, eta, uv, w, w_mesh=None, dw_mesh_dz=None,
             diffusivity_h=None, diffusivity_v=None,

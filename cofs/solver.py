@@ -110,6 +110,7 @@ class flowSolver(object):
         self.useParabolicViscosity = False  # compute parabolic eddy viscosity
         self.useALEMovingMesh = True  # 3D mesh tracks free surface
         self.useModeSplit = True  # run 2D/3D modes with different dt
+        self.useSemiImplicit2D = True  # implicit 2D waves (only w. mode split)
         self.lin_drag = None  # 2D linear drag parameter tau/H/rho_0 = -drag*u
         self.hDiffusivity = None  # background diffusivity (set to Constant)
         self.vDiffusivity = None  # background diffusivity (set to Constant)
@@ -347,8 +348,10 @@ class flowSolver(object):
         # ----- Time integrators
         self.setTimeStep()
         if self.useModeSplit:
-            #self.timeStepper = timeIntegration.coupledSSPRKSync(self)
-            self.timeStepper = timeIntegration.coupledSSPRKSemiImplicit(self)
+            if self.useSemiImplicit2D:
+                self.timeStepper = timeIntegration.coupledSSPRKSemiImplicit(self)
+            else:
+                self.timeStepper = timeIntegration.coupledSSPRKSync(self)
         else:
             self.timeStepper = timeIntegration.coupledSSPRKSingleMode(self)
 
