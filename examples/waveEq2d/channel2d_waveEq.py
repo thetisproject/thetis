@@ -40,7 +40,7 @@ T = 10*T_cycle + 1e-3
 Umag = Constant(0.5)
 
 # --- create solver ---
-solverObj = solver.flowSolver2d(mesh2d, bathymetry2d)
+solverObj = solver.flowSolver2dMimetic(mesh2d, bathymetry2d)
 solverObj.cfl_2d = 1.0
 solverObj.nonlin = False
 solverObj.TExport = TExport

@@ -709,3 +709,184 @@ class flowSolver2d(object):
                         print '{0:25s} : {1:11.6f} {2:11.2f}'.format(
                             label, c, relcost)
                         sys.stdout.flush()
+
+
+class flowSolver2dMimetic(object):
+    """Creates and solves 2D depth averaged equations with RT1-P1DG elements"""
+    def __init__(self, mesh2d, bathymetry2d):
+        self._initialized = False
+
+        # create 3D mesh
+        self.mesh2d = mesh2d
+        self.bathymetry2d = bathymetry2d
+
+        # Time integrator setup
+        self.TExport = 100.0  # export interval
+        self.T = 1000.0  # Simulation duration
+        self.uAdvection = Constant(0.0)  # magnitude of max horiz. velocity
+        self.dt = None
+
+        # options
+        self.cfl_2d = 1.0  # factor to scale the 2d time step
+        self.nonlin = True  # use nonlinear shallow water equations
+        self.use_wd = False  # use wetting-drying
+        self.lin_drag = None  # linear drag parameter tau/H/rho_0 = -drag*u
+        self.hDiffusivity = None  # background diffusivity (set to Constant)
+        self.hViscosity = None  # background viscosity (set to Constant)
+        self.coriolis = None  # Coriolis parameter (Constant or 2D Function)
+        self.wind_stress = None  # stress at free surface (2D vector function)
+        self.uvLaxFriedrichs = Constant(1.0)  # scales uv stab. None omits
+        self.checkVolConservation2d = False
+        self.timeStepperType = 'SSPRK33'
+        self.timerLabels = ['mode2d']
+        self.outputDir = 'outputs'
+        self.fieldsToExport = ['elev2d', 'uv2d']
+        self.bnd_functions = {'shallow_water': {}}
+        self.verbose = 0
+
+    def setTimeStep(self):
+        mesh2d_dt = self.eq_sw.getTimeStep(Umag=self.uAdvection)
+        dt = self.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
+        dt = comm.allreduce(dt, dt, op=MPI.MIN)
+        if self.dt is None:
+            self.dt = dt
+        if commrank == 0:
+            print 'dt =', self.dt
+            sys.stdout.flush()
+
+    def mightyCreator(self):
+        """Creates function spaces, functions, equations and time steppers."""
+        # ----- function spaces: elev in H, uv in U, mixed is W
+        self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
+        self.U_2d = FunctionSpace(self.mesh2d, 'RT', 1)
+        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1)
+        self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', 1)
+        self.H_2d = FunctionSpace(self.mesh2d, 'DG', 1)
+        self.W_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
+
+        # ----- fields
+        self.solution2d = Function(self.W_2d, name='solution2d')
+
+        # ----- Equations
+        self.eq_sw = module_2d.shallowWaterEquations(
+            self.mesh2d, self.W_2d, self.solution2d, self.bathymetry2d,
+            lin_drag=self.lin_drag,
+            viscosity_h=self.hViscosity,
+            uvLaxFriedrichs=self.uvLaxFriedrichs,
+            coriolis=self.coriolis,
+            wind_stress=self.wind_stress,
+            nonlin=self.nonlin, use_wd=self.use_wd)
+
+        self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
+
+        # ----- Time integrators
+        self.setTimeStep()
+        if self.timeStepperType.lower() == 'ssprk33':
+            self.timeStepper = timeIntegration.SSPRK33Stage(self.eq_sw, self.dt,
+                                                            self.eq_sw.solver_parameters)
+        elif self.timeStepperType.lower() == 'forwardeuler':
+            self.timeStepper = timeIntegration.ForwardEuler(self.eq_sw, self.dt,
+                                                            self.eq_sw.solver_parameters)
+        elif self.timeStepperType.lower() == 'cranknicolson':
+            self.timeStepper = timeIntegration.CrankNicolson(self.eq_sw, self.dt,
+                                                             self.eq_sw.solver_parameters)
+        else:
+            raise Exception('Unknown time integrator type: '+str(self.timeStepperType))
+
+        # ----- File exporters
+        uv2d, eta2d = self.solution2d.split()
+        # dictionary of all exportable functions and their visualization space
+        exportFuncs = {
+            'uv2d': (uv2d, self.U_visu_2d),
+            'elev2d': (eta2d, self.P1_2d),
+            }
+        self.exporter = exportManager(self.outputDir, self.fieldsToExport,
+                                      exportFuncs, verbose=self.verbose > 0)
+        self._initialized = True
+
+    def assignInitialConditions(self, elev=None, uv_init=None):
+        if not self._initialized:
+            self.mightyCreator()
+        uv2d, eta2d = self.solution2d.split()
+        if elev is not None:
+            eta2d.project(elev)
+        if uv_init is not None:
+            uv2d.project(uv_init)
+
+        self.timeStepper.initialize(self.solution2d)
+
+    def iterate(self, updateForcings=None,
+                exportFunc=None):
+        if not self._initialized:
+            self.mightyCreator()
+
+        T_epsilon = 1.0e-5
+        cputimestamp = timeMod.clock()
+        t = 0
+        i = 0
+        iExp = 1
+        next_export_t = t + self.TExport
+
+        # initialize conservation checks
+        dx_2d = self.eq_sw.dx
+        if self.checkVolConservation2d:
+            eta = self.solution2d.split()[1]
+            Vol2d_0 = compVolume2d(eta, self.bathymetry2d, dx_2d)
+            print 'Initial volume 2d', Vol2d_0
+
+        # initial export
+        self.exporter.export()
+        if exportFunc is not None:
+            exportFunc()
+        self.exporter.exportBathymetry(self.bathymetry2d)
+
+        while t <= self.T + T_epsilon:
+
+            self.timeStepper.advance(t, self.dt, self.solution2d,
+                                     updateForcings)
+
+            # Move to next time step
+            t += self.dt
+            i += 1
+
+            # Write the solution to file
+            if t >= next_export_t - T_epsilon:
+                cputime = timeMod.clock() - cputimestamp
+                cputimestamp = timeMod.clock()
+                norm_h = norm(self.solution2d.split()[1])
+                norm_u = norm(self.solution2d.split()[0])
+
+                if self.checkVolConservation2d:
+                    Vol2d = compVolume2d(self.solution2d.split()[1],
+                                       self.bathymetry2d, dx_2d)
+                if commrank == 0:
+                    line = ('{iexp:5d} {i:5d} T={t:10.2f} '
+                            'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
+                    print(bold(line.format(iexp=iExp, i=i, t=t, e=norm_h,
+                                           u=norm_u, cpu=cputime)))
+                    line = 'Rel. {0:s} error {1:11.4e}'
+                    if self.checkVolConservation2d:
+                        print(line.format('vol 2d', (Vol2d_0 - Vol2d)/Vol2d_0))
+                    sys.stdout.flush()
+
+                self.exporter.export()
+                if exportFunc is not None:
+                    exportFunc()
+
+                next_export_t += self.TExport
+                iExp += 1
+
+                if commrank == 0 and len(self.timerLabels) > 0:
+                    cost = {}
+                    relcost = {}
+                    totcost = 0
+                    for label in self.timerLabels:
+                        value = timing(label, reset=True)
+                        cost[label] = value
+                        totcost += value
+                    for label in self.timerLabels:
+                        c = cost[label]
+                        relcost = c/max(totcost, 1e-6)
+                        print '{0:25s} : {1:11.6f} {2:11.2f}'.format(
+                            label, c, relcost)
+                        sys.stdout.flush()
