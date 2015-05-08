@@ -759,7 +759,7 @@ class flowSolver2dMimetic(object):
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
         self.U_2d = FunctionSpace(self.mesh2d, 'RT', 1)
-        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1)
+        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', 1)
         self.H_2d = FunctionSpace(self.mesh2d, 'DG', 1)
         self.W_2d = MixedFunctionSpace([self.U_2d, self.H_2d])

@@ -49,6 +49,8 @@ class shallowWaterEquations(equation):
 
         self.U_is_DG = 'DG' in self.U_space.ufl_element().shortstr()
         self.eta_is_DG = 'DG' in self.eta_space.ufl_element().shortstr()
+        print 'eta DG', self.eta_is_DG
+        print 'uv DG', self.U_is_DG
 
         # mesh dependent variables
         self.normal = FacetNormal(mesh)
@@ -211,7 +213,7 @@ class shallowWaterEquations(equation):
 
                 G += H_riemann * un_riemann * self.eta_test * ds_bnd
                 # added correct flux for eta
-                G += g_grav * ((h_ext - eta) / 2) * \
+                G += g_grav * eta * \
                     inner(self.normal, self.U_test) * ds_bnd
 
             elif 'un' in funcs:
@@ -220,6 +222,8 @@ class shallowWaterEquations(equation):
                 un_in = dot(uv, self.normal)
                 un_riemann = (un_in + un_ext)/2
                 G += total_H * un_riemann * self.eta_test * ds_bnd
+                G += g_grav * eta * \
+                    inner(self.normal, self.U_test) * ds_bnd
 
             elif 'flux' in funcs:
                 # prescribe normal volume flux
@@ -228,6 +232,8 @@ class shallowWaterEquations(equation):
                 un_ext = funcs['flux'] / total_H / sect_len
                 un_av = (un_in + un_ext)/2
                 G += total_H * un_av * self.eta_test * ds_bnd
+                G += g_grav * eta * \
+                    inner(self.normal, self.U_test) * ds_bnd
                 #if self.nonlin:
                     ##s = 0.5*(sign(un_av) + 1.0)
                     ##un_up = un_in*s + un_ext*(1-s)
@@ -249,6 +255,8 @@ class shallowWaterEquations(equation):
                 # prescribe radiation condition that allows waves to pass tru
                 un_ext = sqrt(g_grav / total_H) * eta
                 G += total_H * un_ext * self.eta_test * ds_bnd
+                G += g_grav * eta * \
+                    inner(self.normal, self.U_test) * ds_bnd
                 #if self.nonlin:
                     #G += un_ext * un_ext * inner(self.normal, self.U_test) * ds_bnd
 
@@ -456,14 +464,14 @@ class shallowWaterEquations(equation):
 
         # Internal pressure gradient
         if baro_head is not None:
-            F += g_grav * inner(nabla_grad(baro_head), self.U_test) * self.dx
-            #F -= g_grav * inner(baro_head, nabla_div(self.U_test)) * self.dx
-            #F += g_grav * avg(baro_head)*jump(self.normal, self.U_test) * self.dS
-            ## boundary conditions
-            #for bnd_marker in self.boundary_markers:
-                #funcs = self.bnd_functions.get(bnd_marker)
-                #ds_bnd = ds(int(bnd_marker), domain=self.mesh)
-                #F += g_grav * baro_head*inner(self.normal, self.U_test) * ds_bnd
+            #F += g_grav * inner(nabla_grad(baro_head), self.U_test) * self.dx
+            F -= g_grav * inner(baro_head, nabla_div(self.U_test)) * self.dx
+            F += g_grav * avg(baro_head)*jump(self.normal, self.U_test) * self.dS
+            # boundary conditions
+            for bnd_marker in self.boundary_markers:
+                funcs = self.bnd_functions.get(bnd_marker)
+                ds_bnd = ds(int(bnd_marker), domain=self.mesh)
+                F += g_grav * baro_head*inner(self.normal, self.U_test) * ds_bnd
 
         return -F
 
