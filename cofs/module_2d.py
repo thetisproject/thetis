@@ -162,7 +162,10 @@ class shallowWaterEquations(equation):
         uv, eta = split(solution)
 
         # External pressure gradient
-        F += g_grav * inner(nabla_grad(eta), self.U_test) * self.dx
+        # TODO add a bool to check if
+        # TODO a) pressure grad term should be integrated by parts (mimetic - yes)
+        # TODO b) or interior face term should be computed (p1dg-p2 - yes)
+        F += -g_grav * inner(eta, div(self.U_test)) * self.dx
 
         if self.nonlin and self.use_wd:
             total_H = self.bathymetry + eta + self.wd_bath_displacement(eta)
@@ -183,7 +186,8 @@ class shallowWaterEquations(equation):
             ds_bnd = ds(int(bnd_marker), domain=self.mesh)
             if funcs is None:
                 # assume land boundary
-                continue
+                G += g_grav * eta * \
+                    inner(self.normal, self.U_test) * ds_bnd
 
             elif 'elev' in funcs:
                 # prescribe elevation only
