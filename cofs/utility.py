@@ -380,24 +380,25 @@ def computeVertGJVParameter(gjv_alpha, tracer, param, h, umag, maxval=800.0,
     return param
 
 
-def copy_2d_field_to_3d(input, output):
+def copy_2d_field_to_3d(input, output, elemHeight=None):
     """Extract a subfunction from an extracted mesh."""
     # FIXME doesn't work for all spaces (DG over vertical)
     fs_2d = input.function_space()
     fs_3d = output.function_space()
 
-    nodes = fs_3d.bt_masks[0]
+    family_2d = fs_2d.ufl_element().family()
+    family_3dh = fs_3d.ufl_element()._A.family()
+    if family_2d != family_3dh:
+        raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
+    if family_2d == 'Raviart-Thomas' and elemHeight is None:
+        raise Exception('elemHeight must be provided for Raviart-Thomas spaces')
+    doRTScaling = family_2d == 'Raviart-Thomas'
+
     iterate = op2.ALL
 
     in_nodes = fs_2d.fiat_element.space_dimension()
     out_nodes = fs_3d.fiat_element.space_dimension()
     dim = min(fs_2d.dim, fs_3d.dim)
-
-    assert (len(nodes) == in_nodes)
-
-    nodestr = '{%s}' % ', '.join(map(str, nodes))
-    body = [ast.Decl('int', ast.Symbol('idx', (in_nodes,)),
-                     nodestr, ('const',))]
 
     kernel = op2.Kernel("""
         void my_kernel(double **func, double **func2d) {
@@ -416,10 +417,17 @@ def copy_2d_field_to_3d(input, output):
         input.dat(op2.READ, fs_2d.cell_node_map()),
         iterate=iterate)
 
+    if doRTScaling:
+        tri = TrialFunction(fs_3d)
+        test = TestFunction(fs_3d)
+        a = inner(tri, test)*dx
+        L = elemHeight*inner(output, test)*dx
+        solve(a == L, output)
     return output
 
 
-def extract_level_from_3d(input, sub_domain, output=None, bottomNodes=None):
+def extract_level_from_3d(input, sub_domain, output, bottomNodes=None,
+                          elemHeight=None):
     """Extract a subfunction from an extracted mesh."""
     # NOTE top/bottom are defined differently than in firedrake
     # FIXME doesn't work for all spaces (DG over vertical)
@@ -430,6 +438,14 @@ def extract_level_from_3d(input, sub_domain, output=None, bottomNodes=None):
         raise ValueError('subdomain must be "bottom" or "top"')
 
     out_fs = output.function_space()
+
+    family_2d = out_fs.ufl_element().family()
+    family_3dh = fs.ufl_element()._A.family()
+    if family_2d != family_3dh:
+        raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
+    if family_2d == 'Raviart-Thomas' and elemHeight is None:
+        raise Exception('elemHeight must be provided for Raviart-Thomas spaces')
+    doRTScaling = family_2d == 'Raviart-Thomas'
 
     if bottomNodes is None:
         bottomNodes = sub_domain == 'bottom'
@@ -477,10 +493,56 @@ def extract_level_from_3d(input, sub_domain, output=None, bottomNodes=None):
             input.dat(op2.READ, fs.cell_node_map()),
             output.dat(op2.WRITE, out_fs.cell_node_map()), iterate=iterate)
 
+    if doRTScaling:
+        tri = TrialFunction(out_fs)
+        test = TestFunction(out_fs)
+        dx_2d = Measure('dx', domain=out_fs.mesh(), subdomain_id='everywhere')
+        a = elemHeight*inner(tri, test)*dx_2d
+        L = inner(output, test)*dx_2d
+        solve(a == L, output)
+
+
+def computeElemHeight(zCoord, output):
+    """
+    Compute element heights on an extruded mesh.
+    zCoord (P1CG) contains zcoordinates of the mesh
+    element height is stored in output function (typ. P1DG).
+    """
+    fs_in = zCoord.function_space()
+    fs_out = output.function_space()
+
+    nodes = fs_out.bt_masks[0]
+    iterate = op2.ALL
+
+    in_nodes = fs_in.fiat_element.space_dimension()
+    out_nodes = fs_out.fiat_element.space_dimension()
+    dim = min(fs_in.dim, fs_out.dim)
+
+    kernel = op2.Kernel("""
+        void my_kernel(double **func, double **zCoord) {
+            for ( int d = 0; d < %(nodes)d/2; d++ ) {
+                for ( int c = 0; c < %(func_dim)d; c++ ) {
+                    // NOTE is fabs required here??
+                    double dz = zCoord[2*d+1][c]-zCoord[2*d][c];
+                    func[2*d][c] = dz;
+                    func[2*d+1][c] = dz;
+                }
+            }
+        }""" % {'nodes': zCoord.cell_node_map().arity,
+                'func_dim': zCoord.function_space().cdim},
+                'my_kernel')
+    op2.par_loop(
+        kernel, fs_out.mesh().cell_set,
+        output.dat(op2.WRITE, fs_out.cell_node_map()),
+        zCoord.dat(op2.READ, fs_in.cell_node_map()),
+        iterate=iterate)
+
+    return output
+
 
 @timed_function('func_copy3dTo2d')
 def copy3dFieldTo2d(input3d, output2d, useBottomValue=True,
-                    elemBottomValue=None, level=None):
+                    elemBottomValue=None, level=None, elemHeight=None):
     """
     Assings the top/bottom value of the input field to 2d output field.
     """
@@ -489,17 +551,17 @@ def copy3dFieldTo2d(input3d, output2d, useBottomValue=True,
     if elemBottomValue is None:
         elemBottomValue = useBottomValue
     sub_domain = 'bottom' if useBottomValue else 'top'
-    extract_level_from_3d(input3d, sub_domain, output2d,
+    extract_level_from_3d(input3d, sub_domain, output2d, elemHeight=elemHeight,
                           bottomNodes=elemBottomValue)
 
 
 @timed_function('func_copy2dTo3d')
-def copy2dFieldTo3d(input2d, output3d):
+def copy2dFieldTo3d(input2d, output3d, elemHeight=None):
     """
     Copies a field from 2d mesh to 3d mesh, assigning the same value over the
     vertical dimension. Horizontal function space must be the same.
     """
-    copy_2d_field_to_3d(input2d, output3d)
+    copy_2d_field_to_3d(input2d, output3d, elemHeight=elemHeight)
 
 
 def correct3dVelocity(UV2d, uv3d, uv3d_dav, bathymetry):
@@ -546,7 +608,7 @@ def computeBottomFriction(uv3d, uv_bottom2d, uv_bottom3d, z_coord3d,
 
 def getHorzontalElemSize(P1_2d, P1_3d=None):
     """
-    Computes horizontal element size from the 2D mesh, the copies it over a 3D
+    Computes horizontal element size from the 2D mesh, then copies it over a 3D
     field.
     """
     cellsize = CellSize(P1_2d.mesh())
@@ -566,8 +628,7 @@ def getHorzontalElemSize(P1_2d, P1_3d=None):
 
 def getVerticalElemSize(P1_2d, P1_3d):
     """
-    Computes horizontal element size from the 2D mesh, the copies it over a 3D
-    field.
+    Computes vertical element size from 3D mesh.
     """
     # compute total depth
     depth2d = Function(P1_2d)
