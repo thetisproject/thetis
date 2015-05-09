@@ -164,6 +164,7 @@ class momentumEquation(equation):
         for bnd_marker in self.boundary_markers:
             funcs = self.bnd_functions.get(bnd_marker)
             ds_bnd = ds_v(int(bnd_marker), domain=self.mesh)
+            un_in = (solution[0]*self.normal[0] + solution[1]*self.normal[1])
             if funcs is None:
                 # assume land boundary
                 continue
@@ -180,7 +181,6 @@ class momentumEquation(equation):
                 t = self.normal[1] * self.e_x - self.normal[0] * self.e_y
                 ut_in = dot(solution, t)
                 # ut_ext = -dot(uv_ext,t) # assume zero
-                un_in = dot(solution, self.normal)
                 un_ext = dot(uv_ext, self.normal)
 
                 if self.nonlin:
@@ -199,7 +199,6 @@ class momentumEquation(equation):
 
             elif 'un' in funcs:
                 # prescribe normal volume flux
-                un_in = dot(solution, self.normal)
                 un_ext = funcs['un']
                 if self.nonlin:
                     #un_av = 0.5*(un_ext+un_in)
@@ -225,7 +224,6 @@ class momentumEquation(equation):
             elif 'flux' in funcs:
                 # prescribe normal volume flux
                 sect_len = Constant(self.boundary_len[bnd_marker])
-                un_in = dot(solution, self.normal)
                 un_ext = funcs['flux'] / total_H / sect_len
                 if self.nonlin:
                     #un_av = 0.5*(un_ext+un_in)
@@ -251,7 +249,7 @@ class momentumEquation(equation):
 
             elif 'symm' in funcs:
                 if self.nonlin:
-                    uv_in = dot(solution, self.normal)*self.normal
+                    uv_in = un_in*self.normal
                     G += (uv_in[0]*self.test[0]*self.normal[0]*uv_in[0] +
                           uv_in[0]*self.test[0]*self.normal[1]*uv_in[1] +
                           uv_in[1]*self.test[1]*self.normal[0]*uv_in[0] +
@@ -300,7 +298,8 @@ class momentumEquation(equation):
         if baro_head is not None:
             # external + internal
             head = eta + baro_head
-        F += g_grav * inner(nabla_grad(head), self.test) * self.dx
+        divTest = Dx(self.test[0], 0) + Dx(self.test[1], 1)
+        F += -g_grav * head * divTest * self.dx
 
         if self.nonlin:
             total_H = self.bathymetry + eta
@@ -311,15 +310,25 @@ class momentumEquation(equation):
         for bnd_marker in self.boundary_markers:
             funcs = self.bnd_functions.get(bnd_marker)
             ds_bnd = ds_v(int(bnd_marker), domain=self.mesh)
+            nDotTest = (self.normal[0]*self.test[0] +
+                        self.normal[1]*self.test[1])
+            if baro_head is not None:
+                G += g_grav * baro_head * \
+                    nDotTest * ds_bnd
             if funcs is None:
                 # assume land boundary
+                G += g_grav * eta * \
+                    nDotTest * ds_bnd
                 continue
 
             elif 'elev' in funcs:
                 # prescribe elevation only
                 h_ext = funcs['elev']
-                G += g_grav * ((h_ext - eta) / 2) * \
-                    inner(self.normal, self.test) * ds_bnd
+                G += g_grav * h_ext * \
+                    nDotTest * ds_bnd
+            else:
+                G += g_grav * eta * \
+                    nDotTest * ds_bnd
 
         if viscosity_v is not None:
             # bottom friction

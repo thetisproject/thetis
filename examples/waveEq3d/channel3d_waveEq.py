@@ -45,14 +45,14 @@ TExport = dt
 T = 10*T_cycle + 1e-3
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry2d, n_layers)
+solverObj = solver.flowSolverMimetic(mesh2d, bathymetry2d, n_layers)
 solverObj.nonlin = False
 solverObj.use_wd = False
 solverObj.solveSalt = False
 solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False
 solverObj.useALEMovingMesh = False
-solverObj.useSemiImplicit2D = False
+#solverObj.useSemiImplicit2D = False
 #solverObj.useModeSplit = False
 if solverObj.useModeSplit:
     solverObj.dt = dt/5

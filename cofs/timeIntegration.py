@@ -1162,7 +1162,7 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
                         s.u_mag_func_v, maxval=800.0*s.uAdvection.dat.data[0])
             with timed_region('aux_mom_coupling'):
                 if do2DCoupling:
-                    bndValue = Constant((0.0, 0.0, 0.0))
+                    bndValue = Constant((0.0, 0.0))
                     computeVerticalIntegral(s.uv3d, s.uv3d_dav,
                                             s.uv3d.function_space(),
                                             bottomToTop=True, bndValue=bndValue,
@@ -1179,7 +1179,8 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
                     uv2d = sol2d.split()[0]
                     s.uv3d -= s.uv3d_dav
                     copy2dFieldTo3d(uv2d, s.uv3d_dav)
-                    s.uv3d += s.uv3d_dav
+                    # NOTE depth averages etc maps don't work correctly for RT1 (nodes/signs not the same?)
+                    s.uv3d -= s.uv3d_dav
 
         for k in range(len(self.dt_frac)):
             with timed_region('saltEq'):

@@ -213,7 +213,7 @@ class shallowWaterEquations(equation):
 
                 G += H_riemann * un_riemann * self.eta_test * ds_bnd
                 # added correct flux for eta
-                G += g_grav * eta * \
+                G += g_grav * h_ext * \
                     inner(self.normal, self.U_test) * ds_bnd
 
             elif 'un' in funcs:
