@@ -625,6 +625,7 @@ class flowSolverMimetic(object):
         """Creates function spaces, functions, equations and time steppers."""
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
+        self.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1)
         self.U_2d = FunctionSpace(self.mesh2d, 'RT', 1)
         self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', 1)
@@ -633,6 +634,7 @@ class flowSolverMimetic(object):
 
         self.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0)
         self.P1 = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
+        self.P1DG = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
         self.U = FunctionSpace(self.mesh, 'RT', 1, vfamily='CG', vdegree=1)
         self.U_visu = VectorFunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1, dim=2)
         self.U_scalar = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
@@ -699,10 +701,12 @@ class flowSolverMimetic(object):
         else:
             self.coriolis3d = None
         if self.wind_stress is not None:
-            self.wind_stress3d = Function(self.U, name='Wind stress')
+            self.wind_stress3d = Function(self.U_visu, name='Wind stress')
             copy2dFieldTo3d(self.wind_stress, self.wind_stress3d)
         else:
             self.wind_stress3d = None
+        self.vElemSize3d = Function(self.P1DG, name='element height')
+        self.vElemSize2d = Function(self.P1DG_2d, name='element height')
         if self.useSUPG:
             # TODO move these somewhere else? All form are now in equations...
             test = TestFunction(self.H)
@@ -711,6 +715,7 @@ class flowSolverMimetic(object):
             self.u_mag_func_v = Function(self.U_scalar, name='w magnitude')
             self.SUPG_alpha = Constant(0.1)  # between 0 and 1
             self.hElemSize3d = getHorzontalElemSize(self.P1_2d, self.P1)
+            # FIXME clashes vElemSize3d above
             self.vElemSize3d = getVerticalElemSize(self.P1_2d, self.P1)
             self.supg_gamma_h = Function(self.P1, name='gamma_h')
             self.supg_gamma_v = Function(self.P1, name='gamma_v')
@@ -733,6 +738,9 @@ class flowSolverMimetic(object):
         # set initial values
         copy2dFieldTo3d(self.bathymetry2d, self.bathymetry3d)
         getZCoordFromMesh(self.z_coord_ref3d)
+        self.z_coord3d.assign(self.z_coord_ref3d)
+        computeElemHeight(self.z_coord3d, self.vElemSize3d)
+        copy3dFieldTo2d(self.vElemSize3d, self.vElemSize2d)
 
         # ----- Equations
         if self.useModeSplit:
@@ -838,6 +846,9 @@ class flowSolverMimetic(object):
             if self.useALEMovingMesh:
                 updateCoordinates(self.mesh, self.eta3d, self.bathymetry3d,
                                   self.z_coord3d, self.z_coord_ref3d)
+                computeElemHeight(self.z_coord3d, self.vElemSize3d)
+                copy3dFieldTo2d(self.vElemSize3d, self.vElemSize2d)
+
         if salt is not None and self.solveSalt:
             self.salt3d.project(salt)
         computeVertVelocity(self.w3d, self.uv3d, self.bathymetry3d)

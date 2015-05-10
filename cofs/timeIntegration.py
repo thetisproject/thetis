@@ -1106,6 +1106,8 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
                     updateCoordinates(
                         s.mesh, s.eta3d, s.bathymetry3d,
                         s.z_coord3d, s.z_coord_ref3d)
+                    computeElemHeight(s.z_coord3d, s.vElemSize3d)
+                    copy3dFieldTo2d(s.vElemSize3d, s.vElemSize2d)
                     # need to destroy all cached solvers!
                     linProblemCache.clear()
                     self.timeStepper_mom3d.updateSolver()
@@ -1169,8 +1171,10 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
                                             average=True,
                                             bathymetry=s.bathymetry3d)
                     copy3dFieldTo2d(s.uv3d_dav, s.uv2d_dav,
-                                    useBottomValue=False)
-                    copy2dFieldTo3d(s.uv2d_dav, s.uv3d_dav)
+                                    useBottomValue=False,
+                                    elemHeight=s.vElemSize2d)
+                    copy2dFieldTo3d(s.uv2d_dav, s.uv3d_dav,
+                                    elemHeight=s.vElemSize3d)
                     # 2d-3d coupling: restart 2d mode from depth ave uv3d
                     # NOTE unstable!
                     #uv2d_start = sol2d.split()[0]
@@ -1178,9 +1182,9 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
                     # 2d-3d coupling v2: force DAv(uv3d) to uv2d
                     uv2d = sol2d.split()[0]
                     s.uv3d -= s.uv3d_dav
-                    copy2dFieldTo3d(uv2d, s.uv3d_dav)
-                    # NOTE depth averages etc maps don't work correctly for RT1 (nodes/signs not the same?)
-                    s.uv3d -= s.uv3d_dav
+                    copy2dFieldTo3d(uv2d, s.uv3d_dav,
+                                    elemHeight=s.vElemSize3d)
+                    s.uv3d += s.uv3d_dav
 
         for k in range(len(self.dt_frac)):
             with timed_region('saltEq'):
