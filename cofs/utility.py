@@ -400,29 +400,44 @@ def copy_2d_field_to_3d(input, output, elemHeight=None):
     out_nodes = fs_3d.fiat_element.space_dimension()
     dim = min(fs_2d.dim, fs_3d.dim)
 
-    kernel = op2.Kernel("""
-        void my_kernel(double **func, double **func2d) {
-            for ( int d = 0; d < %(nodes)d; d++ ) {
-                for ( int c = 0; c < %(func_dim)d; c++ ) {
-                    func[2*d][c] = func2d[d][c];
-                    func[2*d+1][c] = func2d[d][c];
-                }
-            }
-        }""" % {'nodes': input.cell_node_map().arity,
-                'func_dim': input.function_space().cdim},
-                'my_kernel')
-    op2.par_loop(
-        kernel, fs_3d.mesh().cell_set,
-        output.dat(op2.WRITE, fs_3d.cell_node_map()),
-        input.dat(op2.READ, fs_2d.cell_node_map()),
-        iterate=iterate)
-
     if doRTScaling:
-        tri = TrialFunction(fs_3d)
-        test = TestFunction(fs_3d)
-        a = inner(tri, test)*dx
-        L = elemHeight*inner(output, test)*dx
-        solve(a == L, output)
+        fs_eh = elemHeight.function_space()
+        # NOTE this assumes that elemHeight is constant in each element!
+        kernel = op2.Kernel("""
+            void my_kernel(double **func, double **func2d, double **elemHeight) {
+                for ( int d = 0; d < %(nodes)d; d++ ) {
+                    for ( int c = 0; c < %(func_dim)d; c++ ) {
+                        func[2*d][c] = func2d[d][c]*elemHeight[0][0];
+                        func[2*d+1][c] = func2d[d][c]*elemHeight[0][0];
+                    }
+                }
+            }""" % {'nodes': input.cell_node_map().arity,
+                    'func_dim': input.function_space().cdim},
+                    'my_kernel')
+        op2.par_loop(
+            kernel, fs_3d.mesh().cell_set,
+            output.dat(op2.WRITE, fs_3d.cell_node_map()),
+            input.dat(op2.READ, fs_2d.cell_node_map()),
+            elemHeight.dat(op2.READ, fs_eh.cell_node_map()),
+            iterate=iterate)
+    else:
+        kernel = op2.Kernel("""
+            void my_kernel(double **func, double **func2d) {
+                for ( int d = 0; d < %(nodes)d; d++ ) {
+                    for ( int c = 0; c < %(func_dim)d; c++ ) {
+                        func[2*d][c] = func2d[d][c];
+                        func[2*d+1][c] = func2d[d][c];
+                    }
+                }
+            }""" % {'nodes': input.cell_node_map().arity,
+                    'func_dim': input.function_space().cdim},
+                    'my_kernel')
+        op2.par_loop(
+            kernel, fs_3d.mesh().cell_set,
+            output.dat(op2.WRITE, fs_3d.cell_node_map()),
+            input.dat(op2.READ, fs_2d.cell_node_map()),
+            iterate=iterate)
+
     return output
 
 
@@ -466,40 +481,56 @@ def extract_level_from_3d(input, sub_domain, output, bottomNodes=None,
 
     assert (len(nodes) == out_nodes)
 
-    nodestr = '{%s}' % ', '.join(map(str, nodes))
-    body = [ast.Decl('int', ast.Symbol('idx', (out_nodes,)),
-                     nodestr, ('const',))]
-
-    for k in range(dim):
-        i = ast.Symbol('i')
-        body.append(ast.For(ast.Decl('int', i, 0),
-                            ast.Less(i, ast.Symbol(out_nodes)),
-                            ast.Incr(i, ast.Symbol(1)),
-                            ast.Assign(ast.Symbol('out', (i, k)),
-                                       ast.Symbol('in',
-                                                  (ast.Symbol('idx', (i,)), k)))
-                            )
-                    )
-
-        args = (ast.Decl('double *', ast.Symbol('in', (in_nodes,))),
-                ast.Decl('double *', ast.Symbol('out', (out_nodes,))))
-
-        kernel = op2.Kernel(ast.FunDecl('void', 'expression', args,
-                                        ast.Block(body)),
-                            'expression')
-
-        op2.par_loop(
-            kernel, fs.mesh().cell_set,
-            input.dat(op2.READ, fs.cell_node_map()),
-            output.dat(op2.WRITE, out_fs.cell_node_map()), iterate=iterate)
-
     if doRTScaling:
-        tri = TrialFunction(out_fs)
-        test = TestFunction(out_fs)
-        dx_2d = Measure('dx', domain=out_fs.mesh(), subdomain_id='everywhere')
-        a = elemHeight*inner(tri, test)*dx_2d
-        L = inner(output, test)*dx_2d
-        solve(a == L, output)
+        fs_2d = output.function_space()
+        fs_3d = input.function_space()
+        fs_eh = elemHeight.function_space()
+        idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='nodeIdx')
+        # NOTE this assumes that elemHeight is constant in each element!
+        kernel = op2.Kernel("""
+            void my_kernel(double **func, double **func3d, double **elemHeight, int *idx) {
+                for ( int d = 0; d < %(nodes)d; d++ ) {
+                    for ( int c = 0; c < %(func_dim)d; c++ ) {
+                        func[d][c] = func3d[idx[d]][c]/elemHeight[0][0];
+                        //func[d][c] = idx[d];
+                    }
+                }
+            }""" % {'nodes': output.cell_node_map().arity,
+                    'func_dim': output.function_space().cdim},
+                    'my_kernel')
+        op2.par_loop(
+            kernel, fs_3d.mesh().cell_set,
+            output.dat(op2.WRITE, fs_2d.cell_node_map()),
+            input.dat(op2.READ, fs_3d.cell_node_map()),
+            elemHeight.dat(op2.READ, fs_eh.cell_node_map()),
+            idx(op2.READ),
+            iterate=iterate)
+    else:
+        nodestr = '{%s}' % ', '.join(map(str, nodes))
+        body = [ast.Decl('int', ast.Symbol('idx', (out_nodes,)),
+                         nodestr, ('const',))]
+        for k in range(dim):
+            i = ast.Symbol('i')
+            body.append(ast.For(ast.Decl('int', i, 0),
+                                ast.Less(i, ast.Symbol(out_nodes)),
+                                ast.Incr(i, ast.Symbol(1)),
+                                ast.Assign(ast.Symbol('out', (i, k)),
+                                        ast.Symbol('in',
+                                                    (ast.Symbol('idx', (i,)), k)))
+                                )
+                        )
+
+            args = (ast.Decl('double *', ast.Symbol('in', (in_nodes,))),
+                    ast.Decl('double *', ast.Symbol('out', (out_nodes,))))
+
+            kernel = op2.Kernel(ast.FunDecl('void', 'expression', args,
+                                            ast.Block(body)),
+                                'expression')
+
+            op2.par_loop(
+                kernel, fs.mesh().cell_set,
+                input.dat(op2.READ, fs.cell_node_map()),
+                output.dat(op2.WRITE, out_fs.cell_node_map()), iterate=iterate)
 
 
 def computeElemHeight(zCoord, output):
