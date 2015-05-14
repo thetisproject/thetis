@@ -15,6 +15,9 @@ from mpi4py import MPI
 import ufl
 import coffee.base as ast
 
+# HACK temp fix for broken non-linear solvers
+parameters["coffee"]["O2"] = False
+
 comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
 
