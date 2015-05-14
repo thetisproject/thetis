@@ -54,7 +54,8 @@ class momentumEquation(equation):
         self.e_x, self.e_y, self.e_y = unit_vectors(3)
 
         # integral measures
-        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere')
+        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere',
+                          subdomain_data=weakref.ref(self.mesh.coordinates))
         self.dS_v = dS_v(domain=self.mesh)
         self.dS_h = dS_h(domain=self.mesh)
         self.ds_surf = ds_b
@@ -373,7 +374,8 @@ class verticalMomentumEquation(equation):
         self.e_x, self.e_y, self.e_y = unit_vectors(3)
 
         # integral measures
-        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere')
+        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere',
+                          subdomain_data=weakref.ref(self.mesh.coordinates))
         self.dS_v = dS_v(domain=self.mesh)
         self.dS_h = dS_h(domain=self.mesh)
 
@@ -501,7 +503,8 @@ class tracerEquation(equation):
         self.e_x, self.e_y, self.e_y = unit_vectors(3)
 
         # integral measures
-        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere')
+        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere',
+                          subdomain_data=weakref.ref(self.mesh.coordinates))
         self.dS_v = dS_v(domain=self.mesh)
         self.dS_h = dS_h(domain=self.mesh)
 
@@ -547,6 +550,16 @@ class tracerEquation(equation):
         # Horizontal advection term
         F += -solution*(uv[0]*Dx(self.test, 0) +
                         uv[1]*Dx(self.test, 1))*self.dx
+        if self.horizontal_DG:
+            # add interface term
+            uv_av = avg(uv)
+            un_av = (uv_av[0]*self.normal('-')[0] +
+                     uv_av[1]*self.normal('-')[1])
+            s = 0.5*(sign(un_av) + 1.0)
+            c_up = solution('-')*s + solution('+')*(1-s)
+            #alpha = 0.5*(tanh(4 * un / 0.02) + 1)
+            #c_up = alpha*c_in + (1-alpha)*c_ext  # for inv.part adv term
+            G += c_up*un_av*jump(self.test)*self.dS_v
         # Vertical advection term
         vertvelo = w
         if w_mesh is not None:
@@ -576,9 +589,8 @@ class tracerEquation(equation):
 
             elif 'value' in funcs:
                 # prescribe external tracer value
-                nudge = 1.00
                 c_in = solution
-                c_ext = nudge*funcs['value'] + (1-nudge)*c_in
+                c_ext = funcs['value']
                 un = self.normal[0]*uv[0] + self.normal[1]*uv[1]
                 alpha = 0.5*(tanh(4 * un / 0.02) + 1)
                 c_up = alpha*c_in + (1-alpha)*c_ext  # for inv.part adv term

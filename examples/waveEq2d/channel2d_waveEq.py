@@ -52,6 +52,7 @@ solverObj.checkVolConservation2d = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d']
 solverObj.timerLabels = []
 solverObj.timeStepperType = 'CrankNicolson'
+#solverObj.timeStepperType = 'SSPRK33'
 
 solverObj.mightyCreator()
 elev_init = Function(solverObj.H_2d)

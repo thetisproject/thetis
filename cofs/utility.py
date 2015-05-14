@@ -4,6 +4,7 @@ Utility functions and classes for 3D hydrostatic ocean model
 Tuomas Karna 2015-02-21
 """
 from firedrake import *
+import weakref
 import os
 import numpy as np
 import sys

@@ -59,7 +59,8 @@ class shallowWaterEquations(equation):
         self.e_x, self.e_y = unit_vectors(2)
 
         # integral measures
-        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere')
+        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere',
+                          subdomain_data=weakref.ref(self.mesh.coordinates))
         self.dS = dS(domain=self.mesh)
 
         # boundary definitions
@@ -504,7 +505,8 @@ class freeSurfaceEquation(equation):
         self.e_x, self.e_y = unit_vectors(2)
 
         # integral measures
-        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere')
+        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere',
+                          subdomain_data=weakref.ref(self.mesh.coordinates))
         self.dS = dS(domain=self.mesh)
 
         # boundary definitions
