@@ -562,7 +562,9 @@ class tracerEquation(equation):
             c_up = solution('-')*s + solution('+')*(1-s)
             #alpha = 0.5*(tanh(4 * un / 0.02) + 1)
             #c_up = alpha*c_in + (1-alpha)*c_ext  # for inv.part adv term
-            G += c_up*un_av*jump(self.test)*self.dS_v
+            #G += c_up*un_av*jump(self.test)*self.dS_v
+            G += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
+                       uv_av[1]*jump(self.test, self.normal[1]))*self.dS_v
         # Vertical advection term
         vertvelo = w
         if w_mesh is not None:
