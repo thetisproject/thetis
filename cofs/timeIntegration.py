@@ -1135,7 +1135,8 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
                         s.uv_bottom3d, s.z_coord3d,
                         s.z_bottom2d, s.z_bottom3d,
                         s.bathymetry2d, s.bottom_drag2d,
-                        s.bottom_drag3d)
+                        s.bottom_drag3d,
+                        s.vElemSize2d, s.vElemSize3d)
                 if s.useParabolicViscosity:
                     computeParabolicViscosity(
                         s.uv_bottom3d, s.bottom_drag3d,

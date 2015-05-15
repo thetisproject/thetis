@@ -301,6 +301,9 @@ class momentumEquation(equation):
             head = eta + baro_head
         divTest = Dx(self.test[0], 0) + Dx(self.test[1], 1)
         F += -g_grav * head * divTest * self.dx
+        nDotTest = (self.normal[0]*self.test[0] +
+                    self.normal[1]*self.test[1])
+        G += g_grav * head * nDotTest * (self.ds_surf + self.ds_bottom)
 
         if self.nonlin:
             total_H = self.bathymetry + eta
