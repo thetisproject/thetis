@@ -182,8 +182,8 @@ def computeVertVelocity(solution, uv, bathymetry, solver_parameters={}):
         w_bottom = -(uv[0]*Dx(bathymetry, 0) + uv[1]*Dx(bathymetry, 1))
         a = tri*phi*normal[2]*ds_surf - Dx(phi, 2)*tri*dx
         # NOTE pointwise div(uv)
-        L = (-(Dx(uv[0], 0) + Dx(uv[1], 1))*phi*dx -
-             w_bottom*phi*normal[2]*ds_bottom)
+        L = (-(Dx(uv[0], 0) + Dx(uv[1], 1))*phi*dx
+             - w_bottom*phi*normal[2]*ds_bottom)
         # NOTE div(uv) weak - this form is correct for DG uv
         # NOTE less accurate on deformed mesh bc jacobian is assumed constant
         #L = ((uv[0]*Dx(phi, 0) + uv[1]*Dx(phi, 1))*dx -
@@ -200,6 +200,22 @@ def computeVertVelocity(solution, uv, bathymetry, solver_parameters={}):
     linProblemCache[key].solve()
 
     return solution
+
+
+def computeVolumeFlux(uv, H, solution, dx, solver_parameters={}):
+    solver_parameters.setdefault('ksp_atol', 1e-12)
+    solver_parameters.setdefault('ksp_rtol', 1e-16)
+    key = '-'.join((solution.name(), uv.name()))
+    if key not in linProblemCache:
+        test = TestFunction(solution.function_space())
+        tri = TrialFunction(solution.function_space())
+        a = inner(tri, test)*dx
+        L = inner(uv*H, test)*dx
+        prob = LinearVariationalProblem(a, L, solution)
+        solver = LinearVariationalSolver(
+            prob, solver_parameters=solver_parameters)
+        linProblemCache.add(key, solver, 'volumeFlux')
+    linProblemCache[key].solve()
 
 
 class equation(object):

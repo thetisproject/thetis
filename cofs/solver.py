@@ -627,18 +627,18 @@ class flowSolverMimetic(object):
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
         self.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1)
         self.U_2d = FunctionSpace(self.mesh2d, 'RT', 1)
-        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
+        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1)
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', 1)
-        self.H_2d = FunctionSpace(self.mesh2d, 'DG', 1)
+        self.H_2d = FunctionSpace(self.mesh2d, 'DG', 0)
         self.W_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
 
         self.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0)
         self.P1 = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
         self.P1DG = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
         self.U = FunctionSpace(self.mesh, 'RT', 1, vfamily='CG', vdegree=1)
-        self.U_visu = VectorFunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1, dim=2)
+        self.U_visu = VectorFunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1, dim=2)
         self.U_scalar = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
-        self.H = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
+        self.H = FunctionSpace(self.mesh, 'DG', 0, vfamily='CG', vdegree=1)
 
         # ----- fields
         self.solution2d = Function(self.W_2d, name='solution2d')
@@ -1217,15 +1217,17 @@ class flowSolver2dMimetic(object):
     def mightyCreator(self):
         """Creates function spaces, functions, equations and time steppers."""
         # ----- function spaces: elev in H, uv in U, mixed is W
+        self.P0_2d = FunctionSpace(self.mesh2d, 'DG', 0)
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
         self.U_2d = FunctionSpace(self.mesh2d, 'RT', 1)
         self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', 1)
-        self.H_2d = FunctionSpace(self.mesh2d, 'DG', 1)
+        self.H_2d = FunctionSpace(self.mesh2d, 'DG', 0)
         self.W_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
 
         # ----- fields
         self.solution2d = Function(self.W_2d, name='solution2d')
+        self.volumeFlux2d = Function(self.U_2d, name='volumeFlux2d')
 
         # ----- Equations
         self.eq_sw = module_2d.shallowWaterEquations(
@@ -1235,6 +1237,7 @@ class flowSolver2dMimetic(object):
             uvLaxFriedrichs=self.uvLaxFriedrichs,
             coriolis=self.coriolis,
             wind_stress=self.wind_stress,
+            volumeFlux=self.volumeFlux2d,
             nonlin=self.nonlin, use_wd=self.use_wd)
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
@@ -1258,7 +1261,7 @@ class flowSolver2dMimetic(object):
         # dictionary of all exportable functions and their visualization space
         exportFuncs = {
             'uv2d': (uv2d, self.U_visu_2d),
-            'elev2d': (eta2d, self.P1_2d),
+            'elev2d': (eta2d, self.P0_2d),
             }
         self.exporter = exportManager(self.outputDir, self.fieldsToExport,
                                       exportFuncs, verbose=self.verbose > 0)
@@ -1302,8 +1305,25 @@ class flowSolver2dMimetic(object):
 
         while t <= self.T + T_epsilon:
 
-            self.timeStepper.advance(t, self.dt, self.solution2d,
-                                     updateForcings)
+            #self.timeStepper.advance(t, self.dt, self.solution2d,
+                                     #updateForcings)
+            for i in range(3):
+                uv, eta = self.solution2d.split()
+                if self.nonlin:
+                    computeVolumeFlux(uv, (eta+self.bathymetry2d),
+                                      self.volumeFlux2d, self.eq_sw.dx)
+                else:
+                    computeVolumeFlux(uv, self.bathymetry2d,
+                                      self.volumeFlux2d, self.eq_sw.dx)
+                #self.volumeFlux2d.project(uv)
+                #self.volumeFlux2d.assign(uv)
+                #test = TestFunction(self.volumeFlux2d.function_space())
+                #tri = TrialFunction(self.volumeFlux2d.function_space())
+                #A = inner(tri, test)*self.eq_sw.dx
+                #L = inner(uv, test)*self.eq_sw.dx
+                #solve(A == L, self.volumeFlux2d)
+                self.timeStepper.solveStage(i, t, self.dt, self.solution2d,
+                                            updateForcings)
 
             # Move to next time step
             t += self.dt

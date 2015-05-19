@@ -106,16 +106,20 @@ class momentumEquation(equation):
                       Dx(self.test[1], 0)*solution[1]*solution[0] +
                       Dx(self.test[1], 1)*solution[1]*solution[1])
             F += Adv_h * self.dx
-            if self.horizontal_DG:
+            if True:  # self.horizontal_DG:
                 uv_av = avg(solution)
                 un_av = (uv_av[0]*self.normal('-')[0] +
                          uv_av[1]*self.normal('-')[1])
                 s = 0.5*(sign(un_av) + 1.0)
                 uv_up = solution('-')*s + solution('+')*(1-s)
                 G += (uv_up[0]*jump(self.test[0], self.normal[0]*solution[0]) +
-                      uv_up[0]*jump(self.test[0], self.normal[1]*solution[1]) +
-                      uv_up[1]*jump(self.test[1], self.normal[0]*solution[0]) +
+                      #uv_up[0]*jump(self.test[0], self.normal[1]*solution[1]) +
+                      #uv_up[1]*jump(self.test[1], self.normal[0]*solution[0]) +
                       uv_up[1]*jump(self.test[1], self.normal[1]*solution[1]))*(self.dS_v)
+                #G += (uv_up[0]*jump(self.test[0], self.normal[0]*solution[0]) +
+                      #uv_up[0]*jump(self.test[0], self.normal[1]*solution[1]) +
+                      #uv_up[1]*jump(self.test[1], self.normal[0]*solution[0]) +
+                      #uv_up[1]*jump(self.test[1], self.normal[1]*solution[1]))*(self.dS_v)
                 # Lax-Friedrichs stabilization
                 if uvLaxFriedrichs is not None:
                     gamma = abs(un_av)*uvLaxFriedrichs
@@ -381,6 +385,8 @@ class verticalMomentumEquation(equation):
                           subdomain_data=weakref.ref(self.mesh.coordinates))
         self.dS_v = dS_v(domain=self.mesh)
         self.dS_h = dS_h(domain=self.mesh)
+        self.ds_surf = ds_b
+        self.ds_bottom = ds_t
 
         # set boundary conditions
         # maps bnd_marker to dict of external functions e.g. {'elev':eta_ext}
@@ -510,6 +516,8 @@ class tracerEquation(equation):
                           subdomain_data=weakref.ref(self.mesh.coordinates))
         self.dS_v = dS_v(domain=self.mesh)
         self.dS_h = dS_h(domain=self.mesh)
+        self.ds_surf = ds_b
+        self.ds_bottom = ds_t
 
         # boundary definitions
         self.boundary_markers = bnd_markers
@@ -565,6 +573,8 @@ class tracerEquation(equation):
             #G += c_up*un_av*jump(self.test)*self.dS_v
             G += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
                        uv_av[1]*jump(self.test, self.normal[1]))*self.dS_v
+            G += solution*(uv[0]*self.test*self.normal[0] +
+                           uv[1]*self.test*self.normal[1])*self.ds_surf
         # Vertical advection term
         vertvelo = w
         if w_mesh is not None:

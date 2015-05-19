@@ -19,6 +19,7 @@ class shallowWaterEquations(equation):
                  coriolis=None,
                  wind_stress=None,
                  uvLaxFriedrichs=None,
+                 volumeFlux=None,
                  nonlin=True, use_wd=False):
         self.mesh = mesh
         self.space = space
@@ -39,6 +40,7 @@ class shallowWaterEquations(equation):
                        'coriolis': coriolis,
                        'wind_stress': wind_stress,
                        'uvLaxFriedrichs': uvLaxFriedrichs,
+                       'volumeFlux': volumeFlux,
                        }
 
         # create mixed function space
@@ -157,7 +159,7 @@ class shallowWaterEquations(equation):
         # diag(nabla_grad(w))) ) #+ (eta+h_mean)*nabla_grad(v) )
         return F * self.dx
 
-    def RHS_implicit(self, solution, wind_stress=None, **kwargs):
+    def RHS_implicit(self, solution, wind_stress=None, volumeFlux=None, **kwargs):
         """Returns all the terms that are treated semi-implicitly.
         """
         F = 0  # holds all dx volume integral terms
@@ -177,11 +179,18 @@ class shallowWaterEquations(equation):
         else:
             total_H = self.bathymetry
         # Divergence of depth-integrated velocity
-        F += -total_H * inner(uv, nabla_grad(self.eta_test)) * self.dx
-        if self.eta_is_DG:
-            Hu_star = avg(total_H*uv) +\
-                sqrt(g_grav*avg(total_H))*jump(total_H, self.normal)
-            G += inner(jump(self.eta_test, self.normal), Hu_star)*self.dS
+        if volumeFlux is not None:
+            F += inner(div(volumeFlux), self.eta_test) * self.dx
+        else:
+            F += inner(div(total_H * uv), self.eta_test) * self.dx
+        #F += total_H * inner(div(uv), self.eta_test) * self.dx
+        #F -= inner(div(uv*self.eta_test), total_H) * self.dx
+        #F += avg(total_H)*jump(uv*self.eta_test, self.normal)*self.dS
+        #F += -total_H * inner(uv, nabla_grad(self.eta_test)) * self.dx
+        #if self.eta_is_DG:
+            #Hu_star = avg(total_H*uv) +\
+                #sqrt(g_grav*avg(total_H))*jump(total_H, self.normal)
+            #G += inner(jump(self.eta_test, self.normal), Hu_star)*self.dS
 
         # boundary conditions
         for bnd_marker in self.boundary_markers:
@@ -191,6 +200,7 @@ class shallowWaterEquations(equation):
                 # assume land boundary
                 G += g_grav * eta * \
                     inner(self.normal, self.U_test) * ds_bnd
+                #G += total_H*dot(uv*self.eta_test, self.normal)*ds_bnd
 
             elif 'elev' in funcs:
                 # prescribe elevation only
@@ -286,7 +296,7 @@ class shallowWaterEquations(equation):
                         Dx(uv[1]*self.U_test[0], 1)*uv[0] +
                         Dx(uv[1]*self.U_test[1], 1)*uv[1])
             #Adv_mom = -inner(nabla_div(outer(uv, self.U_test)), uv)
-            if self.U_is_DG:
+            if True:  # self.U_is_DG:
                 #H = self.bathymetry + eta
                 ##un = dot(uv, self.normal)
                 ##c_roe = avg(sqrt(g_grav*H))
@@ -305,9 +315,13 @@ class shallowWaterEquations(equation):
                 s = 0.5*(sign(un_av) + 1.0)
                 uv_up = uv('-')*s + uv('+')*(1-s)
                 # TODO write this with dot() to speed up!
+                #G += (uv_av[0]*uv_up[0]*jump(self.U_test[0], self.normal[0]) +
+                      #uv_av[0]*uv_up[1]*jump(self.U_test[1], self.normal[0]) +
+                      #uv_av[1]*uv_up[0]*jump(self.U_test[0], self.normal[1]) +
+                      #uv_av[1]*uv_up[1]*jump(self.U_test[1], self.normal[1]))*self.dS
                 G += (uv_av[0]*uv_up[0]*jump(self.U_test[0], self.normal[0]) +
-                      uv_av[0]*uv_up[1]*jump(self.U_test[1], self.normal[0]) +
-                      uv_av[1]*uv_up[0]*jump(self.U_test[0], self.normal[1]) +
+                      #uv_av[0]*uv_up[1]*jump(self.U_test[1], self.normal[0]) +
+                      #uv_av[1]*uv_up[0]*jump(self.U_test[0], self.normal[1]) +
                       uv_av[1]*uv_up[1]*jump(self.U_test[1], self.normal[1]))*self.dS
                 # Lax-Friedrichs stabilization
                 if uvLaxFriedrichs is not None:
