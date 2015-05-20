@@ -559,22 +559,23 @@ class tracerEquation(equation):
 
         # NOTE advection terms must be exactly as in 3d continuity equation
         # Horizontal advection term
-        F += -solution*(uv[0]*Dx(self.test, 0) +
-                        uv[1]*Dx(self.test, 1))*self.dx
-        if self.horizontal_DG:
-            # add interface term
-            uv_av = avg(uv)
-            un_av = (uv_av[0]*self.normal('-')[0] +
-                     uv_av[1]*self.normal('-')[1])
-            s = 0.5*(sign(un_av) + 1.0)
-            c_up = solution('-')*s + solution('+')*(1-s)
-            #alpha = 0.5*(tanh(4 * un / 0.02) + 1)
-            #c_up = alpha*c_in + (1-alpha)*c_ext  # for inv.part adv term
-            #G += c_up*un_av*jump(self.test)*self.dS_v
-            G += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
-                       uv_av[1]*jump(self.test, self.normal[1]))*self.dS_v
-            G += solution*(uv[0]*self.test*self.normal[0] +
-                           uv[1]*self.test*self.normal[1])*self.ds_surf
+        F += (Dx(uv[0]*solution, 0) + Dx(uv[1]*solution, 1))*self.test*self.dx
+        #F += -solution*(uv[0]*Dx(self.test, 0) +
+                        #uv[1]*Dx(self.test, 1))*self.dx
+        #if self.horizontal_DG:
+            ## add interface term
+            #uv_av = avg(uv)
+            #un_av = (uv_av[0]*self.normal('-')[0] +
+                     #uv_av[1]*self.normal('-')[1])
+            #s = 0.5*(sign(un_av) + 1.0)
+            #c_up = solution('-')*s + solution('+')*(1-s)
+            ##alpha = 0.5*(tanh(4 * un / 0.02) + 1)
+            ##c_up = alpha*c_in + (1-alpha)*c_ext  # for inv.part adv term
+            ##G += c_up*un_av*jump(self.test)*self.dS_v
+            #G += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
+                       #uv_av[1]*jump(self.test, self.normal[1]))*self.dS_v
+            #G += solution*(uv[0]*self.test*self.normal[0] +
+                           #uv[1]*self.test*self.normal[1])*self.ds_surf
         # Vertical advection term
         vertvelo = w
         if w_mesh is not None:
@@ -585,12 +586,13 @@ class tracerEquation(equation):
         if dw_mesh_dz is not None:
             F += solution*dw_mesh_dz*self.test*self.dx
 
-        # Bottom/top impermeability boundary conditions
-        # G += +solution*(uv[0]*self.normal[0] +
-                        # uv[1]*self.normal[1])*self.test*(ds_t + ds_b)
-        # TODO what is the correct free surf bnd condition?
+        ## Bottom/top impermeability boundary conditions
+        #G += +solution*(uv[0]*self.normal[0] +
+                        #uv[1]*self.normal[1])*self.test*(self.ds_bottom + self.ds_surf)
+        ## TODO what is the correct free surf bnd condition?
+        G += solution*vertvelo*self.normal[2]*self.test*(self.ds_bottom + self.ds_surf)
         if w_mesh is None:
-            G += solution*vertvelo*self.normal[2]*self.test*(ds_b)
+            G += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
 
         # boundary conditions
         for bnd_marker in self.boundary_markers:
@@ -598,9 +600,9 @@ class tracerEquation(equation):
             ds_bnd = ds_v(int(bnd_marker), domain=self.mesh)
             if funcs is None:
                 # assume land boundary NOTE uv.n should be very close to 0
-                #continue
-                G += solution*(self.normal[0]*uv[0] +
-                               self.normal[1]*uv[1])*self.test*ds_bnd
+                continue
+                #G += solution*(self.normal[0]*uv[0] +
+                               #self.normal[1]*uv[1])*self.test*ds_bnd
 
             elif 'value' in funcs:
                 # prescribe external tracer value
