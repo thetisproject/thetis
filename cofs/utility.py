@@ -189,7 +189,7 @@ def computeVertVelocity(solution, uv, bathymetry, solver_parameters={}):
         # NOTE div(uv) weak - this form is correct for DG uv
         # NOTE less accurate on deformed mesh bc jacobian is assumed constant
         #L = ((uv[0]*Dx(test[2], 0) + uv[1]*Dx(test[2], 1))*dx -
-             #(uv[0]*normal[0] + uv[1]*normal[1])*test[2]*(ds_v+ds_surf+ds_bottom) -
+             #(uv[0]*normal[0] + uv[1]*normal[1])*test[2]*(ds_surf+ds_bottom) -
              #(jump(uv[0]*test[2], normal[0]) +
               #jump(uv[1]*test[2], normal[1]))*(dS_v) -
              #w_bottom*test[2]*normal[2]*ds_bottom

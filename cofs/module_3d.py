@@ -182,17 +182,19 @@ class momentumEquation(equation):
 
             # Vertical advection term
             if w is not None:
-                vertvelo = w
+                vertvelo = w[2]
                 if w_mesh is not None:
-                    vertvelo = w-w_mesh
+                    vertvelo = w[2]-w_mesh
                 Adv_v = -(Dx(self.test[0], 2)*solution[0]*vertvelo +
-                        Dx(self.test[1], 2)*solution[1]*vertvelo)
+                          Dx(self.test[1], 2)*solution[1]*vertvelo)
                 F += Adv_v * self.dx
-            #if self.horizontal_DG:
-                #w_rie = avg(w)
+            if self.vertical_DG:
+                s = 0.5*(sign(avg(w[2])) + 1.0)
+                uv_up = solution('-')*s + solution('+')*(1-s)
+                #w_rie = avg(w[2])
                 #uv_rie = avg(solution)
-                #G += (uv_rie[0]*w_rie*jump(self.test[0], self.normal[2]) +
-                      #uv_rie[1]*w_rie*jump(self.test[1], self.normal[2]))*self.dS_h
+                G += (uv_up[0]*jump(self.test[0], self.normal[2]*w[2]) +
+                      uv_up[1]*jump(self.test[1], self.normal[2]*w[2]))*self.dS_h
 
             # surf/bottom boundary conditions: closed at bed, symmetric at surf
             G += (solution[0]*solution[0]*self.test[0]*self.normal[0] +
@@ -560,6 +562,8 @@ class tracerEquation(equation):
         self.horizontal_DG = ufl_elem._A.family() != 'Lagrange'
         self.vertical_DG = ufl_elem._B.family() != 'Lagrange'
 
+        self.horizAdvectionByParts = True
+
         # mesh dependent variables
         self.normal = FacetNormal(mesh)
         self.xyz = SpatialCoordinate(mesh)
@@ -613,23 +617,29 @@ class tracerEquation(equation):
 
         # NOTE advection terms must be exactly as in 3d continuity equation
         # Horizontal advection term
-        F += (Dx(uv[0]*solution, 0) + Dx(uv[1]*solution, 1))*self.test*self.dx
-        #F += -solution*(uv[0]*Dx(self.test, 0) +
-                        #uv[1]*Dx(self.test, 1))*self.dx
-        #if self.horizontal_DG:
-            ## add interface term
-            #uv_av = avg(uv)
-            #un_av = (uv_av[0]*self.normal('-')[0] +
-                     #uv_av[1]*self.normal('-')[1])
-            #s = 0.5*(sign(un_av) + 1.0)
-            #c_up = solution('-')*s + solution('+')*(1-s)
-            ##alpha = 0.5*(tanh(4 * un / 0.02) + 1)
-            ##c_up = alpha*c_in + (1-alpha)*c_ext  # for inv.part adv term
-            ##G += c_up*un_av*jump(self.test)*self.dS_v
-            #G += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
-                       #uv_av[1]*jump(self.test, self.normal[1]))*self.dS_v
-            #G += solution*(uv[0]*self.test*self.normal[0] +
-                           #uv[1]*self.test*self.normal[1])*self.ds_surf
+        if self.horizAdvectionByParts:
+            F += -solution*(uv[0]*Dx(self.test, 0) +
+                            uv[1]*Dx(self.test, 1))*self.dx
+            if self.horizontal_DG:
+                # add interface term
+                uv_av = avg(uv)
+                un_av = (uv_av[0]*self.normal('-')[0] +
+                         uv_av[1]*self.normal('-')[1])
+                s = 0.5*(sign(un_av) + 1.0)
+                c_up = solution('-')*s + solution('+')*(1-s)
+                #alpha = 0.5*(tanh(4 * un / 0.02) + 1)
+                #c_up = alpha*c_in + (1-alpha)*c_ext  # for inv.part adv term
+                #G += c_up*un_av*jump(self.test)*self.dS_v
+                G += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
+                           uv_av[1]*jump(self.test, self.normal[1]))*self.dS_v
+                G += solution*(uv[0]*self.test*self.normal[0] +
+                               uv[1]*self.test*self.normal[1])*self.ds_surf
+                # Lax-Friedrichs stabilization
+                #if uvLaxFriedrichs is not None:
+                gamma = abs(un_av)
+                G += gamma*dot(jump(self.test), jump(solution))*self.dS_v
+        else:
+            F += (Dx(uv[0]*solution, 0) + Dx(uv[1]*solution, 1))*self.test*self.dx
         # Vertical advection term
         vertvelo = w[2]
         if w_mesh is not None:
@@ -656,7 +666,7 @@ class tracerEquation(equation):
             ds_bnd = ds_v(int(bnd_marker), domain=self.mesh)
             if funcs is None:
                 # assume land boundary NOTE uv.n should be very close to 0
-                if self.horizontal_DG:
+                if not self.horizAdvectionByParts:
                     G += -solution*(self.normal[0]*uv[0] +
                                     self.normal[1]*uv[1])*self.test*ds_bnd
                 continue

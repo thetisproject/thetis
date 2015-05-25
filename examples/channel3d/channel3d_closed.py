@@ -40,7 +40,7 @@ bathymetry2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
 # create solver
 solverObj = solver.flowSolverMimetic(mesh2d, bathymetry2d, n_layers)
-solverObj.nonlin = False
+#solverObj.nonlin = False
 solverObj.solveSalt = True
 solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False
