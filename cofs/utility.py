@@ -255,18 +255,30 @@ def computeVerticalIntegral(input, output, space, bottomToTop=True,
 
     key = '-'.join((input.name(), output.name(), str(average)))
     if key not in linProblemCache:
+        verticalIsDG = False
+        if (hasattr(space.ufl_element(), '_B') and
+              space.ufl_element()._B.family() != 'Lagrange'):
+            # a normal outerproduct element
+            verticalIsDG = True
+        if 'HDiv' in space.ufl_element().shortstr():
+            # Hdiv vector space, assume DG in vertical
+            verticalIsDG = True
         tri = TrialFunction(space)
         phi = TestFunction(space)
+        normal = FacetNormal(space.mesh())
         if bottomToTop:
-            bnd_term = inner(bndValue, phi)*ds_t
-            mass_bnd_term = inner(tri, phi)*ds_t
+            bnd_term = normal[2]*inner(bndValue, phi)*ds_t
+            mass_bnd_term = normal[2]*inner(tri, phi)*ds_t
         else:
-            bnd_term = inner(bndValue, phi)*ds_b
-            mass_bnd_term = inner(tri, phi)*ds_b
+            bnd_term = normal[2]*inner(bndValue, phi)*ds_b
+            mass_bnd_term = normal[2]*inner(tri, phi)*ds_b
 
         a = inner(Dx(tri, 2), phi)*dx + mass_bnd_term
+        if verticalIsDG:
+            a += normal('+')[2]*inner(jump(tri), avg(phi))*(dS_h+dS_v)
         source = input
         if average:
+            # FIXME this should be H not h
             source = input/bathymetry
         L = inner(source, phi)*dx + bnd_term
         prob = LinearVariationalProblem(a, L, output)
@@ -409,9 +421,11 @@ def copy_2d_field_to_3d(input, output, elemHeight=None):
     fs_3d = output.function_space()
 
     family_2d = fs_2d.ufl_element().family()
-    family_3dh = fs_3d.ufl_element()._A.family()
-    if family_2d != family_3dh:
-        raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
+    if hasattr(fs_3d.ufl_element(), '_A'):
+        # a normal outerproduct element
+        family_3dh = fs_3d.ufl_element()._A.family()
+        if family_2d != family_3dh:
+            raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
     if family_2d == 'Raviart-Thomas' and elemHeight is None:
         raise Exception('elemHeight must be provided for Raviart-Thomas spaces')
     doRTScaling = family_2d == 'Raviart-Thomas'
@@ -421,6 +435,8 @@ def copy_2d_field_to_3d(input, output, elemHeight=None):
     in_nodes = fs_2d.fiat_element.space_dimension()
     out_nodes = fs_3d.fiat_element.space_dimension()
     dim = min(fs_2d.dim, fs_3d.dim)
+    # number of nodes in vertical direction
+    nVertNodes = len(fs_3d.fiat_element.B.entity_closure_dofs()[1][0])
 
     if doRTScaling:
         fs_eh = elemHeight.function_space()
@@ -429,12 +445,14 @@ def copy_2d_field_to_3d(input, output, elemHeight=None):
             void my_kernel(double **func, double **func2d, double **elemHeight) {
                 for ( int d = 0; d < %(nodes)d; d++ ) {
                     for ( int c = 0; c < %(func_dim)d; c++ ) {
-                        func[2*d][c] = func2d[d][c]*elemHeight[0][0];
-                        func[2*d+1][c] = func2d[d][c]*elemHeight[0][0];
+                        for ( int e = 0; e < %(v_nodes)d; e++ ) {
+                            func[2*d+e][c] = func2d[d][c]*elemHeight[0][0];
+                        }
                     }
                 }
             }""" % {'nodes': input.cell_node_map().arity,
-                    'func_dim': input.function_space().cdim},
+                    'func_dim': input.function_space().cdim,
+                    'v_nodes': nVertNodes},
                     'my_kernel')
         op2.par_loop(
             kernel, fs_3d.mesh().cell_set,
@@ -447,12 +465,14 @@ def copy_2d_field_to_3d(input, output, elemHeight=None):
             void my_kernel(double **func, double **func2d) {
                 for ( int d = 0; d < %(nodes)d; d++ ) {
                     for ( int c = 0; c < %(func_dim)d; c++ ) {
-                        func[2*d][c] = func2d[d][c];
-                        func[2*d+1][c] = func2d[d][c];
+                        for ( int e = 0; e < %(v_nodes)d; e++ ) {
+                            func[2*d+e][c] = func2d[d][c];
+                        }
                     }
                 }
             }""" % {'nodes': input.cell_node_map().arity,
-                    'func_dim': input.function_space().cdim},
+                    'func_dim': input.function_space().cdim,
+                    'v_nodes': nVertNodes},
                     'my_kernel')
         op2.par_loop(
             kernel, fs_3d.mesh().cell_set,
@@ -477,9 +497,11 @@ def extract_level_from_3d(input, sub_domain, output, bottomNodes=None,
     out_fs = output.function_space()
 
     family_2d = out_fs.ufl_element().family()
-    family_3dh = fs.ufl_element()._A.family()
-    if family_2d != family_3dh:
-        raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
+    if hasattr(fs.ufl_element(), '_A'):
+        # a normal outerproduct element
+        family_3dh = fs.ufl_element()._A.family()
+        if family_2d != family_3dh:
+            raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
     if family_2d == 'Raviart-Thomas' and elemHeight is None:
         raise Exception('elemHeight must be provided for Raviart-Thomas spaces')
     doRTScaling = family_2d == 'Raviart-Thomas'
@@ -630,7 +652,6 @@ def correct3dVelocity(UV2d, uv3d, uv3d_dav, bathymetry):
     # copy on 2d mesh
     diff = Function(H2d)
     copy3dFieldTo2d(uv3d_dav, diff, useBottomValue=False)
-    print 'uv3d_dav', diff.dat.data.min(), diff.dat.data.max()
     # compute difference = UV2d - uv3d_dav
     diff.dat.data[:] *= -1
     diff.dat.data[:] += UV2d.dat.data[:]
@@ -708,7 +729,7 @@ def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref,
     solver_parameters.setdefault('ksp_rtol', 1e-16)
     coords = mesh.coordinates
 
-    key = '-'.join((z_coord.name(), eta.name()))
+    key = '-'.join(('ALE', z_coord.name(), eta.name()))
     if key not in linProblemCache:
         fs = z_coord.function_space()
         # sigma stretch function
