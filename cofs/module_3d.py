@@ -45,8 +45,12 @@ class momentumEquation(equation):
         self.test = TestFunction(self.space)
         self.tri = TrialFunction(self.space)
 
-        self.horizontal_DG = self.space.ufl_element()._A.family() != 'Lagrange'
-        self.vertical_DG = self.space.ufl_element()._B.family() != 'Lagrange'
+        ufl_elem = self.space.ufl_element()
+        if not hasattr(ufl_elem, '_A'):
+            # For HDiv elements
+            ufl_elem = ufl_elem._element
+        self.horizontal_DG = ufl_elem._A.family() != 'Lagrange'
+        self.vertical_DG = ufl_elem._B.family() != 'Lagrange'
 
         # mesh dependent variables
         self.normal = FacetNormal(mesh)
@@ -295,7 +299,7 @@ class momentumEquation(equation):
                uv_bottom=None, bottom_drag=None, baro_head=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
-        F = 0  # holds all dx volume integral terms
+        F = 0*self.dx  # holds all dx volume integral terms
         G = 0
 
         # external pressure gradient
@@ -303,11 +307,14 @@ class momentumEquation(equation):
         if baro_head is not None:
             # external + internal
             head = eta + baro_head
-        divTest = Dx(self.test[0], 0) + Dx(self.test[1], 1)
-        F += -g_grav * head * divTest * self.dx
+        F += -g_grav * inner(head, div(self.test)) * self.dx
+        #divTest = Dx(self.test[0], 0) + Dx(self.test[1], 1)
+        #F += -g_grav * head * divTest * self.dx
         nDotTest = (self.normal[0]*self.test[0] +
                     self.normal[1]*self.test[1])
-        G += g_grav * head * nDotTest * (self.ds_surf + self.ds_bottom)
+        #G += g_grav * head * nDotTest * (self.ds_surf + self.ds_bottom)
+        #G += g_grav * avg(head) * (jump(self.test[0], self.normal[0]) +
+                                   #jump(self.test[1], self.normal[1])) * (self.dS_h)
 
         if self.nonlin:
             total_H = self.bathymetry + eta
@@ -326,7 +333,7 @@ class momentumEquation(equation):
             if funcs is None:
                 # assume land boundary
                 G += g_grav * eta * \
-                    nDotTest * ds_bnd
+                    dot(self.normal, self.test) * ds_bnd
                 continue
 
             elif 'elev' in funcs:
@@ -372,8 +379,12 @@ class verticalMomentumEquation(equation):
         self.test = TestFunction(self.space)
         self.tri = TrialFunction(self.space)
 
-        self.horizontal_DG = self.space.ufl_element()._A.family() != 'Lagrange'
-        self.vertical_DG = self.space.ufl_element()._B.family() != 'Lagrange'
+        ufl_elem = self.space.ufl_element()
+        if not hasattr(ufl_elem, '_A'):
+            # For HDiv elements
+            ufl_elem = ufl_elem._element
+        self.horizontal_DG = ufl_elem._A.family() != 'Lagrange'
+        self.vertical_DG = ufl_elem._B.family() != 'Lagrange'
 
         # mesh dependent variables
         self.normal = FacetNormal(mesh)
@@ -503,8 +514,12 @@ class tracerEquation(equation):
         self.test = TestFunction(self.space)
         self.tri = TrialFunction(self.space)
 
-        self.horizontal_DG = self.space.ufl_element()._A.family() != 'Lagrange'
-        self.vertical_DG = self.space.ufl_element()._B.family() != 'Lagrange'
+        ufl_elem = self.space.ufl_element()
+        if not hasattr(ufl_elem, '_A'):
+            # For HDiv elements
+            ufl_elem = ufl_elem._element
+        self.horizontal_DG = ufl_elem._A.family() != 'Lagrange'
+        self.vertical_DG = ufl_elem._B.family() != 'Lagrange'
 
         # mesh dependent variables
         self.normal = FacetNormal(mesh)
@@ -590,8 +605,10 @@ class tracerEquation(equation):
         #G += +solution*(uv[0]*self.normal[0] +
                         #uv[1]*self.normal[1])*self.test*(self.ds_bottom + self.ds_surf)
         ## TODO what is the correct free surf bnd condition?
-        G += solution*vertvelo*self.normal[2]*self.test*(self.ds_bottom + self.ds_surf)
+        G += solution*vertvelo*self.normal[2]*self.test*self.ds_bottom
         if w_mesh is None:
+            G += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
+        else:
             G += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
 
         # boundary conditions

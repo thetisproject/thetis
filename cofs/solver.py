@@ -532,7 +532,7 @@ class flowSolver(object):
 
 class flowSolverMimetic(object):
     """Creates and solves coupled 2D-3D equations"""
-    def __init__(self, mesh2d, bathymetry2d, n_layers):
+    def __init__(self, mesh2d, bathymetry2d, n_layers, order=0):
         self._initialized = False
 
         # create 3D mesh
@@ -551,6 +551,7 @@ class flowSolverMimetic(object):
         # options
         self.cfl_2d = 1.0  # factor to scale the 2d time step
         self.cfl_3d = 1.0  # factor to scale the 2d time step
+        self.order = order  # polynomial order of elements
         self.nonlin = True  # use nonlinear shallow water equations
         self.use_wd = False  # use wetting-drying
         self.solveSalt = True  # solve salt transport
@@ -626,19 +627,28 @@ class flowSolverMimetic(object):
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
         self.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1)
-        self.U_2d = FunctionSpace(self.mesh2d, 'RT', 1)
-        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1)
-        self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', 1)
-        self.H_2d = FunctionSpace(self.mesh2d, 'DG', 0)
+        self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.order+1)
+        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.order+1)
+        self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order+1)
+        self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
         self.W_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
 
         self.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0)
         self.P1 = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
         self.P1DG = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
-        self.U = FunctionSpace(self.mesh, 'RT', 1, vfamily='CG', vdegree=1)
-        self.U_visu = VectorFunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1, dim=2)
-        self.U_scalar = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
-        self.H = FunctionSpace(self.mesh, 'DG', 0, vfamily='CG', vdegree=1)
+        Uh_elt = FiniteElement('RT', triangle, self.order+1)
+        Uv_elt = FiniteElement('DG', interval, self.order)
+        U_elt = HDiv(OuterProductElement(Uh_elt, Uv_elt))
+        self.U = FunctionSpace(self.mesh, U_elt)
+        #self.U = FunctionSpace(self.mesh, 'RT', 1, vfamily='CG', vdegree=1)
+        self.U_visu = VectorFunctionSpace(self.mesh, 'DG', self.order+1, vfamily='DG', vdegree=self.order)
+        self.U_scalar = FunctionSpace(self.mesh, 'DG', self.order+1, vfamily='CG', vdegree=self.order+1)
+        #self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order+1) # BLows Up
+        self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order+1)
+        #Hh_elt = FiniteElement('DG', triangle, 0)
+        #Hv_elt = FiniteElement('CG', interval, 1)
+        #H_elt = HDiv(OuterProductElement(Hh_elt, Hv_elt))
+        #self.H = FunctionSpace(self.mesh, H_elt)
 
         # ----- fields
         self.solution2d = Function(self.W_2d, name='solution2d')
@@ -652,6 +662,7 @@ class flowSolverMimetic(object):
             self.bottom_drag2d = None
 
         self.eta3d = Function(self.H, name='Elevation')
+        self.eta3dCG = Function(self.P1, name='Elevation')
         self.eta3d_nplushalf = Function(self.H, name='Elevation')
         self.bathymetry3d = Function(self.P1, name='Bathymetry')
         self.uv3d = Function(self.U, name='Velocity')
@@ -664,9 +675,9 @@ class flowSolverMimetic(object):
             self.z_bottom3d = None
             self.bottom_drag3d = None
         # z coordinate in the strecthed mesh
-        self.z_coord3d = Function(self.P1, name='Bot. Vel. z coord')
+        self.z_coord3d = Function(self.P1, name='z coord')
         # z coordinate in the reference mesh (eta=0)
-        self.z_coord_ref3d = Function(self.P1, name='Bot. Vel. z coord')
+        self.z_coord_ref3d = Function(self.P1, name='ref z coord')
         self.uv3d_dav = Function(self.U, name='Depth Averaged Velocity')
         self.uv2d_dav = Function(self.U_2d, name='Depth Averaged Velocity')
         self.uv2d_dav_old = Function(self.U_2d, name='Depth Averaged Velocity')
@@ -843,8 +854,9 @@ class flowSolverMimetic(object):
             uv2d, eta2d = self.solution2d.split()
             eta2d.project(elev)
             copy2dFieldTo3d(eta2d, self.eta3d)
+            self.eta3dCG.project(self.eta3d)
             if self.useALEMovingMesh:
-                updateCoordinates(self.mesh, self.eta3d, self.bathymetry3d,
+                updateCoordinates(self.mesh, self.eta3dCG, self.bathymetry3d,
                                   self.z_coord3d, self.z_coord_ref3d)
                 computeElemHeight(self.z_coord3d, self.vElemSize3d)
                 copy3dFieldTo2d(self.vElemSize3d, self.vElemSize2d)
@@ -1173,7 +1185,7 @@ class flowSolver2d(object):
 
 class flowSolver2dMimetic(object):
     """Creates and solves 2D depth averaged equations with RT1-P1DG elements"""
-    def __init__(self, mesh2d, bathymetry2d):
+    def __init__(self, mesh2d, bathymetry2d, order=1):
         self._initialized = False
 
         # create 3D mesh
@@ -1188,6 +1200,7 @@ class flowSolver2dMimetic(object):
 
         # options
         self.cfl_2d = 1.0  # factor to scale the 2d time step
+        self.order = order  # polynomial order of elements
         self.nonlin = True  # use nonlinear shallow water equations
         self.use_wd = False  # use wetting-drying
         self.lin_drag = None  # linear drag parameter tau/H/rho_0 = -drag*u
@@ -1219,10 +1232,11 @@ class flowSolver2dMimetic(object):
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.P0_2d = FunctionSpace(self.mesh2d, 'DG', 0)
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
-        self.U_2d = FunctionSpace(self.mesh2d, 'RT', 1)
-        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
-        self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', 1)
-        self.H_2d = FunctionSpace(self.mesh2d, 'DG', 0)
+        self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.order+1)
+        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.order)
+        self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
+        self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
+        self.H_visu_2d = FunctionSpace(self.mesh2d, 'DG', max(self.order, 1))
         self.W_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
 
         # ----- fields
@@ -1261,7 +1275,7 @@ class flowSolver2dMimetic(object):
         # dictionary of all exportable functions and their visualization space
         exportFuncs = {
             'uv2d': (uv2d, self.U_visu_2d),
-            'elev2d': (eta2d, self.P0_2d),
+            'elev2d': (eta2d, self.H_visu_2d),
             }
         self.exporter = exportManager(self.outputDir, self.fieldsToExport,
                                       exportFuncs, verbose=self.verbose > 0)
@@ -1315,13 +1329,6 @@ class flowSolver2dMimetic(object):
                 else:
                     computeVolumeFlux(uv, self.bathymetry2d,
                                       self.volumeFlux2d, self.eq_sw.dx)
-                #self.volumeFlux2d.project(uv)
-                #self.volumeFlux2d.assign(uv)
-                #test = TestFunction(self.volumeFlux2d.function_space())
-                #tri = TrialFunction(self.volumeFlux2d.function_space())
-                #A = inner(tri, test)*self.eq_sw.dx
-                #L = inner(uv, test)*self.eq_sw.dx
-                #solve(A == L, self.volumeFlux2d)
                 self.timeStepper.solveStage(i, t, self.dt, self.solution2d,
                                             updateForcings)
 

@@ -1101,10 +1101,11 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
             with timed_region('aux_eta3d'):
                 eta = sol2d.split()[1]
                 copy2dFieldTo3d(eta, s.eta3d)  # at t_{n+1}
+                s.eta3dCG.project(s.eta3d)
             with timed_region('aux_mesh_ale'):
                 if s.useALEMovingMesh and doALEUpdate:
                     updateCoordinates(
-                        s.mesh, s.eta3d, s.bathymetry3d,
+                        s.mesh, s.eta3dCG, s.bathymetry3d,
                         s.z_coord3d, s.z_coord_ref3d)
                     computeElemHeight(s.z_coord3d, s.vElemSize3d)
                     copy3dFieldTo2d(s.vElemSize3d, s.vElemSize2d)
@@ -1165,7 +1166,7 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
                         s.u_mag_func_v, maxval=800.0*s.uAdvection.dat.data[0])
             with timed_region('aux_mom_coupling'):
                 if do2DCoupling:
-                    bndValue = Constant((0.0, 0.0))
+                    bndValue = Constant((0.0, 0.0, 0.0))
                     computeVerticalIntegral(s.uv3d, s.uv3d_dav,
                                             s.uv3d.function_space(),
                                             bottomToTop=True, bndValue=bndValue,

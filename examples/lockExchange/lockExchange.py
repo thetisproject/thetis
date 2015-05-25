@@ -27,13 +27,13 @@ bathymetry2d = Function(P1_2d, name='Bathymetry')
 bathymetry2d.assign(depth)
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
+solverObj = solver.flowSolverMimetic(mesh2d, bathymetry2d, layers)
 solverObj.cfl_2d = 1.0
 solverObj.nonlin = True
 solverObj.solveSalt = True
 solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False
-solverObj.useALEMovingMesh = True
+solverObj.useALEMovingMesh = False
 #solverObj.useModeSplit = False
 solverObj.baroclinic = True
 solverObj.useSUPG = False

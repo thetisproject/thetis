@@ -39,9 +39,9 @@ x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 bathymetry2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
 # --- create solver ---
-solverObj = solver.flowSolver2dMimetic(mesh2d, bathymetry2d)
+solverObj = solver.flowSolver2dMimetic(mesh2d, bathymetry2d, order=1)
 solverObj.cfl_2d = 1.0
-solverObj.nonlin = True
+#solverObj.nonlin = False
 solverObj.TExport = TExport
 solverObj.T = T
 solverObj.outputDir = outputDir

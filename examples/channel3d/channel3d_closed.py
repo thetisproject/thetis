@@ -12,7 +12,7 @@ from cofs import *
 physical_constants['z0_friction'].assign(5.0e-5)
 
 n_layers = 6
-outputDir = createDirectory('outputs')
+outputDir = createDirectory('outputs_closed')
 mesh2d = Mesh('channel_mesh.msh')
 T = 48 * 3600
 Umag = Constant(4.2)  # 4.2 closed
@@ -39,11 +39,11 @@ bathymetry2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
 # create solver
 solverObj = solver.flowSolverMimetic(mesh2d, bathymetry2d, n_layers)
-solverObj.nonlin = True
+solverObj.nonlin = False
 solverObj.solveSalt = True
 solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False
-solverObj.useALEMovingMesh = True
+solverObj.useALEMovingMesh = False
 #solverObj.useModeSplit = False
 solverObj.baroclinic = False
 solverObj.TExport = TExport
