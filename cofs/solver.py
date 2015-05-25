@@ -532,7 +532,7 @@ class flowSolver(object):
 
 class flowSolverMimetic(object):
     """Creates and solves coupled 2D-3D equations"""
-    def __init__(self, mesh2d, bathymetry2d, n_layers, order=0):
+    def __init__(self, mesh2d, bathymetry2d, n_layers, order=1):
         self._initialized = False
 
         # create 3D mesh
@@ -628,9 +628,10 @@ class flowSolverMimetic(object):
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
         self.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1)
         self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.order+1)
-        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.order+1)
-        self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order+1)
+        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.order)
+        self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
         self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
+        self.H_visu_2d = FunctionSpace(self.mesh2d, 'DG', max(self.order, 1))
         self.W_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
 
         self.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0)
@@ -640,15 +641,20 @@ class flowSolverMimetic(object):
         Uv_elt = FiniteElement('DG', interval, self.order)
         U_elt = HDiv(OuterProductElement(Uh_elt, Uv_elt))
         self.U = FunctionSpace(self.mesh, U_elt)
-        #self.U = FunctionSpace(self.mesh, 'RT', 1, vfamily='CG', vdegree=1)
-        self.U_visu = VectorFunctionSpace(self.mesh, 'DG', self.order+1, vfamily='DG', vdegree=self.order)
-        self.U_scalar = FunctionSpace(self.mesh, 'DG', self.order+1, vfamily='CG', vdegree=self.order+1)
-        #self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order+1) # BLows Up
-        self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order+1)
-        #Hh_elt = FiniteElement('DG', triangle, 0)
-        #Hv_elt = FiniteElement('CG', interval, 1)
-        #H_elt = HDiv(OuterProductElement(Hh_elt, Hv_elt))
-        #self.H = FunctionSpace(self.mesh, H_elt)
+        self.U_visu = VectorFunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=self.order)
+        self.U_scalar = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order)
+        #self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order+1) # BLows up
+        self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order)
+        self.H_visu = FunctionSpace(self.mesh, 'DG', max(self.order, 1), vfamily='DG', vdegree=max(self.order+1, 1))
+        # TODO w must live in a HDiv space as well, like this (a 3d vector field)
+        Hh_elt = FiniteElement('DG', triangle, self.order)
+        Hv_elt = FiniteElement('CG', interval, self.order)
+        H_elt = HDiv(OuterProductElement(Hh_elt, Hv_elt))
+        self.Hvec = FunctionSpace(self.mesh, H_elt)
+        self.Hvec_visu = VectorFunctionSpace(self.mesh, 'DG',
+                                             max(self.order, 1),
+                                             vfamily='DG',
+                                             vdegree=max(self.order+1, 1))
 
         # ----- fields
         self.solution2d = Function(self.W_2d, name='solution2d')
@@ -681,7 +687,7 @@ class flowSolverMimetic(object):
         self.uv3d_dav = Function(self.U, name='Depth Averaged Velocity')
         self.uv2d_dav = Function(self.U_2d, name='Depth Averaged Velocity')
         self.uv2d_dav_old = Function(self.U_2d, name='Depth Averaged Velocity')
-        self.w3d = Function(self.H, name='Vertical Velocity')
+        self.w3d = Function(self.Hvec, name='Vertical Velocity')
         if self.useALEMovingMesh:
             self.w_mesh3d = Function(self.H, name='Vertical Velocity')
             self.dw_mesh_dz_3d = Function(self.H, name='Vertical Velocity dz')
@@ -828,10 +834,10 @@ class flowSolverMimetic(object):
         # dictionary of all exportable functions and their visualization space
         exportFuncs = {
             'uv2d': (uv2d, self.U_visu_2d),
-            'elev2d': (eta2d, self.P1_2d),
-            'elev3d': (self.eta3d, self.P1),
+            'elev2d': (eta2d, self.H_visu_2d),
+            'elev3d': (self.eta3d, self.H_visu),
             'uv3d': (self.uv3d, self.U_visu),
-            'w3d': (self.w3d, self.P1DG),
+            'w3d': (self.w3d, self.Hvec_visu),
             'w3d_mesh': (self.w_mesh3d, self.P1),
             'salt3d': (self.salt3d, self.P1DG),
             'uv2d_dav': (self.uv2d_dav, self.U_visu_2d),

@@ -22,8 +22,9 @@ TExport = 100.0
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry2d = Function(P1_2d, name='Bathymetry')
 
-depth_oce = 20.0
-depth_riv = 5.0  # 5.0 closed
+#depth_oce = 20.0
+#depth_riv = 5.0  # 5.0 closed
+depth_oce = depth_riv = 10.0
 bath_x = np.array([0, 100e3])
 bath_v = np.array([depth_oce, depth_riv])
 

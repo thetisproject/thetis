@@ -51,6 +51,13 @@ class momentumEquation(equation):
             ufl_elem = ufl_elem._element
         self.horizontal_DG = ufl_elem._A.family() != 'Lagrange'
         self.vertical_DG = ufl_elem._B.family() != 'Lagrange'
+        self.HDiv = ufl_elem._A.family() == 'Raviart-Thomas'
+
+        eta_elem = eta.function_space().ufl_element()
+        self.eta_is_DG = eta_elem._A.family() != 'Lagrange'
+
+        self.gradEtaByParts = self.eta_is_DG
+        self.horizAdvectionByParts = self.horizontal_DG
 
         # mesh dependent variables
         self.normal = FacetNormal(mesh)
@@ -85,6 +92,31 @@ class momentumEquation(equation):
         """
         return inner(solution, self.test) * self.dx
 
+    def pressureGrad(self, head, uv, total_H, **kwargs):
+        if self.gradEtaByParts:
+            divTest = (Dx(self.test[0], 0) +
+                       Dx(self.test[1], 1))
+            f = -g_grav*head*divTest*self.dx
+            #un = dot(uv, self.normal)
+            #head_star = avg(head) + sqrt(avg(total_H)/g_grav)*jump(un)
+            head_star = avg(head)
+            jumpNDotTest = (jump(self.test[0], self.normal[0]) +
+                            jump(self.test[1], self.normal[1]))
+            f += g_grav*head_star*jumpNDotTest*(self.dS_v + self.dS_h)
+            nDotTest = (self.normal[0]*self.test[0] +
+                        self.normal[1]*self.test[1])
+            f += g_grav*head*nDotTest*self.ds_bottom
+            for bnd_marker in self.boundary_markers:
+                funcs = self.bnd_functions.get(bnd_marker)
+                ds_bnd = self.ds_v(bnd_marker)
+                if funcs is None:
+                    f += g_grav*head*nDotTest*ds_bnd
+        else:
+            gradHeadDotTest = (Dx(head, 0)*self.test[0] +
+                               Dx(head, 1)*self.test[1])
+            f = g_grav * gradHeadDotTest * self.dx
+        return f
+
     def RHS_implicit(self, solution, wind_stress=None, **kwargs):
         """Returns all the terms that are treated semi-implicitly.
         """
@@ -93,13 +125,25 @@ class momentumEquation(equation):
         return -F - G
 
     def RHS(self, solution, eta, w=None, viscosity_v=None,
-            viscosity_h=None, coriolis=None,
+            viscosity_h=None, coriolis=None, baro_head=None,
             uv_bottom=None, bottom_drag=None, lin_drag=None,
             w_mesh=None, dw_mesh_dz=None, uvLaxFriedrichs=None, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0*self.dx  # holds all dx volume integral terms
         G = 0  # holds all ds boundary interface terms
+
+        if self.nonlin:
+            total_H = self.bathymetry + eta
+        else:
+            total_H = self.bathymetry
+
+        # external pressure gradient
+        head = eta
+        if baro_head is not None:
+            # external + internal
+            head = eta + baro_head
+        F += self.pressureGrad(head, solution, total_H)
 
         # Advection term
         if self.nonlin:
@@ -110,20 +154,20 @@ class momentumEquation(equation):
                       Dx(self.test[1], 0)*solution[1]*solution[0] +
                       Dx(self.test[1], 1)*solution[1]*solution[1])
             F += Adv_h * self.dx
-            if True:  # self.horizontal_DG:
+            if self.horizAdvectionByParts:
                 uv_av = avg(solution)
                 un_av = (uv_av[0]*self.normal('-')[0] +
                          uv_av[1]*self.normal('-')[1])
                 s = 0.5*(sign(un_av) + 1.0)
                 uv_up = solution('-')*s + solution('+')*(1-s)
-                G += (uv_up[0]*jump(self.test[0], self.normal[0]*solution[0]) +
-                      #uv_up[0]*jump(self.test[0], self.normal[1]*solution[1]) +
-                      #uv_up[1]*jump(self.test[1], self.normal[0]*solution[0]) +
-                      uv_up[1]*jump(self.test[1], self.normal[1]*solution[1]))*(self.dS_v)
-                #G += (uv_up[0]*jump(self.test[0], self.normal[0]*solution[0]) +
-                      #uv_up[0]*jump(self.test[0], self.normal[1]*solution[1]) +
-                      #uv_up[1]*jump(self.test[1], self.normal[0]*solution[0]) +
-                      #uv_up[1]*jump(self.test[1], self.normal[1]*solution[1]))*(self.dS_v)
+                if self.HDiv:
+                    G += (uv_up[0]*jump(self.test[0], self.normal[0]*solution[0]) +
+                          uv_up[1]*jump(self.test[1], self.normal[1]*solution[1]))*(self.dS_v)
+                elif self.horizontal_DG:
+                    G += (uv_up[0]*jump(self.test[0], self.normal[0]*solution[0]) +
+                          uv_up[0]*jump(self.test[0], self.normal[1]*solution[1]) +
+                          uv_up[1]*jump(self.test[1], self.normal[0]*solution[0]) +
+                          uv_up[1]*jump(self.test[1], self.normal[1]*solution[1]))*(self.dS_v)
                 # Lax-Friedrichs stabilization
                 if uvLaxFriedrichs is not None:
                     gamma = abs(un_av)*uvLaxFriedrichs
@@ -163,11 +207,6 @@ class momentumEquation(equation):
             if dw_mesh_dz is not None:
                 F += dw_mesh_dz*(solution[0]*self.test[0] +
                                  solution[1]*self.test[1])*dx
-
-        if self.nonlin:
-            total_H = self.bathymetry + eta
-        else:
-            total_H = self.bathymetry
 
         # boundary conditions
         for bnd_marker in self.boundary_markers:
@@ -302,48 +341,48 @@ class momentumEquation(equation):
         F = 0*self.dx  # holds all dx volume integral terms
         G = 0
 
-        # external pressure gradient
-        head = eta
-        if baro_head is not None:
-            # external + internal
-            head = eta + baro_head
-        F += -g_grav * inner(head, div(self.test)) * self.dx
-        #divTest = Dx(self.test[0], 0) + Dx(self.test[1], 1)
-        #F += -g_grav * head * divTest * self.dx
-        nDotTest = (self.normal[0]*self.test[0] +
-                    self.normal[1]*self.test[1])
-        #G += g_grav * head * nDotTest * (self.ds_surf + self.ds_bottom)
-        #G += g_grav * avg(head) * (jump(self.test[0], self.normal[0]) +
-                                   #jump(self.test[1], self.normal[1])) * (self.dS_h)
-
         if self.nonlin:
             total_H = self.bathymetry + eta
         else:
             total_H = self.bathymetry
 
-        # boundary conditions
-        for bnd_marker in self.boundary_markers:
-            funcs = self.bnd_functions.get(bnd_marker)
-            ds_bnd = ds_v(int(bnd_marker), domain=self.mesh)
-            nDotTest = (self.normal[0]*self.test[0] +
-                        self.normal[1]*self.test[1])
-            if baro_head is not None:
-                G += g_grav * baro_head * \
-                    nDotTest * ds_bnd
-            if funcs is None:
-                # assume land boundary
-                G += g_grav * eta * \
-                    dot(self.normal, self.test) * ds_bnd
-                continue
+        ## external pressure gradient
+        #head = eta
+        #if baro_head is not None:
+            ## external + internal
+            #head = eta + baro_head
+        #F += -g_grav * inner(head, div(self.test)) * self.dx
+        ##divTest = Dx(self.test[0], 0) + Dx(self.test[1], 1)
+        ##F += -g_grav * head * divTest * self.dx
+        #nDotTest = (self.normal[0]*self.test[0] +
+                    #self.normal[1]*self.test[1])
+        ##G += g_grav * head * nDotTest * (self.ds_surf + self.ds_bottom)
+        ##G += g_grav * avg(head) * (jump(self.test[0], self.normal[0]) +
+                                   ##jump(self.test[1], self.normal[1])) * (self.dS_h)
 
-            elif 'elev' in funcs:
-                # prescribe elevation only
-                h_ext = funcs['elev']
-                G += g_grav * h_ext * \
-                    nDotTest * ds_bnd
-            else:
-                G += g_grav * eta * \
-                    nDotTest * ds_bnd
+        ## boundary conditions
+        #for bnd_marker in self.boundary_markers:
+            #funcs = self.bnd_functions.get(bnd_marker)
+            #ds_bnd = ds_v(int(bnd_marker), domain=self.mesh)
+            #nDotTest = (self.normal[0]*self.test[0] +
+                        #self.normal[1]*self.test[1])
+            #if baro_head is not None:
+                #G += g_grav * baro_head * \
+                    #nDotTest * ds_bnd
+            #if funcs is None:
+                ## assume land boundary
+                #G += g_grav * eta * \
+                    #dot(self.normal, self.test) * ds_bnd
+                #continue
+
+            #elif 'elev' in funcs:
+                ## prescribe elevation only
+                #h_ext = funcs['elev']
+                #G += g_grav * h_ext * \
+                    #nDotTest * ds_bnd
+            #else:
+                #G += g_grav * eta * \
+                    #nDotTest * ds_bnd
 
         if viscosity_v is not None:
             # bottom friction
@@ -592,9 +631,9 @@ class tracerEquation(equation):
             #G += solution*(uv[0]*self.test*self.normal[0] +
                            #uv[1]*self.test*self.normal[1])*self.ds_surf
         # Vertical advection term
-        vertvelo = w
+        vertvelo = w[2]
         if w_mesh is not None:
-            vertvelo = w-w_mesh
+            vertvelo = w[2]-w_mesh
         F += -solution*vertvelo*Dx(self.test, 2)*self.dx
 
         # Non-conservative ALE source term
