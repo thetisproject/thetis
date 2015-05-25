@@ -51,11 +51,13 @@ class shallowWaterEquations(equation):
 
         self.U_is_DG = self.U_space.ufl_element().family() != 'Lagrange'
         self.eta_is_DG = self.eta_space.ufl_element().family() != 'Lagrange'
+        self.U_is_HDiv = self.U_space.ufl_element().family() == 'Raviart-Thomas'
+
         print 'eta DG', self.eta_is_DG
         print 'uv DG', self.U_is_DG
 
-        self.huByParts = self.U_is_DG
-        self.etaByParts = self.eta_is_DG
+        self.huByParts = self.U_is_DG and not self.U_is_HDiv
+        self.gradEtaByParts = self.eta_is_DG
 
         # mesh dependent variables
         self.normal = FacetNormal(mesh)
@@ -162,8 +164,8 @@ class shallowWaterEquations(equation):
         # diag(nabla_grad(w))) ) #+ (eta+h_mean)*nabla_grad(v) )
         return F * self.dx
 
-    def pressureGrad(self, eta, uv, total_H, byParts=True):
-        if byParts:
+    def pressureGrad(self, eta, uv, total_H, **kwargs):
+        if self.gradEtaByParts:
             f = -g_grav*eta*nabla_div(self.U_test)*self.dx
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
@@ -177,24 +179,33 @@ class shallowWaterEquations(equation):
             f = g_grav*inner(grad(eta), self.U_test) * self.dx
         return f
 
-    def HUDivTerm(self, uv, total_H, volumeFlux, byParts=True):
-        if byParts:
+    def HUDivTerm(self, uv, total_H, volumeFlux, **kwargs):
+        if self.huByParts:
             if volumeFlux is not None:
                 f = -inner(grad(self.eta_test), total_H*uv)*self.dx
                 if self.eta_is_DG:
-                    f += avg(total_H)*jump(uv*self.eta_test, self.normal)*self.dS
+                    f += avg(total_H)*jump(uv*self.eta_test,
+                                           self.normal)*self.dS
             else:
                 f = -inner(grad(self.eta_test), volumeFlux)*self.dx
                 if self.eta_is_DG:
                     f += jump(volumeFlux*self.eta_test, self.normal)*self.dS
         else:
-            f = total_H*div(uv)*self.eta_test*self.dx
-            for bnd_marker in self.boundary_markers:
-                funcs = self.bnd_functions.get(bnd_marker)
-                ds_bnd = self.ds(bnd_marker)
-                if funcs is None:
-                    f += -total_H*dot(uv, self.normal)*self.eta_test*ds_bnd
-            # f += -avg(total_H)*avg(dot(uv, normal))*jump(self.eta_test)*dS
+            if volumeFlux is not None:
+                f = div(volumeFlux)*self.eta_test*self.dx
+                for bnd_marker in self.boundary_markers:
+                    funcs = self.bnd_functions.get(bnd_marker)
+                    ds_bnd = self.ds(bnd_marker)
+                    if funcs is None:
+                        f += -dot(volumeFlux, self.normal)*self.eta_test*ds_bnd
+            else:
+                f = total_H*div(uv)*self.eta_test*self.dx
+                for bnd_marker in self.boundary_markers:
+                    funcs = self.bnd_functions.get(bnd_marker)
+                    ds_bnd = self.ds(bnd_marker)
+                    if funcs is None:
+                        f += -total_H*dot(uv, self.normal)*self.eta_test*ds_bnd
+                # f += -avg(total_H)*avg(dot(uv, normal))*jump(self.eta_test)*dS
         return f
 
     def RHS_implicit(self, solution, wind_stress=None, volumeFlux=None,
@@ -213,10 +224,10 @@ class shallowWaterEquations(equation):
             total_H = self.bathymetry
 
         # External pressure gradient
-        F += self.pressureGrad(eta, uv, total_H, byParts=self.etaByParts)
+        F += self.pressureGrad(eta, uv, total_H)
 
         # Divergence of depth-integrated velocity
-        F += self.HUDivTerm(uv, total_H, volumeFlux, byParts=self.huByParts)
+        F += self.HUDivTerm(uv, total_H, volumeFlux)
 
         # boundary conditions
         for bnd_marker in self.boundary_markers:
