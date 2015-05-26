@@ -8,7 +8,7 @@
 from cofs import *
 
 # set physical constants
-#physical_constants['z0_friction'].assign(5.0e-5)
+physical_constants['z0_friction'].assign(5.0e-5)
 
 reso_str = 'coarse'
 outputDir = createDirectory('outputs_'+reso_str)
@@ -29,11 +29,12 @@ bathymetry2d.assign(depth)
 # create solver
 solverObj = solver.flowSolverMimetic(mesh2d, bathymetry2d, layers)
 solverObj.cfl_2d = 1.0
-solverObj.nonlin = True
+#solverObj.nonlin = False
 solverObj.solveSalt = True
 solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False
 solverObj.useALEMovingMesh = False
+#solverObj.useSemiImplicit2D = False
 #solverObj.useModeSplit = False
 solverObj.baroclinic = True
 solverObj.useSUPG = False
@@ -54,7 +55,7 @@ solverObj.checkVolConservation3d = True
 solverObj.checkSaltConservation = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
-                            'uv2d_dav', 'barohead3d',
+                            'uv2d_dav', 'uv3d_dav', 'barohead3d',
                             'barohead2d', 'gjvAlphaH3d', 'gjvAlphaV3d']
 solverObj.timerLabels = []
 

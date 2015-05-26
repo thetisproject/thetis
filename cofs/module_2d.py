@@ -515,15 +515,15 @@ class shallowWaterEquations(equation):
 
         # Internal pressure gradient
         if baro_head is not None:
-            #F += self.pressureGrad(baro_head, None, None)
+            F += self.pressureGrad(baro_head, None, None)
             #F += g_grav * inner(nabla_grad(baro_head), self.U_test) * self.dx
-            F -= g_grav * inner(baro_head, nabla_div(self.U_test)) * self.dx
-            F += g_grav * avg(baro_head)*jump(self.normal, self.U_test) * self.dS
-            # boundary conditions
-            for bnd_marker in self.boundary_markers:
-                funcs = self.bnd_functions.get(bnd_marker)
-                ds_bnd = ds(int(bnd_marker), domain=self.mesh)
-                F += g_grav * baro_head*inner(self.normal, self.U_test) * ds_bnd
+            #F -= g_grav * inner(baro_head, nabla_div(self.U_test)) * self.dx
+            #F += g_grav * avg(baro_head)*jump(self.normal, self.U_test) * self.dS
+            ## boundary conditions
+            #for bnd_marker in self.boundary_markers:
+                #funcs = self.bnd_functions.get(bnd_marker)
+                #ds_bnd = ds(int(bnd_marker), domain=self.mesh)
+                #F += g_grav * baro_head*inner(self.normal, self.U_test) * ds_bnd
 
         return -F
 

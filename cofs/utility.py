@@ -277,7 +277,7 @@ def computeVerticalIntegral(input, output, space, bottomToTop=True,
 
         a = inner(Dx(tri, 2), phi)*dx + mass_bnd_term
         if verticalIsDG:
-            a += normal('+')[2]*inner(jump(tri), avg(phi))*(dS_h+dS_v)
+            a += normal[2]('-')*inner(jump(tri), jump(phi))*(dS_h)
         source = input
         if average:
             # FIXME this should be H not h
