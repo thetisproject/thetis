@@ -316,6 +316,13 @@ class momentumEquation(equation):
                                     Dx(solution[1], 0) * Dx(self.test[1], 0) +
                                     Dx(solution[0], 1) * Dx(self.test[0], 1) +
                                     Dx(solution[1], 1) * Dx(self.test[1], 1))
+            if self.horizontal_DG:
+                # interface term
+                muGradSol = viscosity_h*nabla_grad(solution)
+                F += -(avg(muGradSol[0, 0])*jump(self.test[0], self.normal[0]) +
+                       avg(muGradSol[0, 1])*jump(self.test[1], self.normal[0]) +
+                       avg(muGradSol[1, 0])*jump(self.test[0], self.normal[1]) +
+                       avg(muGradSol[1, 1])*jump(self.test[1], self.normal[1]))*(self.dS_v+self.dS_h)
             F += F_visc * self.dx
 
         # vertical viscosity
@@ -636,7 +643,6 @@ class tracerEquation(equation):
                 G += solution*(uv[0]*self.test*self.normal[0] +
                                uv[1]*self.test*self.normal[1])*self.ds_surf
                 # Lax-Friedrichs stabilization
-                #if uvLaxFriedrichs is not None:
                 gamma = abs(un_av)
                 G += gamma*dot(jump(self.test), jump(solution))*self.dS_v
         else:
@@ -692,6 +698,17 @@ class tracerEquation(equation):
         if diffusivity_h is not None:
             F += diffusivity_h*(Dx(solution, 0)*Dx(self.test, 0) +
                                 Dx(solution, 1)*Dx(self.test, 1))*self.dx
+            if self.horizontal_DG:
+                # interface term
+                muGradSol = diffusivity_h*grad(solution)
+                F += -(avg(muGradSol[0])*jump(self.test, self.normal[0]) +
+                       avg(muGradSol[1])*jump(self.test, self.normal[1]))*(self.dS_v+self.dS_h)
+                ## symmetric penalty term
+                ## sigma = (o+1)(o+d)/d*N_0/(2L) (Shahbazi, 2005)
+                ## o: order of space, 
+                #sigma = 1e-4
+                #nMag = self.normal[0]('-')**2 + self.normal[1]('-')**2
+                #F += -sigma*avg(diffusivity_h)*nMag*jump(solution)*jump(self.test)*(self.dS_v+self.dS_h)
 
         if diffusivity_v is not None:
             F += diffusivity_v*(Dx(solution, 2)*Dx(self.test, 2))*self.dx
