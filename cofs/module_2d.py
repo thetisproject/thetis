@@ -164,19 +164,22 @@ class shallowWaterEquations(equation):
         # diag(nabla_grad(w))) ) #+ (eta+h_mean)*nabla_grad(v) )
         return F * self.dx
 
-    def pressureGrad(self, eta, uv, total_H, **kwargs):
+    def pressureGrad(self, head, uv=None, total_H=None, **kwargs):
         if self.gradEtaByParts:
-            f = -g_grav*eta*nabla_div(self.U_test)*self.dx
+            f = -g_grav*head*nabla_div(self.U_test)*self.dx
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds(bnd_marker)
                 if funcs is None:
-                    f += g_grav*eta*dot(self.normal, self.U_test)*ds_bnd
-            un = dot(uv, self.normal)
-            eta_star = avg(eta) + sqrt(avg(total_H)/g_grav)*jump(un)
-            f += g_grav*eta_star*jump(self.normal, self.U_test)*self.dS
+                    f += g_grav*head*dot(self.normal, self.U_test)*ds_bnd
+            if uv is not None:
+                un = dot(uv, self.normal)
+                head_star = avg(head) + sqrt(avg(total_H)/g_grav)*jump(un)
+            else:
+                head_star = avg(head)
+            f += g_grav*head_star*jump(self.normal, self.U_test)*self.dS
         else:
-            f = g_grav*inner(grad(eta), self.U_test) * self.dx
+            f = g_grav*inner(grad(head), self.U_test) * self.dx
         return f
 
     def HUDivTerm(self, uv, total_H, volumeFlux, **kwargs):
@@ -512,6 +515,7 @@ class shallowWaterEquations(equation):
 
         # Internal pressure gradient
         if baro_head is not None:
+            #F += self.pressureGrad(baro_head, None, None)
             #F += g_grav * inner(nabla_grad(baro_head), self.U_test) * self.dx
             F -= g_grav * inner(baro_head, nabla_div(self.U_test)) * self.dx
             F += g_grav * avg(baro_head)*jump(self.normal, self.U_test) * self.dS

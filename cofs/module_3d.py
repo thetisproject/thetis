@@ -323,8 +323,9 @@ class momentumEquation(equation):
             F += viscosity_v*(Dx(self.test[0], 2)*Dx(solution[0], 2) +
                               Dx(self.test[1], 2)*Dx(solution[1], 2)) * self.dx
             if self.vertical_DG:
-                raise NotImplementedError('Vertical diffusion has not been implemented for DG')
-                # G += -viscosity_v * dot(psi, du/dz) * normal[2]
+                intViscFlux = (jump(self.test[0]*Dx(solution[0], 2), self.normal[2]) +
+                               jump(self.test[1]*Dx(solution[1], 2), self.normal[2]))
+                G += -avg(viscosity_v) * intViscFlux * self.dS_h
                 # viscflux = viscosity_v*Dx(solution, 2)
                 # G += -(avg(viscflux[0])*jump(self.test[0], normal[2]) +
                 #        avg(viscflux[0])*jump(self.test[1], normal[2]))
@@ -650,11 +651,11 @@ class tracerEquation(equation):
         if dw_mesh_dz is not None:
             F += solution*dw_mesh_dz*self.test*self.dx
 
-        ## Bottom/top impermeability boundary conditions
-        #G += +solution*(uv[0]*self.normal[0] +
-                        #uv[1]*self.normal[1])*self.test*(self.ds_bottom + self.ds_surf)
-        ## TODO what is the correct free surf bnd condition?
-        G += solution*vertvelo*self.normal[2]*self.test*self.ds_bottom
+        # Bottom/top impermeability boundary conditions
+        G += +solution*(uv[0]*self.normal[0] +
+                        uv[1]*self.normal[1])*self.test*(self.ds_bottom + self.ds_surf)
+        ### TODO what is the correct free surf bnd condition?
+        #G += solution*vertvelo*self.normal[2]*self.test*self.ds_bottom
         if w_mesh is None:
             G += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
         else:

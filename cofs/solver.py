@@ -643,6 +643,7 @@ class flowSolverMimetic(object):
         self.U = FunctionSpace(self.mesh, U_elt)
         self.U_visu = VectorFunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=self.order)
         self.U_scalar = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order)
+        # TODO FIXME vertical should be o+1
         #self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order+1) # BLows up
         self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order)
         self.H_visu = FunctionSpace(self.mesh, 'DG', max(self.order, 1), vfamily='DG', vdegree=max(self.order+1, 1))
