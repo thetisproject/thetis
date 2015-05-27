@@ -57,7 +57,7 @@ class momentumEquation(equation):
         self.eta_is_DG = eta_elem._A.family() != 'Lagrange'
 
         self.gradEtaByParts = self.eta_is_DG
-        self.horizAdvectionByParts = self.horizontal_DG
+        self.horizAdvectionByParts = True
 
         # mesh dependent variables
         self.normal = FacetNormal(mesh)
@@ -117,6 +117,58 @@ class momentumEquation(equation):
             f = g_grav * gradHeadDotTest * self.dx
         return f
 
+    def horizontalAdvection(self, solution, uvLaxFriedrichs, **kwargs):
+        if not self.nonlin:
+            return 0
+        if self.horizAdvectionByParts:
+            #f = -inner(grad(self.test), outer(solution, solution))*self.dx
+            f = -(Dx(self.test[0], 0)*solution[0]*solution[0] +
+                  Dx(self.test[0], 1)*solution[0]*solution[1] +
+                  Dx(self.test[1], 0)*solution[1]*solution[0] +
+                  Dx(self.test[1], 1)*solution[1]*solution[1])*self.dx
+            uv_av = avg(solution)
+            un_av = (uv_av[0]*self.normal('-')[0] +
+                     uv_av[1]*self.normal('-')[1])
+            s = 0.5*(sign(un_av) + 1.0)
+            uv_up = solution('-')*s + solution('+')*(1-s)
+            #if self.HDiv:
+                #f += (uv_up[0]*jump(self.test[0], self.normal[0]*solution[0]) +
+                      #uv_up[1]*jump(self.test[1], self.normal[1]*solution[1]))*(self.dS_v + self.dS_h)
+            if self.horizontal_DG:
+                f += (uv_up[0]*jump(self.test[0], self.normal[0]*solution[0]) +
+                      uv_up[0]*jump(self.test[0], self.normal[1]*solution[1]) +
+                      uv_up[1]*jump(self.test[1], self.normal[0]*solution[0]) +
+                      uv_up[1]*jump(self.test[1], self.normal[1]*solution[1]))*(self.dS_v + self.dS_h)
+            # Lax-Friedrichs stabilization
+            if uvLaxFriedrichs is not None:
+                gamma = abs(un_av)*uvLaxFriedrichs
+                f += gamma*inner(jump(self.test), jump(solution))*self.dS_v
+            if self.vertical_DG:
+                # NOTE bottom bnd doesn't work for DG vertical mesh
+                uv_av = avg(solution)
+                f += (uv_av[0]*uv_av[0]*jump(self.test[0], self.normal[0]) +
+                      uv_av[0]*uv_av[1]*jump(self.test[0], self.normal[1]) +
+                      uv_av[1]*uv_av[0]*jump(self.test[1], self.normal[0]) +
+                      uv_av[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_h)
+            # surf/bottom boundary conditions: closed at bed, symmetric at surf
+            f += (solution[0]*solution[0]*self.test[0]*self.normal[0] +
+                  solution[0]*solution[1]*self.test[0]*self.normal[1] +
+                  solution[1]*solution[0]*self.test[1]*self.normal[0] +
+                  solution[1]*solution[1]*self.test[1]*self.normal[1])*(self.ds_surf)
+            ## boundary conditions
+            #for bnd_marker in self.boundary_markers:
+                #funcs = self.bnd_functions.get(bnd_marker)
+                #ds_bnd = ds_v(int(bnd_marker), domain=self.mesh)
+                #if funcs is None:
+                    ## assume land boundary
+                    #f -= 0.5*(self.test[0]*solution[0]*solution[0]*self.normal[0] +
+                              #self.test[0]*solution[0]*solution[1]*self.normal[1] +
+                              #self.test[1]*solution[1]*solution[0]*self.normal[0] +
+                              #self.test[1]*solution[1]*solution[1]*self.normal[1])*(ds_bnd)
+        else:
+            f = inner(div(outer(solution, solution)), self.test)*self.dx
+        return f
+
     def RHS_implicit(self, solution, wind_stress=None, **kwargs):
         """Returns all the terms that are treated semi-implicitly.
         """
@@ -147,38 +199,7 @@ class momentumEquation(equation):
 
         # Advection term
         if self.nonlin:
-            # in 3d: nabla_grad dot (u u)
-            # weak form: nabla_grad(psi) : u u
-            Adv_h = -(Dx(self.test[0], 0)*solution[0]*solution[0] +
-                      Dx(self.test[0], 1)*solution[0]*solution[1] +
-                      Dx(self.test[1], 0)*solution[1]*solution[0] +
-                      Dx(self.test[1], 1)*solution[1]*solution[1])
-            F += Adv_h * self.dx
-            if self.horizAdvectionByParts:
-                uv_av = avg(solution)
-                un_av = (uv_av[0]*self.normal('-')[0] +
-                         uv_av[1]*self.normal('-')[1])
-                s = 0.5*(sign(un_av) + 1.0)
-                uv_up = solution('-')*s + solution('+')*(1-s)
-                if self.HDiv:
-                    G += (uv_up[0]*jump(self.test[0], self.normal[0]*solution[0]) +
-                          uv_up[1]*jump(self.test[1], self.normal[1]*solution[1]))*(self.dS_v)
-                elif self.horizontal_DG:
-                    G += (uv_up[0]*jump(self.test[0], self.normal[0]*solution[0]) +
-                          uv_up[0]*jump(self.test[0], self.normal[1]*solution[1]) +
-                          uv_up[1]*jump(self.test[1], self.normal[0]*solution[0]) +
-                          uv_up[1]*jump(self.test[1], self.normal[1]*solution[1]))*(self.dS_v)
-                # Lax-Friedrichs stabilization
-                if uvLaxFriedrichs is not None:
-                    gamma = abs(un_av)*uvLaxFriedrichs
-                    G += gamma*dot(jump(self.test), jump(solution))*self.dS_v
-            if self.vertical_DG:
-                # NOTE bottom bnd doesn't work for DG vertical mesh
-                uv_av = avg(solution)
-                G += (uv_av[0]*uv_av[0]*jump(self.test[0], self.normal[0]) +
-                      uv_av[0]*uv_av[1]*jump(self.test[0], self.normal[1]) +
-                      uv_av[1]*uv_av[0]*jump(self.test[1], self.normal[0]) +
-                      uv_av[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_h)
+            F += self.horizontalAdvection(solution, uvLaxFriedrichs)
 
             # Vertical advection term
             if w is not None:
@@ -195,20 +216,14 @@ class momentumEquation(equation):
                 #uv_rie = avg(solution)
                 G += (uv_up[0]*jump(self.test[0], self.normal[2]*w[2]) +
                       uv_up[1]*jump(self.test[1], self.normal[2]*w[2]))*self.dS_h
-
-            # surf/bottom boundary conditions: closed at bed, symmetric at surf
-            G += (solution[0]*solution[0]*self.test[0]*self.normal[0] +
-                  solution[0]*solution[1]*self.test[0]*self.normal[1] +
-                  solution[1]*solution[0]*self.test[1]*self.normal[0] +
-                  solution[1]*solution[1]*self.test[1]*self.normal[1])*(self.ds_surf)
             if w is not None:
                 G += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
                       solution[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
 
-            # Non-conservative ALE source term
-            if dw_mesh_dz is not None:
-                F += dw_mesh_dz*(solution[0]*self.test[0] +
-                                 solution[1]*self.test[1])*dx
+        # Non-conservative ALE source term
+        if dw_mesh_dz is not None:
+            F += dw_mesh_dz*(solution[0]*self.test[0] +
+                             solution[1]*self.test[1])*dx
 
         # boundary conditions
         for bnd_marker in self.boundary_markers:
@@ -217,12 +232,12 @@ class momentumEquation(equation):
             un_in = (solution[0]*self.normal[0] + solution[1]*self.normal[1])
             if funcs is None:
                 # assume land boundary
-                continue
                 #if self.nonlin:
-                    #G += (self.test[0]*solution[0]*solution[0]*self.normal[0] +
-                          #self.test[0]*solution[0]*solution[1]*self.normal[1] +
-                          #self.test[1]*solution[1]*solution[0]*self.normal[0] +
-                          #self.test[1]*solution[1]*solution[1]*self.normal[1])*(ds_bnd)
+                    #G -= 0.5*(self.test[0]*solution[0]*solution[0]*self.normal[0] +
+                              #self.test[0]*solution[0]*solution[1]*self.normal[1] +
+                              #self.test[1]*solution[1]*solution[0]*self.normal[0] +
+                              #self.test[1]*solution[1]*solution[1]*self.normal[1])*(ds_bnd)
+                continue
 
             elif 'elev' in funcs:
                 # prescribe elevation only

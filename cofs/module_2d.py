@@ -58,6 +58,7 @@ class shallowWaterEquations(equation):
 
         self.huByParts = self.U_is_DG and not self.U_is_HDiv
         self.gradEtaByParts = self.eta_is_DG
+        self.horizAdvectionByParts = True
 
         # mesh dependent variables
         self.normal = FacetNormal(mesh)
@@ -202,13 +203,48 @@ class shallowWaterEquations(equation):
                     if funcs is None:
                         f += -dot(volumeFlux, self.normal)*self.eta_test*ds_bnd
             else:
-                f = total_H*div(uv)*self.eta_test*self.dx
+                f = div(total_H*uv)*self.eta_test*self.dx
                 for bnd_marker in self.boundary_markers:
                     funcs = self.bnd_functions.get(bnd_marker)
                     ds_bnd = self.ds(bnd_marker)
                     if funcs is None:
                         f += -total_H*dot(uv, self.normal)*self.eta_test*ds_bnd
                 # f += -avg(total_H)*avg(dot(uv, normal))*jump(self.eta_test)*dS
+        return f
+
+    def horizontalAdvection(self, uv, uvLaxFriedrichs):
+        if self.horizAdvectionByParts:
+            #f = -inner(nabla_div(outer(uv, self.U_test)), uv)
+            f = -(Dx(uv[0]*self.U_test[0], 0)*uv[0] +
+                  Dx(uv[0]*self.U_test[1], 0)*uv[1] +
+                  Dx(uv[1]*self.U_test[0], 1)*uv[0] +
+                  Dx(uv[1]*self.U_test[1], 1)*uv[1])*self.dx
+            if self.U_is_DG:
+                #H = self.bathymetry + eta
+                ##un = dot(uv, self.normal)
+                ##c_roe = avg(sqrt(g_grav*H))
+                ##s2 = sign(avg(un) + c_roe) # 1
+                ##s3 = sign(avg(un) - c_roe) # -1
+                ##Huv = H*uv
+                ##un_roe = avg(sqrt(H)*un)/avg(sqrt(H))
+                ##Huv_rie = avg(Huv) + (s2+s3)/2*jump(Huv) + (s2-s3)/2*un_roe/c_roe*(jump(Huv))
+                ##uv_rie = Huv_rie/avg(H)
+
+                ##Huv_rie = avg(Huv) + un_roe/c_roe*(jump(Huv))
+                ##uv_rie = Huv_rie/avg(H)
+
+                uv_av = avg(uv)
+                un_av = dot(uv_av, self.normal('-'))
+                s = 0.5*(sign(un_av) + 1.0)
+                uv_up = uv('-')*s + uv('+')*(1-s)
+                f += (uv_up[0]*jump(self.U_test[0], uv[0]*self.normal[0]) +
+                      uv_up[1]*jump(self.U_test[1], uv[0]*self.normal[0]) +
+                      uv_up[0]*jump(self.U_test[0], uv[1]*self.normal[1]) +
+                      uv_up[1]*jump(self.U_test[1], uv[1]*self.normal[1]))*self.dS
+                # Lax-Friedrichs stabilization
+                if uvLaxFriedrichs is not None:
+                    gamma = abs(un_av)*uvLaxFriedrichs
+                    f += gamma*dot(jump(self.U_test), jump(uv))*self.dS
         return f
 
     def RHS_implicit(self, solution, wind_stress=None, volumeFlux=None,
@@ -326,45 +362,7 @@ class shallowWaterEquations(equation):
 
         # Advection of momentum
         if self.nonlin:
-            # d/dxi( u_i w_j ) u_j
-            Adv_mom = -(Dx(uv[0]*self.U_test[0], 0)*uv[0] +
-                        Dx(uv[0]*self.U_test[1], 0)*uv[1] +
-                        Dx(uv[1]*self.U_test[0], 1)*uv[0] +
-                        Dx(uv[1]*self.U_test[1], 1)*uv[1])
-            #Adv_mom = -inner(nabla_div(outer(uv, self.U_test)), uv)
-            if self.U_is_DG:
-                #H = self.bathymetry + eta
-                ##un = dot(uv, self.normal)
-                ##c_roe = avg(sqrt(g_grav*H))
-                ##s2 = sign(avg(un) + c_roe) # 1
-                ##s3 = sign(avg(un) - c_roe) # -1
-                ##Huv = H*uv
-                ##un_roe = avg(sqrt(H)*un)/avg(sqrt(H))
-                ##Huv_rie = avg(Huv) + (s2+s3)/2*jump(Huv) + (s2-s3)/2*un_roe/c_roe*(jump(Huv))
-                ##uv_rie = Huv_rie/avg(H)
-
-                ##Huv_rie = avg(Huv) + un_roe/c_roe*(jump(Huv))
-                ##uv_rie = Huv_rie/avg(H)
-
-                uv_av = avg(uv)
-                un_av = dot(uv_av, self.normal('-'))
-                s = 0.5*(sign(un_av) + 1.0)
-                uv_up = uv('-')*s + uv('+')*(1-s)
-                # TODO write this with dot() to speed up!
-                #G += (uv_av[0]*uv_up[0]*jump(self.U_test[0], self.normal[0]) +
-                      #uv_av[0]*uv_up[1]*jump(self.U_test[1], self.normal[0]) +
-                      #uv_av[1]*uv_up[0]*jump(self.U_test[0], self.normal[1]) +
-                      #uv_av[1]*uv_up[1]*jump(self.U_test[1], self.normal[1]))*self.dS
-                G += (uv_av[0]*uv_up[0]*jump(self.U_test[0], self.normal[0]) +
-                      #uv_av[0]*uv_up[1]*jump(self.U_test[1], self.normal[0]) +
-                      #uv_av[1]*uv_up[0]*jump(self.U_test[0], self.normal[1]) +
-                      uv_av[1]*uv_up[1]*jump(self.U_test[1], self.normal[1]))*self.dS
-                # Lax-Friedrichs stabilization
-                if uvLaxFriedrichs is not None:
-                    gamma = abs(un_av)*uvLaxFriedrichs
-                    G += gamma*dot(jump(self.U_test), jump(uv))*self.dS
-
-            F += Adv_mom * self.dx
+            F += self.horizontalAdvection(uv, uvLaxFriedrichs)
 
         ## External pressure gradient
         #F += g_grav * inner(nabla_grad(eta), self.U_test) * self.dx
@@ -388,6 +386,10 @@ class shallowWaterEquations(equation):
             ds_bnd = ds(int(bnd_marker), domain=self.mesh)
             if funcs is None:
                 # assume land boundary
+                #G -= 0.5*(self.U_test[0]*uv[0]*uv[0]*self.normal[0] +
+                          #self.U_test[0]*uv[0]*uv[1]*self.normal[1] +
+                          #self.U_test[1]*uv[1]*uv[0]*self.normal[0] +
+                          #self.U_test[1]*uv[1]*uv[1]*self.normal[1])*(ds_bnd)
                 continue
 
             elif 'slip_alpha' in funcs:
