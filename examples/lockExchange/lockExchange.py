@@ -41,8 +41,8 @@ solverObj.useSUPG = False
 solverObj.useGJV = False
 #solverObj.uvLaxFriedrichs = None
 # how does diffusion scale with mesh size?? nu = Lx^2/dt??
-solverObj.hDiffusivity = Constant(20.0/refinement[reso_str])
-solverObj.hViscosity = Constant(20.0/refinement[reso_str])
+solverObj.hDiffusivity = Constant(100.0/refinement[reso_str])
+solverObj.hViscosity = Constant(100.0/refinement[reso_str])
 #solverObj.vViscosity = Constant(2e-4/refinement[reso_str])
 if solverObj.useModeSplit:
     solverObj.dt = dt
