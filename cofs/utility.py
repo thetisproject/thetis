@@ -416,9 +416,12 @@ def computeVertGJVParameter(gjv_alpha, tracer, param, h, umag, maxval=800.0,
     return param
 
 
-def copy_2d_field_to_3d(input, output, elemHeight=None):
+def copy_2d_field_to_3d(input, output, elemHeight=None,
+                            solver_parameters={}):
     """Extract a subfunction from an extracted mesh."""
-    # FIXME doesn't work for all spaces (DG over vertical)
+    solver_parameters.setdefault('ksp_atol', 1e-12)
+    solver_parameters.setdefault('ksp_rtol', 1e-16)
+
     fs_2d = input.function_space()
     fs_3d = output.function_space()
 
@@ -440,57 +443,48 @@ def copy_2d_field_to_3d(input, output, elemHeight=None):
     # number of nodes in vertical direction
     nVertNodes = len(fs_3d.fiat_element.B.entity_closure_dofs()[1][0])
 
-    if doRTScaling:
-        fs_eh = elemHeight.function_space()
-        # NOTE this assumes that elemHeight is constant in each element!
-        kernel = op2.Kernel("""
-            void my_kernel(double **func, double **func2d, double **elemHeight) {
-                for ( int d = 0; d < %(nodes)d; d++ ) {
-                    for ( int c = 0; c < %(func_dim)d; c++ ) {
-                        for ( int e = 0; e < %(v_nodes)d; e++ ) {
-                            func[2*d+e][c] = func2d[d][c]*elemHeight[0][0];
-                        }
+    kernel = op2.Kernel("""
+        void my_kernel(double **func, double **func2d) {
+            for ( int d = 0; d < %(nodes)d; d++ ) {
+                for ( int c = 0; c < %(func_dim)d; c++ ) {
+                    for ( int e = 0; e < %(v_nodes)d; e++ ) {
+                        func[2*d+e][c] = func2d[d][c];
                     }
                 }
-            }""" % {'nodes': input.cell_node_map().arity,
-                    'func_dim': input.function_space().cdim,
-                    'v_nodes': nVertNodes},
-                    'my_kernel')
-        op2.par_loop(
-            kernel, fs_3d.mesh().cell_set,
-            output.dat(op2.WRITE, fs_3d.cell_node_map()),
-            input.dat(op2.READ, fs_2d.cell_node_map()),
-            elemHeight.dat(op2.READ, fs_eh.cell_node_map()),
-            iterate=iterate)
-    else:
-        kernel = op2.Kernel("""
-            void my_kernel(double **func, double **func2d) {
-                for ( int d = 0; d < %(nodes)d; d++ ) {
-                    for ( int c = 0; c < %(func_dim)d; c++ ) {
-                        for ( int e = 0; e < %(v_nodes)d; e++ ) {
-                            func[2*d+e][c] = func2d[d][c];
-                        }
-                    }
-                }
-            }""" % {'nodes': input.cell_node_map().arity,
-                    'func_dim': input.function_space().cdim,
-                    'v_nodes': nVertNodes},
-                    'my_kernel')
-        op2.par_loop(
-            kernel, fs_3d.mesh().cell_set,
-            output.dat(op2.WRITE, fs_3d.cell_node_map()),
-            input.dat(op2.READ, fs_2d.cell_node_map()),
-            iterate=iterate)
+            }
+        }""" % {'nodes': input.cell_node_map().arity,
+                'func_dim': input.function_space().cdim,
+                'v_nodes': nVertNodes},
+                'my_kernel')
+    op2.par_loop(
+        kernel, fs_3d.mesh().cell_set,
+        output.dat(op2.WRITE, fs_3d.cell_node_map()),
+        input.dat(op2.READ, fs_2d.cell_node_map()),
+        iterate=iterate)
 
+    if doRTScaling:
+        key = '-'.join(('copy2d-3d', input.name(), output.name()))
+        if key not in linProblemCache:
+            test = TestFunction(fs_3d)
+            tri = TrialFunction(fs_3d)
+            a = inner(tri, test)*dx
+            L = 0
+            for i in range(fs_3d.dim):
+                L += elemHeight*test[i]*dx
+            prob = LinearVariationalProblem(a, L, output)
+            solver = LinearVariationalSolver(
+                prob, solver_parameters=solver_parameters)
+            linProblemCache.add(key, solver, 'copy2d-3d')
+        linProblemCache[key].solve()
     return output
 
 
 def extract_level_from_3d(input, sub_domain, output, bottomNodes=None,
-                          elemHeight=None):
+                          elemHeight=None, solver_parameters={}):
     """Extract a subfunction from an extracted mesh."""
     # NOTE top/bottom are defined differently than in firedrake
-    # FIXME doesn't work for all spaces (DG over vertical)
-    # FIXME move the loop over dim to COFFEE kernel (how?)
+    solver_parameters.setdefault('ksp_atol', 1e-12)
+    solver_parameters.setdefault('ksp_rtol', 1e-16)
     fs = input.function_space()
 
     if sub_domain not in ('bottom', 'top'):
@@ -527,56 +521,44 @@ def extract_level_from_3d(input, sub_domain, output, bottomNodes=None,
 
     assert (len(nodes) == out_nodes)
 
-    if doRTScaling:
-        fs_2d = output.function_space()
-        fs_3d = input.function_space()
-        fs_eh = elemHeight.function_space()
-        idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='nodeIdx')
-        # NOTE this assumes that elemHeight is constant in each element!
-        kernel = op2.Kernel("""
-            void my_kernel(double **func, double **func3d, double **elemHeight, int *idx) {
-                for ( int d = 0; d < %(nodes)d; d++ ) {
-                    for ( int c = 0; c < %(func_dim)d; c++ ) {
-                        func[d][c] = func3d[idx[d]][c]/elemHeight[0][0];
-                        //func[d][c] = idx[d];
-                    }
+    fs_2d = output.function_space()
+    fs_3d = input.function_space()
+    idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='nodeIdx')
+    kernel = op2.Kernel("""
+        void my_kernel(double **func, double **func3d, int *idx) {
+            for ( int d = 0; d < %(nodes)d; d++ ) {
+                for ( int c = 0; c < %(func_dim)d; c++ ) {
+                    func[d][c] = func3d[idx[d]][c];
+                    //func[d][c] = idx[d];
                 }
-            }""" % {'nodes': output.cell_node_map().arity,
-                    'func_dim': output.function_space().cdim},
-                    'my_kernel')
-        op2.par_loop(
-            kernel, fs_3d.mesh().cell_set,
-            output.dat(op2.WRITE, fs_2d.cell_node_map()),
-            input.dat(op2.READ, fs_3d.cell_node_map()),
-            elemHeight.dat(op2.READ, fs_eh.cell_node_map()),
-            idx(op2.READ),
-            iterate=iterate)
-    else:
-        nodestr = '{%s}' % ', '.join(map(str, nodes))
-        body = [ast.Decl('int', ast.Symbol('idx', (out_nodes,)),
-                         nodestr, ('const',))]
-        for k in range(dim):
-            i = ast.Symbol('i')
-            body.append(ast.For(ast.Decl('int', i, 0),
-                                ast.Less(i, ast.Symbol(out_nodes)),
-                                ast.Incr(i, ast.Symbol(1)),
-                                ast.Assign(ast.Symbol('out', (i, k)),
-                                        ast.Symbol('in',
-                                                    (ast.Symbol('idx', (i,)), k)))
-                                )
-                        )
+            }
+        }""" % {'nodes': output.cell_node_map().arity,
+                'func_dim': output.function_space().cdim},
+                'my_kernel')
+    op2.par_loop(
+        kernel, fs_3d.mesh().cell_set,
+        output.dat(op2.WRITE, fs_2d.cell_node_map()),
+        input.dat(op2.READ, fs_3d.cell_node_map()),
+        idx(op2.READ),
+        iterate=iterate)
 
-            args = (ast.Decl('double *', ast.Symbol('in', (in_nodes,))),
-                    ast.Decl('double *', ast.Symbol('out', (out_nodes,))))
+    if doRTScaling:
+        key = '-'.join(('copy3d-2d', input.name(), output.name()))
+        if key not in linProblemCache:
+            test = TestFunction(fs_2d)
+            tri = TrialFunction(fs_2d)
+            dx_2d = Measure('dx', domain=fs_2d.mesh(), subdomain_id='everywhere')
+                            #subdomain_data=weakref.ref(self.mesh.coordinates))
+            a = inner(tri, test)*dx_2d
+            L = 0
+            for i in range(fs_2d.dim):
+                L += test[i]/elemHeight*dx_2d
+            prob = LinearVariationalProblem(a, L, output)
+            solver = LinearVariationalSolver(
+                prob, solver_parameters=solver_parameters)
+            linProblemCache.add(key, solver, 'copy3d-2d')
+        linProblemCache[key].solve()
 
-            kernel = op2.Kernel(ast.FunDecl('void', 'expression', args,
-                                            ast.Block(body)),
-                                'expression')
-
-            op2.par_loop(
-                kernel, fs.mesh().cell_set,
-                input.dat(op2.READ, fs.cell_node_map()),
-                output.dat(op2.WRITE, out_fs.cell_node_map()), iterate=iterate)
 
 
 def computeElemHeight(zCoord, output):
