@@ -26,6 +26,8 @@ colorama.init()
 
 class problemCache(object):
     """Holds all variational problems that utility functions depend on."""
+    # NOTE solvers are stored based on function names
+    # NOTE for this to work all funcs must have unique names
     def __init__(self, verbose=False):
         self.verbose = verbose
         self.solvers = {}
@@ -277,12 +279,12 @@ def computeVerticalIntegral(input, output, space, bottomToTop=True,
 
         a = inner(Dx(tri, 2), phi)*dx + mass_bnd_term
         if verticalIsDG:
-            a += normal[2]('-')*inner(jump(tri), jump(phi))*(dS_h)
+            a += normal('+')[2]*inner(jump(tri), avg(phi))*(dS_h)
         source = input
         if average:
             # FIXME this should be H not h
             source = input/bathymetry
-        L = inner(source, phi)*dx + bnd_term
+        L = inner(source, phi)*dx - bnd_term
         prob = LinearVariationalProblem(a, L, output)
         solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
@@ -443,12 +445,14 @@ def copy_2d_field_to_3d(input, output, elemHeight=None,
     # number of nodes in vertical direction
     nVertNodes = len(fs_3d.fiat_element.B.entity_closure_dofs()[1][0])
 
+    nodes = fs_3d.bt_masks[0]
+    idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='nodeIdx')
     kernel = op2.Kernel("""
-        void my_kernel(double **func, double **func2d) {
+        void my_kernel(double **func, double **func2d, int *idx) {
             for ( int d = 0; d < %(nodes)d; d++ ) {
                 for ( int c = 0; c < %(func_dim)d; c++ ) {
                     for ( int e = 0; e < %(v_nodes)d; e++ ) {
-                        func[2*d+e][c] = func2d[d][c];
+                        func[idx[d]+e][c] = func2d[d][c];
                     }
                 }
             }
@@ -460,6 +464,7 @@ def copy_2d_field_to_3d(input, output, elemHeight=None,
         kernel, fs_3d.mesh().cell_set,
         output.dat(op2.WRITE, fs_3d.cell_node_map()),
         input.dat(op2.READ, fs_2d.cell_node_map()),
+        idx(op2.READ),
         iterate=iterate)
 
     if doRTScaling:
@@ -470,7 +475,8 @@ def copy_2d_field_to_3d(input, output, elemHeight=None,
             a = inner(tri, test)*dx
             L = 0
             for i in range(fs_3d.dim):
-                L += elemHeight*test[i]*dx
+                # NOTE these magic numbers are for RTxDG spaces
+                L += elemHeight*output[i]*test[i]*dx
             prob = LinearVariationalProblem(a, L, output)
             solver = LinearVariationalSolver(
                 prob, solver_parameters=solver_parameters)
@@ -552,7 +558,8 @@ def extract_level_from_3d(input, sub_domain, output, bottomNodes=None,
             a = inner(tri, test)*dx_2d
             L = 0
             for i in range(fs_2d.dim):
-                L += test[i]/elemHeight*dx_2d
+                # NOTE these magic numbers are for RTxDG spaces
+                L += output[i]/elemHeight*test[i]*dx_2d
             prob = LinearVariationalProblem(a, L, output)
             solver = LinearVariationalSolver(
                 prob, solver_parameters=solver_parameters)
@@ -577,6 +584,7 @@ def computeElemHeight(zCoord, output):
     out_nodes = fs_out.fiat_element.space_dimension()
     dim = min(fs_in.dim, fs_out.dim)
 
+    # TODO element height should be positive -> fabs
     kernel = op2.Kernel("""
         void my_kernel(double **func, double **zCoord) {
             for ( int d = 0; d < %(nodes)d/2; d++ ) {

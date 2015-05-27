@@ -39,7 +39,7 @@ x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 bathymetry2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
 # create solver
-solverObj = solver.flowSolverMimetic(mesh2d, bathymetry2d, n_layers, order=0)
+solverObj = solver.flowSolverMimetic(mesh2d, bathymetry2d, n_layers, order=1)
 #solverObj.nonlin = False
 solverObj.solveSalt = True
 solverObj.solveVertDiffusion = False

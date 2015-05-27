@@ -644,7 +644,7 @@ class flowSolverMimetic(object):
         self.U = FunctionSpace(self.mesh, U_elt)
         self.U_visu = VectorFunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=self.order)
         self.U_scalar = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=self.order)
-        self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order+1) # BLows up
+        self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order+1)
         self.H_visu = FunctionSpace(self.mesh, 'DG', max(self.order, 1), vfamily='DG', vdegree=max(self.order+1, 1))
         # TODO w must live in a HDiv space as well, like this (a 3d vector field)
         Hh_elt = FiniteElement('DG', triangle, self.order)
