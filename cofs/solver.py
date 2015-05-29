@@ -216,9 +216,8 @@ class flowSolver(object):
         self.z_coord3d = Function(self.P1, name='Bot. Vel. z coord')
         # z coordinate in the reference mesh (eta=0)
         self.z_coord_ref3d = Function(self.P1, name='Bot. Vel. z coord')
-        self.uv3d_dav = Function(self.U, name='Depth Averaged Velocity')
-        self.uv2d_dav = Function(self.U_2d, name='Depth Averaged Velocity')
-        self.uv2d_dav_old = Function(self.U_2d, name='Depth Averaged Velocity')
+        self.uv3d_dav = Function(self.U, name='Depth Averaged Velocity 3d')
+        self.uv2d_dav = Function(self.U_2d, name='Depth Averaged Velocity 2d')
         self.w3d = Function(self.H, name='Vertical Velocity')
         if self.useALEMovingMesh:
             self.w_mesh3d = Function(self.H, name='Vertical Velocity')
@@ -684,9 +683,8 @@ class flowSolverMimetic(object):
         self.z_coord3d = Function(self.P1, name='z coord')
         # z coordinate in the reference mesh (eta=0)
         self.z_coord_ref3d = Function(self.P1, name='ref z coord')
-        self.uv3d_dav = Function(self.U, name='Depth Averaged Velocity')
-        self.uv2d_dav = Function(self.U_2d, name='Depth Averaged Velocity')
-        self.uv2d_dav_old = Function(self.U_2d, name='Depth Averaged Velocity')
+        self.uv3d_dav = Function(self.U, name='Depth Averaged Velocity 3d')
+        self.uv2d_dav = Function(self.U_2d, name='Depth Averaged Velocity 2d')
         self.w3d = Function(self.Hvec, name='Vertical Velocity')
         if self.useALEMovingMesh:
             self.w_mesh3d = Function(self.H, name='Vertical Velocity')

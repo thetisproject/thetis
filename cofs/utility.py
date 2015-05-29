@@ -279,7 +279,11 @@ def computeVerticalIntegral(input, output, space, bottomToTop=True,
 
         a = inner(Dx(tri, 2), phi)*dx + mass_bnd_term
         if verticalIsDG:
-            a += normal('+')[2]*inner(jump(tri), avg(phi))*(dS_h)
+            dim = 1
+            if len(input.ufl_shape) > 0:
+                dim = input.ufl_shape[0]
+            for i in range(dim):
+                a += jump(tri[i])*jump(phi[i], normal[2])*dS_h
         source = input
         if average:
             # FIXME this should be H not h
@@ -473,10 +477,7 @@ def copy_2d_field_to_3d(input, output, elemHeight=None,
             test = TestFunction(fs_3d)
             tri = TrialFunction(fs_3d)
             a = inner(tri, test)*dx
-            L = 0
-            for i in range(fs_3d.dim):
-                # NOTE these magic numbers are for RTxDG spaces
-                L += elemHeight*output[i]*test[i]*dx
+            L = inner(output, test)*elemHeight*dx
             prob = LinearVariationalProblem(a, L, output)
             solver = LinearVariationalSolver(
                 prob, solver_parameters=solver_parameters)
@@ -556,16 +557,12 @@ def extract_level_from_3d(input, sub_domain, output, bottomNodes=None,
             dx_2d = Measure('dx', domain=fs_2d.mesh(), subdomain_id='everywhere')
                             #subdomain_data=weakref.ref(self.mesh.coordinates))
             a = inner(tri, test)*dx_2d
-            L = 0
-            for i in range(fs_2d.dim):
-                # NOTE these magic numbers are for RTxDG spaces
-                L += output[i]/elemHeight*test[i]*dx_2d
+            L = inner(output, test)/elemHeight*dx_2d
             prob = LinearVariationalProblem(a, L, output)
             solver = LinearVariationalSolver(
                 prob, solver_parameters=solver_parameters)
             linProblemCache.add(key, solver, 'copy3d-2d')
         linProblemCache[key].solve()
-
 
 
 def computeElemHeight(zCoord, output):
@@ -584,7 +581,7 @@ def computeElemHeight(zCoord, output):
     out_nodes = fs_out.fiat_element.space_dimension()
     dim = min(fs_in.dim, fs_out.dim)
 
-    # TODO element height should be positive -> fabs
+    # NOTE height maybe <0 if mesh was extruded like that
     kernel = op2.Kernel("""
         void my_kernel(double **func, double **zCoord) {
             for ( int d = 0; d < %(nodes)d/2; d++ ) {
