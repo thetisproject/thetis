@@ -183,17 +183,17 @@ class shallowWaterEquations(equation):
             f = g_grav*inner(grad(head), self.U_test) * self.dx
         return f
 
-    def HUDivTerm(self, uv, total_H, volumeFlux, **kwargs):
+    def HUDivTerm(self, uv, total_H, volumeFlux=None, **kwargs):
         if self.huByParts:
             if volumeFlux is not None:
+                f = -inner(grad(self.eta_test), volumeFlux)*self.dx
+                if self.eta_is_DG:
+                    f += jump(volumeFlux*self.eta_test, self.normal)*self.dS
+            else:
                 f = -inner(grad(self.eta_test), total_H*uv)*self.dx
                 if self.eta_is_DG:
                     f += avg(total_H)*jump(uv*self.eta_test,
                                            self.normal)*self.dS
-            else:
-                f = -inner(grad(self.eta_test), volumeFlux)*self.dx
-                if self.eta_is_DG:
-                    f += jump(volumeFlux*self.eta_test, self.normal)*self.dS
         else:
             if volumeFlux is not None:
                 f = div(volumeFlux)*self.eta_test*self.dx

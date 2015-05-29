@@ -1330,7 +1330,7 @@ class coupledSSPRKSingleMode(timeIntegrator):
                                             bathymetry=s.bathymetry3d)
                     uv2d = s.solution2d.split()[0]
                     copy3dFieldTo2d(s.uv3d_dav, uv2d,
-                                    useBottomValue=False)
+                                    useBottomValue=False, elemHeight=s.vElemSize2d)
 
         for k in range(self.timeStepper2d.nstages):
             with timed_region('saltEq'):
