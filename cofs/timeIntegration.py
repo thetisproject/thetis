@@ -1103,7 +1103,7 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
             with timed_region('aux_eta3d'):
                 eta = sol2d.split()[1]
                 copy2dFieldTo3d(eta, s.eta3d)  # at t_{n+1}
-                s.eta3dCG.project(s.eta3d)
+                #s.eta3dCG.project(s.eta3d)
             with timed_region('aux_mesh_ale'):
                 if s.useALEMovingMesh and doALEUpdate:
                     updateCoordinates(

@@ -628,10 +628,10 @@ class flowSolverMimetic(object):
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
         self.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1)
         self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.order+1)
-        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.order)
+        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', self.order)
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
         self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
-        self.H_visu_2d = FunctionSpace(self.mesh2d, 'DG', max(self.order, 1))
+        self.H_visu_2d = FunctionSpace(self.mesh2d, 'CG', 1)
         self.W_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
 
         self.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0)
@@ -641,19 +641,19 @@ class flowSolverMimetic(object):
         Uv_elt = FiniteElement('DG', interval, self.order)
         U_elt = HDiv(OuterProductElement(Uh_elt, Uv_elt))
         self.U = FunctionSpace(self.mesh, U_elt)
-        self.U_visu = VectorFunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=self.order)
+        self.U_visu = VectorFunctionSpace(self.mesh, 'CG', self.order, vfamily='CG', vdegree=self.order)
         self.U_scalar = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=self.order)
         self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order+1)
-        self.H_visu = FunctionSpace(self.mesh, 'DG', max(self.order, 1), vfamily='DG', vdegree=max(self.order+1, 1))
+        self.H_visu = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
         # TODO w must live in a HDiv space as well, like this (a 3d vector field)
         Hh_elt = FiniteElement('DG', triangle, self.order)
         Hv_elt = FiniteElement('CG', interval, self.order+1)
         H_elt = HDiv(OuterProductElement(Hh_elt, Hv_elt))
         self.Hvec = FunctionSpace(self.mesh, H_elt)
-        self.Hvec_visu = VectorFunctionSpace(self.mesh, 'DG',
-                                             max(self.order, 1),
-                                             vfamily='DG',
-                                             vdegree=max(self.order+1, 1))
+        self.Hvec_visu = VectorFunctionSpace(self.mesh, 'CG',
+                                             1,
+                                             vfamily='CG',
+                                             vdegree=1)
 
         # ----- fields
         self.solution2d = Function(self.W_2d, name='solution2d')
@@ -838,7 +838,7 @@ class flowSolverMimetic(object):
             'uv3d_dav': (self.uv3d_dav, self.U_visu),
             'w3d': (self.w3d, self.Hvec_visu),
             'w3d_mesh': (self.w_mesh3d, self.P1),
-            'salt3d': (self.salt3d, self.P1DG),
+            'salt3d': (self.salt3d, self.H_visu),
             'uv2d_dav': (self.uv2d_dav, self.U_visu_2d),
             'uv2d_bot': (self.uv_bottom2d, self.U_visu_2d),
             'nuv3d': (self.viscosity_v3d, self.P1),
@@ -1238,10 +1238,10 @@ class flowSolver2dMimetic(object):
         self.P0_2d = FunctionSpace(self.mesh2d, 'DG', 0)
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
         self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.order+1)
-        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.order)
+        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', self.order)
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
         self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
-        self.H_visu_2d = FunctionSpace(self.mesh2d, 'DG', max(self.order, 1))
+        self.H_visu_2d = FunctionSpace(self.mesh2d, 'CG', max(self.order, 1))
         self.W_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
 
         # ----- fields

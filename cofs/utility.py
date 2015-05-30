@@ -15,9 +15,6 @@ from mpi4py import MPI
 import ufl
 import coffee.base as ast
 
-# HACK temp fix for broken non-linear solvers
-parameters["coffee"]["O2"] = False
-
 comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
 
@@ -848,13 +845,35 @@ def betaPlaneCoriolisFunction(degrees, out_function, y_offset=0.0):
         )
 
 
+class projector(object):
+    def __init__(self, input_func, output_func, solver_parameters={}):
+        V = output_func.function_space()
+        p = TestFunction(V)
+        q = TrialFunction(V)
+        a = inner(p, q) * V.mesh()._dx
+        L = inner(p, input_func) * V.mesh()._dx
+
+        solver_parameters.setdefault('ksp_type', 'cg')
+        solver_parameters.setdefault('ksp_rtol', 1e-8)
+
+        self.problem = LinearVariationalProblem(a, L, output_func)
+        self.solver = LinearVariationalSolver(self.problem,
+                                              solver_parameters=solver_parameters)
+    def project(self):
+        self.solver.solve()
+
+
 class exporter(object):
     """Class that handles Paraview file exports."""
     def __init__(self, fs_visu, func_name, outputDir, filename):
         self.fs_visu = fs_visu
         self.outfunc = Function(self.fs_visu, name=func_name)
         self.outfile = File(os.path.join(outputDir, filename))
+        self.P = {}
 
     def export(self, function):
-        self.outfunc.project(function)
+        if function not in self.P:
+            self.P[function] = projector(function, self.outfunc)
+        self.P[function].project()
+        # self.outfunc.project(function)  # NOTE this allocates a function
         self.outfile << self.outfunc
