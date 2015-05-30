@@ -23,6 +23,7 @@
 # density outside: 1025 + 0.78*1.1 = 1025.858
 # initial elevation: zero
 # initial velocity: zero
+# inertial period: 144 h / 9.5 = 54568.42 s ~= 30 exports
 # simulation period: 144 h
 
 # Tuomas Karna 2015-03-03
@@ -33,12 +34,12 @@ from cofs import *
 physical_constants['rho0'].assign(1025.0)
 
 outputDir = createDirectory('outputs')
-layers = 10
+layers = 20
 mesh2d = Mesh('tartinville_physical.msh')
 print 'Loaded mesh', mesh2d.name
-dt = 60.0
+dt = 90
 T = 288 * 3600
-TExport = 30*60.0
+TExport = 900.0
 depth = 20.0
 
 # bathymetry
@@ -69,12 +70,12 @@ solverObj.coriolis = coriolis2d
 #solverObj.hDiffusivity = Constant(100.0/refinement[reso_str])
 #solverObj.hViscosity = Constant(100.0/refinement[reso_str])
 #solverObj.vViscosity = Constant(1e-5/refinement[reso_str])
-if solverObj.useModeSplit:
-    solverObj.dt = dt
-solverObj.TExport = TExport
+#if solverObj.useModeSplit:
+    #solverObj.dt = dt
+solverObj.TExport = dt #TExport
 solverObj.T = T
 solverObj.outputDir = outputDir
-solverObj.uAdvection = Constant(0.25)
+solverObj.uAdvection = Constant(0.5)
 solverObj.checkVolConservation2d = True
 solverObj.checkVolConservation3d = True
 solverObj.checkSaltConservation = True
@@ -82,7 +83,7 @@ solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
                             'uv2d_dav', 'uv3d_dav', 'barohead3d',
                             'barohead2d', 'gjvAlphaH3d', 'gjvAlphaV3d']
-solverObj.timerLabels = []
+#solverObj.timerLabels = []
 
 solverObj.mightyCreator()
 # assign initial salinity
