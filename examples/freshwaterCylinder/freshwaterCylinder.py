@@ -25,7 +25,11 @@
 # initial velocity: zero
 # inertial period: 144 h / 9.5 = 54568.42 s ~= 30 exports
 # simulation period: 144 h
-
+#
+# S contours are 33.8, 34.0, 34.2, 34.4, 34.6, 34.8
+# which correspond to rho' 0.039,  0.195,  0.351,  0.507,  0.663,  0.819
+#
+#
 # Tuomas Karna 2015-03-03
 
 from cofs import *
@@ -34,10 +38,10 @@ from cofs import *
 physical_constants['rho0'].assign(1025.0)
 
 outputDir = createDirectory('outputs')
-layers = 20
+layers = 16
 mesh2d = Mesh('tartinville_physical.msh')
 print 'Loaded mesh', mesh2d.name
-dt = 90
+dt = 45.0
 T = 288 * 3600
 TExport = 900.0
 depth = 20.0
@@ -67,15 +71,15 @@ solverObj.baroclinic = True
 solverObj.coriolis = coriolis2d
 #solverObj.uvLaxFriedrichs = None
 # how does diffusion scale with mesh size?? nu = Lx^2/dt??
-#solverObj.hDiffusivity = Constant(100.0/refinement[reso_str])
-#solverObj.hViscosity = Constant(100.0/refinement[reso_str])
-#solverObj.vViscosity = Constant(1e-5/refinement[reso_str])
-#if solverObj.useModeSplit:
-    #solverObj.dt = dt
-solverObj.TExport = dt #TExport
+solverObj.hDiffusivity = Constant(5.0)
+#solverObj.hViscosity = Constant(5.0)
+#solverObj.vViscosity = Constant(1e-5)
+if solverObj.useModeSplit:
+    solverObj.dt = dt
+solverObj.TExport = TExport
 solverObj.T = T
 solverObj.outputDir = outputDir
-solverObj.uAdvection = Constant(0.5)
+solverObj.uAdvection = Constant(0.7)
 solverObj.checkVolConservation2d = True
 solverObj.checkVolConservation3d = True
 solverObj.checkSaltConservation = True
@@ -83,7 +87,9 @@ solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
                             'uv2d_dav', 'uv3d_dav', 'barohead3d',
                             'barohead2d', 'gjvAlphaH3d', 'gjvAlphaV3d']
-#solverObj.timerLabels = []
+solverObj.timerLabels = ['mode2d', 'momentumEq', 'continuityEq', 'saltEq',
+                         'aux_barolinicity', 'aux_mom_coupling',
+                         'func_copy2dTo3d', 'func_copy3dTo2d',]
 
 solverObj.mightyCreator()
 # assign initial salinity

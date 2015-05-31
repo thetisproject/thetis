@@ -92,11 +92,15 @@ class shallowWaterEquations(equation):
             'ksp_rtol': 1e-10,  # 1e-12
             'ksp_atol': 1e-10,  # 1e-16
             'pc_type': 'fieldsplit',
+            #'pc_fieldsplit_type': 'additive',
             'pc_fieldsplit_type': 'multiplicative',
-            'fieldsplit_0_ksp_type': 'preonly',
-            'fieldsplit_1_ksp_type': 'preonly',
-            'fieldsplit_0_pc_type': 'jacobi',
-            'fieldsplit_1_pc_type': 'jacobi',
+            #'pc_fieldsplit_type': 'schur',
+            #'pc_fieldsplit_schur_factorization_type': 'diag',
+            #'pc_fieldsplit_schur_fact_type': 'FULL',
+            #'fieldsplit_velocity_ksp_type': 'preonly',
+            #'fieldsplit_pressure_ksp_type': 'preonly',
+            #'fieldsplit_velocity_pc_type': 'jacobi',
+            #'fieldsplit_pressure_pc_type': 'jacobi',
             }
 
     def ds(self, bnd_marker):

@@ -600,7 +600,7 @@ class flowSolverMimetic(object):
             if self.dt is None:
                 self.dt = dt
             else:
-                dt = self.dt
+                dt = float(self.dt)
             mesh2d_dt = self.eq_sw.getTimeStep(Umag=self.uAdvection)
             dt_2d = self.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
             dt_2d = comm.allreduce(dt_2d, dt_2d, op=MPI.MIN)

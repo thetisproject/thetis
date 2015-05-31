@@ -727,6 +727,10 @@ class tracerEquation(equation):
 
         if diffusivity_v is not None:
             F += diffusivity_v*(Dx(solution, 2)*Dx(self.test, 2))*self.dx
+            if self.vertical_DG:
+                # interface term
+                muGradSol = diffusivity_v*grad(solution)
+                F += -avg(muGradSol[2])*jump(self.test, self.normal[2])*(self.dS_h)
 
         # SUPG stabilization
         if self.test_supg_h is not None:
