@@ -179,13 +179,16 @@ def computeVertVelocity(solution, uv, bathymetry, solver_parameters={}):
         ds_surf = ds_b
         ds_bottom = ds_t
         w_bottom = -(uv[0]*Dx(bathymetry, 0) + uv[1]*Dx(bathymetry, 1))
-        a = tri[2]*test[2]*normal[2]*ds_surf - Dx(test[2], 2)*tri[2]*dx
+        # NOTE pointwise dw/dz
+        a = Dx(tri[2], 2)*test[2]*dx - tri[2]*test[2]*normal[2]*ds_bottom
         a += (test[0]*tri[0] + test[1]*tri[1])*dx
         # NOTE pointwise div(uv)
         L = -(Dx(uv[0], 0) + Dx(uv[1], 1))*test[2]*dx
         L += -w_bottom*test[2]*normal[2]*ds_bottom
         L += (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_v
-        # NOTE div(uv) weak - this form is correct for DG uv
+        # NOTE weak dw/dz
+        #a = tri[2]*test[2]*normal[2]*ds_surf - Dx(test[2], 2)*tri[2]*dx
+        # NOTE weak div(uv) - this form is correct for DG uv
         # NOTE less accurate on deformed mesh bc jacobian is assumed constant
         #L = ((uv[0]*Dx(test[2], 0) + uv[1]*Dx(test[2], 1))*dx -
              #(uv[0]*normal[0] + uv[1]*normal[1])*test[2]*(ds_surf+ds_bottom) -
@@ -267,25 +270,28 @@ def computeVerticalIntegral(input, output, space, bottomToTop=True,
         tri = TrialFunction(space)
         phi = TestFunction(space)
         normal = FacetNormal(space.mesh())
+        ds_surf = ds_b
+        ds_bottom = ds_t
         if bottomToTop:
-            bnd_term = normal[2]*inner(bndValue, phi)*ds_t
-            mass_bnd_term = normal[2]*inner(tri, phi)*ds_t
+            bnd_term = normal[2]*inner(bndValue, phi)*ds_bottom
+            mass_bnd_term = normal[2]*inner(tri, phi)*ds_surf
         else:
-            bnd_term = normal[2]*inner(bndValue, phi)*ds_b
-            mass_bnd_term = normal[2]*inner(tri, phi)*ds_b
+            bnd_term = normal[2]*inner(bndValue, phi)*ds_surf
+            mass_bnd_term = normal[2]*inner(tri, phi)*ds_bottom
 
-        a = inner(Dx(tri, 2), phi)*dx + mass_bnd_term
+        a = -inner(Dx(phi, 2), tri)*dx + mass_bnd_term
         if verticalIsDG:
-            dim = 1
             if len(input.ufl_shape) > 0:
                 dim = input.ufl_shape[0]
-            for i in range(dim):
-                a += jump(tri[i])*jump(phi[i], normal[2])*dS_h
+                for i in range(dim):
+                    a += avg(tri[i])*jump(phi[i], normal[2])*dS_h
+            else:
+                a += avg(tri)*jump(phi, normal[2])*dS_h
         source = input
         if average:
             # FIXME this should be H not h
             source = input/bathymetry
-        L = inner(source, phi)*dx - bnd_term
+        L = inner(source, phi)*dx + bnd_term
         prob = LinearVariationalProblem(a, L, output)
         solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
@@ -301,11 +307,10 @@ def computeBaroclinicHead(salt, baroHead3d, baroHead2d, baroHeadInt3d, bath3d):
 
     r = 1/rho_0 int_{z=-h}^{\eta} rho' dz
     """
-    fs = baroHead3d.function_space()
-    computeVerticalIntegral(salt, baroHead3d, fs, bottomToTop=False)
+    computeVerticalIntegral(salt, baroHead3d, baroHead3d.function_space(), bottomToTop=False)
     baroHead3d *= -physical_constants['rho0_inv']
     computeVerticalIntegral(
-        baroHead3d, baroHeadInt3d, fs, bottomToTop=True,
+        baroHead3d, baroHeadInt3d, baroHeadInt3d.function_space(), bottomToTop=True,
         average=True, bathymetry=bath3d)
     copy3dFieldTo2d(baroHeadInt3d, baroHead2d, useBottomValue=False)
 
@@ -319,16 +324,16 @@ def computeVelMagnitude(solution, u=None, w=None, minVal=1e-6,
     key = '-'.join((solution.name(), str(u), str(w)))
     if key not in linProblemCache:
         function_space = solution.function_space()
-        phi = TestFunction(function_space)
-        magnitude = TrialFunction(function_space)
+        test = TestFunction(function_space)
+        tri = TrialFunction(function_space)
 
-        a = phi*magnitude*dx
+        a = test*tri*dx
         s = 0
         if u is not None:
             s += u[0]**2 + u[1]**2
         if w is not None:
             s += w**2
-        L = phi*sqrt(s)*dx
+        L = test*sqrt(s)*dx
         prob = LinearVariationalProblem(a, L, solution)
         solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
