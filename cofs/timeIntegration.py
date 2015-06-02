@@ -1188,6 +1188,8 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
                     copy2dFieldTo3d(sol2d.split()[0], s.uv3d_dav,
                                     elemHeight=s.vElemSize3d)
                     s.uv3d += s.uv3d_dav
+                # update velocity magnitude
+                computeVelMagnitude(s.uv3d_mag, u=s.uv3d)
 
         for k in range(len(self.dt_frac)):
             with timed_region('saltEq'):

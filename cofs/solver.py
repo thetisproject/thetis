@@ -685,6 +685,7 @@ class flowSolverMimetic(object):
         self.z_coord_ref3d = Function(self.P1, name='ref z coord')
         self.uv3d_dav = Function(self.U, name='Depth Averaged Velocity 3d')
         self.uv2d_dav = Function(self.U_2d, name='Depth Averaged Velocity 2d')
+        self.uv3d_mag = Function(self.P1, name='Velocity magnitude')
         self.w3d = Function(self.Hvec, name='Vertical Velocity')
         if self.useALEMovingMesh:
             self.w_mesh3d = Function(self.H, name='Vertical Velocity')
@@ -788,6 +789,7 @@ class flowSolverMimetic(object):
             dw_mesh_dz=self.dw_mesh_dz_3d,
             viscosity_v=self.vViscosity, viscosity_h=self.hViscosity,
             uvLaxFriedrichs=self.uvLaxFriedrichs,
+            uvMag=self.uv3d_mag,
             coriolis=self.coriolis3d,
             lin_drag=self.lin_drag,
             nonlin=self.nonlin)
@@ -798,6 +800,7 @@ class flowSolverMimetic(object):
                 dw_mesh_dz=self.dw_mesh_dz_3d,
                 diffusivity_h=self.hDiffusivity,
                 diffusivity_v=self.vDiffusivity,
+                uvMag=self.uv3d_mag,
                 test_supg_h=self.test_supg_h,
                 test_supg_v=self.test_supg_v,
                 test_supg_mass=self.test_supg_mass,
