@@ -12,12 +12,12 @@ physical_constants['z0_friction'].assign(5.0e-5)
 
 reso_str = 'coarse'
 outputDir = createDirectory('outputs_'+reso_str)
-refinement = {'coarse': 1, 'coarse2': 2, 'medium': 4, 'fine': 16}
-layers = 10*refinement[reso_str]
+refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4, 'fine': 16}
+layers = int(round(10*refinement[reso_str]))
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
 print 'Loaded mesh', mesh2d.name
 dt = 45.0/refinement[reso_str]
-T = 70 * 3600
+T = 25 * 3600
 TExport = 15*60.0
 depth = 20.0
 
@@ -39,11 +39,14 @@ solverObj.useALEMovingMesh = False
 solverObj.baroclinic = True
 solverObj.useSUPG = False
 solverObj.useGJV = False
-#solverObj.uvLaxFriedrichs = None
+solverObj.uvLaxFriedrichs = Constant(1.0)
+solverObj.tracerLaxFriedrichs = Constant(1.0)
 # how does diffusion scale with mesh size?? nu = Lx^2/dt??
-solverObj.hDiffusivity = Constant(100.0/refinement[reso_str])
-solverObj.hViscosity = Constant(100.0/refinement[reso_str])
-solverObj.vViscosity = Constant(1e-5/refinement[reso_str])
+#solverObj.hDiffusivity = Constant(10.0/refinement[reso_str])
+#solverObj.hViscosity = Constant(10.0/refinement[reso_str])
+#solverObj.vViscosity = Constant(1e-6/refinement[reso_str])
+#solverObj.hViscosity = Constant(1e-2)
+#solverObj.vViscosity = Constant(1e-5)
 if solverObj.useModeSplit:
     solverObj.dt = dt
 solverObj.TExport = TExport

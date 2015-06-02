@@ -94,13 +94,12 @@ class momentumEquation(equation):
         """
         return inner(solution, self.test) * self.dx
 
-    def pressureGrad(self, head, uv, total_H, **kwargs):
-        if self.gradEtaByParts:
+    def pressureGrad(self, head, uv, total_H, byParts=True, **kwargs):
+        if byParts:
             divTest = (Dx(self.test[0], 0) +
                        Dx(self.test[1], 1))
             f = -g_grav*head*divTest*self.dx
-            #un = dot(uv, self.normal)
-            #head_star = avg(head) + sqrt(avg(total_H)/g_grav)*jump(un)
+            #head_star = avg(head) + 0.5*sqrt(avg(total_H)/g_grav)*jump(uv, self.normal)
             head_star = avg(head)
             jumpNDotTest = (jump(self.test[0], self.normal[0]) +
                             jump(self.test[1], self.normal[1]))
@@ -131,20 +130,22 @@ class momentumEquation(equation):
             uv_av = avg(solution)
             un_av = (uv_av[0]*self.normal('-')[0] +
                      uv_av[1]*self.normal('-')[1])
-            s = 0.5*(sign(un_av) + 1.0)
-            uv_up = solution('-')*s + solution('+')*(1-s)
+            #s = 0.5*(sign(un_av) + 1.0)
+            #uv_up = solution('-')*s + solution('+')*(1-s)
             #if self.HDiv:
                 #f += (uv_up[0]*jump(self.test[0], self.normal[0]*solution[0]) +
                       #uv_up[1]*jump(self.test[1], self.normal[1]*solution[1]))*(self.dS_v + self.dS_h)
             if self.horizontal_DG:
-                f += (uv_up[0]*jump(self.test[0], self.normal[0]*solution[0]) +
-                      uv_up[0]*jump(self.test[0], self.normal[1]*solution[1]) +
-                      uv_up[1]*jump(self.test[1], self.normal[0]*solution[0]) +
-                      uv_up[1]*jump(self.test[1], self.normal[1]*solution[1]))*(self.dS_v + self.dS_h)
-            # Lax-Friedrichs stabilization
-            if uvLaxFriedrichs is not None and uvMag is not None:
-                gamma = avg(uvMag)*uvLaxFriedrichs
-                f += gamma*inner(jump(self.test), jump(solution))*self.dS_v
+                f += (uv_av[0]*uv_av[0]*jump(self.test[0], self.normal[0]) +
+                      uv_av[0]*uv_av[1]*jump(self.test[0], self.normal[1]) +
+                      uv_av[1]*uv_av[0]*jump(self.test[1], self.normal[0]) +
+                      uv_av[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_v + self.dS_h)
+                # Lax-Friedrichs stabilization
+                if uvLaxFriedrichs is not None and uvMag is not None:
+                    gamma = 0.5*avg(uvMag)*uvLaxFriedrichs
+                    #f += gamma*inner(jump(self.test), jump(solution))*self.dS_v
+                    f += gamma*(jump(self.test[0])*jump(solution[0]) +
+                                jump(self.test[1])*jump(solution[1]))*self.dS_v
             if self.vertical_DG:
                 # NOTE bottom bnd doesn't work for DG vertical mesh
                 uv_av = avg(solution)
@@ -198,7 +199,7 @@ class momentumEquation(equation):
         if baro_head is not None:
             # external + internal
             head = eta + baro_head
-        F += self.pressureGrad(head, solution, total_H)
+        F += self.pressureGrad(head, solution, total_H, byParts=self.gradEtaByParts)
 
         # Advection term
         if self.nonlin:
@@ -213,13 +214,12 @@ class momentumEquation(equation):
                 Adv_v = -(Dx(self.test[0], 2)*solution[0]*vertvelo +
                           Dx(self.test[1], 2)*solution[1]*vertvelo)
                 F += Adv_v * self.dx
-            if self.vertical_DG:
-                s = 0.5*(sign(avg(w[2])) + 1.0)
-                uv_up = solution('-')*s + solution('+')*(1-s)
-                #w_rie = avg(w[2])
-                #uv_rie = avg(solution)
-                G += (uv_up[0]*jump(self.test[0], self.normal[2]*w[2]) +
-                      uv_up[1]*jump(self.test[1], self.normal[2]*w[2]))*self.dS_h
+                if self.vertical_DG:
+                    s = 0.5*(sign(avg(w[2])*self.normal[0]('-')) + 1.0)
+                    uv_up = solution('-')*s + solution('+')*(1-s)
+                    w_av = avg(w[2])
+                    G += (uv_up[0]*w_av*jump(self.test[0], self.normal[2]) +
+                          uv_up[1]*w_av*jump(self.test[1], self.normal[2]))*self.dS_h
             if w is not None:
                 G += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
                       solution[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
@@ -559,7 +559,7 @@ class tracerEquation(equation):
                  diffusivity_h=None, diffusivity_v=None,
                  test_supg_h=None, test_supg_v=None, test_supg_mass=None,
                  nonlinStab_h=None, nonlinStab_v=None,
-                 uvMag=None,
+                 uvMag=None, tracerLaxFriedrichs=None,
                  bnd_markers=None, bnd_len=None, nonlin=True):
         self.mesh = mesh
         self.space = space
@@ -573,6 +573,7 @@ class tracerEquation(equation):
                        'diffusivity_h': diffusivity_h,
                        'diffusivity_v': diffusivity_v,
                        'uvMag': uvMag,
+                       'tracerLaxFriedrichs': tracerLaxFriedrichs,
                        'nonlinStab_h': nonlinStab_h,
                        'nonlinStab_v': nonlinStab_v}
         # SUPG terms (add to forms)
@@ -638,6 +639,7 @@ class tracerEquation(equation):
     def RHS(self, solution, eta, uv, w, w_mesh=None, dw_mesh_dz=None,
             diffusivity_h=None, diffusivity_v=None,
             nonlinStab_h=None, nonlinStab_v=None,
+            tracerLaxFriedrichs=None,
             uvMag=None,
             **kwargs):
         """Returns the right hand side of the equations.
@@ -660,13 +662,12 @@ class tracerEquation(equation):
                 #alpha = 0.5*(tanh(4 * un / 0.02) + 1)
                 #c_up = alpha*c_in + (1-alpha)*c_ext  # for inv.part adv term
                 #G += c_up*un_av*jump(self.test)*self.dS_v
+                # TODO add same term for dS_h for deformed mesh
                 G += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
                            uv_av[1]*jump(self.test, self.normal[1]))*self.dS_v
-                G += solution*(uv[0]*self.test*self.normal[0] +
-                               uv[1]*self.test*self.normal[1])*self.ds_surf
                 # Lax-Friedrichs stabilization
-                if uvMag is not None:
-                    gamma = avg(uvMag)
+                if tracerLaxFriedrichs is not None and uvMag is not None:
+                    gamma = 0.5*avg(uvMag)*tracerLaxFriedrichs
                     G += gamma*dot(jump(self.test), jump(solution))*self.dS_v
         else:
             F += (Dx(uv[0]*solution, 0) + Dx(uv[1]*solution, 1))*self.test*self.dx
@@ -675,14 +676,19 @@ class tracerEquation(equation):
         if w_mesh is not None:
             vertvelo = w[2]-w_mesh
         F += -solution*vertvelo*Dx(self.test, 2)*self.dx
+        if self.vertical_DG:
+            w_av = avg(vertvelo)
+            s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
+            c_up = solution('-')*s + solution('+')*(1-s)
+            G += c_up*w_av*jump(self.test, self.normal[2])*self.dS_h
 
         # Non-conservative ALE source term
         if dw_mesh_dz is not None:
             F += solution*dw_mesh_dz*self.test*self.dx
 
-        # Bottom/top impermeability boundary conditions
-        G += +solution*(uv[0]*self.normal[0] +
-                        uv[1]*self.normal[1])*self.test*(self.ds_bottom + self.ds_surf)
+        ## Bottom/top impermeability boundary conditions
+        #G += +solution*(uv[0]*self.normal[0] +
+                        #uv[1]*self.normal[1])*self.test*(self.ds_bottom + self.ds_surf)
         ### TODO what is the correct free surf bnd condition?
         #G += solution*vertvelo*self.normal[2]*self.test*self.ds_bottom
         if w_mesh is None:

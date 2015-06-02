@@ -572,6 +572,7 @@ class flowSolverMimetic(object):
         self.useGJV = False  # nonlin gradient jump viscosity
         self.baroclinic = False  # comp and use internal pressure gradient
         self.uvLaxFriedrichs = Constant(1.0)  # scales uv stab. None omits
+        self.tracerLaxFriedrichs = Constant(1.0)  # scales tracer stab. None omits
         self.checkVolConservation2d = False
         self.checkVolConservation3d = False
         self.checkSaltConservation = False
@@ -641,9 +642,13 @@ class flowSolverMimetic(object):
         Uv_elt = FiniteElement('DG', interval, self.order)
         U_elt = HDiv(OuterProductElement(Uh_elt, Uv_elt))
         self.U = FunctionSpace(self.mesh, U_elt)
+        Uvint_elt = FiniteElement('DG', interval, self.order+1)
+        Uint_elt = HDiv(OuterProductElement(Uh_elt, Uv_elt))
+        self.Uint = FunctionSpace(self.mesh, Uint_elt)
         self.U_visu = VectorFunctionSpace(self.mesh, 'CG', self.order, vfamily='CG', vdegree=self.order)
         self.U_scalar = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=self.order)
-        self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order+1)
+        self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=max(0, self.order))
+        self.Hint = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=self.order+1)
         self.H_visu = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
         # TODO w must live in a HDiv space as well, like this (a 3d vector field)
         Hh_elt = FiniteElement('DG', triangle, self.order)
@@ -683,7 +688,7 @@ class flowSolverMimetic(object):
         self.z_coord3d = Function(self.P1, name='z coord')
         # z coordinate in the reference mesh (eta=0)
         self.z_coord_ref3d = Function(self.P1, name='ref z coord')
-        self.uv3d_dav = Function(self.U, name='Depth Averaged Velocity 3d')
+        self.uv3d_dav = Function(self.Uint, name='Depth Averaged Velocity 3d')
         self.uv2d_dav = Function(self.U_2d, name='Depth Averaged Velocity 2d')
         self.uv3d_mag = Function(self.P1, name='Velocity magnitude')
         self.w3d = Function(self.Hvec, name='Vertical Velocity')
@@ -703,8 +708,8 @@ class flowSolverMimetic(object):
         else:
             self.viscosity_v3d = self.vViscosity
         if self.baroclinic:
-            self.baroHead3d = Function(self.H, name='Baroclinic head')
-            self.baroHeadInt3d = Function(self.H, name='V.int. baroclinic head')
+            self.baroHead3d = Function(self.Hint, name='Baroclinic head')
+            self.baroHeadInt3d = Function(self.Hint, name='V.int. baroclinic head')
             self.baroHead2d = Function(self.H_2d, name='DAv baroclinic head')
         else:
             self.baroHead3d = self.baroHead2d = None
@@ -801,6 +806,7 @@ class flowSolverMimetic(object):
                 diffusivity_h=self.hDiffusivity,
                 diffusivity_v=self.vDiffusivity,
                 uvMag=self.uv3d_mag,
+                tracerLaxFriedrichs=self.tracerLaxFriedrichs,
                 test_supg_h=self.test_supg_h,
                 test_supg_v=self.test_supg_v,
                 test_supg_mass=self.test_supg_mass,

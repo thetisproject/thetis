@@ -1170,7 +1170,7 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
                 if do2DCoupling:
                     bndValue = Constant((0.0, 0.0, 0.0))
                     computeVerticalIntegral(s.uv3d, s.uv3d_dav,
-                                            s.uv3d.function_space(),
+                                            s.uv3d_dav.function_space(),
                                             bottomToTop=True, bndValue=bndValue,
                                             average=True,
                                             bathymetry=s.bathymetry3d)
@@ -1325,13 +1325,13 @@ class coupledSSPRKSingleMode(timeIntegrator):
                 if do2DCoupling:
                     bndValue = Constant((0.0, 0.0, 0.0))
                     computeVerticalIntegral(s.uv3d, s.uv3d_dav,
-                                            s.uv3d.function_space(),
+                                            s.uv3d_dav.function_space(),
                                             bottomToTop=True, bndValue=bndValue,
                                             average=True,
                                             bathymetry=s.bathymetry3d)
-                    uv2d = s.solution2d.split()[0]
-                    copy3dFieldTo2d(s.uv3d_dav, uv2d,
+                    copy3dFieldTo2d(s.uv3d_dav, s.uv2d_dav,
                                     useBottomValue=False, elemHeight=s.vElemSize2d)
+                    s.solution2d.split()[0].assign(s.uv2d_dav)
 
         for k in range(self.timeStepper2d.nstages):
             with timed_region('saltEq'):
@@ -1342,8 +1342,10 @@ class coupledSSPRKSingleMode(timeIntegrator):
                 self.timeStepper_mom3d.solveStage(k, t, s.dt_2d, s.uv3d)
             with timed_region('mode2d'):
                 uv, eta = s.solution2d.split()
-                self.timeStepper2d.solveStage(k, t, s.dt_2d, eta)
+                self.timeStepper2d.solveStage(k, t, s.dt_2d, eta, updateForcings)
             last = (k == 2)
             # move fields to next stage
             updateDependencies(doVertDiffusion=last,
                                do2DCoupling=True)
+            # update velocity magnitude
+            computeVelMagnitude(s.uv3d_mag, u=s.uv3d)
