@@ -56,7 +56,7 @@ class shallowWaterEquations(equation):
         print 'eta DG', self.eta_is_DG
         print 'uv DG', self.U_is_DG
 
-        self.huByParts = True  # self.U_is_DG and not self.U_is_HDiv
+        self.huByParts = self.U_is_DG and not self.U_is_HDiv
         self.gradEtaByParts = self.eta_is_DG
         self.horizAdvectionByParts = True
 

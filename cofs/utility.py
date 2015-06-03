@@ -186,14 +186,15 @@ def computeVertVelocity(solution, uv, bathymetry, solver_parameters={}):
         L = -(Dx(uv[0], 0) + Dx(uv[1], 1))*test[2]*dx
         L += -w_bottom*test[2]*normal[2]*ds_bottom
         L += (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_v
-        # NOTE weak dw/dz
+        ##NOTE weak dw/dz
         #a = tri[2]*test[2]*normal[2]*ds_surf - Dx(test[2], 2)*tri[2]*dx
-        # NOTE weak div(uv) - this form is correct for DG uv
-        # NOTE less accurate on deformed mesh bc jacobian is assumed constant
+        ##NOTE weak div(uv)
+        ##NOTE less accurate on deformed mesh bc jacobian is assumed constant
+        #uv_star = avg(uv) # + stabilization
         #L = ((uv[0]*Dx(test[2], 0) + uv[1]*Dx(test[2], 1))*dx -
              #(uv[0]*normal[0] + uv[1]*normal[1])*test[2]*(ds_surf+ds_bottom) -
-             #(jump(uv[0]*test[2], normal[0]) +
-              #jump(uv[1]*test[2], normal[1]))*(dS_v) -
+             #(uv_star[0]*jump(test[2], normal[0]) +
+              #uv_star[1]*jump(test[2], normal[1]))*(dS_v) -
              #w_bottom*test[2]*normal[2]*ds_bottom
              #)
         prob = LinearVariationalProblem(a, L, solution)
@@ -848,6 +849,43 @@ def betaPlaneCoriolisFunction(degrees, out_function, y_offset=0.0):
     out_function.interpolate(
         Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=y_offset)
         )
+
+
+def smagorinskyViscosity(uv, output, C_s, hElemSize,
+                         solver_parameters={}):
+    """
+    Computes Smagorinsky subgrid scale viscosity
+
+    nu = (C_s L_x)**2 sqrt(2*( du/dx**2 + 1/2*(du/dy+dv/dx)**2 + dv/dy**2 ) )
+    C_s = 0.1 ... 0.2 (typ)
+    """
+    solver_parameters.setdefault('ksp_atol', 1e-12)
+    solver_parameters.setdefault('ksp_rtol', 1e-16)
+    key = '-'.join(('smag', uv.name(), output.name()))
+    if key not in linProblemCache:
+        fs = output.function_space()
+        mesh = fs.mesh()
+        w = TestFunction(fs)
+        tau = TrialFunction(fs)
+
+        # rate of strain tensor
+        S = (nabla_grad(uv)+nabla_grad(uv).T)/2
+        F = C_s**2*hElemSize**2 * sqrt(2*(S[0, 0]**2 +
+                                          S[0, 1]**2 +
+                                          S[1, 0]**2 +
+                                          S[1, 1]**2))
+
+        a = w*tau*mesh._dx
+        L = w*F*mesh._dx
+        prob = LinearVariationalProblem(a, L, output)
+        solver = LinearVariationalSolver(
+            prob, solver_parameters=solver_parameters)
+        linProblemCache.add(key, solver, 'smagorinsky')
+    linProblemCache[key].solve()
+
+    # remove negative values
+    vect = output.vector()
+    vect.set_local(np.maximum(vect.array(), 1e-16))
 
 
 class projector(object):

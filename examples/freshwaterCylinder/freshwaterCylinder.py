@@ -69,11 +69,12 @@ solverObj.useALEMovingMesh = False
 #solverObj.useModeSplit = False
 solverObj.baroclinic = True
 solverObj.coriolis = coriolis2d
-#solverObj.uvLaxFriedrichs = None
+solverObj.uvLaxFriedrichs = Constant(0.1)
+solverObj.tracerLaxFriedrichs = Constant(0.1)
 # how does diffusion scale with mesh size?? nu = Lx^2/dt??
 #solverObj.hDiffusivity = Constant(3.0)
-solverObj.hViscosity = Constant(1e-2)
-solverObj.vViscosity = Constant(1e-5)
+#solverObj.hViscosity = Constant(1e-2)
+#solverObj.vViscosity = Constant(1e-5)
 if solverObj.useModeSplit:
     solverObj.dt = dt
 solverObj.TExport = TExport

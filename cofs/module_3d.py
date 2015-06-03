@@ -130,16 +130,16 @@ class momentumEquation(equation):
             uv_av = avg(solution)
             un_av = (uv_av[0]*self.normal('-')[0] +
                      uv_av[1]*self.normal('-')[1])
-            #s = 0.5*(sign(un_av) + 1.0)
-            #uv_up = solution('-')*s + solution('+')*(1-s)
+            s = 0.5*(sign(un_av) + 1.0)
+            uv_up = solution('-')*s + solution('+')*(1-s)
             #if self.HDiv:
                 #f += (uv_up[0]*jump(self.test[0], self.normal[0]*solution[0]) +
                       #uv_up[1]*jump(self.test[1], self.normal[1]*solution[1]))*(self.dS_v + self.dS_h)
             if self.horizontal_DG:
-                f += (uv_av[0]*uv_av[0]*jump(self.test[0], self.normal[0]) +
-                      uv_av[0]*uv_av[1]*jump(self.test[0], self.normal[1]) +
-                      uv_av[1]*uv_av[0]*jump(self.test[1], self.normal[0]) +
-                      uv_av[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_v + self.dS_h)
+                f += (uv_up[0]*uv_av[0]*jump(self.test[0], self.normal[0]) +
+                      uv_up[0]*uv_av[1]*jump(self.test[0], self.normal[1]) +
+                      uv_up[1]*uv_av[0]*jump(self.test[1], self.normal[0]) +
+                      uv_up[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_v + self.dS_h)
                 # Lax-Friedrichs stabilization
                 if uvLaxFriedrichs is not None and uvMag is not None:
                     gamma = 0.5*avg(uvMag)*uvLaxFriedrichs
@@ -215,7 +215,7 @@ class momentumEquation(equation):
                           Dx(self.test[1], 2)*solution[1]*vertvelo)
                 F += Adv_v * self.dx
                 if self.vertical_DG:
-                    s = 0.5*(sign(avg(w[2])*self.normal[0]('-')) + 1.0)
+                    s = 0.5*(sign(avg(w[2])*self.normal[2]('-')) + 1.0)
                     uv_up = solution('-')*s + solution('+')*(1-s)
                     w_av = avg(w[2])
                     G += (uv_up[0]*w_av*jump(self.test[0], self.normal[2]) +
@@ -342,6 +342,7 @@ class momentumEquation(equation):
                        avg(muGradSol[0, 1])*jump(self.test[1], self.normal[0]) +
                        avg(muGradSol[1, 0])*jump(self.test[0], self.normal[1]) +
                        avg(muGradSol[1, 1])*jump(self.test[1], self.normal[1]))*(self.dS_v+self.dS_h)
+                # TODO symmetric interior penalty term
             F += F_visc * self.dx
 
         # vertical viscosity
