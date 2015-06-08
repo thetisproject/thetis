@@ -29,6 +29,7 @@
 # S contours are 33.8, 34.0, 34.2, 34.4, 34.6, 34.8
 # which correspond to rho' 0.039,  0.195,  0.351,  0.507,  0.663,  0.819
 #
+# NOTE with SLIM mode-2 instability starts to develop around t=100 h
 #
 # Tuomas Karna 2015-03-03
 
@@ -69,8 +70,8 @@ solverObj.useSemiImplicit2D = False
 #solverObj.useModeSplit = False
 solverObj.baroclinic = True
 solverObj.coriolis = coriolis2d
-solverObj.uvLaxFriedrichs = Constant(1e-3)
-solverObj.tracerLaxFriedrichs = Constant(1e-3)
+solverObj.uvLaxFriedrichs = None  # Constant(1e-3)
+solverObj.tracerLaxFriedrichs = None  # Constant(1e-3)
 # how does diffusion scale with mesh size?? nu = Lx^2/dt??
 #solverObj.hDiffusivity = Constant(3.0)
 #solverObj.hViscosity = Constant(1e-2)
