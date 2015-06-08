@@ -229,6 +229,10 @@ class momentumEquation(equation):
                     w_av = avg(w[2])
                     G += (uv_up[0]*w_av*jump(self.test[0], self.normal[2]) +
                           uv_up[1]*w_av*jump(self.test[1], self.normal[2]))*self.dS_h
+                    # Lax-Friedrichs
+                    gamma = 0.5*abs(w_av*self.normal('-')[2])*uvLaxFriedrichs
+                    G += gamma*(jump(self.test[0])*jump(solution[0]) +
+                                jump(self.test[1])*jump(solution[1]))*self.dS_h
             if w is not None:
                 G += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
                       solution[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
@@ -698,6 +702,9 @@ class tracerEquation(equation):
             s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
             c_up = solution('-')*s + solution('+')*(1-s)
             G += c_up*w_av*jump(self.test, self.normal[2])*self.dS_h
+            # Lax-Friedrichs
+            gamma = 0.5*abs(w_av*self.normal('-')[2])*tracerLaxFriedrichs
+            G += gamma*dot(jump(self.test), jump(solution))*self.dS_h
 
         # Non-conservative ALE source term
         if dw_mesh_dz is not None:

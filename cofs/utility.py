@@ -186,6 +186,7 @@ def computeVertVelocity(solution, uv, bathymetry, solver_parameters={}):
         L = -(Dx(uv[0], 0) + Dx(uv[1], 1))*test[2]*dx
         L += -w_bottom*test[2]*normal[2]*ds_bottom
         L += (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_v
+        L += (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_surf
         ##NOTE weak dw/dz
         #a = tri[2]*test[2]*normal[2]*ds_surf - Dx(test[2], 2)*tri[2]*dx
         ##NOTE weak div(uv)
@@ -902,6 +903,7 @@ class projector(object):
         self.problem = LinearVariationalProblem(a, L, output_func)
         self.solver = LinearVariationalSolver(self.problem,
                                               solver_parameters=solver_parameters)
+
     def project(self):
         self.solver.solve()
 
