@@ -1,6 +1,6 @@
 #!/bin/bash
 
-end=380
+end=700
 OUT=$1
 par="-p"
 python generatePVD.py -d $OUT -e $end $par -n Elevation2d

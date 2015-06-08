@@ -16,10 +16,10 @@
         <Element index="0" value="10"/>
       </Property>
       <Property name="EndTime" id="263.EndTime" number_of_elements="1">
-        <Element index="0" value="320"/>
+        <Element index="0" value="1000"/>
       </Property>
       <Property name="EndTimeInfo" id="263.EndTimeInfo" number_of_elements="1">
-        <Element index="0" value="320"/>
+        <Element index="0" value="1000"/>
       </Property>
       <Property name="FramesPerTimestep" id="263.FramesPerTimestep" number_of_elements="1">
         <Element index="0" value="1"/>

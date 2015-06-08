@@ -38,7 +38,7 @@ from cofs import *
 physical_constants['rho0'].assign(1025.0)
 
 outputDir = createDirectory('outputs')
-layers = 16
+layers = 20
 mesh2d = Mesh('tartinville_physical.msh')
 print 'Loaded mesh', mesh2d.name
 dt = 25.0
@@ -65,12 +65,12 @@ solverObj.solveSalt = True
 solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False
 solverObj.useALEMovingMesh = False
-#solverObj.useSemiImplicit2D = False
+solverObj.useSemiImplicit2D = False
 #solverObj.useModeSplit = False
 solverObj.baroclinic = True
 solverObj.coriolis = coriolis2d
-solverObj.uvLaxFriedrichs = Constant(0.1)
-solverObj.tracerLaxFriedrichs = Constant(0.1)
+solverObj.uvLaxFriedrichs = Constant(1e-3)
+solverObj.tracerLaxFriedrichs = Constant(1e-3)
 # how does diffusion scale with mesh size?? nu = Lx^2/dt??
 #solverObj.hDiffusivity = Constant(3.0)
 #solverObj.hViscosity = Constant(1e-2)
