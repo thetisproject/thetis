@@ -46,6 +46,8 @@ class exportManager(object):
                         'file': 'GJVParamH.pvd'},
         'gjvAlphaV3d': {'name': 'GJV Parameter v',
                         'file': 'GJVParamV.pvd'},
+        'smagViscosity': {'name': 'Smagorinsky viscosity',
+                          'file': 'SmagViscosity3d.pvd'},
         }
 
     def __init__(self, outputDir, fieldsToExport, exportFunctions,
@@ -571,6 +573,7 @@ class flowSolverMimetic(object):
         self.useSUPG = False  # SUPG stabilization for tracer advection
         self.useGJV = False  # nonlin gradient jump viscosity
         self.baroclinic = False  # comp and use internal pressure gradient
+        self.smagorinskyFactor = None  # set to a Constant to use smag. visc.
         self.uvLaxFriedrichs = Constant(1.0)  # scales uv stab. None omits
         self.tracerLaxFriedrichs = Constant(1.0)  # scales tracer stab. None omits
         self.checkVolConservation2d = False
@@ -730,6 +733,7 @@ class flowSolverMimetic(object):
             self.wind_stress3d = None
         self.vElemSize3d = Function(self.P1DG, name='element height')
         self.vElemSize2d = Function(self.P1DG_2d, name='element height')
+        self.hElemSize3d = getHorzontalElemSize(self.P1_2d, self.P1)
         if self.useSUPG:
             # TODO move these somewhere else? All form are now in equations...
             test = TestFunction(self.H)
@@ -737,7 +741,6 @@ class flowSolverMimetic(object):
             self.u_mag_func_h = Function(self.U_scalar, name='uv magnitude')
             self.u_mag_func_v = Function(self.U_scalar, name='w magnitude')
             self.SUPG_alpha = Constant(0.1)  # between 0 and 1
-            self.hElemSize3d = getHorzontalElemSize(self.P1_2d, self.P1)
             # FIXME clashes vElemSize3d above
             self.vElemSize3d = getVerticalElemSize(self.P1_2d, self.P1)
             self.supg_gamma_h = Function(self.P1, name='gamma_h')
@@ -757,6 +760,16 @@ class flowSolverMimetic(object):
             self.nonlinStab_v = Function(self.P0, name='GJV parameter v')
         else:
             self.gjv_alpha = self.nonlinStab_h = self.nonlinStab_v = None
+        if self.smagorinskyFactor is not None:
+            self.smag_viscosity = Function(self.P1, name='Smagorinsky viscosity')
+        # total horizontal viscosity
+        self.tot_h_visc = None
+        if self.hViscosity is not None and self.smagorinskyFactor is not None:
+            self.tot_h_visc = self.hViscosity + self.smag_viscosity
+        elif self.hViscosity is None and self.smagorinskyFactor is not None:
+            self.tot_h_visc = self.smag_viscosity
+        elif self.hViscosity is not None and self.smagorinskyFactor is None:
+            self.tot_h_visc = self.hViscosity
 
         # set initial values
         copy2dFieldTo3d(self.bathymetry2d, self.bathymetry3d)
@@ -794,7 +807,7 @@ class flowSolverMimetic(object):
             baro_head=self.baroHead3d,
             w_mesh=self.w_mesh3d,
             dw_mesh_dz=self.dw_mesh_dz_3d,
-            viscosity_v=self.vViscosity, viscosity_h=self.hViscosity,
+            viscosity_v=self.vViscosity, viscosity_h=self.tot_h_visc,
             uvLaxFriedrichs=self.uvLaxFriedrichs,
             #uvMag=self.uv3d_mag,
             uvP1=self.uv3d_P1,
@@ -859,6 +872,7 @@ class flowSolverMimetic(object):
             'barohead2d': (self.baroHead2d, self.P1_2d),
             'gjvAlphaH3d': (self.nonlinStab_h, self.P0),
             'gjvAlphaV3d': (self.nonlinStab_v, self.P0),
+            'smagViscosity': (self.smag_viscosity, self.P1),
             }
         self.exporter = exportManager(self.outputDir, self.fieldsToExport,
                                       exportFuncs, verbose=self.verbose > 0)

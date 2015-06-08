@@ -15,6 +15,8 @@
 # TODO run medium for Re_h = 250
 # => nu = 0.5 500 / 250 = 1.0
 #
+# Smagorinsky factor should be C_s = 1/sqrt(Re_h)
+#
 # Tuomas Karna 2015-03-03
 
 from cofs import *
@@ -53,9 +55,10 @@ solverObj.useSUPG = False
 solverObj.useGJV = False
 solverObj.uvLaxFriedrichs = Constant(1.0)
 solverObj.tracerLaxFriedrichs = Constant(1.0)
+solverObj.smagorinskyFactor = Constant(1.0/np.sqrt(5.0))
 # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
 #solverObj.hViscosity = Constant(100.0/refinement[reso_str])
-solverObj.hViscosity = Constant(10.0)
+#solverObj.hViscosity = Constant(10.0)
 if solverObj.useModeSplit:
     solverObj.dt = dt
 solverObj.TExport = TExport
@@ -68,7 +71,8 @@ solverObj.checkSaltConservation = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
                             'uv2d_dav', 'uv3d_dav', 'barohead3d',
-                            'barohead2d', 'gjvAlphaH3d', 'gjvAlphaV3d']
+                            'barohead2d', 'gjvAlphaH3d', 'gjvAlphaV3d',
+                            'smagViscosity']
 solverObj.timerLabels = []
 
 solverObj.mightyCreator()

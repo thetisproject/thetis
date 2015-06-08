@@ -885,8 +885,9 @@ def smagorinskyViscosity(uv, output, C_s, hElemSize,
     linProblemCache[key].solve()
 
     # remove negative values
-    vect = output.vector()
-    vect.set_local(np.maximum(vect.array(), 1e-16))
+    minval = 1e-10
+    ix = output.dat.data < minval
+    output.dat.data[ix] = minval
 
 
 class projector(object):
