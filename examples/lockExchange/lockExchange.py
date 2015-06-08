@@ -1,7 +1,19 @@
-# Idealised channel flow in 3D
-# ============================
+# Lock Exchange Test case
+# =======================
 #
 # Solves hydrostatic flow in a closed rectangular channel.
+#
+# Dianeutral mixing depends on mesh Reynolds number (Ilicak et al. 2012)
+# Re_h = U dx / nu
+# U = 0.5 m/s characteristic velocity ~ 0.5*sqrt(gH drho/rho_0)
+# dx = horizontal mesh size
+# nu = background viscosity
+#
+# For coarse mesh:
+# Re_h = 0.5 2000 / 100 = 10
+#
+# TODO run medium for Re_h = 250
+# => nu = 0.5 500 / 250 = 1.0
 #
 # Tuomas Karna 2015-03-03
 
@@ -41,12 +53,9 @@ solverObj.useSUPG = False
 solverObj.useGJV = False
 solverObj.uvLaxFriedrichs = Constant(1.0)
 solverObj.tracerLaxFriedrichs = Constant(1.0)
-# how does diffusion scale with mesh size?? nu = Lx^2/dt??
-solverObj.hDiffusivity = Constant(100.0/refinement[reso_str])
-solverObj.hViscosity = Constant(100.0/refinement[reso_str])
-#solverObj.vViscosity = Constant(1e-6/refinement[reso_str])
-#solverObj.hViscosity = Constant(1e-2)
-#solverObj.vViscosity = Constant(1e-5)
+# To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
+#solverObj.hViscosity = Constant(100.0/refinement[reso_str])
+solverObj.hViscosity = Constant(10.0)
 if solverObj.useModeSplit:
     solverObj.dt = dt
 solverObj.TExport = TExport

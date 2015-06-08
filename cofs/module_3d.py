@@ -19,6 +19,7 @@ class momentumEquation(equation):
                  coriolis=None,
                  baro_head=None,
                  uvLaxFriedrichs=None, uvMag=None,
+                 uvP1=None,
                  nonlin=True):
         self.mesh = mesh
         self.space = space
@@ -39,6 +40,7 @@ class momentumEquation(equation):
                        'coriolis': coriolis,
                        'uvLaxFriedrichs': uvLaxFriedrichs,
                        'uvMag': uvMag,
+                       'uvP1': uvP1,
                        }
         # time independent arg
         self.bathymetry = bathymetry
@@ -106,7 +108,7 @@ class momentumEquation(equation):
             f += g_grav*head_star*jumpNDotTest*(self.dS_v + self.dS_h)
             nDotTest = (self.normal[0]*self.test[0] +
                         self.normal[1]*self.test[1])
-            f += g_grav*head*nDotTest*self.ds_bottom
+            f += g_grav*head*nDotTest*(self.ds_bottom + self.ds_surf)
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds_v(bnd_marker)
@@ -118,7 +120,8 @@ class momentumEquation(equation):
             f = g_grav * gradHeadDotTest * self.dx
         return f
 
-    def horizontalAdvection(self, solution, uvLaxFriedrichs, uvMag=None, **kwargs):
+    def horizontalAdvection(self, solution, uvLaxFriedrichs,
+                            uvMag=None, uvP1=None, **kwargs):
         if not self.nonlin:
             return 0
         if self.horizAdvectionByParts:
@@ -142,7 +145,13 @@ class momentumEquation(equation):
                       uv_up[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_v + self.dS_h)
                 # Lax-Friedrichs stabilization
                 if uvLaxFriedrichs is not None and uvMag is not None:
-                    gamma = 0.5*avg(uvMag)*uvLaxFriedrichs
+                    if uvP1 is not None:
+                        gamma = 0.5*abs((avg(uvP1)[0]*self.normal('-')[0] +
+                                         avg(uvP1)[1]*self.normal('-')[1]))*uvLaxFriedrichs
+                    elif uvMag is not None:
+                        gamma = 0.5*avg(uvMag)*uvLaxFriedrichs
+                    else:
+                        raise Exception('either uvP1 or uvMag must be given')
                     #f += gamma*inner(jump(self.test), jump(solution))*self.dS_v
                     f += gamma*(jump(self.test[0])*jump(solution[0]) +
                                 jump(self.test[1])*jump(solution[1]))*self.dS_v
@@ -183,7 +192,7 @@ class momentumEquation(equation):
             viscosity_h=None, coriolis=None, baro_head=None,
             uv_bottom=None, bottom_drag=None, lin_drag=None,
             w_mesh=None, dw_mesh_dz=None, uvLaxFriedrichs=None,
-            uvMag=None, **kwargs):
+            uvMag=None, uvP1=None, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0*self.dx  # holds all dx volume integral terms
@@ -204,7 +213,7 @@ class momentumEquation(equation):
         # Advection term
         if self.nonlin:
             F += self.horizontalAdvection(solution, uvLaxFriedrichs,
-                                          uvMag=uvMag)
+                                          uvMag=uvMag, uvP1=uvP1)
 
             # Vertical advection term
             if w is not None:
@@ -560,7 +569,7 @@ class tracerEquation(equation):
                  diffusivity_h=None, diffusivity_v=None,
                  test_supg_h=None, test_supg_v=None, test_supg_mass=None,
                  nonlinStab_h=None, nonlinStab_v=None,
-                 uvMag=None, tracerLaxFriedrichs=None,
+                 uvMag=None, uvP1=None, tracerLaxFriedrichs=None,
                  bnd_markers=None, bnd_len=None, nonlin=True):
         self.mesh = mesh
         self.space = space
@@ -574,6 +583,7 @@ class tracerEquation(equation):
                        'diffusivity_h': diffusivity_h,
                        'diffusivity_v': diffusivity_v,
                        'uvMag': uvMag,
+                       'uvP1': uvP1,
                        'tracerLaxFriedrichs': tracerLaxFriedrichs,
                        'nonlinStab_h': nonlinStab_h,
                        'nonlinStab_v': nonlinStab_v}
@@ -641,7 +651,7 @@ class tracerEquation(equation):
             diffusivity_h=None, diffusivity_v=None,
             nonlinStab_h=None, nonlinStab_v=None,
             tracerLaxFriedrichs=None,
-            uvMag=None,
+            uvMag=None, uvP1=None,
             **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
@@ -667,8 +677,14 @@ class tracerEquation(equation):
                 G += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
                            uv_av[1]*jump(self.test, self.normal[1]))*self.dS_v
                 # Lax-Friedrichs stabilization
-                if tracerLaxFriedrichs is not None and uvMag is not None:
-                    gamma = 0.5*avg(uvMag)*tracerLaxFriedrichs
+                if tracerLaxFriedrichs is not None:
+                    if uvP1 is not None:
+                        gamma = 0.5*abs((avg(uvP1)[0]*self.normal('-')[0] +
+                                         avg(uvP1)[1]*self.normal('-')[1]))*tracerLaxFriedrichs
+                    elif uvMag is not None:
+                        gamma = 0.5*avg(uvMag)*tracerLaxFriedrichs
+                    else:
+                        raise Exception('either uvP1 or uvMag must be given')
                     G += gamma*dot(jump(self.test), jump(solution))*self.dS_v
         else:
             F += (Dx(uv[0]*solution, 0) + Dx(uv[1]*solution, 1))*self.test*self.dx
@@ -687,11 +703,11 @@ class tracerEquation(equation):
         if dw_mesh_dz is not None:
             F += solution*dw_mesh_dz*self.test*self.dx
 
-        ## Bottom/top impermeability boundary conditions
-        #G += +solution*(uv[0]*self.normal[0] +
-                        #uv[1]*self.normal[1])*self.test*(self.ds_bottom + self.ds_surf)
+        # Bottom/top impermeability boundary conditions
+        G += +solution*(uv[0]*self.normal[0] +
+                        uv[1]*self.normal[1])*self.test*(self.ds_bottom + self.ds_surf)
         ### TODO what is the correct free surf bnd condition?
-        #G += solution*vertvelo*self.normal[2]*self.test*self.ds_bottom
+        G += solution*vertvelo*self.normal[2]*self.test*self.ds_bottom
         if w_mesh is None:
             G += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
         else:

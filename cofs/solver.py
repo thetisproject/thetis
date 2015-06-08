@@ -637,6 +637,7 @@ class flowSolverMimetic(object):
 
         self.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0)
         self.P1 = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
+        self.P1v = VectorFunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
         self.P1DG = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
         Uh_elt = FiniteElement('RT', triangle, self.order+1)
         Uv_elt = FiniteElement('DG', interval, self.order)
@@ -691,6 +692,7 @@ class flowSolverMimetic(object):
         self.uv3d_dav = Function(self.U, name='Depth Averaged Velocity 3d')
         self.uv2d_dav = Function(self.U_2d, name='Depth Averaged Velocity 2d')
         self.uv3d_mag = Function(self.P0, name='Velocity magnitude')
+        self.uv3d_P1 = Function(self.P1v, name='Smoothed Velocity')
         self.w3d = Function(self.Hvec, name='Vertical Velocity')
         if self.useALEMovingMesh:
             self.w_mesh3d = Function(self.H, name='Vertical Velocity')
@@ -794,7 +796,8 @@ class flowSolverMimetic(object):
             dw_mesh_dz=self.dw_mesh_dz_3d,
             viscosity_v=self.vViscosity, viscosity_h=self.hViscosity,
             uvLaxFriedrichs=self.uvLaxFriedrichs,
-            uvMag=self.uv3d_mag,
+            #uvMag=self.uv3d_mag,
+            uvP1=self.uv3d_P1,
             coriolis=self.coriolis3d,
             lin_drag=self.lin_drag,
             nonlin=self.nonlin)
@@ -805,7 +808,8 @@ class flowSolverMimetic(object):
                 dw_mesh_dz=self.dw_mesh_dz_3d,
                 diffusivity_h=self.hDiffusivity,
                 diffusivity_v=self.vDiffusivity,
-                uvMag=self.uv3d_mag,
+                #uvMag=self.uv3d_mag,
+                uvP1=self.uv3d_P1,
                 tracerLaxFriedrichs=self.tracerLaxFriedrichs,
                 test_supg_h=self.test_supg_h,
                 test_supg_v=self.test_supg_v,
@@ -858,6 +862,7 @@ class flowSolverMimetic(object):
             }
         self.exporter = exportManager(self.outputDir, self.fieldsToExport,
                                       exportFuncs, verbose=self.verbose > 0)
+        self.uvP1_projector = projector(self.uv3d, self.uv3d_P1)
 
         self._initialized = True
 
