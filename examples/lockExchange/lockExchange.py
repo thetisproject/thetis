@@ -56,6 +56,8 @@ solverObj.useGJV = False
 solverObj.uvLaxFriedrichs = Constant(1.0)
 solverObj.tracerLaxFriedrichs = Constant(1.0)
 solverObj.smagorinskyFactor = Constant(1.0/np.sqrt(5.0))
+solverObj.saltJumpDiffFactor = Constant(1.0)
+solverObj.saltRange = Constant(5.0)
 # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
 #solverObj.hViscosity = Constant(100.0/refinement[reso_str])
 #solverObj.hViscosity = Constant(10.0)
@@ -72,7 +74,7 @@ solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
                             'uv2d_dav', 'uv3d_dav', 'barohead3d',
                             'barohead2d', 'gjvAlphaH3d', 'gjvAlphaV3d',
-                            'smagViscosity']
+                            'smagViscosity', 'saltJumpDiff']
 solverObj.timerLabels = []
 
 solverObj.mightyCreator()

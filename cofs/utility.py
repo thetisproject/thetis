@@ -426,6 +426,34 @@ def computeVertGJVParameter(gjv_alpha, tracer, param, h, umag, maxval=800.0,
     return param
 
 
+def computeHorizJumpDiffusivity(alpha, tracer, output, hElemSize,
+                                umag, tracer_mag, maxval=2.0e3, minval=1e-6,
+                                solver_parameters={}):
+    """Computes tracer jump diffusivity for horizontal advection."""
+
+    key = '-'.join((output.name(), tracer.name()))
+    if key not in linProblemCache:
+        fs = output.function_space()
+        normal = FacetNormal(fs.mesh())
+        test = TestFunction(fs)
+        tri = TrialFunction(fs)
+        a = jump(test, tri)*dS_v
+        tracer_jump = jump(tracer)
+        # TODO jump scalar must depend on the tracer value scale
+        # TODO can this be estimated automatically e.g. global_max(abs(S))
+        maxjump = Constant(0.05)*tracer_mag
+        L = alpha*avg(umag*hElemSize)*(tracer_jump/maxjump)**2*avg(test)*dS_v
+        prob = LinearVariationalProblem(a, L, output)
+        solver = LinearVariationalSolver(
+            prob, solver_parameters=solver_parameters)
+        linProblemCache.add(key, solver, 'jumpDiffh')
+
+    linProblemCache[key].solve()
+    output.dat.data[output.dat.data[:] > maxval] = maxval
+    output.dat.data[output.dat.data[:] < minval] = minval
+    return output
+
+
 def copy_2d_field_to_3d(input, output, elemHeight=None,
                             solver_parameters={}):
     """Extract a subfunction from an extracted mesh."""

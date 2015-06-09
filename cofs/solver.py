@@ -48,6 +48,8 @@ class exportManager(object):
                         'file': 'GJVParamV.pvd'},
         'smagViscosity': {'name': 'Smagorinsky viscosity',
                           'file': 'SmagViscosity3d.pvd'},
+        'saltJumpDiff': {'name': 'Salt Jump Diffusivity',
+                         'file': 'SaltJumpDiff3d.pvd'},
         }
 
     def __init__(self, outputDir, fieldsToExport, exportFunctions,
@@ -574,6 +576,8 @@ class flowSolverMimetic(object):
         self.useGJV = False  # nonlin gradient jump viscosity
         self.baroclinic = False  # comp and use internal pressure gradient
         self.smagorinskyFactor = None  # set to a Constant to use smag. visc.
+        self.saltJumpDiffFactor = None  # set to a Constant to use nonlin diff.
+        self.saltRange = Constant(30.0)  # value scale for salt to scale jumps
         self.uvLaxFriedrichs = Constant(1.0)  # scales uv stab. None omits
         self.tracerLaxFriedrichs = Constant(1.0)  # scales tracer stab. None omits
         self.checkVolConservation2d = False
@@ -770,6 +774,13 @@ class flowSolverMimetic(object):
             self.tot_h_visc = self.smag_viscosity
         elif self.hViscosity is not None and self.smagorinskyFactor is None:
             self.tot_h_visc = self.hViscosity
+        if self.saltJumpDiffFactor is not None:
+            self.saltJumpDiff = Function(self.P1, name='Salt Jump Diffusivity')
+            self.tot_salt_h_diff = self.saltJumpDiff
+            if self.hViscosity is not None:
+                self.tot_salt_h_diff += self.hViscosity
+        else:
+            self.tot_salt_h_diff = self.hDiffusivity
 
         # set initial values
         copy2dFieldTo3d(self.bathymetry2d, self.bathymetry3d)
@@ -819,7 +830,7 @@ class flowSolverMimetic(object):
                 self.mesh, self.H, self.salt3d, self.eta3d, self.uv3d,
                 w=self.w3d, w_mesh=self.w_mesh3d,
                 dw_mesh_dz=self.dw_mesh_dz_3d,
-                diffusivity_h=self.hDiffusivity,
+                diffusivity_h=self.tot_salt_h_diff,
                 diffusivity_v=self.vDiffusivity,
                 #uvMag=self.uv3d_mag,
                 uvP1=self.uv3d_P1,
@@ -873,6 +884,7 @@ class flowSolverMimetic(object):
             'gjvAlphaH3d': (self.nonlinStab_h, self.P0),
             'gjvAlphaV3d': (self.nonlinStab_v, self.P0),
             'smagViscosity': (self.smag_viscosity, self.P1),
+            'saltJumpDiff': (self.saltJumpDiff, self.P1),
             }
         self.exporter = exportManager(self.outputDir, self.fieldsToExport,
                                       exportFuncs, verbose=self.verbose > 0)

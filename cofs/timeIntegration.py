@@ -909,7 +909,8 @@ class coupledSSPRKSync(timeIntegrator):
         sol2d = self.timeStepper2d.equation.solution
 
         def updateDependencies(do2DCoupling=False,
-                               doVertDiffusion=False):
+                               doVertDiffusion=False,
+                               doStabParams=False):
             """Updates all dependencies of the primary variables"""
             with timed_region('aux_eta3d'):
                 eta = sol2d.split()[1]
@@ -995,13 +996,18 @@ class coupledSSPRKSync(timeIntegrator):
                     s.uv3d -= s.uv3d_dav
                     copy2dFieldTo3d(uv2d, s.uv3d_dav, elemHeight=s.vElemSize3d)
                     s.uv3d += s.uv3d_dav
-                # update velocity magnitude
-                computeVelMagnitude(s.uv3d_mag, u=s.uv3d)
-                # update P1 velocity field
-                s.uvP1_projector.project()
-                if s.smagorinskyFactor is not None:
-                    smagorinskyViscosity(s.uv3d, s.smag_viscosity,
-                                         s.smagorinskyFactor, s.hElemSize3d)
+            with timed_region('aux_stabilization'):
+                if doStabParams:
+                    # update velocity magnitude
+                    computeVelMagnitude(s.uv3d_mag, u=s.uv3d)
+                    # update P1 velocity field
+                    s.uvP1_projector.project()
+                    if s.smagorinskyFactor is not None:
+                        smagorinskyViscosity(s.uv3d_P1, s.smag_viscosity,
+                                             s.smagorinskyFactor, s.hElemSize3d)
+                    computeHorizJumpDiffusivity(s.saltJumpDiffFactor, s.salt3d,
+                                                s.saltJumpDiff, s.hElemSize3d,
+                                                s.uv3d_mag, s.saltRange)
 
         self.sol2d_n.assign(sol2d)  # keep copy of eta_n
         for k in range(len(self.dt_frac)):
@@ -1022,10 +1028,11 @@ class coupledSSPRKSync(timeIntegrator):
                 for i in range(self.M[k]):
                     self.timeStepper2d.advance(t_rhs + i*dt_2d, dt_2d, sol2d,
                                             updateForcings)
-            last = (k == 2)
+            lastStep = (k == 2)
             # move fields to next stage
-            updateDependencies(doVertDiffusion=last,
-                               do2DCoupling=last)
+            updateDependencies(doVertDiffusion=lastStep,
+                               do2DCoupling=lastStep,
+                               doStabParams=lastStep)
 
 
 class coupledSSPRKSemiImplicit(timeIntegrator):
@@ -1105,7 +1112,8 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
 
         def updateDependencies(do2DCoupling=False,
                                doVertDiffusion=False,
-                               doALEUpdate=False):
+                               doALEUpdate=False,
+                               doStabParams=False):
             """Updates all dependencies of the primary variables"""
             with timed_region('aux_eta3d'):
                 eta = sol2d.split()[1]
@@ -1195,13 +1203,18 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
                     copy2dFieldTo3d(sol2d.split()[0], s.uv3d_dav,
                                     elemHeight=s.vElemSize3d)
                     s.uv3d += s.uv3d_dav
-                # update velocity magnitude
-                computeVelMagnitude(s.uv3d_mag, u=s.uv3d)
-                # update P1 velocity field
-                s.uvP1_projector.project()
-                if s.smagorinskyFactor is not None:
-                    smagorinskyViscosity(s.uv3d_P1, s.smag_viscosity,
-                                         s.smagorinskyFactor, s.hElemSize3d)
+            with timed_region('aux_stabilization'):
+                if doStabParams:
+                    # update velocity magnitude
+                    computeVelMagnitude(s.uv3d_mag, u=s.uv3d)
+                    # update P1 velocity field
+                    s.uvP1_projector.project()
+                    if s.smagorinskyFactor is not None:
+                        smagorinskyViscosity(s.uv3d_P1, s.smag_viscosity,
+                                             s.smagorinskyFactor, s.hElemSize3d)
+                    computeHorizJumpDiffusivity(s.saltJumpDiffFactor, s.salt3d,
+                                                s.saltJumpDiff, s.hElemSize3d,
+                                                s.uv3d_mag, s.saltRange)
 
         for k in range(len(self.dt_frac)):
             with timed_region('saltEq'):
@@ -1213,11 +1226,12 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
             with timed_region('mode2d'):
                 self.timeStepper2d.solveStage(k, t, s.dt, sol2d,
                                               updateForcings)
-            last = (k == 2)
+            lastStep = (k == 2)
             # move fields to next stage
-            updateDependencies(doVertDiffusion=last,
-                               do2DCoupling=last,
-                               doALEUpdate=last)
+            updateDependencies(doVertDiffusion=lastStep,
+                               do2DCoupling=lastStep,
+                               doALEUpdate=lastStep,
+                               doStabParams=lastStep)
 
 
 class coupledSSPRKSingleMode(timeIntegrator):
@@ -1269,7 +1283,8 @@ class coupledSSPRKSingleMode(timeIntegrator):
         sol2d = self.timeStepper2d.equation.solution
 
         def updateDependencies(do2DCoupling=False,
-                               doVertDiffusion=False):
+                               doVertDiffusion=False,
+                               doStabParams=False):
             """Updates all dependencies of the primary variables"""
             with timed_region('aux_eta3d'):
                 eta = sol2d
@@ -1344,13 +1359,18 @@ class coupledSSPRKSingleMode(timeIntegrator):
                     copy3dFieldTo2d(s.uv3d_dav, s.uv2d_dav,
                                     useBottomValue=False, elemHeight=s.vElemSize2d)
                     s.solution2d.split()[0].assign(s.uv2d_dav)
-                # update velocity magnitude
-                computeVelMagnitude(s.uv3d_mag, u=s.uv3d)
-                # update P1 velocity field
-                s.uvP1_projector.project()
-                if s.smagorinskyFactor is not None:
-                    smagorinskyViscosity(s.uv3d, s.smag_viscosity,
-                                         s.smagorinskyFactor, s.hElemSize3d)
+            with timed_region('aux_stabilization'):
+                if doStabParams:
+                    # update velocity magnitude
+                    computeVelMagnitude(s.uv3d_mag, u=s.uv3d)
+                    # update P1 velocity field
+                    s.uvP1_projector.project()
+                    if s.smagorinskyFactor is not None:
+                        smagorinskyViscosity(s.uv3d_P1, s.smag_viscosity,
+                                             s.smagorinskyFactor, s.hElemSize3d)
+                    computeHorizJumpDiffusivity(s.saltJumpDiffFactor, s.salt3d,
+                                                s.saltJumpDiff, s.hElemSize3d,
+                                                s.uv3d_mag, s.saltRange)
 
         for k in range(self.timeStepper2d.nstages):
             with timed_region('saltEq'):
@@ -1362,7 +1382,8 @@ class coupledSSPRKSingleMode(timeIntegrator):
             with timed_region('mode2d'):
                 uv, eta = s.solution2d.split()
                 self.timeStepper2d.solveStage(k, t, s.dt_2d, eta, updateForcings)
-            last = (k == 2)
+            lastStep = (k == 2)
             # move fields to next stage
-            updateDependencies(doVertDiffusion=last,
-                               do2DCoupling=True)
+            updateDependencies(doVertDiffusion=lastStep,
+                               do2DCoupling=True,
+                               doStabParams=lastStep)
