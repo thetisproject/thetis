@@ -24,13 +24,13 @@ from cofs import *
 # set physical constants
 physical_constants['z0_friction'].assign(5.0e-5)
 
-reso_str = 'coarse'
+reso_str = 'medium'
 outputDir = createDirectory('outputs_'+reso_str)
 refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4, 'fine': 16}
 layers = int(round(10*refinement[reso_str]))
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
 print 'Loaded mesh', mesh2d.name
-dt = 45.0/refinement[reso_str]
+dt = 100.0/refinement[reso_str]
 T = 25 * 3600
 TExport = 15*60.0
 depth = 20.0
@@ -55,7 +55,8 @@ solverObj.useSUPG = False
 solverObj.useGJV = False
 solverObj.uvLaxFriedrichs = Constant(1.0)
 solverObj.tracerLaxFriedrichs = Constant(1.0)
-solverObj.smagorinskyFactor = Constant(1.0/np.sqrt(5.0))
+Re_h = 2.0
+solverObj.smagorinskyFactor = Constant(1.0/np.sqrt(Re_h))
 solverObj.saltJumpDiffFactor = Constant(1.0)
 solverObj.saltRange = Constant(5.0)
 # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
@@ -66,7 +67,7 @@ if solverObj.useModeSplit:
 solverObj.TExport = TExport
 solverObj.T = T
 solverObj.outputDir = outputDir
-solverObj.uAdvection = Constant(2.5)
+solverObj.uAdvection = Constant(1.0)
 solverObj.checkVolConservation2d = True
 solverObj.checkVolConservation3d = True
 solverObj.checkSaltConservation = True

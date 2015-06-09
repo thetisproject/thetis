@@ -427,7 +427,7 @@ def computeVertGJVParameter(gjv_alpha, tracer, param, h, umag, maxval=800.0,
 
 
 def computeHorizJumpDiffusivity(alpha, tracer, output, hElemSize,
-                                umag, tracer_mag, maxval=2.0e3, minval=1e-6,
+                                umag, tracer_mag, maxval=1.0e3, minval=1e-6,
                                 solver_parameters={}):
     """Computes tracer jump diffusivity for horizontal advection."""
 

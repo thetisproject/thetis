@@ -18,7 +18,7 @@ class momentumEquation(equation):
                  viscosity_v=None, viscosity_h=None,
                  coriolis=None,
                  baro_head=None,
-                 uvLaxFriedrichs=None, uvMag=None,
+                 laxFriedrichsFactor=None, uvMag=None,
                  uvP1=None,
                  nonlin=True):
         self.mesh = mesh
@@ -38,7 +38,7 @@ class momentumEquation(equation):
                        'viscosity_h': viscosity_h,
                        'baro_head': baro_head,
                        'coriolis': coriolis,
-                       'uvLaxFriedrichs': uvLaxFriedrichs,
+                       'laxFriedrichsFactor': laxFriedrichsFactor,
                        'uvMag': uvMag,
                        'uvP1': uvP1,
                        }
@@ -120,7 +120,7 @@ class momentumEquation(equation):
             f = g_grav * gradHeadDotTest * self.dx
         return f
 
-    def horizontalAdvection(self, solution, uvLaxFriedrichs,
+    def horizontalAdvection(self, solution, laxFriedrichsFactor,
                             uvMag=None, uvP1=None, **kwargs):
         if not self.nonlin:
             return 0
@@ -144,12 +144,12 @@ class momentumEquation(equation):
                       uv_up[1]*uv_av[0]*jump(self.test[1], self.normal[0]) +
                       uv_up[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_v + self.dS_h)
                 # Lax-Friedrichs stabilization
-                if uvLaxFriedrichs is not None and uvMag is not None:
+                if laxFriedrichsFactor is not None and uvMag is not None:
                     if uvP1 is not None:
                         gamma = 0.5*abs((avg(uvP1)[0]*self.normal('-')[0] +
-                                         avg(uvP1)[1]*self.normal('-')[1]))*uvLaxFriedrichs
+                                         avg(uvP1)[1]*self.normal('-')[1]))*laxFriedrichsFactor
                     elif uvMag is not None:
-                        gamma = 0.5*avg(uvMag)*uvLaxFriedrichs
+                        gamma = 0.5*avg(uvMag)*laxFriedrichsFactor
                     else:
                         raise Exception('either uvP1 or uvMag must be given')
                     #f += gamma*inner(jump(self.test), jump(solution))*self.dS_v
@@ -191,7 +191,7 @@ class momentumEquation(equation):
     def RHS(self, solution, eta, w=None, viscosity_v=None,
             viscosity_h=None, coriolis=None, baro_head=None,
             uv_bottom=None, bottom_drag=None, lin_drag=None,
-            w_mesh=None, dw_mesh_dz=None, uvLaxFriedrichs=None,
+            w_mesh=None, dw_mesh_dz=None, laxFriedrichsFactor=None,
             uvMag=None, uvP1=None, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
@@ -212,7 +212,7 @@ class momentumEquation(equation):
 
         # Advection term
         if self.nonlin:
-            F += self.horizontalAdvection(solution, uvLaxFriedrichs,
+            F += self.horizontalAdvection(solution, laxFriedrichsFactor,
                                           uvMag=uvMag, uvP1=uvP1)
 
             # Vertical advection term
@@ -229,10 +229,11 @@ class momentumEquation(equation):
                     w_av = avg(w[2])
                     G += (uv_up[0]*w_av*jump(self.test[0], self.normal[2]) +
                           uv_up[1]*w_av*jump(self.test[1], self.normal[2]))*self.dS_h
-                    # Lax-Friedrichs
-                    gamma = 0.5*abs(w_av*self.normal('-')[2])*uvLaxFriedrichs
-                    G += gamma*(jump(self.test[0])*jump(solution[0]) +
-                                jump(self.test[1])*jump(solution[1]))*self.dS_h
+                    if laxFriedrichsFactor is not None:
+                        # Lax-Friedrichs
+                        gamma = 0.5*abs(w_av*self.normal('-')[2])*laxFriedrichsFactor
+                        G += gamma*(jump(self.test[0])*jump(solution[0]) +
+                                    jump(self.test[1])*jump(solution[1]))*self.dS_h
             if w is not None:
                 G += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
                       solution[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
@@ -573,7 +574,7 @@ class tracerEquation(equation):
                  diffusivity_h=None, diffusivity_v=None,
                  test_supg_h=None, test_supg_v=None, test_supg_mass=None,
                  nonlinStab_h=None, nonlinStab_v=None,
-                 uvMag=None, uvP1=None, tracerLaxFriedrichs=None,
+                 uvMag=None, uvP1=None, laxFriedrichsFactor=None,
                  bnd_markers=None, bnd_len=None, nonlin=True):
         self.mesh = mesh
         self.space = space
@@ -588,7 +589,7 @@ class tracerEquation(equation):
                        'diffusivity_v': diffusivity_v,
                        'uvMag': uvMag,
                        'uvP1': uvP1,
-                       'tracerLaxFriedrichs': tracerLaxFriedrichs,
+                       'laxFriedrichsFactor': laxFriedrichsFactor,
                        'nonlinStab_h': nonlinStab_h,
                        'nonlinStab_v': nonlinStab_v}
         # SUPG terms (add to forms)
@@ -654,7 +655,7 @@ class tracerEquation(equation):
     def RHS(self, solution, eta, uv, w, w_mesh=None, dw_mesh_dz=None,
             diffusivity_h=None, diffusivity_v=None,
             nonlinStab_h=None, nonlinStab_v=None,
-            tracerLaxFriedrichs=None,
+            laxFriedrichsFactor=None,
             uvMag=None, uvP1=None,
             **kwargs):
         """Returns the right hand side of the equations.
@@ -681,12 +682,12 @@ class tracerEquation(equation):
                 G += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
                            uv_av[1]*jump(self.test, self.normal[1]))*self.dS_v
                 # Lax-Friedrichs stabilization
-                if tracerLaxFriedrichs is not None:
+                if laxFriedrichsFactor is not None:
                     if uvP1 is not None:
                         gamma = 0.5*abs((avg(uvP1)[0]*self.normal('-')[0] +
-                                         avg(uvP1)[1]*self.normal('-')[1]))*tracerLaxFriedrichs
+                                         avg(uvP1)[1]*self.normal('-')[1]))*laxFriedrichsFactor
                     elif uvMag is not None:
-                        gamma = 0.5*avg(uvMag)*tracerLaxFriedrichs
+                        gamma = 0.5*avg(uvMag)*laxFriedrichsFactor
                     else:
                         raise Exception('either uvP1 or uvMag must be given')
                     G += gamma*dot(jump(self.test), jump(solution))*self.dS_v
@@ -702,9 +703,10 @@ class tracerEquation(equation):
             s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
             c_up = solution('-')*s + solution('+')*(1-s)
             G += c_up*w_av*jump(self.test, self.normal[2])*self.dS_h
-            # Lax-Friedrichs
-            gamma = 0.5*abs(w_av*self.normal('-')[2])*tracerLaxFriedrichs
-            G += gamma*dot(jump(self.test), jump(solution))*self.dS_h
+            if laxFriedrichsFactor is not None:
+                # Lax-Friedrichs
+                gamma = 0.5*abs(w_av*self.normal('-')[2])*laxFriedrichsFactor
+                G += gamma*dot(jump(self.test), jump(solution))*self.dS_h
 
         # Non-conservative ALE source term
         if dw_mesh_dz is not None:
