@@ -766,6 +766,8 @@ class flowSolverMimetic(object):
             self.gjv_alpha = self.nonlinStab_h = self.nonlinStab_v = None
         if self.smagorinskyFactor is not None:
             self.smag_viscosity = Function(self.P1, name='Smagorinsky viscosity')
+        else:
+            self.smag_viscosity = None
         # total horizontal viscosity
         self.tot_h_visc = None
         if self.hViscosity is not None and self.smagorinskyFactor is not None:
@@ -780,6 +782,7 @@ class flowSolverMimetic(object):
             if self.hViscosity is not None:
                 self.tot_salt_h_diff += self.hViscosity
         else:
+            self.saltJumpDiff = None
             self.tot_salt_h_diff = self.hDiffusivity
 
         # set initial values

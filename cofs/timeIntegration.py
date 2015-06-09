@@ -1005,9 +1005,10 @@ class coupledSSPRKSync(timeIntegrator):
                     if s.smagorinskyFactor is not None:
                         smagorinskyViscosity(s.uv3d_P1, s.smag_viscosity,
                                              s.smagorinskyFactor, s.hElemSize3d)
-                    computeHorizJumpDiffusivity(s.saltJumpDiffFactor, s.salt3d,
-                                                s.saltJumpDiff, s.hElemSize3d,
-                                                s.uv3d_mag, s.saltRange)
+                    if s.saltJumpDiffFactor is not None:
+                        computeHorizJumpDiffusivity(s.saltJumpDiffFactor, s.salt3d,
+                                                    s.saltJumpDiff, s.hElemSize3d,
+                                                    s.uv3d_mag, s.saltRange)
 
         self.sol2d_n.assign(sol2d)  # keep copy of eta_n
         for k in range(len(self.dt_frac)):
@@ -1212,9 +1213,10 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
                     if s.smagorinskyFactor is not None:
                         smagorinskyViscosity(s.uv3d_P1, s.smag_viscosity,
                                              s.smagorinskyFactor, s.hElemSize3d)
-                    computeHorizJumpDiffusivity(s.saltJumpDiffFactor, s.salt3d,
-                                                s.saltJumpDiff, s.hElemSize3d,
-                                                s.uv3d_mag, s.saltRange)
+                    if s.saltJumpDiffFactor is not None:
+                        computeHorizJumpDiffusivity(s.saltJumpDiffFactor, s.salt3d,
+                                                    s.saltJumpDiff, s.hElemSize3d,
+                                                    s.uv3d_mag, s.saltRange)
 
         for k in range(len(self.dt_frac)):
             with timed_region('saltEq'):
@@ -1368,9 +1370,10 @@ class coupledSSPRKSingleMode(timeIntegrator):
                     if s.smagorinskyFactor is not None:
                         smagorinskyViscosity(s.uv3d_P1, s.smag_viscosity,
                                              s.smagorinskyFactor, s.hElemSize3d)
-                    computeHorizJumpDiffusivity(s.saltJumpDiffFactor, s.salt3d,
-                                                s.saltJumpDiff, s.hElemSize3d,
-                                                s.uv3d_mag, s.saltRange)
+                    if s.saltJumpDiffFactor is not None:
+                        computeHorizJumpDiffusivity(s.saltJumpDiffFactor, s.salt3d,
+                                                    s.saltJumpDiff, s.hElemSize3d,
+                                                    s.uv3d_mag, s.saltRange)
 
         for k in range(self.timeStepper2d.nstages):
             with timed_region('saltEq'):
