@@ -961,16 +961,16 @@ class flowSolverMimetic(object):
         if self.checkVolConservation2d:
             eta = self.solution2d.split()[1]
             Vol2d_0 = compVolume2d(eta, self.bathymetry2d, dx_2d)
-            print 'Initial volume 2d', Vol2d_0
+            printInfo('Initial volume 2d {0:f}'.format(Vol2d_0))
         if self.checkVolConservation3d:
             Vol3d_0 = compVolume3d(dx_3d)
-            print 'Initial volume 3d', Vol3d_0
+            printInfo('Initial volume 3d {0:f}'.format(Vol3d_0))
         if self.checkSaltConservation:
             Mass3d_0 = compTracerMass3d(self.salt3d, dx_3d)
-            print 'Initial salt mass', Mass3d_0
+            printInfo('Initial salt mass {0:f}'.format(Mass3d_0))
         if self.checkSaltDeviation:
             saltVal = self.salt3d.dat.data.mean()
-            print 'Initial mean salt value', saltVal
+            printInfo('Initial mean salt value {0:f}'.format(saltVal))
 
         # initial export
         self.exporter.export()
@@ -1169,7 +1169,7 @@ class flowSolver2d(object):
         if self.checkVolConservation2d:
             eta = self.solution2d.split()[1]
             Vol2d_0 = compVolume2d(eta, self.bathymetry2d, dx_2d)
-            print 'Initial volume 2d', Vol2d_0
+            printInfo('Initial volume 2d {0:f}'.format(Vol2d_0))
 
         # initial export
         self.exporter.export()
