@@ -53,9 +53,6 @@ class shallowWaterEquations(equation):
         self.eta_is_DG = self.eta_space.ufl_element().family() != 'Lagrange'
         self.U_is_HDiv = self.U_space.ufl_element().family() == 'Raviart-Thomas'
 
-        print 'eta DG', self.eta_is_DG
-        print 'uv DG', self.U_is_DG
-
         self.huByParts = self.U_is_DG and not self.U_is_HDiv
         self.gradEtaByParts = self.eta_is_DG
         self.horizAdvectionByParts = True
@@ -558,12 +555,8 @@ class freeSurfaceEquation(equation):
         self.eta_is_DG = self.space.ufl_element().family() != 'Lagrange'
         self.U_is_HDiv = uv.function_space().ufl_element().family() == 'Raviart-Thomas'
 
-        print 'eta DG', self.eta_is_DG
-        print 'uv DG', self.U_is_DG
-
         self.huByParts = True # self.U_is_DG and not self.U_is_HDiv
         self.gradEtaByParts = self.eta_is_DG
-        print 'hu by parts', self.huByParts
 
         # mesh dependent variables
         self.normal = FacetNormal(mesh)

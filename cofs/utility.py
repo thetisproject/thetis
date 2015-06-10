@@ -49,6 +49,11 @@ class problemCache(object):
 linProblemCache = problemCache(verbose=False)
 
 
+def printInfo(msg):
+    if commrank == 0:
+        print(msg)
+
+
 def colorify_text(color):
     def painter(func):
         def func_wrapper(text):

@@ -876,9 +876,9 @@ class coupledSSPRKSync(timeIntegrator):
         for i in range(1, len(self.dt_frac)):
             prev_end_time = self.start_frac[i-1] + self.dt_frac[i-1]
             self.stage_w.append(prev_end_time*(1.0 - self.start_frac[i]))
-        print 'dt_frac', self.dt_frac
-        print 'start_frac', self.start_frac
-        print 'stage_w', self.stage_w
+        printInfo('dt_frac ' + str(self.dt_frac))
+        printInfo('start_frac ' + str(self.start_frac))
+        printInfo('stage_w ' + str(self.stage_w))
 
     def initialize(self):
         """Assign initial conditions to all necessary fields"""
@@ -895,7 +895,7 @@ class coupledSSPRKSync(timeIntegrator):
         for i, f in enumerate(self.dt_frac):
             M = int(np.ceil(f*self.solver.dt/self.solver.dt_2d))
             dt = f*self.solver.dt/M
-            print 'stage', i, dt, M, f
+            printInfo('stage {0:d} {1:.6f} {2:d} {3:.4f}'.format(i, dt, M, f))
             self.M.append(M)
             self.dt_2d.append(dt)
         self._initialized = True
@@ -1080,9 +1080,9 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
         for i in range(1, len(self.dt_frac)):
             prev_end_time = self.start_frac[i-1] + self.dt_frac[i-1]
             self.stage_w.append(prev_end_time*(1.0 - self.start_frac[i]))
-        print 'dt_frac', self.dt_frac
-        print 'start_frac', self.start_frac
-        print 'stage_w', self.stage_w
+        printInfo('dt_frac ' + str(self.dt_frac))
+        printInfo('start_frac ' + str(self.start_frac))
+        printInfo('stage_w ' + str(self.stage_w))
 
     def initialize(self):
         """Assign initial conditions to all necessary fields"""
@@ -1099,7 +1099,7 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
         for i, f in enumerate(self.dt_frac):
             M = int(np.ceil(f*self.solver.dt/self.solver.dt_2d))
             dt = f*self.solver.dt/M
-            print 'stage', i, dt, M, f
+            printInfo('stage {0:d} {1:.6f} {2:d} {3:.4f}'.format(i, dt, M, f))
             self.M.append(M)
             self.dt_2d.append(dt)
         self._initialized = True
