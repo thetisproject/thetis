@@ -24,13 +24,15 @@ from cofs import *
 # set physical constants
 physical_constants['z0_friction'].assign(5.0e-5)
 
-reso_str = 'medium'
+reso_str = 'coarse'
 outputDir = createDirectory('outputs_'+reso_str)
-refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4, 'fine': 16}
+refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4, 'medium2': 8, 'fine': 16}
 layers = int(round(10*refinement[reso_str]))
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
-print 'Loaded mesh', mesh2d.name
+printInfo('Loaded mesh '+mesh2d.name)
 dt = 100.0/refinement[reso_str]
+if reso_str == 'fine':
+    dt /= 2.0
 T = 25 * 3600
 TExport = 15*60.0
 depth = 20.0
