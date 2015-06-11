@@ -683,7 +683,7 @@ class tracerEquation(equation):
                         gamma = 0.5*avg(uvMag)*laxFriedrichsFactor
                     else:
                         raise Exception('either uvP1 or uvMag must be given')
-                    G += gamma*dot(jump(self.test), jump(solution))*self.dS_v
+                    G += gamma*dot(jump(self.test), jump(solution))*(self.dS_v + self.dS_h)
         else:
             F += (Dx(uv[0]*solution, 0) + Dx(uv[1]*solution, 1))*self.test*self.dx
             G += -solution*(uv[0]*self.normal[0] +
