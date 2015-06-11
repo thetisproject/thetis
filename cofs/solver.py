@@ -876,7 +876,7 @@ class flowSolverMimetic(object):
             'uv3d_dav': (self.uv3d_dav, self.U_visu),
             'w3d': (self.w3d, self.Hvec_visu),
             'w3d_mesh': (self.w_mesh3d, self.P1),
-            'salt3d': (self.salt3d, self.P1DG),  # HACK should be H_visu
+            'salt3d': (self.salt3d, self.H_visu),
             'uv2d_dav': (self.uv2d_dav, self.U_visu_2d),
             'uv2d_bot': (self.uv_bottom2d, self.U_visu_2d),
             'nuv3d': (self.viscosity_v3d, self.P1),
