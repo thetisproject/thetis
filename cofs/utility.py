@@ -201,6 +201,7 @@ def computeVertVelocity(solution, uv, bathymetry, solver_parameters={}):
         L = ((uv[0]*Dx(test[2], 0) + uv[1]*Dx(test[2], 1))*dx
              - (uv_star[0]*jump(test[2], normal[0]) +
                 uv_star[1]*jump(test[2], normal[1]))*(dS_v + dS_h)
+             - (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_v
              )
         prob = LinearVariationalProblem(a, L, solution)
         solver = LinearVariationalSolver(

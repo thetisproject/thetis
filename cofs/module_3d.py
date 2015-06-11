@@ -724,6 +724,8 @@ class tracerEquation(equation):
             ds_bnd = ds_v(int(bnd_marker), domain=self.mesh)
             if funcs is None:
                 # assume land boundary NOTE uv.n should be very close to 0
+                G += solution*(self.normal[0]*uv[0] +
+                               self.normal[1]*uv[1])*self.test*ds_bnd
                 if not self.horizAdvectionByParts:
                     G += -solution*(self.normal[0]*uv[0] +
                                     self.normal[1]*uv[1])*self.test*ds_bnd
