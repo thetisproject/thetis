@@ -155,13 +155,6 @@ class momentumEquation(equation):
                     #f += gamma*inner(jump(self.test), jump(solution))*self.dS_v
                     f += gamma*(jump(self.test[0])*jump(solution[0]) +
                                 jump(self.test[1])*jump(solution[1]))*self.dS_v
-            if self.vertical_DG:
-                # NOTE bottom bnd doesn't work for DG vertical mesh
-                uv_av = avg(solution)
-                f += (uv_av[0]*uv_av[0]*jump(self.test[0], self.normal[0]) +
-                      uv_av[0]*uv_av[1]*jump(self.test[0], self.normal[1]) +
-                      uv_av[1]*uv_av[0]*jump(self.test[1], self.normal[0]) +
-                      uv_av[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_h)
             # surf/bottom boundary conditions: closed at bed, symmetric at surf
             f += (solution[0]*solution[0]*self.test[0]*self.normal[0] +
                   solution[0]*solution[1]*self.test[0]*self.normal[1] +
@@ -680,7 +673,7 @@ class tracerEquation(equation):
                 #G += c_up*un_av*jump(self.test)*self.dS_v
                 # TODO add same term for dS_h for deformed mesh
                 G += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
-                           uv_av[1]*jump(self.test, self.normal[1]))*self.dS_v
+                           uv_av[1]*jump(self.test, self.normal[1]))*(self.dS_v + self.dS_h)
                 # Lax-Friedrichs stabilization
                 if laxFriedrichsFactor is not None:
                     if uvP1 is not None:
@@ -693,6 +686,9 @@ class tracerEquation(equation):
                     G += gamma*dot(jump(self.test), jump(solution))*self.dS_v
         else:
             F += (Dx(uv[0]*solution, 0) + Dx(uv[1]*solution, 1))*self.test*self.dx
+            G += -solution*(uv[0]*self.normal[0] +
+                            uv[1]*self.normal[1])*self.test*(self.ds_bottom)
+
         # Vertical advection term
         vertvelo = w[2]
         if w_mesh is not None:
@@ -712,11 +708,11 @@ class tracerEquation(equation):
         if dw_mesh_dz is not None:
             F += solution*dw_mesh_dz*self.test*self.dx
 
-        # Bottom/top impermeability boundary conditions
-        G += +solution*(uv[0]*self.normal[0] +
-                        uv[1]*self.normal[1])*self.test*(self.ds_bottom + self.ds_surf)
+        ## Bottom/top impermeability boundary conditions
+        #G += +solution*(uv[0]*self.normal[0] +
+                        #uv[1]*self.normal[1])*self.test*(self.ds_bottom + self.ds_surf)
         ### TODO what is the correct free surf bnd condition?
-        G += solution*vertvelo*self.normal[2]*self.test*self.ds_bottom
+        #G += solution*vertvelo*self.normal[2]*self.test*self.ds_bottom
         if w_mesh is None:
             G += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
         else:

@@ -183,26 +183,25 @@ def computeVertVelocity(solution, uv, bathymetry, solver_parameters={}):
 
         ds_surf = ds_b
         ds_bottom = ds_t
-        w_bottom = -(uv[0]*Dx(bathymetry, 0) + uv[1]*Dx(bathymetry, 1))
-        # NOTE pointwise dw/dz
-        a = Dx(tri[2], 2)*test[2]*dx - tri[2]*test[2]*normal[2]*ds_bottom
-        a += (test[0]*tri[0] + test[1]*tri[1])*dx
-        # NOTE pointwise div(uv)
-        L = -(Dx(uv[0], 0) + Dx(uv[1], 1))*test[2]*dx
-        L += -w_bottom*test[2]*normal[2]*ds_bottom
-        L += (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_v
-        L += (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_surf
-        ##NOTE weak dw/dz
-        #a = tri[2]*test[2]*normal[2]*ds_surf - Dx(test[2], 2)*tri[2]*dx
-        ##NOTE weak div(uv)
-        ##NOTE less accurate on deformed mesh bc jacobian is assumed constant
-        #uv_star = avg(uv) # + stabilization
-        #L = ((uv[0]*Dx(test[2], 0) + uv[1]*Dx(test[2], 1))*dx -
-             #(uv[0]*normal[0] + uv[1]*normal[1])*test[2]*(ds_surf+ds_bottom) -
-             #(uv_star[0]*jump(test[2], normal[0]) +
-              #uv_star[1]*jump(test[2], normal[1]))*(dS_v) -
-             #w_bottom*test[2]*normal[2]*ds_bottom
-             #)
+        #w_bottom = -(uv[0]*Dx(bathymetry, 0) + uv[1]*Dx(bathymetry, 1))
+        ## NOTE pointwise dw/dz
+        #a = Dx(tri[2], 2)*test[2]*dx - tri[2]*test[2]*normal[2]*ds_bottom
+        #a += (test[0]*tri[0] + test[1]*tri[1])*dx
+        ## NOTE pointwise div(uv)
+        #L = -(Dx(uv[0], 0) + Dx(uv[1], 1))*test[2]*dx
+        ##L += -w_bottom*test[2]*normal[2]*ds_bottom
+        #L += (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_v
+        #L += (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_surf
+        #L += (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_bottom
+        #NOTE weak dw/dz
+        a = tri[2]*test[2]*normal[2]*ds_surf - Dx(test[2], 2)*tri[2]*dx
+        #NOTE weak div(uv)
+        #NOTE less accurate on deformed mesh bc jacobian is assumed constant
+        uv_star = avg(uv) # + stabilization
+        L = ((uv[0]*Dx(test[2], 0) + uv[1]*Dx(test[2], 1))*dx
+             - (uv_star[0]*jump(test[2], normal[0]) +
+                uv_star[1]*jump(test[2], normal[1]))*(dS_v + dS_h)
+             )
         prob = LinearVariationalProblem(a, L, solution)
         solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
