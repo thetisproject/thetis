@@ -891,11 +891,11 @@ class flowSolverMimetic(object):
 
         self._initialized = True
 
-    def assignInitialConditions(self, elev=None, salt=None):
+    def assignInitialConditions(self, elev=None, salt=None, uv2d=None):
         if not self._initialized:
             self.mightyCreator()
         if elev is not None:
-            uv2d, eta2d = self.solution2d.split()
+            eta2d = self.solution2d.split()[1]
             eta2d.project(elev)
             copy2dFieldTo3d(eta2d, self.eta3d)
             self.eta3dCG.project(self.eta3d)
@@ -904,6 +904,11 @@ class flowSolverMimetic(object):
                                   self.z_coord3d, self.z_coord_ref3d)
                 computeElemHeight(self.z_coord3d, self.vElemSize3d)
                 copy3dFieldTo2d(self.vElemSize3d, self.vElemSize2d)
+        if uv2d is not None:
+            uv2d_field = self.solution2d.split()[0]
+            uv2d_field.project(uv2d)
+            copy2dFieldTo3d(uv2d_field, self.uv3d,
+                            elemHeight=self.vElemSize3d)
 
         if salt is not None and self.solveSalt:
             self.salt3d.project(salt)
@@ -1280,12 +1285,12 @@ class flowSolver2dMimetic(object):
         self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', self.order)
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
         self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
-        self.H_visu_2d = FunctionSpace(self.mesh2d, 'CG', max(self.order, 1))
+        self.H_visu_2d = self.P1_2d
         self.W_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
 
         # ----- fields
         self.solution2d = Function(self.W_2d, name='solution2d')
-        self.volumeFlux2d = Function(self.U_2d, name='volumeFlux2d')
+        # self.volumeFlux2d = Function(self.U_2d, name='volumeFlux2d')
 
         # ----- Equations
         self.eq_sw = module_2d.shallowWaterEquations(
@@ -1295,7 +1300,7 @@ class flowSolver2dMimetic(object):
             uvLaxFriedrichs=self.uvLaxFriedrichs,
             coriolis=self.coriolis,
             wind_stress=self.wind_stress,
-            volumeFlux=self.volumeFlux2d,
+            volumeFlux=None,
             nonlin=self.nonlin, use_wd=self.use_wd)
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
@@ -1305,6 +1310,9 @@ class flowSolver2dMimetic(object):
         if self.timeStepperType.lower() == 'ssprk33':
             self.timeStepper = timeIntegration.SSPRK33Stage(self.eq_sw, self.dt,
                                                             self.eq_sw.solver_parameters)
+        elif self.timeStepperType.lower() == 'ssprk33semi':
+            self.timeStepper = timeIntegration.SSPRK33StageSemiImplicit(self.eq_sw,
+                                                            self.dt, self.eq_sw.solver_parameters)
         elif self.timeStepperType.lower() == 'forwardeuler':
             self.timeStepper = timeIntegration.ForwardEuler(self.eq_sw, self.dt,
                                                             self.eq_sw.solver_parameters)
@@ -1365,15 +1373,15 @@ class flowSolver2dMimetic(object):
 
             #self.timeStepper.advance(t, self.dt, self.solution2d,
                                      #updateForcings)
-            for i in range(3):
-                uv, eta = self.solution2d.split()
-                if self.nonlin:
-                    computeVolumeFlux(uv, (eta+self.bathymetry2d),
-                                      self.volumeFlux2d, self.eq_sw.dx)
-                else:
-                    computeVolumeFlux(uv, self.bathymetry2d,
-                                      self.volumeFlux2d, self.eq_sw.dx)
-                self.timeStepper.solveStage(i, t, self.dt, self.solution2d,
+            for isub in range(3):
+                #uv, eta = self.solution2d.split()
+                #if self.nonlin:
+                    #computeVolumeFlux(uv, (eta+self.bathymetry2d),
+                                      #self.volumeFlux2d, self.eq_sw.dx)
+                #else:
+                    #computeVolumeFlux(uv, self.bathymetry2d,
+                                      #self.volumeFlux2d, self.eq_sw.dx)
+                self.timeStepper.solveStage(isub, t, self.dt, self.solution2d,
                                             updateForcings)
 
             # Move to next time step
