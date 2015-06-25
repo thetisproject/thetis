@@ -152,9 +152,9 @@ class momentumEquation(equation):
                         gamma = 0.5*avg(uvMag)*laxFriedrichsFactor
                     else:
                         raise Exception('either uvP1 or uvMag must be given')
-                    #f += gamma*inner(jump(self.test), jump(solution))*self.dS_v
                     f += gamma*(jump(self.test[0])*jump(solution[0]) +
                                 jump(self.test[1])*jump(solution[1]))*self.dS_v
+
             # surf/bottom boundary conditions: closed at bed, symmetric at surf
             f += (solution[0]*solution[0]*self.test[0]*self.normal[0] +
                   solution[0]*solution[1]*self.test[0]*self.normal[1] +

@@ -637,13 +637,14 @@ class flowSolverMimetic(object):
         self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', self.order)
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
         self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
-        self.H_visu_2d = FunctionSpace(self.mesh2d, 'CG', 1)
+        self.H_visu_2d = self.P1_2d
         self.W_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
 
         self.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0)
         self.P1 = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
         self.P1v = VectorFunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
         self.P1DG = FunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1)
+        self.P1DGv = VectorFunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1)
         Uh_elt = FiniteElement('RT', triangle, self.order+1)
         Uv_elt = FiniteElement('DG', interval, self.order)
         U_elt = HDiv(OuterProductElement(Uh_elt, Uv_elt))
@@ -651,20 +652,17 @@ class flowSolverMimetic(object):
         Uvint_elt = FiniteElement('CG', interval, self.order+1)
         Uint_elt = HDiv(OuterProductElement(Uh_elt, Uv_elt))
         self.Uint = FunctionSpace(self.mesh, Uint_elt)
-        self.U_visu = VectorFunctionSpace(self.mesh, 'CG', self.order, vfamily='CG', vdegree=self.order)
+        self.U_visu = self.P1v
         self.U_scalar = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=self.order)
         self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=max(0, self.order))
         self.Hint = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order+1)
-        self.H_visu = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
+        self.H_visu = self.P1
         # TODO w must live in a HDiv space as well, like this (a 3d vector field)
         Hh_elt = FiniteElement('DG', triangle, self.order)
         Hv_elt = FiniteElement('CG', interval, self.order+1)
         H_elt = HDiv(OuterProductElement(Hh_elt, Hv_elt))
         self.Hvec = FunctionSpace(self.mesh, H_elt)
-        self.Hvec_visu = VectorFunctionSpace(self.mesh, 'CG',
-                                             1,
-                                             vfamily='CG',
-                                             vdegree=1)
+        self.Hvec_visu = self.P1v
 
         # ----- fields
         self.solution2d = Function(self.W_2d, name='solution2d')

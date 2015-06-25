@@ -194,7 +194,7 @@ class shallowWaterEquations(equation):
                 f = -inner(grad(self.eta_test), total_H*uv)*self.dx
                 if self.eta_is_DG:
                     Hu_star = avg(total_H*uv) +\
-                        0.5*sqrt(g_grav*avg(total_H))*jump(total_H, self.normal) # NOTE works
+                        0.5*sqrt(g_grav*avg(total_H))*jump(total_H, self.normal)
                     f += inner(jump(self.eta_test, self.normal), Hu_star)*self.dS
         else:
             if volumeFlux is not None:
