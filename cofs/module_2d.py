@@ -261,8 +261,9 @@ class shallowWaterEquations(equation):
                         funcs = self.bnd_functions.get(bnd_marker)
                         ds_bnd = self.ds(bnd_marker)
                         if funcs is None:
+                            # impose impermeability with mirror velocity
                             un = dot(uv, self.normal)
-                            uv_ext = -un*self.normal
+                            uv_ext = uv - 2*un*self.normal
                             gamma = 0.5*abs(un)*uvLaxFriedrichs
                             f += gamma*dot(self.U_test, uv-uv_ext)*ds_bnd
         return f
@@ -726,14 +727,6 @@ class freeSurfaceEquation(equation):
 
         # Divergence of depth-integrated velocity
         F += self.HUDivTerm(uv, total_H, volumeFlux=None)
-        # Divergence of depth-integrated velocity
-        #F += -total_H * inner(uv, nabla_grad(self.test)) * self.dx
-        #if self.eta_is_DG:
-            ##Hu_star = avg(total_H*uv) +\
-                ##sqrt(g_grav*avg(total_H))*jump(total_H, self.normal)
-            #Hu_star = avg(total_H*uv) +\
-                #sqrt(g_grav*avg(total_H))*jump(total_H, self.normal)
-            #G += inner(jump(self.test, self.normal), Hu_star)*self.dS
 
         # boundary conditions
         for bnd_marker in self.boundary_markers:
@@ -745,7 +738,16 @@ class freeSurfaceEquation(equation):
 
             elif 'elev' in funcs:
                 # prescribe elevation only
+                raise NotImplementedError('elev boundary condition not implemented')
                 h_ext = funcs['elev']
+
+            elif 'flux' in funcs:
+                # prescribe normal flux
+                sect_len = Constant(self.boundary_len[bnd_marker])
+                un_in = dot(uv, self.normal)
+                un_ext = funcs['flux'] / total_H / sect_len
+                un_av = (un_in + un_ext)/2
+                G += total_H * un_av * self.test * ds_bnd
 
             elif 'radiation':
                 # prescribe radiation condition that allows waves to pass tru

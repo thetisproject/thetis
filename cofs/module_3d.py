@@ -120,7 +120,7 @@ class momentumEquation(equation):
             f = g_grav * gradHeadDotTest * self.dx
         return f
 
-    def horizontalAdvection(self, solution, laxFriedrichsFactor,
+    def horizontalAdvection(self, solution, total_H, laxFriedrichsFactor,
                             uvMag=None, uvP1=None, **kwargs):
         if not self.nonlin:
             return 0
@@ -154,6 +154,36 @@ class momentumEquation(equation):
                         raise Exception('either uvP1 or uvMag must be given')
                     f += gamma*(jump(self.test[0])*jump(solution[0]) +
                                 jump(self.test[1])*jump(solution[1]))*self.dS_v
+                for bnd_marker in self.boundary_markers:
+                    funcs = self.bnd_functions.get(bnd_marker)
+                    ds_bnd = self.ds_v(bnd_marker)
+                    if funcs is None:
+                        un = dot(solution, self.normal)
+                        uv_ext = solution - 2*un*self.normal
+                        if laxFriedrichsFactor is not None:
+                            gamma = 0.5*abs(un)*laxFriedrichsFactor
+                            f += gamma*(self.test[0]*(solution[0] - uv_ext[0]) +
+                                        self.test[1]*(solution[1] - uv_ext[1]))*ds_bnd
+                    elif 'flux' in funcs:
+                        # prescribe normal volume flux
+                        sect_len = Constant(self.boundary_len[bnd_marker])
+                        un_ext = funcs['flux'] / total_H / sect_len
+                        if self.nonlin:
+                            uv_in = solution
+                            uv_ext = self.normal*un_ext
+                            uv_av = 0.5*(uv_in + uv_ext)
+                            un_av = uv_av[0]*self.normal[0] + uv_av[1]*self.normal[1]
+                            s = 0.5*(sign(un_av) + 1.0)
+                            uv_up = uv_in*s + uv_ext*(1-s)
+                            f += (uv_up[0]*self.test[0]*self.normal[0]*uv_av[0] +
+                                  uv_up[0]*self.test[0]*self.normal[1]*uv_av[1] +
+                                  uv_up[1]*self.test[1]*self.normal[0]*uv_av[0] +
+                                  uv_up[1]*self.test[1]*self.normal[1]*uv_av[1])*ds_bnd
+                            # Lax-Friedrichs stabilization
+                            if laxFriedrichsFactor is not None:
+                                gamma = 0.5*abs(un_av)*laxFriedrichsFactor
+                                f += gamma*(self.test[0]*(uv_in[0] - uv_ext[0]) +
+                                            self.test[1]*(uv_in[1] - uv_ext[1]))*ds_bnd
 
             # surf/bottom boundary conditions: closed at bed, symmetric at surf
             f += (solution[0]*solution[0]*self.test[0]*self.normal[0] +
@@ -205,7 +235,7 @@ class momentumEquation(equation):
 
         # Advection term
         if self.nonlin:
-            F += self.horizontalAdvection(solution, laxFriedrichsFactor,
+            F += self.horizontalAdvection(solution, total_H, laxFriedrichsFactor,
                                           uvMag=uvMag, uvP1=uvP1)
 
             # Vertical advection term
@@ -283,32 +313,6 @@ class momentumEquation(equation):
                     #gamma = abs(self.normal[0]*(solution[0]) +
                                 #self.normal[1]*(solution[1]))
                     #G += gamma*dot((self.test), (solution-self.normal*un_ext)/2)*ds_bnd
-                    uv_in = solution
-                    uv_ext = self.normal*un_ext
-                    uv_av = 0.5*(uv_in + uv_ext)
-                    un_av = uv_av[0]*self.normal[0] + uv_av[1]*self.normal[1]
-                    s = 0.5*(sign(un_av) + 1.0)
-                    uv_up = uv_in*s + uv_ext*(1-s)
-                    G += (uv_up[0]*self.test[0]*self.normal[0]*uv_in[0] +
-                          uv_up[0]*self.test[0]*self.normal[1]*uv_in[1] +
-                          uv_up[1]*self.test[1]*self.normal[0]*uv_in[0] +
-                          uv_up[1]*self.test[1]*self.normal[1]*uv_in[1])*ds_bnd
-                    # Lax-Friedrichs stabilization
-                    gamma = abs(un_av)
-                    G += gamma*dot(self.test, (uv_in - uv_ext)/2)*ds_bnd
-
-            elif 'flux' in funcs:
-                # prescribe normal volume flux
-                sect_len = Constant(self.boundary_len[bnd_marker])
-                un_ext = funcs['flux'] / total_H / sect_len
-                if self.nonlin:
-                    #un_av = 0.5*(un_ext+un_in)
-                    #G += un_av*un_av*inner(self.normal, self.test)*ds_bnd
-                    ## Lax-Friedrichs stabilization
-                    #gamma = abs(self.normal[0]*(solution[0]) +
-                                #self.normal[1]*(solution[1]))
-                    #G += gamma*dot((self.test), (solution-self.normal*un_ext)/2)*ds_bnd
-
                     uv_in = solution
                     uv_ext = self.normal*un_ext
                     uv_av = 0.5*(uv_in + uv_ext)
@@ -684,6 +688,22 @@ class tracerEquation(equation):
                     else:
                         raise Exception('either uvP1 or uvMag must be given')
                     G += gamma*dot(jump(self.test), jump(solution))*(self.dS_v + self.dS_h)
+                for bnd_marker in self.boundary_markers:
+                    funcs = self.bnd_functions.get(bnd_marker)
+                    ds_bnd = self.ds_v(bnd_marker)
+                    if funcs is None:
+                        continue
+                    elif 'value' in funcs:
+                        # prescribe external tracer value
+                        c_in = solution
+                        c_ext = funcs['value']
+                        uv_av = uv
+                        un_av = self.normal[0]*uv[0] + self.normal[1]*uv[1]
+                        s = 0.5*(sign(un_av) + 1.0)
+                        c_up = c_in*s + c_ext*(1-s)
+                        # TODO should take external un from bnd conditions
+                        G += c_up*(uv_av[0]*self.normal[0] +
+                                   uv_av[1]*self.normal[1])*self.test*ds_bnd
         else:
             F += (Dx(uv[0]*solution, 0) + Dx(uv[1]*solution, 1))*self.test*self.dx
             G += -solution*(uv[0]*self.normal[0] +
@@ -721,22 +741,12 @@ class tracerEquation(equation):
         # boundary conditions
         for bnd_marker in self.boundary_markers:
             funcs = self.bnd_functions.get(bnd_marker)
-            ds_bnd = ds_v(int(bnd_marker), domain=self.mesh)
+            ds_bnd = self.ds_v(bnd_marker)
             if funcs is None:
                 if not self.horizAdvectionByParts:
                     G += -solution*(self.normal[0]*uv[0] +
                                     self.normal[1]*uv[1])*self.test*ds_bnd
                 continue
-
-            elif 'value' in funcs:
-                # prescribe external tracer value
-                c_in = solution
-                c_ext = funcs['value']
-                un = self.normal[0]*uv[0] + self.normal[1]*uv[1]
-                alpha = 0.5*(tanh(4 * un / 0.02) + 1)
-                c_up = alpha*c_in + (1-alpha)*c_ext  # for inv.part adv term
-                #c_up = (1-alpha)*(c_ext-c_in)/4  # for direct adv term
-                G += c_up*un*self.test*ds_bnd
 
             #if diffusivity_h is not None:
                 #dflux = diffusivity_h*(Dx(solution, 0)*self.normal[0] +
