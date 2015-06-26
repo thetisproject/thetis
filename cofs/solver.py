@@ -394,7 +394,9 @@ class flowSolver(object):
                                   self.z_coord3d, self.z_coord_ref3d)
         if salt is not None and self.solveSalt:
             self.salt3d.project(salt)
-        computeVertVelocity(self.w3d, self.uv3d, self.bathymetry3d)
+        computeVertVelocity(self.w3d, self.uv3d, self.bathymetry3d,
+                            self.eq_momentum.boundary_markers,
+                            self.eq_momentum.bnd_functions)
         if self.useALEMovingMesh:
             computeMeshVelocity(self.eta3d, self.uv3d, self.w3d, self.w_mesh3d,
                                 self.w_mesh_surf3d, self.w_mesh_surf2d,
@@ -857,10 +859,13 @@ class flowSolverMimetic(object):
         self.setTimeStep()
         if self.useModeSplit:
             if self.useSemiImplicit2D:
+                printInfo('using coupledSSPRKSemiImplicit time integrator')
                 self.timeStepper = timeIntegration.coupledSSPRKSemiImplicit(self)
             else:
+                printInfo('using coupledSSPRKSync time integrator')
                 self.timeStepper = timeIntegration.coupledSSPRKSync(self)
         else:
+            printInfo('using coupledSSPRKSingleMode time integrator')
             self.timeStepper = timeIntegration.coupledSSPRKSingleMode(self)
 
         # ----- File exporters
@@ -912,7 +917,9 @@ class flowSolverMimetic(object):
 
         if salt is not None and self.solveSalt:
             self.salt3d.project(salt)
-        computeVertVelocity(self.w3d, self.uv3d, self.bathymetry3d)
+        computeVertVelocity(self.w3d, self.uv3d, self.bathymetry3d,
+                            self.eq_momentum.boundary_markers,
+                            self.eq_momentum.bnd_functions)
         if self.useALEMovingMesh:
             computeMeshVelocity(self.eta3d, self.uv3d, self.w3d, self.w_mesh3d,
                                 self.w_mesh_surf3d, self.w_mesh_surf2d,
@@ -999,7 +1006,7 @@ class flowSolverMimetic(object):
 
                 if self.checkVolConservation2d:
                     Vol2d = compVolume2d(self.solution2d.split()[1],
-                                       self.bathymetry2d, dx_2d)
+                                         self.bathymetry2d, dx_2d)
                 if self.checkVolConservation3d:
                     Vol3d = compVolume3d(dx_3d)
                 if self.checkSaltConservation:

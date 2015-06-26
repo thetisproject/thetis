@@ -780,7 +780,9 @@ class coupledSSPRK(timeIntegrator):
             if s.solveVertDiffusion:
                 self.timeStepper_vmom3d.advance(t, s.dt, s.uv3d, None)
         with timed_region('continuityEq'):
-            computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d)
+            computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d,
+                                s.eq_momentum.boundary_markers,
+                                s.eq_momentum.bnd_functions)
         with timed_region('aux_mesh_ale'):
             if s.useALEMovingMesh:
                 computeMeshVelocity(
@@ -932,8 +934,30 @@ class coupledSSPRKSync(timeIntegrator):
             with timed_region('vert_diffusion'):
                 if doVertDiffusion and s.solveVertDiffusion:
                         self.timeStepper_vmom3d.advance(t, s.dt, s.uv3d)
+            with timed_region('aux_mom_coupling'):
+                if do2DCoupling:
+                    bndValue = Constant((0.0, 0.0, 0.0))
+                    computeVerticalIntegral(s.uv3d, s.uv3d_dav,
+                                            s.uv3d.function_space(),
+                                            bottomToTop=True, bndValue=bndValue,
+                                            average=True,
+                                            bathymetry=s.bathymetry3d)
+                    copy3dFieldTo2d(s.uv3d_dav, s.uv2d_dav,
+                                    useBottomValue=False, elemHeight=s.vElemSize2d)
+                    copy2dFieldTo3d(s.uv2d_dav, s.uv3d_dav, elemHeight=s.vElemSize3d)
+                    # 2d-3d coupling: restart 2d mode from depth ave uv3d
+                    # NOTE unstable!
+                    #uv2d_start = sol2d.split()[0]
+                    #uv2d_start.assign(s.uv2d_dav)
+                    # 2d-3d coupling v2: force DAv(uv3d) to uv2d
+                    uv2d = sol2d.split()[0]
+                    s.uv3d -= s.uv3d_dav
+                    copy2dFieldTo3d(uv2d, s.uv3d_dav, elemHeight=s.vElemSize3d)
+                    s.uv3d += s.uv3d_dav
             with timed_region('continuityEq'):
-                computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d)
+                computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d,
+                                    s.eq_momentum.boundary_markers,
+                                    s.eq_momentum.bnd_functions)
             with timed_region('aux_mesh_ale'):
                 if s.useALEMovingMesh:
                     computeMeshVelocity(
@@ -976,26 +1000,6 @@ class coupledSSPRKSync(timeIntegrator):
                     computeVertGJVParameter(
                         s.gjv_alpha, s.salt3d, s.nonlinStab_v, s.vElemSize3d,
                         s.u_mag_func_v, maxval=800.0*s.uAdvection.dat.data[0])
-            with timed_region('aux_mom_coupling'):
-                if do2DCoupling:
-                    bndValue = Constant((0.0, 0.0, 0.0))
-                    computeVerticalIntegral(s.uv3d, s.uv3d_dav,
-                                            s.uv3d.function_space(),
-                                            bottomToTop=True, bndValue=bndValue,
-                                            average=True,
-                                            bathymetry=s.bathymetry3d)
-                    copy3dFieldTo2d(s.uv3d_dav, s.uv2d_dav,
-                                    useBottomValue=False, elemHeight=s.vElemSize2d)
-                    copy2dFieldTo3d(s.uv2d_dav, s.uv3d_dav, elemHeight=s.vElemSize3d)
-                    # 2d-3d coupling: restart 2d mode from depth ave uv3d
-                    # NOTE unstable!
-                    #uv2d_start = sol2d.split()[0]
-                    #uv2d_start.assign(s.uv2d_dav)
-                    # 2d-3d coupling v2: force DAv(uv3d) to uv2d
-                    uv2d = sol2d.split()[0]
-                    s.uv3d -= s.uv3d_dav
-                    copy2dFieldTo3d(uv2d, s.uv3d_dav, elemHeight=s.vElemSize3d)
-                    s.uv3d += s.uv3d_dav
             with timed_region('aux_stabilization'):
                 if doStabParams:
                     # update velocity magnitude
@@ -1137,8 +1141,32 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
             with timed_region('vert_diffusion'):
                 if doVertDiffusion and s.solveVertDiffusion:
                         self.timeStepper_vmom3d.advance(t, s.dt, s.uv3d)
+            with timed_region('aux_mom_coupling'):
+                if do2DCoupling:
+                    bndValue = Constant((0.0, 0.0, 0.0))
+                    computeVerticalIntegral(s.uv3d, s.uv3d_dav,
+                                            s.uv3d_dav.function_space(),
+                                            bottomToTop=True, bndValue=bndValue,
+                                            average=True,
+                                            bathymetry=s.bathymetry3d)
+                    copy3dFieldTo2d(s.uv3d_dav, s.uv2d_dav,
+                                    useBottomValue=False,
+                                    elemHeight=s.vElemSize2d)
+                    copy2dFieldTo3d(s.uv2d_dav, s.uv3d_dav,
+                                    elemHeight=s.vElemSize3d)
+                    # 2d-3d coupling: restart 2d mode from depth ave uv3d
+                    # NOTE unstable!
+                    #uv2d_start = sol2d.split()[0]
+                    #uv2d_start.assign(s.uv2d_dav)
+                    # 2d-3d coupling v2: force DAv(uv3d) to uv2d
+                    s.uv3d -= s.uv3d_dav
+                    copy2dFieldTo3d(sol2d.split()[0], s.uv3d_dav,
+                                    elemHeight=s.vElemSize3d)
+                    s.uv3d += s.uv3d_dav
             with timed_region('continuityEq'):
-                computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d)
+                computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d,
+                                    s.eq_momentum.boundary_markers,
+                                    s.eq_momentum.bnd_functions)
             with timed_region('aux_mesh_ale'):
                 if s.useALEMovingMesh:
                     computeMeshVelocity(
@@ -1182,28 +1210,6 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
                     computeVertGJVParameter(
                         s.gjv_alpha, s.salt3d, s.nonlinStab_v, s.vElemSize3d,
                         s.u_mag_func_v, maxval=800.0*s.uAdvection.dat.data[0])
-            with timed_region('aux_mom_coupling'):
-                if do2DCoupling:
-                    bndValue = Constant((0.0, 0.0, 0.0))
-                    computeVerticalIntegral(s.uv3d, s.uv3d_dav,
-                                            s.uv3d_dav.function_space(),
-                                            bottomToTop=True, bndValue=bndValue,
-                                            average=True,
-                                            bathymetry=s.bathymetry3d)
-                    copy3dFieldTo2d(s.uv3d_dav, s.uv2d_dav,
-                                    useBottomValue=False,
-                                    elemHeight=s.vElemSize2d)
-                    copy2dFieldTo3d(s.uv2d_dav, s.uv3d_dav,
-                                    elemHeight=s.vElemSize3d)
-                    # 2d-3d coupling: restart 2d mode from depth ave uv3d
-                    # NOTE unstable!
-                    #uv2d_start = sol2d.split()[0]
-                    #uv2d_start.assign(s.uv2d_dav)
-                    # 2d-3d coupling v2: force DAv(uv3d) to uv2d
-                    s.uv3d -= s.uv3d_dav
-                    copy2dFieldTo3d(sol2d.split()[0], s.uv3d_dav,
-                                    elemHeight=s.vElemSize3d)
-                    s.uv3d += s.uv3d_dav
             with timed_region('aux_stabilization'):
                 if doStabParams:
                     # update velocity magnitude
@@ -1307,7 +1313,9 @@ class coupledSSPRKSingleMode(timeIntegrator):
                 if doVertDiffusion and s.solveVertDiffusion:
                         self.timeStepper_vmom3d.advance(t, s.dt_2d, s.uv3d)
             with timed_region('continuityEq'):
-                computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d)
+                computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d,
+                                    s.eq_momentum.boundary_markers,
+                                    s.eq_momentum.bnd_functions)
             with timed_region('aux_mesh_ale'):
                 if s.useALEMovingMesh:
                     computeMeshVelocity(

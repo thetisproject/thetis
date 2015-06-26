@@ -167,7 +167,9 @@ def getZCoordFromMesh(zcoord, solver_parameters={}):
     return zcoord
 
 
-def computeVertVelocity(solution, uv, bathymetry, solver_parameters={}):
+def computeVertVelocity(solution, uv, bathymetry,
+                        boundary_markers, boundary_funcs,
+                        solver_parameters={}):
     """Computes vertical velocity from 3d continuity equation."""
     # continuity equation must be solved in the space of w (and tracers)
     solver_parameters.setdefault('ksp_atol', 1e-12)
@@ -202,6 +204,24 @@ def computeVertVelocity(solution, uv, bathymetry, solver_parameters={}):
              - (uv_star[0]*jump(test[2], normal[0]) +
                 uv_star[1]*jump(test[2], normal[1]))*(dS_v + dS_h)
              )
+        for bnd_marker in boundary_markers:
+            funcs = boundary_funcs.get(bnd_marker)
+            ds_bnd = ds_v(int(bnd_marker))
+            if funcs is None:
+                # assume land boundary
+                continue
+            else:
+                # use symmetry condition
+                L += -(uv[0]*normal[0]  + uv[1]*normal[1])*test[2]*ds_bnd
+                ## prescribe normal volume flux
+                #sect_len = Constant(boundary_len[bnd_marker])
+                #total_H = elevation + bathymetry
+                #un_ext = funcs['flux'] / total_H / sect_len
+                #uv_ext = normal*un_ext
+                #uv_in = uv
+                #uv_av = 0.5*(uv_in + uv_ext)
+                #un_av = uv_av[0]*normal[0] + uv_av[1]*normal[1]
+
         prob = LinearVariationalProblem(a, L, solution)
         solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
