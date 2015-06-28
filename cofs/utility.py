@@ -203,6 +203,7 @@ def computeVertVelocity(solution, uv, bathymetry,
         L = ((uv[0]*Dx(test[2], 0) + uv[1]*Dx(test[2], 1))*dx
              - (uv_star[0]*jump(test[2], normal[0]) +
                 uv_star[1]*jump(test[2], normal[1]))*(dS_v + dS_h)
+             - (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_surf
              )
         for bnd_marker in boundary_markers:
             funcs = boundary_funcs.get(bnd_marker)
@@ -803,13 +804,13 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf2d,
     # w_mesh_surf = w - eta_grad[0]*uv[0] + eta_grad[1]*uv[1]
     key = '-'.join((w_mesh_surf.name(), eta.name()))
     if key not in linProblemCache:
-        fs = w.function_space()
+        fs = w_mesh.function_space()
         z = fs.mesh().coordinates[2]
         tri = TrialFunction(fs)
         test = TestFunction(fs)
-        a = tri*test*dx
+        a = inner(tri, test)*dx
         eta_grad = nabla_grad(eta)
-        L = (w - eta_grad[0]*uv[0] - eta_grad[1]*uv[1])*test*dx
+        L = (w[2] - eta_grad[0]*uv[0] - eta_grad[1]*uv[1])*test*dx
         prob = LinearVariationalProblem(a, L, w_mesh_surf)
         solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
@@ -822,7 +823,7 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf2d,
     # w_mesh = w_mesh_surf * (z+h)/(eta+h)
     key = '-'.join((w_mesh.name(), w_mesh_surf.name()))
     if key not in linProblemCache:
-        fs = w.function_space()
+        fs = w_mesh.function_space()
         z = fs.mesh().coordinates[2]
         tri = TrialFunction(fs)
         test = TestFunction(fs)
@@ -838,7 +839,7 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf2d,
     # compute dw_mesh/dz in the whole water column
     key = '-'.join((dw_mesh_dz_3d.name(), w_mesh_surf.name()))
     if key not in linProblemCache:
-        fs = w.function_space()
+        fs = w_mesh.function_space()
         z = fs.mesh().coordinates[2]
         tri = TrialFunction(fs)
         test = TestFunction(fs)
