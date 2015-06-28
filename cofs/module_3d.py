@@ -96,7 +96,12 @@ class momentumEquation(equation):
         """
         return inner(solution, self.test) * self.dx
 
-    def pressureGrad(self, head, uv, total_H, byParts=True, **kwargs):
+    def pressureGrad(self, eta, baro_head, uv, total_H, byParts=True,
+                     **kwargs):
+        if baro_head is not None:
+            head = eta + baro_head
+        else:
+            head = eta
         if byParts:
             divTest = (Dx(self.test[0], 0) +
                        Dx(self.test[1], 1))
@@ -112,8 +117,11 @@ class momentumEquation(equation):
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds_v(bnd_marker)
-                if funcs is None:
-                    f += g_grav*head*nDotTest*ds_bnd
+                if baro_head is not None:
+                    f += g_grav*baro_head*nDotTest*ds_bnd
+                specialEtaFlux = funcs is not None and 'elev' in funcs
+                if not specialEtaFlux:
+                    f += g_grav*eta*nDotTest*ds_bnd
         else:
             gradHeadDotTest = (Dx(head, 0)*self.test[0] +
                                Dx(head, 1)*self.test[1])
@@ -227,11 +235,7 @@ class momentumEquation(equation):
             total_H = self.bathymetry
 
         # external pressure gradient
-        head = eta
-        if baro_head is not None:
-            # external + internal
-            head = eta + baro_head
-        F += self.pressureGrad(head, solution, total_H, byParts=self.gradEtaByParts)
+        F += self.pressureGrad(eta, baro_head, solution, total_H, byParts=self.gradEtaByParts)
 
         # Advection term
         if self.nonlin:
@@ -299,6 +303,7 @@ class momentumEquation(equation):
                 ut_riemann = tanh(4 * un_riemann / 0.02) * (ut_in)
                 uv_riemann = un_riemann * self.normal + ut_riemann * t
 
+                G += g_grav*(eta + h_ext)/2*dot(self.normal, self.test)*ds_bnd
                 if self.nonlin:
                     # NOTE just symmetric 3D flux with 2D eta correction
                     G += un_riemann * un_riemann * dot(self.normal, self.test) * ds_bnd

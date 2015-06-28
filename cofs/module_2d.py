@@ -166,7 +166,7 @@ class shallowWaterEquations(equation):
         # diag(nabla_grad(w))) ) #+ (eta+h_mean)*nabla_grad(v) )
         return F * self.dx
 
-    def pressureGrad(self, head, uv=None, total_H=None, **kwargs):
+    def pressureGrad(self, head, uv=None, total_H=None, internalPG=False, **kwargs):
         if self.gradEtaByParts:
             f = -g_grav*head*nabla_div(self.U_test)*self.dx
             if uv is not None:
@@ -178,7 +178,7 @@ class shallowWaterEquations(equation):
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds(bnd_marker)
-                if funcs is None or 'symm' in funcs:
+                if funcs is None or 'symm' in funcs or internalPG:
                     f += g_grav*head*dot(self.U_test, self.normal)*ds_bnd
         else:
             f = g_grav*inner(grad(head), self.U_test) * self.dx
@@ -538,7 +538,7 @@ class shallowWaterEquations(equation):
 
         # Internal pressure gradient
         if baro_head is not None:
-            F += self.pressureGrad(baro_head, None, None)
+            F += self.pressureGrad(baro_head, None, None, internalPG=True)
             #F += g_grav * inner(nabla_grad(baro_head), self.U_test) * self.dx
             #F -= g_grav * inner(baro_head, nabla_div(self.U_test)) * self.dx
             #F += g_grav * avg(baro_head)*jump(self.normal, self.U_test) * self.dS
