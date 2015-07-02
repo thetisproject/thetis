@@ -85,9 +85,9 @@ class shallowWaterEquations(equation):
         # Gauss-Seidel
         self.solver_parameters = {
             #'ksp_initial_guess_nonzero': True,
-            'ksp_type': 'fgmres',
-            'ksp_rtol': 1e-10,  # 1e-12
-            'ksp_atol': 1e-10,  # 1e-16
+            'ksp_type': 'gmres',
+            #'ksp_rtol': 1e-10,  # 1e-12
+            #'ksp_atol': 1e-10,  # 1e-16
             'pc_type': 'fieldsplit',
             #'pc_fieldsplit_type': 'additive',
             'pc_fieldsplit_type': 'multiplicative',
