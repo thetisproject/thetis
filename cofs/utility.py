@@ -185,7 +185,7 @@ def computeVertVelocity(solution, uv, bathymetry,
 
         ds_surf = ds_b
         ds_bottom = ds_t
-        #w_bottom = -(uv[0]*Dx(bathymetry, 0) + uv[1]*Dx(bathymetry, 1))
+        w_bottom = -(uv[0]*Dx(bathymetry, 0) + uv[1]*Dx(bathymetry, 1))
         ## NOTE pointwise dw/dz
         #a = Dx(tri[2], 2)*test[2]*dx - tri[2]*test[2]*normal[2]*ds_bottom
         #a += (test[0]*tri[0] + test[1]*tri[1])*dx
@@ -204,6 +204,7 @@ def computeVertVelocity(solution, uv, bathymetry,
              - (uv_star[0]*jump(test[2], normal[0]) +
                 uv_star[1]*jump(test[2], normal[1]))*(dS_v + dS_h)
              - (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_surf
+             - w_bottom*test[2]*normal[2]*ds_bottom
              )
         for bnd_marker in boundary_markers:
             funcs = boundary_funcs.get(bnd_marker)
