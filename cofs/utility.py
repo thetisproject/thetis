@@ -168,7 +168,7 @@ def getZCoordFromMesh(zcoord, solver_parameters={}):
 
 
 def computeVertVelocity(solution, uv, bathymetry,
-                        boundary_markers, boundary_funcs,
+                        boundary_markers=[], boundary_funcs={},
                         solver_parameters={}):
     """Computes vertical velocity from 3d continuity equation."""
     # continuity equation must be solved in the space of w (and tracers)
@@ -198,13 +198,11 @@ def computeVertVelocity(solution, uv, bathymetry,
         #NOTE weak dw/dz
         a = tri[2]*test[2]*normal[2]*ds_surf - Dx(test[2], 2)*tri[2]*dx
         #NOTE weak div(uv)
-        #NOTE less accurate on deformed mesh bc jacobian is assumed constant
         uv_star = avg(uv) # + stabilization
         L = ((uv[0]*Dx(test[2], 0) + uv[1]*Dx(test[2], 1))*dx
              - (uv_star[0]*jump(test[2], normal[0]) +
                 uv_star[1]*jump(test[2], normal[1]))*(dS_v + dS_h)
              - (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_surf
-             - w_bottom*test[2]*normal[2]*ds_bottom
              )
         for bnd_marker in boundary_markers:
             funcs = boundary_funcs.get(bnd_marker)
@@ -215,14 +213,6 @@ def computeVertVelocity(solution, uv, bathymetry,
             else:
                 # use symmetry condition
                 L += -(uv[0]*normal[0]  + uv[1]*normal[1])*test[2]*ds_bnd
-                ## prescribe normal volume flux
-                #sect_len = Constant(boundary_len[bnd_marker])
-                #total_H = elevation + bathymetry
-                #un_ext = funcs['flux'] / total_H / sect_len
-                #uv_ext = normal*un_ext
-                #uv_in = uv
-                #uv_av = 0.5*(uv_in + uv_ext)
-                #un_av = uv_av[0]*normal[0] + uv_av[1]*normal[1]
 
         prob = LinearVariationalProblem(a, L, solution)
         solver = LinearVariationalSolver(

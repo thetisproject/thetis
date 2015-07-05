@@ -183,41 +183,51 @@ class flowSolver(object):
     def mightyCreator(self):
         """Creates function spaces, functions, equations and time steppers."""
         # ----- function spaces: elev in H, uv in U, mixed is W
-        self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
-        self.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1)
-        self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.order+1)
-        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
-        self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
-        self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
-        self.H_visu_2d = self.P1_2d
-        self.W_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
-
         self.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0)
         self.P1 = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
         self.P1v = VectorFunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
         self.P1DG = FunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1)
         self.P1DGv = VectorFunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1)
+        # Construct HDiv OuterProductElements
+        # for horizontal velocity component
         Uh_elt = FiniteElement('RT', triangle, self.order+1)
         Uv_elt = FiniteElement('DG', interval, self.order)
         U_elt = HDiv(OuterProductElement(Uh_elt, Uv_elt))
-        self.U = FunctionSpace(self.mesh, U_elt)
-        Uvint_elt = FiniteElement('CG', interval, self.order+1)
-        Uint_elt = HDiv(OuterProductElement(Uh_elt, Uv_elt))
-        self.Uint = FunctionSpace(self.mesh, Uint_elt)
-        self.U_visu = self.P1v
-        self.U_scalar = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=self.order)
+        # for vertical velocity component
+        Wh_elt = FiniteElement('DG', triangle, self.order)
+        Wv_elt = FiniteElement('CG', interval, self.order+1)
+        W_elt = HDiv(OuterProductElement(Wh_elt, Wv_elt))
+        # in deformed mesh horiz. velocity must actually live in U + W
+        UW_elt = EnrichedElement(U_elt, W_elt)
+        # final spaces
+        self.U = FunctionSpace(self.mesh, UW_elt)  # uv
+        self.W = FunctionSpace(self.mesh, W_elt)  # w
+        self.Uint = FunctionSpace(self.mesh, UW_elt)  # vertical integral of uv
+        # tracers
         self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=max(0, self.order))
+        # vertical integral of tracers
         self.Hint = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order+1)
+        # for scalar fields to be used in momentum eq NOTE could be omitted ? 
+        self.U_scalar = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=self.order)
+        # spaces for visualization
+        self.U_visu = self.P1v
         self.H_visu = self.P1
-        # TODO w must live in a HDiv space as well, like this (a 3d vector field)
-        Hh_elt = FiniteElement('DG', triangle, self.order)
-        Hv_elt = FiniteElement('CG', interval, self.order+1)
-        H_elt = HDiv(OuterProductElement(Hh_elt, Hv_elt))
-        self.Hvec = FunctionSpace(self.mesh, H_elt)
-        self.Hvec_visu = self.P1v
+        self.W_visu = self.P1v
+
+        # 2D spaces
+        self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
+        self.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1)
+        # 2D velocity space
+        # FIXME this is not compatible with enriched UW space used in 3D
+        self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.order+1)
+        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
+        self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
+        self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
+        self.H_visu_2d = self.P1_2d
+        self.V_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
 
         # ----- fields
-        self.solution2d = Function(self.W_2d, name='solution2d')
+        self.solution2d = Function(self.V_2d, name='solution2d')
         if self.useBottomFriction:
             self.uv_bottom2d = Function(self.U_2d, name='Bottom Velocity')
             self.z_bottom2d = Function(self.P1_2d, name='Bot. Vel. z coord')
@@ -248,7 +258,7 @@ class flowSolver(object):
         self.uv2d_dav = Function(self.U_2d, name='Depth Averaged Velocity 2d')
         self.uv3d_mag = Function(self.P0, name='Velocity magnitude')
         self.uv3d_P1 = Function(self.P1v, name='Smoothed Velocity')
-        self.w3d = Function(self.Hvec, name='Vertical Velocity')
+        self.w3d = Function(self.W, name='Vertical Velocity')
         if self.useALEMovingMesh:
             self.w_mesh3d = Function(self.H, name='Vertical Velocity')
             self.dw_mesh_dz_3d = Function(self.H, name='Vertical Velocity dz')
@@ -344,7 +354,7 @@ class flowSolver(object):
         if self.useModeSplit:
             # full 2D shallow water equations
             self.eq_sw = module_2d.shallowWaterEquations(
-                self.mesh2d, self.W_2d, self.solution2d, self.bathymetry2d,
+                self.mesh2d, self.V_2d, self.solution2d, self.bathymetry2d,
                 self.uv_bottom2d, self.bottom_drag2d,
                 baro_head=self.baroHead2d,
                 viscosity_h=self.hViscosity,
@@ -427,7 +437,7 @@ class flowSolver(object):
             'elev3d': (self.eta3d, self.H_visu),
             'uv3d': (self.uv3d, self.U_visu),
             'uv3d_dav': (self.uv3d_dav, self.U_visu),
-            'w3d': (self.w3d, self.Hvec_visu),
+            'w3d': (self.w3d, self.W_visu),
             'w3d_mesh': (self.w_mesh3d, self.P1),
             'salt3d': (self.salt3d, self.H_visu),
             'uv2d_dav': (self.uv2d_dav, self.U_visu_2d),
@@ -662,15 +672,15 @@ class flowSolver2d(object):
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
         self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
         self.H_visu_2d = self.P1_2d
-        self.W_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
+        self.V_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
 
         # ----- fields
-        self.solution2d = Function(self.W_2d, name='solution2d')
+        self.solution2d = Function(self.V_2d, name='solution2d')
         # self.volumeFlux2d = Function(self.U_2d, name='volumeFlux2d')
 
         # ----- Equations
         self.eq_sw = module_2d.shallowWaterEquations(
-            self.mesh2d, self.W_2d, self.solution2d, self.bathymetry2d,
+            self.mesh2d, self.V_2d, self.solution2d, self.bathymetry2d,
             lin_drag=self.lin_drag,
             viscosity_h=self.hViscosity,
             uvLaxFriedrichs=self.uvLaxFriedrichs,
@@ -747,18 +757,18 @@ class flowSolver2d(object):
 
         while t <= self.T + T_epsilon:
 
-            #self.timeStepper.advance(t, self.dt, self.solution2d,
-                                     #updateForcings)
-            for isub in range(3):
-                #uv, eta = self.solution2d.split()
-                #if self.nonlin:
-                    #computeVolumeFlux(uv, (eta+self.bathymetry2d),
-                                      #self.volumeFlux2d, self.eq_sw.dx)
-                #else:
-                    #computeVolumeFlux(uv, self.bathymetry2d,
-                                      #self.volumeFlux2d, self.eq_sw.dx)
-                self.timeStepper.solveStage(isub, t, self.dt, self.solution2d,
-                                            updateForcings)
+            self.timeStepper.advance(t, self.dt, self.solution2d,
+                                     updateForcings)
+            #for isub in range(3):
+                ##uv, eta = self.solution2d.split()
+                ##if self.nonlin:
+                    ##computeVolumeFlux(uv, (eta+self.bathymetry2d),
+                                      ##self.volumeFlux2d, self.eq_sw.dx)
+                ##else:
+                    ##computeVolumeFlux(uv, self.bathymetry2d,
+                                      ##self.volumeFlux2d, self.eq_sw.dx)
+                #self.timeStepper.solveStage(isub, t, self.dt, self.solution2d,
+                                            #updateForcings)
 
             # Move to next time step
             t += self.dt

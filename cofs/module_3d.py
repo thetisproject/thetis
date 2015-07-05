@@ -50,6 +50,9 @@ class momentumEquation(equation):
         self.tri = TrialFunction(self.space)
 
         ufl_elem = self.space.ufl_element()
+        if isinstance(ufl_elem, EnrichedElement):
+            # get the first elem of enriched space
+            ufl_elem = ufl_elem._elements[0]
         if not hasattr(ufl_elem, '_A'):
             # For HDiv elements
             ufl_elem = ufl_elem._element
@@ -261,9 +264,15 @@ class momentumEquation(equation):
                         gamma = 0.5*abs(w_av*self.normal('-')[2])*laxFriedrichsFactor
                         G += gamma*(jump(self.test[0])*jump(solution[0]) +
                                     jump(self.test[1])*jump(solution[1]))*self.dS_h
-            if w is not None:
                 G += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
                       solution[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
+            # bottom impermeability condition
+            G += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
+                  solution[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_bottom)
+            G += (solution[0]*solution[0]*self.test[0]*self.normal[0] +
+                  solution[0]*solution[1]*self.test[0]*self.normal[1] +
+                  solution[1]*solution[0]*self.test[1]*self.normal[0] +
+                  solution[1]*solution[1]*self.test[1]*self.normal[1])*(self.ds_bottom)
 
         # Non-conservative ALE source term
         if dw_mesh_dz is not None:
@@ -465,6 +474,9 @@ class verticalMomentumEquation(equation):
         self.tri = TrialFunction(self.space)
 
         ufl_elem = self.space.ufl_element()
+        if isinstance(ufl_elem, EnrichedElement):
+            # get the first elem of enriched space
+            ufl_elem = ufl_elem._elements[0]
         if not hasattr(ufl_elem, '_A'):
             # For HDiv elements
             ufl_elem = ufl_elem._element
@@ -737,7 +749,7 @@ class tracerEquation(equation):
         #G += +solution*(uv[0]*self.normal[0] +
                         #uv[1]*self.normal[1])*self.test*(self.ds_bottom + self.ds_surf)
         ### TODO what is the correct free surf bnd condition?
-        #G += solution*vertvelo*self.normal[2]*self.test*self.ds_bottom
+        G += solution*vertvelo*self.normal[2]*self.test*self.ds_bottom
         if w_mesh is None:
             G += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
         else:
