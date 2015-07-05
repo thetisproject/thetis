@@ -266,13 +266,7 @@ class momentumEquation(equation):
                                     jump(self.test[1])*jump(solution[1]))*self.dS_h
                 G += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
                       solution[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
-            # bottom impermeability condition
-            G += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
-                  solution[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_bottom)
-            G += (solution[0]*solution[0]*self.test[0]*self.normal[0] +
-                  solution[0]*solution[1]*self.test[0]*self.normal[1] +
-                  solution[1]*solution[0]*self.test[1]*self.normal[0] +
-                  solution[1]*solution[1]*self.test[1]*self.normal[1])*(self.ds_bottom)
+            # NOTE bottom impermeability condition is naturally satisfied by the defition of w
 
         # Non-conservative ALE source term
         if dw_mesh_dz is not None:
@@ -745,11 +739,7 @@ class tracerEquation(equation):
         if dw_mesh_dz is not None:
             F += solution*dw_mesh_dz*self.test*self.dx
 
-        ## Bottom/top impermeability boundary conditions
-        #G += +solution*(uv[0]*self.normal[0] +
-                        #uv[1]*self.normal[1])*self.test*(self.ds_bottom + self.ds_surf)
-        ### TODO what is the correct free surf bnd condition?
-        G += solution*vertvelo*self.normal[2]*self.test*self.ds_bottom
+        # NOTE Bottom impermeability condition is naturally satisfied by the definition of w
         if w_mesh is None:
             G += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
         else:
