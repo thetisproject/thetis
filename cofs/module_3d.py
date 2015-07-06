@@ -132,7 +132,6 @@ class momentumEquation(equation):
         if not self.nonlin:
             return 0
         if self.horizAdvectionByParts:
-            #f = -inner(grad(self.test), outer(solution, solution))*self.dx
             f = -(Dx(self.test[0], 0)*solution[0]*solution[0] +
                   Dx(self.test[0], 1)*solution[0]*solution[1] +
                   Dx(self.test[1], 0)*solution[1]*solution[0] +
@@ -142,9 +141,6 @@ class momentumEquation(equation):
                      uv_av[1]*self.normal('-')[1])
             s = 0.5*(sign(un_av) + 1.0)
             uv_up = solution('-')*s + solution('+')*(1-s)
-            #if self.HDiv:
-                #f += (uv_up[0]*jump(self.test[0], self.normal[0]*solution[0]) +
-                      #uv_up[1]*jump(self.test[1], self.normal[1]*solution[1]))*(self.dS_v + self.dS_h)
             if self.horizontal_DG:
                 f += (uv_up[0]*uv_av[0]*jump(self.test[0], self.normal[0]) +
                       uv_up[0]*uv_av[1]*jump(self.test[0], self.normal[1]) +
@@ -197,16 +193,6 @@ class momentumEquation(equation):
                   solution[0]*solution[1]*self.test[0]*self.normal[1] +
                   solution[1]*solution[0]*self.test[1]*self.normal[0] +
                   solution[1]*solution[1]*self.test[1]*self.normal[1])*(self.ds_surf)
-            ## boundary conditions
-            #for bnd_marker in self.boundary_markers:
-                #funcs = self.bnd_functions.get(bnd_marker)
-                #ds_bnd = self.ds_v(int(bnd_marker))
-                #if funcs is None:
-                    ## assume land boundary
-                    #f -= 0.5*(self.test[0]*solution[0]*solution[0]*self.normal[0] +
-                              #self.test[0]*solution[0]*solution[1]*self.normal[1] +
-                              #self.test[1]*solution[1]*solution[0]*self.normal[0] +
-                              #self.test[1]*solution[1]*solution[1]*self.normal[1])*(ds_bnd)
         else:
             f = inner(div(outer(solution, solution)), self.test)*self.dx
         return f
@@ -276,11 +262,6 @@ class momentumEquation(equation):
             un_in = (solution[0]*self.normal[0] + solution[1]*self.normal[1])
             if funcs is None:
                 # assume land boundary
-                #if self.nonlin:
-                    #G -= 0.5*(self.test[0]*solution[0]*solution[0]*self.normal[0] +
-                              #self.test[0]*solution[0]*solution[1]*self.normal[1] +
-                              #self.test[1]*solution[1]*solution[0]*self.normal[0] +
-                              #self.test[1]*solution[1]*solution[1]*self.normal[1])*(ds_bnd)
                 continue
 
             elif 'elev' in funcs:
@@ -311,12 +292,6 @@ class momentumEquation(equation):
                 # prescribe normal volume flux
                 un_ext = funcs['un']
                 if self.nonlin:
-                    #un_av = 0.5*(un_ext+un_in)
-                    #G += un_av*un_av*inner(self.normal, self.test)*ds_bnd
-                    ## Lax-Friedrichs stabilization
-                    #gamma = abs(self.normal[0]*(solution[0]) +
-                                #self.normal[1]*(solution[1]))
-                    #G += gamma*dot((self.test), (solution-self.normal*un_ext)/2)*ds_bnd
                     uv_in = solution
                     uv_ext = self.normal*un_ext
                     uv_av = 0.5*(uv_in + uv_ext)
@@ -390,44 +365,6 @@ class momentumEquation(equation):
             total_H = self.bathymetry + eta
         else:
             total_H = self.bathymetry
-
-        ## external pressure gradient
-        #head = eta
-        #if baro_head is not None:
-            ## external + internal
-            #head = eta + baro_head
-        #F += -g_grav * inner(head, div(self.test)) * self.dx
-        ##divTest = Dx(self.test[0], 0) + Dx(self.test[1], 1)
-        ##F += -g_grav * head * divTest * self.dx
-        #nDotTest = (self.normal[0]*self.test[0] +
-                    #self.normal[1]*self.test[1])
-        ##G += g_grav * head * nDotTest * (self.ds_surf + self.ds_bottom)
-        ##G += g_grav * avg(head) * (jump(self.test[0], self.normal[0]) +
-                                   ##jump(self.test[1], self.normal[1])) * (self.dS_h)
-
-        ## boundary conditions
-        #for bnd_marker in self.boundary_markers:
-            #funcs = self.bnd_functions.get(bnd_marker)
-            #ds_bnd = self.ds_v(int(bnd_marker))
-            #nDotTest = (self.normal[0]*self.test[0] +
-                        #self.normal[1]*self.test[1])
-            #if baro_head is not None:
-                #G += g_grav * baro_head * \
-                    #nDotTest * ds_bnd
-            #if funcs is None:
-                ## assume land boundary
-                #G += g_grav * eta * \
-                    #dot(self.normal, self.test) * ds_bnd
-                #continue
-
-            #elif 'elev' in funcs:
-                ## prescribe elevation only
-                #h_ext = funcs['elev']
-                #G += g_grav * h_ext * \
-                    #nDotTest * ds_bnd
-            #else:
-                #G += g_grav * eta * \
-                    #nDotTest * ds_bnd
 
         if viscosity_v is not None:
             # bottom friction
@@ -523,12 +460,9 @@ class verticalMomentumEquation(equation):
             Adv_v = -(Dx(self.test[0], 2)*solution[0]*w +
                       Dx(self.test[1], 2)*solution[1]*w)
             F += Adv_v * self.dx
-            if self.horizontal_DG:
-                raise NotImplementedError('Adv term not implemented for DG')
-                #w_rie = avg(w)
-                #uv_rie = avg(solution)
-                #G += (uv_rie[0]*w_rie*jump(self.test[0], self.normal[2]) +
-                      #uv_rie[1]*w_rie*jump(self.test[1], self.normal[2]))*self.dS_h
+            if self.vertical_DG:
+                # FIXME implement interface terms
+                #raise NotImplementedError('Adv term not implemented for DG')
 
         # vertical viscosity
         if viscosity_v is not None:
@@ -661,10 +595,6 @@ class tracerEquation(equation):
                          uv_av[1]*self.normal('-')[1])
                 s = 0.5*(sign(un_av) + 1.0)
                 c_up = solution('-')*s + solution('+')*(1-s)
-                #alpha = 0.5*(tanh(4 * un / 0.02) + 1)
-                #c_up = alpha*c_in + (1-alpha)*c_ext  # for inv.part adv term
-                #G += c_up*un_av*jump(self.test)*self.dS_v
-                # TODO add same term for dS_h for deformed mesh
                 G += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
                            uv_av[1]*jump(self.test, self.normal[1]))*(self.dS_v + self.dS_h)
                 # Lax-Friedrichs stabilization
@@ -733,12 +663,6 @@ class tracerEquation(equation):
                                     self.normal[1]*uv[1])*self.test*ds_bnd
                 continue
 
-            #if diffusivity_h is not None:
-                #dflux = diffusivity_h*(Dx(solution, 0)*self.normal[0] +
-                                       #Dx(solution, 1)*self.normal[1])/2
-                #G += -dflux*self.test*ds_bnd
-
-
         # diffusion
         if diffusivity_h is not None:
             F += diffusivity_h*(Dx(solution, 0)*Dx(self.test, 0) +
@@ -748,7 +672,7 @@ class tracerEquation(equation):
                 muGradSol = diffusivity_h*grad(solution)
                 F += -(avg(muGradSol[0])*jump(self.test, self.normal[0]) +
                        avg(muGradSol[1])*jump(self.test, self.normal[1]))*(self.dS_v+self.dS_h)
-                ## symmetric penalty term
+                ## TODO symmetric penalty term
                 ## sigma = (o+1)(o+d)/d*N_0/(2L) (Shahbazi, 2005)
                 ## o: order of space, 
                 #sigma = 1e-4
