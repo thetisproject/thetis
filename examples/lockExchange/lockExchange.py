@@ -24,12 +24,13 @@ from cofs import *
 # set physical constants
 physical_constants['z0_friction'].assign(5.0e-5)
 
-reso_str = 'coarse'
+reso_str = 'coarse2'
 outputDir = createDirectory('outputs_'+reso_str)
 refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4, 'medium2': 8, 'fine': 16}
 layers = int(round(10*refinement[reso_str]))
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
 printInfo('Loaded mesh '+mesh2d.name)
+printInfo('Exporting to '+outputDir)
 dt = 100.0/refinement[reso_str]
 if reso_str == 'fine':
     dt /= 2.0
@@ -43,7 +44,7 @@ bathymetry2d = Function(P1_2d, name='Bathymetry')
 bathymetry2d.assign(depth)
 
 # create solver
-solverObj = solver.flowSolverMimetic(mesh2d, bathymetry2d, layers)
+solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
 solverObj.cfl_2d = 1.0
 #solverObj.nonlin = False
 solverObj.solveSalt = True

@@ -16,6 +16,8 @@ physical_constants['z0_friction'].assign(0.0)
 n_layers = 6
 outputDir = createDirectory('outputs')
 mesh2d = Mesh('channel_waveEq.msh')
+printInfo('Loaded mesh '+mesh2d.name)
+printInfo('Exporting to '+outputDir)
 Umag = Constant(0.5)
 depth = 50.0
 elev_amp = 1.0
@@ -45,7 +47,7 @@ TExport = dt
 T = 10*T_cycle + 1e-3
 
 # create solver
-solverObj = solver.flowSolverMimetic(mesh2d, bathymetry2d, n_layers)
+solverObj = solver.flowSolver(mesh2d, bathymetry2d, n_layers)
 solverObj.nonlin = False
 solverObj.use_wd = False
 solverObj.solveSalt = False
