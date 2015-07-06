@@ -21,6 +21,30 @@ commrank = op2.MPI.comm.rank
 colorama.init()
 
 
+class equation(object):
+    """Base class for all equations"""
+    # TODO move to equation.py
+    def mass_matrix(self, *args, **kwargs):
+        """Returns weak form for left hand side."""
+        raise NotImplementedError(('This method must be implemented '
+                                   'in the derived class'))
+
+    def RHS(self, *args, **kwargs):
+        """Returns weak form for the right hand side."""
+        raise NotImplementedError(('This method must be implemented '
+                                   'in the derived class'))
+
+    def RHS_implicit(self, *args, **kwargs):
+        """Returns weak form for the right hand side of all implicit terms"""
+        raise NotImplementedError(('This method must be implemented '
+                                   'in the derived class'))
+
+    def Source(self, *args, **kwargs):
+        """Returns weak for for terms that do not depend on the solution."""
+        raise NotImplementedError(('This method must be implemented '
+                                   'in the derived class'))
+
+
 class problemCache(object):
     """Holds all variational problems that utility functions depend on."""
     # NOTE solvers are stored based on function names
@@ -239,29 +263,6 @@ def computeVolumeFlux(uv, H, solution, dx, solver_parameters={}):
         linProblemCache.add(key, solver, 'volumeFlux')
     linProblemCache[key].solve()
 
-
-class equation(object):
-    """Base class for all equations"""
-    # TODO move to equation.py
-    def mass_matrix(self, *args, **kwargs):
-        """Returns weak form for left hand side."""
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
-    def RHS(self, *args, **kwargs):
-        """Returns weak form for the right hand side."""
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
-    def RHS_implicit(self, *args, **kwargs):
-        """Returns weak form for the right hand side of all implicit terms"""
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
-    def Source(self, *args, **kwargs):
-        """Returns weak for for terms that do not depend on the solution."""
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
 
 @timed_function('func_vert_int')
 def computeVerticalIntegral(input, output, space, bottomToTop=True,
@@ -870,19 +871,3 @@ class projector(object):
 
     def project(self):
         self.solver.solve()
-
-
-class exporter(object):
-    """Class that handles Paraview file exports."""
-    def __init__(self, fs_visu, func_name, outputDir, filename):
-        self.fs_visu = fs_visu
-        self.outfunc = Function(self.fs_visu, name=func_name)
-        self.outfile = File(os.path.join(outputDir, filename))
-        self.P = {}
-
-    def export(self, function):
-        if function not in self.P:
-            self.P[function] = projector(function, self.outfunc)
-        self.P[function].project()
-        # self.outfunc.project(function)  # NOTE this allocates a function
-        self.outfile << self.outfunc
