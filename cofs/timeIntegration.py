@@ -950,10 +950,14 @@ class coupledSSPRKSync(timeIntegrator):
                     #uv2d_start = sol2d.split()[0]
                     #uv2d_start.assign(s.uv2d_dav)
                     # 2d-3d coupling v2: force DAv(uv3d) to uv2d
-                    uv2d = sol2d.split()[0]
-                    s.uv3d -= s.uv3d_dav
-                    copy2dFieldTo3d(uv2d, s.uv3d_dav, elemHeight=s.vElemSize3d)
-                    s.uv3d += s.uv3d_dav
+                    s.uvDAV_to_tmp_projector.project()  # project uv_dav to uv3d_tmp
+                    s.uv3d -= s.uv3d_tmp
+                    s.uv2d_to_DAV_projector.project()  # uv2d to uv2d_dav
+                    copy2dFieldTo3d(s.uv2d_dav, s.uv3d_dav,
+                                    elemHeight=s.vElemSize3d)
+                    s.uvDAV_to_tmp_projector.project()  # project uv_dav to uv3d_tmp
+                    s.uv3d += s.uv3d_tmp
+
             with timed_region('continuityEq'):
                 computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d,
                                     s.eq_momentum.boundary_markers,
@@ -1123,7 +1127,7 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
             with timed_region('aux_eta3d'):
                 eta = sol2d.split()[1]
                 copy2dFieldTo3d(eta, s.eta3d)  # at t_{n+1}
-                s.eta3dCG.project(s.eta3d)
+                s.eta3d_to_CG_projector.project()
             with timed_region('aux_mesh_ale'):
                 if s.useALEMovingMesh and doALEUpdate:
                     updateCoordinates(
@@ -1159,10 +1163,13 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
                     #uv2d_start = sol2d.split()[0]
                     #uv2d_start.assign(s.uv2d_dav)
                     # 2d-3d coupling v2: force DAv(uv3d) to uv2d
-                    s.uv3d -= s.uv3d_dav
-                    copy2dFieldTo3d(sol2d.split()[0], s.uv3d_dav,
+                    s.uvDAV_to_tmp_projector.project()  # project uv_dav to uv3d_tmp
+                    s.uv3d -= s.uv3d_tmp
+                    s.uv2d_to_DAV_projector.project()  # uv2d to uv2d_dav
+                    copy2dFieldTo3d(s.uv2d_dav, s.uv3d_dav,
                                     elemHeight=s.vElemSize3d)
-                    s.uv3d += s.uv3d_dav
+                    s.uvDAV_to_tmp_projector.project()  # project uv_dav to uv3d_tmp
+                    s.uv3d += s.uv3d_tmp
             with timed_region('continuityEq'):
                 computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d,
                                     s.eq_momentum.boundary_markers,
@@ -1368,7 +1375,7 @@ class coupledSSPRKSingleMode(timeIntegrator):
                                             bathymetry=s.bathymetry3d)
                     copy3dFieldTo2d(s.uv3d_dav, s.uv2d_dav,
                                     useBottomValue=False, elemHeight=s.vElemSize2d)
-                    s.solution2d.split()[0].assign(s.uv2d_dav)
+                    s.uv2dDAV_to_uv2d_projector.project()
             with timed_region('aux_stabilization'):
                 if doStabParams:
                     # update velocity magnitude

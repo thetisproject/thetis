@@ -87,7 +87,7 @@ class exportManager(object):
 
 class flowSolver(object):
     """Creates and solves coupled 2D-3D equations"""
-    def __init__(self, mesh2d, bathymetry2d, n_layers, order=1, mimetic=False):
+    def __init__(self, mesh2d, bathymetry2d, n_layers, order=1, mimetic=True):
         self._initialized = False
 
         # create 3D mesh
@@ -471,6 +471,12 @@ class flowSolver(object):
         self.exporter = exportManager(self.outputDir, self.fieldsToExport,
                                       exportFuncs, verbose=self.verbose > 0)
         self.uvP1_projector = projector(self.uv3d, self.uv3d_P1)
+        self.uvDAV_to_tmp_projector = projector(self.uv3d_dav, self.uv3d_tmp)
+        self.uv2d_to_DAV_projector = projector(self.solution2d.split()[0],
+                                                self.uv2d_dav)
+        self.uv2dDAV_to_uv2d_projector = projector(self.uv2d_dav,
+                                                   self.solution2d.split()[0])
+        self.eta3d_to_CG_projector = projector(self.eta3d, self.eta3dCG)
 
         self._initialized = True
 
