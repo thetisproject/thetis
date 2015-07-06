@@ -152,7 +152,7 @@ class flowSolver(object):
         if self.useModeSplit:
             mesh_dt = self.eq_sw.getTimeStepAdvection(Umag=self.uAdvection)
             dt = self.cfl_3d*float(np.floor(mesh_dt.dat.data.min()/20.0))
-            dt = comm.allreduce(dt, dt, op=MPI.MIN)
+            dt = comm.allreduce(dt, op=MPI.MIN)
             if round(dt) > 0:
                 dt = round(dt)
             if self.dt is None:
@@ -161,7 +161,7 @@ class flowSolver(object):
                 dt = float(self.dt)
             mesh2d_dt = self.eq_sw.getTimeStep(Umag=self.uAdvection)
             dt_2d = self.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
-            dt_2d = comm.allreduce(dt_2d, dt_2d, op=MPI.MIN)
+            dt_2d = comm.allreduce(dt_2d, op=MPI.MIN)
             if self.dt_2d is None:
                 self.dt_2d = dt_2d
             self.M_modesplit = int(np.ceil(dt/self.dt_2d))
@@ -169,7 +169,7 @@ class flowSolver(object):
         else:
             mesh2d_dt = self.eq_sw.getTimeStep(Umag=self.uAdvection)
             dt_2d = self.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
-            dt_2d = comm.allreduce(dt_2d, dt_2d, op=MPI.MIN)
+            dt_2d = comm.allreduce(dt_2d, op=MPI.MIN)
             if self.dt is None:
                 self.dt = dt_2d
             self.dt_2d = self.dt
@@ -617,7 +617,7 @@ class flowSolver2d(object):
     def setTimeStep(self):
         mesh2d_dt = self.eq_sw.getTimeStep(Umag=self.uAdvection)
         dt = self.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
-        dt = comm.allreduce(dt, dt, op=MPI.MIN)
+        dt = comm.allreduce(dt, op=MPI.MIN)
         if self.dt is None:
             self.dt = dt
         if commrank == 0:
