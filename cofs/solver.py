@@ -6,7 +6,8 @@ Tuomas Karna 2015-04-01
 from utility import *
 import module_2d
 import module_3d
-import timeIntegration as timeIntegration
+import timeIntegrator as timeIntegrator
+import coupledTimeIntegrator as coupledTimeIntegrator
 import time as timeMod
 from mpi4py import MPI
 
@@ -123,6 +124,7 @@ class flowSolver(object):
         self.vViscosity = None  # background viscosity (set to Constant)
         self.coriolis = None  # Coriolis parameter (Constant or 2D Function)
         self.wind_stress = None  # stress at free surface (2D vector function)
+        # NOTE 'baroclinic' means that salt3d field is treated as density [kg/m3]
         self.baroclinic = False  # comp and use internal pressure gradient
         self.smagorinskyFactor = None  # set to a Constant to use smag. visc.
         self.saltJumpDiffFactor = None  # set to a Constant to use nonlin diff.
@@ -393,13 +395,13 @@ class flowSolver(object):
         if self.useModeSplit:
             if self.useSemiImplicit2D:
                 printInfo('using coupledSSPRKSemiImplicit time integrator')
-                self.timeStepper = timeIntegration.coupledSSPRKSemiImplicit(self)
+                self.timeStepper = coupledTimeIntegrator.coupledSSPRKSemiImplicit(self)
             else:
                 printInfo('using coupledSSPRKSync time integrator')
-                self.timeStepper = timeIntegration.coupledSSPRKSync(self)
+                self.timeStepper = coupledTimeIntegrator.coupledSSPRKSync(self)
         else:
             printInfo('using coupledSSPRKSingleMode time integrator')
-            self.timeStepper = timeIntegration.coupledSSPRKSingleMode(self)
+            self.timeStepper = coupledTimeIntegrator.coupledSSPRKSingleMode(self)
 
         # ----- File exporters
         uv2d, eta2d = self.solution2d.split()
@@ -654,16 +656,16 @@ class flowSolver2d(object):
         # ----- Time integrators
         self.setTimeStep()
         if self.timeStepperType.lower() == 'ssprk33':
-            self.timeStepper = timeIntegration.SSPRK33Stage(self.eq_sw, self.dt,
+            self.timeStepper = timeIntegrator.SSPRK33Stage(self.eq_sw, self.dt,
                                                             self.eq_sw.solver_parameters)
         elif self.timeStepperType.lower() == 'ssprk33semi':
-            self.timeStepper = timeIntegration.SSPRK33StageSemiImplicit(self.eq_sw,
+            self.timeStepper = timeIntegrator.SSPRK33StageSemiImplicit(self.eq_sw,
                                                             self.dt, self.eq_sw.solver_parameters)
         elif self.timeStepperType.lower() == 'forwardeuler':
-            self.timeStepper = timeIntegration.ForwardEuler(self.eq_sw, self.dt,
+            self.timeStepper = timeIntegrator.ForwardEuler(self.eq_sw, self.dt,
                                                             self.eq_sw.solver_parameters)
         elif self.timeStepperType.lower() == 'cranknicolson':
-            self.timeStepper = timeIntegration.CrankNicolson(self.eq_sw, self.dt,
+            self.timeStepper = timeIntegrator.CrankNicolson(self.eq_sw, self.dt,
                                                              self.eq_sw.solver_parameters)
         else:
             raise Exception('Unknown time integrator type: '+str(self.timeStepperType))
