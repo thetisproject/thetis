@@ -462,6 +462,7 @@ class verticalMomentumEquation(equation):
             F += Adv_v * self.dx
             if self.vertical_DG:
                 # FIXME implement interface terms
+                pass
                 #raise NotImplementedError('Adv term not implemented for DG')
 
         # vertical viscosity

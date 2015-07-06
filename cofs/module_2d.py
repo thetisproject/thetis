@@ -5,8 +5,6 @@ Tuomas Karna 2015-02-23
 """
 from utility import *
 
-commrank = op2.MPI.comm.rank
-
 g_grav = physical_constants['g_grav']
 rho_0 = physical_constants['rho0']
 
@@ -20,14 +18,13 @@ class shallowWaterEquations(equation):
                  wind_stress=None,
                  uvLaxFriedrichs=None,
                  volumeFlux=None,
-                 nonlin=True, use_wd=False):
+                 nonlin=True):
         self.mesh = mesh
         self.space = space
         self.U_space, self.eta_space = self.space.split()
         self.solution = solution
         self.U, self.eta = split(self.solution)
         self.bathymetry = bathymetry
-        self.use_wd = use_wd
         self.nonlin = nonlin
         # this dict holds all time dep. args to the equation
         self.kwargs = {'uv_old': split(self.solution)[0],
@@ -126,21 +123,7 @@ class shallowWaterEquations(equation):
         solve(a == L, res)
         return res
 
-    def wd_bath_displacement(self, eta):
-        h_add = 0.05  # additional depth for H>=0
-        H_0 = 12.0  # neg depth where additional depth goes to zero
-        return 0.5 * (sqrt((eta + self.bathymetry)**2 + wd_alpha**2) -
-                      (eta + self.bathymetry)) + h_add
-
     def massTerm(self, solution):
-        """All time derivative terms on the LHS, without the actual time
-        derivative.
-
-        Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
-        """
-        return inner(solution, self.test)*self.dx
-
-    def massTermBasic(self, solution):
         """All time derivative terms on the LHS, without the actual time
         derivative.
 
@@ -214,19 +197,6 @@ class shallowWaterEquations(equation):
                   Dx(uv[1]*self.U_test[0], 1)*uv[0] +
                   Dx(uv[1]*self.U_test[1], 1)*uv[1])*self.dx
             if self.U_is_DG:
-                #H = self.bathymetry + eta
-                ##un = dot(uv, self.normal)
-                ##c_roe = avg(sqrt(g_grav*H))
-                ##s2 = sign(avg(un) + c_roe) # 1
-                ##s3 = sign(avg(un) - c_roe) # -1
-                ##Huv = H*uv
-                ##un_roe = avg(sqrt(H)*un)/avg(sqrt(H))
-                ##Huv_rie = avg(Huv) + (s2+s3)/2*jump(Huv) + (s2-s3)/2*un_roe/c_roe*(jump(Huv))
-                ##uv_rie = Huv_rie/avg(H)
-
-                ##Huv_rie = avg(Huv) + un_roe/c_roe*(jump(Huv))
-                ##uv_rie = Huv_rie/avg(H)
-
                 uv_av = avg(uv)
                 un_av = dot(uv_av, self.normal('-'))
                 s = 0.5*(sign(un_av) + 1.0)
@@ -258,9 +228,7 @@ class shallowWaterEquations(equation):
         G = 0  # holds all ds boundary interface terms
         uv, eta = split(solution)
 
-        if self.nonlin and self.use_wd:
-            total_H = self.bathymetry + eta + self.wd_bath_displacement(eta)
-        elif self.nonlin:
+        if self.nonlin:
             total_H = self.bathymetry + eta
         else:
             total_H = self.bathymetry
@@ -320,22 +288,6 @@ class shallowWaterEquations(equation):
                 G += total_H * un_av * self.eta_test * ds_bnd
                 G += g_grav * eta * \
                     inner(self.normal, self.U_test) * ds_bnd
-                #if self.nonlin:
-                    ##s = 0.5*(sign(un_av) + 1.0)
-                    ##un_up = un_in*s + un_ext*(1-s)
-                    ##G += un_av*un_av*inner(self.normal, self.U_test)*ds_bnd
-                    #s = 0.5*(sign(un_av) + 1.0)
-                    #uv_up = uv*s + un_ext*self.normal*(1-s)
-                    #uv_av = 0.5*(uv + un_ext*self.normal)
-                    #G += (uv_av[0]*uv_up[0]*(self.U_test[0]*self.normal[0]) +
-                          #uv_av[0]*uv_up[1]*(self.U_test[1]*self.normal[0]) +
-                          #uv_av[1]*uv_up[0]*(self.U_test[0]*self.normal[1]) +
-                          #uv_av[1]*uv_up[1]*(self.U_test[1]*self.normal[1]))*ds_bnd
-
-                    ## Lax-Friedrichs stabilization
-                    #un_av = dot(self.normal, uv_av)
-                    #gamma = abs(un_av)
-                    #G += gamma*dot(self.U_test, (uv - un_ext*self.normal)/2)*ds_bnd
 
             elif 'radiation':
                 # prescribe radiation condition that allows waves to pass tru
@@ -343,12 +295,6 @@ class shallowWaterEquations(equation):
                 G += total_H * un_ext * self.eta_test * ds_bnd
                 G += g_grav * eta * \
                     inner(self.normal, self.U_test) * ds_bnd
-                #if self.nonlin:
-                    #G += un_ext * un_ext * inner(self.normal, self.U_test) * ds_bnd
-
-        ## Wind stress
-        #if wind_stress is not None:
-            #F += -dot(wind_stress, self.U_test)/total_H/rho_0*self.dx
 
         return -F - G
 
@@ -357,8 +303,7 @@ class shallowWaterEquations(equation):
             coriolis=None, wind_stress=None,
             uvLaxFriedrichs=None,
             **kwargs):
-        """Returns the right hand side of the equations.
-        RHS is all terms that depend on the solution (eta,uv)"""
+        """Returns all terms that are treated explicitly."""
         F = 0  # holds all dx volume integral terms
         G = 0  # holds all ds boundary interface terms
         uv, eta = split(solution)
@@ -367,21 +312,10 @@ class shallowWaterEquations(equation):
         if self.nonlin:
             F += self.horizontalAdvection(uv, uvLaxFriedrichs)
 
-        ## External pressure gradient
-        #F += g_grav * inner(nabla_grad(eta), self.U_test) * self.dx
-
-        if self.nonlin and self.use_wd:
-            total_H = self.bathymetry + eta + self.wd_bath_displacement(eta)
-        elif self.nonlin:
+        if self.nonlin:
             total_H = self.bathymetry + eta
         else:
             total_H = self.bathymetry
-        ## Divergence of depth-integrated velocity
-        #F += -total_H * inner(uv, nabla_grad(self.eta_test)) * self.dx
-        #if self.eta_is_DG:
-            #Hu_star = avg(total_H*uv) +\
-                #sqrt(g_grav*avg(total_H))*jump(total_H, self.normal)
-            #G += inner(jump(self.eta_test, self.normal), Hu_star)*self.dS
 
         # boundary conditions
         for bnd_marker in self.boundary_markers:
@@ -389,10 +323,6 @@ class shallowWaterEquations(equation):
             ds_bnd = self.ds(int(bnd_marker))
             if funcs is None:
                 # assume land boundary
-                #G -= 0.5*(self.U_test[0]*uv[0]*uv[0]*self.normal[0] +
-                          #self.U_test[0]*uv[0]*uv[1]*self.normal[1] +
-                          #self.U_test[1]*uv[1]*uv[0]*self.normal[0] +
-                          #self.U_test[1]*uv[1]*uv[1]*self.normal[1])*(ds_bnd)
                 continue
 
             elif 'slip_alpha' in funcs:
@@ -425,19 +355,14 @@ class shallowWaterEquations(equation):
                 ut_riemann = tanh(4 * un_riemann / 0.02) * (ut_in)
                 uv_riemann = un_riemann * self.normal + ut_riemann * t
 
-                #G += H_riemann * un_riemann * self.eta_test * ds_bnd
                 if self.nonlin:
                     G += un_riemann * un_riemann * dot(self.normal, self.U_test) * ds_bnd
-                ## added correct flux for eta
-                #G += g_grav * ((h_ext - eta) / 2) * \
-                    #inner(self.normal, self.U_test) * ds_bnd
 
             elif 'un' in funcs:
                 # prescribe normal velocity (negative into domain)
                 un_ext = funcs['un']
                 un_in = dot(uv, self.normal)
                 un_riemann = (un_in + un_ext)/2
-                #G += total_H * un_riemann * self.eta_test * ds_bnd
                 if self.nonlin:
                     G += un_riemann*un_riemann*inner(self.normal, self.U_test)*ds_bnd
 
@@ -447,11 +372,7 @@ class shallowWaterEquations(equation):
                 un_in = dot(uv, self.normal)
                 un_ext = funcs['flux'] / total_H / sect_len
                 un_av = (un_in + un_ext)/2
-                #G += total_H * un_av * self.eta_test * ds_bnd
                 if self.nonlin:
-                    #s = 0.5*(sign(un_av) + 1.0)
-                    #un_up = un_in*s + un_ext*(1-s)
-                    #G += un_av*un_av*inner(self.normal, self.U_test)*ds_bnd
                     s = 0.5*(sign(un_av) + 1.0)
                     uv_up = uv*s + un_ext*self.normal*(1-s)
                     uv_av = 0.5*(uv + un_ext*self.normal)
@@ -468,7 +389,6 @@ class shallowWaterEquations(equation):
             elif 'radiation':
                 # prescribe radiation condition that allows waves to pass tru
                 un_ext = sqrt(g_grav / total_H) * eta
-                #G += total_H * un_ext * self.eta_test * ds_bnd
                 if self.nonlin:
                     G += un_ext * un_ext * inner(self.normal, self.U_test) * ds_bnd
 
@@ -514,35 +434,25 @@ class shallowWaterEquations(equation):
 
     def Source(self, uv_old=None, uv_bottom=None, bottom_drag=None,
                baro_head=None, **kwargs):
-        """Returns the right hand side of the source terms.
-        These terms do not depend on the solution."""
+        """Returns the source terms that do not depend on the solution."""
         F = 0  # holds all dx volume integral terms
 
         # Internal pressure gradient
         if baro_head is not None:
             F += self.pressureGrad(baro_head, None, None, internalPG=True)
-            #F += g_grav * inner(nabla_grad(baro_head), self.U_test) * self.dx
-            #F -= g_grav * inner(baro_head, nabla_div(self.U_test)) * self.dx
-            #F += g_grav * avg(baro_head)*jump(self.normal, self.U_test) * self.dS
-            ## boundary conditions
-            #for bnd_marker in self.boundary_markers:
-                #funcs = self.bnd_functions.get(bnd_marker)
-                #ds_bnd = ds(int(bnd_marker), domain=self.mesh)
-                #F += g_grav * baro_head*inner(self.normal, self.U_test) * ds_bnd
 
         return -F
 
 
 class freeSurfaceEquation(equation):
     """Non-conservative free surface equation written for depth averaged
-    velocity"""
+    velocity. This equation can be coupled to 3D mode directly."""
     def __init__(self, mesh, space, solution, uv, bathymetry,
-                 nonlin=True, use_wd=True):
+                 nonlin=True):
         self.mesh = mesh
         self.space = space
         self.solution = solution
         self.bathymetry = bathymetry
-        self.use_wd = use_wd
         self.nonlin = nonlin
         # this dict holds all time dep. args to the equation
         self.kwargs = {'uv': uv,
@@ -622,19 +532,6 @@ class freeSurfaceEquation(equation):
         return res
 
     def massTerm(self, solution):
-        """All time derivative terms on the LHS, without the actual time
-        derivative.
-
-        Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
-        """
-        F = 0
-        # Mass term of free surface equation
-        M_continuity = inner(solution, self.test)
-        F += M_continuity
-
-        return F * self.dx
-
-    def massTermBasic(self, solution):
         """All time derivative terms on the LHS, without the actual time
         derivative.
 

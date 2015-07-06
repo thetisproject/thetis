@@ -49,7 +49,6 @@ T = 10*T_cycle + 1e-3
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry2d, n_layers)
 solverObj.nonlin = False
-solverObj.use_wd = False
 solverObj.solveSalt = False
 solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False

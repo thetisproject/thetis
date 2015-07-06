@@ -109,7 +109,6 @@ class flowSolver(object):
         self.cfl_3d = 1.0  # factor to scale the 2d time step
         self.order = order  # polynomial order of elements
         self.nonlin = True  # use nonlinear shallow water equations
-        self.use_wd = False  # use wetting-drying
         self.solveSalt = True  # solve salt transport
         self.solveVertDiffusion = True  # solve implicit vert diffusion
         self.useBottomFriction = True  # apply log layer bottom stress
@@ -342,13 +341,13 @@ class flowSolver(object):
                 coriolis=self.coriolis,
                 wind_stress=self.wind_stress,
                 lin_drag=self.lin_drag,
-                nonlin=self.nonlin, use_wd=self.use_wd)
+                nonlin=self.nonlin)
         else:
             # solve elevation only: 2D free surface equation
             uv, eta = self.solution2d.split()
             self.eq_sw = module_2d.freeSurfaceEquation(
                 self.mesh2d, self.H_2d, eta, uv, self.bathymetry2d,
-                nonlin=self.nonlin, use_wd=self.use_wd)
+                nonlin=self.nonlin)
 
         bnd_len = self.eq_sw.boundary_len
         bnd_markers = self.eq_sw.boundary_markers
@@ -599,7 +598,6 @@ class flowSolver2d(object):
         self.cfl_2d = 1.0  # factor to scale the 2d time step
         self.order = order  # polynomial order of elements
         self.nonlin = True  # use nonlinear shallow water equations
-        self.use_wd = False  # use wetting-drying
         self.lin_drag = None  # linear drag parameter tau/H/rho_0 = -drag*u
         self.hDiffusivity = None  # background diffusivity (set to Constant)
         self.hViscosity = None  # background viscosity (set to Constant)
@@ -649,7 +647,7 @@ class flowSolver2d(object):
             coriolis=self.coriolis,
             wind_stress=self.wind_stress,
             volumeFlux=None,
-            nonlin=self.nonlin, use_wd=self.use_wd)
+            nonlin=self.nonlin)
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
 

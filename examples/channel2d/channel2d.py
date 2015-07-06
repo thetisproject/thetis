@@ -10,7 +10,7 @@ from cofs import *
 # set physical constants
 physical_constants['z0_friction'].assign(5.0e-5)
 
-use_wd = False
+
 nonlin = True
 n_layers = 6
 outputDir = createDirectory('outputs')
