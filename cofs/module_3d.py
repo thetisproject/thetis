@@ -72,12 +72,12 @@ class momentumEquation(equation):
         self.e_x, self.e_y, self.e_y = unit_vectors(3)
 
         # integral measures
-        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere',
-                          subdomain_data=weakref.ref(self.mesh.coordinates))
-        self.dS_v = dS_v(domain=self.mesh)
-        self.dS_h = dS_h(domain=self.mesh)
-        self.ds_surf = ds_b
-        self.ds_bottom = ds_t
+        self.dx = self.mesh._dx
+        self.dS_v = self.mesh._dS_v
+        self.dS_h = self.mesh._dS_h
+        self.ds_v = self.mesh._ds_v
+        self.ds_surf = self.mesh._ds_b
+        self.ds_bottom = self.mesh._ds_t
 
         # boundary definitions
         self.boundary_markers = bnd_markers
@@ -86,10 +86,6 @@ class momentumEquation(equation):
         # boundary conditions
         # maps bnd_marker to dict of external functions e.g. {'elev':eta_ext}
         self.bnd_functions = {}
-
-    def ds_v(self, bnd_marker):
-        """Returns boundary measure for the appropriate mesh"""
-        return ds_v(int(bnd_marker), domain=self.mesh)
 
     def massTerm(self, solution):
         """All time derivative terms on the LHS, without the actual time
@@ -119,7 +115,7 @@ class momentumEquation(equation):
             f += g_grav*head*nDotTest*(self.ds_bottom + self.ds_surf)
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
-                ds_bnd = self.ds_v(bnd_marker)
+                ds_bnd = self.ds_v(int(bnd_marker))
                 if baro_head is not None:
                     f += g_grav*baro_head*nDotTest*ds_bnd
                 specialEtaFlux = funcs is not None and 'elev' in funcs
@@ -167,7 +163,7 @@ class momentumEquation(equation):
                                 jump(self.test[1])*jump(solution[1]))*self.dS_v
                 for bnd_marker in self.boundary_markers:
                     funcs = self.bnd_functions.get(bnd_marker)
-                    ds_bnd = self.ds_v(bnd_marker)
+                    ds_bnd = self.ds_v(int(bnd_marker))
                     if funcs is None:
                         un = dot(solution, self.normal)
                         uv_ext = solution - 2*un*self.normal
@@ -204,7 +200,7 @@ class momentumEquation(equation):
             ## boundary conditions
             #for bnd_marker in self.boundary_markers:
                 #funcs = self.bnd_functions.get(bnd_marker)
-                #ds_bnd = ds_v(int(bnd_marker), domain=self.mesh)
+                #ds_bnd = self.ds_v(int(bnd_marker))
                 #if funcs is None:
                     ## assume land boundary
                     #f -= 0.5*(self.test[0]*solution[0]*solution[0]*self.normal[0] +
@@ -229,7 +225,7 @@ class momentumEquation(equation):
             uvMag=None, uvP1=None, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
-        F = 0*self.dx  # holds all dx volume integral terms
+        F = 0  # holds all dx volume integral terms
         G = 0  # holds all ds boundary interface terms
 
         if self.nonlin:
@@ -276,7 +272,7 @@ class momentumEquation(equation):
         # boundary conditions
         for bnd_marker in self.boundary_markers:
             funcs = self.bnd_functions.get(bnd_marker)
-            ds_bnd = ds_v(int(bnd_marker), domain=self.mesh)
+            ds_bnd = self.ds_v(int(bnd_marker))
             un_in = (solution[0]*self.normal[0] + solution[1]*self.normal[1])
             if funcs is None:
                 # assume land boundary
@@ -387,7 +383,7 @@ class momentumEquation(equation):
                uv_bottom=None, bottom_drag=None, baro_head=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
-        F = 0*self.dx  # holds all dx volume integral terms
+        F = 0  # holds all dx volume integral terms
         G = 0
 
         if self.nonlin:
@@ -412,7 +408,7 @@ class momentumEquation(equation):
         ## boundary conditions
         #for bnd_marker in self.boundary_markers:
             #funcs = self.bnd_functions.get(bnd_marker)
-            #ds_bnd = ds_v(int(bnd_marker), domain=self.mesh)
+            #ds_bnd = self.ds_v(int(bnd_marker))
             #nDotTest = (self.normal[0]*self.test[0] +
                         #self.normal[1]*self.test[1])
             #if baro_head is not None:
@@ -483,20 +479,16 @@ class verticalMomentumEquation(equation):
         self.e_x, self.e_y, self.e_y = unit_vectors(3)
 
         # integral measures
-        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere',
-                          subdomain_data=weakref.ref(self.mesh.coordinates))
-        self.dS_v = dS_v(domain=self.mesh)
-        self.dS_h = dS_h(domain=self.mesh)
-        self.ds_surf = ds_b
-        self.ds_bottom = ds_t
+        self.dx = self.mesh._dx
+        self.dS_v = self.mesh._dS_v
+        self.dS_h = self.mesh._dS_h
+        self.ds_v = self.mesh._ds_v
+        self.ds_surf = self.mesh._ds_b
+        self.ds_bottom = self.mesh._ds_t
 
         # set boundary conditions
         # maps bnd_marker to dict of external functions e.g. {'elev':eta_ext}
         self.bnd_functions = {}
-
-    def ds_v(self, bnd_marker):
-        """Returns boundary measure for the appropriate mesh"""
-        return ds_v(int(bnd_marker), domain=self.mesh)
 
     def getTimeStep(self, Umag=Constant(1.0)):
         raise NotImplementedError('getTimeStep not implemented')
@@ -617,12 +609,12 @@ class tracerEquation(equation):
         self.e_x, self.e_y, self.e_y = unit_vectors(3)
 
         # integral measures
-        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere',
-                          subdomain_data=weakref.ref(self.mesh.coordinates))
-        self.dS_v = dS_v(domain=self.mesh)
-        self.dS_h = dS_h(domain=self.mesh)
-        self.ds_surf = ds_b
-        self.ds_bottom = ds_t
+        self.dx = self.mesh._dx
+        self.dS_v = self.mesh._dS_v
+        self.dS_h = self.mesh._dS_h
+        self.ds_v = self.mesh._ds_v
+        self.ds_surf = self.mesh._ds_b
+        self.ds_bottom = self.mesh._ds_t
 
         # boundary definitions
         self.boundary_markers = bnd_markers
@@ -630,10 +622,6 @@ class tracerEquation(equation):
 
         # maps bnd_marker to dict of external functions e.g. {'elev':eta_ext}
         self.bnd_functions = {}
-
-    def ds_v(self, bnd_marker):
-        """Returns boundary measure for the appropriate mesh"""
-        return ds_v(int(bnd_marker), domain=self.mesh)
 
     def massTerm(self, solution):
         """All time derivative terms on the LHS, without the actual time
@@ -691,7 +679,7 @@ class tracerEquation(equation):
                     G += gamma*dot(jump(self.test), jump(solution))*(self.dS_v + self.dS_h)
                 for bnd_marker in self.boundary_markers:
                     funcs = self.bnd_functions.get(bnd_marker)
-                    ds_bnd = self.ds_v(bnd_marker)
+                    ds_bnd = self.ds_v(int(bnd_marker))
                     if funcs is None:
                         continue
                     elif 'value' in funcs:
@@ -738,7 +726,7 @@ class tracerEquation(equation):
         # boundary conditions
         for bnd_marker in self.boundary_markers:
             funcs = self.bnd_functions.get(bnd_marker)
-            ds_bnd = self.ds_v(bnd_marker)
+            ds_bnd = self.ds_v(int(bnd_marker))
             if funcs is None:
                 if not self.horizAdvectionByParts:
                     G += -solution*(self.normal[0]*uv[0] +

@@ -64,9 +64,9 @@ class shallowWaterEquations(equation):
         self.e_x, self.e_y = unit_vectors(2)
 
         # integral measures
-        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere',
-                          subdomain_data=weakref.ref(self.mesh.coordinates))
-        self.dS = dS(domain=self.mesh)
+        self.dx = self.mesh._dx
+        self.dS = self.mesh._dS
+        self.ds = self.mesh._ds
 
         # boundary definitions
         self.boundary_markers = set(self.mesh.exterior_facets.unique_markers)
@@ -99,10 +99,6 @@ class shallowWaterEquations(equation):
             #'fieldsplit_velocity_pc_type': 'jacobi',
             #'fieldsplit_pressure_pc_type': 'jacobi',
             }
-
-    def ds(self, bnd_marker):
-        """Returns boundary measure for the appropriate mesh"""
-        return ds(int(bnd_marker), domain=self.mesh)
 
     def getTimeStep(self, Umag=Constant(0.0)):
         csize = CellSize(self.mesh)
@@ -163,7 +159,7 @@ class shallowWaterEquations(equation):
             f += g_grav*head_star*jump(self.U_test, self.normal)*self.dS
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
-                ds_bnd = self.ds(bnd_marker)
+                ds_bnd = self.ds(int(bnd_marker))
                 if funcs is None or 'symm' in funcs or internalPG:
                     f += g_grav*head*dot(self.U_test, self.normal)*ds_bnd
         else:
@@ -178,7 +174,7 @@ class shallowWaterEquations(equation):
                     f += avg(volumeFlux)*jump(self.eta_test, self.normal)*self.dS
                 for bnd_marker in self.boundary_markers:
                     funcs = self.bnd_functions.get(bnd_marker)
-                    ds_bnd = self.ds(bnd_marker)
+                    ds_bnd = self.ds(int(bnd_marker))
                     if funcs is not None and 'symm' in funcs:
                         f += inner(volumeFlux, self.normal)*self.eta_test*ds_bnd
             else:
@@ -189,7 +185,7 @@ class shallowWaterEquations(equation):
                     f += inner(jump(self.eta_test, self.normal), Hu_star)*self.dS
                 for bnd_marker in self.boundary_markers:
                     funcs = self.bnd_functions.get(bnd_marker)
-                    ds_bnd = self.ds(bnd_marker)
+                    ds_bnd = self.ds(int(bnd_marker))
                     if funcs is not None and 'symm' in funcs:
                         f += total_H*inner(self.normal, uv)*self.eta_test*ds_bnd
         else:
@@ -197,14 +193,14 @@ class shallowWaterEquations(equation):
                 f = div(volumeFlux)*self.eta_test*self.dx
                 for bnd_marker in self.boundary_markers:
                     funcs = self.bnd_functions.get(bnd_marker)
-                    ds_bnd = self.ds(bnd_marker)
+                    ds_bnd = self.ds(int(bnd_marker))
                     if funcs is None:
                         f += -dot(volumeFlux, self.normal)*self.eta_test*ds_bnd
             else:
                 f = div(total_H*uv)*self.eta_test*self.dx
                 for bnd_marker in self.boundary_markers:
                     funcs = self.bnd_functions.get(bnd_marker)
-                    ds_bnd = self.ds(bnd_marker)
+                    ds_bnd = self.ds(int(bnd_marker))
                     if funcs is None:
                         f += -total_H*dot(uv, self.normal)*self.eta_test*ds_bnd
                 # f += -avg(total_H)*avg(dot(uv, normal))*jump(self.eta_test)*dS
@@ -245,7 +241,7 @@ class shallowWaterEquations(equation):
                     f += gamma*dot(jump(self.U_test), jump(uv))*self.dS
                     for bnd_marker in self.boundary_markers:
                         funcs = self.bnd_functions.get(bnd_marker)
-                        ds_bnd = self.ds(bnd_marker)
+                        ds_bnd = self.ds(int(bnd_marker))
                         if funcs is None:
                             # impose impermeability with mirror velocity
                             un = dot(uv, self.normal)
@@ -278,7 +274,7 @@ class shallowWaterEquations(equation):
         # boundary conditions
         for bnd_marker in self.boundary_markers:
             funcs = self.bnd_functions.get(bnd_marker)
-            ds_bnd = ds(int(bnd_marker), domain=self.mesh)
+            ds_bnd = self.ds(int(bnd_marker))
             if funcs is None:
                 continue
             elif 'elev' in funcs:
@@ -390,7 +386,7 @@ class shallowWaterEquations(equation):
         # boundary conditions
         for bnd_marker in self.boundary_markers:
             funcs = self.bnd_functions.get(bnd_marker)
-            ds_bnd = ds(int(bnd_marker), domain=self.mesh)
+            ds_bnd = self.ds(int(bnd_marker))
             if funcs is None:
                 # assume land boundary
                 #G -= 0.5*(self.U_test[0]*uv[0]*uv[0]*self.normal[0] +
@@ -520,7 +516,7 @@ class shallowWaterEquations(equation):
                baro_head=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
-        F = 0 * self.dx  # holds all dx volume integral terms
+        F = 0  # holds all dx volume integral terms
 
         # Internal pressure gradient
         if baro_head is not None:
@@ -570,9 +566,8 @@ class freeSurfaceEquation(equation):
         self.e_x, self.e_y = unit_vectors(2)
 
         # integral measures
-        self.dx = Measure('dx', domain=self.mesh, subdomain_id='everywhere',
-                          subdomain_data=weakref.ref(self.mesh.coordinates))
-        self.dS = dS(domain=self.mesh)
+        self.dx = self.mesh._dx
+        self.dS = self.mesh._dS
 
         # boundary definitions
         self.boundary_markers = set(self.mesh.exterior_facets.unique_markers)
@@ -674,14 +669,14 @@ class freeSurfaceEquation(equation):
                 f = div(volumeFlux)*self.test*self.dx
                 for bnd_marker in self.boundary_markers:
                     funcs = self.bnd_functions.get(bnd_marker)
-                    ds_bnd = self.ds(bnd_marker)
+                    ds_bnd = self.ds(int(bnd_marker))
                     if funcs is None:
                         f += -dot(volumeFlux, self.normal)*self.test*ds_bnd
             else:
                 f = div(total_H*uv)*self.test*self.dx
                 for bnd_marker in self.boundary_markers:
                     funcs = self.bnd_functions.get(bnd_marker)
-                    ds_bnd = self.ds(bnd_marker)
+                    ds_bnd = self.ds(int(bnd_marker))
                     if funcs is None:
                         f += -total_H*dot(uv, self.normal)*self.test*ds_bnd
                 # f += -avg(total_H)*avg(dot(uv, normal))*jump(self.test)*dS
@@ -712,7 +707,7 @@ class freeSurfaceEquation(equation):
         # boundary conditions
         for bnd_marker in self.boundary_markers:
             funcs = self.bnd_functions.get(bnd_marker)
-            ds_bnd = ds(int(bnd_marker), domain=self.mesh)
+            ds_bnd = self.ds(int(bnd_marker))
             if funcs is None:
                 # assume land boundary
                 continue
