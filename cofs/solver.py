@@ -87,7 +87,7 @@ class exportManager(object):
 
 class flowSolver(object):
     """Creates and solves coupled 2D-3D equations"""
-    def __init__(self, mesh2d, bathymetry2d, n_layers, order=1, mimetic=True):
+    def __init__(self, mesh2d, bathymetry2d, n_layers, order=1):
         self._initialized = False
 
         # create 3D mesh
@@ -107,7 +107,6 @@ class flowSolver(object):
         self.cfl_2d = 1.0  # factor to scale the 2d time step
         self.cfl_3d = 1.0  # factor to scale the 2d time step
         self.order = order  # polynomial order of elements
-        self.mimetic = mimetic  # use HDiv velocity spaces instead of DG
         self.nonlin = True  # use nonlinear shallow water equations
         self.use_wd = False  # use wetting-drying
         self.solveSalt = True  # solve salt transport
@@ -189,31 +188,25 @@ class flowSolver(object):
         self.P1v = VectorFunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
         self.P1DG = FunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1)
         self.P1DGv = VectorFunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1)
-        if self.mimetic:
-            # Construct HDiv OuterProductElements
-            # for horizontal velocity component
-            Uh_elt = FiniteElement('RT', triangle, self.order+1)
-            Uv_elt = FiniteElement('DG', interval, self.order)
-            U_elt = HDiv(OuterProductElement(Uh_elt, Uv_elt))
-            # for vertical velocity component
-            Wh_elt = FiniteElement('DG', triangle, self.order)
-            Wv_elt = FiniteElement('CG', interval, self.order+1)
-            W_elt = HDiv(OuterProductElement(Wh_elt, Wv_elt))
-            # in deformed mesh horiz. velocity must actually live in U + W
-            UW_elt = EnrichedElement(U_elt, W_elt)
-            # final spaces
-            self.U = FunctionSpace(self.mesh, UW_elt)  # uv
-            self.W = FunctionSpace(self.mesh, W_elt)  # w
-            # auxiliary function space that will be used to transfer data between 2d/3d modes
-            self.Uproj = VectorFunctionSpace(self.mesh, 'DG', self.order,
-                                             vfamily='DG', vdegree=self.order)
-        else:
-            # FIXME find better non-hdiv space
-            self.U = VectorFunctionSpace(self.mesh, 'CG', self.order,
-                                         vfamily='DG', vdegree=self.order)  # uv
-            self.W = VectorFunctionSpace(self.mesh, 'CG', self.order,
-                                         vfamily='CG', vdegree=self.order+1)  # w
-            self.Uproj = self.U
+
+        # Construct HDiv OuterProductElements
+        # for horizontal velocity component
+        Uh_elt = FiniteElement('RT', triangle, self.order+1)
+        Uv_elt = FiniteElement('DG', interval, self.order)
+        U_elt = HDiv(OuterProductElement(Uh_elt, Uv_elt))
+        # for vertical velocity component
+        Wh_elt = FiniteElement('DG', triangle, self.order)
+        Wv_elt = FiniteElement('CG', interval, self.order+1)
+        W_elt = HDiv(OuterProductElement(Wh_elt, Wv_elt))
+        # in deformed mesh horiz. velocity must actually live in U + W
+        UW_elt = EnrichedElement(U_elt, W_elt)
+        # final spaces
+        self.U = FunctionSpace(self.mesh, UW_elt)  # uv
+        self.W = FunctionSpace(self.mesh, W_elt)  # w
+        # auxiliary function space that will be used to transfer data between 2d/3d modes
+        self.Uproj = VectorFunctionSpace(self.mesh, 'DG', self.order,
+                                            vfamily='DG', vdegree=self.order)
+
         self.Uint = self.U  # vertical integral of uv
         # tracers
         self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=max(0, self.order))
@@ -230,13 +223,9 @@ class flowSolver(object):
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
         self.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1)
         # 2D velocity space
-        if self.mimetic:
-            # FIXME this is not compatible with enriched UW space used in 3D
-            self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.order+1)
-            self.Uproj_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.order)
-        else:
-            self.U_2d = VectorFunctionSpace(self.mesh2d, 'CG', self.order)
-            self.Uproj_2d = self.U_2d
+        # NOTE this is not compatible with enriched UW space used in 3D
+        self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.order+1)
+        self.Uproj_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.order)
         self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
         self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
@@ -644,7 +633,7 @@ class flowSolver(object):
 
 class flowSolver2d(object):
     """Creates and solves 2D depth averaged equations with RT1-P1DG elements"""
-    def __init__(self, mesh2d, bathymetry2d, order=1, mimetic=False):
+    def __init__(self, mesh2d, bathymetry2d, order=1):
         self._initialized = False
 
         # create 3D mesh
@@ -660,7 +649,6 @@ class flowSolver2d(object):
         # options
         self.cfl_2d = 1.0  # factor to scale the 2d time step
         self.order = order  # polynomial order of elements
-        self.mimetic = mimetic  # use HDiv velocity spaces instead of DG
         self.nonlin = True  # use nonlinear shallow water equations
         self.use_wd = False  # use wetting-drying
         self.lin_drag = None  # linear drag parameter tau/H/rho_0 = -drag*u
@@ -692,10 +680,7 @@ class flowSolver2d(object):
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.P0_2d = FunctionSpace(self.mesh2d, 'DG', 0)
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
-        if self.mimetic:
-            self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.order+1)
-        else:
-            self.U_2d = VectorFunctionSpace(self.mesh2d, 'CG', self.order)
+        self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.order+1)
         self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', self.order)
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
         self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
