@@ -798,27 +798,11 @@ class coupledSSPRK(timeIntegrator):
                     s.z_bottom2d, s.z_bottom3d,
                     s.bathymetry2d, s.bottom_drag2d,
                     s.bottom_drag3d)
-        with timed_region('supg'):
-            if s.useSUPG:
-                updateSUPGGamma(
-                    s.uv3d, s.w3d, s.u_mag_func,
-                    s.u_mag_func_h, s.u_mag_func_v,
-                    s.hElemSize3d, s.vElemSize3d,
-                    s.SUPG_alpha,
-                    s.supg_gamma_h, s.supg_gamma_v)
 
         with timed_region('saltEq'):
             if s.solveSalt:
                 self.timeStepper_salt3d.advance(t, s.dt, s.salt3d,
                                                 updateForcings3d)
-        with timed_region('gjv'):
-            if s.useGJV:
-                computeHorizGJVParameter(
-                    s.gjv_alpha, s.salt3d, s.nonlinStab_h, s.hElemSize3d,
-                    s.u_mag_func_h, maxval=800.0*s.uAdvection.dat.data[0])
-                computeVertGJVParameter(
-                    s.gjv_alpha, s.salt3d, s.nonlinStab_v, s.vElemSize3d,
-                    s.u_mag_func_v, maxval=800.0*s.uAdvection.dat.data[0])
         with timed_region('aux_mom_coupling'):
             bndValue = Constant((0.0, 0.0, 0.0))
             computeVerticalIntegral(s.uv3d, s.uv3d_dav,
@@ -988,22 +972,6 @@ class coupledSSPRKSync(timeIntegrator):
                     computeBaroclinicHead(s.salt3d, s.baroHead3d,
                                           s.baroHead2d, s.baroHeadInt3d,
                                           s.bathymetry3d)
-            with timed_region('supg'):
-                if s.useSUPG:
-                    updateSUPGGamma(
-                        s.uv3d, s.w3d, s.u_mag_func,
-                        s.u_mag_func_h, s.u_mag_func_v,
-                        s.hElemSize3d, s.vElemSize3d,
-                        s.SUPG_alpha,
-                        s.supg_gamma_h, s.supg_gamma_v)
-            with timed_region('gjv'):
-                if s.useGJV:
-                    computeHorizGJVParameter(
-                        s.gjv_alpha, s.salt3d, s.nonlinStab_h, s.hElemSize3d,
-                        s.u_mag_func_h, maxval=800.0*s.uAdvection.dat.data[0])
-                    computeVertGJVParameter(
-                        s.gjv_alpha, s.salt3d, s.nonlinStab_v, s.vElemSize3d,
-                        s.u_mag_func_v, maxval=800.0*s.uAdvection.dat.data[0])
             with timed_region('aux_stabilization'):
                 if doStabParams:
                     # update velocity magnitude
@@ -1201,22 +1169,6 @@ class coupledSSPRKSemiImplicit(timeIntegrator):
                     computeBaroclinicHead(s.salt3d, s.baroHead3d,
                                           s.baroHead2d, s.baroHeadInt3d,
                                           s.bathymetry3d)
-            with timed_region('supg'):
-                if s.useSUPG:
-                    updateSUPGGamma(
-                        s.uv3d, s.w3d, s.u_mag_func,
-                        s.u_mag_func_h, s.u_mag_func_v,
-                        s.hElemSize3d, s.vElemSize3d,
-                        s.SUPG_alpha,
-                        s.supg_gamma_h, s.supg_gamma_v)
-            with timed_region('gjv'):
-                if s.useGJV:
-                    computeHorizGJVParameter(
-                        s.gjv_alpha, s.salt3d, s.nonlinStab_h, s.hElemSize3d,
-                        s.u_mag_func_h, maxval=800.0*s.uAdvection.dat.data[0])
-                    computeVertGJVParameter(
-                        s.gjv_alpha, s.salt3d, s.nonlinStab_v, s.vElemSize3d,
-                        s.u_mag_func_v, maxval=800.0*s.uAdvection.dat.data[0])
             with timed_region('aux_stabilization'):
                 if doStabParams:
                     # update velocity magnitude
@@ -1349,22 +1301,6 @@ class coupledSSPRKSingleMode(timeIntegrator):
                     computeBaroclinicHead(s.salt3d, s.baroHead3d,
                                           s.baroHead2d, s.baroHeadInt3d,
                                           s.bathymetry3d)
-            with timed_region('supg'):
-                if s.useSUPG:
-                    updateSUPGGamma(
-                        s.uv3d, s.w3d, s.u_mag_func,
-                        s.u_mag_func_h, s.u_mag_func_v,
-                        s.hElemSize3d, s.vElemSize3d,
-                        s.SUPG_alpha,
-                        s.supg_gamma_h, s.supg_gamma_v)
-            with timed_region('gjv'):
-                if s.useGJV:
-                    computeHorizGJVParameter(
-                        s.gjv_alpha, s.salt3d, s.nonlinStab_h, s.hElemSize3d,
-                        s.u_mag_func_h, maxval=800.0*s.uAdvection.dat.data[0])
-                    computeVertGJVParameter(
-                        s.gjv_alpha, s.salt3d, s.nonlinStab_v, s.vElemSize3d,
-                        s.u_mag_func_v, maxval=800.0*s.uAdvection.dat.data[0])
             with timed_region('aux_mom_coupling'):
                 if do2DCoupling:
                     bndValue = Constant((0.0, 0.0, 0.0))

@@ -152,20 +152,6 @@ class shallowWaterEquations(equation):
         """
         return inner(solution, self.test)*self.dx
 
-    def supgMassTerm(self, solution, eta, uv):
-        """Additional term for SUPG stabilization"""
-        F = 0
-        uv_diff, eta_diff = split(solution)
-
-        residual = eta_diff
-        # F += (1.0/dt_const)*stabilization_SU*inner(residual,dot(uv,
-        # nabla_grad(v)) ) #+ (eta+h_mean)*tr(nabla_grad(w)))
-        residual = uv_diff
-        # TODO test new SUPG terms! better? can reduce nu?
-        # F += (1.0/dt_const)*stabilization_SU*inner(residual,dot(uv,
-        # diag(nabla_grad(w))) ) #+ (eta+h_mean)*nabla_grad(v) )
-        return F * self.dx
-
     def pressureGrad(self, head, uv=None, total_H=None, internalPG=False, **kwargs):
         if self.gradEtaByParts:
             f = -g_grav*head*nabla_div(self.U_test)*self.dx
@@ -664,11 +650,6 @@ class freeSurfaceEquation(equation):
         M_continuity = inner(solution, self.test)
         F += M_continuity
 
-        return F * self.dx
-
-    def supgMassTerm(self, solution, eta, uv):
-        """Additional term for SUPG stabilization"""
-        F = 0
         return F * self.dx
 
     def HUDivTerm(self, uv, total_H, volumeFlux=None, **kwargs):

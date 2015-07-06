@@ -123,8 +123,6 @@ class flowSolver(object):
         self.vViscosity = None  # background viscosity (set to Constant)
         self.coriolis = None  # Coriolis parameter (Constant or 2D Function)
         self.wind_stress = None  # stress at free surface (2D vector function)
-        self.useSUPG = False  # SUPG stabilization for tracer advection
-        self.useGJV = False  # nonlin gradient jump viscosity
         self.baroclinic = False  # comp and use internal pressure gradient
         self.smagorinskyFactor = None  # set to a Constant to use smag. visc.
         self.saltJumpDiffFactor = None  # set to a Constant to use nonlin diff.
@@ -140,8 +138,7 @@ class flowSolver(object):
                             'aux_mesh_ale', 'aux_friction', 'aux_barolinicity',
                             'aux_mom_coupling',
                             'func_copy2dTo3d', 'func_copy3dTo2d',
-                            'func_vert_int',
-                            'supg', 'gjv']
+                            'func_vert_int']
         self.outputDir = 'outputs'
         self.fieldsToExport = ['elev2d', 'uv2d', 'uv3d', 'w3d']
         self.bnd_functions = {'shallow_water': {},
@@ -303,32 +300,6 @@ class flowSolver(object):
         self.vElemSize3d = Function(self.P1DG, name='element height')
         self.vElemSize2d = Function(self.P1DG_2d, name='element height')
         self.hElemSize3d = getHorzontalElemSize(self.P1_2d, self.P1)
-        if self.useSUPG:
-            # TODO move these somewhere else? All form are now in equations...
-            test = TestFunction(self.H)
-            self.u_mag_func = Function(self.U_scalar, name='uvw magnitude')
-            self.u_mag_func_h = Function(self.U_scalar, name='uv magnitude')
-            self.u_mag_func_v = Function(self.U_scalar, name='w magnitude')
-            self.SUPG_alpha = Constant(0.1)  # between 0 and 1
-            # FIXME clashes vElemSize3d above
-            self.vElemSize3d = getVerticalElemSize(self.P1_2d, self.P1)
-            self.supg_gamma_h = Function(self.P1, name='gamma_h')
-            self.supg_gamma_v = Function(self.P1, name='gamma_v')
-            self.test_supg_h = self.supg_gamma_h*(self.uv3d[0]*Dx(test, 0) +
-                                                  self.uv3d[1]*Dx(test, 1))
-            self.test_supg_v = self.supg_gamma_v*(self.w3d*Dx(test, 2))
-            self.test_supg_mass = self.SUPG_alpha/self.u_mag_func*(
-                self.hElemSize3d/2*self.uv3d[0]*Dx(test, 0) +
-                self.hElemSize3d/2*self.uv3d[1]*Dx(test, 1) +
-                self.vElemSize3d/2*self.w3d*Dx(test, 2))
-        else:
-            self.test_supg_h = self.test_supg_v = self.test_supg_mass = None
-        if self.useGJV:
-            self.gjv_alpha = Constant(1.0)
-            self.nonlinStab_h = Function(self.P0, name='GJV parameter h')
-            self.nonlinStab_v = Function(self.P0, name='GJV parameter v')
-        else:
-            self.gjv_alpha = self.nonlinStab_h = self.nonlinStab_v = None
         if self.smagorinskyFactor is not None:
             self.smag_viscosity = Function(self.P1, name='Smagorinsky viscosity')
         else:
@@ -403,11 +374,6 @@ class flowSolver(object):
                 #uvMag=self.uv3d_mag,
                 uvP1=self.uv3d_P1,
                 laxFriedrichsFactor=self.tracerLaxFriedrichs,
-                test_supg_h=self.test_supg_h,
-                test_supg_v=self.test_supg_v,
-                test_supg_mass=self.test_supg_mass,
-                nonlinStab_h=self.nonlinStab_h,
-                nonlinStab_v=self.nonlinStab_v,
                 bnd_markers=bnd_markers,
                 bnd_len=bnd_len)
         if self.solveVertDiffusion:
@@ -452,8 +418,6 @@ class flowSolver(object):
             'nuv3d': (self.viscosity_v3d, self.P1),
             'barohead3d': (self.baroHead3d, self.P1),
             'barohead2d': (self.baroHead2d, self.P1_2d),
-            'gjvAlphaH3d': (self.nonlinStab_h, self.P0),
-            'gjvAlphaV3d': (self.nonlinStab_v, self.P0),
             'smagViscosity': (self.smag_viscosity, self.P1),
             'saltJumpDiff': (self.saltJumpDiff, self.P1),
             }
@@ -462,7 +426,7 @@ class flowSolver(object):
         self.uvP1_projector = projector(self.uv3d, self.uv3d_P1)
         self.uvDAV_to_tmp_projector = projector(self.uv3d_dav, self.uv3d_tmp)
         self.uv2d_to_DAV_projector = projector(self.solution2d.split()[0],
-                                                self.uv2d_dav)
+                                               self.uv2d_dav)
         self.uv2dDAV_to_uv2d_projector = projector(self.uv2d_dav,
                                                    self.solution2d.split()[0])
         self.eta3d_to_CG_projector = projector(self.eta3d, self.eta3dCG)
@@ -502,23 +466,6 @@ class flowSolver(object):
             computeBaroclinicHead(self.salt3d, self.baroHead3d,
                                   self.baroHead2d, self.baroHeadInt3d,
                                   self.bathymetry3d)
-        if self.useSUPG:
-            updateSUPGGamma(self.uv3d, self.w3d, self.u_mag_func,
-                            self.u_mag_func_h, self.u_mag_func_v,
-                            self.hElemSize3d, self.vElemSize3d,
-                            self.SUPG_alpha,
-                            self.supg_gamma_h, self.supg_gamma_v)
-        if self.useGJV:
-            computeHorizGJVParameter(
-                self.gjv_alpha, self.salt3d, self.nonlinStab_h,
-                self.hElemSize3d, self.u_mag_func_h,
-                maxval=800.0*self.uAdvection.dat.data[0])
-            computeVertGJVParameter(
-                self.gjv_alpha, self.salt3d, self.nonlinStab_v,
-                self.vElemSize3d, self.u_mag_func_v,
-                maxval=800.0*self.uAdvection.dat.data[0])
-        if self.useGJV and not self.useSUPG:
-            raise Exception('Currently GJV requires SUPG (comp of umag)')
 
         self.timeStepper.initialize()
 
