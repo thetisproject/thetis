@@ -78,7 +78,7 @@ elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=elev_amp,
 if solverObj.solveSalt:
     salt_init3d = Function(solverObj.H, name='initial salinity')
     # salt_init3d.interpolate(Expression('x[0]/1.0e5*10.0+2.0'))
-    salt_init3d.interpolate(4.5)
+    salt_init3d.assign(4.5)
 else:
     salt_init3d = None
 
