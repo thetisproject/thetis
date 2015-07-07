@@ -3,8 +3,8 @@
 #
 # Solves a standing wave in a rectangular basin using wave equation.
 #
-# Initial condition for elevation corresponds to the longest standing wave
-# mode. Time step and export interval are chosen based on theorethical
+# Initial condition for elevation corresponds to a standing wave.
+# Time step and export interval are chosen based on theorethical
 # oscillation frequency. Initial condition repeats every 20 exports.
 #
 # This example tests dispersion of surface waves and dissipation of time
@@ -12,22 +12,19 @@
 #
 # Tuomas Karna 2015-03-11
 from cofs import *
-import cofs.timeIntegration as timeIntegration
-import time as timeMod
-
-# set physical constants
-physical_constants['z0_friction'].assign(0.0)
 
 mesh2d = Mesh('channel_waveEq.msh')
-nonlin = False
-depth = 20.0
+depth = 50.0
+elev_amp = 1.0
+# estimate of max advective velocity used to estimate time step
+Umag = Constant(0.5)
+
 outputDir = createDirectory('outputs_waveEq2d')
 printInfo('Loaded mesh '+mesh2d.name)
 printInfo('Exporting to '+outputDir)
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-P1v_2d = VectorFunctionSpace(mesh2d, 'CG', 1)
 bathymetry2d = Function(P1_2d, name='Bathymetry')
 bathymetry2d.assign(depth)
 
@@ -39,15 +36,13 @@ x_min = comm.allreduce(x_min, x_min, op=MPI.MIN)
 x_max = comm.allreduce(x_max, x_max, op=MPI.MAX)
 Lx = x_max - x_min
 
-# set time step, and run duration
+# set time step, export interval and run duration
 c_wave = float(np.sqrt(9.81*depth))
 T_cycle = Lx/c_wave
 n_steps = 20
 dt = round(float(T_cycle/n_steps))
 TExport = dt
 T = 10*T_cycle + 1e-3
-# explicit model
-Umag = Constant(0.5)
 
 # --- create solver ---
 solverObj = solver.flowSolver2d(mesh2d, bathymetry2d)
@@ -55,20 +50,21 @@ solverObj.cfl_2d = 1.0
 solverObj.nonlin = False  # use linear wave equation
 solverObj.TExport = TExport
 solverObj.T = T
-solverObj.dt = dt
 solverObj.outputDir = outputDir
 solverObj.uAdvection = Umag
 solverObj.checkVolConservation2d = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d']
 solverObj.timerLabels = []
-solverObj.timeStepperType = 'CrankNicolson'
-#solverObj.timeStepperType = 'SSPRK33'
+solverObj.timeStepperType = 'SSPRK33'
+solverObj.dt = dt/40.0  # for explicit schemes
+# solverObj.timeStepperType = 'CrankNicolson'
+# solverObj.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
 
 # need to call creator to create the function spaces
 solverObj.mightyCreator()
 # set initial elevation to first standing wave mode
 elev_init = Function(solverObj.H_2d)
-elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=1.0,
+elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=elev_amp,
                              Lx=Lx))
 solverObj.assignInitialConditions(elev=elev_init)
 solverObj.iterate()
