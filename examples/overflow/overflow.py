@@ -46,10 +46,10 @@ depth = 20.0
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry2d = Function(P1_2d, name='Bathymetry')
 bathymetry2d.interpolate(Expression('hmin + 0.5*(hmax - hmin)*(1 + tanh((x[0] - x0)/Ls))',
-                               hmin=200.0, hmax=4000.0, Ls=10.0e3, x0=40.0e3))
+                         hmin=200.0, hmax=4000.0, Ls=10.0e3, x0=40.0e3))
 
 # create solver
-solverObj = solver.flowSolverMimetic(mesh2d, bathymetry2d, layers)
+solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
 solverObj.cfl_2d = 1.0
 #solverObj.nonlin = False
 solverObj.solveSalt = True
@@ -82,7 +82,7 @@ solverObj.checkSaltConservation = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
                             'uv2d_dav', 'uv3d_dav', 'barohead3d',
-                            'barohead2d', 'gjvAlphaH3d', 'gjvAlphaV3d',
+                            'barohead2d',
                             'smagViscosity', 'saltJumpDiff']
 solverObj.timerLabels = []
 

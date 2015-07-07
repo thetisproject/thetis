@@ -31,7 +31,7 @@
 #
 # NOTE with SLIM mode-2 instability starts to develop around t=100 h
 #
-# Tuomas Karna 2015-03-03
+# Tuomas Karna 2015-05-30
 
 from cofs import *
 
