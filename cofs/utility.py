@@ -162,18 +162,23 @@ def extrudeMeshSigma(mesh2d, n_layers, bathymetry2d):
     return mesh
 
 
-def compVolume2d(eta, bath, dx):
+def compVolume2d(eta, bath):
+    mesh = bath.function_space().mesh()
+    dx = mesh._dx
     val = assemble((eta+bath)*dx)
     return val
 
 
-def compVolume3d(dx):
-    one = Constant(1.0)
+def compVolume3d(mesh):
+    dx = mesh._dx
+    one = Constant(1.0, domain=mesh.coordinates.domain())
     val = assemble(one*dx)
     return val
 
 
-def compTracerMass3d(scalarFunc, dx):
+def compTracerMass3d(scalarFunc):
+    mesh = scalarFunc.function_space().mesh()
+    dx = mesh._dx
     val = assemble(scalarFunc*dx)
     return val
 

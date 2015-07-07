@@ -413,17 +413,15 @@ class flowSolver(object):
         next_export_t = t + self.TExport
 
         # initialize conservation checks
-        dx_3d = self.eq_momentum.dx
-        dx_2d = self.eq_sw.dx
         if self.checkVolConservation2d:
             eta = self.solution2d.split()[1]
-            Vol2d_0 = compVolume2d(eta, self.bathymetry2d, dx_2d)
+            Vol2d_0 = compVolume2d(eta, self.bathymetry2d)
             printInfo('Initial volume 2d {0:f}'.format(Vol2d_0))
         if self.checkVolConservation3d:
-            Vol3d_0 = compVolume3d(dx_3d)
+            Vol3d_0 = compVolume3d(self.mesh)
             printInfo('Initial volume 3d {0:f}'.format(Vol3d_0))
         if self.checkSaltConservation:
-            Mass3d_0 = compTracerMass3d(self.salt3d, dx_3d)
+            Mass3d_0 = compTracerMass3d(self.salt3d)
             printInfo('Initial salt mass {0:f}'.format(Mass3d_0))
         if self.checkSaltDeviation:
             saltVal = self.salt3d.dat.data.mean()
@@ -453,11 +451,11 @@ class flowSolver(object):
 
                 if self.checkVolConservation2d:
                     Vol2d = compVolume2d(self.solution2d.split()[1],
-                                         self.bathymetry2d, dx_2d)
+                                         self.bathymetry2d)
                 if self.checkVolConservation3d:
-                    Vol3d = compVolume3d(dx_3d)
+                    Vol3d = compVolume3d(self.mesh)
                 if self.checkSaltConservation:
-                    Mass3d = compTracerMass3d(self.salt3d, dx_3d)
+                    Mass3d = compTracerMass3d(self.salt3d)
                 if self.checkSaltDeviation:
                     saltMin = self.salt3d.dat.data.min()
                     saltMax = self.salt3d.dat.data.max()
@@ -629,10 +627,9 @@ class flowSolver2d(object):
         next_export_t = t + self.TExport
 
         # initialize conservation checks
-        dx_2d = self.eq_sw.dx
         if self.checkVolConservation2d:
             eta = self.solution2d.split()[1]
-            Vol2d_0 = compVolume2d(eta, self.bathymetry2d, dx_2d)
+            Vol2d_0 = compVolume2d(eta, self.bathymetry2d)
             printInfo('Initial volume 2d {0:f}'.format(Vol2d_0))
 
         # initial export
@@ -669,7 +666,7 @@ class flowSolver2d(object):
 
                 if self.checkVolConservation2d:
                     Vol2d = compVolume2d(self.solution2d.split()[1],
-                                       self.bathymetry2d, dx_2d)
+                                       self.bathymetry2d)
                 if commrank == 0:
                     line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                             'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
