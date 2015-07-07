@@ -1,25 +1,25 @@
-# Stommel gyre test case
-# ===================
+# Stommel gyre test case in 3D
+# ============================
 #
-# Setup is according to Comblen et al. (2010).
+# Wind-driven geostrophic gyre in larege basin.
+# Setup is according to [1]. This version us for 3D equations. As the problem
+# is purely baroclinic the solution is the same as in 2D.
+#
+# [1] Comblen, R., Lambrechts, J., Remacle, J.-F., and Legat, V. (2010).
+#     Practical evaluation of five partly discontinuous finite element pairs
+#     for the non-conservative shallow water equations. International Journal
+#     for Numerical Methods in Fluids, 63(6):701-724.
 #
 # Tuomas Karna 2015-04-28
 
 from cofs import *
-import cofs.timeIntegration as timeIntegration
-import time as timeMod
-
-#parameters["pyop2_options"]["lazy_evaluation"] = False
-#parameters["assembly_cache"]["enabled"] = False
-
-# set physical constants
-physical_constants['z0_friction'].assign(0.0)
 
 mesh2d = Mesh('stommel_square.msh')
-nonlin = False
+outputDir = createDirectory('outputs')
+printInfo('Loaded mesh '+mesh2d.name)
+printInfo('Exporting to '+outputDir)
 depth = 1000.0
 layers = 6
-outputDir = createDirectory('outputs')
 T = 75*12*2*3600.
 TExport = 3600.*2
 
@@ -46,7 +46,7 @@ windStress2d.interpolate(Expression(('tau_max*sin(pi*x[1]/L)', '0'), tau_max=tau
 lin_drag = Constant(1e-6)
 
 # --- create solver ---
-solverObj = solver.flowSolverMimetic(mesh2d, bathymetry2d, layers)
+solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
 solverObj.cfl_2d = 1.0
 solverObj.nonlin = False
 solverObj.solveSalt = False
@@ -69,7 +69,6 @@ solverObj.checkVolConservation3d = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
                             'w3d', 'uv2d_dav']
 solverObj.timerLabels = []
-#solverObj.timeStepperType = 'CrankNicolson'
 
 solverObj.mightyCreator()
 solverObj.assignInitialConditions()
