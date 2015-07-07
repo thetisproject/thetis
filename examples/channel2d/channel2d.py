@@ -1,22 +1,32 @@
-# Idealised channel flow in 3D
-# ============================
+# 2D shallow water equations in a closed channel
+# ==============================================
 #
-# Solves hydrostatic flow in a rectangular channel.
+# Solves shallow water equations in closed rectangular domain
+# with sloping bathymetry.
+#
+# Initially water elevation is set to a piecewise linear function
+# with a slope in the deeper (left) end of the domain. This results
+# in a wave that develops a shock as it reaches shallower end of the domain.
+# This example tests the integrity of the 2D mode and stability of momentum
+# advection.
+#
+# Setting
+# solverObj.nonlin = False
+# uses linear wave equation instead, and no shock develops.
 #
 # Tuomas Karna 2015-03-03
 from scipy.interpolate import interp1d
 from cofs import *
 
-# set physical constants
-physical_constants['z0_friction'].assign(5.0e-5)
-
-
-nonlin = True
-n_layers = 6
 outputDir = createDirectory('outputs')
 mesh2d = Mesh('channel_mesh.msh')
+printInfo('Loaded mesh '+mesh2d.name)
+printInfo('Exporting to '+outputDir)
+# total duration in seconds
 T = 48 * 3600
-Umag = Constant(6.0)  # 4.2 closed
+# estimate of max advective velocity used to estimate time step
+Umag = Constant(6.0)
+# export interval in seconds
 TExport = 100.0
 
 # bathymetry
@@ -39,7 +49,7 @@ x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 bathymetry2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
 # --- create solver ---
-solverObj = solver.flowSolver2dMimetic(mesh2d, bathymetry2d, order=1)
+solverObj = solver.flowSolver2d(mesh2d, bathymetry2d, order=1)
 solverObj.cfl_2d = 1.0
 #solverObj.nonlin = False
 solverObj.TExport = TExport
@@ -49,11 +59,11 @@ solverObj.uAdvection = Umag
 solverObj.checkVolConservation2d = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d']
 solverObj.timerLabels = []
-#solverObj.timeStepperType = 'CrankNicolson'
-solverObj.timeStepperType = 'SSPRK33'
+#solverObj.timeStepperType = 'SSPRK33'
+solverObj.timeStepperType = 'CrankNicolson'
+solverObj.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
 
-solverObj.mightyCreator()
-# initial conditions
+# initial conditions, piecewise linear function
 elev_x = np.array([0, 30e3, 100e3])
 elev_v = np.array([6, 0, 0])
 

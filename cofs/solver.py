@@ -601,8 +601,8 @@ class flowSolver2d(object):
             'uv2d': (uv2d, self.U_visu_2d),
             'elev2d': (eta2d, self.H_visu_2d),
             }
-        self.exporter = exportManager(self.outputDir, self.fieldsToExport,
-                                      exportFuncs, verbose=self.verbose > 0)
+        self.exporter = exporter.exportManager(self.outputDir, self.fieldsToExport,
+                                               exportFuncs, verbose=self.verbose > 0)
         self._initialized = True
 
     def assignInitialConditions(self, elev=None, uv_init=None):
