@@ -1,7 +1,21 @@
 # Idealised channel flow in 3D
 # ============================
 #
-# Solves hydrostatic flow in a closed rectangular channel.
+# Solves shallow water equations in closed rectangular domain
+# with sloping bathymetry.
+#
+# Initially water elevation is set to a piecewise linear function
+# with a slope in the deeper (left) end of the domain. This results
+# in a wave that develops a shock as it reaches shallower end of the domain.
+# This example tests the integrity of the coupled 2D-3D model and stability
+# of momentum advection.
+#
+# This test is also useful for testing tracer conservation and consistency
+# by advecting a constant passive tracer.
+#
+# Setting
+# solverObj.nonlin = False
+# uses linear wave equation instead, and no shock develops.
 #
 # Tuomas Karna 2015-03-03
 
@@ -53,7 +67,7 @@ solverObj.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
                             'uv2d_dav', 'uv2d_bot', 'nuv3d']
 solverObj.timerLabels = []
 
-# initial conditions
+# initial conditions, piecewise linear function
 elev_x = np.array([0, 30e3, 100e3])
 elev_v = np.array([6, 0, 0])
 
@@ -69,8 +83,5 @@ elev_init = Function(P1_2d)
 elev_init.dat.data[:] = elevation(x_func.dat.data, 0, 0,
                                   elev_x, elev_v)
 salt_init3d = Constant(4.5)
-#solverObj.mightyCreator()
-#salt_init3d = Function(solverObj.P1).interpolate(Expression('4.5*0.5*(1.0 - tanh((x[0]-20.0e3)/5000.0))'))
-
 solverObj.assignInitialConditions(elev=elev_init, salt=salt_init3d)
 solverObj.iterate()

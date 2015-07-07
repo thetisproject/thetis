@@ -1,10 +1,15 @@
 # Idealised channel flow in 3D
 # ============================
 #
-# Solves hydrostatic flow in a rectangular channel forced by tides.
+# Solves shallow water equations in closed rectangular domain
+# with sloping bathymetry.
+#
+# Flow is forced with tidal volume flux in the deep (ocean) end of the
+# channel, and a constant volume flux in the shallow (river) end.
+#
+# This test is useful for testing open boundary conditions.
 #
 # Tuomas Karna 2015-03-03
-
 from scipy.interpolate import interp1d
 from cofs import *
 
@@ -63,43 +68,49 @@ un_river = -0.3
 flux_river = L_y*depth_riv*un_river
 t = 0.0
 T_ramp = 1000.0
-ocean_elev_func = lambda t: h_amp * sin(2 * pi * t / h_T)  # + 3*pi/2)
-ocean_elev = Constant(ocean_elev_func(t))
-ocean_un_func = lambda t: (un_amp*sin(2 * pi * t / h_T) -
-                           un_river)*min(t/T_ramp, 1.0)
-ocean_un = Constant(ocean_un_func(t))
+# python function that returns time dependent boundary values
 ocean_flux_func = lambda t: (flux_amp*sin(2 * pi * t / h_T) -
                              flux_river)*min(t/T_ramp, 1.0)
-ocean_flux = Constant(ocean_flux_func(t))
 river_flux_func = lambda t: flux_river*min(t/T_ramp, 1.0)
+# Constants that will be fed to the model
+ocean_flux = Constant(ocean_flux_func(t))
 river_flux = Constant(river_flux_func(t))
 
+# boundary conditions are defined with a dict
+# key defines the type of bnd condition, value the necessary coefficient(s)
+# here setting outward bnd flux (positive outward)
 ocean_funcs = {'flux': ocean_flux}
 river_funcs = {'flux': river_flux}
 ocean_funcs_3d = {'flux': ocean_flux}
 river_funcs_3d = {'flux': river_flux}
-#ocean_funcs_3d = {'symm': None}
-#river_funcs_3d = {'symm': None}
+# and constant salinity (for inflow)
 ocean_salt_3d = {'value': salt_init3d}
 river_salt_3d = {'value': salt_init3d}
-solverObj.bnd_functions['shallow_water'] = {2: ocean_funcs, 1: river_funcs}
+# bnd conditions are assigned to each boundary tag with another dict
+ocean_tag = 2
+river_tag = 1
+# assigning conditions for each equation
+# these must be assigned before equations are created
+solverObj.bnd_functions['shallow_water'] = {ocean_tag: ocean_funcs,
+                                            river_tag: river_funcs}
 solverObj.bnd_functions['momentum'] = {2: ocean_funcs_3d, 1: river_funcs_3d}
 solverObj.bnd_functions['salt'] = {2: ocean_salt_3d, 1: river_salt_3d}
 
 
 def updateForcings(t_new):
-    ocean_elev.dat.data[:] = ocean_elev_func(t_new)
-    ocean_un.dat.data[:] = ocean_un_func(t_new)
-    ocean_flux.dat.data[:] = ocean_flux_func(t_new)
-    river_flux.dat.data[:] = river_flux_func(t_new)
+    """Callback function that updates all time dependent forcing fields
+    for the 2d mode"""
+    ocean_flux.assign(ocean_flux_func(t_new))
+    river_flux.assign(river_flux_func(t_new))
 
 
 def updateForcings3d(t_new):
-    ocean_elev.dat.data[:] = ocean_elev_func(t_new)
-    ocean_un.dat.data[:] = ocean_un_func(t_new)
-    ocean_flux.dat.data[:] = ocean_flux_func(t_new)
-    river_flux.dat.data[:] = river_flux_func(t_new)
+    """Callback function that updates all time dependent forcing fields
+    for the 3D mode"""
+    ocean_flux.assign(ocean_flux_func(t_new))
+    river_flux.assign(river_flux_func(t_new))
 
+# set init conditions, this will create all function spaces, equations etc
 solverObj.assignInitialConditions(salt=salt_init3d)
 solverObj.iterate(updateForcings=updateForcings,
                   updateForcings3d=updateForcings3d)
