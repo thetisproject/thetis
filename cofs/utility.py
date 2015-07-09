@@ -253,22 +253,6 @@ def computeVertVelocity(solution, uv, bathymetry,
     return solution
 
 
-def computeVolumeFlux(uv, H, solution, dx, solver_parameters={}):
-    solver_parameters.setdefault('ksp_atol', 1e-12)
-    solver_parameters.setdefault('ksp_rtol', 1e-16)
-    key = '-'.join((solution.name(), uv.name()))
-    if key not in linProblemCache:
-        test = TestFunction(solution.function_space())
-        tri = TrialFunction(solution.function_space())
-        a = inner(tri, test)*dx
-        L = inner(uv*H, test)*dx
-        prob = LinearVariationalProblem(a, L, solution)
-        solver = LinearVariationalSolver(
-            prob, solver_parameters=solver_parameters)
-        linProblemCache.add(key, solver, 'volumeFlux')
-    linProblemCache[key].solve()
-
-
 @timed_function('func_vert_int')
 def computeVerticalIntegral(input, output, space, bottomToTop=True,
                             bndValue=Constant(0.0), average=False,

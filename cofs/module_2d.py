@@ -17,7 +17,6 @@ class shallowWaterEquations(equation):
                  coriolis=None,
                  wind_stress=None,
                  uvLaxFriedrichs=None,
-                 volumeFlux=None,
                  nonlin=True):
         self.mesh = mesh
         self.space = space
@@ -37,7 +36,6 @@ class shallowWaterEquations(equation):
                        'coriolis': coriolis,
                        'wind_stress': wind_stress,
                        'uvLaxFriedrichs': uvLaxFriedrichs,
-                       'volumeFlux': volumeFlux,
                        }
 
         # create mixed function space
@@ -149,44 +147,26 @@ class shallowWaterEquations(equation):
             f = g_grav*inner(grad(head), self.U_test) * self.dx
         return f
 
-    def HUDivTerm(self, uv, total_H, volumeFlux=None, **kwargs):
+    def HUDivTerm(self, uv, total_H, **kwargs):
         if self.huByParts:
-            if volumeFlux is not None:
-                f = -inner(grad(self.eta_test), volumeFlux)*self.dx
-                if self.eta_is_DG:
-                    f += avg(volumeFlux)*jump(self.eta_test, self.normal)*self.dS
-                for bnd_marker in self.boundary_markers:
-                    funcs = self.bnd_functions.get(bnd_marker)
-                    ds_bnd = self.ds(int(bnd_marker))
-                    if funcs is not None and 'symm' in funcs:
-                        f += inner(volumeFlux, self.normal)*self.eta_test*ds_bnd
-            else:
-                f = -inner(grad(self.eta_test), total_H*uv)*self.dx
-                if self.eta_is_DG:
-                    Hu_star = avg(total_H*uv) +\
-                        0.5*sqrt(g_grav*avg(total_H))*jump(total_H, self.normal)
-                    f += inner(jump(self.eta_test, self.normal), Hu_star)*self.dS
-                for bnd_marker in self.boundary_markers:
-                    funcs = self.bnd_functions.get(bnd_marker)
-                    ds_bnd = self.ds(int(bnd_marker))
-                    if funcs is not None and 'symm' in funcs:
-                        f += total_H*inner(self.normal, uv)*self.eta_test*ds_bnd
+            f = -inner(grad(self.eta_test), total_H*uv)*self.dx
+            if self.eta_is_DG:
+                Hu_star = avg(total_H*uv) +\
+                    0.5*sqrt(g_grav*avg(total_H))*jump(total_H, self.normal)
+                f += inner(jump(self.eta_test, self.normal), Hu_star)*self.dS
+            for bnd_marker in self.boundary_markers:
+                funcs = self.bnd_functions.get(bnd_marker)
+                ds_bnd = self.ds(int(bnd_marker))
+                if funcs is not None and 'symm' in funcs:
+                    f += total_H*inner(self.normal, uv)*self.eta_test*ds_bnd
         else:
-            if volumeFlux is not None:
-                f = div(volumeFlux)*self.eta_test*self.dx
-                for bnd_marker in self.boundary_markers:
-                    funcs = self.bnd_functions.get(bnd_marker)
-                    ds_bnd = self.ds(int(bnd_marker))
-                    if funcs is None:
-                        f += -dot(volumeFlux, self.normal)*self.eta_test*ds_bnd
-            else:
-                f = div(total_H*uv)*self.eta_test*self.dx
-                for bnd_marker in self.boundary_markers:
-                    funcs = self.bnd_functions.get(bnd_marker)
-                    ds_bnd = self.ds(int(bnd_marker))
-                    if funcs is None:
-                        f += -total_H*dot(uv, self.normal)*self.eta_test*ds_bnd
-                # f += -avg(total_H)*avg(dot(uv, normal))*jump(self.eta_test)*dS
+            f = div(total_H*uv)*self.eta_test*self.dx
+            for bnd_marker in self.boundary_markers:
+                funcs = self.bnd_functions.get(bnd_marker)
+                ds_bnd = self.ds(int(bnd_marker))
+                if funcs is None:
+                    f += -total_H*dot(uv, self.normal)*self.eta_test*ds_bnd
+            # f += -avg(total_H)*avg(dot(uv, normal))*jump(self.eta_test)*dS
         return f
 
     def horizontalAdvection(self, uv, uvLaxFriedrichs):
@@ -220,7 +200,7 @@ class shallowWaterEquations(equation):
                             f += gamma*dot(self.U_test, uv-uv_ext)*ds_bnd
         return f
 
-    def RHS_implicit(self, solution, wind_stress=None, volumeFlux=None,
+    def RHS_implicit(self, solution, wind_stress=None,
                      **kwargs):
         """Returns all the terms that are treated semi-implicitly.
         """
@@ -237,7 +217,7 @@ class shallowWaterEquations(equation):
         F += self.pressureGrad(eta, uv, total_H)
 
         # Divergence of depth-integrated velocity
-        F += self.HUDivTerm(uv, total_H, volumeFlux)
+        F += self.HUDivTerm(uv, total_H)
 
         # boundary conditions
         for bnd_marker in self.boundary_markers:
@@ -544,39 +524,26 @@ class freeSurfaceEquation(equation):
 
         return F * self.dx
 
-    def HUDivTerm(self, uv, total_H, volumeFlux=None, **kwargs):
+    def HUDivTerm(self, uv, total_H, **kwargs):
         if self.huByParts:
-            if volumeFlux is not None:
-                f = -inner(grad(self.test), volumeFlux)*self.dx
-                if self.eta_is_DG:
-                    f += jump(volumeFlux*self.test, self.normal)*self.dS
-            else:
-                f = -inner(grad(self.test), total_H*uv)*self.dx
-                if self.eta_is_DG:
-                    #f += avg(total_H)*jump(uv*self.test,
-                                           #self.normal)*self.dS # NOTE fails
-                    Hu_star = avg(total_H*uv) +\
-                        0.5*sqrt(g_grav*avg(total_H))*jump(total_H, self.normal) # NOTE works
-                    #Hu_star = avg(total_H*uv) # NOTE fails
-                    f += inner(jump(self.test, self.normal), Hu_star)*self.dS
-                    # TODO come up with better stabilization here!
-                    # NOTE scaling sqrt(gH) doesn't help
+            f = -inner(grad(self.test), total_H*uv)*self.dx
+            if self.eta_is_DG:
+                #f += avg(total_H)*jump(uv*self.test,
+                                        #self.normal)*self.dS # NOTE fails
+                Hu_star = avg(total_H*uv) +\
+                    0.5*sqrt(g_grav*avg(total_H))*jump(total_H, self.normal) # NOTE works
+                #Hu_star = avg(total_H*uv) # NOTE fails
+                f += inner(jump(self.test, self.normal), Hu_star)*self.dS
+                # TODO come up with better stabilization here!
+                # NOTE scaling sqrt(gH) doesn't help
         else:
-            if volumeFlux is not None:
-                f = div(volumeFlux)*self.test*self.dx
-                for bnd_marker in self.boundary_markers:
-                    funcs = self.bnd_functions.get(bnd_marker)
-                    ds_bnd = self.ds(int(bnd_marker))
-                    if funcs is None:
-                        f += -dot(volumeFlux, self.normal)*self.test*ds_bnd
-            else:
-                f = div(total_H*uv)*self.test*self.dx
-                for bnd_marker in self.boundary_markers:
-                    funcs = self.bnd_functions.get(bnd_marker)
-                    ds_bnd = self.ds(int(bnd_marker))
-                    if funcs is None:
-                        f += -total_H*dot(uv, self.normal)*self.test*ds_bnd
-                # f += -avg(total_H)*avg(dot(uv, normal))*jump(self.test)*dS
+            f = div(total_H*uv)*self.test*self.dx
+            for bnd_marker in self.boundary_markers:
+                funcs = self.bnd_functions.get(bnd_marker)
+                ds_bnd = self.ds(int(bnd_marker))
+                if funcs is None:
+                    f += -total_H*dot(uv, self.normal)*self.test*ds_bnd
+            # f += -avg(total_H)*avg(dot(uv, normal))*jump(self.test)*dS
         return f
 
     def RHS_implicit(self, solution, wind_stress=None, **kwargs):
@@ -599,7 +566,7 @@ class freeSurfaceEquation(equation):
             total_H = self.bathymetry
 
         # Divergence of depth-integrated velocity
-        F += self.HUDivTerm(uv, total_H, volumeFlux=None)
+        F += self.HUDivTerm(uv, total_H)
 
         # boundary conditions
         for bnd_marker in self.boundary_markers:

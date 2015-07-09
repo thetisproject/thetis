@@ -560,7 +560,6 @@ class flowSolver2d(object):
 
         # ----- fields
         self.solution2d = Function(self.V_2d, name='solution2d')
-        # self.volumeFlux2d = Function(self.U_2d, name='volumeFlux2d')
 
         # ----- Equations
         self.eq_sw = module_2d.shallowWaterEquations(
@@ -570,7 +569,6 @@ class flowSolver2d(object):
             uvLaxFriedrichs=self.uvLaxFriedrichs,
             coriolis=self.coriolis,
             wind_stress=self.wind_stress,
-            volumeFlux=None,
             nonlin=self.nonlin)
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
@@ -642,16 +640,6 @@ class flowSolver2d(object):
 
             self.timeStepper.advance(t, self.dt, self.solution2d,
                                      updateForcings)
-            #for isub in range(3):
-                ##uv, eta = self.solution2d.split()
-                ##if self.nonlin:
-                    ##computeVolumeFlux(uv, (eta+self.bathymetry2d),
-                                      ##self.volumeFlux2d, self.eq_sw.dx)
-                ##else:
-                    ##computeVolumeFlux(uv, self.bathymetry2d,
-                                      ##self.volumeFlux2d, self.eq_sw.dx)
-                #self.timeStepper.solveStage(isub, t, self.dt, self.solution2d,
-                                            #updateForcings)
 
             # Move to next time step
             t += self.dt
