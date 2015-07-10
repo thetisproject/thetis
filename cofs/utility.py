@@ -241,7 +241,7 @@ def computeVertVelocity(solution, uv, bathymetry,
                 continue
             else:
                 # use symmetry condition
-                L += -(uv[0]*normal[0]  + uv[1]*normal[1])*test[2]*ds_bnd
+                L += -(uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_bnd
 
         prob = LinearVariationalProblem(a, L, solution)
         solver = LinearVariationalSolver(

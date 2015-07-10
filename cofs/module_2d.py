@@ -67,6 +67,7 @@ class shallowWaterEquations(equation):
         self.boundary_markers = set(self.mesh.exterior_facets.unique_markers)
 
         # compute length of all boundaries
+        # FIXME not parallel safe!
         self.boundary_len = {}
         for i in self.boundary_markers:
             ds_restricted = Measure('ds', subdomain_id=int(i))
