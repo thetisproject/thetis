@@ -6,7 +6,6 @@ Finite element flow solver for coastal and estuarine flows.
 
 - Install firedrake with all its dependencies
 - COFS currenlty needs the following branches:
-    - COFFEE: more-faster
     - ffc: extruded-facet-support-dofs *and* fd_bendy
     - ufl: fd_bendy
     - fiat: extruded-facet-support-dofs
