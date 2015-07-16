@@ -869,7 +869,7 @@ class EquationOfState(object):
     [1] Jackett, D. R., McDougall, T. J., Feistel, R., Wright, D. G., and
         Griffies, S. M. (2006). Algorithms for Density, Potential Temperature,
         Conservative Temperature, and the Freezing Temperature of Seawater.
-        Journal of Atmospheric and Oceanic Technology, 23(12):1709–1728.
+        Journal of Atmospheric and Oceanic Technology, 23(12):1709-1728.
     """
     def __init__(self):
         # polynomial coefficients
