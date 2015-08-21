@@ -146,6 +146,11 @@ class shallowWaterEquations(equation):
                     f += g_grav*head*dot(self.U_test, self.normal)*ds_bnd
         else:
             f = g_grav*inner(grad(head), self.U_test) * self.dx
+            for bnd_marker in self.boundary_markers:
+                funcs = self.bnd_functions.get(bnd_marker)
+                ds_bnd = self.ds(int(bnd_marker))
+                if funcs is not None and 'elev' in funcs:
+                    f -= g_grav*head*dot(self.U_test, self.normal)*ds_bnd
         return f
 
     def HUDivTerm(self, uv, total_H, **kwargs):
@@ -165,7 +170,7 @@ class shallowWaterEquations(equation):
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds(int(bnd_marker))
-                if funcs is None:
+                if funcs is None or 'un' in funcs:
                     f += -total_H*dot(uv, self.normal)*self.eta_test*ds_bnd
             # f += -avg(total_H)*avg(dot(uv, normal))*jump(self.eta_test)*dS
         return f
@@ -199,6 +204,14 @@ class shallowWaterEquations(equation):
                             uv_ext = uv - 2*un*self.normal
                             gamma = 0.5*abs(un)*uvLaxFriedrichs
                             f += gamma*dot(self.U_test, uv-uv_ext)*ds_bnd
+            for bnd_marker in self.boundary_markers:
+                funcs = self.bnd_functions.get(bnd_marker)
+                ds_bnd = self.ds(int(bnd_marker))
+                if funcs is None or not 'un' in funcs:
+                    f += (uv[0]*self.U_test[0]*uv[0]*self.normal[0] +
+                          uv[1]*self.U_test[1]*uv[0]*self.normal[0] +
+                          uv[0]*self.U_test[0]*uv[1]*self.normal[1] +
+                          uv[1]*self.U_test[1]*uv[1]*self.normal[1])*ds_bnd
         return f
 
     def RHS_implicit(self, solution, wind_stress=None,
@@ -240,13 +253,15 @@ class shallowWaterEquations(equation):
                     H = self.bathymetry + (eta + h_ext) / 2
                 else:
                     H = self.bathymetry
-                c_roe = sqrt(g_grav * H)
-                un_riemann = dot(uv, self.normal) + c_roe / H * (eta - h_ext)/2
-                H_riemann = H
-                ut_riemann = tanh(4 * un_riemann / 0.02) * (ut_in)
-                uv_riemann = un_riemann * self.normal + ut_riemann * t
 
-                G += H_riemann * un_riemann * self.eta_test * ds_bnd
+                if self.huByParts:
+                    c_roe = sqrt(g_grav * H)
+                    un_riemann = dot(uv, self.normal) + c_roe / H * (eta - h_ext)/2
+                    H_riemann = H
+                    ut_riemann = tanh(4 * un_riemann / 0.02) * (ut_in)
+                    uv_riemann = un_riemann * self.normal + ut_riemann * t
+
+                    G += H_riemann * un_riemann * self.eta_test * ds_bnd
                 # added correct flux for eta
                 G += g_grav * h_ext * \
                     inner(self.normal, self.U_test) * ds_bnd
@@ -257,8 +272,9 @@ class shallowWaterEquations(equation):
                 un_in = dot(uv, self.normal)
                 un_riemann = (un_in + un_ext)/2
                 G += total_H * un_riemann * self.eta_test * ds_bnd
-                G += g_grav * eta * \
-                    inner(self.normal, self.U_test) * ds_bnd
+                if self.gradEtaByParts:
+                    G += g_grav * eta * \
+                        inner(self.normal, self.U_test) * ds_bnd
 
             elif 'flux' in funcs:
                 # prescribe normal volume flux
