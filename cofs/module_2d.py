@@ -163,7 +163,7 @@ class shallowWaterEquations(equation):
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds(int(bnd_marker))
-                if funcs is not None and 'symm' in funcs:
+                if funcs is not None and ('symm' in funcs or 'elev' in funcs):
                     f += total_H*inner(self.normal, uv)*self.eta_test*ds_bnd
         else:
             f = div(total_H*uv)*self.eta_test*self.dx
@@ -254,14 +254,15 @@ class shallowWaterEquations(equation):
                 else:
                     H = self.bathymetry
 
-                if self.huByParts:
-                    c_roe = sqrt(g_grav * H)
-                    un_riemann = dot(uv, self.normal) + c_roe / H * (eta - h_ext)/2
-                    H_riemann = H
-                    ut_riemann = tanh(4 * un_riemann / 0.02) * (ut_in)
-                    uv_riemann = un_riemann * self.normal + ut_riemann * t
+                # replaced by simple dot(uv, n)*eta_test*ds in HUDivTerm()
+                #if self.huByParts:
+                #    c_roe = sqrt(g_grav * H)
+                #    un_riemann = dot(uv, self.normal) + c_roe / H * (eta - h_ext)/2
+                #    H_riemann = H
+                #    ut_riemann = tanh(4 * un_riemann / 0.02) * (ut_in)
+                #    uv_riemann = un_riemann * self.normal + ut_riemann * t
+                #    G += H_riemann * un_riemann * self.eta_test * ds_bnd
 
-                    G += H_riemann * un_riemann * self.eta_test * ds_bnd
                 # added correct flux for eta
                 G += g_grav * h_ext * \
                     inner(self.normal, self.U_test) * ds_bnd
@@ -439,7 +440,6 @@ class shallowWaterEquations(equation):
             F += self.pressureGrad(baro_head, None, None, internalPG=True)
 
         return -F
-
 
 class freeSurfaceEquation(equation):
     """Non-conservative free surface equation written for depth averaged
