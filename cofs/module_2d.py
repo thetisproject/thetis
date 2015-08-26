@@ -242,6 +242,14 @@ class shallowWaterEquations(equation):
             elif 'elev' in funcs:
                 # prescribe elevation only
                 h_ext = funcs['elev']
+                # added correct flux for eta
+                G += g_grav * h_ext * \
+                    inner(self.normal, self.U_test) * ds_bnd
+
+
+                # Riemann terms replaced by simple dot(uv, n)*eta_test*ds in HUDivTerm()
+                continue
+
                 uv_ext = uv
                 t = self.normal[1] * self.e_x - self.normal[0] * self.e_y
                 ut_in = dot(uv, t)
@@ -254,18 +262,13 @@ class shallowWaterEquations(equation):
                 else:
                     H = self.bathymetry
 
-                # replaced by simple dot(uv, n)*eta_test*ds in HUDivTerm()
-                #if self.huByParts:
-                #    c_roe = sqrt(g_grav * H)
-                #    un_riemann = dot(uv, self.normal) + c_roe / H * (eta - h_ext)/2
-                #    H_riemann = H
-                #    ut_riemann = tanh(4 * un_riemann / 0.02) * (ut_in)
-                #    uv_riemann = un_riemann * self.normal + ut_riemann * t
-                #    G += H_riemann * un_riemann * self.eta_test * ds_bnd
-
-                # added correct flux for eta
-                G += g_grav * h_ext * \
-                    inner(self.normal, self.U_test) * ds_bnd
+                if self.huByParts:
+                    c_roe = sqrt(g_grav * H)
+                    un_riemann = dot(uv, self.normal) + c_roe / H * (eta - h_ext)/2
+                    H_riemann = H
+                    ut_riemann = tanh(4 * un_riemann / 0.02) * (ut_in)
+                    uv_riemann = un_riemann * self.normal + ut_riemann * t
+                    G += H_riemann * un_riemann * self.eta_test * ds_bnd
 
             elif 'un' in funcs:
                 # prescribe normal velocity (negative into domain)
@@ -334,6 +337,10 @@ class shallowWaterEquations(equation):
                         inner(slipFactor*viscosity_h*ut*t, self.U_test)*ds_bnd
 
             elif 'elev' in funcs:
+
+                # Riemann terms replaced by integration-by-parts term from advection in horizontalAdvection()
+                continue
+
                 # prescribe elevation only
                 h_ext = funcs['elev']
                 uv_ext = uv
