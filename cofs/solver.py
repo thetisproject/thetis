@@ -8,6 +8,7 @@ import module_2d
 import module_3d
 import timeIntegrator as timeIntegrator
 import coupledTimeIntegrator as coupledTimeIntegrator
+import limiter
 import time as timeMod
 from mpi4py import MPI
 import exporter
@@ -55,6 +56,7 @@ class flowSolver(object):
         self.smagorinskyFactor = None  # set to a Constant to use smag. visc.
         self.saltJumpDiffFactor = None  # set to a Constant to use nonlin diff.
         self.saltRange = Constant(30.0)  # value scale for salt to scale jumps
+        self.useLimiterForTracers = False  # apply P1DG limiter
         self.uvLaxFriedrichs = Constant(1.0)  # scales uv stab. None omits
         self.tracerLaxFriedrichs = Constant(1.0)  # scales tracer stab. None omits
         self.checkVolConservation2d = False
@@ -249,6 +251,12 @@ class flowSolver(object):
         else:
             self.saltJumpDiff = None
             self.tot_salt_h_diff = self.hDiffusivity
+        if self.useLimiterForTracers:
+            self.tracerLimiter = limiter.vertexBasedP1DGLimiter(self.H,
+                                                                self.P1,
+                                                                self.P0)
+        else:
+            self.tracerLimiter = None
 
         # set initial values
         copy2dFieldTo3d(self.bathymetry2d, self.bathymetry3d)

@@ -376,6 +376,8 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
                 if s.solveSalt:
                     self.timeStepper_salt3d.solveStage(k, t, s.dt, s.salt3d,
                                                        updateForcings3d)
+                    if s.useLimiterForTracers:
+                        s.tracerLimiter.apply(s.salt3d)
             with timed_region('momentumEq'):
                 self.timeStepper_mom3d.solveStage(k, t, s.dt, s.uv3d)
             with timed_region('mode2d'):
