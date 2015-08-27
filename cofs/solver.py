@@ -12,6 +12,7 @@ import time as timeMod
 from mpi4py import MPI
 import exporter
 
+
 class flowSolver(object):
     """Creates and solves coupled 2D-3D equations"""
     def __init__(self, mesh2d, bathymetry2d, n_layers, order=1):
@@ -59,7 +60,8 @@ class flowSolver(object):
         self.checkVolConservation2d = False
         self.checkVolConservation3d = False
         self.checkSaltConservation = False
-        self.checkSaltDeviation = False
+        self.checkSaltDeviation = False  # print deviation from mean of initial value
+        self.checkSaltOvershoot = False  # print overshoots that exceed initial range  
         self.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion',
                             'continuityEq', 'saltEq', 'aux_eta3d',
                             'aux_mesh_ale', 'aux_friction', 'aux_barolinicity',
@@ -426,6 +428,10 @@ class flowSolver(object):
         if self.checkSaltDeviation:
             saltVal = self.salt3d.dat.data.mean()
             printInfo('Initial mean salt value {0:f}'.format(saltVal))
+        if self.checkSaltOvershoot:
+            saltMin0 = self.salt3d.dat.data.min()
+            saltMax0 = self.salt3d.dat.data.max()
+            printInfo('Initial salt value range {0:.3f}-{1:.3f}'.format(saltMin0, saltMax0))
 
         # initial export
         self.exporter.export()
@@ -463,6 +469,14 @@ class flowSolver(object):
                     saltMax = op2.MPI.COMM.allreduce(saltMax, op=MPI.MAX)
                     saltDev = ((saltMin-saltVal)/saltVal,
                                (saltMax-saltVal)/saltVal)
+                if self.checkSaltOvershoot:
+                    saltMin = self.salt3d.dat.data.min()
+                    saltMax = self.salt3d.dat.data.max()
+                    saltMin = op2.MPI.COMM.allreduce(saltMin, op=MPI.MIN)
+                    saltMax = op2.MPI.COMM.allreduce(saltMax, op=MPI.MAX)
+                    overshoot = max(saltMax-saltMax0, 0.0)
+                    undershoot = min(saltMin-saltMin0, 0.0)
+                    saltOversh = (undershoot, overshoot)
                 if commrank == 0:
                     line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                             'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
@@ -478,6 +492,8 @@ class flowSolver(object):
                                           (Mass3d_0 - Mass3d)/Mass3d_0))
                     if self.checkSaltDeviation:
                         print('salt deviation {:g} {:g}'.format(*saltDev))
+                    if self.checkSaltOvershoot:
+                        print('salt overshoots {:g} {:g}'.format(*saltOversh))
                     sys.stdout.flush()
 
                 self.exporter.export()
