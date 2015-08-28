@@ -808,10 +808,27 @@ def betaPlaneCoriolisFunction(degrees, out_function, y_offset=0.0):
 def smagorinskyViscosity(uv, output, C_s, hElemSize,
                          solver_parameters={}):
     """
-    Computes Smagorinsky subgrid scale viscosity
+    Computes Smagorinsky subgrid scale viscosity.
 
-    nu = (C_s L_x)**2 sqrt(2*( du/dx**2 + 1/2*(du/dy+dv/dx)**2 + dv/dy**2 ) )
-    C_s = 0.1 ... 0.2 (typ)
+    This formulation is according to [1] and [2].
+
+    nu = (C_s L_x)**2 |S|
+    |S| = sqrt(D_T**2 + D_S**2)
+    D_T = du/dx - dv/dy
+    D_S = du/dy + dv/dx
+    L_x is the horizontal element size
+    C_s is the Smagorinsky coefficient
+
+    To match a certain mesh Reynolds number Re_h set
+    C_s = 1/sqrt(Re_h)
+
+    [1] Ilicak et al. (2012). Spurious dianeutral mixing and the role of
+        momentum closure. Ocean Modelling, 45-46(0):37-58.
+        http://dx.doi.org/10.1016/j.ocemod.2011.10.003
+    [2] Griffies and Hallberg (2000). Biharmonic friction with a
+        Smagorinsky-like viscosity for use in large-scale eddy-permitting
+        ocean models. Monthly Weather Review, 128(8):2935-2946.
+        http://dx.doi.org/10.1175/1520-0493(2000)128%3C2935:BFWASL%3E2.0.CO;2
     """
     solver_parameters.setdefault('ksp_atol', 1e-12)
     solver_parameters.setdefault('ksp_rtol', 1e-16)
@@ -823,14 +840,12 @@ def smagorinskyViscosity(uv, output, C_s, hElemSize,
         tau = TrialFunction(fs)
 
         # rate of strain tensor
-        S = (nabla_grad(uv)+nabla_grad(uv).T)/2
-        F = C_s**2*hElemSize**2 * sqrt(2*(S[0, 0]**2 +
-                                          S[0, 1]**2 +
-                                          S[1, 0]**2 +
-                                          S[1, 1]**2))
+        D_T = Dx(uv[0], 0) - Dx(uv[1], 1)
+        D_S = Dx(uv[0], 1) + Dx(uv[1], 0)
+        nu = C_s**2*hElemSize**2 * sqrt(D_T**2 + D_S**2)
 
         a = w*tau*mesh._dx
-        L = w*F*mesh._dx
+        L = w*nu*mesh._dx
         prob = LinearVariationalProblem(a, L, output)
         solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
