@@ -94,6 +94,10 @@ class naiveFieldExporter(exporterBase):
             x = np.concatenate(tuple(rankNodeX), axis=0)
             y = np.concatenate(tuple(rankNodeY), axis=0)
             z = np.concatenate(tuple(rankNodeZ), axis=0)
+            # round coordinates to avoid noise affecting sort
+            x = np.round(x, decimals=1)
+            y = np.round(y, decimals=1)
+            z = np.round(z, decimals=5)
             self.nGlobalNodes = len(x)
             # construct global invariant node ordering
             # nodes are sorted first by z then y then x
@@ -123,7 +127,7 @@ class naiveFieldExporter(exporterBase):
             # extruded mesh generate connectivity for all layers
             nLayers = self.function_space.mesh().layers - 1  # element layers
             # connectivity for first layer
-            surfConn = self.function_space.cell_node_list
+            surfConn = self.function_space.cell_node_map().values
             # construct for all layers
             nSurfElem, nElemNode = surfConn.shape
             conn = np.zeros((nLayers*nSurfElem, nElemNode), dtype=np.int32)
@@ -132,8 +136,9 @@ class naiveFieldExporter(exporterBase):
                 conn[i*nSurfElem:(i+1)*nSurfElem, :] = surfConn + o
         else:
             # 2D mesh
-            conn = self.function_space.cell_node_list
+            conn = self.function_space.cell_node_map().values
         # construct global connectivity array
+        # NOTE connectivity table is not unique
         self.connectivity = []
         rankConn = comm.gather(conn, root=0)
         if commrank == 0:
