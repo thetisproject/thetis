@@ -79,6 +79,7 @@ solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
                             'uv2d_dav', 'uv3d_dav', 'barohead3d',
                             'barohead2d',
                             'smagViscosity', 'saltJumpDiff']
+solverObj.fieldsToExportNumpy = ['salt3d']
 solverObj.timerLabels = []
 
 solverObj.mightyCreator()

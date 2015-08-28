@@ -71,7 +71,10 @@ class flowSolver(object):
                             'func_copy2dTo3d', 'func_copy3dTo2d',
                             'func_vert_int']
         self.outputDir = 'outputs'
+        # list of fields to export in VTK format
         self.fieldsToExport = ['elev2d', 'uv2d', 'uv3d', 'w3d']
+        # list of fields to export in numpy format
+        self.fieldsToExportNumpy = []
         self.bnd_functions = {'shallow_water': {},
                               'momentum': {},
                               'salt': {}}
@@ -358,8 +361,22 @@ class flowSolver(object):
             'smagViscosity': (self.smag_viscosity, self.P1),
             'saltJumpDiff': (self.saltJumpDiff, self.P1),
             }
-        self.exporter = exporter.exportManager(self.outputDir, self.fieldsToExport,
-                                      exportFuncs, verbose=self.verbose > 0)
+        # create exportManagers and store in a list
+        self.exporters = {}
+        e = exporter.exportManager(self.outputDir,
+                                   self.fieldsToExport,
+                                   exportFuncs,
+                                   exportType='vtk',
+                                   verbose=self.verbose > 0)
+        self.exporters['vtk'] = e
+        numpyDir = os.path.join(self.outputDir, 'numpy')
+        e = exporter.exportManager(numpyDir,
+                                   self.fieldsToExportNumpy,
+                                   exportFuncs,
+                                   exportType='numpy',
+                                   verbose=self.verbose > 0)
+        self.exporters['numpy'] = e
+
         self.uvP1_projector = projector(self.uv3d, self.uv3d_P1)
         self.uvDAV_to_tmp_projector = projector(self.uv3d_dav, self.uv3d_tmp)
         self.uv2d_to_DAV_projector = projector(self.solution2d.split()[0],
@@ -442,10 +459,11 @@ class flowSolver(object):
             printInfo('Initial salt value range {0:.3f}-{1:.3f}'.format(saltMin0, saltMax0))
 
         # initial export
-        self.exporter.export()
+        for key in self.exporters:
+            self.exporters[key].export()
         if exportFunc is not None:
             exportFunc()
-        self.exporter.exportBathymetry(self.bathymetry2d)
+        self.exporters['vtk'].exportBathymetry(self.bathymetry2d)
 
         while t <= self.T + T_epsilon:
 
@@ -504,7 +522,8 @@ class flowSolver(object):
                         print('salt overshoots {:g} {:g}'.format(*saltOversh))
                     sys.stdout.flush()
 
-                self.exporter.export()
+                for key in self.exporters:
+                    self.exporters[key].export()
                 if exportFunc is not None:
                     exportFunc()
 
