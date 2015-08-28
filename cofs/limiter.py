@@ -87,7 +87,7 @@ class vertexBasedP1DGLimiter(object):
             a = tri*test*self.dx
             L = field*test*self.dx
 
-            params = {'ksp_type': 'preonly', 'pc_type': 'ilu'}
+            params = {'ksp_type': 'preonly'}
             problem = LinearVariationalProblem(a, L, self.centroids)
             solver = LinearVariationalSolver(problem,
                                              solver_parameters=params)
