@@ -124,15 +124,24 @@ class naiveFieldExporter(exporterBase):
 
         # construct local element connectivity array
         if self.function_space.extruded:
+            ufl_elem = self.function_space.ufl_element()
+            if ufl_elem.family() != 'OuterProductElement':
+                raise NotImplementedError('Only OuterProductElement is supported')
             # extruded mesh generate connectivity for all layers
             nLayers = self.function_space.mesh().layers - 1  # element layers
             # connectivity for first layer
             surfConn = self.function_space.cell_node_map().values
-            # construct for all layers
             nSurfElem, nElemNode = surfConn.shape
+            if ufl_elem._B.family() == 'Lagrange':
+                layer_node_offset = 1
+            elif ufl_elem._B.family() == 'Discontinuous Lagrange':
+                layer_node_offset = nElemNode
+            else:
+                raise NotImplementedError('Unsupported vertical space')
+            # construct element table for all layers
             conn = np.zeros((nLayers*nSurfElem, nElemNode), dtype=np.int32)
             for i in range(nLayers):
-                o = i*nElemNode
+                o = i*layer_node_offset
                 conn[i*nSurfElem:(i+1)*nSurfElem, :] = surfConn + o
         else:
             # 2D mesh
