@@ -24,12 +24,23 @@ from cofs import *
 # set physical constants
 physical_constants['z0_friction'].assign(5.0e-5)
 
-reso_str = 'coarse'
-outputDir = createDirectory('outputs_'+reso_str)
-refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4, 'medium2': 8, 'fine': 16}
+reso_str = 'coarse2'
+outputDir = createDirectory('outputs_struct_'+reso_str)
+refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4,
+              'medium2': 8, 'fine': 16}
+# set mesh resolution
+dx = 2000.0/refinement[reso_str]
 layers = int(round(10*refinement[reso_str]))
-mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
-printInfo('Loaded mesh '+mesh2d.name)
+# generate unit mesh and transform its coords
+x_max = 32.0e3
+x_min = -32.0e3
+n_x = (x_max - x_min)/dx
+mesh2d = UnitSquareMesh(n_x, 2)
+coords = mesh2d.coordinates
+# x in [x_min, x_max], y in [-dx, dx]
+coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min
+coords.dat.data[:, 1] = coords.dat.data[:, 1]*2*dx - dx
+
 printInfo('Exporting to '+outputDir)
 dt = 100.0/refinement[reso_str]
 if reso_str == 'fine':
