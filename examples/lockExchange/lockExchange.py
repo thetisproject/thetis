@@ -24,7 +24,7 @@ from cofs import *
 # set physical constants
 physical_constants['z0_friction'].assign(5.0e-5)
 
-reso_str = 'coarse2'
+reso_str = 'coarse'
 outputDir = createDirectory('outputs_struct_'+reso_str)
 refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4,
               'medium2': 8, 'fine': 16}
@@ -67,7 +67,7 @@ solverObj.useALEMovingMesh = False
 solverObj.baroclinic = True
 solverObj.uvLaxFriedrichs = Constant(1.0)
 solverObj.tracerLaxFriedrichs = Constant(1.0)
-Re_h = 2.0
+Re_h = 1.0
 solverObj.smagorinskyFactor = Constant(1.0/np.sqrt(Re_h))
 solverObj.saltJumpDiffFactor = None  # Constant(1.0)
 solverObj.saltRange = Constant(5.0)

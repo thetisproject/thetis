@@ -59,7 +59,7 @@ coriolis2d.interpolate(
     )
 
 # create solver
-solverObj = solver.flowSolverMimetic(mesh2d, bathymetry2d, layers)
+solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
 solverObj.cfl_2d = 1.0
 #solverObj.nonlin = False
 solverObj.solveSalt = True
@@ -72,6 +72,9 @@ solverObj.baroclinic = True
 solverObj.coriolis = coriolis2d
 solverObj.uvLaxFriedrichs = None  # Constant(1e-3)
 solverObj.tracerLaxFriedrichs = None  # Constant(1e-3)
+solverObj.useLimiterForTracers = True
+Re_h = 2.0
+solverObj.smagorinskyFactor = Constant(1.0/np.sqrt(Re_h))
 # how does diffusion scale with mesh size?? nu = Lx^2/dt??
 #solverObj.hDiffusivity = Constant(3.0)
 #solverObj.hViscosity = Constant(1e-2)
@@ -88,7 +91,8 @@ solverObj.checkSaltConservation = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
                             'uv2d_dav', 'uv3d_dav', 'barohead3d',
-                            'barohead2d', 'gjvAlphaH3d', 'gjvAlphaV3d']
+                            'barohead2d']
+solverObj.fieldsToExportNumpy = ['salt3d', 'barohead3d', 'elev2d']
 solverObj.timerLabels = ['mode2d', 'momentumEq', 'continuityEq', 'saltEq',
                          'aux_barolinicity', 'aux_mom_coupling',
                          'func_copy2dTo3d', 'func_copy3dTo2d',]
