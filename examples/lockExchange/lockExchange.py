@@ -24,7 +24,7 @@ from cofs import *
 # set physical constants
 physical_constants['z0_friction'].assign(5.0e-5)
 
-reso_str = 'coarse2'
+reso_str = 'coarse'
 outputDir = createDirectory('outputs_'+reso_str)
 refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4, 'medium2': 8, 'fine': 16}
 layers = int(round(10*refinement[reso_str]))
@@ -75,7 +75,7 @@ solverObj.checkSaltConservation = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
                             'uv2d_dav', 'uv3d_dav', 'barohead3d',
-                            'barohead2d', 'gjvAlphaH3d', 'gjvAlphaV3d',
+                            'barohead2d',
                             'smagViscosity', 'saltJumpDiff']
 solverObj.timerLabels = []
 
