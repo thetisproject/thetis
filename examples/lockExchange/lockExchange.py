@@ -42,7 +42,7 @@ coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min
 coords.dat.data[:, 1] = coords.dat.data[:, 1]*2*dx - dx
 
 printInfo('Exporting to '+outputDir)
-dt = 100.0/refinement[reso_str]
+dt = 75.0/refinement[reso_str]
 if reso_str == 'fine':
     dt /= 2.0
 T = 25 * 3600
