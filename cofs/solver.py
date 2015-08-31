@@ -242,8 +242,8 @@ class flowSolver(object):
         if self.saltJumpDiffFactor is not None:
             self.saltJumpDiff = Function(self.P1, name='Salt Jump Diffusivity')
             self.tot_salt_h_diff = self.saltJumpDiff
-            if self.hViscosity is not None:
-                self.tot_salt_h_diff += self.hViscosity
+            if self.hDiffusivity is not None:
+                self.tot_salt_h_diff += self.hDiffusivity
         else:
             self.saltJumpDiff = None
             self.tot_salt_h_diff = self.hDiffusivity
