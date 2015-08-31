@@ -456,11 +456,17 @@ class flowSolver(object):
             Mass3d_0 = compTracerMass3d(self.salt3d)
             printInfo('Initial salt mass {0:f}'.format(Mass3d_0))
         if self.checkSaltDeviation:
-            saltVal = self.salt3d.dat.data.mean()
+            saltSum = self.salt3d.dat.data.sum()
+            saltSum = op2.MPI.COMM.allreduce(saltSum, op=MPI.SUM)
+            nbNodes = self.salt3d.dat.data.shape[0]
+            nbNodes = op2.MPI.COMM.allreduce(nbNodes, op=MPI.SUM)
+            saltVal = saltSum/nbNodes
             printInfo('Initial mean salt value {0:f}'.format(saltVal))
         if self.checkSaltOvershoot:
             saltMin0 = self.salt3d.dat.data.min()
             saltMax0 = self.salt3d.dat.data.max()
+            saltMin0 = op2.MPI.COMM.allreduce(saltMin0, op=MPI.MIN)
+            saltMax0 = op2.MPI.COMM.allreduce(saltMax0, op=MPI.MAX)
             printInfo('Initial salt value range {0:.3f}-{1:.3f}'.format(saltMin0, saltMax0))
 
         # initial export
