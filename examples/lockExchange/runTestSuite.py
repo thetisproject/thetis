@@ -100,7 +100,8 @@ solverObj.saltRange = Constant(5.0)
 solverObj.useLimiterForTracers = args.useLimiter
 # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
 #solverObj.hViscosity = Constant(100.0/refinement[reso_str])
-#solverObj.hViscosity = Constant(10.0)
+solverObj.hViscosity = Constant(1.0)
+solverObj.hDiffusivity = Constant(1.0)
 if solverObj.useModeSplit:
     solverObj.dt = dt
 solverObj.TExport = TExport
