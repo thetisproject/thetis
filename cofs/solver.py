@@ -345,7 +345,6 @@ class flowSolver(object):
         # compute maximal diffusivity for explicit schemes
         maxDiffAlpha = 1.0/100.0  # FIXME depends on element type and order
         self.maxHDiffusivity.assign(maxDiffAlpha/self.dt * self.hElemSize3d**2)
-        print 'max h diffusivity', self.maxHDiffusivity.dat.data.min(), self.maxHDiffusivity.dat.data.max()
 
         # ----- File exporters
         uv2d, eta2d = self.solution2d.split()
