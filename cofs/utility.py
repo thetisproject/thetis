@@ -354,29 +354,34 @@ def computeVelMagnitude(solution, u=None, w=None, minVal=1e-6,
 
 
 def computeHorizJumpDiffusivity(alpha, tracer, output, hElemSize,
-                                umag, tracer_mag, maxval=1.0e3, minval=1e-6,
+                                umag, tracer_mag, maxval, minval=1e-6,
                                 solver_parameters={}):
     """Computes tracer jump diffusivity for horizontal advection."""
+    solver_parameters.setdefault('ksp_atol', 1e-6)
+    solver_parameters.setdefault('ksp_rtol', 1e-8)
 
     key = '-'.join((output.name(), tracer.name()))
     if key not in linProblemCache:
         fs = output.function_space()
+        mesh = fs.mesh()
         normal = FacetNormal(fs.mesh())
         test = TestFunction(fs)
         tri = TrialFunction(fs)
-        a = jump(test, tri)*dS_v
+        a = inner(test, tri)*mesh._dx + jump(test, tri)*mesh._dS_v
         tracer_jump = jump(tracer)
         # TODO jump scalar must depend on the tracer value scale
         # TODO can this be estimated automatically e.g. global_max(abs(S))
         maxjump = Constant(0.05)*tracer_mag
-        L = alpha*avg(umag*hElemSize)*(tracer_jump/maxjump)**2*avg(test)*dS_v
+        L = alpha*avg(umag*hElemSize)*(tracer_jump/maxjump)**2*avg(test)*mesh._dS_v
         prob = LinearVariationalProblem(a, L, output)
         solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
         linProblemCache.add(key, solver, 'jumpDiffh')
 
     linProblemCache[key].solve()
-    output.dat.data[output.dat.data[:] > maxval] = maxval
+    if output.function_space() != maxval.function_space():
+        raise Exception('output and maxval function spaces do not match')
+    output.dat.data[:] = np.minimum(maxval.dat.data, output.dat.data)
     output.dat.data[output.dat.data[:] < minval] = minval
     return output
 
@@ -862,6 +867,8 @@ def smagorinskyViscosity(uv, output, C_s, hElemSize,
 
 class projector(object):
     def __init__(self, input_func, output_func, solver_parameters={}):
+        self.input = input_func
+        self.output = output_func
         V = output_func.function_space()
         p = TestFunction(V)
         q = TrialFunction(V)
@@ -876,7 +883,11 @@ class projector(object):
                                               solver_parameters=solver_parameters)
 
     def project(self):
-        self.solver.solve()
+        try:
+            self.solver.solve()
+        except Exception as e:
+            print 'projection failed for {:}'.format(self.input.name)
+            raise e
 
 
 class EquationOfState(object):

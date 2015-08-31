@@ -173,7 +173,8 @@ class coupledSSPRKSync(timeIntegrator.timeIntegrator):
                     if s.saltJumpDiffFactor is not None:
                         computeHorizJumpDiffusivity(s.saltJumpDiffFactor, s.salt3d,
                                                     s.saltJumpDiff, s.hElemSize3d,
-                                                    s.uv3d_mag, s.saltRange)
+                                                    s.uv3d_mag, s.saltRange,
+                                                    s.maxHDiffusivity)
 
         self.sol2d_n.assign(sol2d)  # keep copy of eta_n
         for k in range(len(self.dt_frac)):
@@ -369,7 +370,8 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
                     if s.saltJumpDiffFactor is not None:
                         computeHorizJumpDiffusivity(s.saltJumpDiffFactor, s.salt3d,
                                                     s.saltJumpDiff, s.hElemSize3d,
-                                                    s.uv3d_mag, s.saltRange)
+                                                    s.uv3d_mag, s.saltRange,
+                                                    s.maxHDiffusivity)
 
         for k in range(len(self.dt_frac)):
             with timed_region('saltEq'):
@@ -515,7 +517,8 @@ class coupledSSPRKSingleMode(timeIntegrator.timeIntegrator):
                     if s.saltJumpDiffFactor is not None:
                         computeHorizJumpDiffusivity(s.saltJumpDiffFactor, s.salt3d,
                                                     s.saltJumpDiff, s.hElemSize3d,
-                                                    s.uv3d_mag, s.saltRange)
+                                                    s.uv3d_mag, s.saltRange,
+                                                    s.maxHDiffusivity)
 
         for k in range(self.timeStepper2d.nstages):
             with timed_region('saltEq'):

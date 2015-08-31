@@ -234,6 +234,7 @@ class flowSolver(object):
         self.vElemSize3d = Function(self.P1DG, name='element height')
         self.vElemSize2d = Function(self.P1DG_2d, name='element height')
         self.hElemSize3d = getHorzontalElemSize(self.P1_2d, self.P1)
+        self.maxHDiffusivity = Function(self.P1, name='Maximum h. Diffusivity')
         if self.smagorinskyFactor is not None:
             self.smag_viscosity = Function(self.P1, name='Smagorinsky viscosity')
         else:
@@ -340,6 +341,11 @@ class flowSolver(object):
         else:
             printInfo('using coupledSSPRKSingleMode time integrator')
             self.timeStepper = coupledTimeIntegrator.coupledSSPRKSingleMode(self)
+
+        # compute maximal diffusivity for explicit schemes
+        maxDiffAlpha = 1.0/100.0  # FIXME depends on element type and order
+        self.maxHDiffusivity.assign(maxDiffAlpha/self.dt * self.hElemSize3d**2)
+        print 'max h diffusivity', self.maxHDiffusivity.dat.data.min(), self.maxHDiffusivity.dat.data.max()
 
         # ----- File exporters
         uv2d, eta2d = self.solution2d.split()
