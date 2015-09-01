@@ -7,6 +7,6 @@ setup(name='COFS',
       description='Coastal Ocean Flow Solver',
       author='Tuomas Karna',
       author_email='tuomas.karna@gmail.com',
-      url='https://www.python.org/sigs/distutils-sig/',
+      url='https://bitbucket.org/tkarna/cofs',
       packages=['cofs', 'test', 'examples'],
      )
