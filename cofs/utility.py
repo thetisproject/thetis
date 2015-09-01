@@ -254,7 +254,7 @@ def computeVertVelocity(solution, uv, bathymetry,
 
 
 @timed_function('func_vert_int')
-def computeVerticalIntegral(input, output, space, bottomToTop=True,
+def computeVerticalIntegral(input, output, bottomToTop=True,
                             bndValue=Constant(0.0), average=False,
                             bathymetry=None,
                             solver_parameters={}):
@@ -267,9 +267,11 @@ def computeVerticalIntegral(input, output, space, bottomToTop=True,
 
     key = '-'.join((input.name(), output.name(), str(average)))
     if key not in linProblemCache:
+        space = output.function_space()
+        mesh = space.mesh()
         verticalIsDG = False
         if (hasattr(space.ufl_element(), '_B') and
-              space.ufl_element()._B.family() != 'Lagrange'):
+            space.ufl_element()._B.family() != 'Lagrange'):
             # a normal outerproduct element
             verticalIsDG = True
         if 'HDiv' in space.ufl_element().shortstr():
@@ -277,9 +279,9 @@ def computeVerticalIntegral(input, output, space, bottomToTop=True,
             verticalIsDG = True
         tri = TrialFunction(space)
         phi = TestFunction(space)
-        normal = FacetNormal(space.mesh())
-        ds_surf = ds_b
-        ds_bottom = ds_t
+        normal = FacetNormal(mesh)
+        ds_surf = mesh._ds_b
+        ds_bottom = mesh._ds_t
         if bottomToTop:
             bnd_term = normal[2]*inner(bndValue, phi)*ds_bottom
             mass_bnd_term = normal[2]*inner(tri, phi)*ds_surf
@@ -287,19 +289,19 @@ def computeVerticalIntegral(input, output, space, bottomToTop=True,
             bnd_term = normal[2]*inner(bndValue, phi)*ds_surf
             mass_bnd_term = normal[2]*inner(tri, phi)*ds_bottom
 
-        a = -inner(Dx(phi, 2), tri)*dx + mass_bnd_term
+        a = -inner(Dx(phi, 2), tri)*mesh._dx + mass_bnd_term
         if verticalIsDG:
             if len(input.ufl_shape) > 0:
                 dim = input.ufl_shape[0]
                 for i in range(dim):
-                    a += avg(tri[i])*jump(phi[i], normal[2])*dS_h
+                    a += avg(tri[i])*jump(phi[i], normal[2])*mesh._dS_h
             else:
-                a += avg(tri)*jump(phi, normal[2])*dS_h
+                a += avg(tri)*jump(phi, normal[2])*mesh._dS_h
         source = input
         if average:
             # FIXME this should be H not h
             source = input/bathymetry
-        L = inner(source, phi)*dx + bnd_term
+        L = inner(source, phi)*mesh._dx + bnd_term
         prob = LinearVariationalProblem(a, L, output)
         solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
@@ -315,10 +317,10 @@ def computeBaroclinicHead(salt, baroHead3d, baroHead2d, baroHeadInt3d, bath3d):
 
     r = 1/rho_0 int_{z=-h}^{\eta} rho' dz
     """
-    computeVerticalIntegral(salt, baroHead3d, baroHead3d.function_space(), bottomToTop=False)
+    computeVerticalIntegral(salt, baroHead3d, bottomToTop=False)
     baroHead3d *= -physical_constants['rho0_inv']
     computeVerticalIntegral(
-        baroHead3d, baroHeadInt3d, baroHeadInt3d.function_space(), bottomToTop=True,
+        baroHead3d, baroHeadInt3d, bottomToTop=True,
         average=True, bathymetry=bath3d)
     copy3dFieldTo2d(baroHeadInt3d, baroHead2d, useBottomValue=False)
 
@@ -592,7 +594,7 @@ def correct3dVelocity(UV2d, uv3d, uv3d_dav, bathymetry):
     H2d = UV2d.function_space()
     # compute depth averaged velocity
     bndValue = Constant((0.0, 0.0, 0.0))
-    computeVerticalIntegral(uv3d, uv3d_dav, H,
+    computeVerticalIntegral(uv3d, uv3d_dav,
                             bottomToTop=True, bndValue=bndValue,
                             average=True, bathymetry=bathymetry)
     # copy on 2d mesh

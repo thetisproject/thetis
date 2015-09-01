@@ -112,7 +112,6 @@ class coupledSSPRKSync(timeIntegrator.timeIntegrator):
                 if do2DCoupling:
                     bndValue = Constant((0.0, 0.0, 0.0))
                     computeVerticalIntegral(s.uv3d, s.uv3d_dav,
-                                            s.uv3d.function_space(),
                                             bottomToTop=True, bndValue=bndValue,
                                             average=True,
                                             bathymetry=s.bathymetry3d)
@@ -307,7 +306,6 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
                 if do2DCoupling:
                     bndValue = Constant((0.0, 0.0, 0.0))
                     computeVerticalIntegral(s.uv3d, s.uv3d_dav,
-                                            s.uv3d_dav.function_space(),
                                             bottomToTop=True, bndValue=bndValue,
                                             average=True,
                                             bathymetry=s.bathymetry3d)
@@ -497,7 +495,6 @@ class coupledSSPRKSingleMode(timeIntegrator.timeIntegrator):
                 if do2DCoupling:
                     bndValue = Constant((0.0, 0.0, 0.0))
                     computeVerticalIntegral(s.uv3d, s.uv3d_dav,
-                                            s.uv3d_dav.function_space(),
                                             bottomToTop=True, bndValue=bndValue,
                                             average=True,
                                             bathymetry=s.bathymetry3d)
@@ -641,7 +638,6 @@ class coupledSSPRK(timeIntegrator.timeIntegrator):
         with timed_region('aux_mom_coupling'):
             bndValue = Constant((0.0, 0.0, 0.0))
             computeVerticalIntegral(s.uv3d, s.uv3d_dav,
-                                    s.uv3d.function_space(),
                                     bottomToTop=True, bndValue=bndValue,
                                     average=True,
                                     bathymetry=s.bathymetry3d)
