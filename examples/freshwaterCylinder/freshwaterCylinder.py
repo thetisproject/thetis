@@ -41,7 +41,7 @@ physical_constants['rho0'].assign(1025.0)
 outputDir = createDirectory('outputs')
 layers = 20
 mesh2d = Mesh('tartinville_physical.msh')
-print 'Loaded mesh', mesh2d.name
+printInfo('Loaded mesh ' + mesh2d.name)
 dt = 25.0
 T = 288 * 3600
 TExport = 900.0
@@ -88,6 +88,7 @@ solverObj.uAdvection = Constant(1.5)
 solverObj.checkVolConservation2d = True
 solverObj.checkVolConservation3d = True
 solverObj.checkSaltConservation = True
+solverObj.checkSaltOvershoot = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
                             'uv2d_dav', 'uv3d_dav', 'barohead3d',

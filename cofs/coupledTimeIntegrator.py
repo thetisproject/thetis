@@ -6,6 +6,7 @@ Tuomas Karna 2015-07-06
 from utility import *
 import timeIntegrator
 
+
 class coupledSSPRKSync(timeIntegrator.timeIntegrator):
     """
     Split-explicit SSPRK time integrator that sub-iterates 2D mode.
@@ -182,6 +183,8 @@ class coupledSSPRKSync(timeIntegrator.timeIntegrator):
                 if s.solveSalt:
                     self.timeStepper_salt3d.solveStage(k, t, s.dt, s.salt3d,
                                                        updateForcings3d)
+                    if s.useLimiterForTracers:
+                        s.tracerLimiter.apply(s.salt3d)
             with timed_region('momentumEq'):
                 self.timeStepper_mom3d.solveStage(k, t, s.dt, s.uv3d)
             with timed_region('mode2d'):
@@ -194,7 +197,7 @@ class coupledSSPRKSync(timeIntegrator.timeIntegrator):
                 # advance fields from T_{n} to T{n+1}
                 for i in range(self.M[k]):
                     self.timeStepper2d.advance(t_rhs + i*dt_2d, dt_2d, sol2d,
-                                            updateForcings)
+                                               updateForcings)
             lastStep = (k == 2)
             # move fields to next stage
             updateDependencies(doVertDiffusion=lastStep,
@@ -525,11 +528,14 @@ class coupledSSPRKSingleMode(timeIntegrator.timeIntegrator):
                 if s.solveSalt:
                     self.timeStepper_salt3d.solveStage(k, t, s.dt_2d, s.salt3d,
                                                        updateForcings3d)
+                    if s.useLimiterForTracers:
+                        s.tracerLimiter.apply(s.salt3d)
             with timed_region('momentumEq'):
                 self.timeStepper_mom3d.solveStage(k, t, s.dt_2d, s.uv3d)
             with timed_region('mode2d'):
                 uv, eta = s.solution2d.split()
-                self.timeStepper2d.solveStage(k, t, s.dt_2d, eta, updateForcings)
+                self.timeStepper2d.solveStage(k, t, s.dt_2d, eta,
+                                              updateForcings)
             lastStep = (k == 2)
             # move fields to next stage
             updateDependencies(doVertDiffusion=lastStep,
