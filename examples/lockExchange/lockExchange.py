@@ -3,34 +3,45 @@
 #
 # Solves hydrostatic flow in a closed rectangular channel.
 #
-# Dianeutral mixing depends on mesh Reynolds number (Ilicak et al. 2012)
+# Dianeutral mixing depends on mesh Reynolds number [1]
 # Re_h = U dx / nu
 # U = 0.5 m/s characteristic velocity ~ 0.5*sqrt(gH drho/rho_0)
 # dx = horizontal mesh size
 # nu = background viscosity
 #
-# For coarse mesh:
-# Re_h = 0.5 2000 / 100 = 10
-#
-# TODO run medium for Re_h = 250
-# => nu = 0.5 500 / 250 = 1.0
 #
 # Smagorinsky factor should be C_s = 1/sqrt(Re_h)
+#
+# Mesh resolutions:
+# - ilicak [1]:  dx =  500 m,  20 layers
+# COMODO lock exchange benchmark [2]:
+# - coarse:      dx = 2000 m,  10 layers
+# - coarse2 (*): dx = 1000 m,  20 layers
+# - medium:      dx =  500 m,  40 layers
+# - medium2 (*): dx =  250 m,  80 layers
+# - fine:        dx =  125 m, 160 layers
+# (*) not part of the original benchmark
+#
+# [1] Ilicak et al. (2012). Spurious dianeutral mixing and the role of
+#     momentum closure. Ocean Modelling, 45-46(0):37-58.
+#     http://dx.doi.org/10.1016/j.ocemod.2011.10.003
+# [2] COMODO Lock Exchange test.
+#     http://indi.imag.fr/wordpress/?page_id=446
 #
 # Tuomas Karna 2015-03-03
 
 from cofs import *
 
-# set physical constants
-physical_constants['z0_friction'].assign(5.0e-5)
-
 reso_str = 'coarse'
-outputDir = createDirectory('outputs_struct_'+reso_str)
+outputDir = createDirectory('outputs_struct_' + reso_str)
 refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4,
-              'medium2': 8, 'fine': 16}
+              'medium2': 8, 'fine': 16, 'ilicak': 4}
 # set mesh resolution
 dx = 2000.0/refinement[reso_str]
 layers = int(round(10*refinement[reso_str]))
+if reso_str == 'ilicak':
+    layers = 20
+
 # generate unit mesh and transform its coords
 x_max = 32.0e3
 x_min = -32.0e3
