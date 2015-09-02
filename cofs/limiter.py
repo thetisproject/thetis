@@ -148,8 +148,8 @@ class vertexBasedP1DGLimiter(object):
         """
         Applies the limiter to the given field.
         """
-        assert(field.function_space() == self.P1DG,
-               'Given field belongs to wrong function space')
+        assert field.function_space() == self.P1DG,\
+               'Given field belongs to wrong function space'
         self._updateCentroids(field)
         self._updateMinMaxValues(field)
         self._applyLimiter(field)
