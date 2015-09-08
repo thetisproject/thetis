@@ -1,6 +1,8 @@
 # COFS - Coastal Ocean Flow Solver
 
-Finite element flow solver for coastal and estuarine flows.
+Finite element flow solver for simulating coastal and estuarine flows.
+
+This project is licensed under the terms of the MIT license.
 
 ## Installation
 
