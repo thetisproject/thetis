@@ -234,6 +234,7 @@ class shallowWaterEquations(equation):
         F += self.HUDivTerm(uv, total_H)
 
         # boundary conditions
+        # TODO move bnd condition treatment to pressureGrad etc terms
         for bnd_marker in self.boundary_markers:
             funcs = self.bnd_functions.get(bnd_marker)
             ds_bnd = self.ds(int(bnd_marker))
@@ -246,29 +247,8 @@ class shallowWaterEquations(equation):
                 G += g_grav * h_ext * \
                     inner(self.normal, self.U_test) * ds_bnd
 
-
                 # Riemann terms replaced by simple dot(uv, n)*eta_test*ds in HUDivTerm()
                 continue
-
-                uv_ext = uv
-                t = self.normal[1] * self.e_x - self.normal[0] * self.e_y
-                ut_in = dot(uv, t)
-                # ut_ext = -dot(uv_ext,t) # assume zero
-                un_in = dot(uv, self.normal)
-                un_ext = dot(uv_ext, self.normal)
-
-                if self.nonlin:
-                    H = self.bathymetry + (eta + h_ext) / 2
-                else:
-                    H = self.bathymetry
-
-                if self.huByParts:
-                    c_roe = sqrt(g_grav * H)
-                    un_riemann = dot(uv, self.normal) + c_roe / H * (eta - h_ext)/2
-                    H_riemann = H
-                    ut_riemann = tanh(4 * un_riemann / 0.02) * (ut_in)
-                    uv_riemann = un_riemann * self.normal + ut_riemann * t
-                    G += H_riemann * un_riemann * self.eta_test * ds_bnd
 
             elif 'un' in funcs:
                 # prescribe normal velocity (negative into domain)
@@ -319,6 +299,7 @@ class shallowWaterEquations(equation):
             total_H = self.bathymetry
 
         # boundary conditions
+        # TODO move bnd condition treatment to horizontalAdvection etc terms
         for bnd_marker in self.boundary_markers:
             funcs = self.bnd_functions.get(bnd_marker)
             ds_bnd = self.ds(int(bnd_marker))
@@ -340,28 +321,6 @@ class shallowWaterEquations(equation):
 
                 # Riemann terms replaced by integration-by-parts term from advection in horizontalAdvection()
                 continue
-
-                # prescribe elevation only
-                h_ext = funcs['elev']
-                uv_ext = uv
-                t = self.normal[1] * self.e_x - self.normal[0] * self.e_y
-                ut_in = dot(uv, t)
-                # ut_ext = -dot(uv_ext,t) # assume zero
-                un_in = dot(uv, self.normal)
-                un_ext = dot(uv_ext, self.normal)
-
-                if self.nonlin:
-                    H = self.bathymetry + (eta + h_ext) / 2
-                else:
-                    H = self.bathymetry
-                c_roe = sqrt(g_grav * H)
-                un_riemann = dot(uv, self.normal) + c_roe / H * (eta - h_ext)/2
-                H_riemann = H
-                ut_riemann = tanh(4 * un_riemann / 0.02) * (ut_in)
-                uv_riemann = un_riemann * self.normal + ut_riemann * t
-
-                if self.nonlin:
-                    G += un_riemann * un_riemann * dot(self.normal, self.U_test) * ds_bnd
 
             elif 'un' in funcs:
                 # prescribe normal velocity (negative into domain)
@@ -447,6 +406,7 @@ class shallowWaterEquations(equation):
             F += self.pressureGrad(baro_head, None, None, internalPG=True)
 
         return -F
+
 
 class freeSurfaceEquation(equation):
     """Non-conservative free surface equation written for depth averaged
