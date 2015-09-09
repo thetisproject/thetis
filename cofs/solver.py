@@ -6,6 +6,7 @@ Tuomas Karna 2015-04-01
 from utility import *
 import module_2d
 import module_3d
+import tracerEquation
 import timeIntegrator as timeIntegrator
 import coupledTimeIntegrator as coupledTimeIntegrator
 import limiter
@@ -306,7 +307,7 @@ class flowSolver(object):
             lin_drag=self.lin_drag,
             nonlin=self.nonlin)
         if self.solveSalt:
-            self.eq_salt = module_3d.tracerEquation(
+            self.eq_salt = tracerEquation.tracerEquation(
                 self.mesh, self.H, self.salt3d, self.eta3d, self.uv3d,
                 w=self.w3d, w_mesh=self.w_mesh3d,
                 dw_mesh_dz=self.dw_mesh_dz_3d,
