@@ -28,6 +28,10 @@ class tracerEquation(equation):
                        'uvP1': uvP1,
                        'laxFriedrichsFactor': laxFriedrichsFactor,
                        }
+        self.computeHorizAdvection = uv is not None
+        self.computeVertAdvection = w is not None
+        self.computeHorizDiffusion = diffusivity_h is not None
+        self.computeVertDiffusion = diffusivity_v is not None
 
         # trial and test functions
         self.test = TestFunction(self.space)
@@ -90,93 +94,94 @@ class tracerEquation(equation):
 
         # NOTE advection terms must be exactly as in 3d continuity equation
         # Horizontal advection term
-        if self.horizAdvectionByParts:
-            F += -solution*(uv[0]*Dx(self.test, 0) +
-                            uv[1]*Dx(self.test, 1))*self.dx
-            if self.horizontal_DG:
-                # add interface term
-                uv_av = avg(uv)
-                un_av = (uv_av[0]*self.normal('-')[0] +
-                         uv_av[1]*self.normal('-')[1])
-                s = 0.5*(sign(un_av) + 1.0)
-                c_up = solution('-')*s + solution('+')*(1-s)
-                G += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
-                           uv_av[1]*jump(self.test, self.normal[1]))*(self.dS_v + self.dS_h)
-                # Lax-Friedrichs stabilization
-                if laxFriedrichsFactor is not None:
-                    if uvP1 is not None:
-                        gamma = 0.5*abs((avg(uvP1)[0]*self.normal('-')[0] +
-                                         avg(uvP1)[1]*self.normal('-')[1]))*laxFriedrichsFactor
-                    elif uvMag is not None:
-                        gamma = 0.5*avg(uvMag)*laxFriedrichsFactor
-                    else:
-                        raise Exception('either uvP1 or uvMag must be given')
-                    G += gamma*dot(jump(self.test), jump(solution))*(self.dS_v + self.dS_h)
-                for bnd_marker in self.boundary_markers:
-                    funcs = self.bnd_functions.get(bnd_marker)
-                    ds_bnd = self.ds_v(int(bnd_marker))
-                    if funcs is None:
-                        continue
-                    elif 'value' in funcs:
-                        # prescribe external tracer value
-                        c_in = solution
-                        c_ext = funcs['value']
-                        uv_av = uv
-                        un_av = self.normal[0]*uv[0] + self.normal[1]*uv[1]
-                        s = 0.5*(sign(un_av) + 1.0)
-                        c_up = c_in*s + c_ext*(1-s)
-                        # TODO should take external un from bnd conditions
-                        G += c_up*(uv_av[0]*self.normal[0] +
-                                   uv_av[1]*self.normal[1])*self.test*ds_bnd
-        else:
-            F += (Dx(uv[0]*solution, 0) + Dx(uv[1]*solution, 1))*self.test*self.dx
-            G += -solution*(uv[0]*self.normal[0] +
-                            uv[1]*self.normal[1])*self.test*(self.ds_bottom)
+        if self.computeHorizAdvection:
+            if self.horizAdvectionByParts:
+                F += -solution*(uv[0]*Dx(self.test, 0) +
+                                uv[1]*Dx(self.test, 1))*self.dx
+                if self.horizontal_DG:
+                    # add interface term
+                    uv_av = avg(uv)
+                    un_av = (uv_av[0]*self.normal('-')[0] +
+                             uv_av[1]*self.normal('-')[1])
+                    s = 0.5*(sign(un_av) + 1.0)
+                    c_up = solution('-')*s + solution('+')*(1-s)
+                    G += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
+                               uv_av[1]*jump(self.test, self.normal[1]))*(self.dS_v + self.dS_h)
+                    # Lax-Friedrichs stabilization
+                    if laxFriedrichsFactor is not None:
+                        if uvP1 is not None:
+                            gamma = 0.5*abs((avg(uvP1)[0]*self.normal('-')[0] +
+                                             avg(uvP1)[1]*self.normal('-')[1]))*laxFriedrichsFactor
+                        elif uvMag is not None:
+                            gamma = 0.5*avg(uvMag)*laxFriedrichsFactor
+                        else:
+                            raise Exception('either uvP1 or uvMag must be given')
+                        G += gamma*dot(jump(self.test), jump(solution))*(self.dS_v + self.dS_h)
+                    for bnd_marker in self.boundary_markers:
+                        funcs = self.bnd_functions.get(bnd_marker)
+                        ds_bnd = self.ds_v(int(bnd_marker))
+                        if funcs is None:
+                            continue
+                        elif 'value' in funcs:
+                            # prescribe external tracer value
+                            c_in = solution
+                            c_ext = funcs['value']
+                            uv_av = uv
+                            un_av = self.normal[0]*uv[0] + self.normal[1]*uv[1]
+                            s = 0.5*(sign(un_av) + 1.0)
+                            c_up = c_in*s + c_ext*(1-s)
+                            # TODO should take external un from bnd conditions
+                            G += c_up*(uv_av[0]*self.normal[0] +
+                                       uv_av[1]*self.normal[1])*self.test*ds_bnd
+            else:
+                F += (Dx(uv[0]*solution, 0) + Dx(uv[1]*solution, 1))*self.test*self.dx
+                G += -solution*(uv[0]*self.normal[0] +
+                                uv[1]*self.normal[1])*self.test*(self.ds_bottom)
+            # boundary conditions
+            for bnd_marker in self.boundary_markers:
+                funcs = self.bnd_functions.get(bnd_marker)
+                ds_bnd = self.ds_v(int(bnd_marker))
+                if funcs is None:
+                    if not self.horizAdvectionByParts:
+                        G += -solution*(self.normal[0]*uv[0] +
+                                        self.normal[1]*uv[1])*self.test*ds_bnd
+                    continue
 
         # Vertical advection term
-        vertvelo = w[2]
-        if w_mesh is not None:
-            vertvelo = w[2]-w_mesh
-        F += -solution*vertvelo*Dx(self.test, 2)*self.dx
-        if self.vertical_DG:
-            w_av = avg(vertvelo)
-            s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
-            c_up = solution('-')*s + solution('+')*(1-s)
-            G += c_up*w_av*jump(self.test, self.normal[2])*self.dS_h
-            if laxFriedrichsFactor is not None:
-                # Lax-Friedrichs
-                gamma = 0.5*abs(w_av*self.normal('-')[2])*laxFriedrichsFactor
-                G += gamma*dot(jump(self.test), jump(solution))*self.dS_h
+        if self.computeVertAdvection:
+            vertvelo = w[2]
+            if w_mesh is not None:
+                vertvelo = w[2]-w_mesh
+            F += -solution*vertvelo*Dx(self.test, 2)*self.dx
+            if self.vertical_DG:
+                w_av = avg(vertvelo)
+                s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
+                c_up = solution('-')*s + solution('+')*(1-s)
+                G += c_up*w_av*jump(self.test, self.normal[2])*self.dS_h
+                if laxFriedrichsFactor is not None:
+                    # Lax-Friedrichs
+                    gamma = 0.5*abs(w_av*self.normal('-')[2])*laxFriedrichsFactor
+                    G += gamma*dot(jump(self.test), jump(solution))*self.dS_h
 
-        # Non-conservative ALE source term
-        if dw_mesh_dz is not None:
-            F += solution*dw_mesh_dz*self.test*self.dx
+            # Non-conservative ALE source term
+            if dw_mesh_dz is not None:
+                F += solution*dw_mesh_dz*self.test*self.dx
 
-        # NOTE Bottom impermeability condition is naturally satisfied by the definition of w
-        if w_mesh is None:
-            G += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
-        else:
-            G += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
-
-        # boundary conditions
-        for bnd_marker in self.boundary_markers:
-            funcs = self.bnd_functions.get(bnd_marker)
-            ds_bnd = self.ds_v(int(bnd_marker))
-            if funcs is None:
-                if not self.horizAdvectionByParts:
-                    G += -solution*(self.normal[0]*uv[0] +
-                                    self.normal[1]*uv[1])*self.test*ds_bnd
-                continue
+            # NOTE Bottom impermeability condition is naturally satisfied by the definition of w
+            if w_mesh is None:
+                G += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
+            else:
+                G += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
 
         # diffusion
-        if diffusivity_h is not None:
+        if self.computeHorizDiffusion:
             F += diffusivity_h*(Dx(solution, 0)*Dx(self.test, 0) +
                                 Dx(solution, 1)*Dx(self.test, 1))*self.dx
             if self.horizontal_DG:
                 # interface term
                 muGradSol = diffusivity_h*grad(solution)
                 F += -(avg(muGradSol[0])*jump(self.test, self.normal[0]) +
-                       avg(muGradSol[1])*jump(self.test, self.normal[1]))*(self.dS_v+self.dS_h)
+                    avg(muGradSol[1])*jump(self.test, self.normal[1]))*(self.dS_v+self.dS_h)
                 ## TODO symmetric penalty term
                 ## sigma = (o+1)(o+d)/d*N_0/(2L) (Shahbazi, 2005)
                 ## o: order of space, 
@@ -184,7 +189,7 @@ class tracerEquation(equation):
                 #nMag = self.normal[0]('-')**2 + self.normal[1]('-')**2
                 #F += -sigma*avg(diffusivity_h)*nMag*jump(solution)*jump(self.test)*(self.dS_v+self.dS_h)
 
-        if diffusivity_v is not None:
+        if self.computeVertDiffusion:
             F += diffusivity_v*(Dx(solution, 2)*Dx(self.test, 2))*self.dx
             if self.vertical_DG:
                 # interface term
