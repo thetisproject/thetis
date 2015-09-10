@@ -284,9 +284,17 @@ class momentumEquation(equation):
                 uv_riemann = un_riemann * self.normal + ut_riemann * t
 
                 G += g_grav*(eta + h_ext)/2*dot(self.normal, self.test)*ds_bnd
+                # symmetric term for advection
                 if self.nonlin:
-                    # NOTE just symmetric 3D flux with 2D eta correction
-                    G += un_riemann * un_riemann * dot(self.normal, self.test) * ds_bnd
+                    uv_in = solution
+                    G += (uv_in[0]*self.test[0]*self.normal[0]*uv_in[0] +
+                          uv_in[0]*self.test[0]*self.normal[1]*uv_in[1] +
+                          uv_in[1]*self.test[1]*self.normal[0]*uv_in[0] +
+                          uv_in[1]*self.test[1]*self.normal[1]*uv_in[1])*ds_bnd
+
+                #if self.nonlin:
+                    ## NOTE just symmetric 3D flux with 2D eta correction
+                    #G += un_riemann * un_riemann * dot(self.normal, self.test) * ds_bnd
 
             elif 'un' in funcs:
                 # prescribe normal volume flux
@@ -372,7 +380,7 @@ class momentumEquation(equation):
                 stress = bottom_drag*sqrt(uv_bottom[0]**2 +
                                           uv_bottom[1]**2)*uv_bottom
                 BotFriction = (stress[0]*self.test[0] +
-                               stress[1]*self.test[1])*ds_t
+                               stress[1]*self.test[1])*self.ds_bottom
                 F += BotFriction
 
         return -F -G
@@ -383,11 +391,12 @@ class verticalMomentumEquation(equation):
     hydrostatic Boussinesq flow."""
     def __init__(self, mesh, space, space_scalar, solution, w=None,
                  viscosity_v=None, uv_bottom=None, bottom_drag=None,
-                 wind_stress=None):
+                 wind_stress=None, vElemSize=None):
         self.mesh = mesh
         self.space = space
         self.space_scalar = space_scalar
         self.solution = solution
+        self.vElemSize = vElemSize
         # this dict holds all time dep. args to the equation
         self.kwargs = {'w': w,
                        'viscosity_v': viscosity_v,
@@ -462,19 +471,42 @@ class verticalMomentumEquation(equation):
             F += Adv_v * self.dx
             if self.vertical_DG:
                 # FIXME implement interface terms
-                pass
-                #raise NotImplementedError('Adv term not implemented for DG')
+                raise NotImplementedError('Adv term not implemented for DG')
 
         # vertical viscosity
         if viscosity_v is not None:
             F += viscosity_v*(Dx(self.test[0], 2)*Dx(solution[0], 2) +
-                              Dx(self.test[1], 2)*Dx(solution[1], 2))*dx
+                              Dx(self.test[1], 2)*Dx(solution[1], 2)) * self.dx
             if self.vertical_DG:
-                raise NotImplementedError('Vertical diffusion has not been implemented for DG')
-                # G += -viscosity_v * dot(psi, du/dz) * normal[2]
-                # viscflux = viscosity_v*Dx(solution, 2)
-                # G += -(avg(viscflux[0])*jump(self.test[0], normal[2]) +
-                #        avg(viscflux[0])*jump(self.test[1], normal[2]))
+                #intViscFlux = (jump(self.test[0]*Dx(solution[0], 2), self.normal[2]) +
+                               #jump(self.test[1]*Dx(solution[1], 2), self.normal[2]))
+                #G += -avg(viscosity_v) * intViscFlux * self.dS_h
+                viscflux = viscosity_v*Dx(solution, 2)
+                G += -(avg(viscflux[0])*jump(self.test[0], self.normal[2]) +
+                       avg(viscflux[1])*jump(self.test[1], self.normal[2])) * self.dS_h
+                # TODO implement symmetric interior penalty stabilization!!!
+                L = avg(self.vElemSize)
+                nbNeigh = 2
+                o = 1
+                d = 3
+                sigma = Constant((o + 1)*(o + d)/d * nbNeigh / 2) / L
+                gamma = sigma*avg(viscosity_v)*abs(self.normal('-')[2])**2
+                G += - gamma * (jump(self.test[0])*jump(solution[0]) +
+                                jump(self.test[1])*jump(solution[1])) * self.dS_h
+
+            # TODO need to simplify more to understand what's wrong
+            # check elev bnd for 3d eq --> make consistent with 2d!
+            # implicit bottom friction
+            if bottom_drag is not None:
+                z_bot = Constant(0.1)
+                # compute uv_bottom implicitly
+                uv_bot = solution + Dx(solution, 2)*z_bot
+                uv_bot_mag = sqrt(uv_bot[0]**2 + uv_bot[1]**2)
+                #stress = bottom_drag*uv_bot_mag*uv_bot
+                stress = Constant(0.005)*uv_bot_mag*uv_bot
+                BotFriction = (stress[0]*self.test[0] +
+                               stress[1]*self.test[1])*self.ds_bottom
+                F += BotFriction
 
         return -F - G
 
@@ -487,16 +519,16 @@ class verticalMomentumEquation(equation):
         F = 0  # holds all dx volume integral terms
 
         if viscosity_v is not None:
-            # bottom friction
-            if bottom_drag is not None and uv_bottom is not None:
-                stress = bottom_drag*sqrt(uv_bottom[0]**2 +
-                                          uv_bottom[1]**2)*uv_bottom
-                BotFriction = (stress[0]*self.test[0] +
-                               stress[1]*self.test[1])*ds_t
-                F += BotFriction
+            ## bottom friction
+            #if bottom_drag is not None and uv_bottom is not None:
+                #stress = bottom_drag*sqrt(uv_bottom[0]**2 +
+                                          #uv_bottom[1]**2)*uv_bottom
+                #BotFriction = (stress[0]*self.test[0] +
+                               #stress[1]*self.test[1])*self.ds_bottom
+                #F += BotFriction
             # wind stress
             if wind_stress is not None:
                 F -= (wind_stress[0]*self.test[0] +
-                      wind_stress[1]*self.test[1])/rho_0*ds_b
+                      wind_stress[1]*self.test[1])/rho_0*self.ds_surf
 
         return -F

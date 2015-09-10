@@ -633,7 +633,7 @@ def computeBottomFriction(uv3d, uv_bottom2d, uv_bottom3d, z_coord3d,
     copy2dFieldTo3d(z_bottom2d, z_bottom3d, elemHeight=vElemSize3d)
     z_bottom2d.dat.data[:] += bathymetry2d.dat.data[:]
     computeBottomDrag(uv_bottom2d, z_bottom2d, bathymetry2d, bottom_drag2d)
-    copy2dFieldTo3d(bottom_drag2d, bottom_drag3d, elemHeight=vElemHeight3d)
+    copy2dFieldTo3d(bottom_drag2d, bottom_drag3d, elemHeight=vElemSize3d)
 
 
 def getHorzontalElemSize(P1_2d, P1_3d=None):
@@ -778,7 +778,8 @@ def computeParabolicViscosity(uv_bottom, bottom_drag, bathymetry, nu,
     a = tri*test*dx
     uv_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
     parabola = -x[2]*(bathymetry + z0 + x[2])/(bathymetry + z0)
-    L = kappa*sqrt(bottom_drag)*uv_mag*parabola*test*dx
+    #L = kappa*sqrt(bottom_drag)*uv_mag*parabola*test*dx
+    L = Constant(0.01)*parabola*test*dx  # HACK
     solve(a == L, nu, solver_parameters=solver_parameters)
     # remove negative values
     neg_ix = nu.dat.data[:] < 1e-10

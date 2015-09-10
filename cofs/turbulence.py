@@ -295,8 +295,7 @@ class psiEquation(tracerEquation):
                  diffusivity_h=None, diffusivity_v=None,
                  uvMag=None, uvP1=None, laxFriedrichsFactor=None,
                  bnd_markers=None, bnd_len=None,
-                 viscosity_v=None, epsilon=None, k=None,
-                 shear_freq2=None, buoyancy_freq2=None, glsModel=None):
+                 viscosity_v=None, glsModel=None):
         # call parent constructor
         super(psiEquation, self).__init__(mesh, space, solution, eta, uv, w,
                                           w_mesh, dw_mesh_dz,
@@ -309,15 +308,15 @@ class psiEquation(tracerEquation):
         viscosity_eff = viscosity_v/self.schmidt_number
         self.kwargs = {
             'viscosity_v': viscosity_eff,  # for vertical diffusion term
-            'buoyancy_freq2': buoyancy_freq2,
-            'shear_freq2': shear_freq2,
-            'epsilon': epsilon,
-            'k': k,
+            'buoyancy_freq2': glsModel.N2,
+            'shear_freq2': glsModel.M2,
+            'epsilon': glsModel.epsilon,
+            'k': glsModel.k,
             }
 
-    def Source(self, eta, uv, w, viscosity_v, diffusivity_v,
-               shear_freq2, buoyancy_freq2, epsilon, k,
-               **kwargs):
+    def RHS_implicit(self, solution, eta, uv, w, viscosity_v, diffusivity_v,
+                     shear_freq2, buoyancy_freq2, epsilon, k,
+                     **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
 
@@ -339,6 +338,6 @@ class psiEquation(tracerEquation):
         F_wall = self.glsModel.params['F_wall']
         # TODO implement c3 switch: c3 = c3_minus if N2 > 0 else c3_plus
         c3 = c3_minus
-        f = psi/k*(c1*P + c3*B - c2*F_wall*epsilon)
+        f = solution/k*(c1*P + c3*B - c2*F_wall*epsilon)
         F = inner(P + B - epsilon, self.test)*self._dx
         return -F

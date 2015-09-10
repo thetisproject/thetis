@@ -8,6 +8,13 @@ from utility import *
 
 class timeIntegrator(object):
     """Base class for all time integrator objects."""
+    def __init__(self, equation):
+        """Assigns initial conditions to all required fields."""
+        self.equation = equation
+        # unique identifier for solver
+        self.name = '-'.join([self.__class__.__name__,
+                              self.equation.__class__.__name__])
+
     def initialize(self, equation, dt, solution):
         """Assigns initial conditions to all required fields."""
         raise NotImplementedError(('This method must be implemented '
@@ -35,7 +42,7 @@ class SSPRK33(timeIntegrator):
     def __init__(self, equation, dt, solver_parameters=None,
                  funcs_nplushalf={}):
         """Creates forms for the time integrator"""
-        self.equation = equation
+        super(SSPRK33, self).__init__(equation)
         self.explicit = True
         self.CFL_coeff = 1.0
         self.solver_parameters = solver_parameters
@@ -186,7 +193,7 @@ class SSPRK33Stage(timeIntegrator):
     """
     def __init__(self, equation, dt, solver_parameters=None):
         """Creates forms for the time integrator"""
-        self.equation = equation
+        super(SSPRK33Stage, self).__init__(equation)
         self.explicit = True
         self.CFL_coeff = 1.0
         self.nstages = 3
@@ -293,7 +300,7 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
     """
     def __init__(self, equation, dt, solver_parameters=None):
         """Creates forms for the time integrator"""
-        self.equation = equation
+        super(SSPRK33StageSemiImplicit, self).__init__(equation)
         self.explicit = True
         self.CFL_coeff = 1.0
         self.nstages = 3
@@ -420,7 +427,7 @@ class ForwardEuler(timeIntegrator):
     """Standard forward Euler time integration scheme."""
     def __init__(self, equation, dt, solver_parameters=None):
         """Creates forms for the time integrator"""
-        self.equation = equation
+        super(ForwardEuler, self).__init__(equation)
         self.solver_parameters = solver_parameters
         massTerm = self.equation.massTerm
         RHS = self.equation.RHS
@@ -483,8 +490,8 @@ class CrankNicolson(timeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
     def __init__(self, equation, dt, solver_parameters={}, gamma=0.6):
         """Creates forms for the time integrator"""
-        self.equation = equation
-        self.solver_parameters=solver_parameters
+        super(CrankNicolson, self).__init__(equation)
+        self.solver_parameters = solver_parameters
         self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
 
@@ -544,7 +551,8 @@ class CrankNicolson(timeIntegrator):
         nest = not ('pc_type' in self.solver_parameters and self.solver_parameters['pc_type']=='lu')
         prob = NonlinearVariationalProblem(self.F, self.equation.solution, nest=nest)
         self.solver = LinearVariationalSolver(prob,
-            solver_parameters=self.solver_parameters)
+            solver_parameters=self.solver_parameters,
+            options_prefix=self.name)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -620,8 +628,8 @@ class macroTimeStepIntegrator(timeIntegrator):
     # NOTE diffusivity depends on M and the choise of time av filter
     # NOTE boxcar filter is very diffusive!
     def __init__(self, timeStepperCls, M, restartFromAv=False):
+        super(macroTimeStepIntegrator, self).__init__(self.subiterator.equation)
         self.subiterator = timeStepperCls
-        self.equation = self.subiterator.equation
         self.M = M
         self.restartFromAv = restartFromAv
         # functions to hold time averaged solutions

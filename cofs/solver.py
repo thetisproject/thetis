@@ -7,12 +7,46 @@ from utility import *
 import module_2d
 import module_3d
 import tracerEquation
+import turbulence
 import timeIntegrator as timeIntegrator
 import coupledTimeIntegrator as coupledTimeIntegrator
 import limiter
 import time as timeMod
 from mpi4py import MPI
 import exporter
+import ufl
+
+
+class sumFunction(object):
+    """
+    Class to keep track of sum of Coefficients.
+    """
+    def __init__(self):
+        """
+        Initialize empty sum.
+
+        get operation returns Constant(0)
+        """
+        self.coeffList = []
+
+    def add(self, coeff):
+        """
+        Adds a coefficient to self
+        """
+        if coeff is None:
+            return
+        #classes = (Function, Constant, ufl.algebra.Sum, ufl.algebra.Product)
+        #assert not isinstance(coeff, classes), \
+            #('bad argument type: ' + str(type(coeff)))
+        self.coeffList.append(coeff)
+
+    def getSum(self):
+        """
+        Returns a sum of all added Coefficients
+        """
+        if len(self.coeffList) == 0:
+            return None
+        return sum(self.coeffList)
 
 
 class flowSolver(object):
@@ -45,6 +79,7 @@ class flowSolver(object):
         self.useALEMovingMesh = True  # 3D mesh tracks free surface
         self.useModeSplit = True  # run 2D/3D modes with different dt
         self.useSemiImplicit2D = True  # implicit 2D waves (only w. mode split)
+        self.useTurbulence = False  # GLS turbulence model
         self.lin_drag = None  # 2D linear drag parameter tau/H/rho_0 = -drag*u
         self.hDiffusivity = None  # background diffusivity (set to Constant)
         self.vDiffusivity = None  # background diffusivity (set to Constant)
@@ -137,7 +172,7 @@ class flowSolver(object):
         self.W = FunctionSpace(self.mesh, W_elt)  # w
         # auxiliary function space that will be used to transfer data between 2d/3d modes
         self.Uproj = VectorFunctionSpace(self.mesh, 'DG', self.order,
-                                            vfamily='DG', vdegree=self.order)
+                                         vfamily='DG', vdegree=self.order)
 
         self.Uint = self.U  # vertical integral of uv
         # tracers
@@ -153,6 +188,7 @@ class flowSolver(object):
 
         # 2D spaces
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
+        self.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
         self.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1)
         # 2D velocity space
         # NOTE this is not compatible with enriched UW space used in 3D
@@ -167,7 +203,7 @@ class flowSolver(object):
         # ----- fields
         self.solution2d = Function(self.V_2d, name='solution2d')
         if self.useBottomFriction:
-            self.uv_bottom2d = Function(self.U_2d, name='Bottom Velocity')
+            self.uv_bottom2d = Function(self.P1v_2d, name='Bottom Velocity')
             self.z_bottom2d = Function(self.P1_2d, name='Bot. Vel. z coord')
             self.bottom_drag2d = Function(self.P1_2d, name='Bottom Drag')
         else:
@@ -181,7 +217,7 @@ class flowSolver(object):
         self.bathymetry3d = Function(self.P1, name='Bathymetry')
         self.uv3d = Function(self.U, name='Velocity')
         if self.useBottomFriction:
-            self.uv_bottom3d = Function(self.U, name='Bottom Velocity')
+            self.uv_bottom3d = Function(self.P1v, name='Bottom Velocity')
             self.z_bottom3d = Function(self.P1, name='Bot. Vel. z coord')
             self.bottom_drag3d = Function(self.P1, name='Bottom Drag')
         else:
@@ -210,9 +246,10 @@ class flowSolver(object):
         else:
             self.salt3d = None
         if self.solveVertDiffusion and self.useParabolicViscosity:
-            self.viscosity_v3d = Function(self.P1, name='Eddy viscosity')
+            # FIXME useParabolicViscosity is OBSOLETE
+            self.parabViscosity_v = Function(self.P1, name='Eddy viscosity')
         else:
-            self.viscosity_v3d = self.vViscosity
+            self.parabViscosity_v = None
         if self.baroclinic:
             self.baroHead3d = Function(self.Hint, name='Baroclinic head')
             self.baroHeadInt3d = Function(self.Hint, name='V.int. baroclinic head')
@@ -240,28 +277,52 @@ class flowSolver(object):
             self.smag_viscosity = Function(self.P1, name='Smagorinsky viscosity')
         else:
             self.smag_viscosity = None
-        # total horizontal viscosity
-        self.tot_h_visc = None
-        if self.hViscosity is not None and self.smagorinskyFactor is not None:
-            self.tot_h_visc = self.hViscosity + self.smag_viscosity
-        elif self.hViscosity is None and self.smagorinskyFactor is not None:
-            self.tot_h_visc = self.smag_viscosity
-        elif self.hViscosity is not None and self.smagorinskyFactor is None:
-            self.tot_h_visc = self.hViscosity
         if self.saltJumpDiffFactor is not None:
             self.saltJumpDiff = Function(self.P1, name='Salt Jump Diffusivity')
-            self.tot_salt_h_diff = self.saltJumpDiff
-            if self.hDiffusivity is not None:
-                self.tot_salt_h_diff += self.hDiffusivity
         else:
             self.saltJumpDiff = None
-            self.tot_salt_h_diff = self.hDiffusivity
         if self.useLimiterForTracers:
             self.tracerLimiter = limiter.vertexBasedP1DGLimiter(self.H,
                                                                 self.P1,
                                                                 self.P0)
         else:
             self.tracerLimiter = None
+        if self.useTurbulence:
+            # NOTE tke and psi should be in H as tracers ??
+            self.tke3d = Function(self.H, name='Turbulent kinetic energy')
+            self.psi3d = Function(self.H, name='Turbulence psi variable')
+            # NOTE other turb. quantities should share the same nodes ??
+            self.epsilon3d = Function(self.H, name='TKE dissipation rate')
+            self.len3d = Function(self.H, name='Turbulent lenght scale')
+            self.eddyVisc_v = Function(self.H, name='Vertical eddy viscosity')
+            self.eddyDiff_v = Function(self.H, name='Vertical eddy diffusivity')
+            # NOTE M2 and N2 depend on d(.)/dz -> use CG in vertical ?
+            self.shearFreq2_3d = Function(self.Hint, name='Shear frequency squared')
+            self.buoyancyFreq2_3d = Function(self.Hint, name='Buoyancy frequency squared')
+            glsParameters = {}  # use default parameters for now
+            self.glsModel = turbulence.genericLengthScaleModel(
+                self.tke3d, self.psi3d, self.len3d, self.epsilon3d,
+                self.eddyDiff_v, self.eddyVisc_v,
+                self.buoyancyFreq2_3d, self.shearFreq2_3d,
+                **glsParameters)
+        else:
+            self.tke3d = self.psi3d = self.epsilon3d = self.len3d = None
+            self.eddyVisc_v = self.eddyDiff_v = None
+            self.shearFreq2_3d = self.buoyancyFreq2_3d = None
+            self.glsModel = None
+        # copute total viscosity/diffusivity
+        self.tot_h_visc = sumFunction()
+        self.tot_h_visc.add(self.hViscosity)
+        self.tot_h_visc.add(self.smag_viscosity)
+        self.tot_v_visc = sumFunction()
+        self.tot_v_visc.add(self.vViscosity)
+        self.tot_v_visc.add(self.eddyVisc_v)
+        self.tot_v_visc.add(self.parabViscosity_v)
+        self.tot_salt_h_diff = sumFunction()
+        self.tot_salt_h_diff.add(self.hDiffusivity)
+        self.tot_salt_v_diff = sumFunction()
+        self.tot_salt_v_diff.add(self.vDiffusivity)
+        self.tot_salt_v_diff.add(self.eddyDiff_v)
 
         # set initial values
         copy2dFieldTo3d(self.bathymetry2d, self.bathymetry3d)
@@ -277,7 +338,7 @@ class flowSolver(object):
                 self.mesh2d, self.V_2d, self.solution2d, self.bathymetry2d,
                 self.uv_bottom2d, self.bottom_drag2d,
                 baro_head=self.baroHead2d,
-                viscosity_h=self.hViscosity,
+                viscosity_h=self.hViscosity,  # FIXME add 2d smag
                 uvLaxFriedrichs=self.uvLaxFriedrichs,
                 coriolis=self.coriolis,
                 wind_stress=self.wind_stress,
@@ -299,7 +360,8 @@ class flowSolver(object):
             baro_head=self.baroHead3d,
             w_mesh=self.w_mesh3d,
             dw_mesh_dz=self.dw_mesh_dz_3d,
-            viscosity_v=self.vViscosity, viscosity_h=self.tot_h_visc,
+            viscosity_v=self.tot_v_visc.getSum(),
+            viscosity_h=self.tot_h_visc.getSum(),
             laxFriedrichsFactor=self.uvLaxFriedrichs,
             #uvMag=self.uv3d_mag,
             uvP1=self.uv3d_P1,
@@ -311,8 +373,8 @@ class flowSolver(object):
                 self.mesh, self.H, self.salt3d, self.eta3d, self.uv3d,
                 w=self.w3d, w_mesh=self.w_mesh3d,
                 dw_mesh_dz=self.dw_mesh_dz_3d,
-                diffusivity_h=self.tot_salt_h_diff,
-                diffusivity_v=self.vDiffusivity,
+                diffusivity_h=self.tot_salt_h_diff.getSum(),
+                diffusivity_v=self.tot_salt_v_diff.getSum(),
                 #uvMag=self.uv3d_mag,
                 uvP1=self.uv3d_P1,
                 laxFriedrichsFactor=self.tracerLaxFriedrichs,
@@ -321,14 +383,56 @@ class flowSolver(object):
         if self.solveVertDiffusion:
             self.eq_vertmomentum = module_3d.verticalMomentumEquation(
                 self.mesh, self.U, self.U_scalar, self.uv3d, w=None,
-                viscosity_v=self.viscosity_v3d,
+                viscosity_v=self.tot_v_visc.getSum(),
                 uv_bottom=self.uv_bottom3d,
                 bottom_drag=self.bottom_drag3d,
-                wind_stress=self.wind_stress3d)
+                wind_stress=self.wind_stress3d,
+                vElemSize=self.vElemSize3d)
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         self.eq_momentum.bnd_functions = self.bnd_functions['momentum']
         if self.solveSalt:
             self.eq_salt.bnd_functions = self.bnd_functions['salt']
+        if self.useTurbulence:
+            # explicit advection equations
+            self.eq_tke_adv = tracerEquation.tracerEquation(
+                self.mesh, self.H, self.tke3d, self.eta3d, self.uv3d,
+                w=self.w3d, w_mesh=self.w_mesh3d,
+                dw_mesh_dz=self.dw_mesh_dz_3d,
+                diffusivity_h=None,  # TODO add horiz. diffusivity?
+                diffusivity_v=None,
+                uvP1=self.uv3d_P1,
+                laxFriedrichsFactor=self.tracerLaxFriedrichs,
+                bnd_markers=bnd_markers,
+                bnd_len=bnd_len)
+            self.eq_psi_adv = tracerEquation.tracerEquation(
+                self.mesh, self.H, self.psi3d, self.eta3d, self.uv3d,
+                w=self.w3d, w_mesh=self.w_mesh3d,
+                dw_mesh_dz=self.dw_mesh_dz_3d,
+                diffusivity_h=None,  # TODO add horiz. diffusivity?
+                diffusivity_v=None,
+                uvP1=self.uv3d_P1,
+                laxFriedrichsFactor=self.tracerLaxFriedrichs,
+                bnd_markers=bnd_markers,
+                bnd_len=bnd_len)
+            # implicit vertical diffusion eqn with production terms
+            self.tkeDiffusionEq = turbulence.tkeEquation(
+                self.mesh, self.H, self.tke3d, self.eta3d, uv=None,
+                w=None, w_mesh=None,
+                dw_mesh_dz=None,
+                diffusivity_h=None,
+                diffusivity_v=self.tot_salt_v_diff.getSum(),
+                uvMag=None, uvP1=None, laxFriedrichsFactor=None,
+                bnd_markers=bnd_markers, bnd_len=bnd_len,
+                glsModel=self.glsModel)
+            self.psiDiffusionEq = turbulence.psiEquation(
+                self.mesh, self.H, self.psi3d, self.eta3d, uv=None,
+                w=None, w_mesh=None,
+                dw_mesh_dz=None,
+                diffusivity_h=None,
+                diffusivity_v=self.tot_salt_v_diff.getSum(),
+                uvMag=None, uvP1=None, laxFriedrichsFactor=None,
+                bnd_markers=bnd_markers, bnd_len=bnd_len,
+                glsModel=self.glsModel)
 
         # ----- Time integrators
         self.setTimeStep()
@@ -361,7 +465,7 @@ class flowSolver(object):
             'salt3d': (self.salt3d, self.H_visu),
             'uv2d_dav': (self.uv2d_dav, self.U_visu_2d),
             'uv2d_bot': (self.uv_bottom2d, self.U_visu_2d),
-            'nuv3d': (self.viscosity_v3d, self.P1),
+            'nuv3d': (self.parabViscosity_v, self.P1),
             'barohead3d': (self.baroHead3d, self.P1),
             'barohead2d': (self.baroHead2d, self.P1_2d),
             'smagViscosity': (self.smag_viscosity, self.P1),

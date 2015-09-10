@@ -305,7 +305,7 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
                         self.timeStepper_vmom3d.updateSolver()
             with timed_region('vert_diffusion'):
                 if doVertDiffusion and s.solveVertDiffusion:
-                        self.timeStepper_vmom3d.advance(t, s.dt, s.uv3d)
+                    self.timeStepper_vmom3d.advance(t, s.dt, s.uv3d)
             with timed_region('aux_mom_coupling'):
                 if do2DCoupling:
                     bndValue = Constant((0.0, 0.0, 0.0))
@@ -344,8 +344,9 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
                         s.z_coord_ref3d)
             with timed_region('aux_friction'):
                 if s.useBottomFriction:
+                    s.uvP1_projector.project()
                     computeBottomFriction(
-                        s.uv3d, s.uv_bottom2d,
+                        s.uv3d_P1, s.uv_bottom2d,
                         s.uv_bottom3d, s.z_coord3d,
                         s.z_bottom2d, s.z_bottom3d,
                         s.bathymetry2d, s.bottom_drag2d,
@@ -355,7 +356,7 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
                     computeParabolicViscosity(
                         s.uv_bottom3d, s.bottom_drag3d,
                         s.bathymetry3d,
-                        s.viscosity_v3d)
+                        s.parabViscosity_v)
             with timed_region('aux_barolinicity'):
                 if s.baroclinic:
                     computeBaroclinicHead(s.salt3d, s.baroHead3d,
