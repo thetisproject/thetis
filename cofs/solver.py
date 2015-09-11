@@ -378,6 +378,7 @@ class flowSolver(object):
                 #uvMag=self.uv3d_mag,
                 uvP1=self.uv3d_P1,
                 laxFriedrichsFactor=self.tracerLaxFriedrichs,
+                vElemSize=self.vElemSize3d,
                 bnd_markers=bnd_markers,
                 bnd_len=bnd_len)
         if self.solveVertDiffusion:
@@ -402,6 +403,7 @@ class flowSolver(object):
                 diffusivity_v=None,
                 uvP1=self.uv3d_P1,
                 laxFriedrichsFactor=self.tracerLaxFriedrichs,
+                vElemSize=self.vElemSize3d,
                 bnd_markers=bnd_markers,
                 bnd_len=bnd_len)
             self.eq_psi_adv = tracerEquation.tracerEquation(
@@ -412,6 +414,7 @@ class flowSolver(object):
                 diffusivity_v=None,
                 uvP1=self.uv3d_P1,
                 laxFriedrichsFactor=self.tracerLaxFriedrichs,
+                vElemSize=self.vElemSize3d,
                 bnd_markers=bnd_markers,
                 bnd_len=bnd_len)
             # implicit vertical diffusion eqn with production terms
@@ -422,6 +425,7 @@ class flowSolver(object):
                 diffusivity_h=None,
                 diffusivity_v=self.tot_salt_v_diff.getSum(),
                 uvMag=None, uvP1=None, laxFriedrichsFactor=None,
+                vElemSize=self.vElemSize3d,
                 bnd_markers=bnd_markers, bnd_len=bnd_len,
                 glsModel=self.glsModel)
             self.psiDiffusionEq = turbulence.psiEquation(
@@ -431,6 +435,7 @@ class flowSolver(object):
                 diffusivity_h=None,
                 diffusivity_v=self.tot_salt_v_diff.getSum(),
                 uvMag=None, uvP1=None, laxFriedrichsFactor=None,
+                vElemSize=self.vElemSize3d,
                 bnd_markers=bnd_markers, bnd_len=bnd_len,
                 glsModel=self.glsModel)
 
@@ -465,7 +470,7 @@ class flowSolver(object):
             'salt3d': (self.salt3d, self.H_visu),
             'uv2d_dav': (self.uv2d_dav, self.U_visu_2d),
             'uv2d_bot': (self.uv_bottom2d, self.U_visu_2d),
-            'nuv3d': (self.parabViscosity_v, self.P1),
+            'parabNuv3d': (self.parabViscosity_v, self.P1),
             'barohead3d': (self.baroHead3d, self.P1),
             'barohead2d': (self.baroHead2d, self.P1_2d),
             'smagViscosity': (self.smag_viscosity, self.P1),
