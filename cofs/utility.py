@@ -769,21 +769,29 @@ def computeParabolicViscosity(uv_bottom, bottom_drag, bathymetry, nu,
     """
     solver_parameters.setdefault('ksp_atol', 1e-12)
     solver_parameters.setdefault('ksp_rtol', 1e-16)
-    kappa = physical_constants['von_karman']
-    z0 = physical_constants['z0_friction']
-    H = nu.function_space()
-    x = H.mesh().coordinates
-    test = TestFunction(H)
-    tri = TrialFunction(H)
-    a = tri*test*dx
-    uv_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
-    parabola = -x[2]*(bathymetry + z0 + x[2])/(bathymetry + z0)
-    #L = kappa*sqrt(bottom_drag)*uv_mag*parabola*test*dx
-    L = Constant(0.01)*parabola*test*dx  # HACK
-    solve(a == L, nu, solver_parameters=solver_parameters)
+    key = '-'.join(('parabVisc', nu.name()))
+    if key not in linProblemCache:
+        kappa = physical_constants['von_karman']
+        z0 = physical_constants['z0_friction']
+        H = nu.function_space()
+        x = H.mesh().coordinates
+        test = TestFunction(H)
+        tri = TrialFunction(H)
+        a = tri*test*dx
+        uv_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
+        parabola = -x[2]*(bathymetry + z0 + x[2])/(bathymetry + z0)
+        L = kappa*sqrt(bottom_drag)*uv_mag*parabola*test*dx
+        #L = Constant(0.05/3.75)*parabola*test*dx  # HACK
+        #solve(a == L, nu, solver_parameters=solver_parameters)
+        prob = LinearVariationalProblem(a, L, nu)
+        solver = LinearVariationalSolver(
+            prob, solver_parameters=solver_parameters)
+        linProblemCache.add(key, solver, 'parabVisc')
+    linProblemCache[key].solve()
     # remove negative values
-    neg_ix = nu.dat.data[:] < 1e-10
-    nu.dat.data[neg_ix] = 1e-10
+    min_val = 1e-10
+    ix = nu.dat.data[:] < min_val
+    nu.dat.data[ix] = min_val
     return nu
 
 
@@ -870,25 +878,32 @@ class projector(object):
     def __init__(self, input_func, output_func, solver_parameters={}):
         self.input = input_func
         self.output = output_func
-        V = output_func.function_space()
-        p = TestFunction(V)
-        q = TrialFunction(V)
-        a = inner(p, q) * V.mesh()._dx
-        L = inner(p, input_func) * V.mesh()._dx
+        self.same_space = (self.input.function_space() ==
+                           self.output.function_space())
 
-        solver_parameters.setdefault('ksp_type', 'cg')
-        solver_parameters.setdefault('ksp_rtol', 1e-8)
+        if not self.same_space:
+            V = output_func.function_space()
+            p = TestFunction(V)
+            q = TrialFunction(V)
+            a = inner(p, q) * V.mesh()._dx
+            L = inner(p, input_func) * V.mesh()._dx
 
-        self.problem = LinearVariationalProblem(a, L, output_func)
-        self.solver = LinearVariationalSolver(self.problem,
-                                              solver_parameters=solver_parameters)
+            solver_parameters.setdefault('ksp_type', 'cg')
+            solver_parameters.setdefault('ksp_rtol', 1e-8)
+
+            self.problem = LinearVariationalProblem(a, L, output_func)
+            self.solver = LinearVariationalSolver(self.problem,
+                                                  solver_parameters=solver_parameters)
 
     def project(self):
-        try:
-            self.solver.solve()
-        except Exception as e:
-            print 'projection failed for {:}'.format(self.input.name)
-            raise e
+        if self.same_space:
+            self.output.assign(self.input)
+        else:
+            try:
+                self.solver.solve()
+            except Exception as e:
+                print 'projection failed for {:}'.format(self.input.name)
+                raise e
 
 
 class EquationOfState(object):
