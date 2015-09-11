@@ -486,6 +486,56 @@ class ForwardEuler(timeIntegrator):
             self.funcs_old[k].assign(self.funcs[k])
 
 
+class BackwardEuler(timeIntegrator):
+    """Standard backward Euler time integration scheme."""
+    def __init__(self, equation, dt, solver_parameters={}):
+        """Creates forms for the time integrator"""
+        super(BackwardEuler, self).__init__(equation)
+        self.solver_parameters = solver_parameters
+        self.solver_parameters.setdefault('snes_monitor', False)
+        self.solver_parameters.setdefault('snes_type', 'newtonls')
+
+        massTerm = self.equation.massTerm
+        RHS = self.equation.RHS
+        RHSi = self.equation.RHS_implicit
+        Source = self.equation.Source
+
+        self.dt_const = Constant(dt)
+        self.solution_old = Function(self.equation.space)
+
+        # dict of all input functions needed for the equation
+        self.funcs = self.equation.kwargs
+
+        u = self.equation.solution
+        u_old = self.solution_old
+        u_tri = self.equation.tri
+
+        self.F = (massTerm(u) - massTerm(u_old) -
+                  self.dt_const*(RHS(u, **self.funcs) +
+                                 RHSi(u, **self.funcs) +
+                                 Source(**self.funcs)
+                                 )
+                  )
+
+    def updateSolver(self):
+        prob = NonlinearVariationalProblem(self.F, self.equation.solution)
+        self.solver = LinearVariationalSolver(prob,
+                                              solver_parameters=self.solver_parameters,
+                                              options_prefix=self.name)
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(solution)
+
+    def advance(self, t, dt, solution, updateForcings=None):
+        """Advances equations for one time step."""
+        self.dt_const.assign(dt)
+        if updateForcings is not None:
+            updateForcings(t+dt)
+        self.solution_old.assign(solution)
+        self.solver.solve()
+
+
 class CrankNicolson(timeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
     def __init__(self, equation, dt, solver_parameters={}, gamma=0.6):
@@ -550,7 +600,7 @@ class CrankNicolson(timeIntegrator):
     def updateSolver(self):
         nest = not ('pc_type' in self.solver_parameters and self.solver_parameters['pc_type']=='lu')
         prob = NonlinearVariationalProblem(self.F, self.equation.solution, nest=nest)
-        self.solver = LinearVariationalSolver(prob,
+        self.solver = NonlinearVariationalSolver(prob,
             solver_parameters=self.solver_parameters,
             options_prefix=self.name)
 
