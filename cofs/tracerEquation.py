@@ -8,15 +8,17 @@ from utility import *
 
 class tracerEquation(equation):
     """3D tracer advection-diffusion equation"""
-    def __init__(self, mesh, space, solution, eta, uv, w,
+    def __init__(self, mesh, space, solution, eta, uv=None, w=None,
                  w_mesh=None, dw_mesh_dz=None,
                  diffusivity_h=None, diffusivity_v=None,
                  uvMag=None, uvP1=None, laxFriedrichsFactor=None,
-                 bnd_markers=None, bnd_len=None, nonlin=True):
+                 bnd_markers=None, bnd_len=None, nonlin=True,
+                 vElemSize=None):
         self.mesh = mesh
         self.space = space
         # this dict holds all args to the equation (at current time step)
         self.solution = solution
+        self.vElemSize = vElemSize
         self.kwargs = {'eta': eta,
                        'uv': uv,
                        'w': w,
@@ -82,7 +84,7 @@ class tracerEquation(equation):
         G = 0  # holds all ds boundary interface terms
         return -F - G
 
-    def RHS(self, solution, eta, uv, w, w_mesh=None, dw_mesh_dz=None,
+    def RHS(self, solution, eta=None, uv=None, w=None, w_mesh=None, dw_mesh_dz=None,
             diffusivity_h=None, diffusivity_v=None,
             laxFriedrichsFactor=None,
             uvMag=None, uvP1=None,
@@ -193,12 +195,20 @@ class tracerEquation(equation):
             F += diffusivity_v*(Dx(solution, 2)*Dx(self.test, 2))*self.dx
             if self.vertical_DG:
                 # interface term
-                muGradSol = diffusivity_v*grad(solution)
-                F += -avg(muGradSol[2])*jump(self.test, self.normal[2])*(self.dS_h)
+                muGradSol = diffusivity_v*Dx(solution, 2)
+                F += -avg(muGradSol)*jump(self.test, self.normal[2])*(self.dS_h)
+                # symmetric interior penalty stabilization
+                L = avg(self.vElemSize)
+                nbNeigh = 2
+                o = 1  # polynomial order
+                d = 3  # dimension
+                sigma = Constant((o + 1)*(o + d)/d * nbNeigh / 2) / L
+                gamma = sigma*avg(diffusivity_v)*abs(self.normal('-')[2])**2
+                F += -gamma * jump(self.test)*jump(solution) * self.dS_h
 
         return -F - G
 
-    def Source(self, eta, uv, w, **kwargs):
+    def Source(self, eta=None, uv=None, w=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
         F = 0  # holds all dx volume integral terms
