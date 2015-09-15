@@ -198,6 +198,8 @@ class tracerEquation(equation):
                 muGradSol = diffusivity_v*Dx(solution, 2)
                 F += -avg(muGradSol)*jump(self.test, self.normal[2])*(self.dS_h)
                 # symmetric interior penalty stabilization
+                if self.vElemSize is None:
+                    raise Exception('vElemSize must be provided')
                 L = avg(self.vElemSize)
                 nbNeigh = 2
                 o = 1  # polynomial order

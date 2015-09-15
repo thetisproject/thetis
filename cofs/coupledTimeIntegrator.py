@@ -225,9 +225,21 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
                 solver.eq_salt,
                 solver.dt)
         if self.solver.solveVertDiffusion:
-            self.timeStepper_vmom3d = timeIntegrator.CrankNicolson(
-                solver.eq_vertmomentum,
-                solver.dt, gamma=0.6)
+            #self.timeStepper_vmom3d = timeIntegrator.BackwardEuler(
+                #solver.eq_vertmomentum, solver.dt)
+            self.timeStepper_vmom3d = timeIntegrator.DIRK_LSPUM2(
+                solver.eq_vertmomentum, solver.dt)
+        if self.solver.useTurbulence:
+            vdiff_sp = {
+                'ksp_type': 'cg',
+                'pc_type': 'ilu',
+                'snes_rtol': 1.0e-12,
+                'ksp_rtol': 1.0e-12,
+                }
+            self.timeStepper_tke3d = timeIntegrator.DIRK_LSPUM2(
+                solver.eq_tke_diff, solver.dt, solver_parameters=vdiff_sp)
+            self.timeStepper_psi3d = timeIntegrator.DIRK_LSPUM2(
+                solver.eq_psi_diff, solver.dt, solver_parameters=vdiff_sp)
 
         # ----- stage 1 -----
         # from n to n+1 with RHS at (u_n, t_n)
@@ -283,7 +295,8 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
         def updateDependencies(do2DCoupling=False,
                                doVertDiffusion=False,
                                doALEUpdate=False,
-                               doStabParams=False):
+                               doStabParams=False,
+                               doTurbulence=False):
             """Updates all dependencies of the primary variables"""
             with timed_region('aux_eta3d'):
                 eta = sol2d.split()[1]
@@ -334,6 +347,16 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
                 computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d,
                                     s.eq_momentum.boundary_markers,
                                     s.eq_momentum.bnd_functions)
+            with timed_region('turbulence'):
+                if s.useTurbulence and doTurbulence:
+                    s.glsModel.preprocess()
+                    # NOTE psi must be solved first as it depends on tke
+                    self.timeStepper_psi3d.advance(t, s.dt, s.psi3d)
+                    self.timeStepper_tke3d.advance(t, s.dt, s.tke3d)
+                    if s.useLimiterForTracers:
+                        s.tracerLimiter.apply(s.tke3d)
+                        s.tracerLimiter.apply(s.psi3d)
+                    s.glsModel.postprocess()
             with timed_region('aux_mesh_ale'):
                 if s.useALEMovingMesh:
                     computeMeshVelocity(
@@ -384,6 +407,14 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
                                                        updateForcings3d)
                     if s.useLimiterForTracers:
                         s.tracerLimiter.apply(s.salt3d)
+            with timed_region('turbulenceAdvection'):
+                if s.useTurbulenceAdvection:
+                    # explicit advection
+                    self.timeStepper_tkeAdvEq.solveStage(k, t, s.dt, s.tke3d)
+                    self.timeStepper_psiAdvEq.solveStage(k, t, s.dt, s.psi3d)
+                    if s.useLimiterForTracers:
+                        s.tracerLimiter.apply(s.tke3d)
+                        s.tracerLimiter.apply(s.psi3d)
             with timed_region('momentumEq'):
                 self.timeStepper_mom3d.solveStage(k, t, s.dt, s.uv3d)
             with timed_region('mode2d'):
@@ -394,7 +425,8 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
             updateDependencies(doVertDiffusion=lastStep,
                                do2DCoupling=lastStep,
                                doALEUpdate=lastStep,
-                               doStabParams=lastStep)
+                               doStabParams=lastStep,
+                               doTurbulence=lastStep)
 
 
 class coupledSSPRKSingleMode(timeIntegrator.timeIntegrator):

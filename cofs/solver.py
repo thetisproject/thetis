@@ -80,6 +80,7 @@ class flowSolver(object):
         self.useModeSplit = True  # run 2D/3D modes with different dt
         self.useSemiImplicit2D = True  # implicit 2D waves (only w. mode split)
         self.useTurbulence = False  # GLS turbulence model
+        self.useTurbulenceAdvection = False  # Advect tke,psi with velocity
         self.lin_drag = None  # 2D linear drag parameter tau/H/rho_0 = -drag*u
         self.hDiffusivity = None  # background diffusivity (set to Constant)
         self.vDiffusivity = None  # background diffusivity (set to Constant)
@@ -297,11 +298,11 @@ class flowSolver(object):
             self.eddyVisc_v = Function(self.H, name='Vertical eddy viscosity')
             self.eddyDiff_v = Function(self.H, name='Vertical eddy diffusivity')
             # NOTE M2 and N2 depend on d(.)/dz -> use CG in vertical ?
-            self.shearFreq2_3d = Function(self.Hint, name='Shear frequency squared')
-            self.buoyancyFreq2_3d = Function(self.Hint, name='Buoyancy frequency squared')
+            self.shearFreq2_3d = Function(self.H, name='Shear frequency squared')
+            self.buoyancyFreq2_3d = Function(self.H, name='Buoyancy frequency squared')
             glsParameters = {}  # use default parameters for now
             self.glsModel = turbulence.genericLengthScaleModel(
-                self.tke3d, self.psi3d, self.len3d, self.epsilon3d,
+                self.tke3d, self.psi3d, self.uv3d, self.len3d, self.epsilon3d,
                 self.eddyDiff_v, self.eddyVisc_v,
                 self.buoyancyFreq2_3d, self.shearFreq2_3d,
                 **glsParameters)
@@ -316,7 +317,7 @@ class flowSolver(object):
         self.tot_h_visc.add(self.smag_viscosity)
         self.tot_v_visc = sumFunction()
         self.tot_v_visc.add(self.vViscosity)
-        self.tot_v_visc.add(self.eddyVisc_v)
+        #self.tot_v_visc.add(self.eddyVisc_v)  # HACK inactive for now
         self.tot_v_visc.add(self.parabViscosity_v)
         self.tot_salt_h_diff = sumFunction()
         self.tot_salt_h_diff.add(self.hDiffusivity)
@@ -418,24 +419,26 @@ class flowSolver(object):
                 bnd_markers=bnd_markers,
                 bnd_len=bnd_len)
             # implicit vertical diffusion eqn with production terms
-            self.tkeDiffusionEq = turbulence.tkeEquation(
+            self.eq_tke_diff = turbulence.tkeEquation(
                 self.mesh, self.H, self.tke3d, self.eta3d, uv=None,
                 w=None, w_mesh=None,
                 dw_mesh_dz=None,
                 diffusivity_h=None,
                 diffusivity_v=self.tot_salt_v_diff.getSum(),
-                uvMag=None, uvP1=None, laxFriedrichsFactor=None,
+                viscosity_v=self.tot_v_visc.getSum(),
                 vElemSize=self.vElemSize3d,
+                uvMag=None, uvP1=None, laxFriedrichsFactor=None,
                 bnd_markers=bnd_markers, bnd_len=bnd_len,
                 glsModel=self.glsModel)
-            self.psiDiffusionEq = turbulence.psiEquation(
+            self.eq_psi_diff = turbulence.psiEquation(
                 self.mesh, self.H, self.psi3d, self.eta3d, uv=None,
                 w=None, w_mesh=None,
                 dw_mesh_dz=None,
                 diffusivity_h=None,
                 diffusivity_v=self.tot_salt_v_diff.getSum(),
-                uvMag=None, uvP1=None, laxFriedrichsFactor=None,
+                viscosity_v=self.tot_v_visc.getSum(),
                 vElemSize=self.vElemSize3d,
+                uvMag=None, uvP1=None, laxFriedrichsFactor=None,
                 bnd_markers=bnd_markers, bnd_len=bnd_len,
                 glsModel=self.glsModel)
 
@@ -471,6 +474,12 @@ class flowSolver(object):
             'uv2d_dav': (self.uv2d_dav, self.U_visu_2d),
             'uv2d_bot': (self.uv_bottom2d, self.U_visu_2d),
             'parabNuv3d': (self.parabViscosity_v, self.P1),
+            'eddyNuv3d': (self.eddyVisc_v, self.P1DG),
+            'shearFreq3d': (self.shearFreq2_3d, self.P1DG),
+            'tke3d': (self.tke3d, self.P1DG),
+            'psi3d': (self.psi3d, self.P1DG),
+            'eps3d': (self.epsilon3d, self.P1DG),
+            'len3d': (self.len3d, self.P1DG),
             'barohead3d': (self.baroHead3d, self.P1),
             'barohead2d': (self.baroHead2d, self.P1_2d),
             'smagViscosity': (self.smag_viscosity, self.P1),
