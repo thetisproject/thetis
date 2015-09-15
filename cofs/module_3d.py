@@ -267,34 +267,13 @@ class momentumEquation(equation):
             elif 'elev' in funcs:
                 # prescribe elevation only
                 h_ext = funcs['elev']
-                uv_ext = solution
-                t = self.normal[1] * self.e_x - self.normal[0] * self.e_y
-                ut_in = dot(solution, t)
-                # ut_ext = -dot(uv_ext,t) # assume zero
-                un_ext = dot(uv_ext, self.normal)
-
-                if self.nonlin:
-                    H = self.bathymetry + (eta + h_ext) / 2
-                else:
-                    H = self.bathymetry
-                c_roe = sqrt(g_grav * H)
-                un_riemann = dot(solution, self.normal) + c_roe / H * (eta - h_ext)/2
-                H_riemann = H
-                ut_riemann = tanh(4 * un_riemann / 0.02) * (ut_in)
-                uv_riemann = un_riemann * self.normal + ut_riemann * t
-
                 G += g_grav*(eta + h_ext)/2*dot(self.normal, self.test)*ds_bnd
                 # symmetric term for advection
                 if self.nonlin:
+                    un = dot(solution, self.normal)
                     uv_in = solution
-                    G += (uv_in[0]*self.test[0]*self.normal[0]*uv_in[0] +
-                          uv_in[0]*self.test[0]*self.normal[1]*uv_in[1] +
-                          uv_in[1]*self.test[1]*self.normal[0]*uv_in[0] +
-                          uv_in[1]*self.test[1]*self.normal[1]*uv_in[1])*ds_bnd
-
-                #if self.nonlin:
-                    ## NOTE just symmetric 3D flux with 2D eta correction
-                    #G += un_riemann * un_riemann * dot(self.normal, self.test) * ds_bnd
+                    G += (uv_in[0]*self.test[0]*un +
+                          uv_in[1]*self.test[1]*un)*ds_bnd
 
             elif 'un' in funcs:
                 # prescribe normal volume flux
@@ -478,9 +457,6 @@ class verticalMomentumEquation(equation):
             F += viscosity_v*(Dx(self.test[0], 2)*Dx(solution[0], 2) +
                               Dx(self.test[1], 2)*Dx(solution[1], 2)) * self.dx
             if self.vertical_DG:
-                #intViscFlux = (jump(self.test[0]*Dx(solution[0], 2), self.normal[2]) +
-                               #jump(self.test[1]*Dx(solution[1], 2), self.normal[2]))
-                #G += -avg(viscosity_v) * intViscFlux * self.dS_h
                 viscflux = viscosity_v*Dx(solution, 2)
                 G += -(avg(viscflux[0])*jump(self.test[0], self.normal[2]) +
                        avg(viscflux[1])*jump(self.test[1], self.normal[2])) * self.dS_h
@@ -494,16 +470,13 @@ class verticalMomentumEquation(equation):
                 G += - gamma * (jump(self.test[0])*jump(solution[0]) +
                                 jump(self.test[1])*jump(solution[1])) * self.dS_h
 
-            # TODO need to simplify more to understand what's wrong
-            # check elev bnd for 3d eq --> make consistent with 2d!
             # implicit bottom friction
             if bottom_drag is not None:
-                z_bot = Constant(0.1)
+                z_bot = self.vElemSize*0.5
                 # compute uv_bottom implicitly
-                uv_bot = solution + Dx(solution, 2)*z_bot
+                uv_bot = solution  # + Dx(solution, 2)*z_bot
                 uv_bot_mag = sqrt(uv_bot[0]**2 + uv_bot[1]**2)
-                #stress = bottom_drag*uv_bot_mag*uv_bot
-                stress = Constant(0.005)*uv_bot_mag*uv_bot
+                stress = bottom_drag*uv_bot_mag*uv_bot
                 BotFriction = (stress[0]*self.test[0] +
                                stress[1]*self.test[1])*self.ds_bottom
                 F += BotFriction
