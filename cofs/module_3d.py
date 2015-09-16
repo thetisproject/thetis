@@ -460,22 +460,23 @@ class verticalMomentumEquation(equation):
                 viscflux = viscosity_v*Dx(solution, 2)
                 G += -(avg(viscflux[0])*jump(self.test[0], self.normal[2]) +
                        avg(viscflux[1])*jump(self.test[1], self.normal[2])) * self.dS_h
-                # TODO implement symmetric interior penalty stabilization!!!
-                L = avg(self.vElemSize)
-                nbNeigh = 2
-                o = 1
-                d = 3
-                sigma = Constant((o + 1)*(o + d)/d * nbNeigh / 2) / L
-                gamma = sigma*avg(viscosity_v)*abs(self.normal('-')[2])**2
-                G += - gamma * (jump(self.test[0])*jump(solution[0]) +
-                                jump(self.test[1])*jump(solution[1])) * self.dS_h
+                ## TODO implement symmetric interior penalty stabilization!!!
+                #L = avg(self.vElemSize)
+                #nbNeigh = 2
+                #o = 1
+                #d = 3
+                #sigma = Constant((o + 1)*(o + d)/d * nbNeigh / 2) / L
+                #gamma = sigma*avg(viscosity_v)*abs(self.normal('-')[2])**2
+                #G += - gamma * (jump(self.test[0])*jump(solution[0]) +
+                                #jump(self.test[1])*jump(solution[1])) * self.dS_h
 
             # implicit bottom friction
             if bottom_drag is not None:
-                z_bot = self.vElemSize*0.5
+                z_bot = self.vElemSize
                 # compute uv_bottom implicitly
-                uv_bot = solution  # + Dx(solution, 2)*z_bot
-                uv_bot_mag = sqrt(uv_bot[0]**2 + uv_bot[1]**2)
+                uv_bot = solution + Dx(solution, 2)*z_bot
+                #uv_bot_mag = sqrt(uv_bot[0]**2 + uv_bot[1]**2)
+                uv_bot_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
                 stress = bottom_drag*uv_bot_mag*uv_bot
                 BotFriction = (stress[0]*self.test[0] +
                                stress[1]*self.test[1])*self.ds_bottom

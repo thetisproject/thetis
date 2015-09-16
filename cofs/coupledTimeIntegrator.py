@@ -224,18 +224,18 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
             self.timeStepper_salt3d = timeIntegrator.SSPRK33Stage(
                 solver.eq_salt,
                 solver.dt)
+        vdiff_sp = {
+            'ksp_type': 'cg',
+            'pc_type': 'ilu',
+            'snes_rtol': 1.0e-12,
+            'ksp_rtol': 1.0e-12,
+            }
         if self.solver.solveVertDiffusion:
             #self.timeStepper_vmom3d = timeIntegrator.BackwardEuler(
                 #solver.eq_vertmomentum, solver.dt)
             self.timeStepper_vmom3d = timeIntegrator.DIRK_LSPUM2(
-                solver.eq_vertmomentum, solver.dt)
+                solver.eq_vertmomentum, solver.dt, solver_parameters=vdiff_sp)
         if self.solver.useTurbulence:
-            vdiff_sp = {
-                'ksp_type': 'cg',
-                'pc_type': 'ilu',
-                'snes_rtol': 1.0e-12,
-                'ksp_rtol': 1.0e-12,
-                }
             self.timeStepper_tke3d = timeIntegrator.DIRK_LSPUM2(
                 solver.eq_tke_diff, solver.dt, solver_parameters=vdiff_sp)
             self.timeStepper_psi3d = timeIntegrator.DIRK_LSPUM2(
@@ -366,7 +366,7 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
                         s.dw_mesh_dz_3d, s.bathymetry3d,
                         s.z_coord_ref3d)
             with timed_region('aux_friction'):
-                if s.useBottomFriction:
+                if s.useBottomFriction and doVertDiffusion:
                     s.uvP1_projector.project()
                     computeBottomFriction(
                         s.uv3d_P1, s.uv_bottom2d,

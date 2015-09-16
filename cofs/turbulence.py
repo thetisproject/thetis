@@ -64,17 +64,19 @@ Tuomas Karna 2015-09-07
 from tracerEquation import *
 from utility import *
 
-# NOTE advection/diffusion should be treated similarly
-#      to other tracers.
-# NOTE vertical diffusion should be treated implicitly
-# NOTE horizontal advection should be treated explicitly
-
 
 def setFuncMinVal(f, minval):
     """
     Sets a minimum value to a function
     """
     f.dat.data[f.dat.data < minval] = minval
+
+
+def setFuncMaxVal(f, maxval):
+    """
+    Sets a minimum value to a function
+    """
+    f.dat.data[f.dat.data > maxval] = maxval
 
 
 def computeShearFrequency(uv, M2, Mu_tmp, minval=1e-12,
@@ -107,7 +109,7 @@ def computeShearFrequency(uv, M2, Mu_tmp, minval=1e-12,
             L += uv[iComp]*test*normal[2]*(ds_surf + ds_bottom)
             prob = LinearVariationalProblem(a, L, Mu_tmp)
             solver = LinearVariationalSolver(prob)
-            linProblemCache.add(key, solver, 'updateCoords')
+            linProblemCache.add(key, solver, 'shearFrequency')
         linProblemCache[key].solve()
         M2 += Mu_tmp*Mu_tmp
     # crop small/negative values
@@ -120,7 +122,7 @@ class genericLengthScaleModel(object):
 
 
     """
-    def __init__(self, k_field, psi_field, uv_field,
+    def __init__(self, solver, k_field, psi_field, uv_field,
                  l_field, epsilon_field,
                  eddy_diffusivity, eddy_viscosity,
                  N2, M2,
@@ -128,9 +130,9 @@ class genericLengthScaleModel(object):
                  schmidt_nb_tke=1.0, schmidt_nb_psi=1.3,
                  c1=1.44, c2=1.92, c3_minus=-0.52, c3_plus=1.0,
                  F_wall=1.0, k_min=1.0e-10, psi_min=1.0e-12,
-                 eps_min=1e-14,
+                 eps_min=1e-12,
                  galperin_lim=0.56,
-                 stabilityType='KC',
+                 stabilityType='CA',
                  ):
         """
         Initialize GLS model
@@ -164,6 +166,7 @@ class genericLengthScaleModel(object):
             'CA': Canuto (2001) model A
             'CB': Canuto (2001) model B
         """
+        self.solver = solver
         # 3d model fields
         self.uv = uv_field
         # prognostic fields
@@ -179,6 +182,9 @@ class genericLengthScaleModel(object):
         self.M2 = M2
         self.Mu_tmp = Function(self.M2.function_space(),
                                name='X/Y Shear frequency')
+        self.tmp_field_P1 = Function(solver.P0,
+                                     name='tmp_p1_field')
+
         # parameters
         self.params = {
             'p': p,
@@ -199,9 +205,15 @@ class genericLengthScaleModel(object):
         self.stabilityType = stabilityType
         if self.stabilityType == 'KC':
             self.stabilityFunc = stabilityFuncKanthaClayson()
+        elif self.stabilityType == 'CA':
+            self.stabilityFunc = stabilityFuncCanutoA()
         else:
             raise Exception('Unknown stability function type: ' +
                             self.stabilityType)
+        # compute c3_minus
+        c3_minus = self.stabilityFunc.computeC3Minus(c1, c2)
+        self.params['c3_minus'] = c3_minus
+
         self.params['c0_mu'] = self.stabilityFunc.c0_mu
 
         self.initialize()
@@ -249,6 +261,11 @@ class genericLengthScaleModel(object):
         p = self.params['p']
         n = self.params['n']
         m = self.params['m']
+        # smooth k and psi
+        self.tmp_field_P1.project(self.k)
+        self.k.project(self.tmp_field_P1)
+        self.tmp_field_P1.project(self.psi)
+        self.psi.project(self.tmp_field_P1)
         # impose limits on k and psi
         setFuncMinVal(self.k, self.params['k_min'])
         setFuncMinVal(self.psi, self.params['psi_min'])
@@ -256,56 +273,50 @@ class genericLengthScaleModel(object):
         # psi^(1/n) <= sqrt(0.56)* (c0_mu)^(p/n) *k^(m/n+0.5)* N2^(-0.5)
         k_arr = self.k.dat.data[:]
         N2_arr = self.N2.dat.data[:]
-        val = (sqrt(0.56) * (c0_mu)**(p / n) * k_arr**(m / n + 0.5) * N2_arr**(-0.5))**n
+        N2_pos = N2_arr.copy()
+        N2_pos[N2_pos < 0.0] = 0.0
+        val = (np.sqrt(0.56) * (c0_mu)**(p / n) * k_arr**(m / n + 0.5) * (N2_pos + 1e-12)**(-0.5))**n
         if n > 0:
             # impose max value
             self.psi.dat.data[:] = np.minimum(self.psi.dat.data[:], val)
         else:
             # impose min value
             self.psi.dat.data[:] = np.maximum(self.psi.dat.data[:], val)
-        # udpate l and eps
+        # udpate epsilon and L
         #self.epsilon.assign(c0_mu**(3+p/n)*self.k**(3/2+m/n)*self.psi**(-1/n))
         # HACK special case for k-eps model
         self.epsilon.assign(self.psi)
         # Galperin limitation as in GOTM
         N2_pos = self.N2.dat.data.copy()
-        N2_tol = 0.0
-        N2_pos[N2_pos < N2_tol] = N2_tol
+        N2_pos[N2_pos < 0.0] = 0.0
         galp = self.params['galperin_lim']
-        epslim = c0_mu**3.0/sqrt(2.)/galp*k_arr*np.sqrt(N2_pos)
+        epslim = c0_mu**3.0/np.sqrt(2.)/galp*k_arr*np.sqrt(N2_pos)
         self.epsilon.dat.data[:] = np.maximum(self.epsilon.dat.data[:], epslim)
         # impose minimum value
         setFuncMinVal(self.epsilon, self.params['eps_min'])
         print 'eps', self.epsilon.dat.data.min(), self.epsilon.dat.data.max()
 
         #self.l.assign(c0_mu**3 * self.k**(3.0/2.0) / self.epsilon)  # TODO why this doesn't work
-        self.l.dat.data[:] = c0_mu**3.0 * k_arr**(3.0/2.0) / self.epsilon.dat.data[:]
+        self.l.dat.data[:] = c0_mu**3.0 * np.sqrt(np.power(k_arr, 3)) / self.epsilon.dat.data[:]
+        setFuncMaxVal(self.l, 100.0)  # HACK limit L to something meaningful
         ## Galperin L limitation
-        ### FIXME use psi G_h limitation as discussed in Warner (2005)
-        ##l_max = np.minimum(np.sqrt(0.56*self.k.dat.data[:]/N2_pos), 15.0)
-        #self.l.dat.data[:] = np.minimum(self.l.dat.data[:], l_max)
         print 'L', self.l.dat.data.min(), self.l.dat.data.max()
-        #setFuncMinVal(self.l, 1.0e-12)  # TODO this can be omitted?
-        # update stability functions FIXME wrong
         S_M, S_H = self.stabilityFunc.getFunctions(self.M2.dat.data,
                                                    self.N2.dat.data,
                                                    self.l.dat.data,
                                                    self.k.dat.data)
         c = self.stabilityFunc.c
         # update diffusivity/viscosity
-        #self.viscosity.assign(c*sqrt(2*self.k)*self.l*S_M)
         self.viscosity.dat.data[:] = c*np.sqrt(2*self.k.dat.data[:])*self.l.dat.data[:]*S_M
-        #self.viscosity.dat.data[:] = S_M
         print 'nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max()
-        #self.viscosity.assign(self.l)
-        #self.diffusivity.assign(c*sqrt(2*self.k)*self.l*S_H)
+        self.diffusivity.dat.data[:] = c*np.sqrt(2*self.k.dat.data[:])*self.l.dat.data[:]*S_H
 
 
 class stabilityFuncKanthaClayson(object):
     """
     Implementation of Kantha-Clayson stability functions.
 
-    Following Burchard and Deleersnijder (2001).
+    Implementation follows Burchard and Deleersnijder (2001).
     """
     def __init__(self):
         # parameters
@@ -315,6 +326,7 @@ class stabilityFuncKanthaClayson(object):
         self.B2 = 10.1
         self.C2 = 0.7
         self.C3 = 0.2
+        self.Gh_max = 0.029
         self.Gh_min = -0.28
         self.Gh0 = 0.0233
         self.Gh_crit = 0.02
@@ -331,6 +343,14 @@ class stabilityFuncKanthaClayson(object):
         self.b3 = 27*self.A1*self.A2**2*(self.B2*(1.0 - self.C3) + 4*self.A1)
         self.b4 = 18*self.A1**2*self.A2*(3*self.A2*(1.0 - self.C2) + self.B2*(1 - self.C3))
 
+    def computeC3Minus(self, c1, c2):
+        """
+        Compute c3_minus parameter from c1, c2 and stability functions.
+
+        From Warner (2005) equation (47).
+        """
+        return 5.08*c1 - 4.08*c2
+
     def getFunctions(self, M2, N2, l, k):
         """
         Computes the values of the stability functions
@@ -340,18 +360,74 @@ class stabilityFuncKanthaClayson(object):
         Gm = M2 * b
         print 'Gh', Gh.min(), Gh.max()
         print 'Gm', Gm.min(), Gm.max()
-        # smoothing
-        #Gh = ((Gh - (Gh - self.Gh_crit)**2) /
-              #(Gh + self.Gh0 - 2*self.Gh_crit))
-        Gh_max = 0.029
+        # smoothing (from ROMS)
+        Gh = np.minimum(Gh, self.Gh0)
+        Gh = np.minimum(Gh, Gh-(Gh-self.Gh_crit)**2/(Gh + self.Gh0 - 2*self.Gh_crit))
+        Gh = np.maximum(Gh, self.Gh_min)
         Gm_max = (1 + self.b1*Gh + self.b3*Gh**2)/(self.b2 + self.b4*Gh)
         Gm = np.minimum(Gm, Gm_max)
-        Gh = np.minimum(Gh, Gh_max)
         print 'Gh2', Gh.min(), Gh.max()
         print 'Gm2', Gm.min(), Gm.max()
         d = 1.0 + self.b1*Gh + self.b2*Gm + self.b3*Gh**2 + self.b4*Gm*Gh
         S_M = (self.a0 + self.a1*Gh)/d
         S_H = (self.a4 + self.a5*Gm + self.a6*Gh)/d
+        print 'S_H', S_H.min(), S_H.max()
+        print 'S_M', S_M.min(), S_M.max()
+        return S_M, S_H
+
+
+class stabilityFuncCanutoA(object):
+    """
+    Implementation of Canuto model A stability functions.
+
+    Implementation follows Burchard and Deleersnijder (2001).
+    """
+    def __init__(self):
+        # parameters
+        self.s0 = 0.5168
+        self.s1 = -7.848
+        self.s2 = -0.0545
+        self.s4 = 0.5412
+        self.s5 = -2.04
+        self.s6 = 0.3964
+        self.t1 = -23.84
+        self.t2 = 2.68
+        self.t3 = 75.574
+        self.t4 = -45.48
+        self.t5 = -0.2937
+        self.Gh_max = 0.0673
+        self.c0_mu = 0.5270
+        self.c = 1.0
+
+    def computeC3Minus(self, c1, c2):
+        """
+        Compute c3_minus parameter from c1, c2 and stability functions.
+
+        From Warner (2005) equation (48).
+        """
+        return 4.09*c1 - 4.00*c2
+
+    def getFunctions(self, M2, N2, l, k):
+        """
+        Computes the values of the stability functions
+        """
+        b = l**2/(2*k)
+        Gh = - N2 * b
+        Gm = M2 * b
+        print 'Gh', Gh.min(), Gh.max()
+        print 'Gm', Gm.min(), Gm.max()
+        # smoothing FIXME
+        #Gh = ((Gh - (Gh - self.Gh_crit)**2) /
+              #(Gh + self.Gh0 - 2*self.Gh_crit))
+        alpha = 1.0
+        Gm_max = alpha*(1 + self.t1*Gh + self.t3*Gh**2)/(self.t2 + self.t4*Gh)
+        Gm = np.minimum(Gm, Gm_max)
+        Gh = np.minimum(Gh, self.Gh_max)
+        print 'Gh2', Gh.min(), Gh.max()
+        print 'Gm2', Gm.min(), Gm.max()
+        d = 1.0 + self.t1*Gh + self.t2*Gm + self.t3*Gh**2 + self.t4*Gm*Gh + self.t5*Gm**2
+        S_M = (self.s0 + self.s1*Gh + self.s2*Gm)/d
+        S_H = (self.s4 + self.s5*Gh + self.s6*Gm)/d
         print 'S_H', S_H.min(), S_H.max()
         print 'S_M', S_M.min(), S_M.max()
         return S_M, S_H
@@ -475,7 +551,8 @@ class psiEquation(tracerEquation):
         F_wall = self.glsModel.params['F_wall']
         # TODO implement c3 switch: c3 = c3_minus if N2 > 0 else c3_plus
         c3 = c3_minus
-        f = solution/k*(c1*P + c3*B - c2*F_wall*epsilon)
+        # NOTE seems more stable explicitly with epsilon
+        f = epsilon/k*(c1*P + c3*B - c2*F_wall*epsilon)
         F = inner(f, self.test)*self.dx
 
         if self.computeVertDiffusion:
@@ -488,10 +565,11 @@ class psiEquation(tracerEquation):
             p = self.glsModel.params['p']
             z0_friction = physical_constants['z0_friction']
             kappa = physical_constants['von_karman']
-            z_b = self.vElemSize + z0_friction
             if self.vElemSize is None:
                 raise Exception('vElemSize required')
-            diffFlux = n*diffusivity_v*(c0_mu)**p * k**m  * kappa**n *z_b**(n-1.0)
+            z_b = 0.5*self.vElemSize + z0_friction
+            diffFlux = (n*diffusivity_v*(c0_mu)**p *
+                        k**m * kappa**n * z_b**(n - 1.0))
             F += diffFlux*self.test*self.normal[2]*self.ds_bottom
 
         return F
