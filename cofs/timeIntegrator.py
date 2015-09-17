@@ -778,7 +778,7 @@ class DIRK_LSPUM2(DIRK_generic):
     From IMEX RK scheme (17) in Higureras et al. (2014).
 
     [1] Higueras et al (2014). Optimized strong stability preserving IMEX
-        Runge–Kutta methods. Journal of Computational and Applied
+        Runge-Kutta methods. Journal of Computational and Applied
         Mathematics 272(2014) 116-140.
     """
     def __init__(self, equation, dt, solver_parameters={}):
