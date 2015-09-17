@@ -15,6 +15,7 @@ import time as timeMod
 from mpi4py import MPI
 import exporter
 import ufl
+import weakref
 
 
 class sumFunction(object):
@@ -301,7 +302,7 @@ class flowSolver(object):
             self.shearFreq2_3d = Function(self.H, name='Shear frequency squared')
             self.buoyancyFreq2_3d = Function(self.H, name='Buoyancy frequency squared')
             glsParameters = {}  # use default parameters for now
-            self.glsModel = turbulence.genericLengthScaleModel(self,
+            self.glsModel = turbulence.genericLengthScaleModel(weakref.proxy(self),
                 self.tke3d, self.psi3d, self.uv3d_P1, self.len3d, self.epsilon3d,
                 self.eddyDiff_v, self.eddyVisc_v,
                 self.buoyancyFreq2_3d, self.shearFreq2_3d,
@@ -447,13 +448,13 @@ class flowSolver(object):
         if self.useModeSplit:
             if self.useSemiImplicit2D:
                 printInfo('using coupledSSPRKSemiImplicit time integrator')
-                self.timeStepper = coupledTimeIntegrator.coupledSSPRKSemiImplicit(self)
+                self.timeStepper = coupledTimeIntegrator.coupledSSPRKSemiImplicit(weakref.proxy(self))
             else:
                 printInfo('using coupledSSPRKSync time integrator')
-                self.timeStepper = coupledTimeIntegrator.coupledSSPRKSync(self)
+                self.timeStepper = coupledTimeIntegrator.coupledSSPRKSync(weakref.proxy(self))
         else:
             printInfo('using coupledSSPRKSingleMode time integrator')
-            self.timeStepper = coupledTimeIntegrator.coupledSSPRKSingleMode(self)
+            self.timeStepper = coupledTimeIntegrator.coupledSSPRKSingleMode(weakref.proxy(self))
 
         # compute maximal diffusivity for explicit schemes
         maxDiffAlpha = 1.0/100.0  # FIXME depends on element type and order
