@@ -271,7 +271,8 @@ class momentumEquation(equation):
                 # symmetric term for advection
                 if self.nonlin:
                     un = dot(solution, self.normal)
-                    uv_in = solution
+                    outflow = 0.5*(sign(un) + 1.0)
+                    uv_in = solution*(0.75 + 0.25*outflow)
                     G += (uv_in[0]*self.test[0]*un +
                           uv_in[1]*self.test[1]*un)*ds_bnd
 
@@ -370,7 +371,7 @@ class verticalMomentumEquation(equation):
     hydrostatic Boussinesq flow."""
     def __init__(self, mesh, space, space_scalar, solution, w=None,
                  viscosity_v=None, uv_bottom=None, bottom_drag=None,
-                 wind_stress=None, vElemSize=None):
+                 wind_stress=None, vElemSize=None, source=None):
         self.mesh = mesh
         self.space = space
         self.space_scalar = space_scalar
@@ -382,6 +383,7 @@ class verticalMomentumEquation(equation):
                        'uv_bottom': uv_bottom,
                        'bottom_drag': bottom_drag,
                        'wind_stress': wind_stress,
+                       'source': source,
                        }
 
         # test and trial functions
@@ -439,8 +441,7 @@ class verticalMomentumEquation(equation):
             **kwargs):
         """Returns the right hand side of the equations.
         Contains all terms that depend on the solution."""
-        F = 0  # holds all dx volume integral terms
-        G = 0  # holds all ds boundary interface terms
+        F = 0
 
         # Advection term
         if w is not None:
@@ -454,39 +455,39 @@ class verticalMomentumEquation(equation):
 
         # vertical viscosity
         if viscosity_v is not None:
-            F += viscosity_v*(Dx(self.test[0], 2)*Dx(solution[0], 2) +
-                              Dx(self.test[1], 2)*Dx(solution[1], 2)) * self.dx
+            F += viscosity_v*inner(Dx(solution, 2), Dx(self.test, 2)) * self.dx
             if self.vertical_DG:
-                viscflux = viscosity_v*Dx(solution, 2)
-                G += -(avg(viscflux[0])*jump(self.test[0], self.normal[2]) +
-                       avg(viscflux[1])*jump(self.test[1], self.normal[2])) * self.dS_h
-                ## TODO implement symmetric interior penalty stabilization!!!
-                #L = avg(self.vElemSize)
-                #nbNeigh = 2
-                #o = 1
-                #d = 3
-                #sigma = Constant((o + 1)*(o + d)/d * nbNeigh / 2) / L
-                #gamma = sigma*avg(viscosity_v)*abs(self.normal('-')[2])**2
-                #G += - gamma * (jump(self.test[0])*jump(solution[0]) +
-                                #jump(self.test[1])*jump(solution[1])) * self.dS_h
+                viscFlux = viscosity_v*Dx(solution, 2)
+                F += -(dot(avg(viscFlux), self.test('+'))*self.normal[2]('+') +
+                       dot(avg(viscFlux), self.test('-'))*self.normal[2]('-')) * self.dS_h
+                # symmetric interior penalty stabilization!
+                L = avg(self.vElemSize)
+                nbNeigh = 2.
+                o = 1.
+                d = 3.
+                sigma = Constant((o + 1.0)*(o + d)/d * nbNeigh / 2.0) / L
+                gamma = sigma*avg(viscosity_v)
+                jump_test = (self.test('+')*self.normal[2]('+') +
+                             self.test('-')*self.normal[2]('-'))
+                F += -gamma * dot(jump(solution), jump_test) * self.dS_h
 
             # implicit bottom friction
             if bottom_drag is not None:
-                z_bot = self.vElemSize
+                z_bot = self.vElemSize*0.5
                 # compute uv_bottom implicitly
                 uv_bot = solution + Dx(solution, 2)*z_bot
-                #uv_bot_mag = sqrt(uv_bot[0]**2 + uv_bot[1]**2)
-                uv_bot_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
+                uv_bot_old = uv_bottom + Dx(uv_bottom, 2)*z_bot
+                uv_bot_mag = sqrt(uv_bot_old[0]**2 + uv_bot_old[1]**2)
                 stress = bottom_drag*uv_bot_mag*uv_bot
                 BotFriction = (stress[0]*self.test[0] +
                                stress[1]*self.test[1])*self.ds_bottom
                 F += BotFriction
 
-        return -F - G
+        return -F
 
     def Source(self, w=None, viscosity_v=None,
                uv_bottom=None, bottom_drag=None,
-               wind_stress=None,
+               wind_stress=None, source=None,
                **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
@@ -504,5 +505,7 @@ class verticalMomentumEquation(equation):
             if wind_stress is not None:
                 F -= (wind_stress[0]*self.test[0] +
                       wind_stress[1]*self.test[1])/rho_0*self.ds_surf
+        if source is not None:
+            F += - inner(source, self.test)*dx
 
         return -F

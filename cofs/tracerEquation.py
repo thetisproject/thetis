@@ -192,21 +192,24 @@ class tracerEquation(equation):
                 #F += -sigma*avg(diffusivity_h)*nMag*jump(solution)*jump(self.test)*(self.dS_v+self.dS_h)
 
         if self.computeVertDiffusion:
-            F += diffusivity_v*(Dx(solution, 2)*Dx(self.test, 2))*self.dx
+            F += diffusivity_v*inner(Dx(solution, 2), Dx(self.test, 2)) * self.dx
             if self.vertical_DG:
                 # interface term
-                muGradSol = diffusivity_v*Dx(solution, 2)
-                F += -avg(muGradSol)*jump(self.test, self.normal[2])*(self.dS_h)
+                diffFlux = diffusivity_v*Dx(solution, 2)
+                F += -(dot(avg(diffFlux), self.test('+'))*self.normal[2]('+') +
+                       dot(avg(diffFlux), self.test('-'))*self.normal[2]('-')) * self.dS_h
                 # symmetric interior penalty stabilization
                 if self.vElemSize is None:
                     raise Exception('vElemSize must be provided')
                 L = avg(self.vElemSize)
-                nbNeigh = 2
-                o = 1  # polynomial order
-                d = 3  # dimension
-                sigma = Constant((o + 1)*(o + d)/d * nbNeigh / 2) / L
-                gamma = sigma*avg(diffusivity_v)*abs(self.normal('-')[2])**2
-                F += -gamma * jump(self.test)*jump(solution) * self.dS_h
+                nbNeigh = 2.
+                o = 1.
+                d = 3.
+                sigma = Constant((o + 1.0)*(o + d)/d * nbNeigh / 2.0) / L
+                gamma = sigma*avg(diffusivity_v)
+                jump_test = (self.test('+')*self.normal[2]('+') +
+                             self.test('-')*self.normal[2]('-'))
+                F += -gamma * dot(jump(solution), jump_test) * self.dS_h
 
         return -F - G
 

@@ -625,24 +625,19 @@ def computeBottomFriction(uv3d, uv_bottom2d, uv_bottom3d, z_coord3d,
                           z_bottom2d, z_bottom3d, bathymetry2d,
                           bottom_drag2d, bottom_drag3d,
                           vElemSize2d=None, vElemSize3d=None):
-    # take 1st node above bed
+    # compute velocity at middle of bottom element
     copy3dFieldTo2d(uv3d, uv_bottom2d, useBottomValue=True,
                     elemBottomValue=False, elemHeight=vElemSize2d)
-    ## compute middle element
-    #tmp = uv_bottom2d.dat.data.copy()
-    #copy3dFieldTo2d(uv3d, uv_bottom2d, useBottomValue=True,
-                    #elemBottomValue=True, elemHeight=vElemSize2d)
-    #uv_bottom2d.dat.data[:] = 0.5*(uv_bottom2d.dat.data + tmp)
-    ## take bottom value
-    #copy3dFieldTo2d(uv3d, uv_bottom2d, useBottomValue=True,
-                    #elemBottomValue=True, elemHeight=vElemSize2d)
+    tmp = uv_bottom2d.dat.data.copy()
+    copy3dFieldTo2d(uv3d, uv_bottom2d, useBottomValue=True,
+                    elemBottomValue=True, elemHeight=vElemSize2d)
+    uv_bottom2d.dat.data[:] = 0.5*(uv_bottom2d.dat.data + tmp)
     copy2dFieldTo3d(uv_bottom2d, uv_bottom3d, elemHeight=vElemSize3d)
     copy3dFieldTo2d(z_coord3d, z_bottom2d, useBottomValue=True,
                     elemBottomValue=False, elemHeight=vElemSize2d)
     copy2dFieldTo3d(z_bottom2d, z_bottom3d, elemHeight=vElemSize3d)
-    print 'uv bot', uv_bottom3d.dat.data.min(), uv_bottom3d.dat.data.max()
     z_bottom2d.dat.data[:] += bathymetry2d.dat.data[:]
-    #z_bottom2d.dat.data[:] *= 0.5
+    z_bottom2d.dat.data[:] *= 0.5
     computeBottomDrag(uv_bottom2d, z_bottom2d, bathymetry2d, bottom_drag2d)
     copy2dFieldTo3d(bottom_drag2d, bottom_drag3d, elemHeight=vElemSize3d)
 
@@ -792,8 +787,6 @@ def computeParabolicViscosity(uv_bottom, bottom_drag, bathymetry, nu,
         uv_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
         parabola = -x[2]*(bathymetry + z0 + x[2])/(bathymetry + z0)
         L = kappa*sqrt(bottom_drag)*uv_mag*parabola*test*dx
-        #L = Constant(0.05/3.75)*parabola*test*dx  # HACK
-        #solve(a == L, nu, solver_parameters=solver_parameters)
         prob = LinearVariationalProblem(a, L, nu)
         solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)

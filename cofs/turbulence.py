@@ -87,6 +87,7 @@ def computeShearFrequency(uv, M2, Mu_tmp, minval=1e-12,
 
     M^2 = du/dz^2 + dv/dz^2
     """
+    # NOTE M2 should be computed from DG uv field ?
     solver_parameters.setdefault('ksp_type', 'cg')
     solver_parameters.setdefault('ksp_atol', 1e-12)
     solver_parameters.setdefault('ksp_rtol', 1e-16)
@@ -104,7 +105,7 @@ def computeShearFrequency(uv, M2, Mu_tmp, minval=1e-12,
             ds_bottom = H.mesh()._ds_t
             normal = FacetNormal(H.mesh())
             a = inner(test, tri)*dx
-            L = - inner(uv[iComp], Dx(test, 2))*dx
+            L = -inner(uv[iComp], Dx(test, 2))*dx
             L += avg(uv[iComp])*jump(test, normal[2])*dS_h
             L += uv[iComp]*test*normal[2]*(ds_surf + ds_bottom)
             prob = LinearVariationalProblem(a, L, Mu_tmp)
@@ -129,8 +130,8 @@ class genericLengthScaleModel(object):
                  p=3.0, m=1.5, n=-1.0,
                  schmidt_nb_tke=1.0, schmidt_nb_psi=1.3,
                  c1=1.44, c2=1.92, c3_minus=-0.52, c3_plus=1.0,
-                 F_wall=1.0, k_min=1.0e-10, psi_min=1.0e-12,
-                 eps_min=1e-12,
+                 F_wall=1.0, k_min=1.0e-10, psi_min=1.0e-14,
+                 eps_min=1e-14, visc_min=1.0e-7, diff_min=1.0e-7,
                  galperin_lim=0.56,
                  stabilityType='CA',
                  ):
@@ -200,6 +201,8 @@ class genericLengthScaleModel(object):
             'k_min': k_min,
             'psi_min': psi_min,
             'eps_min': eps_min,
+            'visc_min': visc_min,
+            'diff_min': diff_min,
             'galperin_lim': galperin_lim,
             }
         self.stabilityType = stabilityType
@@ -223,24 +226,6 @@ class genericLengthScaleModel(object):
         self.N2.assign(1e-12)
         self.postprocess()
 
-    def getEddyViscosity(self,):
-        """
-        Computes eddy viscosity from turbulence model fields
-
-        viscosity = c*sqrt(2*tke)*L*stability_func_m + nu_0
-        """
-        return self.viscosity
-
-    def getEddyDiffusivity(self,):
-        """
-        Computes eddy diffusivity from turbulence model fields
-
-        diffusivity = c*sqrt(2*tke)*L*stability_func_rho + mu_0
-        or
-        diffusivity = Schmidt_number**a*viscosity (CHECK)
-        """
-        return self.diffusivity
-
     def preprocess(self,):
         """
         To be called before evaluating the equations.
@@ -261,11 +246,11 @@ class genericLengthScaleModel(object):
         p = self.params['p']
         n = self.params['n']
         m = self.params['m']
-        # smooth k and psi
-        self.tmp_field_P1.project(self.k)
-        self.k.project(self.tmp_field_P1)
-        self.tmp_field_P1.project(self.psi)
-        self.psi.project(self.tmp_field_P1)
+        ## smooth k and psi
+        #self.tmp_field_P1.project(self.k)
+        #self.k.project(self.tmp_field_P1)
+        #self.tmp_field_P1.project(self.psi)
+        #self.psi.project(self.tmp_field_P1)
         # impose limits on k and psi
         setFuncMinVal(self.k, self.params['k_min'])
         setFuncMinVal(self.psi, self.params['psi_min'])
@@ -275,32 +260,31 @@ class genericLengthScaleModel(object):
         N2_arr = self.N2.dat.data[:]
         N2_pos = N2_arr.copy()
         N2_pos[N2_pos < 0.0] = 0.0
-        val = (np.sqrt(0.56) * (c0_mu)**(p / n) * k_arr**(m / n + 0.5) * (N2_pos + 1e-12)**(-0.5))**n
-        if n > 0:
-            # impose max value
-            self.psi.dat.data[:] = np.minimum(self.psi.dat.data[:], val)
-        else:
-            # impose min value
-            self.psi.dat.data[:] = np.maximum(self.psi.dat.data[:], val)
+        #val = (np.sqrt(0.56) * (c0_mu)**(p / n) * k_arr**(m / n + 0.5) * (N2_pos + 1e-12)**(-0.5))**n
+        #if n > 0:
+            ## impose max value
+            #self.psi.dat.data[:] = np.minimum(self.psi.dat.data[:], val)
+        #else:
+            ## impose min value
+            #self.psi.dat.data[:] = np.maximum(self.psi.dat.data[:], val)
         # udpate epsilon and L
         #self.epsilon.assign(c0_mu**(3+p/n)*self.k**(3/2+m/n)*self.psi**(-1/n))
         # HACK special case for k-eps model
         self.epsilon.assign(self.psi)
-        # Galperin limitation as in GOTM
-        N2_pos = self.N2.dat.data.copy()
-        N2_pos[N2_pos < 0.0] = 0.0
-        galp = self.params['galperin_lim']
-        epslim = c0_mu**3.0/np.sqrt(2.)/galp*k_arr*np.sqrt(N2_pos)
-        self.epsilon.dat.data[:] = np.maximum(self.epsilon.dat.data[:], epslim)
+        ## Galperin limitation as in GOTM
+        #galp = self.params['galperin_lim']
+        #epslim = c0_mu**3.0/np.sqrt(2.)/galp*k_arr*np.sqrt(N2_pos)
+        #self.epsilon.dat.data[:] = np.maximum(self.epsilon.dat.data[:], epslim)
         # impose minimum value
         setFuncMinVal(self.epsilon, self.params['eps_min'])
         print 'eps', self.epsilon.dat.data.min(), self.epsilon.dat.data.max()
 
         #self.l.assign(c0_mu**3 * self.k**(3.0/2.0) / self.epsilon)  # TODO why this doesn't work
         self.l.dat.data[:] = c0_mu**3.0 * np.sqrt(np.power(k_arr, 3)) / self.epsilon.dat.data[:]
-        setFuncMaxVal(self.l, 100.0)  # HACK limit L to something meaningful
+        #setFuncMaxVal(self.l, 10.0)  # HACK limit L to something meaningful
         ## Galperin L limitation
         print 'L', self.l.dat.data.min(), self.l.dat.data.max()
+        # NOTE stability functions shows jumps... not monotonic? input has jumps?
         S_M, S_H = self.stabilityFunc.getFunctions(self.M2.dat.data,
                                                    self.N2.dat.data,
                                                    self.l.dat.data,
@@ -308,8 +292,10 @@ class genericLengthScaleModel(object):
         c = self.stabilityFunc.c
         # update diffusivity/viscosity
         self.viscosity.dat.data[:] = c*np.sqrt(2*self.k.dat.data[:])*self.l.dat.data[:]*S_M
-        print 'nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max()
         self.diffusivity.dat.data[:] = c*np.sqrt(2*self.k.dat.data[:])*self.l.dat.data[:]*S_H
+        setFuncMinVal(self.viscosity, self.params['visc_min'])
+        setFuncMinVal(self.diffusivity, self.params['diff_min'])
+        #print 'nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max()
 
 
 class stabilityFuncKanthaClayson(object):
@@ -369,8 +355,8 @@ class stabilityFuncKanthaClayson(object):
         print 'Gh2', Gh.min(), Gh.max()
         print 'Gm2', Gm.min(), Gm.max()
         d = 1.0 + self.b1*Gh + self.b2*Gm + self.b3*Gh**2 + self.b4*Gm*Gh
-        S_M = (self.a0 + self.a1*Gh)/d
-        S_H = (self.a4 + self.a5*Gm + self.a6*Gh)/d
+        S_M = np.maximum((self.a0 + self.a1*Gh)/d, 0.0)
+        S_H = np.maximum((self.a4 + self.a5*Gm + self.a6*Gh)/d, 0.0)
         print 'S_H', S_H.min(), S_H.max()
         print 'S_M', S_M.min(), S_M.max()
         return S_M, S_H
@@ -484,7 +470,7 @@ class tkeEquation(tracerEquation):
         # eps = (c0_mu)**(3+p/n)*tke**(3/2+m/n)*psi**(-1/n)
         #                                (tke dissipation rate)
         P = eddy_viscosity * shear_freq2
-        B = - eddy_diffusivity * buoyancy_freq2
+        B = 0.0  # - eddy_diffusivity * buoyancy_freq2
 
         f = P + B - epsilon
         F = inner(f, self.test)*self.dx
@@ -543,7 +529,7 @@ class psiEquation(tracerEquation):
         # eps = (c0_mu)**(3+p/n)*tke**(3/2+m/n)*psi**(-1/n)
         #                                (tke dissipation rate)
         P = eddy_viscosity * shear_freq2
-        B = - eddy_diffusivity * buoyancy_freq2
+        B = 0.0  # - eddy_diffusivity * buoyancy_freq2
         c1 = self.glsModel.params['c1']
         c2 = self.glsModel.params['c2']
         c3_plus = self.glsModel.params['c3_plus']
@@ -560,16 +546,23 @@ class psiEquation(tracerEquation):
             # (nuv_v/sigma_psi * dpsi/dz)_b = n * nuv_v/sigma_psi * (c0_mu)^p * k^m * kappa^n * z_b^(n-1)
             # z_b = distance_from_bottom + z_0 (Burchard and Petersen, 1999)
             c0_mu = self.glsModel.params['c0_mu']
-            n = self.glsModel.params['n']
-            m = self.glsModel.params['m']
             p = self.glsModel.params['p']
+            m = self.glsModel.params['m']
+            n = self.glsModel.params['n']
             z0_friction = physical_constants['z0_friction']
             kappa = physical_constants['von_karman']
             if self.vElemSize is None:
                 raise Exception('vElemSize required')
+            # bottom condition
             z_b = 0.5*self.vElemSize + z0_friction
             diffFlux = (n*diffusivity_v*(c0_mu)**p *
                         k**m * kappa**n * z_b**(n - 1.0))
             F += diffFlux*self.test*self.normal[2]*self.ds_bottom
+            # surface condition
+            z0_surface = Constant(0.005)  # TODO generalize
+            z_s = 0.5*self.vElemSize + z0_surface
+            diffFlux = -(n*diffusivity_v*(c0_mu)**p *
+                         k**m * kappa**n * z_s**(n - 1.0))
+            F += diffFlux*self.test*self.normal[2]*self.ds_surf
 
         return F

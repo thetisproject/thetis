@@ -146,12 +146,14 @@ class coupledSSPRKSync(timeIntegrator.timeIntegrator):
                         s.z_coord_ref3d)
             with timed_region('aux_friction'):
                 if s.useBottomFriction:
+                    s.uvP1_projector.project()
                     computeBottomFriction(
                         s.uv3d, s.uv_bottom2d,
                         s.uv_bottom3d, s.z_coord3d,
                         s.z_bottom2d, s.z_bottom3d,
                         s.bathymetry2d, s.bottom_drag2d,
-                        s.bottom_drag3d)
+                        s.bottom_drag3d,
+                        s.vElemSize2d, s.vElemSize3d)
                 if s.useParabolicViscosity:
                     computeParabolicViscosity(
                         s.uv_bottom3d, s.bottom_drag3d,
@@ -225,20 +227,18 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
                 solver.eq_salt,
                 solver.dt)
         vdiff_sp = {
-            'ksp_type': 'cg',
+            'ksp_type': 'gmres',
             'pc_type': 'ilu',
             'snes_rtol': 1.0e-12,
             'ksp_rtol': 1.0e-12,
             }
         if self.solver.solveVertDiffusion:
-            #self.timeStepper_vmom3d = timeIntegrator.BackwardEuler(
-                #solver.eq_vertmomentum, solver.dt)
-            self.timeStepper_vmom3d = timeIntegrator.DIRK_LSPUM2(
+            self.timeStepper_vmom3d = timeIntegrator.BackwardEuler(
                 solver.eq_vertmomentum, solver.dt, solver_parameters=vdiff_sp)
         if self.solver.useTurbulence:
-            self.timeStepper_tke3d = timeIntegrator.DIRK_LSPUM2(
+            self.timeStepper_tke3d = timeIntegrator.BackwardEuler(
                 solver.eq_tke_diff, solver.dt, solver_parameters=vdiff_sp)
-            self.timeStepper_psi3d = timeIntegrator.DIRK_LSPUM2(
+            self.timeStepper_psi3d = timeIntegrator.BackwardEuler(
                 solver.eq_psi_diff, solver.dt, solver_parameters=vdiff_sp)
 
         # ----- stage 1 -----
@@ -368,6 +368,7 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
             with timed_region('aux_friction'):
                 if s.useBottomFriction and doVertDiffusion:
                     s.uvP1_projector.project()
+                    # NOTE should drag be computed with uv_P1 or not?
                     computeBottomFriction(
                         s.uv3d_P1, s.uv_bottom2d,
                         s.uv_bottom3d, s.z_coord3d,
@@ -515,12 +516,14 @@ class coupledSSPRKSingleMode(timeIntegrator.timeIntegrator):
                         s.z_coord_ref3d)
             with timed_region('aux_friction'):
                 if s.useBottomFriction:
+                    s.uvP1_projector.project()
                     computeBottomFriction(
-                        s.uv3d, s.uv_bottom2d,
+                        s.uv3d_P1, s.uv_bottom2d,
                         s.uv_bottom3d, s.z_coord3d,
                         s.z_bottom2d, s.z_bottom3d,
                         s.bathymetry2d, s.bottom_drag2d,
-                        s.bottom_drag3d)
+                        s.bottom_drag3d,
+                        s.vElemSize2d, s.vElemSize3d)
                 if s.useParabolicViscosity:
                     computeParabolicViscosity(
                         s.uv_bottom3d, s.bottom_drag3d,
@@ -632,12 +635,14 @@ class coupledSSPRK(timeIntegrator.timeIntegrator):
                     s.z_coord3d, s.z_coord_ref3d)
         with timed_region('aux_friction'):
             if s.useBottomFriction:
+                s.uvP1_projector.project()
                 computeBottomFriction(
-                    s.uv3d, s.uv_bottom2d,
+                    s.uv3d_P1, s.uv_bottom2d,
                     s.uv_bottom3d, s.z_coord3d,
                     s.z_bottom2d, s.z_bottom3d,
                     s.bathymetry2d, s.bottom_drag2d,
-                    s.bottom_drag3d)
+                    s.bottom_drag3d,
+                    s.vElemSize2d, s.vElemSize3d)
             if s.useParabolicViscosity:
                 computeParabolicViscosity(
                     s.uv_bottom3d, s.bottom_drag3d,
@@ -666,14 +671,6 @@ class coupledSSPRK(timeIntegrator.timeIntegrator):
                     s.w_mesh3d, s.w_mesh_surf3d,
                     s.dw_mesh_dz_3d, s.bathymetry3d,
                     s.z_coord_ref3d)
-        with timed_region('aux_friction'):
-            if s.useBottomFriction:
-                computeBottomFriction(
-                    s.uv3d, s.uv_bottom2d,
-                    s.uv_bottom3d, s.z_coord3d,
-                    s.z_bottom2d, s.z_bottom3d,
-                    s.bathymetry2d, s.bottom_drag2d,
-                    s.bottom_drag3d)
 
         with timed_region('saltEq'):
             if s.solveSalt:
