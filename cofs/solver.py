@@ -184,7 +184,7 @@ class flowSolver(object):
         # for scalar fields to be used in momentum eq NOTE could be omitted ? 
         self.U_scalar = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=self.order)
         # spaces for visualization
-        self.U_visu = self.P1v
+        self.U_visu = self.P1DGv
         self.H_visu = self.P1
         self.W_visu = self.P1v
 
@@ -291,16 +291,17 @@ class flowSolver(object):
             self.tracerLimiter = None
         if self.useTurbulence:
             # NOTE tke and psi should be in H as tracers ??
-            self.tke3d = Function(self.H, name='Turbulent kinetic energy')
-            self.psi3d = Function(self.H, name='Turbulence psi variable')
+            self.turb_space = self.P0
+            self.tke3d = Function(self.turb_space, name='Turbulent kinetic energy')
+            self.psi3d = Function(self.turb_space, name='Turbulence psi variable')
             # NOTE other turb. quantities should share the same nodes ??
-            self.epsilon3d = Function(self.H, name='TKE dissipation rate')
-            self.len3d = Function(self.H, name='Turbulent lenght scale')
-            self.eddyVisc_v = Function(self.H, name='Vertical eddy viscosity')
-            self.eddyDiff_v = Function(self.H, name='Vertical eddy diffusivity')
+            self.epsilon3d = Function(self.turb_space, name='TKE dissipation rate')
+            self.len3d = Function(self.turb_space, name='Turbulent lenght scale')
+            self.eddyVisc_v = Function(self.turb_space, name='Vertical eddy viscosity')
+            self.eddyDiff_v = Function(self.turb_space, name='Vertical eddy diffusivity')
             # NOTE M2 and N2 depend on d(.)/dz -> use CG in vertical ?
-            self.shearFreq2_3d = Function(self.H, name='Shear frequency squared')
-            self.buoyancyFreq2_3d = Function(self.H, name='Buoyancy frequency squared')
+            self.shearFreq2_3d = Function(self.turb_space, name='Shear frequency squared')
+            self.buoyancyFreq2_3d = Function(self.turb_space, name='Buoyancy frequency squared')
             glsParameters = {}  # use default parameters for now
             self.glsModel = turbulence.genericLengthScaleModel(weakref.proxy(self),
                 self.tke3d, self.psi3d, self.uv3d_P1, self.len3d, self.epsilon3d,
@@ -421,7 +422,8 @@ class flowSolver(object):
                 bnd_len=bnd_len)
             # implicit vertical diffusion eqn with production terms
             self.eq_tke_diff = turbulence.tkeEquation(
-                self.mesh, self.H, self.tke3d, self.eta3d, uv=None,
+                self.mesh, self.tke3d.function_space(), self.tke3d,
+                self.eta3d, uv=None,
                 w=None, w_mesh=None,
                 dw_mesh_dz=None,
                 diffusivity_h=None,
@@ -432,7 +434,7 @@ class flowSolver(object):
                 bnd_markers=bnd_markers, bnd_len=bnd_len,
                 glsModel=self.glsModel)
             self.eq_psi_diff = turbulence.psiEquation(
-                self.mesh, self.H, self.psi3d, self.eta3d, uv=None,
+                self.mesh, self.psi3d.function_space(), self.psi3d, self.eta3d, uv=None,
                 w=None, w_mesh=None,
                 dw_mesh_dz=None,
                 diffusivity_h=None,
