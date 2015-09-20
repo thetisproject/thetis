@@ -229,16 +229,16 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
         vdiff_sp = {
             'ksp_type': 'gmres',
             'pc_type': 'ilu',
-            'snes_rtol': 1.0e-12,
-            'ksp_rtol': 1.0e-12,
+            #'snes_rtol': 1.0e-18,
+            #'ksp_rtol': 1.0e-22,
             }
         if self.solver.solveVertDiffusion:
-            self.timeStepper_vmom3d = timeIntegrator.BackwardEuler(
+            self.timeStepper_vmom3d = timeIntegrator.DIRK_LSPUM2(
                 solver.eq_vertmomentum, solver.dt, solver_parameters=vdiff_sp)
         if self.solver.useTurbulence:
-            self.timeStepper_tke3d = timeIntegrator.BackwardEuler(
+            self.timeStepper_tke3d = timeIntegrator.DIRK_LSPUM2(
                 solver.eq_tke_diff, solver.dt, solver_parameters=vdiff_sp)
-            self.timeStepper_psi3d = timeIntegrator.BackwardEuler(
+            self.timeStepper_psi3d = timeIntegrator.DIRK_LSPUM2(
                 solver.eq_psi_diff, solver.dt, solver_parameters=vdiff_sp)
 
         # ----- stage 1 -----
@@ -367,10 +367,10 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
                         s.z_coord_ref3d)
             with timed_region('aux_friction'):
                 if s.useBottomFriction and doVertDiffusion:
-                    s.uvP1_projector.project()
+                    #s.uvP1_projector.project()
                     # NOTE should drag be computed with uv_P1 or not?
                     computeBottomFriction(
-                        s.uv3d_P1, s.uv_bottom2d,
+                        s.uv3d, s.uv_bottom2d,
                         s.uv_bottom3d, s.z_coord3d,
                         s.z_bottom2d, s.z_bottom3d,
                         s.bathymetry2d, s.bottom_drag2d,
