@@ -170,8 +170,8 @@ class flowSolver(object):
         # in deformed mesh horiz. velocity must actually live in U + W
         UW_elt = EnrichedElement(U_elt, W_elt)
         # final spaces
-        self.U = FunctionSpace(self.mesh, UW_elt)  # uv
-        self.W = FunctionSpace(self.mesh, W_elt)  # w
+        self.U = self.P1DGv  # FunctionSpace(self.mesh, UW_elt)  # uv
+        self.W = self.P1DGv  # FunctionSpace(self.mesh, W_elt)  # w
         # auxiliary function space that will be used to transfer data between 2d/3d modes
         self.Uproj = VectorFunctionSpace(self.mesh, 'DG', self.order,
                                          vfamily='DG', vdegree=self.order)
