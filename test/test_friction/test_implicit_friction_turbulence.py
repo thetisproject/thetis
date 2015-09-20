@@ -11,7 +11,7 @@ parameters['coffee'] = {}
 
 physical_constants['z0_friction'] = 1.5e-3
 
-outputDir = createDirectory('outputs_parab')
+outputDir = createDirectory('outputs')
 # set mesh resolution
 scale = 1000.0
 reso = 2.5*scale
@@ -26,8 +26,8 @@ n_x = int(Lx/reso)
 mesh2d = RectangleMesh(n_x, n_x, Lx, Lx, reorder=True)
 
 printInfo('Exporting to ' + outputDir)
-dt = 3600.0
-T = 10 * 3600.0
+dt = 25.0
+T = 4 * 3600.0
 TExport = 100.0
 depth = 15.0
 Umag = 1.0
@@ -44,9 +44,9 @@ solverObj.solveSalt = False
 solverObj.solveVertDiffusion = True
 solverObj.useBottomFriction = True
 solverObj.useParabolicViscosity = True
-#solverObj.useTurbulence = True
+solverObj.useTurbulence = True
 solverObj.useALEMovingMesh = False
-solverObj.useLimiterForTracers = False
+solverObj.useLimiterForTracers = True
 solverObj.uvLaxFriedrichs = Constant(1.0)
 solverObj.tracerLaxFriedrichs = Constant(0.0)
 #solverObj.vViscosity = Constant(0.001)
@@ -68,12 +68,22 @@ solverObj.mightyCreator()
 
 elev_slope = -1.0e-5
 pressureGradientSource = Constant((-9.81*elev_slope, 0, 0))
+
+
+def update_elev(t):
+    #T = 3600.0
+    #ramp_fact = min(t/T + 0.05, 1.0)
+    ramp_fact = 1.0
+    pressureGradientSource.dat.data[0] = -9.81*elev_slope*ramp_fact
+    #print 'elev', t, pressureGradientSource.dat.data
+
 s = solverObj
 uv3d_old = Function(s.U, name='Velocity old')
 vertMomEq = module_3d.verticalMomentumEquation(
                 s.mesh, s.U, s.U_scalar, s.uv3d, w=None,
                 viscosity_v=s.tot_v_visc.getSum(),
                 uv_bottom=uv3d_old,
+                #uv_bottom=s.uv_bottom3d,
                 bottom_drag=s.bottom_drag3d,
                 wind_stress=s.wind_stress3d,
                 vElemSize=s.vElemSize3d,
@@ -84,43 +94,58 @@ sp['ksp_type'] = 'gmres'
 #sp['pc_type'] = 'lu'
 #sp['snes_monitor'] = True
 #sp['snes_converged_reason'] = True
-sp['snes_rtol'] = 1e-4  # to avoid stagnation
+#sp['snes_rtol'] = 1e-4  # to avoid stagnation
+sp['snes_rtol'] = 1e-18  # to avoid stagnation
+sp['ksp_rtol'] = 1e-22  # to avoid stagnation
 #timeStepper = timeIntegrator.DIRK_LSPUM2(vertMomEq, dt, solver_parameters=sp)
 timeStepper = timeIntegrator.BackwardEuler(vertMomEq, dt, solver_parameters=sp)
+
+# TODO fix momemtum eq for parabolic visc
+# TODO mimic gotm implementation
 
 t = 0
 nSteps = int(np.round(T/dt))
 for it in range(nSteps):
     t = it*dt
-    try:
-        s.uvP1_projector.project()
-        computeBottomFriction(
-            s.uv3d_P1, s.uv_bottom2d,
-            s.uv_bottom3d, s.z_coord3d,
-            s.z_bottom2d, s.z_bottom3d,
-            s.bathymetry2d, s.bottom_drag2d,
-            s.bottom_drag3d,
-            s.vElemSize2d, s.vElemSize3d)
-        computeParabolicViscosity(
-            s.uv_bottom3d, s.bottom_drag3d,
-            s.bathymetry3d,
-            s.parabViscosity_v)
-        t0 = timeMod.clock()
-        timeStepper.advance(t, dt, s.uv3d)
-        uv3d_old.assign(s.uv3d)
-        t1 = timeMod.clock()
-        for key in s.exporters:
-            s.exporters[key].export()
-        print '{:4d}  T={:9.1f} s  cpu={:.2f} s'.format(it, t, t1-t0)
-    except Exception as e:
-        raise e
+    #update_elev(t)
+    t0 = timeMod.clock()
+    # momentumEq
+    timeStepper.advance(t, dt, s.uv3d)
+    uv3d_old.assign(s.uv3d)
+    s.uvP1_projector.project()
+    # update bottom friction
+    computeBottomFriction(
+        s.uv3d_P1, s.uv_bottom2d,
+        s.uv_bottom3d, s.z_coord3d,
+        s.z_bottom2d, s.z_bottom3d,
+        s.bathymetry2d, s.bottom_drag2d,
+        s.bottom_drag3d,
+        s.vElemSize2d, s.vElemSize3d)
+    # update viscosity
+    s.glsModel.preprocess()
+    # NOTE psi must be solved first as it depends on tke
+    s.timeStepper.timeStepper_psi3d.advance(t, s.dt, s.psi3d)
+    s.timeStepper.timeStepper_tke3d.advance(t, s.dt, s.tke3d)
+    #if s.useLimiterForTracers:
+        #s.tracerLimiter.apply(s.tke3d)
+        #s.tracerLimiter.apply(s.psi3d)
+    s.glsModel.postprocess()
+    # HACK override with parabolic viscosity
+    computeParabolicViscosity(
+        s.uv_bottom3d, s.bottom_drag3d,
+        s.bathymetry3d,
+        s.parabViscosity_v)
+    t1 = timeMod.clock()
+    for key in s.exporters:
+        s.exporters[key].export()
+    print '{:4d}  T={:9.1f} s  cpu={:.2f} s'.format(it, t, t1-t0)
 
 
 def test_solution():
     target_u_min = 0.5
     target_u_max = 0.9
     target_u_tol = 5.0e-2
-    target_zero = 1e-6
+    target_zero = 1e-8
     solutionP1DG = Function(s.P1DGv, name='velocity p1dg')
     solutionP1DG.project(s.uv3d)
     uvw = solutionP1DG.dat.data
