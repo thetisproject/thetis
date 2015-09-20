@@ -460,16 +460,17 @@ class verticalMomentumEquation(equation):
                 viscFlux = viscosity_v*Dx(solution, 2)
                 F += -(dot(avg(viscFlux), self.test('+'))*self.normal[2]('+') +
                        dot(avg(viscFlux), self.test('-'))*self.normal[2]('-')) * self.dS_h
-                # symmetric interior penalty stabilization!
+                # symmetric interior penalty stabilization
+                ip_fact = Constant(1.0)
                 L = avg(self.vElemSize)
                 nbNeigh = 2.
                 o = 1.
                 d = 3.
                 sigma = Constant((o + 1.0)*(o + d)/d * nbNeigh / 2.0) / L
-                gamma = sigma*avg(viscosity_v)
+                gamma = sigma*avg(viscosity_v) * ip_fact
                 jump_test = (self.test('+')*self.normal[2]('+') +
                              self.test('-')*self.normal[2]('-'))
-                F += -gamma * dot(jump(solution), jump_test) * self.dS_h
+                F += gamma * dot(jump(solution), jump_test) * self.dS_h
 
             # implicit bottom friction
             if bottom_drag is not None:

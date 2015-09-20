@@ -199,6 +199,7 @@ class tracerEquation(equation):
                 F += -(dot(avg(diffFlux), self.test('+'))*self.normal[2]('+') +
                        dot(avg(diffFlux), self.test('-'))*self.normal[2]('-')) * self.dS_h
                 # symmetric interior penalty stabilization
+                ip_fact = Constant(1.0)
                 if self.vElemSize is None:
                     raise Exception('vElemSize must be provided')
                 L = avg(self.vElemSize)
@@ -206,10 +207,10 @@ class tracerEquation(equation):
                 o = 1.
                 d = 3.
                 sigma = Constant((o + 1.0)*(o + d)/d * nbNeigh / 2.0) / L
-                gamma = sigma*avg(diffusivity_v)
+                gamma = sigma*avg(diffusivity_v) * ip_fact
                 jump_test = (self.test('+')*self.normal[2]('+') +
                              self.test('-')*self.normal[2]('-'))
-                F += -gamma * dot(jump(solution), jump_test) * self.dS_h
+                F += gamma * dot(jump(solution), jump_test) * self.dS_h
 
         return -F - G
 
