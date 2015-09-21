@@ -152,11 +152,11 @@ class flowSolver(object):
     def mightyCreator(self):
         """Creates function spaces, functions, equations and time steppers."""
         # ----- function spaces: elev in H, uv in U, mixed is W
-        self.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0)
-        self.P1 = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
-        self.P1v = VectorFunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1)
-        self.P1DG = FunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1)
-        self.P1DGv = VectorFunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1)
+        self.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0, name='P0')
+        self.P1 = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1, name='P1')
+        self.P1v = VectorFunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1, name='P1v')
+        self.P1DG = FunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1, name='P1DG')
+        self.P1DGv = VectorFunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1, name='P1DGv')
 
         # Construct HDiv OuterProductElements
         # for horizontal velocity component
@@ -170,38 +170,43 @@ class flowSolver(object):
         # in deformed mesh horiz. velocity must actually live in U + W
         UW_elt = EnrichedElement(U_elt, W_elt)
         # final spaces
-        self.U = self.P1DGv  # FunctionSpace(self.mesh, UW_elt)  # uv
-        self.W = self.P1DGv  # FunctionSpace(self.mesh, W_elt)  # w
+        #self.U = FunctionSpace(self.mesh, UW_elt)  # uv
+        #self.W = FunctionSpace(self.mesh, W_elt)  # w
+        self.U = VectorFunctionSpace(self.mesh, 'DG', self.order,
+                                     vfamily='DG', vdegree=self.order, name='U')
+        self.W = self.U
         # auxiliary function space that will be used to transfer data between 2d/3d modes
-        self.Uproj = VectorFunctionSpace(self.mesh, 'DG', self.order,
-                                         vfamily='DG', vdegree=self.order)
+        self.Uproj = self.U
 
         self.Uint = self.U  # vertical integral of uv
         # tracers
-        self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=max(0, self.order))
+        self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=max(0, self.order), name='H')
         # vertical integral of tracers
-        self.Hint = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order+1)
+        self.Hint = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order+1, name='Hint')
         # for scalar fields to be used in momentum eq NOTE could be omitted ? 
-        self.U_scalar = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=self.order)
+        self.U_scalar = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=self.order, name='U_scalar')
+        # for turbulence
+        self.turb_space = self.P0
         # spaces for visualization
-        self.U_visu = self.P1DGv
+        self.U_visu = self.P1v
         self.H_visu = self.P1
         self.W_visu = self.P1v
+        self.turb_space_visu = self.P1
 
         # 2D spaces
-        self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
-        self.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
-        self.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1)
+        self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1, name='P1_2d')
+        self.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1, name='P1v_2d')
+        self.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1, name='P1DG_2d')
         # 2D velocity space
         # NOTE this is not compatible with enriched UW space used in 3D
         #self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.order+1)
-        self.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.order)
-        self.Uproj_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.order)
-        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
-        self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
-        self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
+        self.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.order, name='U_2d')
+        self.Uproj_2d = self.U_2d
+        self.U_visu_2d = self.P1v_2d
+        self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order, name='U_scalar_2d')
+        self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.order, name='H_2d')
         self.H_visu_2d = self.P1_2d
-        self.V_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
+        self.V_2d = MixedFunctionSpace([self.U_2d, self.H_2d], name='V_2d')
 
         # ----- fields
         self.solution2d = Function(self.V_2d, name='solution2d')
@@ -292,7 +297,6 @@ class flowSolver(object):
             self.tracerLimiter = None
         if self.useTurbulence:
             # NOTE tke and psi should be in H as tracers ??
-            self.turb_space = self.P0
             self.tke3d = Function(self.turb_space, name='Turbulent kinetic energy')
             self.psi3d = Function(self.turb_space, name='Turbulence psi variable')
             # NOTE other turb. quantities should share the same nodes ??
@@ -320,8 +324,8 @@ class flowSolver(object):
         self.tot_h_visc.add(self.smag_viscosity)
         self.tot_v_visc = sumFunction()
         self.tot_v_visc.add(self.vViscosity)
-        #self.tot_v_visc.add(self.eddyVisc_v)  # HACK
-        self.tot_v_visc.add(self.parabViscosity_v)
+        self.tot_v_visc.add(self.eddyVisc_v)  # HACK
+        #self.tot_v_visc.add(self.parabViscosity_v)
         self.tot_salt_h_diff = sumFunction()
         self.tot_salt_h_diff.add(self.hDiffusivity)
         self.tot_salt_v_diff = sumFunction()
@@ -477,13 +481,13 @@ class flowSolver(object):
             'salt3d': (self.salt3d, self.H_visu),
             'uv2d_dav': (self.uv2d_dav, self.U_visu_2d),
             'uv2d_bot': (self.uv_bottom2d, self.U_visu_2d),
-            'parabNuv3d': (self.parabViscosity_v, self.P1),
-            'eddyNuv3d': (self.eddyVisc_v, self.P1DG),
-            'shearFreq3d': (self.shearFreq2_3d, self.P1DG),
-            'tke3d': (self.tke3d, self.P1DG),
-            'psi3d': (self.psi3d, self.P1DG),
-            'eps3d': (self.epsilon3d, self.P1DG),
-            'len3d': (self.len3d, self.P1DG),
+            'parabNuv3d': (self.parabViscosity_v, self.turb_space_visu),
+            'eddyNuv3d': (self.eddyVisc_v, self.turb_space_visu),
+            'shearFreq3d': (self.shearFreq2_3d, self.turb_space_visu),
+            'tke3d': (self.tke3d, self.turb_space_visu),
+            'psi3d': (self.psi3d, self.turb_space_visu),
+            'eps3d': (self.epsilon3d, self.turb_space_visu),
+            'len3d': (self.len3d, self.turb_space_visu),
             'barohead3d': (self.baroHead3d, self.P1),
             'barohead2d': (self.baroHead2d, self.P1_2d),
             'smagViscosity': (self.smag_viscosity, self.P1),
