@@ -552,7 +552,7 @@ class flowSolver2d(object):
         self.P0_2d = FunctionSpace(self.mesh2d, 'DG', 0)
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
         self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.order+1)
-        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', self.order)
+        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', max(self.order,1))
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
         self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.order)
         self.H_visu_2d = self.P1_2d

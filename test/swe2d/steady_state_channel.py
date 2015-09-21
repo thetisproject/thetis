@@ -1,22 +1,26 @@
 # Tuomas Karna 2015-03-03
 from scipy.interpolate import interp1d
 from cofs import *
+import math
 
 Lx=5e3
 Ly=1e3
+# we don't expect converge as the reference solution neglects the advection term
 mesh2d = RectangleMesh(5,1,Lx,Ly)
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry2d = Function(P1_2d, name="bathymetry")
-bathymetry2d.assign(50.0)
+bathymetry2d.assign(100.0)
 
-N = 10 # number of timesteps
+N = 20 # number of timesteps
 dt = 100.
-f = 0.002 # linear friction coef.
+g = physical_constants['g_grav'].dat.data[0]
+f = g/Lx # linear friction coef.
+
 # --- create solver ---
 solverObj = solver.flowSolver2d(mesh2d, bathymetry2d, order=1)
-solverObj.nonlin = True
+solverObj.nonlin = False
 solverObj.TExport = dt
 solverObj.T = N*dt
 solverObj.timeStepperType = 'CrankNicolson'
@@ -42,15 +46,19 @@ solver_parameters = {
     'pc_factor_mat_solver_package': 'mumps',
     'snes_monitor': False,
     'snes_type': 'newtonls'}
-prob = NonlinearVariationalProblem(solverObj.timeStepper.F, solverObj.timeStepper.equation.solution, nest=False)
-solverObj.timeStepper.solver = LinearVariationalSolver(prob, solver_parameters=solver_parameters)
-
+# reinitialize the timestepper so we can set our own solver parameters and gamma
+# setting gamma to 1.0 converges faster to
+solverObj.timeStepper = timeIntegrator.CrankNicolson(solverObj.eq_sw, solverObj.dt,
+                                                                     solver_parameters, gamma=1.0)
 
 solverObj.iterate()
 
 uv, eta = solverObj.solution2d.split()
 
-eta_ana = Expression("1-x[0]/{}".format(Lx))
-print assemble(pow(eta-eta_ana,2)*dx)
-
-
+eta_ana = interpolate(Expression("1-x[0]/{}".format(Lx)), P1_2d)
+area = Lx*Ly
+l2norm = assemble(pow(eta-eta_ana,2)*dx)
+rel_err =  math.sqrt(l2norm/area)
+print rel_err
+assert(rel_err<1e-3)
+print "PASSED"

@@ -541,7 +541,8 @@ class CrankNicolson(timeIntegrator):
         self.updateSolver()
 
     def updateSolver(self):
-        prob = NonlinearVariationalProblem(self.F, self.equation.solution)
+        nest = not ('pc_type' in self.solver_parameters and self.solver_parameters['pc_type']=='lu')
+        prob = NonlinearVariationalProblem(self.F, self.equation.solution, nest=nest)
         self.solver = LinearVariationalSolver(prob,
             solver_parameters=self.solver_parameters)
 
