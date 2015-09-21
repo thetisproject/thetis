@@ -25,21 +25,27 @@ class exporter(exporterBase):
         """
         self.fs_visu = fs_visu
         self.filename = filename
+        self.func_name = func_name
         suffix = '.pvd'
         # append suffix if missing
         if (len(filename) < len(suffix)+1 or filename[:len(suffix)] != suffix):
             self.filename += suffix
-        self.outfunc = Function(self.fs_visu, name=func_name)
+        self.proj_func = tmpFunctionCache.get(self.fs_visu)
         self.outfile = File(os.path.join(outputDir, self.filename))
         self.P = {}
 
     def export(self, function):
         """Exports given function to disk."""
         if function not in self.P:
-            self.P[function] = projector(function, self.outfunc)
+            self.P[function] = projector(function, self.proj_func)
         self.P[function].project()
-        # self.outfunc.project(function)  # NOTE this allocates a function
-        self.outfile << self.outfunc
+        # HACK ensure correct output function name
+        old_name = self.proj_func.name()
+        self.proj_func._name = self.func_name
+        # self.proj_func.project(function)  # NOTE this allocates a function
+        self.outfile << self.proj_func
+        # restore old name
+        self.proj_func._name = old_name
 
 
 class naiveFieldExporter(exporterBase):
@@ -173,8 +179,11 @@ class naiveFieldExporter(exporterBase):
         if commrank == 0:
             globalData = np.zeros((self.nGlobalNodes, dim))
             for i in xrange(comm.size):
-                vals = localData[i] if dim > 1 else localData[i][:, None]
-                globalData[self.localToGlobal[i], :] = vals
+                if dim > 1:
+                    globalData[self.localToGlobal[i], :] = localData[i]
+                else:
+                    globalData[self.localToGlobal[i], 0] = localData[i]
+
             filename = self.genFilename(iExport)
             if self.verbose:
                 print 'saving state to', filename
