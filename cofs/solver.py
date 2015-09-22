@@ -560,6 +560,10 @@ class flowSolver(object):
         self.checkSaltDeviation *= self.solveSalt
         self.checkVolConservation3d *= self.useALEMovingMesh
 
+    def export(self):
+        for key in self.exporters:
+            self.exporters[key].export()
+
     def iterate(self, updateForcings=None, updateForcings3d=None,
                 exportFunc=None):
         if not self._initialized:
@@ -598,8 +602,7 @@ class flowSolver(object):
             printInfo('Initial salt value range {0:.3f}-{1:.3f}'.format(saltMin0, saltMax0))
 
         # initial export
-        for key in self.exporters:
-            self.exporters[key].export()
+        self.export()
         if exportFunc is not None:
             exportFunc()
         self.exporters['vtk'].exportBathymetry(self.bathymetry2d)
@@ -661,8 +664,7 @@ class flowSolver(object):
                         print('salt overshoots {:g} {:g}'.format(*saltOversh))
                     sys.stdout.flush()
 
-                for key in self.exporters:
-                    self.exporters[key].export()
+                self.export()
                 if exportFunc is not None:
                     exportFunc()
 

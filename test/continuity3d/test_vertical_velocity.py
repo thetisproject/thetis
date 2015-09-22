@@ -84,7 +84,7 @@ def test2():
     print 'w', w3d_proj.dat.data.min(), w3d_proj.dat.data.max()
     assert(np.allclose(w3d_proj.dat.data[:, 2], -1e-3))
     print 'PASSED'
-    solverObj.exporter.export()
+    solverObj.export()
 
     solverObj.uv3d.project(Expression(('1e-3*x[0]', '0.0', '0.0')))
     computeVertVelocity(solverObj.w3d, solverObj.uv3d, solverObj.bathymetry3d,
@@ -93,7 +93,7 @@ def test2():
     print 'w', w3d_proj.dat.data.min(), w3d_proj.dat.data.max()
     assert(np.allclose(w3d_proj.dat.data.min(), -3e-3, rtol=1e-2))
     print 'PASSED'
-    solverObj.exporter.export()
+    solverObj.export()
     linProblemCache.clear()
 
 test1()
