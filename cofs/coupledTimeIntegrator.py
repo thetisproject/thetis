@@ -148,7 +148,7 @@ class coupledSSPRKSync(timeIntegrator.timeIntegrator):
                 if s.useBottomFriction:
                     s.uvP1_projector.project()
                     computeBottomFriction(
-                        s.uv3d, s.uv_bottom2d,
+                        s.uv3d_P1, s.uv_bottom2d,
                         s.uv_bottom3d, s.z_coord3d,
                         s.z_bottom2d, s.z_bottom3d,
                         s.bathymetry2d, s.bottom_drag2d,
@@ -367,10 +367,9 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
                         s.z_coord_ref3d)
             with timed_region('aux_friction'):
                 if s.useBottomFriction and doVertDiffusion:
-                    #s.uvP1_projector.project()
-                    # NOTE should drag be computed with uv_P1 or not?
+                    s.uvP1_projector.project()
                     computeBottomFriction(
-                        s.uv3d, s.uv_bottom2d,
+                        s.uv3d_P1, s.uv_bottom2d,
                         s.uv_bottom3d, s.z_coord3d,
                         s.z_bottom2d, s.z_bottom3d,
                         s.bathymetry2d, s.bottom_drag2d,

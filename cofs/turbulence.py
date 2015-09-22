@@ -235,6 +235,7 @@ class genericLengthScaleModel(object):
                                      name='tmp_p0_field')
         self.smoother = smootherP1(self.solver.P1DG, self.solver.P1,
                                    self.solver.vElemSize3d)
+        # parameter to mix old and new viscosity values (1 => new only)
         self.relaxation = 0.5
 
         cc1 = 5.0000
@@ -608,7 +609,7 @@ class stabilityFuncCanutoA(object):
         tau2 = k*k / (eps*eps)
         an = tau2 * N2
         # clip an at minimum value
-        an = np.maximum(an, anLimitFact*anMin)
+        np.maximum(an, anLimitFact*anMin, an)
         # compute the equilibrium value of as
         tmp0 = -d0 - (d1 + nt0)*an - (d4 + nt1)*an*an
         tmp1 = -d2 + n0 + (n1-d3-nt2)*an

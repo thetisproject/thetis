@@ -26,8 +26,8 @@ n_x = int(Lx/reso)
 mesh2d = RectangleMesh(n_x, n_x, Lx, Lx, reorder=True)
 
 printInfo('Exporting to ' + outputDir)
-dt = 25.0
-T = 4 * 3600.0
+dt = 25.0  # 25.0
+T = 12 * 3600.0
 TExport = 100.0
 depth = 15.0
 Umag = 1.0
@@ -43,7 +43,7 @@ solverObj.nonlin = False
 solverObj.solveSalt = False
 solverObj.solveVertDiffusion = True
 solverObj.useBottomFriction = True
-solverObj.useParabolicViscosity = True
+#solverObj.useParabolicViscosity = True
 solverObj.useTurbulence = True
 solverObj.useALEMovingMesh = False
 solverObj.useLimiterForTracers = True
@@ -58,32 +58,23 @@ solverObj.outputDir = outputDir
 solverObj.uAdvection = Umag
 solverObj.checkSaltDeviation = True
 solverObj.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion', 'turbulence']
+#solverObj.fieldsToExport = []
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
-                            'w3d', 'w3d_mesh', 'salt3d',
-                            'barohead3d', 'barohead2d',
                             'uv2d_dav', 'uv2d_bot',
                             'parabNuv3d', 'eddyNuv3d', 'shearFreq3d',
-                            'tke3d', 'psi3d', 'eps3d', 'len3d',]
+                            'tke3d', 'psi3d', 'eps3d', 'len3d', ]
+solverObj.fieldsToExportNumpy = ['uv3d', 'eddyNuv3d', 'shearFreq3d',
+                                 'tke3d', 'psi3d', 'eps3d', 'len3d']
 solverObj.mightyCreator()
 
 elev_slope = -1.0e-5
 pressureGradientSource = Constant((-9.81*elev_slope, 0, 0))
 
-
-def update_elev(t):
-    #T = 3600.0
-    #ramp_fact = min(t/T + 0.05, 1.0)
-    ramp_fact = 1.0
-    pressureGradientSource.dat.data[0] = -9.81*elev_slope*ramp_fact
-    #print 'elev', t, pressureGradientSource.dat.data
-
 s = solverObj
-uv3d_old = Function(s.U, name='Velocity old')
 vertMomEq = module_3d.verticalMomentumEquation(
                 s.mesh, s.U, s.U_scalar, s.uv3d, w=None,
                 viscosity_v=s.tot_v_visc.getSum(),
-                uv_bottom=uv3d_old,
-                #uv_bottom=s.uv_bottom3d,
+                uv_bottom=s.uv_bottom3d,
                 bottom_drag=s.bottom_drag3d,
                 wind_stress=s.wind_stress3d,
                 vElemSize=s.vElemSize3d,
@@ -97,8 +88,7 @@ sp['ksp_type'] = 'gmres'
 #sp['snes_rtol'] = 1e-4  # to avoid stagnation
 sp['snes_rtol'] = 1e-18  # to avoid stagnation
 sp['ksp_rtol'] = 1e-22  # to avoid stagnation
-#timeStepper = timeIntegrator.DIRK_LSPUM2(vertMomEq, dt, solver_parameters=sp)
-timeStepper = timeIntegrator.BackwardEuler(vertMomEq, dt, solver_parameters=sp)
+timeStepper = timeIntegrator.DIRK_LSPUM2(vertMomEq, dt, solver_parameters=sp)
 
 # TODO fix momemtum eq for parabolic visc
 # TODO mimic gotm implementation
@@ -107,11 +97,9 @@ t = 0
 nSteps = int(np.round(T/dt))
 for it in range(nSteps):
     t = it*dt
-    #update_elev(t)
     t0 = timeMod.clock()
     # momentumEq
     timeStepper.advance(t, dt, s.uv3d)
-    uv3d_old.assign(s.uv3d)
     s.uvP1_projector.project()
     # update bottom friction
     computeBottomFriction(
@@ -126,18 +114,10 @@ for it in range(nSteps):
     # NOTE psi must be solved first as it depends on tke
     s.timeStepper.timeStepper_psi3d.advance(t, s.dt, s.psi3d)
     s.timeStepper.timeStepper_tke3d.advance(t, s.dt, s.tke3d)
-    #if s.useLimiterForTracers:
-        #s.tracerLimiter.apply(s.tke3d)
-        #s.tracerLimiter.apply(s.psi3d)
     s.glsModel.postprocess()
-    # HACK override with parabolic viscosity
-    computeParabolicViscosity(
-        s.uv_bottom3d, s.bottom_drag3d,
-        s.bathymetry3d,
-        s.parabViscosity_v)
     t1 = timeMod.clock()
-    for key in s.exporters:
-        s.exporters[key].export()
+    # NOTE vtk exporter has a memory leak if output space is DG
+    s.export()
     print '{:4d}  T={:9.1f} s  cpu={:.2f} s'.format(it, t, t1-t0)
 
 

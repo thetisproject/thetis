@@ -18,12 +18,14 @@ Tuomas Karna 2015-09-09
 """
 from cofs import *
 
+parameters['coffee'] = {}
+
 physical_constants['z0_friction'] = 1.5e-3
 
 outputDir = createDirectory('outputs')
 # set mesh resolution
 dx = 2500.0
-layers = 50
+layers = 25
 
 # generate unit mesh and transform its coords
 x_max = 5.0e3
@@ -37,9 +39,9 @@ mesh2d.coordinates.dat.data[:, 1] -= Lx/2
 
 printInfo('Exporting to ' + outputDir)
 # NOTE bottom friction (implicit mom eq) will blow up for higher dt
-dt = 25.0  # 50.0  # FIXME reduce further!
-T = 4 * 3600.0  # 24 * 3600
-TExport = 100.0  # 15*60.0
+dt = 25.0
+T = 12 * 3600.0  # 24 * 3600
+TExport = 200.0
 depth = 15.0
 Umag = 1.0
 
@@ -48,27 +50,21 @@ P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry2d = Function(P1_2d, name='Bathymetry')
 bathymetry2d.assign(depth)
 
-# TODO get bf working with analytical viscosity profile
-# TODO implement DG uv option? - limiter for velocity too?
-# TODO different way for evaluating uv_bot??
-
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
-#solverObj.nonlin = False
+solverObj.nonlin = False
 solverObj.solveSalt = False
 solverObj.solveVertDiffusion = True
 solverObj.useBottomFriction = True
-solverObj.useParabolicViscosity = True
 solverObj.useTurbulence = True
 solverObj.useALEMovingMesh = False
 solverObj.useLimiterForTracers = False
 solverObj.uvLaxFriedrichs = Constant(1.0)
 solverObj.tracerLaxFriedrichs = Constant(0.0)
-#solverObj.vViscosity = Constant(1.0e-3)
+#solverObj.vViscosity = Constant(0.001)
 #solverObj.hViscosity = Constant(1.0)
 #solverObj.useSemiImplicit2D = False
 #solverObj.useModeSplit = False
-#solverObj.baroclinic = True
 solverObj.TExport = TExport
 solverObj.dt = dt
 solverObj.T = T
@@ -101,7 +97,7 @@ elev_init = Function(solverObj.H_2d, name='initial elev')
 elev_init.interpolate(Expression('x[0]*slope', slope=-surf_slope))
 
 solverObj.assignInitialConditions(elev=elev_init)
-sp = solverObj.timeStepper.timeStepper_vmom3d.solver_parameters
+#sp = solverObj.timeStepper.timeStepper_vmom3d.solver_parameters
 #sp['snes_monitor'] = True
 #sp['ksp_monitor'] = True
 #sp['ksp_monitor_true_residual'] = True

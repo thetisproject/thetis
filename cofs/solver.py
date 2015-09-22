@@ -325,8 +325,8 @@ class flowSolver(object):
         self.tot_h_visc.add(self.smag_viscosity)
         self.tot_v_visc = sumFunction()
         self.tot_v_visc.add(self.vViscosity)
-        self.tot_v_visc.add(self.eddyVisc_v)  # HACK
-        #self.tot_v_visc.add(self.parabViscosity_v)
+        self.tot_v_visc.add(self.eddyVisc_v)
+        self.tot_v_visc.add(self.parabViscosity_v)
         self.tot_salt_h_diff = sumFunction()
         self.tot_salt_h_diff.add(self.hDiffusivity)
         self.tot_salt_v_diff = sumFunction()
