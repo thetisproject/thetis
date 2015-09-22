@@ -174,7 +174,8 @@ class flowSolver(object):
         #self.W = FunctionSpace(self.mesh, W_elt)  # w
         self.U = VectorFunctionSpace(self.mesh, 'DG', self.order,
                                      vfamily='DG', vdegree=self.order, name='U')
-        self.W = self.U
+        self.W = VectorFunctionSpace(self.mesh, 'DG', self.order,
+                                     vfamily='CG', vdegree=self.order + 1, name='W')
         # auxiliary function space that will be used to transfer data between 2d/3d modes
         self.Uproj = self.U
 
