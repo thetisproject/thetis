@@ -635,8 +635,8 @@ class DIRK_generic(timeIntegrator):
                     u = solution + a[i][j]*self.dt_const*self.k[j]
                 else:
                     u += a[i][j]*self.dt_const*self.k[j]
-            self.F.append(allTerms(u, **self.funcs) -
-                          inner(self.k[i], test)*dx)
+            self.F.append(-inner(self.k[i], test)*dx +
+                          allTerms(u, **self.funcs))
         self.updateSolver()
 
     def updateSolver(self):
