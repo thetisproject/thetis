@@ -64,7 +64,7 @@ solverObj.checkSaltConservation = True
 solverObj.checkSaltDeviation = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
-                            'uv2d_dav', 'uv2d_bot', 'nuv3d']
+                            'uv2d_dav', 'uv2d_bot']
 solverObj.timerLabels = []
 
 # initial conditions, piecewise linear function

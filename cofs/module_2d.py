@@ -135,7 +135,8 @@ class shallowWaterEquations(equation):
             f = -g_grav*head*nabla_div(self.U_test)*self.dx
             if uv is not None:
                 un = dot(uv, self.normal)
-                head_star = avg(head) + 0.5*sqrt(avg(total_H)/g_grav)*jump(un)
+                # NOTE riemann term unstable for DG velocity field
+                head_star = avg(head) #+ 0.5*sqrt(avg(total_H)/g_grav)*jump(un)
             else:
                 head_star = avg(head)
             f += g_grav*head_star*jump(self.U_test, self.normal)*self.dS
@@ -185,8 +186,13 @@ class shallowWaterEquations(equation):
             if self.U_is_DG:
                 uv_av = avg(uv)
                 un_av = dot(uv_av, self.normal('-'))
-                s = 0.5*(sign(un_av) + 1.0)
-                uv_up = uv('-')*s + uv('+')*(1-s)
+                # NOTE solver can stagnate
+                #s = 0.5*(sign(un_av) + 1.0)
+                # NOTE smooth sign change between [-0.02, 0.02], slow
+                #s = 0.5*tanh(100.0*un_av) + 0.5
+                #uv_up = uv('-')*s + uv('+')*(1-s)
+                # NOTE mean flux
+                uv_up = uv_av
                 f += (uv_up[0]*jump(self.U_test[0], uv[0]*self.normal[0]) +
                       uv_up[1]*jump(self.U_test[1], uv[0]*self.normal[0]) +
                       uv_up[0]*jump(self.U_test[0], uv[1]*self.normal[1]) +

@@ -23,7 +23,7 @@ mesh2d = Mesh('channel_mesh.msh')
 printInfo('Loaded mesh '+mesh2d.name)
 printInfo('Exporting to '+outputDir)
 # total duration in seconds
-T = 48 * 3600
+T = 6 * 3600
 # estimate of max advective velocity used to estimate time step
 Umag = Constant(6.0)
 # export interval in seconds
