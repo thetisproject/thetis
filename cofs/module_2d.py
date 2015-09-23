@@ -340,20 +340,30 @@ class shallowWaterEquations(equation):
                 # prescribe normal volume flux
                 sect_len = Constant(self.boundary_len[bnd_marker])
                 un_in = dot(uv, self.normal)
-                un_ext = funcs['flux'] / total_H / sect_len
+                # riemann term assuming exterior elevation is zero
+                un_ext = funcs['flux'] / self.bathymetry / sect_len
+                eta_ext = 0.0
                 un_av = (un_in + un_ext)/2
+                eta_jump = (eta - eta_ext)/2
                 if self.nonlin:
                     s = 0.5*(sign(un_av) + 1.0)
                     uv_up = uv*s + un_ext*self.normal*(1-s)
                     uv_av = 0.5*(uv + un_ext*self.normal)
-                    G += (uv_av[0]*uv_up[0]*(self.U_test[0]*self.normal[0]) +
-                          uv_av[0]*uv_up[1]*(self.U_test[1]*self.normal[0]) +
-                          uv_av[1]*uv_up[0]*(self.U_test[0]*self.normal[1]) +
-                          uv_av[1]*uv_up[1]*(self.U_test[1]*self.normal[1]))*ds_bnd
+                    uv_rie = uv_av + sqrt(g_grav/self.bathymetry)*eta_jump*self.normal
+                    #G += (uv_av[0]*uv_up[0]*(self.U_test[0]*self.normal[0]) +
+                          #uv_av[0]*uv_up[1]*(self.U_test[1]*self.normal[0]) +
+                          #uv_av[1]*uv_up[0]*(self.U_test[0]*self.normal[1]) +
+                          #uv_av[1]*uv_up[1]*(self.U_test[1]*self.normal[1]))*ds_bnd
+                    # NOTE seems more stable in channel3d -- needs better testing
+                    G += (uv_rie[0]*uv_rie[0]*(self.U_test[0]*self.normal[0]) +
+                          uv_rie[0]*uv_rie[1]*(self.U_test[1]*self.normal[0]) +
+                          uv_rie[1]*uv_rie[0]*(self.U_test[0]*self.normal[1]) +
+                          uv_rie[1]*uv_rie[1]*(self.U_test[1]*self.normal[1]))*ds_bnd
 
                     # Lax-Friedrichs stabilization
-                    un_av = dot(self.normal, uv_av)
-                    gamma = abs(un_av)
+                    #un_av = dot(self.normal, uv_av)
+                    #gamma = abs(un_av)
+                    gamma = abs(un_ext)
                     G += gamma*dot(self.U_test, (uv - un_ext*self.normal)/2)*ds_bnd
 
             elif 'radiation':

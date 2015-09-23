@@ -13,6 +13,8 @@
 from scipy.interpolate import interp1d
 from cofs import *
 
+parameters['coffee'] = {}
+
 n_layers = 6
 outputDir = createDirectory('outputs')
 mesh2d = Mesh('channel_mesh.msh')
@@ -52,7 +54,7 @@ solverObj.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion']
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
                             'w3d', 'w3d_mesh', 'salt3d',
                             'barohead3d', 'barohead2d',
-                            'uv2d_dav', 'uv2d_bot', 'nuv3d']
+                            'uv2d_dav', 'uv2d_bot']
 
 # initial conditions
 salt_init3d = Constant(4.5)
@@ -93,7 +95,8 @@ river_tag = 1
 # these must be assigned before equations are created
 solverObj.bnd_functions['shallow_water'] = {ocean_tag: ocean_funcs,
                                             river_tag: river_funcs}
-solverObj.bnd_functions['momentum'] = {2: ocean_funcs_3d, 1: river_funcs_3d}
+#solverObj.bnd_functions['momentum'] = {2: ocean_funcs_3d, 1: river_funcs_3d}
+solverObj.bnd_functions['momentum'] = {}
 solverObj.bnd_functions['salt'] = {2: ocean_salt_3d, 1: river_salt_3d}
 
 
