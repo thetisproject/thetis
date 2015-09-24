@@ -584,6 +584,61 @@ class CrankNicolson(timeIntegrator):
             self.funcs_old[k].assign(self.funcs[k])
 
 
+class SSPIMEX(timeIntegrator):
+    """
+    SSP-IMEX time integration scheme based on [1], method (17).
+
+    The Butcher tableaus are
+
+    ... to be written
+
+    [1] Higueras et al (2014). Optimized strong stability preserving IMEX
+        Runge-Kutta methods. Journal of Computational and Applied
+        Mathematics 272(2014) 116-140.
+    """
+    def __init__(self, equation, dt, solver_parameters={},
+                 solver_parameters_dirk={}):
+        super(SSPIMEX, self).__init__(equation, solver_parameters)
+
+        # implicit scheme
+        self.dirk = DIRK_LSPUM2(equation, dt,
+                                solver_parameters=solver_parameters_dirk,
+                                termsToAdd=['implicit'])
+        # explicit scheme
+        erk_a = [[0, 0, 0],
+                 [5.0/6.0, 0, 0],
+                 [11.0/24.0, 11.0/24.0, 0]]
+        erk_b = [24.0/55.0, 1.0/5.0, 4.0/11.0]
+        erk_c = [0, 5.0/6.0, 11.0/12.0]
+        self.erk = DIRK_generic(equation, dt, erk_a, erk_b, erk_c,
+                                solver_parameters=solver_parameters_dirk,
+                                termsToAdd=['explicit', 'source'])
+        self.nStages = len(erk_b)
+
+    def updateSolver(self):
+        self.dirk.updateSolver()
+        self.erk.updateSolver()
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.dirk.initialize(solution)
+        self.erk.initialize(solution)
+
+    def advance(self, t, dt, solution, updateForcings=None):
+        """Advances equations for one time step."""
+        for i in xrange(self.nStages):
+            self.solveStage(i, t, dt, solution, updateForcings)
+        self.updateFinalSolution(solution)
+
+    def solveStage(self, iStage, t, dt, solution, updateForcings=None):
+        self.erk.solveStage(iStage, t, dt, solution, updateForcings)
+        self.dirk.solveStage(iStage, t, dt, solution, updateForcings)
+
+    def updateFinalSolution(self, solution):
+        self.erk.updateFinalSolution(solution)
+        self.dirk.updateFinalSolution(solution)
+
+
 class DIRK_generic(timeIntegrator):
     """
     Generic implementation of Diagonally Implicit Runge Kutta schemes.
@@ -596,9 +651,30 @@ class DIRK_generic(timeIntegrator):
     ------------------------------
          | b[0]    b[1]    b[2]
 
+    This method also works for explicit RK schemes if one with the zeros on the first row of a.
     """
     def __init__(self, equation, dt, a, b, c,
-                 solver_parameters={}):
+                 solver_parameters={},
+                 termsToAdd='all'):
+        """
+        Create new DIRK solver.
+
+        Parameters
+        ----------
+        equation : equation object
+            the equation to solve
+        dt : float
+            time step (constant)
+        a  : array_like (nStages, nStages)
+            coefficients for the Butcher tableau, must be lower diagonal
+        b,c : array_like (nStages,)
+            coefficients for the Butcher tableau
+        solver_parameters : dict
+            PETSc options for solver
+        termsToAdd : 'all' or list of 'implicit', 'explicit', 'source'
+            Defines which terms of the equation are to be added to this solver.
+            Default 'all' implies termsToAdd = ['implicit', 'explicit', 'source']
+        """
         super(DIRK_generic, self).__init__(equation, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
@@ -607,6 +683,7 @@ class DIRK_generic(timeIntegrator):
         self.a = a
         self.b = b
         self.c = c
+        self.termsToAdd = termsToAdd
 
         massTerm = self.equation.massTerm
         RHS = self.equation.RHS
@@ -619,8 +696,23 @@ class DIRK_generic(timeIntegrator):
         dx = self.equation.dx
         test = TestFunction(self.equation.space)
 
+        mixedSpace = isinstance(self.equation.solution.function_space(),
+                                MixedFunctionSpace)
+
         def allTerms(u, **args):
-            return RHS(u, **args) + RHSi(u, **args) + Source(**args)
+            """Gather all terms that need to be added to the form"""
+            f = 0
+            if self.termsToAdd == 'all':
+                return RHSi(u, **args) + RHS(u, **args) + Source(**args)
+            if 'implicit' in self.termsToAdd:
+                f += RHSi(u, **args)
+            if 'explicit' in self.termsToAdd:
+                f += RHS(u, **args)
+            if 'source' in self.termsToAdd:
+                f += Source(**args)
+            #assert f != 0, \
+                #'adding terms {:}: empty form'.format(self.termsToAdd)
+            return f
 
         # Allocate tendency fields
         self.k = []
@@ -629,14 +721,29 @@ class DIRK_generic(timeIntegrator):
             self.k.append(Function(self.equation.space, name=fname))
         # construct variational problems
         self.F = []
-        for i in xrange(self.nStages):
-            for j in xrange(i+1):
-                if j == 0:
-                    u = solution + a[i][j]*self.dt_const*self.k[j]
-                else:
-                    u += a[i][j]*self.dt_const*self.k[j]
-            self.F.append(-inner(self.k[i], test)*dx +
-                          allTerms(u, **self.funcs))
+        if not mixedSpace:
+            for i in xrange(self.nStages):
+                for j in xrange(i+1):
+                    if j == 0:
+                        u = solution + a[i][j]*self.dt_const*self.k[j]
+                    else:
+                        u += a[i][j]*self.dt_const*self.k[j]
+                self.F.append(-inner(self.k[i], test)*dx +
+                              allTerms(u, **self.funcs))
+        else:
+            # solution must be split before computing sum
+            # pass components to equation in a list
+            for i in xrange(self.nStages):
+                for j in xrange(i+1):
+                    if j == 0:
+                        u = []  # list of components in the mixed space
+                        for s, k in zip(split(solution), split(self.k[j])):
+                            u.append(s + a[i][j]*self.dt_const*k)
+                    else:
+                        for l, k in enumerate(split(self.k[j])):
+                            u[l] += a[i][j]*self.dt_const*k
+                self.F.append(-inner(self.k[i], test)*dx +
+                              allTerms(u, **self.funcs))
         self.updateSolver()
 
     def updateSolver(self):
@@ -658,9 +765,17 @@ class DIRK_generic(timeIntegrator):
     def advance(self, t, dt, solution, updateForcings=None):
         """Advances equations for one time step."""
         for i in xrange(self.nStages):
-            if updateForcings is not None:
-                updateForcings(t + self.c[i]*self.dt)
-            self.solver[i].solve()
+            self.solveStage(i, t, dt, solution, updateForcings)
+        self.updateFinalSolution(solution)
+
+    def solveStage(self, iStage, t, dt, solution, updateForcings=None):
+        """Advances equations for one stage."""
+        if updateForcings is not None:
+            updateForcings(t + self.c[iStage]*self.dt)
+        self.solver[iStage].solve()
+
+    def updateFinalSolution(self, solution):
+        """Updates the final solution from the tendencies"""
         for i in xrange(self.nStages):
             solution += self.dt_const*self.b[i]*self.k[i]
 
@@ -675,11 +790,12 @@ class BackwardEuler(DIRK_generic):
     ---------
         | 1
     """
-    def __init__(self, equation, dt, solver_parameters={}):
+    def __init__(self, equation, dt, solver_parameters={}, termsToAdd='all'):
         a = [[1.0]]
         b = [1.0]
         c = [1.0]
-        super(BackwardEuler, self).__init__(equation, dt, a, b, c, solver_parameters)
+        super(BackwardEuler, self).__init__(equation, dt, a, b, c,
+                                            solver_parameters, termsToAdd)
 
 
 class DIRK22(DIRK_generic):
@@ -702,12 +818,13 @@ class DIRK22(DIRK_generic):
         time-dependent partial differential equations. Applied Numerical
         Mathematics, 25:151–167.
     """
-    def __init__(self, equation, dt, solver_parameters={}):
+    def __init__(self, equation, dt, solver_parameters={}, termsToAdd='all'):
         gamma = Constant((2 + np.sqrt(2))/2)
         a = [[gamma, 0], [1-gamma, gamma]]
         b = [0.5, 0.5]
         c = [gamma, 1]
-        super(DIRK22, self).__init__(equation, dt, a, b, c, solver_parameters)
+        super(DIRK22, self).__init__(equation, dt, a, b, c,
+                                     solver_parameters, termsToAdd)
 
 
 class DIRK23(DIRK_generic):
@@ -726,12 +843,13 @@ class DIRK23(DIRK_generic):
 
     From DIRK(2,3,3) IMEX scheme in Ascher et al. (1997)
     """
-    def __init__(self, equation, dt, solver_parameters={}):
+    def __init__(self, equation, dt, solver_parameters={}, termsToAdd='all'):
         gamma = (3 + np.sqrt(3))/6
         a = [[gamma, 0], [1-2*gamma, gamma]]
         b = [0.5, 0.5]
         c = [gamma, 1-gamma]
-        super(DIRK23, self).__init__(equation, dt, a, b, c, solver_parameters)
+        super(DIRK23, self).__init__(equation, dt, a, b, c,
+                                     solver_parameters, termsToAdd)
 
 
 class DIRK33(DIRK_generic):
@@ -741,7 +859,7 @@ class DIRK33(DIRK_generic):
 
     From DIRK(3,4,3) IMEX scheme in Ascher et al. (1997)
     """
-    def __init__(self, equation, dt, solver_parameters={}):
+    def __init__(self, equation, dt, solver_parameters={}, termsToAdd='all'):
         gamma = 0.4358665215
         b1 = -3.0/2.0*gamma**2 + 4*gamma - 1.0/4.0
         b2 = 3.0/2.0*gamma**2 - 5*gamma + 5.0/4.0
@@ -750,7 +868,8 @@ class DIRK33(DIRK_generic):
              [b1, b2, gamma]]
         b = [b1, b2, gamma]
         c = [gamma, (1+gamma)/2, 1]
-        super(DIRK33, self).__init__(equation, dt, a, b, c, solver_parameters)
+        super(DIRK33, self).__init__(equation, dt, a, b, c,
+                                     solver_parameters, termsToAdd)
 
 
 class DIRK43(DIRK_generic):
@@ -760,14 +879,15 @@ class DIRK43(DIRK_generic):
 
     From DIRK(4,4,3) IMEX scheme in Ascher et al. (1997)
     """
-    def __init__(self, equation, dt, solver_parameters={}):
+    def __init__(self, equation, dt, solver_parameters={}, termsToAdd='all'):
         a = [[0.5, 0, 0, 0],
              [1.0/6.0, 0.5, 0, 0],
              [-0.5, 0.5, 0.5, 0],
              [3.0/2.0, -3.0/2.0, 0.5, 0.5]]
         b = [3.0/2.0, -3.0/2.0, 0.5, 0.5]
         c = [0.5, 2.0/3.0, 0.5, 1.0]
-        super(DIRK43, self).__init__(equation, dt, a, b, c, solver_parameters)
+        super(DIRK43, self).__init__(equation, dt, a, b, c,
+                                     solver_parameters, termsToAdd)
 
 
 class DIRK_LSPUM2(DIRK_generic):
@@ -781,13 +901,14 @@ class DIRK_LSPUM2(DIRK_generic):
         Runge-Kutta methods. Journal of Computational and Applied
         Mathematics 272(2014) 116-140.
     """
-    def __init__(self, equation, dt, solver_parameters={}):
+    def __init__(self, equation, dt, solver_parameters={}, termsToAdd='all'):
         a = [[2.0/11.0, 0, 0],
              [205.0/462.0, 2.0/11.0, 0],
              [2033.0/4620.0, 21.0/110.0, 2.0/11.0]]
         b = [24.0/55.0, 1.0/5.0, 4.0/11.0]
         c = [2.0/11.0, 289.0/462.0, 751.0/924.0]
-        super(DIRK_LSPUM2, self).__init__(equation, dt, a, b, c, solver_parameters)
+        super(DIRK_LSPUM2, self).__init__(equation, dt, a, b, c,
+                                          solver_parameters, termsToAdd)
 
 
 def cosTimeAvFilter(M):

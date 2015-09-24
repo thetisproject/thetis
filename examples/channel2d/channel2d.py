@@ -60,7 +60,8 @@ solverObj.checkVolConservation2d = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d']
 solverObj.timerLabels = []
 #solverObj.timeStepperType = 'SSPRK33'
-solverObj.timeStepperType = 'CrankNicolson'
+#solverObj.timeStepperType = 'CrankNicolson'
+solverObj.timeStepperType = 'SSPIMEX'
 solverObj.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
 
 # initial conditions, piecewise linear function

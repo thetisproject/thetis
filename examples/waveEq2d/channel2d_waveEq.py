@@ -55,10 +55,12 @@ solverObj.uAdvection = Umag
 solverObj.checkVolConservation2d = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d']
 solverObj.timerLabels = []
-solverObj.timeStepperType = 'SSPRK33'
-solverObj.dt = dt/40.0  # for explicit schemes
+#solverObj.timeStepperType = 'SSPRK33'
+#solverObj.dt = dt/40.0  # for explicit schemes
 # solverObj.timeStepperType = 'CrankNicolson'
 # solverObj.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
+solverObj.timeStepperType = 'SSPIMEX'
+solverObj.dt = 100.0  # override dt for IMEX (semi-implicit)
 
 # need to call creator to create the function spaces
 solverObj.mightyCreator()

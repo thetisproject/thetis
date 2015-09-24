@@ -226,7 +226,10 @@ class shallowWaterEquations(equation):
         """
         F = 0  # holds all dx volume integral terms
         G = 0  # holds all ds boundary interface terms
-        uv, eta = split(solution)
+        if isinstance(solution, list):
+            uv, eta = solution
+        else:
+            uv, eta = split(solution)
 
         if self.nonlin:
             total_H = self.bathymetry + eta
@@ -293,7 +296,10 @@ class shallowWaterEquations(equation):
         """Returns all terms that are treated explicitly."""
         F = 0  # holds all dx volume integral terms
         G = 0  # holds all ds boundary interface terms
-        uv, eta = split(solution)
+        if isinstance(solution, list):
+            uv, eta = solution
+        else:
+            uv, eta = split(solution)
 
         # Advection of momentum
         if self.nonlin:

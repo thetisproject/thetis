@@ -771,6 +771,22 @@ class flowSolver2d(object):
         elif self.timeStepperType.lower() == 'cranknicolson':
             self.timeStepper = timeIntegrator.CrankNicolson(self.eq_sw, self.dt,
                                                              self.eq_sw.solver_parameters)
+        elif self.timeStepperType.lower() == 'sspimex':
+            # TODO meaningful solver params
+            sp_impl = {
+                'ksp_type': 'gmres',
+                'pc_type': 'fieldsplit',
+                'pc_fieldsplit_type': 'multiplicative',
+                }
+            sp_expl = {
+                'ksp_type': 'gmres',
+                'pc_type': 'fieldsplit',
+                'pc_fieldsplit_type': 'multiplicative',
+                }
+
+            self.timeStepper = timeIntegrator.SSPIMEX(self.eq_sw, self.dt,
+                                                      solver_parameters=sp_expl,
+                                                      solver_parameters_dirk=sp_impl)
         else:
             raise Exception('Unknown time integrator type: '+str(self.timeStepperType))
 
