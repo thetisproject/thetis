@@ -43,6 +43,8 @@ parser.add_argument('-l', '--useLimiter', action='store_true',
                     help='use slope limiter for tracers instead of diffusion')
 parser.add_argument('-p', '--polyOrder', type=int, default=1,
                     help='order of finite element space (0|1)')
+parser.add_argument('-m', '--mimetic', action='store_true',
+                    help='use mimetic elements for velocity')
 parser.add_argument('-Re', '--reynoldsNumber', type=float, default=2.0,
                     help='mesh Reynolds number for Smagorinsky scheme')
 args = parser.parse_args()
@@ -55,8 +57,11 @@ if commrank == 0:
         print ' - {0:15s} : {1:}'.format(k, argsDict[k])
 
 limiterStr = 'limiter' if args.useLimiter else 'jumpDiff'+str(args.jumpDiffFactor)
-outputDir = 'out_{:}_p{:}_Re{:}_{:}'.format(args.reso_str, args.polyOrder,
-                                            args.reynoldsNumber, limiterStr)
+spaceStr = 'RT' if args.mimetic else 'DG'
+outputDir = 'out_{:}_p{:}{:}_Re{:}_{:}'.format(args.reso_str, spaceStr,
+                                               args.polyOrder,
+                                               args.reynoldsNumber, limiterStr)
+
 outputDir = createDirectory(outputDir)
 reso_str = args.reso_str
 if args.jumpDiffFactor is not None:
@@ -96,7 +101,8 @@ bathymetry2d = Function(P1_2d, name='Bathymetry')
 bathymetry2d.assign(depth)
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers, order=args.polyOrder)
+solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers,
+                              order=args.polyOrder, mimetic=args.mimetic)
 solverObj.cfl_2d = 1.0
 #solverObj.nonlin = False
 solverObj.solveSalt = True

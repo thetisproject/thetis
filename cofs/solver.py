@@ -52,7 +52,7 @@ class sumFunction(object):
 
 class flowSolver(object):
     """Creates and solves coupled 2D-3D equations"""
-    def __init__(self, mesh2d, bathymetry2d, n_layers, order=1):
+    def __init__(self, mesh2d, bathymetry2d, n_layers, order=1, mimetic=False):
         self._initialized = False
 
         # create 3D mesh
@@ -72,6 +72,7 @@ class flowSolver(object):
         self.cfl_2d = 1.0  # factor to scale the 2d time step
         self.cfl_3d = 1.0  # factor to scale the 2d time step
         self.order = order  # polynomial order of elements
+        self.mimetic = mimetic  # use mimetic elements for uvw instead of DG
         self.nonlin = True  # use nonlinear shallow water equations
         self.solveSalt = True  # solve salt transport
         self.solveVertDiffusion = True  # solve implicit vert diffusion
@@ -102,7 +103,7 @@ class flowSolver(object):
         self.checkVolConservation3d = False
         self.checkSaltConservation = False
         self.checkSaltDeviation = False  # print deviation from mean of initial value
-        self.checkSaltOvershoot = False  # print overshoots that exceed initial range  
+        self.checkSaltOvershoot = False  # print overshoots that exceed initial range
         self.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion',
                             'continuityEq', 'saltEq', 'aux_eta3d',
                             'aux_mesh_ale', 'aux_friction', 'aux_barolinicity',
@@ -171,12 +172,17 @@ class flowSolver(object):
         # in deformed mesh horiz. velocity must actually live in U + W
         UW_elt = EnrichedElement(U_elt, W_elt)
         # final spaces
-        #self.U = FunctionSpace(self.mesh, UW_elt)  # uv
-        #self.W = FunctionSpace(self.mesh, W_elt)  # w
-        self.U = VectorFunctionSpace(self.mesh, 'DG', self.order,
-                                     vfamily='DG', vdegree=self.order, name='U')
-        self.W = VectorFunctionSpace(self.mesh, 'DG', self.order,
-                                     vfamily='CG', vdegree=self.order + 1, name='W')
+        if self.mimetic:
+            #self.U = FunctionSpace(self.mesh, UW_elt)  # uv
+            self.U = FunctionSpace(self.mesh, U_elt, name='U')  # uv
+            self.W = FunctionSpace(self.mesh, W_elt, name='W')  # w
+        else:
+            self.U = VectorFunctionSpace(self.mesh, 'DG', self.order,
+                                         vfamily='DG', vdegree=self.order,
+                                         name='U')
+            self.W = VectorFunctionSpace(self.mesh, 'DG', self.order,
+                                         vfamily='CG', vdegree=self.order + 1,
+                                         name='W')
         # auxiliary function space that will be used to transfer data between 2d/3d modes
         self.Uproj = self.U
 
@@ -185,7 +191,7 @@ class flowSolver(object):
         self.H = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=max(0, self.order), name='H')
         # vertical integral of tracers
         self.Hint = FunctionSpace(self.mesh, 'DG', self.order, vfamily='CG', vdegree=self.order+1, name='Hint')
-        # for scalar fields to be used in momentum eq NOTE could be omitted ? 
+        # for scalar fields to be used in momentum eq NOTE could be omitted ?
         self.U_scalar = FunctionSpace(self.mesh, 'DG', self.order, vfamily='DG', vdegree=self.order, name='U_scalar')
         # for turbulence
         self.turb_space = self.P0
@@ -200,9 +206,11 @@ class flowSolver(object):
         self.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1, name='P1v_2d')
         self.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1, name='P1DG_2d')
         # 2D velocity space
-        # NOTE this is not compatible with enriched UW space used in 3D
-        #self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.order+1)
-        self.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.order, name='U_2d')
+        if self.mimetic:
+            # NOTE this is not compatible with enriched UW space used in 3D
+            self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.order+1)
+        else:
+            self.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.order, name='U_2d')
         self.Uproj_2d = self.U_2d
         self.U_visu_2d = self.P1v_2d
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order, name='U_scalar_2d')
@@ -240,7 +248,7 @@ class flowSolver(object):
         self.z_coord_ref3d = Function(self.P1, name='ref z coord')
         self.uv3d_dav = Function(self.Uproj, name='Depth Averaged Velocity 3d')
         self.uv2d_dav = Function(self.Uproj_2d, name='Depth Averaged Velocity 2d')
-        self.uv3d_tmp = Function(self.U, name='Velocity')
+        #self.uv3d_tmp = Function(self.U, name='Velocity')
         self.uv3d_mag = Function(self.P0, name='Velocity magnitude')
         self.uv3d_P1 = Function(self.P1v, name='Smoothed Velocity')
         self.w3d = Function(self.W, name='Vertical Velocity')
@@ -512,11 +520,11 @@ class flowSolver(object):
         self.exporters['numpy'] = e
 
         self.uvP1_projector = projector(self.uv3d, self.uv3d_P1)
-        self.uvDAV_to_tmp_projector = projector(self.uv3d_dav, self.uv3d_tmp)
-        self.uv2d_to_DAV_projector = projector(self.solution2d.split()[0],
-                                               self.uv2d_dav)
-        self.uv2dDAV_to_uv2d_projector = projector(self.uv2d_dav,
-                                                   self.solution2d.split()[0])
+        #self.uvDAV_to_tmp_projector = projector(self.uv3d_dav, self.uv3d_tmp)
+        #self.uv2d_to_DAV_projector = projector(self.solution2d.split()[0],
+                                               #self.uv2d_dav)
+        #self.uv2dDAV_to_uv2d_projector = projector(self.uv2d_dav,
+                                                   #self.solution2d.split()[0])
         self.eta3d_to_CG_projector = projector(self.eta3d, self.eta3dCG)
 
         self._initialized = True
