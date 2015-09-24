@@ -597,13 +597,14 @@ class SSPIMEX(timeIntegrator):
         Mathematics 272(2014) 116-140.
     """
     def __init__(self, equation, dt, solver_parameters={},
-                 solver_parameters_dirk={}):
+                 solver_parameters_dirk={}, solution=None):
         super(SSPIMEX, self).__init__(equation, solver_parameters)
 
         # implicit scheme
         self.dirk = DIRK_LSPUM2(equation, dt,
                                 solver_parameters=solver_parameters_dirk,
-                                termsToAdd=['implicit'])
+                                termsToAdd=['implicit'],
+                                solution=solution)
         # explicit scheme
         erk_a = [[0, 0, 0],
                  [5.0/6.0, 0, 0],
@@ -612,7 +613,8 @@ class SSPIMEX(timeIntegrator):
         erk_c = [0, 5.0/6.0, 11.0/12.0]
         self.erk = DIRK_generic(equation, dt, erk_a, erk_b, erk_c,
                                 solver_parameters=solver_parameters_dirk,
-                                termsToAdd=['explicit', 'source'])
+                                termsToAdd=['explicit', 'source'],
+                                solution=solution)
         self.nStages = len(erk_b)
 
     def updateSolver(self):
@@ -628,15 +630,15 @@ class SSPIMEX(timeIntegrator):
         """Advances equations for one time step."""
         for i in xrange(self.nStages):
             self.solveStage(i, t, dt, solution, updateForcings)
-        self.updateFinalSolution(solution)
+        self.getFinalSolution(solution)
 
     def solveStage(self, iStage, t, dt, solution, updateForcings=None):
         self.erk.solveStage(iStage, t, dt, solution, updateForcings)
         self.dirk.solveStage(iStage, t, dt, solution, updateForcings)
 
-    def updateFinalSolution(self, solution):
-        self.erk.updateFinalSolution(solution)
-        self.dirk.updateFinalSolution(solution)
+    def getFinalSolution(self, solution):
+        self.erk.getFinalSolution(solution)
+        self.dirk.getFinalSolution(solution)
 
 
 class DIRK_generic(timeIntegrator):
@@ -655,7 +657,8 @@ class DIRK_generic(timeIntegrator):
     """
     def __init__(self, equation, dt, a, b, c,
                  solver_parameters={},
-                 termsToAdd='all'):
+                 termsToAdd='all',
+                 solution=None):
         """
         Create new DIRK solver.
 
@@ -691,7 +694,10 @@ class DIRK_generic(timeIntegrator):
         Source = self.equation.Source
         self.dt = dt
         self.dt_const = Constant(dt)
-        solution = self.equation.solution
+        if solution is not None:
+            self.solution_old = solution
+        else:
+            self.solution_old = self.equation.solution
         self.funcs = self.equation.kwargs
         dx = self.equation.dx
         test = TestFunction(self.equation.space)
@@ -725,9 +731,9 @@ class DIRK_generic(timeIntegrator):
             for i in xrange(self.nStages):
                 for j in xrange(i+1):
                     if j == 0:
-                        u = solution + a[i][j]*self.dt_const*self.k[j]
+                        u = self.solution_old + self.a[i][j]*self.dt_const*self.k[j]
                     else:
-                        u += a[i][j]*self.dt_const*self.k[j]
+                        u += self.a[i][j]*self.dt_const*self.k[j]
                 self.F.append(-inner(self.k[i], test)*dx +
                               allTerms(u, **self.funcs))
         else:
@@ -737,11 +743,11 @@ class DIRK_generic(timeIntegrator):
                 for j in xrange(i+1):
                     if j == 0:
                         u = []  # list of components in the mixed space
-                        for s, k in zip(split(solution), split(self.k[j])):
-                            u.append(s + a[i][j]*self.dt_const*k)
+                        for s, k in zip(split(self.solution_old), split(self.k[j])):
+                            u.append(s + self.a[i][j]*self.dt_const*k)
                     else:
                         for l, k in enumerate(split(self.k[j])):
-                            u[l] += a[i][j]*self.dt_const*k
+                            u[l] += self.a[i][j]*self.dt_const*k
                 self.F.append(-inner(self.k[i], test)*dx +
                               allTerms(u, **self.funcs))
         self.updateSolver()
@@ -758,26 +764,41 @@ class DIRK_generic(timeIntegrator):
                                            options_prefix=sname)
                 )
 
-    def initialize(self, solution):
+    def initialize(self, init_cond):
         """Assigns initial conditions to all required fields."""
-        self.equation.solution.assign(solution)
+        self.solution_old.assign(init_cond)
 
     def advance(self, t, dt, solution, updateForcings=None):
         """Advances equations for one time step."""
         for i in xrange(self.nStages):
             self.solveStage(i, t, dt, solution, updateForcings)
-        self.updateFinalSolution(solution)
 
-    def solveStage(self, iStage, t, dt, solution, updateForcings=None):
+    def solveStage(self, iStage, t, dt, output=None, updateForcings=None):
         """Advances equations for one stage."""
         if updateForcings is not None:
             updateForcings(t + self.c[iStage]*self.dt)
         self.solver[iStage].solve()
+        if output is not None and output != self.solution_old:
+            if iStage < self.nStages - 1:
+                self.getStageSolution(iStage, output)
+            else:
+                # assign the final solution
+                self.getFinalSolution(output)
 
-    def updateFinalSolution(self, solution):
-        """Updates the final solution from the tendencies"""
+    def getStageSolution(self, iStage, output):
+        """Stores intermediate solution for stage iStage to the output field"""
+        #output.assign(self.solution_old)  # FIXME
+        for j in xrange(iStage+1):
+            output += self.a[iStage][j]*self.dt_const*self.k[j]
+
+    def getFinalSolution(self, output=None):
+        """Computes the final solution from the tendencies"""
+        # update solution
         for i in xrange(self.nStages):
-            solution += self.dt_const*self.b[i]*self.k[i]
+            self.solution_old += self.dt_const*self.b[i]*self.k[i]
+        if output is not None and output != self.solution_old:
+            # copy to output
+            output.assign(self.solution_old)
 
 
 class BackwardEuler(DIRK_generic):
@@ -901,14 +922,16 @@ class DIRK_LSPUM2(DIRK_generic):
         Runge-Kutta methods. Journal of Computational and Applied
         Mathematics 272(2014) 116-140.
     """
-    def __init__(self, equation, dt, solver_parameters={}, termsToAdd='all'):
+    def __init__(self, equation, dt, solver_parameters={}, termsToAdd='all',
+                 solution=None):
         a = [[2.0/11.0, 0, 0],
              [205.0/462.0, 2.0/11.0, 0],
              [2033.0/4620.0, 21.0/110.0, 2.0/11.0]]
         b = [24.0/55.0, 1.0/5.0, 4.0/11.0]
         c = [2.0/11.0, 289.0/462.0, 751.0/924.0]
         super(DIRK_LSPUM2, self).__init__(equation, dt, a, b, c,
-                                          solver_parameters, termsToAdd)
+                                          solver_parameters, termsToAdd,
+                                          solution)
 
 
 def cosTimeAvFilter(M):

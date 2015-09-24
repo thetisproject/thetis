@@ -32,6 +32,8 @@
 
 from cofs import *
 
+parameters['coffee'] = {}
+
 reso_str = 'coarse'
 outputDir = createDirectory('outputs_struct_' + reso_str)
 refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4,
@@ -73,6 +75,7 @@ solverObj.solveSalt = True
 solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False
 solverObj.useALEMovingMesh = False
+#solverObj.useIMEX = True
 #solverObj.useSemiImplicit2D = False
 #solverObj.useModeSplit = False
 solverObj.baroclinic = True

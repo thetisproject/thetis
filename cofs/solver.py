@@ -80,6 +80,7 @@ class flowSolver(object):
         self.useALEMovingMesh = True  # 3D mesh tracks free surface
         self.useModeSplit = True  # run 2D/3D modes with different dt
         self.useSemiImplicit2D = True  # implicit 2D waves (only w. mode split)
+        self.useIMEX = False  # use IMEX time integrator (only with mode split)
         self.useTurbulence = False  # GLS turbulence model
         self.useTurbulenceAdvection = False  # Advect tke,psi with velocity
         self.lin_drag = None  # 2D linear drag parameter tau/H/rho_0 = -drag*u
@@ -454,15 +455,15 @@ class flowSolver(object):
         # ----- Time integrators
         self.setTimeStep()
         if self.useModeSplit:
-            if self.useSemiImplicit2D:
-                printInfo('using coupledSSPRKSemiImplicit time integrator')
+            if self.useIMEX:
+                self.timeStepper = coupledTimeIntegrator.coupledSSPIMEX(weakref.proxy(self))
+            elif self.useSemiImplicit2D:
                 self.timeStepper = coupledTimeIntegrator.coupledSSPRKSemiImplicit(weakref.proxy(self))
             else:
-                printInfo('using coupledSSPRKSync time integrator')
                 self.timeStepper = coupledTimeIntegrator.coupledSSPRKSync(weakref.proxy(self))
         else:
-            printInfo('using coupledSSPRKSingleMode time integrator')
             self.timeStepper = coupledTimeIntegrator.coupledSSPRKSingleMode(weakref.proxy(self))
+        printInfo('using {:} time integrator'.format(self.timeStepper.__class__.__name__))
 
         # compute maximal diffusivity for explicit schemes
         maxDiffAlpha = 1.0/100.0  # FIXME depends on element type and order
@@ -783,7 +784,6 @@ class flowSolver2d(object):
                 'pc_type': 'fieldsplit',
                 'pc_fieldsplit_type': 'multiplicative',
                 }
-
             self.timeStepper = timeIntegrator.SSPIMEX(self.eq_sw, self.dt,
                                                       solver_parameters=sp_expl,
                                                       solver_parameters_dirk=sp_impl)

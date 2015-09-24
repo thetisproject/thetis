@@ -42,6 +42,7 @@ solverObj.useBottomFriction = False
 solverObj.useALEMovingMesh = False
 solverObj.uvLaxFriedrichs = Constant(1.0)
 solverObj.tracerLaxFriedrichs = Constant(1.0)
+solverObj.useIMEX = True
 #solverObj.useSemiImplicit2D = False
 #solverObj.useModeSplit = False
 #solverObj.baroclinic = True
