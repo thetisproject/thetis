@@ -124,13 +124,17 @@ class coupledSSPRKSync(timeIntegrator.timeIntegrator):
                     #uv2d_start = sol2d.split()[0]
                     #uv2d_start.assign(s.uv2d_dav)
                     # 2d-3d coupling v2: force DAv(uv3d) to uv2d
-                    s.uvDAV_to_tmp_projector.project()  # project uv_dav to uv3d_tmp
-                    s.uv3d -= s.uv3d_tmp
-                    s.uv2d_to_DAV_projector.project()  # uv2d to uv2d_dav
-                    copy2dFieldTo3d(s.uv2d_dav, s.uv3d_dav,
+                    #s.uvDAV_to_tmp_projector.project()  # project uv_dav to uv3d_tmp
+                    #s.uv3d -= s.uv3d_tmp
+                    #s.uv2d_to_DAV_projector.project()  # uv2d to uv2d_dav
+                    #copy2dFieldTo3d(s.uv2d_dav, s.uv3d_dav,
+                                    #elemHeight=s.vElemSize3d)
+                    #s.uvDAV_to_tmp_projector.project()  # project uv_dav to uv3d_tmp
+                    #s.uv3d += s.uv3d_tmp
+                    s.uv3d -= s.uv3d_dav
+                    copy2dFieldTo3d(sol2d.split()[0], s.uv3d_dav,
                                     elemHeight=s.vElemSize3d)
-                    s.uvDAV_to_tmp_projector.project()  # project uv_dav to uv3d_tmp
-                    s.uv3d += s.uv3d_tmp
+                    s.uv3d += s.uv3d_dav
 
             with timed_region('continuityEq'):
                 computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d,
@@ -346,7 +350,7 @@ class coupledSSPIMEX(timeIntegrator.timeIntegrator):
                 #s.uvDAV_to_tmp_projector.project()  # project uv_dav to uv3d_tmp
                 #s.uv3d += s.uv3d_tmp
                 s.uv3d -= s.uv3d_dav
-                copy2dFieldTo3d(s.uv2d_dav, s.uv3d_dav,
+                copy2dFieldTo3d(sol2d.split()[0], s.uv3d_dav,
                                 elemHeight=s.vElemSize3d)
                 s.uv3d += s.uv3d_dav
         with timed_region('continuityEq'):
@@ -576,7 +580,7 @@ class coupledSSPRKSemiImplicit(timeIntegrator.timeIntegrator):
                     #s.uvDAV_to_tmp_projector.project()  # project uv_dav to uv3d_tmp
                     #s.uv3d += s.uv3d_tmp
                     s.uv3d -= s.uv3d_dav
-                    copy2dFieldTo3d(s.uv2d_dav, s.uv3d_dav,
+                    copy2dFieldTo3d(sol2d.split()[0], s.uv3d_dav,
                                     elemHeight=s.vElemSize3d)
                     s.uv3d += s.uv3d_dav
             with timed_region('continuityEq'):
