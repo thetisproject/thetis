@@ -702,11 +702,12 @@ def getHorzontalElemSize(P1_2d, P1_3d=None):
     Computes horizontal element size from the 2D mesh, then copies it over a 3D
     field.
     """
-    cellsize = CellSize(P1_2d.mesh())
+    mesh = P1_2d.mesh()
+    cellsize = CellSize(mesh)
     test = TestFunction(P1_2d)
     tri = TrialFunction(P1_2d)
     sol2d = Function(P1_2d)
-    dx_2d = Measure('dx', domain=P1_2d.mesh(), subdomain_id='everywhere')
+    dx_2d = mesh._dx
     a = test * tri * dx_2d
     L = test * cellsize * dx_2d
     solve(a == L, sol2d)
