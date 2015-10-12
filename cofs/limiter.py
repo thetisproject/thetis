@@ -41,7 +41,7 @@ class vertexBasedP1DGLimiter(object):
 
     [1] Kuzmin Dmitri (2010). A vertex-based hierarchical slope limiter
     for p-adaptive discontinuous Galerkin methods. Journal of Computational
-    and Applied Mathematics, 233(12):3077–3085.
+    and Applied Mathematics, 233(12):3077-3085.
     http://dx.doi.org/10.1016/j.cam.2009.05.028
     """
     def __init__(self, P1DG_space, P1CG_space, P0_space):

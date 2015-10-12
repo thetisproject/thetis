@@ -837,7 +837,7 @@ class DIRK22(DIRK_generic):
 
     [1] Ascher et al. (1997). Implicit-explicit Runge-Kutta methods for
         time-dependent partial differential equations. Applied Numerical
-        Mathematics, 25:151–167.
+        Mathematics, 25:151-167.
     """
     def __init__(self, equation, dt, solver_parameters={}, termsToAdd='all'):
         gamma = Constant((2 + np.sqrt(2))/2)
