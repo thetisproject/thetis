@@ -468,7 +468,7 @@ def copy_2d_field_to_3d(input, output, elemHeight=None,
     # number of nodes in vertical direction
     nVertNodes = len(fs_3d.fiat_element.B.entity_closure_dofs()[1][0])
 
-    nodes = fs_3d.bt_masks[0]
+    nodes = fs_3d.bt_masks['geometric'][0]
     idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='nodeIdx')
     kernel = op2.Kernel("""
         void my_kernel(double **func, double **func2d, int *idx) {
@@ -531,9 +531,9 @@ def extract_level_from_3d(input, sub_domain, output, bottomNodes=None,
     if bottomNodes is None:
         bottomNodes = sub_domain == 'bottom'
     if bottomNodes:
-        nodes = fs.bt_masks[1]
+        nodes = fs.bt_masks['geometric'][1]
     else:
-        nodes = fs.bt_masks[0]
+        nodes = fs.bt_masks['geometric'][0]
     if sub_domain == 'top':
         # 'top' means free surface, where extrusion started
         iterate = op2.ON_BOTTOM
@@ -593,7 +593,7 @@ def computeElemHeight(zCoord, output):
     fs_in = zCoord.function_space()
     fs_out = output.function_space()
 
-    nodes = fs_out.bt_masks[0]
+    nodes = fs_out.bt_masks['geometric'][0]
     iterate = op2.ALL
 
     in_nodes = fs_in.fiat_element.space_dimension()
