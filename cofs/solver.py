@@ -50,9 +50,119 @@ class sumFunction(object):
         return sum(self.coeffList)
 
 
+class modelOptions(object):
+    """
+    Stores all model options
+
+    """
+    def __init__(self):
+        """
+        Initialize with default options
+        """
+        self.cfl_2d = 1.0
+        """float: Factor to scale the 2d time step"""
+        self.cfl_3d = 1.0
+        """float: Factor to scale the 2d time step"""
+        self.order = 1
+        """int: Polynomial degree of elements"""
+        self.mimetic = True
+        """bool: Use mimetic elements for uvw instead of DG"""
+        self.nonlin = True
+        """bool: Use nonlinear shallow water equations"""
+        self.solveSalt = True
+        """bool: Solve salt transport"""
+        self.solveVertDiffusion = True
+        """bool: Solve implicit vert diffusion"""
+        self.useBottomFriction = True
+        """bool: Apply log layer bottom stress"""
+        self.useParabolicViscosity = False
+        """bool: Compute parabolic eddy viscosity"""
+        self.useALEMovingMesh = True
+        """bool: 3D mesh tracks free surface"""
+        self.useModeSplit = True
+        """bool: Solve 2D/3D modes with different dt"""
+        self.useSemiImplicit2D = True
+        """bool: Implicit 2D waves (only w. mode split)"""
+        self.useIMEX = False
+        """bool: Use IMEX time integrator (only with mode split)"""
+        self.useTurbulence = False
+        """bool: GLS turbulence model"""
+        self.useTurbulenceAdvection = False
+        """bool: Advect tke,psi with velocity"""
+        self.lin_drag = None
+        """Coefficient or None: 2D linear drag parameter tau/H/rho_0 = -drag*u"""
+        self.hDiffusivity = None
+        """Coefficient or None: Background diffusivity"""
+        self.vDiffusivity = None
+        """Coefficient or None: background diffusivity"""
+        self.hViscosity = None
+        """Coefficient or None: background viscosity"""
+        self.vViscosity = None
+        """Coefficient or None: background viscosity"""
+        self.coriolis = None
+        """2D Coefficient or None: Coriolis parameter"""
+        self.wind_stress = None
+        """Coefficient or None: Stress at free surface (2D vector function)"""
+        self.baroclinic = False  #: NOTE implies that salt3d field is density [kg/m3]
+        """bool: Compute internal pressure gradient in momentum equation"""
+        self.smagorinskyFactor = None
+        """Constant or None: Smagorinsky viscosity factor C_S"""
+        self.saltJumpDiffFactor = None
+        """Constant or None: Non-linear jump diffusion factor"""
+        self.saltRange = Constant(30.0)
+        """Constant or None: Salt max-min range for jump diffusion"""
+        self.useLimiterForTracers = False
+        """bool: Apply P1DG limiter for tracer fields"""
+        self.uvLaxFriedrichs = Constant(1.0)
+        """Coefficient or None: Scaling factor for uv L-F stability term."""
+        self.tracerLaxFriedrichs = Constant(1.0)
+        """Coefficient or None: Scaling factor for tracer L-F stability term."""
+        self.checkVolConservation2d = False
+        """bool: Print deviation from initial volume for 2D mode (eta)"""
+        self.checkVolConservation3d = False
+        """bool: Print deviation from initial volume for 3D mode (domain volume)"""
+        self.checkSaltConservation = False
+        """bool: Print deviation from initial salt mass"""
+        self.checkSaltDeviation = False
+        """bool: Print deviation from mean of initial value"""
+        self.checkSaltOvershoot = False
+        """bool: Print overshoots that exceed initial range"""
+        self.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion',
+                            'continuityEq', 'saltEq', 'aux_eta3d',
+                            'aux_mesh_ale', 'aux_friction', 'aux_barolinicity',
+                            'aux_mom_coupling',
+                            'func_copy2dTo3d', 'func_copy3dTo2d',
+                            'func_vert_int']
+        """list of str: Labels of timer sections to print out"""
+        self.outputDir = 'outputs'
+        """str: Directory where model output files are stored"""
+        self.fieldsToExport = ['elev2d', 'uv2d', 'uv3d', 'w3d']
+        """list of str: Fields to export in VTK format"""
+        self.fieldsToExportNumpy = []
+        """list of str: Fields to export in numpy format"""
+        self.verbose = 0
+        """int: Verbosity level"""
+
+    @classmethod
+    def fromDict(cls, d):
+        """
+        Creates a new object overriding all devault values from the given dict
+        """
+        o = cls()
+        o.__dict__.update(d)
+        return o
+
+    def getDict(self):
+        """
+        Returns all options in a dict
+        """
+        return self.__dict__
+
+
 class flowSolver(object):
     """Creates and solves coupled 2D-3D equations"""
-    def __init__(self, mesh2d, bathymetry2d, n_layers, order=1, mimetic=False):
+    def __init__(self, mesh2d, bathymetry2d, n_layers, order=1, mimetic=False,
+                 options={}):
         self._initialized = False
 
         # create 3D mesh
@@ -68,57 +178,14 @@ class flowSolver(object):
         self.dt_2d = None
         self.M_modesplit = None
 
-        # options
-        self.cfl_2d = 1.0  # factor to scale the 2d time step
-        self.cfl_3d = 1.0  # factor to scale the 2d time step
-        self.order = order  # polynomial order of elements
-        self.mimetic = mimetic  # use mimetic elements for uvw instead of DG
-        self.nonlin = True  # use nonlinear shallow water equations
-        self.solveSalt = True  # solve salt transport
-        self.solveVertDiffusion = True  # solve implicit vert diffusion
-        self.useBottomFriction = True  # apply log layer bottom stress
-        self.useParabolicViscosity = False  # compute parabolic eddy viscosity
-        self.useALEMovingMesh = True  # 3D mesh tracks free surface
-        self.useModeSplit = True  # run 2D/3D modes with different dt
-        self.useSemiImplicit2D = True  # implicit 2D waves (only w. mode split)
-        self.useIMEX = False  # use IMEX time integrator (only with mode split)
-        self.useTurbulence = False  # GLS turbulence model
-        self.useTurbulenceAdvection = False  # Advect tke,psi with velocity
-        self.lin_drag = None  # 2D linear drag parameter tau/H/rho_0 = -drag*u
-        self.hDiffusivity = None  # background diffusivity (set to Constant)
-        self.vDiffusivity = None  # background diffusivity (set to Constant)
-        self.hViscosity = None  # background viscosity (set to Constant)
-        self.vViscosity = None  # background viscosity (set to Constant)
-        self.coriolis = None  # Coriolis parameter (Constant or 2D Function)
-        self.wind_stress = None  # stress at free surface (2D vector function)
-        # NOTE 'baroclinic' means that salt3d field is treated as density [kg/m3]
-        self.baroclinic = False  # comp and use internal pressure gradient
-        self.smagorinskyFactor = None  # set to a Constant to use smag. visc.
-        self.saltJumpDiffFactor = None  # set to a Constant to use nonlin diff.
-        self.saltRange = Constant(30.0)  # value scale for salt to scale jumps
-        self.useLimiterForTracers = False  # apply P1DG limiter
-        self.uvLaxFriedrichs = Constant(1.0)  # scales uv stab. None omits
-        self.tracerLaxFriedrichs = Constant(1.0)  # scales tracer stab. None omits
-        self.checkVolConservation2d = False
-        self.checkVolConservation3d = False
-        self.checkSaltConservation = False
-        self.checkSaltDeviation = False  # print deviation from mean of initial value
-        self.checkSaltOvershoot = False  # print overshoots that exceed initial range
-        self.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion',
-                            'continuityEq', 'saltEq', 'aux_eta3d',
-                            'aux_mesh_ale', 'aux_friction', 'aux_barolinicity',
-                            'aux_mom_coupling',
-                            'func_copy2dTo3d', 'func_copy3dTo2d',
-                            'func_vert_int']
-        self.outputDir = 'outputs'
-        # list of fields to export in VTK format
-        self.fieldsToExport = ['elev2d', 'uv2d', 'uv3d', 'w3d']
-        # list of fields to export in numpy format
-        self.fieldsToExportNumpy = []
+        # override default options
+        opt = modelOptions().fromDict(options)
+        # add as attributes to this class
+        self.__dict__.update(opt.getDict())
+
         self.bnd_functions = {'shallow_water': {},
                               'momentum': {},
                               'salt': {}}
-        self.verbose = 0
 
     def setTimeStep(self):
         if self.useModeSplit:
