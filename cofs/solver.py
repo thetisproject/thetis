@@ -142,6 +142,12 @@ class modelOptions(object):
         """list of str: Fields to export in numpy format"""
         self.verbose = 0
         """int: Verbosity level"""
+        self.TExport = 100.0  
+        """float: Export interval in seconds. All fields in fieldsToExport list will be stored to disk and diagnostics will be computed."""
+        self.T = 1000.0
+        """float: Simulation duration in seconds"""
+        self.uAdvection = Constant(0.0)
+        """Constant: Max. horizontal velocity magnitude for computing max stable advection time step."""
 
     @classmethod
     def fromDict(cls, d):
@@ -171,9 +177,6 @@ class flowSolver(object):
         self.mesh = extrudeMeshSigma(mesh2d, n_layers, bathymetry2d)
 
         # Time integrator setup
-        self.TExport = 100.0  # export interval
-        self.T = 1000.0  # Simulation duration
-        self.uAdvection = Constant(0.0)  # magnitude of max horiz. velocity
         self.dt = None
         self.dt_2d = None
         self.M_modesplit = None
@@ -765,7 +768,7 @@ class flowSolver(object):
 
 class flowSolver2d(object):
     """Creates and solves 2D depth averaged equations with RT1-P1DG elements"""
-    def __init__(self, mesh2d, bathymetry2d, order=1):
+    def __init__(self, mesh2d, bathymetry2d, order=1, options={}):
         self._initialized = False
 
         # create 3D mesh
@@ -773,28 +776,19 @@ class flowSolver2d(object):
         self.bathymetry2d = bathymetry2d
 
         # Time integrator setup
-        self.TExport = 100.0  # export interval
-        self.T = 1000.0  # Simulation duration
-        self.uAdvection = Constant(0.0)  # magnitude of max horiz. velocity
         self.dt = None
 
-        # options
-        self.cfl_2d = 1.0  # factor to scale the 2d time step
-        self.order = order  # polynomial order of elements
-        self.nonlin = True  # use nonlinear shallow water equations
-        self.lin_drag = None  # linear drag parameter tau/H/rho_0 = -drag*u
-        self.hDiffusivity = None  # background diffusivity (set to Constant)
-        self.hViscosity = None  # background viscosity (set to Constant)
-        self.coriolis = None  # Coriolis parameter (Constant or 2D Function)
-        self.wind_stress = None  # stress at free surface (2D vector function)
-        self.uvLaxFriedrichs = Constant(1.0)  # scales uv stab. None omits
-        self.checkVolConservation2d = False
-        self.timeStepperType = 'SSPRK33'
-        self.timerLabels = ['mode2d']
-        self.outputDir = 'outputs'
-        self.fieldsToExport = ['elev2d', 'uv2d']
+        # 2d model specific default options
+        options.setdefault('timeStepperType', 'SSPRK33')
+        options.setdefault('timerLabels', ['mode2d'])
+        options.setdefault('fieldsToExport', ['elev2d', 'uv2d'])
+
+        # override default options
+        opt = modelOptions().fromDict(options)
+        # add as attributes to this class
+        self.__dict__.update(opt.getDict())
+
         self.bnd_functions = {'shallow_water': {}}
-        self.verbose = 0
 
     def setTimeStep(self):
         mesh2d_dt = self.eq_sw.getTimeStep(Umag=self.uAdvection)
