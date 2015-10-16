@@ -165,6 +165,157 @@ class modelOptions(object):
         return self.__dict__
 
 
+fieldMetadata = {}
+"""
+Holds description, units and output file information for each field.
+
+name      - human readable description
+fieldname - description used in visualization etc
+filename  - filename for output files
+unit      - SI unit of the field
+"""
+
+fieldMetadata['uv2d'] = {
+    'name': 'Depth averaged velocity',
+    'fieldname': 'Depth averaged velocity',
+    'filename': 'Velocity2d',
+    'unit': 'm s-1',
+    }
+fieldMetadata['uvDav2d'] = {
+    'name': 'Depth averaged velocity',
+    'fieldname': 'Depth averaged velocity',
+    'filename': 'DAVelocity2d',
+    'unit': 'm s-1',
+    }
+fieldMetadata['uvDav3d'] = {
+    'name': 'Depth averaged velocity',
+    'fieldname': 'Depth averaged velocity',
+    'filename': 'DAVelocity3d',
+    'unit': 'm s-1',
+    }
+fieldMetadata['uvBot2d'] = {
+    'name': 'Bottom velocity',
+    'fieldname': 'Bottom velocity',
+    'filename': 'BotVelocity2d',
+    'unit': 'm s-1',
+    }
+fieldMetadata['elev2d'] = {
+    'name': 'Water elevation',
+    'fieldname': 'Elevation',
+    'filename': 'Elevation2d',
+    'unit': 'm',
+    }
+fieldMetadata['elev3d'] = {
+    'name': 'Water elevation',
+    'fieldname': 'Elevation',
+    'filename': 'Elevation3d',
+    'unit': 'm',
+    }
+fieldMetadata['uv3d'] = {
+    'name': 'Horizontal velocity',
+    'fieldname': 'Horizontal velocity',
+    'filename': 'Velocity3d',
+    'unit': 'm s-1',
+    }
+fieldMetadata['w3d'] = {
+    'name': 'Vertical velocity',
+    'fieldname': 'Vertical velocity',
+    'filename': 'VertVelo3d',
+    'unit': 'm s-1',
+    }
+fieldMetadata['wMesh3d'] = {
+    'name': 'Mesh velocity',
+    'fieldname': 'Mesh velocity',
+    'filename': 'MeshVelo3d',
+    'unit': 'm s-1',
+    }
+fieldMetadata['salt3d'] = {
+    'name': 'Water salinity',
+    'fieldname': 'Salinity',
+    'filename': 'Salinity3d',
+    'unit': 'psu',
+    }
+fieldMetadata['parabNuv3d'] = {
+    'name': 'Parabolic Viscosity',
+    'fieldname': 'Parabolic Viscosity',
+    'filename': 'ParabVisc3d',
+    'unit': 'm2 s-1',
+    }
+
+fieldMetadata['eddyNuv3d'] = {
+    'name': 'Eddy Viscosity',
+    'fieldname': 'Eddy Viscosity',
+    'file': 'EddyVisc3d',
+    'unit': 'm2 s-1',
+    }
+fieldMetadata['shearFreq3d'] = {
+    'name': 'Vertical shear frequency squared',
+    'fieldname': 'Vertical shear frequency squared',
+    'file': 'ShearFreq3d',
+    'unit': 's-2',
+    }
+fieldMetadata['tke3d'] = {
+    'name': 'Turbulent Kinetic Energy',
+    'fieldname': 'Turbulent Kinetic Energy',
+    'file': 'TurbKEnergy3d',
+    'unit': 'm2 s-2',
+    }
+fieldMetadata['psi3d'] = {
+    'name': 'Turbulence psi variable',
+    'fieldname': 'Turbulence psi variable',
+    'file': 'TurbPsi3d',
+    'unit': '',
+    }
+fieldMetadata['eps3d'] = {
+    'name': 'TKE dissipation rate',
+    'fieldname': 'TKE dissipation rate',
+    'file': 'TurbEps3d',
+    'unit': 'm2 s-2',
+    }
+fieldMetadata['len3d'] = {
+    'name': 'Turbulent lenght scale',
+    'fieldname': 'Turbulent lenght scale',
+    'file': 'TurbLen3d',
+    'unit': 'm',
+    }
+fieldMetadata['barohead3d'] = {
+    'name': 'Baroclinic head',
+    'fieldname': 'Baroclinic head',
+    'file': 'Barohead3d',
+    'unit': 'm',
+    }
+fieldMetadata['barohead2d'] = {
+    'name': 'Dav baroclinic head',
+    'fieldname': 'Dav baroclinic head',
+    'file': 'Barohead2d',
+    'unit': 'm',
+    }
+fieldMetadata['gjvAlphaH3d'] = {
+    'name': 'GJV Parameter h',
+    'fieldname': 'GJV Parameter h',
+    'file': 'GJVParamH',
+    'unit': '',
+    }
+fieldMetadata['gjvAlphaV3d'] = {
+    'name': 'GJV Parameter v',
+    'fieldname': 'GJV Parameter v',
+    'file': 'GJVParamV',
+    'unit': '',
+    }
+fieldMetadata['smagViscosity'] = {
+    'name': 'Smagorinsky viscosity',
+    'fieldname': 'Smagorinsky viscosity',
+    'file': 'SmagViscosity3d',
+    'unit': 'm2 s-1',
+    }
+fieldMetadata['saltJumpDiff'] = {
+    'name': 'Salt Jump Diffusivity',
+    'fieldname': 'Salt Jump Diffusivity',
+    'file': 'SaltJumpDiff3d',
+    'unit': 'm2 s-1',
+    }
+
+
 class flowSolver(object):
     """Creates and solves coupled 2D-3D equations"""
     def __init__(self, mesh2d, bathymetry2d, n_layers, order=1, mimetic=False,
@@ -189,6 +340,12 @@ class flowSolver(object):
         self.bnd_functions = {'shallow_water': {},
                               'momentum': {},
                               'salt': {}}
+
+        self.visualizationSpaces = {}
+        """Maps function space to a space where fields will be projected to for visualization"""
+
+        self.functions = {}
+        """Holds all functions needed by the solver object."""
 
     def setTimeStep(self):
         if self.useModeSplit:
@@ -266,10 +423,10 @@ class flowSolver(object):
         # for turbulence
         self.turb_space = self.P0
         # spaces for visualization
-        self.U_visu = self.P1v
-        self.H_visu = self.P1
-        self.W_visu = self.P1v
-        self.turb_space_visu = self.P1
+        self.visualizationSpaces[self.U] = self.P1v
+        self.visualizationSpaces[self.H] = self.P1
+        self.visualizationSpaces[self.W] = self.P1v
+        self.visualizationSpaces[self.P0] = self.P1
 
         # 2D spaces
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1, name='P1_2d')
@@ -282,11 +439,11 @@ class flowSolver(object):
         else:
             self.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.order, name='U_2d')
         self.Uproj_2d = self.U_2d
-        self.U_visu_2d = self.P1v_2d
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.order, name='U_scalar_2d')
         self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.order, name='H_2d')
-        self.H_visu_2d = self.P1_2d
         self.V_2d = MixedFunctionSpace([self.U_2d, self.H_2d], name='V_2d')
+        self.visualizationSpaces[self.U_2d] = self.P1v_2d
+        self.visualizationSpaces[self.H_2d] = self.P1_2d
 
         # ----- fields
         self.solution2d = Function(self.V_2d, name='solution2d')
@@ -549,42 +706,47 @@ class flowSolver(object):
 
         # ----- File exporters
         uv2d, eta2d = self.solution2d.split()
+        self.visualizationSpaces[uv2d.function_space()] = self.P1v_2d
+        self.visualizationSpaces[eta2d.function_space()] = self.P1_2d
         # dictionary of all exportable functions and their visualization space
-        exportFuncs = {
-            'uv2d': (uv2d, self.U_visu_2d),
-            'elev2d': (eta2d, self.H_visu_2d),
-            'elev3d': (self.eta3d, self.H_visu),
-            'uv3d': (self.uv3d, self.U_visu),
-            'uv3d_dav': (self.uv3d_dav, self.U_visu),
-            'w3d': (self.w3d, self.W_visu),
-            'w3d_mesh': (self.w_mesh3d, self.P1),
-            'salt3d': (self.salt3d, self.H_visu),
-            'uv2d_dav': (self.uv2d_dav, self.U_visu_2d),
-            'uv2d_bot': (self.uv_bottom2d, self.U_visu_2d),
-            'parabNuv3d': (self.parabViscosity_v, self.turb_space_visu),
-            'eddyNuv3d': (self.eddyVisc_v, self.turb_space_visu),
-            'shearFreq3d': (self.shearFreq2_3d, self.turb_space_visu),
-            'tke3d': (self.tke3d, self.turb_space_visu),
-            'psi3d': (self.psi3d, self.turb_space_visu),
-            'eps3d': (self.epsilon3d, self.turb_space_visu),
-            'len3d': (self.len3d, self.turb_space_visu),
-            'barohead3d': (self.baroHead3d, self.P1),
-            'barohead2d': (self.baroHead2d, self.P1_2d),
-            'smagViscosity': (self.smag_viscosity, self.P1),
-            'saltJumpDiff': (self.saltJumpDiff, self.P1),
-            }
+        # TODO store all functions in functions dict instead of self.salt3d??
+        self.functions['uv2d'] = uv2d
+        self.functions['elev2d'] = eta2d
+        self.functions['elev3d'] = self.eta3d
+        self.functions['uv3d'] = self.uv3d
+        self.functions['uv3d_dav'] = self.uv3d_dav
+        self.functions['w3d'] = self.w3d
+        self.functions['wMesh3d'] = self.w_mesh3d
+        self.functions['salt3d'] = self.salt3d
+        self.functions['uvDav2d'] = self.uv2d_dav
+        self.functions['uvBot2d'] = self.uv_bottom2d
+        self.functions['parabNuv3d'] = self.parabViscosity_v
+        self.functions['eddyNuv3d'] = self.eddyVisc_v
+        self.functions['shearFreq3d'] = self.shearFreq2_3d
+        self.functions['tke3d'] = self.tke3d
+        self.functions['psi3d'] = self.psi3d
+        self.functions['eps3d'] = self.epsilon3d
+        self.functions['len3d'] = self.len3d
+        self.functions['barohead3d'] = self.baroHead3d
+        self.functions['barohead2d'] = self.baroHead2d
+        self.functions['smagViscosity'] = self.smag_viscosity
+        self.functions['saltJumpDiff'] = self.saltJumpDiff
         # create exportManagers and store in a list
         self.exporters = {}
         e = exporter.exportManager(self.outputDir,
                                    self.fieldsToExport,
-                                   exportFuncs,
+                                   self.functions,
+                                   self.visualizationSpaces,
+                                   fieldMetadata,
                                    exportType='vtk',
                                    verbose=self.verbose > 0)
         self.exporters['vtk'] = e
         numpyDir = os.path.join(self.outputDir, 'numpy')
         e = exporter.exportManager(numpyDir,
                                    self.fieldsToExportNumpy,
-                                   exportFuncs,
+                                   self.functions,
+                                   self.visualizationSpaces,
+                                   fieldMetadata,
                                    exportType='numpy',
                                    verbose=self.verbose > 0)
         self.exporters['numpy'] = e

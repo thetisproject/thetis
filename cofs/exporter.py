@@ -227,74 +227,29 @@ class naiveFieldExporter(exporterBase):
 
 class exportManager(object):
     """Handles a list of file exporter objects"""
-    # TODO remove name from the list, use the name of the funct
-    # maps each fieldname to long name and filename
-    exportRules = {
-        'uv2d': {'name': 'Depth averaged velocity',
-                 'file': 'Velocity2d'},
-        'elev2d': {'name': 'Elevation',
-                   'file': 'Elevation2d'},
-        'elev3d': {'name': 'Elevation',
-                   'file': 'Elevation3d'},
-        'uv3d': {'name': 'Velocity',
-                 'file': 'Velocity3d'},
-        'w3d': {'name': 'V.Velocity',
-                'file': 'VertVelo3d'},
-        'w3d_mesh': {'name': 'Mesh Velocity',
-                     'file': 'MeshVelo3d'},
-        'salt3d': {'name': 'Salinity',
-                   'file': 'Salinity3d'},
-        'uv2d_dav': {'name': 'Depth Averaged Velocity',
-                     'file': 'DAVelocity2d'},
-        'uv3d_dav': {'name': 'Depth Averaged Velocity',
-                     'file': 'DAVelocity3d'},
-        'uv2d_bot': {'name': 'Bottom Velocity',
-                     'file': 'BotVelocity2d'},
-        'parabNuv3d': {'name': 'Parabolic Viscosity',
-                       'file': 'ParabVisc3d'},
-        'eddyNuv3d': {'name': 'Eddy Viscosity',
-                      'file': 'EddyVisc3d'},
-        'shearFreq3d': {'name': 'Vertical shear frequency squared',
-                        'file': 'ShearFreq3d'},
-        'tke3d': {'name': 'Turbulent Kinetic Energy',
-                  'file': 'TurbKEnergy3d'},
-        'psi3d': {'name': 'Turbulence psi variable',
-                  'file': 'TurbPsi3d'},
-        'eps3d': {'name': 'TKE dissipation rate',
-                  'file': 'TurbEps3d'},
-        'len3d': {'name': 'Turbulent lenght scale',
-                  'file': 'TurbLen3d'},
-        'barohead3d': {'name': 'Baroclinic head',
-                       'file': 'Barohead3d'},
-        'barohead2d': {'name': 'Dav baroclinic head',
-                       'file': 'Barohead2d'},
-        'gjvAlphaH3d': {'name': 'GJV Parameter h',
-                        'file': 'GJVParamH'},
-        'gjvAlphaV3d': {'name': 'GJV Parameter v',
-                        'file': 'GJVParamV'},
-        'smagViscosity': {'name': 'Smagorinsky viscosity',
-                          'file': 'SmagViscosity3d'},
-        'saltJumpDiff': {'name': 'Salt Jump Diffusivity',
-                         'file': 'SaltJumpDiff3d'},
-        }
 
-    def __init__(self, outputDir, fieldsToExport, exportFunctions,
+    def __init__(self, outputDir, fieldsToExport, functions,
+                 visualizationSpaces, fieldMetadata,
                  exportType='vtk', verbose=False):
         self.outputDir = outputDir
         self.fieldsToExport = fieldsToExport
-        self.exportFunctions = exportFunctions
+        self.functions = functions
+        self.fieldMetadata = fieldMetadata
+        self.visualizationSpaces = visualizationSpaces
         self.verbose = verbose
         # for each field create an exporter
         self.exporters = {}
         for key in fieldsToExport:
-            name = self.exportRules[key]['name']
-            fn = self.exportRules[key]['file']
-            field = self.exportFunctions[key][0]
+            fieldname = self.fieldMetadata[key]['fieldname']
+            fn = self.fieldMetadata[key]['filename']
+            field = self.functions[key]
             if field is not None:
-                visu_space = self.exportFunctions[key][1]
                 native_space = field.function_space()
+                visu_space = self.visualizationSpaces.get(native_space)
+                if visu_space is None:
+                    raise Exception('missing visualization space for: '+key)
                 if exportType == 'vtk':
-                    self.exporters[key] = exporter(visu_space, name,
+                    self.exporters[key] = exporter(visu_space, fieldname,
                                                    outputDir, fn)
                 elif exportType == 'numpy':
                     self.exporters[key] = naiveFieldExporter(native_space,
@@ -304,7 +259,7 @@ class exportManager(object):
         if self.verbose and commrank == 0:
             sys.stdout.write('Exporting: ')
         for key in self.exporters:
-            field = self.exportFunctions[key][0]
+            field = self.functions[key]
             if field is not None:
                 if self.verbose and commrank == 0:
                     sys.stdout.write(key+' ')
