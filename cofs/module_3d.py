@@ -11,7 +11,7 @@ rho_0 = physical_constants['rho0']
 
 class momentumEquation(equation):
     """3D momentum equation for hydrostatic Boussinesq flow."""
-    def __init__(self, mesh, space, space_scalar, bnd_markers, bnd_len,
+    def __init__(self, mesh, bnd_markers, bnd_len,
                  solution, eta, bathymetry, w=None,
                  w_mesh=None, dw_mesh_dz=None,
                  uv_bottom=None, bottom_drag=None, lin_drag=None,
@@ -22,8 +22,7 @@ class momentumEquation(equation):
                  uvP1=None,
                  nonlin=True):
         self.mesh = mesh
-        self.space = space
-        self.space_scalar = space_scalar
+        self.space = solution.function_space()
         self.nonlin = nonlin
         self.solution = solution
         # this dict holds all time dep. args to the equation
@@ -369,12 +368,11 @@ class momentumEquation(equation):
 class verticalMomentumEquation(equation):
     """Vertical advection and diffusion terms of 3D momentum equation for
     hydrostatic Boussinesq flow."""
-    def __init__(self, mesh, space, space_scalar, solution, w=None,
+    def __init__(self, mesh, solution, w=None,
                  viscosity_v=None, uv_bottom=None, bottom_drag=None,
                  wind_stress=None, vElemSize=None, source=None):
         self.mesh = mesh
-        self.space = space
-        self.space_scalar = space_scalar
+        self.space = solution.function_space()
         self.solution = solution
         self.vElemSize = vElemSize
         # this dict holds all time dep. args to the equation

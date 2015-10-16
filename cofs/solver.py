@@ -672,7 +672,7 @@ class flowSolver(object):
         if self.useModeSplit:
             # full 2D shallow water equations
             self.eq_sw = module_2d.shallowWaterEquations(
-                self.mesh2d, self.V_2d, self.functions.solution2d, self.functions.bathymetry2d,
+                self.mesh2d, self.functions.solution2d, self.functions.bathymetry2d,
                 self.functions.get('uv_bottom2d'), self.functions.get('bottom_drag2d'),
                 baro_head=self.functions.get('baroHead2d'),
                 viscosity_h=self.functions.get('hViscosity'),  # FIXME add 2d smag
@@ -685,13 +685,13 @@ class flowSolver(object):
             # solve elevation only: 2D free surface equation
             uv, eta = self.functions.solution2d.split()
             self.eq_sw = module_2d.freeSurfaceEquation(
-                self.mesh2d, self.H_2d, eta, uv, self.functions.bathymetry2d,
+                self.mesh2d, eta, uv, self.functions.bathymetry2d,
                 nonlin=self.nonlin)
 
         bnd_len = self.eq_sw.boundary_len
         bnd_markers = self.eq_sw.boundary_markers
         self.eq_momentum = module_3d.momentumEquation(
-            self.mesh, self.U, self.U_scalar, bnd_markers,
+            self.mesh, bnd_markers,
             bnd_len, self.functions.uv3d, self.functions.elev3d,
             self.functions.bathymetry3d, w=self.functions.w3d,
             baro_head=self.functions.get('baroHead3d'),
@@ -707,7 +707,7 @@ class flowSolver(object):
             nonlin=self.nonlin)
         if self.solveSalt:
             self.eq_salt = tracerEquation.tracerEquation(
-                self.mesh, self.H, self.functions.salt3d, self.functions.elev3d, self.functions.uv3d,
+                self.mesh, self.functions.salt3d, self.functions.elev3d, self.functions.uv3d,
                 w=self.functions.w3d, w_mesh=self.functions.get('w_mesh3d'),
                 dw_mesh_dz=self.functions.get('dw_mesh_dz_3d'),
                 diffusivity_h=self.tot_salt_h_diff.getSum(),
@@ -720,7 +720,7 @@ class flowSolver(object):
                 bnd_len=bnd_len)
         if self.solveVertDiffusion:
             self.eq_vertmomentum = module_3d.verticalMomentumEquation(
-                self.mesh, self.U, self.U_scalar, self.functions.uv3d, w=None,
+                self.mesh, self.functions.uv3d, w=None,
                 viscosity_v=self.tot_v_visc.getSum(),
                 uv_bottom=self.functions.get('uv_bottom3d'),
                 bottom_drag=self.functions.get('bottom_drag3d'),
@@ -733,7 +733,7 @@ class flowSolver(object):
         if self.useTurbulence:
             # explicit advection equations
             self.eq_tke_adv = tracerEquation.tracerEquation(
-                self.mesh, self.H, self.functions.tke3d, self.functions.elev3d, self.functions.uv3d,
+                self.mesh, self.functions.tke3d, self.functions.elev3d, self.functions.uv3d,
                 w=self.functions.w3d, w_mesh=self.functions.get('w_mesh3d'),
                 dw_mesh_dz=self.functions.get('dw_mesh_dz_3d'),
                 diffusivity_h=None,  # TODO add horiz. diffusivity?
@@ -744,7 +744,7 @@ class flowSolver(object):
                 bnd_markers=bnd_markers,
                 bnd_len=bnd_len)
             self.eq_psi_adv = tracerEquation.tracerEquation(
-                self.mesh, self.H, self.functions.psi3d, self.functions.elev3d, self.functions.uv3d,
+                self.mesh, self.functions.psi3d, self.functions.elev3d, self.functions.uv3d,
                 w=self.functions.w3d, w_mesh=self.functions.get('w_mesh3d'),
                 dw_mesh_dz=self.functions.get('dw_mesh_dz_3d'),
                 diffusivity_h=None,  # TODO add horiz. diffusivity?
@@ -756,7 +756,7 @@ class flowSolver(object):
                 bnd_len=bnd_len)
             # implicit vertical diffusion eqn with production terms
             self.eq_tke_diff = turbulence.tkeEquation(
-                self.mesh, self.functions.tke3d.function_space(), self.functions.tke3d,
+                self.mesh, self.functions.tke3d,
                 self.functions.elev3d, uv=None,
                 w=None, w_mesh=None,
                 dw_mesh_dz=None,
@@ -768,7 +768,7 @@ class flowSolver(object):
                 bnd_markers=bnd_markers, bnd_len=bnd_len,
                 glsModel=self.glsModel)
             self.eq_psi_diff = turbulence.psiEquation(
-                self.mesh, self.functions.psi3d.function_space(), self.functions.psi3d, self.functions.elev3d, uv=None,
+                self.mesh, self.functions.psi3d, self.functions.elev3d, uv=None,
                 w=None, w_mesh=None,
                 dw_mesh_dz=None,
                 diffusivity_h=None,
@@ -1045,7 +1045,7 @@ class flowSolver2d(object):
 
         # ----- Equations
         self.eq_sw = module_2d.shallowWaterEquations(
-            self.mesh2d, self.V_2d, self.solution2d, self.bathymetry2d,
+            self.mesh2d, self.solution2d, self.bathymetry2d,
             lin_drag=self.lin_drag,
             viscosity_h=self.hViscosity,
             uvLaxFriedrichs=self.uvLaxFriedrichs,

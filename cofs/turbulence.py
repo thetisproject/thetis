@@ -639,7 +639,7 @@ class tkeEquation(tracerEquation):
     Inherited from tracerEquation so only turbulence related source terms
     and boundary conditions need to be implemented.
     """
-    def __init__(self, mesh, space, solution, eta, uv, w,
+    def __init__(self, mesh, solution, eta, uv, w,
                  w_mesh=None, dw_mesh_dz=None,
                  diffusivity_h=None, diffusivity_v=None,
                  uvMag=None, uvP1=None, laxFriedrichsFactor=None,
@@ -649,7 +649,7 @@ class tkeEquation(tracerEquation):
         # NOTE vertical diffusivity must be divided by the TKE Schmidt number
         diffusivity_eff = viscosity_v/self.schmidt_number
         # call parent constructor
-        super(tkeEquation, self).__init__(mesh, space, solution, eta, uv, w,
+        super(tkeEquation, self).__init__(mesh, solution, eta, uv, w,
                                           w_mesh, dw_mesh_dz,
                                           diffusivity_h=diffusivity_h,
                                           diffusivity_v=diffusivity_eff,
@@ -697,7 +697,7 @@ class psiEquation(tracerEquation):
     Inherited from tracerEquation so only turbulence related source terms
     and boundary conditions need to be implemented.
     """
-    def __init__(self, mesh, space, solution, eta, uv, w,
+    def __init__(self, mesh, solution, eta, uv, w,
                  w_mesh=None, dw_mesh_dz=None,
                  diffusivity_h=None, diffusivity_v=None,
                  uvMag=None, uvP1=None, laxFriedrichsFactor=None,
@@ -707,7 +707,7 @@ class psiEquation(tracerEquation):
         self.schmidt_number = glsModel.params['schmidt_nb_psi']
         diffusivity_eff = viscosity_v/self.schmidt_number
         # call parent constructor
-        super(psiEquation, self).__init__(mesh, space, solution, eta, uv, w,
+        super(psiEquation, self).__init__(mesh, solution, eta, uv, w,
                                           w_mesh, dw_mesh_dz,
                                           diffusivity_h=diffusivity_h,
                                           diffusivity_v=diffusivity_eff,

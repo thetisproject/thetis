@@ -8,14 +8,14 @@ from utility import *
 
 class tracerEquation(equation):
     """3D tracer advection-diffusion equation"""
-    def __init__(self, mesh, space, solution, eta, uv=None, w=None,
+    def __init__(self, mesh, solution, eta, uv=None, w=None,
                  w_mesh=None, dw_mesh_dz=None,
                  diffusivity_h=None, diffusivity_v=None,
                  uvMag=None, uvP1=None, laxFriedrichsFactor=None,
                  bnd_markers=None, bnd_len=None, nonlin=True,
                  vElemSize=None):
         self.mesh = mesh
-        self.space = space
+        self.space = solution.function_space()
         # this dict holds all args to the equation (at current time step)
         self.solution = solution
         self.vElemSize = vElemSize
