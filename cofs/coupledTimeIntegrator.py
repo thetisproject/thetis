@@ -224,6 +224,7 @@ class coupledSSPIMEX(timeIntegrator.timeIntegrator):
     def __init__(self, solver):
         self._initialized = False
         self.solver = solver
+        self.functions = self.solver.functions
         # for 2d shallow water eqns
         sp_impl = {
             'ksp_type': 'gmres',
@@ -288,12 +289,12 @@ class coupledSSPIMEX(timeIntegrator.timeIntegrator):
 
     def initialize(self):
         """Assign initial conditions to all necessary fields"""
-        self.timeStepper2d.initialize(self.solver.solution2d)
-        self.timeStepper_mom3d.initialize(self.solver.uv3d)
+        self.timeStepper2d.initialize(self.functions.solution2d)
+        self.timeStepper_mom3d.initialize(self.functions.uv3d)
         if self.solver.solveSalt:
-            self.timeStepper_salt3d.initialize(self.solver.salt3d)
+            self.timeStepper_salt3d.initialize(self.functions.salt3d)
         if self.solver.solveVertDiffusion:
-            self.timeStepper_vmom3d.initialize(self.solver.uv3d)
+            self.timeStepper_vmom3d.initialize(self.functions.uv3d)
         self._initialized = True
 
     def _updateDependencies(self, do2DCoupling=False,
@@ -303,18 +304,19 @@ class coupledSSPIMEX(timeIntegrator.timeIntegrator):
                             doTurbulence=False):
         """Updates all dependencies of the primary variables"""
         s = self.solver
+        f = self.functions
         sol2d = self.timeStepper2d.equation.solution
         with timed_region('aux_eta3d'):
             eta = sol2d.split()[1]
-            copy2dFieldTo3d(eta, s.eta3d)  # at t_{n+1}
+            copy2dFieldTo3d(eta, f.elev3d)  # at t_{n+1}
             s.eta3d_to_CG_projector.project()
         with timed_region('aux_mesh_ale'):
             if s.useALEMovingMesh and doALEUpdate:
                 updateCoordinates(
-                    s.mesh, s.eta3dCG, s.bathymetry3d,
-                    s.z_coord3d, s.z_coord_ref3d)
-                computeElemHeight(s.z_coord3d, s.vElemSize3d)
-                copy3dFieldTo2d(s.vElemSize3d, s.vElemSize2d)
+                    s.mesh, f.eta3dCG, f.bathymetry3d,
+                    f.z_coord3d, f.z_coord_ref3d)
+                computeElemHeight(f.z_coord3d, f.vElemSize3d)
+                copy3dFieldTo2d(f.vElemSize3d, f.vElemSize2d)
                 # need to destroy all cached solvers!
                 linProblemCache.clear()
                 self.timeStepper_mom3d.updateSolver()
@@ -324,117 +326,118 @@ class coupledSSPIMEX(timeIntegrator.timeIntegrator):
                     self.timeStepper_vmom3d.updateSolver()
         with timed_region('vert_diffusion'):
             if doVertDiffusion and s.solveVertDiffusion:
-                self.timeStepper_vmom3d.advance(t, s.dt, s.uv3d)
+                self.timeStepper_vmom3d.advance(t, s.dt, f.uv3d)
         with timed_region('aux_mom_coupling'):
             if do2DCoupling:
                 bndValue = Constant((0.0, 0.0, 0.0))
-                computeVerticalIntegral(s.uv3d, s.uv3d_dav,
+                computeVerticalIntegral(f.uv3d, f.uvDav3d,
                                         bottomToTop=True, bndValue=bndValue,
                                         average=True,
-                                        bathymetry=s.bathymetry3d)
-                copy3dFieldTo2d(s.uv3d_dav, s.uv2d_dav,
+                                        bathymetry=f.bathymetry3d)
+                copy3dFieldTo2d(f.uvDav3d, f.uvDav2d,
                                 useBottomValue=False,
-                                elemHeight=s.vElemSize2d)
-                copy2dFieldTo3d(s.uv2d_dav, s.uv3d_dav,
-                                elemHeight=s.vElemSize3d)
+                                elemHeight=f.vElemSize2d)
+                copy2dFieldTo3d(f.uvDav2d, f.uvDav3d,
+                                elemHeight=f.vElemSize3d)
                 # 2d-3d coupling: restart 2d mode from depth ave uv3d
                 # NOTE unstable!
                 #uv2d_start = sol2d.split()[0]
-                #uv2d_start.assign(s.uv2d_dav)
+                #uv2d_start.assign(f.uvDav2d)
                 # 2d-3d coupling v2: force DAv(uv3d) to uv2d
                 #s.uvDAV_to_tmp_projector.project()  # project uv_dav to uv3d_tmp
-                #s.uv3d -= s.uv3d_tmp
+                #f.uv3d -= f.uv3d_tmp
                 #s.uv2d_to_DAV_projector.project()  # uv2d to uv2d_dav
-                #copy2dFieldTo3d(s.uv2d_dav, s.uv3d_dav,
-                                #elemHeight=s.vElemSize3d)
-                #s.uvDAV_to_tmp_projector.project()  # project uv_dav to uv3d_tmp
-                #s.uv3d += s.uv3d_tmp
-                s.uv3d -= s.uv3d_dav
-                copy2dFieldTo3d(sol2d.split()[0], s.uv3d_dav,
-                                elemHeight=s.vElemSize3d)
-                s.uv3d += s.uv3d_dav
+                #copy2dFieldTo3d(f.uvDav2d, f.uvDav3d,
+                                #elemHeight=f.vElemSize3d)
+                #f.uvDAV_to_tmp_projector.project()  # project uv_dav to uv3d_tmp
+                #f.uv3d += f.uv3d_tmp
+                f.uv3d -= f.uvDav3d
+                copy2dFieldTo3d(sol2d.split()[0], f.uvDav3d,
+                                elemHeight=f.vElemSize3d)
+                f.uv3d += f.uvDav3d
         with timed_region('continuityEq'):
-            computeVertVelocity(s.w3d, s.uv3d, s.bathymetry3d,
+            computeVertVelocity(f.w3d, f.uv3d, f.bathymetry3d,
                                 s.eq_momentum.boundary_markers,
                                 s.eq_momentum.bnd_functions)
         with timed_region('aux_mesh_ale'):
             if s.useALEMovingMesh:
                 computeMeshVelocity(
-                    s.eta3d, s.uv3d, s.w3d,
-                    s.w_mesh3d, s.w_mesh_surf3d,
-                    s.w_mesh_surf2d,
-                    s.dw_mesh_dz_3d, s.bathymetry3d,
-                    s.z_coord_ref3d)
+                    f.eta3d, f.uv3d, f.w3d,
+                    f.w_mesh3d, f.w_mesh_surf3d,
+                    f.w_mesh_surf2d,
+                    f.dw_mesh_dz_3d, f.bathymetry3d,
+                    f.z_coord_ref3d)
         with timed_region('aux_friction'):
             if s.useBottomFriction and doVertDiffusion:
                 s.uvP1_projector.project()
                 computeBottomFriction(
-                    s.uv3d_P1, s.uv_bottom2d,
-                    s.uv_bottom3d, s.z_coord3d,
-                    s.z_bottom2d, s.z_bottom3d,
-                    s.bathymetry2d, s.bottom_drag2d,
-                    s.bottom_drag3d,
-                    s.vElemSize2d, s.vElemSize3d)
+                    f.uv3d_P1, f.uv_bottom2d,
+                    f.uv_bottom3d, f.z_coord3d,
+                    f.z_bottom2d, f.z_bottom3d,
+                    f.bathymetry2d, f.bottom_drag2d,
+                    f.bottom_drag3d,
+                    f.vElemSize2d, f.vElemSize3d)
             if s.useParabolicViscosity:
                 computeParabolicViscosity(
-                    s.uv_bottom3d, s.bottom_drag3d,
-                    s.bathymetry3d,
-                    s.parabViscosity_v)
+                    f.uv_bottom3d, f.bottom_drag3d,
+                    f.bathymetry3d,
+                    f.parabViscosity_v)
         with timed_region('aux_barolinicity'):
             if s.baroclinic:
-                computeBaroclinicHead(s.salt3d, s.baroHead3d,
-                                      s.baroHead2d, s.baroHeadInt3d,
-                                      s.bathymetry3d)
+                computeBaroclinicHead(f.salt3d, f.baroHead3d,
+                                      f.baroHead2d, f.baroHeadInt3d,
+                                      f.bathymetry3d)
         with timed_region('aux_stabilization'):
             if doStabParams:
                 # update velocity magnitude
-                computeVelMagnitude(s.uv3d_mag, u=s.uv3d)
+                computeVelMagnitude(f.uv3d_mag, u=f.uv3d)
                 # update P1 velocity field
                 s.uvP1_projector.project()
                 if s.smagorinskyFactor is not None:
-                    smagorinskyViscosity(s.uv3d_P1, s.smag_viscosity,
-                                         s.smagorinskyFactor, s.hElemSize3d)
+                    smagorinskyViscosity(f.uv3d_P1, f.smag_viscosity,
+                                         s.smagorinskyFactor, f.hElemSize3d)
                 if s.saltJumpDiffFactor is not None:
-                    computeHorizJumpDiffusivity(s.saltJumpDiffFactor, s.salt3d,
-                                                s.saltJumpDiff, s.hElemSize3d,
-                                                s.uv3d_mag, s.saltRange,
-                                                s.maxHDiffusivity)
+                    computeHorizJumpDiffusivity(s.saltJumpDiffFactor, f.salt3d,
+                                                f.saltJumpDiff, f.hElemSize3d,
+                                                f.uv3d_mag, s.saltRange,
+                                                f.maxHDiffusivity)
 
     def advance(self, t, dt, updateForcings=None, updateForcings3d=None):
         """Advances the equations for one time step"""
         if not self._initialized:
             self.initialize()
         s = self.solver
+        f = self.functions
 
         for k in range(self.nStages):
             lastStep = k == self.nStages - 1
             with timed_region('saltEq'):
                 if s.solveSalt:
-                    self.timeStepper_salt3d.solveStage(k, t, s.dt, s.salt3d,
+                    self.timeStepper_salt3d.solveStage(k, t, s.dt, f.salt3d,
                                                        updateForcings3d)
                     if s.useLimiterForTracers and lastStep:
-                        s.tracerLimiter.apply(s.salt3d)
+                        s.tracerLimiter.apply(f.salt3d)
             with timed_region('turbulenceAdvection'):
                 if s.useTurbulenceAdvection:
                     # explicit advection
-                    self.timeStepper_tkeAdvEq.solveStage(k, t, s.dt, s.tke3d)
-                    self.timeStepper_psiAdvEq.solveStage(k, t, s.dt, s.psi3d)
+                    self.timeStepper_tkeAdvEq.solveStage(k, t, s.dt, f.tke3d)
+                    self.timeStepper_psiAdvEq.solveStage(k, t, s.dt, f.psi3d)
                     if s.useLimiterForTracers and lastStep:
-                        s.tracerLimiter.apply(s.tke3d)
-                        s.tracerLimiter.apply(s.psi3d)
+                        s.tracerLimiter.apply(f.tke3d)
+                        s.tracerLimiter.apply(f.psi3d)
             with timed_region('momentumEq'):
-                self.timeStepper_mom3d.solveStage(k, t, s.dt, s.uv3d)
+                self.timeStepper_mom3d.solveStage(k, t, s.dt, f.uv3d)
             with timed_region('mode2d'):
-                self.timeStepper2d.solveStage(k, t, s.dt, s.solution2d,
+                self.timeStepper2d.solveStage(k, t, s.dt, f.solution2d,
                                               updateForcings)
             with timed_region('turbulence'):
                 if s.useTurbulence:
                     # NOTE psi must be solved first as it depends on tke
-                    self.timeStepper_psi3d.solveStage(k, t, s.dt, s.psi3d)
-                    self.timeStepper_tke3d.solveStage(k, t, s.dt, s.tke3d)
+                    self.timeStepper_psi3d.solveStage(k, t, s.dt, f.psi3d)
+                    self.timeStepper_tke3d.solveStage(k, t, s.dt, f.tke3d)
                     if s.useLimiterForTracers:
-                        s.tracerLimiter.apply(s.tke3d)
-                        s.tracerLimiter.apply(s.psi3d)
+                        s.tracerLimiter.apply(f.tke3d)
+                        s.tracerLimiter.apply(f.psi3d)
                     s.glsModel.postprocess()
                     s.glsModel.preprocess() # for next iteration
             self._updateDependencies(doVertDiffusion=False,

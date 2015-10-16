@@ -242,7 +242,7 @@ class exportManager(object):
         for key in fieldsToExport:
             fieldname = self.fieldMetadata[key]['fieldname']
             fn = self.fieldMetadata[key]['filename']
-            field = self.functions[key]
+            field = self.functions.get(key)
             if field is not None:
                 native_space = field.function_space()
                 visu_space = self.visualizationSpaces.get(native_space)
