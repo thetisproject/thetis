@@ -819,10 +819,10 @@ class flowSolver(object):
 
         self.uvP1_projector = projector(self.functions.uv3d, self.functions.uv3d_P1)
         #self.uvDAV_to_tmp_projector = projector(self.uv3d_dav, self.uv3d_tmp)
-        #self.uv2d_to_DAV_projector = projector(self.solution2d.split()[0],
+        #self.uv2d_to_DAV_projector = projector(self.functions.solution2d.split()[0],
                                                #self.uv2d_dav)
         #self.uv2dDAV_to_uv2d_projector = projector(self.uv2d_dav,
-                                                   #self.solution2d.split()[0])
+                                                   #self.functions.solution2d.split()[0])
         self.eta3d_to_CG_projector = projector(self.functions.elev3d, self.functions.elev3dCG)
 
         self._initialized = True
@@ -1001,7 +1001,6 @@ class flowSolver2d(object):
 
         # create 3D mesh
         self.mesh2d = mesh2d
-        self.bathymetry2d = bathymetry2d
 
         # Time integrator setup
         self.dt = None
@@ -1015,6 +1014,13 @@ class flowSolver2d(object):
         opt = modelOptions().fromDict(options)
         # add as attributes to this class
         self.__dict__.update(opt.getDict())
+
+        self.visualizationSpaces = {}
+        """Maps function space to a space where fields will be projected to for visualization"""
+
+        self.functions = functionDict()
+        """Holds all functions needed by the solver object."""
+        self.functions.bathymetry2d = bathymetry2d
 
         self.bnd_functions = {'shallow_water': {}}
 
@@ -1041,13 +1047,14 @@ class flowSolver2d(object):
         self.V_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
 
         # ----- fields
-        self.solution2d = Function(self.V_2d, name='solution2d')
+        self.functions.solution2d = Function(self.V_2d, name='solution2d')
 
         # ----- Equations
         self.eq_sw = module_2d.shallowWaterEquations(
-            self.mesh2d, self.solution2d, self.bathymetry2d,
+            self.mesh2d, self.functions.solution2d,
+            self.functions.bathymetry2d,
             lin_drag=self.lin_drag,
-            viscosity_h=self.hViscosity,
+            viscosity_h=self.functions.get('hViscosity'),
             uvLaxFriedrichs=self.uvLaxFriedrichs,
             coriolis=self.coriolis,
             wind_stress=self.wind_stress,
@@ -1088,26 +1095,25 @@ class flowSolver2d(object):
             raise Exception('Unknown time integrator type: '+str(self.timeStepperType))
 
         # ----- File exporters
-        uv2d, eta2d = self.solution2d.split()
-        # dictionary of all exportable functions and their visualization space
-        exportFuncs = {
-            'uv2d': (uv2d, self.U_visu_2d),
-            'elev2d': (eta2d, self.H_visu_2d),
-            }
-        self.exporter = exporter.exportManager(self.outputDir, self.fieldsToExport,
-                                               exportFuncs, verbose=self.verbose > 0)
+        uv2d, eta2d = self.functions.solution2d.split()
+        self.exporter = exporter.exportManager(self.outputDir,
+                                               self.fieldsToExport,
+                                               self.functions,
+                                               self.visualizationSpaces,
+                                               fieldMetadata,
+                                               verbose=self.verbose > 0)
         self._initialized = True
 
     def assignInitialConditions(self, elev=None, uv_init=None):
         if not self._initialized:
             self.mightyCreator()
-        uv2d, eta2d = self.solution2d.split()
+        uv2d, eta2d = self.functions.solution2d.split()
         if elev is not None:
             eta2d.project(elev)
         if uv_init is not None:
             uv2d.project(uv_init)
 
-        self.timeStepper.initialize(self.solution2d)
+        self.timeStepper.initialize(self.functions.solution2d)
 
     def iterate(self, updateForcings=None,
                 exportFunc=None):
@@ -1123,19 +1129,19 @@ class flowSolver2d(object):
 
         # initialize conservation checks
         if self.checkVolConservation2d:
-            eta = self.solution2d.split()[1]
-            Vol2d_0 = compVolume2d(eta, self.bathymetry2d)
+            eta = self.functions.solution2d.split()[1]
+            Vol2d_0 = compVolume2d(eta, self.functions.bathymetry2d)
             printInfo('Initial volume 2d {0:f}'.format(Vol2d_0))
 
         # initial export
         self.exporter.export()
         if exportFunc is not None:
             exportFunc()
-        self.exporter.exportBathymetry(self.bathymetry2d)
+        self.exporter.exportBathymetry(self.functions.bathymetry2d)
 
         while t <= self.T + T_epsilon:
 
-            self.timeStepper.advance(t, self.dt, self.solution2d,
+            self.timeStepper.advance(t, self.dt, self.functions.solution2d,
                                      updateForcings)
 
             # Move to next time step
@@ -1146,12 +1152,12 @@ class flowSolver2d(object):
             if t >= next_export_t - T_epsilon:
                 cputime = timeMod.clock() - cputimestamp
                 cputimestamp = timeMod.clock()
-                norm_h = norm(self.solution2d.split()[1])
-                norm_u = norm(self.solution2d.split()[0])
+                norm_h = norm(self.functions.solution2d.split()[1])
+                norm_u = norm(self.functions.solution2d.split()[0])
 
                 if self.checkVolConservation2d:
-                    Vol2d = compVolume2d(self.solution2d.split()[1],
-                                       self.bathymetry2d)
+                    Vol2d = compVolume2d(self.functions.solution2d.split()[1],
+                                         self.functions.bathymetry2d)
                 if commrank == 0:
                     line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                             'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
