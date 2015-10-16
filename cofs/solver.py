@@ -290,103 +290,103 @@ fieldMetadata['parabNuv3d'] = {
 fieldMetadata['eddyNuv3d'] = {
     'name': 'Eddy Viscosity',
     'fieldname': 'Eddy Viscosity',
-    'file': 'EddyVisc3d',
+    'filename': 'EddyVisc3d',
     'unit': 'm2 s-1',
     }
 fieldMetadata['shearFreq3d'] = {
     'name': 'Vertical shear frequency squared',
     'fieldname': 'Vertical shear frequency squared',
-    'file': 'ShearFreq3d',
+    'filename': 'ShearFreq3d',
     'unit': 's-2',
     }
 fieldMetadata['tke3d'] = {
     'name': 'Turbulent Kinetic Energy',
     'fieldname': 'Turbulent Kinetic Energy',
-    'file': 'TurbKEnergy3d',
+    'filename': 'TurbKEnergy3d',
     'unit': 'm2 s-2',
     }
 fieldMetadata['psi3d'] = {
     'name': 'Turbulence psi variable',
     'fieldname': 'Turbulence psi variable',
-    'file': 'TurbPsi3d',
+    'filename': 'TurbPsi3d',
     'unit': '',
     }
 fieldMetadata['eps3d'] = {
     'name': 'TKE dissipation rate',
     'fieldname': 'TKE dissipation rate',
-    'file': 'TurbEps3d',
+    'filename': 'TurbEps3d',
     'unit': 'm2 s-2',
     }
 fieldMetadata['len3d'] = {
     'name': 'Turbulent lenght scale',
     'fieldname': 'Turbulent lenght scale',
-    'file': 'TurbLen3d',
+    'filename': 'TurbLen3d',
     'unit': 'm',
     }
 fieldMetadata['barohead3d'] = {
     'name': 'Baroclinic head',
     'fieldname': 'Baroclinic head',
-    'file': 'Barohead3d',
+    'filename': 'Barohead3d',
     'unit': 'm',
     }
 fieldMetadata['barohead2d'] = {
     'name': 'Dav baroclinic head',
     'fieldname': 'Dav baroclinic head',
-    'file': 'Barohead2d',
+    'filename': 'Barohead2d',
     'unit': 'm',
     }
 fieldMetadata['gjvAlphaH3d'] = {
     'name': 'GJV Parameter h',
     'fieldname': 'GJV Parameter h',
-    'file': 'GJVParamH',
+    'filename': 'GJVParamH',
     'unit': '',
     }
 fieldMetadata['gjvAlphaV3d'] = {
     'name': 'GJV Parameter v',
     'fieldname': 'GJV Parameter v',
-    'file': 'GJVParamV',
+    'filename': 'GJVParamV',
     'unit': '',
     }
 fieldMetadata['smagViscosity'] = {
     'name': 'Smagorinsky viscosity',
     'fieldname': 'Smagorinsky viscosity',
-    'file': 'SmagViscosity3d',
+    'filename': 'SmagViscosity3d',
     'unit': 'm2 s-1',
     }
 fieldMetadata['saltJumpDiff'] = {
     'name': 'Salt Jump Diffusivity',
     'fieldname': 'Salt Jump Diffusivity',
-    'file': 'SaltJumpDiff3d',
+    'filename': 'SaltJumpDiff3d',
     'unit': 'm2 s-1',
     }
 fieldMetadata['maxHDiffusivity'] = {
     'name': 'Maximum stable horizontal diffusivity',
     'fieldname': 'Maximum horizontal diffusivity',
-    'file': 'MaxHDiffusivity3d',
+    'filename': 'MaxHDiffusivity3d',
     'unit': 'm2 s-1',
     }
 fieldMetadata['vElemSize3d'] = {
     'name': 'Element size in vertical direction',
     'fieldname': 'Vertical element size',
-    'file': 'VElemSize3d',
+    'filename': 'VElemSize3d',
     'unit': 'm',
     }
 fieldMetadata['vElemSize2d'] = {
     'name': 'Element size in vertical direction',
     'fieldname': 'Vertical element size',
-    'file': 'VElemSize2d',
+    'filename': 'VElemSize2d',
     'unit': 'm',
     }
 fieldMetadata['hElemSize3d'] = {
     'name': 'Element size in horizontal direction',
     'fieldname': 'Horizontal element size',
-    'file': 'hElemSize3d',
+    'filename': 'hElemSize3d',
     'unit': 'm',
     }
 fieldMetadata['hElemSize2d'] = {
     'name': 'Element size in horizontal direction',
     'fieldname': 'Horizontal element size',
-    'file': 'hElemSize2d',
+    'filename': 'hElemSize2d',
     'unit': 'm',
     }
 
