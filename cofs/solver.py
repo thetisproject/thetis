@@ -168,7 +168,6 @@ class flowSolver(object):
         self.fields.uv3d = Function(self.U, name='Velocity')
         if self.options.useBottomFriction:
             self.fields.uv_bottom3d = Function(self.P1v, name='Bottom Velocity')
-            self.fields.z_bottom3d = Function(self.P1, name='Bot. Vel. z coord')
             self.fields.bottom_drag3d = Function(self.P1, name='Bottom Drag')
         # z coordinate in the strecthed mesh
         self.fields.z_coord3d = Function(self.P1, name='z coord')
@@ -181,13 +180,13 @@ class flowSolver(object):
         self.fields.uv3d_P1 = Function(self.P1v, name='Smoothed Velocity')
         self.fields.w3d = Function(self.W, name='Vertical Velocity')
         if self.options.useALEMovingMesh:
-            self.fields.w_mesh3d = Function(self.H, name='Vertical Velocity')
-            self.fields.dw_mesh_dz_3d = Function(self.H, name='Vertical Velocity dz')
-            self.fields.w_mesh_surf3d = Function(self.H, name='Vertical Velocity Surf')
-            self.fields.w_mesh_surf2d = Function(self.H_2d, name='Vertical Velocity Surf')
+            self.fields.wMesh3d = Function(self.H, name='Vertical Velocity')
+            self.fields.dwMeshDz3d = Function(self.H, name='Vertical Velocity dz')
+            self.fields.wMeshSurf3d = Function(self.H, name='Vertical Velocity Surf')
+            self.fields.wMeshSurf2d = Function(self.H_2d, name='Vertical Velocity Surf')
         if self.options.solveSalt:
             self.fields.salt3d = Function(self.H, name='Salinity')
-        if self.options.solveVertDiffusion and self.fields.useParabolicViscosity:
+        if self.options.solveVertDiffusion and self.options.useParabolicViscosity:
             # FIXME useParabolicViscosity is OBSOLETE
             self.fields.parabViscosity_v = Function(self.P1, name='Eddy viscosity')
         if self.options.baroclinic:
@@ -286,7 +285,7 @@ class flowSolver(object):
             self.fields.bathymetry3d, w=self.fields.w3d,
             baro_head=self.fields.get('baroHead3d'),
             w_mesh=self.fields.get('w_mesh3d'),
-            dw_mesh_dz=self.fields.get('dw_mesh_dz_3d'),
+            dw_mesh_dz=self.fields.get('dwMeshDz3d'),
             viscosity_v=self.tot_v_visc.getSum(),
             viscosity_h=self.tot_h_visc.getSum(),
             laxFriedrichsFactor=self.options.uvLaxFriedrichs,
@@ -299,7 +298,7 @@ class flowSolver(object):
             self.eq_salt = tracerEquation.tracerEquation(
                 self.fields.salt3d, self.fields.elev3d, self.fields.uv3d,
                 w=self.fields.w3d, w_mesh=self.fields.get('w_mesh3d'),
-                dw_mesh_dz=self.fields.get('dw_mesh_dz_3d'),
+                dw_mesh_dz=self.fields.get('dwMeshDz3d'),
                 diffusivity_h=self.tot_salt_h_diff.getSum(),
                 diffusivity_v=self.tot_salt_v_diff.getSum(),
                 #uvMag=self.uv3d_mag,
@@ -325,7 +324,7 @@ class flowSolver(object):
             self.eq_tke_adv = tracerEquation.tracerEquation(
                 self.fields.tke3d, self.fields.elev3d, self.fields.uv3d,
                 w=self.fields.w3d, w_mesh=self.fields.get('w_mesh3d'),
-                dw_mesh_dz=self.fields.get('dw_mesh_dz_3d'),
+                dw_mesh_dz=self.fields.get('dwMeshDz3d'),
                 diffusivity_h=None,  # TODO add horiz. diffusivity?
                 diffusivity_v=None,
                 uvP1=self.fields.get('uv3d_P1'),
@@ -336,7 +335,7 @@ class flowSolver(object):
             self.eq_psi_adv = tracerEquation.tracerEquation(
                 self.fields.psi3d, self.fields.elev3d, self.fields.uv3d,
                 w=self.fields.w3d, w_mesh=self.fields.get('w_mesh3d'),
-                dw_mesh_dz=self.fields.get('dw_mesh_dz_3d'),
+                dw_mesh_dz=self.fields.get('dwMeshDz3d'),
                 diffusivity_h=None,  # TODO add horiz. diffusivity?
                 diffusivity_v=None,
                 uvP1=self.fields.get('uv3d_P1'),
@@ -443,8 +442,8 @@ class flowSolver(object):
                             self.eq_momentum.bnd_functions)
         if self.options.useALEMovingMesh:
             computeMeshVelocity(self.fields.elev3d, self.fields.uv3d, self.fields.w3d, self.fields.w_mesh3d,
-                                self.fields.w_mesh_surf3d, self.fields.w_mesh_surf2d,
-                                self.fields.dw_mesh_dz_3d,
+                                self.fields.wMeshSurf3d, self.fields.wMeshSurf2d,
+                                self.fields.dwMeshDz3d,
                                 self.fields.bathymetry3d, self.fields.z_coord_ref3d)
         if self.options.baroclinic:
             computeBaroclinicHead(self.fields.salt3d, self.fields.baroHead3d,

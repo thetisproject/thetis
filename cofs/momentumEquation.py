@@ -399,8 +399,8 @@ class verticalMomentumEquation(equation):
         self.vertical_DG = ufl_elem._B.family() != 'Lagrange'
 
         # mesh dependent variables
-        self.normal = FacetNormal(mesh)
-        self.xyz = SpatialCoordinate(mesh)
+        self.normal = FacetNormal(self.mesh)
+        self.xyz = SpatialCoordinate(self.mesh)
         self.e_x, self.e_y, self.e_y = unit_vectors(3)
 
         # integral measures

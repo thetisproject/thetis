@@ -35,11 +35,29 @@ fieldMetadata['z_coord3d'] = {
     'filename': 'ZCoord3d',
     'unit': 'm',
     }
+fieldMetadata['z_bottom2d'] = {
+    'name': 'Bottom cell z coordinates',
+    'fieldname': 'Bottom cell z coordinates',
+    'filename': 'ZBottom2d',
+    'unit': 'm',
+    }
 fieldMetadata['z_coord_ref3d'] = {
     'name': 'Static mesh z coordinates',
     'fieldname': 'Z coordinates',
     'filename': 'ZCoordRef3d',
     'unit': 'm',
+    }
+fieldMetadata['bottom_drag2d'] = {
+    'name': 'Bottom drag coefficient',
+    'fieldname': 'Bottom drag coefficient',
+    'filename': 'BottomDrag2d',
+    'unit': '',
+    }
+fieldMetadata['bottom_drag3d'] = {
+    'name': 'Bottom drag coefficient',
+    'fieldname': 'Bottom drag coefficient',
+    'filename': 'BottomDrag3d',
+    'unit': '',
     }
 fieldMetadata['uv2d'] = {
     'name': 'Depth averaged velocity',
@@ -51,6 +69,18 @@ fieldMetadata['uvDav2d'] = {
     'name': 'Depth averaged velocity',
     'fieldname': 'Depth averaged velocity',
     'filename': 'DAVelocity2d',
+    'unit': 'm s-1',
+    }
+fieldMetadata['uv_bottom2d'] = {
+    'name': 'Bottom velocity',
+    'fieldname': 'Bottom velocity',
+    'filename': 'BottomVelo2d',
+    'unit': 'm s-1',
+    }
+fieldMetadata['uv_bottom3d'] = {
+    'name': 'Bottom velocity',
+    'fieldname': 'Bottom velocity',
+    'filename': 'BottomVelo3d',
     'unit': 'm s-1',
     }
 fieldMetadata['uvDav3d'] = {
@@ -112,6 +142,24 @@ fieldMetadata['wMesh3d'] = {
     'fieldname': 'Mesh velocity',
     'filename': 'MeshVelo3d',
     'unit': 'm s-1',
+    }
+fieldMetadata['wMeshSurf3d'] = {
+    'name': 'Surface mesh velocity',
+    'fieldname': 'Surface mesh velocity',
+    'filename': 'SurfMeshVelo3d',
+    'unit': 'm s-1',
+    }
+fieldMetadata['wMeshSurf2d'] = {
+    'name': 'Surface mesh velocity',
+    'fieldname': 'Surface mesh velocity',
+    'filename': 'SurfMeshVelo3d',
+    'unit': 'm s-1',
+    }
+fieldMetadata['dwMeshDz3d'] = {
+    'name': 'Vertical grad of mesh velocity',
+    'fieldname': 'Vertical grad of mesh velocity',
+    'filename': 'dMeshVeloDz3d',
+    'unit': 's-1',
     }
 fieldMetadata['salt3d'] = {
     'name': 'Water salinity',

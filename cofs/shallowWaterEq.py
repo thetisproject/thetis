@@ -119,6 +119,8 @@ class shallowWaterEquations(equation):
         res = Function(H)
         a = uu * grid_dt * self.dx
         L = uu * csize / Umag * self.dx
+        if Umag.dat.data == 0.0:
+            raise Exception('Unable to compute time step: zero velocity scale')
         solve(a == L, res)
         return res
 
