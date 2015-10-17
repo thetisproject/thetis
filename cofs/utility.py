@@ -14,6 +14,7 @@ from pyop2.profiling import timed_region, timed_function, timing
 from mpi4py import MPI
 import ufl
 import coffee.base as ast
+from cofs.fieldDefs import fieldMetadata
 
 comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
@@ -43,6 +44,44 @@ class equation(object):
         """Returns weak for for terms that do not depend on the solution."""
         raise NotImplementedError(('This method must be implemented '
                                    'in the derived class'))
+
+
+class AttrDict(dict):
+    """
+    Dictionary that provides both self['key'] and self.key access to members.
+
+    http://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute-in-python
+    """
+    def __init__(self, *args, **kwargs):
+        if sys.version_info < (2, 7, 4):
+            raise Exception('AttrDict requires python >= 2.7.4 to avoid memory leaks')
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
+
+# TODO how should Constant options be treated? Add to solver.functions?
+#  in general solver.hViscosity could be Function, Constant or sum of the latter...
+#  all those should be supported
+
+
+class fieldDict(AttrDict):
+    """
+    AttrDict that checks that all added functions have proper meta data
+    """
+    def _checkInputs(self, key, value):
+        if key != '__dict__':
+            if not isinstance(value, Function):
+                raise Exception('Wrong type: only Function objects can be added')
+            fs = value.function_space()
+            if not isinstance(fs, MixedFunctionSpace) and key not in fieldMetadata:
+                raise Exception('Trying to add a field "{:}" that has no fieldMetadata'.format(key))
+
+    def __setitem__(self, key, value):
+        self._checkInputs(key, value)
+        super(fieldDict, self).__setitem__(key, value)
+
+    def __setattr__(self, key, value):
+        self._checkInputs(key, value)
+        super(fieldDict, self).__setattr__(key, value)
 
 
 class temporaryFunctionCache(object):
