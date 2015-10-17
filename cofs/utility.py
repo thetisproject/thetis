@@ -22,6 +22,38 @@ commrank = op2.MPI.comm.rank
 colorama.init()
 
 
+class sumFunction(object):
+    """
+    Helper class to keep track of sum of Coefficients.
+    """
+    def __init__(self):
+        """
+        Initialize empty sum.
+
+        get operation returns Constant(0)
+        """
+        self.coeffList = []
+
+    def add(self, coeff):
+        """
+        Adds a coefficient to self
+        """
+        if coeff is None:
+            return
+        #classes = (Function, Constant, ufl.algebra.Sum, ufl.algebra.Product)
+        #assert not isinstance(coeff, classes), \
+            #('bad argument type: ' + str(type(coeff)))
+        self.coeffList.append(coeff)
+
+    def getSum(self):
+        """
+        Returns a sum of all added Coefficients
+        """
+        if len(self.coeffList) == 0:
+            return None
+        return sum(self.coeffList)
+
+
 class equation(object):
     """Base class for all equations"""
     # TODO move to equation.py
