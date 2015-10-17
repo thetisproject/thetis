@@ -51,7 +51,20 @@ class sumFunction(object):
         return sum(self.coeffList)
 
 
-class modelOptions(object):
+class AttrDict(dict):
+    """
+    Dictionary that provides both self['key'] and self.key access to members.
+
+    http://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute-in-python
+    """
+    def __init__(self, *args, **kwargs):
+        if sys.version_info < (2, 7, 4):
+            raise Exception('AttrDict requires python >= 2.7.4 to avoid memory leaks')
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
+
+
+class modelOptions(AttrDict):
     """
     Stores all model options
 
@@ -60,6 +73,7 @@ class modelOptions(object):
         """
         Initialize with default options
         """
+        super(modelOptions, self).__init__()
         self.dt = None
         """float: Time step. If set overrides automatically computed stable dt"""
         self.dt_2d = None
@@ -154,37 +168,10 @@ class modelOptions(object):
         self.uAdvection = Constant(0.0)
         """Constant: Max. horizontal velocity magnitude for computing max stable advection time step."""
 
-    @classmethod
-    def fromDict(cls, d):
-        """
-        Creates a new object overriding all devault values from the given dict
-        """
-        o = cls()
-        o.__dict__.update(d)
-        return o
-
-    def getDict(self):
-        """
-        Returns all options in a dict
-        """
-        return self.__dict__
 
 # TODO how should Constant options be treated? Add to solver.functions?
 #  in general solver.hViscosity could be Function, Constant or sum of the latter...
 #  all those should be supported
-
-
-class AttrDict(dict):
-    """
-    Dictionary that provides both self['key'] and self.key access to members.
-
-    http://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute-in-python
-    """
-    def __init__(self, *args, **kwargs):
-        if sys.version_info < (2, 7, 4):
-            raise Exception('AttrDict requires python >= 2.7.4 to avoid memory leaks')
-        super(AttrDict, self).__init__(*args, **kwargs)
-        self.__dict__ = self
 
 
 class fieldDict(AttrDict):
@@ -224,7 +211,8 @@ class flowSolver(object):
         self.M_modesplit = None
 
         # override default options
-        self.options = modelOptions().fromDict(options)
+        self.options = modelOptions()
+        self.options.update(options)
 
         self.bnd_functions = {'shallow_water': {},
                               'momentum': {},
@@ -788,7 +776,8 @@ class flowSolver2d(object):
         options.setdefault('fieldsToExport', ['elev2d', 'uv2d'])
 
         # override default options
-        self.options = modelOptions().fromDict(options)
+        self.options = modelOptions()
+        self.options.update(options)
 
         self.visualizationSpaces = {}
         """Maps function space to a space where fields will be projected to for visualization"""
