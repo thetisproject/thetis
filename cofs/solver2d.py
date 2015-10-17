@@ -4,7 +4,7 @@ Module for 2D solver class.
 Tuomas Karna 2015-10-17
 """
 from utility import *
-import module_2d
+import shallowWaterEq
 import timeIntegrator as timeIntegrator
 import limiter
 import time as timeMod
@@ -72,7 +72,7 @@ class flowSolver2d(object):
         self.fields.solution2d = Function(self.V_2d, name='solution2d')
 
         # ----- Equations
-        self.eq_sw = module_2d.shallowWaterEquations(
+        self.eq_sw = shallowWaterEq.shallowWaterEquations(
             self.fields.solution2d,
             self.fields.bathymetry2d,
             lin_drag=self.options.lin_drag,

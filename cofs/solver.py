@@ -4,8 +4,8 @@ Module for coupled 2D-3D flow solver.
 Tuomas Karna 2015-04-01
 """
 from utility import *
-import module_2d
-import module_3d
+import shallowWaterEq
+import momentumEquation
 import tracerEquation
 import turbulence
 import timeIntegrator as timeIntegrator
@@ -261,7 +261,7 @@ class flowSolver(object):
         # ----- Equations
         if self.options.useModeSplit:
             # full 2D shallow water equations
-            self.eq_sw = module_2d.shallowWaterEquations(
+            self.eq_sw = shallowWaterEq.shallowWaterEquations(
                 self.fields.solution2d, self.fields.bathymetry2d,
                 self.fields.get('uv_bottom2d'), self.fields.get('bottom_drag2d'),
                 baro_head=self.fields.get('baroHead2d'),
@@ -274,13 +274,13 @@ class flowSolver(object):
         else:
             # solve elevation only: 2D free surface equation
             uv, eta = self.fields.solution2d.split()
-            self.eq_sw = module_2d.freeSurfaceEquation(
+            self.eq_sw = shallowWaterEq.freeSurfaceEquation(
                 eta, uv, self.fields.bathymetry2d,
                 nonlin=self.options.nonlin)
 
         bnd_len = self.eq_sw.boundary_len
         bnd_markers = self.eq_sw.boundary_markers
-        self.eq_momentum = module_3d.momentumEquation(
+        self.eq_momentum = momentumEquation.momentumEquation(
             bnd_markers,
             bnd_len, self.fields.uv3d, self.fields.elev3d,
             self.fields.bathymetry3d, w=self.fields.w3d,
@@ -309,7 +309,7 @@ class flowSolver(object):
                 bnd_markers=bnd_markers,
                 bnd_len=bnd_len)
         if self.options.solveVertDiffusion:
-            self.eq_vertmomentum = module_3d.verticalMomentumEquation(
+            self.eq_vertmomentum = momentumEquation.verticalMomentumEquation(
                 self.fields.uv3d, w=None,
                 viscosity_v=self.tot_v_visc.getSum(),
                 uv_bottom=self.fields.get('uv_bottom3d'),
