@@ -20,7 +20,7 @@ from cofs.fieldDefs import fieldMetadata
 from cofs.options import modelOptions
 
 
-class flowSolver(object):
+class flowSolver(frozenClass):
     """Creates and solves coupled 2D-3D equations"""
     def __init__(self, mesh2d, bathymetry2d, n_layers, order=1, mimetic=False,
                  options={}):
@@ -49,6 +49,7 @@ class flowSolver(object):
         self.fields = fieldDict()
         """Holds all functions needed by the solver object."""
         self.fields.bathymetry2d = bathymetry2d
+        self._isfrozen = True  # disallow creating new attributes
 
     def setTimeStep(self):
         if self.options.useModeSplit:
@@ -84,6 +85,7 @@ class flowSolver(object):
 
     def mightyCreator(self):
         """Creates function spaces, functions, equations and time steppers."""
+        self._isfrozen = False
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0, name='P0')
         self.P1 = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1, name='P1')
@@ -415,6 +417,7 @@ class flowSolver(object):
         self.elev3d_to_CG_projector = projector(self.fields.elev3d, self.fields.elev3dCG)
 
         self._initialized = True
+        self._isfrozen = True
 
     def assignInitialConditions(self, elev=None, salt=None, uv2d=None):
         if not self._initialized:

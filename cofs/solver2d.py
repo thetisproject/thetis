@@ -16,7 +16,7 @@ from cofs.fieldDefs import fieldMetadata
 from cofs.options import modelOptions
 
 
-class flowSolver2d(object):
+class flowSolver2d(frozenClass):
     """Creates and solves 2D depth averaged equations with RT1-P1DG elements"""
     def __init__(self, mesh2d, bathymetry2d, order=1, options={}):
         self._initialized = False
@@ -44,6 +44,7 @@ class flowSolver2d(object):
         self.fields.bathymetry2d = bathymetry2d
 
         self.bnd_functions = {'shallow_water': {}}
+        self._isfrozen = True  # disallow creating new attributes
 
     def setTimeStep(self):
         mesh2d_dt = self.eq_sw.getTimeStep(Umag=self.options.uAdvection)
@@ -57,6 +58,7 @@ class flowSolver2d(object):
 
     def mightyCreator(self):
         """Creates function spaces, functions, equations and time steppers."""
+        self._isfrozen = False
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.P0_2d = FunctionSpace(self.mesh2d, 'DG', 0)
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
@@ -125,6 +127,7 @@ class flowSolver2d(object):
                                                fieldMetadata,
                                                verbose=self.options.verbose > 0)
         self._initialized = True
+        self._isfrozen = True  # disallow creating new attributes
 
     def assignInitialConditions(self, elev=None, uv_init=None):
         if not self._initialized:

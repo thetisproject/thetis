@@ -22,6 +22,16 @@ commrank = op2.MPI.comm.rank
 colorama.init()
 
 
+class frozenClass(object):
+    """A class where creating a new attribute will raise an exception if _isfrozen == True"""
+    _isfrozen = False
+
+    def __setattr__(self, key, value):
+        if self._isfrozen and not hasattr(self, key):
+            raise TypeError( 'Adding new attribute "{:}" to {:} class is forbidden'.format(key, self.__class__.__name__))
+        super(frozenClass, self).__setattr__(key, value)
+
+
 class sumFunction(object):
     """
     Helper class to keep track of sum of Coefficients.
