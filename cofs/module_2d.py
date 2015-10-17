@@ -456,9 +456,9 @@ class freeSurfaceEquation(equation):
         self.gradEtaByParts = self.eta_is_DG
 
         # mesh dependent variables
-        self.normal = FacetNormal(mesh)
-        self.cellsize = CellSize(mesh)
-        self.xyz = SpatialCoordinate(mesh)
+        self.normal = FacetNormal(self.mesh)
+        self.cellsize = CellSize(self.mesh)
+        self.xyz = SpatialCoordinate(self.mesh)
         self.e_x, self.e_y = unit_vectors(2)
 
         # integral measures
@@ -606,6 +606,6 @@ class freeSurfaceEquation(equation):
                baro_head=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
-        F = 0 * self.dx  # holds all dx volume integral terms
+        F = 0  # holds all dx volume integral terms
 
         return -F
