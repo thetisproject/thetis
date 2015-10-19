@@ -56,7 +56,7 @@ class flowSolver2d(frozenClass):
             print 'dt =', self.dt
             sys.stdout.flush()
 
-    def mightyCreator(self):
+    def createEquations(self):
         """Creates function spaces, functions, equations and time steppers."""
         self._isfrozen = False
         # ----- function spaces: elev in H, uv in U, mixed is W
@@ -131,7 +131,7 @@ class flowSolver2d(frozenClass):
 
     def assignInitialConditions(self, elev=None, uv_init=None):
         if not self._initialized:
-            self.mightyCreator()
+            self.createEquations()
         uv2d, eta2d = self.fields.solution2d.split()
         if elev is not None:
             eta2d.project(elev)
@@ -143,7 +143,7 @@ class flowSolver2d(frozenClass):
     def iterate(self, updateForcings=None,
                 exportFunc=None):
         if not self._initialized:
-            self.mightyCreator()
+            self.createEquations()
 
         T_epsilon = 1.0e-5
         cputimestamp = timeMod.clock()
