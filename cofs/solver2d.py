@@ -63,7 +63,11 @@ class flowSolver2d(frozenClass):
         self.P0_2d = FunctionSpace(self.mesh2d, 'DG', 0)
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
         self.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
-        self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.order+1)
+        # 2D velocity space
+        if self.options.mimetic:
+            self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.order+1)
+        else:
+            self.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
         self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
         self.V_2d = MixedFunctionSpace([self.U_2d, self.H_2d])

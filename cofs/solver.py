@@ -22,7 +22,7 @@ from cofs.options import modelOptions
 
 class flowSolver(frozenClass):
     """Creates and solves coupled 2D-3D equations"""
-    def __init__(self, mesh2d, bathymetry2d, n_layers, order=1, mimetic=False,
+    def __init__(self, mesh2d, bathymetry2d, n_layers,
                  options={}):
         self._initialized = False
 
@@ -143,7 +143,6 @@ class flowSolver(frozenClass):
         self.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1, name='P1DG_2d')
         # 2D velocity space
         if self.options.mimetic:
-            # NOTE this is not compatible with enriched UW space used in 3D
             self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.order+1)
         else:
             self.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
