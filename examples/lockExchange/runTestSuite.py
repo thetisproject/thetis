@@ -133,14 +133,14 @@ solverObj.checkVolConservation3d = True
 solverObj.checkSaltConservation = True
 solverObj.checkSaltOvershoot = True
 solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
-                            'w3d', 'w3d_mesh', 'salt3d',
-                            'uv2d_dav', 'uv3d_dav', 'barohead3d',
-                            'barohead2d',
+                            'w3d', 'wMesh3d', 'salt3d',
+                            'uvDav2d', 'uvDav3d', 'baroHead3d',
+                            'baroHead2d',
                             'smagViscosity', 'saltJumpDiff']
 solverObj.fieldsToExportNumpy = ['salt3d']
 solverObj.timerLabels = []
 
-solverObj.mightyCreator()
+solverObj.createEquations()
 salt_init3d = Function(solverObj.H, name='initial salinity')
 # vertical barrier
 # salt_init3d.interpolate(Expression(('(x[0] > 0.0) ? 20.0 : 25.0')))

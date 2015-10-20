@@ -167,23 +167,34 @@ fieldMetadata['salt3d'] = {
     'filename': 'Salinity3d',
     'unit': 'psu',
     }
-fieldMetadata['parabNuv3d'] = {
+fieldMetadata['parabVisc3d'] = {
     'name': 'Parabolic Viscosity',
     'fieldname': 'Parabolic Viscosity',
     'filename': 'ParabVisc3d',
     'unit': 'm2 s-1',
     }
-
-fieldMetadata['eddyNuv3d'] = {
+fieldMetadata['eddyVisc3d'] = {
     'name': 'Eddy Viscosity',
     'fieldname': 'Eddy Viscosity',
     'filename': 'EddyVisc3d',
+    'unit': 'm2 s-1',
+    }
+fieldMetadata['eddyDiff3d'] = {
+    'name': 'Eddy diffusivity',
+    'fieldname': 'Eddy diffusivity',
+    'filename': 'EddyDiff3d',
     'unit': 'm2 s-1',
     }
 fieldMetadata['shearFreq3d'] = {
     'name': 'Vertical shear frequency squared',
     'fieldname': 'Vertical shear frequency squared',
     'filename': 'ShearFreq3d',
+    'unit': 's-2',
+    }
+fieldMetadata['buoyFreq3d'] = {
+    'name': 'Buoyancy frequency squared',
+    'fieldname': 'Buoyancy shear frequency squared',
+    'filename': 'BuoyFreq3d',
     'unit': 's-2',
     }
 fieldMetadata['tke3d'] = {
@@ -210,16 +221,22 @@ fieldMetadata['len3d'] = {
     'filename': 'TurbLen3d',
     'unit': 'm',
     }
-fieldMetadata['barohead3d'] = {
+fieldMetadata['baroHead3d'] = {
     'name': 'Baroclinic head',
     'fieldname': 'Baroclinic head',
-    'filename': 'Barohead3d',
+    'filename': 'BaroHead3d',
     'unit': 'm',
     }
-fieldMetadata['barohead2d'] = {
+fieldMetadata['baroHeadInt3d'] = {
+    'name': 'Vertical integral of baroclinic head',
+    'fieldname': 'Vertically integrated baroclinic head',
+    'filename': 'BaroHeadInt3d',
+    'unit': 'm',
+    }
+fieldMetadata['baroHead2d'] = {
     'name': 'Dav baroclinic head',
     'fieldname': 'Dav baroclinic head',
-    'filename': 'Barohead2d',
+    'filename': 'BaroHead2d',
     'unit': 'm',
     }
 fieldMetadata['gjvAlphaH3d'] = {
@@ -275,4 +292,22 @@ fieldMetadata['hElemSize2d'] = {
     'fieldname': 'Horizontal element size',
     'filename': 'hElemSize2d',
     'unit': 'm',
+    }
+fieldMetadata['coriolis2d'] = {
+    'name': 'Coriolis parameter',
+    'fieldname': 'Coriolis parameter',
+    'filename': 'coriolis2d',
+    'unit': 's-1',
+    }
+fieldMetadata['coriolis3d'] = {
+    'name': 'Coriolis parameter',
+    'fieldname': 'Coriolis parameter',
+    'filename': 'coriolis3d',
+    'unit': 's-1',
+    }
+fieldMetadata['windStress3d'] = {
+    'name': 'Wind stress',
+    'fieldname': 'Wind stress',
+    'filename': 'windStress3d',
+    'unit': 'Pa',
     }

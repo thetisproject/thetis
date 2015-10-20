@@ -20,12 +20,12 @@ def test1():
 
     # create solver
     solverObj = solver.flowSolver(mesh2d, bathymetry2d, n_layers)
-    solverObj.uAdvection = Constant(1e-3)
-    solverObj.TExport = 100.0
-    solverObj.T = 100.0
-    solverObj.outputDir = 'tmp'
+    solverObj.options.uAdvection = Constant(1e-3)
+    solverObj.options.TExport = 100.0
+    solverObj.options.T = 100.0
+    solverObj.options.outputDir = 'tmp'
 
-    solverObj.mightyCreator()
+    solverObj.createEquations()
     # w needs to be projected to cartesian vector field for sanity check
     w3d_proj = Function(solverObj.P1DGv, name='projected w')
     # use symmetry condition at all boundaries
@@ -34,17 +34,17 @@ def test1():
     for k in bnd_markers:
         bnd_funcs[k] = {'symm': None}
 
-    solverObj.uv3d.project(Expression(('1e-3', '0.0', '0.0')))
-    computeVertVelocity(solverObj.w3d, solverObj.uv3d, solverObj.bathymetry3d,
+    solverObj.fields.uv3d.project(Expression(('1e-3', '0.0', '0.0')))
+    computeVertVelocity(solverObj.fields.w3d, solverObj.fields.uv3d, solverObj.fields.bathymetry3d,
                         boundary_markers=bnd_markers, boundary_funcs=bnd_funcs)
-    w3d_proj.project(solverObj.w3d)
+    w3d_proj.project(solverObj.fields.w3d)
     print 'w', w3d_proj.dat.data.min(), w3d_proj.dat.data.max()
     assert(np.allclose(w3d_proj.dat.data, 0.0))
     print 'PASSED'
 
-    solverObj.uv3d.project(Expression(('1e-3*x[0]', '0.0', '0.0')))
-    computeVertVelocity(solverObj.w3d, solverObj.uv3d, solverObj.bathymetry3d)
-    w3d_proj.project(solverObj.w3d)
+    solverObj.fields.uv3d.project(Expression(('1e-3*x[0]', '0.0', '0.0')))
+    computeVertVelocity(solverObj.fields.w3d, solverObj.fields.uv3d, solverObj.fields.bathymetry3d)
+    w3d_proj.project(solverObj.fields.w3d)
     print 'w', w3d_proj.dat.data.min(), w3d_proj.dat.data.max()
     assert(np.allclose(w3d_proj.dat.data.min(), -1e-3))
     print 'PASSED'
@@ -63,12 +63,12 @@ def test2():
     bathymetry2d.interpolate(Expression('1.0 + x[0]'))
 
     solverObj = solver.flowSolver(mesh2d, bathymetry2d, n_layers)
-    solverObj.uAdvection = Constant(1e-3)
-    solverObj.TExport = 100.0
-    solverObj.T = 100.0
-    solverObj.outputDir = 'tmp'
+    solverObj.options.uAdvection = Constant(1e-3)
+    solverObj.options.TExport = 100.0
+    solverObj.options.T = 100.0
+    solverObj.options.outputDir = 'tmp'
 
-    solverObj.mightyCreator()
+    solverObj.createEquations()
     # w needs to be projected to cartesian vector field for sanity check
     w3d_proj = Function(solverObj.P1DGv, name='projected w')
     # use symmetry condition at all boundaries
@@ -77,19 +77,19 @@ def test2():
     for k in bnd_markers:
         bnd_funcs[k] = {'symm': None}
 
-    solverObj.uv3d.project(Expression(('1e-3', '0.0', '0.0')))
-    computeVertVelocity(solverObj.w3d, solverObj.uv3d, solverObj.bathymetry3d,
+    solverObj.fields.uv3d.project(Expression(('1e-3', '0.0', '0.0')))
+    computeVertVelocity(solverObj.fields.w3d, solverObj.fields.uv3d, solverObj.fields.bathymetry3d,
                         boundary_markers=bnd_markers, boundary_funcs=bnd_funcs)
-    w3d_proj.project(solverObj.w3d)
+    w3d_proj.project(solverObj.fields.w3d)
     print 'w', w3d_proj.dat.data.min(), w3d_proj.dat.data.max()
     assert(np.allclose(w3d_proj.dat.data[:, 2], -1e-3))
     print 'PASSED'
     solverObj.export()
 
     solverObj.uv3d.project(Expression(('1e-3*x[0]', '0.0', '0.0')))
-    computeVertVelocity(solverObj.w3d, solverObj.uv3d, solverObj.bathymetry3d,
+    computeVertVelocity(solverObj.fields.w3d, solverObj.fields.uv3d, solverObj.fields.bathymetry3d,
                         boundary_markers=bnd_markers, boundary_funcs=bnd_funcs)
-    w3d_proj.project(solverObj.w3d)
+    w3d_proj.project(solverObj.fields.w3d)
     print 'w', w3d_proj.dat.data.min(), w3d_proj.dat.data.max()
     assert(np.allclose(w3d_proj.dat.data.min(), -3e-3, rtol=1e-2))
     print 'PASSED'

@@ -19,13 +19,13 @@ g = physical_constants['g_grav'].dat.data[0]
 f = g/Lx # linear friction coef.
 
 # --- create solver ---
-solverObj = solver.flowSolver2d(mesh2d, bathymetry2d, order=1)
-solverObj.nonlin = False
-solverObj.TExport = dt
-solverObj.T = N*dt
-solverObj.timeStepperType = 'CrankNicolson'
-solverObj.lin_drag = f
-solverObj.dt = dt
+solverObj = solver2d.flowSolver2d(mesh2d, bathymetry2d, order=1)
+solverObj.options.nonlin = False
+solverObj.options.TExport = dt
+solverObj.options.T = N*dt
+solverObj.options.timeStepperType = 'CrankNicolson'
+solverObj.options.lin_drag = f
+solverObj.options.dt = dt
 
 # boundary conditions
 inflow_tag = 1
@@ -41,19 +41,19 @@ parameters['quadrature_degree']=5
 
 solverObj.assignInitialConditions(uv_init=Expression(("1.0","0.0")))
 solver_parameters = {
-    'ksp_type': 'preonly',
-    'pc_type': 'lu',
-    'pc_factor_mat_solver_package': 'mumps',
-    'snes_monitor': False,
+    #'ksp_type': 'preonly',
+    #'pc_type': 'lu',
+    #'pc_factor_mat_solver_package': 'mumps',
+    #'snes_monitor': False,
     'snes_type': 'newtonls'}
 # reinitialize the timestepper so we can set our own solver parameters and gamma
 # setting gamma to 1.0 converges faster to
 solverObj.timeStepper = timeIntegrator.CrankNicolson(solverObj.eq_sw, solverObj.dt,
-                                                                     solver_parameters, gamma=1.0)
+                                                     solver_parameters, gamma=1.0)
 
 solverObj.iterate()
 
-uv, eta = solverObj.solution2d.split()
+uv, eta = solverObj.fields.solution2d.split()
 
 eta_ana = interpolate(Expression("1-x[0]/{}".format(Lx)), P1_2d)
 area = Lx*Ly

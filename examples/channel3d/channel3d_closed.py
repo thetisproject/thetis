@@ -44,29 +44,30 @@ bathymetry2d.interpolate(Expression('ho - (ho-hr)*x[0]/100e3',
 
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry2d, n_layers, order=1)
-#solverObj.nonlin = False
-solverObj.solveSalt = True
-solverObj.solveVertDiffusion = False
-solverObj.useBottomFriction = False
-solverObj.useALEMovingMesh = False
-solverObj.uvLaxFriedrichs = Constant(1.0)
-solverObj.tracerLaxFriedrichs = Constant(1.0)
-solverObj.useIMEX = True
-#solverObj.useSemiImplicit2D = False
-#solverObj.useModeSplit = False
-#solverObj.baroclinic = True
-solverObj.TExport = TExport
-solverObj.T = T
-solverObj.outputDir = outputDir
-solverObj.uAdvection = Umag
-solverObj.checkVolConservation2d = True
-solverObj.checkVolConservation3d = True
-solverObj.checkSaltConservation = True
-solverObj.checkSaltDeviation = True
-solverObj.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
-                            'w3d', 'w3d_mesh', 'salt3d',
-                            'uv2d_dav', 'uv2d_bot']
-solverObj.timerLabels = []
+options = solverObj.options
+#options.nonlin = False
+options.solveSalt = True
+options.solveVertDiffusion = False
+options.useBottomFriction = False
+options.useALEMovingMesh = False
+options.uvLaxFriedrichs = Constant(1.0)
+options.tracerLaxFriedrichs = Constant(1.0)
+options.useIMEX = True
+#options.useSemiImplicit2D = False
+#options.useModeSplit = False
+#options.baroclinic = True
+options.TExport = TExport
+options.T = T
+options.outputDir = outputDir
+options.uAdvection = Umag
+options.checkVolConservation2d = True
+options.checkVolConservation3d = True
+options.checkSaltConservation = True
+options.checkSaltDeviation = True
+options.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
+                          'w3d', 'wMesh3d', 'salt3d',
+                          'uvDav2d', 'uvBot2d']
+options.timerLabels = []
 
 # initial conditions, piecewise linear function
 elev_x = np.array([0, 30e3, 100e3])

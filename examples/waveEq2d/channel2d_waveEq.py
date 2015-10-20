@@ -45,25 +45,26 @@ TExport = dt
 T = 10*T_cycle + 1e-3
 
 # --- create solver ---
-solverObj = solver.flowSolver2d(mesh2d, bathymetry2d)
-solverObj.cfl_2d = 1.0
-solverObj.nonlin = False  # use linear wave equation
-solverObj.TExport = TExport
-solverObj.T = T
-solverObj.outputDir = outputDir
-solverObj.uAdvection = Umag
-solverObj.checkVolConservation2d = True
-solverObj.fieldsToExport = ['uv2d', 'elev2d']
-solverObj.timerLabels = []
-#solverObj.timeStepperType = 'SSPRK33'
-#solverObj.dt = dt/40.0  # for explicit schemes
-# solverObj.timeStepperType = 'CrankNicolson'
-# solverObj.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
-solverObj.timeStepperType = 'SSPIMEX'
-solverObj.dt = 100.0  # override dt for IMEX (semi-implicit)
+solverObj = solver2d.flowSolver2d(mesh2d, bathymetry2d)
+options = solverObj.options
+options.cfl_2d = 1.0
+options.nonlin = False  # use linear wave equation
+options.TExport = TExport
+options.T = T
+options.outputDir = outputDir
+options.uAdvection = Umag
+options.checkVolConservation2d = True
+options.fieldsToExport = ['uv2d', 'elev2d']
+options.timerLabels = []
+#options.timeStepperType = 'SSPRK33'
+#options.dt = dt/40.0  # for explicit schemes
+options.timeStepperType = 'CrankNicolson'
+# options.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
+#options.timeStepperType = 'SSPIMEX'
+options.dt = 100.0  # override dt for IMEX (semi-implicit)
 
 # need to call creator to create the function spaces
-solverObj.mightyCreator()
+solverObj.createEquations()
 # set initial elevation to first standing wave mode
 elev_init = Function(solverObj.H_2d)
 elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=elev_amp,

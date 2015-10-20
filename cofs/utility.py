@@ -843,8 +843,8 @@ def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref,
     coords.dat.data[:, 2] = z_coord.dat.data[:]
 
 
-def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf2d,
-                        dw_mesh_dz_3d,
+def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, wMeshSurf2d,
+                        dwMeshDz3d,
                         bathymetry, z_coord_ref,
                         solver_parameters={}):
     solver_parameters.setdefault('ksp_atol', 1e-12)
@@ -865,8 +865,8 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf2d,
             prob, solver_parameters=solver_parameters)
         linProblemCache.add(key, solver, 'wMeshSurf')
     linProblemCache[key].solve()
-    copy3dFieldTo2d(w_mesh_surf, w_mesh_surf2d, useBottomValue=False)
-    copy2dFieldTo3d(w_mesh_surf2d, w_mesh_surf)
+    copy3dFieldTo2d(w_mesh_surf, wMeshSurf2d, useBottomValue=False)
+    copy2dFieldTo3d(wMeshSurf2d, w_mesh_surf)
 
     # compute w in the whole water column (0 at bed)
     # w_mesh = w_mesh_surf * (z+h)/(eta+h)
@@ -886,7 +886,7 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf2d,
     linProblemCache[key].solve()
 
     # compute dw_mesh/dz in the whole water column
-    key = '-'.join((dw_mesh_dz_3d.name(), w_mesh_surf.name()))
+    key = '-'.join((dwMeshDz3d.name(), w_mesh_surf.name()))
     if key not in linProblemCache:
         fs = w_mesh.function_space()
         z = fs.mesh().coordinates[2]
@@ -895,7 +895,7 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf2d,
         a = tri*test*dx
         H = eta + bathymetry
         L = (w_mesh_surf/H)*test*dx
-        prob = LinearVariationalProblem(a, L, dw_mesh_dz_3d)
+        prob = LinearVariationalProblem(a, L, dwMeshDz3d)
         solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
         linProblemCache.add(key, solver, 'dwMeshdz')

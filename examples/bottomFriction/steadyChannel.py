@@ -52,32 +52,33 @@ bathymetry2d.assign(depth)
 
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
-solverObj.nonlin = False
-solverObj.solveSalt = False
-solverObj.solveVertDiffusion = True
-solverObj.useBottomFriction = True
-solverObj.useTurbulence = True
-solverObj.useALEMovingMesh = False
-solverObj.useLimiterForTracers = False
-solverObj.uvLaxFriedrichs = Constant(1.0)
-solverObj.tracerLaxFriedrichs = Constant(0.0)
-#solverObj.vViscosity = Constant(0.001)
-#solverObj.hViscosity = Constant(1.0)
-#solverObj.useSemiImplicit2D = False
-#solverObj.useModeSplit = False
-solverObj.TExport = TExport
-solverObj.dt = dt
-solverObj.T = T
-solverObj.outputDir = outputDir
-solverObj.uAdvection = Umag
-solverObj.checkSaltDeviation = True
-solverObj.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion', 'turbulence']
-solverObj.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
-                            'w3d', 'w3d_mesh', 'salt3d',
-                            'barohead3d', 'barohead2d',
-                            'uv2d_dav', 'uv2d_bot',
-                            'parabNuv3d', 'eddyNuv3d', 'shearFreq3d',
-                            'tke3d', 'psi3d', 'eps3d', 'len3d',]
+options = solverObj.options
+options.nonlin = False
+options.solveSalt = False
+options.solveVertDiffusion = True
+options.useBottomFriction = True
+options.useTurbulence = True
+options.useALEMovingMesh = False
+options.useLimiterForTracers = False
+options.uvLaxFriedrichs = Constant(1.0)
+options.tracerLaxFriedrichs = Constant(0.0)
+#options.vViscosity = Constant(0.001)
+#options.hViscosity = Constant(1.0)
+#options.useSemiImplicit2D = False
+#options.useModeSplit = False
+options.TExport = TExport
+options.dt = dt
+options.T = T
+options.outputDir = outputDir
+options.uAdvection = Umag
+options.checkSaltDeviation = True
+options.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion', 'turbulence']
+options.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
+                          'w3d', 'wMesh3d', 'salt3d',
+                          'baroHead3d', 'baroHead2d',
+                          'uvDav2d', 'uvBot2d',
+                          'parabNuv3d', 'eddyVisc3d', 'shearFreq3d',
+                          'tke3d', 'psi3d', 'eps3d', 'len3d',]
 
 # weak boundary conditions
 left_tag = 1   # x=x_min plane
@@ -92,7 +93,7 @@ solverObj.bnd_functions['shallow_water'] = {right_tag: right_funcs,
 solverObj.bnd_functions['momentum'] = {right_tag: right_funcs,
                                        left_tag: left_funcs}
 
-solverObj.mightyCreator()
+solverObj.createEquations()
 elev_init = Function(solverObj.H_2d, name='initial elev')
 elev_init.interpolate(Expression('x[0]*slope', slope=-surf_slope))
 

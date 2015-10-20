@@ -49,37 +49,38 @@ T = 10*T_cycle + 1e-3
 
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry2d, n_layers)
-solverObj.nonlin = False
-solverObj.solveSalt = True
-solverObj.solveVertDiffusion = False
-solverObj.useBottomFriction = False
-solverObj.useALEMovingMesh = True
-# solverObj.useSemiImplicit2D = False
-# solverObj.useModeSplit = False
-if solverObj.useModeSplit:
-    solverObj.dt = dt/5.0
+options = solverObj.options
+options.nonlin = False
+options.solveSalt = True
+options.solveVertDiffusion = False
+options.useBottomFriction = False
+options.useALEMovingMesh = True
+# options.useSemiImplicit2D = False
+# options.useModeSplit = False
+if options.useModeSplit:
+    options.dt = dt/5.0
 else:
-    solverObj.dt = dt/40.0
-solverObj.TExport = TExport
-solverObj.T = T
-solverObj.uAdvection = Umag
-solverObj.checkVolConservation2d = True
-solverObj.checkVolConservation3d = True
-solverObj.checkSaltConservation = True
-solverObj.checkSaltDeviation = True
-solverObj.timerLabels = []
-#solverObj.timerLabels = ['mode2d', 'momentumEq', 'continuityEq',
+    options.dt = dt/40.0
+options.TExport = TExport
+options.T = T
+options.uAdvection = Umag
+options.checkVolConservation2d = True
+options.checkVolConservation3d = True
+options.checkSaltConservation = True
+options.checkSaltDeviation = True
+options.timerLabels = []
+#options.timerLabels = ['mode2d', 'momentumEq', 'continuityEq',
                          #'aux_functions']
-solverObj.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
-                            'w3d', 'w3d_mesh', 'salt3d',
-                            'uv2d_dav', 'uv2d_bot', 'nuv3d']
+options.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
+                          'w3d', 'wMesh3d', 'salt3d',
+                          'uvDav2d', 'uvBot2d']
 
 # need to call creator to create the function spaces
-solverObj.mightyCreator()
+solverObj.createEquations()
 elev_init = Function(solverObj.H_2d)
 elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=elev_amp,
                              Lx=Lx))
-if solverObj.solveSalt:
+if options.solveSalt:
     salt_init3d = Function(solverObj.H, name='initial salinity')
     salt_init3d.assign(4.5)
 else:

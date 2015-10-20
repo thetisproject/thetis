@@ -39,44 +39,45 @@ bathymetry2d.assign(depth)
 
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
-solverObj.nonlin = False
-solverObj.solveSalt = False
-solverObj.solveVertDiffusion = True
-solverObj.useBottomFriction = True
-solverObj.useParabolicViscosity = True
-#solverObj.useTurbulence = True
-solverObj.useALEMovingMesh = False
-solverObj.useLimiterForTracers = False
-solverObj.uvLaxFriedrichs = Constant(1.0)
-solverObj.tracerLaxFriedrichs = Constant(0.0)
-#solverObj.vViscosity = Constant(0.001)
-#solverObj.hViscosity = Constant(1.0)
-solverObj.TExport = TExport
-solverObj.dt = dt
-solverObj.T = T
-solverObj.outputDir = outputDir
-solverObj.uAdvection = Umag
-solverObj.checkSaltDeviation = True
-solverObj.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion', 'turbulence']
-solverObj.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
-                            'w3d', 'w3d_mesh', 'salt3d',
-                            'barohead3d', 'barohead2d',
-                            'uv2d_dav', 'uv2d_bot',
-                            'parabNuv3d', 'eddyNuv3d', 'shearFreq3d',
-                            'tke3d', 'psi3d', 'eps3d', 'len3d',]
-solverObj.mightyCreator()
+options = solverObj.options
+options.nonlin = False
+options.solveSalt = False
+options.solveVertDiffusion = True
+options.useBottomFriction = True
+options.useParabolicViscosity = True
+#options.useTurbulence = True
+options.useALEMovingMesh = False
+options.useLimiterForTracers = False
+options.uvLaxFriedrichs = Constant(1.0)
+options.tracerLaxFriedrichs = Constant(0.0)
+#options.vViscosity = Constant(0.001)
+#options.hViscosity = Constant(1.0)
+options.TExport = TExport
+options.dt = dt
+options.T = T
+options.outputDir = outputDir
+options.uAdvection = Umag
+options.checkSaltDeviation = True
+options.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion', 'turbulence']
+options.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
+                          'w3d', 'wMesh3d', 'salt3d',
+                          'baroHead3d', 'baroHead2d',
+                          'uvDav2d', 'uvBot2d',
+                          'parabVisc3d', 'eddyVisc3d', 'shearFreq3d',
+                          'tke3d', 'psi3d', 'eps3d', 'len3d',]
+solverObj.createEquations()
 
 elev_slope = -1.0e-5
 pressureGradientSource = Constant((-9.81*elev_slope, 0, 0))
 s = solverObj
 uv3d_old = Function(s.U, name='Velocity old')
-vertMomEq = module_3d.verticalMomentumEquation(
-                s.mesh, s.U, s.U_scalar, s.uv3d, w=None,
+vertMomEq = momentumEquation.verticalMomentumEquation(
+                s.fields.uv3d, w=None,
                 viscosity_v=s.tot_v_visc.getSum(),
                 uv_bottom=uv3d_old,
-                bottom_drag=s.bottom_drag3d,
-                wind_stress=s.wind_stress3d,
-                vElemSize=s.vElemSize3d,
+                bottom_drag=s.fields.bottom_drag3d,
+                wind_stress=s.fields.get('windStress3d'),
+                vElemSize=s.fields.vElemSize3d,
                 source=pressureGradientSource)
 
 sp = {}
@@ -95,19 +96,19 @@ for it in range(nSteps):
     try:
         s.uvP1_projector.project()
         computeBottomFriction(
-            s.uv3d_P1, s.uv_bottom2d,
-            s.uv_bottom3d, s.z_coord3d,
-            s.z_bottom2d, s.z_bottom3d,
-            s.bathymetry2d, s.bottom_drag2d,
-            s.bottom_drag3d,
-            s.vElemSize2d, s.vElemSize3d)
+            s.fields.uv3d_P1, s.fields.uv_bottom2d,
+            s.fields.uv_bottom3d, s.fields.z_coord3d,
+            s.fields.z_bottom2d,
+            s.fields.bathymetry2d, s.fields.bottom_drag2d,
+            s.fields.bottom_drag3d,
+            s.fields.vElemSize2d, s.fields.vElemSize3d)
         computeParabolicViscosity(
-            s.uv_bottom3d, s.bottom_drag3d,
-            s.bathymetry3d,
-            s.parabViscosity_v)
+            s.fields.uv_bottom3d, s.fields.bottom_drag3d,
+            s.fields.bathymetry3d,
+            s.fields.parabVisc3d)
         t0 = timeMod.clock()
-        timeStepper.advance(t, dt, s.uv3d)
-        uv3d_old.assign(s.uv3d)
+        timeStepper.advance(t, dt, s.fields.uv3d)
+        uv3d_old.assign(s.fields.uv3d)
         t1 = timeMod.clock()
         for key in s.exporters:
             s.exporters[key].export()

@@ -49,20 +49,21 @@ x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 bathymetry2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
 # --- create solver ---
-solverObj = solver.flowSolver2d(mesh2d, bathymetry2d, order=1)
-solverObj.cfl_2d = 1.0
-#solverObj.nonlin = False
-solverObj.TExport = TExport
-solverObj.T = T
-solverObj.outputDir = outputDir
-solverObj.uAdvection = Umag
-solverObj.checkVolConservation2d = True
-solverObj.fieldsToExport = ['uv2d', 'elev2d']
-solverObj.timerLabels = []
-#solverObj.timeStepperType = 'SSPRK33'
-#solverObj.timeStepperType = 'CrankNicolson'
-solverObj.timeStepperType = 'SSPIMEX'
-solverObj.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
+solverObj = solver2d.flowSolver2d(mesh2d, bathymetry2d, order=1)
+options = solverObj.options
+options.cfl_2d = 1.0
+#options.nonlin = False
+options.TExport = TExport
+options.T = T
+options.outputDir = outputDir
+options.uAdvection = Umag
+options.checkVolConservation2d = True
+options.fieldsToExport = ['uv2d', 'elev2d']
+options.timerLabels = []
+#options.timeStepperType = 'SSPRK33'
+#options.timeStepperType = 'CrankNicolson'
+options.timeStepperType = 'SSPIMEX'
+options.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
 
 # initial conditions, piecewise linear function
 elev_x = np.array([0, 30e3, 100e3])

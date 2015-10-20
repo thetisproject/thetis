@@ -44,20 +44,21 @@ windStress2d.interpolate(Expression(('tau_max*sin(pi*x[1]/L)', '0'), tau_max=tau
 lin_drag = Constant(1e-6)
 
 # --- create solver ---
-solverObj = solver.flowSolver2d(mesh2d, bathymetry2d)
-solverObj.cfl_2d = 1.0
-solverObj.nonlin = False
-solverObj.coriolis = coriolis2d
-solverObj.wind_stress = windStress2d
-solverObj.lin_drag = lin_drag
-solverObj.TExport = TExport
-solverObj.T = T
-solverObj.dt = 20.0
-solverObj.outputDir = outputDir
-solverObj.uAdvection = Constant(0.01)
-solverObj.checkVolConservation2d = True
-solverObj.fieldsToExport = ['uv2d', 'elev2d']
-solverObj.timerLabels = []
-solverObj.timeStepperType = 'CrankNicolson'
+solverObj = solver2d.flowSolver2d(mesh2d, bathymetry2d)
+options = solverObj.options
+options.cfl_2d = 1.0
+options.nonlin = False
+options.coriolis = coriolis2d
+options.wind_stress = windStress2d
+options.lin_drag = lin_drag
+options.TExport = TExport
+options.T = T
+options.dt = 20.0
+options.outputDir = outputDir
+options.uAdvection = Constant(0.01)
+options.checkVolConservation2d = True
+options.fieldsToExport = ['uv2d', 'elev2d']
+options.timerLabels = []
+options.timeStepperType = 'CrankNicolson'
 
 solverObj.iterate()

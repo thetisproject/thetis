@@ -12,8 +12,6 @@
 # Tuomas Karna 2015-04-28
 
 from cofs import *
-import cofs.timeIntegration as timeIntegration
-import time as timeMod
 
 # set physical constants
 physical_constants['z0_friction'].assign(0.0)
@@ -40,21 +38,22 @@ coriolis2d.interpolate(
     )
 
 # --- create solver ---
-solverObj = solver.flowSolver2d(mesh2d, bathymetry2d)
-solverObj.cfl_2d = 1.0
-solverObj.nonlin = False
-solverObj.coriolis = coriolis2d
-solverObj.TExport = TExport
-solverObj.T = T
-solverObj.dt = 20.0
-solverObj.outputDir = outputDir
-solverObj.uAdvection = Constant(0.01)
-solverObj.checkVolConservation2d = True
-solverObj.fieldsToExport = ['uv2d', 'elev2d']
-solverObj.timerLabels = []
-solverObj.timeStepperType = 'CrankNicolson'
+solverObj = solver2d.flowSolver2d(mesh2d, bathymetry2d)
+options = solverObj.options
+options.cfl_2d = 1.0
+options.nonlin = False
+options.coriolis = coriolis2d
+options.TExport = TExport
+options.T = T
+options.dt = 20.0
+options.outputDir = outputDir
+options.uAdvection = Constant(0.01)
+options.checkVolConservation2d = True
+options.fieldsToExport = ['uv2d', 'elev2d']
+options.timerLabels = []
+options.timeStepperType = 'CrankNicolson'
 
-solverObj.mightyCreator()
+solverObj.createEquations()
 sigma = 160.0e3
 elev_init = Function(solverObj.H_2d)
 elev_init.project(Expression('eta_amp*exp(-(x[0]*x[0]+x[1]*x[1])/s/s)', eta_amp=elev_amp, s=sigma))

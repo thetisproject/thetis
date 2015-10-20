@@ -47,30 +47,28 @@ lin_drag = Constant(1e-6)
 
 # --- create solver ---
 solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
-solverObj.cfl_2d = 1.0
-solverObj.nonlin = False
-solverObj.solveSalt = False
-solverObj.solveVertDiffusion = False
-solverObj.useBottomFriction = False
-solverObj.useALEMovingMesh = False
-#solverObj.useModeSplit = False
-solverObj.baroclinic = False
-solverObj.coriolis = coriolis2d
-solverObj.wind_stress = windStress2d
-solverObj.lin_drag = lin_drag
-solverObj.TExport = TExport
-solverObj.T = T
-solverObj.dt_2d = 20.0
-solverObj.dt = 450.0
-solverObj.outputDir = outputDir
-solverObj.uAdvection = Constant(0.01)
-solverObj.checkVolConservation2d = True
-solverObj.checkVolConservation3d = True
-solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
-                            'w3d', 'uv2d_dav']
-solverObj.timerLabels = []
-
-solverObj.mightyCreator()
-solverObj.assignInitialConditions()
+options = solverObj.options
+options.cfl_2d = 1.0
+options.nonlin = False
+options.solveSalt = False
+options.solveVertDiffusion = False
+options.useBottomFriction = False
+options.useALEMovingMesh = False
+#options.useModeSplit = False
+options.baroclinic = False
+options.coriolis = coriolis2d
+options.wind_stress = windStress2d
+options.lin_drag = lin_drag
+options.TExport = TExport
+options.T = T
+options.dt_2d = 20.0
+options.dt = 450.0
+options.outputDir = outputDir
+options.uAdvection = Constant(0.01)
+options.checkVolConservation2d = True
+options.checkVolConservation3d = True
+options.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
+                          'w3d', 'uvDav2d']
+options.timerLabels = []
 
 solverObj.iterate()

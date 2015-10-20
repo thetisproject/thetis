@@ -56,7 +56,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
             computeParabolicViscosity(
                 self.fields.uv_bottom3d, self.fields.bottom_drag3d,
                 self.fields.bathymetry3d,
-                self.fields.parabViscosity_v)
+                self.fields.parabVisc3d)
 
     def _update2DCoupling(self):
         """Does 2D-3D coupling for the velocity field"""
@@ -94,9 +94,9 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
             with timed_region('aux_mesh_ale'):
                 computeMeshVelocity(
                     self.fields.elev3d, self.fields.uv3d, self.fields.w3d,
-                    self.fields.w_mesh3d, self.fields.w_mesh_surf3d,
-                    self.fields.w_mesh_surf2d,
-                    self.fields.dw_mesh_dz_3d, self.fields.bathymetry3d,
+                    self.fields.wMesh3d, self.fields.wMeshSurf3d,
+                    self.fields.wMeshSurf2d,
+                    self.fields.dwMeshDz3d, self.fields.bathymetry3d,
                     self.fields.z_coord_ref3d)
 
     def _updateBaroclinicity(self):
@@ -107,17 +107,17 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
                                       self.fields.baroHead2d, self.fields.baroHeadInt3d,
                                       self.fields.bathymetry3d)
 
-    def _updateTurbulence(self):
+    def _updateTurbulence(self, t):
         """Updates turbulence related fields"""
         if self.options.useTurbulence:
             with timed_region('turbulence'):
                     self.solver.glsModel.preprocess()
                     # NOTE psi must be solved first as it depends on tke
-                    self.timeStepper_psi3d.advance(t, self.solver.dt, self.solver.psi3d)
-                    self.timeStepper_tke3d.advance(t, self.solver.dt, self.solver.tke3d)
+                    self.timeStepper_psi3d.advance(t, self.solver.dt, self.solver.fields.psi3d)
+                    self.timeStepper_tke3d.advance(t, self.solver.dt, self.solver.fields.tke3d)
                     if self.options.useLimiterForTracers:
-                        self.solver.tracerLimiter.apply(self.solver.tke3d)
-                        self.solver.tracerLimiter.apply(self.solver.psi3d)
+                        self.solver.tracerLimiter.apply(self.solver.fields.tke3d)
+                        self.solver.tracerLimiter.apply(self.solver.fields.psi3d)
                     self.solver.glsModel.postprocess()
 
     def _updateStabilizationParams(self):
@@ -128,16 +128,16 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
         self.solver.uvP1_projector.project()
         if self.options.smagorinskyFactor is not None:
             with timed_region('aux_stabilization'):
-                smagorinskyViscosity(self.fields.uv3d_P1, self.fields.smag_viscosity,
-                                     self.fields.smagorinskyFactor, self.fields.hElemSize3d)
+                smagorinskyViscosity(self.fields.uv3d_P1, self.fields.smagViscosity,
+                                     self.options.smagorinskyFactor, self.fields.hElemSize3d)
         if self.options.saltJumpDiffFactor is not None:
             with timed_region('aux_stabilization'):
-                computeHorizJumpDiffusivity(self.fields.saltJumpDiffFactor, self.fields.salt3d,
+                computeHorizJumpDiffusivity(self.options.saltJumpDiffFactor, self.fields.salt3d,
                                             self.fields.saltJumpDiff, self.fields.hElemSize3d,
                                             self.fields.uv3d_mag, self.options.saltRange,
                                             self.fields.maxHDiffusivity)
 
-    def _updateAllDependencies(self,
+    def _updateAllDependencies(self, t,
                                do2DCoupling=False,
                                doVertDiffusion=False,
                                doALEUpdate=False,
@@ -154,7 +154,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
             self._update2DCoupling()
         self._updateVerticalVelocity()
         if doTurbulence:
-            self._updateTurbulence()
+            self._updateTurbulence(t)
         self._updateMeshVelocity()
         self._updateBottomFriction()
         self._updateBaroclinicity()
@@ -265,7 +265,7 @@ class coupledSSPRKSync(coupledTimeIntegrator):
                                                updateForcings)
             lastStep = (k == 2)
             # move fields to next stage
-            self._updateAllDependencies(doVertDiffusion=lastStep,
+            self._updateAllDependencies(t, doVertDiffusion=lastStep,
                                         do2DCoupling=lastStep,
                                         doALEUpdate=lastStep,
                                         doStabParams=lastStep,
@@ -394,7 +394,7 @@ class coupledSSPIMEX(coupledTimeIntegrator):
                         self.solver.tracerLimiter.apply(self.fields.psi3d)
                     self.solver.glsModel.postprocess()
                     self.solver.glsModel.preprocess()  # for next iteration
-            self._updateAllDependencies(doVertDiffusion=False,
+            self._updateAllDependencies(t, doVertDiffusion=False,
                                         do2DCoupling=lastStep,
                                         doALEUpdate=lastStep,
                                         doStabParams=lastStep)
@@ -512,7 +512,7 @@ class coupledSSPRKSemiImplicit(coupledTimeIntegrator):
                                               updateForcings)
             lastStep = (k == 2)
             # move fields to next stage
-            self._updateAllDependencies(doVertDiffusion=lastStep,
+            self._updateAllDependencies(t, doVertDiffusion=lastStep,
                                         do2DCoupling=lastStep,
                                         doALEUpdate=lastStep,
                                         doStabParams=lastStep,
@@ -599,7 +599,7 @@ class coupledSSPRKSingleMode(coupledTimeIntegrator):
                                               updateForcings)
             lastStep = (k == 2)
             # move fields to next stage
-            self._updateAllDependencies(doVertDiffusion=lastStep,
+            self._updateAllDependencies(t, doVertDiffusion=lastStep,
                                         do2DCoupling=True,
                                         doALEUpdate=lastStep,
                                         doStabParams=lastStep,

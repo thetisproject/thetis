@@ -50,43 +50,44 @@ bathymetry2d.interpolate(Expression('hmin + 0.5*(hmax - hmin)*(1 + tanh((x[0] - 
 
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
-solverObj.cfl_2d = 1.0
-#solverObj.nonlin = False
-solverObj.solveSalt = True
-solverObj.solveVertDiffusion = False
-solverObj.useBottomFriction = False
-solverObj.useALEMovingMesh = False
-#solverObj.useSemiImplicit2D = False
-#solverObj.useModeSplit = False
-solverObj.baroclinic = True
-solverObj.useSUPG = False
-solverObj.useGJV = False
-solverObj.uvLaxFriedrichs = Constant(1.0)
-solverObj.tracerLaxFriedrichs = Constant(1.0)
+options = solverObj.options
+options.cfl_2d = 1.0
+#options.nonlin = False
+options.solveSalt = True
+options.solveVertDiffusion = False
+options.useBottomFriction = False
+options.useALEMovingMesh = False
+#options.useSemiImplicit2D = False
+#options.useModeSplit = False
+options.baroclinic = True
+options.useSUPG = False
+options.useGJV = False
+options.uvLaxFriedrichs = Constant(1.0)
+options.tracerLaxFriedrichs = Constant(1.0)
 Re_h = 2.0
-solverObj.smagorinskyFactor = Constant(1.0/np.sqrt(Re_h))
-solverObj.saltJumpDiffFactor = Constant(1.0)
-solverObj.saltRange = Constant(5.0)
+options.smagorinskyFactor = Constant(1.0/np.sqrt(Re_h))
+options.saltJumpDiffFactor = Constant(1.0)
+options.saltRange = Constant(5.0)
 # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
-#solverObj.hViscosity = Constant(100.0/refinement[reso_str])
-#solverObj.hViscosity = Constant(10.0)
-if solverObj.useModeSplit:
-    solverObj.dt = dt
-solverObj.TExport = TExport
-solverObj.T = T
-solverObj.outputDir = outputDir
-solverObj.uAdvection = Constant(1.0)
-solverObj.checkVolConservation2d = True
-solverObj.checkVolConservation3d = True
-solverObj.checkSaltConservation = True
-solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
-                            'w3d', 'w3d_mesh', 'salt3d',
-                            'uv2d_dav', 'uv3d_dav', 'barohead3d',
-                            'barohead2d',
-                            'smagViscosity', 'saltJumpDiff']
-solverObj.timerLabels = []
+#options.hViscosity = Constant(100.0/refinement[reso_str])
+#options.hViscosity = Constant(10.0)
+if options.useModeSplit:
+    options.dt = dt
+options.TExport = TExport
+options.T = T
+options.outputDir = outputDir
+options.uAdvection = Constant(1.0)
+options.checkVolConservation2d = True
+options.checkVolConservation3d = True
+options.checkSaltConservation = True
+options.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
+                          'w3d', 'wMesh3d', 'salt3d',
+                          'uvDav2d', 'uvDav3d', 'baroHead3d',
+                          'baroHead2d',
+                          'smagViscosity', 'saltJumpDiff']
+options.timerLabels = []
 
-solverObj.mightyCreator()
+solverObj.createEquations()
 salt_init3d = Function(solverObj.H, name='initial salinity')
 # vertical barrier
 # salt_init3d.interpolate(Expression(('(x[0] > 20.0e3) ? 0.0 : 2.0')))

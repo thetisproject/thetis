@@ -60,45 +60,46 @@ coriolis2d.interpolate(
 
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
-solverObj.cfl_2d = 1.0
-#solverObj.nonlin = False
-solverObj.solveSalt = True
-solverObj.solveVertDiffusion = False
-solverObj.useBottomFriction = False
-solverObj.useALEMovingMesh = False
-solverObj.useSemiImplicit2D = False
-#solverObj.useModeSplit = False
-solverObj.baroclinic = True
-solverObj.coriolis = coriolis2d
-solverObj.uvLaxFriedrichs = None  # Constant(1e-3)
-solverObj.tracerLaxFriedrichs = None  # Constant(1e-3)
-solverObj.useLimiterForTracers = True
+options = solverObj.options
+options.cfl_2d = 1.0
+#options.nonlin = False
+options.solveSalt = True
+options.solveVertDiffusion = False
+options.useBottomFriction = False
+options.useALEMovingMesh = False
+options.useSemiImplicit2D = False
+#options.useModeSplit = False
+options.baroclinic = True
+options.coriolis = coriolis2d
+options.uvLaxFriedrichs = None  # Constant(1e-3)
+options.tracerLaxFriedrichs = None  # Constant(1e-3)
+options.useLimiterForTracers = True
 Re_h = 2.0
-solverObj.smagorinskyFactor = Constant(1.0/np.sqrt(Re_h))
+options.smagorinskyFactor = Constant(1.0/np.sqrt(Re_h))
 # how does diffusion scale with mesh size?? nu = Lx^2/dt??
-#solverObj.hDiffusivity = Constant(3.0)
-#solverObj.hViscosity = Constant(1e-2)
-#solverObj.vViscosity = Constant(1e-5)
-if solverObj.useModeSplit:
-    solverObj.dt = dt
-solverObj.TExport = TExport
-solverObj.T = T
-solverObj.outputDir = outputDir
-solverObj.uAdvection = Constant(1.5)
-solverObj.checkVolConservation2d = True
-solverObj.checkVolConservation3d = True
-solverObj.checkSaltConservation = True
-solverObj.checkSaltOvershoot = True
-solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
-                            'w3d', 'w3d_mesh', 'salt3d',
-                            'uv2d_dav', 'uv3d_dav', 'barohead3d',
-                            'barohead2d']
-solverObj.fieldsToExportNumpy = ['salt3d', 'barohead3d', 'elev2d']
-solverObj.timerLabels = ['mode2d', 'momentumEq', 'continuityEq', 'saltEq',
-                         'aux_barolinicity', 'aux_mom_coupling',
-                         'func_copy2dTo3d', 'func_copy3dTo2d',]
+#options.hDiffusivity = Constant(3.0)
+#options.hViscosity = Constant(1e-2)
+#options.vViscosity = Constant(1e-5)
+if options.useModeSplit:
+    options.dt = dt
+options.TExport = TExport
+options.T = T
+options.outputDir = outputDir
+options.uAdvection = Constant(1.5)
+options.checkVolConservation2d = True
+options.checkVolConservation3d = True
+options.checkSaltConservation = True
+options.checkSaltOvershoot = True
+options.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
+                          'w3d', 'wMesh3d', 'salt3d',
+                          'uvDav2d', 'uvDav3d', 'baroHead3d',
+                          'baroHead2d']
+options.fieldsToExportNumpy = ['salt3d', 'baroHead3d', 'elev2d']
+options.timerLabels = ['mode2d', 'momentumEq', 'continuityEq', 'saltEq',
+                       'aux_barolinicity', 'aux_mom_coupling',
+                       'func_copy2dTo3d', 'func_copy3dTo2d',]
 
-solverObj.mightyCreator()
+solverObj.createEquations()
 # assign initial salinity
 salt_init3d = Function(solverObj.H, name='initial salinity')
 # interpolate on P1 field to circumvent overshoots
