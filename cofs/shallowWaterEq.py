@@ -11,15 +11,15 @@ rho_0 = physical_constants['rho0']
 
 class shallowWaterEquations(equation):
     """2D depth averaged shallow water equations in non-conservative form"""
-    def __init__(self, mesh, solution, bathymetry,
+    def __init__(self, solution, bathymetry,
                  uv_bottom=None, bottom_drag=None, viscosity_h=None,
                  mu_manning=None, lin_drag=None, baro_head=None,
                  coriolis=None,
                  wind_stress=None,
                  uvLaxFriedrichs=None,
                  nonlin=True):
-        self.mesh = mesh
         self.space = solution.function_space()
+        self.mesh = self.space.mesh()
         self.U_space, self.eta_space = self.space.split()
         self.solution = solution
         self.U, self.eta = split(self.solution)
@@ -53,9 +53,9 @@ class shallowWaterEquations(equation):
         self.horizAdvectionByParts = True
 
         # mesh dependent variables
-        self.normal = FacetNormal(mesh)
-        self.cellsize = CellSize(mesh)
-        self.xyz = SpatialCoordinate(mesh)
+        self.normal = FacetNormal(self.mesh)
+        self.cellsize = CellSize(self.mesh)
+        self.xyz = SpatialCoordinate(self.mesh)
         self.e_x, self.e_y = unit_vectors(2)
 
         # integral measures
@@ -435,10 +435,10 @@ class shallowWaterEquations(equation):
 class freeSurfaceEquation(equation):
     """Non-conservative free surface equation written for depth averaged
     velocity. This equation can be coupled to 3D mode directly."""
-    def __init__(self, mesh, solution, uv, bathymetry,
+    def __init__(self, solution, uv, bathymetry,
                  nonlin=True):
-        self.mesh = mesh
         self.space = solution.function_space()
+        self.mesh = self.space.mesh()
         self.solution = solution
         self.bathymetry = bathymetry
         self.nonlin = nonlin

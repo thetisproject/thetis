@@ -62,13 +62,14 @@ class flowSolver2d(frozenClass):
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.P0_2d = FunctionSpace(self.mesh2d, 'DG', 0)
         self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
-        #self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.order+1)
-        self.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order)
-        self.U_visu_2d = VectorFunctionSpace(self.mesh2d, 'CG', self.options.order)
+        self.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
+        self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.order+1)
         self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
         self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
-        self.H_visu_2d = self.P1_2d
         self.V_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
+
+        self.visualizationSpaces[self.U_2d] = self.P1v_2d
+        self.visualizationSpaces[self.H_2d] = self.P1_2d
 
         # ----- fields
         self.fields.solution2d = Function(self.V_2d, name='solution2d')
@@ -119,7 +120,12 @@ class flowSolver2d(frozenClass):
             raise Exception('Unknown time integrator type: '+str(self.options.timeStepperType))
 
         # ----- File exporters
+        # correct treatment of the split 2d functions
         uv2d, eta2d = self.fields.solution2d.split()
+        self.fields.uv2d = uv2d
+        self.fields.elev2d = eta2d
+        self.visualizationSpaces[uv2d.function_space()] = self.P1v_2d
+        self.visualizationSpaces[eta2d.function_space()] = self.P1_2d
         self.exporter = exporter.exportManager(self.options.outputDir,
                                                self.options.fieldsToExport,
                                                self.fields,
