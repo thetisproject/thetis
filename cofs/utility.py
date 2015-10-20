@@ -111,8 +111,8 @@ class fieldDict(AttrDict):
     """
     def _checkInputs(self, key, value):
         if key != '__dict__':
-            if not isinstance(value, Function):
-                raise Exception('Wrong type: only Function objects can be added')
+            if not isinstance(value, (Function, Constant)):
+                raise TypeError('Value must be a Function or Constant object')
             fs = value.function_space()
             if not isinstance(fs, MixedFunctionSpace) and key not in fieldMetadata:
                 raise Exception('Trying to add a field "{:}" that has no fieldMetadata'.format(key))
