@@ -41,10 +41,10 @@ parameters['quadrature_degree']=5
 
 solverObj.assignInitialConditions(uv_init=Expression(("1.0","0.0")))
 solver_parameters = {
-    #'ksp_type': 'preonly',
-    #'pc_type': 'lu',
-    #'pc_factor_mat_solver_package': 'mumps',
-    #'snes_monitor': False,
+    'ksp_type': 'preonly',
+    'pc_type': 'lu',
+    'pc_factor_mat_solver_package': 'mumps',
+    'snes_monitor': False,
     'snes_type': 'newtonls'}
 # reinitialize the timestepper so we can set our own solver parameters and gamma
 # setting gamma to 1.0 converges faster to
