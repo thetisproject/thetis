@@ -438,7 +438,7 @@ class flowSolver(frozenClass):
             uv2d_field = self.fields.solution2d.split()[0]
             uv2d_field.project(uv2d)
             copy2dFieldTo3d(uv2d_field, self.fields.uv3d,
-                            elemHeight=self.vElemSize3d)
+                            elemHeight=self.fields.vElemSize3d)
 
         if salt is not None and self.options.solveSalt:
             self.fields.salt3d.project(salt)

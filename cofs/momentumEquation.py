@@ -11,7 +11,7 @@ rho_0 = physical_constants['rho0']
 
 class momentumEquation(equation):
     """3D momentum equation for hydrostatic Boussinesq flow."""
-    def __init__(self, mesh, bnd_markers, bnd_len,
+    def __init__(self, bnd_markers, bnd_len,
                  solution, eta, bathymetry, w=None,
                  w_mesh=None, dw_mesh_dz=None,
                  uv_bottom=None, bottom_drag=None, lin_drag=None,
@@ -21,8 +21,8 @@ class momentumEquation(equation):
                  laxFriedrichsFactor=None, uvMag=None,
                  uvP1=None,
                  nonlin=True):
-        self.mesh = mesh
         self.space = solution.function_space()
+        self.mesh = self.space.mesh()
         self.nonlin = nonlin
         self.solution = solution
         # this dict holds all time dep. args to the equation
@@ -66,8 +66,8 @@ class momentumEquation(equation):
         self.horizAdvectionByParts = True
 
         # mesh dependent variables
-        self.normal = FacetNormal(mesh)
-        self.xyz = SpatialCoordinate(mesh)
+        self.normal = FacetNormal(self.mesh)
+        self.xyz = SpatialCoordinate(self.mesh)
         self.e_x, self.e_y, self.e_y = unit_vectors(3)
 
         # integral measures
@@ -368,11 +368,11 @@ class momentumEquation(equation):
 class verticalMomentumEquation(equation):
     """Vertical advection and diffusion terms of 3D momentum equation for
     hydrostatic Boussinesq flow."""
-    def __init__(self, mesh, solution, w=None,
+    def __init__(self, solution, w=None,
                  viscosity_v=None, uv_bottom=None, bottom_drag=None,
                  wind_stress=None, vElemSize=None, source=None):
-        self.mesh = mesh
         self.space = solution.function_space()
+        self.mesh = self.space.mesh()
         self.solution = solution
         self.vElemSize = vElemSize
         # this dict holds all time dep. args to the equation
