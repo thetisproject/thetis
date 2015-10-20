@@ -154,7 +154,7 @@ class flowSolver(frozenClass):
         self.visualizationSpaces[self.H_2d] = self.P1_2d
 
         # ----- fields
-        self.fields.solution2d = Function(self.V_2d, name='solution2d')
+        self.fields.solution2d = Function(self.V_2d)
         # correct treatment of the split 2d functions
         uv2d, eta2d = self.fields.solution2d.split()
         self.fields.uv2d = uv2d
@@ -162,58 +162,59 @@ class flowSolver(frozenClass):
         self.visualizationSpaces[uv2d.function_space()] = self.P1v_2d
         self.visualizationSpaces[eta2d.function_space()] = self.P1_2d
         if self.options.useBottomFriction:
-            self.fields.uv_bottom2d = Function(self.P1v_2d, name='Bottom Velocity')
-            self.fields.z_bottom2d = Function(self.P1_2d, name='Bot. Vel. z coord')
-            self.fields.bottom_drag2d = Function(self.P1_2d, name='Bottom Drag')
+            self.fields.uv_bottom2d = Function(self.P1v_2d)
+            self.fields.z_bottom2d = Function(self.P1_2d)
+            self.fields.bottom_drag2d = Function(self.P1_2d)
 
-        self.fields.elev3d = Function(self.H, name='Elevation')
-        self.fields.elev3dCG = Function(self.P1, name='Elevation')
-        self.fields.bathymetry3d = Function(self.P1, name='Bathymetry')
-        self.fields.uv3d = Function(self.U, name='Velocity')
+        self.fields.elev3d = Function(self.H)
+        self.fields.elev3dCG = Function(self.P1)
+        self.fields.bathymetry3d = Function(self.P1)
+        self.fields.uv3d = Function(self.U)
         if self.options.useBottomFriction:
-            self.fields.uv_bottom3d = Function(self.P1v, name='Bottom Velocity')
-            self.fields.bottom_drag3d = Function(self.P1, name='Bottom Drag')
+            self.fields.uv_bottom3d = Function(self.P1v)
+            self.fields.bottom_drag3d = Function(self.P1)
         # z coordinate in the strecthed mesh
-        self.fields.z_coord3d = Function(self.P1, name='z coord')
+        self.fields.z_coord3d = Function(self.P1)
         # z coordinate in the reference mesh (eta=0)
-        self.fields.z_coord_ref3d = Function(self.P1, name='ref z coord')
-        self.fields.uvDav3d = Function(self.Uproj, name='Depth Averaged Velocity 3d')
-        self.fields.uvDav2d = Function(self.Uproj_2d, name='Depth Averaged Velocity 2d')
-        #self.fields.uv3d_tmp = Function(self.U, name='Velocity')
-        self.fields.uv3d_mag = Function(self.P0, name='Velocity magnitude')
-        self.fields.uv3d_P1 = Function(self.P1v, name='Smoothed Velocity')
-        self.fields.w3d = Function(self.W, name='Vertical Velocity')
+        self.fields.z_coord_ref3d = Function(self.P1)
+        self.fields.uvDav3d = Function(self.Uproj)
+        self.fields.uvDav2d = Function(self.Uproj_2d)
+        self.fields.uv3d_mag = Function(self.P0)
+        self.fields.uv3d_P1 = Function(self.P1v)
+        self.fields.w3d = Function(self.W)
         if self.options.useALEMovingMesh:
-            self.fields.wMesh3d = Function(self.H, name='Vertical Velocity')
-            self.fields.dwMeshDz3d = Function(self.H, name='Vertical Velocity dz')
-            self.fields.wMeshSurf3d = Function(self.H, name='Vertical Velocity Surf')
-            self.fields.wMeshSurf2d = Function(self.H_2d, name='Vertical Velocity Surf')
+            self.fields.wMesh3d = Function(self.H)
+            self.fields.dwMeshDz3d = Function(self.H)
+            self.fields.wMeshSurf3d = Function(self.H)
+            self.fields.wMeshSurf2d = Function(self.H_2d)
         if self.options.solveSalt:
             self.fields.salt3d = Function(self.H, name='Salinity')
         if self.options.solveVertDiffusion and self.options.useParabolicViscosity:
             # FIXME useParabolicViscosity is OBSOLETE
-            self.fields.parabVisc3d = Function(self.P1, name='Eddy viscosity')
+            self.fields.parabVisc3d = Function(self.P1)
         if self.options.baroclinic:
-            self.fields.baroHead3d = Function(self.Hint, name='Baroclinic head')
-            self.fields.baroHeadInt3d = Function(self.Hint, name='V.int. baroclinic head')
-            self.fields.baroHead2d = Function(self.H_2d, name='DAv baroclinic head')
+            self.fields.baroHead3d = Function(self.Hint)
+            self.fields.baroHeadInt3d = Function(self.Hint)
+            self.fields.baroHead2d = Function(self.H_2d)
         if self.options.coriolis is not None:
             if isinstance(self.options.coriolis, Constant):
                 self.fields.coriolis3d = self.options.coriolis
             else:
-                self.fields.coriolis3d = Function(self.P1, name='Coriolis parameter')
+                self.fields.coriolis3d = Function(self.P1)
                 copy2dFieldTo3d(self.options.coriolis, self.fields.coriolis3d)
         if self.options.wind_stress is not None:
-            self.fields.windStress3d = Function(self.P1, name='Wind stress')
+            self.fields.windStress3d = Function(self.P1)
             copy2dFieldTo3d(self.options.wind_stress, self.fields.windStress3d)
-        self.fields.vElemSize3d = Function(self.P1DG, name='element height')
-        self.fields.vElemSize2d = Function(self.P1DG_2d, name='element height')
-        self.fields.hElemSize3d = getHorzontalElemSize(self.P1_2d, self.P1)
-        self.fields.maxHDiffusivity = Function(self.P1, name='Maximum h. Diffusivity')
+        self.fields.vElemSize3d = Function(self.P1DG)
+        self.fields.vElemSize2d = Function(self.P1DG_2d)
+        self.fields.hElemSize3d = Function(self.P1)
+        self.fields.hElemSize2d = Function(self.P1_2d)
+        getHorzontalElemSize(self.fields.hElemSize2d, self.fields.hElemSize3d)
+        self.fields.maxHDiffusivity = Function(self.P1)
         if self.options.smagorinskyFactor is not None:
-            self.fields.smagViscosity = Function(self.P1, name='Smagorinsky viscosity')
+            self.fields.smagViscosity = Function(self.P1)
         if self.options.saltJumpDiffFactor is not None:
-            self.fields.saltJumpDiff = Function(self.P1, name='Salt Jump Diffusivity')
+            self.fields.saltJumpDiff = Function(self.P1)
         if self.options.useLimiterForTracers:
             self.tracerLimiter = limiter.vertexBasedP1DGLimiter(self.H,
                                                                 self.P1,
@@ -222,16 +223,16 @@ class flowSolver(frozenClass):
             self.tracerLimiter = None
         if self.options.useTurbulence:
             # NOTE tke and psi should be in H as tracers ??
-            self.fields.tke3d = Function(self.turb_space, name='Turbulent kinetic energy')
-            self.fields.psi3d = Function(self.turb_space, name='Turbulence psi variable')
+            self.fields.tke3d = Function(self.turb_space)
+            self.fields.psi3d = Function(self.turb_space)
             # NOTE other turb. quantities should share the same nodes ??
-            self.fields.eps3d = Function(self.turb_space, name='TKE dissipation rate')
-            self.fields.len3d = Function(self.turb_space, name='Turbulent lenght scale')
-            self.fields.eddyVisc3d = Function(self.turb_space, name='Vertical eddy viscosity')
-            self.fields.eddyDiff3d = Function(self.turb_space, name='Vertical eddy diffusivity')
+            self.fields.eps3d = Function(self.turb_space)
+            self.fields.len3d = Function(self.turb_space)
+            self.fields.eddyVisc3d = Function(self.turb_space)
+            self.fields.eddyDiff3d = Function(self.turb_space)
             # NOTE M2 and N2 depend on d(.)/dz -> use CG in vertical ?
-            self.fields.shearFreq3d = Function(self.turb_space, name='Shear frequency squared')
-            self.fields.buoyFreq3d = Function(self.turb_space, name='Buoyancy frequency squared')
+            self.fields.shearFreq3d = Function(self.turb_space)
+            self.fields.buoyFreq3d = Function(self.turb_space)
             glsParameters = {}  # use default parameters for now
             self.glsModel = turbulence.genericLengthScaleModel(weakref.proxy(self),
                 self.fields.tke3d, self.fields.psi3d, self.fields.uv3d_P1, self.fields.len3d, self.fields.eps3d,

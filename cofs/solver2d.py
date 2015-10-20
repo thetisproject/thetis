@@ -76,7 +76,7 @@ class flowSolver2d(frozenClass):
         self.visualizationSpaces[self.H_2d] = self.P1_2d
 
         # ----- fields
-        self.fields.solution2d = Function(self.V_2d, name='solution2d')
+        self.fields.solution2d = Function(self.V_2d)
 
         # ----- Equations
         self.eq_sw = shallowWaterEq.shallowWaterEquations(

@@ -41,11 +41,11 @@ class exporter(exporterBase):
         self.P[function].project()
         # HACK ensure correct output function name
         old_name = self.proj_func.name()
-        self.proj_func._name = self.func_name
+        self.proj_func.rename(name=self.func_name)
         # self.proj_func.project(function)  # NOTE this allocates a function
         self.outfile << self.proj_func
         # restore old name
-        self.proj_func._name = old_name
+        self.proj_func.rename(name=old_name)
 
 
 class naiveFieldExporter(exporterBase):

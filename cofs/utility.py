@@ -117,12 +117,19 @@ class fieldDict(AttrDict):
             if not isinstance(fs, MixedFunctionSpace) and key not in fieldMetadata:
                 raise Exception('Trying to add a field "{:}" that has no fieldMetadata'.format(key))
 
+    def _setFunctionName(self, key, value):
+        """Set function.name to key to ensure consistent naming"""
+        if isinstance(value, Function):
+            value.rename(name=key)
+
     def __setitem__(self, key, value):
         self._checkInputs(key, value)
+        self._setFunctionName(key, value)
         super(fieldDict, self).__setitem__(key, value)
 
     def __setattr__(self, key, value):
         self._checkInputs(key, value)
+        self._setFunctionName(key, value)
         super(fieldDict, self).__setattr__(key, value)
 
 
@@ -777,11 +784,12 @@ def computeBottomFriction(uv3d, uv_bottom2d, uv_bottom3d, z_coord3d,
     copy2dFieldTo3d(bottom_drag2d, bottom_drag3d, elemHeight=vElemSize3d)
 
 
-def getHorzontalElemSize(P1_2d, P1_3d=None):
+def getHorzontalElemSize(sol2d, sol3d=None):
     """
     Computes horizontal element size from the 2D mesh, then copies it over a 3D
     field.
     """
+    P1_2d = sol2d.function_space()
     mesh = P1_2d.mesh()
     cellsize = CellSize(mesh)
     test = TestFunction(P1_2d)
@@ -791,9 +799,8 @@ def getHorzontalElemSize(P1_2d, P1_3d=None):
     a = test * tri * dx_2d
     L = test * cellsize * dx_2d
     solve(a == L, sol2d)
-    if P1_3d is None:
+    if sol3d is None:
         return sol2d
-    sol3d = Function(P1_3d)
     copy2dFieldTo3d(sol2d, sol3d)
     return sol3d
 
