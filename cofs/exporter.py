@@ -240,7 +240,7 @@ class exportManager(object):
         # for each field create an exporter
         self.exporters = {}
         for key in fieldsToExport:
-            fieldname = self.fieldMetadata[key]['fieldname']
+            shortname = self.fieldMetadata[key]['shortname']
             fn = self.fieldMetadata[key]['filename']
             field = self.functions.get(key)
             if field is not None and isinstance(field, Function):
@@ -249,7 +249,7 @@ class exportManager(object):
                 if visu_space is None:
                     raise Exception('missing visualization space for: '+key)
                 if exportType == 'vtk':
-                    self.exporters[key] = exporter(visu_space, fieldname,
+                    self.exporters[key] = exporter(visu_space, shortname,
                                                    outputDir, fn)
                 elif exportType == 'numpy':
                     self.exporters[key] = naiveFieldExporter(native_space,

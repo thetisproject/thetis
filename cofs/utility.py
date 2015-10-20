@@ -100,14 +100,12 @@ class AttrDict(dict):
         super(AttrDict, self).__init__(*args, **kwargs)
         self.__dict__ = self
 
-# TODO how should Constant options be treated? Add to solver.functions?
-#  in general solver.hViscosity could be Function, Constant or sum of the latter...
-#  all those should be supported
-
 
 class fieldDict(AttrDict):
     """
-    AttrDict that checks that all added functions have proper meta data
+    AttrDict that checks that all added fields have proper meta data.
+
+    Values can be either Function or Constant objects.
     """
     def _checkInputs(self, key, value):
         if key != '__dict__':
@@ -115,7 +113,9 @@ class fieldDict(AttrDict):
                 raise TypeError('Value must be a Function or Constant object')
             fs = value.function_space()
             if not isinstance(fs, MixedFunctionSpace) and key not in fieldMetadata:
-                raise Exception('Trying to add a field "{:}" that has no fieldMetadata'.format(key))
+                msg = 'Trying to add a field "{:}" that has no meta data. ' \
+                      'Add fieldMetadata entry to fieldDefs.py'.format(key)
+                raise Exception(msg)
 
     def _setFunctionName(self, key, value):
         """Set function.name to key to ensure consistent naming"""
