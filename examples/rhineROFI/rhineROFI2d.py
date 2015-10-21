@@ -53,12 +53,12 @@ TExport = 900.0  # 44714/12
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-bathymetry2d = Function(P1_2d, name='Bathymetry')
-bathymetry2d.interpolate(Expression('(x[0] > 0.0) ? H*(1-x[0]/Lriver) + HInlet*(x[0]/Lriver) : H',
+bathymetry_2d = Function(P1_2d, name='Bathymetry')
+bathymetry_2d.interpolate(Expression('(x[0] > 0.0) ? H*(1-x[0]/Lriver) + HInlet*(x[0]/Lriver) : H',
                                     H=H, HInlet=HInlet, Lriver=Lriver))
 
 # create solver
-solverObj = solver2d.flowSolver2d(mesh2d, bathymetry2d)
+solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d)
 options = solverObj.options
 options.cfl_2d = 1.0
 #options.nonlin = False
@@ -69,7 +69,7 @@ options.T = T
 options.dt = dt
 options.outputDir = outputDir
 options.uAdvection = Constant(1.5)
-options.fieldsToExport = ['uv2d', 'elev2d']
+options.fieldsToExport = ['uv_2d', 'elev_2d']
 options.timerLabels = []
 #options.timeStepperType = 'CrankNicolson'
 options.timeStepperType = 'ssprk33semi'

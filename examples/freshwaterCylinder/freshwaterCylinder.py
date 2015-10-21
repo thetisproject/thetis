@@ -49,17 +49,17 @@ depth = 20.0
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-bathymetry2d = Function(P1_2d, name='Bathymetry')
-bathymetry2d.assign(depth)
+bathymetry_2d = Function(P1_2d, name='Bathymetry')
+bathymetry_2d.assign(depth)
 
-coriolis2d = Function(P1_2d)
+coriolis_2d = Function(P1_2d)
 f0, beta = 1.15e-4, 0.0
-coriolis2d.interpolate(
+coriolis_2d.interpolate(
     Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0)
     )
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
+solverObj = solver.flowSolver(mesh2d, bathymetry_2d, layers)
 options = solverObj.options
 options.cfl_2d = 1.0
 #options.nonlin = False
@@ -70,7 +70,7 @@ options.useALEMovingMesh = False
 options.useSemiImplicit2D = False
 #options.useModeSplit = False
 options.baroclinic = True
-options.coriolis = coriolis2d
+options.coriolis = coriolis_2d
 options.uvLaxFriedrichs = None  # Constant(1e-3)
 options.tracerLaxFriedrichs = None  # Constant(1e-3)
 options.useLimiterForTracers = True
@@ -90,11 +90,11 @@ options.checkVolConservation2d = True
 options.checkVolConservation3d = True
 options.checkSaltConservation = True
 options.checkSaltOvershoot = True
-options.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
-                          'w3d', 'wMesh3d', 'salt3d',
-                          'uvDav2d', 'uvDav3d', 'baroHead3d',
-                          'baroHead2d']
-options.fieldsToExportNumpy = ['salt3d', 'baroHead3d', 'elev2d']
+options.fieldsToExport = ['uv_2d', 'elev_2d', 'uv_3d',
+                          'w_3d', 'w_mesh_3d', 'salt_3d',
+                          'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
+                          'baro_head_2d']
+options.fieldsToExportNumpy = ['salt_3d', 'baroc_head_3d', 'elev_2d']
 options.timerLabels = ['mode2d', 'momentumEq', 'continuityEq', 'saltEq',
                        'aux_barolinicity', 'aux_mom_coupling',
                        'func_copy2dTo3d', 'func_copy3dTo2d',]

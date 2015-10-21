@@ -25,8 +25,8 @@ printInfo('Exporting to '+outputDir)
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-bathymetry2d = Function(P1_2d, name='Bathymetry')
-bathymetry2d.assign(depth)
+bathymetry_2d = Function(P1_2d, name='Bathymetry')
+bathymetry_2d.assign(depth)
 
 # Compute lenght of the domain
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
@@ -45,7 +45,7 @@ TExport = dt
 T = 10*T_cycle + 1e-3
 
 # --- create solver ---
-solverObj = solver2d.flowSolver2d(mesh2d, bathymetry2d)
+solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d)
 options = solverObj.options
 options.cfl_2d = 1.0
 options.nonlin = False  # use linear wave equation
@@ -54,7 +54,7 @@ options.T = T
 options.outputDir = outputDir
 options.uAdvection = Umag
 options.checkVolConservation2d = True
-options.fieldsToExport = ['uv2d', 'elev2d']
+options.fieldsToExport = ['uv_2d', 'elev_2d']
 options.timerLabels = []
 #options.timeStepperType = 'SSPRK33'
 #options.dt = dt/40.0  # for explicit schemes

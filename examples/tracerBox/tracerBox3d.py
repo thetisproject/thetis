@@ -28,8 +28,8 @@ printInfo('Exporting to '+outputDir)
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-bathymetry2d = Function(P1_2d, name='Bathymetry')
-bathymetry2d.assign(depth)
+bathymetry_2d = Function(P1_2d, name='Bathymetry')
+bathymetry_2d.assign(depth)
 
 # Compute lenght of the domain
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
@@ -48,7 +48,7 @@ TExport = dt
 T = 10*T_cycle + 1e-3
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry2d, n_layers)
+solverObj = solver.flowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solverObj.options
 options.nonlin = False
 options.solveSalt = True
@@ -71,9 +71,9 @@ options.checkSaltDeviation = True
 options.timerLabels = []
 #options.timerLabels = ['mode2d', 'momentumEq', 'continuityEq',
                          #'aux_functions']
-options.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
-                          'w3d', 'wMesh3d', 'salt3d',
-                          'uvDav2d', 'uvBot2d']
+options.fieldsToExport = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
+                          'w_3d', 'w_mesh_3d', 'salt_3d',
+                          'uv_dav_2d', 'uv_bottom_2d']
 
 # need to call creator to create the function spaces
 solverObj.createEquations()

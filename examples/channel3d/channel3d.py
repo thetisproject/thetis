@@ -26,15 +26,15 @@ TExport = 100.0
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-bathymetry2d = Function(P1_2d, name='Bathymetry')
+bathymetry_2d = Function(P1_2d, name='Bathymetry')
 
 depth_oce = 20.0
 depth_riv = 7.0
-bathymetry2d.interpolate(Expression('ho - (ho-hr)*x[0]/100e3',
+bathymetry_2d.interpolate(Expression('ho - (ho-hr)*x[0]/100e3',
                                     ho=depth_oce, hr=depth_riv))
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry2d, n_layers)
+solverObj = solver.flowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solverObj.options
 #options.nonlin = False
 options.solveSalt = True
@@ -53,10 +53,10 @@ options.outputDir = outputDir
 options.uAdvection = Umag
 options.checkSaltDeviation = True
 options.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion']
-options.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
-                            'w3d', 'wMesh3d', 'salt3d',
-                            'baroHead3d', 'baroHead2d',
-                            'uvDav2d', 'uvBot2d']
+options.fieldsToExport = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
+                            'w_3d', 'w_mesh_3d', 'salt_3d',
+                            'baroc_head_3d', 'baro_head_2d',
+                            'uv_dav_2d', 'uv_bottom_2d']
 
 # initial conditions
 salt_init3d = Constant(4.5)

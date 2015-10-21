@@ -17,12 +17,12 @@ class mesh2d3dOperationsBase(object):
         U = VectorFunctionSpace(mesh, fs_name, fs_order,
                                 vfamily=vfs_name, vdegree=vfs_order)
 
-        self.uv3d = Function(U, name='Velocity')
-        self.uv3dint = Function(U, name='Velocity')
-        self.uv2d = Function(U_2d, name='Velocity')
+        self.uv_3d = Function(U, name='Velocity')
+        self.uv_3dint = Function(U, name='Velocity')
+        self.uv_2d = Function(U_2d, name='Velocity')
 
-        self.uv3d_x = Function(U, name='Velocity')
-        self.uv2d_x = Function(U_2d, name='Velocity')
+        self.uv_3d_x = Function(U, name='Velocity')
+        self.uv_2d_x = Function(U_2d, name='Velocity')
 
         self.c3d = Function(P1, name='Tracer')
         self.c2d = Function(P1_2d, name='Tracer')
@@ -37,10 +37,10 @@ class mesh2d3dOperationsBase(object):
         self.c2d.interpolate(Expression(('4.0')))
         self.c3d_x.interpolate(Expression(('x[0] + 2.0')))
         self.c2d_x.interpolate(Expression(('2*x[0]')))
-        self.uv3d.interpolate(Expression(('x[2] + 1.0', '2.0*x[2] + 4.0', '3.0*x[2] + 6.0')))
-        self.uv2d.interpolate(Expression(('4.0', '8.0')))
-        self.uv3d_x.interpolate(Expression(('x[0] + 1.0', '2.0*x[1] + 4.0', '3.0*x[0]*x[2] + 6.0')))
-        self.uv2d_x.interpolate(Expression(('4.0*x[0]', '8.0*x[1]')))
+        self.uv_3d.interpolate(Expression(('x[2] + 1.0', '2.0*x[2] + 4.0', '3.0*x[2] + 6.0')))
+        self.uv_2d.interpolate(Expression(('4.0', '8.0')))
+        self.uv_3d_x.interpolate(Expression(('x[0] + 1.0', '2.0*x[1] + 4.0', '3.0*x[0]*x[2] + 6.0')))
+        self.uv_2d_x.interpolate(Expression(('4.0*x[0]', '8.0*x[1]')))
 
     def test_copy3dFieldTo2d(self):
         import cofs.utility as utility
@@ -52,13 +52,13 @@ class mesh2d3dOperationsBase(object):
 
     def test_copy3dFieldTo2d_vec(self):
         import cofs.utility as utility
-        utility.copy3dFieldTo2d(self.uv3d, self.uv2d, useBottomValue=True)
-        self.assertTrue(np.allclose(self.uv2d.dat.data[:, 0], 0.0))
-        self.assertTrue(np.allclose(self.uv2d.dat.data[:, 1], 2.0))
+        utility.copy3dFieldTo2d(self.uv_3d, self.uv_2d, useBottomValue=True)
+        self.assertTrue(np.allclose(self.uv_2d.dat.data[:, 0], 0.0))
+        self.assertTrue(np.allclose(self.uv_2d.dat.data[:, 1], 2.0))
 
-        utility.copy3dFieldTo2d(self.uv3d, self.uv2d, useBottomValue=False)
-        self.assertTrue(np.allclose(self.uv2d.dat.data[:, 0], 1.0))
-        self.assertTrue(np.allclose(self.uv2d.dat.data[:, 1], 4.0))
+        utility.copy3dFieldTo2d(self.uv_3d, self.uv_2d, useBottomValue=False)
+        self.assertTrue(np.allclose(self.uv_2d.dat.data[:, 0], 1.0))
+        self.assertTrue(np.allclose(self.uv_2d.dat.data[:, 1], 4.0))
 
     def test_copy3dFieldTo2d_x(self):
         import cofs.utility as utility
@@ -72,17 +72,17 @@ class mesh2d3dOperationsBase(object):
 
     def test_copy3dFieldTo2d_x_vec(self):
         import cofs.utility as utility
-        utility.copy3dFieldTo2d(self.uv3d_x, self.uv2d_x, useBottomValue=True)
-        self.assertTrue(np.allclose(self.uv2d_x.dat.data[:, 0].min(), 1.0))
-        self.assertTrue(np.allclose(self.uv2d_x.dat.data[:, 0].max(), 2.0))
-        self.assertTrue(np.allclose(self.uv2d_x.dat.data[:, 1].min(), 4.0))
-        self.assertTrue(np.allclose(self.uv2d_x.dat.data[:, 1].max(), 6.0))
+        utility.copy3dFieldTo2d(self.uv_3d_x, self.uv_2d_x, useBottomValue=True)
+        self.assertTrue(np.allclose(self.uv_2d_x.dat.data[:, 0].min(), 1.0))
+        self.assertTrue(np.allclose(self.uv_2d_x.dat.data[:, 0].max(), 2.0))
+        self.assertTrue(np.allclose(self.uv_2d_x.dat.data[:, 1].min(), 4.0))
+        self.assertTrue(np.allclose(self.uv_2d_x.dat.data[:, 1].max(), 6.0))
 
-        utility.copy3dFieldTo2d(self.uv3d_x, self.uv2d_x, useBottomValue=False)
-        self.assertTrue(np.allclose(self.uv2d_x.dat.data[:, 0].min(), 1.0))
-        self.assertTrue(np.allclose(self.uv2d_x.dat.data[:, 0].max(), 2.0))
-        self.assertTrue(np.allclose(self.uv2d_x.dat.data[:, 1].min(), 4.0))
-        self.assertTrue(np.allclose(self.uv2d_x.dat.data[:, 1].max(), 6.0))
+        utility.copy3dFieldTo2d(self.uv_3d_x, self.uv_2d_x, useBottomValue=False)
+        self.assertTrue(np.allclose(self.uv_2d_x.dat.data[:, 0].min(), 1.0))
+        self.assertTrue(np.allclose(self.uv_2d_x.dat.data[:, 0].max(), 2.0))
+        self.assertTrue(np.allclose(self.uv_2d_x.dat.data[:, 1].min(), 4.0))
+        self.assertTrue(np.allclose(self.uv_2d_x.dat.data[:, 1].max(), 6.0))
 
     def test_copy2dFieldTo3d(self):
         import cofs.utility as utility
@@ -97,17 +97,17 @@ class mesh2d3dOperationsBase(object):
 
     def test_copy2dFieldTo3d_x_vec(self):
         import cofs.utility as utility
-        utility.copy2dFieldTo3d(self.uv2d_x, self.uv3d_x)
-        self.assertTrue(np.allclose(self.uv3d_x.dat.data[:, 0].min(), 0.0))
-        self.assertTrue(np.allclose(self.uv3d_x.dat.data[:, 0].max(), 4.0))
-        self.assertTrue(np.allclose(self.uv3d_x.dat.data[:, 1].min(), 0.0))
-        self.assertTrue(np.allclose(self.uv3d_x.dat.data[:, 1].max(), 8.0))
+        utility.copy2dFieldTo3d(self.uv_2d_x, self.uv_3d_x)
+        self.assertTrue(np.allclose(self.uv_3d_x.dat.data[:, 0].min(), 0.0))
+        self.assertTrue(np.allclose(self.uv_3d_x.dat.data[:, 0].max(), 4.0))
+        self.assertTrue(np.allclose(self.uv_3d_x.dat.data[:, 1].min(), 0.0))
+        self.assertTrue(np.allclose(self.uv_3d_x.dat.data[:, 1].max(), 8.0))
 
     def test_copy2dFieldTo3d_vec(self):
         import cofs.utility as utility
-        utility.copy2dFieldTo3d(self.uv2d, self.uv3d)
-        self.assertTrue(np.allclose(self.uv3d.dat.data[:, 0], 4.0))
-        self.assertTrue(np.allclose(self.uv3d.dat.data[:, 1], 8.0))
+        utility.copy2dFieldTo3d(self.uv_2d, self.uv_3d)
+        self.assertTrue(np.allclose(self.uv_3d.dat.data[:, 0], 4.0))
+        self.assertTrue(np.allclose(self.uv_3d.dat.data[:, 1], 8.0))
 
 
 class test_mesh2d3dOperationsP1(mesh2d3dOperationsBase, unittest.TestCase):

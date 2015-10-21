@@ -18,7 +18,7 @@ from cofs.options import modelOptions
 
 class flowSolver2d(frozenClass):
     """Creates and solves 2D depth averaged equations with RT1-P1DG elements"""
-    def __init__(self, mesh2d, bathymetry2d, order=1, options={}):
+    def __init__(self, mesh2d, bathymetry_2d, order=1, options={}):
         self._initialized = False
 
         # create 3D mesh
@@ -30,7 +30,7 @@ class flowSolver2d(frozenClass):
         # 2d model specific default options
         options.setdefault('timeStepperType', 'SSPRK33')
         options.setdefault('timerLabels', ['mode2d'])
-        options.setdefault('fieldsToExport', ['elev2d', 'uv2d'])
+        options.setdefault('fieldsToExport', ['elev_2d', 'uv_2d'])
 
         # override default options
         self.options = modelOptions()
@@ -41,7 +41,7 @@ class flowSolver2d(frozenClass):
 
         self.fields = fieldDict()
         """Holds all functions needed by the solver object."""
-        self.fields.bathymetry2d = bathymetry2d
+        self.fields.bathymetry_2d = bathymetry_2d
 
         self.bnd_functions = {'shallow_water': {}}
         self._isfrozen = True  # disallow creating new attributes
@@ -81,7 +81,7 @@ class flowSolver2d(frozenClass):
         # ----- Equations
         self.eq_sw = shallowWaterEq.shallowWaterEquations(
             self.fields.solution2d,
-            self.fields.bathymetry2d,
+            self.fields.bathymetry_2d,
             lin_drag=self.options.lin_drag,
             viscosity_h=self.fields.get('hViscosity'),
             uvLaxFriedrichs=self.options.uvLaxFriedrichs,
@@ -125,10 +125,10 @@ class flowSolver2d(frozenClass):
 
         # ----- File exporters
         # correct treatment of the split 2d functions
-        uv2d, eta2d = self.fields.solution2d.split()
-        self.fields.uv2d = uv2d
-        self.fields.elev2d = eta2d
-        self.visualizationSpaces[uv2d.function_space()] = self.P1v_2d
+        uv_2d, eta2d = self.fields.solution2d.split()
+        self.fields.uv_2d = uv_2d
+        self.fields.elev_2d = eta2d
+        self.visualizationSpaces[uv_2d.function_space()] = self.P1v_2d
         self.visualizationSpaces[eta2d.function_space()] = self.P1_2d
         self.exporter = exporter.exportManager(self.options.outputDir,
                                                self.options.fieldsToExport,
@@ -142,11 +142,11 @@ class flowSolver2d(frozenClass):
     def assignInitialConditions(self, elev=None, uv_init=None):
         if not self._initialized:
             self.createEquations()
-        uv2d, eta2d = self.fields.solution2d.split()
+        uv_2d, eta2d = self.fields.solution2d.split()
         if elev is not None:
             eta2d.project(elev)
         if uv_init is not None:
-            uv2d.project(uv_init)
+            uv_2d.project(uv_init)
 
         self.timeStepper.initialize(self.fields.solution2d)
 
@@ -165,14 +165,14 @@ class flowSolver2d(frozenClass):
         # initialize conservation checks
         if self.options.checkVolConservation2d:
             eta = self.fields.solution2d.split()[1]
-            Vol2d_0 = compVolume2d(eta, self.fields.bathymetry2d)
+            Vol2d_0 = compVolume2d(eta, self.fields.bathymetry_2d)
             printInfo('Initial volume 2d {0:f}'.format(Vol2d_0))
 
         # initial export
         self.exporter.export()
         if exportFunc is not None:
             exportFunc()
-        self.exporter.exportBathymetry(self.fields.bathymetry2d)
+        self.exporter.exportBathymetry(self.fields.bathymetry_2d)
 
         while t <= self.options.T + T_epsilon:
 
@@ -192,7 +192,7 @@ class flowSolver2d(frozenClass):
 
                 if self.options.checkVolConservation2d:
                     Vol2d = compVolume2d(self.fields.solution2d.split()[1],
-                                         self.fields.bathymetry2d)
+                                         self.fields.bathymetry_2d)
                 if commrank == 0:
                     line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                             'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')

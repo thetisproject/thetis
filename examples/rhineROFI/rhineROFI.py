@@ -53,12 +53,12 @@ TExport = 900.0  # 44714/12
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-bathymetry2d = Function(P1_2d, name='Bathymetry')
-bathymetry2d.interpolate(Expression('(x[0] > 0.0) ? H*(1-x[0]/Lriver) + HInlet*(x[0]/Lriver) : H',
+bathymetry_2d = Function(P1_2d, name='Bathymetry')
+bathymetry_2d.interpolate(Expression('(x[0] > 0.0) ? H*(1-x[0]/Lriver) + HInlet*(x[0]/Lriver) : H',
                                     H=H, HInlet=HInlet, Lriver=Lriver))
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
+solverObj = solver.flowSolver(mesh2d, bathymetry_2d, layers)
 options = solverObj.options
 options.cfl_2d = 1.0
 #options.nonlin = False
@@ -76,7 +76,7 @@ options.uvLaxFriedrichs = Constant(1.0)
 options.tracerLaxFriedrichs = Constant(1.0)
 Re_h = 2.0
 options.smagorinskyFactor = Constant(1.0/np.sqrt(Re_h))
-options.saltJumpDiffFactor = Constant(1.0)
+options.salt_jump_diffFactor = Constant(1.0)
 options.saltRange = Constant(25.0)
 # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
 #options.hViscosity = Constant(0.5*2000.0/refinement[reso_str]/Re_h)
@@ -92,11 +92,11 @@ options.uAdvection = Constant(2.0)
 options.checkVolConservation2d = True
 options.checkVolConservation3d = True
 options.checkSaltConservation = True
-options.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
-                          'w3d', 'wMesh3d', 'salt3d',
-                          'uvDav2d', 'uvDav3d', 'baroHead3d',
-                          'baroHead2d', 'gjvAlphaH3d', 'gjvAlphaV3d',
-                          'smagViscosity', 'saltJumpDiff']
+options.fieldsToExport = ['uv_2d', 'elev_2d', 'uv_3d',
+                          'w_3d', 'w_mesh_3d', 'salt_3d',
+                          'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
+                          'baro_head_2d', 'gjv_alpha_h_3d', 'gjv_alpha_v_3d',
+                          'smag_visc_3d', 'salt_jump_diff']
 options.timerLabels = []
 
 bnd_elev = Function(P1_2d, name='Boundary elevation')
@@ -171,5 +171,5 @@ def updateForcings(t):
     bndElevSolver.solve()
     copy2dFieldTo3d(bnd_elev, bnd_elev_3d)
 
-solverObj.assignInitialConditions(elev=elev_init, salt=salt_init3d, uv2d=uv_init)
+solverObj.assignInitialConditions(elev=elev_init, salt=salt_init3d, uv_2d=uv_init)
 solverObj.iterate()

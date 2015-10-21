@@ -39,12 +39,12 @@ for i in range(5):
 
     # bathymetry
     P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-    bathymetry2d = Function(P1_2d, name="bathymetry")
-    bathymetry2d.assign(H0)
+    bathymetry_2d = Function(P1_2d, name="bathymetry")
+    bathymetry_2d.assign(H0)
 
 
     # --- create solver ---
-    solverObj = solver2d.flowSolver2d(mesh2d, bathymetry2d, order=order)
+    solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d, order=order)
     solverObj.options.nonlin = True
     solverObj.options.TExport = dt
     solverObj.options.T = N*dt

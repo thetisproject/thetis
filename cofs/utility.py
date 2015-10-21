@@ -287,7 +287,7 @@ def extrudeMeshLinear(mesh2d, n_layers, xmin, xmax, dmin, dmax):
     return mesh
 
 
-def extrudeMeshSigma(mesh2d, n_layers, bathymetry2d):
+def extrudeMeshSigma(mesh2d, n_layers, bathymetry_2d):
     """Extrudes 2d surface mesh with bathymetry data defined in a 2d field."""
     mesh = ExtrudedMesh(mesh2d, layers=n_layers, layer_height=1.0/n_layers)
 
@@ -296,12 +296,12 @@ def extrudeMeshSigma(mesh2d, n_layers, bathymetry2d):
     x = xyz.dat.data[:, 0]
     y = xyz.dat.data[:, 0]
 
-    nNodes2d = bathymetry2d.dat.data.shape[0]
+    nNodes2d = bathymetry_2d.dat.data.shape[0]
     NVert = xyz.dat.data.shape[0]/nNodes2d
     iSource = 0
     # TODO can the loop be circumvented?
     for iNode in range(nNodes2d):
-        xyz.dat.data[iNode*NVert:iNode*NVert+NVert, 2] *= -bathymetry2d.dat.data[iNode]
+        xyz.dat.data[iNode*NVert:iNode*NVert+NVert, 2] *= -bathymetry_2d.dat.data[iNode]
     return mesh
 
 
@@ -454,18 +454,18 @@ def computeVerticalIntegral(input, output, bottomToTop=True,
     return output
 
 
-def computeBaroclinicHead(salt, baroHead3d, baroHead2d, baroHeadInt3d, bath3d):
+def computeBaroclinicHead(salt, baroc_head_3d, baro_head_2d, baroc_head_int_3d, bath3d):
     """
     Computes baroclinic head from density field
 
     r = 1/rho_0 int_{z=-h}^{\eta} rho' dz
     """
-    computeVerticalIntegral(salt, baroHead3d, bottomToTop=False)
-    baroHead3d *= -physical_constants['rho0_inv']
+    computeVerticalIntegral(salt, baroc_head_3d, bottomToTop=False)
+    baroc_head_3d *= -physical_constants['rho0_inv']
     computeVerticalIntegral(
-        baroHead3d, baroHeadInt3d, bottomToTop=True,
+        baroc_head_3d, baroc_head_int_3d, bottomToTop=True,
         average=True, bathymetry=bath3d)
-    copy3dFieldTo2d(baroHeadInt3d, baroHead2d, useBottomValue=False)
+    copy3dFieldTo2d(baroc_head_int_3d, baro_head_2d, useBottomValue=False)
 
 
 def computeVelMagnitude(solution, u=None, w=None, minVal=1e-6,
@@ -735,25 +735,25 @@ def copy2dFieldTo3d(input2d, output3d, elemHeight=None):
     copy_2d_field_to_3d(input2d, output3d, elemHeight=elemHeight)
 
 
-def correct3dVelocity(UV2d, uv3d, uv3d_dav, bathymetry):
+def correct3dVelocity(UV2d, uv_3d, uv_3d_dav, bathymetry):
     """Corrects 3d Horizontal velocity field so that it's depth average
     matches the 2d velocity field."""
-    H = uv3d.function_space()
+    H = uv_3d.function_space()
     H2d = UV2d.function_space()
     # compute depth averaged velocity
     bndValue = Constant((0.0, 0.0, 0.0))
-    computeVerticalIntegral(uv3d, uv3d_dav,
+    computeVerticalIntegral(uv_3d, uv_3d_dav,
                             bottomToTop=True, bndValue=bndValue,
                             average=True, bathymetry=bathymetry)
     # copy on 2d mesh
     diff = Function(H2d)
-    copy3dFieldTo2d(uv3d_dav, diff, useBottomValue=False)
-    # compute difference = UV2d - uv3d_dav
+    copy3dFieldTo2d(uv_3d_dav, diff, useBottomValue=False)
+    # compute difference = UV2d - uv_3d_dav
     diff.dat.data[:] *= -1
     diff.dat.data[:] += UV2d.dat.data[:]
-    copy2dFieldTo3d(diff, uv3d_dav)
+    copy2dFieldTo3d(diff, uv_3d_dav)
     # correct 3d field
-    uv3d.dat.data[:] += uv3d_dav.dat.data
+    uv_3d.dat.data[:] += uv_3d_dav.dat.data
 
 
 def computeBottomDrag(uv_bottom, z_bottom, bathymetry, drag):
@@ -764,24 +764,24 @@ def computeBottomDrag(uv_bottom, z_bottom, bathymetry, drag):
     return drag
 
 
-def computeBottomFriction(uv3d, uv_bottom2d, uv_bottom3d, z_coord3d,
-                          z_bottom2d, bathymetry2d,
-                          bottom_drag2d, bottom_drag3d,
-                          vElemSize2d=None, vElemSize3d=None):
+def computeBottomFriction(uv_3d, uv_bottom_2d, uv_bottom_3d, z_coord_3d,
+                          z_bottom_2d, bathymetry_2d,
+                          bottom_drag_2d, bottom_drag_3d,
+                          v_elem_size_2d=None, v_elem_size_3d=None):
     # compute velocity at middle of bottom element
-    copy3dFieldTo2d(uv3d, uv_bottom2d, useBottomValue=True,
-                    elemBottomValue=False, elemHeight=vElemSize2d)
-    tmp = uv_bottom2d.dat.data.copy()
-    copy3dFieldTo2d(uv3d, uv_bottom2d, useBottomValue=True,
-                    elemBottomValue=True, elemHeight=vElemSize2d)
-    uv_bottom2d.dat.data[:] = 0.5*(uv_bottom2d.dat.data + tmp)
-    copy2dFieldTo3d(uv_bottom2d, uv_bottom3d, elemHeight=vElemSize3d)
-    copy3dFieldTo2d(z_coord3d, z_bottom2d, useBottomValue=True,
-                    elemBottomValue=False, elemHeight=vElemSize2d)
-    z_bottom2d.dat.data[:] += bathymetry2d.dat.data[:]
-    z_bottom2d.dat.data[:] *= 0.5
-    computeBottomDrag(uv_bottom2d, z_bottom2d, bathymetry2d, bottom_drag2d)
-    copy2dFieldTo3d(bottom_drag2d, bottom_drag3d, elemHeight=vElemSize3d)
+    copy3dFieldTo2d(uv_3d, uv_bottom_2d, useBottomValue=True,
+                    elemBottomValue=False, elemHeight=v_elem_size_2d)
+    tmp = uv_bottom_2d.dat.data.copy()
+    copy3dFieldTo2d(uv_3d, uv_bottom_2d, useBottomValue=True,
+                    elemBottomValue=True, elemHeight=v_elem_size_2d)
+    uv_bottom_2d.dat.data[:] = 0.5*(uv_bottom_2d.dat.data + tmp)
+    copy2dFieldTo3d(uv_bottom_2d, uv_bottom_3d, elemHeight=v_elem_size_3d)
+    copy3dFieldTo2d(z_coord_3d, z_bottom_2d, useBottomValue=True,
+                    elemBottomValue=False, elemHeight=v_elem_size_2d)
+    z_bottom_2d.dat.data[:] += bathymetry_2d.dat.data[:]
+    z_bottom_2d.dat.data[:] *= 0.5
+    computeBottomDrag(uv_bottom_2d, z_bottom_2d, bathymetry_2d, bottom_drag_2d)
+    copy2dFieldTo3d(bottom_drag_2d, bottom_drag_3d, elemHeight=v_elem_size_3d)
 
 
 def getHorzontalElemSize(sol2d, sol3d=None):
@@ -850,8 +850,8 @@ def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref,
     coords.dat.data[:, 2] = z_coord.dat.data[:]
 
 
-def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, wMeshSurf2d,
-                        dwMeshDz3d,
+def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf_2d,
+                        w_mesh_ddz_3d,
                         bathymetry, z_coord_ref,
                         solver_parameters={}):
     solver_parameters.setdefault('ksp_atol', 1e-12)
@@ -872,8 +872,8 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, wMeshSurf2d,
             prob, solver_parameters=solver_parameters)
         linProblemCache.add(key, solver, 'wMeshSurf')
     linProblemCache[key].solve()
-    copy3dFieldTo2d(w_mesh_surf, wMeshSurf2d, useBottomValue=False)
-    copy2dFieldTo3d(wMeshSurf2d, w_mesh_surf)
+    copy3dFieldTo2d(w_mesh_surf, w_mesh_surf_2d, useBottomValue=False)
+    copy2dFieldTo3d(w_mesh_surf_2d, w_mesh_surf)
 
     # compute w in the whole water column (0 at bed)
     # w_mesh = w_mesh_surf * (z+h)/(eta+h)
@@ -893,7 +893,7 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, wMeshSurf2d,
     linProblemCache[key].solve()
 
     # compute dw_mesh/dz in the whole water column
-    key = '-'.join((dwMeshDz3d.name(), w_mesh_surf.name()))
+    key = '-'.join((w_mesh_ddz_3d.name(), w_mesh_surf.name()))
     if key not in linProblemCache:
         fs = w_mesh.function_space()
         z = fs.mesh().coordinates[2]
@@ -902,7 +902,7 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, wMeshSurf2d,
         a = tri*test*dx
         H = eta + bathymetry
         L = (w_mesh_surf/H)*test*dx
-        prob = LinearVariationalProblem(a, L, dwMeshDz3d)
+        prob = LinearVariationalProblem(a, L, w_mesh_ddz_3d)
         solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
         linProblemCache.add(key, solver, 'dwMeshdz')

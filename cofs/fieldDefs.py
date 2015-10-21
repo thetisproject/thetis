@@ -4,9 +4,6 @@ Definitions of fields.
 Tuomas Karna 2015-10-17
 """
 
-# TODO come up with consistent field naming scheme
-# name_3d_version?
-
 fieldMetadata = {}
 """
 Holds description, units and output file information for each field.
@@ -15,299 +12,295 @@ name      - human readable description
 shortname - description used in visualization etc
 unit      - SI unit of the field
 filename  - filename for output files
+
+Naming convention for fields is snake_case: field_name_3d
 """
 
-fieldMetadata['bathymetry2d'] = {
+fieldMetadata['bathymetry_2d'] = {
     'name': 'Bathymetry',
     'shortname': 'Bathymetry',
     'unit': 'm',
     'filename': 'bathymetry2d',
     }
-fieldMetadata['bathymetry3d'] = {
+fieldMetadata['bathymetry_3d'] = {
     'name': 'Bathymetry',
     'shortname': 'Bathymetry',
     'unit': 'm',
     'filename': 'bathymetry3d',
     }
-fieldMetadata['z_coord3d'] = {
+fieldMetadata['z_coord_3d'] = {
     'name': 'Mesh z coordinates',
     'shortname': 'Z coordinates',
     'unit': 'm',
     'filename': 'ZCoord3d',
     }
-fieldMetadata['z_bottom2d'] = {
+fieldMetadata['z_bottom_2d'] = {
     'name': 'Bottom cell z coordinates',
     'shortname': 'Bottom cell z coordinates',
     'unit': 'm',
     'filename': 'ZBottom2d',
     }
-fieldMetadata['z_coord_ref3d'] = {
+fieldMetadata['z_coord_ref_3d'] = {
     'name': 'Static mesh z coordinates',
     'shortname': 'Z coordinates',
     'unit': 'm',
     'filename': 'ZCoordRef3d',
     }
-fieldMetadata['bottom_drag2d'] = {
+fieldMetadata['bottom_drag_2d'] = {
     'name': 'Bottom drag coefficient',
     'shortname': 'Bottom drag coefficient',
     'unit': '',
     'filename': 'BottomDrag2d',
     }
-fieldMetadata['bottom_drag3d'] = {
+fieldMetadata['bottom_drag_3d'] = {
     'name': 'Bottom drag coefficient',
     'shortname': 'Bottom drag coefficient',
     'unit': '',
     'filename': 'BottomDrag3d',
     }
-fieldMetadata['uv2d'] = {
+fieldMetadata['uv_2d'] = {
     'name': 'Depth averaged velocity',
     'shortname': 'Depth averaged velocity',
     'unit': 'm s-1',
     'filename': 'Velocity2d',
     }
-fieldMetadata['uvDav2d'] = {
+fieldMetadata['uv_dav_2d'] = {
     'name': 'Depth averaged velocity',
     'shortname': 'Depth averaged velocity',
     'unit': 'm s-1',
     'filename': 'DAVelocity2d',
     }
-fieldMetadata['uv_bottom2d'] = {
+fieldMetadata['uv_bottom_2d'] = {
     'name': 'Bottom velocity',
     'shortname': 'Bottom velocity',
     'unit': 'm s-1',
     'filename': 'BottomVelo2d',
     }
-fieldMetadata['uv_bottom3d'] = {
+fieldMetadata['uv_bottom_3d'] = {
     'name': 'Bottom velocity',
     'shortname': 'Bottom velocity',
     'unit': 'm s-1',
     'filename': 'BottomVelo3d',
     }
-fieldMetadata['uvDav3d'] = {
+fieldMetadata['uv_dav_3d'] = {
     'name': 'Depth averaged velocity',
     'shortname': 'Depth averaged velocity',
     'unit': 'm s-1',
     'filename': 'DAVelocity3d',
     }
-fieldMetadata['uv3d_mag'] = {
+fieldMetadata['uv_mag_3d'] = {
     'name': 'Magnitude of horizontal velocity',
     'shortname': 'Velocity magnitude',
     'unit': 'm s-1',
     'filename': 'VeloMag3d',
     }
-fieldMetadata['uv3d_P1'] = {
+fieldMetadata['uv_p1_3d'] = {
     'name': 'P1 projection of horizontal velocity',
     'shortname': 'P1 Velocity',
     'unit': 'm s-1',
     'filename': 'VeloCG3d',
     }
-fieldMetadata['uvBot2d'] = {
-    'name': 'Bottom velocity',
-    'shortname': 'Bottom velocity',
-    'unit': 'm s-1',
-    'filename': 'BotVelocity2d',
-    }
-fieldMetadata['elev2d'] = {
+fieldMetadata['elev_2d'] = {
     'name': 'Water elevation',
     'shortname': 'Elevation',
     'unit': 'm',
     'filename': 'Elevation2d',
     }
-fieldMetadata['elev3d'] = {
+fieldMetadata['elev_3d'] = {
     'name': 'Water elevation',
     'shortname': 'Elevation',
     'unit': 'm',
     'filename': 'Elevation3d',
     }
-fieldMetadata['elev3dCG'] = {
+fieldMetadata['elev_cg_3d'] = {
     'name': 'Water elevation CG',
     'shortname': 'Elevation',
     'unit': 'm',
     'filename': 'ElevationCG3d',
     }
-fieldMetadata['uv3d'] = {
+fieldMetadata['uv_3d'] = {
     'name': 'Horizontal velocity',
     'shortname': 'Horizontal velocity',
     'unit': 'm s-1',
     'filename': 'Velocity3d',
     }
-fieldMetadata['w3d'] = {
+fieldMetadata['w_3d'] = {
     'name': 'Vertical velocity',
     'shortname': 'Vertical velocity',
     'unit': 'm s-1',
     'filename': 'VertVelo3d',
     }
-fieldMetadata['wMesh3d'] = {
+fieldMetadata['w_mesh_3d'] = {
     'name': 'Mesh velocity',
     'shortname': 'Mesh velocity',
     'unit': 'm s-1',
     'filename': 'MeshVelo3d',
     }
-fieldMetadata['wMeshSurf3d'] = {
+fieldMetadata['w_mesh_surf_3d'] = {
     'name': 'Surface mesh velocity',
     'shortname': 'Surface mesh velocity',
     'unit': 'm s-1',
     'filename': 'SurfMeshVelo3d',
     }
-fieldMetadata['wMeshSurf2d'] = {
+fieldMetadata['w_mesh_surf_2d'] = {
     'name': 'Surface mesh velocity',
     'shortname': 'Surface mesh velocity',
     'unit': 'm s-1',
     'filename': 'SurfMeshVelo3d',
     }
-fieldMetadata['dwMeshDz3d'] = {
+fieldMetadata['w_mesh_ddz_3d'] = {
     'name': 'Vertical grad of mesh velocity',
     'shortname': 'Vertical grad of mesh velocity',
     'unit': 's-1',
     'filename': 'dMeshVeloDz3d',
     }
-fieldMetadata['salt3d'] = {
+fieldMetadata['salt_3d'] = {
     'name': 'Water salinity',
     'shortname': 'Salinity',
     'unit': 'psu',
     'filename': 'Salinity3d',
     }
-fieldMetadata['parabVisc3d'] = {
+fieldMetadata['parab_visc_3d'] = {
     'name': 'Parabolic Viscosity',
     'shortname': 'Parabolic Viscosity',
     'unit': 'm2 s-1',
     'filename': 'ParabVisc3d',
     }
-fieldMetadata['eddyVisc3d'] = {
+fieldMetadata['eddy_visc_3d'] = {
     'name': 'Eddy Viscosity',
     'shortname': 'Eddy Viscosity',
     'unit': 'm2 s-1',
     'filename': 'EddyVisc3d',
     }
-fieldMetadata['eddyDiff3d'] = {
+fieldMetadata['eddy_diff_3d'] = {
     'name': 'Eddy diffusivity',
     'shortname': 'Eddy diffusivity',
     'unit': 'm2 s-1',
     'filename': 'EddyDiff3d',
     }
-fieldMetadata['shearFreq3d'] = {
+fieldMetadata['shear_freq_3d'] = {
     'name': 'Vertical shear frequency squared',
     'shortname': 'Vertical shear frequency squared',
     'unit': 's-2',
     'filename': 'ShearFreq3d',
     }
-fieldMetadata['buoyFreq3d'] = {
+fieldMetadata['buoy_freq_3d'] = {
     'name': 'Buoyancy frequency squared',
     'shortname': 'Buoyancy shear frequency squared',
     'unit': 's-2',
     'filename': 'BuoyFreq3d',
     }
-fieldMetadata['tke3d'] = {
+fieldMetadata['tke_3d'] = {
     'name': 'Turbulent Kinetic Energy',
     'shortname': 'Turbulent Kinetic Energy',
     'unit': 'm2 s-2',
     'filename': 'TurbKEnergy3d',
     }
-fieldMetadata['psi3d'] = {
+fieldMetadata['psi_3d'] = {
     'name': 'Turbulence psi variable',
     'shortname': 'Turbulence psi variable',
     'unit': '',
     'filename': 'TurbPsi3d',
     }
-fieldMetadata['eps3d'] = {
+fieldMetadata['eps_3d'] = {
     'name': 'TKE dissipation rate',
     'shortname': 'TKE dissipation rate',
     'unit': 'm2 s-2',
     'filename': 'TurbEps3d',
     }
-fieldMetadata['len3d'] = {
+fieldMetadata['len_3d'] = {
     'name': 'Turbulent lenght scale',
     'shortname': 'Turbulent lenght scale',
     'unit': 'm',
     'filename': 'TurbLen3d',
     }
-fieldMetadata['baroHead3d'] = {
+fieldMetadata['baroc_head_3d'] = {
     'name': 'Baroclinic head',
     'shortname': 'Baroclinic head',
     'unit': 'm',
     'filename': 'BaroHead3d',
     }
-fieldMetadata['baroHeadInt3d'] = {
+fieldMetadata['baroc_head_int_3d'] = {
     'name': 'Vertical integral of baroclinic head',
     'shortname': 'Vertically integrated baroclinic head',
     'unit': 'm2',
     'filename': 'BaroHeadInt3d',
     }
-fieldMetadata['baroHead2d'] = {
-    'name': 'Dav baroclinic head',
+fieldMetadata['baro_head_2d'] = {
+    'name': 'Depth averaged baroclinic head',
     'shortname': 'Dav baroclinic head',
     'unit': 'm',
     'filename': 'BaroHead2d',
     }
-fieldMetadata['gjvAlphaH3d'] = {
+fieldMetadata['gjv_alpha_h_3d'] = {
     'name': 'GJV Parameter h',
     'shortname': 'GJV Parameter h',
     'unit': '',
     'filename': 'GJVParamH',
     }
-fieldMetadata['gjvAlphaV3d'] = {
+fieldMetadata['gjv_alpha_v_3d'] = {
     'name': 'GJV Parameter v',
     'shortname': 'GJV Parameter v',
     'unit': '',
     'filename': 'GJVParamV',
     }
-fieldMetadata['smagViscosity'] = {
+fieldMetadata['smag_visc_3d'] = {
     'name': 'Smagorinsky viscosity',
     'shortname': 'Smagorinsky viscosity',
     'unit': 'm2 s-1',
     'filename': 'SmagViscosity3d',
     }
-fieldMetadata['saltJumpDiff'] = {
+fieldMetadata['salt_jump_diff'] = {
     'name': 'Salt Jump Diffusivity',
     'shortname': 'Salt Jump Diffusivity',
     'unit': 'm2 s-1',
     'filename': 'SaltJumpDiff3d',
     }
-fieldMetadata['maxHDiffusivity'] = {
+fieldMetadata['max_h_diff'] = {
     'name': 'Maximum stable horizontal diffusivity',
     'shortname': 'Maximum horizontal diffusivity',
     'unit': 'm2 s-1',
     'filename': 'MaxHDiffusivity3d',
     }
-fieldMetadata['vElemSize3d'] = {
+fieldMetadata['v_elem_size_3d'] = {
     'name': 'Element size in vertical direction',
     'shortname': 'Vertical element size',
     'unit': 'm',
     'filename': 'VElemSize3d',
     }
-fieldMetadata['vElemSize2d'] = {
+fieldMetadata['v_elem_size_2d'] = {
     'name': 'Element size in vertical direction',
     'shortname': 'Vertical element size',
     'unit': 'm',
     'filename': 'VElemSize2d',
     }
-fieldMetadata['hElemSize3d'] = {
+fieldMetadata['h_elem_size_3d'] = {
     'name': 'Element size in horizontal direction',
     'shortname': 'Horizontal element size',
     'unit': 'm',
-    'filename': 'hElemSize3d',
+    'filename': 'h_elem_size_3d',
     }
-fieldMetadata['hElemSize2d'] = {
+fieldMetadata['h_elem_size_2d'] = {
     'name': 'Element size in horizontal direction',
     'shortname': 'Horizontal element size',
     'unit': 'm',
-    'filename': 'hElemSize2d',
+    'filename': 'h_elem_size_2d',
     }
-fieldMetadata['coriolis2d'] = {
+fieldMetadata['coriolis_2d'] = {
     'name': 'Coriolis parameter',
     'shortname': 'Coriolis parameter',
     'unit': 's-1',
-    'filename': 'coriolis2d',
+    'filename': 'coriolis_2d',
     }
-fieldMetadata['coriolis3d'] = {
+fieldMetadata['coriolis_3d'] = {
     'name': 'Coriolis parameter',
     'shortname': 'Coriolis parameter',
     'unit': 's-1',
-    'filename': 'coriolis3d',
+    'filename': 'coriolis_3d',
     }
-fieldMetadata['windStress3d'] = {
+fieldMetadata['wind_stress_3d'] = {
     'name': 'Wind stress',
     'shortname': 'Wind stress',
     'unit': 'Pa',
-    'filename': 'windStress3d',
+    'filename': 'wind_stress_3d',
     }

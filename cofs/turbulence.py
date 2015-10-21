@@ -234,7 +234,7 @@ class genericLengthScaleModel(object):
         self.tmp_field_P0 = Function(solver.P0,
                                      name='tmp_p0_field')
         self.smoother = smootherP1(self.solver.P1DG, self.solver.P1,
-                                   self.solver.fields.vElemSize3d)
+                                   self.solver.fields.v_elem_size_3d)
         # parameter to mix old and new viscosity values (1 => new only)
         self.relaxation = 0.5
 

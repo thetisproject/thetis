@@ -269,6 +269,6 @@ class exportManager(object):
             sys.stdout.write('\n')
             sys.stdout.flush()
 
-    def exportBathymetry(self, bathymetry2d):
+    def exportBathymetry(self, bathymetry_2d):
         bathfile = File(os.path.join(self.outputDir, 'bath.pvd'))
-        bathfile << bathymetry2d
+        bathfile << bathymetry_2d

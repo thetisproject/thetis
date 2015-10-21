@@ -10,8 +10,8 @@ mesh2d = RectangleMesh(5,1,Lx,Ly)
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-bathymetry2d = Function(P1_2d, name="bathymetry")
-bathymetry2d.assign(100.0)
+bathymetry_2d = Function(P1_2d, name="bathymetry")
+bathymetry_2d.assign(100.0)
 
 N = 20 # number of timesteps
 dt = 100.
@@ -19,7 +19,7 @@ g = physical_constants['g_grav'].dat.data[0]
 f = g/Lx # linear friction coef.
 
 # --- create solver ---
-solverObj = solver2d.flowSolver2d(mesh2d, bathymetry2d, order=1)
+solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d, order=1)
 solverObj.options.nonlin = False
 solverObj.options.TExport = dt
 solverObj.options.T = N*dt

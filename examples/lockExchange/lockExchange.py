@@ -64,11 +64,11 @@ depth = 20.0
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-bathymetry2d = Function(P1_2d, name='Bathymetry')
-bathymetry2d.assign(depth)
+bathymetry_2d = Function(P1_2d, name='Bathymetry')
+bathymetry_2d.assign(depth)
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers, mimetic=False)
+solverObj = solver.flowSolver(mesh2d, bathymetry_2d, layers, mimetic=False)
 options = solverObj.options
 options.cfl_2d = 1.0
 #options.nonlin = False
@@ -84,7 +84,7 @@ options.uvLaxFriedrichs = Constant(1.0)
 options.tracerLaxFriedrichs = Constant(1.0)
 Re_h = 1.0
 options.smagorinskyFactor = Constant(1.0/np.sqrt(Re_h))
-options.saltJumpDiffFactor = None  # Constant(1.0)
+options.salt_jump_diffFactor = None  # Constant(1.0)
 options.saltRange = Constant(5.0)
 options.useLimiterForTracers = True
 # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
@@ -101,12 +101,12 @@ options.checkVolConservation2d = True
 options.checkVolConservation3d = True
 options.checkSaltConservation = True
 options.checkSaltOvershoot = True
-options.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
-                          'w3d', 'wMesh3d', 'salt3d',
-                          'uvDav2d', 'uvDav3d', 'baroHead3d',
-                          'baroHead2d',
-                          'smagViscosity', 'saltJumpDiff']
-options.fieldsToExportNumpy = ['salt3d']
+options.fieldsToExport = ['uv_2d', 'elev_2d', 'uv_3d',
+                          'w_3d', 'w_mesh_3d', 'salt_3d',
+                          'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
+                          'baro_head_2d',
+                          'smag_visc_3d', 'salt_jump_diff']
+options.fieldsToExportNumpy = ['salt_3d']
 options.timerLabels = []
 
 solverObj.createEquations()
