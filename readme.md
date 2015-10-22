@@ -8,11 +8,11 @@ This project is licensed under the terms of the MIT license.
 
 - Install firedrake with all its dependencies
 - COFS currently needs the following branches:
-    - PyOP2: `multiple_top_bottom_masks`
+    - PyOP2: `master`
     - COFFEE: `enhance-rewriter-mode3-logflops`
-    - ffc: `fd_bendy`
+    - ffc: `fd_bendy` rebased with `master`
     - ufl: `fd_bendy`
-    - firedrake: `extruded_geometric_bcs` merged with `bendy_changes`
+    - firedrake: `bendy_changes`
 
 ### Installation with firedrake-install
 
@@ -20,14 +20,14 @@ This project is licensed under the terms of the MIT license.
 
 ```
     python firedrake-install --developer --log --minimal_petsc \
-    --package_branch PyOP2 multiple_top_bottom_masks \
+    --package_branch PyOP2 master \
     --package_branch COFFEE enhance-rewriter-mode3-logflops \
     --package_branch ffc fd_bendy \
     --package_branch ufl fd_bendy \
-    --package_branch firedrake extruded_geometric_bcs
+    --package_branch firedrake bendy_changes
 ```
 
-- Merge firedrake branch with `bendy_changes`
+- Merge ffc `fd_bendy` with `master` branch
 - Activate virtualenv
 - Install COFS with `pip` in editable mode
 
