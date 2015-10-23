@@ -20,10 +20,11 @@ def test1():
 
     # create solver
     solverObj = solver.flowSolver(mesh2d, bathymetry_2d, n_layers)
+    solverObj.options.mimetic = False
     solverObj.options.uAdvection = Constant(1e-3)
     solverObj.options.TExport = 100.0
     solverObj.options.T = 100.0
-    solverObj.options.outputDir = 'tmp'
+    solverObj.options.outputDir = outputDir
 
     solverObj.createEquations()
     # w needs to be projected to cartesian vector field for sanity check
@@ -63,10 +64,11 @@ def test2():
     bathymetry_2d.interpolate(Expression('1.0 + x[0]'))
 
     solverObj = solver.flowSolver(mesh2d, bathymetry_2d, n_layers)
+    solverObj.options.mimetic = False
     solverObj.options.uAdvection = Constant(1e-3)
     solverObj.options.TExport = 100.0
     solverObj.options.T = 100.0
-    solverObj.options.outputDir = 'tmp'
+    solverObj.options.outputDir = outputDir
 
     solverObj.createEquations()
     # w needs to be projected to cartesian vector field for sanity check
@@ -86,7 +88,7 @@ def test2():
     print 'PASSED'
     solverObj.export()
 
-    solverObj.uv_3d.project(Expression(('1e-3*x[0]', '0.0', '0.0')))
+    solverObj.fields.uv_3d.project(Expression(('1e-3*x[0]', '0.0', '0.0')))
     computeVertVelocity(solverObj.fields.w_3d, solverObj.fields.uv_3d, solverObj.fields.bathymetry_3d,
                         boundary_markers=bnd_markers, boundary_funcs=bnd_funcs)
     w_3d_proj.project(solverObj.fields.w_3d)
