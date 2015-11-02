@@ -56,8 +56,8 @@ class flowSolver2d(frozenClass):
             print 'dt =', self.dt
             sys.stdout.flush()
 
-    def createEquations(self):
-        """Creates function spaces, functions, equations and time steppers."""
+    def createFunctionSpaces(self):
+        """Creates function spaces"""
         self._isfrozen = False
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.P0_2d = FunctionSpace(self.mesh2d, 'DG', 0)
@@ -74,7 +74,13 @@ class flowSolver2d(frozenClass):
 
         self.visualizationSpaces[self.U_2d] = self.P1v_2d
         self.visualizationSpaces[self.H_2d] = self.P1_2d
+        self._isfrozen = True
 
+    def createEquations(self):
+        """Creates functions, equations and time steppers."""
+        if not hasattr(self, 'U_2d'):
+            self.createFunctionSpaces()
+        self._isfrozen = False
         # ----- fields
         self.fields.solution2d = Function(self.V_2d)
 
@@ -87,6 +93,8 @@ class flowSolver2d(frozenClass):
             uvLaxFriedrichs=self.options.uvLaxFriedrichs,
             coriolis=self.options.coriolis,
             wind_stress=self.options.wind_stress,
+            uv_source=self.options.uv_source_2d,
+            elev_source=self.options.elev_source_2d,
             nonlin=self.options.nonlin)
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']

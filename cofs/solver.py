@@ -83,8 +83,8 @@ class flowSolver(frozenClass):
         printInfo('2D dt = {0:f} {1:d}'.format(self.dt_2d, self.M_modesplit))
         sys.stdout.flush()
 
-    def createEquations(self):
-        """Creates function spaces, functions, equations and time steppers."""
+    def createFunctionSpaces(self):
+        """Creates function spaces"""
         self._isfrozen = False
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0, name='P0')
@@ -152,6 +152,13 @@ class flowSolver(frozenClass):
         self.V_2d = MixedFunctionSpace([self.U_2d, self.H_2d], name='V_2d')
         self.visualizationSpaces[self.U_2d] = self.P1v_2d
         self.visualizationSpaces[self.H_2d] = self.P1_2d
+        self._isfrozen = True
+
+    def createEquations(self):
+        """Creates function spaces, functions, equations and time steppers."""
+        if not hasattr(self, 'U_2d'):
+            self.createFunctionSpaces()
+        self._isfrozen = False
 
         # ----- fields
         self.fields.solution2d = Function(self.V_2d)
