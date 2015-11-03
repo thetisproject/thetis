@@ -417,6 +417,15 @@ class flowSolver(frozenClass):
                                    exportType='numpy',
                                    verbose=self.options.verbose > 0)
         self.exporters['numpy'] = e
+        hdf5Dir = os.path.join(self.options.outputDir, 'hdf5')
+        e = exporter.exportManager(hdf5Dir,
+                                   self.options.fieldsToExportHDF5,
+                                   self.fields,
+                                   self.visualizationSpaces,
+                                   fieldMetadata,
+                                   exportType='hdf5',
+                                   verbose=self.options.verbose > 0)
+        self.exporters['hdf5'] = e
 
         self.uvP1_projector = projector(self.fields.uv_3d, self.fields.uv_p1_3d)
         #self.uvDAV_to_tmp_projector = projector(self.uv_dav_3d, self.uv_3d_tmp)

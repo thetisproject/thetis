@@ -10,21 +10,34 @@ class exporterBase(object):
     """
     Base class for exporter objects.
     """
+    def __init__(self, filename, outputDir, nextExportIx=0, verbose=False):
+        self.filename = filename
+        self.outputDir = createDirectory(outputDir)
+        self.verbose = verbose
+        # keeps track of export numbers
+        self.nextExportIx = nextExportIx
+
+    def setNextExportIx(self, nextExportIx):
+        """Sets the index of next export"""
+        self.nextExportIx = nextExportIx
+
     def export(self, function):
         raise NotImplementedError('This method must be implemented in the derived class')
 
 
-class exporter(exporterBase):
+class vtkExporter(exporterBase):
     """Class that handles Paraview file exports."""
-    def __init__(self, fs_visu, func_name, outputDir, filename):
+    def __init__(self, fs_visu, func_name, outputDir, filename,
+                 nextExportIx=0, verbose=False):
         """Creates exporter object.
         fs_visu:  function space where data will be projected before exporting
         func_name: name of the function
         outputDir: output directory
         filename: name of the pvd file
         """
+        super(vtkExporter, self).__init__(filename, outputDir, nextExportIx,
+                                          verbose)
         self.fs_visu = fs_visu
-        self.filename = filename
         self.func_name = func_name
         suffix = '.pvd'
         # append suffix if missing
@@ -34,16 +47,22 @@ class exporter(exporterBase):
         self.outfile = File(os.path.join(outputDir, self.filename))
         self.P = {}
 
+    def setNextExportIx(self, nextExportIx):
+        """Sets the index of next export"""
+        # NOTE vtk io objects store current export index not next
+        super(vtkExporter, self).setNextExportIx(nextExportIx - 1)
+
     def export(self, function):
         """Exports given function to disk."""
         if function not in self.P:
             self.P[function] = projector(function, self.proj_func)
         self.P[function].project()
-        # HACK ensure correct output function name
+        # ensure correct output function name
         old_name = self.proj_func.name()
         self.proj_func.rename(name=self.func_name)
         # self.proj_func.project(function)  # NOTE this allocates a function
-        self.outfile << self.proj_func
+        self.outfile << (self.proj_func, self.nextExportIx)
+        self.nextExportIx += 1
         # restore old name
         self.proj_func.rename(name=old_name)
 
@@ -55,26 +74,23 @@ class naiveFieldExporter(exporterBase):
     Works for simple Pn and PnDG fields.
     """
     def __init__(self, function_space, outputDir, filename_prefix,
-                 verbose=False):
+                 nextExportIx=0, verbose=False):
         """
         Create exporter object for given function.
 
         Parameters
         ----------
-        func : Function
-            function to export
+        function_space : FunctionSpace
+            function space where the exported functions belong
         outputDir : string
             directory where outputs will be stored
         filename : string
             prefix of output filename. Filename is prefix_nnnnn.npy
             where nnnn is the export number.
         """
-        self.outputDir = createDirectory(outputDir)
-        self.filename = filename_prefix
+        super(naiveFieldExporter, self).__init__(filename_prefix, outputDir,
+                                                 nextExportIx, verbose)
         self.function_space = function_space
-        self.verbose = verbose
-        # keeps track of export numbers
-        self.nextExportIx = 0
 
         # create mappings between local/global node indices
         # construct global node ordering based on (x,y) coords
@@ -225,12 +241,76 @@ class naiveFieldExporter(exporterBase):
         function.dat.data[:] = data
 
 
+class hdf5Exporter(exporterBase):
+    """Stores fields in disk in native discretization using HDF5 containers"""
+    def __init__(self, function_space, outputDir, filename_prefix,
+                 nextExportIx=0, verbose=False):
+        """
+        Create exporter object for given function.
+
+        Parameters
+        ----------
+        function_space : FunctionSpace
+            function space where the exported functions belong
+        outputDir : string
+            directory where outputs will be stored
+        filename : string
+            prefix of output filename. Filename is prefix_nnnnn.h5
+            where nnnnn is the export number.
+        """
+        super(hdf5Exporter, self).__init__(filename_prefix, outputDir,
+                                       nextExportIx, verbose)
+        self.function_space = function_space
+
+    def setNextExportIx(self, nextExportIx):
+        """Sets the index of next export"""
+        self.nextExportIx = nextExportIx
+
+    def genFilename(self, iExport):
+        filename = '{0:s}_{1:05d}.h5'.format(self.filename, iExport)
+        return os.path.join(self.outputDir, filename)
+
+    def exportAsIndex(self, iExport, function):
+        """
+        Exports the given function to disk using the specified export
+        index number.
+        """
+        assert function.function_space() == self.function_space,\
+            'Function space does not match'
+        filename = self.genFilename(iExport)
+        if self.verbose:
+            print('saving {:} state to {:}'.format(function.name, filename))
+        with DumbCheckpoint(filename, mode=FILE_CREATE) as f:
+            f.store(function)
+        self.nextExportIx = iExport + 1
+
+    def export(self, function):
+        """
+        Exports the given function to disk.
+        Increments previous export index by 1.
+        """
+        self.exportAsIndex(self.nextExportIx, function)
+
+    def load(self, iExport, function):
+        """
+        Loads nodal values from disk and assigns to the given function.
+        """
+        assert function.function_space() == self.function_space,\
+            'Function space does not match'
+        filename = self.genFilename(iExport)
+        if self.verbose:
+            print('loading {:} state from {:}'.format(function.name, filename))
+        with DumbCheckpoint(filename, mode=FILE_READ) as f:
+            f.load(function)
+
+
 class exportManager(object):
     """Handles a list of file exporter objects"""
 
     def __init__(self, outputDir, fieldsToExport, functions,
                  visualizationSpaces, fieldMetadata,
-                 exportType='vtk', verbose=False):
+                 exportType='vtk', nextExportIx=0,
+                 verbose=False):
         self.outputDir = outputDir
         self.fieldsToExport = fieldsToExport
         self.functions = functions
@@ -248,12 +328,23 @@ class exportManager(object):
                 visu_space = self.visualizationSpaces.get(native_space)
                 if visu_space is None:
                     raise Exception('missing visualization space for: '+key)
-                if exportType == 'vtk':
-                    self.exporters[key] = exporter(visu_space, shortname,
-                                                   outputDir, fn)
-                elif exportType == 'numpy':
+                if exportType.lower() == 'vtk':
+                    self.exporters[key] = vtkExporter(visu_space, shortname,
+                                                      outputDir, fn,
+                                                      nextExportIx=nextExportIx)
+                elif exportType.lower() == 'numpy':
                     self.exporters[key] = naiveFieldExporter(native_space,
-                                                             outputDir, fn)
+                                                             outputDir, fn,
+                                                             nextExportIx=nextExportIx)
+                elif exportType.lower() == 'hdf5':
+                    self.exporters[key] = hdf5Exporter(native_space,
+                                                       outputDir, fn,
+                                                       nextExportIx=nextExportIx)
+
+    def setNextExportIx(self, nextExportIx):
+        """Sets the correct export index to all child exporters"""
+        for k in self.exporters:
+            self.exporters[k].setNextExportIx(nextExportIx)
 
     def export(self):
         if self.verbose and commrank == 0:
