@@ -186,6 +186,9 @@ class temporaryFunctionCache(object):
         key = self._getKey(function_space)
         return self.functions[key]
 
+    def clear(self):
+        self.functions = {}
+
 
 class problemCache(object):
     """Holds all variational problems that utility functions depend on."""
@@ -368,7 +371,7 @@ def computeVertVelocity(solution, uv, bathymetry,
         #L += (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_surf
         #L += (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_bottom
         #NOTE weak dw/dz
-        a = tri[2]*test[2]*normal[2]*ds_surf - Dx(test[2], 2)*tri[2]*dx
+        a = tri[2]*test[2]*normal[2]*ds_surf + avg(tri[2])*jump(test[2], normal[2])*dS_h - Dx(test[2], 2)*tri[2]*dx
         #NOTE weak div(uv)
         uv_star = avg(uv) # + stabilization
         L = ((uv[0]*Dx(test[2], 0) + uv[1]*Dx(test[2], 1))*dx

@@ -14,9 +14,8 @@ class shallowWaterEquations(equation):
     def __init__(self, solution, bathymetry,
                  uv_bottom=None, bottom_drag=None, viscosity_h=None,
                  mu_manning=None, lin_drag=None, baroc_head=None,
-                 coriolis=None,
-                 wind_stress=None,
-                 uvLaxFriedrichs=None,
+                 coriolis=None, wind_stress=None, uvLaxFriedrichs=None,
+                 uv_source=None, elev_source=None,
                  nonlin=True):
         self.space = solution.function_space()
         self.mesh = self.space.mesh()
@@ -36,6 +35,8 @@ class shallowWaterEquations(equation):
                        'coriolis': coriolis,
                        'wind_stress': wind_stress,
                        'uvLaxFriedrichs': uvLaxFriedrichs,
+                       'uv_source': uv_source,
+                       'elev_source': elev_source,
                        }
 
         # create mixed function space
@@ -145,9 +146,23 @@ class shallowWaterEquations(equation):
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds(int(bnd_marker))
+                if funcs is not None:
+                    if 'elev' in funcs and 'uv' in funcs:
+                        eta_ext = funcs['elev']
+                        uv_ext = funcs['uv']
+                        un_jump = inner(uv - uv_ext, self.normal)
+                        h = self.bathymetry
+                        eta_rie = 0.5*(head + eta_ext) + sqrt(h/g_grav)*un_jump
+                        f += g_grav*eta_rie*dot(self.U_test, self.normal)*ds_bnd
                 if funcs is None or 'symm' in funcs or internalPG:
-                    f += g_grav*head*dot(self.U_test, self.normal)*ds_bnd
+                    # assume land boundary
+                    # impermeability implies external un=0
+                    un_jump = inner(uv, self.normal)
+                    h = self.bathymetry
+                    head_rie = head + sqrt(h/g_grav)*un_jump
+                    f += g_grav*head_rie*dot(self.U_test, self.normal)*ds_bnd
         else:
+            raise Exception('Should never call this')
             f = g_grav*inner(grad(head), self.U_test) * self.dx
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
@@ -156,18 +171,32 @@ class shallowWaterEquations(equation):
                     f -= g_grav*head*dot(self.U_test, self.normal)*ds_bnd
         return f
 
-    def HUDivTerm(self, uv, total_H, **kwargs):
+    def HUDivTerm(self, uv, eta, total_H, **kwargs):
         if self.huByParts:
             f = -inner(grad(self.eta_test), total_H*uv)*self.dx
             if self.eta_is_DG:
-                Hu_star = avg(total_H*uv) +\
-                    0.5*sqrt(g_grav*avg(total_H))*jump(total_H, self.normal)
+                H = avg(total_H)
+                uv_rie = avg(uv) + sqrt(g_grav/H)*jump(eta, self.normal)
+                Hu_star = H*uv_rie
+                #Hu_star = avg(total_H*uv) +\
+                    #0.5*sqrt(g_grav*avg(total_H))*jump(total_H, self.normal)
                 f += inner(jump(self.eta_test, self.normal), Hu_star)*self.dS
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds(int(bnd_marker))
-                if funcs is not None and ('symm' in funcs or 'elev' in funcs):
-                    f += total_H*inner(self.normal, uv)*self.eta_test*ds_bnd
+                if funcs is not None:
+                    if 'elev' in funcs and 'uv' in funcs:
+                        eta_ext = funcs['elev']
+                        uv_ext = funcs['uv']
+                        h = self.bathymetry + 0.5*(eta + eta_ext)
+                        un_jump =inner(uv - uv_ext, self.normal)
+                        eta_jump = eta - eta_ext
+                        eta_rie = 0.5*(eta + eta_ext) + sqrt(h/g_grav)*un_jump
+                        un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h)*eta_jump
+                        H = self.bathymetry + eta_rie
+                        f += H*un_rie*self.eta_test*ds_bnd
+                #if funcs is not None and ('symm' in funcs or 'elev' in funcs):
+                    #f += total_H*inner(self.normal, uv)*self.eta_test*ds_bnd
         else:
             f = div(total_H*uv)*self.eta_test*self.dx
             for bnd_marker in self.boundary_markers:
@@ -178,7 +207,7 @@ class shallowWaterEquations(equation):
             # f += -avg(total_H)*avg(dot(uv, normal))*jump(self.eta_test)*dS
         return f
 
-    def horizontalAdvection(self, uv, uvLaxFriedrichs):
+    def horizontalAdvection(self, uv, eta, uvLaxFriedrichs):
         if self.horizAdvectionByParts:
             #f = -inner(nabla_div(outer(uv, self.U_test)), uv)
             f = -(Dx(uv[0]*self.U_test[0], 0)*uv[0] +
@@ -215,11 +244,24 @@ class shallowWaterEquations(equation):
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds(int(bnd_marker))
-                if funcs is None or not 'un' in funcs:
-                    f += (uv[0]*self.U_test[0]*uv[0]*self.normal[0] +
-                          uv[1]*self.U_test[1]*uv[0]*self.normal[0] +
-                          uv[0]*self.U_test[0]*uv[1]*self.normal[1] +
-                          uv[1]*self.U_test[1]*uv[1]*self.normal[1])*ds_bnd
+                if funcs is not None:
+                    if 'elev' in funcs and 'uv' in funcs:
+                        eta_ext = funcs['elev']
+                        uv_ext = funcs['uv']
+                        uv_av = 0.5*(uv_ext + uv)
+                        h = self.bathymetry
+                        un_jump = inner(uv - uv_ext, self.normal)
+                        eta_jump = eta - eta_ext
+                        eta_rie = 0.5*(eta + eta_ext) + sqrt(h/g_grav)*un_jump
+                        un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h)*eta_jump
+                        uv_rie = un_rie*self.normal
+                        f += (uv_av[0]*self.U_test[0]*un_rie +
+                              uv_av[1]*self.U_test[1]*un_rie)*ds_bnd
+                #if funcs is None or not 'un' in funcs:
+                    #f += (uv[0]*self.U_test[0]*uv[0]*self.normal[0] +
+                          #uv[1]*self.U_test[1]*uv[0]*self.normal[0] +
+                          #uv[0]*self.U_test[0]*uv[1]*self.normal[1] +
+                          #uv[1]*self.U_test[1]*uv[1]*self.normal[1])*ds_bnd
         return f
 
     def RHS_implicit(self, solution, wind_stress=None,
@@ -242,7 +284,7 @@ class shallowWaterEquations(equation):
         F += self.pressureGrad(eta, uv, total_H)
 
         # Divergence of depth-integrated velocity
-        F += self.HUDivTerm(uv, total_H)
+        F += self.HUDivTerm(uv, eta, total_H)
 
         # boundary conditions
         # TODO move bnd condition treatment to pressureGrad etc terms
@@ -251,42 +293,42 @@ class shallowWaterEquations(equation):
             ds_bnd = self.ds(int(bnd_marker))
             if funcs is None:
                 continue
-            elif 'elev' in funcs:
-                # prescribe elevation only
-                h_ext = funcs['elev']
-                # added correct flux for eta
-                G += g_grav * h_ext * \
-                    inner(self.normal, self.U_test) * ds_bnd
+            #elif 'elev' in funcs:
+                ## prescribe elevation only
+                #h_ext = funcs['elev']
+                ## added correct flux for eta
+                #G += g_grav * h_ext * \
+                    #inner(self.normal, self.U_test) * ds_bnd
 
-                # Riemann terms replaced by simple dot(uv, n)*eta_test*ds in HUDivTerm()
-                continue
+                ## Riemann terms replaced by simple dot(uv, n)*eta_test*ds in HUDivTerm()
+                #continue
 
-            elif 'un' in funcs:
-                # prescribe normal velocity (negative into domain)
-                un_ext = funcs['un']
-                un_in = dot(uv, self.normal)
-                un_riemann = (un_in + un_ext)/2
-                G += total_H * un_riemann * self.eta_test * ds_bnd
-                if self.gradEtaByParts:
-                    G += g_grav * eta * \
-                        inner(self.normal, self.U_test) * ds_bnd
+            #elif 'un' in funcs:
+                ## prescribe normal velocity (negative into domain)
+                #un_ext = funcs['un']
+                #un_in = dot(uv, self.normal)
+                #un_riemann = (un_in + un_ext)/2
+                #G += total_H * un_riemann * self.eta_test * ds_bnd
+                #if self.gradEtaByParts:
+                    #G += g_grav * eta * \
+                        #inner(self.normal, self.U_test) * ds_bnd
 
-            elif 'flux' in funcs:
-                # prescribe normal volume flux
-                sect_len = Constant(self.boundary_len[bnd_marker])
-                un_in = dot(uv, self.normal)
-                un_ext = funcs['flux'] / total_H / sect_len
-                un_av = (un_in + un_ext)/2
-                G += total_H * un_av * self.eta_test * ds_bnd
-                G += g_grav * eta * \
-                    inner(self.normal, self.U_test) * ds_bnd
+            #elif 'flux' in funcs:
+                ## prescribe normal volume flux
+                #sect_len = Constant(self.boundary_len[bnd_marker])
+                #un_in = dot(uv, self.normal)
+                #un_ext = funcs['flux'] / total_H / sect_len
+                #un_av = (un_in + un_ext)/2
+                #G += total_H * un_av * self.eta_test * ds_bnd
+                #G += g_grav * eta * \
+                    #inner(self.normal, self.U_test) * ds_bnd
 
-            elif 'radiation':
-                # prescribe radiation condition that allows waves to pass tru
-                un_ext = sqrt(g_grav / total_H) * eta
-                G += total_H * un_ext * self.eta_test * ds_bnd
-                G += g_grav * eta * \
-                    inner(self.normal, self.U_test) * ds_bnd
+            #elif 'radiation':
+                ## prescribe radiation condition that allows waves to pass tru
+                #un_ext = sqrt(g_grav / total_H) * eta
+                #G += total_H * un_ext * self.eta_test * ds_bnd
+                #G += g_grav * eta * \
+                    #inner(self.normal, self.U_test) * ds_bnd
 
         return -F - G
 
@@ -305,80 +347,80 @@ class shallowWaterEquations(equation):
 
         # Advection of momentum
         if self.nonlin:
-            F += self.horizontalAdvection(uv, uvLaxFriedrichs)
+            F += self.horizontalAdvection(uv, eta, uvLaxFriedrichs)
 
         if self.nonlin:
             total_H = self.bathymetry + eta
         else:
             total_H = self.bathymetry
 
-        # boundary conditions
-        # TODO move bnd condition treatment to horizontalAdvection etc terms
-        for bnd_marker in self.boundary_markers:
-            funcs = self.bnd_functions.get(bnd_marker)
-            ds_bnd = self.ds(int(bnd_marker))
-            if funcs is None:
-                # assume land boundary
-                continue
+        ## boundary conditions
+        ## TODO move bnd condition treatment to horizontalAdvection etc terms
+        #for bnd_marker in self.boundary_markers:
+            #funcs = self.bnd_functions.get(bnd_marker)
+            #ds_bnd = self.ds(int(bnd_marker))
+            #if funcs is None:
+                ## assume land boundary
+                #continue
 
-            elif 'slip_alpha' in funcs:
-                # partial slip bnd condition
-                # viscosity: nu*du/dn*w
-                t = self.normal[1] * self.e_x - self.normal[0] * self.e_y
-                ut = dot(uv, t)
-                slipFactor = funcs['slip_alpha']
-                if viscosity_h is not None:
-                    G += viscosity_h * \
-                        inner(slipFactor*viscosity_h*ut*t, self.U_test)*ds_bnd
+            #elif 'slip_alpha' in funcs:
+                ## partial slip bnd condition
+                ## viscosity: nu*du/dn*w
+                #t = self.normal[1] * self.e_x - self.normal[0] * self.e_y
+                #ut = dot(uv, t)
+                #slipFactor = funcs['slip_alpha']
+                #if viscosity_h is not None:
+                    #G += viscosity_h * \
+                        #inner(slipFactor*viscosity_h*ut*t, self.U_test)*ds_bnd
 
-            elif 'elev' in funcs:
+            #elif 'elev' in funcs:
 
-                # Riemann terms replaced by integration-by-parts term from advection in horizontalAdvection()
-                continue
+                ## Riemann terms replaced by integration-by-parts term from advection in horizontalAdvection()
+                #continue
 
-            elif 'un' in funcs:
-                # prescribe normal velocity (negative into domain)
-                un_ext = funcs['un']
-                un_in = dot(uv, self.normal)
-                un_riemann = (un_in + un_ext)/2
-                if self.nonlin:
-                    G += un_riemann*un_riemann*inner(self.normal, self.U_test)*ds_bnd
+            #elif 'un' in funcs:
+                ## prescribe normal velocity (negative into domain)
+                #un_ext = funcs['un']
+                #un_in = dot(uv, self.normal)
+                #un_riemann = (un_in + un_ext)/2
+                #if self.nonlin:
+                    #G += un_riemann*un_riemann*inner(self.normal, self.U_test)*ds_bnd
 
-            elif 'flux' in funcs:
-                # prescribe normal volume flux
-                sect_len = Constant(self.boundary_len[bnd_marker])
-                un_in = dot(uv, self.normal)
-                # riemann term assuming exterior elevation is zero
-                un_ext = funcs['flux'] / self.bathymetry / sect_len
-                eta_ext = 0.0
-                un_av = (un_in + un_ext)/2
-                eta_jump = (eta - eta_ext)/2
-                if self.nonlin:
-                    s = 0.5*(sign(un_av) + 1.0)
-                    uv_up = uv*s + un_ext*self.normal*(1-s)
-                    uv_av = 0.5*(uv + un_ext*self.normal)
-                    uv_rie = uv_av + sqrt(g_grav/self.bathymetry)*eta_jump*self.normal
-                    #G += (uv_av[0]*uv_up[0]*(self.U_test[0]*self.normal[0]) +
-                          #uv_av[0]*uv_up[1]*(self.U_test[1]*self.normal[0]) +
-                          #uv_av[1]*uv_up[0]*(self.U_test[0]*self.normal[1]) +
-                          #uv_av[1]*uv_up[1]*(self.U_test[1]*self.normal[1]))*ds_bnd
-                    # NOTE seems more stable in channel3d -- needs better testing
-                    G += (uv_rie[0]*uv_rie[0]*(self.U_test[0]*self.normal[0]) +
-                          uv_rie[0]*uv_rie[1]*(self.U_test[1]*self.normal[0]) +
-                          uv_rie[1]*uv_rie[0]*(self.U_test[0]*self.normal[1]) +
-                          uv_rie[1]*uv_rie[1]*(self.U_test[1]*self.normal[1]))*ds_bnd
+            #elif 'flux' in funcs:
+                ## prescribe normal volume flux
+                #sect_len = Constant(self.boundary_len[bnd_marker])
+                #un_in = dot(uv, self.normal)
+                ## riemann term assuming exterior elevation is zero
+                #un_ext = funcs['flux'] / self.bathymetry / sect_len
+                #eta_ext = 0.0
+                #un_av = (un_in + un_ext)/2
+                #eta_jump = (eta - eta_ext)/2
+                #if self.nonlin:
+                    #s = 0.5*(sign(un_av) + 1.0)
+                    #uv_up = uv*s + un_ext*self.normal*(1-s)
+                    #uv_av = 0.5*(uv + un_ext*self.normal)
+                    #uv_rie = uv_av + sqrt(g_grav/self.bathymetry)*eta_jump*self.normal
+                    ##G += (uv_av[0]*uv_up[0]*(self.U_test[0]*self.normal[0]) +
+                          ##uv_av[0]*uv_up[1]*(self.U_test[1]*self.normal[0]) +
+                          ##uv_av[1]*uv_up[0]*(self.U_test[0]*self.normal[1]) +
+                          ##uv_av[1]*uv_up[1]*(self.U_test[1]*self.normal[1]))*ds_bnd
+                    ## NOTE seems more stable in channel3d -- needs better testing
+                    #G += (uv_rie[0]*uv_rie[0]*(self.U_test[0]*self.normal[0]) +
+                          #uv_rie[0]*uv_rie[1]*(self.U_test[1]*self.normal[0]) +
+                          #uv_rie[1]*uv_rie[0]*(self.U_test[0]*self.normal[1]) +
+                          #uv_rie[1]*uv_rie[1]*(self.U_test[1]*self.normal[1]))*ds_bnd
 
-                    # Lax-Friedrichs stabilization
-                    #un_av = dot(self.normal, uv_av)
-                    #gamma = abs(un_av)
-                    gamma = abs(un_ext)
-                    G += gamma*dot(self.U_test, (uv - un_ext*self.normal)/2)*ds_bnd
+                    ## Lax-Friedrichs stabilization
+                    ##un_av = dot(self.normal, uv_av)
+                    ##gamma = abs(un_av)
+                    #gamma = abs(un_ext)
+                    #G += gamma*dot(self.U_test, (uv - un_ext*self.normal)/2)*ds_bnd
 
-            elif 'radiation':
-                # prescribe radiation condition that allows waves to pass tru
-                un_ext = sqrt(g_grav / total_H) * eta
-                if self.nonlin:
-                    G += un_ext * un_ext * inner(self.normal, self.U_test) * ds_bnd
+            #elif 'radiation':
+                ## prescribe radiation condition that allows waves to pass tru
+                #un_ext = sqrt(g_grav / total_H) * eta
+                #if self.nonlin:
+                    #G += un_ext * un_ext * inner(self.normal, self.U_test) * ds_bnd
 
         # Coriolis
         if coriolis is not None:
@@ -420,7 +462,8 @@ class shallowWaterEquations(equation):
 
         return -F - G
 
-    def Source(self, uv_old=None, uv_bottom=None, bottom_drag=None,
+    def Source(self, uv_source=None, elev_source=None,
+               uv_old=None, uv_bottom=None, bottom_drag=None,
                baroc_head=None, **kwargs):
         """Returns the source terms that do not depend on the solution."""
         F = 0  # holds all dx volume integral terms
@@ -428,6 +471,11 @@ class shallowWaterEquations(equation):
         # Internal pressure gradient
         if baroc_head is not None:
             F += self.pressureGrad(baroc_head, None, None, internalPG=True)
+
+        if uv_source is not None:
+            F += -inner(uv_source, self.U_test)*self.dx
+        if elev_source is not None:
+            F += -inner(elev_source, self.eta_test)*self.dx
 
         return -F
 
