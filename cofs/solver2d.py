@@ -37,9 +37,9 @@ class flowSolver2d(frozenClass):
         self.options.update(options)
 
         # simulation time step bookkeeping
-        self.t = 0
-        self.i = 0
-        self.iExp = 1
+        self.simulation_time = 0
+        self.iteration = 0
+        self.iExport = 1
 
         self.visualizationSpaces = {}
         """Maps function space to a space where fields will be projected to for visualization"""
@@ -99,8 +99,6 @@ class flowSolver2d(frozenClass):
             uvLaxFriedrichs=self.options.uvLaxFriedrichs,
             coriolis=self.options.coriolis,
             wind_stress=self.options.wind_stress,
-            uv_source=self.options.uv_source_2d,
-            elev_source=self.options.elev_source_2d,
             nonlin=self.options.nonlin)
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
@@ -196,13 +194,13 @@ class flowSolver2d(frozenClass):
         self.exporters['hdf5'].exporters['uv_2d'].load(iExport, uv_2d)
         self.exporters['hdf5'].exporters['elev_2d'].load(iExport, elev_2d)
         self.assignInitialConditions(elev=elev_2d, uv_init=uv_2d)
-        self.iExp = iExport
-        self.t = t
-        self.i = iteration
+        self.iExport = iExport
+        self.simulation_time = t
+        self.iteration = iteration
         self.printState(0.0)
-        self.iExp += 1
+        self.iExport += 1
         for k in self.exporters:
-            self.exporters[k].setNextExportIx(self.iExp)
+            self.exporters[k].setNextExportIx(self.iExport)
 
     def printState(self, cputime):
         norm_h = norm(self.fields.solution2d.split()[1])
@@ -214,7 +212,7 @@ class flowSolver2d(frozenClass):
         if commrank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
-            print(bold(line.format(iexp=self.iExp, i=self.i, t=self.t, e=norm_h,
+            print(bold(line.format(iexp=self.iExport, i=self.iteration, t=self.simulation_time, e=norm_h,
                                    u=norm_u, cpu=cputime)))
             sys.stdout.flush()
 
@@ -225,7 +223,7 @@ class flowSolver2d(frozenClass):
 
         T_epsilon = 1.0e-5
         cputimestamp = timeMod.clock()
-        next_export_t = self.t + self.options.TExport
+        next_export_t = self.simulation_time + self.options.TExport
 
         # initialize conservation checks
         if self.options.checkVolConservation2d:
@@ -239,17 +237,17 @@ class flowSolver2d(frozenClass):
             exportFunc()
         self.exporters['vtk'].exportBathymetry(self.fields.bathymetry_2d)
 
-        while self.t <= self.options.T + T_epsilon:
+        while self.simulation_time <= self.options.T + T_epsilon:
 
-            self.timeStepper.advance(self.t, self.dt, self.fields.solution2d,
+            self.timeStepper.advance(self.simulation_time, self.dt, self.fields.solution2d,
                                      updateForcings)
 
             # Move to next time step
-            self.i += 1
-            self.t = self.i*self.dt
+            self.iteration += 1
+            self.simulation_time = self.iteration*self.dt
 
             # Write the solution to file
-            if self.t >= next_export_t - T_epsilon:
+            if self.simulation_time >= next_export_t - T_epsilon:
                 cputime = timeMod.clock() - cputimestamp
                 cputimestamp = timeMod.clock()
                 self.printState(cputime)
@@ -267,7 +265,7 @@ class flowSolver2d(frozenClass):
                     exportFunc()
 
                 next_export_t += self.options.TExport
-                self.iExp += 1
+                self.iExport += 1
 
                 if commrank == 0 and len(self.options.timerLabels) > 0:
                     cost = {}

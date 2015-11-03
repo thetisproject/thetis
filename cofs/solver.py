@@ -39,6 +39,11 @@ class flowSolver(frozenClass):
         self.options = modelOptions()
         self.options.update(options)
 
+        # simulation time step bookkeeping
+        self.simulation_time = 0
+        self.iteration = 0
+        self.iExport = 1
+
         self.bnd_functions = {'shallow_water': {},
                               'momentum': {},
                               'salt': {}}
@@ -113,6 +118,7 @@ class flowSolver(frozenClass):
             self.U = VectorFunctionSpace(self.mesh, 'DG', self.options.order,
                                          vfamily='DG', vdegree=self.options.order,
                                          name='U')
+            # TODO should this be P(n-1)DG x P(n+1) ?
             self.W = VectorFunctionSpace(self.mesh, 'DG', self.options.order,
                                          vfamily='CG', vdegree=self.options.order + 1,
                                          name='W')
@@ -482,6 +488,25 @@ class flowSolver(frozenClass):
         for key in self.exporters:
             self.exporters[key].export()
 
+    def loadState(self, iExport, t, iteration):
+        """Loads simulation state from hdf5 outputs."""
+        # TODO use options to figure out which functions need to be loaded
+        raise NotImplementedError('state loading is not yet implemented for 3d solver')
+
+    def printState(self, cputime):
+        norm_h = norm(self.fields.solution2d.split()[1])
+        norm_u = norm(self.fields.solution2d.split()[0])
+
+        if self.options.checkVolConservation2d:
+            Vol2d = compVolume2d(self.fields.solution2d.split()[1],
+                                 self.fields.bathymetry_2d)
+        if commrank == 0:
+            line = ('{iexp:5d} {i:5d} T={t:10.2f} '
+                    'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
+            print(bold(line.format(iexp=self.iExport, i=self.iteration, t=self.simulation_time, e=norm_h,
+                                   u=norm_u, cpu=cputime)))
+            sys.stdout.flush()
+
     def iterate(self, updateForcings=None, updateForcings3d=None,
                 exportFunc=None):
         if not self._initialized:
@@ -489,10 +514,10 @@ class flowSolver(frozenClass):
 
         T_epsilon = 1.0e-5
         cputimestamp = timeMod.clock()
-        t = 0
-        i = 0
-        iExp = 1
-        next_export_t = t + self.options.TExport
+        self.simulation_time = 0
+        self.iteration = 0
+        self.iExport = 1
+        next_export_t = self.simulation_time + self.options.TExport
 
         # initialize conservation checks
         if self.options.checkVolConservation2d:
@@ -525,21 +550,20 @@ class flowSolver(frozenClass):
             exportFunc()
         self.exporters['vtk'].exportBathymetry(self.fields.bathymetry_2d)
 
-        while t <= self.options.T + T_epsilon:
+        while self.simulation_time <= self.options.T + T_epsilon:
 
-            self.timeStepper.advance(t, self.dt, updateForcings,
-                                     updateForcings3d)
+            self.timeStepper.advance(self.simulation_time, self.dt,
+                                     updateForcings, updateForcings3d)
 
             # Move to next time step
-            t += self.dt
-            i += 1
+            self.simulation_time += self.dt
+            self.iteration += 1
 
             # Write the solution to file
-            if t >= next_export_t - T_epsilon:
+            if self.simulation_time >= next_export_t - T_epsilon:
                 cputime = timeMod.clock() - cputimestamp
                 cputimestamp = timeMod.clock()
-                norm_h = norm(self.fields.solution2d.split()[1])
-                norm_u = norm(self.fields.solution2d.split()[0])
+                self.printState(cputime)
 
                 if self.options.checkVolConservation2d:
                     Vol2d = compVolume2d(self.fields.solution2d.split()[1],
@@ -564,10 +588,6 @@ class flowSolver(frozenClass):
                     undershoot = min(saltMin-saltMin0, 0.0)
                     saltOversh = (undershoot, overshoot)
                 if commrank == 0:
-                    line = ('{iexp:5d} {i:5d} T={t:10.2f} '
-                            'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
-                    print(bold(line.format(iexp=iExp, i=i, t=t, e=norm_h,
-                                           u=norm_u, cpu=cputime)))
                     line = 'Rel. {0:s} error {1:11.4e}'
                     if self.options.checkVolConservation2d:
                         print(line.format('vol 2d', (Vol2d_0 - Vol2d)/Vol2d_0))
@@ -587,7 +607,7 @@ class flowSolver(frozenClass):
                     exportFunc()
 
                 next_export_t += self.options.TExport
-                iExp += 1
+                self.iExport += 1
 
                 if commrank == 0 and len(self.options.timerLabels) > 0:
                     cost = {}
