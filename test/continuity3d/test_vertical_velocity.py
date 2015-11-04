@@ -28,7 +28,7 @@ def test1():
 
     solverObj.createEquations()
     # w needs to be projected to cartesian vector field for sanity check
-    w_3d_proj = Function(solverObj.P1DGv, name='projected w')
+    w_3d_proj = Function(solverObj.function_spaces.P1DGv, name='projected w')
     # use symmetry condition at all boundaries
     bnd_markers = solverObj.eq_sw.boundary_markers
     bnd_funcs = {}
@@ -72,7 +72,7 @@ def test2():
 
     solverObj.createEquations()
     # w needs to be projected to cartesian vector field for sanity check
-    w_3d_proj = Function(solverObj.P1DGv, name='projected w')
+    w_3d_proj = Function(solverObj.function_spaces.P1DGv, name='projected w')
     # use symmetry condition at all boundaries
     bnd_markers = solverObj.eq_sw.boundary_markers
     bnd_funcs = {}

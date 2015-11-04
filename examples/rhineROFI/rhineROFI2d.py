@@ -107,17 +107,17 @@ solverObj.bnd_functions['shallow_water'] = {1: tide_elev_funcs, 2: tide_elev_fun
 
 # TODO set correct boundary conditions
 solverObj.createEquations()
-elev_init = Function(solverObj.H_2d, name='initial elevation')
+elev_init = Function(solverObj.function_spaces.H_2d, name='initial elevation')
 elev_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kelvinK) : amp*cos(x[1]*kelvinK)',
                       amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
-elev_init2 = Function(solverObj.H_2d, name='initial elevation')
+elev_init2 = Function(solverObj.function_spaces.H_2d, name='initial elevation')
 elev_init2.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kelvinK) : 0.0',
                       amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
-uv_init = Function(solverObj.U_2d, name='initial velocity')
+uv_init = Function(solverObj.function_spaces.U_2d, name='initial velocity')
 #uv_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kelvinK) : amp*cos(x[1]*kelvinK)',
                       #amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
-tri = TrialFunction(solverObj.U_2d)
-test = TestFunction(solverObj.U_2d)
+tri = TrialFunction(solverObj.function_spaces.U_2d)
+test = TestFunction(solverObj.function_spaces.U_2d)
 a = inner(test, tri)*solverObj.eq_sw.dx
 uv = (g*kelvinK/OmegaTide)*elev_init2
 L = test[1]*uv*solverObj.eq_sw.dx

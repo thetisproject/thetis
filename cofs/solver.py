@@ -48,11 +48,13 @@ class flowSolver(frozenClass):
                               'momentum': {},
                               'salt': {}}
 
-        self.visualizationSpaces = {}
+        self.visu_spaces = {}
         """Maps function space to a space where fields will be projected to for visualization"""
 
         self.fields = fieldDict()
         """Holds all functions needed by the solver object."""
+        self.function_spaces = AttrDict()
+        """Holds all function spaces needed by the solver object."""
         self.fields.bathymetry_2d = bathymetry_2d
         self._isfrozen = True  # disallow creating new attributes
 
@@ -92,11 +94,11 @@ class flowSolver(frozenClass):
         """Creates function spaces"""
         self._isfrozen = False
         # ----- function spaces: elev in H, uv in U, mixed is W
-        self.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0, name='P0')
-        self.P1 = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1, name='P1')
-        self.P1v = VectorFunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1, name='P1v')
-        self.P1DG = FunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1, name='P1DG')
-        self.P1DGv = VectorFunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1, name='P1DGv')
+        self.function_spaces.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0, name='P0')
+        self.function_spaces.P1 = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1, name='P1')
+        self.function_spaces.P1v = VectorFunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1, name='P1v')
+        self.function_spaces.P1DG = FunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1, name='P1DG')
+        self.function_spaces.P1DGv = VectorFunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1, name='P1DGv')
 
         # Construct HDiv OuterProductElements
         # for horizontal velocity component
@@ -112,52 +114,54 @@ class flowSolver(frozenClass):
         # final spaces
         if self.options.mimetic:
             #self.U = FunctionSpace(self.mesh, UW_elt)  # uv
-            self.U = FunctionSpace(self.mesh, U_elt, name='U')  # uv
-            self.W = FunctionSpace(self.mesh, W_elt, name='W')  # w
+            self.function_spaces.U = FunctionSpace(self.mesh, U_elt, name='U')  # uv
+            self.function_spaces.W = FunctionSpace(self.mesh, W_elt, name='W')  # w
         else:
-            self.U = VectorFunctionSpace(self.mesh, 'DG', self.options.order,
+            self.function_spaces.U = VectorFunctionSpace(self.mesh, 'DG', self.options.order,
                                          vfamily='DG', vdegree=self.options.order,
                                          name='U')
             # TODO should this be P(n-1)DG x P(n+1) ?
-            self.W = VectorFunctionSpace(self.mesh, 'DG', self.options.order,
+            self.function_spaces.W = VectorFunctionSpace(self.mesh, 'DG', self.options.order,
                                          vfamily='CG', vdegree=self.options.order + 1,
                                          name='W')
         # auxiliary function space that will be used to transfer data between 2d/3d modes
-        self.Uproj = self.U
+        self.function_spaces.Uproj = self.function_spaces.U
 
-        self.Uint = self.U  # vertical integral of uv
+        self.function_spaces.Uint = self.function_spaces.U  # vertical integral of uv
         # tracers
-        self.H = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='DG', vdegree=max(0, self.options.order), name='H')
+        self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='DG', vdegree=max(0, self.options.order), name='H')
         # vertical integral of tracers
-        self.Hint = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='CG', vdegree=self.options.order+1, name='Hint')
+        self.function_spaces.Hint = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='CG', vdegree=self.options.order+1, name='Hint')
         # for scalar fields to be used in momentum eq NOTE could be omitted ?
-        self.U_scalar = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='DG', vdegree=self.options.order, name='U_scalar')
+        #self.function_spaces.U_scalar = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='DG', vdegree=self.options.order, name='U_scalar')
         # for turbulence
-        self.turb_space = self.P0
+        self.function_spaces.turb_space = self.function_spaces.P0
         # spaces for visualization
-        self.visualizationSpaces[self.U] = self.P1v
-        self.visualizationSpaces[self.H] = self.P1
-        self.visualizationSpaces[self.Hint] = self.P1
-        self.visualizationSpaces[self.W] = self.P1v
-        self.visualizationSpaces[self.P0] = self.P1
-        self.visualizationSpaces[self.P1] = self.P1
-        self.visualizationSpaces[self.P1DG] = self.P1
+        self.visu_spaces[self.function_spaces.U] = self.function_spaces.P1v
+        self.visu_spaces[self.function_spaces.H] = self.function_spaces.P1
+        self.visu_spaces[self.function_spaces.Hint] = self.function_spaces.P1
+        self.visu_spaces[self.function_spaces.W] = self.function_spaces.P1v
+        self.visu_spaces[self.function_spaces.P0] = self.function_spaces.P1
+        self.visu_spaces[self.function_spaces.P1] = self.function_spaces.P1
+        self.visu_spaces[self.function_spaces.P1DG] = self.function_spaces.P1
 
         # 2D spaces
-        self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1, name='P1_2d')
-        self.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1, name='P1v_2d')
-        self.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1, name='P1DG_2d')
+        self.function_spaces.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1, name='P1_2d')
+        self.function_spaces.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1, name='P1v_2d')
+        self.function_spaces.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1, name='P1DG_2d')
         # 2D velocity space
         if self.options.mimetic:
-            self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.order+1)
+            self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.order+1)
         else:
-            self.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
-        self.Uproj_2d = self.U_2d
-        self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_scalar_2d')
-        self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='H_2d')
-        self.V_2d = MixedFunctionSpace([self.U_2d, self.H_2d], name='V_2d')
-        self.visualizationSpaces[self.U_2d] = self.P1v_2d
-        self.visualizationSpaces[self.H_2d] = self.P1_2d
+            self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
+        self.function_spaces.Uproj_2d = self.function_spaces.U_2d
+        # TODO is this needed?
+        #self.function_spaces.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_scalar_2d')
+        self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='H_2d')
+        self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d], name='V_2d')
+        self.visu_spaces[self.function_spaces.U_2d] = self.function_spaces.P1v_2d
+        self.visu_spaces[self.function_spaces.H_2d] = self.function_spaces.P1_2d
+        self.visu_spaces[self.function_spaces.P1v_2d] = self.function_spaces.P1v_2d
         self._isfrozen = True
 
     def createEquations(self):
@@ -167,85 +171,85 @@ class flowSolver(frozenClass):
         self._isfrozen = False
 
         # ----- fields
-        self.fields.solution2d = Function(self.V_2d)
+        self.fields.solution2d = Function(self.function_spaces.V_2d)
         # correct treatment of the split 2d functions
         uv_2d, eta2d = self.fields.solution2d.split()
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = eta2d
-        self.visualizationSpaces[uv_2d.function_space()] = self.P1v_2d
-        self.visualizationSpaces[eta2d.function_space()] = self.P1_2d
+        self.visu_spaces[uv_2d.function_space()] = self.function_spaces.P1v_2d
+        self.visu_spaces[eta2d.function_space()] = self.function_spaces.P1_2d
         if self.options.useBottomFriction:
-            self.fields.uv_bottom_2d = Function(self.P1v_2d)
-            self.fields.z_bottom_2d = Function(self.P1_2d)
-            self.fields.bottom_drag_2d = Function(self.P1_2d)
+            self.fields.uv_bottom_2d = Function(self.function_spaces.P1v_2d)
+            self.fields.z_bottom_2d = Function(self.function_spaces.P1_2d)
+            self.fields.bottom_drag_2d = Function(self.function_spaces.P1_2d)
 
-        self.fields.elev_3d = Function(self.H)
-        self.fields.elev_cg_3d = Function(self.P1)
-        self.fields.bathymetry_3d = Function(self.P1)
-        self.fields.uv_3d = Function(self.U)
+        self.fields.elev_3d = Function(self.function_spaces.H)
+        self.fields.elev_cg_3d = Function(self.function_spaces.P1)
+        self.fields.bathymetry_3d = Function(self.function_spaces.P1)
+        self.fields.uv_3d = Function(self.function_spaces.U)
         if self.options.useBottomFriction:
-            self.fields.uv_bottom_3d = Function(self.P1v)
-            self.fields.bottom_drag_3d = Function(self.P1)
+            self.fields.uv_bottom_3d = Function(self.function_spaces.P1v)
+            self.fields.bottom_drag_3d = Function(self.function_spaces.P1)
         # z coordinate in the strecthed mesh
-        self.fields.z_coord_3d = Function(self.P1)
+        self.fields.z_coord_3d = Function(self.function_spaces.P1)
         # z coordinate in the reference mesh (eta=0)
-        self.fields.z_coord_ref_3d = Function(self.P1)
-        self.fields.uv_dav_3d = Function(self.Uproj)
-        self.fields.uv_dav_2d = Function(self.Uproj_2d)
-        self.fields.uv_mag_3d = Function(self.P0)
-        self.fields.uv_p1_3d = Function(self.P1v)
-        self.fields.w_3d = Function(self.W)
+        self.fields.z_coord_ref_3d = Function(self.function_spaces.P1)
+        self.fields.uv_dav_3d = Function(self.function_spaces.Uproj)
+        self.fields.uv_dav_2d = Function(self.function_spaces.Uproj_2d)
+        self.fields.uv_mag_3d = Function(self.function_spaces.P0)
+        self.fields.uv_p1_3d = Function(self.function_spaces.P1v)
+        self.fields.w_3d = Function(self.function_spaces.W)
         if self.options.useALEMovingMesh:
-            self.fields.w_mesh_3d = Function(self.H)
-            self.fields.w_mesh_ddz_3d = Function(self.H)
-            self.fields.w_mesh_surf_3d = Function(self.H)
-            self.fields.w_mesh_surf_2d = Function(self.H_2d)
+            self.fields.w_mesh_3d = Function(self.function_spaces.H)
+            self.fields.w_mesh_ddz_3d = Function(self.function_spaces.H)
+            self.fields.w_mesh_surf_3d = Function(self.function_spaces.H)
+            self.fields.w_mesh_surf_2d = Function(self.function_spaces.H_2d)
         if self.options.solveSalt:
-            self.fields.salt_3d = Function(self.H, name='Salinity')
+            self.fields.salt_3d = Function(self.function_spaces.H, name='Salinity')
         if self.options.solveVertDiffusion and self.options.useParabolicViscosity:
             # FIXME useParabolicViscosity is OBSOLETE
-            self.fields.parab_visc_3d = Function(self.P1)
+            self.fields.parab_visc_3d = Function(self.function_spaces.P1)
         if self.options.baroclinic:
-            self.fields.baroc_head_3d = Function(self.Hint)
-            self.fields.baroc_head_int_3d = Function(self.Hint)
-            self.fields.baro_head_2d = Function(self.H_2d)
+            self.fields.baroc_head_3d = Function(self.function_spaces.Hint)
+            self.fields.baroc_head_int_3d = Function(self.function_spaces.Hint)
+            self.fields.baroc_head_2d = Function(self.function_spaces.H_2d)
         if self.options.coriolis is not None:
             if isinstance(self.options.coriolis, Constant):
                 self.fields.coriolis_3d = self.options.coriolis
             else:
-                self.fields.coriolis_3d = Function(self.P1)
+                self.fields.coriolis_3d = Function(self.function_spaces.P1)
                 copy2dFieldTo3d(self.options.coriolis, self.fields.coriolis_3d)
         if self.options.wind_stress is not None:
-            self.fields.wind_stress_3d = Function(self.P1)
+            self.fields.wind_stress_3d = Function(self.function_spaces.P1)
             copy2dFieldTo3d(self.options.wind_stress, self.fields.wind_stress_3d)
-        self.fields.v_elem_size_3d = Function(self.P1DG)
-        self.fields.v_elem_size_2d = Function(self.P1DG_2d)
-        self.fields.h_elem_size_3d = Function(self.P1)
-        self.fields.h_elem_size_2d = Function(self.P1_2d)
+        self.fields.v_elem_size_3d = Function(self.function_spaces.P1DG)
+        self.fields.v_elem_size_2d = Function(self.function_spaces.P1DG_2d)
+        self.fields.h_elem_size_3d = Function(self.function_spaces.P1)
+        self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
         getHorzontalElemSize(self.fields.h_elem_size_2d, self.fields.h_elem_size_3d)
-        self.fields.max_h_diff = Function(self.P1)
+        self.fields.max_h_diff = Function(self.function_spaces.P1)
         if self.options.smagorinskyFactor is not None:
-            self.fields.smag_visc_3d = Function(self.P1)
+            self.fields.smag_visc_3d = Function(self.function_spaces.P1)
         if self.options.salt_jump_diffFactor is not None:
-            self.fields.salt_jump_diff = Function(self.P1)
+            self.fields.salt_jump_diff = Function(self.function_spaces.P1)
         if self.options.useLimiterForTracers:
-            self.tracerLimiter = limiter.vertexBasedP1DGLimiter(self.H,
-                                                                self.P1,
-                                                                self.P0)
+            self.tracerLimiter = limiter.vertexBasedP1DGLimiter(self.function_spaces.H,
+                                                                self.function_spaces.P1,
+                                                                self.function_spaces.P0)
         else:
             self.tracerLimiter = None
         if self.options.useTurbulence:
             # NOTE tke and psi should be in H as tracers ??
-            self.fields.tke_3d = Function(self.turb_space)
-            self.fields.psi_3d = Function(self.turb_space)
+            self.fields.tke_3d = Function(self.function_spaces.turb_space)
+            self.fields.psi_3d = Function(self.function_spaces.turb_space)
             # NOTE other turb. quantities should share the same nodes ??
-            self.fields.eps_3d = Function(self.turb_space)
-            self.fields.len_3d = Function(self.turb_space)
-            self.fields.eddy_visc_3d = Function(self.turb_space)
-            self.fields.eddy_diff_3d = Function(self.turb_space)
+            self.fields.eps_3d = Function(self.function_spaces.turb_space)
+            self.fields.len_3d = Function(self.function_spaces.turb_space)
+            self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
+            self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
             # NOTE M2 and N2 depend on d(.)/dz -> use CG in vertical ?
-            self.fields.shear_freq_3d = Function(self.turb_space)
-            self.fields.buoy_freq_3d = Function(self.turb_space)
+            self.fields.shear_freq_3d = Function(self.function_spaces.turb_space)
+            self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)
             glsParameters = {}  # use default parameters for now
             self.glsModel = turbulence.genericLengthScaleModel(weakref.proxy(self),
                 self.fields.tke_3d, self.fields.psi_3d, self.fields.uv_p1_3d, self.fields.len_3d, self.fields.eps_3d,
@@ -281,7 +285,7 @@ class flowSolver(frozenClass):
             self.eq_sw = shallowWaterEq.shallowWaterEquations(
                 self.fields.solution2d, self.fields.bathymetry_2d,
                 self.fields.get('uv_bottom_2d'), self.fields.get('bottom_drag_2d'),
-                baro_head=self.fields.get('baro_head_2d'),
+                baroc_head=self.fields.get('baroc_head_2d'),
                 viscosity_h=self.fields.get('hViscosity'),  # FIXME add 2d smag
                 uvLaxFriedrichs=self.options.uvLaxFriedrichs,
                 coriolis=self.options.coriolis,
@@ -301,7 +305,7 @@ class flowSolver(frozenClass):
             bnd_markers,
             bnd_len, self.fields.uv_3d, self.fields.elev_3d,
             self.fields.bathymetry_3d, w=self.fields.w_3d,
-            baro_head=self.fields.get('baroc_head_3d'),
+            baroc_head=self.fields.get('baroc_head_3d'),
             w_mesh=self.fields.get('w_mesh_3d'),
             dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
             viscosity_v=self.tot_v_visc.getSum(),
@@ -409,7 +413,7 @@ class flowSolver(frozenClass):
         e = exporter.exportManager(self.options.outputDir,
                                    self.options.fieldsToExport,
                                    self.fields,
-                                   self.visualizationSpaces,
+                                   self.visu_spaces,
                                    fieldMetadata,
                                    exportType='vtk',
                                    verbose=self.options.verbose > 0)
@@ -418,7 +422,7 @@ class flowSolver(frozenClass):
         e = exporter.exportManager(numpyDir,
                                    self.options.fieldsToExportNumpy,
                                    self.fields,
-                                   self.visualizationSpaces,
+                                   self.visu_spaces,
                                    fieldMetadata,
                                    exportType='numpy',
                                    verbose=self.options.verbose > 0)
@@ -427,7 +431,7 @@ class flowSolver(frozenClass):
         e = exporter.exportManager(hdf5Dir,
                                    self.options.fieldsToExportHDF5,
                                    self.fields,
-                                   self.visualizationSpaces,
+                                   self.visu_spaces,
                                    fieldMetadata,
                                    exportType='hdf5',
                                    verbose=self.options.verbose > 0)
@@ -475,7 +479,7 @@ class flowSolver(frozenClass):
                                 self.fields.bathymetry_3d, self.fields.z_coord_ref_3d)
         if self.options.baroclinic:
             computeBaroclinicHead(self.fields.salt_3d, self.fields.baroc_head_3d,
-                                  self.fields.baro_head_2d, self.fields.baroc_head_int_3d,
+                                  self.fields.baroc_head_2d, self.fields.baroc_head_int_3d,
                                   self.fields.bathymetry_3d)
 
         self.timeStepper.initialize()

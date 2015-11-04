@@ -71,14 +71,16 @@ options.timerLabels = []
 options.fieldsToExport = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                           'w_3d', 'w_mesh_3d', 'salt_3d',
                           'uv_dav_2d', 'uv_bottom_2d']
+options.fieldsToExportHDF5 = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
+                              'w_3d', 'salt_3d']
 
 # need to call creator to create the function spaces
 solverObj.createEquations()
-elev_init = Function(solverObj.H_2d)
+elev_init = Function(solverObj.function_spaces.H_2d)
 elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=elev_amp,
                              Lx=Lx))
 if options.solveSalt:
-    salt_init3d = Function(solverObj.H, name='initial salinity')
+    salt_init3d = Function(solverObj.function_spaces.H, name='initial salinity')
     # salt_init3d.interpolate(Expression('x[0]/1.0e5*10.0+2.0'))
     salt_init3d.assign(4.5)
 else:

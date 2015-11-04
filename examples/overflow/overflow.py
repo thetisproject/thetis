@@ -83,12 +83,12 @@ options.checkSaltConservation = True
 options.fieldsToExport = ['uv_2d', 'elev_2d', 'uv_3d',
                           'w_3d', 'w_mesh_3d', 'salt_3d',
                           'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                          'baro_head_2d',
+                          'baroc_head_2d',
                           'smag_visc_3d', 'salt_jump_diff']
 options.timerLabels = []
 
 solverObj.createEquations()
-salt_init3d = Function(solverObj.H, name='initial salinity')
+salt_init3d = Function(solverObj.function_spaces.H, name='initial salinity')
 # vertical barrier
 # salt_init3d.interpolate(Expression(('(x[0] > 20.0e3) ? 0.0 : 2.0')))
 # smooth condition

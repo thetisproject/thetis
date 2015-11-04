@@ -68,7 +68,7 @@ options.dt = 10.0  # override dt for IMEX (semi-implicit)
 solverObj.createEquations()
 
 # set initial elevation to first standing wave mode
-elev_init = Function(solverObj.H_2d)
+elev_init = Function(solverObj.function_spaces.H_2d)
 elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=elev_amp,
                              Lx=Lx))
 solverObj.assignInitialConditions(elev=elev_init)

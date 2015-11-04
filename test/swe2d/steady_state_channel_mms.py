@@ -85,13 +85,13 @@ for i in range(5):
 
     uv, eta = solverObj.fields.solution2d.split()
 
-    eta_ana = project(eta_expr, solverObj.H_2d)
-    diff_pvd << project(eta_ana-eta, solverObj.H_2d, name="diff")
+    eta_ana = project(eta_expr, solverObj.function_spaces.H_2d)
+    diff_pvd << project(eta_ana-eta, solverObj.function_spaces.H_2d, name="diff")
     eta_l2norm = assemble(pow(eta-eta_ana,2)*dx)
     eta_errs.append(math.sqrt(eta_l2norm/area))
 
-    u_ana = project(u_expr, solverObj.U_2d)
-    udiff_pvd << project(u_ana-uv, solverObj.U_2d, name="diff")
+    u_ana = project(u_expr, solverObj.function_spaces.U_2d)
+    udiff_pvd << project(u_ana-uv, solverObj.function_spaces.U_2d, name="diff")
     u_l2norm = assemble(inner(u_ana-uv,u_ana-uv)*dx)
     u_errs.append(math.sqrt(u_l2norm/area))
 

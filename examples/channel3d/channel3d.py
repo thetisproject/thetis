@@ -55,7 +55,7 @@ options.checkSaltDeviation = True
 options.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion']
 options.fieldsToExport = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
-                            'baroc_head_3d', 'baro_head_2d',
+                            'baroc_head_3d', 'baroc_head_2d',
                             'uv_dav_2d', 'uv_bottom_2d']
 
 # initial conditions

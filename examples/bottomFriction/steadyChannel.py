@@ -73,12 +73,12 @@ options.outputDir = outputDir
 options.uAdvection = Umag
 options.checkSaltDeviation = True
 options.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion', 'turbulence']
-options.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
-                          'w3d', 'wMesh3d', 'salt3d',
-                          'baroHead3d', 'baroHead2d',
-                          'uvDav2d', 'uvBot2d',
-                          'parabNuv3d', 'eddyVisc3d', 'shearFreq3d',
-                          'tke3d', 'psi3d', 'eps3d', 'len3d',]
+options.fieldsToExport = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
+                          'w_3d', 'w_mesh_3d', 'salt_3d',
+                          'baroc_head_3d', 'baroc_head_2d',
+                          'uv_dav_2d', 'uv_bottom_2d',
+                          'parab_visc_3d', 'eddy_visc_3d', 'shear_freq_3d',
+                          'tke_3d', 'psi_3d', 'eps_3d', 'len_3d',]
 
 # weak boundary conditions
 left_tag = 1   # x=x_min plane
@@ -94,7 +94,7 @@ solverObj.bnd_functions['momentum'] = {right_tag: right_funcs,
                                        left_tag: left_funcs}
 
 solverObj.createEquations()
-elev_init = Function(solverObj.H_2d, name='initial elev')
+elev_init = Function(solverObj.function_spaces.H_2d, name='initial elev')
 elev_init.interpolate(Expression('x[0]*slope', slope=-surf_slope))
 
 solverObj.assignInitialConditions(elev=elev_init)

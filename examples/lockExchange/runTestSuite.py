@@ -141,7 +141,7 @@ solverObj.fieldsToExportNumpy = ['salt3d']
 solverObj.timerLabels = []
 
 solverObj.createEquations()
-salt_init3d = Function(solverObj.H, name='initial salinity')
+salt_init3d = Function(solverObj.function_spaces.H, name='initial salinity')
 # vertical barrier
 # salt_init3d.interpolate(Expression(('(x[0] > 0.0) ? 20.0 : 25.0')))
 # smooth condition

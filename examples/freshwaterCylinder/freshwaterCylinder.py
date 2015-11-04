@@ -93,7 +93,7 @@ options.checkSaltOvershoot = True
 options.fieldsToExport = ['uv_2d', 'elev_2d', 'uv_3d',
                           'w_3d', 'w_mesh_3d', 'salt_3d',
                           'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                          'baro_head_2d']
+                          'baroc_head_2d']
 options.fieldsToExportNumpy = ['salt_3d', 'baroc_head_3d', 'elev_2d']
 options.timerLabels = ['mode2d', 'momentumEq', 'continuityEq', 'saltEq',
                        'aux_barolinicity', 'aux_mom_coupling',
@@ -101,10 +101,10 @@ options.timerLabels = ['mode2d', 'momentumEq', 'continuityEq', 'saltEq',
 
 solverObj.createEquations()
 # assign initial salinity
-salt_init3d = Function(solverObj.H, name='initial salinity')
+salt_init3d = Function(solverObj.function_spaces.H, name='initial salinity')
 # interpolate on P1 field to circumvent overshoots
 # impose rho' = rho - 1025.0
-tmp = Function(solverObj.P1, name='initial salinity')
+tmp = Function(solverObj.function_spaces.P1, name='initial salinity')
 tmp.interpolate(Expression('0.78*1.1*pow((sqrt(x[0]*x[0] + x[1]*x[1])/1000/3 + (1.0-tanh(10*(x[2]+10.0)))*0.5), 8)'))
 # crop bad values
 ix = tmp.dat.data[:] > 0.858

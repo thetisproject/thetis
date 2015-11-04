@@ -95,7 +95,7 @@ options.checkSaltConservation = True
 options.fieldsToExport = ['uv_2d', 'elev_2d', 'uv_3d',
                           'w_3d', 'w_mesh_3d', 'salt_3d',
                           'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                          'baro_head_2d', 'gjv_alpha_h_3d', 'gjv_alpha_v_3d',
+                          'baroc_head_2d', 'gjv_alpha_h_3d', 'gjv_alpha_v_3d',
                           'smag_visc_3d', 'salt_jump_diff']
 options.timerLabels = []
 
@@ -139,28 +139,28 @@ solverObj.bnd_functions['salt'] = {1: bnd_ocean_salt, 2: bnd_ocean_salt,
                                    3: bnd_ocean_salt, 6: bnd_river_salt}
 
 solverObj.createEquations()
-bnd_elev_3d = Function(solverObj.P1, name='Boundary elevation 3d')
+bnd_elev_3d = Function(solverObj.function_spaces.P1, name='Boundary elevation 3d')
 copy2dFieldTo3d(bnd_elev, bnd_elev_3d)
 tide_elev_funcs_3d = {'elev': bnd_elev_3d}
 solverObj.eq_momentum.bnd_functions = {1: tide_elev_funcs_3d, 2: tide_elev_funcs_3d,
                                        3: tide_elev_funcs_3d, 6: river_funcs}
 
-elev_init = Function(solverObj.H_2d, name='initial elevation')
+elev_init = Function(solverObj.function_spaces.H_2d, name='initial elevation')
 elev_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kelvinK) : amp*cos(x[1]*kelvinK)',
                       amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
-elev_init2 = Function(solverObj.H_2d, name='initial elevation')
+elev_init2 = Function(solverObj.function_spaces.H_2d, name='initial elevation')
 elev_init2.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kelvinK) : 0.0',
                       amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
-uv_init = Function(solverObj.U_2d, name='initial velocity')
+uv_init = Function(solverObj.function_spaces.U_2d, name='initial velocity')
 #uv_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kelvinK) : amp*cos(x[1]*kelvinK)',
                       #amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
-tri = TrialFunction(solverObj.U_2d)
-test = TestFunction(solverObj.U_2d)
+tri = TrialFunction(solverObj.function_spaces.U_2d)
+test = TestFunction(solverObj.function_spaces.U_2d)
 a = inner(test, tri)*solverObj.eq_sw.dx
 uv = (g*kelvinK/OmegaTide)*elev_init2
 L = test[1]*uv*solverObj.eq_sw.dx
 solve(a == L, uv_init)
-salt_init3d = Function(solverObj.H, name='initial salinity')
+salt_init3d = Function(solverObj.function_spaces.H, name='initial salinity')
 salt_init3d.interpolate(Expression('d_ocean - (d_ocean - d_river)*(1 + tanh((x[0] - xoff)/sigma))/2',
                                    sigma=6000.0, d_ocean=density_ocean,
                                    d_river=density_river, xoff=20.0e3))

@@ -68,10 +68,11 @@ bathymetry_2d = Function(P1_2d, name='Bathymetry')
 bathymetry_2d.assign(depth)
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry_2d, layers, mimetic=False)
+solverObj = solver.flowSolver(mesh2d, bathymetry_2d, layers)
 options = solverObj.options
 options.cfl_2d = 1.0
 #options.nonlin = False
+options.mimetic = True
 options.solveSalt = True
 options.solveVertDiffusion = False
 options.useBottomFriction = False
@@ -104,13 +105,13 @@ options.checkSaltOvershoot = True
 options.fieldsToExport = ['uv_2d', 'elev_2d', 'uv_3d',
                           'w_3d', 'w_mesh_3d', 'salt_3d',
                           'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                          'baro_head_2d',
+                          'baroc_head_2d',
                           'smag_visc_3d', 'salt_jump_diff']
 options.fieldsToExportNumpy = ['salt_3d']
 options.timerLabels = []
 
 solverObj.createEquations()
-salt_init3d = Function(solverObj.H, name='initial salinity')
+salt_init3d = Function(solverObj.function_spaces.H, name='initial salinity')
 # vertical barrier
 # salt_init3d.interpolate(Expression(('(x[0] > 0.0) ? 20.0 : 25.0')))
 # smooth condition

@@ -454,7 +454,7 @@ def computeVerticalIntegral(input, output, bottomToTop=True,
     return output
 
 
-def computeBaroclinicHead(salt, baroc_head_3d, baro_head_2d, baroc_head_int_3d, bath3d):
+def computeBaroclinicHead(salt, baroc_head_3d, baroc_head_2d, baroc_head_int_3d, bath3d):
     """
     Computes baroclinic head from density field
 
@@ -465,7 +465,7 @@ def computeBaroclinicHead(salt, baroc_head_3d, baro_head_2d, baroc_head_int_3d, 
     computeVerticalIntegral(
         baroc_head_3d, baroc_head_int_3d, bottomToTop=True,
         average=True, bathymetry=bath3d)
-    copy3dFieldTo2d(baroc_head_int_3d, baro_head_2d, useBottomValue=False)
+    copy3dFieldTo2d(baroc_head_int_3d, baroc_head_2d, useBottomValue=False)
 
 
 def computeVelMagnitude(solution, u=None, w=None, minVal=1e-6,

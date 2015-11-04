@@ -41,11 +41,13 @@ class flowSolver2d(frozenClass):
         self.iteration = 0
         self.iExport = 1
 
-        self.visualizationSpaces = {}
+        self.visu_spaces = {}
         """Maps function space to a space where fields will be projected to for visualization"""
 
         self.fields = fieldDict()
         """Holds all functions needed by the solver object."""
+        self.function_spaces = AttrDict()
+        """Holds all function spaces needed by the solver object."""
         self.fields.bathymetry_2d = bathymetry_2d
 
         self.bnd_functions = {'shallow_water': {}}
@@ -66,20 +68,21 @@ class flowSolver2d(frozenClass):
         """Creates function spaces"""
         self._isfrozen = False
         # ----- function spaces: elev in H, uv in U, mixed is W
-        self.P0_2d = FunctionSpace(self.mesh2d, 'DG', 0)
-        self.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
-        self.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
+        self.function_spaces.P0_2d = FunctionSpace(self.mesh2d, 'DG', 0)
+        self.function_spaces.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
+        self.function_spaces.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
         # 2D velocity space
         if self.options.mimetic:
-            self.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.order+1)
+            self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.order+1)
         else:
-            self.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
-        self.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
-        self.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
-        self.V_2d = MixedFunctionSpace([self.U_2d, self.H_2d])
+            self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
+        # TODO can this be omitted?
+        #self.function_spaces.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
+        self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
+        self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d])
 
-        self.visualizationSpaces[self.U_2d] = self.P1v_2d
-        self.visualizationSpaces[self.H_2d] = self.P1_2d
+        self.visu_spaces[self.function_spaces.U_2d] = self.function_spaces.P1v_2d
+        self.visu_spaces[self.function_spaces.H_2d] = self.function_spaces.P1_2d
         self._isfrozen = True
 
     def createEquations(self):
@@ -88,7 +91,7 @@ class flowSolver2d(frozenClass):
             self.createFunctionSpaces()
         self._isfrozen = False
         # ----- fields
-        self.fields.solution2d = Function(self.V_2d)
+        self.fields.solution2d = Function(self.function_spaces.V_2d)
 
         # ----- Equations
         self.eq_sw = shallowWaterEq.shallowWaterEquations(
@@ -140,13 +143,13 @@ class flowSolver2d(frozenClass):
         uv_2d, elev_2d = self.fields.solution2d.split()
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = elev_2d
-        self.visualizationSpaces[uv_2d.function_space()] = self.P1v_2d
-        self.visualizationSpaces[elev_2d.function_space()] = self.P1_2d
+        self.visu_spaces[uv_2d.function_space()] = self.function_spaces.P1v_2d
+        self.visu_spaces[elev_2d.function_space()] = self.function_spaces.P1_2d
         self.exporters = {}
         e = exporter.exportManager(self.options.outputDir,
                                    self.options.fieldsToExport,
                                    self.fields,
-                                   self.visualizationSpaces,
+                                   self.visu_spaces,
                                    fieldMetadata,
                                    exportType='vtk',
                                    verbose=self.options.verbose > 0)
@@ -155,7 +158,7 @@ class flowSolver2d(frozenClass):
         e = exporter.exportManager(numpyDir,
                                    self.options.fieldsToExportNumpy,
                                    self.fields,
-                                   self.visualizationSpaces,
+                                   self.visu_spaces,
                                    fieldMetadata,
                                    exportType='numpy',
                                    verbose=self.options.verbose > 0)
@@ -164,7 +167,7 @@ class flowSolver2d(frozenClass):
         e = exporter.exportManager(hdf5Dir,
                                    self.options.fieldsToExportHDF5,
                                    self.fields,
-                                   self.visualizationSpaces,
+                                   self.visu_spaces,
                                    fieldMetadata,
                                    exportType='hdf5',
                                    verbose=self.options.verbose > 0)

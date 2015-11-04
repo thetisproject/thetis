@@ -226,7 +226,7 @@ fieldMetadata['baroc_head_int_3d'] = {
     'unit': 'm2',
     'filename': 'BaroHeadInt3d',
     }
-fieldMetadata['baro_head_2d'] = {
+fieldMetadata['baroc_head_2d'] = {
     'name': 'Depth averaged baroclinic head',
     'shortname': 'Dav baroclinic head',
     'unit': 'm',

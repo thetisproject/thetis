@@ -229,11 +229,11 @@ class genericLengthScaleModel(object):
                                name='tmp Shear frequency')
         self.Mu = Function(self.M2.function_space(), name='Shear frequency X')
         self.Mv = Function(self.M2.function_space(), name='Shear frequency Y')
-        self.tmp_field_P1 = Function(solver.P1,
+        self.tmp_field_P1 = Function(solver.function_spaces.P1,
                                      name='tmp_p1_field')
-        self.tmp_field_P0 = Function(solver.P0,
+        self.tmp_field_P0 = Function(solver.function_spaces.P0,
                                      name='tmp_p0_field')
-        self.smoother = smootherP1(self.solver.P1DG, self.solver.P1,
+        self.smoother = smootherP1(self.solver.function_spaces.P1DG, self.solver.function_spaces.P1,
                                    self.solver.fields.v_elem_size_3d)
         # parameter to mix old and new viscosity values (1 => new only)
         self.relaxation = 0.5

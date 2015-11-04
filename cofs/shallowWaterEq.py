@@ -13,7 +13,7 @@ class shallowWaterEquations(equation):
     """2D depth averaged shallow water equations in non-conservative form"""
     def __init__(self, solution, bathymetry,
                  uv_bottom=None, bottom_drag=None, viscosity_h=None,
-                 mu_manning=None, lin_drag=None, baro_head=None,
+                 mu_manning=None, lin_drag=None, baroc_head=None,
                  coriolis=None,
                  wind_stress=None,
                  uvLaxFriedrichs=None,
@@ -32,7 +32,7 @@ class shallowWaterEquations(equation):
                        'viscosity_h': viscosity_h,
                        'mu_manning': mu_manning,
                        'lin_drag': lin_drag,
-                       'baro_head': baro_head,
+                       'baroc_head': baroc_head,
                        'coriolis': coriolis,
                        'wind_stress': wind_stress,
                        'uvLaxFriedrichs': uvLaxFriedrichs,
@@ -421,13 +421,13 @@ class shallowWaterEquations(equation):
         return -F - G
 
     def Source(self, uv_old=None, uv_bottom=None, bottom_drag=None,
-               baro_head=None, **kwargs):
+               baroc_head=None, **kwargs):
         """Returns the source terms that do not depend on the solution."""
         F = 0  # holds all dx volume integral terms
 
         # Internal pressure gradient
-        if baro_head is not None:
-            F += self.pressureGrad(baro_head, None, None, internalPG=True)
+        if baroc_head is not None:
+            F += self.pressureGrad(baroc_head, None, None, internalPG=True)
 
         return -F
 
@@ -605,7 +605,7 @@ class freeSurfaceEquation(equation):
         return -F - G
 
     def Source(self, uv_old=None, uv_bottom=None, bottom_drag=None,
-               baro_head=None, **kwargs):
+               baroc_head=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
         F = 0  # holds all dx volume integral terms

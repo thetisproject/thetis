@@ -17,7 +17,7 @@ class momentumEquation(equation):
                  uv_bottom=None, bottom_drag=None, lin_drag=None,
                  viscosity_v=None, viscosity_h=None,
                  coriolis=None,
-                 baro_head=None,
+                 baroc_head=None,
                  laxFriedrichsFactor=None, uvMag=None,
                  uvP1=None,
                  nonlin=True):
@@ -35,7 +35,7 @@ class momentumEquation(equation):
                        'lin_drag': lin_drag,
                        'viscosity_v': viscosity_v,
                        'viscosity_h': viscosity_h,
-                       'baro_head': baro_head,
+                       'baroc_head': baroc_head,
                        'coriolis': coriolis,
                        'laxFriedrichsFactor': laxFriedrichsFactor,
                        'uvMag': uvMag,
@@ -94,10 +94,10 @@ class momentumEquation(equation):
         """
         return inner(solution, self.test) * self.dx
 
-    def pressureGrad(self, eta, baro_head, uv, total_H, byParts=True,
+    def pressureGrad(self, eta, baroc_head, uv, total_H, byParts=True,
                      **kwargs):
-        if baro_head is not None:
-            head = eta + baro_head
+        if baroc_head is not None:
+            head = eta + baroc_head
         else:
             head = eta
         if byParts:
@@ -115,8 +115,8 @@ class momentumEquation(equation):
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds_v(int(bnd_marker))
-                if baro_head is not None:
-                    f += g_grav*baro_head*nDotTest*ds_bnd
+                if baroc_head is not None:
+                    f += g_grav*baroc_head*nDotTest*ds_bnd
                 specialEtaFlux = funcs is not None and 'elev' in funcs
                 if not specialEtaFlux:
                     f += g_grav*eta*nDotTest*ds_bnd
@@ -204,7 +204,7 @@ class momentumEquation(equation):
         return -F - G
 
     def RHS(self, solution, eta, w=None, viscosity_v=None,
-            viscosity_h=None, coriolis=None, baro_head=None,
+            viscosity_h=None, coriolis=None, baroc_head=None,
             uv_bottom=None, bottom_drag=None, lin_drag=None,
             w_mesh=None, dw_mesh_dz=None, laxFriedrichsFactor=None,
             uvMag=None, uvP1=None, **kwargs):
@@ -219,7 +219,7 @@ class momentumEquation(equation):
             total_H = self.bathymetry
 
         # external pressure gradient
-        F += self.pressureGrad(eta, baro_head, solution, total_H, byParts=self.gradEtaByParts)
+        F += self.pressureGrad(eta, baroc_head, solution, total_H, byParts=self.gradEtaByParts)
 
         # Advection term
         if self.nonlin:
@@ -342,7 +342,7 @@ class momentumEquation(equation):
         return -F - G
 
     def Source(self, eta, w=None, viscosity_v=None,
-               uv_bottom=None, bottom_drag=None, baro_head=None, **kwargs):
+               uv_bottom=None, bottom_drag=None, baroc_head=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
         F = 0  # holds all dx volume integral terms

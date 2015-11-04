@@ -104,7 +104,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
         if self.options.baroclinic:
             with timed_region('aux_barolinicity'):
                 computeBaroclinicHead(self.fields.salt_3d, self.fields.baroc_head_3d,
-                                      self.fields.baro_head_2d, self.fields.baroc_head_int_3d,
+                                      self.fields.baroc_head_2d, self.fields.baroc_head_int_3d,
                                       self.fields.bathymetry_3d)
 
     def _updateTurbulence(self, t):
