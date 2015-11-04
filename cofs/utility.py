@@ -14,11 +14,54 @@ from pyop2.profiling import timed_region, timed_function, timing
 from mpi4py import MPI
 import ufl
 import coffee.base as ast
+from cofs.fieldDefs import fieldMetadata
 
 comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
 
 colorama.init()
+
+
+class frozenClass(object):
+    """A class where creating a new attribute will raise an exception if _isfrozen == True"""
+    _isfrozen = False
+
+    def __setattr__(self, key, value):
+        if self._isfrozen and not hasattr(self, key):
+            raise TypeError( 'Adding new attribute "{:}" to {:} class is forbidden'.format(key, self.__class__.__name__))
+        super(frozenClass, self).__setattr__(key, value)
+
+
+class sumFunction(object):
+    """
+    Helper class to keep track of sum of Coefficients.
+    """
+    def __init__(self):
+        """
+        Initialize empty sum.
+
+        get operation returns Constant(0)
+        """
+        self.coeffList = []
+
+    def add(self, coeff):
+        """
+        Adds a coefficient to self
+        """
+        if coeff is None:
+            return
+        #classes = (Function, Constant, ufl.algebra.Sum, ufl.algebra.Product)
+        #assert not isinstance(coeff, classes), \
+            #('bad argument type: ' + str(type(coeff)))
+        self.coeffList.append(coeff)
+
+    def getSum(self):
+        """
+        Returns a sum of all added Coefficients
+        """
+        if len(self.coeffList) == 0:
+            return None
+        return sum(self.coeffList)
 
 
 class equation(object):
@@ -43,6 +86,105 @@ class equation(object):
         """Returns weak for for terms that do not depend on the solution."""
         raise NotImplementedError(('This method must be implemented '
                                    'in the derived class'))
+
+
+class AttrDict(dict):
+    """
+    Dictionary that provides both self['key'] and self.key access to members.
+
+    http://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute-in-python
+    """
+    def __init__(self, *args, **kwargs):
+        if sys.version_info < (2, 7, 4):
+            raise Exception('AttrDict requires python >= 2.7.4 to avoid memory leaks')
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
+
+
+class fieldDict(AttrDict):
+    """
+    AttrDict that checks that all added fields have proper meta data.
+
+    Values can be either Function or Constant objects.
+    """
+    def _checkInputs(self, key, value):
+        if key != '__dict__':
+            if not isinstance(value, (Function, Constant)):
+                raise TypeError('Value must be a Function or Constant object')
+            fs = value.function_space()
+            if not isinstance(fs, MixedFunctionSpace) and key not in fieldMetadata:
+                msg = 'Trying to add a field "{:}" that has no meta data. ' \
+                      'Add fieldMetadata entry to fieldDefs.py'.format(key)
+                raise Exception(msg)
+
+    def _setFunctionName(self, key, value):
+        """Set function.name to key to ensure consistent naming"""
+        if isinstance(value, Function):
+            value.rename(name=key)
+
+    def __setitem__(self, key, value):
+        self._checkInputs(key, value)
+        self._setFunctionName(key, value)
+        super(fieldDict, self).__setitem__(key, value)
+
+    def __setattr__(self, key, value):
+        self._checkInputs(key, value)
+        self._setFunctionName(key, value)
+        super(fieldDict, self).__setattr__(key, value)
+
+
+class temporaryFunctionCache(object):
+    """
+    Holds temporary functions for needed function spaces in a dict.
+
+    """
+    def __init__(self):
+        self.functions = {}
+
+    def add(self, function_space):
+        """Allocates a new function and adds it to the dict"""
+        assert function_space not in self.functions
+        if function_space.name is not None:
+            name = 'tmp_func_' + function_space.name
+        else:
+            name = 'tmp_func_' + str(len(self.functions))
+        f = Function(function_space, name=name)
+        key = self._getKey(function_space)
+        self.functions[key] = f
+
+    def _getKey(self, function_space):
+        """generate a unique str representation for function space"""
+        ufl_elem = function_space.ufl_element()
+        elems = [ufl_elem]
+        if hasattr(ufl_elem, '_A'):
+            elems += [ufl_elem._A, ufl_elem._B]
+        elif isinstance(ufl_elem, EnrichedElement):
+            e = ufl_elem._elements
+            for d in elems:
+                elems.append(d)
+                if hasattr(d, '_A'):
+                    elems += [ufl_elem._A, ufl_elem._B]
+
+        def getElemStr(e):
+            s = e.shortstr()
+            d = e.degree()
+            if not isinstance(d, tuple):
+                s = s.replace('?', str(d))
+            return s
+        attrib = [getElemStr(e) for e in elems]
+        key = '_'.join(attrib)
+        return key
+
+    def get(self, function_space):
+        """
+        Returns a tmp function for the given function space.
+
+        If it doesn't exist, will allocate one.
+        """
+        if function_space not in self.functions:
+            self.add(function_space)
+        key = self._getKey(function_space)
+        return self.functions[key]
 
 
 class problemCache(object):
@@ -70,6 +212,7 @@ class problemCache(object):
     def clear(self):
         self.solvers = {}
 
+tmpFunctionCache = temporaryFunctionCache()
 linProblemCache = problemCache(verbose=False)
 
 
@@ -144,7 +287,7 @@ def extrudeMeshLinear(mesh2d, n_layers, xmin, xmax, dmin, dmax):
     return mesh
 
 
-def extrudeMeshSigma(mesh2d, n_layers, bathymetry2d):
+def extrudeMeshSigma(mesh2d, n_layers, bathymetry_2d):
     """Extrudes 2d surface mesh with bathymetry data defined in a 2d field."""
     mesh = ExtrudedMesh(mesh2d, layers=n_layers, layer_height=1.0/n_layers)
 
@@ -153,12 +296,12 @@ def extrudeMeshSigma(mesh2d, n_layers, bathymetry2d):
     x = xyz.dat.data[:, 0]
     y = xyz.dat.data[:, 0]
 
-    nNodes2d = bathymetry2d.dat.data.shape[0]
+    nNodes2d = bathymetry_2d.dat.data.shape[0]
     NVert = xyz.dat.data.shape[0]/nNodes2d
     iSource = 0
     # TODO can the loop be circumvented?
     for iNode in range(nNodes2d):
-        xyz.dat.data[iNode*NVert:iNode*NVert+NVert, 2] *= -bathymetry2d.dat.data[iNode]
+        xyz.dat.data[iNode*NVert:iNode*NVert+NVert, 2] *= -bathymetry_2d.dat.data[iNode]
     return mesh
 
 
@@ -311,18 +454,18 @@ def computeVerticalIntegral(input, output, bottomToTop=True,
     return output
 
 
-def computeBaroclinicHead(salt, baroHead3d, baroHead2d, baroHeadInt3d, bath3d):
+def computeBaroclinicHead(salt, baroc_head_3d, baroc_head_2d, baroc_head_int_3d, bath3d):
     """
     Computes baroclinic head from density field
 
     r = 1/rho_0 int_{z=-h}^{\eta} rho' dz
     """
-    computeVerticalIntegral(salt, baroHead3d, bottomToTop=False)
-    baroHead3d *= -physical_constants['rho0_inv']
+    computeVerticalIntegral(salt, baroc_head_3d, bottomToTop=False)
+    baroc_head_3d *= -physical_constants['rho0_inv']
     computeVerticalIntegral(
-        baroHead3d, baroHeadInt3d, bottomToTop=True,
+        baroc_head_3d, baroc_head_int_3d, bottomToTop=True,
         average=True, bathymetry=bath3d)
-    copy3dFieldTo2d(baroHeadInt3d, baroHead2d, useBottomValue=False)
+    copy3dFieldTo2d(baroc_head_int_3d, baroc_head_2d, useBottomValue=False)
 
 
 def computeVelMagnitude(solution, u=None, w=None, minVal=1e-6,
@@ -354,29 +497,34 @@ def computeVelMagnitude(solution, u=None, w=None, minVal=1e-6,
 
 
 def computeHorizJumpDiffusivity(alpha, tracer, output, hElemSize,
-                                umag, tracer_mag, maxval=1.0e3, minval=1e-6,
+                                umag, tracer_mag, maxval, minval=1e-6,
                                 solver_parameters={}):
     """Computes tracer jump diffusivity for horizontal advection."""
+    solver_parameters.setdefault('ksp_atol', 1e-6)
+    solver_parameters.setdefault('ksp_rtol', 1e-8)
 
     key = '-'.join((output.name(), tracer.name()))
     if key not in linProblemCache:
         fs = output.function_space()
+        mesh = fs.mesh()
         normal = FacetNormal(fs.mesh())
         test = TestFunction(fs)
         tri = TrialFunction(fs)
-        a = jump(test, tri)*dS_v
+        a = inner(test, tri)*mesh._dx + jump(test, tri)*mesh._dS_v
         tracer_jump = jump(tracer)
         # TODO jump scalar must depend on the tracer value scale
         # TODO can this be estimated automatically e.g. global_max(abs(S))
         maxjump = Constant(0.05)*tracer_mag
-        L = alpha*avg(umag*hElemSize)*(tracer_jump/maxjump)**2*avg(test)*dS_v
+        L = alpha*avg(umag*hElemSize)*(tracer_jump/maxjump)**2*avg(test)*mesh._dS_v
         prob = LinearVariationalProblem(a, L, output)
         solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
         linProblemCache.add(key, solver, 'jumpDiffh')
 
     linProblemCache[key].solve()
-    output.dat.data[output.dat.data[:] > maxval] = maxval
+    if output.function_space() != maxval.function_space():
+        raise Exception('output and maxval function spaces do not match')
+    output.dat.data[:] = np.minimum(maxval.dat.data, output.dat.data)
     output.dat.data[output.dat.data[:] < minval] = minval
     return output
 
@@ -408,7 +556,7 @@ def copy_2d_field_to_3d(input, output, elemHeight=None,
     # number of nodes in vertical direction
     nVertNodes = len(fs_3d.fiat_element.B.entity_closure_dofs()[1][0])
 
-    nodes = fs_3d.bt_masks[0]
+    nodes = fs_3d.bt_masks['geometric'][0]
     idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='nodeIdx')
     kernel = op2.Kernel("""
         void my_kernel(double **func, double **func2d, int *idx) {
@@ -471,9 +619,9 @@ def extract_level_from_3d(input, sub_domain, output, bottomNodes=None,
     if bottomNodes is None:
         bottomNodes = sub_domain == 'bottom'
     if bottomNodes:
-        nodes = fs.bt_masks[1]
+        nodes = fs.bt_masks['geometric'][1]
     else:
-        nodes = fs.bt_masks[0]
+        nodes = fs.bt_masks['geometric'][0]
     if sub_domain == 'top':
         # 'top' means free surface, where extrusion started
         iterate = op2.ON_BOTTOM
@@ -533,7 +681,7 @@ def computeElemHeight(zCoord, output):
     fs_in = zCoord.function_space()
     fs_out = output.function_space()
 
-    nodes = fs_out.bt_masks[0]
+    nodes = fs_out.bt_masks['geometric'][0]
     iterate = op2.ALL
 
     in_nodes = fs_in.fiat_element.space_dimension()
@@ -587,25 +735,25 @@ def copy2dFieldTo3d(input2d, output3d, elemHeight=None):
     copy_2d_field_to_3d(input2d, output3d, elemHeight=elemHeight)
 
 
-def correct3dVelocity(UV2d, uv3d, uv3d_dav, bathymetry):
+def correct3dVelocity(UV2d, uv_3d, uv_3d_dav, bathymetry):
     """Corrects 3d Horizontal velocity field so that it's depth average
     matches the 2d velocity field."""
-    H = uv3d.function_space()
+    H = uv_3d.function_space()
     H2d = UV2d.function_space()
     # compute depth averaged velocity
     bndValue = Constant((0.0, 0.0, 0.0))
-    computeVerticalIntegral(uv3d, uv3d_dav,
+    computeVerticalIntegral(uv_3d, uv_3d_dav,
                             bottomToTop=True, bndValue=bndValue,
                             average=True, bathymetry=bathymetry)
     # copy on 2d mesh
     diff = Function(H2d)
-    copy3dFieldTo2d(uv3d_dav, diff, useBottomValue=False)
-    # compute difference = UV2d - uv3d_dav
+    copy3dFieldTo2d(uv_3d_dav, diff, useBottomValue=False)
+    # compute difference = UV2d - uv_3d_dav
     diff.dat.data[:] *= -1
     diff.dat.data[:] += UV2d.dat.data[:]
-    copy2dFieldTo3d(diff, uv3d_dav)
+    copy2dFieldTo3d(diff, uv_3d_dav)
     # correct 3d field
-    uv3d.dat.data[:] += uv3d_dav.dat.data
+    uv_3d.dat.data[:] += uv_3d_dav.dat.data
 
 
 def computeBottomDrag(uv_bottom, z_bottom, bathymetry, drag):
@@ -616,37 +764,43 @@ def computeBottomDrag(uv_bottom, z_bottom, bathymetry, drag):
     return drag
 
 
-def computeBottomFriction(uv3d, uv_bottom2d, uv_bottom3d, z_coord3d,
-                          z_bottom2d, z_bottom3d, bathymetry2d,
-                          bottom_drag2d, bottom_drag3d,
-                          vElemSize2d=None, vElemSize3d=None):
-    copy3dFieldTo2d(uv3d, uv_bottom2d, useBottomValue=True,
-                    elemBottomValue=False, elemHeight=vElemSize2d)
-    copy2dFieldTo3d(uv_bottom2d, uv_bottom3d, elemHeight=vElemSize3d)
-    copy3dFieldTo2d(z_coord3d, z_bottom2d, useBottomValue=True,
-                    elemBottomValue=False, elemHeight=vElemSize2d)
-    copy2dFieldTo3d(z_bottom2d, z_bottom3d, elemHeight=vElemSize3d)
-    z_bottom2d.dat.data[:] += bathymetry2d.dat.data[:]
-    computeBottomDrag(uv_bottom2d, z_bottom2d, bathymetry2d, bottom_drag2d)
-    copy2dFieldTo3d(bottom_drag2d, bottom_drag3d, elemHeight=vElemHeight3d)
+def computeBottomFriction(uv_3d, uv_bottom_2d, uv_bottom_3d, z_coord_3d,
+                          z_bottom_2d, bathymetry_2d,
+                          bottom_drag_2d, bottom_drag_3d,
+                          v_elem_size_2d=None, v_elem_size_3d=None):
+    # compute velocity at middle of bottom element
+    copy3dFieldTo2d(uv_3d, uv_bottom_2d, useBottomValue=True,
+                    elemBottomValue=False, elemHeight=v_elem_size_2d)
+    tmp = uv_bottom_2d.dat.data.copy()
+    copy3dFieldTo2d(uv_3d, uv_bottom_2d, useBottomValue=True,
+                    elemBottomValue=True, elemHeight=v_elem_size_2d)
+    uv_bottom_2d.dat.data[:] = 0.5*(uv_bottom_2d.dat.data + tmp)
+    copy2dFieldTo3d(uv_bottom_2d, uv_bottom_3d, elemHeight=v_elem_size_3d)
+    copy3dFieldTo2d(z_coord_3d, z_bottom_2d, useBottomValue=True,
+                    elemBottomValue=False, elemHeight=v_elem_size_2d)
+    z_bottom_2d.dat.data[:] += bathymetry_2d.dat.data[:]
+    z_bottom_2d.dat.data[:] *= 0.5
+    computeBottomDrag(uv_bottom_2d, z_bottom_2d, bathymetry_2d, bottom_drag_2d)
+    copy2dFieldTo3d(bottom_drag_2d, bottom_drag_3d, elemHeight=v_elem_size_3d)
 
 
-def getHorzontalElemSize(P1_2d, P1_3d=None):
+def getHorzontalElemSize(sol2d, sol3d=None):
     """
     Computes horizontal element size from the 2D mesh, then copies it over a 3D
     field.
     """
-    cellsize = CellSize(P1_2d.mesh())
+    P1_2d = sol2d.function_space()
+    mesh = P1_2d.mesh()
+    cellsize = CellSize(mesh)
     test = TestFunction(P1_2d)
     tri = TrialFunction(P1_2d)
     sol2d = Function(P1_2d)
-    dx_2d = Measure('dx', domain=P1_2d.mesh(), subdomain_id='everywhere')
+    dx_2d = mesh._dx
     a = test * tri * dx_2d
     L = test * cellsize * dx_2d
     solve(a == L, sol2d)
-    if P1_3d is None:
+    if sol3d is None:
         return sol2d
-    sol3d = Function(P1_3d)
     copy2dFieldTo3d(sol2d, sol3d)
     return sol3d
 
@@ -696,8 +850,8 @@ def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref,
     coords.dat.data[:, 2] = z_coord.dat.data[:]
 
 
-def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf2d,
-                        dw_mesh_dz_3d,
+def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf_2d,
+                        w_mesh_ddz_3d,
                         bathymetry, z_coord_ref,
                         solver_parameters={}):
     solver_parameters.setdefault('ksp_atol', 1e-12)
@@ -718,8 +872,8 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf2d,
             prob, solver_parameters=solver_parameters)
         linProblemCache.add(key, solver, 'wMeshSurf')
     linProblemCache[key].solve()
-    copy3dFieldTo2d(w_mesh_surf, w_mesh_surf2d, useBottomValue=False)
-    copy2dFieldTo3d(w_mesh_surf2d, w_mesh_surf)
+    copy3dFieldTo2d(w_mesh_surf, w_mesh_surf_2d, useBottomValue=False)
+    copy2dFieldTo3d(w_mesh_surf_2d, w_mesh_surf)
 
     # compute w in the whole water column (0 at bed)
     # w_mesh = w_mesh_surf * (z+h)/(eta+h)
@@ -739,7 +893,7 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf2d,
     linProblemCache[key].solve()
 
     # compute dw_mesh/dz in the whole water column
-    key = '-'.join((dw_mesh_dz_3d.name(), w_mesh_surf.name()))
+    key = '-'.join((w_mesh_ddz_3d.name(), w_mesh_surf.name()))
     if key not in linProblemCache:
         fs = w_mesh.function_space()
         z = fs.mesh().coordinates[2]
@@ -748,7 +902,7 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf2d,
         a = tri*test*dx
         H = eta + bathymetry
         L = (w_mesh_surf/H)*test*dx
-        prob = LinearVariationalProblem(a, L, dw_mesh_dz_3d)
+        prob = LinearVariationalProblem(a, L, w_mesh_ddz_3d)
         solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
         linProblemCache.add(key, solver, 'dwMeshdz')
@@ -764,20 +918,27 @@ def computeParabolicViscosity(uv_bottom, bottom_drag, bathymetry, nu,
     """
     solver_parameters.setdefault('ksp_atol', 1e-12)
     solver_parameters.setdefault('ksp_rtol', 1e-16)
-    kappa = physical_constants['von_karman']
-    z0 = physical_constants['z0_friction']
-    H = nu.function_space()
-    x = H.mesh().coordinates
-    test = TestFunction(H)
-    tri = TrialFunction(H)
-    a = tri*test*dx
-    uv_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
-    parabola = -x[2]*(bathymetry + z0 + x[2])/(bathymetry + z0)
-    L = kappa*sqrt(bottom_drag)*uv_mag*parabola*test*dx
-    solve(a == L, nu, solver_parameters=solver_parameters)
+    key = '-'.join(('parabVisc', nu.name()))
+    if key not in linProblemCache:
+        kappa = physical_constants['von_karman']
+        z0 = physical_constants['z0_friction']
+        H = nu.function_space()
+        x = H.mesh().coordinates
+        test = TestFunction(H)
+        tri = TrialFunction(H)
+        a = tri*test*dx
+        uv_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
+        parabola = -x[2]*(bathymetry + z0 + x[2])/(bathymetry + z0)
+        L = kappa*sqrt(bottom_drag)*uv_mag*parabola*test*dx
+        prob = LinearVariationalProblem(a, L, nu)
+        solver = LinearVariationalSolver(
+            prob, solver_parameters=solver_parameters)
+        linProblemCache.add(key, solver, 'parabVisc')
+    linProblemCache[key].solve()
     # remove negative values
-    neg_ix = nu.dat.data[:] < 1e-10
-    nu.dat.data[neg_ix] = 1e-10
+    min_val = 1e-10
+    ix = nu.dat.data[:] < min_val
+    nu.dat.data[ix] = min_val
     return nu
 
 
@@ -862,21 +1023,34 @@ def smagorinskyViscosity(uv, output, C_s, hElemSize,
 
 class projector(object):
     def __init__(self, input_func, output_func, solver_parameters={}):
-        V = output_func.function_space()
-        p = TestFunction(V)
-        q = TrialFunction(V)
-        a = inner(p, q) * V.mesh()._dx
-        L = inner(p, input_func) * V.mesh()._dx
+        self.input = input_func
+        self.output = output_func
+        self.same_space = (self.input.function_space() ==
+                           self.output.function_space())
 
-        solver_parameters.setdefault('ksp_type', 'cg')
-        solver_parameters.setdefault('ksp_rtol', 1e-8)
+        if not self.same_space:
+            V = output_func.function_space()
+            p = TestFunction(V)
+            q = TrialFunction(V)
+            a = inner(p, q) * V.mesh()._dx
+            L = inner(p, input_func) * V.mesh()._dx
 
-        self.problem = LinearVariationalProblem(a, L, output_func)
-        self.solver = LinearVariationalSolver(self.problem,
-                                              solver_parameters=solver_parameters)
+            solver_parameters.setdefault('ksp_type', 'cg')
+            solver_parameters.setdefault('ksp_rtol', 1e-8)
+
+            self.problem = LinearVariationalProblem(a, L, output_func)
+            self.solver = LinearVariationalSolver(self.problem,
+                                                  solver_parameters=solver_parameters)
 
     def project(self):
-        self.solver.solve()
+        if self.same_space:
+            self.output.assign(self.input)
+        else:
+            try:
+                self.solver.solve()
+            except Exception as e:
+                print 'projection failed for {:}'.format(self.input.name)
+                raise e
 
 
 class EquationOfState(object):

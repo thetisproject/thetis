@@ -7,8 +7,32 @@ This project is licensed under the terms of the MIT license.
 ## Installation
 
 - Install firedrake with all its dependencies
-- COFS currenlty needs the following branches:
-    - ffc: fd_bendy
-    - ufl: fd_bendy
-    - firedrake: tensorelem_facetdofs_bendy from https://github.com/tkarna/firedrake.git
+- COFS currently needs the following branches:
+    - PyOP2: `master`
+    - COFFEE: `master`
+    - ffc: `fd_bendy` rebased with `master`
+    - ufl: `fd_bendy`
+    - firedrake: `bendy_changes` and `dumb-checkpointing`
 
+### Installation with firedrake-install
+
+- Install to a virtualenv in developer mode with correct branches
+
+```
+    export PETSC_CONFIGURE_OPTIONS="--download-metis --download-parmetis --download-netcdf --download-hdf5"
+    python firedrake-install --developer --log --minimal_petsc \
+    --package_branch PyOP2 master \
+    --package_branch COFFEE master \
+    --package_branch ffc fd_bendy \
+    --package_branch ufl fd_bendy \
+    --package_branch firedrake bendy_changes
+```
+
+- Rebase ffc `fd_bendy` with `master` branch
+- Merge firedrake `bendy_changes` and `dumb-checkpointing` branches
+- Activate virtualenv
+- Install COFS with `pip` in editable mode
+
+```
+    pip install -e /path/to/cofs/repo
+```

@@ -23,7 +23,7 @@ mesh2d = Mesh('channel_mesh.msh')
 printInfo('Loaded mesh '+mesh2d.name)
 printInfo('Exporting to '+outputDir)
 # total duration in seconds
-T = 48 * 3600
+T = 6 * 3600
 # estimate of max advective velocity used to estimate time step
 Umag = Constant(6.0)
 # export interval in seconds
@@ -31,7 +31,7 @@ TExport = 100.0
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-bathymetry2d = Function(P1_2d, name='Bathymetry')
+bathymetry_2d = Function(P1_2d, name='Bathymetry')
 
 depth_oce = 20.0
 depth_riv = 5.0  # 5.0 closed
@@ -46,22 +46,24 @@ def bath(x, y, z):
     return interp1d(x0, vals0)(x)
 
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
-bathymetry2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
+bathymetry_2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
 # --- create solver ---
-solverObj = solver.flowSolver2d(mesh2d, bathymetry2d, order=1)
-solverObj.cfl_2d = 1.0
-#solverObj.nonlin = False
-solverObj.TExport = TExport
-solverObj.T = T
-solverObj.outputDir = outputDir
-solverObj.uAdvection = Umag
-solverObj.checkVolConservation2d = True
-solverObj.fieldsToExport = ['uv2d', 'elev2d']
-solverObj.timerLabels = []
-#solverObj.timeStepperType = 'SSPRK33'
-solverObj.timeStepperType = 'CrankNicolson'
-solverObj.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
+solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d, order=1)
+options = solverObj.options
+options.cfl_2d = 1.0
+#options.nonlin = False
+options.TExport = TExport
+options.T = T
+options.outputDir = outputDir
+options.uAdvection = Umag
+options.checkVolConservation2d = True
+options.fieldsToExport = ['uv_2d', 'elev_2d']
+options.timerLabels = []
+#options.timeStepperType = 'SSPRK33'
+#options.timeStepperType = 'CrankNicolson'
+options.timeStepperType = 'SSPIMEX'
+options.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
 
 # initial conditions, piecewise linear function
 elev_x = np.array([0, 30e3, 100e3])

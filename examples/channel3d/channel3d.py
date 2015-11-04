@@ -13,6 +13,8 @@
 from scipy.interpolate import interp1d
 from cofs import *
 
+parameters['coffee'] = {}
+
 n_layers = 6
 outputDir = createDirectory('outputs')
 mesh2d = Mesh('channel_mesh.msh')
@@ -24,35 +26,37 @@ TExport = 100.0
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-bathymetry2d = Function(P1_2d, name='Bathymetry')
+bathymetry_2d = Function(P1_2d, name='Bathymetry')
 
 depth_oce = 20.0
 depth_riv = 7.0
-bathymetry2d.interpolate(Expression('ho - (ho-hr)*x[0]/100e3',
+bathymetry_2d.interpolate(Expression('ho - (ho-hr)*x[0]/100e3',
                                     ho=depth_oce, hr=depth_riv))
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry2d, n_layers)
-#solverObj.nonlin = False
-solverObj.solveSalt = True
-solverObj.solveVertDiffusion = False
-solverObj.useBottomFriction = False
-solverObj.useALEMovingMesh = False
-solverObj.uvLaxFriedrichs = Constant(1.0)
-solverObj.tracerLaxFriedrichs = Constant(1.0)
-#solverObj.useSemiImplicit2D = False
-#solverObj.useModeSplit = False
-#solverObj.baroclinic = True
-solverObj.TExport = TExport
-solverObj.T = T
-solverObj.outputDir = outputDir
-solverObj.uAdvection = Umag
-solverObj.checkSaltDeviation = True
-solverObj.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion']
-solverObj.fieldsToExport = ['uv2d', 'elev2d', 'elev3d', 'uv3d',
-                            'w3d', 'w3d_mesh', 'salt3d',
-                            'barohead3d', 'barohead2d',
-                            'uv2d_dav', 'uv2d_bot', 'nuv3d']
+solverObj = solver.flowSolver(mesh2d, bathymetry_2d, n_layers)
+options = solverObj.options
+#options.nonlin = False
+options.solveSalt = True
+options.solveVertDiffusion = False
+options.useBottomFriction = False
+options.useALEMovingMesh = False
+options.uvLaxFriedrichs = Constant(1.0)
+options.tracerLaxFriedrichs = Constant(1.0)
+options.useIMEX = True
+#options.useSemiImplicit2D = False
+#options.useModeSplit = False
+#options.baroclinic = True
+options.TExport = TExport
+options.T = T
+options.outputDir = outputDir
+options.uAdvection = Umag
+options.checkSaltDeviation = True
+options.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion']
+options.fieldsToExport = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
+                            'w_3d', 'w_mesh_3d', 'salt_3d',
+                            'baroc_head_3d', 'baroc_head_2d',
+                            'uv_dav_2d', 'uv_bottom_2d']
 
 # initial conditions
 salt_init3d = Constant(4.5)
@@ -93,7 +97,8 @@ river_tag = 1
 # these must be assigned before equations are created
 solverObj.bnd_functions['shallow_water'] = {ocean_tag: ocean_funcs,
                                             river_tag: river_funcs}
-solverObj.bnd_functions['momentum'] = {2: ocean_funcs_3d, 1: river_funcs_3d}
+#solverObj.bnd_functions['momentum'] = {2: ocean_funcs_3d, 1: river_funcs_3d}
+solverObj.bnd_functions['momentum'] = {}
 solverObj.bnd_functions['salt'] = {2: ocean_salt_3d, 1: river_salt_3d}
 
 

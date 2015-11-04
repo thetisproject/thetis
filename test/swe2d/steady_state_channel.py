@@ -10,8 +10,8 @@ mesh2d = RectangleMesh(5,1,Lx,Ly)
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-bathymetry2d = Function(P1_2d, name="bathymetry")
-bathymetry2d.assign(100.0)
+bathymetry_2d = Function(P1_2d, name="bathymetry")
+bathymetry_2d.assign(100.0)
 
 N = 20 # number of timesteps
 dt = 100.
@@ -19,13 +19,13 @@ g = physical_constants['g_grav'].dat.data[0]
 f = g/Lx # linear friction coef.
 
 # --- create solver ---
-solverObj = solver.flowSolver2d(mesh2d, bathymetry2d, order=1)
-solverObj.nonlin = False
-solverObj.TExport = dt
-solverObj.T = N*dt
-solverObj.timeStepperType = 'CrankNicolson'
-solverObj.lin_drag = f
-solverObj.dt = dt
+solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d, order=1)
+solverObj.options.nonlin = False
+solverObj.options.TExport = dt
+solverObj.options.T = N*dt
+solverObj.options.timeStepperType = 'CrankNicolson'
+solverObj.options.lin_drag = f
+solverObj.options.dt = dt
 
 # boundary conditions
 inflow_tag = 1
@@ -49,11 +49,11 @@ solver_parameters = {
 # reinitialize the timestepper so we can set our own solver parameters and gamma
 # setting gamma to 1.0 converges faster to
 solverObj.timeStepper = timeIntegrator.CrankNicolson(solverObj.eq_sw, solverObj.dt,
-                                                                     solver_parameters, gamma=1.0)
+                                                     solver_parameters, gamma=1.0)
 
 solverObj.iterate()
 
-uv, eta = solverObj.solution2d.split()
+uv, eta = solverObj.fields.solution2d.split()
 
 eta_ana = interpolate(Expression("1-x[0]/{}".format(Lx)), P1_2d)
 area = Lx*Ly

@@ -24,13 +24,13 @@ TExport = 3600*2
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 P1v_2d = VectorFunctionSpace(mesh2d, 'CG', 1)
-bathymetry2d = Function(P1_2d, name='Bathymetry')
-bathymetry2d.assign(depth)
+bathymetry_2d = Function(P1_2d, name='Bathymetry')
+bathymetry_2d.assign(depth)
 
 # Coriolis forcing
-coriolis2d = Function(P1_2d)
+coriolis_2d = Function(P1_2d)
 f0, beta = 1.0e-4, 2.0e-11
-coriolis2d.interpolate(
+coriolis_2d.interpolate(
     Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0)
     )
 
@@ -44,20 +44,21 @@ windStress2d.interpolate(Expression(('tau_max*sin(pi*x[1]/L)', '0'), tau_max=tau
 lin_drag = Constant(1e-6)
 
 # --- create solver ---
-solverObj = solver.flowSolver2d(mesh2d, bathymetry2d)
-solverObj.cfl_2d = 1.0
-solverObj.nonlin = False
-solverObj.coriolis = coriolis2d
-solverObj.wind_stress = windStress2d
-solverObj.lin_drag = lin_drag
-solverObj.TExport = TExport
-solverObj.T = T
-solverObj.dt = 20.0
-solverObj.outputDir = outputDir
-solverObj.uAdvection = Constant(0.01)
-solverObj.checkVolConservation2d = True
-solverObj.fieldsToExport = ['uv2d', 'elev2d']
-solverObj.timerLabels = []
-solverObj.timeStepperType = 'CrankNicolson'
+solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d)
+options = solverObj.options
+options.cfl_2d = 1.0
+options.nonlin = False
+options.coriolis = coriolis_2d
+options.wind_stress = windStress2d
+options.lin_drag = lin_drag
+options.TExport = TExport
+options.T = T
+options.dt = 20.0
+options.outputDir = outputDir
+options.uAdvection = Constant(0.01)
+options.checkVolConservation2d = True
+options.fieldsToExport = ['uv_2d', 'elev_2d']
+options.timerLabels = []
+options.timeStepperType = 'CrankNicolson'
 
 solverObj.iterate()

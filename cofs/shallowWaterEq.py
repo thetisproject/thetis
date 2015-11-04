@@ -11,15 +11,15 @@ rho_0 = physical_constants['rho0']
 
 class shallowWaterEquations(equation):
     """2D depth averaged shallow water equations in non-conservative form"""
-    def __init__(self, mesh, space, solution, bathymetry,
+    def __init__(self, solution, bathymetry,
                  uv_bottom=None, bottom_drag=None, viscosity_h=None,
-                 mu_manning=None, lin_drag=None, baro_head=None,
+                 mu_manning=None, lin_drag=None, baroc_head=None,
                  coriolis=None,
                  wind_stress=None,
                  uvLaxFriedrichs=None,
                  nonlin=True):
-        self.mesh = mesh
-        self.space = space
+        self.space = solution.function_space()
+        self.mesh = self.space.mesh()
         self.U_space, self.eta_space = self.space.split()
         self.solution = solution
         self.U, self.eta = split(self.solution)
@@ -32,7 +32,7 @@ class shallowWaterEquations(equation):
                        'viscosity_h': viscosity_h,
                        'mu_manning': mu_manning,
                        'lin_drag': lin_drag,
-                       'baro_head': baro_head,
+                       'baroc_head': baroc_head,
                        'coriolis': coriolis,
                        'wind_stress': wind_stress,
                        'uvLaxFriedrichs': uvLaxFriedrichs,
@@ -53,9 +53,9 @@ class shallowWaterEquations(equation):
         self.horizAdvectionByParts = True
 
         # mesh dependent variables
-        self.normal = FacetNormal(mesh)
-        self.cellsize = CellSize(mesh)
-        self.xyz = SpatialCoordinate(mesh)
+        self.normal = FacetNormal(self.mesh)
+        self.cellsize = CellSize(self.mesh)
+        self.xyz = SpatialCoordinate(self.mesh)
         self.e_x, self.e_y = unit_vectors(2)
 
         # integral measures
@@ -119,6 +119,8 @@ class shallowWaterEquations(equation):
         res = Function(H)
         a = uu * grid_dt * self.dx
         L = uu * csize / Umag * self.dx
+        if Umag.dat.data == 0.0:
+            raise Exception('Unable to compute time step: zero velocity scale')
         solve(a == L, res)
         return res
 
@@ -135,7 +137,8 @@ class shallowWaterEquations(equation):
             f = -g_grav*head*nabla_div(self.U_test)*self.dx
             if uv is not None:
                 un = dot(uv, self.normal)
-                head_star = avg(head) + 0.5*sqrt(avg(total_H)/g_grav)*jump(un)
+                # NOTE riemann term unstable for DG velocity field
+                head_star = avg(head) #+ 0.5*sqrt(avg(total_H)/g_grav)*jump(un)
             else:
                 head_star = avg(head)
             f += g_grav*head_star*jump(self.U_test, self.normal)*self.dS
@@ -185,8 +188,13 @@ class shallowWaterEquations(equation):
             if self.U_is_DG:
                 uv_av = avg(uv)
                 un_av = dot(uv_av, self.normal('-'))
-                s = 0.5*(sign(un_av) + 1.0)
-                uv_up = uv('-')*s + uv('+')*(1-s)
+                # NOTE solver can stagnate
+                #s = 0.5*(sign(un_av) + 1.0)
+                # NOTE smooth sign change between [-0.02, 0.02], slow
+                #s = 0.5*tanh(100.0*un_av) + 0.5
+                #uv_up = uv('-')*s + uv('+')*(1-s)
+                # NOTE mean flux
+                uv_up = uv_av
                 f += (uv_up[0]*jump(self.U_test[0], uv[0]*self.normal[0]) +
                       uv_up[1]*jump(self.U_test[1], uv[0]*self.normal[0]) +
                       uv_up[0]*jump(self.U_test[0], uv[1]*self.normal[1]) +
@@ -220,7 +228,10 @@ class shallowWaterEquations(equation):
         """
         F = 0  # holds all dx volume integral terms
         G = 0  # holds all ds boundary interface terms
-        uv, eta = split(solution)
+        if isinstance(solution, list):
+            uv, eta = solution
+        else:
+            uv, eta = split(solution)
 
         if self.nonlin:
             total_H = self.bathymetry + eta
@@ -287,7 +298,10 @@ class shallowWaterEquations(equation):
         """Returns all terms that are treated explicitly."""
         F = 0  # holds all dx volume integral terms
         G = 0  # holds all ds boundary interface terms
-        uv, eta = split(solution)
+        if isinstance(solution, list):
+            uv, eta = solution
+        else:
+            uv, eta = split(solution)
 
         # Advection of momentum
         if self.nonlin:
@@ -334,20 +348,30 @@ class shallowWaterEquations(equation):
                 # prescribe normal volume flux
                 sect_len = Constant(self.boundary_len[bnd_marker])
                 un_in = dot(uv, self.normal)
-                un_ext = funcs['flux'] / total_H / sect_len
+                # riemann term assuming exterior elevation is zero
+                un_ext = funcs['flux'] / self.bathymetry / sect_len
+                eta_ext = 0.0
                 un_av = (un_in + un_ext)/2
+                eta_jump = (eta - eta_ext)/2
                 if self.nonlin:
                     s = 0.5*(sign(un_av) + 1.0)
                     uv_up = uv*s + un_ext*self.normal*(1-s)
                     uv_av = 0.5*(uv + un_ext*self.normal)
-                    G += (uv_av[0]*uv_up[0]*(self.U_test[0]*self.normal[0]) +
-                          uv_av[0]*uv_up[1]*(self.U_test[1]*self.normal[0]) +
-                          uv_av[1]*uv_up[0]*(self.U_test[0]*self.normal[1]) +
-                          uv_av[1]*uv_up[1]*(self.U_test[1]*self.normal[1]))*ds_bnd
+                    uv_rie = uv_av + sqrt(g_grav/self.bathymetry)*eta_jump*self.normal
+                    #G += (uv_av[0]*uv_up[0]*(self.U_test[0]*self.normal[0]) +
+                          #uv_av[0]*uv_up[1]*(self.U_test[1]*self.normal[0]) +
+                          #uv_av[1]*uv_up[0]*(self.U_test[0]*self.normal[1]) +
+                          #uv_av[1]*uv_up[1]*(self.U_test[1]*self.normal[1]))*ds_bnd
+                    # NOTE seems more stable in channel3d -- needs better testing
+                    G += (uv_rie[0]*uv_rie[0]*(self.U_test[0]*self.normal[0]) +
+                          uv_rie[0]*uv_rie[1]*(self.U_test[1]*self.normal[0]) +
+                          uv_rie[1]*uv_rie[0]*(self.U_test[0]*self.normal[1]) +
+                          uv_rie[1]*uv_rie[1]*(self.U_test[1]*self.normal[1]))*ds_bnd
 
                     # Lax-Friedrichs stabilization
-                    un_av = dot(self.normal, uv_av)
-                    gamma = abs(un_av)
+                    #un_av = dot(self.normal, uv_av)
+                    #gamma = abs(un_av)
+                    gamma = abs(un_ext)
                     G += gamma*dot(self.U_test, (uv - un_ext*self.normal)/2)*ds_bnd
 
             elif 'radiation':
@@ -397,13 +421,13 @@ class shallowWaterEquations(equation):
         return -F - G
 
     def Source(self, uv_old=None, uv_bottom=None, bottom_drag=None,
-               baro_head=None, **kwargs):
+               baroc_head=None, **kwargs):
         """Returns the source terms that do not depend on the solution."""
         F = 0  # holds all dx volume integral terms
 
         # Internal pressure gradient
-        if baro_head is not None:
-            F += self.pressureGrad(baro_head, None, None, internalPG=True)
+        if baroc_head is not None:
+            F += self.pressureGrad(baroc_head, None, None, internalPG=True)
 
         return -F
 
@@ -411,10 +435,10 @@ class shallowWaterEquations(equation):
 class freeSurfaceEquation(equation):
     """Non-conservative free surface equation written for depth averaged
     velocity. This equation can be coupled to 3D mode directly."""
-    def __init__(self, mesh, space, solution, uv, bathymetry,
+    def __init__(self, solution, uv, bathymetry,
                  nonlin=True):
-        self.mesh = mesh
-        self.space = space
+        self.space = solution.function_space()
+        self.mesh = self.space.mesh()
         self.solution = solution
         self.bathymetry = bathymetry
         self.nonlin = nonlin
@@ -434,9 +458,9 @@ class freeSurfaceEquation(equation):
         self.gradEtaByParts = self.eta_is_DG
 
         # mesh dependent variables
-        self.normal = FacetNormal(mesh)
-        self.cellsize = CellSize(mesh)
-        self.xyz = SpatialCoordinate(mesh)
+        self.normal = FacetNormal(self.mesh)
+        self.cellsize = CellSize(self.mesh)
+        self.xyz = SpatialCoordinate(self.mesh)
         self.e_x, self.e_y = unit_vectors(2)
 
         # integral measures
@@ -581,9 +605,9 @@ class freeSurfaceEquation(equation):
         return -F - G
 
     def Source(self, uv_old=None, uv_bottom=None, bottom_drag=None,
-               baro_head=None, **kwargs):
+               baroc_head=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
-        F = 0 * self.dx  # holds all dx volume integral terms
+        F = 0  # holds all dx volume integral terms
 
         return -F

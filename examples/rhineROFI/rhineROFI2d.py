@@ -9,10 +9,10 @@
 #
 # [1] de Boer, G., Pietrzak, J., and Winterwerp, J. (2006). On the vertical
 #     structure of the Rhine region of freshwater influence. Ocean Dynamics,
-#     56(3):198–216.
+#     56(3):198-216.
 # [2] Fischer, E., Burchard, H., and Hetland, R. (2009). Numerical
 #     investigations of the turbulent kinetic energy dissipation rate in the
-#     Rhine region of freshwater influence. Ocean Dynamics, 59:629–641.
+#     Rhine region of freshwater influence. Ocean Dynamics, 59:629-641.
 #
 # Tuomas Karna 2015-06-24
 
@@ -53,25 +53,26 @@ TExport = 900.0  # 44714/12
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-bathymetry2d = Function(P1_2d, name='Bathymetry')
-bathymetry2d.interpolate(Expression('(x[0] > 0.0) ? H*(1-x[0]/Lriver) + HInlet*(x[0]/Lriver) : H',
+bathymetry_2d = Function(P1_2d, name='Bathymetry')
+bathymetry_2d.interpolate(Expression('(x[0] > 0.0) ? H*(1-x[0]/Lriver) + HInlet*(x[0]/Lriver) : H',
                                     H=H, HInlet=HInlet, Lriver=Lriver))
 
 # create solver
-solverObj = solver.flowSolver2dMimetic(mesh2d, bathymetry2d)
-solverObj.cfl_2d = 1.0
-#solverObj.nonlin = False
-solverObj.coriolis = Constant(coriolisF)
-solverObj.hViscosity = Constant(10.0)
-solverObj.TExport = TExport
-solverObj.T = T
-solverObj.dt = dt
-solverObj.outputDir = outputDir
-solverObj.uAdvection = Constant(1.5)
-solverObj.fieldsToExport = ['uv2d', 'elev2d']
-solverObj.timerLabels = []
-#solverObj.timeStepperType = 'CrankNicolson'
-solverObj.timeStepperType = 'ssprk33semi'
+solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d)
+options = solverObj.options
+options.cfl_2d = 1.0
+#options.nonlin = False
+options.coriolis = Constant(coriolisF)
+options.hViscosity = Constant(10.0)
+options.TExport = TExport
+options.T = T
+options.dt = dt
+options.outputDir = outputDir
+options.uAdvection = Constant(1.5)
+options.fieldsToExport = ['uv_2d', 'elev_2d']
+options.timerLabels = []
+#options.timeStepperType = 'CrankNicolson'
+options.timeStepperType = 'ssprk33semi'
 
 bnd_elev = Function(P1_2d, name='Boundary elevation')
 bnd_time = Constant(0)
@@ -105,18 +106,18 @@ solverObj.bnd_functions['shallow_water'] = {1: tide_elev_funcs, 2: tide_elev_fun
                                             6: river_funcs}
 
 # TODO set correct boundary conditions
-solverObj.mightyCreator()
-elev_init = Function(solverObj.H_2d, name='initial elevation')
+solverObj.createEquations()
+elev_init = Function(solverObj.function_spaces.H_2d, name='initial elevation')
 elev_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kelvinK) : amp*cos(x[1]*kelvinK)',
                       amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
-elev_init2 = Function(solverObj.H_2d, name='initial elevation')
+elev_init2 = Function(solverObj.function_spaces.H_2d, name='initial elevation')
 elev_init2.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kelvinK) : 0.0',
                       amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
-uv_init = Function(solverObj.U_2d, name='initial velocity')
+uv_init = Function(solverObj.function_spaces.U_2d, name='initial velocity')
 #uv_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kelvinK) : amp*cos(x[1]*kelvinK)',
                       #amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
-tri = TrialFunction(solverObj.U_2d)
-test = TestFunction(solverObj.U_2d)
+tri = TrialFunction(solverObj.function_spaces.U_2d)
+test = TestFunction(solverObj.function_spaces.U_2d)
 a = inner(test, tri)*solverObj.eq_sw.dx
 uv = (g*kelvinK/OmegaTide)*elev_init2
 L = test[1]*uv*solverObj.eq_sw.dx

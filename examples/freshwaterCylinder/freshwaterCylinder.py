@@ -41,7 +41,7 @@ physical_constants['rho0'].assign(1025.0)
 outputDir = createDirectory('outputs')
 layers = 20
 mesh2d = Mesh('tartinville_physical.msh')
-print 'Loaded mesh', mesh2d.name
+printInfo('Loaded mesh ' + mesh2d.name)
 dt = 25.0
 T = 288 * 3600
 TExport = 900.0
@@ -49,56 +49,62 @@ depth = 20.0
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-bathymetry2d = Function(P1_2d, name='Bathymetry')
-bathymetry2d.assign(depth)
+bathymetry_2d = Function(P1_2d, name='Bathymetry')
+bathymetry_2d.assign(depth)
 
-coriolis2d = Function(P1_2d)
+coriolis_2d = Function(P1_2d)
 f0, beta = 1.15e-4, 0.0
-coriolis2d.interpolate(
+coriolis_2d.interpolate(
     Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0)
     )
 
 # create solver
-solverObj = solver.flowSolverMimetic(mesh2d, bathymetry2d, layers)
-solverObj.cfl_2d = 1.0
-#solverObj.nonlin = False
-solverObj.solveSalt = True
-solverObj.solveVertDiffusion = False
-solverObj.useBottomFriction = False
-solverObj.useALEMovingMesh = False
-solverObj.useSemiImplicit2D = False
-#solverObj.useModeSplit = False
-solverObj.baroclinic = True
-solverObj.coriolis = coriolis2d
-solverObj.uvLaxFriedrichs = None  # Constant(1e-3)
-solverObj.tracerLaxFriedrichs = None  # Constant(1e-3)
+solverObj = solver.flowSolver(mesh2d, bathymetry_2d, layers)
+options = solverObj.options
+options.cfl_2d = 1.0
+#options.nonlin = False
+options.solveSalt = True
+options.solveVertDiffusion = False
+options.useBottomFriction = False
+options.useALEMovingMesh = False
+options.useSemiImplicit2D = False
+#options.useModeSplit = False
+options.baroclinic = True
+options.coriolis = coriolis_2d
+options.uvLaxFriedrichs = None  # Constant(1e-3)
+options.tracerLaxFriedrichs = None  # Constant(1e-3)
+options.useLimiterForTracers = True
+Re_h = 2.0
+options.smagorinskyFactor = Constant(1.0/np.sqrt(Re_h))
 # how does diffusion scale with mesh size?? nu = Lx^2/dt??
-#solverObj.hDiffusivity = Constant(3.0)
-#solverObj.hViscosity = Constant(1e-2)
-#solverObj.vViscosity = Constant(1e-5)
-if solverObj.useModeSplit:
-    solverObj.dt = dt
-solverObj.TExport = TExport
-solverObj.T = T
-solverObj.outputDir = outputDir
-solverObj.uAdvection = Constant(1.5)
-solverObj.checkVolConservation2d = True
-solverObj.checkVolConservation3d = True
-solverObj.checkSaltConservation = True
-solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
-                            'w3d', 'w3d_mesh', 'salt3d',
-                            'uv2d_dav', 'uv3d_dav', 'barohead3d',
-                            'barohead2d', 'gjvAlphaH3d', 'gjvAlphaV3d']
-solverObj.timerLabels = ['mode2d', 'momentumEq', 'continuityEq', 'saltEq',
-                         'aux_barolinicity', 'aux_mom_coupling',
-                         'func_copy2dTo3d', 'func_copy3dTo2d',]
+#options.hDiffusivity = Constant(3.0)
+#options.hViscosity = Constant(1e-2)
+#options.vViscosity = Constant(1e-5)
+if options.useModeSplit:
+    options.dt = dt
+options.TExport = TExport
+options.T = T
+options.outputDir = outputDir
+options.uAdvection = Constant(1.5)
+options.checkVolConservation2d = True
+options.checkVolConservation3d = True
+options.checkSaltConservation = True
+options.checkSaltOvershoot = True
+options.fieldsToExport = ['uv_2d', 'elev_2d', 'uv_3d',
+                          'w_3d', 'w_mesh_3d', 'salt_3d',
+                          'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
+                          'baroc_head_2d']
+options.fieldsToExportNumpy = ['salt_3d', 'baroc_head_3d', 'elev_2d']
+options.timerLabels = ['mode2d', 'momentumEq', 'continuityEq', 'saltEq',
+                       'aux_barolinicity', 'aux_mom_coupling',
+                       'func_copy2dTo3d', 'func_copy3dTo2d',]
 
-solverObj.mightyCreator()
+solverObj.createEquations()
 # assign initial salinity
-salt_init3d = Function(solverObj.H, name='initial salinity')
+salt_init3d = Function(solverObj.function_spaces.H, name='initial salinity')
 # interpolate on P1 field to circumvent overshoots
 # impose rho' = rho - 1025.0
-tmp = Function(solverObj.P1, name='initial salinity')
+tmp = Function(solverObj.function_spaces.P1, name='initial salinity')
 tmp.interpolate(Expression('0.78*1.1*pow((sqrt(x[0]*x[0] + x[1]*x[1])/1000/3 + (1.0-tanh(10*(x[2]+10.0)))*0.5), 8)'))
 # crop bad values
 ix = tmp.dat.data[:] > 0.858

@@ -8,7 +8,7 @@ Ly=1e3
 order = 1
 # minimum resolution
 if order==0:
-    min_cells = 16 
+    min_cells = 16
 else:
     min_cells = 8
 N = 100 # number of timesteps
@@ -39,17 +39,17 @@ for i in range(5):
 
     # bathymetry
     P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-    bathymetry2d = Function(P1_2d, name="bathymetry")
-    bathymetry2d.assign(H0)
+    bathymetry_2d = Function(P1_2d, name="bathymetry")
+    bathymetry_2d.assign(H0)
 
 
     # --- create solver ---
-    solverObj = solver.flowSolver2d(mesh2d, bathymetry2d, order=order)
-    solverObj.nonlin = True
-    solverObj.TExport = dt
-    solverObj.T = N*dt
-    solverObj.timeStepperType = 'CrankNicolson'
-    solverObj.dt = dt
+    solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d, order=order)
+    solverObj.options.nonlin = True
+    solverObj.options.TExport = dt
+    solverObj.options.T = N*dt
+    solverObj.options.timeStepperType = 'CrankNicolson'
+    solverObj.options.dt = dt
 
     # boundary conditions
     inflow_tag = 1
@@ -72,8 +72,8 @@ for i in range(5):
         'snes_type': 'newtonls'}
     # reinitialize the timestepper so we can set our own solver parameters and gamma
     # setting gamma to 1.0 converges faster to
-    solverObj.timeStepper = timeIntegrator.CrankNicolson(solverObj.eq_sw, solverObj.dt,
-                                                                         solver_parameters, gamma=1.0)
+    solverObj.timeStepper = timeIntegrator.CrankNicolson(solverObj.eq_sw, solverObj.options.dt,
+                                                         solver_parameters, gamma=1.0)
 
     source_space=FunctionSpace(mesh2d, 'DG', order+1)
     source_func = project(source_expr, source_space)
@@ -83,15 +83,15 @@ for i in range(5):
 
     solverObj.iterate()
 
-    uv, eta = solverObj.solution2d.split()
+    uv, eta = solverObj.fields.solution2d.split()
 
-    eta_ana = project(eta_expr, solverObj.H_2d)
-    diff_pvd << project(eta_ana-eta, solverObj.H_2d, name="diff")
+    eta_ana = project(eta_expr, solverObj.function_spaces.H_2d)
+    diff_pvd << project(eta_ana-eta, solverObj.function_spaces.H_2d, name="diff")
     eta_l2norm = assemble(pow(eta-eta_ana,2)*dx)
     eta_errs.append(math.sqrt(eta_l2norm/area))
 
-    u_ana = project(u_expr, solverObj.U_2d)
-    udiff_pvd << project(u_ana-uv, solverObj.U_2d, name="diff")
+    u_ana = project(u_expr, solverObj.function_spaces.U_2d)
+    udiff_pvd << project(u_ana-uv, solverObj.function_spaces.U_2d, name="diff")
     u_l2norm = assemble(inner(u_ana-uv,u_ana-uv)*dx)
     u_errs.append(math.sqrt(u_l2norm/area))
 
