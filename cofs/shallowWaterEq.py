@@ -147,13 +147,33 @@ class shallowWaterEquations(equation):
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds(int(bnd_marker))
                 if funcs is not None:
+                    h = self.bathymetry
+                    l = self.boundary_len[bnd_marker]
                     if 'elev' in funcs and 'uv' in funcs:
                         eta_ext = funcs['elev']
                         uv_ext = funcs['uv']
-                        un_jump = inner(uv - uv_ext, self.normal)
-                        h = self.bathymetry
-                        eta_rie = 0.5*(head + eta_ext) + sqrt(h/g_grav)*un_jump
-                        f += g_grav*eta_rie*dot(self.U_test, self.normal)*ds_bnd
+                    elif 'elev' in funcs and 'flux' in funcs:
+                        eta_ext = funcs['elev']
+                        H_ext = eta_ext + h
+                        area = H_ext*l  # NOTE using external data only
+                        uv_ext = funcs['flux']/area
+                    elif 'elev' in funcs:
+                        eta_ext = funcs['elev']
+                        uv_ext = uv  # assume symmetry
+                    elif 'uv' in funcs:
+                        eta_ext = head  # assume symmetry
+                        uv_ext = funcs['uv']
+                    elif 'flux' in funcs:
+                        eta_ext = head  # assume symmetry
+                        H_ext = eta_ext + h
+                        area = H_ext*l  # NOTE using internal elevation
+                        uv_ext = funcs['flux']/area
+                    else:
+                        raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
+                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                    un_jump = inner(uv - uv_ext, self.normal)
+                    eta_rie = 0.5*(head + eta_ext) + sqrt(h/g_grav)*un_jump
+                    f += g_grav*eta_rie*dot(self.U_test, self.normal)*ds_bnd
                 if funcs is None or 'symm' in funcs or internalPG:
                     # assume land boundary
                     # impermeability implies external un=0
@@ -185,16 +205,37 @@ class shallowWaterEquations(equation):
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds(int(bnd_marker))
                 if funcs is not None:
+                    h = self.bathymetry
+                    l = self.boundary_len[bnd_marker]
                     if 'elev' in funcs and 'uv' in funcs:
                         eta_ext = funcs['elev']
                         uv_ext = funcs['uv']
-                        h = self.bathymetry + 0.5*(eta + eta_ext)
-                        un_jump =inner(uv - uv_ext, self.normal)
-                        eta_jump = eta - eta_ext
-                        eta_rie = 0.5*(eta + eta_ext) + sqrt(h/g_grav)*un_jump
-                        un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h)*eta_jump
-                        H = self.bathymetry + eta_rie
-                        f += H*un_rie*self.eta_test*ds_bnd
+                    elif 'elev' in funcs and 'flux' in funcs:
+                        eta_ext = funcs['elev']
+                        H_ext = eta_ext + h
+                        area = H_ext*l  # NOTE using external data only
+                        uv_ext = funcs['flux']/area
+                    elif 'elev' in funcs:
+                        eta_ext = funcs['elev']
+                        uv_ext = uv  # assume symmetry
+                    elif 'uv' in funcs:
+                        eta_ext = eta  # assume symmetry
+                        uv_ext = funcs['uv']
+                    elif 'flux' in funcs:
+                        eta_ext = eta  # assume symmetry
+                        H_ext = eta_ext + h
+                        area = H_ext*l  # NOTE using internal elevation
+                        uv_ext = funcs['flux']/area
+                    else:
+                        raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
+                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                    H_av = self.bathymetry + 0.5*(eta + eta_ext)
+                    un_jump = inner(uv - uv_ext, self.normal)
+                    eta_jump = eta - eta_ext
+                    eta_rie = 0.5*(eta + eta_ext) + sqrt(H_av/g_grav)*un_jump
+                    un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/H_av)*eta_jump
+                    H_rie = self.bathymetry + eta_rie
+                    f += H_rie*un_rie*self.eta_test*ds_bnd
                 #if funcs is not None and ('symm' in funcs or 'elev' in funcs):
                     #f += total_H*inner(self.normal, uv)*self.eta_test*ds_bnd
         else:
@@ -245,18 +286,38 @@ class shallowWaterEquations(equation):
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds(int(bnd_marker))
                 if funcs is not None:
+                    h = self.bathymetry
+                    l = self.boundary_len[bnd_marker]
                     if 'elev' in funcs and 'uv' in funcs:
                         eta_ext = funcs['elev']
                         uv_ext = funcs['uv']
-                        uv_av = 0.5*(uv_ext + uv)
-                        h = self.bathymetry
-                        un_jump = inner(uv - uv_ext, self.normal)
-                        eta_jump = eta - eta_ext
-                        eta_rie = 0.5*(eta + eta_ext) + sqrt(h/g_grav)*un_jump
-                        un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h)*eta_jump
-                        uv_rie = un_rie*self.normal
-                        f += (uv_av[0]*self.U_test[0]*un_rie +
-                              uv_av[1]*self.U_test[1]*un_rie)*ds_bnd
+                    elif 'elev' in funcs and 'flux' in funcs:
+                        eta_ext = funcs['elev']
+                        H_ext = eta_ext + h
+                        area = H_ext*l  # NOTE should be H_in?
+                        uv_ext = funcs['flux']/area
+                    elif 'elev' in funcs:
+                        eta_ext = funcs['elev']
+                        uv_ext = uv  # assume symmetry
+                    elif 'uv' in funcs:
+                        eta_ext = eta  # assume symmetry
+                        uv_ext = funcs['uv']
+                    elif 'flux' in funcs:
+                        eta_ext = eta  # assume symmetry
+                        H_ext = eta_ext + h
+                        area = H_ext*l  # NOTE should be H_in?
+                        uv_ext = funcs['flux']/area
+                    else:
+                        raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
+                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                    uv_av = 0.5*(uv_ext + uv)
+                    un_jump = inner(uv - uv_ext, self.normal)
+                    eta_jump = eta - eta_ext
+                    eta_rie = 0.5*(eta + eta_ext) + sqrt(h/g_grav)*un_jump
+                    un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h)*eta_jump
+                    uv_rie = un_rie*self.normal
+                    f += (uv_av[0]*self.U_test[0]*un_rie +
+                            uv_av[1]*self.U_test[1]*un_rie)*ds_bnd
                 #if funcs is None or not 'un' in funcs:
                     #f += (uv[0]*self.U_test[0]*uv[0]*self.normal[0] +
                           #uv[1]*self.U_test[1]*uv[0]*self.normal[0] +

@@ -212,7 +212,7 @@ def run(setup, refinement, order, export=True):
     #solverObj.options.coriolis = Constant(f0)
     solverObj.options.outputDir = outputDir
     solverObj.options.T = T
-    solverObj.dt = dt
+    solverObj.options.dt = dt
     solverObj.options.TExport = TExport
     solverObj.options.timerLabels = []
     #solverObj.options.uvLaxFriedrichs = None
@@ -225,14 +225,20 @@ def run(setup, refinement, order, export=True):
     elev_ana.project(elev_expr)
     uv_ana = Function(solverObj.function_spaces.U_2d, name='Analytical velocity')
     uv_ana.project(uv_expr)
+    flux_ana = Function(solverObj.function_spaces.U_2d, name='Analytical velocity')
+    flux_ana.project(uv_ana*(bathymetry_2d + elev_ana))
     source_uv = Function(solverObj.function_spaces.U_2d, name='momentum source')
     source_uv.project(res_uv_expr)
     source_elev = Function(solverObj.function_spaces.H_2d, name='continuity source')
     source_elev.project(res_elev_expr)
 
-    #bnd = {'elev': elev_ana}
-    #bnd = {'uv': uv_ana}
     bnd = {'elev': elev_ana, 'uv': uv_ana}  # NOTE implemented and works
+
+    #bnd = {'elev': elev_ana}  # NOTE unstable?
+    #bnd = {'elev': elev_ana, 'flux': flux_ana}  # NOTE implemented and works
+    #bnd = {'uv': uv_ana}  # NOTE works for pressure gradient
+    #bnd = {'flux': flux_ana}  # NOTE works for pressure gradient
+
     solverObj.bnd_functions['shallow_water'] = {1: bnd,
                                                 2: bnd,
                                                 3: bnd,
@@ -244,6 +250,8 @@ def run(setup, refinement, order, export=True):
     solverObj.assignInitialConditions(elev=elev_ana, uv_init=uv_ana)
     solverObj.iterate()
 
+    #elev_L2_err = errornorm(elev_ana, solverObj.fields.solution2d.split()[1])/numpy.sqrt(area)
+    #uv_L2_err = errornorm(uv_ana, solverObj.fields.solution2d.split()[0])/numpy.sqrt(area)
     elev_diff = solverObj.fields.solution2d.split()[1] - elev_ana
     elev_L2_err = numpy.sqrt(assemble(inner(elev_diff, elev_diff)*dx)/area)
     uv_diff = solverObj.fields.solution2d.split()[0] - uv_ana
@@ -313,11 +321,11 @@ def run_scaling(setup, ref_list, order, export=False, savePlot=False):
 # NOTE try time dependent solution: need to update source terms
 
 # run individual setup
-run(setup5, 1, 1)
+#run(setup5, 1, 1)
 #run(setup3, 1, 1)
 
-#run_scaling(setup2, [1, 2, 4], 1, savePlot=True)
-#run_scaling(setup2, [2, 4, 8, 10], 1, savePlot=True)
+run_scaling(setup5, [1, 2, 4], 1, savePlot=True)
+#run_scaling(setup5, [2, 4, 8, 10], 1, savePlot=True)
 #run_scaling(setup2, [1, 2, 4, 8], 1, savePlot=True)
 
 #run_scaling(setup2, [1, 2, 4, 8], 1, savePlot=True)
