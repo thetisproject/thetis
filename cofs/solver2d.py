@@ -102,6 +102,8 @@ class flowSolver2d(frozenClass):
             uvLaxFriedrichs=self.options.uvLaxFriedrichs,
             coriolis=self.options.coriolis,
             wind_stress=self.options.wind_stress,
+            uv_source=self.options.uv_source_2d,
+            elev_source=self.options.elev_source_2d,
             nonlin=self.options.nonlin)
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
