@@ -190,9 +190,7 @@ class shallowWaterEquations(equation):
         if self.gradEtaByParts:
             f = -g_grav*head*nabla_div(self.U_test)*self.dx
             if uv is not None:
-                un = dot(uv, self.normal)
-                # NOTE riemann term unstable for DG velocity field
-                head_star = avg(head) #+ 0.5*sqrt(avg(total_H)/g_grav)*jump(un)
+                head_star = avg(head) + 0.5*sqrt(avg(total_H)/g_grav)*jump(uv, self.normal)
             else:
                 head_star = avg(head)
             f += g_grav*head_star*jump(self.U_test, self.normal)*self.dS
@@ -206,7 +204,7 @@ class shallowWaterEquations(equation):
                     eta_ext, uv_ext = self.getBndFunctions(head, uv, funcs, h, l)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     un_jump = inner(uv - uv_ext, self.normal)
-                    eta_rie = 0.5*(head + eta_ext) + sqrt(h/g_grav)*un_jump
+                    eta_rie = 0.5*(head + eta_ext) + sqrt(total_H/g_grav)*un_jump
                     f += g_grav*eta_rie*dot(self.U_test, self.normal)*ds_bnd
                 if funcs is None or 'symm' in funcs or internalPG:
                     # assume land boundary
@@ -311,7 +309,7 @@ class shallowWaterEquations(equation):
                     un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h)*eta_jump
                     uv_rie = un_rie*self.normal
                     f += (uv_av[0]*self.U_test[0]*un_rie +
-                            uv_av[1]*self.U_test[1]*un_rie)*ds_bnd
+                          uv_av[1]*self.U_test[1]*un_rie)*ds_bnd
                 #if funcs is None or not 'un' in funcs:
                     #f += (uv[0]*self.U_test[0]*uv[0]*self.normal[0] +
                           #uv[1]*self.U_test[1]*uv[0]*self.normal[0] +
