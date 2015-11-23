@@ -610,8 +610,8 @@ def run_scaling(setup, ref_list, order, export=False, savePlot=False):
             print '{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope)
         return slope
 
-    check_convergence(x_log, y_log_elev, None, 'elev', savePlot)
-    check_convergence(x_log, y_log_uv, None, 'uv', savePlot)
+    check_convergence(x_log, y_log_elev, order+1, 'elev', savePlot)
+    check_convergence(x_log, y_log_uv, order+1, 'uv', savePlot)
 
 # NOTE nontrivial velocity implies slower convergence
 # NOTE implement and test other boundary conditions as well

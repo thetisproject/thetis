@@ -53,12 +53,12 @@ options.wind_stress = windStress2d
 options.lin_drag = lin_drag
 options.TExport = TExport
 options.T = T
-options.dt = 20.0
+options.dt = 45.0
 options.outputDir = outputDir
 options.uAdvection = Constant(0.01)
 options.checkVolConservation2d = True
 options.fieldsToExport = ['uv_2d', 'elev_2d']
 options.timerLabels = []
-options.timeStepperType = 'CrankNicolson'
+#options.timeStepperType = 'CrankNicolson'
 
 solverObj.iterate()
