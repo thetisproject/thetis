@@ -36,3 +36,9 @@ This project is licensed under the terms of the MIT license.
 ```
     pip install -e /path/to/cofs/repo
 ```
+
+- Install `pytest` in the same environment
+
+```
+    pip install --ignore-installed pytest
+```

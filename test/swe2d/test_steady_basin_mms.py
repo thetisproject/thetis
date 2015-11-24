@@ -1,5 +1,12 @@
 """
-MMS test for 2d shallow water equations
+MMS test for 2d shallow water equations.
+
+- setuoXX functions define analytical expressions for fields and boundary
+  conditions. Expressions were derived with sympy.
+- run function runs the MMS setup with a single mesh resolution, returning
+  L2 errors.
+- run_scaling runs a scaling test, computes and asserts convergence rate.
+- test_XX functions are the default test cases for continuous testing.
 
 Tuomas Karna 2015-10-29
 """
@@ -7,10 +14,8 @@ from cofs import *
 import numpy
 from scipy import stats
 
-parameters['coffee'] = {}
 
-
-def setup1(Lx, Ly, depth, f0, g):
+def setup1(Lx, Ly, depth, f0, g, mimetic=True):
     """
     Tests the pressure gradient only
 
@@ -40,6 +45,7 @@ def setup1(Lx, Ly, depth, f0, g):
             '-1.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx',
         ), Lx=Lx, h0=depth, f0=f0, g=g)
     out['options'] = {}
+    out['options'] = {'mimetic': mimetic}
     out['bnd_funcs'] = {1: {'elev': None, 'uv': None},
                         2: {'elev': None, 'uv': None},
                         3: {'elev': None, 'uv': None},
@@ -54,36 +60,7 @@ def setup1dg(Lx, Ly, depth, f0, g):
 
     Constant bath, zero velocity, no Coriolis
     """
-    out = {}
-    out['bath_expr'] = Expression(
-        'h0',
-        Lx=Lx, h0=depth, f0=f0, g=g)
-    out['cori_expr'] = Expression(
-        '0',
-        Lx=Lx, h0=depth, f0=f0, g=g)
-    out['elev_expr'] = Expression(
-        'cos(pi*(3.0*x[0] + 1.0*x[1])/Lx)',
-        Lx=Lx, h0=depth, f0=f0, g=g)
-    out['uv_expr'] = Expression(
-        (
-            '0',
-            '0',
-        ), Lx=Lx, h0=depth, f0=f0, g=g)
-    out['res_elev_expr'] = Expression(
-        '0',
-        Lx=Lx, h0=depth, f0=f0, g=g)
-    out['res_uv_expr'] = Expression(
-        (
-            '-3.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx',
-            '-1.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx',
-        ), Lx=Lx, h0=depth, f0=f0, g=g)
-    out['options'] = {'mimetic': False}
-    out['bnd_funcs'] = {1: {'elev': None, 'uv': None},
-                        2: {'elev': None, 'uv': None},
-                        3: {'elev': None, 'uv': None},
-                        4: {'elev': None, 'uv': None},
-                        }
-    return out
+    return setup1(Lx, Ly, depth, f0, g, mimetic=False)
 
 
 def setup2(Lx, Ly, depth, f0, g):
@@ -271,7 +248,7 @@ def setup6(Lx, Ly, depth, f0, g):
     return out
 
 
-def setup7(Lx, Ly, depth, f0, g):
+def setup7(Lx, Ly, depth, f0, g, mimetic=True):
     """
     Non-trivial Coriolis, bath, elev, u and v,
     tangential velocity is zero at bnd to test flux BCs
@@ -299,7 +276,7 @@ def setup7(Lx, Ly, depth, f0, g):
             '-0.5*f0*sin(pi*x[0]/Lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx)*cos(pi*(x[0] + x[1])/Lx) + 0.5*(pi*sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)*cos(pi*x[1]/Ly)/Ly + 1.0*pi*sin(pi*x[1]/Ly)*cos(pi*(-2.0*x[0] + 1.0*x[1])/Lx)/Lx)*sin(pi*x[0]/Lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx) - 3.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx - 2.0*pi*sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)*pow(sin(pi*x[1]/Ly), 2)*cos(pi*(-2.0*x[0] + 1.0*x[1])/Lx)/Lx',
             'f0*sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)*sin(pi*x[1]/Ly)*cos(pi*(x[0] + x[1])/Lx) + (-1.5*pi*sin(pi*x[0]/Lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/Lx)/Lx + 0.5*pi*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx)*cos(pi*x[0]/Lx)/Lx)*sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)*sin(pi*x[1]/Ly) - 1.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx + 0.25*pi*pow(sin(pi*x[0]/Lx), 2)*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/Lx)/Lx',
         ), Lx=Lx, Ly=Ly, h0=depth, f0=f0, g=g)
-    out['options'] = {}
+    out['options'] = {'mimetic': mimetic}
     out['bnd_funcs'] = {1: {'elev': None, 'flux_left': None},
                         2: {'flux_right': None},
                         3: {'elev': None, 'flux_lower': None},
@@ -313,39 +290,10 @@ def setup7dg(Lx, Ly, depth, f0, g):
     Non-trivial Coriolis, bath, elev, u and v,
     tangential velocity is zero at bnd to test flux BCs
     """
-    out = {}
-    out['bath_expr'] = Expression(
-        '4.0 + h0*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])/Lx',
-        Lx=Lx, Ly=Ly, h0=depth, f0=f0, g=g)
-    out['cori_expr'] = Expression(
-        'f0*cos(pi*(x[0] + x[1])/Lx)',
-        Lx=Lx, Ly=Ly, h0=depth, f0=f0, g=g)
-    out['elev_expr'] = Expression(
-        'cos(pi*(3.0*x[0] + 1.0*x[1])/Lx)',
-        Lx=Lx, Ly=Ly, h0=depth, f0=f0, g=g)
-    out['uv_expr'] = Expression(
-        (
-            'sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)*sin(pi*x[1]/Ly)',
-            '0.5*sin(pi*x[0]/Lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx)',
-        ), Lx=Lx, Ly=Ly, h0=depth, f0=f0, g=g)
-    out['res_elev_expr'] = Expression(
-        '(0.3*h0*x[0]/(Lx*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])) - 3.0*pi*sin(pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx)*sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)*sin(pi*x[1]/Ly) + 0.5*(0.2*h0*x[1]/(Lx*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])) - 1.0*pi*sin(pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx)*sin(pi*x[0]/Lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx) + 0.5*pi*(cos(pi*(3.0*x[0] + 1.0*x[1])/Lx) + 4.0 + h0*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])/Lx)*sin(pi*x[0]/Lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/Lx)/Lx - 2.0*pi*(cos(pi*(3.0*x[0] + 1.0*x[1])/Lx) + 4.0 + h0*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])/Lx)*sin(pi*x[1]/Ly)*cos(pi*(-2.0*x[0] + 1.0*x[1])/Lx)/Lx',
-        Lx=Lx, Ly=Ly, h0=depth, f0=f0, g=g)
-    out['res_uv_expr'] = Expression(
-        (
-            '-0.5*f0*sin(pi*x[0]/Lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx)*cos(pi*(x[0] + x[1])/Lx) + 0.5*(pi*sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)*cos(pi*x[1]/Ly)/Ly + 1.0*pi*sin(pi*x[1]/Ly)*cos(pi*(-2.0*x[0] + 1.0*x[1])/Lx)/Lx)*sin(pi*x[0]/Lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx) - 3.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx - 2.0*pi*sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)*pow(sin(pi*x[1]/Ly), 2)*cos(pi*(-2.0*x[0] + 1.0*x[1])/Lx)/Lx',
-            'f0*sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)*sin(pi*x[1]/Ly)*cos(pi*(x[0] + x[1])/Lx) + (-1.5*pi*sin(pi*x[0]/Lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/Lx)/Lx + 0.5*pi*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx)*cos(pi*x[0]/Lx)/Lx)*sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)*sin(pi*x[1]/Ly) - 1.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx + 0.25*pi*pow(sin(pi*x[0]/Lx), 2)*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/Lx)/Lx',
-        ), Lx=Lx, Ly=Ly, h0=depth, f0=f0, g=g)
-    out['options'] = {'mimetic': False}
-    out['bnd_funcs'] = {1: {'elev': None, 'flux_left': None},
-                        2: {'flux_right': None},
-                        3: {'elev': None, 'flux_lower': None},
-                        4: {'un_upper': None},
-                        }
-    return out
+    return setup7(Lx, Ly, depth, f0, g, mimetic=False)
 
 
-def setup8(Lx, Ly, depth, f0, g):
+def setup8(Lx, Ly, depth, f0, g, mimetic=True):
     """
     Non-trivial Coriolis, bath, elev, u and v,
     tangential velocity is non-zero at bnd, must prescribe uv at boundary.
@@ -373,7 +321,7 @@ def setup8(Lx, Ly, depth, f0, g):
             '-0.5*f0*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx)*cos(pi*(x[0] + x[1])/Lx) - 3.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx + 0.5*pi*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx)*cos(pi*(-2.0*x[0] + 1.0*x[1])/Lx)/Lx - 2.0*pi*sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)*cos(pi*(-2.0*x[0] + 1.0*x[1])/Lx)/Lx',
             'f0*sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)*cos(pi*(x[0] + x[1])/Lx) - 1.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx + 0.25*pi*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/Lx)/Lx - 1.5*pi*sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/Lx)/Lx',
         ), Lx=Lx, Ly=Ly, h0=depth, f0=f0, g=g)
-    out['options'] = {}
+    out['options'] = {'mimetic': mimetic}
     # NOTE uv condition alone does not work
     out['bnd_funcs'] = {1: {'elev': None, 'uv': None},
                         2: {'elev': None, 'uv': None},
@@ -388,43 +336,13 @@ def setup8dg(Lx, Ly, depth, f0, g):
     Non-trivial Coriolis, bath, elev, u and v,
     tangential velocity is non-zero at bnd, must prescribe uv at boundary.
     """
-    out = {}
-    out['bath_expr'] = Expression(
-        '4.0 + h0*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])/Lx',
-        Lx=Lx, Ly=Ly, h0=depth, f0=f0, g=g)
-    out['cori_expr'] = Expression(
-        'f0*cos(pi*(x[0] + x[1])/Lx)',
-        Lx=Lx, Ly=Ly, h0=depth, f0=f0, g=g)
-    out['elev_expr'] = Expression(
-        'cos(pi*(3.0*x[0] + 1.0*x[1])/Lx)',
-        Lx=Lx, Ly=Ly, h0=depth, f0=f0, g=g)
-    out['uv_expr'] = Expression(
-        (
-            'sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)',
-            '0.5*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx)',
-        ), Lx=Lx, Ly=Ly, h0=depth, f0=f0, g=g)
-    out['res_elev_expr'] = Expression(
-        '(0.3*h0*x[0]/(Lx*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])) - 3.0*pi*sin(pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx)*sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx) + 0.5*(0.2*h0*x[1]/(Lx*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])) - 1.0*pi*sin(pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx) + 0.5*pi*(cos(pi*(3.0*x[0] + 1.0*x[1])/Lx) + 4.0 + h0*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])/Lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/Lx)/Lx - 2.0*pi*(cos(pi*(3.0*x[0] + 1.0*x[1])/Lx) + 4.0 + h0*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])/Lx)*cos(pi*(-2.0*x[0] + 1.0*x[1])/Lx)/Lx',
-        Lx=Lx, Ly=Ly, h0=depth, f0=f0, g=g)
-    out['res_uv_expr'] = Expression(
-        (
-            '-0.5*f0*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx)*cos(pi*(x[0] + x[1])/Lx) - 3.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx + 0.5*pi*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx)*cos(pi*(-2.0*x[0] + 1.0*x[1])/Lx)/Lx - 2.0*pi*sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)*cos(pi*(-2.0*x[0] + 1.0*x[1])/Lx)/Lx',
-            'f0*sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)*cos(pi*(x[0] + x[1])/Lx) - 1.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx + 0.25*pi*sin(pi*(-3.0*x[0] + 1.0*x[1])/Lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/Lx)/Lx - 1.5*pi*sin(pi*(-2.0*x[0] + 1.0*x[1])/Lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/Lx)/Lx',
-        ), Lx=Lx, Ly=Ly, h0=depth, f0=f0, g=g)
-    out['options'] = {'mimetic': False}
-    # NOTE uv condition alone does not work
-    out['bnd_funcs'] = {1: {'elev': None, 'uv': None},
-                        2: {'elev': None, 'uv': None},
-                        3: {'elev': None, 'uv': None},
-                        4: {'elev': None, 'uv': None},
-                        }
-    return out
+    return setup8(Lx, Ly, depth, f0, g, mimetic=False)
 
 
 def run(setup, refinement, order, export=True):
     """Run single test and return L2 error"""
-    print '--- running refinement', refinement
-    # domain dimensions
+    print '--- running {:} refinement {:}'.format(setup.__name__, refinement)
+    # domain dimensions 
     Lx = 15e3
     Ly = 10e3
     area = Lx*Ly
@@ -598,8 +516,10 @@ def run_scaling(setup, ref_list, order, export=False, savePlot=False):
             ax.set_title(field_str)
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
             order_str = 'o{:}'.format(order)
-            imgfile = '_'.join(['convergence', field_str, setup_name, ref_str, order_str])
+            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str])
             imgfile += '.png'
+            imgDir = createDirectory('plots')
+            imgfile = os.path.join(imgDir, imgfile)
             print 'saving figure', imgfile
             plt.savefig(imgfile, dpi=200, bbox_inches='tight')
         if expected_slope is not None:
@@ -614,34 +534,37 @@ def run_scaling(setup, ref_list, order, export=False, savePlot=False):
     check_convergence(x_log, y_log_uv, order+1, 'uv', savePlot)
 
 # NOTE nontrivial velocity implies slower convergence
-# NOTE implement and test other boundary conditions as well
-#      flux, eta + flux, eta + un
 # NOTE try time dependent solution: need to update source terms
 # NOTE using Lax-Friedrichs stabilization in mom. advection term improves convergence of velocity
 
-# standard tests
-run_scaling(setup7, [1, 2, 4, 6], 1, savePlot=True)
-run_scaling(setup8, [1, 2, 4, 6], 1, savePlot=True)
-run_scaling(setup7dg, [1, 2, 4, 6], 1, savePlot=True)
-run_scaling(setup8dg, [1, 2, 4, 6], 1, savePlot=True)
+# ---------------------------
+# standard tests for pytest
+# ---------------------------
 
-# run individual setup
+
+def test_setup7_mimetic():
+    run_scaling(setup7, [1, 2, 4, 6], 1, savePlot=True)
+
+
+def test_setup8_mimetic():
+    run_scaling(setup8, [1, 2, 4, 6], 1, savePlot=True)
+
+
+def test_setup7_dg():
+    run_scaling(setup7dg, [1, 2, 4, 6], 1, savePlot=True)
+
+
+def test_setup8_dg():
+    run_scaling(setup8dg, [1, 2, 4, 6], 1, savePlot=True)
+
+# ---------------------------
+# run individual setup for debugging
+# ---------------------------
+
 #run(setup1, 2, 1)
-#run(setup8dg, 1, 1)
+
+# ---------------------------
+# run individual scaling test
+# ---------------------------
 
 #run_scaling(setup8dg, [1, 2, 4], 1, savePlot=True)
-#run_scaling(setup7, [2, 4, 8, 10], 1, savePlot=True)
-#run_scaling(setup2, [1, 2, 4, 8], 1, savePlot=True)
-
-#run_scaling(setup2, [1, 2, 4, 8], 1, savePlot=True)
-
-## run convergence test for all the setups
-#ref_list = [1, 2, 4]
-#order = 1
-#for t in [setup1, setup2, setup3, setup4]:
-    #run_scaling(t, ref_list, order)
-
-## NOTE to prove integrity it is sufficient to only test the most complex case
-#ref_list = [1, 2, 4]
-#order = 1
-#run_scaling(setup2, ref_list, order)

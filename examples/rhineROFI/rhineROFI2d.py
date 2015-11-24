@@ -18,7 +18,7 @@
 
 from cofs import *
 
-outputDir = createDirectory('outputs2d')
+outputDir = createDirectory('outputs2d-dg')
 mesh2d = Mesh('mesh_rhineRofi_coarse.msh')
 printInfo('Loaded mesh '+mesh2d.name)
 printInfo('Exporting to '+outputDir)
@@ -60,6 +60,7 @@ bathymetry_2d.interpolate(Expression('(x[0] > 0.0) ? H*(1-x[0]/Lriver) + HInlet*
 # create solver
 solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d)
 options = solverObj.options
+options.mimetic = False
 options.cfl_2d = 1.0
 #options.nonlin = False
 options.coriolis = Constant(coriolisF)
