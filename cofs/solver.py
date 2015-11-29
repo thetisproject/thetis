@@ -323,6 +323,7 @@ class flowSolver(frozenClass):
                 dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
                 diffusivity_h=self.tot_salt_h_diff.getSum(),
                 diffusivity_v=self.tot_salt_v_diff.getSum(),
+                source=self.options.salt_source_3d,
                 #uvMag=self.uv_mag_3d,
                 uvP1=self.fields.get('uv_p1_3d'),
                 laxFriedrichsFactor=self.options.tracerLaxFriedrichs,

@@ -11,6 +11,7 @@ class tracerEquation(equation):
     def __init__(self, solution, eta, uv=None, w=None,
                  w_mesh=None, dw_mesh_dz=None,
                  diffusivity_h=None, diffusivity_v=None,
+                 source=None,
                  uvMag=None, uvP1=None, laxFriedrichsFactor=None,
                  bnd_markers=None, bnd_len=None, nonlin=True,
                  vElemSize=None):
@@ -26,6 +27,7 @@ class tracerEquation(equation):
                        'dw_mesh_dz': dw_mesh_dz,
                        'diffusivity_h': diffusivity_h,
                        'diffusivity_v': diffusivity_v,
+                       'source': source,
                        'uvMag': uvMag,
                        'uvP1': uvP1,
                        'laxFriedrichsFactor': laxFriedrichsFactor,
@@ -214,9 +216,12 @@ class tracerEquation(equation):
 
         return -F - G
 
-    def Source(self, eta=None, uv=None, w=None, **kwargs):
+    def Source(self, eta=None, uv=None, w=None, source=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
         F = 0  # holds all dx volume integral terms
+
+        if source is not None:
+            F += -inner(source, self.test)*self.dx
 
         return -F

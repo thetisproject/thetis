@@ -114,3 +114,5 @@ class modelOptions(AttrDict):
         """Coefficient or None: source term for 2d momentum equation"""
         self.elev_source_2d = None
         """Coefficient or None: source term for 2d continuity equation"""
+        self.salt_source_3d = None
+        """Coefficient or None: source term for salinity equation"""
