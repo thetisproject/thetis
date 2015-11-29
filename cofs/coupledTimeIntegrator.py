@@ -459,6 +459,7 @@ class coupledSSPRKSemiImplicit(coupledTimeIntegrator):
         printInfo('dt_frac ' + str(self.dt_frac))
         printInfo('start_frac ' + str(self.start_frac))
         printInfo('stage_w ' + str(self.stage_w))
+        self.nStages = self.timeStepper_mom3d.nStages
 
     def initialize(self):
         """Assign initial conditions to all necessary fields"""
@@ -582,7 +583,7 @@ class coupledSSPRKSingleMode(coupledTimeIntegrator):
 
     def advance(self, t, dt, updateForcings=None, updateForcings3d=None):
         """Advances the equations for one time step"""
-        for k in range(self.timeStepper2d.nstages):
+        for k in range(self.timeStepper2d.nStages):
             with timed_region('saltEq'):
                 if self.options.solveSalt:
                     self.timeStepper_salt_3d.solveStage(k, t, self.solver.dt_2d,
