@@ -260,16 +260,16 @@ class flowSolver(frozenClass):
             self.glsModel = None
         # copute total viscosity/diffusivity
         self.tot_h_visc = sumFunction()
-        self.tot_h_visc.add(self.fields.get('hViscosity'))
+        self.tot_h_visc.add(self.options.get('hViscosity'))
         self.tot_h_visc.add(self.fields.get('smag_visc_3d'))
         self.tot_v_visc = sumFunction()
-        self.tot_v_visc.add(self.fields.get('vViscosity'))
+        self.tot_v_visc.add(self.options.get('vViscosity'))
         self.tot_v_visc.add(self.fields.get('eddy_visc_3d'))
         self.tot_v_visc.add(self.fields.get('parab_visc_3d'))
         self.tot_salt_h_diff = sumFunction()
-        self.tot_salt_h_diff.add(self.fields.get('hDiffusivity'))
+        self.tot_salt_h_diff.add(self.options.get('hDiffusivity'))
         self.tot_salt_v_diff = sumFunction()
-        self.tot_salt_v_diff.add(self.fields.get('vDiffusivity'))
+        self.tot_salt_v_diff.add(self.options.get('vDiffusivity'))
         self.tot_salt_v_diff.add(self.fields.get('eddy_diff_3d'))
 
         # set initial values
@@ -286,7 +286,7 @@ class flowSolver(frozenClass):
                 self.fields.solution2d, self.fields.bathymetry_2d,
                 self.fields.get('uv_bottom_2d'), self.fields.get('bottom_drag_2d'),
                 baroc_head=self.fields.get('baroc_head_2d'),
-                viscosity_h=self.fields.get('hViscosity'),  # FIXME add 2d smag
+                viscosity_h=self.options.get('hViscosity'),  # FIXME add 2d smag
                 uvLaxFriedrichs=self.options.uvLaxFriedrichs,
                 coriolis=self.options.coriolis,
                 wind_stress=self.options.wind_stress,
