@@ -195,7 +195,7 @@ class tracerEquation(equation):
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds_v(int(bnd_marker))
-                if 'value' in funcs or 'symm' in funcs:
+                if funcs is None or 'value' in funcs or 'symm' in funcs:
                     # use symmetric diffusion flux through boundary
                     F += -inner(muGradSol, self.normal)*self.test*ds_bnd
         if self.computeVertDiffusion:
