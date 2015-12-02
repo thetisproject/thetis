@@ -360,8 +360,6 @@ def run_scaling(setup, ref_list, order, export=False, savePlot=False):
     check_convergence(x_log, y_log, order+1, 'tracer', savePlot)
 
 # NOTE here mimetic option has no effect -- both use p1dg for tracers
-# NOTE advection-only tests give convergence rate close to optimal 2
-# NOTE with diffusion however convergence rate is only 1.7 ...
 # NOTE external-tracer-value BC and symmetric diffusion flux work fine
 # TODO add more BCs
 
@@ -395,4 +393,4 @@ def test_setup4_dg():
 # run individual scaling test
 # ---------------------------
 
-#run_scaling(setup3dg, [1, 2, 3], 1, savePlot=True)
+#run_scaling(setup4dg, [1, 2, 3], 1, savePlot=True)

@@ -28,9 +28,6 @@
 
 from cofs import *
 
-# set physical constants
-physical_constants['z0_friction'].assign(5.0e-5)
-
 reso_str = 'medium'
 outputDir = createDirectory('outputs_'+reso_str)
 refinement = {'medium': 1}
