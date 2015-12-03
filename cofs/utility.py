@@ -360,16 +360,6 @@ def computeVertVelocity(solution, uv, bathymetry,
 
         ds_surf = ds_b
         ds_bottom = ds_t
-        ## NOTE pointwise dw/dz
-        #a = Dx(tri[2], 2)*test[2]*dx - tri[2]*test[2]*normal[2]*ds_bottom
-        #a += (test[0]*tri[0] + test[1]*tri[1])*dx
-        ## NOTE pointwise div(uv)
-        #w_bottom = -(uv[0]*Dx(bathymetry, 0) + uv[1]*Dx(bathymetry, 1))
-        #L = -(Dx(uv[0], 0) + Dx(uv[1], 1))*test[2]*dx
-        ##L += -w_bottom*test[2]*normal[2]*ds_bottom
-        #L += (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_v
-        #L += (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_surf
-        #L += (uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_bottom
         # NOTE weak dw/dz
         a = tri[2]*test[2]*normal[2]*ds_surf + avg(tri[2])*jump(test[2], normal[2])*dS_h - Dx(test[2], 2)*tri[2]*dx
         # NOTE weak div(uv)

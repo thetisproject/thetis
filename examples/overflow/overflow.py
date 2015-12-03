@@ -34,7 +34,7 @@ refinement = {'medium': 1}
 layers = int(round(16*refinement[reso_str]))
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
 printInfo('Loaded mesh '+mesh2d.name)
-dt = 10.0/refinement[reso_str]
+dt = 5.0/refinement[reso_str]
 T = 25 * 3600
 TExport = 15*60.0
 depth = 20.0
@@ -50,38 +50,40 @@ solverObj = solver.flowSolver(mesh2d, bathymetry_2d, layers)
 options = solverObj.options
 options.cfl_2d = 1.0
 #options.nonlin = False
+options.mimetic = False
 options.solveSalt = True
 options.solveVertDiffusion = False
 options.useBottomFriction = False
 options.useALEMovingMesh = False
+#options.useIMEX = True
 #options.useSemiImplicit2D = False
 #options.useModeSplit = False
 options.baroclinic = True
-options.useSUPG = False
-options.useGJV = False
-options.uvLaxFriedrichs = Constant(1.0)
-options.tracerLaxFriedrichs = Constant(1.0)
-Re_h = 2.0
+options.uvLaxFriedrichs = None
+options.tracerLaxFriedrichs = None
+Re_h = 1.0
 options.smagorinskyFactor = Constant(1.0/np.sqrt(Re_h))
-options.salt_jump_diffFactor = Constant(1.0)
+options.salt_jump_diffFactor = None
 options.saltRange = Constant(5.0)
-# To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
-#options.hViscosity = Constant(100.0/refinement[reso_str])
-#options.hViscosity = Constant(10.0)
+options.useLimiterForTracers = True
+options.hViscosity = None
+options.hDiffusivity = None
 if options.useModeSplit:
     options.dt = dt
 options.TExport = TExport
 options.T = T
 options.outputDir = outputDir
-options.uAdvection = Constant(1.0)
+options.uAdvection = Constant(5.0)
 options.checkVolConservation2d = True
 options.checkVolConservation3d = True
 options.checkSaltConservation = True
+options.checkSaltOvershoot = True
 options.fieldsToExport = ['uv_2d', 'elev_2d', 'uv_3d',
                           'w_3d', 'w_mesh_3d', 'salt_3d',
                           'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                           'baroc_head_2d',
                           'smag_visc_3d', 'salt_jump_diff']
+#options.fieldsToExportNumpy = ['salt_3d']
 options.timerLabels = []
 
 solverObj.createEquations()

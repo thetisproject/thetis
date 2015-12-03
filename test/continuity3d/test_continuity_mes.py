@@ -93,7 +93,7 @@ def setup2(Lx, depth, mimetic=True):
 
 def setup2dg(Lx, depth):
     """Constant bath and elev, uv depends on (x,y)"""
-    return setup1(Lx, depth, mimetic=False)
+    return setup2(Lx, depth, mimetic=False)
 
 
 def setup3(Lx, depth, mimetic=True):
@@ -216,6 +216,7 @@ def setup5dg(Lx, depth):
 def run(setup, refinement, order, export=True):
     """Run single test and return L2 error"""
     print '--- running {:} refinement {:}'.format(setup.__name__, refinement)
+    setup_name = setup.__name__
     # domain dimensions
     Lx = 15e3
     Ly = 10e3
@@ -275,14 +276,15 @@ def run(setup, refinement, order, export=True):
     w_ana_ho.project(S['w_expr'])
     # analytical solution
     w_analytical = Function(solverObj.function_spaces.P1DGv, name='w_ana_3d')
-    w_analytical.project(S['w_expr'])
+    w_analytical.project(S['uvw_expr'])
 
     # w needs to be projected to cartesian vector field for sanity check
     w_proj_3d = Function(solverObj.function_spaces.P1DGv, name='w_proj_3d')
 
     computeVertVelocity(solverObj.fields.w_3d, solverObj.fields.uv_3d, solverObj.fields.bathymetry_3d,
                         boundary_markers=bnd_markers, boundary_funcs=bnd_funcs)
-    w_proj_3d.project(solverObj.fields.w_3d + solverObj.fields.uv_3d)
+    uvw = solverObj.fields.w_3d + solverObj.fields.uv_3d
+    w_proj_3d.project(uvw)
     # discard u,v components
     w_proj_3d.dat.data[:, :2] = 0
     if export:
@@ -292,18 +294,17 @@ def run(setup, refinement, order, export=True):
     print 'w_pro', w_proj_3d.dat.data[:, 2].min(), w_proj_3d.dat.data[:, 2].max()
     print 'w_ana', w_analytical.dat.data[:, 2].min(), w_analytical.dat.data[:, 2].max()
 
+    # compute flux through bottom boundary
+    normal = FacetNormal(solverObj.mesh)
+    bottom_flux = assemble(inner(uvw, normal)*solverObj.eq_momentum.ds_bottom)
+    bottom_flux_ana = assemble(inner(w_analytical, normal)*solverObj.eq_momentum.ds_bottom)
+    print 'flux through bot', bottom_flux, bottom_flux_ana
+    
+    err_msg = '{:}: Bottom impermeability violated: bottom flux {:.4g}'.format(setup_name, bottom_flux)
+    assert abs(bottom_flux) < 1e-6, err_msg
+
     L2_err = errornorm(w_ana_ho, w_proj_3d)/numpy.sqrt(area)
     print 'L2 error {:.12f}'.format(L2_err)
-
-    # compute flux through bottom boundary
-    #normal = FacetNormal(solverObj.mesh)
-    #bottom_flux = assemble((solverObj.fields.uv_3d[0]*normal[0] +
-                            #solverObj.fields.uv_3d[1]*normal[1] +
-                            #w_proj_3d[2]*normal[2])*solverObj.eq_momentum.ds_bottom)
-    #bottom_flux_ana = assemble((solverObj.fields.uv_3d[0]*normal[0] +
-                                #solverObj.fields.uv_3d[1]*normal[1] +
-                                #w_analytical[2]*normal[2])*solverObj.eq_momentum.ds_bottom)
-    #print 'flux through bot', bottom_flux, bottom_flux_ana
 
     linProblemCache.clear()  # NOTE must destroy all cached solvers for next simulation
     tmpFunctionCache.clear()
@@ -380,11 +381,21 @@ def test_setup5_dg():
 # run individual setup for debugging
 # ---------------------------
 
-#run(setup5, 2, 1)
+#run(setup4dg, 2, 1)
 
 # ---------------------------
 # run individual scaling test
 # ---------------------------
 
 #run_scaling(setup5dg, [1, 2, 3], 1, savePlot=True)
+
+# ---------------------------
+# run all defined setups
+# ---------------------------
+
+#import inspect
+#all_setups = [obj for name,obj in inspect.getmembers(sys.modules[__name__])
+              #if inspect.isfunction(obj) and obj.__name__.startswith('setup')]
+#for s in all_setups:
+    #run(s, 2, 1)
 
