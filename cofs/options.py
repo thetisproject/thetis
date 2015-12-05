@@ -111,6 +111,8 @@ class modelOptions(AttrDict):
         self.wind_stress = None
         """Coefficient or None: Stress at free surface (2D vector function)"""
         self.uv_source_2d = None
+        """Coefficient or None: Stress at free surface (3D vector function)"""
+        self.uv_source_3d = None
         """Coefficient or None: source term for 2d momentum equation"""
         self.elev_source_2d = None
         """Coefficient or None: source term for 2d continuity equation"""

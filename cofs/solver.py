@@ -290,6 +290,7 @@ class flowSolver(frozenClass):
                 uvLaxFriedrichs=self.options.uvLaxFriedrichs,
                 coriolis=self.options.coriolis,
                 wind_stress=self.options.wind_stress,
+                uv_source=self.options.uv_source_2d,
                 lin_drag=self.options.lin_drag,
                 nonlin=self.options.nonlin)
         else:
@@ -314,6 +315,7 @@ class flowSolver(frozenClass):
             #uvMag=self.uv_mag_3d,
             uvP1=self.fields.get('uv_p1_3d'),
             coriolis=self.fields.get('coriolis_3d'),
+            source=self.options.uv_source_3d,
             lin_drag=self.options.lin_drag,
             nonlin=self.options.nonlin)
         if self.options.solveSalt:
