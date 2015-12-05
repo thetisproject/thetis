@@ -100,8 +100,7 @@ class tracerEquation(equation):
         # Horizontal advection term
         if self.computeHorizAdvection:
             if self.horizAdvectionByParts:
-                F += -solution*(uv[0]*Dx(self.test, 0) +
-                                uv[1]*Dx(self.test, 1))*self.dx
+                F += -solution*inner(uv, nabla_grad(self.test))*self.dx
                 if self.horizontal_DG:
                     # add interface term
                     uv_av = avg(uv)
@@ -110,7 +109,8 @@ class tracerEquation(equation):
                     s = 0.5*(sign(un_av) + 1.0)
                     c_up = solution('-')*s + solution('+')*(1-s)
                     G += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
-                               uv_av[1]*jump(self.test, self.normal[1]))*(self.dS_v + self.dS_h)
+                               uv_av[1]*jump(self.test, self.normal[1]) +
+                               uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_v + self.dS_h)
                     # Lax-Friedrichs stabilization
                     if laxFriedrichsFactor is not None:
                         if uvP1 is not None:

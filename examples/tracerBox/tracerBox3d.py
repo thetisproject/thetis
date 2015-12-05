@@ -21,8 +21,13 @@ elev_amp = 1.0
 n_layers = 6
 # estimate of max advective velocity used to estimate time step
 Umag = Constant(0.5)
+sloped = True
 
-outputDir = createDirectory('outputs_waveEq2d')
+suffix = ''
+if sloped:
+    suffix = '_sloped'
+outputDir = createDirectory('outputs'+suffix)
+
 printInfo('Loaded mesh '+mesh2d.name)
 printInfo('Exporting to '+outputDir)
 
@@ -35,9 +40,12 @@ bathymetry_2d.assign(depth)
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 x_min = x_func.dat.data.min()
 x_max = x_func.dat.data.max()
-x_min = comm.allreduce(x_min, x_min, op=MPI.MIN)
-x_max = comm.allreduce(x_max, x_max, op=MPI.MAX)
+x_min = comm.allreduce(x_min, op=MPI.MIN)
+x_max = comm.allreduce(x_max, op=MPI.MAX)
 Lx = x_max - x_min
+
+if sloped:
+    bathymetry_2d.interpolate(Expression('h + 8.0*x[0]/Lx', h=depth, Lx=Lx))
 
 # set time step, export interval and run duration
 c_wave = float(np.sqrt(9.81*depth))
@@ -51,10 +59,11 @@ T = 10*T_cycle + 1e-3
 solverObj = solver.flowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solverObj.options
 options.nonlin = False
+#options.mimetic = False
 options.solveSalt = True
 options.solveVertDiffusion = False
 options.useBottomFriction = False
-options.useALEMovingMesh = True
+options.useALEMovingMesh = False
 # options.useSemiImplicit2D = False
 # options.useModeSplit = False
 if options.useModeSplit:
@@ -68,6 +77,7 @@ options.checkVolConservation2d = True
 options.checkVolConservation3d = True
 options.checkSaltConservation = True
 options.checkSaltDeviation = True
+options.outputDir = outputDir
 options.timerLabels = []
 #options.timerLabels = ['mode2d', 'momentumEq', 'continuityEq',
                          #'aux_functions']
