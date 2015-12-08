@@ -24,6 +24,7 @@ solverObj.options.nonlin = False
 solverObj.options.TExport = dt
 solverObj.options.T = N*dt
 solverObj.options.timeStepperType = 'CrankNicolson'
+solverObj.options.timerLabels = []
 solverObj.options.lin_drag = f
 solverObj.options.dt = dt
 
@@ -31,7 +32,7 @@ solverObj.options.dt = dt
 inflow_tag = 1
 outflow_tag = 2
 inflow_func=Function(P1_2d)
-inflow_func.interpolate(Expression(-1.0))
+inflow_func.interpolate(Expression(-1.0))  # NOTE negative into domain
 inflow_bc = {'un': inflow_func}
 outflow_func=Function(P1_2d)
 outflow_func.interpolate(Expression(0.0))
@@ -55,9 +56,9 @@ solverObj.iterate()
 
 uv, eta = solverObj.fields.solution2d.split()
 
-eta_ana = interpolate(Expression("1-x[0]/{}".format(Lx)), P1_2d)
+eta_ana = interpolate(Expression("1-x[0]/Lx", Lx=Lx), P1_2d)
 area = Lx*Ly
-l2norm = assemble(pow(eta-eta_ana,2)*dx)
+l2norm = errornorm(eta_ana, eta)/math.sqrt(area)
 rel_err =  math.sqrt(l2norm/area)
 print rel_err
 assert(rel_err<1e-3)

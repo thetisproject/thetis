@@ -434,18 +434,18 @@ def run(setup, refinement, order, export=True):
     # construct bnd conditions from setup
     bnd_funcs = SET['bnd_funcs']
     # correct values to replace None in bnd_funcs
-    # NOTE: scalar velocity (flux|un) sign def: positive into domain
+    # NOTE: scalar velocity (flux|un) sign def: positive out of domain
     bnd_field_mapping = {'symm': None,
                          'elev': elev_ana,
                          'uv': uv_ana,
-                         'un_left': un_ana_x,
-                         'un_right': -un_ana_x,
-                         'un_lower': un_ana_y,
-                         'un_upper': -un_ana_y,
-                         'flux_left': flux_ana_x,
-                         'flux_right': -flux_ana_x,
-                         'flux_lower': flux_ana_y,
-                         'flux_upper': -flux_ana_y,
+                         'un_left': -un_ana_x,
+                         'un_right': un_ana_x,
+                         'un_lower': -un_ana_y,
+                         'un_upper': un_ana_y,
+                         'flux_left': -flux_ana_x,
+                         'flux_right': flux_ana_x,
+                         'flux_lower': -flux_ana_y,
+                         'flux_upper': flux_ana_y,
                          }
     for bnd_id in bnd_funcs:
         d = {}  # values for this bnd e.g. {'elev': elev_ana, 'uv': uv_ana}

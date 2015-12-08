@@ -12,8 +12,8 @@ Supported boundary conditions are:
 
  - 'elev': elevation only (usually unstable)
  - 'uv': 2d velocity vector (in model coordinates)
- - 'un': normal velocity (scalar, positive into domain)
- - 'flux': normal volume flux (scalar, positive into domain)
+ - 'un': normal velocity (scalar, positive out of domain)
+ - 'flux': normal volume flux (scalar, positive out of domain)
  - 'elev' and 'uv': water elevation and uv vector
  - 'elev' and 'un': water elevation and normal velocity (scalar)
  - 'elev' and 'flux': water elevation and normal flux (scalar)
@@ -154,7 +154,7 @@ class shallowWaterEquations(equation):
         Returns external values of elev and uv for all supported
         boundary conditions.
 
-        volume flux (flux) and normal velocity (un) are defined positive into
+        volume flux (flux) and normal velocity (un) are defined positive out of
         the domain.
         """
         if 'elev' in funcs and 'uv' in funcs:
@@ -167,21 +167,21 @@ class shallowWaterEquations(equation):
             eta_ext = funcs['elev']
             H_ext = eta_ext + bath
             area = H_ext*bnd_len  # NOTE using external data only
-            uv_ext = -funcs['flux']/area*self.normal
+            uv_ext = funcs['flux']/area*self.normal
         elif 'elev' in funcs:
             eta_ext = funcs['elev']
             uv_ext = uv_in  # assume symmetry
         elif 'uv' in funcs:
             eta_ext = eta_in  # assume symmetry
-            uv_ext = -funcs['uv']
+            uv_ext = funcs['uv']
         elif 'un' in funcs:
             eta_ext = eta_in  # assume symmetry
-            uv_ext = -funcs['un']*self.normal
+            uv_ext = funcs['un']*self.normal
         elif 'flux' in funcs:
             eta_ext = eta_in  # assume symmetry
             H_ext = eta_ext + bath
             area = H_ext*bnd_len  # NOTE using internal elevation
-            uv_ext = -funcs['flux']/area*self.normal
+            uv_ext = funcs['flux']/area*self.normal
         else:
             raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
         return eta_ext, uv_ext
