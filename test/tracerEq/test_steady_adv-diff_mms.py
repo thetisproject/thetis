@@ -198,7 +198,7 @@ def run(setup, refinement, order, export=True):
     Ly = 10e3
     area = Lx*Ly
     depth = 40.0
-    kappa0 = 0.0 #1.0e3  # TODO what is the max stable diffusivity?
+    kappa0 = 1.0e3  # TODO what is the max stable diffusivity?
     # set time steps
     dt = 10.0/refinement
     dt_2d = dt/2
@@ -288,6 +288,7 @@ def run(setup, refinement, order, export=True):
 
     # solve salinity advection-diffusion equation with residual source term
     ti = solverObj.timeStepper
+    ti.timeStepper_salt_3d.initialize(ti.fields.salt_3d)
     t = 0
     for i in range(iterations):
         for k in range(ti.nStages):
@@ -360,6 +361,7 @@ def run_scaling(setup, ref_list, order, export=False, savePlot=False):
     check_convergence(x_log, y_log, order+1, 'tracer', savePlot)
 
 # NOTE here mimetic option has no effect -- both use p1dg for tracers
+# NOTE with diffusivity convergence rate is only 1.7, 2.0 without
 # NOTE external-tracer-value BC and symmetric diffusion flux work fine
 # TODO add more BCs
 
@@ -393,4 +395,4 @@ def test_setup4_dg():
 # run individual scaling test
 # ---------------------------
 
-#run_scaling(setup4dg, [1, 2, 3], 1, savePlot=True)
+run_scaling(setup4dg, [1, 2, 3], 1, savePlot=True)

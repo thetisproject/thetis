@@ -64,6 +64,8 @@ options.solveSalt = True
 options.solveVertDiffusion = False
 options.useBottomFriction = False
 options.useALEMovingMesh = False
+options.useLimiterForTracers = True
+options.useIMEX = True
 # options.useSemiImplicit2D = False
 # options.useModeSplit = False
 if options.useModeSplit:
@@ -76,7 +78,8 @@ options.uAdvection = Umag
 options.checkVolConservation2d = True
 options.checkVolConservation3d = True
 options.checkSaltConservation = True
-options.checkSaltDeviation = True
+#options.checkSaltDeviation = True
+options.checkSaltOvershoot = True
 options.outputDir = outputDir
 options.timerLabels = []
 #options.timerLabels = ['mode2d', 'momentumEq', 'continuityEq',
@@ -92,7 +95,10 @@ elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=elev_amp,
                              Lx=Lx))
 if options.solveSalt:
     salt_init3d = Function(solverObj.function_spaces.H, name='initial salinity')
+    # constant tracer field to test consistency with 3d continuity eq
     salt_init3d.assign(4.5)
+    # non-trivial tracer field to test overshoots
+    salt_init3d.project(Expression('4.5*(0.5 + 0.5*sin(2*pi*(x[0])/Lx)*cos(pi*x[2]/h/5))', Lx=Lx, h=depth))
 else:
     salt_init3d = None
 

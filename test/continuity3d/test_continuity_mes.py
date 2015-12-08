@@ -233,9 +233,6 @@ def run(setup, refinement, order, export=True):
 
     # outputs
     outputDir = createDirectory('outputs')
-    if export:
-        out_w = File(os.path.join(outputDir, 'w.pvd'))
-        out_w_ana = File(os.path.join(outputDir, 'w_ana.pvd'))
 
     # bathymetry
     P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -270,6 +267,8 @@ def run(setup, refinement, order, export=True):
     copy3dFieldTo2d(solverObj.fields.v_elem_size_3d, solverObj.fields.v_elem_size_2d)
     # velocity field
     solverObj.fields.uv_3d.project(S['uvw_expr'])
+    uv_analytical = Function(solverObj.function_spaces.P1DGv, name='uv_ana_3d')
+    uv_analytical.project(S['uvw_expr'])
     # analytical solution in high-order space for computing L2 norms
     W_HO = VectorFunctionSpace(solverObj.mesh, 'DG', order+3)
     w_ana_ho = Function(W_HO, name='Analytical w')
@@ -277,6 +276,11 @@ def run(setup, refinement, order, export=True):
     # analytical solution
     w_analytical = Function(solverObj.function_spaces.P1DGv, name='w_ana_3d')
     w_analytical.project(S['uvw_expr'])
+
+    if export:
+        out_w = File(os.path.join(outputDir, 'w.pvd'))
+        out_w_ana = File(os.path.join(outputDir, 'w_ana.pvd'))
+        out_uv = File(os.path.join(outputDir, 'uv.pvd'))
 
     # w needs to be projected to cartesian vector field for sanity check
     w_proj_3d = Function(solverObj.function_spaces.P1DGv, name='w_proj_3d')
@@ -290,6 +294,8 @@ def run(setup, refinement, order, export=True):
     if export:
         out_w << w_proj_3d
         out_w_ana << w_analytical
+        out_uv << uv_analytical 
+        solverObj.export()
 
     print 'w_pro', w_proj_3d.dat.data[:, 2].min(), w_proj_3d.dat.data[:, 2].max()
     print 'w_ana', w_analytical.dat.data[:, 2].min(), w_analytical.dat.data[:, 2].max()
@@ -381,7 +387,7 @@ def test_setup5_dg():
 # run individual setup for debugging
 # ---------------------------
 
-#run(setup4dg, 2, 1)
+run(setup5dg, 2, 1)
 
 # ---------------------------
 # run individual scaling test
