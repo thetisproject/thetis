@@ -12,7 +12,7 @@ This project is licensed under the terms of the MIT license.
     - COFFEE: `master`
     - ffc: `fd_bendy` rebased with `master`
     - ufl: `fd_bendy`
-    - firedrake: `bendy_changes` and `dumb-checkpointing`
+    - firedrake: `bendy_changes` rebased with commit `c9b33df`
 
 ### Installation with firedrake-install
 
@@ -29,7 +29,7 @@ This project is licensed under the terms of the MIT license.
 ```
 
 - Rebase ffc `fd_bendy` with `master` branch
-- Merge firedrake `bendy_changes` and `dumb-checkpointing` branches
+- Rebase firedrake `bendy_changes` with `c9b33df01a042e3507faff01fda1db1416fc598e`
 - Activate virtualenv
 - Install COFS with `pip` in editable mode
 
