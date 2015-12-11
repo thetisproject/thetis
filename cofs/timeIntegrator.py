@@ -717,7 +717,7 @@ class DIRK_generic(timeIntegrator):
             if 'source' in self.termsToAdd:
                 f += Source(**args)
             #assert f != 0, \
-                #'adding terms {:}: empty form'.format(self.termsToAdd)
+                #'adding t  erms {:}: empty form'.format(self.termsToAdd)
             return f
 
         # Allocate tendency fields
@@ -778,7 +778,7 @@ class DIRK_generic(timeIntegrator):
         if updateForcings is not None:
             updateForcings(t + self.c[iStage]*self.dt)
         self.solver[iStage].solve()
-        if output is not None and output != self.solution_old:
+        if output is not None:
             if iStage < self.nStages - 1:
                 self.getStageSolution(iStage, output)
             else:
@@ -787,9 +787,11 @@ class DIRK_generic(timeIntegrator):
 
     def getStageSolution(self, iStage, output):
         """Stores intermediate solution for stage iStage to the output field"""
-        #output.assign(self.solution_old)  # FIXME
-        for j in xrange(iStage+1):
-            output += self.a[iStage][j]*self.dt_const*self.k[j]
+        if output != self.solution_old:
+            # possible only if output is not the internal state container
+            output.assign(self.solution_old)
+            for j in xrange(iStage+1):
+                output += self.a[iStage][j]*self.dt_const*self.k[j]
 
     def getFinalSolution(self, output=None):
         """Computes the final solution from the tendencies"""
