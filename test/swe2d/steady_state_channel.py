@@ -23,7 +23,8 @@ solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d, order=1)
 solverObj.options.nonlin = False
 solverObj.options.TExport = dt
 solverObj.options.T = N*dt
-solverObj.options.timeStepperType = 'CrankNicolson'
+# NOTE had to set to something else than Cr-Ni, otherwise overriding below has no effect
+solverObj.options.timeStepperType = 'forwardeuler'
 solverObj.options.timerLabels = []
 solverObj.options.lin_drag = f
 solverObj.options.dt = dt
@@ -40,7 +41,7 @@ outflow_bc = {'elev': outflow_func}
 solverObj.bnd_functions['shallow_water'] = {inflow_tag: inflow_bc, outflow_tag: outflow_bc}
 parameters['quadrature_degree']=5
 
-solverObj.assignInitialConditions(uv_init=Expression(("1.0","0.0")))
+solverObj.createEquations()
 solver_parameters = {
     'ksp_type': 'preonly',
     'pc_type': 'lu',
@@ -51,6 +52,7 @@ solver_parameters = {
 # setting gamma to 1.0 converges faster to
 solverObj.timeStepper = timeIntegrator.CrankNicolson(solverObj.eq_sw, solverObj.dt,
                                                      solver_parameters, gamma=1.0)
+solverObj.assignInitialConditions(uv_init=Expression(("1.0","0.0")))
 
 solverObj.iterate()
 

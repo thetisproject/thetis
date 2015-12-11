@@ -48,7 +48,8 @@ for i in range(5):
     solverObj.options.nonlin = True
     solverObj.options.TExport = dt
     solverObj.options.T = N*dt
-    solverObj.options.timeStepperType = 'CrankNicolson'
+    solverObj.options.timeStepperType = 'forwardeuler'
+    solverObj.options.timerLabels = []
     solverObj.options.dt = dt
 
     # boundary conditions
@@ -63,7 +64,7 @@ for i in range(5):
     solverObj.bnd_functions['shallow_water'] = {inflow_tag: inflow_bc, outflow_tag: outflow_bc}
     #parameters['quadrature_degree']=5
 
-    solverObj.assignInitialConditions(uv_init=Expression(("1.0","0.0")))
+    solverObj.createEquations()
     solver_parameters = {
         'ksp_type': 'preonly',
         'pc_type': 'lu',
@@ -72,8 +73,9 @@ for i in range(5):
         'snes_type': 'newtonls'}
     # reinitialize the timestepper so we can set our own solver parameters and gamma
     # setting gamma to 1.0 converges faster to
-    solverObj.timeStepper = timeIntegrator.CrankNicolson(solverObj.eq_sw, solverObj.options.dt,
+    solverObj.timeStepper = timeIntegrator.CrankNicolson(solverObj.eq_sw, solverObj.dt,
                                                          solver_parameters, gamma=1.0)
+    solverObj.assignInitialConditions(uv_init=Expression(("1.0","0.0")))
 
     source_space=FunctionSpace(mesh2d, 'DG', order+1)
     source_func = project(source_expr, source_space)
