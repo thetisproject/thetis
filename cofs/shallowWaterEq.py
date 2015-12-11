@@ -197,22 +197,26 @@ class shallowWaterEquations(equation):
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds(int(bnd_marker))
-                if funcs is not None:
-                    h = self.bathymetry
-                    l = self.boundary_len[bnd_marker]
-                    # FIXME treat baroc_head differently!
-                    eta_ext, uv_ext = self.getBndFunctions(head, uv, funcs, h, l)
-                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
-                    un_jump = inner(uv - uv_ext, self.normal)
-                    eta_rie = 0.5*(head + eta_ext) + sqrt(total_H/g_grav)*un_jump
-                    f += g_grav*eta_rie*dot(self.U_test, self.normal)*ds_bnd
-                if funcs is None or 'symm' in funcs or internalPG:
-                    # assume land boundary
-                    # impermeability implies external un=0
-                    un_jump = inner(uv, self.normal)
-                    h = self.bathymetry
-                    head_rie = head + sqrt(h/g_grav)*un_jump
+                if internalPG:
+                    # use internal value
+                    head_rie = head
                     f += g_grav*head_rie*dot(self.U_test, self.normal)*ds_bnd
+                else:
+                    if funcs is not None:
+                        h = self.bathymetry
+                        l = self.boundary_len[bnd_marker]
+                        eta_ext, uv_ext = self.getBndFunctions(head, uv, funcs, h, l)
+                        # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                        un_jump = inner(uv - uv_ext, self.normal)
+                        eta_rie = 0.5*(head + eta_ext) + sqrt(total_H/g_grav)*un_jump
+                        f += g_grav*eta_rie*dot(self.U_test, self.normal)*ds_bnd
+                    if funcs is None or 'symm' in funcs or internalPG:
+                        # assume land boundary
+                        # impermeability implies external un=0
+                        un_jump = inner(uv, self.normal)
+                        h = self.bathymetry
+                        head_rie = head + sqrt(h/g_grav)*un_jump
+                        f += g_grav*head_rie*dot(self.U_test, self.normal)*ds_bnd
         else:
             raise Exception('Should never call this')
             f = g_grav*inner(grad(head), self.U_test) * self.dx

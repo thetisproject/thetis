@@ -197,7 +197,7 @@ class SSPRK33Stage(timeIntegrator):
         super(SSPRK33Stage, self).__init__(equation, solver_parameters)
         self.explicit = True
         self.CFL_coeff = 1.0
-        self.nstages = 3
+        self.nStages = 3
 
         self.solution_old = Function(self.equation.space)
         self.solution_n = Function(self.equation.space)  # for single stages
@@ -303,7 +303,7 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
         super(SSPRK33StageSemiImplicit, self).__init__(equation, solver_parameters)
         self.explicit = True
         self.CFL_coeff = 1.0
-        self.nstages = 3
+        self.nStages = 3
         self.theta = Constant(0.5)
         self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')

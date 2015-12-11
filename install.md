@@ -1,87 +1,56 @@
-# Installing COFS on Ubuntu 14.04
-
-## Install Ubuntu 14.04
-
-Either do a clean install or install in a virtual machine.
-
-## Preliminaries
+# Installing COFS on Ubuntu 15.10
 
 ### Install build essentials etc
 
     sudo apt-get install -y build-essential python-dev git-core \
     mercurial python-pip libopenmpi-dev openmpi-bin libblas-dev \
-    liblapack-dev gfortran
+    liblapack-dev gfortran curl cmake cmake-data libjsoncpp0v5 \
+    libspatialindex-c4v5 libspatialindex-dev libspatialindex4v5 \
+    pkg-config swig virtualenv zlib1g-dev \
+    ipython python-scipy python-matplotlib
 
-    sudo apt-get install swig
-    sudo apt-get install gmsh
-    sudo apt-get install ipython python-scipy python-matplotlib
     pip install --user cachetools
 
-### Update python modules
+### Install with firedrake-install
 
-    sudo pip install "Cython>=0.20" decorator "numpy>=1.6" "mpi4py>=1.3.1"
+    curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install
 
-## Install PETSc
+```
+    export PETSC_CONFIGURE_OPTIONS="--download-metis --download-parmetis --download-netcdf --download-hdf5"
+    python firedrake-install --developer --log --minimal_petsc \
+    --package_branch PyOP2 master \
+    --package_branch COFFEE master \
+    --package_branch ffc fd_bendy \
+    --package_branch ufl fd_bendy \
+    --package_branch firedrake bendy_changes
+```
 
-    PETSC_CONFIGURE_OPTIONS="--download-ctetgen --download-triangle --download-chaco" \
-    pip install --user https://bitbucket.org/mapdes/petsc/get/firedrake.tar.bz2
+- Rebase firedrake `fd_bendy` with the latest compatible commit 6134b86 in `master` branch
+- Activate virtualenv
 
-    unset PETSC_DIR
-    unset PETSC_ARCH
+```
+    source /home/tuomas/sources/firedrake/bin/activate
+```
 
-## Install petsc4py
+- Install COFS with `pip` in editable mode
 
-    pip install --user git+https://bitbucket.org/mapdes/petsc4py.git@firedrake#egg=petsc4py
+```
+    pip install -e /path/to/cofs/repo
+```
 
-## Install PyOP2
+- Install `pytest` in the same environment
 
-    mkdir -p ~/src/PyOP2
-    cd ~/src/PyOP2
-    git clone git://github.com/OP2/PyOP2.git .
-    python setup.py install --user
+```
+    pip install --ignore-installed pytest
+```
 
-## Install COFFEE
+### Issues
 
-    mkdir -p ~/src/COFFEE
-    cd ~/src/COFFEE
-    git clone https://github.com/coneoproject/COFFEE.git .
-    python setup.py install --user
+If `import h5py` fails with error `ValueError: numpy.dtype has the wrong size, try recompiling`, rebuild `h5py` in the virtualenv:
 
-## install FEniCS components
-
-    mkdir -p ~/src/fenics/ffc
-    cd ~/src/fenics/ffc
-    git clone https://bitbucket.org/mapdes/ffc.git .
-    git checkout fd_bendy
-    python setup.py install --user
-
-    mkdir -p ~/src/fenics/ufl
-    cd ~/src/fenics/ufl
-    git clone https://bitbucket.org/mapdes/ufl.git .
-    git checkout fd_bendy
-    python setup.py install --user
-
-    mkdir -p ~/src/fenics/fiat
-    cd ~/src/fenics/fiat
-    git clone https://bitbucket.org/mapdes/fiat.git .
-    python setup.py install --user
-
-    mkdir -p ~/src/fenics/instant
-    cd ~/src/fenics/instant
-    git clone https://bitbucket.org/fenics-project/instant.git .
-    python setup.py install --user
-
-## install firedrake
-
-    git clone https://github.com/firedrakeproject/firedrake.git .
-    git remote add myfork https://github.com/tkarna/firedrake.git
-    git pull myfork
-    git checkout -b tensorelem_facetdofs_bendy myfork/tensorelem_facetdofs_bendy
-    python setup.py install --user
-
-## install COFS
-
-    mkdir -p ~/src/cofs
-    cd ~/src/cofs
-    git clone https://tkarna@bitbucket.org/tkarna/cofs.git .
-    python setup.py install --user
+    cd /home/tuomas/sources/firedrake/src/h5py-2.5.0/
+    source /home/tuomas/sources/firedrake/bin/activate
+    export CC=mpicc
+    python setup.py configure --hdf5=/home/tuomas/sources/firedrake/local/lib/python2.7/site-packages/petsc/
+    python setup.py build
+    ~/sources/firedrake/bin/python setup.py install

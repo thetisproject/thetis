@@ -16,7 +16,7 @@ class momentumEquation(equation):
                  w_mesh=None, dw_mesh_dz=None,
                  uv_bottom=None, bottom_drag=None, lin_drag=None,
                  viscosity_v=None, viscosity_h=None,
-                 coriolis=None,
+                 coriolis=None, source=None,
                  baroc_head=None,
                  laxFriedrichsFactor=None, uvMag=None,
                  uvP1=None,
@@ -37,6 +37,7 @@ class momentumEquation(equation):
                        'viscosity_h': viscosity_h,
                        'baroc_head': baroc_head,
                        'coriolis': coriolis,
+                       'source': source,
                        'laxFriedrichsFactor': laxFriedrichsFactor,
                        'uvMag': uvMag,
                        'uvP1': uvP1,
@@ -342,7 +343,8 @@ class momentumEquation(equation):
         return -F - G
 
     def Source(self, eta, w=None, viscosity_v=None,
-               uv_bottom=None, bottom_drag=None, baroc_head=None, **kwargs):
+               uv_bottom=None, bottom_drag=None, baroc_head=None,
+               source=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
         F = 0  # holds all dx volume integral terms
@@ -352,6 +354,9 @@ class momentumEquation(equation):
             total_H = self.bathymetry + eta
         else:
             total_H = self.bathymetry
+
+        if source is not None:
+            F += -inner(source, self.test)*self.dx
 
         if viscosity_v is not None:
             # bottom friction

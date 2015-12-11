@@ -11,6 +11,7 @@ class tracerEquation(equation):
     def __init__(self, solution, eta, uv=None, w=None,
                  w_mesh=None, dw_mesh_dz=None,
                  diffusivity_h=None, diffusivity_v=None,
+                 source=None,
                  uvMag=None, uvP1=None, laxFriedrichsFactor=None,
                  bnd_markers=None, bnd_len=None, nonlin=True,
                  vElemSize=None):
@@ -26,6 +27,7 @@ class tracerEquation(equation):
                        'dw_mesh_dz': dw_mesh_dz,
                        'diffusivity_h': diffusivity_h,
                        'diffusivity_v': diffusivity_v,
+                       'source': source,
                        'uvMag': uvMag,
                        'uvP1': uvP1,
                        'laxFriedrichsFactor': laxFriedrichsFactor,
@@ -98,8 +100,7 @@ class tracerEquation(equation):
         # Horizontal advection term
         if self.computeHorizAdvection:
             if self.horizAdvectionByParts:
-                F += -solution*(uv[0]*Dx(self.test, 0) +
-                                uv[1]*Dx(self.test, 1))*self.dx
+                F += -solution*inner(uv, nabla_grad(self.test))*self.dx
                 if self.horizontal_DG:
                     # add interface term
                     uv_av = avg(uv)
@@ -108,7 +109,8 @@ class tracerEquation(equation):
                     s = 0.5*(sign(un_av) + 1.0)
                     c_up = solution('-')*s + solution('+')*(1-s)
                     G += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
-                               uv_av[1]*jump(self.test, self.normal[1]))*(self.dS_v + self.dS_h)
+                               uv_av[1]*jump(self.test, self.normal[1]) +
+                               uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_v + self.dS_h)
                     # Lax-Friedrichs stabilization
                     if laxFriedrichsFactor is not None:
                         if uvP1 is not None:
@@ -183,14 +185,19 @@ class tracerEquation(equation):
                 # interface term
                 muGradSol = diffusivity_h*grad(solution)
                 F += -(avg(muGradSol[0])*jump(self.test, self.normal[0]) +
-                    avg(muGradSol[1])*jump(self.test, self.normal[1]))*(self.dS_v+self.dS_h)
+                       avg(muGradSol[1])*jump(self.test, self.normal[1]))*(self.dS_v+self.dS_h)
                 ## TODO symmetric penalty term
                 ## sigma = (o+1)(o+d)/d*N_0/(2L) (Shahbazi, 2005)
-                ## o: order of space, 
+                ## o: order of space
                 #sigma = 1e-4
                 #nMag = self.normal[0]('-')**2 + self.normal[1]('-')**2
                 #F += -sigma*avg(diffusivity_h)*nMag*jump(solution)*jump(self.test)*(self.dS_v+self.dS_h)
-
+            for bnd_marker in self.boundary_markers:
+                funcs = self.bnd_functions.get(bnd_marker)
+                ds_bnd = self.ds_v(int(bnd_marker))
+                if funcs is None or 'value' in funcs or 'symm' in funcs:
+                    # use symmetric diffusion flux through boundary
+                    F += -inner(muGradSol, self.normal)*self.test*ds_bnd
         if self.computeVertDiffusion:
             F += diffusivity_v*inner(Dx(solution, 2), Dx(self.test, 2)) * self.dx
             if self.vertical_DG:
@@ -214,9 +221,12 @@ class tracerEquation(equation):
 
         return -F - G
 
-    def Source(self, eta=None, uv=None, w=None, **kwargs):
+    def Source(self, eta=None, uv=None, w=None, source=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
         F = 0  # holds all dx volume integral terms
+
+        if source is not None:
+            F += -inner(source, self.test)*self.dx
 
         return -F

@@ -5,7 +5,7 @@ MMS test for 2d shallow water equations.
   conditions. Expressions were derived with sympy.
 - run function runs the MMS setup with a single mesh resolution, returning
   L2 errors.
-- run_scaling runs a scaling test, computes and asserts convergence rate.
+- run_convergence runs a scaling test, computes and asserts convergence rate.
 - test_XX functions are the default test cases for continuous testing.
 
 Tuomas Karna 2015-10-29
@@ -480,7 +480,7 @@ def run(setup, refinement, order, export=True):
     return elev_L2_err, uv_L2_err
 
 
-def run_scaling(setup, ref_list, order, export=False, savePlot=False):
+def run_convergence(setup, ref_list, order, export=False, savePlot=False):
     """Runs test for a list of refinements and computes error convergence rate"""
     l2_err = []
     for r in ref_list:
@@ -543,19 +543,19 @@ def run_scaling(setup, ref_list, order, export=False, savePlot=False):
 
 
 def test_setup7_mimetic():
-    run_scaling(setup7, [1, 2, 4, 6], 1, savePlot=True)
+    run_convergence(setup7, [1, 2, 4, 6], 1, savePlot=False)
 
 
 def test_setup8_mimetic():
-    run_scaling(setup8, [1, 2, 4, 6], 1, savePlot=True)
+    run_convergence(setup8, [1, 2, 4, 6], 1, savePlot=False)
 
 
 def test_setup7_dg():
-    run_scaling(setup7dg, [1, 2, 4, 6], 1, savePlot=True)
+    run_convergence(setup7dg, [1, 2, 4, 6], 1, savePlot=False)
 
 
 def test_setup8_dg():
-    run_scaling(setup8dg, [1, 2, 4, 6], 1, savePlot=True)
+    run_convergence(setup8dg, [1, 2, 4, 6], 1, savePlot=False)
 
 # ---------------------------
 # run individual setup for debugging
@@ -567,4 +567,4 @@ def test_setup8_dg():
 # run individual scaling test
 # ---------------------------
 
-#run_scaling(setup8dg, [1, 2, 4], 1, savePlot=True)
+#run_convergence(setup8dg, [1, 2, 4], 1, savePlot=True)
