@@ -62,7 +62,6 @@ def test_closed_channel():
     # initial conditions
     salt_init3d = Constant(4.5)
 
-
     # weak boundary conditions
     L_y = 20e3
     h_amp = 2.0
@@ -75,7 +74,7 @@ def test_closed_channel():
     T_ramp = 100.0
     # python function that returns time dependent boundary values
     ocean_flux_func = lambda t: (flux_amp*sin(2 * pi * t / h_T) -
-                                flux_river)*min(t/T_ramp, 1.0)
+                                 flux_river)*min(t/T_ramp, 1.0)
     river_flux_func = lambda t: flux_river*min(t/T_ramp, 1.0)
     # Constants that will be fed to the model
     ocean_flux = Constant(ocean_flux_func(t))
@@ -101,13 +100,11 @@ def test_closed_channel():
     solverObj.bnd_functions['momentum'] = {2: ocean_funcs_3d, 1: river_funcs_3d}
     solverObj.bnd_functions['salt'] = {2: ocean_salt_3d, 1: river_salt_3d}
 
-
     def updateForcings(t_new):
         """Callback function that updates all time dependent forcing fields
         for the 2d mode"""
         ocean_flux.assign(ocean_flux_func(t_new))
         river_flux.assign(river_flux_func(t_new))
-
 
     def updateForcings3d(t_new):
         """Callback function that updates all time dependent forcing fields
@@ -118,7 +115,7 @@ def test_closed_channel():
     # set init conditions, this will create all function spaces, equations etc
     solverObj.assignInitialConditions(salt=salt_init3d)
     solverObj.iterate(updateForcings=updateForcings,
-                    updateForcings3d=updateForcings3d)
+                      updateForcings3d=updateForcings3d)
 
 if __name__ == '__main__':
     test_closed_channel()

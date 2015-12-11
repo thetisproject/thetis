@@ -7,8 +7,6 @@ from cofs import *
 import numpy
 from scipy import stats
 
-parameters['coffee'] = {}
-
 
 def setup1(Lx, h0, mimetic=True):
     """
@@ -330,7 +328,7 @@ def run(setup, refinement, order, export=True):
     return L2_err_w, L2_err_uv
 
 
-def run_scaling(setup, ref_list, order, export=False, savePlot=False):
+def run_convergence(setup, ref_list, order, export=False, savePlot=False):
     """Runs test for a list of refinements and computes error convergence rate"""
     l2_err = []
     for r in ref_list:
@@ -396,7 +394,7 @@ def run_scaling(setup, ref_list, order, export=False, savePlot=False):
 
 
 def test_setup5_dg():
-    run_scaling(setup5dg, [1, 2, 3], 1, savePlot=True)
+    run_convergence(setup5dg, [1, 2, 3], 1, savePlot=False)
 
 # ---------------------------
 # run individual setup for debugging
@@ -408,7 +406,7 @@ def test_setup5_dg():
 # run individual scaling test
 # ---------------------------
 
-run_scaling(setup5dg, [1, 2, 3], 1, savePlot=True)
+#run_convergence(setup5dg, [1, 2, 3], 1, savePlot=True)
 
 # ---------------------------
 # run all defined setups

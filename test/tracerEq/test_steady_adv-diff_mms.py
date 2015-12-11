@@ -6,8 +6,7 @@ Tuomas Karna 2015-11-28
 from cofs import *
 import numpy
 from scipy import stats
-
-parameters['coffee'] = {}
+import pytest
 
 
 def setup1(Lx, Ly, h0, kappa0, mimetic=True):
@@ -310,7 +309,7 @@ def run(setup, refinement, order, export=True):
     return L2_err
 
 
-def run_scaling(setup, ref_list, order, export=False, savePlot=False):
+def run_convergence(setup, ref_list, order, export=False, savePlot=False):
     """Runs test for a list of refinements and computes error convergence rate"""
     l2_err = []
     for r in ref_list:
@@ -370,20 +369,13 @@ def run_scaling(setup, ref_list, order, export=False, savePlot=False):
 # ---------------------------
 
 
-def test_setup3_mimetic():
-    run_scaling(setup3, [1, 2, 3], 1, savePlot=True)
-
-
 def test_setup3_dg():
-    run_scaling(setup3dg, [1, 2, 3], 1, savePlot=True)
+    run_convergence(setup3dg, [1, 2, 3], 1, savePlot=False)
 
 
-def test_setup4_mimetic():
-    run_scaling(setup4, [1, 2, 3], 1, savePlot=True)
-
-
+@pytest.mark.skipif(True, reason='under development')
 def test_setup4_dg():
-    run_scaling(setup4dg, [1, 2, 3], 1, savePlot=True)
+    run_convergence(setup4dg, [1, 2, 3], 1, savePlot=False)
 
 # ---------------------------
 # run individual setup for debugging
@@ -395,4 +387,4 @@ def test_setup4_dg():
 # run individual scaling test
 # ---------------------------
 
-run_scaling(setup4dg, [1, 2, 3], 1, savePlot=True)
+#run_convergence(setup4dg, [1, 2, 3], 1, savePlot=True)
