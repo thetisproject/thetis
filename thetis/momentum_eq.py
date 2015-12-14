@@ -19,6 +19,7 @@ class MomentumEquation(Equation):
                  viscosity_v=None, viscosity_h=None,
                  coriolis=None, source=None,
                  baroc_head=None,
+                 v_elem_size=None, h_elem_size=None,
                  lax_friedrichs_factor=None, uv_mag=None,
                  uv_p1=None,
                  nonlin=True):
@@ -26,6 +27,8 @@ class MomentumEquation(Equation):
         self.mesh = self.space.mesh()
         self.nonlin = nonlin
         self.solution = solution
+        self.v_elem_size = v_elem_size
+        self.h_elem_size = h_elem_size
         # this dict holds all time dep. args to the equation
         self.kwargs = {'eta': eta,
                        'w': w,
@@ -297,31 +300,80 @@ class MomentumEquation(Equation):
 
         # horizontal viscosity
         if viscosity_h is not None:
-            f_visc = viscosity_h * (Dx(solution[0], 0) * Dx(self.test[0], 0) +
-                                    Dx(solution[1], 0) * Dx(self.test[1], 0) +
-                                    Dx(solution[0], 1) * Dx(self.test[0], 1) +
-                                    Dx(solution[1], 1) * Dx(self.test[1], 1))
+            def grad_h(a):
+                return as_matrix([[Dx(a[0], 0), Dx(a[0], 1), 0],
+                                  [Dx(a[1], 0), Dx(a[1], 1), 0],
+                                  [0, 0, 0]])
+
+            def outer_jump(v, n):
+                return outer(v('+'), n('+')) + outer(v('-'), n('-'))
+            visc_tensor = as_matrix([[viscosity_h, 0, 0],
+                                     [0, viscosity_h, 0],
+                                     [0, 0, 0]])
+
+            grad_uv = grad_h(solution)
+            grad_test = grad_h(self.test)
+            stress = visc_tensor*grad_uv
+            f += inner(grad_test, stress)*dx
+
             if self.horizontal_dg:
-                # interface term
-                mu_grad_sol = viscosity_h*nabla_grad(solution)
-                f += -(avg(mu_grad_sol[0, 0])*jump(self.test[0], self.normal[0]) +
-                       avg(mu_grad_sol[0, 1])*jump(self.test[1], self.normal[0]) +
-                       avg(mu_grad_sol[1, 0])*jump(self.test[0], self.normal[1]) +
-                       avg(mu_grad_sol[1, 1])*jump(self.test[1], self.normal[1]))*(dS_v+dS_h)
-                # TODO symmetric interior penalty term
-            f += f_visc * dx
+                assert self.h_elem_size is not None, 'h_elem_size must be defined'
+                # Interior Penalty method by
+                # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
+                # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
+                # k_max/k_min  - max/min diffusivity
+                # p            - polynomial degree
+                # Theta        - min angle of triangles
+                # assuming k_max/k_min=2, Theta=pi/3
+                # sigma = 6.93 = 3.5*p*(p+1)
+                degree_h, degree_v = self.space.ufl_element().degree()
+                # TODO compute elemsize as CellVolume/FacetArea
+                # h = n.D.n where D = diag(h_h, h_h, h_v)
+                elemsize = (self.h_elem_size*(self.normal[0]**2 +
+                                              self.normal[1]**2) +
+                            self.v_elem_size*self.normal[2]**2)
+                sigma = 3.5*degree_h*(degree_h + 1)/elemsize
+                if degree_h == 0:
+                    raise NotImplementedError('horizontal visc not implemented for p0')
+                alpha = avg(sigma)
+                ds_interior = (dS_h + dS_v)
+                # oriented diffusive flux n.K.n = nu*(n_xy.n_xy)
+                # Pestiaux (2014)  DOI: 10.1002/fld.3900
+                ip_flux_jump = avg(dot(dot(self.normal, visc_tensor), self.normal))*jump(solution)
+                f += alpha*inner(jump(self.test), ip_flux_jump)*ds_interior
+                f += -inner(outer(jump(solution), self.normal('-')), avg(visc_tensor*grad_test))*ds_interior
+                f += -inner(outer_jump(self.test, self.normal), avg(visc_tensor*grad_uv))*ds_interior
+
+            # symmetric bottom boundary condition
+            f += -inner(stress, outer(self.test, self.normal))*ds_surf
+            f += -inner(stress, outer(self.test, self.normal))*ds_bottom
+
+            # TODO boundary conditions
+            # TODO impermeability condition at bottom
+            # TODO implement as separate function
 
         # vertical viscosity
         if viscosity_v is not None:
-            f += viscosity_v*(Dx(self.test[0], 2)*Dx(solution[0], 2) +
-                              Dx(self.test[1], 2)*Dx(solution[1], 2)) * dx
+            grad_test = Dx(self.test, 2)
+            diff_flux = viscosity_v*Dx(solution, 2)
+            f += inner(grad_test, diff_flux)*dx
+
             if self.vertical_dg:
-                int_visc_flux = (jump(self.test[0]*Dx(solution[0], 2), self.normal[2]) +
-                                 jump(self.test[1]*Dx(solution[1], 2), self.normal[2]))
-                g += -avg(viscosity_v) * int_visc_flux * dS_h
-                # viscflux = viscosity_v*Dx(solution, 2)
-                # G += -(avg(viscflux[0])*jump(self.test[0], normal[2]) +
-                #        avg(viscflux[0])*jump(self.test[1], normal[2]))
+                assert self.v_elem_size is not None, 'v_elem_size must be defined'
+                # Interior penalty method by Epshteyn and Riviere (2007)
+                degree_h, degree_v = self.space.ufl_element().degree()
+                sigma = 2.0*degree_v*(degree_v + 1)/self.v_elem_size
+                if degree_v == 0:
+                    sigma = 1.0/self.v_elem_size  # TODO theoretical value
+                alpha = avg(sigma)
+                f += alpha*avg(viscosity_v)*(jump(self.test[0])*jump(solution[0]) +
+                                             jump(self.test[1])*jump(solution[1]))*dS_h
+                # NOTE unclear how to implement {grad(test).n}*[solution]
+                # NOTE this yields theoretical convergence rate
+                f += -avg(viscosity_v)*(avg(grad_test)[0]*self.normal[2]('-')*jump(solution[0]) +
+                                        avg(grad_test)[1]*self.normal[2]('-')*jump(solution[1]))*dS_h
+                f += -(jump(self.test[0], self.normal[2])*avg(diff_flux[0]) +
+                       jump(self.test[1], self.normal[2])*avg(diff_flux[1]))*dS_h
 
         # Linear drag (consistent with drag in 2D mode)
         if lin_drag is not None:
@@ -425,22 +477,26 @@ class VerticalMomentumEquation(Equation):
 
         # vertical viscosity
         if viscosity_v is not None:
-            f += viscosity_v*inner(Dx(solution, 2), Dx(self.test, 2)) * dx
+            grad_test = Dx(self.test, 2)
+            diff_flux = viscosity_v*Dx(solution, 2)
+            f += inner(grad_test, diff_flux)*dx
+
             if self.vertical_dg:
-                visc_flux = viscosity_v*Dx(solution, 2)
-                f += -(dot(avg(visc_flux), self.test('+'))*self.normal[2]('+') +
-                       dot(avg(visc_flux), self.test('-'))*self.normal[2]('-')) * dS_h
-                # symmetric interior penalty stabilization
-                ip_fact = Constant(1.0)
-                l = avg(self.v_elem_size)
-                nb_neigh = 2.
-                o = 1.
-                d = 3.
-                sigma = Constant((o + 1.0)*(o + d)/d * nb_neigh / 2.0) / l
-                gamma = sigma*avg(viscosity_v) * ip_fact
-                jump_test = (self.test('+')*self.normal[2]('+') +
-                             self.test('-')*self.normal[2]('-'))
-                f += gamma * dot(jump(solution), jump_test) * dS_h
+                assert self.v_elem_size is not None, 'v_elem_size must be defined'
+                # Interior penalty method by Epshteyn and Riviere (2007)
+                degree_h, degree_v = self.space.ufl_element().degree()
+                sigma = 2.0*degree_v*(degree_v + 1)/self.v_elem_size
+                if degree_v == 0:
+                    sigma = 1.0/self.v_elem_size  # TODO theoretical value
+                alpha = avg(sigma)
+                f += alpha*avg(viscosity_v)*(jump(self.test[0])*jump(solution[0]) +
+                                             jump(self.test[1])*jump(solution[1]))*dS_h
+                # NOTE unclear how to implement {grad(test).n}*[solution]
+                # NOTE this yields theoretical convergence rate
+                f += -avg(viscosity_v)*(avg(grad_test)[0]*self.normal[2]('-')*jump(solution[0]) +
+                                        avg(grad_test)[1]*self.normal[2]('-')*jump(solution[1]))*dS_h
+                f += -(jump(self.test[0], self.normal[2])*avg(diff_flux[0]) +
+                       jump(self.test[1], self.normal[2])*avg(diff_flux[1]))*dS_h
 
             # implicit bottom friction
             if bottom_drag is not None:

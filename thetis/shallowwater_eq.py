@@ -148,7 +148,7 @@ class ShallowWaterEquations(Equation):
         """
         return inner(solution, self.test)*dx
 
-    def get_bnd_functions(self, eta_in, uv_in, funcs, bath, bnd_len):
+    def get_bnd_functions(self, eta_in, uv_in, bnd_id):
         """
         Returns external values of elev and uv for all supported
         boundary conditions.
@@ -156,6 +156,9 @@ class ShallowWaterEquations(Equation):
         volume flux (flux) and normal velocity (un) are defined positive out of
         the domain.
         """
+        bath = self.bathymetry
+        bnd_len = self.boundary_len[bnd_id]
+        funcs = self.bnd_functions.get(bnd_id)
         if 'elev' in funcs and 'uv' in funcs:
             eta_ext = funcs['elev']
             uv_ext = funcs['uv']
@@ -202,9 +205,7 @@ class ShallowWaterEquations(Equation):
                     f += g_grav*head_rie*dot(self.U_test, self.normal)*ds_bnd
                 else:
                     if funcs is not None:
-                        h = self.bathymetry
-                        l = self.boundary_len[bnd_marker]
-                        eta_ext, uv_ext = self.get_bnd_functions(head, uv, funcs, h, l)
+                        eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker)
                         # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                         un_jump = inner(uv - uv_ext, self.normal)
                         eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
@@ -222,9 +223,7 @@ class ShallowWaterEquations(Equation):
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker))
                 if funcs is not None:
-                    h = self.bathymetry
-                    l = self.boundary_len[bnd_marker]
-                    eta_ext, uv_ext = self.get_bnd_functions(head, uv, funcs, h, l)
+                    eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     un_jump = inner(uv - uv_ext, self.normal)
                     eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
@@ -245,9 +244,7 @@ class ShallowWaterEquations(Equation):
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker))
                 if funcs is not None:
-                    h = self.bathymetry
-                    l = self.boundary_len[bnd_marker]
-                    eta_ext, uv_ext = self.get_bnd_functions(eta, uv, funcs, h, l)
+                    eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     h_av = self.bathymetry + 0.5*(eta + eta_ext)
                     un_jump = inner(uv - uv_ext, self.normal)
@@ -306,13 +303,11 @@ class ShallowWaterEquations(Equation):
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker))
                 if funcs is not None:
-                    h = self.bathymetry
-                    l = self.boundary_len[bnd_marker]
-                    eta_ext, uv_ext = self.get_bnd_functions(eta, uv, funcs, h, l)
+                    eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     uv_av = 0.5*(uv_ext + uv)
                     eta_jump = eta - eta_ext
-                    un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h)*eta_jump
+                    un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/self.bathymetry)*eta_jump
                     f += (uv_av[0]*self.U_test[0]*un_rie +
                           uv_av[1]*self.U_test[1]*un_rie)*ds_bnd
                 # if funcs is None or not 'un' in funcs:
@@ -378,15 +373,10 @@ class ShallowWaterEquations(Equation):
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker))
                 if funcs is not None:
-                    depth = self.bathymetry
-                    l = self.boundary_len[bnd_marker]
-                    if 'un' in funcs:
-                        delta_uv = (dot(uv, n) - funcs['un'])*self.normal
-                    else:
-                        eta_ext, uv_ext = self.get_bnd_functions(None, uv, funcs, depth, l)
-                        if uv_ext is uv:
-                            continue
-                        delta_uv = uv - uv_ext
+                    eta_ext, uv_ext = self.get_bnd_functions(None, uv, bnd_marker)
+                    if uv_ext is uv:
+                        continue
+                    delta_uv = uv - uv_ext
 
                     if self.include_grad_div_viscosity_term:
                         stress_jump = nu*2.*sym(outer(delta_uv, n))

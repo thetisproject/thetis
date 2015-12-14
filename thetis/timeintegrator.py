@@ -273,7 +273,7 @@ class SSPRK33Stage(TimeIntegrator):
             solution.assign(self.solution_n + (1.0/6.0)*self.K0 +
                             (1.0/6.0)*self.K1 + (2.0/3.0)*self.K2)
 
-    def advance(self, t, dt, solution, update_forcings):
+    def advance(self, t, dt, solution, update_forcings=None):
         """Advances one full time step from t to t+dt.
         This assumes that all the functions that the equation depends on are
         constants across this interval. If dependent functions need to be

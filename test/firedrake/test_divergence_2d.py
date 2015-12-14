@@ -17,33 +17,30 @@ def compute(refinement=1, order=1, do_export=False):
     mesh = UnitSquareMesh(n, n)
 
     family = 'DG'
-    P0DG = FunctionSpace(mesh, family, order-1)
-    P1DG = FunctionSpace(mesh, family, order)
-    P1DGv = VectorFunctionSpace(mesh, family, order)
-    P1DG_ho = FunctionSpace(mesh, family, order + 2)
-    P1DGv_ho = VectorFunctionSpace(mesh, family, order + 2)
-
+    p0dg = FunctionSpace(mesh, family, order-1)
+    p1dg = FunctionSpace(mesh, family, order)
+    p1dg_v = VectorFunctionSpace(mesh, family, order)
+    p1dg_ho = FunctionSpace(mesh, family, order + 2)
+    p1dg_v_ho = VectorFunctionSpace(mesh, family, order + 2)
 
     uv_expr = Expression(
-            (
-                'sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)',
-                '0.2*sin(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)',
-            ),
-            Lx=1.0)
+        ('sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)',
+         '0.2*sin(0.2*pi*(1.0*x[0] + 3.0*x[1])/lx)', ),
+        lx=1.0)
     div_expr = Expression(
-            '0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)/Lx + 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx',
-            Lx=1.0)
+        '0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/lx)/lx + 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx',
+        lx=1.0)
 
-    div_uv = Function(P1DG, name='div')
+    div_uv = Function(p1dg, name='div')
     div_uv.project(div_expr)
-    div_uv_source = Function(P0DG, name='div')
+    div_uv_source = Function(p0dg, name='div')
     div_uv_source.project(div_expr)
-    uv = Function(P1DGv, name='uv')
+    uv = Function(p1dg_v, name='uv')
     uv.project(uv_expr)
 
-    div_ana = Function(P1DG_ho, name='div_ho')
+    div_ana = Function(p1dg_ho, name='div_ho')
     div_ana.project(div_expr)
-    uv_ana = Function(P1DGv_ho, name='uv+ho')
+    uv_ana = Function(p1dg_v_ho, name='uv+ho')
     uv_ana.project(uv_expr)
 
     if do_export:
@@ -56,23 +53,23 @@ def compute(refinement=1, order=1, do_export=False):
 
     div_uv.assign(0)
 
-    test = TestFunction(P1DG)
-    tri = TrialFunction(P1DG)
+    test = TestFunction(p1dg)
+    tri = TrialFunction(p1dg)
     normal = FacetNormal(mesh)
 
     # solve div_uv = div(uv)
     a = inner(test, tri)*dx
 
     # div(uv) point-wise
-    #L = inner(div(uv), test)*dx
+    # l = inner(div(uv), test)*dx
 
     # div(uv) integrated by parts
-    L = -inner(grad(test), uv)*dx + dot(avg(uv), jump(test, normal))*dS + test*dot(uv, normal)*ds
+    l = -inner(grad(test), uv)*dx + dot(avg(uv), jump(test, normal))*dS + test*dot(uv, normal)*ds
 
     # analytical source
-    #L = inner(test, div_uv_source)*dx
+    # l = inner(test, div_uv_source)*dx
 
-    solve(a == L, div_uv)
+    solve(a == l, div_uv)
 
     if do_export:
         print 'numerical div', div_uv.dat.data.min(), div_uv.dat.data.max()
@@ -87,7 +84,7 @@ def compute(refinement=1, order=1, do_export=False):
     return l2err_uv, l2err_div
 
 
-def convergence_test(ref_list, order=1, export=False, savePlot=False):
+def convergence_test(ref_list, order=1, export=False, saveplot=False):
     """Run convergence test for the given mesh refiments"""
     err = []
     for r in ref_list:
@@ -97,10 +94,10 @@ def convergence_test(ref_list, order=1, export=False, savePlot=False):
     y_log_div = y_log[:, 1]
     y_log_uv = y_log[:, 0]
 
-    def check_convergence(x_log, y_log, expected_slope, test_name, field_str, savePlot):
+    def check_convergence(x_log, y_log, expected_slope, test_name, field_str, saveplot):
         slope_rtol = 0.1
         slope, intercept, r_value, p_value, std_err = stats.linregress(x_log, y_log)
-        if savePlot:
+        if saveplot:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots(figsize=(5, 5))
             # plot points
@@ -108,12 +105,12 @@ def convergence_test(ref_list, order=1, export=False, savePlot=False):
             x_min = x_log.min()
             x_max = x_log.max()
             offset = 0.05*(x_max - x_min)
-            N = 50
-            xx = numpy.linspace(x_min - offset, x_max + offset, N)
+            npoints = 50
+            xx = numpy.linspace(x_min - offset, x_max + offset, npoints)
             yy = intercept + slope*xx
             # plot line
             ax.plot(xx, yy, linestyle='--', linewidth=0.5, color='k')
-            ax.text(xx[2*N/3], yy[2*N/3], '{:4.2f}'.format(slope),
+            ax.text(xx[2*npoints/3], yy[2*npoints/3], '{:4.2f}'.format(slope),
                     verticalalignment='top',
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
@@ -123,8 +120,8 @@ def convergence_test(ref_list, order=1, export=False, savePlot=False):
             order_str = 'o{:}'.format(order)
             imgfile = '_'.join(['convergence', test_name, field_str, ref_str, order_str])
             imgfile += '.png'
-            imgDir = '.'
-            imgfile = os.path.join(imgDir, imgfile)
+            imgdir = '.'
+            imgfile = os.path.join(imgdir, imgfile)
             print 'saving figure', imgfile
             plt.savefig(imgfile, dpi=200, bbox_inches='tight')
         if expected_slope is not None:
@@ -134,8 +131,8 @@ def convergence_test(ref_list, order=1, export=False, savePlot=False):
         else:
             print '{:}: {:} convergence rate {:.4f}'.format(test_name, field_str, slope)
         return slope
-    check_convergence(x_log, y_log_div, order, 'divergence_2d', 'div', savePlot)
-    check_convergence(x_log, y_log_uv, order + 1, 'divergence_2d', 'uv', savePlot)
+    check_convergence(x_log, y_log_div, order, 'divergence_2d', 'div', saveplot)
+    check_convergence(x_log, y_log_uv, order + 1, 'divergence_2d', 'uv', saveplot)
 
 
 def test_divergence_2d():

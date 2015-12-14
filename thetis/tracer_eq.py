@@ -11,15 +11,17 @@ class TracerEquation(Equation):
     def __init__(self, solution, eta, uv=None, w=None,
                  w_mesh=None, dw_mesh_dz=None,
                  diffusivity_h=None, diffusivity_v=None,
-                 source=None,
+                 source=None, bathymetry=None,
                  uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
                  bnd_markers=None, bnd_len=None, nonlin=True,
-                 v_elem_size=None):
+                 h_elem_size=None, v_elem_size=None):
         self.space = solution.function_space()
         self.mesh = self.space.mesh()
         # this dict holds all args to the equation (at current time step)
         self.solution = solution
         self.v_elem_size = v_elem_size
+        self.h_elem_size = h_elem_size
+        self.bathymetry = bathymetry
         self.kwargs = {'eta': eta,
                        'uv': uv,
                        'w': w,
@@ -74,6 +76,39 @@ class TracerEquation(Equation):
         f = 0
         return -f
 
+    def get_bnd_functions(self, c_in, uv_in, eta_in, bnd_id):
+        """
+        Returns external values tracer and uv for all supported
+        boundary conditions.
+
+        volume flux (flux) and normal velocity (un) are defined positive out of
+        the domain.
+        """
+        funcs = self.bnd_functions.get(bnd_id)
+        bath = self.bathymetry
+        bnd_len = self.boundary_len[bnd_id]
+
+        if 'elev' in funcs:
+            eta_ext = funcs['elev']
+        else:
+            eta_ext = eta_in
+        if 'value' in funcs:
+            c_ext = funcs['value']
+        else:
+            c_ext = c_in
+        if 'uv' in funcs:
+            uv_ext = funcs['uv']
+        elif 'flux' in funcs:
+            h_ext = eta_ext + bath
+            area = h_ext*bnd_len  # NOTE using external data only
+            uv_ext = funcs['flux']/area*self.normal
+        elif 'un' in funcs:
+            uv_ext = funcs['un']*self.normal
+        else:
+            uv_ext = uv_in
+
+        return c_ext, uv_ext, eta_ext
+
     def rhs(self, solution, eta=None, uv=None, w=None, w_mesh=None, dw_mesh_dz=None,
             diffusivity_h=None, diffusivity_v=None,
             lax_friedrichs_factor=None,
@@ -98,7 +133,10 @@ class TracerEquation(Equation):
                     c_up = solution('-')*s + solution('+')*(1-s)
                     g += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
                                uv_av[1]*jump(self.test, self.normal[1]) +
-                               uv_av[2]*jump(self.test, self.normal[2]))*(dS_v + dS_h)
+                               uv_av[2]*jump(self.test, self.normal[2]))*(dS_v)
+                    g += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
+                               uv_av[1]*jump(self.test, self.normal[1]) +
+                               uv_av[2]*jump(self.test, self.normal[2]))*(dS_h)
                     # Lax-Friedrichs stabilization
                     if lax_friedrichs_factor is not None:
                         if uv_p1 is not None:
@@ -114,15 +152,13 @@ class TracerEquation(Equation):
                         ds_bnd = ds_v(int(bnd_marker))
                         if funcs is None:
                             continue
-                        elif 'value' in funcs:
-                            # prescribe external tracer value
+                        else:
                             c_in = solution
-                            c_ext = funcs['value']
-                            uv_av = uv
-                            un_av = self.normal[0]*uv[0] + self.normal[1]*uv[1]
+                            c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, eta, bnd_marker)
+                            uv_av = 0.5*(uv + uv_ext)
+                            un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
                             s = 0.5*(sign(un_av) + 1.0)
                             c_up = c_in*s + c_ext*(1-s)
-                            # TODO should take external un from bnd conditions
                             g += c_up*(uv_av[0]*self.normal[0] +
                                        uv_av[1]*self.normal[1])*self.test*ds_bnd
             else:
@@ -160,6 +196,7 @@ class TracerEquation(Equation):
                 f += solution*dw_mesh_dz*self.test*dx
 
             # NOTE Bottom impermeability condition is naturally satisfied by the definition of w
+            # NOTE imex solver fails with this in tracerBox example
             if w_mesh is None:
                 g += solution*vertvelo*self.normal[2]*self.test*ds_surf
             else:
@@ -167,45 +204,73 @@ class TracerEquation(Equation):
 
         # diffusion
         if self.compute_horiz_diffusion:
-            f += diffusivity_h*(Dx(solution, 0)*Dx(self.test, 0) +
-                                Dx(solution, 1)*Dx(self.test, 1))*dx
+            n = as_vector((self.normal[0], self.normal[1], 0))
+
+            def grad_h(a):
+                return as_vector((Dx(a, 0), Dx(a, 1), 0))
+
+            diff_tensor = as_matrix([[diffusivity_h, 0, 0],
+                                     [0, diffusivity_h, 0],
+                                     [0, 0, 0]])
+            grad_test = grad_h(self.test)
+            diff_flux = diff_tensor*grad_h(solution)
+
+            f += inner(grad_test, diff_flux)*dx
+
             if self.horizontal_dg:
-                # interface term
-                mu_grad_sol = diffusivity_h*grad(solution)
-                f += -(avg(mu_grad_sol[0])*jump(self.test, self.normal[0]) +
-                       avg(mu_grad_sol[1])*jump(self.test, self.normal[1]))*(dS_v+dS_h)
-                # # TODO symmetric penalty term
-                # # sigma = (o+1)(o+d)/d*N_0/(2L) (Shahbazi, 2005)
-                # # o: order of space
-                # sigma = 1e-4
-                # n_mag = self.normal[0]('-')**2 + self.normal[1]('-')**2
-                # F += -sigma*avg(diffusivity_h)*n_mag*jump(solution)*jump(self.test)*(dS_v+dS_h)
-            for bnd_marker in self.boundary_markers:
-                funcs = self.bnd_functions.get(bnd_marker)
-                ds_bnd = ds_v(int(bnd_marker))
-                if funcs is None or 'value' in funcs or 'symm' in funcs:
-                    # use symmetric diffusion flux through boundary
-                    f += -inner(mu_grad_sol, self.normal)*self.test*ds_bnd
+                assert self.h_elem_size is not None, 'h_elem_size must be defined'
+                # Interior Penalty method by
+                # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
+                # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
+                # k_max/k_min  - max/min diffusivity
+                # p            - polynomial degree
+                # Theta        - min angle of triangles
+                # assuming k_max/k_min=2, Theta=pi/3
+                # sigma = 6.93 = 3.5*p*(p+1)
+                degree_h, degree_v = self.space.ufl_element().degree()
+                # TODO compute elemsize as CellVolume/FacetArea
+                # h = n.D.n where D = diag(h_h, h_h, h_v)
+                elemsize = (self.h_elem_size*(self.normal[0]**2 +
+                                              self.normal[1]**2) +
+                            self.v_elem_size*self.normal[2]**2)
+                sigma = 3.5*degree_h*(degree_h + 1)/elemsize
+                if degree_h == 0:
+                    raise NotImplementedError('horizontal diffusion not implemented for p0')
+                alpha = avg(sigma)
+                ds_interior = (dS_h + dS_v)
+                # oriented diffusive flux n.K.n = nu*(n_xy.n_xy)
+                # Pestiaux (2014)  DOI: 10.1002/fld.3900
+                ip_flux_jump = avg(dot(dot(self.normal, diff_tensor), self.normal))*jump(solution)
+                f += alpha*inner(jump(self.test), ip_flux_jump)*ds_interior
+                f += -inner(avg(diff_tensor*grad_test), n('-'))*jump(solution)*ds_interior
+                f += -inner(jump(self.test, self.normal), avg(diff_flux))*ds_interior
+
+            # symmetric bottom boundary condition
+            # NOTE introduces a flux through the bed - breaks mass conservation
+            f += - inner(diff_flux, self.normal)*self.test*ds_bottom
+            f += - inner(diff_flux, self.normal)*self.test*ds_surf
+
         if self.compute_vert_diffusion:
-            f += diffusivity_v*inner(Dx(solution, 2), Dx(self.test, 2)) * dx
+            grad_test = Dx(self.test, 2)
+            diff_flux = diffusivity_v*Dx(solution, 2)
+            diff_flux_jump = avg(diffusivity_v)*jump(solution)
+
+            f += inner(grad_test, diff_flux)*dx
+
             if self.vertical_dg:
-                # interface term
-                diff_flux = diffusivity_v*Dx(solution, 2)
-                f += -(dot(avg(diff_flux), self.test('+'))*self.normal[2]('+') +
-                       dot(avg(diff_flux), self.test('-'))*self.normal[2]('-')) * dS_h
-                # symmetric interior penalty stabilization
-                ip_fact = Constant(1.0)
-                if self.v_elem_size is None:
-                    raise Exception('v_elem_size must be provided')
-                l = avg(self.v_elem_size)
-                nb_neigh = 2.
-                o = 1.
-                d = 3.
-                sigma = Constant((o + 1.0)*(o + d)/d * nb_neigh / 2.0) / l
-                gamma = sigma*avg(diffusivity_v) * ip_fact
-                jump_test = (self.test('+')*self.normal[2]('+') +
-                             self.test('-')*self.normal[2]('-'))
-                f += gamma * dot(jump(solution), jump_test) * dS_h
+                assert self.v_elem_size is not None, 'v_elem_size must be defined'
+                # Interior penalty method by Epshteyn and Riviere (2007)
+                degree_h, degree_v = self.space.ufl_element().degree()
+                sigma = 2.0*degree_v*(degree_v + 1)/self.v_elem_size
+                if degree_v == 0:
+                    sigma = 1.0/self.v_elem_size  # TODO theoretical value
+                alpha = avg(sigma)
+                ds_interior = dS_h
+                f += alpha*inner(jump(self.test), diff_flux_jump)*ds_interior
+                # NOTE unclear how to implement {grad(test).n}*[solution]
+                # NOTE this yields theoretical convergence rate
+                f += -inner(avg(grad_test)*self.normal[2]('-'), diff_flux_jump)*ds_interior
+                f += -inner(jump(self.test, self.normal[2]), avg(diff_flux))*ds_interior
 
         return -f - g
 
