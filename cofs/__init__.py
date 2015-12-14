@@ -1,9 +1,9 @@
 from utility import *
-import timeIntegrator
-import solver
-import solver2d
+import timeIntegrator  # NOQA
+import solver  # NOQA
+import solver2d  # NOQA
 
-parameters['coffee']={}  # omit COFFEE optimzations for now
+parameters['coffee'] = {}  # omit COFFEE optimzations for now
 
 op2.init(log_level=WARNING)  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 parameters['pyop2_options']['profiling'] = True
