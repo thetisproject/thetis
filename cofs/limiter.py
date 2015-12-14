@@ -115,10 +115,10 @@ class vertexBasedP1DGLimiter(object):
         qmin[i][0] = fmin(qmin[i][0], centroids[0][0]);
     }
     """,
-                self.dx,
-                {'qmax': (self.max_field, RW),
-                'qmin': (self.min_field, RW),
-                'centroids': (self.centroids, READ)})
+                 self.dx,
+                 {'qmax': (self.max_field, RW),
+                  'qmin': (self.min_field, RW),
+                  'centroids': (self.centroids, READ)})
 
     def _applyLimiter(self, field):
         """
@@ -138,19 +138,18 @@ class vertexBasedP1DGLimiter(object):
         q[i][0] = cellavg + alpha*(q[i][0] - cellavg);
     }
     """,
-                self.dx,
-                {'q': (field, RW),
-                'qmax': (self.max_field, READ),
-                'qmin': (self.min_field, READ),
-                'centroids': (self.centroids, READ)})
+                 self.dx,
+                 {'q': (field, RW),
+                  'qmax': (self.max_field, READ),
+                  'qmin': (self.min_field, READ),
+                  'centroids': (self.centroids, READ)})
 
     def apply(self, field):
         """
         Applies the limiter to the given field.
         """
         assert field.function_space() == self.P1DG,\
-               'Given field belongs to wrong function space'
+            'Given field belongs to wrong function space'
         self._updateCentroids(field)
         self._updateMinMaxValues(field)
         self._applyLimiter(field)
-
