@@ -10,9 +10,9 @@ This project is licensed under the terms of the MIT license.
 - COFS currently needs the following branches:
     - PyOP2: `master`
     - COFFEE: `master`
-    - ffc: `fd_bendy` rebased with `master`
-    - ufl: `fd_bendy`
-    - firedrake: `bendy_changes` rebased with commit `c9b33df`
+    - ffc: `cofs`
+    - ufl: `cofs`
+    - firedrake: `cofs`
 
 ### Installation with firedrake-install
 
@@ -23,13 +23,11 @@ This project is licensed under the terms of the MIT license.
     python firedrake-install --developer --log --minimal_petsc \
     --package_branch PyOP2 master \
     --package_branch COFFEE master \
-    --package_branch ffc fd_bendy \
-    --package_branch ufl fd_bendy \
-    --package_branch firedrake bendy_changes
+    --package_branch ffc cofs \
+    --package_branch ufl cofs \
+    --package_branch firedrake cofs
 ```
 
-- Rebase ffc `fd_bendy` with `master` branch
-- Rebase firedrake `bendy_changes` with `c9b33df01a042e3507faff01fda1db1416fc598e`
 - Activate virtualenv
 - Install COFS with `pip` in editable mode
 
