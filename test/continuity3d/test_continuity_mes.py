@@ -6,6 +6,7 @@ Tuomas Karna 2015-10-23
 from cofs import *
 import numpy
 from scipy import stats
+import pytest
 
 
 def setup1(Lx, h0, mimetic=True):
@@ -393,6 +394,7 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
 # ---------------------------
 
 
+@pytest.mark.not_travis
 def test_setup5_dg():
     run_convergence(setup5dg, [1, 2, 3], 1, savePlot=False)
 
