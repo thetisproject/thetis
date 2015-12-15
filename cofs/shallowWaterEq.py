@@ -287,6 +287,7 @@ class shallowWaterEquations(equation):
                       uv_up[1]*jump(self.U_test[1], uv[1]*self.normal[1]))*self.dS
                 # Lax-Friedrichs stabilization
                 if uvLaxFriedrichs is not None:
+                    # FIXME
                     gamma = 0.5*abs(un_av)*uvLaxFriedrichs
                     f += gamma*dot(jump(self.U_test), jump(uv))*self.dS
                     for bnd_marker in self.boundary_markers:

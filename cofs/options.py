@@ -50,9 +50,9 @@ class modelOptions(AttrDict):
         """Constant or None: Salt max-min range for jump diffusion"""
         self.useLimiterForTracers = False
         """bool: Apply P1DG limiter for tracer fields"""
-        self.uvLaxFriedrichs = Constant(1.0)
+        self.uvLaxFriedrichs = None
         """Constant or None: Scaling factor for uv L-F stability term."""
-        self.tracerLaxFriedrichs = Constant(1.0)
+        self.tracerLaxFriedrichs = None
         """Constant or None: Scaling factor for tracer L-F stability term."""
         self.checkVolConservation2d = False
         """bool: Print deviation from initial volume for 2D mode (eta)"""
