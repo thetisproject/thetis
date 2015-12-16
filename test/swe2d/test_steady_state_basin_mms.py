@@ -343,7 +343,7 @@ def setup8dg(Lx, Ly, depth, f0, g):
 def run(setup, refinement, order, export=True):
     """Run single test and return L2 error"""
     print '--- running {:} refinement {:}'.format(setup.__name__, refinement)
-    # domain dimensions 
+    # domain dimensions
     Lx = 15e3
     Ly = 10e3
     area = Lx*Ly
@@ -366,11 +366,8 @@ def run(setup, refinement, order, export=True):
 
     # outputs
     outputDir = createDirectory('outputs')
-    if export:
-        out_elev = File(os.path.join(outputDir, 'elev.pvd'))
-        out_elev_ana = File(os.path.join(outputDir, 'elev_ana.pvd'))
 
-   # bathymetry
+    # bathymetry
     P1_2d = FunctionSpace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(P1_2d, name='Bathymetry')
     bathymetry_2d.project(SET['bath_expr'])
@@ -387,7 +384,7 @@ def run(setup, refinement, order, export=True):
     solverObj.options.dt = dt
     solverObj.options.TExport = TExport
     solverObj.options.timerLabels = []
-    #solverObj.options.timeStepperType = 'cranknicolson'
+    # solverObj.options.timeStepperType = 'cranknicolson'
     solverObj.options.update(SET['options'])
 
     solverObj.createFunctionSpaces()
@@ -455,19 +452,19 @@ def run(setup, refinement, order, export=True):
             d[field_name] = bnd_field_mapping[bnd_field]
         # set to the correct bnd_id
         solverObj.bnd_functions['shallow_water'][bnd_id] = d
-        ## print a fancy description
-        #bnd_str = ''
-        #for k in d:
-            #if isinstance(d[k], ufl.algebra.Product):
-                #a, b = d[k].operands()
-                #name = '{:} * {:}'.format(a.value(), b.name())
-            #else:
-                #if d[k] is not None:
-                    #name = d[k].name()
-                #else:
-                    #name = str(d[k])
-            #bnd_str += '{:}: {:}, '.format(k, name)
-        #print('bnd {:}: {:}'.format(bnd_id, bnd_str))
+        # # print a fancy description
+        # bnd_str = ''
+        # for k in d:
+        #     if isinstance(d[k], ufl.algebra.Product):
+        #         a, b = d[k].operands()
+        #         name = '{:} * {:}'.format(a.value(), b.name())
+        #     else:
+        #         if d[k] is not None:
+        #             name = d[k].name()
+        #         else:
+        #             name = str(d[k])
+        #     bnd_str += '{:}: {:}, '.format(k, name)
+        # print('bnd {:}: {:}'.format(bnd_id, bnd_str))
 
     solverObj.assignInitialConditions(elev=elev_ana, uv_init=uv_ana)
     solverObj.iterate()
@@ -490,7 +487,6 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
     y_log = numpy.log10(numpy.array(l2_err))
     y_log_elev = y_log[:, 0]
     y_log_uv = y_log[:, 1]
-    expected_slope = order + 1
 
     def check_convergence(x_log, y_log, expected_slope, field_str, savePlot):
         slope_rtol = 0.2
@@ -560,10 +556,10 @@ def test_steady_state_basin_convergence(setup_function):
 # run individual setup for debugging
 # ---------------------------
 
-#run(setup1, 2, 1)
+# run(setup1, 2, 1)
 
 # ---------------------------
 # run individual scaling test
 # ---------------------------
 
-#run_convergence(setup8dg, [1, 2, 4], 1, savePlot=True)
+# run_convergence(setup8dg, [1, 2, 4], 1, savePlot=True)

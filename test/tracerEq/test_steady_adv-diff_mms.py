@@ -14,32 +14,20 @@ def setup1(Lx, Ly, h0, kappa0, mimetic=True):
     Constant bathymetry and u velocty, zero diffusivity, non-trivial tracer
     """
     out = {}
-    out['bath_expr'] = Expression(
-        'h0',
-        h0=h0)
-    out['elev_expr'] = Expression(
-        '0.0',
-        )
+    out['bath_expr'] = Expression('h0', h0=h0)
+    out['elev_expr'] = Expression('0.0')
     out['uv_expr'] = Expression(
-        (
-        '1.0',
-        '0.0',
-        '0.0',
-        ),
-        )
+        ('1.0',
+         '0.0',
+         '0.0', ))
     out['w_expr'] = Expression(
-        (
-        '0.0',
-        '0.0',
-        '0',
-        ),
-        )
+        ('0.0',
+         '0.0',
+         '0', ))
     out['tracer_expr'] = Expression(
         'sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)',
         Lx=Lx)
-    out['kappa_expr'] = Expression(
-        '0.0',
-        )
+    out['kappa_expr'] = Expression('0.0')
     out['res_expr'] = Expression(
         '0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx',
         Lx=Lx)
@@ -59,26 +47,16 @@ def setup2(Lx, Ly, h0, kappa0, mimetic=True):
     constant bathymetry, zero velocity, constant kappa, x-varying T
     """
     out = {}
-    out['bath_expr'] = Expression(
-        'h0',
-        h0=h0)
-    out['elev_expr'] = Expression(
-        '0.0',
-        )
+    out['bath_expr'] = Expression('h0', h0=h0)
+    out['elev_expr'] = Expression('0.0')
     out['uv_expr'] = Expression(
-        (
-        '0.0',
-        '0.0',
-        '0.0',
-        ),
-        )
+        ('0.0',
+         '0.0',
+         '0.0', ))
     out['w_expr'] = Expression(
-        (
-        '0.0',
-        '0.0',
-        '0',
-        ),
-        )
+        ('0.0',
+         '0.0',
+         '0', ))
     out['tracer_expr'] = Expression(
         'sin(3*pi*x[0]/Lx)',
         Lx=Lx)
@@ -104,32 +82,22 @@ def setup3(Lx, Ly, h0, kappa0, mimetic=True):
     constant bathymetry, zero kappa, non-trivial velocity and T
     """
     out = {}
-    out['bath_expr'] = Expression(
-        'h0',
-        h0=h0)
-    out['elev_expr'] = Expression(
-        '0.0',
-        )
+    out['bath_expr'] = Expression('h0', h0=h0)
+    out['elev_expr'] = Expression('0.0')
     out['uv_expr'] = Expression(
-        (
-        'sin(pi*(x[1]/Ly + 2*x[0]/Lx))*sin(pi*x[2]/h0)',
-        'sin(pi*(0.3*x[1]/Ly + 0.3*x[0]/Lx))*sin(pi*x[2]/h0)',
-        '0.0',
-        ),
+        ('sin(pi*(x[1]/Ly + 2*x[0]/Lx))*sin(pi*x[2]/h0)',
+         'sin(pi*(0.3*x[1]/Ly + 0.3*x[0]/Lx))*sin(pi*x[2]/h0)',
+         '0.0', ),
         h0=h0, Lx=Lx, Ly=Ly)
     out['w_expr'] = Expression(
-        (
-        '0.0',
-        '0.0',
-        '0.3*h0*cos(pi*(0.3*x[1]/Ly + 0.3*x[0]/Lx))*cos(pi*x[2]/h0)/Ly + 0.3*h0*cos(pi*(0.3*x[1]/Ly + 0.3*x[0]/Lx))/Ly + 2*h0*cos(pi*(x[1]/Ly + 2*x[0]/Lx))*cos(pi*x[2]/h0)/Lx + 2*h0*cos(pi*(x[1]/Ly + 2*x[0]/Lx))/Lx',
-        ),
+        ('0.0',
+         '0.0',
+         '0.3*h0*cos(pi*(0.3*x[1]/Ly + 0.3*x[0]/Lx))*cos(pi*x[2]/h0)/Ly + 0.3*h0*cos(pi*(0.3*x[1]/Ly + 0.3*x[0]/Lx))/Ly + 2*h0*cos(pi*(x[1]/Ly + 2*x[0]/Lx))*cos(pi*x[2]/h0)/Lx + 2*h0*cos(pi*(x[1]/Ly + 2*x[0]/Lx))/Lx', ),
         h0=h0, Lx=Lx, Ly=Ly)
     out['tracer_expr'] = Expression(
         '(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*cos(pi*(0.75*x[1]/Ly + 1.5*x[0]/Lx))',
         h0=h0, Lx=Lx, Ly=Ly)
-    out['kappa_expr'] = Expression(
-        '0.0',
-        )
+    out['kappa_expr'] = Expression('0.0')
     out['res_expr'] = Expression(
         '-0.4*pi*(0.3*h0*cos(pi*(0.3*x[1]/Ly + 0.3*x[0]/Lx))*cos(pi*x[2]/h0)/Ly + 0.3*h0*cos(pi*(0.3*x[1]/Ly + 0.3*x[0]/Lx))/Ly + 2*h0*cos(pi*(x[1]/Ly + 2*x[0]/Lx))*cos(pi*x[2]/h0)/Lx + 2*h0*cos(pi*(x[1]/Ly + 2*x[0]/Lx))/Lx)*sin(0.5*pi*x[2]/h0)*cos(pi*(0.75*x[1]/Ly + 1.5*x[0]/Lx))/h0 - 0.75*pi*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*sin(pi*(0.3*x[1]/Ly + 0.3*x[0]/Lx))*sin(pi*(0.75*x[1]/Ly + 1.5*x[0]/Lx))*sin(pi*x[2]/h0)/Ly - 1.5*pi*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*sin(pi*(0.75*x[1]/Ly + 1.5*x[0]/Lx))*sin(pi*(x[1]/Ly + 2*x[0]/Lx))*sin(pi*x[2]/h0)/Lx',
         h0=h0, Lx=Lx, Ly=Ly)
@@ -149,25 +117,17 @@ def setup4(Lx, Ly, h0, kappa0, mimetic=True):
     constant bathymetry, constant kappa, non-trivial velocity and T
     """
     out = {}
-    out['bath_expr'] = Expression(
-        'h0',
-        h0=h0)
-    out['elev_expr'] = Expression(
-        '0.0',
-        )
+    out['bath_expr'] = Expression('h0', h0=h0)
+    out['elev_expr'] = Expression('0.0')
     out['uv_expr'] = Expression(
-        (
-        'sin(pi*(x[1]/Ly + 2*x[0]/Lx))*sin(pi*x[2]/h0)',
-        'sin(pi*(0.3*x[1]/Ly + 0.3*x[0]/Lx))*sin(pi*x[2]/h0)',
-        '0.0',
-        ),
+        ('sin(pi*(x[1]/Ly + 2*x[0]/Lx))*sin(pi*x[2]/h0)',
+         'sin(pi*(0.3*x[1]/Ly + 0.3*x[0]/Lx))*sin(pi*x[2]/h0)',
+         '0.0', ),
         h0=h0, Lx=Lx, Ly=Ly)
     out['w_expr'] = Expression(
-        (
-        '0.0',
-        '0.0',
-        '0.3*h0*cos(pi*(0.3*x[1]/Ly + 0.3*x[0]/Lx))*cos(pi*x[2]/h0)/Ly + 0.3*h0*cos(pi*(0.3*x[1]/Ly + 0.3*x[0]/Lx))/Ly + 2*h0*cos(pi*(x[1]/Ly + 2*x[0]/Lx))*cos(pi*x[2]/h0)/Lx + 2*h0*cos(pi*(x[1]/Ly + 2*x[0]/Lx))/Lx',
-        ),
+        ('0.0',
+         '0.0',
+         '0.3*h0*cos(pi*(0.3*x[1]/Ly + 0.3*x[0]/Lx))*cos(pi*x[2]/h0)/Ly + 0.3*h0*cos(pi*(0.3*x[1]/Ly + 0.3*x[0]/Lx))/Ly + 2*h0*cos(pi*(x[1]/Ly + 2*x[0]/Lx))*cos(pi*x[2]/h0)/Lx + 2*h0*cos(pi*(x[1]/Ly + 2*x[0]/Lx))/Lx', ),
         h0=h0, Lx=Lx, Ly=Ly)
     out['tracer_expr'] = Expression(
         '(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*cos(pi*(0.75*x[1]/Ly + 1.5*x[0]/Lx))',
@@ -316,7 +276,6 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
         l2_err.append(run(setup, r, order, export=export))
     x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
     y_log = numpy.log10(numpy.array(l2_err))
-    expected_slope = order + 1
 
     def check_convergence(x_log, y_log, expected_slope, field_str, savePlot):
         slope_rtol = 0.2
@@ -381,10 +340,10 @@ def test_setup4_dg():
 # run individual setup for debugging
 # ---------------------------
 
-#run(setup3, 3, 1)
+# run(setup3, 3, 1)
 
 # ---------------------------
 # run individual scaling test
 # ---------------------------
 
-#run_convergence(setup4dg, [1, 2, 3], 1, savePlot=True)
+# run_convergence(setup4dg, [1, 2, 3], 1, savePlot=True)
