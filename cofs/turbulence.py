@@ -88,7 +88,7 @@ def computeShearFrequency(uv, M2, Mu, Mv, Mu_tmp, minval=1e-12,
     M^2 = du/dz^2 + dv/dz^2
     """
     # NOTE M2 should be computed from DG uv field ?
-    #solver_parameters.setdefault('ksp_type', 'cg')
+    # solver_parameters.setdefault('ksp_type', 'cg')
     solver_parameters.setdefault('ksp_atol', 1e-12)
     solver_parameters.setdefault('ksp_rtol', 1e-16)
 
@@ -109,9 +109,9 @@ def computeShearFrequency(uv, M2, Mu, Mv, Mu_tmp, minval=1e-12,
             ds_bottom = H.mesh()._ds_t
             normal = FacetNormal(H.mesh())
             a = inner(test, tri)*dx
-            ## jump penalty -- smooth M2 -- this may blow up??
-            #alpha = Constant(2.0)*abs(avg(uv[iComp]))
-            #a += alpha*jump(test)*jump(tri)*dS_h
+            # # jump penalty -- smooth M2 -- this may blow up??
+            # alpha = Constant(2.0)*abs(avg(uv[iComp]))
+            # a += alpha*jump(test)*jump(tri)*dS_h
             L = -inner(uv[iComp], Dx(test, 2))*dx
             L += avg(uv[iComp])*jump(test, normal[2])*dS_h
             L += uv[iComp]*test*normal[2]*(ds_surf + ds_bottom)
@@ -123,7 +123,7 @@ def computeShearFrequency(uv, M2, Mu, Mv, Mu_tmp, minval=1e-12,
         Mu_comp[iComp].assign(relaxation*Mu_tmp + (1.0 - relaxation)*Mu_comp[iComp])
         M2 += Mu_comp[iComp]*Mu_comp[iComp]
     # crop small/negative values
-    #setFuncMinVal(M2, minval)
+    # setFuncMinVal(M2, minval)
 
 
 class smootherP1(object):
@@ -139,7 +139,7 @@ class smootherP1(object):
     def apply(self, input):
         assert input.function_space() == self.P1DG
         # project to P1
-        #self.tmp_func_P1.project(input)
+        # self.tmp_func_P1.project(input)
         # NOTE projection *must* be monotonic, add diffusion operator?
         test = TestFunction(self.P1)
         tri = TrialFunction(self.P1)
@@ -156,9 +156,9 @@ class smootherP1(object):
         input[i][0] = p1field[i][0];  // TODO is this mapping valid?
     }
     """,
-        self.dx,
-        {'input': (input, WRITE),
-        'p1field': (self.tmp_func_P1, READ)})
+                 self.dx,
+                 {'input': (input, WRITE),
+                  'p1field': (self.tmp_func_P1, READ)})
 
 
 class genericLengthScaleModel(object):
@@ -242,37 +242,37 @@ class genericLengthScaleModel(object):
         cc2 = 0.8000
         cc3 = 1.9680
         cc4 = 1.1360
-        cc5 = 0.0000
-        cc6 = 0.4000
-        ct1 = 5.9500
-        ct2 = 0.6000
-        ct3 = 1.0000
-        ct4 = 0.0000
-        ct5 = 0.3333
-        ctt = 0.720
+        # cc5 = 0.0000
+        # cc6 = 0.4000
+        # ct1 = 5.9500
+        # ct2 = 0.6000
+        # ct3 = 1.0000
+        # ct4 = 0.0000
+        # ct5 = 0.3333
+        # ctt = 0.720
 
         # compute the a_i's for the Algebraic Stress Model
         a1 = 2.0/3.0 - cc2/2.0
         a2 = 1.0 - cc3/2.0
         a3 = 1.0 - cc4/2.0
-        a4 = cc5/2.00
-        a5 = 0.5 - cc6/2.0
+        # a4 = cc5/2.00
+        # a5 = 0.5 - cc6/2.0
 
-        at1 = 1.0 - ct2
-        at2 = 1.0 - ct3
-        at3 = 2.0 * (1.0 - ct4)
-        at4 = 2.0 * (1.0 - ct5)
-        at5 = 2.0 * ctt * (1.0 - ct5)
+        # at1 = 1.0 - ct2
+        # at2 = 1.0 - ct3
+        # at3 = 2.0 * (1.0 - ct4)
+        # at4 = 2.0 * (1.0 - ct5)
+        # at5 = 2.0 * ctt * (1.0 - ct5)
 
         # compute cm0
         N = cc1/2.0
-        cm0 = ((a2**2 - 3*a3**2 + 3*a1*N)/(3* N**2))**0.25
-        cmsf = a1/N/cm0**3
+        cm0 = ((a2**2 - 3*a3**2 + 3*a1*N)/(3 * N**2))**0.25
+        # cmsf = a1/N/cm0**3
         rad = schmidt_nb_psi * (c2 - c1)/(n**2)
         kappa = cm0*sqrt(rad)
         parameters['von_karman'] = kappa
-        rcm = cm0/cmsf
-        cde = cm0**3.
+        # rcm = cm0/cmsf
+        # cde = cm0**3.
 
         # parameters
         self.params = {
@@ -292,7 +292,7 @@ class genericLengthScaleModel(object):
             'visc_min': visc_min,
             'diff_min': diff_min,
             'galperin_lim': galperin_lim,
-            }
+        }
         self.params['cm0'] = cm0
         self.stabilityType = stabilityType
         if self.stabilityType == 'KC':
@@ -303,7 +303,7 @@ class genericLengthScaleModel(object):
             raise Exception('Unknown stability function type: ' +
                             self.stabilityType)
         # compute c3_minus
-        #c3_minus = self.stabilityFunc.computeC3Minus(c1, c2)
+        # c3_minus = self.stabilityFunc.computeC3Minus(c1, c2)
         self.params['c3_minus'] = -0.63  # NOTE depends on model and stab func
 
         self.initialize()
@@ -321,7 +321,7 @@ class genericLengthScaleModel(object):
         """
         # update M2 and N2
         computeShearFrequency(self.uv, self.M2, self.Mu, self.Mv, self.Mu_tmp)
-        #self.smoother.apply(self.M2)
+        # self.smoother.apply(self.M2)
         setFuncMinVal(self.M2, 1e-12)
 
     def postprocess(self):
@@ -332,61 +332,61 @@ class genericLengthScaleModel(object):
         """
 
         cm0 = self.params['cm0']
-        p = self.params['p']
-        n = self.params['n']
-        m = self.params['m']
+        # p = self.params['p']
+        # n = self.params['n']
+        # m = self.params['m']
 
         # smooth k
-        #self.smoother.apply(self.k)
+        # self.smoother.apply(self.k)
         # limit k
         setFuncMinVal(self.k, self.params['k_min'])
 
         # smooth psi
-        #self.smoother.apply(self.psi)
+        # self.smoother.apply(self.psi)
         # limit psi
         # psi^(1/n) <= sqrt(0.56)* (cm0)^(p/n) *k^(m/n+0.5)* N2^(-0.5)
         k_arr = self.k.dat.data[:]
         N2_arr = self.N2.dat.data[:]
         N2_pos = N2_arr.copy()
         N2_pos[N2_pos < 0.0] = 0.0
-        #val = (np.sqrt(0.56) * (cm0)**(p / n) * k_arr**(m / n + 0.5) * (N2_pos + 1e-12)**(-0.5))**n
-        #if n > 0:
-            ## impose max value
-            #self.psi.dat.data[:] = np.minimum(self.psi.dat.data[:], val)
-        #else:
-            ## impose min value
-            #self.psi.dat.data[:] = np.maximum(self.psi.dat.data[:], val)
+        # val = (np.sqrt(0.56) * (cm0)**(p / n) * k_arr**(m / n + 0.5) * (N2_pos + 1e-12)**(-0.5))**n
+        # if n > 0:
+        #    # impose max value
+        #    self.psi.dat.data[:] = np.minimum(self.psi.dat.data[:], val)
+        # else:
+        #    # impose min value
+        #    self.psi.dat.data[:] = np.maximum(self.psi.dat.data[:], val)
         setFuncMinVal(self.psi, self.params['psi_min'])
 
-        #self.tmp_field_P0.project(self.k)
-        #self.tmp_field_P1.project(self.tmp_field_P0)
-        #self.k.project(self.tmp_field_P1)
-        #self.tmp_field_P0.project(self.psi)
-        #self.tmp_field_P1.project(self.tmp_field_P0)
-        #self.psi.project(self.tmp_field_P1)
-        #self.solver.tracerLimiter.apply(self.k)
-        #self.solver.tracerLimiter.apply(self.psi)
+        # self.tmp_field_P0.project(self.k)
+        # self.tmp_field_P1.project(self.tmp_field_P0)
+        # self.k.project(self.tmp_field_P1)
+        # self.tmp_field_P0.project(self.psi)
+        # self.tmp_field_P1.project(self.tmp_field_P0)
+        # self.psi.project(self.tmp_field_P1)
+        # self.solver.tracerLimiter.apply(self.k)
+        # self.solver.tracerLimiter.apply(self.psi)
 
         # udpate epsilon
-        #self.epsilon.assign(cm0**(3+p/n)*self.k**(3/2+m/n)*self.psi**(-1/n))
+        # self.epsilon.assign(cm0**(3+p/n)*self.k**(3/2+m/n)*self.psi**(-1/n))
         # HACK special case for k-eps model
         self.epsilon.assign(self.psi)
-        ## Galperin limitation as in GOTM
-        #galp = self.params['galperin_lim']
-        #epslim = cm0**3.0/np.sqrt(2.)/galp*k_arr*np.sqrt(N2_pos)
-        #self.epsilon.dat.data[:] = np.maximum(self.epsilon.dat.data[:], epslim)
+        # # Galperin limitation as in GOTM
+        # galp = self.params['galperin_lim']
+        # epslim = cm0**3.0/np.sqrt(2.)/galp*k_arr*np.sqrt(N2_pos)
+        # self.epsilon.dat.data[:] = np.maximum(self.epsilon.dat.data[:], epslim)
         # impose minimum value
         setFuncMinVal(self.epsilon, self.params['eps_min'])
 
         # update L
-        #self.l.assign(cm0**3 * self.k**(3.0/2.0) / self.epsilon)  # TODO why this doesn't work
+        # self.l.assign(cm0**3 * self.k**(3.0/2.0) / self.epsilon)  # TODO why this doesn't work
         self.l.dat.data[:] = cm0**3.0 * np.sqrt(np.power(k_arr, 3)) / self.epsilon.dat.data[:]
-        #self.smoother.apply(self.l)
-        #setFuncMaxVal(self.l, 10.0)  # HACK limit L to something meaningful
+        # self.smoother.apply(self.l)
+        # setFuncMaxVal(self.l, 10.0)  # HACK limit L to something meaningful
         setFuncMinVal(self.l, 1e-12)
         if self.l.dat.data.max() > 10.0:
             print ' * large L: {:f}'.format(self.l.dat.data.max())
-        ## Galperin L limitation
+        # # Galperin L limitation
 
         # update stability functions
         S_M, S_H = self.stabilityFunc.getFunctions(self.M2.dat.data,
@@ -400,8 +400,8 @@ class genericLengthScaleModel(object):
         lam = self.relaxation
         self.viscosity.dat.data[:] = lam*c*b*S_M + (1.0 - lam)*self.viscosity.dat.data[:]
         self.diffusivity.dat.data[:] = lam*c*b*S_H + (1.0 - lam)*self.diffusivity.dat.data[:]
-        #self.smoother.apply(self.viscosity)
-        #self.smoother.apply(self.diffusivity)
+        # self.smoother.apply(self.viscosity)
+        # self.smoother.apply(self.diffusivity)
         setFuncMinVal(self.viscosity, self.params['visc_min'])
         setFuncMinVal(self.diffusivity, self.params['diff_min'])
         print '{:8s} {:8.3e} {:8.3e}'.format('k', self.k.dat.data.min(), self.k.dat.data.max())
@@ -419,7 +419,6 @@ class stabilityFuncKanthaClayson(object):
     Implementation follows Burchard and Deleersnijder (2001).
     """
     def __init__(self):
-
 
         # parameters
         self.A1 = 0.92
@@ -516,31 +515,31 @@ class stabilityFuncCanutoA(object):
         """
         Computes the values of the stability functions
         """
-        #b = l**2/(2*k)
-        #Gh = - N2 * b
-        #Gm = M2 * b
-        ##print 'Gh', Gh.min(), Gh.max()
-        ##print 'Gm', Gm.min(), Gm.max()
-        ## smoothing (from ROMS)
-        #Gh = np.minimum(Gh, self.Gh0)
-        #Gh = np.minimum(Gh, Gh-(Gh-self.Gh_crit)**2/(Gh + self.Gh0 - 2*self.Gh_crit))
-        #Gh = np.maximum(Gh, self.Gh_min)
-        #alpha = 1.0
-        #Gm_max = alpha*(1 + self.t1*Gh + self.t3*Gh**2)/(self.t2 + self.t4*Gh)
-        #Gm = np.minimum(Gm, Gm_max)
-        #Gh = np.minimum(Gh, self.Gh_max)
-        ##print 'Gh2', Gh.min(), Gh.max()
-        ##print 'Gm2', Gm.min(), Gm.max()
-        #d = 1.0 + self.t1*Gh + self.t2*Gm + self.t3*Gh**2 + self.t4*Gm*Gh + self.t5*Gm**2
-        #S_M = (self.s0 + self.s1*Gh + self.s2*Gm)/d
-        #S_H = (self.s4 + self.s5*Gh + self.s6*Gm)/d
-        #return S_M, S_H
+        # b = l**2/(2*k)
+        # Gh = - N2 * b
+        # Gm = M2 * b
+        # #print 'Gh', Gh.min(), Gh.max()
+        # #print 'Gm', Gm.min(), Gm.max()
+        # # smoothing (from ROMS)
+        # Gh = np.minimum(Gh, self.Gh0)
+        # Gh = np.minimum(Gh, Gh-(Gh-self.Gh_crit)**2/(Gh + self.Gh0 - 2*self.Gh_crit))
+        # Gh = np.maximum(Gh, self.Gh_min)
+        # alpha = 1.0
+        # Gm_max = alpha*(1 + self.t1*Gh + self.t3*Gh**2)/(self.t2 + self.t4*Gh)
+        # Gm = np.minimum(Gm, Gm_max)
+        # Gh = np.minimum(Gh, self.Gh_max)
+        # #print 'Gh2', Gh.min(), Gh.max()
+        # #print 'Gm2', Gm.min(), Gm.max()
+        # d = 1.0 + self.t1*Gh + self.t2*Gm + self.t3*Gh**2 + self.t4*Gm*Gh + self.t5*Gm**2
+        # S_M = (self.s0 + self.s1*Gh + self.s2*Gm)/d
+        # S_H = (self.s4 + self.s5*Gh + self.s6*Gm)/d
+        # return S_M, S_H
 
         # TODO get the params from gls class
-        schmidt_nb_psi = 1.3
-        c1 = 1.44
-        c2 = 1.92
-        n = -1.0
+        # schmidt_nb_psi = 1.3
+        # c1 = 1.44
+        # c2 = 1.92
+        # n = -1.0
 
         anLimitFact = 0.5
 
@@ -548,7 +547,7 @@ class stabilityFuncCanutoA(object):
         cc2 = 0.8000
         cc3 = 1.9680
         cc4 = 1.1360
-        cc5 = 0.0000
+        # cc5 = 0.0000
         cc6 = 0.4000
         ct1 = 5.9500
         ct2 = 0.6000
@@ -561,23 +560,23 @@ class stabilityFuncCanutoA(object):
         a1 = 2.0/3.0 - cc2/2.0
         a2 = 1.0 - cc3/2.0
         a3 = 1.0 - cc4/2.0
-        a4 = cc5/2.00
+        # a4 = cc5/2.00
         a5 = 0.5 - cc6/2.0
 
         at1 = 1.0 - ct2
         at2 = 1.0 - ct3
         at3 = 2.0 * (1.0 - ct4)
-        at4 = 2.0 * (1.0 - ct5)
+        # at4 = 2.0 * (1.0 - ct5)
         at5 = 2.0 * ctt * (1.0 - ct5)
 
         # compute cm0
         N = cc1/2.0
-        cm0 = ((a2**2 - 3*a3**2 + 3*a1*N)/(3* N**2))**0.25
-        cmsf = a1/N/cm0**3
-        rad = schmidt_nb_psi * (c2 - c1)/(n**2)
-        kappa = cm0*sqrt(rad)
-        rcm = cm0/cmsf
-        cde = cm0**3.
+        cm0 = ((a2**2 - 3*a3**2 + 3*a1*N)/(3 * N**2))**0.25
+        # cmsf = a1/N/cm0**3
+        # rad = schmidt_nb_psi * (c2 - c1)/(n**2)
+        # kappa = cm0*sqrt(rad)
+        # rcm = cm0/cmsf
+        # cde = cm0**3.
 
         # This is written out verbatim as in GOTM v4.3.1 (also GNU GPL)
         N = 0.5 * cc1
@@ -666,7 +665,7 @@ class tkeEquation(tracerEquation):
             'shear_freq2': glsModel.M2,
             'epsilon': glsModel.epsilon,
             'k': glsModel.k,
-            }
+        }
         self.kwargs.update(new_kwargs)
 
     def Source(self, eta, uv, w, eddy_viscosity, eddy_diffusivity,
@@ -725,7 +724,7 @@ class psiEquation(tracerEquation):
             'shear_freq2': glsModel.M2,
             'epsilon': glsModel.epsilon,
             'k': glsModel.k,
-            }
+        }
         self.kwargs.update(new_kwargs)
 
     def RHS_implicit(self, solution, eta, uv, w, eddy_viscosity, eddy_diffusivity,
@@ -745,7 +744,7 @@ class psiEquation(tracerEquation):
         B = 0.0  # - eddy_diffusivity * buoyancy_freq2
         c1 = self.glsModel.params['c1']
         c2 = self.glsModel.params['c2']
-        c3_plus = self.glsModel.params['c3_plus']
+        # c3_plus = self.glsModel.params['c3_plus']
         c3_minus = self.glsModel.params['c3_minus']
         F_wall = self.glsModel.params['F_wall']
         # TODO implement c3 switch: c3 = c3_minus if N2 > 0 else c3_plus
