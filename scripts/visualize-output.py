@@ -10,6 +10,9 @@ import argparse
 import glob
 import os
 import subprocess
+import tempfile
+
+TMP_DIR = tempfile.gettempdir()
 
 
 def generatePVDFile(outDir, fieldName, timesteps, usePVTU=False):
@@ -38,9 +41,9 @@ def generatePVDFile(outDir, fieldName, timesteps, usePVTU=False):
 
 def processArgs(outputdir, state_file, regeneratePVD=True, timesteps=None, parallelVTU=True):
     default_out_dir = 'outputs'
-    temp_state_file = 'tmp.pvsm'
+    temp_state_file = os.path.join(TMP_DIR, 'tmp.pvsm')
     paraview_bin = 'paraview'
-    pv_log_file = 'log_pvoutput.txt'
+    pv_log_file = os.path.join(TMP_DIR, 'log_pvoutput.txt')
     static_pvd_files = ['bath']  # outputs that are not time dependent
     # regenerate all existing PVD files
     if regeneratePVD:
