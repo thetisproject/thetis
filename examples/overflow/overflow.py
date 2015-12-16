@@ -43,21 +43,21 @@ depth = 20.0
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
 bathymetry_2d.interpolate(Expression('hmin + 0.5*(hmax - hmin)*(1 + tanh((x[0] - x0)/Ls))',
-                         hmin=200.0, hmax=4000.0, Ls=10.0e3, x0=40.0e3))
+                          hmin=200.0, hmax=4000.0, Ls=10.0e3, x0=40.0e3))
 
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry_2d, layers)
 options = solverObj.options
 options.cfl_2d = 1.0
-#options.nonlin = False
+# options.nonlin = False
 options.mimetic = False
 options.solveSalt = True
 options.solveVertDiffusion = False
 options.useBottomFriction = False
 options.useALEMovingMesh = False
-#options.useIMEX = True
-#options.useSemiImplicit2D = False
-#options.useModeSplit = False
+# options.useIMEX = True
+# options.useSemiImplicit2D = False
+# options.useModeSplit = False
 options.baroclinic = True
 options.uvLaxFriedrichs = None
 options.tracerLaxFriedrichs = None
@@ -83,7 +83,7 @@ options.fieldsToExport = ['uv_2d', 'elev_2d', 'uv_3d',
                           'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                           'baroc_head_2d',
                           'smag_visc_3d', 'salt_jump_diff']
-#options.fieldsToExportNumpy = ['salt_3d']
+# options.fieldsToExportNumpy = ['salt_3d']
 options.timerLabels = []
 
 solverObj.createEquations()

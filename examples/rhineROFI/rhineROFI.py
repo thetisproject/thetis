@@ -55,19 +55,19 @@ TExport = 900.0  # 44714/12
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
 bathymetry_2d.interpolate(Expression('(x[0] > 0.0) ? H*(1-x[0]/Lriver) + HInlet*(x[0]/Lriver) : H',
-                                    H=H, HInlet=HInlet, Lriver=Lriver))
+                                     H=H, HInlet=HInlet, Lriver=Lriver))
 
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry_2d, layers)
 options = solverObj.options
 options.cfl_2d = 1.0
-#options.nonlin = False
+# options.nonlin = False
 options.solveSalt = True
 options.solveVertDiffusion = False
 options.useBottomFriction = False
 options.useALEMovingMesh = False
-#options.useSemiImplicit2D = False
-#options.useModeSplit = False
+# options.useSemiImplicit2D = False
+# options.useModeSplit = False
 options.baroclinic = True
 options.coriolis = Constant(coriolisF)
 options.useSUPG = False
@@ -79,10 +79,10 @@ options.smagorinskyFactor = Constant(1.0/np.sqrt(Re_h))
 options.salt_jump_diffFactor = Constant(1.0)
 options.saltRange = Constant(25.0)
 # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
-#options.hViscosity = Constant(0.5*2000.0/refinement[reso_str]/Re_h)
+# options.hViscosity = Constant(0.5*2000.0/refinement[reso_str]/Re_h)
 # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
-#options.hViscosity = Constant(100.0/refinement[reso_str])
-#options.hViscosity = Constant(10.0)
+# options.hViscosity = Constant(100.0/refinement[reso_str])
+# options.hViscosity = Constant(10.0)
 if options.useModeSplit:
     options.dt = dt
 options.TExport = TExport
@@ -104,7 +104,7 @@ bnd_time = Constant(0)
 xyz = solverObj.mesh2d.coordinates
 tri = TrialFunction(P1_2d)
 test = TestFunction(P1_2d)
-elev = etaAmplitude*exp( xyz[0]*kelvinM )*cos( xyz[1]*kelvinK - OmegaTide*bnd_time )
+elev = etaAmplitude*exp(xyz[0]*kelvinM)*cos(xyz[1]*kelvinK - OmegaTide*bnd_time)
 a = inner(test, tri)*P1_2d.mesh()._dx
 L = test*elev*P1_2d.mesh()._dx
 bndElevProb = LinearVariationalProblem(a, L, bnd_elev)
@@ -115,7 +115,7 @@ fs = P1_2d
 bnd_v = Function(fs, name='Boundary v velocity')
 tri = TrialFunction(fs)
 test = TestFunction(fs)
-v = -(g*kelvinK/OmegaTide)*etaAmplitude*exp( xyz[0]*kelvinM )*cos( xyz[1]*kelvinK - OmegaTide*bnd_time )
+v = -(g*kelvinK/OmegaTide)*etaAmplitude*exp(xyz[0]*kelvinM)*cos(xyz[1]*kelvinK - OmegaTide*bnd_time)
 a = inner(test, tri)*fs.mesh()._dx
 L = test*v*fs.mesh()._dx
 bndVProb = LinearVariationalProblem(a, L, bnd_v)
@@ -133,8 +133,8 @@ bnd_ocean_salt = {'value': ocean_salt}
 bnd_river_salt = {'value': river_salt}
 solverObj.bnd_functions['shallow_water'] = {1: tide_elev_funcs, 2: tide_elev_funcs,
                                             3: tide_elev_funcs, 6: river_funcs}
-#solverObj.bnd_functions['momentum'] = {1: tide_funcs, 2: tide_funcs,
-                                       #3: tide_funcs, 6: river_funcs}
+# solverObj.bnd_functions['momentum'] = {1: tide_funcs, 2: tide_funcs,
+#                                        3: tide_funcs, 6: river_funcs}
 solverObj.bnd_functions['salt'] = {1: bnd_ocean_salt, 2: bnd_ocean_salt,
                                    3: bnd_ocean_salt, 6: bnd_river_salt}
 
@@ -150,10 +150,10 @@ elev_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kel
                       amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
 elev_init2 = Function(solverObj.function_spaces.H_2d, name='initial elevation')
 elev_init2.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kelvinK) : 0.0',
-                      amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
+                       amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
 uv_init = Function(solverObj.function_spaces.U_2d, name='initial velocity')
-#uv_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kelvinK) : amp*cos(x[1]*kelvinK)',
-                      #amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
+# uv_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kelvinK) : amp*cos(x[1]*kelvinK)',
+#                       amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
 tri = TrialFunction(solverObj.function_spaces.U_2d)
 test = TestFunction(solverObj.function_spaces.U_2d)
 a = inner(test, tri)*solverObj.eq_sw.dx

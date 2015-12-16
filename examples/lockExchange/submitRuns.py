@@ -18,25 +18,25 @@ python submitTests.py coarse -Re 0.1,1.0,2.5 -j 1.0,2.0
 """
 from batchScriptLib import *
 
-#clusterParams.initializeFromFile('tkarna_stampede.yaml')
+# clusterParams.initializeFromFile('tkarna_stampede.yaml')
 
 duration = {
-    'coarse':  timeRequest( 4, 0, 0),
-    'coarse2': timeRequest( 4, 0, 0),
-    'medium':  timeRequest( 8, 0, 0),
-    'medium2': timeRequest( 8, 0, 0),
-    'fine':    timeRequest(24, 0, 0),
-    'ilicak':  timeRequest( 8, 0, 0),
-    }
+    'coarse': timeRequest(4, 0, 0),
+    'coarse2': timeRequest(4, 0, 0),
+    'medium': timeRequest(8, 0, 0),
+    'medium2': timeRequest(8, 0, 0),
+    'fine': timeRequest(24, 0, 0),
+    'ilicak': timeRequest(8, 0, 0),
+}
 
 processes = {
-    'coarse':  2,
+    'coarse': 2,
     'coarse2': 4,
-    'medium':  8,
+    'medium': 8,
     'medium2': 16,
-    'fine':    32,
-    'ilicak':  8,
-    }
+    'fine': 32,
+    'ilicak': 8,
+}
 
 
 def processArgs(reso, reynoldsNumber, useLimiter, jumpDiffFactor, polyOrder,

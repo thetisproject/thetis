@@ -8,7 +8,7 @@
 # indefinitely long time.
 #
 #
-# 
+#
 # Tuomas Karna 2015-04-28
 
 from cofs import *
@@ -34,8 +34,7 @@ bathymetry_2d.assign(depth)
 coriolis_2d = Function(P1_2d)
 f0, beta = 1.0e-4, 0.0
 coriolis_2d.interpolate(
-    Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0)
-    )
+    Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0))
 
 # --- create solver ---
 solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d)

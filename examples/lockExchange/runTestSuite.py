@@ -104,13 +104,13 @@ bathymetry2d.assign(depth)
 solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers,
                               order=args.polyOrder, mimetic=args.mimetic)
 solverObj.cfl_2d = 1.0
-#solverObj.nonlin = False
+# solverObj.nonlin = False
 solverObj.solveSalt = True
 solverObj.solveVertDiffusion = False
 solverObj.useBottomFriction = False
 solverObj.useALEMovingMesh = False
-#solverObj.useSemiImplicit2D = False
-#solverObj.useModeSplit = False
+# solverObj.useSemiImplicit2D = False
+# solverObj.useModeSplit = False
 solverObj.baroclinic = True
 solverObj.uvLaxFriedrichs = Constant(1.0)
 solverObj.tracerLaxFriedrichs = Constant(1.0)
@@ -119,7 +119,7 @@ solverObj.saltJumpDiffFactor = args.jumpDiffFactor
 solverObj.saltRange = Constant(5.0)
 solverObj.useLimiterForTracers = args.useLimiter
 # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
-#solverObj.hViscosity = Constant(100.0/refinement[reso_str])
+# solverObj.hViscosity = Constant(100.0/refinement[reso_str])
 solverObj.hViscosity = Constant(1.0)
 solverObj.hDiffusivity = Constant(1.0)
 if solverObj.useModeSplit:

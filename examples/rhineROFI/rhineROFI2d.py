@@ -55,14 +55,14 @@ TExport = 900.0  # 44714/12
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
 bathymetry_2d.interpolate(Expression('(x[0] > 0.0) ? H*(1-x[0]/Lriver) + HInlet*(x[0]/Lriver) : H',
-                                    H=H, HInlet=HInlet, Lriver=Lriver))
+                                     H=H, HInlet=HInlet, Lriver=Lriver))
 
 # create solver
 solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d)
 options = solverObj.options
 options.mimetic = False
 options.cfl_2d = 1.0
-#options.nonlin = False
+# options.nonlin = False
 options.coriolis = Constant(coriolisF)
 options.hViscosity = Constant(10.0)
 options.TExport = TExport
@@ -72,7 +72,7 @@ options.outputDir = outputDir
 options.uAdvection = Constant(1.5)
 options.fieldsToExport = ['uv_2d', 'elev_2d']
 options.timerLabels = []
-#options.timeStepperType = 'CrankNicolson'
+# options.timeStepperType = 'CrankNicolson'
 options.timeStepperType = 'ssprk33semi'
 
 bnd_elev = Function(P1_2d, name='Boundary elevation')
@@ -80,27 +80,27 @@ bnd_time = Constant(0)
 xyz = solverObj.mesh2d.coordinates
 tri = TrialFunction(P1_2d)
 test = TestFunction(P1_2d)
-elev = etaAmplitude*exp( xyz[0]*kelvinM )*cos( xyz[1]*kelvinK - OmegaTide*bnd_time )
+elev = etaAmplitude*exp(xyz[0]*kelvinM)*cos(xyz[1]*kelvinK - OmegaTide*bnd_time)
 a = inner(test, tri)*P1_2d.mesh()._dx
 L = test*elev*P1_2d.mesh()._dx
 bndElevProb = LinearVariationalProblem(a, L, bnd_elev)
 bndElevSolver = LinearVariationalSolver(bndElevProb)
 bndElevSolver.solve()
 
-#fs = P1_2d
-#bnd_v = Function(fs, name='Boundary v velocity')
-#tri = TrialFunction(fs)
-#test = TestFunction(fs)
-#v = -(g*kelvinK/OmegaTide)*etaAmplitude*exp( xyz[0]*kelvinM )*cos( xyz[1]*kelvinK - OmegaTide*bnd_time )
-#a = inner(test, tri)*fs.mesh()._dx
-#L = test*v*fs.mesh()._dx
-#bndVProb = LinearVariationalProblem(a, L, bnd_v)
-#bndVSolver = LinearVariationalSolver(bndVProb)
-#bndVSolver.solve()
+# fs = P1_2d
+# bnd_v = Function(fs, name='Boundary v velocity')
+# tri = TrialFunction(fs)
+# test = TestFunction(fs)
+# v = -(g*kelvinK/OmegaTide)*etaAmplitude*exp( xyz[0]*kelvinM )*cos( xyz[1]*kelvinK - OmegaTide*bnd_time )
+# a = inner(test, tri)*fs.mesh()._dx
+# L = test*v*fs.mesh()._dx
+# bndVProb = LinearVariationalProblem(a, L, bnd_v)
+# bndVSolver = LinearVariationalSolver(bndVProb)
+# bndVSolver.solve()
 
 river_discharge = Constant(-Qriver)
 tide_elev_funcs = {'elev': bnd_elev}
-#tide_uv_funcs = {'un': bnd_v}
+# tide_uv_funcs = {'un': bnd_v}
 open_funcs = {'symm': None}
 river_funcs = {'flux': river_discharge}
 solverObj.bnd_functions['shallow_water'] = {1: tide_elev_funcs, 2: tide_elev_funcs, 3: tide_elev_funcs,
@@ -113,10 +113,10 @@ elev_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kel
                       amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
 elev_init2 = Function(solverObj.function_spaces.H_2d, name='initial elevation')
 elev_init2.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kelvinK) : 0.0',
-                      amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
+                       amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
 uv_init = Function(solverObj.function_spaces.U_2d, name='initial velocity')
-#uv_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kelvinK) : amp*cos(x[1]*kelvinK)',
-                      #amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
+# uv_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvinM)*cos(x[1]*kelvinK) : amp*cos(x[1]*kelvinK)',
+#                      amp=etaAmplitude, kelvinM=kelvinM, kelvinK=kelvinK))
 tri = TrialFunction(solverObj.function_spaces.U_2d)
 test = TestFunction(solverObj.function_spaces.U_2d)
 a = inner(test, tri)*solverObj.eq_sw.dx
@@ -128,7 +128,7 @@ solve(a == L, uv_init)
 def updateForcings(t):
     bnd_time.assign(t)
     bndElevSolver.solve()
-    #bndVSolver.solve()
+    # bndVSolver.solve()
 
 solverObj.assignInitialConditions(elev=elev_init, uv_init=uv_init)
 solverObj.iterate(updateForcings=updateForcings)
