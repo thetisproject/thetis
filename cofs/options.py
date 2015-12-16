@@ -5,6 +5,7 @@ Tuomas Karna 2015-10-17
 """
 from cofs.utility import *
 
+
 class modelOptions(AttrDict):
     """
     Stores all model options
