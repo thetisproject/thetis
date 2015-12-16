@@ -328,24 +328,12 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
         u_1 = self.sol1
         sol = self.equation.solution
 
-        #F_CrNi = (massTerm(sol) - massTerm(u_old) -
-               #self.dt_const*(
-                   #self.theta*RHSi(sol, **self.args) +
-                   #(1-self.theta)*RHSi(u_old, **self.args) +
-                   #RHS(sol, **self.args) +
-                   #Source(**self.args))
-               #)
-        #probCrNi = NonlinearVariationalProblem(F_CrNi, sol)
-        #self.solverCrNi = NonlinearVariationalSolver(probCrNi,
-            #solver_parameters=self.solver_parameters)
-
         self.F_0 = (massTerm(u_0) - massTerm(u_old) -
                     self.dt_const*(
                         self.theta*RHSi(u_0, **self.args) +
                         (1-self.theta)*RHSi(u_old, **self.args) +
                         RHS(u_old, **self.args) +
-                        Source(**self.args)
-                        )
+                        Source(**self.args))
                     )
         self.F_1 = (massTerm(u_1) -
                     3.0/4.0*massTerm(u_old) - 1.0/4.0*massTerm(u_0) -
@@ -353,8 +341,7 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
                         self.theta*RHSi(u_1, **self.args) +
                         (1-self.theta)*RHSi(u_0, **self.args) +
                         RHS(u_0, **self.args) +
-                        Source(**self.args)
-                        )
+                        Source(**self.args))
                     )
         self.F_2 = (massTerm(sol) -
                     1.0/3.0*massTerm(u_old) - 2.0/3.0*massTerm(u_1) -
@@ -362,8 +349,7 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
                         self.theta*RHSi(sol, **self.args) +
                         (1-self.theta)*RHSi(u_1, **self.args) +
                         RHS(u_1, **self.args) +
-                        Source(**self.args)
-                        )
+                        Source(**self.args))
                     )
         self.updateSolver()
 
@@ -372,13 +358,13 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
         re-created after each mesh update."""
         probF0 = NonlinearVariationalProblem(self.F_0, self.sol0)
         self.solverF0 = NonlinearVariationalSolver(probF0,
-            solver_parameters=self.solver_parameters)
+                                                   solver_parameters=self.solver_parameters)
         probF1 = NonlinearVariationalProblem(self.F_1, self.sol1)
         self.solverF1 = NonlinearVariationalSolver(probF1,
-            solver_parameters=self.solver_parameters)
+                                                   solver_parameters=self.solver_parameters)
         probF2 = NonlinearVariationalProblem(self.F_2, self.equation.solution)
         self.solverF2 = NonlinearVariationalSolver(probF2,
-            solver_parameters=self.solver_parameters)
+                                                   solver_parameters=self.solver_parameters)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -448,7 +434,6 @@ class ForwardEuler(timeIntegrator):
                 elif isinstance(self.funcs[k], Constant):
                     self.funcs_old[k] = Constant(self.funcs[k])
 
-        u = self.equation.solution
         u_old = self.solution_old
         u_tri = self.equation.tri
         self.A = massTerm(u_tri)
@@ -463,7 +448,7 @@ class ForwardEuler(timeIntegrator):
     def updateSolver(self):
         prob = LinearVariationalProblem(self.A, self.L, self.equation.solution)
         self.solver = LinearVariationalSolver(prob,
-            solver_parameters=self.solver_parameters)
+                                              solver_parameters=self.solver_parameters)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -531,25 +516,23 @@ class CrankNicolson(timeIntegrator):
         self.A = (massTerm(u_tri) -
                   self.dt_const*(
                       gamma_const*RHS(u_tri, **self.funcs) +
-                      gamma_const*RHSi(u_tri, **self.funcs)
-                      )
+                      gamma_const*RHSi(u_tri, **self.funcs))
                   )
         self.L = (massTerm(u_old) +
                   self.dt_const*(
                       gamma_const*Source(**self.funcs) +
                       (1-gamma_const)*RHS(u_old, **self.funcs_old) +
                       (1-gamma_const)*RHSi(u_old, **self.funcs_old) +
-                      (1-gamma_const)*Source(**self.funcs_old)
-                      )
+                      (1-gamma_const)*Source(**self.funcs_old))
                   )
         self.updateSolver()
 
     def updateSolver(self):
-        nest = not ('pc_type' in self.solver_parameters and self.solver_parameters['pc_type']=='lu')
+        nest = not ('pc_type' in self.solver_parameters and self.solver_parameters['pc_type'] == 'lu')
         prob = NonlinearVariationalProblem(self.F, self.equation.solution, nest=nest)
         self.solver = NonlinearVariationalSolver(prob,
-            solver_parameters=self.solver_parameters,
-            options_prefix=self.name)
+                                                 solver_parameters=self.solver_parameters,
+                                                 options_prefix=self.name)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -565,7 +548,6 @@ class CrankNicolson(timeIntegrator):
             updateForcings(t+dt)
         self.solution_old.assign(solution)
         self.solver.solve()
-        #solve(self.F == 0, solution, solver_parameters=solver_parameters)
         # shift time
         for k in self.funcs_old:
             self.funcs_old[k].assign(self.funcs[k])
@@ -688,7 +670,6 @@ class DIRK_generic(timeIntegrator):
         self.c = c
         self.termsToAdd = termsToAdd
 
-        massTerm = self.equation.massTerm
         RHS = self.equation.RHS
         RHSi = self.equation.RHS_implicit
         Source = self.equation.Source
@@ -716,8 +697,8 @@ class DIRK_generic(timeIntegrator):
                 f += RHS(u, **args)
             if 'source' in self.termsToAdd:
                 f += Source(**args)
-            #assert f != 0, \
-                #'adding t  erms {:}: empty form'.format(self.termsToAdd)
+            # assert f != 0, \
+            #     'adding t  erms {:}: empty form'.format(self.termsToAdd)
             return f
 
         # Allocate tendency fields
@@ -761,8 +742,7 @@ class DIRK_generic(timeIntegrator):
             self.solver.append(
                 NonlinearVariationalSolver(p,
                                            solver_parameters=self.solver_parameters,
-                                           options_prefix=sname)
-                )
+                                           options_prefix=sname))
 
     def initialize(self, init_cond):
         """Assigns initial conditions to all required fields."""
@@ -957,12 +937,12 @@ def cosTimeAvFilter(M):
     b = np.cumsum(a[::-1])[::-1]/M
     # correct b to match 2nd criterion exactly
     error = sum(l*b)-0.5
-    p = np.linspace(-1,1,len(b))
+    p = np.linspace(-1, 1, len(b))
     p /= sum(l*p)
     b -= p*error
 
     M_star = np.nonzero((np.abs(a) > 1e-10) + (np.abs(b) > 1e-10))[0].max()
-    if commrank==0:
+    if commrank == 0:
         print 'M', M, M_star
         print 'a', sum(a), sum(l*a)
         print 'b', sum(b), sum(l*b)
