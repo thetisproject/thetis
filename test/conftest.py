@@ -43,3 +43,10 @@ def pytest_unconfigure(config):
     global progress_process
     if config.getoption("--travis") and progress_process is not None:
         progress_process.terminate()
+
+
+def pytest_runtest_teardown(item, nextitem):
+    """Clear COFS caches after running a test"""
+    from cofs.utility import linProblemCache, tmpFunctionCache
+    linProblemCache.clear()
+    tmpFunctionCache.clear()
