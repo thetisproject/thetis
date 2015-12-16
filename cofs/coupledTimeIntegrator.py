@@ -73,16 +73,16 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
                             elemHeight=self.fields.v_elem_size_3d)
             # 2d-3d coupling: restart 2d mode from depth ave uv_3d
             # NOTE unstable!
-            #uv_2d_start = sol2d.split()[0]
-            #uv_2d_start.assign(self.fields.uv_dav_2d)
+            # uv_2d_start = sol2d.split()[0]
+            # uv_2d_start.assign(self.fields.uv_dav_2d)
             # 2d-3d coupling v2: force DAv(uv_3d) to uv_2d
-            #self.solver.uvDAV_to_tmp_projector.project()  # project uv_dav to uv_3d_tmp
-            #self.fields.uv_3d -= self.fields.uv_3d_tmp
-            #self.solver.uv_2d_to_DAV_projector.project()  # uv_2d to uv_dav_2d
-            #copy2dFieldTo3d(self.fields.uv_dav_2d, self.fields.uv_dav_3d,
-                            #elemHeight=self.fields.v_elem_size_3d)
-            #self.fields.uvDAV_to_tmp_projector.project()  # project uv_dav to uv_3d_tmp
-            #self.fields.uv_3d += self.fields.uv_3d_tmp
+            # self.solver.uvDAV_to_tmp_projector.project()  # project uv_dav to uv_3d_tmp
+            # self.fields.uv_3d -= self.fields.uv_3d_tmp
+            # self.solver.uv_2d_to_DAV_projector.project()  # uv_2d to uv_dav_2d
+            # copy2dFieldTo3d(self.fields.uv_dav_2d, self.fields.uv_dav_3d,
+            #                 elemHeight=self.fields.v_elem_size_3d)
+            # self.fields.uvDAV_to_tmp_projector.project()  # project uv_dav to uv_3d_tmp
+            # self.fields.uv_3d += self.fields.uv_3d_tmp
             self.fields.uv_3d -= self.fields.uv_dav_3d
             copy2dFieldTo3d(self.fields.uv_2d, self.fields.uv_dav_3d,
                             elemHeight=self.fields.v_elem_size_3d)
@@ -237,7 +237,6 @@ class coupledSSPRKSync(coupledTimeIntegrator):
         """Advances the equations for one time step"""
         if not self._initialized:
             self.initialize()
-        sol2d_old = self.timeStepper2d.solution_old
         sol2d = self.timeStepper2d.equation.solution
 
         self.sol2d_n.assign(sol2d)  # keep copy of elev_n
@@ -245,8 +244,8 @@ class coupledSSPRKSync(coupledTimeIntegrator):
             with timed_region('saltEq'):
                 if self.options.solveSalt:
                     self.timeStepper_salt_3d.solveStage(k, t, self.solver.dt,
-                                                       self.fields.salt_3d,
-                                                       updateForcings3d)
+                                                        self.fields.salt_3d,
+                                                        updateForcings3d)
                     if self.options.useLimiterForTracers:
                         self.solver.tracerLimiter.apply(self.fields.salt_3d)
             with timed_region('momentumEq'):
@@ -287,16 +286,14 @@ class coupledSSPIMEX(coupledTimeIntegrator):
                                              solver.fields)
         self._initialized = False
         # for 2d shallow water eqns
-        sp_impl = {
-            'ksp_type': 'gmres',
-            'pc_type': 'fieldsplit',
-            'pc_fieldsplit_type': 'multiplicative',
-            }
-        sp_expl = {
-            'ksp_type': 'gmres',
-            'pc_type': 'fieldsplit',
-            'pc_fieldsplit_type': 'multiplicative',
-            }
+        sp_impl = {'ksp_type': 'gmres',
+                   'pc_type': 'fieldsplit',
+                   'pc_fieldsplit_type': 'multiplicative',
+                   }
+        sp_expl = {'ksp_type': 'gmres',
+                   'pc_type': 'fieldsplit',
+                   'pc_fieldsplit_type': 'multiplicative',
+                   }
         fs_2d = solver.eq_sw.solution.function_space()
         self.solution2d_old = Function(fs_2d, name='old_sol_2d')
         self.timeStepper2d = timeIntegrator.SSPIMEX(
@@ -305,12 +302,10 @@ class coupledSSPIMEX(coupledTimeIntegrator):
             solver_parameters_dirk=sp_impl,
             solution=self.solution2d_old)
         # for 3D equations
-        sp_impl = {
-            'ksp_type': 'gmres',
-            }
-        sp_expl = {
-            'ksp_type': 'gmres',
-            }
+        sp_impl = {'ksp_type': 'gmres',
+                   }
+        sp_expl = {'ksp_type': 'gmres',
+                   }
         fs_mom = solver.eq_momentum.solution.function_space()
         self.uv_3d_old = Function(fs_mom, name='old_sol_mom')
         self.timeStepper_mom3d = timeIntegrator.SSPIMEX(
@@ -368,7 +363,7 @@ class coupledSSPIMEX(coupledTimeIntegrator):
             with timed_region('saltEq'):
                 if self.options.solveSalt:
                     self.timeStepper_salt_3d.solveStage(k, t, self.solver.dt, self.fields.salt_3d,
-                                                       updateForcings3d)
+                                                        updateForcings3d)
                     if self.options.useLimiterForTracers and lastStep:
                         self.solver.tracerLimiter.apply(self.fields.salt_3d)
             with timed_region('turbulenceAdvection'):
@@ -413,7 +408,6 @@ class coupledSSPRKSemiImplicit(coupledTimeIntegrator):
         self.timeStepper2d = timeIntegrator.SSPRK33StageSemiImplicit(
             solver.eq_sw, solver.dt,
             solver.eq_sw.solver_parameters)
-        fs = self.timeStepper2d.solution_old.function_space()
 
         self.timeStepper_mom3d = timeIntegrator.SSPRK33Stage(
             solver.eq_momentum, solver.dt)
@@ -421,12 +415,11 @@ class coupledSSPRKSemiImplicit(coupledTimeIntegrator):
             self.timeStepper_salt_3d = timeIntegrator.SSPRK33Stage(
                 solver.eq_salt,
                 solver.dt)
-        vdiff_sp = {
-            'ksp_type': 'gmres',
-            'pc_type': 'ilu',
-            #'snes_rtol': 1.0e-18,
-            #'ksp_rtol': 1.0e-22,
-            }
+        vdiff_sp = {'ksp_type': 'gmres',
+                    'pc_type': 'ilu',
+                    # 'snes_rtol': 1.0e-18,
+                    # 'ksp_rtol': 1.0e-22,
+                    }
         if self.solver.options.solveVertDiffusion:
             self.timeStepper_vmom3d = timeIntegrator.DIRK_LSPUM2(
                 solver.eq_vertmomentum, solver.dt, solver_parameters=vdiff_sp)
@@ -491,8 +484,8 @@ class coupledSSPRKSemiImplicit(coupledTimeIntegrator):
             with timed_region('saltEq'):
                 if self.options.solveSalt:
                     self.timeStepper_salt_3d.solveStage(k, t, self.solver.dt,
-                                                       self.fields.salt_3d,
-                                                       updateForcings3d)
+                                                        self.fields.salt_3d,
+                                                        updateForcings3d)
                     if self.options.useLimiterForTracers:
                         self.solver.tracerLimiter.apply(self.fields.salt_3d)
             with timed_region('turbulenceAdvection'):
@@ -587,8 +580,8 @@ class coupledSSPRKSingleMode(coupledTimeIntegrator):
             with timed_region('saltEq'):
                 if self.options.solveSalt:
                     self.timeStepper_salt_3d.solveStage(k, t, self.solver.dt_2d,
-                                                       self.fields.salt_3d,
-                                                       updateForcings3d)
+                                                        self.fields.salt_3d,
+                                                        updateForcings3d)
                     if self.options.useLimiterForTracers:
                         self.solver.tracerLimiter.apply(self.fields.salt_3d)
             with timed_region('momentumEq'):
@@ -611,7 +604,7 @@ class coupledSSPRK(coupledTimeIntegrator):
     """
     Split-explicit time integration that uses SSPRK for both 2d and 3d modes.
     2D mode is solved only once from t_{n} to t_{n+2} using shorter time steps.
-    To couple with the 3D mode, 2D variables are averaged in time to get values at t_{n+1} and t_{n+1/2}. 
+    To couple with the 3D mode, 2D variables are averaged in time to get values at t_{n+1} and t_{n+1/2}.
     """
     def __init__(self, solver):
         super(coupledSSPRK, self).__init__(solver,
@@ -691,6 +684,6 @@ class coupledSSPRK(coupledTimeIntegrator):
         with timed_region('saltEq'):
             if self.options.solveSalt:
                 self.timeStepper_salt_3d.advance(t, self.solver.dt,
-                                                self.fields.salt_3d,
-                                                updateForcings3d)
+                                                 self.fields.salt_3d,
+                                                 updateForcings3d)
         self._update2DCoupling()
