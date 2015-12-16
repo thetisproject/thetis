@@ -186,12 +186,12 @@ class tracerEquation(equation):
                 muGradSol = diffusivity_h*grad(solution)
                 F += -(avg(muGradSol[0])*jump(self.test, self.normal[0]) +
                        avg(muGradSol[1])*jump(self.test, self.normal[1]))*(self.dS_v+self.dS_h)
-                ## TODO symmetric penalty term
-                ## sigma = (o+1)(o+d)/d*N_0/(2L) (Shahbazi, 2005)
-                ## o: order of space
-                #sigma = 1e-4
-                #nMag = self.normal[0]('-')**2 + self.normal[1]('-')**2
-                #F += -sigma*avg(diffusivity_h)*nMag*jump(solution)*jump(self.test)*(self.dS_v+self.dS_h)
+                # # TODO symmetric penalty term
+                # # sigma = (o+1)(o+d)/d*N_0/(2L) (Shahbazi, 2005)
+                # # o: order of space
+                # sigma = 1e-4
+                # nMag = self.normal[0]('-')**2 + self.normal[1]('-')**2
+                # F += -sigma*avg(diffusivity_h)*nMag*jump(solution)*jump(self.test)*(self.dS_v+self.dS_h)
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds_v(int(bnd_marker))
