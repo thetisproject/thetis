@@ -4,16 +4,15 @@ Utility functions and classes for 3D hydrostatic ocean model
 Tuomas Karna 2015-02-21
 """
 from firedrake import *
-import weakref
 import os
 import numpy as np
 import sys
 from physical_constants import physical_constants
 import colorama
-from pyop2.profiling import timed_region, timed_function, timing
-from mpi4py import MPI
-import ufl
-import coffee.base as ast
+from pyop2.profiling import timed_region, timed_function, timing  # NOQA
+from mpi4py import MPI  # NOQA
+import ufl  # NOQA
+import coffee.base as ast  # NOQA
 from cofs.fieldDefs import fieldMetadata
 
 comm = op2.MPI.comm
