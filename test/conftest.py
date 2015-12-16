@@ -48,5 +48,16 @@ def pytest_unconfigure(config):
 def pytest_runtest_teardown(item, nextitem):
     """Clear COFS caches after running a test"""
     from cofs.utility import linProblemCache, tmpFunctionCache
+    from firedrake.ffc_interface import FFCKernel
+    from pyop2.op2 import Kernel
+    from pyop2.base import JITModule
+
     linProblemCache.clear()
     tmpFunctionCache.clear()
+
+    # disgusting hack, clear the Class-Cached objects in PyOP2 and
+    # Firedrake, otherwise these will never be collected.  The Kernels
+    # get very big with bendy on.
+    Kernel._cache.clear()
+    FFCKernel._cache.clear()
+    JITModule._cache.clear()
