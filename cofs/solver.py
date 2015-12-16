@@ -8,13 +8,11 @@ import shallowWaterEq
 import momentumEquation
 import tracerEquation
 import turbulence
-import timeIntegrator as timeIntegrator
 import coupledTimeIntegrator as coupledTimeIntegrator
 import limiter
 import time as timeMod
 from mpi4py import MPI
 import exporter
-import ufl
 import weakref
 from cofs.fieldDefs import fieldMetadata
 from cofs.options import modelOptions
@@ -109,21 +107,19 @@ class flowSolver(frozenClass):
         Wh_elt = FiniteElement('DG', triangle, self.options.order)
         Wv_elt = FiniteElement('CG', interval, self.options.order+1)
         W_elt = HDiv(OuterProductElement(Wh_elt, Wv_elt))
-        # in deformed mesh horiz. velocity must actually live in U + W
-        UW_elt = EnrichedElement(U_elt, W_elt)
         # final spaces
         if self.options.mimetic:
-            #self.U = FunctionSpace(self.mesh, UW_elt)  # uv
+            # self.U = FunctionSpace(self.mesh, UW_elt)  # uv
             self.function_spaces.U = FunctionSpace(self.mesh, U_elt, name='U')  # uv
             self.function_spaces.W = FunctionSpace(self.mesh, W_elt, name='W')  # w
         else:
             self.function_spaces.U = VectorFunctionSpace(self.mesh, 'DG', self.options.order,
-                                         vfamily='DG', vdegree=self.options.order,
-                                         name='U')
+                                                         vfamily='DG', vdegree=self.options.order,
+                                                         name='U')
             # TODO should this be P(n-1)DG x P(n+1) ?
             self.function_spaces.W = VectorFunctionSpace(self.mesh, 'DG', self.options.order,
-                                         vfamily='CG', vdegree=self.options.order + 1,
-                                         name='W')
+                                                         vfamily='CG', vdegree=self.options.order + 1,
+                                                         name='W')
         # auxiliary function space that will be used to transfer data between 2d/3d modes
         self.function_spaces.Uproj = self.function_spaces.U
 
@@ -133,7 +129,7 @@ class flowSolver(frozenClass):
         # vertical integral of tracers
         self.function_spaces.Hint = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='CG', vdegree=self.options.order+1, name='Hint')
         # for scalar fields to be used in momentum eq NOTE could be omitted ?
-        #self.function_spaces.U_scalar = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='DG', vdegree=self.options.order, name='U_scalar')
+        # self.function_spaces.U_scalar = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='DG', vdegree=self.options.order, name='U_scalar')
         # for turbulence
         self.function_spaces.turb_space = self.function_spaces.P0
         # spaces for visualization
@@ -156,7 +152,7 @@ class flowSolver(frozenClass):
             self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
         self.function_spaces.Uproj_2d = self.function_spaces.U_2d
         # TODO is this needed?
-        #self.function_spaces.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_scalar_2d')
+        # self.function_spaces.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_scalar_2d')
         self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='H_2d')
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d], name='V_2d')
         self.visu_spaces[self.function_spaces.U_2d] = self.function_spaces.P1v_2d
@@ -252,10 +248,16 @@ class flowSolver(frozenClass):
             self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)
             glsParameters = {}  # use default parameters for now
             self.glsModel = turbulence.genericLengthScaleModel(weakref.proxy(self),
-                self.fields.tke_3d, self.fields.psi_3d, self.fields.uv_p1_3d, self.fields.len_3d, self.fields.eps_3d,
-                self.fields.eddy_diff_3d, self.fields.eddy_visc_3d,
-                self.fields.buoy_freq_3d, self.fields.shear_freq_3d,
-                **glsParameters)
+                                                               self.fields.tke_3d,
+                                                               self.fields.psi_3d,
+                                                               self.fields.uv_p1_3d,
+                                                               self.fields.len_3d,
+                                                               self.fields.eps_3d,
+                                                               self.fields.eddy_diff_3d,
+                                                               self.fields.eddy_visc_3d,
+                                                               self.fields.buoy_freq_3d,
+                                                               self.fields.shear_freq_3d,
+                                                               **glsParameters)
         else:
             self.glsModel = None
         # copute total viscosity/diffusivity
@@ -312,7 +314,7 @@ class flowSolver(frozenClass):
             viscosity_v=self.tot_v_visc.getSum(),
             viscosity_h=self.tot_h_visc.getSum(),
             laxFriedrichsFactor=self.options.uvLaxFriedrichs,
-            #uvMag=self.uv_mag_3d,
+            # uvMag=self.uv_mag_3d,
             uvP1=self.fields.get('uv_p1_3d'),
             coriolis=self.fields.get('coriolis_3d'),
             source=self.options.uv_source_3d,
@@ -326,7 +328,7 @@ class flowSolver(frozenClass):
                 diffusivity_h=self.tot_salt_h_diff.getSum(),
                 diffusivity_v=self.tot_salt_v_diff.getSum(),
                 source=self.options.salt_source_3d,
-                #uvMag=self.uv_mag_3d,
+                # uvMag=self.uv_mag_3d,
                 uvP1=self.fields.get('uv_p1_3d'),
                 laxFriedrichsFactor=self.options.tracerLaxFriedrichs,
                 vElemSize=self.fields.v_elem_size_3d,
@@ -441,11 +443,11 @@ class flowSolver(frozenClass):
         self.exporters['hdf5'] = e
 
         self.uvP1_projector = projector(self.fields.uv_3d, self.fields.uv_p1_3d)
-        #self.uvDAV_to_tmp_projector = projector(self.uv_dav_3d, self.uv_3d_tmp)
-        #self.uv_2d_to_DAV_projector = projector(self.fields.solution2d.split()[0],
-                                               #self.uv_dav_2d)
-        #self.uv_2dDAV_to_uv_2d_projector = projector(self.uv_dav_2d,
-                                                   #self.fields.solution2d.split()[0])
+        # self.uvDAV_to_tmp_projector = projector(self.uv_dav_3d, self.uv_3d_tmp)
+        # self.uv_2d_to_DAV_projector = projector(self.fields.solution2d.split()[0],
+        #                                         self.uv_dav_2d)
+        # self.uv_2dDAV_to_uv_2d_projector = projector(self.uv_dav_2d,
+        #                                              self.fields.solution2d.split()[0])
         self.elev_3d_to_CG_projector = projector(self.fields.elev_3d, self.fields.elev_cg_3d)
 
         self._initialized = True
@@ -504,9 +506,6 @@ class flowSolver(frozenClass):
         norm_h = norm(self.fields.solution2d.split()[1])
         norm_u = norm(self.fields.solution2d.split()[0])
 
-        if self.options.checkVolConservation2d:
-            Vol2d = compVolume2d(self.fields.solution2d.split()[1],
-                                 self.fields.bathymetry_2d)
         if commrank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
