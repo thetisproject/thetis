@@ -13,6 +13,7 @@ Tuomas Karna 2015-10-29
 from cofs import *
 import numpy
 from scipy import stats
+import pytest
 
 
 def setup1(Lx, Ly, depth, f0, g, mimetic=True):
@@ -542,20 +543,18 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
 # ---------------------------
 
 
-def test_setup7_mimetic():
-    run_convergence(setup7, [1, 2, 4, 6], 1, savePlot=False)
+@pytest.fixture(params=[setup7, setup8], ids=["Setup7", "Setup8"])
+def choose_setup(request):
+    return request.param
 
 
-def test_setup8_mimetic():
-    run_convergence(setup8, [1, 2, 4, 6], 1, savePlot=False)
+@pytest.fixture(params=[False, True], ids=["DG", "mimetic"])
+def setup_function(request, choose_setup):
+    return lambda *args: choose_setup(*args, mimetic=request.param)
 
 
-def test_setup7_dg():
-    run_convergence(setup7dg, [1, 2, 4, 6], 1, savePlot=False)
-
-
-def test_setup8_dg():
-    run_convergence(setup8dg, [1, 2, 4, 6], 1, savePlot=False)
+def test_steady_state_basin_convergence(setup_function):
+    run_convergence(setup_function, [1, 2, 4, 6], 1, savePlot=False)
 
 # ---------------------------
 # run individual setup for debugging

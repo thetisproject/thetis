@@ -19,8 +19,6 @@ from cofs.fieldDefs import fieldMetadata
 comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
 
-colorama.init()
-
 
 class frozenClass(object):
     """A class where creating a new attribute will raise an exception if _isfrozen == True"""

@@ -1,0 +1,59 @@
+sudo: false
+notifications:
+  irc:
+    channels: "chat.freenode.net#firedrake"
+    skip_join: true
+    on_success: change
+    on_failure: always
+    template: "%{repository}#%{build_number} (%{branch} - %{commit} : %{author}): %{message} | %{build_url}"
+
+language: python
+python: "2.7"
+addons:
+  apt:
+    packages:
+        - build-essential
+        - python-dev
+        - git
+        - mercurial
+        - python-pip
+        - python-scipy
+        - libopenmpi-dev
+        - openmpi-bin
+        - libblas-dev
+        - liblapack-dev
+        - gfortran
+        - libspatialindex-dev
+        - swig
+os:
+  - linux
+
+cache:
+  directories:
+    - $HOME/install/firedrake/
+    - $HOME/ffc_kernels/
+
+env:
+  global:
+    - CC=mpicc
+    - FIREDRAKE_FFC_KERNEL_CACHE_DIR=$HOME/ffc_kernels/
+    - PETSC_CONFIGURE_OPTIONS="--download-mumps --download-scalapack --download-parmetis --download-metis"
+
+before_install:
+  - pip install -U pip
+  - pip install -U virtualenv
+
+install:
+  - mkdir -p $HOME/install
+  - pushd $HOME/install
+  - curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install
+  # Check for cached install
+  - if [[ ! -f ./firedrake/bin/activate ]]; then python ./firedrake-install --disable-ssh --minimal-petsc --package-branch ffc cofs --package-branch ufl cofs --package_branch firedrake cofs; fi
+  - . ./firedrake/bin/activate
+  - pip install pytest
+  - popd
+  - pip install -r requirements.txt
+  # Make cofs visible, don't want to pip install it, because then it will be cached by travis
+  - export PYTHONPATH=`pwd`:$PYTHONPATH
+script:
+  - py.test --travis -v test
