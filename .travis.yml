@@ -52,7 +52,7 @@ install:
   - . ./firedrake/bin/activate
   - pip install pytest
   - popd
-  - pip install -r requirements.txt
+  - pip install -v -r requirements.txt
   # Make cofs visible, don't want to pip install it, because then it will be cached by travis
   - export PYTHONPATH=`pwd`:$PYTHONPATH
 script:
