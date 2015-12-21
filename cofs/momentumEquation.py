@@ -105,7 +105,7 @@ class momentumEquation(equation):
             divTest = (Dx(self.test[0], 0) +
                        Dx(self.test[1], 1))
             f = -g_grav*head*divTest*self.dx
-            #head_star = avg(head) + 0.5*sqrt(avg(total_H)/g_grav)*jump(uv, self.normal)
+            # head_star = avg(head) + 0.5*sqrt(avg(total_H)/g_grav)*jump(uv, self.normal)
             head_star = avg(head)
             jumpNDotTest = (jump(self.test[0], self.normal[0]) +
                             jump(self.test[1], self.normal[1]))
@@ -350,11 +350,6 @@ class momentumEquation(equation):
         F = 0  # holds all dx volume integral terms
         G = 0
 
-        if self.nonlin:
-            total_H = self.bathymetry + eta
-        else:
-            total_H = self.bathymetry
-
         if source is not None:
             F += -inner(source, self.test)*self.dx
 
@@ -367,7 +362,7 @@ class momentumEquation(equation):
                                stress[1]*self.test[1])*self.ds_bottom
                 F += BotFriction
 
-        return -F -G
+        return -F - G
 
 
 class verticalMomentumEquation(equation):
@@ -430,7 +425,7 @@ class verticalMomentumEquation(equation):
         Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
         """
         return inner(solution, self.test) * self.dx
-        #return (solution[0]*self.test[0] + solution[1]*self.test[1]) * self.dx
+        # return (solution[0]*self.test[0] + solution[1]*self.test[1]) * self.dx
 
     def RHS_implicit(self, solution, wind_stress=None, **kwargs):
         """Returns all the terms that are treated semi-implicitly.
@@ -498,13 +493,13 @@ class verticalMomentumEquation(equation):
         F = 0  # holds all dx volume integral terms
 
         if viscosity_v is not None:
-            ## bottom friction
-            #if bottom_drag is not None and uv_bottom is not None:
-                #stress = bottom_drag*sqrt(uv_bottom[0]**2 +
-                                          #uv_bottom[1]**2)*uv_bottom
-                #BotFriction = (stress[0]*self.test[0] +
-                               #stress[1]*self.test[1])*self.ds_bottom
-                #F += BotFriction
+            # # bottom friction
+            # if bottom_drag is not None and uv_bottom is not None:
+            #   stress = bottom_drag*sqrt(uv_bottom[0]**2 +
+            #                             uv_bottom[1]**2)*uv_bottom
+            #   BotFriction = (stress[0]*self.test[0] +
+            #                  stress[1]*self.test[1])*self.ds_bottom
+            #   #F += BotFriction
             # wind stress
             if wind_stress is not None:
                 F -= (wind_stress[0]*self.test[0] +

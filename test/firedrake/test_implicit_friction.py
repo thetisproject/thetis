@@ -82,7 +82,7 @@ def test_implicit_friction(do_export=False, do_assert=True):
         # interface term
         diffFlux = viscosity_v*Dx(solution, 2)
         f += (dot(avg(diffFlux), test('+'))*normal[2]('+') +
-            dot(avg(diffFlux), test('-'))*normal[2]('-')) * dS_h
+              dot(avg(diffFlux), test('-'))*normal[2]('-')) * dS_h
         # symmetric interior penalty stabilization
         L = Constant(depth/layers)
         nbNeigh = 2
@@ -104,14 +104,14 @@ def test_implicit_friction(do_export=False, do_assert=True):
     # ----- define solver
 
     sp = {}
-    #sp['ksp_type'] = 'cg'
-    #sp['pc_type'] = 'lu'
-    #sp['snes_rtol'] = 1.0e-12
-    #sp['snes_monitor'] = True
-    ##sp['ksp_monitor'] = True
-    #sp['ksp_monitor_true_residual'] = True
-    #sp['snes_converged_reason'] = True
-    #sp['ksp_converged_reason'] = True
+    # sp['ksp_type'] = 'cg'
+    # sp['pc_type'] = 'lu'
+    # sp['snes_rtol'] = 1.0e-12
+    # sp['snes_monitor'] = True
+    # #sp['ksp_monitor'] = True
+    # sp['ksp_monitor_true_residual'] = True
+    # sp['snes_converged_reason'] = True
+    # sp['ksp_converged_reason'] = True
 
     dt = 3600.0
     timeSteps = 13
@@ -136,7 +136,7 @@ def test_implicit_friction(do_export=False, do_assert=True):
 
         if do_export:
             outFile << solution
-        print '{:4d}  T={:9.1f} s  cpu={:.2f} s'.format(it, it*dt, t1-t0)
+        print '{:4d}  T={:9.1f} s  cpu={:.2f} s'.format(it, t, t1-t0)
 
     if do_assert:
         target_u_min = 0.4

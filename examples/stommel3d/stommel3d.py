@@ -33,8 +33,7 @@ bathymetry_2d.assign(depth)
 coriolis_2d = Function(P1_2d)
 f0, beta = 1.0e-4, 2.0e-11
 coriolis_2d.interpolate(
-    Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0)
-    )
+    Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0))
 
 # Wind stress
 windStress2d = Function(P1v_2d, name='wind stress')
@@ -54,7 +53,7 @@ options.solveSalt = False
 options.solveVertDiffusion = False
 options.useBottomFriction = False
 options.useALEMovingMesh = False
-#options.useModeSplit = False
+# options.useModeSplit = False
 options.baroclinic = False
 options.coriolis = coriolis_2d
 options.wind_stress = windStress2d

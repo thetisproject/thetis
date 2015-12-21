@@ -59,7 +59,7 @@ T = 10*T_cycle + 1e-3
 solverObj = solver.flowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solverObj.options
 options.nonlin = False
-#options.mimetic = False
+# options.mimetic = False
 options.solveSalt = True
 options.solveVertDiffusion = False
 options.useBottomFriction = False
@@ -78,12 +78,12 @@ options.uAdvection = Umag
 options.checkVolConservation2d = True
 options.checkVolConservation3d = True
 options.checkSaltConservation = True
-#options.checkSaltDeviation = True
+# options.checkSaltDeviation = True
 options.checkSaltOvershoot = True
 options.outputDir = outputDir
 options.timerLabels = []
-#options.timerLabels = ['mode2d', 'momentumEq', 'continuityEq',
-                         #'aux_functions']
+# options.timerLabels = ['mode2d', 'momentumEq', 'continuityEq',
+#                        'aux_functions']
 options.fieldsToExport = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                           'w_3d', 'w_mesh_3d', 'salt_3d',
                           'uv_dav_2d', 'uv_bottom_2d']

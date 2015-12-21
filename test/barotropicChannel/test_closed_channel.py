@@ -10,10 +10,10 @@
 # This test is useful for testing open boundary conditions.
 #
 # Tuomas Karna 2015-03-03
-from scipy.interpolate import interp1d
 from cofs import *
 
 import pytest
+
 
 @pytest.mark.skipif(True, reason='test is obsolete')
 def test_closed_channel():
@@ -33,21 +33,21 @@ def test_closed_channel():
     depth_oce = 20.0
     depth_riv = 7.0
     bathymetry_2d.interpolate(Expression('ho - (ho-hr)*x[0]/100e3',
-                                        ho=depth_oce, hr=depth_riv))
+                                         ho=depth_oce, hr=depth_riv))
 
     # create solver
     solverObj = solver.flowSolver(mesh2d, bathymetry_2d, n_layers)
     options = solverObj.options
-    #options.nonlin = False
+    # options.nonlin = False
     options.solveSalt = False
     options.solveVertDiffusion = False
     options.useBottomFriction = False
     options.useALEMovingMesh = False
     options.uvLaxFriedrichs = Constant(1.0)
     options.tracerLaxFriedrichs = Constant(1.0)
-    #options.useSemiImplicit2D = False
-    #options.useModeSplit = False
-    #options.baroclinic = True
+    # options.useSemiImplicit2D = False
+    # options.useModeSplit = False
+    # options.baroclinic = True
     options.TExport = TExport
     options.T = T
     options.outputDir = outputDir
@@ -55,16 +55,15 @@ def test_closed_channel():
     options.checkSaltDeviation = True
     options.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion']
     options.fieldsToExport = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
-                            'w_3d', 'w_mesh_3d', 'salt_3d',
-                            'baroc_head_3d', 'baroc_head_2d',
-                            'uv_dav_2d', 'uv_bottom_2d']
+                              'w_3d', 'w_mesh_3d', 'salt_3d',
+                              'baroc_head_3d', 'baroc_head_2d',
+                              'uv_dav_2d', 'uv_bottom_2d']
 
     # initial conditions
     salt_init3d = Constant(4.5)
 
     # weak boundary conditions
     L_y = 20e3
-    h_amp = 2.0
     un_amp = -2.0
     flux_amp = L_y*depth_oce*un_amp
     h_T = 12 * 3600  # 44714.0

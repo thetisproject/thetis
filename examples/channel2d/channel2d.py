@@ -52,7 +52,7 @@ bathymetry_2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d, order=1)
 options = solverObj.options
 options.cfl_2d = 1.0
-#options.nonlin = False
+# options.nonlin = False
 options.TExport = TExport
 options.T = T
 options.outputDir = outputDir
@@ -60,8 +60,8 @@ options.uAdvection = Umag
 options.checkVolConservation2d = True
 options.fieldsToExport = ['uv_2d', 'elev_2d']
 options.timerLabels = []
-#options.timeStepperType = 'SSPRK33'
-#options.timeStepperType = 'CrankNicolson'
+# options.timeStepperType = 'SSPRK33'
+# options.timeStepperType = 'CrankNicolson'
 options.timeStepperType = 'SSPIMEX'
 options.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
 

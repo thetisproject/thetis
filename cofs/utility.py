@@ -4,16 +4,15 @@ Utility functions and classes for 3D hydrostatic ocean model
 Tuomas Karna 2015-02-21
 """
 from firedrake import *
-import weakref
 import os
 import numpy as np
 import sys
 from physical_constants import physical_constants
 import colorama
-from pyop2.profiling import timed_region, timed_function, timing
-from mpi4py import MPI
-import ufl
-import coffee.base as ast
+from pyop2.profiling import timed_region, timed_function, timing  # NOQA
+from mpi4py import MPI  # NOQA
+import ufl  # NOQA
+import coffee.base as ast  # NOQA
 from cofs.fieldDefs import fieldMetadata
 
 comm = op2.MPI.comm
@@ -26,7 +25,7 @@ class frozenClass(object):
 
     def __setattr__(self, key, value):
         if self._isfrozen and not hasattr(self, key):
-            raise TypeError( 'Adding new attribute "{:}" to {:} class is forbidden'.format(key, self.__class__.__name__))
+            raise TypeError('Adding new attribute "{:}" to {:} class is forbidden'.format(key, self.__class__.__name__))
         super(frozenClass, self).__setattr__(key, value)
 
 
@@ -48,9 +47,9 @@ class sumFunction(object):
         """
         if coeff is None:
             return
-        #classes = (Function, Constant, ufl.algebra.Sum, ufl.algebra.Product)
-        #assert not isinstance(coeff, classes), \
-            #('bad argument type: ' + str(type(coeff)))
+        # classes = (Function, Constant, ufl.algebra.Sum, ufl.algebra.Product)
+        # assert not isinstance(coeff, classes), \
+            # ('bad argument type: ' + str(type(coeff)))
         self.coeffList.append(coeff)
 
     def getSum(self):
@@ -157,7 +156,6 @@ class temporaryFunctionCache(object):
         if hasattr(ufl_elem, '_A'):
             elems += [ufl_elem._A, ufl_elem._B]
         elif isinstance(ufl_elem, EnrichedElement):
-            e = ufl_elem._elements
             for d in elems:
                 elems.append(d)
                 if hasattr(d, '_A'):
@@ -169,7 +167,7 @@ class temporaryFunctionCache(object):
             if not isinstance(d, tuple):
                 s = s.replace('?', str(d))
             return s
-        attrib = [getElemStr(e) for e in elems]
+        attrib = [getElemStr(ee) for ee in elems]
         key = '_'.join(attrib)
         return key
 
@@ -280,7 +278,7 @@ def extrudeMeshLinear(mesh2d, n_layers, xmin, xmax, dmin, dmax):
             }""" % {'base_map_arity': base_coords.cell_node_map().arity,
                     'base_coord_dim': base_coords.function_space().cdim,
                     'xmin': xmin, 'xmax': xmax, 'dmin': dmin, 'dmax': dmax},
-                    'uniform_extrusion_kernel')
+        'uniform_extrusion_kernel')
     mesh = ExtrudedMesh(mesh2d, layers=n_layers,
                         layer_height=layer_height,
                         extrusion_type='custom',
@@ -293,13 +291,9 @@ def extrudeMeshSigma(mesh2d, n_layers, bathymetry_2d):
     mesh = ExtrudedMesh(mesh2d, layers=n_layers, layer_height=1.0/n_layers)
 
     xyz = mesh.coordinates
-    nNodes = xyz.dat.data.shape[0]
-    x = xyz.dat.data[:, 0]
-    y = xyz.dat.data[:, 0]
 
     nNodes2d = bathymetry_2d.dat.data.shape[0]
     NVert = xyz.dat.data.shape[0]/nNodes2d
-    iSource = 0
     # TODO can the loop be circumvented?
     for iNode in range(nNodes2d):
         xyz.dat.data[iNode*NVert:iNode*NVert+NVert, 2] *= -bathymetry_2d.dat.data[iNode]
@@ -357,7 +351,6 @@ def computeVertVelocity(solution, uv, bathymetry,
         normal = FacetNormal(mesh)
 
         ds_surf = ds_b
-        ds_bottom = ds_t
         # NOTE weak dw/dz
         a = tri[2]*test[2]*normal[2]*ds_surf + avg(tri[2])*jump(test[2], normal[2])*dS_h - Dx(test[2], 2)*tri[2]*dx
         # NOTE weak div(uv)
@@ -407,7 +400,7 @@ def computeVerticalIntegral(input, output, bottomToTop=True,
         mesh = space.mesh()
         verticalIsDG = False
         if (hasattr(space.ufl_element(), '_B') and
-            space.ufl_element()._B.family() != 'Lagrange'):
+                space.ufl_element()._B.family() != 'Lagrange'):
             # a normal outerproduct element
             verticalIsDG = True
         if 'HDiv' in space.ufl_element().shortstr():
@@ -500,7 +493,6 @@ def computeHorizJumpDiffusivity(alpha, tracer, output, hElemSize,
     if key not in linProblemCache:
         fs = output.function_space()
         mesh = fs.mesh()
-        normal = FacetNormal(fs.mesh())
         test = TestFunction(fs)
         tri = TrialFunction(fs)
         a = inner(test, tri)*mesh._dx + jump(test, tri)*mesh._dS_v
@@ -523,7 +515,7 @@ def computeHorizJumpDiffusivity(alpha, tracer, output, hElemSize,
 
 
 def copy_2d_field_to_3d(input, output, elemHeight=None,
-                            solver_parameters={}):
+                        solver_parameters={}):
     """Extract a subfunction from an extracted mesh."""
     solver_parameters.setdefault('ksp_atol', 1e-12)
     solver_parameters.setdefault('ksp_rtol', 1e-16)
@@ -543,9 +535,6 @@ def copy_2d_field_to_3d(input, output, elemHeight=None,
 
     iterate = op2.ALL
 
-    in_nodes = fs_2d.fiat_element.space_dimension()
-    out_nodes = fs_3d.fiat_element.space_dimension()
-    dim = min(fs_2d.dim, fs_3d.dim)
     # number of nodes in vertical direction
     nVertNodes = len(fs_3d.fiat_element.B.entity_closure_dofs()[1][0])
 
@@ -563,7 +552,7 @@ def copy_2d_field_to_3d(input, output, elemHeight=None,
         }""" % {'nodes': input.cell_node_map().arity,
                 'func_dim': input.function_space().cdim,
                 'v_nodes': nVertNodes},
-                'my_kernel')
+        'my_kernel')
     op2.par_loop(
         kernel, fs_3d.mesh().cell_set,
         output.dat(op2.WRITE, fs_3d.cell_node_map()),
@@ -622,9 +611,7 @@ def extract_level_from_3d(input, sub_domain, output, bottomNodes=None,
         # 'bottom' means the bed, where extrusion ended
         iterate = op2.ON_TOP
 
-    in_nodes = fs.fiat_element.space_dimension()
     out_nodes = out_fs.fiat_element.space_dimension()
-    dim = min(out_fs.dim, fs.dim)
 
     assert (len(nodes) == out_nodes)
 
@@ -641,7 +628,7 @@ def extract_level_from_3d(input, sub_domain, output, bottomNodes=None,
             }
         }""" % {'nodes': output.cell_node_map().arity,
                 'func_dim': output.function_space().cdim},
-                'my_kernel')
+        'my_kernel')
     op2.par_loop(
         kernel, fs_3d.mesh().cell_set,
         output.dat(op2.WRITE, fs_2d.cell_node_map()),
@@ -654,8 +641,7 @@ def extract_level_from_3d(input, sub_domain, output, bottomNodes=None,
         if key not in linProblemCache:
             test = TestFunction(fs_2d)
             tri = TrialFunction(fs_2d)
-            dx_2d = Measure('dx', domain=fs_2d.mesh(), subdomain_id='everywhere')
-                            #subdomain_data=weakref.ref(self.mesh.coordinates))
+            dx_2d = fs_2d.mesh()._dx
             a = inner(tri, test)*dx_2d
             L = inner(output, test)/elemHeight*dx_2d
             prob = LinearVariationalProblem(a, L, output)
@@ -674,12 +660,7 @@ def computeElemHeight(zCoord, output):
     fs_in = zCoord.function_space()
     fs_out = output.function_space()
 
-    nodes = fs_out.bt_masks['geometric'][0]
     iterate = op2.ALL
-
-    in_nodes = fs_in.fiat_element.space_dimension()
-    out_nodes = fs_out.fiat_element.space_dimension()
-    dim = min(fs_in.dim, fs_out.dim)
 
     # NOTE height maybe <0 if mesh was extruded like that
     kernel = op2.Kernel("""
@@ -694,7 +675,7 @@ def computeElemHeight(zCoord, output):
             }
         }""" % {'nodes': zCoord.cell_node_map().arity,
                 'func_dim': zCoord.function_space().cdim},
-                'my_kernel')
+        'my_kernel')
     op2.par_loop(
         kernel, fs_out.mesh().cell_set,
         output.dat(op2.WRITE, fs_out.cell_node_map()),
@@ -731,7 +712,6 @@ def copy2dFieldTo3d(input2d, output3d, elemHeight=None):
 def correct3dVelocity(UV2d, uv_3d, uv_3d_dav, bathymetry):
     """Corrects 3d Horizontal velocity field so that it's depth average
     matches the 2d velocity field."""
-    H = uv_3d.function_space()
     H2d = UV2d.function_space()
     # compute depth averaged velocity
     bndValue = Constant((0.0, 0.0, 0.0))
@@ -939,7 +919,6 @@ def betaPlaneCoriolisParams(latitude):
     """Computes beta plane parameters based on the latitude (given in degrees)."""
     Omega = 7.2921150e-5  # rad/s Earth rotation rate
     R = 6371.e3  # Earth radius
-    S = 2*np.pi*R  # circumference
     # Coriolis parameter f = 2 Omega sin(alpha)
     # Beta plane approximation f_beta = f_0 + Beta y
     # f_0 = 2 Omega sin(alpha_0)
@@ -957,8 +936,7 @@ def betaPlaneCoriolisFunction(degrees, out_function, y_offset=0.0):
     # NOTE assumes that mesh y coordinate spans [-L_y, L_y]
     f0, beta = betaPlaneCoriolisParams(45.0)
     out_function.interpolate(
-        Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=y_offset)
-        )
+        Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=y_offset))
 
 
 def smagorinskyViscosity(uv, output, C_s, hElemSize,

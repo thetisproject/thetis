@@ -38,14 +38,14 @@ bathymetry_2d = Function(P1_2d, name='Bathymetry')
 depth_oce = 20.0
 depth_riv = 7.0
 bathymetry_2d.interpolate(Expression('ho - (ho-hr)*x[0]/100e3',
-                                    ho=depth_oce, hr=depth_riv))
-#bathymetry_2d.interpolate(Expression('ho - (ho-hr)*0.5*(1+tanh((x[0]-50e3)/15e3))',
-                                    #ho=depth_oce, hr=depth_riv))
+                                     ho=depth_oce, hr=depth_riv))
+# bathymetry_2d.interpolate(Expression('ho - (ho-hr)*0.5*(1+tanh((x[0]-50e3)/15e3))',
+#                                      ho=depth_oce, hr=depth_riv))
 
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solverObj.options
-#options.nonlin = False
+# options.nonlin = False
 options.solveSalt = True
 options.solveVertDiffusion = False
 options.useBottomFriction = False
@@ -53,9 +53,9 @@ options.useALEMovingMesh = False
 options.uvLaxFriedrichs = Constant(1.0)
 options.tracerLaxFriedrichs = Constant(1.0)
 options.useIMEX = True
-#options.useSemiImplicit2D = False
-#options.useModeSplit = False
-#options.baroclinic = True
+# options.useSemiImplicit2D = False
+# options.useModeSplit = False
+# options.baroclinic = True
 options.TExport = TExport
 options.T = T
 options.outputDir = outputDir

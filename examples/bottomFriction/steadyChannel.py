@@ -62,10 +62,10 @@ options.useALEMovingMesh = False
 options.useLimiterForTracers = False
 options.uvLaxFriedrichs = Constant(1.0)
 options.tracerLaxFriedrichs = Constant(0.0)
-#options.vViscosity = Constant(0.001)
-#options.hViscosity = Constant(1.0)
-#options.useSemiImplicit2D = False
-#options.useModeSplit = False
+# options.vViscosity = Constant(0.001)
+# options.hViscosity = Constant(1.0)
+# options.useSemiImplicit2D = False
+# options.useModeSplit = False
 options.TExport = TExport
 options.dt = dt
 options.T = T
@@ -78,7 +78,7 @@ options.fieldsToExport = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                           'baroc_head_3d', 'baroc_head_2d',
                           'uv_dav_2d', 'uv_bottom_2d',
                           'parab_visc_3d', 'eddy_visc_3d', 'shear_freq_3d',
-                          'tke_3d', 'psi_3d', 'eps_3d', 'len_3d',]
+                          'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
 
 # weak boundary conditions
 left_tag = 1   # x=x_min plane
@@ -98,13 +98,13 @@ elev_init = Function(solverObj.function_spaces.H_2d, name='initial elev')
 elev_init.interpolate(Expression('x[0]*slope', slope=-surf_slope))
 
 solverObj.assignInitialConditions(elev=elev_init)
-#sp = solverObj.timeStepper.timeStepper_vmom3d.solver_parameters
-#sp['snes_monitor'] = True
-#sp['ksp_monitor'] = True
-#sp['ksp_monitor_true_residual'] = True
-#sp['ksp_type'] = 'cg'
-#sp['pc_type'] = 'ilu'
-#sp['snes_converged_reason'] = True
-#sp['ksp_converged_reason'] = True
-#solverObj.timeStepper.timeStepper_vmom3d.updateSolver()
+# sp = solverObj.timeStepper.timeStepper_vmom3d.solver_parameters
+# sp['snes_monitor'] = True
+# sp['ksp_monitor'] = True
+# sp['ksp_monitor_true_residual'] = True
+# sp['ksp_type'] = 'cg'
+# sp['pc_type'] = 'ilu'
+# sp['snes_converged_reason'] = True
+# sp['ksp_converged_reason'] = True
+# solverObj.timeStepper.timeStepper_vmom3d.updateSolver()
 solverObj.iterate()

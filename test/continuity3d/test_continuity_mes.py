@@ -59,39 +59,27 @@ def setup2(Lx, h0, mimetic=True):
     Tests div(uv) terms only
     """
     out = {}
-    out['bath_expr'] = Expression(
-        'h0',
-        h0=h0)
-    out['elev_expr'] = Expression(
-        '0.0',
-        )
+    out['bath_expr'] = Expression('h0', h0=h0)
+    out['elev_expr'] = Expression('0.0')
     out['uv_expr'] = Expression(
-        (
-        'sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)',
-        '0.2*sin(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)',
-        '0.0',
-        ),
+        ('sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)',
+         '0.2*sin(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)',
+         '0.0'),
         Lx=Lx)
     out['w_expr'] = Expression(
-        (
-        '0.0',
-        '0.0',
-        'h0*(-0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)/Lx - 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx) + x[2]*(-0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)/Lx - 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx)',
-        ),
+        ('0.0',
+         '0.0',
+         'h0*(-0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)/Lx - 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx) + x[2]*(-0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)/Lx - 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx)'),
         h0=h0, Lx=Lx)
     out['uvw_expr'] = Expression(
-        (
-        'sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)',
-        '0.2*sin(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)',
-        'h0*(-0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)/Lx - 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx) + x[2]*(-0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)/Lx - 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx)',
-        ),
+        ('sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)',
+         '0.2*sin(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)',
+         'h0*(-0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)/Lx - 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx) + x[2]*(-0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)/Lx - 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx)'),
         h0=h0, Lx=Lx)
     out['div_uv_expr'] = Expression(
-        (
-        '0.0',
-        '0.0',
-        '-(0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)/Lx + 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx)',
-        ),
+        ('0.0',
+         '0.0',
+         '-(0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)/Lx + 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx)'),
         Lx=Lx)
     out['options'] = {'mimetic': mimetic}
     return out
@@ -314,7 +302,7 @@ def run(setup, refinement, order, export=True):
     bottom_flux = assemble(inner(uvw, normal)*solverObj.eq_momentum.ds_bottom)
     bottom_flux_ana = assemble(inner(w_analytical, normal)*solverObj.eq_momentum.ds_bottom)
     print 'flux through bot', bottom_flux, bottom_flux_ana
-    
+
     err_msg = '{:}: Bottom impermeability violated: bottom flux {:.4g}'.format(setup_name, bottom_flux)
     assert abs(bottom_flux) < 1e-6, err_msg
 
@@ -338,7 +326,6 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
     y_log = numpy.log10(numpy.array(l2_err))
     y_log_w = y_log[:, 0]
     y_log_uv = y_log[:, 1]
-    expected_slope = order + 1
 
     def check_convergence(x_log, y_log, expected_slope, field_str, savePlot):
         slope_rtol = 0.2
@@ -402,21 +389,20 @@ def test_setup5_dg():
 # run individual setup for debugging
 # ---------------------------
 
-#run(setup2, 2, 1)
+# run(setup2, 2, 1)
 
 # ---------------------------
 # run individual scaling test
 # ---------------------------
 
-#run_convergence(setup5dg, [1, 2, 3], 1, savePlot=True)
+# run_convergence(setup5dg, [1, 2, 3], 1, savePlot=True)
 
 # ---------------------------
 # run all defined setups
 # ---------------------------
 
-#import inspect
-#all_setups = [obj for name,obj in inspect.getmembers(sys.modules[__name__])
-              #if inspect.isfunction(obj) and obj.__name__.startswith('setup')]
-#for s in all_setups:
-    #run(s, 2, 1)
-
+# import inspect
+# all_setups = [obj for name,obj in inspect.getmembers(sys.modules[__name__])
+#               if inspect.isfunction(obj) and obj.__name__.startswith('setup')]
+# for s in all_setups:
+#     run(s, 2, 1)

@@ -46,14 +46,14 @@ def test_implicit_friction_turbulence(do_assert=True):
     options.solveSalt = False
     options.solveVertDiffusion = True
     options.useBottomFriction = True
-    #options.useParabolicViscosity = True
+    # options.useParabolicViscosity = True
     options.useTurbulence = True
     options.useALEMovingMesh = False
     options.useLimiterForTracers = True
     options.uvLaxFriedrichs = Constant(1.0)
     options.tracerLaxFriedrichs = Constant(0.0)
-    #options.vViscosity = Constant(0.001)
-    #options.hViscosity = Constant(1.0)
+    # options.vViscosity = Constant(0.001)
+    # options.hViscosity = Constant(1.0)
     options.TExport = TExport
     options.dt = dt
     options.T = T
@@ -61,13 +61,13 @@ def test_implicit_friction_turbulence(do_assert=True):
     options.uAdvection = Umag
     options.checkSaltDeviation = True
     options.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion', 'turbulence']
-    #options.fieldsToExport = []
+    # options.fieldsToExport = []
     options.fieldsToExport = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                               'uv_dav_2d', 'uv_bottom_2d',
                               'parab_visc_3d', 'eddy_visc_3d', 'shear_freq_3d',
-                              'tke_3d', 'psi_3d', 'eps_3d', 'len_3d',]
-    #options.fieldsToExportNumpy = ['uv3d', 'eddyVisc3d', 'shearFreq3d',
-                                #'tke3d', 'psi3d', 'eps3d', 'len3d']
+                              'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
+    # options.fieldsToExportNumpy = ['uv3d', 'eddyVisc3d', 'shearFreq3d',
+    #                                'tke3d', 'psi3d', 'eps3d', 'len3d']
     solverObj.createEquations()
 
     elev_slope = -1.0e-5
@@ -75,24 +75,24 @@ def test_implicit_friction_turbulence(do_assert=True):
 
     s = solverObj
     vertMomEq = momentumEquation.verticalMomentumEquation(
-                    s.fields.uv_3d, w=None,
-                    viscosity_v=s.tot_v_visc.getSum(),
-                    uv_bottom=s.fields.uv_bottom_3d,
-                    bottom_drag=s.fields.bottom_drag_3d,
-                    wind_stress=s.fields.get('wind_stress_3d'),
-                    vElemSize=s.fields.v_elem_size_3d,
-                    source=pressureGradientSource)
+        s.fields.uv_3d, w=None,
+        viscosity_v=s.tot_v_visc.getSum(),
+        uv_bottom=s.fields.uv_bottom_3d,
+        bottom_drag=s.fields.bottom_drag_3d,
+        wind_stress=s.fields.get('wind_stress_3d'),
+        vElemSize=s.fields.v_elem_size_3d,
+        source=pressureGradientSource)
 
     sp = {}
     sp['ksp_type'] = 'gmres'
-    #sp['pc_type'] = 'lu'
-    #sp['snes_monitor'] = True
-    #sp['snes_converged_reason'] = True
-    #sp['snes_rtol'] = 1e-4  # to avoid stagnation
+    # sp['pc_type'] = 'lu'
+    # sp['snes_monitor'] = True
+    # sp['snes_converged_reason'] = True
+    # sp['snes_rtol'] = 1e-4  # to avoid stagnation
     sp['snes_rtol'] = 1e-18  # to avoid stagnation
     sp['ksp_rtol'] = 1e-22  # to avoid stagnation
     timeStepper = timeIntegrator.DIRK_LSPUM2(vertMomEq, dt, solver_parameters=sp)
-    #timeStepper = timeIntegrator.BackwardEuler(vertMomEq, dt, solver_parameters=sp)
+    # timeStepper = timeIntegrator.BackwardEuler(vertMomEq, dt, solver_parameters=sp)
 
     # TODO fix momemtum eq for parabolic visc
     # TODO mimic gotm implementation

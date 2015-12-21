@@ -57,11 +57,11 @@ options.checkVolConservation2d = True
 options.fieldsToExport = ['uv_2d', 'elev_2d']
 options.fieldsToExportHDF5 = ['uv_2d', 'elev_2d']
 options.timerLabels = []
-#options.timeStepperType = 'SSPRK33'
-#options.dt = dt/40.0  # for explicit schemes
+# options.timeStepperType = 'SSPRK33'
+# options.dt = dt/40.0  # for explicit schemes
 options.timeStepperType = 'CrankNicolson'
 # options.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
-#options.timeStepperType = 'SSPIMEX'
+# options.timeStepperType = 'SSPIMEX'
 options.dt = 10.0  # override dt for IMEX (semi-implicit)
 
 # need to call creator to create the function spaces
@@ -73,10 +73,10 @@ elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=elev_amp,
                              Lx=Lx))
 solverObj.assignInitialConditions(elev=elev_init)
 
-## start from previous time step
-#iExp = 5
-#iteration = int(iExp*TExport/solverObj.dt)
-#time = iteration*solverObj.dt
-#solverObj.loadState(iExp, time, iteration)
+# # start from previous time step
+# iExp = 5
+# iteration = int(iExp*TExport/solverObj.dt)
+# time = iteration*solverObj.dt
+# solverObj.loadState(iExp, time, iteration)
 
 solverObj.iterate()

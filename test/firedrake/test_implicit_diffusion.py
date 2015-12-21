@@ -39,7 +39,6 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     # define function spaces
     fam = 'DG'
     deg = 1
-    H = FunctionSpace(mesh, fam, degree=deg, vfamily=fam, vdegree=deg)
     V = VectorFunctionSpace(mesh, fam, degree=deg, vfamily=fam, vdegree=deg)
 
     solution = Function(V, name='velocity')
@@ -58,7 +57,7 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
         # interface term
         diffFlux = diffusivity_v*Dx(solution, 2)
         f += (dot(avg(diffFlux), test('+'))*normal[2]('+') +
-            dot(avg(diffFlux), test('-'))*normal[2]('-')) * dS_h
+              dot(avg(diffFlux), test('-'))*normal[2]('-')) * dS_h
         # symmetric interior penalty stabilization
         L = Constant(depth/layers)
         nbNeigh = 2
@@ -73,14 +72,14 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     # define solver
     sp = {}
     sp['snes_monitor'] = True
-    #sp['ksp_monitor'] = True
+    # sp['ksp_monitor'] = True
     sp['ksp_monitor_true_residual'] = True
     sp['snes_converged_reason'] = True
     sp['ksp_converged_reason'] = True
 
     dt_const = Constant(1000.0)
     F = (inner(solution_new, test)*dx - inner(solution, test)*dx -
-        dt_const*RHS(solution_new))
+         dt_const*RHS(solution_new))
     prob = NonlinearVariationalProblem(F, solution_new)
     solver = LinearVariationalSolver(prob, solver_parameters=sp)
 

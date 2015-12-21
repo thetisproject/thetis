@@ -26,6 +26,7 @@ def pytest_configure(config):
         import multiprocessing
         import py
         terminal = py.io.TerminalWriter()
+
         def writer():
             import time
             while True:

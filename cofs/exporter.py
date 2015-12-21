@@ -259,7 +259,7 @@ class hdf5Exporter(exporterBase):
             where nnnnn is the export number.
         """
         super(hdf5Exporter, self).__init__(filename_prefix, outputDir,
-                                       nextExportIx, verbose)
+                                           nextExportIx, verbose)
         self.function_space = function_space
 
     def setNextExportIx(self, nextExportIx):

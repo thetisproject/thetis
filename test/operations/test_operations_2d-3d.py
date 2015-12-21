@@ -38,10 +38,12 @@ def P1(mesh, spaces):
     return FunctionSpace(mesh, name, order,
                          vfamily=vname, vdegree=vorder)
 
+
 @pytest.fixture
 def U_2d(mesh2d, spaces):
     (name, order), (vname, vorder) = spaces
     return VectorFunctionSpace(mesh2d, name, order)
+
 
 @pytest.fixture
 def U(mesh, spaces):

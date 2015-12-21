@@ -6,12 +6,9 @@ Tuomas Karna 2015-10-17
 from utility import *
 import shallowWaterEq
 import timeIntegrator as timeIntegrator
-import limiter
 import time as timeMod
 from mpi4py import MPI
 import exporter
-import ufl
-import weakref
 from cofs.fieldDefs import fieldMetadata
 from cofs.options import modelOptions
 
@@ -77,7 +74,7 @@ class flowSolver2d(frozenClass):
         else:
             self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
         # TODO can this be omitted?
-        #self.function_spaces.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
+        # self.function_spaces.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
         self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d])
 
@@ -112,28 +109,28 @@ class flowSolver2d(frozenClass):
         self.setTimeStep()
         if self.options.timeStepperType.lower() == 'ssprk33':
             self.timeStepper = timeIntegrator.SSPRK33Stage(self.eq_sw, self.dt,
-                                                            self.eq_sw.solver_parameters)
+                                                           self.eq_sw.solver_parameters)
         elif self.options.timeStepperType.lower() == 'ssprk33semi':
             self.timeStepper = timeIntegrator.SSPRK33StageSemiImplicit(self.eq_sw,
-                                                            self.dt, self.eq_sw.solver_parameters)
+                                                                       self.dt, self.eq_sw.solver_parameters)
         elif self.options.timeStepperType.lower() == 'forwardeuler':
             self.timeStepper = timeIntegrator.ForwardEuler(self.eq_sw, self.dt,
-                                                            self.eq_sw.solver_parameters)
+                                                           self.eq_sw.solver_parameters)
         elif self.options.timeStepperType.lower() == 'cranknicolson':
             self.timeStepper = timeIntegrator.CrankNicolson(self.eq_sw, self.dt,
-                                                             self.eq_sw.solver_parameters)
+                                                            self.eq_sw.solver_parameters)
         elif self.options.timeStepperType.lower() == 'sspimex':
             # TODO meaningful solver params
             sp_impl = {
                 'ksp_type': 'gmres',
                 'pc_type': 'fieldsplit',
                 'pc_fieldsplit_type': 'multiplicative',
-                }
+            }
             sp_expl = {
                 'ksp_type': 'gmres',
                 'pc_type': 'fieldsplit',
                 'pc_fieldsplit_type': 'multiplicative',
-                }
+            }
             self.timeStepper = timeIntegrator.SSPIMEX(self.eq_sw, self.dt,
                                                       solver_parameters=sp_expl,
                                                       solver_parameters_dirk=sp_impl)
@@ -211,9 +208,6 @@ class flowSolver2d(frozenClass):
         norm_h = norm(self.fields.solution2d.split()[1])
         norm_u = norm(self.fields.solution2d.split()[0])
 
-        if self.options.checkVolConservation2d:
-            Vol2d = compVolume2d(self.fields.solution2d.split()[1],
-                                 self.fields.bathymetry_2d)
         if commrank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')

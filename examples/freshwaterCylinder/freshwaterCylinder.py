@@ -55,20 +55,19 @@ bathymetry_2d.assign(depth)
 coriolis_2d = Function(P1_2d)
 f0, beta = 1.15e-4, 0.0
 coriolis_2d.interpolate(
-    Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0)
-    )
+    Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0))
 
 # create solver
 solverObj = solver.flowSolver(mesh2d, bathymetry_2d, layers)
 options = solverObj.options
 options.cfl_2d = 1.0
-#options.nonlin = False
+# options.nonlin = False
 options.solveSalt = True
 options.solveVertDiffusion = False
 options.useBottomFriction = False
 options.useALEMovingMesh = False
 options.useSemiImplicit2D = False
-#options.useModeSplit = False
+# options.useModeSplit = False
 options.baroclinic = True
 options.coriolis = coriolis_2d
 options.uvLaxFriedrichs = None  # Constant(1e-3)
@@ -77,9 +76,9 @@ options.useLimiterForTracers = True
 Re_h = 2.0
 options.smagorinskyFactor = Constant(1.0/np.sqrt(Re_h))
 # how does diffusion scale with mesh size?? nu = Lx^2/dt??
-#options.hDiffusivity = Constant(3.0)
-#options.hViscosity = Constant(1e-2)
-#options.vViscosity = Constant(1e-5)
+# options.hDiffusivity = Constant(3.0)
+# options.hViscosity = Constant(1e-2)
+# options.vViscosity = Constant(1e-5)
 if options.useModeSplit:
     options.dt = dt
 options.TExport = TExport
@@ -97,7 +96,7 @@ options.fieldsToExport = ['uv_2d', 'elev_2d', 'uv_3d',
 options.fieldsToExportNumpy = ['salt_3d', 'baroc_head_3d', 'elev_2d']
 options.timerLabels = ['mode2d', 'momentumEq', 'continuityEq', 'saltEq',
                        'aux_barolinicity', 'aux_mom_coupling',
-                       'func_copy2dTo3d', 'func_copy3dTo2d',]
+                       'func_copy2dTo3d', 'func_copy3dTo2d', ]
 
 solverObj.createEquations()
 # assign initial salinity
