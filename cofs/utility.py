@@ -379,20 +379,17 @@ class verticalVelocitySolver(object):
         self.solver.solve()
 
 
-@timed_function('func_vert_int')
-def computeVerticalIntegral(input, output, bottomToTop=True,
-                            bndValue=Constant(0.0), average=False,
-                            bathymetry=None,
-                            solver_parameters={}):
+class verticalIntegrator(object):
     """
-    Computes vertical integral of the input scalar field in the given
+    Computes vertical integral of the scalar field in the output
     function space.
     """
-    solver_parameters.setdefault('ksp_atol', 1e-12)
-    solver_parameters.setdefault('ksp_rtol', 1e-16)
+    def __init__(self, input, output, bottomToTop=True,
+                 bndValue=Constant(0.0), average=False,
+                 bathymetry=None, solver_parameters={}):
+        solver_parameters.setdefault('ksp_atol', 1e-12)
+        solver_parameters.setdefault('ksp_rtol', 1e-16)
 
-    key = '-'.join((input.name(), output.name(), str(average)))
-    if key not in linProblemCache:
         space = output.function_space()
         mesh = space.mesh()
         verticalIsDG = False
@@ -428,26 +425,24 @@ def computeVerticalIntegral(input, output, bottomToTop=True,
             # FIXME this should be H not h
             source = input/bathymetry
         L = inner(source, phi)*mesh._dx + bnd_term
-        prob = LinearVariationalProblem(a, L, output)
-        solver = LinearVariationalSolver(
-            prob, solver_parameters=solver_parameters)
-        linProblemCache.add(key, solver, 'vertInt')
+        self.prob = LinearVariationalProblem(a, L, output)
+        self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
-    linProblemCache[key].solve()
-    return output
+    def solve(self):
+        with timed_region('func_vert_int'):
+            self.solver.solve()
 
 
-def computeBaroclinicHead(salt, baroc_head_3d, baroc_head_2d, baroc_head_int_3d, bath3d):
+def computeBaroclinicHead(solver, salt, baroc_head_3d, baroc_head_2d,
+                          baroc_head_int_3d, bath3d):
     """
     Computes baroclinic head from density field
 
     r = 1/rho_0 int_{z=-h}^{\eta} rho' dz
     """
-    computeVerticalIntegral(salt, baroc_head_3d, bottomToTop=False)
+    solver.rhoIntegrator.solve()
     baroc_head_3d *= -physical_constants['rho0_inv']
-    computeVerticalIntegral(
-        baroc_head_3d, baroc_head_int_3d, bottomToTop=True,
-        average=True, bathymetry=bath3d)
+    solver.baroHeadAverager.solve()
     copy3dFieldTo2d(baroc_head_int_3d, baroc_head_2d, useBottomValue=False)
 
 
@@ -704,26 +699,6 @@ def copy2dFieldTo3d(input2d, output3d, elemHeight=None):
     vertical dimension. Horizontal function space must be the same.
     """
     copy_2d_field_to_3d(input2d, output3d, elemHeight=elemHeight)
-
-
-def correct3dVelocity(UV2d, uv_3d, uv_3d_dav, bathymetry):
-    """Corrects 3d Horizontal velocity field so that it's depth average
-    matches the 2d velocity field."""
-    H2d = UV2d.function_space()
-    # compute depth averaged velocity
-    bndValue = Constant((0.0, 0.0, 0.0))
-    computeVerticalIntegral(uv_3d, uv_3d_dav,
-                            bottomToTop=True, bndValue=bndValue,
-                            average=True, bathymetry=bathymetry)
-    # copy on 2d mesh
-    diff = Function(H2d)
-    copy3dFieldTo2d(uv_3d_dav, diff, useBottomValue=False)
-    # compute difference = UV2d - uv_3d_dav
-    diff.dat.data[:] *= -1
-    diff.dat.data[:] += UV2d.dat.data[:]
-    copy2dFieldTo3d(diff, uv_3d_dav)
-    # correct 3d field
-    uv_3d.dat.data[:] += uv_3d_dav.dat.data
 
 
 def computeBottomDrag(uv_bottom, z_bottom, bathymetry, drag):

@@ -448,6 +448,22 @@ class flowSolver(frozenClass):
                                               self.fields.bathymetry_3d,
                                               self.eq_momentum.boundary_markers,
                                               self.eq_momentum.bnd_functions)
+        # NOTE averager is a word. now.
+        self.uvAverager = verticalIntegrator(self.fields.uv_3d,
+                                             self.fields.uv_dav_3d,
+                                             bottomToTop=True,
+                                             bndValue=Constant((0.0, 0.0, 0.0)),
+                                             average=True,
+                                             bathymetry=self.fields.bathymetry_3d)
+        if self.options.baroclinic:
+            self.rhoIntegrator = verticalIntegrator(self.fields.salt_3d,
+                                                    self.fields.baroc_head_3d,
+                                                    bottomToTop=False)
+            self.baroHeadAverager = verticalIntegrator(self.fields.baroc_head_3d,
+                                                    self.fields.baroc_head_int_3d,
+                                                    bottomToTop=True,
+                                                    average=True,
+                                                    bathymetry=self.fields.bathymetry_3d)
         self.uvP1_projector = projector(self.fields.uv_3d, self.fields.uv_p1_3d)
         # self.uvDAV_to_tmp_projector = projector(self.uv_dav_3d, self.uv_3d_tmp)
         # self.uv_2d_to_DAV_projector = projector(self.fields.solution2d.split()[0],
@@ -487,7 +503,7 @@ class flowSolver(frozenClass):
                                 self.fields.w_mesh_ddz_3d,
                                 self.fields.bathymetry_3d, self.fields.z_coord_ref_3d)
         if self.options.baroclinic:
-            computeBaroclinicHead(self.fields.salt_3d, self.fields.baroc_head_3d,
+            computeBaroclinicHead(self, self.fields.salt_3d, self.fields.baroc_head_3d,
                                   self.fields.baroc_head_2d, self.fields.baroc_head_int_3d,
                                   self.fields.bathymetry_3d)
 

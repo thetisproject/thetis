@@ -59,11 +59,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
     def _update2DCoupling(self):
         """Does 2D-3D coupling for the velocity field"""
         with timed_region('aux_mom_coupling'):
-            bndValue = Constant((0.0, 0.0, 0.0))
-            computeVerticalIntegral(self.fields.uv_3d, self.fields.uv_dav_3d,
-                                    bottomToTop=True, bndValue=bndValue,
-                                    average=True,
-                                    bathymetry=self.fields.bathymetry_3d)
+            self.solver.uvAverager.solve()
             copy3dFieldTo2d(self.fields.uv_dav_3d, self.fields.uv_dav_2d,
                             useBottomValue=False,
                             elemHeight=self.fields.v_elem_size_2d)
@@ -101,7 +97,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
         """Computes baroclinic head"""
         if self.options.baroclinic:
             with timed_region('aux_barolinicity'):
-                computeBaroclinicHead(self.fields.salt_3d, self.fields.baroc_head_3d,
+                computeBaroclinicHead(self.solver, self.fields.salt_3d, self.fields.baroc_head_3d,
                                       self.fields.baroc_head_2d, self.fields.baroc_head_int_3d,
                                       self.fields.bathymetry_3d)
 
@@ -562,11 +558,7 @@ class coupledSSPRKSingleMode(coupledTimeIntegrator):
     def _update2DCoupling(self):
         """Overloaded coupling function"""
         with timed_region('aux_mom_coupling'):
-            bndValue = Constant((0.0, 0.0, 0.0))
-            computeVerticalIntegral(self.fields.uv_3d, self.fields.uv_dav_3d,
-                                    bottomToTop=True, bndValue=bndValue,
-                                    average=True,
-                                    bathymetry=self.fields.bathymetry_3d)
+            self.solver.uvAverager.solve()
             copy3dFieldTo2d(self.fields.uv_dav_3d, self.fields.uv_dav_2d,
                             useBottomValue=False,
                             elemHeight=self.fields.v_elem_size_2d)
@@ -642,11 +634,7 @@ class coupledSSPRK(coupledTimeIntegrator):
     def _update2DCoupling(self):
         """Overloaded coupling function"""
         with timed_region('aux_mom_coupling'):
-            bndValue = Constant((0.0, 0.0, 0.0))
-            computeVerticalIntegral(self.fields.uv_3d, self.fields.uv_dav_3d,
-                                    bottomToTop=True, bndValue=bndValue,
-                                    average=True,
-                                    bathymetry=self.fields.bathymetry_3d)
+            self.solver.uvAverager.solve()
             copy3dFieldTo2d(self.fields.uv_dav_3d, self.fields.uv_dav_2d,
                             useBottomValue=False)
             copy2dFieldTo3d(self.fields.uv_dav_2d, self.fields.uv_dav_3d)
