@@ -442,6 +442,12 @@ class flowSolver(frozenClass):
                                    verbose=self.options.verbose > 0)
         self.exporters['hdf5'] = e
 
+        # ----- Operators
+        self.wSolver = verticalVelocitySolver(self.fields.w_3d,
+                                              self.fields.uv_3d,
+                                              self.fields.bathymetry_3d,
+                                              self.eq_momentum.boundary_markers,
+                                              self.eq_momentum.bnd_functions)
         self.uvP1_projector = projector(self.fields.uv_3d, self.fields.uv_p1_3d)
         # self.uvDAV_to_tmp_projector = projector(self.uv_dav_3d, self.uv_3d_tmp)
         # self.uv_2d_to_DAV_projector = projector(self.fields.solution2d.split()[0],
@@ -474,9 +480,7 @@ class flowSolver(frozenClass):
 
         if salt is not None and self.options.solveSalt:
             self.fields.salt_3d.project(salt)
-        computeVertVelocity(self.fields.w_3d, self.fields.uv_3d, self.fields.bathymetry_3d,
-                            self.eq_momentum.boundary_markers,
-                            self.eq_momentum.bnd_functions)
+        self.wSolver.solve()
         if self.options.useALEMovingMesh:
             computeMeshVelocity(self.fields.elev_3d, self.fields.uv_3d, self.fields.w_3d, self.fields.w_mesh_3d,
                                 self.fields.w_mesh_surf_3d, self.fields.w_mesh_surf_2d,

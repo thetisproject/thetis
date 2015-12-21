@@ -26,9 +26,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
 
     def _updateVerticalVelocity(self):
         with timed_region('continuityEq'):
-            computeVertVelocity(self.fields.w_3d, self.fields.uv_3d, self.fields.bathymetry_3d,
-                                self.solver.eq_momentum.boundary_markers,
-                                self.solver.eq_momentum.bnd_functions)
+            self.solver.wSolver.solve()
 
     def _updateMovingMesh(self):
         """Updates mesh to match elevation field"""

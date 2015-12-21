@@ -334,16 +334,13 @@ def getZCoordFromMesh(zcoord, solver_parameters={}):
     return zcoord
 
 
-def computeVertVelocity(solution, uv, bathymetry,
-                        boundary_markers=[], boundary_funcs={},
-                        solver_parameters={}):
-    """Computes vertical velocity from 3d continuity equation."""
-    # continuity equation must be solved in the space of w (and tracers)
-    solver_parameters.setdefault('ksp_atol', 1e-12)
-    solver_parameters.setdefault('ksp_rtol', 1e-16)
-
-    key = '-'.join((solution.name(), uv.name()))
-    if key not in linProblemCache:
+class verticalVelocitySolver(object):
+    """Computes vertical velocity from continuity equation"""
+    def __init__(self, solution, uv, bathymetry,
+                 boundary_markers=[], boundary_funcs={},
+                 solver_parameters={}):
+        solver_parameters.setdefault('ksp_atol', 1e-12)
+        solver_parameters.setdefault('ksp_rtol', 1e-16)
         H = solution.function_space()
         mesh = H.mesh()
         test = TestFunction(H)
@@ -352,15 +349,18 @@ def computeVertVelocity(solution, uv, bathymetry,
 
         ds_surf = ds_b
         # NOTE weak dw/dz
-        a = tri[2]*test[2]*normal[2]*ds_surf + avg(tri[2])*jump(test[2], normal[2])*dS_h - Dx(test[2], 2)*tri[2]*dx
+        a = tri[2]*test[2]*normal[2]*ds_surf + \
+            avg(tri[2])*jump(test[2], normal[2])*dS_h - Dx(test[2], 2)*tri[2]*dx
         # NOTE weak div(uv)
         uv_star = avg(uv)
         # NOTE in the case of mimetic uv the div must be taken over all components
-        L = (inner(uv, nabla_grad(test[2]))*dx
-             - (uv_star[0]*jump(test[2], normal[0]) +
-                uv_star[1]*jump(test[2], normal[1]) +
-                uv_star[2]*jump(test[2], normal[2]))*(dS_v + dS_h)
-             - (uv[0]*normal[0] + uv[1]*normal[1] + uv[2]*normal[2])*test[2]*ds_surf
+        L = (inner(uv, nabla_grad(test[2]))*dx -
+             (uv_star[0]*jump(test[2], normal[0]) +
+              uv_star[1]*jump(test[2], normal[1]) +
+              uv_star[2]*jump(test[2], normal[2]))*(dS_v + dS_h) -
+             (uv[0]*normal[0] +
+              uv[1]*normal[1] +
+              uv[2]*normal[2])*test[2]*ds_surf
              )
         for bnd_marker in boundary_markers:
             funcs = boundary_funcs.get(bnd_marker)
@@ -372,14 +372,11 @@ def computeVertVelocity(solution, uv, bathymetry,
                 # use symmetry condition
                 L += -(uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_bnd
 
-        prob = LinearVariationalProblem(a, L, solution)
-        solver = LinearVariationalSolver(
-            prob, solver_parameters=solver_parameters)
-        linProblemCache.add(key, solver, 'continuityEq')
+        self.prob = LinearVariationalProblem(a, L, solution)
+        self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
-    linProblemCache[key].solve()
-
-    return solution
+    def solve(self):
+        self.solver.solve()
 
 
 @timed_function('func_vert_int')
