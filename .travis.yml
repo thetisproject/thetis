@@ -56,4 +56,5 @@ install:
   # Make cofs visible, don't want to pip install it, because then it will be cached by travis
   - export PYTHONPATH=`pwd`:$PYTHONPATH
 script:
+  - make lint
   - py.test --travis -v test
