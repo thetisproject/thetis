@@ -18,6 +18,9 @@ from cofs.fieldDefs import fieldMetadata
 comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
 
+# NOTE some functions now depend on flowSolver object
+# TODO move those functions in the solver class
+
 
 class frozenClass(object):
     """A class where creating a new attribute will raise an exception if _isfrozen == True"""
@@ -443,7 +446,7 @@ def computeBaroclinicHead(solver, salt, baroc_head_3d, baroc_head_2d,
     solver.rhoIntegrator.solve()
     baroc_head_3d *= -physical_constants['rho0_inv']
     solver.baroHeadAverager.solve()
-    copy3dFieldTo2d(baroc_head_int_3d, baroc_head_2d, useBottomValue=False)
+    solver.extractSurfBaroHead.solve()
 
 
 def computeVelMagnitude(solution, u=None, w=None, minVal=1e-6,
@@ -567,80 +570,97 @@ def copy_2d_field_to_3d(input, output, elemHeight=None,
     return output
 
 
-def extract_level_from_3d(input, sub_domain, output, bottomNodes=None,
-                          elemHeight=None, solver_parameters={}):
-    """Extract a subfunction from an extracted mesh."""
-    # NOTE top/bottom are defined differently than in firedrake
-    solver_parameters.setdefault('ksp_atol', 1e-12)
-    solver_parameters.setdefault('ksp_rtol', 1e-16)
-    fs = input.function_space()
+class subFunctionExtractor(object):
+    """
+    Extract a 2D subfunction from a 3D extruded mesh.
 
-    if sub_domain not in ('bottom', 'top'):
-        raise ValueError('subdomain must be "bottom" or "top"')
+    input3d: Function in 3d mesh
+    output2d: Function in 2d mesh
+    useBottomValue: bool
+        Extract function at bottom elements
+    elemBottomNodes: bool
+        Extract function at bottom mask of the element
+        Typically elemBottomNodes = useBottomValue to obtain values at
+        surface/bottom faces of the extruded mesh
+    elemHeight: Function in 2d mesh
+        Function that defines the element heights
+        (required for Raviart-Thomas spaces only)
+    """
+    def __init__(self, input3d, output2d, useBottomValue=True,
+                 elemBottomNodes=None, elemHeight=None):
+        self.input3d = input3d
+        self.output2d = output2d
+        self.fs_3d = self.input3d.function_space()
+        self.fs_2d = self.output2d.function_space()
 
-    out_fs = output.function_space()
+        # NOTE top/bottom are defined differently than in firedrake
+        sub_domain = 'bottom' if useBottomValue else 'top'
+        if elemBottomNodes is None:
+            # extract surface/bottom face by default
+            elemBottomNodes = useBottomValue
 
-    family_2d = out_fs.ufl_element().family()
-    if hasattr(fs.ufl_element(), '_A'):
-        # a normal outerproduct element
-        family_3dh = fs.ufl_element()._A.family()
-        if family_2d != family_3dh:
-            raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
-    if family_2d == 'Raviart-Thomas' and elemHeight is None:
-        raise Exception('elemHeight must be provided for Raviart-Thomas spaces')
-    doRTScaling = family_2d == 'Raviart-Thomas'
+        family_2d = self.fs_2d.ufl_element().family()
+        if hasattr(self.fs_3d.ufl_element(), '_A'):
+            # a normal outerproduct element
+            family_3dh = self.fs_3d.ufl_element()._A.family()
+            if family_2d != family_3dh:
+                raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
+        if family_2d == 'Raviart-Thomas' and elemHeight is None:
+            raise Exception('elemHeight must be provided for Raviart-Thomas spaces')
+        self.doRTScaling = family_2d == 'Raviart-Thomas'
 
-    if bottomNodes is None:
-        bottomNodes = sub_domain == 'bottom'
-    if bottomNodes:
-        nodes = fs.bt_masks['geometric'][1]
-    else:
-        nodes = fs.bt_masks['geometric'][0]
-    if sub_domain == 'top':
-        # 'top' means free surface, where extrusion started
-        iterate = op2.ON_BOTTOM
-    elif sub_domain == 'bottom':
-        # 'bottom' means the bed, where extrusion ended
-        iterate = op2.ON_TOP
+        if elemBottomNodes:
+            nodes = self.fs_3d.bt_masks['geometric'][1]
+        else:
+            nodes = self.fs_3d.bt_masks['geometric'][0]
+        if sub_domain == 'top':
+            # 'top' means free surface, where extrusion started
+            self.iter_domain = op2.ON_BOTTOM
+        elif sub_domain == 'bottom':
+            # 'bottom' means the bed, where extrusion ended
+            self.iter_domain= op2.ON_TOP
 
-    out_nodes = out_fs.fiat_element.space_dimension()
+        out_nodes = self.fs_2d.fiat_element.space_dimension()
 
-    assert (len(nodes) == out_nodes)
+        assert (len(nodes) == out_nodes)
 
-    fs_2d = output.function_space()
-    fs_3d = input.function_space()
-    idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='nodeIdx')
-    kernel = op2.Kernel("""
-        void my_kernel(double **func, double **func3d, int *idx) {
-            for ( int d = 0; d < %(nodes)d; d++ ) {
-                for ( int c = 0; c < %(func_dim)d; c++ ) {
-                    func[d][c] = func3d[idx[d]][c];
-                    //func[d][c] = idx[d];
+        self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='nodeIdx')
+        self.kernel = op2.Kernel("""
+            void my_kernel(double **func, double **func3d, int *idx) {
+                for ( int d = 0; d < %(nodes)d; d++ ) {
+                    for ( int c = 0; c < %(func_dim)d; c++ ) {
+                        func[d][c] = func3d[idx[d]][c];
+                        //func[d][c] = idx[d];
+                    }
                 }
-            }
-        }""" % {'nodes': output.cell_node_map().arity,
-                'func_dim': output.function_space().cdim},
-        'my_kernel')
-    op2.par_loop(
-        kernel, fs_3d.mesh().cell_set,
-        output.dat(op2.WRITE, fs_2d.cell_node_map()),
-        input.dat(op2.READ, fs_3d.cell_node_map()),
-        idx(op2.READ),
-        iterate=iterate)
+            }""" % {'nodes': self.output2d.cell_node_map().arity,
+                    'func_dim': self.output2d.function_space().cdim},
+            'my_kernel')
 
-    if doRTScaling:
-        key = '-'.join(('copy3d-2d', input.name(), output.name()))
-        if key not in linProblemCache:
-            test = TestFunction(fs_2d)
-            tri = TrialFunction(fs_2d)
-            dx_2d = fs_2d.mesh()._dx
+        if self.doRTScaling:
+            solver_parameters = {}
+            solver_parameters.setdefault('ksp_atol', 1e-12)
+            solver_parameters.setdefault('ksp_rtol', 1e-16)
+            test = TestFunction(self.fs_2d)
+            tri = TrialFunction(self.fs_2d)
+            dx_2d = self.fs_2d.mesh()._dx
             a = inner(tri, test)*dx_2d
-            L = inner(output, test)/elemHeight*dx_2d
-            prob = LinearVariationalProblem(a, L, output)
-            solver = LinearVariationalSolver(
+            L = inner(self.output2d, test)/elemHeight*dx_2d
+            prob = LinearVariationalProblem(a, L, self.output2d)
+            self.RT_scale_solver = LinearVariationalSolver(
                 prob, solver_parameters=solver_parameters)
-            linProblemCache.add(key, solver, 'copy3d-2d')
-        linProblemCache[key].solve()
+
+    def solve(self):
+        with timed_region('func_copy3dTo2d'):
+            # execute par loop
+            op2.par_loop(self.kernel, self.fs_3d.mesh().cell_set,
+                         self.output2d.dat(op2.WRITE, self.fs_2d.cell_node_map()),
+                         self.input3d.dat(op2.READ, self.fs_3d.cell_node_map()),
+                         self.idx(op2.READ),
+                         iterate=self.iter_domain)
+
+            if self.doRTScaling:
+                self.RT_scale_solver.solve()
 
 
 def computeElemHeight(zCoord, output):
@@ -677,21 +697,6 @@ def computeElemHeight(zCoord, output):
     return output
 
 
-@timed_function('func_copy3dTo2d')
-def copy3dFieldTo2d(input3d, output2d, useBottomValue=True,
-                    elemBottomValue=None, level=None, elemHeight=None):
-    """
-    Assings the top/bottom value of the input field to 2d output field.
-    """
-    if level is not None:
-        raise NotImplementedError('generic level extraction has not been implemented')
-    if elemBottomValue is None:
-        elemBottomValue = useBottomValue
-    sub_domain = 'bottom' if useBottomValue else 'top'
-    extract_level_from_3d(input3d, sub_domain, output2d, elemHeight=elemHeight,
-                          bottomNodes=elemBottomValue)
-
-
 @timed_function('func_copy2dTo3d')
 def copy2dFieldTo3d(input2d, output3d, elemHeight=None):
     """
@@ -709,20 +714,17 @@ def computeBottomDrag(uv_bottom, z_bottom, bathymetry, drag):
     return drag
 
 
-def computeBottomFriction(uv_3d, uv_bottom_2d, uv_bottom_3d, z_coord_3d,
+def computeBottomFriction(solver, uv_3d, uv_bottom_2d, uv_bottom_3d, z_coord_3d,
                           z_bottom_2d, bathymetry_2d,
                           bottom_drag_2d, bottom_drag_3d,
                           v_elem_size_2d=None, v_elem_size_3d=None):
     # compute velocity at middle of bottom element
-    copy3dFieldTo2d(uv_3d, uv_bottom_2d, useBottomValue=True,
-                    elemBottomValue=False, elemHeight=v_elem_size_2d)
+    solver.extractUVBottom.solve()
     tmp = uv_bottom_2d.dat.data.copy()
-    copy3dFieldTo2d(uv_3d, uv_bottom_2d, useBottomValue=True,
-                    elemBottomValue=True, elemHeight=v_elem_size_2d)
+    solver.extractUVBottom.solve()
     uv_bottom_2d.dat.data[:] = 0.5*(uv_bottom_2d.dat.data + tmp)
     copy2dFieldTo3d(uv_bottom_2d, uv_bottom_3d, elemHeight=v_elem_size_3d)
-    copy3dFieldTo2d(z_coord_3d, z_bottom_2d, useBottomValue=True,
-                    elemBottomValue=False, elemHeight=v_elem_size_2d)
+    solver.extractZBottom.solve()
     z_bottom_2d.dat.data[:] += bathymetry_2d.dat.data[:]
     z_bottom_2d.dat.data[:] *= 0.5
     computeBottomDrag(uv_bottom_2d, z_bottom_2d, bathymetry_2d, bottom_drag_2d)
@@ -748,25 +750,6 @@ def getHorzontalElemSize(sol2d, sol3d=None):
         return sol2d
     copy2dFieldTo3d(sol2d, sol3d)
     return sol3d
-
-
-def getVerticalElemSize(P1_2d, P1_3d):
-    """
-    Computes vertical element size from 3D mesh.
-    """
-    # compute total depth
-    depth2d = Function(P1_2d)
-    zbot2d = Function(P1_2d)
-    zcoord3d = Function(P1_3d)
-    project(Expression('x[2]'), zcoord3d)
-    copy3dFieldTo2d(zcoord3d, depth2d, useBottomValue=False)
-    copy3dFieldTo2d(zcoord3d, zbot2d, useBottomValue=True)
-    depth2d += - zbot2d
-    # divide by number of element layers
-    n_layers = P1_3d.mesh().layers - 1
-    depth2d /= n_layers
-    copy2dFieldTo3d(depth2d, zcoord3d)
-    return zcoord3d
 
 
 def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref,
@@ -795,7 +778,7 @@ def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref,
     coords.dat.data[:, 2] = z_coord.dat.data[:]
 
 
-def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf_2d,
+def computeMeshVelocity(solver, eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf_2d,
                         w_mesh_ddz_3d,
                         bathymetry, z_coord_ref,
                         solver_parameters={}):
@@ -817,7 +800,7 @@ def computeMeshVelocity(eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf_2d,
             prob, solver_parameters=solver_parameters)
         linProblemCache.add(key, solver, 'wMeshSurf')
     linProblemCache[key].solve()
-    copy3dFieldTo2d(w_mesh_surf, w_mesh_surf_2d, useBottomValue=False)
+    solver.extractSurfW.solve()
     copy2dFieldTo3d(w_mesh_surf_2d, w_mesh_surf)
 
     # compute w in the whole water column (0 at bed)

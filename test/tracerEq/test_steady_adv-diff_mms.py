@@ -232,7 +232,7 @@ def run(setup, refinement, order, export=True):
                       solverObj.fields.z_coord_3d,
                       solverObj.fields.z_coord_ref_3d)
     computeElemHeight(solverObj.fields.z_coord_3d, solverObj.fields.v_elem_size_3d)
-    copy3dFieldTo2d(solverObj.fields.v_elem_size_3d, solverObj.fields.v_elem_size_2d)
+    solverObj.copyVElemSizeTo2d.solve()
 
     # salinity field
     solverObj.fields.salt_3d.project(SET['tracer_expr'])

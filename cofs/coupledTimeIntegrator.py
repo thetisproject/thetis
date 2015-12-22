@@ -36,7 +36,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
                     self.solver.mesh, self.fields.elev_3d, self.fields.bathymetry_3d,
                     self.fields.z_coord_3d, self.fields.z_coord_ref_3d)
                 computeElemHeight(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
-                copy3dFieldTo2d(self.fields.v_elem_size_3d, self.fields.v_elem_size_2d)
+                self.solver.copyVElemSizeTo2d.solve()
 
     def _updateBottomFriction(self):
         """Computes bottom friction related fields"""
@@ -44,6 +44,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
             with timed_region('aux_friction'):
                 self.solver.uvP1_projector.project()
                 computeBottomFriction(
+                    self.solver,
                     self.fields.uv_p1_3d, self.fields.uv_bottom_2d,
                     self.fields.uv_bottom_3d, self.fields.z_coord_3d,
                     self.fields.z_bottom_2d,
@@ -60,9 +61,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
         """Does 2D-3D coupling for the velocity field"""
         with timed_region('aux_mom_coupling'):
             self.solver.uvAverager.solve()
-            copy3dFieldTo2d(self.fields.uv_dav_3d, self.fields.uv_dav_2d,
-                            useBottomValue=False,
-                            elemHeight=self.fields.v_elem_size_2d)
+            self.solver.extractSurfDavUV.solve()
             copy2dFieldTo3d(self.fields.uv_dav_2d, self.fields.uv_dav_3d,
                             elemHeight=self.fields.v_elem_size_3d)
             # 2d-3d coupling: restart 2d mode from depth ave uv_3d
@@ -87,6 +86,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
         if self.options.useALEMovingMesh:
             with timed_region('aux_mesh_ale'):
                 computeMeshVelocity(
+                    self.solver,
                     self.fields.elev_3d, self.fields.uv_3d, self.fields.w_3d,
                     self.fields.w_mesh_3d, self.fields.w_mesh_surf_3d,
                     self.fields.w_mesh_surf_2d,
@@ -559,9 +559,7 @@ class coupledSSPRKSingleMode(coupledTimeIntegrator):
         """Overloaded coupling function"""
         with timed_region('aux_mom_coupling'):
             self.solver.uvAverager.solve()
-            copy3dFieldTo2d(self.fields.uv_dav_3d, self.fields.uv_dav_2d,
-                            useBottomValue=False,
-                            elemHeight=self.fields.v_elem_size_2d)
+            self.solver.extractSurfDavUV.solve()
             self.fields.uv_2d.assign(self.fields.uv_dav_2d)
 
     def advance(self, t, dt, updateForcings=None, updateForcings3d=None):
@@ -635,8 +633,7 @@ class coupledSSPRK(coupledTimeIntegrator):
         """Overloaded coupling function"""
         with timed_region('aux_mom_coupling'):
             self.solver.uvAverager.solve()
-            copy3dFieldTo2d(self.fields.uv_dav_3d, self.fields.uv_dav_2d,
-                            useBottomValue=False)
+            self.solver.extractSurfDavUV.solve()
             copy2dFieldTo3d(self.fields.uv_dav_2d, self.fields.uv_dav_3d)
             # 2d-3d coupling: restart 2d mode from depth ave 3d velocity
             uv_2d_start = self.timeStepper2d.solution_start.split()[0]

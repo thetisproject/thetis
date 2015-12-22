@@ -274,13 +274,6 @@ class flowSolver(frozenClass):
         self.tot_salt_v_diff.add(self.options.get('vDiffusivity'))
         self.tot_salt_v_diff.add(self.fields.get('eddy_diff_3d'))
 
-        # set initial values
-        copy2dFieldTo3d(self.fields.bathymetry_2d, self.fields.bathymetry_3d)
-        getZCoordFromMesh(self.fields.z_coord_ref_3d)
-        self.fields.z_coord_3d.assign(self.fields.z_coord_ref_3d)
-        computeElemHeight(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
-        copy3dFieldTo2d(self.fields.v_elem_size_3d, self.fields.v_elem_size_2d)
-
         # ----- Equations
         if self.options.useModeSplit:
             # full 2D shallow water equations
@@ -464,6 +457,28 @@ class flowSolver(frozenClass):
                                                     bottomToTop=True,
                                                     average=True,
                                                     bathymetry=self.fields.bathymetry_3d)
+            self.extractSurfBaroHead = subFunctionExtractor(self.fields.baroc_head_int_3d,
+                                                            self.fields.baroc_head_2d,
+                                                            useBottomValue=False)
+
+        self.extractSurfDavUV = subFunctionExtractor(self.fields.uv_dav_3d,
+                                                     self.fields.uv_dav_2d,
+                                                     useBottomValue=False,
+                                                     elemHeight=self.fields.v_elem_size_2d)
+        self.copyVElemSizeTo2d = subFunctionExtractor(self.fields.v_elem_size_3d,
+                                                      self.fields.v_elem_size_2d)
+        if self.options.useBottomFriction:
+            self.extractUVBottom = subFunctionExtractor(self.fields.uv_p1_3d, self.fields.uv_bottom_2d,
+                                                        useBottomValue=True, elemBottomNodes=False,
+                                                        elemHeight=self.fields.v_elem_size_2d)
+            self.extractZBottom = subFunctionExtractor(self.fields.z_coord_3d, self.fields.z_bottom_2d,
+                                                       useBottomValue=True, elemBottomNodes=False,
+                                                       elemHeight=self.fields.v_elem_size_2d)
+        if self.options.useALEMovingMesh:
+            self.extractSurfW = subFunctionExtractor(self.fields.w_mesh_surf_3d,
+                                                    self.fields.w_mesh_surf_2d,
+                                                    useBottomValue=False)
+
         self.uvP1_projector = projector(self.fields.uv_3d, self.fields.uv_p1_3d)
         # self.uvDAV_to_tmp_projector = projector(self.uv_dav_3d, self.uv_3d_tmp)
         # self.uv_2d_to_DAV_projector = projector(self.fields.solution2d.split()[0],
@@ -471,6 +486,13 @@ class flowSolver(frozenClass):
         # self.uv_2dDAV_to_uv_2d_projector = projector(self.uv_dav_2d,
         #                                              self.fields.solution2d.split()[0])
         self.elev_3d_to_CG_projector = projector(self.fields.elev_3d, self.fields.elev_cg_3d)
+
+        # ----- set initial values
+        copy2dFieldTo3d(self.fields.bathymetry_2d, self.fields.bathymetry_3d)
+        getZCoordFromMesh(self.fields.z_coord_ref_3d)
+        self.fields.z_coord_3d.assign(self.fields.z_coord_ref_3d)
+        computeElemHeight(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
+        self.copyVElemSizeTo2d.solve()
 
         self._initialized = True
         self._isfrozen = True
@@ -487,7 +509,7 @@ class flowSolver(frozenClass):
                 updateCoordinates(self.mesh, self.fields.elev_cg_3d, self.fields.bathymetry_3d,
                                   self.fields.z_coord_3d, self.fields.z_coord_ref_3d)
                 computeElemHeight(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
-                copy3dFieldTo2d(self.fields.v_elem_size_3d, self.fields.v_elem_size_2d)
+                self.copyVElemSizeTo2d.solve()
         if uv_2d is not None:
             uv_2d_field = self.fields.solution2d.split()[0]
             uv_2d_field.project(uv_2d)
@@ -498,7 +520,8 @@ class flowSolver(frozenClass):
             self.fields.salt_3d.project(salt)
         self.wSolver.solve()
         if self.options.useALEMovingMesh:
-            computeMeshVelocity(self.fields.elev_3d, self.fields.uv_3d, self.fields.w_3d, self.fields.w_mesh_3d,
+            computeMeshVelocity(self, self.fields.elev_3d, self.fields.uv_3d,
+                                self.fields.w_3d, self.fields.w_mesh_3d,
                                 self.fields.w_mesh_surf_3d, self.fields.w_mesh_surf_2d,
                                 self.fields.w_mesh_ddz_3d,
                                 self.fields.bathymetry_3d, self.fields.z_coord_ref_3d)
