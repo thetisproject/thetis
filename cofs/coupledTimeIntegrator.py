@@ -81,13 +81,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
         """Computes ALE mesh velocity"""
         if self.options.useALEMovingMesh:
             with timed_region('aux_mesh_ale'):
-                computeMeshVelocity(
-                    self.solver,
-                    self.fields.elev_3d, self.fields.uv_3d, self.fields.w_3d,
-                    self.fields.w_mesh_3d, self.fields.w_mesh_surf_3d,
-                    self.fields.w_mesh_surf_2d,
-                    self.fields.w_mesh_ddz_3d, self.fields.bathymetry_3d,
-                    self.fields.z_coord_ref_3d)
+                self.solver.wMeshSolver.solve()
 
     def _updateBaroclinicity(self):
         """Computes baroclinic head"""

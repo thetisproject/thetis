@@ -774,16 +774,17 @@ class ALEMeshCoordinateUpdater(object):
         self.coords.dat.data[:, 2] = self.z_coord.dat.data[:]
 
 
-def computeMeshVelocity(solver, eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf_2d,
-                        w_mesh_ddz_3d,
-                        bathymetry, z_coord_ref,
-                        solver_parameters={}):
-    solver_parameters.setdefault('ksp_atol', 1e-12)
-    solver_parameters.setdefault('ksp_rtol', 1e-16)
-    # compute w_mesh at the free surface (constant over vertical!)
-    # w_mesh_surf = w - eta_grad[0]*uv[0] + eta_grad[1]*uv[1]
-    key = '-'.join((w_mesh_surf.name(), eta.name()))
-    if key not in linProblemCache:
+class meshVelocitySolver(object):
+    """Computes vertical mesh velocity for moving sigma mesh"""
+    def __init__(self, solver, eta, uv, w, w_mesh, w_mesh_surf,
+                 w_mesh_surf_2d, w_mesh_ddz_3d, bathymetry,
+                 z_coord_ref, solver_parameters={}):
+        solver_parameters.setdefault('ksp_atol', 1e-12)
+        solver_parameters.setdefault('ksp_rtol', 1e-16)
+        self.solverObj = solver
+
+        # compute w_mesh at the free surface (constant over vertical!)
+        # w_mesh_surf = w - eta_grad[0]*uv[0] + eta_grad[1]*uv[1]
         fs = w_mesh.function_space()
         z = fs.mesh().coordinates[2]
         tri = TrialFunction(fs)
@@ -791,18 +792,11 @@ def computeMeshVelocity(solver, eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf_2d,
         a = inner(tri, test)*dx
         eta_grad = nabla_grad(eta)
         L = (w[2] - eta_grad[0]*uv[0] - eta_grad[1]*uv[1])*test*dx
-        prob = LinearVariationalProblem(a, L, w_mesh_surf)
-        var_solver = LinearVariationalSolver(
-            prob, solver_parameters=solver_parameters)
-        linProblemCache.add(key, var_solver, 'wMeshSurf')
-    linProblemCache[key].solve()
-    solver.extractSurfW.solve()
-    solver.copySurfWMeshTo3d.solve()
+        self.probWMeshSurf = LinearVariationalProblem(a, L, w_mesh_surf)
+        self.solverWMeshSurf = LinearVariationalSolver(self.probWMeshSurf, solver_parameters=solver_parameters)
 
-    # compute w in the whole water column (0 at bed)
-    # w_mesh = w_mesh_surf * (z+h)/(eta+h)
-    key = '-'.join((w_mesh.name(), w_mesh_surf.name()))
-    if key not in linProblemCache:
+        # compute w in the whole water column (0 at bed)
+        # w_mesh = w_mesh_surf * (z+h)/(eta+h)
         fs = w_mesh.function_space()
         z = fs.mesh().coordinates[2]
         tri = TrialFunction(fs)
@@ -810,15 +804,10 @@ def computeMeshVelocity(solver, eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf_2d,
         a = tri*test*dx
         H = eta + bathymetry
         L = (w_mesh_surf*(z+bathymetry)/H)*test*dx
-        prob = LinearVariationalProblem(a, L, w_mesh)
-        var_solver = LinearVariationalSolver(
-            prob, solver_parameters=solver_parameters)
-        linProblemCache.add(key, var_solver, 'wMesh')
-    linProblemCache[key].solve()
+        self.probWMesh = LinearVariationalProblem(a, L, w_mesh)
+        self.solverWMesh = LinearVariationalSolver(self.probWMesh, solver_parameters=solver_parameters)
 
-    # compute dw_mesh/dz in the whole water column
-    key = '-'.join((w_mesh_ddz_3d.name(), w_mesh_surf.name()))
-    if key not in linProblemCache:
+        # compute dw_mesh/dz in the whole water column
         fs = w_mesh.function_space()
         z = fs.mesh().coordinates[2]
         tri = TrialFunction(fs)
@@ -826,11 +815,15 @@ def computeMeshVelocity(solver, eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf_2d,
         a = tri*test*dx
         H = eta + bathymetry
         L = (w_mesh_surf/H)*test*dx
-        prob = LinearVariationalProblem(a, L, w_mesh_ddz_3d)
-        var_solver = LinearVariationalSolver(
-            prob, solver_parameters=solver_parameters)
-        linProblemCache.add(key, var_solver, 'dwMeshdz')
-    linProblemCache[key].solve()
+        self.probDWMeshDz = LinearVariationalProblem(a, L, w_mesh_ddz_3d)
+        self.solverDWMeshDz = LinearVariationalSolver(self.probDWMeshDz, solver_parameters=solver_parameters)
+
+    def solve(self):
+        self.solverWMeshSurf.solve()
+        self.solverObj.extractSurfW.solve()
+        self.solverObj.copySurfWMeshTo3d.solve()
+        self.solverWMesh.solve()
+        self.solverDWMeshDz.solve()
 
 
 def computeParabolicViscosity(uv_bottom, bottom_drag, bathymetry, nu,

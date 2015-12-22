@@ -497,6 +497,16 @@ class flowSolver(frozenClass):
                                                      useBottomValue=False)
             self.copySurfWMeshTo3d = expandFunctionTo3d(self.fields.w_mesh_surf_2d,
                                                         self.fields.w_mesh_surf_3d)
+            self.wMeshSolver = meshVelocitySolver(self, self.fields.elev_3d,
+                                                  self.fields.uv_3d,
+                                                  self.fields.w_3d,
+                                                  self.fields.w_mesh_3d,
+                                                  self.fields.w_mesh_surf_3d,
+                                                  self.fields.w_mesh_surf_2d,
+                                                  self.fields.w_mesh_ddz_3d,
+                                                  self.fields.bathymetry_3d,
+                                                  self.fields.z_coord_ref_3d)
+
         if self.options.salt_jump_diffFactor is not None:
             self.horizJumpDiffSolver = horizontalJumpDiffusivity(self.options.salt_jump_diffFactor, self.fields.salt_3d,
                                                                  self.fields.salt_jump_diff, self.fields.h_elem_size_3d,
@@ -539,11 +549,7 @@ class flowSolver(frozenClass):
             self.fields.salt_3d.project(salt)
         self.wSolver.solve()
         if self.options.useALEMovingMesh:
-            computeMeshVelocity(self, self.fields.elev_3d, self.fields.uv_3d,
-                                self.fields.w_3d, self.fields.w_mesh_3d,
-                                self.fields.w_mesh_surf_3d, self.fields.w_mesh_surf_2d,
-                                self.fields.w_mesh_ddz_3d,
-                                self.fields.bathymetry_3d, self.fields.z_coord_ref_3d)
+            self.wMeshSolver.solve()
         if self.options.baroclinic:
             computeBaroclinicHead(self, self.fields.salt_3d, self.fields.baroc_head_3d,
                                   self.fields.baroc_head_2d, self.fields.baroc_head_int_3d,
