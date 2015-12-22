@@ -18,11 +18,11 @@
 
 from cofs import *
 
-outputDir = createDirectory('outputs')
+outputDir = create_directory('outputs')
 layers = 6
 mesh2d = Mesh('mesh_rhineRofi_coarse.msh')
-printInfo('Loaded mesh '+mesh2d.name)
-printInfo('Exporting to '+outputDir)
+print_info('Loaded mesh '+mesh2d.name)
+print_info('Exporting to '+outputDir)
 
 # Physical parameters
 etaAmplitude = 1.00  # mean (Fisher et al. 2009 tidal range 2.00 )

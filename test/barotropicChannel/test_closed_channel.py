@@ -18,10 +18,10 @@ import pytest
 @pytest.mark.skipif(True, reason='test is obsolete')
 def test_closed_channel():
     n_layers = 6
-    outputDir = createDirectory('outputs')
+    outputDir = create_directory('outputs')
     mesh2d = Mesh('mesh_coarse.msh')
-    printInfo('Loaded mesh '+mesh2d.name)
-    printInfo('Exporting to '+outputDir)
+    print_info('Loaded mesh '+mesh2d.name)
+    print_info('Exporting to '+outputDir)
     T = 24 * 3600
     Umag = Constant(2.5)
     TExport = 300.0

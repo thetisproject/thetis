@@ -12,7 +12,7 @@ class exporterBase(object):
     """
     def __init__(self, filename, outputDir, nextExportIx=0, verbose=False):
         self.filename = filename
-        self.outputDir = createDirectory(outputDir)
+        self.outputDir = create_directory(outputDir)
         self.verbose = verbose
         # keeps track of export numbers
         self.nextExportIx = nextExportIx
@@ -55,7 +55,7 @@ class vtkExporter(exporterBase):
     def export(self, function):
         """Exports given function to disk."""
         if function not in self.P:
-            self.P[function] = projector(function, self.proj_func)
+            self.P[function] = Projector(function, self.proj_func)
         self.P[function].project()
         # ensure correct output function name
         old_name = self.proj_func.name()

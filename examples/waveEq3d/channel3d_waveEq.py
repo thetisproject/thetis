@@ -20,9 +20,9 @@ n_layers = 6
 # estimate of max advective velocity used to estimate time step
 Umag = Constant(0.5)
 
-outputDir = createDirectory('outputs')
-printInfo('Loaded mesh '+mesh2d.name)
-printInfo('Exporting to '+outputDir)
+outputDir = create_directory('outputs')
+print_info('Loaded mesh '+mesh2d.name)
+print_info('Exporting to '+outputDir)
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)

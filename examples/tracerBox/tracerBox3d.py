@@ -26,10 +26,10 @@ sloped = True
 suffix = ''
 if sloped:
     suffix = '_sloped'
-outputDir = createDirectory('outputs'+suffix)
+outputDir = create_directory('outputs'+suffix)
 
-printInfo('Loaded mesh '+mesh2d.name)
-printInfo('Exporting to '+outputDir)
+print_info('Loaded mesh '+mesh2d.name)
+print_info('Exporting to '+outputDir)
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)

@@ -22,7 +22,7 @@ parameters['coffee'] = {}
 
 physical_constants['z0_friction'] = 1.5e-3
 
-outputDir = createDirectory('outputs')
+outputDir = create_directory('outputs')
 # set mesh resolution
 dx = 2500.0
 layers = 25
@@ -37,7 +37,7 @@ mesh2d = RectangleMesh(n_x, n_x, Lx, Lx, reorder=True)
 mesh2d.coordinates.dat.data[:, 0] -= Lx/2
 mesh2d.coordinates.dat.data[:, 1] -= Lx/2
 
-printInfo('Exporting to ' + outputDir)
+print_info('Exporting to ' + outputDir)
 # NOTE bottom friction (implicit mom eq) will blow up for higher dt
 dt = 25.0
 T = 12 * 3600.0  # 24 * 3600

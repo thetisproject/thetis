@@ -23,10 +23,10 @@ from scipy.interpolate import interp1d
 from cofs import *
 
 n_layers = 6
-outputDir = createDirectory('outputs_closed')
+outputDir = create_directory('outputs_closed')
 mesh2d = Mesh('channel_mesh.msh')
-printInfo('Loaded mesh '+mesh2d.name)
-printInfo('Exporting to '+outputDir)
+print_info('Loaded mesh '+mesh2d.name)
+print_info('Exporting to '+outputDir)
 T = 48 * 3600
 Umag = Constant(4.2)
 TExport = 100.0

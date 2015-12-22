@@ -62,7 +62,7 @@ outputDir = 'out_{:}_p{:}{:}_Re{:}_{:}'.format(args.reso_str, spaceStr,
                                                args.polyOrder,
                                                args.reynoldsNumber, limiterStr)
 
-outputDir = createDirectory(outputDir)
+outputDir = create_directory(outputDir)
 reso_str = args.reso_str
 if args.jumpDiffFactor is not None:
     args.jumpDiffFactor = Constant(args.jumpDiffFactor)
@@ -87,7 +87,7 @@ coords = mesh2d.coordinates
 coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min
 coords.dat.data[:, 1] = coords.dat.data[:, 1]*2*dx - dx
 
-printInfo('Exporting to '+outputDir)
+print_info('Exporting to '+outputDir)
 dt = 75.0/refinement[reso_str]
 if reso_str == 'fine':
     dt /= 2.0

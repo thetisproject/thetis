@@ -15,9 +15,9 @@
 from cofs import *
 
 mesh2d = Mesh('stommel_square.msh')
-outputDir = createDirectory('outputs')
-printInfo('Loaded mesh '+mesh2d.name)
-printInfo('Exporting to '+outputDir)
+outputDir = create_directory('outputs')
+print_info('Loaded mesh '+mesh2d.name)
+print_info('Exporting to '+outputDir)
 depth = 1000.0
 layers = 6
 T = 75*12*2*3600.

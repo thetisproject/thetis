@@ -149,7 +149,7 @@ class TemporaryFunctionCache(object):
         else:
             name = 'tmp_func_' + str(len(self.functions))
         f = Function(function_space, name=name)
-        key = self._getKey(function_space)
+        key = self._get_key(function_space)
         self.functions[key] = f
 
     def _get_key(self, function_space):
@@ -696,7 +696,7 @@ def compute_bottom_friction(solver, uv_3d, uv_bottom_2d, uv_bottom_3d, z_coord_3
     solver.extractZBottom.solve()
     z_bottom_2d.dat.data[:] += bathymetry_2d.dat.data[:]
     z_bottom_2d.dat.data[:] *= 0.5
-    ComputeBottomDrag(uv_bottom_2d, z_bottom_2d, bathymetry_2d, bottom_drag_2d)
+    compute_bottom_drag(uv_bottom_2d, z_bottom_2d, bathymetry_2d, bottom_drag_2d)
     solver.copyBottomDragTo3d.solve()
 
 

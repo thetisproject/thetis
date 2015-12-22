@@ -29,11 +29,11 @@
 from cofs import *
 
 reso_str = 'medium'
-outputDir = createDirectory('outputs_'+reso_str)
+outputDir = create_directory('outputs_'+reso_str)
 refinement = {'medium': 1}
 layers = int(round(16*refinement[reso_str]))
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
-printInfo('Loaded mesh '+mesh2d.name)
+print_info('Loaded mesh '+mesh2d.name)
 dt = 5.0/refinement[reso_str]
 T = 25 * 3600
 TExport = 15*60.0

@@ -35,7 +35,7 @@ from cofs import *
 parameters['coffee'] = {}
 
 reso_str = 'coarse'
-outputDir = createDirectory('outputs_struct_' + reso_str)
+outputDir = create_directory('outputs_struct_' + reso_str)
 refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4,
               'medium2': 8, 'fine': 16, 'ilicak': 4}
 # set mesh resolution
@@ -54,7 +54,7 @@ coords = mesh2d.coordinates
 coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min
 coords.dat.data[:, 1] = coords.dat.data[:, 1]*2*dx - dx
 
-printInfo('Exporting to '+outputDir)
+print_info('Exporting to '+outputDir)
 dt = 75.0/refinement[reso_str]
 if reso_str == 'fine':
     dt /= 2.0

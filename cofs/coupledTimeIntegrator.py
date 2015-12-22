@@ -33,15 +33,15 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
         if self.options.useALEMovingMesh:
             with timed_region('aux_mesh_ale'):
                 self.solver.meshCoordUpdater.solve()
-                computeElemHeight(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
+                compute_elem_height(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
                 self.solver.copyVElemSizeTo2d.solve()
 
     def _updateBottomFriction(self):
         """Computes bottom friction related fields"""
         if self.options.useBottomFriction:
             with timed_region('aux_friction'):
-                self.solver.uvP1_projector.project()
-                computeBottomFriction(
+                self.solver.uv_p1_projector.project()
+                compute_bottom_friction(
                     self.solver,
                     self.fields.uv_p1_3d, self.fields.uv_bottom_2d,
                     self.fields.uv_bottom_3d, self.fields.z_coord_3d,
@@ -84,29 +84,29 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
         """Computes baroclinic head"""
         if self.options.baroclinic:
             with timed_region('aux_barolinicity'):
-                computeBaroclinicHead(self.solver, self.fields.salt_3d, self.fields.baroc_head_3d,
-                                      self.fields.baroc_head_2d, self.fields.baroc_head_int_3d,
-                                      self.fields.bathymetry_3d)
+                compute_baroclinic_head(self.solver, self.fields.salt_3d, self.fields.baroc_head_3d,
+                                        self.fields.baroc_head_2d, self.fields.baroc_head_int_3d,
+                                        self.fields.bathymetry_3d)
 
     def _updateTurbulence(self, t):
         """Updates turbulence related fields"""
         if self.options.useTurbulence:
             with timed_region('turbulence'):
-                    self.solver.glsModel.preprocess()
+                    self.solver.gls_model.preprocess()
                     # NOTE psi must be solved first as it depends on tke
                     self.timeStepper_psi_3d.advance(t, self.solver.dt, self.solver.fields.psi_3d)
                     self.timeStepper_tke_3d.advance(t, self.solver.dt, self.solver.fields.tke_3d)
                     if self.options.useLimiterForTracers:
                         self.solver.tracerLimiter.apply(self.solver.fields.tke_3d)
                         self.solver.tracerLimiter.apply(self.solver.fields.psi_3d)
-                    self.solver.glsModel.postprocess()
+                    self.solver.gls_model.postprocess()
 
     def _updateStabilizationParams(self):
         """Computes Smagorinsky viscosity etc fields"""
         # update velocity magnitude
-        self.solver.uvMagSolver.solve()
+        self.solver.uv_mag_solver.solve()
         # update P1 velocity field
-        self.solver.uvP1_projector.project()
+        self.solver.uv_p1_projector.project()
         if self.options.smagorinskyFactor is not None:
             with timed_region('aux_stabilization'):
                 self.solver.smagorinskyDiffSolver.solve()
@@ -186,9 +186,9 @@ class coupledSSPRKSync(coupledTimeIntegrator):
         for i in range(1, len(self.dt_frac)):
             prev_end_time = self.start_frac[i-1] + self.dt_frac[i-1]
             self.stage_w.append(prev_end_time*(1.0 - self.start_frac[i]))
-        printInfo('dt_frac ' + str(self.dt_frac))
-        printInfo('start_frac ' + str(self.start_frac))
-        printInfo('stage_w ' + str(self.stage_w))
+        print_info('dt_frac ' + str(self.dt_frac))
+        print_info('start_frac ' + str(self.start_frac))
+        print_info('stage_w ' + str(self.stage_w))
 
     def initialize(self):
         """Assign initial conditions to all necessary fields"""
@@ -205,7 +205,7 @@ class coupledSSPRKSync(coupledTimeIntegrator):
         for i, f in enumerate(self.dt_frac):
             M = int(np.ceil(f*self.solver.dt/self.solver.dt_2d))
             dt = f*self.solver.dt/M
-            printInfo('stage {0:d} {1:.6f} {2:d} {3:.4f}'.format(i, dt, M, f))
+            print_info('stage {0:d} {1:.6f} {2:d} {3:.4f}'.format(i, dt, M, f))
             self.M.append(M)
             self.dt_2d.append(dt)
         self._initialized = True
@@ -364,8 +364,8 @@ class coupledSSPIMEX(coupledTimeIntegrator):
                     if self.options.useLimiterForTracers:
                         self.solver.tracerLimiter.apply(self.fields.tke_3d)
                         self.solver.tracerLimiter.apply(self.fields.psi_3d)
-                    self.solver.glsModel.postprocess()
-                    self.solver.glsModel.preprocess()  # for next iteration
+                    self.solver.gls_model.postprocess()
+                    self.solver.gls_model.preprocess()  # for next iteration
             self._updateAllDependencies(t, doVertDiffusion=False,
                                         do2DCoupling=lastStep,
                                         doALEUpdate=lastStep,
@@ -426,9 +426,9 @@ class coupledSSPRKSemiImplicit(coupledTimeIntegrator):
         for i in range(1, len(self.dt_frac)):
             prev_end_time = self.start_frac[i-1] + self.dt_frac[i-1]
             self.stage_w.append(prev_end_time*(1.0 - self.start_frac[i]))
-        printInfo('dt_frac ' + str(self.dt_frac))
-        printInfo('start_frac ' + str(self.start_frac))
-        printInfo('stage_w ' + str(self.stage_w))
+        print_info('dt_frac ' + str(self.dt_frac))
+        print_info('start_frac ' + str(self.start_frac))
+        print_info('stage_w ' + str(self.stage_w))
         self.nStages = self.timeStepper_mom3d.nStages
 
     def initialize(self):
@@ -446,7 +446,7 @@ class coupledSSPRKSemiImplicit(coupledTimeIntegrator):
         for i, f in enumerate(self.dt_frac):
             M = int(np.ceil(f*self.solver.dt/self.solver.dt_2d))
             dt = f*self.solver.dt/M
-            printInfo('stage {0:d} {1:.6f} {2:d} {3:.4f}'.format(i, dt, M, f))
+            print_info('stage {0:d} {1:.6f} {2:d} {3:.4f}'.format(i, dt, M, f))
             self.M.append(M)
             self.dt_2d.append(dt)
         self._initialized = True

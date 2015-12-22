@@ -38,10 +38,10 @@ from cofs import *
 # set physical constants
 physical_constants['rho0'].assign(1025.0)
 
-outputDir = createDirectory('outputs')
+outputDir = create_directory('outputs')
 layers = 20
 mesh2d = Mesh('tartinville_physical.msh')
-printInfo('Loaded mesh ' + mesh2d.name)
+print_info('Loaded mesh ' + mesh2d.name)
 dt = 25.0
 T = 288 * 3600
 TExport = 900.0

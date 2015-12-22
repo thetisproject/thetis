@@ -18,10 +18,10 @@
 from scipy.interpolate import interp1d
 from cofs import *
 
-outputDir = createDirectory('outputs')
+outputDir = create_directory('outputs')
 mesh2d = Mesh('channel_mesh.msh')
-printInfo('Loaded mesh '+mesh2d.name)
-printInfo('Exporting to '+outputDir)
+print_info('Loaded mesh '+mesh2d.name)
+print_info('Exporting to '+outputDir)
 # total duration in seconds
 T = 6 * 3600
 # estimate of max advective velocity used to estimate time step

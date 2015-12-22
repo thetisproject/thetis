@@ -13,7 +13,7 @@ import pytest
 def test_implicit_friction_turbulence(do_assert=True):
     physical_constants['z0_friction'] = 1.5e-3
 
-    outputDir = createDirectory('outputs')
+    outputDir = create_directory('outputs')
     # set mesh resolution
     scale = 1000.0
     reso = 2.5*scale
@@ -27,7 +27,7 @@ def test_implicit_friction_turbulence(do_assert=True):
     n_x = int(Lx/reso)
     mesh2d = RectangleMesh(n_x, n_x, Lx, Lx, reorder=True)
 
-    printInfo('Exporting to ' + outputDir)
+    print_info('Exporting to ' + outputDir)
     dt = 25.0  # 25.0
     T = 12 * 3600.0
     TExport = 100.0
@@ -74,13 +74,13 @@ def test_implicit_friction_turbulence(do_assert=True):
     pressureGradientSource = Constant((-9.81*elev_slope, 0, 0))
 
     s = solverObj
-    vertMomEq = momentumEquation.verticalMomentumEquation(
+    vertMomEq = momentumEquation.VerticalMomentumEquation(
         s.fields.uv_3d, w=None,
-        viscosity_v=s.tot_v_visc.getSum(),
+        viscosity_v=s.tot_v_visc.get_sum(),
         uv_bottom=s.fields.uv_bottom_3d,
         bottom_drag=s.fields.bottom_drag_3d,
         wind_stress=s.fields.get('wind_stress_3d'),
-        vElemSize=s.fields.v_elem_size_3d,
+        v_elem_size=s.fields.v_elem_size_3d,
         source=pressureGradientSource)
 
     sp = {}
@@ -104,9 +104,9 @@ def test_implicit_friction_turbulence(do_assert=True):
         t0 = timeMod.clock()
         # momentumEq
         timeStepper.advance(t, dt, s.fields.uv_3d)
-        s.uvP1_projector.project()
+        s.uv_p1_projector.project()
         # update bottom friction
-        computeBottomFriction(
+        compute_bottom_friction(
             s,
             s.fields.uv_p1_3d, s.fields.uv_bottom_2d,
             s.fields.uv_bottom_3d, s.fields.z_coord_3d,
@@ -115,11 +115,11 @@ def test_implicit_friction_turbulence(do_assert=True):
             s.fields.bottom_drag_3d,
             s.fields.v_elem_size_2d, s.fields.v_elem_size_3d)
         # update viscosity
-        s.glsModel.preprocess()
+        s.gls_model.preprocess()
         # NOTE psi must be solved first as it depends on tke
         s.timeStepper.timeStepper_psi_3d.advance(t, s.dt, s.fields.psi_3d)
         s.timeStepper.timeStepper_tke_3d.advance(t, s.dt, s.fields.tke_3d)
-        s.glsModel.postprocess()
+        s.gls_model.postprocess()
         t1 = timeMod.clock()
         # NOTE vtk exporter has a memory leak if output space is DG
         s.export()

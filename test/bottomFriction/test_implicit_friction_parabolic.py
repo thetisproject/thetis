@@ -11,7 +11,7 @@ import time as timeMod
 def test_implicit_friction_parabolic(do_assert=True):
     physical_constants['z0_friction'] = 1.5e-3
 
-    outputDir = createDirectory('outputs_parab')
+    outputDir = create_directory('outputs_parab')
     # set mesh resolution
     scale = 1000.0
     reso = 2.5*scale
@@ -25,7 +25,7 @@ def test_implicit_friction_parabolic(do_assert=True):
     n_x = int(Lx/reso)
     mesh2d = RectangleMesh(n_x, n_x, Lx, Lx, reorder=True)
 
-    printInfo('Exporting to ' + outputDir)
+    print_info('Exporting to ' + outputDir)
     dt = 3600.0
     T = 10 * 3600.0
     TExport = 100.0
@@ -71,13 +71,13 @@ def test_implicit_friction_parabolic(do_assert=True):
     pressureGradientSource = Constant((-9.81*elev_slope, 0, 0))
     s = solverObj
     uv3d_old = Function(s.function_spaces.U, name='Velocity old')
-    vertMomEq = momentumEquation.verticalMomentumEquation(
+    vertMomEq = momentumEquation.VerticalMomentumEquation(
         s.fields.uv_3d, w=None,
-        viscosity_v=s.tot_v_visc.getSum(),
+        viscosity_v=s.tot_v_visc.get_sum(),
         uv_bottom=uv3d_old,
         bottom_drag=s.fields.bottom_drag_3d,
         wind_stress=s.fields.get('wind_stress_3d'),
-        vElemSize=s.fields.v_elem_size_3d,
+        v_elem_size=s.fields.v_elem_size_3d,
         source=pressureGradientSource)
 
     sp = {}
@@ -94,8 +94,8 @@ def test_implicit_friction_parabolic(do_assert=True):
     for it in range(nSteps):
         t = it*dt
         try:
-            s.uvP1_projector.project()
-            computeBottomFriction(
+            s.uv_p1_projector.project()
+            compute_bottom_friction(
                 s,
                 s.fields.uv_p1_3d, s.fields.uv_bottom_2d,
                 s.fields.uv_bottom_3d, s.fields.z_coord_3d,

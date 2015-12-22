@@ -12,14 +12,14 @@ class TracerEquation(Equation):
                  w_mesh=None, dw_mesh_dz=None,
                  diffusivity_h=None, diffusivity_v=None,
                  source=None,
-                 uvMag=None, uvP1=None, laxFriedrichsFactor=None,
+                 uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
                  bnd_markers=None, bnd_len=None, nonlin=True,
-                 vElemSize=None):
+                 v_elem_size=None):
         self.space = solution.function_space()
         self.mesh = self.space.mesh()
         # this dict holds all args to the equation (at current time step)
         self.solution = solution
-        self.vElemSize = vElemSize
+        self.v_elem_size = v_elem_size
         self.kwargs = {'eta': eta,
                        'uv': uv,
                        'w': w,
@@ -28,9 +28,9 @@ class TracerEquation(Equation):
                        'diffusivity_h': diffusivity_h,
                        'diffusivity_v': diffusivity_v,
                        'source': source,
-                       'uvMag': uvMag,
-                       'uvP1': uvP1,
-                       'laxFriedrichsFactor': laxFriedrichsFactor,
+                       'uv_mag': uv_mag,
+                       'uv_p1': uv_p1,
+                       'lax_friedrichs_factor': lax_friedrichs_factor,
                        }
         self.computeHorizAdvection = uv is not None
         self.computeVertAdvection = w is not None
@@ -88,8 +88,8 @@ class TracerEquation(Equation):
 
     def rhs(self, solution, eta=None, uv=None, w=None, w_mesh=None, dw_mesh_dz=None,
             diffusivity_h=None, diffusivity_v=None,
-            laxFriedrichsFactor=None,
-            uvMag=None, uvP1=None,
+            lax_friedrichs_factor=None,
+            uv_mag=None, uv_p1=None,
             **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
@@ -112,14 +112,14 @@ class TracerEquation(Equation):
                                uv_av[1]*jump(self.test, self.normal[1]) +
                                uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_v + self.dS_h)
                     # Lax-Friedrichs stabilization
-                    if laxFriedrichsFactor is not None:
-                        if uvP1 is not None:
-                            gamma = 0.5*abs((avg(uvP1)[0]*self.normal('-')[0] +
-                                             avg(uvP1)[1]*self.normal('-')[1]))*laxFriedrichsFactor
-                        elif uvMag is not None:
-                            gamma = 0.5*avg(uvMag)*laxFriedrichsFactor
+                    if lax_friedrichs_factor is not None:
+                        if uv_p1 is not None:
+                            gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
+                                             avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
+                        elif uv_mag is not None:
+                            gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
                         else:
-                            raise Exception('either uvP1 or uvMag must be given')
+                            raise Exception('either uv_p1 or uv_mag must be given')
                         G += gamma*dot(jump(self.test), jump(solution))*(self.dS_v + self.dS_h)
                     for bnd_marker in self.boundary_markers:
                         funcs = self.bnd_functions.get(bnd_marker)
@@ -162,9 +162,9 @@ class TracerEquation(Equation):
                 s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
                 c_up = solution('-')*s + solution('+')*(1-s)
                 G += c_up*w_av*jump(self.test, self.normal[2])*self.dS_h
-                if laxFriedrichsFactor is not None:
+                if lax_friedrichs_factor is not None:
                     # Lax-Friedrichs
-                    gamma = 0.5*abs(w_av*self.normal('-')[2])*laxFriedrichsFactor
+                    gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
                     G += gamma*dot(jump(self.test), jump(solution))*self.dS_h
 
             # Non-conservative ALE source term
@@ -207,9 +207,9 @@ class TracerEquation(Equation):
                        dot(avg(diffFlux), self.test('-'))*self.normal[2]('-')) * self.dS_h
                 # symmetric interior penalty stabilization
                 ip_fact = Constant(1.0)
-                if self.vElemSize is None:
-                    raise Exception('vElemSize must be provided')
-                L = avg(self.vElemSize)
+                if self.v_elem_size is None:
+                    raise Exception('v_elem_size must be provided')
+                L = avg(self.v_elem_size)
                 nbNeigh = 2.
                 o = 1.
                 d = 3.

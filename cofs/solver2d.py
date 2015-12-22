@@ -228,7 +228,7 @@ class flowSolver2d(FrozenClass):
         if self.options.checkVolConservation2d:
             eta = self.fields.solution2d.split()[1]
             Vol2d_0 = compVolume2d(eta, self.fields.bathymetry_2d)
-            printInfo('Initial volume 2d {0:f}'.format(Vol2d_0))
+            print_info('Initial volume 2d {0:f}'.format(Vol2d_0))
 
         # initial export
         self.export()

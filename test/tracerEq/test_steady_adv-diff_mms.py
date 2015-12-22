@@ -174,7 +174,7 @@ def run(setup, refinement, order, export=True):
     mesh2d = RectangleMesh(nx, ny, Lx, Ly)
 
     # outputs
-    outputDir = createDirectory('outputs')
+    outputDir = create_directory('outputs')
     if export:
         out_T = File(os.path.join(outputDir, 'T.pvd'))
 
@@ -227,7 +227,7 @@ def run(setup, refinement, order, export=True):
     # update mesh and fields
     solverObj.copyElevTo3d.solve()
     solverObj.meshCoordUpdater.solve()
-    computeElemHeight(solverObj.fields.z_coord_3d, solverObj.fields.v_elem_size_3d)
+    compute_elem_height(solverObj.fields.z_coord_3d, solverObj.fields.v_elem_size_3d)
     solverObj.copyVElemSizeTo2d.solve()
 
     # salinity field
@@ -298,7 +298,7 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
             order_str = 'o{:}'.format(order)
             imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str])
             imgfile += '.png'
-            imgDir = createDirectory('plots')
+            imgDir = create_directory('plots')
             imgfile = os.path.join(imgDir, imgfile)
             print 'saving figure', imgfile
             plt.savefig(imgfile, dpi=200, bbox_inches='tight')
