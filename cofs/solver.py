@@ -408,30 +408,30 @@ class flowSolver(FrozenClass):
         # ----- File exporters
         # create exportManagers and store in a list
         self.exporters = {}
-        e = exporter.exportManager(self.options.outputDir,
-                                   self.options.fieldsToExport,
+        e = exporter.ExportManager(self.options.outputdir,
+                                   self.options.fields_to_export,
                                    self.fields,
                                    self.visu_spaces,
                                    fieldMetadata,
-                                   exportType='vtk',
+                                   export_type='vtk',
                                    verbose=self.options.verbose > 0)
         self.exporters['vtk'] = e
-        numpyDir = os.path.join(self.options.outputDir, 'numpy')
-        e = exporter.exportManager(numpyDir,
-                                   self.options.fieldsToExportNumpy,
+        numpyDir = os.path.join(self.options.outputdir, 'numpy')
+        e = exporter.ExportManager(numpyDir,
+                                   self.options.fields_to_exportNumpy,
                                    self.fields,
                                    self.visu_spaces,
                                    fieldMetadata,
-                                   exportType='numpy',
+                                   export_type='numpy',
                                    verbose=self.options.verbose > 0)
         self.exporters['numpy'] = e
-        hdf5Dir = os.path.join(self.options.outputDir, 'hdf5')
-        e = exporter.exportManager(hdf5Dir,
-                                   self.options.fieldsToExportHDF5,
+        hdf5Dir = os.path.join(self.options.outputdir, 'hdf5')
+        e = exporter.ExportManager(hdf5Dir,
+                                   self.options.fields_to_exportHDF5,
                                    self.fields,
                                    self.visu_spaces,
                                    fieldMetadata,
-                                   exportType='hdf5',
+                                   export_type='hdf5',
                                    verbose=self.options.verbose > 0)
         self.exporters['hdf5'] = e
 
@@ -629,7 +629,7 @@ class flowSolver(FrozenClass):
         self.export()
         if exportFunc is not None:
             exportFunc()
-        self.exporters['vtk'].exportBathymetry(self.fields.bathymetry_2d)
+        self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
         while self.simulation_time <= self.options.T + T_epsilon:
 

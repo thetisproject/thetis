@@ -18,11 +18,11 @@
 
 from cofs import *
 
-outputDir = create_directory('outputs')
+outputdir = create_directory('outputs')
 layers = 6
 mesh2d = Mesh('mesh_rhineRofi_coarse.msh')
 print_info('Loaded mesh '+mesh2d.name)
-print_info('Exporting to '+outputDir)
+print_info('Exporting to '+outputdir)
 
 # Physical parameters
 etaAmplitude = 1.00  # mean (Fisher et al. 2009 tidal range 2.00 )
@@ -87,12 +87,12 @@ if options.useModeSplit:
     options.dt = dt
 options.TExport = TExport
 options.T = T
-options.outputDir = outputDir
+options.outputdir = outputdir
 options.uAdvection = Constant(2.0)
 options.checkVolConservation2d = True
 options.checkVolConservation3d = True
 options.checkSaltConservation = True
-options.fieldsToExport = ['uv_2d', 'elev_2d', 'uv_3d',
+options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                           'w_3d', 'w_mesh_3d', 'salt_3d',
                           'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                           'baroc_head_2d', 'gjv_alpha_h_3d', 'gjv_alpha_v_3d',

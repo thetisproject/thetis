@@ -15,10 +15,10 @@ from cofs import *
 parameters['coffee'] = {}
 
 n_layers = 6
-outputDir = create_directory('outputs')
+outputdir = create_directory('outputs')
 mesh2d = Mesh('channel_mesh.msh')
 print_info('Loaded mesh '+mesh2d.name)
-print_info('Exporting to '+outputDir)
+print_info('Exporting to '+outputdir)
 T = 48 * 3600
 Umag = Constant(2.5)
 TExport = 100.0
@@ -48,11 +48,11 @@ options.useIMEX = True
 # options.baroclinic = True
 options.TExport = TExport
 options.T = T
-options.outputDir = outputDir
+options.outputdir = outputdir
 options.uAdvection = Umag
 options.checkSaltDeviation = True
 options.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion']
-options.fieldsToExport = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
+options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                           'w_3d', 'w_mesh_3d', 'salt_3d',
                           'baroc_head_3d', 'baroc_head_2d',
                           'uv_dav_2d', 'uv_bottom_2d']

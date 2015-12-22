@@ -226,7 +226,7 @@ def run(setup, refinement, order, export=True):
     mesh2d = RectangleMesh(nx, ny, Lx, Ly)
 
     # outputs
-    outputDir = create_directory('outputs')
+    outputdir = create_directory('outputs')
 
     # bathymetry
     P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -237,7 +237,7 @@ def run(setup, refinement, order, export=True):
     solverObj.options.order = order
     solverObj.options.mimetic = False
     solverObj.options.uAdvection = Constant(1.0)
-    solverObj.options.outputDir = outputDir
+    solverObj.options.outputdir = outputdir
     solverObj.options.dt = 30.0
     solverObj.options.dt_2d = 10.0
     solverObj.options.update(S['options'])
@@ -275,9 +275,9 @@ def run(setup, refinement, order, export=True):
     w_ana_ho.project(S['w_expr'])
 
     if export:
-        out_w = File(os.path.join(outputDir, 'w.pvd'))
-        out_w_ana = File(os.path.join(outputDir, 'w_ana.pvd'))
-        out_uv = File(os.path.join(outputDir, 'uv.pvd'))
+        out_w = File(os.path.join(outputdir, 'w.pvd'))
+        out_w_ana = File(os.path.join(outputdir, 'w_ana.pvd'))
+        out_uv = File(os.path.join(outputdir, 'uv.pvd'))
 
     # w needs to be projected to cartesian vector field for sanity check
     w_proj_3d = Function(solverObj.function_spaces.P1DGv, name='w_proj_3d')

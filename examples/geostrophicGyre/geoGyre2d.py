@@ -20,7 +20,7 @@ mesh2d = Mesh('stommel_square.msh')
 nonlin = False
 depth = 1000.0
 elev_amp = 3.0
-outputDir = create_directory('outputs')
+outputdir = create_directory('outputs')
 T = 75*12*2*3600
 TExport = 3600*2
 
@@ -45,10 +45,10 @@ options.coriolis = coriolis_2d
 options.TExport = TExport
 options.T = T
 options.dt = 20.0
-options.outputDir = outputDir
+options.outputdir = outputdir
 options.uAdvection = Constant(0.01)
 options.checkVolConservation2d = True
-options.fieldsToExport = ['uv_2d', 'elev_2d']
+options.fields_to_export = ['uv_2d', 'elev_2d']
 options.timerLabels = []
 options.timeStepperType = 'CrankNicolson'
 

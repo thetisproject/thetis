@@ -13,7 +13,7 @@ import pytest
 def test_implicit_friction_turbulence(do_assert=True):
     physical_constants['z0_friction'] = 1.5e-3
 
-    outputDir = create_directory('outputs')
+    outputdir = create_directory('outputs')
     # set mesh resolution
     scale = 1000.0
     reso = 2.5*scale
@@ -27,7 +27,7 @@ def test_implicit_friction_turbulence(do_assert=True):
     n_x = int(Lx/reso)
     mesh2d = RectangleMesh(n_x, n_x, Lx, Lx, reorder=True)
 
-    print_info('Exporting to ' + outputDir)
+    print_info('Exporting to ' + outputdir)
     dt = 25.0  # 25.0
     T = 12 * 3600.0
     TExport = 100.0
@@ -57,16 +57,16 @@ def test_implicit_friction_turbulence(do_assert=True):
     options.TExport = TExport
     options.dt = dt
     options.T = T
-    options.outputDir = outputDir
+    options.outputdir = outputdir
     options.uAdvection = Umag
     options.checkSaltDeviation = True
     options.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion', 'turbulence']
-    # options.fieldsToExport = []
-    options.fieldsToExport = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
+    # options.fields_to_export = []
+    options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                               'uv_dav_2d', 'uv_bottom_2d',
                               'parab_visc_3d', 'eddy_visc_3d', 'shear_freq_3d',
                               'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
-    # options.fieldsToExportNumpy = ['uv3d', 'eddyVisc3d', 'shearFreq3d',
+    # options.fields_to_exportNumpy = ['uv3d', 'eddyVisc3d', 'shearFreq3d',
     #                                'tke3d', 'psi3d', 'eps3d', 'len3d']
     solverObj.createEquations()
 

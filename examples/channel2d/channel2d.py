@@ -18,10 +18,10 @@
 from scipy.interpolate import interp1d
 from cofs import *
 
-outputDir = create_directory('outputs')
+outputdir = create_directory('outputs')
 mesh2d = Mesh('channel_mesh.msh')
 print_info('Loaded mesh '+mesh2d.name)
-print_info('Exporting to '+outputDir)
+print_info('Exporting to '+outputdir)
 # total duration in seconds
 T = 6 * 3600
 # estimate of max advective velocity used to estimate time step
@@ -55,10 +55,10 @@ options.cfl_2d = 1.0
 # options.nonlin = False
 options.TExport = TExport
 options.T = T
-options.outputDir = outputDir
+options.outputdir = outputdir
 options.uAdvection = Umag
 options.checkVolConservation2d = True
-options.fieldsToExport = ['uv_2d', 'elev_2d']
+options.fields_to_export = ['uv_2d', 'elev_2d']
 options.timerLabels = []
 # options.timeStepperType = 'SSPRK33'
 # options.timeStepperType = 'CrankNicolson'

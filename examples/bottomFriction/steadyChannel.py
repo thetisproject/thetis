@@ -22,7 +22,7 @@ parameters['coffee'] = {}
 
 physical_constants['z0_friction'] = 1.5e-3
 
-outputDir = create_directory('outputs')
+outputdir = create_directory('outputs')
 # set mesh resolution
 dx = 2500.0
 layers = 25
@@ -37,7 +37,7 @@ mesh2d = RectangleMesh(n_x, n_x, Lx, Lx, reorder=True)
 mesh2d.coordinates.dat.data[:, 0] -= Lx/2
 mesh2d.coordinates.dat.data[:, 1] -= Lx/2
 
-print_info('Exporting to ' + outputDir)
+print_info('Exporting to ' + outputdir)
 # NOTE bottom friction (implicit mom eq) will blow up for higher dt
 dt = 25.0
 T = 12 * 3600.0  # 24 * 3600
@@ -69,11 +69,11 @@ options.tracerLaxFriedrichs = Constant(0.0)
 options.TExport = TExport
 options.dt = dt
 options.T = T
-options.outputDir = outputDir
+options.outputdir = outputdir
 options.uAdvection = Umag
 options.checkSaltDeviation = True
 options.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion', 'turbulence']
-options.fieldsToExport = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
+options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                           'w_3d', 'w_mesh_3d', 'salt_3d',
                           'baroc_head_3d', 'baroc_head_2d',
                           'uv_dav_2d', 'uv_bottom_2d',

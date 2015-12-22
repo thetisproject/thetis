@@ -58,11 +58,11 @@ if commrank == 0:
 
 limiterStr = 'limiter' if args.useLimiter else 'jumpDiff'+str(args.jumpDiffFactor)
 spaceStr = 'RT' if args.mimetic else 'DG'
-outputDir = 'out_{:}_p{:}{:}_Re{:}_{:}'.format(args.reso_str, spaceStr,
+outputdir = 'out_{:}_p{:}{:}_Re{:}_{:}'.format(args.reso_str, spaceStr,
                                                args.polyOrder,
                                                args.reynoldsNumber, limiterStr)
 
-outputDir = create_directory(outputDir)
+outputdir = create_directory(outputdir)
 reso_str = args.reso_str
 if args.jumpDiffFactor is not None:
     args.jumpDiffFactor = Constant(args.jumpDiffFactor)
@@ -87,7 +87,7 @@ coords = mesh2d.coordinates
 coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min
 coords.dat.data[:, 1] = coords.dat.data[:, 1]*2*dx - dx
 
-print_info('Exporting to '+outputDir)
+print_info('Exporting to '+outputdir)
 dt = 75.0/refinement[reso_str]
 if reso_str == 'fine':
     dt /= 2.0
@@ -126,18 +126,18 @@ if solverObj.useModeSplit:
     solverObj.dt = dt
 solverObj.TExport = TExport
 solverObj.T = T
-solverObj.outputDir = outputDir
+solverObj.outputdir = outputdir
 solverObj.uAdvection = Constant(1.0)
 solverObj.checkVolConservation2d = True
 solverObj.checkVolConservation3d = True
 solverObj.checkSaltConservation = True
 solverObj.checkSaltOvershoot = True
-solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
+solverObj.fields_to_export = ['uv2d', 'elev2d', 'uv3d',
                             'w3d', 'wMesh3d', 'salt3d',
                             'uvDav2d', 'uvDav3d', 'baroHead3d',
                             'baroHead2d',
                             'smagViscosity', 'saltJumpDiff']
-solverObj.fieldsToExportNumpy = ['salt3d']
+solverObj.fields_to_exportNumpy = ['salt3d']
 solverObj.timerLabels = []
 
 solverObj.createEquations()

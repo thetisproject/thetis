@@ -365,7 +365,7 @@ def run(setup, refinement, order, export=True):
     dt = 4.0/refinement
 
     # outputs
-    outputDir = create_directory('outputs')
+    outputdir = create_directory('outputs')
 
     # bathymetry
     P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -379,7 +379,7 @@ def run(setup, refinement, order, export=True):
     solverObj.options.order = order
     solverObj.options.mimetic = True
     solverObj.options.uAdvection = Constant(1.0)
-    solverObj.options.outputDir = outputDir
+    solverObj.options.outputdir = outputdir
     solverObj.options.T = T
     solverObj.options.dt = dt
     solverObj.options.TExport = TExport

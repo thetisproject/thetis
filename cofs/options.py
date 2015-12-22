@@ -74,7 +74,7 @@ class modelOptions(AttrDict):
         self.cfl_3d = 1.0
         """float: Factor to scale the 2d time step"""
         self.TExport = 100.0
-        """float: Export interval in seconds. All fields in fieldsToExport list will be stored to disk and diagnostics will be computed."""
+        """float: Export interval in seconds. All fields in fields_to_export list will be stored to disk and diagnostics will be computed."""
         self.T = 1000.0
         """float: Simulation duration in seconds"""
         self.uAdvection = Constant(0.0)
@@ -86,13 +86,13 @@ class modelOptions(AttrDict):
                             'func_copy2dTo3d', 'func_copy3dTo2d',
                             'func_vert_int']
         """list of str: Labels of timer sections to print out"""
-        self.outputDir = 'outputs'
+        self.outputdir = 'outputs'
         """str: Directory where model output files are stored"""
-        self.fieldsToExport = ['elev_2d', 'uv_2d', 'uv_3d', 'w_3d']
+        self.fields_to_export = ['elev_2d', 'uv_2d', 'uv_3d', 'w_3d']
         """list of str: Fields to export in VTK format"""
-        self.fieldsToExportNumpy = []
+        self.fields_to_exportNumpy = []
         """list of str: Fields to export in HDF5 format"""
-        self.fieldsToExportHDF5 = []
+        self.fields_to_exportHDF5 = []
         """list of str: Fields to export in numpy format"""
         self.verbose = 0
         """int: Verbosity level"""

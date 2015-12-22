@@ -19,9 +19,9 @@ elev_amp = 1.0
 # estimate of max advective velocity used to estimate time step
 Umag = Constant(0.5)
 
-outputDir = create_directory('outputs_waveEq2d')
+outputdir = create_directory('outputs_waveEq2d')
 print_info('Loaded mesh '+mesh2d.name)
-print_info('Exporting to '+outputDir)
+print_info('Exporting to '+outputdir)
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -51,11 +51,11 @@ options.cfl_2d = 1.0
 options.nonlin = False  # use linear wave equation
 options.TExport = TExport
 options.T = T
-options.outputDir = outputDir
+options.outputdir = outputdir
 options.uAdvection = Umag
 options.checkVolConservation2d = True
-options.fieldsToExport = ['uv_2d', 'elev_2d']
-options.fieldsToExportHDF5 = ['uv_2d', 'elev_2d']
+options.fields_to_export = ['uv_2d', 'elev_2d']
+options.fields_to_exportHDF5 = ['uv_2d', 'elev_2d']
 options.timerLabels = []
 # options.timeStepperType = 'SSPRK33'
 # options.dt = dt/40.0  # for explicit schemes

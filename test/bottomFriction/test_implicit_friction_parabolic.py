@@ -11,7 +11,7 @@ import time as timeMod
 def test_implicit_friction_parabolic(do_assert=True):
     physical_constants['z0_friction'] = 1.5e-3
 
-    outputDir = create_directory('outputs_parab')
+    outputdir = create_directory('outputs_parab')
     # set mesh resolution
     scale = 1000.0
     reso = 2.5*scale
@@ -25,7 +25,7 @@ def test_implicit_friction_parabolic(do_assert=True):
     n_x = int(Lx/reso)
     mesh2d = RectangleMesh(n_x, n_x, Lx, Lx, reorder=True)
 
-    print_info('Exporting to ' + outputDir)
+    print_info('Exporting to ' + outputdir)
     dt = 3600.0
     T = 10 * 3600.0
     TExport = 100.0
@@ -55,11 +55,11 @@ def test_implicit_friction_parabolic(do_assert=True):
     options.TExport = TExport
     options.dt = dt
     options.T = T
-    options.outputDir = outputDir
+    options.outputdir = outputdir
     options.uAdvection = Umag
     options.checkSaltDeviation = True
     options.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion', 'turbulence']
-    options.fieldsToExport = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
+    options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                               'w_3d', 'w_mesh_3d', 'salt_3d',
                               'baroc_head_3d', 'baroc_head_2d',
                               'uv_dav_2d', 'uv_bottom_2d',

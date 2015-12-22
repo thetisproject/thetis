@@ -27,7 +27,7 @@ class flowSolver2d(FrozenClass):
         # 2d model specific default options
         options.setdefault('timeStepperType', 'SSPRK33')
         options.setdefault('timerLabels', ['mode2d'])
-        options.setdefault('fieldsToExport', ['elev_2d', 'uv_2d'])
+        options.setdefault('fields_to_export', ['elev_2d', 'uv_2d'])
 
         # override default options
         self.options = modelOptions()
@@ -145,26 +145,26 @@ class flowSolver2d(FrozenClass):
         self.visu_spaces[uv_2d.function_space()] = self.function_spaces.P1v_2d
         self.visu_spaces[elev_2d.function_space()] = self.function_spaces.P1_2d
         self.exporters = {}
-        e = exporter.exportManager(self.options.outputDir,
-                                   self.options.fieldsToExport,
+        e = exporter.exportManager(self.options.outputdir,
+                                   self.options.fields_to_export,
                                    self.fields,
                                    self.visu_spaces,
                                    fieldMetadata,
                                    exportType='vtk',
                                    verbose=self.options.verbose > 0)
         self.exporters['vtk'] = e
-        numpyDir = os.path.join(self.options.outputDir, 'numpy')
+        numpyDir = os.path.join(self.options.outputdir, 'numpy')
         e = exporter.exportManager(numpyDir,
-                                   self.options.fieldsToExportNumpy,
+                                   self.options.fields_to_exportNumpy,
                                    self.fields,
                                    self.visu_spaces,
                                    fieldMetadata,
                                    exportType='numpy',
                                    verbose=self.options.verbose > 0)
         self.exporters['numpy'] = e
-        hdf5Dir = os.path.join(self.options.outputDir, 'hdf5')
+        hdf5Dir = os.path.join(self.options.outputdir, 'hdf5')
         e = exporter.exportManager(hdf5Dir,
-                                   self.options.fieldsToExportHDF5,
+                                   self.options.fields_to_exportHDF5,
                                    self.fields,
                                    self.visu_spaces,
                                    fieldMetadata,

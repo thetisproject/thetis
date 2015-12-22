@@ -38,7 +38,7 @@ from cofs import *
 # set physical constants
 physical_constants['rho0'].assign(1025.0)
 
-outputDir = create_directory('outputs')
+outputdir = create_directory('outputs')
 layers = 20
 mesh2d = Mesh('tartinville_physical.msh')
 print_info('Loaded mesh ' + mesh2d.name)
@@ -83,17 +83,17 @@ if options.useModeSplit:
     options.dt = dt
 options.TExport = TExport
 options.T = T
-options.outputDir = outputDir
+options.outputdir = outputdir
 options.uAdvection = Constant(1.5)
 options.checkVolConservation2d = True
 options.checkVolConservation3d = True
 options.checkSaltConservation = True
 options.checkSaltOvershoot = True
-options.fieldsToExport = ['uv_2d', 'elev_2d', 'uv_3d',
+options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                           'w_3d', 'w_mesh_3d', 'salt_3d',
                           'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                           'baroc_head_2d']
-options.fieldsToExportNumpy = ['salt_3d', 'baroc_head_3d', 'elev_2d']
+options.fields_to_exportNumpy = ['salt_3d', 'baroc_head_3d', 'elev_2d']
 options.timerLabels = ['mode2d', 'momentumEq', 'continuityEq', 'saltEq',
                        'aux_barolinicity', 'aux_mom_coupling',
                        'func_copy2dTo3d', 'func_copy3dTo2d', ]

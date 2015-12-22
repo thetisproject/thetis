@@ -20,9 +20,9 @@ n_layers = 6
 # estimate of max advective velocity used to estimate time step
 Umag = Constant(0.5)
 
-outputDir = create_directory('outputs')
+outputdir = create_directory('outputs')
 print_info('Loaded mesh '+mesh2d.name)
-print_info('Exporting to '+outputDir)
+print_info('Exporting to '+outputdir)
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -68,10 +68,10 @@ options.checkVolConservation3d = True
 options.timerLabels = []
 # options.timerLabels = ['mode2d', 'momentumEq', 'continuityEq',
 #                          'aux_functions']
-options.fieldsToExport = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
+options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                           'w_3d', 'w_mesh_3d', 'salt_3d',
                           'uv_dav_2d', 'uv_bottom_2d']
-options.fieldsToExportHDF5 = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
+options.fields_to_exportHDF5 = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                               'w_3d', 'salt_3d']
 
 # need to call creator to create the function spaces

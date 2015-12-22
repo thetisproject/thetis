@@ -14,9 +14,9 @@
 from cofs import *
 
 mesh2d = Mesh('stommel_square.msh')
-outputDir = create_directory('outputs')
+outputdir = create_directory('outputs')
 print_info('Loaded mesh '+mesh2d.name)
-print_info('Exporting to '+outputDir)
+print_info('Exporting to '+outputdir)
 depth = 1000.0
 T = 75*12*2*3600
 TExport = 3600*2
@@ -53,10 +53,10 @@ options.lin_drag = lin_drag
 options.TExport = TExport
 options.T = T
 options.dt = 45.0
-options.outputDir = outputDir
+options.outputdir = outputdir
 options.uAdvection = Constant(0.01)
 options.checkVolConservation2d = True
-options.fieldsToExport = ['uv_2d', 'elev_2d']
+options.fields_to_export = ['uv_2d', 'elev_2d']
 options.timerLabels = []
 # options.timeStepperType = 'CrankNicolson'
 

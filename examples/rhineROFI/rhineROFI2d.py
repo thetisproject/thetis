@@ -18,10 +18,10 @@
 
 from cofs import *
 
-outputDir = create_directory('outputs2d-dg')
+outputdir = create_directory('outputs2d-dg')
 mesh2d = Mesh('mesh_rhineRofi_coarse.msh')
 print_info('Loaded mesh '+mesh2d.name)
-print_info('Exporting to '+outputDir)
+print_info('Exporting to '+outputdir)
 
 # Physical parameters
 etaAmplitude = 1.00  # mean (Fisher et al. 2009 tidal range 2.00 )
@@ -68,9 +68,9 @@ options.hViscosity = Constant(10.0)
 options.TExport = TExport
 options.T = T
 options.dt = dt
-options.outputDir = outputDir
+options.outputdir = outputdir
 options.uAdvection = Constant(1.5)
-options.fieldsToExport = ['uv_2d', 'elev_2d']
+options.fields_to_export = ['uv_2d', 'elev_2d']
 options.timerLabels = []
 # options.timeStepperType = 'CrankNicolson'
 options.timeStepperType = 'ssprk33semi'

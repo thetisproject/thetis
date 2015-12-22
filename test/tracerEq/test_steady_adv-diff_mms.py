@@ -174,9 +174,9 @@ def run(setup, refinement, order, export=True):
     mesh2d = RectangleMesh(nx, ny, Lx, Ly)
 
     # outputs
-    outputDir = create_directory('outputs')
+    outputdir = create_directory('outputs')
     if export:
-        out_T = File(os.path.join(outputDir, 'T.pvd'))
+        out_T = File(os.path.join(outputdir, 'T.pvd'))
 
     # bathymetry
     P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -186,11 +186,11 @@ def run(setup, refinement, order, export=True):
     solverObj = solver.flowSolver(mesh2d, bathymetry_2d, n_layers)
     solverObj.options.order = order
     solverObj.options.uAdvection = Constant(1.0)
-    solverObj.options.outputDir = outputDir
+    solverObj.options.outputdir = outputdir
     solverObj.options.T = T
     solverObj.options.dt = dt
     solverObj.options.dt_2d = dt_2d
-    solverObj.options.fieldsToExport = ['salt_3d', 'uv_3d', 'w_3d']
+    solverObj.options.fields_to_export = ['salt_3d', 'uv_3d', 'w_3d']
     solverObj.options.update(SET['options'])
 
     solverObj.createFunctionSpaces()

@@ -35,7 +35,7 @@ from cofs import *
 parameters['coffee'] = {}
 
 reso_str = 'coarse'
-outputDir = create_directory('outputs_struct_' + reso_str)
+outputdir = create_directory('outputs_struct_' + reso_str)
 refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4,
               'medium2': 8, 'fine': 16, 'ilicak': 4}
 # set mesh resolution
@@ -54,7 +54,7 @@ coords = mesh2d.coordinates
 coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min
 coords.dat.data[:, 1] = coords.dat.data[:, 1]*2*dx - dx
 
-print_info('Exporting to '+outputDir)
+print_info('Exporting to '+outputdir)
 dt = 75.0/refinement[reso_str]
 if reso_str == 'fine':
     dt /= 2.0
@@ -96,18 +96,18 @@ if options.useModeSplit:
     options.dt = dt
 options.TExport = TExport
 options.T = T
-options.outputDir = outputDir
+options.outputdir = outputdir
 options.uAdvection = Constant(1.0)
 options.checkVolConservation2d = True
 options.checkVolConservation3d = True
 options.checkSaltConservation = True
 options.checkSaltOvershoot = True
-options.fieldsToExport = ['uv_2d', 'elev_2d', 'uv_3d',
+options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                           'w_3d', 'w_mesh_3d', 'salt_3d',
                           'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                           'baroc_head_2d',
                           'smag_visc_3d', 'salt_jump_diff']
-options.fieldsToExportNumpy = ['salt_3d']
+options.fields_to_exportNumpy = ['salt_3d']
 options.timerLabels = []
 
 solverObj.createEquations()

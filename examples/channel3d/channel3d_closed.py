@@ -23,10 +23,10 @@ from scipy.interpolate import interp1d
 from cofs import *
 
 n_layers = 6
-outputDir = create_directory('outputs_closed')
+outputdir = create_directory('outputs_closed')
 mesh2d = Mesh('channel_mesh.msh')
 print_info('Loaded mesh '+mesh2d.name)
-print_info('Exporting to '+outputDir)
+print_info('Exporting to '+outputdir)
 T = 48 * 3600
 Umag = Constant(4.2)
 TExport = 100.0
@@ -58,13 +58,13 @@ options.useIMEX = True
 # options.baroclinic = True
 options.TExport = TExport
 options.T = T
-options.outputDir = outputDir
+options.outputdir = outputdir
 options.uAdvection = Umag
 options.checkVolConservation2d = True
 options.checkVolConservation3d = True
 options.checkSaltConservation = True
 options.checkSaltDeviation = True
-options.fieldsToExport = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
+options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                           'w_3d', 'w_mesh_3d', 'salt_3d',
                           'uv_dav_2d', 'uv_bottom_2d']
 options.timerLabels = []

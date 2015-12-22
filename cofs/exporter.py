@@ -6,36 +6,36 @@ Tuomas Karna 2015-07-06
 from utility import *
 
 
-class exporterBase(object):
+class ExporterBase(object):
     """
     Base class for exporter objects.
     """
-    def __init__(self, filename, outputDir, nextExportIx=0, verbose=False):
+    def __init__(self, filename, outputdir, next_export_ix=0, verbose=False):
         self.filename = filename
-        self.outputDir = create_directory(outputDir)
+        self.outputdir = create_directory(outputdir)
         self.verbose = verbose
         # keeps track of export numbers
-        self.nextExportIx = nextExportIx
+        self.next_export_ix = next_export_ix
 
-    def setNextExportIx(self, nextExportIx):
+    def set_next_export_ix(self, next_export_ix):
         """Sets the index of next export"""
-        self.nextExportIx = nextExportIx
+        self.next_export_ix = next_export_ix
 
     def export(self, function):
         raise NotImplementedError('This method must be implemented in the derived class')
 
 
-class vtkExporter(exporterBase):
+class VTKExporter(ExporterBase):
     """Class that handles Paraview file exports."""
-    def __init__(self, fs_visu, func_name, outputDir, filename,
-                 nextExportIx=0, verbose=False):
+    def __init__(self, fs_visu, func_name, outputdir, filename,
+                 next_export_ix=0, verbose=False):
         """Creates exporter object.
         fs_visu:  function space where data will be projected before exporting
         func_name: name of the function
-        outputDir: output directory
+        outputdir: output directory
         filename: name of the pvd file
         """
-        super(vtkExporter, self).__init__(filename, outputDir, nextExportIx,
+        super(VTKExporter, self).__init__(filename, outputdir, next_export_ix,
                                           verbose)
         self.fs_visu = fs_visu
         self.func_name = func_name
@@ -44,13 +44,13 @@ class vtkExporter(exporterBase):
         if (len(filename) < len(suffix)+1 or filename[:len(suffix)] != suffix):
             self.filename += suffix
         self.proj_func = tmpFunctionCache.get(self.fs_visu)
-        self.outfile = File(os.path.join(outputDir, self.filename))
+        self.outfile = File(os.path.join(outputdir, self.filename))
         self.P = {}
 
-    def setNextExportIx(self, nextExportIx):
+    def set_next_export_ix(self, next_export_ix):
         """Sets the index of next export"""
         # NOTE vtk io objects store current export index not next
-        super(vtkExporter, self).setNextExportIx(nextExportIx - 1)
+        super(VTKExporter, self).set_next_export_ix(next_export_ix - 1)
 
     def export(self, function):
         """Exports given function to disk."""
@@ -61,20 +61,20 @@ class vtkExporter(exporterBase):
         old_name = self.proj_func.name()
         self.proj_func.rename(name=self.func_name)
         # self.proj_func.project(function)  # NOTE this allocates a function
-        self.outfile << (self.proj_func, self.nextExportIx)
-        self.nextExportIx += 1
+        self.outfile << (self.proj_func, self.next_export_ix)
+        self.next_export_ix += 1
         # restore old name
         self.proj_func.rename(name=old_name)
 
 
-class naiveFieldExporter(exporterBase):
+class NaiveFieldExporter(ExporterBase):
     """
     Exports function nodal values to disk in numpy binary format.
 
     Works for simple Pn and PnDG fields.
     """
-    def __init__(self, function_space, outputDir, filename_prefix,
-                 nextExportIx=0, verbose=False):
+    def __init__(self, function_space, outputdir, filename_prefix,
+                 next_export_ix=0, verbose=False):
         """
         Create exporter object for given function.
 
@@ -82,14 +82,14 @@ class naiveFieldExporter(exporterBase):
         ----------
         function_space : FunctionSpace
             function space where the exported functions belong
-        outputDir : string
+        outputdir : string
             directory where outputs will be stored
         filename : string
             prefix of output filename. Filename is prefix_nnnnn.npy
             where nnnn is the export number.
         """
-        super(naiveFieldExporter, self).__init__(filename_prefix, outputDir,
-                                                 nextExportIx, verbose)
+        super(NaiveFieldExporter, self).__init__(filename_prefix, outputdir,
+                                                 next_export_ix, verbose)
         self.function_space = function_space
 
         # create mappings between local/global node indices
@@ -100,22 +100,22 @@ class naiveFieldExporter(exporterBase):
         y_func = Function(fs).interpolate(Expression(['x[1]']*dim))
         z_func = Function(fs).interpolate(Expression(['x[2]']*dim))
         if dim > 1:
-            rankNodeX = comm.gather(x_func.dat.data[:, 0], root=0)
-            rankNodeY = comm.gather(y_func.dat.data[:, 0], root=0)
-            rankNodeZ = comm.gather(z_func.dat.data[:, 0], root=0)
+            rank_node_x = comm.gather(x_func.dat.data[:, 0], root=0)
+            rank_node_y = comm.gather(y_func.dat.data[:, 0], root=0)
+            rank_node_z = comm.gather(z_func.dat.data[:, 0], root=0)
         else:
-            rankNodeX = comm.gather(x_func.dat.data, root=0)
-            rankNodeY = comm.gather(y_func.dat.data, root=0)
-            rankNodeZ = comm.gather(z_func.dat.data, root=0)
+            rank_node_x = comm.gather(x_func.dat.data, root=0)
+            rank_node_y = comm.gather(y_func.dat.data, root=0)
+            rank_node_z = comm.gather(z_func.dat.data, root=0)
 
         # mapping of local dof to global array
         self.localToGlobal = []
         self.globalToLocal = []
         if commrank == 0:
             # construct a single array for all the nodes
-            x = np.concatenate(tuple(rankNodeX), axis=0)
-            y = np.concatenate(tuple(rankNodeY), axis=0)
-            z = np.concatenate(tuple(rankNodeZ), axis=0)
+            x = np.concatenate(tuple(rank_node_x), axis=0)
+            y = np.concatenate(tuple(rank_node_y), axis=0)
+            z = np.concatenate(tuple(rank_node_z), axis=0)
             # round coordinates to avoid noise affecting sort
             x = np.round(x, decimals=1)
             y = np.round(y, decimals=1)
@@ -137,12 +137,12 @@ class naiveFieldExporter(exporterBase):
             #                                  for process iRank
             offset = 0
             for i in xrange(comm.size):
-                nNodes = len(rankNodeX[i])
-                ix = sorted_ix[offset:offset+nNodes]
+                n_nodes = len(rank_node_x[i])
+                ix = sorted_ix[offset:offset+n_nodes]
                 self.globalToLocal.append(ix)
-                ix_inv = sorted_ix_inv[offset:offset+nNodes]
+                ix_inv = sorted_ix_inv[offset:offset+n_nodes]
                 self.localToGlobal.append(ix_inv)
-                offset += nNodes
+                offset += n_nodes
 
         # construct local element connectivity array
         if self.function_space.extruded:
@@ -150,40 +150,40 @@ class naiveFieldExporter(exporterBase):
             if ufl_elem.family() != 'OuterProductElement':
                 raise NotImplementedError('Only OuterProductElement is supported')
             # extruded mesh generate connectivity for all layers
-            nLayers = self.function_space.mesh().layers - 1  # element layers
+            n_layers = self.function_space.mesh().layers - 1  # element layers
             # connectivity for first layer
-            surfConn = self.function_space.cell_node_map().values
-            nSurfElem, nElemNode = surfConn.shape
+            surf_conn = self.function_space.cell_node_map().values
+            n_surf_elem, n_elem_node = surf_conn.shape
             if ufl_elem._B.family() == 'Lagrange':
                 layer_node_offset = 1
             elif ufl_elem._B.family() == 'Discontinuous Lagrange':
-                layer_node_offset = nElemNode
+                layer_node_offset = n_elem_node
             else:
                 raise NotImplementedError('Unsupported vertical space')
             # construct element table for all layers
-            conn = np.zeros((nLayers*nSurfElem, nElemNode), dtype=np.int32)
-            for i in range(nLayers):
+            conn = np.zeros((n_layers*n_surf_elem, n_elem_node), dtype=np.int32)
+            for i in range(n_layers):
                 o = i*layer_node_offset
-                conn[i*nSurfElem:(i+1)*nSurfElem, :] = surfConn + o
+                conn[i*n_surf_elem:(i+1)*n_surf_elem, :] = surf_conn + o
         else:
             # 2D mesh
             conn = self.function_space.cell_node_map().values
         # construct global connectivity array
         # NOTE connectivity table is not unique
         self.connectivity = []
-        rankConn = comm.gather(conn, root=0)
+        rank_conn = comm.gather(conn, root=0)
         if commrank == 0:
             for i in xrange(comm.size):
                 # convert each connectivity array to global index
-                rankConn[i] = self.localToGlobal[i][rankConn[i]]
+                rank_conn[i] = self.localToGlobal[i][rank_conn[i]]
             # concatenate to single array
-            self.connectivity = np.concatenate(tuple(rankConn), axis=0)
+            self.connectivity = np.concatenate(tuple(rank_conn), axis=0)
 
-    def genFilename(self, iExport):
-        filename = '{0:s}_{1:05d}.npz'.format(self.filename, iExport)
-        return os.path.join(self.outputDir, filename)
+    def gen_filename(self, iexport):
+        filename = '{0:s}_{1:05d}.npz'.format(self.filename, iexport)
+        return os.path.join(self.outputdir, filename)
 
-    def exportAsIndex(self, iExport, function):
+    def export_as_indexx(self, iexport, function):
         """
         Exports the given function to disk using the specified export
         index number.
@@ -191,30 +191,30 @@ class naiveFieldExporter(exporterBase):
         assert function.function_space() == self.function_space,\
             'Function space does not match'
         dim = self.function_space.dim
-        localData = comm.gather(function.dat.data, root=0)
+        local_data = comm.gather(function.dat.data, root=0)
         if commrank == 0:
-            globalData = np.zeros((self.nGlobalNodes, dim))
+            global_data = np.zeros((self.nGlobalNodes, dim))
             for i in xrange(comm.size):
                 if dim > 1:
-                    globalData[self.localToGlobal[i], :] = localData[i]
+                    global_data[self.localToGlobal[i], :] = local_data[i]
                 else:
-                    globalData[self.localToGlobal[i], 0] = localData[i]
+                    global_data[self.localToGlobal[i], 0] = local_data[i]
 
-            filename = self.genFilename(iExport)
+            filename = self.gen_filename(iexport)
             if self.verbose:
                 print 'saving state to', filename
             np.savez(filename, xyz=self.xyz, connectivity=self.connectivity,
-                     data=globalData)
-        self.nextExportIx = iExport+1
+                     data=global_data)
+        self.next_export_ix = iexport+1
 
     def export(self, function):
         """
         Exports the given function to disk.
         Increments previous export index by 1.
         """
-        self.exportAsIndex(self.nextExportIx, function)
+        self.export_as_indexx(self.next_export_ix, function)
 
-    def load(self, iExport, function):
+    def load(self, iexport, function):
         """
         Loads nodal values from disk and assigns to the given function.
         """
@@ -222,29 +222,29 @@ class naiveFieldExporter(exporterBase):
             'Function space does not match'
         dim = self.function_space.dim
         if commrank == 0:
-            filename = self.genFilename(iExport)
+            filename = self.gen_filename(iexport)
             if self.verbose:
                 print 'loading state from', filename
-            npzFile = np.load(filename)
-            globalData = npzFile['data']
-            assert globalData.shape[0] == self.nGlobalNodes,\
+            npzfile = np.load(filename)
+            global_data = npzfile['data']
+            assert global_data.shape[0] == self.nGlobalNodes,\
                 'Number of nodes does not match: {0:d} != {1:d}'.format(
-                    self.nGlobalNodes, globalData.shape[0])
-            localData = []
+                    self.nGlobalNodes, global_data.shape[0])
+            local_data = []
             for i in xrange(comm.size):
-                localData.append(globalData[self.localToGlobal[i], :])
+                local_data.append(global_data[self.localToGlobal[i], :])
         else:
-            localData = None
-        data = comm.scatter(localData, root=0)
+            local_data = None
+        data = comm.scatter(local_data, root=0)
         if dim == 1:
             data = data.ravel()
         function.dat.data[:] = data
 
 
-class hdf5Exporter(exporterBase):
+class HDF5Exporter(ExporterBase):
     """Stores fields in disk in native discretization using HDF5 containers"""
-    def __init__(self, function_space, outputDir, filename_prefix,
-                 nextExportIx=0, verbose=False):
+    def __init__(self, function_space, outputdir, filename_prefix,
+                 next_export_ix=0, verbose=False):
         """
         Create exporter object for given function.
 
@@ -252,99 +252,99 @@ class hdf5Exporter(exporterBase):
         ----------
         function_space : FunctionSpace
             function space where the exported functions belong
-        outputDir : string
+        outputdir : string
             directory where outputs will be stored
         filename : string
             prefix of output filename. Filename is prefix_nnnnn.h5
             where nnnnn is the export number.
         """
-        super(hdf5Exporter, self).__init__(filename_prefix, outputDir,
-                                           nextExportIx, verbose)
+        super(HDF5Exporter, self).__init__(filename_prefix, outputdir,
+                                           next_export_ix, verbose)
         self.function_space = function_space
 
-    def setNextExportIx(self, nextExportIx):
+    def set_next_export_ix(self, next_export_ix):
         """Sets the index of next export"""
-        self.nextExportIx = nextExportIx
+        self.next_export_ix = next_export_ix
 
-    def genFilename(self, iExport):
-        filename = '{0:s}_{1:05d}.h5'.format(self.filename, iExport)
-        return os.path.join(self.outputDir, filename)
+    def gen_filename(self, iexport):
+        filename = '{0:s}_{1:05d}.h5'.format(self.filename, iexport)
+        return os.path.join(self.outputdir, filename)
 
-    def exportAsIndex(self, iExport, function):
+    def export_as_indexx(self, iexport, function):
         """
         Exports the given function to disk using the specified export
         index number.
         """
         assert function.function_space() == self.function_space,\
             'Function space does not match'
-        filename = self.genFilename(iExport)
+        filename = self.gen_filename(iexport)
         if self.verbose:
             print('saving {:} state to {:}'.format(function.name, filename))
         with DumbCheckpoint(filename, mode=FILE_CREATE) as f:
             f.store(function)
-        self.nextExportIx = iExport + 1
+        self.next_export_ix = iexport + 1
 
     def export(self, function):
         """
         Exports the given function to disk.
         Increments previous export index by 1.
         """
-        self.exportAsIndex(self.nextExportIx, function)
+        self.export_as_indexx(self.next_export_ix, function)
 
-    def load(self, iExport, function):
+    def load(self, iexport, function):
         """
         Loads nodal values from disk and assigns to the given function.
         """
         assert function.function_space() == self.function_space,\
             'Function space does not match'
-        filename = self.genFilename(iExport)
+        filename = self.gen_filename(iexport)
         if self.verbose:
             print('loading {:} state from {:}'.format(function.name, filename))
         with DumbCheckpoint(filename, mode=FILE_READ) as f:
             f.load(function)
 
 
-class exportManager(object):
+class ExportManager(object):
     """Handles a list of file exporter objects"""
 
-    def __init__(self, outputDir, fieldsToExport, functions,
-                 visualizationSpaces, fieldMetadata,
-                 exportType='vtk', nextExportIx=0,
+    def __init__(self, outputdir, fields_to_export, functions,
+                 visualization_spaces, field_metadata,
+                 export_type='vtk', next_export_ix=0,
                  verbose=False):
-        self.outputDir = outputDir
-        self.fieldsToExport = fieldsToExport
+        self.outputdir = outputdir
+        self.fields_to_export = fields_to_export
         self.functions = functions
-        self.fieldMetadata = fieldMetadata
-        self.visualizationSpaces = visualizationSpaces
+        self.field_metadata = field_metadata
+        self.visualization_spaces = visualization_spaces
         self.verbose = verbose
         # for each field create an exporter
         self.exporters = {}
-        for key in fieldsToExport:
-            shortname = self.fieldMetadata[key]['shortname']
-            fn = self.fieldMetadata[key]['filename']
+        for key in fields_to_export:
+            shortname = self.field_metadata[key]['shortname']
+            fn = self.field_metadata[key]['filename']
             field = self.functions.get(key)
             if field is not None and isinstance(field, Function):
                 native_space = field.function_space()
-                visu_space = self.visualizationSpaces.get(native_space)
+                visu_space = self.visualization_spaces.get(native_space)
                 if visu_space is None:
                     raise Exception('missing visualization space for: '+key)
-                if exportType.lower() == 'vtk':
-                    self.exporters[key] = vtkExporter(visu_space, shortname,
-                                                      outputDir, fn,
-                                                      nextExportIx=nextExportIx)
-                elif exportType.lower() == 'numpy':
-                    self.exporters[key] = naiveFieldExporter(native_space,
-                                                             outputDir, fn,
-                                                             nextExportIx=nextExportIx)
-                elif exportType.lower() == 'hdf5':
-                    self.exporters[key] = hdf5Exporter(native_space,
-                                                       outputDir, fn,
-                                                       nextExportIx=nextExportIx)
+                if export_type.lower() == 'vtk':
+                    self.exporters[key] = VTKExporter(visu_space, shortname,
+                                                      outputdir, fn,
+                                                      next_export_ix=next_export_ix)
+                elif export_type.lower() == 'numpy':
+                    self.exporters[key] = NaiveFieldExporter(native_space,
+                                                             outputdir, fn,
+                                                             next_export_ix=next_export_ix)
+                elif export_type.lower() == 'hdf5':
+                    self.exporters[key] = HDF5Exporter(native_space,
+                                                       outputdir, fn,
+                                                       next_export_ix=next_export_ix)
 
-    def setNextExportIx(self, nextExportIx):
+    def set_next_export_ix(self, next_export_ix):
         """Sets the correct export index to all child exporters"""
         for k in self.exporters:
-            self.exporters[k].setNextExportIx(nextExportIx)
+            self.exporters[k].set_next_export_ix(next_export_ix)
 
     def export(self):
         if self.verbose and commrank == 0:
@@ -360,6 +360,6 @@ class exportManager(object):
             sys.stdout.write('\n')
             sys.stdout.flush()
 
-    def exportBathymetry(self, bathymetry_2d):
-        bathfile = File(os.path.join(self.outputDir, 'bath.pvd'))
+    def export_bathymetry(self, bathymetry_2d):
+        bathfile = File(os.path.join(self.outputdir, 'bath.pvd'))
         bathfile << bathymetry_2d
