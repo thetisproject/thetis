@@ -512,6 +512,11 @@ class flowSolver(frozenClass):
                                                                  self.fields.salt_jump_diff, self.fields.h_elem_size_3d,
                                                                  self.fields.uv_mag_3d, self.options.saltRange,
                                                                  self.fields.max_h_diff)
+        if self.options.useParabolicViscosity:
+            self.parabolicViscositySolver = parabolicViscosity(self.fields.uv_bottom_3d,
+                                                               self.fields.bottom_drag_3d,
+                                                               self.fields.bathymetry_3d,
+                                                               self.fields.parab_visc_3d)
         self.uvP1_projector = projector(self.fields.uv_3d, self.fields.uv_p1_3d)
         # self.uvDAV_to_tmp_projector = projector(self.uv_dav_3d, self.uv_3d_tmp)
         # self.uv_2d_to_DAV_projector = projector(self.fields.solution2d.split()[0],

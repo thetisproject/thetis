@@ -826,17 +826,19 @@ class meshVelocitySolver(object):
         self.solverDWMeshDz.solve()
 
 
-def computeParabolicViscosity(uv_bottom, bottom_drag, bathymetry, nu,
-                              solver_parameters={}):
+class parabolicViscosity(object):
     """Computes parabolic eddy viscosity profile assuming log layer flow
     nu = kappa * u_bf * (-z) * (bath + z0 + z) / (bath + z0)
     with
     u_bf = sqrt(Cd)*|uv_bottom|
     """
-    solver_parameters.setdefault('ksp_atol', 1e-12)
-    solver_parameters.setdefault('ksp_rtol', 1e-16)
-    key = '-'.join(('parabVisc', nu.name()))
-    if key not in linProblemCache:
+    def __init__(self, uv_bottom, bottom_drag, bathymetry, nu,
+                 solver_parameters={}):
+        solver_parameters.setdefault('ksp_atol', 1e-12)
+        solver_parameters.setdefault('ksp_rtol', 1e-16)
+        self.min_val = 1e-10
+        self.solution = nu
+
         kappa = physical_constants['von_karman']
         z0 = physical_constants['z0_friction']
         H = nu.function_space()
@@ -847,16 +849,14 @@ def computeParabolicViscosity(uv_bottom, bottom_drag, bathymetry, nu,
         uv_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
         parabola = -x[2]*(bathymetry + z0 + x[2])/(bathymetry + z0)
         L = kappa*sqrt(bottom_drag)*uv_mag*parabola*test*dx
-        prob = LinearVariationalProblem(a, L, nu)
-        solver = LinearVariationalSolver(
-            prob, solver_parameters=solver_parameters)
-        linProblemCache.add(key, solver, 'parabVisc')
-    linProblemCache[key].solve()
-    # remove negative values
-    min_val = 1e-10
-    ix = nu.dat.data[:] < min_val
-    nu.dat.data[ix] = min_val
-    return nu
+        self.prob = LinearVariationalProblem(a, L, nu)
+        self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
+
+    def solve(self):
+        self.solver.solve()
+        # remove negative values
+        ix = self.solution.dat.data[:] < self.min_val
+        self.solution.dat.data[ix] = self.min_val
 
 
 def betaPlaneCoriolisParams(latitude):

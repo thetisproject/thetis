@@ -107,6 +107,7 @@ def test_implicit_friction_turbulence(do_assert=True):
         s.uvP1_projector.project()
         # update bottom friction
         computeBottomFriction(
+            s,
             s.fields.uv_p1_3d, s.fields.uv_bottom_2d,
             s.fields.uv_bottom_3d, s.fields.z_coord_3d,
             s.fields.z_bottom_2d,

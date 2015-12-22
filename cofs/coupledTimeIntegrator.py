@@ -50,10 +50,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
                     self.fields.bottom_drag_3d,
                     self.fields.v_elem_size_2d, self.fields.v_elem_size_3d)
         if self.options.useParabolicViscosity:
-            computeParabolicViscosity(
-                self.fields.uv_bottom_3d, self.fields.bottom_drag_3d,
-                self.fields.bathymetry_3d,
-                self.fields.parab_visc_3d)
+            self.solver.parabolicViscositySolver.solve()
 
     def _update2DCoupling(self):
         """Does 2D-3D coupling for the velocity field"""

@@ -96,16 +96,14 @@ def test_implicit_friction_parabolic(do_assert=True):
         try:
             s.uvP1_projector.project()
             computeBottomFriction(
+                s,
                 s.fields.uv_p1_3d, s.fields.uv_bottom_2d,
                 s.fields.uv_bottom_3d, s.fields.z_coord_3d,
                 s.fields.z_bottom_2d,
                 s.fields.bathymetry_2d, s.fields.bottom_drag_2d,
                 s.fields.bottom_drag_3d,
                 s.fields.v_elem_size_2d, s.fields.v_elem_size_3d)
-            computeParabolicViscosity(
-                s.fields.uv_bottom_3d, s.fields.bottom_drag_3d,
-                s.fields.bathymetry_3d,
-                s.fields.parab_visc_3d)
+            s.parabolicViscositySolver.solve()
             t0 = timeMod.clock()
             timeStepper.advance(t, dt, s.fields.uv_3d)
             uv3d_old.assign(s.fields.uv_3d)
