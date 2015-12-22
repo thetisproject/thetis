@@ -883,8 +883,7 @@ def betaPlaneCoriolisFunction(degrees, out_function, y_offset=0.0):
         Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=y_offset))
 
 
-def smagorinskyViscosity(uv, output, C_s, hElemSize,
-                         solver_parameters={}):
+class smagorinskyViscosity(object):
     """
     Computes Smagorinsky subgrid scale viscosity.
 
@@ -908,10 +907,12 @@ def smagorinskyViscosity(uv, output, C_s, hElemSize,
         ocean models. Monthly Weather Review, 128(8):2935-2946.
         http://dx.doi.org/10.1175/1520-0493(2000)128%3C2935:BFWASL%3E2.0.CO;2
     """
-    solver_parameters.setdefault('ksp_atol', 1e-12)
-    solver_parameters.setdefault('ksp_rtol', 1e-16)
-    key = '-'.join(('smag', uv.name(), output.name()))
-    if key not in linProblemCache:
+    def __init__(self, uv, output, C_s, hElemSize, solver_parameters={}):
+        solver_parameters.setdefault('ksp_atol', 1e-12)
+        solver_parameters.setdefault('ksp_rtol', 1e-16)
+        self.min_val = 1e-10
+        self.output = output
+
         fs = output.function_space()
         mesh = fs.mesh()
         w = TestFunction(fs)
@@ -924,16 +925,15 @@ def smagorinskyViscosity(uv, output, C_s, hElemSize,
 
         a = w*tau*mesh._dx
         L = w*nu*mesh._dx
-        prob = LinearVariationalProblem(a, L, output)
-        solver = LinearVariationalSolver(
-            prob, solver_parameters=solver_parameters)
-        linProblemCache.add(key, solver, 'smagorinsky')
-    linProblemCache[key].solve()
+        self.prob = LinearVariationalProblem(a, L, output)
+        self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
-    # remove negative values
-    minval = 1e-10
-    ix = output.dat.data < minval
-    output.dat.data[ix] = minval
+    def solve(self):
+        self.solver.solve()
+
+        # remove negative values
+        ix = self.output.dat.data < self.min_val
+        self.output.dat.data[ix] = self.min_val
 
 
 class projector(object):

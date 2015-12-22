@@ -109,8 +109,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
         self.solver.uvP1_projector.project()
         if self.options.smagorinskyFactor is not None:
             with timed_region('aux_stabilization'):
-                smagorinskyViscosity(self.fields.uv_p1_3d, self.fields.smag_visc_3d,
-                                     self.options.smagorinskyFactor, self.fields.h_elem_size_3d)
+                self.solver.smagorinskyDiffSolver.solve()
         if self.options.salt_jump_diffFactor is not None:
             with timed_region('aux_stabilization'):
                 self.solver.horizJumpDiffSolver.solve()

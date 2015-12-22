@@ -512,6 +512,9 @@ class flowSolver(frozenClass):
                                                                  self.fields.salt_jump_diff, self.fields.h_elem_size_3d,
                                                                  self.fields.uv_mag_3d, self.options.saltRange,
                                                                  self.fields.max_h_diff)
+        if self.options.smagorinskyFactor is not None:
+            self.smagorinskyDiffSolver = smagorinskyViscosity(self.fields.uv_p1_3d, self.fields.smag_visc_3d,
+                                                              self.options.smagorinskyFactor, self.fields.h_elem_size_3d)
         if self.options.useParabolicViscosity:
             self.parabolicViscositySolver = parabolicViscosity(self.fields.uv_bottom_3d,
                                                                self.fields.bottom_drag_3d,
