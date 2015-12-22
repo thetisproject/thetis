@@ -124,10 +124,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
                                      self.options.smagorinskyFactor, self.fields.h_elem_size_3d)
         if self.options.salt_jump_diffFactor is not None:
             with timed_region('aux_stabilization'):
-                computeHorizJumpDiffusivity(self.options.salt_jump_diffFactor, self.fields.salt_3d,
-                                            self.fields.salt_jump_diff, self.fields.h_elem_size_3d,
-                                            self.fields.uv_mag_3d, self.options.saltRange,
-                                            self.fields.max_h_diff)
+                self.solver.horizJumpDiffSolver.solve()
 
     def _updateAllDependencies(self, t,
                                do2DCoupling=False,

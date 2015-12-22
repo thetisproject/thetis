@@ -476,15 +476,18 @@ class velocityMagnitudeSolver(object):
         self.solution.dat.data[:] = np.maximum(self.solution.dat.data[:], self.min_val)
 
 
-def computeHorizJumpDiffusivity(alpha, tracer, output, hElemSize,
-                                umag, tracer_mag, maxval, minval=1e-6,
-                                solver_parameters={}):
+class horizontalJumpDiffusivity(object):
     """Computes tracer jump diffusivity for horizontal advection."""
-    solver_parameters.setdefault('ksp_atol', 1e-6)
-    solver_parameters.setdefault('ksp_rtol', 1e-8)
+    def __init__(self, alpha, tracer, output, hElemSize, umag,
+                 tracer_mag, maxval, minval=1e-6, solver_parameters={}):
+        solver_parameters.setdefault('ksp_atol', 1e-6)
+        solver_parameters.setdefault('ksp_rtol', 1e-8)
+        if output.function_space() != maxval.function_space():
+            raise Exception('output and maxval function spaces do not match')
+        self.output = output
+        self.minval = minval
+        self.maxval = maxval
 
-    key = '-'.join((output.name(), tracer.name()))
-    if key not in linProblemCache:
         fs = output.function_space()
         mesh = fs.mesh()
         test = TestFunction(fs)
@@ -495,17 +498,13 @@ def computeHorizJumpDiffusivity(alpha, tracer, output, hElemSize,
         # TODO can this be estimated automatically e.g. global_max(abs(S))
         maxjump = Constant(0.05)*tracer_mag
         L = alpha*avg(umag*hElemSize)*(tracer_jump/maxjump)**2*avg(test)*mesh._dS_v
-        prob = LinearVariationalProblem(a, L, output)
-        solver = LinearVariationalSolver(
-            prob, solver_parameters=solver_parameters)
-        linProblemCache.add(key, solver, 'jumpDiffh')
+        self.prob = LinearVariationalProblem(a, L, output)
+        self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
-    linProblemCache[key].solve()
-    if output.function_space() != maxval.function_space():
-        raise Exception('output and maxval function spaces do not match')
-    output.dat.data[:] = np.minimum(maxval.dat.data, output.dat.data)
-    output.dat.data[output.dat.data[:] < minval] = minval
-    return output
+    def solve(self):
+        self.solver.solve()
+        self.output.dat.data[:] = np.minimum(self.maxval.dat.data, self.output.dat.data)
+        self.output.dat.data[self.output.dat.data[:] < self.minval] = self.minval
 
 
 class expandFunctionTo3d(object):

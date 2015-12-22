@@ -492,7 +492,11 @@ class flowSolver(frozenClass):
                                                      useBottomValue=False)
             self.copySurfWMeshTo3d = expandFunctionTo3d(self.fields.w_mesh_surf_2d,
                                                         self.fields.w_mesh_surf_3d)
-
+        if self.options.salt_jump_diffFactor is not None:
+            self.horizJumpDiffSolver = horizontalJumpDiffusivity(self.options.salt_jump_diffFactor, self.fields.salt_3d,
+                                                                 self.fields.salt_jump_diff, self.fields.h_elem_size_3d,
+                                                                 self.fields.uv_mag_3d, self.options.saltRange,
+                                                                 self.fields.max_h_diff)
         self.uvP1_projector = projector(self.fields.uv_3d, self.fields.uv_p1_3d)
         # self.uvDAV_to_tmp_projector = projector(self.uv_dav_3d, self.uv_3d_tmp)
         # self.uv_2d_to_DAV_projector = projector(self.fields.solution2d.split()[0],
