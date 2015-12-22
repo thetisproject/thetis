@@ -472,6 +472,7 @@ class flowSolver(frozenClass):
                                                      elemHeight=self.fields.v_elem_size_3d)
         self.copyUVToUVDav3d = expandFunctionTo3d(self.fields.uv_2d, self.fields.uv_dav_3d,
                                                   elemHeight=self.fields.v_elem_size_3d)
+        self.uvMagSolver = velocityMagnitudeSolver(self.fields.uv_mag_3d, u=self.fields.uv_3d)
         if self.options.useBottomFriction:
             self.extractUVBottom = subFunctionExtractor(self.fields.uv_p1_3d, self.fields.uv_bottom_2d,
                                                         useBottomValue=True, elemBottomNodes=False,

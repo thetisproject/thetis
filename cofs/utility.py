@@ -449,14 +449,14 @@ def computeBaroclinicHead(solver, salt, baroc_head_3d, baroc_head_2d,
     solver.extractSurfBaroHead.solve()
 
 
-def computeVelMagnitude(solution, u=None, w=None, minVal=1e-6,
-                        solver_parameters={}):
+class velocityMagnitudeSolver(object):
     """
     Computes magnitude of (u[0],u[1],w) and stores it in solution
     """
-
-    key = '-'.join((solution.name(), str(u), str(w)))
-    if key not in linProblemCache:
+    def __init__(self, solution, u=None, w=None, minVal=1e-6,
+                 solver_parameters={}):
+        self.solution = solution
+        self.min_val = minVal
         function_space = solution.function_space()
         test = TestFunction(function_space)
         tri = TrialFunction(function_space)
@@ -468,13 +468,12 @@ def computeVelMagnitude(solution, u=None, w=None, minVal=1e-6,
         if w is not None:
             s += w**2
         L = test*sqrt(s)*dx
-        prob = LinearVariationalProblem(a, L, solution)
-        solver = LinearVariationalSolver(
-            prob, solver_parameters=solver_parameters)
-        linProblemCache.add(key, solver, 'velMag')
+        self.prob = LinearVariationalProblem(a, L, solution)
+        self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
-    linProblemCache[key].solve()
-    solution.dat.data[:] = np.maximum(solution.dat.data[:], minVal)
+    def solve(self):
+        self.solver.solve()
+        self.solution.dat.data[:] = np.maximum(self.solution.dat.data[:], self.min_val)
 
 
 def computeHorizJumpDiffusivity(alpha, tracer, output, hElemSize,

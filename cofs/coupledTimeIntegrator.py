@@ -115,7 +115,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
     def _updateStabilizationParams(self):
         """Computes Smagorinsky viscosity etc fields"""
         # update velocity magnitude
-        computeVelMagnitude(self.fields.uv_mag_3d, u=self.fields.uv_3d)
+        self.solver.uvMagSolver.solve()
         # update P1 velocity field
         self.solver.uvP1_projector.project()
         if self.options.smagorinskyFactor is not None:
