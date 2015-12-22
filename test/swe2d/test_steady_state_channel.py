@@ -58,7 +58,7 @@ def test_steady_state_channel():
 
     solverObj.iterate()
 
-    uv, eta = solverObj.fields.solution2d.split()
+    uv, eta = solverObj.fields.solution_2d.split()
 
     eta_ana = interpolate(Expression("1-x[0]/Lx", Lx=Lx), P1_2d)
     area = Lx*Ly

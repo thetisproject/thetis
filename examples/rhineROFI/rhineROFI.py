@@ -166,7 +166,7 @@ salt_init3d.interpolate(Expression('d_ocean - (d_ocean - d_river)*(1 + tanh((x[0
                                    d_river=density_river, xoff=20.0e3))
 
 
-def updateForcings(t):
+def update_forcings(t):
     bnd_time.assign(t)
     bndElevSolver.solve()
     copy2dFieldTo3d(bnd_elev, bnd_elev_3d)

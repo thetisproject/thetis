@@ -125,10 +125,10 @@ L = test[1]*uv*solverObj.eq_sw.dx
 solve(a == L, uv_init)
 
 
-def updateForcings(t):
+def update_forcings(t):
     bnd_time.assign(t)
     bndElevSolver.solve()
     # bndVSolver.solve()
 
 solverObj.assignInitialConditions(elev=elev_init, uv_init=uv_init)
-solverObj.iterate(updateForcings=updateForcings)
+solverObj.iterate(update_forcings=update_forcings)

@@ -101,14 +101,14 @@ solverObj.bnd_functions['momentum'] = {}
 solverObj.bnd_functions['salt'] = {2: ocean_salt_3d, 1: river_salt_3d}
 
 
-def updateForcings(t_new):
+def update_forcings(t_new):
     """Callback function that updates all time dependent forcing fields
     for the 2d mode"""
     ocean_flux.assign(ocean_flux_func(t_new))
     river_flux.assign(river_flux_func(t_new))
 
 
-def updateForcings3d(t_new):
+def update_forcings3d(t_new):
     """Callback function that updates all time dependent forcing fields
     for the 3D mode"""
     ocean_flux.assign(ocean_flux_func(t_new))
@@ -116,5 +116,5 @@ def updateForcings3d(t_new):
 
 # set init conditions, this will create all function spaces, equations etc
 solverObj.assignInitialConditions(salt=salt_init3d)
-solverObj.iterate(updateForcings=updateForcings,
-                  updateForcings3d=updateForcings3d)
+solverObj.iterate(update_forcings=update_forcings,
+                  update_forcings3d=update_forcings3d)

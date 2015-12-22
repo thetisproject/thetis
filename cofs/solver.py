@@ -8,7 +8,7 @@ import shallowWaterEq
 import momentumEquation
 import tracerEquation
 import turbulence
-import coupledTimeIntegrator as coupledTimeIntegrator
+import coupledTimeIntegrator as CoupledTimeIntegrator
 import limiter
 import time as timeMod
 from mpi4py import MPI
@@ -167,9 +167,9 @@ class flowSolver(FrozenClass):
         self._isfrozen = False
 
         # ----- fields
-        self.fields.solution2d = Function(self.function_spaces.V_2d)
+        self.fields.solution_2d = Function(self.function_spaces.V_2d)
         # correct treatment of the split 2d functions
-        uv_2d, eta2d = self.fields.solution2d.split()
+        uv_2d, eta2d = self.fields.solution_2d.split()
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = eta2d
         self.visu_spaces[uv_2d.function_space()] = self.function_spaces.P1v_2d
@@ -278,7 +278,7 @@ class flowSolver(FrozenClass):
         if self.options.useModeSplit:
             # full 2D shallow water equations
             self.eq_sw = shallowWaterEq.ShallowWaterEquations(
-                self.fields.solution2d, self.fields.bathymetry_2d,
+                self.fields.solution_2d, self.fields.bathymetry_2d,
                 self.fields.get('uv_bottom_2d'), self.fields.get('bottom_drag_2d'),
                 baroc_head=self.fields.get('baroc_head_2d'),
                 viscosity_h=self.options.get('hViscosity'),  # FIXME add 2d smag
@@ -290,7 +290,7 @@ class flowSolver(FrozenClass):
                 nonlin=self.options.nonlin)
         else:
             # solve elevation only: 2D free surface equation
-            uv, eta = self.fields.solution2d.split()
+            uv, eta = self.fields.solution_2d.split()
             self.eq_sw = shallowWaterEq.FreeSurfaceEquation(
                 eta, uv, self.fields.bathymetry_2d,
                 nonlin=self.options.nonlin)
@@ -392,13 +392,13 @@ class flowSolver(FrozenClass):
         self.setTimeStep()
         if self.options.useModeSplit:
             if self.options.useIMEX:
-                self.timeStepper = coupledTimeIntegrator.coupledSSPIMEX(weakref.proxy(self))
+                self.timeStepper = CoupledTimeIntegrator.CoupledSSPIMEX(weakref.proxy(self))
             elif self.options.useSemiImplicit2D:
-                self.timeStepper = coupledTimeIntegrator.coupledSSPRKSemiImplicit(weakref.proxy(self))
+                self.timeStepper = CoupledTimeIntegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
             else:
-                self.timeStepper = coupledTimeIntegrator.coupledSSPRKSync(weakref.proxy(self))
+                self.timeStepper = CoupledTimeIntegrator.CoupledSSPRKSync(weakref.proxy(self))
         else:
-            self.timeStepper = coupledTimeIntegrator.coupledSSPRKSingleMode(weakref.proxy(self))
+            self.timeStepper = CoupledTimeIntegrator.CoupledSSPRKSingleMode(weakref.proxy(self))
         print_info('using {:} time integrator'.format(self.timeStepper.__class__.__name__))
 
         # compute maximal diffusivity for explicit schemes
@@ -521,10 +521,10 @@ class flowSolver(FrozenClass):
                                                                self.fields.parab_visc_3d)
         self.uv_p1_projector = Projector(self.fields.uv_3d, self.fields.uv_p1_3d)
         # self.uvDAV_to_tmp_projector = projector(self.uv_dav_3d, self.uv_3d_tmp)
-        # self.uv_2d_to_DAV_projector = projector(self.fields.solution2d.split()[0],
+        # self.uv_2d_to_DAV_projector = projector(self.fields.solution_2d.split()[0],
         #                                         self.uv_dav_2d)
         # self.uv_2dDAV_to_uv_2d_projector = projector(self.uv_dav_2d,
-        #                                              self.fields.solution2d.split()[0])
+        #                                              self.fields.solution_2d.split()[0])
         self.elev_3d_to_CG_projector = Projector(self.fields.elev_3d, self.fields.elev_cg_3d)
 
         # ----- set initial values
@@ -578,8 +578,8 @@ class flowSolver(FrozenClass):
         raise NotImplementedError('state loading is not yet implemented for 3d solver')
 
     def printState(self, cputime):
-        norm_h = norm(self.fields.solution2d.split()[1])
-        norm_u = norm(self.fields.solution2d.split()[0])
+        norm_h = norm(self.fields.solution_2d.split()[1])
+        norm_u = norm(self.fields.solution_2d.split()[0])
 
         if commrank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
@@ -588,7 +588,7 @@ class flowSolver(FrozenClass):
                                    u=norm_u, cpu=cputime)))
             sys.stdout.flush()
 
-    def iterate(self, updateForcings=None, updateForcings3d=None,
+    def iterate(self, update_forcings=None, update_forcings3d=None,
                 exportFunc=None):
         if not self._initialized:
             self.createEquations()
@@ -602,7 +602,7 @@ class flowSolver(FrozenClass):
 
         # initialize conservation checks
         if self.options.checkVolConservation2d:
-            eta = self.fields.solution2d.split()[1]
+            eta = self.fields.solution_2d.split()[1]
             Vol2d_0 = comp_volume_2d(eta, self.fields.bathymetry_2d)
             print_info('Initial volume 2d {0:f}'.format(Vol2d_0))
         if self.options.checkVolConservation3d:
@@ -634,7 +634,7 @@ class flowSolver(FrozenClass):
         while self.simulation_time <= self.options.T + T_epsilon:
 
             self.timeStepper.advance(self.simulation_time, self.dt,
-                                     updateForcings, updateForcings3d)
+                                     update_forcings, update_forcings3d)
 
             # Move to next time step
             self.simulation_time += self.dt
@@ -647,7 +647,7 @@ class flowSolver(FrozenClass):
                 self.printState(cputime)
 
                 if self.options.checkVolConservation2d:
-                    Vol2d = comp_volume_2d(self.fields.solution2d.split()[1],
+                    Vol2d = comp_volume_2d(self.fields.solution_2d.split()[1],
                                          self.fields.bathymetry_2d)
                 if self.options.checkVolConservation3d:
                     Vol3d = comp_volume_3d(self.mesh)

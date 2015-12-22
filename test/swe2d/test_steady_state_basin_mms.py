@@ -469,8 +469,8 @@ def run(setup, refinement, order, export=True):
     solverObj.assignInitialConditions(elev=elev_ana, uv_init=uv_ana)
     solverObj.iterate()
 
-    elev_L2_err = errornorm(elev_ana_ho, solverObj.fields.solution2d.split()[1])/numpy.sqrt(area)
-    uv_L2_err = errornorm(uv_ana_ho, solverObj.fields.solution2d.split()[0])/numpy.sqrt(area)
+    elev_L2_err = errornorm(elev_ana_ho, solverObj.fields.solution_2d.split()[1])/numpy.sqrt(area)
+    uv_L2_err = errornorm(uv_ana_ho, solverObj.fields.solution_2d.split()[0])/numpy.sqrt(area)
     print 'elev L2 error {:.12f}'.format(elev_L2_err)
     print 'uv L2 error {:.12f}'.format(uv_L2_err)
     tmpFunctionCache.clear()  # NOTE must destroy all cached solvers for next simulation

@@ -110,21 +110,21 @@ class SSPRK33(timeIntegrator):
         for k in self.funcs_old:
             self.funcs_old[k].assign(self.funcs[k])
 
-    def advance(self, t, dt, solution, updateForcings):
+    def advance(self, t, dt, solution, update_forcings):
         """Advances equations for one time step."""
         self.dt_const.assign(dt)
         # stage 0
         for k in self.args:  # set args to t
             self.args[k].assign(self.funcs_old[k])
-        if updateForcings is not None:
-            updateForcings(t)
+        if update_forcings is not None:
+            update_forcings(t)
         self.solverK0.solve()
         # stage 1
         self.solution_old.assign(solution + self.K0)
         for k in self.args:  # set args to t+dt
             self.args[k].assign(self.funcs[k])
-        if updateForcings is not None:
-            updateForcings(t+dt)
+        if update_forcings is not None:
+            update_forcings(t+dt)
         self.solverK1.solve()
         # stage 2
         self.solution_old.assign(solution + 0.25*self.K0 + 0.25*self.K1)
@@ -133,8 +133,8 @@ class SSPRK33(timeIntegrator):
                 self.args[k].assign(self.funcs_nplushalf[k])
             else:
                 self.args[k].assign(0.5*self.funcs[k] + 0.5*self.funcs_old[k])
-        if updateForcings is not None:
-            updateForcings(t+dt/2)
+        if update_forcings is not None:
+            update_forcings(t+dt/2)
         self.solverK2.solve()
         # final solution
         solution.assign(solution + (1.0/6.0)*self.K0 + (1.0/6.0)*self.K1 +
@@ -145,15 +145,15 @@ class SSPRK33(timeIntegrator):
             self.funcs_old[k].assign(self.funcs[k])
         self.solution_old.assign(solution)
 
-    def solveStage(self, iStage, t, dt, solution, updateForcings=None):
+    def solveStage(self, iStage, t, dt, solution, update_forcings=None):
         if iStage == 0:
             # stage 0
             self.solution_n.assign(solution)
             self.solution_old.assign(solution)
             for k in self.args:  # set args to t
                 self.args[k].assign(self.funcs[k])
-            if updateForcings is not None:
-                updateForcings(t)
+            if update_forcings is not None:
+                update_forcings(t)
             self.solverK0.solve()
             solution.assign(self.solution_n + self.K0)
         elif iStage == 1:
@@ -161,8 +161,8 @@ class SSPRK33(timeIntegrator):
             self.solution_old.assign(solution)
             for k in self.args:  # set args to t+dt
                 self.args[k].assign(self.funcs[k])
-            if updateForcings is not None:
-                updateForcings(t+dt)
+            if update_forcings is not None:
+                update_forcings(t+dt)
             self.solverK1.solve()
             solution.assign(self.solution_n + 0.25*self.K0 + 0.25*self.K1)
         elif iStage == 2:
@@ -170,8 +170,8 @@ class SSPRK33(timeIntegrator):
             self.solution_old.assign(solution)
             for k in self.args:  # set args to t+dt/2
                 self.args[k].assign(self.funcs[k])
-            if updateForcings is not None:
-                updateForcings(t+dt/2)
+            if update_forcings is not None:
+                update_forcings(t+dt/2)
             self.solverK2.solve()
             # final solution
             solution.assign(self.solution_n + (1.0/6.0)*self.K0 +
@@ -241,7 +241,7 @@ class SSPRK33Stage(timeIntegrator):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
 
-    def solveStage(self, iStage, t, dt, solution, updateForcings=None):
+    def solveStage(self, iStage, t, dt, solution, update_forcings=None):
         """
         Solves a single stage of step from t to t+dt.
         All functions that the equation depends on must be at rigth state
@@ -252,28 +252,28 @@ class SSPRK33Stage(timeIntegrator):
             # stage 0
             self.solution_n.assign(solution)
             self.solution_old.assign(solution)
-            if updateForcings is not None:
-                updateForcings(t)
+            if update_forcings is not None:
+                update_forcings(t)
             self.solverK0.solve()
             solution.assign(self.solution_n + self.K0)
         elif iStage == 1:
             # stage 1
             self.solution_old.assign(solution)
-            if updateForcings is not None:
-                updateForcings(t+dt)
+            if update_forcings is not None:
+                update_forcings(t+dt)
             self.solverK1.solve()
             solution.assign(self.solution_n + 0.25*self.K0 + 0.25*self.K1)
         elif iStage == 2:
             # stage 2
             self.solution_old.assign(solution)
-            if updateForcings is not None:
-                updateForcings(t+dt/2)
+            if update_forcings is not None:
+                update_forcings(t+dt/2)
             self.solverK2.solve()
             # final solution
             solution.assign(self.solution_n + (1.0/6.0)*self.K0 +
                             (1.0/6.0)*self.K1 + (2.0/3.0)*self.K2)
 
-    def advance(self, t, dt, solution, updateForcings):
+    def advance(self, t, dt, solution, update_forcings):
         """Advances one full time step from t to t+dt.
         This assumes that all the functions that the equation depends on are
         constants across this interval. If dependent functions need to be
@@ -281,7 +281,7 @@ class SSPRK33Stage(timeIntegrator):
         """
         for k in range(3):
             self.solveStage(k, t, dt, solution,
-                            updateForcings)
+                            update_forcings)
 
 
 class SSPRK33StageSemiImplicit(timeIntegrator):
@@ -370,7 +370,7 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
 
-    def solveStage(self, iStage, t, dt, solution, updateForcings=None):
+    def solveStage(self, iStage, t, dt, solution, update_forcings=None):
         """
         Solves a single stage of step from t to t+dt.
         All functions that the equation depends on must be at rigth state
@@ -379,25 +379,25 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
         self.dt_const.assign(dt)
         if iStage == 0:
             # stage 0
-            if updateForcings is not None:
-                updateForcings(t)
+            if update_forcings is not None:
+                update_forcings(t)
             # BUG there's a bug in assembly cache, need to set to false
             self.solverF0.solve()
             solution.assign(self.sol0)
         elif iStage == 1:
             # stage 1
-            if updateForcings is not None:
-                updateForcings(t+dt)
+            if update_forcings is not None:
+                update_forcings(t+dt)
             self.solverF1.solve()
             solution.assign(self.sol1)
         elif iStage == 2:
             # stage 2
-            if updateForcings is not None:
-                updateForcings(t+dt/2)
+            if update_forcings is not None:
+                update_forcings(t+dt/2)
             self.solverF2.solve()
             self.solution_old.assign(solution)
 
-    def advance(self, t, dt, solution, updateForcings):
+    def advance(self, t, dt, solution, update_forcings):
         """Advances one full time step from t to t+dt.
         This assumes that all the functions that the equation depends on are
         constants across this interval. If dependent functions need to be
@@ -405,7 +405,7 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
         """
         for k in range(3):
             self.solveStage(k, t, dt, solution,
-                            updateForcings)
+                            update_forcings)
 
 
 class ForwardEuler(timeIntegrator):
@@ -457,11 +457,11 @@ class ForwardEuler(timeIntegrator):
         for k in self.funcs_old:
             self.funcs_old[k].assign(self.funcs[k])
 
-    def advance(self, t, dt, solution, updateForcings):
+    def advance(self, t, dt, solution, update_forcings):
         """Advances equations for one time step."""
         self.dt_const.assign(dt)
-        if updateForcings is not None:
-            updateForcings(t+dt)
+        if update_forcings is not None:
+            update_forcings(t+dt)
         self.solution_old.assign(solution)
         self.solver.solve()
         # shift time
@@ -541,24 +541,24 @@ class CrankNicolson(timeIntegrator):
         for k in self.funcs_old:
             self.funcs_old[k].assign(self.funcs[k])
 
-    def advance(self, t, dt, solution, updateForcings=None):
+    def advance(self, t, dt, solution, update_forcings=None):
         """Advances equations for one time step."""
         self.dt_const.assign(dt)
-        if updateForcings is not None:
-            updateForcings(t+dt)
+        if update_forcings is not None:
+            update_forcings(t+dt)
         self.solution_old.assign(solution)
         self.solver.solve()
         # shift time
         for k in self.funcs_old:
             self.funcs_old[k].assign(self.funcs[k])
 
-    def advanceLinear(self, t, dt, solution, updateForcings):
+    def advanceLinear(self, t, dt, solution, update_forcings):
         """Advances equations for one time step."""
         solver_parameters = {
             'snes_type': 'ksponly',
         }
-        if updateForcings is not None:
-            updateForcings(t+dt)
+        if update_forcings is not None:
+            update_forcings(t+dt)
         self.solution_old.assign(solution)
         solve(self.A == self.L, solution, solver_parameters=solver_parameters)
         # shift time
@@ -608,15 +608,15 @@ class SSPIMEX(timeIntegrator):
         self.dirk.initialize(solution)
         self.erk.initialize(solution)
 
-    def advance(self, t, dt, solution, updateForcings=None):
+    def advance(self, t, dt, solution, update_forcings=None):
         """Advances equations for one time step."""
         for i in xrange(self.nStages):
-            self.solveStage(i, t, dt, solution, updateForcings)
+            self.solveStage(i, t, dt, solution, update_forcings)
         self.getFinalSolution(solution)
 
-    def solveStage(self, iStage, t, dt, solution, updateForcings=None):
-        self.erk.solveStage(iStage, t, dt, solution, updateForcings)
-        self.dirk.solveStage(iStage, t, dt, solution, updateForcings)
+    def solveStage(self, iStage, t, dt, solution, update_forcings=None):
+        self.erk.solveStage(iStage, t, dt, solution, update_forcings)
+        self.dirk.solveStage(iStage, t, dt, solution, update_forcings)
 
     def getFinalSolution(self, solution):
         self.erk.getFinalSolution(solution)
@@ -748,15 +748,15 @@ class DIRK_generic(timeIntegrator):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(init_cond)
 
-    def advance(self, t, dt, solution, updateForcings=None):
+    def advance(self, t, dt, solution, update_forcings=None):
         """Advances equations for one time step."""
         for i in xrange(self.nStages):
-            self.solveStage(i, t, dt, solution, updateForcings)
+            self.solveStage(i, t, dt, solution, update_forcings)
 
-    def solveStage(self, iStage, t, dt, output=None, updateForcings=None):
+    def solveStage(self, iStage, t, dt, output=None, update_forcings=None):
         """Advances equations for one stage."""
-        if updateForcings is not None:
-            updateForcings(t + self.c[iStage]*self.dt)
+        if update_forcings is not None:
+            update_forcings(t + self.c[iStage]*self.dt)
         self.solver[iStage].solve()
         if output is not None:
             if iStage < self.nStages - 1:
@@ -974,7 +974,7 @@ class macroTimeStepIntegrator(timeIntegrator):
         self.solution_nplushalf.assign(solution)
         self.solution_start.assign(solution)
 
-    def advance(self, t, dt, solution, updateForcings, verbose=False):
+    def advance(self, t, dt, solution, update_forcings, verbose=False):
         """Advances equations for one macro time step DT=M*dt"""
         M = self.M
         solution_old = self.subiterator.solution_old
@@ -991,7 +991,7 @@ class macroTimeStepIntegrator(timeIntegrator):
         if verbose and commrank == 0:
             sys.stdout.write('Solving 2D ')
         for i in range(self.M_star):
-            self.subiterator.advance(t + i*dt, dt, solution, updateForcings)
+            self.subiterator.advance(t + i*dt, dt, solution, update_forcings)
             self.solution_nplushalf += self.w_half[i]*solution
             self.solution_n += self.w_full[i]*solution
             if verbose and commrank == 0:

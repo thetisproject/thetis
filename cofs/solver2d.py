@@ -88,11 +88,11 @@ class flowSolver2d(FrozenClass):
             self.createFunctionSpaces()
         self._isfrozen = False
         # ----- fields
-        self.fields.solution2d = Function(self.function_spaces.V_2d)
+        self.fields.solution_2d = Function(self.function_spaces.V_2d)
 
         # ----- Equations
         self.eq_sw = shallowWaterEq.ShallowWaterEquations(
-            self.fields.solution2d,
+            self.fields.solution_2d,
             self.fields.bathymetry_2d,
             lin_drag=self.options.lin_drag,
             viscosity_h=self.fields.get('hViscosity'),
@@ -139,7 +139,7 @@ class flowSolver2d(FrozenClass):
 
         # ----- File exporters
         # correct treatment of the split 2d functions
-        uv_2d, elev_2d = self.fields.solution2d.split()
+        uv_2d, elev_2d = self.fields.solution_2d.split()
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = elev_2d
         self.visu_spaces[uv_2d.function_space()] = self.function_spaces.P1v_2d
@@ -178,13 +178,13 @@ class flowSolver2d(FrozenClass):
     def assignInitialConditions(self, elev=None, uv_init=None):
         if not self._initialized:
             self.createEquations()
-        uv_2d, elev_2d = self.fields.solution2d.split()
+        uv_2d, elev_2d = self.fields.solution_2d.split()
         if elev is not None:
             elev_2d.project(elev)
         if uv_init is not None:
             uv_2d.project(uv_init)
 
-        self.timeStepper.initialize(self.fields.solution2d)
+        self.timeStepper.initialize(self.fields.solution_2d)
 
     def export(self):
         for key in self.exporters:
@@ -192,7 +192,7 @@ class flowSolver2d(FrozenClass):
 
     def loadState(self, iExport, t, iteration):
         """Loads simulation state from hdf5 outputs."""
-        uv_2d, elev_2d = self.fields.solution2d.split()
+        uv_2d, elev_2d = self.fields.solution_2d.split()
         self.exporters['hdf5'].exporters['uv_2d'].load(iExport, uv_2d)
         self.exporters['hdf5'].exporters['elev_2d'].load(iExport, elev_2d)
         self.assignInitialConditions(elev=elev_2d, uv_init=uv_2d)
@@ -205,8 +205,8 @@ class flowSolver2d(FrozenClass):
             self.exporters[k].setNextExportIx(self.iExport)
 
     def printState(self, cputime):
-        norm_h = norm(self.fields.solution2d.split()[1])
-        norm_u = norm(self.fields.solution2d.split()[0])
+        norm_h = norm(self.fields.solution_2d.split()[1])
+        norm_u = norm(self.fields.solution_2d.split()[0])
 
         if commrank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
@@ -215,7 +215,7 @@ class flowSolver2d(FrozenClass):
                                    u=norm_u, cpu=cputime)))
             sys.stdout.flush()
 
-    def iterate(self, updateForcings=None,
+    def iterate(self, update_forcings=None,
                 exportFunc=None):
         if not self._initialized:
             self.createEquations()
@@ -226,7 +226,7 @@ class flowSolver2d(FrozenClass):
 
         # initialize conservation checks
         if self.options.checkVolConservation2d:
-            eta = self.fields.solution2d.split()[1]
+            eta = self.fields.solution_2d.split()[1]
             Vol2d_0 = compVolume2d(eta, self.fields.bathymetry_2d)
             print_info('Initial volume 2d {0:f}'.format(Vol2d_0))
 
@@ -238,8 +238,8 @@ class flowSolver2d(FrozenClass):
 
         while self.simulation_time <= self.options.T + T_epsilon:
 
-            self.timeStepper.advance(self.simulation_time, self.dt, self.fields.solution2d,
-                                     updateForcings)
+            self.timeStepper.advance(self.simulation_time, self.dt, self.fields.solution_2d,
+                                     update_forcings)
 
             # Move to next time step
             self.iteration += 1
@@ -251,7 +251,7 @@ class flowSolver2d(FrozenClass):
                 cputimestamp = timeMod.clock()
                 self.printState(cputime)
                 if self.options.checkVolConservation2d:
-                    Vol2d = compVolume2d(self.fields.solution2d.split()[1],
+                    Vol2d = compVolume2d(self.fields.solution_2d.split()[1],
                                          self.fields.bathymetry_2d)
                 if commrank == 0:
                     line = 'Rel. {0:s} error {1:11.4e}'

@@ -86,7 +86,7 @@ def test_steady_state_channel_mms():
 
         solverObj.iterate()
 
-        uv, eta = solverObj.fields.solution2d.split()
+        uv, eta = solverObj.fields.solution_2d.split()
 
         eta_ana = project(eta_expr, solverObj.function_spaces.H_2d)
         diff_pvd << project(eta_ana-eta, solverObj.function_spaces.H_2d, name="diff")
