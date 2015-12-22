@@ -225,7 +225,7 @@ def run(setup, refinement, order, export=True):
     # elevation field
     solverObj.fields.elev_2d.project(SET['elev_expr'])
     # update mesh and fields
-    copy2dFieldTo3d(solverObj.fields.elev_2d, solverObj.fields.elev_3d)
+    solverObj.copyElevTo3d.solve()
     updateCoordinates(solverObj.mesh,
                       solverObj.fields.elev_3d,
                       solverObj.fields.bathymetry_3d,

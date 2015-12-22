@@ -214,15 +214,15 @@ class flowSolver(frozenClass):
                 self.fields.coriolis_3d = self.options.coriolis
             else:
                 self.fields.coriolis_3d = Function(self.function_spaces.P1)
-                copy2dFieldTo3d(self.options.coriolis, self.fields.coriolis_3d)
+                expandFunctionTo3d(self.options.coriolis, self.fields.coriolis_3d).solve()
         if self.options.wind_stress is not None:
             self.fields.wind_stress_3d = Function(self.function_spaces.P1)
-            copy2dFieldTo3d(self.options.wind_stress, self.fields.wind_stress_3d)
+            expandFunctionTo3d(self.options.wind_stress, self.fields.wind_stress_3d).solve()
         self.fields.v_elem_size_3d = Function(self.function_spaces.P1DG)
         self.fields.v_elem_size_2d = Function(self.function_spaces.P1DG_2d)
         self.fields.h_elem_size_3d = Function(self.function_spaces.P1)
         self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
-        getHorzontalElemSize(self.fields.h_elem_size_2d, self.fields.h_elem_size_3d)
+        getHorizontalElemSize(self.fields.h_elem_size_2d, self.fields.h_elem_size_3d)
         self.fields.max_h_diff = Function(self.function_spaces.P1)
         if self.options.smagorinskyFactor is not None:
             self.fields.smag_visc_3d = Function(self.function_spaces.P1)
@@ -467,6 +467,11 @@ class flowSolver(frozenClass):
                                                      elemHeight=self.fields.v_elem_size_2d)
         self.copyVElemSizeTo2d = subFunctionExtractor(self.fields.v_elem_size_3d,
                                                       self.fields.v_elem_size_2d)
+        self.copyElevTo3d = expandFunctionTo3d(self.fields.elev_2d, self.fields.elev_3d)
+        self.copyUVDavToUVDav3d = expandFunctionTo3d(self.fields.uv_dav_2d, self.fields.uv_dav_3d,
+                                                     elemHeight=self.fields.v_elem_size_3d)
+        self.copyUVToUVDav3d = expandFunctionTo3d(self.fields.uv_2d, self.fields.uv_dav_3d,
+                                                  elemHeight=self.fields.v_elem_size_3d)
         if self.options.useBottomFriction:
             self.extractUVBottom = subFunctionExtractor(self.fields.uv_p1_3d, self.fields.uv_bottom_2d,
                                                         useBottomValue=True, elemBottomNodes=False,
@@ -474,10 +479,18 @@ class flowSolver(frozenClass):
             self.extractZBottom = subFunctionExtractor(self.fields.z_coord_3d, self.fields.z_bottom_2d,
                                                        useBottomValue=True, elemBottomNodes=False,
                                                        elemHeight=self.fields.v_elem_size_2d)
+            self.copyUVBottomTo3d = expandFunctionTo3d(self.fields.uv_bottom_2d,
+                                                       self.fields.uv_bottom_3d,
+                                                       elemHeight=self.fields.v_elem_size_3d)
+            self.copyBottomDragTo3d = expandFunctionTo3d(self.fields.bottom_drag_2d,
+                                                         self.fields.bottom_drag_3d,
+                                                         elemHeight=self.fields.v_elem_size_3d)
         if self.options.useALEMovingMesh:
             self.extractSurfW = subFunctionExtractor(self.fields.w_mesh_surf_3d,
-                                                    self.fields.w_mesh_surf_2d,
-                                                    useBottomValue=False)
+                                                     self.fields.w_mesh_surf_2d,
+                                                     useBottomValue=False)
+            self.copySurfWMeshTo3d = expandFunctionTo3d(self.fields.w_mesh_surf_2d,
+                                                        self.fields.w_mesh_surf_3d)
 
         self.uvP1_projector = projector(self.fields.uv_3d, self.fields.uv_p1_3d)
         # self.uvDAV_to_tmp_projector = projector(self.uv_dav_3d, self.uv_3d_tmp)
@@ -488,7 +501,7 @@ class flowSolver(frozenClass):
         self.elev_3d_to_CG_projector = projector(self.fields.elev_3d, self.fields.elev_cg_3d)
 
         # ----- set initial values
-        copy2dFieldTo3d(self.fields.bathymetry_2d, self.fields.bathymetry_3d)
+        expandFunctionTo3d(self.fields.bathymetry_2d, self.fields.bathymetry_3d).solve()
         getZCoordFromMesh(self.fields.z_coord_ref_3d)
         self.fields.z_coord_3d.assign(self.fields.z_coord_ref_3d)
         computeElemHeight(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
@@ -501,9 +514,8 @@ class flowSolver(frozenClass):
         if not self._initialized:
             self.createEquations()
         if elev is not None:
-            elev_2d = self.fields.solution2d.split()[1]
-            elev_2d.project(elev)
-            copy2dFieldTo3d(elev_2d, self.fields.elev_3d)
+            self.fields.elev_2d.project(elev)
+            self.copyElevTo3d.solve()
             self.fields.elev_cg_3d.project(self.fields.elev_3d)
             if self.options.useALEMovingMesh:
                 updateCoordinates(self.mesh, self.fields.elev_cg_3d, self.fields.bathymetry_3d,
@@ -511,11 +523,9 @@ class flowSolver(frozenClass):
                 computeElemHeight(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
                 self.copyVElemSizeTo2d.solve()
         if uv_2d is not None:
-            uv_2d_field = self.fields.solution2d.split()[0]
-            uv_2d_field.project(uv_2d)
-            copy2dFieldTo3d(uv_2d_field, self.fields.uv_3d,
-                            elemHeight=self.fields.v_elem_size_3d)
-
+            self.fields.uv_2d.project(uv_2d)
+            expandFunctionTo3d(self.fields.uv_2d, self.fields.uv_3d,
+                               elemHeight=self.fields.v_elem_size_3d).solve()
         if salt is not None and self.options.solveSalt:
             self.fields.salt_3d.project(salt)
         self.wSolver.solve()

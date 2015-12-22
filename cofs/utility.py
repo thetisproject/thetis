@@ -509,65 +509,72 @@ def computeHorizJumpDiffusivity(alpha, tracer, output, hElemSize,
     return output
 
 
-def copy_2d_field_to_3d(input, output, elemHeight=None,
-                        solver_parameters={}):
-    """Extract a subfunction from an extracted mesh."""
-    solver_parameters.setdefault('ksp_atol', 1e-12)
-    solver_parameters.setdefault('ksp_rtol', 1e-16)
+class expandFunctionTo3d(object):
+    """
+    Copies a field from 2d mesh to 3d mesh, assigning the same value over the
+    vertical dimension. Horizontal function space must be the same.
+    """
+    def __init__(self, input2d, output3d, elemHeight=None):
+        self.input2d = input2d
+        self.output3d = output3d
+        self.fs_2d = self.input2d.function_space()
+        self.fs_3d = self.output3d.function_space()
 
-    fs_2d = input.function_space()
-    fs_3d = output.function_space()
+        family_2d = self.fs_2d.ufl_element().family()
+        if hasattr(self.fs_3d.ufl_element(), '_A'):
+            # a normal outerproduct element
+            family_3dh = self.fs_3d.ufl_element()._A.family()
+            if family_2d != family_3dh:
+                raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
+        if family_2d == 'Raviart-Thomas' and elemHeight is None:
+            raise Exception('elemHeight must be provided for Raviart-Thomas spaces')
+        self.doRTScaling = family_2d == 'Raviart-Thomas'
 
-    family_2d = fs_2d.ufl_element().family()
-    if hasattr(fs_3d.ufl_element(), '_A'):
-        # a normal outerproduct element
-        family_3dh = fs_3d.ufl_element()._A.family()
-        if family_2d != family_3dh:
-            raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
-    if family_2d == 'Raviart-Thomas' and elemHeight is None:
-        raise Exception('elemHeight must be provided for Raviart-Thomas spaces')
-    doRTScaling = family_2d == 'Raviart-Thomas'
+        self.iter_domain = op2.ALL
 
-    iterate = op2.ALL
+        # number of nodes in vertical direction
+        nVertNodes = len(self.fs_3d.fiat_element.B.entity_closure_dofs()[1][0])
 
-    # number of nodes in vertical direction
-    nVertNodes = len(fs_3d.fiat_element.B.entity_closure_dofs()[1][0])
-
-    nodes = fs_3d.bt_masks['geometric'][0]
-    idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='nodeIdx')
-    kernel = op2.Kernel("""
-        void my_kernel(double **func, double **func2d, int *idx) {
-            for ( int d = 0; d < %(nodes)d; d++ ) {
-                for ( int c = 0; c < %(func_dim)d; c++ ) {
-                    for ( int e = 0; e < %(v_nodes)d; e++ ) {
-                        func[idx[d]+e][c] = func2d[d][c];
+        nodes = self.fs_3d.bt_masks['geometric'][0]
+        self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='nodeIdx')
+        self.kernel = op2.Kernel("""
+            void my_kernel(double **func, double **func2d, int *idx) {
+                for ( int d = 0; d < %(nodes)d; d++ ) {
+                    for ( int c = 0; c < %(func_dim)d; c++ ) {
+                        for ( int e = 0; e < %(v_nodes)d; e++ ) {
+                            func[idx[d]+e][c] = func2d[d][c];
+                        }
                     }
                 }
-            }
-        }""" % {'nodes': input.cell_node_map().arity,
-                'func_dim': input.function_space().cdim,
-                'v_nodes': nVertNodes},
-        'my_kernel')
-    op2.par_loop(
-        kernel, fs_3d.mesh().cell_set,
-        output.dat(op2.WRITE, fs_3d.cell_node_map()),
-        input.dat(op2.READ, fs_2d.cell_node_map()),
-        idx(op2.READ),
-        iterate=iterate)
+            }""" % {'nodes': self.input2d.cell_node_map().arity,
+                    'func_dim': self.input2d.function_space().cdim,
+                    'v_nodes': nVertNodes},
+            'my_kernel')
 
-    if doRTScaling:
-        key = '-'.join(('copy2d-3d', input.name(), output.name()))
-        if key not in linProblemCache:
-            test = TestFunction(fs_3d)
-            tri = TrialFunction(fs_3d)
+        if self.doRTScaling:
+            solver_parameters = {}
+            solver_parameters.setdefault('ksp_atol', 1e-12)
+            solver_parameters.setdefault('ksp_rtol', 1e-16)
+            test = TestFunction(self.fs_3d)
+            tri = TrialFunction(self.fs_3d)
             a = inner(tri, test)*dx
-            L = inner(output, test)*elemHeight*dx
-            prob = LinearVariationalProblem(a, L, output)
-            solver = LinearVariationalSolver(
+            L = inner(self.output3d, test)*elemHeight*dx
+            prob = LinearVariationalProblem(a, L, self.output3d)
+            self.RT_scale_solver = LinearVariationalSolver(
                 prob, solver_parameters=solver_parameters)
-            linProblemCache.add(key, solver, 'copy2d-3d')
-        linProblemCache[key].solve()
-    return output
+
+    def solve(self):
+        with timed_region('func_copy2dTo3d'):
+            # execute par loop
+            op2.par_loop(
+                self.kernel, self.fs_3d.mesh().cell_set,
+                self.output3d.dat(op2.WRITE, self.fs_3d.cell_node_map()),
+                self.input2d.dat(op2.READ, self.fs_2d.cell_node_map()),
+                self.idx(op2.READ),
+                iterate=self.iter_domain)
+
+            if self.doRTScaling:
+                self.RT_scale_solver.solve()
 
 
 class subFunctionExtractor(object):
@@ -697,15 +704,6 @@ def computeElemHeight(zCoord, output):
     return output
 
 
-@timed_function('func_copy2dTo3d')
-def copy2dFieldTo3d(input2d, output3d, elemHeight=None):
-    """
-    Copies a field from 2d mesh to 3d mesh, assigning the same value over the
-    vertical dimension. Horizontal function space must be the same.
-    """
-    copy_2d_field_to_3d(input2d, output3d, elemHeight=elemHeight)
-
-
 def computeBottomDrag(uv_bottom, z_bottom, bathymetry, drag):
     """Computes bottom drag coefficient (Cd) from boundary log layer."""
     von_karman = physical_constants['von_karman']
@@ -723,15 +721,15 @@ def computeBottomFriction(solver, uv_3d, uv_bottom_2d, uv_bottom_3d, z_coord_3d,
     tmp = uv_bottom_2d.dat.data.copy()
     solver.extractUVBottom.solve()
     uv_bottom_2d.dat.data[:] = 0.5*(uv_bottom_2d.dat.data + tmp)
-    copy2dFieldTo3d(uv_bottom_2d, uv_bottom_3d, elemHeight=v_elem_size_3d)
+    solver.copyUVBottomTo3d.solve()
     solver.extractZBottom.solve()
     z_bottom_2d.dat.data[:] += bathymetry_2d.dat.data[:]
     z_bottom_2d.dat.data[:] *= 0.5
     computeBottomDrag(uv_bottom_2d, z_bottom_2d, bathymetry_2d, bottom_drag_2d)
-    copy2dFieldTo3d(bottom_drag_2d, bottom_drag_3d, elemHeight=v_elem_size_3d)
+    solver.copyBottomDragTo3d.solve()
 
 
-def getHorzontalElemSize(sol2d, sol3d=None):
+def getHorizontalElemSize(sol2d, sol3d=None):
     """
     Computes horizontal element size from the 2D mesh, then copies it over a 3D
     field.
@@ -748,7 +746,7 @@ def getHorzontalElemSize(sol2d, sol3d=None):
     solve(a == L, sol2d)
     if sol3d is None:
         return sol2d
-    copy2dFieldTo3d(sol2d, sol3d)
+    expandFunctionTo3d(sol2d, sol3d).solve()
     return sol3d
 
 
@@ -801,7 +799,7 @@ def computeMeshVelocity(solver, eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf_2d,
         linProblemCache.add(key, solver, 'wMeshSurf')
     linProblemCache[key].solve()
     solver.extractSurfW.solve()
-    copy2dFieldTo3d(w_mesh_surf_2d, w_mesh_surf)
+    solver.copySurfWMeshTo3d.solve()
 
     # compute w in the whole water column (0 at bed)
     # w_mesh = w_mesh_surf * (z+h)/(eta+h)
