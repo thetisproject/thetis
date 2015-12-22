@@ -487,6 +487,11 @@ class flowSolver(frozenClass):
                                                          self.fields.bottom_drag_3d,
                                                          elemHeight=self.fields.v_elem_size_3d)
         if self.options.useALEMovingMesh:
+            self.meshCoordUpdater = ALEMeshCoordinateUpdater(self.mesh,
+                                                             self.fields.elev_3d,
+                                                             self.fields.bathymetry_3d,
+                                                             self.fields.z_coord_3d,
+                                                             self.fields.z_coord_ref_3d)
             self.extractSurfW = subFunctionExtractor(self.fields.w_mesh_surf_3d,
                                                      self.fields.w_mesh_surf_2d,
                                                      useBottomValue=False)
@@ -523,8 +528,7 @@ class flowSolver(frozenClass):
             self.copyElevTo3d.solve()
             self.fields.elev_cg_3d.project(self.fields.elev_3d)
             if self.options.useALEMovingMesh:
-                updateCoordinates(self.mesh, self.fields.elev_cg_3d, self.fields.bathymetry_3d,
-                                  self.fields.z_coord_3d, self.fields.z_coord_ref_3d)
+                self.meshCoordUpdater.solve()
                 computeElemHeight(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
                 self.copyVElemSizeTo2d.solve()
         if uv_2d is not None:

@@ -748,15 +748,15 @@ def getHorizontalElemSize(sol2d, sol3d=None):
     return sol3d
 
 
-def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref,
-                      solver_parameters={}):
+class ALEMeshCoordinateUpdater(object):
     """Updates extrusion so that free surface mathces eta3d value"""
-    solver_parameters.setdefault('ksp_atol', 1e-12)
-    solver_parameters.setdefault('ksp_rtol', 1e-16)
-    coords = mesh.coordinates
+    def __init__(self, mesh, eta, bathymetry, z_coord, z_coord_ref,
+                 solver_parameters={}):
+        solver_parameters.setdefault('ksp_atol', 1e-12)
+        solver_parameters.setdefault('ksp_rtol', 1e-16)
+        self.coords = mesh.coordinates
+        self.z_coord = z_coord
 
-    key = '-'.join(('ALE', z_coord.name(), eta.name()))
-    if key not in linProblemCache:
         fs = z_coord.function_space()
         # sigma stretch function
         new_z = eta*(z_coord_ref + bathymetry)/bathymetry + z_coord_ref
@@ -765,13 +765,13 @@ def updateCoordinates(mesh, eta, bathymetry, z_coord, z_coord_ref,
         test = TestFunction(fs)
         a = tri*test*dx
         L = new_z*test*dx
-        prob = LinearVariationalProblem(a, L, z_coord)
-        solver = LinearVariationalSolver(
-            prob, solver_parameters=solver_parameters)
-        linProblemCache.add(key, solver, 'updateCoords')
-    linProblemCache[key].solve()
-    # assign to mesh
-    coords.dat.data[:, 2] = z_coord.dat.data[:]
+        self.prob = LinearVariationalProblem(a, L, z_coord)
+        self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
+
+    def solve(self):
+        self.solver.solve()
+        # assign to mesh
+        self.coords.dat.data[:, 2] = self.z_coord.dat.data[:]
 
 
 def computeMeshVelocity(solver, eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf_2d,
@@ -792,9 +792,9 @@ def computeMeshVelocity(solver, eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf_2d,
         eta_grad = nabla_grad(eta)
         L = (w[2] - eta_grad[0]*uv[0] - eta_grad[1]*uv[1])*test*dx
         prob = LinearVariationalProblem(a, L, w_mesh_surf)
-        solver = LinearVariationalSolver(
+        var_solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
-        linProblemCache.add(key, solver, 'wMeshSurf')
+        linProblemCache.add(key, var_solver, 'wMeshSurf')
     linProblemCache[key].solve()
     solver.extractSurfW.solve()
     solver.copySurfWMeshTo3d.solve()
@@ -811,9 +811,9 @@ def computeMeshVelocity(solver, eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf_2d,
         H = eta + bathymetry
         L = (w_mesh_surf*(z+bathymetry)/H)*test*dx
         prob = LinearVariationalProblem(a, L, w_mesh)
-        solver = LinearVariationalSolver(
+        var_solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
-        linProblemCache.add(key, solver, 'wMesh')
+        linProblemCache.add(key, var_solver, 'wMesh')
     linProblemCache[key].solve()
 
     # compute dw_mesh/dz in the whole water column
@@ -827,9 +827,9 @@ def computeMeshVelocity(solver, eta, uv, w, w_mesh, w_mesh_surf, w_mesh_surf_2d,
         H = eta + bathymetry
         L = (w_mesh_surf/H)*test*dx
         prob = LinearVariationalProblem(a, L, w_mesh_ddz_3d)
-        solver = LinearVariationalSolver(
+        var_solver = LinearVariationalSolver(
             prob, solver_parameters=solver_parameters)
-        linProblemCache.add(key, solver, 'dwMeshdz')
+        linProblemCache.add(key, var_solver, 'dwMeshdz')
     linProblemCache[key].solve()
 
 

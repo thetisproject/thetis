@@ -226,11 +226,7 @@ def run(setup, refinement, order, export=True):
     solverObj.fields.elev_2d.project(SET['elev_expr'])
     # update mesh and fields
     solverObj.copyElevTo3d.solve()
-    updateCoordinates(solverObj.mesh,
-                      solverObj.fields.elev_3d,
-                      solverObj.fields.bathymetry_3d,
-                      solverObj.fields.z_coord_3d,
-                      solverObj.fields.z_coord_ref_3d)
+    solverObj.meshCoordUpdater.solve()
     computeElemHeight(solverObj.fields.z_coord_3d, solverObj.fields.v_elem_size_3d)
     solverObj.copyVElemSizeTo2d.solve()
 

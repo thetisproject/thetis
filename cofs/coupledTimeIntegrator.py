@@ -32,9 +32,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
         """Updates mesh to match elevation field"""
         if self.options.useALEMovingMesh:
             with timed_region('aux_mesh_ale'):
-                updateCoordinates(
-                    self.solver.mesh, self.fields.elev_3d, self.fields.bathymetry_3d,
-                    self.fields.z_coord_3d, self.fields.z_coord_ref_3d)
+                self.solver.meshCoordUpdater.solve()
                 computeElemHeight(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
                 self.solver.copyVElemSizeTo2d.solve()
 
