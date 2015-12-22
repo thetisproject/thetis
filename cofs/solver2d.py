@@ -13,7 +13,7 @@ from cofs.fieldDefs import fieldMetadata
 from cofs.options import modelOptions
 
 
-class flowSolver2d(frozenClass):
+class flowSolver2d(FrozenClass):
     """Creates and solves 2D depth averaged equations with RT1-P1DG elements"""
     def __init__(self, mesh2d, bathymetry_2d, order=1, options={}):
         self._initialized = False
@@ -91,7 +91,7 @@ class flowSolver2d(frozenClass):
         self.fields.solution2d = Function(self.function_spaces.V_2d)
 
         # ----- Equations
-        self.eq_sw = shallowWaterEq.shallowWaterEquations(
+        self.eq_sw = shallowWaterEq.ShallowWaterEquations(
             self.fields.solution2d,
             self.fields.bathymetry_2d,
             lin_drag=self.options.lin_drag,

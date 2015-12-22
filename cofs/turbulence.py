@@ -642,11 +642,11 @@ class stabilityFuncCanutoA(object):
         return S_M, S_H
 
 
-class tkeEquation(tracerEquation):
+class TKEEquation(TracerEquation):
     """
     Advection-diffusion equation for turbulent kinetic energy (tke).
 
-    Inherited from tracerEquation so only turbulence related source terms
+    Inherited from TracerEquation so only turbulence related source terms
     and boundary conditions need to be implemented.
     """
     def __init__(self, solution, eta, uv, w,
@@ -659,7 +659,7 @@ class tkeEquation(tracerEquation):
         # NOTE vertical diffusivity must be divided by the TKE Schmidt number
         diffusivity_eff = viscosity_v/self.schmidt_number
         # call parent constructor
-        super(tkeEquation, self).__init__(solution, eta, uv, w,
+        super(TKEEquation, self).__init__(solution, eta, uv, w,
                                           w_mesh, dw_mesh_dz,
                                           diffusivity_h=diffusivity_h,
                                           diffusivity_v=diffusivity_eff,
@@ -679,7 +679,7 @@ class tkeEquation(tracerEquation):
         }
         self.kwargs.update(new_kwargs)
 
-    def Source(self, eta, uv, w, eddy_viscosity, eddy_diffusivity,
+    def source(self, eta, uv, w, eddy_viscosity, eddy_diffusivity,
                shear_freq2, buoyancy_freq2, epsilon,
                **kwargs):
         """Returns the right hand side of the source terms.
@@ -700,11 +700,11 @@ class tkeEquation(tracerEquation):
         return F
 
 
-class psiEquation(tracerEquation):
+class PsiEquation(TracerEquation):
     """
     Advection-diffusion equation for additional GLS model variable (psi).
 
-    Inherited from tracerEquation so only turbulence related source terms
+    Inherited from TracerEquation so only turbulence related source terms
     and boundary conditions need to be implemented.
     """
     def __init__(self, solution, eta, uv, w,
@@ -717,7 +717,7 @@ class psiEquation(tracerEquation):
         self.schmidt_number = glsModel.params['schmidt_nb_psi']
         diffusivity_eff = viscosity_v/self.schmidt_number
         # call parent constructor
-        super(psiEquation, self).__init__(solution, eta, uv, w,
+        super(PsiEquation, self).__init__(solution, eta, uv, w,
                                           w_mesh, dw_mesh_dz,
                                           diffusivity_h=diffusivity_h,
                                           diffusivity_v=diffusivity_eff,
@@ -738,7 +738,7 @@ class psiEquation(tracerEquation):
         }
         self.kwargs.update(new_kwargs)
 
-    def RHS_implicit(self, solution, eta, uv, w, eddy_viscosity, eddy_diffusivity,
+    def rhs_implicit(self, solution, eta, uv, w, eddy_viscosity, eddy_diffusivity,
                      shear_freq2, buoyancy_freq2, epsilon, k, diffusivity_v,
                      **kwargs):
         """Returns the right hand side of the source terms.

@@ -22,17 +22,17 @@ commrank = op2.MPI.comm.rank
 # TODO move those functions in the solver class
 
 
-class frozenClass(object):
+class FrozenClass(object):
     """A class where creating a new attribute will raise an exception if _isfrozen == True"""
     _isfrozen = False
 
     def __setattr__(self, key, value):
         if self._isfrozen and not hasattr(self, key):
             raise TypeError('Adding new attribute "{:}" to {:} class is forbidden'.format(key, self.__class__.__name__))
-        super(frozenClass, self).__setattr__(key, value)
+        super(FrozenClass, self).__setattr__(key, value)
 
 
-class sumFunction(object):
+class SumFunction(object):
     """
     Helper class to keep track of sum of Coefficients.
     """
@@ -55,7 +55,7 @@ class sumFunction(object):
             # ('bad argument type: ' + str(type(coeff)))
         self.coeffList.append(coeff)
 
-    def getSum(self):
+    def get_sum(self):
         """
         Returns a sum of all added Coefficients
         """
@@ -64,7 +64,7 @@ class sumFunction(object):
         return sum(self.coeffList)
 
 
-class equation(object):
+class Equation(object):
     """Base class for all equations"""
     # TODO move to equation.py
     def mass_matrix(self, *args, **kwargs):
@@ -72,17 +72,17 @@ class equation(object):
         raise NotImplementedError(('This method must be implemented '
                                    'in the derived class'))
 
-    def RHS(self, *args, **kwargs):
+    def rhs(self, *args, **kwargs):
         """Returns weak form for the right hand side."""
         raise NotImplementedError(('This method must be implemented '
                                    'in the derived class'))
 
-    def RHS_implicit(self, *args, **kwargs):
+    def rhs_implicit(self, *args, **kwargs):
         """Returns weak form for the right hand side of all implicit terms"""
         raise NotImplementedError(('This method must be implemented '
                                    'in the derived class'))
 
-    def Source(self, *args, **kwargs):
+    def source(self, *args, **kwargs):
         """Returns weak for for terms that do not depend on the solution."""
         raise NotImplementedError(('This method must be implemented '
                                    'in the derived class'))
@@ -101,13 +101,13 @@ class AttrDict(dict):
         self.__dict__ = self
 
 
-class fieldDict(AttrDict):
+class FieldDict(AttrDict):
     """
     AttrDict that checks that all added fields have proper meta data.
 
     Values can be either Function or Constant objects.
     """
-    def _checkInputs(self, key, value):
+    def _check_inputs(self, key, value):
         if key != '__dict__':
             if not isinstance(value, (Function, Constant)):
                 raise TypeError('Value must be a Function or Constant object')
@@ -117,23 +117,23 @@ class fieldDict(AttrDict):
                       'Add fieldMetadata entry to fieldDefs.py'.format(key)
                 raise Exception(msg)
 
-    def _setFunctionName(self, key, value):
+    def _set_functionname(self, key, value):
         """Set function.name to key to ensure consistent naming"""
         if isinstance(value, Function):
             value.rename(name=key)
 
     def __setitem__(self, key, value):
-        self._checkInputs(key, value)
-        self._setFunctionName(key, value)
-        super(fieldDict, self).__setitem__(key, value)
+        self._check_inputs(key, value)
+        self._set_functionname(key, value)
+        super(FieldDict, self).__setitem__(key, value)
 
     def __setattr__(self, key, value):
-        self._checkInputs(key, value)
-        self._setFunctionName(key, value)
-        super(fieldDict, self).__setattr__(key, value)
+        self._check_inputs(key, value)
+        self._set_functionname(key, value)
+        super(FieldDict, self).__setattr__(key, value)
 
 
-class temporaryFunctionCache(object):
+class TemporaryFunctionCache(object):
     """
     Holds temporary functions for needed function spaces in a dict.
 
@@ -152,7 +152,7 @@ class temporaryFunctionCache(object):
         key = self._getKey(function_space)
         self.functions[key] = f
 
-    def _getKey(self, function_space):
+    def _get_key(self, function_space):
         """generate a unique str representation for function space"""
         ufl_elem = function_space.ufl_element()
         elems = [ufl_elem]
@@ -164,13 +164,13 @@ class temporaryFunctionCache(object):
                 if hasattr(d, '_A'):
                     elems += [ufl_elem._A, ufl_elem._B]
 
-        def getElemStr(e):
+        def get_elem_str(e):
             s = e.shortstr()
             d = e.degree()
             if not isinstance(d, tuple):
                 s = s.replace('?', str(d))
             return s
-        attrib = [getElemStr(ee) for ee in elems]
+        attrib = [get_elem_str(ee) for ee in elems]
         key = '_'.join(attrib)
         return key
 
@@ -182,16 +182,16 @@ class temporaryFunctionCache(object):
         """
         if function_space not in self.functions:
             self.add(function_space)
-        key = self._getKey(function_space)
+        key = self._get_key(function_space)
         return self.functions[key]
 
     def clear(self):
         self.functions = {}
 
-tmpFunctionCache = temporaryFunctionCache()
+tmpFunctionCache = TemporaryFunctionCache()
 
 
-def printInfo(msg):
+def print_info(msg):
     if commrank == 0:
         print(msg)
 
@@ -222,7 +222,7 @@ def bold(text):
     return text.upper()
 
 
-def createDirectory(path):
+def create_directory(path):
     if commrank == 0:
         if os.path.exists(path):
             if not os.path.isdir(path):
@@ -232,7 +232,7 @@ def createDirectory(path):
     return path
 
 
-def extrudeMeshLinear(mesh2d, n_layers, xmin, xmax, dmin, dmax):
+def extrude_mesh_linear(mesh2d, n_layers, xmin, xmax, dmin, dmax):
     """Extrudes 2d surface mesh with defined by two endpoints in x axis."""
     layer_height = 1.0/n_layers
     base_coords = mesh2d.coordinates
@@ -262,42 +262,42 @@ def extrudeMeshLinear(mesh2d, n_layers, xmin, xmax, dmin, dmax):
     return mesh
 
 
-def extrudeMeshSigma(mesh2d, n_layers, bathymetry_2d):
+def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d):
     """Extrudes 2d surface mesh with bathymetry data defined in a 2d field."""
     mesh = ExtrudedMesh(mesh2d, layers=n_layers, layer_height=1.0/n_layers)
 
     xyz = mesh.coordinates
 
-    nNodes2d = bathymetry_2d.dat.data.shape[0]
-    NVert = xyz.dat.data.shape[0]/nNodes2d
+    n_nodes_2d = bathymetry_2d.dat.data.shape[0]
+    n_vert = xyz.dat.data.shape[0]/n_nodes_2d
     # TODO can the loop be circumvented?
-    for iNode in range(nNodes2d):
-        xyz.dat.data[iNode*NVert:iNode*NVert+NVert, 2] *= -bathymetry_2d.dat.data[iNode]
+    for i_node in range(n_nodes_2d):
+        xyz.dat.data[i_node*n_vert:i_node*n_vert+n_vert, 2] *= -bathymetry_2d.dat.data[i_node]
     return mesh
 
 
-def compVolume2d(eta, bath):
+def comp_volume_2d(eta, bath):
     mesh = bath.function_space().mesh()
     dx = mesh._dx
     val = assemble((eta+bath)*dx)
     return val
 
 
-def compVolume3d(mesh):
+def comp_volume_3d(mesh):
     dx = mesh._dx
     one = Constant(1.0, domain=mesh.coordinates.domain())
     val = assemble(one*dx)
     return val
 
 
-def compTracerMass3d(scalarFunc):
-    mesh = scalarFunc.function_space().mesh()
+def comp_tracer_mass_3d(scalar_func):
+    mesh = scalar_func.function_space().mesh()
     dx = mesh._dx
-    val = assemble(scalarFunc*dx)
+    val = assemble(scalar_func*dx)
     return val
 
 
-def getZCoordFromMesh(zcoord, solver_parameters={}):
+def get_zcoord_from_mesh(zcoord, solver_parameters={}):
     """Evaluates z coordinates from the 3D mesh"""
     solver_parameters.setdefault('ksp_atol', 1e-12)
     solver_parameters.setdefault('ksp_rtol', 1e-16)
@@ -305,22 +305,22 @@ def getZCoordFromMesh(zcoord, solver_parameters={}):
     tri = TrialFunction(fs)
     test = TestFunction(fs)
     a = tri*test*dx
-    L = fs.mesh().coordinates[2]*test*dx
-    solve(a == L, zcoord, solver_parameters=solver_parameters)
+    l = fs.mesh().coordinates[2]*test*dx
+    solve(a == l, zcoord, solver_parameters=solver_parameters)
     return zcoord
 
 
-class verticalVelocitySolver(object):
+class VerticalVelocitySolver(object):
     """Computes vertical velocity from continuity equation"""
     def __init__(self, solution, uv, bathymetry,
                  boundary_markers=[], boundary_funcs={},
                  solver_parameters={}):
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
-        H = solution.function_space()
-        mesh = H.mesh()
-        test = TestFunction(H)
-        tri = TrialFunction(H)
+        fs = solution.function_space()
+        mesh = fs.mesh()
+        test = TestFunction(fs)
+        tri = TrialFunction(fs)
         normal = FacetNormal(mesh)
 
         ds_surf = ds_b
@@ -330,7 +330,7 @@ class verticalVelocitySolver(object):
         # NOTE weak div(uv)
         uv_star = avg(uv)
         # NOTE in the case of mimetic uv the div must be taken over all components
-        L = (inner(uv, nabla_grad(test[2]))*dx -
+        l = (inner(uv, nabla_grad(test[2]))*dx -
              (uv_star[0]*jump(test[2], normal[0]) +
               uv_star[1]*jump(test[2], normal[1]) +
               uv_star[2]*jump(test[2], normal[2]))*(dS_v + dS_h) -
@@ -346,50 +346,50 @@ class verticalVelocitySolver(object):
                 continue
             else:
                 # use symmetry condition
-                L += -(uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_bnd
+                l += -(uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_bnd
 
-        self.prob = LinearVariationalProblem(a, L, solution)
+        self.prob = LinearVariationalProblem(a, l, solution)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
         self.solver.solve()
 
 
-class verticalIntegrator(object):
+class VerticalIntegrator(object):
     """
     Computes vertical integral of the scalar field in the output
     function space.
     """
-    def __init__(self, input, output, bottomToTop=True,
-                 bndValue=Constant(0.0), average=False,
+    def __init__(self, input, output, bottom_to_top=True,
+                 bnd_value=Constant(0.0), average=False,
                  bathymetry=None, solver_parameters={}):
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
 
         space = output.function_space()
         mesh = space.mesh()
-        verticalIsDG = False
+        vertical_is_dg = False
         if (hasattr(space.ufl_element(), '_B') and
                 space.ufl_element()._B.family() != 'Lagrange'):
             # a normal outerproduct element
-            verticalIsDG = True
+            vertical_is_dg = True
         if 'HDiv' in space.ufl_element().shortstr():
             # Hdiv vector space, assume DG in vertical
-            verticalIsDG = True
+            vertical_is_dg = True
         tri = TrialFunction(space)
         phi = TestFunction(space)
         normal = FacetNormal(mesh)
         ds_surf = mesh._ds_b
         ds_bottom = mesh._ds_t
-        if bottomToTop:
-            bnd_term = normal[2]*inner(bndValue, phi)*ds_bottom
+        if bottom_to_top:
+            bnd_term = normal[2]*inner(bnd_value, phi)*ds_bottom
             mass_bnd_term = normal[2]*inner(tri, phi)*ds_surf
         else:
-            bnd_term = normal[2]*inner(bndValue, phi)*ds_surf
+            bnd_term = normal[2]*inner(bnd_value, phi)*ds_surf
             mass_bnd_term = normal[2]*inner(tri, phi)*ds_bottom
 
         a = -inner(Dx(phi, 2), tri)*mesh._dx + mass_bnd_term
-        if verticalIsDG:
+        if vertical_is_dg:
             if len(input.ufl_shape) > 0:
                 dim = input.ufl_shape[0]
                 for i in range(dim):
@@ -400,8 +400,8 @@ class verticalIntegrator(object):
         if average:
             # FIXME this should be H not h
             source = input/bathymetry
-        L = inner(source, phi)*mesh._dx + bnd_term
-        self.prob = LinearVariationalProblem(a, L, output)
+        l = inner(source, phi)*mesh._dx + bnd_term
+        self.prob = LinearVariationalProblem(a, l, output)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
@@ -409,8 +409,8 @@ class verticalIntegrator(object):
             self.solver.solve()
 
 
-def computeBaroclinicHead(solver, salt, baroc_head_3d, baroc_head_2d,
-                          baroc_head_int_3d, bath3d):
+def compute_baroclinic_head(solver, salt, baroc_head_3d, baroc_head_2d,
+                            baroc_head_int_3d, bath3d):
     """
     Computes baroclinic head from density field
 
@@ -422,14 +422,14 @@ def computeBaroclinicHead(solver, salt, baroc_head_3d, baroc_head_2d,
     solver.extractSurfBaroHead.solve()
 
 
-class velocityMagnitudeSolver(object):
+class VelocityMagnitudeSolver(object):
     """
     Computes magnitude of (u[0],u[1],w) and stores it in solution
     """
-    def __init__(self, solution, u=None, w=None, minVal=1e-6,
+    def __init__(self, solution, u=None, w=None, min_val=1e-6,
                  solver_parameters={}):
         self.solution = solution
-        self.min_val = minVal
+        self.min_val = min_val
         function_space = solution.function_space()
         test = TestFunction(function_space)
         tri = TrialFunction(function_space)
@@ -440,8 +440,8 @@ class velocityMagnitudeSolver(object):
             s += u[0]**2 + u[1]**2
         if w is not None:
             s += w**2
-        L = test*sqrt(s)*dx
-        self.prob = LinearVariationalProblem(a, L, solution)
+        l = test*sqrt(s)*dx
+        self.prob = LinearVariationalProblem(a, l, solution)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
@@ -449,17 +449,17 @@ class velocityMagnitudeSolver(object):
         self.solution.dat.data[:] = np.maximum(self.solution.dat.data[:], self.min_val)
 
 
-class horizontalJumpDiffusivity(object):
+class HorizontalJumpDiffusivity(object):
     """Computes tracer jump diffusivity for horizontal advection."""
-    def __init__(self, alpha, tracer, output, hElemSize, umag,
-                 tracer_mag, maxval, minval=1e-6, solver_parameters={}):
+    def __init__(self, alpha, tracer, output, h_elem_size, umag,
+                 tracer_mag, max_val, min_val=1e-6, solver_parameters={}):
         solver_parameters.setdefault('ksp_atol', 1e-6)
         solver_parameters.setdefault('ksp_rtol', 1e-8)
-        if output.function_space() != maxval.function_space():
-            raise Exception('output and maxval function spaces do not match')
+        if output.function_space() != max_val.function_space():
+            raise Exception('output and max_val function spaces do not match')
         self.output = output
-        self.minval = minval
-        self.maxval = maxval
+        self.min_val = min_val
+        self.max_val = max_val
 
         fs = output.function_space()
         mesh = fs.mesh()
@@ -470,26 +470,26 @@ class horizontalJumpDiffusivity(object):
         # TODO jump scalar must depend on the tracer value scale
         # TODO can this be estimated automatically e.g. global_max(abs(S))
         maxjump = Constant(0.05)*tracer_mag
-        L = alpha*avg(umag*hElemSize)*(tracer_jump/maxjump)**2*avg(test)*mesh._dS_v
-        self.prob = LinearVariationalProblem(a, L, output)
+        l = alpha*avg(umag*h_elem_size)*(tracer_jump/maxjump)**2*avg(test)*mesh._dS_v
+        self.prob = LinearVariationalProblem(a, l, output)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
         self.solver.solve()
-        self.output.dat.data[:] = np.minimum(self.maxval.dat.data, self.output.dat.data)
-        self.output.dat.data[self.output.dat.data[:] < self.minval] = self.minval
+        self.output.dat.data[:] = np.minimum(self.max_val.dat.data, self.output.dat.data)
+        self.output.dat.data[self.output.dat.data[:] < self.min_val] = self.min_val
 
 
-class expandFunctionTo3d(object):
+class ExpandFunctionTo3d(object):
     """
     Copies a field from 2d mesh to 3d mesh, assigning the same value over the
     vertical dimension. Horizontal function space must be the same.
     """
-    def __init__(self, input2d, output3d, elemHeight=None):
-        self.input2d = input2d
-        self.output3d = output3d
-        self.fs_2d = self.input2d.function_space()
-        self.fs_3d = self.output3d.function_space()
+    def __init__(self, input_2d, output_3d, elem_height=None):
+        self.input_2d = input_2d
+        self.output_3d = output_3d
+        self.fs_2d = self.input_2d.function_space()
+        self.fs_3d = self.output_3d.function_space()
 
         family_2d = self.fs_2d.ufl_element().family()
         if hasattr(self.fs_3d.ufl_element(), '_A'):
@@ -497,14 +497,14 @@ class expandFunctionTo3d(object):
             family_3dh = self.fs_3d.ufl_element()._A.family()
             if family_2d != family_3dh:
                 raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
-        if family_2d == 'Raviart-Thomas' and elemHeight is None:
-            raise Exception('elemHeight must be provided for Raviart-Thomas spaces')
-        self.doRTScaling = family_2d == 'Raviart-Thomas'
+        if family_2d == 'Raviart-Thomas' and elem_height is None:
+            raise Exception('elem_height must be provided for Raviart-Thomas spaces')
+        self.do_rt_scaling = family_2d == 'Raviart-Thomas'
 
         self.iter_domain = op2.ALL
 
         # number of nodes in vertical direction
-        nVertNodes = len(self.fs_3d.fiat_element.B.entity_closure_dofs()[1][0])
+        n_vert_nodes = len(self.fs_3d.fiat_element.B.entity_closure_dofs()[1][0])
 
         nodes = self.fs_3d.bt_masks['geometric'][0]
         self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='nodeIdx')
@@ -517,21 +517,21 @@ class expandFunctionTo3d(object):
                         }
                     }
                 }
-            }""" % {'nodes': self.input2d.cell_node_map().arity,
-                    'func_dim': self.input2d.function_space().cdim,
-                    'v_nodes': nVertNodes},
+            }""" % {'nodes': self.input_2d.cell_node_map().arity,
+                    'func_dim': self.input_2d.function_space().cdim,
+                    'v_nodes': n_vert_nodes},
             'my_kernel')
 
-        if self.doRTScaling:
+        if self.do_rt_scaling:
             solver_parameters = {}
             solver_parameters.setdefault('ksp_atol', 1e-12)
             solver_parameters.setdefault('ksp_rtol', 1e-16)
             test = TestFunction(self.fs_3d)
             tri = TrialFunction(self.fs_3d)
             a = inner(tri, test)*dx
-            L = inner(self.output3d, test)*elemHeight*dx
-            prob = LinearVariationalProblem(a, L, self.output3d)
-            self.RT_scale_solver = LinearVariationalSolver(
+            l = inner(self.output_3d, test)*elem_height*dx
+            prob = LinearVariationalProblem(a, l, self.output_3d)
+            self.rt_scale_solver = LinearVariationalSolver(
                 prob, solver_parameters=solver_parameters)
 
     def solve(self):
@@ -539,43 +539,43 @@ class expandFunctionTo3d(object):
             # execute par loop
             op2.par_loop(
                 self.kernel, self.fs_3d.mesh().cell_set,
-                self.output3d.dat(op2.WRITE, self.fs_3d.cell_node_map()),
-                self.input2d.dat(op2.READ, self.fs_2d.cell_node_map()),
+                self.output_3d.dat(op2.WRITE, self.fs_3d.cell_node_map()),
+                self.input_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
                 self.idx(op2.READ),
                 iterate=self.iter_domain)
 
-            if self.doRTScaling:
-                self.RT_scale_solver.solve()
+            if self.do_rt_scaling:
+                self.rt_scale_solver.solve()
 
 
-class subFunctionExtractor(object):
+class SubFunctionExtractor(object):
     """
     Extract a 2D subfunction from a 3D extruded mesh.
 
-    input3d: Function in 3d mesh
-    output2d: Function in 2d mesh
-    useBottomValue: bool
+    input_3d: Function in 3d mesh
+    output_2d: Function in 2d mesh
+    use_bottom_value: bool
         Extract function at bottom elements
-    elemBottomNodes: bool
+    elem_bottom_nodes: bool
         Extract function at bottom mask of the element
-        Typically elemBottomNodes = useBottomValue to obtain values at
+        Typically elem_bottom_nodes = use_bottom_value to obtain values at
         surface/bottom faces of the extruded mesh
-    elemHeight: Function in 2d mesh
+    elem_height: Function in 2d mesh
         Function that defines the element heights
         (required for Raviart-Thomas spaces only)
     """
-    def __init__(self, input3d, output2d, useBottomValue=True,
-                 elemBottomNodes=None, elemHeight=None):
-        self.input3d = input3d
-        self.output2d = output2d
-        self.fs_3d = self.input3d.function_space()
-        self.fs_2d = self.output2d.function_space()
+    def __init__(self, input_3d, output_2d, use_bottom_value=True,
+                 elem_bottom_nodes=None, elem_height=None):
+        self.input_3d = input_3d
+        self.output_2d = output_2d
+        self.fs_3d = self.input_3d.function_space()
+        self.fs_2d = self.output_2d.function_space()
 
         # NOTE top/bottom are defined differently than in firedrake
-        sub_domain = 'bottom' if useBottomValue else 'top'
-        if elemBottomNodes is None:
+        sub_domain = 'bottom' if use_bottom_value else 'top'
+        if elem_bottom_nodes is None:
             # extract surface/bottom face by default
-            elemBottomNodes = useBottomValue
+            elem_bottom_nodes = use_bottom_value
 
         family_2d = self.fs_2d.ufl_element().family()
         if hasattr(self.fs_3d.ufl_element(), '_A'):
@@ -583,11 +583,11 @@ class subFunctionExtractor(object):
             family_3dh = self.fs_3d.ufl_element()._A.family()
             if family_2d != family_3dh:
                 raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
-        if family_2d == 'Raviart-Thomas' and elemHeight is None:
-            raise Exception('elemHeight must be provided for Raviart-Thomas spaces')
-        self.doRTScaling = family_2d == 'Raviart-Thomas'
+        if family_2d == 'Raviart-Thomas' and elem_height is None:
+            raise Exception('elem_height must be provided for Raviart-Thomas spaces')
+        self.do_rt_scaling = family_2d == 'Raviart-Thomas'
 
-        if elemBottomNodes:
+        if elem_bottom_nodes:
             nodes = self.fs_3d.bt_masks['geometric'][1]
         else:
             nodes = self.fs_3d.bt_masks['geometric'][0]
@@ -611,11 +611,11 @@ class subFunctionExtractor(object):
                         //func[d][c] = idx[d];
                     }
                 }
-            }""" % {'nodes': self.output2d.cell_node_map().arity,
-                    'func_dim': self.output2d.function_space().cdim},
+            }""" % {'nodes': self.output_2d.cell_node_map().arity,
+                    'func_dim': self.output_2d.function_space().cdim},
             'my_kernel')
 
-        if self.doRTScaling:
+        if self.do_rt_scaling:
             solver_parameters = {}
             solver_parameters.setdefault('ksp_atol', 1e-12)
             solver_parameters.setdefault('ksp_rtol', 1e-16)
@@ -623,59 +623,59 @@ class subFunctionExtractor(object):
             tri = TrialFunction(self.fs_2d)
             dx_2d = self.fs_2d.mesh()._dx
             a = inner(tri, test)*dx_2d
-            L = inner(self.output2d, test)/elemHeight*dx_2d
-            prob = LinearVariationalProblem(a, L, self.output2d)
-            self.RT_scale_solver = LinearVariationalSolver(
+            l = inner(self.output_2d, test)/elem_height*dx_2d
+            prob = LinearVariationalProblem(a, l, self.output_2d)
+            self.rt_scale_solver = LinearVariationalSolver(
                 prob, solver_parameters=solver_parameters)
 
     def solve(self):
         with timed_region('func_copy3dTo2d'):
             # execute par loop
             op2.par_loop(self.kernel, self.fs_3d.mesh().cell_set,
-                         self.output2d.dat(op2.WRITE, self.fs_2d.cell_node_map()),
-                         self.input3d.dat(op2.READ, self.fs_3d.cell_node_map()),
+                         self.output_2d.dat(op2.WRITE, self.fs_2d.cell_node_map()),
+                         self.input_3d.dat(op2.READ, self.fs_3d.cell_node_map()),
                          self.idx(op2.READ),
                          iterate=self.iter_domain)
 
-            if self.doRTScaling:
-                self.RT_scale_solver.solve()
+            if self.do_rt_scaling:
+                self.rt_scale_solver.solve()
 
 
-def computeElemHeight(zCoord, output):
+def compute_elem_height(zcoord, output):
     """
     Compute element heights on an extruded mesh.
-    zCoord (P1CG) contains zcoordinates of the mesh
+    zcoord (P1CG) contains zcoordinates of the mesh
     element height is stored in output function (typ. P1DG).
     """
-    fs_in = zCoord.function_space()
+    fs_in = zcoord.function_space()
     fs_out = output.function_space()
 
     iterate = op2.ALL
 
     # NOTE height maybe <0 if mesh was extruded like that
     kernel = op2.Kernel("""
-        void my_kernel(double **func, double **zCoord) {
+        void my_kernel(double **func, double **zcoord) {
             for ( int d = 0; d < %(nodes)d/2; d++ ) {
                 for ( int c = 0; c < %(func_dim)d; c++ ) {
                     // NOTE is fabs required here??
-                    double dz = zCoord[2*d+1][c]-zCoord[2*d][c];
+                    double dz = zcoord[2*d+1][c]-zcoord[2*d][c];
                     func[2*d][c] = dz;
                     func[2*d+1][c] = dz;
                 }
             }
-        }""" % {'nodes': zCoord.cell_node_map().arity,
-                'func_dim': zCoord.function_space().cdim},
+        }""" % {'nodes': zcoord.cell_node_map().arity,
+                'func_dim': zcoord.function_space().cdim},
         'my_kernel')
     op2.par_loop(
         kernel, fs_out.mesh().cell_set,
         output.dat(op2.WRITE, fs_out.cell_node_map()),
-        zCoord.dat(op2.READ, fs_in.cell_node_map()),
+        zcoord.dat(op2.READ, fs_in.cell_node_map()),
         iterate=iterate)
 
     return output
 
 
-def computeBottomDrag(uv_bottom, z_bottom, bathymetry, drag):
+def compute_bottom_drag(uv_bottom, z_bottom, bathymetry, drag):
     """Computes bottom drag coefficient (Cd) from boundary log layer."""
     von_karman = physical_constants['von_karman']
     z0_friction = physical_constants['z0_friction']
@@ -683,10 +683,10 @@ def computeBottomDrag(uv_bottom, z_bottom, bathymetry, drag):
     return drag
 
 
-def computeBottomFriction(solver, uv_3d, uv_bottom_2d, uv_bottom_3d, z_coord_3d,
-                          z_bottom_2d, bathymetry_2d,
-                          bottom_drag_2d, bottom_drag_3d,
-                          v_elem_size_2d=None, v_elem_size_3d=None):
+def compute_bottom_friction(solver, uv_3d, uv_bottom_2d, uv_bottom_3d, z_coord_3d,
+                            z_bottom_2d, bathymetry_2d,
+                            bottom_drag_2d, bottom_drag_3d,
+                            v_elem_size_2d=None, v_elem_size_3d=None):
     # compute velocity at middle of bottom element
     solver.extractUVBottom.solve()
     tmp = uv_bottom_2d.dat.data.copy()
@@ -696,28 +696,28 @@ def computeBottomFriction(solver, uv_3d, uv_bottom_2d, uv_bottom_3d, z_coord_3d,
     solver.extractZBottom.solve()
     z_bottom_2d.dat.data[:] += bathymetry_2d.dat.data[:]
     z_bottom_2d.dat.data[:] *= 0.5
-    computeBottomDrag(uv_bottom_2d, z_bottom_2d, bathymetry_2d, bottom_drag_2d)
+    ComputeBottomDrag(uv_bottom_2d, z_bottom_2d, bathymetry_2d, bottom_drag_2d)
     solver.copyBottomDragTo3d.solve()
 
 
-def getHorizontalElemSize(sol2d, sol3d=None):
+def get_horizontal_elem_size(sol2d, sol3d=None):
     """
     Computes horizontal element size from the 2D mesh, then copies it over a 3D
     field.
     """
-    P1_2d = sol2d.function_space()
-    mesh = P1_2d.mesh()
+    p1_2d = sol2d.function_space()
+    mesh = p1_2d.mesh()
     cellsize = CellSize(mesh)
-    test = TestFunction(P1_2d)
-    tri = TrialFunction(P1_2d)
-    sol2d = Function(P1_2d)
+    test = TestFunction(p1_2d)
+    tri = TrialFunction(p1_2d)
+    sol2d = Function(p1_2d)
     dx_2d = mesh._dx
     a = test * tri * dx_2d
-    L = test * cellsize * dx_2d
-    solve(a == L, sol2d)
+    l = test * cellsize * dx_2d
+    solve(a == l, sol2d)
     if sol3d is None:
         return sol2d
-    expandFunctionTo3d(sol2d, sol3d).solve()
+    ExpandFunctionTo3d(sol2d, sol3d).solve()
     return sol3d
 
 
@@ -737,8 +737,8 @@ class ALEMeshCoordinateUpdater(object):
         tri = TrialFunction(fs)
         test = TestFunction(fs)
         a = tri*test*dx
-        L = new_z*test*dx
-        self.prob = LinearVariationalProblem(a, L, z_coord)
+        l = new_z*test*dx
+        self.prob = LinearVariationalProblem(a, l, z_coord)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
@@ -747,7 +747,7 @@ class ALEMeshCoordinateUpdater(object):
         self.coords.dat.data[:, 2] = self.z_coord.dat.data[:]
 
 
-class meshVelocitySolver(object):
+class MeshVelocitySolver(object):
     """Computes vertical mesh velocity for moving sigma mesh"""
     def __init__(self, solver, eta, uv, w, w_mesh, w_mesh_surf,
                  w_mesh_surf_2d, w_mesh_ddz_3d, bathymetry,
@@ -764,8 +764,8 @@ class meshVelocitySolver(object):
         test = TestFunction(fs)
         a = inner(tri, test)*dx
         eta_grad = nabla_grad(eta)
-        L = (w[2] - eta_grad[0]*uv[0] - eta_grad[1]*uv[1])*test*dx
-        self.probWMeshSurf = LinearVariationalProblem(a, L, w_mesh_surf)
+        l = (w[2] - eta_grad[0]*uv[0] - eta_grad[1]*uv[1])*test*dx
+        self.probWMeshSurf = LinearVariationalProblem(a, l, w_mesh_surf)
         self.solverWMeshSurf = LinearVariationalSolver(self.probWMeshSurf, solver_parameters=solver_parameters)
 
         # compute w in the whole water column (0 at bed)
@@ -775,9 +775,9 @@ class meshVelocitySolver(object):
         tri = TrialFunction(fs)
         test = TestFunction(fs)
         a = tri*test*dx
-        H = eta + bathymetry
-        L = (w_mesh_surf*(z+bathymetry)/H)*test*dx
-        self.probWMesh = LinearVariationalProblem(a, L, w_mesh)
+        tot_depth = eta + bathymetry
+        l = (w_mesh_surf*(z+bathymetry)/tot_depth)*test*dx
+        self.probWMesh = LinearVariationalProblem(a, l, w_mesh)
         self.solverWMesh = LinearVariationalSolver(self.probWMesh, solver_parameters=solver_parameters)
 
         # compute dw_mesh/dz in the whole water column
@@ -786,9 +786,8 @@ class meshVelocitySolver(object):
         tri = TrialFunction(fs)
         test = TestFunction(fs)
         a = tri*test*dx
-        H = eta + bathymetry
-        L = (w_mesh_surf/H)*test*dx
-        self.probDWMeshDz = LinearVariationalProblem(a, L, w_mesh_ddz_3d)
+        l = (w_mesh_surf/tot_depth)*test*dx
+        self.probDWMeshDz = LinearVariationalProblem(a, l, w_mesh_ddz_3d)
         self.solverDWMeshDz = LinearVariationalSolver(self.probDWMeshDz, solver_parameters=solver_parameters)
 
     def solve(self):
@@ -799,7 +798,7 @@ class meshVelocitySolver(object):
         self.solverDWMeshDz.solve()
 
 
-class parabolicViscosity(object):
+class ParabolicViscosity(object):
     """Computes parabolic eddy viscosity profile assuming log layer flow
     nu = kappa * u_bf * (-z) * (bath + z0 + z) / (bath + z0)
     with
@@ -814,15 +813,15 @@ class parabolicViscosity(object):
 
         kappa = physical_constants['von_karman']
         z0 = physical_constants['z0_friction']
-        H = nu.function_space()
-        x = H.mesh().coordinates
-        test = TestFunction(H)
-        tri = TrialFunction(H)
+        fs = nu.function_space()
+        x = fs.mesh().coordinates
+        test = TestFunction(fs)
+        tri = TrialFunction(fs)
         a = tri*test*dx
         uv_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
         parabola = -x[2]*(bathymetry + z0 + x[2])/(bathymetry + z0)
-        L = kappa*sqrt(bottom_drag)*uv_mag*parabola*test*dx
-        self.prob = LinearVariationalProblem(a, L, nu)
+        l = kappa*sqrt(bottom_drag)*uv_mag*parabola*test*dx
+        self.prob = LinearVariationalProblem(a, l, nu)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
@@ -832,10 +831,10 @@ class parabolicViscosity(object):
         self.solution.dat.data[ix] = self.min_val
 
 
-def betaPlaneCoriolisParams(latitude):
+def beta_plane_coriolis_params(latitude):
     """Computes beta plane parameters based on the latitude (given in degrees)."""
-    Omega = 7.2921150e-5  # rad/s Earth rotation rate
-    R = 6371.e3  # Earth radius
+    omega = 7.2921150e-5  # rad/s Earth rotation rate
+    r = 6371.e3  # Earth radius
     # Coriolis parameter f = 2 Omega sin(alpha)
     # Beta plane approximation f_beta = f_0 + Beta y
     # f_0 = 2 Omega sin(alpha_0)
@@ -843,20 +842,20 @@ def betaPlaneCoriolisParams(latitude):
     #      = (df/dalpha*dalpha/dy)_{alpha=alpha_0}
     #      = 2 Omega cos(alpha_0) /R
     alpha_0 = 2*np.pi*latitude/360.0
-    f_0 = 2*Omega*np.sin(alpha_0)
-    beta = 2*Omega*np.cos(alpha_0)/R
+    f_0 = 2*omega*np.sin(alpha_0)
+    beta = 2*omega*np.cos(alpha_0)/r
     return f_0, beta
 
 
-def betaPlaneCoriolisFunction(degrees, out_function, y_offset=0.0):
+def beta_plane_coriolis_function(degrees, out_function, y_offset=0.0):
     """Interpolates beta plane Coriolis parameter to the given functions."""
     # NOTE assumes that mesh y coordinate spans [-L_y, L_y]
-    f0, beta = betaPlaneCoriolisParams(45.0)
+    f0, beta = beta_plane_coriolis_params(45.0)
     out_function.interpolate(
         Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=y_offset))
 
 
-class smagorinskyViscosity(object):
+class SmagorinskyViscosity(object):
     """
     Computes Smagorinsky subgrid scale viscosity.
 
@@ -880,7 +879,7 @@ class smagorinskyViscosity(object):
         ocean models. Monthly Weather Review, 128(8):2935-2946.
         http://dx.doi.org/10.1175/1520-0493(2000)128%3C2935:BFWASL%3E2.0.CO;2
     """
-    def __init__(self, uv, output, C_s, hElemSize, solver_parameters={}):
+    def __init__(self, uv, output, c_s, h_elem_size, solver_parameters={}):
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
         self.min_val = 1e-10
@@ -892,13 +891,13 @@ class smagorinskyViscosity(object):
         tau = TrialFunction(fs)
 
         # rate of strain tensor
-        D_T = Dx(uv[0], 0) - Dx(uv[1], 1)
-        D_S = Dx(uv[0], 1) + Dx(uv[1], 0)
-        nu = C_s**2*hElemSize**2 * sqrt(D_T**2 + D_S**2)
+        d_t = Dx(uv[0], 0) - Dx(uv[1], 1)
+        d_s = Dx(uv[0], 1) + Dx(uv[1], 0)
+        nu = c_s**2*h_elem_size**2 * sqrt(d_t**2 + d_s**2)
 
         a = w*tau*mesh._dx
-        L = w*nu*mesh._dx
-        self.prob = LinearVariationalProblem(a, L, output)
+        l = w*nu*mesh._dx
+        self.prob = LinearVariationalProblem(a, l, output)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
@@ -909,7 +908,7 @@ class smagorinskyViscosity(object):
         self.output.dat.data[ix] = self.min_val
 
 
-class projector(object):
+class Projector(object):
     def __init__(self, input_func, output_func, solver_parameters={}):
         self.input = input_func
         self.output = output_func
@@ -917,16 +916,16 @@ class projector(object):
                            self.output.function_space())
 
         if not self.same_space:
-            V = output_func.function_space()
-            p = TestFunction(V)
-            q = TrialFunction(V)
-            a = inner(p, q) * V.mesh()._dx
-            L = inner(p, input_func) * V.mesh()._dx
+            v = output_func.function_space()
+            p = TestFunction(v)
+            q = TrialFunction(v)
+            a = inner(p, q) * v.mesh()._dx
+            l = inner(p, input_func) * v.mesh()._dx
 
             solver_parameters.setdefault('ksp_type', 'cg')
             solver_parameters.setdefault('ksp_rtol', 1e-8)
 
-            self.problem = LinearVariationalProblem(a, L, output_func)
+            self.problem = LinearVariationalProblem(a, l, output_func)
             self.solver = LinearVariationalSolver(self.problem,
                                                   solver_parameters=solver_parameters)
 
@@ -961,7 +960,7 @@ class EquationOfState(object):
                            -1.8832689434804897e-10, 5.7463776745432097e-6, 1.4716275472242334e-9,
                            6.7103246285651894e-6, -2.4461698007024582e-17, -9.1534417604289062e-18])
 
-    def computeRho(self, S, Th, p, rho0=0.0):
+    def compute_rho(self, s, th, p, rho0=0.0):
         """
         Computes sea water density.
 
@@ -976,15 +975,15 @@ class EquationOfState(object):
         Last optional argument rho0 is for computing deviation
         rho' = rho(S, Th, p) - rho0.
         """
-        S0 = np.maximum(S, 0.0)  # ensure positive salinity
+        s0 = np.maximum(s, 0.0)  # ensure positive salinity
         a = self.a
         b = self.b
-        Pn = (a[0] + Th*a[1] + Th*Th*a[2] + Th*Th*Th*a[3] + S0*a[4] +
-              Th*S0*a[5] + S0*S0*a[6] + p*a[7] + p*Th * Th*a[8] + p*S0*a[9] +
-              p*p*a[10] + p*p*Th*Th * a[11])
-        Pd = (b[0] + Th*b[1] + Th*Th*b[2] + Th*Th*Th*b[3] +
-              Th*Th*Th*Th*b[4] + S0*b[5] + S0*Th*b[6] + S0*Th*Th*Th*b[7] +
-              pow(S0, 1.5)*b[8] + pow(S0, 1.5)*Th*Th*b[9] + p*b[10] +
-              p*p*Th*Th*Th*b[11] + p*p*p*Th*b[12])
-        rho = Pn/Pd - rho0
+        pn = (a[0] + th*a[1] + th*th*a[2] + th*th*th*a[3] + s0*a[4] +
+              th*s0*a[5] + s0*s0*a[6] + p*a[7] + p*th * th*a[8] + p*s0*a[9] +
+              p*p*a[10] + p*p*th*th * a[11])
+        pd = (b[0] + th*b[1] + th*th*b[2] + th*th*th*b[3] +
+              th*th*th*th*b[4] + s0*b[5] + s0*th*b[6] + s0*th*th*th*b[7] +
+              pow(s0, 1.5)*b[8] + pow(s0, 1.5)*th*th*b[9] + p*b[10] +
+              p*p*th*th*th*b[11] + p*p*p*th*b[12])
+        rho = pn/pd - rho0
         return rho

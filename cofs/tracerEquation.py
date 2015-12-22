@@ -6,7 +6,7 @@ Tuomas Karna 2015-09-08
 from utility import *
 
 
-class tracerEquation(equation):
+class TracerEquation(Equation):
     """3D tracer advection-diffusion equation"""
     def __init__(self, solution, eta, uv=None, w=None,
                  w_mesh=None, dw_mesh_dz=None,
@@ -79,14 +79,14 @@ class tracerEquation(equation):
         test = self.test
         return inner(solution, test) * self.dx
 
-    def RHS_implicit(self, solution, wind_stress=None, **kwargs):
+    def rhs_implicit(self, solution, wind_stress=None, **kwargs):
         """Returns all the terms that are treated semi-implicitly.
         """
         F = 0  # holds all dx volume integral terms
         G = 0  # holds all ds boundary interface terms
         return -F - G
 
-    def RHS(self, solution, eta=None, uv=None, w=None, w_mesh=None, dw_mesh_dz=None,
+    def rhs(self, solution, eta=None, uv=None, w=None, w_mesh=None, dw_mesh_dz=None,
             diffusivity_h=None, diffusivity_v=None,
             laxFriedrichsFactor=None,
             uvMag=None, uvP1=None,
@@ -221,7 +221,7 @@ class tracerEquation(equation):
 
         return -F - G
 
-    def Source(self, eta=None, uv=None, w=None, source=None, **kwargs):
+    def source(self, eta=None, uv=None, w=None, source=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
         F = 0  # holds all dx volume integral terms

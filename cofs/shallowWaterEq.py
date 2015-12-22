@@ -3,7 +3,7 @@ Depth averaged shallow water equations
 
 TODO: add documentation
 
-Boundary conditions are set with shallowWaterEquations.bnd_functions dict.
+Boundary conditions are set with ShallowWaterEquations.bnd_functions dict.
 For example to assign elevation and volume flux for boundary 1:
 sw.bnd_functions[1] = {'elev':myfunc1, 'flux':myfunc2}
 where myfunc1 and myfunc2 are Functions in the appropriate function space.
@@ -26,7 +26,7 @@ g_grav = physical_constants['g_grav']
 rho_0 = physical_constants['rho0']
 
 
-class shallowWaterEquations(equation):
+class ShallowWaterEquations(Equation):
     """2D depth averaged shallow water equations in non-conservative form"""
     def __init__(self, solution, bathymetry,
                  uv_bottom=None, bottom_drag=None, viscosity_h=None,
@@ -318,7 +318,7 @@ class shallowWaterEquations(equation):
                 #           uv[1]*self.U_test[1]*uv[1]*self.normal[1])*ds_bnd
         return f
 
-    def RHS_implicit(self, solution, wind_stress=None,
+    def rhs_implicit(self, solution, wind_stress=None,
                      **kwargs):
         """Returns all the terms that are treated semi-implicitly.
         """
@@ -342,7 +342,7 @@ class shallowWaterEquations(equation):
 
         return -F - G
 
-    def RHS(self, solution, uv_old=None, uv_bottom=None, bottom_drag=None,
+    def rhs(self, solution, uv_old=None, uv_bottom=None, bottom_drag=None,
             viscosity_h=None, mu_manning=None, lin_drag=None,
             coriolis=None, wind_stress=None,
             uvLaxFriedrichs=None,
@@ -404,7 +404,7 @@ class shallowWaterEquations(equation):
 
         return -F - G
 
-    def Source(self, uv_source=None, elev_source=None,
+    def source(self, uv_source=None, elev_source=None,
                uv_old=None, uv_bottom=None, bottom_drag=None,
                baroc_head=None, **kwargs):
         """Returns the source terms that do not depend on the solution."""
@@ -422,7 +422,7 @@ class shallowWaterEquations(equation):
         return -F
 
 
-class freeSurfaceEquation(equation):
+class FreeSurfaceEquation(Equation):
     """Non-conservative free surface equation written for depth averaged
     velocity. This equation can be coupled to 3D mode directly."""
     def __init__(self, solution, uv, bathymetry,
@@ -544,14 +544,14 @@ class freeSurfaceEquation(equation):
             # f += -avg(total_H)*avg(dot(uv, normal))*jump(self.test)*dS
         return f
 
-    def RHS_implicit(self, solution, wind_stress=None, **kwargs):
+    def rhs_implicit(self, solution, wind_stress=None, **kwargs):
         """Returns all the terms that are treated semi-implicitly.
         """
         F = 0  # holds all dx volume integral terms
         G = 0  # holds all ds boundary interface terms
         return -F - G
 
-    def RHS(self, solution, uv, **kwargs):
+    def rhs(self, solution, uv, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
         F = 0  # holds all dx volume integral terms
@@ -593,7 +593,7 @@ class freeSurfaceEquation(equation):
 
         return -F - G
 
-    def Source(self, uv_old=None, uv_bottom=None, bottom_drag=None,
+    def source(self, uv_old=None, uv_bottom=None, bottom_drag=None,
                baroc_head=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""

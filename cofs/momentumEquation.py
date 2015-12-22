@@ -9,7 +9,7 @@ g_grav = physical_constants['g_grav']
 rho_0 = physical_constants['rho0']
 
 
-class momentumEquation(equation):
+class MomentumEquation(Equation):
     """3D momentum equation for hydrostatic Boussinesq flow."""
     def __init__(self, bnd_markers, bnd_len,
                  solution, eta, bathymetry, w=None,
@@ -197,14 +197,14 @@ class momentumEquation(equation):
             f = inner(div(outer(solution, solution)), self.test)*self.dx
         return f
 
-    def RHS_implicit(self, solution, wind_stress=None, **kwargs):
+    def rhs_implicit(self, solution, wind_stress=None, **kwargs):
         """Returns all the terms that are treated semi-implicitly.
         """
         F = 0  # holds all dx volume integral terms
         G = 0  # holds all ds boundary interface terms
         return -F - G
 
-    def RHS(self, solution, eta, w=None, viscosity_v=None,
+    def rhs(self, solution, eta, w=None, viscosity_v=None,
             viscosity_h=None, coriolis=None, baroc_head=None,
             uv_bottom=None, bottom_drag=None, lin_drag=None,
             w_mesh=None, dw_mesh_dz=None, laxFriedrichsFactor=None,
@@ -342,7 +342,7 @@ class momentumEquation(equation):
 
         return -F - G
 
-    def Source(self, eta, w=None, viscosity_v=None,
+    def source(self, eta, w=None, viscosity_v=None,
                uv_bottom=None, bottom_drag=None, baroc_head=None,
                source=None, **kwargs):
         """Returns the right hand side of the source terms.
@@ -365,7 +365,7 @@ class momentumEquation(equation):
         return -F - G
 
 
-class verticalMomentumEquation(equation):
+class VerticalMomentumEquation(Equation):
     """Vertical advection and diffusion terms of 3D momentum equation for
     hydrostatic Boussinesq flow."""
     def __init__(self, solution, w=None,
@@ -427,14 +427,14 @@ class verticalMomentumEquation(equation):
         return inner(solution, self.test) * self.dx
         # return (solution[0]*self.test[0] + solution[1]*self.test[1]) * self.dx
 
-    def RHS_implicit(self, solution, wind_stress=None, **kwargs):
+    def rhs_implicit(self, solution, wind_stress=None, **kwargs):
         """Returns all the terms that are treated semi-implicitly.
         """
         F = 0  # holds all dx volume integral terms
         G = 0  # holds all ds boundary interface terms
         return -F - G
 
-    def RHS(self, solution, w=None, viscosity_v=None,
+    def rhs(self, solution, w=None, viscosity_v=None,
             uv_bottom=None, bottom_drag=None,
             **kwargs):
         """Returns the right hand side of the equations.
@@ -484,7 +484,7 @@ class verticalMomentumEquation(equation):
 
         return -F
 
-    def Source(self, w=None, viscosity_v=None,
+    def source(self, w=None, viscosity_v=None,
                uv_bottom=None, bottom_drag=None,
                wind_stress=None, source=None,
                **kwargs):

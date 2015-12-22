@@ -78,16 +78,16 @@ class SSPRK33(timeIntegrator):
         self.dt_const = Constant(dt)
 
         massTerm = self.equation.massTerm
-        RHS = self.equation.RHS
-        RHSi = self.equation.RHS_implicit
-        Source = self.equation.Source
+        rhs = self.equation.rhs
+        rhsi = self.equation.rhs_implicit
+        source = self.equation.source
 
         u_old = self.solution_old
         u_tri = self.equation.tri
         self.a_RK = massTerm(u_tri)
-        self.L_RK = self.dt_const*(RHS(u_old, **self.args) +
-                                   RHSi(u_old, **self.args) +
-                                   Source(**self.args))
+        self.L_RK = self.dt_const*(rhs(u_old, **self.args) +
+                                   rhsi(u_old, **self.args) +
+                                   source(**self.args))
         self.updateSolver()
 
     def updateSolver(self):
@@ -212,16 +212,16 @@ class SSPRK33Stage(timeIntegrator):
         self.dt_const = Constant(dt)
 
         massTerm = self.equation.massTerm
-        RHS = self.equation.RHS
-        RHSi = self.equation.RHS_implicit
-        Source = self.equation.Source
+        rhs = self.equation.rhs
+        rhsi = self.equation.rhs_implicit
+        source = self.equation.source
 
         u_old = self.solution_old
         u_tri = self.equation.tri
         self.a_RK = massTerm(u_tri)
-        self.L_RK = self.dt_const*(RHS(u_old, **self.args) +
-                                   RHSi(u_old, **self.args) +
-                                   Source(**self.args))
+        self.L_RK = self.dt_const*(rhs(u_old, **self.args) +
+                                   rhsi(u_old, **self.args) +
+                                   source(**self.args))
         self.updateSolver()
 
     def updateSolver(self):
@@ -319,9 +319,9 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
 
         self.dt_const = Constant(dt)
         massTerm = self.equation.massTerm
-        RHS = self.equation.RHS
-        RHSi = self.equation.RHS_implicit
-        Source = self.equation.Source
+        rhs = self.equation.rhs
+        rhsi = self.equation.rhs_implicit
+        source = self.equation.source
 
         u_old = self.solution_old
         u_0 = self.sol0
@@ -330,26 +330,26 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
 
         self.F_0 = (massTerm(u_0) - massTerm(u_old) -
                     self.dt_const*(
-                        self.theta*RHSi(u_0, **self.args) +
-                        (1-self.theta)*RHSi(u_old, **self.args) +
-                        RHS(u_old, **self.args) +
-                        Source(**self.args))
+                        self.theta*rhsi(u_0, **self.args) +
+                        (1-self.theta)*rhsi(u_old, **self.args) +
+                        rhs(u_old, **self.args) +
+                        source(**self.args))
                     )
         self.F_1 = (massTerm(u_1) -
                     3.0/4.0*massTerm(u_old) - 1.0/4.0*massTerm(u_0) -
                     1.0/4.0*self.dt_const*(
-                        self.theta*RHSi(u_1, **self.args) +
-                        (1-self.theta)*RHSi(u_0, **self.args) +
-                        RHS(u_0, **self.args) +
-                        Source(**self.args))
+                        self.theta*rhsi(u_1, **self.args) +
+                        (1-self.theta)*rhsi(u_0, **self.args) +
+                        rhs(u_0, **self.args) +
+                        source(**self.args))
                     )
         self.F_2 = (massTerm(sol) -
                     1.0/3.0*massTerm(u_old) - 2.0/3.0*massTerm(u_1) -
                     2.0/3.0*self.dt_const*(
-                        self.theta*RHSi(sol, **self.args) +
-                        (1-self.theta)*RHSi(u_1, **self.args) +
-                        RHS(u_1, **self.args) +
-                        Source(**self.args))
+                        self.theta*rhsi(sol, **self.args) +
+                        (1-self.theta)*rhsi(u_1, **self.args) +
+                        rhs(u_1, **self.args) +
+                        source(**self.args))
                     )
         self.updateSolver()
 
@@ -414,9 +414,9 @@ class ForwardEuler(timeIntegrator):
         """Creates forms for the time integrator"""
         super(ForwardEuler, self).__init__(equation, solver_parameters)
         massTerm = self.equation.massTerm
-        RHS = self.equation.RHS
-        RHSi = self.equation.RHS_implicit
-        Source = self.equation.Source
+        rhs = self.equation.rhs
+        rhsi = self.equation.rhs_implicit
+        source = self.equation.source
 
         self.dt_const = Constant(dt)
 
@@ -438,9 +438,9 @@ class ForwardEuler(timeIntegrator):
         u_tri = self.equation.tri
         self.A = massTerm(u_tri)
         self.L = (massTerm(u_old) +
-                  self.dt_const*(RHS(u_old, **self.funcs_old) +
-                                 RHSi(u_old, **self.funcs_old) +
-                                 Source(**self.funcs_old)
+                  self.dt_const*(rhs(u_old, **self.funcs_old) +
+                                 rhsi(u_old, **self.funcs_old) +
+                                 source(**self.funcs_old)
                                  )
                   )
         self.updateSolver()
@@ -478,9 +478,9 @@ class CrankNicolson(timeIntegrator):
         self.solver_parameters.setdefault('snes_type', 'newtonls')
 
         massTerm = self.equation.massTerm
-        RHS = self.equation.RHS
-        RHSi = self.equation.RHS_implicit
-        Source = self.equation.Source
+        rhs = self.equation.rhs
+        rhsi = self.equation.rhs_implicit
+        source = self.equation.source
 
         self.dt_const = Constant(dt)
 
@@ -504,26 +504,26 @@ class CrankNicolson(timeIntegrator):
         # Crank-Nicolson
         gamma_const = Constant(gamma)
         self.F = (massTerm(u) - massTerm(u_old) -
-                  self.dt_const*(gamma_const*RHS(u, **self.funcs) +
-                                 gamma_const*RHSi(u, **self.funcs) +
-                                 gamma_const*Source(**self.funcs) +
-                                 (1-gamma_const)*RHS(u_old, **self.funcs_old) +
-                                 (1-gamma_const)*RHSi(u_old, **self.funcs_old) +
-                                 (1-gamma_const)*Source(**self.funcs_old)
+                  self.dt_const*(gamma_const*rhs(u, **self.funcs) +
+                                 gamma_const*rhsi(u, **self.funcs) +
+                                 gamma_const*source(**self.funcs) +
+                                 (1-gamma_const)*rhs(u_old, **self.funcs_old) +
+                                 (1-gamma_const)*rhsi(u_old, **self.funcs_old) +
+                                 (1-gamma_const)*source(**self.funcs_old)
                                  )
                   )
 
         self.A = (massTerm(u_tri) -
                   self.dt_const*(
-                      gamma_const*RHS(u_tri, **self.funcs) +
-                      gamma_const*RHSi(u_tri, **self.funcs))
+                      gamma_const*rhs(u_tri, **self.funcs) +
+                      gamma_const*rhsi(u_tri, **self.funcs))
                   )
         self.L = (massTerm(u_old) +
                   self.dt_const*(
-                      gamma_const*Source(**self.funcs) +
-                      (1-gamma_const)*RHS(u_old, **self.funcs_old) +
-                      (1-gamma_const)*RHSi(u_old, **self.funcs_old) +
-                      (1-gamma_const)*Source(**self.funcs_old))
+                      gamma_const*source(**self.funcs) +
+                      (1-gamma_const)*rhs(u_old, **self.funcs_old) +
+                      (1-gamma_const)*rhsi(u_old, **self.funcs_old) +
+                      (1-gamma_const)*source(**self.funcs_old))
                   )
         self.updateSolver()
 
@@ -670,9 +670,9 @@ class DIRK_generic(timeIntegrator):
         self.c = c
         self.termsToAdd = termsToAdd
 
-        RHS = self.equation.RHS
-        RHSi = self.equation.RHS_implicit
-        Source = self.equation.Source
+        rhs = self.equation.rhs
+        rhsi = self.equation.rhs_implicit
+        source = self.equation.source
         self.dt = dt
         self.dt_const = Constant(dt)
         if solution is not None:
@@ -690,13 +690,13 @@ class DIRK_generic(timeIntegrator):
             """Gather all terms that need to be added to the form"""
             f = 0
             if self.termsToAdd == 'all':
-                return RHSi(u, **args) + RHS(u, **args) + Source(**args)
+                return rhsi(u, **args) + rhs(u, **args) + source(**args)
             if 'implicit' in self.termsToAdd:
-                f += RHSi(u, **args)
+                f += rhsi(u, **args)
             if 'explicit' in self.termsToAdd:
-                f += RHS(u, **args)
+                f += rhs(u, **args)
             if 'source' in self.termsToAdd:
-                f += Source(**args)
+                f += source(**args)
             # assert f != 0, \
             #     'adding t  erms {:}: empty form'.format(self.termsToAdd)
             return f
