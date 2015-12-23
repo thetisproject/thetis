@@ -41,7 +41,7 @@ class flowSolver2d(FrozenClass):
         self.visu_spaces = {}
         """Maps function space to a space where fields will be projected to for visualization"""
 
-        self.fields = fieldDict()
+        self.fields = FieldDict()
         """Holds all functions needed by the solver object."""
         self.function_spaces = AttrDict()
         """Holds all function spaces needed by the solver object."""
@@ -145,30 +145,30 @@ class flowSolver2d(FrozenClass):
         self.visu_spaces[uv_2d.function_space()] = self.function_spaces.P1v_2d
         self.visu_spaces[elev_2d.function_space()] = self.function_spaces.P1_2d
         self.exporters = {}
-        e = exporter.exportManager(self.options.outputdir,
+        e = exporter.ExportManager(self.options.outputdir,
                                    self.options.fields_to_export,
                                    self.fields,
                                    self.visu_spaces,
                                    fieldMetadata,
-                                   exportType='vtk',
+                                   export_type='vtk',
                                    verbose=self.options.verbose > 0)
         self.exporters['vtk'] = e
         numpyDir = os.path.join(self.options.outputdir, 'numpy')
-        e = exporter.exportManager(numpyDir,
+        e = exporter.ExportManager(numpyDir,
                                    self.options.fields_to_exportNumpy,
                                    self.fields,
                                    self.visu_spaces,
                                    fieldMetadata,
-                                   exportType='numpy',
+                                   export_type='numpy',
                                    verbose=self.options.verbose > 0)
         self.exporters['numpy'] = e
         hdf5Dir = os.path.join(self.options.outputdir, 'hdf5')
-        e = exporter.exportManager(hdf5Dir,
+        e = exporter.ExportManager(hdf5Dir,
                                    self.options.fields_to_exportHDF5,
                                    self.fields,
                                    self.visu_spaces,
                                    fieldMetadata,
-                                   exportType='hdf5',
+                                   export_type='hdf5',
                                    verbose=self.options.verbose > 0)
         self.exporters['hdf5'] = e
 
@@ -227,14 +227,14 @@ class flowSolver2d(FrozenClass):
         # initialize conservation checks
         if self.options.checkVolConservation2d:
             eta = self.fields.solution_2d.split()[1]
-            Vol2d_0 = compVolume2d(eta, self.fields.bathymetry_2d)
+            Vol2d_0 = comp_volume_2d(eta, self.fields.bathymetry_2d)
             print_info('Initial volume 2d {0:f}'.format(Vol2d_0))
 
         # initial export
         self.export()
         if exportFunc is not None:
             exportFunc()
-        self.exporters['vtk'].exportBathymetry(self.fields.bathymetry_2d)
+        self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
         while self.simulation_time <= self.options.T + T_epsilon:
 
@@ -251,8 +251,8 @@ class flowSolver2d(FrozenClass):
                 cputimestamp = timeMod.clock()
                 self.printState(cputime)
                 if self.options.checkVolConservation2d:
-                    Vol2d = compVolume2d(self.fields.solution_2d.split()[1],
-                                         self.fields.bathymetry_2d)
+                    Vol2d = comp_volume_2d(self.fields.solution_2d.split()[1],
+                                           self.fields.bathymetry_2d)
                 if commrank == 0:
                     line = 'Rel. {0:s} error {1:11.4e}'
                     if self.options.checkVolConservation2d:
