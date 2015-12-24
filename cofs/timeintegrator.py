@@ -956,9 +956,9 @@ class MacroTimeStepIntegrator(TimeIntegrator):
     # NOTE the time averages can be very diffusive
     # NOTE diffusivity depends on M and the choise of time av filter
     # NOTE boxcar filter is very diffusive!
-    def __init__(self, timeStepperCls, M, restartFromAv=False):
+    def __init__(self, timestepperCls, M, restartFromAv=False):
         super(MacroTimeStepIntegrator, self).__init__(self.subiterator.equation)
-        self.subiterator = timeStepperCls
+        self.subiterator = timestepperCls
         self.M = M
         self.restartFromAv = restartFromAv
         # functions to hold time averaged solutions

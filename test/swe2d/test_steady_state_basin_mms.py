@@ -384,7 +384,7 @@ def run(setup, refinement, order, export=True):
     solverObj.options.dt = dt
     solverObj.options.TExport = TExport
     solverObj.options.timerLabels = []
-    # solverObj.options.timeStepperType = 'cranknicolson'
+    # solverObj.options.timestepperType = 'cranknicolson'
     solverObj.options.update(SET['options'])
 
     solverObj.createFunctionSpaces()

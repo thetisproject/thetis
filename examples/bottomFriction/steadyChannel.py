@@ -98,7 +98,7 @@ elev_init = Function(solverObj.function_spaces.H_2d, name='initial elev')
 elev_init.interpolate(Expression('x[0]*slope', slope=-surf_slope))
 
 solverObj.assignInitialConditions(elev=elev_init)
-# sp = solverObj.timeStepper.timeStepper_vmom3d.solver_parameters
+# sp = solverObj.timestepper.timestepper_vmom3d.solver_parameters
 # sp['snes_monitor'] = True
 # sp['ksp_monitor'] = True
 # sp['ksp_monitor_true_residual'] = True
@@ -106,5 +106,5 @@ solverObj.assignInitialConditions(elev=elev_init)
 # sp['pc_type'] = 'ilu'
 # sp['snes_converged_reason'] = True
 # sp['ksp_converged_reason'] = True
-# solverObj.timeStepper.timeStepper_vmom3d.updateSolver()
+# solverObj.timestepper.timestepper_vmom3d.updateSolver()
 solverObj.iterate()

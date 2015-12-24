@@ -91,8 +91,8 @@ def test_implicit_friction_turbulence(do_assert=True):
     # sp['snes_rtol'] = 1e-4  # to avoid stagnation
     sp['snes_rtol'] = 1e-18  # to avoid stagnation
     sp['ksp_rtol'] = 1e-22  # to avoid stagnation
-    timeStepper = timeintegrator.DIRKLSPUM2(vertMomEq, dt, solver_parameters=sp)
-    # timeStepper = timeintegrator.BackwardEuler(vertMomEq, dt, solver_parameters=sp)
+    timestepper = timeintegrator.DIRKLSPUM2(vertMomEq, dt, solver_parameters=sp)
+    # timestepper = timeintegrator.BackwardEuler(vertMomEq, dt, solver_parameters=sp)
 
     # TODO fix momemtum eq for parabolic visc
     # TODO mimic gotm implementation
@@ -103,7 +103,7 @@ def test_implicit_friction_turbulence(do_assert=True):
         t = it*dt
         t0 = timeMod.clock()
         # momentumEq
-        timeStepper.advance(t, dt, s.fields.uv_3d)
+        timestepper.advance(t, dt, s.fields.uv_3d)
         s.uv_p1_projector.project()
         # update bottom friction
         compute_bottom_friction(
@@ -117,8 +117,8 @@ def test_implicit_friction_turbulence(do_assert=True):
         # update viscosity
         s.gls_model.preprocess()
         # NOTE psi must be solved first as it depends on tke
-        s.timeStepper.timeStepper_psi_3d.advance(t, s.dt, s.fields.psi_3d)
-        s.timeStepper.timeStepper_tke_3d.advance(t, s.dt, s.fields.tke_3d)
+        s.timestepper.timestepper_psi_3d.advance(t, s.dt, s.fields.psi_3d)
+        s.timestepper.timestepper_tke_3d.advance(t, s.dt, s.fields.tke_3d)
         s.gls_model.postprocess()
         t1 = timeMod.clock()
         # NOTE vtk exporter has a memory leak if output space is DG

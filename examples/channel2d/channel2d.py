@@ -60,9 +60,9 @@ options.uAdvection = Umag
 options.checkVolConservation2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.timerLabels = []
-# options.timeStepperType = 'SSPRK33'
-# options.timeStepperType = 'CrankNicolson'
-options.timeStepperType = 'SSPIMEX'
+# options.timestepperType = 'SSPRK33'
+# options.timestepperType = 'CrankNicolson'
+options.timestepperType = 'SSPIMEX'
 options.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
 
 # initial conditions, piecewise linear function

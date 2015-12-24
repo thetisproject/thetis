@@ -26,7 +26,7 @@ def test_steady_state_channel():
     solverObj.options.TExport = dt
     solverObj.options.T = N*dt
     # NOTE had to set to something else than Cr-Ni, otherwise overriding below has no effect
-    solverObj.options.timeStepperType = 'forwardeuler'
+    solverObj.options.timestepperType = 'forwardeuler'
     solverObj.options.timerLabels = []
     solverObj.options.lin_drag = f
     solverObj.options.dt = dt
@@ -52,7 +52,7 @@ def test_steady_state_channel():
         'snes_type': 'newtonls'}
     # reinitialize the timestepper so we can set our own solver parameters and gamma
     # setting gamma to 1.0 converges faster to
-    solverObj.timeStepper = timeintegrator.CrankNicolson(solverObj.eq_sw, solverObj.dt,
+    solverObj.timestepper = timeintegrator.CrankNicolson(solverObj.eq_sw, solverObj.dt,
                                                          solver_parameters, gamma=1.0)
     solverObj.assignInitialConditions(uv_init=Expression(("1.0", "0.0")))
 

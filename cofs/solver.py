@@ -392,14 +392,14 @@ class FlowSolver(FrozenClass):
         self.setTimeStep()
         if self.options.useModeSplit:
             if self.options.useIMEX:
-                self.timeStepper = coupled_timeintegrator.CoupledSSPIMEX(weakref.proxy(self))
+                self.timestepper = coupled_timeintegrator.CoupledSSPIMEX(weakref.proxy(self))
             elif self.options.useSemiImplicit2D:
-                self.timeStepper = coupled_timeintegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
+                self.timestepper = coupled_timeintegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
             else:
-                self.timeStepper = coupled_timeintegrator.CoupledSSPRKSync(weakref.proxy(self))
+                self.timestepper = coupled_timeintegrator.CoupledSSPRKSync(weakref.proxy(self))
         else:
-            self.timeStepper = coupled_timeintegrator.CoupledSSPRKSingleMode(weakref.proxy(self))
-        print_info('using {:} time integrator'.format(self.timeStepper.__class__.__name__))
+            self.timestepper = coupled_timeintegrator.CoupledSSPRKSingleMode(weakref.proxy(self))
+        print_info('using {:} time integrator'.format(self.timestepper.__class__.__name__))
 
         # compute maximal diffusivity for explicit schemes
         maxDiffAlpha = 1.0/100.0  # FIXME depends on element type and order
@@ -562,7 +562,7 @@ class FlowSolver(FrozenClass):
                                     self.fields.baroc_head_2d, self.fields.baroc_head_int_3d,
                                     self.fields.bathymetry_3d)
 
-        self.timeStepper.initialize()
+        self.timestepper.initialize()
 
         self.options.checkSaltConservation *= self.options.solveSalt
         self.options.checkSaltDeviation *= self.options.solveSalt
@@ -633,7 +633,7 @@ class FlowSolver(FrozenClass):
 
         while self.simulation_time <= self.options.T + T_epsilon:
 
-            self.timeStepper.advance(self.simulation_time, self.dt,
+            self.timestepper.advance(self.simulation_time, self.dt,
                                      update_forcings, update_forcings3d)
 
             # Move to next time step

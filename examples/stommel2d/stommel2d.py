@@ -58,6 +58,6 @@ options.uAdvection = Constant(0.01)
 options.checkVolConservation2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.timerLabels = []
-# options.timeStepperType = 'CrankNicolson'
+# options.timestepperType = 'CrankNicolson'
 
 solverObj.iterate()

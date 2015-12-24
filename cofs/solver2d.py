@@ -25,7 +25,7 @@ class FlowSolver2d(FrozenClass):
         self.dt = None
 
         # 2d model specific default options
-        options.setdefault('timeStepperType', 'SSPRK33')
+        options.setdefault('timestepperType', 'SSPRK33')
         options.setdefault('timerLabels', ['mode2d'])
         options.setdefault('fields_to_export', ['elev_2d', 'uv_2d'])
 
@@ -107,19 +107,19 @@ class FlowSolver2d(FrozenClass):
 
         # ----- Time integrators
         self.setTimeStep()
-        if self.options.timeStepperType.lower() == 'ssprk33':
-            self.timeStepper = timeintegrator.SSPRK33Stage(self.eq_sw, self.dt,
+        if self.options.timestepperType.lower() == 'ssprk33':
+            self.timestepper = timeintegrator.SSPRK33Stage(self.eq_sw, self.dt,
                                                            self.eq_sw.solver_parameters)
-        elif self.options.timeStepperType.lower() == 'ssprk33semi':
-            self.timeStepper = timeintegrator.SSPRK33StageSemiImplicit(self.eq_sw,
+        elif self.options.timestepperType.lower() == 'ssprk33semi':
+            self.timestepper = timeintegrator.SSPRK33StageSemiImplicit(self.eq_sw,
                                                                        self.dt, self.eq_sw.solver_parameters)
-        elif self.options.timeStepperType.lower() == 'forwardeuler':
-            self.timeStepper = timeintegrator.ForwardEuler(self.eq_sw, self.dt,
+        elif self.options.timestepperType.lower() == 'forwardeuler':
+            self.timestepper = timeintegrator.ForwardEuler(self.eq_sw, self.dt,
                                                            self.eq_sw.solver_parameters)
-        elif self.options.timeStepperType.lower() == 'cranknicolson':
-            self.timeStepper = timeintegrator.CrankNicolson(self.eq_sw, self.dt,
+        elif self.options.timestepperType.lower() == 'cranknicolson':
+            self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.dt,
                                                             self.eq_sw.solver_parameters)
-        elif self.options.timeStepperType.lower() == 'sspimex':
+        elif self.options.timestepperType.lower() == 'sspimex':
             # TODO meaningful solver params
             sp_impl = {
                 'ksp_type': 'gmres',
@@ -131,11 +131,11 @@ class FlowSolver2d(FrozenClass):
                 'pc_type': 'fieldsplit',
                 'pc_fieldsplit_type': 'multiplicative',
             }
-            self.timeStepper = timeintegrator.SSPIMEX(self.eq_sw, self.dt,
+            self.timestepper = timeintegrator.SSPIMEX(self.eq_sw, self.dt,
                                                       solver_parameters=sp_expl,
                                                       solver_parameters_dirk=sp_impl)
         else:
-            raise Exception('Unknown time integrator type: '+str(self.options.timeStepperType))
+            raise Exception('Unknown time integrator type: '+str(self.options.timestepperType))
 
         # ----- File exporters
         # correct treatment of the split 2d functions
@@ -184,7 +184,7 @@ class FlowSolver2d(FrozenClass):
         if uv_init is not None:
             uv_2d.project(uv_init)
 
-        self.timeStepper.initialize(self.fields.solution_2d)
+        self.timestepper.initialize(self.fields.solution_2d)
 
     def export(self):
         for key in self.exporters:
@@ -238,7 +238,7 @@ class FlowSolver2d(FrozenClass):
 
         while self.simulation_time <= self.options.T + T_epsilon:
 
-            self.timeStepper.advance(self.simulation_time, self.dt, self.fields.solution_2d,
+            self.timestepper.advance(self.simulation_time, self.dt, self.fields.solution_2d,
                                      update_forcings)
 
             # Move to next time step

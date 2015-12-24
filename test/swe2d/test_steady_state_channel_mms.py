@@ -49,7 +49,7 @@ def test_steady_state_channel_mms():
         solverObj.options.nonlin = True
         solverObj.options.TExport = dt
         solverObj.options.T = N*dt
-        solverObj.options.timeStepperType = 'forwardeuler'
+        solverObj.options.timestepperType = 'forwardeuler'
         solverObj.options.timerLabels = []
         solverObj.options.dt = dt
 
@@ -74,15 +74,15 @@ def test_steady_state_channel_mms():
             'snes_type': 'newtonls'}
         # reinitialize the timestepper so we can set our own solver parameters and gamma
         # setting gamma to 1.0 converges faster to
-        solverObj.timeStepper = timeintegrator.CrankNicolson(solverObj.eq_sw, solverObj.dt,
+        solverObj.timestepper = timeintegrator.CrankNicolson(solverObj.eq_sw, solverObj.dt,
                                                              solver_parameters, gamma=1.0)
         solverObj.assignInitialConditions(uv_init=Expression(("1.0", "0.0")))
 
         source_space = FunctionSpace(mesh2d, 'DG', order+1)
         source_func = project(source_expr, source_space)
         File('source.pvd') << source_func
-        solverObj.timeStepper.F -= solverObj.timeStepper.dt_const*solverObj.eq_sw.U_test[0]*source_func*solverObj.eq_sw.dx
-        solverObj.timeStepper.updateSolver()
+        solverObj.timestepper.F -= solverObj.timestepper.dt_const*solverObj.eq_sw.U_test[0]*source_func*solverObj.eq_sw.dx
+        solverObj.timestepper.updateSolver()
 
         solverObj.iterate()
 

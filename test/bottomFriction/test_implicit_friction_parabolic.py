@@ -87,8 +87,8 @@ def test_implicit_friction_parabolic(do_assert=True):
     # sp['snes_monitor'] = True
     # sp['snes_converged_reason'] = True
     sp['snes_rtol'] = 1e-4  # to avoid stagnation
-    # timeStepper = timeintegrator.DIRKLSPUM2(vertMomEq, dt, solver_parameters=sp)
-    timeStepper = timeintegrator.BackwardEuler(vertMomEq, dt, solver_parameters=sp)
+    # timestepper = timeintegrator.DIRKLSPUM2(vertMomEq, dt, solver_parameters=sp)
+    timestepper = timeintegrator.BackwardEuler(vertMomEq, dt, solver_parameters=sp)
 
     t = 0
     nSteps = int(np.round(T/dt))
@@ -106,7 +106,7 @@ def test_implicit_friction_parabolic(do_assert=True):
                 s.fields.v_elem_size_2d, s.fields.v_elem_size_3d)
             s.parabolicViscositySolver.solve()
             t0 = timeMod.clock()
-            timeStepper.advance(t, dt, s.fields.uv_3d)
+            timestepper.advance(t, dt, s.fields.uv_3d)
             uv3d_old.assign(s.fields.uv_3d)
             t1 = timeMod.clock()
             for key in s.exporters:

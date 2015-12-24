@@ -241,13 +241,13 @@ def run(setup, refinement, order, export=True):
         solverObj.export()
 
     # solve salinity advection-diffusion equation with residual source term
-    ti = solverObj.timeStepper
-    ti.timeStepper_salt_3d.initialize(ti.fields.salt_3d)
+    ti = solverObj.timestepper
+    ti.timestepper_salt_3d.initialize(ti.fields.salt_3d)
     t = 0
     for i in range(iterations):
         for k in range(ti.nStages):
             lastStep = k == ti.nStages - 1
-            ti.timeStepper_salt_3d.solveStage(k, t, ti.solver.dt, ti.fields.salt_3d)
+            ti.timestepper_salt_3d.solveStage(k, t, ti.solver.dt, ti.fields.salt_3d)
             if ti.options.useLimiterForTracers and lastStep:
                 ti.solver.tracerLimiter.apply(ti.fields.salt_3d)
         t += dt

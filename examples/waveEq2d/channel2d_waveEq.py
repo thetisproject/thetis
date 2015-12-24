@@ -57,11 +57,11 @@ options.checkVolConservation2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.fields_to_exportHDF5 = ['uv_2d', 'elev_2d']
 options.timerLabels = []
-# options.timeStepperType = 'SSPRK33'
+# options.timestepperType = 'SSPRK33'
 # options.dt = dt/40.0  # for explicit schemes
-options.timeStepperType = 'CrankNicolson'
+options.timestepperType = 'CrankNicolson'
 # options.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
-# options.timeStepperType = 'SSPIMEX'
+# options.timestepperType = 'SSPIMEX'
 options.dt = 10.0  # override dt for IMEX (semi-implicit)
 
 # need to call creator to create the function spaces

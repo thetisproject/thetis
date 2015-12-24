@@ -72,8 +72,8 @@ options.outputdir = outputdir
 options.uAdvection = Constant(1.5)
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.timerLabels = []
-# options.timeStepperType = 'CrankNicolson'
-options.timeStepperType = 'ssprk33semi'
+# options.timestepperType = 'CrankNicolson'
+options.timestepperType = 'ssprk33semi'
 
 bnd_elev = Function(P1_2d, name='Boundary elevation')
 bnd_time = Constant(0)
