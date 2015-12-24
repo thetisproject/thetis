@@ -93,10 +93,10 @@ options.checkVolConservation2d = True
 options.checkVolConservation3d = True
 options.checkSaltConservation = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
-                          'w_3d', 'w_mesh_3d', 'salt_3d',
-                          'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                          'baroc_head_2d', 'gjv_alpha_h_3d', 'gjv_alpha_v_3d',
-                          'smag_visc_3d', 'salt_jump_diff']
+                            'w_3d', 'w_mesh_3d', 'salt_3d',
+                            'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
+                            'baroc_head_2d', 'gjv_alpha_h_3d', 'gjv_alpha_v_3d',
+                            'smag_visc_3d', 'salt_jump_diff']
 options.timerLabels = []
 
 bnd_elev = Function(P1_2d, name='Boundary elevation')

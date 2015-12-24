@@ -133,10 +133,10 @@ solverObj.checkVolConservation3d = True
 solverObj.checkSaltConservation = True
 solverObj.checkSaltOvershoot = True
 solverObj.fields_to_export = ['uv2d', 'elev2d', 'uv3d',
-                            'w3d', 'wMesh3d', 'salt3d',
-                            'uvDav2d', 'uvDav3d', 'baroHead3d',
-                            'baroHead2d',
-                            'smagViscosity', 'saltJumpDiff']
+                              'w3d', 'wMesh3d', 'salt3d',
+                              'uvDav2d', 'uvDav3d', 'baroHead3d',
+                              'baroHead2d',
+                              'smagViscosity', 'saltJumpDiff']
 solverObj.fields_to_exportNumpy = ['salt3d']
 solverObj.timerLabels = []
 

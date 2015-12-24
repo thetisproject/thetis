@@ -248,16 +248,16 @@ class flowSolver(FrozenClass):
             self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)
             glsParameters = {}  # use default parameters for now
             self.gls_model = turbulence.GenericLengthScaleModel(weakref.proxy(self),
-                                                               self.fields.tke_3d,
-                                                               self.fields.psi_3d,
-                                                               self.fields.uv_p1_3d,
-                                                               self.fields.len_3d,
-                                                               self.fields.eps_3d,
-                                                               self.fields.eddy_diff_3d,
-                                                               self.fields.eddy_visc_3d,
-                                                               self.fields.buoy_freq_3d,
-                                                               self.fields.shear_freq_3d,
-                                                               **glsParameters)
+                                                                self.fields.tke_3d,
+                                                                self.fields.psi_3d,
+                                                                self.fields.uv_p1_3d,
+                                                                self.fields.len_3d,
+                                                                self.fields.eps_3d,
+                                                                self.fields.eddy_diff_3d,
+                                                                self.fields.eddy_visc_3d,
+                                                                self.fields.buoy_freq_3d,
+                                                                self.fields.shear_freq_3d,
+                                                                **glsParameters)
         else:
             self.gls_model = None
         # copute total viscosity/diffusivity
@@ -648,7 +648,7 @@ class flowSolver(FrozenClass):
 
                 if self.options.checkVolConservation2d:
                     Vol2d = comp_volume_2d(self.fields.solution_2d.split()[1],
-                                         self.fields.bathymetry_2d)
+                                           self.fields.bathymetry_2d)
                 if self.options.checkVolConservation3d:
                     Vol3d = comp_volume_3d(self.mesh)
                 if self.options.checkSaltConservation:

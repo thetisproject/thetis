@@ -67,7 +67,7 @@ options.uAdvection = Constant(0.01)
 options.checkVolConservation2d = True
 options.checkVolConservation3d = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
-                          'w_3d', 'uv_dav_2d']
+                            'w_3d', 'uv_dav_2d']
 options.timerLabels = []
 
 solverObj.iterate()

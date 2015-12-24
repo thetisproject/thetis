@@ -85,8 +85,8 @@ options.timerLabels = []
 # options.timerLabels = ['mode2d', 'momentumEq', 'continuityEq',
 #                        'aux_functions']
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
-                          'w_3d', 'w_mesh_3d', 'salt_3d',
-                          'uv_dav_2d', 'uv_bottom_2d']
+                            'w_3d', 'w_mesh_3d', 'salt_3d',
+                            'uv_dav_2d', 'uv_bottom_2d']
 
 # need to call creator to create the function spaces
 solverObj.createEquations()

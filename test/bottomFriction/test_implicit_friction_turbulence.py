@@ -63,9 +63,9 @@ def test_implicit_friction_turbulence(do_assert=True):
     options.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion', 'turbulence']
     # options.fields_to_export = []
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
-                              'uv_dav_2d', 'uv_bottom_2d',
-                              'parab_visc_3d', 'eddy_visc_3d', 'shear_freq_3d',
-                              'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
+                                'uv_dav_2d', 'uv_bottom_2d',
+                                'parab_visc_3d', 'eddy_visc_3d', 'shear_freq_3d',
+                                'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
     # options.fields_to_exportNumpy = ['uv3d', 'eddyVisc3d', 'shearFreq3d',
     #                                'tke3d', 'psi3d', 'eps3d', 'len3d']
     solverObj.createEquations()
