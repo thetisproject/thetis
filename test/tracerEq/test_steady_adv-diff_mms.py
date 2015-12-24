@@ -259,8 +259,7 @@ def run(setup, refinement, order, export=True):
     L2_err = errornorm(T_ana_ho, solverObj.fields.salt_3d)/numpy.sqrt(area)
     print 'L2 error {:.12f}'.format(L2_err)
 
-    linProblemCache.clear()  # NOTE must destroy all cached solvers for next simulation
-    tmpFunctionCache.clear()
+    tmpFunctionCache.clear()  # NOTE must destroy all cached solvers for next simulation
     return L2_err
 
 

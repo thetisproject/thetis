@@ -188,34 +188,7 @@ class temporaryFunctionCache(object):
     def clear(self):
         self.functions = {}
 
-
-class problemCache(object):
-    """Holds all variational problems that utility functions depend on."""
-    # NOTE solvers are stored based on function names
-    # NOTE for this to work all funcs must have unique names
-    def __init__(self, verbose=False):
-        self.verbose = verbose
-        self.solvers = {}
-
-    def __getitem__(self, key):
-        return self.solvers[key]
-
-    def __setitem__(self, key, val):
-        self.solvers[key] = val
-
-    def __contains__(self, key):
-        return key in self.solvers
-
-    def add(self, key, val, msg=''):
-        if self.verbose:
-            print('adding solver {0} {1}'.format(msg, key))
-        self.solvers[key] = val
-
-    def clear(self):
-        self.solvers = {}
-
 tmpFunctionCache = temporaryFunctionCache()
-linProblemCache = problemCache(verbose=False)
 
 
 def printInfo(msg):

@@ -312,8 +312,7 @@ def run(setup, refinement, order, export=True):
     L2_err_uv = errornorm(w_ana_ho, solverObj.fields.uv_3d)/numpy.sqrt(area)
     print 'L2 error uv {:.12f}'.format(L2_err_uv)
 
-    linProblemCache.clear()  # NOTE must destroy all cached solvers for next simulation
-    tmpFunctionCache.clear()
+    tmpFunctionCache.clear()  # NOTE must destroy all cached solvers for next simulation
     return L2_err_w, L2_err_uv
 
 
