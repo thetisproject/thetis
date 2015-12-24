@@ -30,12 +30,12 @@ layers = 25
 # generate unit mesh and transform its coords
 x_max = 5.0e3
 x_min = -5.0e3
-Lx = (x_max - x_min)
-n_x = Lx/dx
-mesh2d = RectangleMesh(n_x, n_x, Lx, Lx, reorder=True)
+lx = (x_max - x_min)
+n_x = lx/dx
+mesh2d = RectangleMesh(n_x, n_x, lx, lx, reorder=True)
 # move mesh, center to (0,0)
-mesh2d.coordinates.dat.data[:, 0] -= Lx/2
-mesh2d.coordinates.dat.data[:, 1] -= Lx/2
+mesh2d.coordinates.dat.data[:, 0] -= lx/2
+mesh2d.coordinates.dat.data[:, 1] -= lx/2
 
 print_info('Exporting to ' + outputdir)
 # NOTE bottom friction (implicit mom eq) will blow up for higher dt
@@ -43,7 +43,7 @@ dt = 25.0
 T = 12 * 3600.0  # 24 * 3600
 TExport = 200.0
 depth = 15.0
-Umag = 1.0
+u_mag = 1.0
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -70,7 +70,7 @@ options.TExport = TExport
 options.dt = dt
 options.T = T
 options.outputdir = outputdir
-options.u_advection = Umag
+options.u_advection = u_mag
 options.check_salt_deviation = True
 options.timer_labels = ['mode2d', 'momentum_eq', 'vert_diffusion', 'turbulence']
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
@@ -84,8 +84,8 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
 left_tag = 1   # x=x_min plane
 right_tag = 2  # x=x_max plane
 surf_slope = 1.0e-5
-left_elev = Constant(+0.5*Lx*surf_slope)
-right_elev = Constant(-0.5*Lx*surf_slope)
+left_elev = Constant(+0.5*lx*surf_slope)
+right_elev = Constant(-0.5*lx*surf_slope)
 right_funcs = {'elev': right_elev}
 left_funcs = {'elev': left_elev}
 solver_obj.bnd_functions['shallow_water'] = {right_tag: right_funcs,

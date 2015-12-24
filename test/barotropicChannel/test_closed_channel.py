@@ -22,13 +22,13 @@ def test_closed_channel():
     mesh2d = Mesh('mesh_coarse.msh')
     print_info('Loaded mesh '+mesh2d.name)
     print_info('Exporting to '+outputdir)
-    T = 24 * 3600
-    Umag = Constant(2.5)
-    TExport = 300.0
+    t_end = 24 * 3600
+    u_mag = Constant(2.5)
+    t_export = 300.0
 
     # bathymetry
-    P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-    bathymetry_2d = Function(P1_2d, name='Bathymetry')
+    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    bathymetry_2d = Function(p1_2d, name='Bathymetry')
 
     depth_oce = 20.0
     depth_riv = 7.0
@@ -48,10 +48,10 @@ def test_closed_channel():
     # options.use_semi_implicit_2d = False
     # options.use_mode_split = False
     # options.baroclinic = True
-    options.TExport = TExport
-    options.T = T
+    options.TExport = t_export
+    options.T = t_end
     options.outputdir = outputdir
-    options.u_advection = Umag
+    options.u_advection = u_mag
     options.check_salt_deviation = True
     options.timer_labels = ['mode2d', 'momentum_eq', 'vert_diffusion']
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
@@ -63,18 +63,18 @@ def test_closed_channel():
     salt_init3d = Constant(4.5)
 
     # weak boundary conditions
-    L_y = 20e3
+    ly = 20e3
     un_amp = -2.0
-    flux_amp = L_y*depth_oce*un_amp
+    flux_amp = ly*depth_oce*un_amp
     h_t = 12 * 3600  # 44714.0
     un_river = -0.3
-    flux_river = L_y*depth_riv*un_river
+    flux_river = ly*depth_riv*un_river
     t = 0.0
-    T_ramp = 100.0
+    t_ramp = 100.0
     # python function that returns time dependent boundary values
     ocean_flux_func = lambda t: (flux_amp*sin(2 * pi * t / h_t) -
-                                 flux_river)*min(t/T_ramp, 1.0)
-    river_flux_func = lambda t: flux_river*min(t/T_ramp, 1.0)
+                                 flux_river)*min(t/t_ramp, 1.0)
+    river_flux_func = lambda t: flux_river*min(t/t_ramp, 1.0)
     # Constants that will be fed to the model
     ocean_flux = Constant(ocean_flux_func(t))
     river_flux = Constant(river_flux_func(t))

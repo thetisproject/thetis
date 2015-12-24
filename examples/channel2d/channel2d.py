@@ -25,7 +25,7 @@ print_info('Exporting to '+outputdir)
 # total duration in seconds
 T = 6 * 3600
 # estimate of max advective velocity used to estimate time step
-Umag = Constant(6.0)
+u_mag = Constant(6.0)
 # export interval in seconds
 TExport = 100.0
 
@@ -56,7 +56,7 @@ options.cfl_2d = 1.0
 options.TExport = TExport
 options.T = T
 options.outputdir = outputdir
-options.u_advection = Umag
+options.u_advection = u_mag
 options.check_vol_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.timer_labels = []

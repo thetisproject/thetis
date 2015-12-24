@@ -17,7 +17,7 @@ mesh2d = Mesh('channel_wave_eq.msh')
 depth = 50.0
 elev_amp = 1.0
 # estimate of max advective velocity used to estimate time step
-Umag = Constant(0.5)
+u_mag = Constant(0.5)
 
 outputdir = create_directory('outputs_wave_eq_2d')
 print_info('Loaded mesh '+mesh2d.name)
@@ -34,11 +34,11 @@ x_min = x_func.dat.data.min()
 x_max = x_func.dat.data.max()
 x_min = comm.allreduce(x_min, op=MPI.MIN)
 x_max = comm.allreduce(x_max, op=MPI.MAX)
-Lx = x_max - x_min
+lx = x_max - x_min
 
 # set time step, export interval and run duration
 c_wave = float(np.sqrt(9.81*depth))
-T_cycle = Lx/c_wave
+T_cycle = lx/c_wave
 n_steps = 20
 dt = round(float(T_cycle/n_steps))
 TExport = dt
@@ -52,7 +52,7 @@ options.nonlin = False  # use linear wave equation
 options.TExport = TExport
 options.T = T
 options.outputdir = outputdir
-options.u_advection = Umag
+options.u_advection = u_mag
 options.check_vol_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
@@ -69,8 +69,8 @@ solver_obj.create_equations()
 
 # set initial elevation to first standing wave mode
 elev_init = Function(solver_obj.function_spaces.H_2d)
-elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=elev_amp,
-                             Lx=Lx))
+elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/lx)', eta_amp=elev_amp,
+                             lx=lx))
 solver_obj.assign_initial_conditions(elev=elev_init)
 
 # # start from previous time step

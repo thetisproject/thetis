@@ -23,20 +23,20 @@ def test_implicit_friction_turbulence(do_assert=True):
     # generate unit mesh and transform its coords
     x_max = 5.0*scale
     x_min = -5.0*scale
-    Lx = (x_max - x_min)
-    n_x = int(Lx/reso)
-    mesh2d = RectangleMesh(n_x, n_x, Lx, Lx, reorder=True)
+    lx = (x_max - x_min)
+    n_x = int(lx/reso)
+    mesh2d = RectangleMesh(n_x, n_x, lx, lx, reorder=True)
 
     print_info('Exporting to ' + outputdir)
     dt = 25.0  # 25.0
-    T = 12 * 3600.0
-    TExport = 100.0
+    t_end = 12 * 3600.0
+    t_export = 100.0
     depth = 15.0
-    Umag = 1.0
+    u_mag = 1.0
 
     # bathymetry
-    P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-    bathymetry2d = Function(P1_2d, name='Bathymetry')
+    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    bathymetry2d = Function(p1_2d, name='Bathymetry')
     bathymetry2d.assign(depth)
 
     # create solver
@@ -54,11 +54,11 @@ def test_implicit_friction_turbulence(do_assert=True):
     options.tracer_lax_friedrichs = Constant(0.0)
     # options.v_viscosity = Constant(0.001)
     # options.h_viscosity = Constant(1.0)
-    options.TExport = TExport
+    options.TExport = t_export
     options.dt = dt
-    options.T = T
+    options.T = t_end
     options.outputdir = outputdir
-    options.u_advection = Umag
+    options.u_advection = u_mag
     options.check_salt_deviation = True
     options.timer_labels = ['mode2d', 'momentum_eq', 'vert_diffusion', 'turbulence']
     # options.fields_to_export = []
@@ -98,7 +98,7 @@ def test_implicit_friction_turbulence(do_assert=True):
     # TODO mimic gotm implementation
 
     t = 0
-    n_steps = int(np.round(T/dt))
+    n_steps = int(np.round(t_end/dt))
     for it in range(n_steps):
         t = it*dt
         t0 = time_mod.clock()

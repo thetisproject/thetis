@@ -105,14 +105,14 @@ def parse_command_line():
             return [s.strip() for s in a.split(',')]
         return [a]
     # parse lists (if any)
-    ResoList = get_arg_list(args.reso_str)
-    ReList = get_arg_list(args.reynolds_number)
+    reso_list = get_arg_list(args.reso_str)
+    re_list = get_arg_list(args.reynolds_number)
     jd_list = get_arg_list(args.jump_diff_factor)
     p_list = get_arg_list(args.poly_order)
 
     # loop over all parameter combinations, launcing a job for each case
-    for reynolds_number in ReList:
-        for reso in ResoList:
+    for reynolds_number in re_list:
+        for reso in reso_list:
             for jump_diff_factor in jd_list:
                 for poly_order in p_list:
                     process_args(reso, reynolds_number,

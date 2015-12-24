@@ -14,86 +14,86 @@ def mesh(mesh2d):
     return ExtrudedMesh(mesh2d, layers=10, layer_height=-0.1)
 
 
-@pytest.fixture(params=["P1xP1", "P2xP2", "P1DGxP1DG", "P2DGxP2DG"])
+@pytest.fixture(params=["p1xp1", "P2xP2", "p1DGxp1DG", "P2DGxP2DG"])
 def spaces(request):
-    if request.param == "P1xP1":
+    if request.param == "p1xp1":
         return (("CG", 1), ("CG", 1))
     elif request.param == "P2xP2":
         return (("CG", 2), ("CG", 2))
-    elif request.param == "P1DGxP1DG":
+    elif request.param == "p1DGxp1DG":
         return (("DG", 1), ("DG", 1))
     elif request.param == "P2DGxP2DG":
         return (("DG", 2), ("DG", 2))
 
 
 @pytest.fixture
-def P1_2d(mesh2d, spaces):
+def p1_2d(mesh2d, spaces):
     (name, order), (vname, vorder) = spaces
     return FunctionSpace(mesh2d, name, order)
 
 
 @pytest.fixture
-def P1(mesh, spaces):
+def p1(mesh, spaces):
     (name, order), (vname, vorder) = spaces
     return FunctionSpace(mesh, name, order,
                          vfamily=vname, vdegree=vorder)
 
 
 @pytest.fixture
-def U_2d(mesh2d, spaces):
+def u_2d(mesh2d, spaces):
     (name, order), (vname, vorder) = spaces
     return VectorFunctionSpace(mesh2d, name, order)
 
 
 @pytest.fixture
-def U(mesh, spaces):
+def u(mesh, spaces):
     (name, order), (vname, vorder) = spaces
     return VectorFunctionSpace(mesh, name, order,
                                vfamily=vname, vdegree=vorder)
 
 
 @pytest.fixture
-def c3d(P1):
-    return Function(P1, name="Tracer").interpolate(Expression("x[2] + 2.0"))
+def c3d(p1):
+    return Function(p1, name="Tracer").interpolate(Expression("x[2] + 2.0"))
 
 
 @pytest.fixture
-def c3d_x(P1):
-    return Function(P1, name="Tracer").interpolate(Expression("x[0] + 2.0"))
+def c3d_x(p1):
+    return Function(p1, name="Tracer").interpolate(Expression("x[0] + 2.0"))
 
 
 @pytest.fixture
-def c2d(P1_2d):
-    return Function(P1_2d, name="Tracer").interpolate(Expression("4.0"))
+def c2d(p1_2d):
+    return Function(p1_2d, name="Tracer").interpolate(Expression("4.0"))
 
 
 @pytest.fixture
-def c2d_x(P1_2d):
-    return Function(P1_2d, name="Tracer").interpolate(Expression("2*x[0]"))
+def c2d_x(p1_2d):
+    return Function(p1_2d, name="Tracer").interpolate(Expression("2*x[0]"))
 
 
 @pytest.fixture
-def uv_3d(U):
-    return Function(U, name="Velocity").interpolate(Expression(('x[2] + 1.0',
+def uv_3d(u):
+    return Function(u, name="Velocity").interpolate(Expression(('x[2] + 1.0',
                                                                 '2.0*x[2] + 4.0',
                                                                 '3.0*x[2] + 6.0')))
 
 
 @pytest.fixture
-def uv_3d_x(U):
-    return Function(U, name="Velocity").interpolate(Expression(('x[0] + 1.0',
+def uv_3d_x(u):
+    return Function(u, name="Velocity").interpolate(Expression(('x[0] + 1.0',
                                                                 '2.0*x[1] + 4.0',
                                                                 '3.0*x[0]*x[2] + 6.0')))
 
 
 @pytest.fixture
-def uv_2d(U_2d):
-    return Function(U_2d, name="Velocity").interpolate(Expression(('4.0', '8.0')))
+def uv_2d(u_2d):
+    return Function(u_2d, name="Velocity").interpolate(Expression(('4.0', '8.0')))
 
 
 @pytest.fixture
-def uv_2d_x(U_2d):
-    return Function(U_2d, name="Velocity").interpolate(Expression(('4.0*x[0]', '8.0*x[1]')))
+def uv_2d_x(u_2d):
+    return Function(u_2d, name="Velocity").interpolate(Expression(('4.0*x[0]', '8.0*x[1]')))
 
 
 @pytest.mark.parametrize("bottom",

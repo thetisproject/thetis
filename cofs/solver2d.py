@@ -53,7 +53,7 @@ class FlowSolver2d(FrozenClass):
     def set_time_step(self):
         self.dt = self.options.dt
         if self.dt is None:
-            mesh2d_dt = self.eq_sw.get_time_step(Umag=self.options.u_advection)
+            mesh2d_dt = self.eq_sw.get_time_step(u_mag=self.options.u_advection)
             dt = self.options.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
             dt = comm.allreduce(dt, op=MPI.MIN)
             self.dt = dt
@@ -220,15 +220,15 @@ class FlowSolver2d(FrozenClass):
         if not self._initialized:
             self.create_equations()
 
-        T_epsilon = 1.0e-5
+        t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()
         next_export_t = self.simulation_time + self.options.TExport
 
         # initialize conservation checks
         if self.options.check_vol_conservation_2d:
             eta = self.fields.solution_2d.split()[1]
-            Vol2d_0 = comp_volume_2d(eta, self.fields.bathymetry_2d)
-            print_info('Initial volume 2d {0:f}'.format(Vol2d_0))
+            vol_2d_0 = comp_volume_2d(eta, self.fields.bathymetry_2d)
+            print_info('Initial volume 2d {0:f}'.format(vol_2d_0))
 
         # initial export
         self.export()
@@ -236,7 +236,7 @@ class FlowSolver2d(FrozenClass):
             export_func()
         self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
-        while self.simulation_time <= self.options.T + T_epsilon:
+        while self.simulation_time <= self.options.T + t_epsilon:
 
             self.timestepper.advance(self.simulation_time, self.dt, self.fields.solution_2d,
                                      update_forcings)
@@ -246,17 +246,17 @@ class FlowSolver2d(FrozenClass):
             self.simulation_time = self.iteration*self.dt
 
             # Write the solution to file
-            if self.simulation_time >= next_export_t - T_epsilon:
+            if self.simulation_time >= next_export_t - t_epsilon:
                 cputime = time_mod.clock() - cputimestamp
                 cputimestamp = time_mod.clock()
                 self.print_state(cputime)
                 if self.options.check_vol_conservation_2d:
-                    Vol2d = comp_volume_2d(self.fields.solution_2d.split()[1],
-                                           self.fields.bathymetry_2d)
+                    vol_2d = comp_volume_2d(self.fields.solution_2d.split()[1],
+                                            self.fields.bathymetry_2d)
                 if commrank == 0:
                     line = 'Rel. {0:s} error {1:11.4e}'
                     if self.options.check_vol_conservation_2d:
-                        print(line.format('vol 2d', (Vol2d_0 - Vol2d)/Vol2d_0))
+                        print(line.format('vol 2d', (vol_2d_0 - vol_2d)/vol_2d_0))
                     sys.stdout.flush()
 
                 self.export()

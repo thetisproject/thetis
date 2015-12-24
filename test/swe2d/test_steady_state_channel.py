@@ -5,26 +5,26 @@ import math
 
 def test_steady_state_channel():
 
-    Lx = 5e3
-    Ly = 1e3
+    lx = 5e3
+    ly = 1e3
     # we don't expect converge as the reference solution neglects the advection term
-    mesh2d = RectangleMesh(5, 1, Lx, Ly)
+    mesh2d = RectangleMesh(5, 1, lx, ly)
 
     # bathymetry
-    P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-    bathymetry_2d = Function(P1_2d, name="bathymetry")
+    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    bathymetry_2d = Function(p1_2d, name="bathymetry")
     bathymetry_2d.assign(100.0)
 
-    N = 20  # number of timesteps
+    n = 20  # number of timesteps
     dt = 100.
     g = physical_constants['g_grav'].dat.data[0]
-    f = g/Lx  # linear friction coef.
+    f = g/lx  # linear friction coef.
 
     # --- create solver ---
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=1)
     solver_obj.options.nonlin = False
     solver_obj.options.TExport = dt
-    solver_obj.options.T = N*dt
+    solver_obj.options.T = n*dt
     # NOTE had to set to something else than Cr-Ni, otherwise overriding below has no effect
     solver_obj.options.timestepper_type = 'forwardeuler'
     solver_obj.options.timer_labels = []
@@ -34,10 +34,10 @@ def test_steady_state_channel():
     # boundary conditions
     inflow_tag = 1
     outflow_tag = 2
-    inflow_func = Function(P1_2d)
+    inflow_func = Function(p1_2d)
     inflow_func.interpolate(Expression(-1.0))  # NOTE negative into domain
     inflow_bc = {'un': inflow_func}
-    outflow_func = Function(P1_2d)
+    outflow_func = Function(p1_2d)
     outflow_func.interpolate(Expression(0.0))
     outflow_bc = {'elev': outflow_func}
     solver_obj.bnd_functions['shallow_water'] = {inflow_tag: inflow_bc, outflow_tag: outflow_bc}
@@ -60,8 +60,8 @@ def test_steady_state_channel():
 
     uv, eta = solver_obj.fields.solution_2d.split()
 
-    eta_ana = interpolate(Expression("1-x[0]/Lx", Lx=Lx), P1_2d)
-    area = Lx*Ly
+    eta_ana = interpolate(Expression("1-x[0]/lx", lx=lx), p1_2d)
+    area = lx*ly
     l2norm = errornorm(eta_ana, eta)/math.sqrt(area)
     rel_err = math.sqrt(l2norm/area)
     print rel_err

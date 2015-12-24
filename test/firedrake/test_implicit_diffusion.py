@@ -24,12 +24,12 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     # generate unit mesh and transform its coords
     x_max = 5.0*scale
     x_min = -5.0*scale
-    Lx = (x_max - x_min)
-    n_x = int(Lx/reso)
-    mesh2d = RectangleMesh(n_x, n_x, Lx, Lx, reorder=True)
+    lx = (x_max - x_min)
+    n_x = int(lx/reso)
+    mesh2d = RectangleMesh(n_x, n_x, lx, lx, reorder=True)
     # move mesh, center at (0,0)
-    mesh2d.coordinates.dat.data[:, 0] -= Lx/2
-    mesh2d.coordinates.dat.data[:, 1] -= Lx/2
+    mesh2d.coordinates.dat.data[:, 0] -= lx/2
+    mesh2d.coordinates.dat.data[:, 1] -= lx/2
 
     mesh = ExtrudedMesh(mesh2d, layers=50, layer_height=-depth/layers)
 
@@ -39,19 +39,19 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     # define function spaces
     fam = 'DG'
     deg = 1
-    V = VectorFunctionSpace(mesh, fam, degree=deg, vfamily=fam, vdegree=deg)
+    v = VectorFunctionSpace(mesh, fam, degree=deg, vfamily=fam, vdegree=deg)
 
-    solution = Function(V, name='velocity')
-    solution_new = Function(V, name='new velocity')
+    solution = Function(v, name='velocity')
+    solution_new = Function(v, name='new velocity')
     diffusivity_v = Constant(1.0)
 
-    test = TestFunction(V)
+    test = TestFunction(v)
     normal = FacetNormal(mesh)
 
     # initial condition
     solution.interpolate(Expression(['(x[2] > -25.0) ? 0.0 : 1.0', 0.0, 0.0]))
 
-    def RHS(solution):
+    def rhs(solution):
         # vertical diffusion operator integrated by parts
         f = -diffusivity_v*inner(Dx(solution, 2), Dx(test, 2)) * dx
         # interface term
@@ -59,10 +59,10 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
         f += (dot(avg(diff_flux), test('+'))*normal[2]('+') +
               dot(avg(diff_flux), test('-'))*normal[2]('-')) * dS_h
         # symmetric interior penalty stabilization
-        L = Constant(depth/layers)
+        l = Constant(depth/layers)
         nb_neigh = 2
         d = 3
-        sigma = Constant((deg + 1)*(deg + d)/d * nb_neigh / 2) / L
+        sigma = Constant((deg + 1)*(deg + d)/d * nb_neigh / 2) / l
         gamma = sigma*avg(diffusivity_v)
         jump_test = test('+')*normal[2]('+') + test('-')*normal[2]('-')
         f += gamma * dot(jump(solution), jump_test) * dS_h
@@ -78,9 +78,9 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     sp['ksp_converged_reason'] = True
 
     dt_const = Constant(1000.0)
-    F = (inner(solution_new, test)*dx - inner(solution, test)*dx -
-         dt_const*RHS(solution_new))
-    prob = NonlinearVariationalProblem(F, solution_new)
+    f = (inner(solution_new, test)*dx - inner(solution, test)*dx -
+         dt_const*rhs(solution_new))
+    prob = NonlinearVariationalProblem(f, solution_new)
     solver = LinearVariationalSolver(prob, solver_parameters=sp)
 
     if do_export:

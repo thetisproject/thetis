@@ -20,7 +20,7 @@ mesh2d = Mesh('channel_mesh.msh')
 print_info('Loaded mesh '+mesh2d.name)
 print_info('Exporting to '+outputdir)
 T = 48 * 3600
-Umag = Constant(2.5)
+u_mag = Constant(2.5)
 TExport = 100.0
 
 # bathymetry
@@ -49,7 +49,7 @@ options.use_imex = True
 options.TExport = TExport
 options.T = T
 options.outputdir = outputdir
-options.u_advection = Umag
+options.u_advection = u_mag
 options.check_salt_deviation = True
 options.timer_labels = ['mode2d', 'momentum_eq', 'vert_diffusion']
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',

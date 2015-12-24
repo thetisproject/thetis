@@ -9,7 +9,7 @@ from scipy import stats
 import pytest
 
 
-def setup1(Lx, h0, mimetic=True):
+def setup1(lx, h0, mimetic=True):
     """
     Linear bath, zero elev, constant uv
 
@@ -17,42 +17,42 @@ def setup1(Lx, h0, mimetic=True):
     """
     out = {}
     out['bath_expr'] = Expression(
-        '0.5*h0*(1.0 + x[0]/Lx)',
-        Lx=Lx, h0=h0)
+        '0.5*h0*(1.0 + x[0]/lx)',
+        lx=lx, h0=h0)
     out['elev_expr'] = Expression(
         '0.0',
-        Lx=Lx, h0=h0)
+        lx=lx, h0=h0)
     u_str = '1.0'
     v_str = '0.0'
-    w_str = '-0.5*h0/Lx'
+    w_str = '-0.5*h0/lx'
     out['uv_expr'] = Expression(
         (
             u_str,
             v_str,
             '0.0',
-        ), Lx=Lx, h0=h0)
+        ), lx=lx, h0=h0)
     out['w_expr'] = Expression(
         (
             '0.0',
             '0.0',
             w_str,
-        ), Lx=Lx, h0=h0)
+        ), lx=lx, h0=h0)
     out['uvw_expr'] = Expression(
         (
             u_str,
             v_str,
             w_str,
-        ), Lx=Lx, h0=h0)
+        ), lx=lx, h0=h0)
     out['options'] = {'mimetic': mimetic}
     return out
 
 
-def setup1dg(Lx, h0):
+def setup1dg(lx, h0):
     """Linear bath, zero elev, constant uv"""
-    return setup1(Lx, h0, mimetic=False)
+    return setup1(lx, h0, mimetic=False)
 
 
-def setup2(Lx, h0, mimetic=True):
+def setup2(lx, h0, mimetic=True):
     """
     Constant bath and elev, uv depends on (x,y)
 
@@ -62,149 +62,149 @@ def setup2(Lx, h0, mimetic=True):
     out['bath_expr'] = Expression('h0', h0=h0)
     out['elev_expr'] = Expression('0.0')
     out['uv_expr'] = Expression(
-        ('sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)',
-         '0.2*sin(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)',
+        ('sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)',
+         '0.2*sin(0.2*pi*(1.0*x[0] + 3.0*x[1])/lx)',
          '0.0'),
-        Lx=Lx)
+        lx=lx)
     out['w_expr'] = Expression(
         ('0.0',
          '0.0',
-         'h0*(-0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)/Lx - 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx) + x[2]*(-0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)/Lx - 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx)'),
-        h0=h0, Lx=Lx)
+         'h0*(-0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/lx)/lx - 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx) + x[2]*(-0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/lx)/lx - 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx)'),
+        h0=h0, lx=lx)
     out['uvw_expr'] = Expression(
-        ('sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)',
-         '0.2*sin(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)',
-         'h0*(-0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)/Lx - 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx) + x[2]*(-0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)/Lx - 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx)'),
-        h0=h0, Lx=Lx)
+        ('sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)',
+         '0.2*sin(0.2*pi*(1.0*x[0] + 3.0*x[1])/lx)',
+         'h0*(-0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/lx)/lx - 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx) + x[2]*(-0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/lx)/lx - 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx)'),
+        h0=h0, lx=lx)
     out['div_uv_expr'] = Expression(
         ('0.0',
          '0.0',
-         '-(0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/Lx)/Lx + 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx)'),
-        Lx=Lx)
+         '-(0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/lx)/lx + 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx)'),
+        lx=lx)
     out['options'] = {'mimetic': mimetic}
     return out
 
 
-def setup2dg(Lx, h0):
+def setup2dg(lx, h0):
     """Constant bath and elev, uv depends on (x,y)"""
-    return setup2(Lx, h0, mimetic=False)
+    return setup2(lx, h0, mimetic=False)
 
 
-def setup3(Lx, h0, mimetic=True):
+def setup3(lx, h0, mimetic=True):
     """Non-trivial bath and elev, u=1, v=0"""
     out = {}
     out['bath_expr'] = Expression(
-        '0.25*h0*(cos(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/Lx) + 3.0)',
-        Lx=Lx, h0=h0)
+        '0.25*h0*(cos(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/lx) + 3.0)',
+        lx=lx, h0=h0)
     out['elev_expr'] = Expression(
-        '5.0*sin(0.25*pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/Lx)',
-        Lx=Lx, h0=h0)
+        '5.0*sin(0.25*pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/lx)',
+        lx=lx, h0=h0)
     u_str = '1.0'
     v_str = '0.0'
-    w_str = '0.25*pi*h0*x[0]*sin(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/Lx)/(Lx*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0))'
+    w_str = '0.25*pi*h0*x[0]*sin(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/lx)/(lx*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0))'
     out['uv_expr'] = Expression(
         (
             u_str,
             v_str,
             '0.0',
-        ), Lx=Lx, h0=h0)
+        ), lx=lx, h0=h0)
     out['w_expr'] = Expression(
         (
             '0.0',
             '0.0',
             w_str,
-        ), Lx=Lx, h0=h0)
+        ), lx=lx, h0=h0)
     out['uvw_expr'] = Expression(
         (
             u_str,
             v_str,
             w_str,
-        ), Lx=Lx, h0=h0)
+        ), lx=lx, h0=h0)
     out['options'] = {'mimetic': mimetic}
     return out
 
 
-def setup3dg(Lx, h0):
+def setup3dg(lx, h0):
     """Non-trivial bath and elev, u=1, v=0"""
-    return setup2(Lx, h0, mimetic=False)
+    return setup2(lx, h0, mimetic=False)
 
 
-def setup4(Lx, h0, mimetic=True):
+def setup4(lx, h0, mimetic=True):
     """Non-trivial bath and elev, uv depends on (x,y)"""
     out = {}
     out['bath_expr'] = Expression(
-        '0.25*h0*(cos(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/Lx) + 3.0)',
-        Lx=Lx, h0=h0)
+        '0.25*h0*(cos(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/lx) + 3.0)',
+        lx=lx, h0=h0)
     out['elev_expr'] = Expression(
-        '5.0*sin(0.25*pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/Lx)',
-        Lx=Lx, h0=h0)
-    u_str = 'sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)'
-    v_str = '0.2*sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)'
-    w_str = '0.25*pi*h0*x[0]*sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)*sin(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/Lx)/(Lx*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)) + 0.05*pi*h0*x[1]*sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)*sin(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/Lx)/(Lx*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)) - 0.16*pi*h0*(cos(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/Lx) + 3.0)*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx - 0.64*pi*x[2]*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx'
+        '5.0*sin(0.25*pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/lx)',
+        lx=lx, h0=h0)
+    u_str = 'sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)'
+    v_str = '0.2*sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)'
+    w_str = '0.25*pi*h0*x[0]*sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)*sin(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/lx)/(lx*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)) + 0.05*pi*h0*x[1]*sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)*sin(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/lx)/(lx*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)) - 0.16*pi*h0*(cos(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/lx) + 3.0)*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx - 0.64*pi*x[2]*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx'
     out['uv_expr'] = Expression(
         (
             u_str,
             v_str,
             '0.0',
-        ), Lx=Lx, h0=h0)
+        ), lx=lx, h0=h0)
     out['w_expr'] = Expression(
         (
             '0.0',
             '0.0',
             w_str,
-        ), Lx=Lx, h0=h0)
+        ), lx=lx, h0=h0)
     out['uvw_expr'] = Expression(
         (
             u_str,
             v_str,
             w_str,
-        ), Lx=Lx, h0=h0)
+        ), lx=lx, h0=h0)
     out['options'] = {'mimetic': mimetic}
     return out
 
 
-def setup4dg(Lx, h0):
+def setup4dg(lx, h0):
     """Non-trivial bath and elev, uv depends on (x,y)"""
-    return setup3(Lx, h0, mimetic=False)
+    return setup3(lx, h0, mimetic=False)
 
 
-def setup5(Lx, h0, mimetic=True):
+def setup5(lx, h0, mimetic=True):
     """Non-trivial bath and elev, uv depends on (x,y,z)"""
     out = {}
     out['bath_expr'] = Expression(
-        '0.25*h0*(cos(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/Lx) + 3.0)',
-        Lx=Lx, h0=h0)
+        '0.25*h0*(cos(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/lx) + 3.0)',
+        lx=lx, h0=h0)
     out['elev_expr'] = Expression(
-        '5.0*sin(0.25*pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/Lx)',
-        Lx=Lx, h0=h0)
-    u_str = 'sin(0.5*pi*(3.0*x[0] + 1.0*x[1])/Lx)*cos(2.0*pi*x[2]/h0)'
-    v_str = '0.2*sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)*cos(2.0*pi*x[2]/h0)'
-    w_str = '0.25*pi*h0*x[0]*sin(0.5*pi*(3.0*x[0] + 1.0*x[1])/Lx)*sin(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/Lx)*cos(pi*(0.5*cos(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/Lx) + 1.5))/(Lx*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)) + 0.05*pi*h0*x[1]*sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)*sin(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/Lx)*cos(pi*(0.5*cos(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/Lx) + 1.5))/(Lx*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)) - 0.02*h0*sin(pi*(0.5*cos(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/Lx) + 1.5))*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx - 0.75*h0*sin(pi*(0.5*cos(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/Lx) + 1.5))*cos(0.5*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx - 0.02*h0*sin(2.0*pi*x[2]/h0)*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx - 0.75*h0*sin(2.0*pi*x[2]/h0)*cos(0.5*pi*(3.0*x[0] + 1.0*x[1])/Lx)/Lx'
+        '5.0*sin(0.25*pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/lx)',
+        lx=lx, h0=h0)
+    u_str = 'sin(0.5*pi*(3.0*x[0] + 1.0*x[1])/lx)*cos(2.0*pi*x[2]/h0)'
+    v_str = '0.2*sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)*cos(2.0*pi*x[2]/h0)'
+    w_str = '0.25*pi*h0*x[0]*sin(0.5*pi*(3.0*x[0] + 1.0*x[1])/lx)*sin(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/lx)*cos(pi*(0.5*cos(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/lx) + 1.5))/(lx*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)) + 0.05*pi*h0*x[1]*sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)*sin(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/lx)*cos(pi*(0.5*cos(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/lx) + 1.5))/(lx*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)) - 0.02*h0*sin(pi*(0.5*cos(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/lx) + 1.5))*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx - 0.75*h0*sin(pi*(0.5*cos(pi*sqrt(x[0]*x[0] + x[1]*x[1] + 1.0)/lx) + 1.5))*cos(0.5*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx - 0.02*h0*sin(2.0*pi*x[2]/h0)*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx - 0.75*h0*sin(2.0*pi*x[2]/h0)*cos(0.5*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx'
     out['uv_expr'] = Expression(
         (
             u_str,
             v_str,
             '0.0',
-        ), Lx=Lx, h0=h0)
+        ), lx=lx, h0=h0)
     out['w_expr'] = Expression(
         (
             '0.0',
             '0.0',
             w_str,
-        ), Lx=Lx, h0=h0)
+        ), lx=lx, h0=h0)
     out['uvw_expr'] = Expression(
         (
             u_str,
             v_str,
             w_str,
-        ), Lx=Lx, h0=h0)
+        ), lx=lx, h0=h0)
     out['options'] = {'mimetic': mimetic}
     return out
 
 
-def setup5dg(Lx, h0):
+def setup5dg(lx, h0):
     """Non-trivial bath and elev, uv depends on (x,y,z)"""
-    return setup4(Lx, h0, mimetic=False)
+    return setup4(lx, h0, mimetic=False)
 
 
 def run(setup, refinement, order, export=True):
@@ -212,26 +212,26 @@ def run(setup, refinement, order, export=True):
     print '--- running {:} refinement {:}'.format(setup.__name__, refinement)
     setup_name = setup.__name__
     # domain dimensions
-    Lx = 15e3
-    Ly = 10e3
-    area = Lx*Ly
+    lx = 15e3
+    ly = 10e3
+    area = lx*ly
     depth = 40.0
 
-    S = setup(Lx, depth)
+    sdict = setup(lx, depth)
 
     # mesh
     n_layers = 4*refinement
     nx = 4*refinement
     ny = 4*refinement
-    mesh2d = RectangleMesh(nx, ny, Lx, Ly)
+    mesh2d = RectangleMesh(nx, ny, lx, ly)
 
     # outputs
     outputdir = create_directory('outputs')
 
     # bathymetry
-    P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-    bathymetry_2d = Function(P1_2d, name='Bathymetry')
-    bathymetry_2d.project(S['bath_expr'])
+    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    bathymetry_2d = Function(p1_2d, name='Bathymetry')
+    bathymetry_2d.project(sdict['bath_expr'])
 
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     solver_obj.options.order = order
@@ -240,7 +240,7 @@ def run(setup, refinement, order, export=True):
     solver_obj.options.outputdir = outputdir
     solver_obj.options.dt = 30.0
     solver_obj.options.dt_2d = 10.0
-    solver_obj.options.update(S['options'])
+    solver_obj.options.update(sdict['options'])
 
     assert solver_obj.options.mimetic is False, ('this test is not suitable '
                                                  'for mimetic elements')
@@ -251,7 +251,7 @@ def run(setup, refinement, order, export=True):
 
     solver_obj.create_equations()
     # elevation field
-    solver_obj.fields.elev_2d.project(S['elev_expr'])
+    solver_obj.fields.elev_2d.project(sdict['elev_expr'])
     # update mesh and fields
     solver_obj.copy_elev_to_3d.solve()
     solver_obj.mesh_coord_updater.solve()
@@ -259,16 +259,16 @@ def run(setup, refinement, order, export=True):
     solver_obj.copy_v_elem_size_to_2d.solve()
 
     # velocity field
-    solver_obj.fields.uv_3d.project(S['uv_expr'])  # NOTE for DG only
+    solver_obj.fields.uv_3d.project(sdict['uv_expr'])  # NOTE for DG only
     uv_analytical = Function(solver_obj.function_spaces.P1DGv, name='uv_ana_3d')
-    uv_analytical.project(S['uv_expr'])
+    uv_analytical.project(sdict['uv_expr'])
     # analytical solution
     w_analytical = Function(solver_obj.function_spaces.P1DGv, name='w_ana_3d')
-    w_analytical.project(S['w_expr'])
+    w_analytical.project(sdict['w_expr'])
     # analytical solution in high-order space for computing L2 norms
-    P1DG_ho = VectorFunctionSpace(solver_obj.mesh, 'DG', order+3)
-    w_ana_ho = Function(P1DG_ho, name='Analytical w')
-    w_ana_ho.project(S['w_expr'])
+    p1dg_ho = VectorFunctionSpace(solver_obj.mesh, 'DG', order+3)
+    w_ana_ho = Function(p1dg_ho, name='Analytical w')
+    w_ana_ho.project(sdict['w_expr'])
 
     if export:
         out_w = File(os.path.join(outputdir, 'w.pvd'))
@@ -301,14 +301,14 @@ def run(setup, refinement, order, export=True):
     err_msg = '{:}: Bottom impermeability violated: bottom flux {:.4g}'.format(setup_name, bottom_flux)
     assert abs(bottom_flux) < 1e-6, err_msg
 
-    L2_err_w = errornorm(w_ana_ho, w_proj_3d)/numpy.sqrt(area)
-    print 'L2 error w  {:.12f}'.format(L2_err_w)
-    w_ana_ho.project(S['uv_expr'])
-    L2_err_uv = errornorm(w_ana_ho, solver_obj.fields.uv_3d)/numpy.sqrt(area)
-    print 'L2 error uv {:.12f}'.format(L2_err_uv)
+    l2_err_w = errornorm(w_ana_ho, w_proj_3d)/numpy.sqrt(area)
+    print 'L2 error w  {:.12f}'.format(l2_err_w)
+    w_ana_ho.project(sdict['uv_expr'])
+    l2_err_uv = errornorm(w_ana_ho, solver_obj.fields.uv_3d)/numpy.sqrt(area)
+    print 'L2 error uv {:.12f}'.format(l2_err_uv)
 
     tmp_function_cache.clear()  # NOTE must destroy all cached solvers for next simulation
-    return L2_err_w, L2_err_uv
+    return l2_err_w, l2_err_uv
 
 
 def run_convergence(setup, ref_list, order, export=False, save_plot=False):
@@ -333,12 +333,12 @@ def run_convergence(setup, ref_list, order, export=False, save_plot=False):
             x_min = x_log.min()
             x_max = x_log.max()
             offset = 0.05*(x_max - x_min)
-            N = 50
-            xx = numpy.linspace(x_min - offset, x_max + offset, N)
+            npoints = 50
+            xx = numpy.linspace(x_min - offset, x_max + offset, npoints)
             yy = intercept + slope*xx
             # plot line
             ax.plot(xx, yy, linestyle='--', linewidth=0.5, color='k')
-            ax.text(xx[2*N/3], yy[2*N/3], '{:4.2f}'.format(slope),
+            ax.text(xx[2*npoints/3], yy[2*npoints/3], '{:4.2f}'.format(slope),
                     verticalalignment='top',
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')

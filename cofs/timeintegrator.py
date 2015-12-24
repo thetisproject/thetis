@@ -916,7 +916,7 @@ class DIRKLSPUM2(DIRKGeneric):
                                          solution)
 
 
-def cos_time_av_filter(M):
+def cos_time_av_filter(m):
     """
     Raised cos time average filters as in older versions of ROMS.
     a_i : weights for t_{n+1}
@@ -926,7 +926,7 @@ def cos_time_av_filter(M):
 
     Filters have lenght 2*M.
     """
-    l = np.arange(1, 2*M+1, dtype=float)/M
+    l = np.arange(1, 2*m+1, dtype=float)/m
     # a raised cos centered at M
     a = np.zeros_like(l)
     ix = (l >= 0.5) * (l <= 1.5)
@@ -934,20 +934,20 @@ def cos_time_av_filter(M):
     a /= sum(a)
 
     # b as in Shchepetkin and MacWilliams 2005
-    b = np.cumsum(a[::-1])[::-1]/M
+    b = np.cumsum(a[::-1])[::-1]/m
     # correct b to match 2nd criterion exactly
     error = sum(l*b)-0.5
     p = np.linspace(-1, 1, len(b))
     p /= sum(l*p)
     b -= p*error
 
-    M_star = np.nonzero((np.abs(a) > 1e-10) + (np.abs(b) > 1e-10))[0].max()
+    m_star = np.nonzero((np.abs(a) > 1e-10) + (np.abs(b) > 1e-10))[0].max()
     if commrank == 0:
-        print 'M', M, M_star
+        print 'M', m, m_star
         print 'a', sum(a), sum(l*a)
         print 'b', sum(b), sum(l*b)
 
-    return M_star, [float(f) for f in a], [float(f) for f in b]
+    return m_star, [float(f) for f in a], [float(f) for f in b]
 
 
 class MacroTimeStepIntegrator(TimeIntegrator):
@@ -956,17 +956,17 @@ class MacroTimeStepIntegrator(TimeIntegrator):
     # NOTE the time averages can be very diffusive
     # NOTE diffusivity depends on M and the choise of time av filter
     # NOTE boxcar filter is very diffusive!
-    def __init__(self, timestepper_cls, M, restart_from_av=False):
+    def __init__(self, timestepper_cls, m, restart_from_av=False):
         super(MacroTimeStepIntegrator, self).__init__(self.subiterator.equation)
         self.subiterator = timestepper_cls
-        self.M = M
+        self.m = m
         self.restart_from_av = restart_from_av
         # functions to hold time averaged solutions
         space = self.subiterator.solution_old.function_space()
         self.solution_n = Function(space)
         self.solution_nplushalf = Function(space)
         self.solution_start = Function(space)
-        self.M_star, self.w_full, self.w_half = cos_time_av_filter(M)
+        self.M_star, self.w_full, self.w_half = cos_time_av_filter(m)
 
     def initialize(self, solution):
         self.subiterator.initialize(solution)
@@ -976,7 +976,7 @@ class MacroTimeStepIntegrator(TimeIntegrator):
 
     def advance(self, t, dt, solution, update_forcings, verbose=False):
         """Advances equations for one macro time step DT=M*dt"""
-        M = self.M
+        m = self.m
         solution_old = self.subiterator.solution_old
         # initialize
         solution_old.assign(self.solution_start)
@@ -996,10 +996,10 @@ class MacroTimeStepIntegrator(TimeIntegrator):
             self.solution_n += self.w_full[i]*solution
             if verbose and commrank == 0:
                 sys.stdout.write('.')
-                if i == M-1:
+                if i == m-1:
                     sys.stdout.write('|')
                 sys.stdout.flush()
-            if not self.restart_from_av and i == M-1:
+            if not self.restart_from_av and i == m-1:
                 # store state at T_{n+1}
                 self.solution_start.assign(solution)
         if verbose and commrank == 0:

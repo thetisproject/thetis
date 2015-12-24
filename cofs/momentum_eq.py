@@ -200,9 +200,8 @@ class MomentumEquation(Equation):
     def rhs_implicit(self, solution, wind_stress=None, **kwargs):
         """Returns all the terms that are treated semi-implicitly.
         """
-        F = 0  # holds all dx volume integral terms
-        G = 0  # holds all ds boundary interface terms
-        return -F - G
+        f = 0
+        return -f
 
     def rhs(self, solution, eta, w=None, viscosity_v=None,
             viscosity_h=None, coriolis=None, baroc_head=None,
@@ -211,8 +210,8 @@ class MomentumEquation(Equation):
             uv_mag=None, uv_p1=None, **kwargs):
         """Returns the right hand side of the equations.
         RHS is all terms that depend on the solution (eta,uv)"""
-        F = 0  # holds all dx volume integral terms
-        G = 0  # holds all ds boundary interface terms
+        f = 0  # holds all dx volume integral terms
+        g = 0  # holds all ds boundary interface terms
 
         if self.nonlin:
             total_h = self.bathymetry + eta
@@ -220,11 +219,11 @@ class MomentumEquation(Equation):
             total_h = self.bathymetry
 
         # external pressure gradient
-        F += self.pressure_grad(eta, baroc_head, solution, total_h, by_parts=self.grad_eta_by_parts)
+        f += self.pressure_grad(eta, baroc_head, solution, total_h, by_parts=self.grad_eta_by_parts)
 
         # Advection term
         if self.nonlin:
-            F += self.horizontal_advection(solution, total_h, lax_friedrichs_factor,
+            f += self.horizontal_advection(solution, total_h, lax_friedrichs_factor,
                                            uv_mag=uv_mag, uv_p1=uv_p1)
 
             # Vertical advection term
@@ -232,27 +231,27 @@ class MomentumEquation(Equation):
                 vertvelo = w[2]
                 if w_mesh is not None:
                     vertvelo = w[2]-w_mesh
-                Adv_v = -(Dx(self.test[0], 2)*solution[0]*vertvelo +
+                adv_v = -(Dx(self.test[0], 2)*solution[0]*vertvelo +
                           Dx(self.test[1], 2)*solution[1]*vertvelo)
-                F += Adv_v * self.dx
+                f += adv_v * self.dx
                 if self.vertical_dg:
                     s = 0.5*(sign(avg(w[2])*self.normal[2]('-')) + 1.0)
                     uv_up = solution('-')*s + solution('+')*(1-s)
                     w_av = avg(w[2])
-                    G += (uv_up[0]*w_av*jump(self.test[0], self.normal[2]) +
+                    g += (uv_up[0]*w_av*jump(self.test[0], self.normal[2]) +
                           uv_up[1]*w_av*jump(self.test[1], self.normal[2]))*self.dS_h
                     if lax_friedrichs_factor is not None:
                         # Lax-Friedrichs
                         gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
-                        G += gamma*(jump(self.test[0])*jump(solution[0]) +
+                        g += gamma*(jump(self.test[0])*jump(solution[0]) +
                                     jump(self.test[1])*jump(solution[1]))*self.dS_h
-                G += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
+                g += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
                       solution[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
             # NOTE bottom impermeability condition is naturally satisfied by the defition of w
 
         # Non-conservative ALE source term
         if dw_mesh_dz is not None:
-            F += dw_mesh_dz*(solution[0]*self.test[0] +
+            f += dw_mesh_dz*(solution[0]*self.test[0] +
                              solution[1]*self.test[1])*dx
 
         # boundary conditions
@@ -267,13 +266,13 @@ class MomentumEquation(Equation):
             elif 'elev' in funcs:
                 # prescribe elevation only
                 h_ext = funcs['elev']
-                G += g_grav*(eta + h_ext)/2*dot(self.normal, self.test)*ds_bnd
+                g += g_grav*(eta + h_ext)/2*dot(self.normal, self.test)*ds_bnd
                 # symmetric term for advection
                 if self.nonlin:
                     un = dot(solution, self.normal)
                     outflow = 0.5*(sign(un) + 1.0)
                     uv_in = solution*(0.75 + 0.25*outflow)
-                    G += (uv_in[0]*self.test[0]*un +
+                    g += (uv_in[0]*self.test[0]*un +
                           uv_in[1]*self.test[1]*un)*ds_bnd
 
             elif 'un' in funcs:
@@ -286,83 +285,82 @@ class MomentumEquation(Equation):
                     un_av = uv_av[0]*self.normal[0] + uv_av[1]*self.normal[1]
                     s = 0.5*(sign(un_av) + 1.0)
                     uv_up = uv_in*s + uv_ext*(1-s)
-                    G += (uv_up[0]*self.test[0]*self.normal[0]*uv_in[0] +
+                    g += (uv_up[0]*self.test[0]*self.normal[0]*uv_in[0] +
                           uv_up[0]*self.test[0]*self.normal[1]*uv_in[1] +
                           uv_up[1]*self.test[1]*self.normal[0]*uv_in[0] +
                           uv_up[1]*self.test[1]*self.normal[1]*uv_in[1])*ds_bnd
                     # Lax-Friedrichs stabilization
                     gamma = abs(un_av)
-                    G += gamma*dot(self.test, (uv_in - uv_ext)/2)*ds_bnd
+                    g += gamma*dot(self.test, (uv_in - uv_ext)/2)*ds_bnd
 
             elif 'symm' in funcs:
                 if self.nonlin:
                     uv_in = un_in*self.normal
-                    G += (uv_in[0]*self.test[0]*self.normal[0]*uv_in[0] +
+                    g += (uv_in[0]*self.test[0]*self.normal[0]*uv_in[0] +
                           uv_in[0]*self.test[0]*self.normal[1]*uv_in[1] +
                           uv_in[1]*self.test[1]*self.normal[0]*uv_in[0] +
                           uv_in[1]*self.test[1]*self.normal[1]*uv_in[1])*ds_bnd
 
         # Coriolis
         if coriolis is not None:
-            F += coriolis*(-solution[1]*self.test[0] +
+            f += coriolis*(-solution[1]*self.test[0] +
                            solution[0]*self.test[1])*self.dx
 
         # horizontal viscosity
         if viscosity_h is not None:
-            F_visc = viscosity_h * (Dx(solution[0], 0) * Dx(self.test[0], 0) +
+            f_visc = viscosity_h * (Dx(solution[0], 0) * Dx(self.test[0], 0) +
                                     Dx(solution[1], 0) * Dx(self.test[1], 0) +
                                     Dx(solution[0], 1) * Dx(self.test[0], 1) +
                                     Dx(solution[1], 1) * Dx(self.test[1], 1))
             if self.horizontal_dg:
                 # interface term
                 mu_grad_sol = viscosity_h*nabla_grad(solution)
-                F += -(avg(mu_grad_sol[0, 0])*jump(self.test[0], self.normal[0]) +
+                f += -(avg(mu_grad_sol[0, 0])*jump(self.test[0], self.normal[0]) +
                        avg(mu_grad_sol[0, 1])*jump(self.test[1], self.normal[0]) +
                        avg(mu_grad_sol[1, 0])*jump(self.test[0], self.normal[1]) +
                        avg(mu_grad_sol[1, 1])*jump(self.test[1], self.normal[1]))*(self.dS_v+self.dS_h)
                 # TODO symmetric interior penalty term
-            F += F_visc * self.dx
+            f += f_visc * self.dx
 
         # vertical viscosity
         if viscosity_v is not None:
-            F += viscosity_v*(Dx(self.test[0], 2)*Dx(solution[0], 2) +
+            f += viscosity_v*(Dx(self.test[0], 2)*Dx(solution[0], 2) +
                               Dx(self.test[1], 2)*Dx(solution[1], 2)) * self.dx
             if self.vertical_dg:
                 int_visc_flux = (jump(self.test[0]*Dx(solution[0], 2), self.normal[2]) +
                                  jump(self.test[1]*Dx(solution[1], 2), self.normal[2]))
-                G += -avg(viscosity_v) * int_visc_flux * self.dS_h
+                g += -avg(viscosity_v) * int_visc_flux * self.dS_h
                 # viscflux = viscosity_v*Dx(solution, 2)
                 # G += -(avg(viscflux[0])*jump(self.test[0], normal[2]) +
                 #        avg(viscflux[0])*jump(self.test[1], normal[2]))
 
         # Linear drag (consistent with drag in 2D mode)
         if lin_drag is not None:
-            BottomFri = lin_drag*inner(self.test, solution)*self.dx
-            F += BottomFri
+            bottom_fri = lin_drag*inner(self.test, solution)*self.dx
+            f += bottom_fri
 
-        return -F - G
+        return -f - g
 
     def source(self, eta, w=None, viscosity_v=None,
                uv_bottom=None, bottom_drag=None, baroc_head=None,
                source=None, **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
-        F = 0  # holds all dx volume integral terms
-        G = 0
+        f = 0
 
         if source is not None:
-            F += -inner(source, self.test)*self.dx
+            f += -inner(source, self.test)*self.dx
 
         if viscosity_v is not None:
             # bottom friction
             if bottom_drag is not None and uv_bottom is not None:
                 stress = bottom_drag*sqrt(uv_bottom[0]**2 +
                                           uv_bottom[1]**2)*uv_bottom
-                BotFriction = (stress[0]*self.test[0] +
-                               stress[1]*self.test[1])*self.ds_bottom
-                F += BotFriction
+                bot_friction = (stress[0]*self.test[0] +
+                                stress[1]*self.test[1])*self.ds_bottom
+                f += bot_friction
 
-        return -F - G
+        return -f
 
 
 class VerticalMomentumEquation(Equation):
@@ -415,7 +413,7 @@ class VerticalMomentumEquation(Equation):
         # maps bnd_marker to dict of external functions e.g. {'elev':eta_ext}
         self.bnd_functions = {}
 
-    def get_time_step(self, Umag=Constant(1.0)):
+    def get_time_step(self, u_mag=Constant(1.0)):
         raise NotImplementedError('get_time_step not implemented')
 
     def mass_term(self, solution):
@@ -430,45 +428,44 @@ class VerticalMomentumEquation(Equation):
     def rhs_implicit(self, solution, wind_stress=None, **kwargs):
         """Returns all the terms that are treated semi-implicitly.
         """
-        F = 0  # holds all dx volume integral terms
-        G = 0  # holds all ds boundary interface terms
-        return -F - G
+        f = 0
+        return -f
 
     def rhs(self, solution, w=None, viscosity_v=None,
             uv_bottom=None, bottom_drag=None,
             **kwargs):
         """Returns the right hand side of the equations.
         Contains all terms that depend on the solution."""
-        F = 0
+        f = 0
 
         # Advection term
         if w is not None:
             # Vertical advection
-            Adv_v = -(Dx(self.test[0], 2)*solution[0]*w +
+            adv_v = -(Dx(self.test[0], 2)*solution[0]*w +
                       Dx(self.test[1], 2)*solution[1]*w)
-            F += Adv_v * self.dx
+            f += adv_v * self.dx
             if self.vertical_dg:
                 # FIXME implement interface terms
                 raise NotImplementedError('Adv term not implemented for DG')
 
         # vertical viscosity
         if viscosity_v is not None:
-            F += viscosity_v*inner(Dx(solution, 2), Dx(self.test, 2)) * self.dx
+            f += viscosity_v*inner(Dx(solution, 2), Dx(self.test, 2)) * self.dx
             if self.vertical_dg:
                 visc_flux = viscosity_v*Dx(solution, 2)
-                F += -(dot(avg(visc_flux), self.test('+'))*self.normal[2]('+') +
+                f += -(dot(avg(visc_flux), self.test('+'))*self.normal[2]('+') +
                        dot(avg(visc_flux), self.test('-'))*self.normal[2]('-')) * self.dS_h
                 # symmetric interior penalty stabilization
                 ip_fact = Constant(1.0)
-                L = avg(self.v_elem_size)
+                l = avg(self.v_elem_size)
                 nb_neigh = 2.
                 o = 1.
                 d = 3.
-                sigma = Constant((o + 1.0)*(o + d)/d * nb_neigh / 2.0) / L
+                sigma = Constant((o + 1.0)*(o + d)/d * nb_neigh / 2.0) / l
                 gamma = sigma*avg(viscosity_v) * ip_fact
                 jump_test = (self.test('+')*self.normal[2]('+') +
                              self.test('-')*self.normal[2]('-'))
-                F += gamma * dot(jump(solution), jump_test) * self.dS_h
+                f += gamma * dot(jump(solution), jump_test) * self.dS_h
 
             # implicit bottom friction
             if bottom_drag is not None:
@@ -478,11 +475,11 @@ class VerticalMomentumEquation(Equation):
                 uv_bot_old = uv_bottom + Dx(uv_bottom, 2)*z_bot
                 uv_bot_mag = sqrt(uv_bot_old[0]**2 + uv_bot_old[1]**2)
                 stress = bottom_drag*uv_bot_mag*uv_bot
-                BotFriction = (stress[0]*self.test[0] +
-                               stress[1]*self.test[1])*self.ds_bottom
-                F += BotFriction
+                bot_friction = (stress[0]*self.test[0] +
+                                stress[1]*self.test[1])*self.ds_bottom
+                f += bot_friction
 
-        return -F
+        return -f
 
     def source(self, w=None, viscosity_v=None,
                uv_bottom=None, bottom_drag=None,
@@ -490,7 +487,7 @@ class VerticalMomentumEquation(Equation):
                **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
-        F = 0  # holds all dx volume integral terms
+        f = 0  # holds all dx volume integral terms
 
         if viscosity_v is not None:
             # # bottom friction
@@ -502,9 +499,9 @@ class VerticalMomentumEquation(Equation):
             #   #F += BotFriction
             # wind stress
             if wind_stress is not None:
-                F -= (wind_stress[0]*self.test[0] +
+                f -= (wind_stress[0]*self.test[0] +
                       wind_stress[1]*self.test[1])/rho_0*self.ds_surf
         if source is not None:
-            F += - inner(source, self.test)*dx
+            f += - inner(source, self.test)*dx
 
-        return -F
+        return -f

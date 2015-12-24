@@ -4,8 +4,8 @@ import numpy
 
 
 def test_steady_state_channel_mms():
-    Lx = 5e3
-    Ly = 1e3
+    lx = 5e3
+    ly = 1e3
 
     order = 1
     # minimum resolution
@@ -13,22 +13,22 @@ def test_steady_state_channel_mms():
         min_cells = 16
     else:
         min_cells = 8
-    N = 100  # number of timesteps
+    n = 100  # number of timesteps
     dt = 1000.
     g = physical_constants['g_grav'].dat.data[0]
-    H0 = 10.  # depth at rest
-    area = Lx*Ly
+    h0 = 10.  # depth at rest
+    area = lx*ly
 
-    k = 4.0*math.pi/Lx
-    Q = H0*1.0  # flux (depth-integrated velocity)
+    k = 4.0*math.pi/lx
+    q = h0*1.0  # flux (depth-integrated velocity)
     eta0 = 1.0  # free surface amplitude
 
     eta_expr = Expression("eta0*cos(k*x[0])", k=k, eta0=eta0)
     depth_expr = "H0+eta0*cos(k*x[0])"
-    u_expr = Expression(("Q/({H})".format(H=depth_expr), 0.), k=k, Q=Q, eta0=eta0, H0=H0)
+    u_expr = Expression(("Q/({H})".format(H=depth_expr), 0.), k=k, Q=q, eta0=eta0, H0=h0)
     source_expr = Expression("k*eta0*(pow(Q,2)/pow({H},3)-g)*sin(k*x[0])".format(H=depth_expr),
-                             k=k, g=g, Q=Q, eta0=eta0, H0=H0)
-    u_bcval = Q/(H0+eta0)
+                             k=k, g=g, Q=q, eta0=eta0, H0=h0)
+    u_bcval = q/(h0+eta0)
     eta_bcval = eta0
 
     diff_pvd = File('diff.pvd')
@@ -37,18 +37,18 @@ def test_steady_state_channel_mms():
     eta_errs = []
     u_errs = []
     for i in range(5):
-        mesh2d = RectangleMesh(min_cells*2**i, 1, Lx, Ly)
+        mesh2d = RectangleMesh(min_cells*2**i, 1, lx, ly)
 
         # bathymetry
-        P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-        bathymetry_2d = Function(P1_2d, name="bathymetry")
-        bathymetry_2d.assign(H0)
+        p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+        bathymetry_2d = Function(p1_2d, name="bathymetry")
+        bathymetry_2d.assign(h0)
 
         # --- create solver ---
         solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=order)
         solver_obj.options.nonlin = True
         solver_obj.options.TExport = dt
-        solver_obj.options.T = N*dt
+        solver_obj.options.T = n*dt
         solver_obj.options.timestepper_type = 'forwardeuler'
         solver_obj.options.timer_labels = []
         solver_obj.options.dt = dt
@@ -56,10 +56,10 @@ def test_steady_state_channel_mms():
         # boundary conditions
         inflow_tag = 1
         outflow_tag = 2
-        inflow_func = Function(P1_2d)
+        inflow_func = Function(p1_2d)
         inflow_func.interpolate(Expression(-u_bcval))
         inflow_bc = {'un': inflow_func}
-        outflow_func = Function(P1_2d)
+        outflow_func = Function(p1_2d)
         outflow_func.interpolate(Expression(eta_bcval))
         outflow_bc = {'elev': outflow_func}
         solver_obj.bnd_functions['shallow_water'] = {inflow_tag: inflow_bc, outflow_tag: outflow_bc}

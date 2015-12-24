@@ -18,7 +18,7 @@ depth = 50.0
 elev_amp = 1.0
 n_layers = 6
 # estimate of max advective velocity used to estimate time step
-Umag = Constant(0.5)
+u_mag = Constant(0.5)
 
 outputdir = create_directory('outputs')
 print_info('Loaded mesh '+mesh2d.name)
@@ -35,11 +35,11 @@ x_min = x_func.dat.data.min()
 x_max = x_func.dat.data.max()
 x_min = comm.allreduce(x_min, op=MPI.MIN)
 x_max = comm.allreduce(x_max, op=MPI.MAX)
-Lx = x_max - x_min
+lx = x_max - x_min
 
 # set time step, export interval and run duration
 c_wave = float(np.sqrt(9.81*depth))
-T_cycle = Lx/c_wave
+T_cycle = lx/c_wave
 n_steps = 20
 dt = round(float(T_cycle/n_steps))
 TExport = dt
@@ -62,7 +62,7 @@ else:
     options.dt = dt/40.0
 options.TExport = TExport
 options.T = T
-options.u_advection = Umag
+options.u_advection = u_mag
 options.check_vol_conservation_2d = True
 options.check_vol_conservation_3d = True
 options.timer_labels = []
@@ -77,8 +77,8 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
 # need to call creator to create the function spaces
 solver_obj.create_equations()
 elev_init = Function(solver_obj.function_spaces.H_2d)
-elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=elev_amp,
-                             Lx=Lx))
+elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/lx)', eta_amp=elev_amp,
+                             lx=lx))
 if options.solve_salt:
     salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
     # salt_init3d.interpolate(Expression('x[0]/1.0e5*10.0+2.0'))

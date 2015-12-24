@@ -12,7 +12,7 @@ import os
 import subprocess
 
 
-def generatePVDFile(outDir, fieldName, timesteps, usePVTU=False):
+def generate_pvd_file(outdir, fieldname, timesteps, usepvtu=False):
     """
     Generates ParaView PVD XML file fieldName.pvd that contains vtu or ptvu files for
     the given time steps range.
@@ -21,35 +21,35 @@ def generatePVDFile(outDir, fieldName, timesteps, usePVTU=False):
     template_openblock = """<VTKFile byte_order="LittleEndian" version="0.1" type="Collection">\n<Collection>\n"""
     template_closeblock = """</Collection>\n</VTKFile>\n"""
     template_entry = """<DataSet timestep="{i}" part="0" group="" file="{name}_{i}.{ext}"/>\n"""
-    extension = 'pvtu' if usePVTU else 'vtu'
+    extension = 'pvtu' if usepvtu else 'vtu'
 
     content = template_header
     content += template_openblock
     for i in timesteps:
-        content += template_entry.format(i=i, name=fieldName, ext=extension)
+        content += template_entry.format(i=i, name=fieldname, ext=extension)
     content += template_closeblock
 
-    filename = os.path.join(outDir, fieldName+'.pvd')
+    filename = os.path.join(outdir, fieldname+'.pvd')
     print 'generating', filename
     f = open(filename, 'w')
     f.write(content)
     f.close()
 
 
-def processArgs(outputdir, state_file, regeneratePVD=True, timesteps=None, parallelVTU=True):
+def process_args(outputdir, state_file, regenerate_pvd=True, timesteps=None, parallel_vtu=True):
     default_out_dir = 'outputs'
     temp_state_file = 'tmp.pvsm'
     paraview_bin = 'paraview'
     pv_log_file = 'log_pvoutput.txt'
     static_pvd_files = ['bath']  # outputs that are not time dependent
     # regenerate all existing PVD files
-    if regeneratePVD:
+    if regenerate_pvd:
         pvd_files = glob.glob(os.path.join(outputdir, '*.pvd'))
         for f in pvd_files:
             path, fname = os.path.split(f)
             fieldName, extension = os.path.splitext(fname)
             if fieldName not in static_pvd_files:
-                generatePVDFile(outputdir, fieldName, timesteps, usePVTU=parallelVTU)
+                generate_pvd_file(outputdir, fieldName, timesteps, usePVTU=parallel_vtu)
     # read state file, replace directory with new one
     new_content = ''
     with open(state_file, 'r') as f:
@@ -70,9 +70,9 @@ if __name__ == '__main__':
                         help='Directory where .pvd files are stored')
     parser.add_argument('statefile', type=str,
                         help='ParaView *.pvsm state file')
-    parser.add_argument('-r', action='store_true', dest='regeneratePVD',
+    parser.add_argument('-r', action='store_true', dest='regenerate_pvd',
                         help='regenerate PVD files')
-    parser.add_argument('-p', action='store_true', dest='parallelVTU',
+    parser.add_argument('-p', action='store_true', dest='parallel_vtu',
                         help='regenerate PVD files for parallel outputs')
     parser.add_argument('-f', '--first-time-step', type=int, default=0,
                         help='last time step for regenerated PVD file')
@@ -83,5 +83,5 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     timesteps = range(args.first_time_step, args.last_time_step + 1)
-    processArgs(args.outputdir, args.statefile, regeneratePVD=args.regeneratePVD,
-                timesteps=timesteps, parallelVTU=args.parallelVTU)
+    process_args(args.outputdir, args.statefile, regenerate_pvd=args.regenerate_pvd,
+                 timesteps=timesteps, parallel_vtu=args.parallel_vtu)

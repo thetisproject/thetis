@@ -105,7 +105,6 @@ class ShearFrequencySolver(object):
             test = TestFunction(fs)
             tri = TrialFunction(fs)
             dx = fs.mesh()._dx
-            dS_h = fs.mesh()._dS_h
             ds_surf = fs.mesh()._ds_b
             ds_bottom = fs.mesh()._ds_t
             normal = FacetNormal(fs.mesh())
@@ -114,7 +113,7 @@ class ShearFrequencySolver(object):
             # alpha = Constant(2.0)*abs(avg(uv[i_comp]))
             # a += alpha*jump(test)*jump(tri)*dS_h
             l = -inner(uv[i_comp], Dx(test, 2))*dx
-            l += avg(uv[i_comp])*jump(test, normal[2])*dS_h
+            l += avg(uv[i_comp])*jump(test, normal[2])*fs.mesh()._dS_h
             l += uv[i_comp]*test*normal[2]*(ds_surf + ds_bottom)
 
             prob = LinearVariationalProblem(a, l, mu_tmp)

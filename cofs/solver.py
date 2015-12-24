@@ -60,7 +60,7 @@ class FlowSolver(FrozenClass):
         if self.options.use_mode_split:
             self.dt = self.options.dt
             if self.dt is None:
-                mesh_dt = self.eq_sw.get_time_step_advection(Umag=self.options.u_advection)
+                mesh_dt = self.eq_sw.get_time_step_advection(u_mag=self.options.u_advection)
                 dt = self.options.cfl_3d*float(np.floor(mesh_dt.dat.data.min()/20.0))
                 dt = comm.allreduce(dt, op=MPI.MIN)
                 if round(dt) > 0:
@@ -68,7 +68,7 @@ class FlowSolver(FrozenClass):
                 self.dt = dt
             self.dt_2d = self.options.dt_2d
             if self.dt_2d is None:
-                mesh2d_dt = self.eq_sw.get_time_step(Umag=self.options.u_advection)
+                mesh2d_dt = self.eq_sw.get_time_step(u_mag=self.options.u_advection)
                 dt_2d = self.options.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
                 dt_2d = comm.allreduce(dt_2d, op=MPI.MIN)
                 self.dt_2d = dt_2d
@@ -76,7 +76,7 @@ class FlowSolver(FrozenClass):
             self.M_modesplit = int(np.ceil(self.dt/self.dt_2d))
             self.dt_2d = self.dt/self.M_modesplit
         else:
-            mesh2d_dt = self.eq_sw.get_time_step(Umag=self.options.u_advection)
+            mesh2d_dt = self.eq_sw.get_time_step(u_mag=self.options.u_advection)
             dt_2d = self.options.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
             dt_2d = comm.allreduce(dt_2d, op=MPI.MIN)
             if self.dt is None:
@@ -100,18 +100,18 @@ class FlowSolver(FrozenClass):
 
         # Construct HDiv OuterProductElements
         # for horizontal velocity component
-        Uh_elt = FiniteElement('RT', triangle, self.options.order+1)
-        Uv_elt = FiniteElement('DG', interval, self.options.order)
-        U_elt = HDiv(OuterProductElement(Uh_elt, Uv_elt))
+        u_h_elt = FiniteElement('RT', triangle, self.options.order+1)
+        u_v_elt = FiniteElement('DG', interval, self.options.order)
+        u_elt = HDiv(OuterProductElement(u_h_elt, u_v_elt))
         # for vertical velocity component
-        Wh_elt = FiniteElement('DG', triangle, self.options.order)
-        Wv_elt = FiniteElement('CG', interval, self.options.order+1)
-        W_elt = HDiv(OuterProductElement(Wh_elt, Wv_elt))
+        w_h_elt = FiniteElement('DG', triangle, self.options.order)
+        w_v_elt = FiniteElement('CG', interval, self.options.order+1)
+        w_elt = HDiv(OuterProductElement(w_h_elt, w_v_elt))
         # final spaces
         if self.options.mimetic:
             # self.U = FunctionSpace(self.mesh, UW_elt)  # uv
-            self.function_spaces.U = FunctionSpace(self.mesh, U_elt, name='U')  # uv
-            self.function_spaces.W = FunctionSpace(self.mesh, W_elt, name='W')  # w
+            self.function_spaces.U = FunctionSpace(self.mesh, u_elt, name='U')  # uv
+            self.function_spaces.W = FunctionSpace(self.mesh, w_elt, name='W')  # w
         else:
             self.function_spaces.U = VectorFunctionSpace(self.mesh, 'DG', self.options.order,
                                                          vfamily='DG', vdegree=self.options.order,
@@ -593,7 +593,7 @@ class FlowSolver(FrozenClass):
         if not self._initialized:
             self.create_equations()
 
-        T_epsilon = 1.0e-5
+        t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()
         self.simulation_time = 0
         self.iteration = 0
@@ -603,14 +603,14 @@ class FlowSolver(FrozenClass):
         # initialize conservation checks
         if self.options.check_vol_conservation_2d:
             eta = self.fields.solution_2d.split()[1]
-            Vol2d_0 = comp_volume_2d(eta, self.fields.bathymetry_2d)
-            print_info('Initial volume 2d {0:f}'.format(Vol2d_0))
+            vol_2d_0 = comp_volume_2d(eta, self.fields.bathymetry_2d)
+            print_info('Initial volume 2d {0:f}'.format(vol_2d_0))
         if self.options.check_vol_conservation_3d:
-            Vol3d_0 = comp_volume_3d(self.mesh)
-            print_info('Initial volume 3d {0:f}'.format(Vol3d_0))
+            vol_3d_0 = comp_volume_3d(self.mesh)
+            print_info('Initial volume 3d {0:f}'.format(vol_3d_0))
         if self.options.check_salt_conservation:
-            Mass3d_0 = comp_tracer_mass_3d(self.fields.salt_3d)
-            print_info('Initial salt mass {0:f}'.format(Mass3d_0))
+            mass_3d_0 = comp_tracer_mass_3d(self.fields.salt_3d)
+            print_info('Initial salt mass {0:f}'.format(mass_3d_0))
         if self.options.check_salt_deviation:
             salt_sum = self.fields.salt_3d.dat.data.sum()
             salt_sum = op2.MPI.COMM.allreduce(salt_sum, op=MPI.SUM)
@@ -631,7 +631,7 @@ class FlowSolver(FrozenClass):
             export_func()
         self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
-        while self.simulation_time <= self.options.T + T_epsilon:
+        while self.simulation_time <= self.options.T + t_epsilon:
 
             self.timestepper.advance(self.simulation_time, self.dt,
                                      update_forcings, update_forcings3d)
@@ -641,18 +641,18 @@ class FlowSolver(FrozenClass):
             self.iteration += 1
 
             # Write the solution to file
-            if self.simulation_time >= next_export_t - T_epsilon:
+            if self.simulation_time >= next_export_t - t_epsilon:
                 cputime = time_mod.clock() - cputimestamp
                 cputimestamp = time_mod.clock()
                 self.print_state(cputime)
 
                 if self.options.check_vol_conservation_2d:
-                    Vol2d = comp_volume_2d(self.fields.solution_2d.split()[1],
-                                           self.fields.bathymetry_2d)
+                    vol_2d = comp_volume_2d(self.fields.solution_2d.split()[1],
+                                            self.fields.bathymetry_2d)
                 if self.options.check_vol_conservation_3d:
-                    Vol3d = comp_volume_3d(self.mesh)
+                    vol_3d = comp_volume_3d(self.mesh)
                 if self.options.check_salt_conservation:
-                    Mass3d = comp_tracer_mass_3d(self.fields.salt_3d)
+                    mass_3d = comp_tracer_mass_3d(self.fields.salt_3d)
                 if self.options.check_salt_deviation:
                     salt_min = self.fields.salt_3d.dat.data.min()
                     salt_max = self.fields.salt_3d.dat.data.max()
@@ -671,12 +671,12 @@ class FlowSolver(FrozenClass):
                 if commrank == 0:
                     line = 'Rel. {0:s} error {1:11.4e}'
                     if self.options.check_vol_conservation_2d:
-                        print(line.format('vol 2d', (Vol2d_0 - Vol2d)/Vol2d_0))
+                        print(line.format('vol 2d', (vol_2d_0 - vol_2d)/vol_2d_0))
                     if self.options.check_vol_conservation_3d:
-                        print(line.format('vol 3d', (Vol3d_0 - Vol3d)/Vol3d_0))
+                        print(line.format('vol 3d', (vol_3d_0 - vol_3d)/vol_3d_0))
                     if self.options.check_salt_conservation:
                         print(line.format('mass ',
-                                          (Mass3d_0 - Mass3d)/Mass3d_0))
+                                          (mass_3d_0 - mass_3d)/mass_3d_0))
                     if self.options.check_salt_deviation:
                         print('salt deviation {:g} {:g}'.format(*salt_dev))
                     if self.options.check_salt_overshoot:
