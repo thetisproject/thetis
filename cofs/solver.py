@@ -453,10 +453,10 @@ class flowSolver(frozenClass):
                                                     self.fields.baroc_head_3d,
                                                     bottomToTop=False)
             self.baroHeadAverager = verticalIntegrator(self.fields.baroc_head_3d,
-                                                    self.fields.baroc_head_int_3d,
-                                                    bottomToTop=True,
-                                                    average=True,
-                                                    bathymetry=self.fields.bathymetry_3d)
+                                                       self.fields.baroc_head_int_3d,
+                                                       bottomToTop=True,
+                                                       average=True,
+                                                       bathymetry=self.fields.bathymetry_3d)
             self.extractSurfBaroHead = subFunctionExtractor(self.fields.baroc_head_int_3d,
                                                             self.fields.baroc_head_2d,
                                                             useBottomValue=False)

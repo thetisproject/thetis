@@ -596,7 +596,7 @@ class subFunctionExtractor(object):
             self.iter_domain = op2.ON_BOTTOM
         elif sub_domain == 'bottom':
             # 'bottom' means the bed, where extrusion ended
-            self.iter_domain= op2.ON_TOP
+            self.iter_domain = op2.ON_TOP
 
         out_nodes = self.fs_2d.fiat_element.space_dimension()
 
