@@ -244,24 +244,20 @@ def run(setup, refinement, order, export=True):
 
     assert solverObj.options.mimetic is False, ('this test is not suitable '
                                                 'for mimetic elements')
+    # NOTE use symmetic uv condition to get correct w
+    bnd_mom = {'symm': None}
+    solverObj.bnd_functions['momentum'] = {1: bnd_mom, 2: bnd_mom,
+                                           3: bnd_mom, 4: bnd_mom}
 
     solverObj.createEquations()
-    # use symmetry condition at all boundaries
-    bnd_markers = solverObj.eq_sw.boundary_markers
-    bnd_funcs = {}
-    for k in bnd_markers:
-        bnd_funcs[k] = {'symm': None}
     # elevation field
     solverObj.fields.elev_2d.project(S['elev_expr'])
     # update mesh and fields
-    copy2dFieldTo3d(solverObj.fields.elev_2d, solverObj.fields.elev_3d)
-    updateCoordinates(solverObj.mesh,
-                      solverObj.fields.elev_3d,
-                      solverObj.fields.bathymetry_3d,
-                      solverObj.fields.z_coord_3d,
-                      solverObj.fields.z_coord_ref_3d)
-    computeElemHeight(solverObj.fields.z_coord_3d, solverObj.fields.v_elem_size_3d)
-    copy3dFieldTo2d(solverObj.fields.v_elem_size_3d, solverObj.fields.v_elem_size_2d)
+    solverObj.copyElevTo3d.solve()
+    solverObj.meshCoordUpdater.solve()
+    compute_elem_height(solverObj.fields.z_coord_3d, solverObj.fields.v_elem_size_3d)
+    solverObj.copyVElemSizeTo2d.solve()
+
     # velocity field
     solverObj.fields.uv_3d.project(S['uv_expr'])  # NOTE for DG only
     uv_analytical = Function(solverObj.function_spaces.P1DGv, name='uv_ana_3d')
@@ -282,8 +278,7 @@ def run(setup, refinement, order, export=True):
     # w needs to be projected to cartesian vector field for sanity check
     w_proj_3d = Function(solverObj.function_spaces.P1DGv, name='w_proj_3d')
 
-    computeVertVelocity(solverObj.fields.w_3d, solverObj.fields.uv_3d, solverObj.fields.bathymetry_3d,
-                        boundary_markers=bnd_markers, boundary_funcs=bnd_funcs)
+    solverObj.wSolver.solve()
     uvw = solverObj.fields.uv_3d + solverObj.fields.w_3d
     w_proj_3d.project(uvw)  # This needed for HDiv elements
     # discard u,v components

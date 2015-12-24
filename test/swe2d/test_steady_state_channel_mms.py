@@ -74,7 +74,7 @@ def test_steady_state_channel_mms():
             'snes_type': 'newtonls'}
         # reinitialize the timestepper so we can set our own solver parameters and gamma
         # setting gamma to 1.0 converges faster to
-        solverObj.timeStepper = timeIntegrator.CrankNicolson(solverObj.eq_sw, solverObj.dt,
+        solverObj.timeStepper = timeintegrator.CrankNicolson(solverObj.eq_sw, solverObj.dt,
                                                              solver_parameters, gamma=1.0)
         solverObj.assignInitialConditions(uv_init=Expression(("1.0", "0.0")))
 

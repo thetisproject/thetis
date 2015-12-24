@@ -33,8 +33,8 @@ bathymetry_2d.assign(depth)
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 x_min = x_func.dat.data.min()
 x_max = x_func.dat.data.max()
-x_min = comm.allreduce(x_min, x_min, op=MPI.MIN)
-x_max = comm.allreduce(x_max, x_max, op=MPI.MAX)
+x_min = comm.allreduce(x_min, op=MPI.MIN)
+x_max = comm.allreduce(x_max, op=MPI.MAX)
 Lx = x_max - x_min
 
 # set time step, export interval and run duration

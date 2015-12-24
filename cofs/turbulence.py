@@ -61,7 +61,7 @@ Implementation follows [4].
 
 Tuomas Karna 2015-09-07
 """
-from tracerEquation import *
+from tracer_eq import *
 from utility import *
 
 

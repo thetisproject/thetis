@@ -4,17 +4,17 @@ Module for coupled 2D-3D flow solver.
 Tuomas Karna 2015-04-01
 """
 from utility import *
-import shallowWaterEq
-import momentumEquation
-import tracerEquation
+import shallowwater_eq
+import momentum_eq
+import tracer_eq
 import turbulence
-import coupledTimeIntegrator as CoupledTimeIntegrator
+import coupled_timeintegrator
 import limiter
 import time as timeMod
 from mpi4py import MPI
 import exporter
 import weakref
-from cofs.fieldDefs import fieldMetadata
+from cofs.field_defs import fieldMetadata
 from cofs.options import ModelOptions
 
 
@@ -214,10 +214,10 @@ class FlowSolver(FrozenClass):
                 self.fields.coriolis_3d = self.options.coriolis
             else:
                 self.fields.coriolis_3d = Function(self.function_spaces.P1)
-                expandFunctionTo3d(self.options.coriolis, self.fields.coriolis_3d).solve()
+                ExpandFunctionTo3d(self.options.coriolis, self.fields.coriolis_3d).solve()
         if self.options.wind_stress is not None:
             self.fields.wind_stress_3d = Function(self.function_spaces.P1)
-            expandFunctionTo3d(self.options.wind_stress, self.fields.wind_stress_3d).solve()
+            ExpandFunctionTo3d(self.options.wind_stress, self.fields.wind_stress_3d).solve()
         self.fields.v_elem_size_3d = Function(self.function_spaces.P1DG)
         self.fields.v_elem_size_2d = Function(self.function_spaces.P1DG_2d)
         self.fields.h_elem_size_3d = Function(self.function_spaces.P1)
@@ -277,7 +277,7 @@ class FlowSolver(FrozenClass):
         # ----- Equations
         if self.options.useModeSplit:
             # full 2D shallow water equations
-            self.eq_sw = shallowWaterEq.ShallowWaterEquations(
+            self.eq_sw = shallowwater_eq.ShallowWaterEquations(
                 self.fields.solution_2d, self.fields.bathymetry_2d,
                 self.fields.get('uv_bottom_2d'), self.fields.get('bottom_drag_2d'),
                 baroc_head=self.fields.get('baroc_head_2d'),
@@ -291,13 +291,13 @@ class FlowSolver(FrozenClass):
         else:
             # solve elevation only: 2D free surface equation
             uv, eta = self.fields.solution_2d.split()
-            self.eq_sw = shallowWaterEq.FreeSurfaceEquation(
+            self.eq_sw = shallowwater_eq.FreeSurfaceEquation(
                 eta, uv, self.fields.bathymetry_2d,
                 nonlin=self.options.nonlin)
 
         bnd_len = self.eq_sw.boundary_len
         bnd_markers = self.eq_sw.boundary_markers
-        self.eq_momentum = momentumEquation.MomentumEquation(
+        self.eq_momentum = momentum_eq.MomentumEquation(
             bnd_markers,
             bnd_len, self.fields.uv_3d, self.fields.elev_3d,
             self.fields.bathymetry_3d, w=self.fields.w_3d,
@@ -314,7 +314,7 @@ class FlowSolver(FrozenClass):
             lin_drag=self.options.lin_drag,
             nonlin=self.options.nonlin)
         if self.options.solveSalt:
-            self.eq_salt = tracerEquation.TracerEquation(
+            self.eq_salt = tracer_eq.TracerEquation(
                 self.fields.salt_3d, self.fields.elev_3d, self.fields.uv_3d,
                 w=self.fields.w_3d, w_mesh=self.fields.get('w_mesh_3d'),
                 dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
@@ -328,7 +328,7 @@ class FlowSolver(FrozenClass):
                 bnd_markers=bnd_markers,
                 bnd_len=bnd_len)
         if self.options.solveVertDiffusion:
-            self.eq_vertmomentum = momentumEquation.VerticalMomentumEquation(
+            self.eq_vertmomentum = momentum_eq.VerticalMomentumEquation(
                 self.fields.uv_3d, w=None,
                 viscosity_v=self.tot_v_visc.get_sum(),
                 uv_bottom=self.fields.get('uv_bottom_3d'),
@@ -341,7 +341,7 @@ class FlowSolver(FrozenClass):
             self.eq_salt.bnd_functions = self.bnd_functions['salt']
         if self.options.useTurbulence:
             # explicit advection equations
-            self.eq_tke_adv = tracerEquation.TracerEquation(
+            self.eq_tke_adv = tracer_eq.TracerEquation(
                 self.fields.tke_3d, self.fields.elev_3d, self.fields.uv_3d,
                 w=self.fields.w_3d, w_mesh=self.fields.get('w_mesh_3d'),
                 dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
@@ -352,7 +352,7 @@ class FlowSolver(FrozenClass):
                 v_elem_size=self.fields.v_elem_size_3d,
                 bnd_markers=bnd_markers,
                 bnd_len=bnd_len)
-            self.eq_psi_adv = tracerEquation.TracerEquation(
+            self.eq_psi_adv = tracer_eq.TracerEquation(
                 self.fields.psi_3d, self.fields.elev_3d, self.fields.uv_3d,
                 w=self.fields.w_3d, w_mesh=self.fields.get('w_mesh_3d'),
                 dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
@@ -392,13 +392,13 @@ class FlowSolver(FrozenClass):
         self.setTimeStep()
         if self.options.useModeSplit:
             if self.options.useIMEX:
-                self.timeStepper = CoupledTimeIntegrator.CoupledSSPIMEX(weakref.proxy(self))
+                self.timeStepper = coupled_timeintegrator.CoupledSSPIMEX(weakref.proxy(self))
             elif self.options.useSemiImplicit2D:
-                self.timeStepper = CoupledTimeIntegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
+                self.timeStepper = coupled_timeintegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
             else:
-                self.timeStepper = CoupledTimeIntegrator.CoupledSSPRKSync(weakref.proxy(self))
+                self.timeStepper = coupled_timeintegrator.CoupledSSPRKSync(weakref.proxy(self))
         else:
-            self.timeStepper = CoupledTimeIntegrator.CoupledSSPRKSingleMode(weakref.proxy(self))
+            self.timeStepper = coupled_timeintegrator.CoupledSSPRKSingleMode(weakref.proxy(self))
         print_info('using {:} time integrator'.format(self.timeStepper.__class__.__name__))
 
         # compute maximal diffusivity for explicit schemes

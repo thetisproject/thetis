@@ -1,5 +1,5 @@
 from utility import *
-import timeIntegrator  # NOQA
+import timeintegrator  # NOQA
 import solver  # NOQA
 import solver2d  # NOQA
 

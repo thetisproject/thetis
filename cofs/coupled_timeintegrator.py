@@ -4,14 +4,14 @@ Time integrators for solving coupled 2D-3D-tracer equations.
 Tuomas Karna 2015-07-06
 """
 from utility import *
-import timeIntegrator
+import timeintegrator
 
 # TODO turbulence update. move out from _update_all_dependencies ?
 # TODO add default functions for updating all eqns to base class?
 # TODO add decorator for accessing s, o, f
 
 
-class CoupledTimeIntegrator(timeIntegrator.TimeIntegrator):
+class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
     """Base class for coupled time integrators"""
     def __init__(self, solver, options, fields):
         self.solver = solver
@@ -149,20 +149,20 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
         super(CoupledSSPRKSync, self).__init__(solver, solver.options,
                                                solver.fields)
         self._initialized = False
-        self.timeStepper2d = timeIntegrator.SSPRK33(
+        self.timeStepper2d = timeintegrator.SSPRK33(
             solver.eq_sw, solver.dt_2d,
             solver.eq_sw.solver_parameters)
         fs = self.timeStepper2d.solution_old.function_space()
         self.sol2d_n = Function(fs, name='sol2dtmp')
 
-        self.timeStepper_mom3d = timeIntegrator.SSPRK33Stage(
+        self.timeStepper_mom3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum, solver.dt)
         if self.solver.options.solveSalt:
-            self.timeStepper_salt_3d = timeIntegrator.SSPRK33Stage(
+            self.timeStepper_salt_3d = timeintegrator.SSPRK33Stage(
                 solver.eq_salt,
                 solver.dt)
         if self.solver.options.solveVertDiffusion:
-            self.timeStepper_vmom3d = timeIntegrator.CrankNicolson(
+            self.timeStepper_vmom3d = timeintegrator.CrankNicolson(
                 solver.eq_vertmomentum,
                 solver.dt, gamma=0.6)
 
@@ -273,7 +273,7 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
                    }
         fs_2d = solver.eq_sw.solution.function_space()
         self.solution_2d_old = Function(fs_2d, name='old_sol_2d')
-        self.timeStepper2d = timeIntegrator.SSPIMEX(
+        self.timeStepper2d = timeintegrator.SSPIMEX(
             solver.eq_sw, solver.dt,
             solver_parameters=sp_expl,
             solver_parameters_dirk=sp_impl,
@@ -285,7 +285,7 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
                    }
         fs_mom = solver.eq_momentum.solution.function_space()
         self.uv_3d_old = Function(fs_mom, name='old_sol_mom')
-        self.timeStepper_mom3d = timeIntegrator.SSPIMEX(
+        self.timeStepper_mom3d = timeintegrator.SSPIMEX(
             solver.eq_momentum, solver.dt,
             solver_parameters=sp_expl,
             solver_parameters_dirk=sp_impl,
@@ -293,27 +293,27 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
         if self.solver.options.solveSalt:
             fs = solver.eq_salt.solution.function_space()
             self.salt_3d_old = Function(fs, name='old_sol_salt')
-            self.timeStepper_salt_3d = timeIntegrator.SSPIMEX(
+            self.timeStepper_salt_3d = timeintegrator.SSPIMEX(
                 solver.eq_salt, solver.dt,
                 solver_parameters=sp_expl,
                 solver_parameters_dirk=sp_impl,
                 solution=self.salt_3d_old)
         if self.solver.options.solveVertDiffusion:
             raise Exception('vert mom eq should not exist for this time integrator')
-            self.timeStepper_vmom3d = timeIntegrator.SSPIMEX(
+            self.timeStepper_vmom3d = timeintegrator.SSPIMEX(
                 solver.eq_vertmomentum, solver.dt,
                 solver_parameters=sp_expl,
                 solver_parameters_dirk=sp_impl)
         if self.solver.options.useTurbulence:
             fs = solver.eq_tke_diff.solution.function_space()
             self.tke_3d_old = Function(fs, name='old_sol_tke')
-            self.timeStepper_tke_3d = timeIntegrator.SSPIMEX(
+            self.timeStepper_tke_3d = timeintegrator.SSPIMEX(
                 solver.eq_tke_diff, solver.dt,
                 solver_parameters=sp_expl,
                 solver_parameters_dirk=sp_impl,
                 solution=self.tke_3d_old)
             self.psi_3d_old = Function(fs, name='old_sol_psi')
-            self.timeStepper_psi_3d = timeIntegrator.SSPIMEX(
+            self.timeStepper_psi_3d = timeintegrator.SSPIMEX(
                 solver.eq_psi_diff, solver.dt,
                 solver_parameters=sp_expl,
                 solver_parameters_dirk=sp_impl,
@@ -382,14 +382,14 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                                                        solver.options,
                                                        solver.fields)
         self._initialized = False
-        self.timeStepper2d = timeIntegrator.SSPRK33StageSemiImplicit(
+        self.timeStepper2d = timeintegrator.SSPRK33StageSemiImplicit(
             solver.eq_sw, solver.dt,
             solver.eq_sw.solver_parameters)
 
-        self.timeStepper_mom3d = timeIntegrator.SSPRK33Stage(
+        self.timeStepper_mom3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum, solver.dt)
         if self.solver.options.solveSalt:
-            self.timeStepper_salt_3d = timeIntegrator.SSPRK33Stage(
+            self.timeStepper_salt_3d = timeintegrator.SSPRK33Stage(
                 solver.eq_salt,
                 solver.dt)
         vdiff_sp = {'ksp_type': 'gmres',
@@ -398,12 +398,12 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                     # 'ksp_rtol': 1.0e-22,
                     }
         if self.solver.options.solveVertDiffusion:
-            self.timeStepper_vmom3d = timeIntegrator.DIRKLSPUM2(
+            self.timeStepper_vmom3d = timeintegrator.DIRKLSPUM2(
                 solver.eq_vertmomentum, solver.dt, solver_parameters=vdiff_sp)
         if self.solver.options.useTurbulence:
-            self.timeStepper_tke_3d = timeIntegrator.DIRKLSPUM2(
+            self.timeStepper_tke_3d = timeintegrator.DIRKLSPUM2(
                 solver.eq_tke_diff, solver.dt, solver_parameters=vdiff_sp)
-            self.timeStepper_psi_3d = timeIntegrator.DIRKLSPUM2(
+            self.timeStepper_psi_3d = timeintegrator.DIRKLSPUM2(
                 solver.eq_psi_diff, solver.dt, solver_parameters=vdiff_sp)
 
         # ----- stage 1 -----
@@ -501,19 +501,19 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
                                                      solver.options,
                                                      solver.fields)
         self._initialized = False
-        self.timeStepper2d = timeIntegrator.SSPRK33Stage(
+        self.timeStepper2d = timeintegrator.SSPRK33Stage(
             solver.eq_sw, solver.dt_2d,
             solver.eq_sw.solver_parameters)
 
-        self.timeStepper_mom3d = timeIntegrator.SSPRK33Stage(
+        self.timeStepper_mom3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum,
             solver.dt_2d)
         if self.solver.options.solveSalt:
-            self.timeStepper_salt_3d = timeIntegrator.SSPRK33Stage(
+            self.timeStepper_salt_3d = timeintegrator.SSPRK33Stage(
                 solver.eq_salt,
                 solver.dt_2d)
         if self.solver.options.solveVertDiffusion:
-            self.timeStepper_vmom3d = timeIntegrator.CrankNicolson(
+            self.timeStepper_vmom3d = timeintegrator.CrankNicolson(
                 solver.eq_vertmomentum,
                 solver.dt_2d, gamma=0.6)
 
@@ -585,21 +585,21 @@ class CoupledSSPRK(CoupledTimeIntegrator):
         subiterator = SSPRK33(
             solver.eq_sw, solver.dt_2d,
             solver.eq_sw.solver_parameters)
-        self.timeStepper2d = timeIntegrator.MacroTimeStepIntegrator(
+        self.timeStepper2d = timeintegrator.MacroTimeStepIntegrator(
             subiterator,
             solver.M_modesplit,
             restartFromAv=True)
 
         # FIXME self.fields.elev_3d_nplushalf is not defined!
-        self.timeStepper_mom3d = timeIntegrator.SSPRK33(
+        self.timeStepper_mom3d = timeintegrator.SSPRK33(
             solver.eq_momentum, solver.dt,
             funcs_nplushalf={'eta': self.fields.elev_3d_nplushalf})
         if self.solver.options.solveSalt:
-            self.timeStepper_salt_3d = timeIntegrator.SSPRK33(
+            self.timeStepper_salt_3d = timeintegrator.SSPRK33(
                 solver.eq_salt,
                 solver.dt)
         if self.solver.options.solveVertDiffusion:
-            self.timeStepper_vmom3d = timeIntegrator.CrankNicolson(
+            self.timeStepper_vmom3d = timeintegrator.CrankNicolson(
                 solver.eq_vertmomentum,
                 solver.dt, gamma=0.6)
         elev_nph = self.timeStepper2d.solution_nplushalf.split()[1]

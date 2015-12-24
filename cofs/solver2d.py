@@ -4,12 +4,12 @@ Module for 2D solver class.
 Tuomas Karna 2015-10-17
 """
 from utility import *
-import shallowWaterEq
-import timeIntegrator
+import shallowwater_eq
+import timeintegrator
 import time as timeMod
 from mpi4py import MPI
 import exporter
-from cofs.fieldDefs import fieldMetadata
+from cofs.field_defs import fieldMetadata
 from cofs.options import ModelOptions
 
 
@@ -91,7 +91,7 @@ class FlowSolver2d(FrozenClass):
         self.fields.solution_2d = Function(self.function_spaces.V_2d)
 
         # ----- Equations
-        self.eq_sw = shallowWaterEq.ShallowWaterEquations(
+        self.eq_sw = shallowwater_eq.ShallowWaterEquations(
             self.fields.solution_2d,
             self.fields.bathymetry_2d,
             lin_drag=self.options.lin_drag,
@@ -108,16 +108,16 @@ class FlowSolver2d(FrozenClass):
         # ----- Time integrators
         self.setTimeStep()
         if self.options.timeStepperType.lower() == 'ssprk33':
-            self.timeStepper = timeIntegrator.SSPRK33Stage(self.eq_sw, self.dt,
+            self.timeStepper = timeintegrator.SSPRK33Stage(self.eq_sw, self.dt,
                                                            self.eq_sw.solver_parameters)
         elif self.options.timeStepperType.lower() == 'ssprk33semi':
-            self.timeStepper = timeIntegrator.SSPRK33StageSemiImplicit(self.eq_sw,
+            self.timeStepper = timeintegrator.SSPRK33StageSemiImplicit(self.eq_sw,
                                                                        self.dt, self.eq_sw.solver_parameters)
         elif self.options.timeStepperType.lower() == 'forwardeuler':
-            self.timeStepper = timeIntegrator.ForwardEuler(self.eq_sw, self.dt,
+            self.timeStepper = timeintegrator.ForwardEuler(self.eq_sw, self.dt,
                                                            self.eq_sw.solver_parameters)
         elif self.options.timeStepperType.lower() == 'cranknicolson':
-            self.timeStepper = timeIntegrator.CrankNicolson(self.eq_sw, self.dt,
+            self.timeStepper = timeintegrator.CrankNicolson(self.eq_sw, self.dt,
                                                             self.eq_sw.solver_parameters)
         elif self.options.timeStepperType.lower() == 'sspimex':
             # TODO meaningful solver params
@@ -131,7 +131,7 @@ class FlowSolver2d(FrozenClass):
                 'pc_type': 'fieldsplit',
                 'pc_fieldsplit_type': 'multiplicative',
             }
-            self.timeStepper = timeIntegrator.SSPIMEX(self.eq_sw, self.dt,
+            self.timeStepper = timeintegrator.SSPIMEX(self.eq_sw, self.dt,
                                                       solver_parameters=sp_expl,
                                                       solver_parameters_dirk=sp_impl)
         else:

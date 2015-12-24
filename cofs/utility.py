@@ -13,7 +13,7 @@ from pyop2.profiling import timed_region, timed_function, timing  # NOQA
 from mpi4py import MPI  # NOQA
 import ufl  # NOQA
 import coffee.base as ast  # NOQA
-from cofs.fieldDefs import fieldMetadata
+from cofs.field_defs import fieldMetadata
 
 comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank

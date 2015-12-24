@@ -5,6 +5,7 @@ Tests implicit bottom friction formulation with COFS
 Tuomas Karna 2015-09-16
 """
 from cofs import *
+from cofs.momentum_eq import VerticalMomentumEquation
 import time as timeMod
 
 
@@ -71,7 +72,7 @@ def test_implicit_friction_parabolic(do_assert=True):
     pressureGradientSource = Constant((-9.81*elev_slope, 0, 0))
     s = solverObj
     uv3d_old = Function(s.function_spaces.U, name='Velocity old')
-    vertMomEq = momentumEquation.VerticalMomentumEquation(
+    vertMomEq = VerticalMomentumEquation(
         s.fields.uv_3d, w=None,
         viscosity_v=s.tot_v_visc.get_sum(),
         uv_bottom=uv3d_old,
@@ -86,8 +87,8 @@ def test_implicit_friction_parabolic(do_assert=True):
     # sp['snes_monitor'] = True
     # sp['snes_converged_reason'] = True
     sp['snes_rtol'] = 1e-4  # to avoid stagnation
-    # timeStepper = timeIntegrator.DIRKLSPUM2(vertMomEq, dt, solver_parameters=sp)
-    timeStepper = timeIntegrator.BackwardEuler(vertMomEq, dt, solver_parameters=sp)
+    # timeStepper = timeintegrator.DIRKLSPUM2(vertMomEq, dt, solver_parameters=sp)
+    timeStepper = timeintegrator.BackwardEuler(vertMomEq, dt, solver_parameters=sp)
 
     t = 0
     nSteps = int(np.round(T/dt))
