@@ -375,7 +375,7 @@ def run(setup, refinement, order, export=True):
         print 'bath', bathymetry_2d.dat.data.min(), bathymetry_2d.dat.data.max()
         raise Exception('Negative bathymetry')
 
-    solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d)
+    solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     solverObj.options.order = order
     solverObj.options.mimetic = True
     solverObj.options.uAdvection = Constant(1.0)

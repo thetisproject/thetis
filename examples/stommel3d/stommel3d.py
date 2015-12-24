@@ -45,7 +45,7 @@ windStress2d.interpolate(Expression(('tau_max*sin(pi*x[1]/L)', '0'), tau_max=tau
 lin_drag = Constant(1e-6)
 
 # --- create solver ---
-solverObj = solver.flowSolver(mesh2d, bathymetry_2d, layers)
+solverObj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solverObj.options
 options.cfl_2d = 1.0
 options.nonlin = False

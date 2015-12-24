@@ -68,7 +68,7 @@ bathymetry_2d = Function(P1_2d, name='Bathymetry')
 bathymetry_2d.assign(depth)
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry_2d, layers)
+solverObj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solverObj.options
 options.cfl_2d = 1.0
 # options.nonlin = False

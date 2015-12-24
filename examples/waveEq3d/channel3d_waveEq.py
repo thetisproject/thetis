@@ -46,7 +46,7 @@ TExport = dt
 T = 10*T_cycle + 1e-3
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry_2d, n_layers)
+solverObj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solverObj.options
 options.nonlin = False
 options.solveSalt = False

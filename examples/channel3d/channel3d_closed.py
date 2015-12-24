@@ -43,7 +43,7 @@ bathymetry_2d.interpolate(Expression('ho - (ho-hr)*x[0]/100e3',
 #                                      ho=depth_oce, hr=depth_riv))
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry_2d, n_layers)
+solverObj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solverObj.options
 # options.nonlin = False
 options.solveSalt = True

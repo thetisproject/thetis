@@ -15,10 +15,10 @@ from mpi4py import MPI
 import exporter
 import weakref
 from cofs.fieldDefs import fieldMetadata
-from cofs.options import modelOptions
+from cofs.options import ModelOptions
 
 
-class flowSolver(FrozenClass):
+class FlowSolver(FrozenClass):
     """Creates and solves coupled 2D-3D equations"""
     def __init__(self, mesh2d, bathymetry_2d, n_layers,
                  options={}):
@@ -34,7 +34,7 @@ class flowSolver(FrozenClass):
         self.M_modesplit = None
 
         # override default options
-        self.options = modelOptions()
+        self.options = ModelOptions()
         self.options.update(options)
 
         # simulation time step bookkeeping

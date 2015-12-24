@@ -18,7 +18,7 @@ from cofs.fieldDefs import fieldMetadata
 comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
 
-# NOTE some functions now depend on flowSolver object
+# NOTE some functions now depend on FlowSolver object
 # TODO move those functions in the solver class
 
 

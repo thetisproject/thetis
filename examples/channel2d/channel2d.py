@@ -49,7 +49,7 @@ x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 bathymetry_2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
 # --- create solver ---
-solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d, order=1)
+solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=1)
 options = solverObj.options
 options.cfl_2d = 1.0
 # options.nonlin = False

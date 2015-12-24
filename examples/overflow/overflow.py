@@ -46,7 +46,7 @@ bathymetry_2d.interpolate(Expression('hmin + 0.5*(hmax - hmin)*(1 + tanh((x[0] -
                           hmin=200.0, hmax=4000.0, Ls=10.0e3, x0=40.0e3))
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry_2d, layers)
+solverObj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solverObj.options
 options.cfl_2d = 1.0
 # options.nonlin = False

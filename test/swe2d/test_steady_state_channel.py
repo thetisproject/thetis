@@ -21,7 +21,7 @@ def test_steady_state_channel():
     f = g/Lx  # linear friction coef.
 
     # --- create solver ---
-    solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d, order=1)
+    solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=1)
     solverObj.options.nonlin = False
     solverObj.options.TExport = dt
     solverObj.options.T = N*dt

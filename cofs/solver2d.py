@@ -5,15 +5,15 @@ Tuomas Karna 2015-10-17
 """
 from utility import *
 import shallowWaterEq
-import timeIntegrator as timeIntegrator
+import timeIntegrator
 import time as timeMod
 from mpi4py import MPI
 import exporter
 from cofs.fieldDefs import fieldMetadata
-from cofs.options import modelOptions
+from cofs.options import ModelOptions
 
 
-class flowSolver2d(FrozenClass):
+class FlowSolver2d(FrozenClass):
     """Creates and solves 2D depth averaged equations with RT1-P1DG elements"""
     def __init__(self, mesh2d, bathymetry_2d, order=1, options={}):
         self._initialized = False
@@ -30,7 +30,7 @@ class flowSolver2d(FrozenClass):
         options.setdefault('fields_to_export', ['elev_2d', 'uv_2d'])
 
         # override default options
-        self.options = modelOptions()
+        self.options = ModelOptions()
         self.options.update(options)
 
         # simulation time step bookkeeping

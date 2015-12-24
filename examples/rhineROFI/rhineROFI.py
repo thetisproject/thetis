@@ -58,7 +58,7 @@ bathymetry_2d.interpolate(Expression('(x[0] > 0.0) ? H*(1-x[0]/Lriver) + HInlet*
                                      H=H, HInlet=HInlet, Lriver=Lriver))
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry_2d, layers)
+solverObj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solverObj.options
 options.cfl_2d = 1.0
 # options.nonlin = False

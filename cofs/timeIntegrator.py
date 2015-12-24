@@ -6,7 +6,7 @@ Tuomas Karna 2015-03-27
 from utility import *
 
 
-class timeIntegrator(object):
+class TimeIntegrator(object):
     """Base class for all time integrator objects."""
     def __init__(self, equation, solver_parameters={}):
         """Assigns initial conditions to all required fields."""
@@ -28,7 +28,7 @@ class timeIntegrator(object):
                                    'in the derived class'))
 
 
-class SSPRK33(timeIntegrator):
+class SSPRK33(TimeIntegrator):
     """
     3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).
 
@@ -178,7 +178,7 @@ class SSPRK33(timeIntegrator):
                             (1.0/6.0)*self.K1 + (2.0/3.0)*self.K2)
 
 
-class SSPRK33Stage(timeIntegrator):
+class SSPRK33Stage(TimeIntegrator):
     """
     3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).
     This class only advances one step at a time.
@@ -284,7 +284,7 @@ class SSPRK33Stage(timeIntegrator):
                             update_forcings)
 
 
-class SSPRK33StageSemiImplicit(timeIntegrator):
+class SSPRK33StageSemiImplicit(TimeIntegrator):
     """
     3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).
     This class only advances one step at a time.
@@ -408,7 +408,7 @@ class SSPRK33StageSemiImplicit(timeIntegrator):
                             update_forcings)
 
 
-class ForwardEuler(timeIntegrator):
+class ForwardEuler(TimeIntegrator):
     """Standard forward Euler time integration scheme."""
     def __init__(self, equation, dt, solver_parameters={}):
         """Creates forms for the time integrator"""
@@ -469,7 +469,7 @@ class ForwardEuler(timeIntegrator):
             self.funcs_old[k].assign(self.funcs[k])
 
 
-class CrankNicolson(timeIntegrator):
+class CrankNicolson(TimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
     def __init__(self, equation, dt, solver_parameters={}, gamma=0.5):
         """Creates forms for the time integrator"""
@@ -566,7 +566,7 @@ class CrankNicolson(timeIntegrator):
             self.funcs_old[k].assign(self.funcs[k])
 
 
-class SSPIMEX(timeIntegrator):
+class SSPIMEX(TimeIntegrator):
     """
     SSP-IMEX time integration scheme based on [1], method (17).
 
@@ -583,20 +583,20 @@ class SSPIMEX(timeIntegrator):
         super(SSPIMEX, self).__init__(equation, solver_parameters)
 
         # implicit scheme
-        self.dirk = DIRK_LSPUM2(equation, dt,
-                                solver_parameters=solver_parameters_dirk,
-                                termsToAdd=['implicit'],
-                                solution=solution)
+        self.dirk = DIRKLSPUM2(equation, dt,
+                               solver_parameters=solver_parameters_dirk,
+                               termsToAdd=['implicit'],
+                               solution=solution)
         # explicit scheme
         erk_a = [[0, 0, 0],
                  [5.0/6.0, 0, 0],
                  [11.0/24.0, 11.0/24.0, 0]]
         erk_b = [24.0/55.0, 1.0/5.0, 4.0/11.0]
         erk_c = [0, 5.0/6.0, 11.0/12.0]
-        self.erk = DIRK_generic(equation, dt, erk_a, erk_b, erk_c,
-                                solver_parameters=solver_parameters_dirk,
-                                termsToAdd=['explicit', 'source'],
-                                solution=solution)
+        self.erk = DIRKGeneric(equation, dt, erk_a, erk_b, erk_c,
+                               solver_parameters=solver_parameters_dirk,
+                               termsToAdd=['explicit', 'source'],
+                               solution=solution)
         self.nStages = len(erk_b)
 
     def updateSolver(self):
@@ -623,7 +623,7 @@ class SSPIMEX(timeIntegrator):
         self.dirk.getFinalSolution(solution)
 
 
-class DIRK_generic(timeIntegrator):
+class DIRKGeneric(TimeIntegrator):
     """
     Generic implementation of Diagonally Implicit Runge Kutta schemes.
 
@@ -660,7 +660,7 @@ class DIRK_generic(timeIntegrator):
             Defines which terms of the equation are to be added to this solver.
             Default 'all' implies termsToAdd = ['implicit', 'explicit', 'source']
         """
-        super(DIRK_generic, self).__init__(equation, solver_parameters)
+        super(DIRKGeneric, self).__init__(equation, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
 
@@ -783,7 +783,7 @@ class DIRK_generic(timeIntegrator):
             output.assign(self.solution_old)
 
 
-class BackwardEuler(DIRK_generic):
+class BackwardEuler(DIRKGeneric):
     """
     Backward Euler method
 
@@ -801,7 +801,7 @@ class BackwardEuler(DIRK_generic):
                                             solver_parameters, termsToAdd)
 
 
-class DIRK22(DIRK_generic):
+class DIRK22(DIRKGeneric):
     """
     DIRK22, 2-stage, 2nd order, L-stable
     Diagonally Implicit Runge Kutta method
@@ -830,7 +830,7 @@ class DIRK22(DIRK_generic):
                                      solver_parameters, termsToAdd)
 
 
-class DIRK23(DIRK_generic):
+class DIRK23(DIRKGeneric):
     """
     DIRK23, 2-stage, 3rd order
     Diagonally Implicit Runge Kutta method
@@ -855,7 +855,7 @@ class DIRK23(DIRK_generic):
                                      solver_parameters, termsToAdd)
 
 
-class DIRK33(DIRK_generic):
+class DIRK33(DIRKGeneric):
     """
     DIRK33, 3-stage, 3rd order, L-stable
     Diagonally Implicit Runge Kutta method
@@ -875,7 +875,7 @@ class DIRK33(DIRK_generic):
                                      solver_parameters, termsToAdd)
 
 
-class DIRK43(DIRK_generic):
+class DIRK43(DIRKGeneric):
     """
     DIRK43, 4-stage, 3rd order, L-stable
     Diagonally Implicit Runge Kutta method
@@ -893,9 +893,9 @@ class DIRK43(DIRK_generic):
                                      solver_parameters, termsToAdd)
 
 
-class DIRK_LSPUM2(DIRK_generic):
+class DIRKLSPUM2(DIRKGeneric):
     """
-    DIRK_LSPUM2, 3-stage, 2nd order, L-stable
+    DIRKLSPUM2, 3-stage, 2nd order, L-stable
     Diagonally Implicit Runge Kutta method
 
     From IMEX RK scheme (17) in Higureras et al. (2014).
@@ -911,9 +911,9 @@ class DIRK_LSPUM2(DIRK_generic):
              [2033.0/4620.0, 21.0/110.0, 2.0/11.0]]
         b = [24.0/55.0, 1.0/5.0, 4.0/11.0]
         c = [2.0/11.0, 289.0/462.0, 751.0/924.0]
-        super(DIRK_LSPUM2, self).__init__(equation, dt, a, b, c,
-                                          solver_parameters, termsToAdd,
-                                          solution)
+        super(DIRKLSPUM2, self).__init__(equation, dt, a, b, c,
+                                         solver_parameters, termsToAdd,
+                                         solution)
 
 
 def cosTimeAvFilter(M):
@@ -950,14 +950,14 @@ def cosTimeAvFilter(M):
     return M_star, [float(f) for f in a], [float(f) for f in b]
 
 
-class macroTimeStepIntegrator(timeIntegrator):
+class MacroTimeStepIntegrator(TimeIntegrator):
     """Takes an explicit time integrator and iterates it over M time steps.
     Computes time averages to represent solution at M*dt resolution."""
     # NOTE the time averages can be very diffusive
     # NOTE diffusivity depends on M and the choise of time av filter
     # NOTE boxcar filter is very diffusive!
     def __init__(self, timeStepperCls, M, restartFromAv=False):
-        super(macroTimeStepIntegrator, self).__init__(self.subiterator.equation)
+        super(MacroTimeStepIntegrator, self).__init__(self.subiterator.equation)
         self.subiterator = timeStepperCls
         self.M = M
         self.restartFromAv = restartFromAv

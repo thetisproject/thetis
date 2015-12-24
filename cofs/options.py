@@ -6,7 +6,7 @@ Tuomas Karna 2015-10-17
 from cofs.utility import *
 
 
-class modelOptions(AttrDict):
+class ModelOptions(AttrDict):
     """
     Stores all model options
     """
@@ -14,7 +14,7 @@ class modelOptions(AttrDict):
         """
         Initialize with default options
         """
-        super(modelOptions, self).__init__()
+        super(ModelOptions, self).__init__()
         self.order = 1
         """int: Polynomial degree of elements"""
         self.mimetic = True

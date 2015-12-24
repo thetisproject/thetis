@@ -11,7 +11,7 @@ import timeIntegrator
 # TODO add decorator for accessing s, o, f
 
 
-class CoupledTimeIntegrator(timeIntegrator.timeIntegrator):
+class CoupledTimeIntegrator(timeIntegrator.TimeIntegrator):
     """Base class for coupled time integrators"""
     def __init__(self, solver, options, fields):
         self.solver = solver
@@ -398,12 +398,12 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                     # 'ksp_rtol': 1.0e-22,
                     }
         if self.solver.options.solveVertDiffusion:
-            self.timeStepper_vmom3d = timeIntegrator.DIRK_LSPUM2(
+            self.timeStepper_vmom3d = timeIntegrator.DIRKLSPUM2(
                 solver.eq_vertmomentum, solver.dt, solver_parameters=vdiff_sp)
         if self.solver.options.useTurbulence:
-            self.timeStepper_tke_3d = timeIntegrator.DIRK_LSPUM2(
+            self.timeStepper_tke_3d = timeIntegrator.DIRKLSPUM2(
                 solver.eq_tke_diff, solver.dt, solver_parameters=vdiff_sp)
-            self.timeStepper_psi_3d = timeIntegrator.DIRK_LSPUM2(
+            self.timeStepper_psi_3d = timeIntegrator.DIRKLSPUM2(
                 solver.eq_psi_diff, solver.dt, solver_parameters=vdiff_sp)
 
         # ----- stage 1 -----
@@ -585,7 +585,7 @@ class CoupledSSPRK(CoupledTimeIntegrator):
         subiterator = SSPRK33(
             solver.eq_sw, solver.dt_2d,
             solver.eq_sw.solver_parameters)
-        self.timeStepper2d = timeIntegrator.macroTimeStepIntegrator(
+        self.timeStepper2d = timeIntegrator.MacroTimeStepIntegrator(
             subiterator,
             solver.M_modesplit,
             restartFromAv=True)

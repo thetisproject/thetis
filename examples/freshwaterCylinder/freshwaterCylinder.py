@@ -58,7 +58,7 @@ coriolis_2d.interpolate(
     Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0))
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry_2d, layers)
+solverObj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solverObj.options
 options.cfl_2d = 1.0
 # options.nonlin = False

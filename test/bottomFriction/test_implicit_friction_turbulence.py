@@ -40,7 +40,7 @@ def test_implicit_friction_turbulence(do_assert=True):
     bathymetry2d.assign(depth)
 
     # create solver
-    solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers)
+    solverObj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
     options = solverObj.options
     options.nonlin = False
     options.solveSalt = False
@@ -91,7 +91,7 @@ def test_implicit_friction_turbulence(do_assert=True):
     # sp['snes_rtol'] = 1e-4  # to avoid stagnation
     sp['snes_rtol'] = 1e-18  # to avoid stagnation
     sp['ksp_rtol'] = 1e-22  # to avoid stagnation
-    timeStepper = timeIntegrator.DIRK_LSPUM2(vertMomEq, dt, solver_parameters=sp)
+    timeStepper = timeIntegrator.DIRKLSPUM2(vertMomEq, dt, solver_parameters=sp)
     # timeStepper = timeIntegrator.BackwardEuler(vertMomEq, dt, solver_parameters=sp)
 
     # TODO fix momemtum eq for parabolic visc

@@ -32,8 +32,8 @@ bathymetry_2d.assign(depth)
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 x_min = x_func.dat.data.min()
 x_max = x_func.dat.data.max()
-x_min = comm.allreduce(x_min, x_min, op=MPI.MIN)
-x_max = comm.allreduce(x_max, x_max, op=MPI.MAX)
+x_min = comm.allreduce(x_min, op=MPI.MIN)
+x_max = comm.allreduce(x_max, op=MPI.MAX)
 Lx = x_max - x_min
 
 # set time step, export interval and run duration
@@ -45,7 +45,7 @@ TExport = dt
 T = 10*T_cycle + 1e-3
 
 # --- create solver ---
-solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d)
+solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solverObj.options
 options.cfl_2d = 1.0
 options.nonlin = False  # use linear wave equation

@@ -183,7 +183,7 @@ def run(setup, refinement, order, export=True):
     bathymetry_2d = Function(P1_2d, name='Bathymetry')
     bathymetry_2d.project(SET['bath_expr'])
 
-    solverObj = solver.flowSolver(mesh2d, bathymetry_2d, n_layers)
+    solverObj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     solverObj.options.order = order
     solverObj.options.uAdvection = Constant(1.0)
     solverObj.options.outputdir = outputdir
