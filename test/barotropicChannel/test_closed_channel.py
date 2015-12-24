@@ -48,8 +48,8 @@ def test_closed_channel():
     # options.use_semi_implicit_2d = False
     # options.use_mode_split = False
     # options.baroclinic = True
-    options.TExport = t_export
-    options.T = t_end
+    options.t_export = t_export
+    options.t_end = t_end
     options.outputdir = outputdir
     options.u_advection = u_mag
     options.check_salt_deviation = True

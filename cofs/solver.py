@@ -598,7 +598,7 @@ class FlowSolver(FrozenClass):
         self.simulation_time = 0
         self.iteration = 0
         self.i_export = 1
-        next_export_t = self.simulation_time + self.options.TExport
+        next_export_t = self.simulation_time + self.options.t_export
 
         # initialize conservation checks
         if self.options.check_vol_conservation_2d:
@@ -631,7 +631,7 @@ class FlowSolver(FrozenClass):
             export_func()
         self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
-        while self.simulation_time <= self.options.T + t_epsilon:
+        while self.simulation_time <= self.options.t_end + t_epsilon:
 
             self.timestepper.advance(self.simulation_time, self.dt,
                                      update_forcings, update_forcings3d)
@@ -687,7 +687,7 @@ class FlowSolver(FrozenClass):
                 if export_func is not None:
                     export_func()
 
-                next_export_t += self.options.TExport
+                next_export_t += self.options.t_export
                 self.i_export += 1
 
                 if commrank == 0 and len(self.options.timer_labels) > 0:

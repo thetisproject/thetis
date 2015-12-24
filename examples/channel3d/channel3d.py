@@ -19,9 +19,9 @@ outputdir = create_directory('outputs')
 mesh2d = Mesh('channel_mesh.msh')
 print_info('Loaded mesh '+mesh2d.name)
 print_info('Exporting to '+outputdir)
-T = 48 * 3600
+t_end = 48 * 3600
 u_mag = Constant(2.5)
-TExport = 100.0
+t_export = 100.0
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -46,8 +46,8 @@ options.use_imex = True
 # options.use_semi_implicit_2d = False
 # options.use_mode_split = False
 # options.baroclinic = True
-options.TExport = TExport
-options.T = T
+options.t_export = t_export
+options.t_end = t_end
 options.outputdir = outputdir
 options.u_advection = u_mag
 options.check_salt_deviation = True

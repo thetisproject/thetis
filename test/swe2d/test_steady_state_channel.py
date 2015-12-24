@@ -23,8 +23,8 @@ def test_steady_state_channel():
     # --- create solver ---
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=1)
     solver_obj.options.nonlin = False
-    solver_obj.options.TExport = dt
-    solver_obj.options.T = n*dt
+    solver_obj.options.t_export = dt
+    solver_obj.options.t_end = n*dt
     # NOTE had to set to something else than Cr-Ni, otherwise overriding below has no effect
     solver_obj.options.timestepper_type = 'forwardeuler'
     solver_obj.options.timer_labels = []

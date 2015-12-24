@@ -40,8 +40,8 @@ mesh2d.coordinates.dat.data[:, 1] -= lx/2
 print_info('Exporting to ' + outputdir)
 # NOTE bottom friction (implicit mom eq) will blow up for higher dt
 dt = 25.0
-T = 12 * 3600.0  # 24 * 3600
-TExport = 200.0
+t_end = 12 * 3600.0  # 24 * 3600
+t_export = 200.0
 depth = 15.0
 u_mag = 1.0
 
@@ -66,9 +66,9 @@ options.tracer_lax_friedrichs = Constant(0.0)
 # options.h_viscosity = Constant(1.0)
 # options.use_semi_implicit_2d = False
 # options.use_mode_split = False
-options.TExport = TExport
+options.t_export = t_export
 options.dt = dt
-options.T = T
+options.t_end = t_end
 options.outputdir = outputdir
 options.u_advection = u_mag
 options.check_salt_deviation = True

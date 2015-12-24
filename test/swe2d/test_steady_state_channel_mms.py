@@ -47,8 +47,8 @@ def test_steady_state_channel_mms():
         # --- create solver ---
         solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=order)
         solver_obj.options.nonlin = True
-        solver_obj.options.TExport = dt
-        solver_obj.options.T = n*dt
+        solver_obj.options.t_export = dt
+        solver_obj.options.t_end = n*dt
         solver_obj.options.timestepper_type = 'forwardeuler'
         solver_obj.options.timer_labels = []
         solver_obj.options.dt = dt

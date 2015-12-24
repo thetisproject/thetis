@@ -91,8 +91,8 @@ print_info('Exporting to '+outputdir)
 dt = 75.0/refinement[reso_str]
 if reso_str == 'fine':
     dt /= 2.0
-T = 25 * 3600
-TExport = 15*60.0
+t_end = 25 * 3600
+t_export = 15*60.0
 depth = 20.0
 
 # bathymetry
@@ -103,42 +103,45 @@ bathymetry2d.assign(depth)
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers,
                                order=args.poly_order, mimetic=args.mimetic)
-solver_obj.cfl_2d = 1.0
-# solver_obj.nonlin = False
-solver_obj.solve_salt = True
-solver_obj.solve_vert_diffusion = False
-solver_obj.use_bottom_friction = False
-solver_obj.use_ale_moving_mesh = False
-# solver_obj.use_semi_implicit_2d = False
-# solver_obj.use_mode_split = False
-solver_obj.baroclinic = True
-solver_obj.uv_lax_friedrichs = Constant(1.0)
-solver_obj.tracer_lax_friedrichs = Constant(1.0)
-solver_obj.smagorinsky_factor = Constant(1.0/np.sqrt(args.reynolds_number))
-solver_obj.salt_jump_diff_factor = args.jump_diff_factor
-solver_obj.salt_range = Constant(5.0)
-solver_obj.use_limiter_for_tracers = args.use_limiter
+options = solver_obj.options
+options.cfl_2d = 1.0
+# options.nonlin = False
+# options.mimetic = False
+options.solve_salt = True
+options.solve_vert_diffusion = False
+options.use_bottom_friction = False
+options.use_ale_moving_mesh = False
+# options.use_imex = True
+# options.use_semi_implicit_2d = False
+# options.use_mode_split = False
+options.baroclinic = True
+options.uv_lax_friedrichs = Constant(1.0)
+options.tracer_lax_friedrichs = Constant(1.0)
+options.smagorinsky_factor = Constant(1.0/np.sqrt(args.reynolds_number))
+options.salt_jump_diff_factor = args.jump_diff_factor
+options.salt_range = Constant(5.0)
+options.use_limiter_for_tracers = args.use_limiter
 # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
-# solver_obj.h_viscosity = Constant(100.0/refinement[reso_str])
-solver_obj.h_viscosity = Constant(1.0)
-solver_obj.h_diffusivity = Constant(1.0)
-if solver_obj.use_mode_split:
-    solver_obj.dt = dt
-solver_obj.TExport = TExport
-solver_obj.T = T
-solver_obj.outputdir = outputdir
-solver_obj.u_advection = Constant(1.0)
-solver_obj.check_vol_conservation_2d = True
-solver_obj.check_vol_conservation_3d = True
-solver_obj.check_salt_conservation = True
-solver_obj.check_salt_overshoot = True
-solver_obj.fields_to_export = ['uv2d', 'elev2d', 'uv3d',
-                               'w3d', 'w_mesh_3d', 'salt3d',
-                               'uv_dav_2d', 'uv_dav_3d', 'baro_head_3d',
-                               'baro_head_2d',
-                               'smag_viscosity', 'salt_jump_diff']
-solver_obj.fields_to_export_numpy = ['salt3d']
-solver_obj.timer_labels = []
+# options.h_viscosity = Constant(100.0/refinement[reso_str])
+options.h_viscosity = Constant(1.0)
+options.h_diffusivity = Constant(1.0)
+if options.use_mode_split:
+    options.dt = dt
+options.t_export = t_export
+options.t_end = t_end
+options.outputdir = outputdir
+options.u_advection = Constant(1.0)
+options.check_vol_conservation_2d = True
+options.check_vol_conservation_3d = True
+options.check_salt_conservation = True
+options.check_salt_overshoot = True
+options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
+                            'w_3d', 'w_mesh_3d', 'salt_3d',
+                            'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
+                            'baroc_head_2d',
+                            'smag_visc_3d', 'salt_jump_diff']
+options.fields_to_export_numpy = ['salt_3d']
+options.timer_labels = []
 
 solver_obj.create_equations()
 salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')

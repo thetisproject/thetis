@@ -21,8 +21,8 @@ nonlin = False
 depth = 1000.0
 elev_amp = 3.0
 outputdir = create_directory('outputs')
-T = 75*12*2*3600
-TExport = 3600*2
+t_end = 75*12*2*3600
+t_export = 3600*2
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -42,8 +42,8 @@ options = solver_obj.options
 options.cfl_2d = 1.0
 options.nonlin = False
 options.coriolis = coriolis_2d
-options.TExport = TExport
-options.T = T
+options.t_export = t_export
+options.t_end = t_end
 options.dt = 20.0
 options.outputdir = outputdir
 options.u_advection = Constant(0.01)

@@ -73,9 +73,9 @@ class ModelOptions(AttrDict):
         """float: Factor to scale the 2d time step"""
         self.cfl_3d = 1.0
         """float: Factor to scale the 2d time step"""
-        self.TExport = 100.0
+        self.t_export = 100.0
         """float: Export interval in seconds. All fields in fields_to_export list will be stored to disk and diagnostics will be computed."""
-        self.T = 1000.0
+        self.t_end = 1000.0
         """float: Simulation duration in seconds"""
         self.u_advection = Constant(0.0)
         """Constant: Max. horizontal velocity magnitude for computing max stable advection time step."""

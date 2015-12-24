@@ -41,16 +41,16 @@ c_wave = float(np.sqrt(9.81*depth))
 T_cycle = lx/c_wave
 n_steps = 20
 dt = round(float(T_cycle/n_steps))
-TExport = dt
-T = 10*T_cycle + 1e-3
+t_export = dt
+t_end = 10*T_cycle + 1e-3
 
 # --- create solver ---
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
 options.cfl_2d = 1.0
 options.nonlin = False  # use linear wave equation
-options.TExport = TExport
-options.T = T
+options.t_export = t_export
+options.t_end = t_end
 options.outputdir = outputdir
 options.u_advection = u_mag
 options.check_vol_conservation_2d = True
@@ -75,7 +75,7 @@ solver_obj.assign_initial_conditions(elev=elev_init)
 
 # # start from previous time step
 # i_exp = 5
-# iteration = int(i_exp*TExport/solver_obj.dt)
+# iteration = int(i_exp*t_export/solver_obj.dt)
 # time = iteration*solver_obj.dt
 # solver_obj.load_state(i_exp, time, iteration)
 

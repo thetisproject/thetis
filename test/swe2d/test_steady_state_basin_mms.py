@@ -379,9 +379,9 @@ def run(setup, refinement, order, export=True):
     solver_obj.options.mimetic = True
     solver_obj.options.u_advection = Constant(1.0)
     solver_obj.options.outputdir = outputdir
-    solver_obj.options.T = t_end
+    solver_obj.options.t_end = t_end
     solver_obj.options.dt = dt
-    solver_obj.options.TExport = t_export
+    solver_obj.options.t_export = t_export
     solver_obj.options.timer_labels = []
     # solver_obj.options.timestepper_type = 'cranknicolson'
     solver_obj.options.update(sdict['options'])

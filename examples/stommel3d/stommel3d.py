@@ -20,8 +20,8 @@ print_info('Loaded mesh '+mesh2d.name)
 print_info('Exporting to '+outputdir)
 depth = 1000.0
 layers = 6
-T = 75*12*2*3600.
-TExport = 3600.*2
+t_end = 75*12*2*3600.
+t_export = 3600.*2
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -58,8 +58,8 @@ options.baroclinic = False
 options.coriolis = coriolis_2d
 options.wind_stress = wind_stress_2d
 options.lin_drag = lin_drag
-options.TExport = TExport
-options.T = T
+options.t_export = t_export
+options.t_end = t_end
 options.dt_2d = 20.0
 options.dt = 450.0
 options.outputdir = outputdir

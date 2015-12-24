@@ -35,8 +35,8 @@ layers = int(round(16*refinement[reso_str]))
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
 print_info('Loaded mesh '+mesh2d.name)
 dt = 5.0/refinement[reso_str]
-T = 25 * 3600
-TExport = 15*60.0
+t_end = 25 * 3600
+t_export = 15*60.0
 depth = 20.0
 
 # bathymetry
@@ -70,8 +70,8 @@ options.h_viscosity = None
 options.h_diffusivity = None
 if options.use_mode_split:
     options.dt = dt
-options.TExport = TExport
-options.T = T
+options.t_export = t_export
+options.t_end = t_end
 options.outputdir = outputdir
 options.u_advection = Constant(5.0)
 options.check_vol_conservation_2d = True

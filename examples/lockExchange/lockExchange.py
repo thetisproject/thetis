@@ -58,8 +58,8 @@ print_info('Exporting to '+outputdir)
 dt = 75.0/refinement[reso_str]
 if reso_str == 'fine':
     dt /= 2.0
-T = 25 * 3600
-TExport = 15*60.0
+t_end = 25 * 3600
+t_export = 15*60.0
 depth = 20.0
 
 # bathymetry
@@ -94,8 +94,8 @@ options.h_viscosity = Constant(1.0)
 options.h_diffusivity = Constant(1.0)
 if options.use_mode_split:
     options.dt = dt
-options.TExport = TExport
-options.T = T
+options.t_export = t_export
+options.t_end = t_end
 options.outputdir = outputdir
 options.u_advection = Constant(1.0)
 options.check_vol_conservation_2d = True

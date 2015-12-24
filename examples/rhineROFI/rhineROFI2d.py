@@ -48,8 +48,8 @@ kelvin_k = OmegaTide/c  # [1/m] initial wave number of tidal wave, no friction
 kelvin_m = (coriolis_f/c)  # [-] Cross-shore variation
 
 dt = 8.0
-T = 32*44714
-TExport = 900.0  # 44714/12
+t_end = 32*44714
+t_export = 900.0  # 44714/12
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -65,8 +65,8 @@ options.cfl_2d = 1.0
 # options.nonlin = False
 options.coriolis = Constant(coriolis_f)
 options.h_viscosity = Constant(10.0)
-options.TExport = TExport
-options.T = T
+options.t_export = t_export
+options.t_end = t_end
 options.dt = dt
 options.outputdir = outputdir
 options.u_advection = Constant(1.5)

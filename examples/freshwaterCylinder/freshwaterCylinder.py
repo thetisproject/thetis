@@ -43,8 +43,8 @@ layers = 20
 mesh2d = Mesh('tartinville_physical.msh')
 print_info('Loaded mesh ' + mesh2d.name)
 dt = 25.0
-T = 288 * 3600
-TExport = 900.0
+t_end = 288 * 3600
+t_export = 900.0
 depth = 20.0
 
 # bathymetry
@@ -81,8 +81,8 @@ options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
 # options.v_viscosity = Constant(1e-5)
 if options.use_mode_split:
     options.dt = dt
-options.TExport = TExport
-options.T = T
+options.t_export = t_export
+options.t_end = t_end
 options.outputdir = outputdir
 options.u_advection = Constant(1.5)
 options.check_vol_conservation_2d = True

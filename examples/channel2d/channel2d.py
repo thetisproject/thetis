@@ -23,11 +23,11 @@ mesh2d = Mesh('channel_mesh.msh')
 print_info('Loaded mesh '+mesh2d.name)
 print_info('Exporting to '+outputdir)
 # total duration in seconds
-T = 6 * 3600
+t_end = 6 * 3600
 # estimate of max advective velocity used to estimate time step
 u_mag = Constant(6.0)
 # export interval in seconds
-TExport = 100.0
+t_export = 100.0
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -53,8 +53,8 @@ solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=1)
 options = solver_obj.options
 options.cfl_2d = 1.0
 # options.nonlin = False
-options.TExport = TExport
-options.T = T
+options.t_export = t_export
+options.t_end = t_end
 options.outputdir = outputdir
 options.u_advection = u_mag
 options.check_vol_conservation_2d = True

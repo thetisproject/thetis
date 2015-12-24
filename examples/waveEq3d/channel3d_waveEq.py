@@ -42,8 +42,8 @@ c_wave = float(np.sqrt(9.81*depth))
 T_cycle = lx/c_wave
 n_steps = 20
 dt = round(float(T_cycle/n_steps))
-TExport = dt
-T = 10*T_cycle + 1e-3
+t_export = dt
+t_end = 10*T_cycle + 1e-3
 
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
@@ -60,8 +60,8 @@ if options.use_mode_split:
     options.dt = dt/5.0
 else:
     options.dt = dt/40.0
-options.TExport = TExport
-options.T = T
+options.t_export = t_export
+options.t_end = t_end
 options.u_advection = u_mag
 options.check_vol_conservation_2d = True
 options.check_vol_conservation_3d = True
