@@ -43,7 +43,7 @@ class VTKExporter(ExporterBase):
         # append suffix if missing
         if (len(filename) < len(suffix)+1 or filename[:len(suffix)] != suffix):
             self.filename += suffix
-        self.proj_func = tmpFunctionCache.get(self.fs_visu)
+        self.proj_func = tmp_function_cache.get(self.fs_visu)
         self.outfile = File(os.path.join(outputdir, self.filename))
         self.P = {}
 
@@ -109,8 +109,8 @@ class NaiveFieldExporter(ExporterBase):
             rank_node_z = comm.gather(z_func.dat.data, root=0)
 
         # mapping of local dof to global array
-        self.localToGlobal = []
-        self.globalToLocal = []
+        self.local_to_global = []
+        self.global_to_local = []
         if commrank == 0:
             # construct a single array for all the nodes
             x = np.concatenate(tuple(rank_node_x), axis=0)
@@ -120,7 +120,7 @@ class NaiveFieldExporter(ExporterBase):
             x = np.round(x, decimals=1)
             y = np.round(y, decimals=1)
             z = np.round(z, decimals=5)
-            self.nGlobalNodes = len(x)
+            self.n_global_nodes = len(x)
             # construct global invariant node ordering
             # nodes are sorted first by z then y then x
             sorted_ix = np.lexsort((x, y, z))
@@ -131,17 +131,17 @@ class NaiveFieldExporter(ExporterBase):
             self.xyz = np.vstack((x, y, z))[:, sorted_ix].T
             # construct maps between local node numbering and global
             # invariant numbering
-            # globalToLocal[iRank][globalIx] - returns local node index
-            #                                  for process iRank
-            # localToGlobal[iRank[localIx]   - returns global node index
-            #                                  for process iRank
+            # global_to_local[i_rank][global_ix] - returns local node index
+            #                                  for process i_rank
+            # local_to_global[i_rank[local_ix]   - returns global node index
+            #                                  for process i_rank
             offset = 0
             for i in xrange(comm.size):
                 n_nodes = len(rank_node_x[i])
                 ix = sorted_ix[offset:offset+n_nodes]
-                self.globalToLocal.append(ix)
+                self.global_to_local.append(ix)
                 ix_inv = sorted_ix_inv[offset:offset+n_nodes]
-                self.localToGlobal.append(ix_inv)
+                self.local_to_global.append(ix_inv)
                 offset += n_nodes
 
         # construct local element connectivity array
@@ -175,7 +175,7 @@ class NaiveFieldExporter(ExporterBase):
         if commrank == 0:
             for i in xrange(comm.size):
                 # convert each connectivity array to global index
-                rank_conn[i] = self.localToGlobal[i][rank_conn[i]]
+                rank_conn[i] = self.local_to_global[i][rank_conn[i]]
             # concatenate to single array
             self.connectivity = np.concatenate(tuple(rank_conn), axis=0)
 
@@ -193,12 +193,12 @@ class NaiveFieldExporter(ExporterBase):
         dim = self.function_space.dim
         local_data = comm.gather(function.dat.data, root=0)
         if commrank == 0:
-            global_data = np.zeros((self.nGlobalNodes, dim))
+            global_data = np.zeros((self.n_global_nodes, dim))
             for i in xrange(comm.size):
                 if dim > 1:
-                    global_data[self.localToGlobal[i], :] = local_data[i]
+                    global_data[self.local_to_global[i], :] = local_data[i]
                 else:
-                    global_data[self.localToGlobal[i], 0] = local_data[i]
+                    global_data[self.local_to_global[i], 0] = local_data[i]
 
             filename = self.gen_filename(iexport)
             if self.verbose:
@@ -227,12 +227,12 @@ class NaiveFieldExporter(ExporterBase):
                 print 'loading state from', filename
             npzfile = np.load(filename)
             global_data = npzfile['data']
-            assert global_data.shape[0] == self.nGlobalNodes,\
+            assert global_data.shape[0] == self.n_global_nodes,\
                 'Number of nodes does not match: {0:d} != {1:d}'.format(
-                    self.nGlobalNodes, global_data.shape[0])
+                    self.n_global_nodes, global_data.shape[0])
             local_data = []
             for i in xrange(comm.size):
-                local_data.append(global_data[self.localToGlobal[i], :])
+                local_data.append(global_data[self.local_to_global[i], :])
         else:
             local_data = None
         data = comm.scatter(local_data, root=0)

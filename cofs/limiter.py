@@ -69,10 +69,10 @@ class VertexBasedP1DGLimiter(object):
         self.dx = self.P1CG.mesh()._dx
         # create auxiliary functions
         # P0 field containing the center (mean) values of elements
-        self.centroids = Function(self.P0, name='limiterP1DG-centroid')
+        self.centroids = Function(self.P0, name='limiter_p1_dg-centroid')
         # Allowed min/max values for each P1 node in the mesh
-        self.max_field = Function(self.P1CG, name='limiterP1DG-maxvalue')
-        self.min_field = Function(self.P1CG, name='limiterP1DG-minvalue')
+        self.max_field = Function(self.P1CG, name='limiter_p1_dg-maxvalue')
+        self.min_field = Function(self.P1CG, name='limiter_p1_dg-minvalue')
         # store solvers for computing centroids
         self.centroid_solvers = {}
 

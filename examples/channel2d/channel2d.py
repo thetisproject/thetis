@@ -11,7 +11,7 @@
 # advection.
 #
 # Setting
-# solverObj.nonlin = False
+# solver_obj.nonlin = False
 # uses linear wave equation instead, and no shock develops.
 #
 # Tuomas Karna 2015-03-03
@@ -49,20 +49,20 @@ x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 bathymetry_2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
 # --- create solver ---
-solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=1)
-options = solverObj.options
+solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=1)
+options = solver_obj.options
 options.cfl_2d = 1.0
 # options.nonlin = False
 options.TExport = TExport
 options.T = T
 options.outputdir = outputdir
-options.uAdvection = Umag
-options.checkVolConservation2d = True
+options.u_advection = Umag
+options.check_vol_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
-options.timerLabels = []
-# options.timestepperType = 'SSPRK33'
-# options.timestepperType = 'CrankNicolson'
-options.timestepperType = 'SSPIMEX'
+options.timer_labels = []
+# options.timestepper_type = 'SSPRK33'
+# options.timestepper_type = 'CrankNicolson'
+options.timestepper_type = 'SSPIMEX'
 options.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
 
 # initial conditions, piecewise linear function
@@ -80,6 +80,6 @@ x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 elev_init = Function(P1_2d)
 elev_init.dat.data[:] = elevation(x_func.dat.data, 0, 0,
                                   elev_x, elev_v)
-solverObj.assignInitialConditions(elev=elev_init)
+solver_obj.assign_initial_conditions(elev=elev_init)
 
-solverObj.iterate()
+solver_obj.iterate()

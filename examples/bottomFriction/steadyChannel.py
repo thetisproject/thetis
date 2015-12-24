@@ -51,28 +51,28 @@ bathymetry2d = Function(P1_2d, name='Bathymetry')
 bathymetry2d.assign(depth)
 
 # create solver
-solverObj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
-options = solverObj.options
+solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
+options = solver_obj.options
 options.nonlin = False
-options.solveSalt = False
-options.solveVertDiffusion = True
-options.useBottomFriction = True
-options.useTurbulence = True
-options.useALEMovingMesh = False
-options.useLimiterForTracers = False
-options.uvLaxFriedrichs = Constant(1.0)
-options.tracerLaxFriedrichs = Constant(0.0)
-# options.vViscosity = Constant(0.001)
-# options.hViscosity = Constant(1.0)
-# options.useSemiImplicit2D = False
-# options.useModeSplit = False
+options.solve_salt = False
+options.solve_vert_diffusion = True
+options.use_bottom_friction = True
+options.use_turbulence = True
+options.use_ale_moving_mesh = False
+options.use_limiter_for_tracers = False
+options.uv_lax_friedrichs = Constant(1.0)
+options.tracer_lax_friedrichs = Constant(0.0)
+# options.v_viscosity = Constant(0.001)
+# options.h_viscosity = Constant(1.0)
+# options.use_semi_implicit_2d = False
+# options.use_mode_split = False
 options.TExport = TExport
 options.dt = dt
 options.T = T
 options.outputdir = outputdir
-options.uAdvection = Umag
-options.checkSaltDeviation = True
-options.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion', 'turbulence']
+options.u_advection = Umag
+options.check_salt_deviation = True
+options.timer_labels = ['mode2d', 'momentum_eq', 'vert_diffusion', 'turbulence']
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
                             'baroc_head_3d', 'baroc_head_2d',
@@ -88,17 +88,17 @@ left_elev = Constant(+0.5*Lx*surf_slope)
 right_elev = Constant(-0.5*Lx*surf_slope)
 right_funcs = {'elev': right_elev}
 left_funcs = {'elev': left_elev}
-solverObj.bnd_functions['shallow_water'] = {right_tag: right_funcs,
-                                            left_tag: left_funcs}
-solverObj.bnd_functions['momentum'] = {right_tag: right_funcs,
-                                       left_tag: left_funcs}
+solver_obj.bnd_functions['shallow_water'] = {right_tag: right_funcs,
+                                             left_tag: left_funcs}
+solver_obj.bnd_functions['momentum'] = {right_tag: right_funcs,
+                                        left_tag: left_funcs}
 
-solverObj.createEquations()
-elev_init = Function(solverObj.function_spaces.H_2d, name='initial elev')
+solver_obj.create_equations()
+elev_init = Function(solver_obj.function_spaces.H_2d, name='initial elev')
 elev_init.interpolate(Expression('x[0]*slope', slope=-surf_slope))
 
-solverObj.assignInitialConditions(elev=elev_init)
-# sp = solverObj.timestepper.timestepper_vmom3d.solver_parameters
+solver_obj.assign_initial_conditions(elev=elev_init)
+# sp = solver_obj.timestepper.timestepper_vmom3d.solver_parameters
 # sp['snes_monitor'] = True
 # sp['ksp_monitor'] = True
 # sp['ksp_monitor_true_residual'] = True
@@ -106,5 +106,5 @@ solverObj.assignInitialConditions(elev=elev_init)
 # sp['pc_type'] = 'ilu'
 # sp['snes_converged_reason'] = True
 # sp['ksp_converged_reason'] = True
-# solverObj.timestepper.timestepper_vmom3d.updateSolver()
-solverObj.iterate()
+# solver_obj.timestepper.timestepper_vmom3d.update_solver()
+solver_obj.iterate()

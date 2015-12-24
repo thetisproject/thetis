@@ -13,13 +13,13 @@
 # Tuomas Karna 2015-03-11
 from cofs import *
 
-mesh2d = Mesh('channel_waveEq.msh')
+mesh2d = Mesh('channel_wave_eq.msh')
 depth = 50.0
 elev_amp = 1.0
 # estimate of max advective velocity used to estimate time step
 Umag = Constant(0.5)
 
-outputdir = create_directory('outputs_waveEq2d')
+outputdir = create_directory('outputs_wave_eq_2d')
 print_info('Loaded mesh '+mesh2d.name)
 print_info('Exporting to '+outputdir)
 
@@ -45,38 +45,38 @@ TExport = dt
 T = 10*T_cycle + 1e-3
 
 # --- create solver ---
-solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
-options = solverObj.options
+solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
+options = solver_obj.options
 options.cfl_2d = 1.0
 options.nonlin = False  # use linear wave equation
 options.TExport = TExport
 options.T = T
 options.outputdir = outputdir
-options.uAdvection = Umag
-options.checkVolConservation2d = True
+options.u_advection = Umag
+options.check_vol_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
-options.fields_to_exportHDF5 = ['uv_2d', 'elev_2d']
-options.timerLabels = []
-# options.timestepperType = 'SSPRK33'
+options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
+options.timer_labels = []
+# options.timestepper_type = 'SSPRK33'
 # options.dt = dt/40.0  # for explicit schemes
-options.timestepperType = 'CrankNicolson'
+options.timestepper_type = 'CrankNicolson'
 # options.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
-# options.timestepperType = 'SSPIMEX'
+# options.timestepper_type = 'SSPIMEX'
 options.dt = 10.0  # override dt for IMEX (semi-implicit)
 
 # need to call creator to create the function spaces
-solverObj.createEquations()
+solver_obj.create_equations()
 
 # set initial elevation to first standing wave mode
-elev_init = Function(solverObj.function_spaces.H_2d)
+elev_init = Function(solver_obj.function_spaces.H_2d)
 elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/Lx)', eta_amp=elev_amp,
                              Lx=Lx))
-solverObj.assignInitialConditions(elev=elev_init)
+solver_obj.assign_initial_conditions(elev=elev_init)
 
 # # start from previous time step
-# iExp = 5
-# iteration = int(iExp*TExport/solverObj.dt)
-# time = iteration*solverObj.dt
-# solverObj.loadState(iExp, time, iteration)
+# i_exp = 5
+# iteration = int(i_exp*TExport/solver_obj.dt)
+# time = iteration*solver_obj.dt
+# solver_obj.load_state(i_exp, time, iteration)
 
-solverObj.iterate()
+solver_obj.iterate()

@@ -33,25 +33,25 @@ bathymetry_2d.interpolate(Expression('ho - (ho-hr)*x[0]/100e3',
                                      ho=depth_oce, hr=depth_riv))
 
 # create solver
-solverObj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
-options = solverObj.options
+solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
+options = solver_obj.options
 # options.nonlin = False
-options.solveSalt = True
-options.solveVertDiffusion = False
-options.useBottomFriction = False
-options.useALEMovingMesh = False
-options.uvLaxFriedrichs = Constant(1.0)
-options.tracerLaxFriedrichs = Constant(1.0)
-options.useIMEX = True
-# options.useSemiImplicit2D = False
-# options.useModeSplit = False
+options.solve_salt = True
+options.solve_vert_diffusion = False
+options.use_bottom_friction = False
+options.use_ale_moving_mesh = False
+options.uv_lax_friedrichs = Constant(1.0)
+options.tracer_lax_friedrichs = Constant(1.0)
+options.use_imex = True
+# options.use_semi_implicit_2d = False
+# options.use_mode_split = False
 # options.baroclinic = True
 options.TExport = TExport
 options.T = T
 options.outputdir = outputdir
-options.uAdvection = Umag
-options.checkSaltDeviation = True
-options.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion']
+options.u_advection = Umag
+options.check_salt_deviation = True
+options.timer_labels = ['mode2d', 'momentum_eq', 'vert_diffusion']
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
                             'baroc_head_3d', 'baroc_head_2d',
@@ -66,13 +66,13 @@ L_y = 1900
 h_amp = 2.0
 un_amp = -2.0
 flux_amp = L_y*depth_oce*un_amp
-h_T = 12 * 3600  # 44714.0
+h_t = 12 * 3600  # 44714.0
 un_river = -0.3
 flux_river = L_y*depth_riv*un_river
 t = 0.0
 T_ramp = 1000.0
 # python function that returns time dependent boundary values
-ocean_flux_func = lambda t: (flux_amp*sin(2 * pi * t / h_T) -
+ocean_flux_func = lambda t: (flux_amp*sin(2 * pi * t / h_t) -
                              flux_river)*min(t/T_ramp, 1.0)
 river_flux_func = lambda t: flux_river*min(t/T_ramp, 1.0)
 # Constants that will be fed to the model
@@ -94,11 +94,11 @@ ocean_tag = 2
 river_tag = 1
 # assigning conditions for each equation
 # these must be assigned before equations are created
-solverObj.bnd_functions['shallow_water'] = {ocean_tag: ocean_funcs,
-                                            river_tag: river_funcs}
-# solverObj.bnd_functions['momentum'] = {2: ocean_funcs_3d, 1: river_funcs_3d}
-solverObj.bnd_functions['momentum'] = {}
-solverObj.bnd_functions['salt'] = {2: ocean_salt_3d, 1: river_salt_3d}
+solver_obj.bnd_functions['shallow_water'] = {ocean_tag: ocean_funcs,
+                                             river_tag: river_funcs}
+# solver_obj.bnd_functions['momentum'] = {2: ocean_funcs_3d, 1: river_funcs_3d}
+solver_obj.bnd_functions['momentum'] = {}
+solver_obj.bnd_functions['salt'] = {2: ocean_salt_3d, 1: river_salt_3d}
 
 
 def update_forcings(t_new):
@@ -115,6 +115,6 @@ def update_forcings3d(t_new):
     river_flux.assign(river_flux_func(t_new))
 
 # set init conditions, this will create all function spaces, equations etc
-solverObj.assignInitialConditions(salt=salt_init3d)
-solverObj.iterate(update_forcings=update_forcings,
-                  update_forcings3d=update_forcings3d)
+solver_obj.assign_initial_conditions(salt=salt_init3d)
+solver_obj.iterate(update_forcings=update_forcings,
+                   update_forcings3d=update_forcings3d)

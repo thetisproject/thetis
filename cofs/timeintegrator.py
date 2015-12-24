@@ -77,31 +77,31 @@ class SSPRK33(TimeIntegrator):
 
         self.dt_const = Constant(dt)
 
-        massTerm = self.equation.massTerm
+        mass_term = self.equation.mass_term
         rhs = self.equation.rhs
         rhsi = self.equation.rhs_implicit
         source = self.equation.source
 
         u_old = self.solution_old
         u_tri = self.equation.tri
-        self.a_RK = massTerm(u_tri)
+        self.a_rk = mass_term(u_tri)
         self.L_RK = self.dt_const*(rhs(u_old, **self.args) +
                                    rhsi(u_old, **self.args) +
                                    source(**self.args))
-        self.updateSolver()
+        self.update_solver()
 
-    def updateSolver(self):
+    def update_solver(self):
         """Builds linear problems for each stage. These problems need to be
         re-created after each mesh update."""
-        probK0 = LinearVariationalProblem(self.a_RK, self.L_RK, self.K0)
-        self.solverK0 = LinearVariationalSolver(probK0,
-                                                solver_parameters=self.solver_parameters)
-        probK1 = LinearVariationalProblem(self.a_RK, self.L_RK, self.K1)
-        self.solverK1 = LinearVariationalSolver(probK1,
-                                                solver_parameters=self.solver_parameters)
-        probK2 = LinearVariationalProblem(self.a_RK, self.L_RK, self.K2)
-        self.solverK2 = LinearVariationalSolver(probK2,
-                                                solver_parameters=self.solver_parameters)
+        prob_k0 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K0)
+        self.solver_k0 = LinearVariationalSolver(prob_k0,
+                                                 solver_parameters=self.solver_parameters)
+        prob_k1 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K1)
+        self.solver_k1 = LinearVariationalSolver(prob_k1,
+                                                 solver_parameters=self.solver_parameters)
+        prob_k2 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K2)
+        self.solver_k2 = LinearVariationalSolver(prob_k2,
+                                                 solver_parameters=self.solver_parameters)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -118,14 +118,14 @@ class SSPRK33(TimeIntegrator):
             self.args[k].assign(self.funcs_old[k])
         if update_forcings is not None:
             update_forcings(t)
-        self.solverK0.solve()
+        self.solver_k0.solve()
         # stage 1
         self.solution_old.assign(solution + self.K0)
         for k in self.args:  # set args to t+dt
             self.args[k].assign(self.funcs[k])
         if update_forcings is not None:
             update_forcings(t+dt)
-        self.solverK1.solve()
+        self.solver_k1.solve()
         # stage 2
         self.solution_old.assign(solution + 0.25*self.K0 + 0.25*self.K1)
         for k in self.args:  # set args to t+dt/2
@@ -135,7 +135,7 @@ class SSPRK33(TimeIntegrator):
                 self.args[k].assign(0.5*self.funcs[k] + 0.5*self.funcs_old[k])
         if update_forcings is not None:
             update_forcings(t+dt/2)
-        self.solverK2.solve()
+        self.solver_k2.solve()
         # final solution
         solution.assign(solution + (1.0/6.0)*self.K0 + (1.0/6.0)*self.K1 +
                         (2.0/3.0)*self.K2)
@@ -145,8 +145,8 @@ class SSPRK33(TimeIntegrator):
             self.funcs_old[k].assign(self.funcs[k])
         self.solution_old.assign(solution)
 
-    def solveStage(self, iStage, t, dt, solution, update_forcings=None):
-        if iStage == 0:
+    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
+        if i_stage == 0:
             # stage 0
             self.solution_n.assign(solution)
             self.solution_old.assign(solution)
@@ -154,25 +154,25 @@ class SSPRK33(TimeIntegrator):
                 self.args[k].assign(self.funcs[k])
             if update_forcings is not None:
                 update_forcings(t)
-            self.solverK0.solve()
+            self.solver_k0.solve()
             solution.assign(self.solution_n + self.K0)
-        elif iStage == 1:
+        elif i_stage == 1:
             # stage 1
             self.solution_old.assign(solution)
             for k in self.args:  # set args to t+dt
                 self.args[k].assign(self.funcs[k])
             if update_forcings is not None:
                 update_forcings(t+dt)
-            self.solverK1.solve()
+            self.solver_k1.solve()
             solution.assign(self.solution_n + 0.25*self.K0 + 0.25*self.K1)
-        elif iStage == 2:
+        elif i_stage == 2:
             # stage 2
             self.solution_old.assign(solution)
             for k in self.args:  # set args to t+dt/2
                 self.args[k].assign(self.funcs[k])
             if update_forcings is not None:
                 update_forcings(t+dt/2)
-            self.solverK2.solve()
+            self.solver_k2.solve()
             # final solution
             solution.assign(self.solution_n + (1.0/6.0)*self.K0 +
                             (1.0/6.0)*self.K1 + (2.0/3.0)*self.K2)
@@ -197,7 +197,7 @@ class SSPRK33Stage(TimeIntegrator):
         super(SSPRK33Stage, self).__init__(equation, solver_parameters)
         self.explicit = True
         self.CFL_coeff = 1.0
-        self.nStages = 3
+        self.n_stages = 3
 
         self.solution_old = Function(self.equation.space)
         self.solution_n = Function(self.equation.space)  # for single stages
@@ -211,64 +211,64 @@ class SSPRK33Stage(TimeIntegrator):
 
         self.dt_const = Constant(dt)
 
-        massTerm = self.equation.massTerm
+        mass_term = self.equation.mass_term
         rhs = self.equation.rhs
         rhsi = self.equation.rhs_implicit
         source = self.equation.source
 
         u_old = self.solution_old
         u_tri = self.equation.tri
-        self.a_RK = massTerm(u_tri)
+        self.a_rk = mass_term(u_tri)
         self.L_RK = self.dt_const*(rhs(u_old, **self.args) +
                                    rhsi(u_old, **self.args) +
                                    source(**self.args))
-        self.updateSolver()
+        self.update_solver()
 
-    def updateSolver(self):
+    def update_solver(self):
         """Builds linear problems for each stage. These problems need to be
         re-created after each mesh update."""
-        probK0 = LinearVariationalProblem(self.a_RK, self.L_RK, self.K0)
-        self.solverK0 = LinearVariationalSolver(probK0,
-                                                solver_parameters=self.solver_parameters)
-        probK1 = LinearVariationalProblem(self.a_RK, self.L_RK, self.K1)
-        self.solverK1 = LinearVariationalSolver(probK1,
-                                                solver_parameters=self.solver_parameters)
-        probK2 = LinearVariationalProblem(self.a_RK, self.L_RK, self.K2)
-        self.solverK2 = LinearVariationalSolver(probK2,
-                                                solver_parameters=self.solver_parameters)
+        prob_k0 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K0)
+        self.solver_k0 = LinearVariationalSolver(prob_k0,
+                                                 solver_parameters=self.solver_parameters)
+        prob_k1 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K1)
+        self.solver_k1 = LinearVariationalSolver(prob_k1,
+                                                 solver_parameters=self.solver_parameters)
+        prob_k2 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K2)
+        self.solver_k2 = LinearVariationalSolver(prob_k2,
+                                                 solver_parameters=self.solver_parameters)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
 
-    def solveStage(self, iStage, t, dt, solution, update_forcings=None):
+    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
         """
         Solves a single stage of step from t to t+dt.
         All functions that the equation depends on must be at rigth state
         corresponding to each sub-step.
         """
         self.dt_const.assign(dt)
-        if iStage == 0:
+        if i_stage == 0:
             # stage 0
             self.solution_n.assign(solution)
             self.solution_old.assign(solution)
             if update_forcings is not None:
                 update_forcings(t)
-            self.solverK0.solve()
+            self.solver_k0.solve()
             solution.assign(self.solution_n + self.K0)
-        elif iStage == 1:
+        elif i_stage == 1:
             # stage 1
             self.solution_old.assign(solution)
             if update_forcings is not None:
                 update_forcings(t+dt)
-            self.solverK1.solve()
+            self.solver_k1.solve()
             solution.assign(self.solution_n + 0.25*self.K0 + 0.25*self.K1)
-        elif iStage == 2:
+        elif i_stage == 2:
             # stage 2
             self.solution_old.assign(solution)
             if update_forcings is not None:
                 update_forcings(t+dt/2)
-            self.solverK2.solve()
+            self.solver_k2.solve()
             # final solution
             solution.assign(self.solution_n + (1.0/6.0)*self.K0 +
                             (1.0/6.0)*self.K1 + (2.0/3.0)*self.K2)
@@ -277,11 +277,11 @@ class SSPRK33Stage(TimeIntegrator):
         """Advances one full time step from t to t+dt.
         This assumes that all the functions that the equation depends on are
         constants across this interval. If dependent functions need to be
-        updated call solveStage instead.
+        updated call solve_stage instead.
         """
         for k in range(3):
-            self.solveStage(k, t, dt, solution,
-                            update_forcings)
+            self.solve_stage(k, t, dt, solution,
+                             update_forcings)
 
 
 class SSPRK33StageSemiImplicit(TimeIntegrator):
@@ -303,7 +303,7 @@ class SSPRK33StageSemiImplicit(TimeIntegrator):
         super(SSPRK33StageSemiImplicit, self).__init__(equation, solver_parameters)
         self.explicit = True
         self.CFL_coeff = 1.0
-        self.nStages = 3
+        self.n_stages = 3
         self.theta = Constant(0.5)
         self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
@@ -318,7 +318,7 @@ class SSPRK33StageSemiImplicit(TimeIntegrator):
         self.args = self.equation.kwargs
 
         self.dt_const = Constant(dt)
-        massTerm = self.equation.massTerm
+        mass_term = self.equation.mass_term
         rhs = self.equation.rhs
         rhsi = self.equation.rhs_implicit
         source = self.equation.source
@@ -328,84 +328,84 @@ class SSPRK33StageSemiImplicit(TimeIntegrator):
         u_1 = self.sol1
         sol = self.equation.solution
 
-        self.F_0 = (massTerm(u_0) - massTerm(u_old) -
+        self.F_0 = (mass_term(u_0) - mass_term(u_old) -
                     self.dt_const*(
                         self.theta*rhsi(u_0, **self.args) +
                         (1-self.theta)*rhsi(u_old, **self.args) +
                         rhs(u_old, **self.args) +
                         source(**self.args))
                     )
-        self.F_1 = (massTerm(u_1) -
-                    3.0/4.0*massTerm(u_old) - 1.0/4.0*massTerm(u_0) -
+        self.F_1 = (mass_term(u_1) -
+                    3.0/4.0*mass_term(u_old) - 1.0/4.0*mass_term(u_0) -
                     1.0/4.0*self.dt_const*(
                         self.theta*rhsi(u_1, **self.args) +
                         (1-self.theta)*rhsi(u_0, **self.args) +
                         rhs(u_0, **self.args) +
                         source(**self.args))
                     )
-        self.F_2 = (massTerm(sol) -
-                    1.0/3.0*massTerm(u_old) - 2.0/3.0*massTerm(u_1) -
+        self.F_2 = (mass_term(sol) -
+                    1.0/3.0*mass_term(u_old) - 2.0/3.0*mass_term(u_1) -
                     2.0/3.0*self.dt_const*(
                         self.theta*rhsi(sol, **self.args) +
                         (1-self.theta)*rhsi(u_1, **self.args) +
                         rhs(u_1, **self.args) +
                         source(**self.args))
                     )
-        self.updateSolver()
+        self.update_solver()
 
-    def updateSolver(self):
+    def update_solver(self):
         """Builds linear problems for each stage. These problems need to be
         re-created after each mesh update."""
-        probF0 = NonlinearVariationalProblem(self.F_0, self.sol0)
-        self.solverF0 = NonlinearVariationalSolver(probF0,
-                                                   solver_parameters=self.solver_parameters)
-        probF1 = NonlinearVariationalProblem(self.F_1, self.sol1)
-        self.solverF1 = NonlinearVariationalSolver(probF1,
-                                                   solver_parameters=self.solver_parameters)
-        probF2 = NonlinearVariationalProblem(self.F_2, self.equation.solution)
-        self.solverF2 = NonlinearVariationalSolver(probF2,
-                                                   solver_parameters=self.solver_parameters)
+        prob_f0 = NonlinearVariationalProblem(self.F_0, self.sol0)
+        self.solver_f0 = NonlinearVariationalSolver(prob_f0,
+                                                    solver_parameters=self.solver_parameters)
+        prob_f1 = NonlinearVariationalProblem(self.F_1, self.sol1)
+        self.solver_f1 = NonlinearVariationalSolver(prob_f1,
+                                                    solver_parameters=self.solver_parameters)
+        prob_f2 = NonlinearVariationalProblem(self.F_2, self.equation.solution)
+        self.solver_f2 = NonlinearVariationalSolver(prob_f2,
+                                                    solver_parameters=self.solver_parameters)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
 
-    def solveStage(self, iStage, t, dt, solution, update_forcings=None):
+    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
         """
         Solves a single stage of step from t to t+dt.
         All functions that the equation depends on must be at rigth state
         corresponding to each sub-step.
         """
         self.dt_const.assign(dt)
-        if iStage == 0:
+        if i_stage == 0:
             # stage 0
             if update_forcings is not None:
                 update_forcings(t)
             # BUG there's a bug in assembly cache, need to set to false
-            self.solverF0.solve()
+            self.solver_f0.solve()
             solution.assign(self.sol0)
-        elif iStage == 1:
+        elif i_stage == 1:
             # stage 1
             if update_forcings is not None:
                 update_forcings(t+dt)
-            self.solverF1.solve()
+            self.solver_f1.solve()
             solution.assign(self.sol1)
-        elif iStage == 2:
+        elif i_stage == 2:
             # stage 2
             if update_forcings is not None:
                 update_forcings(t+dt/2)
-            self.solverF2.solve()
+            self.solver_f2.solve()
             self.solution_old.assign(solution)
 
     def advance(self, t, dt, solution, update_forcings):
         """Advances one full time step from t to t+dt.
         This assumes that all the functions that the equation depends on are
         constants across this interval. If dependent functions need to be
-        updated call solveStage instead.
+        updated call solve_stage instead.
         """
         for k in range(3):
-            self.solveStage(k, t, dt, solution,
-                            update_forcings)
+            self.solve_stage(k, t, dt, solution,
+                             update_forcings)
 
 
 class ForwardEuler(TimeIntegrator):
@@ -413,7 +413,7 @@ class ForwardEuler(TimeIntegrator):
     def __init__(self, equation, dt, solver_parameters={}):
         """Creates forms for the time integrator"""
         super(ForwardEuler, self).__init__(equation, solver_parameters)
-        massTerm = self.equation.massTerm
+        mass_term = self.equation.mass_term
         rhs = self.equation.rhs
         rhsi = self.equation.rhs_implicit
         source = self.equation.source
@@ -436,16 +436,16 @@ class ForwardEuler(TimeIntegrator):
 
         u_old = self.solution_old
         u_tri = self.equation.tri
-        self.A = massTerm(u_tri)
-        self.L = (massTerm(u_old) +
+        self.A = mass_term(u_tri)
+        self.L = (mass_term(u_old) +
                   self.dt_const*(rhs(u_old, **self.funcs_old) +
                                  rhsi(u_old, **self.funcs_old) +
                                  source(**self.funcs_old)
                                  )
                   )
-        self.updateSolver()
+        self.update_solver()
 
-    def updateSolver(self):
+    def update_solver(self):
         prob = LinearVariationalProblem(self.A, self.L, self.equation.solution)
         self.solver = LinearVariationalSolver(prob,
                                               solver_parameters=self.solver_parameters)
@@ -477,7 +477,7 @@ class CrankNicolson(TimeIntegrator):
         self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
 
-        massTerm = self.equation.massTerm
+        mass_term = self.equation.mass_term
         rhs = self.equation.rhs
         rhsi = self.equation.rhs_implicit
         source = self.equation.source
@@ -503,7 +503,7 @@ class CrankNicolson(TimeIntegrator):
         u_tri = self.equation.tri
         # Crank-Nicolson
         gamma_const = Constant(gamma)
-        self.F = (massTerm(u) - massTerm(u_old) -
+        self.F = (mass_term(u) - mass_term(u_old) -
                   self.dt_const*(gamma_const*rhs(u, **self.funcs) +
                                  gamma_const*rhsi(u, **self.funcs) +
                                  gamma_const*source(**self.funcs) +
@@ -513,21 +513,21 @@ class CrankNicolson(TimeIntegrator):
                                  )
                   )
 
-        self.A = (massTerm(u_tri) -
+        self.A = (mass_term(u_tri) -
                   self.dt_const*(
                       gamma_const*rhs(u_tri, **self.funcs) +
                       gamma_const*rhsi(u_tri, **self.funcs))
                   )
-        self.L = (massTerm(u_old) +
+        self.L = (mass_term(u_old) +
                   self.dt_const*(
                       gamma_const*source(**self.funcs) +
                       (1-gamma_const)*rhs(u_old, **self.funcs_old) +
                       (1-gamma_const)*rhsi(u_old, **self.funcs_old) +
                       (1-gamma_const)*source(**self.funcs_old))
                   )
-        self.updateSolver()
+        self.update_solver()
 
-    def updateSolver(self):
+    def update_solver(self):
         nest = not ('pc_type' in self.solver_parameters and self.solver_parameters['pc_type'] == 'lu')
         prob = NonlinearVariationalProblem(self.F, self.equation.solution, nest=nest)
         self.solver = NonlinearVariationalSolver(prob,
@@ -552,7 +552,7 @@ class CrankNicolson(TimeIntegrator):
         for k in self.funcs_old:
             self.funcs_old[k].assign(self.funcs[k])
 
-    def advanceLinear(self, t, dt, solution, update_forcings):
+    def advance_linear(self, t, dt, solution, update_forcings):
         """Advances equations for one time step."""
         solver_parameters = {
             'snes_type': 'ksponly',
@@ -585,7 +585,7 @@ class SSPIMEX(TimeIntegrator):
         # implicit scheme
         self.dirk = DIRKLSPUM2(equation, dt,
                                solver_parameters=solver_parameters_dirk,
-                               termsToAdd=['implicit'],
+                               terms_to_add=['implicit'],
                                solution=solution)
         # explicit scheme
         erk_a = [[0, 0, 0],
@@ -595,13 +595,13 @@ class SSPIMEX(TimeIntegrator):
         erk_c = [0, 5.0/6.0, 11.0/12.0]
         self.erk = DIRKGeneric(equation, dt, erk_a, erk_b, erk_c,
                                solver_parameters=solver_parameters_dirk,
-                               termsToAdd=['explicit', 'source'],
+                               terms_to_add=['explicit', 'source'],
                                solution=solution)
-        self.nStages = len(erk_b)
+        self.n_stages = len(erk_b)
 
-    def updateSolver(self):
-        self.dirk.updateSolver()
-        self.erk.updateSolver()
+    def update_solver(self):
+        self.dirk.update_solver()
+        self.erk.update_solver()
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -610,17 +610,17 @@ class SSPIMEX(TimeIntegrator):
 
     def advance(self, t, dt, solution, update_forcings=None):
         """Advances equations for one time step."""
-        for i in xrange(self.nStages):
-            self.solveStage(i, t, dt, solution, update_forcings)
-        self.getFinalSolution(solution)
+        for i in xrange(self.n_stages):
+            self.solve_stage(i, t, dt, solution, update_forcings)
+        self.get_final_solution(solution)
 
-    def solveStage(self, iStage, t, dt, solution, update_forcings=None):
-        self.erk.solveStage(iStage, t, dt, solution, update_forcings)
-        self.dirk.solveStage(iStage, t, dt, solution, update_forcings)
+    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
+        self.erk.solve_stage(i_stage, t, dt, solution, update_forcings)
+        self.dirk.solve_stage(i_stage, t, dt, solution, update_forcings)
 
-    def getFinalSolution(self, solution):
-        self.erk.getFinalSolution(solution)
-        self.dirk.getFinalSolution(solution)
+    def get_final_solution(self, solution):
+        self.erk.get_final_solution(solution)
+        self.dirk.get_final_solution(solution)
 
 
 class DIRKGeneric(TimeIntegrator):
@@ -639,7 +639,7 @@ class DIRKGeneric(TimeIntegrator):
     """
     def __init__(self, equation, dt, a, b, c,
                  solver_parameters={},
-                 termsToAdd='all',
+                 terms_to_add='all',
                  solution=None):
         """
         Create new DIRK solver.
@@ -650,25 +650,25 @@ class DIRKGeneric(TimeIntegrator):
             the equation to solve
         dt : float
             time step (constant)
-        a  : array_like (nStages, nStages)
+        a  : array_like (n_stages, n_stages)
             coefficients for the Butcher tableau, must be lower diagonal
-        b,c : array_like (nStages,)
+        b,c : array_like (n_stages,)
             coefficients for the Butcher tableau
         solver_parameters : dict
             PETSc options for solver
-        termsToAdd : 'all' or list of 'implicit', 'explicit', 'source'
+        terms_to_add : 'all' or list of 'implicit', 'explicit', 'source'
             Defines which terms of the equation are to be added to this solver.
-            Default 'all' implies termsToAdd = ['implicit', 'explicit', 'source']
+            Default 'all' implies terms_to_add = ['implicit', 'explicit', 'source']
         """
         super(DIRKGeneric, self).__init__(equation, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
 
-        self.nStages = len(b)
+        self.n_stages = len(b)
         self.a = a
         self.b = b
         self.c = c
-        self.termsToAdd = termsToAdd
+        self.terms_to_add = terms_to_add
 
         rhs = self.equation.rhs
         rhsi = self.equation.rhs_implicit
@@ -683,44 +683,44 @@ class DIRKGeneric(TimeIntegrator):
         dx = self.equation.dx
         test = TestFunction(self.equation.space)
 
-        mixedSpace = isinstance(self.equation.solution.function_space(),
-                                MixedFunctionSpace)
+        mixed_space = isinstance(self.equation.solution.function_space(),
+                                 MixedFunctionSpace)
 
-        def allTerms(u, **args):
+        def all_terms(u, **args):
             """Gather all terms that need to be added to the form"""
             f = 0
-            if self.termsToAdd == 'all':
+            if self.terms_to_add == 'all':
                 return rhsi(u, **args) + rhs(u, **args) + source(**args)
-            if 'implicit' in self.termsToAdd:
+            if 'implicit' in self.terms_to_add:
                 f += rhsi(u, **args)
-            if 'explicit' in self.termsToAdd:
+            if 'explicit' in self.terms_to_add:
                 f += rhs(u, **args)
-            if 'source' in self.termsToAdd:
+            if 'source' in self.terms_to_add:
                 f += source(**args)
             # assert f != 0, \
-            #     'adding t  erms {:}: empty form'.format(self.termsToAdd)
+            #     'adding t  erms {:}: empty form'.format(self.terms_to_add)
             return f
 
         # Allocate tendency fields
         self.k = []
-        for i in xrange(self.nStages):
+        for i in xrange(self.n_stages):
             fname = '{:}_k{:}'.format(self.name, i)
             self.k.append(Function(self.equation.space, name=fname))
         # construct variational problems
         self.F = []
-        if not mixedSpace:
-            for i in xrange(self.nStages):
+        if not mixed_space:
+            for i in xrange(self.n_stages):
                 for j in xrange(i+1):
                     if j == 0:
                         u = self.solution_old + self.a[i][j]*self.dt_const*self.k[j]
                     else:
                         u += self.a[i][j]*self.dt_const*self.k[j]
                 self.F.append(-inner(self.k[i], test)*dx +
-                              allTerms(u, **self.funcs))
+                              all_terms(u, **self.funcs))
         else:
             # solution must be split before computing sum
             # pass components to equation in a list
-            for i in xrange(self.nStages):
+            for i in xrange(self.n_stages):
                 for j in xrange(i+1):
                     if j == 0:
                         u = []  # list of components in the mixed space
@@ -730,13 +730,13 @@ class DIRKGeneric(TimeIntegrator):
                         for l, k in enumerate(split(self.k[j])):
                             u[l] += self.a[i][j]*self.dt_const*k
                 self.F.append(-inner(self.k[i], test)*dx +
-                              allTerms(u, **self.funcs))
-        self.updateSolver()
+                              all_terms(u, **self.funcs))
+        self.update_solver()
 
-    def updateSolver(self):
+    def update_solver(self):
         # construct solvers
         self.solver = []
-        for i in xrange(self.nStages):
+        for i in xrange(self.n_stages):
             p = NonlinearVariationalProblem(self.F[i], self.k[i])
             sname = '{:}_stage{:}_'.format(self.name, i)
             self.solver.append(
@@ -750,33 +750,33 @@ class DIRKGeneric(TimeIntegrator):
 
     def advance(self, t, dt, solution, update_forcings=None):
         """Advances equations for one time step."""
-        for i in xrange(self.nStages):
-            self.solveStage(i, t, dt, solution, update_forcings)
+        for i in xrange(self.n_stages):
+            self.solve_stage(i, t, dt, solution, update_forcings)
 
-    def solveStage(self, iStage, t, dt, output=None, update_forcings=None):
+    def solve_stage(self, i_stage, t, dt, output=None, update_forcings=None):
         """Advances equations for one stage."""
         if update_forcings is not None:
-            update_forcings(t + self.c[iStage]*self.dt)
-        self.solver[iStage].solve()
+            update_forcings(t + self.c[i_stage]*self.dt)
+        self.solver[i_stage].solve()
         if output is not None:
-            if iStage < self.nStages - 1:
-                self.getStageSolution(iStage, output)
+            if i_stage < self.n_stages - 1:
+                self.get_stage_solution(i_stage, output)
             else:
                 # assign the final solution
-                self.getFinalSolution(output)
+                self.get_final_solution(output)
 
-    def getStageSolution(self, iStage, output):
-        """Stores intermediate solution for stage iStage to the output field"""
+    def get_stage_solution(self, i_stage, output):
+        """Stores intermediate solution for stage i_stage to the output field"""
         if output != self.solution_old:
             # possible only if output is not the internal state container
             output.assign(self.solution_old)
-            for j in xrange(iStage+1):
-                output += self.a[iStage][j]*self.dt_const*self.k[j]
+            for j in xrange(i_stage+1):
+                output += self.a[i_stage][j]*self.dt_const*self.k[j]
 
-    def getFinalSolution(self, output=None):
+    def get_final_solution(self, output=None):
         """Computes the final solution from the tendencies"""
         # update solution
-        for i in xrange(self.nStages):
+        for i in xrange(self.n_stages):
             self.solution_old += self.dt_const*self.b[i]*self.k[i]
         if output is not None and output != self.solution_old:
             # copy to output
@@ -793,12 +793,12 @@ class BackwardEuler(DIRKGeneric):
     ---------
         | 1
     """
-    def __init__(self, equation, dt, solver_parameters={}, termsToAdd='all'):
+    def __init__(self, equation, dt, solver_parameters={}, terms_to_add='all'):
         a = [[1.0]]
         b = [1.0]
         c = [1.0]
         super(BackwardEuler, self).__init__(equation, dt, a, b, c,
-                                            solver_parameters, termsToAdd)
+                                            solver_parameters, terms_to_add)
 
 
 class DIRK22(DIRKGeneric):
@@ -821,13 +821,13 @@ class DIRK22(DIRKGeneric):
         time-dependent partial differential equations. Applied Numerical
         Mathematics, 25:151-167.
     """
-    def __init__(self, equation, dt, solver_parameters={}, termsToAdd='all'):
+    def __init__(self, equation, dt, solver_parameters={}, terms_to_add='all'):
         gamma = Constant((2 + np.sqrt(2))/2)
         a = [[gamma, 0], [1-gamma, gamma]]
         b = [0.5, 0.5]
         c = [gamma, 1]
         super(DIRK22, self).__init__(equation, dt, a, b, c,
-                                     solver_parameters, termsToAdd)
+                                     solver_parameters, terms_to_add)
 
 
 class DIRK23(DIRKGeneric):
@@ -846,13 +846,13 @@ class DIRK23(DIRKGeneric):
 
     From DIRK(2,3,3) IMEX scheme in Ascher et al. (1997)
     """
-    def __init__(self, equation, dt, solver_parameters={}, termsToAdd='all'):
+    def __init__(self, equation, dt, solver_parameters={}, terms_to_add='all'):
         gamma = (3 + np.sqrt(3))/6
         a = [[gamma, 0], [1-2*gamma, gamma]]
         b = [0.5, 0.5]
         c = [gamma, 1-gamma]
         super(DIRK23, self).__init__(equation, dt, a, b, c,
-                                     solver_parameters, termsToAdd)
+                                     solver_parameters, terms_to_add)
 
 
 class DIRK33(DIRKGeneric):
@@ -862,7 +862,7 @@ class DIRK33(DIRKGeneric):
 
     From DIRK(3,4,3) IMEX scheme in Ascher et al. (1997)
     """
-    def __init__(self, equation, dt, solver_parameters={}, termsToAdd='all'):
+    def __init__(self, equation, dt, solver_parameters={}, terms_to_add='all'):
         gamma = 0.4358665215
         b1 = -3.0/2.0*gamma**2 + 4*gamma - 1.0/4.0
         b2 = 3.0/2.0*gamma**2 - 5*gamma + 5.0/4.0
@@ -872,7 +872,7 @@ class DIRK33(DIRKGeneric):
         b = [b1, b2, gamma]
         c = [gamma, (1+gamma)/2, 1]
         super(DIRK33, self).__init__(equation, dt, a, b, c,
-                                     solver_parameters, termsToAdd)
+                                     solver_parameters, terms_to_add)
 
 
 class DIRK43(DIRKGeneric):
@@ -882,7 +882,7 @@ class DIRK43(DIRKGeneric):
 
     From DIRK(4,4,3) IMEX scheme in Ascher et al. (1997)
     """
-    def __init__(self, equation, dt, solver_parameters={}, termsToAdd='all'):
+    def __init__(self, equation, dt, solver_parameters={}, terms_to_add='all'):
         a = [[0.5, 0, 0, 0],
              [1.0/6.0, 0.5, 0, 0],
              [-0.5, 0.5, 0.5, 0],
@@ -890,7 +890,7 @@ class DIRK43(DIRKGeneric):
         b = [3.0/2.0, -3.0/2.0, 0.5, 0.5]
         c = [0.5, 2.0/3.0, 0.5, 1.0]
         super(DIRK43, self).__init__(equation, dt, a, b, c,
-                                     solver_parameters, termsToAdd)
+                                     solver_parameters, terms_to_add)
 
 
 class DIRKLSPUM2(DIRKGeneric):
@@ -904,7 +904,7 @@ class DIRKLSPUM2(DIRKGeneric):
         Runge-Kutta methods. Journal of Computational and Applied
         Mathematics 272(2014) 116-140.
     """
-    def __init__(self, equation, dt, solver_parameters={}, termsToAdd='all',
+    def __init__(self, equation, dt, solver_parameters={}, terms_to_add='all',
                  solution=None):
         a = [[2.0/11.0, 0, 0],
              [205.0/462.0, 2.0/11.0, 0],
@@ -912,11 +912,11 @@ class DIRKLSPUM2(DIRKGeneric):
         b = [24.0/55.0, 1.0/5.0, 4.0/11.0]
         c = [2.0/11.0, 289.0/462.0, 751.0/924.0]
         super(DIRKLSPUM2, self).__init__(equation, dt, a, b, c,
-                                         solver_parameters, termsToAdd,
+                                         solver_parameters, terms_to_add,
                                          solution)
 
 
-def cosTimeAvFilter(M):
+def cos_time_av_filter(M):
     """
     Raised cos time average filters as in older versions of ROMS.
     a_i : weights for t_{n+1}
@@ -956,17 +956,17 @@ class MacroTimeStepIntegrator(TimeIntegrator):
     # NOTE the time averages can be very diffusive
     # NOTE diffusivity depends on M and the choise of time av filter
     # NOTE boxcar filter is very diffusive!
-    def __init__(self, timestepperCls, M, restartFromAv=False):
+    def __init__(self, timestepper_cls, M, restart_from_av=False):
         super(MacroTimeStepIntegrator, self).__init__(self.subiterator.equation)
-        self.subiterator = timestepperCls
+        self.subiterator = timestepper_cls
         self.M = M
-        self.restartFromAv = restartFromAv
+        self.restart_from_av = restart_from_av
         # functions to hold time averaged solutions
         space = self.subiterator.solution_old.function_space()
         self.solution_n = Function(space)
         self.solution_nplushalf = Function(space)
         self.solution_start = Function(space)
-        self.M_star, self.w_full, self.w_half = cosTimeAvFilter(M)
+        self.M_star, self.w_full, self.w_half = cos_time_av_filter(M)
 
     def initialize(self, solution):
         self.subiterator.initialize(solution)
@@ -999,7 +999,7 @@ class MacroTimeStepIntegrator(TimeIntegrator):
                 if i == M-1:
                     sys.stdout.write('|')
                 sys.stdout.flush()
-            if not self.restartFromAv and i == M-1:
+            if not self.restart_from_av and i == M-1:
                 # store state at T_{n+1}
                 self.solution_start.assign(solution)
         if verbose and commrank == 0:
@@ -1007,5 +1007,5 @@ class MacroTimeStepIntegrator(TimeIntegrator):
             sys.stdout.flush()
         # use filtered solution as output
         solution.assign(self.solution_n)
-        if self.restartFromAv:
+        if self.restart_from_av:
             self.solution_start.assign(self.solution_n)

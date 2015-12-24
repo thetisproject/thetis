@@ -34,30 +34,30 @@ coriolis_2d.interpolate(
     Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0))
 
 # Wind stress
-windStress2d = Function(P1v_2d, name='wind stress')
+wind_stress_2d = Function(P1v_2d, name='wind stress')
 tau_max = 0.1
 L_y = 1.0e6
-windStress2d.interpolate(Expression(('tau_max*sin(pi*x[1]/L)', '0'), tau_max=tau_max, L=L_y))
+wind_stress_2d.interpolate(Expression(('tau_max*sin(pi*x[1]/L)', '0'), tau_max=tau_max, L=L_y))
 
 # linear dissipation: tau_bot/(h*rho) = -bf_gamma*u
 lin_drag = Constant(1e-6)
 
 # --- create solver ---
-solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
-options = solverObj.options
+solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
+options = solver_obj.options
 options.cfl_2d = 1.0
 options.nonlin = False
 options.coriolis = coriolis_2d
-options.wind_stress = windStress2d
+options.wind_stress = wind_stress_2d
 options.lin_drag = lin_drag
 options.TExport = TExport
 options.T = T
 options.dt = 45.0
 options.outputdir = outputdir
-options.uAdvection = Constant(0.01)
-options.checkVolConservation2d = True
+options.u_advection = Constant(0.01)
+options.check_vol_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
-options.timerLabels = []
-# options.timestepperType = 'CrankNicolson'
+options.timer_labels = []
+# options.timestepper_type = 'CrankNicolson'
 
-solverObj.iterate()
+solver_obj.iterate()

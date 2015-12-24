@@ -32,10 +32,10 @@ class TracerEquation(Equation):
                        'uv_p1': uv_p1,
                        'lax_friedrichs_factor': lax_friedrichs_factor,
                        }
-        self.computeHorizAdvection = uv is not None
-        self.computeVertAdvection = w is not None
-        self.computeHorizDiffusion = diffusivity_h is not None
-        self.computeVertDiffusion = diffusivity_v is not None
+        self.compute_horiz_advection = uv is not None
+        self.compute_vert_advection = w is not None
+        self.compute_horiz_diffusion = diffusivity_h is not None
+        self.compute_vert_diffusion = diffusivity_v is not None
 
         # trial and test functions
         self.test = TestFunction(self.space)
@@ -45,10 +45,10 @@ class TracerEquation(Equation):
         if not hasattr(ufl_elem, '_A'):
             # For HDiv elements
             ufl_elem = ufl_elem._element
-        self.horizontal_DG = ufl_elem._A.family() != 'Lagrange'
-        self.vertical_DG = ufl_elem._B.family() != 'Lagrange'
+        self.horizontal_dg = ufl_elem._A.family() != 'Lagrange'
+        self.vertical_dg = ufl_elem._B.family() != 'Lagrange'
 
-        self.horizAdvectionByParts = True
+        self.horiz_advection_by_parts = True
 
         # mesh dependent variables
         self.normal = FacetNormal(self.mesh)
@@ -70,7 +70,7 @@ class TracerEquation(Equation):
         # maps bnd_marker to dict of external functions e.g. {'elev':eta_ext}
         self.bnd_functions = {}
 
-    def massTerm(self, solution):
+    def mass_term(self, solution):
         """All time derivative terms on the LHS, without the actual time
         derivative.
 
@@ -98,10 +98,10 @@ class TracerEquation(Equation):
 
         # NOTE advection terms must be exactly as in 3d continuity equation
         # Horizontal advection term
-        if self.computeHorizAdvection:
-            if self.horizAdvectionByParts:
+        if self.compute_horiz_advection:
+            if self.horiz_advection_by_parts:
                 F += -solution*inner(uv, nabla_grad(self.test))*self.dx
-                if self.horizontal_DG:
+                if self.horizontal_dg:
                     # add interface term
                     uv_av = avg(uv)
                     un_av = (uv_av[0]*self.normal('-')[0] +
@@ -146,18 +146,18 @@ class TracerEquation(Equation):
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds_v(int(bnd_marker))
                 if funcs is None:
-                    if not self.horizAdvectionByParts:
+                    if not self.horiz_advection_by_parts:
                         G += -solution*(self.normal[0]*uv[0] +
                                         self.normal[1]*uv[1])*self.test*ds_bnd
                     continue
 
         # Vertical advection term
-        if self.computeVertAdvection:
+        if self.compute_vert_advection:
             vertvelo = w[2]
             if w_mesh is not None:
                 vertvelo = w[2]-w_mesh
             F += -solution*vertvelo*Dx(self.test, 2)*self.dx
-            if self.vertical_DG:
+            if self.vertical_dg:
                 w_av = avg(vertvelo)
                 s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
                 c_up = solution('-')*s + solution('+')*(1-s)
@@ -178,42 +178,42 @@ class TracerEquation(Equation):
                 G += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
 
         # diffusion
-        if self.computeHorizDiffusion:
+        if self.compute_horiz_diffusion:
             F += diffusivity_h*(Dx(solution, 0)*Dx(self.test, 0) +
                                 Dx(solution, 1)*Dx(self.test, 1))*self.dx
-            if self.horizontal_DG:
+            if self.horizontal_dg:
                 # interface term
-                muGradSol = diffusivity_h*grad(solution)
-                F += -(avg(muGradSol[0])*jump(self.test, self.normal[0]) +
-                       avg(muGradSol[1])*jump(self.test, self.normal[1]))*(self.dS_v+self.dS_h)
+                mu_grad_sol = diffusivity_h*grad(solution)
+                F += -(avg(mu_grad_sol[0])*jump(self.test, self.normal[0]) +
+                       avg(mu_grad_sol[1])*jump(self.test, self.normal[1]))*(self.dS_v+self.dS_h)
                 # # TODO symmetric penalty term
                 # # sigma = (o+1)(o+d)/d*N_0/(2L) (Shahbazi, 2005)
                 # # o: order of space
                 # sigma = 1e-4
-                # nMag = self.normal[0]('-')**2 + self.normal[1]('-')**2
-                # F += -sigma*avg(diffusivity_h)*nMag*jump(solution)*jump(self.test)*(self.dS_v+self.dS_h)
+                # n_mag = self.normal[0]('-')**2 + self.normal[1]('-')**2
+                # F += -sigma*avg(diffusivity_h)*n_mag*jump(solution)*jump(self.test)*(self.dS_v+self.dS_h)
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds_v(int(bnd_marker))
                 if funcs is None or 'value' in funcs or 'symm' in funcs:
                     # use symmetric diffusion flux through boundary
-                    F += -inner(muGradSol, self.normal)*self.test*ds_bnd
-        if self.computeVertDiffusion:
+                    F += -inner(mu_grad_sol, self.normal)*self.test*ds_bnd
+        if self.compute_vert_diffusion:
             F += diffusivity_v*inner(Dx(solution, 2), Dx(self.test, 2)) * self.dx
-            if self.vertical_DG:
+            if self.vertical_dg:
                 # interface term
-                diffFlux = diffusivity_v*Dx(solution, 2)
-                F += -(dot(avg(diffFlux), self.test('+'))*self.normal[2]('+') +
-                       dot(avg(diffFlux), self.test('-'))*self.normal[2]('-')) * self.dS_h
+                diff_flux = diffusivity_v*Dx(solution, 2)
+                F += -(dot(avg(diff_flux), self.test('+'))*self.normal[2]('+') +
+                       dot(avg(diff_flux), self.test('-'))*self.normal[2]('-')) * self.dS_h
                 # symmetric interior penalty stabilization
                 ip_fact = Constant(1.0)
                 if self.v_elem_size is None:
                     raise Exception('v_elem_size must be provided')
                 L = avg(self.v_elem_size)
-                nbNeigh = 2.
+                nb_neigh = 2.
                 o = 1.
                 d = 3.
-                sigma = Constant((o + 1.0)*(o + d)/d * nbNeigh / 2.0) / L
+                sigma = Constant((o + 1.0)*(o + d)/d * nb_neigh / 2.0) / L
                 gamma = sigma*avg(diffusivity_v) * ip_fact
                 jump_test = (self.test('+')*self.normal[2]('+') +
                              self.test('-')*self.normal[2]('-'))

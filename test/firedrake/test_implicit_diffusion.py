@@ -34,7 +34,7 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     mesh = ExtrudedMesh(mesh2d, layers=50, layer_height=-depth/layers)
 
     if do_export:
-        outFile = File('test.pvd')
+        out_file = File('test.pvd')
 
     # define function spaces
     fam = 'DG'
@@ -55,14 +55,14 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
         # vertical diffusion operator integrated by parts
         f = -diffusivity_v*inner(Dx(solution, 2), Dx(test, 2)) * dx
         # interface term
-        diffFlux = diffusivity_v*Dx(solution, 2)
-        f += (dot(avg(diffFlux), test('+'))*normal[2]('+') +
-              dot(avg(diffFlux), test('-'))*normal[2]('-')) * dS_h
+        diff_flux = diffusivity_v*Dx(solution, 2)
+        f += (dot(avg(diff_flux), test('+'))*normal[2]('+') +
+              dot(avg(diff_flux), test('-'))*normal[2]('-')) * dS_h
         # symmetric interior penalty stabilization
         L = Constant(depth/layers)
-        nbNeigh = 2
+        nb_neigh = 2
         d = 3
-        sigma = Constant((deg + 1)*(deg + d)/d * nbNeigh / 2) / L
+        sigma = Constant((deg + 1)*(deg + d)/d * nb_neigh / 2) / L
         gamma = sigma*avg(diffusivity_v)
         jump_test = test('+')*normal[2]('+') + test('-')*normal[2]('-')
         f += gamma * dot(jump(solution), jump_test) * dS_h
@@ -84,14 +84,14 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     solver = LinearVariationalSolver(prob, solver_parameters=sp)
 
     if do_export:
-        outFile << solution
+        out_file << solution
     print 'sol', solution.dat.data[:, 0].min(), solution.dat.data[:, 0].max()
     # solve
     solver.solve()
     solution.assign(solution_new)
 
     if do_export:
-        outFile << solution
+        out_file << solution
     print 'sol', solution.dat.data[:, 0].min(), solution.dat.data[:, 0].max()
 
     if do_assert:

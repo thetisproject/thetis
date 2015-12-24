@@ -14,7 +14,7 @@
 # by advecting a constant passive tracer.
 #
 # Setting
-# solverObj.nonlin = False
+# solver_obj.nonlin = False
 # uses linear wave equation instead, and no shock develops.
 #
 # Tuomas Karna 2015-03-03
@@ -43,31 +43,31 @@ bathymetry_2d.interpolate(Expression('ho - (ho-hr)*x[0]/100e3',
 #                                      ho=depth_oce, hr=depth_riv))
 
 # create solver
-solverObj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
-options = solverObj.options
+solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
+options = solver_obj.options
 # options.nonlin = False
-options.solveSalt = True
-options.solveVertDiffusion = False
-options.useBottomFriction = False
-options.useALEMovingMesh = False
-options.uvLaxFriedrichs = Constant(1.0)
-options.tracerLaxFriedrichs = Constant(1.0)
-options.useIMEX = True
-# options.useSemiImplicit2D = False
-# options.useModeSplit = False
+options.solve_salt = True
+options.solve_vert_diffusion = False
+options.use_bottom_friction = False
+options.use_ale_moving_mesh = False
+options.uv_lax_friedrichs = Constant(1.0)
+options.tracer_lax_friedrichs = Constant(1.0)
+options.use_imex = True
+# options.use_semi_implicit_2d = False
+# options.use_mode_split = False
 # options.baroclinic = True
 options.TExport = TExport
 options.T = T
 options.outputdir = outputdir
-options.uAdvection = Umag
-options.checkVolConservation2d = True
-options.checkVolConservation3d = True
-options.checkSaltConservation = True
-options.checkSaltDeviation = True
+options.u_advection = Umag
+options.check_vol_conservation_2d = True
+options.check_vol_conservation_3d = True
+options.check_salt_conservation = True
+options.check_salt_deviation = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
                             'uv_dav_2d', 'uv_bottom_2d']
-options.timerLabels = []
+options.timer_labels = []
 
 # initial conditions, piecewise linear function
 elev_x = np.array([0, 30e3, 100e3])
@@ -85,5 +85,5 @@ elev_init = Function(P1_2d)
 elev_init.dat.data[:] = elevation(x_func.dat.data, 0, 0,
                                   elev_x, elev_v)
 salt_init3d = Constant(4.5)
-solverObj.assignInitialConditions(elev=elev_init, salt=salt_init3d)
-solverObj.iterate()
+solver_obj.assign_initial_conditions(elev=elev_init, salt=salt_init3d)
+solver_obj.iterate()

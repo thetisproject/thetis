@@ -21,15 +21,15 @@ def test_steady_state_channel():
     f = g/Lx  # linear friction coef.
 
     # --- create solver ---
-    solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=1)
-    solverObj.options.nonlin = False
-    solverObj.options.TExport = dt
-    solverObj.options.T = N*dt
+    solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=1)
+    solver_obj.options.nonlin = False
+    solver_obj.options.TExport = dt
+    solver_obj.options.T = N*dt
     # NOTE had to set to something else than Cr-Ni, otherwise overriding below has no effect
-    solverObj.options.timestepperType = 'forwardeuler'
-    solverObj.options.timerLabels = []
-    solverObj.options.lin_drag = f
-    solverObj.options.dt = dt
+    solver_obj.options.timestepper_type = 'forwardeuler'
+    solver_obj.options.timer_labels = []
+    solver_obj.options.lin_drag = f
+    solver_obj.options.dt = dt
 
     # boundary conditions
     inflow_tag = 1
@@ -40,10 +40,10 @@ def test_steady_state_channel():
     outflow_func = Function(P1_2d)
     outflow_func.interpolate(Expression(0.0))
     outflow_bc = {'elev': outflow_func}
-    solverObj.bnd_functions['shallow_water'] = {inflow_tag: inflow_bc, outflow_tag: outflow_bc}
+    solver_obj.bnd_functions['shallow_water'] = {inflow_tag: inflow_bc, outflow_tag: outflow_bc}
     parameters['quadrature_degree'] = 5
 
-    solverObj.createEquations()
+    solver_obj.create_equations()
     solver_parameters = {
         'ksp_type': 'preonly',
         'pc_type': 'lu',
@@ -52,13 +52,13 @@ def test_steady_state_channel():
         'snes_type': 'newtonls'}
     # reinitialize the timestepper so we can set our own solver parameters and gamma
     # setting gamma to 1.0 converges faster to
-    solverObj.timestepper = timeintegrator.CrankNicolson(solverObj.eq_sw, solverObj.dt,
-                                                         solver_parameters, gamma=1.0)
-    solverObj.assignInitialConditions(uv_init=Expression(("1.0", "0.0")))
+    solver_obj.timestepper = timeintegrator.CrankNicolson(solver_obj.eq_sw, solver_obj.dt,
+                                                          solver_parameters, gamma=1.0)
+    solver_obj.assign_initial_conditions(uv_init=Expression(("1.0", "0.0")))
 
-    solverObj.iterate()
+    solver_obj.iterate()
 
-    uv, eta = solverObj.fields.solution_2d.split()
+    uv, eta = solver_obj.fields.solution_2d.split()
 
     eta_ana = interpolate(Expression("1-x[0]/Lx", Lx=Lx), P1_2d)
     area = Lx*Ly

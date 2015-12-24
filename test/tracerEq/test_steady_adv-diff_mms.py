@@ -176,94 +176,94 @@ def run(setup, refinement, order, export=True):
     # outputs
     outputdir = create_directory('outputs')
     if export:
-        out_T = File(os.path.join(outputdir, 'T.pvd'))
+        out_t = File(os.path.join(outputdir, 'T.pvd'))
 
     # bathymetry
     P1_2d = FunctionSpace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(P1_2d, name='Bathymetry')
     bathymetry_2d.project(SET['bath_expr'])
 
-    solverObj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
-    solverObj.options.order = order
-    solverObj.options.uAdvection = Constant(1.0)
-    solverObj.options.outputdir = outputdir
-    solverObj.options.T = T
-    solverObj.options.dt = dt
-    solverObj.options.dt_2d = dt_2d
-    solverObj.options.fields_to_export = ['salt_3d', 'uv_3d', 'w_3d']
-    solverObj.options.update(SET['options'])
+    solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
+    solver_obj.options.order = order
+    solver_obj.options.u_advection = Constant(1.0)
+    solver_obj.options.outputdir = outputdir
+    solver_obj.options.T = T
+    solver_obj.options.dt = dt
+    solver_obj.options.dt_2d = dt_2d
+    solver_obj.options.fields_to_export = ['salt_3d', 'uv_3d', 'w_3d']
+    solver_obj.options.update(SET['options'])
 
-    solverObj.createFunctionSpaces()
+    solver_obj.create_function_spaces()
 
     # functions for source terms
-    source_salt = Function(solverObj.function_spaces.H, name='salinity source')
+    source_salt = Function(solver_obj.function_spaces.H, name='salinity source')
     source_salt.project(SET['res_expr'])
-    solverObj.options.salt_source_3d = source_salt
+    solver_obj.options.salt_source_3d = source_salt
 
     # diffusivuty
-    kappa = Function(solverObj.function_spaces.P1, name='diffusivity')
+    kappa = Function(solver_obj.function_spaces.P1, name='diffusivity')
     kappa.project(SET['kappa_expr'])
-    solverObj.options.hDiffusivity = kappa
+    solver_obj.options.h_diffusivity = kappa
 
     # analytical solution in high-order space for computing L2 norms
-    H_HO = FunctionSpace(solverObj.mesh, 'DG', order+3)
+    H_HO = FunctionSpace(solver_obj.mesh, 'DG', order+3)
     T_ana_ho = Function(H_HO, name='Analytical T')
     T_ana_ho.project(SET['tracer_expr'])
     # analytical solution
-    T_ana = Function(solverObj.function_spaces.H, name='Analytical T')
+    T_ana = Function(solver_obj.function_spaces.H, name='Analytical T')
     T_ana.project(SET['tracer_expr'])
 
     bnd_salt = {'value': T_ana}
-    solverObj.bnd_functions['salt'] = {1: bnd_salt, 2: bnd_salt,
-                                       3: bnd_salt, 4: bnd_salt}
+    solver_obj.bnd_functions['salt'] = {1: bnd_salt, 2: bnd_salt,
+                                        3: bnd_salt, 4: bnd_salt}
     # NOTE use symmetic uv condition to get correct w
     bnd_mom = {'symm': None}
-    solverObj.bnd_functions['momentum'] = {1: bnd_mom, 2: bnd_mom,
-                                           3: bnd_mom, 4: bnd_mom}
+    solver_obj.bnd_functions['momentum'] = {1: bnd_mom, 2: bnd_mom,
+                                            3: bnd_mom, 4: bnd_mom}
 
-    solverObj.createEquations()
+    solver_obj.create_equations()
     # elevation field
-    solverObj.fields.elev_2d.project(SET['elev_expr'])
+    solver_obj.fields.elev_2d.project(SET['elev_expr'])
     # update mesh and fields
-    solverObj.copyElevTo3d.solve()
-    solverObj.meshCoordUpdater.solve()
-    compute_elem_height(solverObj.fields.z_coord_3d, solverObj.fields.v_elem_size_3d)
-    solverObj.copyVElemSizeTo2d.solve()
+    solver_obj.copy_elev_to_3d.solve()
+    solver_obj.mesh_coord_updater.solve()
+    compute_elem_height(solver_obj.fields.z_coord_3d, solver_obj.fields.v_elem_size_3d)
+    solver_obj.copy_v_elem_size_to_2d.solve()
 
     # salinity field
-    solverObj.fields.salt_3d.project(SET['tracer_expr'])
+    solver_obj.fields.salt_3d.project(SET['tracer_expr'])
     # velocity field
-    solverObj.fields.uv_3d.project(SET['uv_expr'])
-    solverObj.wSolver.solve()
+    solver_obj.fields.uv_3d.project(SET['uv_expr'])
+    solver_obj.w_solver.solve()
 
     if export:
-        out_T << T_ana
-        solverObj.export()
+        out_t << T_ana
+        solver_obj.export()
 
     # solve salinity advection-diffusion equation with residual source term
-    ti = solverObj.timestepper
+    ti = solver_obj.timestepper
     ti.timestepper_salt_3d.initialize(ti.fields.salt_3d)
     t = 0
     for i in range(iterations):
-        for k in range(ti.nStages):
-            lastStep = k == ti.nStages - 1
-            ti.timestepper_salt_3d.solveStage(k, t, ti.solver.dt, ti.fields.salt_3d)
-            if ti.options.useLimiterForTracers and lastStep:
-                ti.solver.tracerLimiter.apply(ti.fields.salt_3d)
+        for k in range(ti.n_stages):
+            last_step = k == ti.n_stages - 1
+            ti.timestepper_salt_3d.solve_stage(k, t, ti.solver.dt, ti.fields.salt_3d)
+            if ti.options.use_limiter_for_tracers and last_step:
+                ti.solver.tracer_limiter.apply(ti.fields.salt_3d)
         t += dt
 
     if export:
-        out_T << T_ana
-        solverObj.export()
+        out_t << T_ana
+        solver_obj.export()
 
-    L2_err = errornorm(T_ana_ho, solverObj.fields.salt_3d)/numpy.sqrt(area)
+    L2_err = errornorm(T_ana_ho, solver_obj.fields.salt_3d)/numpy.sqrt(area)
     print 'L2 error {:.12f}'.format(L2_err)
 
-    tmpFunctionCache.clear()  # NOTE must destroy all cached solvers for next simulation
+    tmp_function_cache.clear()  # NOTE must destroy all cached solvers for next simulation
     return L2_err
 
 
-def run_convergence(setup, ref_list, order, export=False, savePlot=False):
+def run_convergence(setup, ref_list, order, export=False, save_plot=False):
     """Runs test for a list of refinements and computes error convergence rate"""
     l2_err = []
     for r in ref_list:
@@ -271,11 +271,11 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
     x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
     y_log = numpy.log10(numpy.array(l2_err))
 
-    def check_convergence(x_log, y_log, expected_slope, field_str, savePlot):
+    def check_convergence(x_log, y_log, expected_slope, field_str, save_plot):
         slope_rtol = 0.2
         slope, intercept, r_value, p_value, std_err = stats.linregress(x_log, y_log)
         setup_name = setup.__name__
-        if savePlot:
+        if save_plot:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots(figsize=(5, 5))
             # plot points
@@ -298,8 +298,8 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
             order_str = 'o{:}'.format(order)
             imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str])
             imgfile += '.png'
-            imgDir = create_directory('plots')
-            imgfile = os.path.join(imgDir, imgfile)
+            img_dir = create_directory('plots')
+            imgfile = os.path.join(img_dir, imgfile)
             print 'saving figure', imgfile
             plt.savefig(imgfile, dpi=200, bbox_inches='tight')
         if expected_slope is not None:
@@ -310,7 +310,7 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
             print '{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope)
         return slope
 
-    check_convergence(x_log, y_log, order+1, 'tracer', savePlot)
+    check_convergence(x_log, y_log, order+1, 'tracer', save_plot)
 
 # NOTE here mimetic option has no effect -- both use p1dg for tracers
 # NOTE with diffusivity convergence rate is only 1.7, 2.0 without
@@ -323,12 +323,12 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
 
 
 def test_setup3_dg():
-    run_convergence(setup3dg, [1, 2, 3], 1, savePlot=False)
+    run_convergence(setup3dg, [1, 2, 3], 1, save_plot=False)
 
 
 @pytest.mark.skipif(True, reason='under development')
 def test_setup4_dg():
-    run_convergence(setup4dg, [1, 2, 3], 1, savePlot=False)
+    run_convergence(setup4dg, [1, 2, 3], 1, save_plot=False)
 
 # ---------------------------
 # run individual setup for debugging
@@ -340,4 +340,4 @@ def test_setup4_dg():
 # run individual scaling test
 # ---------------------------
 
-# run_convergence(setup3dg, [1, 2, 3], 1, savePlot=True)
+# run_convergence(setup3dg, [1, 2, 3], 1, save_plot=True)

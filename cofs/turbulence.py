@@ -100,7 +100,7 @@ class ShearFrequencySolver(object):
         self.relaxation = 0.5
 
         self.var_solvers = {}
-        for iComp in range(2):
+        for i_comp in range(2):
             fs = m2.function_space()
             test = TestFunction(fs)
             tri = TrialFunction(fs)
@@ -111,26 +111,26 @@ class ShearFrequencySolver(object):
             normal = FacetNormal(fs.mesh())
             a = inner(test, tri)*dx
             # # jump penalty -- smooth m2 -- this may blow up??
-            # alpha = Constant(2.0)*abs(avg(uv[iComp]))
+            # alpha = Constant(2.0)*abs(avg(uv[i_comp]))
             # a += alpha*jump(test)*jump(tri)*dS_h
-            l = -inner(uv[iComp], Dx(test, 2))*dx
-            l += avg(uv[iComp])*jump(test, normal[2])*dS_h
-            l += uv[iComp]*test*normal[2]*(ds_surf + ds_bottom)
+            l = -inner(uv[i_comp], Dx(test, 2))*dx
+            l += avg(uv[i_comp])*jump(test, normal[2])*dS_h
+            l += uv[i_comp]*test*normal[2]*(ds_surf + ds_bottom)
 
             prob = LinearVariationalProblem(a, l, mu_tmp)
             solver = LinearVariationalSolver(prob)
-            self.var_solvers[iComp] = solver
+            self.var_solvers[i_comp] = solver
 
     def solve(self):
         mu_comp = [self.mu, self.mv]
         self.m2.assign(0.0)
-        for iComp in range(2):
-            self.var_solvers[iComp].solve()
-            mu_comp[iComp].assign(self.relaxation*self.mu_tmp +
-                                  (1.0 - self.relaxation)*mu_comp[iComp])
-            self.m2 += mu_comp[iComp]*mu_comp[iComp]
+        for i_comp in range(2):
+            self.var_solvers[i_comp].solve()
+            mu_comp[i_comp].assign(self.relaxation*self.mu_tmp +
+                                   (1.0 - self.relaxation)*mu_comp[i_comp])
+            self.m2 += mu_comp[i_comp]*mu_comp[i_comp]
         # crop small/negative values
-        # setFuncMinVal(m2, minval)
+        # set_func_min_val(m2, minval)
 
 
 class SmootherP1(object):
@@ -238,7 +238,7 @@ class GenericLengthScaleModel(object):
         self.mv = Function(self.m2.function_space(), name='Shear frequency Y')
         self.tmp_field_p1 = Function(solver.function_spaces.P1,
                                      name='tmp_p1_field')
-        self.tmp_field_P0 = Function(solver.function_spaces.P0,
+        self.tmp_field_p0 = Function(solver.function_spaces.P0,
                                      name='tmp_p0_field')
         self.smoother = SmootherP1(self.solver.function_spaces.P1DG, self.solver.function_spaces.P1,
                                    self.solver.fields.v_elem_size_3d)
@@ -303,14 +303,14 @@ class GenericLengthScaleModel(object):
         self.params['cm0'] = cm0
         self.stability_type = stability_type
         if self.stability_type == 'KC':
-            self.stabilityFunc = StabilityFuncKanthaClayson()
+            self.stability_func = StabilityFuncKanthaClayson()
         elif self.stability_type == 'CA':
-            self.stabilityFunc = StabilityFuncCanutoA()
+            self.stability_func = StabilityFuncCanutoA()
         else:
             raise Exception('Unknown stability function type: ' +
                             self.stability_type)
         # compute c3_minus
-        # c3_minus = self.stabilityFunc.computeC3Minus(c1, c2)
+        # c3_minus = self.stability_func.compute_c3_minus(c1, c2)
         self.params['c3_minus'] = -0.63  # NOTE depends on model and stab func
 
         self.shear_frequency_solver = ShearFrequencySolver(self.uv, self.m2,
@@ -369,14 +369,14 @@ class GenericLengthScaleModel(object):
         #    self.psi.dat.data[:] = np.maximum(self.psi.dat.data[:], val)
         set_func_min_val(self.psi, self.params['psi_min'])
 
-        # self.tmp_field_P0.project(self.k)
-        # self.tmp_field_p1.project(self.tmp_field_P0)
+        # self.tmp_field_p0.project(self.k)
+        # self.tmp_field_p1.project(self.tmp_field_p0)
         # self.k.project(self.tmp_field_p1)
-        # self.tmp_field_P0.project(self.psi)
-        # self.tmp_field_p1.project(self.tmp_field_P0)
+        # self.tmp_field_p0.project(self.psi)
+        # self.tmp_field_p1.project(self.tmp_field_p0)
         # self.psi.project(self.tmp_field_p1)
-        # self.solver.tracerLimiter.apply(self.k)
-        # self.solver.tracerLimiter.apply(self.psi)
+        # self.solver.tracer_limiter.apply(self.k)
+        # self.solver.tracer_limiter.apply(self.psi)
 
         # udpate epsilon
         # self.epsilon.assign(cm0**(3+p/n)*self.k**(3/2+m/n)*self.psi**(-1/n))
@@ -400,11 +400,11 @@ class GenericLengthScaleModel(object):
         # # Galperin L limitation
 
         # update stability functions
-        s_m, s_h = self.stabilityFunc.get_functions(self.m2.dat.data,
-                                                    self.n2.dat.data,
-                                                    self.epsilon.dat.data,
-                                                    self.k.dat.data)
-        c = self.stabilityFunc.c
+        s_m, s_h = self.stability_func.get_functions(self.m2.dat.data,
+                                                     self.n2.dat.data,
+                                                     self.epsilon.dat.data,
+                                                     self.k.dat.data)
+        c = self.stability_func.c
         # update diffusivity/viscosity
         # NOTE should this the sqrt(k) or sqrt(2*k)?
         b = np.sqrt(2*self.k.dat.data[:])*self.l.dat.data[:]
@@ -764,7 +764,7 @@ class PsiEquation(TracerEquation):
         source = epsilon/k*(c1*p + c3*b - c2*f_wall*epsilon)
         f = inner(source, self.test)*self.dx
 
-        if self.computeVertDiffusion:
+        if self.compute_vert_diffusion:
             # add bottom/top boundary condition for psi
             # (nuv_v/sigma_psi * dpsi/dz)_b = n * nuv_v/sigma_psi * (cm0)^p * k^m * kappa^n * z_b^(n-1)
             # z_b = distance_from_bottom + z_0 (Burchard and Petersen, 1999)

@@ -13,7 +13,7 @@ from pyop2.profiling import timed_region, timed_function, timing  # NOQA
 from mpi4py import MPI  # NOQA
 import ufl  # NOQA
 import coffee.base as ast  # NOQA
-from cofs.field_defs import fieldMetadata
+from cofs.field_defs import field_metadata
 
 comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
@@ -42,7 +42,7 @@ class SumFunction(object):
 
         get operation returns Constant(0)
         """
-        self.coeffList = []
+        self.coeff_list = []
 
     def add(self, coeff):
         """
@@ -53,15 +53,15 @@ class SumFunction(object):
         # classes = (Function, Constant, ufl.algebra.Sum, ufl.algebra.Product)
         # assert not isinstance(coeff, classes), \
             # ('bad argument type: ' + str(type(coeff)))
-        self.coeffList.append(coeff)
+        self.coeff_list.append(coeff)
 
     def get_sum(self):
         """
         Returns a sum of all added Coefficients
         """
-        if len(self.coeffList) == 0:
+        if len(self.coeff_list) == 0:
             return None
-        return sum(self.coeffList)
+        return sum(self.coeff_list)
 
 
 class Equation(object):
@@ -112,9 +112,9 @@ class FieldDict(AttrDict):
             if not isinstance(value, (Function, Constant)):
                 raise TypeError('Value must be a Function or Constant object')
             fs = value.function_space()
-            if not isinstance(fs, MixedFunctionSpace) and key not in fieldMetadata:
+            if not isinstance(fs, MixedFunctionSpace) and key not in field_metadata:
                 msg = 'Trying to add a field "{:}" that has no meta data. ' \
-                      'Add fieldMetadata entry to fieldDefs.py'.format(key)
+                      'Add field_metadata entry to field_defs.py'.format(key)
                 raise Exception(msg)
 
     def _set_functionname(self, key, value):
@@ -188,7 +188,7 @@ class TemporaryFunctionCache(object):
     def clear(self):
         self.functions = {}
 
-tmpFunctionCache = TemporaryFunctionCache()
+tmp_function_cache = TemporaryFunctionCache()
 
 
 def print_info(msg):
@@ -416,10 +416,10 @@ def compute_baroclinic_head(solver, salt, baroc_head_3d, baroc_head_2d,
 
     r = 1/rho_0 int_{z=-h}^{\eta} rho' dz
     """
-    solver.rhoIntegrator.solve()
+    solver.rho_integrator.solve()
     baroc_head_3d *= -physical_constants['rho0_inv']
-    solver.baroHeadAverager.solve()
-    solver.extractSurfBaroHead.solve()
+    solver.baro_head_averager.solve()
+    solver.extract_surf_baro_head.solve()
 
 
 class VelocityMagnitudeSolver(object):
@@ -507,7 +507,7 @@ class ExpandFunctionTo3d(object):
         n_vert_nodes = len(self.fs_3d.fiat_element.B.entity_closure_dofs()[1][0])
 
         nodes = self.fs_3d.bt_masks['geometric'][0]
-        self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='nodeIdx')
+        self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
         self.kernel = op2.Kernel("""
             void my_kernel(double **func, double **func2d, int *idx) {
                 for ( int d = 0; d < %(nodes)d; d++ ) {
@@ -535,7 +535,7 @@ class ExpandFunctionTo3d(object):
                 prob, solver_parameters=solver_parameters)
 
     def solve(self):
-        with timed_region('func_copy2dTo3d'):
+        with timed_region('func_copy_2d_to_3d'):
             # execute par loop
             op2.par_loop(
                 self.kernel, self.fs_3d.mesh().cell_set,
@@ -602,7 +602,7 @@ class SubFunctionExtractor(object):
 
         assert (len(nodes) == out_nodes)
 
-        self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='nodeIdx')
+        self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
         self.kernel = op2.Kernel("""
             void my_kernel(double **func, double **func3d, int *idx) {
                 for ( int d = 0; d < %(nodes)d; d++ ) {
@@ -629,7 +629,7 @@ class SubFunctionExtractor(object):
                 prob, solver_parameters=solver_parameters)
 
     def solve(self):
-        with timed_region('func_copy3dTo2d'):
+        with timed_region('func_copy_3d_to_2d'):
             # execute par loop
             op2.par_loop(self.kernel, self.fs_3d.mesh().cell_set,
                          self.output_2d.dat(op2.WRITE, self.fs_2d.cell_node_map()),
@@ -688,16 +688,16 @@ def compute_bottom_friction(solver, uv_3d, uv_bottom_2d, uv_bottom_3d, z_coord_3
                             bottom_drag_2d, bottom_drag_3d,
                             v_elem_size_2d=None, v_elem_size_3d=None):
     # compute velocity at middle of bottom element
-    solver.extractUVBottom.solve()
+    solver.extract_uv_bottom.solve()
     tmp = uv_bottom_2d.dat.data.copy()
-    solver.extractUVBottom.solve()
+    solver.extract_uv_bottom.solve()
     uv_bottom_2d.dat.data[:] = 0.5*(uv_bottom_2d.dat.data + tmp)
-    solver.copyUVBottomTo3d.solve()
-    solver.extractZBottom.solve()
+    solver.copy_uv_bottom_to_3d.solve()
+    solver.extract_z_bottom.solve()
     z_bottom_2d.dat.data[:] += bathymetry_2d.dat.data[:]
     z_bottom_2d.dat.data[:] *= 0.5
     compute_bottom_drag(uv_bottom_2d, z_bottom_2d, bathymetry_2d, bottom_drag_2d)
-    solver.copyBottomDragTo3d.solve()
+    solver.copy_bottom_drag_to_3d.solve()
 
 
 def get_horizontal_elem_size(sol2d, sol3d=None):
@@ -754,7 +754,7 @@ class MeshVelocitySolver(object):
                  z_coord_ref, solver_parameters={}):
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
-        self.solverObj = solver
+        self.solver_obj = solver
 
         # compute w_mesh at the free surface (constant over vertical!)
         # w_mesh_surf = w - eta_grad[0]*uv[0] + eta_grad[1]*uv[1]
@@ -765,8 +765,8 @@ class MeshVelocitySolver(object):
         a = inner(tri, test)*dx
         eta_grad = nabla_grad(eta)
         l = (w[2] - eta_grad[0]*uv[0] - eta_grad[1]*uv[1])*test*dx
-        self.probWMeshSurf = LinearVariationalProblem(a, l, w_mesh_surf)
-        self.solverWMeshSurf = LinearVariationalSolver(self.probWMeshSurf, solver_parameters=solver_parameters)
+        self.prob_w_mesh_surf = LinearVariationalProblem(a, l, w_mesh_surf)
+        self.solver_w_mesh_surf = LinearVariationalSolver(self.prob_w_mesh_surf, solver_parameters=solver_parameters)
 
         # compute w in the whole water column (0 at bed)
         # w_mesh = w_mesh_surf * (z+h)/(eta+h)
@@ -777,8 +777,8 @@ class MeshVelocitySolver(object):
         a = tri*test*dx
         tot_depth = eta + bathymetry
         l = (w_mesh_surf*(z+bathymetry)/tot_depth)*test*dx
-        self.probWMesh = LinearVariationalProblem(a, l, w_mesh)
-        self.solverWMesh = LinearVariationalSolver(self.probWMesh, solver_parameters=solver_parameters)
+        self.prob_w_mesh = LinearVariationalProblem(a, l, w_mesh)
+        self.solver_w_mesh = LinearVariationalSolver(self.prob_w_mesh, solver_parameters=solver_parameters)
 
         # compute dw_mesh/dz in the whole water column
         fs = w_mesh.function_space()
@@ -787,15 +787,15 @@ class MeshVelocitySolver(object):
         test = TestFunction(fs)
         a = tri*test*dx
         l = (w_mesh_surf/tot_depth)*test*dx
-        self.probDWMeshDz = LinearVariationalProblem(a, l, w_mesh_ddz_3d)
-        self.solverDWMeshDz = LinearVariationalSolver(self.probDWMeshDz, solver_parameters=solver_parameters)
+        self.prob_dw_mesh_dz = LinearVariationalProblem(a, l, w_mesh_ddz_3d)
+        self.solver_dw_mesh_dz = LinearVariationalSolver(self.prob_dw_mesh_dz, solver_parameters=solver_parameters)
 
     def solve(self):
-        self.solverWMeshSurf.solve()
-        self.solverObj.extractSurfW.solve()
-        self.solverObj.copySurfWMeshTo3d.solve()
-        self.solverWMesh.solve()
-        self.solverDWMeshDz.solve()
+        self.solver_w_mesh_surf.solve()
+        self.solver_obj.extract_surf_w.solve()
+        self.solver_obj.copy_surf_w_mesh_to_3d.solve()
+        self.solver_w_mesh.solve()
+        self.solver_dw_mesh_dz.solve()
 
 
 class ParabolicViscosity(object):

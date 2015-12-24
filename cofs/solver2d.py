@@ -6,10 +6,10 @@ Tuomas Karna 2015-10-17
 from utility import *
 import shallowwater_eq
 import timeintegrator
-import time as timeMod
+import time as time_mod
 from mpi4py import MPI
 import exporter
-from cofs.field_defs import fieldMetadata
+from cofs.field_defs import field_metadata
 from cofs.options import ModelOptions
 
 
@@ -25,8 +25,8 @@ class FlowSolver2d(FrozenClass):
         self.dt = None
 
         # 2d model specific default options
-        options.setdefault('timestepperType', 'SSPRK33')
-        options.setdefault('timerLabels', ['mode2d'])
+        options.setdefault('timestepper_type', 'SSPRK33')
+        options.setdefault('timer_labels', ['mode2d'])
         options.setdefault('fields_to_export', ['elev_2d', 'uv_2d'])
 
         # override default options
@@ -36,7 +36,7 @@ class FlowSolver2d(FrozenClass):
         # simulation time step bookkeeping
         self.simulation_time = 0
         self.iteration = 0
-        self.iExport = 1
+        self.i_export = 1
 
         self.visu_spaces = {}
         """Maps function space to a space where fields will be projected to for visualization"""
@@ -50,10 +50,10 @@ class FlowSolver2d(FrozenClass):
         self.bnd_functions = {'shallow_water': {}}
         self._isfrozen = True  # disallow creating new attributes
 
-    def setTimeStep(self):
+    def set_time_step(self):
         self.dt = self.options.dt
         if self.dt is None:
-            mesh2d_dt = self.eq_sw.getTimeStep(Umag=self.options.uAdvection)
+            mesh2d_dt = self.eq_sw.get_time_step(Umag=self.options.u_advection)
             dt = self.options.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
             dt = comm.allreduce(dt, op=MPI.MIN)
             self.dt = dt
@@ -61,7 +61,7 @@ class FlowSolver2d(FrozenClass):
             print 'dt =', self.dt
             sys.stdout.flush()
 
-    def createFunctionSpaces(self):
+    def create_function_spaces(self):
         """Creates function spaces"""
         self._isfrozen = False
         # ----- function spaces: elev in H, uv in U, mixed is W
@@ -82,10 +82,10 @@ class FlowSolver2d(FrozenClass):
         self.visu_spaces[self.function_spaces.H_2d] = self.function_spaces.P1_2d
         self._isfrozen = True
 
-    def createEquations(self):
+    def create_equations(self):
         """Creates functions, equations and time steppers."""
         if not hasattr(self, 'U_2d'):
-            self.createFunctionSpaces()
+            self.create_function_spaces()
         self._isfrozen = False
         # ----- fields
         self.fields.solution_2d = Function(self.function_spaces.V_2d)
@@ -95,8 +95,8 @@ class FlowSolver2d(FrozenClass):
             self.fields.solution_2d,
             self.fields.bathymetry_2d,
             lin_drag=self.options.lin_drag,
-            viscosity_h=self.fields.get('hViscosity'),
-            uvLaxFriedrichs=self.options.uvLaxFriedrichs,
+            viscosity_h=self.fields.get('h_viscosity'),
+            uv_lax_friedrichs=self.options.uv_lax_friedrichs,
             coriolis=self.options.coriolis,
             wind_stress=self.options.wind_stress,
             uv_source=self.options.uv_source_2d,
@@ -106,20 +106,20 @@ class FlowSolver2d(FrozenClass):
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
 
         # ----- Time integrators
-        self.setTimeStep()
-        if self.options.timestepperType.lower() == 'ssprk33':
+        self.set_time_step()
+        if self.options.timestepper_type.lower() == 'ssprk33':
             self.timestepper = timeintegrator.SSPRK33Stage(self.eq_sw, self.dt,
                                                            self.eq_sw.solver_parameters)
-        elif self.options.timestepperType.lower() == 'ssprk33semi':
+        elif self.options.timestepper_type.lower() == 'ssprk33semi':
             self.timestepper = timeintegrator.SSPRK33StageSemiImplicit(self.eq_sw,
                                                                        self.dt, self.eq_sw.solver_parameters)
-        elif self.options.timestepperType.lower() == 'forwardeuler':
+        elif self.options.timestepper_type.lower() == 'forwardeuler':
             self.timestepper = timeintegrator.ForwardEuler(self.eq_sw, self.dt,
                                                            self.eq_sw.solver_parameters)
-        elif self.options.timestepperType.lower() == 'cranknicolson':
+        elif self.options.timestepper_type.lower() == 'cranknicolson':
             self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.dt,
                                                             self.eq_sw.solver_parameters)
-        elif self.options.timestepperType.lower() == 'sspimex':
+        elif self.options.timestepper_type.lower() == 'sspimex':
             # TODO meaningful solver params
             sp_impl = {
                 'ksp_type': 'gmres',
@@ -135,7 +135,7 @@ class FlowSolver2d(FrozenClass):
                                                       solver_parameters=sp_expl,
                                                       solver_parameters_dirk=sp_impl)
         else:
-            raise Exception('Unknown time integrator type: '+str(self.options.timestepperType))
+            raise Exception('Unknown time integrator type: '+str(self.options.timestepper_type))
 
         # ----- File exporters
         # correct treatment of the split 2d functions
@@ -149,25 +149,25 @@ class FlowSolver2d(FrozenClass):
                                    self.options.fields_to_export,
                                    self.fields,
                                    self.visu_spaces,
-                                   fieldMetadata,
+                                   field_metadata,
                                    export_type='vtk',
                                    verbose=self.options.verbose > 0)
         self.exporters['vtk'] = e
-        numpyDir = os.path.join(self.options.outputdir, 'numpy')
-        e = exporter.ExportManager(numpyDir,
-                                   self.options.fields_to_exportNumpy,
+        numpy_dir = os.path.join(self.options.outputdir, 'numpy')
+        e = exporter.ExportManager(numpy_dir,
+                                   self.options.fields_to_export_numpy,
                                    self.fields,
                                    self.visu_spaces,
-                                   fieldMetadata,
+                                   field_metadata,
                                    export_type='numpy',
                                    verbose=self.options.verbose > 0)
         self.exporters['numpy'] = e
-        hdf5Dir = os.path.join(self.options.outputdir, 'hdf5')
-        e = exporter.ExportManager(hdf5Dir,
-                                   self.options.fields_to_exportHDF5,
+        hdf5_dir = os.path.join(self.options.outputdir, 'hdf5')
+        e = exporter.ExportManager(hdf5_dir,
+                                   self.options.fields_to_export_hdf5,
                                    self.fields,
                                    self.visu_spaces,
-                                   fieldMetadata,
+                                   field_metadata,
                                    export_type='hdf5',
                                    verbose=self.options.verbose > 0)
         self.exporters['hdf5'] = e
@@ -175,9 +175,9 @@ class FlowSolver2d(FrozenClass):
         self._initialized = True
         self._isfrozen = True  # disallow creating new attributes
 
-    def assignInitialConditions(self, elev=None, uv_init=None):
+    def assign_initial_conditions(self, elev=None, uv_init=None):
         if not self._initialized:
-            self.createEquations()
+            self.create_equations()
         uv_2d, elev_2d = self.fields.solution_2d.split()
         if elev is not None:
             elev_2d.project(elev)
@@ -190,50 +190,50 @@ class FlowSolver2d(FrozenClass):
         for key in self.exporters:
             self.exporters[key].export()
 
-    def loadState(self, iExport, t, iteration):
+    def load_state(self, i_export, t, iteration):
         """Loads simulation state from hdf5 outputs."""
         uv_2d, elev_2d = self.fields.solution_2d.split()
-        self.exporters['hdf5'].exporters['uv_2d'].load(iExport, uv_2d)
-        self.exporters['hdf5'].exporters['elev_2d'].load(iExport, elev_2d)
-        self.assignInitialConditions(elev=elev_2d, uv_init=uv_2d)
-        self.iExport = iExport
+        self.exporters['hdf5'].exporters['uv_2d'].load(i_export, uv_2d)
+        self.exporters['hdf5'].exporters['elev_2d'].load(i_export, elev_2d)
+        self.assign_initial_conditions(elev=elev_2d, uv_init=uv_2d)
+        self.i_export = i_export
         self.simulation_time = t
         self.iteration = iteration
-        self.printState(0.0)
-        self.iExport += 1
+        self.print_state(0.0)
+        self.i_export += 1
         for k in self.exporters:
-            self.exporters[k].setNextExportIx(self.iExport)
+            self.exporters[k].set_next_export_ix(self.i_export)
 
-    def printState(self, cputime):
+    def print_state(self, cputime):
         norm_h = norm(self.fields.solution_2d.split()[1])
         norm_u = norm(self.fields.solution_2d.split()[0])
 
         if commrank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
-            print(bold(line.format(iexp=self.iExport, i=self.iteration, t=self.simulation_time, e=norm_h,
+            print(bold(line.format(iexp=self.i_export, i=self.iteration, t=self.simulation_time, e=norm_h,
                                    u=norm_u, cpu=cputime)))
             sys.stdout.flush()
 
     def iterate(self, update_forcings=None,
-                exportFunc=None):
+                export_func=None):
         if not self._initialized:
-            self.createEquations()
+            self.create_equations()
 
         T_epsilon = 1.0e-5
-        cputimestamp = timeMod.clock()
+        cputimestamp = time_mod.clock()
         next_export_t = self.simulation_time + self.options.TExport
 
         # initialize conservation checks
-        if self.options.checkVolConservation2d:
+        if self.options.check_vol_conservation_2d:
             eta = self.fields.solution_2d.split()[1]
             Vol2d_0 = comp_volume_2d(eta, self.fields.bathymetry_2d)
             print_info('Initial volume 2d {0:f}'.format(Vol2d_0))
 
         # initial export
         self.export()
-        if exportFunc is not None:
-            exportFunc()
+        if export_func is not None:
+            export_func()
         self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
         while self.simulation_time <= self.options.T + T_epsilon:
@@ -247,34 +247,34 @@ class FlowSolver2d(FrozenClass):
 
             # Write the solution to file
             if self.simulation_time >= next_export_t - T_epsilon:
-                cputime = timeMod.clock() - cputimestamp
-                cputimestamp = timeMod.clock()
-                self.printState(cputime)
-                if self.options.checkVolConservation2d:
+                cputime = time_mod.clock() - cputimestamp
+                cputimestamp = time_mod.clock()
+                self.print_state(cputime)
+                if self.options.check_vol_conservation_2d:
                     Vol2d = comp_volume_2d(self.fields.solution_2d.split()[1],
                                            self.fields.bathymetry_2d)
                 if commrank == 0:
                     line = 'Rel. {0:s} error {1:11.4e}'
-                    if self.options.checkVolConservation2d:
+                    if self.options.check_vol_conservation_2d:
                         print(line.format('vol 2d', (Vol2d_0 - Vol2d)/Vol2d_0))
                     sys.stdout.flush()
 
                 self.export()
-                if exportFunc is not None:
-                    exportFunc()
+                if export_func is not None:
+                    export_func()
 
                 next_export_t += self.options.TExport
-                self.iExport += 1
+                self.i_export += 1
 
-                if commrank == 0 and len(self.options.timerLabels) > 0:
+                if commrank == 0 and len(self.options.timer_labels) > 0:
                     cost = {}
                     relcost = {}
                     totcost = 0
-                    for label in self.options.timerLabels:
+                    for label in self.options.timer_labels:
                         value = timing(label, reset=True)
                         cost[label] = value
                         totcost += value
-                    for label in self.options.timerLabels:
+                    for label in self.options.timer_labels:
                         c = cost[label]
                         relcost = c/max(totcost, 1e-6)
                         print '{0:25s} : {1:11.6f} {2:11.2f}'.format(

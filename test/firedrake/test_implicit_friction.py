@@ -8,7 +8,7 @@ Tuomas Karna 2015-09-16
 """
 from firedrake import *
 import numpy as np
-import time as timeMod
+import time as time_mod
 
 op2.init(log_level=WARNING)
 
@@ -33,7 +33,7 @@ def test_implicit_friction(do_export=False, do_assert=True):
     mesh = ExtrudedMesh(mesh2d, layers=50, layer_height=-depth/layers)
 
     if do_export:
-        outFile = File('implicit_bf_sol.pvd')
+        out_file = File('implicit_bf_sol.pvd')
 
     # ----- define function spaces
     deg = 1
@@ -53,7 +53,7 @@ def test_implicit_friction(do_export=False, do_assert=True):
 
     solution = Function(V, name='velocity')
     solution_new = Function(V, name='new velocity')
-    solutionP1DG = Function(P1DGv, name='velocity p1dg')
+    solution_p1_dg = Function(P1DGv, name='velocity p1dg')
     viscosity_v = Function(P1DG, name='viscosity')
     elev_slope = -1.0e-5
     source = Constant((-9.81*elev_slope, 0, 0))
@@ -80,24 +80,24 @@ def test_implicit_friction(do_export=False, do_assert=True):
         # vertical diffusion (integrated by parts)
         f += -viscosity_v*inner(Dx(solution, 2), Dx(test, 2)) * dx
         # interface term
-        diffFlux = viscosity_v*Dx(solution, 2)
-        f += (dot(avg(diffFlux), test('+'))*normal[2]('+') +
-              dot(avg(diffFlux), test('-'))*normal[2]('-')) * dS_h
+        diff_flux = viscosity_v*Dx(solution, 2)
+        f += (dot(avg(diff_flux), test('+'))*normal[2]('+') +
+              dot(avg(diff_flux), test('-'))*normal[2]('-')) * dS_h
         # symmetric interior penalty stabilization
         L = Constant(depth/layers)
-        nbNeigh = 2
+        nb_neigh = 2
         o = 1
         d = 3
-        sigma = Constant((o + 1)*(o + d)/d * nbNeigh / 2) / L
+        sigma = Constant((o + 1)*(o + d)/d * nb_neigh / 2) / L
         gamma = sigma*avg(viscosity_v)
         f += gamma * dot(jump(solution), test('+')*normal[2]('+') + test('-')*normal[2]('-')) * dS_h
         # boundary term
         uv_bot_old = sol_old + Dx(sol_old, 2)*L*0.5
         uv_bot = solution + Dx(solution, 2)*L*0.5  # solver fails
         uv_mag = sqrt(uv_bot_old[0]**2 + uv_bot_old[1]**2) + Constant(1e-12)
-        bndFlux = bottom_drag*uv_mag*uv_bot
+        bnd_flux = bottom_drag*uv_mag*uv_bot
         ds_bottom = ds_t
-        f += dot(bndFlux, test)*normal[2] * ds_bottom
+        f += dot(bnd_flux, test)*normal[2] * ds_bottom
 
         return f
 
@@ -114,7 +114,7 @@ def test_implicit_friction(do_export=False, do_assert=True):
     # sp['ksp_converged_reason'] = True
 
     dt = 3600.0
-    timeSteps = 13
+    time_steps = 13
     dt_const = Constant(dt)
 
     # Backward Euler
@@ -124,18 +124,18 @@ def test_implicit_friction(do_export=False, do_assert=True):
     solver = LinearVariationalSolver(prob, solver_parameters=sp)
 
     if do_export:
-        outFile << solution
+        out_file << solution
     # ----- solve
     t = 0
-    for it in range(1, timeSteps + 1):
+    for it in range(1, time_steps + 1):
         t = it*dt
-        t0 = timeMod.clock()
+        t0 = time_mod.clock()
         solver.solve()
         solution.assign(solution_new)
-        t1 = timeMod.clock()
+        t1 = time_mod.clock()
 
         if do_export:
-            outFile << solution
+            out_file << solution
         print '{:4d}  T={:9.1f} s  cpu={:.2f} s'.format(it, t, t1-t0)
 
     if do_assert:
@@ -143,8 +143,8 @@ def test_implicit_friction(do_export=False, do_assert=True):
         target_u_max = 1.0
         target_u_tol = 1e-2
         target_zero = 1e-6
-        solutionP1DG.project(solution)
-        uvw = solutionP1DG.dat.data
+        solution_p1_dg.project(solution)
+        uvw = solution_p1_dg.dat.data
         w_max = np.max(np.abs(uvw[:, 2]))
         v_max = np.max(np.abs(uvw[:, 1]))
         print 'w', w_max

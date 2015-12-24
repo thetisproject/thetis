@@ -233,40 +233,40 @@ def run(setup, refinement, order, export=True):
     bathymetry_2d = Function(P1_2d, name='Bathymetry')
     bathymetry_2d.project(S['bath_expr'])
 
-    solverObj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
-    solverObj.options.order = order
-    solverObj.options.mimetic = False
-    solverObj.options.uAdvection = Constant(1.0)
-    solverObj.options.outputdir = outputdir
-    solverObj.options.dt = 30.0
-    solverObj.options.dt_2d = 10.0
-    solverObj.options.update(S['options'])
+    solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
+    solver_obj.options.order = order
+    solver_obj.options.mimetic = False
+    solver_obj.options.u_advection = Constant(1.0)
+    solver_obj.options.outputdir = outputdir
+    solver_obj.options.dt = 30.0
+    solver_obj.options.dt_2d = 10.0
+    solver_obj.options.update(S['options'])
 
-    assert solverObj.options.mimetic is False, ('this test is not suitable '
-                                                'for mimetic elements')
+    assert solver_obj.options.mimetic is False, ('this test is not suitable '
+                                                 'for mimetic elements')
     # NOTE use symmetic uv condition to get correct w
     bnd_mom = {'symm': None}
-    solverObj.bnd_functions['momentum'] = {1: bnd_mom, 2: bnd_mom,
-                                           3: bnd_mom, 4: bnd_mom}
+    solver_obj.bnd_functions['momentum'] = {1: bnd_mom, 2: bnd_mom,
+                                            3: bnd_mom, 4: bnd_mom}
 
-    solverObj.createEquations()
+    solver_obj.create_equations()
     # elevation field
-    solverObj.fields.elev_2d.project(S['elev_expr'])
+    solver_obj.fields.elev_2d.project(S['elev_expr'])
     # update mesh and fields
-    solverObj.copyElevTo3d.solve()
-    solverObj.meshCoordUpdater.solve()
-    compute_elem_height(solverObj.fields.z_coord_3d, solverObj.fields.v_elem_size_3d)
-    solverObj.copyVElemSizeTo2d.solve()
+    solver_obj.copy_elev_to_3d.solve()
+    solver_obj.mesh_coord_updater.solve()
+    compute_elem_height(solver_obj.fields.z_coord_3d, solver_obj.fields.v_elem_size_3d)
+    solver_obj.copy_v_elem_size_to_2d.solve()
 
     # velocity field
-    solverObj.fields.uv_3d.project(S['uv_expr'])  # NOTE for DG only
-    uv_analytical = Function(solverObj.function_spaces.P1DGv, name='uv_ana_3d')
+    solver_obj.fields.uv_3d.project(S['uv_expr'])  # NOTE for DG only
+    uv_analytical = Function(solver_obj.function_spaces.P1DGv, name='uv_ana_3d')
     uv_analytical.project(S['uv_expr'])
     # analytical solution
-    w_analytical = Function(solverObj.function_spaces.P1DGv, name='w_ana_3d')
+    w_analytical = Function(solver_obj.function_spaces.P1DGv, name='w_ana_3d')
     w_analytical.project(S['w_expr'])
     # analytical solution in high-order space for computing L2 norms
-    P1DG_ho = VectorFunctionSpace(solverObj.mesh, 'DG', order+3)
+    P1DG_ho = VectorFunctionSpace(solver_obj.mesh, 'DG', order+3)
     w_ana_ho = Function(P1DG_ho, name='Analytical w')
     w_ana_ho.project(S['w_expr'])
 
@@ -276,10 +276,10 @@ def run(setup, refinement, order, export=True):
         out_uv = File(os.path.join(outputdir, 'uv.pvd'))
 
     # w needs to be projected to cartesian vector field for sanity check
-    w_proj_3d = Function(solverObj.function_spaces.P1DGv, name='w_proj_3d')
+    w_proj_3d = Function(solver_obj.function_spaces.P1DGv, name='w_proj_3d')
 
-    solverObj.wSolver.solve()
-    uvw = solverObj.fields.uv_3d + solverObj.fields.w_3d
+    solver_obj.w_solver.solve()
+    uvw = solver_obj.fields.uv_3d + solver_obj.fields.w_3d
     w_proj_3d.project(uvw)  # This needed for HDiv elements
     # discard u,v components
     w_proj_3d.dat.data[:, :2] = 0
@@ -287,15 +287,15 @@ def run(setup, refinement, order, export=True):
         out_w << w_proj_3d
         out_w_ana << w_analytical
         out_uv << uv_analytical
-        solverObj.export()
+        solver_obj.export()
 
     print 'w_pro', w_proj_3d.dat.data[:, 2].min(), w_proj_3d.dat.data[:, 2].max()
     print 'w_ana', w_analytical.dat.data[:, 2].min(), w_analytical.dat.data[:, 2].max()
 
     # compute flux through bottom boundary
-    normal = FacetNormal(solverObj.mesh)
-    bottom_flux = assemble(inner(uvw, normal)*solverObj.eq_momentum.ds_bottom)
-    bottom_flux_ana = assemble(inner(w_analytical, normal)*solverObj.eq_momentum.ds_bottom)
+    normal = FacetNormal(solver_obj.mesh)
+    bottom_flux = assemble(inner(uvw, normal)*solver_obj.eq_momentum.ds_bottom)
+    bottom_flux_ana = assemble(inner(w_analytical, normal)*solver_obj.eq_momentum.ds_bottom)
     print 'flux through bot', bottom_flux, bottom_flux_ana
 
     err_msg = '{:}: Bottom impermeability violated: bottom flux {:.4g}'.format(setup_name, bottom_flux)
@@ -304,14 +304,14 @@ def run(setup, refinement, order, export=True):
     L2_err_w = errornorm(w_ana_ho, w_proj_3d)/numpy.sqrt(area)
     print 'L2 error w  {:.12f}'.format(L2_err_w)
     w_ana_ho.project(S['uv_expr'])
-    L2_err_uv = errornorm(w_ana_ho, solverObj.fields.uv_3d)/numpy.sqrt(area)
+    L2_err_uv = errornorm(w_ana_ho, solver_obj.fields.uv_3d)/numpy.sqrt(area)
     print 'L2 error uv {:.12f}'.format(L2_err_uv)
 
-    tmpFunctionCache.clear()  # NOTE must destroy all cached solvers for next simulation
+    tmp_function_cache.clear()  # NOTE must destroy all cached solvers for next simulation
     return L2_err_w, L2_err_uv
 
 
-def run_convergence(setup, ref_list, order, export=False, savePlot=False):
+def run_convergence(setup, ref_list, order, export=False, save_plot=False):
     """Runs test for a list of refinements and computes error convergence rate"""
     l2_err = []
     for r in ref_list:
@@ -321,11 +321,11 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
     y_log_w = y_log[:, 0]
     y_log_uv = y_log[:, 1]
 
-    def check_convergence(x_log, y_log, expected_slope, field_str, savePlot):
+    def check_convergence(x_log, y_log, expected_slope, field_str, save_plot):
         slope_rtol = 0.2
         slope, intercept, r_value, p_value, std_err = stats.linregress(x_log, y_log)
         setup_name = setup.__name__
-        if savePlot:
+        if save_plot:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots(figsize=(5, 5))
             # plot points
@@ -348,8 +348,8 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
             order_str = 'o{:}'.format(order)
             imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str])
             imgfile += '.png'
-            imgDir = create_directory('plots')
-            imgfile = os.path.join(imgDir, imgfile)
+            img_dir = create_directory('plots')
+            imgfile = os.path.join(img_dir, imgfile)
             print 'saving figure', imgfile
             plt.savefig(imgfile, dpi=200, bbox_inches='tight')
         if expected_slope is not None:
@@ -360,8 +360,8 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
             print '{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope)
         return slope
 
-    check_convergence(x_log, y_log_w, order, 'w', savePlot)
-    check_convergence(x_log, y_log_uv, order + 1, 'uv', savePlot)
+    check_convergence(x_log, y_log_w, order, 'w', save_plot)
+    check_convergence(x_log, y_log_uv, order + 1, 'uv', save_plot)
 
 
 # NOTE setup1 does not converge: solution is ~exact for all meshes
@@ -377,7 +377,7 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
 
 @pytest.mark.not_travis
 def test_setup5_dg():
-    run_convergence(setup5dg, [1, 2, 3], 1, savePlot=False)
+    run_convergence(setup5dg, [1, 2, 3], 1, save_plot=False)
 
 # ---------------------------
 # run individual setup for debugging
@@ -389,7 +389,7 @@ def test_setup5_dg():
 # run individual scaling test
 # ---------------------------
 
-# run_convergence(setup5dg, [1, 2, 3], 1, savePlot=True)
+# run_convergence(setup5dg, [1, 2, 3], 1, save_plot=True)
 
 # ---------------------------
 # run all defined setups

@@ -5,7 +5,7 @@ Tests implicit bottom friction formulation with COFS
 Tuomas Karna 2015-09-16
 """
 from cofs import *
-import time as timeMod
+import time as time_mod
 import pytest
 
 
@@ -40,48 +40,48 @@ def test_implicit_friction_turbulence(do_assert=True):
     bathymetry2d.assign(depth)
 
     # create solver
-    solverObj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
-    options = solverObj.options
+    solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
+    options = solver_obj.options
     options.nonlin = False
-    options.solveSalt = False
-    options.solveVertDiffusion = True
-    options.useBottomFriction = True
-    # options.useParabolicViscosity = True
-    options.useTurbulence = True
-    options.useALEMovingMesh = False
-    options.useLimiterForTracers = True
-    options.uvLaxFriedrichs = Constant(1.0)
-    options.tracerLaxFriedrichs = Constant(0.0)
-    # options.vViscosity = Constant(0.001)
-    # options.hViscosity = Constant(1.0)
+    options.solve_salt = False
+    options.solve_vert_diffusion = True
+    options.use_bottom_friction = True
+    # options.use_parabolic_viscosity = True
+    options.use_turbulence = True
+    options.use_ale_moving_mesh = False
+    options.use_limiter_for_tracers = True
+    options.uv_lax_friedrichs = Constant(1.0)
+    options.tracer_lax_friedrichs = Constant(0.0)
+    # options.v_viscosity = Constant(0.001)
+    # options.h_viscosity = Constant(1.0)
     options.TExport = TExport
     options.dt = dt
     options.T = T
     options.outputdir = outputdir
-    options.uAdvection = Umag
-    options.checkSaltDeviation = True
-    options.timerLabels = ['mode2d', 'momentumEq', 'vert_diffusion', 'turbulence']
+    options.u_advection = Umag
+    options.check_salt_deviation = True
+    options.timer_labels = ['mode2d', 'momentum_eq', 'vert_diffusion', 'turbulence']
     # options.fields_to_export = []
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                                 'uv_dav_2d', 'uv_bottom_2d',
                                 'parab_visc_3d', 'eddy_visc_3d', 'shear_freq_3d',
                                 'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
-    # options.fields_to_exportNumpy = ['uv3d', 'eddyVisc3d', 'shearFreq3d',
+    # options.fields_to_export_numpy = ['uv3d', 'eddy_visc_3d', 'shear_freq_3d',
     #                                'tke3d', 'psi3d', 'eps3d', 'len3d']
-    solverObj.createEquations()
+    solver_obj.create_equations()
 
     elev_slope = -1.0e-5
-    pressureGradientSource = Constant((-9.81*elev_slope, 0, 0))
+    pressure_gradient_source = Constant((-9.81*elev_slope, 0, 0))
 
-    s = solverObj
-    vertMomEq = momentumEquation.VerticalMomentumEquation(
+    s = solver_obj
+    vert_mom_eq = momentum_equation.VerticalMomentumEquation(
         s.fields.uv_3d, w=None,
         viscosity_v=s.tot_v_visc.get_sum(),
         uv_bottom=s.fields.uv_bottom_3d,
         bottom_drag=s.fields.bottom_drag_3d,
         wind_stress=s.fields.get('wind_stress_3d'),
         v_elem_size=s.fields.v_elem_size_3d,
-        source=pressureGradientSource)
+        source=pressure_gradient_source)
 
     sp = {}
     sp['ksp_type'] = 'gmres'
@@ -91,18 +91,18 @@ def test_implicit_friction_turbulence(do_assert=True):
     # sp['snes_rtol'] = 1e-4  # to avoid stagnation
     sp['snes_rtol'] = 1e-18  # to avoid stagnation
     sp['ksp_rtol'] = 1e-22  # to avoid stagnation
-    timestepper = timeintegrator.DIRKLSPUM2(vertMomEq, dt, solver_parameters=sp)
-    # timestepper = timeintegrator.BackwardEuler(vertMomEq, dt, solver_parameters=sp)
+    timestepper = timeintegrator.DIRKLSPUM2(vert_mom_eq, dt, solver_parameters=sp)
+    # timestepper = timeintegrator.BackwardEuler(vert_mom_eq, dt, solver_parameters=sp)
 
     # TODO fix momemtum eq for parabolic visc
     # TODO mimic gotm implementation
 
     t = 0
-    nSteps = int(np.round(T/dt))
-    for it in range(nSteps):
+    n_steps = int(np.round(T/dt))
+    for it in range(n_steps):
         t = it*dt
-        t0 = timeMod.clock()
-        # momentumEq
+        t0 = time_mod.clock()
+        # momentum_eq
         timestepper.advance(t, dt, s.fields.uv_3d)
         s.uv_p1_projector.project()
         # update bottom friction
@@ -120,7 +120,7 @@ def test_implicit_friction_turbulence(do_assert=True):
         s.timestepper.timestepper_psi_3d.advance(t, s.dt, s.fields.psi_3d)
         s.timestepper.timestepper_tke_3d.advance(t, s.dt, s.fields.tke_3d)
         s.gls_model.postprocess()
-        t1 = timeMod.clock()
+        t1 = time_mod.clock()
         # NOTE vtk exporter has a memory leak if output space is DG
         s.export()
         print '{:4d}  T={:9.1f} s  cpu={:7.2f} s uv:{:}'.format(it, t, t1-t0, norm(s.fields.uv_3d))
@@ -130,9 +130,9 @@ def test_implicit_friction_turbulence(do_assert=True):
         target_u_max = 0.9
         target_u_tol = 5.0e-2
         target_zero = 1e-8
-        solutionP1DG = Function(s.P1DGv, name='velocity p1dg')
-        solutionP1DG.project(s.uv3d)
-        uvw = solutionP1DG.dat.data
+        solution_p1_dg = Function(s.P1DGv, name='velocity p1dg')
+        solution_p1_dg.project(s.uv3d)
+        uvw = solution_p1_dg.dat.data
         w_max = np.max(np.abs(uvw[:, 2]))
         v_max = np.max(np.abs(uvw[:, 1]))
         print 'w', w_max

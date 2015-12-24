@@ -1,12 +1,11 @@
 """
 MMS test for 2d shallow water equations.
 
-- setuoXX functions define analytical expressions for fields and boundary
+- setup functions define analytical expressions for fields and boundary
   conditions. Expressions were derived with sympy.
 - run function runs the MMS setup with a single mesh resolution, returning
   L2 errors.
 - run_convergence runs a scaling test, computes and asserts convergence rate.
-- test_XX functions are the default test cases for continuous testing.
 
 Tuomas Karna 2015-10-29
 """
@@ -375,58 +374,58 @@ def run(setup, refinement, order, export=True):
         print 'bath', bathymetry_2d.dat.data.min(), bathymetry_2d.dat.data.max()
         raise Exception('Negative bathymetry')
 
-    solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
-    solverObj.options.order = order
-    solverObj.options.mimetic = True
-    solverObj.options.uAdvection = Constant(1.0)
-    solverObj.options.outputdir = outputdir
-    solverObj.options.T = T
-    solverObj.options.dt = dt
-    solverObj.options.TExport = TExport
-    solverObj.options.timerLabels = []
-    # solverObj.options.timestepperType = 'cranknicolson'
-    solverObj.options.update(SET['options'])
+    solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
+    solver_obj.options.order = order
+    solver_obj.options.mimetic = True
+    solver_obj.options.u_advection = Constant(1.0)
+    solver_obj.options.outputdir = outputdir
+    solver_obj.options.T = T
+    solver_obj.options.dt = dt
+    solver_obj.options.TExport = TExport
+    solver_obj.options.timer_labels = []
+    # solver_obj.options.timestepper_type = 'cranknicolson'
+    solver_obj.options.update(SET['options'])
 
-    solverObj.createFunctionSpaces()
+    solver_obj.create_function_spaces()
 
     # analytical solution in high-order space for computing L2 norms
-    H_2d_HO = FunctionSpace(solverObj.mesh2d, 'DG', order+3)
-    U_2d_HO = VectorFunctionSpace(solverObj.mesh2d, 'DG', order+4)
+    H_2d_HO = FunctionSpace(solver_obj.mesh2d, 'DG', order+3)
+    U_2d_HO = VectorFunctionSpace(solver_obj.mesh2d, 'DG', order+4)
     elev_ana_ho = Function(H_2d_HO, name='Analytical elevation')
     elev_ana_ho.project(SET['elev_expr'])
     uv_ana_ho = Function(U_2d_HO, name='Analytical velocity')
     uv_ana_ho.project(SET['uv_expr'])
 
     # functions for source terms
-    source_uv = Function(solverObj.function_spaces.U_2d, name='momentum source')
+    source_uv = Function(solver_obj.function_spaces.U_2d, name='momentum source')
     source_uv.project(SET['res_uv_expr'])
-    source_elev = Function(solverObj.function_spaces.H_2d, name='continuity source')
+    source_elev = Function(solver_obj.function_spaces.H_2d, name='continuity source')
     source_elev.project(SET['res_elev_expr'])
-    coriolis_func = Function(solverObj.function_spaces.H_2d, name='coriolis')
+    coriolis_func = Function(solver_obj.function_spaces.H_2d, name='coriolis')
     coriolis_func.project(SET['cori_expr'])
-    solverObj.options.uv_source_2d = source_uv
-    solverObj.options.elev_source_2d = source_elev
-    solverObj.options.coriolis = coriolis_func
+    solver_obj.options.uv_source_2d = source_uv
+    solver_obj.options.elev_source_2d = source_elev
+    solver_obj.options.coriolis = coriolis_func
 
     # functions for boundary conditions
     # analytical elevation
-    elev_ana = Function(solverObj.function_spaces.H_2d, name='Analytical elevation')
+    elev_ana = Function(solver_obj.function_spaces.H_2d, name='Analytical elevation')
     elev_ana.project(SET['elev_expr'])
     # analytical uv
-    uv_ana = Function(solverObj.function_spaces.U_2d, name='Analytical velocity')
+    uv_ana = Function(solver_obj.function_spaces.U_2d, name='Analytical velocity')
     uv_ana.project(SET['uv_expr'])
     # normal velocity (scalar field, will be interpreted as un*normal vector)
     # left/right bnds
-    un_ana_x = Function(solverObj.function_spaces.H_2d, name='Analytical normal velocity x')
+    un_ana_x = Function(solver_obj.function_spaces.H_2d, name='Analytical normal velocity x')
     un_ana_x.project(uv_ana[0])
     # lower/uppser bnds
-    un_ana_y = Function(solverObj.function_spaces.H_2d, name='Analytical normal velocity y')
+    un_ana_y = Function(solver_obj.function_spaces.H_2d, name='Analytical normal velocity y')
     un_ana_y.project(uv_ana[1])
     # flux through left/right bnds
-    flux_ana_x = Function(solverObj.function_spaces.H_2d, name='Analytical x flux')
+    flux_ana_x = Function(solver_obj.function_spaces.H_2d, name='Analytical x flux')
     flux_ana_x.project(uv_ana[0]*(bathymetry_2d + elev_ana)*Ly)
     # flux through lower/upper bnds
-    flux_ana_y = Function(solverObj.function_spaces.H_2d, name='Analytical x flux')
+    flux_ana_y = Function(solver_obj.function_spaces.H_2d, name='Analytical x flux')
     flux_ana_y.project(uv_ana[1]*(bathymetry_2d + elev_ana)*Lx)
 
     # construct bnd conditions from setup
@@ -451,7 +450,7 @@ def run(setup, refinement, order, export=True):
             field_name = bnd_field.split('_')[0]
             d[field_name] = bnd_field_mapping[bnd_field]
         # set to the correct bnd_id
-        solverObj.bnd_functions['shallow_water'][bnd_id] = d
+        solver_obj.bnd_functions['shallow_water'][bnd_id] = d
         # # print a fancy description
         # bnd_str = ''
         # for k in d:
@@ -466,18 +465,18 @@ def run(setup, refinement, order, export=True):
         #     bnd_str += '{:}: {:}, '.format(k, name)
         # print('bnd {:}: {:}'.format(bnd_id, bnd_str))
 
-    solverObj.assignInitialConditions(elev=elev_ana, uv_init=uv_ana)
-    solverObj.iterate()
+    solver_obj.assign_initial_conditions(elev=elev_ana, uv_init=uv_ana)
+    solver_obj.iterate()
 
-    elev_L2_err = errornorm(elev_ana_ho, solverObj.fields.solution_2d.split()[1])/numpy.sqrt(area)
-    uv_L2_err = errornorm(uv_ana_ho, solverObj.fields.solution_2d.split()[0])/numpy.sqrt(area)
-    print 'elev L2 error {:.12f}'.format(elev_L2_err)
-    print 'uv L2 error {:.12f}'.format(uv_L2_err)
-    tmpFunctionCache.clear()  # NOTE must destroy all cached solvers for next simulation
-    return elev_L2_err, uv_L2_err
+    elev_l2_err = errornorm(elev_ana_ho, solver_obj.fields.solution_2d.split()[1])/numpy.sqrt(area)
+    uv_l2_err = errornorm(uv_ana_ho, solver_obj.fields.solution_2d.split()[0])/numpy.sqrt(area)
+    print 'elev L2 error {:.12f}'.format(elev_l2_err)
+    print 'uv L2 error {:.12f}'.format(uv_l2_err)
+    tmp_function_cache.clear()  # NOTE must destroy all cached solvers for next simulation
+    return elev_l2_err, uv_l2_err
 
 
-def run_convergence(setup, ref_list, order, export=False, savePlot=False):
+def run_convergence(setup, ref_list, order, export=False, save_plot=False):
     """Runs test for a list of refinements and computes error convergence rate"""
     l2_err = []
     for r in ref_list:
@@ -487,11 +486,11 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
     y_log_elev = y_log[:, 0]
     y_log_uv = y_log[:, 1]
 
-    def check_convergence(x_log, y_log, expected_slope, field_str, savePlot):
+    def check_convergence(x_log, y_log, expected_slope, field_str, save_plot):
         slope_rtol = 0.2
         slope, intercept, r_value, p_value, std_err = stats.linregress(x_log, y_log)
         setup_name = setup.__name__
-        if savePlot:
+        if save_plot:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots(figsize=(5, 5))
             # plot points
@@ -514,8 +513,8 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
             order_str = 'o{:}'.format(order)
             imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str])
             imgfile += '.png'
-            imgDir = create_directory('plots')
-            imgfile = os.path.join(imgDir, imgfile)
+            img_dir = create_directory('plots')
+            imgfile = os.path.join(img_dir, imgfile)
             print 'saving figure', imgfile
             plt.savefig(imgfile, dpi=200, bbox_inches='tight')
         if expected_slope is not None:
@@ -526,8 +525,8 @@ def run_convergence(setup, ref_list, order, export=False, savePlot=False):
             print '{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope)
         return slope
 
-    check_convergence(x_log, y_log_elev, order+1, 'elev', savePlot)
-    check_convergence(x_log, y_log_uv, order+1, 'uv', savePlot)
+    check_convergence(x_log, y_log_elev, order+1, 'elev', save_plot)
+    check_convergence(x_log, y_log_uv, order+1, 'uv', save_plot)
 
 # NOTE nontrivial velocity implies slower convergence
 # NOTE try time dependent solution: need to update source terms
@@ -549,7 +548,7 @@ def setup_function(request, choose_setup):
 
 
 def test_steady_state_basin_convergence(setup_function):
-    run_convergence(setup_function, [1, 2, 4, 6], 1, savePlot=False)
+    run_convergence(setup_function, [1, 2, 4, 6], 1, save_plot=False)
 
 # ---------------------------
 # run individual setup for debugging
@@ -561,4 +560,4 @@ def test_steady_state_basin_convergence(setup_function):
 # run individual scaling test
 # ---------------------------
 
-# run_convergence(setup8dg, [1, 2, 4], 1, savePlot=True)
+# run_convergence(setup8dg, [1, 2, 4], 1, save_plot=True)

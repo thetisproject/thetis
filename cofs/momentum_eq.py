@@ -56,15 +56,15 @@ class MomentumEquation(Equation):
         if not hasattr(ufl_elem, '_A'):
             # For HDiv elements
             ufl_elem = ufl_elem._element
-        self.horizontal_DG = ufl_elem._A.family() != 'Lagrange'
-        self.vertical_DG = ufl_elem._B.family() != 'Lagrange'
+        self.horizontal_dg = ufl_elem._A.family() != 'Lagrange'
+        self.vertical_dg = ufl_elem._B.family() != 'Lagrange'
         self.HDiv = ufl_elem._A.family() == 'Raviart-Thomas'
 
         eta_elem = eta.function_space().ufl_element()
-        self.eta_is_DG = eta_elem._A.family() != 'Lagrange'
+        self.eta_is_dg = eta_elem._A.family() != 'Lagrange'
 
-        self.gradEtaByParts = self.eta_is_DG
-        self.horizAdvectionByParts = True
+        self.grad_eta_by_parts = self.eta_is_dg
+        self.horiz_advection_by_parts = True
 
         # mesh dependent variables
         self.normal = FacetNormal(self.mesh)
@@ -87,7 +87,7 @@ class MomentumEquation(Equation):
         # maps bnd_marker to dict of external functions e.g. {'elev':eta_ext}
         self.bnd_functions = {}
 
-    def massTerm(self, solution):
+    def mass_term(self, solution):
         """All time derivative terms on the LHS, without the actual time
         derivative.
 
@@ -95,43 +95,43 @@ class MomentumEquation(Equation):
         """
         return inner(solution, self.test) * self.dx
 
-    def pressureGrad(self, eta, baroc_head, uv, total_H, byParts=True,
-                     **kwargs):
+    def pressure_grad(self, eta, baroc_head, uv, total_h, by_parts=True,
+                      **kwargs):
         if baroc_head is not None:
             head = eta + baroc_head
         else:
             head = eta
-        if byParts:
-            divTest = (Dx(self.test[0], 0) +
-                       Dx(self.test[1], 1))
-            f = -g_grav*head*divTest*self.dx
-            # head_star = avg(head) + 0.5*sqrt(avg(total_H)/g_grav)*jump(uv, self.normal)
+        if by_parts:
+            div_test = (Dx(self.test[0], 0) +
+                        Dx(self.test[1], 1))
+            f = -g_grav*head*div_test*self.dx
+            # head_star = avg(head) + 0.5*sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
             head_star = avg(head)
-            jumpNDotTest = (jump(self.test[0], self.normal[0]) +
-                            jump(self.test[1], self.normal[1]))
-            f += g_grav*head_star*jumpNDotTest*(self.dS_v + self.dS_h)
-            nDotTest = (self.normal[0]*self.test[0] +
-                        self.normal[1]*self.test[1])
-            f += g_grav*head*nDotTest*(self.ds_bottom + self.ds_surf)
+            jump_n_dot_test = (jump(self.test[0], self.normal[0]) +
+                               jump(self.test[1], self.normal[1]))
+            f += g_grav*head_star*jump_n_dot_test*(self.dS_v + self.dS_h)
+            n_dot_test = (self.normal[0]*self.test[0] +
+                          self.normal[1]*self.test[1])
+            f += g_grav*head*n_dot_test*(self.ds_bottom + self.ds_surf)
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds_v(int(bnd_marker))
                 if baroc_head is not None:
-                    f += g_grav*baroc_head*nDotTest*ds_bnd
-                specialEtaFlux = funcs is not None and 'elev' in funcs
-                if not specialEtaFlux:
-                    f += g_grav*eta*nDotTest*ds_bnd
+                    f += g_grav*baroc_head*n_dot_test*ds_bnd
+                special_eta_flux = funcs is not None and 'elev' in funcs
+                if not special_eta_flux:
+                    f += g_grav*eta*n_dot_test*ds_bnd
         else:
-            gradHeadDotTest = (Dx(head, 0)*self.test[0] +
-                               Dx(head, 1)*self.test[1])
-            f = g_grav * gradHeadDotTest * self.dx
+            grad_head_dot_test = (Dx(head, 0)*self.test[0] +
+                                  Dx(head, 1)*self.test[1])
+            f = g_grav * grad_head_dot_test * self.dx
         return f
 
-    def horizontalAdvection(self, solution, total_H, lax_friedrichs_factor,
-                            uv_mag=None, uv_p1=None, **kwargs):
+    def horizontal_advection(self, solution, total_h, lax_friedrichs_factor,
+                             uv_mag=None, uv_p1=None, **kwargs):
         if not self.nonlin:
             return 0
-        if self.horizAdvectionByParts:
+        if self.horiz_advection_by_parts:
             f = -(Dx(self.test[0], 0)*solution[0]*solution[0] +
                   Dx(self.test[0], 1)*solution[0]*solution[1] +
                   Dx(self.test[1], 0)*solution[1]*solution[0] +
@@ -141,7 +141,7 @@ class MomentumEquation(Equation):
                      uv_av[1]*self.normal('-')[1])
             s = 0.5*(sign(un_av) + 1.0)
             uv_up = solution('-')*s + solution('+')*(1-s)
-            if self.horizontal_DG:
+            if self.horizontal_dg:
                 f += (uv_up[0]*uv_av[0]*jump(self.test[0], self.normal[0]) +
                       uv_up[0]*uv_av[1]*jump(self.test[0], self.normal[1]) +
                       uv_up[1]*uv_av[0]*jump(self.test[1], self.normal[0]) +
@@ -170,7 +170,7 @@ class MomentumEquation(Equation):
                     elif 'flux' in funcs:
                         # prescribe normal volume flux
                         sect_len = Constant(self.boundary_len[bnd_marker])
-                        un_ext = funcs['flux'] / total_H / sect_len
+                        un_ext = funcs['flux'] / total_h / sect_len
                         if self.nonlin:
                             uv_in = solution
                             uv_ext = self.normal*un_ext
@@ -215,17 +215,17 @@ class MomentumEquation(Equation):
         G = 0  # holds all ds boundary interface terms
 
         if self.nonlin:
-            total_H = self.bathymetry + eta
+            total_h = self.bathymetry + eta
         else:
-            total_H = self.bathymetry
+            total_h = self.bathymetry
 
         # external pressure gradient
-        F += self.pressureGrad(eta, baroc_head, solution, total_H, byParts=self.gradEtaByParts)
+        F += self.pressure_grad(eta, baroc_head, solution, total_h, by_parts=self.grad_eta_by_parts)
 
         # Advection term
         if self.nonlin:
-            F += self.horizontalAdvection(solution, total_H, lax_friedrichs_factor,
-                                          uv_mag=uv_mag, uv_p1=uv_p1)
+            F += self.horizontal_advection(solution, total_h, lax_friedrichs_factor,
+                                           uv_mag=uv_mag, uv_p1=uv_p1)
 
             # Vertical advection term
             if w is not None:
@@ -235,7 +235,7 @@ class MomentumEquation(Equation):
                 Adv_v = -(Dx(self.test[0], 2)*solution[0]*vertvelo +
                           Dx(self.test[1], 2)*solution[1]*vertvelo)
                 F += Adv_v * self.dx
-                if self.vertical_DG:
+                if self.vertical_dg:
                     s = 0.5*(sign(avg(w[2])*self.normal[2]('-')) + 1.0)
                     uv_up = solution('-')*s + solution('+')*(1-s)
                     w_av = avg(w[2])
@@ -313,13 +313,13 @@ class MomentumEquation(Equation):
                                     Dx(solution[1], 0) * Dx(self.test[1], 0) +
                                     Dx(solution[0], 1) * Dx(self.test[0], 1) +
                                     Dx(solution[1], 1) * Dx(self.test[1], 1))
-            if self.horizontal_DG:
+            if self.horizontal_dg:
                 # interface term
-                muGradSol = viscosity_h*nabla_grad(solution)
-                F += -(avg(muGradSol[0, 0])*jump(self.test[0], self.normal[0]) +
-                       avg(muGradSol[0, 1])*jump(self.test[1], self.normal[0]) +
-                       avg(muGradSol[1, 0])*jump(self.test[0], self.normal[1]) +
-                       avg(muGradSol[1, 1])*jump(self.test[1], self.normal[1]))*(self.dS_v+self.dS_h)
+                mu_grad_sol = viscosity_h*nabla_grad(solution)
+                F += -(avg(mu_grad_sol[0, 0])*jump(self.test[0], self.normal[0]) +
+                       avg(mu_grad_sol[0, 1])*jump(self.test[1], self.normal[0]) +
+                       avg(mu_grad_sol[1, 0])*jump(self.test[0], self.normal[1]) +
+                       avg(mu_grad_sol[1, 1])*jump(self.test[1], self.normal[1]))*(self.dS_v+self.dS_h)
                 # TODO symmetric interior penalty term
             F += F_visc * self.dx
 
@@ -327,10 +327,10 @@ class MomentumEquation(Equation):
         if viscosity_v is not None:
             F += viscosity_v*(Dx(self.test[0], 2)*Dx(solution[0], 2) +
                               Dx(self.test[1], 2)*Dx(solution[1], 2)) * self.dx
-            if self.vertical_DG:
-                intViscFlux = (jump(self.test[0]*Dx(solution[0], 2), self.normal[2]) +
-                               jump(self.test[1]*Dx(solution[1], 2), self.normal[2]))
-                G += -avg(viscosity_v) * intViscFlux * self.dS_h
+            if self.vertical_dg:
+                int_visc_flux = (jump(self.test[0]*Dx(solution[0], 2), self.normal[2]) +
+                                 jump(self.test[1]*Dx(solution[1], 2), self.normal[2]))
+                G += -avg(viscosity_v) * int_visc_flux * self.dS_h
                 # viscflux = viscosity_v*Dx(solution, 2)
                 # G += -(avg(viscflux[0])*jump(self.test[0], normal[2]) +
                 #        avg(viscflux[0])*jump(self.test[1], normal[2]))
@@ -395,8 +395,8 @@ class VerticalMomentumEquation(Equation):
         if not hasattr(ufl_elem, '_A'):
             # For HDiv elements
             ufl_elem = ufl_elem._element
-        self.horizontal_DG = ufl_elem._A.family() != 'Lagrange'
-        self.vertical_DG = ufl_elem._B.family() != 'Lagrange'
+        self.horizontal_dg = ufl_elem._A.family() != 'Lagrange'
+        self.vertical_dg = ufl_elem._B.family() != 'Lagrange'
 
         # mesh dependent variables
         self.normal = FacetNormal(self.mesh)
@@ -415,10 +415,10 @@ class VerticalMomentumEquation(Equation):
         # maps bnd_marker to dict of external functions e.g. {'elev':eta_ext}
         self.bnd_functions = {}
 
-    def getTimeStep(self, Umag=Constant(1.0)):
-        raise NotImplementedError('getTimeStep not implemented')
+    def get_time_step(self, Umag=Constant(1.0)):
+        raise NotImplementedError('get_time_step not implemented')
 
-    def massTerm(self, solution):
+    def mass_term(self, solution):
         """All time derivative terms on the LHS, without the actual time
         derivative.
 
@@ -447,24 +447,24 @@ class VerticalMomentumEquation(Equation):
             Adv_v = -(Dx(self.test[0], 2)*solution[0]*w +
                       Dx(self.test[1], 2)*solution[1]*w)
             F += Adv_v * self.dx
-            if self.vertical_DG:
+            if self.vertical_dg:
                 # FIXME implement interface terms
                 raise NotImplementedError('Adv term not implemented for DG')
 
         # vertical viscosity
         if viscosity_v is not None:
             F += viscosity_v*inner(Dx(solution, 2), Dx(self.test, 2)) * self.dx
-            if self.vertical_DG:
-                viscFlux = viscosity_v*Dx(solution, 2)
-                F += -(dot(avg(viscFlux), self.test('+'))*self.normal[2]('+') +
-                       dot(avg(viscFlux), self.test('-'))*self.normal[2]('-')) * self.dS_h
+            if self.vertical_dg:
+                visc_flux = viscosity_v*Dx(solution, 2)
+                F += -(dot(avg(visc_flux), self.test('+'))*self.normal[2]('+') +
+                       dot(avg(visc_flux), self.test('-'))*self.normal[2]('-')) * self.dS_h
                 # symmetric interior penalty stabilization
                 ip_fact = Constant(1.0)
                 L = avg(self.v_elem_size)
-                nbNeigh = 2.
+                nb_neigh = 2.
                 o = 1.
                 d = 3.
-                sigma = Constant((o + 1.0)*(o + d)/d * nbNeigh / 2.0) / L
+                sigma = Constant((o + 1.0)*(o + d)/d * nb_neigh / 2.0) / L
                 gamma = sigma*avg(viscosity_v) * ip_fact
                 jump_test = (self.test('+')*self.normal[2]('+') +
                              self.test('-')*self.normal[2]('-'))
