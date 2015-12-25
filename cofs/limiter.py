@@ -73,14 +73,15 @@ class vertexBasedP1DGLimiter(object):
         # Allowed min/max values for each P1 node in the mesh
         self.max_field = Function(self.P1CG, name='limiterP1DG-maxvalue')
         self.min_field = Function(self.P1CG, name='limiterP1DG-minvalue')
+        # store solvers for computing centroids
+        self.centroid_solvers = {}
 
     def _constructAverageOperator(self, field):
         """
         Constructs a linear problem for computing the centroids and
-        adds it to the linear problem cache.
+        adds it to the cache.
         """
-        key = '-'.join(('limiterP1DG', field.name()))
-        if key not in linProblemCache:
+        if field not in self.centroid_solvers:
             tri = TrialFunction(self.P0)
             test = TestFunction(self.P0)
 
@@ -91,8 +92,8 @@ class vertexBasedP1DGLimiter(object):
             problem = LinearVariationalProblem(a, L, self.centroids)
             solver = LinearVariationalSolver(problem,
                                              solver_parameters=params)
-            linProblemCache.add(key, solver, 'limiterP1DG')
-        return linProblemCache[key]
+            self.centroid_solvers[field] = solver
+        return self.centroid_solvers[field]
 
     def _updateCentroids(self, field):
         """

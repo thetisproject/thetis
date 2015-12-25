@@ -101,7 +101,7 @@ def uv_2d_x(U_2d):
                           [False, 2.0]))
 def test_copy3dFieldTo2d(c3d, c2d, bottom):
     bottom, expect = bottom
-    utility.copy3dFieldTo2d(c3d, c2d, useBottomValue=bottom)
+    utility.subFunctionExtractor(c3d, c2d, useBottomValue=bottom).solve()
     assert np.allclose(c2d.dat.data_ro[:], expect)
 
 
@@ -110,20 +110,20 @@ def test_copy3dFieldTo2d(c3d, c2d, bottom):
                           [False, (1.0, 4.0)]))
 def test_copy3dFieldTo2d_vec(uv_3d, uv_2d, bottom):
     bottom, expect = bottom
-    utility.copy3dFieldTo2d(uv_3d, uv_2d, useBottomValue=bottom)
+    utility.subFunctionExtractor(uv_3d, uv_2d, useBottomValue=bottom).solve()
     assert np.allclose(uv_2d.dat.data_ro, expect)
 
 
 @pytest.mark.parametrize("bottom", (True, False))
 def test_copy3dFieldTo2d_x(c3d_x, c2d_x, bottom):
-    utility.copy3dFieldTo2d(c3d_x, c2d_x, useBottomValue=bottom)
+    utility.subFunctionExtractor(c3d_x, c2d_x, useBottomValue=bottom).solve()
     assert np.allclose(c2d_x.dat.data_ro.min(), 2.0)
     assert np.allclose(c2d_x.dat.data_ro.max(), 3.0)
 
 
 @pytest.mark.parametrize("bottom", (True, False))
 def test_copy3dFieldTo2d_x_vec(uv_3d_x, uv_2d_x, bottom):
-    utility.copy3dFieldTo2d(uv_3d_x, uv_2d_x, useBottomValue=bottom)
+    utility.subFunctionExtractor(uv_3d_x, uv_2d_x, useBottomValue=bottom).solve()
     assert np.allclose(uv_2d_x.dat.data_ro[:, 0].min(), 1.0)
     assert np.allclose(uv_2d_x.dat.data_ro[:, 0].max(), 2.0)
     assert np.allclose(uv_2d_x.dat.data_ro[:, 1].min(), 4.0)
@@ -131,18 +131,18 @@ def test_copy3dFieldTo2d_x_vec(uv_3d_x, uv_2d_x, bottom):
 
 
 def test_copy2dFieldTo3d(c2d, c3d):
-    utility.copy2dFieldTo3d(c2d, c3d)
+    utility.expandFunctionTo3d(c2d, c3d).solve()
     assert np.allclose(c3d.dat.data_ro[:], 4.0)
 
 
 def test_copy2dFieldTo3d_x(c2d_x, c3d_x):
-    utility.copy2dFieldTo3d(c2d_x, c3d_x)
+    utility.expandFunctionTo3d(c2d_x, c3d_x).solve()
     assert np.allclose(c3d_x.dat.data_ro.min(), 0.0)
     assert np.allclose(c3d_x.dat.data_ro.max(), 2.0)
 
 
 def test_copy2dFieldTo3d_x_vec(uv_2d_x, uv_3d_x):
-    utility.copy2dFieldTo3d(uv_2d_x, uv_3d_x)
+    utility.expandFunctionTo3d(uv_2d_x, uv_3d_x).solve()
     assert np.allclose(uv_3d_x.dat.data_ro[:, 0].min(), 0.0)
     assert np.allclose(uv_3d_x.dat.data_ro[:, 0].max(), 4.0)
     assert np.allclose(uv_3d_x.dat.data_ro[:, 1].min(), 0.0)
@@ -150,7 +150,7 @@ def test_copy2dFieldTo3d_x_vec(uv_2d_x, uv_3d_x):
 
 
 def test_copy2dFieldTo3d_vec(uv_2d, uv_3d):
-    utility.copy2dFieldTo3d(uv_2d, uv_3d)
+    utility.expandFunctionTo3d(uv_2d, uv_3d).solve()
     assert np.allclose(uv_3d.dat.data_ro[:, 0], 4.0)
     assert np.allclose(uv_3d.dat.data_ro[:, 1], 8.0)
 

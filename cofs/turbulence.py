@@ -79,27 +79,28 @@ def setFuncMaxVal(f, maxval):
     f.dat.data[f.dat.data > maxval] = maxval
 
 
-def computeShearFrequency(uv, M2, Mu, Mv, Mu_tmp, minval=1e-12,
-                          solver_parameters={}):
+class ShearFrequencySolver(object):
     """
     Computes vertical shear frequency squared form the given horizontal
     velocity field.
 
     M^2 = du/dz^2 + dv/dz^2
     """
-    # NOTE M2 should be computed from DG uv field ?
-    # solver_parameters.setdefault('ksp_type', 'cg')
-    solver_parameters.setdefault('ksp_atol', 1e-12)
-    solver_parameters.setdefault('ksp_rtol', 1e-16)
+    def __init__(self, uv, M2, Mu, Mv, Mu_tmp, minval=1e-12, solver_parameters={}):
+        # NOTE M2 should be computed from DG uv field ?
+        # solver_parameters.setdefault('ksp_type', 'cg')
+        solver_parameters.setdefault('ksp_atol', 1e-12)
+        solver_parameters.setdefault('ksp_rtol', 1e-16)
 
-    # relaxation coefficient between old and new Mu or Mv
-    relaxation = 0.5
+        self.Mu = Mu
+        self.Mv = Mv
+        self.M2 = M2
+        self.Mu_tmp = Mu_tmp
+        # relaxation coefficient between old and new Mu or Mv
+        self.relaxation = 0.5
 
-    Mu_comp = [Mu, Mv]
-    M2.assign(0.0)
-    for iComp in range(2):
-        key = '-'.join(('M2', M2.name(), uv.name(), str(iComp)))
-        if key not in linProblemCache:
+        self.var_solvers = {}
+        for iComp in range(2):
             H = M2.function_space()
             test = TestFunction(H)
             tri = TrialFunction(H)
@@ -118,12 +119,18 @@ def computeShearFrequency(uv, M2, Mu, Mv, Mu_tmp, minval=1e-12,
 
             prob = LinearVariationalProblem(a, L, Mu_tmp)
             solver = LinearVariationalSolver(prob)
-            linProblemCache.add(key, solver, 'shearFrequency')
-        linProblemCache[key].solve()
-        Mu_comp[iComp].assign(relaxation*Mu_tmp + (1.0 - relaxation)*Mu_comp[iComp])
-        M2 += Mu_comp[iComp]*Mu_comp[iComp]
-    # crop small/negative values
-    # setFuncMinVal(M2, minval)
+            self.var_solvers[iComp] = solver
+
+    def solve(self):
+        Mu_comp = [self.Mu, self.Mv]
+        self.M2.assign(0.0)
+        for iComp in range(2):
+            self.var_solvers[iComp].solve()
+            Mu_comp[iComp].assign(self.relaxation*self.Mu_tmp +
+                                  (1.0 - self.relaxation)*Mu_comp[iComp])
+            self.M2 += Mu_comp[iComp]*Mu_comp[iComp]
+        # crop small/negative values
+        # setFuncMinVal(M2, minval)
 
 
 class smootherP1(object):
@@ -306,6 +313,10 @@ class genericLengthScaleModel(object):
         # c3_minus = self.stabilityFunc.computeC3Minus(c1, c2)
         self.params['c3_minus'] = -0.63  # NOTE depends on model and stab func
 
+        self.shear_frequency_solver = ShearFrequencySolver(self.uv, self.M2,
+                                                           self.Mu, self.Mv,
+                                                           self.Mu_tmp)
+
         self.initialize()
 
     def initialize(self):
@@ -320,7 +331,7 @@ class genericLengthScaleModel(object):
         Update all fields that depend on velocity and density.
         """
         # update M2 and N2
-        computeShearFrequency(self.uv, self.M2, self.Mu, self.Mv, self.Mu_tmp)
+        self.shear_frequency_solver.solve()
         # self.smoother.apply(self.M2)
         setFuncMinVal(self.M2, 1e-12)
 

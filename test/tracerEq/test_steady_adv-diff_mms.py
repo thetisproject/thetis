@@ -216,31 +216,26 @@ def run(setup, refinement, order, export=True):
     bnd_salt = {'value': T_ana}
     solverObj.bnd_functions['salt'] = {1: bnd_salt, 2: bnd_salt,
                                        3: bnd_salt, 4: bnd_salt}
+    # NOTE use symmetic uv condition to get correct w
+    bnd_mom = {'symm': None}
+    solverObj.bnd_functions['momentum'] = {1: bnd_mom, 2: bnd_mom,
+                                           3: bnd_mom, 4: bnd_mom}
 
     solverObj.createEquations()
-    # use symmetry condition at all boundaries
-    bnd_markers = solverObj.eq_sw.boundary_markers
-    bnd_funcs = {}
-    for k in bnd_markers:
-        bnd_funcs[k] = {'symm': None}
     # elevation field
     solverObj.fields.elev_2d.project(SET['elev_expr'])
     # update mesh and fields
-    copy2dFieldTo3d(solverObj.fields.elev_2d, solverObj.fields.elev_3d)
-    updateCoordinates(solverObj.mesh,
-                      solverObj.fields.elev_3d,
-                      solverObj.fields.bathymetry_3d,
-                      solverObj.fields.z_coord_3d,
-                      solverObj.fields.z_coord_ref_3d)
+    solverObj.copyElevTo3d.solve()
+    solverObj.meshCoordUpdater.solve()
     computeElemHeight(solverObj.fields.z_coord_3d, solverObj.fields.v_elem_size_3d)
-    copy3dFieldTo2d(solverObj.fields.v_elem_size_3d, solverObj.fields.v_elem_size_2d)
+    solverObj.copyVElemSizeTo2d.solve()
 
     # salinity field
     solverObj.fields.salt_3d.project(SET['tracer_expr'])
     # velocity field
     solverObj.fields.uv_3d.project(SET['uv_expr'])
-    computeVertVelocity(solverObj.fields.w_3d, solverObj.fields.uv_3d, solverObj.fields.bathymetry_3d,
-                        boundary_markers=bnd_markers, boundary_funcs=bnd_funcs)
+    solverObj.wSolver.solve()
+
     if export:
         out_T << T_ana
         solverObj.export()
@@ -264,8 +259,7 @@ def run(setup, refinement, order, export=True):
     L2_err = errornorm(T_ana_ho, solverObj.fields.salt_3d)/numpy.sqrt(area)
     print 'L2 error {:.12f}'.format(L2_err)
 
-    linProblemCache.clear()  # NOTE must destroy all cached solvers for next simulation
-    tmpFunctionCache.clear()
+    tmpFunctionCache.clear()  # NOTE must destroy all cached solvers for next simulation
     return L2_err
 
 
@@ -346,4 +340,4 @@ def test_setup4_dg():
 # run individual scaling test
 # ---------------------------
 
-# run_convergence(setup4dg, [1, 2, 3], 1, savePlot=True)
+# run_convergence(setup3dg, [1, 2, 3], 1, savePlot=True)

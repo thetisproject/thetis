@@ -21,24 +21,20 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
     def _update3dElevation(self):
         """Projects elevation to 3D"""
         with timed_region('aux_elev_3d'):
-            copy2dFieldTo3d(self.fields.elev_2d, self.fields.elev_3d)  # at t_{n+1}
+            self.solver.copyElevTo3d.solve()  # at t_{n+1}
             self.solver.elev_3d_to_CG_projector.project()
 
     def _updateVerticalVelocity(self):
         with timed_region('continuityEq'):
-            computeVertVelocity(self.fields.w_3d, self.fields.uv_3d, self.fields.bathymetry_3d,
-                                self.solver.eq_momentum.boundary_markers,
-                                self.solver.eq_momentum.bnd_functions)
+            self.solver.wSolver.solve()
 
     def _updateMovingMesh(self):
         """Updates mesh to match elevation field"""
         if self.options.useALEMovingMesh:
             with timed_region('aux_mesh_ale'):
-                updateCoordinates(
-                    self.solver.mesh, self.fields.elev_3d, self.fields.bathymetry_3d,
-                    self.fields.z_coord_3d, self.fields.z_coord_ref_3d)
+                self.solver.meshCoordUpdater.solve()
                 computeElemHeight(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
-                copy3dFieldTo2d(self.fields.v_elem_size_3d, self.fields.v_elem_size_2d)
+                self.solver.copyVElemSizeTo2d.solve()
 
     def _updateBottomFriction(self):
         """Computes bottom friction related fields"""
@@ -46,6 +42,7 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
             with timed_region('aux_friction'):
                 self.solver.uvP1_projector.project()
                 computeBottomFriction(
+                    self.solver,
                     self.fields.uv_p1_3d, self.fields.uv_bottom_2d,
                     self.fields.uv_bottom_3d, self.fields.z_coord_3d,
                     self.fields.z_bottom_2d,
@@ -53,24 +50,14 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
                     self.fields.bottom_drag_3d,
                     self.fields.v_elem_size_2d, self.fields.v_elem_size_3d)
         if self.options.useParabolicViscosity:
-            computeParabolicViscosity(
-                self.fields.uv_bottom_3d, self.fields.bottom_drag_3d,
-                self.fields.bathymetry_3d,
-                self.fields.parab_visc_3d)
+            self.solver.parabolicViscositySolver.solve()
 
     def _update2DCoupling(self):
         """Does 2D-3D coupling for the velocity field"""
         with timed_region('aux_mom_coupling'):
-            bndValue = Constant((0.0, 0.0, 0.0))
-            computeVerticalIntegral(self.fields.uv_3d, self.fields.uv_dav_3d,
-                                    bottomToTop=True, bndValue=bndValue,
-                                    average=True,
-                                    bathymetry=self.fields.bathymetry_3d)
-            copy3dFieldTo2d(self.fields.uv_dav_3d, self.fields.uv_dav_2d,
-                            useBottomValue=False,
-                            elemHeight=self.fields.v_elem_size_2d)
-            copy2dFieldTo3d(self.fields.uv_dav_2d, self.fields.uv_dav_3d,
-                            elemHeight=self.fields.v_elem_size_3d)
+            self.solver.uvAverager.solve()
+            self.solver.extractSurfDavUV.solve()
+            self.solver.copyUVDavToUVDav3d.solve()
             # 2d-3d coupling: restart 2d mode from depth ave uv_3d
             # NOTE unstable!
             # uv_2d_start = sol2d.split()[0]
@@ -84,26 +71,20 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
             # self.fields.uvDAV_to_tmp_projector.project()  # project uv_dav to uv_3d_tmp
             # self.fields.uv_3d += self.fields.uv_3d_tmp
             self.fields.uv_3d -= self.fields.uv_dav_3d
-            copy2dFieldTo3d(self.fields.uv_2d, self.fields.uv_dav_3d,
-                            elemHeight=self.fields.v_elem_size_3d)
+            self.solver.copyUVToUVDav3d.solve()
             self.fields.uv_3d += self.fields.uv_dav_3d
 
     def _updateMeshVelocity(self):
         """Computes ALE mesh velocity"""
         if self.options.useALEMovingMesh:
             with timed_region('aux_mesh_ale'):
-                computeMeshVelocity(
-                    self.fields.elev_3d, self.fields.uv_3d, self.fields.w_3d,
-                    self.fields.w_mesh_3d, self.fields.w_mesh_surf_3d,
-                    self.fields.w_mesh_surf_2d,
-                    self.fields.w_mesh_ddz_3d, self.fields.bathymetry_3d,
-                    self.fields.z_coord_ref_3d)
+                self.solver.wMeshSolver.solve()
 
     def _updateBaroclinicity(self):
         """Computes baroclinic head"""
         if self.options.baroclinic:
             with timed_region('aux_barolinicity'):
-                computeBaroclinicHead(self.fields.salt_3d, self.fields.baroc_head_3d,
+                computeBaroclinicHead(self.solver, self.fields.salt_3d, self.fields.baroc_head_3d,
                                       self.fields.baroc_head_2d, self.fields.baroc_head_int_3d,
                                       self.fields.bathymetry_3d)
 
@@ -123,19 +104,15 @@ class coupledTimeIntegrator(timeIntegrator.timeIntegrator):
     def _updateStabilizationParams(self):
         """Computes Smagorinsky viscosity etc fields"""
         # update velocity magnitude
-        computeVelMagnitude(self.fields.uv_mag_3d, u=self.fields.uv_3d)
+        self.solver.uvMagSolver.solve()
         # update P1 velocity field
         self.solver.uvP1_projector.project()
         if self.options.smagorinskyFactor is not None:
             with timed_region('aux_stabilization'):
-                smagorinskyViscosity(self.fields.uv_p1_3d, self.fields.smag_visc_3d,
-                                     self.options.smagorinskyFactor, self.fields.h_elem_size_3d)
+                self.solver.smagorinskyDiffSolver.solve()
         if self.options.salt_jump_diffFactor is not None:
             with timed_region('aux_stabilization'):
-                computeHorizJumpDiffusivity(self.options.salt_jump_diffFactor, self.fields.salt_3d,
-                                            self.fields.salt_jump_diff, self.fields.h_elem_size_3d,
-                                            self.fields.uv_mag_3d, self.options.saltRange,
-                                            self.fields.max_h_diff)
+                self.solver.horizJumpDiffSolver.solve()
 
     def _updateAllDependencies(self, t,
                                do2DCoupling=False,
@@ -564,14 +541,8 @@ class coupledSSPRKSingleMode(coupledTimeIntegrator):
     def _update2DCoupling(self):
         """Overloaded coupling function"""
         with timed_region('aux_mom_coupling'):
-            bndValue = Constant((0.0, 0.0, 0.0))
-            computeVerticalIntegral(self.fields.uv_3d, self.fields.uv_dav_3d,
-                                    bottomToTop=True, bndValue=bndValue,
-                                    average=True,
-                                    bathymetry=self.fields.bathymetry_3d)
-            copy3dFieldTo2d(self.fields.uv_dav_3d, self.fields.uv_dav_2d,
-                            useBottomValue=False,
-                            elemHeight=self.fields.v_elem_size_2d)
+            self.solver.uvAverager.solve()
+            self.solver.extractSurfDavUV.solve()
             self.fields.uv_2d.assign(self.fields.uv_dav_2d)
 
     def advance(self, t, dt, updateForcings=None, updateForcings3d=None):
@@ -619,9 +590,10 @@ class coupledSSPRK(coupledTimeIntegrator):
             solver.M_modesplit,
             restartFromAv=True)
 
+        # FIXME self.fields.elev_3d_nplushalf is not defined!
         self.timeStepper_mom3d = timeIntegrator.SSPRK33(
             solver.eq_momentum, solver.dt,
-            funcs_nplushalf={'eta': solver.elev_3d_nplushalf})
+            funcs_nplushalf={'eta': self.fields.elev_3d_nplushalf})
         if self.solver.options.solveSalt:
             self.timeStepper_salt_3d = timeIntegrator.SSPRK33(
                 solver.eq_salt,
@@ -630,6 +602,8 @@ class coupledSSPRK(coupledTimeIntegrator):
             self.timeStepper_vmom3d = timeIntegrator.CrankNicolson(
                 solver.eq_vertmomentum,
                 solver.dt, gamma=0.6)
+        elev_nph = self.timeStepper2d.solution_nplushalf.split()[1]
+        self.copyElevTo3d_nplushalf = expandFunctionTo3d(elev_nph, self.fields.elev_3d_nplushalf)
 
     def initialize(self):
         """Assign initial conditions to all necessary fields"""
@@ -644,14 +618,9 @@ class coupledSSPRK(coupledTimeIntegrator):
     def _update2DCoupling(self):
         """Overloaded coupling function"""
         with timed_region('aux_mom_coupling'):
-            bndValue = Constant((0.0, 0.0, 0.0))
-            computeVerticalIntegral(self.fields.uv_3d, self.fields.uv_dav_3d,
-                                    bottomToTop=True, bndValue=bndValue,
-                                    average=True,
-                                    bathymetry=self.fields.bathymetry_3d)
-            copy3dFieldTo2d(self.fields.uv_dav_3d, self.fields.uv_dav_2d,
-                            useBottomValue=False)
-            copy2dFieldTo3d(self.fields.uv_dav_2d, self.fields.uv_dav_3d)
+            self.solver.uvAverager.solve()
+            self.solver.extractSurfDavUV.solve()
+            self.solver.copyUVDavToUVDav3d.solve()
             # 2d-3d coupling: restart 2d mode from depth ave 3d velocity
             uv_2d_start = self.timeStepper2d.solution_start.split()[0]
             uv_2d_start.assign(self.fields.uv_dav_2d)
@@ -664,10 +633,8 @@ class coupledSSPRK(coupledTimeIntegrator):
                                        self.fields.solution2d,
                                        updateForcings)
         with timed_region('aux_elev_3d'):
-            elev_n = self.fields.solution2d.split()[1]
-            copy2dFieldTo3d(elev_n, self.fields.elev_3d)  # at t_{n+1}
-            elev_nph = self.timeStepper2d.solution_nplushalf.split()[1]
-            copy2dFieldTo3d(elev_nph, self.fields.elev_3d_nplushalf)  # at t_{n+1/2}
+            self.solver.copyElevTo3d.solve()  # at t_{n+1}
+            self.copyElevTo3d_nplushalf.solve()  # at t_{n+1/2}
         self._updateMovingMesh()
         self._updateBottomFriction()
         self._updateBaroclinicity()
