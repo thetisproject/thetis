@@ -8,7 +8,7 @@ Tuomas Karna 2015-09-16
 """
 from firedrake import *
 import numpy as np
-import time as timeMod
+import time as time_mod
 
 op2.init(log_level=WARNING)
 
@@ -23,38 +23,38 @@ def test_implicit_friction(do_export=False, do_assert=True):
     # generate unit mesh and transform its coords
     x_max = 5.0*scale
     x_min = -5.0*scale
-    Lx = (x_max - x_min)
-    n_x = int(Lx/reso)
-    mesh2d = RectangleMesh(n_x, n_x, Lx, Lx, reorder=True)
+    lx = (x_max - x_min)
+    n_x = int(lx/reso)
+    mesh2d = RectangleMesh(n_x, n_x, lx, lx, reorder=True)
     # move mesh, center to (0,0)
-    mesh2d.coordinates.dat.data[:, 0] -= Lx/2
-    mesh2d.coordinates.dat.data[:, 1] -= Lx/2
+    mesh2d.coordinates.dat.data[:, 0] -= lx/2
+    mesh2d.coordinates.dat.data[:, 1] -= lx/2
 
     mesh = ExtrudedMesh(mesh2d, layers=50, layer_height=-depth/layers)
 
     if do_export:
-        outFile = File('implicit_bf_sol.pvd')
+        out_file = File('implicit_bf_sol.pvd')
 
     # ----- define function spaces
     deg = 1
-    P1DG = FunctionSpace(mesh, 'DG', degree=1, vfamily='DG', vdegree=1)
-    P1DGv = VectorFunctionSpace(mesh, 'DG', degree=1, vfamily='DG', vdegree=1)
-    Uh_elt = FiniteElement('RT', triangle, deg + 1)
-    Uv_elt = FiniteElement('DG', interval, deg)
-    U_elt = HDiv(OuterProductElement(Uh_elt, Uv_elt))
+    p1dg = FunctionSpace(mesh, 'DG', degree=1, vfamily='DG', vdegree=1)
+    p1dgv = VectorFunctionSpace(mesh, 'DG', degree=1, vfamily='DG', vdegree=1)
+    u_h_elt = FiniteElement('RT', triangle, deg + 1)
+    u_v_elt = FiniteElement('DG', interval, deg)
+    u_elt = HDiv(OuterProductElement(u_h_elt, u_v_elt))
     # for vertical velocity component
-    Wh_elt = FiniteElement('DG', triangle, deg)
-    Wv_elt = FiniteElement('CG', interval, deg + 1)
-    W_elt = HDiv(OuterProductElement(Wh_elt, Wv_elt))
+    w_h_elt = FiniteElement('DG', triangle, deg)
+    w_v_elt = FiniteElement('CG', interval, deg + 1)
+    w_elt = HDiv(OuterProductElement(w_h_elt, w_v_elt))
     # in deformed mesh horiz. velocity must actually live in U + W
-    UW_elt = EnrichedElement(U_elt, W_elt)
+    uw_elt = EnrichedElement(u_elt, w_elt)
     # final spaces
-    V = FunctionSpace(mesh, UW_elt)  # uv
+    v = FunctionSpace(mesh, uw_elt)  # uv
 
-    solution = Function(V, name='velocity')
-    solution_new = Function(V, name='new velocity')
-    solutionP1DG = Function(P1DGv, name='velocity p1dg')
-    viscosity_v = Function(P1DG, name='viscosity')
+    solution = Function(v, name='velocity')
+    solution_new = Function(v, name='new velocity')
+    solution_p1_dg = Function(p1dgv, name='velocity p1dg')
+    viscosity_v = Function(p1dg, name='viscosity')
     elev_slope = -1.0e-5
     source = Constant((-9.81*elev_slope, 0, 0))
 
@@ -71,33 +71,33 @@ def test_implicit_friction(do_export=False, do_assert=True):
     print 'nu', viscosity_v.dat.data.min(), viscosity_v.dat.data.max()
 
     # --- solve mom eq
-    test = TestFunction(V)
+    test = TestFunction(v)
     normal = FacetNormal(mesh)
 
-    def RHS(solution, sol_old):
+    def rhs(solution, sol_old):
         # source term (external pressure gradient
         f = inner(source, test)*dx
         # vertical diffusion (integrated by parts)
         f += -viscosity_v*inner(Dx(solution, 2), Dx(test, 2)) * dx
         # interface term
-        diffFlux = viscosity_v*Dx(solution, 2)
-        f += (dot(avg(diffFlux), test('+'))*normal[2]('+') +
-              dot(avg(diffFlux), test('-'))*normal[2]('-')) * dS_h
+        diff_flux = viscosity_v*Dx(solution, 2)
+        f += (dot(avg(diff_flux), test('+'))*normal[2]('+') +
+              dot(avg(diff_flux), test('-'))*normal[2]('-')) * dS_h
         # symmetric interior penalty stabilization
-        L = Constant(depth/layers)
-        nbNeigh = 2
+        l = Constant(depth/layers)
+        nb_neigh = 2
         o = 1
         d = 3
-        sigma = Constant((o + 1)*(o + d)/d * nbNeigh / 2) / L
+        sigma = Constant((o + 1)*(o + d)/d * nb_neigh / 2) / l
         gamma = sigma*avg(viscosity_v)
         f += gamma * dot(jump(solution), test('+')*normal[2]('+') + test('-')*normal[2]('-')) * dS_h
         # boundary term
-        uv_bot_old = sol_old + Dx(sol_old, 2)*L*0.5
-        uv_bot = solution + Dx(solution, 2)*L*0.5  # solver fails
+        uv_bot_old = sol_old + Dx(sol_old, 2)*l*0.5
+        uv_bot = solution + Dx(solution, 2)*l*0.5  # solver fails
         uv_mag = sqrt(uv_bot_old[0]**2 + uv_bot_old[1]**2) + Constant(1e-12)
-        bndFlux = bottom_drag*uv_mag*uv_bot
+        bnd_flux = bottom_drag*uv_mag*uv_bot
         ds_bottom = ds_t
-        f += dot(bndFlux, test)*normal[2] * ds_bottom
+        f += dot(bnd_flux, test)*normal[2] * ds_bottom
 
         return f
 
@@ -114,28 +114,28 @@ def test_implicit_friction(do_export=False, do_assert=True):
     # sp['ksp_converged_reason'] = True
 
     dt = 3600.0
-    timeSteps = 13
+    time_steps = 13
     dt_const = Constant(dt)
 
     # Backward Euler
-    F = (inner(solution_new, test)*dx - inner(solution, test)*dx -
-         dt_const*RHS(solution_new, solution))
-    prob = NonlinearVariationalProblem(F, solution_new)
+    f = (inner(solution_new, test)*dx - inner(solution, test)*dx -
+         dt_const*rhs(solution_new, solution))
+    prob = NonlinearVariationalProblem(f, solution_new)
     solver = LinearVariationalSolver(prob, solver_parameters=sp)
 
     if do_export:
-        outFile << solution
+        out_file << solution
     # ----- solve
     t = 0
-    for it in range(1, timeSteps + 1):
+    for it in range(1, time_steps + 1):
         t = it*dt
-        t0 = timeMod.clock()
+        t0 = time_mod.clock()
         solver.solve()
         solution.assign(solution_new)
-        t1 = timeMod.clock()
+        t1 = time_mod.clock()
 
         if do_export:
-            outFile << solution
+            out_file << solution
         print '{:4d}  T={:9.1f} s  cpu={:.2f} s'.format(it, t, t1-t0)
 
     if do_assert:
@@ -143,8 +143,8 @@ def test_implicit_friction(do_export=False, do_assert=True):
         target_u_max = 1.0
         target_u_tol = 1e-2
         target_zero = 1e-6
-        solutionP1DG.project(solution)
-        uvw = solutionP1DG.dat.data
+        solution_p1_dg.project(solution)
+        uvw = solution_p1_dg.dat.data
         w_max = np.max(np.abs(uvw[:, 2]))
         v_max = np.max(np.abs(uvw[:, 1]))
         print 'w', w_max
@@ -159,4 +159,4 @@ def test_implicit_friction(do_export=False, do_assert=True):
         print ' *** PASSED ***'
 
 if __name__ == '__main__':
-    test_implicit_diffusion()
+    test_implicit_friction()

@@ -11,23 +11,23 @@
 # advection.
 #
 # Setting
-# solverObj.nonlin = False
+# solver_obj.nonlin = False
 # uses linear wave equation instead, and no shock develops.
 #
 # Tuomas Karna 2015-03-03
 from scipy.interpolate import interp1d
 from cofs import *
 
-outputDir = createDirectory('outputs')
+outputdir = create_directory('outputs')
 mesh2d = Mesh('channel_mesh.msh')
-printInfo('Loaded mesh '+mesh2d.name)
-printInfo('Exporting to '+outputDir)
+print_info('Loaded mesh '+mesh2d.name)
+print_info('Exporting to '+outputdir)
 # total duration in seconds
-T = 6 * 3600
+t_end = 6 * 3600
 # estimate of max advective velocity used to estimate time step
-Umag = Constant(6.0)
+u_mag = Constant(6.0)
 # export interval in seconds
-TExport = 100.0
+t_export = 100.0
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -49,20 +49,20 @@ x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 bathymetry_2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
 # --- create solver ---
-solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d, order=1)
-options = solverObj.options
+solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=1)
+options = solver_obj.options
 options.cfl_2d = 1.0
 # options.nonlin = False
-options.TExport = TExport
-options.T = T
-options.outputDir = outputDir
-options.uAdvection = Umag
-options.checkVolConservation2d = True
-options.fieldsToExport = ['uv_2d', 'elev_2d']
-options.timerLabels = []
-# options.timeStepperType = 'SSPRK33'
-# options.timeStepperType = 'CrankNicolson'
-options.timeStepperType = 'SSPIMEX'
+options.t_export = t_export
+options.t_end = t_end
+options.outputdir = outputdir
+options.u_advection = u_mag
+options.check_vol_conservation_2d = True
+options.fields_to_export = ['uv_2d', 'elev_2d']
+options.timer_labels = []
+# options.timestepper_type = 'SSPRK33'
+# options.timestepper_type = 'CrankNicolson'
+options.timestepper_type = 'SSPIMEX'
 options.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
 
 # initial conditions, piecewise linear function
@@ -80,6 +80,6 @@ x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 elev_init = Function(P1_2d)
 elev_init.dat.data[:] = elevation(x_func.dat.data, 0, 0,
                                   elev_x, elev_v)
-solverObj.assignInitialConditions(elev=elev_init)
+solver_obj.assign_initial_conditions(elev=elev_init)
 
-solverObj.iterate()
+solver_obj.iterate()

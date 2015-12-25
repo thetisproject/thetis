@@ -20,9 +20,9 @@ mesh2d = Mesh('stommel_square.msh')
 nonlin = False
 depth = 1000.0
 elev_amp = 3.0
-outputDir = createDirectory('outputs')
-T = 75*12*2*3600
-TExport = 3600*2
+outputdir = create_directory('outputs')
+t_end = 75*12*2*3600
+t_export = 3600*2
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -37,31 +37,31 @@ coriolis_2d.interpolate(
     Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0))
 
 # --- create solver ---
-solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d)
-options = solverObj.options
+solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
+options = solver_obj.options
 options.cfl_2d = 1.0
 options.nonlin = False
 options.coriolis = coriolis_2d
-options.TExport = TExport
-options.T = T
+options.t_export = t_export
+options.t_end = t_end
 options.dt = 20.0
-options.outputDir = outputDir
-options.uAdvection = Constant(0.01)
-options.checkVolConservation2d = True
-options.fieldsToExport = ['uv_2d', 'elev_2d']
-options.timerLabels = []
-options.timeStepperType = 'CrankNicolson'
+options.outputdir = outputdir
+options.u_advection = Constant(0.01)
+options.check_vol_conservation_2d = True
+options.fields_to_export = ['uv_2d', 'elev_2d']
+options.timer_labels = []
+options.timestepper_type = 'CrankNicolson'
 
-solverObj.createEquations()
+solver_obj.create_equations()
 sigma = 160.0e3
-elev_init = Function(solverObj.function_spaces.H_2d)
+elev_init = Function(solver_obj.function_spaces.H_2d)
 elev_init.project(Expression('eta_amp*exp(-(x[0]*x[0]+x[1]*x[1])/s/s)', eta_amp=elev_amp, s=sigma))
 
 # initial velocity: u = -g/f deta/dy, v = g/f deta/dx
-uv_init = Function(solverObj.function_spaces.U_2d)
+uv_init = Function(solver_obj.function_spaces.U_2d)
 uv_init.project(Expression(('g/f*eta_amp*2*x[1]/s/s*exp(-(x[0]*x[0]+x[1]*x[1])/s/s)',
                             '-g/f*eta_amp*2*x[0]/s/s*exp(-(x[0]*x[0]+x[1]*x[1])/s/s)'), eta_amp=elev_amp, s=sigma, g=9.81, f=f0))
 
-solverObj.assignInitialConditions(elev=elev_init, uv_init=uv_init)
+solver_obj.assign_initial_conditions(elev=elev_init, uv_init=uv_init)
 
-solverObj.iterate()
+solver_obj.iterate()

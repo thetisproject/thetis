@@ -6,7 +6,7 @@ and additional variable psi.
 
 dk/dt + \nabla_h(uv*k) + d(w*k)/dz = d/dz(\nu_h/\sigma_k dk/dz) + P + B - eps
 dpsi/dt + \nabla_h(uv*psi) + d(w*psi)/dz = d/dz(\nu_h/\sigma_psi dpsi/dz) +
-   psi/k*(c1*P + c3*B - c2*eps*F_wall)
+   psi/k*(c1*P + c3*B - c2*eps*f_wall)
 
 P = viscosity M**2             (production)
 B = - diffusivity N**2         (byoyancy production)
@@ -18,7 +18,7 @@ psi = (cm0)**p * k**m * l**n
 where p, m, n parameters and cm0 is an empirical constant.
 
 dpsi/dt + \nabla_h(uv*psi) + d(w*psi)dz = d/dz(\nu_h/\sigma_psi dpsi/dz) +
-   psi/k*(c1*P + c3*B - c2*eps*F_wall)
+   psi/k*(c1*P + c3*B - c2*eps*f_wall)
 
 
 Parameter c3 takes value c3_minus in stably stratified flows and c3_plus in
@@ -61,18 +61,18 @@ Implementation follows [4].
 
 Tuomas Karna 2015-09-07
 """
-from tracerEquation import *
+from tracer_eq import *
 from utility import *
 
 
-def setFuncMinVal(f, minval):
+def set_func_min_val(f, minval):
     """
     Sets a minimum value to a function
     """
     f.dat.data[f.dat.data < minval] = minval
 
 
-def setFuncMaxVal(f, maxval):
+def set_func_max_val(f, maxval):
     """
     Sets a minimum value to a function
     """
@@ -86,75 +86,74 @@ class ShearFrequencySolver(object):
 
     M^2 = du/dz^2 + dv/dz^2
     """
-    def __init__(self, uv, M2, Mu, Mv, Mu_tmp, minval=1e-12, solver_parameters={}):
-        # NOTE M2 should be computed from DG uv field ?
+    def __init__(self, uv, m2, mu, mv, mu_tmp, minval=1e-12, solver_parameters={}):
+        # NOTE m2 should be computed from DG uv field ?
         # solver_parameters.setdefault('ksp_type', 'cg')
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
 
-        self.Mu = Mu
-        self.Mv = Mv
-        self.M2 = M2
-        self.Mu_tmp = Mu_tmp
-        # relaxation coefficient between old and new Mu or Mv
+        self.mu = mu
+        self.mv = mv
+        self.m2 = m2
+        self.mu_tmp = mu_tmp
+        # relaxation coefficient between old and new mu or mv
         self.relaxation = 0.5
 
         self.var_solvers = {}
-        for iComp in range(2):
-            H = M2.function_space()
-            test = TestFunction(H)
-            tri = TrialFunction(H)
-            dx = H.mesh()._dx
-            dS_h = H.mesh()._dS_h
-            ds_surf = H.mesh()._ds_b
-            ds_bottom = H.mesh()._ds_t
-            normal = FacetNormal(H.mesh())
+        for i_comp in range(2):
+            fs = m2.function_space()
+            test = TestFunction(fs)
+            tri = TrialFunction(fs)
+            dx = fs.mesh()._dx
+            ds_surf = fs.mesh()._ds_b
+            ds_bottom = fs.mesh()._ds_t
+            normal = FacetNormal(fs.mesh())
             a = inner(test, tri)*dx
-            # # jump penalty -- smooth M2 -- this may blow up??
-            # alpha = Constant(2.0)*abs(avg(uv[iComp]))
+            # # jump penalty -- smooth m2 -- this may blow up??
+            # alpha = Constant(2.0)*abs(avg(uv[i_comp]))
             # a += alpha*jump(test)*jump(tri)*dS_h
-            L = -inner(uv[iComp], Dx(test, 2))*dx
-            L += avg(uv[iComp])*jump(test, normal[2])*dS_h
-            L += uv[iComp]*test*normal[2]*(ds_surf + ds_bottom)
+            l = -inner(uv[i_comp], Dx(test, 2))*dx
+            l += avg(uv[i_comp])*jump(test, normal[2])*fs.mesh()._dS_h
+            l += uv[i_comp]*test*normal[2]*(ds_surf + ds_bottom)
 
-            prob = LinearVariationalProblem(a, L, Mu_tmp)
+            prob = LinearVariationalProblem(a, l, mu_tmp)
             solver = LinearVariationalSolver(prob)
-            self.var_solvers[iComp] = solver
+            self.var_solvers[i_comp] = solver
 
     def solve(self):
-        Mu_comp = [self.Mu, self.Mv]
-        self.M2.assign(0.0)
-        for iComp in range(2):
-            self.var_solvers[iComp].solve()
-            Mu_comp[iComp].assign(self.relaxation*self.Mu_tmp +
-                                  (1.0 - self.relaxation)*Mu_comp[iComp])
-            self.M2 += Mu_comp[iComp]*Mu_comp[iComp]
+        mu_comp = [self.mu, self.mv]
+        self.m2.assign(0.0)
+        for i_comp in range(2):
+            self.var_solvers[i_comp].solve()
+            mu_comp[i_comp].assign(self.relaxation*self.mu_tmp +
+                                   (1.0 - self.relaxation)*mu_comp[i_comp])
+            self.m2 += mu_comp[i_comp]*mu_comp[i_comp]
         # crop small/negative values
-        # setFuncMinVal(M2, minval)
+        # set_func_min_val(m2, minval)
 
 
-class smootherP1(object):
-    """Applies P1 projection on P1DG fields in-place."""
-    def __init__(self, P1DG, P1, vElemSize):
+class SmootherP1(object):
+    """Applies p1 projection on p1dg fields in-place."""
+    def __init__(self, p1dg, p1, v_elem_size):
         # TODO assert spaces
-        self.P1DG = P1DG
-        self.P1 = P1
-        self.vElemSize = vElemSize
-        self.dx = self.P1.mesh()._dx
-        self.tmp_func_P1 = Function(self.P1, name='tmp_p1_func')
+        self.p1dg = p1dg
+        self.p1 = p1
+        self.v_elem_size = v_elem_size
+        self.dx = self.p1.mesh()._dx
+        self.tmp_func_p1 = Function(self.p1, name='tmp_p1_func')
 
     def apply(self, input):
-        assert input.function_space() == self.P1DG
-        # project to P1
-        # self.tmp_func_P1.project(input)
+        assert input.function_space() == self.p1dg
+        # project to p1
+        # self.tmp_func_p1.project(input)
         # NOTE projection *must* be monotonic, add diffusion operator?
-        test = TestFunction(self.P1)
-        tri = TrialFunction(self.P1)
+        test = TestFunction(self.p1)
+        tri = TrialFunction(self.p1)
         a = inner(tri, test) * self.dx
-        L = inner(input, test) * self.dx
+        l = inner(input, test) * self.dx
         mu = Constant(1.0e-2)  # TODO can this be estimated??
         a += mu*inner(Dx(tri, 2), Dx(test, 2)) * self.dx
-        prob = LinearVariationalProblem(a, L, self.tmp_func_P1)
+        prob = LinearVariationalProblem(a, l, self.tmp_func_p1)
         solver = LinearVariationalSolver(prob)
         solver.solve()
         # copy nodal values to original field
@@ -165,10 +164,10 @@ class smootherP1(object):
     """,
                  self.dx,
                  {'input': (input, WRITE),
-                  'p1field': (self.tmp_func_P1, READ)})
+                  'p1field': (self.tmp_func_p1, READ)})
 
 
-class genericLengthScaleModel(object):
+class GenericLengthScaleModel(object):
     """
     Generic length scale implementation
 
@@ -177,14 +176,14 @@ class genericLengthScaleModel(object):
     def __init__(self, solver, k_field, psi_field, uv_field,
                  l_field, epsilon_field,
                  eddy_diffusivity, eddy_viscosity,
-                 N2, M2,
+                 n2, m2,
                  p=3.0, m=1.5, n=-1.0,
                  schmidt_nb_tke=1.0, schmidt_nb_psi=1.3,
                  c1=1.44, c2=1.92, c3_minus=-0.52, c3_plus=1.0,
-                 F_wall=1.0, k_min=1.0e-10, psi_min=1.0e-14,
+                 f_wall=1.0, k_min=1.0e-10, psi_min=1.0e-14,
                  eps_min=1e-14, visc_min=1.0e-7, diff_min=1.0e-7,
                  galperin_lim=0.56,
-                 stabilityType='CA',
+                 stability_type='CA',
                  ):
         """
         Initialize GLS model
@@ -202,17 +201,17 @@ class genericLengthScaleModel(object):
             turbulence length scale field
         eddy_viscosity, eddy_diffusivity : Function
             eddy viscosity/diffusivity fields
-        N2, M2 : Function
+        n2, m2 : Function
             buoyancy and vertical shear frequency squared
         p, m, n : float
             parameters defining psi variable
         c, c2, c3_minus, c3_plus : float
             parameters for psi production terms
-        F_wall : float
+        f_wall : float
             wall proximity function for k-kl type models
         k_min, psi_min : float
             minimum values for k and psi
-        stabilityType : string
+        stability_type : string
             stability function type:
             'KC': Kantha and Clayson (1994)
             'CA': Canuto (2001) model A
@@ -230,17 +229,17 @@ class genericLengthScaleModel(object):
         self.l = l_field
         self.viscosity = eddy_viscosity
         self.diffusivity = eddy_diffusivity
-        self.N2 = N2
-        self.M2 = M2
-        self.Mu_tmp = Function(self.M2.function_space(),
+        self.n2 = n2
+        self.m2 = m2
+        self.mu_tmp = Function(self.m2.function_space(),
                                name='tmp Shear frequency')
-        self.Mu = Function(self.M2.function_space(), name='Shear frequency X')
-        self.Mv = Function(self.M2.function_space(), name='Shear frequency Y')
-        self.tmp_field_P1 = Function(solver.function_spaces.P1,
+        self.mu = Function(self.m2.function_space(), name='Shear frequency X')
+        self.mv = Function(self.m2.function_space(), name='Shear frequency Y')
+        self.tmp_field_p1 = Function(solver.function_spaces.P1,
                                      name='tmp_p1_field')
-        self.tmp_field_P0 = Function(solver.function_spaces.P0,
+        self.tmp_field_p0 = Function(solver.function_spaces.P0,
                                      name='tmp_p0_field')
-        self.smoother = smootherP1(self.solver.function_spaces.P1DG, self.solver.function_spaces.P1,
+        self.smoother = SmootherP1(self.solver.function_spaces.P1DG, self.solver.function_spaces.P1,
                                    self.solver.fields.v_elem_size_3d)
         # parameter to mix old and new viscosity values (1 => new only)
         self.relaxation = 0.5
@@ -272,8 +271,8 @@ class genericLengthScaleModel(object):
         # at5 = 2.0 * ctt * (1.0 - ct5)
 
         # compute cm0
-        N = cc1/2.0
-        cm0 = ((a2**2 - 3*a3**2 + 3*a1*N)/(3 * N**2))**0.25
+        nn = cc1/2.0
+        cm0 = ((a2**2 - 3*a3**2 + 3*a1*nn)/(3 * nn**2))**0.25
         # cmsf = a1/N/cm0**3
         rad = schmidt_nb_psi * (c2 - c1)/(n**2)
         kappa = cm0*sqrt(rad)
@@ -290,7 +289,7 @@ class genericLengthScaleModel(object):
             'c2': c2,
             'c3_minus': c3_minus,
             'c3_plus': c3_plus,
-            'F_wall': F_wall,
+            'f_wall': f_wall,
             'schmidt_nb_tke': schmidt_nb_tke,
             'schmidt_nb_psi': schmidt_nb_psi,
             'k_min': k_min,
@@ -301,27 +300,27 @@ class genericLengthScaleModel(object):
             'galperin_lim': galperin_lim,
         }
         self.params['cm0'] = cm0
-        self.stabilityType = stabilityType
-        if self.stabilityType == 'KC':
-            self.stabilityFunc = stabilityFuncKanthaClayson()
-        elif self.stabilityType == 'CA':
-            self.stabilityFunc = stabilityFuncCanutoA()
+        self.stability_type = stability_type
+        if self.stability_type == 'KC':
+            self.stability_func = StabilityFuncKanthaClayson()
+        elif self.stability_type == 'CA':
+            self.stability_func = StabilityFuncCanutoA()
         else:
             raise Exception('Unknown stability function type: ' +
-                            self.stabilityType)
+                            self.stability_type)
         # compute c3_minus
-        # c3_minus = self.stabilityFunc.computeC3Minus(c1, c2)
+        # c3_minus = self.stability_func.compute_c3_minus(c1, c2)
         self.params['c3_minus'] = -0.63  # NOTE depends on model and stab func
 
-        self.shear_frequency_solver = ShearFrequencySolver(self.uv, self.M2,
-                                                           self.Mu, self.Mv,
-                                                           self.Mu_tmp)
+        self.shear_frequency_solver = ShearFrequencySolver(self.uv, self.m2,
+                                                           self.mu, self.mv,
+                                                           self.mu_tmp)
 
         self.initialize()
 
     def initialize(self):
         """Initializes fields"""
-        self.N2.assign(1e-12)
+        self.n2.assign(1e-12)
         self.postprocess()
 
     def preprocess(self,):
@@ -330,10 +329,10 @@ class genericLengthScaleModel(object):
 
         Update all fields that depend on velocity and density.
         """
-        # update M2 and N2
+        # update m2 and N2
         self.shear_frequency_solver.solve()
-        # self.smoother.apply(self.M2)
-        setFuncMinVal(self.M2, 1e-12)
+        # self.smoother.apply(self.m2)
+        set_func_min_val(self.m2, 1e-12)
 
     def postprocess(self):
         """
@@ -350,33 +349,33 @@ class genericLengthScaleModel(object):
         # smooth k
         # self.smoother.apply(self.k)
         # limit k
-        setFuncMinVal(self.k, self.params['k_min'])
+        set_func_min_val(self.k, self.params['k_min'])
 
         # smooth psi
         # self.smoother.apply(self.psi)
         # limit psi
-        # psi^(1/n) <= sqrt(0.56)* (cm0)^(p/n) *k^(m/n+0.5)* N2^(-0.5)
+        # psi^(1/n) <= sqrt(0.56)* (cm0)^(p/n) *k^(m/n+0.5)* n2^(-0.5)
         k_arr = self.k.dat.data[:]
-        N2_arr = self.N2.dat.data[:]
-        N2_pos = N2_arr.copy()
-        N2_pos[N2_pos < 0.0] = 0.0
-        # val = (np.sqrt(0.56) * (cm0)**(p / n) * k_arr**(m / n + 0.5) * (N2_pos + 1e-12)**(-0.5))**n
+        n2_arr = self.n2.dat.data[:]
+        n2_pos = n2_arr.copy()
+        n2_pos[n2_pos < 0.0] = 0.0
+        # val = (np.sqrt(0.56) * (cm0)**(p / n) * k_arr**(m / n + 0.5) * (n2_pos + 1e-12)**(-0.5))**n
         # if n > 0:
         #    # impose max value
         #    self.psi.dat.data[:] = np.minimum(self.psi.dat.data[:], val)
         # else:
         #    # impose min value
         #    self.psi.dat.data[:] = np.maximum(self.psi.dat.data[:], val)
-        setFuncMinVal(self.psi, self.params['psi_min'])
+        set_func_min_val(self.psi, self.params['psi_min'])
 
-        # self.tmp_field_P0.project(self.k)
-        # self.tmp_field_P1.project(self.tmp_field_P0)
-        # self.k.project(self.tmp_field_P1)
-        # self.tmp_field_P0.project(self.psi)
-        # self.tmp_field_P1.project(self.tmp_field_P0)
-        # self.psi.project(self.tmp_field_P1)
-        # self.solver.tracerLimiter.apply(self.k)
-        # self.solver.tracerLimiter.apply(self.psi)
+        # self.tmp_field_p0.project(self.k)
+        # self.tmp_field_p1.project(self.tmp_field_p0)
+        # self.k.project(self.tmp_field_p1)
+        # self.tmp_field_p0.project(self.psi)
+        # self.tmp_field_p1.project(self.tmp_field_p0)
+        # self.psi.project(self.tmp_field_p1)
+        # self.solver.tracer_limiter.apply(self.k)
+        # self.solver.tracer_limiter.apply(self.psi)
 
         # udpate epsilon
         # self.epsilon.assign(cm0**(3+p/n)*self.k**(3/2+m/n)*self.psi**(-1/n))
@@ -384,46 +383,46 @@ class genericLengthScaleModel(object):
         self.epsilon.assign(self.psi)
         # # Galperin limitation as in GOTM
         # galp = self.params['galperin_lim']
-        # epslim = cm0**3.0/np.sqrt(2.)/galp*k_arr*np.sqrt(N2_pos)
+        # epslim = cm0**3.0/np.sqrt(2.)/galp*k_arr*np.sqrt(n2_pos)
         # self.epsilon.dat.data[:] = np.maximum(self.epsilon.dat.data[:], epslim)
         # impose minimum value
-        setFuncMinVal(self.epsilon, self.params['eps_min'])
+        set_func_min_val(self.epsilon, self.params['eps_min'])
 
         # update L
         # self.l.assign(cm0**3 * self.k**(3.0/2.0) / self.epsilon)  # TODO why this doesn't work
         self.l.dat.data[:] = cm0**3.0 * np.sqrt(np.power(k_arr, 3)) / self.epsilon.dat.data[:]
         # self.smoother.apply(self.l)
-        # setFuncMaxVal(self.l, 10.0)  # HACK limit L to something meaningful
-        setFuncMinVal(self.l, 1e-12)
+        # set_func_max_val(self.l, 10.0)  # HACK limit L to something meaningful
+        set_func_min_val(self.l, 1e-12)
         if self.l.dat.data.max() > 10.0:
             print ' * large L: {:f}'.format(self.l.dat.data.max())
         # # Galperin L limitation
 
         # update stability functions
-        S_M, S_H = self.stabilityFunc.getFunctions(self.M2.dat.data,
-                                                   self.N2.dat.data,
-                                                   self.epsilon.dat.data,
-                                                   self.k.dat.data)
-        c = self.stabilityFunc.c
+        s_m, s_h = self.stability_func.get_functions(self.m2.dat.data,
+                                                     self.n2.dat.data,
+                                                     self.epsilon.dat.data,
+                                                     self.k.dat.data)
+        c = self.stability_func.c
         # update diffusivity/viscosity
         # NOTE should this the sqrt(k) or sqrt(2*k)?
         b = np.sqrt(2*self.k.dat.data[:])*self.l.dat.data[:]
         lam = self.relaxation
-        self.viscosity.dat.data[:] = lam*c*b*S_M + (1.0 - lam)*self.viscosity.dat.data[:]
-        self.diffusivity.dat.data[:] = lam*c*b*S_H + (1.0 - lam)*self.diffusivity.dat.data[:]
+        self.viscosity.dat.data[:] = lam*c*b*s_m + (1.0 - lam)*self.viscosity.dat.data[:]
+        self.diffusivity.dat.data[:] = lam*c*b*s_h + (1.0 - lam)*self.diffusivity.dat.data[:]
         # self.smoother.apply(self.viscosity)
         # self.smoother.apply(self.diffusivity)
-        setFuncMinVal(self.viscosity, self.params['visc_min'])
-        setFuncMinVal(self.diffusivity, self.params['diff_min'])
+        set_func_min_val(self.viscosity, self.params['visc_min'])
+        set_func_min_val(self.diffusivity, self.params['diff_min'])
         print '{:8s} {:8.3e} {:8.3e}'.format('k', self.k.dat.data.min(), self.k.dat.data.max())
         print '{:8s} {:8.3e} {:8.3e}'.format('eps', self.epsilon.dat.data.min(), self.epsilon.dat.data.max())
         print '{:8s} {:8.3e} {:8.3e}'.format('L', self.l.dat.data.min(), self.l.dat.data.max())
-        print '{:8s} {:8.3e} {:8.3e}'.format('S_H', S_H.min(), S_H.max())
-        print '{:8s} {:8.3e} {:8.3e}'.format('S_M', S_M.min(), S_M.max())
+        print '{:8s} {:8.3e} {:8.3e}'.format('s_h', s_h.min(), s_h.max())
+        print '{:8s} {:8.3e} {:8.3e}'.format('s_m', s_m.min(), s_m.max())
         print '{:8s} {:8.3e} {:8.3e}'.format('nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max())
 
 
-class stabilityFuncKanthaClayson(object):
+class StabilityFuncKanthaClayson(object):
     """
     Implementation of Kantha-Clayson stability functions.
 
@@ -438,10 +437,10 @@ class stabilityFuncKanthaClayson(object):
         self.B2 = 10.1
         self.C2 = 0.7
         self.C3 = 0.2
-        self.Gh_max = 0.029
-        self.Gh_min = -0.28
-        self.Gh0 = 0.0233
-        self.Gh_crit = 0.02
+        self.gh_max = 0.029
+        self.gh_min = -0.28
+        self.gh0 = 0.0233
+        self.gh_crit = 0.02
         self.cm0 = 0.5544
         self.c = 1.0
         self.C1 = (1.0 - (self.A1*self.B1**(1.0/3.0))**-1 - 6*self.A1/self.B1)/3.0
@@ -455,7 +454,7 @@ class stabilityFuncKanthaClayson(object):
         self.b3 = 27*self.A1*self.A2**2*(self.B2*(1.0 - self.C3) + 4*self.A1)
         self.b4 = 18*self.A1**2*self.A2*(3*self.A2*(1.0 - self.C2) + self.B2*(1 - self.C3))
 
-    def computeC3Minus(self, c1, c2):
+    def compute_c3_minus(self, c1, c2):
         """
         Compute c3_minus parameter from c1, c2 and stability functions.
 
@@ -463,32 +462,32 @@ class stabilityFuncKanthaClayson(object):
         """
         return 5.08*c1 - 4.08*c2
 
-    def getFunctions(self, M2, N2, l, k):
+    def get_functions(self, m2, n2, l, k):
         """
         Computes the values of the stability functions
         """
         b = l**2/(2*k)
-        Gh = - N2 * b
-        Gm = M2 * b
-        print 'Gh', Gh.min(), Gh.max()
-        print 'Gm', Gm.min(), Gm.max()
+        gh = - n2 * b
+        gm = m2 * b
+        print 'gh', gh.min(), gh.max()
+        print 'gm', gm.min(), gm.max()
         # smoothing (from ROMS)
-        Gh = np.minimum(Gh, self.Gh0)
-        Gh = np.minimum(Gh, Gh-(Gh-self.Gh_crit)**2/(Gh + self.Gh0 - 2*self.Gh_crit))
-        Gh = np.maximum(Gh, self.Gh_min)
-        Gm_max = (1 + self.b1*Gh + self.b3*Gh**2)/(self.b2 + self.b4*Gh)
-        Gm = np.minimum(Gm, Gm_max)
-        print 'Gh2', Gh.min(), Gh.max()
-        print 'Gm2', Gm.min(), Gm.max()
-        d = 1.0 + self.b1*Gh + self.b2*Gm + self.b3*Gh**2 + self.b4*Gm*Gh
-        S_M = np.maximum((self.a0 + self.a1*Gh)/d, 0.0)
-        S_H = np.maximum((self.a4 + self.a5*Gm + self.a6*Gh)/d, 0.0)
-        print 'S_H', S_H.min(), S_H.max()
-        print 'S_M', S_M.min(), S_M.max()
-        return S_M, S_H
+        gh = np.minimum(gh, self.gh0)
+        gh = np.minimum(gh, gh-(gh-self.gh_crit)**2/(gh + self.gh0 - 2*self.gh_crit))
+        gh = np.maximum(gh, self.gh_min)
+        gm_max = (1 + self.b1*gh + self.b3*gh**2)/(self.b2 + self.b4*gh)
+        gm = np.minimum(gm, gm_max)
+        print 'gh2', gh.min(), gh.max()
+        print 'gm2', gm.min(), gm.max()
+        d = 1.0 + self.b1*gh + self.b2*gm + self.b3*gh**2 + self.b4*gm*gh
+        s_m = np.maximum((self.a0 + self.a1*gh)/d, 0.0)
+        s_h = np.maximum((self.a4 + self.a5*gm + self.a6*gh)/d, 0.0)
+        print 's_h', s_h.min(), s_h.max()
+        print 's_m', s_m.min(), s_m.max()
+        return s_m, s_h
 
 
-class stabilityFuncCanutoA(object):
+class StabilityFuncCanutoA(object):
     """
     Implementation of Canuto model A stability functions.
 
@@ -507,14 +506,14 @@ class stabilityFuncCanutoA(object):
         self.t3 = 75.574
         self.t4 = -45.48
         self.t5 = -0.2937
-        self.Gh_max = 0.0673
+        self.gh_max = 0.0673
         self.cm0 = 0.5270
         self.c = 1.0
-        self.Gh_min = -0.28
-        self.Gh0 = 0.0233
-        self.Gh_crit = 0.02
+        self.gh_min = -0.28
+        self.gh0 = 0.0233
+        self.gh_crit = 0.02
 
-    def computeC3Minus(self, c1, c2):
+    def compute_c3_minus(self, c1, c2):
         """
         Compute c3_minus parameter from c1, c2 and stability functions.
 
@@ -522,29 +521,29 @@ class stabilityFuncCanutoA(object):
         """
         return 4.09*c1 - 4.00*c2
 
-    def getFunctions(self, M2, N2, eps, k):
+    def get_functions(self, m2, n2, eps, k):
         """
         Computes the values of the stability functions
         """
         # b = l**2/(2*k)
-        # Gh = - N2 * b
-        # Gm = M2 * b
-        # #print 'Gh', Gh.min(), Gh.max()
-        # #print 'Gm', Gm.min(), Gm.max()
+        # gh = - n2 * b
+        # gm = m2 * b
+        # #print 'gh', gh.min(), gh.max()
+        # #print 'gm', gm.min(), gm.max()
         # # smoothing (from ROMS)
-        # Gh = np.minimum(Gh, self.Gh0)
-        # Gh = np.minimum(Gh, Gh-(Gh-self.Gh_crit)**2/(Gh + self.Gh0 - 2*self.Gh_crit))
-        # Gh = np.maximum(Gh, self.Gh_min)
+        # gh = np.minimum(gh, self.gh0)
+        # gh = np.minimum(gh, gh-(gh-self.gh_crit)**2/(gh + self.gh0 - 2*self.gh_crit))
+        # gh = np.maximum(gh, self.gh_min)
         # alpha = 1.0
-        # Gm_max = alpha*(1 + self.t1*Gh + self.t3*Gh**2)/(self.t2 + self.t4*Gh)
-        # Gm = np.minimum(Gm, Gm_max)
-        # Gh = np.minimum(Gh, self.Gh_max)
-        # #print 'Gh2', Gh.min(), Gh.max()
-        # #print 'Gm2', Gm.min(), Gm.max()
-        # d = 1.0 + self.t1*Gh + self.t2*Gm + self.t3*Gh**2 + self.t4*Gm*Gh + self.t5*Gm**2
-        # S_M = (self.s0 + self.s1*Gh + self.s2*Gm)/d
-        # S_H = (self.s4 + self.s5*Gh + self.s6*Gm)/d
-        # return S_M, S_H
+        # gm_max = alpha*(1 + self.t1*gh + self.t3*gh**2)/(self.t2 + self.t4*gh)
+        # gm = np.minimum(gm, gm_max)
+        # gh = np.minimum(gh, self.gh_max)
+        # #print 'gh2', gh.min(), gh.max()
+        # #print 'gm2', gm.min(), gm.max()
+        # d = 1.0 + self.t1*gh + self.t2*gm + self.t3*gh**2 + self.t4*gm*gh + self.t5*gm**2
+        # s_m = (self.s0 + self.s1*gh + self.s2*gm)/d
+        # s_h = (self.s4 + self.s5*gh + self.s6*gm)/d
+        # return s_m, s_h
 
         # TODO get the params from gls class
         # schmidt_nb_psi = 1.3
@@ -552,7 +551,7 @@ class stabilityFuncCanutoA(object):
         # c2 = 1.92
         # n = -1.0
 
-        anLimitFact = 0.5
+        an_limit_fact = 0.5
 
         cc1 = 5.0000
         cc2 = 0.8000
@@ -581,8 +580,8 @@ class stabilityFuncCanutoA(object):
         at5 = 2.0 * ctt * (1.0 - ct5)
 
         # compute cm0
-        N = cc1/2.0
-        cm0 = ((a2**2 - 3*a3**2 + 3*a1*N)/(3 * N**2))**0.25
+        nn = cc1/2.0
+        cm0 = ((a2**2 - 3*a3**2 + 3*a1*nn)/(3 * nn**2))**0.25
         # cmsf = a1/N/cm0**3
         # rad = schmidt_nb_psi * (c2 - c1)/(n**2)
         # kappa = cm0*sqrt(rad)
@@ -590,36 +589,36 @@ class stabilityFuncCanutoA(object):
         # cde = cm0**3.
 
         # This is written out verbatim as in GOTM v4.3.1 (also GNU GPL)
-        N = 0.5 * cc1
-        Nt = ct1
-        d0 = 36 * N**3 * Nt**2.
-        d1 = 84.*a5*at3 * N**2. * Nt + 36.*at5 * N**3. * Nt
-        d2 = 9.*(at2**2.-at1**2.) * N**3. - 12.*(a2**2.-3.*a3**2.) * N * Nt**2.
-        d3 = 12.*a5*at3*(a2*at1-3.*a3*at2) * N + 12.*a5*at3*(a3**2.-a2**2.) * \
-            Nt + 12.*at5*(3.*a3**2.-a2**2.) * N * Nt
-        d4 = 48.*a5**2.*at3**2. * N + 36.*a5*at3*at5 * N**2.
-        d5 = 3.*(a2**2.-3.*a3**2.)*(at1**2.-at2**2.) * N
-        n0 = 36.*a1 * N**2. * Nt**2.
-        n1 = - 12.*a5*at3*(at1+at2) * N**2. + 8.*a5*at3*(6.*a1-a2-3.*a3) * \
-            N * Nt + 36.*a1*at5 * N**2. * Nt
-        n2 = 9.*a1*(at2**2.-at1**2.) * N**2.
-        nt0 = 12.*at3 * N**3. * Nt
-        nt1 = 12.*a5*at3**2. * N**2.
-        nt2 = 9.*a1*at3*(at1-at2) * N**2. + (6.*a1*(a2-3.*a3) - 4.*(a2**2.-3.*a3**2.))*at3 * N * Nt
+        nn = 0.5 * cc1
+        nt = ct1
+        d0 = 36 * nn**3 * nt**2.
+        d1 = 84.*a5*at3 * nn**2. * nt + 36.*at5 * nn**3. * nt
+        d2 = 9.*(at2**2.-at1**2.) * nn**3. - 12.*(a2**2.-3.*a3**2.) * nn * nt**2.
+        d3 = 12.*a5*at3*(a2*at1-3.*a3*at2) * nn + 12.*a5*at3*(a3**2.-a2**2.) * \
+            nt + 12.*at5*(3.*a3**2.-a2**2.) * nn * nt
+        d4 = 48.*a5**2.*at3**2. * nn + 36.*a5*at3*at5 * nn**2.
+        d5 = 3.*(a2**2.-3.*a3**2.)*(at1**2.-at2**2.) * nn
+        n0 = 36.*a1 * nn**2. * nt**2.
+        n1 = - 12.*a5*at3*(at1+at2) * nn**2. + 8.*a5*at3*(6.*a1-a2-3.*a3) * \
+            nn * nt + 36.*a1*at5 * nn**2. * nt
+        n2 = 9.*a1*(at2**2.-at1**2.) * nn**2.
+        nt0 = 12.*at3 * nn**3. * nt
+        nt1 = 12.*a5*at3**2. * nn**2.
+        nt2 = 9.*a1*at3*(at1-at2) * nn**2. + (6.*a1*(a2-3.*a3) - 4.*(a2**2.-3.*a3**2.))*at3 * nn * nt
         cm3_inv = 1./cm0**3
 
         # TODO move all above to init
 
         # mininum value of an to ensure as > 0 in equilibrium
-        anMinNum = -(d1 + nt0) + np.sqrt((d1+nt0)**2. - 4.*d0*(d4+nt1))
-        anMinDen = 2.*(d4+nt1)
-        anMin = anMinNum / anMinDen
+        an_min_num = -(d1 + nt0) + np.sqrt((d1+nt0)**2. - 4.*d0*(d4+nt1))
+        an_min_den = 2.*(d4+nt1)
+        an_min = an_min_num / an_min_den
 
         # (special treatment to  avoid a singularity)
         tau2 = k*k / (eps*eps)
-        an = tau2 * N2
+        an = tau2 * n2
         # clip an at minimum value
-        np.maximum(an, anLimitFact*anMin, an)
+        np.maximum(an, an_limit_fact*an_min, an)
         # compute the equilibrium value of as
         tmp0 = -d0 - (d1 + nt0)*an - (d4 + nt1)*an*an
         tmp1 = -d2 + n0 + (n1-d3-nt2)*an
@@ -634,52 +633,52 @@ class stabilityFuncCanutoA(object):
             ass = (-tmp1 + np.sqrt(tmp1*tmp1 - 4.*tmp0*tmp2)) / (2.*tmp2)
 
         # compute stability function
-        dCm = d0 + d1*an + d2*ass + d3*an*ass + d4*an*an + d5*ass*ass
-        nCm = n0 + n1*an + n2*ass
-        nCmp = nt0 + nt1*an + nt2*ass
-        S_M = cm3_inv * nCm / dCm
-        S_H = cm3_inv * nCmp / dCm
-        return S_M, S_H
+        dcm = d0 + d1*an + d2*ass + d3*an*ass + d4*an*an + d5*ass*ass
+        ncm = n0 + n1*an + n2*ass
+        ncmp = nt0 + nt1*an + nt2*ass
+        s_m = cm3_inv * ncm / dcm
+        s_h = cm3_inv * ncmp / dcm
+        return s_m, s_h
 
 
-class tkeEquation(tracerEquation):
+class TKEEquation(TracerEquation):
     """
     Advection-diffusion equation for turbulent kinetic energy (tke).
 
-    Inherited from tracerEquation so only turbulence related source terms
+    Inherited from TracerEquation so only turbulence related source terms
     and boundary conditions need to be implemented.
     """
     def __init__(self, solution, eta, uv, w,
                  w_mesh=None, dw_mesh_dz=None,
                  diffusivity_h=None, diffusivity_v=None,
-                 uvMag=None, uvP1=None, laxFriedrichsFactor=None,
-                 bnd_markers=None, bnd_len=None, vElemSize=None,
-                 viscosity_v=None, glsModel=None):
-        self.schmidt_number = glsModel.params['schmidt_nb_tke']
+                 uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
+                 bnd_markers=None, bnd_len=None, v_elem_size=None,
+                 viscosity_v=None, gls_model=None):
+        self.schmidt_number = gls_model.params['schmidt_nb_tke']
         # NOTE vertical diffusivity must be divided by the TKE Schmidt number
         diffusivity_eff = viscosity_v/self.schmidt_number
         # call parent constructor
-        super(tkeEquation, self).__init__(solution, eta, uv, w,
+        super(TKEEquation, self).__init__(solution, eta, uv, w,
                                           w_mesh, dw_mesh_dz,
                                           diffusivity_h=diffusivity_h,
                                           diffusivity_v=diffusivity_eff,
-                                          uvMag=uvMag, uvP1=uvP1,
-                                          laxFriedrichsFactor=laxFriedrichsFactor,
+                                          uv_mag=uv_mag, uv_p1=uv_p1,
+                                          lax_friedrichs_factor=lax_friedrichs_factor,
                                           bnd_markers=bnd_markers,
                                           bnd_len=bnd_len,
-                                          vElemSize=vElemSize)
+                                          v_elem_size=v_elem_size)
         # additional functions to pass to RHS functions
         new_kwargs = {
             'eddy_diffusivity': diffusivity_v,
             'eddy_viscosity': viscosity_v,
-            'buoyancy_freq2': glsModel.N2,
-            'shear_freq2': glsModel.M2,
-            'epsilon': glsModel.epsilon,
-            'k': glsModel.k,
+            'buoyancy_freq2': gls_model.n2,
+            'shear_freq2': gls_model.m2,
+            'epsilon': gls_model.epsilon,
+            'k': gls_model.k,
         }
         self.kwargs.update(new_kwargs)
 
-    def Source(self, eta, uv, w, eddy_viscosity, eddy_diffusivity,
+    def source(self, eta, uv, w, eddy_viscosity, eddy_diffusivity,
                shear_freq2, buoyancy_freq2, epsilon,
                **kwargs):
         """Returns the right hand side of the source terms.
@@ -692,100 +691,100 @@ class tkeEquation(tracerEquation):
         # N**2 = -g\rho_0 (drho/dz)      (buoyancy frequency)
         # eps = (cm0)**(3+p/n)*tke**(3/2+m/n)*psi**(-1/n)
         #                                (tke dissipation rate)
-        P = eddy_viscosity * shear_freq2
-        B = 0.0  # - eddy_diffusivity * buoyancy_freq2
+        p = eddy_viscosity * shear_freq2
+        b = 0.0  # - eddy_diffusivity * buoyancy_freq2
 
-        f = P + B - epsilon
-        F = inner(f, self.test)*self.dx
-        return F
+        source = p + b - epsilon
+        f = inner(source, self.test)*self.dx
+        return f
 
 
-class psiEquation(tracerEquation):
+class PsiEquation(TracerEquation):
     """
     Advection-diffusion equation for additional GLS model variable (psi).
 
-    Inherited from tracerEquation so only turbulence related source terms
+    Inherited from TracerEquation so only turbulence related source terms
     and boundary conditions need to be implemented.
     """
     def __init__(self, solution, eta, uv, w,
                  w_mesh=None, dw_mesh_dz=None,
                  diffusivity_h=None, diffusivity_v=None,
-                 uvMag=None, uvP1=None, laxFriedrichsFactor=None,
-                 bnd_markers=None, bnd_len=None, vElemSize=None,
-                 viscosity_v=None, glsModel=None):
+                 uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
+                 bnd_markers=None, bnd_len=None, v_elem_size=None,
+                 viscosity_v=None, gls_model=None):
         # NOTE vertical diffusivity must be divided by the TKE Schmidt number
-        self.schmidt_number = glsModel.params['schmidt_nb_psi']
+        self.schmidt_number = gls_model.params['schmidt_nb_psi']
         diffusivity_eff = viscosity_v/self.schmidt_number
         # call parent constructor
-        super(psiEquation, self).__init__(solution, eta, uv, w,
+        super(PsiEquation, self).__init__(solution, eta, uv, w,
                                           w_mesh, dw_mesh_dz,
                                           diffusivity_h=diffusivity_h,
                                           diffusivity_v=diffusivity_eff,
-                                          uvMag=uvMag, uvP1=uvP1,
-                                          laxFriedrichsFactor=laxFriedrichsFactor,
+                                          uv_mag=uv_mag, uv_p1=uv_p1,
+                                          lax_friedrichs_factor=lax_friedrichs_factor,
                                           bnd_markers=bnd_markers,
                                           bnd_len=bnd_len,
-                                          vElemSize=vElemSize)
-        self.glsModel = glsModel
+                                          v_elem_size=v_elem_size)
+        self.gls_model = gls_model
         # additional functions to pass to RHS functions
         new_kwargs = {
             'eddy_diffusivity': diffusivity_v,
             'eddy_viscosity': viscosity_v,
-            'buoyancy_freq2': glsModel.N2,
-            'shear_freq2': glsModel.M2,
-            'epsilon': glsModel.epsilon,
-            'k': glsModel.k,
+            'buoyancy_freq2': gls_model.n2,
+            'shear_freq2': gls_model.m2,
+            'epsilon': gls_model.epsilon,
+            'k': gls_model.k,
         }
         self.kwargs.update(new_kwargs)
 
-    def RHS_implicit(self, solution, eta, uv, w, eddy_viscosity, eddy_diffusivity,
+    def rhs_implicit(self, solution, eta, uv, w, eddy_viscosity, eddy_diffusivity,
                      shear_freq2, buoyancy_freq2, epsilon, k, diffusivity_v,
                      **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
 
-        # psi: psi/k*(c1*P + c3*B - c2*eps*F_wall)
+        # psi: psi/k*(c1*P + c3*B - c2*eps*f_wall)
         # P = viscosity M**2           (production)
         # B = - diffusivity N**2       (byoyancy production)
         # M**2 = (du/dz)**2 + (dv/dz)**2 (shear frequency)
         # N**2 = -g\rho_0 (drho/dz)      (buoyancy frequency)
         # eps = (cm0)**(3+p/n)*tke**(3/2+m/n)*psi**(-1/n)
         #                                (tke dissipation rate)
-        P = eddy_viscosity * shear_freq2
-        B = 0.0  # - eddy_diffusivity * buoyancy_freq2
-        c1 = self.glsModel.params['c1']
-        c2 = self.glsModel.params['c2']
-        # c3_plus = self.glsModel.params['c3_plus']
-        c3_minus = self.glsModel.params['c3_minus']
-        F_wall = self.glsModel.params['F_wall']
-        # TODO implement c3 switch: c3 = c3_minus if N2 > 0 else c3_plus
+        p = eddy_viscosity * shear_freq2
+        b = 0.0  # - eddy_diffusivity * buoyancy_freq2
+        c1 = self.gls_model.params['c1']
+        c2 = self.gls_model.params['c2']
+        # c3_plus = self.gls_model.params['c3_plus']
+        c3_minus = self.gls_model.params['c3_minus']
+        f_wall = self.gls_model.params['f_wall']
+        # TODO implement c3 switch: c3 = c3_minus if n2 > 0 else c3_plus
         c3 = c3_minus
         # NOTE seems more stable explicitly with epsilon
-        f = epsilon/k*(c1*P + c3*B - c2*F_wall*epsilon)
-        F = inner(f, self.test)*self.dx
+        source = epsilon/k*(c1*p + c3*b - c2*f_wall*epsilon)
+        f = inner(source, self.test)*self.dx
 
-        if self.computeVertDiffusion:
+        if self.compute_vert_diffusion:
             # add bottom/top boundary condition for psi
             # (nuv_v/sigma_psi * dpsi/dz)_b = n * nuv_v/sigma_psi * (cm0)^p * k^m * kappa^n * z_b^(n-1)
             # z_b = distance_from_bottom + z_0 (Burchard and Petersen, 1999)
-            cm0 = self.glsModel.params['cm0']
-            p = self.glsModel.params['p']
-            m = self.glsModel.params['m']
-            n = self.glsModel.params['n']
+            cm0 = self.gls_model.params['cm0']
+            p = self.gls_model.params['p']
+            m = self.gls_model.params['m']
+            n = self.gls_model.params['n']
             z0_friction = physical_constants['z0_friction']
             kappa = physical_constants['von_karman']
-            if self.vElemSize is None:
-                raise Exception('vElemSize required')
+            if self.v_elem_size is None:
+                raise Exception('v_elem_size required')
             # bottom condition
-            z_b = 0.5*self.vElemSize + z0_friction
-            diffFlux = (n*diffusivity_v*(cm0)**p *
-                        k**m * kappa**n * z_b**(n - 1.0))
-            F += diffFlux*self.test*self.normal[2]*self.ds_bottom
+            z_b = 0.5*self.v_elem_size + z0_friction
+            diff_flux = (n*diffusivity_v*(cm0)**p *
+                         k**m * kappa**n * z_b**(n - 1.0))
+            f += diff_flux*self.test*self.normal[2]*self.ds_bottom
             # surface condition
             z0_surface = Constant(0.001)  # TODO generalize
-            z_s = 0.5*self.vElemSize + z0_surface
-            diffFlux = -(n*diffusivity_v*(cm0)**p *
-                         k**m * kappa**n * z_s**(n - 1.0))
-            F += diffFlux*self.test*self.normal[2]*self.ds_surf
+            z_s = 0.5*self.v_elem_size + z0_surface
+            diff_flux = -(n*diffusivity_v*(cm0)**p *
+                          k**m * kappa**n * z_s**(n - 1.0))
+            f += diff_flux*self.test*self.normal[2]*self.ds_surf
 
-        return F
+        return f

@@ -4,8 +4,8 @@ import numpy
 
 
 def test_steady_state_channel_mms():
-    Lx = 5e3
-    Ly = 1e3
+    lx = 5e3
+    ly = 1e3
 
     order = 1
     # minimum resolution
@@ -13,22 +13,22 @@ def test_steady_state_channel_mms():
         min_cells = 16
     else:
         min_cells = 8
-    N = 100  # number of timesteps
+    n = 100  # number of timesteps
     dt = 1000.
     g = physical_constants['g_grav'].dat.data[0]
-    H0 = 10.  # depth at rest
-    area = Lx*Ly
+    h0 = 10.  # depth at rest
+    area = lx*ly
 
-    k = 4.0*math.pi/Lx
-    Q = H0*1.0  # flux (depth-integrated velocity)
+    k = 4.0*math.pi/lx
+    q = h0*1.0  # flux (depth-integrated velocity)
     eta0 = 1.0  # free surface amplitude
 
     eta_expr = Expression("eta0*cos(k*x[0])", k=k, eta0=eta0)
     depth_expr = "H0+eta0*cos(k*x[0])"
-    u_expr = Expression(("Q/({H})".format(H=depth_expr), 0.), k=k, Q=Q, eta0=eta0, H0=H0)
+    u_expr = Expression(("Q/({H})".format(H=depth_expr), 0.), k=k, Q=q, eta0=eta0, H0=h0)
     source_expr = Expression("k*eta0*(pow(Q,2)/pow({H},3)-g)*sin(k*x[0])".format(H=depth_expr),
-                             k=k, g=g, Q=Q, eta0=eta0, H0=H0)
-    u_bcval = Q/(H0+eta0)
+                             k=k, g=g, Q=q, eta0=eta0, H0=h0)
+    u_bcval = q/(h0+eta0)
     eta_bcval = eta0
 
     diff_pvd = File('diff.pvd')
@@ -37,35 +37,35 @@ def test_steady_state_channel_mms():
     eta_errs = []
     u_errs = []
     for i in range(5):
-        mesh2d = RectangleMesh(min_cells*2**i, 1, Lx, Ly)
+        mesh2d = RectangleMesh(min_cells*2**i, 1, lx, ly)
 
         # bathymetry
-        P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-        bathymetry_2d = Function(P1_2d, name="bathymetry")
-        bathymetry_2d.assign(H0)
+        p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+        bathymetry_2d = Function(p1_2d, name="bathymetry")
+        bathymetry_2d.assign(h0)
 
         # --- create solver ---
-        solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d, order=order)
-        solverObj.options.nonlin = True
-        solverObj.options.TExport = dt
-        solverObj.options.T = N*dt
-        solverObj.options.timeStepperType = 'forwardeuler'
-        solverObj.options.timerLabels = []
-        solverObj.options.dt = dt
+        solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=order)
+        solver_obj.options.nonlin = True
+        solver_obj.options.t_export = dt
+        solver_obj.options.t_end = n*dt
+        solver_obj.options.timestepper_type = 'forwardeuler'
+        solver_obj.options.timer_labels = []
+        solver_obj.options.dt = dt
 
         # boundary conditions
         inflow_tag = 1
         outflow_tag = 2
-        inflow_func = Function(P1_2d)
+        inflow_func = Function(p1_2d)
         inflow_func.interpolate(Expression(-u_bcval))
         inflow_bc = {'un': inflow_func}
-        outflow_func = Function(P1_2d)
+        outflow_func = Function(p1_2d)
         outflow_func.interpolate(Expression(eta_bcval))
         outflow_bc = {'elev': outflow_func}
-        solverObj.bnd_functions['shallow_water'] = {inflow_tag: inflow_bc, outflow_tag: outflow_bc}
+        solver_obj.bnd_functions['shallow_water'] = {inflow_tag: inflow_bc, outflow_tag: outflow_bc}
         # parameters['quadrature_degree']=5
 
-        solverObj.createEquations()
+        solver_obj.create_equations()
         solver_parameters = {
             'ksp_type': 'preonly',
             'pc_type': 'lu',
@@ -74,27 +74,27 @@ def test_steady_state_channel_mms():
             'snes_type': 'newtonls'}
         # reinitialize the timestepper so we can set our own solver parameters and gamma
         # setting gamma to 1.0 converges faster to
-        solverObj.timeStepper = timeIntegrator.CrankNicolson(solverObj.eq_sw, solverObj.dt,
-                                                             solver_parameters, gamma=1.0)
-        solverObj.assignInitialConditions(uv_init=Expression(("1.0", "0.0")))
+        solver_obj.timestepper = timeintegrator.CrankNicolson(solver_obj.eq_sw, solver_obj.dt,
+                                                              solver_parameters, gamma=1.0)
+        solver_obj.assign_initial_conditions(uv_init=Expression(("1.0", "0.0")))
 
         source_space = FunctionSpace(mesh2d, 'DG', order+1)
         source_func = project(source_expr, source_space)
         File('source.pvd') << source_func
-        solverObj.timeStepper.F -= solverObj.timeStepper.dt_const*solverObj.eq_sw.U_test[0]*source_func*solverObj.eq_sw.dx
-        solverObj.timeStepper.updateSolver()
+        solver_obj.timestepper.F -= solver_obj.timestepper.dt_const*solver_obj.eq_sw.U_test[0]*source_func*solver_obj.eq_sw.dx
+        solver_obj.timestepper.update_solver()
 
-        solverObj.iterate()
+        solver_obj.iterate()
 
-        uv, eta = solverObj.fields.solution2d.split()
+        uv, eta = solver_obj.fields.solution_2d.split()
 
-        eta_ana = project(eta_expr, solverObj.function_spaces.H_2d)
-        diff_pvd << project(eta_ana-eta, solverObj.function_spaces.H_2d, name="diff")
+        eta_ana = project(eta_expr, solver_obj.function_spaces.H_2d)
+        diff_pvd << project(eta_ana-eta, solver_obj.function_spaces.H_2d, name="diff")
         eta_l2norm = assemble(pow(eta-eta_ana, 2)*dx)
         eta_errs.append(math.sqrt(eta_l2norm/area))
 
-        u_ana = project(u_expr, solverObj.function_spaces.U_2d)
-        udiff_pvd << project(u_ana-uv, solverObj.function_spaces.U_2d, name="diff")
+        u_ana = project(u_expr, solver_obj.function_spaces.U_2d)
+        udiff_pvd << project(u_ana-uv, solver_obj.function_spaces.U_2d, name="diff")
         u_l2norm = assemble(inner(u_ana-uv, u_ana-uv)*dx)
         u_errs.append(math.sqrt(u_l2norm/area))
 

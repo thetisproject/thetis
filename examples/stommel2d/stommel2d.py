@@ -14,12 +14,12 @@
 from cofs import *
 
 mesh2d = Mesh('stommel_square.msh')
-outputDir = createDirectory('outputs')
-printInfo('Loaded mesh '+mesh2d.name)
-printInfo('Exporting to '+outputDir)
+outputdir = create_directory('outputs')
+print_info('Loaded mesh '+mesh2d.name)
+print_info('Exporting to '+outputdir)
 depth = 1000.0
-T = 75*12*2*3600
-TExport = 3600*2
+t_end = 75*12*2*3600
+t_export = 3600*2
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -34,30 +34,30 @@ coriolis_2d.interpolate(
     Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0))
 
 # Wind stress
-windStress2d = Function(P1v_2d, name='wind stress')
+wind_stress_2d = Function(P1v_2d, name='wind stress')
 tau_max = 0.1
 L_y = 1.0e6
-windStress2d.interpolate(Expression(('tau_max*sin(pi*x[1]/L)', '0'), tau_max=tau_max, L=L_y))
+wind_stress_2d.interpolate(Expression(('tau_max*sin(pi*x[1]/L)', '0'), tau_max=tau_max, L=L_y))
 
 # linear dissipation: tau_bot/(h*rho) = -bf_gamma*u
 lin_drag = Constant(1e-6)
 
 # --- create solver ---
-solverObj = solver2d.flowSolver2d(mesh2d, bathymetry_2d)
-options = solverObj.options
+solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
+options = solver_obj.options
 options.cfl_2d = 1.0
 options.nonlin = False
 options.coriolis = coriolis_2d
-options.wind_stress = windStress2d
+options.wind_stress = wind_stress_2d
 options.lin_drag = lin_drag
-options.TExport = TExport
-options.T = T
+options.t_export = t_export
+options.t_end = t_end
 options.dt = 45.0
-options.outputDir = outputDir
-options.uAdvection = Constant(0.01)
-options.checkVolConservation2d = True
-options.fieldsToExport = ['uv_2d', 'elev_2d']
-options.timerLabels = []
-# options.timeStepperType = 'CrankNicolson'
+options.outputdir = outputdir
+options.u_advection = Constant(0.01)
+options.check_vol_conservation_2d = True
+options.fields_to_export = ['uv_2d', 'elev_2d']
+options.timer_labels = []
+# options.timestepper_type = 'CrankNicolson'
 
-solverObj.iterate()
+solver_obj.iterate()

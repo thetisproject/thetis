@@ -5,7 +5,7 @@
 #
 # Dianeutral mixing depends on mesh Reynolds number [1]
 # Re_h = U dx / nu
-# U = 0.5 m/s characteristic velocity ~ 0.5*sqrt(gH drho/rho_0)
+# U = 0.5 m/s characteristic velocity ~ 0.5*sqrt(g_h drho/rho_0)
 # dx = horizontal mesh size
 # nu = background viscosity
 #
@@ -37,35 +37,35 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('reso_str', type=str,
                     help='resolution string (coarse, medium, fine)')
-parser.add_argument('-j', '--jumpDiffFactor', type=float, default=1.0,
+parser.add_argument('-j', '--jump_diff_factor', type=float, default=1.0,
                     help='factor for jump diff')
-parser.add_argument('-l', '--useLimiter', action='store_true',
+parser.add_argument('-l', '--use_limiter', action='store_true',
                     help='use slope limiter for tracers instead of diffusion')
-parser.add_argument('-p', '--polyOrder', type=int, default=1,
+parser.add_argument('-p', '--poly_order', type=int, default=1,
                     help='order of finite element space (0|1)')
 parser.add_argument('-m', '--mimetic', action='store_true',
                     help='use mimetic elements for velocity')
-parser.add_argument('-Re', '--reynoldsNumber', type=float, default=2.0,
+parser.add_argument('-Re', '--reynolds_number', type=float, default=2.0,
                     help='mesh Reynolds number for Smagorinsky scheme')
 args = parser.parse_args()
-if args.useLimiter:
-    args.jumpDiffFactor = None
-argsDict = vars(args)
+if args.use_limiter:
+    args.jump_diff_factor = None
+args_dict = vars(args)
 if commrank == 0:
     print 'Running test case with setup:'
-    for k in sorted(argsDict.keys()):
-        print ' - {0:15s} : {1:}'.format(k, argsDict[k])
+    for k in sorted(args_dict.keys()):
+        print ' - {0:15s} : {1:}'.format(k, args_dict[k])
 
-limiterStr = 'limiter' if args.useLimiter else 'jumpDiff'+str(args.jumpDiffFactor)
-spaceStr = 'RT' if args.mimetic else 'DG'
-outputDir = 'out_{:}_p{:}{:}_Re{:}_{:}'.format(args.reso_str, spaceStr,
-                                               args.polyOrder,
-                                               args.reynoldsNumber, limiterStr)
+limiter_str = 'limiter' if args.use_limiter else 'jump_diff'+str(args.jump_diff_factor)
+space_str = 'RT' if args.mimetic else 'DG'
+outputdir = 'out_{:}_p{:}{:}_Re{:}_{:}'.format(args.reso_str, space_str,
+                                               args.poly_order,
+                                               args.reynolds_number, limiter_str)
 
-outputDir = createDirectory(outputDir)
+outputdir = create_directory(outputdir)
 reso_str = args.reso_str
-if args.jumpDiffFactor is not None:
-    args.jumpDiffFactor = Constant(args.jumpDiffFactor)
+if args.jump_diff_factor is not None:
+    args.jump_diff_factor = Constant(args.jump_diff_factor)
 
 # ---
 
@@ -87,12 +87,12 @@ coords = mesh2d.coordinates
 coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min
 coords.dat.data[:, 1] = coords.dat.data[:, 1]*2*dx - dx
 
-printInfo('Exporting to '+outputDir)
+print_info('Exporting to '+outputdir)
 dt = 75.0/refinement[reso_str]
 if reso_str == 'fine':
     dt /= 2.0
-T = 25 * 3600
-TExport = 15*60.0
+t_end = 25 * 3600
+t_export = 15*60.0
 depth = 20.0
 
 # bathymetry
@@ -101,52 +101,55 @@ bathymetry2d = Function(P1_2d, name='Bathymetry')
 bathymetry2d.assign(depth)
 
 # create solver
-solverObj = solver.flowSolver(mesh2d, bathymetry2d, layers,
-                              order=args.polyOrder, mimetic=args.mimetic)
-solverObj.cfl_2d = 1.0
-# solverObj.nonlin = False
-solverObj.solveSalt = True
-solverObj.solveVertDiffusion = False
-solverObj.useBottomFriction = False
-solverObj.useALEMovingMesh = False
-# solverObj.useSemiImplicit2D = False
-# solverObj.useModeSplit = False
-solverObj.baroclinic = True
-solverObj.uvLaxFriedrichs = Constant(1.0)
-solverObj.tracerLaxFriedrichs = Constant(1.0)
-solverObj.smagorinskyFactor = Constant(1.0/np.sqrt(args.reynoldsNumber))
-solverObj.saltJumpDiffFactor = args.jumpDiffFactor
-solverObj.saltRange = Constant(5.0)
-solverObj.useLimiterForTracers = args.useLimiter
+solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers,
+                               order=args.poly_order, mimetic=args.mimetic)
+options = solver_obj.options
+options.cfl_2d = 1.0
+# options.nonlin = False
+# options.mimetic = False
+options.solve_salt = True
+options.solve_vert_diffusion = False
+options.use_bottom_friction = False
+options.use_ale_moving_mesh = False
+# options.use_imex = True
+# options.use_semi_implicit_2d = False
+# options.use_mode_split = False
+options.baroclinic = True
+options.uv_lax_friedrichs = Constant(1.0)
+options.tracer_lax_friedrichs = Constant(1.0)
+options.smagorinsky_factor = Constant(1.0/np.sqrt(args.reynolds_number))
+options.salt_jump_diff_factor = args.jump_diff_factor
+options.salt_range = Constant(5.0)
+options.use_limiter_for_tracers = args.use_limiter
 # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
-# solverObj.hViscosity = Constant(100.0/refinement[reso_str])
-solverObj.hViscosity = Constant(1.0)
-solverObj.hDiffusivity = Constant(1.0)
-if solverObj.useModeSplit:
-    solverObj.dt = dt
-solverObj.TExport = TExport
-solverObj.T = T
-solverObj.outputDir = outputDir
-solverObj.uAdvection = Constant(1.0)
-solverObj.checkVolConservation2d = True
-solverObj.checkVolConservation3d = True
-solverObj.checkSaltConservation = True
-solverObj.checkSaltOvershoot = True
-solverObj.fieldsToExport = ['uv2d', 'elev2d', 'uv3d',
-                            'w3d', 'wMesh3d', 'salt3d',
-                            'uvDav2d', 'uvDav3d', 'baroHead3d',
-                            'baroHead2d',
-                            'smagViscosity', 'saltJumpDiff']
-solverObj.fieldsToExportNumpy = ['salt3d']
-solverObj.timerLabels = []
+# options.h_viscosity = Constant(100.0/refinement[reso_str])
+options.h_viscosity = Constant(1.0)
+options.h_diffusivity = Constant(1.0)
+if options.use_mode_split:
+    options.dt = dt
+options.t_export = t_export
+options.t_end = t_end
+options.outputdir = outputdir
+options.u_advection = Constant(1.0)
+options.check_vol_conservation_2d = True
+options.check_vol_conservation_3d = True
+options.check_salt_conservation = True
+options.check_salt_overshoot = True
+options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
+                            'w_3d', 'w_mesh_3d', 'salt_3d',
+                            'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
+                            'baroc_head_2d',
+                            'smag_visc_3d', 'salt_jump_diff']
+options.fields_to_export_numpy = ['salt_3d']
+options.timer_labels = []
 
-solverObj.createEquations()
-salt_init3d = Function(solverObj.function_spaces.H, name='initial salinity')
+solver_obj.create_equations()
+salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
 # vertical barrier
 # salt_init3d.interpolate(Expression(('(x[0] > 0.0) ? 20.0 : 25.0')))
 # smooth condition
 salt_init3d.interpolate(Expression('22.5 - 2.5*tanh(x[0]/sigma)',
                                    sigma=1000.0))
 
-solverObj.assignInitialConditions(salt=salt_init3d)
-solverObj.iterate()
+solver_obj.assign_initial_conditions(salt=salt_init3d)
+solver_obj.iterate()

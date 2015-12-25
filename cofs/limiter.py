@@ -6,7 +6,7 @@ Tuomas Karna 2015-08-26
 from utility import *
 
 
-def assertFunctionSpace(fs, family, degree):
+def assert_function_space(fs, family, degree):
     """
     Checks the family and degree of function space.
 
@@ -33,7 +33,7 @@ def assertFunctionSpace(fs, family, degree):
             'degree of function space must be {0:d}'.format(degree)
 
 
-class vertexBasedP1DGLimiter(object):
+class VertexBasedP1DGLimiter(object):
     """
     Vertex based limiter for P1DG tracer fields.
 
@@ -44,39 +44,39 @@ class vertexBasedP1DGLimiter(object):
     and Applied Mathematics, 233(12):3077-3085.
     http://dx.doi.org/10.1016/j.cam.2009.05.028
     """
-    def __init__(self, P1DG_space, P1CG_space, P0_space):
+    def __init__(self, p1dg_space, p1cg_space, p0_space):
         """
         Initialize limiter.
 
         Parameters
         ----------
 
-        P1DG_space : FunctionSpace instance
+        p1dg_space : FunctionSpace instance
             P1DG function space where the scalar field belongs to
-        P1CG_space : FunctionSpace instance
+        p1cg_space : FunctionSpace instance
             Corresponding continuous function space (for min/max limits)
-        P0_space : FunctionSpace instance
+        p0_space : FunctionSpace instance
             Corresponding P0 function space (for centroids)
 
         """
 
-        assertFunctionSpace(P1DG_space, 'Discontinuous Lagrange', 1)
-        assertFunctionSpace(P0_space, 'Discontinuous Lagrange', 0)
-        assertFunctionSpace(P1CG_space, 'Lagrange', 1)
-        self.P1DG = P1DG_space
-        self.P0 = P0_space
-        self.P1CG = P1CG_space
+        assert_function_space(p1dg_space, 'Discontinuous Lagrange', 1)
+        assert_function_space(p0_space, 'Discontinuous Lagrange', 0)
+        assert_function_space(p1cg_space, 'Lagrange', 1)
+        self.P1DG = p1dg_space
+        self.P0 = p0_space
+        self.P1CG = p1cg_space
         self.dx = self.P1CG.mesh()._dx
         # create auxiliary functions
         # P0 field containing the center (mean) values of elements
-        self.centroids = Function(self.P0, name='limiterP1DG-centroid')
+        self.centroids = Function(self.P0, name='limiter_p1_dg-centroid')
         # Allowed min/max values for each P1 node in the mesh
-        self.max_field = Function(self.P1CG, name='limiterP1DG-maxvalue')
-        self.min_field = Function(self.P1CG, name='limiterP1DG-minvalue')
+        self.max_field = Function(self.P1CG, name='limiter_p1_dg-maxvalue')
+        self.min_field = Function(self.P1CG, name='limiter_p1_dg-minvalue')
         # store solvers for computing centroids
         self.centroid_solvers = {}
 
-    def _constructAverageOperator(self, field):
+    def _construct_average_operator(self, field):
         """
         Constructs a linear problem for computing the centroids and
         adds it to the cache.
@@ -86,23 +86,23 @@ class vertexBasedP1DGLimiter(object):
             test = TestFunction(self.P0)
 
             a = tri*test*self.dx
-            L = field*test*self.dx
+            l = field*test*self.dx
 
             params = {'ksp_type': 'preonly'}
-            problem = LinearVariationalProblem(a, L, self.centroids)
+            problem = LinearVariationalProblem(a, l, self.centroids)
             solver = LinearVariationalSolver(problem,
                                              solver_parameters=params)
             self.centroid_solvers[field] = solver
         return self.centroid_solvers[field]
 
-    def _updateCentroids(self, field):
+    def _update_centroids(self, field):
         """
         Re-compute element centroid values
         """
-        solver = self._constructAverageOperator(field)
+        solver = self._construct_average_operator(field)
         solver.solve()
 
-    def _updateMinMaxValues(self, field):
+    def _update_min_max_values(self, field):
         """
         Re-compute min/max values of all neighbouring centroids
         """
@@ -121,7 +121,7 @@ class vertexBasedP1DGLimiter(object):
                   'qmin': (self.min_field, RW),
                   'centroids': (self.centroids, READ)})
 
-    def _applyLimiter(self, field):
+    def _apply_limiter(self, field):
         """
         Applies the limiter to the given field.
         DG field values are limited to be within min/max of the neighbouring element centroids.
@@ -151,6 +151,6 @@ class vertexBasedP1DGLimiter(object):
         """
         assert field.function_space() == self.P1DG,\
             'Given field belongs to wrong function space'
-        self._updateCentroids(field)
-        self._updateMinMaxValues(field)
-        self._applyLimiter(field)
+        self._update_centroids(field)
+        self._update_min_max_values(field)
+        self._apply_limiter(field)
