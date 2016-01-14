@@ -19,6 +19,8 @@ class ModelOptions(AttrDict):
         """int: Polynomial degree of elements"""
         self.mimetic = True
         """bool: Use mimetic elements for uvw instead of DG"""
+        self.continuous_pressure = False
+        """bool: Use PnDG-P(n+1) velocity, pressure pair"""
         self.nonlin = True
         """bool: Use nonlinear shallow water equations"""
         self.solve_salt = True

@@ -15,7 +15,7 @@ from scipy import stats
 import pytest
 
 
-def setup1(lx, ly, depth, f0, g, mimetic=True):
+def setup1(lx, ly, depth, f0, g, **kwargs):
     """
     Tests the pressure gradient only
 
@@ -44,8 +44,7 @@ def setup1(lx, ly, depth, f0, g, mimetic=True):
             '-3.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/lx)/lx',
             '-1.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/lx)/lx',
         ), lx=lx, h0=depth, f0=f0, g=g)
-    out['options'] = {}
-    out['options'] = {'mimetic': mimetic}
+    out['options'] = kwargs
     out['bnd_funcs'] = {1: {'elev': None, 'uv': None},
                         2: {'elev': None, 'uv': None},
                         3: {'elev': None, 'uv': None},
@@ -248,7 +247,7 @@ def setup6(lx, ly, depth, f0, g):
     return out
 
 
-def setup7(lx, ly, depth, f0, g, mimetic=True):
+def setup7(lx, ly, depth, f0, g, **kwargs):
     """
     Non-trivial Coriolis, bath, elev, u and v,
     tangential velocity is zero at bnd to test flux BCs
@@ -276,7 +275,7 @@ def setup7(lx, ly, depth, f0, g, mimetic=True):
             '-0.5*f0*sin(pi*x[0]/lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)*cos(pi*(x[0] + x[1])/lx) + 0.5*(pi*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)*cos(pi*x[1]/ly)/ly + 1.0*pi*sin(pi*x[1]/ly)*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)/lx)*sin(pi*x[0]/lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx) - 3.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/lx)/lx - 2.0*pi*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)*pow(sin(pi*x[1]/ly), 2)*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)/lx',
             'f0*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)*sin(pi*x[1]/ly)*cos(pi*(x[0] + x[1])/lx) + (-1.5*pi*sin(pi*x[0]/lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/lx)/lx + 0.5*pi*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)*cos(pi*x[0]/lx)/lx)*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)*sin(pi*x[1]/ly) - 1.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/lx)/lx + 0.25*pi*pow(sin(pi*x[0]/lx), 2)*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/lx)/lx',
         ), lx=lx, ly=ly, h0=depth, f0=f0, g=g)
-    out['options'] = {'mimetic': mimetic}
+    out['options'] = kwargs
     out['bnd_funcs'] = {1: {'elev': None, 'flux_left': None},
                         2: {'flux_right': None},
                         3: {'elev': None, 'flux_lower': None},
@@ -293,7 +292,7 @@ def setup7dg(lx, ly, depth, f0, g):
     return setup7(lx, ly, depth, f0, g, mimetic=False)
 
 
-def setup8(lx, ly, depth, f0, g, mimetic=True):
+def setup8(lx, ly, depth, f0, g, **kwargs):
     """
     Non-trivial Coriolis, bath, elev, u and v,
     tangential velocity is non-zero at bnd, must prescribe uv at boundary.
@@ -321,7 +320,7 @@ def setup8(lx, ly, depth, f0, g, mimetic=True):
             '-0.5*f0*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)*cos(pi*(x[0] + x[1])/lx) - 3.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/lx)/lx + 0.5*pi*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)/lx - 2.0*pi*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)/lx',
             'f0*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)*cos(pi*(x[0] + x[1])/lx) - 1.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/lx)/lx + 0.25*pi*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/lx)/lx - 1.5*pi*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/lx)/lx',
         ), lx=lx, ly=ly, h0=depth, f0=f0, g=g)
-    out['options'] = {'mimetic': mimetic}
+    out['options'] = kwargs
     # NOTE uv condition alone does not work
     out['bnd_funcs'] = {1: {'elev': None, 'uv': None},
                         2: {'elev': None, 'uv': None},
@@ -339,7 +338,7 @@ def setup8dg(lx, ly, depth, f0, g):
     return setup8(lx, ly, depth, f0, g, mimetic=False)
 
 
-def run(setup, refinement, order, export=True):
+def run(setup, refinement, order, export=True, **kwargs):
     """Run single test and return L2 error"""
     print '--- running {:} refinement {:}'.format(setup.__name__, refinement)
     # domain dimensions
@@ -355,7 +354,7 @@ def run(setup, refinement, order, export=True):
     if not export:
         t_export = 1.0e12  # high enough
 
-    sdict = setup(lx, ly, depth, f0, g)
+    sdict = setup(lx, ly, depth, f0, g, **kwargs)
 
     # mesh
     nx = 5*refinement
@@ -476,11 +475,11 @@ def run(setup, refinement, order, export=True):
     return elev_l2_err, uv_l2_err
 
 
-def run_convergence(setup, ref_list, order, export=False, save_plot=False):
+def run_convergence(setup, ref_list, order, export=False, save_plot=False, **kwargs):
     """Runs test for a list of refinements and computes error convergence rate"""
     l2_err = []
     for r in ref_list:
-        l2_err.append(run(setup, r, order, export=export))
+        l2_err.append(run(setup, r, order, export=export, **kwargs))
     x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
     y_log = numpy.log10(numpy.array(l2_err))
     y_log_elev = y_log[:, 0]
@@ -542,9 +541,13 @@ def choose_setup(request):
     return request.param
 
 
-@pytest.fixture(params=[False, True], ids=["DG", "mimetic"])
+@pytest.fixture(params=[
+    {'mimetic':False, 'continuous_pressure':False}, 
+    {'mimetic':True, 'continuous_pressure':False},
+    {'mimetic':False, 'continuous_pressure':True}], 
+    ids=["DG", "mimetic", "P1DGP2"])
 def setup_function(request, choose_setup):
-    return lambda *args: choose_setup(*args, mimetic=request.param)
+    return lambda *args: choose_setup(*args, **request.param)
 
 
 def test_steady_state_basin_convergence(setup_function):
