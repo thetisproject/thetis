@@ -542,10 +542,11 @@ def choose_setup(request):
 
 
 @pytest.fixture(params=[
-    {'mimetic':False, 'continuous_pressure':False}, 
-    {'mimetic':True, 'continuous_pressure':False},
-    {'mimetic':False, 'continuous_pressure':True}], 
-    ids=["DG", "mimetic", "P1DGP2"])
+    {'mimetic': False, 'continuous_pressure': False},
+    {'mimetic': True, 'continuous_pressure': False},
+    {'mimetic': False, 'continuous_pressure': True}],
+    ids=["DG", "mimetic", "P1DGP2"]
+)
 def setup_function(request, choose_setup):
     return lambda *args: choose_setup(*args, **request.param)
 
