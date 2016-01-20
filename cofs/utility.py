@@ -18,6 +18,8 @@ from cofs.field_defs import field_metadata
 comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
 
+ds_surf = ds_b
+ds_bottom = ds_t
 # NOTE some functions now depend on FlowSolver object
 # TODO move those functions in the solver class
 
@@ -252,7 +254,7 @@ def extrude_mesh_linear(mesh2d, n_layers, xmin, xmax, dmin, dmax):
                     ext_coords[2*d+1][%(base_coord_dim)d] = -depth*layer_height[0]*(layer[0][0]+1);
                 }
             }""" % {'base_map_arity': base_coords.cell_node_map().arity,
-                    'base_coord_dim': base_coords.function_space().cdim,
+                    'base_coord_dim': base_coords.function_space().dim,
                     'xmin': xmin, 'xmax': xmax, 'dmin': dmin, 'dmax': dmax},
         'uniform_extrusion_kernel')
     mesh = ExtrudedMesh(mesh2d, layers=n_layers,
@@ -277,22 +279,17 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d):
 
 
 def comp_volume_2d(eta, bath):
-    mesh = bath.function_space().mesh()
-    dx = mesh._dx
     val = assemble((eta+bath)*dx)
     return val
 
 
 def comp_volume_3d(mesh):
-    dx = mesh._dx
     one = Constant(1.0, domain=mesh.coordinates.domain())
     val = assemble(one*dx)
     return val
 
 
 def comp_tracer_mass_3d(scalar_func):
-    mesh = scalar_func.function_space().mesh()
-    dx = mesh._dx
     val = assemble(scalar_func*dx)
     return val
 
@@ -323,7 +320,6 @@ class VerticalVelocitySolver(object):
         tri = TrialFunction(fs)
         normal = FacetNormal(mesh)
 
-        ds_surf = ds_b
         # NOTE weak dw/dz
         a = tri[2]*test[2]*normal[2]*ds_surf + \
             avg(tri[2])*jump(test[2], normal[2])*dS_h - Dx(test[2], 2)*tri[2]*dx
@@ -379,8 +375,6 @@ class VerticalIntegrator(object):
         tri = TrialFunction(space)
         phi = TestFunction(space)
         normal = FacetNormal(mesh)
-        ds_surf = mesh._ds_b
-        ds_bottom = mesh._ds_t
         if bottom_to_top:
             bnd_term = normal[2]*inner(bnd_value, phi)*ds_bottom
             mass_bnd_term = normal[2]*inner(tri, phi)*ds_surf
@@ -388,19 +382,19 @@ class VerticalIntegrator(object):
             bnd_term = normal[2]*inner(bnd_value, phi)*ds_surf
             mass_bnd_term = normal[2]*inner(tri, phi)*ds_bottom
 
-        a = -inner(Dx(phi, 2), tri)*mesh._dx + mass_bnd_term
+        a = -inner(Dx(phi, 2), tri)*dx + mass_bnd_term
         if vertical_is_dg:
             if len(input.ufl_shape) > 0:
                 dim = input.ufl_shape[0]
                 for i in range(dim):
-                    a += avg(tri[i])*jump(phi[i], normal[2])*mesh._dS_h
+                    a += avg(tri[i])*jump(phi[i], normal[2])*dS_h
             else:
-                a += avg(tri)*jump(phi, normal[2])*mesh._dS_h
+                a += avg(tri)*jump(phi, normal[2])*dS_h
         source = input
         if average:
             # FIXME this should be H not h
             source = input/bathymetry
-        l = inner(source, phi)*mesh._dx + bnd_term
+        l = inner(source, phi)*dx + bnd_term
         self.prob = LinearVariationalProblem(a, l, output)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
@@ -462,15 +456,14 @@ class HorizontalJumpDiffusivity(object):
         self.max_val = max_val
 
         fs = output.function_space()
-        mesh = fs.mesh()
         test = TestFunction(fs)
         tri = TrialFunction(fs)
-        a = inner(test, tri)*mesh._dx + jump(test, tri)*mesh._dS_v
+        a = inner(test, tri)*dx + jump(test, tri)*dS_v
         tracer_jump = jump(tracer)
         # TODO jump scalar must depend on the tracer value scale
         # TODO can this be estimated automatically e.g. global_max(abs(S))
         maxjump = Constant(0.05)*tracer_mag
-        l = alpha*avg(umag*h_elem_size)*(tracer_jump/maxjump)**2*avg(test)*mesh._dS_v
+        l = alpha*avg(umag*h_elem_size)*(tracer_jump/maxjump)**2*avg(test)*dS_v
         self.prob = LinearVariationalProblem(a, l, output)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
@@ -518,7 +511,7 @@ class ExpandFunctionTo3d(object):
                     }
                 }
             }""" % {'nodes': self.input_2d.cell_node_map().arity,
-                    'func_dim': self.input_2d.function_space().cdim,
+                    'func_dim': self.input_2d.function_space().dim,
                     'v_nodes': n_vert_nodes},
             'my_kernel')
 
@@ -612,7 +605,7 @@ class SubFunctionExtractor(object):
                     }
                 }
             }""" % {'nodes': self.output_2d.cell_node_map().arity,
-                    'func_dim': self.output_2d.function_space().cdim},
+                    'func_dim': self.output_2d.function_space().dim},
             'my_kernel')
 
         if self.do_rt_scaling:
@@ -621,9 +614,8 @@ class SubFunctionExtractor(object):
             solver_parameters.setdefault('ksp_rtol', 1e-16)
             test = TestFunction(self.fs_2d)
             tri = TrialFunction(self.fs_2d)
-            dx_2d = self.fs_2d.mesh()._dx
-            a = inner(tri, test)*dx_2d
-            l = inner(self.output_2d, test)/elem_height*dx_2d
+            a = inner(tri, test)*dx
+            l = inner(self.output_2d, test)/elem_height*dx
             prob = LinearVariationalProblem(a, l, self.output_2d)
             self.rt_scale_solver = LinearVariationalSolver(
                 prob, solver_parameters=solver_parameters)
@@ -664,7 +656,7 @@ def compute_elem_height(zcoord, output):
                 }
             }
         }""" % {'nodes': zcoord.cell_node_map().arity,
-                'func_dim': zcoord.function_space().cdim},
+                'func_dim': zcoord.function_space().dim},
         'my_kernel')
     op2.par_loop(
         kernel, fs_out.mesh().cell_set,
@@ -711,9 +703,8 @@ def get_horizontal_elem_size(sol2d, sol3d=None):
     test = TestFunction(p1_2d)
     tri = TrialFunction(p1_2d)
     sol2d = Function(p1_2d)
-    dx_2d = mesh._dx
-    a = test * tri * dx_2d
-    l = test * cellsize * dx_2d
+    a = test * tri * dx
+    l = test * cellsize * dx
     solve(a == l, sol2d)
     if sol3d is None:
         return sol2d
@@ -886,7 +877,6 @@ class SmagorinskyViscosity(object):
         self.output = output
 
         fs = output.function_space()
-        mesh = fs.mesh()
         w = TestFunction(fs)
         tau = TrialFunction(fs)
 
@@ -895,8 +885,8 @@ class SmagorinskyViscosity(object):
         d_s = Dx(uv[0], 1) + Dx(uv[1], 0)
         nu = c_s**2*h_elem_size**2 * sqrt(d_t**2 + d_s**2)
 
-        a = w*tau*mesh._dx
-        l = w*nu*mesh._dx
+        a = w*tau*dx
+        l = w*nu*dx
         self.prob = LinearVariationalProblem(a, l, output)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
@@ -919,8 +909,8 @@ class Projector(object):
             v = output_func.function_space()
             p = TestFunction(v)
             q = TrialFunction(v)
-            a = inner(p, q) * v.mesh()._dx
-            l = inner(p, input_func) * v.mesh()._dx
+            a = inner(p, q) * dx
+            l = inner(p, input_func) * dx
 
             solver_parameters.setdefault('ksp_type', 'cg')
             solver_parameters.setdefault('ksp_rtol', 1e-8)

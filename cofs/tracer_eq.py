@@ -55,14 +55,6 @@ class TracerEquation(Equation):
         self.xyz = SpatialCoordinate(self.mesh)
         self.e_x, self.e_y, self.e_y = unit_vectors(3)
 
-        # integral measures
-        self.dx = self.mesh._dx
-        self.dS_v = self.mesh._dS_v
-        self.dS_h = self.mesh._dS_h
-        self.ds_v = self.mesh._ds_v
-        self.ds_surf = self.mesh._ds_b
-        self.ds_bottom = self.mesh._ds_t
-
         # boundary definitions
         self.boundary_markers = bnd_markers
         self.boundary_len = bnd_len
@@ -77,7 +69,7 @@ class TracerEquation(Equation):
         Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
         """
         test = self.test
-        return inner(solution, test) * self.dx
+        return inner(solution, test) * dx
 
     def rhs_implicit(self, solution, wind_stress=None, **kwargs):
         """Returns all the terms that are treated semi-implicitly.
@@ -99,7 +91,7 @@ class TracerEquation(Equation):
         # Horizontal advection term
         if self.compute_horiz_advection:
             if self.horiz_advection_by_parts:
-                f += -solution*inner(uv, nabla_grad(self.test))*self.dx
+                f += -solution*inner(uv, nabla_grad(self.test))*dx
                 if self.horizontal_dg:
                     # add interface term
                     uv_av = avg(uv)
@@ -109,7 +101,7 @@ class TracerEquation(Equation):
                     c_up = solution('-')*s + solution('+')*(1-s)
                     g += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
                                uv_av[1]*jump(self.test, self.normal[1]) +
-                               uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_v + self.dS_h)
+                               uv_av[2]*jump(self.test, self.normal[2]))*(dS_v + dS_h)
                     # Lax-Friedrichs stabilization
                     if lax_friedrichs_factor is not None:
                         if uv_p1 is not None:
@@ -119,10 +111,10 @@ class TracerEquation(Equation):
                             gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
                         else:
                             raise Exception('either uv_p1 or uv_mag must be given')
-                        g += gamma*dot(jump(self.test), jump(solution))*(self.dS_v + self.dS_h)
+                        g += gamma*dot(jump(self.test), jump(solution))*(dS_v + dS_h)
                     for bnd_marker in self.boundary_markers:
                         funcs = self.bnd_functions.get(bnd_marker)
-                        ds_bnd = self.ds_v(int(bnd_marker))
+                        ds_bnd = ds_v(int(bnd_marker))
                         if funcs is None:
                             continue
                         elif 'value' in funcs:
@@ -137,13 +129,13 @@ class TracerEquation(Equation):
                             g += c_up*(uv_av[0]*self.normal[0] +
                                        uv_av[1]*self.normal[1])*self.test*ds_bnd
             else:
-                f += (Dx(uv[0]*solution, 0) + Dx(uv[1]*solution, 1))*self.test*self.dx
+                f += (Dx(uv[0]*solution, 0) + Dx(uv[1]*solution, 1))*self.test*dx
                 g += -solution*(uv[0]*self.normal[0] +
-                                uv[1]*self.normal[1])*self.test*(self.ds_bottom)
+                                uv[1]*self.normal[1])*self.test*(ds_bottom)
             # boundary conditions
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
-                ds_bnd = self.ds_v(int(bnd_marker))
+                ds_bnd = ds_v(int(bnd_marker))
                 if funcs is None:
                     if not self.horiz_advection_by_parts:
                         g += -solution*(self.normal[0]*uv[0] +
@@ -155,55 +147,55 @@ class TracerEquation(Equation):
             vertvelo = w[2]
             if w_mesh is not None:
                 vertvelo = w[2]-w_mesh
-            f += -solution*vertvelo*Dx(self.test, 2)*self.dx
+            f += -solution*vertvelo*Dx(self.test, 2)*dx
             if self.vertical_dg:
                 w_av = avg(vertvelo)
                 s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
                 c_up = solution('-')*s + solution('+')*(1-s)
-                g += c_up*w_av*jump(self.test, self.normal[2])*self.dS_h
+                g += c_up*w_av*jump(self.test, self.normal[2])*dS_h
                 if lax_friedrichs_factor is not None:
                     # Lax-Friedrichs
                     gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
-                    g += gamma*dot(jump(self.test), jump(solution))*self.dS_h
+                    g += gamma*dot(jump(self.test), jump(solution))*dS_h
 
             # Non-conservative ALE source term
             if dw_mesh_dz is not None:
-                f += solution*dw_mesh_dz*self.test*self.dx
+                f += solution*dw_mesh_dz*self.test*dx
 
             # NOTE Bottom impermeability condition is naturally satisfied by the definition of w
             if w_mesh is None:
-                g += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
+                g += solution*vertvelo*self.normal[2]*self.test*ds_surf
             else:
-                g += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
+                g += solution*vertvelo*self.normal[2]*self.test*ds_surf
 
         # diffusion
         if self.compute_horiz_diffusion:
             f += diffusivity_h*(Dx(solution, 0)*Dx(self.test, 0) +
-                                Dx(solution, 1)*Dx(self.test, 1))*self.dx
+                                Dx(solution, 1)*Dx(self.test, 1))*dx
             if self.horizontal_dg:
                 # interface term
                 mu_grad_sol = diffusivity_h*grad(solution)
                 f += -(avg(mu_grad_sol[0])*jump(self.test, self.normal[0]) +
-                       avg(mu_grad_sol[1])*jump(self.test, self.normal[1]))*(self.dS_v+self.dS_h)
+                       avg(mu_grad_sol[1])*jump(self.test, self.normal[1]))*(dS_v+dS_h)
                 # # TODO symmetric penalty term
                 # # sigma = (o+1)(o+d)/d*N_0/(2L) (Shahbazi, 2005)
                 # # o: order of space
                 # sigma = 1e-4
                 # n_mag = self.normal[0]('-')**2 + self.normal[1]('-')**2
-                # F += -sigma*avg(diffusivity_h)*n_mag*jump(solution)*jump(self.test)*(self.dS_v+self.dS_h)
+                # F += -sigma*avg(diffusivity_h)*n_mag*jump(solution)*jump(self.test)*(dS_v+dS_h)
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
-                ds_bnd = self.ds_v(int(bnd_marker))
+                ds_bnd = ds_v(int(bnd_marker))
                 if funcs is None or 'value' in funcs or 'symm' in funcs:
                     # use symmetric diffusion flux through boundary
                     f += -inner(mu_grad_sol, self.normal)*self.test*ds_bnd
         if self.compute_vert_diffusion:
-            f += diffusivity_v*inner(Dx(solution, 2), Dx(self.test, 2)) * self.dx
+            f += diffusivity_v*inner(Dx(solution, 2), Dx(self.test, 2)) * dx
             if self.vertical_dg:
                 # interface term
                 diff_flux = diffusivity_v*Dx(solution, 2)
                 f += -(dot(avg(diff_flux), self.test('+'))*self.normal[2]('+') +
-                       dot(avg(diff_flux), self.test('-'))*self.normal[2]('-')) * self.dS_h
+                       dot(avg(diff_flux), self.test('-'))*self.normal[2]('-')) * dS_h
                 # symmetric interior penalty stabilization
                 ip_fact = Constant(1.0)
                 if self.v_elem_size is None:
@@ -216,7 +208,7 @@ class TracerEquation(Equation):
                 gamma = sigma*avg(diffusivity_v) * ip_fact
                 jump_test = (self.test('+')*self.normal[2]('+') +
                              self.test('-')*self.normal[2]('-'))
-                f += gamma * dot(jump(solution), jump_test) * self.dS_h
+                f += gamma * dot(jump(solution), jump_test) * dS_h
 
         return -f - g
 
@@ -226,6 +218,6 @@ class TracerEquation(Equation):
         f = 0  # holds all dx volume integral terms
 
         if source is not None:
-            f += -inner(source, self.test)*self.dx
+            f += -inner(source, self.test)*dx
 
         return -f

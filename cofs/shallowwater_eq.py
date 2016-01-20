@@ -76,18 +76,13 @@ class ShallowWaterEquations(Equation):
         self.xyz = SpatialCoordinate(self.mesh)
         self.e_x, self.e_y = unit_vectors(2)
 
-        # integral measures
-        self.dx = self.mesh._dx
-        self.dS = self.mesh._dS
-        self.ds = self.mesh._ds
-
         # boundary definitions
         self.boundary_markers = set(self.mesh.exterior_facets.unique_markers)
 
         # compute length of all boundaries
         self.boundary_len = {}
         for i in self.boundary_markers:
-            ds_restricted = self.ds(int(i))
+            ds_restricted = ds(int(i))
             one_func = Function(self.eta_space).assign(1.0)
             self.boundary_len[i] = assemble(one_func * ds_restricted)
 
@@ -123,8 +118,8 @@ class ShallowWaterEquations(Equation):
         uu = TestFunction(h)
         grid_dt = TrialFunction(h)
         res = Function(h)
-        a = uu * grid_dt * self.dx
-        l = uu * csize / (sqrt(g_grav * h_pos) + u_mag) * self.dx
+        a = uu * grid_dt * dx
+        l = uu * csize / (sqrt(g_grav * h_pos) + u_mag) * dx
         solve(a == l, res)
         return res
 
@@ -134,8 +129,8 @@ class ShallowWaterEquations(Equation):
         uu = TestFunction(h)
         grid_dt = TrialFunction(h)
         res = Function(h)
-        a = uu * grid_dt * self.dx
-        l = uu * csize / u_mag * self.dx
+        a = uu * grid_dt * dx
+        l = uu * csize / u_mag * dx
         if u_mag.dat.data == 0.0:
             raise Exception('Unable to compute time step: zero velocity scale')
         solve(a == l, res)
@@ -147,7 +142,7 @@ class ShallowWaterEquations(Equation):
 
         Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
         """
-        return inner(solution, self.test)*self.dx
+        return inner(solution, self.test)*dx
 
     def get_bnd_functions(self, eta_in, uv_in, funcs, bath, bnd_len):
         """
@@ -188,15 +183,15 @@ class ShallowWaterEquations(Equation):
 
     def pressure_grad(self, head, uv=None, total_h=None, internal_pg=False, **kwargs):
         if self.grad_eta_by_parts:
-            f = -g_grav*head*nabla_div(self.U_test)*self.dx
+            f = -g_grav*head*nabla_div(self.U_test)*dx
             if uv is not None:
                 head_star = avg(head) + 0.5*sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
             else:
                 head_star = avg(head)
-            f += g_grav*head_star*jump(self.U_test, self.normal)*self.dS
+            f += g_grav*head_star*jump(self.U_test, self.normal)*dS
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
-                ds_bnd = self.ds(int(bnd_marker))
+                ds_bnd = ds(int(bnd_marker))
                 if internal_pg:
                     # use internal value
                     head_rie = head
@@ -219,27 +214,27 @@ class ShallowWaterEquations(Equation):
                         f += g_grav*head_rie*dot(self.U_test, self.normal)*ds_bnd
         else:
             raise Exception('Should never call this')
-            f = g_grav*inner(grad(head), self.U_test) * self.dx
+            f = g_grav*inner(grad(head), self.U_test) * dx
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
-                ds_bnd = self.ds(int(bnd_marker))
+                ds_bnd = ds(int(bnd_marker))
                 if funcs is not None and 'elev' in funcs:
                     f -= g_grav*head*dot(self.U_test, self.normal)*ds_bnd
         return f
 
     def hu_div_term(self, uv, eta, total_h, **kwargs):
         if self.hu_by_parts:
-            f = -inner(grad(self.eta_test), total_h*uv)*self.dx
+            f = -inner(grad(self.eta_test), total_h*uv)*dx
             if self.eta_is_dg:
                 h = avg(total_h)
                 uv_rie = avg(uv) + sqrt(g_grav/h)*jump(eta, self.normal)
                 hu_star = h*uv_rie
                 # hu_star = avg(total_h*uv) +\
                 #     0.5*sqrt(g_grav*avg(total_h))*jump(total_h, self.normal)
-                f += inner(jump(self.eta_test, self.normal), hu_star)*self.dS
+                f += inner(jump(self.eta_test, self.normal), hu_star)*dS
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
-                ds_bnd = self.ds(int(bnd_marker))
+                ds_bnd = ds(int(bnd_marker))
                 if funcs is not None:
                     h = self.bathymetry
                     l = self.boundary_len[bnd_marker]
@@ -255,10 +250,10 @@ class ShallowWaterEquations(Equation):
                 # if funcs is not None and ('symm' in funcs or 'elev' in funcs):
                 #     f += total_h*inner(self.normal, uv)*self.eta_test*ds_bnd
         else:
-            f = div(total_h*uv)*self.eta_test*self.dx
+            f = div(total_h*uv)*self.eta_test*dx
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
-                ds_bnd = self.ds(int(bnd_marker))
+                ds_bnd = ds(int(bnd_marker))
                 if funcs is None or 'un' in funcs:
                     f += -total_h*dot(uv, self.normal)*self.eta_test*ds_bnd
             # f += -avg(total_h)*avg(dot(uv, normal))*jump(self.eta_test)*dS
@@ -270,7 +265,7 @@ class ShallowWaterEquations(Equation):
             f = -(Dx(uv[0]*self.U_test[0], 0)*uv[0] +
                   Dx(uv[0]*self.U_test[1], 0)*uv[1] +
                   Dx(uv[1]*self.U_test[0], 1)*uv[0] +
-                  Dx(uv[1]*self.U_test[1], 1)*uv[1])*self.dx
+                  Dx(uv[1]*self.U_test[1], 1)*uv[1])*dx
             if self.u_is_dg:
                 uv_av = avg(uv)
                 un_av = dot(uv_av, self.normal('-'))
@@ -284,14 +279,14 @@ class ShallowWaterEquations(Equation):
                 f += (uv_up[0]*jump(self.U_test[0], uv[0]*self.normal[0]) +
                       uv_up[1]*jump(self.U_test[1], uv[0]*self.normal[0]) +
                       uv_up[0]*jump(self.U_test[0], uv[1]*self.normal[1]) +
-                      uv_up[1]*jump(self.U_test[1], uv[1]*self.normal[1]))*self.dS
+                      uv_up[1]*jump(self.U_test[1], uv[1]*self.normal[1]))*dS
                 # Lax-Friedrichs stabilization
                 if uv_lax_friedrichs is not None:
                     gamma = 0.5*abs(un_av)*uv_lax_friedrichs
-                    f += gamma*dot(jump(self.U_test), jump(uv))*self.dS
+                    f += gamma*dot(jump(self.U_test), jump(uv))*dS
                     for bnd_marker in self.boundary_markers:
                         funcs = self.bnd_functions.get(bnd_marker)
-                        ds_bnd = self.ds(int(bnd_marker))
+                        ds_bnd = ds(int(bnd_marker))
                         if funcs is None:
                             # impose impermeability with mirror velocity
                             un = dot(uv, self.normal)
@@ -300,7 +295,7 @@ class ShallowWaterEquations(Equation):
                             f += gamma*dot(self.U_test, uv-uv_ext)*ds_bnd
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
-                ds_bnd = self.ds(int(bnd_marker))
+                ds_bnd = ds(int(bnd_marker))
                 if funcs is not None:
                     h = self.bathymetry
                     l = self.boundary_len[bnd_marker]
@@ -366,28 +361,28 @@ class ShallowWaterEquations(Equation):
 
         # Coriolis
         if coriolis is not None:
-            f += coriolis*(-uv[1]*self.U_test[0]+uv[0]*self.U_test[1])*self.dx
+            f += coriolis*(-uv[1]*self.U_test[0]+uv[0]*self.U_test[1])*dx
 
         # Wind stress
         if wind_stress is not None:
-            f += -dot(wind_stress, self.U_test)/total_h/rho_0*self.dx
+            f += -dot(wind_stress, self.U_test)/total_h/rho_0*dx
 
         # Quadratic drag
         if mu_manning is not None:
             bottom_fri = g_grav * mu_manning ** 2 * \
-                total_h ** (-4. / 3.) * sqrt(dot(uv_old, uv_old)) * inner(self.U_test, uv)*self.dx
+                total_h ** (-4. / 3.) * sqrt(dot(uv_old, uv_old)) * inner(self.U_test, uv)*dx
             f += bottom_fri
 
         # Linear drag
         if lin_drag is not None:
-            bottom_fri = lin_drag*inner(self.U_test, uv)*self.dx
+            bottom_fri = lin_drag*inner(self.U_test, uv)*dx
             f += bottom_fri
 
         # bottom friction from a 3D model
         if bottom_drag is not None and uv_bottom is not None:
             uvb_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
             stress = bottom_drag*uvb_mag*uv_bottom/total_h
-            bot_friction = dot(stress, self.U_test)*self.dx
+            bot_friction = dot(stress, self.U_test)*dx
             f += bot_friction
 
         # viscosity
@@ -400,7 +395,7 @@ class ShallowWaterEquations(Equation):
             f_visc += -viscosity_h/total_h*inner(
                 dot(grad(total_h), grad(uv)),
                 self.U_test)
-            f += f_visc * self.dx
+            f += f_visc * dx
 
         return -f - g
 
@@ -415,9 +410,9 @@ class ShallowWaterEquations(Equation):
             f += self.pressure_grad(baroc_head, None, None, internal_pg=True)
 
         if uv_source is not None:
-            f += -inner(uv_source, self.U_test)*self.dx
+            f += -inner(uv_source, self.U_test)*dx
         if elev_source is not None:
-            f += -inner(elev_source, self.eta_test)*self.dx
+            f += -inner(elev_source, self.eta_test)*dx
 
         return -f
 
@@ -452,10 +447,6 @@ class FreeSurfaceEquation(Equation):
         self.cellsize = CellSize(self.mesh)
         self.xyz = SpatialCoordinate(self.mesh)
         self.e_x, self.e_y = unit_vectors(2)
-
-        # integral measures
-        self.dx = self.mesh._dx
-        self.dS = self.mesh._dS
 
         # boundary definitions
         self.boundary_markers = set(self.mesh.exterior_facets.unique_markers)
@@ -493,8 +484,8 @@ class FreeSurfaceEquation(Equation):
         uu = TestFunction(h)
         grid_dt = TrialFunction(h)
         res = Function(h)
-        a = uu * grid_dt * self.dx
-        l = uu * csize / (sqrt(g_grav * h_pos) + u_mag) * self.dx
+        a = uu * grid_dt * dx
+        l = uu * csize / (sqrt(g_grav * h_pos) + u_mag) * dx
         solve(a == l, res)
         return res
 
@@ -504,8 +495,8 @@ class FreeSurfaceEquation(Equation):
         uu = TestFunction(h)
         grid_dt = TrialFunction(h)
         res = Function(h)
-        a = uu * grid_dt * self.dx
-        l = uu * csize / u_mag * self.dx
+        a = uu * grid_dt * dx
+        l = uu * csize / u_mag * dx
         solve(a == l, res)
         return res
 
@@ -520,25 +511,25 @@ class FreeSurfaceEquation(Equation):
         m_continuity = inner(solution, self.test)
         f += m_continuity
 
-        return f * self.dx
+        return f * dx
 
     def hu_div_term(self, uv, total_h, **kwargs):
         if self.hu_by_parts:
-            f = -inner(grad(self.test), total_h*uv)*self.dx
+            f = -inner(grad(self.test), total_h*uv)*dx
             if self.eta_is_dg:
                 # f += avg(total_h)*jump(uv*self.test,
-                #                        self.normal)*self.dS # NOTE fails
+                #                        self.normal)*dS # NOTE fails
                 hu_star = avg(total_h*uv) +\
                     0.5*sqrt(g_grav*avg(total_h))*jump(total_h, self.normal)  # NOTE works
                 # hu_star = avg(total_h*uv) # NOTE fails
-                f += inner(jump(self.test, self.normal), hu_star)*self.dS
+                f += inner(jump(self.test, self.normal), hu_star)*dS
                 # TODO come up with better stabilization here!
                 # NOTE scaling sqrt(g_h) doesn't help
         else:
-            f = div(total_h*uv)*self.test*self.dx
+            f = div(total_h*uv)*self.test*dx
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
-                ds_bnd = self.ds(int(bnd_marker))
+                ds_bnd = ds(int(bnd_marker))
                 if funcs is None:
                     f += -total_h*dot(uv, self.normal)*self.test*ds_bnd
             # f += -avg(total_h)*avg(dot(uv, normal))*jump(self.test)*dS
@@ -568,7 +559,7 @@ class FreeSurfaceEquation(Equation):
         # boundary conditions
         for bnd_marker in self.boundary_markers:
             funcs = self.bnd_functions.get(bnd_marker)
-            ds_bnd = self.ds(int(bnd_marker))
+            ds_bnd = ds(int(bnd_marker))
             if funcs is None:
                 # assume land boundary
                 continue

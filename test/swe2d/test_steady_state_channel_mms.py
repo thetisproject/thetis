@@ -81,7 +81,7 @@ def test_steady_state_channel_mms():
         source_space = FunctionSpace(mesh2d, 'DG', order+1)
         source_func = project(source_expr, source_space)
         File('source.pvd') << source_func
-        solver_obj.timestepper.F -= solver_obj.timestepper.dt_const*solver_obj.eq_sw.U_test[0]*source_func*solver_obj.eq_sw.dx
+        solver_obj.timestepper.F -= solver_obj.timestepper.dt_const*solver_obj.eq_sw.U_test[0]*source_func*dx
         solver_obj.timestepper.update_solver()
 
         solver_obj.iterate()

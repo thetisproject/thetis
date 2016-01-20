@@ -680,7 +680,6 @@ class DIRKGeneric(TimeIntegrator):
         else:
             self.solution_old = self.equation.solution
         self.funcs = self.equation.kwargs
-        dx = self.equation.dx
         test = TestFunction(self.equation.space)
 
         mixed_space = isinstance(self.equation.solution.function_space(),

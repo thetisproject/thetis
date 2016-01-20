@@ -66,7 +66,6 @@ class VertexBasedP1DGLimiter(object):
         self.P1DG = p1dg_space
         self.P0 = p0_space
         self.P1CG = p1cg_space
-        self.dx = self.P1CG.mesh()._dx
         # create auxiliary functions
         # P0 field containing the center (mean) values of elements
         self.centroids = Function(self.P0, name='limiter_p1_dg-centroid')
@@ -85,8 +84,8 @@ class VertexBasedP1DGLimiter(object):
             tri = TrialFunction(self.P0)
             test = TestFunction(self.P0)
 
-            a = tri*test*self.dx
-            l = field*test*self.dx
+            a = tri*test*dx
+            l = field*test*dx
 
             params = {'ksp_type': 'preonly'}
             problem = LinearVariationalProblem(a, l, self.centroids)
@@ -116,7 +115,7 @@ class VertexBasedP1DGLimiter(object):
         qmin[i][0] = fmin(qmin[i][0], centroids[0][0]);
     }
     """,
-                 self.dx,
+                 dx,
                  {'qmax': (self.max_field, RW),
                   'qmin': (self.min_field, RW),
                   'centroids': (self.centroids, READ)})
@@ -139,7 +138,7 @@ class VertexBasedP1DGLimiter(object):
         q[i][0] = cellavg + alpha*(q[i][0] - cellavg);
     }
     """,
-                 self.dx,
+                 dx,
                  {'q': (field, RW),
                   'qmax': (self.max_field, READ),
                   'qmin': (self.min_field, READ),

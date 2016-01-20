@@ -10,9 +10,8 @@ This project is licensed under the terms of the MIT license.
 - COFS currently needs the following branches:
     - PyOP2: `master`
     - COFFEE: `master`
-    - ffc: `cofs`
-    - ufl: `cofs`
-    - firedrake: `cofs`
+    - ufl: `master`
+    - firedrake: `master`
 
 ### Installation with firedrake-install
 
@@ -20,12 +19,7 @@ This project is licensed under the terms of the MIT license.
 
 ```
     export PETSC_CONFIGURE_OPTIONS="--download-metis --download-parmetis --download-netcdf --download-hdf5"
-    python firedrake-install --developer --log --minimal_petsc \
-    --package_branch PyOP2 master \
-    --package_branch COFFEE master \
-    --package_branch ffc cofs \
-    --package_branch ufl cofs \
-    --package_branch firedrake cofs
+    python firedrake-install --developer --log --minimal_petsc
 ```
 
 - Activate virtualenv

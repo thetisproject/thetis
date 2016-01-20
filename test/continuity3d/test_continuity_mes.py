@@ -294,8 +294,8 @@ def run(setup, refinement, order, export=True):
 
     # compute flux through bottom boundary
     normal = FacetNormal(solver_obj.mesh)
-    bottom_flux = assemble(inner(uvw, normal)*solver_obj.eq_momentum.ds_bottom)
-    bottom_flux_ana = assemble(inner(w_analytical, normal)*solver_obj.eq_momentum.ds_bottom)
+    bottom_flux = assemble(inner(uvw, normal)*ds_bottom)
+    bottom_flux_ana = assemble(inner(w_analytical, normal)*ds_bottom)
     print 'flux through bot', bottom_flux, bottom_flux_ana
 
     err_msg = '{:}: Bottom impermeability violated: bottom flux {:.4g}'.format(setup_name, bottom_flux)
