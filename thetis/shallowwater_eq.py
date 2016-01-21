@@ -33,7 +33,9 @@ class ShallowWaterEquations(Equation):
                  mu_manning=None, lin_drag=None, baroc_head=None,
                  coriolis=None, wind_stress=None, uv_lax_friedrichs=None,
                  uv_source=None, elev_source=None,
-                 nonlin=True):
+                 nonlin=True,
+                 use_tensor_form_viscosity=True,
+                 use_grad_depth_term_viscosity_2d=True):
         self.space = solution.function_space()
         self.mesh = self.space.mesh()
         self.U_space, self.eta_space = self.space.split()
@@ -41,6 +43,8 @@ class ShallowWaterEquations(Equation):
         self.U, self.eta = split(self.solution)
         self.bathymetry = bathymetry
         self.nonlin = nonlin
+        self.use_tensor_form_viscosity = use_tensor_form_viscosity
+        self.use_grad_depth_term_viscosity_2d = use_grad_depth_term_viscosity_2d
         # this dict holds all time dep. args to the equation
         self.kwargs = {'uv_old': split(self.solution)[0],
                        'uv_bottom': uv_bottom,
@@ -342,6 +346,64 @@ class ShallowWaterEquations(Equation):
 
         return -f - g
 
+    def horizontal_viscosity(self, uv, nu, total_h):
+
+        n = FacetNormal(self.mesh)
+
+        if self.use_tensor_form_viscosity:
+            stress = nu*grad(uv)
+            stress_jump = nu*tensor_jump(uv, n)
+        else:
+            stress = nu*2.*sym(grad(uv))
+            stress_jump = nu*2.*sym(tensor_jump(uv, n))
+
+        f = inner(grad(self.U_test), stress)*dx
+
+        if self.u_is_DG:
+            # projection to DG0 is only necessary because of a bug that's now fixed on master firedrake:
+            h = project(CellSize(self.mesh), FunctionSpace(self.mesh, "DG", 0))
+            # from Epshteyn et al. 2007 (http://dx.doi.org/10.1016/j.cam.2006.08.029)
+            # the scheme is stable for alpha > 3*X*p*(p+1)*cot(theta), where X is the
+            # maximum ratio of viscosity within a triangle, p the degree, and theta
+            # with X=2, theta=6: cot(theta)~10, 3*X*cot(theta)~60
+            p = self.U_space.ufl_element().degree()
+            alpha = 60.*p*(p+1)
+            f += (
+                + alpha/avg(h)*inner(tensor_jump(self.U_test, n), stress_jump)*self.dS
+                - inner(avg(grad(self.U_test)), stress_jump)*self.dS
+                - inner(tensor_jump(self.U_test, n), avg(stress))*self.dS
+            )
+
+            # Dirichlet bcs only for DG
+            for bnd_marker in self.boundary_markers:
+                funcs = self.bnd_functions.get(bnd_marker)
+                ds_bnd = self.ds(int(bnd_marker))
+                if funcs is not None:
+                    h = self.bathymetry
+                    l = self.boundary_len[bnd_marker]
+                    eta_ext, uv_ext = self.get_bnd_functions(head, uv, funcs, h, l)
+                    if uv_ext is uv:
+                        continue
+                    elif self.use_tensor_form_viscosity:
+                        stress_jump = nu*outer(uv-uv_ext, n)
+                    else:
+                        stress_jump = nu*2.*sym(outer(uv-uv_ext, n))
+
+                    # we simplify inner(outer(U_test, n), stress_jump) = inner(U_test,n)*stress_jump_n
+                    stress_jump_n = nu*inner(uv-uv_ext, n)
+
+                    f += (
+                        2.0*alpha/h*dot(self.U_test, n)*stress_jump_n*ds_bnd
+                        -inner(grad(self.U_test), stress_jump)*ds_bnd
+                        -inner(outer(self.U_test, n), stress)*ds_bnd
+                    )
+
+        if self.use_grad_depth_term_viscosity_2d:
+            f += -dot(self.u_test, dot(grad(total_h)/total_h, stress))*self.dx
+
+        return f
+
+
     def rhs(self, solution, uv_old=None, uv_bottom=None, bottom_drag=None,
             viscosity_h=None, mu_manning=None, lin_drag=None,
             coriolis=None, wind_stress=None,
@@ -391,16 +453,8 @@ class ShallowWaterEquations(Equation):
             f += bot_friction
 
         # viscosity
-        # A double dot product of the stress tensor and grad(w).
         if viscosity_h is not None:
-            f_visc = viscosity_h * (Dx(uv[0], 0) * Dx(self.U_test[0], 0) +
-                                    Dx(uv[0], 1) * Dx(self.U_test[0], 1) +
-                                    Dx(uv[1], 0) * Dx(self.U_test[1], 0) +
-                                    Dx(uv[1], 1) * Dx(self.U_test[1], 1))
-            f_visc += -viscosity_h/total_h*inner(
-                dot(grad(total_h), grad(uv)),
-                self.U_test)
-            f += f_visc * dx
+            f += self.horizontalViscosity(uv, viscosity_h, total_h)
 
         return -f - g
 
