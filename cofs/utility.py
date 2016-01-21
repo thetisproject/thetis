@@ -988,10 +988,10 @@ class EquationOfState(object):
         rho = pn/pd - rho0
         return rho
 
+
 def tensor_jump(v, n):
-"""Jump term for vector functions based on the tensor product.
+    """Jump term for vector functions based on the tensor product.
 
-This is the discrete equivalent of grad(u) as opposed to the normal vectorial 
-jump which represents div(u)."""
+    This is the discrete equivalent of grad(u) as opposed to the normal vectorial
+    jump which represents div(u)."""
     return outer(v('+'), n('+'))+outer(v('-'), n('-'))
-

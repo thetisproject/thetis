@@ -394,15 +394,14 @@ class ShallowWaterEquations(Equation):
 
                     f += (
                         2.0*alpha/h*dot(self.U_test, n)*stress_jump_n*ds_bnd
-                        -inner(grad(self.U_test), stress_jump)*ds_bnd
-                        -inner(outer(self.U_test, n), stress)*ds_bnd
+                        - inner(grad(self.U_test), stress_jump)*ds_bnd
+                        - inner(outer(self.U_test, n), stress)*ds_bnd
                     )
 
         if self.use_grad_depth_term_viscosity_2d:
             f += -dot(self.u_test, dot(grad(total_h)/total_h, stress))*self.dx
 
         return f
-
 
     def rhs(self, solution, uv_old=None, uv_bottom=None, bottom_drag=None,
             viscosity_h=None, mu_manning=None, lin_drag=None,
