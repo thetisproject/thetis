@@ -1,20 +1,22 @@
 from cofs import *
 import math
 import numpy
+import pytest
 
 
-def test_steady_state_channel_mms():
+@pytest.mark.parametrize("options", [
+    {},  # default: mimetic
+    {"mimetic": False, "continuous_pressure": True},
+], ids=["mimetic", "pndp(n+1)"])
+def test_steady_state_channel_mms(options):
     lx = 5e3
     ly = 1e3
 
     order = 1
     # minimum resolution
-    if order == 0:
-        min_cells = 16
-    else:
-        min_cells = 8
-    n = 100  # number of timesteps
-    dt = 1000.
+    min_cells = 16
+    n = 1  # number of timesteps
+    dt = 10.
     g = physical_constants['g_grav'].dat.data[0]
     h0 = 10.  # depth at rest
     area = lx*ly
@@ -52,6 +54,7 @@ def test_steady_state_channel_mms():
         solver_obj.options.timestepper_type = 'forwardeuler'
         solver_obj.options.timer_labels = []
         solver_obj.options.dt = dt
+        solver_obj.options.update(options)
 
         # boundary conditions
         inflow_tag = 1
@@ -82,6 +85,8 @@ def test_steady_state_channel_mms():
         source_func = project(source_expr, source_space)
         File('source.pvd') << source_func
         solver_obj.timestepper.F -= solver_obj.timestepper.dt_const*solver_obj.eq_sw.U_test[0]*source_func*solver_obj.eq_sw.dx
+        # subtract out time derivative
+        solver_obj.timestepper.F -= (solver_obj.eq_sw.mass_term(solver_obj.eq_sw.solution)-solver_obj.eq_sw.mass_term(solver_obj.timestepper.solution_old))
         solver_obj.timestepper.update_solver()
 
         solver_obj.iterate()
