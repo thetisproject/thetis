@@ -95,7 +95,7 @@ class FlowSolver2d(FrozenClass):
             self.fields.solution_2d,
             self.fields.bathymetry_2d,
             lin_drag=self.options.lin_drag,
-            viscosity_h=self.fields.get('h_viscosity'),
+            viscosity_h=self.options.h_viscosity,
             uv_lax_friedrichs=self.options.uv_lax_friedrichs,
             coriolis=self.options.coriolis,
             wind_stress=self.options.wind_stress,
