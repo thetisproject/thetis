@@ -359,7 +359,7 @@ class ShallowWaterEquations(Equation):
 
         f = inner(grad(self.U_test), stress)*dx
 
-        if self.u_is_DG:
+        if self.u_is_dg:
             # projection to DG0 is only necessary because of a bug that's now fixed on master firedrake:
             h = project(CellSize(self.mesh), FunctionSpace(self.mesh, "DG", 0))
             # from Epshteyn et al. 2007 (http://dx.doi.org/10.1016/j.cam.2006.08.029)
@@ -381,7 +381,7 @@ class ShallowWaterEquations(Equation):
                 if funcs is not None:
                     h = self.bathymetry
                     l = self.boundary_len[bnd_marker]
-                    eta_ext, uv_ext = self.get_bnd_functions(head, uv, funcs, h, l)
+                    eta_ext, uv_ext = self.get_bnd_functions(None, uv, funcs, h, l)
                     if uv_ext is uv:
                         continue
                     elif self.use_tensor_form_viscosity:
@@ -399,7 +399,7 @@ class ShallowWaterEquations(Equation):
                     )
 
         if self.use_grad_depth_term_viscosity_2d:
-            f += -dot(self.u_test, dot(grad(total_h)/total_h, stress))*self.dx
+            f += -dot(self.U_test, dot(grad(total_h)/total_h, stress))*self.dx
 
         return f
 
@@ -453,7 +453,7 @@ class ShallowWaterEquations(Equation):
 
         # viscosity
         if viscosity_h is not None:
-            f += self.horizontalViscosity(uv, viscosity_h, total_h)
+            f += self.horizontal_viscosity(uv, viscosity_h, total_h)
 
         return -f - g
 
