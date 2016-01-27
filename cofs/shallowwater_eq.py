@@ -379,9 +379,9 @@ class ShallowWaterEquations(Equation):
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds(int(bnd_marker))
                 if funcs is not None:
-                    h = self.bathymetry
+                    depth = self.bathymetry
                     l = self.boundary_len[bnd_marker]
-                    eta_ext, uv_ext = self.get_bnd_functions(None, uv, funcs, h, l)
+                    eta_ext, uv_ext = self.get_bnd_functions(None, uv, funcs, depth, l)
                     if uv_ext is uv:
                         continue
                     elif self.use_tensor_form_viscosity:
