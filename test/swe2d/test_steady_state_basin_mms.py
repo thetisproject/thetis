@@ -338,6 +338,56 @@ def setup8dg(lx, ly, depth, f0, g):
     return setup8(lx, ly, depth, f0, g, mimetic=False)
 
 
+def setup9(lx, ly, depth, f0, g, mimetic=True):
+    """
+    No Coriolis, non-trivial bath, viscosity, elev, u and v
+    """
+    out = {}
+    out['bath_expr'] = Expression(
+        '4.0 + h0*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])/lx',
+        lx=lx, h0=depth, f0=f0, g=g)
+    out['cori_expr'] = Expression(
+        '0',
+        lx=lx, h0=depth, f0=f0, g=g)
+    out['visc_expr'] = Expression(
+        '1.0 + x[0]/lx',
+        lx=lx, h0=depth, f0=f0, g=g)
+    out['elev_expr'] = Expression(
+        'cos(pi*(3.0*x[0] + 1.0*x[1])/lx)',
+        lx=lx, h0=depth, f0=f0, g=g)
+    out['uv_expr'] = Expression(
+        (
+            'sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)',
+            '0.5*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)',
+        ), lx=lx, h0=depth, f0=f0, g=g)
+    out['res_elev_expr'] = Expression(
+        '(0.3*h0*x[0]/(lx*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])) - 3.0*pi*sin(pi*(3.0*x[0] + 1.0*x[1])/lx)/lx)*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx) + 0.5*(0.2*h0*x[1]/(lx*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])) - 1.0*pi*sin(pi*(3.0*x[0] + 1.0*x[1])/lx)/lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx) + 0.5*pi*(cos(pi*(3.0*x[0] + 1.0*x[1])/lx) + 4.0 + h0*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])/lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/lx)/lx - 2.0*pi*(cos(pi*(3.0*x[0] + 1.0*x[1])/lx) + 4.0 + h0*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])/lx)*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)/lx',
+        lx=lx, h0=depth, f0=f0, g=g)
+    out['res_uv_expr'] = Expression(
+        (
+            '''-3.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/lx)/lx
+            + 0.5*pi*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)/lx
+            - 2.0*pi*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)/lx
+            - 4.0*pi/lx/lx*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)
+            + 7.0*(1.0 + x[0]/lx)*(pi/lx)*(pi/lx)*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)
+            + 0.5*(1.0 + x[0]/lx)*(-3.0*pi/lx)*(pi/lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)''',
+            '''-1.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/lx)/lx
+            + 0.25*pi*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/lx)/lx
+            - 1.5*pi*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/lx)/lx
+            - 5.5*(1.0 + x[0]/lx)*(pi/lx)*(pi/lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)
+            + 0.5*(1.0/lx)*(-3.0*pi/lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/lx)
+            - (1.0 + x[0]/lx)*(pi/lx)*(-2.0*pi/lx)*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)
+            + (1.0/lx)*(pi/lx)*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)'''
+        ), lx=lx, h0=depth, f0=f0, g=g)
+    out['options'] = {'mimetic': mimetic}
+    out['bnd_funcs'] = {1: {'elev': None, 'uv': None},
+                        2: {'elev': None, 'uv': None},
+                        3: {'elev': None, 'uv': None},
+                        4: {'elev': None, 'uv': None},
+                        }
+    return out
+
+
 def run(setup, refinement, order, do_export=True, **kwargs):
     """Run single test and return L2 error"""
     print '--- running {:} refinement {:}'.format(setup.__name__, refinement)
@@ -404,6 +454,13 @@ def run(setup, refinement, order, do_export=True, **kwargs):
     solver_obj.options.uv_source_2d = source_uv
     solver_obj.options.elev_source_2d = source_elev
     solver_obj.options.coriolis = coriolis_func
+    if 'visc_expr' in sdict:
+      viscosity_space = FunctionSpace(solver_obj.mesh2d, "CG", order)
+      viscosity_func = Function(viscosity_space, name='viscosity')
+      viscosity_func.project(sdict['visc_expr'])
+      solver_obj.options.h_viscosity = viscosity_func
+      solver_obj.options.use_tensor_form_viscosity = False
+      solver_obj.options.use_grad_depth_term_viscosity_2d = True
 
     # functions for boundary conditions
     # analytical elevation
@@ -534,7 +591,7 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False, **
 # ---------------------------
 
 
-@pytest.fixture(params=[setup7, setup8], ids=["Setup7", "Setup8"])
+@pytest.fixture(params=[setup7, setup8, setup9], ids=["Setup7", "Setup8", "Setup9"])
 def choose_setup(request):
     return request.param
 
