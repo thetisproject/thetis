@@ -16,6 +16,7 @@ import exporter
 import weakref
 from cofs.field_defs import field_metadata
 from cofs.options import ModelOptions
+import cofs.callback as callback
 
 
 class FlowSolver(FrozenClass):
@@ -48,6 +49,8 @@ class FlowSolver(FrozenClass):
 
         self.visu_spaces = {}
         """Maps function space to a space where fields will be projected to for visualization"""
+        self.callbacks = OrderedDict()
+        """List of callback functions that will be called during exports"""
 
         self.fields = FieldDict()
         """Holds all functions needed by the solver object."""
@@ -566,7 +569,6 @@ class FlowSolver(FrozenClass):
         self.timestepper.initialize()
 
         self.options.check_salt_conservation *= self.options.solve_salt
-        self.options.check_salt_deviation *= self.options.solve_salt
         self.options.check_vol_conservation_3d *= self.options.use_ale_moving_mesh
 
     def export(self):
@@ -601,30 +603,19 @@ class FlowSolver(FrozenClass):
         self.i_export = 1
         next_export_t = self.simulation_time + self.options.t_export
 
-        # initialize conservation checks
         if self.options.check_vol_conservation_2d:
-            eta = self.fields.solution_2d.split()[1]
-            vol_2d_0 = comp_volume_2d(eta, self.fields.bathymetry_2d)
-            print_info('Initial volume 2d {0:f}'.format(vol_2d_0))
+            self.callbacks['vol2d'] = callback.VolumeConservation2DCallback()
         if self.options.check_vol_conservation_3d:
-            vol_3d_0 = comp_volume_3d(self.mesh)
-            print_info('Initial volume 3d {0:f}'.format(vol_3d_0))
+            self.callbacks['vol3d'] = callback.VolumeConservation3DCallback()
         if self.options.check_salt_conservation:
-            mass_3d_0 = comp_tracer_mass_3d(self.fields.salt_3d)
-            print_info('Initial salt mass {0:f}'.format(mass_3d_0))
-        if self.options.check_salt_deviation:
-            salt_sum = self.fields.salt_3d.dat.data.sum()
-            salt_sum = op2.MPI.COMM.allreduce(salt_sum, op=MPI.SUM)
-            nb_nodes = self.fields.salt_3d.dat.data.shape[0]
-            nb_nodes = op2.MPI.COMM.allreduce(nb_nodes, op=MPI.SUM)
-            salt_val = salt_sum/nb_nodes
-            print_info('Initial mean salt value {0:f}'.format(salt_val))
+            self.callbacks['salt_3d_mass'] = callback.TracerMassConservationCallback('salt_3d')
         if self.options.check_salt_overshoot:
-            salt_min0 = self.fields.salt_3d.dat.data.min()
-            salt_max0 = self.fields.salt_3d.dat.data.max()
-            salt_min0 = op2.MPI.COMM.allreduce(salt_min0, op=MPI.MIN)
-            salt_max0 = op2.MPI.COMM.allreduce(salt_max0, op=MPI.MAX)
-            print_info('Initial salt value range {0:.3f}-{1:.3f}'.format(salt_min0, salt_max0))
+            self.callbacks['salt_3d_overshoot'] = callback.TracerOvershootCallBack('salt_3d')
+        if self.options.check_salt_deviation:
+            raise DeprecationWarning('check_salt_deviation option is deprecated use check_salt_overshoot instead')
+
+        for key in self.callbacks:
+            self.callbacks[key].initialize(self)
 
         # initial export
         self.export()
@@ -648,42 +639,9 @@ class FlowSolver(FrozenClass):
                 cputimestamp = time_mod.clock()
                 self.print_state(cputime)
 
-                if self.options.check_vol_conservation_2d:
-                    vol_2d = comp_volume_2d(self.fields.solution_2d.split()[1],
-                                            self.fields.bathymetry_2d)
-                if self.options.check_vol_conservation_3d:
-                    vol_3d = comp_volume_3d(self.mesh)
-                if self.options.check_salt_conservation:
-                    mass_3d = comp_tracer_mass_3d(self.fields.salt_3d)
-                if self.options.check_salt_deviation:
-                    salt_min = self.fields.salt_3d.dat.data.min()
-                    salt_max = self.fields.salt_3d.dat.data.max()
-                    salt_min = op2.MPI.COMM.allreduce(salt_min, op=MPI.MIN)
-                    salt_max = op2.MPI.COMM.allreduce(salt_max, op=MPI.MAX)
-                    salt_dev = ((salt_min-salt_val)/salt_val,
-                                (salt_max-salt_val)/salt_val)
-                if self.options.check_salt_overshoot:
-                    salt_min = self.fields.salt_3d.dat.data.min()
-                    salt_max = self.fields.salt_3d.dat.data.max()
-                    salt_min = op2.MPI.COMM.allreduce(salt_min, op=MPI.MIN)
-                    salt_max = op2.MPI.COMM.allreduce(salt_max, op=MPI.MAX)
-                    overshoot = max(salt_max-salt_max0, 0.0)
-                    undershoot = min(salt_min-salt_min0, 0.0)
-                    salt_oversh = (undershoot, overshoot)
-                if commrank == 0:
-                    line = 'Rel. {0:s} error {1:11.4e}'
-                    if self.options.check_vol_conservation_2d:
-                        print(line.format('vol 2d', (vol_2d_0 - vol_2d)/vol_2d_0))
-                    if self.options.check_vol_conservation_3d:
-                        print(line.format('vol 3d', (vol_3d_0 - vol_3d)/vol_3d_0))
-                    if self.options.check_salt_conservation:
-                        print(line.format('mass ',
-                                          (mass_3d_0 - mass_3d)/mass_3d_0))
-                    if self.options.check_salt_deviation:
-                        print('salt deviation {:g} {:g}'.format(*salt_dev))
-                    if self.options.check_salt_overshoot:
-                        print('salt overshoots {:g} {:g}'.format(*salt_oversh))
-                    sys.stdout.flush()
+                for key in self.callbacks:
+                    self.callbacks[key].update(self)
+                    self.callbacks[key].report()
 
                 self.export()
                 if export_func is not None:
