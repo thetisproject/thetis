@@ -35,7 +35,7 @@ from cofs import *
 parameters['coffee'] = {}
 
 reso_str = 'coarse'
-outputdir = create_directory('outputs_struct_' + reso_str)
+outputdir = 'outputs_struct_' + reso_str
 refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4,
               'medium2': 8, 'fine': 16, 'ilicak': 4}
 # set mesh resolution

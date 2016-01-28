@@ -90,6 +90,8 @@ class ModelOptions(AttrDict):
         """list of str: Labels of timer sections to print out"""
         self.outputdir = 'outputs'
         """str: Directory where model output files are stored"""
+        self.no_exports = False
+        """bool: Do not store any outputs to disk, used in CI test suite"""
         self.fields_to_export = ['elev_2d', 'uv_2d', 'uv_3d', 'w_3d']
         """list of str: Fields to export in VTK format"""
         self.fields_to_export_numpy = []

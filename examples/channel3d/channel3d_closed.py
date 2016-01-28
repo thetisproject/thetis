@@ -23,7 +23,7 @@ from scipy.interpolate import interp1d
 from cofs import *
 
 n_layers = 6
-outputdir = create_directory('outputs_closed')
+outputdir = 'outputs_closed'
 mesh2d = Mesh('channel_mesh.msh')
 print_info('Loaded mesh '+mesh2d.name)
 print_info('Exporting to '+outputdir)

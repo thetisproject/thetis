@@ -22,7 +22,7 @@ parameters['coffee'] = {}
 
 physical_constants['z0_friction'] = 1.5e-3
 
-outputdir = create_directory('outputs')
+outputdir = 'outputs'
 # set mesh resolution
 dx = 2500.0
 layers = 25

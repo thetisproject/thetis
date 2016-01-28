@@ -5,8 +5,8 @@ import pytest
 
 
 @pytest.mark.parametrize("options", [
-    {},  # default: mimetic
-    {"mimetic": False, "continuous_pressure": True},
+    {"no_exports": True},  # default: mimetic
+    {"no_exports": True, "mimetic": False, "continuous_pressure": True},
 ], ids=["mimetic", "pndp(n+1)"])
 def test_steady_state_channel_mms(options):
     lx = 5e3
@@ -33,8 +33,11 @@ def test_steady_state_channel_mms(options):
     u_bcval = q/(h0+eta0)
     eta_bcval = eta0
 
-    diff_pvd = File('diff.pvd')
-    udiff_pvd = File('udiff.pvd')
+    do_exports = not options['no_exports']
+    if do_exports:
+        diff_pvd = File('diff.pvd')
+        udiff_pvd = File('udiff.pvd')
+        source_pvd = File('source.pvd')
 
     eta_errs = []
     u_errs = []
@@ -83,7 +86,8 @@ def test_steady_state_channel_mms(options):
 
         source_space = FunctionSpace(mesh2d, 'DG', order+1)
         source_func = project(source_expr, source_space)
-        File('source.pvd') << source_func
+        if do_exports:
+            source_pvd << source_func
         solver_obj.timestepper.F -= solver_obj.timestepper.dt_const*solver_obj.eq_sw.U_test[0]*source_func*dx
         # subtract out time derivative
         solver_obj.timestepper.F -= (solver_obj.eq_sw.mass_term(solver_obj.eq_sw.solution)-solver_obj.eq_sw.mass_term(solver_obj.timestepper.solution_old))
@@ -94,12 +98,14 @@ def test_steady_state_channel_mms(options):
         uv, eta = solver_obj.fields.solution_2d.split()
 
         eta_ana = project(eta_expr, solver_obj.function_spaces.H_2d)
-        diff_pvd << project(eta_ana-eta, solver_obj.function_spaces.H_2d, name="diff")
+        if do_exports:
+            diff_pvd << project(eta_ana-eta, solver_obj.function_spaces.H_2d, name="diff")
         eta_l2norm = assemble(pow(eta-eta_ana, 2)*dx)
         eta_errs.append(math.sqrt(eta_l2norm/area))
 
         u_ana = project(u_expr, solver_obj.function_spaces.U_2d)
-        udiff_pvd << project(u_ana-uv, solver_obj.function_spaces.U_2d, name="diff")
+        if do_exports:
+            udiff_pvd << project(u_ana-uv, solver_obj.function_spaces.U_2d, name="diff")
         u_l2norm = assemble(inner(u_ana-uv, u_ana-uv)*dx)
         u_errs.append(math.sqrt(u_l2norm/area))
 

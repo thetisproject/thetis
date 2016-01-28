@@ -338,7 +338,7 @@ def setup8dg(lx, ly, depth, f0, g):
     return setup8(lx, ly, depth, f0, g, mimetic=False)
 
 
-def run(setup, refinement, order, export=True, **kwargs):
+def run(setup, refinement, order, do_export=True, **kwargs):
     """Run single test and return L2 error"""
     print '--- running {:} refinement {:}'.format(setup.__name__, refinement)
     # domain dimensions
@@ -351,8 +351,6 @@ def run(setup, refinement, order, export=True, **kwargs):
     t_period = 5000.0        # period of signals
     t_end = 1000.0  # 500.0  # 3*T_period
     t_export = t_period/100.0  # export interval
-    if not export:
-        t_export = 1.0e12  # high enough
 
     sdict = setup(lx, ly, depth, f0, g, **kwargs)
 
@@ -363,7 +361,7 @@ def run(setup, refinement, order, export=True, **kwargs):
     dt = 4.0/refinement
 
     # outputs
-    outputdir = create_directory('outputs')
+    outputdir = 'outputs'
 
     # bathymetry
     p1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -377,6 +375,7 @@ def run(setup, refinement, order, export=True, **kwargs):
     solver_obj.options.order = order
     solver_obj.options.mimetic = True
     solver_obj.options.u_advection = Constant(1.0)
+    solver_obj.options.no_exports = not do_export
     solver_obj.options.outputdir = outputdir
     solver_obj.options.t_end = t_end
     solver_obj.options.dt = dt
@@ -475,11 +474,11 @@ def run(setup, refinement, order, export=True, **kwargs):
     return elev_l2_err, uv_l2_err
 
 
-def run_convergence(setup, ref_list, order, export=False, save_plot=False, **kwargs):
+def run_convergence(setup, ref_list, order, do_export=False, save_plot=False, **kwargs):
     """Runs test for a list of refinements and computes error convergence rate"""
     l2_err = []
     for r in ref_list:
-        l2_err.append(run(setup, r, order, export=export, **kwargs))
+        l2_err.append(run(setup, r, order, do_export=do_export, **kwargs))
     x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
     y_log = numpy.log10(numpy.array(l2_err))
     y_log_elev = y_log[:, 0]

@@ -3,7 +3,7 @@ from cofs import *
 import math
 
 
-def test_steady_state_channel():
+def test_steady_state_channel(do_export=False):
 
     lx = 5e3
     ly = 1e3
@@ -25,6 +25,7 @@ def test_steady_state_channel():
     solver_obj.options.nonlin = False
     solver_obj.options.t_export = dt
     solver_obj.options.t_end = n*dt
+    solver_obj.options.no_exports = not do_export
     # NOTE had to set to something else than Cr-Ni, otherwise overriding below has no effect
     solver_obj.options.timestepper_type = 'forwardeuler'
     solver_obj.options.timer_labels = []
@@ -70,4 +71,4 @@ def test_steady_state_channel():
 
 
 if __name__ == '__main__':
-    test_steady_state_channel()
+    test_steady_state_channel(do_export=True)

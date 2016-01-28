@@ -20,7 +20,7 @@ mesh2d = Mesh('stommel_square.msh')
 nonlin = False
 depth = 1000.0
 elev_amp = 3.0
-outputdir = create_directory('outputs')
+outputdir = 'outputs'
 t_end = 75*12*2*3600
 t_export = 3600*2
 

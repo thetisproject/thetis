@@ -38,7 +38,7 @@ from cofs import *
 # set physical constants
 physical_constants['rho0'].assign(1025.0)
 
-outputdir = create_directory('outputs')
+outputdir = 'outputs'
 layers = 20
 mesh2d = Mesh('tartinville_physical.msh')
 print_info('Loaded mesh ' + mesh2d.name)

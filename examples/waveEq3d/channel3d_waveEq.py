@@ -20,7 +20,7 @@ n_layers = 6
 # estimate of max advective velocity used to estimate time step
 u_mag = Constant(0.5)
 
-outputdir = create_directory('outputs')
+outputdir = 'outputs'
 print_info('Loaded mesh '+mesh2d.name)
 print_info('Exporting to '+outputdir)
 

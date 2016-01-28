@@ -26,7 +26,7 @@ sloped = True
 suffix = ''
 if sloped:
     suffix = '_sloped'
-outputdir = create_directory('outputs'+suffix)
+outputdir = 'outputs' + suffix
 
 print_info('Loaded mesh '+mesh2d.name)
 print_info('Exporting to '+outputdir)

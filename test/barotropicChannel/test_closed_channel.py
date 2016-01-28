@@ -16,9 +16,9 @@ import pytest
 
 
 @pytest.mark.skipif(True, reason='test is obsolete')
-def test_closed_channel():
+def test_closed_channel(do_export=False):
     n_layers = 6
-    outputdir = create_directory('outputs')
+    outputdir = 'outputs'
     mesh2d = Mesh('mesh_coarse.msh')
     print_info('Loaded mesh '+mesh2d.name)
     print_info('Exporting to '+outputdir)
@@ -50,6 +50,7 @@ def test_closed_channel():
     # options.baroclinic = True
     options.t_export = t_export
     options.t_end = t_end
+    options.no_exports = not do_export
     options.outputdir = outputdir
     options.u_advection = u_mag
     options.check_salt_deviation = True
@@ -117,4 +118,4 @@ def test_closed_channel():
                        update_forcings3d=update_forcings3d)
 
 if __name__ == '__main__':
-    test_closed_channel()
+    test_closed_channel(do_export=True)
