@@ -95,13 +95,15 @@ class FlowSolver2d(FrozenClass):
             self.fields.solution_2d,
             self.fields.bathymetry_2d,
             lin_drag=self.options.lin_drag,
-            viscosity_h=self.fields.get('h_viscosity'),
+            viscosity_h=self.options.h_viscosity,
             uv_lax_friedrichs=self.options.uv_lax_friedrichs,
             coriolis=self.options.coriolis,
             wind_stress=self.options.wind_stress,
             uv_source=self.options.uv_source_2d,
             elev_source=self.options.elev_source_2d,
-            nonlin=self.options.nonlin)
+            nonlin=self.options.nonlin,
+            use_tensor_form_viscosity=self.options.use_tensor_form_viscosity,
+            use_grad_depth_term_viscosity_2d=self.options.use_grad_depth_term_viscosity_2d)
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
 

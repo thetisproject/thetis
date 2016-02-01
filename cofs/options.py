@@ -29,6 +29,10 @@ class ModelOptions(AttrDict):
         """bool: Apply log layer bottom stress"""
         self.use_parabolic_viscosity = False
         """bool: Compute parabolic eddy viscosity"""
+        self.use_tensor_form_viscosity = True
+        """bool: Use tensor form instead of symmetric partial stress form"""
+        self.use_grad_depth_term_viscosity_2d = True
+        """bool: Include grad(H)-term in the depth averated viscosity"""
         self.use_ale_moving_mesh = True
         """bool: 3D mesh tracks free surface"""
         self.use_mode_split = True
