@@ -389,11 +389,8 @@ class ShallowWaterEquations(Equation):
                     else:
                         stress_jump = nu*2.*sym(outer(uv-uv_ext, n))
 
-                    # we simplify inner(outer(U_test, n), stress_jump) = inner(U_test,n)*stress_jump_n
-                    stress_jump_n = nu*inner(uv-uv_ext, n)
-
                     f += (
-                        2.0*alpha/h*dot(self.U_test, n)*stress_jump_n*ds_bnd
+                        2.0*alpha/h*inner(outer(self.U_test, n), stress_jump)*ds_bnd
                         - inner(grad(self.U_test), stress_jump)*ds_bnd
                         - inner(outer(self.U_test, n), stress)*ds_bnd
                     )

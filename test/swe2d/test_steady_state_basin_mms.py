@@ -343,19 +343,15 @@ def setup9(lx, ly, depth, f0, g, mimetic=True):
     """
     No Coriolis, non-trivial bath, viscosity, elev, u and v
     """
+    nu0 = 100.
     out = {}
-    out['bath_expr'] = Expression(
-        '4.0 + h0*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])/lx',
-        lx=lx, h0=depth, f0=f0, g=g)
-    out['cori_expr'] = Expression(
-        '0',
-        lx=lx, h0=depth, f0=f0, g=g)
-    out['visc_expr'] = Expression(
-        '1.0 + x[0]/lx',
-        lx=lx, h0=depth, f0=f0, g=g)
-    out['elev_expr'] = Expression(
-        'cos(pi*(3.0*x[0] + 1.0*x[1])/lx)',
-        lx=lx, h0=depth, f0=f0, g=g)
+    bath_str = '4.0 + h0*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])/lx'
+    visc_str = '{nu0}*(1.0 + x[0]/lx)'.format(nu0=nu0)
+    elev_str = 'cos(pi*(3.0*x[0] + 1.0*x[1])/lx)'
+    out['bath_expr'] = Expression(bath_str, lx=lx, h0=depth, f0=f0, g=g)
+    out['cori_expr'] = Expression('0', lx=lx, h0=depth, f0=f0, g=g)
+    out['visc_expr'] = Expression(visc_str, lx=lx, h0=depth, f0=f0, g=g)
+    out['elev_expr'] = Expression(elev_str, lx=lx, h0=depth, f0=f0, g=g)
     out['uv_expr'] = Expression(
         (
             'sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)',
@@ -364,27 +360,38 @@ def setup9(lx, ly, depth, f0, g, mimetic=True):
     out['res_elev_expr'] = Expression(
         '(0.3*h0*x[0]/(lx*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])) - 3.0*pi*sin(pi*(3.0*x[0] + 1.0*x[1])/lx)/lx)*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx) + 0.5*(0.2*h0*x[1]/(lx*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])) - 1.0*pi*sin(pi*(3.0*x[0] + 1.0*x[1])/lx)/lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx) + 0.5*pi*(cos(pi*(3.0*x[0] + 1.0*x[1])/lx) + 4.0 + h0*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])/lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/lx)/lx - 2.0*pi*(cos(pi*(3.0*x[0] + 1.0*x[1])/lx) + 4.0 + h0*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1])/lx)*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)/lx',
         lx=lx, h0=depth, f0=f0, g=g)
+    grad_h_x = '''h0/(2.0*lx*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1]))*0.6*x[0] - 3.0*pi/lx*sin(pi*(3.0*x[0] + 1.0*x[1])/lx)'''
+    grad_h_y = '''h0/(2.0*lx*sqrt(0.3*x[0]*x[0] + 0.2*x[1]*x[1]))*0.4*x[1] - 1.0*pi/lx*sin(pi*(3.0*x[0] + 1.0*x[1])/lx)'''
     out['res_uv_expr'] = Expression(
         (
             '''-3.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/lx)/lx
             + 0.5*pi*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)/lx
             - 2.0*pi*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)/lx
-            - 4.0*pi/lx/lx*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)
-            + 7.0*(1.0 + x[0]/lx)*(pi/lx)*(pi/lx)*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)
-            + 0.5*(1.0 + x[0]/lx)*(-3.0*pi/lx)*(pi/lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)''',
+            + 4.0*nu0*pi/lx/lx*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)
+            + 9.0*nu0*(1.0 + x[0]/lx)*(pi/lx)*(pi/lx)*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)
+            + 0.5*nu0*(1.0 + x[0]/lx)*(-3.0*pi/lx)*(pi/lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)''' +
+            '''-({nu})*(pi*(-4.0*({dHdx}) + 1.0*({dHdy}))/lx*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx) 
+            - 1.5*pi*({dHdy})/lx*cos(pi*(-3.0*x[0] + 1.0*x[1])/lx))/({H})'''.format(
+                nu=visc_str, dHdx=grad_h_x, dHdy=grad_h_y, H=bath_str+'+'+elev_str
+            ),
             '''-1.0*pi*g*sin(pi*(3.0*x[0] + 1.0*x[1])/lx)/lx
             + 0.25*pi*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/lx)/lx
             - 1.5*pi*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/lx)/lx
-            - 5.5*(1.0 + x[0]/lx)*(pi/lx)*(pi/lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)
-            + 0.5*(1.0/lx)*(-3.0*pi/lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/lx)
-            - (1.0 + x[0]/lx)*(pi/lx)*(-2.0*pi/lx)*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)
-            + (1.0/lx)*(pi/lx)*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)'''
-        ), lx=lx, h0=depth, f0=f0, g=g)
-    out['options'] = {'mimetic': mimetic}
-    out['bnd_funcs'] = {1: {'elev': None, 'uv': None},
-                        2: {'elev': None, 'uv': None},
-                        3: {'elev': None, 'uv': None},
-                        4: {'elev': None, 'uv': None},
+            + 5.5*nu0*(1.0 + x[0]/lx)*(pi/lx)*(pi/lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)
+            - 0.5*nu0*(1.0/lx)*(-3.0*pi/lx)*cos(pi*(-3.0*x[0] + 1.0*x[1])/lx)
+            + nu0*(1.0 + x[0]/lx)*(pi/lx)*(-2.0*pi/lx)*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)
+            - nu0*(1.0/lx)*(pi/lx)*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)''' +
+            '''-({nu})*(pi*(-1.5*({dHdx}) + 1.0*({dHdy}))/lx*cos(pi*(-3.0*x[0] + 1.0*x[1])/lx)
+            + 1.0*pi*({dHdx})/lx*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx))/({H})'''.format(
+                nu=visc_str, dHdx=grad_h_x, dHdy=grad_h_y, H=bath_str+'+'+elev_str
+            )
+        ), lx=lx, h0=depth, f0=f0, g=g, nu0=nu0)
+    out['options'] = {'mimetic': mimetic, 'timestepper_type': 'cranknicolson'}
+    out['solver_options'] = {'ksp_type': 'preonly', 'pc_type': 'lu', 'snes_monitor': True}
+    out['bnd_funcs'] = {1: {'uv': None},
+                        2: {'uv': None},
+                        3: {'uv': None},
+                        4: {'uv': None},
                         }
     return out
 
@@ -398,7 +405,7 @@ def run(setup, refinement, order, export=True):
     area = lx*ly
     f0 = 5e-3  # NOTE large value to make Coriolis terms larger
     g = physical_constants['g_grav']
-    depth = 40.0
+    depth = 10.0
     t_period = 5000.0        # period of signals
     t_end = 1000.0  # 500.0  # 3*T_period
     t_export = t_period/100.0  # export interval
@@ -412,6 +419,8 @@ def run(setup, refinement, order, export=True):
     ny = 5*refinement
     mesh2d = RectangleMesh(nx, ny, lx, ly)
     dt = 4.0/refinement
+    if sdict['options'].get('timestepper_type')=='cranknicolson':
+        dt *= 10.
 
     # outputs
     outputdir = create_directory('outputs')
@@ -523,6 +532,12 @@ def run(setup, refinement, order, export=True):
         # print('bnd {:}: {:}'.format(bnd_id, bnd_str))
 
     solver_obj.assign_initial_conditions(elev=elev_ana, uv_init=uv_ana)
+    if 'solver_options' in sdict:
+        # HACK: need to change prefix of solver options in order to overwrite them
+        solver_obj.timestepper.name += '_'
+        solver_obj.timestepper.solver_parameters.update(sdict['solver_options'])
+        solver_obj.timestepper.update_solver()
+
     solver_obj.iterate()
 
     elev_l2_err = errornorm(elev_ana_ho, solver_obj.fields.solution_2d.split()[1])/numpy.sqrt(area)
