@@ -416,7 +416,7 @@ def run(setup, refinement, order, do_export=True, **kwargs):
     ny = 5*refinement
     mesh2d = RectangleMesh(nx, ny, lx, ly)
     dt = 4.0/refinement
-    if sdict['options'].get('timestepper_type')=='cranknicolson':
+    if sdict['options'].get('timestepper_type') == 'cranknicolson':
         dt *= 10.
 
     # outputs
@@ -464,12 +464,12 @@ def run(setup, refinement, order, do_export=True, **kwargs):
     solver_obj.options.elev_source_2d = source_elev
     solver_obj.options.coriolis = coriolis_func
     if 'visc_expr' in sdict:
-      viscosity_space = FunctionSpace(solver_obj.mesh2d, "CG", order)
-      viscosity_func = Function(viscosity_space, name='viscosity')
-      viscosity_func.project(sdict['visc_expr'])
-      solver_obj.options.h_viscosity = viscosity_func
-      solver_obj.options.use_tensor_form_viscosity = False
-      solver_obj.options.use_grad_depth_term_viscosity_2d = True
+        viscosity_space = FunctionSpace(solver_obj.mesh2d, "CG", order)
+        viscosity_func = Function(viscosity_space, name='viscosity')
+        viscosity_func.project(sdict['visc_expr'])
+        solver_obj.options.h_viscosity = viscosity_func
+        solver_obj.options.use_tensor_form_viscosity = False
+        solver_obj.options.use_grad_depth_term_viscosity_2d = True
 
     # functions for boundary conditions
     # analytical elevation
