@@ -370,7 +370,7 @@ def setup9(lx, ly, depth, f0, g, mimetic=True):
             + 4.0*nu0*pi/lx/lx*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)
             + 9.0*nu0*(1.0 + x[0]/lx)*(pi/lx)*(pi/lx)*sin(pi*(-2.0*x[0] + 1.0*x[1])/lx)
             + 0.5*nu0*(1.0 + x[0]/lx)*(-3.0*pi/lx)*(pi/lx)*sin(pi*(-3.0*x[0] + 1.0*x[1])/lx)''' +
-            '''-({nu})*(pi*(-4.0*({dHdx}) + 1.0*({dHdy}))/lx*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx) 
+            '''-({nu})*(pi*(-4.0*({dHdx}) + 1.0*({dHdy}))/lx*cos(pi*(-2.0*x[0] + 1.0*x[1])/lx)
             - 1.5*pi*({dHdy})/lx*cos(pi*(-3.0*x[0] + 1.0*x[1])/lx))/({H})'''.format(
                 nu=visc_str, dHdx=grad_h_x, dHdy=grad_h_y, H=bath_str+'+'+elev_str
             ),
@@ -419,7 +419,7 @@ def run(setup, refinement, order, export=True):
     ny = 5*refinement
     mesh2d = RectangleMesh(nx, ny, lx, ly)
     dt = 4.0/refinement
-    if sdict['options'].get('timestepper_type')=='cranknicolson':
+    if sdict['options'].get('timestepper_type') == 'cranknicolson':
         dt *= 10.
 
     # outputs
@@ -466,12 +466,12 @@ def run(setup, refinement, order, export=True):
     solver_obj.options.elev_source_2d = source_elev
     solver_obj.options.coriolis = coriolis_func
     if 'visc_expr' in sdict:
-      viscosity_space = FunctionSpace(solver_obj.mesh2d, "CG", order)
-      viscosity_func = Function(viscosity_space, name='viscosity')
-      viscosity_func.project(sdict['visc_expr'])
-      solver_obj.options.h_viscosity = viscosity_func
-      solver_obj.options.use_tensor_form_viscosity = False
-      solver_obj.options.use_grad_depth_term_viscosity_2d = True
+        viscosity_space = FunctionSpace(solver_obj.mesh2d, "CG", order)
+        viscosity_func = Function(viscosity_space, name='viscosity')
+        viscosity_func.project(sdict['visc_expr'])
+        solver_obj.options.h_viscosity = viscosity_func
+        solver_obj.options.use_tensor_form_viscosity = False
+        solver_obj.options.use_grad_depth_term_viscosity_2d = True
 
     # functions for boundary conditions
     # analytical elevation
