@@ -24,19 +24,16 @@ addons:
         - liblapack-dev
         - gfortran
         - libspatialindex-dev
-        - swig
 os:
   - linux
 
 cache:
   directories:
     - $HOME/install/firedrake/
-    - $HOME/ffc_kernels/
 
 env:
   global:
     - CC=mpicc
-    - FIREDRAKE_FFC_KERNEL_CACHE_DIR=$HOME/ffc_kernels/
     - PETSC_CONFIGURE_OPTIONS="--download-mumps --download-scalapack --download-parmetis --download-metis"
 
 before_install:
@@ -49,7 +46,7 @@ install:
   - pushd $HOME/install
   - curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install
   # Check for cached install
-  - if [[ ! -f ./firedrake/bin/activate ]]; then python ./firedrake-install --disable-ssh --minimal-petsc --package-branch ffc cofs --package-branch ufl cofs --package_branch firedrake cofs; fi
+  - if [[ ! -f ./firedrake/bin/activate ]]; then python ./firedrake-install --disable-ssh --minimal-petsc; fi
   - . ./firedrake/bin/activate
   - pip install pytest
   - popd

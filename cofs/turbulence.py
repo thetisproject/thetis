@@ -104,16 +104,13 @@ class ShearFrequencySolver(object):
             fs = m2.function_space()
             test = TestFunction(fs)
             tri = TrialFunction(fs)
-            dx = fs.mesh()._dx
-            ds_surf = fs.mesh()._ds_b
-            ds_bottom = fs.mesh()._ds_t
             normal = FacetNormal(fs.mesh())
             a = inner(test, tri)*dx
             # # jump penalty -- smooth m2 -- this may blow up??
             # alpha = Constant(2.0)*abs(avg(uv[i_comp]))
             # a += alpha*jump(test)*jump(tri)*dS_h
             l = -inner(uv[i_comp], Dx(test, 2))*dx
-            l += avg(uv[i_comp])*jump(test, normal[2])*fs.mesh()._dS_h
+            l += avg(uv[i_comp])*jump(test, normal[2])*dS_h
             l += uv[i_comp]*test*normal[2]*(ds_surf + ds_bottom)
 
             prob = LinearVariationalProblem(a, l, mu_tmp)
@@ -139,7 +136,6 @@ class SmootherP1(object):
         self.p1dg = p1dg
         self.p1 = p1
         self.v_elem_size = v_elem_size
-        self.dx = self.p1.mesh()._dx
         self.tmp_func_p1 = Function(self.p1, name='tmp_p1_func')
 
     def apply(self, input):
@@ -149,10 +145,10 @@ class SmootherP1(object):
         # NOTE projection *must* be monotonic, add diffusion operator?
         test = TestFunction(self.p1)
         tri = TrialFunction(self.p1)
-        a = inner(tri, test) * self.dx
-        l = inner(input, test) * self.dx
+        a = inner(tri, test) * dx
+        l = inner(input, test) * dx
         mu = Constant(1.0e-2)  # TODO can this be estimated??
-        a += mu*inner(Dx(tri, 2), Dx(test, 2)) * self.dx
+        a += mu*inner(Dx(tri, 2), Dx(test, 2)) * dx
         prob = LinearVariationalProblem(a, l, self.tmp_func_p1)
         solver = LinearVariationalSolver(prob)
         solver.solve()
@@ -162,7 +158,7 @@ class SmootherP1(object):
         input[i][0] = p1field[i][0];  // TODO is this mapping valid?
     }
     """,
-                 self.dx,
+                 dx,
                  {'input': (input, WRITE),
                   'p1field': (self.tmp_func_p1, READ)})
 
@@ -695,7 +691,7 @@ class TKEEquation(TracerEquation):
         b = 0.0  # - eddy_diffusivity * buoyancy_freq2
 
         source = p + b - epsilon
-        f = inner(source, self.test)*self.dx
+        f = inner(source, self.test)*dx
         return f
 
 
@@ -761,7 +757,7 @@ class PsiEquation(TracerEquation):
         c3 = c3_minus
         # NOTE seems more stable explicitly with epsilon
         source = epsilon/k*(c1*p + c3*b - c2*f_wall*epsilon)
-        f = inner(source, self.test)*self.dx
+        f = inner(source, self.test)*dx
 
         if self.compute_vert_diffusion:
             # add bottom/top boundary condition for psi
@@ -779,12 +775,12 @@ class PsiEquation(TracerEquation):
             z_b = 0.5*self.v_elem_size + z0_friction
             diff_flux = (n*diffusivity_v*(cm0)**p *
                          k**m * kappa**n * z_b**(n - 1.0))
-            f += diff_flux*self.test*self.normal[2]*self.ds_bottom
+            f += diff_flux*self.test*self.normal[2]*ds_bottom
             # surface condition
             z0_surface = Constant(0.001)  # TODO generalize
             z_s = 0.5*self.v_elem_size + z0_surface
             diff_flux = -(n*diffusivity_v*(cm0)**p *
                           k**m * kappa**n * z_s**(n - 1.0))
-            f += diff_flux*self.test*self.normal[2]*self.ds_surf
+            f += diff_flux*self.test*self.normal[2]*ds_surf
 
         return f

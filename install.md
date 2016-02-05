@@ -6,7 +6,7 @@
     mercurial python-pip libopenmpi-dev openmpi-bin libblas-dev \
     liblapack-dev gfortran curl cmake cmake-data libjsoncpp0v5 \
     libspatialindex-c4v5 libspatialindex-dev libspatialindex4v5 \
-    pkg-config swig virtualenv zlib1g-dev \
+    pkg-config virtualenv zlib1g-dev \
     ipython python-scipy python-matplotlib
 
     pip install --user cachetools
@@ -17,15 +17,9 @@
 
 ```
     export PETSC_CONFIGURE_OPTIONS="--download-metis --download-parmetis --download-netcdf --download-hdf5"
-    python firedrake-install --developer --log --minimal_petsc \
-    --package_branch PyOP2 master \
-    --package_branch COFFEE master \
-    --package_branch ffc fd_bendy \
-    --package_branch ufl fd_bendy \
-    --package_branch firedrake bendy_changes
+    python firedrake-install --developer --log --minimal_petsc
 ```
 
-- Rebase firedrake `fd_bendy` with the latest compatible commit 6134b86 in `master` branch
 - Activate virtualenv
 
 ```

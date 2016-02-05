@@ -71,14 +71,6 @@ class MomentumEquation(Equation):
         self.xyz = SpatialCoordinate(self.mesh)
         self.e_x, self.e_y, self.e_y = unit_vectors(3)
 
-        # integral measures
-        self.dx = self.mesh._dx
-        self.dS_v = self.mesh._dS_v
-        self.dS_h = self.mesh._dS_h
-        self.ds_v = self.mesh._ds_v
-        self.ds_surf = self.mesh._ds_b
-        self.ds_bottom = self.mesh._ds_t
-
         # boundary definitions
         self.boundary_markers = bnd_markers
         self.boundary_len = bnd_len
@@ -93,7 +85,7 @@ class MomentumEquation(Equation):
 
         Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
         """
-        return inner(solution, self.test) * self.dx
+        return inner(solution, self.test) * dx
 
     def pressure_grad(self, eta, baroc_head, uv, total_h, by_parts=True,
                       **kwargs):
@@ -104,18 +96,18 @@ class MomentumEquation(Equation):
         if by_parts:
             div_test = (Dx(self.test[0], 0) +
                         Dx(self.test[1], 1))
-            f = -g_grav*head*div_test*self.dx
+            f = -g_grav*head*div_test*dx
             # head_star = avg(head) + 0.5*sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
             head_star = avg(head)
             jump_n_dot_test = (jump(self.test[0], self.normal[0]) +
                                jump(self.test[1], self.normal[1]))
-            f += g_grav*head_star*jump_n_dot_test*(self.dS_v + self.dS_h)
+            f += g_grav*head_star*jump_n_dot_test*(dS_v + dS_h)
             n_dot_test = (self.normal[0]*self.test[0] +
                           self.normal[1]*self.test[1])
-            f += g_grav*head*n_dot_test*(self.ds_bottom + self.ds_surf)
+            f += g_grav*head*n_dot_test*(ds_bottom + ds_surf)
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
-                ds_bnd = self.ds_v(int(bnd_marker))
+                ds_bnd = ds_v(int(bnd_marker))
                 if baroc_head is not None:
                     f += g_grav*baroc_head*n_dot_test*ds_bnd
                 special_eta_flux = funcs is not None and 'elev' in funcs
@@ -124,7 +116,7 @@ class MomentumEquation(Equation):
         else:
             grad_head_dot_test = (Dx(head, 0)*self.test[0] +
                                   Dx(head, 1)*self.test[1])
-            f = g_grav * grad_head_dot_test * self.dx
+            f = g_grav * grad_head_dot_test * dx
         return f
 
     def horizontal_advection(self, solution, total_h, lax_friedrichs_factor,
@@ -135,7 +127,7 @@ class MomentumEquation(Equation):
             f = -(Dx(self.test[0], 0)*solution[0]*solution[0] +
                   Dx(self.test[0], 1)*solution[0]*solution[1] +
                   Dx(self.test[1], 0)*solution[1]*solution[0] +
-                  Dx(self.test[1], 1)*solution[1]*solution[1])*self.dx
+                  Dx(self.test[1], 1)*solution[1]*solution[1])*dx
             uv_av = avg(solution)
             un_av = (uv_av[0]*self.normal('-')[0] +
                      uv_av[1]*self.normal('-')[1])
@@ -145,7 +137,7 @@ class MomentumEquation(Equation):
                 f += (uv_up[0]*uv_av[0]*jump(self.test[0], self.normal[0]) +
                       uv_up[0]*uv_av[1]*jump(self.test[0], self.normal[1]) +
                       uv_up[1]*uv_av[0]*jump(self.test[1], self.normal[0]) +
-                      uv_up[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_v + self.dS_h)
+                      uv_up[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(dS_v + dS_h)
                 # Lax-Friedrichs stabilization
                 if lax_friedrichs_factor is not None and uv_mag is not None:
                     if uv_p1 is not None:
@@ -156,10 +148,10 @@ class MomentumEquation(Equation):
                     else:
                         raise Exception('either uv_p1 or uv_mag must be given')
                     f += gamma*(jump(self.test[0])*jump(solution[0]) +
-                                jump(self.test[1])*jump(solution[1]))*self.dS_v
+                                jump(self.test[1])*jump(solution[1]))*dS_v
                 for bnd_marker in self.boundary_markers:
                     funcs = self.bnd_functions.get(bnd_marker)
-                    ds_bnd = self.ds_v(int(bnd_marker))
+                    ds_bnd = ds_v(int(bnd_marker))
                     if funcs is None:
                         un = dot(solution, self.normal)
                         uv_ext = solution - 2*un*self.normal
@@ -192,9 +184,9 @@ class MomentumEquation(Equation):
             f += (solution[0]*solution[0]*self.test[0]*self.normal[0] +
                   solution[0]*solution[1]*self.test[0]*self.normal[1] +
                   solution[1]*solution[0]*self.test[1]*self.normal[0] +
-                  solution[1]*solution[1]*self.test[1]*self.normal[1])*(self.ds_surf)
+                  solution[1]*solution[1]*self.test[1]*self.normal[1])*(ds_surf)
         else:
-            f = inner(div(outer(solution, solution)), self.test)*self.dx
+            f = inner(div(outer(solution, solution)), self.test)*dx
         return f
 
     def rhs_implicit(self, solution, wind_stress=None, **kwargs):
@@ -233,20 +225,20 @@ class MomentumEquation(Equation):
                     vertvelo = w[2]-w_mesh
                 adv_v = -(Dx(self.test[0], 2)*solution[0]*vertvelo +
                           Dx(self.test[1], 2)*solution[1]*vertvelo)
-                f += adv_v * self.dx
+                f += adv_v * dx
                 if self.vertical_dg:
                     s = 0.5*(sign(avg(w[2])*self.normal[2]('-')) + 1.0)
                     uv_up = solution('-')*s + solution('+')*(1-s)
                     w_av = avg(w[2])
                     g += (uv_up[0]*w_av*jump(self.test[0], self.normal[2]) +
-                          uv_up[1]*w_av*jump(self.test[1], self.normal[2]))*self.dS_h
+                          uv_up[1]*w_av*jump(self.test[1], self.normal[2]))*dS_h
                     if lax_friedrichs_factor is not None:
                         # Lax-Friedrichs
                         gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
                         g += gamma*(jump(self.test[0])*jump(solution[0]) +
-                                    jump(self.test[1])*jump(solution[1]))*self.dS_h
+                                    jump(self.test[1])*jump(solution[1]))*dS_h
                 g += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
-                      solution[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
+                      solution[1]*vertvelo*self.test[1]*self.normal[2])*(ds_surf)
             # NOTE bottom impermeability condition is naturally satisfied by the defition of w
 
         # Non-conservative ALE source term
@@ -257,7 +249,7 @@ class MomentumEquation(Equation):
         # boundary conditions
         for bnd_marker in self.boundary_markers:
             funcs = self.bnd_functions.get(bnd_marker)
-            ds_bnd = self.ds_v(int(bnd_marker))
+            ds_bnd = ds_v(int(bnd_marker))
             un_in = (solution[0]*self.normal[0] + solution[1]*self.normal[1])
             if funcs is None:
                 # assume land boundary
@@ -304,7 +296,7 @@ class MomentumEquation(Equation):
         # Coriolis
         if coriolis is not None:
             f += coriolis*(-solution[1]*self.test[0] +
-                           solution[0]*self.test[1])*self.dx
+                           solution[0]*self.test[1])*dx
 
         # horizontal viscosity
         if viscosity_h is not None:
@@ -318,25 +310,25 @@ class MomentumEquation(Equation):
                 f += -(avg(mu_grad_sol[0, 0])*jump(self.test[0], self.normal[0]) +
                        avg(mu_grad_sol[0, 1])*jump(self.test[1], self.normal[0]) +
                        avg(mu_grad_sol[1, 0])*jump(self.test[0], self.normal[1]) +
-                       avg(mu_grad_sol[1, 1])*jump(self.test[1], self.normal[1]))*(self.dS_v+self.dS_h)
+                       avg(mu_grad_sol[1, 1])*jump(self.test[1], self.normal[1]))*(dS_v+dS_h)
                 # TODO symmetric interior penalty term
-            f += f_visc * self.dx
+            f += f_visc * dx
 
         # vertical viscosity
         if viscosity_v is not None:
             f += viscosity_v*(Dx(self.test[0], 2)*Dx(solution[0], 2) +
-                              Dx(self.test[1], 2)*Dx(solution[1], 2)) * self.dx
+                              Dx(self.test[1], 2)*Dx(solution[1], 2)) * dx
             if self.vertical_dg:
                 int_visc_flux = (jump(self.test[0]*Dx(solution[0], 2), self.normal[2]) +
                                  jump(self.test[1]*Dx(solution[1], 2), self.normal[2]))
-                g += -avg(viscosity_v) * int_visc_flux * self.dS_h
+                g += -avg(viscosity_v) * int_visc_flux * dS_h
                 # viscflux = viscosity_v*Dx(solution, 2)
                 # G += -(avg(viscflux[0])*jump(self.test[0], normal[2]) +
                 #        avg(viscflux[0])*jump(self.test[1], normal[2]))
 
         # Linear drag (consistent with drag in 2D mode)
         if lin_drag is not None:
-            bottom_fri = lin_drag*inner(self.test, solution)*self.dx
+            bottom_fri = lin_drag*inner(self.test, solution)*dx
             f += bottom_fri
 
         return -f - g
@@ -349,7 +341,7 @@ class MomentumEquation(Equation):
         f = 0
 
         if source is not None:
-            f += -inner(source, self.test)*self.dx
+            f += -inner(source, self.test)*dx
 
         if viscosity_v is not None:
             # bottom friction
@@ -357,7 +349,7 @@ class MomentumEquation(Equation):
                 stress = bottom_drag*sqrt(uv_bottom[0]**2 +
                                           uv_bottom[1]**2)*uv_bottom
                 bot_friction = (stress[0]*self.test[0] +
-                                stress[1]*self.test[1])*self.ds_bottom
+                                stress[1]*self.test[1])*ds_bottom
                 f += bot_friction
 
         return -f
@@ -401,14 +393,6 @@ class VerticalMomentumEquation(Equation):
         self.xyz = SpatialCoordinate(self.mesh)
         self.e_x, self.e_y, self.e_y = unit_vectors(3)
 
-        # integral measures
-        self.dx = self.mesh._dx
-        self.dS_v = self.mesh._dS_v
-        self.dS_h = self.mesh._dS_h
-        self.ds_v = self.mesh._ds_v
-        self.ds_surf = self.mesh._ds_b
-        self.ds_bottom = self.mesh._ds_t
-
         # set boundary conditions
         # maps bnd_marker to dict of external functions e.g. {'elev':eta_ext}
         self.bnd_functions = {}
@@ -422,8 +406,8 @@ class VerticalMomentumEquation(Equation):
 
         Implements A(u) for  d(A(u_{n+1}) - A(u_{n}))/dt
         """
-        return inner(solution, self.test) * self.dx
-        # return (solution[0]*self.test[0] + solution[1]*self.test[1]) * self.dx
+        return inner(solution, self.test) * dx
+        # return (solution[0]*self.test[0] + solution[1]*self.test[1]) * dx
 
     def rhs_implicit(self, solution, wind_stress=None, **kwargs):
         """Returns all the terms that are treated semi-implicitly.
@@ -443,18 +427,18 @@ class VerticalMomentumEquation(Equation):
             # Vertical advection
             adv_v = -(Dx(self.test[0], 2)*solution[0]*w +
                       Dx(self.test[1], 2)*solution[1]*w)
-            f += adv_v * self.dx
+            f += adv_v * dx
             if self.vertical_dg:
                 # FIXME implement interface terms
                 raise NotImplementedError('Adv term not implemented for DG')
 
         # vertical viscosity
         if viscosity_v is not None:
-            f += viscosity_v*inner(Dx(solution, 2), Dx(self.test, 2)) * self.dx
+            f += viscosity_v*inner(Dx(solution, 2), Dx(self.test, 2)) * dx
             if self.vertical_dg:
                 visc_flux = viscosity_v*Dx(solution, 2)
                 f += -(dot(avg(visc_flux), self.test('+'))*self.normal[2]('+') +
-                       dot(avg(visc_flux), self.test('-'))*self.normal[2]('-')) * self.dS_h
+                       dot(avg(visc_flux), self.test('-'))*self.normal[2]('-')) * dS_h
                 # symmetric interior penalty stabilization
                 ip_fact = Constant(1.0)
                 l = avg(self.v_elem_size)
@@ -465,7 +449,7 @@ class VerticalMomentumEquation(Equation):
                 gamma = sigma*avg(viscosity_v) * ip_fact
                 jump_test = (self.test('+')*self.normal[2]('+') +
                              self.test('-')*self.normal[2]('-'))
-                f += gamma * dot(jump(solution), jump_test) * self.dS_h
+                f += gamma * dot(jump(solution), jump_test) * dS_h
 
             # implicit bottom friction
             if bottom_drag is not None:
@@ -476,7 +460,7 @@ class VerticalMomentumEquation(Equation):
                 uv_bot_mag = sqrt(uv_bot_old[0]**2 + uv_bot_old[1]**2)
                 stress = bottom_drag*uv_bot_mag*uv_bot
                 bot_friction = (stress[0]*self.test[0] +
-                                stress[1]*self.test[1])*self.ds_bottom
+                                stress[1]*self.test[1])*ds_bottom
                 f += bot_friction
 
         return -f
@@ -495,12 +479,12 @@ class VerticalMomentumEquation(Equation):
             #   stress = bottom_drag*sqrt(uv_bottom[0]**2 +
             #                             uv_bottom[1]**2)*uv_bottom
             #   BotFriction = (stress[0]*self.test[0] +
-            #                  stress[1]*self.test[1])*self.ds_bottom
+            #                  stress[1]*self.test[1])*ds_bottom
             #   #F += BotFriction
             # wind stress
             if wind_stress is not None:
                 f -= (wind_stress[0]*self.test[0] +
-                      wind_stress[1]*self.test[1])/rho_0*self.ds_surf
+                      wind_stress[1]*self.test[1])/rho_0*ds_surf
         if source is not None:
             f += - inner(source, self.test)*dx
 

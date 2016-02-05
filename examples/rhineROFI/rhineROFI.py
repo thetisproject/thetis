@@ -105,8 +105,8 @@ xyz = solver_obj.mesh2d.coordinates
 tri = TrialFunction(P1_2d)
 test = TestFunction(P1_2d)
 elev = eta_amplitude*exp(xyz[0]*kelvin_m)*cos(xyz[1]*kelvin_k - OmegaTide*bnd_time)
-a = inner(test, tri)*P1_2d.mesh()._dx
-L = test*elev*P1_2d.mesh()._dx
+a = inner(test, tri)*dx
+L = test*elev*dx
 bnd_elev_prob = LinearVariationalProblem(a, L, bnd_elev)
 bnd_elev_solver = LinearVariationalSolver(bnd_elev_prob)
 bnd_elev_solver.solve()
@@ -116,8 +116,8 @@ bnd_v = Function(fs, name='Boundary v velocity')
 tri = TrialFunction(fs)
 test = TestFunction(fs)
 v = -(g*kelvin_k/OmegaTide)*eta_amplitude*exp(xyz[0]*kelvin_m)*cos(xyz[1]*kelvin_k - OmegaTide*bnd_time)
-a = inner(test, tri)*fs.mesh()._dx
-L = test*v*fs.mesh()._dx
+a = inner(test, tri)*dx
+L = test*v*dx
 bnd_v_prob = LinearVariationalProblem(a, L, bnd_v)
 bnd_v_solver = LinearVariationalSolver(bnd_v_prob)
 bnd_v_solver.solve()
@@ -156,9 +156,9 @@ uv_init = Function(solver_obj.function_spaces.U_2d, name='initial velocity')
 #                       amp=eta_amplitude, kelvin_m=kelvin_m, kelvin_k=kelvin_k))
 tri = TrialFunction(solver_obj.function_spaces.U_2d)
 test = TestFunction(solver_obj.function_spaces.U_2d)
-a = inner(test, tri)*solver_obj.eq_sw.dx
+a = inner(test, tri)*dx
 uv = (g*kelvin_k/OmegaTide)*elev_init2
-L = test[1]*uv*solver_obj.eq_sw.dx
+L = test[1]*uv*dx
 solve(a == L, uv_init)
 salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
 salt_init3d.interpolate(Expression('d_ocean - (d_ocean - d_river)*(1 + tanh((x[0] - xoff)/sigma))/2',
