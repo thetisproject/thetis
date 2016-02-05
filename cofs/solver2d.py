@@ -68,14 +68,20 @@ class FlowSolver2d(FrozenClass):
         self.function_spaces.P0_2d = FunctionSpace(self.mesh2d, 'DG', 0)
         self.function_spaces.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
         self.function_spaces.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
+        if self.options.mimetic and self.options.continuous_pressure:
+            raise ValueError("Cannot combine options mimetic and continuous_pressure")
         # 2D velocity space
         if self.options.mimetic:
             self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.order+1)
+            self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
+        elif self.options.continuous_pressure:
+            self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
+            self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'CG', self.options.order+1)
         else:
             self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
+            self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
         # TODO can this be omitted?
         # self.function_spaces.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
-        self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d])
 
         self.visu_spaces[self.function_spaces.U_2d] = self.function_spaces.P1v_2d
