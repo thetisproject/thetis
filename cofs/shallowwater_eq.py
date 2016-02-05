@@ -218,13 +218,18 @@ class ShallowWaterEquations(Equation):
                         head_rie = head + sqrt(h/g_grav)*un_jump
                         f += g_grav*head_rie*dot(self.U_test, self.normal)*ds_bnd
         else:
-            raise Exception('Should never call this')
             f = g_grav*inner(grad(head), self.U_test) * self.dx
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = self.ds(int(bnd_marker))
-                if funcs is not None and 'elev' in funcs:
-                    f -= g_grav*head*dot(self.U_test, self.normal)*ds_bnd
+                if funcs is not None:
+                    h = self.bathymetry
+                    l = self.boundary_len[bnd_marker]
+                    eta_ext, uv_ext = self.get_bnd_functions(head, uv, funcs, h, l)
+                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                    un_jump = inner(uv - uv_ext, self.normal)
+                    eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
+                    f += g_grav*(eta_rie-head)*dot(self.U_test, self.normal)*ds_bnd
         return f
 
     def hu_div_term(self, uv, eta, total_h, **kwargs):
