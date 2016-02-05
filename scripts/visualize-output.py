@@ -52,7 +52,7 @@ def process_args(outputdir, state_file, regenerate_pvd=True, timesteps=None, par
             path, fname = os.path.split(f)
             fieldName, extension = os.path.splitext(fname)
             if fieldName not in static_pvd_files:
-                generate_pvd_file(outputdir, fieldName, timesteps, usePVTU=parallel_vtu)
+                generate_pvd_file(outputdir, fieldName, timesteps, usepvtu=parallel_vtu)
     # read state file, replace directory with new one
     new_content = ''
     with open(state_file, 'r') as f:
