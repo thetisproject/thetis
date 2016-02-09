@@ -149,7 +149,7 @@ def setup4dg(lx, ly, h0, kappa0):
     return setup4(lx, ly, h0, kappa0, mimetic=False)
 
 
-def run(setup, refinement, order, export=True):
+def run(setup, refinement, order, do_export=True):
     """Run single test and return L2 error"""
     print '--- running {:} refinement {:}'.format(setup.__name__, refinement)
     # domain dimensions
@@ -174,8 +174,8 @@ def run(setup, refinement, order, export=True):
     mesh2d = RectangleMesh(nx, ny, lx, ly)
 
     # outputs
-    outputdir = create_directory('outputs')
-    if export:
+    outputdir = 'outputs'
+    if do_export:
         out_t = File(os.path.join(outputdir, 'T.pvd'))
 
     # bathymetry
@@ -186,6 +186,7 @@ def run(setup, refinement, order, export=True):
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     solver_obj.options.order = order
     solver_obj.options.u_advection = Constant(1.0)
+    solver_obj.options.no_exports = not do_export
     solver_obj.options.outputdir = outputdir
     solver_obj.options.t_end = t_end
     solver_obj.options.dt = dt
@@ -236,7 +237,7 @@ def run(setup, refinement, order, export=True):
     solver_obj.fields.uv_3d.project(sdict['uv_expr'])
     solver_obj.w_solver.solve()
 
-    if export:
+    if do_export:
         out_t << trac_ana
         solver_obj.export()
 
@@ -252,7 +253,7 @@ def run(setup, refinement, order, export=True):
                 ti.solver.tracer_limiter.apply(ti.fields.salt_3d)
         t += dt
 
-    if export:
+    if do_export:
         out_t << trac_ana
         solver_obj.export()
 
@@ -263,11 +264,11 @@ def run(setup, refinement, order, export=True):
     return l2_err
 
 
-def run_convergence(setup, ref_list, order, export=False, save_plot=False):
+def run_convergence(setup, ref_list, order, do_export=False, save_plot=False):
     """Runs test for a list of refinements and computes error convergence rate"""
     l2_err = []
     for r in ref_list:
-        l2_err.append(run(setup, r, order, export=export))
+        l2_err.append(run(setup, r, order, do_export=do_export))
     x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
     y_log = numpy.log10(numpy.array(l2_err))
 

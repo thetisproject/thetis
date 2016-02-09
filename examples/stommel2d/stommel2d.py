@@ -14,7 +14,7 @@
 from cofs import *
 
 mesh2d = Mesh('stommel_square.msh')
-outputdir = create_directory('outputs')
+outputdir = 'outputs'
 print_info('Loaded mesh '+mesh2d.name)
 print_info('Exporting to '+outputdir)
 depth = 1000.0

@@ -9,10 +9,10 @@ from cofs.momentum_eq import VerticalMomentumEquation
 import time as time_mod
 
 
-def test_implicit_friction_parabolic(do_assert=True):
+def test_implicit_friction_parabolic(do_assert=True, do_export=False):
     physical_constants['z0_friction'] = 1.5e-3
 
-    outputdir = create_directory('outputs_parab')
+    outputdir = 'outputs_parab'
     # set mesh resolution
     scale = 1000.0
     reso = 2.5*scale
@@ -56,6 +56,7 @@ def test_implicit_friction_parabolic(do_assert=True):
     options.t_export = t_export
     options.dt = dt
     options.t_end = t_end
+    options.no_exports = not do_export
     options.outputdir = outputdir
     options.u_advection = u_mag
     options.check_salt_deviation = True
@@ -137,4 +138,4 @@ def test_implicit_friction_parabolic(do_assert=True):
 
 
 if __name__ == '__main__':
-    test_implicit_friction_parabolic()
+    test_implicit_friction_parabolic(do_assert=True, do_export=True)

@@ -18,7 +18,7 @@
 from scipy.interpolate import interp1d
 from cofs import *
 
-outputdir = create_directory('outputs')
+outputdir = 'outputs'
 mesh2d = Mesh('channel_mesh.msh')
 print_info('Loaded mesh '+mesh2d.name)
 print_info('Exporting to '+outputdir)

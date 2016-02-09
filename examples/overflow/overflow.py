@@ -29,7 +29,7 @@
 from cofs import *
 
 reso_str = 'medium'
-outputdir = create_directory('outputs_'+reso_str)
+outputdir = 'outputs_'+reso_str
 refinement = {'medium': 1}
 layers = int(round(16*refinement[reso_str]))
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))

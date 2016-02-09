@@ -18,7 +18,7 @@
 
 from cofs import *
 
-outputdir = create_directory('outputs2d-dg')
+outputdir = 'outputs2d-dg'
 mesh2d = Mesh('mesh_rhine_rofi_coarse.msh')
 print_info('Loaded mesh '+mesh2d.name)
 print_info('Exporting to '+outputdir)

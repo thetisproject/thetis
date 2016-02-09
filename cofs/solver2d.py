@@ -151,32 +151,33 @@ class FlowSolver2d(FrozenClass):
         self.visu_spaces[uv_2d.function_space()] = self.function_spaces.P1v_2d
         self.visu_spaces[elev_2d.function_space()] = self.function_spaces.P1_2d
         self.exporters = {}
-        e = exporter.ExportManager(self.options.outputdir,
-                                   self.options.fields_to_export,
-                                   self.fields,
-                                   self.visu_spaces,
-                                   field_metadata,
-                                   export_type='vtk',
-                                   verbose=self.options.verbose > 0)
-        self.exporters['vtk'] = e
-        numpy_dir = os.path.join(self.options.outputdir, 'numpy')
-        e = exporter.ExportManager(numpy_dir,
-                                   self.options.fields_to_export_numpy,
-                                   self.fields,
-                                   self.visu_spaces,
-                                   field_metadata,
-                                   export_type='numpy',
-                                   verbose=self.options.verbose > 0)
-        self.exporters['numpy'] = e
-        hdf5_dir = os.path.join(self.options.outputdir, 'hdf5')
-        e = exporter.ExportManager(hdf5_dir,
-                                   self.options.fields_to_export_hdf5,
-                                   self.fields,
-                                   self.visu_spaces,
-                                   field_metadata,
-                                   export_type='hdf5',
-                                   verbose=self.options.verbose > 0)
-        self.exporters['hdf5'] = e
+        if not self.options.no_exports:
+            e = exporter.ExportManager(self.options.outputdir,
+                                       self.options.fields_to_export,
+                                       self.fields,
+                                       self.visu_spaces,
+                                       field_metadata,
+                                       export_type='vtk',
+                                       verbose=self.options.verbose > 0)
+            self.exporters['vtk'] = e
+            numpy_dir = os.path.join(self.options.outputdir, 'numpy')
+            e = exporter.ExportManager(numpy_dir,
+                                       self.options.fields_to_export_numpy,
+                                       self.fields,
+                                       self.visu_spaces,
+                                       field_metadata,
+                                       export_type='numpy',
+                                       verbose=self.options.verbose > 0)
+            self.exporters['numpy'] = e
+            hdf5_dir = os.path.join(self.options.outputdir, 'hdf5')
+            e = exporter.ExportManager(hdf5_dir,
+                                       self.options.fields_to_export_hdf5,
+                                       self.fields,
+                                       self.visu_spaces,
+                                       field_metadata,
+                                       export_type='hdf5',
+                                       verbose=self.options.verbose > 0)
+            self.exporters['hdf5'] = e
 
         self._initialized = True
         self._isfrozen = True  # disallow creating new attributes
@@ -240,7 +241,8 @@ class FlowSolver2d(FrozenClass):
         self.export()
         if export_func is not None:
             export_func()
-        self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
+        if 'vtk' in self.exporters:
+            self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
         while self.simulation_time <= self.options.t_end + t_epsilon:
 

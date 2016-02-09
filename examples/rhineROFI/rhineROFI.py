@@ -18,7 +18,7 @@
 
 from cofs import *
 
-outputdir = create_directory('outputs')
+outputdir = 'outputs'
 layers = 6
 mesh2d = Mesh('mesh_rhine_rofi_coarse.msh')
 print_info('Loaded mesh '+mesh2d.name)

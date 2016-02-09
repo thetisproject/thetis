@@ -207,7 +207,7 @@ def setup5dg(lx, h0):
     return setup4(lx, h0, mimetic=False)
 
 
-def run(setup, refinement, order, export=True):
+def run(setup, refinement, order, do_export=True):
     """Run single test and return L2 error"""
     print '--- running {:} refinement {:}'.format(setup.__name__, refinement)
     setup_name = setup.__name__
@@ -226,7 +226,7 @@ def run(setup, refinement, order, export=True):
     mesh2d = RectangleMesh(nx, ny, lx, ly)
 
     # outputs
-    outputdir = create_directory('outputs')
+    outputdir = 'outputs'
 
     # bathymetry
     p1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -237,6 +237,7 @@ def run(setup, refinement, order, export=True):
     solver_obj.options.order = order
     solver_obj.options.mimetic = False
     solver_obj.options.u_advection = Constant(1.0)
+    solver_obj.options.no_exports = not do_export
     solver_obj.options.outputdir = outputdir
     solver_obj.options.dt = 30.0
     solver_obj.options.dt_2d = 10.0
@@ -270,7 +271,7 @@ def run(setup, refinement, order, export=True):
     w_ana_ho = Function(p1dg_ho, name='Analytical w')
     w_ana_ho.project(sdict['w_expr'])
 
-    if export:
+    if do_export:
         out_w = File(os.path.join(outputdir, 'w.pvd'))
         out_w_ana = File(os.path.join(outputdir, 'w_ana.pvd'))
         out_uv = File(os.path.join(outputdir, 'uv.pvd'))
@@ -283,7 +284,7 @@ def run(setup, refinement, order, export=True):
     w_proj_3d.project(uvw)  # This needed for HDiv elements
     # discard u,v components
     w_proj_3d.dat.data[:, :2] = 0
-    if export:
+    if do_export:
         out_w << w_proj_3d
         out_w_ana << w_analytical
         out_uv << uv_analytical
@@ -311,11 +312,11 @@ def run(setup, refinement, order, export=True):
     return l2_err_w, l2_err_uv
 
 
-def run_convergence(setup, ref_list, order, export=False, save_plot=False):
+def run_convergence(setup, ref_list, order, do_export=False, save_plot=False):
     """Runs test for a list of refinements and computes error convergence rate"""
     l2_err = []
     for r in ref_list:
-        l2_err.append(run(setup, r, order, export=export))
+        l2_err.append(run(setup, r, order, do_export=do_export))
     x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
     y_log = numpy.log10(numpy.array(l2_err))
     y_log_w = y_log[:, 0]

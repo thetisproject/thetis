@@ -62,7 +62,7 @@ outputdir = 'out_{:}_p{:}{:}_Re{:}_{:}'.format(args.reso_str, space_str,
                                                args.poly_order,
                                                args.reynolds_number, limiter_str)
 
-outputdir = create_directory(outputdir)
+outputdir = outputdir
 reso_str = args.reso_str
 if args.jump_diff_factor is not None:
     args.jump_diff_factor = Constant(args.jump_diff_factor)

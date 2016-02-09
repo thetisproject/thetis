@@ -19,7 +19,7 @@ elev_amp = 1.0
 # estimate of max advective velocity used to estimate time step
 u_mag = Constant(0.5)
 
-outputdir = create_directory('outputs_wave_eq_2d')
+outputdir = 'outputs_wave_eq_2d'
 print_info('Loaded mesh '+mesh2d.name)
 print_info('Exporting to '+outputdir)
 

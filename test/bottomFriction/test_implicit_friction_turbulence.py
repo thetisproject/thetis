@@ -10,10 +10,10 @@ import pytest
 
 
 @pytest.mark.skipif(True, reason='test takes too long to execute')
-def test_implicit_friction_turbulence(do_assert=True):
+def test_implicit_friction_turbulence(do_assert=True, do_export=False):
     physical_constants['z0_friction'] = 1.5e-3
 
-    outputdir = create_directory('outputs')
+    outputdir = 'outputs'
     # set mesh resolution
     scale = 1000.0
     reso = 2.5*scale
@@ -57,6 +57,7 @@ def test_implicit_friction_turbulence(do_assert=True):
     options.t_export = t_export
     options.dt = dt
     options.t_end = t_end
+    options.no_exports = not do_export
     options.outputdir = outputdir
     options.u_advection = u_mag
     options.check_salt_deviation = True
@@ -146,4 +147,4 @@ def test_implicit_friction_turbulence(do_assert=True):
         assert np.abs(u_max - target_u_max) < target_u_tol, 'maximum u velocity is wrong {:} != {:}'.format(u_max, target_u_max)
 
 if __name__ == '__main__':
-    test_implicit_friction_turbulence()
+    test_implicit_friction_turbulence(do_assert=True, do_export=True)
