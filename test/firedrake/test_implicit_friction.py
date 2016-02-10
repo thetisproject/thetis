@@ -41,11 +41,11 @@ def test_implicit_friction(do_export=False, do_assert=True):
     p1dgv = VectorFunctionSpace(mesh, 'DG', degree=1, vfamily='DG', vdegree=1)
     u_h_elt = FiniteElement('RT', triangle, deg + 1)
     u_v_elt = FiniteElement('DG', interval, deg)
-    u_elt = HDiv(OuterProductElement(u_h_elt, u_v_elt))
+    u_elt = HDiv(TensorProductElement(u_h_elt, u_v_elt))
     # for vertical velocity component
     w_h_elt = FiniteElement('DG', triangle, deg)
     w_v_elt = FiniteElement('CG', interval, deg + 1)
-    w_elt = HDiv(OuterProductElement(w_h_elt, w_v_elt))
+    w_elt = HDiv(TensorProductElement(w_h_elt, w_v_elt))
     # in deformed mesh horiz. velocity must actually live in U + W
     uw_elt = EnrichedElement(u_elt, w_elt)
     # final spaces
