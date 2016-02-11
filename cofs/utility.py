@@ -268,13 +268,38 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d):
     """Extrudes 2d surface mesh with bathymetry data defined in a 2d field."""
     mesh = ExtrudedMesh(mesh2d, layers=n_layers, layer_height=1.0/n_layers)
 
-    xyz = mesh.coordinates
+    coordinates = mesh.coordinates
+    fs_3d = coordinates.function_space()
+    fs_2d = bathymetry_2d.function_space()
+    new_coordinates = Function(fs_3d)
 
-    n_nodes_2d = bathymetry_2d.dat.data.shape[0]
-    n_vert = xyz.dat.data.shape[0]/n_nodes_2d
-    # TODO can the loop be circumvented?
-    for i_node in range(n_nodes_2d):
-        xyz.dat.data[i_node*n_vert:i_node*n_vert+n_vert, 2] *= -bathymetry_2d.dat.data[i_node]
+    # number of nodes in vertical direction
+    n_vert_nodes = len(fs_3d.fiat_element.B.entity_closure_dofs()[1][0])
+
+    nodes = fs_3d.bt_masks['geometric'][0]
+    idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
+    kernel = op2.Kernel("""
+        void my_kernel(double **new_coords, double **old_coords, double **bath2d, int *idx) {
+            for ( int d = 0; d < %(nodes)d; d++ ) {
+                for ( int e = 0; e < %(v_nodes)d; e++ ) {
+                    new_coords[idx[d]+e][0] = old_coords[idx[d]+e][0];
+                    new_coords[idx[d]+e][1] = old_coords[idx[d]+e][1];
+                    new_coords[idx[d]+e][2] = -bath2d[d][0] * old_coords[idx[d]+e][2];
+                }
+            }
+        }""" % {'nodes': bathymetry_2d.cell_node_map().arity,
+                'v_nodes': n_vert_nodes},
+        'my_kernel')
+
+    op2.par_loop(kernel, mesh.cell_set,
+                 new_coordinates.dat(op2.WRITE, fs_3d.cell_node_map()),
+                 coordinates.dat(op2.READ, fs_3d.cell_node_map()),
+                 bathymetry_2d.dat(op2.READ, fs_2d.cell_node_map()),
+                 idx(op2.READ),
+                 iterate=op2.ALL)
+
+    mesh.coordinates.assign(new_coordinates)
+
     return mesh
 
 
