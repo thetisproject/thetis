@@ -367,7 +367,7 @@ class VerticalIntegrator(object):
         vertical_is_dg = False
         if (hasattr(space.ufl_element(), '_B') and
                 space.ufl_element()._B.family() != 'Lagrange'):
-            # a normal outerproduct element
+            # a normal tensorproduct element
             vertical_is_dg = True
         if 'HDiv' in space.ufl_element().shortstr():
             # Hdiv vector space, assume DG in vertical
@@ -486,7 +486,7 @@ class ExpandFunctionTo3d(object):
 
         family_2d = self.fs_2d.ufl_element().family()
         if hasattr(self.fs_3d.ufl_element(), '_A'):
-            # a normal outerproduct element
+            # a normal tensorproduct element
             family_3dh = self.fs_3d.ufl_element()._A.family()
             if family_2d != family_3dh:
                 raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
@@ -572,7 +572,7 @@ class SubFunctionExtractor(object):
 
         family_2d = self.fs_2d.ufl_element().family()
         if hasattr(self.fs_3d.ufl_element(), '_A'):
-            # a normal outerproduct element
+            # a normal tensorproduct element
             family_3dh = self.fs_3d.ufl_element()._A.family()
             if family_2d != family_3dh:
                 raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))

@@ -15,7 +15,7 @@ def assert_function_space(fs, family, degree):
     outer product.
     """
     ufl_elem = fs.ufl_element()
-    if ufl_elem.family() == 'OuterProductElement':
+    if ufl_elem.family() == 'TensorProductElement':
         # extruded mesh
         assert ufl_elem._A.family() == family,\
             'horizontal space must be {0:s}'.format(family)
