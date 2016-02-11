@@ -98,15 +98,15 @@ class FlowSolver(FrozenClass):
         self.function_spaces.P1DG = FunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1, name='P1DG')
         self.function_spaces.P1DGv = VectorFunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1, name='P1DGv')
 
-        # Construct HDiv OuterProductElements
+        # Construct HDiv TensorProductElements
         # for horizontal velocity component
         u_h_elt = FiniteElement('RT', triangle, self.options.order+1)
         u_v_elt = FiniteElement('DG', interval, self.options.order)
-        u_elt = HDiv(OuterProductElement(u_h_elt, u_v_elt))
+        u_elt = HDiv(TensorProductElement(u_h_elt, u_v_elt))
         # for vertical velocity component
         w_h_elt = FiniteElement('DG', triangle, self.options.order)
         w_v_elt = FiniteElement('CG', interval, self.options.order+1)
-        w_elt = HDiv(OuterProductElement(w_h_elt, w_v_elt))
+        w_elt = HDiv(TensorProductElement(w_h_elt, w_v_elt))
         # final spaces
         if self.options.mimetic:
             # self.U = FunctionSpace(self.mesh, UW_elt)  # uv

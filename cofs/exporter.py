@@ -147,8 +147,8 @@ class NaiveFieldExporter(ExporterBase):
         # construct local element connectivity array
         if self.function_space.extruded:
             ufl_elem = self.function_space.ufl_element()
-            if ufl_elem.family() != 'OuterProductElement':
-                raise NotImplementedError('Only OuterProductElement is supported')
+            if ufl_elem.family() != 'TensorProductElement':
+                raise NotImplementedError('Only TensorProductElement is supported')
             # extruded mesh generate connectivity for all layers
             n_layers = self.function_space.mesh().layers - 1  # element layers
             # connectivity for first layer
