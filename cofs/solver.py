@@ -116,9 +116,9 @@ class FlowSolver(FrozenClass):
             self.function_spaces.U = VectorFunctionSpace(self.mesh, 'DG', self.options.order,
                                                          vfamily='DG', vdegree=self.options.order,
                                                          name='U')
-            # TODO should this be P(n-1)DG x P(n+1) ?
+            # NOTE for tracer consistency W should be equivalent to tracer space H
             self.function_spaces.W = VectorFunctionSpace(self.mesh, 'DG', self.options.order,
-                                                         vfamily='CG', vdegree=self.options.order + 1,
+                                                         vfamily='DG', vdegree=self.options.order,
                                                          name='W')
         # auxiliary function space that will be used to transfer data between 2d/3d modes
         self.function_spaces.Uproj = self.function_spaces.U
