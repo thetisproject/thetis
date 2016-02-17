@@ -1,32 +1,31 @@
 """
 Submits runs to queue manager.
 Will execute command with user defined arguments
-'{mpi_exec} python run_test_suite.py {reso} -Re {Re} -p {p} {lim_arg}'
+'{mpiExec} python runTestSuite.py {reso} -Re {Re} -p {p} {lim_arg}'
 
 Usage:
 
 # launch a single run with parameters
-python submit_runs.py coarse -Re 0.1 -l
+python submitRuns.py coarse -Re 0.1 -l
 
 # test only (print script content on stdout)
-python submit_runs.py coarse -Re 0.1 -l -t
+python submitRuns.py coarse -Re 0.1 -l -t
 
 # multiple values, run all combinations as independent jobs
-python submit_runs.py coarse,medium -Re 0.1,1.0,2.5 -j 1.0
-python submit_tests.py coarse -Re 0.1,1.0,2.5 -j 1.0,2.0
+python submitRuns.py coarse,medium -Re 0.1,1.0,2.5 -j 1.0
 
 """
-from batch_script_lib import *
+from batchScriptLib import *
 
-# cluster_params.initialize_from_file('tkarna_stampede.yaml')
+# clusterParams.initialize_from_file('tkarna_stampede.yaml')
 
 duration = {
-    'coarse': time_request(4, 0, 0),
-    'coarse2': time_request(4, 0, 0),
-    'medium': time_request(8, 0, 0),
-    'medium2': time_request(8, 0, 0),
-    'fine': time_request(24, 0, 0),
-    'ilicak': time_request(8, 0, 0),
+    'coarse': timeRequest(4, 0, 0),
+    'coarse2': timeRequest(4, 0, 0),
+    'medium': timeRequest(8, 0, 0),
+    'medium2': timeRequest(8, 0, 0),
+    'fine': timeRequest(24, 0, 0),
+    'ilicak': timeRequest(8, 0, 0),
 }
 
 processes = {
@@ -44,7 +43,7 @@ def process_args(reso, reynolds_number, use_limiter, jump_diff_factor, poly_orde
     """
     runs the following command
     """
-    cmd = '{mpi_exec} python run_test_suite.py {reso} -Re {Re} {mim_arg} -p {p} {lim_arg}'
+    cmd = '{mpiExec} python runTestSuite.py {reso} -Re {Re} {mim_arg} -p {p} {lim_arg}'
 
     if use_limiter:
         lim_arg = '-l'
@@ -57,23 +56,23 @@ def process_args(reso, reynolds_number, use_limiter, jump_diff_factor, poly_orde
     t = duration[reso]
     nproc = processes[reso]
     queue = 'normal'
-    limiter_str = 'lim' if use_limiter else 'j_dif'+str(jump_diff_factor)
+    limiter_str = 'lim' if use_limiter else 'jdif'+str(jump_diff_factor)
     job_name = 'lck_{:}_p{:}{:}_Re{:}_{:}'.format(reso, poly_order, space_str, reynolds_number,
                                                   limiter_str)
     if dev_test:
         # do shorter run in development queue instead
-        t = time_request(0, 20, 0)
+        t = timeRequest(0, 20, 0)
         queue = 'development'
         nproc = 1  # need to run in serial to ensure all compiles go through
         job_name = 'dev_'+job_name
 
-    j = batch_job(job_name=job_name, queue=queue,
-                  nproc=nproc, time_req=t, log_file='log_'+job_name)
+    j = batchJob(jobName=job_name, queue=queue,
+                 nproc=nproc, timeReq=t, logFile='log_'+job_name)
 
-    j.append_new_task(cmd, reso=reso, Re=reynolds_number,
-                      p=poly_order, lim_arg=lim_arg, mim_arg=mimetic_arg)
+    j.appendNewTask(cmd, reso=reso, Re=reynolds_number,
+                    p=poly_order, lim_arg=lim_arg, mim_arg=mimetic_arg)
     # submit to queue manager
-    submit_jobs(j, test_only=test_only, verbose=verbose)
+    submitJobs(j, testOnly=test_only, verbose=verbose)
 
 
 def parse_command_line():

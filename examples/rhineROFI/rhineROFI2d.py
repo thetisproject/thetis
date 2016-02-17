@@ -18,8 +18,9 @@
 
 from thetis import *
 
-outputdir = 'outputs2d-dg'
-mesh2d = Mesh('mesh_rhine_rofi_coarse.msh')
+reso = 'coarse'
+outputdir = 'outputs_2d_{:}'.format(reso)
+mesh2d = Mesh('mesh_rhineRofi_{:}.msh'.format(reso))
 print_info('Loaded mesh '+mesh2d.name)
 print_info('Exporting to '+outputdir)
 
@@ -121,8 +122,8 @@ tri = TrialFunction(solver_obj.function_spaces.U_2d)
 test = TestFunction(solver_obj.function_spaces.U_2d)
 a = inner(test, tri)*dx
 uv = (g*kelvin_k/OmegaTide)*elev_init2
-L = test[1]*uv*dx
-solve(a == L, uv_init)
+l = test[1]*uv*dx
+solve(a == l, uv_init)
 
 
 def update_forcings(t):

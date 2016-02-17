@@ -58,9 +58,10 @@ if commrank == 0:
 
 limiter_str = 'limiter' if args.use_limiter else 'jump_diff'+str(args.jump_diff_factor)
 space_str = 'RT' if args.mimetic else 'DG'
-outputdir = 'out_{:}_p{:}{:}_Re{:}_{:}'.format(args.reso_str, space_str,
-                                               args.poly_order,
-                                               args.reynolds_number, limiter_str)
+outputdir = 'out_{:}_p{:}{:}_Re{:}_{:}'.format(args.reso_str, args.poly_order,
+                                               space_str,
+                                               args.reynolds_number,
+                                               limiter_str)
 
 outputdir = outputdir
 reso_str = args.reso_str
@@ -87,7 +88,7 @@ coords = mesh2d.coordinates
 coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min
 coords.dat.data[:, 1] = coords.dat.data[:, 1]*2*dx - dx
 
-print_info('Exporting to '+outputdir)
+print_info('Exporting to ' + outputdir)
 dt = 75.0/refinement[reso_str]
 if reso_str == 'fine':
     dt /= 2.0
@@ -101,12 +102,12 @@ bathymetry2d = Function(P1_2d, name='Bathymetry')
 bathymetry2d.assign(depth)
 
 # create solver
-solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers,
-                               order=args.poly_order, mimetic=args.mimetic)
+solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
 options = solver_obj.options
 options.cfl_2d = 1.0
 # options.nonlin = False
-# options.mimetic = False
+options.mimetic = args.mimetic
+options.order = args.poly_order
 options.solve_salt = True
 options.solve_vert_diffusion = False
 options.use_bottom_friction = False
