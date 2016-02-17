@@ -11,7 +11,7 @@
 #
 # Tuomas Karna 2015-04-28
 
-from cofs import *
+from thetis import *
 
 # set physical constants
 physical_constants['z0_friction'].assign(0.0)

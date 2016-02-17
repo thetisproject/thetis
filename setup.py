@@ -3,12 +3,12 @@
 from distutils.core import setup
 from glob import glob
 
-setup(name='COFS',
+setup(name='thetis',
       version='0.1',
-      description='Coastal Ocean Flow Solver',
+      description='Finite element ocean model',
       author='Tuomas Karna',
       author_email='tuomas.karna@gmail.com',
-      url='https://bitbucket.org/tkarna/cofs',
-      packages=['cofs', 'test', 'examples'],
+      url='https://github.com/thetisproject/thetis',
+      packages=['thetis', 'test', 'examples'],
       scripts=glob('scripts/*'),
      )

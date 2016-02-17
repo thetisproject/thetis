@@ -1,4 +1,4 @@
-from cofs import *
+from thetis import *
 import math
 import numpy
 import pytest

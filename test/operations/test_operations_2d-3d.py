@@ -1,6 +1,6 @@
 import pytest
 from firedrake import *
-import cofs.utility as utility
+import thetis.utility as utility
 import numpy as np
 
 

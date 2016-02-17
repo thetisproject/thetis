@@ -9,7 +9,7 @@ MMS test for 2d shallow water equations.
 
 Tuomas Karna 2015-10-29
 """
-from cofs import *
+from thetis import *
 import numpy
 from scipy import stats
 import pytest

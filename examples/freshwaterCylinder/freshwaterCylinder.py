@@ -33,7 +33,7 @@
 #
 # Tuomas Karna 2015-05-30
 
-from cofs import *
+from thetis import *
 
 # set physical constants
 physical_constants['rho0'].assign(1025.0)

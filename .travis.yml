@@ -51,7 +51,7 @@ install:
   - pip install pytest
   - popd
   - pip install -v -r requirements.txt
-  # Make cofs visible, don't want to pip install it, because then it will be cached by travis
+  # Make thetis visible, don't want to pip install it, because then it will be cached by travis
   - export PYTHONPATH=`pwd`:$PYTHONPATH
 script:
   - make lint

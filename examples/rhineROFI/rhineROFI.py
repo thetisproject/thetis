@@ -16,7 +16,7 @@
 #
 # Tuomas Karna 2015-06-24
 
-from cofs import *
+from thetis import *
 
 outputdir = 'outputs'
 layers = 6

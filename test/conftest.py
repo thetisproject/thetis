@@ -44,8 +44,8 @@ def pytest_unconfigure(config):
 
 
 def pytest_runtest_teardown(item, nextitem):
-    """Clear COFS caches after running a test"""
-    from cofs.utility import tmp_function_cache
+    """Clear Thetis caches after running a test"""
+    from thetis.utility import tmp_function_cache
     from firedrake.tsfc_interface import TSFCKernel
     from pyop2.op2 import Kernel
     from pyop2.base import JITModule

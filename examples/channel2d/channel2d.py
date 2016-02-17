@@ -16,7 +16,7 @@
 #
 # Tuomas Karna 2015-03-03
 from scipy.interpolate import interp1d
-from cofs import *
+from thetis import *
 
 outputdir = 'outputs'
 mesh2d = Mesh('channel_mesh.msh')

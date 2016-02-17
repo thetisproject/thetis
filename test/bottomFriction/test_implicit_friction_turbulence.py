@@ -1,10 +1,10 @@
 """
-Tests implicit bottom friction formulation with COFS
-====================================================
+Tests implicit bottom friction formulation
+==========================================
 
 Tuomas Karna 2015-09-16
 """
-from cofs import *
+from thetis import *
 import time as time_mod
 import pytest
 

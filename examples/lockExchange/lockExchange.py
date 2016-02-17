@@ -30,7 +30,7 @@
 #
 # Tuomas Karna 2015-03-03
 
-from cofs import *
+from thetis import *
 
 parameters['coffee'] = {}
 
