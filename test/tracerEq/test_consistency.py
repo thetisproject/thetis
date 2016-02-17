@@ -11,7 +11,7 @@
 #
 #
 # Tuomas Karna 2015-03-11
-from cofs import *
+from thetis import *
 import pytest
 
 

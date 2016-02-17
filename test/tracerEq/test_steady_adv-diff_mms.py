@@ -3,7 +3,7 @@ Testing 3D tracer advection-diffusion equation with method of manufactured solut
 
 Tuomas Karna 2015-11-28
 """
-from cofs import *
+from thetis import *
 import numpy
 from scipy import stats
 import pytest

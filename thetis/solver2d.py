@@ -9,9 +9,9 @@ import timeintegrator
 import time as time_mod
 from mpi4py import MPI
 import exporter
-from cofs.field_defs import field_metadata
-from cofs.options import ModelOptions
-import cofs.callback as callback
+from thetis.field_defs import field_metadata
+from thetis.options import ModelOptions
+import thetis.callback as callback
 
 
 class FlowSolver2d(FrozenClass):

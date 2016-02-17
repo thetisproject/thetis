@@ -11,7 +11,7 @@
 #
 # Tuomas Karna 2015-04-28
 
-from cofs import *
+from thetis import *
 
 mesh2d = Mesh('stommel_square.msh')
 outputdir = 'outputs'

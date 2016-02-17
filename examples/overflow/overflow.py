@@ -26,7 +26,7 @@
 #
 # Tuomas Karna 2015-06-10
 
-from cofs import *
+from thetis import *
 
 reso_str = 'medium'
 outputdir = 'outputs_'+reso_str

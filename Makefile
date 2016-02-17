@@ -1,10 +1,10 @@
 lint:
-	@echo "    Linting cofs codebase"
-	@flake8 cofs
-	@echo "    Linting cofs test suite"
+	@echo "    Linting thetis codebase"
+	@flake8 thetis
+	@echo "    Linting thetis test suite"
 	@flake8 test
-	@echo "    Linting cofs examples"
+	@echo "    Linting thetis examples"
 	@flake8 examples
-	@echo "    Linting cofs scripts"
+	@echo "    Linting thetis scripts"
 	@flake8 scripts
 

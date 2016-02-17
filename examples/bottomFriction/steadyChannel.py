@@ -16,7 +16,7 @@ Model setup is according to [1].
 
 Tuomas Karna 2015-09-09
 """
-from cofs import *
+from thetis import *
 
 parameters['coffee'] = {}
 

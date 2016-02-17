@@ -11,7 +11,7 @@
 # integrators.
 #
 # Tuomas Karna 2015-03-11
-from cofs import *
+from thetis import *
 
 mesh2d = Mesh('channel_wave_eq.msh')
 depth = 50.0

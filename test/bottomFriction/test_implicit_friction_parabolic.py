@@ -1,11 +1,11 @@
 """
-Tests implicit bottom friction formulation with COFS
-====================================================
+Tests implicit bottom friction formulation
+==========================================
 
 Tuomas Karna 2015-09-16
 """
-from cofs import *
-from cofs.momentum_eq import VerticalMomentumEquation
+from thetis import *
+from thetis.momentum_eq import VerticalMomentumEquation
 import time as time_mod
 
 

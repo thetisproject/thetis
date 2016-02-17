@@ -3,7 +3,7 @@ Testing 3D continuity equation with method of exact solution (MES).
 
 Tuomas Karna 2015-10-23
 """
-from cofs import *
+from thetis import *
 import numpy
 from scipy import stats
 import pytest

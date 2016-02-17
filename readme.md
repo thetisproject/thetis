@@ -1,4 +1,4 @@
-# COFS - Coastal Ocean Flow Solver
+# Thetis
 
 Finite element flow solver for simulating coastal and estuarine flows.
 
@@ -7,11 +7,6 @@ This project is licensed under the terms of the MIT license.
 ## Installation
 
 - Install firedrake with all its dependencies
-- COFS currently needs the following branches:
-    - PyOP2: `master`
-    - COFFEE: `master`
-    - ufl: `master`
-    - firedrake: `master`
 
 ### Installation with firedrake-install
 
@@ -22,15 +17,19 @@ This project is licensed under the terms of the MIT license.
     python firedrake-install --developer --log --minimal_petsc
 ```
 
+### Installing Thetis
+
 - Activate virtualenv
-- Install COFS with `pip` in editable mode
+- Install Thetis with `pip` in editable mode
 
 ```
-    pip install -e /path/to/cofs/repo
+    pip install -e /path/to/thetis/repo
 ```
 
-- Install `pytest` in the same environment
+- Install `pytest` and `colorama` in the same environment
 
 ```
-    pip install --ignore-installed pytest
+    pip install --ignore-installed pytest colorama
 ```
+
+
