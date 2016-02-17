@@ -11,6 +11,7 @@ from mpi4py import MPI
 import exporter
 from cofs.field_defs import field_metadata
 from cofs.options import ModelOptions
+import cofs.callback as callback
 
 
 class FlowSolver2d(FrozenClass):
@@ -40,6 +41,8 @@ class FlowSolver2d(FrozenClass):
 
         self.visu_spaces = {}
         """Maps function space to a space where fields will be projected to for visualization"""
+        self.callbacks = OrderedDict()
+        """List of callback functions that will be called during exports"""
 
         self.fields = FieldDict()
         """Holds all functions needed by the solver object."""
@@ -231,11 +234,11 @@ class FlowSolver2d(FrozenClass):
         cputimestamp = time_mod.clock()
         next_export_t = self.simulation_time + self.options.t_export
 
-        # initialize conservation checks
         if self.options.check_vol_conservation_2d:
-            eta = self.fields.solution_2d.split()[1]
-            vol_2d_0 = comp_volume_2d(eta, self.fields.bathymetry_2d)
-            print_info('Initial volume 2d {0:f}'.format(vol_2d_0))
+            self.callbacks['vol2d'] = callback.VolumeConservation2DCallback()
+
+        for key in self.callbacks:
+            self.callbacks[key].initialize(self)
 
         # initial export
         self.export()
@@ -258,14 +261,10 @@ class FlowSolver2d(FrozenClass):
                 cputime = time_mod.clock() - cputimestamp
                 cputimestamp = time_mod.clock()
                 self.print_state(cputime)
-                if self.options.check_vol_conservation_2d:
-                    vol_2d = comp_volume_2d(self.fields.solution_2d.split()[1],
-                                            self.fields.bathymetry_2d)
-                if commrank == 0:
-                    line = 'Rel. {0:s} error {1:11.4e}'
-                    if self.options.check_vol_conservation_2d:
-                        print(line.format('vol 2d', (vol_2d_0 - vol_2d)/vol_2d_0))
-                    sys.stdout.flush()
+
+                for key in self.callbacks:
+                    self.callbacks[key].update(self)
+                    self.callbacks[key].report()
 
                 self.export()
                 if export_func is not None:

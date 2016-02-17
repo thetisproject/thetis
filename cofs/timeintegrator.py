@@ -457,7 +457,7 @@ class ForwardEuler(TimeIntegrator):
         for k in self.funcs_old:
             self.funcs_old[k].assign(self.funcs[k])
 
-    def advance(self, t, dt, solution, update_forcings):
+    def advance(self, t, dt, solution, update_forcings=None):
         """Advances equations for one time step."""
         self.dt_const.assign(dt)
         if update_forcings is not None:
