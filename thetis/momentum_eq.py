@@ -512,7 +512,7 @@ class VerticalMomentumEquation(Equation):
 
             # implicit bottom friction
             if bottom_drag is not None:
-                z_bot = self.v_elem_size*0.5
+                z_bot = self.v_elem_size
                 # compute uv_bottom implicitly
                 uv_bot = solution + Dx(solution, 2)*z_bot
                 uv_bot_old = uv_bottom + Dx(uv_bottom, 2)*z_bot

@@ -657,15 +657,11 @@ def compute_bottom_friction(solver, uv_3d, uv_bottom_2d, uv_bottom_3d, z_coord_3
                             z_bottom_2d, bathymetry_2d,
                             bottom_drag_2d, bottom_drag_3d,
                             v_elem_size_2d=None, v_elem_size_3d=None):
-    # compute velocity at middle of bottom element
+    # compute velocity at top of bottom element
     solver.extract_uv_bottom.solve()
-    tmp = uv_bottom_2d.dat.data.copy()
-    solver.extract_uv_bottom.solve()
-    uv_bottom_2d.dat.data[:] = 0.5*(uv_bottom_2d.dat.data + tmp)
     solver.copy_uv_bottom_to_3d.solve()
     solver.extract_z_bottom.solve()
     z_bottom_2d.dat.data[:] += bathymetry_2d.dat.data[:]
-    z_bottom_2d.dat.data[:] *= 0.5
     compute_bottom_drag(uv_bottom_2d, z_bottom_2d, bathymetry_2d, bottom_drag_2d)
     solver.copy_bottom_drag_to_3d.solve()
 

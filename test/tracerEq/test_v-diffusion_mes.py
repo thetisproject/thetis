@@ -194,7 +194,7 @@ def implicit(request):
 
 
 def test_vertical_diffusion(order, implicit):
-    run_convergence([1, 2, 3], order=order, implicit=implicit)
+    run_convergence([1, 2, 4], order=order, implicit=implicit)
 
 # ---------------------------
 # run individual setup for debugging
