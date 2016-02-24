@@ -41,12 +41,9 @@ class TracerEquation(Equation):
         self.test = TestFunction(self.space)
         self.tri = TrialFunction(self.space)
 
-        ufl_elem = self.space.ufl_element()
-        if not hasattr(ufl_elem, '_A'):
-            # For HDiv elements
-            ufl_elem = ufl_elem._element
-        self.horizontal_dg = ufl_elem._A.family() != 'Lagrange'
-        self.vertical_dg = ufl_elem._B.family() != 'Lagrange'
+        continuity = element_continuity(self.space.fiat_element)
+        self.horizontal_dg = continuity.horizontal_dg
+        self.vertical_dg = continuity.vertical_dg
 
         self.horiz_advection_by_parts = True
 

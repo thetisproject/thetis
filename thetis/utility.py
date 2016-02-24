@@ -428,14 +428,7 @@ class VerticalIntegrator(object):
 
         space = output.function_space()
         mesh = space.mesh()
-        vertical_is_dg = False
-        if (hasattr(space.ufl_element(), '_B') and
-                space.ufl_element()._B.family() != 'Lagrange'):
-            # a normal tensorproduct element
-            vertical_is_dg = True
-        if 'HDiv' in space.ufl_element().shortstr():
-            # Hdiv vector space, assume DG in vertical
-            vertical_is_dg = True
+        vertical_is_dg = element_continuity(space.fiat_element).vertical_dg
         tri = TrialFunction(space)
         phi = TestFunction(space)
         normal = FacetNormal(mesh)
@@ -549,9 +542,13 @@ class ExpandFunctionTo3d(object):
         self.fs_3d = self.output_3d.function_space()
 
         family_2d = self.fs_2d.ufl_element().family()
-        if hasattr(self.fs_3d.ufl_element(), '_A'):
+        ufl_elem = self.fs_3d.ufl_element()
+        if ufl_elem.num_sub_elements() > 0:
+            assert isinstance(ufl_elem, ufl.VectorElement)
+            ufl_elem = ufl_elem.sub_elements()[0]
+        if hasattr(ufl_elem, '_A'):
             # a normal tensorproduct element
-            family_3dh = self.fs_3d.ufl_element()._A.family()
+            family_3dh = ufl_elem._A.family()
             if family_2d != family_3dh:
                 raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
         if family_2d == 'Raviart-Thomas' and elem_height is None:

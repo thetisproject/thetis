@@ -4,6 +4,7 @@ Slope limiter implementation.
 Tuomas Karna 2015-08-26
 """
 from utility import *
+import ufl
 
 
 def assert_function_space(fs, family, degree):
@@ -16,6 +17,10 @@ def assert_function_space(fs, family, degree):
     """
     ufl_elem = fs.ufl_element()
     if ufl_elem.family() == 'TensorProductElement':
+        if ufl_elem.num_sub_elements() > 0:
+            # VectorElement case
+            assert isinstance(ufl_elem, ufl.VectorElement)
+            ufl_elem = ufl_elem.sub_elements()[0]
         # extruded mesh
         assert ufl_elem._A.family() == family,\
             'horizontal space must be {0:s}'.format(family)
