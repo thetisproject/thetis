@@ -112,12 +112,16 @@ class FieldDict(AttrDict):
     """
     def _check_inputs(self, key, value):
         if key != '__dict__':
-            from firedrake.functionspaceimpl import MixedFunctionSpace
+            from firedrake.functionspaceimpl import MixedFunctionSpace, WithGeometry
             if not isinstance(value, (Function, Constant)):
                 raise TypeError('Value must be a Function or Constant object')
             fs = value.function_space()
-            if not isinstance(fs, MixedFunctionSpace) and key not in field_metadata:
-                msg = 'Trying to add a field "{:}" that has no meta data. ' \
+            is_mixed = (isinstance(fs, MixedFunctionSpace) or
+                        (isinstance(fs, WithGeometry) and
+                         isinstance(fs.topological, MixedFunctionSpace)))
+            if not is_mixed and key not in field_metadata:
+                print type(fs)
+                msg = 'Trying to add a field "{:}" that has no metadata. ' \
                       'Add field_metadata entry to field_defs.py'.format(key)
                 raise Exception(msg)
 
