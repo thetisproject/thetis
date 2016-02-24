@@ -13,7 +13,7 @@ from pyop2.profiling import timed_region, timed_function, timing  # NOQA
 from mpi4py import MPI  # NOQA
 import ufl  # NOQA
 import coffee.base as ast  # NOQA
-from collections import OrderedDict  # NOQA
+from collections import OrderedDict, namedtuple  # NOQA
 from thetis.field_defs import field_metadata
 
 comm = op2.MPI.comm
@@ -202,6 +202,39 @@ tmp_function_cache = TemporaryFunctionCache()
 def print_info(msg):
     if commrank == 0:
         print(msg)
+
+
+ElementContinuity = namedtuple("ElementContinuity", ["dg", "horizontal_dg", "vertical_dg"])
+"""A named tuple describing the continuity of an element."""
+
+
+def element_continuity(fiat_element):
+    """Return an :class:`ElementContinuity` instance with the
+    continuity of a given element.
+
+    :arg fiat_element: The fiat element to determine the continuity
+        of.
+    :returns: A new :class:`ElementContinuity` instance.
+    """
+    import FIAT
+    cell = fiat_element.get_reference_element()
+
+    if isinstance(cell, FIAT.reference_element.TensorProductCell):
+        # Pull apart
+        horiz = element_continuity(fiat_element.A).dg
+        vert = element_continuity(fiat_element.B).dg
+        return ElementContinuity(dg=horiz and vert,
+                                 horizontal_dg=horiz,
+                                 vertical_dg=vert)
+    else:
+        edofs = fiat_element.entity_dofs()
+        dim = cell.get_spatial_dimension()
+        dg = True
+        for i in range(dim - 1):
+            if any(len(k) for k in edofs[i].values()):
+                dg = False
+                break
+        return ElementContinuity(dg, dg, dg)
 
 
 def colorify_text(color):
