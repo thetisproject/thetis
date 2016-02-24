@@ -141,64 +141,6 @@ class FieldDict(AttrDict):
         super(FieldDict, self).__setattr__(key, value)
 
 
-class TemporaryFunctionCache(object):
-    """
-    Holds temporary functions for needed function spaces in a dict.
-
-    """
-    def __init__(self):
-        self.functions = {}
-
-    def add(self, function_space):
-        """Allocates a new function and adds it to the dict"""
-        assert function_space not in self.functions
-        if function_space.name is not None:
-            name = 'tmp_func_' + function_space.name
-        else:
-            name = 'tmp_func_' + str(len(self.functions))
-        f = Function(function_space, name=name)
-        key = self._get_key(function_space)
-        self.functions[key] = f
-
-    def _get_key(self, function_space):
-        """generate a unique str representation for function space"""
-        ufl_elem = function_space.ufl_element()
-        elems = [ufl_elem]
-        if hasattr(ufl_elem, '_A'):
-            elems += [ufl_elem._A, ufl_elem._B]
-        elif isinstance(ufl_elem, EnrichedElement):
-            for d in elems:
-                elems.append(d)
-                if hasattr(d, '_A'):
-                    elems += [ufl_elem._A, ufl_elem._B]
-
-        def get_elem_str(e):
-            s = e.shortstr()
-            d = e.degree()
-            if not isinstance(d, tuple):
-                s = s.replace('?', str(d))
-            return s
-        attrib = [get_elem_str(ee) for ee in elems]
-        key = '_'.join(attrib)
-        return key
-
-    def get(self, function_space):
-        """
-        Returns a tmp function for the given function space.
-
-        If it doesn't exist, will allocate one.
-        """
-        if function_space not in self.functions:
-            self.add(function_space)
-        key = self._get_key(function_space)
-        return self.functions[key]
-
-    def clear(self):
-        self.functions = {}
-
-tmp_function_cache = TemporaryFunctionCache()
-
-
 def print_info(msg):
     if commrank == 0:
         print(msg)
@@ -959,7 +901,7 @@ class SmagorinskyViscosity(object):
         self.output.dat.data[ix] = self.min_val
 
 
-class Projector(object):
+class Projector(object):  # NOTE this is nearly equivalent to firedrake's Projector
     def __init__(self, input_func, output_func, solver_parameters={}):
         self.input = input_func
         self.output = output_func

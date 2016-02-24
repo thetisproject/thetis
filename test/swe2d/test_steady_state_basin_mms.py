@@ -470,7 +470,6 @@ def run(setup, refinement, order, do_export=True, **kwargs):
     uv_l2_err = errornorm(uv_ana_ho, solver_obj.fields.solution_2d.split()[0])/numpy.sqrt(area)
     print 'elev L2 error {:.12f}'.format(elev_l2_err)
     print 'uv L2 error {:.12f}'.format(uv_l2_err)
-    tmp_function_cache.clear()  # NOTE must destroy all cached solvers for next simulation
     return elev_l2_err, uv_l2_err
 
 

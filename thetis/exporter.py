@@ -44,7 +44,6 @@ class VTKExporter(ExporterBase):
         # append suffix if missing
         if (len(filename) < len(suffix)+1 or filename[:len(suffix)] != suffix):
             self.filename += suffix
-        self.proj_func = tmp_function_cache.get(self.fs_visu)
         self.outfile = File(os.path.join(outputdir, self.filename))
         self.P = {}
 
@@ -55,17 +54,20 @@ class VTKExporter(ExporterBase):
 
     def export(self, function):
         """Exports given function to disk."""
+        assert self.fs_visu.max_work_functions == 1
+        tmp_proj_func = self.fs_visu.get_work_function()
         if function not in self.P:
-            self.P[function] = Projector(function, self.proj_func)
+            # NOTE tmp function must be invariant as the projector is built only once
+            self.P[function] = Projector(function, tmp_proj_func)
         self.P[function].project()
         # ensure correct output function name
-        old_name = self.proj_func.name()
-        self.proj_func.rename(name=self.func_name)
-        # self.proj_func.project(function)  # NOTE this allocates a function
-        self.outfile << (self.proj_func, self.next_export_ix)
+        old_name = tmp_proj_func.name()
+        tmp_proj_func.rename(name=self.func_name)
+        self.outfile << (tmp_proj_func, self.next_export_ix)
         self.next_export_ix += 1
         # restore old name
-        self.proj_func.rename(name=old_name)
+        tmp_proj_func.rename(name=old_name)
+        self.fs_visu.restore_work_function(tmp_proj_func)
 
 
 class NaiveFieldExporter(ExporterBase):
