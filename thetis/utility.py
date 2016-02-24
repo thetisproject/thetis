@@ -901,38 +901,6 @@ class SmagorinskyViscosity(object):
         self.output.dat.data[ix] = self.min_val
 
 
-class Projector(object):  # NOTE this is nearly equivalent to firedrake's Projector
-    def __init__(self, input_func, output_func, solver_parameters={}):
-        self.input = input_func
-        self.output = output_func
-        self.same_space = (self.input.function_space() ==
-                           self.output.function_space())
-
-        if not self.same_space:
-            v = output_func.function_space()
-            p = TestFunction(v)
-            q = TrialFunction(v)
-            a = inner(p, q) * dx
-            l = inner(p, input_func) * dx
-
-            solver_parameters.setdefault('ksp_type', 'cg')
-            solver_parameters.setdefault('ksp_rtol', 1e-8)
-
-            self.problem = LinearVariationalProblem(a, l, output_func)
-            self.solver = LinearVariationalSolver(self.problem,
-                                                  solver_parameters=solver_parameters)
-
-    def project(self):
-        if self.same_space:
-            self.output.assign(self.input)
-        else:
-            try:
-                self.solver.solve()
-            except Exception as e:
-                print 'projection failed for {:}'.format(self.input.name)
-                raise e
-
-
 class EquationOfState(object):
     """
     Equation of State according to [1] for computing sea water density.
