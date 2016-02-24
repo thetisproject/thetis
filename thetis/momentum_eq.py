@@ -4,6 +4,7 @@
 Tuomas Karna 2015-02-23
 """
 from utility import *
+import ufl
 
 g_grav = physical_constants['g_grav']
 rho_0 = physical_constants['rho0']
@@ -49,20 +50,16 @@ class MomentumEquation(Equation):
         self.test = TestFunction(self.space)
         self.tri = TrialFunction(self.space)
 
+        # TODO: Logic is not correct for enriched elements.
         ufl_elem = self.space.ufl_element()
-        if isinstance(ufl_elem, EnrichedElement):
-            # get the first elem of enriched space
-            ufl_elem = ufl_elem._elements[0]
-        if not hasattr(ufl_elem, '_A'):
-            # For HDiv elements
-            ufl_elem = ufl_elem._element
-        self.horizontal_dg = ufl_elem._A.family() != 'Lagrange'
-        self.vertical_dg = ufl_elem._B.family() != 'Lagrange'
-        self.HDiv = ufl_elem._A.family() == 'Raviart-Thomas'
+        assert not isinstance(ufl_elem, ufl.EnrichedElement)
+        self.HDiv = isinstance(ufl_elem, ufl.HDivElement)
 
-        eta_elem = eta.function_space().ufl_element()
-        self.eta_is_dg = eta_elem._A.family() != 'Lagrange'
+        continuity = element_continuity(self.space.fiat_element)
+        self.horizontal_dg = continuity.horizontal_dg
+        self.vertical_dg = continuity.vertical_dg
 
+        self.eta_is_dg = element_continuity(eta.function_space().fiat_element).dg
         self.grad_eta_by_parts = self.eta_is_dg
         self.horiz_advection_by_parts = True
 
@@ -378,15 +375,9 @@ class VerticalMomentumEquation(Equation):
         self.test = TestFunction(self.space)
         self.tri = TrialFunction(self.space)
 
-        ufl_elem = self.space.ufl_element()
-        if isinstance(ufl_elem, EnrichedElement):
-            # get the first elem of enriched space
-            ufl_elem = ufl_elem._elements[0]
-        if not hasattr(ufl_elem, '_A'):
-            # For HDiv elements
-            ufl_elem = ufl_elem._element
-        self.horizontal_dg = ufl_elem._A.family() != 'Lagrange'
-        self.vertical_dg = ufl_elem._B.family() != 'Lagrange'
+        continuity = element_continuity(self.space.fiat_element)
+        self.horizontal_dg = continuity.horizontal_dg
+        self.vertical_dg = continuity.vertical_dg
 
         # mesh dependent variables
         self.normal = FacetNormal(self.mesh)

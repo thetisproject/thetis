@@ -62,8 +62,8 @@ class ShallowWaterEquations(Equation):
         self.U_test, self.eta_test = TestFunctions(self.space)
         self.U_tri, self.eta_tri = TrialFunctions(self.space)
 
-        self.u_is_dg = self.U_space.ufl_element().family() != 'Lagrange'
-        self.eta_is_dg = self.eta_space.ufl_element().family() != 'Lagrange'
+        self.u_is_dg = element_continuity(self.U_space.fiat_element).dg
+        self.eta_is_dg = element_continuity(self.eta_space.fiat_element).dg
         self.u_is_hdiv = self.U_space.ufl_element().family() == 'Raviart-Thomas'
 
         self.hu_by_parts = self.u_is_dg or self.u_is_hdiv
@@ -440,8 +440,8 @@ class FreeSurfaceEquation(Equation):
         self.tri = TrialFunction(self.space)
         self.test = TestFunction(self.space)
 
-        self.u_is_dg = uv.function_space().ufl_element().family() != 'Lagrange'
-        self.eta_is_dg = self.space.ufl_element().family() != 'Lagrange'
+        self.u_is_dg = element_continuity(uv.function_space().fiat_element).dg
+        self.eta_is_dg = element_continuity(self.space.fiat_element).dg
         self.u_is_hdiv = uv.function_space().ufl_element().family() == 'Raviart-Thomas'
 
         self.hu_by_parts = True  # self.u_is_dg and not self.u_is_hdiv

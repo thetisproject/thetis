@@ -4,6 +4,7 @@ Routines for handling file exports.
 Tuomas Karna 2015-07-06
 """
 from utility import *
+import ufl
 
 
 class ExporterBase(object):
@@ -154,6 +155,11 @@ class NaiveFieldExporter(ExporterBase):
             # connectivity for first layer
             surf_conn = self.function_space.cell_node_map().values
             n_surf_elem, n_elem_node = surf_conn.shape
+
+            if ufl_elem.num_sub_elements() > 0:
+                # VectorElement case
+                assert isinstance(ufl_elem, ufl.VectorElement)
+                ufl_elem = ufl_elem.sub_elements()[0]
             if ufl_elem._B.family() == 'Lagrange':
                 layer_node_offset = 1
             elif ufl_elem._B.family() == 'Discontinuous Lagrange':

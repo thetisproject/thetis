@@ -13,7 +13,7 @@ from pyop2.profiling import timed_region, timed_function, timing  # NOQA
 from mpi4py import MPI  # NOQA
 import ufl  # NOQA
 import coffee.base as ast  # NOQA
-from collections import OrderedDict  # NOQA
+from collections import OrderedDict, namedtuple  # NOQA
 from thetis.field_defs import field_metadata
 
 comm = op2.MPI.comm
@@ -112,11 +112,16 @@ class FieldDict(AttrDict):
     """
     def _check_inputs(self, key, value):
         if key != '__dict__':
+            from firedrake.functionspaceimpl import MixedFunctionSpace, WithGeometry
             if not isinstance(value, (Function, Constant)):
                 raise TypeError('Value must be a Function or Constant object')
             fs = value.function_space()
-            if not isinstance(fs, MixedFunctionSpace) and key not in field_metadata:
-                msg = 'Trying to add a field "{:}" that has no meta data. ' \
+            is_mixed = (isinstance(fs, MixedFunctionSpace) or
+                        (isinstance(fs, WithGeometry) and
+                         isinstance(fs.topological, MixedFunctionSpace)))
+            if not is_mixed and key not in field_metadata:
+                print type(fs)
+                msg = 'Trying to add a field "{:}" that has no metadata. ' \
                       'Add field_metadata entry to field_defs.py'.format(key)
                 raise Exception(msg)
 
@@ -197,6 +202,39 @@ tmp_function_cache = TemporaryFunctionCache()
 def print_info(msg):
     if commrank == 0:
         print(msg)
+
+
+ElementContinuity = namedtuple("ElementContinuity", ["dg", "horizontal_dg", "vertical_dg"])
+"""A named tuple describing the continuity of an element."""
+
+
+def element_continuity(fiat_element):
+    """Return an :class:`ElementContinuity` instance with the
+    continuity of a given element.
+
+    :arg fiat_element: The fiat element to determine the continuity
+        of.
+    :returns: A new :class:`ElementContinuity` instance.
+    """
+    import FIAT
+    cell = fiat_element.get_reference_element()
+
+    if isinstance(cell, FIAT.reference_element.TensorProductCell):
+        # Pull apart
+        horiz = element_continuity(fiat_element.A).dg
+        vert = element_continuity(fiat_element.B).dg
+        return ElementContinuity(dg=horiz and vert,
+                                 horizontal_dg=horiz,
+                                 vertical_dg=vert)
+    else:
+        edofs = fiat_element.entity_dofs()
+        dim = cell.get_spatial_dimension()
+        dg = True
+        for i in range(dim - 1):
+            if any(len(k) for k in edofs[i].values()):
+                dg = False
+                break
+        return ElementContinuity(dg, dg, dg)
 
 
 def colorify_text(color):
@@ -390,14 +428,7 @@ class VerticalIntegrator(object):
 
         space = output.function_space()
         mesh = space.mesh()
-        vertical_is_dg = False
-        if (hasattr(space.ufl_element(), '_B') and
-                space.ufl_element()._B.family() != 'Lagrange'):
-            # a normal tensorproduct element
-            vertical_is_dg = True
-        if 'HDiv' in space.ufl_element().shortstr():
-            # Hdiv vector space, assume DG in vertical
-            vertical_is_dg = True
+        vertical_is_dg = element_continuity(space.fiat_element).vertical_dg
         tri = TrialFunction(space)
         phi = TestFunction(space)
         normal = FacetNormal(mesh)
@@ -511,9 +542,13 @@ class ExpandFunctionTo3d(object):
         self.fs_3d = self.output_3d.function_space()
 
         family_2d = self.fs_2d.ufl_element().family()
-        if hasattr(self.fs_3d.ufl_element(), '_A'):
+        ufl_elem = self.fs_3d.ufl_element()
+        if ufl_elem.num_sub_elements() > 0:
+            assert isinstance(ufl_elem, ufl.VectorElement)
+            ufl_elem = ufl_elem.sub_elements()[0]
+        if hasattr(ufl_elem, '_A'):
             # a normal tensorproduct element
-            family_3dh = self.fs_3d.ufl_element()._A.family()
+            family_3dh = ufl_elem._A.family()
             if family_2d != family_3dh:
                 raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
         if family_2d == 'Raviart-Thomas' and elem_height is None:

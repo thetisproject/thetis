@@ -682,8 +682,11 @@ class DIRKGeneric(TimeIntegrator):
         self.funcs = self.equation.kwargs
         test = TestFunction(self.equation.space)
 
-        mixed_space = isinstance(self.equation.solution.function_space(),
-                                 MixedFunctionSpace)
+        fs = self.equation.solution.function_space()
+        from firedrake.functionspaceimpl import MixedFunctionSpace, WithGeometry
+        mixed_space = (isinstance(fs, MixedFunctionSpace) or
+                       (isinstance(fs, WithGeometry) and
+                        isinstance(fs.topological, MixedFunctionSpace)))
 
         def all_terms(u, **args):
             """Gather all terms that need to be added to the form"""
