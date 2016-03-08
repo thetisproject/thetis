@@ -260,7 +260,6 @@ def run(setup, refinement, order, do_export=True):
     l2_err = errornorm(trac_ana_ho, solver_obj.fields.salt_3d)/numpy.sqrt(area)
     print 'L2 error {:.12f}'.format(l2_err)
 
-    tmp_function_cache.clear()  # NOTE must destroy all cached solvers for next simulation
     return l2_err
 
 

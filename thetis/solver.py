@@ -161,6 +161,9 @@ class FlowSolver(FrozenClass):
         self.visu_spaces[self.function_spaces.U_2d] = self.function_spaces.P1v_2d
         self.visu_spaces[self.function_spaces.H_2d] = self.function_spaces.P1_2d
         self.visu_spaces[self.function_spaces.P1v_2d] = self.function_spaces.P1v_2d
+        for key in self.visu_spaces:
+            # make sure that you always get the same temp work function
+            self.visu_spaces[key].max_work_functions = 1
         self._isfrozen = True
 
     def create_equations(self):
