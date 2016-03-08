@@ -186,7 +186,7 @@ field_metadata['shear_freq_3d'] = {
 }
 field_metadata['buoy_freq_3d'] = {
     'name': 'Buoyancy frequency squared',
-    'shortname': 'Buoyancy shear frequency squared',
+    'shortname': 'Buoyancy frequency squared',
     'unit': 's-2',
     'filename': 'BuoyFreq3d',
 }
@@ -209,8 +209,8 @@ field_metadata['eps_3d'] = {
     'filename': 'TurbEps3d',
 }
 field_metadata['len_3d'] = {
-    'name': 'Turbulent lenght scale',
-    'shortname': 'Turbulent lenght scale',
+    'name': 'Turbulent length scale',
+    'shortname': 'Turbulent length scale',
     'unit': 'm',
     'filename': 'TurbLen3d',
 }
