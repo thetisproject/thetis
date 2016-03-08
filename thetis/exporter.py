@@ -235,7 +235,7 @@ class NaiveFieldExporter(ExporterBase):
         filename = '{0:s}_{1:05d}.npz'.format(self.filename, iexport)
         return os.path.join(self.outputdir, filename)
 
-    def export_as_indexx(self, iexport, function):
+    def export_as_index(self, iexport, function):
         """
         Exports the given function to disk using the specified export
         index number.
@@ -264,7 +264,7 @@ class NaiveFieldExporter(ExporterBase):
         Exports the given function to disk.
         Increments previous export index by 1.
         """
-        self.export_as_indexx(self.next_export_ix, function)
+        self.export_as_index(self.next_export_ix, function)
 
     def load(self, iexport, function):
         """
@@ -319,10 +319,10 @@ class HDF5Exporter(ExporterBase):
         self.next_export_ix = next_export_ix
 
     def gen_filename(self, iexport):
-        filename = '{0:s}_{1:05d}.h5'.format(self.filename, iexport)
+        filename = '{0:s}_{1:05d}'.format(self.filename, iexport)
         return os.path.join(self.outputdir, filename)
 
-    def export_as_indexx(self, iexport, function):
+    def export_as_index(self, iexport, function):
         """
         Exports the given function to disk using the specified export
         index number.
@@ -331,7 +331,7 @@ class HDF5Exporter(ExporterBase):
             'Function space does not match'
         filename = self.gen_filename(iexport)
         if self.verbose:
-            print('saving {:} state to {:}'.format(function.name, filename))
+            print('saving {:} state to {:}'.format(function.name(), filename))
         with DumbCheckpoint(filename, mode=FILE_CREATE) as f:
             f.store(function)
         self.next_export_ix = iexport + 1
@@ -341,7 +341,7 @@ class HDF5Exporter(ExporterBase):
         Exports the given function to disk.
         Increments previous export index by 1.
         """
-        self.export_as_indexx(self.next_export_ix, function)
+        self.export_as_index(self.next_export_ix, function)
 
     def load(self, iexport, function):
         """
@@ -351,7 +351,7 @@ class HDF5Exporter(ExporterBase):
             'Function space does not match'
         filename = self.gen_filename(iexport)
         if self.verbose:
-            print('loading {:} state from {:}'.format(function.name, filename))
+            print('loading {:} state from {:}'.format(function.name(), filename))
         with DumbCheckpoint(filename, mode=FILE_READ) as f:
             f.load(function)
 
