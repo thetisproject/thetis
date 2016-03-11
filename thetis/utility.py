@@ -215,36 +215,6 @@ def create_directory(path):
     return path
 
 
-def extrude_mesh_linear(mesh2d, n_layers, xmin, xmax, dmin, dmax):
-    """Extrudes 2d surface mesh with defined by two endpoints in x axis."""
-    layer_height = 1.0/n_layers
-    base_coords = mesh2d.coordinates
-    extrusion_kernel = op2.Kernel("""
-            void uniform_extrusion_kernel(double **base_coords,
-                        double **ext_coords,
-                        int **layer,
-                        double *layer_height) {
-                for ( int d = 0; d < %(base_map_arity)d; d++ ) {
-                    for ( int c = 0; c < %(base_coord_dim)d; c++ ) {
-                        ext_coords[2*d][c] = base_coords[d][c];
-                        ext_coords[2*d+1][c] = base_coords[d][c];
-                    }
-                    double s = fmin(fmax((ext_coords[2*d][0]-%(xmin)f)/(%(xmax)f-%(xmin)f), 0.0), 1.0);
-                    double depth = s*%(dmax)f + (1.0-s)*%(dmin)f;
-                    ext_coords[2*d][%(base_coord_dim)d] = -depth*layer_height[0]*layer[0][0];
-                    ext_coords[2*d+1][%(base_coord_dim)d] = -depth*layer_height[0]*(layer[0][0]+1);
-                }
-            }""" % {'base_map_arity': base_coords.cell_node_map().arity,
-                    'base_coord_dim': base_coords.function_space().dim,
-                    'xmin': xmin, 'xmax': xmax, 'dmin': dmin, 'dmax': dmax},
-        'uniform_extrusion_kernel')
-    mesh = ExtrudedMesh(mesh2d, layers=n_layers,
-                        layer_height=layer_height,
-                        extrusion_type='custom',
-                        kernel=extrusion_kernel, gdim=3)
-    return mesh
-
-
 def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d):
     """Extrudes 2d surface mesh with bathymetry data defined in a 2d field."""
     mesh = ExtrudedMesh(mesh2d, layers=n_layers, layer_height=1.0/n_layers)
