@@ -19,8 +19,8 @@ from thetis.field_defs import field_metadata
 comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
 
-ds_surf = ds_b
-ds_bottom = ds_t
+ds_surf = ds_t
+ds_bottom = ds_b
 # NOTE some functions now depend on FlowSolver object
 # TODO move those functions in the solver class
 
@@ -265,7 +265,7 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d):
                 for ( int e = 0; e < %(v_nodes)d; e++ ) {
                     new_coords[idx[d]+e][0] = old_coords[idx[d]+e][0];
                     new_coords[idx[d]+e][1] = old_coords[idx[d]+e][1];
-                    new_coords[idx[d]+e][2] = -bath2d[d][0] * old_coords[idx[d]+e][2];
+                    new_coords[idx[d]+e][2] = -bath2d[d][0] * (1.0 - old_coords[idx[d]+e][2]);
                 }
             }
         }""" % {'nodes': bathymetry_2d.cell_node_map().arity,
@@ -567,7 +567,6 @@ class SubFunctionExtractor(object):
         self.fs_3d = self.input_3d.function_space()
         self.fs_2d = self.output_2d.function_space()
 
-        # NOTE top/bottom are defined differently than in firedrake
         sub_domain = 'bottom' if use_bottom_value else 'top'
         if elem_bottom_nodes is None:
             # extract surface/bottom face by default
@@ -584,15 +583,15 @@ class SubFunctionExtractor(object):
         self.do_rt_scaling = family_2d == 'Raviart-Thomas'
 
         if elem_bottom_nodes:
-            nodes = self.fs_3d.bt_masks['geometric'][1]
-        else:
             nodes = self.fs_3d.bt_masks['geometric'][0]
+        else:
+            nodes = self.fs_3d.bt_masks['geometric'][1]
         if sub_domain == 'top':
-            # 'top' means free surface, where extrusion started
-            self.iter_domain = op2.ON_BOTTOM
-        elif sub_domain == 'bottom':
-            # 'bottom' means the bed, where extrusion ended
+            # 'top' means free surface
             self.iter_domain = op2.ON_TOP
+        elif sub_domain == 'bottom':
+            # 'bottom' means the bed
+            self.iter_domain = op2.ON_BOTTOM
 
         out_nodes = self.fs_2d.fiat_element.space_dimension()
 

@@ -11,7 +11,10 @@ def mesh2d():
 
 @pytest.fixture(scope="module")
 def mesh(mesh2d):
-    return ExtrudedMesh(mesh2d, layers=10, layer_height=-0.1)
+    fs = FunctionSpace(mesh2d, 'CG', 1)
+    bathymetry_2d = Function(fs).assign(1.0)
+    n_layers = 10
+    return utility.extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d)
 
 
 @pytest.fixture(params=["p1xp1", "P2xP2", "p1DGxp1DG", "P2DGxP2DG"])
