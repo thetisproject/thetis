@@ -60,7 +60,7 @@ def test_implicit_friction_turbulence(do_assert=True, do_export=False):
     options.no_exports = not do_export
     options.outputdir = outputdir
     options.u_advection = u_mag
-    options.check_salt_deviation = True
+    options.check_salt_overshoot = True
     options.timer_labels = ['mode2d', 'momentum_eq', 'vert_diffusion', 'turbulence']
     # options.fields_to_export = []
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',

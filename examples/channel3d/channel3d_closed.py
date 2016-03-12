@@ -52,7 +52,7 @@ options.use_bottom_friction = False
 options.use_ale_moving_mesh = False
 options.uv_lax_friedrichs = Constant(1.0)
 options.tracer_lax_friedrichs = Constant(1.0)
-options.use_imex = True
+# options.use_imex = True
 # options.use_semi_implicit_2d = False
 # options.use_mode_split = False
 # options.baroclinic = True
@@ -63,7 +63,7 @@ options.u_advection = u_mag
 options.check_vol_conservation_2d = True
 options.check_vol_conservation_3d = True
 options.check_salt_conservation = True
-options.check_salt_deviation = True
+options.check_salt_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
                             'uv_dav_2d', 'uv_bottom_2d']

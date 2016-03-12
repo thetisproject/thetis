@@ -19,8 +19,8 @@ from thetis.field_defs import field_metadata
 comm = op2.MPI.comm
 commrank = op2.MPI.comm.rank
 
-ds_surf = ds_b
-ds_bottom = ds_t
+ds_surf = ds_t
+ds_bottom = ds_b
 # NOTE some functions now depend on FlowSolver object
 # TODO move those functions in the solver class
 
@@ -215,36 +215,6 @@ def create_directory(path):
     return path
 
 
-def extrude_mesh_linear(mesh2d, n_layers, xmin, xmax, dmin, dmax):
-    """Extrudes 2d surface mesh with defined by two endpoints in x axis."""
-    layer_height = 1.0/n_layers
-    base_coords = mesh2d.coordinates
-    extrusion_kernel = op2.Kernel("""
-            void uniform_extrusion_kernel(double **base_coords,
-                        double **ext_coords,
-                        int **layer,
-                        double *layer_height) {
-                for ( int d = 0; d < %(base_map_arity)d; d++ ) {
-                    for ( int c = 0; c < %(base_coord_dim)d; c++ ) {
-                        ext_coords[2*d][c] = base_coords[d][c];
-                        ext_coords[2*d+1][c] = base_coords[d][c];
-                    }
-                    double s = fmin(fmax((ext_coords[2*d][0]-%(xmin)f)/(%(xmax)f-%(xmin)f), 0.0), 1.0);
-                    double depth = s*%(dmax)f + (1.0-s)*%(dmin)f;
-                    ext_coords[2*d][%(base_coord_dim)d] = -depth*layer_height[0]*layer[0][0];
-                    ext_coords[2*d+1][%(base_coord_dim)d] = -depth*layer_height[0]*(layer[0][0]+1);
-                }
-            }""" % {'base_map_arity': base_coords.cell_node_map().arity,
-                    'base_coord_dim': base_coords.function_space().dim,
-                    'xmin': xmin, 'xmax': xmax, 'dmin': dmin, 'dmax': dmax},
-        'uniform_extrusion_kernel')
-    mesh = ExtrudedMesh(mesh2d, layers=n_layers,
-                        layer_height=layer_height,
-                        extrusion_type='custom',
-                        kernel=extrusion_kernel, gdim=3)
-    return mesh
-
-
 def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d):
     """Extrudes 2d surface mesh with bathymetry data defined in a 2d field."""
     mesh = ExtrudedMesh(mesh2d, layers=n_layers, layer_height=1.0/n_layers)
@@ -265,7 +235,7 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d):
                 for ( int e = 0; e < %(v_nodes)d; e++ ) {
                     new_coords[idx[d]+e][0] = old_coords[idx[d]+e][0];
                     new_coords[idx[d]+e][1] = old_coords[idx[d]+e][1];
-                    new_coords[idx[d]+e][2] = -bath2d[d][0] * old_coords[idx[d]+e][2];
+                    new_coords[idx[d]+e][2] = -bath2d[d][0] * (1.0 - old_coords[idx[d]+e][2]);
                 }
             }
         }""" % {'nodes': bathymetry_2d.cell_node_map().arity,
@@ -567,7 +537,6 @@ class SubFunctionExtractor(object):
         self.fs_3d = self.input_3d.function_space()
         self.fs_2d = self.output_2d.function_space()
 
-        # NOTE top/bottom are defined differently than in firedrake
         sub_domain = 'bottom' if use_bottom_value else 'top'
         if elem_bottom_nodes is None:
             # extract surface/bottom face by default
@@ -584,15 +553,15 @@ class SubFunctionExtractor(object):
         self.do_rt_scaling = family_2d == 'Raviart-Thomas'
 
         if elem_bottom_nodes:
-            nodes = self.fs_3d.bt_masks['geometric'][1]
-        else:
             nodes = self.fs_3d.bt_masks['geometric'][0]
+        else:
+            nodes = self.fs_3d.bt_masks['geometric'][1]
         if sub_domain == 'top':
-            # 'top' means free surface, where extrusion started
-            self.iter_domain = op2.ON_BOTTOM
-        elif sub_domain == 'bottom':
-            # 'bottom' means the bed, where extrusion ended
+            # 'top' means free surface
             self.iter_domain = op2.ON_TOP
+        elif sub_domain == 'bottom':
+            # 'bottom' means the bed
+            self.iter_domain = op2.ON_BOTTOM
 
         out_nodes = self.fs_2d.fiat_element.space_dimension()
 

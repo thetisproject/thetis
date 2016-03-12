@@ -78,7 +78,6 @@ options.u_advection = u_mag
 options.check_vol_conservation_2d = True
 options.check_vol_conservation_3d = True
 options.check_salt_conservation = True
-# options.check_salt_deviation = True
 options.check_salt_overshoot = True
 options.outputdir = outputdir
 options.timer_labels = []
