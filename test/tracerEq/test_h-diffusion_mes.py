@@ -164,7 +164,7 @@ def run_convergence(ref_list, saveplot=False, **options):
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
             ax.set_ylabel('log10(L2 error)')
-            ax.set_title(field_str)
+            ax.set_title(' '.join([setup_name, field_str, 'order={:}'.format(order)]))
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
             order_str = 'o{:}'.format(order)
             imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str])
