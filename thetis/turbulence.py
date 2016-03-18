@@ -79,6 +79,87 @@ def set_func_max_val(f, maxval):
     f.dat.data[f.dat.data > maxval] = maxval
 
 
+class VerticalGradSolver(object):
+    """
+    Computes vertical gradient in the weak sense.
+
+    :arg source: A :class:`Function` or expression to differentiate.
+    :arg source: A :class:`Function` where the solution will be stored.
+        Must be in P0 space.
+    """
+    def __init__(self, source, solution):
+        self.source = source
+        self.solution = solution
+
+        self.fs = self.solution.function_space()
+        self.mesh = self.fs.mesh()
+
+        # weak gradient evaluator
+        test = TestFunction(self.fs)
+        tri = TrialFunction(self.fs)
+        normal = FacetNormal(self.mesh)
+        a = inner(test, tri)*dx
+        p = self.source
+        l = -inner(p, Dx(test, 2))*dx
+        l += avg(p)*jump(test, normal[2])*dS_h
+        l += p*test*normal[2]*(ds_t + ds_b)
+        prob = LinearVariationalProblem(a, l, self.solution)
+        self.weak_grad_solver = LinearVariationalSolver(prob)
+
+    def solve(self):
+        self.weak_grad_solver.solve()
+
+
+class SmoothVerticalGradSolver(object):
+    """
+    Computes vertical gradient in a smooth(er) way.
+
+    :arg source: A :class:`Function` or expression to differentiate.
+    :arg source: A :class:`Function` where the solution will be stored.
+    """
+    def __init__(self, source, solution):
+        self.source = source
+        self.solution = solution
+
+        self.fs = self.solution.function_space()
+        self.mesh = self.fs.mesh()
+
+        p0 = FunctionSpace(self.mesh, 'DP', 0, vfamily='DP', vdegree=0)
+        assert self.solution.function_space() == p0, 'solution must be in p0'
+
+        self.source_p0 = Function(p0, name='p0 source')
+        self.gradient_p0 = Function(p0, name='p0 gradient')
+
+        self.p0_interpolator = Interpolator(self.source, self.source_p0)
+        self.p0_grad_solver = VerticalGradSolver(self.source_p0, self.solution)
+        self.grad_solver = VerticalGradSolver(self.source, self.gradient_p0)
+
+        self.p0_copy_kernel = op2.Kernel("""
+            void my_kernel(double **gradient, double **source) {
+                gradient[0][0] = source[0][0];
+            }""", 'my_kernel')
+
+    def solve(self):
+        # interpolate p1dg to prism centers
+        self.p0_interpolator.interpolate()
+        # compute weak gradine from source_p0
+        self.p0_grad_solver.solve()
+        # compute weak gradient directly
+        self.grad_solver.solve()
+        # compute mean of the two
+        self.solution.assign(0.5*(self.solution + self.gradient_p0))
+        # replace top/bottom values with weak gradient
+        # FIXME how to combine ON_TOP + ON_BOTTOM in single call?
+        op2.par_loop(self.p0_copy_kernel, self.mesh.cell_set,
+                     self.solution.dat(op2.WRITE, self.fs.cell_node_map()),
+                     self.gradient_p0.dat(op2.READ, self.fs.cell_node_map()),
+                     iterate=op2.ON_TOP)
+        op2.par_loop(self.p0_copy_kernel, self.mesh.cell_set,
+                     self.solution.dat(op2.WRITE, self.fs.cell_node_map()),
+                     self.gradient_p0.dat(op2.READ, self.fs.cell_node_map()),
+                     iterate=op2.ON_BOTTOM)
+
+
 class ShearFrequencySolver(object):
     """
     Computes vertical shear frequency squared form the given horizontal
@@ -87,8 +168,6 @@ class ShearFrequencySolver(object):
     M^2 = du/dz^2 + dv/dz^2
     """
     def __init__(self, uv, m2, mu, mv, mu_tmp, minval=1e-12, solver_parameters={}):
-        # NOTE m2 should be computed from DG uv field ?
-        # solver_parameters.setdefault('ksp_type', 'cg')
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
 
@@ -102,20 +181,7 @@ class ShearFrequencySolver(object):
 
         self.var_solvers = {}
         for i_comp in range(2):
-            fs = m2.function_space()
-            test = TestFunction(fs)
-            tri = TrialFunction(fs)
-            normal = FacetNormal(fs.mesh())
-            a = inner(test, tri)*dx
-            # # jump penalty -- smooth m2 -- this may blow up??
-            # alpha = Constant(2.0)*abs(avg(uv[i_comp]))
-            # a += alpha*jump(test)*jump(tri)*dS_h
-            l = -inner(uv[i_comp], Dx(test, 2))*dx
-            l += avg(uv[i_comp])*jump(test, normal[2])*dS_h
-            l += uv[i_comp]*test*normal[2]*(ds_surf + ds_bottom)
-
-            prob = LinearVariationalProblem(a, l, mu_tmp)
-            solver = LinearVariationalSolver(prob)
+            solver = SmoothVerticalGradSolver(uv[i_comp], mu_tmp)
             self.var_solvers[i_comp] = solver
 
     def solve(self, init_solve=False):
@@ -156,19 +222,8 @@ class BuoyFrequencySolver(object):
 
             g = physical_constants['g_grav']
             rho0 = physical_constants['rho0']
-
-            fs = n2.function_space()
-            test = TestFunction(fs)
-            tri = TrialFunction(fs)
-            normal = FacetNormal(fs.mesh())
-            a = inner(test, tri)*dx
             p = -g/rho0 * rho
-            l = -inner(p, Dx(test, 2))*dx
-            l += avg(p)*jump(test, normal[2])*dS_h
-            l += p*test*normal[2]*(ds_surf + ds_bottom)
-
-            prob = LinearVariationalProblem(a, l, self.n2_tmp)
-            solver = LinearVariationalSolver(prob)
+            solver = SmoothVerticalGradSolver(p, self.n2_tmp)
             self.var_solver = solver
 
     def solve(self, init_solve=False):
@@ -179,59 +234,21 @@ class BuoyFrequencySolver(object):
                            (1.0 - gamma)*self.n2)
 
 
-class SmootherP1(object):
-    """Applies p1 projection on p1dg fields in-place."""
-    def __init__(self, p1dg, p1, v_elem_size):
-        # TODO assert spaces
-        self.p1dg = p1dg
-        self.p1 = p1
-        self.v_elem_size = v_elem_size
-        self.tmp_func_p1 = Function(self.p1, name='tmp_p1_func')
-
-    def apply(self, input, output=None):
-        if output is None:
-            output = input
-        assert input.function_space() == self.p1dg
-        assert output.function_space() == self.p1dg
-        # project to p1
-        # self.tmp_func_p1.project(input)
-        # NOTE projection *must* be monotonic, add diffusion operator?
-        test = TestFunction(self.p1)
-        tri = TrialFunction(self.p1)
-        a = inner(tri, test) * dx
-        l = inner(input, test) * dx
-        mu = Constant(1.0e-2)  # TODO can this be estimated??
-        a += mu*inner(Dx(tri, 2), Dx(test, 2)) * dx
-        prob = LinearVariationalProblem(a, l, self.tmp_func_p1)
-        solver = LinearVariationalSolver(prob)
-        solver.solve()
-        # copy nodal values to original field
-        par_loop("""
-    for (int i=0; i<input.dofs; i++) {
-        input[i][0] = p1field[i][0];  // TODO is this mapping valid?
-    }
-    """,
-                 dx,
-                 {'input': (output, WRITE),
-                  'p1field': (self.tmp_func_p1, READ)})
-
-
 class GenericLengthScaleModel(object):
     """
-    Generic length scale implementation
-
-
+    Generic Length Scale turbulence closure model implementation
     """
     def __init__(self, solver, k_field, psi_field, uv_field, rho_field,
                  l_field, epsilon_field,
                  eddy_diffusivity, eddy_viscosity,
                  n2, m2,
+                 closure_name='k-epsilon',
                  p=3.0, m=1.5, n=-1.0,
                  schmidt_nb_tke=1.0, schmidt_nb_psi=1.3,
                  c1=1.44, c2=1.92, c3_minus=-0.52, c3_plus=1.0,
-                 f_wall=1.0, k_min=1.0e-10, psi_min=1.0e-14,
-                 eps_min=1e-14, visc_min=1.0e-8, diff_min=1.0e-8,
-                 galperin_lim=0.56,
+                 f_wall=1.0, k_min=3.7e-8, psi_min=1.0e-10,
+                 eps_min=1e-10, visc_min=1.0e-8, diff_min=1.0e-8,
+                 galperin_lim=0.56, ri_st=0.25,
                  stability_type='CA',
                  ):
         """
@@ -267,8 +284,9 @@ class GenericLengthScaleModel(object):
         stability_type : string
             stability function type:
             'KC': Kantha and Clayson (1994)
-            'CA': Canuto (2001) model A
-            'CB': Canuto (2001) model B
+            'CA': Canuto et al. (2001) version A
+            'CB': Canuto et al. (2001) version B
+            'CH': Cheng et al. (2002)
         """
         self.solver = solver
         # 3d model fields
@@ -289,61 +307,33 @@ class GenericLengthScaleModel(object):
                                name='tmp Shear frequency')
         self.mu = Function(self.m2.function_space(), name='Shear frequency X')
         self.mv = Function(self.m2.function_space(), name='Shear frequency Y')
-        self.c3 = Function(self.n2.function_space(),
-                           name='c3 parameter')
         self.n2_tmp = Function(self.n2.function_space(),
                                name='tmp buoyancy frequency')
-        self.tmp_field_p1 = Function(solver.function_spaces.P1,
-                                     name='tmp_p1_field')
-        self.tmp_field_p0 = Function(solver.function_spaces.P0,
-                                     name='tmp_p0_field')
-        self.smoother = SmootherP1(self.solver.function_spaces.P1DG, self.solver.function_spaces.P1,
-                                   self.solver.fields.v_elem_size_3d)
-        # discusting HACK
-        if self.rho is not None:
-            self.rho_cg = Function(self.solver.function_spaces.P1,
-                                   name='density p1')
-            self.rho_p1_proj = Projector(self.rho, self.rho_cg)
-        self.uv_cg = Function(self.solver.function_spaces.P1v,
-                              name='uv p1')
-        self.uv_p1_proj = Projector(self.uv, self.uv_cg)
+        self.n2_pos = Function(self.n2.function_space(),
+                               name='positive buoyancy frequency')
+        self.n2_neg = Function(self.n2.function_space(),
+                               name='negative buoyancy frequency')
+
         # parameter to mix old and new viscosity values (1 => new only)
         self.relaxation = 0.5
 
-        cc1 = 5.0000
-        cc2 = 0.8000
-        cc3 = 1.9680
-        cc4 = 1.1360
-        # cc5 = 0.0000
-        # cc6 = 0.4000
-        # ct1 = 5.9500
-        # ct2 = 0.6000
-        # ct3 = 1.0000
-        # ct4 = 0.0000
-        # ct5 = 0.3333
-        # ctt = 0.720
+        self.stability_type = stability_type
+        if self.stability_type == 'KC':
+            self.stability_func = StabilityFunctionKanthaClayson()
+        elif self.stability_type == 'CA':
+            self.stability_func = StabilityFunctionCanutoA()
+        elif self.stability_type == 'CB':
+            self.stability_func = StabilityFunctionCanutoB()
+        elif self.stability_type == 'CH':
+            self.stability_func = StabilityFunctionCheng()
+        else:
+            raise Exception('Unknown stability function type: ' +
+                            self.stability_type)
 
-        # compute the a_i's for the Algebraic Stress Model
-        a1 = 2.0/3.0 - cc2/2.0
-        a2 = 1.0 - cc3/2.0
-        a3 = 1.0 - cc4/2.0
-        # a4 = cc5/2.00
-        # a5 = 0.5 - cc6/2.0
-
-        # at1 = 1.0 - ct2
-        # at2 = 1.0 - ct3
-        # at3 = 2.0 * (1.0 - ct4)
-        # at4 = 2.0 * (1.0 - ct5)
-        # at5 = 2.0 * ctt * (1.0 - ct5)
-
-        # compute cm0
-        nn = cc1/2.0
-        cm0 = ((a2**2 - 3*a3**2 + 3*a1*nn)/(3 * nn**2))**0.25
-        # cmsf = a1/N/cm0**3
-        rad = schmidt_nb_psi * (c2 - c1)/(n**2)
-        kappa = cm0*sqrt(rad)
-        # rcm = cm0/cmsf
-        # cde = cm0**3.
+        cm0 = self.stability_func.compute_cmu0()
+        kappa = self.stability_func.compute_kappa(schmidt_nb_psi, n, c1, c2)
+        physical_constants['von_karman'].assign(kappa)  # update global value
+        c3_minus = self.stability_func.compute_c3_minus(c1, c2, ri_st)
 
         # minimum length scale
         len_min = cm0**3 * k_min**1.5 / eps_min
@@ -357,6 +347,7 @@ class GenericLengthScaleModel(object):
             'c2': c2,
             'c3_minus': c3_minus,
             'c3_plus': c3_plus,
+            'ri_st': ri_st,
             'f_wall': f_wall,
             'schmidt_nb_tke': schmidt_nb_tke,
             'schmidt_nb_psi': schmidt_nb_psi,
@@ -369,50 +360,35 @@ class GenericLengthScaleModel(object):
             'galperin_lim': galperin_lim,
             'cm0': cm0,
             'von_karman': kappa,
-            'limit_psi': False,  # NOTE noisy
-            'limit_eps': False,  # NOTE noisy
-            'limit_len': True,  # NOTE introduces less noise
-            'cg_gradients': True,  # NOTE needed for kato-phillips
+            'limit_psi': False,
+            'limit_eps': False,
+            'limit_len': False,
+            'limit_len_min': True,
+            'closure_name': closure_name,
+            'stability_type': stability_type,
         }
-        self.stability_type = stability_type
-        if self.stability_type == 'KC':
-            self.stability_func = StabilityFuncKanthaClayson()
-        elif self.stability_type == 'CA':
-            self.stability_func = StabilityFuncCanutoA()
-        else:
-            raise Exception('Unknown stability function type: ' +
-                            self.stability_type)
-        # compute c3_minus
-        c3_minus = self.stability_func.compute_c3_minus(c1, c2)
-        self.params['c3_minus'] = c3_minus
 
-        print_info('GLS Turbulence model parameters')
-        for k in sorted(self.params.keys()):
-            print_info('  {:16s} : {:12.8g}'.format(k, self.params[k]))
-
-        uv = self.uv_cg if self.params['cg_gradients'] else self.uv
-        self.shear_frequency_solver = ShearFrequencySolver(uv, self.m2,
+        self.shear_frequency_solver = ShearFrequencySolver(self.uv, self.m2,
                                                            self.mu, self.mv,
                                                            self.mu_tmp)
         if self.rho is not None:
-            rho = self.rho_cg if self.params['cg_gradients'] else self.rho
-            self.buoy_frequency_solver = BuoyFrequencySolver(rho, self.n2,
+            self.buoy_frequency_solver = BuoyFrequencySolver(self.rho, self.n2,
                                                              self.n2_tmp)
 
         self.initialize()
+        self._print_summary()
 
-    def update_c3(self):
-        """Assigns c3 to c3_minus or c3_plus"""
-        # c3 switch: c3 = c3_minus if n2 > 0 else c3_plus
-        self.c3.assign(self.params['c3_minus'])
-        tol = -1.0e-12
-        ix = self.n2.dat.data < tol
-        self.c3.dat.data[ix] = self.params['c3_plus']
+    def _print_summary(self):
+        """Prints all defined parameters and their values."""
+        print_info('GLS Turbulence model parameters')
+        for k in sorted(self.params.keys()):
+            print_info('  {:16s} : {:}'.format(k, self.params[k]))
 
     def initialize(self):
         """Initializes fields"""
         self.n2.assign(1e-12)
-        self.update_c3()
+        self.n2_pos.assign(1e-12)
+        self.n2_neg.assign(0.0)
         self.preprocess(init_solve=True)
         self.postprocess()
 
@@ -424,15 +400,16 @@ class GenericLengthScaleModel(object):
         """
         # update m2 and N2
 
-        if self.params['cg_gradients']:
-            self.uv_p1_proj.project()
         self.shear_frequency_solver.solve(init_solve=init_solve)
 
         if self.rho is not None:
-            if self.params['cg_gradients']:
-                self.rho_p1_proj.project()
             self.buoy_frequency_solver.solve(init_solve=init_solve)
-        self.update_c3()
+            # split to positive and negative parts
+            self.n2_pos.assign(1e-12)
+            self.n2_neg.assign(0.0)
+            pos_ix = self.n2.dat.data[:] >= 0.0
+            self.n2_pos.dat.data[pos_ix] = self.n2.dat.data[pos_ix]
+            self.n2_neg.dat.data[~pos_ix] = self.n2.dat.data[~pos_ix]
 
     def postprocess(self):
         """
@@ -450,64 +427,46 @@ class GenericLengthScaleModel(object):
         set_func_min_val(self.k, self.params['k_min'])
 
         k_arr = self.k.dat.data[:]
-        n2_arr = self.n2.dat.data[:]
-        n2_pos = n2_arr.copy()
-        n2_min = 1e-12
-        n2_pos[n2_pos < n2_min] = n2_min
+        n2_pos = self.n2_pos.dat.data[:]
+        n2_pos_eps = 1e-12
         galp = self.params['galperin_lim']
         if self.params['limit_psi']:
             # impose Galperin limit on psi
             # psi^(1/n) <= sqrt(0.56)* (cm0)^(p/n) *k^(m/n+0.5)* n2^(-0.5)
-            val = (np.sqrt(galp) * (cm0)**(p / n) * k_arr**(m / n + 0.5) * (n2_pos)**(-0.5))**n
+            val = (np.sqrt(galp) * (cm0)**(p / n) * k_arr**(m / n + 0.5) * (n2_pos + n2_pos_eps)**(-0.5))**n
             if n > 0:
                 # impose max value
-                self.psi.dat.data[:] = np.minimum(self.psi.dat.data[:], val)
+                np.minimum(self.psi.dat.data, val, self.psi.dat.data)
             else:
                 # impose min value
-                self.psi.dat.data[:] = np.maximum(self.psi.dat.data[:], val)
+                np.maximum(self.psi.dat.data, val, self.psi.dat.data)
         set_func_min_val(self.psi, self.params['psi_min'])
-
-        # self.tmp_field_p0.project(self.k)
-        # self.tmp_field_p1.project(self.tmp_field_p0)
-        # self.k.project(self.tmp_field_p1)
-        # self.tmp_field_p0.project(self.psi)
-        # self.tmp_field_p1.project(self.tmp_field_p0)
-        # self.psi.project(self.tmp_field_p1)
-        # self.solver.tracer_limiter.apply(self.k)
-        # self.solver.tracer_limiter.apply(self.psi)
 
         # udpate epsilon
         self.epsilon.assign(cm0**(3.0 + p/n)*self.k**(3.0/2.0 + m/n)*self.psi**(-1.0/n))
         if self.params['limit_eps']:
             # impose Galperin limit on eps
             eps_min = cm0**3.0/np.sqrt(galp)*np.sqrt(n2_pos)*k_arr
-            self.epsilon.dat.data[:] = np.maximum(self.epsilon.dat.data, eps_min)
-        # HACK special case for k-eps model
-        # self.epsilon.assign(self.psi)
-        # Galperin limitation as in GOTM
-        # galp = self.params['galperin_lim']
-        # epslim = cm0**3.0/np.sqrt(2.)/galp*k_arr*np.sqrt(n2_pos)
-        # self.epsilon.dat.data[:] = np.maximum(self.epsilon.dat.data[:], epslim)
+            np.maximum(self.epsilon.dat.data, eps_min, self.epsilon.dat.data)
         # impose minimum value
         set_func_min_val(self.epsilon, self.params['eps_min'])
 
         # update L
         self.l.assign(cm0**3.0 * self.k**(3.0/2.0) / self.epsilon)
-        set_func_min_val(self.l, self.params['len_min'])
+        if self.params['limit_len_min']:
+            set_func_min_val(self.l, self.params['len_min'])
         if self.params['limit_len']:
             # Galperin length scale limitation
-            len_max = np.sqrt(galp*k_arr/n2_pos)
-            self.l.dat.data[:] = np.minimum(self.l.dat.data, len_max)
+            len_max = np.sqrt(galp*k_arr/(n2_pos + n2_pos_eps))
+            np.minimum(self.l.dat.data, len_max, self.l.dat.data)
         if self.l.dat.data.max() > 10.0:
             print ' * large L: {:f}'.format(self.l.dat.data.max())
 
         # update stability functions
-        s_m, s_h = self.stability_func.get_functions(self.m2.dat.data,
-                                                     self.n2.dat.data,
-                                                     self.k.dat.data,
-                                                     self.epsilon.dat.data,
-                                                     self.l.dat.data)
-        # c = self.stability_func.c
+        s_m, s_h = self.stability_func.evaluate(self.m2.dat.data,
+                                                self.n2.dat.data,
+                                                self.k.dat.data,
+                                                self.epsilon.dat.data)
         # update diffusivity/viscosity
         b = np.sqrt(self.k.dat.data[:])*self.l.dat.data[:]
         lam = self.relaxation
@@ -516,10 +475,10 @@ class GenericLengthScaleModel(object):
         self.viscosity.dat.data[:] = lam*new_visc + (1.0 - lam)*self.viscosity.dat.data[:]
         self.diffusivity.dat.data[:] = lam*new_diff + (1.0 - lam)*self.diffusivity.dat.data[:]
 
-        # self.smoother.apply(self.viscosity)
-        # self.smoother.apply(self.diffusivity)
         set_func_min_val(self.viscosity, self.params['visc_min'])
         set_func_min_val(self.diffusivity, self.params['diff_min'])
+        set_func_max_val(self.viscosity, 0.05)
+        set_func_max_val(self.diffusivity, 0.05)
         # print '{:8s} {:8.3e} {:8.3e}'.format('k', self.k.dat.data.min(), self.k.dat.data.max())
         # print '{:8s} {:8.3e} {:8.3e}'.format('eps', self.epsilon.dat.data.min(), self.epsilon.dat.data.max())
         # print '{:8s} {:8.3e} {:8.3e}'.format('L', self.l.dat.data.min(), self.l.dat.data.max())
@@ -528,6 +487,8 @@ class GenericLengthScaleModel(object):
         # print '{:8s} {:8.3e} {:8.3e}'.format('nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max())
         # print '{:8s} {:8.3e} {:8.3e}'.format('M2', self.m2.dat.data.min(), self.m2.dat.data.max())
         # print '{:8s} {:8.3e} {:8.3e}'.format('N2', self.n2.dat.data.min(), self.n2.dat.data.max())
+        # print '{:8s} {:8.3e} {:8.3e}'.format('N2+', self.n2_pos.dat.data.min(), self.n2_pos.dat.data.max())
+        # print '{:8s} {:8.3e} {:8.3e}'.format('N2-', self.n2_neg.dat.data.min(), self.n2_neg.dat.data.max())
 
 
 def compute_normalized_frequencies(shear2, buoy2, k, eps):
@@ -544,135 +505,299 @@ def compute_normalized_frequencies(shear2, buoy2, k, eps):
     return alpha_buoy, alpha_shear
 
 
-class StabilityFuncKanthaClayson(object):
-    """
-    Implementation of Kantha-Clayson stability functions.
+class StabilityFunction(object):
+    """Base class for all stability functions"""
+    def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
+                 smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
+        self.lim_alpha_shear = lim_alpha_shear
+        self.lim_alpha_buoy = lim_alpha_buoy
+        self.smooth_alpha_buoy_lim = smooth_alpha_buoy_lim
+        self.alpha_buoy_crit = alpha_buoy_crit
+        # for plotting and such
+        self.description = []
+        if self.lim_alpha_shear:
+            self.description += ['lim', 'shear']
+        if self.lim_alpha_buoy:
+            self.description += ['lim', 'alpha']
+            if self.smooth_alpha_buoy_lim:
+                self.description += ['smooth']
+                self.description += ['ac'+str(self.alpha_buoy_crit)]
+        self.description = ' '.join(self.description)
 
-    Implementation follows Burchard and Bolding JPO (2001).
-    """
-    def __init__(self):
-        # parameters
-        self.s0 = 0.1682
-        self.s1 = 0.03269
-        self.s2 = 0.1783
-        self.s3 = 0.01586
-        self.s4 = 0.003173
-        self.t1 = 0.4679
-        self.t2 = 0.07372
-        self.t3 = 0.01761
-        self.t4 = 0.03371
+        # Umlauf and Buchard (2005) eq A.10
+        self.a1 = 2.0/3.0 - 0.5*self.cc2
+        self.a2 = 1.0 - 0.5*self.cc3
+        self.a3 = 1.0 - 0.5*self.cc4
+        self.a4 = 0.5*self.cc5
+        self.a5 = 0.5 - 0.5*self.cc6
 
-        self.c = 1.0
+        self.ab1 = 1.0 - self.cb2
+        self.ab2 = 1.0 - self.cb3
+        self.ab3 = 2.0*(1.0 - self.cb4)
+        self.ab4 = 2.0*(1.0 - self.cb5)
+        self.ab5 = 2.0*self.cbb*(1.0 - self.cb5)
 
-    def compute_c3_minus(self, c1, c2):
+        # Umlauf and Buchard (2005) eq A.12
+        self.nn = 0.5*self.cc1
+        self.nb = self.cb1
+
+        # Umlauf and Buchard (2005) eq A.9
+        self.d0 = 36.0*self.nn**3*self.nb**2
+        self.d1 = 84.0*self.a5*self.ab3*self.nn**2*self.nb + 36.0*self.ab5*self.nn**3*self.nb
+        self.d2 = 9.0*(self.ab2**2 - self.ab1**2)*self.nn**3 - 12.0*(self.a2**2 - 3.0*self.a3**2)*self.nn*self.nb**2
+        self.d3 = 12.0*self.a5*self.ab3*(self.a2*self.ab1 - 3.0*self.a3*self.ab2)*self.nn +\
+            12.0*self.a5*self.ab3*(self.a3**2 - self.a2**2)*self.nb +\
+            12.0*self.ab5*(3.0*self.a3**2 - self.a2**2)*self.nn*self.nb
+        self.d4 = 48.0*self.a5**2*self.ab3**2*self.nn + 36.0*self.a5*self.ab3*self.ab5*self.nn**2
+        self.d5 = 3.0*(self.a2**2 - 3.0*self.a3**2)*(self.ab1**2 - self.ab2**2)*self.nn
+        self.n0 = 36.0*self.a1*self.nn**2*self.nb**2
+        self.n1 = -12.0*self.a5*self.ab3*(self.ab1 + self.ab2)*self.nn**2 +\
+            8.0*self.a5*self.ab3*(6.0*self.a1 - self.a2 - 3.0*self.a3)*self.nn*self.nb +\
+            36.0*self.a1*self.ab5*self.nn**2*self.nb
+        self.n2 = 9.0*self.a1*(self.ab2**2 - self.ab1**2)*self.nn**2
+        self.nb0 = 12.0*self.ab3*self.nn**3*self.nb  # NOTE ab3 is not squared!
+        self.nb1 = 12.0*self.a5*self.ab3**2*self.nn**2
+        self.nb2 = 9.0*self.a1*self.ab3*(self.ab1 - self.ab2)*self.nn**2 +\
+            (6.0*self.a1*(self.a2 - 3.0*self.a3) - 4.0*(self.a2**2 - 3.0*self.a3**2))*self.ab3*self.nn*self.nb
+
+    def compute_c3_minus(self, c1, c2, ri_st):
         """
         Compute c3_minus parameter from c1, c2 and stability functions.
 
-        From Warner (2005) equation (47).
-        """
-        return 5.08*c1 - 4.08*c2
+        c3_minus is solved from equation
 
-    def get_functions(self, shear2, buoy2, k, eps, l):
+        ri_st = s_m/s_h*(c2 - c1)/(c2 - c3_minus)   [1]
+
+        where ri_st is the steady state gradient Richardson number.
+        (Burchard and Bolding, 2001, eq 32)
         """
-        Computes the values of the stability functions
+
+        # A) solve numerically
+        # use equilibrium equation (Umlauf and Buchard, 2005, eq A.15)
+        # s_m*a_shear - s_h*a_shear*ri_st = 1.0
+        # to solve a_shear at equilibrium
+        from scipy.optimize import minimize
+
+        def cost(a_shear):
+            a_buoy = ri_st*a_shear
+            s_m, s_h = self.eval_funcs(a_buoy, a_shear)
+            res = s_m*a_shear - s_h*a_shear*ri_st - 1.0
+            return res**2
+        p = minimize(cost, 1.0)
+        assert p.success, 'solving alpha_shear failed'
+        a_shear = p.x[0]
+
+        # # B) solve analytically
+        # # compute alpha_shear for equilibrium condition (Umlauf and Buchard, 2005, eq A.19)
+        # # aM^2 (-d5 + n2 - (d3 - n1 + nb2 )Ri - (d4 + nb1)Ri^2) + aM (-d2 + n0 - (d1 + nb0)Ri) - d0 = 0
+        # a = -self.d5 + self.n2 - (self.d3 - self.n1 + self.nb2)*ri_st - (self.d4 + self.nb1)*ri_st**2
+        # b = -self.d2 + self.n0 - (self.d1 + self.nb0)*ri_st
+        # c = -self.d0
+        # a_shear = (-b + np.sqrt(b**2 - 4*a*c))/2/a
+
+        # compute aN from Ri_st and aM, Ri_st = aN/aM
+        a_buoy = ri_st*a_shear
+        # evaluate stability functions for equilibrium conditions
+        s_m, s_h = self.eval_funcs(a_buoy, a_shear)
+
+        # compute c3 minus from [1]
+        c3_minus = c2 - (c2 - c1)*s_m/s_h/ri_st
+
+        # check error in ri_st
+        err = s_m/s_h*(c2 - c1)/(c2 - c3_minus) - ri_st
+        assert np.abs(err) < 1e-5, 'steady state gradient Richardson number does not match'
+
+        return c3_minus
+
+    def compute_cmu0(self):
+        """Computes the paramenter c_mu_0"""
+        cm0 = ((self.a2**2 - 3*self.a3**2 + 3*self.a1*self.nn)/(3 * self.nn**2))**0.25
+        return cm0
+
+    def compute_kappa(self, sigma_psi, n, c1, c2):
         """
-        alpha_buoy, alpha_shear = compute_normalized_frequencies(shear2, buoy2, k, eps)
-        den = 1 + self.t1*alpha_buoy + self.t2*alpha_shear + self.t3*alpha_buoy*alpha_shear + self.t4*alpha_buoy**2
-        c_mu = (self.s0 + self.s1*alpha_buoy) / den
-        c_mu_p = (self.s2 + self.s3*alpha_buoy + self.s4*alpha_shear) / den
+        Computes von Karman constant from the Psi Schmidt number.
+
+        n, c1, c2 are GLS model parameters.
+s
+        from Umlauf and Burchard (2003) eq (14)
+        """
+        kappa = np.sqrt(sigma_psi * self.compute_cmu0()**2 * (c2 - c1)/(n**2))
+        return kappa
+
+    def get_alpha_buoy_min(self):
+        """
+        Compute minimum alpha buoy
+
+        from Umlauf and Buchard (2005) table 3
+        """
+        # G = epsilon case, this is used in GOTM
+        an_min = 0.5*(np.sqrt((self.d1 + self.nb0)**2. - 4.*self.d0*(self.d4 + self.nb1)) - (self.d1 + self.nb0))/(self.d4 + self.nb1)
+        # eq. (47)
+        # an_min = self.alpha_buoy_min
+        return an_min
+
+    def get_alpha_shear_max(self, alpha_buoy, alpha_shear):
+        """
+        Compute maximum alpha shear
+
+        from Umlauf and Buchard (2005) eq (44)
+        """
+        as_max_n = (self.d0*self.n0 +
+                    (self.d0*self.n1 + self.d1*self.n0)*alpha_buoy +
+                    (self.d1*self.n1 + self.d4*self.n0)*alpha_buoy**2 +
+                    self.d4*self.n1*alpha_buoy**3)
+        as_max_d = (self.d2*self.n0 +
+                    (self.d2*self.n1 + self.d3*self.n0)*alpha_buoy +
+                    self.d3*self.n1*alpha_buoy**2)
+        return as_max_n/as_max_d
+
+    def get_alpha_buoy_smooth_min(self, alpha_buoy):
+        """
+        Compute smoothed alpha_buoy minimum
+
+        from Burchard and Petersen (1999) eq (19)
+        """
+        return alpha_buoy - (alpha_buoy - self.alpha_buoy_crit)**2/(alpha_buoy + self.get_alpha_buoy_min() - 2*self.alpha_buoy_crit)
+
+    def eval_funcs(self, alpha_buoy, alpha_shear):
+        """
+        Evaluate (unlimited) stability functions
+
+        from Burchard and Petersen (1999) eqns (30) and (31)
+        """
+        den = self.d0 + self.d1*alpha_buoy + self.d2*alpha_shear + self.d3*alpha_buoy*alpha_shear + self.d4*alpha_buoy**2 + self.d5*alpha_shear**2
+        c_mu = (self.n0 + self.n1*alpha_buoy + self.n2*alpha_shear) / den
+        c_mu_p = (self.nb0 + self.nb1*alpha_buoy + self.nb2*alpha_shear) / den
         return c_mu, c_mu_p
 
-
-class StabilityFuncCanutoA(object):
-    """
-    Implementation of Canuto model A stability functions.
-
-    Implementation follows Burchard and Bolding JPO (2001).
-    """
-    def __init__(self):
-        # parameters
-        self.s0 = 0.1070
-        self.s1 = 0.01741
-        self.s2 = -0.00012
-        self.s3 = 0.1120
-        self.s4 = 0.004519
-        self.s5 = 0.00088
-        self.t1 = 0.2555
-        self.t2 = 0.02872
-        self.t3 = 0.008677
-        self.t4 = 0.005222
-        self.t5 = -0.0000337
-
-        self.c = 1.0
-
-    def compute_c3_minus(self, c1, c2):
+    def evaluate(self, shear2, buoy2, k, eps):
         """
-        Compute c3_minus parameter from c1, c2 and stability functions.
-
-        Burchard and Bolding (2001)
-        """
-        c_mu_ratio = 1.32339
-        ri_st = 0.25
-        return c_mu_ratio*(c1 - c2)/ri_st + c2
-
-    def get_functions(self, shear2, buoy2, k, eps, l):
-        """
-        Computes the values of the stability functions
+        Evaluates stability functions. Applies limiters on alpha_buoy and alpha_shear.
         """
         alpha_buoy, alpha_shear = compute_normalized_frequencies(shear2, buoy2, k, eps)
-        # limit max alpha_shear (Umlauf and Burchard, 2005)
-        # as_max =
+        if self.lim_alpha_buoy:
+            # limit min (negative) alpha_buoy (Umlauf and Burchard, 2005)
+            if not self.smooth_alpha_buoy_lim:
+                # crop at minimum value
+                np.maximum(alpha_buoy, self.get_alpha_buoy_min(), alpha_buoy)
+            else:
+                # do smooth limiting instead (Buchard and Petersen, 1999, eq 19)
+                ab_smooth_min = self.get_alpha_buoy_smooth_min(alpha_buoy)
+                # NOTE this must be applied to values alpha_buoy < ab_crit only!
+                ix = alpha_buoy < self.alpha_buoy_crit
+                alpha_buoy[ix] = ab_smooth_min[ix]
 
-        # limit min (negative) alpha_buoy (Umlauf and Burchard, 2005)
-        # ab_min = (sqrt((self.t1 + self.s3)**2. - 4.*1*(self.t3 + self.s4)) - (self.t1 + self.s3))/(self.t3 + self.s4)*0.5
-        ab_min = -3.0  # practical value (from Fig 3 in Burchard and Bolding, 2001)
-        alpha_buoy = np.maximum(alpha_buoy, ab_min)
+        if self.lim_alpha_shear:
+            # limit max alpha_shear (Umlauf and Burchard, 2005, eq 44)
+            as_max = self.get_alpha_shear_max(alpha_buoy, alpha_shear)
+            np.minimum(alpha_shear, as_max, alpha_shear)
 
-        den = 1 + self.t1*alpha_buoy + self.t2*alpha_shear + self.t3*alpha_buoy**2 + self.t4*alpha_buoy*alpha_shear + self.t5*alpha_shear**2
-        c_mu = (self.s0 + self.s1*alpha_buoy + self.s2*alpha_shear) / den
-        c_mu_p = (self.s3 + self.s4*alpha_buoy + self.s5*alpha_shear) / den
-        return c_mu, c_mu_p
+        return self.eval_funcs(alpha_buoy, alpha_shear)
 
 
-class StabilityFuncCanutoB(object):
-    """
-    Implementation of Canuto model A stability functions.
+class StabilityFunctionCanutoA(StabilityFunction):
+    """Canuto et al. (2001) version A stability functions"""
+    def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
+                 smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
+        # parameters from Umlauf and Buchard (2005), Table 1
+        self.cc1 = 5.0000
+        self.cc2 = 0.8000
+        self.cc3 = 1.9680
+        self.cc4 = 1.1360
+        self.cc5 = 0.0000
+        self.cc6 = 0.4000
 
-    Implementation follows Burchard and Bolding JPO (2001).
-    """
-    def __init__(self):
-        # parameters
-        self.s0 = 0.1270
-        self.s1 = 0.01526
-        self.s2 = -0.00016
-        self.s3 = 0.1190
-        self.s4 = 0.00429
-        self.s5 = 0.00066
-        self.t1 = 0.1977
-        self.t2 = 0.03154
-        self.t3 = 0.005832
-        self.t4 = 0.004124
-        self.t5 = -0.000042
+        self.cb1 = 5.9500
+        self.cb2 = 0.6000
+        self.cb3 = 1.0000
+        self.cb4 = 0.0000
+        self.cb5 = 0.3333
+        self.cbb = 0.7200
 
-        self.c = 1.0
+        self.alpha_buoy_min = -2.324    # (table 3 in Umlauf and Burchard, 2005)
+        self.name = 'Canuto A'
 
-    def compute_c3_minus(self, c1, c2):
-        """
-        Compute c3_minus parameter from c1, c2 and stability functions.
+        super(StabilityFunctionCanutoA, self).__init__(lim_alpha_shear, lim_alpha_buoy,
+                                                       smooth_alpha_buoy_lim, alpha_buoy_crit)
 
-        From Warner (2005) equation (48).
-        """
-        return 4.09*c1 - 4.00*c2
 
-    def get_functions(self, shear2, buoy2, k, eps, l):
-        """
-        Computes the values of the stability functions
-        """
-        alpha_buoy, alpha_shear = compute_normalized_frequencies(shear2, buoy2, k, eps)
-        den = 1 + self.t1*alpha_buoy + self.t2*alpha_shear + self.t3*alpha_buoy**2 + self.t4*alpha_buoy*alpha_shear + self.t5*alpha_shear**2
-        c_mu = (self.s0 + self.s1*alpha_buoy + self.s2*alpha_shear) / den
-        c_mu_p = (self.s3 + self.s4*alpha_buoy + self.s5*alpha_shear) / den
-        return c_mu, c_mu_p
+class StabilityFunctionCanutoB(StabilityFunction):
+    """Canuto et al. (2001) version B stability functions"""
+    def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
+                 smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
+        # parameters from Umlauf and Buchard (2005), Table 1
+        self.cc1 = 5.0000
+        self.cc2 = 0.6983
+        self.cc3 = 1.9664
+        self.cc4 = 1.0940
+        self.cc5 = 0.0000
+        self.cc6 = 0.4950
+
+        self.cb1 = 5.6000
+        self.cb2 = 0.6000
+        self.cb3 = 1.0000
+        self.cb4 = 0.0000
+        self.cb5 = 0.3333
+        self.cbb = 0.4770
+
+        self.alpha_buoy_min = -3.093    # (table 3 in Umlauf and Burchard, 2005)
+        self.name = 'Canuto B'
+
+        super(StabilityFunctionCanutoB, self).__init__(lim_alpha_shear, lim_alpha_buoy,
+                                                       smooth_alpha_buoy_lim, alpha_buoy_crit)
+
+
+class StabilityFunctionKanthaClayson(StabilityFunction):
+    """Kantha and Clayson (1994) quasi-equilibrium stability functions"""
+    def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
+                 smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
+        # parameters from Umlauf and Buchard (2005), Table 1
+        self.cc1 = 6.0000
+        self.cc2 = 0.3200
+        self.cc3 = 0.0000
+        self.cc4 = 0.0000
+        self.cc5 = 0.0000
+        self.cc6 = 0.0000
+
+        self.cb1 = 3.7280
+        self.cb2 = 0.7000
+        self.cb3 = 0.7000
+        self.cb4 = 0.0000
+        self.cb5 = 0.2000
+        self.cbb = 0.6102
+
+        self.alpha_buoy_min = -1.312  # (table 3 in Umlauf and Burchard, 2005)
+        self.name = 'Kantha Clayson'
+
+        super(StabilityFunctionKanthaClayson, self).__init__(lim_alpha_shear, lim_alpha_buoy,
+                                                             smooth_alpha_buoy_lim, alpha_buoy_crit)
+
+
+class StabilityFunctionCheng(StabilityFunction):
+    """Cheng et al. (2002) quasi-equilibrium stability functions"""
+    def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
+                 smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
+        # parameters from Umlauf and Buchard (2005), Table 1
+        self.cc1 = 5.0000
+        self.cc2 = 0.7983
+        self.cc3 = 1.9680
+        self.cc4 = 1.1360
+        self.cc5 = 0.0000
+        self.cc6 = 0.5000
+
+        self.cb1 = 5.5200
+        self.cb2 = 0.2134
+        self.cb3 = 0.3570
+        self.cb4 = 0.0000
+        self.cb5 = 0.3333
+        self.cbb = 0.8200
+
+        self.alpha_buoy_min = -2.029  # (table 3 in Umlauf and Burchard, 2005)
+        self.name = 'Cheng'
+
+        super(StabilityFunctionCheng, self).__init__(lim_alpha_shear, lim_alpha_buoy,
+                                                     smooth_alpha_buoy_lim, alpha_buoy_crit)
 
 
 class TKEEquation(TracerEquation):
@@ -707,16 +832,18 @@ class TKEEquation(TracerEquation):
         new_kwargs = {
             'eddy_diffusivity': diffusivity_v,
             'eddy_viscosity': viscosity_v,
-            'buoyancy_freq2': gls_model.n2,
+            'buoyancy_freq2_pos': gls_model.n2_pos,
+            'buoyancy_freq2_neg': gls_model.n2_neg,
             'shear_freq2': gls_model.m2,
             'epsilon': gls_model.epsilon,
             'k': gls_model.k,
         }
         self.kwargs.update(new_kwargs)
 
-    def source(self, eta, uv, w, eddy_viscosity, eddy_diffusivity,
-               shear_freq2, buoyancy_freq2, epsilon,
-               **kwargs):
+    def rhs_implicit(self, solution, eta, uv, w, eddy_viscosity,
+                     eddy_diffusivity, shear_freq2, buoyancy_freq2_pos,
+                     buoyancy_freq2_neg, epsilon,
+                     **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
 
@@ -727,10 +854,12 @@ class TKEEquation(TracerEquation):
         # N**2 = -g\rho_0 (drho/dz)      (buoyancy frequency)
         # eps = (cm0)**(3+p/n)*tke**(3/2+m/n)*psi**(-1/n)
         #                                (tke dissipation rate)
+        solution_old = kwargs['solution_old']
         p = eddy_viscosity * shear_freq2
-        b = - eddy_diffusivity * buoyancy_freq2
+        b_source = - eddy_diffusivity * buoyancy_freq2_neg
+        b_sink = - eddy_diffusivity * buoyancy_freq2_pos
 
-        source = p + b - epsilon
+        source = p + b_source + (b_sink - epsilon)/solution_old*solution  # patankar
         f = inner(source, self.test)*dx
         return f
 
@@ -768,16 +897,16 @@ class PsiEquation(TracerEquation):
         new_kwargs = {
             'eddy_diffusivity': diffusivity_v,
             'eddy_viscosity': viscosity_v,
-            'buoyancy_freq2': gls_model.n2,
+            'buoyancy_freq2_pos': gls_model.n2_pos,
+            'buoyancy_freq2_neg': gls_model.n2_neg,
             'shear_freq2': gls_model.m2,
             'epsilon': gls_model.epsilon,
             'k': gls_model.k,
-            'c3': gls_model.c3,
         }
         self.kwargs.update(new_kwargs)
 
     def rhs_implicit(self, solution, eta, uv, w, eddy_viscosity, eddy_diffusivity,
-                     shear_freq2, buoyancy_freq2, epsilon, k, diffusivity_v, c3,
+                     shear_freq2, buoyancy_freq2_pos, buoyancy_freq2_neg, epsilon, k, diffusivity_v,
                      **kwargs):
         """Returns the right hand side of the source terms.
         These terms do not depend on the solution."""
@@ -789,13 +918,19 @@ class PsiEquation(TracerEquation):
         # N**2 = -g\rho_0 (drho/dz)      (buoyancy frequency)
         # eps = (cm0)**(3+p/n)*tke**(3/2+m/n)*psi**(-1/n)
         #                                (tke dissipation rate)
+        solution_old = kwargs['solution_old']
         p = eddy_viscosity * shear_freq2
-        b = -eddy_diffusivity * buoyancy_freq2
         c1 = self.gls_model.params['c1']
         c2 = self.gls_model.params['c2']
+        # c3 switch: c3 = c3_minus if n2 > 0 else c3_plus
+        c3_minus = self.gls_model.params['c3_minus']  # < 0
+        c3_plus = self.gls_model.params['c3_plus']  # > 0
+        assert c3_minus < 0, 'c3_minus has unexpected sign'
+        assert c3_plus >= 0, 'c3_plus has unexpected sign'
+        b_source = c3_minus * -eddy_diffusivity * buoyancy_freq2_pos  # source
+        b_source += c3_plus * -eddy_diffusivity * buoyancy_freq2_neg  # source
         f_wall = self.gls_model.params['f_wall']
-        # NOTE source term must be implicit for stability
-        source = solution/k*(c1*p + c3*b - c2*f_wall*epsilon)
+        source = solution_old/k*(c1*p + b_source) - solution/k*(c2*f_wall*epsilon)  # patankar
         f = inner(source, self.test)*dx
 
         if self.compute_vert_diffusion:
@@ -811,13 +946,13 @@ class PsiEquation(TracerEquation):
             if self.v_elem_size is None:
                 raise Exception('v_elem_size required')
             # bottom condition
-            z_b = 0.5*self.v_elem_size + z0_friction
+            z_b = self.v_elem_size + z0_friction
             diff_flux = (n*diffusivity_v*(cm0)**p *
                          k**m * kappa**n * z_b**(n - 1.0))
             f += diff_flux*self.test*self.normal[2]*ds_bottom
             # surface condition
             z0_surface = Constant(0.01)  # TODO generalize
-            z_s = 0.5*self.v_elem_size + z0_surface
+            z_s = self.v_elem_size + z0_surface
             diff_flux = -(n*diffusivity_v*(cm0)**p *
                           k**m * kappa**n * z_s**(n - 1.0))
             f += diff_flux*self.test*self.normal[2]*ds_surf

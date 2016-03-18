@@ -41,7 +41,6 @@ mesh2d.coordinates.dat.data[:, 0] -= lx/2
 mesh2d.coordinates.dat.data[:, 1] -= ly/2
 
 print_info('Exporting to ' + outputdir)
-# NOTE bottom friction (implicit mom eq) will blow up for higher dt
 dt = 60.0
 t_end = 30 * 3600.0
 t_export = 5*60.0
@@ -94,7 +93,7 @@ solver_obj.create_function_spaces()
 N0 = 0.01
 # N = sqrt(-g/rho0 drho/dz)
 # drho/dz = -N0**2 * rho0/g
-rho_grad = -N0**2 * physical_constants['rho0'] / physical_constants['g_grav']
+rho_grad = -N0**2 * physical_constants['rho0'] / physical_constants['g_grav'] * 10  # HACK
 salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
 salt_init_expr = Expression('dsdz*x[2]', dsdz=rho_grad)
 salt_init3d.interpolate(salt_init_expr)

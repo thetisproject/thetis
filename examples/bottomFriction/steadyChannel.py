@@ -30,7 +30,7 @@ physical_constants['z0_friction'] = 1.5e-3
 outputdir = 'outputs'
 # set mesh resolution
 dx = 2500.0
-layers = 25  # NOTE blows up with fine mesh
+layers = 250
 depth = 15.0
 
 nx = 3  # nb elements in flow direction

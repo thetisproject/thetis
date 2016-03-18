@@ -389,12 +389,14 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             solver.eq_sw, solver.dt,
             solver.eq_sw.solver_parameters)
 
-        vdiff_sp = {'ksp_type': 'gmres',
+        vdiff_sp = {'snes_monitor': False,
+                    'ksp_type': 'gmres',
                     'pc_type': 'ilu',
-                    'snes_atol': 1e-29,
+                    'snes_atol': 1e-27,
                     }
         vert_timeintegrator = timeintegrator.DIRKLSPUM2
         # vert_timeintegrator = timeintegrator.BackwardEuler
+        # vert_timeintegrator = timeintegrator.ImplicitMidpoint
         self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum, solver.dt)
         if self.solver.options.solve_salt:

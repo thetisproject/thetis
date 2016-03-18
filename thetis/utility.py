@@ -416,7 +416,7 @@ class VelocityMagnitudeSolver(object):
 
     def solve(self):
         self.solver.solve()
-        self.solution.dat.data[:] = np.maximum(self.solution.dat.data[:], self.min_val)
+        np.maximum(self.solution.dat.data, self.min_val, self.solution.dat.data)
 
 
 class HorizontalJumpDiffusivity(object):
@@ -445,7 +445,7 @@ class HorizontalJumpDiffusivity(object):
 
     def solve(self):
         self.solver.solve()
-        self.output.dat.data[:] = np.minimum(self.max_val.dat.data, self.output.dat.data)
+        np.minimum(self.max_val.dat.data, self.output.dat.data, self.output.dat.data)
         self.output.dat.data[self.output.dat.data[:] < self.min_val] = self.min_val
 
 
@@ -913,7 +913,7 @@ class EquationOfState(object):
         Last optional argument rho0 is for computing deviation
         rho' = rho(S, Th, p) - rho0.
         """
-        s0 = np.maximum(s, 0.0)  # ensure positive salinity
+        np.maximum(s, 0.0, s)  # ensure positive salinity
         a = self.a
         b = self.b
         pn = (a[0] + th*a[1] + th*th*a[2] + th*th*th*a[3] + s0*a[4] +

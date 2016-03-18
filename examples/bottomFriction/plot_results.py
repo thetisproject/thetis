@@ -22,7 +22,8 @@ def load_function(var, export_ix):
 
 # construct plot coordinates
 npoints = layers*6
-z = numpy.linspace(0, -depth, npoints)
+z_max = -(depth - 1e-10)
+z = numpy.linspace(0, z_max, npoints)
 x = numpy.zeros_like(z)
 y = numpy.zeros_like(z)
 xyz = numpy.vstack((x, y, z)).T

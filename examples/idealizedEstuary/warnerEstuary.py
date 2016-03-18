@@ -18,7 +18,6 @@
 #     using a generic length scale method. Ocean Modelling, 8(1-2):81-113.
 #
 # Tuomas Karna 2016-02-17
-
 from thetis import *
 
 # set physical constants
@@ -45,15 +44,15 @@ u_tide = 0.4
 t_tide = 12*3600
 salt_ocean = 30.0
 rho_ocean = 1023.05
-depth_river = 5
-u_river = -0.08 * 5  # HACK
+depth_river = 10  # 5 HACK
+u_river = -0.08 * 5 / 2  # HACK
 salt_river = 0.0
 rho_river = 999.70
 
 # bathymetry
 p1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(p1_2d, name='Bathymetry')
-bathymetry_2d.interpolate(Expression('10.0 - 5.0*x[0]/100.0e3'))
+bathymetry_2d.interpolate(Expression('h_oce - (h_oce - h_riv)*x[0]/lx', h_oce=depth_ocean, h_riv=depth_river, lx=lx))
 
 simple_barotropic = False  # for testing flux boundary conditions
 
@@ -72,13 +71,13 @@ options.use_ale_moving_mesh = False
 options.baroclinic = not simple_barotropic
 options.uv_lax_friedrichs = Constant(1.0)
 options.tracer_lax_friedrichs = Constant(1.0)
-options.h_diffusivity = Constant(50.0)
-options.h_viscosity = Constant(50.0)
+# options.h_diffusivity = Constant(50.0)
+# options.h_viscosity = Constant(50.0)
 options.v_viscosity = Constant(1.3e-6)  # background value
 options.v_diffusivity = Constant(1.4e-7)  # background value
 options.use_limiter_for_tracers = True
 Re_h = 5.0
-options.smagorinsky_factor = None  # Constant(1.0/np.sqrt(Re_h))
+options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
 if options.use_mode_split:
     options.dt = dt
 options.t_export = t_export
@@ -101,11 +100,6 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
                                  'eddy_visc_3d', 'shear_freq_3d',
                                  'buoy_freq_3d', 'tke_3d', 'psi_3d',
                                  'eps_3d', 'len_3d']
-options.fields_to_export_numpy = ['uv_2d', 'elev_2d', 'uv_3d',
-                                  'w_3d', 'salt_3d', 'smag_visc_3d',
-                                  'eddy_visc_3d', 'shear_freq_3d',
-                                  'buoy_freq_3d', 'tke_3d', 'psi_3d',
-                                  'eps_3d', 'len_3d']
 options.timer_labels = []
 
 solverobj.create_function_spaces()
