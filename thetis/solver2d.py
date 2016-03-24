@@ -39,8 +39,6 @@ class FlowSolver2d(FrozenClass):
         self.iteration = 0
         self.i_export = 1
 
-        self.visu_spaces = {}
-        """Maps function space to a space where fields will be projected to for visualization"""
         self.callbacks = OrderedDict()
         """List of callback functions that will be called during exports"""
 
@@ -87,8 +85,6 @@ class FlowSolver2d(FrozenClass):
         # self.function_spaces.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d])
 
-        self.visu_spaces[self.function_spaces.U_2d] = self.function_spaces.P1v_2d
-        self.visu_spaces[self.function_spaces.H_2d] = self.function_spaces.P1_2d
         self._isfrozen = True
 
     def create_equations(self):
@@ -151,14 +147,11 @@ class FlowSolver2d(FrozenClass):
         uv_2d, elev_2d = self.fields.solution_2d.split()
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = elev_2d
-        self.visu_spaces[uv_2d.function_space()] = self.function_spaces.P1v_2d
-        self.visu_spaces[elev_2d.function_space()] = self.function_spaces.P1_2d
         self.exporters = {}
         if not self.options.no_exports:
             e = exporter.ExportManager(self.options.outputdir,
                                        self.options.fields_to_export,
                                        self.fields,
-                                       self.visu_spaces,
                                        field_metadata,
                                        export_type='vtk',
                                        verbose=self.options.verbose > 0)
@@ -167,7 +160,6 @@ class FlowSolver2d(FrozenClass):
             e = exporter.ExportManager(numpy_dir,
                                        self.options.fields_to_export_numpy,
                                        self.fields,
-                                       self.visu_spaces,
                                        field_metadata,
                                        export_type='numpy',
                                        verbose=self.options.verbose > 0)
@@ -176,7 +168,6 @@ class FlowSolver2d(FrozenClass):
             e = exporter.ExportManager(hdf5_dir,
                                        self.options.fields_to_export_hdf5,
                                        self.fields,
-                                       self.visu_spaces,
                                        field_metadata,
                                        export_type='hdf5',
                                        verbose=self.options.verbose > 0)
