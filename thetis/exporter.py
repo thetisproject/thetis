@@ -63,7 +63,7 @@ class VTKExporter(ExporterBase):
         # ensure correct output function name
         old_name = tmp_proj_func.name()
         tmp_proj_func.rename(name=self.func_name)
-        self.outfile << (tmp_proj_func, self.next_export_ix)
+        self.outfile.write(tmp_proj_func, time=self.next_export_ix)
         self.next_export_ix += 1
         # restore old name
         tmp_proj_func.rename(name=old_name)
@@ -370,4 +370,4 @@ class ExportManager(object):
 
     def export_bathymetry(self, bathymetry_2d):
         bathfile = File(os.path.join(self.outputdir, 'bath.pvd'))
-        bathfile << bathymetry_2d
+        bathfile.write(bathymetry_2d)
