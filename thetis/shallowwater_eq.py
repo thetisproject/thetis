@@ -369,15 +369,15 @@ class ShallowWaterEquations(Equation):
             p = self.U_space.ufl_element().degree()
             alpha = 60.*p*(p+1)
             f += (
-                + alpha/avg(h)*inner(tensor_jump(self.U_test, n), stress_jump)*self.dS
-                - inner(avg(grad(self.U_test)), stress_jump)*self.dS
-                - inner(tensor_jump(self.U_test, n), avg(stress))*self.dS
+                + alpha/avg(h)*inner(tensor_jump(self.U_test, n), stress_jump)*dS
+                - inner(avg(grad(self.U_test)), stress_jump)*dS
+                - inner(tensor_jump(self.U_test, n), avg(stress))*dS
             )
 
             # Dirichlet bcs only for DG
             for bnd_marker in self.boundary_markers:
                 funcs = self.bnd_functions.get(bnd_marker)
-                ds_bnd = self.ds(int(bnd_marker))
+                ds_bnd = ds(int(bnd_marker))
                 if funcs is not None:
                     depth = self.bathymetry
                     l = self.boundary_len[bnd_marker]
@@ -396,7 +396,7 @@ class ShallowWaterEquations(Equation):
                     )
 
         if self.use_grad_depth_term_viscosity_2d:
-            f += -dot(self.U_test, dot(grad(total_h)/total_h, stress))*self.dx
+            f += -dot(self.U_test, dot(grad(total_h)/total_h, stress))*dx
 
         return f
 

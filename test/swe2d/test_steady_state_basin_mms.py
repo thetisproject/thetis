@@ -338,7 +338,7 @@ def setup8dg(lx, ly, depth, f0, g):
     return setup8(lx, ly, depth, f0, g, mimetic=False)
 
 
-def setup9(lx, ly, depth, f0, g, mimetic=True):
+def setup9(lx, ly, depth, f0, g, **kwargs):
     """
     No Coriolis, non-trivial bath, viscosity, elev, u and v
     """
@@ -385,7 +385,8 @@ def setup9(lx, ly, depth, f0, g, mimetic=True):
                 nu=visc_str, dHdx=grad_h_x, dHdy=grad_h_y, H=bath_str+'+'+elev_str
             )
         ), lx=lx, h0=depth, f0=f0, g=g, nu0=nu0)
-    out['options'] = {'mimetic': mimetic, 'timestepper_type': 'cranknicolson'}
+    out['options'] = dict(kwargs)
+    out['options'].setdefault('timestepper_type', 'cranknicolson')
     out['solver_options'] = {'ksp_type': 'preonly', 'pc_type': 'lu', 'snes_monitor': True}
     out['bnd_funcs'] = {1: {'uv': None},
                         2: {'uv': None},
