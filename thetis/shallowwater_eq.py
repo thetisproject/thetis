@@ -352,10 +352,10 @@ class ShallowWaterEquations(Equation):
 
         if self.use_tensor_form_viscosity:
             stress = nu*grad(uv)
-            stress_jump = nu*tensor_jump(uv, n)
+            stress_jump = avg(nu)*tensor_jump(uv, n)
         else:
             stress = nu*2.*sym(grad(uv))
-            stress_jump = nu*2.*sym(tensor_jump(uv, n))
+            stress_jump = avg(nu)*2.*sym(tensor_jump(uv, n))
 
         f = inner(grad(self.U_test), stress)*dx
 
@@ -381,13 +381,18 @@ class ShallowWaterEquations(Equation):
                 if funcs is not None:
                     depth = self.bathymetry
                     l = self.boundary_len[bnd_marker]
-                    eta_ext, uv_ext = self.get_bnd_functions(None, uv, funcs, depth, l)
-                    if uv_ext is uv:
-                        continue
-                    elif self.use_tensor_form_viscosity:
-                        stress_jump = nu*outer(uv-uv_ext, n)
+                    if 'un' in funcs:
+                        delta_uv = (dot(uv,n) - funcs['un'])*self.normal
                     else:
-                        stress_jump = nu*2.*sym(outer(uv-uv_ext, n))
+                        eta_ext, uv_ext = self.get_bnd_functions(None, uv, funcs, depth, l)
+                        if uv_ext is uv:
+                            continue
+                        delta_uv = uv - uv_ext
+
+                    if self.use_tensor_form_viscosity:
+                        stress_jump = nu*outer(delta_uv, n)
+                    else:
+                        stress_jump = nu*2.*sym(outer(delta_uv, n))
 
                     f += (
                         2.0*alpha/h*inner(outer(self.U_test, n), stress_jump)*ds_bnd
