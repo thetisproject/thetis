@@ -47,8 +47,6 @@ class FlowSolver(FrozenClass):
                               'momentum': {},
                               'salt': {}}
 
-        self.visu_spaces = {}
-        """Maps function space to a space where fields will be projected to for visualization"""
         self.callbacks = OrderedDict()
         """List of callback functions that will be called during exports"""
 
@@ -135,14 +133,6 @@ class FlowSolver(FrozenClass):
         # self.function_spaces.U_scalar = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='DG', vdegree=self.options.order, name='U_scalar')
         # for turbulence
         self.function_spaces.turb_space = self.function_spaces.P0
-        # spaces for visualization
-        self.visu_spaces[self.function_spaces.U] = self.function_spaces.P1v
-        self.visu_spaces[self.function_spaces.H] = self.function_spaces.P1
-        self.visu_spaces[self.function_spaces.Hint] = self.function_spaces.P1
-        self.visu_spaces[self.function_spaces.W] = self.function_spaces.P1v
-        self.visu_spaces[self.function_spaces.P0] = self.function_spaces.P1
-        self.visu_spaces[self.function_spaces.P1] = self.function_spaces.P1
-        self.visu_spaces[self.function_spaces.P1DG] = self.function_spaces.P1
 
         # 2D spaces
         self.function_spaces.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1, name='P1_2d')
@@ -158,12 +148,6 @@ class FlowSolver(FrozenClass):
         # self.function_spaces.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_scalar_2d')
         self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='H_2d')
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d], name='V_2d')
-        self.visu_spaces[self.function_spaces.U_2d] = self.function_spaces.P1v_2d
-        self.visu_spaces[self.function_spaces.H_2d] = self.function_spaces.P1_2d
-        self.visu_spaces[self.function_spaces.P1v_2d] = self.function_spaces.P1v_2d
-        for key in self.visu_spaces:
-            # make sure that you always get the same temp work function
-            self.visu_spaces[key].max_work_functions = 1
         self._isfrozen = True
 
     def create_equations(self):
@@ -178,8 +162,6 @@ class FlowSolver(FrozenClass):
         uv_2d, eta2d = self.fields.solution_2d.split()
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = eta2d
-        self.visu_spaces[uv_2d.function_space()] = self.function_spaces.P1v_2d
-        self.visu_spaces[eta2d.function_space()] = self.function_spaces.P1_2d
         if self.options.use_bottom_friction:
             self.fields.uv_bottom_2d = Function(self.function_spaces.P1v_2d)
             self.fields.z_bottom_2d = Function(self.function_spaces.P1_2d)
@@ -418,7 +400,6 @@ class FlowSolver(FrozenClass):
             e = exporter.ExportManager(self.options.outputdir,
                                        self.options.fields_to_export,
                                        self.fields,
-                                       self.visu_spaces,
                                        field_metadata,
                                        export_type='vtk',
                                        verbose=self.options.verbose > 0)
@@ -427,7 +408,6 @@ class FlowSolver(FrozenClass):
             e = exporter.ExportManager(numpy_dir,
                                        self.options.fields_to_export_numpy,
                                        self.fields,
-                                       self.visu_spaces,
                                        field_metadata,
                                        export_type='numpy',
                                        verbose=self.options.verbose > 0)
@@ -436,7 +416,6 @@ class FlowSolver(FrozenClass):
             e = exporter.ExportManager(hdf5_dir,
                                        self.options.fields_to_export_hdf5,
                                        self.fields,
-                                       self.visu_spaces,
                                        field_metadata,
                                        export_type='hdf5',
                                        verbose=self.options.verbose > 0)

@@ -5,6 +5,23 @@ Tuomas Karna 2015-07-06
 """
 from utility import *
 import ufl
+from firedrake.output import is_cg
+
+
+def get_visu_space(fs):
+    """
+    Figure out the appropriate linear visualization space for fs
+    """
+    is_vector = len(fs.ufl_element().value_shape()) == 1
+    mesh = fs.mesh()
+    family = 'Lagrange' if is_cg(fs) else 'Discontinuous Lagrange'
+    if is_vector:
+        visu_fs = VectorFunctionSpace(mesh, family, 1)
+    else:
+        visu_fs = FunctionSpace(mesh, family, 1)
+    # make sure that you always get the same temp work function
+    visu_fs.max_work_functions = 1
+    return visu_fs
 
 
 class ExporterBase(object):
@@ -29,23 +46,32 @@ class ExporterBase(object):
 class VTKExporter(ExporterBase):
     """Class that handles Paraview file exports."""
     def __init__(self, fs_visu, func_name, outputdir, filename,
-                 next_export_ix=0, verbose=False):
-        """Creates exporter object.
-        fs_visu:  function space where data will be projected before exporting
-        func_name: name of the function
-        outputdir: output directory
-        filename: name of the pvd file
+                 next_export_ix=0, project_output=False,
+                 verbose=False):
+        """
+        Creates VTK exporter object.
+
+        :arg fs_visu: function space where input function will be cast
+            before exporting
+        :arg func_name: name of the function
+        :arg outputdir: output directory
+        :arg filename: name of the pvd file
+        :kwarg next_export_ix: index for next export (default 0)
+        :kwarg project_output: project function to output space instead of
+            interpolating
+        :kwarg varbose: print debug info to stdout
         """
         super(VTKExporter, self).__init__(filename, outputdir, next_export_ix,
                                           verbose)
         self.fs_visu = fs_visu
         self.func_name = func_name
+        self.project_output = project_output
         suffix = '.pvd'
         # append suffix if missing
         if (len(filename) < len(suffix)+1 or filename[:len(suffix)] != suffix):
             self.filename += suffix
         self.outfile = File(os.path.join(outputdir, self.filename))
-        self.P = {}
+        self.cast_operators = {}
 
     def set_next_export_ix(self, next_export_ix):
         """Sets the index of next export"""
@@ -56,14 +82,22 @@ class VTKExporter(ExporterBase):
         """Exports given function to disk."""
         assert self.fs_visu.max_work_functions == 1
         tmp_proj_func = self.fs_visu.get_work_function()
-        if function not in self.P:
-            # NOTE tmp function must be invariant as the projector is built only once
-            self.P[function] = Projector(function, tmp_proj_func)
-        self.P[function].project()
+        # NOTE tmp function must be invariant as the projector is built only once
+        op = self.cast_operators.get(function)
+        if self.project_output:
+            if op is None:
+                op = Projector(function, tmp_proj_func)
+                self.cast_operators[function] = op
+            op.project()
+        else:
+            if op is None:
+                op = Interpolator(function, tmp_proj_func)
+                self.cast_operators[function] = op
+            op.interpolate()
         # ensure correct output function name
         old_name = tmp_proj_func.name()
         tmp_proj_func.rename(name=self.func_name)
-        self.outfile << (tmp_proj_func, self.next_export_ix)
+        self.outfile.write(tmp_proj_func, time=self.next_export_ix)
         self.next_export_ix += 1
         # restore old name
         tmp_proj_func.rename(name=old_name)
@@ -315,15 +349,12 @@ class HDF5Exporter(ExporterBase):
 class ExportManager(object):
     """Handles a list of file exporter objects"""
 
-    def __init__(self, outputdir, fields_to_export, functions,
-                 visualization_spaces, field_metadata,
-                 export_type='vtk', next_export_ix=0,
-                 verbose=False):
+    def __init__(self, outputdir, fields_to_export, functions, field_metadata,
+                 export_type='vtk', next_export_ix=0, verbose=False):
         self.outputdir = outputdir
         self.fields_to_export = fields_to_export
         self.functions = functions
         self.field_metadata = field_metadata
-        self.visualization_spaces = visualization_spaces
         self.verbose = verbose
         # for each field create an exporter
         self.exporters = {}
@@ -333,9 +364,7 @@ class ExportManager(object):
             field = self.functions.get(key)
             if field is not None and isinstance(field, Function):
                 native_space = field.function_space()
-                visu_space = self.visualization_spaces.get(native_space)
-                if visu_space is None:
-                    raise Exception('missing visualization space for: '+key)
+                visu_space = get_visu_space(native_space)
                 if export_type.lower() == 'vtk':
                     self.exporters[key] = VTKExporter(visu_space, shortname,
                                                       outputdir, fn,
@@ -370,4 +399,4 @@ class ExportManager(object):
 
     def export_bathymetry(self, bathymetry_2d):
         bathfile = File(os.path.join(self.outputdir, 'bath.pvd'))
-        bathfile << bathymetry_2d
+        bathfile.write(bathymetry_2d)

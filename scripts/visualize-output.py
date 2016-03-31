@@ -39,8 +39,43 @@ def generate_pvd_file(outdir, fieldname, timesteps, usepvtu=False):
     f.close()
 
 
+def replace_path_in_xml(filename, outputfile, new_path):
+    """
+    Replaces all paths in paraview xml file PVDReader entries.
+
+    All PVDReader entries of the form
+    <Proxy group="sources" type="PVDReader" ...>
+      <Property name="FileName" ...>
+        <Element value="some/path/to/a_file.pvd" .../>
+        ...
+      </Property>
+      ...
+    </Proxy>
+
+    will be reaplaced by
+    <Proxy group="sources" type="PVDReader" ...>
+      <Property name="FileName" ...>
+        <Element value="new_path/a_file.pvd" .../>
+        ...
+      </Property>
+      ...
+    </Proxy>
+
+    """
+    import xml.etree.ElementTree as ET
+    tree = ET.parse(filename)
+    root = tree.getroot()
+    readers = root[0].findall("Proxy[@type='PVDReader']")
+    for reader in readers:
+        fnameprop = reader.findall("Property[@name='FileName']/Element")[0]
+        old_fname = fnameprop.attrib['value']
+        path, file = os.path.split(old_fname)
+        new_fname = os.path.join(new_path, file)
+        fnameprop.attrib['value'] = new_fname
+    tree.write(outputfile)
+
+
 def process_args(outputdir, state_file, regenerate_pvd=True, timesteps=None, parallel_vtu=True):
-    default_out_dir = 'outputs'
     temp_state_file = os.path.join(TMP_DIR, 'tmp.pvsm')
     paraview_bin = 'paraview'
     pv_log_file = os.path.join(TMP_DIR, 'log_pvoutput.txt')
@@ -54,12 +89,7 @@ def process_args(outputdir, state_file, regenerate_pvd=True, timesteps=None, par
             if fieldName not in static_pvd_files:
                 generate_pvd_file(outputdir, fieldName, timesteps, usepvtu=parallel_vtu)
     # read state file, replace directory with new one
-    new_content = ''
-    with open(state_file, 'r') as f:
-        content = f.read()
-        new_content = content.replace(default_out_dir, outputdir)
-    with open(temp_state_file, 'w') as f:
-        f.write(new_content)
+    replace_path_in_xml(state_file, temp_state_file, outputdir)
     # lauch paraview with new independent thread
     log_file = open(pv_log_file, 'w')
     cmd = ' '.join([paraview_bin, '--state={:}'.format(temp_state_file), '>', pv_log_file])
