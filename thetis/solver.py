@@ -401,6 +401,7 @@ class FlowSolver(FrozenClass):
                                        self.options.fields_to_export,
                                        self.fields,
                                        field_metadata,
+                                       self.function_spaces,
                                        export_type='vtk',
                                        verbose=self.options.verbose > 0)
             self.exporters['vtk'] = e
@@ -409,6 +410,7 @@ class FlowSolver(FrozenClass):
                                        self.options.fields_to_export_numpy,
                                        self.fields,
                                        field_metadata,
+                                       self.function_spaces,
                                        export_type='numpy',
                                        verbose=self.options.verbose > 0)
             self.exporters['numpy'] = e
@@ -417,6 +419,7 @@ class FlowSolver(FrozenClass):
                                        self.options.fields_to_export_hdf5,
                                        self.fields,
                                        field_metadata,
+                                       self.function_spaces,
                                        export_type='hdf5',
                                        verbose=self.options.verbose > 0)
             self.exporters['hdf5'] = e

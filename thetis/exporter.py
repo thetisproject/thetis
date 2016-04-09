@@ -8,17 +8,20 @@ import ufl
 from firedrake.output import is_cg
 
 
-def get_visu_space(fs):
+def is_2d(fs):
+    """Tests wether a function space is 2d or 3d"""
+    return fs.mesh().geometric_dimension() == 2
+
+
+def get_visu_space(fs, function_space_pool):
     """
     Figure out the appropriate linear visualization space for fs
     """
     is_vector = len(fs.ufl_element().value_shape()) == 1
-    mesh = fs.mesh()
-    family = 'Lagrange' if is_cg(fs) else 'Discontinuous Lagrange'
-    if is_vector:
-        visu_fs = VectorFunctionSpace(mesh, family, 1)
-    else:
-        visu_fs = FunctionSpace(mesh, family, 1)
+    space = 'P1' if is_cg(fs) else 'P1DG'
+    vector = 'v' if is_vector else ''
+    dim = '_2d' if is_2d(fs) else ''
+    visu_fs = function_space_pool[space + vector + dim]
     # make sure that you always get the same temp work function
     visu_fs.max_work_functions = 1
     return visu_fs
@@ -47,7 +50,7 @@ class VTKExporter(ExporterBase):
     """Class that handles Paraview file exports."""
     def __init__(self, fs_visu, func_name, outputdir, filename,
                  next_export_ix=0, project_output=False,
-                 verbose=False):
+                 coords_dg=None, verbose=False):
         """
         Creates VTK exporter object.
 
@@ -66,6 +69,7 @@ class VTKExporter(ExporterBase):
         self.fs_visu = fs_visu
         self.func_name = func_name
         self.project_output = project_output
+        self.coords_dg = coords_dg
         suffix = '.pvd'
         # append suffix if missing
         if (len(filename) < len(suffix)+1 or filename[:len(suffix)] != suffix):
@@ -94,6 +98,10 @@ class VTKExporter(ExporterBase):
                 op = Interpolator(function, tmp_proj_func)
                 self.cast_operators[function] = op
             op.interpolate()
+        coordfunc = function.function_space().mesh().coordinates
+        if coordfunc not in self.outfile._output_functions and self.coords_dg is not None:
+            # hacky workaround to avoid allocating dg coord function in each File object
+            self.outfile._output_functions[coordfunc] = self.coords_dg
         # ensure correct output function name
         old_name = tmp_proj_func.name()
         tmp_proj_func.rename(name=self.func_name)
@@ -350,12 +358,17 @@ class ExportManager(object):
     """Handles a list of file exporter objects"""
 
     def __init__(self, outputdir, fields_to_export, functions, field_metadata,
+                 function_space_pool,
                  export_type='vtk', next_export_ix=0, verbose=False):
         self.outputdir = outputdir
         self.fields_to_export = fields_to_export
         self.functions = functions
         self.field_metadata = field_metadata
+        self.function_space_pool = function_space_pool
         self.verbose = verbose
+        # allocate dg coord field to avoid creating one in File
+        self.coords_dg_2d = None
+        self.coords_dg_3d = None
         # for each field create an exporter
         self.exporters = {}
         for key in fields_to_export:
@@ -364,10 +377,12 @@ class ExportManager(object):
             field = self.functions.get(key)
             if field is not None and isinstance(field, Function):
                 native_space = field.function_space()
-                visu_space = get_visu_space(native_space)
+                visu_space = get_visu_space(native_space, function_space_pool)
+                coords_dg = self._get_dg_coordinates(visu_space)
                 if export_type.lower() == 'vtk':
                     self.exporters[key] = VTKExporter(visu_space, shortname,
                                                       outputdir, fn,
+                                                      coords_dg=coords_dg,
                                                       next_export_ix=next_export_ix)
                 elif export_type.lower() == 'numpy':
                     self.exporters[key] = NaiveFieldExporter(native_space,
@@ -377,6 +392,16 @@ class ExportManager(object):
                     self.exporters[key] = HDF5Exporter(native_space,
                                                        outputdir, fn,
                                                        next_export_ix=next_export_ix)
+
+    def _get_dg_coordinates(self, fs):
+        """Get a cached dg function to be used as dg coordinate field in VTK output objects."""
+        if is_2d(fs):
+            if self.coords_dg_2d is None:
+                self.coords_dg_2d = Function(self.function_space_pool.P1DGv_2d, name='coordinates 2d dg')
+            return self.coords_dg_2d
+        if self.coords_dg_3d is None:
+            self.coords_dg_3d = Function(self.function_space_pool.P1DGv, name='coords 3d dg')
+        return self.coords_dg_3d
 
     def set_next_export_ix(self, next_export_ix):
         """Sets the correct export index to all child exporters"""

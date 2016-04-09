@@ -69,6 +69,8 @@ class FlowSolver2d(FrozenClass):
         self.function_spaces.P0_2d = FunctionSpace(self.mesh2d, 'DG', 0)
         self.function_spaces.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1)
         self.function_spaces.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
+        self.function_spaces.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1)
+        self.function_spaces.P1DGv_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1)
         if self.options.mimetic and self.options.continuous_pressure:
             raise ValueError("Cannot combine options mimetic and continuous_pressure")
         # 2D velocity space
@@ -156,6 +158,7 @@ class FlowSolver2d(FrozenClass):
                                        self.options.fields_to_export,
                                        self.fields,
                                        field_metadata,
+                                       self.function_spaces,
                                        export_type='vtk',
                                        verbose=self.options.verbose > 0)
             self.exporters['vtk'] = e
@@ -164,6 +167,7 @@ class FlowSolver2d(FrozenClass):
                                        self.options.fields_to_export_numpy,
                                        self.fields,
                                        field_metadata,
+                                       self.function_spaces,
                                        export_type='numpy',
                                        verbose=self.options.verbose > 0)
             self.exporters['numpy'] = e
@@ -172,6 +176,7 @@ class FlowSolver2d(FrozenClass):
                                        self.options.fields_to_export_hdf5,
                                        self.fields,
                                        field_metadata,
+                                       self.function_spaces,
                                        export_type='hdf5',
                                        verbose=self.options.verbose > 0)
             self.exporters['hdf5'] = e
