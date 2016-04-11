@@ -57,13 +57,18 @@ Implementation follows [4].
     8(1-2):81--113.
     http://dx.doi.org/10.1016/j.ocemod.2003.12.003
 
-
+[5] Umlauf, L. and Burchard, H. (2005). Second-order turbulence closure models
+    for geophysical boundary layers. A review of recent work. Continental Shelf
+    Research, 25(7-8):795--827.
+    http://dx.doi.org/10.1016/j.csr.2004.08.004
 
 Tuomas Karna 2015-09-07
 """
 from tracer_eq import *
 from utility import *
 from stability_functions import *
+
+# TODO add gls_options and add shorthands for models like k-omega etc
 
 
 def set_func_min_val(f, minval):
@@ -78,6 +83,56 @@ def set_func_max_val(f, maxval):
     Sets a minimum value to a function
     """
     f.dat.data[f.dat.data > maxval] = maxval
+
+
+class P1Average(object):
+    """
+    Takes a DP field and computes nodal averages and stores in P1 field.
+
+    Source must be either a p0 or p1dg function.
+    The averaging operation is both mass conservative and positivity preserving.
+    """
+    def __init__(self, p0, p1, p1dg):
+        self.p0 = p0
+        self.p1 = p1
+        self.p1dg = p1dg
+        self.vol_p1 = Function(self.p1, name='nodal volume p1')
+        self.vol_p1dg = Function(self.p1dg, name='nodal volume p1dg')
+        self.update_volumes()
+
+    def update_volumes(self):
+        assemble(TestFunction(self.p1)*dx, self.vol_p1)
+        assemble(TestFunction(self.p1dg)*dx, self.vol_p1dg)
+        print 'vol_p1', self.vol_p1.dat.data.min(), self.vol_p1.dat.data.max()
+        print 'vol_p1dg', self.vol_p1dg.dat.data.min(), self.vol_p1dg.dat.data.max()
+
+    def apply(self, source, solution):
+        assert solution.function_space() == self.p1
+        assert source.function_space() == self.p0 or source.function_space() == self.p1dg
+        source_is_p0 = source.function_space() == self.p0
+
+        source_str = 'source[0][c]' if source_is_p0 else 'source[d][c]'
+        solution.assign(0.0)
+        fs_source = source.function_space()
+        self.kernel = op2.Kernel("""
+            void my_kernel(double **p1_average, double **source, double **vol_p1, double **vol_p1dg) {
+                for ( int d = 0; d < %(nodes)d; d++ ) {
+                    for ( int c = 0; c < %(func_dim)d; c++ ) {
+                        p1_average[d][c] += %(source_str)s * vol_p1dg[d][c] / vol_p1[d][c];
+                    }
+                }
+            }""" % {'nodes': solution.cell_node_map().arity,
+                    'func_dim': solution.function_space().dim,
+                    'source_str': source_str},
+            'my_kernel')
+
+        op2.par_loop(
+            self.kernel, self.p1.mesh().cell_set,
+            solution.dat(op2.WRITE, self.p1.cell_node_map()),
+            source.dat(op2.READ, fs_source.cell_node_map()),
+            self.vol_p1.dat(op2.READ, self.p1.cell_node_map()),
+            self.vol_p1dg.dat(op2.READ, self.p1dg.cell_node_map()),
+            iterate=op2.ALL)
 
 
 class VerticalGradSolver(object):
@@ -182,7 +237,7 @@ class ShearFrequencySolver(object):
 
         self.var_solvers = {}
         for i_comp in range(2):
-            solver = SmoothVerticalGradSolver(uv[i_comp], mu_tmp)
+            solver = VerticalGradSolver(uv[i_comp], mu_tmp)
             self.var_solvers[i_comp] = solver
 
     def solve(self, init_solve=False):
@@ -224,7 +279,7 @@ class BuoyFrequencySolver(object):
             g = physical_constants['g_grav']
             rho0 = physical_constants['rho0']
             p = -g/rho0 * rho
-            solver = SmoothVerticalGradSolver(p, self.n2_tmp)
+            solver = VerticalGradSolver(p, self.n2_tmp)
             self.var_solver = solver
 
     def solve(self, init_solve=False):
@@ -315,18 +370,29 @@ class GenericLengthScaleModel(object):
         self.n2_neg = Function(self.n2.function_space(),
                                name='negative buoyancy frequency')
 
+        self.viscosity_native = Function(self.n2.function_space(),
+                                         name='GLS viscosity')
+        self.diffusivity_native = Function(self.n2.function_space(),
+                                           name='GLS diffusivity')
+        self.p1_averager = P1Average(solver.function_spaces.P0,
+                                     solver.function_spaces.P1,
+                                     solver.function_spaces.P1DG)
+
         # parameter to mix old and new viscosity values (1 => new only)
         self.relaxation = 0.5
 
         self.stability_type = stability_type
+        stab_args = {'lim_alpha_shear': True,
+                     'lim_alpha_buoy': True,
+                     'smooth_alpha_buoy_lim': False}
         if self.stability_type == 'KC':
-            self.stability_func = StabilityFunctionKanthaClayson()
+            self.stability_func = StabilityFunctionKanthaClayson(**stab_args)
         elif self.stability_type == 'CA':
-            self.stability_func = StabilityFunctionCanutoA()
+            self.stability_func = StabilityFunctionCanutoA(**stab_args)
         elif self.stability_type == 'CB':
-            self.stability_func = StabilityFunctionCanutoB()
+            self.stability_func = StabilityFunctionCanutoB(**stab_args)
         elif self.stability_type == 'CH':
-            self.stability_func = StabilityFunctionCheng()
+            self.stability_func = StabilityFunctionCheng(**stab_args)
         else:
             raise Exception('Unknown stability function type: ' +
                             self.stability_type)
@@ -473,13 +539,14 @@ class GenericLengthScaleModel(object):
         lam = self.relaxation
         new_visc = b*s_m/cm0**3
         new_diff = b*s_h/cm0**3
-        self.viscosity.dat.data[:] = lam*new_visc + (1.0 - lam)*self.viscosity.dat.data[:]
-        self.diffusivity.dat.data[:] = lam*new_diff + (1.0 - lam)*self.diffusivity.dat.data[:]
+        self.viscosity_native.dat.data[:] = lam*new_visc + (1.0 - lam)*self.viscosity_native.dat.data[:]
+        self.diffusivity_native.dat.data[:] = lam*new_diff + (1.0 - lam)*self.diffusivity_native.dat.data[:]
 
+        self.p1_averager.apply(self.viscosity_native, self.viscosity)
+        self.p1_averager.apply(self.diffusivity_native, self.diffusivity)
         set_func_min_val(self.viscosity, self.params['visc_min'])
         set_func_min_val(self.diffusivity, self.params['diff_min'])
-        set_func_max_val(self.viscosity, 0.05)
-        set_func_max_val(self.diffusivity, 0.05)
+
         # print '{:8s} {:8.3e} {:8.3e}'.format('k', self.k.dat.data.min(), self.k.dat.data.max())
         # print '{:8s} {:8.3e} {:8.3e}'.format('eps', self.epsilon.dat.data.min(), self.epsilon.dat.data.max())
         # print '{:8s} {:8.3e} {:8.3e}'.format('L', self.l.dat.data.min(), self.l.dat.data.max())

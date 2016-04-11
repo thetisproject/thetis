@@ -100,7 +100,7 @@ def run_bottom_friction(parabolic_visosity=False, mimetic=False,
         # compare against logarithmic velocity profile
         # u = u_b / kappa * log((z + bath + z_0)/z_0)
         # estimate bottom friction velocity from maximal u
-        u_max = 0.9  # max velocity in [2] Fig 2.
+        u_max = 0.8  # max velocity in [2] Fig 2.
         l2_tol = 0.05
         if parabolic_visosity:
             kappa = physical_constants['von_karman']

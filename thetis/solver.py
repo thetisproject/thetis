@@ -236,8 +236,8 @@ class FlowSolver(FrozenClass):
             # NOTE other turb. quantities should share the same nodes ??
             self.fields.eps_3d = Function(self.function_spaces.turb_space)
             self.fields.len_3d = Function(self.function_spaces.turb_space)
-            self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
-            self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
+            self.fields.eddy_visc_3d = Function(self.function_spaces.P1)
+            self.fields.eddy_diff_3d = Function(self.function_spaces.P1)
             # NOTE M2 and N2 depend on d(.)/dz -> use CG in vertical ?
             self.fields.shear_freq_3d = Function(self.function_spaces.turb_space)
             self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)

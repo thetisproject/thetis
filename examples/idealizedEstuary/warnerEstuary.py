@@ -44,8 +44,8 @@ u_tide = 0.4
 t_tide = 12*3600
 salt_ocean = 30.0
 rho_ocean = 1023.05
-depth_river = 10  # 5 HACK
-u_river = -0.08 * 5 / 2  # HACK
+depth_river = 5
+u_river = -0.08
 salt_river = 0.0
 rho_river = 999.70
 
@@ -106,11 +106,11 @@ solverobj.create_function_spaces()
 
 # initial conditions
 salt_init3d = Function(solverobj.function_spaces.H, name='initial salinity')
-# salt_init3d.interpolate(Expression('s_oce - (s_oce - s_riv)*(x[0] - 30000)/50000',
-#                                    s_oce=rho_ocean, s_riv=rho_river))
-salt_init3d.interpolate(Expression('(s_riv + (s_riv - s_oce)*(x[0] - 80000)/50000 * (0.5 - 0.5*tanh(4*(x[2] + 2.0))) )',
+# original vertically uniform initial condition
+salt_init3d.interpolate(Expression('s_oce - (s_oce - s_riv)*(x[0] - 30000)/50000',
                                    s_oce=rho_ocean, s_riv=rho_river))
-# salt_init3d.interpolate(Expression('s_oce - (s_oce - s_riv)*(x[0] - 18000 - 2000*(5.0-x[2]))/50000',
+# start from idealized salt wedge
+# salt_init3d.interpolate(Expression('(s_riv + (s_riv - s_oce)*(x[0] - 80000)/50000 * (0.5 - 0.5*tanh(4*(x[2] + 2.0))) )',
 #                                    s_oce=rho_ocean, s_riv=rho_river))
 min_ix = salt_init3d.dat.data < rho_river
 salt_init3d.dat.data[min_ix] = rho_river

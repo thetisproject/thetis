@@ -211,7 +211,8 @@ def test_vertical_viscosity(order, implicit, mimetic):
 
 if __name__ == '__main__':
     # run(2, order=0, implicit=True)
-    run_convergence([1, 2, 4, 8], order=0, implicit=True, mimetic=True, saveplot=True)
-    run_convergence([1, 2, 4, 8], order=1, implicit=True, mimetic=True, saveplot=True)
-    run_convergence([1, 2, 4, 8], order=0, implicit=True, mimetic=False, saveplot=True)
-    run_convergence([1, 2, 4, 8], order=1, implicit=True, mimetic=False, saveplot=True)
+    run_convergence([1, 2, 3], order=1, implicit=False, mimetic=False, saveplot=True)
+    # run_convergence([1, 2, 4, 8], order=0, implicit=True, mimetic=True, saveplot=True)
+    # run_convergence([1, 2, 4, 8], order=1, implicit=True, mimetic=True, saveplot=True)
+    # run_convergence([1, 2, 4, 8], order=0, implicit=True, mimetic=False, saveplot=True)
+    # run_convergence([1, 2, 4, 8], order=1, implicit=True, mimetic=False, saveplot=True)

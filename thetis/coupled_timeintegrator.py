@@ -394,8 +394,8 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                     'pc_type': 'ilu',
                     'snes_atol': 1e-27,
                     }
-        vert_timeintegrator = timeintegrator.DIRKLSPUM2
-        # vert_timeintegrator = timeintegrator.BackwardEuler
+        # vert_timeintegrator = timeintegrator.DIRKLSPUM2
+        vert_timeintegrator = timeintegrator.BackwardEuler
         # vert_timeintegrator = timeintegrator.ImplicitMidpoint
         self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum, solver.dt)

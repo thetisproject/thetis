@@ -1,6 +1,22 @@
 """
 Implements turbulence closure model stability functions.
 
+References:
+
+[1] Umlauf, L. and Burchard, H. (2005). Second-order turbulence closure models
+    for geophysical boundary layers. A review of recent work. Continental Shelf
+    Research, 25(7-8):795--827.
+    http://dx.doi.org/10.1016/j.csr.2004.08.004
+
+[2] Burchard, H. and Bolding, K. (2001). Comparative Analysis of Four Second-Moment
+    Turbulence Closure Models for the Oceanic Mixed Layer. Journal of Physical
+    Oceanography, 31(8):1943--1968.
+    http://dx.doi.org/10.1175/1520-0485(2001)031
+
+[3] Umlauf, L. and Burchard, H. (2003). A generic length-scale equation for
+    geophysical turbulence models. Journal of Marine Research, 61:235--265(31).
+    http://dx.doi.org/10.1357/002224003322005087
+
 """
 import numpy as np
 
