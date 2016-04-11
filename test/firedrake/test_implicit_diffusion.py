@@ -174,8 +174,8 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     solver = LinearVariationalSolver(prob, solver_parameters=sp)
 
     if do_export:
-        sol_file << solution
-        ana_file << ana_sol
+        sol_file.write(solution)
+        ana_file.write(ana_sol)
     print 'sol', solution.dat.data.min(), solution.dat.data.max()
     print 'ana', ana_sol.dat.data.min(), ana_sol.dat.data.max()
     # time loop
@@ -195,8 +195,8 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
                               z0=-depth/2.0)
     ana_sol.project(ana_sol_expr)
     if do_export:
-        sol_file << solution
-        ana_file << ana_sol
+        sol_file.write(solution)
+        ana_file.write(ana_sol)
     print 'sol', solution.dat.data.min(), solution.dat.data.max()
     print 'ana', ana_sol.dat.data.min(), ana_sol.dat.data.max()
 

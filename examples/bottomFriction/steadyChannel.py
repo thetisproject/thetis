@@ -102,7 +102,7 @@ if __name__ == '__main__':
                               u_b=u_b, kappa=kappa,
                               depth=depth, z_0=z_0))
     out = File(outputdir + '/log_uv.pvd')
-    out << log_uv
+    out.write(log_uv)
 
     uv_p1_dg = Function(solver_obj.function_spaces.P1DGv, name='velocity p1dg')
     uv_p1_dg.project(solver_obj.fields.uv_3d)

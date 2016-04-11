@@ -97,7 +97,7 @@ def run(refinement, order=1, mimetic=False, warped_mesh=False, do_export=True):
             t_const.assign(t)
             ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_viscosity, t=t_const)
             uv_ana.project(ana_uv_expr)
-            out_uv_ana << uv_ana_p1.project(uv_ana)
+            out_uv_ana.write(uv_ana_p1.project(uv_ana))
 
     # export initial conditions
     export_func()

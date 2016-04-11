@@ -114,7 +114,7 @@ def run_bottom_friction(parabolic_visosity=False, mimetic=False,
                                   depth=depth, z_0=z_0))
         if do_export:
             out = File(outputdir + '/log_uv.pvd')
-            out << log_uv
+            out.write(log_uv)
 
     solver_obj.iterate()
 
