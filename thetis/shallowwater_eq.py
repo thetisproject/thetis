@@ -382,7 +382,7 @@ class ShallowWaterEquations(Equation):
                     depth = self.bathymetry
                     l = self.boundary_len[bnd_marker]
                     if 'un' in funcs:
-                        delta_uv = (dot(uv,n) - funcs['un'])*self.normal
+                        delta_uv = (dot(uv, n) - funcs['un'])*self.normal
                     else:
                         eta_ext, uv_ext = self.get_bnd_functions(None, uv, funcs, depth, l)
                         if uv_ext is uv:
