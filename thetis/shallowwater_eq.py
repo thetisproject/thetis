@@ -395,7 +395,7 @@ class ShallowWaterEquations(Equation):
                         stress_jump = nu*2.*sym(outer(delta_uv, n))
 
                     f += (
-                        2.0*alpha/h*inner(outer(self.U_test, n), stress_jump)*ds_bnd
+                        alpha/h*inner(outer(self.U_test, n), stress_jump)*ds_bnd
                         - inner(grad(self.U_test), stress_jump)*ds_bnd
                         - inner(outer(self.U_test, n), stress)*ds_bnd
                     )

@@ -418,7 +418,7 @@ def run(setup, refinement, order, do_export=True, **kwargs):
     mesh2d = RectangleMesh(nx, ny, lx, ly)
     dt = 4.0/refinement
     if sdict['options'].get('timestepper_type') == 'cranknicolson':
-        dt *= 10.
+        dt *= 100.
 
     # outputs
     outputdir = 'outputs'
