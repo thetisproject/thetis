@@ -127,16 +127,18 @@ class VertexBasedP1DGLimiter(object):
                   'qmin': (self.min_field, RW),
                   'centroids': (self.centroids, READ)})
 
-        # Add nodal values from lateral boundaries
-        par_loop("""
-            for (int i=0; i<qmax.dofs; i++) {
-                qmax[i][0] = fmax(qmax[i][0], field[i][0]);
-                qmin[i][0] = fmin(qmin[i][0], field[i][0]);
-            }""",
-                 ds,
-                 {'qmax': (self.max_field, RW),
-                  'qmin': (self.min_field, RW),
-                  'field': (field, READ)})
+        # NOTE This does not limit solution at lateral boundaries at all
+        # NOTE Omit for now
+        # # Add nodal values from lateral boundaries
+        # par_loop("""
+        #     for (int i=0; i<qmax.dofs; i++) {
+        #         qmax[i][0] = fmax(qmax[i][0], field[i][0]);
+        #         qmin[i][0] = fmin(qmin[i][0], field[i][0]);
+        #     }""",
+        #          ds,
+        #          {'qmax': (self.max_field, RW),
+        #           'qmin': (self.min_field, RW),
+        #           'field': (field, READ)})
 
         if not self.is_2d:
             # Add nodal values from surface/bottom boundaries
