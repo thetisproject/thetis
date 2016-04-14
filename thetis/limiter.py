@@ -141,24 +141,36 @@ class VertexBasedP1DGLimiter(object):
         if not self.is_2d:
             # Add nodal values from surface/bottom boundaries
             # NOTE calling firedrake par_loop with measure=ds_t raises an error
-            kernel = op2.Kernel("""
-                void my_kernel(double **qmax, double **qmin, double **centroids) {
-                    for (int i=0; i<%(nodes)d; i++) {
-                        qmax[i][0] = fmax(qmax[i][0], centroids[i][0]);
-                        qmin[i][0] = fmin(qmin[i][0], centroids[i][0]);
+            bottom_nodes = self.P1CG.bt_masks['geometric'][0]
+            top_nodes = self.P1CG.bt_masks['geometric'][1]
+            bottom_idx = op2.Global(len(bottom_nodes), bottom_nodes, dtype=np.int32, name='node_idx')
+            top_idx = op2.Global(len(top_nodes), top_nodes, dtype=np.int32, name='node_idx')
+            code = """
+                void my_kernel(double **qmax, double **qmin, double **centroids, int *idx) {
+                    double face_mean = 0;
+                    for (int i=0; i<%(nnodes)d; i++) {
+                        face_mean += centroids[idx[i]][0];
                     }
-                }""" % {'nodes': self.max_field.cell_node_map().arity}, 'my_kernel')
+                    face_mean /= %(nnodes)d;
+                    for (int i=0; i<%(nnodes)d; i++) {
+                        qmax[idx[i]][0] = fmax(qmax[idx[i]][0], face_mean);
+                        qmin[idx[i]][0] = fmin(qmin[idx[i]][0], face_mean);
+                    }
+                }"""
+            kernel = op2.Kernel(code % {'nnodes': len(bottom_nodes)}, 'my_kernel')
 
             op2.par_loop(kernel, self.mesh.cell_set,
                          self.max_field.dat(op2.WRITE, self.max_field.function_space().cell_node_map()),
                          self.min_field.dat(op2.WRITE, self.min_field.function_space().cell_node_map()),
                          field.dat(op2.READ, field.function_space().cell_node_map()),
+                         bottom_idx(op2.READ),
                          iterate=op2.ON_BOTTOM)
 
             op2.par_loop(kernel, self.mesh.cell_set,
                          self.max_field.dat(op2.WRITE, self.max_field.function_space().cell_node_map()),
                          self.min_field.dat(op2.WRITE, self.min_field.function_space().cell_node_map()),
                          field.dat(op2.READ, field.function_space().cell_node_map()),
+                         top_idx(op2.READ),
                          iterate=op2.ON_TOP)
 
     def _apply_limiter(self, field):
