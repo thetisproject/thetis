@@ -76,8 +76,10 @@ def test_steady_state_channel_mms(options):
             'ksp_type': 'preonly',
             'pc_type': 'lu',
             'pc_factor_mat_solver_package': 'mumps',
-            'snes_monitor': False,
-            'snes_type': 'newtonls'}
+            'snes_monitor': True,
+            'snes_type': 'newtonls',
+            'ksp_view': True
+            }
         # reinitialize the timestepper so we can set our own solver parameters and gamma
         # setting gamma to 1.0 converges faster to
         solver_obj.timestepper = timeintegrator.CrankNicolson(solver_obj.eq_sw, solver_obj.dt,
