@@ -45,6 +45,8 @@ class ModelOptions(AttrDict):
         """bool: Use IMEX time integrator (only with mode split)"""
         self.use_turbulence = False
         """bool: GLS turbulence model"""
+        self.use_smooth_eddy_viscosity = False
+        """bool: Cast eddy viscosity to p1 space instead of p0"""
         self.use_turbulence_advection = False
         """bool: Advect tke,psi with velocity"""
         self.baroclinic = False  #: NOTE implies that salt_3d field is density [kg/m3]

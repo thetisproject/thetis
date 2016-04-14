@@ -103,8 +103,6 @@ class P1Average(object):
     def update_volumes(self):
         assemble(TestFunction(self.p1)*dx, self.vol_p1)
         assemble(TestFunction(self.p1dg)*dx, self.vol_p1dg)
-        print 'vol_p1', self.vol_p1.dat.data.min(), self.vol_p1.dat.data.max()
-        print 'vol_p1dg', self.vol_p1dg.dat.data.min(), self.vol_p1dg.dat.data.max()
 
     def apply(self, source, solution):
         assert solution.function_space() == self.p1
@@ -370,13 +368,17 @@ class GenericLengthScaleModel(object):
         self.n2_neg = Function(self.n2.function_space(),
                                name='negative buoyancy frequency')
 
-        self.viscosity_native = Function(self.n2.function_space(),
-                                         name='GLS viscosity')
-        self.diffusivity_native = Function(self.n2.function_space(),
-                                           name='GLS diffusivity')
-        self.p1_averager = P1Average(solver.function_spaces.P0,
-                                     solver.function_spaces.P1,
-                                     solver.function_spaces.P1DG)
+        if self.solver.options.use_smooth_eddy_viscosity:
+            self.viscosity_native = Function(self.n2.function_space(),
+                                             name='GLS viscosity')
+            self.diffusivity_native = Function(self.n2.function_space(),
+                                               name='GLS diffusivity')
+            self.p1_averager = P1Average(solver.function_spaces.P0,
+                                         solver.function_spaces.P1,
+                                         solver.function_spaces.P1DG)
+        else:
+            self.viscosity_native = self.viscosity
+            self.diffusivity_native = self.diffusivity
 
         # parameter to mix old and new viscosity values (1 => new only)
         self.relaxation = 0.5
@@ -542,8 +544,9 @@ class GenericLengthScaleModel(object):
         self.viscosity_native.dat.data[:] = lam*new_visc + (1.0 - lam)*self.viscosity_native.dat.data[:]
         self.diffusivity_native.dat.data[:] = lam*new_diff + (1.0 - lam)*self.diffusivity_native.dat.data[:]
 
-        self.p1_averager.apply(self.viscosity_native, self.viscosity)
-        self.p1_averager.apply(self.diffusivity_native, self.diffusivity)
+        if self.solver.options.use_smooth_eddy_viscosity:
+            self.p1_averager.apply(self.viscosity_native, self.viscosity)
+            self.p1_averager.apply(self.diffusivity_native, self.diffusivity)
         set_func_min_val(self.viscosity, self.params['visc_min'])
         set_func_min_val(self.diffusivity, self.params['diff_min'])
 
