@@ -54,7 +54,7 @@ def test_steady_state_channel_mms(options):
         solver_obj.options.nonlin = True
         solver_obj.options.t_export = dt
         solver_obj.options.t_end = n*dt
-        solver_obj.options.timestepper_type = 'forwardeuler'
+        solver_obj.options.timestepper_type = 'cranknicolson'
         solver_obj.options.timer_labels = []
         solver_obj.options.dt = dt
         solver_obj.options.update(options)
@@ -76,14 +76,16 @@ def test_steady_state_channel_mms(options):
             'ksp_type': 'preonly',
             'pc_type': 'lu',
             'pc_factor_mat_solver_package': 'mumps',
-            'snes_monitor': True,
             'snes_type': 'newtonls',
-            'ksp_view': True
             }
         # reinitialize the timestepper so we can set our own solver parameters and gamma
         # setting gamma to 1.0 converges faster to
         solver_obj.timestepper = timeintegrator.CrankNicolson(solver_obj.eq_sw, solver_obj.dt,
                                                               solver_parameters, gamma=1.0)
+        # hack to avoid picking up prefixed petsc options from other py.test tests:
+        solver_obj.timestepper.name = 'test_steady_state_channel_mms'
+        solver_obj.timestepper.solver_parameters.update(solver_parameters)
+        solver_obj.timestepper.update_solver()
         solver_obj.assign_initial_conditions(uv_init=Expression(("1.0", "0.0")))
 
         source_space = FunctionSpace(mesh2d, 'DG', order+1)
