@@ -44,11 +44,8 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
                 compute_bottom_friction(
                     self.solver,
                     self.fields.uv_p1_3d, self.fields.uv_bottom_2d,
-                    self.fields.uv_bottom_3d, self.fields.z_coord_3d,
-                    self.fields.z_bottom_2d,
-                    self.fields.bathymetry_2d, self.fields.bottom_drag_2d,
-                    self.fields.bottom_drag_3d,
-                    self.fields.v_elem_size_2d, self.fields.v_elem_size_3d)
+                    self.fields.z_bottom_2d, self.fields.bathymetry_2d,
+                    self.fields.bottom_drag_2d)
         if self.options.use_parabolic_viscosity:
             self.solver.parabolic_viscosity_solver.solve()
 

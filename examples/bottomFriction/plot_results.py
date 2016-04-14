@@ -34,7 +34,7 @@ import matplotlib.pyplot as plt
 # compute analytical log profiles
 u_max = 0.9  # max velocity in [2] Fig 2.
 kappa = solver_obj.gls_model.params['von_karman']
-z_0 = physical_constants['z0_friction']
+z_0 = physical_constants['z0_friction'].dat.data[0]
 u_b = u_max * kappa / numpy.log((depth + z_0)/z_0)
 u_log = u_b / kappa * numpy.log((z + depth + z_0)/z_0)
 # and viscosity profile
@@ -45,7 +45,7 @@ ana_data = {'uv_3d': (z, u_log),
             }
 
 # plot instantaneous profiles
-export_ix = 108
+export_ix = 45
 varlist = ['uv_3d', 'shear_freq_3d', 'tke_3d', 'eps_3d', 'len_3d', 'eddy_visc_3d']
 nplots = len(varlist)
 fig, axlist = plt.subplots(nrows=1, ncols=nplots, sharey=True, figsize=(nplots*2.0, 7))

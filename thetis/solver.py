@@ -326,11 +326,10 @@ class FlowSolver(FrozenClass):
             self.eq_vertmomentum = momentum_eq.VerticalMomentumEquation(
                 self.fields.uv_3d, w=None,
                 viscosity_v=implicit_v_visc,
-                uv_bottom=self.fields.get('uv_bottom_3d'),
-                bottom_drag=self.fields.get('bottom_drag_3d'),
                 wind_stress=self.fields.get('wind_stress_3d'),
                 v_elem_size=self.fields.v_elem_size_3d,
-                h_elem_size=self.fields.h_elem_size_3d)
+                h_elem_size=self.fields.h_elem_size_3d,
+                use_bottom_friction=self.options.use_bottom_friction)
         if self.options.solve_salt:
             self.eq_salt = tracer_eq.TracerEquation(
                 self.fields.salt_3d, self.fields.elev_3d, self.fields.uv_3d,
@@ -488,13 +487,14 @@ class FlowSolver(FrozenClass):
                                                          bathymetry=self.fields.bathymetry_3d)
             self.extract_surf_baro_head = SubFunctionExtractor(self.fields.baroc_head_int_3d,
                                                                self.fields.baroc_head_2d,
-                                                               use_bottom_value=False)
+                                                               boundary='top', elem_facet='top')
         self.extract_surf_dav_uv = SubFunctionExtractor(self.fields.uv_dav_3d,
                                                         self.fields.uv_dav_2d,
-                                                        use_bottom_value=False,
+                                                        boundary='top', elem_facet='top',
                                                         elem_height=self.fields.v_elem_size_2d)
         self.copy_v_elem_size_to_2d = SubFunctionExtractor(self.fields.v_elem_size_3d,
-                                                           self.fields.v_elem_size_2d)
+                                                           self.fields.v_elem_size_2d,
+                                                           boundary='top', elem_facet='top')
         self.copy_elev_to_3d = ExpandFunctionTo3d(self.fields.elev_2d, self.fields.elev_3d)
         self.copy_uv_dav_to_uv_dav_3d = ExpandFunctionTo3d(self.fields.uv_dav_2d, self.fields.uv_dav_3d,
                                                            elem_height=self.fields.v_elem_size_3d)
@@ -503,17 +503,18 @@ class FlowSolver(FrozenClass):
         self.uv_mag_solver = VelocityMagnitudeSolver(self.fields.uv_mag_3d, u=self.fields.uv_3d)
         if self.options.use_bottom_friction:
             self.extract_uv_bottom = SubFunctionExtractor(self.fields.uv_p1_3d, self.fields.uv_bottom_2d,
-                                                          use_bottom_value=True, elem_bottom_nodes=False,
+                                                          boundary='bottom', elem_facet='average',
                                                           elem_height=self.fields.v_elem_size_2d)
             self.extract_z_bottom = SubFunctionExtractor(self.fields.z_coord_3d, self.fields.z_bottom_2d,
-                                                         use_bottom_value=True, elem_bottom_nodes=False,
+                                                         boundary='bottom', elem_facet='average',
                                                          elem_height=self.fields.v_elem_size_2d)
-            self.copy_uv_bottom_to_3d = ExpandFunctionTo3d(self.fields.uv_bottom_2d,
-                                                           self.fields.uv_bottom_3d,
-                                                           elem_height=self.fields.v_elem_size_3d)
-            self.copy_bottom_drag_to_3d = ExpandFunctionTo3d(self.fields.bottom_drag_2d,
-                                                             self.fields.bottom_drag_3d,
-                                                             elem_height=self.fields.v_elem_size_3d)
+            if self.options.use_parabolic_viscosity:
+                self.copy_uv_bottom_to_3d = ExpandFunctionTo3d(self.fields.uv_bottom_2d,
+                                                               self.fields.uv_bottom_3d,
+                                                               elem_height=self.fields.v_elem_size_3d)
+                self.copy_bottom_drag_to_3d = ExpandFunctionTo3d(self.fields.bottom_drag_2d,
+                                                                 self.fields.bottom_drag_3d,
+                                                                 elem_height=self.fields.v_elem_size_3d)
         if self.options.use_ale_moving_mesh:
             self.mesh_coord_updater = ALEMeshCoordinateUpdater(self.mesh,
                                                                self.fields.elev_3d,
@@ -522,7 +523,7 @@ class FlowSolver(FrozenClass):
                                                                self.fields.z_coord_ref_3d)
             self.extract_surf_w = SubFunctionExtractor(self.fields.w_mesh_surf_3d,
                                                        self.fields.w_mesh_surf_2d,
-                                                       use_bottom_value=False)
+                                                       boundary='top', elem_facet='top')
             self.copy_surf_w_mesh_to_3d = ExpandFunctionTo3d(self.fields.w_mesh_surf_2d,
                                                              self.fields.w_mesh_surf_3d)
             self.w_mesh_solver = MeshVelocitySolver(self, self.fields.elev_3d,

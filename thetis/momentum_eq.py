@@ -390,19 +390,19 @@ class VerticalMomentumEquation(Equation):
     """Vertical advection and diffusion terms of 3D momentum equation for
     hydrostatic Boussinesq flow."""
     def __init__(self, solution, w=None,
-                 viscosity_v=None, uv_bottom=None, bottom_drag=None,
+                 viscosity_v=None,
                  wind_stress=None, v_elem_size=None, h_elem_size=None,
-                 source=None):
+                 source=None,
+                 use_bottom_friction=False):
         self.space = solution.function_space()
         self.mesh = self.space.mesh()
         self.solution = solution
         self.v_elem_size = v_elem_size
         self.h_elem_size = h_elem_size
+        self.use_bottom_friction = use_bottom_friction
         # this dict holds all time dep. args to the equation
         self.kwargs = {'w': w,
                        'viscosity_v': viscosity_v,
-                       'uv_bottom': uv_bottom,
-                       'bottom_drag': bottom_drag,
                        'wind_stress': wind_stress,
                        'source': source,
                        }
@@ -442,8 +442,7 @@ class VerticalMomentumEquation(Equation):
         f = 0
         return -f
 
-    def rhs(self, solution, w=None, viscosity_v=None,
-            uv_bottom=None, bottom_drag=None,
+    def rhs(self, solution, solution_old, w=None, viscosity_v=None,
             **kwargs):
         """Returns the right hand side of the equations.
         Contains all terms that depend on the solution."""
@@ -489,13 +488,16 @@ class VerticalMomentumEquation(Equation):
                             avg(viscosity_v*Dx(solution, 2)))*ds_interior
 
             # implicit bottom friction
-            if bottom_drag is not None:
-                z_bot = self.v_elem_size
+            if self.use_bottom_friction:
+                z0_friction = physical_constants['z0_friction']
+                z_bot = 0.5*self.v_elem_size
+                von_karman = physical_constants['von_karman']
+                drag = (von_karman / ln((z_bot + z0_friction)/z0_friction))**2
                 # compute uv_bottom implicitly
                 uv_bot = solution + Dx(solution, 2)*z_bot
-                uv_bot_old = uv_bottom + Dx(uv_bottom, 2)*z_bot
+                uv_bot_old = solution_old + Dx(solution_old, 2)*z_bot
                 uv_bot_mag = sqrt(uv_bot_old[0]**2 + uv_bot_old[1]**2)
-                stress = bottom_drag*uv_bot_mag*uv_bot
+                stress = drag*uv_bot_mag*uv_bot
                 bot_friction = (stress[0]*self.test[0] +
                                 stress[1]*self.test[1])*ds_bottom
                 f += bot_friction
@@ -503,7 +505,6 @@ class VerticalMomentumEquation(Equation):
         return -f
 
     def source(self, w=None, viscosity_v=None,
-               uv_bottom=None, bottom_drag=None,
                wind_stress=None, source=None,
                **kwargs):
         """Returns the right hand side of the source terms.
@@ -511,13 +512,6 @@ class VerticalMomentumEquation(Equation):
         f = 0  # holds all dx volume integral terms
 
         if viscosity_v is not None:
-            # # bottom friction
-            # if bottom_drag is not None and uv_bottom is not None:
-            #   stress = bottom_drag*sqrt(uv_bottom[0]**2 +
-            #                             uv_bottom[1]**2)*uv_bottom
-            #   BotFriction = (stress[0]*self.test[0] +
-            #                  stress[1]*self.test[1])*ds_bottom
-            #   #F += BotFriction
             # wind stress
             if wind_stress is not None:
                 f -= (wind_stress[0]*self.test[0] +

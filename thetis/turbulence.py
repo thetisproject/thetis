@@ -705,12 +705,12 @@ class PsiEquation(TracerEquation):
             if self.v_elem_size is None:
                 raise Exception('v_elem_size required')
             # bottom condition
-            z_b = self.v_elem_size + z0_friction
+            z_b = 0.5*self.v_elem_size + z0_friction
             diff_flux = (n*diffusivity_v*(cm0)**p *
                          k**m * kappa**n * z_b**(n - 1.0))
             f += diff_flux*self.test*self.normal[2]*ds_bottom
             # surface condition
-            z0_surface = Constant(0.01)  # TODO generalize
+            z0_surface = 0.5*self.v_elem_size + Constant(0.02)  # TODO generalize
             z_s = self.v_elem_size + z0_surface
             diff_flux = -(n*diffusivity_v*(cm0)**p *
                           k**m * kappa**n * z_s**(n - 1.0))

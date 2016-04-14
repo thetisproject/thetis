@@ -31,14 +31,14 @@ import numpy
 
 def run_bottom_friction(parabolic_visosity=False, mimetic=False,
                         do_assert=True, do_export=False):
-    physical_constants['z0_friction'] = 1.5e-3
+    physical_constants['z0_friction'].assign(1.5e-3)
 
     outputdir = 'outputs'
     if parabolic_visosity:
         outputdir += '_parabolic'
     # set mesh resolution
     dx = 2500.0
-    layers = 14
+    layers = 20
     depth = 15.0
 
     nx = 3  # nb elements in flow direction
@@ -49,7 +49,7 @@ def run_bottom_friction(parabolic_visosity=False, mimetic=False,
 
     print_info('Exporting to ' + outputdir)
     dt = 25.0
-    t_end = 8 * 3600.0  # sufficient to reach ~steady state
+    t_end = 5 * 3600.0  # sufficient to reach ~steady state
     t_export = 400.0
     u_mag = 1.0
 
@@ -100,13 +100,13 @@ def run_bottom_friction(parabolic_visosity=False, mimetic=False,
         # compare against logarithmic velocity profile
         # u = u_b / kappa * log((z + bath + z_0)/z_0)
         # estimate bottom friction velocity from maximal u
-        u_max = 0.8  # max velocity in [2] Fig 2.
+        u_max = 0.9  # max velocity in [2] Fig 2.
         l2_tol = 0.05
         if parabolic_visosity:
             kappa = physical_constants['von_karman']
         else:
             kappa = solver_obj.gls_model.params['von_karman']
-        z_0 = physical_constants['z0_friction']
+        z_0 = physical_constants['z0_friction'].dat.data[0]
         u_b = u_max * kappa / np.log((depth + z_0)/z_0)
         log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')
         log_uv.project(Expression(('u_b / kappa * log((x[2] + depth + z_0)/z_0)', 0, 0),
@@ -116,6 +116,11 @@ def run_bottom_friction(parabolic_visosity=False, mimetic=False,
             out = File(outputdir + '/log_uv.pvd')
             out.write(log_uv)
 
+    # speed-up convergence by stating with u > 0
+    u_init_2d = 0.5
+    solver_obj.assign_initial_conditions(uv_2d=Constant((u_init_2d, 0)))
+    # consistent 3d velocity with slope
+    solver_obj.fields.uv_3d.project(Expression(('u*(1.0 + 0.3*(x[2]/d + 0.5))', 0, 0), d=depth, u=u_init_2d))
     solver_obj.iterate()
 
     if do_assert:

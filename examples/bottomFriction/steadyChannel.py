@@ -25,7 +25,9 @@ Tuomas Karna 2016-03-10
 from thetis import *
 import numpy
 
-physical_constants['z0_friction'] = 1.5e-3
+physical_constants['z0_friction'].assign(1.5e-3)
+
+fast_convergence = True
 
 outputdir = 'outputs'
 # set mesh resolution
@@ -42,6 +44,8 @@ mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x', reorder=True)
 print_info('Exporting to ' + outputdir)
 dt = 25.0
 t_end = 12 * 3600.0  # sufficient to reach ~steady state
+if fast_convergence:
+    t_end = 5 * 3600.0
 t_export = 400.0
 u_mag = 1.0
 
@@ -86,6 +90,13 @@ surf_slope = -1.0e-5  # d elev/dx
 pressure_grad = -physical_constants['g_grav'] * surf_slope
 options.uv_source_2d = Constant((pressure_grad, 0))
 
+if fast_convergence:
+    # speed-up convergence by stating with u > 0
+    u_init_2d = 0.5
+    solver_obj.assign_initial_conditions(uv_2d=Constant((u_init_2d, 0)))
+    # consistent 3d velocity with slope
+    solver_obj.fields.uv_3d.project(Expression(('u*(1.0 + 0.3*(x[2]/d + 0.5))', 0, 0), d=depth, u=u_init_2d))
+
 if __name__ == '__main__':
     solver_obj.iterate()
 
@@ -95,7 +106,7 @@ if __name__ == '__main__':
     u_max = 0.9  # max velocity in [2] Fig 2.
     l2_tol = 0.05
     kappa = solver_obj.gls_model.params['von_karman']
-    z_0 = physical_constants['z0_friction']
+    z_0 = physical_constants['z0_friction'].dat.data[0]
     u_b = u_max * kappa / np.log((depth + z_0)/z_0)
     log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')
     log_uv.project(Expression(('u_b / kappa * log((x[2] + depth + z_0)/z_0)', 0, 0),
