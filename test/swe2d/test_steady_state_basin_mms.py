@@ -469,8 +469,8 @@ def run(setup, refinement, order, do_export=True, **kwargs):
         viscosity_func = Function(viscosity_space, name='viscosity')
         viscosity_func.project(sdict['visc_expr'])
         solver_obj.options.h_viscosity = viscosity_func
-        solver_obj.options.use_tensor_form_viscosity = False
-        solver_obj.options.use_grad_depth_term_viscosity_2d = True
+        solver_obj.options.include_grad_div_viscosity_term = True
+        solver_obj.options.include_grad_depth_viscosity_term = True
 
     # functions for boundary conditions
     # analytical elevation

@@ -107,8 +107,9 @@ class FlowSolver2d(FrozenClass):
             uv_source=self.options.uv_source_2d,
             elev_source=self.options.elev_source_2d,
             nonlin=self.options.nonlin,
-            use_tensor_form_viscosity=self.options.use_tensor_form_viscosity,
-            use_grad_depth_term_viscosity_2d=self.options.use_grad_depth_term_viscosity_2d)
+            include_grad_div_viscosity_term=self.options.include_grad_div_viscosity_term,
+            include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term
+        )
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
 

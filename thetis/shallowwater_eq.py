@@ -34,8 +34,8 @@ class ShallowWaterEquations(Equation):
                  coriolis=None, wind_stress=None, uv_lax_friedrichs=None,
                  uv_source=None, elev_source=None,
                  nonlin=True,
-                 use_tensor_form_viscosity=True,
-                 use_grad_depth_term_viscosity_2d=True):
+                 include_grad_div_viscosity_term=False,
+                 include_grad_depth_viscosity_term=True):
         self.space = solution.function_space()
         self.mesh = self.space.mesh()
         self.U_space, self.eta_space = self.space.split()
@@ -43,8 +43,8 @@ class ShallowWaterEquations(Equation):
         self.U, self.eta = split(self.solution)
         self.bathymetry = bathymetry
         self.nonlin = nonlin
-        self.use_tensor_form_viscosity = use_tensor_form_viscosity
-        self.use_grad_depth_term_viscosity_2d = use_grad_depth_term_viscosity_2d
+        self.include_grad_div_viscosity_term = include_grad_div_viscosity_term
+        self.include_grad_depth_viscosity_term = include_grad_depth_viscosity_term
         # this dict holds all time dep. args to the equation
         self.kwargs = {'uv_old': split(self.solution)[0],
                        'uv_bottom': uv_bottom,
@@ -350,12 +350,12 @@ class ShallowWaterEquations(Equation):
 
         n = FacetNormal(self.mesh)
 
-        if self.use_tensor_form_viscosity:
-            stress = nu*grad(uv)
-            stress_jump = avg(nu)*tensor_jump(uv, n)
-        else:
+        if self.include_grad_div_viscosity_term:
             stress = nu*2.*sym(grad(uv))
             stress_jump = avg(nu)*2.*sym(tensor_jump(uv, n))
+        else:
+            stress = nu*grad(uv)
+            stress_jump = avg(nu)*tensor_jump(uv, n)
 
         f = inner(grad(self.U_test), stress)*dx
 
@@ -389,10 +389,10 @@ class ShallowWaterEquations(Equation):
                             continue
                         delta_uv = uv - uv_ext
 
-                    if self.use_tensor_form_viscosity:
-                        stress_jump = nu*outer(delta_uv, n)
-                    else:
+                    if self.include_grad_div_viscosity_term:
                         stress_jump = nu*2.*sym(outer(delta_uv, n))
+                    else:
+                        stress_jump = nu*outer(delta_uv, n)
 
                     f += (
                         alpha/h*inner(outer(self.U_test, n), stress_jump)*ds_bnd
@@ -400,7 +400,7 @@ class ShallowWaterEquations(Equation):
                         - inner(outer(self.U_test, n), stress)*ds_bnd
                     )
 
-        if self.use_grad_depth_term_viscosity_2d:
+        if self.include_grad_depth_viscosity_term:
             f += -dot(self.U_test, dot(grad(total_h)/total_h, stress))*dx
 
         return f
