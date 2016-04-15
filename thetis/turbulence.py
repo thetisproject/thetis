@@ -277,7 +277,7 @@ class BuoyFrequencySolver(object):
             g = physical_constants['g_grav']
             rho0 = physical_constants['rho0']
             p = -g/rho0 * rho
-            solver = VerticalGradSolver(p, self.n2_tmp)
+            solver = SmoothVerticalGradSolver(p, self.n2_tmp)
             self.var_solver = solver
 
     def solve(self, init_solve=False):
