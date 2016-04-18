@@ -27,7 +27,7 @@ import numpy
 
 physical_constants['z0_friction'].assign(1.5e-3)
 
-fast_convergence = True
+fast_convergence = False
 
 outputdir = 'outputs'
 # set mesh resolution
@@ -41,7 +41,6 @@ ny = 2  # nb elements in cross direction
 ly = ny*dx
 mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x', reorder=True)
 
-print_info('Exporting to ' + outputdir)
 dt = 25.0
 t_end = 12 * 3600.0  # sufficient to reach ~steady state
 if fast_convergence:
@@ -82,6 +81,11 @@ options.fields_to_export_hdf5 = ['uv_3d', 'uv_bottom_2d',
                                  'eddy_visc_3d', 'eddy_diff_3d',
                                  'shear_freq_3d',
                                  'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
+gls_options = options.gls_options
+gls_options.apply_defaults('k-omega')
+gls_options.stability_name = 'CB'
+options.outputdir = outputdir + '_' + gls_options.closure_name + '-' + gls_options.stability_name
+print_info('Exporting to ' + options.outputdir)
 
 solver_obj.create_function_spaces()
 
@@ -105,7 +109,7 @@ if __name__ == '__main__':
     # estimate bottom friction velocity from maximal u
     u_max = 0.9  # max velocity in [2] Fig 2.
     l2_tol = 0.05
-    kappa = solver_obj.gls_model.params['von_karman']
+    kappa = solver_obj.gls_model.options.kappa
     z_0 = physical_constants['z0_friction'].dat.data[0]
     u_b = u_max * kappa / np.log((depth + z_0)/z_0)
     log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')

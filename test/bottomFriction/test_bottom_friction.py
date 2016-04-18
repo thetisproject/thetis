@@ -105,7 +105,7 @@ def run_bottom_friction(parabolic_visosity=False, mimetic=False,
         if parabolic_visosity:
             kappa = physical_constants['von_karman']
         else:
-            kappa = solver_obj.gls_model.params['von_karman']
+            kappa = solver_obj.gls_model.options.kappa
         z_0 = physical_constants['z0_friction'].dat.data[0]
         u_b = u_max * kappa / np.log((depth + z_0)/z_0)
         log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')

@@ -14,8 +14,8 @@ M**2 = (du/dz)**2 + (dv/dz)**2 (shear frequency)
 N**2 = -g\rho_0 (drho/dz)      (buoyancy frequency)
 
 The additional variable is defined as
-psi = (cm0)**p * k**m * l**n
-where p, m, n parameters and cm0 is an empirical constant.
+psi = (cmu0)**p * k**m * l**n
+where p, m, n parameters and cmu0 is an empirical constant.
 
 dpsi/dt + \nabla_h(uv*psi) + d(w*psi)dz = d/dz(\nu_h/\sigma_psi dpsi/dz) +
    psi/k*(c1*P + c3*B - c2*eps*f_wall)
@@ -25,10 +25,10 @@ Parameter c3 takes value c3_minus in stably stratified flows and c3_plus in
 unstably stratified cases.
 
 Turbulent length scale is obtained diagnostically as
-l = (cm0)**3 * k**(3/2) * eps**(-1)
+l = (cmu0)**3 * k**(3/2) * eps**(-1)
 
 TKE dissipation rate is given by
-eps = (cm0)**(3+p/n)*tke**(3/2+m/n)*psi**(-1/n)
+eps = (cmu0)**(3+p/n)*tke**(3/2+m/n)*psi**(-1/n)
 
 Finally vertical eddy viscosity and diffusivity are obtained as
 
@@ -68,7 +68,162 @@ from tracer_eq import *
 from utility import *
 from stability_functions import *
 
-# TODO add gls_options and add shorthands for models like k-omega etc
+
+class GLSModelOptions(AttrDict):
+    """
+    Options for Generic Lenght Scale turbulence model
+    """
+    def __init__(self):
+        """
+        Initialize with default options
+        """
+        super(GLSModelOptions, self).__init__()
+        self.closure_name = 'k-epsilon'
+        """
+        str: name of common closures
+
+        'k-epsilon': k-epsilon setup
+        'k-omega': k-epsilon setup
+        'gls-a': Generic Length Scale setup A
+
+        Sets default values for parameters p, m, n, schmidt_nb_tke, schmidt_nb_psi, c1, c2, c3_plus, c3_minus,
+        f_wall, k_min, psi_min
+        """
+        self.stability_name = 'CA'
+        """str: name of used stability function family
+
+        'CA': Canuto A
+        'CB': Canuto B
+        'KC': Kantha-Clayson
+        'CH': Cheng
+        """
+        self.p = 3.0
+        """float: parameter p for the definition of psi"""
+        self.m = 1.5
+        """float: parameter m for the definition of psi"""
+        self.n = -1.0
+        """float: parameter n for the definition of psi"""
+        self.schmidt_nb_tke = 1.0
+        """float: turbulent kinetic energy Schmidt number"""
+        self.schmidt_nb_psi = 1.3
+        """float: psi Schmidt number"""
+        self.cmu0 = 0.5477
+        """float: cmu0 parameter"""
+        self.compute_cmu0 = True
+        """bool: compute cmu0 from stability function parameters"""
+        self.c1 = 1.44
+        """float: c1 parameter for Psi equations"""
+        self.c2 = 1.92
+        """float: c2 parameter for Psi equations"""
+        self.c3_minus = -0.52
+        """float: c3 parameter for Psi equations, stable stratification"""
+        self.c3_plus = 1.0
+        """float: c3 parameter for Psi equations, unstable stratification"""
+        self.compute_c3_minus = True
+        """bool: compute c3_minus from ri_st
+
+        ri_st is the steady state gradient Richardson number"""
+        self.f_wall = 1.0
+        """float: wall function parameter"""
+        self.ri_st = 0.25
+        self.kappa = physical_constants['von_karman']
+        """float: steady state gradient Richardson number
+
+        Used to compute c3_minus"""
+        self.compute_kappa = True
+        """bool: compute von Karman constant from psi Schmidt number"""
+        self.k_min = 3.7e-8
+        """float: minimum value for turbulent kinetic energy"""
+        self.psi_min = 1.0e-10
+        """float: minimum value for psi"""
+        self.eps_min = 1.0e-10
+        """float: minimum value for epsilon"""
+        self.len_min = 1.0e-10
+        """float: minimum value for turbulent lenght scale"""
+        self.compute_len_min = True
+        """bool: compute min_len from k_min and psi_min"""
+        self.compute_psi_min = True
+        """bool: compute psi_len from k_min and eps_min"""
+        self.visc_min = 1.0e-8
+        """float: minimum value for eddy viscosity"""
+        self.diff_min = 1.0e-8
+        """float: minimum value for eddy diffusivity"""
+        self.galperin_lim = 0.56
+        """float: Galperin lenght scale limitation parameter"""
+
+        self.limit_len = False
+        """bool: apply Galperin lenght scale limit"""
+        self.limit_psi = False
+        """bool: apply Galperin lenght scale limit on psi"""
+        self.limit_eps = False
+        """bool: apply Galperin lenght scale limit on epsilon"""
+        self.limit_len_min = True
+        """bool: limit minimum turbulent length scale to len_min"""
+
+    def apply_defaults(self, closure_name):
+        """Applies default parameters for given closure name."""
+
+        # standard values for different closures
+        # from [3] tables 1 and 2
+        kepsilon = {'p': 3,
+                    'm': 1.5,
+                    'n': -1.0,
+                    'cmu0': 0.5477,
+                    'schmidt_nb_tke': 1.0,
+                    'schmidt_nb_psi': 1.3,
+                    'c1': 1.44,
+                    'c2': 1.92,
+                    'c3_plus': 1.0,
+                    'c3_minus': -0.52,
+                    'f_wall': 1.0,
+                    'k_min': 3.7e-8,
+                    'psi_min': 1.0e-10,
+                    'closure_name': 'k-epsilon',
+                    }
+        komega = {'p': -1.0,
+                  'm': 0.5,
+                  'n': -1.0,
+                  'cmu0': 0.5477,
+                  'schmidt_nb_tke': 2.0,
+                  'schmidt_nb_psi': 2.0,
+                  'c1': 0.555,
+                  'c2': 0.833,
+                  'c3_plus': 1.0,
+                  'c3_minus': -0.52,
+                  'f_wall': 1.0,
+                  'k_min': 3.7e-8,
+                  'eps_min': 1.0e-10,
+                  'psi_min': 1.0e-10,
+                  'closure_name': 'k-omega',
+                  }
+        gen = {'p': 2.0,
+               'm': 1.0,
+               'n': -0.67,
+               'cmu0': 0.5477,
+               'schmidt_nb_tke': 0.8,
+               'schmidt_nb_psi': 1.07,
+               'c1': 1.0,
+               'c2': 1.22,
+               'c3_plus': 1.0,
+               'c3_minus': 0.05,
+               'f_wall': 1.0,
+               'k_min': 3.7e-8,
+               'eps_min': 1.0e-10,
+               'psi_min': 2.0e-7,
+               'closure_name': 'gen',
+               }
+        if closure_name == 'k-epsilon':
+            self.__dict__.update(kepsilon)
+        elif closure_name == 'k-omega':
+            self.__dict__.update(komega)
+        elif closure_name == 'gen':
+            self.__dict__.update(gen)
+
+    def print_summary(self):
+        """Prints all defined parameters and their values."""
+        print_info('GLS Turbulence model parameters')
+        for k in sorted(self.keys()):
+            print_info('  {:16s} : {:}'.format(k, self[k]))
 
 
 def set_func_min_val(f, minval):
@@ -295,16 +450,7 @@ class GenericLengthScaleModel(object):
     def __init__(self, solver, k_field, psi_field, uv_field, rho_field,
                  l_field, epsilon_field,
                  eddy_diffusivity, eddy_viscosity,
-                 n2, m2,
-                 closure_name='k-epsilon',
-                 p=3.0, m=1.5, n=-1.0,
-                 schmidt_nb_tke=1.0, schmidt_nb_psi=1.3,
-                 c1=1.44, c2=1.92, c3_minus=-0.52, c3_plus=1.0,
-                 f_wall=1.0, k_min=3.7e-8, psi_min=1.0e-10,
-                 eps_min=1e-10, visc_min=1.0e-8, diff_min=1.0e-8,
-                 galperin_lim=0.56, ri_st=0.25,
-                 stability_type='CA',
-                 ):
+                 n2, m2, options=None):
         """
         Initialize GLS model
 
@@ -327,20 +473,6 @@ class GenericLengthScaleModel(object):
             eddy viscosity/diffusivity fields
         n2, m2 : Function
             buoyancy and vertical shear frequency squared
-        p, m, n : float
-            parameters defining psi variable
-        c, c2, c3_minus, c3_plus : float
-            parameters for psi production terms
-        f_wall : float
-            wall proximity function for k-kl type models
-        k_min, psi_min : float
-            minimum values for k and psi
-        stability_type : string
-            stability function type:
-            'KC': Kantha and Clayson (1994)
-            'CA': Canuto et al. (2001) version A
-            'CB': Canuto et al. (2001) version B
-            'CH': Cheng et al. (2002)
         """
         self.solver = solver
         # 3d model fields
@@ -383,59 +515,43 @@ class GenericLengthScaleModel(object):
         # parameter to mix old and new viscosity values (1 => new only)
         self.relaxation = 0.5
 
-        self.stability_type = stability_type
+        self.options = GLSModelOptions()
+        if options is not None:
+            self.options.update(options)
+
+        o = self.options
+        stability_name = o.stability_name
         stab_args = {'lim_alpha_shear': True,
                      'lim_alpha_buoy': True,
                      'smooth_alpha_buoy_lim': False}
-        if self.stability_type == 'KC':
+        if stability_name == 'KC':
             self.stability_func = StabilityFunctionKanthaClayson(**stab_args)
-        elif self.stability_type == 'CA':
+        elif stability_name == 'CA':
             self.stability_func = StabilityFunctionCanutoA(**stab_args)
-        elif self.stability_type == 'CB':
+        elif stability_name == 'CB':
             self.stability_func = StabilityFunctionCanutoB(**stab_args)
-        elif self.stability_type == 'CH':
+        elif stability_name == 'CH':
             self.stability_func = StabilityFunctionCheng(**stab_args)
         else:
             raise Exception('Unknown stability function type: ' +
-                            self.stability_type)
+                            stability_name)
 
-        cm0 = self.stability_func.compute_cmu0()
-        kappa = self.stability_func.compute_kappa(schmidt_nb_psi, n, c1, c2)
-        physical_constants['von_karman'].assign(kappa)  # update global value
-        c3_minus = self.stability_func.compute_c3_minus(c1, c2, ri_st)
-
+        if o.compute_cmu0:
+            o.cmu0 = self.stability_func.compute_cmu0()
+        if o.compute_kappa:
+            kappa = self.stability_func.compute_kappa(o.schmidt_nb_psi, o.n, o.c1, o.c2)
+            o.kappa = kappa
+            # update mean flow model value as well
+            physical_constants['von_karman'].assign(kappa)
+        if o.compute_c3_minus:
+            o.c3_minus = self.stability_func.compute_c3_minus(o.c1, o.c2, o.ri_st)
+        if o.compute_psi_min:
+            o.psi_min = (o.cmu0**(3.0 + o.p/o.n)*o.k_min**(3.0/2.0 + o.m/o.n)*o.eps_min**(-1.0))**o.n
+        else:
+            o.eps_min = o.cmu0**(3.0 + o.p/o.n)*o.k_min**(3.0/2.0 + o.m/o.n)*o.psi_min**(-1.0/o.n)
         # minimum length scale
-        len_min = cm0**3 * k_min**1.5 / eps_min
-
-        # parameters
-        self.params = {
-            'p': p,
-            'm': m,
-            'n': n,
-            'c1': c1,
-            'c2': c2,
-            'c3_minus': c3_minus,
-            'c3_plus': c3_plus,
-            'ri_st': ri_st,
-            'f_wall': f_wall,
-            'schmidt_nb_tke': schmidt_nb_tke,
-            'schmidt_nb_psi': schmidt_nb_psi,
-            'k_min': k_min,
-            'psi_min': psi_min,
-            'eps_min': eps_min,
-            'len_min': len_min,
-            'visc_min': visc_min,
-            'diff_min': diff_min,
-            'galperin_lim': galperin_lim,
-            'cm0': cm0,
-            'von_karman': kappa,
-            'limit_psi': False,
-            'limit_eps': False,
-            'limit_len': False,
-            'limit_len_min': True,
-            'closure_name': closure_name,
-            'stability_type': stability_type,
-        }
+        if o.compute_len_min:
+            o.len_min = o.cmu0**3 * o.k_min**1.5 / o.eps_min
 
         self.shear_frequency_solver = ShearFrequencySolver(self.uv, self.m2,
                                                            self.mu, self.mv,
@@ -445,13 +561,7 @@ class GenericLengthScaleModel(object):
                                                              self.n2_tmp)
 
         self.initialize()
-        self._print_summary()
-
-    def _print_summary(self):
-        """Prints all defined parameters and their values."""
-        print_info('GLS Turbulence model parameters')
-        for k in sorted(self.params.keys()):
-            print_info('  {:16s} : {:}'.format(k, self.params[k]))
+        self.options.print_summary()
 
     def initialize(self):
         """Initializes fields"""
@@ -486,45 +596,46 @@ class GenericLengthScaleModel(object):
 
         Update all fields that depend on turbulence fields.
         """
-
-        cm0 = self.params['cm0']
-        p = self.params['p']
-        n = self.params['n']
-        m = self.params['m']
+        o = self.options
+        cmu0 = o.cmu0
+        p = o.p
+        n = o.n
+        m = o.m
 
         # limit k
-        set_func_min_val(self.k, self.params['k_min'])
+        set_func_min_val(self.k, o.k_min)
 
         k_arr = self.k.dat.data[:]
         n2_pos = self.n2_pos.dat.data[:]
         n2_pos_eps = 1e-12
-        galp = self.params['galperin_lim']
-        if self.params['limit_psi']:
+        galp = o.galperin_lim
+        if o.limit_psi:
             # impose Galperin limit on psi
-            # psi^(1/n) <= sqrt(0.56)* (cm0)^(p/n) *k^(m/n+0.5)* n2^(-0.5)
-            val = (np.sqrt(galp) * (cm0)**(p / n) * k_arr**(m / n + 0.5) * (n2_pos + n2_pos_eps)**(-0.5))**n
+            # psi^(1/n) <= sqrt(0.56)* (cmu0)^(p/n) *k^(m/n+0.5)* n2^(-0.5)
+            val = (np.sqrt(galp) * (cmu0)**(p / n) * k_arr**(m / n + 0.5) * (n2_pos + n2_pos_eps)**(-0.5))**n
             if n > 0:
                 # impose max value
                 np.minimum(self.psi.dat.data, val, self.psi.dat.data)
             else:
                 # impose min value
                 np.maximum(self.psi.dat.data, val, self.psi.dat.data)
-        set_func_min_val(self.psi, self.params['psi_min'])
+        set_func_min_val(self.psi, o.psi_min)
 
         # udpate epsilon
-        self.epsilon.assign(cm0**(3.0 + p/n)*self.k**(3.0/2.0 + m/n)*self.psi**(-1.0/n))
-        if self.params['limit_eps']:
+        self.epsilon.assign(cmu0**(3.0 + p/n)*self.k**(3.0/2.0 + m/n)*self.psi**(-1.0/n))
+        if o.limit_eps:
             # impose Galperin limit on eps
-            eps_min = cm0**3.0/np.sqrt(galp)*np.sqrt(n2_pos)*k_arr
+            eps_min = cmu0**3.0/np.sqrt(galp)*np.sqrt(n2_pos)*k_arr
             np.maximum(self.epsilon.dat.data, eps_min, self.epsilon.dat.data)
         # impose minimum value
-        set_func_min_val(self.epsilon, self.params['eps_min'])
+        # FIXME this should not be need because psi is limited
+        set_func_min_val(self.epsilon, o.eps_min)
 
         # update L
-        self.l.assign(cm0**3.0 * self.k**(3.0/2.0) / self.epsilon)
-        if self.params['limit_len_min']:
-            set_func_min_val(self.l, self.params['len_min'])
-        if self.params['limit_len']:
+        self.l.assign(cmu0**3.0 * self.k**(3.0/2.0) / self.epsilon)
+        if o.limit_len_min:
+            set_func_min_val(self.l, o.len_min)
+        if o.limit_len:
             # Galperin length scale limitation
             len_max = np.sqrt(galp*k_arr/(n2_pos + n2_pos_eps))
             np.minimum(self.l.dat.data, len_max, self.l.dat.data)
@@ -539,16 +650,16 @@ class GenericLengthScaleModel(object):
         # update diffusivity/viscosity
         b = np.sqrt(self.k.dat.data[:])*self.l.dat.data[:]
         lam = self.relaxation
-        new_visc = b*s_m/cm0**3
-        new_diff = b*s_h/cm0**3
+        new_visc = b*s_m/cmu0**3
+        new_diff = b*s_h/cmu0**3
         self.viscosity_native.dat.data[:] = lam*new_visc + (1.0 - lam)*self.viscosity_native.dat.data[:]
         self.diffusivity_native.dat.data[:] = lam*new_diff + (1.0 - lam)*self.diffusivity_native.dat.data[:]
 
         if self.solver.options.use_smooth_eddy_viscosity:
             self.p1_averager.apply(self.viscosity_native, self.viscosity)
             self.p1_averager.apply(self.diffusivity_native, self.diffusivity)
-        set_func_min_val(self.viscosity, self.params['visc_min'])
-        set_func_min_val(self.diffusivity, self.params['diff_min'])
+        set_func_min_val(self.viscosity, o.visc_min)
+        set_func_min_val(self.diffusivity, o.diff_min)
 
         # print '{:8s} {:8.3e} {:8.3e}'.format('k', self.k.dat.data.min(), self.k.dat.data.max())
         # print '{:8s} {:8.3e} {:8.3e}'.format('eps', self.epsilon.dat.data.min(), self.epsilon.dat.data.max())
@@ -576,7 +687,7 @@ class TKEEquation(TracerEquation):
                  bnd_markers=None, bnd_len=None, v_elem_size=None,
                  h_elem_size=None,
                  viscosity_v=None, gls_model=None):
-        self.schmidt_number = gls_model.params['schmidt_nb_tke']
+        self.schmidt_number = gls_model.options.schmidt_nb_tke
         # NOTE vertical diffusivity must be divided by the TKE Schmidt number
         diffusivity_eff = viscosity_v/self.schmidt_number
         # call parent constructor
@@ -614,7 +725,7 @@ class TKEEquation(TracerEquation):
         # B = - diffusivity N**2       (byoyancy production)
         # M**2 = (du/dz)**2 + (dv/dz)**2 (shear frequency)
         # N**2 = -g\rho_0 (drho/dz)      (buoyancy frequency)
-        # eps = (cm0)**(3+p/n)*tke**(3/2+m/n)*psi**(-1/n)
+        # eps = (cmu0)**(3+p/n)*tke**(3/2+m/n)*psi**(-1/n)
         #                                (tke dissipation rate)
         solution_old = kwargs['solution_old']
         p = eddy_viscosity * shear_freq2
@@ -641,7 +752,7 @@ class PsiEquation(TracerEquation):
                  h_elem_size=None,
                  viscosity_v=None, gls_model=None):
         # NOTE vertical diffusivity must be divided by the TKE Schmidt number
-        self.schmidt_number = gls_model.params['schmidt_nb_psi']
+        self.schmidt_number = gls_model.options.schmidt_nb_psi
         diffusivity_eff = viscosity_v/self.schmidt_number
         # call parent constructor
         super(PsiEquation, self).__init__(solution, eta, uv, w,
@@ -678,44 +789,49 @@ class PsiEquation(TracerEquation):
         # B = - diffusivity N**2       (byoyancy production)
         # M**2 = (du/dz)**2 + (dv/dz)**2 (shear frequency)
         # N**2 = -g\rho_0 (drho/dz)      (buoyancy frequency)
-        # eps = (cm0)**(3+p/n)*tke**(3/2+m/n)*psi**(-1/n)
+        # eps = (cmu0)**(3+p/n)*tke**(3/2+m/n)*psi**(-1/n)
         #                                (tke dissipation rate)
         solution_old = kwargs['solution_old']
         p = eddy_viscosity * shear_freq2
-        c1 = self.gls_model.params['c1']
-        c2 = self.gls_model.params['c2']
+        c1 = self.gls_model.options.c1
+        c2 = self.gls_model.options.c2
         # c3 switch: c3 = c3_minus if n2 > 0 else c3_plus
-        c3_minus = self.gls_model.params['c3_minus']  # < 0
-        c3_plus = self.gls_model.params['c3_plus']  # > 0
-        assert c3_minus < 0, 'c3_minus has unexpected sign'
+        c3_minus = self.gls_model.options.c3_minus
+        c3_plus = self.gls_model.options.c3_plus  # > 0
         assert c3_plus >= 0, 'c3_plus has unexpected sign'
-        b_source = c3_minus * -eddy_diffusivity * buoyancy_freq2_pos  # source
-        b_source += c3_plus * -eddy_diffusivity * buoyancy_freq2_neg  # source
-        f_wall = self.gls_model.params['f_wall']
-        source = solution_old/k*(c1*p + b_source) - solution/k*(c2*f_wall*epsilon)  # patankar
+        b_shear = c3_plus * -eddy_diffusivity * buoyancy_freq2_neg
+        b_buoy = c3_minus * -eddy_diffusivity * buoyancy_freq2_pos
+        if c3_minus > 0:
+            b_source = b_shear
+            b_sink = b_buoy
+        else:
+            b_source = b_shear + b_buoy
+            b_sink = 0
+        f_wall = self.gls_model.options.f_wall
+        source = solution_old/k*(c1*p + b_source) + solution/k*(b_sink - c2*f_wall*epsilon)  # patankar
         f = inner(source, self.test)*dx
 
         if self.compute_vert_diffusion:
             # add bottom/top boundary condition for psi
-            # (nuv_v/sigma_psi * dpsi/dz)_b = n * nuv_v/sigma_psi * (cm0)^p * k^m * kappa^n * z_b^(n-1)
+            # (nuv_v/sigma_psi * dpsi/dz)_b = n * nuv_v/sigma_psi * (cmu0)^p * k^m * kappa^n * z_b^(n-1)
             # z_b = distance_from_bottom + z_0 (Burchard and Petersen, 1999)
-            cm0 = self.gls_model.params['cm0']
-            p = self.gls_model.params['p']
-            m = self.gls_model.params['m']
-            n = self.gls_model.params['n']
+            cmu0 = self.gls_model.options.cmu0
+            p = self.gls_model.options.p
+            m = self.gls_model.options.m
+            n = self.gls_model.options.n
             z0_friction = physical_constants['z0_friction']
             kappa = physical_constants['von_karman']
             if self.v_elem_size is None:
                 raise Exception('v_elem_size required')
             # bottom condition
             z_b = 0.5*self.v_elem_size + z0_friction
-            diff_flux = (n*diffusivity_v*(cm0)**p *
+            diff_flux = (n*diffusivity_v*(cmu0)**p *
                          k**m * kappa**n * z_b**(n - 1.0))
             f += diff_flux*self.test*self.normal[2]*ds_bottom
             # surface condition
             z0_surface = 0.5*self.v_elem_size + Constant(0.02)  # TODO generalize
             z_s = self.v_elem_size + z0_surface
-            diff_flux = -(n*diffusivity_v*(cm0)**p *
+            diff_flux = -(n*diffusivity_v*(cmu0)**p *
                           k**m * kappa**n * z_s**(n - 1.0))
             f += diff_flux*self.test*self.normal[2]*ds_surf
 

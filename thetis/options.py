@@ -4,11 +4,12 @@ This file defines all options of the 2D/3D models excluding field values.
 Tuomas Karna 2015-10-17
 """
 from thetis.utility import *
+from thetis.turbulence import GLSModelOptions
 
 
 class ModelOptions(AttrDict):
     """
-    Stores all model options
+    Stores all circulation model options
     """
     def __init__(self):
         """
@@ -47,6 +48,10 @@ class ModelOptions(AttrDict):
         """bool: GLS turbulence model"""
         self.use_smooth_eddy_viscosity = False
         """bool: Cast eddy viscosity to p1 space instead of p0"""
+        self.turbulence_model = 'gls'
+        """str: Defines the type of vertical turbulence model. Currently only 'gls'"""
+        self.gls_options = GLSModelOptions()
+        """GLSModelOptions: Dictionary of default GLS model options"""
         self.use_turbulence_advection = False
         """bool: Advect tke,psi with velocity"""
         self.baroclinic = False  #: NOTE implies that salt_3d field is density [kg/m3]

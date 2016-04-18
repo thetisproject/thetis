@@ -22,7 +22,7 @@ import thetis.callback as callback
 class FlowSolver(FrozenClass):
     """Creates and solves coupled 2D-3D equations"""
     def __init__(self, mesh2d, bathymetry_2d, n_layers,
-                 options={}):
+                 options=None):
         self._initialized = False
 
         # create 3D mesh
@@ -36,7 +36,8 @@ class FlowSolver(FrozenClass):
 
         # override default options
         self.options = ModelOptions()
-        self.options.update(options)
+        if options is not None:
+            self.options.update(options)
 
         # simulation time step bookkeeping
         self.simulation_time = 0
@@ -245,7 +246,6 @@ class FlowSolver(FrozenClass):
             # NOTE M2 and N2 depend on d(.)/dz -> use CG in vertical ?
             self.fields.shear_freq_3d = Function(self.function_spaces.turb_space)
             self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)
-            gls_parameters = {}  # use default parameters for now
             self.gls_model = turbulence.GenericLengthScaleModel(weakref.proxy(self),
                                                                 self.fields.tke_3d,
                                                                 self.fields.psi_3d,
@@ -257,7 +257,7 @@ class FlowSolver(FrozenClass):
                                                                 self.fields.eddy_visc_3d,
                                                                 self.fields.buoy_freq_3d,
                                                                 self.fields.shear_freq_3d,
-                                                                **gls_parameters)
+                                                                options=self.options.gls_options)
         else:
             self.gls_model = None
         # copute total viscosity/diffusivity

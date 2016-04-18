@@ -33,7 +33,7 @@ import matplotlib.pyplot as plt
 
 # compute analytical log profiles
 u_max = 0.9  # max velocity in [2] Fig 2.
-kappa = solver_obj.gls_model.params['von_karman']
+kappa = solver_obj.gls_model.options.kappa
 z_0 = physical_constants['z0_friction'].dat.data[0]
 u_b = u_max * kappa / numpy.log((depth + z_0)/z_0)
 u_log = u_b / kappa * numpy.log((z + depth + z_0)/z_0)
@@ -69,4 +69,4 @@ for v, ax in zip(varlist, axlist):
     ax.xaxis.set_major_formatter(fmt)
 axlist[0].set_ylabel('z [m]')
 axlist[0].set_ylim([-depth*1.005, 0])
-plt.savefig('profiles.png', bbox_inches='tight')
+plt.savefig('friction_profiles.png', bbox_inches='tight')

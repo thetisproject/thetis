@@ -145,7 +145,11 @@ class StabilityFunction(object):
         return c3_minus
 
     def compute_cmu0(self):
-        """Computes the paramenter c_mu_0"""
+        """
+        Computes the paramenter c_mu_0 from stability function parameters
+
+        Umlauf and Buchard (2005) eq A.22
+        """
         cm0 = ((self.a2**2 - 3*self.a3**2 + 3*self.a1*self.nn)/(3 * self.nn**2))**0.25
         return cm0
 
