@@ -348,7 +348,8 @@ class ShallowWaterEquations(Equation):
 
     def horizontal_viscosity(self, uv, nu, total_h):
 
-        n = FacetNormal(self.mesh)
+        n = self.normal
+        h = self.cellsize
 
         if self.include_grad_div_viscosity_term:
             stress = nu*2.*sym(grad(uv))
@@ -360,14 +361,12 @@ class ShallowWaterEquations(Equation):
         f = inner(grad(self.U_test), stress)*dx
 
         if self.u_is_dg:
-            # projection to DG0 is only necessary because of a bug that's now fixed on master firedrake:
-            h = project(CellSize(self.mesh), FunctionSpace(self.mesh, "DG", 0))
             # from Epshteyn et al. 2007 (http://dx.doi.org/10.1016/j.cam.2006.08.029)
             # the scheme is stable for alpha > 3*X*p*(p+1)*cot(theta), where X is the
             # maximum ratio of viscosity within a triangle, p the degree, and theta
             # with X=2, theta=6: cot(theta)~10, 3*X*cot(theta)~60
             p = self.U_space.ufl_element().degree()
-            alpha = 60.*p*(p+1)
+            alpha = 5.*p*(p+1)
             f += (
                 + alpha/avg(h)*inner(tensor_jump(self.U_test, n), stress_jump)*dS
                 - inner(avg(grad(self.U_test)), stress_jump)*dS
