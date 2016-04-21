@@ -1,5 +1,5 @@
 """
-Testing 3D horizontal diffusion of tracers against analytical solution.
+Testing 3D vertical diffusion of tracers against analytical solution.
 
 Tuomas Karna 2015-12-14
 """
@@ -202,4 +202,4 @@ def test_vertical_diffusion(order, implicit):
 
 if __name__ == '__main__':
     # run(2, order=0, implicit=True)
-    run_convergence([1, 2, 3], order=0, implicit=True)
+    run_convergence([1, 2, 3], order=1, implicit=True)

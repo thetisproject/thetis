@@ -321,7 +321,8 @@ class FlowSolver(FrozenClass):
                 uv_bottom=self.fields.get('uv_bottom_3d'),
                 bottom_drag=self.fields.get('bottom_drag_3d'),
                 wind_stress=self.fields.get('wind_stress_3d'),
-                v_elem_size=self.fields.v_elem_size_3d)
+                v_elem_size=self.fields.v_elem_size_3d,
+                h_elem_size=self.fields.h_elem_size_3d)
         if self.options.solve_salt:
             self.eq_salt = tracer_eq.TracerEquation(
                 self.fields.salt_3d, self.fields.elev_3d, self.fields.uv_3d,
@@ -364,6 +365,7 @@ class FlowSolver(FrozenClass):
                 uv_p1=self.fields.get('uv_p1_3d'),
                 lax_friedrichs_factor=self.options.tracer_lax_friedrichs,
                 v_elem_size=self.fields.v_elem_size_3d,
+                h_elem_size=self.fields.h_elem_size_3d,
                 bnd_markers=bnd_markers,
                 bnd_len=bnd_len)
             self.eq_psi_adv = tracer_eq.TracerEquation(
@@ -375,6 +377,7 @@ class FlowSolver(FrozenClass):
                 uv_p1=self.fields.get('uv_p1_3d'),
                 lax_friedrichs_factor=self.options.tracer_lax_friedrichs,
                 v_elem_size=self.fields.v_elem_size_3d,
+                h_elem_size=self.fields.h_elem_size_3d,
                 bnd_markers=bnd_markers,
                 bnd_len=bnd_len)
             # implicit vertical diffusion eqn with production terms
@@ -387,6 +390,7 @@ class FlowSolver(FrozenClass):
                 diffusivity_v=implicit_v_diff,
                 viscosity_v=implicit_v_visc,
                 v_elem_size=self.fields.v_elem_size_3d,
+                h_elem_size=self.fields.h_elem_size_3d,
                 uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
                 bnd_markers=bnd_markers, bnd_len=bnd_len,
                 gls_model=self.gls_model)
@@ -398,6 +402,7 @@ class FlowSolver(FrozenClass):
                 diffusivity_v=implicit_v_diff,
                 viscosity_v=implicit_v_visc,
                 v_elem_size=self.fields.v_elem_size_3d,
+                h_elem_size=self.fields.h_elem_size_3d,
                 uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
                 bnd_markers=bnd_markers, bnd_len=bnd_len,
                 gls_model=self.gls_model)

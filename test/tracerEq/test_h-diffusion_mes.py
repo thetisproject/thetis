@@ -13,9 +13,9 @@ def run(refinement, order=1, warped_mesh=False, do_export=True):
     print '--- running refinement {:}'.format(refinement)
     # domain dimensions - channel in x-direction
     lx = 15.0e3
-    ly = 7.0e3/refinement
+    ly = 6.0e3/refinement
     area = lx*ly
-    depth = 20.0
+    depth = 40.0
     h_diffusivity = 1.0e3
 
     # mesh
@@ -27,12 +27,12 @@ def run(refinement, order=1, warped_mesh=False, do_export=True):
     # set time steps
     # stable explicit time step for diffusion
     dx = lx/nx
-    alpha = 1.0/150.0  # TODO theoretical alpha...
+    alpha = 1.0/200.0  # TODO theoretical alpha...
     dt = alpha * dx**2/h_diffusivity
     # simulation run time
-    t_end = 3600.0/2
+    t_end = 3000.0
     # initial time
-    t_init = 100.0  # NOTE start from t > 0 for smoother init cond
+    t_init = 1000.0  # NOTE start from t > 0 for smoother init cond
     # eliminate reminder
     ndt = np.ceil((t_end-t_init)/dt)
     dt = (t_end-t_init)/ndt
@@ -144,7 +144,7 @@ def run_convergence(ref_list, saveplot=False, **options):
     setup_name = 'h-diffusion'
 
     def check_convergence(x_log, y_log, expected_slope, field_str, saveplot):
-        slope_rtol = 0.05
+        slope_rtol = 0.20
         slope, intercept, r_value, p_value, std_err = stats.linregress(x_log, y_log)
         if saveplot:
             import matplotlib.pyplot as plt
@@ -187,8 +187,6 @@ def run_convergence(ref_list, saveplot=False, **options):
 # standard tests for pytest
 # ---------------------------
 
-# NOTE h. viscosity does not work for p0 yet
-
 
 @pytest.fixture(params=[True, False], ids=['warped', 'regular'])
 def warped(request):
@@ -203,5 +201,4 @@ def test_horizontal_diffusion(warped):
 # ---------------------------
 
 if __name__ == '__main__':
-    # run(2, order=1)
-    run_convergence([1, 2, 4], order=1, warped_mesh=True, do_export=True, saveplot=True)
+    run_convergence([1, 2, 3], order=1, warped_mesh=True, do_export=True, saveplot=True)

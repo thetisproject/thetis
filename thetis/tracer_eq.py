@@ -204,21 +204,17 @@ class TracerEquation(Equation):
 
         # diffusion
         if self.compute_horiz_diffusion:
-            n = as_vector((self.normal[0], self.normal[1], 0))
-
-            def grad_h(a):
-                return as_vector((Dx(a, 0), Dx(a, 1), 0))
-
             diff_tensor = as_matrix([[diffusivity_h, 0, 0],
                                      [0, diffusivity_h, 0],
                                      [0, 0, 0]])
-            grad_test = grad_h(self.test)
-            diff_flux = diff_tensor*grad_h(solution)
+            grad_test = grad(self.test)
+            diff_flux = dot(diff_tensor, grad(solution))
 
             f += inner(grad_test, diff_flux)*dx
 
             if self.horizontal_dg:
                 assert self.h_elem_size is not None, 'h_elem_size must be defined'
+                assert self.v_elem_size is not None, 'v_elem_size must be defined'
                 # Interior Penalty method by
                 # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
                 # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
@@ -233,17 +229,17 @@ class TracerEquation(Equation):
                 elemsize = (self.h_elem_size*(self.normal[0]**2 +
                                               self.normal[1]**2) +
                             self.v_elem_size*self.normal[2]**2)
-                sigma = 3.5*degree_h*(degree_h + 1)/elemsize
+                sigma = 5.0*degree_h*(degree_h + 1)/elemsize
                 if degree_h == 0:
                     raise NotImplementedError('horizontal diffusion not implemented for p0')
                 alpha = avg(sigma)
                 ds_interior = (dS_h + dS_v)
-                # oriented diffusive flux n.K.n = nu*(n_xy.n_xy)
-                # Pestiaux (2014)  DOI: 10.1002/fld.3900
-                ip_flux_jump = avg(dot(dot(self.normal, diff_tensor), self.normal))*jump(solution)
-                f += alpha*inner(jump(self.test), ip_flux_jump)*ds_interior
-                f += -inner(avg(diff_tensor*grad_test), n('-'))*jump(solution)*ds_interior
-                f += -inner(jump(self.test, self.normal), avg(diff_flux))*ds_interior
+                f += alpha*inner(jump(self.test, self.normal),
+                                 dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
+                f += -inner(avg(dot(diff_tensor, grad(self.test))),
+                            jump(solution, self.normal))*ds_interior
+                f += -inner(jump(self.test, self.normal),
+                            avg(dot(diff_tensor, grad(solution))))*ds_interior
 
             # symmetric bottom boundary condition
             # NOTE introduces a flux through the bed - breaks mass conservation
@@ -252,25 +248,32 @@ class TracerEquation(Equation):
 
         if self.compute_vert_diffusion:
             grad_test = Dx(self.test, 2)
-            diff_flux = diffusivity_v*Dx(solution, 2)
-            diff_flux_jump = avg(diffusivity_v)*jump(solution)
+            diff_flux = dot(diffusivity_v, Dx(solution, 2))
 
             f += inner(grad_test, diff_flux)*dx
 
             if self.vertical_dg:
+                assert self.h_elem_size is not None, 'h_elem_size must be defined'
                 assert self.v_elem_size is not None, 'v_elem_size must be defined'
-                # Interior penalty method by Epshteyn and Riviere (2007)
+                # Interior Penalty method by
+                # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
                 degree_h, degree_v = self.space.ufl_element().degree()
-                sigma = 2.0*degree_v*(degree_v + 1)/self.v_elem_size
+                # TODO compute elemsize as CellVolume/FacetArea
+                # h = n.D.n where D = diag(h_h, h_h, h_v)
+                elemsize = (self.h_elem_size*(self.normal[0]**2 +
+                                              self.normal[1]**2) +
+                            self.v_elem_size*self.normal[2]**2)
+                sigma = 5.0*degree_v*(degree_v + 1)/elemsize
                 if degree_v == 0:
-                    sigma = 1.0/self.v_elem_size  # TODO theoretical value
+                    sigma = 1.0/elemsize
                 alpha = avg(sigma)
-                ds_interior = dS_h
-                f += alpha*inner(jump(self.test), diff_flux_jump)*ds_interior
-                # NOTE unclear how to implement {grad(test).n}*[solution]
-                # NOTE this yields theoretical convergence rate
-                f += -inner(avg(grad_test)*self.normal[2]('-'), diff_flux_jump)*ds_interior
-                f += -inner(jump(self.test, self.normal[2]), avg(diff_flux))*ds_interior
+                ds_interior = (dS_h)
+                f += alpha*inner(jump(self.test, self.normal[2]),
+                                 dot(avg(diffusivity_v), jump(solution, self.normal[2])))*ds_interior
+                f += -inner(avg(dot(diffusivity_v, Dx(self.test, 2))),
+                            jump(solution, self.normal[2]))*ds_interior
+                f += -inner(jump(self.test, self.normal[2]),
+                            avg(dot(diffusivity_v, Dx(solution, 2))))*ds_interior
 
         return -f - g
 

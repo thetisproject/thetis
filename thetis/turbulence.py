@@ -649,6 +649,7 @@ class TKEEquation(TracerEquation):
                  diffusivity_h=None, diffusivity_v=None,
                  uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
                  bnd_markers=None, bnd_len=None, v_elem_size=None,
+                 h_elem_size=None,
                  viscosity_v=None, gls_model=None):
         self.schmidt_number = gls_model.params['schmidt_nb_tke']
         # NOTE vertical diffusivity must be divided by the TKE Schmidt number
@@ -662,7 +663,8 @@ class TKEEquation(TracerEquation):
                                           lax_friedrichs_factor=lax_friedrichs_factor,
                                           bnd_markers=bnd_markers,
                                           bnd_len=bnd_len,
-                                          v_elem_size=v_elem_size)
+                                          v_elem_size=v_elem_size,
+                                          h_elem_size=h_elem_size)
         # additional functions to pass to RHS functions
         new_kwargs = {
             'eddy_diffusivity': diffusivity_v,
@@ -707,6 +709,7 @@ class PsiEquation(TracerEquation):
                  diffusivity_h=None, diffusivity_v=None,
                  uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
                  bnd_markers=None, bnd_len=None, v_elem_size=None,
+                 h_elem_size=None,
                  viscosity_v=None, gls_model=None):
         # NOTE vertical diffusivity must be divided by the TKE Schmidt number
         self.schmidt_number = gls_model.params['schmidt_nb_psi']
@@ -720,7 +723,8 @@ class PsiEquation(TracerEquation):
                                           lax_friedrichs_factor=lax_friedrichs_factor,
                                           bnd_markers=bnd_markers,
                                           bnd_len=bnd_len,
-                                          v_elem_size=v_elem_size)
+                                          v_elem_size=v_elem_size,
+                                          h_elem_size=h_elem_size)
         self.gls_model = gls_model
         # additional functions to pass to RHS functions
         new_kwargs = {

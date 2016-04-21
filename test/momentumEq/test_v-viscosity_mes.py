@@ -1,5 +1,5 @@
 """
-Testing 3D horizontal viscosity of momemtum against analytical solution.
+Testing 3D vertical viscosity of momemtum against analytical solution.
 
 Tuomas Karna 2015-12-11
 """
