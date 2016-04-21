@@ -13,15 +13,17 @@ def is_2d(fs):
     return fs.mesh().geometric_dimension() == 2
 
 
-def get_visu_space(fs, function_space_pool):
+def get_visu_space(fs):
     """
     Figure out the appropriate linear visualization space for fs
     """
     is_vector = len(fs.ufl_element().value_shape()) == 1
-    space = 'P1' if is_cg(fs) else 'P1DG'
-    vector = 'v' if is_vector else ''
-    dim = '_2d' if is_2d(fs) else ''
-    visu_fs = function_space_pool[space + vector + dim]
+    mesh = fs.mesh()
+    family = 'Lagrange' if is_cg(fs) else 'Discontinuous Lagrange'
+    if is_vector:
+        visu_fs = VectorFunctionSpace(mesh, family, 1)
+    else:
+        visu_fs = FunctionSpace(mesh, family, 1)
     # make sure that you always get the same temp work function
     visu_fs.max_work_functions = 1
     return visu_fs
@@ -358,13 +360,11 @@ class ExportManager(object):
     """Handles a list of file exporter objects"""
 
     def __init__(self, outputdir, fields_to_export, functions, field_metadata,
-                 function_space_pool,
                  export_type='vtk', next_export_ix=0, verbose=False):
         self.outputdir = outputdir
         self.fields_to_export = fields_to_export
         self.functions = functions
         self.field_metadata = field_metadata
-        self.function_space_pool = function_space_pool
         self.verbose = verbose
         # allocate dg coord field to avoid creating one in File
         self.coords_dg_2d = None
@@ -377,7 +377,7 @@ class ExportManager(object):
             field = self.functions.get(key)
             if field is not None and isinstance(field, Function):
                 native_space = field.function_space()
-                visu_space = get_visu_space(native_space, function_space_pool)
+                visu_space = get_visu_space(native_space)
                 coords_dg = self._get_dg_coordinates(visu_space)
                 if export_type.lower() == 'vtk':
                     self.exporters[key] = VTKExporter(visu_space, shortname,
@@ -397,10 +397,13 @@ class ExportManager(object):
         """Get a cached dg function to be used as dg coordinate field in VTK output objects."""
         if is_2d(fs):
             if self.coords_dg_2d is None:
-                self.coords_dg_2d = Function(self.function_space_pool.P1DGv_2d, name='coordinates 2d dg')
+                coord_fs = VectorFunctionSpace(fs.mesh(), 'DG', 1, name='P1DGv_2d')
+                self.coords_dg_2d = Function(coord_fs, name='coordinates 2d dg')
             return self.coords_dg_2d
         if self.coords_dg_3d is None:
-            self.coords_dg_3d = Function(self.function_space_pool.P1DGv, name='coords 3d dg')
+            coord_fs = VectorFunctionSpace(fs.mesh(), 'DG', 1,
+                                           vfamily='DG', vdegree=1, name='P1DGv')
+            self.coords_dg_3d = Function(coord_fs, name='coords 3d dg')
         return self.coords_dg_3d
 
     def set_next_export_ix(self, next_export_ix):
