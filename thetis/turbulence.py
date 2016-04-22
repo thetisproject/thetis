@@ -661,16 +661,17 @@ class GenericLengthScaleModel(object):
         set_func_min_val(self.viscosity, o.visc_min)
         set_func_min_val(self.diffusivity, o.diff_min)
 
-        # print '{:8s} {:8.3e} {:8.3e}'.format('k', self.k.dat.data.min(), self.k.dat.data.max())
-        # print '{:8s} {:8.3e} {:8.3e}'.format('eps', self.epsilon.dat.data.min(), self.epsilon.dat.data.max())
-        # print '{:8s} {:8.3e} {:8.3e}'.format('L', self.l.dat.data.min(), self.l.dat.data.max())
-        # print '{:8s} {:8.3e} {:8.3e}'.format('s_h', s_h.min(), s_h.max())
-        # print '{:8s} {:8.3e} {:8.3e}'.format('s_m', s_m.min(), s_m.max())
-        # print '{:8s} {:8.3e} {:8.3e}'.format('nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max())
-        # print '{:8s} {:8.3e} {:8.3e}'.format('M2', self.m2.dat.data.min(), self.m2.dat.data.max())
-        # print '{:8s} {:8.3e} {:8.3e}'.format('N2', self.n2.dat.data.min(), self.n2.dat.data.max())
-        # print '{:8s} {:8.3e} {:8.3e}'.format('N2+', self.n2_pos.dat.data.min(), self.n2_pos.dat.data.max())
-        # print '{:8s} {:8.3e} {:8.3e}'.format('N2-', self.n2_neg.dat.data.min(), self.n2_neg.dat.data.max())
+        # print '{:8s} {:10.3e} {:10.3e}'.format('k', self.k.dat.data.min(), self.k.dat.data.max())
+        # print '{:8s} {:10.3e} {:10.3e}'.format('eps', self.epsilon.dat.data.min(), self.epsilon.dat.data.max())
+        # print '{:8s} {:10.3e} {:10.3e}'.format('L', self.l.dat.data.min(), self.l.dat.data.max())
+        # print '{:8s} {:10.3e} {:10.3e}'.format('M2', self.m2.dat.data.min(), self.m2.dat.data.max())
+        # print '{:8s} {:10.3e} {:10.3e}'.format('N2', self.n2.dat.data.min(), self.n2.dat.data.max())
+        # print '{:8s} {:10.3e} {:10.3e}'.format('N2+', self.n2_pos.dat.data.min(), self.n2_pos.dat.data.max())
+        # print '{:8s} {:10.3e} {:10.3e}'.format('N2-', self.n2_neg.dat.data.min(), self.n2_neg.dat.data.max())
+        # print '{:8s} {:10.3e} {:10.3e}'.format('s_h', s_h.min(), s_h.max())
+        # print '{:8s} {:10.3e} {:10.3e}'.format('s_m', s_m.min(), s_m.max())
+        # print '{:8s} {:10.3e} {:10.3e}'.format('nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max())
+        # print '{:8s} {:10.3e} {:10.3e}'.format('muv', self.diffusivity.dat.data.min(), self.diffusivity.dat.data.max())
 
 
 class TKEEquation(TracerEquation):

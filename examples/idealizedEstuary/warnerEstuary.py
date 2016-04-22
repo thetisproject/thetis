@@ -107,7 +107,7 @@ solverobj.create_function_spaces()
 # initial conditions
 salt_init3d = Function(solverobj.function_spaces.H, name='initial salinity')
 # original vertically uniform initial condition
-salt_init3d.interpolate(Expression('s_oce - (s_oce - s_riv)*(x[0] - 30000)/50000',
+salt_init3d.interpolate(Expression('s_oce - (s_oce - s_riv)*(x[0] - 30000 + 10*x[2])/50000 ',
                                    s_oce=rho_ocean, s_riv=rho_river))
 # start from idealized salt wedge
 # salt_init3d.interpolate(Expression('(s_riv + (s_riv - s_oce)*(x[0] - 80000)/50000 * (0.5 - 0.5*tanh(4*(x[2] + 2.0))) )',
