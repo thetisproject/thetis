@@ -356,15 +356,20 @@ class FlowSolver(FrozenClass):
             #     bnd_markers=bnd_markers,
             #     bnd_len=bnd_len)
             if self.options.solve_vert_diffusion:
-                self.eq_salt_vdff = tracer_eq.TracerEquation(
-                    self.fields.salt_3d, self.fields.elev_3d,
-                    uv=None, w=None, w_mesh=None,
-                    diffusivity_v=implicit_v_diff,
-                    bathymetry=self.fields.bathymetry_3d,
-                    v_elem_size=self.fields.v_elem_size_3d,
-                    h_elem_size=self.fields.h_elem_size_3d,
-                    bnd_markers=bnd_markers,
-                    bnd_len=bnd_len)
+                self.eq_salt_vdff = tracer_eq.TracerEquationNew(self.fields.salt_3d.function_space(),
+                                                                bnd_markers, bnd_len,
+                                                                bathymetry=self.fields.bathymetry_3d,
+                                                                v_elem_size=self.fields.v_elem_size_3d,
+                                                                h_elem_size=self.fields.h_elem_size_3d)
+                # self.eq_salt_vdff = tracer_eq.TracerEquation(
+                #     self.fields.salt_3d, self.fields.elev_3d,
+                #     uv=None, w=None, w_mesh=None,
+                #     diffusivity_v=implicit_v_diff,
+                #     bathymetry=self.fields.bathymetry_3d,
+                #     v_elem_size=self.fields.v_elem_size_3d,
+                #     h_elem_size=self.fields.h_elem_size_3d,
+                #     bnd_markers=bnd_markers,
+                #     bnd_len=bnd_len)
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         self.eq_momentum.bnd_functions = self.bnd_functions['momentum']

@@ -401,12 +401,12 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
         if self.options.solve_vert_diffusion:
             # implicit_v_visc = solver.tot_v_visc.get_sum()
             # explicit_v_visc = None
-            # implicit_v_diff = solver.tot_v_diff.get_sum()
+            implicit_v_diff = solver.tot_v_diff.get_sum()
             explicit_v_diff = None
         else:
             # implicit_v_visc = None
             # explicit_v_visc = solver.tot_v_visc.get_sum()
-            # implicit_v_diff = None
+            implicit_v_diff = None
             explicit_v_diff = solver.tot_v_diff.get_sum()
 
         if self.solver.options.solve_salt:
@@ -429,8 +429,14 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                 solver.eq_salt, solver.fields.salt_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['salt'])
             if self.solver.options.solve_vert_diffusion:
-                self.timestepper_salt_vdff_3d = vert_timeintegrator(
-                    solver.eq_salt_vdff, solver.dt, solver_parameters=vdiff_sp)
+                # self.timestepper_salt_vdff_3d = vert_timeintegrator(
+                #     solver.eq_salt_vdff, solver.dt, solver_parameters=vdiff_sp)
+                fields = {'elev_3d': self.fields.elev_3d,
+                          'diffusivity_v': implicit_v_diff,
+                          }
+                self.timestepper_salt_vdff_3d = timeintegrator.BackwardEulerNew(
+                    solver.eq_salt_vdff, solver.fields.salt_3d, fields, solver.dt,
+                    bnd_conditions=solver.bnd_functions['salt'])
 
         if self.solver.options.solve_vert_diffusion:
             self.timestepper_mom_vdff_3d = vert_timeintegrator(

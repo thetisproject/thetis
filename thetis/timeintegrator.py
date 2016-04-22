@@ -884,6 +884,144 @@ class DIRKGeneric(TimeIntegrator):
             output.assign(self.solution_old)
 
 
+class DIRKGenericNew(TimeIntegrator):
+    """
+    Generic implementation of Diagonally Implicit Runge Kutta schemes.
+
+    Method is defined by its Butcher tableau given as arguments
+
+    c[0] | a[0, 0]
+    c[1] | a[1, 0] a[1, 1]
+    c[2] | a[2, 0] a[2, 1] a[2, 2]
+    ------------------------------
+         | b[0]    b[1]    b[2]
+
+    This method also works for explicit RK schemes if one with the zeros on the first row of a.
+    """
+    def __init__(self, equation, solution, fields, dt, a, b, c,
+                 bnd_conditions=None, solver_parameters={}):
+        """
+        Create new DIRK solver.
+
+        Parameters
+        ----------
+        equation : equation object
+            the equation to solve
+        dt : float
+            time step (constant)
+        a  : array_like (n_stages, n_stages)
+            coefficients for the Butcher tableau, must be lower diagonal
+        b,c : array_like (n_stages,)
+            coefficients for the Butcher tableau
+        solver_parameters : dict
+            PETSc options for solver
+        terms_to_add : 'all' or list of 'implicit', 'explicit', 'source'
+            Defines which terms of the equation are to be added to this solver.
+            Default 'all' implies terms_to_add = ['implicit', 'explicit', 'source']
+        """
+        super(DIRKGenericNew, self).__init__(equation, solver_parameters)
+        self.solver_parameters.setdefault('snes_monitor', False)
+        self.solver_parameters.setdefault('snes_type', 'newtonls')
+
+        self.n_stages = len(b)
+        self.a = a
+        self.b = b
+        self.c = c
+
+        fs = self.equation.function_space
+        self.dt = dt
+        self.dt_const = Constant(dt)
+        self.solution_old = solution
+
+        test = self.equation.test
+
+        from firedrake.functionspaceimpl import MixedFunctionSpace, WithGeometry
+        mixed_space = (isinstance(fs, MixedFunctionSpace) or
+                       (isinstance(fs, WithGeometry) and
+                        isinstance(fs.topological, MixedFunctionSpace)))
+
+        # Allocate tendency fields
+        self.k = []
+        for i in xrange(self.n_stages):
+            fname = '{:}_k{:}'.format(self.name, i)
+            self.k.append(Function(fs, name=fname))
+        # construct variational problems
+        self.F = []
+        if not mixed_space:
+            for i in xrange(self.n_stages):
+                for j in xrange(i+1):
+                    if j == 0:
+                        u = self.solution_old + self.a[i][j]*self.dt_const*self.k[j]
+                    else:
+                        u += self.a[i][j]*self.dt_const*self.k[j]
+                self.F.append(-inner(self.k[i], test)*dx +
+                              self.equation.get_residual('all', u, self.solution_old, fields, fields, bnd_conditions))
+        else:
+            # solution must be split before computing sum
+            # pass components to equation in a list
+            for i in xrange(self.n_stages):
+                for j in xrange(i+1):
+                    if j == 0:
+                        u = []  # list of components in the mixed space
+                        for s, k in zip(split(self.solution_old), split(self.k[j])):
+                            u.append(s + self.a[i][j]*self.dt_const*k)
+                    else:
+                        for l, k in enumerate(split(self.k[j])):
+                            u[l] += self.a[i][j]*self.dt_const*k
+                self.F.append(-inner(self.k[i], test)*dx +
+                              self.equation.get_residual('all', u, self.solution_old, fields, fields, bnd_conditions))
+        self.update_solver()
+
+    def update_solver(self):
+        # construct solvers
+        self.solver = []
+        for i in xrange(self.n_stages):
+            p = NonlinearVariationalProblem(self.F[i], self.k[i])
+            sname = '{:}_stage{:}_'.format(self.name, i)
+            self.solver.append(
+                NonlinearVariationalSolver(p,
+                                           solver_parameters=self.solver_parameters,
+                                           options_prefix=sname))
+
+    def initialize(self, init_cond):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(init_cond)
+
+    def advance(self, t, dt, solution, update_forcings=None):
+        """Advances equations for one time step."""
+        for i in xrange(self.n_stages):
+            self.solve_stage(i, t, dt, solution, update_forcings)
+
+    def solve_stage(self, i_stage, t, dt, output=None, update_forcings=None):
+        """Advances equations for one stage."""
+        if update_forcings is not None:
+            update_forcings(t + self.c[i_stage]*self.dt)
+        self.solver[i_stage].solve()
+        if output is not None:
+            if i_stage < self.n_stages - 1:
+                self.get_stage_solution(i_stage, output)
+            else:
+                # assign the final solution
+                self.get_final_solution(output)
+
+    def get_stage_solution(self, i_stage, output):
+        """Stores intermediate solution for stage i_stage to the output field"""
+        if output != self.solution_old:
+            # possible only if output is not the internal state container
+            output.assign(self.solution_old)
+            for j in xrange(i_stage+1):
+                output += self.a[i_stage][j]*self.dt_const*self.k[j]
+
+    def get_final_solution(self, output=None):
+        """Computes the final solution from the tendencies"""
+        # update solution
+        for i in xrange(self.n_stages):
+            self.solution_old += self.dt_const*self.b[i]*self.k[i]
+        if output is not None and output != self.solution_old:
+            # copy to output
+            output.assign(self.solution_old)
+
+
 class BackwardEuler(DIRKGeneric):
     """
     Backward Euler method
@@ -900,6 +1038,27 @@ class BackwardEuler(DIRKGeneric):
         c = [1.0]
         super(BackwardEuler, self).__init__(equation, dt, a, b, c,
                                             solver_parameters, terms_to_add)
+
+
+class BackwardEulerNew(DIRKGenericNew):
+    """
+    Backward Euler method
+
+    This method has the Butcher tableau
+
+    1   | 1
+    ---------
+        | 1
+    """
+    def __init__(self, equation, solution, fields, dt,
+                 bnd_conditions=None, solver_parameters={}):
+        a = [[1.0]]
+        b = [1.0]
+        c = [1.0]
+        super(BackwardEulerNew, self).__init__(equation, solution, fields, dt,
+                                               a, b, c,
+                                               bnd_conditions=bnd_conditions,
+                                               solver_parameters=solver_parameters)
 
 
 class ImplicitMidpoint(DIRKGeneric):
@@ -1033,6 +1192,30 @@ class DIRKLSPUM2(DIRKGeneric):
         super(DIRKLSPUM2, self).__init__(equation, dt, a, b, c,
                                          solver_parameters, terms_to_add,
                                          solution)
+
+
+class DIRKLSPUM2New(DIRKGenericNew):
+    """
+    DIRKLSPUM2, 3-stage, 2nd order, L-stable
+    Diagonally Implicit Runge Kutta method
+
+    From IMEX RK scheme (17) in Higureras et al. (2014).
+
+    [1] Higueras et al (2014). Optimized strong stability preserving IMEX
+        Runge-Kutta methods. Journal of Computational and Applied
+        Mathematics 272(2014) 116-140.
+    """
+    def __init__(self, equation, solution, fields, dt,
+                 bnd_conditions=None, solver_parameters={}):
+        a = [[2.0/11.0, 0, 0],
+             [205.0/462.0, 2.0/11.0, 0],
+             [2033.0/4620.0, 21.0/110.0, 2.0/11.0]]
+        b = [24.0/55.0, 1.0/5.0, 4.0/11.0]
+        c = [2.0/11.0, 289.0/462.0, 751.0/924.0]
+        super(DIRKLSPUM2New, self).__init__(equation, solution, fields, dt,
+                                            a, b, c,
+                                            bnd_conditions=bnd_conditions,
+                                            solver_parameters=solver_parameters)
 
 
 def cos_time_av_filter(m):
