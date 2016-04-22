@@ -139,7 +139,7 @@ def run_convergence(ref_list, saveplot=False, **options):
     setup_name = 'v-diffusion'
 
     def check_convergence(x_log, y_log, expected_slope, field_str, saveplot):
-        slope_rtol = 0.05
+        slope_rtol = 0.07
         slope, intercept, r_value, p_value, std_err = stats.linregress(x_log, y_log)
         if saveplot:
             import matplotlib.pyplot as plt
