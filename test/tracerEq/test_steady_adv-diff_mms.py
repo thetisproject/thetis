@@ -340,4 +340,5 @@ def test_setup4_dg():
 # run individual scaling test
 # ---------------------------
 
-# run_convergence(setup3dg, [1, 2, 3], 1, save_plot=True)
+if __name__ == '__main__':
+    run_convergence(setup3dg, [1, 2, 3], 1, save_plot=True)

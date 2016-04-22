@@ -178,6 +178,104 @@ class SSPRK33(TimeIntegrator):
                             (1.0/6.0)*self.K1 + (2.0/3.0)*self.K2)
 
 
+class SSPRK33StageNew(TimeIntegrator):
+    """
+    3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).
+    This class only advances one step at a time.
+
+    This scheme has Butcher tableau
+    0   |
+    1   | 1
+    1/2 | 1/4 1/4
+    ---------------
+        | 1/6 1/6 2/3
+
+    CFL coefficient is 1.0
+    """
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
+        """Creates forms for the time integrator"""
+        super(SSPRK33StageNew, self).__init__(equation, solver_parameters)
+        self.explicit = True
+        self.CFL_coeff = 1.0
+        self.n_stages = 3
+
+        self.solution = solution
+        self.solution_old = Function(self.equation.function_space, name='old solution')
+        self.solution_n = Function(self.equation.function_space, name='stage solution')
+        self.fields = fields
+
+        self.K0 = Function(self.equation.function_space, name='tendency0')
+        self.K1 = Function(self.equation.function_space, name='tendency1')
+        self.K2 = Function(self.equation.function_space, name='tendency2')
+
+        self.dt_const = Constant(dt)
+
+        # fully explicit evaluation
+        self.a_rk = self.equation.mass_term(self.equation.trial)
+        self.L_RK = self.dt_const*self.equation.get_residual('all', self.solution_old, self.solution_old, self.fields, self.fields, bnd_conditions)
+
+        self.update_solver()
+
+    def update_solver(self):
+        """Builds linear problems for each stage. These problems need to be
+        re-created after each mesh update."""
+        prob_k0 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K0)
+        self.solver_k0 = LinearVariationalSolver(prob_k0,
+                                                 solver_parameters=self.solver_parameters)
+        prob_k1 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K1)
+        self.solver_k1 = LinearVariationalSolver(prob_k1,
+                                                 solver_parameters=self.solver_parameters)
+        prob_k2 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K2)
+        self.solver_k2 = LinearVariationalSolver(prob_k2,
+                                                 solver_parameters=self.solver_parameters)
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(solution)
+
+    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
+        """
+        Solves a single stage of step from t to t+dt.
+        All functions that the equation depends on must be at rigth state
+        corresponding to each sub-step.
+        """
+        self.dt_const.assign(dt)
+        if i_stage == 0:
+            # stage 0
+            self.solution_n.assign(solution)
+            self.solution_old.assign(solution)
+            if update_forcings is not None:
+                update_forcings(t)
+            self.solver_k0.solve()
+            solution.assign(self.solution_n + self.K0)
+        elif i_stage == 1:
+            # stage 1
+            self.solution_old.assign(solution)
+            if update_forcings is not None:
+                update_forcings(t+dt)
+            self.solver_k1.solve()
+            solution.assign(self.solution_n + 0.25*self.K0 + 0.25*self.K1)
+        elif i_stage == 2:
+            # stage 2
+            self.solution_old.assign(solution)
+            if update_forcings is not None:
+                update_forcings(t+dt/2)
+            self.solver_k2.solve()
+            # final solution
+            solution.assign(self.solution_n + (1.0/6.0)*self.K0 +
+                            (1.0/6.0)*self.K1 + (2.0/3.0)*self.K2)
+
+    def advance(self, t, dt, solution, update_forcings=None):
+        """Advances one full time step from t to t+dt.
+        This assumes that all the functions that the equation depends on are
+        constants across this interval. If dependent functions need to be
+        updated call solve_stage instead.
+        """
+        for k in range(3):
+            self.solve_stage(k, t, dt, solution,
+                             update_forcings)
+
+
 class SSPRK33Stage(TimeIntegrator):
     """
     3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).

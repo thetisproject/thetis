@@ -396,10 +396,38 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
         # vert_timeintegrator = timeintegrator.ImplicitMidpoint
         self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum, solver.dt)
+
+        # assign viscosity/diffusivity to correct equations
+        if self.options.solve_vert_diffusion:
+            # implicit_v_visc = solver.tot_v_visc.get_sum()
+            # explicit_v_visc = None
+            # implicit_v_diff = solver.tot_v_diff.get_sum()
+            explicit_v_diff = None
+        else:
+            # implicit_v_visc = None
+            # explicit_v_visc = solver.tot_v_visc.get_sum()
+            # implicit_v_diff = None
+            explicit_v_diff = solver.tot_v_diff.get_sum()
+
         if self.solver.options.solve_salt:
-            self.timestepper_salt_3d = timeintegrator.SSPRK33Stage(
-                solver.eq_salt,
-                solver.dt)
+            # self.timestepper_salt_3d = timeintegrator.SSPRK33Stage(
+            #     solver.eq_salt,
+            #     solver.dt)
+            fields = {'elev_3d': self.fields.elev_3d,
+                      'uv_3d': self.fields.uv_3d,
+                      'w': self.fields.w_3d,
+                      'w_mesh': self.fields.get('w_mesh_3d'),
+                      'dw_mesh_dz': self.fields.get('w_mesh_ddz_3d'),
+                      'diffusivity_h': solver.tot_h_diff.get_sum(),
+                      'diffusivity_v': explicit_v_diff,
+                      'source': self.options.salt_source_3d,
+                      # uv_mag': self.fields.uv_mag_3d,
+                      'uv_p1': self.fields.get('uv_p1_3d'),
+                      'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
+                      }
+            self.timestepper_salt_3d = timeintegrator.SSPRK33StageNew(
+                solver.eq_salt, solver.fields.salt_3d, fields, solver.dt,
+                bnd_conditions=solver.bnd_functions['salt'])
             if self.solver.options.solve_vert_diffusion:
                 self.timestepper_salt_vdff_3d = vert_timeintegrator(
                     solver.eq_salt_vdff, solver.dt, solver_parameters=vdiff_sp)

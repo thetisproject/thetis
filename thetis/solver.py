@@ -278,12 +278,12 @@ class FlowSolver(FrozenClass):
             implicit_v_visc = self.tot_v_visc.get_sum()
             explicit_v_visc = None
             implicit_v_diff = self.tot_v_diff.get_sum()
-            explicit_v_diff = None
+            # explicit_v_diff = None
         else:
             implicit_v_visc = None
             explicit_v_visc = self.tot_v_visc.get_sum()
             implicit_v_diff = None
-            explicit_v_diff = self.tot_v_diff.get_sum()
+            # explicit_v_diff = self.tot_v_diff.get_sum()
 
         # ----- Equations
         if self.options.use_mode_split:
@@ -335,21 +335,26 @@ class FlowSolver(FrozenClass):
                 h_elem_size=self.fields.h_elem_size_3d,
                 use_bottom_friction=self.options.use_bottom_friction)
         if self.options.solve_salt:
-            self.eq_salt = tracer_eq.TracerEquation(
-                self.fields.salt_3d, self.fields.elev_3d, self.fields.uv_3d,
-                w=self.fields.w_3d, w_mesh=self.fields.get('w_mesh_3d'),
-                dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
-                diffusivity_h=self.tot_h_diff.get_sum(),
-                diffusivity_v=explicit_v_diff,
-                bathymetry=self.fields.bathymetry_3d,
-                source=self.options.salt_source_3d,
-                # uv_mag=self.uv_mag_3d,
-                uv_p1=self.fields.get('uv_p1_3d'),
-                lax_friedrichs_factor=self.options.tracer_lax_friedrichs,
-                v_elem_size=self.fields.v_elem_size_3d,
-                h_elem_size=self.fields.h_elem_size_3d,
-                bnd_markers=bnd_markers,
-                bnd_len=bnd_len)
+            self.eq_salt = tracer_eq.TracerEquationNew(self.fields.salt_3d.function_space(),
+                                                       bnd_markers, bnd_len,
+                                                       bathymetry=self.fields.bathymetry_3d,
+                                                       v_elem_size=self.fields.v_elem_size_3d,
+                                                       h_elem_size=self.fields.h_elem_size_3d)
+            # self.eq_salt = tracer_eq.TracerEquation(
+            #     self.fields.salt_3d, self.fields.elev_3d, self.fields.uv_3d,
+            #     w=self.fields.w_3d, w_mesh=self.fields.get('w_mesh_3d'),
+            #     dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
+            #     diffusivity_h=self.tot_h_diff.get_sum(),
+            #     diffusivity_v=explicit_v_diff,
+            #     bathymetry=self.fields.bathymetry_3d,
+            #     source=self.options.salt_source_3d,
+            #     # uv_mag=self.uv_mag_3d,
+            #     uv_p1=self.fields.get('uv_p1_3d'),
+            #     lax_friedrichs_factor=self.options.tracer_lax_friedrichs,
+            #     v_elem_size=self.fields.v_elem_size_3d,
+            #     h_elem_size=self.fields.h_elem_size_3d,
+            #     bnd_markers=bnd_markers,
+            #     bnd_len=bnd_len)
             if self.options.solve_vert_diffusion:
                 self.eq_salt_vdff = tracer_eq.TracerEquation(
                     self.fields.salt_3d, self.fields.elev_3d,
