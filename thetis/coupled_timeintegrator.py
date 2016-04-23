@@ -388,12 +388,12 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
 
         # assign viscosity/diffusivity to correct equations
         if self.options.solve_vert_diffusion:
-            # implicit_v_visc = solver.tot_v_visc.get_sum()
+            implicit_v_visc = solver.tot_v_visc.get_sum()
             explicit_v_visc = None
             implicit_v_diff = solver.tot_v_diff.get_sum()
             explicit_v_diff = None
         else:
-            # implicit_v_visc = None
+            implicit_v_visc = None
             explicit_v_visc = solver.tot_v_visc.get_sum()
             implicit_v_diff = None
             explicit_v_diff = solver.tot_v_diff.get_sum()
@@ -457,8 +457,15 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                     bnd_conditions=solver.bnd_functions['salt'])
 
         if self.solver.options.solve_vert_diffusion:
-            self.timestepper_mom_vdff_3d = vert_timeintegrator(
-                solver.eq_vertmomentum, solver.dt, solver_parameters=vdiff_sp)
+            # self.timestepper_mom_vdff_3d = vert_timeintegrator(
+            #     solver.eq_vertmomentum, solver.dt, solver_parameters=vdiff_sp)
+            fields = {
+                      'viscosity_v': implicit_v_visc,
+                      'wind_stress': self.fields.get('wind_stress_3d'),
+                      }
+            self.timestepper_mom_vdff_3d = timeintegrator.BackwardEulerNew(
+                solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt,
+                bnd_conditions=solver.bnd_functions['momentum'])
         if self.solver.options.use_turbulence:
             self.timestepper_tke_3d = vert_timeintegrator(
                 solver.eq_tke_diff, solver.dt, solver_parameters=vdiff_sp)

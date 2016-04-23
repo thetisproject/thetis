@@ -334,13 +334,20 @@ class FlowSolver(FrozenClass):
         #     lin_drag=self.options.lin_drag,
         #     nonlin=self.options.nonlin)
         if self.options.solve_vert_diffusion:
-            self.eq_vertmomentum = momentum_eq.VerticalMomentumEquation(
-                self.fields.uv_3d, w=None,
-                viscosity_v=implicit_v_visc,
-                wind_stress=self.fields.get('wind_stress_3d'),
-                v_elem_size=self.fields.v_elem_size_3d,
-                h_elem_size=self.fields.h_elem_size_3d,
-                use_bottom_friction=self.options.use_bottom_friction)
+            self.eq_vertmomentum = momentum_eq.MomentumEquationNew(self.fields.uv_3d.function_space(),
+                                                                   bnd_markers, bnd_len,
+                                                                   bathymetry=self.fields.bathymetry_3d,
+                                                                   v_elem_size=self.fields.v_elem_size_3d,
+                                                                   h_elem_size=self.fields.h_elem_size_3d,
+                                                                   nonlin=False,
+                                                                   use_bottom_friction=self.options.use_bottom_friction)
+            # self.eq_vertmomentum = momentum_eq.VerticalMomentumEquation(
+            #     self.fields.uv_3d, w=None,
+            #     viscosity_v=implicit_v_visc,
+            #     wind_stress=self.fields.get('wind_stress_3d'),
+            #     v_elem_size=self.fields.v_elem_size_3d,
+            #     h_elem_size=self.fields.h_elem_size_3d,
+            #     use_bottom_friction=self.options.use_bottom_friction)
         if self.options.solve_salt:
             self.eq_salt = tracer_eq.TracerEquationNew(self.fields.salt_3d.function_space(),
                                                        bnd_markers, bnd_len,
