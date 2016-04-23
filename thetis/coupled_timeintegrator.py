@@ -386,6 +386,18 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             solver.eq_sw, solver.dt,
             solver.eq_sw.solver_parameters)
 
+        # assign viscosity/diffusivity to correct equations
+        if self.options.solve_vert_diffusion:
+            # implicit_v_visc = solver.tot_v_visc.get_sum()
+            explicit_v_visc = None
+            implicit_v_diff = solver.tot_v_diff.get_sum()
+            explicit_v_diff = None
+        else:
+            # implicit_v_visc = None
+            explicit_v_visc = solver.tot_v_visc.get_sum()
+            implicit_v_diff = None
+            explicit_v_diff = solver.tot_v_diff.get_sum()
+
         vdiff_sp = {'snes_monitor': False,
                     'ksp_type': 'gmres',
                     'pc_type': 'ilu',
@@ -394,20 +406,26 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
         # vert_timeintegrator = timeintegrator.DIRKLSPUM2
         vert_timeintegrator = timeintegrator.BackwardEuler
         # vert_timeintegrator = timeintegrator.ImplicitMidpoint
-        self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
-            solver.eq_momentum, solver.dt)
 
-        # assign viscosity/diffusivity to correct equations
-        if self.options.solve_vert_diffusion:
-            # implicit_v_visc = solver.tot_v_visc.get_sum()
-            # explicit_v_visc = None
-            implicit_v_diff = solver.tot_v_diff.get_sum()
-            explicit_v_diff = None
-        else:
-            # implicit_v_visc = None
-            # explicit_v_visc = solver.tot_v_visc.get_sum()
-            implicit_v_diff = None
-            explicit_v_diff = solver.tot_v_diff.get_sum()
+        # self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
+        #     solver.eq_momentum, solver.dt)
+        fields = {'eta': self.fields.elev_3d,  # FIXME rename elev
+                  'baroc_head': self.fields.get('baroc_head_3d'),
+                  'w': self.fields.w_3d,
+                  'w_mesh': self.fields.get('w_mesh_3d'),
+                  'dw_mesh_dz': self.fields.get('w_mesh_ddz_3d'),
+                  'viscosity_v': explicit_v_visc,
+                  'viscosity_h': self.solver.tot_h_visc.get_sum(),
+                  'source': self.options.uv_source_3d,
+                  # uv_mag': self.fields.uv_mag_3d,
+                  'uv_p1': self.fields.get('uv_p1_3d'),
+                  'lax_friedrichs_factor': self.options.uv_lax_friedrichs,
+                  'coriolis': self.fields.get('coriolis_3d'),
+                  'lin_drag': self.options.lin_drag,
+                  }
+        self.timestepper_mom_3d = timeintegrator.SSPRK33StageNew(
+            solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,
+            bnd_conditions=solver.bnd_functions['momentum'])
 
         if self.solver.options.solve_salt:
             # self.timestepper_salt_3d = timeintegrator.SSPRK33Stage(
@@ -418,7 +436,7 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                       'w': self.fields.w_3d,
                       'w_mesh': self.fields.get('w_mesh_3d'),
                       'dw_mesh_dz': self.fields.get('w_mesh_ddz_3d'),
-                      'diffusivity_h': solver.tot_h_diff.get_sum(),
+                      'diffusivity_h': self.solver.tot_h_diff.get_sum(),
                       'diffusivity_v': explicit_v_diff,
                       'source': self.options.salt_source_3d,
                       # uv_mag': self.fields.uv_mag_3d,

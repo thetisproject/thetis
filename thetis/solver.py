@@ -308,24 +308,31 @@ class FlowSolver(FrozenClass):
 
         bnd_len = self.eq_sw.boundary_len
         bnd_markers = self.eq_sw.boundary_markers
-        self.eq_momentum = momentum_eq.MomentumEquation(
-            bnd_markers,
-            bnd_len, self.fields.uv_3d, self.fields.elev_3d,
-            self.fields.bathymetry_3d, w=self.fields.w_3d,
-            baroc_head=self.fields.get('baroc_head_3d'),
-            w_mesh=self.fields.get('w_mesh_3d'),
-            dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
-            viscosity_v=explicit_v_visc,
-            viscosity_h=self.tot_h_visc.get_sum(),
-            h_elem_size=self.fields.h_elem_size_3d,
-            v_elem_size=self.fields.v_elem_size_3d,
-            lax_friedrichs_factor=self.options.uv_lax_friedrichs,
-            # uv_mag=self.uv_mag_3d,
-            uv_p1=self.fields.get('uv_p1_3d'),
-            coriolis=self.fields.get('coriolis_3d'),
-            source=self.options.uv_source_3d,
-            lin_drag=self.options.lin_drag,
-            nonlin=self.options.nonlin)
+        self.eq_momentum = momentum_eq.MomentumEquationNew(self.fields.uv_3d.function_space(),
+                                                           bnd_markers, bnd_len,
+                                                           bathymetry=self.fields.bathymetry_3d,
+                                                           v_elem_size=self.fields.v_elem_size_3d,
+                                                           h_elem_size=self.fields.h_elem_size_3d,
+                                                           nonlin=self.options.nonlin,
+                                                           use_bottom_friction=False)
+        # self.eq_momentum = momentum_eq.MomentumEquation(
+        #     bnd_markers,
+        #     bnd_len, self.fields.uv_3d, self.fields.elev_3d,
+        #     self.fields.bathymetry_3d, w=self.fields.w_3d,
+        #     baroc_head=self.fields.get('baroc_head_3d'),
+        #     w_mesh=self.fields.get('w_mesh_3d'),
+        #     dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
+        #     viscosity_v=explicit_v_visc,
+        #     viscosity_h=self.tot_h_visc.get_sum(),
+        #     h_elem_size=self.fields.h_elem_size_3d,
+        #     v_elem_size=self.fields.v_elem_size_3d,
+        #     lax_friedrichs_factor=self.options.uv_lax_friedrichs,
+        #     # uv_mag=self.uv_mag_3d,
+        #     uv_p1=self.fields.get('uv_p1_3d'),
+        #     coriolis=self.fields.get('coriolis_3d'),
+        #     source=self.options.uv_source_3d,
+        #     lin_drag=self.options.lin_drag,
+        #     nonlin=self.options.nonlin)
         if self.options.solve_vert_diffusion:
             self.eq_vertmomentum = momentum_eq.VerticalMomentumEquation(
                 self.fields.uv_3d, w=None,
@@ -481,7 +488,7 @@ class FlowSolver(FrozenClass):
         self.w_solver = VerticalVelocitySolver(self.fields.w_3d,
                                                self.fields.uv_3d,
                                                self.fields.bathymetry_3d,
-                                               self.eq_momentum.boundary_markers,
+                                               self.eq_sw.boundary_markers,
                                                self.eq_momentum.bnd_functions)
         # NOTE averager is a word. now.
         self.uv_averager = VerticalIntegrator(self.fields.uv_3d,
