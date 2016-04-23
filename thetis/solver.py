@@ -392,30 +392,40 @@ class FlowSolver(FrozenClass):
         if self.options.use_turbulence:
             if self.options.use_turbulence_advection:
                 # explicit advection equations
-                self.eq_tke_adv = tracer_eq.TracerEquation(
-                    self.fields.tke_3d, self.fields.elev_3d, self.fields.uv_3d,
-                    w=self.fields.w_3d, w_mesh=self.fields.get('w_mesh_3d'),
-                    dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
-                    diffusivity_h=None,
-                    diffusivity_v=None,
-                    uv_p1=self.fields.get('uv_p1_3d'),
-                    lax_friedrichs_factor=self.options.tracer_lax_friedrichs,
-                    v_elem_size=self.fields.v_elem_size_3d,
-                    h_elem_size=self.fields.h_elem_size_3d,
-                    bnd_markers=bnd_markers,
-                    bnd_len=bnd_len)
-                self.eq_psi_adv = tracer_eq.TracerEquation(
-                    self.fields.psi_3d, self.fields.elev_3d, self.fields.uv_3d,
-                    w=self.fields.w_3d, w_mesh=self.fields.get('w_mesh_3d'),
-                    dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
-                    diffusivity_h=None,
-                    diffusivity_v=None,
-                    uv_p1=self.fields.get('uv_p1_3d'),
-                    lax_friedrichs_factor=self.options.tracer_lax_friedrichs,
-                    v_elem_size=self.fields.v_elem_size_3d,
-                    h_elem_size=self.fields.h_elem_size_3d,
-                    bnd_markers=bnd_markers,
-                    bnd_len=bnd_len)
+                self.eq_tke_adv = tracer_eq.TracerEquationNew(self.fields.tke_3d.function_space(),
+                                                              bnd_markers, bnd_len,
+                                                              bathymetry=self.fields.bathymetry_3d,
+                                                              v_elem_size=self.fields.v_elem_size_3d,
+                                                              h_elem_size=self.fields.h_elem_size_3d)
+                self.eq_psi_adv = tracer_eq.TracerEquationNew(self.fields.psi_3d.function_space(),
+                                                              bnd_markers, bnd_len,
+                                                              bathymetry=self.fields.bathymetry_3d,
+                                                              v_elem_size=self.fields.v_elem_size_3d,
+                                                              h_elem_size=self.fields.h_elem_size_3d)
+                # self.eq_tke_adv = tracer_eq.TracerEquation(
+                #     self.fields.tke_3d, self.fields.elev_3d, self.fields.uv_3d,
+                #     w=self.fields.w_3d, w_mesh=self.fields.get('w_mesh_3d'),
+                #     dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
+                #     diffusivity_h=None,
+                #     diffusivity_v=None,
+                #     uv_p1=self.fields.get('uv_p1_3d'),
+                #     lax_friedrichs_factor=self.options.tracer_lax_friedrichs,
+                #     v_elem_size=self.fields.v_elem_size_3d,
+                #     h_elem_size=self.fields.h_elem_size_3d,
+                #     bnd_markers=bnd_markers,
+                #     bnd_len=bnd_len)
+                # self.eq_psi_adv = tracer_eq.TracerEquation(
+                #     self.fields.psi_3d, self.fields.elev_3d, self.fields.uv_3d,
+                #     w=self.fields.w_3d, w_mesh=self.fields.get('w_mesh_3d'),
+                #     dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
+                #     diffusivity_h=None,
+                #     diffusivity_v=None,
+                #     uv_p1=self.fields.get('uv_p1_3d'),
+                #     lax_friedrichs_factor=self.options.tracer_lax_friedrichs,
+                #     v_elem_size=self.fields.v_elem_size_3d,
+                #     h_elem_size=self.fields.h_elem_size_3d,
+                #     bnd_markers=bnd_markers,
+                #     bnd_len=bnd_len)
             # implicit vertical diffusion eqn with production terms
             self.eq_tke_diff = turbulence.TKEEquationNew(self.fields.tke_3d.function_space(),
                                                          self.gls_model,

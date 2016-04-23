@@ -482,8 +482,21 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             self.timestepper_psi_3d = vert_timeintegrator(
                 solver.eq_psi_diff, solver.fields.psi_3d, fields, solver.dt, solver_parameters=vdiff_sp)
             if self.solver.options.use_turbulence_advection:
-                self.timestepper_tke_adv_eq = timeintegrator.SSPRK33Stage(solver.eq_tke_adv, solver.dt)
-                self.timestepper_psi_adv_eq = timeintegrator.SSPRK33Stage(solver.eq_psi_adv, solver.dt)
+                # self.timestepper_tke_adv_eq = timeintegrator.SSPRK33Stage(solver.eq_tke_adv, solver.dt)
+                # self.timestepper_psi_adv_eq = timeintegrator.SSPRK33Stage(solver.eq_psi_adv, solver.dt)
+                fields = {'elev_3d': self.fields.elev_3d,
+                          'uv_3d': self.fields.uv_3d,
+                          'w': self.fields.w_3d,
+                          'w_mesh': self.fields.get('w_mesh_3d'),
+                          'dw_mesh_dz': self.fields.get('w_mesh_ddz_3d'),
+                          # uv_mag': self.fields.uv_mag_3d,
+                          'uv_p1': self.fields.get('uv_p1_3d'),
+                          'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
+                          }
+                self.timestepper_tke_adv_eq = timeintegrator.SSPRK33StageNew(
+                    solver.eq_tke_adv, solver.fields.tke_3d, fields, solver.dt)
+                self.timestepper_psi_adv_eq = timeintegrator.SSPRK33StageNew(
+                    solver.eq_psi_adv, solver.fields.psi_3d, fields, solver.dt)
         # ----- stage 1 -----
         # from n to n+1 with RHS at (u_n, t_n)
         # u_init = u_n
