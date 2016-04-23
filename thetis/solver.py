@@ -274,16 +274,16 @@ class FlowSolver(FrozenClass):
         self.tot_v_diff.add(self.options.get('v_diffusivity'))
         self.tot_v_diff.add(self.fields.get('eddy_diff_3d'))
         # assign viscosity/diffusivity to correct equations
-        if self.options.solve_vert_diffusion:
-            implicit_v_visc = self.tot_v_visc.get_sum()
-            explicit_v_visc = None
-            implicit_v_diff = self.tot_v_diff.get_sum()
-            # explicit_v_diff = None
-        else:
-            implicit_v_visc = None
-            explicit_v_visc = self.tot_v_visc.get_sum()
-            implicit_v_diff = None
-            # explicit_v_diff = self.tot_v_diff.get_sum()
+        # if self.options.solve_vert_diffusion:
+        #     implicit_v_visc = self.tot_v_visc.get_sum()
+        #     explicit_v_visc = None
+        #     implicit_v_diff = self.tot_v_diff.get_sum()
+        #     explicit_v_diff = None
+        # else:
+        #     implicit_v_visc = None
+        #     explicit_v_visc = self.tot_v_visc.get_sum()
+        #     implicit_v_diff = None
+        #     explicit_v_diff = self.tot_v_diff.get_sum()
 
         # ----- Equations
         if self.options.use_mode_split:
@@ -417,31 +417,43 @@ class FlowSolver(FrozenClass):
                     bnd_markers=bnd_markers,
                     bnd_len=bnd_len)
             # implicit vertical diffusion eqn with production terms
-            self.eq_tke_diff = turbulence.TKEEquation(
-                self.fields.tke_3d,
-                self.fields.elev_3d, uv=None,
-                w=None, w_mesh=None,
-                dw_mesh_dz=None,
-                diffusivity_h=None,
-                diffusivity_v=implicit_v_diff,
-                viscosity_v=implicit_v_visc,
-                v_elem_size=self.fields.v_elem_size_3d,
-                h_elem_size=self.fields.h_elem_size_3d,
-                uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
-                bnd_markers=bnd_markers, bnd_len=bnd_len,
-                gls_model=self.gls_model)
-            self.eq_psi_diff = turbulence.PsiEquation(
-                self.fields.psi_3d, self.fields.elev_3d, uv=None,
-                w=None, w_mesh=None,
-                dw_mesh_dz=None,
-                diffusivity_h=None,
-                diffusivity_v=implicit_v_diff,
-                viscosity_v=implicit_v_visc,
-                v_elem_size=self.fields.v_elem_size_3d,
-                h_elem_size=self.fields.h_elem_size_3d,
-                uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
-                bnd_markers=bnd_markers, bnd_len=bnd_len,
-                gls_model=self.gls_model)
+            self.eq_tke_diff = turbulence.TKEEquationNew(self.fields.tke_3d.function_space(),
+                                                         self.gls_model,
+                                                         bnd_markers, bnd_len,
+                                                         bathymetry=self.fields.bathymetry_3d,
+                                                         v_elem_size=self.fields.v_elem_size_3d,
+                                                         h_elem_size=self.fields.h_elem_size_3d)
+            self.eq_psi_diff = turbulence.PsiEquationNew(self.fields.psi_3d.function_space(),
+                                                         self.gls_model,
+                                                         bnd_markers, bnd_len,
+                                                         bathymetry=self.fields.bathymetry_3d,
+                                                         v_elem_size=self.fields.v_elem_size_3d,
+                                                         h_elem_size=self.fields.h_elem_size_3d)
+            # self.eq_tke_diff = turbulence.TKEEquation(
+            #     self.fields.tke_3d,
+            #     self.fields.elev_3d, uv=None,
+            #     w=None, w_mesh=None,
+            #     dw_mesh_dz=None,
+            #     diffusivity_h=None,
+            #     diffusivity_v=implicit_v_diff,
+            #     viscosity_v=implicit_v_visc,
+            #     v_elem_size=self.fields.v_elem_size_3d,
+            #     h_elem_size=self.fields.h_elem_size_3d,
+            #     uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
+            #     bnd_markers=bnd_markers, bnd_len=bnd_len,
+            #     gls_model=self.gls_model)
+            # self.eq_psi_diff = turbulence.PsiEquation(
+            #     self.fields.psi_3d, self.fields.elev_3d, uv=None,
+            #     w=None, w_mesh=None,
+            #     dw_mesh_dz=None,
+            #     diffusivity_h=None,
+            #     diffusivity_v=implicit_v_diff,
+            #     viscosity_v=implicit_v_visc,
+            #     v_elem_size=self.fields.v_elem_size_3d,
+            #     h_elem_size=self.fields.h_elem_size_3d,
+            #     uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
+            #     bnd_markers=bnd_markers, bnd_len=bnd_len,
+            #     gls_model=self.gls_model)
 
         # ----- Time integrators
         self.set_time_step()

@@ -837,3 +837,162 @@ class PsiEquation(TracerEquation):
             f += diff_flux*self.test*self.normal[2]*ds_surf
 
         return f
+
+
+class TKESourceTerm(TracerTerm):
+    """
+    Production and destruction terms of the TKE equation
+    """
+    def __init__(self, function_space, gls_model, boundary_markers, boundary_len,
+                 bathymetry=None, v_elem_size=None, h_elem_size=None):
+        super(TKESourceTerm, self).__init__(function_space, boundary_markers, boundary_len,
+                                            bathymetry, v_elem_size, h_elem_size)
+        self.gls_model = gls_model
+
+    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        # TKE: P + B - eps
+        # P = viscosity M**2           (production)
+        # B = - diffusivity N**2       (byoyancy production)
+        # M**2 = (du/dz)**2 + (dv/dz)**2 (shear frequency)
+        # N**2 = -g\rho_0 (drho/dz)      (buoyancy frequency)
+        # eps = (cmu0)**(3+p/n)*tke**(3/2+m/n)*psi**(-1/n)
+        #                                (tke dissipation rate)
+        eddy_viscosity = fields_old['viscosity_v']
+        eddy_diffusivity = fields_old['diffusivity_v']
+        epsilon = fields_old['epsilon']
+        shear_freq2 = fields_old['shear_freq2']
+        buoy_freq2_neg = fields_old['buoy_freq2_neg']
+        buoy_freq2_pos = fields_old['buoy_freq2_pos']
+        p = eddy_viscosity * shear_freq2
+        b_source = - eddy_diffusivity * buoy_freq2_neg
+        b_sink = - eddy_diffusivity * buoy_freq2_pos
+
+        source = p + b_source + (b_sink - epsilon)/solution_old*solution  # patankar
+        f = inner(source, self.test)*dx
+        return f
+
+
+class PsiSourceTerm(TracerTerm):
+    """
+    Production and destruction terms of the TKE equation
+    """
+    def __init__(self, function_space, gls_model, boundary_markers, boundary_len,
+                 bathymetry=None, v_elem_size=None, h_elem_size=None):
+        super(PsiSourceTerm, self).__init__(function_space, boundary_markers, boundary_len,
+                                            bathymetry, v_elem_size, h_elem_size)
+        self.gls_model = gls_model
+
+    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        # psi: psi/k*(c1*P + c3*B - c2*eps*f_wall)
+        # P = viscosity M**2           (production)
+        # B = - diffusivity N**2       (byoyancy production)
+        # M**2 = (du/dz)**2 + (dv/dz)**2 (shear frequency)
+        # N**2 = -g\rho_0 (drho/dz)      (buoyancy frequency)
+        # eps = (cmu0)**(3+p/n)*tke**(3/2+m/n)*psi**(-1/n)
+        #                                (tke dissipation rate)
+        eddy_viscosity = fields_old['viscosity_v']
+        eddy_diffusivity = fields_old['diffusivity_v']
+        diffusivity_v = eddy_viscosity/self.gls_model.options.schmidt_nb_psi
+        k = fields_old['k']
+        epsilon = fields_old['epsilon']
+        shear_freq2 = fields_old['shear_freq2']
+        buoy_freq2_neg = fields_old['buoy_freq2_neg']
+        buoy_freq2_pos = fields_old['buoy_freq2_pos']
+        p = eddy_viscosity * shear_freq2
+        c1 = self.gls_model.options.c1
+        c2 = self.gls_model.options.c2
+        # c3 switch: c3 = c3_minus if n2 > 0 else c3_plus
+        c3_minus = self.gls_model.options.c3_minus
+        c3_plus = self.gls_model.options.c3_plus  # > 0
+        assert c3_plus >= 0, 'c3_plus has unexpected sign'
+        b_shear = c3_plus * -eddy_diffusivity * buoy_freq2_neg
+        b_buoy = c3_minus * -eddy_diffusivity * buoy_freq2_pos
+        if c3_minus > 0:
+            b_source = b_shear
+            b_sink = b_buoy
+        else:
+            b_source = b_shear + b_buoy
+            b_sink = 0
+        f_wall = self.gls_model.options.f_wall
+        source = solution_old/k*(c1*p + b_source) + solution/k*(b_sink - c2*f_wall*epsilon)  # patankar
+        f = inner(source, self.test)*dx
+
+        # add bottom/top boundary condition for psi
+        # (nuv_v/sigma_psi * dpsi/dz)_b = n * nuv_v/sigma_psi * (cmu0)^p * k^m * kappa^n * z_b^(n-1)
+        # z_b = distance_from_bottom + z_0 (Burchard and Petersen, 1999)
+        cmu0 = self.gls_model.options.cmu0
+        p = self.gls_model.options.p
+        m = self.gls_model.options.m
+        n = self.gls_model.options.n
+        z0_friction = physical_constants['z0_friction']
+        kappa = physical_constants['von_karman']
+        if self.v_elem_size is None:
+            raise Exception('v_elem_size required')
+        # bottom condition
+        z_b = 0.5*self.v_elem_size + z0_friction
+        diff_flux = (n*diffusivity_v*(cmu0)**p *
+                     k**m * kappa**n * z_b**(n - 1.0))
+        f += diff_flux*self.test*self.normal[2]*ds_bottom
+        # surface condition
+        z0_surface = 0.5*self.v_elem_size + Constant(0.02)  # TODO generalize
+        z_s = self.v_elem_size + z0_surface
+        diff_flux = -(n*diffusivity_v*(cmu0)**p *
+                      k**m * kappa**n * z_s**(n - 1.0))
+        f += diff_flux*self.test*self.normal[2]*ds_surf
+
+        return f
+
+
+class GLSVerticalDiffusionTerm(VerticalDiffusionTerm):
+    """
+    Vertical diffusion term where diffusivity is replaced by viscosity/Schmidt number.
+    """
+    def __init__(self, function_space, schmidt_nb, boundary_markers, boundary_len,
+                 bathymetry=None, v_elem_size=None, h_elem_size=None):
+        super(GLSVerticalDiffusionTerm, self).__init__(function_space, boundary_markers, boundary_len,
+                                                       bathymetry, v_elem_size, h_elem_size)
+        self.schmidt_nb = schmidt_nb
+
+    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        d = {'diffusivity_v': fields_old['viscosity_v']/self.schmidt_nb}
+        f = super(GLSVerticalDiffusionTerm, self).get_residual(solution, solution_old,
+                                                               d, d, bnd_conditions=None)
+        return f
+
+
+class TKEEquationNew(EquationNew):
+    """
+    Turbulent kinetic energy equation without advection terms.
+    """
+    def __init__(self, function_space, gls_model, boundary_markers, boundary_len,
+                 bathymetry=None, v_elem_size=None, h_elem_size=None):
+        super(TKEEquationNew, self).__init__(function_space)
+
+        diff = GLSVerticalDiffusionTerm(function_space,
+                                        gls_model.options.schmidt_nb_tke,
+                                        boundary_markers, boundary_len,
+                                        bathymetry, v_elem_size, h_elem_size)
+        source = TKESourceTerm(function_space,
+                               gls_model, boundary_markers, boundary_len,
+                               bathymetry, v_elem_size, h_elem_size)
+        self.add_term(source, 'implicit')
+        self.add_term(diff, 'implicit')
+
+
+class PsiEquationNew(EquationNew):
+    """
+    Psi equation without advection terms.
+    """
+    def __init__(self, function_space, gls_model, boundary_markers, boundary_len,
+                 bathymetry=None, v_elem_size=None, h_elem_size=None):
+        super(PsiEquationNew, self).__init__(function_space)
+
+        diff = GLSVerticalDiffusionTerm(function_space,
+                                        gls_model.options.schmidt_nb_psi,
+                                        boundary_markers, boundary_len,
+                                        bathymetry, v_elem_size, h_elem_size)
+        source = PsiSourceTerm(function_space,
+                               gls_model, boundary_markers, boundary_len,
+                               bathymetry, v_elem_size, h_elem_size)
+        self.add_term(diff, 'implicit')
+        self.add_term(source, 'implicit')

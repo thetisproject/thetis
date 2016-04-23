@@ -403,9 +403,8 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                     'pc_type': 'ilu',
                     'snes_atol': 1e-27,
                     }
-        # vert_timeintegrator = timeintegrator.DIRKLSPUM2
-        vert_timeintegrator = timeintegrator.BackwardEuler
-        # vert_timeintegrator = timeintegrator.ImplicitMidpoint
+        # vert_timeintegrator = timeintegrator.DIRKLSPUM2New
+        vert_timeintegrator = timeintegrator.BackwardEulerNew
 
         # self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
         #     solver.eq_momentum, solver.dt)
@@ -452,25 +451,36 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                 fields = {'elev_3d': self.fields.elev_3d,
                           'diffusivity_v': implicit_v_diff,
                           }
-                self.timestepper_salt_vdff_3d = timeintegrator.BackwardEulerNew(
+                self.timestepper_salt_vdff_3d = vert_timeintegrator(
                     solver.eq_salt_vdff, solver.fields.salt_3d, fields, solver.dt,
-                    bnd_conditions=solver.bnd_functions['salt'])
+                    bnd_conditions=solver.bnd_functions['salt'], solver_parameters=vdiff_sp)
 
         if self.solver.options.solve_vert_diffusion:
             # self.timestepper_mom_vdff_3d = vert_timeintegrator(
             #     solver.eq_vertmomentum, solver.dt, solver_parameters=vdiff_sp)
-            fields = {
-                      'viscosity_v': implicit_v_visc,
+            fields = {'viscosity_v': implicit_v_visc,
                       'wind_stress': self.fields.get('wind_stress_3d'),
                       }
-            self.timestepper_mom_vdff_3d = timeintegrator.BackwardEulerNew(
+            self.timestepper_mom_vdff_3d = vert_timeintegrator(
                 solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt,
-                bnd_conditions=solver.bnd_functions['momentum'])
+                bnd_conditions=solver.bnd_functions['momentum'], solver_parameters=vdiff_sp)
         if self.solver.options.use_turbulence:
+            # self.timestepper_tke_3d = vert_timeintegrator(
+            #     solver.eq_tke_diff, solver.dt, solver_parameters=vdiff_sp)
+            # self.timestepper_psi_3d = vert_timeintegrator(
+            #     solver.eq_psi_diff, solver.dt, solver_parameters=vdiff_sp)
+            fields = {'diffusivity_v': implicit_v_diff,
+                      'viscosity_v': implicit_v_visc,
+                      'k': solver.fields.tke_3d,
+                      'epsilon': solver.gls_model.epsilon,
+                      'shear_freq2': solver.gls_model.m2,
+                      'buoy_freq2_neg': solver.gls_model.n2_neg,
+                      'buoy_freq2_pos': solver.gls_model.n2_pos
+                      }
             self.timestepper_tke_3d = vert_timeintegrator(
-                solver.eq_tke_diff, solver.dt, solver_parameters=vdiff_sp)
+                solver.eq_tke_diff, solver.fields.tke_3d, fields, solver.dt, solver_parameters=vdiff_sp)
             self.timestepper_psi_3d = vert_timeintegrator(
-                solver.eq_psi_diff, solver.dt, solver_parameters=vdiff_sp)
+                solver.eq_psi_diff, solver.fields.psi_3d, fields, solver.dt, solver_parameters=vdiff_sp)
             if self.solver.options.use_turbulence_advection:
                 self.timestepper_tke_adv_eq = timeintegrator.SSPRK33Stage(solver.eq_tke_adv, solver.dt)
                 self.timestepper_psi_adv_eq = timeintegrator.SSPRK33Stage(solver.eq_psi_adv, solver.dt)
