@@ -28,7 +28,9 @@ def test_steady_state_channel_mms(options):
     eta_expr = Expression("eta0*cos(k*x[0])", k=k, eta0=eta0)
     depth_expr = "H0+eta0*cos(k*x[0])"
     u_expr = Expression(("Q/({H})".format(H=depth_expr), 0.), k=k, Q=q, eta0=eta0, H0=h0)
-    source_expr = Expression("k*eta0*(pow(Q,2)/pow({H},3)-g)*sin(k*x[0])".format(H=depth_expr),
+    # source_expr = Expression("k*eta0*(pow(Q,2)/pow({H},3)-g)*sin(k*x[0])".format(H=depth_expr),
+    #                          k=k, g=g, Q=q, eta0=eta0, H0=h0)
+    source_expr = Expression(("k*eta0*(pow(Q,2)/pow({H},3)-g)*sin(k*x[0])".format(H=depth_expr), 0),
                              k=k, g=g, Q=q, eta0=eta0, H0=h0)
     u_bcval = q/(h0+eta0)
     eta_bcval = eta0
@@ -49,11 +51,15 @@ def test_steady_state_channel_mms(options):
         bathymetry_2d = Function(p1_2d, name="bathymetry")
         bathymetry_2d.assign(h0)
 
+        source_space = VectorFunctionSpace(mesh2d, 'DG', order+1)
+        source_func = project(source_expr, source_space)
+
         # --- create solver ---
         solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=order)
         solver_obj.options.nonlin = True
         solver_obj.options.t_export = dt
         solver_obj.options.t_end = n*dt
+        solver_obj.options.uv_source_2d = source_func
         solver_obj.options.timestepper_type = 'cranknicolson'
         solver_obj.options.timer_labels = []
         solver_obj.options.dt = dt
@@ -62,6 +68,7 @@ def test_steady_state_channel_mms(options):
         # boundary conditions
         inflow_tag = 1
         outflow_tag = 2
+
         inflow_func = Function(p1_2d)
         inflow_func.interpolate(Expression(-u_bcval))
         inflow_bc = {'un': inflow_func}
@@ -80,21 +87,26 @@ def test_steady_state_channel_mms(options):
         }
         # reinitialize the timestepper so we can set our own solver parameters and gamma
         # setting gamma to 1.0 converges faster to
-        solver_obj.timestepper = timeintegrator.CrankNicolson(solver_obj.eq_sw, solver_obj.dt,
-                                                              solver_parameters, gamma=1.0)
+        # solver_obj.timestepper = timeintegrator.CrankNicolson(solver_obj.eq_sw, solver_obj.dt,
+        #                                                       solver_parameters, gamma=1.0)
+        solver_obj.timestepper = timeintegrator.CrankNicolsonNew(solver_obj.eq_sw, solver_obj.fields.solution_2d,
+                                                                 solver_obj.timestepper.fields, solver_obj.dt,
+                                                                 bnd_conditions=solver_obj.bnd_functions['shallow_water'],
+                                                                 solver_parameters=solver_parameters, gamma=1.0)
         # hack to avoid picking up prefixed petsc options from other py.test tests:
         solver_obj.timestepper.name = 'test_steady_state_channel_mms'
         solver_obj.timestepper.solver_parameters.update(solver_parameters)
         solver_obj.timestepper.update_solver()
         solver_obj.assign_initial_conditions(uv_init=Expression(("1.0", "0.0")))
 
-        source_space = FunctionSpace(mesh2d, 'DG', order+1)
-        source_func = project(source_expr, source_space)
         if do_exports:
             source_pvd.write(source_func)
-        solver_obj.timestepper.F -= solver_obj.timestepper.dt_const*solver_obj.eq_sw.U_test[0]*source_func*dx
+        # solver_obj.timestepper.F -= solver_obj.timestepper.dt_const*solver_obj.eq_sw.U_test[0]*source_func*dx
         # subtract out time derivative
-        solver_obj.timestepper.F -= (solver_obj.eq_sw.mass_term(solver_obj.eq_sw.solution)-solver_obj.eq_sw.mass_term(solver_obj.timestepper.solution_old))
+        # solver_obj.timestepper.F -= (solver_obj.eq_sw.mass_term(solver_obj.eq_sw.solution) - solver_obj.eq_sw.mass_term(solver_obj.timestepper.solution_old))
+        # solver_obj.timestepper.F -= solver_obj.timestepper.dt_const*solver_obj.eq_sw.terms[0].U_test[0]*source_func*dx
+        solver_obj.timestepper.F -= (solver_obj.eq_sw.mass_term(solver_obj.timestepper.solution) -
+                                     solver_obj.eq_sw.mass_term(solver_obj.timestepper.solution_old))
         solver_obj.timestepper.update_solver()
 
         solver_obj.iterate()
@@ -132,4 +144,4 @@ def test_steady_state_channel_mms(options):
 
 
 if __name__ == '__main__':
-    test_steady_state_channel_mms()
+    test_steady_state_channel_mms({"no_exports": True, "mimetic": False, "continuous_pressure": True})

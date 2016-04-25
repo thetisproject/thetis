@@ -97,37 +97,64 @@ class FlowSolver2d(FrozenClass):
         self.fields.solution_2d = Function(self.function_spaces.V_2d)
 
         # ----- Equations
-        self.eq_sw = shallowwater_eq.ShallowWaterEquations(
-            self.fields.solution_2d,
+        self.eq_sw = shallowwater_eq.ShallowWaterEquationsNew(
+            self.fields.solution_2d.function_space(),
             self.fields.bathymetry_2d,
-            lin_drag=self.options.lin_drag,
-            viscosity_h=self.options.h_viscosity,
-            uv_lax_friedrichs=self.options.uv_lax_friedrichs,
-            coriolis=self.options.coriolis,
-            wind_stress=self.options.wind_stress,
-            uv_source=self.options.uv_source_2d,
-            elev_source=self.options.elev_source_2d,
             nonlin=self.options.nonlin,
             include_grad_div_viscosity_term=self.options.include_grad_div_viscosity_term,
             include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term
         )
+        # self.eq_sw = shallowwater_eq.ShallowWaterEquations(
+        #     self.fields.solution_2d,
+        #     self.fields.bathymetry_2d,
+        #     lin_drag=self.options.lin_drag,
+        #     viscosity_h=self.options.h_viscosity,
+        #     uv_lax_friedrichs=self.options.uv_lax_friedrichs,
+        #     coriolis=self.options.coriolis,
+        #     wind_stress=self.options.wind_stress,
+        #     uv_source=self.options.uv_source_2d,
+        #     elev_source=self.options.elev_source_2d,
+        #     nonlin=self.options.nonlin,
+        #     include_grad_div_viscosity_term=self.options.include_grad_div_viscosity_term,
+        #     include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term
+        # )
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
 
         # ----- Time integrators
+        fields = {
+            'lin_drag': self.options.lin_drag,
+            'viscosity_h': self.options.h_viscosity,
+            'uv_lax_friedrichs': self.options.uv_lax_friedrichs,
+            'coriolis': self.options.coriolis,
+            'wind_stress': self.options.wind_stress,
+            'uv_source': self.options.uv_source_2d,
+            'elev_source': self.options.elev_source_2d, }
         self.set_time_step()
         if self.options.timestepper_type.lower() == 'ssprk33':
-            self.timestepper = timeintegrator.SSPRK33Stage(self.eq_sw, self.dt,
-                                                           self.eq_sw.solver_parameters)
+            # self.timestepper = timeintegrator.SSPRK33Stage(self.eq_sw, self.dt,
+            #                                                self.eq_sw.solver_parameters)
+            self.timestepper = timeintegrator.SSPRK33StageNew(self.eq_sw, self.fields.solution_2d,
+                                                              fields, self.dt,
+                                                              bnd_conditions=self.bnd_functions['shallow_water'],
+                                                              solver_parameters=self.eq_sw.solver_parameters)
         elif self.options.timestepper_type.lower() == 'ssprk33semi':
             self.timestepper = timeintegrator.SSPRK33StageSemiImplicit(self.eq_sw,
                                                                        self.dt, self.eq_sw.solver_parameters)
         elif self.options.timestepper_type.lower() == 'forwardeuler':
-            self.timestepper = timeintegrator.ForwardEuler(self.eq_sw, self.dt,
-                                                           self.eq_sw.solver_parameters)
+            # self.timestepper = timeintegrator.ForwardEuler(self.eq_sw, self.dt,
+            #                                                self.eq_sw.solver_parameters)
+            self.timestepper = timeintegrator.ForwardEulerNew(self.eq_sw, self.fields.solution_2d,
+                                                              fields, self.dt,
+                                                              bnd_conditions=self.bnd_functions['shallow_water'],
+                                                              solver_parameters=self.eq_sw.solver_parameters)
         elif self.options.timestepper_type.lower() == 'cranknicolson':
-            self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.dt,
-                                                            self.eq_sw.solver_parameters)
+            # self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.dt,
+            #                                                 self.eq_sw.solver_parameters)
+            self.timestepper = timeintegrator.CrankNicolsonNew(self.eq_sw, self.fields.solution_2d,
+                                                               fields, self.dt,
+                                                               bnd_conditions=self.bnd_functions['shallow_water'],
+                                                               solver_parameters=self.eq_sw.solver_parameters)
         elif self.options.timestepper_type.lower() == 'sspimex':
             # TODO meaningful solver params
             sp_impl = {

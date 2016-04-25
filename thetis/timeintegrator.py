@@ -506,6 +506,122 @@ class SSPRK33StageSemiImplicit(TimeIntegrator):
                              update_forcings)
 
 
+class SSPRK33StageSemiImplicitNew(TimeIntegrator):
+    """
+    3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).
+    This class only advances one step at a time.
+
+    This scheme has Butcher tableau
+    0   |
+    1   | 1
+    1/2 | 1/4 1/4
+    ---------------
+        | 1/6 1/6 2/3
+
+    CFL coefficient is 1.0
+    """
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
+        """Creates forms for the time integrator"""
+        super(SSPRK33StageSemiImplicitNew, self).__init__(equation, solver_parameters)
+        self.solver_parameters.setdefault('snes_monitor', False)
+        self.solver_parameters.setdefault('snes_type', 'newtonls')
+
+        self.explicit = True
+        self.CFL_coeff = 1.0
+        self.n_stages = 3
+        self.theta = Constant(0.5)
+
+        self.solution = solution
+        self.solution_old = Function(self.equation.function_space, name='old solution')
+
+        self.fields = fields
+
+        self.sol0 = Function(self.equation.function_space)
+        self.sol1 = Function(self.equation.function_space)
+
+        self.dt_const = Constant(dt)
+
+        # FIXME old solution should be set correctly, this is consistent with old formulation
+        args = (self.fields, self.fields, bnd_conditions)
+        self.F_0 = (self.equation.mass_term(self.sol0) - self.equation.mass_term(self.solution_old) -
+                    self.dt_const*(
+                        self.theta*self.equation.get_residual('implicit', self.sol0, self.sol0, *args) +
+                        (1-self.theta)*self.equation.get_residual('implicit', self.solution_old, self.solution_old, *args) +
+                        self.equation.get_residual('explicit', self.solution_old, self.solution_old, *args) +
+                        self.equation.get_residual('source', self.solution_old, self.solution_old, *args))
+                    )
+        self.F_1 = (self.equation.mass_term(self.sol1) -
+                    3.0/4.0*self.equation.mass_term(self.solution_old) - 1.0/4.0*self.equation.mass_term(self.sol0) -
+                    1.0/4.0*self.dt_const*(
+                        self.theta*self.equation.get_residual('implicit', self.sol1, self.sol1, *args) +
+                        (1-self.theta)*self.equation.get_residual('implicit', self.sol0, self.sol0, *args) +
+                        self.equation.get_residual('explicit', self.sol0, self.sol0, *args) +
+                        self.equation.get_residual('source', self.solution_old, self.solution_old, *args))
+                    )
+        self.F_2 = (self.equation.mass_term(self.solution) -
+                    1.0/3.0*self.equation.mass_term(self.solution_old) - 2.0/3.0*self.equation.mass_term(self.sol1) -
+                    2.0/3.0*self.dt_const*(
+                        self.theta*self.equation.get_residual('implicit', self.solution, self.solution, *args) +
+                        (1-self.theta)*self.equation.get_residual('implicit', self.sol1, self.sol1, *args) +
+                        self.equation.get_residual('explicit', self.sol1, self.sol1, *args) +
+                        self.equation.get_residual('source', self.solution_old, self.solution_old, *args))
+                    )
+        self.update_solver()
+
+    def update_solver(self):
+        """Builds linear problems for each stage. These problems need to be
+        re-created after each mesh update."""
+        prob_f0 = NonlinearVariationalProblem(self.F_0, self.sol0)
+        self.solver_f0 = NonlinearVariationalSolver(prob_f0,
+                                                    solver_parameters=self.solver_parameters)
+        prob_f1 = NonlinearVariationalProblem(self.F_1, self.sol1)
+        self.solver_f1 = NonlinearVariationalSolver(prob_f1,
+                                                    solver_parameters=self.solver_parameters)
+        prob_f2 = NonlinearVariationalProblem(self.F_2, self.solution)
+        self.solver_f2 = NonlinearVariationalSolver(prob_f2,
+                                                    solver_parameters=self.solver_parameters)
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(solution)
+
+    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
+        """
+        Solves a single stage of step from t to t+dt.
+        All functions that the equation depends on must be at rigth state
+        corresponding to each sub-step.
+        """
+        self.dt_const.assign(dt)
+        if i_stage == 0:
+            # stage 0
+            if update_forcings is not None:
+                update_forcings(t)
+            self.solver_f0.solve()
+            solution.assign(self.sol0)
+        elif i_stage == 1:
+            # stage 1
+            if update_forcings is not None:
+                update_forcings(t+dt)
+            self.solver_f1.solve()
+            solution.assign(self.sol1)
+        elif i_stage == 2:
+            # stage 2
+            if update_forcings is not None:
+                update_forcings(t+dt/2)
+            self.solver_f2.solve()
+            self.solution_old.assign(solution)
+
+    def advance(self, t, dt, solution, update_forcings):
+        """Advances one full time step from t to t+dt.
+        This assumes that all the functions that the equation depends on are
+        constants across this interval. If dependent functions need to be
+        updated call solve_stage instead.
+        """
+        for k in range(3):
+            self.solve_stage(k, t, dt, solution,
+                             update_forcings)
+
+
 class ForwardEuler(TimeIntegrator):
     """Standard forward Euler time integration scheme."""
     def __init__(self, equation, dt, solver_parameters={}):
@@ -565,6 +681,60 @@ class ForwardEuler(TimeIntegrator):
         # shift time
         for k in self.funcs_old:
             self.funcs_old[k].assign(self.funcs[k])
+
+
+class ForwardEulerNew(TimeIntegrator):
+    """Standard forward Euler time integration scheme."""
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
+        """Creates forms for the time integrator"""
+        super(ForwardEulerNew, self).__init__(equation, solver_parameters)
+        self.dt_const = Constant(dt)
+        self.solution = solution
+        self.solution_old = Function(self.equation.function_space)
+
+        # dict of all input functions needed for the equation
+        self.fields = fields
+        # create functions to hold the values of previous time step
+        self.fields_old = {}
+        for k in self.fields:
+            if self.fields[k] is not None:
+                if isinstance(self.fields[k], Function):
+                    self.fields_old[k] = Function(
+                        self.fields[k].function_space())
+                elif isinstance(self.fields[k], Constant):
+                    self.fields_old[k] = Constant(self.fields[k])
+
+        u_old = self.solution_old
+        u_tri = self.equation.trial
+        self.A = self.equation.mass_term(u_tri)
+        self.L = (self.equation.mass_term(u_old) +
+                  self.dt_const*self.equation.get_residual('all', u_old, u_old, self.fields_old, self.fields_old, bnd_conditions)
+                  )
+
+        self.update_solver()
+
+    def update_solver(self):
+        prob = LinearVariationalProblem(self.A, self.L, self.solution)
+        self.solver = LinearVariationalSolver(prob,
+                                              solver_parameters=self.solver_parameters)
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(solution)
+        # assign values to old functions
+        for k in self.fields_old:
+            self.fields_old[k].assign(self.fields[k])
+
+    def advance(self, t, dt, solution, update_forcings=None):
+        """Advances equations for one time step."""
+        self.dt_const.assign(dt)
+        if update_forcings is not None:
+            update_forcings(t+dt)
+        self.solution_old.assign(solution)
+        self.solver.solve()
+        # shift time
+        for k in self.fields_old:
+            self.fields_old[k].assign(self.fields[k])
 
 
 class CrankNicolson(TimeIntegrator):
@@ -662,6 +832,73 @@ class CrankNicolson(TimeIntegrator):
         # shift time
         for k in self.funcs_old:
             self.funcs_old[k].assign(self.funcs[k])
+
+
+class CrankNicolsonNew(TimeIntegrator):
+    """Standard Crank-Nicolson time integration scheme."""
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, gamma=0.5):
+        """Creates forms for the time integrator"""
+        super(CrankNicolsonNew, self).__init__(equation, solver_parameters)
+        self.solver_parameters.setdefault('snes_monitor', False)
+        self.solver_parameters.setdefault('snes_type', 'newtonls')
+
+        self.dt_const = Constant(dt)
+
+        self.solution = solution
+        self.solution_old = Function(self.equation.function_space)
+        self.fields = fields
+        # create functions to hold the values of previous time step
+        # TODO is this necessary? is self.fields sufficient?
+        self.fields_old = {}
+        for k in self.fields:
+            if self.fields[k] is not None:
+                if isinstance(self.fields[k], Function):
+                    self.fields_old[k] = Function(
+                        self.fields[k].function_space())
+                elif isinstance(self.fields[k], Constant):
+                    self.fields_old[k] = Constant(self.fields[k])
+
+        u = self.solution
+        u_old = self.solution_old
+        bnd = bnd_conditions
+        f = self.fields
+        f_old = self.fields_old
+
+        # Crank-Nicolson
+        gamma_const = Constant(gamma)
+        # FIXME this is consistent with previous implementation but time levels are incorrect
+        self.F = (self.equation.mass_term(u) - self.equation.mass_term(u_old) -
+                  self.dt_const*(gamma_const*self.equation.get_residual('all', u, u, f, f, bnd) +
+                                 (1-gamma_const)*self.equation.get_residual('all', u_old, u_old, f_old, f_old, bnd)
+                                 )
+                  )
+
+        self.update_solver()
+
+    def update_solver(self):
+        nest = not ('pc_type' in self.solver_parameters and self.solver_parameters['pc_type'] == 'lu')
+        prob = NonlinearVariationalProblem(self.F, self.solution, nest=nest)
+        self.solver = NonlinearVariationalSolver(prob,
+                                                 solver_parameters=self.solver_parameters,
+                                                 options_prefix=self.name)
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(solution)
+        # assign values to old functions
+        for k in self.fields_old:
+            self.fields_old[k].assign(self.fields[k])
+
+    def advance(self, t, dt, solution, update_forcings=None):
+        """Advances equations for one time step."""
+        self.dt_const.assign(dt)
+        if update_forcings is not None:
+            update_forcings(t+dt)
+        self.solution_old.assign(solution)
+        self.solver.solve()
+        # shift time
+        for k in self.fields_old:
+            self.fields_old[k].assign(self.fields[k])
 
 
 class SSPIMEX(TimeIntegrator):

@@ -382,9 +382,27 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                                                        solver.options,
                                                        solver.fields)
         self._initialized = False
-        self.timestepper2d = timeintegrator.SSPRK33StageSemiImplicit(
-            solver.eq_sw, solver.dt,
-            solver.eq_sw.solver_parameters)
+
+        # self.timestepper2d = timeintegrator.SSPRK33StageSemiImplicit(
+        #     solver.eq_sw, solver.dt,
+        #     solver.eq_sw.solver_parameters)
+        fields = {
+            'uv_bottom': solver.fields.get('uv_bottom_2d'),
+            'bottom_drag': solver.fields.get('bottom_drag_2d'),
+            'baroc_head': solver.fields.get('baroc_head_2d'),
+            'viscosity_h': self.options.get('h_viscosity'),  # FIXME should be total h visc
+            'uv_lax_friedrichs': self.options.uv_lax_friedrichs,
+            'coriolis': self.options.coriolis,
+            'wind_stress': self.options.wind_stress,
+            'uv_source': self.options.uv_source_2d,
+            'elev_source': self.options.elev_source_2d,
+            'lin_drag': self.options.lin_drag}
+
+        self.timestepper2d = timeintegrator.SSPRK33StageSemiImplicitNew(
+            solver.eq_sw, self.fields.solution_2d,
+            fields, solver.dt,
+            bnd_conditions=solver.bnd_functions['shallow_water'],
+            solver_parameters=solver.eq_sw.solver_parameters)
 
         # assign viscosity/diffusivity to correct equations
         if self.options.solve_vert_diffusion:
@@ -548,7 +566,7 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
         """Advances the equations for one time step"""
         if not self._initialized:
             self.initialize()
-        sol2d = self.timestepper2d.equation.solution
+        sol2d = self.solver.fields.solution_2d
 
         for k in range(len(self.dt_frac)):
             with timed_region('salt_eq'):

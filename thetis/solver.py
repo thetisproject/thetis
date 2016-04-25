@@ -288,17 +288,24 @@ class FlowSolver(FrozenClass):
         # ----- Equations
         if self.options.use_mode_split:
             # full 2D shallow water equations
-            self.eq_sw = shallowwater_eq.ShallowWaterEquations(
-                self.fields.solution_2d, self.fields.bathymetry_2d,
-                self.fields.get('uv_bottom_2d'), self.fields.get('bottom_drag_2d'),
-                baroc_head=self.fields.get('baroc_head_2d'),
-                viscosity_h=self.options.get('h_viscosity'),  # FIXME add 2d smag
-                uv_lax_friedrichs=self.options.uv_lax_friedrichs,
-                coriolis=self.options.coriolis,
-                wind_stress=self.options.wind_stress,
-                uv_source=self.options.uv_source_2d,
-                lin_drag=self.options.lin_drag,
-                nonlin=self.options.nonlin)
+            self.eq_sw = shallowwater_eq.ShallowWaterEquationsNew(
+                self.fields.solution_2d.function_space(),
+                self.fields.bathymetry_2d,
+                nonlin=self.options.nonlin,
+                include_grad_div_viscosity_term=self.options.include_grad_div_viscosity_term,
+                include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term
+            )
+            # self.eq_sw = shallowwater_eq.ShallowWaterEquations(
+            #     self.fields.solution_2d, self.fields.bathymetry_2d,
+            #     self.fields.get('uv_bottom_2d'), self.fields.get('bottom_drag_2d'),
+            #     baroc_head=self.fields.get('baroc_head_2d'),
+            #     viscosity_h=self.options.get('h_viscosity'),  # FIXME add 2d smag
+            #     uv_lax_friedrichs=self.options.uv_lax_friedrichs,
+            #     coriolis=self.options.coriolis,
+            #     wind_stress=self.options.wind_stress,
+            #     uv_source=self.options.uv_source_2d,
+            #     lin_drag=self.options.lin_drag,
+            #     nonlin=self.options.nonlin)
         else:
             # solve elevation only: 2D free surface equation
             uv, eta = self.fields.solution_2d.split()
