@@ -299,16 +299,23 @@ class VerticalVelocitySolver(object):
         # NOTE weak dw/dz
         a = tri[2]*test[2]*normal[2]*ds_surf + \
             avg(tri[2])*jump(test[2], normal[2])*dS_h - Dx(test[2], 2)*tri[2]*dx
+
         # NOTE weak div(uv)
         uv_star = avg(uv)
         # NOTE in the case of mimetic uv the div must be taken over all components
         l = (inner(uv, nabla_grad(test[2]))*dx -
              (uv_star[0]*jump(test[2], normal[0]) +
               uv_star[1]*jump(test[2], normal[1]) +
-              uv_star[2]*jump(test[2], normal[2]))*(dS_v + dS_h) -
+              uv_star[2]*jump(test[2], normal[2])
+              )*(dS_v) -
+             (uv_star[0]*jump(test[2], normal[0]) +
+              uv_star[1]*jump(test[2], normal[1]) +
+              uv_star[2]*jump(test[2], normal[2])
+              )*(dS_h) -
              (uv[0]*normal[0] +
               uv[1]*normal[1] +
-              uv[2]*normal[2])*test[2]*ds_surf
+              uv[2]*normal[2]
+              )*test[2]*ds_surf
              )
         for bnd_marker in boundary_markers:
             funcs = boundary_funcs.get(bnd_marker)
@@ -621,8 +628,7 @@ def compute_elem_height(zcoord, output):
         void my_kernel(double **func, double **zcoord) {
             for ( int d = 0; d < %(nodes)d/2; d++ ) {
                 for ( int c = 0; c < %(func_dim)d; c++ ) {
-                    // NOTE is fabs required here??
-                    double dz = zcoord[2*d+1][c]-zcoord[2*d][c];
+                    double dz = fabs(zcoord[2*d+1][c] - zcoord[2*d][c]);
                     func[2*d][c] = dz;
                     func[2*d+1][c] = dz;
                 }
@@ -842,10 +848,13 @@ class SmagorinskyViscosity(object):
         ocean models. Monthly Weather Review, 128(8):2935-2946.
         http://dx.doi.org/10.1175/1520-0493(2000)128%3C2935:BFWASL%3E2.0.CO;2
     """
-    def __init__(self, uv, output, c_s, h_elem_size, solver_parameters={}):
+    def __init__(self, uv, output, c_s, h_elem_size, max_val, min_val=1e-10, solver_parameters={}):
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
-        self.min_val = 1e-10
+        assert max_val.function_space() == output.function_space(), \
+            'max_val function must belong to the same space as output'
+        self.max_val = max_val
+        self.min_val = min_val
         self.output = output
 
         fs = output.function_space()
@@ -864,10 +873,13 @@ class SmagorinskyViscosity(object):
 
     def solve(self):
         self.solver.solve()
-
         # remove negative values
         ix = self.output.dat.data < self.min_val
         self.output.dat.data[ix] = self.min_val
+
+        # crop too large values
+        ix = self.output.dat.data > self.max_val.dat.data
+        self.output.dat.data[ix] = self.max_val.dat.data[ix]
 
 
 class EquationOfState(object):
@@ -923,4 +935,4 @@ def tensor_jump(v, n):
     """Jump term for vector functions based on the tensor product.
     This is the discrete equivalent of grad(u) as opposed to the normal vectorial
     jump which represents div(u)."""
-    return outer(v('+'), n('+'))+outer(v('-'), n('-'))
+    return outer(v('+'), n('+')) + outer(v('-'), n('-'))

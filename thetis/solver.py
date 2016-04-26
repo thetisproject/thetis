@@ -256,11 +256,22 @@ class FlowSolver(FrozenClass):
         self.tot_v_visc.add(self.options.get('v_viscosity'))
         self.tot_v_visc.add(self.fields.get('eddy_visc_3d'))
         self.tot_v_visc.add(self.fields.get('parab_visc_3d'))
-        self.tot_salt_h_diff = SumFunction()
-        self.tot_salt_h_diff.add(self.options.get('h_diffusivity'))
-        self.tot_salt_v_diff = SumFunction()
-        self.tot_salt_v_diff.add(self.options.get('v_diffusivity'))
-        self.tot_salt_v_diff.add(self.fields.get('eddy_diff_3d'))
+        self.tot_h_diff = SumFunction()
+        self.tot_h_diff.add(self.options.get('h_diffusivity'))
+        self.tot_v_diff = SumFunction()
+        self.tot_v_diff.add(self.options.get('v_diffusivity'))
+        self.tot_v_diff.add(self.fields.get('eddy_diff_3d'))
+        # assign viscosity/diffusivity to correct equations
+        if self.options.solve_vert_diffusion:
+            implicit_v_visc = self.tot_v_visc.get_sum()
+            explicit_v_visc = None
+            implicit_v_diff = self.tot_v_diff.get_sum()
+            explicit_v_diff = None
+        else:
+            implicit_v_visc = None
+            explicit_v_visc = self.tot_v_visc.get_sum()
+            implicit_v_diff = None
+            explicit_v_diff = self.tot_v_diff.get_sum()
 
         # ----- Equations
         if self.options.use_mode_split:
@@ -292,8 +303,10 @@ class FlowSolver(FrozenClass):
             baroc_head=self.fields.get('baroc_head_3d'),
             w_mesh=self.fields.get('w_mesh_3d'),
             dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
-            viscosity_v=self.tot_v_visc.get_sum(),
+            viscosity_v=explicit_v_visc,
             viscosity_h=self.tot_h_visc.get_sum(),
+            h_elem_size=self.fields.h_elem_size_3d,
+            v_elem_size=self.fields.v_elem_size_3d,
             lax_friedrichs_factor=self.options.uv_lax_friedrichs,
             # uv_mag=self.uv_mag_3d,
             uv_p1=self.fields.get('uv_p1_3d'),
@@ -301,28 +314,42 @@ class FlowSolver(FrozenClass):
             source=self.options.uv_source_3d,
             lin_drag=self.options.lin_drag,
             nonlin=self.options.nonlin)
+        if self.options.solve_vert_diffusion:
+            self.eq_vertmomentum = momentum_eq.VerticalMomentumEquation(
+                self.fields.uv_3d, w=None,
+                viscosity_v=implicit_v_visc,
+                uv_bottom=self.fields.get('uv_bottom_3d'),
+                bottom_drag=self.fields.get('bottom_drag_3d'),
+                wind_stress=self.fields.get('wind_stress_3d'),
+                v_elem_size=self.fields.v_elem_size_3d,
+                h_elem_size=self.fields.h_elem_size_3d)
         if self.options.solve_salt:
             self.eq_salt = tracer_eq.TracerEquation(
                 self.fields.salt_3d, self.fields.elev_3d, self.fields.uv_3d,
                 w=self.fields.w_3d, w_mesh=self.fields.get('w_mesh_3d'),
                 dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
-                diffusivity_h=self.tot_salt_h_diff.get_sum(),
-                diffusivity_v=self.tot_salt_v_diff.get_sum(),
+                diffusivity_h=self.tot_h_diff.get_sum(),
+                diffusivity_v=explicit_v_diff,
+                bathymetry=self.fields.bathymetry_3d,
                 source=self.options.salt_source_3d,
                 # uv_mag=self.uv_mag_3d,
                 uv_p1=self.fields.get('uv_p1_3d'),
                 lax_friedrichs_factor=self.options.tracer_lax_friedrichs,
                 v_elem_size=self.fields.v_elem_size_3d,
+                h_elem_size=self.fields.h_elem_size_3d,
                 bnd_markers=bnd_markers,
                 bnd_len=bnd_len)
-        if self.options.solve_vert_diffusion:
-            self.eq_vertmomentum = momentum_eq.VerticalMomentumEquation(
-                self.fields.uv_3d, w=None,
-                viscosity_v=self.tot_v_visc.get_sum(),
-                uv_bottom=self.fields.get('uv_bottom_3d'),
-                bottom_drag=self.fields.get('bottom_drag_3d'),
-                wind_stress=self.fields.get('wind_stress_3d'),
-                v_elem_size=self.fields.v_elem_size_3d)
+            if self.options.solve_vert_diffusion:
+                self.eq_salt_vdff = tracer_eq.TracerEquation(
+                    self.fields.salt_3d, self.fields.elev_3d,
+                    uv=None, w=None, w_mesh=None,
+                    diffusivity_v=implicit_v_diff,
+                    bathymetry=self.fields.bathymetry_3d,
+                    v_elem_size=self.fields.v_elem_size_3d,
+                    h_elem_size=self.fields.h_elem_size_3d,
+                    bnd_markers=bnd_markers,
+                    bnd_len=bnd_len)
+
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         self.eq_momentum.bnd_functions = self.bnd_functions['momentum']
         if self.options.solve_salt:
@@ -338,6 +365,7 @@ class FlowSolver(FrozenClass):
                 uv_p1=self.fields.get('uv_p1_3d'),
                 lax_friedrichs_factor=self.options.tracer_lax_friedrichs,
                 v_elem_size=self.fields.v_elem_size_3d,
+                h_elem_size=self.fields.h_elem_size_3d,
                 bnd_markers=bnd_markers,
                 bnd_len=bnd_len)
             self.eq_psi_adv = tracer_eq.TracerEquation(
@@ -349,6 +377,7 @@ class FlowSolver(FrozenClass):
                 uv_p1=self.fields.get('uv_p1_3d'),
                 lax_friedrichs_factor=self.options.tracer_lax_friedrichs,
                 v_elem_size=self.fields.v_elem_size_3d,
+                h_elem_size=self.fields.h_elem_size_3d,
                 bnd_markers=bnd_markers,
                 bnd_len=bnd_len)
             # implicit vertical diffusion eqn with production terms
@@ -358,9 +387,10 @@ class FlowSolver(FrozenClass):
                 w=None, w_mesh=None,
                 dw_mesh_dz=None,
                 diffusivity_h=None,
-                diffusivity_v=self.tot_salt_v_diff.get_sum(),
-                viscosity_v=self.tot_v_visc.get_sum(),
+                diffusivity_v=implicit_v_diff,
+                viscosity_v=implicit_v_visc,
                 v_elem_size=self.fields.v_elem_size_3d,
+                h_elem_size=self.fields.h_elem_size_3d,
                 uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
                 bnd_markers=bnd_markers, bnd_len=bnd_len,
                 gls_model=self.gls_model)
@@ -369,9 +399,10 @@ class FlowSolver(FrozenClass):
                 w=None, w_mesh=None,
                 dw_mesh_dz=None,
                 diffusivity_h=None,
-                diffusivity_v=self.tot_salt_v_diff.get_sum(),
-                viscosity_v=self.tot_v_visc.get_sum(),
+                diffusivity_v=implicit_v_diff,
+                viscosity_v=implicit_v_visc,
                 v_elem_size=self.fields.v_elem_size_3d,
+                h_elem_size=self.fields.h_elem_size_3d,
                 uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
                 bnd_markers=bnd_markers, bnd_len=bnd_len,
                 gls_model=self.gls_model)
@@ -390,8 +421,11 @@ class FlowSolver(FrozenClass):
         print_info('using {:} time integrator'.format(self.timestepper.__class__.__name__))
 
         # compute maximal diffusivity for explicit schemes
-        max_diff_alpha = 1.0/100.0  # FIXME depends on element type and order
+        degree_h, degree_v = self.function_spaces.H.ufl_element().degree()
+        max_diff_alpha = 1.0/360.0/max((degree_h*(degree_h + 1)), 1.0)  # FIXME depends on element type and order
         self.fields.max_h_diff.assign(max_diff_alpha/self.dt * self.fields.h_elem_size_3d**2)
+        d = self.fields.max_h_diff.dat.data
+        print_info('max h diff {:} - {:}'.format(d.min(), d.max()))
 
         # ----- File exporters
         # create export_managers and store in a list
@@ -499,7 +533,8 @@ class FlowSolver(FrozenClass):
                                                                     self.fields.max_h_diff)
         if self.options.smagorinsky_factor is not None:
             self.smagorinsky_diff_solver = SmagorinskyViscosity(self.fields.uv_p1_3d, self.fields.smag_visc_3d,
-                                                                self.options.smagorinsky_factor, self.fields.h_elem_size_3d)
+                                                                self.options.smagorinsky_factor, self.fields.h_elem_size_3d,
+                                                                self.fields.max_h_diff)
         if self.options.use_parabolic_viscosity:
             self.parabolic_viscosity_solver = ParabolicViscosity(self.fields.uv_bottom_3d,
                                                                  self.fields.bottom_drag_3d,
@@ -551,6 +586,7 @@ class FlowSolver(FrozenClass):
         self.timestepper.initialize()
 
         self.options.check_salt_conservation *= self.options.solve_salt
+        self.options.check_salt_overshoot *= self.options.solve_salt
         self.options.check_vol_conservation_3d *= self.options.use_ale_moving_mesh
 
     def export(self):

@@ -45,7 +45,7 @@ x_max = comm.allreduce(x_max, op=MPI.MAX)
 lx = x_max - x_min
 
 if sloped:
-    bathymetry_2d.interpolate(Expression('h + 8.0*x[0]/lx', h=depth, lx=lx))
+    bathymetry_2d.interpolate(Expression('h + 20.0*x[0]/lx', h=depth, lx=lx))
 
 # set time step, export interval and run duration
 c_wave = float(np.sqrt(9.81*depth))
@@ -57,17 +57,31 @@ t_end = 10*T_cycle + 1e-3
 
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
+
+# warp interior mesh
+# coords = solver_obj.mesh.coordinates
+# z = coords.dat.data[:, 2].copy()
+# x = coords.dat.data[:, 0]
+# p = 2.5*x/lx + 0.5
+# sigma = -depth * (0.5*np.tanh(p*(-2.0*z/depth - 1.0))/np.tanh(p) + 0.5)
+# coords.dat.data[:, 2] = sigma
+# print coords.dat.data[:, 2].min(), coords.dat.data[:, 2].max()
+
 options = solver_obj.options
 options.nonlin = False
-# options.mimetic = False
+options.mimetic = False
 options.solve_salt = True
 options.solve_vert_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = False
-options.use_limiter_for_tracers = True
-options.use_imex = True
+options.use_limiter_for_tracers = False  # True
+# options.use_imex = True  # NOTE why imex fails with const S?
 # options.use_semi_implicit_2d = False
 # options.use_mode_split = False
+# options.baroclinic = True
+# options.h_viscosity = Constant(100.0)
+options.tracer_lax_friedrichs = None
+options.uv_lax_friedrichs = None
 if options.use_mode_split:
     options.dt = dt/5.0
 else:
@@ -97,7 +111,7 @@ if options.solve_salt:
     # constant tracer field to test consistency with 3d continuity eq
     salt_init3d.assign(4.5)
     # non-trivial tracer field to test overshoots
-    salt_init3d.project(Expression('4.5*(0.5 + 0.5*sin(2*pi*(x[0])/lx)*cos(pi*x[2]/h/5))', lx=lx, h=depth))
+    # salt_init3d.project(Expression('4.5*(0.5 + 0.5*sin(2*pi*(x[0])/lx)*cos(pi*x[2]/h/5))', lx=lx, h=depth))
 else:
     salt_init3d = None
 

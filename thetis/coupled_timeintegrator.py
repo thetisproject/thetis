@@ -96,9 +96,10 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
                     # NOTE psi must be solved first as it depends on tke
                     self.timestepper_psi_3d.advance(t, self.solver.dt, self.solver.fields.psi_3d)
                     self.timestepper_tke_3d.advance(t, self.solver.dt, self.solver.fields.tke_3d)
-                    if self.options.use_limiter_for_tracers:
-                        self.solver.tracer_limiter.apply(self.solver.fields.tke_3d)
-                        self.solver.tracer_limiter.apply(self.solver.fields.psi_3d)
+                    # NOTE tke and eps are P0, nothing to limit
+                    # if self.options.use_limiter_for_tracers:
+                    #     self.solver.tracer_limiter.apply(self.solver.fields.tke_3d)
+                    #     self.solver.tracer_limiter.apply(self.solver.fields.psi_3d)
                     self.solver.gls_model.postprocess()
 
     def _update_stabilization_params(self):
@@ -126,7 +127,9 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
             self._update_moving_mesh()
         with timed_region('vert_diffusion'):
             if do_vert_diffusion and self.options.solve_vert_diffusion:
-                self.timestepper_vmom3d.advance(t, self.solver.dt, self.fields.uv_3d)
+                self.timestepper_mom_vdff_3d.advance(t, self.solver.dt, self.fields.uv_3d)
+                if self.options.solve_salt:
+                    self.timestepper_salt_vdff_3d.advance(t, self.solver.dt, self.fields.salt_3d)
         if do_2d_coupling:
             self._update_2d_coupling()
         self._update_vertical_velocity()
@@ -155,14 +158,14 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
         fs = self.timestepper2d.solution_old.function_space()
         self.sol2d_n = Function(fs, name='sol2dtmp')
 
-        self.timestepper_mom3d = timeintegrator.SSPRK33Stage(
+        self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum, solver.dt)
         if self.solver.options.solve_salt:
             self.timestepper_salt_3d = timeintegrator.SSPRK33Stage(
                 solver.eq_salt,
                 solver.dt)
         if self.solver.options.solve_vert_diffusion:
-            self.timestepper_vmom3d = timeintegrator.CrankNicolson(
+            self.timestepper_mom_vdff_3d = timeintegrator.CrankNicolson(
                 solver.eq_vertmomentum,
                 solver.dt, gamma=0.6)
 
@@ -193,11 +196,11 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
     def initialize(self):
         """Assign initial conditions to all necessary fields"""
         self.timestepper2d.initialize(self.fields.solution_2d)
-        self.timestepper_mom3d.initialize(self.fields.uv_3d)
+        self.timestepper_mom_3d.initialize(self.fields.uv_3d)
         if self.options.solve_salt:
             self.timestepper_salt_3d.initialize(self.fields.salt_3d)
         if self.options.solve_vert_diffusion:
-            self.timestepper_vmom3d.initialize(self.fields.uv_3d)
+            self.timestepper_mom_vdff_3d.initialize(self.fields.uv_3d)
 
         # construct 2d time steps for sub-stages
         self.M = []
@@ -226,8 +229,8 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
                     if self.options.use_limiter_for_tracers:
                         self.solver.tracer_limiter.apply(self.fields.salt_3d)
             with timed_region('momentum_eq'):
-                self.timestepper_mom3d.solve_stage(k, t, self.solver.dt,
-                                                   self.fields.uv_3d)
+                self.timestepper_mom_3d.solve_stage(k, t, self.solver.dt,
+                                                    self.fields.uv_3d)
             with timed_region('mode2d'):
                 t_rhs = t + self.start_frac[k]*self.solver.dt
                 dt_2d = self.dt_2d[k]
@@ -285,7 +288,7 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
                    }
         fs_mom = solver.eq_momentum.solution.function_space()
         self.uv_3d_old = Function(fs_mom, name='old_sol_mom')
-        self.timestepper_mom3d = timeintegrator.SSPIMEX(
+        self.timestepper_mom_3d = timeintegrator.SSPIMEX(
             solver.eq_momentum, solver.dt,
             solver_parameters=sp_expl,
             solver_parameters_dirk=sp_impl,
@@ -300,7 +303,7 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
                 solution=self.salt_3d_old)
         if self.solver.options.solve_vert_diffusion:
             raise Exception('vert mom eq should not exist for this time integrator')
-            self.timestepper_vmom3d = timeintegrator.SSPIMEX(
+            self.timestepper_mom_vdff_3d = timeintegrator.SSPIMEX(
                 solver.eq_vertmomentum, solver.dt,
                 solver_parameters=sp_expl,
                 solver_parameters_dirk=sp_impl)
@@ -318,16 +321,16 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
                 solver_parameters=sp_expl,
                 solver_parameters_dirk=sp_impl,
                 solution=self.psi_3d_old)
-        self.n_stages = self.timestepper_mom3d.n_stages
+        self.n_stages = self.timestepper_mom_3d.n_stages
 
     def initialize(self):
         """Assign initial conditions to all necessary fields"""
         self.timestepper2d.initialize(self.fields.solution_2d)
-        self.timestepper_mom3d.initialize(self.fields.uv_3d)
+        self.timestepper_mom_3d.initialize(self.fields.uv_3d)
         if self.options.solve_salt:
             self.timestepper_salt_3d.initialize(self.fields.salt_3d)
         if self.options.solve_vert_diffusion:
-            self.timestepper_vmom3d.initialize(self.fields.uv_3d)
+            self.timestepper_mom_vdff_3d.initialize(self.fields.uv_3d)
         self._initialized = True
 
     def advance(self, t, dt, update_forcings=None, update_forcings3d=None):
@@ -352,7 +355,7 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
                         self.solver.tracer_limiter.apply(self.fields.tke_3d)
                         self.solver.tracer_limiter.apply(self.fields.psi_3d)
             with timed_region('momentum_eq'):
-                self.timestepper_mom3d.solve_stage(k, t, self.solver.dt, self.fields.uv_3d)
+                self.timestepper_mom_3d.solve_stage(k, t, self.solver.dt, self.fields.uv_3d)
             with timed_region('mode2d'):
                 self.timestepper2d.solve_stage(k, t, self.solver.dt, self.fields.solution_2d,
                                                update_forcings)
@@ -386,19 +389,23 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             solver.eq_sw, solver.dt,
             solver.eq_sw.solver_parameters)
 
-        self.timestepper_mom3d = timeintegrator.SSPRK33Stage(
-            solver.eq_momentum, solver.dt)
-        if self.solver.options.solve_salt:
-            self.timestepper_salt_3d = timeintegrator.SSPRK33Stage(
-                solver.eq_salt,
-                solver.dt)
         vdiff_sp = {'ksp_type': 'gmres',
                     'pc_type': 'ilu',
                     # 'snes_rtol': 1.0e-18,
                     # 'ksp_rtol': 1.0e-22,
                     }
+        self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
+            solver.eq_momentum, solver.dt)
+        if self.solver.options.solve_salt:
+            self.timestepper_salt_3d = timeintegrator.SSPRK33Stage(
+                solver.eq_salt,
+                solver.dt)
+            if self.solver.options.solve_vert_diffusion:
+                self.timestepper_salt_vdff_3d = timeintegrator.DIRKLSPUM2(
+                    solver.eq_salt_vdff, solver.dt, solver_parameters=vdiff_sp)
+
         if self.solver.options.solve_vert_diffusion:
-            self.timestepper_vmom3d = timeintegrator.DIRKLSPUM2(
+            self.timestepper_mom_vdff_3d = timeintegrator.DIRKLSPUM2(
                 solver.eq_vertmomentum, solver.dt, solver_parameters=vdiff_sp)
         if self.solver.options.use_turbulence:
             self.timestepper_tke_3d = timeintegrator.DIRKLSPUM2(
@@ -429,16 +436,18 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
         print_info('dt_frac ' + str(self.dt_frac))
         print_info('start_frac ' + str(self.start_frac))
         print_info('stage_w ' + str(self.stage_w))
-        self.n_stages = self.timestepper_mom3d.n_stages
+        self.n_stages = self.timestepper_mom_3d.n_stages
 
     def initialize(self):
         """Assign initial conditions to all necessary fields"""
         self.timestepper2d.initialize(self.fields.solution_2d)
-        self.timestepper_mom3d.initialize(self.fields.uv_3d)
+        self.timestepper_mom_3d.initialize(self.fields.uv_3d)
         if self.options.solve_salt:
             self.timestepper_salt_3d.initialize(self.fields.salt_3d)
+            if self.options.solve_vert_diffusion:
+                self.timestepper_salt_vdff_3d.initialize(self.fields.salt_3d)
         if self.options.solve_vert_diffusion:
-            self.timestepper_vmom3d.initialize(self.fields.uv_3d)
+            self.timestepper_mom_vdff_3d.initialize(self.fields.uv_3d)
 
         # construct 2d time steps for sub-stages
         self.M = []
@@ -476,8 +485,8 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                         self.solver.tracer_limiter.apply(self.solver.tke_3d)
                         self.solver.tracer_limiter.apply(self.solver.psi_3d)
             with timed_region('momentum_eq'):
-                self.timestepper_mom3d.solve_stage(k, t, self.solver.dt,
-                                                   self.fields.uv_3d)
+                self.timestepper_mom_3d.solve_stage(k, t, self.solver.dt,
+                                                    self.fields.uv_3d)
             with timed_region('mode2d'):
                 self.timestepper2d.solve_stage(k, t, self.solver.dt, sol2d,
                                                update_forcings)
@@ -505,7 +514,7 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
             solver.eq_sw, solver.dt_2d,
             solver.eq_sw.solver_parameters)
 
-        self.timestepper_mom3d = timeintegrator.SSPRK33Stage(
+        self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum,
             solver.dt_2d)
         if self.solver.options.solve_salt:
@@ -513,7 +522,7 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
                 solver.eq_salt,
                 solver.dt_2d)
         if self.solver.options.solve_vert_diffusion:
-            self.timestepper_vmom3d = timeintegrator.CrankNicolson(
+            self.timestepper_mom_vdff_3d = timeintegrator.CrankNicolson(
                 solver.eq_vertmomentum,
                 solver.dt_2d, gamma=0.6)
 
@@ -531,11 +540,11 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
     def initialize(self):
         """Assign initial conditions to all necessary fields"""
         self.timestepper2d.initialize(self.fields.solution_2d.split()[1])
-        self.timestepper_mom3d.initialize(self.fields.uv_3d)
+        self.timestepper_mom_3d.initialize(self.fields.uv_3d)
         if self.options.solve_salt:
             self.timestepper_salt_3d.initialize(self.fields.salt_3d)
         if self.options.solve_vert_diffusion:
-            self.timestepper_vmom3d.initialize(self.fields.uv_3d)
+            self.timestepper_mom_vdff_3d.initialize(self.fields.uv_3d)
         self._initialized = True
 
     def _update_2d_coupling(self):
@@ -556,8 +565,8 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
                     if self.options.use_limiter_for_tracers:
                         self.solver.tracer_limiter.apply(self.fields.salt_3d)
             with timed_region('momentum_eq'):
-                self.timestepper_mom3d.solve_stage(k, t, self.solver.dt_2d,
-                                                   self.fields.uv_3d)
+                self.timestepper_mom_3d.solve_stage(k, t, self.solver.dt_2d,
+                                                    self.fields.uv_3d)
             with timed_region('mode2d'):
                 uv, elev = self.fields.solution_2d.split()
                 self.timestepper2d.solve_stage(k, t, self.solver.dt_2d, elev,
@@ -591,7 +600,7 @@ class CoupledSSPRK(CoupledTimeIntegrator):
             restart_from_av=True)
 
         # FIXME self.fields.elev_3d_nplushalf is not defined!
-        self.timestepper_mom3d = timeintegrator.SSPRK33(
+        self.timestepper_mom_3d = timeintegrator.SSPRK33(
             solver.eq_momentum, solver.dt,
             funcs_nplushalf={'eta': self.fields.elev_3d_nplushalf})
         if self.solver.options.solve_salt:
@@ -599,7 +608,7 @@ class CoupledSSPRK(CoupledTimeIntegrator):
                 solver.eq_salt,
                 solver.dt)
         if self.solver.options.solve_vert_diffusion:
-            self.timestepper_vmom3d = timeintegrator.CrankNicolson(
+            self.timestepper_mom_vdff_3d = timeintegrator.CrankNicolson(
                 solver.eq_vertmomentum,
                 solver.dt, gamma=0.6)
         elev_nph = self.timestepper2d.solution_nplushalf.split()[1]
@@ -608,11 +617,11 @@ class CoupledSSPRK(CoupledTimeIntegrator):
     def initialize(self):
         """Assign initial conditions to all necessary fields"""
         self.timestepper2d.initialize(self.fields.solution_2d)
-        self.timestepper_mom3d.initialize(self.fields.uv_3d)
+        self.timestepper_mom_3d.initialize(self.fields.uv_3d)
         if self.options.options.solve_salt:
             self.timestepper_salt_3d.initialize(self.fields.salt_3d)
         if self.options.options.solve_vert_diffusion:
-            self.timestepper_vmom3d.initialize(self.fields.uv_3d)
+            self.timestepper_mom_vdff_3d.initialize(self.fields.uv_3d)
         self._initialized = True
 
     def _update_2d_coupling(self):
@@ -639,13 +648,13 @@ class CoupledSSPRK(CoupledTimeIntegrator):
         self._updateBottomFriction()
         self._updateBaroclinicity()
         with timed_region('momentum_eq'):
-            self.timestepper_mom3d.advance(t, self.solver.dt,
-                                           self.fields.uv_3d,
-                                           update_forcings3d)
+            self.timestepper_mom_3d.advance(t, self.solver.dt,
+                                            self.fields.uv_3d,
+                                            update_forcings3d)
         with timed_region('vert_diffusion'):
             if self.options.solve_vert_diffusion:
-                self.timestepper_vmom3d.advance(t, self.solver.dt,
-                                                self.fields.uv_3d, None)
+                self.timestepper_mom_vdff_3d.advance(t, self.solver.dt,
+                                                     self.fields.uv_3d, None)
         self._updateVerticalVelocity()
         self._updateMeshVelocity()
         with timed_region('salt_eq'):

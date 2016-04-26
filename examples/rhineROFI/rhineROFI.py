@@ -18,11 +18,14 @@
 
 from thetis import *
 
-outputdir = 'outputs'
-layers = 6
-mesh2d = Mesh('mesh_rhine_rofi_coarse.msh')
-print_info('Loaded mesh '+mesh2d.name)
-print_info('Exporting to '+outputdir)
+reso = 'coarse'
+layers = 12
+if reso == 'fine':
+    layers = 24
+outputdir = 'outputs_{:}'.format(reso)
+mesh2d = Mesh('mesh_rhineRofi_{:}.msh'.format(reso))
+print_info('Loaded mesh ' + mesh2d.name)
+print_info('Exporting to ' + outputdir)
 
 # Physical parameters
 eta_amplitude = 1.00  # mean (Fisher et al. 2009 tidal range 2.00 )
@@ -49,7 +52,7 @@ kelvin_m = (coriolis_f/c)  # [-] Cross-shore variation
 
 dt = 8.0
 t_end = 32*44714
-t_export = 900.0  # 44714/12
+t_export = dt  # 900.0  # 44714/12
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -60,15 +63,14 @@ bathymetry_2d.interpolate(Expression('(x[0] > 0.0) ? H*(1-x[0]/Lriver) + HInlet*
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solver_obj.options
-options.cfl_2d = 1.0
-# options.nonlin = False
+options.mimetic = False
 options.solve_salt = True
 options.solve_vert_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = False
 # options.use_semi_implicit_2d = False
 # options.use_mode_split = False
-options.baroclinic = True
+options.baroclinic = False  # HACK
 options.coriolis = Constant(coriolis_f)
 options.use_supg = False
 options.use_gjv = False
@@ -76,8 +78,8 @@ options.uv_lax_friedrichs = Constant(1.0)
 options.tracer_lax_friedrichs = Constant(1.0)
 Re_h = 2.0
 options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
-options.salt_jump_diff_factor = Constant(1.0)
-options.salt_range = Constant(25.0)
+# options.salt_jump_diff_factor = Constant(1.0)
+# options.salt_range = Constant(25.0)
 # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
 # options.h_viscosity = Constant(0.5*2000.0/refinement[reso_str]/Re_h)
 # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
@@ -95,8 +97,9 @@ options.check_salt_conservation = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                            'baroc_head_2d', 'gjv_alpha_h_3d', 'gjv_alpha_v_3d',
-                            'smag_visc_3d', 'salt_jump_diff']
+                            'baroc_head_2d', 'smag_visc_3d']
+options.fields_to_hdf5 = ['uv_3d', 'w_3d', 'salt_3d', 'baroc_head_3d',
+                          'smag_visc_3d']
 options.timer_labels = []
 
 bnd_elev = Function(P1_2d, name='Boundary elevation')
@@ -133,17 +136,16 @@ bnd_ocean_salt = {'value': ocean_salt}
 bnd_river_salt = {'value': river_salt}
 solver_obj.bnd_functions['shallow_water'] = {1: tide_elev_funcs, 2: tide_elev_funcs,
                                              3: tide_elev_funcs, 6: river_funcs}
-# solver_obj.bnd_functions['momentum'] = {1: tide_funcs, 2: tide_funcs,
-#                                         3: tide_funcs, 6: river_funcs}
+solver_obj.bnd_functions['momentum'] = {1: open_funcs, 2: open_funcs,
+                                        3: open_funcs, 6: open_funcs}
 solver_obj.bnd_functions['salt'] = {1: bnd_ocean_salt, 2: bnd_ocean_salt,
                                     3: bnd_ocean_salt, 6: bnd_river_salt}
 
 solver_obj.create_equations()
 bnd_elev_3d = Function(solver_obj.function_spaces.P1, name='Boundary elevation 3d')
-copy_2d_field_to_3d(bnd_elev, bnd_elev_3d)
+cp_bnd_elev_to_3d = ExpandFunctionTo3d(bnd_elev, bnd_elev_3d)
+cp_bnd_elev_to_3d.solve()
 tide_elev_funcs_3d = {'elev': bnd_elev_3d}
-solver_obj.eq_momentum.bnd_functions = {1: tide_elev_funcs_3d, 2: tide_elev_funcs_3d,
-                                        3: tide_elev_funcs_3d, 6: river_funcs}
 
 elev_init = Function(solver_obj.function_spaces.H_2d, name='initial elevation')
 elev_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvin_m)*cos(x[1]*kelvin_k) : amp*cos(x[1]*kelvin_k)',
@@ -158,8 +160,8 @@ tri = TrialFunction(solver_obj.function_spaces.U_2d)
 test = TestFunction(solver_obj.function_spaces.U_2d)
 a = inner(test, tri)*dx
 uv = (g*kelvin_k/OmegaTide)*elev_init2
-L = test[1]*uv*dx
-solve(a == L, uv_init)
+l = test[1]*uv*dx
+solve(a == l, uv_init)
 salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
 salt_init3d.interpolate(Expression('d_ocean - (d_ocean - d_river)*(1 + tanh((x[0] - xoff)/sigma))/2',
                                    sigma=6000.0, d_ocean=density_ocean,
@@ -169,7 +171,15 @@ salt_init3d.interpolate(Expression('d_ocean - (d_ocean - d_river)*(1 + tanh((x[0
 def update_forcings(t):
     bnd_time.assign(t)
     bnd_elev_solver.solve()
-    copy_2d_field_to_3d(bnd_elev, bnd_elev_3d)
+    cp_bnd_elev_to_3d.solve()
 
 solver_obj.assign_initial_conditions(elev=elev_init, salt=salt_init3d, uv_2d=uv_init)
-solver_obj.iterate()
+solver_obj.iterate(update_forcings=update_forcings)
+
+# tests
+# 6572744 - omitting solver_obj.eq_momentum.bnd_functions : FAILS
+# 6572791 - init salt only no elev/uv init or forcing : works
+# 6572869 - added elev_init : works
+# 6572873 - added uv_init : works
+# 6572878 - added swe bnds : FAILS salt blows up at river boundary after some iterations
+# - added salt bnd conditions

@@ -29,21 +29,22 @@
 from thetis import *
 
 reso_str = 'medium'
-outputdir = 'outputs_'+reso_str
 refinement = {'medium': 1}
-layers = int(round(16*refinement[reso_str]))
+layers = int(round(50*refinement[reso_str]))
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
 print_info('Loaded mesh '+mesh2d.name)
 dt = 5.0/refinement[reso_str]
 t_end = 25 * 3600
 t_export = 15*60.0
 depth = 20.0
+Re_h = 100.0
+outputdir = 'outputs_' + reso_str + '_Re' + str(int(Re_h))
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
 bathymetry_2d.interpolate(Expression('hmin + 0.5*(hmax - hmin)*(1 + tanh((x[0] - x0)/Ls))',
-                          hmin=200.0, hmax=4000.0, Ls=10.0e3, x0=40.0e3))
+                          hmin=500.0, hmax=2000.0, Ls=10.0e3, x0=40.0e3))
 
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
@@ -61,11 +62,11 @@ options.use_ale_moving_mesh = False
 options.baroclinic = True
 options.uv_lax_friedrichs = None
 options.tracer_lax_friedrichs = None
-Re_h = 1.0
 options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
 options.salt_jump_diff_factor = None
 options.salt_range = Constant(5.0)
 options.use_limiter_for_tracers = True
+options.v_viscosity = Constant(1.0e-4)
 options.h_viscosity = None
 options.h_diffusivity = None
 if options.use_mode_split:
