@@ -843,13 +843,13 @@ class TKESourceTerm(TracerTerm):
     """
     Production and destruction terms of the TKE equation
     """
-    def __init__(self, function_space, gls_model, boundary_markers, boundary_len,
+    def __init__(self, function_space, gls_model,
                  bathymetry=None, v_elem_size=None, h_elem_size=None):
-        super(TKESourceTerm, self).__init__(function_space, boundary_markers, boundary_len,
+        super(TKESourceTerm, self).__init__(function_space,
                                             bathymetry, v_elem_size, h_elem_size)
         self.gls_model = gls_model
 
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         # TKE: P + B - eps
         # P = viscosity M**2           (production)
         # B = - diffusivity N**2       (byoyancy production)
@@ -876,13 +876,13 @@ class PsiSourceTerm(TracerTerm):
     """
     Production and destruction terms of the TKE equation
     """
-    def __init__(self, function_space, gls_model, boundary_markers, boundary_len,
+    def __init__(self, function_space, gls_model,
                  bathymetry=None, v_elem_size=None, h_elem_size=None):
-        super(PsiSourceTerm, self).__init__(function_space, boundary_markers, boundary_len,
+        super(PsiSourceTerm, self).__init__(function_space,
                                             bathymetry, v_elem_size, h_elem_size)
         self.gls_model = gls_model
 
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         # psi: psi/k*(c1*P + c3*B - c2*eps*f_wall)
         # P = viscosity M**2           (production)
         # B = - diffusivity N**2       (byoyancy production)
@@ -947,16 +947,16 @@ class GLSVerticalDiffusionTerm(VerticalDiffusionTerm):
     """
     Vertical diffusion term where diffusivity is replaced by viscosity/Schmidt number.
     """
-    def __init__(self, function_space, schmidt_nb, boundary_markers, boundary_len,
+    def __init__(self, function_space, schmidt_nb,
                  bathymetry=None, v_elem_size=None, h_elem_size=None):
-        super(GLSVerticalDiffusionTerm, self).__init__(function_space, boundary_markers, boundary_len,
+        super(GLSVerticalDiffusionTerm, self).__init__(function_space,
                                                        bathymetry, v_elem_size, h_elem_size)
         self.schmidt_nb = schmidt_nb
 
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         d = {'diffusivity_v': fields_old['viscosity_v']/self.schmidt_nb}
-        f = super(GLSVerticalDiffusionTerm, self).get_residual(solution, solution_old,
-                                                               d, d, bnd_conditions=None)
+        f = super(GLSVerticalDiffusionTerm, self).residual(solution, solution_old,
+                                                           d, d, bnd_conditions=None)
         return f
 
 
@@ -964,16 +964,15 @@ class TKEEquationNew(EquationNew):
     """
     Turbulent kinetic energy equation without advection terms.
     """
-    def __init__(self, function_space, gls_model, boundary_markers, boundary_len,
+    def __init__(self, function_space, gls_model,
                  bathymetry=None, v_elem_size=None, h_elem_size=None):
         super(TKEEquationNew, self).__init__(function_space)
 
         diff = GLSVerticalDiffusionTerm(function_space,
                                         gls_model.options.schmidt_nb_tke,
-                                        boundary_markers, boundary_len,
                                         bathymetry, v_elem_size, h_elem_size)
         source = TKESourceTerm(function_space,
-                               gls_model, boundary_markers, boundary_len,
+                               gls_model,
                                bathymetry, v_elem_size, h_elem_size)
         self.add_term(source, 'implicit')
         self.add_term(diff, 'implicit')
@@ -983,16 +982,15 @@ class PsiEquationNew(EquationNew):
     """
     Psi equation without advection terms.
     """
-    def __init__(self, function_space, gls_model, boundary_markers, boundary_len,
+    def __init__(self, function_space, gls_model,
                  bathymetry=None, v_elem_size=None, h_elem_size=None):
         super(PsiEquationNew, self).__init__(function_space)
 
         diff = GLSVerticalDiffusionTerm(function_space,
                                         gls_model.options.schmidt_nb_psi,
-                                        boundary_markers, boundary_len,
                                         bathymetry, v_elem_size, h_elem_size)
         source = PsiSourceTerm(function_space,
-                               gls_model, boundary_markers, boundary_len,
+                               gls_model,
                                bathymetry, v_elem_size, h_elem_size)
         self.add_term(diff, 'implicit')
         self.add_term(source, 'implicit')

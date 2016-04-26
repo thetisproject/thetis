@@ -18,9 +18,11 @@ class FlowSolver2d(FrozenClass):
     """Creates and solves 2D depth averaged equations with RT1-P1DG elements"""
     def __init__(self, mesh2d, bathymetry_2d, order=1, options=None):
         self._initialized = False
-
-        # create 3D mesh
         self.mesh2d = mesh2d
+
+        # add boundary length info
+        bnd_len = compute_boundary_length(self.mesh2d)
+        self.mesh2d.boundary_len = bnd_len
 
         # Time integrator setup
         self.dt = None

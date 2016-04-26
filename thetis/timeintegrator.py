@@ -4,6 +4,7 @@ Generic time integration schemes to advance equations in time.
 Tuomas Karna 2015-03-27
 """
 from utility import *
+from abc import ABCMeta, abstractproperty
 
 
 class TimeIntegrator(object):
@@ -212,7 +213,7 @@ class SSPRK33StageNew(TimeIntegrator):
 
         # fully explicit evaluation
         self.a_rk = self.equation.mass_term(self.equation.trial)
-        self.L_RK = self.dt_const*self.equation.get_residual('all', self.solution_old, self.solution_old, self.fields, self.fields, bnd_conditions)
+        self.L_RK = self.dt_const*self.equation.residual('all', self.solution_old, self.solution_old, self.fields, self.fields, bnd_conditions)
 
         self.update_solver()
 
@@ -545,26 +546,26 @@ class SSPRK33StageSemiImplicitNew(TimeIntegrator):
         args = (self.fields, self.fields, bnd_conditions)
         self.F_0 = (self.equation.mass_term(self.sol0) - self.equation.mass_term(self.solution_old) -
                     self.dt_const*(
-                        self.theta*self.equation.get_residual('implicit', self.sol0, self.sol0, *args) +
-                        (1-self.theta)*self.equation.get_residual('implicit', self.solution_old, self.solution_old, *args) +
-                        self.equation.get_residual('explicit', self.solution_old, self.solution_old, *args) +
-                        self.equation.get_residual('source', self.solution_old, self.solution_old, *args))
+                        self.theta*self.equation.residual('implicit', self.sol0, self.sol0, *args) +
+                        (1-self.theta)*self.equation.residual('implicit', self.solution_old, self.solution_old, *args) +
+                        self.equation.residual('explicit', self.solution_old, self.solution_old, *args) +
+                        self.equation.residual('source', self.solution_old, self.solution_old, *args))
                     )
         self.F_1 = (self.equation.mass_term(self.sol1) -
                     3.0/4.0*self.equation.mass_term(self.solution_old) - 1.0/4.0*self.equation.mass_term(self.sol0) -
                     1.0/4.0*self.dt_const*(
-                        self.theta*self.equation.get_residual('implicit', self.sol1, self.sol1, *args) +
-                        (1-self.theta)*self.equation.get_residual('implicit', self.sol0, self.sol0, *args) +
-                        self.equation.get_residual('explicit', self.sol0, self.sol0, *args) +
-                        self.equation.get_residual('source', self.solution_old, self.solution_old, *args))
+                        self.theta*self.equation.residual('implicit', self.sol1, self.sol1, *args) +
+                        (1-self.theta)*self.equation.residual('implicit', self.sol0, self.sol0, *args) +
+                        self.equation.residual('explicit', self.sol0, self.sol0, *args) +
+                        self.equation.residual('source', self.solution_old, self.solution_old, *args))
                     )
         self.F_2 = (self.equation.mass_term(self.solution) -
                     1.0/3.0*self.equation.mass_term(self.solution_old) - 2.0/3.0*self.equation.mass_term(self.sol1) -
                     2.0/3.0*self.dt_const*(
-                        self.theta*self.equation.get_residual('implicit', self.solution, self.solution, *args) +
-                        (1-self.theta)*self.equation.get_residual('implicit', self.sol1, self.sol1, *args) +
-                        self.equation.get_residual('explicit', self.sol1, self.sol1, *args) +
-                        self.equation.get_residual('source', self.solution_old, self.solution_old, *args))
+                        self.theta*self.equation.residual('implicit', self.solution, self.solution, *args) +
+                        (1-self.theta)*self.equation.residual('implicit', self.sol1, self.sol1, *args) +
+                        self.equation.residual('explicit', self.sol1, self.sol1, *args) +
+                        self.equation.residual('source', self.solution_old, self.solution_old, *args))
                     )
         self.update_solver()
 
@@ -708,7 +709,7 @@ class ForwardEulerNew(TimeIntegrator):
         u_tri = self.equation.trial
         self.A = self.equation.mass_term(u_tri)
         self.L = (self.equation.mass_term(u_old) +
-                  self.dt_const*self.equation.get_residual('all', u_old, u_old, self.fields_old, self.fields_old, bnd_conditions)
+                  self.dt_const*self.equation.residual('all', u_old, u_old, self.fields_old, self.fields_old, bnd_conditions)
                   )
 
         self.update_solver()
@@ -868,8 +869,8 @@ class CrankNicolsonNew(TimeIntegrator):
         gamma_const = Constant(gamma)
         # FIXME this is consistent with previous implementation but time levels are incorrect
         self.F = (self.equation.mass_term(u) - self.equation.mass_term(u_old) -
-                  self.dt_const*(gamma_const*self.equation.get_residual('all', u, u, f, f, bnd) +
-                                 (1-gamma_const)*self.equation.get_residual('all', u_old, u_old, f_old, f_old, bnd)
+                  self.dt_const*(gamma_const*self.equation.residual('all', u, u, f, f, bnd) +
+                                 (1-gamma_const)*self.equation.residual('all', u_old, u_old, f_old, f_old, bnd)
                                  )
                   )
 
@@ -1125,7 +1126,7 @@ class DIRKGenericNew(TimeIntegrator):
     """
     Generic implementation of Diagonally Implicit Runge Kutta schemes.
 
-    Method is defined by its Butcher tableau given as arguments
+    Method is defined by its Butcher tableau
 
     c[0] | a[0, 0]
     c[1] | a[1, 0] a[1, 1]
@@ -1133,9 +1134,29 @@ class DIRKGenericNew(TimeIntegrator):
     ------------------------------
          | b[0]    b[1]    b[2]
 
+    All derived classes must define the tableau via properties
+    a  : array_like (n_stages, n_stages)
+        coefficients for the Butcher tableau, must be lower diagonal
+    b,c : array_like (n_stages,)
+        coefficients for the Butcher tableau
+
     This method also works for explicit RK schemes if one with the zeros on the first row of a.
     """
-    def __init__(self, equation, solution, fields, dt, a, b, c,
+    __metaclass__ = ABCMeta
+
+    @abstractproperty
+    def a(self):
+        pass
+
+    @abstractproperty
+    def b(self):
+        pass
+
+    @abstractproperty
+    def c(self):
+        pass
+
+    def __init__(self, equation, solution, fields, dt,
                  bnd_conditions=None, solver_parameters={}):
         """
         Create new DIRK solver.
@@ -1146,10 +1167,6 @@ class DIRKGenericNew(TimeIntegrator):
             the equation to solve
         dt : float
             time step (constant)
-        a  : array_like (n_stages, n_stages)
-            coefficients for the Butcher tableau, must be lower diagonal
-        b,c : array_like (n_stages,)
-            coefficients for the Butcher tableau
         solver_parameters : dict
             PETSc options for solver
         terms_to_add : 'all' or list of 'implicit', 'explicit', 'source'
@@ -1160,10 +1177,7 @@ class DIRKGenericNew(TimeIntegrator):
         self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
 
-        self.n_stages = len(b)
-        self.a = a
-        self.b = b
-        self.c = c
+        self.n_stages = len(self.b)
 
         fs = self.equation.function_space
         self.dt = dt
@@ -1171,11 +1185,7 @@ class DIRKGenericNew(TimeIntegrator):
         self.solution_old = solution
 
         test = self.equation.test
-
-        from firedrake.functionspaceimpl import MixedFunctionSpace, WithGeometry
-        mixed_space = (isinstance(fs, MixedFunctionSpace) or
-                       (isinstance(fs, WithGeometry) and
-                        isinstance(fs.topological, MixedFunctionSpace)))
+        mixed_space = len(fs) > 1
 
         # Allocate tendency fields
         self.k = []
@@ -1192,7 +1202,7 @@ class DIRKGenericNew(TimeIntegrator):
                     else:
                         u += self.a[i][j]*self.dt_const*self.k[j]
                 self.F.append(-inner(self.k[i], test)*dx +
-                              self.equation.get_residual('all', u, self.solution_old, fields, fields, bnd_conditions))
+                              self.equation.residual('all', u, self.solution_old, fields, fields, bnd_conditions))
         else:
             # solution must be split before computing sum
             # pass components to equation in a list
@@ -1206,7 +1216,7 @@ class DIRKGenericNew(TimeIntegrator):
                         for l, k in enumerate(split(self.k[j])):
                             u[l] += self.a[i][j]*self.dt_const*k
                 self.F.append(-inner(self.k[i], test)*dx +
-                              self.equation.get_residual('all', u, self.solution_old, fields, fields, bnd_conditions))
+                              self.equation.residual('all', u, self.solution_old, fields, fields, bnd_conditions))
         self.update_solver()
 
     def update_solver(self):
@@ -1287,15 +1297,9 @@ class BackwardEulerNew(DIRKGenericNew):
     ---------
         | 1
     """
-    def __init__(self, equation, solution, fields, dt,
-                 bnd_conditions=None, solver_parameters={}):
-        a = [[1.0]]
-        b = [1.0]
-        c = [1.0]
-        super(BackwardEulerNew, self).__init__(equation, solution, fields, dt,
-                                               a, b, c,
-                                               bnd_conditions=bnd_conditions,
-                                               solver_parameters=solver_parameters)
+    a = [[1.0]]
+    b = [1.0]
+    c = [1.0]
 
 
 class ImplicitMidpoint(DIRKGeneric):
@@ -1314,6 +1318,21 @@ class ImplicitMidpoint(DIRKGeneric):
         c = [0.5]
         super(ImplicitMidpoint, self).__init__(equation, dt, a, b, c,
                                                solver_parameters, terms_to_add)
+
+
+class ImplicitMidpointNew(DIRKGenericNew):
+    """
+    Implicit midpoint method, second order.
+
+    This method has the Butcher tableau
+
+    0.5 | 0.5
+    ---------
+        | 1
+    """
+    a = [[0.5]]
+    b = [1.0]
+    c = [0.5]
 
 
 class DIRK22(DIRKGeneric):
@@ -1345,6 +1364,33 @@ class DIRK22(DIRKGeneric):
                                      solver_parameters, terms_to_add)
 
 
+class DIRK22New(DIRKGenericNew):
+    """
+    DIRK22, 2-stage, 2nd order, L-stable
+    Diagonally Implicit Runge Kutta method
+
+    This method has the Butcher tableau
+
+    gamma   | gamma     0
+    1       | 1-gamma  gamma
+    -------------------------
+            | 0.5       0.5
+    with
+    gamma = (2 + sqrt(2))/2
+
+    From DIRK(2,3,2) IMEX scheme in Ascher et al. (1997)
+
+    [1] Ascher et al. (1997). Implicit-explicit Runge-Kutta methods for
+        time-dependent partial differential equations. Applied Numerical
+        Mathematics, 25:151-167.
+    """
+    gamma = Constant((2 + np.sqrt(2))/2)
+    a = [[gamma, 0],
+         [1-gamma, gamma]]
+    b = [0.5, 0.5]
+    c = [gamma, 1]
+
+
 class DIRK23(DIRKGeneric):
     """
     DIRK23, 2-stage, 3rd order
@@ -1370,6 +1416,29 @@ class DIRK23(DIRKGeneric):
                                      solver_parameters, terms_to_add)
 
 
+class DIRK23New(DIRKGenericNew):
+    """
+    DIRK23, 2-stage, 3rd order
+    Diagonally Implicit Runge Kutta method
+
+    This method has the Butcher tableau
+
+    gamma   | gamma     0
+    1-gamma | 1-2*gamma gamma
+    -------------------------
+            | 0.5       0.5
+    with
+    gamma = (3 + sqrt(3))/6
+
+    From DIRK(2,3,3) IMEX scheme in Ascher et al. (1997)
+    """
+    gamma = (3 + np.sqrt(3))/6
+    a = [[gamma, 0],
+         [1-2*gamma, gamma]]
+    b = [0.5, 0.5]
+    c = [gamma, 1-gamma]
+
+
 class DIRK33(DIRKGeneric):
     """
     DIRK33, 3-stage, 3rd order, L-stable
@@ -1390,6 +1459,23 @@ class DIRK33(DIRKGeneric):
                                      solver_parameters, terms_to_add)
 
 
+class DIRK33New(DIRKGenericNew):
+    """
+    DIRK33, 3-stage, 3rd order, L-stable
+    Diagonally Implicit Runge Kutta method
+
+    From DIRK(3,4,3) IMEX scheme in Ascher et al. (1997)
+    """
+    gamma = 0.4358665215
+    b1 = -3.0/2.0*gamma**2 + 4*gamma - 1.0/4.0
+    b2 = 3.0/2.0*gamma**2 - 5*gamma + 5.0/4.0
+    a = [[gamma, 0, 0],
+         [(1-gamma)/2, gamma, 0],
+         [b1, b2, gamma]]
+    b = [b1, b2, gamma]
+    c = [gamma, (1+gamma)/2, 1]
+
+
 class DIRK43(DIRKGeneric):
     """
     DIRK43, 4-stage, 3rd order, L-stable
@@ -1406,6 +1492,21 @@ class DIRK43(DIRKGeneric):
         c = [0.5, 2.0/3.0, 0.5, 1.0]
         super(DIRK43, self).__init__(equation, dt, a, b, c,
                                      solver_parameters, terms_to_add)
+
+
+class DIRK43New(DIRKGenericNew):
+    """
+    DIRK43, 4-stage, 3rd order, L-stable
+    Diagonally Implicit Runge Kutta method
+
+    From DIRK(4,4,3) IMEX scheme in Ascher et al. (1997)
+    """
+    a = [[0.5, 0, 0, 0],
+         [1.0/6.0, 0.5, 0, 0],
+         [-0.5, 0.5, 0.5, 0],
+         [3.0/2.0, -3.0/2.0, 0.5, 0.5]]
+    b = [3.0/2.0, -3.0/2.0, 0.5, 0.5]
+    c = [0.5, 2.0/3.0, 0.5, 1.0]
 
 
 class DIRKLSPUM2(DIRKGeneric):
@@ -1442,17 +1543,11 @@ class DIRKLSPUM2New(DIRKGenericNew):
         Runge-Kutta methods. Journal of Computational and Applied
         Mathematics 272(2014) 116-140.
     """
-    def __init__(self, equation, solution, fields, dt,
-                 bnd_conditions=None, solver_parameters={}):
-        a = [[2.0/11.0, 0, 0],
-             [205.0/462.0, 2.0/11.0, 0],
-             [2033.0/4620.0, 21.0/110.0, 2.0/11.0]]
-        b = [24.0/55.0, 1.0/5.0, 4.0/11.0]
-        c = [2.0/11.0, 289.0/462.0, 751.0/924.0]
-        super(DIRKLSPUM2New, self).__init__(equation, solution, fields, dt,
-                                            a, b, c,
-                                            bnd_conditions=bnd_conditions,
-                                            solver_parameters=solver_parameters)
+    a = [[2.0/11.0, 0, 0],
+         [205.0/462.0, 2.0/11.0, 0],
+         [2033.0/4620.0, 21.0/110.0, 2.0/11.0]]
+    b = [24.0/55.0, 1.0/5.0, 4.0/11.0]
+    c = [2.0/11.0, 289.0/462.0, 751.0/924.0]
 
 
 def cos_time_av_filter(m):

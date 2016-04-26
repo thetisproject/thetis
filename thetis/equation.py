@@ -9,7 +9,7 @@ class Term(object):
     """
     Implements a single term of an equation.
     """
-    def __init__(self, function_space, boundary_markers, boundary_len):
+    def __init__(self, function_space):
         # define bunch of members needed to construct forms
         self.function_space = function_space
         self.mesh = self.function_space.mesh()
@@ -17,10 +17,10 @@ class Term(object):
         self.tri = TrialFunction(self.function_space)
         self.normal = FacetNormal(self.mesh)
         # TODO construct them here from mesh ?
-        self.boundary_markers = boundary_markers
-        self.boundary_len = boundary_len
+        self.boundary_markers = function_space.mesh().exterior_facets.unique_markers
+        self.boundary_len = function_space.mesh().boundary_len
 
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
         """
         Returns an UFL form of the term.
 
@@ -36,7 +36,7 @@ class Term(object):
         """
         raise NotImplementedError('Must be implemented in the derived class')
 
-    def get_jacobian(self, solution, solution_old, fields, fields_old, bnd_conditions):
+    def jacobian(self, solution, solution_old, fields, fields_old, bnd_conditions):
         """
         Returns an UFL form of the Jacobian of the term.
 
@@ -61,7 +61,7 @@ class EquationNew(object):
     SUPPORTED_LABELS = ['source', 'explicit', 'implicit', 'nonlinear']
 
     def __init__(self, function_space):
-        self.terms = []
+        self.terms = {}
         self.labels = {}
         self.function_space = function_space
         self.mesh = self.function_space.mesh()
@@ -81,25 +81,26 @@ class EquationNew(object):
         return inner(solution, self.test) * dx
 
     def add_term(self, term, label):
-        self.terms.append(term)
-        self.label_term(term, label)
+        key = term.__class__.__name__
+        self.terms[key] = term
+        self.label_term(key, label)
 
-    def label_term(self, term, label):
+    def label_term(self, key, label):
         """
         Assings a label to the given term(s).
 
         :arg term: :class:`.Term` object, or a tuple of terms
         :arg label: string label to assign
         """
-        if isinstance(term, Term):
-            assert term in self.terms, 'Unknown term, add it to the equation'
+        if isinstance(key, str):
+            assert key in self.terms, 'Unknown term, add it to the equation'
             assert label in self.SUPPORTED_LABELS, 'bad label: {:}'.format(label)
-            self.labels[term] = label
+            self.labels[key] = label
         else:
-            for t in iter(term):
-                self.label_term(t, label)
+            for k in iter(key):
+                self.label_term(k, label)
 
-    def get_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
+    def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         """
         Returns an UFL form of the residual by summing up all the terms with the desired label.
 
@@ -122,21 +123,22 @@ class EquationNew(object):
             else:
                 labels = [label]
         else:
-            labels = list(labels)
+            labels = list(label)
         f = 0
-        for term in self.terms:
-            if self.labels[term] in labels:
-                f += term.get_residual(solution, solution_old, fields, fields_old, bnd_conditions)
+        for key in self.terms:
+            if self.labels[key] in labels:
+                f += self.terms[key].residual(solution, solution_old, fields, fields_old, bnd_conditions)
         return f
 
-    def get_jacobian(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
+    def jacobian(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         """
         Returns an UFL form of the Jacobian by summing up all the Jacobians of the terms.
 
         Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
 
         :arg label: string defining the type of terms to sum up. Currently one of
-            'source'|'explicit'|'implicit'|'nonlinear'.
+            'source'|'explicit'|'implicit'|'nonlinear'. Can be a list of multiple labels, or 'all' in which
+            case all defined terms are summed.
         :arg solution: solution :class:`.Function` of the corresponding equation
         :arg solution_old: a time lagged solution :class:`.Function`
         :arg fields: a dictionary that provides all the remaining fields that the term depends on.
@@ -145,9 +147,16 @@ class EquationNew(object):
         :arg bnd_conditions: A dictionary describing boundary conditions.
             E.g. {3: {'elev_2d': Constant(1.0)}} replaces elev_2d function by a constant on boundary ID 3.
         """
+        if isinstance(label, str):
+            if label == 'all':
+                labels = self.SUPPORTED_LABELS
+            else:
+                labels = [label]
+        else:
+            labels = list(label)
         f = 0
-        for term in self.terms:
-            if self.labels[term] == label:
-                # FIXME check if get_jacobian exists?
-                f += term.get_jacobian(solution, solution_old, fields, fields_old)
+        for key in self.terms:
+            if self.labels[key] in labels:
+                # FIXME check if jacobian exists?
+                f += self.terms[key].jacobian(solution, solution_old, fields, fields_old, bnd_conditions)
         return f

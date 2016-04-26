@@ -294,11 +294,9 @@ class TracerTerm(Term):
     Generic tracer term that provides commonly used members and mapping for
     boundary functions.
     """
-    def __init__(self, function_space, boundary_markers, boundary_len,
+    def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None):
-        super(TracerTerm, self).__init__(function_space, boundary_markers, boundary_len)
-        self.boundary_markers = boundary_markers
-        self.boundary_len = boundary_len
+        super(TracerTerm, self).__init__(function_space)
         self.bathymetry = bathymetry
         self.h_elem_size = h_elem_size
         self.v_elem_size = v_elem_size
@@ -343,7 +341,7 @@ class HorizontalAdvectionTerm(TracerTerm):
     """
     Horizontal scalar advection term
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('uv_3d') is None:
             return 0
         elev = fields_old['elev_3d']
@@ -400,7 +398,7 @@ class VerticalAdvectionTerm(TracerTerm):
     """
     Vertical scalar advection term
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         # TODO linearize, use solution/solution_old correctly
         w = fields_old.get('w')
         if w is None:
@@ -442,7 +440,7 @@ class HorizontalDiffusionTerm(TracerTerm):
     """
     Horizontal scalar diffusion term
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_h') is None:
             return 0
         diffusivity_h = fields_old['diffusivity_h']
@@ -496,7 +494,7 @@ class VerticalDiffusionTerm(TracerTerm):
     """
     Vertical scalar diffusion term
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_v') is None:
             return 0
 
@@ -538,7 +536,7 @@ class SourceTerm(TracerTerm):
     """
     Generic tracer source term
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
         source = fields_old.get('source')
         if source is not None:
@@ -550,12 +548,11 @@ class TracerEquationNew(EquationNew):
     """
     3D tracer advection-diffusion equation
     """
-    def __init__(self, function_space, boundary_markers, boundary_len,
+    def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None):
         super(TracerEquationNew, self).__init__(function_space)
 
-        args = (function_space, boundary_markers,
-                boundary_len, bathymetry,
+        args = (function_space, bathymetry,
                 v_elem_size, h_elem_size)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')

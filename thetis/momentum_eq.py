@@ -528,12 +528,10 @@ class MomentumTerm(Term):
     Generic term for momentum equation that provides commonly used members and
     mapping for boundary functions.
     """
-    def __init__(self, function_space, boundary_markers, boundary_len,
+    def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
                  nonlin=True, use_bottom_friction=False):
-        super(MomentumTerm, self).__init__(function_space, boundary_markers, boundary_len)
-        self.boundary_markers = boundary_markers
-        self.boundary_len = boundary_len
+        super(MomentumTerm, self).__init__(function_space)
         self.bathymetry = bathymetry
         self.h_elem_size = h_elem_size
         self.v_elem_size = v_elem_size
@@ -547,7 +545,7 @@ class MomentumTerm(Term):
 
 
 class PressureGradientTerm(MomentumTerm):
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         baroc_head = fields_old.get('baroc_head')
         eta = fields_old.get('eta')
 
@@ -596,7 +594,7 @@ class PressureGradientTerm(MomentumTerm):
 
 
 class HorizontalAdvectionTerm(MomentumTerm):
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if not self.nonlin:
             return 0
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_factor')
@@ -681,7 +679,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
 
 
 class VerticalAdvectionTerm(MomentumTerm):
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         w = fields_old.get('w')
         w_mesh = fields_old.get('w_mesh')
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_factor')
@@ -712,7 +710,7 @@ class VerticalAdvectionTerm(MomentumTerm):
 
 
 class ALESourceTerm(MomentumTerm):
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         dw_mesh_dz = fields_old.get('dw_mesh_dz')
         f = 0
         # Non-conservative ALE source term
@@ -723,7 +721,7 @@ class ALESourceTerm(MomentumTerm):
 
 
 class HorizontalViscosityTerm(MomentumTerm):
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         viscosity_h = fields_old.get('viscosity_h')
         if viscosity_h is None:
             return 0
@@ -782,7 +780,7 @@ class HorizontalViscosityTerm(MomentumTerm):
 
 
 class VerticalViscosityTerm(MomentumTerm):
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         viscosity_v = fields_old.get('viscosity_v')
         if viscosity_v is None:
             return 0
@@ -817,7 +815,7 @@ class VerticalViscosityTerm(MomentumTerm):
 
 
 class BottomFrictionTerm(MomentumTerm):
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
         if self.use_bottom_friction:
             z0_friction = physical_constants['z0_friction']
@@ -836,7 +834,7 @@ class BottomFrictionTerm(MomentumTerm):
 
 
 class LinearDragTerm(MomentumTerm):
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         lin_drag = fields_old.get('lin_drag')
         f = 0
         # Linear drag (consistent with drag in 2D mode)
@@ -847,7 +845,7 @@ class LinearDragTerm(MomentumTerm):
 
 
 class CoriolisTerm(MomentumTerm):
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         coriolis = fields_old.get('coriolis')
         f = 0
         if coriolis is not None:
@@ -860,7 +858,7 @@ class SourceTerm(MomentumTerm):
     """
     Generic source term
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
         source = fields_old.get('source')
         viscosity_v = fields_old.get('viscosity_v')
@@ -879,13 +877,12 @@ class MomentumEquationNew(EquationNew):
     """
     3D momentum equation for hydrostatic Boussinesq flow.
     """
-    def __init__(self, function_space, boundary_markers, boundary_len,
+    def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
                  nonlin=True, use_bottom_friction=False):
         super(MomentumEquationNew, self).__init__(function_space)
 
-        args = (function_space, boundary_markers,
-                boundary_len, bathymetry,
+        args = (function_space, bathymetry,
                 v_elem_size, h_elem_size, nonlin, use_bottom_friction)
         self.add_term(PressureGradientTerm(*args), 'source')
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')

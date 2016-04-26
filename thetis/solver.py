@@ -29,6 +29,11 @@ class FlowSolver(FrozenClass):
         self.mesh2d = mesh2d
         self.mesh = extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d)
 
+        # add boundary length info
+        bnd_len = compute_boundary_length(self.mesh2d)
+        self.mesh2d.boundary_len = bnd_len
+        self.mesh.boundary_len = bnd_len
+
         # Time integrator setup
         self.dt = None
         self.dt_2d = None
@@ -313,10 +318,9 @@ class FlowSolver(FrozenClass):
                 eta, uv, self.fields.bathymetry_2d,
                 nonlin=self.options.nonlin)
 
-        bnd_len = self.eq_sw.boundary_len
-        bnd_markers = self.eq_sw.boundary_markers
+        # bnd_len = self.eq_sw.boundary_len
+        # bnd_markers = self.eq_sw.boundary_markers
         self.eq_momentum = momentum_eq.MomentumEquationNew(self.fields.uv_3d.function_space(),
-                                                           bnd_markers, bnd_len,
                                                            bathymetry=self.fields.bathymetry_3d,
                                                            v_elem_size=self.fields.v_elem_size_3d,
                                                            h_elem_size=self.fields.h_elem_size_3d,
@@ -342,7 +346,6 @@ class FlowSolver(FrozenClass):
         #     nonlin=self.options.nonlin)
         if self.options.solve_vert_diffusion:
             self.eq_vertmomentum = momentum_eq.MomentumEquationNew(self.fields.uv_3d.function_space(),
-                                                                   bnd_markers, bnd_len,
                                                                    bathymetry=self.fields.bathymetry_3d,
                                                                    v_elem_size=self.fields.v_elem_size_3d,
                                                                    h_elem_size=self.fields.h_elem_size_3d,
@@ -357,7 +360,6 @@ class FlowSolver(FrozenClass):
             #     use_bottom_friction=self.options.use_bottom_friction)
         if self.options.solve_salt:
             self.eq_salt = tracer_eq.TracerEquationNew(self.fields.salt_3d.function_space(),
-                                                       bnd_markers, bnd_len,
                                                        bathymetry=self.fields.bathymetry_3d,
                                                        v_elem_size=self.fields.v_elem_size_3d,
                                                        h_elem_size=self.fields.h_elem_size_3d)
@@ -378,7 +380,6 @@ class FlowSolver(FrozenClass):
             #     bnd_len=bnd_len)
             if self.options.solve_vert_diffusion:
                 self.eq_salt_vdff = tracer_eq.TracerEquationNew(self.fields.salt_3d.function_space(),
-                                                                bnd_markers, bnd_len,
                                                                 bathymetry=self.fields.bathymetry_3d,
                                                                 v_elem_size=self.fields.v_elem_size_3d,
                                                                 h_elem_size=self.fields.h_elem_size_3d)
@@ -400,12 +401,10 @@ class FlowSolver(FrozenClass):
             if self.options.use_turbulence_advection:
                 # explicit advection equations
                 self.eq_tke_adv = tracer_eq.TracerEquationNew(self.fields.tke_3d.function_space(),
-                                                              bnd_markers, bnd_len,
                                                               bathymetry=self.fields.bathymetry_3d,
                                                               v_elem_size=self.fields.v_elem_size_3d,
                                                               h_elem_size=self.fields.h_elem_size_3d)
                 self.eq_psi_adv = tracer_eq.TracerEquationNew(self.fields.psi_3d.function_space(),
-                                                              bnd_markers, bnd_len,
                                                               bathymetry=self.fields.bathymetry_3d,
                                                               v_elem_size=self.fields.v_elem_size_3d,
                                                               h_elem_size=self.fields.h_elem_size_3d)
@@ -436,13 +435,11 @@ class FlowSolver(FrozenClass):
             # implicit vertical diffusion eqn with production terms
             self.eq_tke_diff = turbulence.TKEEquationNew(self.fields.tke_3d.function_space(),
                                                          self.gls_model,
-                                                         bnd_markers, bnd_len,
                                                          bathymetry=self.fields.bathymetry_3d,
                                                          v_elem_size=self.fields.v_elem_size_3d,
                                                          h_elem_size=self.fields.h_elem_size_3d)
             self.eq_psi_diff = turbulence.PsiEquationNew(self.fields.psi_3d.function_space(),
                                                          self.gls_model,
-                                                         bnd_markers, bnd_len,
                                                          bathymetry=self.fields.bathymetry_3d,
                                                          v_elem_size=self.fields.v_elem_size_3d,
                                                          h_elem_size=self.fields.h_elem_size_3d)
@@ -524,7 +521,6 @@ class FlowSolver(FrozenClass):
         self.w_solver = VerticalVelocitySolver(self.fields.w_3d,
                                                self.fields.uv_3d,
                                                self.fields.bathymetry_3d,
-                                               self.eq_sw.boundary_markers,
                                                self.eq_momentum.bnd_functions)
         # NOTE averager is a word. now.
         self.uv_averager = VerticalIntegrator(self.fields.uv_3d,

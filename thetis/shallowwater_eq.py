@@ -650,12 +650,12 @@ class ShallowWaterTerm(Term):
     Generic term for shallow water equations that provides commonly used
     members and mapping for boundary functions.
     """
-    def __init__(self, function_space, boundary_markers, boundary_len,
+    def __init__(self, function_space,
                  bathymetry=None,
                  nonlin=True,
                  include_grad_div_viscosity_term=False,
                  include_grad_depth_viscosity_term=True):
-        super(ShallowWaterTerm, self).__init__(function_space, boundary_markers, boundary_len)
+        super(ShallowWaterTerm, self).__init__(function_space)
 
         self.bathymetry = bathymetry
         self.nonlin = nonlin
@@ -739,7 +739,7 @@ class ExternalPressureGradientTerm(ShallowWaterTerm):
     """
     External pressure gradient term
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         uv, eta = self.split_solution(solution)
         uv_old, eta_old = self.split_solution(solution_old)
         total_h = self.get_total_depth(eta)  # FIXME should be eta_old
@@ -789,7 +789,7 @@ class HUDivTerm(ShallowWaterTerm):
     """
     Divergence of Hu
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         uv, eta = self.split_solution(solution)
         uv_old, eta_old = self.split_solution(solution_old)
         total_h = self.get_total_depth(eta)  # FIXME should be eta_old
@@ -829,7 +829,7 @@ class HorizontalAdvectionTerm(ShallowWaterTerm):
     """
     Horizontal advection of momentum
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         uv, eta = self.split_solution(solution)
         uv_old, eta_old = self.split_solution(solution_old)
         uv_lax_friedrichs = fields_old.get('uv_lax_friedrichs')
@@ -890,7 +890,7 @@ class HorizontalViscosityTerm(ShallowWaterTerm):
     """
     Viscosity of momentum
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         uv, eta = self.split_solution(solution)
         total_h = self.get_total_depth(eta)
 
@@ -957,7 +957,7 @@ class CoriolisTerm(ShallowWaterTerm):
     """
     Coriolis term
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         uv, eta = self.split_solution(solution)
         coriolis = fields_old.get('coriolis')
         f = 0
@@ -970,7 +970,7 @@ class WindStressTerm(ShallowWaterTerm):
     """
     Wind stress
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         wind_stress = fields_old.get('wind_stress')
         uv, eta = self.split_solution(solution)
         total_h = self.get_total_depth(eta)
@@ -984,7 +984,7 @@ class QuadraticDragTerm(ShallowWaterTerm):
     """
     Quadratic Manning bottom friction term
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         uv, eta = self.split_solution(solution)
         uv_old, eta_old = self.split_solution(solution_old)
         total_h = self.get_total_depth(eta)
@@ -1001,7 +1001,7 @@ class LinearDragTerm(ShallowWaterTerm):
     """
     Linear bottom friction term
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         uv, eta = self.split_solution(solution)
         lin_drag = fields_old.get('lin_drag')
         f = 0
@@ -1015,7 +1015,7 @@ class BottomDrag3DTerm(ShallowWaterTerm):
     """
     Bottom drag term consistent with 3D model
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         uv, eta = self.split_solution(solution)
         total_h = self.get_total_depth(eta)
         bottom_drag = fields_old.get('bottom_drag')
@@ -1033,7 +1033,7 @@ class InternalPressureGradientTerm(ShallowWaterTerm):
     """
     Internal pressure gradient term
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         baroc_head = fields_old.get('baroc_head')
 
         if baroc_head is None:
@@ -1055,7 +1055,7 @@ class SourceTerm(ShallowWaterTerm):
     """
     Generic source term
     """
-    def get_residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
         uv_source = fields_old.get('uv_source')
         elev_source = fields_old.get('elev_source')
@@ -1080,15 +1080,6 @@ class ShallowWaterEquationsNew(EquationNew):
         super(ShallowWaterEquationsNew, self).__init__(function_space)
         self.bathymetry = bathymetry
 
-        # construct boundary information
-        U_space, eta_space = self.function_space.split()
-        self.boundary_markers = set(self.mesh.exterior_facets.unique_markers)
-        self.boundary_len = {}
-        for i in self.boundary_markers:
-            ds_restricted = ds(int(i))
-            one_func = Function(eta_space).assign(1.0)
-            self.boundary_len[i] = assemble(one_func * ds_restricted)
-
         # default solver parameters FIXME probably does no belong here?
         # Gauss-Seidel
         self.solver_parameters = {
@@ -1097,7 +1088,7 @@ class ShallowWaterEquationsNew(EquationNew):
             'pc_fieldsplit_type': 'multiplicative',
         }
 
-        args = (function_space, self.boundary_markers, self.boundary_len,
+        args = (function_space,
                 bathymetry,
                 nonlin,
                 include_grad_div_viscosity_term,
