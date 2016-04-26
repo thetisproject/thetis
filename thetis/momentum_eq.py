@@ -159,13 +159,24 @@ class MomentumEquation(Equation):
                             gamma = 0.5*abs(un)*lax_friedrichs_factor
                             f += gamma*(self.test[0]*(solution[0] - uv_ext[0]) +
                                         self.test[1]*(solution[1] - uv_ext[1]))*ds_bnd
-                    elif 'flux' in funcs:
-                        # prescribe normal volume flux
-                        sect_len = Constant(self.boundary_len[bnd_marker])
-                        un_ext = funcs['flux'] / total_h / sect_len
-                        if self.nonlin:
-                            uv_in = solution
+                    else:
+                        uv_in = solution
+                        use_lf = True
+                        if 'symm' in funcs or 'elev' in funcs:
+                            # use internal normal velocity
+                            # NOTE should this be symmetic normal velocity?
+                            uv_ext = uv_in
+                            use_lf = False
+                        elif 'un' in funcs:
+                            # prescribe normal velocity
+                            un_ext = funcs['un']
                             uv_ext = self.normal*un_ext
+                        elif 'flux' in funcs:
+                            # prescribe normal volume flux
+                            sect_len = Constant(self.boundary_len[bnd_marker])
+                            un_ext = funcs['flux'] / total_h / sect_len
+                            uv_ext = self.normal*un_ext
+                        if self.nonlin:
                             uv_av = 0.5*(uv_in + uv_ext)
                             un_av = uv_av[0]*self.normal[0] + uv_av[1]*self.normal[1]
                             s = 0.5*(sign(un_av) + 1.0)
@@ -174,11 +185,12 @@ class MomentumEquation(Equation):
                                   uv_up[0]*self.test[0]*self.normal[1]*uv_av[1] +
                                   uv_up[1]*self.test[1]*self.normal[0]*uv_av[0] +
                                   uv_up[1]*self.test[1]*self.normal[1]*uv_av[1])*ds_bnd
-                            # Lax-Friedrichs stabilization
-                            if lax_friedrichs_factor is not None:
-                                gamma = 0.5*abs(un_av)*lax_friedrichs_factor
-                                f += gamma*(self.test[0]*(uv_in[0] - uv_ext[0]) +
-                                            self.test[1]*(uv_in[1] - uv_ext[1]))*ds_bnd
+                            if use_lf:
+                                # Lax-Friedrichs stabilization
+                                if lax_friedrichs_factor is not None:
+                                    gamma = 0.5*abs(un_av)*lax_friedrichs_factor
+                                    f += gamma*(self.test[0]*(uv_in[0] - uv_ext[0]) +
+                                                self.test[1]*(uv_in[1] - uv_ext[1]))*ds_bnd
 
             # surf/bottom boundary conditions: closed at bed, symmetric at surf
             f += (solution[0]*solution[0]*self.test[0]*self.normal[0] +
@@ -250,7 +262,6 @@ class MomentumEquation(Equation):
         for bnd_marker in self.boundary_markers:
             funcs = self.bnd_functions.get(bnd_marker)
             ds_bnd = ds_v(int(bnd_marker))
-            un_in = (solution[0]*self.normal[0] + solution[1]*self.normal[1])
             if funcs is None:
                 # assume land boundary
                 continue
@@ -259,39 +270,6 @@ class MomentumEquation(Equation):
                 # prescribe elevation only
                 h_ext = funcs['elev']
                 g += g_grav*(eta + h_ext)/2*dot(self.normal, self.test)*ds_bnd
-                # symmetric term for advection
-                if self.nonlin:
-                    un = dot(solution, self.normal)
-                    outflow = 0.5*(sign(un) + 1.0)
-                    uv_in = solution*(0.75 + 0.25*outflow)
-                    g += (uv_in[0]*self.test[0]*un +
-                          uv_in[1]*self.test[1]*un)*ds_bnd
-
-            elif 'un' in funcs:
-                # prescribe normal volume flux
-                un_ext = funcs['un']
-                if self.nonlin:
-                    uv_in = solution
-                    uv_ext = self.normal*un_ext
-                    uv_av = 0.5*(uv_in + uv_ext)
-                    un_av = uv_av[0]*self.normal[0] + uv_av[1]*self.normal[1]
-                    s = 0.5*(sign(un_av) + 1.0)
-                    uv_up = uv_in*s + uv_ext*(1-s)
-                    g += (uv_up[0]*self.test[0]*self.normal[0]*uv_in[0] +
-                          uv_up[0]*self.test[0]*self.normal[1]*uv_in[1] +
-                          uv_up[1]*self.test[1]*self.normal[0]*uv_in[0] +
-                          uv_up[1]*self.test[1]*self.normal[1]*uv_in[1])*ds_bnd
-                    # Lax-Friedrichs stabilization
-                    gamma = abs(un_av)
-                    g += gamma*dot(self.test, (uv_in - uv_ext)/2)*ds_bnd
-
-            elif 'symm' in funcs:
-                if self.nonlin:
-                    uv_in = un_in*self.normal
-                    g += (uv_in[0]*self.test[0]*self.normal[0]*uv_in[0] +
-                          uv_in[0]*self.test[0]*self.normal[1]*uv_in[1] +
-                          uv_in[1]*self.test[1]*self.normal[0]*uv_in[0] +
-                          uv_in[1]*self.test[1]*self.normal[1]*uv_in[1])*ds_bnd
 
         # Coriolis
         if coriolis is not None:
@@ -412,19 +390,19 @@ class VerticalMomentumEquation(Equation):
     """Vertical advection and diffusion terms of 3D momentum equation for
     hydrostatic Boussinesq flow."""
     def __init__(self, solution, w=None,
-                 viscosity_v=None, uv_bottom=None, bottom_drag=None,
+                 viscosity_v=None,
                  wind_stress=None, v_elem_size=None, h_elem_size=None,
-                 source=None):
+                 source=None,
+                 use_bottom_friction=False):
         self.space = solution.function_space()
         self.mesh = self.space.mesh()
         self.solution = solution
         self.v_elem_size = v_elem_size
         self.h_elem_size = h_elem_size
+        self.use_bottom_friction = use_bottom_friction
         # this dict holds all time dep. args to the equation
         self.kwargs = {'w': w,
                        'viscosity_v': viscosity_v,
-                       'uv_bottom': uv_bottom,
-                       'bottom_drag': bottom_drag,
                        'wind_stress': wind_stress,
                        'source': source,
                        }
@@ -464,8 +442,7 @@ class VerticalMomentumEquation(Equation):
         f = 0
         return -f
 
-    def rhs(self, solution, w=None, viscosity_v=None,
-            uv_bottom=None, bottom_drag=None,
+    def rhs(self, solution, solution_old, w=None, viscosity_v=None,
             **kwargs):
         """Returns the right hand side of the equations.
         Contains all terms that depend on the solution."""
@@ -511,13 +488,16 @@ class VerticalMomentumEquation(Equation):
                             avg(viscosity_v*Dx(solution, 2)))*ds_interior
 
             # implicit bottom friction
-            if bottom_drag is not None:
-                z_bot = self.v_elem_size*0.5
+            if self.use_bottom_friction:
+                z0_friction = physical_constants['z0_friction']
+                z_bot = 0.5*self.v_elem_size
+                von_karman = physical_constants['von_karman']
+                drag = (von_karman / ln((z_bot + z0_friction)/z0_friction))**2
                 # compute uv_bottom implicitly
                 uv_bot = solution + Dx(solution, 2)*z_bot
-                uv_bot_old = uv_bottom + Dx(uv_bottom, 2)*z_bot
+                uv_bot_old = solution_old + Dx(solution_old, 2)*z_bot
                 uv_bot_mag = sqrt(uv_bot_old[0]**2 + uv_bot_old[1]**2)
-                stress = bottom_drag*uv_bot_mag*uv_bot
+                stress = drag*uv_bot_mag*uv_bot
                 bot_friction = (stress[0]*self.test[0] +
                                 stress[1]*self.test[1])*ds_bottom
                 f += bot_friction
@@ -525,7 +505,6 @@ class VerticalMomentumEquation(Equation):
         return -f
 
     def source(self, w=None, viscosity_v=None,
-               uv_bottom=None, bottom_drag=None,
                wind_stress=None, source=None,
                **kwargs):
         """Returns the right hand side of the source terms.
@@ -533,13 +512,6 @@ class VerticalMomentumEquation(Equation):
         f = 0  # holds all dx volume integral terms
 
         if viscosity_v is not None:
-            # # bottom friction
-            # if bottom_drag is not None and uv_bottom is not None:
-            #   stress = bottom_drag*sqrt(uv_bottom[0]**2 +
-            #                             uv_bottom[1]**2)*uv_bottom
-            #   BotFriction = (stress[0]*self.test[0] +
-            #                  stress[1]*self.test[1])*ds_bottom
-            #   #F += BotFriction
             # wind stress
             if wind_stress is not None:
                 f -= (wind_stress[0]*self.test[0] +

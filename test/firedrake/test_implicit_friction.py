@@ -124,7 +124,7 @@ def test_implicit_friction(do_export=False, do_assert=True):
     solver = LinearVariationalSolver(prob, solver_parameters=sp)
 
     if do_export:
-        out_file << solution
+        out_file.write(solution)
     # ----- solve
     t = 0
     for it in range(1, time_steps + 1):
@@ -135,7 +135,7 @@ def test_implicit_friction(do_export=False, do_assert=True):
         t1 = time_mod.clock()
 
         if do_export:
-            out_file << solution
+            out_file.write(solution)
         print '{:4d}  T={:9.1f} s  cpu={:.2f} s'.format(it, t, t1-t0)
 
     if do_assert:

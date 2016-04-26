@@ -99,7 +99,7 @@ def run(refinement, order=1, warped_mesh=False, do_export=True):
             t_const.assign(t)
             ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_diffusivity, t=t_const)
             salt_ana.project(ana_salt_expr)
-            out_salt_ana << salt_ana_p1.project(salt_ana)
+            out_salt_ana.write(salt_ana_p1.project(salt_ana))
 
     # export initial conditions
     export_func()
@@ -164,7 +164,7 @@ def run_convergence(ref_list, saveplot=False, **options):
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
             ax.set_ylabel('log10(L2 error)')
-            ax.set_title(field_str)
+            ax.set_title(' '.join([setup_name, field_str, 'order={:}'.format(order)]))
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
             order_str = 'o{:}'.format(order)
             imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str])

@@ -285,9 +285,9 @@ def run(setup, refinement, order, do_export=True):
     # discard u,v components
     w_proj_3d.dat.data[:, :2] = 0
     if do_export:
-        out_w << w_proj_3d
-        out_w_ana << w_analytical
-        out_uv << uv_analytical
+        out_w.write(w_proj_3d)
+        out_w_ana.write(w_analytical)
+        out_uv.write(uv_analytical)
         solver_obj.export()
 
     print 'w_pro', w_proj_3d.dat.data[:, 2].min(), w_proj_3d.dat.data[:, 2].max()

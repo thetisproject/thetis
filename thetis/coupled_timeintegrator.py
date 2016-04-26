@@ -44,11 +44,8 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
                 compute_bottom_friction(
                     self.solver,
                     self.fields.uv_p1_3d, self.fields.uv_bottom_2d,
-                    self.fields.uv_bottom_3d, self.fields.z_coord_3d,
-                    self.fields.z_bottom_2d,
-                    self.fields.bathymetry_2d, self.fields.bottom_drag_2d,
-                    self.fields.bottom_drag_3d,
-                    self.fields.v_elem_size_2d, self.fields.v_elem_size_3d)
+                    self.fields.z_bottom_2d, self.fields.bathymetry_2d,
+                    self.fields.bottom_drag_2d)
         if self.options.use_parabolic_viscosity:
             self.solver.parabolic_viscosity_solver.solve()
 
@@ -389,11 +386,14 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             solver.eq_sw, solver.dt,
             solver.eq_sw.solver_parameters)
 
-        vdiff_sp = {'ksp_type': 'gmres',
+        vdiff_sp = {'snes_monitor': False,
+                    'ksp_type': 'gmres',
                     'pc_type': 'ilu',
-                    # 'snes_rtol': 1.0e-18,
-                    # 'ksp_rtol': 1.0e-22,
+                    'snes_atol': 1e-27,
                     }
+        # vert_timeintegrator = timeintegrator.DIRKLSPUM2
+        vert_timeintegrator = timeintegrator.BackwardEuler
+        # vert_timeintegrator = timeintegrator.ImplicitMidpoint
         self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum, solver.dt)
         if self.solver.options.solve_salt:
@@ -401,18 +401,20 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                 solver.eq_salt,
                 solver.dt)
             if self.solver.options.solve_vert_diffusion:
-                self.timestepper_salt_vdff_3d = timeintegrator.DIRKLSPUM2(
+                self.timestepper_salt_vdff_3d = vert_timeintegrator(
                     solver.eq_salt_vdff, solver.dt, solver_parameters=vdiff_sp)
 
         if self.solver.options.solve_vert_diffusion:
-            self.timestepper_mom_vdff_3d = timeintegrator.DIRKLSPUM2(
+            self.timestepper_mom_vdff_3d = vert_timeintegrator(
                 solver.eq_vertmomentum, solver.dt, solver_parameters=vdiff_sp)
         if self.solver.options.use_turbulence:
-            self.timestepper_tke_3d = timeintegrator.DIRKLSPUM2(
+            self.timestepper_tke_3d = vert_timeintegrator(
                 solver.eq_tke_diff, solver.dt, solver_parameters=vdiff_sp)
-            self.timestepper_psi_3d = timeintegrator.DIRKLSPUM2(
+            self.timestepper_psi_3d = vert_timeintegrator(
                 solver.eq_psi_diff, solver.dt, solver_parameters=vdiff_sp)
-
+            if self.solver.options.use_turbulence_advection:
+                self.timestepper_tke_adv_eq = timeintegrator.SSPRK33Stage(solver.eq_tke_adv, solver.dt)
+                self.timestepper_psi_adv_eq = timeintegrator.SSPRK33Stage(solver.eq_psi_adv, solver.dt)
         # ----- stage 1 -----
         # from n to n+1 with RHS at (u_n, t_n)
         # u_init = u_n
@@ -478,12 +480,12 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                 if self.options.use_turbulence_advection:
                     # explicit advection
                     self.timestepper_tke_adv_eq.solve_stage(k, t, self.solver.dt,
-                                                            self.solver.tke_3d)
+                                                            self.solver.fields.tke_3d)
                     self.timestepper_psi_adv_eq.solve_stage(k, t, self.solver.dt,
-                                                            self.solver.psi_3d)
-                    if self.options.use_limiter_for_tracers:
-                        self.solver.tracer_limiter.apply(self.solver.tke_3d)
-                        self.solver.tracer_limiter.apply(self.solver.psi_3d)
+                                                            self.solver.fields.psi_3d)
+                    # if self.options.use_limiter_for_tracers:
+                    #    self.solver.tracer_limiter.apply(self.solver.fields.tke_3d)
+                    #    self.solver.tracer_limiter.apply(self.solver.fields.psi_3d)
             with timed_region('momentum_eq'):
                 self.timestepper_mom_3d.solve_stage(k, t, self.solver.dt,
                                                     self.fields.uv_3d)

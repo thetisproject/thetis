@@ -52,7 +52,7 @@ kelvin_m = (coriolis_f/c)  # [-] Cross-shore variation
 
 dt = 8.0
 t_end = 32*44714
-t_export = dt  # 900.0  # 44714/12
+t_export = 900.0  # 44714/12
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -70,7 +70,7 @@ options.use_bottom_friction = False
 options.use_ale_moving_mesh = False
 # options.use_semi_implicit_2d = False
 # options.use_mode_split = False
-options.baroclinic = False  # HACK
+options.baroclinic = True
 options.coriolis = Constant(coriolis_f)
 options.use_supg = False
 options.use_gjv = False
@@ -94,6 +94,7 @@ options.u_advection = Constant(2.0)
 options.check_vol_conservation_2d = True
 options.check_vol_conservation_3d = True
 options.check_salt_conservation = True
+options.check_salt_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',

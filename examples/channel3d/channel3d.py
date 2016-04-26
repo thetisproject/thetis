@@ -12,8 +12,6 @@
 # Tuomas Karna 2015-03-03
 from thetis import *
 
-parameters['coffee'] = {}
-
 n_layers = 6
 outputdir = 'outputs'
 mesh2d = Mesh('channel_mesh.msh')

@@ -48,8 +48,8 @@ def compute(refinement=1, order=1, do_export=False):
         # export analytical solutions
         out_uv = File('uv.pvd')
         out_div = File('div.pvd')
-        out_uv << uv
-        out_div << div_uv
+        out_uv.write(uv)
+        out_div.write(div_uv)
 
     div_uv.assign(0)
 
@@ -74,8 +74,8 @@ def compute(refinement=1, order=1, do_export=False):
     if do_export:
         print 'numerical div', div_uv.dat.data.min(), div_uv.dat.data.max()
         # export numerical solutions
-        out_uv << uv
-        out_div << div_uv
+        out_uv.write(uv)
+        out_div.write(div_uv)
 
     l2err_uv = errornorm(uv_ana, uv)
     l2err_div = errornorm(div_ana, div_uv)

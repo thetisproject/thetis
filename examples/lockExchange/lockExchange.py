@@ -32,8 +32,6 @@
 
 from thetis import *
 
-parameters['coffee'] = {}
-
 reso_str = 'coarse'
 outputdir = 'outputs_struct_' + reso_str
 refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4,

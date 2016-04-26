@@ -416,7 +416,7 @@ class VelocityMagnitudeSolver(object):
 
     def solve(self):
         self.solver.solve()
-        self.solution.dat.data[:] = np.maximum(self.solution.dat.data[:], self.min_val)
+        np.maximum(self.solution.dat.data, self.min_val, self.solution.dat.data)
 
 
 class HorizontalJumpDiffusivity(object):
@@ -445,7 +445,7 @@ class HorizontalJumpDiffusivity(object):
 
     def solve(self):
         self.solver.solve()
-        self.output.dat.data[:] = np.minimum(self.max_val.dat.data, self.output.dat.data)
+        np.minimum(self.max_val.dat.data, self.output.dat.data, self.output.dat.data)
         self.output.dat.data[self.output.dat.data[:] < self.min_val] = self.min_val
 
 
@@ -527,27 +527,26 @@ class SubFunctionExtractor(object):
 
     input_3d: Function in 3d mesh
     output_2d: Function in 2d mesh
-    use_bottom_value: bool
-        Extract function at bottom elements
-    elem_bottom_nodes: bool
-        Extract function at bottom mask of the element
-        Typically elem_bottom_nodes = use_bottom_value to obtain values at
-        surface/bottom faces of the extruded mesh
+    boundary: 'top'|'bottom'
+        Defines whether to extract from the surface or bottom 3D elements
+    elem_facet: 'top'|'bottom'|'average'
+        Defines which facet of the 3D element is extracted. The 'average'
+        computes mean of the top and bottom facets of the 3D element.
     elem_height: Function in 2d mesh
         Function that defines the element heights
         (required for Raviart-Thomas spaces only)
     """
-    def __init__(self, input_3d, output_2d, use_bottom_value=True,
-                 elem_bottom_nodes=None, elem_height=None):
+    def __init__(self, input_3d, output_2d,
+                 boundary='top', elem_facet=None,
+                 elem_height=None):
         self.input_3d = input_3d
         self.output_2d = output_2d
         self.fs_3d = self.input_3d.function_space()
         self.fs_2d = self.output_2d.function_space()
 
-        sub_domain = 'bottom' if use_bottom_value else 'top'
-        if elem_bottom_nodes is None:
+        if elem_facet is None:
             # extract surface/bottom face by default
-            elem_bottom_nodes = use_bottom_value
+            elem_facet = boundary
 
         family_2d = self.fs_2d.ufl_element().family()
         if hasattr(self.fs_3d.ufl_element(), '_A'):
@@ -559,33 +558,53 @@ class SubFunctionExtractor(object):
             raise Exception('elem_height must be provided for Raviart-Thomas spaces')
         self.do_rt_scaling = family_2d == 'Raviart-Thomas'
 
-        if elem_bottom_nodes:
+        if elem_facet == 'bottom':
             nodes = self.fs_3d.bt_masks['geometric'][0]
-        else:
+        elif elem_facet == 'top':
             nodes = self.fs_3d.bt_masks['geometric'][1]
-        if sub_domain == 'top':
-            # 'top' means free surface
+        elif elem_facet == 'average':
+            nodes = (self.fs_3d.bt_masks['geometric'][0] +
+                     self.fs_3d.bt_masks['geometric'][1])
+        else:
+            raise Exception('Unsupported elem_facet: {:}'.format(elem_facet))
+        if boundary == 'top':
             self.iter_domain = op2.ON_TOP
-        elif sub_domain == 'bottom':
-            # 'bottom' means the bed
+        elif boundary == 'bottom':
             self.iter_domain = op2.ON_BOTTOM
 
         out_nodes = self.fs_2d.fiat_element.space_dimension()
 
-        assert (len(nodes) == out_nodes)
+        if elem_facet == 'average':
+            assert (len(nodes) == 2*out_nodes)
+        else:
+            assert (len(nodes) == out_nodes)
 
         self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
-        self.kernel = op2.Kernel("""
-            void my_kernel(double **func, double **func3d, int *idx) {
-                for ( int d = 0; d < %(nodes)d; d++ ) {
-                    for ( int c = 0; c < %(func_dim)d; c++ ) {
-                        func[d][c] = func3d[idx[d]][c];
-                        //func[d][c] = idx[d];
+        if elem_facet == 'average':
+            # compute average of top and bottom elem nodes
+            self.kernel = op2.Kernel("""
+                void my_kernel(double **func, double **func3d, int *idx) {
+                    int nnodes = %(nodes)d;
+                    for ( int d = 0; d < nnodes; d++ ) {
+                        for ( int c = 0; c < %(func_dim)d; c++ ) {
+                            func[d][c] = 0.5*(func3d[idx[d]][c] +
+                                              func3d[idx[d + nnodes]][c]);
+                        }
                     }
-                }
-            }""" % {'nodes': self.output_2d.cell_node_map().arity,
-                    'func_dim': self.output_2d.function_space().dim},
-            'my_kernel')
+                }""" % {'nodes': self.output_2d.cell_node_map().arity,
+                        'func_dim': self.output_2d.function_space().dim},
+                'my_kernel')
+        else:
+            self.kernel = op2.Kernel("""
+                void my_kernel(double **func, double **func3d, int *idx) {
+                    for ( int d = 0; d < %(nodes)d; d++ ) {
+                        for ( int c = 0; c < %(func_dim)d; c++ ) {
+                            func[d][c] = func3d[idx[d]][c];
+                        }
+                    }
+                }""" % {'nodes': self.output_2d.cell_node_map().arity,
+                        'func_dim': self.output_2d.function_space().dim},
+                'my_kernel')
 
         if self.do_rt_scaling:
             solver_parameters = {}
@@ -645,29 +664,25 @@ def compute_elem_height(zcoord, output):
     return output
 
 
-def compute_bottom_drag(uv_bottom, z_bottom, bathymetry, drag):
+def compute_bottom_drag(z_bottom, drag):
     """Computes bottom drag coefficient (Cd) from boundary log layer."""
     von_karman = physical_constants['von_karman']
     z0_friction = physical_constants['z0_friction']
-    drag.assign((von_karman / ln((z_bottom)/z0_friction))**2)
+    drag.assign((von_karman / ln((z_bottom + z0_friction)/z0_friction))**2)
     return drag
 
 
-def compute_bottom_friction(solver, uv_3d, uv_bottom_2d, uv_bottom_3d, z_coord_3d,
+def compute_bottom_friction(solver, uv_3d, uv_bottom_2d,
                             z_bottom_2d, bathymetry_2d,
-                            bottom_drag_2d, bottom_drag_3d,
-                            v_elem_size_2d=None, v_elem_size_3d=None):
+                            bottom_drag_2d):
     # compute velocity at middle of bottom element
     solver.extract_uv_bottom.solve()
-    tmp = uv_bottom_2d.dat.data.copy()
-    solver.extract_uv_bottom.solve()
-    uv_bottom_2d.dat.data[:] = 0.5*(uv_bottom_2d.dat.data + tmp)
-    solver.copy_uv_bottom_to_3d.solve()
     solver.extract_z_bottom.solve()
-    z_bottom_2d.dat.data[:] += bathymetry_2d.dat.data[:]
-    z_bottom_2d.dat.data[:] *= 0.5
-    compute_bottom_drag(uv_bottom_2d, z_bottom_2d, bathymetry_2d, bottom_drag_2d)
-    solver.copy_bottom_drag_to_3d.solve()
+    z_bottom_2d.assign((z_bottom_2d + bathymetry_2d))
+    compute_bottom_drag(z_bottom_2d, bottom_drag_2d)
+    if solver.options.use_parabolic_viscosity:
+        solver.copy_uv_bottom_to_3d.solve()
+        solver.copy_bottom_drag_to_3d.solve()
 
 
 def get_horizontal_elem_size(sol2d, sol3d=None):
@@ -917,7 +932,7 @@ class EquationOfState(object):
         Last optional argument rho0 is for computing deviation
         rho' = rho(S, Th, p) - rho0.
         """
-        s0 = np.maximum(s, 0.0)  # ensure positive salinity
+        np.maximum(s, 0.0, s)  # ensure positive salinity
         a = self.a
         b = self.b
         pn = (a[0] + th*a[1] + th*th*a[2] + th*th*th*a[3] + s0*a[4] +

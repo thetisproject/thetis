@@ -91,7 +91,7 @@ def test_steady_state_channel_mms(options):
         source_space = FunctionSpace(mesh2d, 'DG', order+1)
         source_func = project(source_expr, source_space)
         if do_exports:
-            source_pvd << source_func
+            source_pvd.write(source_func)
         solver_obj.timestepper.F -= solver_obj.timestepper.dt_const*solver_obj.eq_sw.U_test[0]*source_func*dx
         # subtract out time derivative
         solver_obj.timestepper.F -= (solver_obj.eq_sw.mass_term(solver_obj.eq_sw.solution)-solver_obj.eq_sw.mass_term(solver_obj.timestepper.solution_old))
@@ -103,13 +103,13 @@ def test_steady_state_channel_mms(options):
 
         eta_ana = project(eta_expr, solver_obj.function_spaces.H_2d)
         if do_exports:
-            diff_pvd << project(eta_ana-eta, solver_obj.function_spaces.H_2d, name="diff")
+            diff_pvd.write(project(eta_ana-eta, solver_obj.function_spaces.H_2d, name="diff"))
         eta_l2norm = assemble(pow(eta-eta_ana, 2)*dx)
         eta_errs.append(math.sqrt(eta_l2norm/area))
 
         u_ana = project(u_expr, solver_obj.function_spaces.U_2d)
         if do_exports:
-            udiff_pvd << project(u_ana-uv, solver_obj.function_spaces.U_2d, name="diff")
+            udiff_pvd.write(project(u_ana-uv, solver_obj.function_spaces.U_2d, name="diff"))
         u_l2norm = assemble(inner(u_ana-uv, u_ana-uv)*dx)
         u_errs.append(math.sqrt(u_l2norm/area))
 

@@ -4,11 +4,12 @@ This file defines all options of the 2D/3D models excluding field values.
 Tuomas Karna 2015-10-17
 """
 from thetis.utility import *
+from thetis.turbulence import GLSModelOptions
 
 
 class ModelOptions(AttrDict):
     """
-    Stores all model options
+    Stores all circulation model options
     """
     def __init__(self):
         """
@@ -45,6 +46,12 @@ class ModelOptions(AttrDict):
         """bool: Use IMEX time integrator (only with mode split)"""
         self.use_turbulence = False
         """bool: GLS turbulence model"""
+        self.use_smooth_eddy_viscosity = False
+        """bool: Cast eddy viscosity to p1 space instead of p0"""
+        self.turbulence_model = 'gls'
+        """str: Defines the type of vertical turbulence model. Currently only 'gls'"""
+        self.gls_options = GLSModelOptions()
+        """GLSModelOptions: Dictionary of default GLS model options"""
         self.use_turbulence_advection = False
         """bool: Advect tke,psi with velocity"""
         self.baroclinic = False  #: NOTE implies that salt_3d field is density [kg/m3]
@@ -120,9 +127,9 @@ class ModelOptions(AttrDict):
         self.wind_stress = None
         """Coefficient or None: Stress at free surface (2D vector function)"""
         self.uv_source_2d = None
-        """Coefficient or None: Stress at free surface (3D vector function)"""
-        self.uv_source_3d = None
         """Coefficient or None: source term for 2d momentum equation"""
+        self.uv_source_3d = None
+        """Coefficient or None: source term for 3d momentum equation"""
         self.elev_source_2d = None
         """Coefficient or None: source term for 2d continuity equation"""
         self.salt_source_3d = None

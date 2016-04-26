@@ -99,34 +99,46 @@ def uv_2d_x(u_2d):
     return Function(u_2d, name="Velocity").interpolate(Expression(('4.0*x[0]', '8.0*x[1]')))
 
 
-@pytest.mark.parametrize("bottom",
-                         ([True, 1.0],
-                          [False, 2.0]))
-def test_copy_3d_field_to_2d(c3d, c2d, bottom):
-    bottom, expect = bottom
-    utility.SubFunctionExtractor(c3d, c2d, use_bottom_value=bottom).solve()
+@pytest.mark.parametrize('params',
+                         (['bottom', 'bottom', 1.0],
+                          ['bottom', 'top', 1.1],
+                          ['bottom', 'average', 1.05],
+                          ['top', 'top', 2.0],
+                          ['top', 'bottom', 1.9],
+                          ['top', 'average', 1.95],
+                          ))
+def test_copy_3d_field_to_2d(c3d, c2d, params):
+    boundary, facet, expect = params
+    utility.SubFunctionExtractor(c3d, c2d, boundary=boundary, elem_facet=facet).solve()
     assert np.allclose(c2d.dat.data_ro[:], expect)
 
 
-@pytest.mark.parametrize("bottom",
-                         ([True, (0.0, 2.0)],
-                          [False, (1.0, 4.0)]))
-def test_copy_3d_field_to_2d_vec(uv_3d, uv_2d, bottom):
-    bottom, expect = bottom
-    utility.SubFunctionExtractor(uv_3d, uv_2d, use_bottom_value=bottom).solve()
+@pytest.mark.parametrize('params',
+                         (['bottom', 'bottom', (0.0, 2.0)],
+                          ['bottom', 'top', (0.1, 2.2)],
+                          ['bottom', 'average', (0.05, 2.1)],
+                          ['top', 'top', (1.0, 4.0)],
+                          ['top', 'bottom', (0.9, 3.8)],
+                          ['top', 'average', (0.95, 3.9)],
+                          ))
+def test_copy_3d_field_to_2d_vec(uv_3d, uv_2d, params):
+    boundary, facet, expect = params
+    utility.SubFunctionExtractor(uv_3d, uv_2d, boundary=boundary, elem_facet=facet).solve()
     assert np.allclose(uv_2d.dat.data_ro, expect)
 
 
-@pytest.mark.parametrize("bottom", (True, False))
-def test_copy_3d_field_to_2d_x(c3d_x, c2d_x, bottom):
-    utility.SubFunctionExtractor(c3d_x, c2d_x, use_bottom_value=bottom).solve()
+@pytest.mark.parametrize('boundary', ('top', 'bottom'))
+@pytest.mark.parametrize('facet', ('top', 'bottom', 'average'))
+def test_copy_3d_field_to_2d_x(c3d_x, c2d_x, boundary, facet):
+    utility.SubFunctionExtractor(c3d_x, c2d_x, boundary=boundary, elem_facet=facet).solve()
     assert np.allclose(c2d_x.dat.data_ro.min(), 2.0)
     assert np.allclose(c2d_x.dat.data_ro.max(), 3.0)
 
 
-@pytest.mark.parametrize("bottom", (True, False))
-def test_copy_3d_field_to_2d_x_vec(uv_3d_x, uv_2d_x, bottom):
-    utility.SubFunctionExtractor(uv_3d_x, uv_2d_x, use_bottom_value=bottom).solve()
+@pytest.mark.parametrize('boundary', ('top', 'bottom'))
+@pytest.mark.parametrize('facet', ('top', 'bottom', 'average'))
+def test_copy_3d_field_to_2d_x_vec(uv_3d_x, uv_2d_x, boundary, facet):
+    utility.SubFunctionExtractor(uv_3d_x, uv_2d_x, boundary=boundary, elem_facet=facet).solve()
     assert np.allclose(uv_2d_x.dat.data_ro[:, 0].min(), 1.0)
     assert np.allclose(uv_2d_x.dat.data_ro[:, 0].max(), 2.0)
     assert np.allclose(uv_2d_x.dat.data_ro[:, 1].min(), 4.0)

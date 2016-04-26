@@ -97,7 +97,7 @@ def run(refinement, order=1, mimetic=False, warped_mesh=False, do_export=True):
             t_const.assign(t)
             ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_viscosity, t=t_const)
             uv_ana.project(ana_uv_expr)
-            out_uv_ana << uv_ana_p1.project(uv_ana)
+            out_uv_ana.write(uv_ana_p1.project(uv_ana))
 
     # export initial conditions
     export_func()
@@ -134,6 +134,7 @@ def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
     order = options.get('order', 1)
     options.setdefault('do_export', False)
+    space_str = 'rt' if options.get('mimetic') else 'dg'
     l2_err = []
     for r in ref_list:
         l2_err.append(run(r, **options))
@@ -162,10 +163,10 @@ def run_convergence(ref_list, saveplot=False, **options):
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
             ax.set_ylabel('log10(L2 error)')
-            ax.set_title(field_str)
+            ax.set_title(' '.join([setup_name, field_str, 'order={:}'.format(order), space_str]))
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
             order_str = 'o{:}'.format(order)
-            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str])
+            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str, space_str])
             imgfile += '.png'
             imgdir = create_directory('plots')
             imgfile = os.path.join(imgdir, imgfile)

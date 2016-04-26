@@ -528,8 +528,8 @@ class FreeSurfaceEquation(Equation):
         h = self.bathymetry.function_space()
         h_pos = Function(h, name='bathymetry')
         h_pos.assign(self.bathymetry)
-        vect = h_pos.vector()
-        vect.set_local(np.maximum(vect.array(), 0.05))
+        min_depth = 0.05
+        h_pos.dat.data[h_pos.dat.data < min_depth] = min_depth
         uu = TestFunction(h)
         grid_dt = TrialFunction(h)
         res = Function(h)

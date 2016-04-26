@@ -91,7 +91,7 @@ def run(refinement, order=1, implicit=False, do_export=True):
             t_const.assign(t)
             ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, z0=-depth/2.0, D=v_diffusivity, t=t_const)
             salt_ana.project(ana_salt_expr)
-            out_salt_ana << salt_ana_p1.project(salt_ana)
+            out_salt_ana.write(salt_ana_p1.project(salt_ana))
 
     # export initial conditions
     export_func()
@@ -139,7 +139,7 @@ def run_convergence(ref_list, saveplot=False, **options):
     setup_name = 'v-diffusion'
 
     def check_convergence(x_log, y_log, expected_slope, field_str, saveplot):
-        slope_rtol = 0.05
+        slope_rtol = 0.07
         slope, intercept, r_value, p_value, std_err = stats.linregress(x_log, y_log)
         if saveplot:
             import matplotlib.pyplot as plt
@@ -159,7 +159,7 @@ def run_convergence(ref_list, saveplot=False, **options):
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
             ax.set_ylabel('log10(L2 error)')
-            ax.set_title(field_str)
+            ax.set_title(' '.join([setup_name, field_str, 'order={:}'.format(order)]))
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
             order_str = 'o{:}'.format(order)
             imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str])
@@ -194,7 +194,7 @@ def implicit(request):
 
 
 def test_vertical_diffusion(order, implicit):
-    run_convergence([1, 2, 3], order=order, implicit=implicit)
+    run_convergence([1, 2, 4], order=order, implicit=implicit)
 
 # ---------------------------
 # run individual setup for debugging

@@ -16,7 +16,7 @@ import thetis.callback as callback
 
 class FlowSolver2d(FrozenClass):
     """Creates and solves 2D depth averaged equations with RT1-P1DG elements"""
-    def __init__(self, mesh2d, bathymetry_2d, order=1, options={}):
+    def __init__(self, mesh2d, bathymetry_2d, order=1, options=None):
         self._initialized = False
 
         # create 3D mesh
@@ -26,13 +26,12 @@ class FlowSolver2d(FrozenClass):
         self.dt = None
 
         # 2d model specific default options
-        options.setdefault('timestepper_type', 'SSPRK33')
-        options.setdefault('timer_labels', ['mode2d'])
-        options.setdefault('fields_to_export', ['elev_2d', 'uv_2d'])
-
-        # override default options
         self.options = ModelOptions()
-        self.options.update(options)
+        self.options.setdefault('timestepper_type', 'SSPRK33')
+        self.options.setdefault('timer_labels', ['mode2d'])
+        self.options.setdefault('fields_to_export', ['elev_2d', 'uv_2d'])
+        if options is not None:
+            self.options.update(options)
 
         # simulation time step bookkeeping
         self.simulation_time = 0

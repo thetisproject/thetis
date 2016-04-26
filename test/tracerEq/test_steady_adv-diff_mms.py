@@ -238,7 +238,7 @@ def run(setup, refinement, order, do_export=True):
     solver_obj.w_solver.solve()
 
     if do_export:
-        out_t << trac_ana
+        out_t.write(trac_ana)
         solver_obj.export()
 
     # solve salinity advection-diffusion equation with residual source term
@@ -254,7 +254,7 @@ def run(setup, refinement, order, do_export=True):
         t += dt
 
     if do_export:
-        out_t << trac_ana
+        out_t.write(trac_ana)
         solver_obj.export()
 
     l2_err = errornorm(trac_ana_ho, solver_obj.fields.salt_3d)/numpy.sqrt(area)

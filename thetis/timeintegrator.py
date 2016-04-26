@@ -680,6 +680,7 @@ class DIRKGeneric(TimeIntegrator):
         else:
             self.solution_old = self.equation.solution
         self.funcs = self.equation.kwargs
+        self.funcs['solution_old'] = self.solution_old
         test = TestFunction(self.equation.space)
 
         fs = self.equation.solution.function_space()
@@ -801,6 +802,24 @@ class BackwardEuler(DIRKGeneric):
         c = [1.0]
         super(BackwardEuler, self).__init__(equation, dt, a, b, c,
                                             solver_parameters, terms_to_add)
+
+
+class ImplicitMidpoint(DIRKGeneric):
+    """
+    Implicit midpoint method, second order.
+
+    This method has the Butcher tableau
+
+    0.5 | 0.5
+    ---------
+        | 1
+    """
+    def __init__(self, equation, dt, solver_parameters={}, terms_to_add='all'):
+        a = [[0.5]]
+        b = [1.0]
+        c = [0.5]
+        super(ImplicitMidpoint, self).__init__(equation, dt, a, b, c,
+                                               solver_parameters, terms_to_add)
 
 
 class DIRK22(DIRKGeneric):
