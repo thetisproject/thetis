@@ -141,8 +141,12 @@ class FlowSolver2d(FrozenClass):
                                                               bnd_conditions=self.bnd_functions['shallow_water'],
                                                               solver_parameters=self.eq_sw.solver_parameters)
         elif self.options.timestepper_type.lower() == 'ssprk33semi':
-            self.timestepper = timeintegrator.SSPRK33StageSemiImplicit(self.eq_sw,
-                                                                       self.dt, self.eq_sw.solver_parameters)
+            # self.timestepper = timeintegrator.SSPRK33StageSemiImplicit(self.eq_sw,
+            #                                                            self.dt, self.eq_sw.solver_parameters)
+            self.timestepper = timeintegrator.SSPRK33StageSemiImplicitNew(self.eq_sw, self.fields.solution_2d,
+                                                                          fields, self.dt,
+                                                                          bnd_conditions=self.bnd_functions['shallow_water'],
+                                                                          solver_parameters=self.eq_sw.solver_parameters)
         elif self.options.timestepper_type.lower() == 'forwardeuler':
             # self.timestepper = timeintegrator.ForwardEuler(self.eq_sw, self.dt,
             #                                                self.eq_sw.solver_parameters)

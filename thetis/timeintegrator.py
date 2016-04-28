@@ -179,6 +179,145 @@ class SSPRK33(TimeIntegrator):
                             (1.0/6.0)*self.K1 + (2.0/3.0)*self.K2)
 
 
+class SSPRK33New(TimeIntegrator):
+    """
+    3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).
+
+    This scheme has Butcher tableau
+    0   |
+    1   | 1
+    1/2 | 1/4 1/4
+    ---------------
+        | 1/6 1/6 2/3
+
+    CFL coefficient is 1.0
+    """
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={},
+                 funcs_nplushalf={}):
+        """Creates forms for the time integrator"""
+        super(SSPRK33New, self).__init__(equation, solver_parameters)
+        self.explicit = True
+        self.CFL_coeff = 1.0
+
+        fs = self.equation.function_space
+        self.solution_old = Function(fs)
+        self.solution_n = Function(fs)  # for single stages
+
+        self.K0 = Function(fs)
+        self.K1 = Function(fs)
+        self.K2 = Function(fs)
+
+        # dict of all input functions needed for the equation
+        self.fields_new = fields
+        # create functions to hold the values of previous time step
+        self.fields_old = {}
+        for k in self.fields_new:
+            if self.fields_new[k] is not None:
+                if isinstance(self.fields_new[k], Function):
+                    self.fields_old[k] = Function(
+                        self.fields_new[k].function_space())
+                elif isinstance(self.fields_new[k], Constant):
+                    self.fields_old[k] = Constant(self.fields_new[k])
+        self.funcs_nplushalf = funcs_nplushalf
+        # values used in equations
+        self.fields = {}
+        for k in self.fields_old:
+            if isinstance(self.fields_new[k], Function):
+                self.fields[k] = Function(self.fields_new[k].function_space())
+            elif isinstance(self.fields_new[k], Constant):
+                self.fields[k] = Constant(self.fields_new[k])
+
+        self.dt_const = Constant(dt)
+
+        self.a_rk = self.equation.mass_term(self.equation.trial)
+        self.L_RK0 = self.dt_const*self.equation.residual('all', self.solution_old, self.solution_old, self.fields_old, self.fields_old, bnd_conditions)
+        self.L_RK1 = self.dt_const*self.equation.residual('all', self.solution_old, self.solution_old, self.fields_new, self.fields_new, bnd_conditions)
+        self.L_RK2 = self.dt_const*self.equation.residual('all', self.solution_old, self.solution_old, self.fields, self.fields, bnd_conditions)
+        self.update_solver()
+
+    def update_solver(self):
+        """Builds linear problems for each stage. These problems need to be
+        re-created after each mesh update."""
+        prob_k0 = LinearVariationalProblem(self.a_rk, self.L_RK0, self.K0)
+        self.solver_k0 = LinearVariationalSolver(prob_k0,
+                                                 solver_parameters=self.solver_parameters)
+        prob_k1 = LinearVariationalProblem(self.a_rk, self.L_RK1, self.K1)
+        self.solver_k1 = LinearVariationalSolver(prob_k1,
+                                                 solver_parameters=self.solver_parameters)
+        prob_k2 = LinearVariationalProblem(self.a_rk, self.L_RK2, self.K2)
+        self.solver_k2 = LinearVariationalSolver(prob_k2,
+                                                 solver_parameters=self.solver_parameters)
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(solution)
+        # assign values to old functions
+        for k in self.fields_old:
+            self.fields_old[k].assign(self.fields_new[k])
+
+    def advance(self, t, dt, solution, update_forcings):
+        """Advances equations for one time step."""
+        self.dt_const.assign(dt)
+        # stage 0
+        if update_forcings is not None:
+            update_forcings(t)
+        self.solver_k0.solve()
+        # stage 1
+        self.solution_old.assign(solution + self.K0)
+        if update_forcings is not None:
+            update_forcings(t+dt)
+        self.solver_k1.solve()
+        # stage 2
+        self.solution_old.assign(solution + 0.25*self.K0 + 0.25*self.K1)
+        for k in self.fields:  # set args to t+dt/2
+            if k in self.funcs_nplushalf:
+                self.fields[k].assign(self.funcs_nplushalf[k])
+            else:
+                self.fields[k].assign(0.5*self.fields_new[k] + 0.5*self.fields_old[k])
+        if update_forcings is not None:
+            update_forcings(t+dt/2)
+        self.solver_k2.solve()
+        # final solution
+        solution.assign(solution + (1.0/6.0)*self.K0 + (1.0/6.0)*self.K1 +
+                        (2.0/3.0)*self.K2)
+
+        # store old values
+        for k in self.fields_old:
+            self.fields_old[k].assign(self.fields_new[k])
+        self.solution_old.assign(solution)
+
+    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
+        if i_stage == 0:
+            # stage 0
+            self.solution_n.assign(solution)
+            self.solution_old.assign(solution)
+            if update_forcings is not None:
+                update_forcings(t)
+            self.solver_k0.solve()
+            solution.assign(self.solution_n + self.K0)
+        elif i_stage == 1:
+            # stage 1
+            self.solution_old.assign(solution)
+            if update_forcings is not None:
+                update_forcings(t+dt)
+            self.solver_k1.solve()
+            solution.assign(self.solution_n + 0.25*self.K0 + 0.25*self.K1)
+        elif i_stage == 2:
+            # stage 2
+            self.solution_old.assign(solution)
+            for k in self.fields:  # set args to t+dt/2
+                if k in self.funcs_nplushalf:
+                    self.fields[k].assign(self.funcs_nplushalf[k])
+                else:
+                    self.fields[k].assign(0.5*self.fields_new[k] + 0.5*self.fields_old[k])
+            if update_forcings is not None:
+                update_forcings(t+dt/2)
+            self.solver_k2.solve()
+            # final solution
+            solution.assign(self.solution_n + (1.0/6.0)*self.K0 +
+                            (1.0/6.0)*self.K1 + (2.0/3.0)*self.K2)
+
+
 class SSPRK33StageNew(TimeIntegrator):
     """
     3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).
@@ -237,7 +376,7 @@ class SSPRK33StageNew(TimeIntegrator):
     def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
         """
         Solves a single stage of step from t to t+dt.
-        All functions that the equation depends on must be at rigth state
+        All functions that the equation depends on must be at right state
         corresponding to each sub-step.
         """
         self.dt_const.assign(dt)
@@ -959,6 +1098,52 @@ class SSPIMEX(TimeIntegrator):
         self.dirk.get_final_solution(solution)
 
 
+class SSPIMEXNew(TimeIntegrator):
+    """
+    SSP-IMEX time integration scheme based on [1], method (17).
+
+    [1] Higueras et al (2014). Optimized strong stability preserving IMEX
+        Runge-Kutta methods. Journal of Computational and Applied
+        Mathematics 272(2014) 116-140.
+    """
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
+                 solver_parameters={}, solver_parameters_dirk={}):
+        super(SSPIMEXNew, self).__init__(equation, solver_parameters)
+
+        # implicit scheme
+        self.dirk = DIRKLSPUM2New(equation, solution, fields, dt, bnd_conditions,
+                                  solver_parameters=solver_parameters_dirk,
+                                  terms_to_add=('implicit'))
+        # explicit scheme
+        self.erk = ERKLSPUM2New(equation, solution, fields, dt, bnd_conditions,
+                                solver_parameters=solver_parameters,
+                                terms_to_add=('explicit', 'source'))
+        self.n_stages = len(self.erk.b)
+
+    def update_solver(self):
+        self.dirk.update_solver()
+        self.erk.update_solver()
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.dirk.initialize(solution)
+        self.erk.initialize(solution)
+
+    def advance(self, t, dt, solution, update_forcings=None):
+        """Advances equations for one time step."""
+        for i in xrange(self.n_stages):
+            self.solve_stage(i, t, dt, solution, update_forcings)
+        self.get_final_solution(solution)
+
+    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
+        self.erk.solve_stage(i_stage, t, dt, solution, update_forcings)
+        self.dirk.solve_stage(i_stage, t, dt, solution, update_forcings)
+
+    def get_final_solution(self, solution):
+        self.erk.get_final_solution(solution)
+        self.dirk.get_final_solution(solution)
+
+
 class DIRKGeneric(TimeIntegrator):
     """
     Generic implementation of Diagonally Implicit Runge Kutta schemes.
@@ -1157,7 +1342,7 @@ class DIRKGenericNew(TimeIntegrator):
         pass
 
     def __init__(self, equation, solution, fields, dt,
-                 bnd_conditions=None, solver_parameters={}):
+                 bnd_conditions=None, solver_parameters={}, terms_to_add='all'):
         """
         Create new DIRK solver.
 
@@ -1202,7 +1387,7 @@ class DIRKGenericNew(TimeIntegrator):
                     else:
                         u += self.a[i][j]*self.dt_const*self.k[j]
                 self.F.append(-inner(self.k[i], test)*dx +
-                              self.equation.residual('all', u, self.solution_old, fields, fields, bnd_conditions))
+                              self.equation.residual(terms_to_add, u, self.solution_old, fields, fields, bnd_conditions))
         else:
             # solution must be split before computing sum
             # pass components to equation in a list
@@ -1216,7 +1401,7 @@ class DIRKGenericNew(TimeIntegrator):
                         for l, k in enumerate(split(self.k[j])):
                             u[l] += self.a[i][j]*self.dt_const*k
                 self.F.append(-inner(self.k[i], test)*dx +
-                              self.equation.residual('all', u, self.solution_old, fields, fields, bnd_conditions))
+                              self.equation.residual(terms_to_add, u, self.solution_old, fields, fields, bnd_conditions))
         self.update_solver()
 
     def update_solver(self):
@@ -1548,6 +1733,24 @@ class DIRKLSPUM2New(DIRKGenericNew):
          [2033.0/4620.0, 21.0/110.0, 2.0/11.0]]
     b = [24.0/55.0, 1.0/5.0, 4.0/11.0]
     c = [2.0/11.0, 289.0/462.0, 751.0/924.0]
+
+
+class ERKLSPUM2New(DIRKGenericNew):
+    """
+    ERKLSPUM2, 3-stage, 2nd order
+    Explicit Runge Kutta method
+
+    From IMEX RK scheme (17) in Higureras et al. (2014).
+
+    [1] Higueras et al (2014). Optimized strong stability preserving IMEX
+        Runge-Kutta methods. Journal of Computational and Applied
+        Mathematics 272(2014) 116-140.
+    """
+    a = [[0, 0, 0],
+         [5.0/6.0, 0, 0],
+         [11.0/24.0, 11.0/24.0, 0]]
+    b = [24.0/55.0, 1.0/5.0, 4.0/11.0]
+    c = [0, 5.0/6.0, 11.0/12.0]
 
 
 def cos_time_av_filter(m):

@@ -1143,3 +1143,134 @@ class ShallowWaterEquationsNew(EquationNew):
         l = uu * csize / u_mag * dx
         solve(a == l, res)
         return res
+
+
+class FreeSurfaceTerm(ShallowWaterTerm):
+    """
+    Generic term for shallow water equations that provides commonly used
+    members and mapping for boundary functions.
+    """
+    def __init__(self, function_space, bathymetry=None, nonlin=True):
+        super(ShallowWaterTerm, self).__init__(function_space)
+
+        self.bathymetry = bathymetry
+        self.nonlin = nonlin
+
+        self.eta_is_dg = element_continuity(self.function_space.fiat_element).dg
+
+        # mesh dependent variables
+        self.cellsize = CellSize(self.mesh)
+
+
+class FreeSurfaceDivTerm(FreeSurfaceTerm):
+    """
+    Divergence of Hu
+    """
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        uv = fields['uv']
+        total_h = self.get_total_depth(solution)
+
+        u_is_dg = element_continuity(uv.function_space().fiat_element).dg
+        u_is_hdiv = uv.function_space().ufl_element().family() == 'Raviart-Thomas'
+
+        hu_by_parts = u_is_dg or u_is_hdiv
+        if hu_by_parts:
+            f = -inner(grad(self.test), total_h*uv)*dx
+            if self.eta_is_dg:
+                h = avg(total_h)
+                uv_rie = avg(uv) + sqrt(g_grav/h)*jump(solution, self.normal)
+                hu_star = h*uv_rie
+                f += inner(jump(self.test, self.normal), hu_star)*dS
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds(int(bnd_marker))
+                if funcs is not None:
+                    eta_ext, uv_ext = self.get_bnd_functions(solution, uv, bnd_marker, bnd_conditions)
+                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                    h_av = self.bathymetry + 0.5*(solution + eta_ext)
+                    un_jump = inner(uv - uv_ext, self.normal)
+                    eta_jump = solution - eta_ext
+                    eta_rie = 0.5*(solution + eta_ext) + sqrt(h_av/g_grav)*un_jump
+                    un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h_av)*eta_jump
+                    h_rie = self.bathymetry + eta_rie
+                    f += h_rie*un_rie*self.test*ds_bnd
+        else:
+            f = div(total_h*uv)*self.test*dx
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds(int(bnd_marker))
+                if funcs is None or 'un' in funcs:
+                    f += -total_h*dot(uv, self.normal)*self.test*ds_bnd
+        return -f
+
+
+class FreeSurfaceSourceTerm(FreeSurfaceTerm):
+    """
+    Generic source term
+    """
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        f = 0
+        elev_source = fields_old.get('elev_source')
+
+        if elev_source is not None:
+            f += -inner(elev_source, self.test)*dx
+
+        return -f
+
+
+class FreeSurfaceEquationNew(EquationNew):
+    """
+    2D free surface equation.
+    """
+    def __init__(self, function_space,
+                 bathymetry,
+                 nonlin=True):
+        super(FreeSurfaceEquationNew, self).__init__(function_space)
+        self.bathymetry = bathymetry
+
+        # default solver parameters
+        self.solver_parameters = {
+            'ksp_type': 'gmres',
+        }
+
+        args = (function_space, bathymetry, nonlin)
+        self.add_term(FreeSurfaceDivTerm(*args), 'explicit')
+        self.add_term(FreeSurfaceSourceTerm(*args), 'explicit')  # FIXME should be source
+
+    def get_time_step(self, u_mag=Constant(0.0)):
+        """
+        Computes maximum explicit time step from CFL condition.
+
+        Assumes velocity scale U = sqrt(g*H) + u_mag
+        where u_mag is estimated advective velocity
+        """
+        csize = CellSize(self.mesh)
+        h = self.bathymetry.function_space()
+        h_pos = Function(h, name='bathymetry')
+        h_pos.assign(self.bathymetry)
+        min_depth = 0.05
+        h_pos.dat.data[h_pos.dat.data < min_depth] = min_depth
+        uu = TestFunction(h)
+        grid_dt = TrialFunction(h)
+        res = Function(h)
+        a = uu * grid_dt * dx
+        l = uu * csize / (sqrt(g_grav * h_pos) + u_mag) * dx
+        solve(a == l, res)
+        return res
+
+    def get_time_step_advection(self, u_mag=Constant(1.0)):
+        """
+        Computes maximum explicit time step from CFL condition.
+
+        Assumes velocity scale U = u_mag
+        where u_mag is estimated advective velocity
+        """
+        csize = CellSize(self.mesh)
+        h = self.bathymetry.function_space()
+        uu = TestFunction(h)
+        grid_dt = TrialFunction(h)
+        res = Function(h)
+        a = uu * grid_dt * dx
+        l = uu * csize / u_mag * dx
+        solve(a == l, res)
+        return res

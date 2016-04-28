@@ -314,9 +314,14 @@ class FlowSolver(FrozenClass):
         else:
             # solve elevation only: 2D free surface equation
             uv, eta = self.fields.solution_2d.split()
-            self.eq_sw = shallowwater_eq.FreeSurfaceEquation(
-                eta, uv, self.fields.bathymetry_2d,
-                nonlin=self.options.nonlin)
+            self.eq_sw = shallowwater_eq.FreeSurfaceEquationNew(
+                eta.function_space(),
+                self.fields.bathymetry_2d,
+                nonlin=self.options.nonlin,
+            )
+            # self.eq_sw = shallowwater_eq.FreeSurfaceEquation(
+            #     eta, uv, self.fields.bathymetry_2d,
+            #     nonlin=self.options.nonlin)
 
         # bnd_len = self.eq_sw.boundary_len
         # bnd_markers = self.eq_sw.boundary_markers
