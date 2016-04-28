@@ -7,8 +7,6 @@ from utility import *
 import timeintegrator
 
 # TODO turbulence update. move out from _update_all_dependencies ?
-# TODO add default functions for updating all eqns to base class?
-# TODO add decorator for accessing s, o, f
 
 
 class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
@@ -52,23 +50,14 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
     def _update_2d_coupling(self):
         """Does 2D-3D coupling for the velocity field"""
         with timed_region('aux_mom_coupling'):
+            # compute depth averaged 3D velocity
             self.solver.uv_averager.solve()
             self.solver.extract_surf_dav_uv.solve()
             self.solver.copy_uv_dav_to_uv_dav_3d.solve()
-            # 2d-3d coupling: restart 2d mode from depth ave uv_3d
-            # NOTE unstable!
-            # uv_2d_start = sol2d.split()[0]
-            # uv_2d_start.assign(self.fields.uv_dav_2d)
-            # 2d-3d coupling v2: force DAv(uv_3d) to uv_2d
-            # self.solver.uv_dav_to_tmp_projector.project()  # project uv_dav to uv_3d_tmp
-            # self.fields.uv_3d -= self.fields.uv_3d_tmp
-            # self.solver.uv_2d_to_dav_projector.project()  # uv_2d to uv_dav_2d
-            # copy_2d_field_to_3d(self.fields.uv_dav_2d, self.fields.uv_dav_3d,
-            #                 elem_height=self.fields.v_elem_size_3d)
-            # self.fields.uv_dav_to_tmp_projector.project()  # project uv_dav to uv_3d_tmp
-            # self.fields.uv_3d += self.fields.uv_3d_tmp
+            # remore depth average from 3D velocity
             self.fields.uv_3d -= self.fields.uv_dav_3d
             self.solver.copy_uv_to_uv_dav_3d.solve()
+            # add depth averaged 2D velocity
             self.fields.uv_3d += self.fields.uv_dav_3d
 
     def _update_mesh_velocity(self):
@@ -93,10 +82,6 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
                     # NOTE psi must be solved first as it depends on tke
                     self.timestepper_psi_3d.advance(t, self.solver.dt, self.solver.fields.psi_3d)
                     self.timestepper_tke_3d.advance(t, self.solver.dt, self.solver.fields.tke_3d)
-                    # NOTE tke and eps are P0, nothing to limit
-                    # if self.options.use_limiter_for_tracers:
-                    #     self.solver.tracer_limiter.apply(self.solver.fields.tke_3d)
-                    #     self.solver.tracer_limiter.apply(self.solver.fields.psi_3d)
                     self.solver.gls_model.postprocess()
 
     def _update_stabilization_params(self):
@@ -150,9 +135,6 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
                                                solver.fields)
         self._initialized = False
 
-        # self.timestepper2d = timeintegrator.SSPRK33(
-        #     solver.eq_sw, solver.dt_2d,
-        #     solver.eq_sw.solver_parameters)
         fields = {
             'uv_bottom': solver.fields.get('uv_bottom_2d'),
             'bottom_drag': solver.fields.get('bottom_drag_2d'),
@@ -164,7 +146,7 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
             'uv_source': self.options.uv_source_2d,
             'elev_source': self.options.elev_source_2d,
             'lin_drag': self.options.lin_drag}
-        self.timestepper2d = timeintegrator.SSPRK33New(
+        self.timestepper2d = timeintegrator.SSPRK33(
             solver.eq_sw, self.fields.solution_2d,
             fields, solver.dt,
             bnd_conditions=solver.bnd_functions['shallow_water'],
@@ -189,10 +171,8 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
                     'pc_type': 'ilu',
                     'snes_atol': 1e-27,
                     }
-        vert_timeintegrator = timeintegrator.BackwardEulerNew
+        vert_timeintegrator = timeintegrator.BackwardEuler
 
-        # self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
-        #    solver.eq_momentum, solver.dt)
         fields = {'eta': self.fields.elev_3d,  # FIXME rename elev
                   'baroc_head': self.fields.get('baroc_head_3d'),
                   'w': self.fields.w_3d,
@@ -207,13 +187,10 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
                   'coriolis': self.fields.get('coriolis_3d'),
                   'lin_drag': self.options.lin_drag,
                   }
-        self.timestepper_mom_3d = timeintegrator.SSPRK33StageNew(
+        self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,
             bnd_conditions=solver.bnd_functions['momentum'])
         if self.solver.options.solve_salt:
-            # self.timestepper_salt_3d = timeintegrator.SSPRK33Stage(
-            #     solver.eq_salt,
-            #     solver.dt)
             fields = {'elev_3d': self.fields.elev_3d,
                       'uv_3d': self.fields.uv_3d,
                       'w': self.fields.w_3d,
@@ -226,12 +203,10 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
                       }
-            self.timestepper_salt_3d = timeintegrator.SSPRK33StageNew(
+            self.timestepper_salt_3d = timeintegrator.SSPRK33Stage(
                 solver.eq_salt, solver.fields.salt_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['salt'])
             if self.solver.options.solve_vert_diffusion:
-                # self.timestepper_salt_vdff_3d = vert_timeintegrator(
-                #     solver.eq_salt_vdff, solver.dt, solver_parameters=vdiff_sp)
                 fields = {'elev_3d': self.fields.elev_3d,
                           'diffusivity_v': implicit_v_diff,
                           }
@@ -240,8 +215,6 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
                     bnd_conditions=solver.bnd_functions['salt'], solver_parameters=vdiff_sp)
 
         if self.solver.options.solve_vert_diffusion:
-            # self.timestepper_mom_vdff_3d = vert_timeintegrator(
-            #     solver.eq_vertmomentum, solver.dt, solver_parameters=vdiff_sp)
             fields = {'viscosity_v': implicit_v_visc,
                       'wind_stress': self.fields.get('wind_stress_3d'),
                       }
@@ -249,10 +222,6 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
                 solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['momentum'], solver_parameters=vdiff_sp)
         if self.solver.options.use_turbulence:
-            # self.timestepper_tke_3d = vert_timeintegrator(
-            #     solver.eq_tke_diff, solver.dt, solver_parameters=vdiff_sp)
-            # self.timestepper_psi_3d = vert_timeintegrator(
-            #     solver.eq_psi_diff, solver.dt, solver_parameters=vdiff_sp)
             fields = {'diffusivity_v': implicit_v_diff,
                       'viscosity_v': implicit_v_visc,
                       'k': solver.fields.tke_3d,
@@ -266,8 +235,6 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
             self.timestepper_psi_3d = vert_timeintegrator(
                 solver.eq_psi_diff, solver.fields.psi_3d, fields, solver.dt, solver_parameters=vdiff_sp)
             if self.solver.options.use_turbulence_advection:
-                # self.timestepper_tke_adv_eq = timeintegrator.SSPRK33Stage(solver.eq_tke_adv, solver.dt)
-                # self.timestepper_psi_adv_eq = timeintegrator.SSPRK33Stage(solver.eq_psi_adv, solver.dt)
                 fields = {'elev_3d': self.fields.elev_3d,
                           'uv_3d': self.fields.uv_3d,
                           'w': self.fields.w_3d,
@@ -277,9 +244,9 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
                           'uv_p1': self.fields.get('uv_p1_3d'),
                           'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
                           }
-                self.timestepper_tke_adv_eq = timeintegrator.SSPRK33StageNew(
+                self.timestepper_tke_adv_eq = timeintegrator.SSPRK33Stage(
                     solver.eq_tke_adv, solver.fields.tke_3d, fields, solver.dt)
-                self.timestepper_psi_adv_eq = timeintegrator.SSPRK33StageNew(
+                self.timestepper_psi_adv_eq = timeintegrator.SSPRK33Stage(
                     solver.eq_psi_adv, solver.fields.psi_3d, fields, solver.dt)
 
         # ----- stage 1 -----
@@ -390,11 +357,6 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
         fs_2d = self.fields.solution_2d.function_space()
         self.solution_2d_old = Function(fs_2d, name='old_sol_2d')
 
-        # self.timestepper2d = timeintegrator.SSPIMEX(
-        #     solver.eq_sw, solver.dt,
-        #     solver_parameters=sp_expl,
-        #     solver_parameters_dirk=sp_impl,
-        #     solution=self.solution_2d_old)
         fields = {
             'uv_bottom': solver.fields.get('uv_bottom_2d'),
             'bottom_drag': solver.fields.get('bottom_drag_2d'),
@@ -406,7 +368,7 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
             'uv_source': self.options.uv_source_2d,
             'elev_source': self.options.elev_source_2d,
             'lin_drag': self.options.lin_drag}
-        self.timestepper2d = timeintegrator.SSPIMEXNew(
+        self.timestepper2d = timeintegrator.SSPIMEX(
             solver.eq_sw, self.solution_2d_old,
             fields, solver.dt,
             bnd_conditions=solver.bnd_functions['shallow_water'],
@@ -415,11 +377,6 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
         fs_mom = self.fields.uv_3d.function_space()
         self.uv_3d_old = Function(fs_mom, name='old_sol_mom')
 
-        # self.timestepper_mom_3d = timeintegrator.SSPIMEX(
-        #     solver.eq_momentum, solver.dt,
-        #     solver_parameters=sp_expl,
-        #     solver_parameters_dirk=sp_impl,
-        #     solution=self.uv_3d_old)
         fields = {'eta': self.fields.elev_3d,  # FIXME rename elev
                   'baroc_head': self.fields.get('baroc_head_3d'),
                   'w': self.fields.w_3d,
@@ -436,18 +393,13 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
                   'wind_stress': self.fields.get('wind_stress_3d'),
                   }
         solver.eq_momentum.use_bottom_friction = True
-        self.timestepper_mom_3d = timeintegrator.SSPIMEXNew(
+        self.timestepper_mom_3d = timeintegrator.SSPIMEX(
             solver.eq_momentum, self.uv_3d_old, fields, solver.dt,
             bnd_conditions=solver.bnd_functions['momentum'])
         if self.solver.options.solve_salt:
             fs = self.fields.salt_3d.function_space()
             self.salt_3d_old = Function(fs, name='old_sol_salt')
 
-            # self.timestepper_salt_3d = timeintegrator.SSPIMEX(
-            #     solver.eq_salt, solver.dt,
-            #     solver_parameters=sp_expl,
-            #     solver_parameters_dirk=sp_impl,
-            #     solution=self.salt_3d_old)
             fields = {'elev_3d': self.fields.elev_3d,
                       'uv_3d': self.fields.uv_3d,
                       'w': self.fields.w_3d,
@@ -460,7 +412,7 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
                       }
-            self.timestepper_salt_3d = timeintegrator.SSPIMEXNew(
+            self.timestepper_salt_3d = timeintegrator.SSPIMEX(
                 solver.eq_salt, self.salt_3d_old, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['salt'])
         if self.solver.options.use_turbulence:
@@ -510,9 +462,6 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                                                        solver.fields)
         self._initialized = False
 
-        # self.timestepper2d = timeintegrator.SSPRK33StageSemiImplicit(
-        #     solver.eq_sw, solver.dt,
-        #     solver.eq_sw.solver_parameters)
         fields = {
             'uv_bottom': solver.fields.get('uv_bottom_2d'),
             'bottom_drag': solver.fields.get('bottom_drag_2d'),
@@ -525,7 +474,7 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             'elev_source': self.options.elev_source_2d,
             'lin_drag': self.options.lin_drag}
 
-        self.timestepper2d = timeintegrator.SSPRK33StageSemiImplicitNew(
+        self.timestepper2d = timeintegrator.SSPRK33StageSemiImplicit(
             solver.eq_sw, self.fields.solution_2d,
             fields, solver.dt,
             bnd_conditions=solver.bnd_functions['shallow_water'],
@@ -548,11 +497,9 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                     'pc_type': 'ilu',
                     'snes_atol': 1e-27,
                     }
-        # vert_timeintegrator = timeintegrator.DIRKLSPUM2New
-        vert_timeintegrator = timeintegrator.BackwardEulerNew
+        # vert_timeintegrator = timeintegrator.DIRKLSPUM2
+        vert_timeintegrator = timeintegrator.BackwardEuler
 
-        # self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
-        #     solver.eq_momentum, solver.dt)
         fields = {'eta': self.fields.elev_3d,  # FIXME rename elev
                   'baroc_head': self.fields.get('baroc_head_3d'),
                   'w': self.fields.w_3d,
@@ -567,14 +514,11 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                   'coriolis': self.fields.get('coriolis_3d'),
                   'lin_drag': self.options.lin_drag,
                   }
-        self.timestepper_mom_3d = timeintegrator.SSPRK33StageNew(
+        self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,
             bnd_conditions=solver.bnd_functions['momentum'])
 
         if self.solver.options.solve_salt:
-            # self.timestepper_salt_3d = timeintegrator.SSPRK33Stage(
-            #     solver.eq_salt,
-            #     solver.dt)
             fields = {'elev_3d': self.fields.elev_3d,
                       'uv_3d': self.fields.uv_3d,
                       'w': self.fields.w_3d,
@@ -587,12 +531,10 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
                       }
-            self.timestepper_salt_3d = timeintegrator.SSPRK33StageNew(
+            self.timestepper_salt_3d = timeintegrator.SSPRK33Stage(
                 solver.eq_salt, solver.fields.salt_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['salt'])
             if self.solver.options.solve_vert_diffusion:
-                # self.timestepper_salt_vdff_3d = vert_timeintegrator(
-                #     solver.eq_salt_vdff, solver.dt, solver_parameters=vdiff_sp)
                 fields = {'elev_3d': self.fields.elev_3d,
                           'diffusivity_v': implicit_v_diff,
                           }
@@ -601,8 +543,6 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                     bnd_conditions=solver.bnd_functions['salt'], solver_parameters=vdiff_sp)
 
         if self.solver.options.solve_vert_diffusion:
-            # self.timestepper_mom_vdff_3d = vert_timeintegrator(
-            #     solver.eq_vertmomentum, solver.dt, solver_parameters=vdiff_sp)
             fields = {'viscosity_v': implicit_v_visc,
                       'wind_stress': self.fields.get('wind_stress_3d'),
                       }
@@ -610,10 +550,6 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                 solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['momentum'], solver_parameters=vdiff_sp)
         if self.solver.options.use_turbulence:
-            # self.timestepper_tke_3d = vert_timeintegrator(
-            #     solver.eq_tke_diff, solver.dt, solver_parameters=vdiff_sp)
-            # self.timestepper_psi_3d = vert_timeintegrator(
-            #     solver.eq_psi_diff, solver.dt, solver_parameters=vdiff_sp)
             fields = {'diffusivity_v': implicit_v_diff,
                       'viscosity_v': implicit_v_visc,
                       'k': solver.fields.tke_3d,
@@ -627,8 +563,6 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             self.timestepper_psi_3d = vert_timeintegrator(
                 solver.eq_psi_diff, solver.fields.psi_3d, fields, solver.dt, solver_parameters=vdiff_sp)
             if self.solver.options.use_turbulence_advection:
-                # self.timestepper_tke_adv_eq = timeintegrator.SSPRK33Stage(solver.eq_tke_adv, solver.dt)
-                # self.timestepper_psi_adv_eq = timeintegrator.SSPRK33Stage(solver.eq_psi_adv, solver.dt)
                 fields = {'elev_3d': self.fields.elev_3d,
                           'uv_3d': self.fields.uv_3d,
                           'w': self.fields.w_3d,
@@ -638,20 +572,10 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                           'uv_p1': self.fields.get('uv_p1_3d'),
                           'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
                           }
-                self.timestepper_tke_adv_eq = timeintegrator.SSPRK33StageNew(
+                self.timestepper_tke_adv_eq = timeintegrator.SSPRK33Stage(
                     solver.eq_tke_adv, solver.fields.tke_3d, fields, solver.dt)
-                self.timestepper_psi_adv_eq = timeintegrator.SSPRK33StageNew(
+                self.timestepper_psi_adv_eq = timeintegrator.SSPRK33Stage(
                     solver.eq_psi_adv, solver.fields.psi_3d, fields, solver.dt)
-        # ----- stage 1 -----
-        # from n to n+1 with RHS at (u_n, t_n)
-        # u_init = u_n
-        # ----- stage 2 -----
-        # from n+1/4 to n+1/2 with RHS at (u_(1), t_{n+1})
-        # u_init = 3/4*u_n + 1/4*u_(1)
-        # ----- stage 3 -----
-        # from n+1/3 to n+1 with RHS at (u_(2), t_{n+1/2})
-        # u_init = 1/3*u_n + 2/3*u_(2)
-        # -------------------
 
         # length of each step (fraction of dt)
         self.dt_frac = [1.0, 1.0/4.0, 2.0/3.0]
@@ -740,13 +664,10 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
                                                      solver.fields)
         self._initialized = False
 
-        # self.timestepper2d = timeintegrator.SSPRK33Stage(
-        #     solver.eq_sw, solver.dt_2d,
-        #     solver.eq_sw.solver_parameters)
         uv_2d, eta_2d = self.fields.solution_2d.split()
         fields = {'elev_source': self.options.elev_source_2d,
                   'uv': uv_2d}
-        self.timestepper2d = timeintegrator.SSPRK33StageNew(
+        self.timestepper2d = timeintegrator.SSPRK33Stage(
             solver.eq_sw, eta_2d, fields, solver.dt_2d,
             bnd_conditions=solver.bnd_functions['shallow_water'],
             solver_parameters=solver.eq_sw.solver_parameters)
@@ -768,11 +689,9 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
                     'pc_type': 'ilu',
                     'snes_atol': 1e-27,
                     }
-        # vert_timeintegrator = timeintegrator.DIRKLSPUM2New
-        vert_timeintegrator = timeintegrator.BackwardEulerNew
+        # vert_timeintegrator = timeintegrator.DIRKLSPUM2
+        vert_timeintegrator = timeintegrator.BackwardEuler
 
-        # self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
-        #     solver.eq_momentum, solver.dt)
         fields = {'eta': self.fields.elev_3d,  # FIXME rename elev
                   'baroc_head': self.fields.get('baroc_head_3d'),
                   'w': self.fields.w_3d,
@@ -787,14 +706,11 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
                   'coriolis': self.fields.get('coriolis_3d'),
                   'lin_drag': self.options.lin_drag,
                   }
-        self.timestepper_mom_3d = timeintegrator.SSPRK33StageNew(
+        self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt_2d,
             bnd_conditions=solver.bnd_functions['momentum'])
 
         if self.solver.options.solve_salt:
-            # self.timestepper_salt_3d = timeintegrator.SSPRK33Stage(
-            #     solver.eq_salt,
-            #     solver.dt)
             fields = {'elev_3d': self.fields.elev_3d,
                       'uv_3d': self.fields.uv_3d,
                       'w': self.fields.w_3d,
@@ -807,12 +723,10 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
                       }
-            self.timestepper_salt_3d = timeintegrator.SSPRK33StageNew(
+            self.timestepper_salt_3d = timeintegrator.SSPRK33Stage(
                 solver.eq_salt, solver.fields.salt_3d, fields, solver.dt_2d,
                 bnd_conditions=solver.bnd_functions['salt'])
             if self.solver.options.solve_vert_diffusion:
-                # self.timestepper_salt_vdff_3d = vert_timeintegrator(
-                #     solver.eq_salt_vdff, solver.dt, solver_parameters=vdiff_sp)
                 fields = {'elev_3d': self.fields.elev_3d,
                           'diffusivity_v': implicit_v_diff,
                           }
@@ -820,26 +734,12 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
                     solver.eq_salt_vdff, solver.fields.salt_3d, fields, solver.dt_2d,
                     bnd_conditions=solver.bnd_functions['salt'], solver_parameters=vdiff_sp)
         if self.solver.options.solve_vert_diffusion:
-            # self.timestepper_mom_vdff_3d = timeintegrator.CrankNicolson(
-            #     solver.eq_vertmomentum,
-            #     solver.dt_2d, gamma=0.6)
             fields = {'viscosity_v': implicit_v_visc,
                       'wind_stress': self.fields.get('wind_stress_3d'),
                       }
             self.timestepper_mom_vdff_3d = vert_timeintegrator(
                 solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt_2d,
                 bnd_conditions=solver.bnd_functions['momentum'], solver_parameters=vdiff_sp)
-
-        # ----- stage 1 -----
-        # from n to n+1 with RHS at (u_n, t_n)
-        # u_init = u_n
-        # ----- stage 2 -----
-        # from n+1/4 to n+1/2 with RHS at (u_(1), t_{n+1})
-        # u_init = 3/4*u_n + 1/4*u_(1)
-        # ----- stage 3 -----
-        # from n+1/3 to n+1 with RHS at (u_(2), t_{n+1/2})
-        # u_init = 1/3*u_n + 2/3*u_(2)
-        # -------------------
 
     def initialize(self):
         """Assign initial conditions to all necessary fields"""
@@ -885,6 +785,7 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
 
 
 class CoupledSSPRK(CoupledTimeIntegrator):
+    # FIXME obsolete
     """
     Split-explicit time integration that uses SSPRK for both 2d and 3d modes.
     2D mode is solved only once from t_{n} to t_{n+2} using shorter time steps.

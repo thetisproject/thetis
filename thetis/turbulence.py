@@ -674,171 +674,6 @@ class GenericLengthScaleModel(object):
         # print '{:8s} {:10.3e} {:10.3e}'.format('muv', self.diffusivity.dat.data.min(), self.diffusivity.dat.data.max())
 
 
-class TKEEquation(TracerEquation):
-    """
-    Advection-diffusion equation for turbulent kinetic energy (tke).
-
-    Inherited from TracerEquation so only turbulence related source terms
-    and boundary conditions need to be implemented.
-    """
-    def __init__(self, solution, eta, uv, w,
-                 w_mesh=None, dw_mesh_dz=None,
-                 diffusivity_h=None, diffusivity_v=None,
-                 uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
-                 bnd_markers=None, bnd_len=None, v_elem_size=None,
-                 h_elem_size=None,
-                 viscosity_v=None, gls_model=None):
-        self.schmidt_number = gls_model.options.schmidt_nb_tke
-        # NOTE vertical diffusivity must be divided by the TKE Schmidt number
-        diffusivity_eff = viscosity_v/self.schmidt_number
-        # call parent constructor
-        super(TKEEquation, self).__init__(solution, eta, uv, w,
-                                          w_mesh, dw_mesh_dz,
-                                          diffusivity_h=diffusivity_h,
-                                          diffusivity_v=diffusivity_eff,
-                                          uv_mag=uv_mag, uv_p1=uv_p1,
-                                          lax_friedrichs_factor=lax_friedrichs_factor,
-                                          bnd_markers=bnd_markers,
-                                          bnd_len=bnd_len,
-                                          v_elem_size=v_elem_size,
-                                          h_elem_size=h_elem_size)
-        # additional functions to pass to RHS functions
-        new_kwargs = {
-            'eddy_diffusivity': diffusivity_v,
-            'eddy_viscosity': viscosity_v,
-            'buoyancy_freq2_pos': gls_model.n2_pos,
-            'buoyancy_freq2_neg': gls_model.n2_neg,
-            'shear_freq2': gls_model.m2,
-            'epsilon': gls_model.epsilon,
-            'k': gls_model.k,
-        }
-        self.kwargs.update(new_kwargs)
-
-    def rhs_implicit(self, solution, eta, uv, w, eddy_viscosity,
-                     eddy_diffusivity, shear_freq2, buoyancy_freq2_pos,
-                     buoyancy_freq2_neg, epsilon,
-                     **kwargs):
-        """Returns the right hand side of the source terms.
-        These terms do not depend on the solution."""
-
-        # TKE: P + B - eps
-        # P = viscosity M**2           (production)
-        # B = - diffusivity N**2       (byoyancy production)
-        # M**2 = (du/dz)**2 + (dv/dz)**2 (shear frequency)
-        # N**2 = -g\rho_0 (drho/dz)      (buoyancy frequency)
-        # eps = (cmu0)**(3+p/n)*tke**(3/2+m/n)*psi**(-1/n)
-        #                                (tke dissipation rate)
-        solution_old = kwargs['solution_old']
-        p = eddy_viscosity * shear_freq2
-        b_source = - eddy_diffusivity * buoyancy_freq2_neg
-        b_sink = - eddy_diffusivity * buoyancy_freq2_pos
-
-        source = p + b_source + (b_sink - epsilon)/solution_old*solution  # patankar
-        f = inner(source, self.test)*dx
-        return f
-
-
-class PsiEquation(TracerEquation):
-    """
-    Advection-diffusion equation for additional GLS model variable (psi).
-
-    Inherited from TracerEquation so only turbulence related source terms
-    and boundary conditions need to be implemented.
-    """
-    def __init__(self, solution, eta, uv, w,
-                 w_mesh=None, dw_mesh_dz=None,
-                 diffusivity_h=None, diffusivity_v=None,
-                 uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
-                 bnd_markers=None, bnd_len=None, v_elem_size=None,
-                 h_elem_size=None,
-                 viscosity_v=None, gls_model=None):
-        # NOTE vertical diffusivity must be divided by the TKE Schmidt number
-        self.schmidt_number = gls_model.options.schmidt_nb_psi
-        diffusivity_eff = viscosity_v/self.schmidt_number
-        # call parent constructor
-        super(PsiEquation, self).__init__(solution, eta, uv, w,
-                                          w_mesh, dw_mesh_dz,
-                                          diffusivity_h=diffusivity_h,
-                                          diffusivity_v=diffusivity_eff,
-                                          uv_mag=uv_mag, uv_p1=uv_p1,
-                                          lax_friedrichs_factor=lax_friedrichs_factor,
-                                          bnd_markers=bnd_markers,
-                                          bnd_len=bnd_len,
-                                          v_elem_size=v_elem_size,
-                                          h_elem_size=h_elem_size)
-        self.gls_model = gls_model
-        # additional functions to pass to RHS functions
-        new_kwargs = {
-            'eddy_diffusivity': diffusivity_v,
-            'eddy_viscosity': viscosity_v,
-            'buoyancy_freq2_pos': gls_model.n2_pos,
-            'buoyancy_freq2_neg': gls_model.n2_neg,
-            'shear_freq2': gls_model.m2,
-            'epsilon': gls_model.epsilon,
-            'k': gls_model.k,
-        }
-        self.kwargs.update(new_kwargs)
-
-    def rhs_implicit(self, solution, eta, uv, w, eddy_viscosity, eddy_diffusivity,
-                     shear_freq2, buoyancy_freq2_pos, buoyancy_freq2_neg, epsilon, k, diffusivity_v,
-                     **kwargs):
-        """Returns the right hand side of the source terms.
-        These terms do not depend on the solution."""
-
-        # psi: psi/k*(c1*P + c3*B - c2*eps*f_wall)
-        # P = viscosity M**2           (production)
-        # B = - diffusivity N**2       (byoyancy production)
-        # M**2 = (du/dz)**2 + (dv/dz)**2 (shear frequency)
-        # N**2 = -g\rho_0 (drho/dz)      (buoyancy frequency)
-        # eps = (cmu0)**(3+p/n)*tke**(3/2+m/n)*psi**(-1/n)
-        #                                (tke dissipation rate)
-        solution_old = kwargs['solution_old']
-        p = eddy_viscosity * shear_freq2
-        c1 = self.gls_model.options.c1
-        c2 = self.gls_model.options.c2
-        # c3 switch: c3 = c3_minus if n2 > 0 else c3_plus
-        c3_minus = self.gls_model.options.c3_minus
-        c3_plus = self.gls_model.options.c3_plus  # > 0
-        assert c3_plus >= 0, 'c3_plus has unexpected sign'
-        b_shear = c3_plus * -eddy_diffusivity * buoyancy_freq2_neg
-        b_buoy = c3_minus * -eddy_diffusivity * buoyancy_freq2_pos
-        if c3_minus > 0:
-            b_source = b_shear
-            b_sink = b_buoy
-        else:
-            b_source = b_shear + b_buoy
-            b_sink = 0
-        f_wall = self.gls_model.options.f_wall
-        source = solution_old/k*(c1*p + b_source) + solution/k*(b_sink - c2*f_wall*epsilon)  # patankar
-        f = inner(source, self.test)*dx
-
-        if self.compute_vert_diffusion:
-            # add bottom/top boundary condition for psi
-            # (nuv_v/sigma_psi * dpsi/dz)_b = n * nuv_v/sigma_psi * (cmu0)^p * k^m * kappa^n * z_b^(n-1)
-            # z_b = distance_from_bottom + z_0 (Burchard and Petersen, 1999)
-            cmu0 = self.gls_model.options.cmu0
-            p = self.gls_model.options.p
-            m = self.gls_model.options.m
-            n = self.gls_model.options.n
-            z0_friction = physical_constants['z0_friction']
-            kappa = physical_constants['von_karman']
-            if self.v_elem_size is None:
-                raise Exception('v_elem_size required')
-            # bottom condition
-            z_b = 0.5*self.v_elem_size + z0_friction
-            diff_flux = (n*diffusivity_v*(cmu0)**p *
-                         k**m * kappa**n * z_b**(n - 1.0))
-            f += diff_flux*self.test*self.normal[2]*ds_bottom
-            # surface condition
-            z0_surface = 0.5*self.v_elem_size + Constant(0.02)  # TODO generalize
-            z_s = self.v_elem_size + z0_surface
-            diff_flux = -(n*diffusivity_v*(cmu0)**p *
-                          k**m * kappa**n * z_s**(n - 1.0))
-            f += diff_flux*self.test*self.normal[2]*ds_surf
-
-        return f
-
-
 class TKESourceTerm(TracerTerm):
     """
     Production and destruction terms of the TKE equation
@@ -960,13 +795,13 @@ class GLSVerticalDiffusionTerm(VerticalDiffusionTerm):
         return f
 
 
-class TKEEquationNew(EquationNew):
+class TKEEquation(Equation):
     """
     Turbulent kinetic energy equation without advection terms.
     """
     def __init__(self, function_space, gls_model,
                  bathymetry=None, v_elem_size=None, h_elem_size=None):
-        super(TKEEquationNew, self).__init__(function_space)
+        super(TKEEquation, self).__init__(function_space)
 
         diff = GLSVerticalDiffusionTerm(function_space,
                                         gls_model.options.schmidt_nb_tke,
@@ -978,13 +813,13 @@ class TKEEquationNew(EquationNew):
         self.add_term(diff, 'implicit')
 
 
-class PsiEquationNew(EquationNew):
+class PsiEquation(Equation):
     """
     Psi equation without advection terms.
     """
     def __init__(self, function_space, gls_model,
                  bathymetry=None, v_elem_size=None, h_elem_size=None):
-        super(PsiEquationNew, self).__init__(function_space)
+        super(PsiEquation, self).__init__(function_space)
 
         diff = GLSVerticalDiffusionTerm(function_space,
                                         gls_model.options.schmidt_nb_psi,

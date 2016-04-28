@@ -67,30 +67,6 @@ class SumFunction(object):
         return sum(self.coeff_list)
 
 
-class Equation(object):
-    """Base class for all equations"""
-    # TODO move to equation.py
-    def mass_matrix(self, *args, **kwargs):
-        """Returns weak form for left hand side."""
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
-    def rhs(self, *args, **kwargs):
-        """Returns weak form for the right hand side."""
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
-    def rhs_implicit(self, *args, **kwargs):
-        """Returns weak form for the right hand side of all implicit terms"""
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
-    def source(self, *args, **kwargs):
-        """Returns weak for for terms that do not depend on the solution."""
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
-
 class AttrDict(dict):
     """
     Dictionary that provides both self['key'] and self.key access to members.

@@ -54,7 +54,7 @@ class Term(object):
         raise NotImplementedError('Must be implemented in the derived class')
 
 
-class EquationNew(object):
+class Equation(object):
     """
     Implements an equation, made out of terms.
     """

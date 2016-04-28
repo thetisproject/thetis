@@ -87,12 +87,10 @@ def test_steady_state_channel_mms(options):
         }
         # reinitialize the timestepper so we can set our own solver parameters and gamma
         # setting gamma to 1.0 converges faster to
-        # solver_obj.timestepper = timeintegrator.CrankNicolson(solver_obj.eq_sw, solver_obj.dt,
-        #                                                       solver_parameters, gamma=1.0)
-        solver_obj.timestepper = timeintegrator.CrankNicolsonNew(solver_obj.eq_sw, solver_obj.fields.solution_2d,
-                                                                 solver_obj.timestepper.fields, solver_obj.dt,
-                                                                 bnd_conditions=solver_obj.bnd_functions['shallow_water'],
-                                                                 solver_parameters=solver_parameters, gamma=1.0)
+        solver_obj.timestepper = timeintegrator.CrankNicolson(solver_obj.eq_sw, solver_obj.fields.solution_2d,
+                                                              solver_obj.timestepper.fields, solver_obj.dt,
+                                                              bnd_conditions=solver_obj.bnd_functions['shallow_water'],
+                                                              solver_parameters=solver_parameters, gamma=1.0)
         # hack to avoid picking up prefixed petsc options from other py.test tests:
         solver_obj.timestepper.name = 'test_steady_state_channel_mms'
         solver_obj.timestepper.solver_parameters.update(solver_parameters)
@@ -101,10 +99,7 @@ def test_steady_state_channel_mms(options):
 
         if do_exports:
             source_pvd.write(source_func)
-        # solver_obj.timestepper.F -= solver_obj.timestepper.dt_const*solver_obj.eq_sw.U_test[0]*source_func*dx
         # subtract out time derivative
-        # solver_obj.timestepper.F -= (solver_obj.eq_sw.mass_term(solver_obj.eq_sw.solution) - solver_obj.eq_sw.mass_term(solver_obj.timestepper.solution_old))
-        # solver_obj.timestepper.F -= solver_obj.timestepper.dt_const*solver_obj.eq_sw.terms[0].U_test[0]*source_func*dx
         solver_obj.timestepper.F -= (solver_obj.eq_sw.mass_term(solver_obj.timestepper.solution) -
                                      solver_obj.eq_sw.mass_term(solver_obj.timestepper.solution_old))
         solver_obj.timestepper.update_solver()

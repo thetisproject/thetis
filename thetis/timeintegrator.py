@@ -42,160 +42,10 @@ class SSPRK33(TimeIntegrator):
 
     CFL coefficient is 1.0
     """
-    def __init__(self, equation, dt, solver_parameters={},
-                 funcs_nplushalf={}):
-        """Creates forms for the time integrator"""
-        super(SSPRK33, self).__init__(equation, solver_parameters)
-        self.explicit = True
-        self.CFL_coeff = 1.0
-
-        self.solution_old = Function(self.equation.space)
-        self.solution_n = Function(self.equation.space)  # for single stages
-
-        self.K0 = Function(self.equation.space)
-        self.K1 = Function(self.equation.space)
-        self.K2 = Function(self.equation.space)
-
-        # dict of all input functions needed for the equation
-        self.funcs = self.equation.kwargs
-        # create functions to hold the values of previous time step
-        self.funcs_old = {}
-        for k in self.funcs:
-            if self.funcs[k] is not None:
-                if isinstance(self.funcs[k], Function):
-                    self.funcs_old[k] = Function(
-                        self.funcs[k].function_space())
-                elif isinstance(self.funcs[k], Constant):
-                    self.funcs_old[k] = Constant(self.funcs[k])
-        self.funcs_nplushalf = funcs_nplushalf
-        # values used in equations
-        self.args = {}
-        for k in self.funcs_old:
-            if isinstance(self.funcs[k], Function):
-                self.args[k] = Function(self.funcs[k].function_space())
-            elif isinstance(self.funcs[k], Constant):
-                self.args[k] = Constant(self.funcs[k])
-
-        self.dt_const = Constant(dt)
-
-        mass_term = self.equation.mass_term
-        rhs = self.equation.rhs
-        rhsi = self.equation.rhs_implicit
-        source = self.equation.source
-
-        u_old = self.solution_old
-        u_tri = self.equation.tri
-        self.a_rk = mass_term(u_tri)
-        self.L_RK = self.dt_const*(rhs(u_old, **self.args) +
-                                   rhsi(u_old, **self.args) +
-                                   source(**self.args))
-        self.update_solver()
-
-    def update_solver(self):
-        """Builds linear problems for each stage. These problems need to be
-        re-created after each mesh update."""
-        prob_k0 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K0)
-        self.solver_k0 = LinearVariationalSolver(prob_k0,
-                                                 solver_parameters=self.solver_parameters)
-        prob_k1 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K1)
-        self.solver_k1 = LinearVariationalSolver(prob_k1,
-                                                 solver_parameters=self.solver_parameters)
-        prob_k2 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K2)
-        self.solver_k2 = LinearVariationalSolver(prob_k2,
-                                                 solver_parameters=self.solver_parameters)
-
-    def initialize(self, solution):
-        """Assigns initial conditions to all required fields."""
-        self.solution_old.assign(solution)
-        # assign values to old functions
-        for k in self.funcs_old:
-            self.funcs_old[k].assign(self.funcs[k])
-
-    def advance(self, t, dt, solution, update_forcings):
-        """Advances equations for one time step."""
-        self.dt_const.assign(dt)
-        # stage 0
-        for k in self.args:  # set args to t
-            self.args[k].assign(self.funcs_old[k])
-        if update_forcings is not None:
-            update_forcings(t)
-        self.solver_k0.solve()
-        # stage 1
-        self.solution_old.assign(solution + self.K0)
-        for k in self.args:  # set args to t+dt
-            self.args[k].assign(self.funcs[k])
-        if update_forcings is not None:
-            update_forcings(t+dt)
-        self.solver_k1.solve()
-        # stage 2
-        self.solution_old.assign(solution + 0.25*self.K0 + 0.25*self.K1)
-        for k in self.args:  # set args to t+dt/2
-            if k in self.funcs_nplushalf:
-                self.args[k].assign(self.funcs_nplushalf[k])
-            else:
-                self.args[k].assign(0.5*self.funcs[k] + 0.5*self.funcs_old[k])
-        if update_forcings is not None:
-            update_forcings(t+dt/2)
-        self.solver_k2.solve()
-        # final solution
-        solution.assign(solution + (1.0/6.0)*self.K0 + (1.0/6.0)*self.K1 +
-                        (2.0/3.0)*self.K2)
-
-        # store old values
-        for k in self.funcs_old:
-            self.funcs_old[k].assign(self.funcs[k])
-        self.solution_old.assign(solution)
-
-    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
-        if i_stage == 0:
-            # stage 0
-            self.solution_n.assign(solution)
-            self.solution_old.assign(solution)
-            for k in self.args:  # set args to t
-                self.args[k].assign(self.funcs[k])
-            if update_forcings is not None:
-                update_forcings(t)
-            self.solver_k0.solve()
-            solution.assign(self.solution_n + self.K0)
-        elif i_stage == 1:
-            # stage 1
-            self.solution_old.assign(solution)
-            for k in self.args:  # set args to t+dt
-                self.args[k].assign(self.funcs[k])
-            if update_forcings is not None:
-                update_forcings(t+dt)
-            self.solver_k1.solve()
-            solution.assign(self.solution_n + 0.25*self.K0 + 0.25*self.K1)
-        elif i_stage == 2:
-            # stage 2
-            self.solution_old.assign(solution)
-            for k in self.args:  # set args to t+dt/2
-                self.args[k].assign(self.funcs[k])
-            if update_forcings is not None:
-                update_forcings(t+dt/2)
-            self.solver_k2.solve()
-            # final solution
-            solution.assign(self.solution_n + (1.0/6.0)*self.K0 +
-                            (1.0/6.0)*self.K1 + (2.0/3.0)*self.K2)
-
-
-class SSPRK33New(TimeIntegrator):
-    """
-    3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).
-
-    This scheme has Butcher tableau
-    0   |
-    1   | 1
-    1/2 | 1/4 1/4
-    ---------------
-        | 1/6 1/6 2/3
-
-    CFL coefficient is 1.0
-    """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={},
                  funcs_nplushalf={}):
         """Creates forms for the time integrator"""
-        super(SSPRK33New, self).__init__(equation, solver_parameters)
+        super(SSPRK33, self).__init__(equation, solver_parameters)
         self.explicit = True
         self.CFL_coeff = 1.0
 
@@ -318,7 +168,7 @@ class SSPRK33New(TimeIntegrator):
                             (1.0/6.0)*self.K1 + (2.0/3.0)*self.K2)
 
 
-class SSPRK33StageNew(TimeIntegrator):
+class SSPRK33Stage(TimeIntegrator):
     """
     3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).
     This class only advances one step at a time.
@@ -334,7 +184,7 @@ class SSPRK33StageNew(TimeIntegrator):
     """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
         """Creates forms for the time integrator"""
-        super(SSPRK33StageNew, self).__init__(equation, solver_parameters)
+        super(SSPRK33Stage, self).__init__(equation, solver_parameters)
         self.explicit = True
         self.CFL_coeff = 1.0
         self.n_stages = 3
@@ -416,237 +266,7 @@ class SSPRK33StageNew(TimeIntegrator):
                              update_forcings)
 
 
-class SSPRK33Stage(TimeIntegrator):
-    """
-    3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).
-    This class only advances one step at a time.
-
-    This scheme has Butcher tableau
-    0   |
-    1   | 1
-    1/2 | 1/4 1/4
-    ---------------
-        | 1/6 1/6 2/3
-
-    CFL coefficient is 1.0
-    """
-    def __init__(self, equation, dt, solver_parameters={}):
-        """Creates forms for the time integrator"""
-        super(SSPRK33Stage, self).__init__(equation, solver_parameters)
-        self.explicit = True
-        self.CFL_coeff = 1.0
-        self.n_stages = 3
-
-        self.solution_old = Function(self.equation.space)
-        self.solution_n = Function(self.equation.space)  # for single stages
-
-        self.K0 = Function(self.equation.space)
-        self.K1 = Function(self.equation.space)
-        self.K2 = Function(self.equation.space)
-
-        # dict of all input functions needed for the equation
-        self.args = self.equation.kwargs
-
-        self.dt_const = Constant(dt)
-
-        mass_term = self.equation.mass_term
-        rhs = self.equation.rhs
-        rhsi = self.equation.rhs_implicit
-        source = self.equation.source
-
-        u_old = self.solution_old
-        u_tri = self.equation.tri
-        self.a_rk = mass_term(u_tri)
-        self.L_RK = self.dt_const*(rhs(u_old, **self.args) +
-                                   rhsi(u_old, **self.args) +
-                                   source(**self.args))
-        self.update_solver()
-
-    def update_solver(self):
-        """Builds linear problems for each stage. These problems need to be
-        re-created after each mesh update."""
-        prob_k0 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K0)
-        self.solver_k0 = LinearVariationalSolver(prob_k0,
-                                                 solver_parameters=self.solver_parameters)
-        prob_k1 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K1)
-        self.solver_k1 = LinearVariationalSolver(prob_k1,
-                                                 solver_parameters=self.solver_parameters)
-        prob_k2 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K2)
-        self.solver_k2 = LinearVariationalSolver(prob_k2,
-                                                 solver_parameters=self.solver_parameters)
-
-    def initialize(self, solution):
-        """Assigns initial conditions to all required fields."""
-        self.solution_old.assign(solution)
-
-    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
-        """
-        Solves a single stage of step from t to t+dt.
-        All functions that the equation depends on must be at rigth state
-        corresponding to each sub-step.
-        """
-        self.dt_const.assign(dt)
-        if i_stage == 0:
-            # stage 0
-            self.solution_n.assign(solution)
-            self.solution_old.assign(solution)
-            if update_forcings is not None:
-                update_forcings(t)
-            self.solver_k0.solve()
-            solution.assign(self.solution_n + self.K0)
-        elif i_stage == 1:
-            # stage 1
-            self.solution_old.assign(solution)
-            if update_forcings is not None:
-                update_forcings(t+dt)
-            self.solver_k1.solve()
-            solution.assign(self.solution_n + 0.25*self.K0 + 0.25*self.K1)
-        elif i_stage == 2:
-            # stage 2
-            self.solution_old.assign(solution)
-            if update_forcings is not None:
-                update_forcings(t+dt/2)
-            self.solver_k2.solve()
-            # final solution
-            solution.assign(self.solution_n + (1.0/6.0)*self.K0 +
-                            (1.0/6.0)*self.K1 + (2.0/3.0)*self.K2)
-
-    def advance(self, t, dt, solution, update_forcings=None):
-        """Advances one full time step from t to t+dt.
-        This assumes that all the functions that the equation depends on are
-        constants across this interval. If dependent functions need to be
-        updated call solve_stage instead.
-        """
-        for k in range(3):
-            self.solve_stage(k, t, dt, solution,
-                             update_forcings)
-
-
 class SSPRK33StageSemiImplicit(TimeIntegrator):
-    """
-    3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).
-    This class only advances one step at a time.
-
-    This scheme has Butcher tableau
-    0   |
-    1   | 1
-    1/2 | 1/4 1/4
-    ---------------
-        | 1/6 1/6 2/3
-
-    CFL coefficient is 1.0
-    """
-    def __init__(self, equation, dt, solver_parameters={}):
-        """Creates forms for the time integrator"""
-        super(SSPRK33StageSemiImplicit, self).__init__(equation, solver_parameters)
-        self.explicit = True
-        self.CFL_coeff = 1.0
-        self.n_stages = 3
-        self.theta = Constant(0.5)
-        self.solver_parameters.setdefault('snes_monitor', False)
-        self.solver_parameters.setdefault('snes_type', 'newtonls')
-
-        self.solution_old = Function(self.equation.space)
-        self.solution_rhs = Function(self.equation.space)
-
-        self.sol0 = Function(self.equation.space)
-        self.sol1 = Function(self.equation.space)
-
-        # dict of all input functions needed for the equation
-        self.args = self.equation.kwargs
-
-        self.dt_const = Constant(dt)
-        mass_term = self.equation.mass_term
-        rhs = self.equation.rhs
-        rhsi = self.equation.rhs_implicit
-        source = self.equation.source
-
-        u_old = self.solution_old
-        u_0 = self.sol0
-        u_1 = self.sol1
-        sol = self.equation.solution
-
-        self.F_0 = (mass_term(u_0) - mass_term(u_old) -
-                    self.dt_const*(
-                        self.theta*rhsi(u_0, **self.args) +
-                        (1-self.theta)*rhsi(u_old, **self.args) +
-                        rhs(u_old, **self.args) +
-                        source(**self.args))
-                    )
-        self.F_1 = (mass_term(u_1) -
-                    3.0/4.0*mass_term(u_old) - 1.0/4.0*mass_term(u_0) -
-                    1.0/4.0*self.dt_const*(
-                        self.theta*rhsi(u_1, **self.args) +
-                        (1-self.theta)*rhsi(u_0, **self.args) +
-                        rhs(u_0, **self.args) +
-                        source(**self.args))
-                    )
-        self.F_2 = (mass_term(sol) -
-                    1.0/3.0*mass_term(u_old) - 2.0/3.0*mass_term(u_1) -
-                    2.0/3.0*self.dt_const*(
-                        self.theta*rhsi(sol, **self.args) +
-                        (1-self.theta)*rhsi(u_1, **self.args) +
-                        rhs(u_1, **self.args) +
-                        source(**self.args))
-                    )
-        self.update_solver()
-
-    def update_solver(self):
-        """Builds linear problems for each stage. These problems need to be
-        re-created after each mesh update."""
-        prob_f0 = NonlinearVariationalProblem(self.F_0, self.sol0)
-        self.solver_f0 = NonlinearVariationalSolver(prob_f0,
-                                                    solver_parameters=self.solver_parameters)
-        prob_f1 = NonlinearVariationalProblem(self.F_1, self.sol1)
-        self.solver_f1 = NonlinearVariationalSolver(prob_f1,
-                                                    solver_parameters=self.solver_parameters)
-        prob_f2 = NonlinearVariationalProblem(self.F_2, self.equation.solution)
-        self.solver_f2 = NonlinearVariationalSolver(prob_f2,
-                                                    solver_parameters=self.solver_parameters)
-
-    def initialize(self, solution):
-        """Assigns initial conditions to all required fields."""
-        self.solution_old.assign(solution)
-
-    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
-        """
-        Solves a single stage of step from t to t+dt.
-        All functions that the equation depends on must be at rigth state
-        corresponding to each sub-step.
-        """
-        self.dt_const.assign(dt)
-        if i_stage == 0:
-            # stage 0
-            if update_forcings is not None:
-                update_forcings(t)
-            # BUG there's a bug in assembly cache, need to set to false
-            self.solver_f0.solve()
-            solution.assign(self.sol0)
-        elif i_stage == 1:
-            # stage 1
-            if update_forcings is not None:
-                update_forcings(t+dt)
-            self.solver_f1.solve()
-            solution.assign(self.sol1)
-        elif i_stage == 2:
-            # stage 2
-            if update_forcings is not None:
-                update_forcings(t+dt/2)
-            self.solver_f2.solve()
-            self.solution_old.assign(solution)
-
-    def advance(self, t, dt, solution, update_forcings):
-        """Advances one full time step from t to t+dt.
-        This assumes that all the functions that the equation depends on are
-        constants across this interval. If dependent functions need to be
-        updated call solve_stage instead.
-        """
-        for k in range(3):
-            self.solve_stage(k, t, dt, solution,
-                             update_forcings)
-
-
-class SSPRK33StageSemiImplicitNew(TimeIntegrator):
     """
     3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).
     This class only advances one step at a time.
@@ -662,7 +282,7 @@ class SSPRK33StageSemiImplicitNew(TimeIntegrator):
     """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
         """Creates forms for the time integrator"""
-        super(SSPRK33StageSemiImplicitNew, self).__init__(equation, solver_parameters)
+        super(SSPRK33StageSemiImplicit, self).__init__(equation, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
 
@@ -764,70 +384,9 @@ class SSPRK33StageSemiImplicitNew(TimeIntegrator):
 
 class ForwardEuler(TimeIntegrator):
     """Standard forward Euler time integration scheme."""
-    def __init__(self, equation, dt, solver_parameters={}):
-        """Creates forms for the time integrator"""
-        super(ForwardEuler, self).__init__(equation, solver_parameters)
-        mass_term = self.equation.mass_term
-        rhs = self.equation.rhs
-        rhsi = self.equation.rhs_implicit
-        source = self.equation.source
-
-        self.dt_const = Constant(dt)
-
-        self.solution_old = Function(self.equation.space)
-
-        # dict of all input functions needed for the equation
-        self.funcs = self.equation.kwargs
-        # create functions to hold the values of previous time step
-        self.funcs_old = {}
-        for k in self.funcs:
-            if self.funcs[k] is not None:
-                if isinstance(self.funcs[k], Function):
-                    self.funcs_old[k] = Function(
-                        self.funcs[k].function_space())
-                elif isinstance(self.funcs[k], Constant):
-                    self.funcs_old[k] = Constant(self.funcs[k])
-
-        u_old = self.solution_old
-        u_tri = self.equation.tri
-        self.A = mass_term(u_tri)
-        self.L = (mass_term(u_old) +
-                  self.dt_const*(rhs(u_old, **self.funcs_old) +
-                                 rhsi(u_old, **self.funcs_old) +
-                                 source(**self.funcs_old)
-                                 )
-                  )
-        self.update_solver()
-
-    def update_solver(self):
-        prob = LinearVariationalProblem(self.A, self.L, self.equation.solution)
-        self.solver = LinearVariationalSolver(prob,
-                                              solver_parameters=self.solver_parameters)
-
-    def initialize(self, solution):
-        """Assigns initial conditions to all required fields."""
-        self.solution_old.assign(solution)
-        # assign values to old functions
-        for k in self.funcs_old:
-            self.funcs_old[k].assign(self.funcs[k])
-
-    def advance(self, t, dt, solution, update_forcings=None):
-        """Advances equations for one time step."""
-        self.dt_const.assign(dt)
-        if update_forcings is not None:
-            update_forcings(t+dt)
-        self.solution_old.assign(solution)
-        self.solver.solve()
-        # shift time
-        for k in self.funcs_old:
-            self.funcs_old[k].assign(self.funcs[k])
-
-
-class ForwardEulerNew(TimeIntegrator):
-    """Standard forward Euler time integration scheme."""
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
         """Creates forms for the time integrator"""
-        super(ForwardEulerNew, self).__init__(equation, solver_parameters)
+        super(ForwardEuler, self).__init__(equation, solver_parameters)
         self.dt_const = Constant(dt)
         self.solution = solution
         self.solution_old = Function(self.equation.function_space)
@@ -879,106 +438,9 @@ class ForwardEulerNew(TimeIntegrator):
 
 class CrankNicolson(TimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
-    def __init__(self, equation, dt, solver_parameters={}, gamma=0.5):
-        """Creates forms for the time integrator"""
-        super(CrankNicolson, self).__init__(equation, solver_parameters)
-        self.solver_parameters.setdefault('snes_monitor', False)
-        self.solver_parameters.setdefault('snes_type', 'newtonls')
-
-        mass_term = self.equation.mass_term
-        rhs = self.equation.rhs
-        rhsi = self.equation.rhs_implicit
-        source = self.equation.source
-
-        self.dt_const = Constant(dt)
-
-        self.solution_old = Function(self.equation.space)
-
-        # dict of all input functions needed for the equation
-        self.funcs = self.equation.kwargs
-        # create functions to hold the values of previous time step
-        self.funcs_old = {}
-        for k in self.funcs:
-            if self.funcs[k] is not None:
-                if isinstance(self.funcs[k], Function):
-                    self.funcs_old[k] = Function(
-                        self.funcs[k].function_space())
-                elif isinstance(self.funcs[k], Constant):
-                    self.funcs_old[k] = Constant(self.funcs[k])
-
-        u = self.equation.solution
-        u_old = self.solution_old
-        u_tri = self.equation.tri
-        # Crank-Nicolson
-        gamma_const = Constant(gamma)
-        self.F = (mass_term(u) - mass_term(u_old) -
-                  self.dt_const*(gamma_const*rhs(u, **self.funcs) +
-                                 gamma_const*rhsi(u, **self.funcs) +
-                                 gamma_const*source(**self.funcs) +
-                                 (1-gamma_const)*rhs(u_old, **self.funcs_old) +
-                                 (1-gamma_const)*rhsi(u_old, **self.funcs_old) +
-                                 (1-gamma_const)*source(**self.funcs_old)
-                                 )
-                  )
-
-        self.A = (mass_term(u_tri) -
-                  self.dt_const*(
-                      gamma_const*rhs(u_tri, **self.funcs) +
-                      gamma_const*rhsi(u_tri, **self.funcs))
-                  )
-        self.L = (mass_term(u_old) +
-                  self.dt_const*(
-                      gamma_const*source(**self.funcs) +
-                      (1-gamma_const)*rhs(u_old, **self.funcs_old) +
-                      (1-gamma_const)*rhsi(u_old, **self.funcs_old) +
-                      (1-gamma_const)*source(**self.funcs_old))
-                  )
-        self.update_solver()
-
-    def update_solver(self):
-        nest = not ('pc_type' in self.solver_parameters and self.solver_parameters['pc_type'] == 'lu')
-        prob = NonlinearVariationalProblem(self.F, self.equation.solution, nest=nest)
-        self.solver = NonlinearVariationalSolver(prob,
-                                                 solver_parameters=self.solver_parameters,
-                                                 options_prefix=self.name)
-
-    def initialize(self, solution):
-        """Assigns initial conditions to all required fields."""
-        self.solution_old.assign(solution)
-        # assign values to old functions
-        for k in self.funcs_old:
-            self.funcs_old[k].assign(self.funcs[k])
-
-    def advance(self, t, dt, solution, update_forcings=None):
-        """Advances equations for one time step."""
-        self.dt_const.assign(dt)
-        if update_forcings is not None:
-            update_forcings(t+dt)
-        self.solution_old.assign(solution)
-        self.solver.solve()
-        # shift time
-        for k in self.funcs_old:
-            self.funcs_old[k].assign(self.funcs[k])
-
-    def advance_linear(self, t, dt, solution, update_forcings):
-        """Advances equations for one time step."""
-        solver_parameters = {
-            'snes_type': 'ksponly',
-        }
-        if update_forcings is not None:
-            update_forcings(t+dt)
-        self.solution_old.assign(solution)
-        solve(self.A == self.L, solution, solver_parameters=solver_parameters)
-        # shift time
-        for k in self.funcs_old:
-            self.funcs_old[k].assign(self.funcs[k])
-
-
-class CrankNicolsonNew(TimeIntegrator):
-    """Standard Crank-Nicolson time integration scheme."""
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, gamma=0.5):
         """Creates forms for the time integrator"""
-        super(CrankNicolsonNew, self).__init__(equation, solver_parameters)
+        super(CrankNicolson, self).__init__(equation, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
 
@@ -1045,79 +507,22 @@ class SSPIMEX(TimeIntegrator):
     """
     SSP-IMEX time integration scheme based on [1], method (17).
 
-    The Butcher tableaus are
-
-    ... to be written
-
-    [1] Higueras et al (2014). Optimized strong stability preserving IMEX
-        Runge-Kutta methods. Journal of Computational and Applied
-        Mathematics 272(2014) 116-140.
-    """
-    def __init__(self, equation, dt, solver_parameters={},
-                 solver_parameters_dirk={}, solution=None):
-        super(SSPIMEX, self).__init__(equation, solver_parameters)
-
-        # implicit scheme
-        self.dirk = DIRKLSPUM2(equation, dt,
-                               solver_parameters=solver_parameters_dirk,
-                               terms_to_add=['implicit'],
-                               solution=solution)
-        # explicit scheme
-        erk_a = [[0, 0, 0],
-                 [5.0/6.0, 0, 0],
-                 [11.0/24.0, 11.0/24.0, 0]]
-        erk_b = [24.0/55.0, 1.0/5.0, 4.0/11.0]
-        erk_c = [0, 5.0/6.0, 11.0/12.0]
-        self.erk = DIRKGeneric(equation, dt, erk_a, erk_b, erk_c,
-                               solver_parameters=solver_parameters_dirk,
-                               terms_to_add=['explicit', 'source'],
-                               solution=solution)
-        self.n_stages = len(erk_b)
-
-    def update_solver(self):
-        self.dirk.update_solver()
-        self.erk.update_solver()
-
-    def initialize(self, solution):
-        """Assigns initial conditions to all required fields."""
-        self.dirk.initialize(solution)
-        self.erk.initialize(solution)
-
-    def advance(self, t, dt, solution, update_forcings=None):
-        """Advances equations for one time step."""
-        for i in xrange(self.n_stages):
-            self.solve_stage(i, t, dt, solution, update_forcings)
-        self.get_final_solution(solution)
-
-    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
-        self.erk.solve_stage(i_stage, t, dt, solution, update_forcings)
-        self.dirk.solve_stage(i_stage, t, dt, solution, update_forcings)
-
-    def get_final_solution(self, solution):
-        self.erk.get_final_solution(solution)
-        self.dirk.get_final_solution(solution)
-
-
-class SSPIMEXNew(TimeIntegrator):
-    """
-    SSP-IMEX time integration scheme based on [1], method (17).
-
     [1] Higueras et al (2014). Optimized strong stability preserving IMEX
         Runge-Kutta methods. Journal of Computational and Applied
         Mathematics 272(2014) 116-140.
     """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, solver_parameters_dirk={}):
-        super(SSPIMEXNew, self).__init__(equation, solver_parameters)
+        super(SSPIMEX, self).__init__(equation, solver_parameters)
 
         # implicit scheme
-        self.dirk = DIRKLSPUM2New(equation, solution, fields, dt, bnd_conditions,
-                                  solver_parameters=solver_parameters_dirk,
-                                  terms_to_add=('implicit'))
+        self.dirk = DIRKLSPUM2(equation, solution, fields, dt, bnd_conditions,
+                               solver_parameters=solver_parameters_dirk,
+                               terms_to_add=('implicit'))
         # explicit scheme
-        self.erk = ERKLSPUM2New(equation, solution, fields, dt, bnd_conditions,
-                                solver_parameters=solver_parameters,
-                                terms_to_add=('explicit', 'source'))
+        self.erk = ERKLSPUM2(equation, solution, fields, dt, bnd_conditions,
+                             solver_parameters=solver_parameters,
+                             terms_to_add=('explicit', 'source'))
         self.n_stages = len(self.erk.b)
 
     def update_solver(self):
@@ -1145,169 +550,6 @@ class SSPIMEXNew(TimeIntegrator):
 
 
 class DIRKGeneric(TimeIntegrator):
-    """
-    Generic implementation of Diagonally Implicit Runge Kutta schemes.
-
-    Method is defined by its Butcher tableau given as arguments
-
-    c[0] | a[0, 0]
-    c[1] | a[1, 0] a[1, 1]
-    c[2] | a[2, 0] a[2, 1] a[2, 2]
-    ------------------------------
-         | b[0]    b[1]    b[2]
-
-    This method also works for explicit RK schemes if one with the zeros on the first row of a.
-    """
-    def __init__(self, equation, dt, a, b, c,
-                 solver_parameters={},
-                 terms_to_add='all',
-                 solution=None):
-        """
-        Create new DIRK solver.
-
-        Parameters
-        ----------
-        equation : equation object
-            the equation to solve
-        dt : float
-            time step (constant)
-        a  : array_like (n_stages, n_stages)
-            coefficients for the Butcher tableau, must be lower diagonal
-        b,c : array_like (n_stages,)
-            coefficients for the Butcher tableau
-        solver_parameters : dict
-            PETSc options for solver
-        terms_to_add : 'all' or list of 'implicit', 'explicit', 'source'
-            Defines which terms of the equation are to be added to this solver.
-            Default 'all' implies terms_to_add = ['implicit', 'explicit', 'source']
-        """
-        super(DIRKGeneric, self).__init__(equation, solver_parameters)
-        self.solver_parameters.setdefault('snes_monitor', False)
-        self.solver_parameters.setdefault('snes_type', 'newtonls')
-
-        self.n_stages = len(b)
-        self.a = a
-        self.b = b
-        self.c = c
-        self.terms_to_add = terms_to_add
-
-        rhs = self.equation.rhs
-        rhsi = self.equation.rhs_implicit
-        source = self.equation.source
-        self.dt = dt
-        self.dt_const = Constant(dt)
-        if solution is not None:
-            self.solution_old = solution
-        else:
-            self.solution_old = self.equation.solution
-        self.funcs = self.equation.kwargs
-        self.funcs['solution_old'] = self.solution_old
-        test = TestFunction(self.equation.space)
-
-        fs = self.equation.solution.function_space()
-        from firedrake.functionspaceimpl import MixedFunctionSpace, WithGeometry
-        mixed_space = (isinstance(fs, MixedFunctionSpace) or
-                       (isinstance(fs, WithGeometry) and
-                        isinstance(fs.topological, MixedFunctionSpace)))
-
-        def all_terms(u, **args):
-            """Gather all terms that need to be added to the form"""
-            f = 0
-            if self.terms_to_add == 'all':
-                return rhsi(u, **args) + rhs(u, **args) + source(**args)
-            if 'implicit' in self.terms_to_add:
-                f += rhsi(u, **args)
-            if 'explicit' in self.terms_to_add:
-                f += rhs(u, **args)
-            if 'source' in self.terms_to_add:
-                f += source(**args)
-            # assert f != 0, \
-            #     'adding t  erms {:}: empty form'.format(self.terms_to_add)
-            return f
-
-        # Allocate tendency fields
-        self.k = []
-        for i in xrange(self.n_stages):
-            fname = '{:}_k{:}'.format(self.name, i)
-            self.k.append(Function(self.equation.space, name=fname))
-        # construct variational problems
-        self.F = []
-        if not mixed_space:
-            for i in xrange(self.n_stages):
-                for j in xrange(i+1):
-                    if j == 0:
-                        u = self.solution_old + self.a[i][j]*self.dt_const*self.k[j]
-                    else:
-                        u += self.a[i][j]*self.dt_const*self.k[j]
-                self.F.append(-inner(self.k[i], test)*dx +
-                              all_terms(u, **self.funcs))
-        else:
-            # solution must be split before computing sum
-            # pass components to equation in a list
-            for i in xrange(self.n_stages):
-                for j in xrange(i+1):
-                    if j == 0:
-                        u = []  # list of components in the mixed space
-                        for s, k in zip(split(self.solution_old), split(self.k[j])):
-                            u.append(s + self.a[i][j]*self.dt_const*k)
-                    else:
-                        for l, k in enumerate(split(self.k[j])):
-                            u[l] += self.a[i][j]*self.dt_const*k
-                self.F.append(-inner(self.k[i], test)*dx +
-                              all_terms(u, **self.funcs))
-        self.update_solver()
-
-    def update_solver(self):
-        # construct solvers
-        self.solver = []
-        for i in xrange(self.n_stages):
-            p = NonlinearVariationalProblem(self.F[i], self.k[i])
-            sname = '{:}_stage{:}_'.format(self.name, i)
-            self.solver.append(
-                NonlinearVariationalSolver(p,
-                                           solver_parameters=self.solver_parameters,
-                                           options_prefix=sname))
-
-    def initialize(self, init_cond):
-        """Assigns initial conditions to all required fields."""
-        self.solution_old.assign(init_cond)
-
-    def advance(self, t, dt, solution, update_forcings=None):
-        """Advances equations for one time step."""
-        for i in xrange(self.n_stages):
-            self.solve_stage(i, t, dt, solution, update_forcings)
-
-    def solve_stage(self, i_stage, t, dt, output=None, update_forcings=None):
-        """Advances equations for one stage."""
-        if update_forcings is not None:
-            update_forcings(t + self.c[i_stage]*self.dt)
-        self.solver[i_stage].solve()
-        if output is not None:
-            if i_stage < self.n_stages - 1:
-                self.get_stage_solution(i_stage, output)
-            else:
-                # assign the final solution
-                self.get_final_solution(output)
-
-    def get_stage_solution(self, i_stage, output):
-        """Stores intermediate solution for stage i_stage to the output field"""
-        if output != self.solution_old:
-            # possible only if output is not the internal state container
-            output.assign(self.solution_old)
-            for j in xrange(i_stage+1):
-                output += self.a[i_stage][j]*self.dt_const*self.k[j]
-
-    def get_final_solution(self, output=None):
-        """Computes the final solution from the tendencies"""
-        # update solution
-        for i in xrange(self.n_stages):
-            self.solution_old += self.dt_const*self.b[i]*self.k[i]
-        if output is not None and output != self.solution_old:
-            # copy to output
-            output.assign(self.solution_old)
-
-
-class DIRKGenericNew(TimeIntegrator):
     """
     Generic implementation of Diagonally Implicit Runge Kutta schemes.
 
@@ -1358,7 +600,7 @@ class DIRKGenericNew(TimeIntegrator):
             Defines which terms of the equation are to be added to this solver.
             Default 'all' implies terms_to_add = ['implicit', 'explicit', 'source']
         """
-        super(DIRKGenericNew, self).__init__(equation, solver_parameters)
+        super(DIRKGeneric, self).__init__(equation, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
 
@@ -1464,24 +706,6 @@ class BackwardEuler(DIRKGeneric):
     ---------
         | 1
     """
-    def __init__(self, equation, dt, solver_parameters={}, terms_to_add='all'):
-        a = [[1.0]]
-        b = [1.0]
-        c = [1.0]
-        super(BackwardEuler, self).__init__(equation, dt, a, b, c,
-                                            solver_parameters, terms_to_add)
-
-
-class BackwardEulerNew(DIRKGenericNew):
-    """
-    Backward Euler method
-
-    This method has the Butcher tableau
-
-    1   | 1
-    ---------
-        | 1
-    """
     a = [[1.0]]
     b = [1.0]
     c = [1.0]
@@ -1497,59 +721,12 @@ class ImplicitMidpoint(DIRKGeneric):
     ---------
         | 1
     """
-    def __init__(self, equation, dt, solver_parameters={}, terms_to_add='all'):
-        a = [[0.5]]
-        b = [1.0]
-        c = [0.5]
-        super(ImplicitMidpoint, self).__init__(equation, dt, a, b, c,
-                                               solver_parameters, terms_to_add)
-
-
-class ImplicitMidpointNew(DIRKGenericNew):
-    """
-    Implicit midpoint method, second order.
-
-    This method has the Butcher tableau
-
-    0.5 | 0.5
-    ---------
-        | 1
-    """
     a = [[0.5]]
     b = [1.0]
     c = [0.5]
 
 
 class DIRK22(DIRKGeneric):
-    """
-    DIRK22, 2-stage, 2nd order, L-stable
-    Diagonally Implicit Runge Kutta method
-
-    This method has the Butcher tableau
-
-    gamma   | gamma     0
-    1       | 1-gamma  gamma
-    -------------------------
-            | 0.5       0.5
-    with
-    gamma = (2 + sqrt(2))/2
-
-    From DIRK(2,3,2) IMEX scheme in Ascher et al. (1997)
-
-    [1] Ascher et al. (1997). Implicit-explicit Runge-Kutta methods for
-        time-dependent partial differential equations. Applied Numerical
-        Mathematics, 25:151-167.
-    """
-    def __init__(self, equation, dt, solver_parameters={}, terms_to_add='all'):
-        gamma = Constant((2 + np.sqrt(2))/2)
-        a = [[gamma, 0], [1-gamma, gamma]]
-        b = [0.5, 0.5]
-        c = [gamma, 1]
-        super(DIRK22, self).__init__(equation, dt, a, b, c,
-                                     solver_parameters, terms_to_add)
-
-
-class DIRK22New(DIRKGenericNew):
     """
     DIRK22, 2-stage, 2nd order, L-stable
     Diagonally Implicit Runge Kutta method
@@ -1592,31 +769,6 @@ class DIRK23(DIRKGeneric):
 
     From DIRK(2,3,3) IMEX scheme in Ascher et al. (1997)
     """
-    def __init__(self, equation, dt, solver_parameters={}, terms_to_add='all'):
-        gamma = (3 + np.sqrt(3))/6
-        a = [[gamma, 0], [1-2*gamma, gamma]]
-        b = [0.5, 0.5]
-        c = [gamma, 1-gamma]
-        super(DIRK23, self).__init__(equation, dt, a, b, c,
-                                     solver_parameters, terms_to_add)
-
-
-class DIRK23New(DIRKGenericNew):
-    """
-    DIRK23, 2-stage, 3rd order
-    Diagonally Implicit Runge Kutta method
-
-    This method has the Butcher tableau
-
-    gamma   | gamma     0
-    1-gamma | 1-2*gamma gamma
-    -------------------------
-            | 0.5       0.5
-    with
-    gamma = (3 + sqrt(3))/6
-
-    From DIRK(2,3,3) IMEX scheme in Ascher et al. (1997)
-    """
     gamma = (3 + np.sqrt(3))/6
     a = [[gamma, 0],
          [1-2*gamma, gamma]]
@@ -1625,26 +777,6 @@ class DIRK23New(DIRKGenericNew):
 
 
 class DIRK33(DIRKGeneric):
-    """
-    DIRK33, 3-stage, 3rd order, L-stable
-    Diagonally Implicit Runge Kutta method
-
-    From DIRK(3,4,3) IMEX scheme in Ascher et al. (1997)
-    """
-    def __init__(self, equation, dt, solver_parameters={}, terms_to_add='all'):
-        gamma = 0.4358665215
-        b1 = -3.0/2.0*gamma**2 + 4*gamma - 1.0/4.0
-        b2 = 3.0/2.0*gamma**2 - 5*gamma + 5.0/4.0
-        a = [[gamma, 0, 0],
-             [(1-gamma)/2, gamma, 0],
-             [b1, b2, gamma]]
-        b = [b1, b2, gamma]
-        c = [gamma, (1+gamma)/2, 1]
-        super(DIRK33, self).__init__(equation, dt, a, b, c,
-                                     solver_parameters, terms_to_add)
-
-
-class DIRK33New(DIRKGenericNew):
     """
     DIRK33, 3-stage, 3rd order, L-stable
     Diagonally Implicit Runge Kutta method
@@ -1662,24 +794,6 @@ class DIRK33New(DIRKGenericNew):
 
 
 class DIRK43(DIRKGeneric):
-    """
-    DIRK43, 4-stage, 3rd order, L-stable
-    Diagonally Implicit Runge Kutta method
-
-    From DIRK(4,4,3) IMEX scheme in Ascher et al. (1997)
-    """
-    def __init__(self, equation, dt, solver_parameters={}, terms_to_add='all'):
-        a = [[0.5, 0, 0, 0],
-             [1.0/6.0, 0.5, 0, 0],
-             [-0.5, 0.5, 0.5, 0],
-             [3.0/2.0, -3.0/2.0, 0.5, 0.5]]
-        b = [3.0/2.0, -3.0/2.0, 0.5, 0.5]
-        c = [0.5, 2.0/3.0, 0.5, 1.0]
-        super(DIRK43, self).__init__(equation, dt, a, b, c,
-                                     solver_parameters, terms_to_add)
-
-
-class DIRK43New(DIRKGenericNew):
     """
     DIRK43, 4-stage, 3rd order, L-stable
     Diagonally Implicit Runge Kutta method
@@ -1705,29 +819,6 @@ class DIRKLSPUM2(DIRKGeneric):
         Runge-Kutta methods. Journal of Computational and Applied
         Mathematics 272(2014) 116-140.
     """
-    def __init__(self, equation, dt, solver_parameters={}, terms_to_add='all',
-                 solution=None):
-        a = [[2.0/11.0, 0, 0],
-             [205.0/462.0, 2.0/11.0, 0],
-             [2033.0/4620.0, 21.0/110.0, 2.0/11.0]]
-        b = [24.0/55.0, 1.0/5.0, 4.0/11.0]
-        c = [2.0/11.0, 289.0/462.0, 751.0/924.0]
-        super(DIRKLSPUM2, self).__init__(equation, dt, a, b, c,
-                                         solver_parameters, terms_to_add,
-                                         solution)
-
-
-class DIRKLSPUM2New(DIRKGenericNew):
-    """
-    DIRKLSPUM2, 3-stage, 2nd order, L-stable
-    Diagonally Implicit Runge Kutta method
-
-    From IMEX RK scheme (17) in Higureras et al. (2014).
-
-    [1] Higueras et al (2014). Optimized strong stability preserving IMEX
-        Runge-Kutta methods. Journal of Computational and Applied
-        Mathematics 272(2014) 116-140.
-    """
     a = [[2.0/11.0, 0, 0],
          [205.0/462.0, 2.0/11.0, 0],
          [2033.0/4620.0, 21.0/110.0, 2.0/11.0]]
@@ -1735,7 +826,7 @@ class DIRKLSPUM2New(DIRKGenericNew):
     c = [2.0/11.0, 289.0/462.0, 751.0/924.0]
 
 
-class ERKLSPUM2New(DIRKGenericNew):
+class ERKLSPUM2(DIRKGeneric):
     """
     ERKLSPUM2, 3-stage, 2nd order
     Explicit Runge Kutta method

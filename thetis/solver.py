@@ -135,9 +135,6 @@ class FlowSolver(FrozenClass):
         self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='DG', vdegree=max(0, self.options.order), name='H')
         # vertical integral of tracers
         self.function_spaces.Hint = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='CG', vdegree=self.options.order+1, name='Hint')
-        # for scalar fields to be used in momentum eq NOTE could be omitted ?
-        # self.function_spaces.U_scalar = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='DG', vdegree=self.options.order, name='U_scalar')
-        # for turbulence
         self.function_spaces.turb_space = self.function_spaces.P0
 
         # 2D spaces
@@ -278,125 +275,49 @@ class FlowSolver(FrozenClass):
         self.tot_v_diff = SumFunction()
         self.tot_v_diff.add(self.options.get('v_diffusivity'))
         self.tot_v_diff.add(self.fields.get('eddy_diff_3d'))
-        # assign viscosity/diffusivity to correct equations
-        # if self.options.solve_vert_diffusion:
-        #     implicit_v_visc = self.tot_v_visc.get_sum()
-        #     explicit_v_visc = None
-        #     implicit_v_diff = self.tot_v_diff.get_sum()
-        #     explicit_v_diff = None
-        # else:
-        #     implicit_v_visc = None
-        #     explicit_v_visc = self.tot_v_visc.get_sum()
-        #     implicit_v_diff = None
-        #     explicit_v_diff = self.tot_v_diff.get_sum()
 
         # ----- Equations
         if self.options.use_mode_split:
             # full 2D shallow water equations
-            self.eq_sw = shallowwater_eq.ShallowWaterEquationsNew(
+            self.eq_sw = shallowwater_eq.ShallowWaterEquations(
                 self.fields.solution_2d.function_space(),
                 self.fields.bathymetry_2d,
                 nonlin=self.options.nonlin,
                 include_grad_div_viscosity_term=self.options.include_grad_div_viscosity_term,
                 include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term
             )
-            # self.eq_sw = shallowwater_eq.ShallowWaterEquations(
-            #     self.fields.solution_2d, self.fields.bathymetry_2d,
-            #     self.fields.get('uv_bottom_2d'), self.fields.get('bottom_drag_2d'),
-            #     baroc_head=self.fields.get('baroc_head_2d'),
-            #     viscosity_h=self.options.get('h_viscosity'),  # FIXME add 2d smag
-            #     uv_lax_friedrichs=self.options.uv_lax_friedrichs,
-            #     coriolis=self.options.coriolis,
-            #     wind_stress=self.options.wind_stress,
-            #     uv_source=self.options.uv_source_2d,
-            #     lin_drag=self.options.lin_drag,
-            #     nonlin=self.options.nonlin)
         else:
             # solve elevation only: 2D free surface equation
             uv, eta = self.fields.solution_2d.split()
-            self.eq_sw = shallowwater_eq.FreeSurfaceEquationNew(
+            self.eq_sw = shallowwater_eq.FreeSurfaceEquation(
                 eta.function_space(),
                 self.fields.bathymetry_2d,
                 nonlin=self.options.nonlin,
             )
-            # self.eq_sw = shallowwater_eq.FreeSurfaceEquation(
-            #     eta, uv, self.fields.bathymetry_2d,
-            #     nonlin=self.options.nonlin)
 
-        # bnd_len = self.eq_sw.boundary_len
-        # bnd_markers = self.eq_sw.boundary_markers
-        self.eq_momentum = momentum_eq.MomentumEquationNew(self.fields.uv_3d.function_space(),
-                                                           bathymetry=self.fields.bathymetry_3d,
-                                                           v_elem_size=self.fields.v_elem_size_3d,
-                                                           h_elem_size=self.fields.h_elem_size_3d,
-                                                           nonlin=self.options.nonlin,
-                                                           use_bottom_friction=False)
-        # self.eq_momentum = momentum_eq.MomentumEquation(
-        #     bnd_markers,
-        #     bnd_len, self.fields.uv_3d, self.fields.elev_3d,
-        #     self.fields.bathymetry_3d, w=self.fields.w_3d,
-        #     baroc_head=self.fields.get('baroc_head_3d'),
-        #     w_mesh=self.fields.get('w_mesh_3d'),
-        #     dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
-        #     viscosity_v=explicit_v_visc,
-        #     viscosity_h=self.tot_h_visc.get_sum(),
-        #     h_elem_size=self.fields.h_elem_size_3d,
-        #     v_elem_size=self.fields.v_elem_size_3d,
-        #     lax_friedrichs_factor=self.options.uv_lax_friedrichs,
-        #     # uv_mag=self.uv_mag_3d,
-        #     uv_p1=self.fields.get('uv_p1_3d'),
-        #     coriolis=self.fields.get('coriolis_3d'),
-        #     source=self.options.uv_source_3d,
-        #     lin_drag=self.options.lin_drag,
-        #     nonlin=self.options.nonlin)
+        self.eq_momentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
+                                                        bathymetry=self.fields.bathymetry_3d,
+                                                        v_elem_size=self.fields.v_elem_size_3d,
+                                                        h_elem_size=self.fields.h_elem_size_3d,
+                                                        nonlin=self.options.nonlin,
+                                                        use_bottom_friction=False)
         if self.options.solve_vert_diffusion:
-            self.eq_vertmomentum = momentum_eq.MomentumEquationNew(self.fields.uv_3d.function_space(),
-                                                                   bathymetry=self.fields.bathymetry_3d,
-                                                                   v_elem_size=self.fields.v_elem_size_3d,
-                                                                   h_elem_size=self.fields.h_elem_size_3d,
-                                                                   nonlin=False,
-                                                                   use_bottom_friction=self.options.use_bottom_friction)
-            # self.eq_vertmomentum = momentum_eq.VerticalMomentumEquation(
-            #     self.fields.uv_3d, w=None,
-            #     viscosity_v=implicit_v_visc,
-            #     wind_stress=self.fields.get('wind_stress_3d'),
-            #     v_elem_size=self.fields.v_elem_size_3d,
-            #     h_elem_size=self.fields.h_elem_size_3d,
-            #     use_bottom_friction=self.options.use_bottom_friction)
-        if self.options.solve_salt:
-            self.eq_salt = tracer_eq.TracerEquationNew(self.fields.salt_3d.function_space(),
-                                                       bathymetry=self.fields.bathymetry_3d,
-                                                       v_elem_size=self.fields.v_elem_size_3d,
-                                                       h_elem_size=self.fields.h_elem_size_3d)
-            # self.eq_salt = tracer_eq.TracerEquation(
-            #     self.fields.salt_3d, self.fields.elev_3d, self.fields.uv_3d,
-            #     w=self.fields.w_3d, w_mesh=self.fields.get('w_mesh_3d'),
-            #     dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
-            #     diffusivity_h=self.tot_h_diff.get_sum(),
-            #     diffusivity_v=explicit_v_diff,
-            #     bathymetry=self.fields.bathymetry_3d,
-            #     source=self.options.salt_source_3d,
-            #     # uv_mag=self.uv_mag_3d,
-            #     uv_p1=self.fields.get('uv_p1_3d'),
-            #     lax_friedrichs_factor=self.options.tracer_lax_friedrichs,
-            #     v_elem_size=self.fields.v_elem_size_3d,
-            #     h_elem_size=self.fields.h_elem_size_3d,
-            #     bnd_markers=bnd_markers,
-            #     bnd_len=bnd_len)
-            if self.options.solve_vert_diffusion:
-                self.eq_salt_vdff = tracer_eq.TracerEquationNew(self.fields.salt_3d.function_space(),
+            self.eq_vertmomentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
                                                                 bathymetry=self.fields.bathymetry_3d,
                                                                 v_elem_size=self.fields.v_elem_size_3d,
-                                                                h_elem_size=self.fields.h_elem_size_3d)
-                # self.eq_salt_vdff = tracer_eq.TracerEquation(
-                #     self.fields.salt_3d, self.fields.elev_3d,
-                #     uv=None, w=None, w_mesh=None,
-                #     diffusivity_v=implicit_v_diff,
-                #     bathymetry=self.fields.bathymetry_3d,
-                #     v_elem_size=self.fields.v_elem_size_3d,
-                #     h_elem_size=self.fields.h_elem_size_3d,
-                #     bnd_markers=bnd_markers,
-                #     bnd_len=bnd_len)
+                                                                h_elem_size=self.fields.h_elem_size_3d,
+                                                                nonlin=False,
+                                                                use_bottom_friction=self.options.use_bottom_friction)
+        if self.options.solve_salt:
+            self.eq_salt = tracer_eq.TracerEquation(self.fields.salt_3d.function_space(),
+                                                    bathymetry=self.fields.bathymetry_3d,
+                                                    v_elem_size=self.fields.v_elem_size_3d,
+                                                    h_elem_size=self.fields.h_elem_size_3d)
+            if self.options.solve_vert_diffusion:
+                self.eq_salt_vdff = tracer_eq.TracerEquation(self.fields.salt_3d.function_space(),
+                                                             bathymetry=self.fields.bathymetry_3d,
+                                                             v_elem_size=self.fields.v_elem_size_3d,
+                                                             h_elem_size=self.fields.h_elem_size_3d)
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         self.eq_momentum.bnd_functions = self.bnd_functions['momentum']
@@ -405,74 +326,25 @@ class FlowSolver(FrozenClass):
         if self.options.use_turbulence:
             if self.options.use_turbulence_advection:
                 # explicit advection equations
-                self.eq_tke_adv = tracer_eq.TracerEquationNew(self.fields.tke_3d.function_space(),
-                                                              bathymetry=self.fields.bathymetry_3d,
-                                                              v_elem_size=self.fields.v_elem_size_3d,
-                                                              h_elem_size=self.fields.h_elem_size_3d)
-                self.eq_psi_adv = tracer_eq.TracerEquationNew(self.fields.psi_3d.function_space(),
-                                                              bathymetry=self.fields.bathymetry_3d,
-                                                              v_elem_size=self.fields.v_elem_size_3d,
-                                                              h_elem_size=self.fields.h_elem_size_3d)
-                # self.eq_tke_adv = tracer_eq.TracerEquation(
-                #     self.fields.tke_3d, self.fields.elev_3d, self.fields.uv_3d,
-                #     w=self.fields.w_3d, w_mesh=self.fields.get('w_mesh_3d'),
-                #     dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
-                #     diffusivity_h=None,
-                #     diffusivity_v=None,
-                #     uv_p1=self.fields.get('uv_p1_3d'),
-                #     lax_friedrichs_factor=self.options.tracer_lax_friedrichs,
-                #     v_elem_size=self.fields.v_elem_size_3d,
-                #     h_elem_size=self.fields.h_elem_size_3d,
-                #     bnd_markers=bnd_markers,
-                #     bnd_len=bnd_len)
-                # self.eq_psi_adv = tracer_eq.TracerEquation(
-                #     self.fields.psi_3d, self.fields.elev_3d, self.fields.uv_3d,
-                #     w=self.fields.w_3d, w_mesh=self.fields.get('w_mesh_3d'),
-                #     dw_mesh_dz=self.fields.get('w_mesh_ddz_3d'),
-                #     diffusivity_h=None,
-                #     diffusivity_v=None,
-                #     uv_p1=self.fields.get('uv_p1_3d'),
-                #     lax_friedrichs_factor=self.options.tracer_lax_friedrichs,
-                #     v_elem_size=self.fields.v_elem_size_3d,
-                #     h_elem_size=self.fields.h_elem_size_3d,
-                #     bnd_markers=bnd_markers,
-                #     bnd_len=bnd_len)
+                self.eq_tke_adv = tracer_eq.TracerEquation(self.fields.tke_3d.function_space(),
+                                                           bathymetry=self.fields.bathymetry_3d,
+                                                           v_elem_size=self.fields.v_elem_size_3d,
+                                                           h_elem_size=self.fields.h_elem_size_3d)
+                self.eq_psi_adv = tracer_eq.TracerEquation(self.fields.psi_3d.function_space(),
+                                                           bathymetry=self.fields.bathymetry_3d,
+                                                           v_elem_size=self.fields.v_elem_size_3d,
+                                                           h_elem_size=self.fields.h_elem_size_3d)
             # implicit vertical diffusion eqn with production terms
-            self.eq_tke_diff = turbulence.TKEEquationNew(self.fields.tke_3d.function_space(),
-                                                         self.gls_model,
-                                                         bathymetry=self.fields.bathymetry_3d,
-                                                         v_elem_size=self.fields.v_elem_size_3d,
-                                                         h_elem_size=self.fields.h_elem_size_3d)
-            self.eq_psi_diff = turbulence.PsiEquationNew(self.fields.psi_3d.function_space(),
-                                                         self.gls_model,
-                                                         bathymetry=self.fields.bathymetry_3d,
-                                                         v_elem_size=self.fields.v_elem_size_3d,
-                                                         h_elem_size=self.fields.h_elem_size_3d)
-            # self.eq_tke_diff = turbulence.TKEEquation(
-            #     self.fields.tke_3d,
-            #     self.fields.elev_3d, uv=None,
-            #     w=None, w_mesh=None,
-            #     dw_mesh_dz=None,
-            #     diffusivity_h=None,
-            #     diffusivity_v=implicit_v_diff,
-            #     viscosity_v=implicit_v_visc,
-            #     v_elem_size=self.fields.v_elem_size_3d,
-            #     h_elem_size=self.fields.h_elem_size_3d,
-            #     uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
-            #     bnd_markers=bnd_markers, bnd_len=bnd_len,
-            #     gls_model=self.gls_model)
-            # self.eq_psi_diff = turbulence.PsiEquation(
-            #     self.fields.psi_3d, self.fields.elev_3d, uv=None,
-            #     w=None, w_mesh=None,
-            #     dw_mesh_dz=None,
-            #     diffusivity_h=None,
-            #     diffusivity_v=implicit_v_diff,
-            #     viscosity_v=implicit_v_visc,
-            #     v_elem_size=self.fields.v_elem_size_3d,
-            #     h_elem_size=self.fields.h_elem_size_3d,
-            #     uv_mag=None, uv_p1=None, lax_friedrichs_factor=None,
-            #     bnd_markers=bnd_markers, bnd_len=bnd_len,
-            #     gls_model=self.gls_model)
+            self.eq_tke_diff = turbulence.TKEEquation(self.fields.tke_3d.function_space(),
+                                                      self.gls_model,
+                                                      bathymetry=self.fields.bathymetry_3d,
+                                                      v_elem_size=self.fields.v_elem_size_3d,
+                                                      h_elem_size=self.fields.h_elem_size_3d)
+            self.eq_psi_diff = turbulence.PsiEquation(self.fields.psi_3d.function_space(),
+                                                      self.gls_model,
+                                                      bathymetry=self.fields.bathymetry_3d,
+                                                      v_elem_size=self.fields.v_elem_size_3d,
+                                                      h_elem_size=self.fields.h_elem_size_3d)
 
         # ----- Time integrators
         self.set_time_step()
@@ -527,7 +399,6 @@ class FlowSolver(FrozenClass):
                                                self.fields.uv_3d,
                                                self.fields.bathymetry_3d,
                                                self.eq_momentum.bnd_functions)
-        # NOTE averager is a word. now.
         self.uv_averager = VerticalIntegrator(self.fields.uv_3d,
                                               self.fields.uv_dav_3d,
                                               bottom_to_top=True,
@@ -609,11 +480,6 @@ class FlowSolver(FrozenClass):
                                                                  self.fields.bathymetry_3d,
                                                                  self.fields.parab_visc_3d)
         self.uv_p1_projector = Projector(self.fields.uv_3d, self.fields.uv_p1_3d)
-        # self.uv_dav_to_tmp_projector = projector(self.uv_dav_3d, self.uv_3d_tmp)
-        # self.uv_2d_to_dav_projector = projector(self.fields.solution_2d.split()[0],
-        #                                         self.uv_dav_2d)
-        # self.uv_2d_dav_to_uv_2d_projector = projector(self.uv_dav_2d,
-        #                                              self.fields.solution_2d.split()[0])
         self.elev_3d_to_cg_projector = Projector(self.fields.elev_3d, self.fields.elev_cg_3d)
 
         # ----- set initial values
