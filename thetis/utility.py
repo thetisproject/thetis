@@ -67,30 +67,6 @@ class SumFunction(object):
         return sum(self.coeff_list)
 
 
-class Equation(object):
-    """Base class for all equations"""
-    # TODO move to equation.py
-    def mass_matrix(self, *args, **kwargs):
-        """Returns weak form for left hand side."""
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
-    def rhs(self, *args, **kwargs):
-        """Returns weak form for the right hand side."""
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
-    def rhs_implicit(self, *args, **kwargs):
-        """Returns weak form for the right hand side of all implicit terms"""
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
-    def source(self, *args, **kwargs):
-        """Returns weak for for terms that do not depend on the solution."""
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
-
 class AttrDict(dict):
     """
     Dictionary that provides both self['key'] and self.key access to members.
@@ -285,8 +261,7 @@ def get_zcoord_from_mesh(zcoord, solver_parameters={}):
 
 class VerticalVelocitySolver(object):
     """Computes vertical velocity from continuity equation"""
-    def __init__(self, solution, uv, bathymetry,
-                 boundary_markers=[], boundary_funcs={},
+    def __init__(self, solution, uv, bathymetry, boundary_funcs={},
                  solver_parameters={}):
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
@@ -317,7 +292,7 @@ class VerticalVelocitySolver(object):
               uv[2]*normal[2]
               )*test[2]*ds_surf
              )
-        for bnd_marker in boundary_markers:
+        for bnd_marker in mesh.exterior_facets.unique_markers:
             funcs = boundary_funcs.get(bnd_marker)
             ds_bnd = ds_v(int(bnd_marker))
             if funcs is None:
@@ -951,3 +926,17 @@ def tensor_jump(v, n):
     This is the discrete equivalent of grad(u) as opposed to the normal vectorial
     jump which represents div(u)."""
     return outer(v('+'), n('+')) + outer(v('-'), n('-'))
+
+
+def compute_boundary_length(mesh2d):
+    """
+    Computes the length of the boundary segments in 2d mesh.
+    """
+    p1 = FunctionSpace(mesh2d, 'CG', 1)
+    boundary_markers = mesh2d.exterior_facets.unique_markers
+    boundary_len = {}
+    for i in boundary_markers:
+        ds_restricted = ds(int(i))
+        one_func = Function(p1).assign(1.0)
+        boundary_len[i] = assemble(one_func * ds_restricted)
+    return boundary_len
