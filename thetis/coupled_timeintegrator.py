@@ -142,7 +142,7 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
             'wind_stress': self.options.wind_stress,
             'uv_source': self.options.uv_source_2d,
             'elev_source': self.options.elev_source_2d,
-            'lin_drag': self.options.lin_drag}
+            'linear_drag': self.options.linear_drag}
         self.timestepper2d = timeintegrator.SSPRK33(
             solver.eq_sw, self.fields.solution_2d,
             fields, solver.dt,
@@ -177,7 +177,7 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
                   'uv_p1': self.fields.get('uv_p1_3d'),
                   'lax_friedrichs_factor': self.options.uv_lax_friedrichs,
                   'coriolis': self.fields.get('coriolis_3d'),
-                  'lin_drag': self.options.lin_drag,
+                  'linear_drag': self.options.linear_drag,
                   }
         self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,
@@ -362,7 +362,7 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
             'wind_stress': self.options.wind_stress,
             'uv_source': self.options.uv_source_2d,
             'elev_source': self.options.elev_source_2d,
-            'lin_drag': self.options.lin_drag}
+            'linear_drag': self.options.linear_drag}
         self.timestepper2d = timeintegrator.SSPIMEX(
             solver.eq_sw, self.solution_2d_old,
             fields, solver.dt,
@@ -384,7 +384,7 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
                   'uv_p1': self.fields.get('uv_p1_3d'),
                   'lax_friedrichs_factor': self.options.uv_lax_friedrichs,
                   'coriolis': self.fields.get('coriolis_3d'),
-                  'lin_drag': self.options.lin_drag,
+                  'linear_drag': self.options.linear_drag,
                   'wind_stress': self.fields.get('wind_stress_3d'),
                   }
         solver.eq_momentum.use_bottom_friction = True
@@ -467,7 +467,7 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             'wind_stress': self.options.wind_stress,
             'uv_source': self.options.uv_source_2d,
             'elev_source': self.options.elev_source_2d,
-            'lin_drag': self.options.lin_drag}
+            'linear_drag': self.options.linear_drag}
 
         self.timestepper2d = timeintegrator.SSPRK33StageSemiImplicit(
             solver.eq_sw, self.fields.solution_2d,
@@ -504,7 +504,7 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                   'uv_p1': self.fields.get('uv_p1_3d'),
                   'lax_friedrichs_factor': self.options.uv_lax_friedrichs,
                   'coriolis': self.fields.get('coriolis_3d'),
-                  'lin_drag': self.options.lin_drag,
+                  'linear_drag': self.options.linear_drag,
                   }
         self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,
@@ -736,7 +736,7 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
                   'uv_p1': self.fields.get('uv_p1_3d'),
                   'lax_friedrichs_factor': self.options.uv_lax_friedrichs,
                   'coriolis': self.fields.get('coriolis_3d'),
-                  'lin_drag': self.options.lin_drag,
+                  'linear_drag': self.options.linear_drag,
                   }
         self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt_2d,

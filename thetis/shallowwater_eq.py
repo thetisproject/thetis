@@ -375,11 +375,15 @@ class QuadraticDragTerm(ShallowWaterTerm):
         uv_old, eta_old = self.split_solution(solution_old)
         total_h = self.get_total_depth(eta_old)
         mu_manning = fields_old.get('mu_manning')
+        C_D = fields_old.get('quadratic_drag')
         f = 0
         if mu_manning is not None:
-            bottom_fri = g_grav * mu_manning ** 2 * \
-                total_h ** (-4. / 3.) * sqrt(dot(uv_old, uv_old)) * inner(self.U_test, uv)*dx
-            f += bottom_fri
+            if C_D is not None:
+                raise Exception('Cannot set both dimensionless and Manning drag parameter')
+            C_D = g_grav * mu_manning**2 / total_h**(1./3.)
+
+        if C_D is not None:
+            f += C_D * sqrt(dot(uv_old, uv_old)) * inner(self.U_test, uv) / total_h * dx
         return -f
 
 
@@ -389,10 +393,10 @@ class LinearDragTerm(ShallowWaterTerm):
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         uv, eta = self.split_solution(solution)
-        lin_drag = fields_old.get('lin_drag')
+        linear_drag = fields_old.get('linear_drag')
         f = 0
-        if lin_drag is not None:
-            bottom_fri = lin_drag*inner(self.U_test, uv)*dx
+        if linear_drag is not None:
+            bottom_fri = linear_drag*inner(self.U_test, uv)*dx
             f += bottom_fri
         return -f
 

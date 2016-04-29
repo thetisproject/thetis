@@ -42,7 +42,7 @@ L_y = 1.0e6
 wind_stress_2d.interpolate(Expression(('tau_max*sin(pi*x[1]/L)', '0'), tau_max=tau_max, L=L_y))
 
 # linear dissipation: tau_bot/(h*rho) = -bf_gamma*u
-lin_drag = Constant(1e-6)
+linear_drag = Constant(1e-6)
 
 # --- create solver ---
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
@@ -60,7 +60,7 @@ options.solver_parameters_sw['snes_type'] = 'ksponly'
 options.baroclinic = False
 options.coriolis = coriolis_2d
 options.wind_stress = wind_stress_2d
-options.lin_drag = lin_drag
+options.linear_drag = linear_drag
 options.t_export = t_export
 options.t_end = t_end
 options.dt_2d = 20.0

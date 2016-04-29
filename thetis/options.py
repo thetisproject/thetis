@@ -120,8 +120,12 @@ class ModelOptions(AttrDict, FrozenClass):
         self.verbose = 0
         """int: Verbosity level"""
         # NOTE these are fields, potentially Functions: move out of this class?
-        self.lin_drag = None
-        """Coefficient or None: 2D linear drag parameter tau/H/rho_0 = -drag*u"""
+        self.linear_drag = None
+        """Coefficient or None: 2D linear drag parameter tau/rho_0 = -drag*u*H"""
+        self.quadratic_drag = None
+        """Coefficient or None: dimensionless 2D quadratic drag parameter tau/rho_0 = -drag*|u|*u"""
+        self.mu_manning = None
+        """Coefficient or None: Manning-Strickler 2D quadratic drag parameter tau/rho_0 = -g*mu**2*|u|*u/H^(1/3)"""
         self.h_diffusivity = None
         """Coefficient or None: Background diffusivity"""
         self.v_diffusivity = None
