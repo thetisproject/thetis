@@ -438,11 +438,14 @@ class ForwardEuler(TimeIntegrator):
 
 class CrankNicolson(TimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, gamma=0.5):
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, gamma=0.5, semi_implicit=False):
         """Creates forms for the time integrator"""
         super(CrankNicolson, self).__init__(equation, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
-        self.solver_parameters.setdefault('snes_type', 'newtonls')
+        if semi_implicit:
+            self.solver_parameters.setdefault('snes_type', 'ksponly')
+        else:
+            self.solver_parameters.setdefault('snes_type', 'newtonls')
 
         self.dt_const = Constant(dt)
 
@@ -462,6 +465,13 @@ class CrankNicolson(TimeIntegrator):
 
         u = self.solution
         u_old = self.solution_old
+        if semi_implicit:
+            # linearize around last timestep using the fact that all terms are written in the form A(u_nl) u
+            # (currently only true for the SWE)
+            u_nl = u_old
+        else:
+            # solve the full nonlinear residual form
+            u_nl = u
         bnd = bnd_conditions
         f = self.fields
         f_old = self.fields_old
@@ -470,7 +480,7 @@ class CrankNicolson(TimeIntegrator):
         gamma_const = Constant(gamma)
         # FIXME this is consistent with previous implementation but time levels are incorrect
         self.F = (self.equation.mass_term(u) - self.equation.mass_term(u_old) -
-                  self.dt_const*(gamma_const*self.equation.residual('all', u, u, f, f, bnd) +
+                  self.dt_const*(gamma_const*self.equation.residual('all', u, u_nl, f, f, bnd) +
                                  (1-gamma_const)*self.equation.residual('all', u_old, u_old, f_old, f_old, bnd)
                                  )
                   )
