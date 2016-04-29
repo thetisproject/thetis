@@ -493,8 +493,8 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             explicit_v_diff = solver.tot_v_diff.get_sum()
 
         vdiff_sp = {'snes_monitor': False,
-                    'ksp_type': 'gmres',
-                    'pc_type': 'ilu',
+                    # 'ksp_type': 'gmres',
+                    # 'pc_type': 'ilu',
                     'snes_atol': 1e-27,
                     }
         # vert_timeintegrator = timeintegrator.DIRKLSPUM2
