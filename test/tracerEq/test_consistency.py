@@ -77,6 +77,7 @@ def run_tracer_consistency(mimetic=False, meshtype='regular', do_export=False):
     options.nonlin = False
     options.mimetic = False
     options.solve_salt = True
+    options.solve_temp = False
     options.solve_vert_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = False

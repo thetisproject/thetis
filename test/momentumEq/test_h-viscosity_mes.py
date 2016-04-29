@@ -64,6 +64,7 @@ def run(refinement, order=1, mimetic=False, warped_mesh=False, do_export=True):
     solverobj.options.dt = dt
     solverobj.options.dt_2d = dt_2d
     solverobj.options.solve_salt = False
+    solverobj.options.solve_temp = False
     solverobj.options.fields_to_export = ['uv_3d']
     solverobj.options.h_viscosity = Constant(h_viscosity)
 

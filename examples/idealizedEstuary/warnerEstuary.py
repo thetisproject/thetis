@@ -43,11 +43,10 @@ depth_ocean = 10
 u_tide = 0.4
 t_tide = 12*3600
 salt_ocean = 30.0
-rho_ocean = 1023.05
 depth_river = 5
 u_river = -0.08
 salt_river = 0.0
-rho_river = 999.70
+temp_const = 10.0
 
 # bathymetry
 p1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -61,10 +60,13 @@ solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solverobj.options
 options.mimetic = False
 options.solve_salt = not simple_barotropic
+options.solve_temp = False
+options.constant_temp = Constant(temp_const)
 options.solve_vert_diffusion = not simple_barotropic
 options.use_bottom_friction = not simple_barotropic
 options.use_turbulence = not simple_barotropic
 options.use_turbulence_advection = not simple_barotropic
+options.use_smooth_eddy_viscosity = True
 options.use_ale_moving_mesh = False
 # options.use_semi_implicit_2d = False
 # options.use_mode_split = False
@@ -85,11 +87,11 @@ options.t_end = t_end
 options.outputdir = outputdir
 options.u_advection = Constant(2.0)
 options.check_vol_conservation_2d = True
-options.check_vol_conservation_2d = True
+options.check_vol_conservation_3d = True
 options.check_salt_conservation = True
 options.check_salt_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
-                            'w_3d', 'w_mesh_3d', 'salt_3d',
+                            'w_3d', 'w_mesh_3d', 'salt_3d', 'density_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                             'baroc_head_2d', 'smag_visc_3d',
                             'eddy_visc_3d', 'shear_freq_3d',
@@ -108,14 +110,14 @@ solverobj.create_function_spaces()
 salt_init3d = Function(solverobj.function_spaces.H, name='initial salinity')
 # original vertically uniform initial condition
 salt_init3d.interpolate(Expression('s_oce - (s_oce - s_riv)*(x[0] - 30000 + 10*x[2])/50000 ',
-                                   s_oce=rho_ocean, s_riv=rho_river))
+                                   s_oce=salt_ocean, s_riv=salt_river))
 # start from idealized salt wedge
 # salt_init3d.interpolate(Expression('(s_riv + (s_riv - s_oce)*(x[0] - 80000)/50000 * (0.5 - 0.5*tanh(4*(x[2] + 2.0))) )',
-#                                    s_oce=rho_ocean, s_riv=rho_river))
-min_ix = salt_init3d.dat.data < rho_river
-salt_init3d.dat.data[min_ix] = rho_river
-max_ix = salt_init3d.dat.data > rho_ocean
-salt_init3d.dat.data[max_ix] = rho_ocean
+#                                    s_oce=salt_ocean, s_riv=salt_river))
+min_ix = salt_init3d.dat.data < salt_river
+salt_init3d.dat.data[min_ix] = salt_river
+max_ix = salt_init3d.dat.data > salt_ocean
+salt_init3d.dat.data[max_ix] = salt_ocean
 
 # weak boundary conditions
 flux_ocean = -u_tide*depth_ocean*ly
@@ -139,12 +141,10 @@ solverobj.bnd_functions['shallow_water'] = {1: ocean_funcs, 2: river_funcs}
 solverobj.bnd_functions['momentum'] = {1: ocean_funcs_3d, 2: river_funcs_3d}
 solverobj.bnd_functions['salt'] = {1: ocean_salt_3d, 2: river_salt_3d}
 
-elev_init = Expression('2.0*(x[0] - lx/2.0)/lx', lx=lx)
-
 
 def update_forcings(t_new):
     ocean_flux.assign(ocean_flux_func(t_new))
     river_flux.assign(river_flux_func(t_new))
 
-solverobj.assign_initial_conditions(salt=salt_init3d, elev=elev_init)
+solverobj.assign_initial_conditions(salt=salt_init3d)
 solverobj.iterate(update_forcings=update_forcings)

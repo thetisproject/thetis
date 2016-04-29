@@ -40,6 +40,7 @@ def test_closed_channel(do_export=False):
     options = solver_obj.options
     # options.nonlin = False
     options.solve_salt = False
+    options.solve_temp = False
     options.solve_vert_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = False

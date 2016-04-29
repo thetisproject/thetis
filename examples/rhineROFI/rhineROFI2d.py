@@ -92,7 +92,7 @@ bnd_elev_solver.solve()
 # bnd_v = Function(fs, name='Boundary v velocity')
 # tri = TrialFunction(fs)
 # test = TestFunction(fs)
-# v = -(g*kelvin_k/OmegaTide)*eta_amplitude*exp( xyz[0]*kelvin_m )*cos( xyz[1]*kelvin_k - OmegaTide*bnd_time )
+# v = -(g*kelvin_k/OmegaTide)*eta_amplitude*exp(xyz[0]*kelvin_m)*cos(xyz[1]*kelvin_k - OmegaTide*bnd_time)
 # a = inner(test, tri)*dx
 # L = test*v*dx
 # bnd_v_prob = LinearVariationalProblem(a, L, bnd_v)
@@ -102,9 +102,12 @@ bnd_elev_solver.solve()
 river_discharge = Constant(-Qriver)
 tide_elev_funcs = {'elev': bnd_elev}
 # tide_uv_funcs = {'un': bnd_v}
-open_funcs = {'symm': None}
+# tide_funcs = {'elev': bnd_elev, 'un': bnd_v}
+open_funcs = {'radiation': None}
 river_funcs = {'flux': river_discharge}
-solver_obj.bnd_functions['shallow_water'] = {1: tide_elev_funcs, 2: tide_elev_funcs, 3: tide_elev_funcs,
+solver_obj.bnd_functions['shallow_water'] = {1: tide_elev_funcs,
+                                             2: tide_elev_funcs,
+                                             3: tide_elev_funcs,
                                              6: river_funcs}
 
 # TODO set correct boundary conditions

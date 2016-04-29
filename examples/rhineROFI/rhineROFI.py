@@ -18,6 +18,10 @@
 
 from thetis import *
 
+# set physical constants
+physical_constants['rho0'].assign(1000.0)
+physical_constants['z0_friction'].assign(0.005)
+
 reso = 'coarse'
 layers = 12
 if reso == 'fine':
@@ -30,67 +34,70 @@ print_info('Exporting to ' + outputdir)
 # Physical parameters
 eta_amplitude = 1.00  # mean (Fisher et al. 2009 tidal range 2.00 )
 eta_phase = 0
-H = 20  # water depth
-HInlet = 5  # water depth at river inlet
-Lriver = 45e3
-Qriver = 3.0e3  # 1.5e3 river discharge (Fisher et al. 2009)
-Sriver = 0
-Ssea = 32
-density_river = 999.7
-density_ocean = 1024.6
+H_ocean = 20  # water depth
+H_river = 5  # water depth at river inlet
+L_river = 45e3
+Q_river = 3.0e3  # 1.5e3 river discharge (Fisher et al. 2009)
+temp_const = 10.0
+salt_river = 0.0
+salt_ocean = 32.0
+
 Ttide = 44714.0  # M2 tidal period (Fisher et al. 2009)
 Tday = 0.99726968*24*60*60  # sidereal time of Earth revolution
 OmegaEarth = 2*np.pi/Tday
 OmegaTide = 2*np.pi/Ttide
 g = physical_constants['g_grav']
-c = sqrt(g*H)  # [m/s] wave speed
+c = sqrt(g*H_ocean)  # [m/s] wave speed
 lat_deg = 52.5  # latitude
 phi = (np.pi/180)*lat_deg  # latitude in radians
 coriolis_f = 2*OmegaEarth*sin(phi)  # [rad/s] Coriolis parameter ~ 1.1e-4
 kelvin_k = OmegaTide/c  # [1/m] initial wave number of tidal wave, no friction
 kelvin_m = (coriolis_f/c)  # [-] Cross-shore variation
 
-dt = 8.0
+dt = 7.0
 t_end = 32*44714
 t_export = 900.0  # 44714/12
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
-bathymetry_2d.interpolate(Expression('(x[0] > 0.0) ? H*(1-x[0]/Lriver) + HInlet*(x[0]/Lriver) : H',
-                                     H=H, HInlet=HInlet, Lriver=Lriver))
+bathymetry_2d.interpolate(Expression('(x[0] > 0.0) ? H*(1-x[0]/L_river) + H_river*(x[0]/L_river) : H',
+                                     H=H_ocean, H_river=H_river, L_river=L_river))
+
+simple_barotropic = False  # for debugging
 
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solver_obj.options
 options.mimetic = False
-options.solve_salt = True
-options.solve_vert_diffusion = False
-options.use_bottom_friction = False
+options.solve_salt = not simple_barotropic
+options.solve_temp = False
+options.constant_temp = Constant(temp_const)
+options.solve_vert_diffusion = not simple_barotropic
+options.use_bottom_friction = not simple_barotropic
+options.use_turbulence = not simple_barotropic
+options.use_turbulence_advection = not simple_barotropic
+options.use_smooth_eddy_viscosity = True
 options.use_ale_moving_mesh = False
 # options.use_semi_implicit_2d = False
 # options.use_mode_split = False
-options.baroclinic = True
-options.coriolis = Constant(coriolis_f)
-options.use_supg = False
-options.use_gjv = False
+options.baroclinic = not simple_barotropic
 options.uv_lax_friedrichs = Constant(1.0)
 options.tracer_lax_friedrichs = Constant(1.0)
-Re_h = 2.0
+# options.h_diffusivity = Constant(50.0)
+# options.h_viscosity = Constant(50.0)
+options.v_viscosity = Constant(1.3e-6)  # background value
+options.v_diffusivity = Constant(1.4e-7)  # background value
+options.use_limiter_for_tracers = True
+Re_h = 5.0
 options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
-# options.salt_jump_diff_factor = Constant(1.0)
-# options.salt_range = Constant(25.0)
-# To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
-# options.h_viscosity = Constant(0.5*2000.0/refinement[reso_str]/Re_h)
-# To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
-# options.h_viscosity = Constant(100.0/refinement[reso_str])
-# options.h_viscosity = Constant(10.0)
-if options.use_mode_split:
-    options.dt = dt
+options.coriolis = Constant(coriolis_f)
+# if options.use_mode_split:
+#     options.dt = dt
 options.t_export = t_export
 options.t_end = t_end
 options.outputdir = outputdir
-options.u_advection = Constant(2.0)
+options.u_advection = Constant(3.0)
 options.check_vol_conservation_2d = True
 options.check_vol_conservation_3d = True
 options.check_salt_conservation = True
@@ -98,9 +105,15 @@ options.check_salt_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                            'baroc_head_2d', 'smag_visc_3d']
-options.fields_to_hdf5 = ['uv_3d', 'w_3d', 'salt_3d', 'baroc_head_3d',
-                          'smag_visc_3d']
+                            'baroc_head_2d', 'smag_visc_3d',
+                            'eddy_visc_3d', 'shear_freq_3d',
+                            'buoy_freq_3d', 'tke_3d', 'psi_3d',
+                            'eps_3d', 'len_3d']
+options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
+                                 'w_3d', 'salt_3d', 'smag_visc_3d',
+                                 'eddy_visc_3d', 'shear_freq_3d',
+                                 'buoy_freq_3d', 'tke_3d', 'psi_3d',
+                                 'eps_3d', 'len_3d']
 options.timer_labels = []
 
 bnd_elev = Function(P1_2d, name='Boundary elevation')
@@ -126,9 +139,9 @@ bnd_v_prob = LinearVariationalProblem(a, L, bnd_v)
 bnd_v_solver = LinearVariationalSolver(bnd_v_prob)
 bnd_v_solver.solve()
 
-river_discharge = Constant(-Qriver)
-ocean_salt = Constant(density_ocean)
-river_salt = Constant(density_river)
+river_discharge = Constant(-Q_river)
+ocean_salt = Constant(salt_ocean)
+river_salt = Constant(salt_river)
 tide_elev_funcs = {'elev': bnd_elev}
 tide_uv_funcs = {'un': bnd_v}
 open_funcs = {'symm': None}
@@ -165,8 +178,11 @@ l = test[1]*uv*dx
 solve(a == l, uv_init)
 salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
 salt_init3d.interpolate(Expression('d_ocean - (d_ocean - d_river)*(1 + tanh((x[0] - xoff)/sigma))/2',
-                                   sigma=6000.0, d_ocean=density_ocean,
-                                   d_river=density_river, xoff=20.0e3))
+                                   sigma=8000.0, d_ocean=salt_ocean,
+                                   d_river=salt_river, xoff=20.0e3))
+# salt_init3d.interpolate(Expression('d_ocean - (d_ocean - d_river)*fmin(fmax((x[0] - xoff)/L, 0.0), 1.0)',
+#                                    sigma=12000.0, d_ocean=salt_ocean,
+#                                    d_river=salt_river, xoff=2.0e3, L=10e3))
 
 
 def update_forcings(t):

@@ -46,7 +46,9 @@ bathymetry_2d.interpolate(Expression('ho - (ho-hr)*x[0]/100e3',
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solver_obj.options
 # options.nonlin = False
+options.mimetic = False
 options.solve_salt = True
+options.solve_temp = False
 options.solve_vert_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = False

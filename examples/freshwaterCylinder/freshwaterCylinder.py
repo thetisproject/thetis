@@ -47,6 +47,10 @@ t_end = 288 * 3600
 t_export = 900.0
 depth = 20.0
 
+temp_const = 10.0
+salt_center = 33.75
+salt_outside = 34.85
+
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
@@ -60,25 +64,28 @@ coriolis_2d.interpolate(
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solver_obj.options
-options.cfl_2d = 1.0
-# options.nonlin = False
+options.mimetic = False
 options.solve_salt = True
+options.solve_temp = False
+options.constant_temp = Constant(temp_const)
 options.solve_vert_diffusion = False
 options.use_bottom_friction = False
+options.use_turbulence = False
+options.use_turbulence_advection = False
 options.use_ale_moving_mesh = False
-options.use_semi_implicit_2d = False
+# options.use_semi_implicit_2d = False
 # options.use_mode_split = False
 options.baroclinic = True
 options.coriolis = coriolis_2d
-options.uv_lax_friedrichs = None  # Constant(1e-3)
-options.tracer_lax_friedrichs = None  # Constant(1e-3)
+options.uv_lax_friedrichs = Constant(1.0)
+options.tracer_lax_friedrichs = Constant(1.0)
+# options.h_diffusivity = Constant(50.0)
+# options.h_viscosity = Constant(50.0)
+options.v_viscosity = Constant(1.3e-6)  # background value
+options.v_diffusivity = Constant(1.4e-7)  # background value
 options.use_limiter_for_tracers = True
-Re_h = 2.0
+Re_h = 5.0
 options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
-# how does diffusion scale with mesh size?? nu = lx^2/dt??
-# options.h_diffusivity = Constant(3.0)
-# options.h_viscosity = Constant(1e-2)
-# options.v_viscosity = Constant(1e-5)
 if options.use_mode_split:
     options.dt = dt
 options.t_export = t_export
@@ -90,7 +97,7 @@ options.check_vol_conservation_3d = True
 options.check_salt_conservation = True
 options.check_salt_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
-                            'w_3d', 'w_mesh_3d', 'salt_3d',
+                            'w_3d', 'w_mesh_3d', 'salt_3d', 'density_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                             'baroc_head_2d']
 options.fields_to_export_numpy = ['salt_3d', 'baroc_head_3d', 'elev_2d']
@@ -100,15 +107,12 @@ options.timer_labels = ['mode2d', 'momentum_eq', 'continuity_eq', 'salt_eq',
 
 solver_obj.create_equations()
 # assign initial salinity
-salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
-# interpolate on P1 field to circumvent overshoots
 # impose rho' = rho - 1025.0
-tmp = Function(solver_obj.function_spaces.P1, name='initial salinity')
-tmp.interpolate(Expression('0.78*1.1*pow((sqrt(x[0]*x[0] + x[1]*x[1])/1000/3 + (1.0-tanh(10*(x[2]+10.0)))*0.5), 8)'))
+salt_init3d = Function(solver_obj.function_spaces.P1, name='initial salinity')
+salt_init3d.interpolate(Expression('s_0 + 1.1*pow((sqrt(x[0]*x[0] + x[1]*x[1])/1000/3 + (1.0-tanh(10*(x[2] + 10.0)))*0.5), 8)', s_0=salt_center))
 # crop bad values
-ix = tmp.dat.data[:] > 0.858
-tmp.dat.data[ix] = 0.858
-salt_init3d.project(tmp)
+ix = salt_init3d.dat.data[:] > salt_outside
+salt_init3d.dat.data[ix] = salt_outside
 
 solver_obj.assign_initial_conditions(salt=salt_init3d)
 solver_obj.iterate()
