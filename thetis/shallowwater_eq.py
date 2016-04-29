@@ -373,10 +373,13 @@ class ShallowWaterEquations(Equation):
                 funcs = self.bnd_functions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker))
                 if funcs is not None:
-                    eta_ext, uv_ext = self.get_bnd_functions(None, uv, bnd_marker)
-                    if uv_ext is uv:
-                        continue
-                    delta_uv = uv - uv_ext
+                    if 'un' in funcs:
+                        delta_uv = (dot(uv, n) - funcs['un'])*n
+                    else:
+                        eta_ext, uv_ext = self.get_bnd_functions(None, uv, bnd_marker)
+                        if uv_ext is uv:
+                            continue
+                        delta_uv = uv - uv_ext
 
                     if self.include_grad_div_viscosity_term:
                         stress_jump = nu*2.*sym(outer(delta_uv, n))
