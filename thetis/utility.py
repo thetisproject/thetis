@@ -354,15 +354,52 @@ class VerticalIntegrator(object):
             self.solver.solve()
 
 
-def compute_baroclinic_head(solver, salt, baroc_head_3d, baroc_head_2d,
-                            baroc_head_int_3d, bath3d):
+class DensitySolver(object):
+    """
+    Computes density from salinity and temperature using the equation of state.
+
+    Density is computed point-wise assuming that T,S and rho are in the same
+    function space.
+    """
+    def __init__(self, salinity, temperature, density):
+        self.fs = density.function_space()
+        self.eos = EquationOfState()
+
+        if isinstance(salinity, Function):
+            assert self.fs == salinity.function_space()
+        if isinstance(temperature, Function):
+            assert self.fs == temperature.function_space()
+
+        self.s = salinity
+        self.t = temperature
+        self.rho = density
+
+    def _get_array(self, function):
+        if isinstance(function, Function):
+            assert self.fs == function.function_space()
+            return function.dat.data[:]
+        if isinstance(function, Constant):
+            return function.dat.data[0]
+        # assume that function is a float
+        return function
+
+    def solve(self):
+        s = self._get_array(self.s)
+        th = self._get_array(self.t)
+        p = 0.0  # NOTE ignore pressure for now
+        rho0 = self._get_array(physical_constants['rho0'])
+        self.rho.dat.data[:] = self.eos.compute_rho(s, th, p, rho0)
+
+
+def compute_baroclinic_head(solver):
     """
     Computes baroclinic head from density field
 
     r = 1/rho_0 int_{z=-h}^{\eta} rho' dz
     """
+    solver.density_solver.solve()
     solver.rho_integrator.solve()
-    baroc_head_3d *= -physical_constants['rho0_inv']
+    solver.fields.baroc_head_3d *= -physical_constants['rho0_inv']
     solver.baro_head_averager.solve()
     solver.extract_surf_baro_head.solve()
 
@@ -907,15 +944,15 @@ class EquationOfState(object):
         Last optional argument rho0 is for computing deviation
         rho' = rho(S, Th, p) - rho0.
         """
-        np.maximum(s, 0.0, s)  # ensure positive salinity
+        s_pos = np.maximum(s, 0.0)  # ensure salinity is positive
         a = self.a
         b = self.b
-        pn = (a[0] + th*a[1] + th*th*a[2] + th*th*th*a[3] + s0*a[4] +
-              th*s0*a[5] + s0*s0*a[6] + p*a[7] + p*th * th*a[8] + p*s0*a[9] +
+        pn = (a[0] + th*a[1] + th*th*a[2] + th*th*th*a[3] + s_pos*a[4] +
+              th*s_pos*a[5] + s_pos*s_pos*a[6] + p*a[7] + p*th * th*a[8] + p*s_pos*a[9] +
               p*p*a[10] + p*p*th*th * a[11])
         pd = (b[0] + th*b[1] + th*th*b[2] + th*th*th*b[3] +
-              th*th*th*th*b[4] + s0*b[5] + s0*th*b[6] + s0*th*th*th*b[7] +
-              pow(s0, 1.5)*b[8] + pow(s0, 1.5)*th*th*b[9] + p*b[10] +
+              th*th*th*th*b[4] + s_pos*b[5] + s_pos*th*b[6] + s_pos*th*th*th*b[7] +
+              pow(s_pos, 1.5)*b[8] + pow(s_pos, 1.5)*th*th*b[9] + p*b[10] +
               p*p*th*th*th*b[11] + p*p*p*th*b[12])
         rho = pn/pd - rho0
         return rho

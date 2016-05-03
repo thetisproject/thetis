@@ -26,6 +26,8 @@ class ModelOptions(AttrDict):
         """bool: Use nonlinear shallow water equations"""
         self.solve_salt = True
         """bool: Solve salt transport"""
+        self.solve_temp = True
+        """bool: Solve temperature transport"""
         self.solve_vert_diffusion = True
         """bool: Solve implicit vert diffusion"""
         self.use_bottom_friction = True
@@ -56,7 +58,7 @@ class ModelOptions(AttrDict):
         """GLSModelOptions: Dictionary of default GLS model options"""
         self.use_turbulence_advection = False
         """bool: Advect tke,psi with velocity"""
-        self.baroclinic = False  #: NOTE implies that salt_3d field is density [kg/m3]
+        self.baroclinic = False
         """bool: Compute internal pressure gradient in momentum equation"""
         self.smagorinsky_factor = None
         """Constant or None: Smagorinsky viscosity factor C_S"""
@@ -76,9 +78,11 @@ class ModelOptions(AttrDict):
         """bool: Print deviation from initial volume for 3D mode (domain volume)"""
         self.check_salt_conservation = False
         """bool: Print deviation from initial salt mass"""
-        self.check_salt_deviation = False
-        """bool: Print deviation from mean of initial value"""
         self.check_salt_overshoot = False
+        """bool: Print overshoots that exceed initial range"""
+        self.check_temp_conservation = False
+        """bool: Print deviation from initial temp mass"""
+        self.check_temp_overshoot = False
         """bool: Print overshoots that exceed initial range"""
         self.dt = None
         """float: Time step. If set overrides automatically computed stable dt"""
@@ -95,7 +99,7 @@ class ModelOptions(AttrDict):
         self.u_advection = Constant(0.0)
         """Constant: Max. horizontal velocity magnitude for computing max stable advection time step."""
         self.timer_labels = ['mode2d', 'momentum_eq', 'vert_diffusion',
-                             'continuity_eq', 'salt_eq', 'aux_eta3d',
+                             'continuity_eq', 'salt_eq', 'temp_eq', 'aux_eta3d',
                              'aux_mesh_ale', 'aux_friction', 'aux_barolinicity',
                              'aux_mom_coupling',
                              'func_copy_2d_to_3d', 'func_copy_3d_to_2d',
@@ -136,3 +140,9 @@ class ModelOptions(AttrDict):
         """Coefficient or None: source term for 2d continuity equation"""
         self.salt_source_3d = None
         """Coefficient or None: source term for salinity equation"""
+        self.temp_source_3d = None
+        """Coefficient or None: source term for temperature equation"""
+        self.constant_temp = Constant(10.0)
+        """Coefficient: Constant temperature if temperature is not solved"""
+        self.constant_salt = Constant(0.0)
+        """Coefficient: Constant salinity if salinity is not solved"""

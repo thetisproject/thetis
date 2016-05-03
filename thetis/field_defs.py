@@ -160,6 +160,18 @@ field_metadata['salt_3d'] = {
     'unit': 'psu',
     'filename': 'Salinity3d',
 }
+field_metadata['temp_3d'] = {
+    'name': 'Water temperature',
+    'shortname': 'Temperature',
+    'unit': 'C',
+    'filename': 'Temperature3d',
+}
+field_metadata['density_3d'] = {
+    'name': 'Water density',
+    'shortname': 'Density',
+    'unit': 'kg m-3',
+    'filename': 'Density3d',
+}
 field_metadata['parab_visc_3d'] = {
     'name': 'Parabolic Viscosity',
     'shortname': 'Parabolic Viscosity',
