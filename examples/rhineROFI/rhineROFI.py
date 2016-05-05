@@ -77,7 +77,6 @@ options.solve_vert_diffusion = not simple_barotropic
 options.use_bottom_friction = not simple_barotropic
 options.use_turbulence = not simple_barotropic
 options.use_turbulence_advection = not simple_barotropic
-options.use_smooth_eddy_viscosity = True
 options.use_ale_moving_mesh = False
 # options.use_semi_implicit_2d = False
 # options.use_mode_split = False

@@ -67,7 +67,6 @@ options.use_turbulence = True
 options.use_ale_moving_mesh = False
 options.baroclinic = True
 options.use_limiter_for_tracers = True
-options.use_smooth_eddy_viscosity = True  # needed to suppress grid noise
 options.v_viscosity = Constant(1.3e-6)  # background value
 options.v_diffusivity = Constant(1.4e-7)  # background value
 options.wind_stress = wind_stress_2d

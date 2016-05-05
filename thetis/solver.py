@@ -256,7 +256,7 @@ class FlowSolver(FrozenClass):
             self.gls_model = turbulence.GenericLengthScaleModel(weakref.proxy(self),
                                                                 self.fields.tke_3d,
                                                                 self.fields.psi_3d,
-                                                                self.fields.uv_p1_3d,
+                                                                self.fields.uv_3d,
                                                                 self.fields.get('density_3d'),
                                                                 self.fields.len_3d,
                                                                 self.fields.eps_3d,
