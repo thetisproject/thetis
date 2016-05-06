@@ -38,7 +38,8 @@ class FlowSolver2d(FrozenClass):
         # simulation time step bookkeeping
         self.simulation_time = 0
         self.iteration = 0
-        self.i_export = 1
+        self.i_export = 0
+        self.next_export_t = self.simulation_time + self.options.t_export
 
         self.callbacks = OrderedDict()
         """List of callback functions that will be called during exports"""
@@ -208,17 +209,37 @@ class FlowSolver2d(FrozenClass):
         for key in self.exporters:
             self.exporters[key].export()
 
-    def load_state(self, i_export, t, iteration):
-        """Loads simulation state from hdf5 outputs."""
-        uv_2d, elev_2d = self.fields.solution_2d.split()
-        self.exporters['hdf5'].exporters['uv_2d'].load(i_export, uv_2d)
-        self.exporters['hdf5'].exporters['elev_2d'].load(i_export, elev_2d)
-        self.assign_initial_conditions(elev=elev_2d, uv_init=uv_2d)
+    def load_state(self, i_export, t=None, iteration=None):
+        """
+        Loads simulation state from hdf5 outputs.
+
+        This replaces assign_initial_conditions in model initilization.
+
+        This assumes that model setup is kept the same (e.g. time step) and
+        all pronostic state variables are exported in hdf5 format. The required
+        state variables are: elev_2d, uv_2d
+
+        Currently hdf5 field import only works for the same number of MPI
+        processes.
+        """
+        if not self._initialized:
+            self.create_equations()
+        self.exporters['hdf5'].exporters['uv_2d'].load(i_export, self.fields.uv_2d)
+        self.exporters['hdf5'].exporters['elev_2d'].load(i_export, self.fields.elev_2d)
+        self.assign_initial_conditions()
+
+        # time stepper bookkeeping for export time step
         self.i_export = i_export
-        self.simulation_time = t
+        self.next_export_t = self.i_export*self.options.t_export
+        if iteration is None:
+            iteration = int(np.ceil(self.next_export_t/self.dt))
+        if t is None:
+            t = iteration*self.dt
         self.iteration = iteration
-        self.print_state(0.0)
-        self.i_export += 1
+        self.simulation_time = t
+
+        # for next export
+        self.next_export_t += self.options.t_export
         for k in self.exporters:
             self.exporters[k].set_next_export_ix(self.i_export)
 
@@ -249,6 +270,7 @@ class FlowSolver2d(FrozenClass):
             self.callbacks[key].initialize(self)
 
         # initial export
+        self.print_state(0.0)
         self.export()
         if export_func is not None:
             export_func()
@@ -266,6 +288,9 @@ class FlowSolver2d(FrozenClass):
 
             # Write the solution to file
             if self.simulation_time >= next_export_t - t_epsilon:
+                self.i_export += 1
+                next_export_t += self.options.t_export
+
                 cputime = time_mod.clock() - cputimestamp
                 cputimestamp = time_mod.clock()
                 self.print_state(cputime)
@@ -277,6 +302,3 @@ class FlowSolver2d(FrozenClass):
                 self.export()
                 if export_func is not None:
                     export_func()
-
-                next_export_t += self.options.t_export
-                self.i_export += 1

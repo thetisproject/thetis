@@ -47,7 +47,8 @@ class FlowSolver(FrozenClass):
         # simulation time step bookkeeping
         self.simulation_time = 0
         self.iteration = 0
-        self.i_export = 1
+        self.i_export = 0
+        self.next_export_t = self.simulation_time + self.options.t_export
 
         self.bnd_functions = {'shallow_water': {},
                               'momentum': {},
@@ -516,50 +517,104 @@ class FlowSolver(FrozenClass):
         compute_elem_height(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
         self.copy_v_elem_size_to_2d.solve()
 
+        self.next_export_t = self.simulation_time + self.options.t_export
         self._initialized = True
         self._isfrozen = True
 
-    def assign_initial_conditions(self, elev=None, salt=None, temp=None, uv_2d=None):
+    def assign_initial_conditions(self, elev=None, salt=None, temp=None,
+                                  uv_2d=None, uv_3d=None, tke=None, psi=None):
         if not self._initialized:
             self.create_equations()
         if elev is not None:
             self.fields.elev_2d.project(elev)
-            self.copy_elev_to_3d.solve()
-            self.fields.elev_cg_3d.project(self.fields.elev_3d)
-            if self.options.use_ale_moving_mesh:
-                self.mesh_coord_updater.solve()
-                compute_elem_height(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
-                self.copy_v_elem_size_to_2d.solve()
         if uv_2d is not None:
             self.fields.uv_2d.project(uv_2d)
             ExpandFunctionTo3d(self.fields.uv_2d, self.fields.uv_3d,
                                elem_height=self.fields.v_elem_size_3d).solve()
+        if uv_3d is not None:
+            self.fields.uv_3d.project(uv_3d)
         if salt is not None and self.options.solve_salt:
             self.fields.salt_3d.project(salt)
         if temp is not None and self.options.solve_temp:
             self.fields.temp_3d.project(temp)
-        self.w_solver.solve()
-        if self.options.use_ale_moving_mesh:
-            self.w_mesh_solver.solve()
-        if self.options.baroclinic:
-            compute_baroclinic_head(self)
         if self.options.use_turbulence:
+            if tke is not None:
+                self.fields.tke_3d.project(tke)
+            if psi is not None:
+                self.fields.psi_3d.project(psi)
             self.gls_model.initialize()
 
         self.timestepper.initialize()
+        # update all diagnostic variables
+        self.timestepper._update_all_dependencies(self.simulation_time,
+                                                  do_2d_coupling=False,
+                                                  do_vert_diffusion=False,
+                                                  do_ale_update=True,
+                                                  do_stab_params=True,
+                                                  do_turbulence=False)
+        if self.options.use_turbulence:
+            self.gls_model.initialize()
 
     def export(self):
         for key in self.exporters:
             self.exporters[key].export()
 
-    def load_state(self, i_export, t, iteration):
-        """Loads simulation state from hdf5 outputs."""
-        # TODO use options to figure out which functions need to be loaded
-        raise NotImplementedError('state loading is not yet implemented for 3d solver')
+    def load_state(self, i_export, t=None, iteration=None):
+        """
+        Loads simulation state from hdf5 outputs.
+
+        This replaces assign_initial_conditions in model initilization.
+
+        This assumes that model setup is kept the same (e.g. time step) and
+        all pronostic state variables are exported in hdf5 format.  The required
+        state variables are: elev_2d, uv_2d, uv_3d, salt_3d, temp_3d, tke_3d,
+        psi_3d
+
+        Currently hdf5 field import only works for the same number of MPI
+        processes.
+        """
+        if not self._initialized:
+            self.create_equations()
+        self.exporters['hdf5'].exporters['uv_2d'].load(i_export, self.fields.uv_2d)
+        self.exporters['hdf5'].exporters['elev_2d'].load(i_export, self.fields.elev_2d)
+        self.exporters['hdf5'].exporters['uv_3d'].load(i_export, self.fields.uv_3d)
+        salt = temp = tke = psi = None
+        if self.options.solve_salt:
+            salt = self.fields.salt_3d
+            self.exporters['hdf5'].exporters['salt_3d'].load(i_export, salt)
+        if self.options.solve_temp:
+            temp = self.fields.temp_3d
+            self.exporters['hdf5'].exporters['temp_3d'].load(i_export, temp)
+        if self.options.use_turbulence:
+            tke = self.fields.tke_3d
+            psi = self.fields.psi_3d
+            self.exporters['hdf5'].exporters['tke_3d'].load(i_export, tke)
+            self.exporters['hdf5'].exporters['psi_3d'].load(i_export, psi)
+        self.assign_initial_conditions(elev=self.fields.elev_2d,
+                                       uv_2d=self.fields.uv_2d,
+                                       uv_3d=self.fields.uv_3d,
+                                       salt=salt, temp=temp,
+                                       tke=tke, psi=psi,
+                                       )
+
+        # time stepper bookkeeping for export time step
+        self.i_export = i_export
+        self.next_export_t = self.i_export*self.options.t_export
+        if iteration is None:
+            iteration = int(np.ceil(self.next_export_t/self.dt))
+        if t is None:
+            t = iteration*self.dt
+        self.iteration = iteration
+        self.simulation_time = t
+
+        # for next export
+        self.next_export_t += self.options.t_export
+        for k in self.exporters:
+            self.exporters[k].set_next_export_ix(self.i_export)
 
     def print_state(self, cputime):
-        norm_h = norm(self.fields.solution_2d.split()[1])
-        norm_u = norm(self.fields.solution_2d.split()[0])
+        norm_h = norm(self.fields.elev_2d)
+        norm_u = norm(self.fields.uv_3d)
 
         if commrank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
@@ -581,10 +636,6 @@ class FlowSolver(FrozenClass):
 
         t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()
-        self.simulation_time = 0
-        self.iteration = 0
-        self.i_export = 1
-        next_export_t = self.simulation_time + self.options.t_export
 
         if self.options.check_vol_conservation_2d:
             self.callbacks['vol2d'] = callback.VolumeConservation2DCallback()
@@ -603,6 +654,7 @@ class FlowSolver(FrozenClass):
             self.callbacks[key].initialize(self)
 
         # initial export
+        self.print_state(0.0)
         self.export()
         if export_func is not None:
             export_func()
@@ -619,7 +671,10 @@ class FlowSolver(FrozenClass):
             self.iteration += 1
 
             # Write the solution to file
-            if self.simulation_time >= next_export_t - t_epsilon:
+            if self.simulation_time >= self.next_export_t - t_epsilon:
+                self.i_export += 1
+                self.next_export_t += self.options.t_export
+
                 cputime = time_mod.clock() - cputimestamp
                 cputimestamp = time_mod.clock()
                 self.print_state(cputime)
@@ -631,6 +686,3 @@ class FlowSolver(FrozenClass):
                 self.export()
                 if export_func is not None:
                     export_func()
-
-                next_export_t += self.options.t_export
-                self.i_export += 1

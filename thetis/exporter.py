@@ -6,6 +6,7 @@ Tuomas Karna 2015-07-06
 from utility import *
 import ufl
 from firedrake.output import is_cg
+import itertools
 
 
 def is_2d(fs):
@@ -82,7 +83,9 @@ class VTKExporter(ExporterBase):
     def set_next_export_ix(self, next_export_ix):
         """Sets the index of next export"""
         # NOTE vtk io objects store current export index not next
-        super(VTKExporter, self).set_next_export_ix(next_export_ix - 1)
+        super(VTKExporter, self).set_next_export_ix(next_export_ix)
+        # FIXME hack to change correct output file count
+        self.outfile.counter = itertools.count(start=self.next_export_ix)
 
     def export(self, function):
         """Exports given function to disk."""
@@ -313,10 +316,6 @@ class HDF5Exporter(ExporterBase):
         super(HDF5Exporter, self).__init__(filename_prefix, outputdir,
                                            next_export_ix, verbose)
         self.function_space = function_space
-
-    def set_next_export_ix(self, next_export_ix):
-        """Sets the index of next export"""
-        self.next_export_ix = next_export_ix
 
     def gen_filename(self, iexport):
         filename = '{0:s}_{1:05d}'.format(self.filename, iexport)
