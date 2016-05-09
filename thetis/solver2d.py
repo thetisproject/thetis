@@ -49,6 +49,8 @@ class FlowSolver2d(FrozenClass):
         self.function_spaces = AttrDict()
         """Holds all function spaces needed by the solver object."""
         self.fields.bathymetry_2d = bathymetry_2d
+        self.export_initial_state = True
+        """Do export initial state. False if continuing a simulation"""
 
         self.bnd_functions = {'shallow_water': {}}
         self._isfrozen = True  # disallow creating new attributes
@@ -209,7 +211,7 @@ class FlowSolver2d(FrozenClass):
         for key in self.exporters:
             self.exporters[key].export()
 
-    def load_state(self, i_export, t=None, iteration=None):
+    def load_state(self, i_export, outputdir=None, t=None, iteration=None):
         """
         Loads simulation state from hdf5 outputs.
 
@@ -224,8 +226,19 @@ class FlowSolver2d(FrozenClass):
         """
         if not self._initialized:
             self.create_equations()
-        self.exporters['hdf5'].exporters['uv_2d'].load(i_export, self.fields.uv_2d)
-        self.exporters['hdf5'].exporters['elev_2d'].load(i_export, self.fields.elev_2d)
+        if outputdir is None:
+            outputdir = self.options.outputdir
+        # create new ExportManager with desired outputdir
+        state_fields = ['uv_2d', 'elev_2d']
+        hdf5_dir = os.path.join(outputdir, 'hdf5')
+        e = exporter.ExportManager(hdf5_dir,
+                                   state_fields,
+                                   self.fields,
+                                   field_metadata,
+                                   export_type='hdf5',
+                                   verbose=self.options.verbose > 0)
+        e.exporters['uv_2d'].load(i_export, self.fields.uv_2d)
+        e.exporters['elev_2d'].load(i_export, self.fields.elev_2d)
         self.assign_initial_conditions()
 
         # time stepper bookkeeping for export time step
@@ -239,9 +252,14 @@ class FlowSolver2d(FrozenClass):
         self.simulation_time = t
 
         # for next export
+        self.export_initial_state = outputdir != self.options.outputdir
+        if self.export_initial_state:
+            offset = 0
+        else:
+            offset = 1
         self.next_export_t += self.options.t_export
         for k in self.exporters:
-            self.exporters[k].set_next_export_ix(self.i_export)
+            self.exporters[k].set_next_export_ix(self.i_export + offset)
 
     def print_state(self, cputime):
         norm_h = norm(self.fields.solution_2d.split()[1])
@@ -271,11 +289,12 @@ class FlowSolver2d(FrozenClass):
 
         # initial export
         self.print_state(0.0)
-        self.export()
-        if export_func is not None:
-            export_func()
-        if 'vtk' in self.exporters:
-            self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
+        if self.export_initial_state:
+            self.export()
+            if export_func is not None:
+                export_func()
+            if 'vtk' in self.exporters:
+                self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
         while self.simulation_time <= self.options.t_end + t_epsilon:
 

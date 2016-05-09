@@ -64,6 +64,8 @@ class FlowSolver(FrozenClass):
         self.function_spaces = AttrDict()
         """Holds all function spaces needed by the solver object."""
         self.fields.bathymetry_2d = bathymetry_2d
+        self.export_initial_state = True
+        """Do export initial state. False if continuing a simulation"""
         self._isfrozen = True  # disallow creating new attributes
 
     def set_time_step(self):
@@ -559,7 +561,7 @@ class FlowSolver(FrozenClass):
         for key in self.exporters:
             self.exporters[key].export()
 
-    def load_state(self, i_export, t=None, iteration=None):
+    def load_state(self, i_export, outputdir=None, t=None, iteration=None):
         """
         Loads simulation state from hdf5 outputs.
 
@@ -575,21 +577,33 @@ class FlowSolver(FrozenClass):
         """
         if not self._initialized:
             self.create_equations()
-        self.exporters['hdf5'].exporters['uv_2d'].load(i_export, self.fields.uv_2d)
-        self.exporters['hdf5'].exporters['elev_2d'].load(i_export, self.fields.elev_2d)
-        self.exporters['hdf5'].exporters['uv_3d'].load(i_export, self.fields.uv_3d)
+        if outputdir is None:
+            outputdir = self.options.outputdir
+        # create new ExportManager with desired outputdir
+        state_fields = ['uv_2d', 'elev_2d', 'uv_3d',
+                        'salt_3d', 'temp_3d', 'tke_3d', 'psi_3d']
+        hdf5_dir = os.path.join(outputdir, 'hdf5')
+        e = exporter.ExportManager(hdf5_dir,
+                                   state_fields,
+                                   self.fields,
+                                   field_metadata,
+                                   export_type='hdf5',
+                                   verbose=self.options.verbose > 0)
+        e.exporters['uv_2d'].load(i_export, self.fields.uv_2d)
+        e.exporters['elev_2d'].load(i_export, self.fields.elev_2d)
+        e.exporters['uv_3d'].load(i_export, self.fields.uv_3d)
         salt = temp = tke = psi = None
         if self.options.solve_salt:
             salt = self.fields.salt_3d
-            self.exporters['hdf5'].exporters['salt_3d'].load(i_export, salt)
+            e.exporters['salt_3d'].load(i_export, salt)
         if self.options.solve_temp:
             temp = self.fields.temp_3d
-            self.exporters['hdf5'].exporters['temp_3d'].load(i_export, temp)
+            e.exporters['temp_3d'].load(i_export, temp)
         if self.options.use_turbulence:
             tke = self.fields.tke_3d
             psi = self.fields.psi_3d
-            self.exporters['hdf5'].exporters['tke_3d'].load(i_export, tke)
-            self.exporters['hdf5'].exporters['psi_3d'].load(i_export, psi)
+            e.exporters['tke_3d'].load(i_export, tke)
+            e.exporters['psi_3d'].load(i_export, psi)
         self.assign_initial_conditions(elev=self.fields.elev_2d,
                                        uv_2d=self.fields.uv_2d,
                                        uv_3d=self.fields.uv_3d,
@@ -608,9 +622,14 @@ class FlowSolver(FrozenClass):
         self.simulation_time = t
 
         # for next export
+        self.export_initial_state = outputdir != self.options.outputdir
+        if self.export_initial_state:
+            offset = 0
+        else:
+            offset = 1
         self.next_export_t += self.options.t_export
         for k in self.exporters:
-            self.exporters[k].set_next_export_ix(self.i_export)
+            self.exporters[k].set_next_export_ix(self.i_export + offset)
 
     def print_state(self, cputime):
         norm_h = norm(self.fields.elev_2d)
@@ -655,11 +674,12 @@ class FlowSolver(FrozenClass):
 
         # initial export
         self.print_state(0.0)
-        self.export()
-        if export_func is not None:
-            export_func()
-        if 'vtk' in self.exporters:
-            self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
+        if self.export_initial_state:
+            self.export()
+            if export_func is not None:
+                export_func()
+            if 'vtk' in self.exporters:
+                self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
         while self.simulation_time <= self.options.t_end + t_epsilon:
 
