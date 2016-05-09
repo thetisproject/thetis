@@ -478,7 +478,8 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             solver.eq_sw, self.fields.solution_2d,
             fields, solver.dt,
             bnd_conditions=solver.bnd_functions['shallow_water'],
-            solver_parameters=solver.eq_sw.solver_parameters)
+            solver_parameters=solver.eq_sw.solver_parameters,
+            semi_implicit=options.use_linearized_semi_implicit_2d)
 
         # assign viscosity/diffusivity to correct equations
         if self.options.solve_vert_diffusion:
