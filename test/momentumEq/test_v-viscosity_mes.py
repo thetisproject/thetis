@@ -107,14 +107,12 @@ def run(refinement, order=1, implicit=False, mimetic=False, do_export=True):
     iexport = 1
     next_export_t = t + solverobj.options.TExport
     while t < t_end - 1e-8:
-        with timed_region('momsolver'):
-            ti.advance(t, dt, solverobj.fields.uv_3d)
+        ti.advance(t, dt, solverobj.fields.uv_3d)
 
         t += dt
         i += 1
         if t >= next_export_t - 1e-8:
-            cpu_t = timing('momsolver', reset=True)
-            print('{:3d} i={:5d} t={:8.2f} s uv={:8.2f} cpu={:4.1f} s'.format(iexport, i, t, norm(solverobj.fields.uv_3d), cpu_t))
+            print('{:3d} i={:5d} t={:8.2f} s uv={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.uv_3d)))
             export_func()
             next_export_t += solverobj.options.TExport
             iexport += 1

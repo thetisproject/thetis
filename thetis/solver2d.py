@@ -277,18 +277,3 @@ class FlowSolver2d(FrozenClass):
 
                 next_export_t += self.options.t_export
                 self.i_export += 1
-
-                if commrank == 0 and len(self.options.timer_labels) > 0:
-                    cost = {}
-                    relcost = {}
-                    totcost = 0
-                    for label in self.options.timer_labels:
-                        value = timing(label, reset=True)
-                        cost[label] = value
-                        totcost += value
-                    for label in self.options.timer_labels:
-                        c = cost[label]
-                        relcost = c/max(totcost, 1e-6)
-                        print '{0:25s} : {1:11.6f} {2:11.2f}'.format(
-                            label, c, relcost)
-                        sys.stdout.flush()
