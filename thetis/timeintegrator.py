@@ -280,8 +280,8 @@ class SSPRK33StageSemiImplicit(TimeIntegrator):
 
     CFL coefficient is 1.0
     """
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, 
-            solver_parameters={}, semi_implicit=False):
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
+                 solver_parameters={}, semi_implicit=False):
         """Creates forms for the time integrator"""
         super(SSPRK33StageSemiImplicit, self).__init__(equation, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
@@ -312,9 +312,9 @@ class SSPRK33StageSemiImplicit(TimeIntegrator):
             sol_nl2 = self.sol1
         else:
             # solve the full nonlinear residual form
-            solution_nl0 = self.sol0
-            solution_nl1 = self.sol1
-            solution_nl2 = self.sol2
+            sol_nl0 = self.sol0
+            sol_nl1 = self.sol1
+            sol_nl2 = self.solution
 
         # FIXME old solution should be set correctly, this is consistent with old formulation
         args = (self.fields, self.fields, bnd_conditions)
