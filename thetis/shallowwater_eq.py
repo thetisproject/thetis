@@ -486,12 +486,12 @@ class ShallowWaterEquations(Equation):
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalViscosityTerm(*args), 'explicit')
         self.add_term(CoriolisTerm(*args), 'explicit')
-        self.add_term(WindStressTerm(*args), 'explicit')  # FIXME should be source
+        self.add_term(WindStressTerm(*args), 'source')
         self.add_term(QuadraticDragTerm(*args), 'explicit')
         self.add_term(LinearDragTerm(*args), 'explicit')
-        self.add_term(BottomDrag3DTerm(*args), 'explicit')  # FIXME should be source
-        self.add_term(InternalPressureGradientTerm(*args), 'explicit')  # FIXME should be source
-        self.add_term(SourceTerm(*args), 'explicit')  # FIXME should be source
+        self.add_term(BottomDrag3DTerm(*args), 'source')
+        self.add_term(InternalPressureGradientTerm(*args), 'source')
+        self.add_term(SourceTerm(*args), 'source')
 
     def get_time_step(self, u_mag=Constant(0.0)):
         """
@@ -622,7 +622,7 @@ class FreeSurfaceEquation(Equation):
 
         args = (function_space, bathymetry, nonlin)
         self.add_term(FreeSurfaceDivTerm(*args), 'explicit')
-        self.add_term(FreeSurfaceSourceTerm(*args), 'explicit')  # FIXME should be source
+        self.add_term(FreeSurfaceSourceTerm(*args), 'source')
 
     def get_time_step(self, u_mag=Constant(0.0)):
         """
