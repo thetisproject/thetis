@@ -147,7 +147,7 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
             solver.eq_sw, self.fields.solution_2d,
             fields, solver.dt,
             bnd_conditions=solver.bnd_functions['shallow_water'],
-            solver_parameters=solver.eq_sw.solver_parameters)
+            solver_parameters=self.options.solver_parameters_sw)
 
         fs = self.timestepper2d.solution_old.function_space()
         self.sol2d_n = Function(fs, name='sol2dtmp')
@@ -163,11 +163,6 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
             explicit_v_visc = solver.tot_v_visc.get_sum()
             implicit_v_diff = None
             explicit_v_diff = solver.tot_v_diff.get_sum()
-        vdiff_sp = {'snes_monitor': False,
-                    'ksp_type': 'gmres',
-                    'pc_type': 'ilu',
-                    'snes_atol': 1e-27,
-                    }
         vert_timeintegrator = timeintegrator.BackwardEuler
 
         fields = {'eta': self.fields.elev_3d,  # FIXME rename elev
@@ -186,7 +181,17 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
                   }
         self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,
-            bnd_conditions=solver.bnd_functions['momentum'])
+            bnd_conditions=solver.bnd_functions['momentum'],
+            solver_parameters=self.options.solver_parameters_momentum_explicit)
+        if self.solver.options.solve_vert_diffusion:
+            fields = {'viscosity_v': implicit_v_visc,
+                      'wind_stress': self.fields.get('wind_stress_3d'),
+                      }
+            self.timestepper_mom_vdff_3d = vert_timeintegrator(
+                solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt,
+                bnd_conditions=solver.bnd_functions['momentum'],
+                solver_parameters=self.options.solver_parameters_momentum_implicit)
+
         if self.solver.options.solve_salt:
             fields = {'elev_3d': self.fields.elev_3d,
                       'uv_3d': self.fields.uv_3d,
@@ -202,22 +207,17 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
                       }
             self.timestepper_salt_3d = timeintegrator.SSPRK33Stage(
                 solver.eq_salt, solver.fields.salt_3d, fields, solver.dt,
-                bnd_conditions=solver.bnd_functions['salt'])
+                bnd_conditions=solver.bnd_functions['salt'],
+                solver_parameters=self.options.solver_parameters_tracer_explicit)
             if self.solver.options.solve_vert_diffusion:
                 fields = {'elev_3d': self.fields.elev_3d,
                           'diffusivity_v': implicit_v_diff,
                           }
                 self.timestepper_salt_vdff_3d = vert_timeintegrator(
                     solver.eq_salt_vdff, solver.fields.salt_3d, fields, solver.dt,
-                    bnd_conditions=solver.bnd_functions['salt'], solver_parameters=vdiff_sp)
+                    bnd_conditions=solver.bnd_functions['salt'],
+                    solver_parameters=self.options.solver_parameters_tracer_implicit)
 
-        if self.solver.options.solve_vert_diffusion:
-            fields = {'viscosity_v': implicit_v_visc,
-                      'wind_stress': self.fields.get('wind_stress_3d'),
-                      }
-            self.timestepper_mom_vdff_3d = vert_timeintegrator(
-                solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt,
-                bnd_conditions=solver.bnd_functions['momentum'], solver_parameters=vdiff_sp)
         if self.solver.options.use_turbulence:
             fields = {'diffusivity_v': implicit_v_diff,
                       'viscosity_v': implicit_v_visc,
@@ -228,9 +228,11 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
                       'buoy_freq2_pos': solver.gls_model.n2_pos
                       }
             self.timestepper_tke_3d = vert_timeintegrator(
-                solver.eq_tke_diff, solver.fields.tke_3d, fields, solver.dt, solver_parameters=vdiff_sp)
+                solver.eq_tke_diff, solver.fields.tke_3d, fields, solver.dt,
+                solver_parameters=self.options.solver_parameters_tracer_implicit)
             self.timestepper_psi_3d = vert_timeintegrator(
-                solver.eq_psi_diff, solver.fields.psi_3d, fields, solver.dt, solver_parameters=vdiff_sp)
+                solver.eq_psi_diff, solver.fields.psi_3d, fields, solver.dt,
+                solver_parameters=self.options.solver_parameters_tracer_implicit)
             if self.solver.options.use_turbulence_advection:
                 fields = {'elev_3d': self.fields.elev_3d,
                           'uv_3d': self.fields.uv_3d,
@@ -242,9 +244,11 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
                           'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
                           }
                 self.timestepper_tke_adv_eq = timeintegrator.SSPRK33Stage(
-                    solver.eq_tke_adv, solver.fields.tke_3d, fields, solver.dt)
+                    solver.eq_tke_adv, solver.fields.tke_3d, fields, solver.dt,
+                    solver_parameters=self.options.solver_parameters_tracer_explicit)
                 self.timestepper_psi_adv_eq = timeintegrator.SSPRK33Stage(
-                    solver.eq_psi_adv, solver.fields.psi_3d, fields, solver.dt)
+                    solver.eq_psi_adv, solver.fields.psi_3d, fields, solver.dt,
+                    solver_parameters=self.options.solver_parameters_tracer_explicit)
 
         # ----- stage 1 -----
         # from n to n+1 with RHS at (u_n, t_n)
@@ -343,14 +347,8 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
                                              solver.fields)
         self._initialized = False
         # for 2d shallow water eqns
-        sp_impl = {'ksp_type': 'gmres',
-                   'pc_type': 'fieldsplit',
-                   'pc_fieldsplit_type': 'multiplicative',
-                   }
-        sp_expl = {'ksp_type': 'gmres',
-                   'pc_type': 'fieldsplit',
-                   'pc_fieldsplit_type': 'multiplicative',
-                   }
+        sp_impl = self.options.solver_parameters_sw
+        sp_expl = self.options.solver_parameters_sw
         fs_2d = self.fields.solution_2d.function_space()
         self.solution_2d_old = Function(fs_2d, name='old_sol_2d')
 
@@ -475,7 +473,7 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             solver.eq_sw, self.fields.solution_2d,
             fields, solver.dt,
             bnd_conditions=solver.bnd_functions['shallow_water'],
-            solver_parameters=solver.eq_sw.solver_parameters,
+            solver_parameters=self.options.solver_parameters_sw,
             semi_implicit=self.options.use_linearized_semi_implicit_2d)
 
         # assign viscosity/diffusivity to correct equations
@@ -490,11 +488,6 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             implicit_v_diff = None
             explicit_v_diff = solver.tot_v_diff.get_sum()
 
-        vdiff_sp = {'snes_monitor': False,
-                    # 'ksp_type': 'gmres',
-                    # 'pc_type': 'ilu',
-                    'snes_atol': 1e-27,
-                    }
         # vert_timeintegrator = timeintegrator.DIRKLSPUM2
         vert_timeintegrator = timeintegrator.BackwardEuler
 
@@ -514,14 +507,16 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                   }
         self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,
-            bnd_conditions=solver.bnd_functions['momentum'])
+            bnd_conditions=solver.bnd_functions['momentum'],
+            solver_parameters=self.options.solver_parameters_momentum_explicit)
         if self.solver.options.solve_vert_diffusion:
             fields = {'viscosity_v': implicit_v_visc,
                       'wind_stress': self.fields.get('wind_stress_3d'),
                       }
             self.timestepper_mom_vdff_3d = vert_timeintegrator(
                 solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt,
-                bnd_conditions=solver.bnd_functions['momentum'], solver_parameters=vdiff_sp)
+                bnd_conditions=solver.bnd_functions['momentum'],
+                solver_parameters=self.options.solver_parameters_momentum_implicit)
 
         if self.solver.options.solve_salt:
             fields = {'elev_3d': self.fields.elev_3d,
@@ -538,14 +533,16 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                       }
             self.timestepper_salt_3d = timeintegrator.SSPRK33Stage(
                 solver.eq_salt, solver.fields.salt_3d, fields, solver.dt,
-                bnd_conditions=solver.bnd_functions['salt'])
+                bnd_conditions=solver.bnd_functions['salt'],
+                solver_parameters=self.options.solver_parameters_tracer_explicit)
             if self.solver.options.solve_vert_diffusion:
                 fields = {'elev_3d': self.fields.elev_3d,
                           'diffusivity_v': implicit_v_diff,
                           }
                 self.timestepper_salt_vdff_3d = vert_timeintegrator(
                     solver.eq_salt_vdff, solver.fields.salt_3d, fields, solver.dt,
-                    bnd_conditions=solver.bnd_functions['salt'], solver_parameters=vdiff_sp)
+                    bnd_conditions=solver.bnd_functions['salt'],
+                    solver_parameters=self.options.solver_parameters_tracer_implicit)
 
         if self.solver.options.solve_temp:
             fields = {'elev_3d': self.fields.elev_3d,
@@ -562,14 +559,16 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                       }
             self.timestepper_temp_3d = timeintegrator.SSPRK33Stage(
                 solver.eq_temp, solver.fields.temp_3d, fields, solver.dt,
-                bnd_conditions=solver.bnd_functions['temp'])
+                bnd_conditions=solver.bnd_functions['temp'],
+                solver_parameters=self.options.solver_parameters_tracer_explicit)
             if self.solver.options.solve_vert_diffusion:
                 fields = {'elev_3d': self.fields.elev_3d,
                           'diffusivity_v': implicit_v_diff,
                           }
                 self.timestepper_temp_vdff_3d = vert_timeintegrator(
                     solver.eq_temp_vdff, solver.fields.temp_3d, fields, solver.dt,
-                    bnd_conditions=solver.bnd_functions['temp'], solver_parameters=vdiff_sp)
+                    bnd_conditions=solver.bnd_functions['temp'],
+                    solver_parameters=self.options.solver_parameters_tracer_implicit)
 
         if self.solver.options.use_turbulence:
             fields = {'diffusivity_v': implicit_v_diff,
@@ -581,9 +580,11 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                       'buoy_freq2_pos': solver.gls_model.n2_pos
                       }
             self.timestepper_tke_3d = vert_timeintegrator(
-                solver.eq_tke_diff, solver.fields.tke_3d, fields, solver.dt, solver_parameters=vdiff_sp)
+                solver.eq_tke_diff, solver.fields.tke_3d, fields, solver.dt,
+                solver_parameters=self.options.solver_parameters_tracer_implicit)
             self.timestepper_psi_3d = vert_timeintegrator(
-                solver.eq_psi_diff, solver.fields.psi_3d, fields, solver.dt, solver_parameters=vdiff_sp)
+                solver.eq_psi_diff, solver.fields.psi_3d, fields, solver.dt,
+                solver_parameters=self.options.solver_parameters_tracer_implicit)
             if self.solver.options.use_turbulence_advection:
                 fields = {'elev_3d': self.fields.elev_3d,
                           'uv_3d': self.fields.uv_3d,
@@ -595,9 +596,11 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                           'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
                           }
                 self.timestepper_tke_adv_eq = timeintegrator.SSPRK33Stage(
-                    solver.eq_tke_adv, solver.fields.tke_3d, fields, solver.dt)
+                    solver.eq_tke_adv, solver.fields.tke_3d, fields, solver.dt,
+                    solver_parameters=self.options.solver_parameters_tracer_explicit)
                 self.timestepper_psi_adv_eq = timeintegrator.SSPRK33Stage(
-                    solver.eq_psi_adv, solver.fields.psi_3d, fields, solver.dt)
+                    solver.eq_psi_adv, solver.fields.psi_3d, fields, solver.dt,
+                    solver_parameters=self.options.solver_parameters_tracer_explicit)
 
         # length of each step (fraction of dt)
         self.dt_frac = [1.0, 1.0/4.0, 2.0/3.0]
@@ -703,7 +706,7 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
         self.timestepper2d = timeintegrator.SSPRK33Stage(
             solver.eq_sw, eta_2d, fields, solver.dt_2d,
             bnd_conditions=solver.bnd_functions['shallow_water'],
-            solver_parameters=solver.eq_sw.solver_parameters)
+            solver_parameters=self.options.solver_parameters_sw)
 
         # assign viscosity/diffusivity to correct equations
         if self.options.solve_vert_diffusion:
@@ -717,11 +720,6 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
             implicit_v_diff = None
             explicit_v_diff = solver.tot_v_diff.get_sum()
 
-        vdiff_sp = {'snes_monitor': False,
-                    'ksp_type': 'gmres',
-                    'pc_type': 'ilu',
-                    'snes_atol': 1e-27,
-                    }
         # vert_timeintegrator = timeintegrator.DIRKLSPUM2
         vert_timeintegrator = timeintegrator.BackwardEuler
 
@@ -741,7 +739,16 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
                   }
         self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt_2d,
-            bnd_conditions=solver.bnd_functions['momentum'])
+            bnd_conditions=solver.bnd_functions['momentum'],
+            solver_parameters=self.options.solver_parameters_momentum_explicit)
+        if self.solver.options.solve_vert_diffusion:
+            fields = {'viscosity_v': implicit_v_visc,
+                      'wind_stress': self.fields.get('wind_stress_3d'),
+                      }
+            self.timestepper_mom_vdff_3d = vert_timeintegrator(
+                solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt_2d,
+                bnd_conditions=solver.bnd_functions['momentum'],
+                solver_parameters=self.options.solver_parameters_momentum_implicit)
 
         if self.solver.options.solve_salt:
             fields = {'elev_3d': self.fields.elev_3d,
@@ -758,21 +765,16 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
                       }
             self.timestepper_salt_3d = timeintegrator.SSPRK33Stage(
                 solver.eq_salt, solver.fields.salt_3d, fields, solver.dt_2d,
-                bnd_conditions=solver.bnd_functions['salt'])
+                bnd_conditions=solver.bnd_functions['salt'],
+                solver_parameters=self.options.solver_parameters_tracer_explicit)
             if self.solver.options.solve_vert_diffusion:
                 fields = {'elev_3d': self.fields.elev_3d,
                           'diffusivity_v': implicit_v_diff,
                           }
                 self.timestepper_salt_vdff_3d = vert_timeintegrator(
                     solver.eq_salt_vdff, solver.fields.salt_3d, fields, solver.dt_2d,
-                    bnd_conditions=solver.bnd_functions['salt'], solver_parameters=vdiff_sp)
-        if self.solver.options.solve_vert_diffusion:
-            fields = {'viscosity_v': implicit_v_visc,
-                      'wind_stress': self.fields.get('wind_stress_3d'),
-                      }
-            self.timestepper_mom_vdff_3d = vert_timeintegrator(
-                solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt_2d,
-                bnd_conditions=solver.bnd_functions['momentum'], solver_parameters=vdiff_sp)
+                    bnd_conditions=solver.bnd_functions['salt'],
+                    solver_parameters=self.options.solver_parameters_tracer_implicit)
 
     def initialize(self):
         """Assign initial conditions to all necessary fields"""

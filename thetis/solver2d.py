@@ -125,24 +125,24 @@ class FlowSolver2d(FrozenClass):
             self.timestepper = timeintegrator.SSPRK33Stage(self.eq_sw, self.fields.solution_2d,
                                                            fields, self.dt,
                                                            bnd_conditions=self.bnd_functions['shallow_water'],
-                                                           solver_parameters=self.eq_sw.solver_parameters)
+                                                           solver_parameters=self.options.solver_parameters_sw)
         elif self.options.timestepper_type.lower() == 'ssprk33semi':
             self.timestepper = timeintegrator.SSPRK33StageSemiImplicit(self.eq_sw, self.fields.solution_2d,
                                                                        fields, self.dt,
                                                                        bnd_conditions=self.bnd_functions['shallow_water'],
-                                                                       solver_parameters=self.eq_sw.solver_parameters,
+                                                                       solver_parameters=self.options.solver_parameters_sw,
                                                                        semi_implicit=self.options.use_linearized_semi_implicit_2d)
 
         elif self.options.timestepper_type.lower() == 'forwardeuler':
             self.timestepper = timeintegrator.ForwardEuler(self.eq_sw, self.fields.solution_2d,
                                                            fields, self.dt,
                                                            bnd_conditions=self.bnd_functions['shallow_water'],
-                                                           solver_parameters=self.eq_sw.solver_parameters)
+                                                           solver_parameters=self.options.solver_parameters_sw)
         elif self.options.timestepper_type.lower() == 'cranknicolson':
             self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
                                                             fields, self.dt,
                                                             bnd_conditions=self.bnd_functions['shallow_water'],
-                                                            solver_parameters=self.eq_sw.solver_parameters,
+                                                            solver_parameters=self.options.solver_parameters_sw,
                                                             semi_implicit=self.options.use_linearized_semi_implicit_2d)
         elif self.options.timestepper_type.lower() == 'sspimex':
             # TODO meaningful solver params

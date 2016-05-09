@@ -7,7 +7,7 @@ from thetis.utility import *
 from thetis.turbulence import GLSModelOptions
 
 
-class ModelOptions(AttrDict):
+class ModelOptions(AttrDict, FrozenClass):
     """
     Stores all circulation model options
     """
@@ -146,3 +146,31 @@ class ModelOptions(AttrDict):
         """Coefficient: Constant temperature if temperature is not solved"""
         self.constant_salt = Constant(0.0)
         """Coefficient: Constant salinity if salinity is not solved"""
+        self.solver_parameters_sw = {
+            'ksp_type': 'gmres',
+            'pc_type': 'fieldsplit',
+            'pc_fieldsplit_type': 'multiplicative',
+        }
+        """PETSc solver parameters for 2D shallow water equations"""
+        self.solver_parameters_momentum_explicit = {
+        }
+        """PETSc solver parameters for explicit 3D momentum equation"""
+        self.solver_parameters_momentum_implicit = {
+            'snes_monitor': False,
+            'ksp_type': 'gmres',
+            'pc_type': 'ilu',
+            'snes_atol': 1e-27,
+        }
+        """PETSc solver parameters for implicit 3D momentum equation"""
+        self.solver_parameters_tracer_explicit = {
+        }
+        """PETSc solver parameters for explicit 3D tracer equations"""
+        self.solver_parameters_tracer_implicit = {
+            'snes_monitor': False,
+            'ksp_type': 'gmres',
+            'pc_type': 'ilu',
+            'snes_atol': 1e-27,
+        }
+        """PETSc solver parameters for implicit 3D tracer equations"""
+
+        self._isfrozen = True
