@@ -105,13 +105,11 @@ def run(refinement, order=1, implicit=False, do_export=True):
     iexport = 1
     next_export_t = t + solverobj.options.t_export
     while t < t_end - 1e-8:
-        with timed_region('tracersolver'):
-            ti.advance(t, dt, solverobj.fields.salt_3d)
+        ti.advance(t, dt, solverobj.fields.salt_3d)
         t += dt
         i += 1
         if t >= next_export_t - 1e-8:
-            cpu_t = timing('tracersolver', reset=True)
-            print('{:3d} i={:5d} t={:8.2f} s salt={:8.2f} cpu={:4.1f} s'.format(iexport, i, t, norm(solverobj.fields.salt_3d), cpu_t))
+            print('{:3d} i={:5d} t={:8.2f} s salt={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.salt_3d)))
             export_func()
             next_export_t += solverobj.options.t_export
             iexport += 1

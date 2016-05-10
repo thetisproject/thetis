@@ -9,7 +9,7 @@ import numpy as np
 import sys
 from physical_constants import physical_constants
 import colorama
-from pyop2.profiling import timed_region, timed_function, timing  # NOQA
+from pyop2.profiling import timed_region, timed_function, timed_stage  # NOQA
 from mpi4py import MPI  # NOQA
 import ufl  # NOQA
 import coffee.base as ast  # NOQA
@@ -350,7 +350,7 @@ class VerticalIntegrator(object):
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
-        with timed_region('func_vert_int'):
+        with timed_stage('func_vert_int'):
             self.solver.solve()
 
 
@@ -483,7 +483,7 @@ class ExpandFunctionTo3d(object):
                 prob, solver_parameters=solver_parameters)
 
     def solve(self):
-        with timed_region('func_copy_2d_to_3d'):
+        with timed_stage('func_copy_2d_to_3d'):
             # execute par loop
             op2.par_loop(
                 self.kernel, self.fs_3d.mesh().cell_set,
@@ -594,7 +594,7 @@ class SubFunctionExtractor(object):
                 prob, solver_parameters=solver_parameters)
 
     def solve(self):
-        with timed_region('func_copy_3d_to_2d'):
+        with timed_stage('func_copy_3d_to_2d'):
             # execute par loop
             op2.par_loop(self.kernel, self.fs_3d.mesh().cell_set,
                          self.output_2d.dat(op2.WRITE, self.fs_2d.cell_node_map()),

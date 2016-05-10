@@ -18,18 +18,18 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
 
     def _update_3d_elevation(self):
         """Projects elevation to 3D"""
-        with timed_region('aux_elev_3d'):
+        with timed_stage('aux_elev_3d'):
             self.solver.copy_elev_to_3d.solve()  # at t_{n+1}
             self.solver.elev_3d_to_cg_projector.project()
 
     def _update_vertical_velocity(self):
-        with timed_region('continuity_eq'):
+        with timed_stage('continuity_eq'):
             self.solver.w_solver.solve()
 
     def _update_moving_mesh(self):
         """Updates mesh to match elevation field"""
         if self.options.use_ale_moving_mesh:
-            with timed_region('aux_mesh_ale'):
+            with timed_stage('aux_mesh_ale'):
                 self.solver.mesh_coord_updater.solve()
                 compute_elem_height(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
                 self.solver.copy_v_elem_size_to_2d.solve()
@@ -37,7 +37,7 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
     def _update_bottom_friction(self):
         """Computes bottom friction related fields"""
         if self.options.use_bottom_friction:
-            with timed_region('aux_friction'):
+            with timed_stage('aux_friction'):
                 self.solver.uv_p1_projector.project()
                 compute_bottom_friction(
                     self.solver,
@@ -49,7 +49,7 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
 
     def _update_2d_coupling(self):
         """Does 2D-3D coupling for the velocity field"""
-        with timed_region('aux_mom_coupling'):
+        with timed_stage('aux_mom_coupling'):
             # compute depth averaged 3D velocity
             self.solver.uv_averager.solve()
             self.solver.extract_surf_dav_uv.solve()
@@ -63,13 +63,13 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
     def _update_mesh_velocity(self):
         """Computes ALE mesh velocity"""
         if self.options.use_ale_moving_mesh:
-            with timed_region('aux_mesh_ale'):
+            with timed_stage('aux_mesh_ale'):
                 self.solver.w_mesh_solver.solve()
 
     def _update_baroclinicity(self):
         """Computes baroclinic head"""
         if self.options.baroclinic:
-            with timed_region('aux_barolinicity'):
+            with timed_stage('aux_barolinicity'):
                 compute_baroclinic_head(self.solver, self.fields.salt_3d, self.fields.baroc_head_3d,
                                         self.fields.baroc_head_2d, self.fields.baroc_head_int_3d,
                                         self.fields.bathymetry_3d)
@@ -77,24 +77,23 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
     def _update_turbulence(self, t):
         """Updates turbulence related fields"""
         if self.options.use_turbulence:
-            with timed_region('turbulence'):
-                    self.solver.gls_model.preprocess()
-                    # NOTE psi must be solved first as it depends on tke
-                    self.timestepper_psi_3d.advance(t, self.solver.dt, self.solver.fields.psi_3d)
-                    self.timestepper_tke_3d.advance(t, self.solver.dt, self.solver.fields.tke_3d)
-                    self.solver.gls_model.postprocess()
+            with timed_stage('turbulence'):
+                self.solver.gls_model.preprocess()
+                # NOTE psi must be solved first as it depends on tke
+                self.timestepper_psi_3d.advance(t, self.solver.dt, self.solver.fields.psi_3d)
+                self.timestepper_tke_3d.advance(t, self.solver.dt, self.solver.fields.tke_3d)
+                self.solver.gls_model.postprocess()
 
     def _update_stabilization_params(self):
         """Computes Smagorinsky viscosity etc fields"""
         # update velocity magnitude
-        self.solver.uv_mag_solver.solve()
-        # update P1 velocity field
-        self.solver.uv_p1_projector.project()
-        if self.options.smagorinsky_factor is not None:
-            with timed_region('aux_stabilization'):
+        with timed_stage('aux_stabilization'):
+            self.solver.uv_mag_solver.solve()
+            # update P1 velocity field
+            self.solver.uv_p1_projector.project()
+            if self.options.smagorinsky_factor is not None:
                 self.solver.smagorinsky_diff_solver.solve()
-        if self.options.salt_jump_diff_factor is not None:
-            with timed_region('aux_stabilization'):
+            if self.options.salt_jump_diff_factor is not None:
                 self.solver.horiz_jump_diff_solver.solve()
 
     def _update_all_dependencies(self, t,
@@ -107,7 +106,7 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
         self._update_3d_elevation()
         if do_ale_update:
             self._update_moving_mesh()
-        with timed_region('vert_diffusion'):
+        with timed_stage('vert_diffusion'):
             if do_vert_diffusion and self.options.solve_vert_diffusion:
                 self.timestepper_mom_vdff_3d.advance(t, self.solver.dt, self.fields.uv_3d)
                 if self.options.solve_salt:
@@ -301,17 +300,17 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
 
         self.sol2d_n.assign(sol2d)  # keep copy of elev_n
         for k in range(len(self.dt_frac)):
-            with timed_region('salt_eq'):
+            with timed_stage('salt_eq'):
                 if self.options.solve_salt:
                     self.timestepper_salt_3d.solve_stage(k, t, self.solver.dt,
                                                          self.fields.salt_3d,
                                                          update_forcings3d)
                     if self.options.use_limiter_for_tracers:
                         self.solver.tracer_limiter.apply(self.fields.salt_3d)
-            with timed_region('momentum_eq'):
+            with timed_stage('momentum_eq'):
                 self.timestepper_mom_3d.solve_stage(k, t, self.solver.dt,
                                                     self.fields.uv_3d)
-            with timed_region('mode2d'):
+            with timed_stage('mode2d'):
                 t_rhs = t + self.start_frac[k]*self.solver.dt
                 dt_2d = self.dt_2d[k]
                 # initialize
@@ -434,15 +433,15 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
 
         for k in range(self.n_stages):
             last_step = k == self.n_stages - 1
-            with timed_region('salt_eq'):
+            with timed_stage('salt_eq'):
                 if self.options.solve_salt:
                     self.timestepper_salt_3d.solve_stage(k, t, self.solver.dt, self.fields.salt_3d,
                                                          update_forcings3d)
                     if self.options.use_limiter_for_tracers and last_step:
                         self.solver.tracer_limiter.apply(self.fields.salt_3d)
-            with timed_region('momentum_eq'):
+            with timed_stage('momentum_eq'):
                 self.timestepper_mom_3d.solve_stage(k, t, self.solver.dt, self.fields.uv_3d)
-            with timed_region('mode2d'):
+            with timed_stage('mode2d'):
                 self.timestepper2d.solve_stage(k, t, self.solver.dt, self.fields.solution_2d,
                                                update_forcings)
             self._update_all_dependencies(t, do_vert_diffusion=False,
@@ -621,14 +620,14 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
         sol2d = self.solver.fields.solution_2d
 
         for k in range(len(self.dt_frac)):
-            with timed_region('salt_eq'):
+            with timed_stage('salt_eq'):
                 if self.options.solve_salt:
                     self.timestepper_salt_3d.solve_stage(k, t, self.solver.dt,
                                                          self.fields.salt_3d,
                                                          update_forcings3d)
                     if self.options.use_limiter_for_tracers:
                         self.solver.tracer_limiter.apply(self.fields.salt_3d)
-            with timed_region('turbulence_advection'):
+            with timed_stage('turbulence_advection'):
                 if self.options.use_turbulence_advection:
                     # explicit advection
                     self.timestepper_tke_adv_eq.solve_stage(k, t, self.solver.dt,
@@ -638,10 +637,10 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                     # if self.options.use_limiter_for_tracers:
                     #    self.solver.tracer_limiter.apply(self.solver.fields.tke_3d)
                     #    self.solver.tracer_limiter.apply(self.solver.fields.psi_3d)
-            with timed_region('momentum_eq'):
+            with timed_stage('momentum_eq'):
                 self.timestepper_mom_3d.solve_stage(k, t, self.solver.dt,
                                                     self.fields.uv_3d)
-            with timed_region('mode2d'):
+            with timed_stage('mode2d'):
                 self.timestepper2d.solve_stage(k, t, self.solver.dt, sol2d,
                                                update_forcings)
             last_step = (k == 2)
@@ -754,7 +753,7 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
 
     def _update_2d_coupling(self):
         """Overloaded coupling function"""
-        with timed_region('aux_mom_coupling'):
+        with timed_stage('aux_mom_coupling'):
             self.solver.uv_averager.solve()
             self.solver.extract_surf_dav_uv.solve()
             self.fields.uv_2d.assign(self.fields.uv_dav_2d)
@@ -762,17 +761,17 @@ class CoupledSSPRKSingleMode(CoupledTimeIntegrator):
     def advance(self, t, dt, update_forcings=None, update_forcings3d=None):
         """Advances the equations for one time step"""
         for k in range(self.timestepper2d.n_stages):
-            with timed_region('salt_eq'):
+            with timed_stage('salt_eq'):
                 if self.options.solve_salt:
                     self.timestepper_salt_3d.solve_stage(k, t, self.solver.dt_2d,
                                                          self.fields.salt_3d,
                                                          update_forcings3d)
                     if self.options.use_limiter_for_tracers:
                         self.solver.tracer_limiter.apply(self.fields.salt_3d)
-            with timed_region('momentum_eq'):
+            with timed_stage('momentum_eq'):
                 self.timestepper_mom_3d.solve_stage(k, t, self.solver.dt_2d,
                                                     self.fields.uv_3d)
-            with timed_region('mode2d'):
+            with timed_stage('mode2d'):
                 uv, elev = self.fields.solution_2d.split()
                 self.timestepper2d.solve_stage(k, t, self.solver.dt_2d, elev,
                                                update_forcings)
