@@ -124,7 +124,7 @@ class ExternalPressureGradientTerm(ShallowWaterTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         uv, eta = self.split_solution(solution)
         uv_old, eta_old = self.split_solution(solution_old)
-        total_h = self.get_total_depth(eta)  # FIXME should be eta_old
+        total_h = self.get_total_depth(eta_old)
 
         head = eta
 
@@ -174,7 +174,7 @@ class HUDivTerm(ShallowWaterTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         uv, eta = self.split_solution(solution)
         uv_old, eta_old = self.split_solution(solution_old)
-        total_h = self.get_total_depth(eta)  # FIXME should be eta_old
+        total_h = self.get_total_depth(eta_old)
 
         hu_by_parts = self.u_is_dg or self.u_is_hdiv
         if hu_by_parts:
@@ -189,12 +189,13 @@ class HUDivTerm(ShallowWaterTerm):
                 ds_bnd = ds(int(bnd_marker))
                 if funcs is not None:
                     eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
+                    eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
-                    h_av = self.bathymetry + 0.5*(eta + eta_ext)
-                    un_jump = inner(uv - uv_ext, self.normal)
+                    h_av = self.bathymetry + 0.5*(eta_old + eta_ext_old)
                     eta_jump = eta - eta_ext
-                    eta_rie = 0.5*(eta + eta_ext) + sqrt(h_av/g_grav)*un_jump
                     un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h_av)*eta_jump
+                    un_jump = inner(uv_old - uv_ext_old, self.normal)
+                    eta_rie = 0.5*(eta_old + eta_ext_old) + sqrt(h_av/g_grav)*un_jump
                     h_rie = self.bathymetry + eta_rie
                     f += h_rie*un_rie*self.eta_test*ds_bnd
         else:
@@ -223,24 +224,23 @@ class HorizontalAdvectionTerm(ShallowWaterTerm):
 
         if horiz_advection_by_parts:
             # f = -inner(nabla_div(outer(uv, self.U_test)), uv)
-            f = -(Dx(uv[0]*self.U_test[0], 0)*uv[0] +
-                  Dx(uv[0]*self.U_test[1], 0)*uv[1] +
-                  Dx(uv[1]*self.U_test[0], 1)*uv[0] +
-                  Dx(uv[1]*self.U_test[1], 1)*uv[1])*dx
+            f = -(Dx(uv_old[0]*self.U_test[0], 0)*uv[0] +
+                  Dx(uv_old[0]*self.U_test[1], 0)*uv[1] +
+                  Dx(uv_old[1]*self.U_test[0], 1)*uv[0] +
+                  Dx(uv_old[1]*self.U_test[1], 1)*uv[1])*dx
             if self.u_is_dg:
-                uv_av = avg(uv)
-                un_av = dot(uv_av, self.normal('-'))
+                un_av = dot(avg(uv_old), self.normal('-'))
                 # NOTE solver can stagnate
                 # s = 0.5*(sign(un_av) + 1.0)
                 # NOTE smooth sign change between [-0.02, 0.02], slow
                 # s = 0.5*tanh(100.0*un_av) + 0.5
                 # uv_up = uv('-')*s + uv('+')*(1-s)
                 # NOTE mean flux
-                uv_up = uv_av
-                f += (uv_up[0]*jump(self.U_test[0], uv[0]*self.normal[0]) +
-                      uv_up[1]*jump(self.U_test[1], uv[0]*self.normal[0]) +
-                      uv_up[0]*jump(self.U_test[0], uv[1]*self.normal[1]) +
-                      uv_up[1]*jump(self.U_test[1], uv[1]*self.normal[1]))*dS
+                uv_up = avg(uv)
+                f += (uv_up[0]*jump(self.U_test[0], uv_old[0]*self.normal[0]) +
+                      uv_up[1]*jump(self.U_test[1], uv_old[0]*self.normal[0]) +
+                      uv_up[0]*jump(self.U_test[0], uv_old[1]*self.normal[1]) +
+                      uv_up[1]*jump(self.U_test[1], uv_old[1]*self.normal[1]))*dS
                 # Lax-Friedrichs stabilization
                 if uv_lax_friedrichs is not None:
                     gamma = 0.5*abs(un_av)*uv_lax_friedrichs
@@ -250,19 +250,20 @@ class HorizontalAdvectionTerm(ShallowWaterTerm):
                         ds_bnd = ds(int(bnd_marker))
                         if funcs is None:
                             # impose impermeability with mirror velocity
-                            un = dot(uv, self.normal)
-                            uv_ext = uv - 2*un*self.normal
-                            gamma = 0.5*abs(un)*uv_lax_friedrichs
+                            n = self.normal
+                            uv_ext = uv - 2*dot(uv, n)*n
+                            gamma = 0.5*abs(dot(uv_old, n))*uv_lax_friedrichs
                             f += gamma*dot(self.U_test, uv-uv_ext)*ds_bnd
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker))
                 if funcs is not None:
                     eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
+                    eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                    eta_jump = eta_old - eta_ext_old
+                    un_rie = 0.5*inner(uv_old + uv_ext_old, self.normal) + sqrt(g_grav/self.bathymetry)*eta_jump
                     uv_av = 0.5*(uv_ext + uv)
-                    eta_jump = eta - eta_ext
-                    un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/self.bathymetry)*eta_jump
                     f += (uv_av[0]*self.U_test[0]*un_rie +
                           uv_av[1]*self.U_test[1]*un_rie)*ds_bnd
         return -f
@@ -274,7 +275,9 @@ class HorizontalViscosityTerm(ShallowWaterTerm):
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         uv, eta = self.split_solution(solution)
-        total_h = self.get_total_depth(eta)
+        # the only nonlinearity is in the grad H/H term
+        uv_old, eta_old = self.split_solution(solution_old)
+        total_h = self.get_total_depth(eta_old)
 
         nu = fields_old.get('viscosity_h')
         if nu is None:
@@ -355,7 +358,8 @@ class WindStressTerm(ShallowWaterTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         wind_stress = fields_old.get('wind_stress')
         uv, eta = self.split_solution(solution)
-        total_h = self.get_total_depth(eta)
+        uv_old, eta_old = self.split_solution(solution_old)
+        total_h = self.get_total_depth(eta_old)
         f = 0
         if wind_stress is not None:
             f += -dot(wind_stress, self.U_test)/total_h/rho_0*dx
@@ -369,7 +373,7 @@ class QuadraticDragTerm(ShallowWaterTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         uv, eta = self.split_solution(solution)
         uv_old, eta_old = self.split_solution(solution_old)
-        total_h = self.get_total_depth(eta)
+        total_h = self.get_total_depth(eta_old)
         mu_manning = fields_old.get('mu_manning')
         f = 0
         if mu_manning is not None:
@@ -399,7 +403,8 @@ class BottomDrag3DTerm(ShallowWaterTerm):
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         uv, eta = self.split_solution(solution)
-        total_h = self.get_total_depth(eta)
+        uv_old, eta_old = self.split_solution(solution_old)
+        total_h = self.get_total_depth(eta_old)
         bottom_drag = fields_old.get('bottom_drag')
         uv_bottom = fields_old.get('uv_bottom')
         f = 0
@@ -481,12 +486,12 @@ class ShallowWaterEquations(Equation):
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalViscosityTerm(*args), 'explicit')
         self.add_term(CoriolisTerm(*args), 'explicit')
-        self.add_term(WindStressTerm(*args), 'explicit')  # FIXME should be source
+        self.add_term(WindStressTerm(*args), 'source')
         self.add_term(QuadraticDragTerm(*args), 'explicit')
         self.add_term(LinearDragTerm(*args), 'explicit')
-        self.add_term(BottomDrag3DTerm(*args), 'explicit')  # FIXME should be source
-        self.add_term(InternalPressureGradientTerm(*args), 'explicit')  # FIXME should be source
-        self.add_term(SourceTerm(*args), 'explicit')  # FIXME should be source
+        self.add_term(BottomDrag3DTerm(*args), 'source')
+        self.add_term(InternalPressureGradientTerm(*args), 'source')
+        self.add_term(SourceTerm(*args), 'source')
 
     def get_time_step(self, u_mag=Constant(0.0)):
         """
@@ -617,7 +622,7 @@ class FreeSurfaceEquation(Equation):
 
         args = (function_space, bathymetry, nonlin)
         self.add_term(FreeSurfaceDivTerm(*args), 'explicit')
-        self.add_term(FreeSurfaceSourceTerm(*args), 'explicit')  # FIXME should be source
+        self.add_term(FreeSurfaceSourceTerm(*args), 'source')
 
     def get_time_step(self, u_mag=Constant(0.0)):
         """

@@ -44,6 +44,8 @@ class ModelOptions(AttrDict):
         """bool: Implicit 2D waves (only w. mode split)"""
         self.use_imex = False
         """bool: Use IMEX time integrator (only with mode split)"""
+        self.use_linearized_semi_implicit_2d = False
+        """bool: Use linearized semi-implicit time integration for the horizontal mode"""
         self.use_turbulence = False
         """bool: GLS turbulence model"""
         self.use_smooth_eddy_viscosity = False

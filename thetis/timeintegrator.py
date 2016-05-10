@@ -280,11 +280,15 @@ class SSPRK33StageSemiImplicit(TimeIntegrator):
 
     CFL coefficient is 1.0
     """
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
+                 solver_parameters={}, semi_implicit=False):
         """Creates forms for the time integrator"""
         super(SSPRK33StageSemiImplicit, self).__init__(equation, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
-        self.solver_parameters.setdefault('snes_type', 'newtonls')
+        if semi_implicit:
+            self.solver_parameters.setdefault('snes_type', 'ksponly')
+        else:
+            self.solver_parameters.setdefault('snes_type', 'newtonls')
 
         self.explicit = True
         self.CFL_coeff = 1.0
@@ -301,11 +305,22 @@ class SSPRK33StageSemiImplicit(TimeIntegrator):
 
         self.dt_const = Constant(dt)
 
+        if semi_implicit:
+            # linearize around previous sub-timestep using the fact that all terms are written in the form A(u_nl) u
+            sol_nl0 = self.solution_old
+            sol_nl1 = self.sol0
+            sol_nl2 = self.sol1
+        else:
+            # solve the full nonlinear residual form
+            sol_nl0 = self.sol0
+            sol_nl1 = self.sol1
+            sol_nl2 = self.solution
+
         # FIXME old solution should be set correctly, this is consistent with old formulation
         args = (self.fields, self.fields, bnd_conditions)
         self.F_0 = (self.equation.mass_term(self.sol0) - self.equation.mass_term(self.solution_old) -
                     self.dt_const*(
-                        self.theta*self.equation.residual('implicit', self.sol0, self.sol0, *args) +
+                        self.theta*self.equation.residual('implicit', self.sol0, sol_nl0, *args) +
                         (1-self.theta)*self.equation.residual('implicit', self.solution_old, self.solution_old, *args) +
                         self.equation.residual('explicit', self.solution_old, self.solution_old, *args) +
                         self.equation.residual('source', self.solution_old, self.solution_old, *args))
@@ -313,7 +328,7 @@ class SSPRK33StageSemiImplicit(TimeIntegrator):
         self.F_1 = (self.equation.mass_term(self.sol1) -
                     3.0/4.0*self.equation.mass_term(self.solution_old) - 1.0/4.0*self.equation.mass_term(self.sol0) -
                     1.0/4.0*self.dt_const*(
-                        self.theta*self.equation.residual('implicit', self.sol1, self.sol1, *args) +
+                        self.theta*self.equation.residual('implicit', self.sol1, sol_nl1, *args) +
                         (1-self.theta)*self.equation.residual('implicit', self.sol0, self.sol0, *args) +
                         self.equation.residual('explicit', self.sol0, self.sol0, *args) +
                         self.equation.residual('source', self.solution_old, self.solution_old, *args))
@@ -321,7 +336,7 @@ class SSPRK33StageSemiImplicit(TimeIntegrator):
         self.F_2 = (self.equation.mass_term(self.solution) -
                     1.0/3.0*self.equation.mass_term(self.solution_old) - 2.0/3.0*self.equation.mass_term(self.sol1) -
                     2.0/3.0*self.dt_const*(
-                        self.theta*self.equation.residual('implicit', self.solution, self.solution, *args) +
+                        self.theta*self.equation.residual('implicit', self.solution, sol_nl2, *args) +
                         (1-self.theta)*self.equation.residual('implicit', self.sol1, self.sol1, *args) +
                         self.equation.residual('explicit', self.sol1, self.sol1, *args) +
                         self.equation.residual('source', self.solution_old, self.solution_old, *args))
@@ -438,11 +453,14 @@ class ForwardEuler(TimeIntegrator):
 
 class CrankNicolson(TimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, gamma=0.5):
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, gamma=0.5, semi_implicit=False):
         """Creates forms for the time integrator"""
         super(CrankNicolson, self).__init__(equation, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
-        self.solver_parameters.setdefault('snes_type', 'newtonls')
+        if semi_implicit:
+            self.solver_parameters.setdefault('snes_type', 'ksponly')
+        else:
+            self.solver_parameters.setdefault('snes_type', 'newtonls')
 
         self.dt_const = Constant(dt)
 
@@ -462,6 +480,13 @@ class CrankNicolson(TimeIntegrator):
 
         u = self.solution
         u_old = self.solution_old
+        if semi_implicit:
+            # linearize around last timestep using the fact that all terms are written in the form A(u_nl) u
+            # (currently only true for the SWE)
+            u_nl = u_old
+        else:
+            # solve the full nonlinear residual form
+            u_nl = u
         bnd = bnd_conditions
         f = self.fields
         f_old = self.fields_old
@@ -470,7 +495,7 @@ class CrankNicolson(TimeIntegrator):
         gamma_const = Constant(gamma)
         # FIXME this is consistent with previous implementation but time levels are incorrect
         self.F = (self.equation.mass_term(u) - self.equation.mass_term(u_old) -
-                  self.dt_const*(gamma_const*self.equation.residual('all', u, u, f, f, bnd) +
+                  self.dt_const*(gamma_const*self.equation.residual('all', u, u_nl, f, f, bnd) +
                                  (1-gamma_const)*self.equation.residual('all', u_old, u_old, f_old, f_old, bnd)
                                  )
                   )
