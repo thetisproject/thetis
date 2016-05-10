@@ -48,6 +48,8 @@ class ModelOptions(AttrDict, FrozenClass):
         """bool: Use IMEX time integrator (only with mode split)"""
         self.use_linearized_semi_implicit_2d = False
         """bool: Use linearized semi-implicit time integration for the horizontal mode"""
+        self.shallow_water_theta = 0.5
+        """float: theta parameter for shallow water semi-implicit scheme"""
         self.use_turbulence = False
         """bool: GLS turbulence model"""
         self.use_smooth_eddy_viscosity = False

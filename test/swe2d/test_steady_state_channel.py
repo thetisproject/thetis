@@ -27,7 +27,15 @@ def test_steady_state_channel(do_export=False):
     solver_obj.options.t_end = n*dt
     solver_obj.options.no_exports = not do_export
     # NOTE had to set to something else than Cr-Ni, otherwise overriding below has no effect
-    solver_obj.options.timestepper_type = 'forwardeuler'
+    solver_obj.options.timestepper_type = 'cranknicolson'
+    solver_obj.options.shallow_water_theta = 1.0
+    solver_obj.options.solver_parameters_sw = {
+        'ksp_type': 'preonly',
+        'pc_type': 'lu',
+        'pc_factor_mat_solver_package': 'mumps',
+        'snes_monitor': False,
+        'snes_type': 'newtonls',
+    }
     solver_obj.options.timer_labels = []
     solver_obj.options.lin_drag = f
     solver_obj.options.dt = dt
@@ -45,18 +53,6 @@ def test_steady_state_channel(do_export=False):
     parameters['quadrature_degree'] = 5
 
     solver_obj.create_equations()
-    solver_parameters = {
-        'ksp_type': 'preonly',
-        'pc_type': 'lu',
-        'pc_factor_mat_solver_package': 'mumps',
-        'snes_monitor': False,
-        'snes_type': 'newtonls'}
-    # reinitialize the timestepper so we can set our own solver parameters and gamma
-    # setting gamma to 1.0 converges faster to
-    solver_obj.timestepper = timeintegrator.CrankNicolson(solver_obj.eq_sw, solver_obj.fields.solution_2d,
-                                                          solver_obj.timestepper.fields, solver_obj.dt,
-                                                          bnd_conditions=solver_obj.bnd_functions['shallow_water'],
-                                                          solver_parameters=solver_parameters, gamma=1.0)
     solver_obj.assign_initial_conditions(uv_init=Expression(("1.0", "0.0")))
 
     solver_obj.iterate()
