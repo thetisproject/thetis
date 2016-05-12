@@ -502,6 +502,7 @@ class MomentumSourceTerm(ShallowWaterMomentumTerm):
             f += -inner(uv_source, self.u_test)*dx
         return -f
 
+
 class ContinuitySourceTerm(ShallowWaterContinuityTerm):
     """
     Generic source term in the depth-averaged continuity equation
@@ -626,7 +627,6 @@ class ShallowWaterEquations(Equation):
         return f
 
 
-
 class FreeSurfaceEquation(Equation):
     """
     2D free surface equation.
@@ -634,7 +634,7 @@ class FreeSurfaceEquation(Equation):
     def __init__(self, eta_test, eta_space, u_space,
                  bathymetry,
                  nonlin=True):
-        super(FreeSurfaceEquation, self).__init__(function_space)
+        super(FreeSurfaceEquation, self).__init__(eta_space)
         self.bathymetry = bathymetry
 
         # default solver parameters
@@ -711,7 +711,7 @@ class FreeSurfaceEquation(Equation):
             labels = list(label)
 
         uv = fields['uv']
-        uv_old = field['uv_old']
+        uv_old = fields_old['uv']
         eta = solution
         eta_old = solution_old
 
