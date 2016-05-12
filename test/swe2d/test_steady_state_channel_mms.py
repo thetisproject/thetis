@@ -16,47 +16,43 @@ def test_steady_state_channel_mms(options):
     # minimum resolution
     min_cells = 16
     n = 1  # number of timesteps
-    dt = 10.
+    dt = 1.
     g = physical_constants['g_grav'].dat.data[0]
-    h0 = 10.  # depth at rest
+    H0 = 10.  # depth at rest
     area = lx*ly
 
     k = 4.0*math.pi/lx
-    q = h0*1.0  # flux (depth-integrated velocity)
+    Q = H0*1.0  # flux (depth-integrated velocity)
     eta0 = 1.0  # free surface amplitude
+    C_D = 0.0025  # quadratic drag coefficient
 
-    eta_expr = Expression("eta0*cos(k*x[0])", k=k, eta0=eta0)
-    depth_expr = "H0+eta0*cos(k*x[0])"
-    u_expr = Expression(("Q/({H})".format(H=depth_expr), 0.), k=k, Q=q, eta0=eta0, H0=h0)
-    # source_expr = Expression("k*eta0*(pow(Q,2)/pow({H},3)-g)*sin(k*x[0])".format(H=depth_expr),
-    #                          k=k, g=g, Q=q, eta0=eta0, H0=h0)
-    source_expr = Expression(("k*eta0*(pow(Q,2)/pow({H},3)-g)*sin(k*x[0])".format(H=depth_expr), 0),
-                             k=k, g=g, Q=q, eta0=eta0, H0=h0)
-    u_bcval = q/(h0+eta0)
-    eta_bcval = eta0
+    xhat = Identity(2)[0, :]
 
     do_exports = not options['no_exports']
-    if do_exports:
-        diff_pvd = File('diff.pvd')
-        udiff_pvd = File('udiff.pvd')
-        source_pvd = File('source.pvd')
 
     eta_errs = []
     u_errs = []
     for i in range(5):
         mesh2d = RectangleMesh(min_cells*2**i, 1, lx, ly)
+        x = mesh2d.coordinates
+        eta_expr = eta0*cos(k*x[0])
+        H = H0+eta0*cos(k*x[0])
+        u_expr = Q/H
+        source_expr = k*eta0*(pow(Q, 2)/pow(H, 3)-g)*sin(k*x[0]) + C_D*abs(u_expr)*(u_expr)/H
+        eta_bcval = Constant(eta0)
 
         # bathymetry
         p1_2d = FunctionSpace(mesh2d, 'CG', 1)
         bathymetry_2d = Function(p1_2d, name="bathymetry")
-        bathymetry_2d.assign(h0)
+        bathymetry_2d.assign(H0)
 
-        source_space = VectorFunctionSpace(mesh2d, 'DG', order+1)
-        source_func = project(source_expr, source_space)
+        source_space = VectorFunctionSpace(mesh2d, 'DG', order+2)
+        source_func = project(source_expr*xhat, source_space, name="Source")
 
         # --- create solver ---
         solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=order)
         solver_obj.options.nonlin = True
+        solver_obj.options.quadratic_drag = C_D
         solver_obj.options.t_export = dt
         solver_obj.options.t_end = n*dt
         solver_obj.options.uv_source_2d = source_func
@@ -78,10 +74,10 @@ def test_steady_state_channel_mms(options):
         outflow_tag = 2
 
         inflow_func = Function(p1_2d)
-        inflow_func.interpolate(Expression(-u_bcval))
+        inflow_func.interpolate(-u_expr)
         inflow_bc = {'un': inflow_func}
         outflow_func = Function(p1_2d)
-        outflow_func.interpolate(Expression(eta_bcval))
+        outflow_func.interpolate(eta_bcval)
         outflow_bc = {'elev': outflow_func}
         solver_obj.bnd_functions['shallow_water'] = {inflow_tag: inflow_bc, outflow_tag: outflow_bc}
         # parameters['quadrature_degree']=5
@@ -93,7 +89,7 @@ def test_steady_state_channel_mms(options):
         solver_obj.assign_initial_conditions(uv_init=Expression(("1.0", "0.0")))
 
         if do_exports:
-            source_pvd.write(source_func)
+            File('source_{}.pvd'.format(i)).write(source_func)
         # subtract out time derivative
         solver_obj.timestepper.F -= (solver_obj.eq_sw.mass_term(solver_obj.timestepper.solution) -
                                      solver_obj.eq_sw.mass_term(solver_obj.timestepper.solution_old))
@@ -105,13 +101,13 @@ def test_steady_state_channel_mms(options):
 
         eta_ana = project(eta_expr, solver_obj.function_spaces.H_2d)
         if do_exports:
-            diff_pvd.write(project(eta_ana-eta, solver_obj.function_spaces.H_2d, name="diff"))
+            File('pdiff_{}.pvd'.format(i)).write(project(eta_ana-eta, solver_obj.function_spaces.H_2d, name="diff"))
         eta_l2norm = assemble(pow(eta-eta_ana, 2)*dx)
         eta_errs.append(math.sqrt(eta_l2norm/area))
 
-        u_ana = project(u_expr, solver_obj.function_spaces.U_2d)
+        u_ana = project(u_expr*xhat, solver_obj.function_spaces.U_2d)
         if do_exports:
-            udiff_pvd.write(project(u_ana-uv, solver_obj.function_spaces.U_2d, name="diff"))
+            File('udiff_{}.pvd'.format(i)).write(project(u_ana-uv, solver_obj.function_spaces.U_2d, name="diff"))
         u_l2norm = assemble(inner(u_ana-uv, u_ana-uv)*dx)
         u_errs.append(math.sqrt(u_l2norm/area))
 

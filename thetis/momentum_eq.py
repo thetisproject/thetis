@@ -322,11 +322,11 @@ class BottomFrictionTerm(MomentumTerm):
 
 class LinearDragTerm(MomentumTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        lin_drag = fields_old.get('lin_drag')
+        linear_drag = fields_old.get('linear_drag')
         f = 0
         # Linear drag (consistent with drag in 2D mode)
-        if lin_drag is not None:
-            bottom_fri = lin_drag*inner(self.test, solution)*dx
+        if linear_drag is not None:
+            bottom_fri = linear_drag*inner(self.test, solution)*dx
             f += bottom_fri
         return -f
 
