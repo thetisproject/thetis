@@ -59,8 +59,8 @@ def run(refinement, order=1, mimetic=False, warped_mesh=False, do_export=True):
     solverobj.options.u_advection = Constant(1.0)
     solverobj.options.no_exports = not do_export
     solverobj.options.outputdir = outputdir
-    solverobj.options.T = t_end
-    solverobj.options.TExport = t_export
+    solverobj.options.t_end = t_end
+    solverobj.options.t_export = t_export
     solverobj.options.dt = dt
     solverobj.options.dt_2d = dt_2d
     solverobj.options.solve_salt = False
@@ -107,7 +107,7 @@ def run(refinement, order=1, mimetic=False, warped_mesh=False, do_export=True):
     ti = solverobj.timestepper.timestepper_mom_3d
     i = 0
     iexport = 1
-    next_export_t = t + solverobj.options.TExport
+    next_export_t = t + solverobj.options.t_export
     while t < t_end - 1e-8:
         ti.advance(t, dt, solverobj.fields.uv_3d)
         t += dt
@@ -115,7 +115,7 @@ def run(refinement, order=1, mimetic=False, warped_mesh=False, do_export=True):
         if t >= next_export_t - 1e-8:
             print('{:3d} i={:5d} t={:8.2f} s uv={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.uv_3d)))
             export_func()
-            next_export_t += solverobj.options.TExport
+            next_export_t += solverobj.options.t_export
             iexport += 1
 
     # project analytical solultion on high order mesh

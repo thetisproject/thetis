@@ -281,7 +281,7 @@ class SSPRK33StageSemiImplicit(TimeIntegrator):
     CFL coefficient is 1.0
     """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
-                 solver_parameters={}, semi_implicit=False):
+                 solver_parameters={}, semi_implicit=False, theta=0.5):
         """Creates forms for the time integrator"""
         super(SSPRK33StageSemiImplicit, self).__init__(equation, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
@@ -293,7 +293,7 @@ class SSPRK33StageSemiImplicit(TimeIntegrator):
         self.explicit = True
         self.CFL_coeff = 1.0
         self.n_stages = 3
-        self.theta = Constant(0.5)
+        self.theta = Constant(theta)
 
         self.solution = solution
         self.solution_old = Function(self.equation.function_space, name='old solution')
@@ -453,7 +453,7 @@ class ForwardEuler(TimeIntegrator):
 
 class CrankNicolson(TimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, gamma=0.5, semi_implicit=False):
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, theta=0.5, semi_implicit=False):
         """Creates forms for the time integrator"""
         super(CrankNicolson, self).__init__(equation, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
@@ -492,11 +492,11 @@ class CrankNicolson(TimeIntegrator):
         f_old = self.fields_old
 
         # Crank-Nicolson
-        gamma_const = Constant(gamma)
+        theta_const = Constant(theta)
         # FIXME this is consistent with previous implementation but time levels are incorrect
         self.F = (self.equation.mass_term(u) - self.equation.mass_term(u_old) -
-                  self.dt_const*(gamma_const*self.equation.residual('all', u, u_nl, f, f, bnd) +
-                                 (1-gamma_const)*self.equation.residual('all', u_old, u_old, f_old, f_old, bnd)
+                  self.dt_const*(theta_const*self.equation.residual('all', u, u_nl, f, f, bnd) +
+                                 (1-theta_const)*self.equation.residual('all', u_old, u_old, f_old, f_old, bnd)
                                  )
                   )
 

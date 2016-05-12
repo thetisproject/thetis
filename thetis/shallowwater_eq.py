@@ -467,14 +467,6 @@ class ShallowWaterEquations(Equation):
         super(ShallowWaterEquations, self).__init__(function_space)
         self.bathymetry = bathymetry
 
-        # default solver parameters FIXME probably does no belong here?
-        # Gauss-Seidel
-        self.solver_parameters = {
-            'ksp_type': 'gmres',
-            'pc_type': 'fieldsplit',
-            'pc_fieldsplit_type': 'multiplicative',
-        }
-
         args = (function_space,
                 bathymetry,
                 nonlin,
