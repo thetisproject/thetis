@@ -22,6 +22,16 @@ class TracerTerm(Term):
         self.horizontal_dg = continuity.horizontal_dg
         self.vertical_dg = continuity.vertical_dg
 
+        # define measures with a reasonable quadrature degree
+        p, q = self.function_space.ufl_element().degree()
+        self.quad_degree = (2*p + 1, 2*q + 1)
+        self.dx = dx(degree=self.quad_degree)
+        self.dS_h = dS_h(degree=self.quad_degree)
+        self.dS_v = dS_v(degree=self.quad_degree)
+        self.ds = ds(degree=self.quad_degree)
+        self.ds_surf = ds_surf(degree=self.quad_degree)
+        self.ds_bottom = ds_bottom(degree=self.quad_degree)
+
     def get_bnd_functions(self, c_in, uv_in, elev_in, bnd_id, bnd_conditions):
         """
         Returns external values tracer and uv for all supported
@@ -70,7 +80,7 @@ class HorizontalAdvectionTerm(TracerTerm):
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_factor')
 
         f = 0
-        f += -solution*inner(uv, nabla_grad(self.test))*dx
+        f += -solution*inner(uv, nabla_grad(self.test))*self.dx
         if self.horizontal_dg:
             # add interface term
             uv_av = avg(uv)
@@ -80,10 +90,10 @@ class HorizontalAdvectionTerm(TracerTerm):
             c_up = solution('-')*s + solution('+')*(1-s)
             f += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
                        uv_av[1]*jump(self.test, self.normal[1]) +
-                       uv_av[2]*jump(self.test, self.normal[2]))*(dS_v)
+                       uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_v)
             f += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
                        uv_av[1]*jump(self.test, self.normal[1]) +
-                       uv_av[2]*jump(self.test, self.normal[2]))*(dS_h)
+                       uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_h)
             # Lax-Friedrichs stabilization
             if lax_friedrichs_factor is not None:
                 if uv_p1 is not None:
@@ -93,11 +103,11 @@ class HorizontalAdvectionTerm(TracerTerm):
                     gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
                 else:
                     raise Exception('either uv_p1 or uv_mag must be given')
-                f += gamma*dot(jump(self.test), jump(solution))*(dS_v + dS_h)
+                f += gamma*dot(jump(self.test), jump(solution))*(self.dS_v + self.dS_h)
             if bnd_conditions is not None:
                 for bnd_marker in self.boundary_markers:
                     funcs = bnd_conditions.get(bnd_marker)
-                    ds_bnd = ds_v(int(bnd_marker))
+                    ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
                     if funcs is None:
                         continue
                     else:
@@ -130,27 +140,27 @@ class VerticalAdvectionTerm(TracerTerm):
         if w_mesh is not None:
             vertvelo = w[2] - w_mesh
         f = 0
-        f += -solution*vertvelo*Dx(self.test, 2)*dx
+        f += -solution*vertvelo*Dx(self.test, 2)*self.dx
         if self.vertical_dg:
             w_av = avg(vertvelo)
             s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
             c_up = solution('-')*s + solution('+')*(1-s)
-            f += c_up*w_av*jump(self.test, self.normal[2])*dS_h
+            f += c_up*w_av*jump(self.test, self.normal[2])*self.dS_h
             if lax_friedrichs_factor is not None:
                 # Lax-Friedrichs
                 gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
-                f += gamma*dot(jump(self.test), jump(solution))*dS_h
+                f += gamma*dot(jump(self.test), jump(solution))*self.dS_h
 
         # Non-conservative ALE source term
         if dw_mesh_dz is not None:
-            f += solution*dw_mesh_dz*self.test*dx
+            f += solution*dw_mesh_dz*self.test*self.dx
 
         # NOTE Bottom impermeability condition is naturally satisfied by the definition of w
         # NOTE imex solver fails with this in tracerBox example
         if w_mesh is None:
-            f += solution*vertvelo*self.normal[2]*self.test*ds_surf
+            f += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
         else:
-            f += solution*vertvelo*self.normal[2]*self.test*ds_surf
+            f += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
         return -f
 
 
@@ -169,7 +179,7 @@ class HorizontalDiffusionTerm(TracerTerm):
         diff_flux = dot(diff_tensor, grad(solution))
 
         f = 0
-        f += inner(grad_test, diff_flux)*dx
+        f += inner(grad_test, diff_flux)*self.dx
 
         if self.horizontal_dg:
             assert self.h_elem_size is not None, 'h_elem_size must be defined'
@@ -192,7 +202,7 @@ class HorizontalDiffusionTerm(TracerTerm):
             if degree_h == 0:
                 raise NotImplementedError('horizontal diffusion not implemented for p0')
             alpha = avg(sigma)
-            ds_interior = (dS_h + dS_v)
+            ds_interior = (self.dS_h + self.dS_v)
             f += alpha*inner(jump(self.test, self.normal),
                              dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
             f += -inner(avg(dot(diff_tensor, grad(self.test))),
@@ -202,8 +212,8 @@ class HorizontalDiffusionTerm(TracerTerm):
 
         # symmetric bottom boundary condition
         # NOTE introduces a flux through the bed - breaks mass conservation
-        f += - inner(diff_flux, self.normal)*self.test*ds_bottom
-        f += - inner(diff_flux, self.normal)*self.test*ds_surf
+        f += - inner(diff_flux, self.normal)*self.test*self.ds_bottom
+        f += - inner(diff_flux, self.normal)*self.test*self.ds_surf
 
         return -f
 
@@ -222,7 +232,7 @@ class VerticalDiffusionTerm(TracerTerm):
         diff_flux = dot(diffusivity_v, Dx(solution, 2))
 
         f = 0
-        f += inner(grad_test, diff_flux)*dx
+        f += inner(grad_test, diff_flux)*self.dx
 
         if self.vertical_dg:
             assert self.h_elem_size is not None, 'h_elem_size must be defined'
@@ -239,7 +249,7 @@ class VerticalDiffusionTerm(TracerTerm):
             if degree_v == 0:
                 sigma = 1.0/elemsize
             alpha = avg(sigma)
-            ds_interior = (dS_h)
+            ds_interior = (self.dS_h)
             f += alpha*inner(jump(self.test, self.normal[2]),
                              dot(avg(diffusivity_v), jump(solution, self.normal[2])))*ds_interior
             f += -inner(avg(dot(diffusivity_v, Dx(self.test, 2))),
@@ -258,7 +268,7 @@ class SourceTerm(TracerTerm):
         f = 0
         source = fields_old.get('source')
         if source is not None:
-            f += -inner(source, self.test)*dx
+            f += -inner(source, self.test)*self.dx
         return -f
 
 

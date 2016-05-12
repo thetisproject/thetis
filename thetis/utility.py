@@ -263,38 +263,49 @@ class VerticalVelocitySolver(object):
     """Computes vertical velocity from continuity equation"""
     def __init__(self, solution, uv, bathymetry, boundary_funcs={},
                  solver_parameters={}):
-        solver_parameters.setdefault('ksp_atol', 1e-12)
-        solver_parameters.setdefault('ksp_rtol', 1e-16)
+        solver_parameters.setdefault('snes_type', 'ksponly')
+        solver_parameters.setdefault('ksp_type', 'preonly')
+        solver_parameters.setdefault('pc_type', 'bjacobi')
+        solver_parameters.setdefault('sub_ksp_type', 'preonly')
+        solver_parameters.setdefault('sub_pc_type', 'ilu')
         fs = solution.function_space()
         mesh = fs.mesh()
         test = TestFunction(fs)
         tri = TrialFunction(fs)
         normal = FacetNormal(mesh)
 
+        # define measures with a reasonable quadrature degree
+        p, q = fs.ufl_element().degree()
+        self.quad_degree = (2*p, 2*q)
+        self.dx = dx(degree=self.quad_degree)
+        self.dS_h = dS_h(degree=self.quad_degree)
+        self.dS_v = dS_v(degree=self.quad_degree)
+        self.ds_surf = ds_surf(degree=self.quad_degree)
+
         # NOTE weak dw/dz
         a = tri[2]*test[2]*normal[2]*ds_surf + \
-            avg(tri[2])*jump(test[2], normal[2])*dS_h - Dx(test[2], 2)*tri[2]*dx
+            avg(tri[2])*jump(test[2], normal[2])*dS_h - Dx(test[2], 2)*tri[2]*self.dx
 
         # NOTE weak div(uv)
         uv_star = avg(uv)
         # NOTE in the case of mimetic uv the div must be taken over all components
-        l = (inner(uv, nabla_grad(test[2]))*dx -
+        l = (inner(uv, nabla_grad(test[2]))*self.dx -
              (uv_star[0]*jump(test[2], normal[0]) +
               uv_star[1]*jump(test[2], normal[1]) +
               uv_star[2]*jump(test[2], normal[2])
-              )*(dS_v) -
+              )*(self.dS_v) -
              (uv_star[0]*jump(test[2], normal[0]) +
               uv_star[1]*jump(test[2], normal[1]) +
               uv_star[2]*jump(test[2], normal[2])
-              )*(dS_h) -
+              )*(self.dS_h) -
              (uv[0]*normal[0] +
               uv[1]*normal[1] +
               uv[2]*normal[2]
-              )*test[2]*ds_surf
+              )*test[2]*self.ds_surf
              )
         for bnd_marker in mesh.exterior_facets.unique_markers:
             funcs = boundary_funcs.get(bnd_marker)
-            ds_bnd = ds_v(int(bnd_marker))
+            ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
             if funcs is None:
                 # assume land boundary
                 continue
@@ -302,8 +313,11 @@ class VerticalVelocitySolver(object):
                 # use symmetry condition
                 l += -(uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_bnd
 
-        self.prob = LinearVariationalProblem(a, l, solution)
-        self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
+        # TODO needs machinery to recompute jacobian after mesh update
+        self.prob = LinearVariationalProblem(a, l, solution,
+                                             constant_jacobian=True)
+        self.solver = LinearVariationalSolver(self.prob,
+                                              solver_parameters=solver_parameters)
 
     def solve(self):
         self.solver.solve()
@@ -317,8 +331,11 @@ class VerticalIntegrator(object):
     def __init__(self, input, output, bottom_to_top=True,
                  bnd_value=Constant(0.0), average=False,
                  bathymetry=None, solver_parameters={}):
-        solver_parameters.setdefault('ksp_atol', 1e-12)
-        solver_parameters.setdefault('ksp_rtol', 1e-16)
+        solver_parameters.setdefault('snes_type', 'ksponly')
+        solver_parameters.setdefault('ksp_type', 'preonly')
+        solver_parameters.setdefault('pc_type', 'bjacobi')
+        solver_parameters.setdefault('sub_ksp_type', 'preonly')
+        solver_parameters.setdefault('sub_pc_type', 'ilu')
 
         space = output.function_space()
         mesh = space.mesh()
@@ -326,31 +343,46 @@ class VerticalIntegrator(object):
         tri = TrialFunction(space)
         phi = TestFunction(space)
         normal = FacetNormal(mesh)
-        if bottom_to_top:
-            bnd_term = normal[2]*inner(bnd_value, phi)*ds_bottom
-            mass_bnd_term = normal[2]*inner(tri, phi)*ds_surf
-        else:
-            bnd_term = normal[2]*inner(bnd_value, phi)*ds_surf
-            mass_bnd_term = normal[2]*inner(tri, phi)*ds_bottom
 
-        a = -inner(Dx(phi, 2), tri)*dx + mass_bnd_term
+        # define measures with a reasonable quadrature degree
+        p, q = space.ufl_element().degree()
+        self.quad_degree = (2*p, 2*q + 1)
+        self.dx = dx(degree=self.quad_degree)
+        self.dS_h = dS_h(degree=self.quad_degree)
+        self.ds_surf = ds_surf(degree=self.quad_degree)
+        self.ds_bottom = ds_bottom(degree=self.quad_degree)
+
+        if bottom_to_top:
+            bnd_term = normal[2]*inner(bnd_value, phi)*self.ds_bottom
+            mass_bnd_term = normal[2]*inner(tri, phi)*self.ds_surf
+        else:
+            bnd_term = normal[2]*inner(bnd_value, phi)*self.ds_surf
+            mass_bnd_term = normal[2]*inner(tri, phi)*self.ds_bottom
+
+        a = -inner(Dx(phi, 2), tri)*self.dx + mass_bnd_term
+        gamma = (normal[2] + abs(normal[2]))
+        if bottom_to_top:
+            up_value = avg(tri*gamma)
+        else:
+            up_value = avg(tri*(1 - gamma))
         if vertical_is_dg:
             if len(input.ufl_shape) > 0:
                 dim = input.ufl_shape[0]
                 for i in range(dim):
-                    a += avg(tri[i])*jump(phi[i], normal[2])*dS_h
+                    a += up_value[i]*jump(phi[i], normal[2])*self.dS_h
             else:
-                a += avg(tri)*jump(phi, normal[2])*dS_h
+                a += up_value*jump(phi, normal[2])*self.dS_h
         source = input
         if average:
-            # FIXME this should be H not h
+            # FIXME this should be H not h in case of a moving mesh
             source = input/bathymetry
-        l = inner(source, phi)*dx + bnd_term
-        self.prob = LinearVariationalProblem(a, l, output)
+        l = inner(source, phi)*self.dx + bnd_term
+        # TODO needs machinery to recompute jacobian after mesh update
+        self.prob = LinearVariationalProblem(a, l, output, constant_jacobian=True)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
-        with timed_stage('func_vert_int'):
+        with timed_stage('vert_integral'):
             self.solver.solve()
 
 
@@ -520,7 +552,7 @@ class ExpandFunctionTo3d(object):
                 prob, solver_parameters=solver_parameters)
 
     def solve(self):
-        with timed_stage('func_copy_2d_to_3d'):
+        with timed_stage('copy_2d_to_3d'):
             # execute par loop
             op2.par_loop(
                 self.kernel, self.fs_3d.mesh().cell_set,
@@ -631,7 +663,7 @@ class SubFunctionExtractor(object):
                 prob, solver_parameters=solver_parameters)
 
     def solve(self):
-        with timed_stage('func_copy_3d_to_2d'):
+        with timed_stage('copy_3d_to_2d'):
             # execute par loop
             op2.par_loop(self.kernel, self.fs_3d.mesh().cell_set,
                          self.output_2d.dat(op2.WRITE, self.fs_2d.cell_node_map()),

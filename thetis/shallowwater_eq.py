@@ -43,6 +43,12 @@ class ShallowWaterTerm(Term):
         # mesh dependent variables
         self.cellsize = CellSize(self.mesh)
 
+        # define measures with a reasonable quadrature degree
+        p = self.function_space.ufl_element().degree()
+        self.quad_degree = 2*p + 1
+        self.dx = dx(degree=self.quad_degree)
+        self.dS = dS(degree=self.quad_degree)
+
     def get_bnd_functions(self, eta_in, uv_in, bnd_id, bnd_conditions):
         """
         Returns external values of elev and uv for all supported
@@ -152,15 +158,15 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
         grad_eta_by_parts = self.eta_is_dg
 
         if grad_eta_by_parts:
-            f = -g_grav*head*nabla_div(self.u_test)*dx
+            f = -g_grav*head*nabla_div(self.u_test)*self.dx
             if uv is not None:
                 head_star = avg(head) + 0.5*sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
             else:
                 head_star = avg(head)
-            f += g_grav*head_star*jump(self.u_test, self.normal)*dS
+            f += g_grav*head_star*jump(self.u_test, self.normal)*self.dS
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
-                ds_bnd = ds(int(bnd_marker))
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if funcs is not None:
                     eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
@@ -175,10 +181,10 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
                     head_rie = head + sqrt(h/g_grav)*un_jump
                     f += g_grav*head_rie*dot(self.u_test, self.normal)*ds_bnd
         else:
-            f = g_grav*inner(grad(head), self.u_test) * dx
+            f = g_grav*inner(grad(head), self.u_test) * self.dx
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
-                ds_bnd = ds(int(bnd_marker))
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if funcs is not None:
                     eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
@@ -198,15 +204,15 @@ class HUDivTerm(ShallowWaterContinuityTerm):
         hu_by_parts = self.u_is_dg or self.u_is_hdiv
 
         if hu_by_parts:
-            f = -inner(grad(self.eta_test), total_h*uv)*dx
+            f = -inner(grad(self.eta_test), total_h*uv)*self.dx
             if self.eta_is_dg:
                 h = avg(total_h)
                 uv_rie = avg(uv) + sqrt(g_grav/h)*jump(eta, self.normal)
                 hu_star = h*uv_rie
-                f += inner(jump(self.eta_test, self.normal), hu_star)*dS
+                f += inner(jump(self.eta_test, self.normal), hu_star)*self.dS
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
-                ds_bnd = ds(int(bnd_marker))
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if funcs is not None:
                     eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
                     eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
@@ -219,10 +225,10 @@ class HUDivTerm(ShallowWaterContinuityTerm):
                     h_rie = self.bathymetry + eta_rie
                     f += h_rie*un_rie*self.eta_test*ds_bnd
         else:
-            f = div(total_h*uv)*self.eta_test*dx
+            f = div(total_h*uv)*self.eta_test*self.dx
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
-                ds_bnd = ds(int(bnd_marker))
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if funcs is None or 'un' in funcs:
                     f += -total_h*dot(uv, self.normal)*self.eta_test*ds_bnd
         return -f
@@ -245,7 +251,7 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
             f = -(Dx(uv_old[0]*self.u_test[0], 0)*uv[0] +
                   Dx(uv_old[0]*self.u_test[1], 0)*uv[1] +
                   Dx(uv_old[1]*self.u_test[0], 1)*uv[0] +
-                  Dx(uv_old[1]*self.u_test[1], 1)*uv[1])*dx
+                  Dx(uv_old[1]*self.u_test[1], 1)*uv[1])*self.dx
             if self.u_is_dg:
                 un_av = dot(avg(uv_old), self.normal('-'))
                 # NOTE solver can stagnate
@@ -258,14 +264,14 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
                 f += (uv_up[0]*jump(self.u_test[0], uv_old[0]*self.normal[0]) +
                       uv_up[1]*jump(self.u_test[1], uv_old[0]*self.normal[0]) +
                       uv_up[0]*jump(self.u_test[0], uv_old[1]*self.normal[1]) +
-                      uv_up[1]*jump(self.u_test[1], uv_old[1]*self.normal[1]))*dS
+                      uv_up[1]*jump(self.u_test[1], uv_old[1]*self.normal[1]))*self.dS
                 # Lax-Friedrichs stabilization
                 if uv_lax_friedrichs is not None:
                     gamma = 0.5*abs(un_av)*uv_lax_friedrichs
-                    f += gamma*dot(jump(self.u_test), jump(uv))*dS
+                    f += gamma*dot(jump(self.u_test), jump(uv))*self.dS
                     for bnd_marker in self.boundary_markers:
                         funcs = bnd_conditions.get(bnd_marker)
-                        ds_bnd = ds(int(bnd_marker))
+                        ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                         if funcs is None:
                             # impose impermeability with mirror velocity
                             n = self.normal
@@ -274,7 +280,7 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
                             f += gamma*dot(self.u_test, uv-uv_ext)*ds_bnd
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
-                ds_bnd = ds(int(bnd_marker))
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if funcs is not None:
                     eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
                     eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
@@ -308,7 +314,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
             stress = nu*grad(uv)
             stress_jump = avg(nu)*tensor_jump(uv, n)
 
-        f = inner(grad(self.u_test), stress)*dx
+        f = inner(grad(self.u_test), stress)*self.dx
 
         if self.u_is_dg:
             # from Epshteyn et al. 2007 (http://dx.doi.org/10.1016/j.cam.2006.08.029)
@@ -318,15 +324,15 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
             p = self.u_space.ufl_element().degree()
             alpha = 5.*p*(p+1)
             f += (
-                + alpha/avg(h)*inner(tensor_jump(self.u_test, n), stress_jump)*dS
-                - inner(avg(grad(self.u_test)), stress_jump)*dS
-                - inner(tensor_jump(self.u_test, n), avg(stress))*dS
+                + alpha/avg(h)*inner(tensor_jump(self.u_test, n), stress_jump)*self.dS
+                - inner(avg(grad(self.u_test)), stress_jump)*self.dS
+                - inner(tensor_jump(self.u_test, n), avg(stress))*self.dS
             )
 
             # Dirichlet bcs only for DG
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
-                ds_bnd = ds(int(bnd_marker))
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if funcs is not None:
                     if 'un' in funcs:
                         delta_uv = (dot(uv, n) - funcs['un'])*n
@@ -348,7 +354,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
                     )
 
         if self.include_grad_depth_viscosity_term:
-            f += -dot(self.u_test, dot(grad(total_h)/total_h, stress))*dx
+            f += -dot(self.u_test, dot(grad(total_h)/total_h, stress))*self.dx
 
         return -f
 
@@ -361,7 +367,7 @@ class CoriolisTerm(ShallowWaterMomentumTerm):
         coriolis = fields_old.get('coriolis')
         f = 0
         if coriolis is not None:
-            f += coriolis*(-uv[1]*self.u_test[0] + uv[0]*self.u_test[1])*dx
+            f += coriolis*(-uv[1]*self.u_test[0] + uv[0]*self.u_test[1])*self.dx
         return -f
 
 
@@ -374,7 +380,7 @@ class WindStressTerm(ShallowWaterMomentumTerm):
         total_h = self.get_total_depth(eta_old)
         f = 0
         if wind_stress is not None:
-            f += -dot(wind_stress, self.u_test)/total_h/rho_0*dx
+            f += -dot(wind_stress, self.u_test)/total_h/rho_0*self.dx
         return -f
 
 
@@ -393,7 +399,7 @@ class QuadraticDragTerm(ShallowWaterMomentumTerm):
             C_D = g_grav * mu_manning**2 / total_h**(1./3.)
 
         if C_D is not None:
-            f += C_D * sqrt(dot(uv_old, uv_old)) * inner(self.u_test, uv) / total_h * dx
+            f += C_D * sqrt(dot(uv_old, uv_old)) * inner(self.u_test, uv) / total_h * self.dx
         return -f
 
 
@@ -405,7 +411,7 @@ class LinearDragTerm(ShallowWaterMomentumTerm):
         linear_drag = fields_old.get('linear_drag')
         f = 0
         if linear_drag is not None:
-            bottom_fri = linear_drag*inner(self.u_test, uv)*dx
+            bottom_fri = linear_drag*inner(self.u_test, uv)*self.dx
             f += bottom_fri
         return -f
 
@@ -422,7 +428,7 @@ class BottomDrag3DTerm(ShallowWaterMomentumTerm):
         if bottom_drag is not None and uv_bottom is not None:
             uvb_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
             stress = bottom_drag*uvb_mag*uv_bottom/total_h
-            bot_friction = dot(stress, self.u_test)*dx
+            bot_friction = dot(stress, self.u_test)*self.dx
             f += bot_friction
         return -f
 
@@ -438,11 +444,11 @@ class InternalPressureGradientTerm(ShallowWaterMomentumTerm):
             return 0
 
         f = 0
-        f = -g_grav*baroc_head*nabla_div(self.u_test)*dx
+        f = -g_grav*baroc_head*nabla_div(self.u_test)*self.dx
         head_star = avg(baroc_head)
-        f += g_grav*head_star*jump(self.u_test, self.normal)*dS
+        f += g_grav*head_star*jump(self.u_test, self.normal)*self.dS
         for bnd_marker in self.boundary_markers:
-            ds_bnd = ds(int(bnd_marker))
+            ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
             # use internal value
             head_rie = baroc_head
             f += g_grav*head_rie*dot(self.u_test, self.normal)*ds_bnd
@@ -458,7 +464,7 @@ class MomentumSourceTerm(ShallowWaterMomentumTerm):
         uv_source = fields_old.get('uv_source')
 
         if uv_source is not None:
-            f += -inner(uv_source, self.u_test)*dx
+            f += -inner(uv_source, self.u_test)*self.dx
         return -f
 
 
@@ -471,7 +477,7 @@ class ContinuitySourceTerm(ShallowWaterContinuityTerm):
         elev_source = fields_old.get('elev_source')
 
         if elev_source is not None:
-            f += -inner(elev_source, self.eta_test)*dx
+            f += -inner(elev_source, self.eta_test)*self.dx
         return -f
 
 
