@@ -28,6 +28,8 @@
 
 from thetis import *
 
+physical_constants['rho0'] = 999.7
+
 reso_str = 'medium'
 refinement = {'medium': 1}
 layers = int(round(50*refinement[reso_str]))
@@ -46,6 +48,11 @@ bathymetry_2d = Function(P1_2d, name='Bathymetry')
 bathymetry_2d.interpolate(Expression('hmin + 0.5*(hmax - hmin)*(1 + tanh((x[0] - x0)/Ls))',
                           hmin=500.0, hmax=2000.0, Ls=10.0e3, x0=40.0e3))
 
+# temperature and salinity, results in 2.0 kg/m3 density difference
+salt_left = 2.5489
+salt_right = 0.0
+temp_const = 10.0
+
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solver_obj.options
@@ -53,6 +60,8 @@ options.cfl_2d = 1.0
 # options.nonlin = False
 options.mimetic = False
 options.solve_salt = True
+options.solve_temp = False
+options.constant_temp = Constant(temp_const)
 options.solve_vert_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = False
@@ -60,11 +69,9 @@ options.use_ale_moving_mesh = False
 # options.use_semi_implicit_2d = False
 # options.use_mode_split = False
 options.baroclinic = True
-options.uv_lax_friedrichs = None
-options.tracer_lax_friedrichs = None
+options.uv_lax_friedrichs = Constant(1.0)
+options.tracer_lax_friedrichs = Constant(1.0)
 options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
-options.salt_jump_diff_factor = None
-options.salt_range = Constant(5.0)
 options.use_limiter_for_tracers = True
 options.v_viscosity = Constant(1.0e-4)
 options.h_viscosity = None
@@ -80,7 +87,7 @@ options.check_vol_conservation_3d = True
 options.check_salt_conservation = True
 options.check_salt_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
-                            'w_3d', 'w_mesh_3d', 'salt_3d',
+                            'w_3d', 'w_mesh_3d', 'salt_3d', 'density_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                             'baroc_head_2d',
                             'smag_visc_3d', 'salt_jump_diff']
@@ -90,10 +97,11 @@ options.timer_labels = []
 solver_obj.create_equations()
 salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
 # vertical barrier
-# salt_init3d.interpolate(Expression(('(x[0] > 20.0e3) ? 0.0 : 2.0')))
+# salt_init3d.interpolate(Expression('(x[0] > 20.0e3) ? s_r : s_l',
+#                                    s_l=salt_left, s_r=salt_right))
 # smooth condition
-salt_init3d.interpolate(Expression('drho*0.5*(1.0 - tanh((x[0] - x0)/sigma))',
-                                   drho=2.0, x0=20.0e3, sigma=1000.0))
+salt_init3d.interpolate(Expression('s_l + (s_r - s_l)*0.5*(1.0 + tanh((x[0] - x0)/sigma))',
+                                   s_l=salt_left, s_r=salt_right, x0=20.0e3, sigma=1000.0))
 
 solver_obj.assign_initial_conditions(salt=salt_init3d)
 solver_obj.iterate()

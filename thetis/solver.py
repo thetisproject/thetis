@@ -51,7 +51,9 @@ class FlowSolver(FrozenClass):
 
         self.bnd_functions = {'shallow_water': {},
                               'momentum': {},
-                              'salt': {}}
+                              'salt': {},
+                              'temp': {},
+                              }
 
         self.callbacks = OrderedDict()
         """List of callback functions that will be called during exports"""
@@ -194,10 +196,13 @@ class FlowSolver(FrozenClass):
             self.fields.w_mesh_surf_2d = Function(self.function_spaces.H_2d)
         if self.options.solve_salt:
             self.fields.salt_3d = Function(self.function_spaces.H, name='Salinity')
+        if self.options.solve_temp:
+            self.fields.temp_3d = Function(self.function_spaces.H, name='Temperature')
         if self.options.solve_vert_diffusion and self.options.use_parabolic_viscosity:
             # FIXME use_parabolic_viscosity is OBSOLETE
             self.fields.parab_visc_3d = Function(self.function_spaces.P1)
         if self.options.baroclinic:
+            self.fields.density_3d = Function(self.function_spaces.H, name='Density')
             self.fields.baroc_head_3d = Function(self.function_spaces.Hint)
             self.fields.baroc_head_int_3d = Function(self.function_spaces.Hint)
             self.fields.baroc_head_2d = Function(self.function_spaces.H_2d)
@@ -251,8 +256,8 @@ class FlowSolver(FrozenClass):
             self.gls_model = turbulence.GenericLengthScaleModel(weakref.proxy(self),
                                                                 self.fields.tke_3d,
                                                                 self.fields.psi_3d,
-                                                                self.fields.uv_p1_3d,
-                                                                self.fields.get('salt_3d'),
+                                                                self.fields.uv_3d,
+                                                                self.fields.get('density_3d'),
                                                                 self.fields.len_3d,
                                                                 self.fields.eps_3d,
                                                                 self.fields.eddy_diff_3d,
@@ -319,10 +324,23 @@ class FlowSolver(FrozenClass):
                                                              v_elem_size=self.fields.v_elem_size_3d,
                                                              h_elem_size=self.fields.h_elem_size_3d)
 
+        if self.options.solve_temp:
+            self.eq_temp = tracer_eq.TracerEquation(self.fields.temp_3d.function_space(),
+                                                    bathymetry=self.fields.bathymetry_3d,
+                                                    v_elem_size=self.fields.v_elem_size_3d,
+                                                    h_elem_size=self.fields.h_elem_size_3d)
+            if self.options.solve_vert_diffusion:
+                self.eq_temp_vdff = tracer_eq.TracerEquation(self.fields.temp_3d.function_space(),
+                                                             bathymetry=self.fields.bathymetry_3d,
+                                                             v_elem_size=self.fields.v_elem_size_3d,
+                                                             h_elem_size=self.fields.h_elem_size_3d)
+
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         self.eq_momentum.bnd_functions = self.bnd_functions['momentum']
         if self.options.solve_salt:
             self.eq_salt.bnd_functions = self.bnd_functions['salt']
+        if self.options.solve_temp:
+            self.eq_temp.bnd_functions = self.bnd_functions['temp']
         if self.options.use_turbulence:
             if self.options.use_turbulence_advection:
                 # explicit advection equations
@@ -406,7 +424,16 @@ class FlowSolver(FrozenClass):
                                               average=True,
                                               bathymetry=self.fields.bathymetry_3d)
         if self.options.baroclinic:
-            self.rho_integrator = VerticalIntegrator(self.fields.salt_3d,
+            if self.options.solve_salt:
+                s = self.fields.salt_3d
+            else:
+                s = self.options.constant_salt
+            if self.options.solve_temp:
+                t = self.fields.temp_3d
+            else:
+                t = self.options.constant_temp
+            self.density_solver = DensitySolver(s, t, self.fields.density_3d)
+            self.rho_integrator = VerticalIntegrator(self.fields.density_3d,
                                                      self.fields.baroc_head_3d,
                                                      bottom_to_top=False)
             self.baro_head_averager = VerticalIntegrator(self.fields.baroc_head_3d,
@@ -492,7 +519,7 @@ class FlowSolver(FrozenClass):
         self._initialized = True
         self._isfrozen = True
 
-    def assign_initial_conditions(self, elev=None, salt=None, uv_2d=None):
+    def assign_initial_conditions(self, elev=None, salt=None, temp=None, uv_2d=None):
         if not self._initialized:
             self.create_equations()
         if elev is not None:
@@ -509,13 +536,13 @@ class FlowSolver(FrozenClass):
                                elem_height=self.fields.v_elem_size_3d).solve()
         if salt is not None and self.options.solve_salt:
             self.fields.salt_3d.project(salt)
+        if temp is not None and self.options.solve_temp:
+            self.fields.temp_3d.project(temp)
         self.w_solver.solve()
         if self.options.use_ale_moving_mesh:
             self.w_mesh_solver.solve()
         if self.options.baroclinic:
-            compute_baroclinic_head(self, self.fields.salt_3d, self.fields.baroc_head_3d,
-                                    self.fields.baroc_head_2d, self.fields.baroc_head_int_3d,
-                                    self.fields.bathymetry_3d)
+            compute_baroclinic_head(self)
         if self.options.use_turbulence:
             self.gls_model.initialize()
 
@@ -548,6 +575,8 @@ class FlowSolver(FrozenClass):
 
         self.options.check_salt_conservation *= self.options.solve_salt
         self.options.check_salt_overshoot *= self.options.solve_salt
+        self.options.check_temp_conservation *= self.options.solve_temp
+        self.options.check_temp_overshoot *= self.options.solve_temp
         self.options.check_vol_conservation_3d *= self.options.use_ale_moving_mesh
 
         t_epsilon = 1.0e-5
@@ -565,8 +594,10 @@ class FlowSolver(FrozenClass):
             self.callbacks['salt_3d_mass'] = callback.TracerMassConservationCallback('salt_3d')
         if self.options.check_salt_overshoot:
             self.callbacks['salt_3d_overshoot'] = callback.TracerOvershootCallBack('salt_3d')
-        if self.options.check_salt_deviation:
-            raise DeprecationWarning('check_salt_deviation option is deprecated use check_salt_overshoot instead')
+        if self.options.check_temp_conservation:
+            self.callbacks['temp_3d_mass'] = callback.TracerMassConservationCallback('temp_3d')
+        if self.options.check_temp_overshoot:
+            self.callbacks['temp_3d_overshoot'] = callback.TracerOvershootCallBack('temp_3d')
 
         for key in self.callbacks:
             self.callbacks[key].initialize(self)

@@ -59,13 +59,14 @@ solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
 options = solver_obj.options
 options.nonlin = False
 options.solve_salt = True
+options.solve_temp = False
+options.constant_temp = Constant(10.0)
 options.solve_vert_diffusion = True
 options.use_bottom_friction = True
 options.use_turbulence = True
 options.use_ale_moving_mesh = False
-options.baroclinic = False
+options.baroclinic = True
 options.use_limiter_for_tracers = True
-options.use_smooth_eddy_viscosity = True  # needed to suppress grid noise
 options.v_viscosity = Constant(1.3e-6)  # background value
 options.v_diffusivity = Constant(1.4e-7)  # background value
 options.wind_stress = wind_stress_2d
@@ -95,8 +96,10 @@ N0 = 0.01
 # N = sqrt(-g/rho0 drho/dz)
 # drho/dz = -N0**2 * rho0/g
 rho_grad = -N0**2 * physical_constants['rho0'] / physical_constants['g_grav']
+beta = 0.7865  # haline contraction coefficient [kg m-3 psu-1]
+salt_grad = rho_grad/beta
 salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
-salt_init_expr = Expression('dsdz*x[2]', dsdz=rho_grad)
+salt_init_expr = Expression('dsdz*x[2]', dsdz=salt_grad)
 salt_init3d.interpolate(salt_init_expr)
 
 if __name__ == '__main__':

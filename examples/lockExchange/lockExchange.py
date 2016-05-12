@@ -51,6 +51,10 @@ coords = mesh2d.coordinates
 # x in [x_min, x_max], y in [-dx, dx]
 coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min
 coords.dat.data[:, 1] = coords.dat.data[:, 1]*2*dx - dx
+# temperature and salinity, results in 5.0 kg/m3 density difference
+temp_left = 19.088
+temp_right = 34.81
+salt_const = 35.0
 
 print_info('Exporting to '+outputdir)
 dt = 75.0/refinement[reso_str]
@@ -71,7 +75,9 @@ options = solver_obj.options
 options.cfl_2d = 1.0
 # options.nonlin = False
 options.mimetic = False
-options.solve_salt = True
+options.solve_salt = False
+options.constant_salt = Constant(salt_const)
+options.solve_temp = True
 options.solve_vert_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = False
@@ -98,23 +104,23 @@ options.outputdir = outputdir
 options.u_advection = Constant(1.0)
 options.check_vol_conservation_2d = True
 options.check_vol_conservation_3d = True
-options.check_salt_conservation = True
-options.check_salt_overshoot = True
+options.check_temp_conservation = True
+options.check_temp_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
-                            'w_3d', 'w_mesh_3d', 'salt_3d',
+                            'w_3d', 'w_mesh_3d', 'temp_3d', 'density_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                            'baroc_head_2d',
-                            'smag_visc_3d', 'salt_jump_diff']
-options.fields_to_export_numpy = ['salt_3d']
+                            'baroc_head_2d', 'smag_visc_3d']
+options.fields_to_export_hdf5 = list(options.fields_to_export)
 options.timer_labels = []
 
 solver_obj.create_equations()
-salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
+temp_init3d = Function(solver_obj.function_spaces.H, name='initial temperature')
 # vertical barrier
-# salt_init3d.interpolate(Expression(('(x[0] > 0.0) ? 20.0 : 25.0')))
+# temp_init3d.interpolate(Expression('(x[0] > 0.0) ? v_l : v_r',
+#                                    v_l=T_left, v_r=T_right))
 # smooth condition
-salt_init3d.interpolate(Expression('22.5 - 2.5*tanh(x[0]/sigma)',
-                                   sigma=1000.0))
+temp_init3d.interpolate(Expression('v_l - (v_l - v_r)*0.5*(tanh(x[0]/sigma) + 1.0)',
+                                   sigma=1000.0, v_l=temp_left, v_r=temp_right))
 
-solver_obj.assign_initial_conditions(salt=salt_init3d)
+solver_obj.assign_initial_conditions(temp=temp_init3d)
 solver_obj.iterate()

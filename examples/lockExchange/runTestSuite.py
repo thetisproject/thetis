@@ -37,8 +37,6 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('reso_str', type=str,
                     help='resolution string (coarse, medium, fine)')
-parser.add_argument('-j', '--jump_diff_factor', type=float, default=1.0,
-                    help='factor for jump diff')
 parser.add_argument('-l', '--use_limiter', action='store_true',
                     help='use slope limiter for tracers instead of diffusion')
 parser.add_argument('-p', '--poly_order', type=int, default=1,
@@ -48,15 +46,13 @@ parser.add_argument('-m', '--mimetic', action='store_true',
 parser.add_argument('-Re', '--reynolds_number', type=float, default=2.0,
                     help='mesh Reynolds number for Smagorinsky scheme')
 args = parser.parse_args()
-if args.use_limiter:
-    args.jump_diff_factor = None
 args_dict = vars(args)
 if commrank == 0:
     print 'Running test case with setup:'
     for k in sorted(args_dict.keys()):
         print ' - {0:15s} : {1:}'.format(k, args_dict[k])
 
-limiter_str = 'limiter' if args.use_limiter else 'jump_diff'+str(args.jump_diff_factor)
+limiter_str = 'limiter' if args.use_limiter else ''
 space_str = 'RT' if args.mimetic else 'DG'
 outputdir = 'out_{:}_p{:}{:}_Re{:}_{:}'.format(args.reso_str, args.poly_order,
                                                space_str,
@@ -65,8 +61,6 @@ outputdir = 'out_{:}_p{:}{:}_Re{:}_{:}'.format(args.reso_str, args.poly_order,
 
 outputdir = outputdir
 reso_str = args.reso_str
-if args.jump_diff_factor is not None:
-    args.jump_diff_factor = Constant(args.jump_diff_factor)
 
 # ---
 
@@ -87,6 +81,10 @@ coords = mesh2d.coordinates
 # x in [x_min, x_max], y in [-dx, dx]
 coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min
 coords.dat.data[:, 1] = coords.dat.data[:, 1]*2*dx - dx
+# temperature and salinity, results in 5.0 kg/m3 density difference
+temp_left = 19.088
+temp_right = 34.81
+salt_const = 35.0
 
 print_info('Exporting to ' + outputdir)
 dt = 75.0/refinement[reso_str]
@@ -108,7 +106,9 @@ options.cfl_2d = 1.0
 # options.nonlin = False
 options.mimetic = args.mimetic
 options.order = args.poly_order
-options.solve_salt = True
+options.solve_salt = False
+options.constant_salt = Constant(salt_const)
+options.solve_temp = True
 options.solve_vert_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = False
@@ -119,8 +119,6 @@ options.baroclinic = True
 options.uv_lax_friedrichs = Constant(1.0)
 options.tracer_lax_friedrichs = Constant(1.0)
 options.smagorinsky_factor = Constant(1.0/np.sqrt(args.reynolds_number))
-options.salt_jump_diff_factor = args.jump_diff_factor
-options.salt_range = Constant(5.0)
 options.use_limiter_for_tracers = args.use_limiter
 # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
 # options.h_viscosity = Constant(100.0/refinement[reso_str])
@@ -134,8 +132,8 @@ options.outputdir = outputdir
 options.u_advection = Constant(1.0)
 options.check_vol_conservation_2d = True
 options.check_vol_conservation_3d = True
-options.check_salt_conservation = True
-options.check_salt_overshoot = True
+options.check_temp_conservation = True
+options.check_temp_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
@@ -145,12 +143,13 @@ options.fields_to_export_numpy = ['salt_3d']
 options.timer_labels = []
 
 solver_obj.create_equations()
-salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
+temp_init3d = Function(solver_obj.function_spaces.H, name='initial temperature')
 # vertical barrier
-# salt_init3d.interpolate(Expression(('(x[0] > 0.0) ? 20.0 : 25.0')))
+# temp_init3d.interpolate(Expression('(x[0] > 0.0) ? v_l : v_r',
+#                                    v_l=T_left, v_r=T_right))
 # smooth condition
-salt_init3d.interpolate(Expression('22.5 - 2.5*tanh(x[0]/sigma)',
-                                   sigma=1000.0))
+temp_init3d.interpolate(Expression('v_l - (v_l - v_r)*0.5*(tanh(x[0]/sigma) + 1.0)',
+                                   sigma=1000.0, v_l=temp_left, v_r=temp_right))
 
-solver_obj.assign_initial_conditions(salt=salt_init3d)
+solver_obj.assign_initial_conditions(temp=temp_init3d)
 solver_obj.iterate()

@@ -64,6 +64,7 @@ def run_bottom_friction(parabolic_visosity=False, mimetic=False,
     options.nonlin = False
     options.mimetic = mimetic
     options.solve_salt = False
+    options.solve_temp = False
     options.solve_vert_diffusion = True
     options.use_bottom_friction = True
     options.use_turbulence = not parabolic_visosity

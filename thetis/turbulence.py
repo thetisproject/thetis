@@ -386,7 +386,7 @@ class ShearFrequencySolver(object):
         self.mu_tmp = mu_tmp
         self.minval = minval
         # relaxation coefficient between old and new mu or mv
-        self.relaxation = 0.5
+        self.relaxation = 1.0
 
         self.var_solvers = {}
         for i_comp in range(2):
@@ -425,14 +425,14 @@ class BuoyFrequencySolver(object):
             self.n2 = n2
             self.n2_tmp = n2_tmp
             # relaxation coefficient between old and new mu or mv
-            self.relaxation = 0.5
+            self.relaxation = 1.0
 
             self.var_solvers = {}
 
             g = physical_constants['g_grav']
             rho0 = physical_constants['rho0']
             p = -g/rho0 * rho
-            solver = SmoothVerticalGradSolver(p, self.n2_tmp)
+            solver = VerticalGradSolver(p, self.n2_tmp)
             self.var_solver = solver
 
     def solve(self, init_solve=False):
@@ -513,7 +513,7 @@ class GenericLengthScaleModel(object):
             self.diffusivity_native = self.diffusivity
 
         # parameter to mix old and new viscosity values (1 => new only)
-        self.relaxation = 0.5
+        self.relaxation = 1.0
 
         self.options = GLSModelOptions()
         if options is not None:
