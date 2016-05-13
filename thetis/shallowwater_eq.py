@@ -609,21 +609,12 @@ class ShallowWaterEquations(Equation):
         :arg bnd_conditions: A dictionary describing boundary conditions.
             E.g. {3: {'elev_2d': Constant(1.0)}} replaces elev_2d function by a constant on boundary ID 3.
         """
-        if isinstance(label, str):
-            if label == 'all':
-                labels = self.SUPPORTED_LABELS
-            else:
-                labels = [label]
-        else:
-            labels = list(label)
-
         uv, eta = split(solution)
         uv_old, eta_old = split(solution_old)
 
         f = 0
-        for key in self.terms:
-            if self.labels[key] in labels:
-                f += self.terms[key].residual(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+        for term in self.select_terms(label):
+            f += term.residual(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
         return f
 
 
@@ -702,21 +693,12 @@ class FreeSurfaceEquation(Equation):
         :arg bnd_conditions: A dictionary describing boundary conditions.
             E.g. {3: {'elev_2d': Constant(1.0)}} replaces elev_2d function by a constant on boundary ID 3.
         """
-        if isinstance(label, str):
-            if label == 'all':
-                labels = self.SUPPORTED_LABELS
-            else:
-                labels = [label]
-        else:
-            labels = list(label)
-
         uv = fields['uv']
         uv_old = fields_old['uv']
         eta = solution
         eta_old = solution_old
 
         f = 0
-        for key in self.terms:
-            if self.labels[key] in labels:
-                f += self.terms[key].residual(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+        for term in self.select_terms(label):
+            f += term.residual(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
         return f

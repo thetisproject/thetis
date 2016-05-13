@@ -100,6 +100,22 @@ class Equation(object):
             for k in iter(key):
                 self.label_term(k, label)
 
+    def select_terms(self, label):
+        """
+        Generator function that selects terms by label(s).
+        label can be a single label (e.g. 'explicit'), 'all' or a tuple of labels
+        """
+        if isinstance(label, str):
+            if label == 'all':
+                labels = self.SUPPORTED_LABELS
+            else:
+                labels = [label]
+        else:
+            labels = list(label)
+        for key in self.terms:
+            if self.labels[key] in labels:
+                yield self.terms[key]
+
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         """
         Returns an UFL form of the residual by summing up all the terms with the desired label.
@@ -117,17 +133,9 @@ class Equation(object):
         :arg bnd_conditions: A dictionary describing boundary conditions.
             E.g. {3: {'elev_2d': Constant(1.0)}} replaces elev_2d function by a constant on boundary ID 3.
         """
-        if isinstance(label, str):
-            if label == 'all':
-                labels = self.SUPPORTED_LABELS
-            else:
-                labels = [label]
-        else:
-            labels = list(label)
         f = 0
-        for key in self.terms:
-            if self.labels[key] in labels:
-                f += self.terms[key].residual(solution, solution_old, fields, fields_old, bnd_conditions)
+        for term in self.select_terms(label):
+            f += term.residual(solution, solution_old, fields, fields_old, bnd_conditions)
         return f
 
     def jacobian(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
@@ -147,16 +155,8 @@ class Equation(object):
         :arg bnd_conditions: A dictionary describing boundary conditions.
             E.g. {3: {'elev_2d': Constant(1.0)}} replaces elev_2d function by a constant on boundary ID 3.
         """
-        if isinstance(label, str):
-            if label == 'all':
-                labels = self.SUPPORTED_LABELS
-            else:
-                labels = [label]
-        else:
-            labels = list(label)
         f = 0
-        for key in self.terms:
-            if self.labels[key] in labels:
-                # FIXME check if jacobian exists?
-                f += self.terms[key].jacobian(solution, solution_old, fields, fields_old, bnd_conditions)
+        for term in self.select_terms(label):
+            # FIXME check if jacobian exists?
+            f += term.jacobian(solution, solution_old, fields, fields_old, bnd_conditions)
         return f
