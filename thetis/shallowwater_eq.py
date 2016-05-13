@@ -27,7 +27,74 @@ g_grav = physical_constants['g_grav']
 rho_0 = physical_constants['rho0']
 
 
-class ShallowWaterMomentumTerm(Term):
+class ShallowWaterTerm(Term):
+    """
+    Generic term in the shallow water equations that provides commonly used
+    members and mapping for boundary functions.
+    """
+    def __init__(self, space,
+                 bathymetry=None,
+                 nonlin=True):
+        super(ShallowWaterTerm, self).__init__(space)
+
+        self.bathymetry = bathymetry
+        self.nonlin = nonlin
+
+        # mesh dependent variables
+        self.cellsize = CellSize(self.mesh)
+
+    def get_bnd_functions(self, eta_in, uv_in, bnd_id, bnd_conditions):
+        """
+        Returns external values of elev and uv for all supported
+        boundary conditions.
+
+        volume flux (flux) and normal velocity (un) are defined positive out of
+        the domain.
+        """
+        bath = self.bathymetry
+        bnd_len = self.boundary_len[bnd_id]
+        funcs = bnd_conditions.get(bnd_id)
+        if 'elev' in funcs and 'uv' in funcs:
+            eta_ext = funcs['elev']
+            uv_ext = funcs['uv']
+        elif 'elev' in funcs and 'un' in funcs:
+            eta_ext = funcs['elev']
+            uv_ext = funcs['un']*self.normal
+        elif 'elev' in funcs and 'flux' in funcs:
+            eta_ext = funcs['elev']
+            h_ext = eta_ext + bath
+            area = h_ext*bnd_len  # NOTE using external data only
+            uv_ext = funcs['flux']/area*self.normal
+        elif 'elev' in funcs:
+            eta_ext = funcs['elev']
+            uv_ext = uv_in  # assume symmetry
+        elif 'uv' in funcs:
+            eta_ext = eta_in  # assume symmetry
+            uv_ext = funcs['uv']
+        elif 'un' in funcs:
+            eta_ext = eta_in  # assume symmetry
+            uv_ext = funcs['un']*self.normal
+        elif 'flux' in funcs:
+            eta_ext = eta_in  # assume symmetry
+            h_ext = eta_ext + bath
+            area = h_ext*bnd_len  # NOTE using internal elevation
+            uv_ext = funcs['flux']/area*self.normal
+        else:
+            raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
+        return eta_ext, uv_ext
+
+    def get_total_depth(self, eta):
+        """
+        Returns total water column depth
+        """
+        if self.nonlin:
+            total_h = self.bathymetry + eta
+        else:
+            total_h = self.bathymetry
+        return total_h
+
+
+class ShallowWaterMomentumTerm(ShallowWaterTerm):
     """
     Generic term in the shallow water momentum equation that provides commonly used
     members and mapping for boundary functions.
@@ -37,10 +104,8 @@ class ShallowWaterMomentumTerm(Term):
                  nonlin=True,
                  include_grad_div_viscosity_term=False,
                  include_grad_depth_viscosity_term=True):
-        super(ShallowWaterMomentumTerm, self).__init__(u_space)
+        super(ShallowWaterMomentumTerm, self).__init__(u_space, bathymetry, nonlin)
 
-        self.bathymetry = bathymetry
-        self.nonlin = nonlin
         self.include_grad_div_viscosity_term = include_grad_div_viscosity_term
         self.include_grad_depth_viscosity_term = include_grad_depth_viscosity_term
 
@@ -52,61 +117,8 @@ class ShallowWaterMomentumTerm(Term):
         self.eta_is_dg = element_continuity(self.eta_space.fiat_element).dg
         self.u_is_hdiv = self.u_space.ufl_element().family() == 'Raviart-Thomas'
 
-        # mesh dependent variables
-        self.cellsize = CellSize(self.mesh)
 
-    def get_bnd_functions(self, eta_in, uv_in, bnd_id, bnd_conditions):
-        """
-        Returns external values of elev and uv for all supported
-        boundary conditions.
-
-        volume flux (flux) and normal velocity (un) are defined positive out of
-        the domain.
-        """
-        bath = self.bathymetry
-        bnd_len = self.boundary_len[bnd_id]
-        funcs = bnd_conditions.get(bnd_id)
-        if 'elev' in funcs and 'uv' in funcs:
-            eta_ext = funcs['elev']
-            uv_ext = funcs['uv']
-        elif 'elev' in funcs and 'un' in funcs:
-            eta_ext = funcs['elev']
-            uv_ext = funcs['un']*self.normal
-        elif 'elev' in funcs and 'flux' in funcs:
-            eta_ext = funcs['elev']
-            h_ext = eta_ext + bath
-            area = h_ext*bnd_len  # NOTE using external data only
-            uv_ext = funcs['flux']/area*self.normal
-        elif 'elev' in funcs:
-            eta_ext = funcs['elev']
-            uv_ext = uv_in  # assume symmetry
-        elif 'uv' in funcs:
-            eta_ext = eta_in  # assume symmetry
-            uv_ext = funcs['uv']
-        elif 'un' in funcs:
-            eta_ext = eta_in  # assume symmetry
-            uv_ext = funcs['un']*self.normal
-        elif 'flux' in funcs:
-            eta_ext = eta_in  # assume symmetry
-            h_ext = eta_ext + bath
-            area = h_ext*bnd_len  # NOTE using internal elevation
-            uv_ext = funcs['flux']/area*self.normal
-        else:
-            raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
-        return eta_ext, uv_ext
-
-    def get_total_depth(self, eta):
-        """
-        Returns total water column depth
-        """
-        if self.nonlin:
-            total_h = self.bathymetry + eta
-        else:
-            total_h = self.bathymetry
-        return total_h
-
-
-class ShallowWaterContinuityTerm(Term):
+class ShallowWaterContinuityTerm(ShallowWaterTerm):
     """
     Generic term in the depth-integrated continuity equation that provides commonly used
     members and mapping for boundary functions.
@@ -114,71 +126,18 @@ class ShallowWaterContinuityTerm(Term):
     def __init__(self, eta_test, eta_space, u_space,
                  bathymetry=None,
                  nonlin=True):
-        super(ShallowWaterContinuityTerm, self).__init__(eta_space)
+        super(ShallowWaterContinuityTerm, self).__init__(eta_space, bathymetry, nonlin)
 
         self.bathymetry = bathymetry
         self.nonlin = nonlin
 
-        # for mixed function space
         self.eta_test = eta_test
         self.eta_space = eta_space
         self.u_space = u_space
+
         self.u_is_dg = element_continuity(self.u_space.fiat_element).dg
         self.eta_is_dg = element_continuity(self.eta_space.fiat_element).dg
         self.u_is_hdiv = self.u_space.ufl_element().family() == 'Raviart-Thomas'
-
-        # mesh dependent variables
-        self.cellsize = CellSize(self.mesh)
-
-    def get_bnd_functions(self, eta_in, uv_in, bnd_id, bnd_conditions):
-        """
-        Returns external values of elev and uv for all supported
-        boundary conditions.
-
-        volume flux (flux) and normal velocity (un) are defined positive out of
-        the domain.
-        """
-        bath = self.bathymetry
-        bnd_len = self.boundary_len[bnd_id]
-        funcs = bnd_conditions.get(bnd_id)
-        if 'elev' in funcs and 'uv' in funcs:
-            eta_ext = funcs['elev']
-            uv_ext = funcs['uv']
-        elif 'elev' in funcs and 'un' in funcs:
-            eta_ext = funcs['elev']
-            uv_ext = funcs['un']*self.normal
-        elif 'elev' in funcs and 'flux' in funcs:
-            eta_ext = funcs['elev']
-            h_ext = eta_ext + bath
-            area = h_ext*bnd_len  # NOTE using external data only
-            uv_ext = funcs['flux']/area*self.normal
-        elif 'elev' in funcs:
-            eta_ext = funcs['elev']
-            uv_ext = uv_in  # assume symmetry
-        elif 'uv' in funcs:
-            eta_ext = eta_in  # assume symmetry
-            uv_ext = funcs['uv']
-        elif 'un' in funcs:
-            eta_ext = eta_in  # assume symmetry
-            uv_ext = funcs['un']*self.normal
-        elif 'flux' in funcs:
-            eta_ext = eta_in  # assume symmetry
-            h_ext = eta_ext + bath
-            area = h_ext*bnd_len  # NOTE using internal elevation
-            uv_ext = funcs['flux']/area*self.normal
-        else:
-            raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
-        return eta_ext, uv_ext
-
-    def get_total_depth(self, eta):
-        """
-        Returns total water column depth
-        """
-        if self.nonlin:
-            total_h = self.bathymetry + eta
-        else:
-            total_h = self.bathymetry
-        return total_h
 
 
 class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
