@@ -99,7 +99,7 @@ def setup9(x, lx, ly, h0, f0, nu0, g):
     out['options'] = {
         'include_grad_div_viscosity_term': True,
         'include_grad_depth_viscosity_term': True,
-        }
+    }
 
     return out
 
