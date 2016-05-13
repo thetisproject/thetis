@@ -475,43 +475,18 @@ class ContinuitySourceTerm(ShallowWaterContinuityTerm):
         return -f
 
 
-class ShallowWaterEquations(Equation):
+class BaseShallowWaterEquation(Equation):
     """
-    2D depth-averaged shallow water equations in non-conservative form.
+    Abstract base class for ShallowWaterEquations, ShallowWaterMomentumEquation and FreeSurfaceEquation.
+    Provides common functionality to compute timesteps and add either momentum or continuity terms.
+
     """
     def __init__(self, function_space,
                  bathymetry,
-                 nonlin=True,
-                 include_grad_div_viscosity_term=False,
-                 include_grad_depth_viscosity_term=True):
-        super(ShallowWaterEquations, self).__init__(function_space)
+                 nonlin=True):
+        super(BaseShallowWaterEquation, self).__init__(function_space)
         self.bathymetry = bathymetry
-
-        u_test, eta_test = TestFunctions(function_space)
-        u_space, eta_space = function_space.split()
-
-        # momentum equation terms:
-        args = (u_test, u_space, eta_space,
-                bathymetry,
-                nonlin,
-                include_grad_div_viscosity_term,
-                include_grad_depth_viscosity_term)
-
-        self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
-        self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
-        self.add_term(HorizontalViscosityTerm(*args), 'explicit')
-        self.add_term(CoriolisTerm(*args), 'explicit')
-        self.add_term(WindStressTerm(*args), 'source')
-        self.add_term(QuadraticDragTerm(*args), 'explicit')
-        self.add_term(LinearDragTerm(*args), 'explicit')
-        self.add_term(BottomDrag3DTerm(*args), 'source')
-        self.add_term(InternalPressureGradientTerm(*args), 'source')
-        self.add_term(MomentumSourceTerm(*args), 'source')
-
-        # continuity equation terms:
-        args = (eta_test, eta_space, u_space, bathymetry, nonlin)
-        self.add_term(HUDivTerm(*args), 'implicit')
-        self.add_term(ContinuitySourceTerm(*args), 'source')
+        self.nonlin = nonlin
 
     def get_time_step(self, u_mag=Constant(0.0)):
         """
@@ -550,6 +525,67 @@ class ShallowWaterEquations(Equation):
         l = uu * csize / u_mag * dx
         solve(a == l, res)
         return res
+
+    def add_momentum_terms(self, *args):
+        self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
+        self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
+        self.add_term(HorizontalViscosityTerm(*args), 'explicit')
+        self.add_term(CoriolisTerm(*args), 'explicit')
+        self.add_term(WindStressTerm(*args), 'source')
+        self.add_term(QuadraticDragTerm(*args), 'explicit')
+        self.add_term(LinearDragTerm(*args), 'explicit')
+        self.add_term(BottomDrag3DTerm(*args), 'source')
+        self.add_term(InternalPressureGradientTerm(*args), 'source')
+        self.add_term(MomentumSourceTerm(*args), 'source')
+
+    def add_continuity_terms(self, *args):
+        self.add_term(HUDivTerm(*args), 'implicit')
+        self.add_term(ContinuitySourceTerm(*args), 'source')
+
+    def residual_uv_eta(self, label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
+        """
+        Returns an UFL form of the residual by summing up all the terms with the desired label.
+
+        Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
+
+        :arg label: string defining the type of terms to sum up. Currently one of
+            'source'|'explicit'|'implicit'|'nonlinear'. Can be a list of multiple labels, or 'all' in which
+            case all defined terms are summed.
+        :arg uv:, :arg eta: uv and eta at new time-level, at least one of whom is solved for
+        :arg uv_old:, :arg eta_old: uv and eta at the old time-level
+        :arg fields: a dictionary that provides all the remaining fields that the term depends on.
+            The keys of the dictionary should standard field names in `field_metadata`
+        :arg fields_old: Time lagged dictionary of fields
+        :arg bnd_conditions: A dictionary describing boundary conditions.
+            E.g. {3: {'elev_2d': Constant(1.0)}} replaces elev_2d function by a constant on boundary ID 3.
+        """
+        f = 0
+        for term in self.select_terms(label):
+            f += term.residual(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+        return f
+
+
+class ShallowWaterEquations(BaseShallowWaterEquation):
+    """
+    2D depth-averaged shallow water equations in non-conservative form.
+    """
+    def __init__(self, function_space,
+                 bathymetry,
+                 nonlin=True,
+                 include_grad_div_viscosity_term=False,
+                 include_grad_depth_viscosity_term=True):
+        super(ShallowWaterEquations, self).__init__(function_space, bathymetry, nonlin)
+
+        u_test, eta_test = TestFunctions(function_space)
+        u_space, eta_space = function_space.split()
+
+        self.add_momentum_terms(u_test, u_space, eta_space,
+                                bathymetry,
+                                nonlin,
+                                include_grad_div_viscosity_term,
+                                include_grad_depth_viscosity_term)
+
+        self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, nonlin)
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         """
@@ -570,70 +606,18 @@ class ShallowWaterEquations(Equation):
         """
         uv, eta = split(solution)
         uv_old, eta_old = split(solution_old)
-
-        f = 0
-        for term in self.select_terms(label):
-            f += term.residual(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
-        return f
+        return self.residual_uv_eta(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
 
 
-class FreeSurfaceEquation(Equation):
+class FreeSurfaceEquation(BaseShallowWaterEquation):
     """
     2D free surface equation.
     """
     def __init__(self, eta_test, eta_space, u_space,
                  bathymetry,
                  nonlin=True):
-        super(FreeSurfaceEquation, self).__init__(eta_space)
-        self.bathymetry = bathymetry
-
-        # default solver parameters
-        self.solver_parameters = {
-            'ksp_type': 'gmres',
-        }
-
-        # continuity equation terms:
-        args = (eta_test, eta_space, u_space, bathymetry, nonlin)
-        self.add_term(HUDivTerm(*args), 'explicit')
-        self.add_term(ContinuitySourceTerm(*args), 'source')
-
-    def get_time_step(self, u_mag=Constant(0.0)):
-        """
-        Computes maximum explicit time step from CFL condition.
-
-        Assumes velocity scale U = sqrt(g*H) + u_mag
-        where u_mag is estimated advective velocity
-        """
-        csize = CellSize(self.mesh)
-        h = self.bathymetry.function_space()
-        h_pos = Function(h, name='bathymetry')
-        h_pos.assign(self.bathymetry)
-        min_depth = 0.05
-        h_pos.dat.data[h_pos.dat.data < min_depth] = min_depth
-        uu = TestFunction(h)
-        grid_dt = TrialFunction(h)
-        res = Function(h)
-        a = uu * grid_dt * dx
-        l = uu * csize / (sqrt(g_grav * h_pos) + u_mag) * dx
-        solve(a == l, res)
-        return res
-
-    def get_time_step_advection(self, u_mag=Constant(1.0)):
-        """
-        Computes maximum explicit time step from CFL condition.
-
-        Assumes velocity scale U = u_mag
-        where u_mag is estimated advective velocity
-        """
-        csize = CellSize(self.mesh)
-        h = self.bathymetry.function_space()
-        uu = TestFunction(h)
-        grid_dt = TrialFunction(h)
-        res = Function(h)
-        a = uu * grid_dt * dx
-        l = uu * csize / u_mag * dx
-        solve(a == l, res)
-        return res
+        super(FreeSurfaceEquation, self).__init__(eta_space, bathymetry, nonlin)
+        self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, nonlin)
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         """
@@ -656,8 +640,44 @@ class FreeSurfaceEquation(Equation):
         uv_old = fields_old['uv']
         eta = solution
         eta_old = solution_old
+        return self.residual_uv_eta(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
 
-        f = 0
-        for term in self.select_terms(label):
-            f += term.residual(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
-        return f
+
+class ShallowWaterMomentumEquation(BaseShallowWaterEquation):
+    """
+    2D free surface equation.
+    """
+    def __init__(self, eta_test, eta_space, u_space,
+                 bathymetry,
+                 nonlin=True,
+                 include_grad_div_viscosity_term=False,
+                 include_grad_depth_viscosity_term=True):
+        super(ShallowWaterMomentumEquation, self).__init__(u_space, bathymetry, nonlin)
+        self.add_momentum_terms(eta_test, u_space, eta_space,
+                                bathymetry,
+                                nonlin,
+                                include_grad_div_viscosity_term,
+                                include_grad_depth_viscosity_term)
+
+    def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
+        """
+        Returns an UFL form of the residual by summing up all the terms with the desired label.
+
+        Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
+
+        :arg label: string defining the type of terms to sum up. Currently one of
+            'source'|'explicit'|'implicit'|'nonlinear'. Can be a list of multiple labels, or 'all' in which
+            case all defined terms are summed.
+        :arg solution: solution :class:`.Function` of the corresponding equation
+        :arg solution_old: a time lagged solution :class:`.Function`
+        :arg fields: a dictionary that provides all the remaining fields that the term depends on.
+            The keys of the dictionary should standard field names in `field_metadata`
+        :arg fields_old: Time lagged dictionary of fields
+        :arg bnd_conditions: A dictionary describing boundary conditions.
+            E.g. {3: {'elev_2d': Constant(1.0)}} replaces elev_2d function by a constant on boundary ID 3.
+        """
+        uv = solution
+        uv_old = solution_old
+        eta = fields['eta']
+        eta_old = fields_old['eta']
+        return self.residual_uv_eta(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
