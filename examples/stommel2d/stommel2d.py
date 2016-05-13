@@ -13,7 +13,9 @@
 
 from thetis import *
 
-mesh2d = Mesh('stommel_square.msh')
+lx = 1.0e6
+nx = 20
+mesh2d = RectangleMesh(nx, nx, lx, lx)
 outputdir = 'outputs'
 print_info('Loaded mesh '+mesh2d.name)
 print_info('Exporting to '+outputdir)
@@ -36,8 +38,7 @@ coriolis_2d.interpolate(
 # Wind stress
 wind_stress_2d = Function(P1v_2d, name='wind stress')
 tau_max = 0.1
-L_y = 1.0e6
-wind_stress_2d.interpolate(Expression(('tau_max*sin(pi*x[1]/L)', '0'), tau_max=tau_max, L=L_y))
+wind_stress_2d.interpolate(Expression(('tau_max*sin(pi*(x[1]/L - 0.5))', '0'), tau_max=tau_max, L=lx))
 
 # linear dissipation: tau_bot/(h*rho) = -bf_gamma*u
 linear_drag = Constant(1e-6)
