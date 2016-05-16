@@ -566,6 +566,118 @@ class SteadyState(TimeIntegrator):
         self.solver.solve()
 
 
+class PressureProjectionPicard(TimeIntegrator):
+    """Pressure projection scheme with Picard iteration."""
+    def __init__(self, equation, equation_mom, solution, fields, dt, bnd_conditions=None, solver_parameters={}, solver_parameters_mom={},
+                 theta=0.5, semi_implicit=False, iterations=2):
+        """Creates forms for the time integrator"""
+        super(PressureProjectionPicard, self).__init__(equation, solver_parameters)
+        self.equation_mom = equation_mom
+        self.solver_parameters_mom = solver_parameters_mom
+        if semi_implicit:
+            self.solver_parameters.setdefault('snes_type', 'ksponly')
+            self.solver_parameters_mom.setdefault('snes_type', 'ksponly')
+        else:
+            self.solver_parameters.setdefault('snes_type', 'newtonls')
+            self.solver_parameters_mom.setdefault('snes_type', 'newtonls')
+        self.iterations = iterations
+
+        self.dt_const = Constant(dt)
+
+        self.solution = solution
+        self.solution_old = Function(self.equation.function_space)
+        if iterations > 1:
+            self.solution_lagged = Function(self.equation.function_space)
+        else:
+            self.solution_lagged = self.solution_old
+        uv_lagged, eta_lagged = self.solution_lagged.split()
+        uv_old, eta_old = self.solution_old.split()
+
+        self.fields = fields
+        # create functions to hold the values of previous time step
+        self.fields_old = {}
+        for k in self.fields:
+            if self.fields[k] is not None:
+                if isinstance(self.fields[k], Function):
+                    self.fields_old[k] = Function(
+                        self.fields[k].function_space())
+                elif isinstance(self.fields[k], Constant):
+                    self.fields_old[k] = Constant(self.fields[k])
+        fields_mom = self.fields.copy()
+        fields_mom_old = self.fields_old.copy()
+        fields_mom['eta'] = eta_lagged
+        fields_mom_old['eta'] = eta_old
+
+        self.uv_star = Function(self.equation_mom.function_space)
+        if semi_implicit:
+            uv_star_nl = uv_lagged
+            solution_nl = self.solution_lagged
+        else:
+            uv_star_nl = self.uv_star
+            solution_nl = self.solution
+
+        theta_const = Constant(theta)
+        self.F_mom = (
+            self.equation_mom.mass_term(self.uv_star)-self.equation_mom.mass_term(uv_old) -
+            self.dt_const*(
+                theta_const*self.equation_mom.residual('all', self.uv_star, uv_star_nl, fields_mom, fields_mom, bnd_conditions)
+                + (1-theta_const)*self.equation_mom.residual('all', uv_old, uv_old, fields_mom_old, fields_mom_old, bnd_conditions)
+            )
+        )
+
+        self.F = (
+            self.equation.mass_term(self.solution)-self.equation.mass_term(self.solution_old) -
+            self.dt_const*(
+                theta_const*self.equation.residual('implicit', self.solution, solution_nl, self.fields, self.fields, bnd_conditions)
+                + (1-theta_const)*self.equation.residual('implicit', self.solution_old, self.solution_old, self.fields_old, self.fields_old, bnd_conditions)
+            )
+        )
+        for key in self.equation_mom.terms:
+            if self.equation_mom.labels[key] == 'implicit':
+                self.F += -self.dt_const*(
+                    - theta_const*self.equation.terms[key].residual(self.uv_star, eta_lagged, uv_star_nl, eta_lagged, self.fields, self.fields, bnd_conditions)
+                    - (1-theta_const)*self.equation.terms[key].residual(uv_old, eta_old, uv_old, eta_old, self.fields_old, self.fields_old, bnd_conditions)
+                )
+
+        self.update_solver()
+
+    def update_solver(self):
+        prob = NonlinearVariationalProblem(self.F_mom, self.uv_star)
+        self.solver_mom = NonlinearVariationalSolver(prob,
+                                                     solver_parameters=self.solver_parameters_mom,
+                                                     options_prefix=self.name+'_mom')
+        nest = not ('pc_type' in self.solver_parameters and self.solver_parameters['pc_type'] == 'lu')
+        prob = NonlinearVariationalProblem(self.F, self.solution, nest=nest)
+        self.solver = NonlinearVariationalSolver(prob,
+                                                 solver_parameters=self.solver_parameters,
+                                                 options_prefix=self.name)
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(solution)
+        self.solution_lagged.assign(solution)
+        # assign values to old functions
+        for k in self.fields_old:
+            self.fields_old[k].assign(self.fields[k])
+
+    def advance(self, t, dt, solution, updateForcings=None):
+        """Advances equations for one time step."""
+        self.dt_const.assign(dt)
+        if updateForcings is not None:
+            updateForcings(t+dt)
+        self.solution_old.assign(solution)
+
+        for it in range(self.iterations):
+            if self.iterations > 1:
+                self.solution_lagged.assign(solution)
+            self.solver_mom.solve()
+            self.solver.solve()
+
+        # shift time
+        for k in self.fields_old:
+            self.fields_old[k].assign(self.fields[k])
+
+
 class SSPIMEX(TimeIntegrator):
     """
     SSP-IMEX time integration scheme based on [1], method (17).

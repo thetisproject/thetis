@@ -188,6 +188,25 @@ class FlowSolver2d(FrozenClass):
                                                           fields, self.dt,
                                                           bnd_conditions=self.bnd_functions['shallow_water'],
                                                           solver_parameters=self.options.solver_parameters_sw)
+        elif self.options.timestepper_type.lower() == 'pressureprojectionpicard':
+
+            u_test = TestFunction(self.function_spaces.U_2d)
+            self.eq_mom = shallowwater_eq.ShallowWaterMomentumEquation(
+                u_test, self.function_spaces.H_2d, self.function_spaces.U_2d,
+                self.fields.bathymetry_2d,
+                nonlin=self.options.nonlin,
+                include_grad_div_viscosity_term=self.options.include_grad_div_viscosity_term,
+                include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term
+            )
+            self.eq_mom.bnd_functions = self.bnd_functions['shallow_water']
+            self.timestepper = timeintegrator.PressureProjectionPicard(self.eq_sw, self.eq_mom, self.fields.solution_2d,
+                                                                       fields, self.dt,
+                                                                       bnd_conditions=self.bnd_functions['shallow_water'],
+                                                                       solver_parameters=self.options.solver_parameters_sw,
+                                                                       solver_parameters_mom=self.options.solver_parameters_momentum_implicit,
+                                                                       semi_implicit=self.options.use_linearized_semi_implicit_2d,
+                                                                       theta=self.options.shallow_water_theta)
+
         elif self.options.timestepper_type.lower() == 'sspimex':
             # TODO meaningful solver params
             sp_impl = {
