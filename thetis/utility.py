@@ -8,7 +8,6 @@ import os
 import numpy as np
 import sys
 from physical_constants import physical_constants
-import colorama
 from pyop2.profiling import timed_region, timed_function, timed_stage  # NOQA
 from mpi4py import MPI  # NOQA
 import ufl  # NOQA
@@ -153,32 +152,6 @@ def element_continuity(fiat_element):
                 dg = False
                 break
         return ElementContinuity(dg, dg, dg)
-
-
-def colorify_text(color):
-    def painter(func):
-        def func_wrapper(text):
-            return color + func(text) + colorama.Style.RESET_ALL
-        return func_wrapper
-    return painter
-
-
-@colorify_text(colorama.Back.RED + colorama.Fore.WHITE)
-def red(text):
-    """Returns given string in uppercase, white on red background."""
-    return text.upper()
-
-
-@colorify_text(colorama.Back.GREEN + colorama.Fore.BLACK)
-def green(text):
-    """Returns given string in uppercase, black on green background."""
-    return text.upper()
-
-
-@colorify_text(colorama.Style.BRIGHT + colorama.Fore.WHITE)
-def bold(text):
-    """Returns given string in uppercase, white on green background."""
-    return text.upper()
 
 
 def create_directory(path):
