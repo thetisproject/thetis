@@ -36,7 +36,6 @@ def test_steady_state_channel(do_export=False):
         'snes_monitor': False,
         'snes_type': 'newtonls',
     }
-    solver_obj.options.timer_labels = []
     solver_obj.options.linear_drag = f
     solver_obj.options.dt = dt
 

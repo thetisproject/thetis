@@ -95,9 +95,6 @@ options.check_vol_conservation_3d = True
 options.check_salt_conservation = True
 options.check_salt_overshoot = True
 options.outputdir = outputdir
-options.timer_labels = []
-# options.timer_labels = ['mode2d', 'momentum_eq', 'continuity_eq',
-#                        'aux_functions']
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
                             'uv_dav_2d', 'uv_bottom_2d']

@@ -113,7 +113,6 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
                                  'eddy_visc_3d', 'shear_freq_3d',
                                  'buoy_freq_3d', 'tke_3d', 'psi_3d',
                                  'eps_3d', 'len_3d']
-options.timer_labels = []
 
 bnd_elev = Function(P1_2d, name='Boundary elevation')
 bnd_time = Constant(0)

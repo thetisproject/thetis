@@ -30,7 +30,6 @@ class FlowSolver2d(FrozenClass):
         # 2d model specific default options
         self.options = ModelOptions()
         self.options.setdefault('timestepper_type', 'SSPRK33')
-        self.options.setdefault('timer_labels', ['mode2d'])
         self.options.setdefault('fields_to_export', ['elev_2d', 'uv_2d'])
         if options is not None:
             self.options.update(options)

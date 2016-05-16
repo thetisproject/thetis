@@ -100,13 +100,6 @@ class ModelOptions(AttrDict, FrozenClass):
         """float: Simulation duration in seconds"""
         self.u_advection = Constant(0.0)
         """Constant: Max. horizontal velocity magnitude for computing max stable advection time step."""
-        self.timer_labels = ['mode2d', 'momentum_eq', 'vert_diffusion',
-                             'continuity_eq', 'salt_eq', 'temp_eq', 'aux_eta3d',
-                             'aux_mesh_ale', 'aux_friction', 'aux_barolinicity',
-                             'aux_mom_coupling',
-                             'func_copy_2d_to_3d', 'func_copy_3d_to_2d',
-                             'func_vert_int']
-        """list of str: Labels of timer sections to print out"""
         self.outputdir = 'outputs'
         """str: Directory where model output files are stored"""
         self.no_exports = False

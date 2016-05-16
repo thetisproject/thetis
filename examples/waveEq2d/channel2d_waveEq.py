@@ -56,7 +56,6 @@ options.u_advection = u_mag
 options.check_vol_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
-options.timer_labels = []
 # options.timestepper_type = 'SSPRK33'
 # options.dt = dt/40.0  # for explicit schemes
 options.timestepper_type = 'CrankNicolson'

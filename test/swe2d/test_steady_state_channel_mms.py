@@ -65,7 +65,6 @@ def test_steady_state_channel_mms(options):
             'snes_monitor': False,
             'snes_type': 'newtonls',
         }
-        solver_obj.options.timer_labels = []
         solver_obj.options.dt = dt
         solver_obj.options.update(options)
 
