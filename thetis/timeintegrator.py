@@ -625,8 +625,10 @@ class PressureProjectionPicard(TimeIntegrator):
             )
         )
 
+        uv_test, eta_test = split(self.equation.test)
+        mass_term_star = inner(uv_test, self.uv_star)*dx + inner(eta_test, eta_old)*dx
         self.F = (
-            self.equation.mass_term(self.solution)-self.equation.mass_term(self.solution_old) -
+            self.equation.mass_term(self.solution)-mass_term_star-
             self.dt_const*(
                 theta_const*self.equation.residual('implicit', self.solution, solution_nl, self.fields, self.fields, bnd_conditions)
                 + (1-theta_const)*self.equation.residual('implicit', self.solution_old, self.solution_old, self.fields_old, self.fields_old, bnd_conditions)
