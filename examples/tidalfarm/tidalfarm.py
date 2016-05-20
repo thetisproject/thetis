@@ -18,12 +18,12 @@ mesh2d = RectangleMesh(nx, ny, lx, ly)
 print_info('Exporting to ' + outputdir)
 
 # total duration in seconds
-t_end = 500
+t_end = 100.0
 # estimate of max advective velocity used to estimate time step
 u_mag = Constant(4.0)
 # export interval in seconds
 t_export = 100.0
-dt = 0.5
+timestep = 0.5
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -51,7 +51,7 @@ solver_obj.options.solver_parameters_sw = {
     'snes_monitor': False,
     'snes_type': 'newtonls',
 }
-options.dt = dt  # override computed dt
+options.dt = timestep  # override computed dt
 options.h_viscosity = Constant(2.0)
 
 # create function spaces
@@ -81,3 +81,14 @@ solver_obj.bnd_functions['shallow_water'] = {inflow_tag: inflow_bc,
 
 solver_obj.assign_initial_conditions(uv_init=as_vector((velocity_u, 0.0)))
 solver_obj.iterate()
+
+# adj_html("forward.html", "forward")
+# adj_html("adjoint.html", "adjoint")
+
+# success = replay_dolfin(tol=0.0, stop=True)
+
+J = Functional(inner(solver_obj.fields.uv_2d, solver_obj.fields.uv_2d)*dx*dt[FINISH_TIME])
+c = Control(drag_func)
+dJdc = compute_gradient(J, c)
+out = File('gradient_J.pvd')
+out.write(dJdc)
