@@ -89,13 +89,13 @@ class SSPRK33(TimeIntegrator):
         """Builds linear problems for each stage. These problems need to be
         re-created after each mesh update."""
         prob_k0 = LinearVariationalProblem(self.a_rk, self.L_RK0, self.K0)
-        self.solver_k0 = LinearVariationalSolver(prob_k0,
+        self.solver_k0 = LinearVariationalSolver(prob_k0, options_prefix=self.name + '_k0',
                                                  solver_parameters=self.solver_parameters)
         prob_k1 = LinearVariationalProblem(self.a_rk, self.L_RK1, self.K1)
-        self.solver_k1 = LinearVariationalSolver(prob_k1,
+        self.solver_k1 = LinearVariationalSolver(prob_k1, options_prefix=self.name + '_k1',
                                                  solver_parameters=self.solver_parameters)
         prob_k2 = LinearVariationalProblem(self.a_rk, self.L_RK2, self.K2)
-        self.solver_k2 = LinearVariationalSolver(prob_k2,
+        self.solver_k2 = LinearVariationalSolver(prob_k2, options_prefix=self.name + '_k2',
                                                  solver_parameters=self.solver_parameters)
 
     def initialize(self, solution):
@@ -210,13 +210,13 @@ class SSPRK33Stage(TimeIntegrator):
         """Builds linear problems for each stage. These problems need to be
         re-created after each mesh update."""
         prob_k0 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K0)
-        self.solver_k0 = LinearVariationalSolver(prob_k0,
+        self.solver_k0 = LinearVariationalSolver(prob_k0, options_prefix=self.name + '_k0',
                                                  solver_parameters=self.solver_parameters)
         prob_k1 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K1)
-        self.solver_k1 = LinearVariationalSolver(prob_k1,
+        self.solver_k1 = LinearVariationalSolver(prob_k1, options_prefix=self.name + '_k1',
                                                  solver_parameters=self.solver_parameters)
         prob_k2 = LinearVariationalProblem(self.a_rk, self.L_RK, self.K2)
-        self.solver_k2 = LinearVariationalSolver(prob_k2,
+        self.solver_k2 = LinearVariationalSolver(prob_k2, options_prefix=self.name + '_k2',
                                                  solver_parameters=self.solver_parameters)
 
     def initialize(self, solution):
@@ -347,13 +347,13 @@ class SSPRK33StageSemiImplicit(TimeIntegrator):
         """Builds linear problems for each stage. These problems need to be
         re-created after each mesh update."""
         prob_f0 = NonlinearVariationalProblem(self.F_0, self.sol0)
-        self.solver_f0 = NonlinearVariationalSolver(prob_f0,
+        self.solver_f0 = NonlinearVariationalSolver(prob_f0, options_prefix=self.name + '_k0',
                                                     solver_parameters=self.solver_parameters)
         prob_f1 = NonlinearVariationalProblem(self.F_1, self.sol1)
-        self.solver_f1 = NonlinearVariationalSolver(prob_f1,
+        self.solver_f1 = NonlinearVariationalSolver(prob_f1, options_prefix=self.name + '_k1',
                                                     solver_parameters=self.solver_parameters)
         prob_f2 = NonlinearVariationalProblem(self.F_2, self.solution)
-        self.solver_f2 = NonlinearVariationalSolver(prob_f2,
+        self.solver_f2 = NonlinearVariationalSolver(prob_f2, options_prefix=self.name + '_k2',
                                                     solver_parameters=self.solver_parameters)
 
     def initialize(self, solution):
@@ -429,7 +429,7 @@ class ForwardEuler(TimeIntegrator):
 
     def update_solver(self):
         prob = LinearVariationalProblem(self.A, self.L, self.solution)
-        self.solver = LinearVariationalSolver(prob,
+        self.solver = LinearVariationalSolver(prob, options_prefix=self.name,
                                               solver_parameters=self.solver_parameters)
 
     def initialize(self, solution):
@@ -680,7 +680,7 @@ class DIRKGeneric(TimeIntegrator):
             self.solver.append(
                 NonlinearVariationalSolver(p,
                                            solver_parameters=self.solver_parameters,
-                                           options_prefix=sname))
+                                           options_prefix=sname + '_k{}'.format(i)))
 
     def initialize(self, init_cond):
         """Assigns initial conditions to all required fields."""

@@ -49,7 +49,7 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
 
     def _update_2d_coupling(self):
         """Does 2D-3D coupling for the velocity field"""
-        with timed_stage('aux_mom_coupling'):
+        with timed_stage('aux_uv_coupling'):
             # compute depth averaged 3D velocity
             self.solver.uv_averager.solve()
             self.solver.extract_surf_dav_uv.solve()
@@ -69,7 +69,7 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
     def _update_baroclinicity(self):
         """Computes baroclinic head"""
         if self.options.baroclinic:
-            with timed_stage('aux_barolinicity'):
+            with timed_stage('aux_baroclin'):
                 compute_baroclinic_head(self.solver)
 
     def _update_turbulence(self, t):
@@ -85,7 +85,7 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
     def _update_stabilization_params(self):
         """Computes Smagorinsky viscosity etc fields"""
         # update velocity magnitude
-        with timed_stage('aux_stabilization'):
+        with timed_stage('aux_stability'):
             self.solver.uv_mag_solver.solve()
             # update P1 velocity field
             self.solver.uv_p1_projector.project()
@@ -104,11 +104,15 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
         self._update_3d_elevation()
         if do_ale_update:
             self._update_moving_mesh()
-        with timed_stage('vert_diffusion'):
-            if do_vert_diffusion and self.options.solve_vert_diffusion:
+        if do_vert_diffusion and self.options.solve_vert_diffusion:
+            with timed_stage('impl_mom_vvisc'):
                 self.timestepper_mom_vdff_3d.advance(t, self.solver.dt, self.fields.uv_3d)
-                if self.options.solve_salt:
+            if self.options.solve_salt:
+                with timed_stage('impl_salt_vdiff'):
                     self.timestepper_salt_vdff_3d.advance(t, self.solver.dt, self.fields.salt_3d)
+            if self.options.solve_temp:
+                with timed_stage('impl_temp_vdiff'):
+                    self.timestepper_temp_vdff_3d.advance(t, self.solver.dt, self.fields.temp_3d)
         if do_2d_coupling:
             self._update_2d_coupling()
         self._update_vertical_velocity()
@@ -664,7 +668,7 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                                                          update_forcings3d)
                     if self.options.use_limiter_for_tracers:
                         self.solver.tracer_limiter.apply(self.fields.temp_3d)
-            with timed_stage('turbulence_advection'):
+            with timed_stage('turb_advection'):
                 if self.options.use_turbulence_advection:
                     # explicit advection
                     self.timestepper_tke_adv_eq.solve_stage(k, t, self.solver.dt,

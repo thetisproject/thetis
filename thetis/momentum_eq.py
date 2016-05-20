@@ -28,7 +28,16 @@ class MomentumTerm(Term):
         self.nonlin = nonlin
         self.use_bottom_friction = use_bottom_friction
 
-    # TODO add generic get_bnd_functions?
+        # define measures with a reasonable quadrature degree
+        p, q = self.function_space.ufl_element().degree()
+        self.quad_degree = (2*p + 1, 2*q + 1)
+        self.dx = dx(degree=self.quad_degree)
+        self.dS_h = dS_h(degree=self.quad_degree)
+        self.dS_v = dS_v(degree=self.quad_degree)
+        self.ds_surf = ds_surf(degree=self.quad_degree)
+        self.ds_bottom = ds_bottom(degree=self.quad_degree)
+
+        # TODO add generic get_bnd_functions?
 
 
 class PressureGradientTerm(MomentumTerm):
@@ -51,18 +60,18 @@ class PressureGradientTerm(MomentumTerm):
         if by_parts:
             div_test = (Dx(self.test[0], 0) +
                         Dx(self.test[1], 1))
-            f = -g_grav*head*div_test*dx
+            f = -g_grav*head*div_test*self.dx
             # head_star = avg(head) + 0.5*sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
             head_star = avg(head)
             jump_n_dot_test = (jump(self.test[0], self.normal[0]) +
                                jump(self.test[1], self.normal[1]))
-            f += g_grav*head_star*jump_n_dot_test*(dS_v + dS_h)
+            f += g_grav*head_star*jump_n_dot_test*(self.dS_v + self.dS_h)
             n_dot_test = (self.normal[0]*self.test[0] +
                           self.normal[1]*self.test[1])
-            f += g_grav*head*n_dot_test*(ds_bottom + ds_surf)
+            f += g_grav*head*n_dot_test*(self.ds_bottom + self.ds_surf)
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
-                ds_bnd = ds_v(int(bnd_marker))
+                ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
                 if baroc_head is not None:
                     f += g_grav*baroc_head*n_dot_test*ds_bnd
                 special_eta_flux = funcs is not None and 'elev' in funcs
@@ -76,7 +85,7 @@ class PressureGradientTerm(MomentumTerm):
         else:
             grad_head_dot_test = (Dx(head, 0)*self.test[0] +
                                   Dx(head, 1)*self.test[1])
-            f = g_grav * grad_head_dot_test * dx
+            f = g_grav * grad_head_dot_test * self.dx
         return -f
 
 
@@ -90,7 +99,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
         f = -(Dx(self.test[0], 0)*solution[0]*solution_old[0] +
               Dx(self.test[0], 1)*solution[0]*solution_old[1] +
               Dx(self.test[1], 0)*solution[1]*solution_old[0] +
-              Dx(self.test[1], 1)*solution[1]*solution_old[1])*dx
+              Dx(self.test[1], 1)*solution[1]*solution_old[1])*self.dx
         uv_av = avg(solution_old)
         un_av = (uv_av[0]*self.normal('-')[0] +
                  uv_av[1]*self.normal('-')[1])
@@ -100,7 +109,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
             f += (uv_up[0]*uv_av[0]*jump(self.test[0], self.normal[0]) +
                   uv_up[0]*uv_av[1]*jump(self.test[0], self.normal[1]) +
                   uv_up[1]*uv_av[0]*jump(self.test[1], self.normal[0]) +
-                  uv_up[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(dS_v + dS_h)
+                  uv_up[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_v + self.dS_h)
             # Lax-Friedrichs stabilization
             if lax_friedrichs_factor is not None and uv_mag is not None:
                 if uv_p1 is not None:
@@ -111,10 +120,10 @@ class HorizontalAdvectionTerm(MomentumTerm):
                 else:
                     raise Exception('either uv_p1 or uv_mag must be given')
                 f += gamma*(jump(self.test[0])*jump(solution[0]) +
-                            jump(self.test[1])*jump(solution[1]))*dS_v
+                            jump(self.test[1])*jump(solution[1]))*self.dS_v
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
-                ds_bnd = ds_v(int(bnd_marker))
+                ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
                 if funcs is None:
                     un = dot(solution, self.normal)
                     uv_ext = solution - 2*un*self.normal
@@ -161,7 +170,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
         f += (solution_old[0]*solution[0]*self.test[0]*self.normal[0] +
               solution_old[0]*solution[1]*self.test[0]*self.normal[1] +
               solution_old[1]*solution[0]*self.test[1]*self.normal[0] +
-              solution_old[1]*solution[1]*self.test[1]*self.normal[1])*(ds_surf)
+              solution_old[1]*solution[1]*self.test[1]*self.normal[1])*(self.ds_surf)
         return -f
 
 
@@ -178,20 +187,20 @@ class VerticalAdvectionTerm(MomentumTerm):
             vertvelo = w[2]-w_mesh
         adv_v = -(Dx(self.test[0], 2)*solution[0]*vertvelo +
                   Dx(self.test[1], 2)*solution[1]*vertvelo)
-        f += adv_v * dx
+        f += adv_v * self.dx
         if self.vertical_dg:
             s = 0.5*(sign(avg(w[2])*self.normal[2]('-')) + 1.0)
             uv_up = solution('-')*s + solution('+')*(1-s)
             w_av = avg(w[2])
             f += (uv_up[0]*w_av*jump(self.test[0], self.normal[2]) +
-                  uv_up[1]*w_av*jump(self.test[1], self.normal[2]))*dS_h
+                  uv_up[1]*w_av*jump(self.test[1], self.normal[2]))*self.dS_h
             if lax_friedrichs_factor is not None:
                 # Lax-Friedrichs
                 gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
                 f += gamma*(jump(self.test[0])*jump(solution[0]) +
-                            jump(self.test[1])*jump(solution[1]))*dS_h
+                            jump(self.test[1])*jump(solution[1]))*self.dS_h
         f += (solution[0]*vertvelo*self.test[0]*self.normal[2] +
-              solution[1]*vertvelo*self.test[1]*self.normal[2])*(ds_surf)
+              solution[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
         # NOTE bottom impermeability condition is naturally satisfied by the defition of w
         return -f
 
@@ -203,7 +212,7 @@ class ALESourceTerm(MomentumTerm):
         # Non-conservative ALE source term
         if dw_mesh_dz is not None:
             f += dw_mesh_dz*(solution[0]*self.test[0] +
-                             solution[1]*self.test[1])*dx
+                             solution[1]*self.test[1])*self.dx
         return -f
 
 
@@ -225,7 +234,7 @@ class HorizontalViscosityTerm(MomentumTerm):
         grad_uv = grad_h(solution)
         grad_test = grad_h(self.test)
         stress = dot(visc_tensor, grad_uv)
-        f += inner(grad_test, stress)*dx
+        f += inner(grad_test, stress)*self.dx
 
         if self.horizontal_dg:
             assert self.h_elem_size is not None, 'h_elem_size must be defined'
@@ -248,7 +257,7 @@ class HorizontalViscosityTerm(MomentumTerm):
             if degree_h == 0:
                 raise NotImplementedError('horizontal visc not implemented for p0')
             alpha = avg(sigma)
-            ds_interior = (dS_h + dS_v)
+            ds_interior = (self.dS_h + self.dS_v)
             f += alpha*inner(tensor_jump(self.normal, self.test),
                              dot(avg(visc_tensor), tensor_jump(self.normal, solution)))*ds_interior
             f += -inner(avg(dot(visc_tensor, nabla_grad(self.test))),
@@ -257,8 +266,8 @@ class HorizontalViscosityTerm(MomentumTerm):
                         avg(dot(visc_tensor, nabla_grad(solution))))*ds_interior
 
         # symmetric bottom boundary condition
-        f += -inner(stress, outer(self.test, self.normal))*ds_surf
-        f += -inner(stress, outer(self.test, self.normal))*ds_bottom
+        f += -inner(stress, outer(self.test, self.normal))*self.ds_surf
+        f += -inner(stress, outer(self.test, self.normal))*self.ds_bottom
 
         # TODO boundary conditions
         # TODO impermeability condition at bottom
@@ -274,7 +283,7 @@ class VerticalViscosityTerm(MomentumTerm):
         f = 0
         grad_test = Dx(self.test, 2)
         diff_flux = viscosity_v*Dx(solution, 2)
-        f += inner(grad_test, diff_flux)*dx
+        f += inner(grad_test, diff_flux)*self.dx
 
         if self.vertical_dg:
             assert self.h_elem_size is not None, 'h_elem_size must be defined'
@@ -291,7 +300,7 @@ class VerticalViscosityTerm(MomentumTerm):
             if degree_v == 0:
                 sigma = 1.0/elemsize
             alpha = avg(sigma)
-            ds_interior = (dS_h)
+            ds_interior = (self.dS_h)
             f += alpha*inner(tensor_jump(self.normal[2], self.test),
                              avg(viscosity_v)*tensor_jump(self.normal[2], solution))*ds_interior
             f += -inner(avg(viscosity_v*Dx(self.test, 2)),
@@ -315,7 +324,7 @@ class BottomFrictionTerm(MomentumTerm):
             uv_bot_mag = sqrt(uv_bot_old[0]**2 + uv_bot_old[1]**2)
             stress = drag*uv_bot_mag*uv_bot
             bot_friction = (stress[0]*self.test[0] +
-                            stress[1]*self.test[1])*ds_bottom
+                            stress[1]*self.test[1])*self.ds_bottom
             f += bot_friction
         return -f
 
@@ -326,7 +335,7 @@ class LinearDragTerm(MomentumTerm):
         f = 0
         # Linear drag (consistent with drag in 2D mode)
         if linear_drag is not None:
-            bottom_fri = linear_drag*inner(self.test, solution)*dx
+            bottom_fri = linear_drag*inner(self.test, solution)*self.dx
             f += bottom_fri
         return -f
 
@@ -337,7 +346,7 @@ class CoriolisTerm(MomentumTerm):
         f = 0
         if coriolis is not None:
             f += coriolis*(-solution[1]*self.test[0] +
-                           solution[0]*self.test[1])*dx
+                           solution[0]*self.test[1])*self.dx
         return -f
 
 
@@ -354,9 +363,9 @@ class SourceTerm(MomentumTerm):
             # wind stress
             if wind_stress is not None:
                 f -= (wind_stress[0]*self.test[0] +
-                      wind_stress[1]*self.test[1])/rho_0*ds_surf
+                      wind_stress[1]*self.test[1])/rho_0*self.ds_surf
         if source is not None:
-            f += - inner(source, self.test)*dx
+            f += - inner(source, self.test)*self.dx
         return -f
 
 

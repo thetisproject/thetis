@@ -207,7 +207,8 @@ class FlowSolver(FrozenClass):
         if self.options.baroclinic:
             self.fields.density_3d = Function(self.function_spaces.H, name='Density')
             self.fields.baroc_head_3d = Function(self.function_spaces.Hint)
-            self.fields.baroc_head_int_3d = Function(self.function_spaces.Hint)
+            # NOTE only used in 2D eqns no need to use higher order Hint space
+            self.fields.baroc_head_int_3d = Function(self.function_spaces.H)
             self.fields.baroc_head_2d = Function(self.function_spaces.H_2d)
         if self.options.coriolis is not None:
             if isinstance(self.options.coriolis, Constant):

@@ -296,7 +296,15 @@ class VerticalGradSolver(object):
     :arg source: A :class:`Function` where the solution will be stored.
         Must be in P0 space.
     """
-    def __init__(self, source, solution):
+    def __init__(self, source, solution, solver_parameters=None):
+        if solver_parameters is None:
+            solver_parameters = {}
+        solver_parameters.setdefault('snes_type', 'ksponly')
+        solver_parameters.setdefault('ksp_type', 'preonly')
+        solver_parameters.setdefault('pc_type', 'bjacobi')
+        solver_parameters.setdefault('sub_ksp_type', 'preonly')
+        solver_parameters.setdefault('sub_pc_type', 'ilu')
+
         self.source = source
         self.solution = solution
 
@@ -312,8 +320,8 @@ class VerticalGradSolver(object):
         l = -inner(p, Dx(test, 2))*dx
         l += avg(p)*jump(test, normal[2])*dS_h
         l += p*test*normal[2]*(ds_t + ds_b)
-        prob = LinearVariationalProblem(a, l, self.solution)
-        self.weak_grad_solver = LinearVariationalSolver(prob)
+        prob = LinearVariationalProblem(a, l, self.solution, constant_jacobian=True)
+        self.weak_grad_solver = LinearVariationalSolver(prob, solver_parameters=solver_parameters)
 
     def solve(self):
         self.weak_grad_solver.solve()
@@ -376,9 +384,7 @@ class ShearFrequencySolver(object):
 
     M^2 = du/dz^2 + dv/dz^2
     """
-    def __init__(self, uv, m2, mu, mv, mu_tmp, minval=1e-12, solver_parameters={}):
-        solver_parameters.setdefault('ksp_atol', 1e-12)
-        solver_parameters.setdefault('ksp_rtol', 1e-16)
+    def __init__(self, uv, m2, mu, mv, mu_tmp, minval=1e-12):
 
         self.mu = mu
         self.mv = mv
@@ -394,16 +400,17 @@ class ShearFrequencySolver(object):
             self.var_solvers[i_comp] = solver
 
     def solve(self, init_solve=False):
-        mu_comp = [self.mu, self.mv]
-        self.m2.assign(0.0)
-        for i_comp in range(2):
-            self.var_solvers[i_comp].solve()
-            gamma = self.relaxation if not init_solve else 1.0
-            mu_comp[i_comp].assign(gamma*self.mu_tmp +
-                                   (1.0 - gamma)*mu_comp[i_comp])
-            self.m2 += mu_comp[i_comp]*mu_comp[i_comp]
-        # crop small/negative values
-        set_func_min_val(self.m2, self.minval)
+        with timed_stage('shear_freq_solv'):
+            mu_comp = [self.mu, self.mv]
+            self.m2.assign(0.0)
+            for i_comp in range(2):
+                self.var_solvers[i_comp].solve()
+                gamma = self.relaxation if not init_solve else 1.0
+                mu_comp[i_comp].assign(gamma*self.mu_tmp +
+                                       (1.0 - gamma)*mu_comp[i_comp])
+                self.m2 += mu_comp[i_comp]*mu_comp[i_comp]
+            # crop small/negative values
+            set_func_min_val(self.m2, self.minval)
 
 
 class BuoyFrequencySolver(object):
@@ -413,14 +420,12 @@ class BuoyFrequencySolver(object):
 
     N^2 = -g/rho0 drho/dz
     """
-    def __init__(self, rho, n2, n2_tmp, minval=1e-12, solver_parameters={}):
+    def __init__(self, rho, n2, n2_tmp, minval=1e-12):
         self._no_op = False
         if rho is None:
             self._no_op = True
 
         if not self._no_op:
-            solver_parameters.setdefault('ksp_atol', 1e-12)
-            solver_parameters.setdefault('ksp_rtol', 1e-16)
 
             self.n2 = n2
             self.n2_tmp = n2_tmp
@@ -436,11 +441,12 @@ class BuoyFrequencySolver(object):
             self.var_solver = solver
 
     def solve(self, init_solve=False):
-        if not self._no_op:
-            self.var_solver.solve()
-            gamma = self.relaxation if not init_solve else 1.0
-            self.n2.assign(gamma*self.n2_tmp +
-                           (1.0 - gamma)*self.n2)
+        with timed_stage('buoy_freq_solv'):
+            if not self._no_op:
+                self.var_solver.solve()
+                gamma = self.relaxation if not init_solve else 1.0
+                self.n2.assign(gamma*self.n2_tmp +
+                               (1.0 - gamma)*self.n2)
 
 
 class GenericLengthScaleModel(object):
@@ -596,82 +602,83 @@ class GenericLengthScaleModel(object):
 
         Update all fields that depend on turbulence fields.
         """
-        o = self.options
-        cmu0 = o.cmu0
-        p = o.p
-        n = o.n
-        m = o.m
+        with timed_stage('turb_postproc'):
+            o = self.options
+            cmu0 = o.cmu0
+            p = o.p
+            n = o.n
+            m = o.m
 
-        # limit k
-        set_func_min_val(self.k, o.k_min)
+            # limit k
+            set_func_min_val(self.k, o.k_min)
 
-        k_arr = self.k.dat.data[:]
-        n2_pos = self.n2_pos.dat.data[:]
-        n2_pos_eps = 1e-12
-        galp = o.galperin_lim
-        if o.limit_psi:
-            # impose Galperin limit on psi
-            # psi^(1/n) <= sqrt(0.56)* (cmu0)^(p/n) *k^(m/n+0.5)* n2^(-0.5)
-            val = (np.sqrt(galp) * (cmu0)**(p / n) * k_arr**(m / n + 0.5) * (n2_pos + n2_pos_eps)**(-0.5))**n
-            if n > 0:
-                # impose max value
-                np.minimum(self.psi.dat.data, val, self.psi.dat.data)
-            else:
-                # impose min value
-                np.maximum(self.psi.dat.data, val, self.psi.dat.data)
-        set_func_min_val(self.psi, o.psi_min)
+            k_arr = self.k.dat.data[:]
+            n2_pos = self.n2_pos.dat.data[:]
+            n2_pos_eps = 1e-12
+            galp = o.galperin_lim
+            if o.limit_psi:
+                # impose Galperin limit on psi
+                # psi^(1/n) <= sqrt(0.56)* (cmu0)^(p/n) *k^(m/n+0.5)* n2^(-0.5)
+                val = (np.sqrt(galp) * (cmu0)**(p / n) * k_arr**(m / n + 0.5) * (n2_pos + n2_pos_eps)**(-0.5))**n
+                if n > 0:
+                    # impose max value
+                    np.minimum(self.psi.dat.data, val, self.psi.dat.data)
+                else:
+                    # impose min value
+                    np.maximum(self.psi.dat.data, val, self.psi.dat.data)
+            set_func_min_val(self.psi, o.psi_min)
 
-        # udpate epsilon
-        self.epsilon.assign(cmu0**(3.0 + p/n)*self.k**(3.0/2.0 + m/n)*self.psi**(-1.0/n))
-        if o.limit_eps:
-            # impose Galperin limit on eps
-            eps_min = cmu0**3.0/np.sqrt(galp)*np.sqrt(n2_pos)*k_arr
-            np.maximum(self.epsilon.dat.data, eps_min, self.epsilon.dat.data)
-        # impose minimum value
-        # FIXME this should not be need because psi is limited
-        set_func_min_val(self.epsilon, o.eps_min)
+            # udpate epsilon
+            self.epsilon.assign(cmu0**(3.0 + p/n)*self.k**(3.0/2.0 + m/n)*self.psi**(-1.0/n))
+            if o.limit_eps:
+                # impose Galperin limit on eps
+                eps_min = cmu0**3.0/np.sqrt(galp)*np.sqrt(n2_pos)*k_arr
+                np.maximum(self.epsilon.dat.data, eps_min, self.epsilon.dat.data)
+            # impose minimum value
+            # FIXME this should not be need because psi is limited
+            set_func_min_val(self.epsilon, o.eps_min)
 
-        # update L
-        self.l.assign(cmu0**3.0 * self.k**(3.0/2.0) / self.epsilon)
-        if o.limit_len_min:
-            set_func_min_val(self.l, o.len_min)
-        if o.limit_len:
-            # Galperin length scale limitation
-            len_max = np.sqrt(galp*k_arr/(n2_pos + n2_pos_eps))
-            np.minimum(self.l.dat.data, len_max, self.l.dat.data)
-        if self.l.dat.data.max() > 10.0:
-            print ' * large L: {:f}'.format(self.l.dat.data.max())
+            # update L
+            self.l.assign(cmu0**3.0 * self.k**(3.0/2.0) / self.epsilon)
+            if o.limit_len_min:
+                set_func_min_val(self.l, o.len_min)
+            if o.limit_len:
+                # Galperin length scale limitation
+                len_max = np.sqrt(galp*k_arr/(n2_pos + n2_pos_eps))
+                np.minimum(self.l.dat.data, len_max, self.l.dat.data)
+            if self.l.dat.data.max() > 10.0:
+                print ' * large L: {:f}'.format(self.l.dat.data.max())
 
-        # update stability functions
-        s_m, s_h = self.stability_func.evaluate(self.m2.dat.data,
-                                                self.n2.dat.data,
-                                                self.k.dat.data,
-                                                self.epsilon.dat.data)
-        # update diffusivity/viscosity
-        b = np.sqrt(self.k.dat.data[:])*self.l.dat.data[:]
-        lam = self.relaxation
-        new_visc = b*s_m/cmu0**3
-        new_diff = b*s_h/cmu0**3
-        self.viscosity_native.dat.data[:] = lam*new_visc + (1.0 - lam)*self.viscosity_native.dat.data[:]
-        self.diffusivity_native.dat.data[:] = lam*new_diff + (1.0 - lam)*self.diffusivity_native.dat.data[:]
+            # update stability functions
+            s_m, s_h = self.stability_func.evaluate(self.m2.dat.data,
+                                                    self.n2.dat.data,
+                                                    self.k.dat.data,
+                                                    self.epsilon.dat.data)
+            # update diffusivity/viscosity
+            b = np.sqrt(self.k.dat.data[:])*self.l.dat.data[:]
+            lam = self.relaxation
+            new_visc = b*s_m/cmu0**3
+            new_diff = b*s_h/cmu0**3
+            self.viscosity_native.dat.data[:] = lam*new_visc + (1.0 - lam)*self.viscosity_native.dat.data[:]
+            self.diffusivity_native.dat.data[:] = lam*new_diff + (1.0 - lam)*self.diffusivity_native.dat.data[:]
 
-        if self.solver.options.use_smooth_eddy_viscosity:
-            self.p1_averager.apply(self.viscosity_native, self.viscosity)
-            self.p1_averager.apply(self.diffusivity_native, self.diffusivity)
-        set_func_min_val(self.viscosity, o.visc_min)
-        set_func_min_val(self.diffusivity, o.diff_min)
+            if self.solver.options.use_smooth_eddy_viscosity:
+                self.p1_averager.apply(self.viscosity_native, self.viscosity)
+                self.p1_averager.apply(self.diffusivity_native, self.diffusivity)
+            set_func_min_val(self.viscosity, o.visc_min)
+            set_func_min_val(self.diffusivity, o.diff_min)
 
-        # print '{:8s} {:10.3e} {:10.3e}'.format('k', self.k.dat.data.min(), self.k.dat.data.max())
-        # print '{:8s} {:10.3e} {:10.3e}'.format('eps', self.epsilon.dat.data.min(), self.epsilon.dat.data.max())
-        # print '{:8s} {:10.3e} {:10.3e}'.format('L', self.l.dat.data.min(), self.l.dat.data.max())
-        # print '{:8s} {:10.3e} {:10.3e}'.format('M2', self.m2.dat.data.min(), self.m2.dat.data.max())
-        # print '{:8s} {:10.3e} {:10.3e}'.format('N2', self.n2.dat.data.min(), self.n2.dat.data.max())
-        # print '{:8s} {:10.3e} {:10.3e}'.format('N2+', self.n2_pos.dat.data.min(), self.n2_pos.dat.data.max())
-        # print '{:8s} {:10.3e} {:10.3e}'.format('N2-', self.n2_neg.dat.data.min(), self.n2_neg.dat.data.max())
-        # print '{:8s} {:10.3e} {:10.3e}'.format('s_h', s_h.min(), s_h.max())
-        # print '{:8s} {:10.3e} {:10.3e}'.format('s_m', s_m.min(), s_m.max())
-        # print '{:8s} {:10.3e} {:10.3e}'.format('nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max())
-        # print '{:8s} {:10.3e} {:10.3e}'.format('muv', self.diffusivity.dat.data.min(), self.diffusivity.dat.data.max())
+            # print '{:8s} {:10.3e} {:10.3e}'.format('k', self.k.dat.data.min(), self.k.dat.data.max())
+            # print '{:8s} {:10.3e} {:10.3e}'.format('eps', self.epsilon.dat.data.min(), self.epsilon.dat.data.max())
+            # print '{:8s} {:10.3e} {:10.3e}'.format('L', self.l.dat.data.min(), self.l.dat.data.max())
+            # print '{:8s} {:10.3e} {:10.3e}'.format('M2', self.m2.dat.data.min(), self.m2.dat.data.max())
+            # print '{:8s} {:10.3e} {:10.3e}'.format('N2', self.n2.dat.data.min(), self.n2.dat.data.max())
+            # print '{:8s} {:10.3e} {:10.3e}'.format('N2+', self.n2_pos.dat.data.min(), self.n2_pos.dat.data.max())
+            # print '{:8s} {:10.3e} {:10.3e}'.format('N2-', self.n2_neg.dat.data.min(), self.n2_neg.dat.data.max())
+            # print '{:8s} {:10.3e} {:10.3e}'.format('s_h', s_h.min(), s_h.max())
+            # print '{:8s} {:10.3e} {:10.3e}'.format('s_m', s_m.min(), s_m.max())
+            # print '{:8s} {:10.3e} {:10.3e}'.format('nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max())
+            # print '{:8s} {:10.3e} {:10.3e}'.format('muv', self.diffusivity.dat.data.min(), self.diffusivity.dat.data.max())
 
 
 class TKESourceTerm(TracerTerm):

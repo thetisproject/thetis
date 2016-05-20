@@ -159,23 +159,37 @@ class ModelOptions(AttrDict, FrozenClass):
         }
         """PETSc solver parameters for 2D shallow water equations"""
         self.solver_parameters_momentum_explicit = {
+            'snes_type': 'ksponly',
+            'ksp_type': 'cg',
+            'pc_type': 'bjacobi',
+            'sub_ksp_type': 'preonly',
+            'sub_pc_type': 'ilu',
         }
         """PETSc solver parameters for explicit 3D momentum equation"""
         self.solver_parameters_momentum_implicit = {
             'snes_monitor': False,
-            'ksp_type': 'gmres',
-            'pc_type': 'ilu',
-            'snes_atol': 1e-27,
+            'snes_type': 'ksponly',
+            'ksp_type': 'preonly',
+            'pc_type': 'bjacobi',
+            'sub_ksp_type': 'preonly',
+            'sub_pc_type': 'ilu',
         }
         """PETSc solver parameters for implicit 3D momentum equation"""
         self.solver_parameters_tracer_explicit = {
+            'snes_type': 'ksponly',
+            'ksp_type': 'cg',
+            'pc_type': 'bjacobi',
+            'sub_ksp_type': 'preonly',
+            'sub_pc_type': 'ilu',
         }
         """PETSc solver parameters for explicit 3D tracer equations"""
         self.solver_parameters_tracer_implicit = {
             'snes_monitor': False,
-            'ksp_type': 'gmres',
-            'pc_type': 'ilu',
-            'snes_atol': 1e-27,
+            'snes_type': 'ksponly',
+            'ksp_type': 'preonly',
+            'pc_type': 'bjacobi',
+            'sub_ksp_type': 'preonly',
+            'sub_pc_type': 'ilu',
         }
         """PETSc solver parameters for implicit 3D tracer equations"""
 

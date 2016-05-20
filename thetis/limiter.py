@@ -5,6 +5,7 @@ Tuomas Karna 2015-08-26
 """
 from utility import *
 import ufl
+from pyop2.profiling import timed_region, timed_function, timed_stage  # NOQA
 
 
 def assert_function_space(fs, family, degree):
@@ -205,6 +206,7 @@ class VertexBasedP1DGLimiter(object):
         """
         assert field.function_space() == self.P1DG,\
             'Given field belongs to wrong function space'
-        self._update_centroids(field)
-        self._update_min_max_values(field)
-        self._apply_limiter(field)
+        with timed_stage('limiter'):
+            self._update_centroids(field)
+            self._update_min_max_values(field)
+            self._apply_limiter(field)
