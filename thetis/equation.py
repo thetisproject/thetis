@@ -2,7 +2,8 @@
 Implements Equation and Term classes.
 
 """
-from utility import *
+from __future__ import absolute_import
+from .utility import *
 
 
 class Term(object):

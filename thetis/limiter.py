@@ -3,7 +3,8 @@ Slope limiter implementation.
 
 Tuomas Karna 2015-08-26
 """
-from utility import *
+from __future__ import absolute_import
+from .utility import *
 import ufl
 from pyop2.profiling import timed_region, timed_function, timed_stage  # NOQA
 

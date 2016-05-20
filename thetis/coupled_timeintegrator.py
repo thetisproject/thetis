@@ -3,8 +3,9 @@ Time integrators for solving coupled 2D-3D-tracer equations.
 
 Tuomas Karna 2015-07-06
 """
-from utility import *
-import timeintegrator
+from __future__ import absolute_import
+from .utility import *
+from . import timeintegrator
 
 # TODO turbulence update. move out from _update_all_dependencies ?
 

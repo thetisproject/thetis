@@ -3,7 +3,8 @@ Default values for common constants and parameters in a dictionary.
 
 Tuomas Karna 2015-02-23
 """
-from firedrake import *
+from __future__ import absolute_import
+from .firedrake import Constant
 
 physical_constants = \
     {'g_grav': Constant(9.81),      # gravitational acceleration

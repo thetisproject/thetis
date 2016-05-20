@@ -64,9 +64,10 @@ Implementation follows [4].
 
 Tuomas Karna 2015-09-07
 """
-from tracer_eq import *
-from utility import *
-from stability_functions import *
+from __future__ import absolute_import
+from .tracer_eq import *
+from .utility import *
+from .stability_functions import *
 
 
 class GLSModelOptions(AttrDict):

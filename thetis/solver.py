@@ -3,20 +3,21 @@ Module for coupled 2D-3D flow solver.
 
 Tuomas Karna 2015-04-01
 """
-from utility import *
-import shallowwater_eq
-import momentum_eq
-import tracer_eq
-import turbulence
-import coupled_timeintegrator
-import limiter
+from __future__ import absolute_import
+from .utility import *
+from . import shallowwater_eq
+from . import momentum_eq
+from . import tracer_eq
+from . import turbulence
+from . import coupled_timeintegrator
+from . import limiter
 import time as time_mod
 from mpi4py import MPI
-import exporter
+from . import exporter
 import weakref
-from thetis.field_defs import field_metadata
-from thetis.options import ModelOptions
-import thetis.callback as callback
+from .field_defs import field_metadata
+from .options import ModelOptions
+from . import callback
 
 
 class FlowSolver(FrozenClass):

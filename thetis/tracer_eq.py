@@ -3,8 +3,9 @@
 
 Tuomas Karna 2015-09-08
 """
-from utility import *
-from equation import Term, Equation
+from __future__ import absolute_import
+from .utility import *
+from .equation import Term, Equation
 
 
 class TracerTerm(Term):

@@ -3,8 +3,9 @@
 
 Tuomas Karna 2015-02-23
 """
-from utility import *
-from equation import Term, Equation
+from __future__ import absolute_import
+from .utility import *
+from .equation import Term, Equation
 
 g_grav = physical_constants['g_grav']
 rho_0 = physical_constants['rho0']

@@ -3,8 +3,9 @@ This file defines all options of the 2D/3D models excluding field values.
 
 Tuomas Karna 2015-10-17
 """
-from thetis.utility import *
-from thetis.turbulence import GLSModelOptions
+from __future__ import absolute_import
+from .utility import *
+from .turbulence import GLSModelOptions
 
 
 class ModelOptions(AttrDict, FrozenClass):

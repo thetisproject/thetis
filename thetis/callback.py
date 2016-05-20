@@ -3,7 +3,8 @@ Callback functions used to compute metrics at runtime.
 
 Tuomas Karna 2016-01-28
 """
-from utility import *
+from __future__ import absolute_import
+from .utility import *
 
 
 class ValidationCallback(object):

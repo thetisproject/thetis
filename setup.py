@@ -9,6 +9,7 @@ setup(name='thetis',
       author='Tuomas Karna',
       author_email='tuomas.karna@gmail.com',
       url='https://github.com/thetisproject/thetis',
-      packages=['thetis', 'test', 'examples'],
+      packages=['thetis', 'test', 'examples',
+                'thetis_config', 'thetis_adjoint'],
       scripts=glob('scripts/*'),
      )

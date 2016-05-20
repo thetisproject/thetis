@@ -3,7 +3,8 @@ Generic time integration schemes to advance equations in time.
 
 Tuomas Karna 2015-03-27
 """
-from utility import *
+from __future__ import absolute_import
+from .utility import *
 from abc import ABCMeta, abstractproperty
 
 

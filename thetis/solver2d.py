@@ -3,15 +3,16 @@ Module for 2D solver class.
 
 Tuomas Karna 2015-10-17
 """
-from utility import *
-import shallowwater_eq
-import timeintegrator
+from __future__ import absolute_import
+from .utility import *
+from . import shallowwater_eq
+from . import timeintegrator
 import time as time_mod
 from mpi4py import MPI
-import exporter
-from thetis.field_defs import field_metadata
-from thetis.options import ModelOptions
-import thetis.callback as callback
+from . import exporter
+from .field_defs import field_metadata
+from .options import ModelOptions
+from . import callback
 
 
 class FlowSolver2d(FrozenClass):

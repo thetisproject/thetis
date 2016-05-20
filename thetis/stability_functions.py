@@ -18,6 +18,7 @@ References:
     http://dx.doi.org/10.1357/002224003322005087
 
 """
+from __future__ import absolute_import
 import numpy as np
 
 __all__ = ('StabilityFunctionCanutoA',

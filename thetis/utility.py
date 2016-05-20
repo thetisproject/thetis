@@ -3,17 +3,18 @@ Utility functions and classes for 3D hydrostatic ocean model
 
 Tuomas Karna 2015-02-21
 """
-from firedrake import *
+from __future__ import absolute_import
+from .firedrake import *
 import os
 import numpy as np
 import sys
-from physical_constants import physical_constants
+from .physical_constants import physical_constants
 from pyop2.profiling import timed_region, timed_function, timed_stage  # NOQA
 from mpi4py import MPI  # NOQA
 import ufl  # NOQA
 import coffee.base as ast  # NOQA
 from collections import OrderedDict, namedtuple  # NOQA
-from thetis.field_defs import field_metadata
+from .field_defs import field_metadata
 
 ds_surf = ds_t
 ds_bottom = ds_b

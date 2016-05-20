@@ -3,7 +3,8 @@ Routines for handling file exports.
 
 Tuomas Karna 2015-07-06
 """
-from utility import *
+from __future__ import absolute_import
+from .utility import *
 import ufl
 from firedrake.output import is_cg
 import itertools
