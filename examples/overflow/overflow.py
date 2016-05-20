@@ -92,7 +92,6 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'baroc_head_2d',
                             'smag_visc_3d', 'salt_jump_diff']
 # options.fields_to_export_numpy = ['salt_3d']
-options.timer_labels = []
 
 solver_obj.create_equations()
 salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')

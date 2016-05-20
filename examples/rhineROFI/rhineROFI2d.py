@@ -72,7 +72,6 @@ options.dt = dt
 options.outputdir = outputdir
 options.u_advection = Constant(1.5)
 options.fields_to_export = ['uv_2d', 'elev_2d']
-options.timer_labels = []
 # options.timestepper_type = 'CrankNicolson'
 options.timestepper_type = 'ssprk33semi'
 

@@ -30,7 +30,6 @@ class FlowSolver2d(FrozenClass):
         # 2d model specific default options
         self.options = ModelOptions()
         self.options.setdefault('timestepper_type', 'SSPRK33')
-        self.options.setdefault('timer_labels', ['mode2d'])
         self.options.setdefault('fields_to_export', ['elev_2d', 'uv_2d'])
         if options is not None:
             self.options.update(options)
@@ -277,8 +276,8 @@ class FlowSolver2d(FrozenClass):
         if commrank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
-            print(bold(line.format(iexp=self.i_export, i=self.iteration, t=self.simulation_time, e=norm_h,
-                                   u=norm_u, cpu=cputime)))
+            print(line.format(iexp=self.i_export, i=self.iteration, t=self.simulation_time, e=norm_h,
+                              u=norm_u, cpu=cputime))
             sys.stdout.flush()
 
     def iterate(self, update_forcings=None,

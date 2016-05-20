@@ -111,7 +111,6 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                             'baroc_head_2d', 'smag_visc_3d']
 options.fields_to_export_hdf5 = list(options.fields_to_export)
-options.timer_labels = []
 
 solver_obj.create_equations()
 temp_init3d = Function(solver_obj.function_spaces.H, name='initial temperature')

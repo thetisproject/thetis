@@ -640,8 +640,8 @@ class FlowSolver(FrozenClass):
         if commrank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
-            print(bold(line.format(iexp=self.i_export, i=self.iteration, t=self.simulation_time, e=norm_h,
-                                   u=norm_u, cpu=cputime)))
+            print(line.format(iexp=self.i_export, i=self.iteration, t=self.simulation_time, e=norm_h,
+                              u=norm_u, cpu=cputime))
             sys.stdout.flush()
 
     def iterate(self, update_forcings=None, update_forcings3d=None,

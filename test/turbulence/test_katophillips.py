@@ -79,7 +79,6 @@ def run_katophillips(do_export=False):
     options.outputdir = outputdir
     options.u_advection = u_mag
     options.check_salt_overshoot = True
-    options.timer_labels = []
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'salt_3d',
                                 'baroc_head_3d', 'baroc_head_2d',

@@ -73,7 +73,6 @@ options.dt = dt
 options.t_end = t_end
 options.outputdir = outputdir
 options.u_advection = u_mag
-options.timer_labels = []
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'uv_dav_2d', 'uv_bottom_2d',
                             'parab_visc_3d', 'eddy_visc_3d', 'shear_freq_3d',

@@ -101,9 +101,6 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                             'baroc_head_2d']
 options.fields_to_export_numpy = ['salt_3d', 'baroc_head_3d', 'elev_2d']
-options.timer_labels = ['mode2d', 'momentum_eq', 'continuity_eq', 'salt_eq',
-                        'aux_barolinicity', 'aux_mom_coupling',
-                        'func_copy_2d_to_3d', 'func_copy_3d_to_2d', ]
 
 solver_obj.create_equations()
 # assign initial salinity
