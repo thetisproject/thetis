@@ -86,6 +86,7 @@ class FieldDict(AttrDict):
     def _check_inputs(self, key, value):
         if key != '__dict__':
             from firedrake.functionspaceimpl import MixedFunctionSpace, WithGeometry
+            from firedrake import Function, Constant
             if not isinstance(value, (Function, Constant)):
                 raise TypeError('Value must be a Function or Constant object')
             fs = value.function_space()
