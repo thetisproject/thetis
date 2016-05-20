@@ -64,18 +64,18 @@ class SSPRK33(TimeIntegrator):
         self.fields_old = {}
         for k in self.fields_new:
             if self.fields_new[k] is not None:
-                if isinstance(self.fields_new[k], Function):
+                if isinstance(self.fields_new[k], FiredrakeFunction):
                     self.fields_old[k] = Function(
                         self.fields_new[k].function_space())
-                elif isinstance(self.fields_new[k], Constant):
+                elif isinstance(self.fields_new[k], FiredrakeConstant):
                     self.fields_old[k] = Constant(self.fields_new[k])
         self.funcs_nplushalf = funcs_nplushalf
         # values used in equations
         self.fields = {}
         for k in self.fields_old:
-            if isinstance(self.fields_new[k], Function):
+            if isinstance(self.fields_new[k], FiredrakeFunction):
                 self.fields[k] = Function(self.fields_new[k].function_space())
-            elif isinstance(self.fields_new[k], Constant):
+            elif isinstance(self.fields_new[k], FiredrakeConstant):
                 self.fields[k] = Constant(self.fields_new[k])
 
         self.dt_const = Constant(dt)
@@ -413,10 +413,10 @@ class ForwardEuler(TimeIntegrator):
         self.fields_old = {}
         for k in self.fields:
             if self.fields[k] is not None:
-                if isinstance(self.fields[k], Function):
+                if isinstance(self.fields[k], FiredrakeFunction):
                     self.fields_old[k] = Function(
                         self.fields[k].function_space())
-                elif isinstance(self.fields[k], Constant):
+                elif isinstance(self.fields[k], FiredrakeConstant):
                     self.fields_old[k] = Constant(self.fields[k])
 
         u_old = self.solution_old
@@ -473,10 +473,10 @@ class CrankNicolson(TimeIntegrator):
         self.fields_old = {}
         for k in self.fields:
             if self.fields[k] is not None:
-                if isinstance(self.fields[k], Function):
+                if isinstance(self.fields[k], FiredrakeFunction):
                     self.fields_old[k] = Function(
                         self.fields[k].function_space())
-                elif isinstance(self.fields[k], Constant):
+                elif isinstance(self.fields[k], FiredrakeConstant):
                     self.fields_old[k] = Constant(self.fields[k])
 
         u = self.solution

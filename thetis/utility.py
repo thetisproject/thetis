@@ -15,6 +15,8 @@ import ufl  # NOQA
 import coffee.base as ast  # NOQA
 from collections import OrderedDict, namedtuple  # NOQA
 from .field_defs import field_metadata
+from firedrake import Function as FiredrakeFunction
+from firedrake import Constant as FiredrakeConstant
 
 ds_surf = ds_t
 ds_bottom = ds_b
@@ -86,8 +88,7 @@ class FieldDict(AttrDict):
     def _check_inputs(self, key, value):
         if key != '__dict__':
             from firedrake.functionspaceimpl import MixedFunctionSpace, WithGeometry
-            from firedrake import Function, Constant
-            if not isinstance(value, (Function, Constant)):
+            if not isinstance(value, (FiredrakeFunction, FiredrakeConstant)):
                 raise TypeError('Value must be a Function or Constant object')
             fs = value.function_space()
             is_mixed = (isinstance(fs, MixedFunctionSpace) or
@@ -101,7 +102,7 @@ class FieldDict(AttrDict):
 
     def _set_functionname(self, key, value):
         """Set function.name to key to ensure consistent naming"""
-        if isinstance(value, Function):
+        if isinstance(value, FiredrakeFunction):
             value.rename(name=key)
 
     def __setitem__(self, key, value):
@@ -370,9 +371,9 @@ class DensitySolver(object):
         self.fs = density.function_space()
         self.eos = EquationOfState()
 
-        if isinstance(salinity, Function):
+        if isinstance(salinity, FiredrakeFunction):
             assert self.fs == salinity.function_space()
-        if isinstance(temperature, Function):
+        if isinstance(temperature, FiredrakeFunction):
             assert self.fs == temperature.function_space()
 
         self.s = salinity
@@ -380,10 +381,10 @@ class DensitySolver(object):
         self.rho = density
 
     def _get_array(self, function):
-        if isinstance(function, Function):
+        if isinstance(function, FiredrakeFunction):
             assert self.fs == function.function_space()
             return function.dat.data[:]
-        if isinstance(function, Constant):
+        if isinstance(function, FiredrakeConstant):
             return function.dat.data[0]
         # assume that function is a float
         return function

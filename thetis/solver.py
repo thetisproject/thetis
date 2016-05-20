@@ -215,17 +215,17 @@ class FlowSolver(FrozenClass):
             self.fields.baroc_head_int_3d = Function(self.function_spaces.H)
             self.fields.baroc_head_2d = Function(self.function_spaces.H_2d)
         if self.options.coriolis is not None:
-            if isinstance(self.options.coriolis, Constant):
+            if isinstance(self.options.coriolis, FiredrakeConstant):
                 self.fields.coriolis_3d = self.options.coriolis
             else:
                 self.fields.coriolis_3d = Function(self.function_spaces.P1)
                 ExpandFunctionTo3d(self.options.coriolis, self.fields.coriolis_3d).solve()
         if self.options.wind_stress is not None:
-            if isinstance(self.options.wind_stress, Function):
+            if isinstance(self.options.wind_stress, FiredrakeFunction):
                 # assume 2d function and expand to 3d
                 self.fields.wind_stress_3d = Function(self.function_spaces.P1)
                 ExpandFunctionTo3d(self.options.wind_stress, self.fields.wind_stress_3d).solve()
-            elif isinstance(self.options.wind_stress, Constant):
+            elif isinstance(self.options.wind_stress, FiredrakeConstant):
                 self.fields.wind_stress_3d = self.options.wind_stress
             else:
                 raise Exception('Unsupported wind stress type: {:}'.format(type(self.options.wind_stress)))

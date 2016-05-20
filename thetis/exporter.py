@@ -378,7 +378,7 @@ class ExportManager(object):
             shortname = self.field_metadata[key]['shortname']
             fn = self.field_metadata[key]['filename']
             field = self.functions.get(key)
-            if field is not None and isinstance(field, Function):
+            if field is not None and isinstance(field, FiredrakeFunction):
                 native_space = field.function_space()
                 visu_space = get_visu_space(native_space)
                 coords_dg = self._get_dg_coordinates(visu_space)

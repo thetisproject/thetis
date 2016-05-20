@@ -6,16 +6,16 @@
 #
 # http://opentidalfarm.readthedocs.io/en/latest/examples/farm-performance/farm-performance.html
 #
-from thetis import *
+from thetis_adjoint import *
 
-outputdir = 'outputs'
+outputdir = 'outputs_adjoint'
 
 lx = 100.0
 ly = 50.0
 nx = 20.0
 ny = 10.0
 mesh2d = RectangleMesh(nx, ny, lx, ly)
-print_info('Exporting to '+outputdir)
+print_info('Exporting to ' + outputdir)
 
 # total duration in seconds
 t_end = 500
@@ -73,7 +73,7 @@ velocity_u = 2.0
 # assign boundary conditions
 inflow_tag = 1
 outflow_tag = 2
-inflow_bc = {'un': Constant(-velocity_u)} # NOTE negative into domain
+inflow_bc = {'un': Constant(-velocity_u)}  # NOTE negative into domain
 outflow_bc = {'elev': Constant(0.0)}
 
 solver_obj.bnd_functions['shallow_water'] = {inflow_tag: inflow_bc,
