@@ -529,6 +529,39 @@ class CrankNicolson(TimeIntegrator):
             self.fields_old[k].assign(self.fields[k])
 
 
+class SteadyState(TimeIntegrator):
+    """Time integrator that solves the steady state equations, leaving out the mass terms"""
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
+        """Creates forms for the time integrator"""
+        super(SteadyState, self).__init__(equation, solver_parameters)
+        self.solver_parameters.setdefault('snes_monitor', False)
+        self.solver_parameters.setdefault('snes_type', 'newtonls')
+
+        self.solution = solution
+        self.fields = fields
+
+        self.F = self.equation.residual('all', solution, solution, fields, fields, bnd_conditions)
+        self.update_solver()
+
+    def update_solver(self):
+        nest = not ('pc_type' in self.solver_parameters and self.solver_parameters['pc_type'] == 'lu')
+        prob = NonlinearVariationalProblem(self.F, self.solution, nest=nest)
+        self.solver = NonlinearVariationalSolver(prob,
+                                                 solver_parameters=self.solver_parameters,
+                                                 options_prefix=self.name)
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        # nothing to do here as the initial condition is passed in via solution
+        return
+
+    def advance(self, t, dt, solution, update_forcings=None):
+        """Advances equations for one time step."""
+        if update_forcings is not None:
+            update_forcings(t+dt)
+        self.solver.solve()
+
+
 class SSPIMEX(TimeIntegrator):
     """
     SSP-IMEX time integration scheme based on [1], method (17).
