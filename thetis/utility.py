@@ -102,7 +102,6 @@ class FieldDict(AttrDict):
 
     def _set_functionname(self, key, value):
         """Set function.name to key to ensure consistent naming"""
-        return
         if isinstance(value, FiredrakeFunction):
             value.rename(name=key)
 

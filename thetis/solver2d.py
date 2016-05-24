@@ -99,7 +99,7 @@ class FlowSolver2d(FrozenClass):
             self.create_function_spaces()
         self._isfrozen = False
         # ----- fields
-        self.fields.solution_2d = Function(self.function_spaces.V_2d, name="SWEsolution")
+        self.fields.solution_2d = Function(self.function_spaces.V_2d)
 
         # ----- Equations
         self.eq_sw = shallowwater_eq.ShallowWaterEquations(
@@ -310,8 +310,6 @@ class FlowSolver2d(FrozenClass):
 
             self.timestepper.advance(self.simulation_time, self.dt, self.fields.solution_2d,
                                      update_forcings)
-            print "###", "drag", self.iteration, self.timestepper.fields['quadratic_drag'].vector().array()[0:10]
-            print "###", "sol", self.iteration, self.fields.solution_2d.vector().array()[0:10]
 
             # Move to next time step
             self.iteration += 1
