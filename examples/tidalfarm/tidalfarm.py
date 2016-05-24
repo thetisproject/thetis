@@ -18,11 +18,11 @@ mesh2d = RectangleMesh(nx, ny, lx, ly)
 print_info('Exporting to ' + outputdir)
 
 # total duration in seconds
-t_end = 100.0
+t_end = 0.499
 # estimate of max advective velocity used to estimate time step
 u_mag = Constant(4.0)
 # export interval in seconds
-t_export = 100.0
+t_export = 0.5
 timestep = 0.5
 
 # bathymetry
@@ -42,8 +42,7 @@ options.outputdir = outputdir
 options.u_advection = u_mag
 options.check_vol_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
-solver_obj.options.timestepper_type = 'cranknicolson'
-solver_obj.options.shallow_water_theta = 1.0
+solver_obj.options.timestepper_type = 'steadystate'
 solver_obj.options.solver_parameters_sw = {
     'ksp_type': 'preonly',
     'pc_type': 'lu',
@@ -58,14 +57,14 @@ options.h_viscosity = Constant(2.0)
 solver_obj.create_function_spaces()
 
 # create drag function and set something there
-drag_func = Function(solver_obj.function_spaces.P1_2d, name='bottom drag')
+drag_func = Function(solver_obj.function_spaces.P1_2d, name='bottomdrag')
 x = SpatialCoordinate(mesh2d)
 drag_center = 12.0
 drag_bg = 0.0025
 x0 = lx/2
 y0 = ly/2
 sigma = 20.0
-drag_func.project(drag_center*exp(-((x[0]-x0)**2 + (x[1]-y0)**2)/sigma**2) + drag_bg)
+drag_func.project(drag_center*exp(-((x[0]-x0)**2 + (x[1]-y0)**2)/sigma**2) + drag_bg, annotate=False)
 # assign fiction field
 options.quadratic_drag = drag_func
 
@@ -82,13 +81,32 @@ solver_obj.bnd_functions['shallow_water'] = {inflow_tag: inflow_bc,
 solver_obj.assign_initial_conditions(uv_init=as_vector((velocity_u, 0.0)))
 solver_obj.iterate()
 
-# adj_html("forward.html", "forward")
-# adj_html("adjoint.html", "adjoint")
+adj_html("forward.html", "forward")
+adj_html("adjoint.html", "adjoint")
 
-# success = replay_dolfin(tol=0.0, stop=True)
 
-J = Functional(inner(solver_obj.fields.uv_2d, solver_obj.fields.uv_2d)*dx*dt[FINISH_TIME])
+integral = solver_obj.fields.solution_2d[0]*dx
+J = Functional(integral*dt[FINISH_TIME], name="MyFunctional")
 c = Control(drag_func)
-dJdc = compute_gradient(J, c)
+dJdc = compute_gradient(J, c, forget=False)
 out = File('gradient_J.pvd')
 out.write(dJdc)
+J0 = assemble(integral)
+print "Functional evaluated by hand: ", J0
+
+parameters["adjoint"]["stop_annotating"]=True
+def JFunc(m):
+    drag_func.project(m)
+    solver_obj.simulation_time = 0
+    solver_obj.assign_initial_conditions(uv_init=as_vector((velocity_u, 0.0)))
+    solver_obj.fields.solution_2d.project(as_vector((velocity_u, 0.0, 0.0)))
+    solver_obj.iterate()
+    Jm = assemble(integral)
+    return Jm
+
+success = replay_dolfin(tol=0.0, stop=False)
+print solver_obj.fields.solution_2d.vector().array()[0:10]
+Jhat = ReducedFunctional(J, c)
+print "Output of Jhat: ", Jhat(drag_func)
+minconv = taylor_test(JFunc, c, J0, dJdc, seed=1e-4)
+assert minconv>1.95
