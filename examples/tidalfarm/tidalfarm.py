@@ -7,6 +7,7 @@
 # http://opentidalfarm.readthedocs.io/en/latest/examples/farm-performance/farm-performance.html
 #
 from thetis_adjoint import *
+op2.init(log_level=INFO)
 
 outputdir = 'outputs_adjoint'
 
@@ -18,7 +19,7 @@ mesh2d = RectangleMesh(nx, ny, lx, ly)
 print_info('Exporting to ' + outputdir)
 
 # total duration in seconds
-t_end = 0.499
+t_end = 20.
 # estimate of max advective velocity used to estimate time step
 u_mag = Constant(4.0)
 # export interval in seconds
@@ -42,7 +43,8 @@ options.outputdir = outputdir
 options.u_advection = u_mag
 options.check_vol_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
-solver_obj.options.timestepper_type = 'steadystate'
+solver_obj.options.timestepper_type = 'cranknicolson'
+solver_obj.options.shallow_water_theta = 1.0
 solver_obj.options.solver_parameters_sw = {
     'ksp_type': 'preonly',
     'pc_type': 'lu',
@@ -94,12 +96,15 @@ out.write(dJdc)
 J0 = assemble(integral)
 print "Functional evaluated by hand: ", J0
 
-parameters["adjoint"]["stop_annotating"]=True
+parameters["adjoint"]["stop_annotating"] = True
+
+
 def JFunc(m):
-    drag_func.project(m)
-    solver_obj.simulation_time = 0
-    solver_obj.assign_initial_conditions(uv_init=as_vector((velocity_u, 0.0)))
-    solver_obj.fields.solution_2d.project(as_vector((velocity_u, 0.0, 0.0)))
+    drag_func.assign(m)
+    solver_obj.simulation_time = 0.
+    solver_obj.iteration = 0
+    solver_obj.i_export = 0
+    solver_obj.assign_initial_conditions(uv_init=as_vector((velocity_u, 0.0)), elev=Constant(0.0))
     solver_obj.iterate()
     Jm = assemble(integral)
     return Jm
