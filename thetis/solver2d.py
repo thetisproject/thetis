@@ -99,7 +99,7 @@ class FlowSolver2d(FrozenClass):
             self.create_function_spaces()
         self._isfrozen = False
         # ----- fields
-        self.fields.solution_2d = Function(self.function_spaces.V_2d)
+        self.fields.solution_2d = Function(self.function_spaces.V_2d, name='solution_2d')
 
         # ----- Equations
         self.eq_sw = shallowwater_eq.ShallowWaterEquations(

@@ -466,7 +466,7 @@ class CrankNicolson(TimeIntegrator):
         self.dt_const = Constant(dt)
 
         self.solution = solution
-        self.solution_old = Function(self.equation.function_space)
+        self.solution_old = Function(self.equation.function_space, name='solution_old')
         self.fields = fields
         # create functions to hold the values of previous time step
         # TODO is this necessary? is self.fields sufficient?
@@ -475,7 +475,7 @@ class CrankNicolson(TimeIntegrator):
             if self.fields[k] is not None:
                 if isinstance(self.fields[k], FiredrakeFunction):
                     self.fields_old[k] = Function(
-                        self.fields[k].function_space())
+                        self.fields[k].function_space(), name=self.fields[k].name()+'_old')
                 elif isinstance(self.fields[k], FiredrakeConstant):
                     self.fields_old[k] = Constant(self.fields[k])
 
