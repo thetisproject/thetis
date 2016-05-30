@@ -47,7 +47,9 @@ parser.add_argument('-Re', '--reynolds_number', type=float, default=2.0,
                     help='mesh Reynolds number for Smagorinsky scheme')
 args = parser.parse_args()
 args_dict = vars(args)
-if commrank == 0:
+
+comm = COMM_WORLD
+if comm.rank == 0:
     print 'Running test case with setup:'
     for k in sorted(args_dict.keys()):
         print ' - {0:15s} : {1:}'.format(k, args_dict[k])

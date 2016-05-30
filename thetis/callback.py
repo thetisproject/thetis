@@ -14,9 +14,12 @@ class ValidationCallback(object):
     def __init__(self):
         self._initialized = False
 
-    def initialize(self):
-        """Initializes the callback function"""
+    def initialize(self, comm=COMM_WORLD):
+        """Initializes the callback function.
+
+        :kwarg comm: The communicator for the callback."""
         self._initialized = True
+        self.comm = comm
 
     def update(self):
         """Updates the validation metric for current state of the model"""
@@ -45,8 +48,10 @@ class ScalarConservationCallback(ValidationCallback):
 
     def initialize(self, solver_object):
         self.initial_value = self.scalar_callback(solver_object)
-        print_info('Initial {0:s} {1:f}'.format(self.name, self.initial_value))
-        super(ScalarConservationCallback, self).initialize()
+        comm = solver_object.comm
+        print_info('Initial {0:s} {1:f}'.format(self.name, self.initial_value),
+                   comm=comm)
+        super(ScalarConservationCallback, self).initialize(comm)
 
     def update(self, solver_object):
         super(ScalarConservationCallback, self).update()
@@ -54,9 +59,9 @@ class ScalarConservationCallback(ValidationCallback):
         return self.value
 
     def report(self):
-        if commrank == 0:
+        if self.comm.rank == 0:
             line = '{0:s} rel. error {1:11.4e}'
-            print_info(line.format(self.name, (self.initial_value - self.value)/self.initial_value))
+            print_info(line.format(self.name, (self.initial_value - self.value)/self.initial_value), comm=self.comm)
             sys.stdout.flush()
 
 
@@ -104,8 +109,9 @@ class MinMaxConservationCallback(ValidationCallback):
 
     def initialize(self, solver_object):
         self.initial_value = self.minmax_callback(solver_object)
-        print_info('Initial {0:s} value range {1:f} - {2:f}'.format(self.name, *self.initial_value))
-        super(MinMaxConservationCallback, self).initialize()
+        comm = solver_object.comm
+        print_info('Initial {0:s} value range {1:f} - {2:f}'.format(self.name, *self.initial_value), comm=comm)
+        super(MinMaxConservationCallback, self).initialize(comm)
 
     def update(self, solver_object):
         super(MinMaxConservationCallback, self).update()
@@ -113,10 +119,10 @@ class MinMaxConservationCallback(ValidationCallback):
         return self.value
 
     def report(self):
-        if commrank == 0:
+        if self.comm.rank == 0:
             overshoot = max(self.value[1] - self.initial_value[1], 0.0)
             undershoot = min(self.value[0] - self.initial_value[0], 0.0)
-            print_info('{0:s} overshoots {1:g} {2:g}'.format(self.name, undershoot, overshoot))
+            print_info('{0:s} overshoots {1:g} {2:g}'.format(self.name, undershoot, overshoot), comm=self.comm)
             sys.stdout.flush()
 
 
@@ -126,7 +132,8 @@ class TracerOvershootCallBack(MinMaxConservationCallback):
         def minmax(solver_object):
             tracer_min = solver_object.fields[tracer_name].dat.data.min()
             tracer_max = solver_object.fields[tracer_name].dat.data.max()
-            tracer_min = op2.MPI.COMM.allreduce(tracer_min, op=MPI.MIN)
-            tracer_max = op2.MPI.COMM.allreduce(tracer_max, op=MPI.MAX)
+            comm = solver_object.comm
+            tracer_min = comm.allreduce(tracer_min, op=MPI.MIN)
+            tracer_max = comm.allreduce(tracer_max, op=MPI.MAX)
             return tracer_min, tracer_max
         super(TracerOvershootCallBack, self).__init__(tracer_name, minmax)
