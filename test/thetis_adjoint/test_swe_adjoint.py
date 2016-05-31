@@ -19,8 +19,6 @@ def basic_setup():
     ny = 10.0
     mesh2d = RectangleMesh(nx, ny, lx, ly)
 
-    # total duration in seconds
-    t_end = 0.499
     # export interval in seconds
     t_export = 0.5
     timestep = 0.5
@@ -36,7 +34,6 @@ def basic_setup():
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=1)
     options = solver_obj.options
     options.t_export = t_export
-    options.t_end = t_end
     options.check_vol_conservation_2d = True
     options.fields_to_export = ['uv_2d', 'elev_2d']
     options.dt = timestep  # override computed dt
@@ -71,6 +68,7 @@ def basic_setup():
 def setup_steady():
     solver_obj = basic_setup()
     solver_obj.options.timestepper_type = 'steadystate'
+    solver_obj.options.t_end = 0.499
     solver_obj.options.solver_parameters_sw = {
         'ksp_type': 'preonly',
         'pc_type': 'lu',
@@ -85,6 +83,7 @@ def setup_steady():
 def setup_unsteady():
     solver_obj = basic_setup()
     solver_obj.options.timestepper_type = 'cranknicolson'
+    solver_obj.options.t_end = 2.0
     solver_obj.options.shallow_water_theta = 1.0
     solver_obj.options.solver_parameters_sw = {
         'ksp_type': 'preonly',
