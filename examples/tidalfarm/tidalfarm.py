@@ -99,7 +99,7 @@ print "Functional evaluated by hand: ", J0
 parameters["adjoint"]["stop_annotating"] = True
 
 
-def JFunc(m):
+def jfunc(m):
     drag_func.assign(m)
     solver_obj.simulation_time = 0.
     solver_obj.iteration = 0
@@ -113,5 +113,5 @@ success = replay_dolfin(tol=0.0, stop=False)
 print solver_obj.fields.solution_2d.vector().array()[0:10]
 Jhat = ReducedFunctional(J, c)
 print "Output of Jhat: ", Jhat(drag_func)
-minconv = taylor_test(JFunc, c, J0, dJdc, seed=1e-4)
-assert minconv>1.95
+minconv = taylor_test(jfunc, c, J0, dJdc, seed=1e-4)
+assert minconv > 1.95

@@ -107,11 +107,11 @@ def run_model(solver_obj):
 
 def make_python_functional(solver_obj, functional_expr):
     """Returns a python function that runs the model for a given drag and returns the assembled functional value."""
-    def Jfunc(drag):
+    def jfunc(drag):
         solver_obj.options.quadratic_drag.assign(drag)
         run_model(solver_obj)
         return assemble(functional_expr)
-    return Jfunc
+    return jfunc
 
 
 @pytest.fixture(params=[setup_steady, setup_unsteady])
@@ -123,10 +123,10 @@ def test_gradient_from_adjoint(setup):
     adj_reset()  # ensure we reset the tape between different test runs
     solver_obj = setup()
     integral = solver_obj.fields.solution_2d[0]*dx
-    Jfunc = make_python_functional(solver_obj, integral)
+    jfunc = make_python_functional(solver_obj, integral)
 
     drag_func = solver_obj.options.quadratic_drag
-    J0 = Jfunc(drag_func)  # first run, recorded by firedrake_adjoint
+    J0 = jfunc(drag_func)  # first run, recorded by firedrake_adjoint
 
     J = Functional(integral*dt[FINISH_TIME], name="MyFunctional")
     c = Control(drag_func)
@@ -134,5 +134,5 @@ def test_gradient_from_adjoint(setup):
 
     parameters["adjoint"]["stop_annotating"] = True
 
-    minconv = taylor_test(Jfunc, c, J0, dJdc)
+    minconv = taylor_test(jfunc, c, J0, dJdc)
     assert minconv > 1.95
