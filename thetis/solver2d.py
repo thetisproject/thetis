@@ -110,7 +110,10 @@ class FlowSolver2d(FrozenClass):
             include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term
         )
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
+        self._isfrozen = True  # disallow creating new attributes
 
+    def create_timestepper(self):
+        self._isfrozen = False
         # ----- Time integrators
         fields = {
             'linear_drag': self.options.linear_drag,
@@ -176,8 +179,10 @@ class FlowSolver2d(FrozenClass):
                                                       solver_parameters_dirk=sp_impl)
         else:
             raise Exception('Unknown time integrator type: '+str(self.options.timestepper_type))
+        self._isfrozen = True  # disallow creating new attributes
 
-        # ----- File exporters
+    def create_exporters(self):
+        self._isfrozen = False
         # correct treatment of the split 2d functions
         uv_2d, elev_2d = self.fields.solution_2d.split()
         self.fields.uv_2d = uv_2d
@@ -208,12 +213,22 @@ class FlowSolver2d(FrozenClass):
                                        verbose=self.options.verbose > 0)
             self.exporters['hdf5'] = e
 
-        self._initialized = True
         self._isfrozen = True  # disallow creating new attributes
+
+    def initialize(self):
+        if not hasattr(self, 'U_2d'):
+            self.create_function_spaces()
+        if not hasattr(self, 'eq_sw'):
+            self.create_equations()
+        if not hasattr(self, 'timestepper'):
+            self.create_timestepper()
+        if not hasattr(self, 'exporters'):
+            self.create_exporters()
+        self._initialized = True
 
     def assign_initial_conditions(self, elev=None, uv_init=None):
         if not self._initialized:
-            self.create_equations()
+            self.initialize()
         uv_2d, elev_2d = self.fields.solution_2d.split()
         if elev is not None:
             elev_2d.project(elev)
@@ -240,7 +255,7 @@ class FlowSolver2d(FrozenClass):
         processes.
         """
         if not self._initialized:
-            self.create_equations()
+            self.initialize()
         if outputdir is None:
             outputdir = self.options.outputdir
         # create new ExportManager with desired outputdir
@@ -290,7 +305,7 @@ class FlowSolver2d(FrozenClass):
     def iterate(self, update_forcings=None,
                 export_func=None):
         if not self._initialized:
-            self.create_equations()
+            self.initialize()
 
         t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()

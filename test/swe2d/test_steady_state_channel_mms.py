@@ -83,6 +83,7 @@ def test_steady_state_channel_mms(options):
 
         solver_obj.create_equations()
         # hack to avoid picking up prefixed petsc options from other py.test tests:
+        solver_obj.create_timestepper()
         solver_obj.timestepper.name = 'test_steady_state_channel_mms'
         solver_obj.timestepper.update_solver()
         solver_obj.assign_initial_conditions(uv_init=Expression(("1.0", "0.0")))
