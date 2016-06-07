@@ -610,7 +610,10 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
         :arg bnd_conditions: A dictionary describing boundary conditions.
             E.g. {3: {'elev_2d': Constant(1.0)}} replaces elev_2d function by a constant on boundary ID 3.
         """
-        uv, eta = split(solution)
+        if isinstance(solution, list):
+            uv, eta = solution
+        else:
+            uv, eta = split(solution)
         uv_old, eta_old = split(solution_old)
         return self.residual_uv_eta(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
 

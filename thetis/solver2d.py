@@ -164,7 +164,8 @@ class FlowSolver2d(FrozenClass):
                 'pc_type': 'fieldsplit',
                 'pc_fieldsplit_type': 'multiplicative',
             }
-            self.timestepper = timeintegrator.SSPIMEX(self.eq_sw, self.dt,
+            self.timestepper = timeintegrator.SSPIMEX(self.eq_sw, self.fields.solution_2d, fields, self.dt,
+                                                      bnd_conditions=self.bnd_functions['shallow_water'],
                                                       solver_parameters=sp_expl,
                                                       solver_parameters_dirk=sp_impl)
         else:
