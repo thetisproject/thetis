@@ -46,7 +46,7 @@ install:
   - pushd $HOME/install
   - curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install
   # Check for cached install
-  - if [[ ! -f ./firedrake/bin/activate ]]; then python ./firedrake-install --disable-ssh --minimal-petsc; fi
+  - if [[ ! -f ./firedrake/bin/activate ]]; then python ./firedrake-install --disable-ssh --minimal-petsc --adjoint; fi
   - . ./firedrake/bin/activate
   - pip install pytest
   - popd
