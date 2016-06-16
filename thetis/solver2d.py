@@ -19,7 +19,7 @@ class FlowSolver2d(FrozenClass):
     def __init__(self, mesh2d, bathymetry_2d, order=1, options=None):
         self._initialized = False
         self.mesh2d = mesh2d
-
+        self.comm = mesh2d.comm
         # add boundary length info
         bnd_len = compute_boundary_length(self.mesh2d)
         self.mesh2d.boundary_len = bnd_len
@@ -59,9 +59,9 @@ class FlowSolver2d(FrozenClass):
         if self.dt is None:
             mesh2d_dt = self.eq_sw.get_time_step(u_mag=self.options.u_advection)
             dt = self.options.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
-            dt = comm.allreduce(dt, op=MPI.MIN)
+            dt = self.comm.allreduce(dt, op=MPI.MIN)
             self.dt = dt
-        if commrank == 0:
+        if self.comm.rank == 0:
             print 'dt =', self.dt
             sys.stdout.flush()
 
@@ -274,7 +274,7 @@ class FlowSolver2d(FrozenClass):
         norm_h = norm(self.fields.solution_2d.split()[1])
         norm_u = norm(self.fields.solution_2d.split()[0])
 
-        if commrank == 0:
+        if self.comm.rank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
             print(line.format(iexp=self.i_export, i=self.iteration, t=self.simulation_time, e=norm_h,

@@ -149,6 +149,7 @@ class NaiveFieldExporter(ExporterBase):
         x_func = Function(fs).interpolate(Expression(['x[0]']*dim))
         y_func = Function(fs).interpolate(Expression(['x[1]']*dim))
         z_func = Function(fs).interpolate(Expression(['x[2]']*dim))
+        comm = fs.comm
         if dim > 1:
             rank_node_x = comm.gather(x_func.dat.data[:, 0], root=0)
             rank_node_y = comm.gather(y_func.dat.data[:, 0], root=0)
@@ -161,7 +162,7 @@ class NaiveFieldExporter(ExporterBase):
         # mapping of local dof to global array
         self.local_to_global = []
         self.global_to_local = []
-        if commrank == 0:
+        if comm.rank == 0:
             # construct a single array for all the nodes
             x = np.concatenate(tuple(rank_node_x), axis=0)
             y = np.concatenate(tuple(rank_node_y), axis=0)
@@ -227,7 +228,7 @@ class NaiveFieldExporter(ExporterBase):
         # NOTE connectivity table is not unique
         self.connectivity = []
         rank_conn = comm.gather(conn, root=0)
-        if commrank == 0:
+        if comm.rank == 0:
             for i in xrange(comm.size):
                 # convert each connectivity array to global index
                 rank_conn[i] = self.local_to_global[i][rank_conn[i]]
@@ -246,8 +247,9 @@ class NaiveFieldExporter(ExporterBase):
         assert function.function_space() == self.function_space,\
             'Function space does not match'
         dim = self.function_space.dim
+        comm = self.function_space.comm
         local_data = comm.gather(function.dat.data, root=0)
-        if commrank == 0:
+        if comm.rank == 0:
             global_data = np.zeros((self.n_global_nodes, dim))
             for i in xrange(comm.size):
                 if dim > 1:
@@ -276,7 +278,8 @@ class NaiveFieldExporter(ExporterBase):
         assert function.function_space() == self.function_space,\
             'Function space does not match'
         dim = self.function_space.dim
-        if commrank == 0:
+        comm = self.function_space.comm
+        if comm.rank == 0:
             filename = self.gen_filename(iexport)
             if self.verbose:
                 print 'loading state from', filename
@@ -331,7 +334,7 @@ class HDF5Exporter(ExporterBase):
         filename = self.gen_filename(iexport)
         if self.verbose:
             print('saving {:} state to {:}'.format(function.name(), filename))
-        with DumbCheckpoint(filename, mode=FILE_CREATE) as f:
+        with DumbCheckpoint(filename, mode=FILE_CREATE, comm=function.comm) as f:
             f.store(function)
         self.next_export_ix = iexport + 1
 
@@ -351,7 +354,7 @@ class HDF5Exporter(ExporterBase):
         filename = self.gen_filename(iexport)
         if self.verbose:
             print('loading {:} state from {:}'.format(function.name(), filename))
-        with DumbCheckpoint(filename, mode=FILE_READ) as f:
+        with DumbCheckpoint(filename, mode=FILE_READ, comm=function.comm) as f:
             f.load(function)
 
 
@@ -411,16 +414,16 @@ class ExportManager(object):
             self.exporters[k].set_next_export_ix(next_export_ix)
 
     def export(self):
-        if self.verbose and commrank == 0:
+        if self.verbose and COMM_WORLD.rank == 0:
             sys.stdout.write('Exporting: ')
         for key in self.exporters:
             field = self.functions[key]
             if field is not None:
-                if self.verbose and commrank == 0:
+                if self.verbose and COMM_WORLD.rank == 0:
                     sys.stdout.write(key+' ')
                     sys.stdout.flush()
                 self.exporters[key].export(field)
-        if self.verbose and commrank == 0:
+        if self.verbose and COMM_WORLD.rank == 0:
             sys.stdout.write('\n')
             sys.stdout.flush()
 

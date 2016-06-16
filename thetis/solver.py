@@ -29,6 +29,7 @@ class FlowSolver(FrozenClass):
         self.mesh2d = mesh2d
         self.mesh = extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d)
 
+        self.comm = mesh2d.comm
         # add boundary length info
         bnd_len = compute_boundary_length(self.mesh2d)
         self.mesh2d.boundary_len = bnd_len
@@ -69,6 +70,7 @@ class FlowSolver(FrozenClass):
         self._isfrozen = True  # disallow creating new attributes
 
     def set_time_step(self):
+        comm = self.comm
         if self.options.use_mode_split:
             self.dt = self.options.dt
             if self.dt is None:
@@ -96,8 +98,9 @@ class FlowSolver(FrozenClass):
             self.dt_2d = self.dt
             self.M_modesplit = 1
 
-        print_info('dt = {0:f}'.format(self.dt))
-        print_info('2D dt = {0:f} {1:d}'.format(self.dt_2d, self.M_modesplit))
+        print_info('dt = {0:f}'.format(self.dt), comm=comm)
+        print_info('2D dt = {0:f} {1:d}'.format(self.dt_2d, self.M_modesplit),
+                   comm=comm)
         sys.stdout.flush()
 
     def create_function_spaces(self):
@@ -637,7 +640,8 @@ class FlowSolver(FrozenClass):
         norm_h = norm(self.fields.elev_2d)
         norm_u = norm(self.fields.uv_3d)
 
-        if commrank == 0:
+        comm = self.comm
+        if comm.rank == 0:
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
             print(line.format(iexp=self.i_export, i=self.iteration, t=self.simulation_time, e=norm_h,

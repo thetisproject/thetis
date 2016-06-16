@@ -15,9 +15,6 @@ import coffee.base as ast  # NOQA
 from collections import OrderedDict, namedtuple  # NOQA
 from thetis.field_defs import field_metadata
 
-comm = op2.MPI.comm
-commrank = op2.MPI.comm.rank
-
 ds_surf = ds_t
 ds_bottom = ds_b
 # NOTE some functions now depend on FlowSolver object
@@ -116,8 +113,8 @@ class FieldDict(AttrDict):
         super(FieldDict, self).__setattr__(key, value)
 
 
-def print_info(msg):
-    if commrank == 0:
+def print_info(msg, comm=COMM_WORLD):
+    if comm.rank == 0:
         print(msg)
 
 
@@ -154,13 +151,14 @@ def element_continuity(fiat_element):
         return ElementContinuity(dg, dg, dg)
 
 
-def create_directory(path):
-    if commrank == 0:
+def create_directory(path, comm=COMM_WORLD):
+    if comm.rank == 0:
         if os.path.exists(path):
             if not os.path.isdir(path):
                 raise Exception('file with same name exists', path)
         else:
             os.makedirs(path)
+    comm.barrier()
     return path
 
 
