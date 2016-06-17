@@ -697,24 +697,28 @@ def compute_bottom_friction(solver, uv_3d, uv_bottom_2d,
         solver.copy_bottom_drag_to_3d.solve()
 
 
-def get_horizontal_elem_size(sol2d, sol3d=None):
+def get_horizontal_elem_size_2d(sol2d):
     """
-    Computes horizontal element size from the 2D mesh, then copies it over a 3D
-    field.
+    Computes horizontal element size from the 2D mesh, stores the output in
+    the given field.
     """
     p1_2d = sol2d.function_space()
     mesh = p1_2d.mesh()
-    cellsize = CellSize(mesh)
     test = TestFunction(p1_2d)
     tri = TrialFunction(p1_2d)
-    sol2d = Function(p1_2d)
-    a = test * tri * dx
-    l = test * cellsize * dx
+    a = inner(test, tri) * dx
+    l = inner(test, sqrt(CellVolume(mesh))) * dx
     solve(a == l, sol2d)
-    if sol3d is None:
-        return sol2d
+    return sol2d
+
+
+def get_horizontal_elem_size_3d(sol2d, sol3d):
+    """
+    Computes horizontal element size from the 2D mesh, then copies it on a 3D
+    field.
+    """
+    get_horizontal_elem_size_2d(sol2d)
     ExpandFunctionTo3d(sol2d, sol3d).solve()
-    return sol3d
 
 
 class ALEMeshCoordinateUpdater(object):

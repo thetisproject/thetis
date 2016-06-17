@@ -56,11 +56,37 @@ class FlowSolver2d(FrozenClass):
         self.bnd_functions = {'shallow_water': {}}
         self._isfrozen = True  # disallow creating new attributes
 
-    def set_time_step(self):
+    def compute_time_step(self, u_mag=Constant(0.0)):
+        """
+        Computes maximum explicit time step from CFL condition.
+
+        dt = CellSize/U
+
+        Assumes velocity scale U = sqrt(g*H) + u_mag
+        where u_mag is estimated advective velocity
+        """
+        csize = self.fields.h_elem_size_2d
+        bath = self.fields.bathymetry_2d
+        fs = bath.function_space()
+        bath_pos = Function(fs, name='bathymetry')
+        bath_pos.assign(bath)
+        min_depth = 0.05
+        bath_pos.dat.data[bath_pos.dat.data < min_depth] = min_depth
+        test = TestFunction(fs)
+        trial = TrialFunction(fs)
+        solution = Function(fs)
+        g = physical_constants['g_grav']
+        u = (sqrt(g * bath_pos) + u_mag)
+        a = inner(test, trial) * dx
+        l = inner(test, csize / u) * dx
+        solve(a == l, solution)
+        return solution
+
+    def set_time_step(self, alpha=0.05):
         self.dt = self.options.dt
         if self.dt is None:
-            mesh2d_dt = self.eq_sw.get_time_step(u_mag=self.options.u_advection)
-            dt = self.options.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
+            mesh2d_dt = self.compute_time_step(u_mag=self.options.u_advection)
+            dt = self.options.cfl_2d*alpha*float(mesh2d_dt.dat.data.min())
             dt = self.comm.allreduce(dt, op=MPI.MIN)
             self.dt = dt
         if self.comm.rank == 0:
@@ -99,6 +125,8 @@ class FlowSolver2d(FrozenClass):
         self._isfrozen = False
         # ----- fields
         self.fields.solution_2d = Function(self.function_spaces.V_2d, name='solution_2d')
+        self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
+        get_horizontal_elem_size_2d(self.fields.h_elem_size_2d)
 
         # ----- Equations
         self.eq_sw = shallowwater_eq.ShallowWaterEquations(
