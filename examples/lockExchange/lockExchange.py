@@ -32,91 +32,234 @@
 
 from thetis import *
 
-reso_str = 'coarse'
-outputdir = 'outputs_struct_' + reso_str
-refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4,
-              'medium2': 8, 'fine': 16, 'ilicak': 4}
-# set mesh resolution
-dx = 2000.0/refinement[reso_str]
-layers = int(round(10*refinement[reso_str]))
-if reso_str == 'ilicak':
-    layers = 20
 
-# generate unit mesh and transform its coords
-x_max = 32.0e3
-x_min = -32.0e3
-n_x = (x_max - x_min)/dx
-mesh2d = UnitSquareMesh(n_x, 2)
-coords = mesh2d.coordinates
-# x in [x_min, x_max], y in [-dx, dx]
-coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min
-coords.dat.data[:, 1] = coords.dat.data[:, 1]*2*dx - dx
-# temperature and salinity, results in 5.0 kg/m3 density difference
-temp_left = 19.088
-temp_right = 34.81
-salt_const = 35.0
+class RPECalculator(object):
+    """
+    Computes reference potential energy (RPE) from density field.
 
-print_output('Exporting to '+outputdir)
-dt = 75.0/refinement[reso_str]
-if reso_str == 'fine':
-    dt /= 2.0
-t_end = 25 * 3600
-t_export = 15*60.0
-depth = 20.0
+    RPE is stands for potential energy that is not available for the dynamics,
+    it is a metric of mixing.
 
-# bathymetry
-P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-bathymetry_2d = Function(P1_2d, name='Bathymetry')
-bathymetry_2d.assign(depth)
+    RPE = int(density*z)*dx
 
-# create solver
-solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
-options = solver_obj.options
-options.solve_salt = False
-options.constant_salt = Constant(salt_const)
-options.solve_temp = True
-options.solve_vert_diffusion = False
-options.use_bottom_friction = False
-options.use_ale_moving_mesh = False
-# options.use_imex = True
-# options.use_semi_implicit_2d = False
-# options.use_mode_split = False
-options.baroclinic = True
-options.uv_lax_friedrichs = Constant(1.0)
-options.tracer_lax_friedrichs = Constant(1.0)
-Re_h = 1.0
-options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
-options.salt_jump_diff_factor = None  # Constant(1.0)
-options.salt_range = Constant(5.0)
-options.use_limiter_for_tracers = True
-# To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
-# options.h_viscosity = Constant(100.0/refinement[reso_str])
-options.h_viscosity = Constant(1.0)
-options.h_diffusivity = Constant(1.0)
-if options.use_mode_split:
+    where density is sorted over the vertical by density: the heaviest water
+    mass lies on the bottom of the domain.
+
+    Relative RPE is given by
+
+    \bar{RPE}(t) = (RPE(t) - RPE(0))/RPE(0)
+
+    \bar{RPE} measures the fraction of initial potential energy that has been lost due
+    to mixing.
+    """
+    def __init__(self, solver_obj):
+        if COMM_WORLD.size > 1:
+            raise NotImplementedError('RPE calculator has not been parallelized yet')
+        self.solver_obj = solver_obj
+        self._initialized = False
+
+    def _initialize(self):
+        # area of 2D mesh
+        self.outfile = os.path.join(self.solver_obj.options.outputdir, 'rpe_diagnostic.txt')
+        # flush old file
+        with open(self.outfile, 'w'):
+            pass
+        one_2d = Constant(1.0, domain=self.solver_obj.mesh2d.coordinates.ufl_domain())
+        self.area_2d = assemble(one_2d*dx)
+        self.rho = self.solver_obj.fields.density_3d
+        fs = self.rho.function_space()
+        test = TestFunction(fs)
+        self.nodal_volume = assemble(test*dx)
+        fs = self.rho.function_space()
+        self.initial_rpe = None
+        self._initialized = True
+
+    def export_rpe(self):
+        if not self._initialized:
+            self._initialize()
+        t = self.solver_obj.simulation_time
+        rho_array = self.rho.dat.data[:]
+        sorted_ix = np.argsort(rho_array)[::-1]
+        rho_array = rho_array[sorted_ix]
+        volume_array = self.nodal_volume.dat.data[:][sorted_ix]
+        z = (np.cumsum(volume_array) - 0.5*volume_array)/self.area_2d
+        g = physical_constants['g_grav'].dat.data[0]
+        rpe = g*np.sum(rho_array*volume_array*z)
+        if self.initial_rpe is None:
+            self.initial_rpe = rpe
+        rel_rpe = (rpe - self.initial_rpe)/self.initial_rpe
+        with open(self.outfile, 'a') as f:
+            f.write('{:20.8f} {:28.8f} {:20.8f}\n'.format(t, rpe, rel_rpe))
+
+
+def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
+                     reynolds_number=1.0, use_limiter=True, dt=None):
+    """
+    Runs lock exchange problem with a bunch of user defined options.
+    """
+    comm = COMM_WORLD
+
+    print_output('Running lock exchange problem with options:')
+    print_output('Resolution: {:}'.format(reso_str))
+    print_output('Element family: {:}'.format(element_family))
+    print_output('Polynomial order: {:}'.format(poly_order))
+    print_output('Reynolds number: {:}'.format(reynolds_number))
+    print_output('Use slope limiters: {:}'.format(use_limiter))
+    print_output('Number of cores: {:}'.format(comm.size))
+
+    refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4,
+                  'medium2': 8, 'fine': 16, 'ilicak': 4}
+    # set mesh resolution
+    depth = 20.0
+    delta_x = 2000.0/refinement[reso_str]
+    layers = int(round(10*refinement[reso_str]))
+    if reso_str == 'ilicak':
+        layers = 20
+    delta_z = depth/layers
+    print_output('Mesh resolution dx={:} nlayers={:} dz={:}'.format(delta_x, layers, delta_z))
+
+    # generate unit mesh and transform its coords
+    x_max = 32.0e3
+    x_min = -32.0e3
+    n_x = (x_max - x_min)/delta_x
+    mesh2d = UnitSquareMesh(n_x, 2)
+    coords = mesh2d.coordinates
+    # x in [x_min, x_max], y in [-dx, dx]
+    coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min
+    coords.dat.data[:, 1] = coords.dat.data[:, 1]*2*delta_x - delta_x
+
+    nnodes = mesh2d.topology.num_vertices()
+    ntriangles = mesh2d.topology.num_cells()
+    nprisms = ntriangles*layers
+    print_output('Number of 2D nodes={:}, triangles={:}, prisms={:}'.format(nnodes, ntriangles, nprisms))
+
+    lim_str = '_lim' if use_limiter else ''
+    dt_str = '_dt{:}'.format(dt) if dt is not None else ''
+    options_str = '_'.join([reso_str,
+                            element_family,
+                            'p{:}'.format(poly_order),
+                            'Re{:}'.format(reynolds_number),
+                            ]) + lim_str + dt_str
+    outputdir = 'outputs_' + options_str
+    print_output('Exporting to {:}'.format(outputdir))
+
+    # temperature and salinity, results in 5.0 kg/m3 density difference
+    temp_left = 19.088
+    temp_right = 34.81
+    salt_const = 35.0
+
+    if dt is None:
+        dt = 75.0/refinement[reso_str]
+        if reso_str in ['fine', 'medium2', 'medium']:
+            dt /= 2.0
+    t_end = 25 * 3600
+    t_export = 15*60.0
+
+    # bathymetry
+    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    bathymetry_2d = Function(p1_2d, name='Bathymetry')
+    bathymetry_2d.assign(depth)
+
+    # create solver
+    solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
+    options = solver_obj.options
+    options.order = poly_order
+    options.element_family = element_family
+    options.solve_salt = False
+    options.constant_salt = Constant(salt_const)
+    options.solve_temp = True
+    options.solve_vert_diffusion = False
+    options.use_bottom_friction = False
+    options.use_ale_moving_mesh = False
+    # options.use_imex = True
+    # options.use_semi_implicit_2d = False
+    # options.use_mode_split = False
+    options.baroclinic = True
+    options.uv_lax_friedrichs = Constant(1.0)
+    options.tracer_lax_friedrichs = Constant(1.0)
+    options.smagorinsky_factor = Constant(1.0/np.sqrt(reynolds_number))
+    options.salt_jump_diff_factor = None  # Constant(1.0)
+    options.salt_range = Constant(5.0)
+    options.use_limiter_for_tracers = use_limiter
+    # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
+    # options.h_viscosity = Constant(100.0/refinement[reso_str])
+    options.h_viscosity = Constant(1.0)
+    options.h_diffusivity = Constant(1.0)
     options.dt = dt
-options.t_export = t_export
-options.t_end = t_end
-options.outputdir = outputdir
-options.u_advection = Constant(1.0)
-options.check_vol_conservation_2d = True
-options.check_vol_conservation_3d = True
-options.check_temp_conservation = True
-options.check_temp_overshoot = True
-options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
-                            'w_3d', 'w_mesh_3d', 'temp_3d', 'density_3d',
-                            'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                            'baroc_head_2d', 'smag_visc_3d']
-options.fields_to_export_hdf5 = list(options.fields_to_export)
+    # if options.use_mode_split:
+    #     options.dt = dt
+    options.t_export = t_export
+    options.t_end = t_end
+    options.outputdir = outputdir
+    options.u_advection = Constant(1.0)
+    options.check_vol_conservation_2d = True
+    options.check_vol_conservation_3d = True
+    options.check_temp_conservation = True
+    options.check_temp_overshoot = True
+    options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
+                                'w_3d', 'w_mesh_3d', 'temp_3d', 'density_3d',
+                                'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
+                                'baroc_head_2d', 'smag_visc_3d']
+    options.fields_to_export_hdf5 = list(options.fields_to_export)
+    # Use direct solver for 2D
+    # options.solver_parameters_sw = {
+    #     'ksp_type': 'preonly',
+    #     'pc_type': 'lu',
+    #     'pc_factor_mat_solver_package': 'mumps',
+    #     'snes_monitor': False,
+    #     'snes_type': 'newtonls',
+    # }
 
-solver_obj.create_equations()
-temp_init3d = Function(solver_obj.function_spaces.H, name='initial temperature')
-# vertical barrier
-# temp_init3d.interpolate(Expression('(x[0] > 0.0) ? v_l : v_r',
-#                                    v_l=T_left, v_r=T_right))
-# smooth condition
-temp_init3d.interpolate(Expression('v_l - (v_l - v_r)*0.5*(tanh(x[0]/sigma) + 1.0)',
-                                   sigma=1000.0, v_l=temp_left, v_r=temp_right))
+    if comm.size == 1:
+        rpe_calc = RPECalculator(solver_obj)
+        rpe_callback = rpe_calc.export_rpe
+    else:
+        rpe_callback = None
 
-solver_obj.assign_initial_conditions(temp=temp_init3d)
-solver_obj.iterate()
+    solver_obj.create_equations()
+    esize = solver_obj.fields.h_elem_size_2d
+    min_elem_size = comm.allreduce(np.min(esize.dat.data), op=MPI.MIN)
+    max_elem_size = comm.allreduce(np.max(esize.dat.data), op=MPI.MAX)
+    print_output('Elem size: {:} {:}'.format(min_elem_size, max_elem_size))
+
+    temp_init3d = Function(solver_obj.function_spaces.H, name='initial temperature')
+    # vertical barrier
+    # temp_init3d.interpolate(Expression('(x[0] > 0.0) ? v_l : v_r',
+    #                                    v_l=T_left, v_r=T_right))
+    # smooth condition
+    temp_init3d.interpolate(Expression('v_l - (v_l - v_r)*0.5*(tanh(x[0]/sigma) + 1.0)',
+                                       sigma=1000.0, v_l=temp_left, v_r=temp_right))
+
+    solver_obj.assign_initial_conditions(temp=temp_init3d)
+    solver_obj.iterate(export_func=rpe_callback)
+
+
+def get_argparser():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-r', '--reso_str', type=str,
+                        help='mesh resolution string',
+                        default='coarse',
+                        choices=['huge', 'coarse', 'coarse2', 'medium', 'medium2', 'fine', 'ilicak'])
+    parser.add_argument('--no-limiter', action='store_false', dest='use_limiter',
+                        help='do not use slope limiter for tracers')
+    parser.add_argument('-p', '--poly_order', type=int, default=1,
+                        help='order of finite element space')
+    parser.add_argument('-f', '--element-family', type=str,
+                        help='finite element family', default='dg-dg')
+    parser.add_argument('-re', '--reynolds-number', type=float, default=1.0,
+                        help='mesh Reynolds number for Smagorinsky scheme')
+    parser.add_argument('-dt', '--dt', type=float,
+                        help='force value for 3D time step')
+    return parser
+
+
+def parse_options():
+    parser = get_argparser()
+    args = parser.parse_args()
+    args_dict = vars(args)
+    run_lockexchange(**args_dict)
+
+if __name__ == '__main__':
+    parse_options()
