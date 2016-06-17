@@ -22,10 +22,10 @@ from thetis import *
 physical_constants['rho0'].assign(1000.0)
 physical_constants['z0_friction'].assign(0.005)
 
-reso = 'coarse'
+reso = 'fine'
 layers = 12
 if reso == 'fine':
-    layers = 24
+    layers = 20
 outputdir = 'outputs_{:}'.format(reso)
 mesh2d = Mesh('mesh_rhineRofi_{:}.msh'.format(reso))
 print_output('Loaded mesh ' + mesh2d.name)
@@ -95,7 +95,7 @@ options.coriolis = Constant(coriolis_f)
 options.t_export = t_export
 options.t_end = t_end
 options.outputdir = outputdir
-options.u_advection = Constant(3.0)
+options.u_advection = Constant(2.0)
 options.check_vol_conservation_2d = True
 options.check_vol_conservation_3d = True
 options.check_salt_conservation = True
