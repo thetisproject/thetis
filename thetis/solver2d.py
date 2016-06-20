@@ -223,6 +223,7 @@ class FlowSolver2d(FrozenClass):
             self.fields.solution_2d.function_space(),
             self.fields.bathymetry_2d,
             nonlin=self.options.nonlin,
+            wd_alpha=self.options.wd_alpha,
             include_grad_div_viscosity_term=self.options.include_grad_div_viscosity_term,
             include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term
         )
