@@ -3,7 +3,7 @@ from __future__ import absolute_import
 
 import thetis_config
 
-from firedrake import *
+from firedrake import *  # NOQA
 
 if thetis_config.adjoint:
-    from firedrake_adjoint import *
+    from firedrake_adjoint import *  # NOQA
