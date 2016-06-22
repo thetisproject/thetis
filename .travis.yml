@@ -55,4 +55,5 @@ install:
   - export PYTHONPATH=`pwd`:$PYTHONPATH
 script:
   - make lint
-  - py.test --travis -v test
+  - py.test --travis -v test/
+  - py.test --travis -v test_adjoint/

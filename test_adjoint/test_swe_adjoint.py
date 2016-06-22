@@ -119,7 +119,6 @@ def setup(request):
 
 
 def test_gradient_from_adjoint(setup):
-    adj_reset()  # ensure we reset the tape between different test runs
     solver_obj = setup()
     integral = solver_obj.fields.solution_2d[0]*dx
     jfunc = make_python_functional(solver_obj, integral)
