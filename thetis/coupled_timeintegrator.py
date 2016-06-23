@@ -475,7 +475,14 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             'elev_source': self.options.elev_source_2d,
             'linear_drag': self.options.linear_drag}
 
-        self.timestepper2d = timeintegrator.SSPRK33StageSemiImplicit(
+        # vert_timeintegrator = timeintegrator.DIRKLSPUM2
+        vert_timeintegrator = timeintegrator.BackwardEuler
+        expl_timeintegrator_2d = timeintegrator.SSPRK33StageSemiImplicit
+        expl_timeintegrator = timeintegrator.SSPRK33Stage
+        # expl_timeintegrator_2d = timeintegrator.ERKLPUM2StageSemiImplicit
+        # expl_timeintegrator = timeintegrator.ERKLPUM2Stage
+
+        self.timestepper2d = expl_timeintegrator_2d(
             solver.eq_sw, self.fields.solution_2d,
             fields, solver.dt,
             bnd_conditions=solver.bnd_functions['shallow_water'],
@@ -495,9 +502,6 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             implicit_v_diff = None
             explicit_v_diff = solver.tot_v_diff.get_sum()
 
-        # vert_timeintegrator = timeintegrator.DIRKLSPUM2
-        vert_timeintegrator = timeintegrator.BackwardEuler
-
         fields = {'eta': self.fields.elev_3d,  # FIXME rename elev
                   'baroc_head': self.fields.get('baroc_head_3d'),
                   'w': self.fields.w_3d,
@@ -512,7 +516,7 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                   'coriolis': self.fields.get('coriolis_3d'),
                   'linear_drag': self.options.linear_drag,
                   }
-        self.timestepper_mom_3d = timeintegrator.SSPRK33Stage(
+        self.timestepper_mom_3d = expl_timeintegrator(
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,
             bnd_conditions=solver.bnd_functions['momentum'],
             solver_parameters=self.options.solver_parameters_momentum_explicit)
@@ -538,7 +542,7 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
                       }
-            self.timestepper_salt_3d = timeintegrator.SSPRK33Stage(
+            self.timestepper_salt_3d = expl_timeintegrator(
                 solver.eq_salt, solver.fields.salt_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['salt'],
                 solver_parameters=self.options.solver_parameters_tracer_explicit)
@@ -564,7 +568,7 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
                       }
-            self.timestepper_temp_3d = timeintegrator.SSPRK33Stage(
+            self.timestepper_temp_3d = expl_timeintegrator(
                 solver.eq_temp, solver.fields.temp_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['temp'],
                 solver_parameters=self.options.solver_parameters_tracer_explicit)
@@ -602,25 +606,13 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                           'uv_p1': self.fields.get('uv_p1_3d'),
                           'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
                           }
-                self.timestepper_tke_adv_eq = timeintegrator.SSPRK33Stage(
+                self.timestepper_tke_adv_eq = expl_timeintegrator(
                     solver.eq_tke_adv, solver.fields.tke_3d, fields, solver.dt,
                     solver_parameters=self.options.solver_parameters_tracer_explicit)
-                self.timestepper_psi_adv_eq = timeintegrator.SSPRK33Stage(
+                self.timestepper_psi_adv_eq = expl_timeintegrator(
                     solver.eq_psi_adv, solver.fields.psi_3d, fields, solver.dt,
                     solver_parameters=self.options.solver_parameters_tracer_explicit)
 
-        # length of each step (fraction of dt)
-        self.dt_frac = [1.0, 1.0/4.0, 2.0/3.0]
-        # start of each step (fraction of dt)
-        self.start_frac = [0.0, 1.0/4.0, 1.0/3.0]
-        # weight to multiply u_n in weighted average to obtain start value
-        self.stage_w = [1.0 - self.start_frac[0]]
-        for i in range(1, len(self.dt_frac)):
-            prev_end_time = self.start_frac[i-1] + self.dt_frac[i-1]
-            self.stage_w.append(prev_end_time*(1.0 - self.start_frac[i]))
-        print_output('dt_frac ' + str(self.dt_frac))
-        print_output('start_frac ' + str(self.start_frac))
-        print_output('stage_w ' + str(self.stage_w))
         self.n_stages = self.timestepper_mom_3d.n_stages
 
     def initialize(self):
@@ -638,15 +630,6 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             if self.options.solve_vert_diffusion:
                 self.timestepper_temp_vdff_3d.initialize(self.fields.temp_3d)
 
-        # construct 2d time steps for sub-stages
-        self.M = []
-        self.dt_2d = []
-        for i, f in enumerate(self.dt_frac):
-            m = int(np.ceil(f*self.solver.dt/self.solver.dt_2d))
-            dt = f*self.solver.dt/m
-            print_output('stage {0:d} {1:.6f} {2:d} {3:.4f}'.format(i, dt, m, f))
-            self.M.append(m)
-            self.dt_2d.append(dt)
         self._initialized = True
 
     def advance(self, t, dt, update_forcings=None, update_forcings3d=None):
@@ -655,7 +638,7 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             self.initialize()
         sol2d = self.solver.fields.solution_2d
 
-        for k in range(len(self.dt_frac)):
+        for k in range(self.n_stages):
             with timed_stage('salt_eq'):
                 if self.options.solve_salt:
                     self.timestepper_salt_3d.solve_stage(k, t, self.solver.dt,
