@@ -105,6 +105,16 @@ class ModelOptions(AttrDict, FrozenClass):
         """bool: Do not store any outputs to disk, used in CI test suite. Disables vtk and hdf5 field outputs and hdf5 diagnostic outputs."""
         self.export_diagnostics = True
         """bool: Store diagnostic variables to disk in hdf5 format"""
+        self.equation_of_state = 'full'
+        """str: type of equation of state, either 'full' or 'linear'"""
+        self.lin_equation_of_state_params = {
+            'rho_ref': 1000.0,
+            's_ref': 35.0,
+            'th_ref': 15.0,
+            'alpha': 0.2,
+            'beta': 0.77,
+        }
+        """dict: definition of linear equation of state"""
         self.fields_to_export = ['elev_2d', 'uv_2d', 'uv_3d', 'w_3d']
         """list of str: Fields to export in VTK format"""
         self.fields_to_export_numpy = []

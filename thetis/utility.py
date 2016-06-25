@@ -361,9 +361,9 @@ class DensitySolver(object):
     Density is computed point-wise assuming that T,S and rho are in the same
     function space.
     """
-    def __init__(self, salinity, temperature, density):
+    def __init__(self, salinity, temperature, density, eos_class):
         self.fs = density.function_space()
-        self.eos = EquationOfState()
+        self.eos = eos_class
 
         if isinstance(salinity, FiredrakeFunction):
             assert self.fs == salinity.function_space()
@@ -959,6 +959,36 @@ class EquationOfState(object):
               pow(s_pos, 1.5)*b[8] + pow(s_pos, 1.5)*th*th*b[9] + p*b[10] +
               p*p*th*th*th*b[11] + p*p*p*th*b[12])
         rho = pn/pd - rho0
+        return rho
+
+
+class LinearEquationOfState(object):
+    """
+    Linear Equation of State.
+
+    rho = rho_ref - alpha*(T - T_ref) + beta*(S - S_ref)
+    """
+    def __init__(self, rho_ref, alpha, beta, th_ref, s_ref):
+        self.rho_ref = rho_ref
+        self.alpha = alpha
+        self.beta = beta
+        self.th_ref = th_ref
+        self.S_ref = s_ref
+
+    def compute_rho(self, s, th, p, rho0=0.0):
+        """
+        Computes sea water density.
+
+        :param S: Salinity expressed on the Practical Salinity Scale 1978
+        :param Th: Potential temperature in Celsius
+        :param p: Pressure in decibars (1 dbar = 1e4 Pa)
+        :param rho0: Optional reference density
+
+        Pressure is ingored in this equation of state.
+        """
+        rho = (self.rho_ref - rho0 -
+               self.alpha*(th - self.th_ref) +
+               self.beta*(s - self.S_ref))
         return rho
 
 
