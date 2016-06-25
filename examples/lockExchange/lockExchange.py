@@ -27,10 +27,195 @@
 #     http://dx.doi.org/10.1016/j.ocemod.2011.10.003
 # [2] COMODO Lock Exchange test.
 #     http://indi.imag.fr/wordpress/?page_id=446
+# [3] Petersen et al. (2015). Evaluation of the arbitrary Lagrangian-Eulerian
+#     vertical coordinate method in the MPAS-Ocean model. Ocean Modelling,
+#     86:93-113.
+#     http://dx.doi.org/10.1016/j.ocemod.2014.12.004
 #
 # Tuomas Karna 2015-03-03
 
 from thetis import *
+
+# TODO implement front location callback DONE
+# TODO implement runtime plotting DONE
+# TODO add option to use constant viscosity or smag scheme DONE
+# TODO implement automatic dt estimation for v_adv
+# TODO test effect/necessity of lax_friedrichs
+# TODO test computing smag nu with weak form uv gradients
+# TODO add option for changing time integrator?
+# TODO also plot u and w at runtime
+
+import itertools
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+
+class Plotter(object):
+    """
+    Plots density field at runtime
+    """
+    def __init__(self, solver_obj, imgdir):
+        self.solver_obj = solver_obj
+        self.imgdir = create_directory(imgdir)
+        self.export_count = itertools.count()
+        self._initialized = False
+
+    def _initialize(self):
+        # store density difference
+        self.rho = self.solver_obj.fields.density_3d
+        self.rho_lim = [self.rho.dat.data.min(), self.rho.dat.data.max()]
+
+        # construct mesh points for plotting
+        layers = self.solver_obj.mesh.topology.layers - 1
+        mesh2d = self.solver_obj.mesh2d
+        depth = self.solver_obj.fields.bathymetry_2d.dat.data.mean()
+        self.xyz = mesh2d.coordinates
+        x = self.xyz.dat.data[:, 0]
+        x_max = x.max()
+        x_min = x.min()
+        delta_x = self.solver_obj.fields.h_elem_size_2d.dat.data.mean()*np.sqrt(2)
+        n_x = np.round((x_max - x_min)/delta_x)
+        npoints = layers*4
+        z_max = -(depth - 1e-10)
+        z = np.linspace(0, z_max, npoints)
+        npoints = n_x + 1
+        x = np.linspace(x_min, x_max, npoints)
+        xx, zz = np.meshgrid(x, z)
+        yy = np.zeros_like(xx)
+        self.mesh_shape = xx.shape
+        self.xyz = np.vstack((xx.ravel(), yy.ravel(), zz.ravel())).T
+        self.x_plot = x/1000.0  # to km
+        self.z_plot = z
+
+        self.cmap = plt.get_cmap('RdBu_r')
+        self.cmap.set_over('#ffa500')
+        self.cmap.set_under('#00e639')
+
+    def plot_on_ax(self, ax, color_array, clim, titlestr, cbartitle, cmap):
+        """Plots a field on given axis"""
+        cmin, cmax = clim
+        overshoot_tol = 1e-6
+        # divide each integer in color array to this many levels
+        cbar_reso = max(min(int(np.round(5.0/(cmax - cmin)*4)), 6), 1)
+        levels = np.linspace(cmin - overshoot_tol, cmax + overshoot_tol,
+                             cbar_reso*(cmax-cmin) + 1)
+        p = ax.contourf(self.x_plot, self.z_plot, color_array, levels, cmap=cmap, extend='both')
+        ax.set_xlabel('x [km]')
+        ax.set_ylabel('z [m]')
+        ax.set_title(titlestr)
+
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes('right', size=0.3, pad=0.1)
+        cb = plt.colorbar(p, cax=cax, orientation='vertical', format='%4.1f')
+        cb.set_label(cbartitle)
+        cticks = np.linspace(cmin, cmax, (cmax-cmin) + 1)
+        cb.set_ticks(cticks)
+        cax.invert_yaxis()
+        return p
+
+    def export(self):
+        if not self._initialized:
+            self._initialize()
+
+        # evaluate function on regular grid
+        func = self.rho
+        arr = np.array(func.at(tuple(self.xyz)))
+        arr = arr.reshape(self.mesh_shape)
+
+        nplots = 1
+        fix, ax = plt.subplots(nrows=nplots, figsize=(12, 3.5*nplots))
+
+        iexp = self.export_count.next()
+        title = 'Time {:.2f} h'.format(self.solver_obj.simulation_time/3600.0)
+        fname = 'plot_density_{0:06d}.png'.format(iexp)
+        fname = os.path.join(self.imgdir, fname)
+        varstr = 'Density'
+        unit = 'kg m-3'
+        clim = self.rho_lim
+        clabel = '{:} [{:}]'.format(varstr, unit)
+        self.plot_on_ax(ax, arr, clim, title, clabel, self.cmap)
+        plt.savefig(fname, dpi=240, bbox_inches='tight')
+        plt.close()
+
+
+class FrontLocationCalculator(object):
+    """
+    Calculates the location of the propagating front at the top/bottom of the
+    domain.
+
+    This is a useful metric for assessing the accuracy of the model.
+    Theoretical front location speed is
+
+    U = 1/2*sqrt(g*H*delta_rho/rho_0)
+    """
+    def __init__(self, solver_obj):
+        self.solver_obj = solver_obj
+        self._initialized = False
+
+    def _initialize(self):
+        self.outfile = os.path.join(self.solver_obj.options.outputdir, 'diagnostic_front.txt')
+        # flush old file
+        with open(self.outfile, 'w'):
+            pass
+        one_2d = Constant(1.0, domain=self.solver_obj.mesh2d.coordinates.ufl_domain())
+        self.area_2d = assemble(one_2d*dx)
+        # store density difference
+        self.rho = self.solver_obj.fields.density_3d
+        self.rho_lim = [self.rho.dat.data.min(), self.rho.dat.data.max()]
+        self.delta_rho = self.rho_lim[1] - self.rho_lim[0]
+        self.mean_rho = 0.5*(self.rho_lim[1] + self.rho_lim[0])
+        fs_2d = self.solver_obj.function_spaces.H_2d
+        mesh2d = fs_2d.mesh()
+        self.xyz = mesh2d.coordinates
+        x = self.xyz.dat.data[:, 0]
+        self.x_lim = [x.min(), x.max()]
+        self.domain_center = 0.5*(self.x_lim[0] + self.x_lim[1])
+        # extractors for surface rho fields
+        self.rho_2d = Function(fs_2d, name='Density 2d')
+        self.extractor_surf = SubFunctionExtractor(self.rho,
+                                                   self.rho_2d,
+                                                   boundary='top',
+                                                   elem_facet='top')
+        self.extractor_bot = SubFunctionExtractor(self.rho,
+                                                  self.rho_2d,
+                                                  boundary='bottom',
+                                                  elem_facet='bottom')
+        # project to higher order cg for interpolation
+        fs_ho = FunctionSpace(mesh2d, 'CG', 2)
+        self.rho_ho = Function(fs_ho, name='Density 2d ho')
+        self.ho_projector = Projector(self.rho_2d, self.rho_ho)
+        self._initialized = True
+
+    def compute_front_location(self):
+        self.ho_projector.project()
+        r = self.rho_ho.dat.data[:]
+        off = 0.25*(self.rho_lim[1] - self.rho_lim[0])
+        up_limit = self.rho_lim[1] - off
+        low_limit = self.rho_lim[0] + off
+        if (r > up_limit).all():  # no front all nodes above limits
+            return self.x_lim[1]
+        if (r < low_limit).all():  # no front all nodes below limits
+            return self.x_lim[0]
+        ix = (r > low_limit) * (r < up_limit)
+        self.rho_ho.dat.data[:] = 0
+        self.rho_ho.dat.data[ix] = 1
+        mass = assemble(self.rho_ho*dx)
+        if mass < 1e-20:
+            return np.nan
+        center_x = assemble(self.rho_ho*self.xyz[0]*dx)/mass
+        return center_x
+
+    def export(self):
+        if not self._initialized:
+            self._initialize()
+        # compute x center of mass on top/bottom surfaces
+        self.extractor_bot.solve()
+        x_bot = self.compute_front_location()
+        self.extractor_surf.solve()
+        x_surf = self.compute_front_location()
+        t = self.solver_obj.simulation_time
+        with open(self.outfile, 'a') as f:
+            f.write('{:20.8f} {:28.8f} {:20.8f}\n'.format(t, x_bot, x_surf))
 
 
 class RPECalculator(object):
@@ -59,41 +244,43 @@ class RPECalculator(object):
         self._initialized = False
 
     def _initialize(self):
-        # area of 2D mesh
-        self.outfile = os.path.join(self.solver_obj.options.outputdir, 'rpe_diagnostic.txt')
+        self.outfile = os.path.join(self.solver_obj.options.outputdir, 'diagnostic_rpe.txt')
         # flush old file
         with open(self.outfile, 'w'):
             pass
+        # compute area of 2D mesh
         one_2d = Constant(1.0, domain=self.solver_obj.mesh2d.coordinates.ufl_domain())
         self.area_2d = assemble(one_2d*dx)
         self.rho = self.solver_obj.fields.density_3d
         fs = self.rho.function_space()
         test = TestFunction(fs)
         self.nodal_volume = assemble(test*dx)
-        fs = self.rho.function_space()
+        self.depth = self.solver_obj.fields.bathymetry_2d.dat.data.mean()
         self.initial_rpe = None
+        self.initial_mean_rho = None
         self._initialized = True
 
-    def export_rpe(self):
+    def export(self):
         if not self._initialized:
             self._initialize()
-        t = self.solver_obj.simulation_time
         rho_array = self.rho.dat.data[:]
         sorted_ix = np.argsort(rho_array)[::-1]
-        rho_array = rho_array[sorted_ix]
+        rho_array = rho_array[sorted_ix] + physical_constants['rho0'].dat.data[0]
         volume_array = self.nodal_volume.dat.data[:][sorted_ix]
         z = (np.cumsum(volume_array) - 0.5*volume_array)/self.area_2d
         g = physical_constants['g_grav'].dat.data[0]
         rpe = g*np.sum(rho_array*volume_array*z)
         if self.initial_rpe is None:
             self.initial_rpe = rpe
-        rel_rpe = (rpe - self.initial_rpe)/self.initial_rpe
+        rel_rpe = (rpe - self.initial_rpe)/np.abs(self.initial_rpe)
+        t = self.solver_obj.simulation_time
         with open(self.outfile, 'a') as f:
-            f.write('{:20.8f} {:28.8f} {:20.8f}\n'.format(t, rpe, rel_rpe))
+            f.write('{:20.8f} {:28.8f} {:20.8e}\n'.format(t, rpe, rel_rpe))
 
 
 def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
-                     reynolds_number=1.0, use_limiter=True, dt=None):
+                     reynolds_number=1.0, use_limiter=True, dt=None,
+                     viscosity='const'):
     """
     Runs lock exchange problem with a bunch of user defined options.
     """
@@ -138,22 +325,36 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options_str = '_'.join([reso_str,
                             element_family,
                             'p{:}'.format(poly_order),
+                            'visc-{:}'.format(viscosity),
                             'Re{:}'.format(reynolds_number),
                             ]) + lim_str + dt_str
     outputdir = 'outputs_' + options_str
     print_output('Exporting to {:}'.format(outputdir))
 
-    # temperature and salinity, results in 5.0 kg/m3 density difference
-    temp_left = 19.088
-    temp_right = 34.81
+    # temperature and salinity, for linear eq. of state (from Petersen, 2015)
+    temp_left = 5.0
+    temp_right = 30.0
     salt_const = 35.0
+    rho_0 = 1000.0
+    physical_constants['rho0'].assign(rho_0)
 
-    if dt is None:
-        dt = 75.0/refinement[reso_str]
-        if reso_str in ['fine', 'medium2', 'medium']:
-            dt /= 2.0
+    # compute horizontal viscosity
+    uscale = 0.5
+    nu_scale = uscale * delta_x / reynolds_number
+    print_output('Horizontal viscosity: {:}'.format(nu_scale))
+
+    dt_adv = 1.0/20.0*delta_x/np.sqrt(2)/1.0
+    dt_visc = 1.0/120.0*(delta_x/np.sqrt(2))**2/nu_scale
+    print_output('Max dt for advection: {:}'.format(dt_adv))
+    print_output('Max dt for viscosity: {:}'.format(dt_visc))
+
     t_end = 25 * 3600
     t_export = 15*60.0
+    if dt is None:
+        # take smallest stable dt that fits the export intervals
+        max_dt = min(dt_adv, dt_visc)
+        ntime = int(np.ceil(t_export/max_dt))
+        dt = t_export/ntime
 
     # bathymetry
     p1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -177,14 +378,18 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.baroclinic = True
     options.uv_lax_friedrichs = Constant(1.0)
     options.tracer_lax_friedrichs = Constant(1.0)
-    options.smagorinsky_factor = Constant(1.0/np.sqrt(reynolds_number))
     options.salt_jump_diff_factor = None  # Constant(1.0)
     options.salt_range = Constant(5.0)
     options.use_limiter_for_tracers = use_limiter
     # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
-    # options.h_viscosity = Constant(100.0/refinement[reso_str])
-    options.h_viscosity = Constant(1.0)
-    options.h_diffusivity = Constant(1.0)
+    if viscosity == 'smag':
+        options.smagorinsky_factor = Constant(1.0/np.sqrt(reynolds_number))
+    elif viscosity == 'const':
+        options.h_viscosity = Constant(nu_scale)
+    else:
+        raise Exception('Unknow viscosity type {:}'.format(viscosity))
+    options.v_viscosity = Constant(1e-4)
+    options.h_diffusivity = None
     options.dt = dt
     # if options.use_mode_split:
     #     options.dt = dt
@@ -201,6 +406,15 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
                                 'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                                 'baroc_head_2d', 'smag_visc_3d']
     options.fields_to_export_hdf5 = list(options.fields_to_export)
+    options.equation_of_state = 'linear'
+    options.lin_equation_of_state_params = {
+        'rho_ref': rho_0,
+        's_ref': 35.0,
+        'th_ref': 5.0,
+        'alpha': 0.2,
+        'beta': 0.0,
+    }
+
     # Use direct solver for 2D
     # options.solver_parameters_sw = {
     #     'ksp_type': 'preonly',
@@ -212,9 +426,19 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
 
     if comm.size == 1:
         rpe_calc = RPECalculator(solver_obj)
-        rpe_callback = rpe_calc.export_rpe
+        rpe_callback = rpe_calc.export
+        front_calc = FrontLocationCalculator(solver_obj)
+        front_callback = front_calc.export
+        plotter = Plotter(solver_obj, imgdir=solver_obj.options.outputdir + '/plots')
+        plot_callback = plotter.export
     else:
         rpe_callback = None
+
+    def callback():
+        if comm.size == 1:
+            rpe_callback()
+            front_callback()
+            plot_callback()
 
     solver_obj.create_equations()
     esize = solver_obj.fields.h_elem_size_2d
@@ -224,14 +448,14 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
 
     temp_init3d = Function(solver_obj.function_spaces.H, name='initial temperature')
     # vertical barrier
-    # temp_init3d.interpolate(Expression('(x[0] > 0.0) ? v_l : v_r',
-    #                                    v_l=T_left, v_r=T_right))
+    # temp_init3d.interpolate(Expression('(x[0] > 0.0) ? v_r : v_l',
+    #                                    v_l=temp_left, v_r=temp_right))
     # smooth condition
     temp_init3d.interpolate(Expression('v_l - (v_l - v_r)*0.5*(tanh(x[0]/sigma) + 1.0)',
-                                       sigma=1000.0, v_l=temp_left, v_r=temp_right))
+                                       sigma=10.0, v_l=temp_left, v_r=temp_right))
 
     solver_obj.assign_initial_conditions(temp=temp_init3d)
-    solver_obj.iterate(export_func=rpe_callback)
+    solver_obj.iterate(export_func=callback)
 
 
 def get_argparser():
@@ -252,6 +476,10 @@ def get_argparser():
                         help='mesh Reynolds number for Smagorinsky scheme')
     parser.add_argument('-dt', '--dt', type=float,
                         help='force value for 3D time step')
+    parser.add_argument('-visc', '--viscosity', type=str,
+                        help='Type of horizontal viscosity',
+                        default='const',
+                        choices=['const', 'smag'])
     return parser
 
 
