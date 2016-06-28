@@ -56,4 +56,4 @@ install:
 script:
   - make lint
   - py.test --travis -v test/
-  - py.test --travis -v test_adjoint/
+  - py.test --travis -svvvv test_adjoint/
