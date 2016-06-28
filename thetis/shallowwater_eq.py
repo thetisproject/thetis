@@ -331,8 +331,7 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
                     # assume land boundary
                     # impermeability implies external un=0
                     un_jump = inner(uv, self.normal)
-                    h = self.bathymetry
-                    head_rie = head + sqrt(h/g_grav)*un_jump
+                    head_rie = head + sqrt(total_h/g_grav)*un_jump
                     f += g_grav*head_rie*dot(self.u_test, self.normal)*ds_bnd
         else:
             f = g_grav*inner(grad(head), self.u_test) * self.dx
@@ -469,7 +468,8 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
                     eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     eta_jump = eta_old - eta_ext_old
-                    un_rie = 0.5*inner(uv_old + uv_ext_old, self.normal) + sqrt(g_grav/self.bathymetry)*eta_jump
+                    total_h = self.get_total_depth(eta_old)
+                    un_rie = 0.5*inner(uv_old + uv_ext_old, self.normal) + sqrt(g_grav/total_h)*eta_jump
                     uv_av = 0.5*(uv_ext + uv)
                     f += (uv_av[0]*self.u_test[0]*un_rie +
                           uv_av[1]*self.u_test[1]*un_rie)*ds_bnd
@@ -764,6 +764,46 @@ class BaseShallowWaterEquation(Equation):
         self.bathymetry = bathymetry
         self.nonlin = nonlin
         self.wd_alpha = wd_alpha
+
+    def get_time_step(self, u_mag=Constant(0.0)):
+        """
+        Computes maximum explicit time step from CFL condition.
+
+        Assumes velocity scale U = sqrt(g*H) + u_mag
+        where u_mag is estimated advective velocity
+
+        NOTE: H only includes bathymetry, so this is incorrect for wetting and drying
+        """
+        csize = CellSize(self.mesh)
+        h = self.bathymetry.function_space()
+        h_pos = Function(h, name='bathymetry')
+        h_pos.assign(self.bathymetry)
+        min_depth = 0.05
+        h_pos.dat.data[h_pos.dat.data < min_depth] = min_depth
+        uu = TestFunction(h)
+        grid_dt = TrialFunction(h)
+        res = Function(h)
+        a = uu * grid_dt * dx
+        l = uu * csize / (sqrt(g_grav * h_pos) + u_mag) * dx
+        solve(a == l, res)
+        return res
+
+    def get_time_step_advection(self, u_mag=Constant(1.0)):
+        """
+        Computes maximum explicit time step from CFL condition.
+
+        Assumes velocity scale U = u_mag
+        where u_mag is estimated advective velocity
+        """
+        csize = CellSize(self.mesh)
+        h = self.bathymetry.function_space()
+        uu = TestFunction(h)
+        grid_dt = TrialFunction(h)
+        res = Function(h)
+        a = uu * grid_dt * dx
+        l = uu * csize / u_mag * dx
+        solve(a == l, res)
+        return res
 
     def add_momentum_terms(self, *args):
         self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
