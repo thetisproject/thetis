@@ -42,10 +42,11 @@ class Plotter(object):
             delta_x = self.solver_obj.fields.h_elem_size_2d.dat.data.mean()*np.sqrt(2)
             n_x = np.round((x_max - x_min)/delta_x)
             npoints = layers*4
-            z_max = -(depth - 1e-10)
-            z = np.linspace(0, z_max, npoints)
+            epsilon = 1e-10  # nudge points to avoid libspatialindex errors
+            z_max = -(depth - epsilon)
+            z = np.linspace(-epsilon, z_max, npoints)
             npoints = n_x + 1
-            x = np.linspace(x_min, x_max, npoints)
+            x = np.linspace(x_min + epsilon, x_max - epsilon, npoints)
             xx, zz = np.meshgrid(x, z)
             yy = np.zeros_like(xx)
             self.mesh_shape = xx.shape

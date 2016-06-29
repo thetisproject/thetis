@@ -50,7 +50,7 @@ from plotting import *
 
 def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
                      reynolds_number=1.0, use_limiter=True, dt=None,
-                     viscosity='const'):
+                     viscosity='const', laxfriedrichs=0.0):
     """
     Runs lock exchange problem with a bunch of user defined options.
     """
@@ -64,14 +64,19 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     print_output('Use slope limiters: {:}'.format(use_limiter))
     print_output('Number of cores: {:}'.format(comm.size))
 
+    depth = 20.0
     refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4,
                   'medium2': 8, 'fine': 16, 'ilicak': 4}
     # set mesh resolution
-    depth = 20.0
-    delta_x = 2000.0/refinement[reso_str]
-    layers = int(round(10*refinement[reso_str]))
-    if reso_str == 'ilicak':
-        layers = 20
+    if '-' in reso_str:
+        words = reso_str.split('-')
+        delta_x, delta_z = [float(f) for f in words]
+        layers = int(np.ceil(depth/delta_z))
+    else:
+        delta_x = 2000.0/refinement[reso_str]
+        layers = int(round(10*refinement[reso_str]))
+        if reso_str == 'ilicak':
+            layers = 20
     delta_z = depth/layers
     print_output('Mesh resolution dx={:} nlayers={:} dz={:}'.format(delta_x, layers, delta_z))
 
@@ -90,17 +95,6 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     nprisms = ntriangles*layers
     print_output('Number of 2D nodes={:}, triangles={:}, prisms={:}'.format(nnodes, ntriangles, nprisms))
 
-    lim_str = '_lim' if use_limiter else ''
-    dt_str = '_dt{:}'.format(dt) if dt is not None else ''
-    options_str = '_'.join([reso_str,
-                            element_family,
-                            'p{:}'.format(poly_order),
-                            'visc-{:}'.format(viscosity),
-                            'Re{:}'.format(reynolds_number),
-                            ]) + lim_str + dt_str
-    outputdir = 'outputs_' + options_str
-    print_output('Exporting to {:}'.format(outputdir))
-
     # temperature and salinity, for linear eq. of state (from Petersen, 2015)
     temp_left = 5.0
     temp_right = 30.0
@@ -112,19 +106,36 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     uscale = 0.5
     nu_scale = uscale * delta_x / reynolds_number
     print_output('Horizontal viscosity: {:}'.format(nu_scale))
+    print_output('Lax-Friedrichs factor: {:}'.format(laxfriedrichs))
 
-    dt_adv = 1.0/20.0*delta_x/np.sqrt(2)/1.0
+    u_max = 1.0
+    w_max = 1.2e-2
+    dt_hor_adv = 1.0/20.0*delta_x/np.sqrt(2)/u_max
+    dt_vert_adv = 1.0/3.0*delta_z/w_max
     dt_visc = 1.0/120.0*(delta_x/np.sqrt(2))**2/nu_scale
-    print_output('Max dt for advection: {:}'.format(dt_adv))
+    print_output('Max dt for hor. advection: {:}'.format(dt_hor_adv))
+    print_output('Max dt for vert. advection: {:}'.format(dt_vert_adv))
     print_output('Max dt for viscosity: {:}'.format(dt_visc))
 
     t_end = 25 * 3600
     t_export = 15*60.0
     if dt is None:
         # take smallest stable dt that fits the export intervals
-        max_dt = min(dt_adv, dt_visc)
+        max_dt = min(dt_hor_adv, dt_vert_adv, dt_visc)
         ntime = int(np.ceil(t_export/max_dt))
         dt = t_export/ntime
+
+    lim_str = '_lim' if use_limiter else ''
+    options_str = '_'.join([reso_str,
+                            element_family,
+                            'p{:}'.format(poly_order),
+                            'visc-{:}'.format(viscosity),
+                            'Re{:}'.format(reynolds_number),
+                            'dt{:.2f}'.format(dt),
+                            'lf{:.1f}'.format(laxfriedrichs),
+                            ]) + lim_str
+    outputdir = 'outputs_' + options_str
+    print_output('Exporting to {:}'.format(outputdir))
 
     # bathymetry
     p1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -146,8 +157,12 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     # options.use_semi_implicit_2d = False
     # options.use_mode_split = False
     options.baroclinic = True
-    options.uv_lax_friedrichs = Constant(1.0)
-    options.tracer_lax_friedrichs = Constant(1.0)
+    if laxfriedrichs is None or laxfriedrichs==0.0:
+        lf_factor = None
+    else:
+        lf_factor = Constant(laxfriedrichs)
+    options.uv_lax_friedrichs = lf_factor
+    options.tracer_lax_friedrichs = lf_factor
     options.salt_jump_diff_factor = None  # Constant(1.0)
     options.salt_range = Constant(5.0)
     options.use_limiter_for_tracers = use_limiter
@@ -233,9 +248,8 @@ def get_argparser():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-r', '--reso_str', type=str,
-                        help='mesh resolution string',
-                        default='coarse',
-                        choices=['huge', 'coarse', 'coarse2', 'medium', 'medium2', 'fine', 'ilicak'])
+                        help='mesh resolution string. A named mesh  or "dx-dz" string',
+                        default='coarse')
     parser.add_argument('--no-limiter', action='store_false', dest='use_limiter',
                         help='do not use slope limiter for tracers')
     parser.add_argument('-p', '--poly_order', type=int, default=1,
@@ -250,6 +264,9 @@ def get_argparser():
                         help='Type of horizontal viscosity',
                         default='const',
                         choices=['const', 'smag'])
+    parser.add_argument('-lf', '--laxfriedrichs', type=float,
+                        help='Lax-Friedrichs flux factor for uv and temperature',
+                        default=0.0)
     return parser
 
 

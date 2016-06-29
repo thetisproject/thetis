@@ -43,6 +43,15 @@ def get_timerequest(options):
         'medium2': hpclauncher.TimeRequest(8, 0, 0),
         'fine': hpclauncher.TimeRequest(24, 0, 0),
         'ilicak': hpclauncher.TimeRequest(8, 0, 0),
+        '2000-1': hpclauncher.TimeRequest(4, 0, 0),
+        '1000-1': hpclauncher.TimeRequest(4, 0, 0),
+        '1000-2': hpclauncher.TimeRequest(4, 0, 0),
+        '500-0.5': hpclauncher.TimeRequest(16, 0, 0),
+        '500-1': hpclauncher.TimeRequest(10, 0, 0),
+        '500-2': hpclauncher.TimeRequest(8, 0, 0),
+        '500-5': hpclauncher.TimeRequest(8, 0, 0),
+        '250-0.5': hpclauncher.TimeRequest(20, 0, 0),
+        '250-1': hpclauncher.TimeRequest(16, 0, 0),
     }
     if 'dev' in options and options['dev'] is True:
         return devel
@@ -50,10 +59,17 @@ def get_timerequest(options):
 
 
 def launch_run(scriptname, options, option_strings):
-    t = get_timerequest(options)
+
+    timereqstr = options.pop('timereq', None)
+    if timereqstr is not None:
+        hh, mm, ss = timereqstr.split(':')
+        t = hpclauncher.TimeRequest(int(hh), int(mm), int(ss))
+    else:
+        t = get_timerequest(options)
 
     # strip additional options
     nproc = options.pop('nproc', 1)
+    queue = options.pop('queue', None)
     dev_test = options.pop('dev', False)
     test_only = options.pop('test', False)
     verbose = options.pop('verbose', False)
@@ -64,7 +80,8 @@ def launch_run(scriptname, options, option_strings):
     cmd = ' '.join(cmd)
 
     # generate HPC job submission script
-    queue = 'normal'
+    if queue is None:
+        queue = 'normal'
     job_name = ''.join([scriptname.split('.')[0]] + [s.replace(' ', '') for
                                                      s in optstrs])
     if dev_test:
@@ -114,6 +131,10 @@ def parse_options():
                              help='Set number of cores to use',
                              default=1,
                              nargs='+')
+    batchparser.add_argument('--timereq', type=str,
+                             help='force time request hh:mm:ss')
+    batchparser.add_argument('--queue', type=str,
+                             help='force submitting to given job queue')
     batchparser.add_argument('--dev', action='store_true',
                              help='Do a short run in development queue')
     batchparser.add_argument('--test', action='store_true',
