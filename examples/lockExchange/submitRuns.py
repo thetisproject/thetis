@@ -27,22 +27,22 @@ import lockExchange as thetistestcase
 from collections import OrderedDict
 import argparse
 import itertools
-import batchScriptLib as hpclauncher
+import hpclauncher
 
 
 def get_timerequest(options):
     """
     User defined function that will return time allocation based on run options
     """
-    default = hpclauncher.timeRequest(2, 0, 0)
-    devel = hpclauncher.timeRequest(0, 20, 0)
+    default = hpclauncher.TimeRequest(2, 0, 0)
+    devel = hpclauncher.TimeRequest(0, 20, 0)
     timedef = {
-        'coarse': hpclauncher.timeRequest(4, 0, 0),
-        'coarse2': hpclauncher.timeRequest(4, 0, 0),
-        'medium': hpclauncher.timeRequest(8, 0, 0),
-        'medium2': hpclauncher.timeRequest(8, 0, 0),
-        'fine': hpclauncher.timeRequest(24, 0, 0),
-        'ilicak': hpclauncher.timeRequest(8, 0, 0),
+        'coarse': hpclauncher.TimeRequest(4, 0, 0),
+        'coarse2': hpclauncher.TimeRequest(4, 0, 0),
+        'medium': hpclauncher.TimeRequest(8, 0, 0),
+        'medium2': hpclauncher.TimeRequest(8, 0, 0),
+        'fine': hpclauncher.TimeRequest(24, 0, 0),
+        'ilicak': hpclauncher.TimeRequest(8, 0, 0),
     }
     if 'dev' in options and options['dev'] is True:
         return devel
@@ -73,12 +73,12 @@ def launch_run(scriptname, options, option_strings):
         nproc = 1  # need to run in serial to ensure all compiles go through
         job_name = 'dev_'+job_name
 
-    j = hpclauncher.batchJob(jobName=job_name, queue=queue,
-                             nproc=nproc, timeReq=t, logFile='log_'+job_name)
+    j = hpclauncher.BatchJob(jobname=job_name, queue=queue,
+                             nproc=nproc, timereq=t, logfile='log_'+job_name)
 
-    j.appendNewTask(cmd)
+    j.append_new_task(cmd)
     # submit to queue manager
-    hpclauncher.submitJobs(j, testOnly=test_only, verbose=verbose)
+    hpclauncher.submit_jobs(j, testonly=test_only, verbose=verbose)
 
 
 def parse_options():
