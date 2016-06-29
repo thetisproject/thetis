@@ -93,6 +93,8 @@ def setup_unsteady():
     # automatically switches off matnest when using 'lu',
     # firedrake-adjoint does not remember that in the adjoint solve
     parameters['matnest'] = False
+    # coffee optimisation currently broken for this case:
+    parameters['coffee'] = {}
     solver_obj.options.solver_parameters_sw = {
         'ksp_type': 'preonly',
         'pc_type': 'lu',
