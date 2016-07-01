@@ -679,7 +679,8 @@ class FlowSolver(FrozenClass):
             self.callbacks['temp_3d_overshoot'] = callback.TracerOvershootCallBack('temp_3d')
 
         for key in self.callbacks:
-            self.callbacks[key].initialize(self)
+            callback_values = self.callbacks[key](self)
+            self.callbacks[key].log(callback_values)
 
         # initial export
         self.print_state(0.0)
@@ -709,8 +710,8 @@ class FlowSolver(FrozenClass):
                 self.print_state(cputime)
 
                 for key in self.callbacks:
-                    self.callbacks[key].update(self)
-                    self.callbacks[key].report()
+                    callback_values = self.callbacks[key](self)
+                    self.callbacks[key].log(callback_values)
 
                 self.export()
                 if export_func is not None:
