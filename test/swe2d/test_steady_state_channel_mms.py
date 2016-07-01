@@ -5,9 +5,9 @@ import pytest
 
 
 @pytest.mark.parametrize("options", [
-    {"no_exports": True},  # default: mimetic
-    {"no_exports": True, "mimetic": False, "continuous_pressure": True},
-], ids=["mimetic", "pndp(n+1)"])
+    {"no_exports": True, "element_family": "rt-dg"},
+    {"no_exports": True, "element_family": "dg-cg"},
+], ids=["rt-dg", "dg-cg"])
 def test_steady_state_channel_mms(options):
     lx = 5e3
     ly = 1e3
@@ -130,4 +130,4 @@ def test_steady_state_channel_mms(options):
 
 
 if __name__ == '__main__':
-    test_steady_state_channel_mms({"no_exports": True, "mimetic": False, "continuous_pressure": True})
+    test_steady_state_channel_mms({"no_exports": True, "element_family": "dg-cg"})

@@ -75,20 +75,18 @@ class FlowSolver2d(FrozenClass):
         self.function_spaces.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1)
         self.function_spaces.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1)
         self.function_spaces.P1DGv_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1)
-        if self.options.mimetic and self.options.continuous_pressure:
-            raise ValueError("Cannot combine options mimetic and continuous_pressure")
         # 2D velocity space
-        if self.options.mimetic:
+        if self.options.element_family == 'rt-dg':
             self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.order+1)
             self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
-        elif self.options.continuous_pressure:
+        elif self.options.element_family == 'dg-cg':
             self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
             self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'CG', self.options.order+1)
-        else:
+        elif self.options.element_family == 'dg-dg':
             self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
             self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
-        # TODO can this be omitted?
-        # self.function_spaces.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
+        else:
+            raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d])
 
         self._isfrozen = True

@@ -58,7 +58,6 @@ simple_barotropic = False  # for testing flux boundary conditions
 # create solver
 solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solverobj.options
-options.mimetic = False
 options.solve_salt = not simple_barotropic
 options.solve_temp = False
 options.constant_temp = Constant(temp_const)

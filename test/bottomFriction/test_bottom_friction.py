@@ -29,7 +29,7 @@ import pytest
 import numpy
 
 
-def run_bottom_friction(parabolic_visosity=False, mimetic=False,
+def run_bottom_friction(parabolic_visosity=False, element_family='dg-dg',
                         do_assert=True, do_export=False):
     physical_constants['z0_friction'].assign(1.5e-3)
 
@@ -62,7 +62,7 @@ def run_bottom_friction(parabolic_visosity=False, mimetic=False,
     solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
     options = solver_obj.options
     options.nonlin = False
-    options.mimetic = mimetic
+    options.element_family = element_family
     options.solve_salt = False
     options.solve_temp = False
     options.solve_vert_diffusion = True
@@ -138,13 +138,13 @@ def parabolic_visosity(request):
     return request.param
 
 
-@pytest.fixture(params=[True, False], ids=['rt', 'dg'])
-def mimetic(request):
+@pytest.fixture(params=['rt-dg', 'dg-dg'])
+def element_family(request):
     return request.param
 
 
-def test_bottom_friction(parabolic_visosity, mimetic):
-    run_bottom_friction(do_assert=True, do_export=False, parabolic_visosity=parabolic_visosity, mimetic=mimetic)
+def test_bottom_friction(parabolic_visosity, element_family):
+    run_bottom_friction(do_assert=True, do_export=False, parabolic_visosity=parabolic_visosity, element_family=element_family)
 
 
 if __name__ == '__main__':

@@ -124,11 +124,11 @@ class FlowSolver(FrozenClass):
         w_v_elt = FiniteElement('CG', interval, self.options.order+1)
         w_elt = HDiv(TensorProductElement(w_h_elt, w_v_elt))
         # final spaces
-        if self.options.mimetic:
+        if self.options.element_family == 'rt-dg':
             # self.U = FunctionSpace(self.mesh, UW_elt)  # uv
             self.function_spaces.U = FunctionSpace(self.mesh, u_elt, name='U')  # uv
             self.function_spaces.W = FunctionSpace(self.mesh, w_elt, name='W')  # w
-        else:
+        elif self.options.element_family == 'dg-dg':
             self.function_spaces.U = VectorFunctionSpace(self.mesh, 'DG', self.options.order,
                                                          vfamily='DG', vdegree=self.options.order,
                                                          name='U')
@@ -136,6 +136,8 @@ class FlowSolver(FrozenClass):
             self.function_spaces.W = VectorFunctionSpace(self.mesh, 'DG', self.options.order,
                                                          vfamily='DG', vdegree=self.options.order,
                                                          name='W')
+        else:
+            raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
         # auxiliary function space that will be used to transfer data between 2d/3d modes
         self.function_spaces.Uproj = self.function_spaces.U
 
@@ -152,9 +154,9 @@ class FlowSolver(FrozenClass):
         self.function_spaces.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1, name='P1DG_2d')
         self.function_spaces.P1DGv_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1, name='P1DGv_2d')
         # 2D velocity space
-        if self.options.mimetic:
+        if self.options.element_family == 'rt-dg':
             self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.order+1)
-        else:
+        elif self.options.element_family == 'dg-dg':
             self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
         self.function_spaces.Uproj_2d = self.function_spaces.U_2d
         # TODO is this needed?

@@ -144,7 +144,7 @@ def run(setup, refinement, order, do_export=True, options=None,
 
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     solver_obj.options.order = order
-    solver_obj.options.mimetic = True
+    solver_obj.options.element_family = 'rt-dg'
     solver_obj.options.u_advection = Constant(1.0)
     solver_obj.options.no_exports = not do_export
     solver_obj.options.outputdir = outputdir
@@ -328,16 +328,13 @@ def setup(request):
 
 
 @pytest.fixture(params=[
-    {'mimetic': False,
-     'continuous_pressure': False,
+    {'element_family': 'dg-dg',
      'timestepper_type': 'cranknicolson'},
-    {'mimetic': True,
-     'continuous_pressure': False,
+    {'element_family': 'rt-dg',
      'timestepper_type': 'cranknicolson'},
-    {'mimetic': False,
-     'continuous_pressure': True,
+    {'element_family': 'dg-cg',
      'timestepper_type': 'cranknicolson'}],
-    ids=["DG", "mimetic", "P1DGP2"]
+    ids=["dg-dg", "rt-dg", "dg-cg"]
 )
 def options(request):
     return request.param

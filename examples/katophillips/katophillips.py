@@ -57,7 +57,6 @@ wind_stress_2d = Constant((wind_stress_x, 0))
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
 options = solver_obj.options
-options.nonlin = False
 options.solve_salt = True
 options.solve_temp = False
 options.constant_temp = Constant(10.0)

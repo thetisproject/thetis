@@ -39,7 +39,6 @@ coriolis_2d.interpolate(
 # --- create solver ---
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
-options.cfl_2d = 1.0
 options.nonlin = False
 options.coriolis = coriolis_2d
 options.t_export = t_export

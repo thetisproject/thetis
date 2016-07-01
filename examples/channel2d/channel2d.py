@@ -51,8 +51,6 @@ bathymetry_2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 # --- create solver ---
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=1)
 options = solver_obj.options
-options.cfl_2d = 1.0
-# options.nonlin = False
 options.t_export = t_export
 options.t_end = t_end
 options.outputdir = outputdir

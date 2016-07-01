@@ -38,7 +38,6 @@ def test_closed_channel(do_export=False):
     # create solver
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     options = solver_obj.options
-    # options.nonlin = False
     options.solve_salt = False
     options.solve_temp = False
     options.solve_vert_diffusion = False

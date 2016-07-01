@@ -9,7 +9,7 @@ from scipy import stats
 import pytest
 
 
-def setup1(lx, ly, h0, kappa0, mimetic=True):
+def setup1(lx, ly, h0, kappa0, element_family='rt-dg'):
     """
     Constant bathymetry and u velocty, zero diffusivity, non-trivial tracer
     """
@@ -31,7 +31,7 @@ def setup1(lx, ly, h0, kappa0, mimetic=True):
     out['res_expr'] = Expression(
         '0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx',
         lx=lx)
-    out['options'] = {'mimetic': mimetic}
+    out['options'] = {'element_family': element_family}
     return out
 
 
@@ -39,10 +39,10 @@ def setup1dg(lx, ly, h0, kappa0):
     """
     Constant bathymetry and u velocty, zero diffusivity, non-trivial tracer
     """
-    return setup1(lx, ly, h0, kappa0, mimetic=False)
+    return setup1(lx, ly, h0, kappa0, element_family='dg-dg')
 
 
-def setup2(lx, ly, h0, kappa0, mimetic=True):
+def setup2(lx, ly, h0, kappa0, element_family='rt-dg'):
     """
     constant bathymetry, zero velocity, constant kappa, x-varying T
     """
@@ -66,7 +66,7 @@ def setup2(lx, ly, h0, kappa0, mimetic=True):
     out['res_expr'] = Expression(
         '9*(pi*pi)*kappa0*sin(3*pi*x[0]/lx)/(lx*lx)',
         kappa0=kappa0, lx=lx)
-    out['options'] = {'mimetic': mimetic}
+    out['options'] = {'element_family': element_family}
     return out
 
 
@@ -74,10 +74,10 @@ def setup2dg(lx, ly, h0, kappa0):
     """
     constant bathymetry, zero velocity, constant kappa, x-varying T
     """
-    return setup2(lx, ly, h0, kappa0, mimetic=False)
+    return setup2(lx, ly, h0, kappa0, element_family='dg-dg')
 
 
-def setup3(lx, ly, h0, kappa0, mimetic=True):
+def setup3(lx, ly, h0, kappa0, element_family='rt-dg'):
     """
     constant bathymetry, zero kappa, non-trivial velocity and T
     """
@@ -101,7 +101,7 @@ def setup3(lx, ly, h0, kappa0, mimetic=True):
     out['res_expr'] = Expression(
         '-0.4*pi*(0.3*h0*cos(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))*cos(pi*x[2]/h0)/ly + 0.3*h0*cos(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))/ly + 2*h0*cos(pi*(x[1]/ly + 2*x[0]/lx))*cos(pi*x[2]/h0)/lx + 2*h0*cos(pi*(x[1]/ly + 2*x[0]/lx))/lx)*sin(0.5*pi*x[2]/h0)*cos(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))/h0 - 0.75*pi*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*sin(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))*sin(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))*sin(pi*x[2]/h0)/ly - 1.5*pi*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*sin(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))*sin(pi*(x[1]/ly + 2*x[0]/lx))*sin(pi*x[2]/h0)/lx',
         h0=h0, lx=lx, ly=ly)
-    out['options'] = {'mimetic': mimetic}
+    out['options'] = {'element_family': element_family}
     return out
 
 
@@ -109,10 +109,10 @@ def setup3dg(lx, ly, h0, kappa0):
     """
     constant bathymetry, zero kappa, non-trivial velocity and T
     """
-    return setup3(lx, ly, h0, kappa0, mimetic=False)
+    return setup3(lx, ly, h0, kappa0, element_family='dg-dg')
 
 
-def setup4(lx, ly, h0, kappa0, mimetic=True):
+def setup4(lx, ly, h0, kappa0, element_family='rt-dg'):
     """
     constant bathymetry, constant kappa, non-trivial velocity and T
     """
@@ -138,7 +138,7 @@ def setup4(lx, ly, h0, kappa0, mimetic=True):
     out['res_expr'] = Expression(
         '-0.4*pi*(0.3*h0*cos(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))*cos(pi*x[2]/h0)/ly + 0.3*h0*cos(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))/ly + 2*h0*cos(pi*(x[1]/ly + 2*x[0]/lx))*cos(pi*x[2]/h0)/lx + 2*h0*cos(pi*(x[1]/ly + 2*x[0]/lx))/lx)*sin(0.5*pi*x[2]/h0)*cos(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))/h0 - 0.75*pi*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*sin(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))*sin(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))*sin(pi*x[2]/h0)/ly - 0.5625*(pi*pi)*kappa0*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*cos(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))/(ly*ly) - 1.5*pi*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*sin(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))*sin(pi*(x[1]/ly + 2*x[0]/lx))*sin(pi*x[2]/h0)/lx + 2.25*(pi*pi)*kappa0*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*cos(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))/(lx*lx)',
         h0=h0, kappa0=kappa0, lx=lx, ly=ly)
-    out['options'] = {'mimetic': mimetic}
+    out['options'] = {'element_family': element_family}
     return out
 
 
@@ -146,7 +146,7 @@ def setup4dg(lx, ly, h0, kappa0):
     """
     constant bathymetry, constant kappa, non-trivial velocity and T
     """
-    return setup4(lx, ly, h0, kappa0, mimetic=False)
+    return setup4(lx, ly, h0, kappa0, element_family='dg-dg')
 
 
 def run(setup, refinement, order, do_export=True):

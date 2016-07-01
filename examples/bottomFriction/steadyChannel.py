@@ -56,8 +56,6 @@ bathymetry2d.assign(depth)
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
 options = solver_obj.options
-options.nonlin = False
-options.mimetic = False
 options.solve_salt = False
 options.solve_temp = False
 options.solve_vert_diffusion = True

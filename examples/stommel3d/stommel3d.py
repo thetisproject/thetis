@@ -48,7 +48,6 @@ linear_drag = Constant(1e-6)
 # --- create solver ---
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solver_obj.options
-options.cfl_2d = 1.0
 options.nonlin = False
 options.solve_salt = False
 options.solve_temp = False

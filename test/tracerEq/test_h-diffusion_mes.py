@@ -53,7 +53,7 @@ def run(refinement, order=1, warped_mesh=False, do_export=True):
 
     solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     solverobj.options.order = order
-    solverobj.options.mimetic = False
+    solverobj.options.element_family = 'dg-dg'
     solverobj.options.nonlin = False
     solverobj.options.use_ale_moving_mesh = True
     solverobj.options.u_advection = Constant(1.0)

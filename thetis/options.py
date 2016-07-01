@@ -19,10 +19,8 @@ class ModelOptions(AttrDict, FrozenClass):
         super(ModelOptions, self).__init__()
         self.order = 1
         """int: Polynomial degree of elements"""
-        self.mimetic = True
-        """bool: Use mimetic elements for uvw instead of DG"""
-        self.continuous_pressure = False
-        """bool: Use PnDG-P(n+1) velocity, pressure pair"""
+        self.element_family = 'rt-dg'
+        """str: Finite element family. Currently 'dg-dg', 'rt-dg', or 'dg-cg' velocity-pressure pairs are supported."""
         self.nonlin = True
         """bool: Use nonlinear shallow water equations"""
         self.solve_salt = True

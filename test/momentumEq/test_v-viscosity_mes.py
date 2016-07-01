@@ -9,7 +9,7 @@ from scipy import stats
 import pytest
 
 
-def run(refinement, order=1, implicit=False, mimetic=False, do_export=True):
+def run(refinement, order=1, implicit=False, element_family='dg-dg', do_export=True):
     print '--- running refinement {:}'.format(refinement)
     # domain dimensions - channel in x-direction
     lx = 7.0e3
@@ -49,7 +49,7 @@ def run(refinement, order=1, implicit=False, mimetic=False, do_export=True):
 
     solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     solverobj.options.order = order
-    solverobj.options.mimetic = mimetic
+    solverobj.options.element_family = element_family
     solverobj.options.nonlin = False
     solverobj.options.use_ale_moving_mesh = False
     solverobj.options.u_advection = Constant(1.0)
@@ -133,7 +133,7 @@ def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
     order = options.get('order', 1)
     options.setdefault('do_export', False)
-    space_str = 'rt' if options.get('mimetic') else 'dg'
+    space_str = options.get('element_family')
     l2_err = []
     for r in ref_list:
         l2_err.append(run(r, **options))
@@ -186,8 +186,8 @@ def run_convergence(ref_list, saveplot=False, **options):
 # ---------------------------
 
 
-@pytest.fixture(params=[True, False], ids=['mimetic', 'dg'])
-def mimetic(request):
+@pytest.fixture(params=['rt-dg', 'dg-dg'])
+def element_family(request):
     return request.param
 
 
@@ -201,17 +201,12 @@ def implicit(request):
     return request.param
 
 
-def test_vertical_viscosity(order, implicit, mimetic):
-    run_convergence([1, 2, 3], order=order, implicit=implicit, mimetic=mimetic)
+def test_vertical_viscosity(order, implicit, element_family):
+    run_convergence([1, 2, 3], order=order, implicit=implicit, element_family=element_family)
 
 # ---------------------------
 # run individual setup for debugging
 # ---------------------------
 
 if __name__ == '__main__':
-    # run(2, order=0, implicit=True)
-    run_convergence([1, 2, 3], order=1, implicit=False, mimetic=False, saveplot=True)
-    # run_convergence([1, 2, 4, 8], order=0, implicit=True, mimetic=True, saveplot=True)
-    # run_convergence([1, 2, 4, 8], order=1, implicit=True, mimetic=True, saveplot=True)
-    # run_convergence([1, 2, 4, 8], order=0, implicit=True, mimetic=False, saveplot=True)
-    # run_convergence([1, 2, 4, 8], order=1, implicit=True, mimetic=False, saveplot=True)
+    run_convergence([1, 2, 3], order=1, implicit=False, element_family='dg-dg', saveplot=True)
