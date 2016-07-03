@@ -674,38 +674,39 @@ class FlowSolver(FrozenClass):
         t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()
 
+        dump_hdf5 = self.options.export_diagnostics and not self.options.no_exports
         if self.options.check_vol_conservation_2d:
             c = callback.VolumeConservation2DCallback(outputdir=self.options.outputdir,
-                                                      export_to_hdf5=True,
+                                                      export_to_hdf5=dump_hdf5,
                                                       append_to_log=True, comm=self.comm)
             self.add_callback(c, eval_interval='export')
         if self.options.check_vol_conservation_3d:
             c = callback.VolumeConservation3DCallback(outputdir=self.options.outputdir,
-                                                      export_to_hdf5=True,
+                                                      export_to_hdf5=dump_hdf5,
                                                       append_to_log=True, comm=self.comm)
             self.add_callback(c, eval_interval='export')
         if self.options.check_salt_conservation:
             c = callback.TracerMassConservationCallback('salt_3d',
                                                         outputdir=self.options.outputdir,
-                                                        export_to_hdf5=True,
+                                                        export_to_hdf5=dump_hdf5,
                                                         append_to_log=True, comm=self.comm)
             self.add_callback(c, eval_interval='export')
         if self.options.check_salt_overshoot:
             c = callback.TracerOvershootCallBack('salt_3d',
                                                  outputdir=self.options.outputdir,
-                                                 export_to_hdf5=True,
+                                                 export_to_hdf5=dump_hdf5,
                                                  append_to_log=True, comm=self.comm)
             self.add_callback(c, eval_interval='export')
         if self.options.check_temp_conservation:
             c = callback.TracerMassConservationCallback('temp_3d',
                                                         outputdir=self.options.outputdir,
-                                                        export_to_hdf5=True,
+                                                        export_to_hdf5=dump_hdf5,
                                                         append_to_log=True, comm=self.comm)
             self.add_callback(c, eval_interval='export')
         if self.options.check_temp_overshoot:
             c = callback.TracerOvershootCallBack('temp_3d',
                                                  outputdir=self.options.outputdir,
-                                                 export_to_hdf5=True,
+                                                 export_to_hdf5=dump_hdf5,
                                                  append_to_log=True, comm=self.comm)
             self.add_callback(c, eval_interval='export')
 

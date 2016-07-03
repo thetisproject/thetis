@@ -102,7 +102,9 @@ class ModelOptions(AttrDict, FrozenClass):
         self.outputdir = 'outputs'
         """str: Directory where model output files are stored"""
         self.no_exports = False
-        """bool: Do not store any outputs to disk, used in CI test suite"""
+        """bool: Do not store any outputs to disk, used in CI test suite. Disables vtk and hdf5 field outputs and hdf5 diagnostic outputs."""
+        self.export_diagnostics = True
+        """bool: Store diagnostic variables to disk in hdf5 format"""
         self.fields_to_export = ['elev_2d', 'uv_2d', 'uv_3d', 'w_3d']
         """list of str: Fields to export in VTK format"""
         self.fields_to_export_numpy = []
