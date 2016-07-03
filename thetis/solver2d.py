@@ -41,8 +41,8 @@ class FlowSolver2d(FrozenClass):
         self.i_export = 0
         self.next_export_t = self.simulation_time + self.options.t_export
 
-        self.callbacks = OrderedDict()
-        """List of callback functions that will be called during exports"""
+        self.callbacks = callback.CallbackManager(('export', 'timestep'))
+        """Callback manager object"""
 
         self.fields = FieldDict()
         """Holds all functions needed by the solver object."""
@@ -235,7 +235,16 @@ class FlowSolver2d(FrozenClass):
 
         self.timestepper.initialize(self.fields.solution_2d)
 
+    def add_callback(self, callback, eval_interval='export'):
+        """Adds callback to solver object
+
+        :arg callback: DiagnosticCallback instance
+        "arg eval_interval: 'export'|'timestep' Determines when callback will be evaluated.
+        """
+        self.callbacks.add(callback, eval_interval)
+
     def export(self):
+        self.callbacks.evaluate(self, mode='export')
         for key in self.exporters:
             self.exporters[key].export()
 
@@ -310,10 +319,11 @@ class FlowSolver2d(FrozenClass):
         next_export_t = self.simulation_time + self.options.t_export
 
         if self.options.check_vol_conservation_2d:
-            self.callbacks['vol2d'] = callback.VolumeConservation2DCallback()
-
-        for key in self.callbacks:
-            self.callbacks[key].initialize(self)
+            c = callback.VolumeConservation2DCallback(outputdir=self.options.outputdir,
+                                                      export_to_hdf5=True,
+                                                      append_to_log=True,
+                                                      comm=self.comm)
+            self.add_callback(c)
 
         # initial export
         self.print_state(0.0)
@@ -333,6 +343,8 @@ class FlowSolver2d(FrozenClass):
             self.iteration += 1
             self.simulation_time = self.iteration*self.dt
 
+            self.callbacks.evaluate(self, mode='timestep')
+
             # Write the solution to file
             if self.simulation_time >= next_export_t - t_epsilon:
                 self.i_export += 1
@@ -341,10 +353,6 @@ class FlowSolver2d(FrozenClass):
                 cputime = time_mod.clock() - cputimestamp
                 cputimestamp = time_mod.clock()
                 self.print_state(cputime)
-
-                for key in self.callbacks:
-                    self.callbacks[key].update(self)
-                    self.callbacks[key].report()
 
                 self.export()
                 if export_func is not None:
