@@ -320,10 +320,8 @@ class FlowSolver2d(FrozenClass):
 
         dump_hdf5 = self.options.export_diagnostics and not self.options.no_exports
         if self.options.check_vol_conservation_2d:
-            c = callback.VolumeConservation2DCallback(outputdir=self.options.outputdir,
-                                                      export_to_hdf5=dump_hdf5,
-                                                      append_to_log=True,
-                                                      comm=self.comm)
+            c = callback.VolumeConservation2DCallback(export_to_hdf5=dump_hdf5,
+                                                      append_to_log=True)
             self.add_callback(c)
 
         # initial export

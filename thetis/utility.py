@@ -210,7 +210,7 @@ def comp_volume_2d(eta, bath):
 
 
 def comp_volume_3d(mesh):
-    one = Constant(1.0, domain=mesh.coordinates.domain())
+    one = Constant(1.0, domain=mesh.coordinates.ufl_domain())
     val = assemble(one*dx)
     return val
 

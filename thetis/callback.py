@@ -25,7 +25,7 @@ class CallbackManager(object):
 
     def evaluate(self, solver_obj, mode):
         for key in self.callbacks[mode]:
-            self.callbacks[mode][key].dostuff(solver_obj)
+            self.callbacks[mode][key].evaluate(solver_obj)
 
     def __getitem__(self, key):
         return self.callbacks[key]
@@ -40,13 +40,12 @@ class DiagnosticHDF5(object):
         self.nvars = len(varnames)
         if comm.rank == 0:
             # create empty file with correct datasets
-            hdf5file = h5py.File(filename, 'w')
-            hdf5file.create_dataset('time', (0, 1),
-                                    maxshape=(None, 1))
-            for var in self.varnames:
-                hdf5file.create_dataset(var, (0, 1),
+            with h5py.File(filename, 'w') as hdf5file:
+                hdf5file.create_dataset('time', (0, 1),
                                         maxshape=(None, 1))
-            hdf5file.close()
+                for var in self.varnames:
+                    hdf5file.create_dataset(var, (0, 1),
+                                            maxshape=(None, 1))
 
     def _expand(self, hdf5file):
         """Expands data arrays by 1 entry"""
@@ -74,25 +73,35 @@ class DiagnosticCallback(object):
     """
     A base class for all Callback classes
 
-    :arg outputdir: directory where hdf5 files will be stored
+    :arg outputdir: Custom directory where hdf5 files will be stored. By
+        default solver's output directory is used.
     :arg export_to_hdf5: If True, diagnostics will be stored in hdf5 format
     :arg append_to_log: If True, diagnostic will be printed in log
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, outputdir=None, export_to_hdf5=False,
-                 append_to_log=True, comm=COMM_WORLD):
-        self.comm = comm
-        self.export_to_hdf5 = export_to_hdf5
+    def __init__(self, outputdir=None, export_to_hdf5=True,
+                 append_to_log=True):
+        self.append_to_hdf5 = export_to_hdf5
         self.append_to_log = append_to_log
         self.outputdir = outputdir
-        if self.export_to_hdf5:
-            assert self.outputdir is not None, 'outputdir requred for hdf5 output'
-            create_directory(self.outputdir)
+        self._hdf5_initialized = False
+
+    def _create_hdf5_file(self, solver_obj):
+        """
+        Creates an empty hdf5 file with correct datasets.
+        """
+        if self.append_to_hdf5:
+            comm = solver_obj.comm
+            outputdir = self.outputdir
+            if outputdir is None:
+                outputdir = solver_obj.options.outputdir
+            create_directory(outputdir)
             fname = 'diagnostic_{:}.hdf5'.format(self.name.replace(' ', '_'))
-            fname = os.path.join(self.outputdir, fname)
+            fname = os.path.join(outputdir, fname)
             self.hdf_exporter = DiagnosticHDF5(fname, self.variable_names,
                                                comm=comm)
+        self._hdf5_initialized = True
 
     @abstractproperty
     def name(self):
@@ -122,24 +131,26 @@ class DiagnosticCallback(object):
         """
         return "{} diagnostic".format(self.name)
 
-    def log(self, time, args):
+    def push_to_log(self, time, args):
         """Print diagnostic status message to log"""
         # TODO update to use real logger object
         print_info(self.__str__(args))
 
-    def export(self, time, args):
+    def push_to_hdf5(self, solver_obj, time, args):
         """Append values to export file."""
+        if not self._hdf5_initialized:
+            self._create_hdf5_file(solver_obj)
         self.hdf_exporter.export(time, args)
 
-    def dostuff(self, solver_obj):
+    def evaluate(self, solver_obj):
         """Evaluates callback and pushes values to log and hdf stream"""
-        if self.append_to_log or self.export_to_hdf5:
+        if self.append_to_log or self.append_to_hdf5:
             values = self.__call__(solver_obj)
             time = solver_obj.simulation_time
             if self.append_to_log:
-                self.log(time, values)
-            if self.export_to_hdf5:
-                self.export(time, values)
+                self.push_to_log(time, values)
+            if self.append_to_hdf5:
+                self.push_to_hdf5(solver_obj, time, values)
 
 
 class ScalarConservationCallback(DiagnosticCallback):
@@ -147,7 +158,7 @@ class ScalarConservationCallback(DiagnosticCallback):
     variable_names = ['integral', 'relative_difference']
 
     def __init__(self, scalar_callback, outputdir=None, export_to_hdf5=False,
-                 append_to_log=True, comm=COMM_WORLD):
+                 append_to_log=True):
         """
         Creates scalar conservation check callback object
 
@@ -159,8 +170,7 @@ class ScalarConservationCallback(DiagnosticCallback):
         """
         super(ScalarConservationCallback, self).__init__(outputdir,
                                                          export_to_hdf5,
-                                                         append_to_log,
-                                                         comm)
+                                                         append_to_log)
         self.scalar_callback = scalar_callback
         self.initial_value = None
 
@@ -181,14 +191,13 @@ class VolumeConservation3DCallback(ScalarConservationCallback):
     name = 'volume3d'
 
     def __init__(self, outputdir=None, export_to_hdf5=False,
-                 append_to_log=True, comm=COMM_WORLD):
+                 append_to_log=True):
         def vol3d(solver_object):
             return comp_volume_3d(solver_object.mesh)
         super(VolumeConservation3DCallback, self).__init__(vol3d,
                                                            outputdir,
                                                            export_to_hdf5,
-                                                           append_to_log,
-                                                           comm)
+                                                           append_to_log)
 
 
 class VolumeConservation2DCallback(ScalarConservationCallback):
@@ -196,15 +205,14 @@ class VolumeConservation2DCallback(ScalarConservationCallback):
     name = 'volume2d'
 
     def __init__(self, outputdir=None, export_to_hdf5=False,
-                 append_to_log=True, comm=COMM_WORLD):
+                 append_to_log=True):
         def vol2d(solver_object):
             return comp_volume_2d(solver_object.fields.elev_2d,
                                   solver_object.fields.bathymetry_2d)
         super(VolumeConservation2DCallback, self).__init__(vol2d,
                                                            outputdir,
                                                            export_to_hdf5,
-                                                           append_to_log,
-                                                           comm)
+                                                           append_to_log)
 
 
 class TracerMassConservationCallback(ScalarConservationCallback):
@@ -212,7 +220,7 @@ class TracerMassConservationCallback(ScalarConservationCallback):
     name = 'tracer mass'
 
     def __init__(self, tracer_name, outputdir=None, export_to_hdf5=False,
-                 append_to_log=True, comm=COMM_WORLD):
+                 append_to_log=True):
         # override name for given tracer
         self.name = tracer_name + ' mass'
 
@@ -221,8 +229,7 @@ class TracerMassConservationCallback(ScalarConservationCallback):
         super(TracerMassConservationCallback, self).__init__(mass,
                                                              outputdir,
                                                              export_to_hdf5,
-                                                             append_to_log,
-                                                             comm)
+                                                             append_to_log)
 
 
 class MinMaxConservationCallback(DiagnosticCallback):
@@ -230,7 +237,7 @@ class MinMaxConservationCallback(DiagnosticCallback):
     variable_names = ['min_value', 'max_value', 'undershoot', 'overshoot']
 
     def __init__(self, minmax_callback, outputdir=None, export_to_hdf5=False,
-                 append_to_log=True, comm=COMM_WORLD):
+                 append_to_log=True):
         """
         Creates scalar conservation check callback object
 
@@ -240,8 +247,7 @@ class MinMaxConservationCallback(DiagnosticCallback):
         """
         super(MinMaxConservationCallback, self).__init__(outputdir,
                                                          export_to_hdf5,
-                                                         append_to_log,
-                                                         comm)
+                                                         append_to_log)
         self.minmax_callback = minmax_callback
         self.initial_value = None
 
@@ -263,17 +269,16 @@ class TracerOvershootCallBack(MinMaxConservationCallback):
     name = 'tracer overshoot'
 
     def __init__(self, tracer_name, outputdir=None, export_to_hdf5=False,
-                 append_to_log=True, comm=COMM_WORLD):
+                 append_to_log=True):
         self.name = tracer_name + ' overshoot'
 
         def minmax(solver_object):
             tracer_min = solver_object.fields[tracer_name].dat.data.min()
             tracer_max = solver_object.fields[tracer_name].dat.data.max()
-            tracer_min = self.comm.allreduce(tracer_min, op=MPI.MIN)
-            tracer_max = self.comm.allreduce(tracer_max, op=MPI.MAX)
+            tracer_min = solver_object.comm.allreduce(tracer_min, op=MPI.MIN)
+            tracer_max = solver_object.comm.allreduce(tracer_max, op=MPI.MAX)
             return tracer_min, tracer_max
         super(TracerOvershootCallBack, self).__init__(minmax,
                                                       outputdir,
                                                       export_to_hdf5,
-                                                      append_to_log,
-                                                      comm)
+                                                      append_to_log)
