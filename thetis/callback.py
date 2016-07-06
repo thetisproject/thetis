@@ -255,7 +255,7 @@ class MinMaxConservationCallback(DiagnosticCallback):
         return value[0], value[1], undershoot, overshoot
 
     def __str__(self, args):
-        l = '{0:s} overshoots {1:g} {2:g}'.format(self.name, args[2], args[3])
+        l = '{0:s} {1:g} {2:g}'.format(self.name, args[2], args[3])
         return l
 
 

@@ -38,15 +38,6 @@ from thetis import *
 from diagnostics import *
 from plotting import *
 
-# TODO implement front location callback DONE
-# TODO implement runtime plotting DONE
-# TODO add option to use constant viscosity or smag scheme DONE
-# TODO implement automatic dt estimation for v_adv
-# TODO test effect/necessity of lax_friedrichs
-# TODO test computing smag nu with weak form uv gradients
-# TODO add option for changing time integrator?
-# TODO also plot u and w at runtime
-
 
 def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
                      reynolds_number=1.0, use_limiter=True, dt=None,
@@ -157,7 +148,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     # options.use_semi_implicit_2d = False
     # options.use_mode_split = False
     options.baroclinic = True
-    if laxfriedrichs is None or laxfriedrichs==0.0:
+    if laxfriedrichs is None or laxfriedrichs == 0.0:
         lf_factor = None
     else:
         lf_factor = Constant(laxfriedrichs)
@@ -210,20 +201,9 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     # }
 
     if comm.size == 1:
-        rpe_calc = RPECalculator(solver_obj)
-        rpe_callback = rpe_calc.export
-        front_calc = FrontLocationCalculator(solver_obj)
-        front_callback = front_calc.export
-        plotter = Plotter(solver_obj, imgdir=solver_obj.options.outputdir + '/plots')
-        plot_callback = plotter.export
-    else:
-        rpe_callback = None
-
-    def callback():
-        if comm.size == 1:
-            rpe_callback()
-            front_callback()
-            plot_callback()
+        solver_obj.add_callback(RPECalculator())
+        solver_obj.add_callback(FrontLocationCalculator())
+        solver_obj.add_callback(PlotCallback(append_to_log=False))
 
     solver_obj.create_equations()
     esize = solver_obj.fields.h_elem_size_2d
@@ -240,7 +220,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
                                        sigma=10.0, v_l=temp_left, v_r=temp_right))
 
     solver_obj.assign_initial_conditions(temp=temp_init3d)
-    solver_obj.iterate(export_func=callback)
+    solver_obj.iterate()
 
 
 def get_argparser():

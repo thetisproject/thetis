@@ -3,7 +3,8 @@ Implements diagnostic calculators for lock exchange test.
 """
 from thetis import *
 
-class FrontLocationCalculator(object):
+
+class FrontLocationCalculator(DiagnosticCallback):
     """
     Calculates the location of the propagating front at the top/bottom of the
     domain.
@@ -13,23 +14,18 @@ class FrontLocationCalculator(object):
 
     U = 1/2*sqrt(g*H*delta_rho/rho_0)
     """
-    def __init__(self, solver_obj):
-        self.solver_obj = solver_obj
-        self._initialized = False
+    name = 'front'
+    variable_names = ['front_bot', 'front_top']
 
-    def _initialize(self):
-        self.outfile = os.path.join(self.solver_obj.options.outputdir, 'diagnostic_front.txt')
-        # flush old file
-        with open(self.outfile, 'w'):
-            pass
-        one_2d = Constant(1.0, domain=self.solver_obj.mesh2d.coordinates.ufl_domain())
+    def _initialize(self, solver_obj):
+        one_2d = Constant(1.0, domain=solver_obj.mesh2d.coordinates.ufl_domain())
         self.area_2d = assemble(one_2d*dx)
         # store density difference
-        self.rho = self.solver_obj.fields.density_3d
+        self.rho = solver_obj.fields.density_3d
         self.rho_lim = [self.rho.dat.data.min(), self.rho.dat.data.max()]
         self.delta_rho = self.rho_lim[1] - self.rho_lim[0]
         self.mean_rho = 0.5*(self.rho_lim[1] + self.rho_lim[0])
-        fs_2d = self.solver_obj.function_spaces.H_2d
+        fs_2d = solver_obj.function_spaces.H_2d
         mesh2d = fs_2d.mesh()
         self.xyz = mesh2d.coordinates
         x = self.xyz.dat.data[:, 0]
@@ -70,20 +66,22 @@ class FrontLocationCalculator(object):
         center_x = assemble(self.rho_ho*self.xyz[0]*dx)/mass
         return center_x
 
-    def export(self):
-        if not self._initialized:
-            self._initialize()
+    def __call__(self, solver_obj):
+        if not hasattr(self, '_initialized') or self._initialized is False:
+            self._initialize(solver_obj)
         # compute x center of mass on top/bottom surfaces
         self.extractor_bot.solve()
         x_bot = self.compute_front_location()
         self.extractor_surf.solve()
-        x_surf = self.compute_front_location()
-        t = self.solver_obj.simulation_time
-        with open(self.outfile, 'a') as f:
-            f.write('{:20.8f} {:28.8f} {:20.8f}\n'.format(t, x_bot, x_surf))
+        x_top = self.compute_front_location()
+        return x_bot, x_top
+
+    def __str__(self, args):
+        line = 'front bottom: {:12.4f}, top: {:12.4f}'.format(*args)
+        return line
 
 
-class RPECalculator(object):
+class RPECalculator(DiagnosticCallback):
     """
     Computes reference potential energy (RPE) from density field.
 
@@ -102,32 +100,23 @@ class RPECalculator(object):
     \bar{RPE} measures the fraction of initial potential energy that has been lost due
     to mixing.
     """
-    def __init__(self, solver_obj):
-        if COMM_WORLD.size > 1:
-            raise NotImplementedError('RPE calculator has not been parallelized yet')
-        self.solver_obj = solver_obj
-        self._initialized = False
+    name = 'rpe'
+    variable_names = ['rpe', 'rel_rpe']
 
-    def _initialize(self):
-        self.outfile = os.path.join(self.solver_obj.options.outputdir, 'diagnostic_rpe.txt')
-        # flush old file
-        with open(self.outfile, 'w'):
-            pass
+    def _initialize(self, solver_obj):
         # compute area of 2D mesh
-        one_2d = Constant(1.0, domain=self.solver_obj.mesh2d.coordinates.ufl_domain())
+        one_2d = Constant(1.0, domain=solver_obj.mesh2d.coordinates.ufl_domain())
         self.area_2d = assemble(one_2d*dx)
-        self.rho = self.solver_obj.fields.density_3d
+        self.rho = solver_obj.fields.density_3d
         fs = self.rho.function_space()
         test = TestFunction(fs)
         self.nodal_volume = assemble(test*dx)
-        self.depth = self.solver_obj.fields.bathymetry_2d.dat.data.mean()
         self.initial_rpe = None
-        self.initial_mean_rho = None
         self._initialized = True
 
-    def export(self):
-        if not self._initialized:
-            self._initialize()
+    def __call__(self, solver_obj):
+        if not hasattr(self, '_initialized') or self._initialized is False:
+            self._initialize(solver_obj)
         rho_array = self.rho.dat.data[:]
         sorted_ix = np.argsort(rho_array)[::-1]
         rho_array = rho_array[sorted_ix] + physical_constants['rho0'].dat.data[0]
@@ -138,6 +127,8 @@ class RPECalculator(object):
         if self.initial_rpe is None:
             self.initial_rpe = rpe
         rel_rpe = (rpe - self.initial_rpe)/np.abs(self.initial_rpe)
-        t = self.solver_obj.simulation_time
-        with open(self.outfile, 'a') as f:
-            f.write('{:20.8f} {:28.8f} {:20.8e}\n'.format(t, rpe, rel_rpe))
+        return rpe, rel_rpe
+
+    def __str__(self, args):
+        line = 'RPE: {:16.10e}, rel. RPE: {:14.8e}'.format(args[0], args[1])
+        return line
