@@ -144,13 +144,12 @@ class DiagnosticCallback(object):
 
     def evaluate(self, solver_obj):
         """Evaluates callback and pushes values to log and hdf stream"""
-        if self.append_to_log or self.append_to_hdf5:
-            values = self.__call__(solver_obj)
-            time = solver_obj.simulation_time
-            if self.append_to_log:
-                self.push_to_log(time, values)
-            if self.append_to_hdf5:
-                self.push_to_hdf5(solver_obj, time, values)
+        values = self.__call__(solver_obj)
+        time = solver_obj.simulation_time
+        if self.append_to_log:
+            self.push_to_log(time, values)
+        if self.append_to_hdf5:
+            self.push_to_hdf5(solver_obj, time, values)
 
 
 class ScalarConservationCallback(DiagnosticCallback):
