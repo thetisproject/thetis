@@ -439,7 +439,7 @@ class CoupledSSPIMEX(CoupledTimeIntegrator):
                 if self.options.solve_salt:
                     self.timestepper_salt_3d.solve_stage(k, t, self.solver.dt, self.fields.salt_3d,
                                                          update_forcings3d)
-                    if self.options.use_limiter_for_tracers and last_step:
+                    if self.options.use_limiter_for_tracers:
                         self.solver.tracer_limiter.apply(self.fields.salt_3d)
             with timed_stage('momentum_eq'):
                 self.timestepper_mom_3d.solve_stage(k, t, self.solver.dt, self.fields.uv_3d)

@@ -181,7 +181,7 @@ def run_convergence(ref_list, saveplot=False, **options):
 # ---------------------------
 
 
-@pytest.fixture(params=[0, 1], ids=['order-0', 'order-1'])
+@pytest.fixture(params=[0, 1])
 def order(request):
     return request.param
 
@@ -199,5 +199,4 @@ def test_vertical_diffusion(order, implicit):
 # ---------------------------
 
 if __name__ == '__main__':
-    # run(2, order=0, implicit=True)
-    run_convergence([1, 2, 3], order=1, implicit=True)
+    run_convergence([1, 2, 3], order=0, implicit=True)

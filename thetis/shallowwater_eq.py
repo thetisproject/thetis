@@ -47,8 +47,10 @@ class ShallowWaterTerm(Term):
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
         self.quad_degree = 2*p + 1
-        self.dx = dx(degree=self.quad_degree)
-        self.dS = dS(degree=self.quad_degree)
+        self.dx = dx(degree=self.quad_degree,
+                     domain=self.function_space.ufl_domain())
+        self.dS = dS(degree=self.quad_degree,
+                     domain=self.function_space.ufl_domain())
 
     def get_bnd_functions(self, eta_in, uv_in, bnd_id, bnd_conditions):
         """
@@ -324,6 +326,8 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
             # with X=2, theta=6: cot(theta)~10, 3*X*cot(theta)~60
             p = self.u_space.ufl_element().degree()
             alpha = 5.*p*(p+1)
+            if p == 0:
+                alpha = 1.5
             f += (
                 + alpha/avg(h)*inner(tensor_jump(self.u_test, n), stress_jump)*self.dS
                 - inner(avg(grad(self.u_test)), stress_jump)*self.dS

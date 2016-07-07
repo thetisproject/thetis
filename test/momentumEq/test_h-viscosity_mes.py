@@ -186,7 +186,11 @@ def run_convergence(ref_list, saveplot=False, **options):
 # ---------------------------
 
 # NOTE mimetic elements do not converge optimally, rate is 1.48
-# NOTE h. viscosity does not work for p0 yet
+
+
+@pytest.fixture(params=[0, 1])
+def order(request):
+    return request.param
 
 
 @pytest.fixture(params=[True, False], ids=['warped', 'regular'])
@@ -194,12 +198,12 @@ def warped(request):
     return request.param
 
 
-def test_horizontal_viscosity(warped):
-    run_convergence([1, 2, 3], order=1, warped_mesh=warped)
+def test_horizontal_viscosity(warped, order):
+    run_convergence([1, 2, 3], order=order, warped_mesh=warped)
 
 # ---------------------------
 # run individual setup for debugging
 # ---------------------------
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], order=1, warped_mesh=True, element_family='dg-dg', do_export=True, saveplot=True)
+    run_convergence([1, 2, 3], order=0, warped_mesh=False, element_family='dg-dg', do_export=True, saveplot=True)
