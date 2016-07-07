@@ -51,18 +51,16 @@ bathymetry_2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 # --- create solver ---
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=1)
 options = solver_obj.options
-options.cfl_2d = 1.0
-# options.nonlin = False
 options.t_export = t_export
 options.t_end = t_end
 options.outputdir = outputdir
 options.u_advection = u_mag
 options.check_vol_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
-# options.timestepper_type = 'SSPRK33'
+options.timestepper_type = 'SSPRK33'
 # options.timestepper_type = 'CrankNicolson'
-options.timestepper_type = 'SSPIMEX'
-options.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
+if options.timestepper_type == 'CrankNicolson':
+    options.dt = 10.0  # override estimated dt
 
 # initial conditions, piecewise linear function
 elev_x = np.array([0, 30e3, 100e3])
