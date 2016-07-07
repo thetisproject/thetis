@@ -70,7 +70,6 @@ solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 
 options = solver_obj.options
 options.nonlin = False
-options.mimetic = False
 options.solve_salt = True
 options.solve_temp = False
 options.solve_vert_diffusion = False

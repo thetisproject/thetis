@@ -15,7 +15,7 @@ from thetis import *
 import pytest
 
 
-def run_tracer_consistency(mimetic=False, meshtype='regular', do_export=False):
+def run_tracer_consistency(element_family='dg-dg', meshtype='regular', do_export=False):
     t_cycle = 2000.0  # standing wave period
     depth = 50.0
     lx = np.sqrt(9.81*depth)*t_cycle  # wave length
@@ -36,7 +36,7 @@ def run_tracer_consistency(mimetic=False, meshtype='regular', do_export=False):
     elif meshtype == 'warped':
         warped = True
 
-    run_description = 'mimetic={:} meshtype={:}'.format(mimetic, meshtype)
+    run_description = 'element_family={:} meshtype={:}'.format(element_family, meshtype)
     print_info('Running test: ' + run_description)
 
     suffix = ''
@@ -75,7 +75,7 @@ def run_tracer_consistency(mimetic=False, meshtype='regular', do_export=False):
 
     options = solver_obj.options
     options.nonlin = False
-    options.mimetic = False
+    options.element_family = 'dg-dg'
     options.solve_salt = True
     options.solve_temp = False
     options.solve_vert_diffusion = False
@@ -120,11 +120,11 @@ def run_tracer_consistency(mimetic=False, meshtype='regular', do_export=False):
     assert max_abs_overshoot < overshoot_tol, msg
 
 
-@pytest.mark.parametrize('mimetic', [True, False])
+@pytest.mark.parametrize('element_family', ['dg-dg', 'rt-dg'])
 @pytest.mark.parametrize('meshtype', ['regular', 'sloped', 'warped'])
-def test_consistency_dg_regular(mimetic, meshtype):
-    run_tracer_consistency(mimetic=mimetic, meshtype=meshtype, do_export=False)
+def test_consistency_dg_regular(element_family, meshtype):
+    run_tracer_consistency(element_family=element_family, meshtype=meshtype, do_export=False)
 
 
 if __name__ == '__main__':
-    run_tracer_consistency(mimetic=False, meshtype='warped', do_export=True)
+    run_tracer_consistency(element_family='dg-dg', meshtype='warped', do_export=True)

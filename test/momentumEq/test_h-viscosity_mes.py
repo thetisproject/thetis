@@ -9,7 +9,7 @@ from scipy import stats
 import pytest
 
 
-def run(refinement, order=1, mimetic=False, warped_mesh=False, do_export=True):
+def run(refinement, order=1, element_family='dg-dg', warped_mesh=False, do_export=True):
     print '--- running refinement {:}'.format(refinement)
     # domain dimensions - channel in x-direction
     lx = 15.0e3
@@ -53,7 +53,7 @@ def run(refinement, order=1, mimetic=False, warped_mesh=False, do_export=True):
 
     solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     solverobj.options.order = order
-    solverobj.options.mimetic = mimetic
+    solverobj.options.element_family = element_family
     solverobj.options.nonlin = False
     solverobj.options.use_ale_moving_mesh = False
     solverobj.options.u_advection = Constant(1.0)
@@ -133,7 +133,7 @@ def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
     order = options.get('order', 1)
     options.setdefault('do_export', False)
-    space_str = 'rt' if options.get('mimetic') else 'dg'
+    space_str = options.get('element_family')
     l2_err = []
     for r in ref_list:
         l2_err.append(run(r, **options))
@@ -202,4 +202,4 @@ def test_horizontal_viscosity(warped):
 # ---------------------------
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], order=1, warped_mesh=True, mimetic=False, do_export=True, saveplot=True)
+    run_convergence([1, 2, 3], order=1, warped_mesh=True, element_family='dg-dg', do_export=True, saveplot=True)

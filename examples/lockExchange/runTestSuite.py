@@ -104,9 +104,7 @@ bathymetry2d.assign(depth)
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
 options = solver_obj.options
-options.cfl_2d = 1.0
-# options.nonlin = False
-options.mimetic = args.mimetic
+options.element_family = 'rt-dg' if args.mimetic else 'dg-dg'
 options.order = args.poly_order
 options.solve_salt = False
 options.constant_salt = Constant(salt_const)

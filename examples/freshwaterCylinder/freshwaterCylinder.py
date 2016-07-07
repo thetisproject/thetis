@@ -64,7 +64,6 @@ coriolis_2d.interpolate(
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solver_obj.options
-options.mimetic = False
 options.solve_salt = True
 options.solve_temp = False
 options.constant_temp = Constant(temp_const)

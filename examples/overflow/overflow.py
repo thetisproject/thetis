@@ -56,9 +56,6 @@ temp_const = 10.0
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solver_obj.options
-options.cfl_2d = 1.0
-# options.nonlin = False
-options.mimetic = False
 options.solve_salt = True
 options.solve_temp = False
 options.constant_temp = Constant(temp_const)

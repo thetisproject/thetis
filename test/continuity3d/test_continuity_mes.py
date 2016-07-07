@@ -9,7 +9,7 @@ from scipy import stats
 import pytest
 
 
-def setup1(lx, h0, mimetic=True):
+def setup1(lx, h0, element_family='dg-dg'):
     """
     Linear bath, zero elev, constant uv
 
@@ -43,16 +43,16 @@ def setup1(lx, h0, mimetic=True):
             v_str,
             w_str,
         ), lx=lx, h0=h0)
-    out['options'] = {'mimetic': mimetic}
+    out['options'] = {'element_family': element_family}
     return out
 
 
 def setup1dg(lx, h0):
     """Linear bath, zero elev, constant uv"""
-    return setup1(lx, h0, mimetic=False)
+    return setup1(lx, h0, element_family='dg-dg')
 
 
-def setup2(lx, h0, mimetic=True):
+def setup2(lx, h0, element_family='rt-dg'):
     """
     Constant bath and elev, uv depends on (x,y)
 
@@ -81,16 +81,16 @@ def setup2(lx, h0, mimetic=True):
          '0.0',
          '-(0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/lx)/lx + 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx)'),
         lx=lx)
-    out['options'] = {'mimetic': mimetic}
+    out['options'] = {'element_family': element_family}
     return out
 
 
 def setup2dg(lx, h0):
     """Constant bath and elev, uv depends on (x,y)"""
-    return setup2(lx, h0, mimetic=False)
+    return setup2(lx, h0, element_family='dg-dg')
 
 
-def setup3(lx, h0, mimetic=True):
+def setup3(lx, h0, element_family='rt-dg'):
     """Non-trivial bath and elev, u=1, v=0"""
     out = {}
     out['bath_expr'] = Expression(
@@ -120,16 +120,16 @@ def setup3(lx, h0, mimetic=True):
             v_str,
             w_str,
         ), lx=lx, h0=h0)
-    out['options'] = {'mimetic': mimetic}
+    out['options'] = {'element_family': element_family}
     return out
 
 
 def setup3dg(lx, h0):
     """Non-trivial bath and elev, u=1, v=0"""
-    return setup2(lx, h0, mimetic=False)
+    return setup2(lx, h0, element_family='dg-dg')
 
 
-def setup4(lx, h0, mimetic=True):
+def setup4(lx, h0, element_family='rt-dg'):
     """Non-trivial bath and elev, uv depends on (x,y)"""
     out = {}
     out['bath_expr'] = Expression(
@@ -159,16 +159,16 @@ def setup4(lx, h0, mimetic=True):
             v_str,
             w_str,
         ), lx=lx, h0=h0)
-    out['options'] = {'mimetic': mimetic}
+    out['options'] = {'element_family': element_family}
     return out
 
 
 def setup4dg(lx, h0):
     """Non-trivial bath and elev, uv depends on (x,y)"""
-    return setup3(lx, h0, mimetic=False)
+    return setup3(lx, h0, element_family='dg-dg')
 
 
-def setup5(lx, h0, mimetic=True):
+def setup5(lx, h0, element_family='rt-dg'):
     """Non-trivial bath and elev, uv depends on (x,y,z)"""
     out = {}
     out['bath_expr'] = Expression(
@@ -198,13 +198,13 @@ def setup5(lx, h0, mimetic=True):
             v_str,
             w_str,
         ), lx=lx, h0=h0)
-    out['options'] = {'mimetic': mimetic}
+    out['options'] = {'element_family': element_family}
     return out
 
 
 def setup5dg(lx, h0):
     """Non-trivial bath and elev, uv depends on (x,y,z)"""
-    return setup4(lx, h0, mimetic=False)
+    return setup4(lx, h0, element_family='dg-dg')
 
 
 def run(setup, refinement, order, do_export=True):
@@ -235,7 +235,7 @@ def run(setup, refinement, order, do_export=True):
 
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     solver_obj.options.order = order
-    solver_obj.options.mimetic = False
+    solver_obj.options.element_family = 'dg-dg'
     solver_obj.options.solve_salt = False
     solver_obj.options.solve_temp = False
     solver_obj.options.u_advection = Constant(1.0)
@@ -245,8 +245,8 @@ def run(setup, refinement, order, do_export=True):
     solver_obj.options.dt_2d = 10.0
     solver_obj.options.update(sdict['options'])
 
-    assert solver_obj.options.mimetic is False, ('this test is not suitable '
-                                                 'for mimetic elements')
+    assert solver_obj.options.element_family == 'dg-dg', ('this test is not suitable '
+                                                          'for mimetic elements')
     # NOTE use symmetic uv condition to get correct w
     bnd_mom = {'symm': None}
     solver_obj.bnd_functions['momentum'] = {1: bnd_mom, 2: bnd_mom,
