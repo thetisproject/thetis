@@ -101,9 +101,9 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
 
     u_max = 1.0
     w_max = 1.2e-2
-    dt_hor_adv = 1.0/20.0*delta_x/np.sqrt(2)/u_max
-    dt_vert_adv = 1.0/3.0*delta_z/w_max
-    dt_visc = 1.0/120.0*(delta_x/np.sqrt(2))**2/nu_scale
+    dt_hor_adv = 1.0/10.0/(poly_order + 1)*delta_x/np.sqrt(2)/u_max
+    dt_vert_adv = 1.0/1.5/(poly_order + 1)*delta_z/w_max
+    dt_visc = 1.0/60.0/(poly_order + 1)*(delta_x/np.sqrt(2))**2/nu_scale
     print_output('Max dt for hor. advection: {:}'.format(dt_hor_adv))
     print_output('Max dt for vert. advection: {:}'.format(dt_vert_adv))
     print_output('Max dt for viscosity: {:}'.format(dt_visc))
