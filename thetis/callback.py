@@ -7,28 +7,24 @@ from __future__ import absolute_import
 from .utility import *
 from abc import ABCMeta, abstractproperty, abstractmethod
 import h5py
+from collections import defaultdict
 
 
-class CallbackManager(object):
+class CallbackManager(defaultdict):
     """
     Stores callbacks in different categories and provides methods for
     evaluating them.
     """
-    def __init__(self, modes=('export', 'timestep')):
-        self.callbacks = {}
-        for mode in modes:
-            self.callbacks[mode] = OrderedDict()
+    def __init__(self):
+        super(CallbackManager, self).__init__(OrderedDict)
 
     def add(self, callback, mode):
         key = callback.name
-        self.callbacks[mode][key] = callback
+        self[mode][key] = callback
 
     def evaluate(self, solver_obj, mode):
-        for key in self.callbacks[mode]:
-            self.callbacks[mode][key].evaluate(solver_obj)
-
-    def __getitem__(self, key):
-        return self.callbacks[key]
+        for key in self[mode]:
+            self[mode][key].evaluate(solver_obj)
 
 
 class DiagnosticHDF5(object):

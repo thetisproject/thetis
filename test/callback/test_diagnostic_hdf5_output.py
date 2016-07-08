@@ -4,10 +4,16 @@ Tests diagnostic callbacks and hdf file output.
 from thetis import *
 from thetis.callback import VolumeConservation3DCallback
 import h5py
-import shutil
+import pytest
 
 
-def test_callbacks():
+@pytest.fixture(scope='session')
+def tmp_outputdir(tmpdir_factory):
+    fn = tmpdir_factory.mktemp('outputs')
+    return str(fn)
+
+
+def test_callbacks(tmp_outputdir):
 
     lx = 45000.0
     ly = 3000.0
@@ -20,8 +26,8 @@ def test_callbacks():
     # estimate of max advective velocity used to estimate time step
     u_mag = Constant(0.5)
 
-    outputdir = 'outputs'
-    print_info('Exporting to '+outputdir)
+    outputdir = tmp_outputdir
+    print_info('Exporting to ' + outputdir)
 
     # bathymetry
     p1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -81,7 +87,7 @@ def test_callbacks():
         def __call__(self, solver_obj):
             value = self.const_val
             c = Constant(self.const_val,
-                         domain=solver_obj.mesh.coordinates.ufl_domain())
+                         domain=solver_obj.mesh)
             integral = assemble(c*dx)
             return value, integral
 
@@ -145,10 +151,6 @@ def test_callbacks():
         assert np.allclose(reldiff, correct_reldiff)
         assert np.allclose(integral, correct_integral)
 
-    # remove all output files
-    print_info('Removing dir: {:}'.format(solver_obj.options.outputdir))
-    shutil.rmtree(solver_obj.options.outputdir)
-
 
 if __name__ == '__main__':
-    test_callbacks()
+    test_callbacks('outputs')

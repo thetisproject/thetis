@@ -41,7 +41,7 @@ class FlowSolver2d(FrozenClass):
         self.i_export = 0
         self.next_export_t = self.simulation_time + self.options.t_export
 
-        self.callbacks = callback.CallbackManager(('export', 'timestep'))
+        self.callbacks = callback.CallbackManager()
         """Callback manager object"""
 
         self.fields = FieldDict()

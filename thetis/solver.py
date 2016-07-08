@@ -58,7 +58,7 @@ class FlowSolver(FrozenClass):
                               'temp': {},
                               }
 
-        self.callbacks = callback.CallbackManager(('export', 'timestep'))
+        self.callbacks = callback.CallbackManager()
         """Callback manager object"""
 
         self.fields = FieldDict()
