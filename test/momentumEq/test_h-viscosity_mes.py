@@ -27,7 +27,7 @@ def run(refinement, order=1, element_family='dg-dg', warped_mesh=False, do_expor
     # set time steps
     # stable explicit time step for diffusion
     dx = lx/nx
-    alpha = 1.0/200.0  # TODO theoretical alpha...
+    alpha = 1.0/350.0  # TODO theoretical alpha...
     dt = alpha * dx**2/h_viscosity
     # simulation run time
     t_end = 3000.0
@@ -188,22 +188,23 @@ def run_convergence(ref_list, saveplot=False, **options):
 # NOTE mimetic elements do not converge optimally, rate is 1.48
 
 
-@pytest.fixture(params=[0, 1])
-def order(request):
-    return request.param
-
-
 @pytest.fixture(params=[True, False], ids=['warped', 'regular'])
 def warped(request):
     return request.param
 
 
-def test_horizontal_viscosity(warped, order):
-    run_convergence([1, 2, 3], order=order, warped_mesh=warped)
+@pytest.mark.parametrize(('family', 'order'),
+                         [('dg-dg', 0),
+                          ('dg-dg', 1),
+                          pytest.mark.xfail(reason='rt-0 still broken')(('rt-dg', 0)),
+                          ('rt-dg', 1)])
+def test_horizontal_viscosity(warped, order, family):
+    run_convergence([1, 2, 3], order=order, warped_mesh=warped,
+                    element_family=family)
 
 # ---------------------------
 # run individual setup for debugging
 # ---------------------------
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], order=0, warped_mesh=False, element_family='dg-dg', do_export=True, saveplot=True)
+    run_convergence([1, 2, 3], order=1, warped_mesh=True, element_family='rt-dg', do_export=True, saveplot=True)
