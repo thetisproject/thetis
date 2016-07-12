@@ -118,6 +118,12 @@ field_metadata['elev_cg_3d'] = {
     'unit': 'm',
     'filename': 'ElevationCG3d',
 }
+field_metadata['elev_cg_2d'] = {
+    'name': 'Water elevation CG',
+    'shortname': 'Elevation',
+    'unit': 'm',
+    'filename': 'ElevationCG2d',
+}
 field_metadata['uv_3d'] = {
     'name': 'Horizontal velocity',
     'shortname': 'Horizontal velocity',

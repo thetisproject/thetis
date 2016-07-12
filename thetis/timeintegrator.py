@@ -1118,3 +1118,209 @@ class ERKLPUM2StageSemiImplicit(ERKSemiImplicitGeneric, ERKLPUM2Abstract):
 
 class ERKLPUM2Stage(ERKStageGeneric, ERKLPUM2Abstract):
     pass
+
+
+class ForwardEulerAbstract(AbstractRKScheme):
+    """
+    Forward Euler
+    Explicit Runge Kutta method
+
+    CFL coefficient is 1.0
+    """
+    a = [[0]]
+    b = [1.0]
+    c = [0]
+    cfl_coeff = 1.0
+
+
+class ForwardEulerSemiImplicit(TimeIntegrator, ForwardEulerAbstract):
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
+                 solver_parameters={}, semi_implicit=True, theta=0.5):
+        super(ForwardEulerSemiImplicit, self).__init__(equation, solver_parameters)
+
+        self.solver_parameters.setdefault('snes_monitor', False)
+        if semi_implicit:
+            self.solver_parameters.setdefault('snes_type', 'ksponly')
+        else:
+            self.solver_parameters.setdefault('snes_type', 'newtonls')
+
+        self.theta = Constant(theta)
+
+        self.solution = solution
+        self.solution_old = Function(self.equation.function_space, name='old solution')
+
+        self.fields = fields
+
+        self.dt_const = Constant(dt)
+
+        if semi_implicit:
+            # linearize around previous sub-timestep using the fact that all terms are written in the form A(u_nl) u
+            sol_nl0 = self.solution_old
+        else:
+            # solve the full nonlinear residual form
+            sol_nl0 = self.solution
+
+        args = (self.fields, self.fields, bnd_conditions)
+        self.F_0 = (self.equation.mass_term(self.solution) -
+                    self.equation.mass_term(self.solution_old) -
+                    self.dt_const*(
+                        self.theta*self.equation.residual('implicit', self.solution, sol_nl0, *args) +
+                        (1-self.theta)*self.equation.residual('implicit', self.solution_old, self.solution_old, *args) +
+                        self.equation.residual('explicit', self.solution_old, self.solution_old, *args) +
+                        self.equation.residual('source', self.solution_old, self.solution_old, *args))
+                    )
+        self.mass_form = self.equation.mass_term(self.equation.trial)
+        self.f = self.dt_const*(
+            self.theta*self.equation.residual('implicit', self.solution, sol_nl0, *args) +
+            (1-self.theta)*self.equation.residual('implicit', self.solution_old, self.solution_old, *args) +
+            self.equation.residual('explicit', self.solution_old, self.solution_old, *args) +
+            self.equation.residual('source', self.solution_old, self.solution_old, *args))
+        self.update_solver()
+
+    def update_solver(self):
+        """Builds linear problems for each stage. These problems need to be
+        re-created after each mesh update."""
+        prob_f0 = NonlinearVariationalProblem(self.F_0, self.solution)
+        self.solver_f0 = NonlinearVariationalSolver(prob_f0, options_prefix=self.name + '_k0',
+                                                    solver_parameters=self.solver_parameters)
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(solution)
+
+    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
+        """
+        Solves a single stage of step from t to t+dt.
+        All functions that the equation depends on must be at rigth state
+        corresponding to each sub-step.
+        """
+        self.dt_const.assign(dt)
+        if i_stage == 0:
+            # stage 0
+            if update_forcings is not None:
+                update_forcings(t + self.c[i_stage]*dt)
+            self.solver_f0.solve()
+            # l_form = assemble(self.f)
+            # a_form = assemble(self.mass_term)
+            # solve(a_form, solution, l_form)
+            # solution += self.solution_old
+            self.solution_old.assign(solution)
+
+    def advance(self, t, dt, solution, update_forcings):
+        """Advances one full time step from t to t+dt.
+        This assumes that all the functions that the equation depends on are
+        constants across this interval. If dependent functions need to be
+        updated call solve_stage instead.
+        """
+        for k in range(1):
+            self.solve_stage(k, t, dt, solution,
+                             update_forcings)
+
+
+class ForwardEulerStage(TimeIntegrator, ForwardEulerAbstract):
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
+        """Creates forms for the time integrator"""
+        super(ForwardEulerStage, self).__init__(equation, solver_parameters)
+
+        self.solution = solution
+        self.fields = fields
+
+        fs = self.equation.function_space
+        self.tendency = Function(fs, name='tendency')
+        self.solution_form_old = Function(fs, name='solution form old')
+        self.l_form = Function(fs, name='linear form')
+
+        self.dt_const = Constant(dt)
+
+        # fully explicit evaluation
+        self.a_rk = self.equation.mass_term(self.equation.trial)
+        self.L_RK = self.dt_const*self.equation.residual('all', self.solution, self.solution, self.fields, self.fields, bnd_conditions)
+        self.L_RK += inner(self.solution, self.equation.test)*dx
+
+        self.update_solver()
+
+    def update_solver(self):
+        """Builds linear problems for each stage. These problems need to be
+        re-created after each mesh update."""
+        self.mass_matrix = assemble(self.a_rk)
+        self.linsolver = LinearSolver(self.mass_matrix)
+        # prob = LinearVariationalProblem(self.a_rk, self.L_RK, self.tendency)
+        # self.solver = LinearVariationalSolver(prob, options_prefix=self.name + '_k',
+        #                                       solver_parameters=self.solver_parameters)
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        assemble(self.L_RK, self.l_form)
+
+    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
+        """
+        Solves a single stage of step from t to t+dt.
+        All functions that the equation depends on must be at right state
+        corresponding to each sub-step.
+        """
+        self.dt_const.assign(dt)
+        if update_forcings is not None:
+            update_forcings(t + self.c[i_stage]*dt)
+
+        # self.presolve()
+        # self.postsolve()
+
+        # solve equations for the current geometry
+        assemble(self.a_rk, self.mass_matrix)
+        self.linsolver = LinearSolver(self.mass_matrix)
+        self.linsolver.solve(self.solution, self.l_form)
+
+        # pre-assemble form for the next time step
+        assemble(self.L_RK, self.l_form)
+
+        # # solve tendency
+        # # self.solver.solve()
+        #
+        # assemble(self.L_RK, self.l_form)
+        # a_form = assemble(self.a_rk)
+        # solve(a_form, self.tendency, self.l_form)
+        #
+        # # update old solution
+        # # solve(a_form, self.solution, self.solution_form_old)
+        # # self.solution += self.tendency
+        #
+        # # # solve the next internal solution
+        # # sol_sum = float(self.beta[i_stage + 1][i_stage])*self.tendency
+        # # sol_sum += self.solution
+        # # self.solution.assign(sol_sum)
+        # self._update_old_solution_form(solution)
+        #
+        # assemble(inner(self.solution + self.tendency, self.equation.test)*dx, self.l_form)
+
+    def presolve(self):
+        # # solve tendency
+        # self.solver.solve()
+        # # solve the next internal solution
+        # self.solution += self.tendency
+
+        # # solve tendency
+        assemble(self.L_RK, self.l_form)
+        # a_form = assemble(self.a_rk)
+        # solve(a_form, self.solution, self.l_form)
+
+        # assemble new solution
+        # assemble(inner(self.solution, self.equation.test)*dx, self.l_form)
+
+    def postsolve(self):
+        # update solution in current mesh
+        # a_form = assemble(self.a_rk)
+        # solve(a_form, self.solution, self.l_form)
+        assemble(self.a_rk, self.mass_matrix)
+        self.linsolver = LinearSolver(self.mass_matrix)
+        self.linsolver.solve(self.solution, self.l_form)
+        #solve(self.mass_matrix, self.solution, self.l_form)
+
+    def advance(self, t, dt, solution, update_forcings=None):
+        """Advances one full time step from t to t+dt.
+        This assumes that all the functions that the equation depends on are
+        constants across this interval. If dependent functions need to be
+        updated call solve_stage instead.
+        """
+        for k in range(self.n_stages):
+            self.solve_stage(k, t, dt, solution,
+                             update_forcings)

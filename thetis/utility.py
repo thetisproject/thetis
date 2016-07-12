@@ -281,9 +281,8 @@ class VerticalVelocitySolver(object):
                 # use symmetry condition
                 l += -(uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_bnd
 
-        # TODO needs machinery to recompute jacobian after mesh update
         self.prob = LinearVariationalProblem(a, l, solution,
-                                             constant_jacobian=True)
+                                             constant_jacobian=False)
         self.solver = LinearVariationalSolver(self.prob,
                                               solver_parameters=solver_parameters)
 
@@ -298,7 +297,7 @@ class VerticalIntegrator(object):
     """
     def __init__(self, input, output, bottom_to_top=True,
                  bnd_value=Constant(0.0), average=False,
-                 bathymetry=None, solver_parameters={}):
+                 bathymetry=None, elevation=None, solver_parameters={}):
         solver_parameters.setdefault('snes_type', 'ksponly')
         solver_parameters.setdefault('ksp_type', 'preonly')
         solver_parameters.setdefault('pc_type', 'bjacobi')
@@ -342,11 +341,10 @@ class VerticalIntegrator(object):
                 a += up_value*jump(phi, normal[2])*self.dS_h
         source = input
         if average:
-            # FIXME this should be H not h in case of a moving mesh
-            source = input/bathymetry
+            H = bathymetry + elevation
+            source = input/H
         l = inner(source, phi)*self.dx + bnd_term
-        # TODO needs machinery to recompute jacobian after mesh update
-        self.prob = LinearVariationalProblem(a, l, output, constant_jacobian=True)
+        self.prob = LinearVariationalProblem(a, l, output, constant_jacobian=False)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
@@ -733,26 +731,34 @@ class ALEMeshCoordinateUpdater(object):
     """Updates extrusion so that free surface mathces eta3d value"""
     def __init__(self, mesh, eta, bathymetry, z_coord, z_coord_ref,
                  solver_parameters={}):
-        solver_parameters.setdefault('ksp_atol', 1e-12)
-        solver_parameters.setdefault('ksp_rtol', 1e-16)
         self.coords = mesh.coordinates
         self.z_coord = z_coord
 
-        fs = z_coord.function_space()
-        # sigma stretch function
-        new_z = eta*(z_coord_ref + bathymetry)/bathymetry + z_coord_ref
-        # update z_coord
-        tri = TrialFunction(fs)
-        test = TestFunction(fs)
-        a = tri*test*dx
-        l = new_z*test*dx
-        self.prob = LinearVariationalProblem(a, l, z_coord)
-        self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
+        self.eta = eta
+        self.z_coord_ref = z_coord_ref
+        self.bathymetry = bathymetry
+        # # sigma stretch function
+        # new_z = eta*(z_coord_ref + bathymetry)/bathymetry + z_coord_ref
+        # # update z_coord
+        # fs = z_coord.function_space()
+        # tri = TrialFunction(fs)
+        # test = TestFunction(fs)
+        # self.a = tri*test*dx
+        # self.l = new_z*test*dx
+        # self.prob = LinearVariationalProblem(self.a, self.l, self.z_coord)
+        # self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
-        self.solver.solve()
-        # assign to mesh
-        self.coords.dat.data[:, 2] = self.z_coord.dat.data[:]
+        eta = self.eta.dat.data[:]
+        z_ref = self.z_coord_ref.dat.data[:]
+        bath = self.bathymetry.dat.data[:]
+        new_z = eta*(z_ref + bath)/bath + z_ref
+        self.coords.dat.data[:, 2] = new_z
+        self.z_coord.dat.data[:] = new_z
+        # self.solver.solve()
+        # # assign to mesh
+        # self.coords.dat.data[:, 2] = self.z_coord.dat.data[:]
+        # print ' ** deepest point', self.coords.dat.data[:, 2].min()
 
 
 class MeshVelocitySolver(object):
@@ -767,7 +773,6 @@ class MeshVelocitySolver(object):
         # compute w_mesh at the free surface (constant over vertical!)
         # w_mesh_surf = w - eta_grad[0]*uv[0] + eta_grad[1]*uv[1]
         fs = w_mesh.function_space()
-        z = fs.mesh().coordinates[2]
         tri = TrialFunction(fs)
         test = TestFunction(fs)
         a = inner(tri, test)*dx
@@ -779,21 +784,19 @@ class MeshVelocitySolver(object):
         # compute w in the whole water column (0 at bed)
         # w_mesh = w_mesh_surf * (z+h)/(eta+h)
         fs = w_mesh.function_space()
-        z = fs.mesh().coordinates[2]
         tri = TrialFunction(fs)
         test = TestFunction(fs)
         a = tri*test*dx
-        tot_depth = eta + bathymetry
-        l = (w_mesh_surf*(z+bathymetry)/tot_depth)*test*dx
+        l = (w_mesh_surf*(z_coord_ref + bathymetry)/bathymetry)*test*dx
         self.prob_w_mesh = LinearVariationalProblem(a, l, w_mesh)
         self.solver_w_mesh = LinearVariationalSolver(self.prob_w_mesh, solver_parameters=solver_parameters)
 
         # compute dw_mesh/dz in the whole water column
         fs = w_mesh.function_space()
-        z = fs.mesh().coordinates[2]
         tri = TrialFunction(fs)
         test = TestFunction(fs)
         a = tri*test*dx
+        tot_depth = eta + bathymetry
         l = (w_mesh_surf/tot_depth)*test*dx
         self.prob_dw_mesh_dz = LinearVariationalProblem(a, l, w_mesh_ddz_3d)
         self.solver_dw_mesh_dz = LinearVariationalSolver(self.prob_dw_mesh_dz, solver_parameters=solver_parameters)

@@ -230,6 +230,7 @@ class FlowSolver(FrozenClass):
 
         self.fields.elev_3d = Function(self.function_spaces.H)
         self.fields.elev_cg_3d = Function(self.function_spaces.P1)
+        self.fields.elev_cg_2d = Function(self.function_spaces.P1_2d)
         self.fields.bathymetry_3d = Function(self.function_spaces.P1)
         self.fields.uv_3d = Function(self.function_spaces.U)
         if self.options.use_bottom_friction:
@@ -245,10 +246,10 @@ class FlowSolver(FrozenClass):
         self.fields.uv_p1_3d = Function(self.function_spaces.P1v)
         self.fields.w_3d = Function(self.function_spaces.W)
         if self.options.use_ale_moving_mesh:
-            self.fields.w_mesh_3d = Function(self.function_spaces.H)
-            self.fields.w_mesh_ddz_3d = Function(self.function_spaces.H)
-            self.fields.w_mesh_surf_3d = Function(self.function_spaces.H)
-            self.fields.w_mesh_surf_2d = Function(self.function_spaces.H_2d)
+            self.fields.w_mesh_3d = Function(self.function_spaces.P1)
+            self.fields.w_mesh_ddz_3d = Function(self.function_spaces.P1)
+            self.fields.w_mesh_surf_3d = Function(self.function_spaces.P1)
+            self.fields.w_mesh_surf_2d = Function(self.function_spaces.P1_2d)
         if self.options.solve_salt:
             self.fields.salt_3d = Function(self.function_spaces.H, name='Salinity')
         if self.options.solve_temp:
@@ -421,15 +422,16 @@ class FlowSolver(FrozenClass):
 
         # ----- Time integrators
         self.set_time_step()
-        if self.options.use_mode_split:
-            if self.options.use_imex:
-                self.timestepper = coupled_timeintegrator.CoupledSSPIMEX(weakref.proxy(self))
-            elif self.options.use_semi_implicit_2d:
-                self.timestepper = coupled_timeintegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
-            else:
-                self.timestepper = coupled_timeintegrator.CoupledSSPRKSync(weakref.proxy(self))
-        else:
-            self.timestepper = coupled_timeintegrator.CoupledSSPRKSingleMode(weakref.proxy(self))
+        self.timestepper = coupled_timeintegrator.CoupledForwardEuler(weakref.proxy(self))
+        # if self.options.use_mode_split:
+        #     if self.options.use_imex:
+        #         self.timestepper = coupled_timeintegrator.CoupledSSPIMEX(weakref.proxy(self))
+        #     elif self.options.use_semi_implicit_2d:
+        #         self.timestepper = coupled_timeintegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
+        #     else:
+        #         self.timestepper = coupled_timeintegrator.CoupledSSPRKSync(weakref.proxy(self))
+        # else:
+        #     self.timestepper = coupled_timeintegrator.CoupledSSPRKSingleMode(weakref.proxy(self))
         print_output('using {:} time integrator'.format(self.timestepper.__class__.__name__))
 
         # compute maximal diffusivity for explicit schemes
@@ -477,7 +479,8 @@ class FlowSolver(FrozenClass):
                                               bottom_to_top=True,
                                               bnd_value=Constant((0.0, 0.0, 0.0)),
                                               average=True,
-                                              bathymetry=self.fields.bathymetry_3d)
+                                              bathymetry=self.fields.bathymetry_3d,
+                                              elevation=self.fields.elev_cg_3d)
         if self.options.baroclinic:
             if self.options.solve_salt:
                 s = self.fields.salt_3d
@@ -501,7 +504,8 @@ class FlowSolver(FrozenClass):
                                                          self.fields.baroc_head_int_3d,
                                                          bottom_to_top=True,
                                                          average=True,
-                                                         bathymetry=self.fields.bathymetry_3d)
+                                                         bathymetry=self.fields.bathymetry_3d,
+                                                         elevation=self.fields.elev_cg_3d)
             self.extract_surf_baro_head = SubFunctionExtractor(self.fields.baroc_head_int_3d,
                                                                self.fields.baroc_head_2d,
                                                                boundary='top', elem_facet='top')
@@ -534,7 +538,7 @@ class FlowSolver(FrozenClass):
                                                                  elem_height=self.fields.v_elem_size_3d)
         if self.options.use_ale_moving_mesh:
             self.mesh_coord_updater = ALEMeshCoordinateUpdater(self.mesh,
-                                                               self.fields.elev_3d,
+                                                               self.fields.elev_cg_3d,
                                                                self.fields.bathymetry_3d,
                                                                self.fields.z_coord_3d,
                                                                self.fields.z_coord_ref_3d)
@@ -543,7 +547,7 @@ class FlowSolver(FrozenClass):
                                                        boundary='top', elem_facet='top')
             self.copy_surf_w_mesh_to_3d = ExpandFunctionTo3d(self.fields.w_mesh_surf_2d,
                                                              self.fields.w_mesh_surf_3d)
-            self.w_mesh_solver = MeshVelocitySolver(self, self.fields.elev_3d,
+            self.w_mesh_solver = MeshVelocitySolver(self, self.fields.elev_cg_3d,
                                                     self.fields.uv_3d,
                                                     self.fields.w_3d,
                                                     self.fields.w_mesh_3d,
@@ -570,6 +574,7 @@ class FlowSolver(FrozenClass):
                                                                  self.fields.parab_visc_3d)
         self.uv_p1_projector = Projector(self.fields.uv_3d, self.fields.uv_p1_3d)
         self.elev_3d_to_cg_projector = Projector(self.fields.elev_3d, self.fields.elev_cg_3d)
+        self.elev_2d_to_cg_projector = Projector(self.fields.elev_2d, self.fields.elev_cg_2d)
 
         # ----- set initial values
         ExpandFunctionTo3d(self.fields.bathymetry_2d, self.fields.bathymetry_3d).solve()
