@@ -13,6 +13,7 @@ from . import exporter
 from .field_defs import field_metadata
 from .options import ModelOptions
 from . import callback
+from .log import *
 
 
 class FlowSolver2d(FrozenClass):

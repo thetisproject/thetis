@@ -9,7 +9,6 @@ To print to the model output stream, use :func:`~.print_output`.
 Debug, warning etc. messages are issued with :func:`~.debug`, :func:`~.info`,
 :func:`~.warning`, :func:`~.error`, :func:`~.critical` methods.
 """
-
 from thetis.utility import COMM_WORLD
 import logging
 

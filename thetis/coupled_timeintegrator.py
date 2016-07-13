@@ -6,6 +6,7 @@ Tuomas Karna 2015-07-06
 from __future__ import absolute_import
 from .utility import *
 from . import timeintegrator
+from .log import *
 
 # TODO turbulence update. move out from _update_all_dependencies ?
 

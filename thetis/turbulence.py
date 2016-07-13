@@ -68,6 +68,7 @@ from __future__ import absolute_import
 from .tracer_eq import *
 from .utility import *
 from .stability_functions import *
+from .log import *
 
 
 class GLSModelOptions(AttrDict):

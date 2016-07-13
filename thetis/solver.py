@@ -18,6 +18,7 @@ import weakref
 from .field_defs import field_metadata
 from .options import ModelOptions
 from . import callback
+from .log import *
 
 
 class FlowSolver(FrozenClass):
@@ -99,9 +100,8 @@ class FlowSolver(FrozenClass):
             self.dt_2d = self.dt
             self.M_modesplit = 1
 
-        print_output('dt = {0:f}'.format(self.dt), comm=comm)
-        print_output('2D dt = {0:f} {1:d}'.format(self.dt_2d, self.M_modesplit),
-                     comm=comm)
+        print_output('dt = {0:f}'.format(self.dt))
+        print_output('2D dt = {0:f} {1:d}'.format(self.dt_2d, self.M_modesplit))
         sys.stdout.flush()
 
     def create_function_spaces(self):

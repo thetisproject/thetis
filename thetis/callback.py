@@ -8,6 +8,7 @@ from .utility import *
 from abc import ABCMeta, abstractproperty, abstractmethod
 import h5py
 from collections import defaultdict
+from .log import *
 
 
 class CallbackManager(defaultdict):
