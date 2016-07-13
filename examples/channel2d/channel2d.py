@@ -57,10 +57,10 @@ options.outputdir = outputdir
 options.u_advection = u_mag
 options.check_vol_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
-# options.timestepper_type = 'SSPRK33'
+options.timestepper_type = 'SSPRK33'
 # options.timestepper_type = 'CrankNicolson'
-options.timestepper_type = 'SSPIMEX'
-options.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
+if options.timestepper_type == 'CrankNicolson':
+    options.dt = 10.0  # override estimated dt
 
 # initial conditions, piecewise linear function
 elev_x = np.array([0, 30e3, 100e3])
