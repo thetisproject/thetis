@@ -114,19 +114,19 @@ def test_steady_state_channel_mms(options):
     # NOTE: these currently only pass for order==1
     expected_order = order + 1
     eta_errs = numpy.array(eta_errs)
-    print 'eta errors:', eta_errs
-    print 'convergence:', eta_errs[:-1]/eta_errs[1:], eta_errs[0]/eta_errs[-1]
+    print_output('eta errors: {:}'.format(eta_errs))
+    print_output('convergence: {:} {:}'.format(eta_errs[:-1]/eta_errs[1:], eta_errs[0]/eta_errs[-1]))
     assert(all(eta_errs[:-1]/eta_errs[1:] > 2.**expected_order*0.75))
     assert(eta_errs[0]/eta_errs[-1] > (2.**expected_order)**(len(eta_errs)-1)*0.75)
-    print "PASSED"
+    print_output("PASSED")
 
     expected_order = order + 1
     u_errs = numpy.array(u_errs)
-    print 'u errors:', u_errs
-    print 'convergence:', u_errs[:-1]/u_errs[1:], u_errs[0]/u_errs[-1]
+    print_output('u errors: {:}'.format(u_errs))
+    print_output('convergence: {:} {:}'.format(u_errs[:-1]/u_errs[1:], u_errs[0]/u_errs[-1]))
     assert(all(u_errs[:-1]/u_errs[1:] > 2.**expected_order*0.75))
     assert(u_errs[0]/u_errs[-1] > (2.**expected_order)**(len(u_errs)-1)*0.75)
-    print "PASSED"
+    print_output("PASSED")
 
 
 if __name__ == '__main__':

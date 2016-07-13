@@ -151,7 +151,7 @@ def setup4dg(lx, ly, h0, kappa0):
 
 def run(setup, refinement, order, do_export=True):
     """Run single test and return L2 error"""
-    print '--- running {:} refinement {:}'.format(setup.__name__, refinement)
+    print_output('--- running {:} refinement {:}'.format(setup.__name__, refinement))
     # domain dimensions
     lx = 15e3
     ly = 10e3
@@ -258,7 +258,7 @@ def run(setup, refinement, order, do_export=True):
         solver_obj.export()
 
     l2_err = errornorm(trac_ana_ho, solver_obj.fields.salt_3d)/numpy.sqrt(area)
-    print 'L2 error {:.12f}'.format(l2_err)
+    print_output('L2 error {:.12f}'.format(l2_err))
 
     return l2_err
 
@@ -300,14 +300,14 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False):
             imgfile += '.png'
             img_dir = create_directory('plots')
             imgfile = os.path.join(img_dir, imgfile)
-            print 'saving figure', imgfile
+            print_output('saving figure {:}'.format(imgfile))
             plt.savefig(imgfile, dpi=200, bbox_inches='tight')
         if expected_slope is not None:
             err_msg = '{:}: Wrong convergence rate {:.4f}, expected {:.4f}'.format(setup_name, slope, expected_slope)
             assert abs(slope - expected_slope)/expected_slope < slope_rtol, err_msg
-            print '{:}: convergence rate {:.4f} PASSED'.format(setup_name, slope)
+            print_output('{:}: convergence rate {:.4f} PASSED'.format(setup_name, slope))
         else:
-            print '{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope)
+            print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
     check_convergence(x_log, y_log, order+1, 'tracer', save_plot)

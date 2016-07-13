@@ -66,7 +66,7 @@ solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 # p = 2.5*x/lx + 0.5
 # sigma = -depth * (0.5*np.tanh(p*(-2.0*z/depth - 1.0))/np.tanh(p) + 0.5)
 # coords.dat.data[:, 2] = sigma
-# print coords.dat.data[:, 2].min(), coords.dat.data[:, 2].max()
+# print_output(coords.dat.data[:, 2].min(), coords.dat.data[:, 2].max())
 
 options = solver_obj.options
 options.nonlin = False

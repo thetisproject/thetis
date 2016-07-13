@@ -10,7 +10,7 @@ import pytest
 
 
 def run(refinement, order=1, warped_mesh=False, do_export=True):
-    print '--- running refinement {:}'.format(refinement)
+    print_output('--- running refinement {:}'.format(refinement))
     # domain dimensions - channel in x-direction
     lx = 15.0e3
     ly = 6.0e3/refinement
@@ -114,7 +114,7 @@ def run(refinement, order=1, warped_mesh=False, do_export=True):
         t += dt
         i += 1
         if t >= next_export_t - 1e-8:
-            print('{:3d} i={:5d} t={:8.2f} s salt={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.salt_3d)))
+            print_output('{:3d} i={:5d} t={:8.2f} s salt={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.salt_3d)))
             export_func()
             next_export_t += solverobj.options.t_export
             iexport += 1
@@ -125,7 +125,7 @@ def run(refinement, order=1, warped_mesh=False, do_export=True):
     salt_ana_ho.project(ana_salt_expr)
     # compute L2 norm
     l2_err = errornorm(salt_ana_ho, solverobj.fields.salt_3d)/numpy.sqrt(area)
-    print 'L2 error {:.12f}'.format(l2_err)
+    print_output('L2 error {:.12f}'.format(l2_err))
 
     return l2_err
 
@@ -169,14 +169,14 @@ def run_convergence(ref_list, saveplot=False, **options):
             imgfile += '.png'
             imgdir = create_directory('plots')
             imgfile = os.path.join(imgdir, imgfile)
-            print 'saving figure', imgfile
+            print_output('saving figure {:}'.format(imgfile))
             plt.savefig(imgfile, dpi=200, bbox_inches='tight')
         if expected_slope is not None:
             err_msg = '{:}: Wrong convergence rate {:.4f}, expected {:.4f}'.format(setup_name, slope, expected_slope)
             assert slope > expected_slope*(1 - slope_rtol), err_msg
-            print '{:}: convergence rate {:.4f} PASSED'.format(setup_name, slope)
+            print_output('{:}: convergence rate {:.4f} PASSED'.format(setup_name, slope))
         else:
-            print '{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope)
+            print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
     check_convergence(x_log, y_log, order+1, 'salt', saveplot)

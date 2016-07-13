@@ -129,7 +129,7 @@ def run_bottom_friction(parabolic_visosity=False, element_family='dg-dg',
         volume = lx*ly*depth
         uv_l2_err = errornorm(log_uv, uv_p1_dg)/numpy.sqrt(volume)
         assert uv_l2_err < l2_tol, 'L2 error is too large: {:} > {:}'.format(uv_l2_err, l2_tol)
-        print('L2 error {:.4f} PASSED'.format(uv_l2_err))
+        print_output('L2 error {:.4f} PASSED'.format(uv_l2_err))
 
 
 @pytest.fixture(params=[pytest.mark.skip(reason='travis is timing out')(True),

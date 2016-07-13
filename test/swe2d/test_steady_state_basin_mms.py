@@ -107,7 +107,7 @@ def setup9(x, lx, ly, h0, f0, nu0, g):
 def run(setup, refinement, order, do_export=True, options=None,
         solver_parameters=None):
     """Run single test and return L2 error"""
-    print '--- running {:} refinement {:}'.format(setup.__name__, refinement)
+    print_output('--- running {:} refinement {:}'.format(setup.__name__, refinement))
     # domain dimensions
     lx = 15e3
     ly = 10e3
@@ -139,7 +139,7 @@ def run(setup, refinement, order, do_export=True, options=None,
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     bathymetry_2d.project(sdict['bath_expr'])
     if bathymetry_2d.dat.data.min() < 0.0:
-        print 'bath', bathymetry_2d.dat.data.min(), bathymetry_2d.dat.data.max()
+        print_output('bath {:} {:}'.format(bathymetry_2d.dat.data.min(), bathymetry_2d.dat.data.max()))
         raise Exception('Negative bathymetry')
 
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
@@ -240,7 +240,7 @@ def run(setup, refinement, order, do_export=True, options=None,
         #         else:
         #             name = str(d[k])
         #     bnd_str += '{:}: {:}, '.format(k, name)
-        # print('bnd {:}: {:}'.format(bnd_id, bnd_str))
+        # print_output('bnd {:}: {:}'.format(bnd_id, bnd_str))
 
     solver_obj.assign_initial_conditions(elev=elev_ana, uv_init=uv_ana)
     if solver_parameters is not None:
@@ -253,8 +253,8 @@ def run(setup, refinement, order, do_export=True, options=None,
 
     elev_l2_err = errornorm(elev_ana_ho, solver_obj.fields.solution_2d.split()[1])/numpy.sqrt(area)
     uv_l2_err = errornorm(uv_ana_ho, solver_obj.fields.solution_2d.split()[0])/numpy.sqrt(area)
-    print 'elev L2 error {:.12f}'.format(elev_l2_err)
-    print 'uv L2 error {:.12f}'.format(uv_l2_err)
+    print_output('elev L2 error {:.12f}'.format(elev_l2_err))
+    print_output('uv L2 error {:.12f}'.format(uv_l2_err))
     return elev_l2_err, uv_l2_err
 
 
@@ -299,14 +299,14 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False,
             imgfile += '.png'
             img_dir = create_directory('plots')
             imgfile = os.path.join(img_dir, imgfile)
-            print 'saving figure', imgfile
+            print_output('saving figure {:}'.format(imgfile))
             plt.savefig(imgfile, dpi=200, bbox_inches='tight')
         if expected_slope is not None:
             err_msg = '{:}: Wrong convergence rate {:.4f}, expected {:.4f}'.format(setup_name, slope, expected_slope)
             assert abs(slope - expected_slope)/expected_slope < slope_rtol, err_msg
-            print '{:}: convergence rate {:.4f} PASSED'.format(setup_name, slope)
+            print_output('{:}: convergence rate {:.4f} PASSED'.format(setup_name, slope))
         else:
-            print '{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope)
+            print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
     check_convergence(x_log, y_log_elev, order+1, 'elev', save_plot)

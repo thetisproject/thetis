@@ -50,9 +50,9 @@ args_dict = vars(args)
 
 comm = COMM_WORLD
 if comm.rank == 0:
-    print 'Running test case with setup:'
+    print_output('Running test case with setup:')
     for k in sorted(args_dict.keys()):
-        print ' - {0:15s} : {1:}'.format(k, args_dict[k])
+        print_output(' - {0:15s} : {1:}'.format(k, args_dict[k]))
 
 limiter_str = 'limiter' if args.use_limiter else ''
 space_str = 'RT' if args.mimetic else 'DG'
