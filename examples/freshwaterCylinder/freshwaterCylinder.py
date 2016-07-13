@@ -41,7 +41,7 @@ physical_constants['rho0'].assign(1025.0)
 outputdir = 'outputs'
 layers = 20
 mesh2d = Mesh('tartinville_physical.msh')
-print_info('Loaded mesh ' + mesh2d.name)
+print_output('Loaded mesh ' + mesh2d.name)
 dt = 25.0
 t_end = 288 * 3600
 t_export = 900.0

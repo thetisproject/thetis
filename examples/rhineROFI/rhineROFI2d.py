@@ -21,8 +21,8 @@ from thetis import *
 reso = 'coarse'
 outputdir = 'outputs_2d_{:}'.format(reso)
 mesh2d = Mesh('mesh_rhineRofi_{:}.msh'.format(reso))
-print_info('Loaded mesh '+mesh2d.name)
-print_info('Exporting to '+outputdir)
+print_output('Loaded mesh '+mesh2d.name)
+print_output('Exporting to '+outputdir)
 
 # Physical parameters
 eta_amplitude = 1.00  # mean (Fisher et al. 2009 tidal range 2.00 )

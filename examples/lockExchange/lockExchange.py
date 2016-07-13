@@ -56,7 +56,7 @@ temp_left = 19.088
 temp_right = 34.81
 salt_const = 35.0
 
-print_info('Exporting to '+outputdir)
+print_output('Exporting to '+outputdir)
 dt = 75.0/refinement[reso_str]
 if reso_str == 'fine':
     dt /= 2.0

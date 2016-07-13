@@ -37,7 +37,7 @@ def run_tracer_consistency(element_family='dg-dg', meshtype='regular', do_export
         warped = True
 
     run_description = 'element_family={:} meshtype={:}'.format(element_family, meshtype)
-    print_info('Running test: ' + run_description)
+    print_output('Running test: ' + run_description)
 
     suffix = ''
     if sloped:

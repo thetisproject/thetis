@@ -15,8 +15,8 @@ from thetis import *
 n_layers = 6
 outputdir = 'outputs'
 mesh2d = Mesh('channel_mesh.msh')
-print_info('Loaded mesh '+mesh2d.name)
-print_info('Exporting to '+outputdir)
+print_output('Loaded mesh '+mesh2d.name)
+print_output('Exporting to '+outputdir)
 t_end = 48 * 3600
 u_mag = Constant(2.5)
 t_export = 100.0

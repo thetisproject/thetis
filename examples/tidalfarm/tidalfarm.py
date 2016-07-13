@@ -16,7 +16,7 @@ ly = 50.0
 nx = 20.0
 ny = 10.0
 mesh2d = RectangleMesh(nx, ny, lx, ly)
-print_info('Exporting to ' + outputdir)
+print_output('Exporting to ' + outputdir)
 
 # total duration in seconds
 t_end = 20.

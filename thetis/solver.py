@@ -99,9 +99,9 @@ class FlowSolver(FrozenClass):
             self.dt_2d = self.dt
             self.M_modesplit = 1
 
-        print_info('dt = {0:f}'.format(self.dt), comm=comm)
-        print_info('2D dt = {0:f} {1:d}'.format(self.dt_2d, self.M_modesplit),
-                   comm=comm)
+        print_output('dt = {0:f}'.format(self.dt), comm=comm)
+        print_output('2D dt = {0:f} {1:d}'.format(self.dt_2d, self.M_modesplit),
+                     comm=comm)
         sys.stdout.flush()
 
     def create_function_spaces(self):
@@ -386,14 +386,14 @@ class FlowSolver(FrozenClass):
                 self.timestepper = coupled_timeintegrator.CoupledSSPRKSync(weakref.proxy(self))
         else:
             self.timestepper = coupled_timeintegrator.CoupledSSPRKSingleMode(weakref.proxy(self))
-        print_info('using {:} time integrator'.format(self.timestepper.__class__.__name__))
+        print_output('using {:} time integrator'.format(self.timestepper.__class__.__name__))
 
         # compute maximal diffusivity for explicit schemes
         degree_h, degree_v = self.function_spaces.H.ufl_element().degree()
         max_diff_alpha = 1.0/360.0/max((degree_h*(degree_h + 1)), 1.0)  # FIXME depends on element type and order
         self.fields.max_h_diff.assign(max_diff_alpha/self.dt * self.fields.h_elem_size_3d**2)
         d = self.fields.max_h_diff.dat.data
-        print_info('max h diff {:} - {:}'.format(d.min(), d.max()))
+        print_output('max h diff {:} - {:}'.format(d.min(), d.max()))
 
         # ----- File exporters
         # create export_managers and store in a list

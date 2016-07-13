@@ -83,7 +83,7 @@ gls_options = options.gls_options
 gls_options.apply_defaults('k-omega')
 gls_options.stability_name = 'CB'
 options.outputdir = outputdir + '_' + gls_options.closure_name + '-' + gls_options.stability_name
-print_info('Exporting to ' + options.outputdir)
+print_output('Exporting to ' + options.outputdir)
 
 solver_obj.create_function_spaces()
 

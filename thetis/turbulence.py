@@ -222,9 +222,9 @@ class GLSModelOptions(AttrDict):
 
     def print_summary(self):
         """Prints all defined parameters and their values."""
-        print_info('GLS Turbulence model parameters')
+        print_output('GLS Turbulence model parameters')
         for k in sorted(self.keys()):
-            print_info('  {:16s} : {:}'.format(k, self[k]))
+            print_output('  {:16s} : {:}'.format(k, self[k]))
 
 
 def set_func_min_val(f, minval):

@@ -28,8 +28,8 @@ if sloped:
     suffix = '_sloped'
 outputdir = 'outputs' + suffix
 
-print_info('Loaded mesh '+mesh2d.name)
-print_info('Exporting to '+outputdir)
+print_output('Loaded mesh '+mesh2d.name)
+print_output('Exporting to '+outputdir)
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)

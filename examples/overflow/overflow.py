@@ -34,7 +34,7 @@ reso_str = 'medium'
 refinement = {'medium': 1}
 layers = int(round(50*refinement[reso_str]))
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
-print_info('Loaded mesh '+mesh2d.name)
+print_output('Loaded mesh '+mesh2d.name)
 dt = 5.0/refinement[reso_str]
 t_end = 25 * 3600
 t_export = 15*60.0
