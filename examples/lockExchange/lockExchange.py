@@ -144,7 +144,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.solve_temp = True
     options.solve_vert_diffusion = False
     options.use_bottom_friction = False
-    options.use_ale_moving_mesh = False
+    options.use_ale_moving_mesh = True
     # options.use_imex = True
     # options.use_semi_implicit_2d = False
     # options.use_mode_split = False

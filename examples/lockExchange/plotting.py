@@ -55,8 +55,9 @@ class PlotCallback(DiagnosticCallback):
             n_x = np.round((x_max - x_min)/delta_x)
             npoints = layers*4
             epsilon = 1e-10  # nudge points to avoid libspatialindex errors
-            z_max = -(depth - epsilon)
-            z = np.linspace(-epsilon, z_max, npoints)
+            z_min = -(depth - epsilon)
+            z_max = -0.08  # do not include the top 8 cm to avoid surface waves
+            z = np.linspace(z_max, z_min, npoints)
             npoints = n_x + 1
             x = np.linspace(x_min + epsilon, x_max - epsilon, npoints)
             xx, zz = np.meshgrid(x, z)
@@ -70,7 +71,8 @@ class PlotCallback(DiagnosticCallback):
             self.cmap.set_over('#ffa500')
             self.cmap.set_under('#00e639')
 
-    def plot_on_ax(self, ax, color_array, clim, titlestr, cbartitle, cmap):
+    def plot_on_ax(self, ax, color_array, clim, titlestr, cbartitle, cmap,
+                   ylim=None):
         """Plots a field on given axis"""
         if MATPLOTLIB_INSTALLED:
             cmin, cmax = clim
@@ -82,6 +84,8 @@ class PlotCallback(DiagnosticCallback):
             p = ax.contourf(self.x_plot, self.z_plot, color_array, levels, cmap=cmap, extend='both')
             ax.set_xlabel('x [km]')
             ax.set_ylabel('z [m]')
+            if ylim is not None:
+                ax.set_ylim(ylim)
             ax.set_title(titlestr)
 
             divider = make_axes_locatable(ax)
@@ -114,7 +118,8 @@ class PlotCallback(DiagnosticCallback):
             unit = 'kg m-3'
             clim = self.rho_lim
             clabel = '{:} [{:}]'.format(varstr, unit)
-            self.plot_on_ax(ax, arr, clim, title, clabel, self.cmap)
+            ylim = [-20.0, 0.0]
+            self.plot_on_ax(ax, arr, clim, title, clabel, self.cmap, ylim=ylim)
             plt.savefig(fname, dpi=240, bbox_inches='tight')
             plt.close()
             return fname,
