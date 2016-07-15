@@ -120,6 +120,8 @@ class HorizontalAdvectionTerm(TracerTerm):
                         c_up = c_in*s + c_ext*(1-s)
                         f += c_up*(uv_av[0]*self.normal[0] +
                                    uv_av[1]*self.normal[1])*self.test*ds_bnd
+        # symmetry condition on surface NOTE needed for ale in dg-dg space ...
+        f += solution*(uv[0]*self.normal[0] + uv[1]*self.normal[1])*self.test*ds_surf
         return -f
 
 
