@@ -211,9 +211,9 @@ class ALESourceTerm(MomentumTerm):
         dw_mesh_dz = fields_old.get('dw_mesh_dz')
         f = 0
         # Non-conservative ALE source term
-        if dw_mesh_dz is not None:
-            f += dw_mesh_dz*(solution[0]*self.test[0] +
-                             solution[1]*self.test[1])*self.dx
+        # if dw_mesh_dz is not None:
+        #     f += dw_mesh_dz*(solution[0]*self.test[0] +
+        #                      solution[1]*self.test[1])*self.dx
         return -f
 
 

@@ -153,15 +153,12 @@ class VerticalAdvectionTerm(TracerTerm):
                 f += gamma*dot(jump(self.test), jump(solution))*self.dS_h
 
         # Non-conservative ALE source term
-        if dw_mesh_dz is not None:
-            f += solution*dw_mesh_dz*self.test*self.dx
+        # if dw_mesh_dz is not None:
+        #     f += solution*dw_mesh_dz*self.test*self.dx
 
         # NOTE Bottom impermeability condition is naturally satisfied by the definition of w
         # NOTE imex solver fails with this in tracerBox example
-        if w_mesh is None:
-            f += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
-        else:
-            f += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
+        f += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
         return -f
 
 
