@@ -422,7 +422,9 @@ class FlowSolver(FrozenClass):
 
         # ----- Time integrators
         self.set_time_step()
-        self.timestepper = coupled_timeintegrator.CoupledForwardEuler(weakref.proxy(self))
+        self.timestepper = coupled_timeintegrator.CoupledIMEXALE(weakref.proxy(self))
+        # self.timestepper = coupled_timeintegrator.CoupledForwardEuler(weakref.proxy(self))
+
         # if self.options.use_mode_split:
         #     if self.options.use_imex:
         #         self.timestepper = coupled_timeintegrator.CoupledSSPIMEX(weakref.proxy(self))
@@ -610,6 +612,9 @@ class FlowSolver(FrozenClass):
                 self.fields.psi_3d.project(psi)
             self.gls_model.initialize()
 
+        if self.options.use_ale_moving_mesh:
+            self.timestepper._update_3d_elevation()
+            self.timestepper._update_moving_mesh()
         self.timestepper.initialize()
         # update all diagnostic variables
         self.timestepper._update_all_dependencies(self.simulation_time,
