@@ -341,8 +341,8 @@ class VerticalIntegrator(object):
                 a += up_value*jump(phi, normal[2])*self.dS_h
         source = input
         if average:
-            H = bathymetry + elevation
-            source = input/H
+            depth = bathymetry + elevation
+            source = input/depth
         l = inner(source, phi)*self.dx + bnd_term
         self.prob = LinearVariationalProblem(a, l, output, constant_jacobian=False)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
@@ -790,6 +790,10 @@ class MeshVelocitySolver(object):
         l = (w_mesh_surf*(z_coord_ref + bathymetry)/bathymetry)*test*dx
         self.prob_w_mesh = LinearVariationalProblem(a, l, w_mesh)
         self.solver_w_mesh = LinearVariationalSolver(self.prob_w_mesh, solver_parameters=solver_parameters)
+        self.w_mesh = w_mesh
+        self.w_mesh_surf = w_mesh_surf
+        self.z_ref = z_coord_ref
+        self.bathymetry = bathymetry
 
         # compute dw_mesh/dz in the whole water column
         fs = w_mesh.function_space()
@@ -805,7 +809,13 @@ class MeshVelocitySolver(object):
         self.solver_w_mesh_surf.solve()
         self.solver_obj.extract_surf_w.solve()
         self.solver_obj.copy_surf_w_mesh_to_3d.solve()
-        self.solver_w_mesh.solve()
+        # self.solver_w_mesh.solve()
+        # solve w_mesh at nodes
+        w_mesh_surf = self.w_mesh_surf.dat.data[:]
+        z_ref = self.z_ref.dat.data[:]
+        h = self.bathymetry.dat.data[:]
+        self.w_mesh.dat.data[:] = w_mesh_surf * (z_ref + h)/h
+
         self.solver_dw_mesh_dz.solve()
 
 
