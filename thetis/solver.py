@@ -422,7 +422,10 @@ class FlowSolver(FrozenClass):
 
         # ----- Time integrators
         self.set_time_step()
+        # self.timestepper = coupled_timeintegrator.CoupledLeapFrogAM3(weakref.proxy(self))
         self.timestepper = coupled_timeintegrator.CoupledIMEXALE(weakref.proxy(self))
+        # self.timestepper = coupled_timeintegrator.CoupledIMEXEuler(weakref.proxy(self))
+        # self.timestepper = coupled_timeintegrator.CoupledERKALE(weakref.proxy(self))
         # self.timestepper = coupled_timeintegrator.CoupledForwardEuler(weakref.proxy(self))
 
         # if self.options.use_mode_split:
@@ -519,6 +522,7 @@ class FlowSolver(FrozenClass):
                                                            self.fields.v_elem_size_2d,
                                                            boundary='top', elem_facet='top')
         self.copy_elev_to_3d = ExpandFunctionTo3d(self.fields.elev_2d, self.fields.elev_3d)
+        self.copy_elev_cg_to_3d = ExpandFunctionTo3d(self.fields.elev_cg_2d, self.fields.elev_cg_3d)
         self.copy_uv_dav_to_uv_dav_3d = ExpandFunctionTo3d(self.fields.uv_dav_2d, self.fields.uv_dav_3d,
                                                            elem_height=self.fields.v_elem_size_3d)
         self.copy_uv_to_uv_dav_3d = ExpandFunctionTo3d(self.fields.uv_2d, self.fields.uv_dav_3d,
