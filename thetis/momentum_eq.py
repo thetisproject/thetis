@@ -75,7 +75,7 @@ class PressureGradientTerm(MomentumTerm):
                 ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
                 if baroc_head is not None:
                     f += g_grav*baroc_head*n_dot_test*ds_bnd
-                special_eta_flux = funcs is not None and 'elev' in funcs
+                special_eta_flux = eta is not None and funcs is not None and 'elev' in funcs
                 if not special_eta_flux:
                     f += g_grav*eta*n_dot_test*ds_bnd
                 if funcs is not None:
@@ -190,9 +190,9 @@ class VerticalAdvectionTerm(MomentumTerm):
                   Dx(self.test[1], 2)*solution[1]*vertvelo)
         f += adv_v * self.dx
         if self.vertical_dg:
-            s = 0.5*(sign(avg(w[2])*self.normal[2]('-')) + 1.0)
+            w_av = avg(vertvelo)
+            s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
             uv_up = solution('-')*s + solution('+')*(1-s)
-            w_av = avg(w[2])
             f += (uv_up[0]*w_av*jump(self.test[0], self.normal[2]) +
                   uv_up[1]*w_av*jump(self.test[1], self.normal[2]))*self.dS_h
             if lax_friedrichs_factor is not None:
