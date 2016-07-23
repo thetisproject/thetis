@@ -19,11 +19,12 @@ ly = 2000.0
 nx = 25
 ny = 2
 mesh2d = RectangleMesh(nx, ny, lx, ly)
-depth = 50.0
+depth = 30.0
 elev_amp = 2.0
 n_layers = 12
 # estimate of max advective velocity for computing time step
-u_mag = Constant(0.5)
+u_mag = Constant(3.0)
+w_mag = 0.2
 sloped = True
 warped = False  # FIXME why bathymetry changes when mesh is warped?
 
@@ -43,7 +44,11 @@ bathymetry_2d.assign(depth)
 
 if sloped:
     xy = SpatialCoordinate(mesh2d)
-    bathymetry_2d.interpolate(depth + 20.0*(xy[0]/lx - 0.5))
+    bathymetry_2d.interpolate(depth + 15.0*2*(xy[0]/lx - 0.5))
+
+# estimate dt for vertical advection
+dt_w = bathymetry_2d.dat.data.min()/n_layers/w_mag*0.5
+print_output('dt_w {:}'.format(dt_w))
 
 # set time step, export interval and run duration
 c_wave = float(np.sqrt(9.81*depth))
@@ -51,8 +56,8 @@ T_cycle = lx/c_wave
 n_steps = 20
 dt = round(float(T_cycle/n_steps))
 t_export = dt
+t_export = 100.0
 t_end = 10*T_cycle + 1e-3
-# TODO set dt automatically to t_export
 
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
@@ -68,7 +73,7 @@ if warped:
     coords.dat.data[:, 2] = sigma
 
 options = solver_obj.options
-options.nonlin = False
+options.nonlin = True
 # options.element_family = 'rt-dg'
 options.element_family = 'dg-dg'
 options.solve_salt = True
@@ -88,7 +93,7 @@ options.tracer_lax_friedrichs = None
 #     options.dt = dt/5.0
 # else:
 #     options.dt = dt/40.0
-options.dt = 50.0
+options.dt = 6.0
 options.t_export = t_export
 options.t_end = t_end
 options.u_advection = u_mag
@@ -108,6 +113,9 @@ solver_obj.create_equations()
 elev_init = Function(solver_obj.function_spaces.H_2d)
 xy = SpatialCoordinate(solver_obj.mesh2d)
 elev_init.project(-elev_amp*cos(2*pi*xy[0]/lx))
+x_0 = 30.0e3
+ss = 0.5*(sign(xy[0] - x_0) + 1.0)
+elev_init.project(5.0*ss*(xy[0] - x_0)/(lx - x_0))
 
 salt_init3d = None
 temp_init3d = None
