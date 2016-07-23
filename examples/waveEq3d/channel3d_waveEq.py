@@ -49,6 +49,7 @@ t_end = 10*T_cycle + 1e-3
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solver_obj.options
+options.element_family = 'dg-dg'
 options.nonlin = False
 options.solve_salt = False
 options.solve_temp = False
