@@ -398,7 +398,34 @@ class ESDIRKMidpointAbstract(AbstractRKScheme):
     cfl_coeff = 1.0
 
 
-class DIRKGeneric(TimeIntegrator):
+class RungeKuttaTimeIntegrator(TimeIntegrator):
+    """Abstract base class for all Runge-Kutta implementations"""
+    __metaclass__ = ABCMeta
+
+    @abstractproperty
+    def get_final_solution(self, additive=False):
+        """
+        Evaluates the final solution
+        """
+        pass
+
+    @abstractproperty
+    def solve_stage(self, i_stage, t, update_forcings=None):
+        """
+        Solves a single stage of step from t to t+dt.
+        All functions that the equation depends on must be at right state
+        corresponding to each sub-step.
+        """
+        pass
+
+    def advance(self, t, update_forcings=None):
+        """Advances equations for one time step."""
+        for i in xrange(self.n_stages):
+            self.solve_stage(i, t, update_forcings)
+        self.get_final_solution()
+
+
+class DIRKGeneric(RungeKuttaTimeIntegrator):
     """
     Generic implementation of Diagonally Implicit Runge Kutta schemes.
 
@@ -471,7 +498,6 @@ class DIRKGeneric(TimeIntegrator):
         self.update_solver()
 
     def update_solver(self):
-        # construct solvers
         self.solver = []
         for i in xrange(self.n_stages):
             p = NonlinearVariationalProblem(self.F[i], self.k[i])
@@ -507,9 +533,6 @@ class DIRKGeneric(TimeIntegrator):
         self.solver[i_stage].solve()
 
     def get_final_solution(self, additive=False):
-        """
-        Evaluates the final solution
-        """
         if not additive:
             self.solution.assign(self.solution_old)
         for j in range(self.n_stages):
@@ -517,19 +540,8 @@ class DIRKGeneric(TimeIntegrator):
         self.solution_old.assign(self.solution)
 
     def solve_stage(self, i_stage, t, update_forcings=None):
-        """
-        Solves a single stage of step from t to t+dt.
-        All functions that the equation depends on must be at right state
-        corresponding to each sub-step.
-        """
         self.solve_tendency(i_stage, t, update_forcings)
         self.update_solution(i_stage)
-
-    def advance(self, t, update_forcings=None):
-        """Advances equations for one time step."""
-        for i in xrange(self.n_stages):
-            self.solve_stage(i, t, update_forcings)
-        self.get_final_solution()
 
 
 class BackwardEuler(DIRKGeneric, BackwardEulerAbstract):
@@ -568,7 +580,7 @@ class DIRKLPUM2(DIRKGeneric, DIRKLPUM2Abstract):
     pass
 
 
-class ERKGeneric(TimeIntegrator):
+class ERKGeneric(RungeKuttaTimeIntegrator):
     """
     Generic explicit Runge-Kutta time integrator.
 
@@ -594,8 +606,6 @@ class ERKGeneric(TimeIntegrator):
         self.update_solver()
 
     def update_solver(self):
-        """Builds linear problems for each stage. These problems need to be
-        re-created after each mesh update."""
         if self._nontrivial:
             self.solver = []
             for i in range(self.n_stages):
@@ -632,9 +642,6 @@ class ERKGeneric(TimeIntegrator):
             self.solver[i_stage].solve()
 
     def get_final_solution(self, additive=False):
-        """
-        Evaluates the final solution
-        """
         if not additive:
             self.solution.assign(self.solution_old)
         if self._nontrivial:
@@ -643,26 +650,11 @@ class ERKGeneric(TimeIntegrator):
         self.solution_old.assign(self.solution)
 
     def solve_stage(self, i_stage, t, update_forcings=None):
-        """
-        Solves a single stage of step from t to t+dt.
-        All functions that the equation depends on must be at right state
-        corresponding to each sub-step.
-        """
         self.update_solution(i_stage)
         self.solve_tendency(i_stage, t, update_forcings)
 
-    def advance(self, t, update_forcings=None):
-        """Advances one full time step from t to t+dt.
-        This assumes that all the functions that the equation depends on are
-        constants across this interval. If dependent functions need to be
-        updated call solve_stage instead.
-        """
-        for k in range(self.n_stages):
-            self.solve_stage(k, t, update_forcings)
-        self.get_final_solution(self, additive=False)
 
-
-class ERKStageGeneric(TimeIntegrator):
+class ERKStageGeneric(RungeKuttaTimeIntegrator):
     """
     Generic explicit Runge-Kutta time integrator.
 
@@ -689,15 +681,12 @@ class ERKStageGeneric(TimeIntegrator):
         self.update_solver()
 
     def update_solver(self):
-        """Builds linear problems for each stage. These problems need to be
-        re-created after each mesh update."""
         if self._nontrivial:
             prob = LinearVariationalProblem(self.a_rk, self.L_RK, self.tendency)
             self.solver = LinearVariationalSolver(prob, options_prefix=self.name + '_k',
                                                   solver_parameters=self.solver_parameters)
 
     def initialize(self, solution):
-        """Assigns initial conditions to all required fields."""
         pass
 
     def update_solution(self, i_stage, additive=False):
@@ -714,11 +703,6 @@ class ERKStageGeneric(TimeIntegrator):
             self.solution += self.a[i_stage][j]*self.k[j]
 
     def solve_stage(self, i_stage, t, update_forcings=None):
-        """
-        Solves a single stage of step from t to t+dt.
-        All functions that the equation depends on must be at right state
-        corresponding to each sub-step.
-        """
         if self._nontrivial:
             if update_forcings is not None:
                 update_forcings(t + self.c[i_stage]*self.dt)
@@ -738,17 +722,11 @@ class ERKStageGeneric(TimeIntegrator):
             if i_stage < self.n_stages - 1:
                 self.stage_sol[i_stage + 1].assign(self.solution)
 
-    def advance(self, t, update_forcings=None):
-        """Advances one full time step from t to t+dt.
-        This assumes that all the functions that the equation depends on are
-        constants across this interval. If dependent functions need to be
-        updated call solve_stage instead.
-        """
-        for k in range(self.n_stages):
-            self.solve_stage(k, t, update_forcings)
+    def get_final_solution(self):
+        pass
 
 
-class ERKGenericALE(TimeIntegrator):
+class ERKGenericALE(RungeKuttaTimeIntegrator):
     """
     Generic explicit Runge-Kutta time integrator for conservative ALE schemes.
 
@@ -773,13 +751,10 @@ class ERKGenericALE(TimeIntegrator):
         self.update_solver()
 
     def update_solver(self):
-        """Builds linear problems for each stage. These problems need to be
-        re-created after each mesh update."""
         self.A = assemble(self.a_rk)
 
     def initialize(self, solution):
-        """Assigns initial conditions to all required fields."""
-        # assemble(self.mass_term, self.stage_msol[0])
+        pass
 
     def pre_solve(self, i_stage, t, update_forcings=None):
         """Assemble L in the old geometry"""
@@ -806,26 +781,15 @@ class ERKGenericALE(TimeIntegrator):
         # assemble(self.mass_term, self.stage_msol[target])
 
     def solve_stage(self, i_stage, t, update_forcings=None):
-        """
-        Solves a single stage of step from t to t+dt.
-        All functions that the equation depends on must be at right state
-        corresponding to each sub-step.
-        """
         error('You should not call solve_state with ALE formulation but pre_solve and finalize_solve')
         self.pre_solve(i_stage, t, update_forcings)
         self.finalize_solve(i_stage, t, update_forcings)
 
-    def advance(self, t, update_forcings=None):
-        """Advances one full time step from t to t+dt.
-        This assumes that all the functions that the equation depends on are
-        constants across this interval. If dependent functions need to be
-        updated call solve_stage instead.
-        """
-        for k in range(self.n_stages):
-            self.solve_stage(k, t, update_forcings)
+    def get_final_solution(self):
+        pass
 
 
-class ERKGenericALE2(TimeIntegrator):
+class ERKGenericALE2(RungeKuttaTimeIntegrator):
     """
     Generic explicit Runge-Kutta time integrator for conservative ALE schemes.
 
@@ -851,8 +815,6 @@ class ERKGenericALE2(TimeIntegrator):
         self.update_solver()
 
     def update_solver(self):
-        """Builds linear problems for each stage. These problems need to be
-        re-created after each mesh update."""
         self.A = assemble(self.a_rk)
 
     def initialize(self, solution):
@@ -883,9 +845,6 @@ class ERKGenericALE2(TimeIntegrator):
         assemble(self.l_rk, self.stage_mk[i_stage])
 
     def get_final_solution(self):
-        """
-        Evaluates the final solution
-        """
         self.l_form.assign(self.msol_old)
         for j in range(self.n_stages):
             self.l_form += float(self.b[j])*self.stage_mk[j]
@@ -894,27 +853,13 @@ class ERKGenericALE2(TimeIntegrator):
         assemble(self.mass_term, self.msol_old)
 
     def solve_stage(self, i_stage, t, update_forcings=None):
-        """
-        Solves a single stage of step from t to t+dt.
-        All functions that the equation depends on must be at right state
-        corresponding to each sub-step.
-        """
         self.update_solution(i_stage)
         self.solve_tendency(i_stage, t, update_forcings)
         if i_stage == self.n_stages - 1:
             self.get_final_solution()
 
-    def advance(self, t, update_forcings=None):
-        """Advances one full time step from t to t+dt.
-        This assumes that all the functions that the equation depends on are
-        constants across this interval. If dependent functions need to be
-        updated call solve_stage instead.
-        """
-        for k in range(self.n_stages):
-            self.solve_stage(k, t, update_forcings)
 
-
-class ERKSemiImplicitGeneric(TimeIntegrator):
+class ERKSemiImplicitGeneric(RungeKuttaTimeIntegrator):
     """
     Generic implementation of explicit RK schemes.
     """
@@ -984,8 +929,6 @@ class ERKSemiImplicitGeneric(TimeIntegrator):
         self.update_solver()
 
     def update_solver(self):
-        """Builds linear problems for each stage. These problems need to be
-        re-created after each mesh update."""
         self.solver = []
         for i in range(self.n_stages):
             prob = NonlinearVariationalProblem(self.F[i], self.stage_sol[i])
@@ -994,15 +937,9 @@ class ERKSemiImplicitGeneric(TimeIntegrator):
             self.solver.append(solv)
 
     def initialize(self, solution):
-        """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
 
     def solve_stage(self, i_stage, t, update_forcings=None):
-        """
-        Solves a single stage of step from t to t+dt.
-        All functions that the equation depends on must be at rigth state
-        corresponding to each sub-step.
-        """
         if update_forcings is not None:
             update_forcings(t + self.c[i_stage]*self.dt)
         self.solver[i_stage].solve()
@@ -1011,14 +948,8 @@ class ERKSemiImplicitGeneric(TimeIntegrator):
         else:
             self.solution.assign(self.stage_sol[i_stage])
 
-    def advance(self, t, update_forcings):
-        """Advances one full time step from t to t+dt.
-        This assumes that all the functions that the equation depends on are
-        constants across this interval. If dependent functions need to be
-        updated call solve_stage instead.
-        """
-        for k in range(self.n_stages):
-            self.solve_stage(k, t, update_forcings)
+    def get_final_solution(self):
+        pass
 
 
 class SSPRK33Stage(ERKStageGeneric, SSPRK33Abstract):
@@ -1090,7 +1021,7 @@ class DIRKEuler(DIRKGeneric, BackwardEulerAbstract):
 
 
 # OBSOLETE
-class ForwardEulerSemiImplicit(TimeIntegrator, ForwardEulerAbstract):
+class ForwardEulerSemiImplicit(RungeKuttaTimeIntegrator, ForwardEulerAbstract):
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, semi_implicit=True, theta=0.5):
         super(ForwardEulerSemiImplicit, self).__init__(equation, solution, fields, dt, solver_parameters)
@@ -1129,22 +1060,14 @@ class ForwardEulerSemiImplicit(TimeIntegrator, ForwardEulerAbstract):
         self.update_solver()
 
     def update_solver(self):
-        """Builds linear problems for each stage. These problems need to be
-        re-created after each mesh update."""
         prob_f0 = NonlinearVariationalProblem(self.F_0, self.solution)
         self.solver_f0 = NonlinearVariationalSolver(prob_f0, options_prefix=self.name + '_k0',
                                                     solver_parameters=self.solver_parameters)
 
     def initialize(self, solution):
-        """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
 
     def solve_stage(self, i_stage, t, update_forcings=None):
-        """
-        Solves a single stage of step from t to t+dt.
-        All functions that the equation depends on must be at rigth state
-        corresponding to each sub-step.
-        """
         if i_stage == 0:
             # stage 0
             if update_forcings is not None:
@@ -1156,18 +1079,12 @@ class ForwardEulerSemiImplicit(TimeIntegrator, ForwardEulerAbstract):
             # solution += self.solution_old
             self.solution_old.assign(self.solution)
 
-    def advance(self, t, update_forcings):
-        """Advances one full time step from t to t+dt.
-        This assumes that all the functions that the equation depends on are
-        constants across this interval. If dependent functions need to be
-        updated call solve_stage instead.
-        """
-        for k in range(self.n_stages):
-            self.solve_stage(k, t, update_forcings)
+    def get_final_solution(self):
+        pass
 
 
 # OBSOLETE
-class ForwardEulerStage(TimeIntegrator, ForwardEulerAbstract):
+class ForwardEulerStage(RungeKuttaTimeIntegrator, ForwardEulerAbstract):
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
         """Creates forms for the time integrator"""
         super(ForwardEulerStage, self).__init__(equation, solution, fields, dt, solver_parameters)
@@ -1185,8 +1102,6 @@ class ForwardEulerStage(TimeIntegrator, ForwardEulerAbstract):
         self.update_solver()
 
     def update_solver(self):
-        """Builds linear problems for each stage. These problems need to be
-        re-created after each mesh update."""
         self.mass_matrix = assemble(self.a_rk)
         self.linsolver = LinearSolver(self.mass_matrix)
         # prob = LinearVariationalProblem(self.a_rk, self.L_RK, self.tendency)
@@ -1194,15 +1109,9 @@ class ForwardEulerStage(TimeIntegrator, ForwardEulerAbstract):
         #                                       solver_parameters=self.solver_parameters)
 
     def initialize(self, solution):
-        """Assigns initial conditions to all required fields."""
         assemble(self.mass_term + self.L_RK, self.l_form)
 
     def solve_stage(self, i_stage, t, update_forcings=None):
-        """
-        Solves a single stage of step from t to t+dt.
-        All functions that the equation depends on must be at right state
-        corresponding to each sub-step.
-        """
         if update_forcings is not None:
             update_forcings(t + self.c[i_stage]*self.dt)
 
@@ -1259,11 +1168,5 @@ class ForwardEulerStage(TimeIntegrator, ForwardEulerAbstract):
         self.linsolver.solve(self.solution, self.l_form)
         # solve(self.mass_matrix, self.solution, self.l_form)
 
-    def advance(self, t, update_forcings=None):
-        """Advances one full time step from t to t+dt.
-        This assumes that all the functions that the equation depends on are
-        constants across this interval. If dependent functions need to be
-        updated call solve_stage instead.
-        """
-        for k in range(self.n_stages):
-            self.solve_stage(k, t, update_forcings)
+    def get_final_solution(self):
+        pass
