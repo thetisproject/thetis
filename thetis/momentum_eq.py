@@ -211,9 +211,9 @@ class ALESourceTerm(MomentumTerm):
         dw_mesh_dz = fields_old.get('dw_mesh_dz')
         f = 0
         # Non-conservative ALE source term
-        # if dw_mesh_dz is not None:
-        #     f += dw_mesh_dz*(solution[0]*self.test[0] +
-        #                      solution[1]*self.test[1])*self.dx
+        if dw_mesh_dz is not None:
+            f += dw_mesh_dz*(solution[0]*self.test[0] +
+                             solution[1]*self.test[1])*self.dx
         return -f
 
 
@@ -384,7 +384,7 @@ class MomentumEquation(Equation):
         self.add_term(PressureGradientTerm(*args), 'source')
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')
-        self.add_term(ALESourceTerm(*args), 'explicit')
+        # self.add_term(ALESourceTerm(*args), 'explicit')
         self.add_term(HorizontalViscosityTerm(*args), 'explicit')
         self.add_term(VerticalViscosityTerm(*args), 'explicit')
         self.add_term(BottomFrictionTerm(*args), 'explicit')

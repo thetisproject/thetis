@@ -135,8 +135,6 @@ class VerticalAdvectionTerm(TracerTerm):
         if w is None:
             return 0
         w_mesh = fields_old.get('w_mesh')
-        dw_mesh_dz = fields_old.get('dw_mesh_dz')
-        # FIXME is this an option?
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_factor')
 
         vertvelo = w[2]
@@ -154,13 +152,19 @@ class VerticalAdvectionTerm(TracerTerm):
                 gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
                 f += gamma*dot(jump(self.test), jump(solution))*self.dS_h
 
-        # Non-conservative ALE source term
-        # if dw_mesh_dz is not None:
-        #     f += solution*dw_mesh_dz*self.test*self.dx
-
         # NOTE Bottom impermeability condition is naturally satisfied by the definition of w
         # NOTE imex solver fails with this in tracerBox example
         f += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
+        return -f
+
+
+class ALESourceTerm(TracerTerm):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        dw_mesh_dz = fields_old.get('dw_mesh_dz')
+        f = 0
+        # Non-conservative ALE source term
+        if dw_mesh_dz is not None:
+            f += dw_mesh_dz*solution*self.test*self.dx
         return -f
 
 
@@ -284,6 +288,7 @@ class TracerEquation(Equation):
                 v_elem_size, h_elem_size)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')
+        # self.add_term(ALESourceTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(VerticalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
