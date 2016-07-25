@@ -1,12 +1,7 @@
 sudo: false
 notifications:
-  irc:
-    channels: "chat.freenode.net#firedrake"
-    skip_join: true
-    on_success: change
-    on_failure: always
-    template: "%{repository}#%{build_number} (%{branch} - %{commit} : %{author}): %{message} | %{build_url}"
-
+  slack:
+    secure: vx9YAykTqcZbACr8LhJK1yg4MQcGleUBkgRXAwFdCboI0PNcKQqZR12B66ZJImXG3LQaJ5MLgWsv0MUuLfcMzhqWOp5iv4A3vtTBRzibhQ1ffUzcPuUPhchap7YN95vE/BhB8l/0AHsFk6NLe+q21Dam7j7bMhn891n/b8QK3fEwnaBHKKa1HX0t8cuV3F4S7z8EUgDwHZsOUY2fr9MH1qn5FuDwipd9mOLdt/l7ziI73YdOUx2IcUhdhw+5dVl/o9E9FE+UD1hA5F+LnyGSEdejmifatC9cf+h/Ol+hfUKwC/MfBzvqCigbb8qcctKRe+s87bcv7v8GzdaOqtbmO3hcBSkVRqH/ku9rFWuVDzFn59aFrv0qksuPWUVZVZKaIiQvt9I7Crt1v7zMYMm4DK87H7nlg8ThFquBdLQ/xJsi64L5yhQ/A45Kud4tgqTpHaAkHz6jf+ZxXRbmfPLyQGKPPpUTVqpI/9X8PBKpAQrJXVy2AOlG/vPJtAhIqe472iI0/ULgvccOSE5r/mQ7QWY/5Zg9R6qFkxO71oSLqONFQRiqEVeDP3AJgx16G76Vp9jPay3CbdzADVyMyX1phiGy55HWLQqkHKTDynPvbM9liGWAY//1UbMBPjebeI51cUSOqhf0Ex91f8HZuxRwS29cg48sYebph5vR3zlDpzw=
 language: python
 python: "2.7"
 addons:
