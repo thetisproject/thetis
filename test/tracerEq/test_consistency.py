@@ -114,7 +114,8 @@ def run_tracer_consistency(element_family='dg-dg', meshtype='regular', do_export
     solver_obj.assign_initial_conditions(elev=elev_init, salt=salt_init3d)
     solver_obj.iterate()
 
-    max_abs_overshoot = np.max(np.abs(np.array(solver_obj.callbacks['salt_3d_overshoot'].value) - salt_value))
+    smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['salt_3d overshoot'](solver_obj)
+    max_abs_overshoot = max(abs(undershoot), abs(overshoot))
     overshoot_tol = 1e-12
     msg = '{:} : Salt overshoots are too large: {:}'.format(run_description, max_abs_overshoot)
     assert max_abs_overshoot < overshoot_tol, msg

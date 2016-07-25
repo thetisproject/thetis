@@ -58,8 +58,8 @@ class FlowSolver(FrozenClass):
                               'temp': {},
                               }
 
-        self.callbacks = OrderedDict()
-        """List of callback functions that will be called during exports"""
+        self.callbacks = callback.CallbackManager()
+        """Callback manager object"""
 
         self.fields = FieldDict()
         """Holds all functions needed by the solver object."""
@@ -565,7 +565,16 @@ class FlowSolver(FrozenClass):
         if self.options.use_turbulence:
             self.gls_model.initialize()
 
+    def add_callback(self, callback, eval_interval='export'):
+        """Adds callback to solver object
+
+        :arg callback: DiagnosticCallback instance
+        "arg eval_interval: 'export'|'timestep' Determines when callback will be evaluated.
+        """
+        self.callbacks.add(callback, eval_interval)
+
     def export(self):
+        self.callbacks.evaluate(self, mode='export')
         for key in self.exporters:
             self.exporters[key].export()
 
@@ -665,21 +674,35 @@ class FlowSolver(FrozenClass):
         t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()
 
+        dump_hdf5 = self.options.export_diagnostics and not self.options.no_exports
         if self.options.check_vol_conservation_2d:
-            self.callbacks['vol2d'] = callback.VolumeConservation2DCallback()
+            c = callback.VolumeConservation2DCallback(export_to_hdf5=dump_hdf5,
+                                                      append_to_log=True)
+            self.add_callback(c, eval_interval='export')
         if self.options.check_vol_conservation_3d:
-            self.callbacks['vol3d'] = callback.VolumeConservation3DCallback()
+            c = callback.VolumeConservation3DCallback(export_to_hdf5=dump_hdf5,
+                                                      append_to_log=True)
+            self.add_callback(c, eval_interval='export')
         if self.options.check_salt_conservation:
-            self.callbacks['salt_3d_mass'] = callback.TracerMassConservationCallback('salt_3d')
+            c = callback.TracerMassConservationCallback('salt_3d',
+                                                        export_to_hdf5=dump_hdf5,
+                                                        append_to_log=True)
+            self.add_callback(c, eval_interval='export')
         if self.options.check_salt_overshoot:
-            self.callbacks['salt_3d_overshoot'] = callback.TracerOvershootCallBack('salt_3d')
+            c = callback.TracerOvershootCallBack('salt_3d',
+                                                 export_to_hdf5=dump_hdf5,
+                                                 append_to_log=True)
+            self.add_callback(c, eval_interval='export')
         if self.options.check_temp_conservation:
-            self.callbacks['temp_3d_mass'] = callback.TracerMassConservationCallback('temp_3d')
+            c = callback.TracerMassConservationCallback('temp_3d',
+                                                        export_to_hdf5=dump_hdf5,
+                                                        append_to_log=True)
+            self.add_callback(c, eval_interval='export')
         if self.options.check_temp_overshoot:
-            self.callbacks['temp_3d_overshoot'] = callback.TracerOvershootCallBack('temp_3d')
-
-        for key in self.callbacks:
-            self.callbacks[key].initialize(self)
+            c = callback.TracerOvershootCallBack('temp_3d',
+                                                 export_to_hdf5=dump_hdf5,
+                                                 append_to_log=True)
+            self.add_callback(c, eval_interval='export')
 
         # initial export
         self.print_state(0.0)
@@ -699,6 +722,8 @@ class FlowSolver(FrozenClass):
             self.simulation_time += self.dt
             self.iteration += 1
 
+            self.callbacks.evaluate(self, mode='timestep')
+
             # Write the solution to file
             if self.simulation_time >= self.next_export_t - t_epsilon:
                 self.i_export += 1
@@ -707,10 +732,6 @@ class FlowSolver(FrozenClass):
                 cputime = time_mod.clock() - cputimestamp
                 cputimestamp = time_mod.clock()
                 self.print_state(cputime)
-
-                for key in self.callbacks:
-                    self.callbacks[key].update(self)
-                    self.callbacks[key].report()
 
                 self.export()
                 if export_func is not None:
