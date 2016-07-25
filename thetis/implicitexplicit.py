@@ -17,7 +17,7 @@ class SSPIMEX(TimeIntegrator):
     """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, solver_parameters_dirk={}):
-        super(SSPIMEX, self).__init__(equation, solver_parameters)
+        super(SSPIMEX, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         # implicit scheme
         self.dirk = DIRKLSPUM2(equation, solution, fields, dt, bnd_conditions,
@@ -38,19 +38,19 @@ class SSPIMEX(TimeIntegrator):
         self.dirk.initialize(solution)
         self.erk.initialize(solution)
 
-    def advance(self, t, dt, solution, update_forcings=None):
+    def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
         for i in xrange(self.n_stages):
-            self.solve_stage(i, t, dt, solution, update_forcings)
-        self.get_final_solution(solution)
+            self.solve_stage(i, t, update_forcings)
+        self.get_final_solution()
 
-    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
-        self.erk.solve_stage(i_stage, t, dt, solution, update_forcings)
-        self.dirk.solve_stage(i_stage, t, dt, solution, update_forcings)
+    def solve_stage(self, i_stage, t, update_forcings=None):
+        self.erk.solve_stage(i_stage, t, update_forcings)
+        self.dirk.solve_stage(i_stage, t, update_forcings)
 
-    def get_final_solution(self, solution):
-        self.erk.get_final_solution(solution)
-        self.dirk.get_final_solution(solution)
+    def get_final_solution(self):
+        self.erk.get_final_solution()
+        self.dirk.get_final_solution()
 
 
 class IMEXGeneric(TimeIntegrator):
@@ -69,7 +69,7 @@ class IMEXGeneric(TimeIntegrator):
 
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, solver_parameters_dirk={}):
-        super(IMEXGeneric, self).__init__(equation, solver_parameters)
+        super(IMEXGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         # implicit scheme
         self.dirk = self.dirk_class(equation, solution, fields, dt, bnd_conditions,
@@ -91,7 +91,7 @@ class IMEXGeneric(TimeIntegrator):
         self.dirk.initialize(solution)
         self.erk.initialize(solution)
 
-    def advance(self, t, dt, solution, update_forcings=None):
+    def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
         for i in xrange(self.n_stages):
             self.solve_stage(i, t, update_forcings)

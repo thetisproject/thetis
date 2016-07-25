@@ -18,7 +18,7 @@ from abc import ABCMeta, abstractproperty
 # TODO make an helper method for creating timeintegrators (it's too long to cp)
 
 
-class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
+class CoupledTimeIntegrator(timeintegrator.TimeIntegratorBase):
     """Base class for coupled time integrators"""
     def __init__(self, solver, options, fields):
         self.solver = solver
@@ -91,8 +91,8 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
             with timed_stage('turbulence'):
                 self.solver.gls_model.preprocess()
                 # NOTE psi must be solved first as it depends on tke
-                self.timestepper_psi_3d.advance(t, self.solver.dt, self.solver.fields.psi_3d)
-                self.timestepper_tke_3d.advance(t, self.solver.dt, self.solver.fields.tke_3d)
+                self.timestepper_psi_3d.advance(t)
+                self.timestepper_tke_3d.advance(t)
                 self.solver.gls_model.postprocess()
 
     def _update_stabilization_params(self):
@@ -129,13 +129,13 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegrator):
             self._update_turbulence(t)
         if do_vert_diffusion and self.options.solve_vert_diffusion:
             with timed_stage('impl_mom_vvisc'):
-                self.timestepper_mom_vdff_3d.advance(t, self.solver.dt, self.fields.uv_3d)
+                self.timestepper_mom_vdff_3d.advance(t)
             if self.options.solve_salt:
                 with timed_stage('impl_salt_vdiff'):
-                    self.timestepper_salt_vdff_3d.advance(t, self.solver.dt, self.fields.salt_3d)
+                    self.timestepper_salt_vdff_3d.advance(t)
             if self.options.solve_temp:
                 with timed_stage('impl_temp_vdiff'):
-                    self.timestepper_temp_vdff_3d.advance(t, self.solver.dt, self.fields.temp_3d)
+                    self.timestepper_temp_vdff_3d.advance(t)
         if do_stab_params:
             self._update_stabilization_params()
 
@@ -340,8 +340,7 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
 
                 # advance fields from T_{n} to T{n+1}
                 for i in range(self.M[k]):
-                    self.timestepper2d.advance(t_rhs + i*dt_2d, dt_2d, sol2d,
-                                               update_forcings)
+                    self.timestepper2d.advance(t_rhs + i*dt_2d, update_forcings)
             last_step = (k == 2)
             # move fields to next stage
             self._update_all_dependencies(t, do_vert_diffusion=last_step,
@@ -1655,11 +1654,11 @@ class CoupledLeapFrogAM3(NewCoupledTimeIntegrator):
         self._update_turbulence(t)
         if self.options.solve_vert_diffusion:
             with timed_stage('impl_mom_vvisc'):
-                self.timestepper_mom_vdff_3d.advance(t, self.solver.dt, self.fields.uv_3d)
+                self.timestepper_mom_vdff_3d.advance(t)
             if self.options.solve_salt:
                 with timed_stage('impl_salt_vdiff'):
-                    self.timestepper_salt_vdff_3d.advance(t, self.solver.dt, self.fields.salt_3d)
+                    self.timestepper_salt_vdff_3d.advance(t)
             if self.options.solve_temp:
                 with timed_stage('impl_temp_vdiff'):
-                    self.timestepper_temp_vdff_3d.advance(t, self.solver.dt, self.fields.temp_3d)
+                    self.timestepper_temp_vdff_3d.advance(t)
         self._update_stabilization_params()

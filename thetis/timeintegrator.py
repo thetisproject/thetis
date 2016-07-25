@@ -5,43 +5,49 @@ Tuomas Karna 2015-03-27
 """
 from __future__ import absolute_import
 from .utility import *
+from abc import ABCMeta, abstractproperty
 
 
-class TimeIntegrator(object):
+class TimeIntegratorBase(object):
+    __metaclass__ = ABCMeta
+
+    @abstractproperty
+    def advance(self, t, update_forcings=None):
+        """Advances equations for one time step."""
+        pass
+
+    @abstractproperty
+    def initialize(self, init_solution):
+        """Initializes the time integrator"""
+        pass
+
+
+class TimeIntegrator(TimeIntegratorBase):
     """Base class for all time integrator objects."""
-    def __init__(self, equation, solver_parameters={}):
+    def __init__(self, equation, solution, fields, dt, solver_parameters={}):
         """Assigns initial conditions to all required fields."""
         super(TimeIntegrator, self).__init__()
 
         self.equation = equation
+        self.solution = solution
+        self.fields = fields
+        self.dt = dt
+        self.dt_const = Constant(dt)
+
         # unique identifier for solver
         self.name = '-'.join([self.__class__.__name__,
                               self.equation.__class__.__name__])
         self.solver_parameters = {}
         self.solver_parameters.update(solver_parameters)
 
-    def initialize(self, equation, dt, solution):
-        """Assigns initial conditions to all required fields."""
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
-    def advance(self):
-        """Advances equations for one time step."""
-        raise NotImplementedError(('This method must be implemented '
-                                   'in the derived class'))
-
 
 class ForwardEuler(TimeIntegrator):
     """Standard forward Euler time integration scheme."""
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
         """Creates forms for the time integrator"""
-        super(ForwardEuler, self).__init__(equation, solver_parameters)
-        self.dt_const = Constant(dt)
-        self.solution = solution
+        super(ForwardEuler, self).__init__(equation, solution, fields, dt, solver_parameters)
         self.solution_old = Function(self.equation.function_space)
 
-        # dict of all input functions needed for the equation
-        self.fields = fields
         # create functions to hold the values of previous time step
         self.fields_old = {}
         for k in self.fields:
@@ -73,12 +79,12 @@ class ForwardEuler(TimeIntegrator):
         for k in self.fields_old:
             self.fields_old[k].assign(self.fields[k])
 
-    def advance(self, t, dt, solution, update_forcings=None):
+    def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
         self.dt_const.assign(dt)
         if update_forcings is not None:
-            update_forcings(t+dt)
-        self.solution_old.assign(solution)
+            update_forcings(t + self.dt)
+        self.solution_old.assign(self.solution)
         self.solver.solve()
         # shift time
         for k in self.fields_old:
@@ -89,18 +95,13 @@ class CrankNicolson(TimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, theta=0.5, semi_implicit=False):
         """Creates forms for the time integrator"""
-        super(CrankNicolson, self).__init__(equation, solver_parameters)
+        super(CrankNicolson, self).__init__(equation, solution, fields, dt, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
         if semi_implicit:
             self.solver_parameters.setdefault('snes_type', 'ksponly')
         else:
             self.solver_parameters.setdefault('snes_type', 'newtonls')
-
-        self.dt_const = Constant(dt)
-
-        self.solution = solution
         self.solution_old = Function(self.equation.function_space, name='solution_old')
-        self.fields = fields
         # create functions to hold the values of previous time step
         # TODO is this necessary? is self.fields sufficient?
         self.fields_old = {}
@@ -152,12 +153,11 @@ class CrankNicolson(TimeIntegrator):
         for k in self.fields_old:
             self.fields_old[k].assign(self.fields[k])
 
-    def advance(self, t, dt, solution, update_forcings=None):
+    def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
-        self.dt_const.assign(dt)
         if update_forcings is not None:
-            update_forcings(t+dt)
-        self.solution_old.assign(solution)
+            update_forcings(t + self.dt)
+        self.solution_old.assign(self.solution)
         self.solver.solve()
         # shift time
         for k in self.fields_old:
@@ -168,13 +168,9 @@ class SteadyState(TimeIntegrator):
     """Time integrator that solves the steady state equations, leaving out the mass terms"""
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
         """Creates forms for the time integrator"""
-        super(SteadyState, self).__init__(equation, solver_parameters)
+        super(SteadyState, self).__init__(equation, solution, fields, dt, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
-
-        self.solution = solution
-        self.fields = fields
-
         self.F = self.equation.residual('all', solution, solution, fields, fields, bnd_conditions)
         self.update_solver()
 
@@ -192,10 +188,10 @@ class SteadyState(TimeIntegrator):
         # nothing to do here as the initial condition is passed in via solution
         return
 
-    def advance(self, t, dt, solution, update_forcings=None):
+    def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
         if update_forcings is not None:
-            update_forcings(t+dt)
+            update_forcings(t + self.dt)
         self.solver.solve()
 
 
@@ -336,12 +332,7 @@ class LeapFrogAM3(TimeIntegrator):
     """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, solver_parameters_dirk={}, terms_to_add='all'):
-        super(LeapFrogAM3, self).__init__(equation, solver_parameters)
-
-        self.dt = dt
-        self.dt_const = Constant(dt)
-        self.solution = solution
-        self.fields = fields
+        super(LeapFrogAM3, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         self.gamma = 1./12.
         self.gamma_const = Constant(self.gamma)
@@ -406,3 +397,10 @@ class LeapFrogAM3(TimeIntegrator):
         # time shift
         self.msol_old.assign(self.msol)
         self.msol.assign(self.l_form)
+
+    def advance(self, t, update_forcings=None):
+        """Advances equations for one time step."""
+        if update_forcings is not None:
+            update_forcings(t + self.dt)
+        self.predict()
+        self.correct()

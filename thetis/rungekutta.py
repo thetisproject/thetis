@@ -427,14 +427,11 @@ class DIRKGeneric(TimeIntegrator):
             Defines which terms of the equation are to be added to this solver.
             Default 'all' implies terms_to_add = ['implicit', 'explicit', 'source']
         """
-        super(DIRKGeneric, self).__init__(equation, solver_parameters)
+        super(DIRKGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
 
         fs = self.equation.function_space
-        self.dt = dt
-        self.dt_const = Constant(dt)
-        self.solution = solution
         self.solution_old = Function(self.equation.function_space, name='old solution')
 
         test = self.equation.test
@@ -580,19 +577,14 @@ class ERKGeneric(TimeIntegrator):
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, terms_to_add='all'):
         """Creates forms for the time integrator"""
-        super(ERKGeneric, self).__init__(equation, solver_parameters)
+        super(ERKGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
 
-        self.solution = solution
         self.solution_old = Function(self.equation.function_space, name='old solution')
-        self.fields = fields
 
         self.tendency = []
         for i in range(self.n_stages):
             k = Function(self.equation.function_space, name='tendency{:}'.format(i))
             self.tendency.append(k)
-
-        self.dt = dt
-        self.dt_const = Constant(dt)
 
         # fully explicit evaluation
         self.a_rk = self.equation.mass_term(self.equation.trial)
@@ -650,25 +642,24 @@ class ERKGeneric(TimeIntegrator):
                 self.solution += float(self.b[j])*self.tendency[j]
         self.solution_old.assign(self.solution)
 
-    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
+    def solve_stage(self, i_stage, t, update_forcings=None):
         """
         Solves a single stage of step from t to t+dt.
         All functions that the equation depends on must be at right state
         corresponding to each sub-step.
         """
-        self.dt_const.assign(dt)
         self.update_solution(i_stage)
         self.solve_tendency(i_stage, t, update_forcings)
 
-    def advance(self, t, dt, solution, update_forcings=None):
+    def advance(self, t, update_forcings=None):
         """Advances one full time step from t to t+dt.
         This assumes that all the functions that the equation depends on are
         constants across this interval. If dependent functions need to be
         updated call solve_stage instead.
         """
         for k in range(self.n_stages):
-            self.solve_stage(k, t, dt, solution,
-                             update_forcings)
+            self.solve_stage(k, t, update_forcings)
+        self.get_final_solution(self, additive=False)
 
 
 class ERKStageGeneric(TimeIntegrator):
@@ -680,18 +671,13 @@ class ERKStageGeneric(TimeIntegrator):
 
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, terms_to_add='all'):
         """Creates forms for the time integrator"""
-        super(ERKStageGeneric, self).__init__(equation, solver_parameters)
-
-        self.solution = solution
-        self.fields = fields
+        super(ERKStageGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         self.tendency = Function(self.equation.function_space, name='tendency')
         self.stage_sol = []
         for i in range(self.n_stages):
             s = Function(self.equation.function_space, name='sol'.format(i))
             self.stage_sol.append(s)
-
-        self.dt_const = Constant(dt)
 
         # fully explicit evaluation
         self.a_rk = self.equation.mass_term(self.equation.trial)
@@ -727,16 +713,15 @@ class ERKStageGeneric(TimeIntegrator):
         for j in range(i_stage):
             self.solution += self.a[i_stage][j]*self.k[j]
 
-    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
+    def solve_stage(self, i_stage, t, update_forcings=None):
         """
         Solves a single stage of step from t to t+dt.
         All functions that the equation depends on must be at right state
         corresponding to each sub-step.
         """
         if self._nontrivial:
-            self.dt_const.assign(dt)
             if update_forcings is not None:
-                update_forcings(t + self.c[i_stage]*dt)
+                update_forcings(t + self.c[i_stage]*self.dt)
 
             if i_stage == 0:
                 self.stage_sol[0].assign(self.solution)
@@ -753,15 +738,14 @@ class ERKStageGeneric(TimeIntegrator):
             if i_stage < self.n_stages - 1:
                 self.stage_sol[i_stage + 1].assign(self.solution)
 
-    def advance(self, t, dt, solution, update_forcings=None):
+    def advance(self, t, update_forcings=None):
         """Advances one full time step from t to t+dt.
         This assumes that all the functions that the equation depends on are
         constants across this interval. If dependent functions need to be
         updated call solve_stage instead.
         """
         for k in range(self.n_stages):
-            self.solve_stage(k, t, dt, solution,
-                             update_forcings)
+            self.solve_stage(k, t, update_forcings)
 
 
 class ERKGenericALE(TimeIntegrator):
@@ -773,18 +757,13 @@ class ERKGenericALE(TimeIntegrator):
 
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
         """Creates forms for the time integrator"""
-        super(ERKGenericALE, self).__init__(equation, solver_parameters)
-
-        self.solution = solution
-        self.fields = fields
+        super(ERKGenericALE, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         self.l_form = Function(self.equation.function_space, name='linear form')
         self.stage_msol = []
         for i in range(self.n_stages):
             s = Function(self.equation.function_space, name='dual solution {:}'.format(i))
             self.stage_msol.append(s)
-
-        self.dt_const = Constant(dt)
 
         # fully explicit evaluation
         self.a_rk = self.equation.mass_term(self.equation.trial)
@@ -802,16 +781,15 @@ class ERKGenericALE(TimeIntegrator):
         """Assigns initial conditions to all required fields."""
         # assemble(self.mass_term, self.stage_msol[0])
 
-    def pre_solve(self, i_stage, t, dt, update_forcings=None):
+    def pre_solve(self, i_stage, t, update_forcings=None):
         """Assemble L in the old geometry"""
-        self.dt_const.assign(dt)
         if update_forcings is not None:
-            update_forcings(t + self.c[i_stage]*dt)
+            update_forcings(t + self.c[i_stage]*self.dt)
 
         assemble(float(self.beta[i_stage + 1][i_stage])*self.l_rk, self.l_form)
         assemble(self.mass_term, self.stage_msol[i_stage])
 
-    def finalize_solve(self, i_stage, t, dt, update_forcings=None):
+    def finalize_solve(self, i_stage, t, update_forcings=None):
         """Solve problem M*sol = M_old*sol_old + ... + L in the new geometry"""
 
         # construct full form: L = c*dt*F + M_n*sol_n + ...
@@ -827,25 +805,24 @@ class ERKGenericALE(TimeIntegrator):
         # target = np.mod(i_stage + 1, self.n_stages)  # final sol to stage 0
         # assemble(self.mass_term, self.stage_msol[target])
 
-    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
+    def solve_stage(self, i_stage, t, update_forcings=None):
         """
         Solves a single stage of step from t to t+dt.
         All functions that the equation depends on must be at right state
         corresponding to each sub-step.
         """
         error('You should not call solve_state with ALE formulation but pre_solve and finalize_solve')
-        self.pre_solve(i_stage, t, dt, update_forcings)
-        self.finalize_solve(i_stage, t, dt, update_forcings)
+        self.pre_solve(i_stage, t, update_forcings)
+        self.finalize_solve(i_stage, t, update_forcings)
 
-    def advance(self, t, dt, solution, update_forcings=None):
+    def advance(self, t, update_forcings=None):
         """Advances one full time step from t to t+dt.
         This assumes that all the functions that the equation depends on are
         constants across this interval. If dependent functions need to be
         updated call solve_stage instead.
         """
         for k in range(self.n_stages):
-            self.solve_stage(k, t, dt, solution,
-                             update_forcings)
+            self.solve_stage(k, t, update_forcings)
 
 
 class ERKGenericALE2(TimeIntegrator):
@@ -857,10 +834,7 @@ class ERKGenericALE2(TimeIntegrator):
 
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
         """Creates forms for the time integrator"""
-        super(ERKGenericALE2, self).__init__(equation, solver_parameters)
-
-        self.solution = solution
-        self.fields = fields
+        super(ERKGenericALE2, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         self.l_form = Function(self.equation.function_space, name='linear form')
         self.msol_old = Function(self.equation.function_space, name='old dual solution')
@@ -868,9 +842,6 @@ class ERKGenericALE2(TimeIntegrator):
         for i in range(self.n_stages):
             s = Function(self.equation.function_space, name='dual tendency {:}'.format(i))
             self.stage_mk.append(s)
-
-        self.dt = dt
-        self.dt_const = Constant(dt)
 
         # fully explicit evaluation
         self.a_rk = self.equation.mass_term(self.equation.trial)
@@ -933,15 +904,14 @@ class ERKGenericALE2(TimeIntegrator):
         if i_stage == self.n_stages - 1:
             self.get_final_solution()
 
-    def advance(self, t, dt, solution, update_forcings=None):
+    def advance(self, t, update_forcings=None):
         """Advances one full time step from t to t+dt.
         This assumes that all the functions that the equation depends on are
         constants across this interval. If dependent functions need to be
         updated call solve_stage instead.
         """
         for k in range(self.n_stages):
-            self.solve_stage(k, t, dt, solution,
-                             update_forcings)
+            self.solve_stage(k, t, update_forcings)
 
 
 class ERKSemiImplicitGeneric(TimeIntegrator):
@@ -952,7 +922,7 @@ class ERKSemiImplicitGeneric(TimeIntegrator):
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, semi_implicit=False, theta=0.5):
         """Creates forms for the time integrator"""
-        super(ERKSemiImplicitGeneric, self).__init__(equation, solver_parameters)
+        super(ERKSemiImplicitGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         assert self.n_stages == 3, 'This method supports only for 3 stages'
 
@@ -964,18 +934,13 @@ class ERKSemiImplicitGeneric(TimeIntegrator):
 
         self.theta = Constant(theta)
 
-        self.solution = solution
         self.solution_old = Function(self.equation.function_space, name='old solution')
-
-        self.fields = fields
 
         self.stage_sol = []
         for i in range(self.n_stages - 1):
             s = Function(self.equation.function_space, name='solution stage {:}'.format(i))
             self.stage_sol.append(s)
         self.stage_sol.append(self.solution)
-
-        self.dt_const = Constant(dt)
 
         sol_nl = [None]*self.n_stages
         if semi_implicit:
@@ -1032,30 +997,28 @@ class ERKSemiImplicitGeneric(TimeIntegrator):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
 
-    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
+    def solve_stage(self, i_stage, t, update_forcings=None):
         """
         Solves a single stage of step from t to t+dt.
         All functions that the equation depends on must be at rigth state
         corresponding to each sub-step.
         """
-        self.dt_const.assign(dt)
         if update_forcings is not None:
-            update_forcings(t + self.c[i_stage]*dt)
+            update_forcings(t + self.c[i_stage]*self.dt)
         self.solver[i_stage].solve()
         if i_stage == self.n_stages - 1:
-            self.solution_old.assign(solution)
+            self.solution_old.assign(self.solution)
         else:
-            solution.assign(self.stage_sol[i_stage])
+            self.solution.assign(self.stage_sol[i_stage])
 
-    def advance(self, t, dt, solution, update_forcings):
+    def advance(self, t, update_forcings):
         """Advances one full time step from t to t+dt.
         This assumes that all the functions that the equation depends on are
         constants across this interval. If dependent functions need to be
         updated call solve_stage instead.
         """
-        for k in range(3):
-            self.solve_stage(k, t, dt, solution,
-                             update_forcings)
+        for k in range(self.n_stages):
+            self.solve_stage(k, t, update_forcings)
 
 
 class SSPRK33Stage(ERKStageGeneric, SSPRK33Abstract):
@@ -1130,7 +1093,7 @@ class DIRKEuler(DIRKGeneric, BackwardEulerAbstract):
 class ForwardEulerSemiImplicit(TimeIntegrator, ForwardEulerAbstract):
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, semi_implicit=True, theta=0.5):
-        super(ForwardEulerSemiImplicit, self).__init__(equation, solver_parameters)
+        super(ForwardEulerSemiImplicit, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         self.solver_parameters.setdefault('snes_monitor', False)
         if semi_implicit:
@@ -1140,12 +1103,7 @@ class ForwardEulerSemiImplicit(TimeIntegrator, ForwardEulerAbstract):
 
         self.theta = Constant(theta)
 
-        self.solution = solution
         self.solution_old = Function(self.equation.function_space, name='old solution')
-
-        self.fields = fields
-
-        self.dt_const = Constant(dt)
 
         if semi_implicit:
             # linearize around previous sub-timestep using the fact that all terms are written in the form A(u_nl) u
@@ -1181,50 +1139,43 @@ class ForwardEulerSemiImplicit(TimeIntegrator, ForwardEulerAbstract):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
 
-    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
+    def solve_stage(self, i_stage, t, update_forcings=None):
         """
         Solves a single stage of step from t to t+dt.
         All functions that the equation depends on must be at rigth state
         corresponding to each sub-step.
         """
-        self.dt_const.assign(dt)
         if i_stage == 0:
             # stage 0
             if update_forcings is not None:
-                update_forcings(t + self.c[i_stage]*dt)
+                update_forcings(t + self.c[i_stage]*self.dt)
             self.solver_f0.solve()
             # l_form = assemble(self.f)
             # a_form = assemble(self.mass_term)
             # solve(a_form, solution, l_form)
             # solution += self.solution_old
-            self.solution_old.assign(solution)
+            self.solution_old.assign(self.solution)
 
-    def advance(self, t, dt, solution, update_forcings):
+    def advance(self, t, update_forcings):
         """Advances one full time step from t to t+dt.
         This assumes that all the functions that the equation depends on are
         constants across this interval. If dependent functions need to be
         updated call solve_stage instead.
         """
-        for k in range(1):
-            self.solve_stage(k, t, dt, solution,
-                             update_forcings)
+        for k in range(self.n_stages):
+            self.solve_stage(k, t, update_forcings)
 
 
 # OBSOLETE
 class ForwardEulerStage(TimeIntegrator, ForwardEulerAbstract):
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
         """Creates forms for the time integrator"""
-        super(ForwardEulerStage, self).__init__(equation, solver_parameters)
-
-        self.solution = solution
-        self.fields = fields
+        super(ForwardEulerStage, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         fs = self.equation.function_space
         self.tendency = Function(fs, name='tendency')
         self.solution_form_old = Function(fs, name='solution form old')
         self.l_form = Function(fs, name='linear form')
-
-        self.dt_const = Constant(dt)
 
         # fully explicit evaluation
         self.a_rk = self.equation.mass_term(self.equation.trial)
@@ -1246,15 +1197,14 @@ class ForwardEulerStage(TimeIntegrator, ForwardEulerAbstract):
         """Assigns initial conditions to all required fields."""
         assemble(self.mass_term + self.L_RK, self.l_form)
 
-    def solve_stage(self, i_stage, t, dt, solution, update_forcings=None):
+    def solve_stage(self, i_stage, t, update_forcings=None):
         """
         Solves a single stage of step from t to t+dt.
         All functions that the equation depends on must be at right state
         corresponding to each sub-step.
         """
-        self.dt_const.assign(dt)
         if update_forcings is not None:
-            update_forcings(t + self.c[i_stage]*dt)
+            update_forcings(t + self.c[i_stage]*self.dt)
 
         # self.presolve()
         # self.postsolve()
@@ -1286,7 +1236,7 @@ class ForwardEulerStage(TimeIntegrator, ForwardEulerAbstract):
         #
         # assemble(inner(self.solution + self.tendency, self.equation.test)*dx, self.l_form)
 
-    def pre_solve(self, i_stage, t, dt, update_forcings=None):
+    def pre_solve(self, i_stage, t, update_forcings=None):
         # # solve tendency
         # self.solver.solve()
         # # solve the next internal solution
@@ -1300,7 +1250,7 @@ class ForwardEulerStage(TimeIntegrator, ForwardEulerAbstract):
         # assemble new solution
         # assemble(inner(self.solution, self.equation.test)*dx, self.l_form)
 
-    def finalize_solve(self, i_stage, t, dt, update_forcings=None):
+    def finalize_solve(self, i_stage, t, update_forcings=None):
         # update solution in current mesh
         # a_form = assemble(self.a_rk)
         # solve(a_form, self.solution, self.l_form)
@@ -1309,12 +1259,11 @@ class ForwardEulerStage(TimeIntegrator, ForwardEulerAbstract):
         self.linsolver.solve(self.solution, self.l_form)
         # solve(self.mass_matrix, self.solution, self.l_form)
 
-    def advance(self, t, dt, solution, update_forcings=None):
+    def advance(self, t, update_forcings=None):
         """Advances one full time step from t to t+dt.
         This assumes that all the functions that the equation depends on are
         constants across this interval. If dependent functions need to be
         updated call solve_stage instead.
         """
         for k in range(self.n_stages):
-            self.solve_stage(k, t, dt, solution,
-                             update_forcings)
+            self.solve_stage(k, t, update_forcings)
