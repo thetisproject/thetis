@@ -92,7 +92,7 @@ class DiagnosticCallback(object):
             outputdir = self.outputdir
             if outputdir is None:
                 outputdir = solver_obj.options.outputdir
-            create_directory(outputdir)
+            create_directory(outputdir, comm=comm)
             fname = 'diagnostic_{:}.hdf5'.format(self.name.replace(' ', '_'))
             fname = os.path.join(outputdir, fname)
             self.hdf_exporter = DiagnosticHDF5(fname, self.variable_names,
