@@ -40,7 +40,7 @@ mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x', reorder=True)
 mesh2d.coordinates.dat.data[:, 0] -= lx/2
 mesh2d.coordinates.dat.data[:, 1] -= ly/2
 
-print_info('Exporting to ' + outputdir)
+print_output('Exporting to ' + outputdir)
 dt = 60.0
 t_end = 30 * 3600.0
 t_export = 5*60.0

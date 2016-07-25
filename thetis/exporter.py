@@ -260,7 +260,7 @@ class NaiveFieldExporter(ExporterBase):
 
             filename = self.gen_filename(iexport)
             if self.verbose:
-                print 'saving state to', filename
+                print_output('saving state to %s', filename)
             np.savez(filename, xyz=self.xyz, connectivity=self.connectivity,
                      data=global_data)
         self.next_export_ix = iexport+1
@@ -283,7 +283,7 @@ class NaiveFieldExporter(ExporterBase):
         if comm.rank == 0:
             filename = self.gen_filename(iexport)
             if self.verbose:
-                print 'loading state from', filename
+                print_output('loading state from %s', filename)
             npzfile = np.load(filename)
             global_data = npzfile['data']
             assert global_data.shape[0] == self.n_global_nodes,\
@@ -334,7 +334,7 @@ class HDF5Exporter(ExporterBase):
             'Function space does not match'
         filename = self.gen_filename(iexport)
         if self.verbose:
-            print('saving {:} state to {:}'.format(function.name(), filename))
+            print_output('saving {:} state to {:}'.format(function.name(), filename))
         with DumbCheckpoint(filename, mode=FILE_CREATE, comm=function.comm) as f:
             f.store(function)
         self.next_export_ix = iexport + 1
@@ -354,7 +354,7 @@ class HDF5Exporter(ExporterBase):
             'Function space does not match'
         filename = self.gen_filename(iexport)
         if self.verbose:
-            print('loading {:} state from {:}'.format(function.name(), filename))
+            print_output('loading {:} state from {:}'.format(function.name(), filename))
         with DumbCheckpoint(filename, mode=FILE_READ, comm=function.comm) as f:
             f.load(function)
 

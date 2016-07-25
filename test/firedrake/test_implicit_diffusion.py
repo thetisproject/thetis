@@ -63,7 +63,7 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     dt = dz*dz/nu_v / 10
     n_iter = np.ceil(t_end/dt)
     dt = t_end/n_iter
-    print 'dt', dt
+    print('dt {:}'.format(dt))
     dt_const = Constant(dt)
 
     # analytical solution
@@ -176,8 +176,8 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     if do_export:
         sol_file.write(solution)
         ana_file.write(ana_sol)
-    print 'sol', solution.dat.data.min(), solution.dat.data.max()
-    print 'ana', ana_sol.dat.data.min(), ana_sol.dat.data.max()
+    print('sol {:} {:}'.format(solution.dat.data.min(), solution.dat.data.max()))
+    print('ana {:} {:}'.format(ana_sol.dat.data.min(), ana_sol.dat.data.max()))
     # time loop
     while t < t_end + t_init:
         # solve
@@ -197,11 +197,11 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     if do_export:
         sol_file.write(solution)
         ana_file.write(ana_sol)
-    print 'sol', solution.dat.data.min(), solution.dat.data.max()
-    print 'ana', ana_sol.dat.data.min(), ana_sol.dat.data.max()
+    print('sol {:} {:}'.format(solution.dat.data.min(), solution.dat.data.max()))
+    print('ana {:} {:}'.format(ana_sol.dat.data.min(), ana_sol.dat.data.max()))
 
     l2_err = errornorm(ana_sol, solution)/area
-    print 'L2 error:', l2_err
+    print('L2 error: {:}'.format(l2_err))
     if do_assert:
         l2_threshold = 1e-4
         assert l2_err < l2_threshold, 'L2 error exceeds threshold'

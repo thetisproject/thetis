@@ -83,7 +83,7 @@ gls_options = options.gls_options
 gls_options.apply_defaults('k-omega')
 gls_options.stability_name = 'CB'
 options.outputdir = outputdir + '_' + gls_options.closure_name + '-' + gls_options.stability_name
-print_info('Exporting to ' + options.outputdir)
+print_output('Exporting to ' + options.outputdir)
 
 solver_obj.create_function_spaces()
 
@@ -122,4 +122,4 @@ if __name__ == '__main__':
     volume = lx*ly*depth
     uv_l2_err = errornorm(log_uv, uv_p1_dg)/numpy.sqrt(volume)
     assert uv_l2_err < l2_tol, 'L2 error is too large: {:} > {:}'.format(uv_l2_err, l2_tol)
-    print('L2 error {:.4f} PASSED'.format(uv_l2_err))
+    print_output('L2 error {:.4f} PASSED'.format(uv_l2_err))

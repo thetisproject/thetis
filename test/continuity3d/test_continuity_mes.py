@@ -209,7 +209,7 @@ def setup5dg(lx, h0):
 
 def run(setup, refinement, order, do_export=True):
     """Run single test and return L2 error"""
-    print '--- running {:} refinement {:}'.format(setup.__name__, refinement)
+    print_output('--- running {:} refinement {:}'.format(setup.__name__, refinement))
     setup_name = setup.__name__
     # domain dimensions
     lx = 15e3
@@ -292,23 +292,23 @@ def run(setup, refinement, order, do_export=True):
         out_uv.write(uv_analytical)
         solver_obj.export()
 
-    print 'w_pro', w_proj_3d.dat.data[:, 2].min(), w_proj_3d.dat.data[:, 2].max()
-    print 'w_ana', w_analytical.dat.data[:, 2].min(), w_analytical.dat.data[:, 2].max()
+    print_output('w_pro {:} {:}'.format(w_proj_3d.dat.data[:, 2].min(), w_proj_3d.dat.data[:, 2].max()))
+    print_output('w_ana {:} {:}'.format(w_analytical.dat.data[:, 2].min(), w_analytical.dat.data[:, 2].max()))
 
     # compute flux through bottom boundary
     normal = FacetNormal(solver_obj.mesh)
     bottom_flux = assemble(inner(uvw, normal)*ds_bottom)
     bottom_flux_ana = assemble(inner(w_analytical, normal)*ds_bottom)
-    print 'flux through bot', bottom_flux, bottom_flux_ana
+    print_output('flux through bot {:} {:}'.format(bottom_flux, bottom_flux_ana))
 
     err_msg = '{:}: Bottom impermeability violated: bottom flux {:.4g}'.format(setup_name, bottom_flux)
     assert abs(bottom_flux) < 1e-6, err_msg
 
     l2_err_w = errornorm(w_ana_ho, w_proj_3d)/numpy.sqrt(area)
-    print 'L2 error w  {:.12f}'.format(l2_err_w)
+    print_output('L2 error w  {:.12f}'.format(l2_err_w))
     w_ana_ho.project(sdict['uv_expr'])
     l2_err_uv = errornorm(w_ana_ho, solver_obj.fields.uv_3d)/numpy.sqrt(area)
-    print 'L2 error uv {:.12f}'.format(l2_err_uv)
+    print_output('L2 error uv {:.12f}'.format(l2_err_uv))
 
     return l2_err_w, l2_err_uv
 
@@ -352,14 +352,14 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False):
             imgfile += '.png'
             img_dir = create_directory('plots')
             imgfile = os.path.join(img_dir, imgfile)
-            print 'saving figure', imgfile
+            print_output('saving figure {:}'.format(imgfile))
             plt.savefig(imgfile, dpi=200, bbox_inches='tight')
         if expected_slope is not None:
             err_msg = '{:}: Wrong convergence rate {:.4f}, expected {:.4f}'.format(setup_name, slope, expected_slope)
             assert abs(slope - expected_slope)/expected_slope < slope_rtol, err_msg
-            print '{:}: {:} convergence rate {:.4f} PASSED'.format(setup_name, field_str, slope)
+            print_output('{:}: {:} convergence rate {:.4f} PASSED'.format(setup_name, field_str, slope))
         else:
-            print '{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope)
+            print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
     check_convergence(x_log, y_log_w, order, 'w', save_plot)

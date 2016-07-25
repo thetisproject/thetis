@@ -20,8 +20,8 @@ from thetis import *
 
 outputdir = 'outputs'
 mesh2d = Mesh('channel_mesh.msh')
-print_info('Loaded mesh '+mesh2d.name)
-print_info('Exporting to '+outputdir)
+print_output('Loaded mesh '+mesh2d.name)
+print_output('Exporting to '+outputdir)
 # total duration in seconds
 t_end = 6 * 3600
 # estimate of max advective velocity used to estimate time step

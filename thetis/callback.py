@@ -8,6 +8,7 @@ from .utility import *
 from abc import ABCMeta, abstractproperty, abstractmethod
 import h5py
 from collections import defaultdict
+from .log import *
 
 
 class CallbackManager(defaultdict):
@@ -129,8 +130,7 @@ class DiagnosticCallback(object):
 
     def push_to_log(self, time, args):
         """Print diagnostic status message to log"""
-        # TODO update to use real logger object
-        print_info(self.__str__(args))
+        print_output(self.__str__(args))
 
     def push_to_hdf5(self, solver_obj, time, args):
         """Append values to export file."""

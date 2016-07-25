@@ -27,7 +27,7 @@ def test_callbacks(tmp_outputdir):
     u_mag = Constant(0.5)
 
     outputdir = tmp_outputdir
-    print_info('Exporting to ' + outputdir)
+    print_output('Exporting to ' + outputdir)
 
     # bathymetry
     p1_2d = FunctionSpace(mesh2d, 'CG', 1)

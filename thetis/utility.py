@@ -95,7 +95,6 @@ class FieldDict(AttrDict):
                         (isinstance(fs, WithGeometry) and
                          isinstance(fs.topological, MixedFunctionSpace)))
             if not is_mixed and key not in field_metadata:
-                print type(fs)
                 msg = 'Trying to add a field "{:}" that has no metadata. ' \
                       'Add field_metadata entry to field_defs.py'.format(key)
                 raise Exception(msg)
@@ -114,11 +113,6 @@ class FieldDict(AttrDict):
         self._check_inputs(key, value)
         self._set_functionname(key, value)
         super(FieldDict, self).__setattr__(key, value)
-
-
-def print_info(msg, comm=COMM_WORLD):
-    if comm.rank == 0:
-        print(msg)
 
 
 ElementContinuity = namedtuple("ElementContinuity", ["dg", "horizontal_dg", "vertical_dg"])

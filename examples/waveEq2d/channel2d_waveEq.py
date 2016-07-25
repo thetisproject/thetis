@@ -20,8 +20,8 @@ elev_amp = 1.0
 u_mag = Constant(0.5)
 
 outputdir = 'outputs_wave_eq_2d'
-print_info('Loaded mesh '+mesh2d.name)
-print_info('Exporting to '+outputdir)
+print_output('Loaded mesh '+mesh2d.name)
+print_output('Exporting to '+outputdir)
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)

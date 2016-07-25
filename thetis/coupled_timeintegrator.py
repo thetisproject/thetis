@@ -6,6 +6,7 @@ Tuomas Karna 2015-07-06
 from __future__ import absolute_import
 from .utility import *
 from . import timeintegrator
+from .log import *
 
 # TODO turbulence update. move out from _update_all_dependencies ?
 
@@ -275,9 +276,9 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
         for i in range(1, len(self.dt_frac)):
             prev_end_time = self.start_frac[i-1] + self.dt_frac[i-1]
             self.stage_w.append(prev_end_time*(1.0 - self.start_frac[i]))
-        print_info('dt_frac ' + str(self.dt_frac))
-        print_info('start_frac ' + str(self.start_frac))
-        print_info('stage_w ' + str(self.stage_w))
+        print_output('dt_frac ' + str(self.dt_frac))
+        print_output('start_frac ' + str(self.start_frac))
+        print_output('stage_w ' + str(self.stage_w))
 
     def initialize(self):
         """Assign initial conditions to all necessary fields"""
@@ -294,7 +295,7 @@ class CoupledSSPRKSync(CoupledTimeIntegrator):
         for i, f in enumerate(self.dt_frac):
             m = int(np.ceil(f*self.solver.dt/self.solver.dt_2d))
             dt = f*self.solver.dt/m
-            print_info('stage {0:d} {1:.6f} {2:d} {3:.4f}'.format(i, dt, m, f))
+            print_output('stage {0:d} {1:.6f} {2:d} {3:.4f}'.format(i, dt, m, f))
             self.M.append(m)
             self.dt_2d.append(dt)
         self._initialized = True
@@ -617,9 +618,9 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
         for i in range(1, len(self.dt_frac)):
             prev_end_time = self.start_frac[i-1] + self.dt_frac[i-1]
             self.stage_w.append(prev_end_time*(1.0 - self.start_frac[i]))
-        print_info('dt_frac ' + str(self.dt_frac))
-        print_info('start_frac ' + str(self.start_frac))
-        print_info('stage_w ' + str(self.stage_w))
+        print_output('dt_frac ' + str(self.dt_frac))
+        print_output('start_frac ' + str(self.start_frac))
+        print_output('stage_w ' + str(self.stage_w))
         self.n_stages = self.timestepper_mom_3d.n_stages
 
     def initialize(self):
@@ -643,7 +644,7 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
         for i, f in enumerate(self.dt_frac):
             m = int(np.ceil(f*self.solver.dt/self.solver.dt_2d))
             dt = f*self.solver.dt/m
-            print_info('stage {0:d} {1:.6f} {2:d} {3:.4f}'.format(i, dt, m, f))
+            print_output('stage {0:d} {1:.6f} {2:d} {3:.4f}'.format(i, dt, m, f))
             self.M.append(m)
             self.dt_2d.append(dt)
         self._initialized = True

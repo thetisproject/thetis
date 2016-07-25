@@ -12,7 +12,7 @@ op2.init(log_level=WARNING)
 
 
 def compute(refinement=1, order=1, do_export=False):
-    print '--- soving refinement', refinement
+    print('--- soving refinement {:}'.format(refinement))
     n = 5*refinement
     mesh = UnitSquareMesh(n, n)
 
@@ -44,7 +44,7 @@ def compute(refinement=1, order=1, do_export=False):
     uv_ana.project(uv_expr)
 
     if do_export:
-        print 'analytical div', div_uv.dat.data.min(), div_uv.dat.data.max()
+        print('analytical div {:} {:}'.format(div_uv.dat.data.min(), div_uv.dat.data.max()))
         # export analytical solutions
         out_uv = File('uv.pvd')
         out_div = File('div.pvd')
@@ -72,15 +72,15 @@ def compute(refinement=1, order=1, do_export=False):
     solve(a == l, div_uv)
 
     if do_export:
-        print 'numerical div', div_uv.dat.data.min(), div_uv.dat.data.max()
+        print('numerical div {:} {:}'.format(div_uv.dat.data.min(), div_uv.dat.data.max()))
         # export numerical solutions
         out_uv.write(uv)
         out_div.write(div_uv)
 
     l2err_uv = errornorm(uv_ana, uv)
     l2err_div = errornorm(div_ana, div_uv)
-    print 'L2 norm uv ', l2err_uv
-    print 'L2 norm div', l2err_div
+    print('L2 norm uv {:}'.format(l2err_uv))
+    print('L2 norm div'.format(l2err_div))
     return l2err_uv, l2err_div
 
 
@@ -122,14 +122,14 @@ def convergence_test(ref_list, order=1, export=False, saveplot=False):
             imgfile += '.png'
             imgdir = '.'
             imgfile = os.path.join(imgdir, imgfile)
-            print 'saving figure', imgfile
+            print('saving figure {:}'.format(imgfile))
             plt.savefig(imgfile, dpi=200, bbox_inches='tight')
         if expected_slope is not None:
             err_msg = '{:}: Wrong convergence rate {:.4f}, expected {:.4f}'.format(test_name, slope, expected_slope)
             assert abs(slope - expected_slope)/expected_slope < slope_rtol, err_msg
-            print '{:}: {:} convergence rate {:.4f} PASSED'.format(test_name, field_str, slope)
+            print('{:}: {:} convergence rate {:.4f} PASSED'.format(test_name, field_str, slope))
         else:
-            print '{:}: {:} convergence rate {:.4f}'.format(test_name, field_str, slope)
+            print('{:}: {:} convergence rate {:.4f}'.format(test_name, field_str, slope))
         return slope
     check_convergence(x_log, y_log_div, order, 'divergence_2d', 'div', saveplot)
     check_convergence(x_log, y_log_uv, order + 1, 'divergence_2d', 'uv', saveplot)

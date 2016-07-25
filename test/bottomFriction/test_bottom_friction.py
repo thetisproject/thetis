@@ -47,7 +47,7 @@ def run_bottom_friction(parabolic_visosity=False, element_family='dg-dg',
     ly = ny*dx
     mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x', reorder=True)
 
-    print_info('Exporting to ' + outputdir)
+    print_output('Exporting to ' + outputdir)
     dt = 25.0
     t_end = 5 * 3600.0  # sufficient to reach ~steady state
     t_export = 400.0
@@ -129,7 +129,7 @@ def run_bottom_friction(parabolic_visosity=False, element_family='dg-dg',
         volume = lx*ly*depth
         uv_l2_err = errornorm(log_uv, uv_p1_dg)/numpy.sqrt(volume)
         assert uv_l2_err < l2_tol, 'L2 error is too large: {:} > {:}'.format(uv_l2_err, l2_tol)
-        print('L2 error {:.4f} PASSED'.format(uv_l2_err))
+        print_output('L2 error {:.4f} PASSED'.format(uv_l2_err))
 
 
 @pytest.fixture(params=[pytest.mark.skip(reason='travis is timing out')(True),

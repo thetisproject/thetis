@@ -17,8 +17,8 @@ lx = 1.0e6
 nx = 20
 mesh2d = RectangleMesh(nx, nx, lx, lx)
 outputdir = 'outputs'
-print_info('Loaded mesh '+mesh2d.name)
-print_info('Exporting to '+outputdir)
+print_output('Loaded mesh '+mesh2d.name)
+print_output('Exporting to '+outputdir)
 depth = 1000.0
 t_end = 75*12*2*3600
 t_export = 3600*2

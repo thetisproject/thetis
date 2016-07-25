@@ -28,8 +28,8 @@ if sloped:
     suffix = '_sloped'
 outputdir = 'outputs' + suffix
 
-print_info('Loaded mesh '+mesh2d.name)
-print_info('Exporting to '+outputdir)
+print_output('Loaded mesh '+mesh2d.name)
+print_output('Exporting to '+outputdir)
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -66,7 +66,7 @@ solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 # p = 2.5*x/lx + 0.5
 # sigma = -depth * (0.5*np.tanh(p*(-2.0*z/depth - 1.0))/np.tanh(p) + 0.5)
 # coords.dat.data[:, 2] = sigma
-# print coords.dat.data[:, 2].min(), coords.dat.data[:, 2].max()
+# print_output(coords.dat.data[:, 2].min(), coords.dat.data[:, 2].max())
 
 options = solver_obj.options
 options.nonlin = False

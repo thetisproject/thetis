@@ -66,9 +66,9 @@ def test_implicit_friction(do_export=False, do_assert=True):
 
     viscosity_v.project(Expression('kappa * u_bf * -x[2] * (bath + x[2] + z0) / (bath + z0)',
                         kappa=kappa, u_bf=u_bf, bath=depth, z0=z0))
-    print 'Cd', drag
-    print 'u_bf', u_bf
-    print 'nu', viscosity_v.dat.data.min(), viscosity_v.dat.data.max()
+    print('Cd {:}'.format(drag))
+    print('u_bf {:}'.format(u_bf))
+    print('nu {:}'.format(viscosity_v.dat.data.min(), viscosity_v.dat.data.max()))
 
     # --- solve mom eq
     test = TestFunction(v)
@@ -136,7 +136,7 @@ def test_implicit_friction(do_export=False, do_assert=True):
 
         if do_export:
             out_file.write(solution)
-        print '{:4d}  T={:9.1f} s  cpu={:.2f} s'.format(it, t, t1-t0)
+        print('{:4d}  T={:9.1f} s  cpu={:.2f} s'.format(it, t, t1-t0))
 
     if do_assert:
         target_u_min = 0.4
@@ -147,16 +147,16 @@ def test_implicit_friction(do_export=False, do_assert=True):
         uvw = solution_p1_dg.dat.data
         w_max = np.max(np.abs(uvw[:, 2]))
         v_max = np.max(np.abs(uvw[:, 1]))
-        print 'w', w_max
-        print 'v', v_max
+        print('w {:}'.format(w_max))
+        print('v {:}'.format(v_max))
         assert w_max < target_zero, 'z velocity component too large'
         assert v_max < target_zero, 'y velocity component too large'
         u_min = uvw[:, 0].min()
         u_max = uvw[:, 0].max()
-        print 'u', u_min, u_max
+        print('u {:} {:}'.format(u_min, u_max))
         assert np.abs(u_min - target_u_min) < target_u_tol, 'minimum u velocity is wrong'
         assert np.abs(u_max - target_u_max) < target_u_tol, 'maximum u velocity is wrong'
-        print ' *** PASSED ***'
+        print('*** PASSED ***')
 
 if __name__ == '__main__':
     test_implicit_friction()

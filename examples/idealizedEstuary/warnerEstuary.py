@@ -33,7 +33,7 @@ nx = int(round(100*refinement[reso_str]))
 ny = 2
 layers = int(round(10*refinement[reso_str]))
 mesh2d = RectangleMesh(nx, ny, lx, ly)
-print_info('Exporting to ' + outputdir)
+print_output('Exporting to ' + outputdir)
 dt = 25.0  # 25.0/refinement[reso_str]  # TODO tune dt
 t_end = 20*24*3600
 # export every 9 min, day 16 is export 2720
