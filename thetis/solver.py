@@ -424,9 +424,7 @@ class FlowSolver(FrozenClass):
         self.set_time_step()
         # self.timestepper = coupled_timeintegrator.CoupledLeapFrogAM3(weakref.proxy(self))
         self.timestepper = coupled_timeintegrator.CoupledIMEXALE(weakref.proxy(self))
-        # self.timestepper = coupled_timeintegrator.CoupledIMEXEuler(weakref.proxy(self))
         # self.timestepper = coupled_timeintegrator.CoupledERKALE(weakref.proxy(self))
-        # self.timestepper = coupled_timeintegrator.CoupledForwardEuler(weakref.proxy(self))
 
         # if self.options.use_mode_split:
         #     if self.options.use_imex:

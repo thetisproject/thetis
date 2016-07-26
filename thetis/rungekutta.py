@@ -654,141 +654,6 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
         self.solve_tendency(i_stage, t, update_forcings)
 
 
-class ERKStageGeneric(RungeKuttaTimeIntegrator):
-    """
-    Generic explicit Runge-Kutta time integrator.
-
-    Implements the Shu-Osher form.
-    """
-
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, terms_to_add='all'):
-        """Creates forms for the time integrator"""
-        super(ERKStageGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
-
-        self.tendency = Function(self.equation.function_space, name='tendency')
-        self.stage_sol = []
-        for i in range(self.n_stages):
-            s = Function(self.equation.function_space, name='sol'.format(i))
-            self.stage_sol.append(s)
-
-        # fully explicit evaluation
-        self.a_rk = self.equation.mass_term(self.equation.trial)
-        self.L_RK = self.dt_const*self.equation.residual(terms_to_add,
-                                                         self.solution, self.solution,
-                                                         self.fields, self.fields,
-                                                         bnd_conditions)
-        self._nontrivial = self.L_RK != 0
-        self.update_solver()
-
-    def update_solver(self):
-        if self._nontrivial:
-            prob = LinearVariationalProblem(self.a_rk, self.L_RK, self.tendency)
-            self.solver = LinearVariationalSolver(prob, options_prefix=self.name + '_k',
-                                                  solver_parameters=self.solver_parameters)
-
-    def initialize(self, solution):
-        pass
-
-    def update_solution(self, i_stage, additive=False):
-        """
-        Updates solution to i_stage sub-stage.
-
-        Tendencies must have been evaluated first.
-        If additive=False, will overwrite self.solution function, otherwise
-        will add to it.
-        """
-        if not additive:
-            self.solution.assign(self.solution_old)
-        for j in range(i_stage):
-            self.solution += self.a[i_stage][j]*self.k[j]
-
-    def solve_stage(self, i_stage, t, update_forcings=None):
-        if self._nontrivial:
-            if update_forcings is not None:
-                update_forcings(t + self.c[i_stage]*self.dt)
-
-            if i_stage == 0:
-                self.stage_sol[0].assign(self.solution)
-
-            # solve tendency
-            self.solver.solve()
-
-            # solve the next internal solution
-            # BUG starting with sol_sum = 0 results in different solution!
-            sol_sum = float(self.beta[i_stage + 1][i_stage])*self.tendency
-            for j in range(i_stage + 1):
-                sol_sum += float(self.alpha[i_stage + 1][j])*self.stage_sol[j]
-            self.solution.assign(sol_sum)
-            if i_stage < self.n_stages - 1:
-                self.stage_sol[i_stage + 1].assign(self.solution)
-
-    def get_final_solution(self):
-        pass
-
-
-class ERKGenericALE(RungeKuttaTimeIntegrator):
-    """
-    Generic explicit Runge-Kutta time integrator for conservative ALE schemes.
-
-    Implements the Shu-Osher form.
-    """
-
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
-        """Creates forms for the time integrator"""
-        super(ERKGenericALE, self).__init__(equation, solution, fields, dt, solver_parameters)
-
-        self.l_form = Function(self.equation.function_space, name='linear form')
-        self.stage_msol = []
-        for i in range(self.n_stages):
-            s = Function(self.equation.function_space, name='dual solution {:}'.format(i))
-            self.stage_msol.append(s)
-
-        # fully explicit evaluation
-        self.a_rk = self.equation.mass_term(self.equation.trial)
-        self.l_rk = self.dt_const*self.equation.residual('all', self.solution, self.solution, self.fields, self.fields, bnd_conditions)
-        self.mass_term = self.equation.mass_term(self.solution)
-
-        self.update_solver()
-
-    def update_solver(self):
-        self.A = assemble(self.a_rk)
-
-    def initialize(self, solution):
-        pass
-
-    def pre_solve(self, i_stage, t, update_forcings=None):
-        """Assemble L in the old geometry"""
-        if update_forcings is not None:
-            update_forcings(t + self.c[i_stage]*self.dt)
-
-        assemble(float(self.beta[i_stage + 1][i_stage])*self.l_rk, self.l_form)
-        assemble(self.mass_term, self.stage_msol[i_stage])
-
-    def finalize_solve(self, i_stage, t, update_forcings=None):
-        """Solve problem M*sol = M_old*sol_old + ... + L in the new geometry"""
-
-        # construct full form: L = c*dt*F + M_n*sol_n + ...
-        # everything is assembled, just sum up functions
-        for j in range(i_stage + 1):
-            self.l_form += float(self.alpha[i_stage + 1][j])*self.stage_msol[j]
-
-        # solve
-        assemble(self.a_rk, self.A)
-        solve(self.A, self.solution, self.l_form)
-
-        # assemble for next iteration
-        # target = np.mod(i_stage + 1, self.n_stages)  # final sol to stage 0
-        # assemble(self.mass_term, self.stage_msol[target])
-
-    def solve_stage(self, i_stage, t, update_forcings=None):
-        error('You should not call solve_state with ALE formulation but pre_solve and finalize_solve')
-        self.pre_solve(i_stage, t, update_forcings)
-        self.finalize_solve(i_stage, t, update_forcings)
-
-    def get_final_solution(self):
-        pass
-
-
 class ERKGenericALE2(RungeKuttaTimeIntegrator):
     """
     Generic explicit Runge-Kutta time integrator for conservative ALE schemes.
@@ -952,19 +817,15 @@ class ERKSemiImplicitGeneric(RungeKuttaTimeIntegrator):
         pass
 
 
-class SSPRK33Stage(ERKStageGeneric, SSPRK33Abstract):
+class SSPRK33SemiImplicit(ERKSemiImplicitGeneric, SSPRK33Abstract):
     pass
 
 
-class SSPRK33StageSemiImplicit(ERKSemiImplicitGeneric, SSPRK33Abstract):
+class SSPRK33(ERKGeneric, SSPRK33Abstract):
     pass
 
 
-class ERKLSPUM2StageSemiImplicit(ERKSemiImplicitGeneric, ERKLSPUM2Abstract):
-    pass
-
-
-class ERKLSPUM2Stage(ERKStageGeneric, ERKLSPUM2Abstract):
+class ERKLSPUM2SemiImplicit(ERKSemiImplicitGeneric, ERKLSPUM2Abstract):
     pass
 
 
@@ -976,11 +837,7 @@ class ERKLSPUM2ALE(ERKGenericALE2, ERKLSPUM2Abstract):
     pass
 
 
-class ERKLPUM2StageSemiImplicit(ERKSemiImplicitGeneric, ERKLPUM2Abstract):
-    pass
-
-
-class ERKLPUM2Stage(ERKStageGeneric, ERKLPUM2Abstract):
+class ERKLPUM2SemiImplicit(ERKSemiImplicitGeneric, ERKLPUM2Abstract):
     pass
 
 
@@ -1018,155 +875,3 @@ class ERKEulerALE(ERKGenericALE2, ForwardEulerAbstract):
 
 class DIRKEuler(DIRKGeneric, BackwardEulerAbstract):
     pass
-
-
-# OBSOLETE
-class ForwardEulerSemiImplicit(RungeKuttaTimeIntegrator, ForwardEulerAbstract):
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
-                 solver_parameters={}, semi_implicit=True, theta=0.5):
-        super(ForwardEulerSemiImplicit, self).__init__(equation, solution, fields, dt, solver_parameters)
-
-        self.solver_parameters.setdefault('snes_monitor', False)
-        if semi_implicit:
-            self.solver_parameters.setdefault('snes_type', 'ksponly')
-        else:
-            self.solver_parameters.setdefault('snes_type', 'newtonls')
-
-        self.theta = Constant(theta)
-
-        self.solution_old = Function(self.equation.function_space, name='old solution')
-
-        if semi_implicit:
-            # linearize around previous sub-timestep using the fact that all terms are written in the form A(u_nl) u
-            sol_nl0 = self.solution_old
-        else:
-            # solve the full nonlinear residual form
-            sol_nl0 = self.solution
-
-        args = (self.fields, self.fields, bnd_conditions)
-        self.L_0 = (self.theta*self.equation.residual('implicit', self.solution, sol_nl0, *args) +
-                    (1-self.theta)*self.equation.residual('implicit', self.solution_old, self.solution_old, *args) +
-                    self.equation.residual('explicit', self.solution_old, self.solution_old, *args) +
-                    self.equation.residual('source', self.solution_old, self.solution_old, *args))
-        self.F_0 = (self.equation.mass_term(self.solution) -
-                    self.equation.mass_term(self.solution_old) -
-                    self.dt_const*self.L_0)
-        self.mass_form = self.equation.mass_term(self.equation.trial)
-        self.f = self.dt_const*(
-            self.theta*self.equation.residual('implicit', self.solution, sol_nl0, *args) +
-            (1-self.theta)*self.equation.residual('implicit', self.solution_old, self.solution_old, *args) +
-            self.equation.residual('explicit', self.solution_old, self.solution_old, *args) +
-            self.equation.residual('source', self.solution_old, self.solution_old, *args))
-        self.update_solver()
-
-    def update_solver(self):
-        prob_f0 = NonlinearVariationalProblem(self.F_0, self.solution)
-        self.solver_f0 = NonlinearVariationalSolver(prob_f0, options_prefix=self.name + '_k0',
-                                                    solver_parameters=self.solver_parameters)
-
-    def initialize(self, solution):
-        self.solution_old.assign(solution)
-
-    def solve_stage(self, i_stage, t, update_forcings=None):
-        if i_stage == 0:
-            # stage 0
-            if update_forcings is not None:
-                update_forcings(t + self.c[i_stage]*self.dt)
-            self.solver_f0.solve()
-            # l_form = assemble(self.f)
-            # a_form = assemble(self.mass_term)
-            # solve(a_form, solution, l_form)
-            # solution += self.solution_old
-            self.solution_old.assign(self.solution)
-
-    def get_final_solution(self):
-        pass
-
-
-# OBSOLETE
-class ForwardEulerStage(RungeKuttaTimeIntegrator, ForwardEulerAbstract):
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
-        """Creates forms for the time integrator"""
-        super(ForwardEulerStage, self).__init__(equation, solution, fields, dt, solver_parameters)
-
-        fs = self.equation.function_space
-        self.tendency = Function(fs, name='tendency')
-        self.solution_form_old = Function(fs, name='solution form old')
-        self.l_form = Function(fs, name='linear form')
-
-        # fully explicit evaluation
-        self.a_rk = self.equation.mass_term(self.equation.trial)
-        self.L_RK = self.dt_const*self.equation.residual('all', self.solution, self.solution, self.fields, self.fields, bnd_conditions)
-        self.mass_term = inner(self.solution, self.equation.test)*dx
-
-        self.update_solver()
-
-    def update_solver(self):
-        self.mass_matrix = assemble(self.a_rk)
-        self.linsolver = LinearSolver(self.mass_matrix)
-        # prob = LinearVariationalProblem(self.a_rk, self.L_RK, self.tendency)
-        # self.solver = LinearVariationalSolver(prob, options_prefix=self.name + '_k',
-        #                                       solver_parameters=self.solver_parameters)
-
-    def initialize(self, solution):
-        assemble(self.mass_term + self.L_RK, self.l_form)
-
-    def solve_stage(self, i_stage, t, update_forcings=None):
-        if update_forcings is not None:
-            update_forcings(t + self.c[i_stage]*self.dt)
-
-        # self.presolve()
-        # self.postsolve()
-
-        # solve equations for the current geometry
-        assemble(self.a_rk, self.mass_matrix)
-        self.linsolver = LinearSolver(self.mass_matrix)
-        self.linsolver.solve(self.solution, self.l_form)
-
-        # pre-assemble form for the next time step
-        assemble(self.mass_term + self.L_RK, self.l_form)
-
-        # # solve tendency
-        # # self.solver.solve()
-        #
-        # assemble(self.L_RK, self.l_form)
-        # a_form = assemble(self.a_rk)
-        # solve(a_form, self.tendency, self.l_form)
-        #
-        # # update old solution
-        # # solve(a_form, self.solution, self.solution_form_old)
-        # # self.solution += self.tendency
-        #
-        # # # solve the next internal solution
-        # # sol_sum = float(self.beta[i_stage + 1][i_stage])*self.tendency
-        # # sol_sum += self.solution
-        # # self.solution.assign(sol_sum)
-        # self._update_old_solution_form(solution)
-        #
-        # assemble(inner(self.solution + self.tendency, self.equation.test)*dx, self.l_form)
-
-    def pre_solve(self, i_stage, t, update_forcings=None):
-        # # solve tendency
-        # self.solver.solve()
-        # # solve the next internal solution
-        # self.solution += self.tendency
-
-        # # solve tendency
-        assemble(self.mass_term + self.L_RK, self.l_form)
-        # a_form = assemble(self.a_rk)
-        # solve(a_form, self.solution, self.l_form)
-
-        # assemble new solution
-        # assemble(inner(self.solution, self.equation.test)*dx, self.l_form)
-
-    def finalize_solve(self, i_stage, t, update_forcings=None):
-        # update solution in current mesh
-        # a_form = assemble(self.a_rk)
-        # solve(a_form, self.solution, self.l_form)
-        assemble(self.a_rk, self.mass_matrix)
-        self.linsolver = LinearSolver(self.mass_matrix)
-        self.linsolver.solve(self.solution, self.l_form)
-        # solve(self.mass_matrix, self.solution, self.l_form)
-
-    def get_final_solution(self):
-        pass
