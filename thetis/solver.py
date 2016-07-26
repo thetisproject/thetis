@@ -242,9 +242,7 @@ class FlowSolver(FrozenClass):
         if self.options.salt_jump_diff_factor is not None:
             self.fields.salt_jump_diff = Function(self.function_spaces.P1)
         if self.options.use_limiter_for_tracers:
-            self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H,
-                                                                 self.function_spaces.P1,
-                                                                 self.function_spaces.P0)
+            self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H)
         else:
             self.tracer_limiter = None
         if self.options.use_turbulence:
