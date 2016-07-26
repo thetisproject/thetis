@@ -10,7 +10,7 @@ from . import momentum_eq
 from . import tracer_eq
 from . import turbulence
 from . import coupled_timeintegrator
-from . import limiter
+import thetis.limiter as limiter
 import time as time_mod
 from mpi4py import MPI
 from . import exporter
