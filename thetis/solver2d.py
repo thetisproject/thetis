@@ -33,8 +33,6 @@ class FlowSolver2d(FrozenClass):
 
         # 2d model specific default options
         self.options = ModelOptions()
-        self.options.setdefault('timestepper_type', 'SSPRK33')
-        self.options.setdefault('fields_to_export', ['elev_2d', 'uv_2d'])
         if options is not None:
             self.options.update(options)
 
@@ -156,17 +154,17 @@ class FlowSolver2d(FrozenClass):
             'elev_source': self.options.elev_source_2d, }
         self.set_time_step()
         if self.options.timestepper_type.lower() == 'ssprk33':
-            self.timestepper = rungekutta.SSPRK33Stage(self.eq_sw, self.fields.solution_2d,
-                                                       fields, self.dt,
-                                                       bnd_conditions=self.bnd_functions['shallow_water'],
-                                                       solver_parameters=self.options.solver_parameters_sw)
+            self.timestepper = rungekutta.SSPRK33(self.eq_sw, self.fields.solution_2d,
+                                                  fields, self.dt,
+                                                  bnd_conditions=self.bnd_functions['shallow_water'],
+                                                  solver_parameters=self.options.solver_parameters_sw)
         elif self.options.timestepper_type.lower() == 'ssprk33semi':
-            self.timestepper = rungekutta.SSPRK33StageSemiImplicit(self.eq_sw, self.fields.solution_2d,
-                                                                   fields, self.dt,
-                                                                   bnd_conditions=self.bnd_functions['shallow_water'],
-                                                                   solver_parameters=self.options.solver_parameters_sw,
-                                                                   semi_implicit=self.options.use_linearized_semi_implicit_2d,
-                                                                   theta=self.options.shallow_water_theta)
+            self.timestepper = rungekutta.SSPRK33SemiImplicit(self.eq_sw, self.fields.solution_2d,
+                                                              fields, self.dt,
+                                                              bnd_conditions=self.bnd_functions['shallow_water'],
+                                                              solver_parameters=self.options.solver_parameters_sw,
+                                                              semi_implicit=self.options.use_linearized_semi_implicit_2d,
+                                                              theta=self.options.shallow_water_theta)
 
         elif self.options.timestepper_type.lower() == 'forwardeuler':
             self.timestepper = timeintegrator.ForwardEuler(self.eq_sw, self.fields.solution_2d,

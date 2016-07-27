@@ -56,13 +56,7 @@ options.solve_temp = False
 options.solve_vert_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = False
-# options.use_semi_implicit_2d = False
-options.use_mode_split = False
-options.use_imex = True
-if options.use_mode_split:
-    options.dt = dt/5.0
-else:
-    options.dt = dt/40.0
+options.dt = dt/40.0
 options.t_export = t_export
 options.t_end = t_end
 options.u_advection = u_mag

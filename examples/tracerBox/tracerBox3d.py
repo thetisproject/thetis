@@ -84,15 +84,7 @@ options.use_ale_moving_mesh = True
 options.use_limiter_for_tracers = True
 options.uv_lax_friedrichs = None
 options.tracer_lax_friedrichs = None
-# options.use_imex = True  # NOTE why imex fails with const S?
-# options.use_semi_implicit_2d = False
-# options.use_mode_split = False
-# options.baroclinic = True
 # options.h_viscosity = Constant(100.0)
-# if options.use_mode_split:
-#     options.dt = dt/5.0
-# else:
-#     options.dt = dt/40.0
 options.dt = 6.0
 options.t_export = t_export
 options.t_end = t_end

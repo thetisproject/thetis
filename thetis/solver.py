@@ -95,6 +95,8 @@ class FlowSolver(FrozenClass):
         a = inner(test, trial) * dx
         l = inner(test, csize / u) * dx
         solve(a == l, solution)
+        dt = float(solution.dat.data.min())
+        dt = self.comm.allreduce(dt, op=MPI.MIN)
         return solution
 
     def compute_time_step_3d(self, u_mag=Constant(1.0)):
@@ -115,39 +117,42 @@ class FlowSolver(FrozenClass):
         a = inner(test, trial) * dx
         l = inner(test, csize / u_mag) * dx
         solve(a == l, solution)
-        return solution
+        dt = float(solution.dat.data.min())
+        dt = self.comm.allreduce(dt, op=MPI.MIN)
+        return dt
 
     def set_time_step(self, alpha=0.05):
-        comm = self.comm
-        if self.options.use_mode_split:
-            self.dt = self.options.dt
+        # TODO use the cfl_coeff of the actual time integrators
+        # TODO take into account more dt restrictions
+        # TODO if dt_mode == '2d' take min(dt_2d, dt_3d)
+        min_dt_2d = self.options.cfl_3d*alpha*self.compute_time_step_2d(u_mag=self.options.u_advection)
+        min_dt_3d = self.options.cfl_3d*alpha*self.compute_time_step_3d(u_mag=self.options.u_advection)
+        if round(min_dt_3d) > 0:
+            min_dt_3d = round(min_dt_3d)
+        self.dt = self.options.dt
+        self.dt_2d = self.options.dt_2d
+        if self.dt_mode == 'split':
             if self.dt is None:
-                mesh_dt = self.compute_time_step_3d(u_mag=self.options.u_advection)
-                dt = self.options.cfl_3d*alpha*float(np.floor(mesh_dt.dat.data.min()))
-                dt = comm.allreduce(dt, op=MPI.MIN)
-                if round(dt) > 0:
-                    dt = round(dt)
-                self.dt = dt
-            self.dt_2d = self.options.dt_2d
+                self.dt = min_dt_3d
             if self.dt_2d is None:
-                mesh2d_dt = self.compute_time_step_2d(u_mag=self.options.u_advection)
-                dt_2d = self.options.cfl_2d*alpha*float(mesh2d_dt.dat.data.min())
-                dt_2d = comm.allreduce(dt_2d, op=MPI.MIN)
-                self.dt_2d = dt_2d
+                self.dt_2d = min_dt_2d
             # compute mode split ratio and force it to be integer
             self.M_modesplit = int(np.ceil(self.dt/self.dt_2d))
             self.dt_2d = self.dt/self.M_modesplit
-        else:
-            mesh2d_dt = self.compute_time_step_2d(u_mag=self.options.u_advection)
-            dt_2d = self.options.cfl_2d*alpha*float(mesh2d_dt.dat.data.min())
-            dt_2d = comm.allreduce(dt_2d, op=MPI.MIN)
+        elif self.dt_mode == '2d':
             if self.dt is None:
-                self.dt = dt_2d
+                self.dt = min_dt_2d
+            self.dt_2d = self.dt
+            self.M_modesplit = 1
+        elif self.dt_mode == '3d':
+            if self.dt is None:
+                self.dt = min_dt_3d
             self.dt_2d = self.dt
             self.M_modesplit = 1
 
         print_output('dt = {0:f}'.format(self.dt))
-        print_output('2D dt = {0:f} {1:d}'.format(self.dt_2d, self.M_modesplit))
+        if self.dt_mode == 'split':
+            print_output('2D dt = {0:f} {1:d}'.format(self.dt_2d, self.M_modesplit))
         sys.stdout.flush()
 
     def create_function_spaces(self):
@@ -337,7 +342,7 @@ class FlowSolver(FrozenClass):
         self.tot_v_diff.add(self.fields.get('eddy_diff_3d'))
 
         # ----- Equations
-        if self.options.use_mode_split:
+        if self.use_full_2d_mode:
             # full 2D shallow water equations
             self.eq_sw = shallowwater_eq.ShallowWaterEquations(
                 self.fields.solution_2d.function_space(),
@@ -421,21 +426,24 @@ class FlowSolver(FrozenClass):
                                                       h_elem_size=self.fields.h_elem_size_3d)
 
         # ----- Time integrators
+        # TODO set_time_step should use timestepper's cfl_coeff
         self.set_time_step()
-        # self.timestepper = coupled_timeintegrator.CoupledLeapFrogAM3(weakref.proxy(self))
-        self.timestepper = coupled_timeintegrator.CoupledIMEXALE(weakref.proxy(self))
-        # self.timestepper = coupled_timeintegrator.CoupledERKALE(weakref.proxy(self))
-
-        # if self.options.use_mode_split:
-        #     if self.options.use_imex:
-        #         self.timestepper = coupled_timeintegrator.CoupledSSPIMEX(weakref.proxy(self))
-        #     elif self.options.use_semi_implicit_2d:
-        #         self.timestepper = coupled_timeintegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
-        #     else:
-        #         self.timestepper = coupled_timeintegrator.CoupledSSPRKSync(weakref.proxy(self))
-        # else:
-        #     self.timestepper = coupled_timeintegrator.CoupledSSPRKSingleMode(weakref.proxy(self))
-        print_output('using {:} time integrator'.format(self.timestepper.__class__.__name__))
+        self.use_use_full_2d_mode = True  # 2d solution is (uv, eta) not (eta)
+        self.dt_mode = '3d'  # 'split'|'2d'|'3d' use constant 2d/3d dt, or split
+        if self.options.timestepper_type.lower() == 'ssprk33':
+            self.timestepper = coupled_timeintegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
+        elif self.options.timestepper_type.lower() == 'leapfrog':
+            assert self.options.use_ale_moving_mesh
+            self.timestepper = coupled_timeintegrator.CoupledLeapFrogAM3(weakref.proxy(self))
+        elif self.options.timestepper_type.lower() == 'imexale':
+            assert self.options.use_ale_moving_mesh
+            self.timestepper = coupled_timeintegrator.CoupledIMEXALE(weakref.proxy(self))
+        elif self.options.timestepper_type.lower() == 'erkale':
+            assert self.options.use_ale_moving_mesh
+            self.timestepper = coupled_timeintegrator.CoupledERKALE(weakref.proxy(self))
+            self.dt_mode = '2d'
+        else:
+            raise Exception('Unknown time integrator type: '+str(self.options.timestepper_type))
 
         # compute maximal diffusivity for explicit schemes
         degree_h, degree_v = self.function_spaces.H.ufl_element().degree()

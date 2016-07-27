@@ -84,10 +84,7 @@ def run_tracer_consistency(element_family='dg-dg', meshtype='regular', do_export
     options.use_limiter_for_tracers = False
     options.tracer_lax_friedrichs = None
     options.uv_lax_friedrichs = None
-    if options.use_mode_split:
-        options.dt = dt/5.0
-    else:
-        options.dt = dt/40.0
+    options.dt = dt/40.0
     options.t_export = t_export
     options.no_exports = not do_export
     options.t_end = t_end

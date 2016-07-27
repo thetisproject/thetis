@@ -39,12 +39,11 @@ class ModelOptions(AttrDict, FrozenClass):
         """bool: Include grad(H) term in the depth-averaged viscosity"""
         self.use_ale_moving_mesh = True
         """bool: 3D mesh tracks free surface"""
-        self.use_mode_split = True
-        """bool: Solve 2D/3D modes with different dt"""
-        self.use_semi_implicit_2d = True
-        """bool: Implicit 2D waves (only w. mode split)"""
-        self.use_imex = False
-        """bool: Use IMEX time integrator (only with mode split)"""
+        self.timestepper_type = 'ssprk33'
+        """str: time integrator option.
+        For 2D solver: 'forwardeuler'|'backwardeuler'|'ssprk33'|'ssprk33semi'|
+                       'cranknicolson'|'sspimex'|'steadystate'
+        For 3D solver: 'ssprk33'|'erkale'|'leapfrog'|'imexale'"""
         self.use_linearized_semi_implicit_2d = False
         """bool: Use linearized semi-implicit time integration for the horizontal mode"""
         self.shallow_water_theta = 0.5
