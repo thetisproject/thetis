@@ -97,7 +97,7 @@ class FlowSolver(FrozenClass):
         solve(a == l, solution)
         dt = float(solution.dat.data.min())
         dt = self.comm.allreduce(dt, op=MPI.MIN)
-        return solution
+        return dt
 
     def compute_time_step_3d(self, u_mag=Constant(1.0)):
         """
@@ -122,33 +122,48 @@ class FlowSolver(FrozenClass):
         return dt
 
     def set_time_step(self, alpha=0.05):
-        # TODO use the cfl_coeff of the actual time integrators
+        # TODO compute alpha from the discretization (elem, order)
         # TODO take into account more dt restrictions
-        # TODO if dt_mode == '2d' take min(dt_2d, dt_3d)
-        min_dt_2d = self.options.cfl_3d*alpha*self.compute_time_step_2d(u_mag=self.options.u_advection)
-        min_dt_3d = self.options.cfl_3d*alpha*self.compute_time_step_3d(u_mag=self.options.u_advection)
-        if round(min_dt_3d) > 0:
-            min_dt_3d = round(min_dt_3d)
+        cfl2d = self.timestepper.cfl_coeff_2d*alpha
+        cfl3d = self.timestepper.cfl_coeff_3d*alpha
+        max_dt_2d = cfl2d*self.compute_time_step_2d(u_mag=self.options.u_advection)
+        max_dt_3d = cfl3d*self.compute_time_step_3d(u_mag=self.options.u_advection)
+        print_output('  - dt limits: 2D: {:} 3D {:}'.format(max_dt_2d, max_dt_3d))
+        if round(max_dt_3d) > 0:
+            max_dt_3d = np.floor(max_dt_3d)
         self.dt = self.options.dt
         self.dt_2d = self.options.dt_2d
         if self.dt_mode == 'split':
             if self.dt is None:
-                self.dt = min_dt_3d
+                self.dt = max_dt_3d
             if self.dt_2d is None:
-                self.dt_2d = min_dt_2d
+                self.dt_2d = max_dt_2d
             # compute mode split ratio and force it to be integer
             self.M_modesplit = int(np.ceil(self.dt/self.dt_2d))
             self.dt_2d = self.dt/self.M_modesplit
         elif self.dt_mode == '2d':
             if self.dt is None:
-                self.dt = min_dt_2d
+                self.dt = min(max_dt_2d, max_dt_3d)
             self.dt_2d = self.dt
             self.M_modesplit = 1
         elif self.dt_mode == '3d':
             if self.dt is None:
-                self.dt = min_dt_3d
+                self.dt = max_dt_3d
             self.dt_2d = self.dt
             self.M_modesplit = 1
+
+        print_output('  - chosen dt: 2D: {:} 3D {:}'.format(self.dt_2d, self.dt))
+
+        # fit dt to export time
+        m_exp = int(np.ceil(self.options.t_export/self.dt))
+        self.dt = self.options.t_export/m_exp
+        if self.dt_mode == 'split':
+            self.M_modesplit = int(np.ceil(self.dt/self.dt_2d))
+            self.dt_2d = self.dt/self.M_modesplit
+        else:
+            self.dt_2d = self.dt
+
+        print_output('  - adjusted dt: 2D: {:} 3D {:}'.format(self.dt_2d, self.dt))
 
         print_output('dt = {0:f}'.format(self.dt))
         if self.dt_mode == 'split':
@@ -221,6 +236,8 @@ class FlowSolver(FrozenClass):
         if not hasattr(self, 'U_2d'):
             self.create_function_spaces()
         self._isfrozen = False
+
+        self.use_full_2d_mode = True  # 2d solution is (uv, eta) not (eta)
 
         # ----- fields
         self.fields.solution_2d = Function(self.function_spaces.V_2d)
@@ -426,9 +443,6 @@ class FlowSolver(FrozenClass):
                                                       h_elem_size=self.fields.h_elem_size_3d)
 
         # ----- Time integrators
-        # TODO set_time_step should use timestepper's cfl_coeff
-        self.set_time_step()
-        self.use_use_full_2d_mode = True  # 2d solution is (uv, eta) not (eta)
         self.dt_mode = '3d'  # 'split'|'2d'|'3d' use constant 2d/3d dt, or split
         if self.options.timestepper_type.lower() == 'ssprk33':
             self.timestepper = coupled_timeintegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
@@ -444,6 +458,8 @@ class FlowSolver(FrozenClass):
             self.dt_mode = '2d'
         else:
             raise Exception('Unknown time integrator type: '+str(self.options.timestepper_type))
+        self.set_time_step()
+        self.timestepper.set_dt(self.dt, self.dt_2d)
 
         # compute maximal diffusivity for explicit schemes
         degree_h, degree_v = self.function_spaces.H.ufl_element().degree()
@@ -790,7 +806,7 @@ class FlowSolver(FrozenClass):
             if 'vtk' in self.exporters:
                 self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
-        while self.simulation_time <= self.options.t_end + t_epsilon:
+        while self.simulation_time <= self.options.t_end - t_epsilon:
 
             self.timestepper.advance(self.simulation_time, self.dt,
                                      update_forcings, update_forcings3d)

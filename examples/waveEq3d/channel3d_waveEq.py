@@ -13,7 +13,11 @@
 # Tuomas Karna 2015-03-11
 from thetis import *
 
-mesh2d = Mesh('channel_wave_eq.msh')
+nx = 25
+ny = 2
+lx = 44294.46
+ly = 3000.0
+mesh2d = RectangleMesh(nx, ny, lx, ly)
 depth = 50.0
 elev_amp = 1.0
 n_layers = 6
@@ -21,22 +25,12 @@ n_layers = 6
 u_mag = Constant(0.5)
 
 outputdir = 'outputs'
-print_output('Loaded mesh '+mesh2d.name)
-print_output('Exporting to '+outputdir)
+print_output('Exporting to ' + outputdir)
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
 bathymetry_2d.assign(depth)
-
-# Compute lenght of the domain
-x_func = Function(P1_2d).interpolate(Expression('x[0]'))
-x_min = x_func.dat.data.min()
-x_max = x_func.dat.data.max()
-comm = x_func.comm
-x_min = comm.allreduce(x_min, op=MPI.MIN)
-x_max = comm.allreduce(x_max, op=MPI.MAX)
-lx = x_max - x_min
 
 # set time step, export interval and run duration
 c_wave = float(np.sqrt(9.81*depth))
@@ -50,13 +44,17 @@ t_end = 10*T_cycle + 1e-3
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solver_obj.options
 options.element_family = 'dg-dg'
+# options.timestepper_type = 'ssprk33'
+options.timestepper_type = 'leapfrog'
+# options.timestepper_type = 'imexale'
+# options.timestepper_type = 'erkale'
 options.nonlin = False
 options.solve_salt = False
 options.solve_temp = False
 options.solve_vert_diffusion = False
 options.use_bottom_friction = False
-options.use_ale_moving_mesh = False
-options.dt = dt/40.0
+options.use_ale_moving_mesh = True
+options.dt = dt/5.0
 options.t_export = t_export
 options.t_end = t_end
 options.u_advection = u_mag

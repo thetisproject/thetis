@@ -81,6 +81,9 @@ class IMEXGeneric(TimeIntegrator):
                                   terms_to_add=('explicit', 'source'))
         assert self.erk.n_stages == self.dirk.n_stages
         self.n_stages = self.erk.n_stages
+        # FIXME this assumes that we are limited by whatever DIRK solves ...
+        # FIXME this really depends on the DIRK/ERK processes ...
+        self.cfl_coeff = self.dirk.cfl_coeff
 
     def update_solver(self):
         self.dirk.update_solver()
@@ -120,6 +123,10 @@ class IMEXGeneric(TimeIntegrator):
         # update old solution
         # TODO share old solution func between dirk and erk
         self.erk.solution_old.assign(self.dirk.solution)
+
+    def set_dt(self, dt):
+        self.erk.set_dt(dt)
+        self.dirk.set_dt(dt)
 
 
 class IMEXLPUM2(IMEXGeneric):

@@ -25,13 +25,12 @@ class TimeIntegratorBase(object):
 class TimeIntegrator(TimeIntegratorBase):
     """Base class for all time integrator objects."""
     def __init__(self, equation, solution, fields, dt, solver_parameters={}):
-        """Assigns initial conditions to all required fields."""
         super(TimeIntegrator, self).__init__()
 
         self.equation = equation
         self.solution = solution
         self.fields = fields
-        self.dt = dt
+        self.dt = dt  # FIXME this might not be correctly updated ...
         self.dt_const = Constant(dt)
 
         # unique identifier for solver
@@ -39,6 +38,11 @@ class TimeIntegrator(TimeIntegratorBase):
                               self.equation.__class__.__name__])
         self.solver_parameters = {}
         self.solver_parameters.update(solver_parameters)
+
+    def set_dt(self, dt):
+        """Updates time step"""
+        self.dt = dt
+        self.dt_const.assign(dt)
 
 
 class ForwardEuler(TimeIntegrator):
@@ -324,7 +328,15 @@ class LeapFrogAM3(TimeIntegrator):
     """
     Leap-Frog Adams-Moulton 3 ALE time integrator
 
-    Defined in Shchepetkin (2005) and Karna (2013)
+    Defined in (2.27)-(2.30) in [1]; (2.21)-(2.22) in [2]
+
+    [1] Shchepetkin and McWilliams (2005). The regional oceanic modeling system
+        (ROMS): a split-explicit, free-surface, topography-following-coordinate
+        oceanic model. Ocean Modelling, 9(4):347-404.
+        http://dx.doi.org/10.1016/j.ocemod.2013.04.010
+    [2] Shchepetkin and McWilliams (2009). Computational Kernel Algorithms for
+        Fine-Scale, Multiprocess, Longtime Oceanic Simulations, 14:121-183.
+        http://dx.doi.org/10.1016/S1570-8659(08)01202-0
     """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, solver_parameters_dirk={}, terms_to_add='all'):
@@ -334,69 +346,69 @@ class LeapFrogAM3(TimeIntegrator):
         self.gamma_const = Constant(self.gamma)
 
         fs = self.equation.function_space
-        self.msol = Function(fs, name='dual solution')
-        self.msol_old = Function(fs, name='old dual solution')
-        self.l_form = Function(fs, name='rhs linear form')
+        self.solution_old = Function(fs, name='old solution')
+        self.msolution_old = Function(fs, name='dual solution')
+        self.rhs_func = Function(fs, name='rhs linear form')
 
         # fully explicit evaluation
-        self.a_rk = self.equation.mass_term(self.equation.trial)
-        self.l_rk = self.dt_const*self.equation.residual(terms_to_add, self.solution, self.solution, self.fields, self.fields, bnd_conditions)
-        self.mass_term = inner(self.solution, self.equation.test)*dx
+        self.a = self.equation.mass_term(self.equation.trial)
+        self.l = self.dt_const*self.equation.residual(terms_to_add,
+                                                      self.solution,
+                                                      self.solution,
+                                                      self.fields,
+                                                      self.fields,
+                                                      bnd_conditions)
+        self.mass_new = inner(self.solution, self.equation.test)*dx
+        self.mass_old = inner(self.solution_old, self.equation.test)*dx
+        a = 0.5 - 2*self.gamma
+        b = 0.5 + 2*self.gamma
+        c = 1.0 - 2*self.gamma
+        self.l_prediction = a*self.mass_old + b*self.mass_new + c*self.l
 
-        self.update_solver()
-
-    def update_solver(self):
-        """Builds linear problems for each stage. These problems need to be
-        re-created after each mesh update."""
-        self.mass_matrix = assemble(self.a_rk)
+        self.cfl_coeff = 1.5874
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
+        self.mass_matrix = assemble(self.a)
         self.solution.assign(solution)
-        assemble(self.mass_term, self.msol)
-        self.msol_old.assign(self.msol)
-        assemble(self.l_rk, self.l_form)
-
-    def eval_rhs(self):
-        assemble(self.l_rk, self.l_form)
+        self.solution_old.assign(solution)
+        assemble(self.mass_new, self.msolution_old)
 
     def predict(self):
         """
         Prediction step from t_{n-1/2} to t_{n+1/2}
 
-        MT_{n-1/2} = (0.5 - 2*gamma)*MT_{n-1} + (0.5 + 2*gamma)*MT_{n}
-        MT_{n+1/2} = MT_{n-1/2} + dt*(1 - 2*gamma)*L_{n}
+        T_{n-1/2} = (0.5 - 2*gamma)*T_{n-1} + (0.5 + 2*gamma)*T_{n}
+        T_{n+1/2} = T_{n-1/2} + dt*(1 - 2*gamma)*L_{n}
 
-        This is computed in old geometry Omega_{n}.
+        This is computed in fixed mesh: all terms are evaluated in Omega_n
         """
-        a = 0.5 - 2*self.gamma
-        b = 0.5 + 2*self.gamma
-        c = 1.0 - 2*self.gamma
+        assemble(self.mass_new, self.msolution_old)  # store current solution
+        assemble(self.l_prediction, self.rhs_func)
+        self.solution_old.assign(self.solution)  # time shift
+        solve(self.mass_matrix, self.solution, self.rhs_func)
 
-        self.l_form *= self.dt_const*c
-        self.l_form += a*self.msol_old
-        self.l_form += b*self.msol
-        assemble(self.a_rk, self.mass_matrix)
-        solve(self.mass_matrix, self.solution, self.l_form)
+    def eval_rhs(self):
+        assemble(self.l, self.rhs_func)
 
     def correct(self):
         """
         Correction step from t_{n} to t_{n+1}
 
-        MT_{n+1} = MT_{n} + dt*L_{n+1/2}
+        (MT)_{n+1} = (MT)_{n} + dt*L_{n+1/2}
 
-        This is computed in new geometry Omega_{n+1}.
+        This is Euler ALE step: LHS is evaluated in Omega_{n+1}, RHS in Omega_n
         """
-        self.l_form += self.msol
-        assemble(self.a_rk, self.mass_matrix)
-        solve(self.mass_matrix, self.solution, self.l_form)
-        # time shift
-        self.msol_old.assign(self.msol)
-        self.msol.assign(self.l_form)
+        # NOTE must call eval_rhs in the old mesh first
+        self.rhs_func += self.msolution_old
+        assemble(self.a, self.mass_matrix)
+        solve(self.mass_matrix, self.solution, self.rhs_func)
+        # self.msolution_old.assign(self.rhs_func)
 
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
         if update_forcings is not None:
             update_forcings(t + self.dt)
         self.predict()
+        self.eval_rhs()
         self.correct()

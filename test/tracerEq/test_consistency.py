@@ -15,7 +15,9 @@ from thetis import *
 import pytest
 
 
-def run_tracer_consistency(element_family='dg-dg', meshtype='regular', do_export=False):
+def run_tracer_consistency(**model_options):
+    meshtype = model_options.pop('meshtype')
+
     t_cycle = 2000.0  # standing wave period
     depth = 50.0
     lx = np.sqrt(9.81*depth)*t_cycle  # wave length
@@ -25,9 +27,9 @@ def run_tracer_consistency(element_family='dg-dg', meshtype='regular', do_export
     mesh2d = RectangleMesh(nx, ny, lx, ly)
     salt_value = 4.5
     n_layers = 6
-    elev_amp = 1.0
+    elev_amp = 2.0
     # estimate of max advective velocity used to estimate time step
-    u_mag = Constant(0.5)
+    u_mag = Constant(1.0)
 
     sloped = False
     warped = False
@@ -35,9 +37,6 @@ def run_tracer_consistency(element_family='dg-dg', meshtype='regular', do_export
         sloped = True
     elif meshtype == 'warped':
         warped = True
-
-    run_description = 'element_family={:} meshtype={:}'.format(element_family, meshtype)
-    print_output('Running test: ' + run_description)
 
     suffix = ''
     if sloped:
@@ -56,10 +55,9 @@ def run_tracer_consistency(element_family='dg-dg', meshtype='regular', do_export
                                              h=depth, lx=lx))
 
     # set time step, export interval and run duration
-    n_steps = 20
-    dt = round(float(t_cycle/n_steps))
-    t_export = dt
-    t_end = t_cycle + 1e-3
+    n_steps = 8
+    t_export = round(float(t_cycle/n_steps))
+    t_end = 2*t_cycle
 
     # create solver
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
@@ -74,48 +72,107 @@ def run_tracer_consistency(element_family='dg-dg', meshtype='regular', do_export
         coords.dat.data[:, 2] = sigma
 
     options = solver_obj.options
-    options.nonlin = False
+    options.nonlin = True
     options.element_family = 'dg-dg'
     options.solve_salt = True
     options.solve_temp = False
     options.solve_vert_diffusion = False
     options.use_bottom_friction = False
-    options.use_ale_moving_mesh = False
+    options.use_ale_moving_mesh = True
     options.use_limiter_for_tracers = False
     options.tracer_lax_friedrichs = None
     options.uv_lax_friedrichs = None
-    options.dt = dt/40.0
     options.t_export = t_export
-    options.no_exports = not do_export
     options.t_end = t_end
     options.u_advection = u_mag
     options.check_vol_conservation_2d = True
     options.check_vol_conservation_3d = True
     options.check_salt_conservation = True
     options.check_salt_overshoot = True
+    options.check_temp_conservation = True
+    options.check_temp_overshoot = True
     options.outputdir = outputdir
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
-                                'w_3d', 'w_mesh_3d', 'salt_3d',
+                                'w_3d', 'w_mesh_3d', 'salt_3d', 'temp_3d',
                                 'uv_dav_2d', 'uv_bottom_2d']
+    options.update(model_options)
+    if not options.no_exports:
+        print_output('Exporting to {:}'.format(options.outputdir))
 
     solver_obj.create_function_spaces()
     elev_init = Function(solver_obj.function_spaces.H_2d)
     elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/lx)', eta_amp=elev_amp,
                                  lx=lx))
+
+    salt_init3d = None
+    temp_init3d = None
     if options.solve_salt:
         salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
         salt_init3d.assign(salt_value)
-    else:
-        salt_init3d = None
+    if options.solve_temp:
+        temp_init3d = Function(solver_obj.function_spaces.H, name='initial temperature')
+        xyz = SpatialCoordinate(solver_obj.mesh)
+        temp_l = 0
+        temp_r = 30.0
+        temp_init3d.interpolate(temp_l + (temp_r - temp_l)*0.5*(1.0 + sign(xyz[0] - lx/2)))
 
-    solver_obj.assign_initial_conditions(elev=elev_init, salt=salt_init3d)
+    solver_obj.assign_initial_conditions(elev=elev_init, salt=salt_init3d, temp=temp_init3d)
     solver_obj.iterate()
 
-    smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['salt_3d overshoot']()
-    max_abs_overshoot = max(abs(undershoot), abs(overshoot))
-    overshoot_tol = 1e-11 if warped else 1e-12
-    msg = '{:} : Salt overshoots are too large: {:}'.format(run_description, max_abs_overshoot)
-    assert max_abs_overshoot < overshoot_tol, msg
+    # TODO do these checks every export ...
+    vol2d, vol2d_rerr = solver_obj.callbacks['export']['volume2d']()
+    assert vol2d_rerr < 1e-10, '2D volume is not conserved'
+    vol3d, vol3d_rerr = solver_obj.callbacks['export']['volume3d']()
+    assert vol3d_rerr < 1e-10, '3D volume is not conserved'
+    if options.solve_salt:
+        salt_int, salt_int_rerr = solver_obj.callbacks['export']['salt_3d mass']()
+        assert salt_int_rerr < 1e-6, 'salt is not conserved'
+        smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['salt_3d overshoot']()
+        max_abs_overshoot = max(abs(undershoot), abs(overshoot))
+        overshoot_tol = 1e-11 if warped else 1e-12
+        if options.use_ale_moving_mesh:
+            overshoot_tol = 1e-4
+        msg = 'Salt overshoots are too large: {:}'.format(max_abs_overshoot)
+        assert max_abs_overshoot < overshoot_tol, msg
+    if options.solve_temp:
+        temp_int, temp_int_rerr = solver_obj.callbacks['export']['temp_3d mass']()
+        assert temp_int_rerr < 1e-4, 'temp is not conserved'
+        smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['temp_3d overshoot']()
+        max_abs_overshoot = max(abs(undershoot), abs(overshoot))
+        overshoot_tol = 1e-11 if warped else 1e-12
+        if options.use_ale_moving_mesh:
+            overshoot_tol = 1e-4
+        msg = 'Temp overshoots are too large: {:}'.format(max_abs_overshoot)
+        assert max_abs_overshoot < overshoot_tol, msg
+
+
+@pytest.mark.parametrize('element_family', ['dg-dg', 'rt-dg'])
+@pytest.mark.parametrize('meshtype', ['regular', 'sloped', 'warped'])
+@pytest.mark.parametrize('timestepper_type', ['ssprk33'])
+def test_consistency_fixed_mesh(element_family, meshtype, timestepper_type):
+    run_tracer_consistency(element_family=element_family,
+                           meshtype=meshtype,
+                           use_ale_moving_mesh=False,
+                           timestepper_type=timestepper_type,
+                           no_exports=True)
+
+
+@pytest.mark.parametrize('element_family', ['dg-dg', 'rt-dg'])
+@pytest.mark.parametrize('meshtype', ['regular', 'sloped', 'warped'])
+@pytest.mark.parametrize('timestepper_type', ['imexale', 'leapfrog', 'erkale'])
+def test_ale_const_tracer(element_family, meshtype, timestepper_type):
+    """
+    Test ALE timeintegrators without slope limiters
+    One constant tracer, should remain constants
+    """
+    run_tracer_consistency(element_family=element_family,
+                           meshtype=meshtype,
+                           use_ale_moving_mesh=True,
+                           solve_salt=True,
+                           solve_temp=False,
+                           use_limiter_for_tracers=False,
+                           timestepper_type=timestepper_type,
+                           no_exports=True)
 
 
 @pytest.mark.parametrize('element_family', ['dg-dg',
@@ -123,9 +180,33 @@ def run_tracer_consistency(element_family='dg-dg', meshtype='regular', do_export
 @pytest.mark.parametrize('meshtype', ['regular',
                                       'sloped',
                                       pytest.mark.not_travis(reason='travis timeout')('warped')])
-def test_consistency_dg_regular(element_family, meshtype):
-    run_tracer_consistency(element_family=element_family, meshtype=meshtype, do_export=False)
+@pytest.mark.parametrize('timestepper_type', ['imexale', 'leapfrog', 'erkale'])
+def test_ale_nonconst_tracer(element_family, meshtype, timestepper_type):
+    """
+    Test ALE timeintegrators with slope limiters
+    One constant and one non-trivial tracer, should see no overshoots
+    """
+    run_tracer_consistency(element_family=element_family,
+                           meshtype=meshtype,
+                           use_ale_moving_mesh=True,
+                           solve_salt=True,
+                           solve_temp=True,
+                           use_limiter_for_tracers=True,
+                           timestepper_type=timestepper_type,
+                           no_exports=True)
 
 
 if __name__ == '__main__':
-    run_tracer_consistency(element_family='dg-dg', meshtype='warped', do_export=True)
+    run_tracer_consistency(element_family='dg-dg',
+                           meshtype='regular',
+                           nonlin=True,
+                           # timestepper_type='erkale',
+                           # timestepper_type='imexale',
+                           timestepper_type='leapfrog',
+                           use_ale_moving_mesh=True,
+                           solve_salt=True,
+                           solve_temp=False,
+                           use_limiter_for_tracers=False,
+                           no_exports=False)
+
+# TODO need to raise warnings when dt is too large for advection ...
