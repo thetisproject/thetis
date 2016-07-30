@@ -265,8 +265,8 @@ class FlowSolver(FrozenClass):
             self.fields.bottom_drag_2d = Function(coord_fs_2d)
 
         self.fields.elev_3d = Function(self.function_spaces.H)
-        self.fields.elev_cg_3d = Function(self.function_spaces.P1)
-        self.fields.elev_cg_2d = Function(self.function_spaces.P1_2d)
+        self.fields.elev_cg_3d = Function(coord_fs)
+        self.fields.elev_cg_2d = Function(coord_fs_2d)
         self.fields.uv_3d = Function(self.function_spaces.U)
         if self.options.use_bottom_friction:
             self.fields.uv_bottom_3d = Function(self.function_spaces.P1v)
@@ -554,9 +554,6 @@ class FlowSolver(FrozenClass):
                                                         self.fields.uv_dav_2d,
                                                         boundary='top', elem_facet='top',
                                                         elem_height=self.fields.v_elem_size_2d)
-        self.copy_v_elem_size_to_2d = SubFunctionExtractor(self.fields.v_elem_size_3d,
-                                                           self.fields.v_elem_size_2d,
-                                                           boundary='top', elem_facet='top')
         self.copy_elev_to_3d = ExpandFunctionTo3d(self.fields.elev_2d, self.fields.elev_3d)
         self.copy_elev_cg_to_3d = ExpandFunctionTo3d(self.fields.elev_cg_2d, self.fields.elev_cg_3d)
         self.copy_uv_dav_to_uv_dav_3d = ExpandFunctionTo3d(self.fields.uv_dav_2d, self.fields.uv_dav_3d,
@@ -578,26 +575,7 @@ class FlowSolver(FrozenClass):
                 self.copy_bottom_drag_to_3d = ExpandFunctionTo3d(self.fields.bottom_drag_2d,
                                                                  self.fields.bottom_drag_3d,
                                                                  elem_height=self.fields.v_elem_size_3d)
-        if self.options.use_ale_moving_mesh:
-            self.mesh_coord_updater = ALEMeshCoordinateUpdater(self.mesh,
-                                                               self.fields.elev_cg_3d,
-                                                               self.fields.bathymetry_3d,
-                                                               self.fields.z_coord_3d,
-                                                               self.fields.z_coord_ref_3d)
-            self.extract_surf_w = SubFunctionExtractor(self.fields.w_mesh_surf_3d,
-                                                       self.fields.w_mesh_surf_2d,
-                                                       boundary='top', elem_facet='top')
-            self.copy_surf_w_mesh_to_3d = ExpandFunctionTo3d(self.fields.w_mesh_surf_2d,
-                                                             self.fields.w_mesh_surf_3d)
-            self.w_mesh_solver = MeshVelocitySolver(self, self.fields.elev_cg_3d,
-                                                    self.fields.uv_3d,
-                                                    self.fields.w_3d,
-                                                    self.fields.w_mesh_3d,
-                                                    self.fields.w_mesh_surf_3d,
-                                                    self.fields.w_mesh_surf_2d,
-                                                    self.fields.w_mesh_ddz_3d,
-                                                    self.fields.bathymetry_3d,
-                                                    self.fields.z_coord_ref_3d)
+        self.mesh_updater = ALEMeshUpdater(self)
 
         if self.options.salt_jump_diff_factor is not None:
             self.horiz_jump_diff_solver = HorizontalJumpDiffusivity(self.options.salt_jump_diff_factor, self.fields.salt_3d,
@@ -621,10 +599,7 @@ class FlowSolver(FrozenClass):
         # ----- set initial values
         self.fields.bathymetry_2d.project(self.bathymetry_cg_2d)
         ExpandFunctionTo3d(self.fields.bathymetry_2d, self.fields.bathymetry_3d).solve()
-        get_zcoord_from_mesh(self.fields.z_coord_ref_3d)
-        self.fields.z_coord_3d.assign(self.fields.z_coord_ref_3d)
-        compute_elem_height(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
-        self.copy_v_elem_size_to_2d.solve()
+        self.mesh_updater.initialize()
 
         self.next_export_t = self.simulation_time + self.options.t_export
         self._initialized = True

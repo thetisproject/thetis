@@ -32,11 +32,7 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegratorBase):
         """Updates mesh to match elevation field"""
         if self.options.use_ale_moving_mesh:
             with timed_stage('aux_mesh_ale'):
-                self.solver.elev_2d_to_cg_projector.project()
-                self.solver.copy_elev_cg_to_3d.solve()
-                self.solver.mesh_coord_updater.solve()
-                compute_elem_height(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
-                self.solver.copy_v_elem_size_to_2d.solve()
+                self.solver.mesh_updater.update_mesh_coordinates()
 
     def _update_bottom_friction(self):
         """Computes bottom friction related fields"""
@@ -63,12 +59,6 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegratorBase):
             self.solver.copy_uv_to_uv_dav_3d.solve()
             # add depth averaged 2D velocity
             self.fields.uv_3d += self.fields.uv_dav_3d
-
-    def _update_mesh_velocity(self):
-        """Computes ALE mesh velocity"""
-        if self.options.use_ale_moving_mesh:
-            with timed_stage('aux_mesh_ale'):
-                self.solver.w_mesh_solver.solve()
 
     def _update_baroclinicity(self):
         """Computes baroclinic head"""
@@ -103,8 +93,7 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegratorBase):
                                  do_vert_diffusion=False,
                                  do_ale_update=False,
                                  do_stab_params=False,
-                                 do_turbulence=False,
-                                 do_mesh_velocity=True):
+                                 do_turbulence=False):
         """Default routine for updating all dependent fields after a time step"""
         self._update_3d_elevation()
         if do_ale_update:
@@ -112,8 +101,6 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegratorBase):
         if do_2d_coupling:
             self._update_2d_coupling()
         self._update_vertical_velocity()
-        if do_mesh_velocity:
-            self._update_mesh_velocity()
         self._update_bottom_friction()
         self._update_baroclinicity()
         if do_turbulence:
@@ -853,25 +840,6 @@ class CoupledLeapFrogAM3(NewCoupledTimeIntegrator):
         self.uv_old_2d = Function(self.fields.uv_2d)
         self.uv_new_2d = Function(self.fields.uv_2d)
 
-    def begin_2d_update(self):
-        self.uv_old_2d.assign(self.fields.uv_2d)
-        self.solver.elev_2d_to_cg_projector.project()
-        self.fields.w_mesh_surf_2d.assign(self.fields.elev_cg_2d)
-
-    def finalize_2d_update(self):
-        self.uv_new_2d.assign(self.fields.uv_2d)
-        # compute w_mesh_surf from (elev - elev_old)/dt
-        self.solver.elev_2d_to_cg_projector.project()
-        self.fields.w_mesh_surf_2d += -self.fields.elev_cg_2d
-        self.fields.w_mesh_surf_2d *= -1.0/self.solver.dt
-        # use that to compute w_mesh in whole domain
-        self.solver.copy_surf_w_mesh_to_3d.solve()
-        # solve w_mesh at nodes
-        w_mesh_surf = self.fields.w_mesh_surf_3d.dat.data[:]
-        z_ref = self.fields.z_coord_ref_3d.dat.data[:]
-        h = self.fields.bathymetry_3d.dat.data[:]
-        self.fields.w_mesh_3d.dat.data[:] = w_mesh_surf * (z_ref + h)/h
-
     def advance(self, t, dt, update_forcings=None, update_forcings3d=None):
         """Advances the equations for one time step"""
         if not self._initialized:
@@ -904,9 +872,12 @@ class CoupledLeapFrogAM3(NewCoupledTimeIntegrator):
             self.timestepper_mom_3d.predict()
 
         # update 2D
-        self.begin_2d_update()
+        self.solver.mesh_updater.compute_mesh_velocity_begin()
+        self.uv_old_2d.assign(self.fields.uv_2d)
         self.timestepper2d.advance(t, update_forcings)
-        self.finalize_2d_update()
+        self.solver.mesh_updater.compute_mesh_velocity_finalize()
+        self.uv_new_2d.assign(self.fields.uv_2d)
+
 
         # set 3D elevation to half step
         gamma = self.timestepper_mom_3d.gamma
