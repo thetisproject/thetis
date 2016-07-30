@@ -58,12 +58,20 @@ class PressureGradientTerm(MomentumTerm):
             by_parts = element_continuity(eta.function_space().fiat_element).dg
             head = eta + baroc_head
 
+        use_lin_stab = False
+        if self.nonlin:
+            total_h = eta + self.bathymetry
+        else:
+            total_h = self.bathymetry
+
         if by_parts:
             div_test = (Dx(self.test[0], 0) +
                         Dx(self.test[1], 1))
             f = -g_grav*head*div_test*self.dx
-            # head_star = avg(head) + 0.5*sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
-            head_star = avg(head)
+            if use_lin_stab:
+                head_star = avg(head) + 0.5*sqrt(avg(total_h)/g_grav)*jump(solution_old, self.normal)
+            else:
+                head_star = avg(head)
             jump_n_dot_test = (jump(self.test[0], self.normal[0]) +
                                jump(self.test[1], self.normal[1]))
             f += g_grav*head_star*jump_n_dot_test*(self.dS_v + self.dS_h)
@@ -77,7 +85,13 @@ class PressureGradientTerm(MomentumTerm):
                     f += g_grav*baroc_head*n_dot_test*ds_bnd
                 special_eta_flux = eta is not None and funcs is not None and 'elev' in funcs
                 if not special_eta_flux:
-                    f += g_grav*eta*n_dot_test*ds_bnd
+                    if use_lin_stab:
+                        un_jump = (solution_old[0]*self.normal[0] +
+                                   solution_old[1]*self.normal[1])
+                        eta_star = eta + sqrt(total_h/g_grav)*un_jump
+                    else:
+                        eta_star = eta
+                    f += g_grav*eta_star*n_dot_test*ds_bnd
                 if funcs is not None:
                     if 'elev' in funcs:
                         # prescribe elevation only
