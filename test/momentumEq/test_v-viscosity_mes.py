@@ -9,8 +9,9 @@ from scipy import stats
 import pytest
 
 
-def run(refinement, order=1, implicit=False, element_family='dg-dg', do_export=True):
+def run(refinement, **model_options):
     print_output('--- running refinement {:}'.format(refinement))
+    implicit = model_options.pop('implicit', False)
     # domain dimensions - channel in x-direction
     lx = 7.0e3
     ly = 5.0e3
@@ -48,22 +49,22 @@ def run(refinement, order=1, implicit=False, element_family='dg-dg', do_export=T
     bathymetry_2d.assign(depth)
 
     solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
-    solverobj.options.order = order
-    solverobj.options.element_family = element_family
-    solverobj.options.nonlin = False
-    solverobj.options.use_ale_moving_mesh = False
-    solverobj.options.u_advection = Constant(1.0)
-    solverobj.options.no_exports = not do_export
-    solverobj.options.outputdir = outputdir
-    solverobj.options.t_end = t_end
-    solverobj.options.t_export = t_export
-    solverobj.options.dt = dt
-    solverobj.options.dt_2d = dt_2d
-    solverobj.options.solve_salt = False
-    solverobj.options.solve_temp = False
-    solverobj.options.solve_vert_diffusion = implicit
-    solverobj.options.fields_to_export = ['uv_3d']
-    solverobj.options.v_viscosity = Constant(v_viscosity)
+    options = solverobj.options
+    options.nonlin = False
+    options.use_ale_moving_mesh = False
+    options.u_advection = Constant(1.0)
+    options.no_exports = True
+    options.outputdir = outputdir
+    options.t_end = t_end
+    options.t_export = t_export
+    options.dt = dt
+    options.dt_2d = dt_2d
+    options.solve_salt = False
+    options.solve_temp = False
+    options.solve_vert_diffusion = implicit
+    options.fields_to_export = ['uv_3d']
+    options.v_viscosity = Constant(v_viscosity)
+    options.update(model_options)
 
     solverobj.create_equations()
 
@@ -76,17 +77,18 @@ def run(refinement, order=1, implicit=False, element_family='dg-dg', do_export=T
     uv_ana = Function(solverobj.function_spaces.U, name='uv analytical')
     uv_ana_p1 = Function(solverobj.function_spaces.P1v, name='uv analytical')
 
-    p1dg_v_ho = VectorFunctionSpace(solverobj.mesh, 'DG', order + 2)
+    p1dg_v_ho = VectorFunctionSpace(solverobj.mesh, 'DG', options.order + 2,
+                                    vfamily='DG', vdegree=options.order + 2)
     uv_ana_ho = Function(p1dg_v_ho, name='uv analytical')
     uv_ana.project(ana_uv_expr)
 
     solverobj.fields.uv_3d.project(ana_uv_expr)
     # export analytical solution
-    if do_export:
-        out_uv_ana = File(os.path.join(solverobj.options.outputdir, 'uv_ana.pvd'))
+    if not options.no_exports:
+        out_uv_ana = File(os.path.join(options.outputdir, 'uv_ana.pvd'))
 
     def export_func():
-        if do_export:
+        if not options.no_exports:
             solverobj.export()
             # update analytical solution to correct time
             t_const.assign(t)
@@ -108,9 +110,9 @@ def run(refinement, order=1, implicit=False, element_family='dg-dg', do_export=T
     iexport = 1
     next_export_t = t + solverobj.options.t_export
     while t < t_end - 1e-8:
-        ti.advance(t, dt, solverobj.fields.uv_3d)
+        ti.advance(t)
 
-        t += dt
+        t += solverobj.dt
         i += 1
         if t >= next_export_t - 1e-8:
             print_output('{:3d} i={:5d} t={:8.2f} s uv={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.uv_3d)))
@@ -132,7 +134,6 @@ def run(refinement, order=1, implicit=False, element_family='dg-dg', do_export=T
 def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
     order = options.get('order', 1)
-    options.setdefault('do_export', False)
     space_str = options.get('element_family')
     l2_err = []
     for r in ref_list:
@@ -201,8 +202,13 @@ def implicit(request):
     return request.param
 
 
-def test_vertical_viscosity(order, implicit, element_family):
-    run_convergence([1, 2, 3], order=order, implicit=implicit, element_family=element_family)
+@pytest.mark.parametrize(('stepper', 'use_ale'),
+                         [('ssprk33', False),
+                          ('leapfrog', True)])
+def test_vertical_viscosity(order, implicit, element_family, stepper, use_ale):
+    run_convergence([1, 2, 3], order=order, implicit=implicit,
+                    element_family=element_family,
+                    timestepper_type=stepper, use_ale_moving_mesh=use_ale)
 
 # ---------------------------
 # run individual setup for debugging
@@ -210,4 +216,9 @@ def test_vertical_viscosity(order, implicit, element_family):
 
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], order=1, implicit=False, element_family='dg-dg', saveplot=True)
+    run_convergence([1, 2, 3], order=1,
+                    implicit=False,
+                    element_family='dg-dg',
+                    timestepper_type='leapfrog',
+                    use_ale_moving_mesh=True,
+                    no_exports=False, saveplot=True)
