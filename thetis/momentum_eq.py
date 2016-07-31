@@ -268,7 +268,7 @@ class HorizontalViscosityTerm(MomentumTerm):
             elemsize = (self.h_elem_size*(self.normal[0]**2 +
                                           self.normal[1]**2) +
                         self.v_elem_size*self.normal[2]**2)
-            sigma = 5.0*degree_h*(degree_h + 1)/elemsize
+            sigma = 2.5*degree_h*(degree_h + 1)/elemsize
             if degree_h == 0:
                 sigma = 1.5/elemsize
             alpha = avg(sigma)
