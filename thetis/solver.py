@@ -302,6 +302,12 @@ class FlowSolver(FrozenClass):
             self.create_function_spaces()
         self._isfrozen = False
 
+        if self.options.log_output and not self.options.no_exports:
+            logfile = os.path.join(create_directory(self.options.outputdir), 'log')
+            filehandler = logging.logging.FileHandler(logfile, mode='w')
+            filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
+            output_logger.addHandler(filehandler)
+
         self.use_full_2d_mode = True  # 2d solution is (uv, eta) not (eta)
 
         # mesh velocity etc fields must be in the same space as 3D coordinates

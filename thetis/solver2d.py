@@ -141,6 +141,13 @@ class FlowSolver2d(FrozenClass):
 
     def create_timestepper(self):
         self._isfrozen = False
+
+        if self.options.log_output and not self.options.no_exports:
+            logfile = os.path.join(create_directory(self.options.outputdir), 'log')
+            filehandler = logging.logging.FileHandler(logfile, mode='w')
+            filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
+            output_logger.addHandler(filehandler)
+
         # ----- Time integrators
         fields = {
             'linear_drag': self.options.linear_drag,

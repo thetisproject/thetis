@@ -84,6 +84,8 @@ class ModelOptions(AttrDict, FrozenClass):
         """bool: Print deviation from initial temp mass"""
         self.check_temp_overshoot = False
         """bool: Print overshoots that exceed initial range"""
+        self.log_output = True
+        """bool: Redirect all output to log file in output directory"""
         self.dt = None
         """float: Time step. If set overrides automatically computed stable dt"""
         self.dt_2d = None
