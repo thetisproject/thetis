@@ -734,21 +734,22 @@ class ALEMeshUpdater(object):
     def __init__(self, solver):
         self.solver = solver
         self.fields = solver.fields
-        # continous elevation
-        self.elev_cg_2d = Function(self.solver.function_spaces.P1_2d,
-                                   name='elev cg 2d')
-        # elevation in coordinate space
-        self.proj_elev_to_cg_2d = Projector(self.fields.elev_2d,
-                                            self.elev_cg_2d)
-        self.proj_elev_cg_to_coords_2d = Projector(self.elev_cg_2d,
-                                                   self.fields.elev_cg_2d)
-        self.cp_elev_2d_to_3d = ExpandFunctionTo3d(self.fields.elev_cg_2d,
-                                                   self.fields.elev_cg_3d)
-        self.cp_w_mesh_surf_2d_to_3d = ExpandFunctionTo3d(self.fields.w_mesh_surf_2d,
-                                                          self.fields.w_mesh_surf_3d)
-        self.cp_v_elem_size_to_2d = SubFunctionExtractor(self.fields.v_elem_size_3d,
-                                                         self.fields.v_elem_size_2d,
-                                                         boundary='top', elem_facet='top')
+        if self.solver.options.use_ale_moving_mesh:
+            # continous elevation
+            self.elev_cg_2d = Function(self.solver.function_spaces.P1_2d,
+                                       name='elev cg 2d')
+            # elevation in coordinate space
+            self.proj_elev_to_cg_2d = Projector(self.fields.elev_2d,
+                                                self.elev_cg_2d)
+            self.proj_elev_cg_to_coords_2d = Projector(self.elev_cg_2d,
+                                                       self.fields.elev_cg_2d)
+            self.cp_elev_2d_to_3d = ExpandFunctionTo3d(self.fields.elev_cg_2d,
+                                                       self.fields.elev_cg_3d)
+            self.cp_w_mesh_surf_2d_to_3d = ExpandFunctionTo3d(self.fields.w_mesh_surf_2d,
+                                                              self.fields.w_mesh_surf_3d)
+            self.cp_v_elem_size_to_2d = SubFunctionExtractor(self.fields.v_elem_size_3d,
+                                                             self.fields.v_elem_size_2d,
+                                                             boundary='top', elem_facet='top')
 
     def initialize(self):
         """Set values for initial mesh (elevation at rest)"""
@@ -763,6 +764,7 @@ class ALEMeshUpdater(object):
 
     def compute_mesh_velocity_begin(self):
         """Stores the current 2D elevation state as the "old" field"""
+        assert self.solver.options.use_ale_moving_mesh
         self.proj_elev_to_cg_2d.project()
         self.proj_elev_cg_to_coords_2d.project()
 
@@ -770,6 +772,7 @@ class ALEMeshUpdater(object):
         """Stores the current 2D elevation state as the "new" fields,
         and compute w_mesh using the given time step factor."""
         # compute w_mesh_surf = (elev_new - elev_old)/dt/c
+        assert self.solver.options.use_ale_moving_mesh
         self.fields.w_mesh_surf_2d.assign(self.fields.elev_cg_2d)
         self.proj_elev_to_cg_2d.project()
         self.proj_elev_cg_to_coords_2d.project()
@@ -788,6 +791,7 @@ class ALEMeshUpdater(object):
         Updates 3D mesh coordinates to match current elev_2d field
 
         elev_2d is first projected to continous space"""
+        assert self.solver.options.use_ale_moving_mesh
         self.proj_elev_to_cg_2d.project()
         self.proj_elev_cg_to_coords_2d.project()
         self.cp_elev_2d_to_3d.solve()

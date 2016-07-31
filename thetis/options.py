@@ -98,6 +98,10 @@ class ModelOptions(AttrDict, FrozenClass):
         """float: Simulation duration in seconds"""
         self.u_advection = Constant(0.0)
         """Constant: Max. horizontal velocity magnitude for computing max stable advection time step."""
+        self.w_advection = Constant(0.0)
+        """Constant: Max. vertical velocity magnitude for computing max stable advection time step."""
+        self.nu_viscosity = Constant(1.0)
+        """Constant: Max. horizontal viscosity magnitude for computing max stable diffusion time step."""
         self.outputdir = 'outputs'
         """str: Directory where model output files are stored"""
         self.no_exports = False

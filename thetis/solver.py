@@ -72,7 +72,26 @@ class FlowSolver(FrozenClass):
         """Do export initial state. False if continuing a simulation"""
         self._isfrozen = True  # disallow creating new attributes
 
-    def compute_time_step_2d(self, u_mag=Constant(0.0)):
+    def compute_dx_factor(self):
+        """Computes a normalized distance between nodes in the horizontal mesh"""
+        p = self.options.order
+        if self.options.element_family == 'rt-dg':
+            # velocity space is essentially p+1
+            p = self.options.order + 1
+        # assuming DG basis functions on triangles
+        l_r = p**2/3.0 + 7.0/6.0*p + 1.0
+        factor = 0.5*0.25/l_r
+        return factor
+
+    def compute_dz_factor(self):
+        """Computes a normalized distance between nodes in the vertical mesh"""
+        p = self.options.order
+        # assuming DG basis functions in an interval
+        l_r = 1.0/max(p, 1)
+        factor = 0.5*0.25/l_r
+        return factor
+
+    def compute_dt_2d(self, u_mag):
         """
         Computes maximum explicit time step from CFL condition.
 
@@ -98,38 +117,80 @@ class FlowSolver(FrozenClass):
         solve(a == l, solution)
         dt = float(solution.dat.data.min())
         dt = self.comm.allreduce(dt, op=MPI.MIN)
+        dt *= self.compute_dx_factor()
         return dt
 
-    def compute_time_step_3d(self, u_mag=Constant(1.0)):
+    def compute_dt_h_advection(self, u_scale):
         """
         Computes maximum explicit time step from CFL condition.
 
-        dt = CellSize/U
+        dt = CellSize_h/u_scale
 
-        Assumes velocity scale U = u_mag
-        where u_mag is estimated advective velocity
+        Assumes advective horizontal velocity scale u_scale
         """
-        csize = self.fields.h_elem_size_2d
-        bath = self.fields.bathymetry_2d
-        fs = bath.function_space()
-        test = TestFunction(fs)
-        trial = TrialFunction(fs)
-        solution = Function(fs)
-        a = inner(test, trial) * dx
-        l = inner(test, csize / u_mag) * dx
-        solve(a == l, solution)
-        dt = float(solution.dat.data.min())
+        u = u_scale
+        if isinstance(u_scale, FiredrakeConstant):
+            u = u_scale.dat.data[0]
+        min_dx = self.fields.h_elem_size_2d.dat.data.min()
+        # alpha = 0.5 if self.options.element_family == 'rt-dg' else 1.0
+        # dt = alpha*1.0/10.0/(self.options.order + 1)*min_dx/u
+        min_dx *= self.compute_dx_factor()
+        dt = min_dx/u
         dt = self.comm.allreduce(dt, op=MPI.MIN)
         return dt
 
-    def set_time_step(self, alpha=0.05):
-        # TODO compute alpha from the discretization (elem, order)
-        # TODO take into account more dt restrictions
-        cfl2d = self.timestepper.cfl_coeff_2d*alpha
-        cfl3d = self.timestepper.cfl_coeff_3d*alpha
-        max_dt_2d = cfl2d*self.compute_time_step_2d(u_mag=self.options.u_advection)
-        max_dt_3d = cfl3d*self.compute_time_step_3d(u_mag=self.options.u_advection)
-        print_output('  - dt limits: 2D: {:} 3D {:}'.format(max_dt_2d, max_dt_3d))
+    def compute_dt_v_advection(self, w_scale):
+        """
+        Computes maximum explicit time step from CFL condition.
+
+        dt = CellSize_v/w_scale
+
+        Assumes advective vertical velocity scale w_scale
+        """
+        w = w_scale
+        if isinstance(w_scale, FiredrakeConstant):
+            w = w_scale.dat.data[0]
+        min_dz = self.fields.v_elem_size_2d.dat.data.min()
+        # alpha = 0.5 if self.options.element_family == 'rt-dg' else 1.0
+        # dt = alpha*1.0/1.5/(self.options.order + 1)*min_dz/w
+        min_dz *= self.compute_dz_factor()
+        dt = min_dz/w
+        dt = self.comm.allreduce(dt, op=MPI.MIN)
+        return dt
+
+    def compute_dt_diffusion(self, nu_scale):
+        """
+        Computes maximum explicit time step for horizontal diffusion.
+
+        dt = alpha*CellSize**2/nu_scale
+
+        where nu_scale is estimated diffusivity scale
+        """
+        nu = nu_scale
+        if isinstance(nu_scale, FiredrakeConstant):
+            nu = nu_scale.dat.data[0]
+        min_dx = self.fields.h_elem_size_2d.dat.data.min()
+        # alpha = 0.25 if self.options.element_family == 'rt-dg' else 1.0
+        # dt = 0.75*alpha*1.0/60.0/(self.options.order + 1)*(min_dx)**2/nu
+        min_dx *= 1.5*self.compute_dx_factor()
+        dt = (min_dx)**2/nu
+        dt = self.comm.allreduce(dt, op=MPI.MIN)
+        return dt
+
+    def set_time_step(self):
+        cfl2d = self.timestepper.cfl_coeff_2d
+        cfl3d = self.timestepper.cfl_coeff_3d
+        max_dt_swe = self.compute_dt_2d(self.options.u_advection)
+        max_dt_hadv = self.compute_dt_h_advection(self.options.u_advection)
+        max_dt_vadv = self.compute_dt_v_advection(self.options.w_advection)
+        max_dt_diff = self.compute_dt_diffusion(self.options.nu_viscosity)
+        print_output('  - dt 2d swe: {:}'.format(max_dt_swe))
+        print_output('  - dt h. advection: {:}'.format(max_dt_hadv))
+        print_output('  - dt v. advection: {:}'.format(max_dt_vadv))
+        print_output('  - dt viscosity: {:}'.format(max_dt_diff))
+        max_dt_2d = cfl2d*max_dt_swe
+        max_dt_3d = cfl3d*min(max_dt_hadv, max_dt_vadv, max_dt_diff)
+        print_output('  - CFL adjusted dt: 2D: {:} 3D: {:}'.format(max_dt_2d, max_dt_3d))
         if round(max_dt_3d) > 0:
             max_dt_3d = np.floor(max_dt_3d)
         if self.options.dt_2d is not None or self.options.dt is not None:
@@ -156,7 +217,7 @@ class FlowSolver(FrozenClass):
             self.dt_2d = self.dt
             self.M_modesplit = 1
 
-        print_output('  - chosen dt: 2D: {:} 3D {:}'.format(self.dt_2d, self.dt))
+        print_output('  - chosen dt: 2D: {:} 3D: {:}'.format(self.dt_2d, self.dt))
 
         # fit dt to export time
         m_exp = int(np.ceil(self.options.t_export/self.dt))
@@ -167,7 +228,7 @@ class FlowSolver(FrozenClass):
         else:
             self.dt_2d = self.dt
 
-        print_output('  - adjusted dt: 2D: {:} 3D {:}'.format(self.dt_2d, self.dt))
+        print_output('  - adjusted dt: 2D: {:} 3D: {:}'.format(self.dt_2d, self.dt))
 
         print_output('dt = {0:f}'.format(self.dt))
         if self.dt_mode == 'split':
@@ -472,15 +533,6 @@ class FlowSolver(FrozenClass):
             self.dt_mode = '2d'
         else:
             raise Exception('Unknown time integrator type: '+str(self.options.timestepper_type))
-        self.set_time_step()
-        self.timestepper.set_dt(self.dt, self.dt_2d)
-
-        # compute maximal diffusivity for explicit schemes
-        degree_h, degree_v = self.function_spaces.H.ufl_element().degree()
-        max_diff_alpha = 1.0/60.0/max((degree_h*(degree_h + 1)), 1.0)  # FIXME depends on element type and order
-        self.fields.max_h_diff.assign(max_diff_alpha/self.dt * self.fields.h_elem_size_3d**2)
-        d = self.fields.max_h_diff.dat.data
-        print_output('max h diff {:} - {:}'.format(d.min(), d.max()))
 
         # ----- File exporters
         # create export_managers and store in a list
@@ -600,6 +652,14 @@ class FlowSolver(FrozenClass):
         self.fields.bathymetry_2d.project(self.bathymetry_cg_2d)
         ExpandFunctionTo3d(self.fields.bathymetry_2d, self.fields.bathymetry_3d).solve()
         self.mesh_updater.initialize()
+        self.set_time_step()
+        self.timestepper.set_dt(self.dt, self.dt_2d)
+        # compute maximal diffusivity for explicit schemes
+        degree_h, degree_v = self.function_spaces.H.ufl_element().degree()
+        max_diff_alpha = 1.0/60.0/max((degree_h*(degree_h + 1)), 1.0)  # FIXME depends on element type and order
+        self.fields.max_h_diff.assign(max_diff_alpha/self.dt * self.fields.h_elem_size_3d**2)
+        d = self.fields.max_h_diff.dat.data
+        print_output('max h diff {:} - {:}'.format(d.min(), d.max()))
 
         self.next_export_t = self.simulation_time + self.options.t_export
         self._initialized = True
