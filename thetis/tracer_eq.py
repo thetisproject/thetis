@@ -14,7 +14,8 @@ class TracerTerm(Term):
     boundary functions.
     """
     def __init__(self, function_space,
-                 bathymetry=None, v_elem_size=None, h_elem_size=None):
+                 bathymetry=None, v_elem_size=None, h_elem_size=None,
+                 use_symmetric_surf_bnd=True):
         super(TracerTerm, self).__init__(function_space)
         self.bathymetry = bathymetry
         self.h_elem_size = h_elem_size
@@ -22,6 +23,7 @@ class TracerTerm(Term):
         continuity = element_continuity(self.function_space.fiat_element)
         self.horizontal_dg = continuity.horizontal_dg
         self.vertical_dg = continuity.vertical_dg
+        self.use_symmetric_surf_bnd = use_symmetric_surf_bnd
 
         # define measures with a reasonable quadrature degree
         p, q = self.function_space.ufl_element().degree()
@@ -120,8 +122,9 @@ class HorizontalAdvectionTerm(TracerTerm):
                         c_up = c_in*s + c_ext*(1-s)
                         f += c_up*(uv_av[0]*self.normal[0] +
                                    uv_av[1]*self.normal[1])*self.test*ds_bnd
-        # symmetry condition on surface NOTE needed for ale in dg-dg space ...
-        f += solution*(uv[0]*self.normal[0] + uv[1]*self.normal[1])*self.test*ds_surf
+
+        if self.use_symmetric_surf_bnd:
+            f += solution*(uv[0]*self.normal[0] + uv[1]*self.normal[1])*self.test*ds_surf
         return -f
 
 
@@ -281,11 +284,12 @@ class TracerEquation(Equation):
     3D tracer advection-diffusion equation
     """
     def __init__(self, function_space,
-                 bathymetry=None, v_elem_size=None, h_elem_size=None):
+                 bathymetry=None, v_elem_size=None, h_elem_size=None,
+                 use_symmetric_surf_bnd=True):
         super(TracerEquation, self).__init__(function_space)
 
         args = (function_space, bathymetry,
-                v_elem_size, h_elem_size)
+                v_elem_size, h_elem_size, use_symmetric_surf_bnd)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')
         # self.add_term(ALESourceTerm(*args), 'explicit')

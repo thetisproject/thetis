@@ -73,12 +73,11 @@ def run_tracer_consistency(**model_options):
 
     options = solver_obj.options
     options.nonlin = True
-    options.element_family = 'dg-dg'
     options.solve_salt = True
     options.solve_temp = False
     options.solve_vert_diffusion = False
     options.use_bottom_friction = False
-    options.use_ale_moving_mesh = True
+    options.use_ale_moving_mesh = False
     options.use_limiter_for_tracers = False
     options.tracer_lax_friedrichs = None
     options.uv_lax_friedrichs = None
@@ -122,21 +121,23 @@ def run_tracer_consistency(**model_options):
     # TODO do these checks every export ...
     vol2d, vol2d_rerr = solver_obj.callbacks['export']['volume2d']()
     assert vol2d_rerr < 1e-10, '2D volume is not conserved'
-    vol3d, vol3d_rerr = solver_obj.callbacks['export']['volume3d']()
-    assert vol3d_rerr < 1e-10, '3D volume is not conserved'
+    if options.use_ale_moving_mesh:
+        vol3d, vol3d_rerr = solver_obj.callbacks['export']['volume3d']()
+        assert vol3d_rerr < 1e-10, '3D volume is not conserved'
     if options.solve_salt:
         salt_int, salt_int_rerr = solver_obj.callbacks['export']['salt_3d mass']()
         assert salt_int_rerr < 1e-6, 'salt is not conserved'
         smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['salt_3d overshoot']()
         max_abs_overshoot = max(abs(undershoot), abs(overshoot))
-        overshoot_tol = 1e-11 if warped else 1e-12
+        overshoot_tol = 1e-10 if warped else 1e-12
         if options.use_ale_moving_mesh:
             overshoot_tol = 1e-4
         msg = 'Salt overshoots are too large: {:}'.format(max_abs_overshoot)
         assert max_abs_overshoot < overshoot_tol, msg
     if options.solve_temp:
         temp_int, temp_int_rerr = solver_obj.callbacks['export']['temp_3d mass']()
-        assert temp_int_rerr < 1e-4, 'temp is not conserved'
+        mass_tol = 1e-4 if options.use_ale_moving_mesh else 1e-3
+        assert temp_int_rerr < mass_tol, 'temp is not conserved'
         smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['temp_3d overshoot']()
         max_abs_overshoot = max(abs(undershoot), abs(overshoot))
         overshoot_tol = 1e-11 if warped else 1e-12
@@ -159,7 +160,7 @@ def test_consistency_fixed_mesh(element_family, meshtype, timestepper_type):
 
 @pytest.mark.parametrize('element_family', ['dg-dg', 'rt-dg'])
 @pytest.mark.parametrize('meshtype', ['regular', 'sloped', 'warped'])
-@pytest.mark.parametrize('timestepper_type', ['imexale', 'leapfrog', 'erkale'])
+@pytest.mark.parametrize('timestepper_type', ['leapfrog'])
 def test_ale_const_tracer(element_family, meshtype, timestepper_type):
     """
     Test ALE timeintegrators without slope limiters
@@ -200,13 +201,9 @@ if __name__ == '__main__':
     run_tracer_consistency(element_family='dg-dg',
                            meshtype='regular',
                            nonlin=True,
-                           # timestepper_type='erkale',
-                           # timestepper_type='imexale',
                            timestepper_type='leapfrog',
                            use_ale_moving_mesh=True,
                            solve_salt=True,
-                           solve_temp=False,
-                           use_limiter_for_tracers=False,
+                           solve_temp=True,
+                           use_limiter_for_tracers=True,
                            no_exports=False)
-
-# TODO need to raise warnings when dt is too large for advection ...

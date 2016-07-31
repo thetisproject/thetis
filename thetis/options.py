@@ -96,9 +96,9 @@ class ModelOptions(AttrDict, FrozenClass):
         """float: Export interval in seconds. All fields in fields_to_export list will be stored to disk and diagnostics will be computed."""
         self.t_end = 1000.0
         """float: Simulation duration in seconds"""
-        self.u_advection = Constant(0.0)
+        self.u_advection = Constant(0.1)
         """Constant: Max. horizontal velocity magnitude for computing max stable advection time step."""
-        self.w_advection = Constant(0.0)
+        self.w_advection = Constant(1e-4)
         """Constant: Max. vertical velocity magnitude for computing max stable advection time step."""
         self.nu_viscosity = Constant(1.0)
         """Constant: Max. horizontal viscosity magnitude for computing max stable diffusion time step."""
