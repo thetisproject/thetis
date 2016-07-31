@@ -118,251 +118,6 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegratorBase):
             self._update_stabilization_params()
 
 
-class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
-    """
-    Solves coupled equations with simultaneous SSPRK33 stages, where 2d gravity
-    waves are solved semi-implicitly. This saves CPU cos diffuses gravity waves.
-    """
-    def __init__(self, solver):
-        super(CoupledSSPRKSemiImplicit, self).__init__(solver,
-                                                       solver.options,
-                                                       solver.fields)
-        self._initialized = False
-
-        fields = {
-            'uv_bottom': solver.fields.get('uv_bottom_2d'),
-            'bottom_drag': solver.fields.get('bottom_drag_2d'),
-            'baroc_head': solver.fields.get('baroc_head_2d'),
-            'viscosity_h': self.options.get('h_viscosity'),  # FIXME should be total h visc
-            'uv_lax_friedrichs': self.options.uv_lax_friedrichs,
-            'coriolis': self.options.coriolis,
-            'wind_stress': self.options.wind_stress,
-            'uv_source': self.options.uv_source_2d,
-            'elev_source': self.options.elev_source_2d,
-            'linear_drag': self.options.linear_drag}
-
-        # vert_timeintegrator = rungekutta.DIRKLSPUM2
-        vert_timeintegrator = rungekutta.BackwardEuler
-        expl_timeintegrator_2d = rungekutta.SSPRK33SemiImplicit
-        expl_timeintegrator = rungekutta.SSPRK33
-        # expl_timeintegrator_2d = rungekutta.ERKLPUM2SemiImplicit
-        # expl_timeintegrator = rungekutta.ERKLPUM2
-
-        self.timestepper2d = expl_timeintegrator_2d(
-            solver.eq_sw, self.fields.solution_2d,
-            fields, solver.dt,
-            bnd_conditions=solver.bnd_functions['shallow_water'],
-            solver_parameters=self.options.solver_parameters_sw,
-            semi_implicit=self.options.use_linearized_semi_implicit_2d,
-            theta=self.options.shallow_water_theta)
-
-        # assign viscosity/diffusivity to correct equations
-        if self.options.solve_vert_diffusion:
-            implicit_v_visc = solver.tot_v_visc.get_sum()
-            explicit_v_visc = None
-            implicit_v_diff = solver.tot_v_diff.get_sum()
-            explicit_v_diff = None
-        else:
-            implicit_v_visc = None
-            explicit_v_visc = solver.tot_v_visc.get_sum()
-            implicit_v_diff = None
-            explicit_v_diff = solver.tot_v_diff.get_sum()
-
-        fields = {'eta': self.fields.elev_3d,  # FIXME rename elev
-                  'baroc_head': self.fields.get('baroc_head_3d'),
-                  'w': self.fields.w_3d,
-                  'w_mesh': self.fields.get('w_mesh_3d'),
-                  'dw_mesh_dz': self.fields.get('w_mesh_ddz_3d'),
-                  'viscosity_v': explicit_v_visc,
-                  'viscosity_h': self.solver.tot_h_visc.get_sum(),
-                  'source': self.options.uv_source_3d,
-                  # uv_mag': self.fields.uv_mag_3d,
-                  'uv_p1': self.fields.get('uv_p1_3d'),
-                  'lax_friedrichs_factor': self.options.uv_lax_friedrichs,
-                  'coriolis': self.fields.get('coriolis_3d'),
-                  'linear_drag': self.options.linear_drag,
-                  }
-        self.timestepper_mom_3d = expl_timeintegrator(
-            solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,
-            bnd_conditions=solver.bnd_functions['momentum'],
-            solver_parameters=self.options.solver_parameters_momentum_explicit)
-        if self.solver.options.solve_vert_diffusion:
-            fields = {'viscosity_v': implicit_v_visc,
-                      'wind_stress': self.fields.get('wind_stress_3d'),
-                      }
-            self.timestepper_mom_vdff_3d = vert_timeintegrator(
-                solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt,
-                bnd_conditions=solver.bnd_functions['momentum'],
-                solver_parameters=self.options.solver_parameters_momentum_implicit)
-
-        if self.solver.options.solve_salt:
-            fields = {'elev_3d': self.fields.elev_3d,
-                      'uv_3d': self.fields.uv_3d,
-                      'w': self.fields.w_3d,
-                      'w_mesh': self.fields.get('w_mesh_3d'),
-                      'dw_mesh_dz': self.fields.get('w_mesh_ddz_3d'),
-                      'diffusivity_h': self.solver.tot_h_diff.get_sum(),
-                      'diffusivity_v': explicit_v_diff,
-                      'source': self.options.salt_source_3d,
-                      # uv_mag': self.fields.uv_mag_3d,
-                      'uv_p1': self.fields.get('uv_p1_3d'),
-                      'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
-                      }
-            self.timestepper_salt_3d = expl_timeintegrator(
-                solver.eq_salt, solver.fields.salt_3d, fields, solver.dt,
-                bnd_conditions=solver.bnd_functions['salt'],
-                solver_parameters=self.options.solver_parameters_tracer_explicit)
-            if self.solver.options.solve_vert_diffusion:
-                fields = {'elev_3d': self.fields.elev_3d,
-                          'diffusivity_v': implicit_v_diff,
-                          }
-                self.timestepper_salt_vdff_3d = vert_timeintegrator(
-                    solver.eq_salt_vdff, solver.fields.salt_3d, fields, solver.dt,
-                    bnd_conditions=solver.bnd_functions['salt'],
-                    solver_parameters=self.options.solver_parameters_tracer_implicit)
-
-        if self.solver.options.solve_temp:
-            fields = {'elev_3d': self.fields.elev_3d,
-                      'uv_3d': self.fields.uv_3d,
-                      'w': self.fields.w_3d,
-                      'w_mesh': self.fields.get('w_mesh_3d'),
-                      'dw_mesh_dz': self.fields.get('w_mesh_ddz_3d'),
-                      'diffusivity_h': self.solver.tot_h_diff.get_sum(),
-                      'diffusivity_v': explicit_v_diff,
-                      'source': self.options.temp_source_3d,
-                      # uv_mag': self.fields.uv_mag_3d,
-                      'uv_p1': self.fields.get('uv_p1_3d'),
-                      'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
-                      }
-            self.timestepper_temp_3d = expl_timeintegrator(
-                solver.eq_temp, solver.fields.temp_3d, fields, solver.dt,
-                bnd_conditions=solver.bnd_functions['temp'],
-                solver_parameters=self.options.solver_parameters_tracer_explicit)
-            if self.solver.options.solve_vert_diffusion:
-                fields = {'elev_3d': self.fields.elev_3d,
-                          'diffusivity_v': implicit_v_diff,
-                          }
-                self.timestepper_temp_vdff_3d = vert_timeintegrator(
-                    solver.eq_temp_vdff, solver.fields.temp_3d, fields, solver.dt,
-                    bnd_conditions=solver.bnd_functions['temp'],
-                    solver_parameters=self.options.solver_parameters_tracer_implicit)
-
-        if self.solver.options.use_turbulence:
-            fields = {'diffusivity_v': implicit_v_diff,
-                      'viscosity_v': implicit_v_visc,
-                      'k': solver.fields.tke_3d,
-                      'epsilon': solver.gls_model.epsilon,
-                      'shear_freq2': solver.gls_model.m2,
-                      'buoy_freq2_neg': solver.gls_model.n2_neg,
-                      'buoy_freq2_pos': solver.gls_model.n2_pos
-                      }
-            self.timestepper_tke_3d = vert_timeintegrator(
-                solver.eq_tke_diff, solver.fields.tke_3d, fields, solver.dt,
-                solver_parameters=self.options.solver_parameters_tracer_implicit)
-            self.timestepper_psi_3d = vert_timeintegrator(
-                solver.eq_psi_diff, solver.fields.psi_3d, fields, solver.dt,
-                solver_parameters=self.options.solver_parameters_tracer_implicit)
-            if self.solver.options.use_turbulence_advection:
-                fields = {'elev_3d': self.fields.elev_3d,
-                          'uv_3d': self.fields.uv_3d,
-                          'w': self.fields.w_3d,
-                          'w_mesh': self.fields.get('w_mesh_3d'),
-                          'dw_mesh_dz': self.fields.get('w_mesh_ddz_3d'),
-                          # uv_mag': self.fields.uv_mag_3d,
-                          'uv_p1': self.fields.get('uv_p1_3d'),
-                          'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
-                          }
-                self.timestepper_tke_adv_eq = expl_timeintegrator(
-                    solver.eq_tke_adv, solver.fields.tke_3d, fields, solver.dt,
-                    solver_parameters=self.options.solver_parameters_tracer_explicit)
-                self.timestepper_psi_adv_eq = expl_timeintegrator(
-                    solver.eq_psi_adv, solver.fields.psi_3d, fields, solver.dt,
-                    solver_parameters=self.options.solver_parameters_tracer_explicit)
-
-        self.n_stages = self.timestepper_mom_3d.n_stages
-        self.cfl_coeff_2d = self.timestepper_mom_3d.cfl_coeff
-        self.cfl_coeff_3d = self.timestepper_mom_3d.cfl_coeff
-
-    def initialize(self):
-        """Assign initial conditions to all necessary fields"""
-        self.timestepper2d.initialize(self.fields.solution_2d)
-        self.timestepper_mom_3d.initialize(self.fields.uv_3d)
-        if self.options.solve_vert_diffusion:
-            self.timestepper_mom_vdff_3d.initialize(self.fields.uv_3d)
-        if self.options.solve_salt:
-            self.timestepper_salt_3d.initialize(self.fields.salt_3d)
-            if self.options.solve_vert_diffusion:
-                self.timestepper_salt_vdff_3d.initialize(self.fields.salt_3d)
-        if self.options.solve_temp:
-            self.timestepper_temp_3d.initialize(self.fields.temp_3d)
-            if self.options.solve_vert_diffusion:
-                self.timestepper_temp_vdff_3d.initialize(self.fields.temp_3d)
-        if self.solver.options.use_turbulence:
-            self.timestepper_tke_3d.initialize(self.fields.tke_3d)
-            self.timestepper_psi_3d.initialize(self.fields.psi_3d)
-            if self.solver.options.use_turbulence_advection:
-                self.timestepper_tke_adv_eq.initialize(self.fields.tke_3d)
-                self.timestepper_psi_adv_eq.initialize(self.fields.psi_3d)
-
-        self._initialized = True
-
-    def set_dt(self, dt, dt_2d):
-        self.timestepper2d.set_dt(dt)
-        self.timestepper_mom_3d.set_dt(dt)
-        if self.solver.options.solve_vert_diffusion:
-            self.timestepper_mom_vdff_3d.set_dt(dt)
-        if self.solver.options.solve_salt:
-            self.timestepper_salt_3d.set_dt(dt)
-            if self.solver.options.solve_vert_diffusion:
-                self.timestepper_salt_vdff_3d.set_dt(dt)
-        if self.solver.options.solve_temp:
-            self.timestepper_temp_3d.set_dt(dt)
-            if self.solver.options.solve_vert_diffusion:
-                self.timestepper_temp_vdff_3d.set_dt(dt)
-        if self.solver.options.use_turbulence:
-            self.timestepper_tke_3d.set_dt(dt)
-            self.timestepper_psi_3d.set_dt(dt)
-            if self.solver.options.use_turbulence_advection:
-                self.timestepper_tke_adv_eq.set_dt(dt)
-                self.timestepper_psi_adv_eq.set_dt(dt)
-
-    def advance(self, t, dt, update_forcings=None, update_forcings3d=None):
-        """Advances the equations for one time step"""
-        if not self._initialized:
-            self.initialize()
-
-        for k in range(self.n_stages):
-            with timed_stage('salt_eq'):
-                if self.options.solve_salt:
-                    self.timestepper_salt_3d.solve_stage(k, t, update_forcings3d)
-                    if self.options.use_limiter_for_tracers:
-                        self.solver.tracer_limiter.apply(self.fields.salt_3d)
-            with timed_stage('temp_eq'):
-                if self.options.solve_temp:
-                    self.timestepper_temp_3d.solve_stage(k, t, update_forcings3d)
-                    if self.options.use_limiter_for_tracers:
-                        self.solver.tracer_limiter.apply(self.fields.temp_3d)
-            with timed_stage('turb_advection'):
-                if self.options.use_turbulence_advection:
-                    # explicit advection
-                    self.timestepper_tke_adv_eq.solve_stage(k, t)
-                    self.timestepper_psi_adv_eq.solve_stage(k, t)
-                    # if self.options.use_limiter_for_tracers:
-                    #    self.solver.tracer_limiter.apply(self.solver.fields.tke_3d)
-                    #    self.solver.tracer_limiter.apply(self.solver.fields.psi_3d)
-            with timed_stage('momentum_eq'):
-                self.timestepper_mom_3d.solve_stage(k, t)
-            with timed_stage('mode2d'):
-                self.timestepper2d.solve_stage(k, t, update_forcings)
-            last_step = (k == 2)
-            # move fields to next stage
-            self._update_all_dependencies(t, do_vert_diffusion=last_step,
-                                          do_2d_coupling=last_step,
-                                          do_ale_update=last_step,
-                                          do_stab_params=last_step,
-                                          do_turbulence=last_step)
-
-
 class NewCoupledTimeIntegrator(CoupledTimeIntegrator):
     __metaclass__ = ABCMeta
 
@@ -588,6 +343,52 @@ class NewCoupledTimeIntegrator(CoupledTimeIntegrator):
                 self.timestepper_psi_adv_eq.initialize(self.fields.psi_3d)
 
         self._initialized = True
+
+
+class CoupledSSPRKSemiImplicit(NewCoupledTimeIntegrator):
+    """
+    Solves coupled equations with simultaneous SSPRK33 stages, where 2d gravity
+    waves are solved semi-implicitly. This saves CPU cos diffuses gravity waves.
+    """
+    integrator_2d = rungekutta.SSPRK33SemiImplicit
+    integrator_3d = rungekutta.SSPRK33
+    integrator_vert_3d = rungekutta.BackwardEuler
+
+    def advance(self, t, dt, update_forcings=None, update_forcings3d=None):
+        """Advances the equations for one time step"""
+        if not self._initialized:
+            self.initialize()
+
+        for k in range(self.n_stages):
+            with timed_stage('salt_eq'):
+                if self.options.solve_salt:
+                    self.timestepper_salt_3d.solve_stage(k, t, update_forcings3d)
+                    if self.options.use_limiter_for_tracers:
+                        self.solver.tracer_limiter.apply(self.fields.salt_3d)
+            with timed_stage('temp_eq'):
+                if self.options.solve_temp:
+                    self.timestepper_temp_3d.solve_stage(k, t, update_forcings3d)
+                    if self.options.use_limiter_for_tracers:
+                        self.solver.tracer_limiter.apply(self.fields.temp_3d)
+            with timed_stage('turb_advection'):
+                if self.options.use_turbulence_advection:
+                    # explicit advection
+                    self.timestepper_tke_adv_eq.solve_stage(k, t)
+                    self.timestepper_psi_adv_eq.solve_stage(k, t)
+                    # if self.options.use_limiter_for_tracers:
+                    #    self.solver.tracer_limiter.apply(self.solver.fields.tke_3d)
+                    #    self.solver.tracer_limiter.apply(self.solver.fields.psi_3d)
+            with timed_stage('momentum_eq'):
+                self.timestepper_mom_3d.solve_stage(k, t)
+            with timed_stage('mode2d'):
+                self.timestepper2d.solve_stage(k, t, update_forcings)
+            last_step = (k == 2)
+            # move fields to next stage
+            self._update_all_dependencies(t, do_vert_diffusion=last_step,
+                                          do_2d_coupling=last_step,
+                                          do_ale_update=last_step,
+                                          do_stab_params=last_step,
+                                          do_turbulence=last_step)
 
 
 class CoupledERKALE(NewCoupledTimeIntegrator):
