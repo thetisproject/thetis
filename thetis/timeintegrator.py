@@ -575,11 +575,15 @@ class PressureProjectionPicard(TimeIntegrator):
         self.equation_mom = equation_mom
         self.solver_parameters_mom = solver_parameters_mom
         if semi_implicit:
+            # solve a preliminary linearized momentum equation before
+            # solving the linearized wave equation terms in a coupled system
             self.solver_parameters.setdefault('snes_type', 'ksponly')
             self.solver_parameters_mom.setdefault('snes_type', 'ksponly')
         else:
+            # not sure this combination makes much sense: keep both systems nonline
             self.solver_parameters.setdefault('snes_type', 'newtonls')
             self.solver_parameters_mom.setdefault('snes_type', 'newtonls')
+        # number of picard iterations
         self.iterations = iterations
 
         self.dt_const = Constant(dt)
@@ -603,11 +607,13 @@ class PressureProjectionPicard(TimeIntegrator):
                         self.fields[k].function_space())
                 elif isinstance(self.fields[k], Constant):
                     self.fields_old[k] = Constant(self.fields[k])
+        # for the mom. eqn. the 'eta' field is just one of the 'other' fields
         fields_mom = self.fields.copy()
         fields_mom_old = self.fields_old.copy()
         fields_mom['eta'] = eta_lagged
         fields_mom_old['eta'] = eta_old
 
+        # the velocity solved for in the preliminary mom. solve:
         self.uv_star = Function(self.equation_mom.function_space)
         if semi_implicit:
             uv_star_nl = uv_lagged
@@ -616,6 +622,7 @@ class PressureProjectionPicard(TimeIntegrator):
             uv_star_nl = self.uv_star
             solution_nl = self.solution
 
+        # form for mom. eqn.:
         theta_const = Constant(theta)
         self.F_mom = (
             self.equation_mom.mass_term(self.uv_star)-self.equation_mom.mass_term(uv_old) -
@@ -625,15 +632,21 @@ class PressureProjectionPicard(TimeIntegrator):
             )
         )
 
+        # form for wave eqn. system:
+        # M (u^n+1 - u^*) + G (eta^n+theta - eta_lagged) = 0
+        # M (eta^n+1 - eta^n) + C (u^n+theta) = 0
+        # the 'implicit' terms are the gradient (G) and divergence term (C) in the mom. and continuity eqn. resp.
+        # where u^* is the velocity solved for in the mom. eqn., and G eta_lagged the gradient term in that eqn.
         uv_test, eta_test = split(self.equation.test)
         mass_term_star = inner(uv_test, self.uv_star)*dx + inner(eta_test, eta_old)*dx
         self.F = (
-            self.equation.mass_term(self.solution)-mass_term_star-
+            self.equation.mass_term(self.solution) - mass_term_star -
             self.dt_const*(
                 theta_const*self.equation.residual('implicit', self.solution, solution_nl, self.fields, self.fields, bnd_conditions)
                 + (1-theta_const)*self.equation.residual('implicit', self.solution_old, self.solution_old, self.fields_old, self.fields_old, bnd_conditions)
             )
         )
+        # subtract G eta_lagged: G is the implicit term in the mom. eqn.
         for key in self.equation_mom.terms:
             if self.equation_mom.labels[key] == 'implicit':
                 self.F += -self.dt_const*(
