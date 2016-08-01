@@ -686,7 +686,7 @@ class CoupledLeapFrogAM3(NewCoupledTimeIntegrator):
 
         # dependencies for 2D update
         self._update_baroclinicity()
-        # self._update_2d_coupling()
+        self._update_2d_coupling()
         self._update_bottom_friction()
 
         # update 2D
@@ -753,7 +753,7 @@ class CoupledLeapFrogAM3(NewCoupledTimeIntegrator):
 
         if self.options.solve_vert_diffusion:
             # TODO figure out minimal set of dependency updates (costly)
-            self._update_2d_coupling()
+            # self._update_2d_coupling()
             self._update_baroclinicity()
             self._update_bottom_friction()
             self._update_turbulence(t)
