@@ -600,7 +600,9 @@ class FlowSolver(FrozenClass):
                                                 self.equation_of_state)
             self.rho_integrator = VerticalIntegrator(self.fields.density_3d,
                                                      self.fields.baroc_head_3d,
-                                                     bottom_to_top=False)
+                                                     bottom_to_top=False,
+                                                     bathymetry=self.fields.bathymetry_3d,
+                                                     elevation=self.fields.elev_cg_3d)
             self.baro_head_averager = VerticalIntegrator(self.fields.baroc_head_3d,
                                                          self.fields.baroc_head_int_3d,
                                                          bottom_to_top=True,

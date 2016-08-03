@@ -292,8 +292,15 @@ class VerticalVelocitySolver(object):
 
 class VerticalIntegrator(object):
     """
-    Computes vertical integral of the scalar field in the output
-    function space.
+    Computes vertical integral (or average) of a field.
+
+    :param input: 3D field to integrate
+    :param output: 3D field where the integral is stored
+    :param bottom_to_top: Defines the integration direction: If True integration is performed along the z axis, from bottom surface to top surface.
+    :param bnd_value: Value of the integral at the bottom (top) boundary if bottom_to_top is True (False)
+    :param average: If True computes the vertical average instead. Requires bathymetry and elevation fields
+    :param bathymetry: 3D field defining the bathymetry
+    :param elevation: 3D field defining the free surface elevation
     """
     def __init__(self, input, output, bottom_to_top=True,
                  bnd_value=Constant(0.0), average=False,
@@ -304,6 +311,7 @@ class VerticalIntegrator(object):
         solver_parameters.setdefault('sub_ksp_type', 'preonly')
         solver_parameters.setdefault('sub_pc_type', 'ilu')
 
+        self.output = output
         space = output.function_space()
         mesh = space.mesh()
         vertical_is_dg = element_continuity(space.fiat_element).vertical_dg
@@ -326,7 +334,7 @@ class VerticalIntegrator(object):
             bnd_term = normal[2]*inner(bnd_value, phi)*self.ds_surf
             mass_bnd_term = normal[2]*inner(tri, phi)*self.ds_bottom
 
-        a = -inner(Dx(phi, 2), tri)*self.dx + mass_bnd_term
+        self.a = -inner(Dx(phi, 2), tri)*self.dx + mass_bnd_term
         gamma = (normal[2] + abs(normal[2]))
         if bottom_to_top:
             up_value = avg(tri*gamma)
@@ -336,20 +344,23 @@ class VerticalIntegrator(object):
             if len(input.ufl_shape) > 0:
                 dim = input.ufl_shape[0]
                 for i in range(dim):
-                    a += up_value[i]*jump(phi[i], normal[2])*self.dS_h
+                    self.a += up_value[i]*jump(phi[i], normal[2])*self.dS_h
             else:
-                a += up_value*jump(phi, normal[2])*self.dS_h
+                self.a += up_value*jump(phi, normal[2])*self.dS_h
         source = input
         if average:
-            depth = bathymetry + elevation
-            source = input/depth
-        l = inner(source, phi)*self.dx + bnd_term
-        self.prob = LinearVariationalProblem(a, l, output, constant_jacobian=False)
+            source = input/(elevation + bathymetry)
+        else:
+            source = input
+        self.l = inner(source, phi)*self.dx + bnd_term
+        self.prob = LinearVariationalProblem(self.a, self.l, output, constant_jacobian=False)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
-        with timed_stage('vert_integral'):
-            self.solver.solve()
+        """
+        Computes the integral and stores it in the :arg:`output` field.
+        """
+        self.solver.solve()
 
 
 class DensitySolver(object):
