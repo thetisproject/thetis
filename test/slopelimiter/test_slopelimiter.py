@@ -22,12 +22,8 @@ def vertex_limiter_test(dim=3, type='linear', direction='x', export=False):
         xyz = mesh.coordinates
         xyz.dat.data[:, 2] *= 1.0 + 0.25 - 0.5*xyz.dat.data[:, 0]
         p1dg = FunctionSpace(mesh, 'DP', 1, vfamily='DP', vdegree=1)
-        p1 = FunctionSpace(mesh, 'P', 1, vfamily='P', vdegree=1)
-        p0 = FunctionSpace(mesh, 'DP', 0, vfamily='DP', vdegree=0)
     else:
         p1dg = FunctionSpace(mesh2d, 'DP', 1)
-        p1 = FunctionSpace(mesh2d, 'P', 1)
-        p0 = FunctionSpace(mesh2d, 'DP', 0)
 
     coordname = {'x': 'x[0]', 'y': 'x[1]', 'z': 'x[2]', 'xz': 'x[0]*x[2]'}
 
@@ -43,7 +39,7 @@ def vertex_limiter_test(dim=3, type='linear', direction='x', export=False):
         tracer_file = File('tracer.pvd')
         tracer_file.write(tracer)
 
-    limiter = VertexBasedP1DGLimiter(p1dg, p1, p0)
+    limiter = VertexBasedP1DGLimiter(p1dg)
     limiter.apply(tracer)
     if export:
         tracer_file.write(tracer)

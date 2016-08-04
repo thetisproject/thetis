@@ -5,6 +5,7 @@ Tuomas Karna 2015-08-26
 """
 from __future__ import absolute_import
 from .utility import *
+from .firedrake import VertexBasedLimiter
 import ufl
 from pyop2.profiling import timed_region, timed_function, timed_stage  # NOQA
 
@@ -40,7 +41,7 @@ def assert_function_space(fs, family, degree):
             'degree of function space must be {0:d}'.format(degree)
 
 
-class VertexBasedP1DGLimiter(object):
+class VertexBasedP1DGLimiter(VertexBasedLimiter):
     """
     Vertex based limiter for P1DG tracer fields.
 
@@ -51,7 +52,7 @@ class VertexBasedP1DGLimiter(object):
     and Applied Mathematics, 233(12):3077-3085.
     http://dx.doi.org/10.1016/j.cam.2009.05.028
     """
-    def __init__(self, p1dg_space, p1cg_space, p0_space):
+    def __init__(self, p1dg_space):
         """
         Initialize limiter.
 
@@ -68,67 +69,16 @@ class VertexBasedP1DGLimiter(object):
         """
 
         assert_function_space(p1dg_space, 'Discontinuous Lagrange', 1)
-        assert_function_space(p0_space, 'Discontinuous Lagrange', 0)
-        assert_function_space(p1cg_space, 'Lagrange', 1)
-        self.P1DG = p1dg_space
-        self.P0 = p0_space
-        self.P1CG = p1cg_space
+        super(VertexBasedP1DGLimiter, self).__init__(p1dg_space)
         self.mesh = self.P0.mesh()
         self.is_2d = self.mesh.geometric_dimension() == 2
-        # create auxiliary functions
-        # P0 field containing the center (mean) values of elements
-        self.centroids = Function(self.P0, name='limiter_p1_dg-centroid')
-        # Allowed min/max values for each P1 node in the mesh
-        self.max_field = Function(self.P1CG, name='limiter_p1_dg-maxvalue')
-        self.min_field = Function(self.P1CG, name='limiter_p1_dg-minvalue')
-        # store solvers for computing centroids
-        self.centroid_solvers = {}
 
-    def _construct_average_operator(self, field):
-        """
-        Constructs a linear problem for computing the centroids and
-        adds it to the cache.
-        """
-        if field not in self.centroid_solvers:
-            tri = TrialFunction(self.P0)
-            test = TestFunction(self.P0)
-
-            a = tri*test*dx
-            l = field*test*dx
-
-            params = {'ksp_type': 'preonly'}
-            problem = LinearVariationalProblem(a, l, self.centroids)
-            solver = LinearVariationalSolver(problem,
-                                             solver_parameters=params)
-            self.centroid_solvers[field] = solver
-        return self.centroid_solvers[field]
-
-    def _update_centroids(self, field):
-        """
-        Re-compute element centroid values
-        """
-        solver = self._construct_average_operator(field)
-        solver.solve()
-
-    def _update_min_max_values(self, field):
+    def compute_bounds(self, field):
         """
         Re-compute min/max values of all neighbouring centroids
         """
-        self.max_field.assign(-1e300)  # small number
-        self.min_field.assign(1e300)  # big number
-
-        # compute max/min of neighbouring cell averages
-        par_loop("""
-    for (int i=0; i<qmax.dofs; i++) {
-        qmax[i][0] = fmax(qmax[i][0], centroids[0][0]);
-        qmin[i][0] = fmin(qmin[i][0], centroids[0][0]);
-    }
-    """,
-                 dx,
-                 {'qmax': (self.max_field, RW),
-                  'qmin': (self.min_field, RW),
-                  'centroids': (self.centroids, READ)})
-
+        # Call general-purpose bound computation.
+        super(VertexBasedP1DGLimiter, self).compute_bounds(field)
         # NOTE This does not limit solution at lateral boundaries at all
         # NOTE Omit for now
         # # Add nodal values from lateral boundaries
@@ -177,37 +127,6 @@ class VertexBasedP1DGLimiter(object):
                          top_idx(op2.READ),
                          iterate=op2.ON_TOP)
 
-    def _apply_limiter(self, field):
-        """
-        Applies the limiter to the given field.
-        DG field values are limited to be within min/max of the neighbouring element centroids.
-        """
-        par_loop("""
-    double alpha = 1.0;
-    double cellavg = centroids[0][0];
-    for (int i=0; i<q.dofs; i++) {
-        if (q[i][0] > cellavg)
-            alpha = fmin(alpha, fmin(1, (qmax[i][0] - cellavg)/(q[i][0] - cellavg)));
-        else if (q[i][0] < cellavg)
-            alpha = fmin(alpha, fmin(1, (cellavg - qmin[i][0])/(cellavg - q[i][0])));
-    }
-    for (int i=0; i<q.dofs; i++) {
-        q[i][0] = cellavg + alpha*(q[i][0] - cellavg);
-    }
-    """,
-                 dx,
-                 {'q': (field, RW),
-                  'qmax': (self.max_field, READ),
-                  'qmin': (self.min_field, READ),
-                  'centroids': (self.centroids, READ)})
-
     def apply(self, field):
-        """
-        Applies the limiter to the given field.
-        """
-        assert field.function_space() == self.P1DG,\
-            'Given field belongs to wrong function space'
         with timed_stage('limiter'):
-            self._update_centroids(field)
-            self._update_min_max_values(field)
-            self._apply_limiter(field)
+            super(VertexBasedP1DGLimiter, self).apply(field)
