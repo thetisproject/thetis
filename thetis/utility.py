@@ -412,7 +412,8 @@ def compute_baroclinic_head(solver):
     solver.density_solver.solve()
     solver.rho_integrator.solve()
     solver.fields.baroc_head_3d *= -physical_constants['rho0_inv']
-    solver.baro_head_averager.solve()
+    solver.extract_bot_baro_head.solve()
+    solver.baro_head_integrator.solve()
     solver.extract_surf_baro_head.solve()
 
 

@@ -366,6 +366,7 @@ class FlowSolver(FrozenClass):
             # NOTE only used in 2D eqns no need to use higher order Hint space
             self.fields.baroc_head_int_3d = Function(self.function_spaces.H)
             self.fields.baroc_head_2d = Function(self.function_spaces.H_2d)
+            self.fields.baroc_head_bot_2d = Function(self.function_spaces.H_2d)
         if self.options.coriolis is not None:
             if isinstance(self.options.coriolis, FiredrakeConstant):
                 self.fields.coriolis_3d = self.options.coriolis
@@ -603,15 +604,17 @@ class FlowSolver(FrozenClass):
                                                      bottom_to_top=False,
                                                      bathymetry=self.fields.bathymetry_3d,
                                                      elevation=self.fields.elev_cg_3d)
-            self.baro_head_averager = VerticalIntegrator(self.fields.baroc_head_3d,
-                                                         self.fields.baroc_head_int_3d,
-                                                         bottom_to_top=True,
-                                                         average=True,
-                                                         bathymetry=self.fields.bathymetry_3d,
-                                                         elevation=self.fields.elev_cg_3d)
+            self.baro_head_integrator = VerticalIntegrator(self.fields.baroc_head_3d,
+                                                           self.fields.baroc_head_int_3d,
+                                                           bottom_to_top=True,
+                                                           bathymetry=self.fields.bathymetry_3d,
+                                                           elevation=self.fields.elev_cg_3d)
             self.extract_surf_baro_head = SubFunctionExtractor(self.fields.baroc_head_int_3d,
                                                                self.fields.baroc_head_2d,
                                                                boundary='top', elem_facet='top')
+            self.extract_bot_baro_head = SubFunctionExtractor(self.fields.baroc_head_3d,
+                                                              self.fields.baroc_head_bot_2d,
+                                                              boundary='bottom', elem_facet='bottom')
         self.extract_surf_dav_uv = SubFunctionExtractor(self.fields.uv_dav_3d,
                                                         self.fields.uv_dav_2d,
                                                         boundary='top', elem_facet='top',

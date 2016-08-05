@@ -250,6 +250,12 @@ field_metadata['baroc_head_2d'] = {
     'unit': 'm',
     'filename': 'BaroHead2d',
 }
+field_metadata['baroc_head_bot_2d'] = {
+    'name': 'Baroclinic head at bottom',
+    'shortname': 'Baroclinic head at bottom',
+    'unit': 'm',
+    'filename': 'BaroHeadBot2d',
+}
 field_metadata['gjv_alpha_h_3d'] = {
     'name': 'GJV Parameter h',
     'shortname': 'GJV Parameter h',

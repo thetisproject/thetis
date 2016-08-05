@@ -152,6 +152,7 @@ class NewCoupledTimeIntegrator(CoupledTimeIntegrator):
             'uv_bottom': solver.fields.get('uv_bottom_2d'),
             'bottom_drag': solver.fields.get('bottom_drag_2d'),
             'baroc_head': solver.fields.get('baroc_head_2d'),
+            'baroc_head_bot': solver.fields.get('baroc_head_bot_2d'),
             'viscosity_h': self.options.get('h_viscosity'),  # FIXME should be total h visc
             'uv_lax_friedrichs': self.options.uv_lax_friedrichs,
             'coriolis': self.options.coriolis,
