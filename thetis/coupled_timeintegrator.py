@@ -692,7 +692,8 @@ class CoupledLeapFrogAM3(NewCoupledTimeIntegrator):
         # update 2D
         self.solver.mesh_updater.compute_mesh_velocity_begin()
         self.uv_old_2d.assign(self.fields.uv_2d)
-        self.timestepper2d.advance(t, update_forcings)
+        with timed_stage('mode2d'):
+            self.timestepper2d.advance(t, update_forcings)
         self.solver.mesh_updater.compute_mesh_velocity_finalize()
         self.uv_new_2d.assign(self.fields.uv_2d)
 
