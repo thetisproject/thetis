@@ -281,8 +281,11 @@ class VerticalVelocitySolver(object):
                 # use symmetry condition
                 l += -(uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_bnd
 
+        # NOTE For ALE mesh constant_jacobian should be False
+        # however the difference is very small as A is nearly independent of
+        # mesh stretching: only the normals vary in time
         self.prob = LinearVariationalProblem(a, l, solution,
-                                             constant_jacobian=False)
+                                             constant_jacobian=True)
         self.solver = LinearVariationalSolver(self.prob,
                                               solver_parameters=solver_parameters)
 
