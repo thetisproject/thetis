@@ -26,7 +26,6 @@ def test_steady_state_channel(do_export=False):
     solver_obj.options.t_export = dt
     solver_obj.options.t_end = n*dt
     solver_obj.options.no_exports = not do_export
-    # NOTE had to set to something else than Cr-Ni, otherwise overriding below has no effect
     solver_obj.options.timestepper_type = 'cranknicolson'
     solver_obj.options.shallow_water_theta = 1.0
     solver_obj.options.solver_parameters_sw = {
