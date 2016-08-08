@@ -67,14 +67,11 @@ options.shallow_water_theta = 1.0
 options.solver_parameters_sw = {
     'snes_type': 'ksponly',
     'ksp_type': 'preonly',
-    #'ksp_view': True,
-    #'ksp_monitor': True,
     'pc_type': 'fieldsplit',
     'pc_fieldsplit_type': 'schur',
     'pc_fieldsplit_schur_fact_type': 'full',
     'pc_fieldsplit_schur_precondition': 'selfp',
     'fieldsplit_0_ksp_type': 'gmres',
-    #'fieldsplit_0_ksp_converged_reason': True,
     'fieldsplit_0_pc_type': 'sor',
     'fieldsplit_1_ksp_type': 'fgmres',
     'fieldsplit_1_ksp_converged_reason': True,
@@ -82,8 +79,6 @@ options.solver_parameters_sw = {
 }
 options.solver_parameters_momentum_implicit = {
     'ksp_type': 'gmres',
-    #'ksp_view': True,
-    #'snes_monitor': True,
     'ksp_converged_reason': True,
     'pc_type': 'sor',
     'pc_factor_mat_solver_package': 'mumps',

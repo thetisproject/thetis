@@ -8,13 +8,13 @@ import pytest
 import math
 
 
-@pytest.mark.parametrize("timesteps,max_rel_err",[
-  (10,0.02), (20,5e-3)])
+@pytest.mark.parametrize("timesteps,max_rel_err", [
+    (10, 0.02), (20, 5e-3)])
 # with nonlin=True and nx=100 this converges for the series
 #  (10,0.02), (20,5e-3), (40, 1.25e-3)
 # with nonlin=False further converge is possible
 @pytest.mark.parametrize("timestepper", [
-  'cranknicolson', 'pressureprojectionpicard',])
+    'cranknicolson', 'pressureprojectionpicard', ])
 def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=False):
 
     lx = 5e3
@@ -28,7 +28,7 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
     c = math.sqrt(g*depth)
     period = 2*lx/c
     dt = period/n
-    t_end = period-0.1*dt # make sure we don't overshoot
+    t_end = period-0.1*dt  # make sure we don't overshoot
 
     x = SpatialCoordinate(mesh2d)
     elev_init = cos(pi*x[0]/lx)
@@ -47,7 +47,7 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
     solver_obj.options.element_family = 'dg-dg'
     solver_obj.options.timestepper_type = timestepper
     solver_obj.options.shallow_water_theta = 0.5
-    if timestepper=='cranknicolson':
+    if timestepper == 'cranknicolson':
         solver_obj.options.solver_parameters_sw = {
             'ksp_type': 'preonly',
             'pc_type': 'lu',
@@ -55,17 +55,17 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
             'snes_monitor': False,
             'snes_type': 'newtonls',
         }
-    elif timestepper=='pressureprojectionpicard':
+    elif timestepper == 'pressureprojectionpicard':
         # solver options for the linearized wave equation terms
         solver_obj.options.solver_parameters_sw = {
-            'snes_type': 'ksponly', # we've linearized, so no snes needed
-            'ksp_type': 'preonly', # we solve the full schur complement exactly, so no need for outer krylov
+            'snes_type': 'ksponly',  # we've linearized, so no snes needed
+            'ksp_type': 'preonly',  # we solve the full schur complement exactly, so no need for outer krylov
             'pc_type': 'fieldsplit',
             'pc_fieldsplit_type': 'schur',
             'pc_fieldsplit_schur_fact_type': 'full',
             'pc_fieldsplit_schur_precondition': 'selfp',
             # velocity mass block:
-            'fieldsplit_0_ksp_type': 'preonly', # NOTE: this is only an exact solver for the velocity mass block if velocity is DG
+            'fieldsplit_0_ksp_type': 'preonly',  # NOTE: this is only an exact solver for the velocity mass block if velocity is DG
             'fieldsplit_0_pc_type': 'ilu',
             'fieldsplit_1_ksp_type': 'fgmres',
             # schur complement:
@@ -74,11 +74,11 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
             'fieldsplit_1_ksp_converged_reason': True,
         }
         options.solver_parameters_momentum_implicit = {
-                'snes_monitor': True,
-                'ksp_type': 'gmres',
-                'ksp_converged_reason': True,
-                'pc_type': 'bjacobi',
-                'pc_bjacobi_type': 'ilu',
+            'snes_monitor': True,
+            'ksp_type': 'gmres',
+            'ksp_converged_reason': True,
+            'pc_type': 'bjacobi',
+            'pc_bjacobi_type': 'ilu',
         }
     solver_obj.options.dt = dt
 
