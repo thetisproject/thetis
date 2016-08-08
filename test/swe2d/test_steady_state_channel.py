@@ -8,15 +8,15 @@ def test_steady_state_channel(do_export=False):
     lx = 5e3
     ly = 1e3
     # we don't expect converge as the reference solution neglects the advection term
-    mesh2d = RectangleMesh(5, 1, lx, ly)
+    mesh2d = RectangleMesh(10, 1, lx, ly)
 
     # bathymetry
     p1_2d = FunctionSpace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name="bathymetry")
     bathymetry_2d.assign(100.0)
 
-    n = 20  # number of timesteps
-    dt = 100.
+    n = 200  # number of timesteps
+    dt = 1000.
     g = physical_constants['g_grav'].dat.data[0]
     f = g/lx  # linear friction coef.
 
@@ -60,9 +60,8 @@ def test_steady_state_channel(do_export=False):
     eta_ana = interpolate(Expression("1-x[0]/lx", lx=lx), p1_2d)
     area = lx*ly
     l2norm = errornorm(eta_ana, eta)/math.sqrt(area)
-    rel_err = math.sqrt(l2norm/area)
-    print_output(rel_err)
-    assert(rel_err < 1e-3)
+    print_output(l2norm)
+    assert(l2norm < 1e-2)
     print_output("PASSED")
 
 
