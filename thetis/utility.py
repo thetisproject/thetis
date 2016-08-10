@@ -879,7 +879,8 @@ class SmagorinskyViscosity(object):
         ocean models. Monthly Weather Review, 128(8):2935-2946.
         http://dx.doi.org/10.1175/1520-0493(2000)128%3C2935:BFWASL%3E2.0.CO;2
     """
-    def __init__(self, uv, output, c_s, h_elem_size, max_val, min_val=1e-10, solver_parameters={}):
+    def __init__(self, uv, output, c_s, h_elem_size, max_val, min_val=1e-10,
+                 weak_form=True, solver_parameters={}):
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
         assert max_val.function_space() == output.function_space(), \
@@ -887,22 +888,57 @@ class SmagorinskyViscosity(object):
         self.max_val = max_val
         self.min_val = min_val
         self.output = output
+        self.weak_form = weak_form
+
+        if self.weak_form:
+            # solve grad(u) weakly
+            mesh = output.function_space().mesh()
+            fs_grad = FunctionSpace(mesh, 'DP', 1, vfamily='DP', vdegree=1)
+            self.grad = {}
+            for icomp in [0, 1]:
+                for j in [0, 1]:
+                    self.grad[(icomp, j)] = Function(fs_grad, name='uv_grad({:},{:})'.format(icomp, j))
+
+            tri_grad = TrialFunction(fs_grad)
+            test_grad = TestFunction(fs_grad)
+
+            normal = FacetNormal(mesh)
+            a = inner(tri_grad, test_grad)*dx
+
+            self.solver_grad = {}
+            for icomp in [0, 1]:
+                for j in [0, 1]:
+                    a = inner(tri_grad, test_grad)*dx
+                    # l = inner(Dx(uv[0], 0), test_grad)*dx
+                    l = -inner(Dx(test_grad, j), uv[icomp])*dx
+                    l += inner(avg(uv[icomp]), jump(test_grad, normal[j]))*dS_v
+                    l += inner(uv[icomp], test_grad*normal[j])*ds_v
+                    prob = LinearVariationalProblem(a, l, self.grad[(icomp, j)])
+                    self.solver_grad[(icomp, j)] = LinearVariationalSolver(prob, solver_parameters=solver_parameters)
 
         fs = output.function_space()
-        w = TestFunction(fs)
-        tau = TrialFunction(fs)
+        tri = TrialFunction(fs)
+        test = TestFunction(fs)
 
         # rate of strain tensor
-        d_t = Dx(uv[0], 0) - Dx(uv[1], 1)
-        d_s = Dx(uv[0], 1) + Dx(uv[1], 0)
+        if self.weak_form:
+            d_t = self.grad[(0, 0)] - self.grad[(1, 1)]
+            d_s = self.grad[(0, 1)] + self.grad[(1, 0)]
+        else:
+            d_t = Dx(uv[0], 0) - Dx(uv[1], 1)
+            d_s = Dx(uv[0], 1) + Dx(uv[1], 0)
         nu = c_s**2*h_elem_size**2 * sqrt(d_t**2 + d_s**2)
 
-        a = w*tau*dx
-        l = w*nu*dx
+        a = test*tri*dx
+        l = test*nu*dx
         self.prob = LinearVariationalProblem(a, l, output)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
+        if self.weak_form:
+            for icomp in [0, 1]:
+                for j in [0, 1]:
+                    self.solver_grad[(icomp, j)].solve()
         self.solver.solve()
         # remove negative values
         ix = self.output.dat.data < self.min_val

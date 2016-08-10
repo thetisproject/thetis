@@ -80,7 +80,8 @@ def run(refinement, order=1, warped_mesh=False, do_export=True):
     salt_ana = Function(solverobj.function_spaces.H, name='salt analytical')
     salt_ana_p1 = Function(solverobj.function_spaces.P1, name='salt analytical')
 
-    p1dg_ho = FunctionSpace(solverobj.mesh, 'DG', order + 2)
+    p1dg_ho = FunctionSpace(solverobj.mesh, 'DG', order + 2,
+                            vfamily='DG', vdegree=order + 2)
     salt_ana_ho = Function(p1dg_ho, name='salt analytical')
 
     elev_init = Function(solverobj.function_spaces.H_2d, name='elev init')
@@ -186,17 +187,22 @@ def run_convergence(ref_list, saveplot=False, **options):
 # ---------------------------
 
 
+@pytest.fixture(params=[0, 1])
+def order(request):
+    return request.param
+
+
 @pytest.fixture(params=[True, False], ids=['warped', 'regular'])
 def warped(request):
     return request.param
 
 
-def test_horizontal_diffusion(warped):
-    run_convergence([1, 2, 3], order=1, warped_mesh=warped)
+def test_horizontal_diffusion(warped, order):
+    run_convergence([1, 2, 3], order=order, warped_mesh=warped)
 
 # ---------------------------
 # run individual setup for debugging
 # ---------------------------
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], order=1, warped_mesh=True, do_export=True, saveplot=True)
+    run_convergence([1, 2, 3], order=0, warped_mesh=False, do_export=True, saveplot=True)

@@ -201,7 +201,7 @@ class HorizontalDiffusionTerm(TracerTerm):
                         self.v_elem_size*self.normal[2]**2)
             sigma = 5.0*degree_h*(degree_h + 1)/elemsize
             if degree_h == 0:
-                raise NotImplementedError('horizontal diffusion not implemented for p0')
+                sigma = 1.5/elemsize
             alpha = avg(sigma)
             ds_interior = (self.dS_h + self.dS_v)
             f += alpha*inner(jump(self.test, self.normal),
