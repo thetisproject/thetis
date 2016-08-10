@@ -73,7 +73,7 @@ options.solver_parameters_sw = {
     'pc_fieldsplit_schur_precondition': 'selfp',
     'fieldsplit_0_ksp_type': 'gmres',
     'fieldsplit_0_pc_type': 'sor',
-    'fieldsplit_1_ksp_type': 'fgmres',
+    'fieldsplit_1_ksp_type': 'gmres',
     'fieldsplit_1_ksp_converged_reason': True,
     'fieldsplit_1_pc_type': 'hypre',
 }
