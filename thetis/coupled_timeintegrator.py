@@ -637,7 +637,7 @@ class CoupledERKALE(NewCoupledTimeIntegrator):
             w_mesh += self. a_inv[i_stage, j]*(x_j - x_0)/self.solver.dt
 
         # use that to compute w_mesh in whole domain
-        self.solver.copy_surf_w_mesh_to_3d.solve()
+        self.solver.mesh_updater.cp_w_mesh_surf_2d_to_3d.solve()
         # solve w_mesh at nodes
         w_mesh_surf = fields.w_mesh_surf_3d.dat.data[:]
         z_ref = fields.z_coord_ref_3d.dat.data[:]
@@ -763,7 +763,7 @@ class CoupledIMEXALE(NewCoupledTimeIntegrator):
             w_mesh += self. a_inv[i_stage, j]*(x_j - x_0)/self.solver.dt
 
         # use that to compute w_mesh in whole domain
-        self.solver.copy_surf_w_mesh_to_3d.solve()
+        self.solver.mesh_updater.cp_w_mesh_surf_2d_to_3d.solve()
         # solve w_mesh at nodes
         w_mesh_surf = fields.w_mesh_surf_3d.dat.data[:]
         z_ref = fields.z_coord_ref_3d.dat.data[:]
@@ -802,7 +802,7 @@ class CoupledIMEXALE(NewCoupledTimeIntegrator):
             # - IM: solve implicit tendency (this is implicit solve)
             self.timestepper2d.dirk.solve_tendency(k, t, update_forcings3d)
             # - IM: set solution to u_n + dt*sum(a*k_erk) + *sum(a*k_dirk)
-            self.timestepper2d.dirk.update_solution(k, additive=True)
+            self.timestepper2d.dirk.update_solution(k)
             self.compute_mesh_velocity(k)
             # TODO update all dependencies of implicit solutions here
             # NOTE if 3D implicit solves, must be done in new mesh!

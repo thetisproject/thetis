@@ -108,7 +108,7 @@ class IMEXGeneric(TimeIntegrator):
         # solve implicit tendency (this is implicit solve)
         self.dirk.solve_tendency(i_stage, t, update_forcings)
         # set solution to u_n + dt*sum(a*k_erk) + *sum(a*k_dirk)
-        self.dirk.update_solution(i_stage, additive=True)
+        self.dirk.update_solution(i_stage)
         # evaluate explicit tendency
         self.erk.solve_tendency(i_stage, t, update_forcings)
 
@@ -119,7 +119,7 @@ class IMEXGeneric(TimeIntegrator):
         # set solution to u_n + sum(b*k_erk)
         self.erk.get_final_solution(additive=False)
         # set solution to u_n + sum(b*k_erk) + sum(b*k_dirk)
-        self.dirk.get_final_solution(additive=True)
+        self.dirk.get_final_solution()
         # update old solution
         # TODO share old solution func between dirk and erk
         self.erk.solution_old.assign(self.dirk.solution)

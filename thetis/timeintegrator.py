@@ -365,6 +365,7 @@ class LeapFrogAM3(TimeIntegrator):
         c = 1.0 - 2*self.gamma
         self.l_prediction = a*self.mass_old + b*self.mass_new + c*self.l
 
+        self._nontrivial = self.l != 0
         self.cfl_coeff = 1.5874
 
     def initialize(self, solution):
@@ -383,13 +384,15 @@ class LeapFrogAM3(TimeIntegrator):
 
         This is computed in fixed mesh: all terms are evaluated in Omega_n
         """
-        assemble(self.mass_new, self.msolution_old)  # store current solution
-        assemble(self.l_prediction, self.rhs_func)
-        self.solution_old.assign(self.solution)  # time shift
-        solve(self.mass_matrix, self.solution, self.rhs_func)
+        if self._nontrivial:
+            assemble(self.mass_new, self.msolution_old)  # store current solution
+            assemble(self.l_prediction, self.rhs_func)
+            self.solution_old.assign(self.solution)  # time shift
+            solve(self.mass_matrix, self.solution, self.rhs_func)
 
     def eval_rhs(self):
-        assemble(self.l, self.rhs_func)
+        if self._nontrivial:
+            assemble(self.l, self.rhs_func)
 
     def correct(self):
         """
@@ -399,16 +402,18 @@ class LeapFrogAM3(TimeIntegrator):
 
         This is Euler ALE step: LHS is evaluated in Omega_{n+1}, RHS in Omega_n
         """
-        # NOTE must call eval_rhs in the old mesh first
-        self.rhs_func += self.msolution_old
-        assemble(self.a, self.mass_matrix)
-        solve(self.mass_matrix, self.solution, self.rhs_func)
-        # self.msolution_old.assign(self.rhs_func)
+        if self._nontrivial:
+            # NOTE must call eval_rhs in the old mesh first
+            self.rhs_func += self.msolution_old
+            assemble(self.a, self.mass_matrix)
+            solve(self.mass_matrix, self.solution, self.rhs_func)
+            # self.msolution_old.assign(self.rhs_func)
 
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
-        if update_forcings is not None:
-            update_forcings(t + self.dt)
-        self.predict()
-        self.eval_rhs()
-        self.correct()
+        if self._nontrivial:
+            if update_forcings is not None:
+                update_forcings(t + self.dt)
+            self.predict()
+            self.eval_rhs()
+            self.correct()

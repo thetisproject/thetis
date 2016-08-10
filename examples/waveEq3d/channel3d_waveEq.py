@@ -54,7 +54,6 @@ options.solve_temp = False
 options.solve_vert_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = True
-options.dt = dt/5.0
 options.t_export = t_export
 options.t_end = t_end
 options.u_advection = u_mag

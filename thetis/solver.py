@@ -131,8 +131,11 @@ class FlowSolver(FrozenClass):
         print_output('  - dt limits: 2D: {:} 3D {:}'.format(max_dt_2d, max_dt_3d))
         if round(max_dt_3d) > 0:
             max_dt_3d = np.floor(max_dt_3d)
+        if self.options.dt_2d is not None or self.options.dt is not None:
+            print_output('  - User defined dt: 2D: {:} 3D: {:}'.format(self.options.dt_2d, self.options.dt))
         self.dt = self.options.dt
         self.dt_2d = self.options.dt_2d
+
         if self.dt_mode == 'split':
             if self.dt is None:
                 self.dt = max_dt_3d

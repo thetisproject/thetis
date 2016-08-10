@@ -8,7 +8,7 @@ from __future__ import absolute_import
 from .timeintegrator import *
 from abc import ABCMeta, abstractproperty
 
-CFL_UNCONDITIONALLY_STABLE = 1.0e6
+CFL_UNCONDITIONALLY_STABLE = np.inf
 
 
 def butcher_to_shuosher_form(a, b):
@@ -420,6 +420,8 @@ class RungeKuttaTimeIntegrator(TimeIntegrator):
 
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
+        if not self._initialized:
+            error('Time integrator {:} is not initialized'.format(self.name))
         for i in xrange(self.n_stages):
             self.solve_stage(i, t, update_forcings)
         self.get_final_solution()
@@ -457,6 +459,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         super(DIRKGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
+        self._initialized = False
 
         fs = self.equation.function_space
         self.solution_old = Function(self.equation.function_space, name='old solution')
@@ -505,22 +508,20 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
             self.solver.append(
                 NonlinearVariationalSolver(p,
                                            solver_parameters=self.solver_parameters,
-                                           options_prefix=sname + '_k{}'.format(i)))
+                                           options_prefix=sname))
 
     def initialize(self, init_cond):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(init_cond)
+        self._initialized = True
 
-    def update_solution(self, i_stage, additive=False):
+    def update_solution(self, i_stage):
         """
         Updates solution to i_stage sub-stage.
 
         Tendencies must have been evaluated first.
-        If additive=False, will overwrite self.solution function, otherwise
-        will add to it.
         """
-        if not additive:
-            self.solution.assign(self.solution_old)
+        # self.solution.assign(self.solution_old)
         for j in range(i_stage + 1):
             self.solution += self.a[i_stage][j]*self.dt_const*self.k[j]
 
@@ -528,16 +529,20 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         """
         Evaluates the tendency k at stage i_stage
         """
+        if i_stage == 0:
+            # NOTE solution may have changed in coupled system
+            self.solution_old.assign(self.solution)
+        if not self._initialized:
+            error('Time integrator {:} is not initialized'.format(self.name))
         if update_forcings is not None:
             update_forcings(t + self.c[i_stage]*self.dt)
         self.solver[i_stage].solve()
 
-    def get_final_solution(self, additive=False):
-        if not additive:
-            self.solution.assign(self.solution_old)
+    def get_final_solution(self):
+        self.solution.assign(self.solution_old)
         for j in range(self.n_stages):
             self.solution += self.dt_const*self.b[j]*self.k[j]
-        self.solution_old.assign(self.solution)
+        # self.solution_old.assign(self.solution)
 
     def solve_stage(self, i_stage, t, update_forcings=None):
         self.solve_tendency(i_stage, t, update_forcings)
@@ -600,16 +605,16 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
 
         # fully explicit evaluation
         self.a_rk = self.equation.mass_term(self.equation.trial)
-        self.L_RK = self.dt_const*self.equation.residual(terms_to_add, self.solution, self.solution, self.fields, self.fields, bnd_conditions)
+        self.l_rk = self.dt_const*self.equation.residual(terms_to_add, self.solution, self.solution, self.fields, self.fields, bnd_conditions)
 
-        self._nontrivial = self.L_RK != 0
+        self._nontrivial = self.l_rk != 0
         self.update_solver()
 
     def update_solver(self):
         if self._nontrivial:
             self.solver = []
             for i in range(self.n_stages):
-                prob = LinearVariationalProblem(self.a_rk, self.L_RK, self.tendency[i])
+                prob = LinearVariationalProblem(self.a_rk, self.l_rk, self.tendency[i])
                 solver = LinearVariationalSolver(prob, options_prefix=self.name + '_k{:}'.format(i),
                                                  solver_parameters=self.solver_parameters)
                 self.solver.append(solver)
@@ -654,6 +659,67 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
         self.solve_tendency(i_stage, t, update_forcings)
 
 
+class ERKGenericShuOsher(TimeIntegrator):
+    """
+    Generic explicit Runge-Kutta time integrator.
+
+    Implements the Shu-Osher form.
+    """
+
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, terms_to_add='all'):
+        """Creates forms for the time integrator"""
+        super(ERKGenericShuOsher, self).__init__(equation, solution, fields, dt, solver_parameters)
+
+        self.tendency = Function(self.equation.function_space, name='tendency')
+        self.stage_sol = []
+        for i in range(self.n_stages):
+            s = Function(self.equation.function_space, name='sol'.format(i))
+            self.stage_sol.append(s)
+
+        # fully explicit evaluation
+        self.a_rk = self.equation.mass_term(self.equation.trial)
+        self.l_rk = self.dt_const*self.equation.residual(terms_to_add,
+                                                         self.solution, self.solution,
+                                                         self.fields, self.fields,
+                                                         bnd_conditions)
+        self._nontrivial = self.l_rk != 0
+        self.update_solver()
+
+    def update_solver(self):
+        if self._nontrivial:
+            prob = LinearVariationalProblem(self.a_rk, self.l_rk, self.tendency)
+            self.solver = LinearVariationalSolver(prob, options_prefix=self.name + '_k',
+                                                  solver_parameters=self.solver_parameters)
+
+    def initialize(self, solution):
+        pass
+
+    def solve_stage(self, i_stage, t, update_forcings=None):
+        if self._nontrivial:
+            if update_forcings is not None:
+                update_forcings(t + self.c[i_stage]*self.dt)
+
+            if i_stage == 0:
+                self.stage_sol[0].assign(self.solution)
+
+            # solve tendency
+            self.solver.solve()
+
+            # solve the next internal solution
+            # BUG starting with sol_sum = 0 results in different solution!
+            sol_sum = float(self.beta[i_stage + 1][i_stage])*self.tendency
+            for j in range(i_stage + 1):
+                sol_sum += float(self.alpha[i_stage + 1][j])*self.stage_sol[j]
+            self.solution.assign(sol_sum)
+            if i_stage < self.n_stages - 1:
+                self.stage_sol[i_stage + 1].assign(self.solution)
+
+    def advance(self, t, update_forcings=None):
+        """Advances equations for one time step."""
+        for i in xrange(self.n_stages):
+            self.solve_stage(i, t, update_forcings)
+
+
 class ERKGenericALE2(RungeKuttaTimeIntegrator):
     """
     Generic explicit Runge-Kutta time integrator for conservative ALE schemes.
@@ -677,10 +743,13 @@ class ERKGenericALE2(RungeKuttaTimeIntegrator):
         self.l_rk = self.dt_const*self.equation.residual('all', self.solution, self.solution, self.fields, self.fields, bnd_conditions)
         self.mass_term = self.equation.mass_term(self.solution)
 
+        self._nontrivial = self.l_rk != 0
+
         self.update_solver()
 
     def update_solver(self):
-        self.A = assemble(self.a_rk)
+        if self._nontrivial:
+            self.A = assemble(self.a_rk)
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -692,30 +761,33 @@ class ERKGenericALE2(RungeKuttaTimeIntegrator):
 
         Tendencies must have been evaluated first.
         """
-        # construct full form: L = c*dt*F + M_n*sol_n + ...
-        # everything is assembled, just sum up functions
-        self.l_form.assign(self.msol_old)
-        for j in range(i_stage):
-            self.l_form += float(self.a[i_stage][j])*self.stage_mk[j]
+        if self._nontrivial:
+            # construct full form: L = c*dt*F + M_n*sol_n + ...
+            # everything is assembled, just sum up functions
+            self.l_form.assign(self.msol_old)
+            for j in range(i_stage):
+                self.l_form += float(self.a[i_stage][j])*self.stage_mk[j]
 
-        assemble(self.a_rk, self.A)
-        solve(self.A, self.solution, self.l_form)
+            assemble(self.a_rk, self.A)
+            solve(self.A, self.solution, self.l_form)
 
     def solve_tendency(self, i_stage, t, update_forcings=None):
         """
         Evaluates the tendency k at stage i_stage
         """
-        if update_forcings is not None:
-            update_forcings(t + self.c[i_stage]*self.dt)
-        assemble(self.l_rk, self.stage_mk[i_stage])
+        if self._nontrivial:
+            if update_forcings is not None:
+                update_forcings(t + self.c[i_stage]*self.dt)
+            assemble(self.l_rk, self.stage_mk[i_stage])
 
     def get_final_solution(self):
-        self.l_form.assign(self.msol_old)
-        for j in range(self.n_stages):
-            self.l_form += float(self.b[j])*self.stage_mk[j]
-        assemble(self.a_rk, self.A)
-        solve(self.A, self.solution, self.l_form)
-        assemble(self.mass_term, self.msol_old)
+        if self._nontrivial:
+            self.l_form.assign(self.msol_old)
+            for j in range(self.n_stages):
+                self.l_form += float(self.b[j])*self.stage_mk[j]
+            assemble(self.a_rk, self.A)
+            solve(self.A, self.solution, self.l_form)
+            assemble(self.mass_term, self.msol_old)
 
     def solve_stage(self, i_stage, t, update_forcings=None):
         self.update_solution(i_stage)
@@ -821,7 +893,7 @@ class SSPRK33SemiImplicit(ERKSemiImplicitGeneric, SSPRK33Abstract):
     pass
 
 
-class SSPRK33(ERKGeneric, SSPRK33Abstract):
+class SSPRK33(ERKGenericShuOsher, SSPRK33Abstract):
     pass
 
 
