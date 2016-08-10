@@ -73,7 +73,7 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
             'fieldsplit_1_ksp_max_it': 100,
             'fieldsplit_1_ksp_converged_reason': True,
         }
-        options.solver_parameters_momentum_implicit = {
+        options.solver_parameters_sw_momentum = {
             'snes_monitor': True,
             'ksp_type': 'gmres',
             'ksp_converged_reason': True,

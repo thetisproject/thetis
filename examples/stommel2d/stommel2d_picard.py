@@ -77,7 +77,7 @@ options.solver_parameters_sw = {
     'fieldsplit_1_ksp_converged_reason': True,
     'fieldsplit_1_pc_type': 'hypre',
 }
-options.solver_parameters_momentum_implicit = {
+options.solver_parameters_sw_momentum = {
     'ksp_type': 'gmres',
     'ksp_converged_reason': True,
     'pc_type': 'sor',

@@ -162,6 +162,13 @@ class ModelOptions(AttrDict, FrozenClass):
             'pc_fieldsplit_type': 'multiplicative',
         }
         """PETSc solver parameters for 2D shallow water equations"""
+        self.solver_parameters_sw_momentum = {
+            'ksp_type': 'gmres',
+            'pc_type': 'bjacobi',
+            'sub_ksp_type': 'preonly',
+            'sub_pc_type': 'sor',
+        }
+        """PETSc solver parameters for 2D depth averaged momentum equation"""
         self.solver_parameters_momentum_explicit = {
             'snes_type': 'ksponly',
             'ksp_type': 'cg',

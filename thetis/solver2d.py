@@ -203,7 +203,7 @@ class FlowSolver2d(FrozenClass):
                                                                        fields, self.dt,
                                                                        bnd_conditions=self.bnd_functions['shallow_water'],
                                                                        solver_parameters=self.options.solver_parameters_sw,
-                                                                       solver_parameters_mom=self.options.solver_parameters_momentum_implicit,
+                                                                       solver_parameters_mom=self.options.solver_parameters_sw_momentum,
                                                                        semi_implicit=self.options.use_linearized_semi_implicit_2d,
                                                                        theta=self.options.shallow_water_theta)
 
