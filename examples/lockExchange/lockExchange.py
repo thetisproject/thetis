@@ -202,9 +202,9 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     # }
 
     if comm.size == 1:
-        solver_obj.add_callback(RPECalculator())
-        solver_obj.add_callback(FrontLocationCalculator())
-        solver_obj.add_callback(PlotCallback(append_to_log=False))
+        solver_obj.add_callback(RPECalculator(solver_obj))
+        solver_obj.add_callback(FrontLocationCalculator(solver_obj))
+        solver_obj.add_callback(PlotCallback(solver_obj, append_to_log=False))
 
     solver_obj.create_equations()
     esize = solver_obj.fields.h_elem_size_2d

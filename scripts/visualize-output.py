@@ -33,7 +33,7 @@ def generate_pvd_file(outdir, fieldname, timesteps, usepvtu=False):
     content += template_closeblock
 
     filename = os.path.join(outdir, fieldname+'.pvd')
-    print 'generating', filename
+    print('generating {:}'.format(filename))
     f = open(filename, 'w')
     f.write(content)
     f.close()

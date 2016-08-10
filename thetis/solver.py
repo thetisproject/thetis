@@ -625,7 +625,7 @@ class FlowSolver(FrozenClass):
         self.callbacks.add(callback, eval_interval)
 
     def export(self):
-        self.callbacks.evaluate(self, mode='export')
+        self.callbacks.evaluate(mode='export')
         for key in self.exporters:
             self.exporters[key].export()
 
@@ -727,30 +727,36 @@ class FlowSolver(FrozenClass):
 
         dump_hdf5 = self.options.export_diagnostics and not self.options.no_exports
         if self.options.check_vol_conservation_2d:
-            c = callback.VolumeConservation2DCallback(export_to_hdf5=dump_hdf5,
+            c = callback.VolumeConservation2DCallback(self,
+                                                      export_to_hdf5=dump_hdf5,
                                                       append_to_log=True)
             self.add_callback(c, eval_interval='export')
         if self.options.check_vol_conservation_3d:
-            c = callback.VolumeConservation3DCallback(export_to_hdf5=dump_hdf5,
+            c = callback.VolumeConservation3DCallback(self,
+                                                      export_to_hdf5=dump_hdf5,
                                                       append_to_log=True)
             self.add_callback(c, eval_interval='export')
         if self.options.check_salt_conservation:
             c = callback.TracerMassConservationCallback('salt_3d',
+                                                        self,
                                                         export_to_hdf5=dump_hdf5,
                                                         append_to_log=True)
             self.add_callback(c, eval_interval='export')
         if self.options.check_salt_overshoot:
             c = callback.TracerOvershootCallBack('salt_3d',
+                                                 self,
                                                  export_to_hdf5=dump_hdf5,
                                                  append_to_log=True)
             self.add_callback(c, eval_interval='export')
         if self.options.check_temp_conservation:
             c = callback.TracerMassConservationCallback('temp_3d',
+                                                        self,
                                                         export_to_hdf5=dump_hdf5,
                                                         append_to_log=True)
             self.add_callback(c, eval_interval='export')
         if self.options.check_temp_overshoot:
             c = callback.TracerOvershootCallBack('temp_3d',
+                                                 self,
                                                  export_to_hdf5=dump_hdf5,
                                                  append_to_log=True)
             self.add_callback(c, eval_interval='export')
@@ -773,7 +779,7 @@ class FlowSolver(FrozenClass):
             self.simulation_time += self.dt
             self.iteration += 1
 
-            self.callbacks.evaluate(self, mode='timestep')
+            self.callbacks.evaluate(mode='timestep')
 
             # Write the solution to file
             if self.simulation_time >= self.next_export_t - t_epsilon:

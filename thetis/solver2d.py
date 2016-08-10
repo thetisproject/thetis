@@ -273,7 +273,7 @@ class FlowSolver2d(FrozenClass):
         self.callbacks.add(callback, eval_interval)
 
     def export(self):
-        self.callbacks.evaluate(self, mode='export')
+        self.callbacks.evaluate(mode='export')
         for key in self.exporters:
             self.exporters[key].export()
 
@@ -349,7 +349,8 @@ class FlowSolver2d(FrozenClass):
 
         dump_hdf5 = self.options.export_diagnostics and not self.options.no_exports
         if self.options.check_vol_conservation_2d:
-            c = callback.VolumeConservation2DCallback(export_to_hdf5=dump_hdf5,
+            c = callback.VolumeConservation2DCallback(self,
+                                                      export_to_hdf5=dump_hdf5,
                                                       append_to_log=True)
             self.add_callback(c)
 
@@ -371,7 +372,7 @@ class FlowSolver2d(FrozenClass):
             self.iteration += 1
             self.simulation_time = self.iteration*self.dt
 
-            self.callbacks.evaluate(self, mode='timestep')
+            self.callbacks.evaluate(mode='timestep')
 
             # Write the solution to file
             if self.simulation_time >= next_export_t - t_epsilon:

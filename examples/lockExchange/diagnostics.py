@@ -17,15 +17,15 @@ class FrontLocationCalculator(DiagnosticCallback):
     name = 'front'
     variable_names = ['front_bot', 'front_top']
 
-    def _initialize(self, solver_obj):
-        one_2d = Constant(1.0, domain=solver_obj.mesh2d.coordinates.ufl_domain())
+    def _initialize(self):
+        one_2d = Constant(1.0, domain=self.solver_obj.mesh2d.coordinates.ufl_domain())
         self.area_2d = assemble(one_2d*dx)
         # store density difference
-        self.rho = solver_obj.fields.density_3d
+        self.rho = self.solver_obj.fields.density_3d
         self.rho_lim = [self.rho.dat.data.min(), self.rho.dat.data.max()]
         self.delta_rho = self.rho_lim[1] - self.rho_lim[0]
         self.mean_rho = 0.5*(self.rho_lim[1] + self.rho_lim[0])
-        fs_2d = solver_obj.function_spaces.H_2d
+        fs_2d = self.solver_obj.function_spaces.H_2d
         mesh2d = fs_2d.mesh()
         self.xyz = mesh2d.coordinates
         x = self.xyz.dat.data[:, 0]
@@ -66,9 +66,9 @@ class FrontLocationCalculator(DiagnosticCallback):
         center_x = assemble(self.rho_ho*self.xyz[0]*dx)/mass
         return center_x
 
-    def __call__(self, solver_obj):
+    def __call__(self):
         if not hasattr(self, '_initialized') or self._initialized is False:
-            self._initialize(solver_obj)
+            self._initialize()
         # compute x center of mass on top/bottom surfaces
         self.extractor_bot.solve()
         x_bot = self.compute_front_location()
@@ -76,7 +76,7 @@ class FrontLocationCalculator(DiagnosticCallback):
         x_top = self.compute_front_location()
         return x_bot, x_top
 
-    def __str__(self, args):
+    def message_str(self, *args):
         line = 'front bottom: {:12.4f}, top: {:12.4f}'.format(*args)
         return line
 
@@ -103,20 +103,20 @@ class RPECalculator(DiagnosticCallback):
     name = 'rpe'
     variable_names = ['rpe', 'rel_rpe']
 
-    def _initialize(self, solver_obj):
+    def _initialize(self):
         # compute area of 2D mesh
-        one_2d = Constant(1.0, domain=solver_obj.mesh2d.coordinates.ufl_domain())
+        one_2d = Constant(1.0, domain=self.solver_obj.mesh2d.coordinates.ufl_domain())
         self.area_2d = assemble(one_2d*dx)
-        self.rho = solver_obj.fields.density_3d
+        self.rho = self.solver_obj.fields.density_3d
         fs = self.rho.function_space()
         test = TestFunction(fs)
         self.nodal_volume = assemble(test*dx)
         self.initial_rpe = None
         self._initialized = True
 
-    def __call__(self, solver_obj):
+    def __call__(self):
         if not hasattr(self, '_initialized') or self._initialized is False:
-            self._initialize(solver_obj)
+            self._initialize()
         rho_array = self.rho.dat.data[:]
         sorted_ix = np.argsort(rho_array)[::-1]
         rho_array = rho_array[sorted_ix] + physical_constants['rho0'].dat.data[0]
@@ -129,6 +129,6 @@ class RPECalculator(DiagnosticCallback):
         rel_rpe = (rpe - self.initial_rpe)/np.abs(self.initial_rpe)
         return rpe, rel_rpe
 
-    def __str__(self, args):
+    def message_str(self, *args):
         line = 'RPE: {:16.10e}, rel. RPE: {:14.8e}'.format(args[0], args[1])
         return line

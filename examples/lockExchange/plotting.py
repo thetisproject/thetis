@@ -22,35 +22,36 @@ class PlotCallback(DiagnosticCallback):
     name = 'fieldplot'
     variable_names = ['figfile']
 
-    def __init__(self, outputdir=None, export_to_hdf5=False,
+    def __init__(self, solver_obj, outputdir=None, export_to_hdf5=False,
                  append_to_log=True):
         assert export_to_hdf5 is False
-        super(PlotCallback, self).__init__(outputdir,
+        super(PlotCallback, self).__init__(solver_obj,
+                                           outputdir,
                                            export_to_hdf5,
                                            append_to_log)
         self.export_count = itertools.count()
         self._initialized = False
 
-    def _initialize(self, solver_obj):
+    def _initialize(self):
         if MATPLOTLIB_INSTALLED:
             outputdir = self.outputdir
             if outputdir is None:
-                outputdir = solver_obj.options.outputdir
+                outputdir = self.solver_obj.options.outputdir
             imgdir = os.path.join(outputdir, 'plots')
             self.imgdir = create_directory(imgdir)
             # store density difference
-            self.rho = solver_obj.fields.density_3d
+            self.rho = self.solver_obj.fields.density_3d
             self.rho_lim = [self.rho.dat.data.min(), self.rho.dat.data.max()]
 
             # construct mesh points for plotting
-            layers = solver_obj.mesh.topology.layers - 1
-            mesh2d = solver_obj.mesh2d
-            depth = solver_obj.fields.bathymetry_2d.dat.data.mean()
+            layers = self.solver_obj.mesh.topology.layers - 1
+            mesh2d = self.solver_obj.mesh2d
+            depth = self.solver_obj.fields.bathymetry_2d.dat.data.mean()
             self.xyz = mesh2d.coordinates
             x = self.xyz.dat.data[:, 0]
             x_max = x.max()
             x_min = x.min()
-            delta_x = solver_obj.fields.h_elem_size_2d.dat.data.mean()*np.sqrt(2)
+            delta_x = self.solver_obj.fields.h_elem_size_2d.dat.data.mean()*np.sqrt(2)
             n_x = np.round((x_max - x_min)/delta_x)
             npoints = layers*4
             epsilon = 1e-10  # nudge points to avoid libspatialindex errors
@@ -92,9 +93,9 @@ class PlotCallback(DiagnosticCallback):
             cax.invert_yaxis()
             return p
 
-    def __call__(self, solver_obj):
+    def __call__(self):
         if not self._initialized:
-            self._initialize(solver_obj)
+            self._initialize()
 
         if MATPLOTLIB_INSTALLED:
             # evaluate function on regular grid
@@ -106,7 +107,7 @@ class PlotCallback(DiagnosticCallback):
             fix, ax = plt.subplots(nrows=nplots, figsize=(12, 3.5*nplots))
 
             iexp = self.export_count.next()
-            title = 'Time {:.2f} h'.format(solver_obj.simulation_time/3600.0)
+            title = 'Time {:.2f} h'.format(self.solver_obj.simulation_time/3600.0)
             fname = 'plot_density_{0:06d}.png'.format(iexp)
             fname = os.path.join(self.imgdir, fname)
             varstr = 'Density'
@@ -118,6 +119,6 @@ class PlotCallback(DiagnosticCallback):
             plt.close()
             return fname,
 
-    def __str__(self, args):
+    def message_str(self, *args):
         line = 'Saving figure: {:}'.format(args[0])
         return line
