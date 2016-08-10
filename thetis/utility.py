@@ -361,9 +361,9 @@ class DensitySolver(object):
     Density is computed point-wise assuming that T,S and rho are in the same
     function space.
     """
-    def __init__(self, salinity, temperature, density):
+    def __init__(self, salinity, temperature, density, eos_class):
         self.fs = density.function_space()
-        self.eos = EquationOfState()
+        self.eos = eos_class
 
         if isinstance(salinity, FiredrakeFunction):
             assert self.fs == salinity.function_space()
@@ -697,24 +697,28 @@ def compute_bottom_friction(solver, uv_3d, uv_bottom_2d,
         solver.copy_bottom_drag_to_3d.solve()
 
 
-def get_horizontal_elem_size(sol2d, sol3d=None):
+def get_horizontal_elem_size_2d(sol2d):
     """
-    Computes horizontal element size from the 2D mesh, then copies it over a 3D
-    field.
+    Computes horizontal element size from the 2D mesh, stores the output in
+    the given field.
     """
     p1_2d = sol2d.function_space()
     mesh = p1_2d.mesh()
-    cellsize = CellSize(mesh)
     test = TestFunction(p1_2d)
     tri = TrialFunction(p1_2d)
-    sol2d = Function(p1_2d)
-    a = test * tri * dx
-    l = test * cellsize * dx
+    a = inner(test, tri) * dx
+    l = inner(test, sqrt(CellVolume(mesh))) * dx
     solve(a == l, sol2d)
-    if sol3d is None:
-        return sol2d
+    return sol2d
+
+
+def get_horizontal_elem_size_3d(sol2d, sol3d):
+    """
+    Computes horizontal element size from the 2D mesh, then copies it on a 3D
+    field.
+    """
+    get_horizontal_elem_size_2d(sol2d)
     ExpandFunctionTo3d(sol2d, sol3d).solve()
-    return sol3d
 
 
 class ALEMeshCoordinateUpdater(object):
@@ -955,6 +959,36 @@ class EquationOfState(object):
               pow(s_pos, 1.5)*b[8] + pow(s_pos, 1.5)*th*th*b[9] + p*b[10] +
               p*p*th*th*th*b[11] + p*p*p*th*b[12])
         rho = pn/pd - rho0
+        return rho
+
+
+class LinearEquationOfState(object):
+    """
+    Linear Equation of State.
+
+    rho = rho_ref - alpha*(T - T_ref) + beta*(S - S_ref)
+    """
+    def __init__(self, rho_ref, alpha, beta, th_ref, s_ref):
+        self.rho_ref = rho_ref
+        self.alpha = alpha
+        self.beta = beta
+        self.th_ref = th_ref
+        self.S_ref = s_ref
+
+    def compute_rho(self, s, th, p, rho0=0.0):
+        """
+        Computes sea water density.
+
+        :param S: Salinity expressed on the Practical Salinity Scale 1978
+        :param Th: Potential temperature in Celsius
+        :param p: Pressure in decibars (1 dbar = 1e4 Pa)
+        :param rho0: Optional reference density
+
+        Pressure is ingored in this equation of state.
+        """
+        rho = (self.rho_ref - rho0 -
+               self.alpha*(th - self.th_ref) +
+               self.beta*(s - self.S_ref))
         return rho
 
 

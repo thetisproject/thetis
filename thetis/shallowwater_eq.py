@@ -495,44 +495,6 @@ class BaseShallowWaterEquation(Equation):
         self.bathymetry = bathymetry
         self.nonlin = nonlin
 
-    def get_time_step(self, u_mag=Constant(0.0)):
-        """
-        Computes maximum explicit time step from CFL condition.
-
-        Assumes velocity scale U = sqrt(g*H) + u_mag
-        where u_mag is estimated advective velocity
-        """
-        csize = CellSize(self.mesh)
-        h = self.bathymetry.function_space()
-        h_pos = Function(h, name='bathymetry')
-        h_pos.assign(self.bathymetry)
-        min_depth = 0.05
-        h_pos.dat.data[h_pos.dat.data < min_depth] = min_depth
-        uu = TestFunction(h)
-        grid_dt = TrialFunction(h)
-        res = Function(h)
-        a = uu * grid_dt * dx
-        l = uu * csize / (sqrt(g_grav * h_pos) + u_mag) * dx
-        solve(a == l, res)
-        return res
-
-    def get_time_step_advection(self, u_mag=Constant(1.0)):
-        """
-        Computes maximum explicit time step from CFL condition.
-
-        Assumes velocity scale U = u_mag
-        where u_mag is estimated advective velocity
-        """
-        csize = CellSize(self.mesh)
-        h = self.bathymetry.function_space()
-        uu = TestFunction(h)
-        grid_dt = TrialFunction(h)
-        res = Function(h)
-        a = uu * grid_dt * dx
-        l = uu * csize / u_mag * dx
-        solve(a == l, res)
-        return res
-
     def add_momentum_terms(self, *args):
         self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')

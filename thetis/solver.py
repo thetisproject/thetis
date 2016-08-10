@@ -71,29 +71,75 @@ class FlowSolver(FrozenClass):
         """Do export initial state. False if continuing a simulation"""
         self._isfrozen = True  # disallow creating new attributes
 
-    def set_time_step(self):
+    def compute_time_step_2d(self, u_mag=Constant(0.0)):
+        """
+        Computes maximum explicit time step from CFL condition.
+
+        dt = CellSize/U
+
+        Assumes velocity scale U = sqrt(g*H) + u_mag
+        where u_mag is estimated advective velocity
+        """
+        csize = self.fields.h_elem_size_2d
+        bath = self.fields.bathymetry_2d
+        fs = bath.function_space()
+        bath_pos = Function(fs, name='bathymetry')
+        bath_pos.assign(bath)
+        min_depth = 0.05
+        bath_pos.dat.data[bath_pos.dat.data < min_depth] = min_depth
+        test = TestFunction(fs)
+        trial = TrialFunction(fs)
+        solution = Function(fs)
+        g = physical_constants['g_grav']
+        u = (sqrt(g * bath_pos) + u_mag)
+        a = inner(test, trial) * dx
+        l = inner(test, csize / u) * dx
+        solve(a == l, solution)
+        return solution
+
+    def compute_time_step_3d(self, u_mag=Constant(1.0)):
+        """
+        Computes maximum explicit time step from CFL condition.
+
+        dt = CellSize/U
+
+        Assumes velocity scale U = u_mag
+        where u_mag is estimated advective velocity
+        """
+        csize = self.fields.h_elem_size_2d
+        bath = self.fields.bathymetry_2d
+        fs = bath.function_space()
+        test = TestFunction(fs)
+        trial = TrialFunction(fs)
+        solution = Function(fs)
+        a = inner(test, trial) * dx
+        l = inner(test, csize / u_mag) * dx
+        solve(a == l, solution)
+        return solution
+
+    def set_time_step(self, alpha=0.05):
         comm = self.comm
         if self.options.use_mode_split:
             self.dt = self.options.dt
             if self.dt is None:
-                mesh_dt = self.eq_sw.get_time_step_advection(u_mag=self.options.u_advection)
-                dt = self.options.cfl_3d*float(np.floor(mesh_dt.dat.data.min()/20.0))
+                mesh_dt = self.compute_time_step_3d(u_mag=self.options.u_advection)
+                dt = self.options.cfl_3d*alpha*float(np.floor(mesh_dt.dat.data.min()))
                 dt = comm.allreduce(dt, op=MPI.MIN)
                 if round(dt) > 0:
                     dt = round(dt)
                 self.dt = dt
             self.dt_2d = self.options.dt_2d
             if self.dt_2d is None:
-                mesh2d_dt = self.eq_sw.get_time_step(u_mag=self.options.u_advection)
-                dt_2d = self.options.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
+                mesh2d_dt = self.compute_time_step_2d(u_mag=self.options.u_advection)
+                dt_2d = self.options.cfl_2d*alpha*float(mesh2d_dt.dat.data.min())
                 dt_2d = comm.allreduce(dt_2d, op=MPI.MIN)
                 self.dt_2d = dt_2d
             # compute mode split ratio and force it to be integer
             self.M_modesplit = int(np.ceil(self.dt/self.dt_2d))
             self.dt_2d = self.dt/self.M_modesplit
         else:
-            mesh2d_dt = self.eq_sw.get_time_step(u_mag=self.options.u_advection)
-            dt_2d = self.options.cfl_2d*float(mesh2d_dt.dat.data.min()/20.0)
+            mesh2d_dt = self.compute_time_step_2d(u_mag=self.options.u_advection)
+            dt_2d = self.options.cfl_2d*alpha*float(mesh2d_dt.dat.data.min())
             dt_2d = comm.allreduce(dt_2d, op=MPI.MIN)
             if self.dt is None:
                 self.dt = dt_2d
@@ -235,7 +281,7 @@ class FlowSolver(FrozenClass):
         self.fields.v_elem_size_2d = Function(self.function_spaces.P1DG_2d)
         self.fields.h_elem_size_3d = Function(self.function_spaces.P1)
         self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
-        get_horizontal_elem_size(self.fields.h_elem_size_2d, self.fields.h_elem_size_3d)
+        get_horizontal_elem_size_3d(self.fields.h_elem_size_2d, self.fields.h_elem_size_3d)
         self.fields.max_h_diff = Function(self.function_spaces.P1)
         if self.options.smagorinsky_factor is not None:
             self.fields.smag_visc_3d = Function(self.function_spaces.P1)
@@ -388,7 +434,7 @@ class FlowSolver(FrozenClass):
 
         # compute maximal diffusivity for explicit schemes
         degree_h, degree_v = self.function_spaces.H.ufl_element().degree()
-        max_diff_alpha = 1.0/360.0/max((degree_h*(degree_h + 1)), 1.0)  # FIXME depends on element type and order
+        max_diff_alpha = 1.0/60.0/max((degree_h*(degree_h + 1)), 1.0)  # FIXME depends on element type and order
         self.fields.max_h_diff.assign(max_diff_alpha/self.dt * self.fields.h_elem_size_3d**2)
         d = self.fields.max_h_diff.dat.data
         print_output('max h diff {:} - {:}'.format(d.min(), d.max()))
@@ -441,7 +487,13 @@ class FlowSolver(FrozenClass):
                 t = self.fields.temp_3d
             else:
                 t = self.options.constant_temp
-            self.density_solver = DensitySolver(s, t, self.fields.density_3d)
+            if self.options.equation_of_state == 'linear':
+                eos_params = self.options.lin_equation_of_state_params
+                self.equation_of_state = LinearEquationOfState(**eos_params)
+            else:
+                self.equation_of_state = EquationOfState()
+            self.density_solver = DensitySolver(s, t, self.fields.density_3d,
+                                                self.equation_of_state)
             self.rho_integrator = VerticalIntegrator(self.fields.density_3d,
                                                      self.fields.baroc_head_3d,
                                                      bottom_to_top=False)

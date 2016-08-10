@@ -94,7 +94,7 @@ dJdc = compute_gradient(J, c, forget=False)
 out = File('gradient_J.pvd')
 out.write(dJdc)
 J0 = assemble(integral)
-print_info("Functional evaluated by hand: ", J0)
+print_output("Functional evaluated by hand: ", J0)
 
 parameters["adjoint"]["stop_annotating"] = True
 
@@ -110,8 +110,8 @@ def jfunc(m):
     return Jm
 
 success = replay_dolfin(tol=0.0, stop=False)
-print_info(solver_obj.fields.solution_2d.vector().array()[0:10])
+print_output(solver_obj.fields.solution_2d.vector().array()[0:10])
 Jhat = ReducedFunctional(J, c)
-print_info("Output of Jhat: ", Jhat(drag_func))
+print_output("Output of Jhat: ", Jhat(drag_func))
 minconv = taylor_test(jfunc, c, J0, dJdc, seed=1e-4)
 assert minconv > 1.95
