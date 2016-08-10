@@ -27,6 +27,8 @@ class FlowSolver(FrozenClass):
                  options=None):
         self._initialized = False
 
+        self.bathymetry_cg_2d = bathymetry_2d
+
         # create 3D mesh
         self.mesh2d = mesh2d
         self.mesh = extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d)
@@ -66,7 +68,6 @@ class FlowSolver(FrozenClass):
         """Holds all functions needed by the solver object."""
         self.function_spaces = AttrDict()
         """Holds all function spaces needed by the solver object."""
-        self.fields.bathymetry_2d = bathymetry_2d
         self.export_initial_state = True
         """Do export initial state. False if continuing a simulation"""
         self._isfrozen = True  # disallow creating new attributes
@@ -242,6 +243,16 @@ class FlowSolver(FrozenClass):
 
         self.use_full_2d_mode = True  # 2d solution is (uv, eta) not (eta)
 
+        # mesh velocity etc fields must be in the same space as 3D coordinates
+        e = self.mesh2d.coordinates.function_space().fiat_element
+        coord_is_dg = element_continuity(e).dg
+        if coord_is_dg:
+            coord_fs = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
+            coord_fs_2d = self.function_spaces.P1DG_2d
+        else:
+            coord_fs = self.function_spaces.P1
+            coord_fs_2d = self.function_spaces.P1_2d
+
         # ----- fields
         self.fields.solution_2d = Function(self.function_spaces.V_2d)
         # correct treatment of the split 2d functions
@@ -250,37 +261,37 @@ class FlowSolver(FrozenClass):
         self.fields.elev_2d = eta2d
         if self.options.use_bottom_friction:
             self.fields.uv_bottom_2d = Function(self.function_spaces.P1v_2d)
-            self.fields.z_bottom_2d = Function(self.function_spaces.P1_2d)
-            self.fields.bottom_drag_2d = Function(self.function_spaces.P1_2d)
+            self.fields.z_bottom_2d = Function(coord_fs_2d)
+            self.fields.bottom_drag_2d = Function(coord_fs_2d)
 
         self.fields.elev_3d = Function(self.function_spaces.H)
         self.fields.elev_cg_3d = Function(self.function_spaces.P1)
         self.fields.elev_cg_2d = Function(self.function_spaces.P1_2d)
-        self.fields.bathymetry_3d = Function(self.function_spaces.P1)
         self.fields.uv_3d = Function(self.function_spaces.U)
         if self.options.use_bottom_friction:
             self.fields.uv_bottom_3d = Function(self.function_spaces.P1v)
             self.fields.bottom_drag_3d = Function(self.function_spaces.P1)
+        self.fields.bathymetry_2d = Function(coord_fs_2d)
+        self.fields.bathymetry_3d = Function(coord_fs)
         # z coordinate in the strecthed mesh
-        self.fields.z_coord_3d = Function(self.function_spaces.P1)
+        self.fields.z_coord_3d = Function(coord_fs)
         # z coordinate in the reference mesh (eta=0)
-        self.fields.z_coord_ref_3d = Function(self.function_spaces.P1)
+        self.fields.z_coord_ref_3d = Function(coord_fs)
         self.fields.uv_dav_3d = Function(self.function_spaces.Uproj)
         self.fields.uv_dav_2d = Function(self.function_spaces.Uproj_2d)
         self.fields.uv_mag_3d = Function(self.function_spaces.P0)
         self.fields.uv_p1_3d = Function(self.function_spaces.P1v)
         self.fields.w_3d = Function(self.function_spaces.W)
         if self.options.use_ale_moving_mesh:
-            self.fields.w_mesh_3d = Function(self.function_spaces.P1)
-            self.fields.w_mesh_ddz_3d = Function(self.function_spaces.P1)
-            self.fields.w_mesh_surf_3d = Function(self.function_spaces.P1)
-            self.fields.w_mesh_surf_2d = Function(self.function_spaces.P1_2d)
+            self.fields.w_mesh_3d = Function(coord_fs)
+            self.fields.w_mesh_ddz_3d = Function(coord_fs)
+            self.fields.w_mesh_surf_3d = Function(coord_fs)
+            self.fields.w_mesh_surf_2d = Function(coord_fs_2d)
         if self.options.solve_salt:
             self.fields.salt_3d = Function(self.function_spaces.H, name='Salinity')
         if self.options.solve_temp:
             self.fields.temp_3d = Function(self.function_spaces.H, name='Temperature')
         if self.options.solve_vert_diffusion and self.options.use_parabolic_viscosity:
-            # FIXME use_parabolic_viscosity is OBSOLETE
             self.fields.parab_visc_3d = Function(self.function_spaces.P1)
         if self.options.baroclinic:
             self.fields.density_3d = Function(self.function_spaces.H, name='Density')
@@ -450,13 +461,13 @@ class FlowSolver(FrozenClass):
         if self.options.timestepper_type.lower() == 'ssprk33':
             self.timestepper = coupled_timeintegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
         elif self.options.timestepper_type.lower() == 'leapfrog':
-            assert self.options.use_ale_moving_mesh
+            assert self.options.use_ale_moving_mesh, '{:} time integrator requires ALE mesh'.format(self.options.timestepper_type)
             self.timestepper = coupled_timeintegrator.CoupledLeapFrogAM3(weakref.proxy(self))
         elif self.options.timestepper_type.lower() == 'imexale':
-            assert self.options.use_ale_moving_mesh
+            assert self.options.use_ale_moving_mesh, '{:} time integrator requires ALE mesh'.format(self.options.timestepper_type)
             self.timestepper = coupled_timeintegrator.CoupledIMEXALE(weakref.proxy(self))
         elif self.options.timestepper_type.lower() == 'erkale':
-            assert self.options.use_ale_moving_mesh
+            assert self.options.use_ale_moving_mesh, '{:} time integrator requires ALE mesh'.format(self.options.timestepper_type)
             self.timestepper = coupled_timeintegrator.CoupledERKALE(weakref.proxy(self))
             self.dt_mode = '2d'
         else:
@@ -608,6 +619,7 @@ class FlowSolver(FrozenClass):
         self.elev_2d_to_cg_projector = Projector(self.fields.elev_2d, self.fields.elev_cg_2d)
 
         # ----- set initial values
+        self.fields.bathymetry_2d.project(self.bathymetry_cg_2d)
         ExpandFunctionTo3d(self.fields.bathymetry_2d, self.fields.bathymetry_3d).solve()
         get_zcoord_from_mesh(self.fields.z_coord_ref_3d)
         self.fields.z_coord_3d.assign(self.fields.z_coord_ref_3d)
