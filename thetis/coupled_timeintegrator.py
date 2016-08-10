@@ -280,6 +280,8 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                     solver_parameters=self.options.solver_parameters_tracer_explicit)
 
         self.n_stages = self.timestepper_mom_3d.n_stages
+        self.cfl_coeff_2d = self.timestepper_mom_3d.cfl_coeff
+        self.cfl_coeff_3d = self.timestepper_mom_3d.cfl_coeff
 
     def initialize(self):
         """Assign initial conditions to all necessary fields"""
@@ -295,6 +297,12 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
             self.timestepper_temp_3d.initialize(self.fields.temp_3d)
             if self.options.solve_vert_diffusion:
                 self.timestepper_temp_vdff_3d.initialize(self.fields.temp_3d)
+        if self.solver.options.use_turbulence:
+            self.timestepper_tke_3d.initialize(self.fields.tke_3d)
+            self.timestepper_psi_3d.initialize(self.fields.psi_3d)
+            if self.solver.options.use_turbulence_advection:
+                self.timestepper_tke_adv_eq.initialize(self.fields.tke_3d)
+                self.timestepper_psi_adv_eq.initialize(self.fields.psi_3d)
 
         self._initialized = True
 
@@ -322,7 +330,6 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
         """Advances the equations for one time step"""
         if not self._initialized:
             self.initialize()
-        sol2d = self.solver.fields.solution_2d
 
         for k in range(self.n_stages):
             with timed_stage('salt_eq'):
@@ -573,6 +580,12 @@ class NewCoupledTimeIntegrator(CoupledTimeIntegrator):
             self.timestepper_temp_3d.initialize(self.fields.temp_3d)
             if self.options.solve_vert_diffusion:
                 self.timestepper_temp_vdff_3d.initialize(self.fields.temp_3d)
+        if self.solver.options.use_turbulence:
+            self.timestepper_tke_3d.initialize(self.fields.tke_3d)
+            self.timestepper_psi_3d.initialize(self.fields.psi_3d)
+            if self.solver.options.use_turbulence_advection:
+                self.timestepper_tke_adv_eq.initialize(self.fields.tke_3d)
+                self.timestepper_psi_adv_eq.initialize(self.fields.psi_3d)
 
         self._initialized = True
 
@@ -701,8 +714,7 @@ class CoupledERKALE(NewCoupledTimeIntegrator):
                                           do_2d_coupling=True,
                                           do_ale_update=False,
                                           do_stab_params=last_step,
-                                          do_turbulence=last_step,
-                                          do_mesh_velocity=False)
+                                          do_turbulence=last_step)
 
 
 class CoupledIMEXALE(NewCoupledTimeIntegrator):
@@ -878,7 +890,6 @@ class CoupledLeapFrogAM3(NewCoupledTimeIntegrator):
         self.solver.mesh_updater.compute_mesh_velocity_finalize()
         self.uv_new_2d.assign(self.fields.uv_2d)
 
-
         # set 3D elevation to half step
         gamma = self.timestepper_mom_3d.gamma
         self.elev_old_3d.assign(self.fields.elev_3d)
@@ -892,7 +903,6 @@ class CoupledLeapFrogAM3(NewCoupledTimeIntegrator):
         self._update_2d_coupling()
         self.fields.uv_2d.assign(self.uv_new_2d)  # restore
         self._update_vertical_velocity()
-        self._update_bottom_friction()
         self._update_baroclinicity()
 
         # -------------------------------------------------
@@ -936,20 +946,25 @@ class CoupledLeapFrogAM3(NewCoupledTimeIntegrator):
             self.timestepper_mom_3d.correct()
 
         if self.options.solve_vert_diffusion:
-            self._update_vertical_velocity()
+            # TODO figure out minimal set of dependency updates (costly)
             self._update_2d_coupling()
-            with timed_stage('impl_mom_vvisc'):
-                self.timestepper_mom_vdff_3d.advance(t)
+            self._update_baroclinicity()
+            self._update_bottom_friction()
+            self._update_turbulence(t)
             if self.options.solve_salt:
                 with timed_stage('impl_salt_vdiff'):
                     self.timestepper_salt_vdff_3d.advance(t)
             if self.options.solve_temp:
                 with timed_stage('impl_temp_vdiff'):
                     self.timestepper_temp_vdff_3d.advance(t)
-
-        self._update_2d_coupling()
-        self._update_vertical_velocity()
-        self._update_bottom_friction()
-        self._update_baroclinicity()
-        self._update_turbulence(t)
-        self._update_stabilization_params()
+            with timed_stage('impl_mom_vvisc'):
+                self.timestepper_mom_vdff_3d.advance(t)
+            self._update_baroclinicity()
+            self._update_vertical_velocity()
+            self._update_stabilization_params()
+        else:
+            self._update_2d_coupling()
+            self._update_baroclinicity()
+            self._update_bottom_friction()
+            self._update_vertical_velocity()
+            self._update_stabilization_params()
