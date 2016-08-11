@@ -77,38 +77,40 @@ def test_callbacks(tmp_outputdir):
         name = 'constintegral'
         variable_names = ['constant', 'integral']
 
-        def __init__(self, const_val, outputdir=None, export_to_hdf5=False,
+        def __init__(self, const_val, solver_obj, outputdir=None, export_to_hdf5=False,
                      append_to_log=True):
-            super(ConstCallback, self).__init__(outputdir,
+            super(ConstCallback, self).__init__(solver_obj,
+                                                outputdir,
                                                 export_to_hdf5,
                                                 append_to_log)
             self.const_val = const_val
 
-        def __call__(self, solver_obj):
+        def __call__(self):
             value = self.const_val
             c = Constant(self.const_val,
                          domain=solver_obj.mesh)
             integral = assemble(c*dx)
             return value, integral
 
-        def __str__(self, args):
+        def message_str(self, *args):
             line = 'Constant: {0:11.4e} Integral: {1:11.4e}'.format(*args)
             return line
 
     const_value = 4.5
     cb = ConstCallback(const_value,
+                       solver_obj,
                        export_to_hdf5=True,
                        outputdir=solver_obj.options.outputdir)
 
     # test call interface
-    val, integral = cb(solver_obj)
+    val, integral = cb()
     assert np.allclose(val, const_value)
     assert np.allclose(integral, const_value*lx*ly*depth)
-    msg = cb.__str__((val, integral))
+    msg = cb.message_str(val, integral)
     assert msg == 'Constant:  4.5000e+00 Integral:  3.0375e+10'
 
     solver_obj.add_callback(cb)
-    vcb = VolumeConservation3DCallback()
+    vcb = VolumeConservation3DCallback(solver_obj)
     solver_obj.add_callback(vcb)
     solver_obj.assign_initial_conditions(elev=elev_init, salt=salt_init3d)
     solver_obj.iterate()

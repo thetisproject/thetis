@@ -114,7 +114,7 @@ def run_tracer_consistency(element_family='dg-dg', meshtype='regular', do_export
     solver_obj.assign_initial_conditions(elev=elev_init, salt=salt_init3d)
     solver_obj.iterate()
 
-    smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['salt_3d overshoot'](solver_obj)
+    smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['salt_3d overshoot']()
     max_abs_overshoot = max(abs(undershoot), abs(overshoot))
     overshoot_tol = 1e-11 if warped else 1e-12
     msg = '{:} : Salt overshoots are too large: {:}'.format(run_description, max_abs_overshoot)
