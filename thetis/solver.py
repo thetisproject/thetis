@@ -604,11 +604,12 @@ class FlowSolver(FrozenClass):
                                                      bottom_to_top=False,
                                                      bathymetry=self.fields.bathymetry_3d,
                                                      elevation=self.fields.elev_cg_3d)
-            self.baro_head_integrator = VerticalIntegrator(self.fields.baroc_head_3d,
-                                                           self.fields.baroc_head_int_3d,
-                                                           bottom_to_top=True,
-                                                           bathymetry=self.fields.bathymetry_3d,
-                                                           elevation=self.fields.elev_cg_3d)
+            self.baro_head_averager = VerticalIntegrator(self.fields.baroc_head_3d,
+                                                         self.fields.baroc_head_int_3d,
+                                                         bottom_to_top=True,
+                                                         average=True,
+                                                         bathymetry=self.fields.bathymetry_3d,
+                                                         elevation=self.fields.elev_cg_3d)
             self.extract_surf_baro_head = SubFunctionExtractor(self.fields.baroc_head_int_3d,
                                                                self.fields.baroc_head_2d,
                                                                boundary='top', elem_facet='top')
