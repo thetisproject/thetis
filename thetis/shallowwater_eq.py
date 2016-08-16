@@ -463,7 +463,7 @@ class InternalPressureGradientTerm(ShallowWaterMomentumTerm):
             head_rie = source
             f += g_grav*head_rie*dot(self.u_test, self.normal)*ds_bnd
         f += -g_grav*inner(grad(1/depth)*baroc_head, self.u_test)*self.dx
-        f += g_grav*inner(grad(self.bathymetry)/depth*baroc_head_bot, self.u_test)*self.dx
+        f += -g_grav*inner(grad(self.bathymetry)/depth*baroc_head_bot, self.u_test)*self.dx
         return -f
 
 
