@@ -450,8 +450,9 @@ class InternalPressureGradientTerm(ShallowWaterMomentumTerm):
         if baroc_head is None:
             return 0
 
-        depth = self.get_total_depth(eta_old)
-        source = baroc_head
+        depth_old = self.get_total_depth(eta_old)
+        depth = self.get_total_depth(eta)
+        source = baroc_head*depth
 
         f = 0
         f = -g_grav*source*nabla_div(self.u_test)*self.dx
@@ -462,8 +463,8 @@ class InternalPressureGradientTerm(ShallowWaterMomentumTerm):
             # use internal value
             head_rie = source
             f += g_grav*head_rie*dot(self.u_test, self.normal)*ds_bnd
-        f += -g_grav*inner(grad(1/depth)*depth*baroc_head, self.u_test)*self.dx
-        f += -g_grav*inner(grad(self.bathymetry)/depth*baroc_head_bot, self.u_test)*self.dx
+        f += -g_grav*inner(grad(1/depth_old)*depth_old*depth*baroc_head, self.u_test)*self.dx
+        f += -g_grav*inner(grad(self.bathymetry)*baroc_head_bot, self.u_test)*self.dx
         return -f
 
 

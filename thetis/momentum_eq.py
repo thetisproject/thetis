@@ -45,13 +45,21 @@ class MomentumTerm(Term):
 
 class PressureGradientTerm(MomentumTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+
+        if self.nonlin:
+            total_h = self.bathymetry + fields_old.get('eta')
+        else:
+            total_h = self.bathymetry
+
         baroc_head = fields_old.get('baroc_head')
+        if baroc_head is not None:
+            baroc_head = baroc_head*total_h
         eta = fields_old.get('eta') if self.use_elevation_gradient else None
 
         if eta is None and baroc_head is None:
             return 0
         if eta is None:
-            by_parts = element_continuity(baroc_head.function_space().fiat_element).dg
+            by_parts = element_continuity(fields_old.get('baroc_head').function_space().fiat_element).dg
             head = baroc_head
         elif baroc_head is None:
             by_parts = element_continuity(eta.function_space().fiat_element).dg
@@ -61,10 +69,6 @@ class PressureGradientTerm(MomentumTerm):
             head = eta + baroc_head
 
         use_lin_stab = False
-        if self.nonlin:
-            total_h = self.bathymetry
-        else:
-            total_h = self.bathymetry
 
         if by_parts:
             div_test = (Dx(self.test[0], 0) +
