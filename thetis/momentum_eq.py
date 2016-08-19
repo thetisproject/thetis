@@ -336,10 +336,12 @@ class BottomFrictionTerm(MomentumTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
         if self.use_bottom_friction:
-            z0_friction = physical_constants['z0_friction']
-            z_bot = 0.5*self.v_elem_size
-            von_karman = physical_constants['von_karman']
-            drag = (von_karman / ln((z_bot + z0_friction)/z0_friction))**2
+            drag = fields_old.get('quadratic_drag')
+            if drag is None:
+                z0_friction = physical_constants['z0_friction']
+                z_bot = 0.5*self.v_elem_size
+                von_karman = physical_constants['von_karman']
+                drag = (von_karman / ln((z_bot + z0_friction)/z0_friction))**2
             # compute uv_bottom implicitly
             uv_bot = solution + Dx(solution, 2)*z_bot
             uv_bot_old = solution_old + Dx(solution_old, 2)*z_bot

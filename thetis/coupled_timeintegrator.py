@@ -201,6 +201,7 @@ class NewCoupledTimeIntegrator(CoupledTimeIntegrator):
                   'lax_friedrichs_factor': self.options.uv_lax_friedrichs,
                   'coriolis': self.fields.get('coriolis_3d'),
                   'linear_drag': self.options.linear_drag,
+                  'quadratic_drag': self.options.quadratic_drag,
                   }
         self.timestepper_mom_3d = self.integrator_3d(
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,
