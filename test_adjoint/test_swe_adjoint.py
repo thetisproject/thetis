@@ -87,8 +87,6 @@ def setup_unsteady():
     solver_obj.options.timestepper_type = 'cranknicolson'
     solver_obj.options.t_end = 2.0
     solver_obj.options.shallow_water_theta = 1.0
-    # coffee optimisation currently broken for this case:
-    parameters['coffee'] = {}
     solver_obj.options.solver_parameters_sw = {
         'mat_type': 'aij',
         'ksp_type': 'preonly',
