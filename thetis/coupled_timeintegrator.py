@@ -645,7 +645,8 @@ class CoupledLeapFrogAM3(NewCoupledTimeIntegrator):
     """
     Leap-Frog Adams-Moulton 3 time integrator for coupled 2D-3D problem
     """
-    integrator_2d = rungekutta.CrankNicolsonRK
+    integrator_2d = rungekutta.DIRK22
+    # integrator_2d = rungekutta.CrankNicolsonRK
     integrator_3d = timeintegrator.LeapFrogAM3
     integrator_vert_3d = rungekutta.BackwardEuler
 
@@ -688,7 +689,7 @@ class CoupledLeapFrogAM3(NewCoupledTimeIntegrator):
 
         # dependencies for 2D update
         self._update_baroclinicity()
-        self._update_2d_coupling()
+        # self._update_2d_coupling()
         self._update_bottom_friction()
 
         # update 2D
@@ -709,7 +710,7 @@ class CoupledLeapFrogAM3(NewCoupledTimeIntegrator):
         # correct uv_3d to uv_2d at t_{n+1/2}
         self.fields.uv_2d *= (0.5 + 2*gamma)
         self.fields.uv_2d += (0.5 - 2*gamma)*self.uv_old_2d
-        # self._update_2d_coupling()
+        self._update_2d_coupling()
         self.fields.uv_2d.assign(self.uv_new_2d)  # restore
         self._update_vertical_velocity()
         self._update_baroclinicity()
@@ -756,7 +757,7 @@ class CoupledLeapFrogAM3(NewCoupledTimeIntegrator):
 
         if self.options.solve_vert_diffusion:
             # TODO figure out minimal set of dependency updates (costly)
-            # self._update_2d_coupling()
+            self._update_2d_coupling()
             self._update_baroclinicity()
             self._update_bottom_friction()
             self._update_turbulence(t)
