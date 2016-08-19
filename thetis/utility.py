@@ -474,12 +474,15 @@ class ExpandFunctionTo3d(object):
 
         family_2d = self.fs_2d.ufl_element().family()
         ufl_elem = self.fs_3d.ufl_element()
-        if ufl_elem.num_sub_elements() > 0:
-            assert isinstance(ufl_elem, ufl.VectorElement)
+        if isinstance(ufl_elem, ufl.VectorElement):
+            # Unwind vector
             ufl_elem = ufl_elem.sub_elements()[0]
-        if hasattr(ufl_elem, '_A'):
+        if isinstance(ufl_elem, ufl.HDivElement):
+            # RT case
+            ufl_elem = ufl_elem._element
+        if ufl_elem.family() == 'TensorProductElement':
             # a normal tensorproduct element
-            family_3dh = ufl_elem._A.family()
+            family_3dh = ufl_elem.sub_elements()[0].family()
             if family_2d != family_3dh:
                 raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
         if family_2d == 'Raviart-Thomas' and elem_height is None:
@@ -561,9 +564,14 @@ class SubFunctionExtractor(object):
             elem_facet = boundary
 
         family_2d = self.fs_2d.ufl_element().family()
-        if hasattr(self.fs_3d.ufl_element(), '_A'):
+        elem = self.fs_3d.ufl_element()
+        if isinstance(elem, ufl.VectorElement):
+            elem = elem.sub_elements()[0]
+        if isinstance(elem, ufl.HDivElement):
+            elem = elem._element
+        if isinstance(elem, ufl.TensorProductElement):
             # a normal tensorproduct element
-            family_3dh = self.fs_3d.ufl_element()._A.family()
+            family_3dh = elem.sub_elements()[0].family()
             if family_2d != family_3dh:
                 raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
         if family_2d == 'Raviart-Thomas' and elem_height is None:
