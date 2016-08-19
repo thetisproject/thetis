@@ -762,9 +762,9 @@ class ALEMeshUpdater(object):
                                                        self.fields.elev_cg_3d)
             self.cp_w_mesh_surf_2d_to_3d = ExpandFunctionTo3d(self.fields.w_mesh_surf_2d,
                                                               self.fields.w_mesh_surf_3d)
-            self.cp_v_elem_size_to_2d = SubFunctionExtractor(self.fields.v_elem_size_3d,
-                                                             self.fields.v_elem_size_2d,
-                                                             boundary='top', elem_facet='top')
+        self.cp_v_elem_size_to_2d = SubFunctionExtractor(self.fields.v_elem_size_3d,
+                                                         self.fields.v_elem_size_2d,
+                                                         boundary='top', elem_facet='top')
 
     def initialize(self):
         """Set values for initial mesh (elevation at rest)"""
