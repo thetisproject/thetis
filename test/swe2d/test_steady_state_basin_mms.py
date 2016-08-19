@@ -341,6 +341,7 @@ def options(request):
 
 
 def test_steady_state_basin_convergence(setup, options):
-    sp = {'ksp_type': 'preonly', 'pc_type': 'lu', 'snes_monitor': True}
+    sp = {'ksp_type': 'preonly', 'pc_type': 'lu', 'snes_monitor': True,
+          'mat_type': 'aij'}
     run_convergence(setup, [1, 2, 4, 6], 1, options=options,
                     solver_parameters=sp, save_plot=False)
