@@ -190,6 +190,16 @@ class FlowSolver2d(FrozenClass):
                                                             solver_parameters=self.options.solver_parameters_sw,
                                                             semi_implicit=self.options.use_linearized_semi_implicit_2d,
                                                             theta=self.options.shallow_water_theta)
+        elif self.options.timestepper_type.lower() == 'dirk22':
+            self.timestepper = rungekutta.CrankNicolsonRK(self.eq_sw, self.fields.solution_2d,
+                                                          fields, self.dt,
+                                                          bnd_conditions=self.bnd_functions['shallow_water'],
+                                                          solver_parameters=self.options.solver_parameters_sw)
+        elif self.options.timestepper_type.lower() == 'dirk33':
+            self.timestepper = rungekutta.DIRK33(self.eq_sw, self.fields.solution_2d,
+                                                 fields, self.dt,
+                                                 bnd_conditions=self.bnd_functions['shallow_water'],
+                                                 solver_parameters=self.options.solver_parameters_sw)
         elif self.options.timestepper_type.lower() == 'steadystate':
             self.timestepper = timeintegrator.SteadyState(self.eq_sw, self.fields.solution_2d,
                                                           fields, self.dt,
@@ -232,6 +242,7 @@ class FlowSolver2d(FrozenClass):
                                                         solver_parameters_dirk=sp_impl)
         else:
             raise Exception('Unknown time integrator type: '+str(self.options.timestepper_type))
+        print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
         self._isfrozen = True  # disallow creating new attributes
 
     def create_exporters(self):
