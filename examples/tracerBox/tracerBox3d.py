@@ -24,9 +24,9 @@ elev_amp = 2.0
 n_layers = 12
 # estimate of max advective velocity for computing time step
 u_mag = Constant(3.0)
-w_mag = 0.2
+w_mag = Constant(2.0e-2)
 sloped = True
-warped = False  # FIXME why bathymetry changes when mesh is warped?
+warped = False
 
 suffix = ''
 if sloped:
@@ -45,10 +45,6 @@ bathymetry_2d.assign(depth)
 if sloped:
     xy = SpatialCoordinate(mesh2d)
     bathymetry_2d.interpolate(depth + 15.0*2*(xy[0]/lx - 0.5))
-
-# estimate dt for vertical advection
-dt_w = bathymetry_2d.dat.data.min()/n_layers/w_mag*0.5
-print_output('dt_w {:}'.format(dt_w))
 
 # set time step, export interval and run duration
 c_wave = float(np.sqrt(9.81*depth))
@@ -89,6 +85,7 @@ options.tracer_lax_friedrichs = None
 options.t_export = t_export
 options.t_end = t_end
 options.u_advection = u_mag
+options.w_advection = w_mag
 options.check_vol_conservation_2d = True
 options.check_vol_conservation_3d = True
 options.check_salt_conservation = True
@@ -120,6 +117,7 @@ if options.solve_temp:
     temp_l = 0
     temp_r = 30.0
     temp_init3d.interpolate(temp_l + (temp_r - temp_l)*0.5*(1.0 + sign(xyz[0] - lx/2)))
+    # temp_init3d.interpolate(temp_l + (temp_r - temp_l)*0.5*(1.0 - sign(xyz[2] + 0.33*depth)))
 
 solver_obj.assign_initial_conditions(elev=elev_init, salt=salt_init3d, temp=temp_init3d)
 solver_obj.iterate()

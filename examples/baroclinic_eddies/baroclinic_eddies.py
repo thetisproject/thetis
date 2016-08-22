@@ -31,6 +31,9 @@ set to constant 1e-4 m2/s. Tracer diffusion is set to zero.
 from thetis import *
 comm = COMM_WORLD
 
+# NOTE 4km mesh with 20 layers is OOM on stampede
+# TODO reduce mem usage or use more nodes ...
+
 delta_x = 10*1.e3
 lx = 160e3
 ly = 500e3
@@ -42,7 +45,7 @@ depth = 1000.
 nlayers = 20
 
 # compute horizontal viscosity
-reynolds_number = 20
+reynolds_number = 2000.
 uscale = 0.1
 nu_scale = uscale * delta_x / reynolds_number
 
@@ -76,8 +79,8 @@ options.use_bottom_friction = True
 options.quadratic_drag = Constant(bottom_drag)
 options.baroclinic = True
 options.coriolis = Constant(f_cori)
-options.uv_lax_friedrichs = None
-options.tracer_lax_friedrichs = None
+options.uv_lax_friedrichs = Constant(0.01)
+options.tracer_lax_friedrichs = Constant(0.01)
 # options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
 options.use_limiter_for_tracers = True
 options.v_viscosity = Constant(1.0e-4)
@@ -86,7 +89,7 @@ options.nu_viscosity = Constant(nu_scale)
 options.h_diffusivity = None
 options.t_export = t_export
 options.t_end = t_end
-options.dt = 400.
+options.dt = 100.
 options.u_advection = Constant(0.5)
 options.w_advection = Constant(1e-2)
 options.check_vol_conservation_2d = True
