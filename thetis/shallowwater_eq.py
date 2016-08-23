@@ -593,6 +593,49 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
         return self.residual_uv_eta(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
 
 
+class ModeSplit2DEquations(BaseShallowWaterEquation):
+    """
+    2D depth-averaged shallow water equations for 2D-3D mode splitting
+    """
+    def __init__(self, function_space,
+                 bathymetry,
+                 nonlin=True,
+                 include_grad_div_viscosity_term=False,
+                 include_grad_depth_viscosity_term=True):
+        super(ModeSplit2DEquations, self).__init__(function_space, bathymetry, nonlin)
+
+        u_test, eta_test = TestFunctions(function_space)
+        u_space, eta_space = function_space.split()
+
+        self.add_momentum_terms(u_test, u_space, eta_space,
+                                bathymetry,
+                                nonlin,
+                                include_grad_div_viscosity_term,
+                                include_grad_depth_viscosity_term)
+
+        self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, nonlin)
+
+    def add_momentum_terms(self, *args):
+        self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
+        # self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
+        # self.add_term(HorizontalViscosityTerm(*args), 'explicit')
+        self.add_term(CoriolisTerm(*args), 'explicit')
+        # self.add_term(WindStressTerm(*args), 'source')
+        # self.add_term(QuadraticDragTerm(*args), 'explicit')
+        # self.add_term(LinearDragTerm(*args), 'explicit')
+        # self.add_term(BottomDrag3DTerm(*args), 'source')
+        self.add_term(InternalPressureGradientTerm(*args), 'source')
+        self.add_term(MomentumSourceTerm(*args), 'source')
+
+    def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
+        if isinstance(solution, list):
+            uv, eta = solution
+        else:
+            uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
+        return self.residual_uv_eta(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+
+
 class FreeSurfaceEquation(BaseShallowWaterEquation):
     """
     2D free surface equation.

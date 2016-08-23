@@ -70,6 +70,12 @@ field_metadata['uv_dav_2d'] = {
     'unit': 'm s-1',
     'filename': 'DAVelocity2d',
 }
+field_metadata['split_residual_2d'] = {
+    'name': 'Momentum eq. residual for mode splitting',
+    'shortname': 'Momentum residual',
+    'unit': 'm s-2',
+    'filename': 'SplitResidual2d',
+}
 field_metadata['uv_bottom_2d'] = {
     'name': 'Bottom velocity',
     'shortname': 'Bottom velocity',

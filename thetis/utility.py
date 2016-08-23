@@ -415,7 +415,7 @@ def compute_baroclinic_head(solver):
     solver.extract_bot_baro_head.solve()
     solver.baro_head_averager.solve()
     solver.extract_surf_baro_head.solve()
-
+    solver.copy_mean_baroc_head_to_3d.solve()
 
 class VelocityMagnitudeSolver(object):
     """
