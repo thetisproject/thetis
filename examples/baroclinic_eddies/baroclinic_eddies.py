@@ -31,10 +31,14 @@ set to constant 1e-4 m2/s. Tracer diffusion is set to zero.
 from thetis import *
 comm = COMM_WORLD
 
-# NOTE 4km mesh with 20 layers is OOM on stampede
-# TODO reduce mem usage or use more nodes ...
+element_family = 'dg-dg'
+poly_order = 1
+viscosity = 'const'
+reynolds_number = 20.
+laxfriedrichs=0.0
+delta_x = 4*1.e3
+nlayers = 20
 
-delta_x = 10*1.e3
 lx = 160e3
 ly = 500e3
 nx = int(lx/delta_x)
@@ -42,10 +46,10 @@ ny = int(ly/delta_x)
 delta_x = lx/nx
 mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x')
 depth = 1000.
-nlayers = 20
 
+u_max = 1.0
+w_max = 1e-3
 # compute horizontal viscosity
-reynolds_number = 2000.
 uscale = 0.1
 nu_scale = uscale * delta_x / reynolds_number
 
@@ -53,6 +57,21 @@ f_cori = -1.2e-4
 bottom_drag = 0.01
 t_end = 200*24*3600.  # 365*24*3600.
 t_export = 3*3600.
+
+nnodes = mesh2d.topology.num_vertices()
+ntriangles = mesh2d.topology.num_cells()
+nprisms = ntriangles*nlayers
+ndofs = nprisms*6 if poly_order==1 else nprisms
+
+reso_str = 'dx' + str(np.round(delta_x/1000., decimals=1))
+options_str = '_'.join([reso_str,
+                        element_family,
+                        'p{:}'.format(poly_order),
+                        'visc-{:}'.format(viscosity),
+                        'Re{:}'.format(reynolds_number),
+                        'lf{:.1f}'.format(laxfriedrichs),
+                        ])
+outputdir = 'outputs_' + options_str
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -69,7 +88,8 @@ physical_constants['rho0'].assign(rho_0)
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, nlayers)
 options = solver_obj.options
-options.element_family = 'dg-dg'
+options.order = poly_order
+options.element_family = element_family
 options.timestepper_type = 'leapfrog'
 options.solve_salt = False
 options.constant_salt = Constant(salt_const)
@@ -79,19 +99,25 @@ options.use_bottom_friction = True
 options.quadratic_drag = Constant(bottom_drag)
 options.baroclinic = True
 options.coriolis = Constant(f_cori)
-options.uv_lax_friedrichs = Constant(0.01)
-options.tracer_lax_friedrichs = Constant(0.01)
+options.uv_lax_friedrichs = Constant(laxfriedrichs)
+options.tracer_lax_friedrichs = Constant(laxfriedrichs)
 # options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
 options.use_limiter_for_tracers = True
 options.v_viscosity = Constant(1.0e-4)
-options.h_viscosity = Constant(nu_scale)
-options.nu_viscosity = Constant(nu_scale)
+if viscosity == 'smag':
+    options.smagorinsky_factor = Constant(1.0/np.sqrt(reynolds_number))
+    options.nu_viscosity = Constant(nu_scale)
+elif viscosity == 'const':
+    options.h_viscosity = Constant(nu_scale)
+    options.nu_viscosity = Constant(nu_scale)
+elif viscosity != 'none':
+    raise Exception('Unknow viscosity type {:}'.format(viscosity))
 options.h_diffusivity = None
 options.t_export = t_export
 options.t_end = t_end
-options.dt = 100.
-options.u_advection = Constant(0.5)
-options.w_advection = Constant(1e-2)
+options.outputdir = outputdir
+options.u_advection = Constant(u_max)
+options.w_advection = Constant(w_max)
 options.check_vol_conservation_2d = True
 options.check_vol_conservation_3d = True
 options.check_temp_conservation = True
@@ -115,8 +141,12 @@ solver_obj.create_equations()
 print_output('Running eddy test case with options:')
 print_output('Number of cores: {:}'.format(comm.size))
 print_output('Mesh resolution dx={:} nlayers={:}'.format(delta_x, nlayers))
+print_output('Number of 2D nodes={:}, triangles={:}'.format(nnodes, ntriangles))
+print_output('Number of prisms={:.2g}, DOFs={:.2g}'.format(nprisms, ndofs))
 print_output('Reynolds number: {:}'.format(reynolds_number))
 print_output('Horizontal viscosity: {:}'.format(nu_scale))
+print_output('Lax-Friedrichs factor: {:}'.format(laxfriedrichs))
+print_output('Exporting to {:}'.format(outputdir))
 
 xyz = SpatialCoordinate(solver_obj.mesh)
 # vertical background stratification

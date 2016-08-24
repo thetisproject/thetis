@@ -58,6 +58,8 @@ simple_barotropic = False  # for testing flux boundary conditions
 # create solver
 solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solverobj.options
+options.element_family = 'dg-dg'
+options.timestepper_type = 'leapfrog'
 options.solve_salt = not simple_barotropic
 options.solve_temp = False
 options.constant_temp = Constant(temp_const)
@@ -65,7 +67,6 @@ options.solve_vert_diffusion = not simple_barotropic
 options.use_bottom_friction = not simple_barotropic
 options.use_turbulence = not simple_barotropic
 options.use_turbulence_advection = not simple_barotropic
-options.use_ale_moving_mesh = False
 options.baroclinic = not simple_barotropic
 options.uv_lax_friedrichs = Constant(1.0)
 options.tracer_lax_friedrichs = Constant(1.0)
@@ -80,9 +81,6 @@ options.t_export = t_export
 options.t_end = t_end
 options.outputdir = outputdir
 options.u_advection = Constant(2.0)
-options.check_vol_conservation_2d = True
-options.check_vol_conservation_3d = True
-options.check_salt_conservation = True
 options.check_salt_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d', 'density_3d',

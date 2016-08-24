@@ -69,6 +69,8 @@ simple_barotropic = False  # for debugging
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solver_obj.options
+options.element_family = 'dg-dg'
+options.timestepper_type = 'leapfrog'
 options.solve_salt = not simple_barotropic
 options.solve_temp = False
 options.constant_temp = Constant(temp_const)
@@ -76,7 +78,7 @@ options.solve_vert_diffusion = not simple_barotropic
 options.use_bottom_friction = not simple_barotropic
 options.use_turbulence = not simple_barotropic
 options.use_turbulence_advection = not simple_barotropic
-options.use_ale_moving_mesh = False
+# options.use_ale_moving_mesh = False
 options.baroclinic = not simple_barotropic
 options.uv_lax_friedrichs = Constant(1.0)
 options.tracer_lax_friedrichs = Constant(1.0)
