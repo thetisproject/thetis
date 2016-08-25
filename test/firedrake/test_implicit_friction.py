@@ -104,6 +104,7 @@ def test_implicit_friction(do_export=False, do_assert=True):
     # ----- define solver
 
     sp = {}
+    # sp['mat_type'] = 'aij',
     # sp['ksp_type'] = 'cg'
     # sp['pc_type'] = 'lu'
     # sp['snes_rtol'] = 1.0e-12

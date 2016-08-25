@@ -504,8 +504,10 @@ class CrankNicolson(TimeIntegrator):
         self.update_solver()
 
     def update_solver(self):
-        nest = not ('pc_type' in self.solver_parameters and self.solver_parameters['pc_type'] == 'lu')
-        prob = NonlinearVariationalProblem(self.F, self.solution, nest=nest)
+        # Ensure LU assembles monolithic matrices
+        if self.solver_parameters.get('pc_type') == 'lu':
+            self.solver_parameters['mat_type'] = 'aij'
+        prob = NonlinearVariationalProblem(self.F, self.solution)
         self.solver = NonlinearVariationalSolver(prob,
                                                  solver_parameters=self.solver_parameters,
                                                  options_prefix=self.name)
@@ -544,8 +546,10 @@ class SteadyState(TimeIntegrator):
         self.update_solver()
 
     def update_solver(self):
-        nest = not ('pc_type' in self.solver_parameters and self.solver_parameters['pc_type'] == 'lu')
-        prob = NonlinearVariationalProblem(self.F, self.solution, nest=nest)
+        # Ensure LU assembles monolithic matrices
+        if self.solver_parameters.get('pc_type') == 'lu':
+            self.solver_parameters['mat_type'] = 'aij'
+        prob = NonlinearVariationalProblem(self.F, self.solution)
         self.solver = NonlinearVariationalSolver(prob,
                                                  solver_parameters=self.solver_parameters,
                                                  options_prefix=self.name)

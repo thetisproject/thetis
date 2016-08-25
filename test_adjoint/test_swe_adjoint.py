@@ -69,11 +69,9 @@ def setup_steady():
     solver_obj = basic_setup()
     solver_obj.options.timestepper_type = 'steadystate'
     solver_obj.options.t_end = 0.499
-    # this is currently needed because althhough thesis
-    # automatically switches off matnest when using 'lu',
     # firedrake-adjoint does not remember that in the adjoint solve
-    parameters['matnest'] = False
     solver_obj.options.solver_parameters_sw = {
+        'mat_type': 'aij',
         'ksp_type': 'preonly',
         'pc_type': 'lu',
         'pc_factor_mat_solver_package': 'mumps',
@@ -89,13 +87,8 @@ def setup_unsteady():
     solver_obj.options.timestepper_type = 'cranknicolson'
     solver_obj.options.t_end = 2.0
     solver_obj.options.shallow_water_theta = 1.0
-    # this is currently needed because althhough thesis
-    # automatically switches off matnest when using 'lu',
-    # firedrake-adjoint does not remember that in the adjoint solve
-    parameters['matnest'] = False
-    # coffee optimisation currently broken for this case:
-    parameters['coffee'] = {}
     solver_obj.options.solver_parameters_sw = {
+        'mat_type': 'aij',
         'ksp_type': 'preonly',
         'pc_type': 'lu',
         'pc_factor_mat_solver_package': 'mumps',

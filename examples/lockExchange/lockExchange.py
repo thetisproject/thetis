@@ -194,6 +194,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
 
     # Use direct solver for 2D
     # options.solver_parameters_sw = {
+    #     'mat_type': 'aij',
     #     'ksp_type': 'preonly',
     #     'pc_type': 'lu',
     #     'pc_factor_mat_solver_package': 'mumps',
