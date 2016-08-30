@@ -1,7 +1,7 @@
 # Stommel gyre test case in 2D
 # ============================
 #
-# Wind-driven geostrophic gyre in larege basin.
+# Wind-driven geostrophic gyre in large basin.
 # Setup is according to [1].
 #
 # [1] Comblen, R., Lambrechts, J., Remacle, J.-F., and Legat, V. (2010).
