@@ -580,7 +580,7 @@ class PressureProjectionPicard(TimeIntegrator):
             self.solver_parameters.setdefault('snes_type', 'ksponly')
             self.solver_parameters_mom.setdefault('snes_type', 'ksponly')
         else:
-            # not sure this combination makes much sense: keep both systems nonline
+            # not sure this combination makes much sense: keep both systems nonlinear
             self.solver_parameters.setdefault('snes_type', 'newtonls')
             self.solver_parameters_mom.setdefault('snes_type', 'newtonls')
         # number of picard iterations
