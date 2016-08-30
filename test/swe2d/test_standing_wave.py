@@ -67,7 +67,7 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
             # velocity mass block:
             'fieldsplit_0_ksp_type': 'preonly',  # NOTE: this is only an exact solver for the velocity mass block if velocity is DG
             'fieldsplit_0_pc_type': 'ilu',
-            'fieldsplit_1_ksp_type': 'fgmres',
+            'fieldsplit_1_ksp_type': 'gmres',
             # schur complement:
             'fieldsplit_1_pc_type': 'gamg',
             'fieldsplit_1_ksp_max_it': 100,
