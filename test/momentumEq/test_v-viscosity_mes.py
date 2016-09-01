@@ -96,8 +96,12 @@ def run(refinement, **model_options):
             uv_ana.project(ana_uv_expr)
             out_uv_ana.write(uv_ana_p1.project(uv_ana))
 
-    # export initial conditions
-    export_func()
+    # compute L2 norm
+    uv_ana_ho.project(ana_uv_expr)
+    l2_err = errornorm(uv_ana_ho, solverobj.fields.uv_3d)/numpy.sqrt(area)
+    print_output('Initial norm uv     {:.12f}'.format(norm(solverobj.fields.uv_3d)))
+    print_output('Initial norm uv ana {:.12f}'.format(norm(uv_ana_ho)))
+    print_output('Initial L2 error {:.12f}'.format(l2_err))
 
     # custom time loop that solves momemtum eq only
     if implicit:
@@ -107,18 +111,22 @@ def run(refinement, **model_options):
     ti.initialize(solverobj.fields.uv_3d)
 
     i = 0
-    iexport = 1
+    iexport = 0
     next_export_t = t + solverobj.options.t_export
+    # export initial conditions
+    print_output('{:3d} i={:5d} t={:8.2f} s uv={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.uv_3d)))
+    export_func()
+
     while t < t_end - 1e-8:
         ti.advance(t)
 
         t += solverobj.dt
         i += 1
         if t >= next_export_t - 1e-8:
+            iexport += 1
             print_output('{:3d} i={:5d} t={:8.2f} s uv={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.uv_3d)))
             export_func()
             next_export_t += solverobj.options.t_export
-            iexport += 1
 
     # project analytical solultion on high order mesh
     t_const.assign(t)
@@ -217,8 +225,8 @@ def test_vertical_viscosity(order, implicit, element_family, stepper, use_ale):
 
 if __name__ == '__main__':
     run_convergence([1, 2, 3], order=1,
-                    implicit=False,
+                    implicit=True,
                     element_family='dg-dg',
-                    timestepper_type='leapfrog',
-                    use_ale_moving_mesh=True,
-                    no_exports=False, saveplot=True)
+                    timestepper_type='ssprk33',
+                    use_ale_moving_mesh=False,
+                    no_exports=True, saveplot=False)
