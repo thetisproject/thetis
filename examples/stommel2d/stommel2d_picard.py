@@ -11,12 +11,15 @@
 #
 # Tuomas Karna 2015-04-28
 
+# This is a version that runs much faster using much larger timesteps (2 hr instead of 45s.)
+# using an implicit time integration scheme (PressureProjectionPicard)
+
 from thetis import *
 
 lx = 1.0e6
 nx = 20
 mesh2d = RectangleMesh(nx, nx, lx, lx)
-outputdir = 'outputs'
+outputdir = 'outputs_picard'
 print_output('Loaded mesh '+mesh2d.name)
 print_output('Exporting to '+outputdir)
 depth = 1000.0
@@ -52,12 +55,33 @@ options.wind_stress = wind_stress_2d
 options.linear_drag = linear_drag
 options.t_export = t_export
 options.t_end = t_end
-options.dt = 45.0
+options.dt = 3600.*2.
 options.outputdir = outputdir
 options.u_advection = Constant(0.01)
 options.check_vol_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
-# options.timestepper_type = 'CrankNicolson'
+options.timestepper_type = 'PressureProjectionPicard'
+options.use_linearized_semi_implicit_2d = True
+options.shallow_water_theta = 1.0
+options.solver_parameters_sw = {
+    'snes_type': 'ksponly',
+    'ksp_type': 'preonly',
+    'pc_type': 'fieldsplit',
+    'pc_fieldsplit_type': 'schur',
+    'pc_fieldsplit_schur_fact_type': 'full',
+    'pc_fieldsplit_schur_precondition': 'selfp',
+    'fieldsplit_0_ksp_type': 'gmres',
+    'fieldsplit_0_pc_type': 'sor',
+    'fieldsplit_1_ksp_type': 'gmres',
+    'fieldsplit_1_ksp_converged_reason': True,
+    'fieldsplit_1_pc_type': 'hypre',
+}
+options.solver_parameters_sw_momentum = {
+    'ksp_type': 'gmres',
+    'ksp_converged_reason': True,
+    'pc_type': 'sor',
+    'pc_factor_mat_solver_package': 'mumps',
+}
 
 solver_obj.iterate()

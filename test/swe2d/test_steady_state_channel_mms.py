@@ -56,8 +56,7 @@ def test_steady_state_channel_mms(options):
         solver_obj.options.t_export = dt
         solver_obj.options.t_end = n*dt
         solver_obj.options.uv_source_2d = source_func
-        solver_obj.options.timestepper_type = 'cranknicolson'
-        solver_obj.options.shallow_water_theta = 1.0
+        solver_obj.options.timestepper_type = 'steadystate'
         solver_obj.options.solver_parameters_sw = {
             'ksp_type': 'preonly',
             'pc_type': 'lu',
@@ -90,11 +89,6 @@ def test_steady_state_channel_mms(options):
 
         if do_exports:
             File('source_{}.pvd'.format(i)).write(source_func)
-        # subtract out time derivative
-        solver_obj.timestepper.F -= (solver_obj.eq_sw.mass_term(solver_obj.timestepper.solution) -
-                                     solver_obj.eq_sw.mass_term(solver_obj.timestepper.solution_old))
-        solver_obj.timestepper.update_solver()
-
         solver_obj.iterate()
 
         uv, eta = solver_obj.fields.solution_2d.split()
