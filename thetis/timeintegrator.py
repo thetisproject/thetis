@@ -408,8 +408,10 @@ class PressureProjectionPicard(TimeIntegrator):
         for it in range(self.iterations):
             if self.iterations > 1:
                 self.solution_lagged.assign(self.solution)
-            self.solver_mom.solve()
-            self.solver.solve()
+            with timed_stage("Momentum solve"):
+                self.solver_mom.solve()
+            with timed_stage("Pressure solve"):
+                self.solver.solve()
 
         # shift time
         for k in self.fields_old:
