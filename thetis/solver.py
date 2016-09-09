@@ -692,8 +692,9 @@ class FlowSolver(FrozenClass):
             self.fields.elev_2d.project(elev)
         if uv_2d is not None:
             self.fields.uv_2d.project(uv_2d)
-            ExpandFunctionTo3d(self.fields.uv_2d, self.fields.uv_3d,
-                               elem_height=self.fields.v_elem_size_3d).solve()
+            if uv_3d is None:
+                ExpandFunctionTo3d(self.fields.uv_2d, self.fields.uv_3d,
+                                   elem_height=self.fields.v_elem_size_3d).solve()
         if uv_3d is not None:
             self.fields.uv_3d.project(uv_3d)
         if salt is not None and self.options.solve_salt:
@@ -770,6 +771,8 @@ class FlowSolver(FrozenClass):
         e.exporters['uv_2d'].load(i_export, self.fields.uv_2d)
         e.exporters['elev_2d'].load(i_export, self.fields.elev_2d)
         e.exporters['uv_3d'].load(i_export, self.fields.uv_3d)
+        # NOTE remove mean from uv_3d
+        self.timestepper._remove_depth_average_from_uv_3d()
         salt = temp = tke = psi = None
         if self.options.solve_salt:
             salt = self.fields.salt_3d
