@@ -325,7 +325,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
             # maximum ratio of viscosity within a triangle, p the degree, and theta
             # with X=2, theta=6: cot(theta)~10, 3*X*cot(theta)~60
             p = self.u_space.ufl_element().degree()
-            alpha = 5.*p*(p+1)
+            alpha = 60.*p*(p+1)
             if p == 0:
                 alpha = 1.5
             f += (
