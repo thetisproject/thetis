@@ -13,9 +13,6 @@
 # This test is also useful for testing tracer conservation and consistency
 # by advecting a constant passive tracer.
 #
-# Setting
-# solver_obj.nonlin = False
-# uses linear wave equation instead, and no shock develops.
 #
 # Tuomas Karna 2015-03-03
 
@@ -27,9 +24,8 @@ outputdir = 'outputs_closed'
 mesh2d = Mesh('channel_mesh.msh')
 print_output('Loaded mesh '+mesh2d.name)
 print_output('Exporting to '+outputdir)
-t_end = 48 * 3600
-u_mag = Constant(4.2)
-t_export = 100.0
+t_end = 6 * 3600
+t_export = 900.0
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -41,22 +37,27 @@ bathymetry_2d.interpolate(Expression('ho - (ho-hr)*x[0]/100e3',
                                      ho=depth_oce, hr=depth_riv))
 # bathymetry_2d.interpolate(Expression('ho - (ho-hr)*0.5*(1+tanh((x[0]-50e3)/15e3))',
 #                                      ho=depth_oce, hr=depth_riv))
+u_max = 4.5
+w_max = 5e-3
 
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solver_obj.options
+options.element_family = 'dg-dg'
+options.timestepper_type = 'leapfrog'
 options.solve_salt = True
 options.solve_temp = False
 options.solve_vert_diffusion = False
 options.use_bottom_friction = False
-options.use_ale_moving_mesh = False
-options.uv_lax_friedrichs = Constant(1.0)
-options.tracer_lax_friedrichs = Constant(1.0)
-# options.baroclinic = True
+options.use_ale_moving_mesh = True
+options.use_limiter_for_tracers = True
+options.uv_lax_friedrichs = None
+options.tracer_lax_friedrichs = None
 options.t_export = t_export
 options.t_end = t_end
 options.outputdir = outputdir
-options.u_advection = u_mag
+options.u_advection = Constant(u_max)
+options.w_advection = Constant(w_max)
 options.check_vol_conservation_2d = True
 options.check_vol_conservation_3d = True
 options.check_salt_conservation = True
@@ -64,9 +65,6 @@ options.check_salt_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
                             'uv_dav_2d', 'uv_bottom_2d']
-options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
-                                 'w_3d', 'w_mesh_3d', 'salt_3d',
-                                 'uv_dav_2d', 'uv_bottom_2d']
 
 # initial conditions, piecewise linear function
 elev_x = np.array([0, 30e3, 100e3])

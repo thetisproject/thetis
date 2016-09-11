@@ -36,7 +36,8 @@
 from thetis import *
 
 # set physical constants
-physical_constants['rho0'].assign(1025.0)
+rho0 = 1025.0
+physical_constants['rho0'].assign(rho0)
 
 outputdir = 'outputs'
 layers = 30
@@ -117,6 +118,14 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
                                  'eddy_visc_3d', 'shear_freq_3d',
                                  'buoy_freq_3d', 'tke_3d', 'psi_3d',
                                  'eps_3d', 'len_3d']
+options.equation_of_state = 'linear'
+options.lin_equation_of_state_params = {
+    'rho_ref': rho0,
+    's_ref': 33.75,
+    'th_ref': 5.0,
+    'alpha': 0.0,
+    'beta': 0.78,
+}
 
 solver_obj.create_equations()
 # assign initial salinity

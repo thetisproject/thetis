@@ -71,7 +71,6 @@ options.use_limiter_for_tracers = True
 options.t_export = t_export
 options.dt = dt
 options.t_end = t_end
-options.outputdir = outputdir
 options.u_advection = u_mag
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'uv_dav_2d', 'uv_bottom_2d',
@@ -117,7 +116,7 @@ if __name__ == '__main__':
     u_b = u_max * kappa / np.log((depth + z_0)/z_0)
     log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')
     log_uv.project(as_vector((u_b / kappa * ln((xyz[2] + depth + z_0)/z_0), 0, 0)))
-    out = File(outputdir + '/log_uv.pvd')
+    out = File(options.outputdir + '/log_uv.pvd')
     out.write(log_uv)
 
     uv_p1_dg = Function(solver_obj.function_spaces.P1DGv, name='velocity p1dg')

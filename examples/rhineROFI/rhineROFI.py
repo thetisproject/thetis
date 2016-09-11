@@ -77,7 +77,7 @@ eta_phase = 0
 H_ocean = 20  # water depth
 H_river = 5  # water depth at river inlet
 L_river = 45e3  # NOTE L_river is 75 km in [2]
-Q_river = 2.2e3  # 1.5e3 or 2.2e3 river discharge [2]
+Q_river = 1.5e3  # 1.5e3 or 2.2e3 river discharge [2]
 temp_const = 10.0
 salt_river = 0.0
 salt_ocean = 32.0
@@ -96,7 +96,7 @@ kelvin_m = (coriolis_f/c)  # [-] Cross-shore variation
 
 dt = 7.0
 t_end = 34*Ttide
-t_export = Ttide/12/4  # approx 15.5 min
+t_export = Ttide/40  # approx 18.6 min
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -210,7 +210,7 @@ l = test[1]*uv*dx
 solve(a == l, uv_init)
 salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
 salt_init3d.interpolate(Expression('d_ocean - (d_ocean - d_river)*(1 + tanh((x[0] - xoff)/sigma))/2',
-                                   sigma=10.0, d_ocean=salt_ocean,
+                                   sigma=2000.0, d_ocean=salt_ocean,
                                    d_river=salt_river, xoff=10.5e3))
 
 
