@@ -356,7 +356,7 @@ class VerticalIntegrator(object):
         else:
             source = input
         self.l = inner(source, phi)*self.dx + bnd_term
-        self.prob = LinearVariationalProblem(self.a, self.l, output, constant_jacobian=False)
+        self.prob = LinearVariationalProblem(self.a, self.l, output, constant_jacobian=average)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
