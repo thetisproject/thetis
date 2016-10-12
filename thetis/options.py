@@ -170,8 +170,8 @@ class ModelOptions(Parameters):
         # NOTE these are fields, potentially Functions: move out of this class?
         ufl_scalar_type = UFLScalarType()
         ufl_vector_type = UFLVectorType()
-        none_or_scalar = CombinedType(none_type, float_type, ufl_scalar_type)
-        none_or_vector = CombinedType(none_type, IterableType(float_type), ufl_vector_type)
+        none_or_scalar = CombinedType(none_type, ufl_scalar_type, float_type)
+        none_or_vector = CombinedType(none_type, ufl_vector_type, IterableType(float_type))
         self.add_option("linear_drag", None, "2D linear drag parameter tau/rho_0 = -drag*u*H",
                         val_type=none_or_scalar)
         self.add_option("quadratic_drag", None, "dimensionless 2D quadratic drag parameter tau/rho_0 = -drag*|u|*u",
