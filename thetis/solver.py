@@ -715,12 +715,12 @@ class FlowSolver(FrozenClass):
         if not self._initialized:
             self.create_equations()
 
-        self.options.check_salt_conservation *= self.options.solve_salt
-        self.options.check_salt_overshoot *= self.options.solve_salt
-        self.options.check_temp_conservation *= self.options.solve_temp
-        self.options.check_temp_overshoot *= self.options.solve_temp
-        self.options.check_vol_conservation_3d *= self.options.use_ale_moving_mesh
-        self.options.use_limiter_for_tracers *= self.options.order > 0
+        self.options.check_salt_conservation = self.options.check_salt_conservation and self.options.solve_salt
+        self.options.check_salt_overshoot = self.options.check_salt_overshoot and self.options.solve_salt
+        self.options.check_temp_conservation = self.options.check_temp_conservation and self.options.solve_temp
+        self.options.check_temp_overshoot = self.options.check_temp_overshoot and self.options.solve_temp
+        self.options.check_vol_conservation_3d = self.options.check_vol_conservation_3d and self.options.use_ale_moving_mesh
+        self.options.use_limiter_for_tracers = self.options.use_limiter_for_tracers and self.options.order > 0
 
         t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()
