@@ -200,7 +200,8 @@ class PressureProjectionPicard(TimeIntegrator):
     def __init__(self, equation, equation_mom, solution, fields, dt, bnd_conditions=None, solver_parameters={}, solver_parameters_mom={},
                  theta=0.5, semi_implicit=False, iterations=2):
         """Creates forms for the time integrator"""
-        super(PressureProjectionPicard, self).__init__(equation, solver_parameters)
+        super(PressureProjectionPicard, self).__init__(equation, solution, fields, dt, solver_parameters)
+
         self.equation_mom = equation_mom
         self.solver_parameters_mom = solver_parameters_mom
         if semi_implicit:
@@ -215,9 +216,6 @@ class PressureProjectionPicard(TimeIntegrator):
         # number of picard iterations
         self.iterations = iterations
 
-        self.dt_const = Constant(dt)
-
-        self.solution = solution
         self.solution_old = Function(self.equation.function_space)
         if iterations > 1:
             self.solution_lagged = Function(self.equation.function_space)
@@ -226,7 +224,6 @@ class PressureProjectionPicard(TimeIntegrator):
         uv_lagged, eta_lagged = self.solution_lagged.split()
         uv_old, eta_old = self.solution_old.split()
 
-        self.fields = fields
         # create functions to hold the values of previous time step
         self.fields_old = {}
         for k in self.fields:
@@ -306,16 +303,15 @@ class PressureProjectionPicard(TimeIntegrator):
         for k in self.fields_old:
             self.fields_old[k].assign(self.fields[k])
 
-    def advance(self, t, dt, solution, updateForcings=None):
+    def advance(self, t, updateForcings=None):
         """Advances equations for one time step."""
-        self.dt_const.assign(dt)
         if updateForcings is not None:
-            updateForcings(t+dt)
-        self.solution_old.assign(solution)
+            updateForcings(t + self.dt)
+        self.solution_old.assign(self.solution)
 
         for it in range(self.iterations):
             if self.iterations > 1:
-                self.solution_lagged.assign(solution)
+                self.solution_lagged.assign(self.solution)
             self.solver_mom.solve()
             self.solver.solve()
 
