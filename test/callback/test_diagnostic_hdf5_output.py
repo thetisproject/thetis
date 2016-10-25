@@ -40,7 +40,7 @@ def test_callbacks(tmp_outputdir):
     n_steps = 20
     dt = round(float(t_cycle/n_steps))
     t_export = dt
-    t_end = t_cycle/2
+    t_end = 10*t_export
 
     # create solver
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
