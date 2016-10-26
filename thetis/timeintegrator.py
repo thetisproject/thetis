@@ -406,14 +406,19 @@ class LeapFrogAM3(TimeIntegrator):
         This is computed in fixed mesh: all terms are evaluated in Omega_n
         """
         if self._nontrivial:
-            assemble(self.mass_new, self.msolution_old)  # store current solution
-            assemble(self.l_prediction, self.rhs_func)
-            self.solution_old.assign(self.solution)  # time shift
-            self._solve_system()
+            with timed_region('lf_pre_asmb_sol'):
+                assemble(self.mass_new, self.msolution_old)  # store current solution
+            with timed_region('lf_pre_asmb_rhs'):
+                assemble(self.l_prediction, self.rhs_func)
+            with timed_region('lf_pre_asgn_sol'):
+                self.solution_old.assign(self.solution)  # time shift
+            with timed_region('lf_pre_solve'):
+                self._solve_system()
 
     def eval_rhs(self):
         if self._nontrivial:
-            assemble(self.l, self.rhs_func)
+            with timed_region('lf_cor_asmb_rhs'):
+                assemble(self.l, self.rhs_func)
 
     def correct(self):
         """
@@ -425,14 +430,13 @@ class LeapFrogAM3(TimeIntegrator):
         """
         if self._nontrivial:
             # NOTE must call eval_rhs in the old mesh first
-            self.rhs_func += self.msolution_old
-            assemble(self.a, self.mass_matrix, inverse=self.fs_is_dg)
-            self.mass_matrix.force_evaluation()
-            self._solve_system()
-            # TEST me!
-            #assemble(self.a, self.lin_solver.A)
-            #self.lin_solver.A.force_evaluation()
-            #self.lin_solver.solve(self.solution, self.rhs_func)
+            with timed_region('lf_cor_incr_rhs'):
+                self.rhs_func += self.msolution_old
+            with timed_region('lf_cor_asmb_mat'):
+                assemble(self.a, self.mass_matrix, inverse=self.fs_is_dg)
+                self.mass_matrix.force_evaluation()
+            with timed_region('lf_cor_solve'):
+                self._solve_system()
 
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
