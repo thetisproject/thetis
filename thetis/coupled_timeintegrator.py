@@ -671,7 +671,6 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
     Leap-Frog Adams-Moulton 3 time integrator for coupled 2D-3D problem
     """
     integrator_2d = rungekutta.DIRK22
-    # integrator_2d = rungekutta.CrankNicolsonRK
     integrator_3d = timeintegrator.LeapFrogAM3
     integrator_vert_3d = rungekutta.BackwardEuler
 
@@ -693,7 +692,8 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
         # - Forward Euler step in fixed domain Omega_n
         # -------------------------------------------------
 
-        self.fields.w_mesh_3d.assign(0.0)
+        if self.options.use_ale_moving_mesh:
+            self.fields.w_mesh_3d.assign(0.0)
 
         with timed_stage('salt_eq'):
             if self.options.solve_salt:
@@ -713,16 +713,18 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
             self.timestepper_mom_3d.predict()
 
         # dependencies for 2D update
-        self._remove_depth_average_from_uv_3d()
+        self._update_2d_coupling()
         self._update_baroclinicity()
         self._update_bottom_friction()
 
         # update 2D
-        self.solver.mesh_updater.compute_mesh_velocity_begin()
+        if self.options.use_ale_moving_mesh:
+            self.solver.mesh_updater.compute_mesh_velocity_begin()
         self.uv_old_2d.assign(self.fields.uv_2d)
         with timed_stage('mode2d'):
             self.timestepper2d.advance(t, update_forcings)
-        self.solver.mesh_updater.compute_mesh_velocity_finalize()
+        if self.options.use_ale_moving_mesh:
+            self.solver.mesh_updater.compute_mesh_velocity_finalize()
         self.uv_new_2d.assign(self.fields.uv_2d)
 
         # set 3D elevation to half step
@@ -735,7 +737,7 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
         # correct uv_3d to uv_2d at t_{n+1/2}
         self.fields.uv_2d *= (0.5 + 2*gamma)
         self.fields.uv_2d += (0.5 - 2*gamma)*self.uv_old_2d
-        self._copy_uv_2d_to_3d()
+        self._update_2d_coupling()
         self.fields.uv_2d.assign(self.uv_new_2d)  # restore
         self._update_vertical_velocity()
         self._update_baroclinicity()
@@ -782,9 +784,7 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
 
         if self.options.solve_vert_diffusion:
             # TODO figure out minimal set of dependency updates (costly)
-            self._remove_depth_average_from_uv_3d()
-            self._update_2d_coupling_term()
-            self._copy_uv_2d_to_3d()
+            self._update_2d_coupling()
             self._update_baroclinicity()
             self._update_bottom_friction()
             self._update_turbulence(t)
@@ -800,9 +800,7 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
             self._update_vertical_velocity()
             self._update_stabilization_params()
         else:
-            self._remove_depth_average_from_uv_3d()
-            self._update_2d_coupling_term()
-            self._copy_uv_2d_to_3d()
+            self._update_2d_coupling()
             self._update_baroclinicity()
             self._update_bottom_friction()
             self._update_vertical_velocity()

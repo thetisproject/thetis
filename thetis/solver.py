@@ -532,7 +532,6 @@ class FlowSolver(FrozenClass):
         if self.options.timestepper_type.lower() == 'ssprk33':
             self.timestepper = coupled_timeintegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
         elif self.options.timestepper_type.lower() == 'leapfrog':
-            assert self.options.use_ale_moving_mesh, '{:} time integrator requires ALE mesh'.format(self.options.timestepper_type)
             self.timestepper = coupled_timeintegrator.CoupledLeapFrogAM3(weakref.proxy(self))
         elif self.options.timestepper_type.lower() == 'imexale':
             assert self.options.use_ale_moving_mesh, '{:} time integrator requires ALE mesh'.format(self.options.timestepper_type)
