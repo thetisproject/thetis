@@ -378,6 +378,8 @@ class LeapFrogAM3(TimeIntegrator):
         self.solution.assign(solution)
         self.solution_old.assign(solution)
         assemble(self.mass_new, self.msolution_old)
+        if not self.fs_is_dg:
+            self.lin_solver = LinearSolver(self.mass_matrix)
 
     def _solve_system(self):
         """
@@ -392,7 +394,7 @@ class LeapFrogAM3(TimeIntegrator):
                     self.mass_matrix.force_evaluation()
                     self.mass_matrix.petscmat.mult(b, x)
         else:
-            solve(self.mass_matrix, self.solution, self.rhs_func)
+            self.lin_solver.solve(self.solution, self.rhs_func)
 
     def predict(self):
         """
@@ -425,7 +427,12 @@ class LeapFrogAM3(TimeIntegrator):
             # NOTE must call eval_rhs in the old mesh first
             self.rhs_func += self.msolution_old
             assemble(self.a, self.mass_matrix, inverse=self.fs_is_dg)
+            self.mass_matrix.force_evaluation()
             self._solve_system()
+            # TEST me!
+            #assemble(self.a, self.lin_solver.A)
+            #self.lin_solver.A.force_evaluation()
+            #self.lin_solver.solve(self.solution, self.rhs_func)
 
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
