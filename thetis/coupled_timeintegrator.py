@@ -12,7 +12,7 @@ from . import implicitexplicit
 from abc import ABCMeta, abstractproperty
 
 
-class CoupledTimeIntegrator(timeintegrator.TimeIntegratorBase):
+class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
     """Base class for coupled time integrators"""
     def __init__(self, solver, options, fields):
         self.solver = solver
@@ -118,7 +118,7 @@ class CoupledTimeIntegrator(timeintegrator.TimeIntegratorBase):
             self._update_stabilization_params()
 
 
-class NewCoupledTimeIntegrator(CoupledTimeIntegrator):
+class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
     __metaclass__ = ABCMeta
 
     @abstractproperty
@@ -134,9 +134,9 @@ class NewCoupledTimeIntegrator(CoupledTimeIntegrator):
         pass
 
     def __init__(self, solver):
-        super(NewCoupledTimeIntegrator, self).__init__(solver,
-                                                       solver.options,
-                                                       solver.fields)
+        super(CoupledTimeIntegrator, self).__init__(solver,
+                                                    solver.options,
+                                                    solver.fields)
         print_output('Coupled time integrator: {:}'.format(self.__class__.__name__))
         print_output('  2D time integrator: {:}'.format(self.integrator_2d.__name__))
         print_output('  3D time integrator: {:}'.format(self.integrator_3d.__name__))
@@ -347,7 +347,7 @@ class NewCoupledTimeIntegrator(CoupledTimeIntegrator):
         self._initialized = True
 
 
-class CoupledSSPRKSemiImplicit(NewCoupledTimeIntegrator):
+class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
     """
     Solves coupled equations with simultaneous SSPRK33 stages, where 2d gravity
     waves are solved semi-implicitly. This saves CPU cos diffuses gravity waves.
@@ -393,7 +393,7 @@ class CoupledSSPRKSemiImplicit(NewCoupledTimeIntegrator):
                                           do_turbulence=last_step)
 
 
-class CoupledERKALE(NewCoupledTimeIntegrator):
+class CoupledERKALE(CoupledTimeIntegrator):
     """
     Implicit-Explicit SSP RK solver for conservative ALE formulation
     """
@@ -520,7 +520,7 @@ class CoupledERKALE(NewCoupledTimeIntegrator):
                                           do_turbulence=last_step)
 
 
-class CoupledIMEXALE(NewCoupledTimeIntegrator):
+class CoupledIMEXALE(CoupledTimeIntegrator):
     """
     Implicit-Explicit SSP RK solver for conservative ALE formulation
     """
@@ -641,7 +641,7 @@ class CoupledIMEXALE(NewCoupledTimeIntegrator):
             self._update_vertical_velocity()
 
 
-class CoupledLeapFrogAM3(NewCoupledTimeIntegrator):
+class CoupledLeapFrogAM3(CoupledTimeIntegrator):
     """
     Leap-Frog Adams-Moulton 3 time integrator for coupled 2D-3D problem
     """
