@@ -898,11 +898,23 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
             with timed_stage('momentum_eq'):
                 self.timestepper_mom_3d.solve_stage(i_stage, t, update_forcings3d)
 
-            # - update coupling term
-            # - compute w
-            # TODO rm unnecessary calls
+            # update coupling terms
+            last = i_stage == self.n_stages - 1
+
             self._update_2d_coupling()
             self._update_baroclinicity()
             self._update_bottom_friction()
+            if i_stage == last and self.options.solve_vert_diffusion:
+                self._update_turbulence(t)
+                if self.options.solve_salt:
+                    with timed_stage('impl_salt_vdiff'):
+                        self.timestepper_salt_vdff_3d.advance(t)
+                if self.options.solve_temp:
+                    with timed_stage('impl_temp_vdiff'):
+                        self.timestepper_temp_vdff_3d.advance(t)
+                with timed_stage('impl_mom_vvisc'):
+                    self.timestepper_mom_vdff_3d.advance(t)
+                self._update_baroclinicity()
             self._update_vertical_velocity()
-            self._update_stabilization_params()
+            if i_stage == last:
+                self._update_stabilization_params()
