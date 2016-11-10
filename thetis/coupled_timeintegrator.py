@@ -865,43 +865,44 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
             # solve 3D mode: preprocess in old mesh
             with timed_stage('salt_eq'):
                 if self.options.solve_salt:
-                    self.timestepper_salt_3d.prepare_stage(i_stage)
+                    self.timestepper_salt_3d.prepare_stage(i_stage, t, update_forcings3d)
             with timed_stage('temp_eq'):
                 if self.options.solve_temp:
-                    self.timestepper_temp_3d.prepare_stage(i_stage)
+                    self.timestepper_temp_3d.prepare_stage(i_stage, t, update_forcings3d)
             with timed_stage('turb_advection'):
                 if self.options.use_turbulence_advection:
-                    self.timestepper_tke_adv_eq.prepare_stage(i_stage)
-                    self.timestepper_psi_adv_eq.prepare_stage(i_stage)
+                    self.timestepper_tke_adv_eq.prepare_stage(i_stage, t, update_forcings3d)
+                    self.timestepper_psi_adv_eq.prepare_stage(i_stage, t, update_forcings3d)
             with timed_stage('momentum_eq'):
-                self.timestepper_mom_3d.prepare_stage(i_stage)
+                self.timestepper_mom_3d.prepare_stage(i_stage, t, update_forcings3d)
 
             # update mesh
             self._update_3d_elevation()
             self._update_moving_mesh()
 
-            # solve 3D mode: preprocess in old mesh
+            # solve 3D mode
             with timed_stage('salt_eq'):
                 if self.options.solve_salt:
-                    self.timestepper_salt_3d.solve_stage(i_stage, t, update_forcings3d)
+                    self.timestepper_salt_3d.solve_stage(i_stage)
                     if self.options.use_limiter_for_tracers:
                         self.solver.tracer_limiter.apply(self.fields.salt_3d)
             with timed_stage('temp_eq'):
                 if self.options.solve_temp:
-                    self.timestepper_temp_3d.solve_stage(i_stage, t, update_forcings3d)
+                    self.timestepper_temp_3d.solve_stage(i_stage)
                     if self.options.use_limiter_for_tracers:
                         self.solver.tracer_limiter.apply(self.fields.temp_3d)
             with timed_stage('turb_advection'):
                 if self.options.use_turbulence_advection:
-                    self.timestepper_tke_adv_eq.solve_stage(i_stage, t, update_forcings3d)
-                    self.timestepper_psi_adv_eq.solve_stage(i_stage, t, update_forcings3d)
+                    self.timestepper_tke_adv_eq.solve_stage(i_stage)
+                    self.timestepper_psi_adv_eq.solve_stage(i_stage)
             with timed_stage('momentum_eq'):
-                self.timestepper_mom_3d.solve_stage(i_stage, t, update_forcings3d)
+                self.timestepper_mom_3d.solve_stage(i_stage)
 
             # update coupling terms
             last = i_stage == self.n_stages - 1
 
-            self._update_2d_coupling()
+            if last:
+                self._update_2d_coupling()
             self._update_baroclinicity()
             self._update_bottom_friction()
             if i_stage == last and self.options.solve_vert_diffusion:

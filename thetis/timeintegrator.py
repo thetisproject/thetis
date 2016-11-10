@@ -474,6 +474,7 @@ class SSPRK22ALE(TimeIntegrator):
         self._nontrivial = self.l != 0
 
         self.cfl_coeff = 1.0
+        self.n_stages = 2
         self.c = [0, 1]
 
     def initialize(self, solution):
@@ -550,21 +551,21 @@ class SSPRK22ALE(TimeIntegrator):
             with timed_region('sol2_solve'):
                 self.lin_solver.solve(self.solution, self.mu)
 
-    def solve_stage(self, i_stage, t, update_forcings):
+    def solve_stage(self, i_stage):
         """Solves stage i_stage"""
-        if update_forcings is not None:
-            update_forcings(t + self.c[i_stage]*self.dt)
         if i_stage == 0:
             self.stage_one_solve()
         else:
             self.stage_two_solve()
 
-    def prepare_stage(self, i_stage):
+    def prepare_stage(self, i_stage, t, update_forcings=None):
         """
         Preprocess stage i_stage.
 
         This must be called prior to updating mesh geometry.
         """
+        if update_forcings is not None:
+            update_forcings(t + self.c[i_stage]*self.dt)
         if i_stage == 0:
             self.stage_one_prep()
         else:
@@ -572,11 +573,9 @@ class SSPRK22ALE(TimeIntegrator):
 
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
-        if self._nontrivial:
-            self.stage_one_prep()
-            self.stage_one_solve()
-            self.stage_one_prep()
-            self.stage_two_solve()
+        for i_stage in range(self.n_stages):
+            self.prepare_stage(i_stage, t, update_forcings)
+            self.solve_stage(i_stage)
 
 
 class TwoStageTrapezoid(TimeIntegrator):
