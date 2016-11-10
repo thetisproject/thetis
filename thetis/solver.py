@@ -170,9 +170,10 @@ class FlowSolver(FrozenClass):
         if isinstance(nu_scale, FiredrakeConstant):
             nu = nu_scale.dat.data[0]
         min_dx = self.fields.h_elem_size_2d.dat.data.min()
-        # alpha = 0.25 if self.options.element_family == 'rt-dg' else 1.0
-        # dt = 0.75*alpha*1.0/60.0/(self.options.order + 1)*(min_dx)**2/nu
-        min_dx *= 1.5*self.compute_dx_factor()
+        factor = 2.0
+        if self.options.timestepper_type == 'leapfrog':
+            factor = 1.2
+        min_dx *= factor*self.compute_dx_factor()
         dt = (min_dx)**2/nu
         dt = self.comm.allreduce(dt, op=MPI.MIN)
         return dt
