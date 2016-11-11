@@ -196,7 +196,7 @@ def order(request):
     return request.param
 
 
-@pytest.fixture(params=[pytest.mark.not_travis(reason='mysterious travis bug')(True), False], ids=['implicit', 'explicit'])
+@pytest.fixture(params=[pytest.mark.skip(reason='mysterious travis bug')(True), False], ids=['implicit', 'explicit'])
 def implicit(request):
     return request.param
 
