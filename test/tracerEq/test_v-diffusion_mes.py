@@ -195,7 +195,8 @@ def implicit(request):
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
                          [('ssprk33', False),
-                          ('leapfrog', True)])
+                          ('leapfrog', True),
+                          ('ssprk22', True)])
 def test_vertical_diffusion(order, implicit, stepper, use_ale):
     run_convergence([1, 2, 4], order=order, implicit=implicit,
                     timestepper_type=stepper,
@@ -207,9 +208,9 @@ def test_vertical_diffusion(order, implicit, stepper, use_ale):
 
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], order=1,
+    run_convergence([1, 2, 3], order=0,
                     implicit=False,
                     element_family='dg-dg',
-                    timestepper_type='leapfrog',
+                    timestepper_type='ssprk22',
                     use_ale_moving_mesh=True,
                     no_exports=False, saveplot=True)

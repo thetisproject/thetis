@@ -113,7 +113,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options = solver_obj.options
     options.order = poly_order
     options.element_family = element_family
-    options.timestepper_type = 'leapfrog'
+    options.timestepper_type = 'ssprk22'
     options.solve_salt = False
     options.constant_salt = Constant(salt_const)
     options.solve_temp = True

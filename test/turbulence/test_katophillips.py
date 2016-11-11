@@ -128,6 +128,7 @@ def run_katophillips(**model_options):
     rel_err = (ml_depth - target)/target
     assert rel_err > -rtol, 'mixed layer is too shallow: {:} < {:}'.format(ml_depth, target)
     assert rel_err < rtol, 'mixed layer is too deep: {:} > {:}'.format(ml_depth, target)
+    print_output('Mixed layer depth: {:.2f} (target: {:.2f}) PASSED'.format(ml_depth, target))
 
 
 @pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')('rt-dg'),
@@ -137,7 +138,8 @@ def element_family(request):
 
 
 @pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')('ssprk33'),
-                        'leapfrog'])
+                        'leapfrog',
+                        'ssprk22'])
 def timestepper_type(request):
     return request.param
 
@@ -148,4 +150,6 @@ def test_katophillips(element_family, timestepper_type):
 
 
 if __name__ == '__main__':
-    run_katophillips(no_exports=False)
+    run_katophillips(element_family='dg-dg',
+                     timestepper_type='ssprk22',
+                     no_exports=False)

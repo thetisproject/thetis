@@ -206,7 +206,8 @@ def warped(request):
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
                          [('ssprk33', False),
-                          ('leapfrog', True)])
+                          ('leapfrog', True),
+                          ('ssprk22', True)])
 def test_horizontal_diffusion(warped, order, stepper, use_ale):
     run_convergence([1, 2, 3], order=order,
                     warped_mesh=warped,
@@ -222,6 +223,6 @@ if __name__ == '__main__':
     run_convergence([1, 2, 3], order=1,
                     warped_mesh=True,
                     element_family='dg-dg',
-                    timestepper_type='leapfrog',
+                    timestepper_type='ssprk22',
                     use_ale_moving_mesh=True,
                     no_exports=False, saveplot=True)

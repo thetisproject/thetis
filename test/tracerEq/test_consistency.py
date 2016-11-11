@@ -166,7 +166,7 @@ def test_consistency_fixed_mesh(element_family, meshtype, timestepper_type):
 @pytest.mark.parametrize('meshtype', ['regular',
                                       pytest.mark.not_travis(reason='travis timeout')('sloped'),
                                       pytest.mark.not_travis(reason='travis timeout')('warped')])
-@pytest.mark.parametrize('timestepper_type', ['leapfrog'])
+@pytest.mark.parametrize('timestepper_type', ['leapfrog', 'ssprk22'])
 def test_ale_const_tracer(element_family, meshtype, timestepper_type):
     """
     Test ALE timeintegrators without slope limiters
@@ -189,6 +189,7 @@ def test_ale_const_tracer(element_family, meshtype, timestepper_type):
                                       pytest.mark.not_travis(reason='travis timeout')('warped')])
 @pytest.mark.parametrize('timestepper_type', [pytest.mark.skip(reason='obsolete')('imexale'),
                                               'leapfrog',
+                                              'ssprk22',
                                               pytest.mark.skip(reason='obsolete')('erkale')])
 def test_ale_nonconst_tracer(element_family, meshtype, timestepper_type):
     """

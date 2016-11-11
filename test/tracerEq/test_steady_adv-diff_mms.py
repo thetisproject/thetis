@@ -6,9 +6,10 @@ Tuomas Karna 2015-11-28
 from thetis import *
 import numpy
 from scipy import stats
+import pytest
 
 
-def setup1(lx, ly, h0, kappa0, element_family='rt-dg'):
+def setup1(lx, ly, h0, kappa0):
     """
     Constant bathymetry and u velocty, zero diffusivity, non-trivial tracer
     """
@@ -30,18 +31,11 @@ def setup1(lx, ly, h0, kappa0, element_family='rt-dg'):
     out['res_expr'] = Expression(
         '0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx',
         lx=lx)
-    out['options'] = {'element_family': element_family}
+    out['options'] = {}
     return out
 
 
-def setup1dg(lx, ly, h0, kappa0):
-    """
-    Constant bathymetry and u velocty, zero diffusivity, non-trivial tracer
-    """
-    return setup1(lx, ly, h0, kappa0, element_family='dg-dg')
-
-
-def setup2(lx, ly, h0, kappa0, element_family='rt-dg'):
+def setup2(lx, ly, h0, kappa0):
     """
     constant bathymetry, zero velocity, constant kappa, x-varying T
     """
@@ -65,18 +59,11 @@ def setup2(lx, ly, h0, kappa0, element_family='rt-dg'):
     out['res_expr'] = Expression(
         '9*(pi*pi)*kappa0*sin(3*pi*x[0]/lx)/(lx*lx)',
         kappa0=kappa0, lx=lx)
-    out['options'] = {'element_family': element_family}
+    out['options'] = {}
     return out
 
 
-def setup2dg(lx, ly, h0, kappa0):
-    """
-    constant bathymetry, zero velocity, constant kappa, x-varying T
-    """
-    return setup2(lx, ly, h0, kappa0, element_family='dg-dg')
-
-
-def setup3(lx, ly, h0, kappa0, element_family='rt-dg'):
+def setup3(lx, ly, h0, kappa0):
     """
     constant bathymetry, zero kappa, non-trivial velocity and T
     """
@@ -100,18 +87,11 @@ def setup3(lx, ly, h0, kappa0, element_family='rt-dg'):
     out['res_expr'] = Expression(
         '-0.4*pi*(0.3*h0*cos(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))*cos(pi*x[2]/h0)/ly + 0.3*h0*cos(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))/ly + 2*h0*cos(pi*(x[1]/ly + 2*x[0]/lx))*cos(pi*x[2]/h0)/lx + 2*h0*cos(pi*(x[1]/ly + 2*x[0]/lx))/lx)*sin(0.5*pi*x[2]/h0)*cos(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))/h0 - 0.75*pi*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*sin(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))*sin(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))*sin(pi*x[2]/h0)/ly - 1.5*pi*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*sin(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))*sin(pi*(x[1]/ly + 2*x[0]/lx))*sin(pi*x[2]/h0)/lx',
         h0=h0, lx=lx, ly=ly)
-    out['options'] = {'element_family': element_family}
+    out['options'] = {}
     return out
 
 
-def setup3dg(lx, ly, h0, kappa0):
-    """
-    constant bathymetry, zero kappa, non-trivial velocity and T
-    """
-    return setup3(lx, ly, h0, kappa0, element_family='dg-dg')
-
-
-def setup4(lx, ly, h0, kappa0, element_family='rt-dg'):
+def setup4(lx, ly, h0, kappa0):
     """
     constant bathymetry, constant kappa, non-trivial velocity and T
     """
@@ -137,18 +117,11 @@ def setup4(lx, ly, h0, kappa0, element_family='rt-dg'):
     out['res_expr'] = Expression(
         '-0.4*pi*(0.3*h0*cos(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))*cos(pi*x[2]/h0)/ly + 0.3*h0*cos(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))/ly + 2*h0*cos(pi*(x[1]/ly + 2*x[0]/lx))*cos(pi*x[2]/h0)/lx + 2*h0*cos(pi*(x[1]/ly + 2*x[0]/lx))/lx)*sin(0.5*pi*x[2]/h0)*cos(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))/h0 - 0.75*pi*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*sin(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))*sin(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))*sin(pi*x[2]/h0)/ly - 0.5625*(pi*pi)*kappa0*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*cos(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))/(ly*ly) - 1.5*pi*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*sin(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))*sin(pi*(x[1]/ly + 2*x[0]/lx))*sin(pi*x[2]/h0)/lx + 2.25*(pi*pi)*kappa0*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*cos(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))/(lx*lx)',
         h0=h0, kappa0=kappa0, lx=lx, ly=ly)
-    out['options'] = {'element_family': element_family}
+    out['options'] = {}
     return out
 
 
-def setup4dg(lx, ly, h0, kappa0):
-    """
-    constant bathymetry, constant kappa, non-trivial velocity and T
-    """
-    return setup4(lx, ly, h0, kappa0, element_family='dg-dg')
-
-
-def run(setup, refinement, order, do_export=True):
+def run(setup, refinement, order, do_export=True, **options):
     """Run single test and return L2 error"""
     print_output('--- running {:} refinement {:}'.format(setup.__name__, refinement))
     # domain dimensions
@@ -156,8 +129,8 @@ def run(setup, refinement, order, do_export=True):
     ly = 10e3
     area = lx*ly
     depth = 40.0
-    kappa0 = 5.0e2
-    t_end = 100.0
+    kappa0 = 50.0
+    t_end = 200.0
 
     sdict = setup(lx, ly, depth, kappa0)
 
@@ -178,6 +151,7 @@ def run(setup, refinement, order, do_export=True):
     bathymetry_2d.project(sdict['bath_expr'])
 
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
+    solver_obj.options.element_family = 'dg-dg'
     solver_obj.options.order = order
     solver_obj.options.u_advection = Constant(1.0)
     solver_obj.options.no_exports = not do_export
@@ -185,8 +159,8 @@ def run(setup, refinement, order, do_export=True):
     solver_obj.options.t_end = t_end
     solver_obj.options.fields_to_export = ['salt_3d', 'uv_3d', 'w_3d']
     solver_obj.options.update(sdict['options'])
-    options.h_diffusivity = Constant(kappa0)
-    options.nu_viscosity = Constant(kappa0)
+    solver_obj.options.nu_viscosity = Constant(kappa0)
+    solver_obj.options.update(options)
 
     solver_obj.create_function_spaces()
 
@@ -198,6 +172,7 @@ def run(setup, refinement, order, do_export=True):
     # diffusivuty
     kappa = Function(solver_obj.function_spaces.P1, name='diffusivity')
     kappa.project(sdict['kappa_expr'])
+    solver_obj.options.h_diffusivity = kappa
 
     # analytical solution in high-order space for computing L2 norms
     h_ho = FunctionSpace(solver_obj.mesh, 'DG', order+3)
@@ -237,11 +212,9 @@ def run(setup, refinement, order, do_export=True):
     ti.timestepper_salt_3d.initialize(ti.fields.salt_3d)
     t = 0
     while t < t_end - 1e-5:
-        for k in range(ti.n_stages):
-            last_step = k == ti.n_stages - 1
-            ti.timestepper_salt_3d.solve_stage(k, t)
-            if ti.options.use_limiter_for_tracers and last_step:
-                ti.solver.tracer_limiter.apply(ti.fields.salt_3d)
+        ti.timestepper_salt_3d.advance(t)
+        if ti.options.use_limiter_for_tracers:
+            ti.solver.tracer_limiter.apply(ti.fields.salt_3d)
         t += dt
 
     if do_export:
@@ -254,11 +227,11 @@ def run(setup, refinement, order, do_export=True):
     return l2_err
 
 
-def run_convergence(setup, ref_list, order, do_export=False, save_plot=False):
+def run_convergence(setup, ref_list, order, do_export=False, save_plot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
     l2_err = []
     for r in ref_list:
-        l2_err.append(run(setup, r, order, do_export=do_export))
+        l2_err.append(run(setup, r, order, do_export=do_export, **options))
     x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
     y_log = numpy.log10(numpy.array(l2_err))
 
@@ -303,22 +276,28 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False):
 
     check_convergence(x_log, y_log, order+1, 'tracer', save_plot)
 
-# NOTE here mimetic option has no effect -- both use p1dg for tracers
-# NOTE with diffusivity convergence rate is only 1.7, 2.0 without
-# NOTE external-tracer-value BC and symmetric diffusion flux work fine
-# TODO add more BCs
 
 # ---------------------------
 # standard tests for pytest
 # ---------------------------
 
+@pytest.fixture(params=['leapfrog', 'ssprk22'])
+def timestepper_type(request):
+    return request.param
 
-def test_setup3_dg():
-    run_convergence(setup3dg, [1, 2, 3], 1, save_plot=False)
+
+@pytest.fixture(params=[pytest.mark.not_travis(reason='travis will timeout')(setup1),
+                        pytest.mark.not_travis(reason='travis will timeout')(setup2),
+                        setup3,
+                        setup4],
+                ids=['setup1', 'setup2', 'setup3', 'setup4'])
+def setup(request):
+    return request.param
 
 
-def test_setup4_dg():
-    run_convergence(setup4dg, [1, 2, 3], 1, save_plot=False)
+def test_convergence(setup, timestepper_type):
+    run_convergence(setup, [1, 2, 3], 1, save_plot=False, timestepper_type=timestepper_type)
+
 
 # ---------------------------
 # run individual setup for debugging
@@ -332,4 +311,4 @@ def test_setup4_dg():
 
 
 if __name__ == '__main__':
-    run_convergence(setup3dg, [1, 2, 3, 4, 6], 1, save_plot=True)
+    run_convergence(setup4, [1, 2, 3], 1, save_plot=True, timestepper_type='ssprk22')

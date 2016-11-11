@@ -187,12 +187,13 @@ def warped(request):
 
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
-                         [('ssprk33', False),
-                          ('leapfrog', True)])
+                         [pytest.mark.not_travis(reason='travis timeout')(('ssprk33', False)),
+                          ('leapfrog', True),
+                          ('ssprk22', True)])
 @pytest.mark.parametrize(('family', 'order'),
                          [pytest.mark.not_travis(reason='travis timeout')(('dg-dg', 0)),
                           ('dg-dg', 1),
-                          pytest.mark.xfail(reason='rt-0 still broken')(('rt-dg', 0)),
+                          pytest.mark.skip(reason='rt-0 still broken')(('rt-dg', 0)),
                           pytest.mark.not_travis(reason='travis timeout')(('rt-dg', 1))])
 def test_horizontal_viscosity(warped, order, family, stepper, use_ale):
     run_convergence([1, 2, 3], order=order, warped_mesh=warped,
