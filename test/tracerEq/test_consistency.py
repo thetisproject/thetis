@@ -121,8 +121,11 @@ def run_tracer_consistency(element_family='dg-dg', meshtype='regular', do_export
     assert max_abs_overshoot < overshoot_tol, msg
 
 
-@pytest.mark.parametrize('element_family', ['dg-dg', 'rt-dg'])
-@pytest.mark.parametrize('meshtype', ['regular', 'sloped', 'warped'])
+@pytest.mark.parametrize('element_family', ['dg-dg',
+                                            pytest.mark.not_travis(reason='travis timeout')('rt-dg')])
+@pytest.mark.parametrize('meshtype', ['regular',
+                                      'sloped',
+                                      pytest.mark.not_travis(reason='travis timeout')('warped')])
 def test_consistency_dg_regular(element_family, meshtype):
     run_tracer_consistency(element_family=element_family, meshtype=meshtype, do_export=False)
 

@@ -186,7 +186,7 @@ def run_convergence(ref_list, saveplot=False, **options):
 # ---------------------------
 
 
-@pytest.fixture(params=['rt-dg', 'dg-dg'])
+@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')('rt-dg'), 'dg-dg'])
 def element_family(request):
     return request.param
 
@@ -196,7 +196,7 @@ def order(request):
     return request.param
 
 
-@pytest.fixture(params=[pytest.mark.xfail(reason='mysterious travis bug')(True), False], ids=['implicit', 'explicit'])
+@pytest.fixture(params=[pytest.mark.not_travis(reason='mysterious travis bug')(True), False], ids=['implicit', 'explicit'])
 def implicit(request):
     return request.param
 

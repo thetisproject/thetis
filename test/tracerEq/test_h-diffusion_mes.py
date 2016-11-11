@@ -187,12 +187,13 @@ def run_convergence(ref_list, saveplot=False, **options):
 # ---------------------------
 
 
-@pytest.fixture(params=[0, 1])
+@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')(0), 1])
 def order(request):
     return request.param
 
 
-@pytest.fixture(params=[True, False], ids=['warped', 'regular'])
+@pytest.fixture(params=[True, False], ids=[pytest.mark.not_travis(reason='travis timeout')('warped'),
+                                           'regular'])
 def warped(request):
     return request.param
 

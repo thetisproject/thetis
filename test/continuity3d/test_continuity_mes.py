@@ -376,8 +376,7 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False):
 # standard tests for pytest
 # ---------------------------
 
-
-@pytest.mark.not_travis
+@pytest.mark.not_travis(reason='travis out-of-memory')
 def test_setup5_dg():
     run_convergence(setup5dg, [1, 2, 3], 1, save_plot=False)
 
