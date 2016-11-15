@@ -187,6 +187,7 @@ def update_forcings(t):
     bnd_elev_solver.solve()
     cp_bnd_elev_to_3d.solve()
 
+
 solver_obj.assign_initial_conditions(elev=elev_init, salt=salt_init3d, uv_2d=uv_init)
 solver_obj.iterate(update_forcings=update_forcings)
 

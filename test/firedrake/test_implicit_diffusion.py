@@ -206,5 +206,6 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
         l2_threshold = 1e-4
         assert l2_err < l2_threshold, 'L2 error exceeds threshold'
 
+
 if __name__ == '__main__':
     test_implicit_diffusion(do_export=True, do_assert=True)

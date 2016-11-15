@@ -110,6 +110,7 @@ def jfunc(m):
     Jm = assemble(integral)
     return Jm
 
+
 success = replay_dolfin(tol=0.0, stop=False)
 print_output(solver_obj.fields.solution_2d.vector().array()[0:10])
 Jhat = ReducedFunctional(J, c)

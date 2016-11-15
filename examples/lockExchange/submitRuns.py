@@ -209,5 +209,6 @@ def parse_options():
     for comb in combinations:
         launch_run(scriptname, comb, label_to_optstr)
 
+
 if __name__ == '__main__':
     parse_options()

@@ -116,5 +116,6 @@ def test_closed_channel(do_export=False):
     solver_obj.iterate(update_forcings=update_forcings,
                        update_forcings3d=update_forcings3d)
 
+
 if __name__ == '__main__':
     test_closed_channel(do_export=True)

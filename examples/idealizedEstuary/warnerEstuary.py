@@ -143,5 +143,6 @@ def update_forcings(t_new):
     ocean_flux.assign(ocean_flux_func(t_new))
     river_flux.assign(river_flux_func(t_new))
 
+
 solverobj.assign_initial_conditions(salt=salt_init3d)
 solverobj.iterate(update_forcings=update_forcings)

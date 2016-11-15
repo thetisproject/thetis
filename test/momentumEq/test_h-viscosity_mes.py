@@ -206,5 +206,6 @@ def test_horizontal_viscosity(warped, order, family):
 # run individual setup for debugging
 # ---------------------------
 
+
 if __name__ == '__main__':
     run_convergence([1, 2, 3], order=1, warped_mesh=True, element_family='rt-dg', do_export=True, saveplot=True)

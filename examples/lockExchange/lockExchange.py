@@ -258,5 +258,6 @@ def parse_options():
     args_dict = vars(args)
     run_lockexchange(**args_dict)
 
+
 if __name__ == '__main__':
     parse_options()

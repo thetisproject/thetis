@@ -204,5 +204,6 @@ def test_horizontal_diffusion(warped, order):
 # run individual setup for debugging
 # ---------------------------
 
+
 if __name__ == '__main__':
     run_convergence([1, 2, 3], order=0, warped_mesh=False, do_export=True, saveplot=True)

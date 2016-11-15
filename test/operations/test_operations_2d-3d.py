@@ -169,6 +169,7 @@ def test_copy_2d_field_to_3d_vec(uv_2d, uv_3d):
     assert np.allclose(uv_3d.dat.data_ro[:, 0], 4.0)
     assert np.allclose(uv_3d.dat.data_ro[:, 1], 8.0)
 
+
 if __name__ == '__main__':
     """Run all tests"""
     import os

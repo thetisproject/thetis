@@ -138,5 +138,6 @@ def convergence_test(ref_list, order=1, export=False, saveplot=False):
 def test_divergence_2d():
     convergence_test([1, 2, 4, 8])
 
+
 if __name__ == '__main__':
     test_divergence_2d()

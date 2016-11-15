@@ -111,6 +111,7 @@ def update_forcings3d(t_new):
     ocean_flux.assign(ocean_flux_func(t_new))
     river_flux.assign(river_flux_func(t_new))
 
+
 # set init conditions, this will create all function spaces, equations etc
 solver_obj.assign_initial_conditions(salt=salt_init3d)
 solver_obj.iterate(update_forcings=update_forcings,

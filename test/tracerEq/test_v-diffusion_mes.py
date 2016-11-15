@@ -198,5 +198,6 @@ def test_vertical_diffusion(order, implicit):
 # run individual setup for debugging
 # ---------------------------
 
+
 if __name__ == '__main__':
     run_convergence([1, 2, 3], order=0, implicit=True)

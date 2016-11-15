@@ -45,6 +45,7 @@ def bath(x, y, z):
     vals0 = np.hstack(([bath_v[0]], bath_v, [bath_v[-1]]))
     return interp1d(x0, vals0)(x)
 
+
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 bathymetry_2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
 
@@ -72,6 +73,7 @@ def elevation(x, y, z, x_array, val_array):
     x0 = np.hstack(([-padval], x_array, [padval]))
     vals0 = np.hstack(([val_array[0]], val_array, [val_array[-1]]))
     return interp1d(x0, vals0)(x)
+
 
 x_func = Function(P1_2d).interpolate(Expression('x[0]'))
 elev_init = Function(P1_2d)

@@ -208,5 +208,6 @@ def test_vertical_viscosity(order, implicit, element_family):
 # run individual setup for debugging
 # ---------------------------
 
+
 if __name__ == '__main__':
     run_convergence([1, 2, 3], order=1, implicit=False, element_family='dg-dg', saveplot=True)

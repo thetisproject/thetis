@@ -20,6 +20,7 @@ def load_function(var, export_ix):
     h5reader.load(export_ix, func)
     return func
 
+
 # construct plot coordinates
 npoints = layers*6
 z_max = -(depth - 1e-10)

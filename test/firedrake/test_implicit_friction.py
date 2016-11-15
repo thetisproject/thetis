@@ -159,5 +159,6 @@ def test_implicit_friction(do_export=False, do_assert=True):
         assert np.abs(u_max - target_u_max) < target_u_tol, 'maximum u velocity is wrong'
         print('*** PASSED ***')
 
+
 if __name__ == '__main__':
     test_implicit_friction()
