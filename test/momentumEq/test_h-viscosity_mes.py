@@ -194,10 +194,10 @@ def warped(request):
 
 
 @pytest.mark.parametrize(('family', 'order'),
-                         [('dg-dg', 0),
+                         [pytest.mark.not_travis(reason='travis timeout')(('dg-dg', 0)),
                           ('dg-dg', 1),
                           pytest.mark.xfail(reason='rt-0 still broken')(('rt-dg', 0)),
-                          ('rt-dg', 1)])
+                          pytest.mark.not_travis(reason='travis timeout')(('rt-dg', 1))])
 def test_horizontal_viscosity(warped, order, family):
     run_convergence([1, 2, 3], order=order, warped_mesh=warped,
                     element_family=family)

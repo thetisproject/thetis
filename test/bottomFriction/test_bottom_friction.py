@@ -132,13 +132,14 @@ def run_bottom_friction(parabolic_visosity=False, element_family='dg-dg',
         print_output('L2 error {:.4f} PASSED'.format(uv_l2_err))
 
 
-@pytest.fixture(params=[pytest.mark.skip(reason='travis is timing out')(True),
+@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')(True),
                         False], ids=['parabolic_visosity', 'gls_model'])
 def parabolic_visosity(request):
     return request.param
 
 
-@pytest.fixture(params=['rt-dg', 'dg-dg'])
+@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')('rt-dg'),
+                        'dg-dg'])
 def element_family(request):
     return request.param
 
