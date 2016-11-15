@@ -51,16 +51,29 @@ pipeline:
       - . firedrake/bin/activate
       # scipy for the adjoint tests
       - pip install scipy
+      - pip install pytest-cov
 
       # We're going to run the tests as the thetis user, so get permissions right.
       - chown -R thetis.thetis $THETIS_HOME
 
       - cd $THETIS_HOME
       # Run tests as the thetis user, pushing in the current path.
-      - sudo -EHu thetis env PATH="$PATH" py.test -n 4 -v $GIT_SOURCE_DIR/test/
+      - sudo -EHu thetis env PATH="$PATH" py.test --cov $GIT_SOURCE_DIR/thetis -n 4 -v $GIT_SOURCE_DIR/test/
 
       # Now the adjoint tests
-      - sudo -EHu thetis env PATH="$PATH" py.test -n 2 -v $GIT_SOURCE_DIR/test_adjoint/
+      - sudo -EHu thetis env PATH="$PATH" py.test --cov-append --cov $GIT_SOURCE_DIR/thetis --cov $GIT_SOURCE_DIR/thetis_adjoint -n 2 -v $GIT_SOURCE_DIR/test_adjoint/
+
+      - coverage xml -o /drone/src/coverage.xml
+  codecov:
+    image: alpine:3.3
+    pull: true
+    environment:
+      - CI_BUILD_URL=${DRONE_BUILD_LINK}
+    commands:
+      - apk add --no-cache curl bash git
+      - curl -s https://codecov.io/bash > codecov
+      - chmod 755 ./codecov
+      - ./codecov -X gcov -r "$DRONE_REPO" -B "$DRONE_BRANCH" -C "$DRONE_COMMIT" -b "$DRONE_BUILD_NUMBER" -P "$DRONE_PULL_REQUEST" -T "$DRONE_TAG"
   # Slack notification
   slack:
     image: plugins/slack
