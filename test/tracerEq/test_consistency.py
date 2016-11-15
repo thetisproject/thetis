@@ -147,8 +147,11 @@ def run_tracer_consistency(**model_options):
         assert max_abs_overshoot < overshoot_tol, msg
 
 
-@pytest.mark.parametrize('element_family', ['dg-dg', 'rt-dg'])
-@pytest.mark.parametrize('meshtype', ['regular', 'sloped', 'warped'])
+@pytest.mark.parametrize('element_family', ['dg-dg',
+                                            pytest.mark.not_travis(reason='travis timeout')('rt-dg')])
+@pytest.mark.parametrize('meshtype', ['regular',
+                                      pytest.mark.not_travis(reason='travis timeout')('sloped'),
+                                      pytest.mark.not_travis(reason='travis timeout')('warped')])
 @pytest.mark.parametrize('timestepper_type', ['ssprk33'])
 def test_consistency_fixed_mesh(element_family, meshtype, timestepper_type):
     run_tracer_consistency(element_family=element_family,
@@ -158,8 +161,11 @@ def test_consistency_fixed_mesh(element_family, meshtype, timestepper_type):
                            no_exports=True)
 
 
-@pytest.mark.parametrize('element_family', ['dg-dg', 'rt-dg'])
-@pytest.mark.parametrize('meshtype', ['regular', 'sloped', 'warped'])
+@pytest.mark.parametrize('element_family', ['dg-dg',
+                                            pytest.mark.not_travis(reason='travis timeout')('rt-dg')])
+@pytest.mark.parametrize('meshtype', ['regular',
+                                      pytest.mark.not_travis(reason='travis timeout')('sloped'),
+                                      pytest.mark.not_travis(reason='travis timeout')('warped')])
 @pytest.mark.parametrize('timestepper_type', ['leapfrog'])
 def test_ale_const_tracer(element_family, meshtype, timestepper_type):
     """
@@ -179,9 +185,11 @@ def test_ale_const_tracer(element_family, meshtype, timestepper_type):
 @pytest.mark.parametrize('element_family', ['dg-dg',
                                             pytest.mark.not_travis(reason='travis timeout')('rt-dg')])
 @pytest.mark.parametrize('meshtype', ['regular',
-                                      'sloped',
+                                      pytest.mark.not_travis(reason='travis timeout')('sloped'),
                                       pytest.mark.not_travis(reason='travis timeout')('warped')])
-@pytest.mark.parametrize('timestepper_type', ['imexale', 'leapfrog', 'erkale'])
+@pytest.mark.parametrize('timestepper_type', [pytest.mark.skip(reason='obsolete')('imexale'),
+                                              'leapfrog',
+                                              pytest.mark.skip(reason='obsolete')('erkale')])
 def test_ale_nonconst_tracer(element_family, meshtype, timestepper_type):
     """
     Test ALE timeintegrators with slope limiters

@@ -180,7 +180,8 @@ def run_convergence(ref_list, saveplot=False, **options):
 # NOTE mimetic elements do not converge optimally, rate is 1.48
 
 
-@pytest.fixture(params=[True, False], ids=['warped', 'regular'])
+@pytest.fixture(params=[True, False], ids=[pytest.mark.not_travis(reason='travis timeout')('warped'),
+                                           'regular'])
 def warped(request):
     return request.param
 
