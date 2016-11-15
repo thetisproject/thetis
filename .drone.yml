@@ -61,3 +61,10 @@ pipeline:
 
       # Now the adjoint tests
       - sudo -EHu thetis env PATH="$PATH" py.test -n 2 -v $GIT_SOURCE_DIR/test_adjoint/
+  # Slack notification
+  slack:
+    image: plugins/slack
+    channel: drone
+    user: drone
+    when:
+      status: [ success, failure ]
