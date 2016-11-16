@@ -337,7 +337,7 @@ class FlowSolver(FrozenClass):
         self.fields.uv_3d = Function(self.function_spaces.U)
         if self.options.use_bottom_friction:
             self.fields.uv_bottom_3d = Function(self.function_spaces.P1v)
-            self.fields.bottom_drag_3d = Function(self.function_spaces.P1)
+            self.fields.bottom_drag_3d = Function(coord_fs)
         self.fields.bathymetry_2d = Function(coord_fs_2d)
         self.fields.bathymetry_3d = Function(coord_fs)
         # z coordinate in the strecthed mesh
