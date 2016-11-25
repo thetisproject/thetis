@@ -7,6 +7,7 @@ coefficients, and can be used to implement generic time integrators.
 from __future__ import absolute_import
 from .timeintegrator import *
 from abc import ABCMeta, abstractproperty
+import operator
 
 CFL_UNCONDITIONALLY_STABLE = np.inf
 
@@ -500,6 +501,16 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
                               self.equation.residual(terms_to_add, u, self.solution_old, fields, fields, bnd_conditions))
         self.update_solver()
 
+        # construct expressions for stage solutions
+        self.sol_expressions = []
+        for i_stage in range(self.n_stages):
+            sol_expr = reduce(operator.add,
+                              map(operator.mul, self.k[:i_stage+1], self.dt_const*self.a[i_stage][:i_stage+1]))
+            self.sol_expressions.append(sol_expr)
+        self.final_sol_expr = reduce(operator.add,
+                                     map(operator.mul, self.k, self.dt_const*self.b),
+                                     self.solution_old)
+
     def update_solver(self):
         self.solver = []
         for i in xrange(self.n_stages):
@@ -521,9 +532,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
 
         Tendencies must have been evaluated first.
         """
-        # self.solution.assign(self.solution_old)
-        for j in range(i_stage + 1):
-            self.solution += self.a[i_stage][j]*self.dt_const*self.k[j]
+        self.solution += self.sol_expressions[i_stage]
 
     def solve_tendency(self, i_stage, t, update_forcings=None):
         """
@@ -539,10 +548,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         self.solver[i_stage].solve()
 
     def get_final_solution(self):
-        self.solution.assign(self.solution_old)
-        for j in range(self.n_stages):
-            self.solution += self.dt_const*self.b[j]*self.k[j]
-        # self.solution_old.assign(self.solution)
+        self.solution.assign(self.final_sol_expr)
 
     def solve_stage(self, i_stage, t, update_forcings=None):
         self.solve_tendency(i_stage, t, update_forcings)
@@ -608,6 +614,17 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
         self.l_rk = self.dt_const*self.equation.residual(terms_to_add, self.solution, self.solution, self.fields, self.fields, bnd_conditions)
 
         self._nontrivial = self.l_rk != 0
+
+        # construct expressions for stage solutions
+        if self._nontrivial:
+            self.sol_expressions = []
+            for i_stage in range(self.n_stages):
+                sol_expr = reduce(operator.add,
+                                  map(operator.mul, self.tendency[:i_stage], self.a[i_stage][:i_stage]))
+                self.sol_expressions.append(sol_expr)
+            self.final_sol_expr = reduce(operator.add,
+                                         map(operator.mul, self.tendency, self.b))
+
         self.update_solver()
 
     def update_solver(self):
@@ -634,8 +651,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
         if not additive:
             self.solution.assign(self.solution_old)
         if self._nontrivial:
-            for j in range(i_stage):
-                self.solution += float(self.a[i_stage][j])*self.tendency[j]
+            self.solution += self.sol_expressions[i_stage]
 
     def solve_tendency(self, i_stage, t, update_forcings=None):
         """
@@ -650,8 +666,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
         if not additive:
             self.solution.assign(self.solution_old)
         if self._nontrivial:
-            for j in range(self.n_stages):
-                self.solution += float(self.b[j])*self.tendency[j]
+            self.solution += self.final_sol_expr
         self.solution_old.assign(self.solution)
 
     def solve_stage(self, i_stage, t, update_forcings=None):
@@ -673,7 +688,7 @@ class ERKGenericShuOsher(TimeIntegrator):
         self.tendency = Function(self.equation.function_space, name='tendency')
         self.stage_sol = []
         for i in range(self.n_stages):
-            s = Function(self.equation.function_space, name='sol'.format(i))
+            s = Function(self.equation.function_space, name='sol{:}'.format(i))
             self.stage_sol.append(s)
 
         # fully explicit evaluation
@@ -683,6 +698,18 @@ class ERKGenericShuOsher(TimeIntegrator):
                                                          self.fields, self.fields,
                                                          bnd_conditions)
         self._nontrivial = self.l_rk != 0
+
+        # construct expressions for stage solutions
+        if self._nontrivial:
+            self.sol_expressions = []
+            for i_stage in range(self.n_stages):
+                sol_expr = reduce(operator.add,
+                                  map(operator.mul,
+                                      self.stage_sol[:i_stage + 1],
+                                      self.alpha[i_stage + 1][:i_stage + 1]),
+                                  self.tendency*self.beta[i_stage + 1][i_stage])
+                self.sol_expressions.append(sol_expr)
+
         self.update_solver()
 
     def update_solver(self):
@@ -706,11 +733,8 @@ class ERKGenericShuOsher(TimeIntegrator):
             self.solver.solve()
 
             # solve the next internal solution
-            # BUG starting with sol_sum = 0 results in different solution!
-            sol_sum = float(self.beta[i_stage + 1][i_stage])*self.tendency
-            for j in range(i_stage + 1):
-                sol_sum += float(self.alpha[i_stage + 1][j])*self.stage_sol[j]
-            self.solution.assign(sol_sum)
+            self.solution.assign(self.sol_expressions[i_stage])
+
             if i_stage < self.n_stages - 1:
                 self.stage_sol[i_stage + 1].assign(self.solution)
 
@@ -745,6 +769,18 @@ class ERKGenericALE2(RungeKuttaTimeIntegrator):
 
         self._nontrivial = self.l_rk != 0
 
+        # construct expressions for stage solutions
+        self.sol_expressions = []
+        if self._nontrivial:
+            for i_stage in range(self.n_stages):
+                sol_expr = reduce(operator.add,
+                                  map(operator.mul, self.stage_mk[:i_stage], self.a[i_stage][:i_stage]),
+                                  self.msol_old)
+                self.sol_expressions.append(sol_expr)
+        self.final_sol_expr = reduce(operator.add,
+                                     map(operator.mul, self.stage_mk, self.b),
+                                     self.msol_old)
+
         self.update_solver()
 
     def update_solver(self):
@@ -763,10 +799,7 @@ class ERKGenericALE2(RungeKuttaTimeIntegrator):
         """
         if self._nontrivial:
             # construct full form: L = c*dt*F + M_n*sol_n + ...
-            # everything is assembled, just sum up functions
-            self.l_form.assign(self.msol_old)
-            for j in range(i_stage):
-                self.l_form += float(self.a[i_stage][j])*self.stage_mk[j]
+            self.l_form.assign(self.sol_expressions[i_stage])
 
             assemble(self.a_rk, self.A)
             solve(self.A, self.solution, self.l_form)
@@ -782,9 +815,7 @@ class ERKGenericALE2(RungeKuttaTimeIntegrator):
 
     def get_final_solution(self):
         if self._nontrivial:
-            self.l_form.assign(self.msol_old)
-            for j in range(self.n_stages):
-                self.l_form += float(self.b[j])*self.stage_mk[j]
+            self.l_form.assign(self.final_sol_expr)
             assemble(self.a_rk, self.A)
             solve(self.A, self.solution, self.l_form)
             assemble(self.mass_term, self.msol_old)
@@ -798,7 +829,14 @@ class ERKGenericALE2(RungeKuttaTimeIntegrator):
 
 class ERKSemiImplicitGeneric(RungeKuttaTimeIntegrator):
     """
-    Generic implementation of explicit RK schemes.
+    Generic implementation of semi-implicit RK schemes.
+
+    If semi_implicit=True, this corresponds to a linearized semi-implicit scheme.
+    The linearization must be defined in the equation using solution and solution_old functions:
+    residual = residual(solution, solution_old)
+
+    If semi_implicit=False, this corresponds to a fully non-linear scheme:
+    residual = residual(solution, solution)
     """
 
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,

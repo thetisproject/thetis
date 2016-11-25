@@ -350,6 +350,10 @@ class LeapFrogAM3(TimeIntegrator):
         self.msolution_old = Function(fs, name='dual solution')
         self.rhs_func = Function(fs, name='rhs linear form')
 
+        continuity = element_continuity(fs.fiat_element)
+        fs_is_hdiv = isinstance(fs.ufl_element(), ufl.HDivElement)
+        self.fs_is_dg = continuity.horizontal_dg and continuity.vertical_dg and not fs_is_hdiv
+
         # fully explicit evaluation
         self.a = self.equation.mass_term(self.equation.trial)
         self.l = self.dt_const*self.equation.residual(terms_to_add,
@@ -370,10 +374,25 @@ class LeapFrogAM3(TimeIntegrator):
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
-        self.mass_matrix = assemble(self.a)
+        self.mass_matrix = assemble(self.a, inverse=self.fs_is_dg)
         self.solution.assign(solution)
         self.solution_old.assign(solution)
         assemble(self.mass_new, self.msolution_old)
+
+    def _solve_system(self):
+        """
+        Solves system mass_matrix*solution = rhs_func
+
+        If the function space is fully discontinuous, the mass matrix is
+        inverted in place for efficiency.
+        """
+        if self.fs_is_dg:
+            with self.solution.dat.vec as x:
+                with self.rhs_func.dat.vec_ro as b:
+                    self.mass_matrix.force_evaluation()
+                    self.mass_matrix.petscmat.mult(b, x)
+        else:
+            solve(self.mass_matrix, self.solution, self.rhs_func)
 
     def predict(self):
         """
@@ -388,7 +407,7 @@ class LeapFrogAM3(TimeIntegrator):
             assemble(self.mass_new, self.msolution_old)  # store current solution
             assemble(self.l_prediction, self.rhs_func)
             self.solution_old.assign(self.solution)  # time shift
-            solve(self.mass_matrix, self.solution, self.rhs_func)
+            self._solve_system()
 
     def eval_rhs(self):
         if self._nontrivial:
@@ -405,9 +424,8 @@ class LeapFrogAM3(TimeIntegrator):
         if self._nontrivial:
             # NOTE must call eval_rhs in the old mesh first
             self.rhs_func += self.msolution_old
-            assemble(self.a, self.mass_matrix)
-            solve(self.mass_matrix, self.solution, self.rhs_func)
-            # self.msolution_old.assign(self.rhs_func)
+            assemble(self.a, self.mass_matrix, inverse=self.fs_is_dg)
+            self._solve_system()
 
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
