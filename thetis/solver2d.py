@@ -7,6 +7,8 @@ from __future__ import absolute_import
 from .utility import *
 from . import shallowwater_eq
 from . import timeintegrator
+from . import rungekutta
+from . import implicitexplicit
 import time as time_mod
 from mpi4py import MPI
 from . import exporter
@@ -31,8 +33,6 @@ class FlowSolver2d(FrozenClass):
 
         # 2d model specific default options
         self.options = ModelOptions()
-        self.options.setdefault('timestepper_type', 'SSPRK33')
-        self.options.setdefault('fields_to_export', ['elev_2d', 'uv_2d'])
         if options is not None:
             self.options.update(options)
 
@@ -141,6 +141,13 @@ class FlowSolver2d(FrozenClass):
 
     def create_timestepper(self):
         self._isfrozen = False
+
+        if self.options.log_output and not self.options.no_exports:
+            logfile = os.path.join(create_directory(self.options.outputdir), 'log')
+            filehandler = logging.logging.FileHandler(logfile, mode='w')
+            filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
+            output_logger.addHandler(filehandler)
+
         # ----- Time integrators
         fields = {
             'linear_drag': self.options.linear_drag,
@@ -154,17 +161,17 @@ class FlowSolver2d(FrozenClass):
             'elev_source': self.options.elev_source_2d, }
         self.set_time_step()
         if self.options.timestepper_type.lower() == 'ssprk33':
-            self.timestepper = timeintegrator.SSPRK33Stage(self.eq_sw, self.fields.solution_2d,
-                                                           fields, self.dt,
-                                                           bnd_conditions=self.bnd_functions['shallow_water'],
-                                                           solver_parameters=self.options.solver_parameters_sw)
+            self.timestepper = rungekutta.SSPRK33(self.eq_sw, self.fields.solution_2d,
+                                                  fields, self.dt,
+                                                  bnd_conditions=self.bnd_functions['shallow_water'],
+                                                  solver_parameters=self.options.solver_parameters_sw)
         elif self.options.timestepper_type.lower() == 'ssprk33semi':
-            self.timestepper = timeintegrator.SSPRK33StageSemiImplicit(self.eq_sw, self.fields.solution_2d,
-                                                                       fields, self.dt,
-                                                                       bnd_conditions=self.bnd_functions['shallow_water'],
-                                                                       solver_parameters=self.options.solver_parameters_sw,
-                                                                       semi_implicit=self.options.use_linearized_semi_implicit_2d,
-                                                                       theta=self.options.shallow_water_theta)
+            self.timestepper = rungekutta.SSPRK33SemiImplicit(self.eq_sw, self.fields.solution_2d,
+                                                              fields, self.dt,
+                                                              bnd_conditions=self.bnd_functions['shallow_water'],
+                                                              solver_parameters=self.options.solver_parameters_sw,
+                                                              semi_implicit=self.options.use_linearized_semi_implicit_2d,
+                                                              theta=self.options.shallow_water_theta)
 
         elif self.options.timestepper_type.lower() == 'forwardeuler':
             self.timestepper = timeintegrator.ForwardEuler(self.eq_sw, self.fields.solution_2d,
@@ -172,10 +179,10 @@ class FlowSolver2d(FrozenClass):
                                                            bnd_conditions=self.bnd_functions['shallow_water'],
                                                            solver_parameters=self.options.solver_parameters_sw)
         elif self.options.timestepper_type.lower() == 'backwardeuler':
-            self.timestepper = timeintegrator.BackwardEuler(self.eq_sw, self.fields.solution_2d,
-                                                            fields, self.dt,
-                                                            bnd_conditions=self.bnd_functions['shallow_water'],
-                                                            solver_parameters=self.options.solver_parameters_sw)
+            self.timestepper = rungekutta.BackwardEuler(self.eq_sw, self.fields.solution_2d,
+                                                        fields, self.dt,
+                                                        bnd_conditions=self.bnd_functions['shallow_water'],
+                                                        solver_parameters=self.options.solver_parameters_sw)
         elif self.options.timestepper_type.lower() == 'cranknicolson':
             self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
                                                             fields, self.dt,
@@ -183,6 +190,16 @@ class FlowSolver2d(FrozenClass):
                                                             solver_parameters=self.options.solver_parameters_sw,
                                                             semi_implicit=self.options.use_linearized_semi_implicit_2d,
                                                             theta=self.options.shallow_water_theta)
+        elif self.options.timestepper_type.lower() == 'dirk22':
+            self.timestepper = rungekutta.CrankNicolsonRK(self.eq_sw, self.fields.solution_2d,
+                                                          fields, self.dt,
+                                                          bnd_conditions=self.bnd_functions['shallow_water'],
+                                                          solver_parameters=self.options.solver_parameters_sw)
+        elif self.options.timestepper_type.lower() == 'dirk33':
+            self.timestepper = rungekutta.DIRK33(self.eq_sw, self.fields.solution_2d,
+                                                 fields, self.dt,
+                                                 bnd_conditions=self.bnd_functions['shallow_water'],
+                                                 solver_parameters=self.options.solver_parameters_sw)
         elif self.options.timestepper_type.lower() == 'steadystate':
             self.timestepper = timeintegrator.SteadyState(self.eq_sw, self.fields.solution_2d,
                                                           fields, self.dt,
@@ -219,12 +236,13 @@ class FlowSolver2d(FrozenClass):
                 'pc_type': 'fieldsplit',
                 'pc_fieldsplit_type': 'multiplicative',
             }
-            self.timestepper = timeintegrator.SSPIMEX(self.eq_sw, self.fields.solution_2d, fields, self.dt,
-                                                      bnd_conditions=self.bnd_functions['shallow_water'],
-                                                      solver_parameters=sp_expl,
-                                                      solver_parameters_dirk=sp_impl)
+            self.timestepper = implicitexplicit.SSPIMEX(self.eq_sw, self.fields.solution_2d, fields, self.dt,
+                                                        bnd_conditions=self.bnd_functions['shallow_water'],
+                                                        solver_parameters=sp_expl,
+                                                        solver_parameters_dirk=sp_impl)
         else:
             raise Exception('Unknown time integrator type: '+str(self.options.timestepper_type))
+        print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
         self._isfrozen = True  # disallow creating new attributes
 
     def create_exporters(self):
@@ -384,8 +402,7 @@ class FlowSolver2d(FrozenClass):
 
         while self.simulation_time <= self.options.t_end + t_epsilon:
 
-            self.timestepper.advance(self.simulation_time, self.dt, self.fields.solution_2d,
-                                     update_forcings)
+            self.timestepper.advance(self.simulation_time, update_forcings)
 
             # Move to next time step
             self.iteration += 1

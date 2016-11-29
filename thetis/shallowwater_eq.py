@@ -441,22 +441,30 @@ class BottomDrag3DTerm(ShallowWaterMomentumTerm):
 class InternalPressureGradientTerm(ShallowWaterMomentumTerm):
     """
     Internal pressure gradient term
+
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         baroc_head = fields_old.get('baroc_head')
+        baroc_head_bot = fields_old.get('baroc_head_bot')
 
         if baroc_head is None:
             return 0
 
+        depth_old = self.get_total_depth(eta_old)
+        depth = self.get_total_depth(eta)
+        source = baroc_head*depth
+
         f = 0
-        f = -g_grav*baroc_head*nabla_div(self.u_test)*self.dx
-        head_star = avg(baroc_head)
+        f = -g_grav*source*nabla_div(self.u_test)*self.dx
+        head_star = avg(source)
         f += g_grav*head_star*jump(self.u_test, self.normal)*self.dS
         for bnd_marker in self.boundary_markers:
             ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
             # use internal value
-            head_rie = baroc_head
+            head_rie = source
             f += g_grav*head_rie*dot(self.u_test, self.normal)*ds_bnd
+        f += -g_grav*inner(grad(1/depth_old)*depth_old*depth*baroc_head, self.u_test)*self.dx
+        f += -g_grav*inner(grad(self.bathymetry)*baroc_head_bot, self.u_test)*self.dx
         return -f
 
 

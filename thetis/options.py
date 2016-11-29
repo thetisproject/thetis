@@ -39,12 +39,11 @@ class ModelOptions(AttrDict, FrozenClass):
         """bool: Include grad(H) term in the depth-averaged viscosity"""
         self.use_ale_moving_mesh = True
         """bool: 3D mesh tracks free surface"""
-        self.use_mode_split = True
-        """bool: Solve 2D/3D modes with different dt"""
-        self.use_semi_implicit_2d = True
-        """bool: Implicit 2D waves (only w. mode split)"""
-        self.use_imex = False
-        """bool: Use IMEX time integrator (only with mode split)"""
+        self.timestepper_type = 'ssprk33'
+        """str: time integrator option.
+        For 2D solver: 'forwardeuler'|'backwardeuler'|'ssprk33'|'ssprk33semi'|
+                       'cranknicolson'|'sspimex'|'steadystate'
+        For 3D solver: 'ssprk33'|'erkale'|'leapfrog'|'imexale'"""
         self.use_linearized_semi_implicit_2d = False
         """bool: Use linearized semi-implicit time integration for the horizontal mode"""
         self.shallow_water_theta = 0.5
@@ -85,6 +84,8 @@ class ModelOptions(AttrDict, FrozenClass):
         """bool: Print deviation from initial temp mass"""
         self.check_temp_overshoot = False
         """bool: Print overshoots that exceed initial range"""
+        self.log_output = True
+        """bool: Redirect all output to log file in output directory"""
         self.dt = None
         """float: Time step. If set overrides automatically computed stable dt"""
         self.dt_2d = None
@@ -97,8 +98,12 @@ class ModelOptions(AttrDict, FrozenClass):
         """float: Export interval in seconds. All fields in fields_to_export list will be stored to disk and diagnostics will be computed."""
         self.t_end = 1000.0
         """float: Simulation duration in seconds"""
-        self.u_advection = Constant(0.0)
+        self.u_advection = Constant(0.1)
         """Constant: Max. horizontal velocity magnitude for computing max stable advection time step."""
+        self.w_advection = Constant(1e-4)
+        """Constant: Max. vertical velocity magnitude for computing max stable advection time step."""
+        self.nu_viscosity = Constant(1.0)
+        """Constant: Max. horizontal viscosity magnitude for computing max stable diffusion time step."""
         self.outputdir = 'outputs'
         """str: Directory where model output files are stored"""
         self.no_exports = False

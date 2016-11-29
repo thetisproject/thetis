@@ -77,8 +77,6 @@ options.use_bottom_friction = not simple_barotropic
 options.use_turbulence = not simple_barotropic
 options.use_turbulence_advection = not simple_barotropic
 options.use_ale_moving_mesh = False
-# options.use_semi_implicit_2d = False
-# options.use_mode_split = False
 options.baroclinic = not simple_barotropic
 options.uv_lax_friedrichs = Constant(1.0)
 options.tracer_lax_friedrichs = Constant(1.0)
@@ -90,8 +88,6 @@ options.use_limiter_for_tracers = True
 Re_h = 5.0
 options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
 options.coriolis = Constant(coriolis_f)
-# if options.use_mode_split:
-#     options.dt = dt
 options.t_export = t_export
 options.t_end = t_end
 options.outputdir = outputdir

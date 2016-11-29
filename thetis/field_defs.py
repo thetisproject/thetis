@@ -118,6 +118,12 @@ field_metadata['elev_cg_3d'] = {
     'unit': 'm',
     'filename': 'ElevationCG3d',
 }
+field_metadata['elev_cg_2d'] = {
+    'name': 'Water elevation CG',
+    'shortname': 'Elevation',
+    'unit': 'm',
+    'filename': 'ElevationCG2d',
+}
 field_metadata['uv_3d'] = {
     'name': 'Horizontal velocity',
     'shortname': 'Horizontal velocity',
@@ -243,6 +249,12 @@ field_metadata['baroc_head_2d'] = {
     'shortname': 'Dav baroclinic head',
     'unit': 'm',
     'filename': 'BaroHead2d',
+}
+field_metadata['baroc_head_bot_2d'] = {
+    'name': 'Baroclinic head at bottom',
+    'shortname': 'Baroclinic head at bottom',
+    'unit': 'm',
+    'filename': 'BaroHeadBot2d',
 }
 field_metadata['gjv_alpha_h_3d'] = {
     'name': 'GJV Parameter h',

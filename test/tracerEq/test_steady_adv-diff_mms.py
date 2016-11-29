@@ -6,7 +6,6 @@ Tuomas Karna 2015-11-28
 from thetis import *
 import numpy
 from scipy import stats
-import pytest
 
 
 def setup1(lx, ly, h0, kappa0, element_family='rt-dg'):
@@ -157,13 +156,8 @@ def run(setup, refinement, order, do_export=True):
     ly = 10e3
     area = lx*ly
     depth = 40.0
-    kappa0 = 1.0e3  # TODO what is the max stable diffusivity?
-    # set time steps
-    dt = 10.0/refinement
-    dt_2d = dt/2
-    # simulation run time
-    iterations = 2*refinement
-    t_end = dt*iterations
+    kappa0 = 5.0e2
+    t_end = 100.0
 
     sdict = setup(lx, ly, depth, kappa0)
 
@@ -189,10 +183,10 @@ def run(setup, refinement, order, do_export=True):
     solver_obj.options.no_exports = not do_export
     solver_obj.options.outputdir = outputdir
     solver_obj.options.t_end = t_end
-    solver_obj.options.dt = dt
-    solver_obj.options.dt_2d = dt_2d
     solver_obj.options.fields_to_export = ['salt_3d', 'uv_3d', 'w_3d']
     solver_obj.options.update(sdict['options'])
+    options.h_diffusivity = Constant(kappa0)
+    options.nu_viscosity = Constant(kappa0)
 
     solver_obj.create_function_spaces()
 
@@ -204,7 +198,6 @@ def run(setup, refinement, order, do_export=True):
     # diffusivuty
     kappa = Function(solver_obj.function_spaces.P1, name='diffusivity')
     kappa.project(sdict['kappa_expr'])
-    solver_obj.options.h_diffusivity = kappa
 
     # analytical solution in high-order space for computing L2 norms
     h_ho = FunctionSpace(solver_obj.mesh, 'DG', order+3)
@@ -223,13 +216,11 @@ def run(setup, refinement, order, do_export=True):
                                             3: bnd_mom, 4: bnd_mom}
 
     solver_obj.create_equations()
+    dt = solver_obj.dt
     # elevation field
     solver_obj.fields.elev_2d.project(sdict['elev_expr'])
     # update mesh and fields
-    solver_obj.copy_elev_to_3d.solve()
-    solver_obj.mesh_coord_updater.solve()
-    compute_elem_height(solver_obj.fields.z_coord_3d, solver_obj.fields.v_elem_size_3d)
-    solver_obj.copy_v_elem_size_to_2d.solve()
+    solver_obj.mesh_updater.update_mesh_coordinates()
 
     # salinity field
     solver_obj.fields.salt_3d.project(sdict['tracer_expr'])
@@ -245,10 +236,10 @@ def run(setup, refinement, order, do_export=True):
     ti = solver_obj.timestepper
     ti.timestepper_salt_3d.initialize(ti.fields.salt_3d)
     t = 0
-    for i in range(iterations):
+    while t < t_end - 1e-5:
         for k in range(ti.n_stages):
             last_step = k == ti.n_stages - 1
-            ti.timestepper_salt_3d.solve_stage(k, t, ti.solver.dt, ti.fields.salt_3d)
+            ti.timestepper_salt_3d.solve_stage(k, t)
             if ti.options.use_limiter_for_tracers and last_step:
                 ti.solver.tracer_limiter.apply(ti.fields.salt_3d)
         t += dt
@@ -326,7 +317,6 @@ def test_setup3_dg():
     run_convergence(setup3dg, [1, 2, 3], 1, save_plot=False)
 
 
-@pytest.mark.skipif(True, reason='under development')
 def test_setup4_dg():
     run_convergence(setup4dg, [1, 2, 3], 1, save_plot=False)
 

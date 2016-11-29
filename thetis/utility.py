@@ -281,7 +281,9 @@ class VerticalVelocitySolver(object):
                 # use symmetry condition
                 l += -(uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_bnd
 
-        # TODO needs machinery to recompute jacobian after mesh update
+        # NOTE For ALE mesh constant_jacobian should be False
+        # however the difference is very small as A is nearly independent of
+        # mesh stretching: only the normals vary in time
         self.prob = LinearVariationalProblem(a, l, solution,
                                              constant_jacobian=True)
         self.solver = LinearVariationalSolver(self.prob,
@@ -293,18 +295,26 @@ class VerticalVelocitySolver(object):
 
 class VerticalIntegrator(object):
     """
-    Computes vertical integral of the scalar field in the output
-    function space.
+    Computes vertical integral (or average) of a field.
+
+    :param input: 3D field to integrate
+    :param output: 3D field where the integral is stored
+    :param bottom_to_top: Defines the integration direction: If True integration is performed along the z axis, from bottom surface to top surface.
+    :param bnd_value: Value of the integral at the bottom (top) boundary if bottom_to_top is True (False)
+    :param average: If True computes the vertical average instead. Requires bathymetry and elevation fields
+    :param bathymetry: 3D field defining the bathymetry
+    :param elevation: 3D field defining the free surface elevation
     """
     def __init__(self, input, output, bottom_to_top=True,
                  bnd_value=Constant(0.0), average=False,
-                 bathymetry=None, solver_parameters={}):
+                 bathymetry=None, elevation=None, solver_parameters={}):
         solver_parameters.setdefault('snes_type', 'ksponly')
         solver_parameters.setdefault('ksp_type', 'preonly')
         solver_parameters.setdefault('pc_type', 'bjacobi')
         solver_parameters.setdefault('sub_ksp_type', 'preonly')
         solver_parameters.setdefault('sub_pc_type', 'ilu')
 
+        self.output = output
         space = output.function_space()
         mesh = space.mesh()
         vertical_is_dg = element_continuity(space.fiat_element).vertical_dg
@@ -327,7 +337,7 @@ class VerticalIntegrator(object):
             bnd_term = normal[2]*inner(bnd_value, phi)*self.ds_surf
             mass_bnd_term = normal[2]*inner(tri, phi)*self.ds_bottom
 
-        a = -inner(Dx(phi, 2), tri)*self.dx + mass_bnd_term
+        self.a = -inner(Dx(phi, 2), tri)*self.dx + mass_bnd_term
         gamma = (normal[2] + abs(normal[2]))
         if bottom_to_top:
             up_value = avg(tri*gamma)
@@ -337,21 +347,23 @@ class VerticalIntegrator(object):
             if len(input.ufl_shape) > 0:
                 dim = input.ufl_shape[0]
                 for i in range(dim):
-                    a += up_value[i]*jump(phi[i], normal[2])*self.dS_h
+                    self.a += up_value[i]*jump(phi[i], normal[2])*self.dS_h
             else:
-                a += up_value*jump(phi, normal[2])*self.dS_h
+                self.a += up_value*jump(phi, normal[2])*self.dS_h
         source = input
         if average:
-            # FIXME this should be H not h in case of a moving mesh
-            source = input/bathymetry
-        l = inner(source, phi)*self.dx + bnd_term
-        # TODO needs machinery to recompute jacobian after mesh update
-        self.prob = LinearVariationalProblem(a, l, output, constant_jacobian=True)
+            source = input/(elevation + bathymetry)
+        else:
+            source = input
+        self.l = inner(source, phi)*self.dx + bnd_term
+        self.prob = LinearVariationalProblem(self.a, self.l, output, constant_jacobian=False)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
-        with timed_stage('vert_integral'):
-            self.solver.solve()
+        """
+        Computes the integral and stores it in the :arg:`output` field.
+        """
+        self.solver.solve()
 
 
 class DensitySolver(object):
@@ -400,6 +412,7 @@ def compute_baroclinic_head(solver):
     solver.density_solver.solve()
     solver.rho_integrator.solve()
     solver.fields.baroc_head_3d *= -physical_constants['rho0_inv']
+    solver.extract_bot_baro_head.solve()
     solver.baro_head_averager.solve()
     solver.extract_surf_baro_head.solve()
 
@@ -729,81 +742,82 @@ def get_horizontal_elem_size_3d(sol2d, sol3d):
     ExpandFunctionTo3d(sol2d, sol3d).solve()
 
 
-class ALEMeshCoordinateUpdater(object):
-    """Updates extrusion so that free surface mathces eta3d value"""
-    def __init__(self, mesh, eta, bathymetry, z_coord, z_coord_ref,
-                 solver_parameters={}):
-        solver_parameters.setdefault('ksp_atol', 1e-12)
-        solver_parameters.setdefault('ksp_rtol', 1e-16)
-        self.coords = mesh.coordinates
-        self.z_coord = z_coord
+class ALEMeshUpdater(object):
+    """
+    Computes mesh velocity from changes in (continuous) 2D elevation field
+    """
+    def __init__(self, solver):
+        self.solver = solver
+        self.fields = solver.fields
+        if self.solver.options.use_ale_moving_mesh:
+            # continous elevation
+            self.elev_cg_2d = Function(self.solver.function_spaces.P1_2d,
+                                       name='elev cg 2d')
+            # elevation in coordinate space
+            self.proj_elev_to_cg_2d = Projector(self.fields.elev_2d,
+                                                self.elev_cg_2d)
+            self.proj_elev_cg_to_coords_2d = Projector(self.elev_cg_2d,
+                                                       self.fields.elev_cg_2d)
+            self.cp_elev_2d_to_3d = ExpandFunctionTo3d(self.fields.elev_cg_2d,
+                                                       self.fields.elev_cg_3d)
+            self.cp_w_mesh_surf_2d_to_3d = ExpandFunctionTo3d(self.fields.w_mesh_surf_2d,
+                                                              self.fields.w_mesh_surf_3d)
+        self.cp_v_elem_size_to_2d = SubFunctionExtractor(self.fields.v_elem_size_3d,
+                                                         self.fields.v_elem_size_2d,
+                                                         boundary='top', elem_facet='top')
 
-        fs = z_coord.function_space()
-        # sigma stretch function
-        new_z = eta*(z_coord_ref + bathymetry)/bathymetry + z_coord_ref
-        # update z_coord
-        tri = TrialFunction(fs)
-        test = TestFunction(fs)
-        a = tri*test*dx
-        l = new_z*test*dx
-        self.prob = LinearVariationalProblem(a, l, z_coord)
-        self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
+    def initialize(self):
+        """Set values for initial mesh (elevation at rest)"""
+        get_zcoord_from_mesh(self.fields.z_coord_ref_3d)
+        self.fields.z_coord_3d.assign(self.fields.z_coord_ref_3d)
+        self.update_elem_height()
 
-    def solve(self):
-        self.solver.solve()
-        # assign to mesh
-        self.coords.dat.data[:, 2] = self.z_coord.dat.data[:]
+    def update_elem_height(self):
+        """Updates vertical element size fields"""
+        compute_elem_height(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
+        self.cp_v_elem_size_to_2d.solve()
 
+    def compute_mesh_velocity_begin(self):
+        """Stores the current 2D elevation state as the "old" field"""
+        assert self.solver.options.use_ale_moving_mesh
+        self.proj_elev_to_cg_2d.project()
+        self.proj_elev_cg_to_coords_2d.project()
 
-class MeshVelocitySolver(object):
-    """Computes vertical mesh velocity for moving sigma mesh"""
-    def __init__(self, solver, eta, uv, w, w_mesh, w_mesh_surf,
-                 w_mesh_surf_2d, w_mesh_ddz_3d, bathymetry,
-                 z_coord_ref, solver_parameters={}):
-        solver_parameters.setdefault('ksp_atol', 1e-12)
-        solver_parameters.setdefault('ksp_rtol', 1e-16)
-        self.solver_obj = solver
+    def compute_mesh_velocity_finalize(self, c=1.0):
+        """Stores the current 2D elevation state as the "new" fields,
+        and compute w_mesh using the given time step factor."""
+        # compute w_mesh_surf = (elev_new - elev_old)/dt/c
+        assert self.solver.options.use_ale_moving_mesh
+        self.fields.w_mesh_surf_2d.assign(self.fields.elev_cg_2d)
+        self.proj_elev_to_cg_2d.project()
+        self.proj_elev_cg_to_coords_2d.project()
+        self.fields.w_mesh_surf_2d += -self.fields.elev_cg_2d
+        self.fields.w_mesh_surf_2d *= -1.0/self.solver.dt/c
+        # use that to compute w_mesh in whole domain
+        self.cp_w_mesh_surf_2d_to_3d.solve()
+        # solve w_mesh at nodes
+        w_mesh_surf = self.fields.w_mesh_surf_3d.dat.data[:]
+        z_ref = self.fields.z_coord_ref_3d.dat.data[:]
+        h = self.fields.bathymetry_3d.dat.data[:]
+        self.fields.w_mesh_3d.dat.data[:] = w_mesh_surf * (z_ref + h)/h
 
-        # compute w_mesh at the free surface (constant over vertical!)
-        # w_mesh_surf = w - eta_grad[0]*uv[0] + eta_grad[1]*uv[1]
-        fs = w_mesh.function_space()
-        z = fs.mesh().coordinates[2]
-        tri = TrialFunction(fs)
-        test = TestFunction(fs)
-        a = inner(tri, test)*dx
-        eta_grad = nabla_grad(eta)
-        l = (w[2] - eta_grad[0]*uv[0] - eta_grad[1]*uv[1])*test*dx
-        self.prob_w_mesh_surf = LinearVariationalProblem(a, l, w_mesh_surf)
-        self.solver_w_mesh_surf = LinearVariationalSolver(self.prob_w_mesh_surf, solver_parameters=solver_parameters)
+    def update_mesh_coordinates(self):
+        """
+        Updates 3D mesh coordinates to match current elev_2d field
 
-        # compute w in the whole water column (0 at bed)
-        # w_mesh = w_mesh_surf * (z+h)/(eta+h)
-        fs = w_mesh.function_space()
-        z = fs.mesh().coordinates[2]
-        tri = TrialFunction(fs)
-        test = TestFunction(fs)
-        a = tri*test*dx
-        tot_depth = eta + bathymetry
-        l = (w_mesh_surf*(z+bathymetry)/tot_depth)*test*dx
-        self.prob_w_mesh = LinearVariationalProblem(a, l, w_mesh)
-        self.solver_w_mesh = LinearVariationalSolver(self.prob_w_mesh, solver_parameters=solver_parameters)
+        elev_2d is first projected to continous space"""
+        assert self.solver.options.use_ale_moving_mesh
+        self.proj_elev_to_cg_2d.project()
+        self.proj_elev_cg_to_coords_2d.project()
+        self.cp_elev_2d_to_3d.solve()
 
-        # compute dw_mesh/dz in the whole water column
-        fs = w_mesh.function_space()
-        z = fs.mesh().coordinates[2]
-        tri = TrialFunction(fs)
-        test = TestFunction(fs)
-        a = tri*test*dx
-        l = (w_mesh_surf/tot_depth)*test*dx
-        self.prob_dw_mesh_dz = LinearVariationalProblem(a, l, w_mesh_ddz_3d)
-        self.solver_dw_mesh_dz = LinearVariationalSolver(self.prob_dw_mesh_dz, solver_parameters=solver_parameters)
-
-    def solve(self):
-        self.solver_w_mesh_surf.solve()
-        self.solver_obj.extract_surf_w.solve()
-        self.solver_obj.copy_surf_w_mesh_to_3d.solve()
-        self.solver_w_mesh.solve()
-        self.solver_dw_mesh_dz.solve()
+        eta = self.fields.elev_cg_3d.dat.data[:]
+        z_ref = self.fields.z_coord_ref_3d.dat.data[:]
+        bath = self.fields.bathymetry_3d.dat.data[:]
+        new_z = eta*(z_ref + bath)/bath + z_ref
+        self.solver.mesh.coordinates.dat.data[:, 2] = new_z
+        self.fields.z_coord_3d.dat.data[:] = new_z
+        self.update_elem_height()
 
 
 class ParabolicViscosity(object):

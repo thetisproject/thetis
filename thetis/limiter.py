@@ -73,6 +73,17 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         self.mesh = self.P0.mesh()
         self.is_2d = self.mesh.geometric_dimension() == 2
 
+    def _update_centroids(self, field):
+        """
+        Re-compute element centroid values
+        """
+        tri = TrialFunction(self.P0)
+        test = TestFunction(self.P0)
+
+        a = assemble(tri*test*dx)
+        l = assemble(field*test*dx)
+        solve(a, self.centroids, l)
+
     def compute_bounds(self, field):
         """
         Re-compute min/max values of all neighbouring centroids

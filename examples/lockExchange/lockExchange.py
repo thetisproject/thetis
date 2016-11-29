@@ -47,14 +47,6 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     """
     comm = COMM_WORLD
 
-    print_output('Running lock exchange problem with options:')
-    print_output('Resolution: {:}'.format(reso_str))
-    print_output('Element family: {:}'.format(element_family))
-    print_output('Polynomial order: {:}'.format(poly_order))
-    print_output('Reynolds number: {:}'.format(reynolds_number))
-    print_output('Use slope limiters: {:}'.format(use_limiter))
-    print_output('Number of cores: {:}'.format(comm.size))
-
     depth = 20.0
     refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4,
                   'medium2': 8, 'fine': 16, 'ilicak': 4}
@@ -69,7 +61,6 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
         if reso_str == 'ilicak':
             layers = 20
     delta_z = depth/layers
-    print_output('Mesh resolution dx={:} nlayers={:} dz={:}'.format(delta_x, layers, delta_z))
 
     # generate unit mesh and transform its coords
     x_max = 32.0e3
@@ -84,7 +75,6 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     nnodes = mesh2d.topology.num_vertices()
     ntriangles = mesh2d.topology.num_cells()
     nprisms = ntriangles*layers
-    print_output('Number of 2D nodes={:}, triangles={:}, prisms={:}'.format(nnodes, ntriangles, nprisms))
 
     # temperature and salinity, for linear eq. of state (from Petersen, 2015)
     temp_left = 5.0
@@ -96,26 +86,19 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     # compute horizontal viscosity
     uscale = 0.5
     nu_scale = uscale * delta_x / reynolds_number
-    print_output('Horizontal viscosity: {:}'.format(nu_scale))
-    print_output('Lax-Friedrichs factor: {:}'.format(laxfriedrichs))
 
     u_max = 1.0
     w_max = 1.2e-2
-    dt_factor = 0.5 if element_family == 'rt-dg' else 1.0
-    dt_hor_adv = dt_factor*1.0/10.0/(poly_order + 1)*delta_x/np.sqrt(2)/u_max
-    dt_vert_adv = dt_factor*1.0/1.5/(poly_order + 1)*delta_z/w_max
-    dt_visc = dt_factor*1.0/60.0/(poly_order + 1)*(delta_x/np.sqrt(2))**2/nu_scale
-    print_output('Max dt for hor. advection: {:}'.format(dt_hor_adv))
-    print_output('Max dt for vert. advection: {:}'.format(dt_vert_adv))
-    print_output('Max dt for viscosity: {:}'.format(dt_visc))
+    # dt_factor = 0.5 if element_family == 'rt-dg' else 1.0
+    # dt_hor_adv = dt_factor*1.0/10.0/(poly_order + 1)*delta_x/np.sqrt(2)/u_max
+    # dt_vert_adv = dt_factor*1.0/1.5/(poly_order + 1)*delta_z/w_max
+    # dt_visc = dt_factor*1.0/60.0/(poly_order + 1)*(delta_x/np.sqrt(2))**2/nu_scale
+    # print_output('Max dt for hor. advection: {:}'.format(dt_hor_adv))
+    # print_output('Max dt for vert. advection: {:}'.format(dt_vert_adv))
+    # print_output('Max dt for viscosity: {:}'.format(dt_visc))
 
     t_end = 25 * 3600
     t_export = 15*60.0
-    if dt is None:
-        # take smallest stable dt that fits the export intervals
-        max_dt = min(dt_hor_adv, dt_vert_adv, dt_visc)
-        ntime = int(np.ceil(t_export/max_dt))
-        dt = t_export/ntime
 
     lim_str = '_lim' if use_limiter else ''
     options_str = '_'.join([reso_str,
@@ -123,11 +106,9 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
                             'p{:}'.format(poly_order),
                             'visc-{:}'.format(viscosity),
                             'Re{:}'.format(reynolds_number),
-                            'dt{:.2f}'.format(dt),
                             'lf{:.1f}'.format(laxfriedrichs),
                             ]) + lim_str
     outputdir = 'outputs_' + options_str
-    print_output('Exporting to {:}'.format(outputdir))
 
     # bathymetry
     p1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -139,15 +120,13 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options = solver_obj.options
     options.order = poly_order
     options.element_family = element_family
+    options.timestepper_type = 'leapfrog'
     options.solve_salt = False
     options.constant_salt = Constant(salt_const)
     options.solve_temp = True
     options.solve_vert_diffusion = False
     options.use_bottom_friction = False
-    options.use_ale_moving_mesh = False
-    # options.use_imex = True
-    # options.use_semi_implicit_2d = False
-    # options.use_mode_split = False
+    options.use_ale_moving_mesh = True
     options.baroclinic = True
     if laxfriedrichs is None or laxfriedrichs == 0.0:
         lf_factor = None
@@ -167,13 +146,13 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
         raise Exception('Unknow viscosity type {:}'.format(viscosity))
     options.v_viscosity = Constant(1e-4)
     options.h_diffusivity = None
+    options.nu_viscosity = Constant(nu_scale)
+    options.u_advection = Constant(u_max)
+    options.w_advection = Constant(w_max)
     options.dt = dt
-    # if options.use_mode_split:
-    #     options.dt = dt
     options.t_export = t_export
     options.t_end = t_end
     options.outputdir = outputdir
-    options.u_advection = Constant(1.0)
     options.check_vol_conservation_2d = True
     options.check_vol_conservation_3d = True
     options.check_temp_conservation = True
@@ -205,9 +184,23 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     if comm.size == 1:
         solver_obj.add_callback(RPECalculator(solver_obj))
         solver_obj.add_callback(FrontLocationCalculator(solver_obj))
-        solver_obj.add_callback(PlotCallback(solver_obj, append_to_log=False))
+        # solver_obj.add_callback(PlotCallback(solver_obj, append_to_log=False))
 
     solver_obj.create_equations()
+
+    print_output('Running lock exchange problem with options:')
+    print_output('Resolution: {:}'.format(reso_str))
+    print_output('Element family: {:}'.format(element_family))
+    print_output('Polynomial order: {:}'.format(poly_order))
+    print_output('Reynolds number: {:}'.format(reynolds_number))
+    print_output('Use slope limiters: {:}'.format(use_limiter))
+    print_output('Number of cores: {:}'.format(comm.size))
+    print_output('Mesh resolution dx={:} nlayers={:} dz={:}'.format(delta_x, layers, delta_z))
+    print_output('Number of 2D nodes={:}, triangles={:}, prisms={:}'.format(nnodes, ntriangles, nprisms))
+    print_output('Horizontal viscosity: {:}'.format(nu_scale))
+    print_output('Lax-Friedrichs factor: {:}'.format(laxfriedrichs))
+    print_output('Exporting to {:}'.format(outputdir))
+
     esize = solver_obj.fields.h_elem_size_2d
     min_elem_size = comm.allreduce(np.min(esize.dat.data), op=MPI.MIN)
     max_elem_size = comm.allreduce(np.max(esize.dat.data), op=MPI.MAX)
@@ -254,7 +247,7 @@ def get_argparser():
 
 def parse_options():
     parser = get_argparser()
-    args = parser.parse_args()
+    args, unknown_args = parser.parse_known_args()
     args_dict = vars(args)
     run_lockexchange(**args_dict)
 

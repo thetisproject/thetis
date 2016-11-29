@@ -18,7 +18,8 @@ class MomentumTerm(Term):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 nonlin=True, use_bottom_friction=False):
+                 nonlin=True, use_bottom_friction=False,
+                 use_elevation_gradient=True):
         super(MomentumTerm, self).__init__(function_space)
         self.bathymetry = bathymetry
         self.h_elem_size = h_elem_size
@@ -28,6 +29,7 @@ class MomentumTerm(Term):
         self.vertical_dg = continuity.vertical_dg
         self.nonlin = nonlin
         self.use_bottom_friction = use_bottom_friction
+        self.use_elevation_gradient = use_elevation_gradient
 
         # define measures with a reasonable quadrature degree
         p, q = self.function_space.ufl_element().degree()
@@ -43,13 +45,21 @@ class MomentumTerm(Term):
 
 class PressureGradientTerm(MomentumTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+
+        if self.nonlin:
+            total_h = self.bathymetry + fields_old.get('eta')
+        else:
+            total_h = self.bathymetry
+
         baroc_head = fields_old.get('baroc_head')
-        eta = fields_old.get('eta')
+        if baroc_head is not None:
+            baroc_head = baroc_head*total_h
+        eta = fields_old.get('eta') if self.use_elevation_gradient else None
 
         if eta is None and baroc_head is None:
             return 0
         if eta is None:
-            by_parts = element_continuity(baroc_head.function_space().fiat_element).dg
+            by_parts = element_continuity(fields_old.get('baroc_head').function_space().fiat_element).dg
             head = baroc_head
         elif baroc_head is None:
             by_parts = element_continuity(eta.function_space().fiat_element).dg
@@ -58,12 +68,16 @@ class PressureGradientTerm(MomentumTerm):
             by_parts = element_continuity(eta.function_space().fiat_element).dg
             head = eta + baroc_head
 
+        use_lin_stab = False
+
         if by_parts:
             div_test = (Dx(self.test[0], 0) +
                         Dx(self.test[1], 1))
             f = -g_grav*head*div_test*self.dx
-            # head_star = avg(head) + 0.5*sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
-            head_star = avg(head)
+            if use_lin_stab:
+                head_star = avg(head) + 0.5*sqrt(avg(total_h)/g_grav)*jump(solution_old, self.normal)
+            else:
+                head_star = avg(head)
             jump_n_dot_test = (jump(self.test[0], self.normal[0]) +
                                jump(self.test[1], self.normal[1]))
             f += g_grav*head_star*jump_n_dot_test*(self.dS_v + self.dS_h)
@@ -75,14 +89,21 @@ class PressureGradientTerm(MomentumTerm):
                 ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
                 if baroc_head is not None:
                     f += g_grav*baroc_head*n_dot_test*ds_bnd
-                special_eta_flux = funcs is not None and 'elev' in funcs
-                if not special_eta_flux:
-                    f += g_grav*eta*n_dot_test*ds_bnd
-                if funcs is not None:
-                    if 'elev' in funcs:
-                        # prescribe elevation only
-                        h_ext = funcs['elev']
-                        f += g_grav*(eta + h_ext)/2*dot(self.normal, self.test)*ds_bnd
+                if eta is not None:
+                    special_eta_flux = funcs is not None and 'elev' in funcs
+                    if not special_eta_flux:
+                        if use_lin_stab:
+                            un_jump = (solution_old[0]*self.normal[0] +
+                                       solution_old[1]*self.normal[1])
+                            eta_star = eta + sqrt(total_h/g_grav)*un_jump
+                        else:
+                            eta_star = eta
+                        f += g_grav*eta_star*n_dot_test*ds_bnd
+                    if funcs is not None:
+                        if 'elev' in funcs:
+                            # prescribe elevation only
+                            h_ext = funcs['elev']
+                            f += g_grav*(eta + h_ext)/2*dot(self.normal, self.test)*ds_bnd
         else:
             grad_head_dot_test = (Dx(head, 0)*self.test[0] +
                                   Dx(head, 1)*self.test[1])
@@ -190,9 +211,9 @@ class VerticalAdvectionTerm(MomentumTerm):
                   Dx(self.test[1], 2)*solution[1]*vertvelo)
         f += adv_v * self.dx
         if self.vertical_dg:
-            s = 0.5*(sign(avg(w[2])*self.normal[2]('-')) + 1.0)
+            w_av = avg(vertvelo)
+            s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
             uv_up = solution('-')*s + solution('+')*(1-s)
-            w_av = avg(w[2])
             f += (uv_up[0]*w_av*jump(self.test[0], self.normal[2]) +
                   uv_up[1]*w_av*jump(self.test[1], self.normal[2]))*self.dS_h
             if lax_friedrichs_factor is not None:
@@ -254,7 +275,7 @@ class HorizontalViscosityTerm(MomentumTerm):
             elemsize = (self.h_elem_size*(self.normal[0]**2 +
                                           self.normal[1]**2) +
                         self.v_elem_size*self.normal[2]**2)
-            sigma = 5.0*degree_h*(degree_h + 1)/elemsize
+            sigma = 2.5*degree_h*(degree_h + 1)/elemsize
             if degree_h == 0:
                 sigma = 1.5/elemsize
             alpha = avg(sigma)
@@ -315,10 +336,12 @@ class BottomFrictionTerm(MomentumTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
         if self.use_bottom_friction:
-            z0_friction = physical_constants['z0_friction']
-            z_bot = 0.5*self.v_elem_size
-            von_karman = physical_constants['von_karman']
-            drag = (von_karman / ln((z_bot + z0_friction)/z0_friction))**2
+            drag = fields_old.get('quadratic_drag')
+            if drag is None:
+                z0_friction = physical_constants['z0_friction']
+                z_bot = 0.5*self.v_elem_size
+                von_karman = physical_constants['von_karman']
+                drag = (von_karman / ln((z_bot + z0_friction)/z0_friction))**2
             # compute uv_bottom implicitly
             uv_bot = solution + Dx(solution, 2)*z_bot
             uv_bot_old = solution_old + Dx(solution_old, 2)*z_bot
@@ -376,15 +399,17 @@ class MomentumEquation(Equation):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 nonlin=True, use_bottom_friction=False):
+                 nonlin=True, use_bottom_friction=False,
+                 use_elevation_gradient=True):
         super(MomentumEquation, self).__init__(function_space)
 
         args = (function_space, bathymetry,
-                v_elem_size, h_elem_size, nonlin, use_bottom_friction)
+                v_elem_size, h_elem_size, nonlin, use_bottom_friction,
+                use_elevation_gradient)
         self.add_term(PressureGradientTerm(*args), 'source')
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')
-        self.add_term(ALESourceTerm(*args), 'explicit')
+        # self.add_term(ALESourceTerm(*args), 'explicit')
         self.add_term(HorizontalViscosityTerm(*args), 'explicit')
         self.add_term(VerticalViscosityTerm(*args), 'explicit')
         self.add_term(BottomFrictionTerm(*args), 'explicit')

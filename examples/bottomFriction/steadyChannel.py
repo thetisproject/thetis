@@ -56,6 +56,8 @@ bathymetry2d.assign(depth)
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
 options = solver_obj.options
+options.element_family = 'dg-dg'
+options.timestepper_type = 'leapfrog'
 options.solve_salt = False
 options.solve_temp = False
 options.solve_vert_diffusion = True
@@ -64,7 +66,7 @@ options.use_turbulence = True
 options.use_parabolic_viscosity = False
 options.v_viscosity = Constant(1.3e-6)  # background value
 options.v_diffusivity = Constant(1.4e-7)  # background value
-options.use_ale_moving_mesh = False
+# options.use_ale_moving_mesh = False
 options.use_limiter_for_tracers = True
 options.t_export = t_export
 options.dt = dt

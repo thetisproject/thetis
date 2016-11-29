@@ -72,8 +72,6 @@ options.use_bottom_friction = False
 options.use_turbulence = False
 options.use_turbulence_advection = False
 options.use_ale_moving_mesh = False
-# options.use_semi_implicit_2d = False
-# options.use_mode_split = False
 options.baroclinic = True
 options.coriolis = coriolis_2d
 options.uv_lax_friedrichs = Constant(1.0)
@@ -85,8 +83,6 @@ options.v_diffusivity = Constant(1.4e-7)  # background value
 options.use_limiter_for_tracers = True
 Re_h = 5.0
 options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
-if options.use_mode_split:
-    options.dt = dt
 options.t_export = t_export
 options.t_end = t_end
 options.outputdir = outputdir

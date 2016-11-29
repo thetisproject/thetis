@@ -14,7 +14,8 @@ class TracerTerm(Term):
     boundary functions.
     """
     def __init__(self, function_space,
-                 bathymetry=None, v_elem_size=None, h_elem_size=None):
+                 bathymetry=None, v_elem_size=None, h_elem_size=None,
+                 use_symmetric_surf_bnd=True):
         super(TracerTerm, self).__init__(function_space)
         self.bathymetry = bathymetry
         self.h_elem_size = h_elem_size
@@ -22,6 +23,7 @@ class TracerTerm(Term):
         continuity = element_continuity(self.function_space.fiat_element)
         self.horizontal_dg = continuity.horizontal_dg
         self.vertical_dg = continuity.vertical_dg
+        self.use_symmetric_surf_bnd = use_symmetric_surf_bnd
 
         # define measures with a reasonable quadrature degree
         p, q = self.function_space.ufl_element().degree()
@@ -120,6 +122,9 @@ class HorizontalAdvectionTerm(TracerTerm):
                         c_up = c_in*s + c_ext*(1-s)
                         f += c_up*(uv_av[0]*self.normal[0] +
                                    uv_av[1]*self.normal[1])*self.test*ds_bnd
+
+        if self.use_symmetric_surf_bnd:
+            f += solution*(uv[0]*self.normal[0] + uv[1]*self.normal[1])*self.test*ds_surf
         return -f
 
 
@@ -133,8 +138,6 @@ class VerticalAdvectionTerm(TracerTerm):
         if w is None:
             return 0
         w_mesh = fields_old.get('w_mesh')
-        dw_mesh_dz = fields_old.get('dw_mesh_dz')
-        # FIXME is this an option?
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_factor')
 
         vertvelo = w[2]
@@ -152,16 +155,19 @@ class VerticalAdvectionTerm(TracerTerm):
                 gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
                 f += gamma*dot(jump(self.test), jump(solution))*self.dS_h
 
-        # Non-conservative ALE source term
-        if dw_mesh_dz is not None:
-            f += solution*dw_mesh_dz*self.test*self.dx
-
         # NOTE Bottom impermeability condition is naturally satisfied by the definition of w
         # NOTE imex solver fails with this in tracerBox example
-        if w_mesh is None:
-            f += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
-        else:
-            f += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
+        f += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
+        return -f
+
+
+class ALESourceTerm(TracerTerm):
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        dw_mesh_dz = fields_old.get('dw_mesh_dz')
+        f = 0
+        # Non-conservative ALE source term
+        if dw_mesh_dz is not None:
+            f += dw_mesh_dz*solution*self.test*self.dx
         return -f
 
 
@@ -199,7 +205,7 @@ class HorizontalDiffusionTerm(TracerTerm):
             elemsize = (self.h_elem_size*(self.normal[0]**2 +
                                           self.normal[1]**2) +
                         self.v_elem_size*self.normal[2]**2)
-            sigma = 5.0*degree_h*(degree_h + 1)/elemsize
+            sigma = 2.5*degree_h*(degree_h + 1)/elemsize
             if degree_h == 0:
                 sigma = 1.5/elemsize
             alpha = avg(sigma)
@@ -278,13 +284,15 @@ class TracerEquation(Equation):
     3D tracer advection-diffusion equation
     """
     def __init__(self, function_space,
-                 bathymetry=None, v_elem_size=None, h_elem_size=None):
+                 bathymetry=None, v_elem_size=None, h_elem_size=None,
+                 use_symmetric_surf_bnd=True):
         super(TracerEquation, self).__init__(function_space)
 
         args = (function_space, bathymetry,
-                v_elem_size, h_elem_size)
+                v_elem_size, h_elem_size, use_symmetric_surf_bnd)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')
+        # self.add_term(ALESourceTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(VerticalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
