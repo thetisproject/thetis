@@ -1,7 +1,6 @@
 """
-Callback functions used to compute metrics at runtime.
+Defines custom callback functions used to compute various metrics at runtime.
 
-Tuomas Karna 2016-01-28
 """
 from __future__ import absolute_import
 from .utility import *
@@ -15,22 +14,55 @@ class CallbackManager(defaultdict):
     """
     Stores callbacks in different categories and provides methods for
     evaluating them.
+
+    Create callbacks and register them under ``'export'`` mode
+
+    >>> cb1 = VolumeConservation3DCallback(...)
+    >>> cb2 = TracerMassConservationCallback(...)
+    >>> cm = CallbackManager()
+    >>> cm.add(cb1, 'export')
+    >>> cm.add(cb2, 'export')
+
+    Evaluate callbacks, calls :func:`evaluate` method of all callbacks registered
+    in the given mode.
+
+    >>> cm.evaluate('export')
+
     """
     def __init__(self):
         super(CallbackManager, self).__init__(OrderedDict)
 
     def add(self, callback, mode):
+        """
+        Add a callback under the given mode
+
+        :param callback: a :class:`.DiagnosticCallback` object
+        :param mode: register callback under this mode
+        :type mode: string
+        """
         key = callback.name
         self[mode][key] = callback
 
     def evaluate(self, mode):
+        """
+        Evaluate all callbacks registered under the given mode
+        """
         for key in self[mode]:
             self[mode][key].evaluate()
 
 
 class DiagnosticHDF5(object):
-    """Creates hdf5 files for diagnostic time series arrays."""
+    """
+    A HDF5 file for storing diagnostic time series arrays.
+    """
     def __init__(self, filename, varnames, comm=COMM_WORLD):
+        """
+        :param filename: Full filename of the HDF5 file.
+        :type filename: string
+        :param varnames: List of variable names that the diagnostic callback
+            provides
+        :param comm: MPI communicator
+        """
         self.comm = comm
         self.filename = filename
         self.varnames = varnames
@@ -54,7 +86,14 @@ class DiagnosticHDF5(object):
 
     def export(self, time, variables):
         """
-        Appends a new entry of (time, variables) to the file
+        Appends a new entry of (time, variables) to the file.
+
+        The HDF5 is updated immediately.
+
+        :param time: time stamp of entry
+        :type time: float
+        :param variables: values of entry
+        :type variables: tuple of float
         """
         if self.comm.rank == 0:
             with h5py.File(self.filename, 'a') as hdf5file:
@@ -69,16 +108,23 @@ class DiagnosticHDF5(object):
 class DiagnosticCallback(object):
     """
     A base class for all Callback classes
-
-    :arg outputdir: Custom directory where hdf5 files will be stored. By
-        default solver's output directory is used.
-    :arg export_to_hdf5: If True, diagnostics will be stored in hdf5 format
-    :arg append_to_log: If True, diagnostic will be printed in log
     """
     __metaclass__ = ABCMeta
 
     def __init__(self, solver_obj, outputdir=None, export_to_hdf5=True,
                  append_to_log=True):
+        """
+        :param solver_obj: Thetis solver object
+        :param outputdir: Custom directory where hdf5 files will be stored. By
+            default solver's output directory is used.
+        :type outputdir: string
+        :param export_to_hdf5: If True, diagnostics will be stored in hdf5
+            format
+        :type export_to_hdf5: bool
+        :param append_to_log: If True, callback output messages will be printed
+            in log
+        :type append_to_log: bool
+        """
         self.solver_obj = solver_obj
         if outputdir is None:
             self.outputdir = self.solver_obj.options.outputdir
@@ -113,34 +159,45 @@ class DiagnosticCallback(object):
 
     @abstractmethod
     def __call__(self):
-        """Evaluate the diagnostic value.
+        """
+        Evaluate the diagnostic value.
 
-        :arg solver_obj: The solver object.
-
-        NOTE: This method must implement all MPI reduction operations (if any).
+        .. note::
+            This method must implement all MPI reduction operations (if any).
         """
         pass
 
     @abstractmethod
     def message_str(self, *args):
-        """A string representation.
+        """
+        A string representation.
 
-        :arg args: If provided, these will be the return value from :meth:`__call__`.
+        :param args: If provided, these will be the return value from :meth:`__call__`.
         """
         return "{} diagnostic".format(self.name)
 
     def push_to_log(self, time, args):
-        """Print diagnostic status message to log"""
+        """
+        Push callback status message to log
+
+        :param time: time stamp of entry
+        :param args: the return value from :meth:`__call__`.
+        """
         print_output(self.message_str(*args))
 
     def push_to_hdf5(self, time, args):
-        """Append values to export file."""
+        """
+        Append values to HDF5 file.
+
+        :param time: time stamp of entry
+        :param args: the return value from :meth:`__call__`.
+        """
         if not self._hdf5_initialized:
             self._create_hdf5_file()
         self.hdf_exporter.export(time, args)
 
     def evaluate(self):
-        """Evaluates callback and pushes values to log and hdf stream"""
+        """Evaluates callback and pushes values to log and hdf file (if enabled)"""
         values = self.__call__()
         time = self.solver_obj.simulation_time
         if self.append_to_log:
@@ -158,11 +215,18 @@ class ScalarConservationCallback(DiagnosticCallback):
         """
         Creates scalar conservation check callback object
 
-        name : str
-            human readable name of the quantity
-        scalar_callback : function
-            function that takes the FlowSolver object as an argument and
-            returns the scalar quantity of interest
+        :param scalar_callback: Python function that takes the solver object as an argument and
+            returns a scalar quantity of interest
+        :param solver_obj: Thetis solver object
+        :param outputdir: Custom directory where hdf5 files will be stored. By
+            default solver's output directory is used.
+        :type outputdir: string
+        :param export_to_hdf5: If True, diagnostics will be stored in hdf5
+            format
+        :type export_to_hdf5: bool
+        :param append_to_log: If True, callback output messages will be printed
+            in log
+        :type append_to_log: bool
         """
         super(ScalarConservationCallback, self).__init__(solver_obj,
                                                          outputdir,
@@ -189,6 +253,18 @@ class VolumeConservation3DCallback(ScalarConservationCallback):
 
     def __init__(self, solver_obj, outputdir=None, export_to_hdf5=False,
                  append_to_log=True):
+        """
+        :param solver_obj: Thetis solver object
+        :param outputdir: Custom directory where hdf5 files will be stored. By
+            default solver's output directory is used.
+        :type outputdir: string
+        :param export_to_hdf5: If True, diagnostics will be stored in hdf5
+            format
+        :type export_to_hdf5: bool
+        :param append_to_log: If True, callback output messages will be printed
+            in log
+        :type append_to_log: bool
+        """
         def vol3d():
             return comp_volume_3d(self.solver_obj.mesh)
         super(VolumeConservation3DCallback, self).__init__(vol3d,
@@ -199,11 +275,23 @@ class VolumeConservation3DCallback(ScalarConservationCallback):
 
 
 class VolumeConservation2DCallback(ScalarConservationCallback):
-    """Checks conservation of 3D volume (volume of 3D mesh)"""
+    """Checks conservation of 2D volume (integral of water elevation field)"""
     name = 'volume2d'
 
     def __init__(self, solver_obj, outputdir=None, export_to_hdf5=False,
                  append_to_log=True):
+        """
+        :param solver_obj: Thetis solver object
+        :param outputdir: Custom directory where hdf5 files will be stored. By
+            default solver's output directory is used.
+        :type outputdir: string
+        :param export_to_hdf5: If True, diagnostics will be stored in hdf5
+            format
+        :type export_to_hdf5: bool
+        :param append_to_log: If True, callback output messages will be printed
+            in log
+        :type append_to_log: bool
+        """
         def vol2d():
             return comp_volume_2d(self.solver_obj.fields.elev_2d,
                                   self.solver_obj.fields.bathymetry_2d)
@@ -220,8 +308,20 @@ class TracerMassConservationCallback(ScalarConservationCallback):
 
     def __init__(self, tracer_name, solver_obj, outputdir=None, export_to_hdf5=False,
                  append_to_log=True):
-        # override name for given tracer
-        self.name = tracer_name + ' mass'
+        """
+        :param tracer_name: Name of the tracer. Use canonical field names as in :class:`.FieldDict`.
+        :param solver_obj: Thetis solver object
+        :param outputdir: Custom directory where hdf5 files will be stored. By
+            default solver's output directory is used.
+        :type outputdir: string
+        :param export_to_hdf5: If True, diagnostics will be stored in hdf5
+            format
+        :type export_to_hdf5: bool
+        :param append_to_log: If True, callback output messages will be printed
+            in log
+        :type append_to_log: bool
+        """
+        self.name = tracer_name + ' mass'  # override name for given tracer
 
         def mass():
             return comp_tracer_mass_3d(self.solver_obj.fields[tracer_name])
@@ -239,11 +339,18 @@ class MinMaxConservationCallback(DiagnosticCallback):
     def __init__(self, minmax_callback, solver_obj, outputdir=None, export_to_hdf5=False,
                  append_to_log=True):
         """
-        Creates scalar conservation check callback object
-
-        :arg varname: human readable name of the quantity
-        :arg minmax_callback: function that takes the FlowSolver object as
-            an argument and returns the minimum and maximum values as a tuple
+        :param minmax_callback: Python function that takes the solver object as
+            an argument and returns a (min, max) value tuple
+        :param solver_obj: Thetis solver object
+        :param outputdir: Custom directory where hdf5 files will be stored. By
+            default solver's output directory is used.
+        :type outputdir: string
+        :param export_to_hdf5: If True, diagnostics will be stored in hdf5
+            format
+        :type export_to_hdf5: bool
+        :param append_to_log: If True, callback output messages will be printed
+            in log
+        :type append_to_log: bool
         """
         super(MinMaxConservationCallback, self).__init__(solver_obj,
                                                          outputdir,
@@ -271,6 +378,19 @@ class TracerOvershootCallBack(MinMaxConservationCallback):
 
     def __init__(self, tracer_name, solver_obj, outputdir=None, export_to_hdf5=False,
                  append_to_log=True):
+        """
+        :param tracer_name: Name of the tracer. Use canonical field names as in :class:`.FieldDict`.
+        :param solver_obj: Thetis solver object
+        :param outputdir: Custom directory where hdf5 files will be stored. By
+            default solver's output directory is used.
+        :type outputdir: string
+        :param export_to_hdf5: If True, diagnostics will be stored in hdf5
+            format
+        :type export_to_hdf5: bool
+        :param append_to_log: If True, callback output messages will be printed
+            in log
+        :type append_to_log: bool
+        """
         self.name = tracer_name + ' overshoot'
 
         def minmax():
