@@ -1,24 +1,84 @@
-"""
+r"""
 Depth averaged shallow water equations
 
-TODO: add documentation
+---------
+Equations
+---------
 
-Boundary conditions are set with ShallowWaterEquations.bnd_functions dict.
-For example to assign elevation and volume flux for boundary 1:
-sw.bnd_functions[1] = {'elev':myfunc1, 'flux':myfunc2}
-where myfunc1 and myfunc2 are Functions in the appropriate function space.
+The state variables are water elevation, :math:`\eta`, and depth averaged
+velocity :math:`\bar{\textbf{u}}`.
 
-Supported boundary conditions are:
+Denoting the total water depth by :math:`H=\eta + h`, the non-conservative form of
+the free surface equation is
+
+.. math::
+   \frac{\partial \eta}{\partial t} + \nabla \cdot (H \bar{\textbf{u}}) = 0
+   :label: swe_freesurf
+
+The non-conservative momentum equation reads
+
+.. math::
+   \frac{\partial \bar{\textbf{u}}}{\partial t} +
+   \bar{\textbf{u}} \cdot \nabla\bar{\textbf{u}} +
+   f\textbf{e}_z\wedge \bar{\textbf{u}} +
+   g \nabla \eta +
+   g \frac{1}{H}\int_{-h}^\eta \nabla r dz
+   = \nabla \cdot ( \nu_h \nabla \bar{\textbf{u}} ),
+   :label: swe_momentum
+
+where :math:`g` is the gravitational acceleration, :math:`f` is the Coriolis
+frequency, :math:`\textbf{e}_z` is a vertical unit vector, and :math:`\nu_h`
+is viscosity. Water density is given by :math:`\rho = \rho'(T, S, p) + \rho_0`,
+where :math:`\rho_0` is a constant reference density.
+
+Above :math:`r` denotes the baroclinic head
+
+.. math::
+
+  r = \frac{1}{\rho_0} \int_{z}^\eta  \rho' d\zeta.
+
+In the case of purely barotropic problems the :math:`r` and the internal pressure
+gradient are omitted.
+
+If the option :attr:`nonlin` is ``False``, we solve the linear shallow water
+equations (i.e. wave equation):
+
+.. math::
+   \frac{\partial \eta}{\partial t} + \nabla \cdot (h \bar{\textbf{u}}) = 0
+   :label: swe_freesurf_linear
+
+.. math::
+   \frac{\partial \bar{\textbf{u}}}{\partial t} +
+   f\textbf{e}_z\wedge \bar{\textbf{u}} +
+   g \nabla \eta
+   = \nabla \cdot ( \nu_h \nabla \bar{\textbf{u}} ).
+   :label: swe_momentum_linear
+
+-------------------
+Boundary Conditions
+-------------------
+
+All boundary conditions are imposed weakly by providing external values for
+:math:`\eta` and :math:`\bar{\textbf{u}}`.
+
+Boundary conditions are set with :attr:`ShallowWaterEquations.bnd_functions`
+dictionary. For example to assign elevation and volume flux for boundary 1:
+
+    sw = sw.bnd_functions[1] = {'elev':myfunc1, 'flux':myfunc2}
+
+where ``myfunc1`` and ``myfunc2`` are :class:`Function` or :class:`Function` objects.
+
+The user can provide :math:`\eta` and/or :math:`\bar{\textbf{u}}` values.
+Supported combinations are:
 
  - 'elev': elevation only (usually unstable)
- - 'uv': 2d velocity vector (in model coordinates)
+ - 'uv': 2d velocity vector :math:`\bar{\textbf{u}}=(u, v)` (in model coordinates)
  - 'un': normal velocity (scalar, positive out of domain)
  - 'flux': normal volume flux (scalar, positive out of domain)
- - 'elev' and 'uv': water elevation and uv vector
+ - 'elev' and 'uv': water elevation and 2d velocity vector
  - 'elev' and 'un': water elevation and normal velocity (scalar)
  - 'elev' and 'flux': water elevation and normal flux (scalar)
 
-Tuomas Karna 2015-02-23
 """
 from __future__ import absolute_import
 from .utility import *
@@ -57,7 +117,7 @@ class ShallowWaterTerm(Term):
         Returns external values of elev and uv for all supported
         boundary conditions.
 
-        volume flux (flux) and normal velocity (un) are defined positive out of
+        Volume flux (flux) and normal velocity (un) are defined positive out of
         the domain.
         """
         bath = self.bathymetry
@@ -150,8 +210,21 @@ class ShallowWaterContinuityTerm(ShallowWaterTerm):
 
 
 class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
-    """
-    External pressure gradient term
+    r"""
+    External pressure gradient term, :math:`g \nabla \eta`
+
+    The weak form reads
+
+    .. math::
+        \int_\Omega g \nabla \eta \cdot \psi dx
+        = \int_\Gamma g \eta^* \text{jump}(\psi \cdot \textbf{n}) dS
+        - \int_\Omega g \eta \nabla \cdot \psi dx
+
+    where the right hand side has been integrated by parts; :math:`\textbf{n}`
+    denotes the unit normal of the element interfaces, :math:`n^*` is value at
+    the interface obtained from an approximate Riemann solver.
+    If :math:`\eta` belongs to a discontinuous function space, the latter
+    form is used.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
@@ -198,8 +271,24 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
 
 
 class HUDivTerm(ShallowWaterContinuityTerm):
-    """
-    Divergence of Hu
+    r"""
+    Divergence term, :math:`\nabla \cdot (H \bar{\textbf{u}})`
+
+    The weak form reads
+
+    .. math::
+        \int_\Omega \nabla \cdot (H \bar{\textbf{u}}) \phi dx
+        = \int_\Gamma (H^* \bar{\textbf{u}}^*) \cdot \text{jump}(\phi \textbf{n}) dS
+        - \int_\Omega H (\bar{\textbf{u}}\cdot\nabla \phi) dx
+
+    where the right hand side has been integrated by parts; :math:`\textbf{n}`
+    denotes the unit normal of the element interfaces, and :math:`\text{jump}`
+    and :math:`\text{avg}` denote the jump and average operators across the
+    interface. :math:`H^*, \bar{\textbf{u}}^*` are values at the interface
+    obtained from an approximate Riemann solver.
+    If :math:`\bar{\textbf{u}}` belongs to a discontinuous function space,
+    the latter form is used.
+
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
@@ -238,8 +327,23 @@ class HUDivTerm(ShallowWaterContinuityTerm):
 
 
 class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
-    """
-    Horizontal advection of momentum
+    r"""
+    Advection of momentum term, :math:`\bar{\textbf{u}} \cdot \nabla\bar{\textbf{u}}`
+
+    The weak form is
+
+    .. math::
+        \int_\Omega \bar{\textbf{u}} \cdot \nabla\bar{\textbf{u}} \cdot \psi dx =
+        \int_\Gamma \bar{\textbf{u}}^{\text{up}} \cdot \text{jump}(\psi \otimes \textbf{n}) \cdot \text{avg}(\bar{\textbf{u}}) dS
+        - \int_\Omega \nabla \psi : \bar{\textbf{u}} \bar{\textbf{u}} dx
+
+    where the right hand side has been integrated by parts; :math:`\otimes`
+    stands for tensor outer product, :math:`\textbf{n}` is the unit normal of
+    the element interfaces, :math:`\bar{\textbf{u}}^{\text{up}}` is the
+    upwind value, and :math:`\text{jump}` and :math:`\text{avg}` denote the
+    jump and average operators across the interface.
+    If :math:`\bar{\textbf{u}}` belongs to a discontinuous function space, the
+    latter form is used.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         uv_lax_friedrichs = fields_old.get('uv_lax_friedrichs')
@@ -297,8 +401,33 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
 
 
 class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
-    """
-    Viscosity of momentum
+    r"""
+    Viscosity of momentum term :math:`-\nabla \cdot (\nu_h \nabla \bar{\textbf{u}})`
+
+    The weak form reads
+
+    .. math::
+        \int_\Omega -\nabla \cdot (\nu_h \nabla \bar{\textbf{u}}) \cdot \psi dx
+        = \int_\Omega \nu_h (\nabla \psi) : (\nabla \bar{\textbf{u}})^T dx
+        - \int_\Gamma \text{jump}(\psi \otimes \textbf{n}) \cdot \text{avg}(\nu_h  \nabla \bar{\textbf{u}}) dS
+
+    If :math:`\bar{\textbf{u}}` belongs to a discontinuous function space, we
+    augment the right hand side with symmetric interior penalty method:
+
+    .. math::
+        SIPS
+        = - \int_\Gamma \text{jump}(\bar{\textbf{u}} \otimes \textbf{n}) \cdot \text{avg}(\nu_h  \nabla \psi) dS
+        + \int_\Gamma \sigma \text{avg}(\nu_h) \text{jump}(\bar{\textbf{u}} \otimes \textbf{n}) \cdot \text{jump}(\psi \otimes \textbf{n}) dS
+
+    where :math:`\sigma` is a penalty parameter,
+    see Epshteyn and Riviere (2007).
+
+    Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
+    interior penalty Galerkin methods. Journal of Computational and Applied
+    Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
+
+    .. note ::
+        Note the minus sign due to :class:`.equation.Term` sign convention
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
@@ -365,8 +494,8 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
 
 
 class CoriolisTerm(ShallowWaterMomentumTerm):
-    """
-    Coriolis term
+    r"""
+    Coriolis term, :math:`f\textbf{e}_z\wedge \bar{\textbf{u}}`
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         coriolis = fields_old.get('coriolis')
@@ -377,8 +506,10 @@ class CoriolisTerm(ShallowWaterMomentumTerm):
 
 
 class WindStressTerm(ShallowWaterMomentumTerm):
-    """
-    Wind stress
+    r"""
+    Wind stress term, :math:`-\tau_w/(H \rho_0)`
+
+    Here :math:`\tau_w` is a user-defined wind stress :class:`Function`.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         wind_stress = fields_old.get('wind_stress')
@@ -390,8 +521,17 @@ class WindStressTerm(ShallowWaterMomentumTerm):
 
 
 class QuadraticDragTerm(ShallowWaterMomentumTerm):
-    """
+    r"""
     Quadratic Manning bottom friction term
+    :math:`C_D \| \bar{\textbf{u}} \| \bar{\textbf{u}}`
+
+    where the drag term is computed with the Manning formula
+
+    .. math::
+        C_D = g \frac{\mu^2}{H^{1/3}}
+
+    if the Manning coefficient :math:`\mu` is defined (see field :attr:`mu_manning`).
+    Otherwise :math:`C_D` is taken as a constant (see field :attr:`quadratic_drag`).
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
@@ -409,8 +549,10 @@ class QuadraticDragTerm(ShallowWaterMomentumTerm):
 
 
 class LinearDragTerm(ShallowWaterMomentumTerm):
-    """
-    Linear bottom friction term
+    r"""
+    Linear friction term, :math:`C \bar{\textbf{u}}`
+
+    Here :math:`C` is a user-defined drag coefficient.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         linear_drag = fields_old.get('linear_drag')
@@ -422,8 +564,13 @@ class LinearDragTerm(ShallowWaterMomentumTerm):
 
 
 class BottomDrag3DTerm(ShallowWaterMomentumTerm):
-    """
-    Bottom drag term consistent with 3D model
+    r"""
+    Bottom drag term consistent with the 3D mode,
+    :math:`C_D \| \textbf{u}_b \| \textbf{u}_b`
+
+    Here :math:`\textbf{u}_b` is the bottom velocity used in the 3D mode, and
+    :math:`C_D` the corresponding bottom drag.
+    These fields are computed in the 3D model.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
@@ -439,8 +586,19 @@ class BottomDrag3DTerm(ShallowWaterMomentumTerm):
 
 
 class InternalPressureGradientTerm(ShallowWaterMomentumTerm):
-    """
+    r"""
     Internal pressure gradient term
+
+    .. math::
+        F_{IPG} = \frac{g}{H} \int_{-h}^{\eta} (\nabla r) dz,
+
+    where :math:`r` is the baroc_head.
+    Let :math:`s` denote :math:`r H`. We can then write
+
+    .. math::
+        F_{IPG} = g\nabla(\bar{s} H) - g\nabla \Big(\frac{1}{H} \Big) H^2\bar{s} - g s_{bot}\nabla h
+
+    where :math:`\bar{s},s_{bot}` are the depth average and bottom value of :math:`s`.
 
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
@@ -473,8 +631,18 @@ class InternalPressureGradientTerm(ShallowWaterMomentumTerm):
 
 
 class MomentumSourceTerm(ShallowWaterMomentumTerm):
-    """
+    r"""
     Generic source term in the shallow water momentum equation
+
+    The weak form reads
+
+    .. math::
+        F_s = \int_\Omega \sigma \cdot \psi dx
+
+    where :math:`\sigma` is a user defined vector valued :class:`Function`.
+
+    .. note ::
+        Due to the sign convention of :class:`.equation.Term`, this term is assembled to the left hand side of the equation
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
@@ -486,8 +654,18 @@ class MomentumSourceTerm(ShallowWaterMomentumTerm):
 
 
 class ContinuitySourceTerm(ShallowWaterContinuityTerm):
-    """
+    r"""
     Generic source term in the depth-averaged continuity equation
+
+    The weak form reads
+
+    .. math::
+        F_s = \int_\Omega \sigma \phi dx
+
+    where :math:`\sigma` is a user defined scalar :class:`Function`.
+
+    .. note ::
+        Due to the sign convention of :class:`.equation.Term`, this term is assembled to the left hand side of the equation
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
@@ -500,9 +678,11 @@ class ContinuitySourceTerm(ShallowWaterContinuityTerm):
 
 class BaseShallowWaterEquation(Equation):
     """
-    Abstract base class for ShallowWaterEquations, ShallowWaterMomentumEquation and FreeSurfaceEquation.
-    Provides common functionality to compute timesteps and add either momentum or continuity terms.
+    Abstract base class for ShallowWaterEquations, ShallowWaterMomentumEquation
+    and FreeSurfaceEquation.
 
+    Provides common functionality to compute time steps and add either momentum
+    or continuity terms.
     """
     def __init__(self, function_space,
                  bathymetry,
@@ -528,22 +708,6 @@ class BaseShallowWaterEquation(Equation):
         self.add_term(ContinuitySourceTerm(*args), 'source')
 
     def residual_uv_eta(self, label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
-        """
-        Returns an UFL form of the residual by summing up all the terms with the desired label.
-
-        Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
-
-        :arg label: string defining the type of terms to sum up. Currently one of
-            'source'|'explicit'|'implicit'|'nonlinear'. Can be a list of multiple labels, or 'all' in which
-            case all defined terms are summed.
-        :arg uv:, :arg eta: uv and eta at new time-level, at least one of whom is solved for
-        :arg uv_old:, :arg eta_old: uv and eta at the old time-level
-        :arg fields: a dictionary that provides all the remaining fields that the term depends on.
-            The keys of the dictionary should standard field names in `field_metadata`
-        :arg fields_old: Time lagged dictionary of fields
-        :arg bnd_conditions: A dictionary describing boundary conditions.
-            E.g. {3: {'elev_2d': Constant(1.0)}} replaces elev_2d function by a constant on boundary ID 3.
-        """
         f = 0
         for term in self.select_terms(label):
             f += term.residual(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
@@ -553,12 +717,28 @@ class BaseShallowWaterEquation(Equation):
 class ShallowWaterEquations(BaseShallowWaterEquation):
     """
     2D depth-averaged shallow water equations in non-conservative form.
+
+    This defines the full 2D SWE equations :eq:`swe_freesurf` -
+    :eq:`swe_momentum`.
     """
     def __init__(self, function_space,
                  bathymetry,
                  nonlin=True,
                  include_grad_div_viscosity_term=False,
                  include_grad_depth_viscosity_term=True):
+        """
+        :param function_space: Mixed function space where the solution belongs
+        :param bathymetry: bathymetry of the domain
+        :type bathymetry: :class:`Function` or :class:`Constant`
+        :param nonlin: If False defines linear shallow water equations
+        :type nonlin: bool
+        :param include_grad_div_viscosity_term: If True includes grad(nu div(u))
+            viscosity term
+        :type include_grad_div_viscosity_term: bool
+        :param include_grad_depth_viscosity_term: If True includes grad(H) term
+            in viscosity operator
+        :type include_grad_depth_viscosity_term: bool
+        """
         super(ShallowWaterEquations, self).__init__(function_space, bathymetry, nonlin)
 
         u_test, eta_test = TestFunctions(function_space)
@@ -573,22 +753,6 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
         self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, nonlin)
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
-        """
-        Returns an UFL form of the residual by summing up all the terms with the desired label.
-
-        Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
-
-        :arg label: string defining the type of terms to sum up. Currently one of
-            'source'|'explicit'|'implicit'|'nonlinear'. Can be a list of multiple labels, or 'all' in which
-            case all defined terms are summed.
-        :arg solution: solution :class:`.Function` of the corresponding equation
-        :arg solution_old: a time lagged solution :class:`.Function`
-        :arg fields: a dictionary that provides all the remaining fields that the term depends on.
-            The keys of the dictionary should standard field names in `field_metadata`
-        :arg fields_old: Time lagged dictionary of fields
-        :arg bnd_conditions: A dictionary describing boundary conditions.
-            E.g. {3: {'elev_2d': Constant(1.0)}} replaces elev_2d function by a constant on boundary ID 3.
-        """
         if isinstance(solution, list):
             uv, eta = solution
         else:
@@ -598,14 +762,45 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
 
 
 class ModeSplit2DEquations(BaseShallowWaterEquation):
-    """
-    2D depth-averaged shallow water equations for 2D-3D mode splitting
+    r"""
+    2D depth-averaged shallow water equations for 2D-3D mode splitting.
+
+    Here the 2D system only contains rotational external gravity waves:
+
+    .. math::
+        \frac{\partial \eta}{\partial t} + \nabla \cdot (H \bar{\textbf{u}}) = 0
+        :label: swe_freesurf_modesplit
+
+    .. math::
+        \frac{\partial \bar{\textbf{u}}}{\partial t} +
+        f\textbf{e}_z\wedge \bar{\textbf{u}} +
+        g \nabla \eta + g \frac{1}{H}\int_{-h}^\eta \nabla r dz
+        = \textbf{G},
+        :label: swe_momentum_modesplit
+
+   where :math:`\textbf{G}` is a source term containing all other terms. In
+   practice :math:`\textbf{G}` is computed as a residual of the 3D momentum
+   equation.
     """
     def __init__(self, function_space,
                  bathymetry,
                  nonlin=True,
                  include_grad_div_viscosity_term=False,
                  include_grad_depth_viscosity_term=True):
+        """
+        :param function_space: Mixed function space where the solution belongs
+        :param bathymetry: bathymetry of the domain
+        :type bathymetry: :class:`Function` or :class:`Constant`
+        :param nonlin: If False defines linear shallow water equations
+        :type nonlin: bool
+        :param include_grad_div_viscosity_term: If True includes grad(nu div(u))
+            viscosity term
+        :type include_grad_div_viscosity_term: bool
+        :param include_grad_depth_viscosity_term: If True includes grad(H) term
+            in viscosity operator
+        :type include_grad_depth_viscosity_term: bool
+        """
+        # TODO remove include_grad_* options as viscosity operator is omitted
         super(ModeSplit2DEquations, self).__init__(function_space, bathymetry, nonlin)
 
         u_test, eta_test = TestFunctions(function_space)
@@ -621,13 +816,7 @@ class ModeSplit2DEquations(BaseShallowWaterEquation):
 
     def add_momentum_terms(self, *args):
         self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
-        # self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
-        # self.add_term(HorizontalViscosityTerm(*args), 'explicit')
         self.add_term(CoriolisTerm(*args), 'explicit')
-        # self.add_term(WindStressTerm(*args), 'source')
-        # self.add_term(QuadraticDragTerm(*args), 'explicit')
-        # self.add_term(LinearDragTerm(*args), 'explicit')
-        # self.add_term(BottomDrag3DTerm(*args), 'source')
         self.add_term(InternalPressureGradientTerm(*args), 'source')
         self.add_term(MomentumSourceTerm(*args), 'source')
 
@@ -642,31 +831,25 @@ class ModeSplit2DEquations(BaseShallowWaterEquation):
 
 class FreeSurfaceEquation(BaseShallowWaterEquation):
     """
-    2D free surface equation.
+    2D free surface equation :eq:`swe_freesurf` in non-conservative form.
     """
     def __init__(self, eta_test, eta_space, u_space,
                  bathymetry,
                  nonlin=True):
+        """
+        :param eta_test: test function of the elevation function space
+        :param eta_space: elevation function space
+        :param u_space: velocity function space
+        :param function_space: Mixed function space where the solution belongs
+        :param bathymetry: bathymetry of the domain
+        :type bathymetry: :class:`Function` or :class:`Constant`
+        :param nonlin: If False defines linear shallow water equations
+        :type nonlin: bool
+        """
         super(FreeSurfaceEquation, self).__init__(eta_space, bathymetry, nonlin)
         self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, nonlin)
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
-        """
-        Returns an UFL form of the residual by summing up all the terms with the desired label.
-
-        Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
-
-        :arg label: string defining the type of terms to sum up. Currently one of
-            'source'|'explicit'|'implicit'|'nonlinear'. Can be a list of multiple labels, or 'all' in which
-            case all defined terms are summed.
-        :arg solution: solution :class:`.Function` of the corresponding equation
-        :arg solution_old: a time lagged solution :class:`.Function`
-        :arg fields: a dictionary that provides all the remaining fields that the term depends on.
-            The keys of the dictionary should standard field names in `field_metadata`
-        :arg fields_old: Time lagged dictionary of fields
-        :arg bnd_conditions: A dictionary describing boundary conditions.
-            E.g. {3: {'elev_2d': Constant(1.0)}} replaces elev_2d function by a constant on boundary ID 3.
-        """
         uv = fields['uv']
         uv_old = fields_old['uv']
         eta = solution
@@ -676,13 +859,30 @@ class FreeSurfaceEquation(BaseShallowWaterEquation):
 
 class ShallowWaterMomentumEquation(BaseShallowWaterEquation):
     """
-    2D free surface equation.
+    2D depth averaged momentum equation :eq:`swe_momentum` in non-conservative
+    form.
     """
     def __init__(self, eta_test, eta_space, u_space,
                  bathymetry,
                  nonlin=True,
                  include_grad_div_viscosity_term=False,
                  include_grad_depth_viscosity_term=True):
+        """
+        :param eta_test: test function of the elevation function space
+        :param eta_space: elevation function space
+        :param u_space: velocity function space
+        :param function_space: Mixed function space where the solution belongs
+        :param bathymetry: bathymetry of the domain
+        :type bathymetry: :class:`Function` or :class:`Constant`
+        :param nonlin: If False defines linear shallow water equations
+        :type nonlin: bool
+        :param include_grad_div_viscosity_term: If True includes grad(nu div(u))
+            viscosity term
+        :type include_grad_div_viscosity_term: bool
+        :param include_grad_depth_viscosity_term: If True includes grad(H) term
+            in viscosity operator
+        :type include_grad_depth_viscosity_term: bool
+        """
         super(ShallowWaterMomentumEquation, self).__init__(u_space, bathymetry, nonlin)
         self.add_momentum_terms(eta_test, u_space, eta_space,
                                 bathymetry,
@@ -691,22 +891,6 @@ class ShallowWaterMomentumEquation(BaseShallowWaterEquation):
                                 include_grad_depth_viscosity_term)
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
-        """
-        Returns an UFL form of the residual by summing up all the terms with the desired label.
-
-        Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
-
-        :arg label: string defining the type of terms to sum up. Currently one of
-            'source'|'explicit'|'implicit'|'nonlinear'. Can be a list of multiple labels, or 'all' in which
-            case all defined terms are summed.
-        :arg solution: solution :class:`.Function` of the corresponding equation
-        :arg solution_old: a time lagged solution :class:`.Function`
-        :arg fields: a dictionary that provides all the remaining fields that the term depends on.
-            The keys of the dictionary should standard field names in `field_metadata`
-        :arg fields_old: Time lagged dictionary of fields
-        :arg bnd_conditions: A dictionary describing boundary conditions.
-            E.g. {3: {'elev_2d': Constant(1.0)}} replaces elev_2d function by a constant on boundary ID 3.
-        """
         uv = solution
         uv_old = solution_old
         eta = fields['eta']

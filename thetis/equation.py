@@ -9,6 +9,9 @@ from .utility import *
 class Term(object):
     """
     Implements a single term of an equation.
+
+    .. note::
+        Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
     """
     def __init__(self, function_space):
         # define bunch of members needed to construct forms
@@ -25,8 +28,6 @@ class Term(object):
         """
         Returns an UFL form of the term.
 
-        Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
-
         :arg solution: solution :class:`.Function` of the corresponding equation
         :arg solution_old: a time lagged solution :class:`.Function`
         :arg fields: a dictionary that provides all the remaining fields that the term depends on.
@@ -40,8 +41,6 @@ class Term(object):
     def jacobian(self, solution, solution_old, fields, fields_old, bnd_conditions):
         """
         Returns an UFL form of the Jacobian of the term.
-
-        Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
 
         :arg solution: solution :class:`.Function` of the corresponding equation
         :arg solution_old: a time lagged solution :class:`.Function`
