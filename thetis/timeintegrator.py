@@ -1,7 +1,5 @@
 """
 Generic time integration schemes to advance equations in time.
-
-Tuomas Karna 2015-03-27
 """
 from __future__ import absolute_import
 from .utility import *
@@ -9,22 +7,50 @@ from abc import ABCMeta, abstractproperty
 
 
 class TimeIntegratorBase(object):
+    """
+    Abstract class that defines the API for all time integrators
+    """
     __metaclass__ = ABCMeta
 
     @abstractproperty
     def advance(self, t, update_forcings=None):
-        """Advances equations for one time step."""
+        """
+        Advances equations for one time step
+
+        :param t: simulation time
+        :type t: float
+        :param update_forcings: user-defined function that takes the simulation
+            time and updates any time-dependent boundary conditions
+        """
         pass
 
     @abstractproperty
     def initialize(self, init_solution):
-        """Initializes the time integrator"""
+        """
+        Initialize the time integrator
+
+        :param init_solution: initial solution
+        """
         pass
 
 
 class TimeIntegrator(TimeIntegratorBase):
-    """Base class for all time integrator objects."""
+    """
+    Base class for all time integrator objects that march a single equation
+    """
+    # TODO add abstract property cfl_coeff
     def __init__(self, equation, solution, fields, dt, solver_parameters={}):
+        """
+        :param equation: the equation to solve
+        :type equation: :class:`Equation` object
+        :param solution: :class:`Function` where solution will be stored
+        :param fields: Dictionary of fields that are passed to the equation
+        :type fields: dict of :class:`Function` or :class:`Constant` objects
+        :param dt: time step in seconds
+        :type dt: float
+        :param solver_parameters: PETSc solver options
+        :type solver_parameters: dict
+        """
         super(TimeIntegrator, self).__init__()
 
         self.equation = equation
@@ -40,7 +66,7 @@ class TimeIntegrator(TimeIntegratorBase):
         self.solver_parameters.update(solver_parameters)
 
     def set_dt(self, dt):
-        """Updates time step"""
+        """Update time step"""
         self.dt = dt
         self.dt_const.assign(dt)
 
@@ -48,7 +74,19 @@ class TimeIntegrator(TimeIntegratorBase):
 class ForwardEuler(TimeIntegrator):
     """Standard forward Euler time integration scheme."""
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
-        """Creates forms for the time integrator"""
+        """
+        :param equation: the equation to solve
+        :type equation: :class:`Equation` object
+        :param solution: :class:`Function` where solution will be stored
+        :param fields: Dictionary of fields that are passed to the equation
+        :type fields: dict of :class:`Function` or :class:`Constant` objects
+        :param dt: time step in seconds
+        :type dt: float
+        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :type bnd_conditions: dict
+        :param solver_parameters: PETSc solver options
+        :type solver_parameters: dict
+        """
         super(ForwardEuler, self).__init__(equation, solution, fields, dt, solver_parameters)
         self.solution_old = Function(self.equation.function_space)
 
@@ -98,7 +136,23 @@ class ForwardEuler(TimeIntegrator):
 class CrankNicolson(TimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, theta=0.5, semi_implicit=False):
-        """Creates forms for the time integrator"""
+        """
+        :param equation: the equation to solve
+        :type equation: :class:`Equation` object
+        :param solution: :class:`Function` where solution will be stored
+        :param fields: Dictionary of fields that are passed to the equation
+        :type fields: dict of :class:`Function` or :class:`Constant` objects
+        :param dt: time step in seconds
+        :type dt: float
+        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :type bnd_conditions: dict
+        :param solver_parameters: PETSc solver options
+        :type solver_parameters: dict
+        :param theta: Implicitness parameter, default 0.5
+        :type theta: float
+        :param semi_implicit: If True use a linearized semi-implicit scheme
+        :type semi_implicit: bool
+        """
         super(CrankNicolson, self).__init__(equation, solution, fields, dt, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
         if semi_implicit:
@@ -120,8 +174,8 @@ class CrankNicolson(TimeIntegrator):
         u = self.solution
         u_old = self.solution_old
         if semi_implicit:
-            # linearize around last timestep using the fact that all terms are written in the form A(u_nl) u
-            # (currently only true for the SWE)
+            # linearize around last timestep using the fact that all terms are
+            # written in the form A(u_nl) u
             u_nl = u_old
         else:
             # solve the full nonlinear residual form
@@ -132,7 +186,6 @@ class CrankNicolson(TimeIntegrator):
 
         # Crank-Nicolson
         theta_const = Constant(theta)
-        # FIXME this is consistent with previous implementation but time levels are incorrect
         self.F = (self.equation.mass_term(u) - self.equation.mass_term(u_old) -
                   self.dt_const*(theta_const*self.equation.residual('all', u, u_nl, f, f, bnd) +
                                  (1-theta_const)*self.equation.residual('all', u_old, u_old, f_old, f_old, bnd)
@@ -142,6 +195,7 @@ class CrankNicolson(TimeIntegrator):
         self.update_solver()
 
     def update_solver(self):
+        """Create solver objects"""
         # Ensure LU assembles monolithic matrices
         if self.solver_parameters.get('pc_type') == 'lu':
             self.solver_parameters['mat_type'] = 'aij'
@@ -169,9 +223,24 @@ class CrankNicolson(TimeIntegrator):
 
 
 class SteadyState(TimeIntegrator):
-    """Time integrator that solves the steady state equations, leaving out the mass terms"""
+    """
+    Time integrator that solves the steady state equations, leaving out the
+    mass terms
+    """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
-        """Creates forms for the time integrator"""
+        """
+        :param equation: the equation to solve
+        :type equation: :class:`Equation` object
+        :param solution: :class:`Function` where solution will be stored
+        :param fields: Dictionary of fields that are passed to the equation
+        :type fields: dict of :class:`Function` or :class:`Constant` objects
+        :param dt: time step in seconds
+        :type dt: float
+        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :type bnd_conditions: dict
+        :param solver_parameters: PETSc solver options
+        :type solver_parameters: dict
+        """
         super(SteadyState, self).__init__(equation, solution, fields, dt, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
@@ -179,6 +248,7 @@ class SteadyState(TimeIntegrator):
         self.update_solver()
 
     def update_solver(self):
+        """Create solver objects"""
         # Ensure LU assembles monolithic matrices
         if self.solver_parameters.get('pc_type') == 'lu':
             self.solver_parameters['mat_type'] = 'aij'
@@ -200,10 +270,39 @@ class SteadyState(TimeIntegrator):
 
 
 class PressureProjectionPicard(TimeIntegrator):
-    """Pressure projection scheme with Picard iteration."""
-    def __init__(self, equation, equation_mom, solution, fields, dt, bnd_conditions=None, solver_parameters={}, solver_parameters_mom={},
-                 theta=0.5, semi_implicit=False, iterations=2):
-        """Creates forms for the time integrator"""
+    """
+    Pressure projection scheme with Picard iteration for shallow water
+    equations
+
+    """
+    # TODO add more documentation
+    def __init__(self, equation, equation_mom, solution, fields, dt,
+                 bnd_conditions=None, solver_parameters={},
+                 solver_parameters_mom={}, theta=0.5, semi_implicit=False,
+                 iterations=2):
+        """
+        :param equation: free surface equation
+        :type equation: :class:`Equation` object
+        :param equation_mom: momentum equation
+        :type equation_mom: :class:`Equation` object
+        :param solution: :class:`Function` where solution will be stored
+        :param fields: Dictionary of fields that are passed to the equation
+        :type fields: dict of :class:`Function` or :class:`Constant` objects
+        :param dt: time step in seconds
+        :type dt: float
+        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :type bnd_conditions: dict
+        :param solver_parameters: PETSc solver options for pressure solver
+        :type solver_parameters: dict
+        :param solver_parameters_mom: PETSc solver options for velocity solver
+        :type solver_parameters_mom: dict
+        :param theta: Implicitness parameter, default 0.5
+        :type theta: float
+        :param semi_implicit: If True use a linearized semi-implicit scheme
+        :type semi_implicit: bool
+        :param iterations: Number of Picard iterations
+        :type iterations: int
+        """
         super(PressureProjectionPicard, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         self.equation_mom = equation_mom
@@ -217,7 +316,6 @@ class PressureProjectionPicard(TimeIntegrator):
             # not sure this combination makes much sense: keep both systems nonlinear
             self.solver_parameters.setdefault('snes_type', 'newtonls')
             self.solver_parameters_mom.setdefault('snes_type', 'newtonls')
-        # number of picard iterations
         self.iterations = iterations
 
         self.solution_old = Function(self.equation.function_space)
@@ -287,6 +385,7 @@ class PressureProjectionPicard(TimeIntegrator):
         self.update_solver()
 
     def update_solver(self):
+        """Create solver objects"""
         prob = NonlinearVariationalProblem(self.F_mom, self.uv_star)
         self.solver_mom = NonlinearVariationalSolver(prob,
                                                      solver_parameters=self.solver_parameters_mom,
@@ -331,15 +430,32 @@ class LeapFrogAM3(TimeIntegrator):
     Defined in (2.27)-(2.30) in [1]; (2.21)-(2.22) in [2]
 
     [1] Shchepetkin and McWilliams (2005). The regional oceanic modeling system
-        (ROMS): a split-explicit, free-surface, topography-following-coordinate
-        oceanic model. Ocean Modelling, 9(4):347-404.
-        http://dx.doi.org/10.1016/j.ocemod.2013.04.010
+    (ROMS): a split-explicit, free-surface, topography-following-coordinate
+    oceanic model. Ocean Modelling, 9(4):347-404.
+    http://dx.doi.org/10.1016/j.ocemod.2013.04.010
+
     [2] Shchepetkin and McWilliams (2009). Computational Kernel Algorithms for
-        Fine-Scale, Multiprocess, Longtime Oceanic Simulations, 14:121-183.
-        http://dx.doi.org/10.1016/S1570-8659(08)01202-0
+    Fine-Scale, Multiprocess, Longtime Oceanic Simulations, 14:121-183.
+    http://dx.doi.org/10.1016/S1570-8659(08)01202-0
     """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
-                 solver_parameters={}, solver_parameters_dirk={}, terms_to_add='all'):
+                 solver_parameters={}, terms_to_add='all'):
+        """
+        :param equation: equation to solve
+        :type equation: :class:`Equation` object
+        :param solution: :class:`Function` where solution will be stored
+        :param fields: Dictionary of fields that are passed to the equation
+        :type fields: dict of :class:`Function` or :class:`Constant` objects
+        :param dt: time step in seconds
+        :type dt: float
+        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :type bnd_conditions: dict
+        :param solver_parameters: PETSc solver options
+        :type solver_parameters: dict
+        :param terms_to_add: Defines which terms of the equation are to be
+            added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
+        :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
+        """
         super(LeapFrogAM3, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         self.gamma = 1./12.
@@ -397,13 +513,18 @@ class LeapFrogAM3(TimeIntegrator):
             self.lin_solver.solve(self.solution, self.rhs_func)
 
     def predict(self):
-        """
-        Prediction step from t_{n-1/2} to t_{n+1/2}
+        r"""
+        Prediction step from :math:`t_{n-1/2}` to :math:`t_{n+1/2}`
 
-        T_{n-1/2} = (0.5 - 2*gamma)*T_{n-1} + (0.5 + 2*gamma)*T_{n}
-        T_{n+1/2} = T_{n-1/2} + dt*(1 - 2*gamma)*L_{n}
+        Let :math:`M_n` denote the mass matrix at time :math:`t_{n}`.
+        The prediction step is
 
-        This is computed in fixed mesh: all terms are evaluated in Omega_n
+        .. math::
+            T_{n-1/2} &= (1/2 - 2\gamma) T_{n-1} + (1/2 + 2 \gamma) T_{n} \\
+            M_n T_{n+1/2} &= M_n T_{n-1/2} + \Delta t (1 - 2\gamma) M_n L_{n}
+
+        This is computed in a fixed mesh: all terms are evaluated in
+        :math:`\Omega_n`.
         """
         if self._nontrivial:
             with timed_region('lf_pre_asmb_sol'):
@@ -421,12 +542,17 @@ class LeapFrogAM3(TimeIntegrator):
                 assemble(self.l, self.rhs_func)
 
     def correct(self):
-        """
-        Correction step from t_{n} to t_{n+1}
+        r"""
+        Correction step from :math:`t_{n}` to :math:`t_{n+1}`
 
-        (MT)_{n+1} = (MT)_{n} + dt*L_{n+1/2}
+        Let :math:`M_n` denote the mass matrix at time :math:`t_{n}`.
+        The correction step is
 
-        This is Euler ALE step: LHS is evaluated in Omega_{n+1}, RHS in Omega_n
+        .. math::
+            M_{n+1} T_{n+1} = M_{n} T_{n} + \Delta t L_{n+1/2}
+
+        This is Euler ALE step: LHS is evaluated in :math:`\Omega_{n+1}`,
+        RHS in :math:`\Omega_n`.
         """
         if self._nontrivial:
             # NOTE must call eval_rhs in the old mesh first
@@ -462,7 +588,23 @@ class SSPRK22ALE(TimeIntegrator):
     to :math:`\Omega_{(1)}`, and :math:`\Omega_{n+1}`.
     """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
-                 solver_parameters={}, solver_parameters_dirk={}, terms_to_add='all'):
+                 solver_parameters={}, terms_to_add='all'):
+        """
+        :param equation: equation to solve
+        :type equation: :class:`Equation` object
+        :param solution: :class:`Function` where solution will be stored
+        :param fields: Dictionary of fields that are passed to the equation
+        :type fields: dict of :class:`Function` or :class:`Constant` objects
+        :param dt: time step in seconds
+        :type dt: float
+        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :type bnd_conditions: dict
+        :param solver_parameters: PETSc solver options
+        :type solver_parameters: dict
+        :param terms_to_add: Defines which terms of the equation are to be
+            added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
+        :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
+        """
         super(SSPRK22ALE, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         fs = self.equation.function_space
@@ -508,7 +650,7 @@ class SSPRK22ALE(TimeIntegrator):
                 self.mu.assign(self.mu_old + self.tendency)
 
     def stage_one_solve(self):
-        """
+        r"""
         First stage: solve :math:`u^{(1)}` given previous solution :math:`u^n`.
 
         This is a forward Euler ALE step between domains :math:`\Omega^n` and :math:`\Omega^{(1)}`:
@@ -560,7 +702,7 @@ class SSPRK22ALE(TimeIntegrator):
                 self.lin_solver.solve(self.solution, self.mu)
 
     def solve_stage(self, i_stage):
-        """Solves stage i_stage"""
+        """Solves i-th stage"""
         if i_stage == 0:
             self.stage_one_solve()
         else:
@@ -600,7 +742,23 @@ class TwoStageTrapezoid(TimeIntegrator):
     scheme.
     """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
-                 solver_parameters={}, solver_parameters_dirk={}, terms_to_add='all'):
+                 solver_parameters={}, terms_to_add='all'):
+        """
+        :param equation: equation to solve
+        :type equation: :class:`Equation` object
+        :param solution: :class:`Function` where solution will be stored
+        :param fields: Dictionary of fields that are passed to the equation
+        :type fields: dict of :class:`Function` or :class:`Constant` objects
+        :param dt: time step in seconds
+        :type dt: float
+        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :type bnd_conditions: dict
+        :param solver_parameters: PETSc solver options
+        :type solver_parameters: dict
+        :param terms_to_add: Defines which terms of the equation are to be
+            added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
+        :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
+        """
         super(TwoStageTrapezoid, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         test = self.equation.test
@@ -649,7 +807,7 @@ class TwoStageTrapezoid(TimeIntegrator):
         self.solution_old.assign(solution)
 
     def solve_stage(self, i_stage, t, update_forcings=None):
-        """Solves sub-stage i_stage"""
+        """Solves i-th stage"""
         if self._nontrivial:
             if update_forcings is not None:
                 update_forcings(t + self.c[i_stage]*self.dt)
