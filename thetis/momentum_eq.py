@@ -1,7 +1,55 @@
-"""
-3D momentum and tracer equations for hydrostatic Boussinesq flow.
+r"""
+3D momentum equation for hydrostatic Boussinesq flow.
 
-Tuomas Karna 2015-02-23
+The three dimensional momentum equation reads
+
+.. math::
+    \frac{\partial \textbf{u}}{\partial t}
+        + \nabla_h \cdot (\textbf{u} \otimes \textbf{u})
+        + \frac{\partial \left(w\textbf{u} \right)}{\partial z}
+        + f\textbf{e}_z\wedge\textbf{u} + g\nabla_h \eta + g\nabla_h r
+        = \nabla_h \cdot \left( \nu_h \nabla_h \textbf{u} \right)
+        + \frac{\partial }{\partial z}\left( \nu \frac{\partial \textbf{u}}{\partial z}\right)
+    :label: mom_eq
+
+where :math:`\textbf{u}` and :math:`w` denote horizontal and vertical velocity,
+:math:`\nabla_h` is the horizontal gradient,
+:math:`\otimes` and :math:`\wedge` denote the outer and cross products,
+:math:`g` is the gravitational acceleration, :math:`f` is the Coriolis
+frequency, :math:`\textbf{e}_z` is a vertical unit vector, and
+:math:`\nu_h, \nu` stand for horizontal and vertical viscosity.
+Water density is given by :math:`\rho = \rho'(T, S, p) + \rho_0`,
+where :math:`\rho_0` is a constant reference density.
+Above :math:`r` denotes the baroclinic head
+
+.. math::
+    r = \frac{1}{\rho_0} \int_{z}^\eta  \rho' d\zeta.
+    :label: baroc_head
+
+In the case of purely barotropic problems the :math:`r` and the internal pressure
+gradient are omitted.
+
+When using mode spliting we split the velocity field to depth average and a
+deviation, :math:`\textbf{u} = \bar{\textbf{u}} + \textbf{u}'`.
+Following Higdon and de Szoeke (1997) we write an equation for the deviation
+:math:`\textbf{u}'`:
+
+.. math::
+    \frac{\partial \textbf{u}'}{\partial t} =
+        + \nabla_h \cdot (\textbf{u} \otimes \textbf{u})
+        + \frac{\partial \left(w\textbf{u} \right)}{\partial z}
+        + f\textbf{e}_z\wedge\textbf{u}' + g\nabla_h r
+        = \nabla_h \cdot \left( \nu_h \nabla_h \textbf{u} \right)
+        + \frac{\partial }{\partial z}\left( \nu  \frac{\partial \textbf{u}}{\partial z}\right)
+    :label: mom_eq_split
+
+In :eq:`mom_eq_split` the external pressure gradient :math:`g\nabla_h \eta` vanishes and the
+Coriolis term only contains the deviation :math:`\textbf{u}'`.
+Advection and diffusion terms are not changed.
+
+Higdon and de Szoeke (1997). Barotropic-Baroclinic Time Splitting for Ocean
+Circulation Modeling. Journal of Computational Physics, 135(1):30-53.
+http://dx.doi.org/10.1006/jcph.1997.5733
 """
 from __future__ import absolute_import
 from .utility import *
@@ -20,6 +68,22 @@ class MomentumTerm(Term):
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
                  nonlin=True, use_bottom_friction=False,
                  use_elevation_gradient=True):
+        """
+        :param function_space: :class:`FunctionSpace` where the solution belongs
+        :param bathymetry: bathymetry of the domain
+        :type bathymetry: 3D :class:`Function` or :class:`Constant`
+        :param v_elem_size: scalar :class:`Function` that defines the vertical
+            element size
+        :param h_elem_size: scalar :class:`Function` that defines the horizontal
+            element size
+        :param nonlin: If False defines the linear shallow water equations
+        :type nonlin: bool
+        :param use_bottom_friction: If True includes bottom friction term
+        :type use_bottom_friction: bool
+        :param use_elevation_gradient: If True includes external pressure
+            gradient in the pressure gradient term
+        :type use_elevation_gradient: bool
+        """
         super(MomentumTerm, self).__init__(function_space)
         self.bathymetry = bathymetry
         self.h_elem_size = h_elem_size
@@ -44,6 +108,29 @@ class MomentumTerm(Term):
 
 
 class PressureGradientTerm(MomentumTerm):
+    r"""
+    Internal pressure gradient term, :math:`g\nabla_h r`
+
+    where :math:`r` is the baroclinic head :eq:`baroc_head`. Let :math:`s`
+    denote :math:`r H`. We can then write
+
+    .. math::
+        F_{IPG} = g\nabla_h((s -\bar{s}) H)
+            + g\nabla_h\left(\frac{1}{H}\right) H^2\bar{s}
+            + g s_{bot}\nabla_h h
+
+    where :math:`\bar{s},s_{bot}` are the depth average and bottom value of
+    :math:`s`.
+
+    If :math:`s` belongs to a discontinuous function space, the first term is
+    integrated by parts. Its weak form reads
+
+    .. math::
+        \int_\Omega g\nabla_h((s -\bar{s}) H) \cdot \psi dx
+            = - \int_\Omega g (s -\bar{s}) H \nabla_h \cdot \psi dx
+            + \int_{\mathcal{I}_h \cup \mathcal{I}_v} g (s -\bar{s}) H \psi  \cdot \textbf{n}_h dx
+    """
+    # TODO revise
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
 
         if self.nonlin:
@@ -52,6 +139,7 @@ class PressureGradientTerm(MomentumTerm):
             total_h = self.bathymetry
 
         # TODO include additional 2D pressure gradient terms ...
+        # TODO update naming convention: baroc_head is actually s not r
         baroc_head = fields_old.get('baroc_head')
         mean_baroc_head = fields_old.get('mean_baroc_head')
         if baroc_head is not None:
@@ -115,6 +203,26 @@ class PressureGradientTerm(MomentumTerm):
 
 
 class HorizontalAdvectionTerm(MomentumTerm):
+    r"""
+    Horizontal advection term, :math:`\nabla_h \cdot (\textbf{u} \otimes \textbf{u})`
+
+    The weak form reads
+
+    .. math::
+        \int_\Omega \nabla_h \cdot (\textbf{u} \otimes \textbf{u}) \cdot \psi dx
+        = - \int_\Omega \nabla_h \psi : (\textbf{u} \otimes \textbf{u}) dx
+        + \int_{\mathcal{I}_h \cup \mathcal{I}_v} \textbf{u}^{\text{up}} \cdot \text{jump}(\psi \otimes \textbf{n}_h) \cdot \text{avg}(\textbf{u}) dS
+
+    where the right hand side has been integrated by parts; :math:`\otimes`
+    and :math:`:` stand for outer and the Frobenius inner products,
+    :math:`\textbf{n}_h` is the horizontal
+    projection of the normal vector, :math:`\textbf{u}^{\text{up}}` is the
+    upwind value, and :math:`\text{jump}` and :math:`\text{avg}` denote the
+    jump and average operators across the interface.
+    If :math:`\bar{\textbf{u}}` belongs to a discontinuous function space, the
+    latter form is used.
+
+    """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if not self.nonlin:
             return 0
@@ -209,6 +317,19 @@ class HorizontalAdvectionTerm(MomentumTerm):
 
 
 class VerticalAdvectionTerm(MomentumTerm):
+    r"""
+    Vertical advection term, :math:`\partial \left(w\textbf{u} \right)/(\partial z)`
+
+    The weak form reads
+
+    .. math::
+        \int_\Omega \frac{\partial \left(w\textbf{u} \right)}{\partial z} \cdot \psi dx
+        = - \int_\Omega \left( w \textbf{u} \right) \cdot \frac{\partial \psi}{\partial z} dx
+        + \int_{\mathcal{I}_{h}} \textbf{u}^{\text{up}} \cdot \text{jump}(\psi n_z) \text{mean}(w) dS
+
+    If the function space of :math:`\textbf{u}` is discontinuous in the
+    vertical direction, we use the latter form.
+    """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         w = fields_old.get('w')
         w_mesh = fields_old.get('w_mesh')
@@ -247,6 +368,10 @@ class VerticalAdvectionTerm(MomentumTerm):
 
 
 class ALESourceTerm(MomentumTerm):
+    """
+    Source term for non-conservative ALE formulation
+    """
+    # TODO OBSOLETE take me to the void
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         dw_mesh_dz = fields_old.get('dw_mesh_dz')
         f = 0
@@ -258,6 +383,35 @@ class ALESourceTerm(MomentumTerm):
 
 
 class HorizontalViscosityTerm(MomentumTerm):
+    r"""
+    Horizontal viscosity term, :math:`- \nabla_h \cdot \left( \nu_h \nabla_h \textbf{u} \right)`
+
+    The weak form reads
+
+    .. math::
+        - \int_\Omega \nabla_h \cdot \left( \nu_h \nabla_h \textbf{u} \right) \cdot \psi dx
+        = \int_\Omega \nu_h (\nabla_h \psi) : (\nabla_h \textbf{u})^T dx
+        - \int_{\mathcal{I}_h \cup \mathcal{I}_v} \text{jump}(\psi \otimes \textbf{n}_h) \cdot \text{mean}( \nu_h \nabla_h \textbf{u}) dS
+
+    If the function space of :math:`\textbf{u}` is discontinuous in the
+    horizontal direction, we augment the right hand side with symmetric interior
+    penalty method:
+
+    .. math::
+        SIPG
+        = - \int_{\mathcal{I}_h \cup \mathcal{I}_v} \text{jump}(\textbf{u} \otimes \textbf{n}_h) \cdot \text{mean}( \nu_h \nabla_h \psi) dS
+        + \int_{\mathcal{I}_h \cup \mathcal{I}_v} \sigma \text{mean}(\nu_h) \text{jump}(\textbf{u} \otimes \textbf{n}_h) \cdot \text{jump}(\psi \otimes \textbf{n}_h) dS
+
+    where :math:`\sigma` is a penalty parameter,
+    see Epshteyn and Riviere (2007).
+
+    Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
+    interior penalty Galerkin methods. Journal of Computational and Applied
+    Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
+
+    .. note ::
+        Note the minus sign due to :class:`.equation.Term` sign convention
+    """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         viscosity_h = fields_old.get('viscosity_h')
         if viscosity_h is None:
@@ -323,6 +477,35 @@ class HorizontalViscosityTerm(MomentumTerm):
 
 
 class VerticalViscosityTerm(MomentumTerm):
+    r"""
+    Vertical viscosity term, :math:`- \frac{\partial }{\partial z}\left( \nu \frac{\partial \textbf{u}}{\partial z}\right)`
+
+    The weak form reads
+
+    .. math::
+        - \int_\Omega \frac{\partial }{\partial z}\left( \nu \frac{\partial \textbf{u}}{\partial z}\right) \cdot \psi dx
+        = \int_\Omega \nu \frac{\partial \psi}{\partial z} \cdot \frac{\partial \textbf{u}}{\partial z} dx
+        - \int_{\mathcal{I}_h} \text{jump}(\psi n_z) \cdot \text{mean}\left(\nu \frac{\partial \textbf{u}}{\partial z}\right) dS
+
+    If the function space of :math:`\bar{\textbf{u}}` is discontinuous in the
+    vertical direction, we augment the right hand side with symmetric interior
+    penalty method:
+
+    .. math::
+        SIPG
+        = - \int_{\mathcal{I}_h} \text{jump}(\textbf{u} n_z) \cdot \text{mean}\left(\nu \frac{\partial \psi}{\partial z}\right) dS
+        + \int_{\mathcal{I}_h} \sigma \text{mean}(\nu) \text{jump}(\textbf{u} n_z) \cdot \text{jump}(\psi n_z) dS
+
+    where :math:`\sigma` is a penalty parameter,
+    see Epshteyn and Riviere (2007).
+
+    Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
+    interior penalty Galerkin methods. Journal of Computational and Applied
+    Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
+
+    .. note ::
+        Note the minus sign due to :class:`.equation.Term` sign convention
+    """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         viscosity_v = fields_old.get('viscosity_v')
         if viscosity_v is None:
@@ -358,6 +541,36 @@ class VerticalViscosityTerm(MomentumTerm):
 
 
 class BottomFrictionTerm(MomentumTerm):
+    r"""
+    Quadratic bottom friction term, :math:`\tau_b = C_D \| \textbf{u}_b \| \textbf{u}_b`
+
+    The weak formulation reads
+
+    .. math::
+        \int_{\Gamma_{bot}} \tau_b \cdot \psi dx = \int_{\Gamma_{bot}} C_D \| \textbf{u}_b \| \textbf{u}_b \cdot \psi dx
+
+    where :math:`\textbf{u}_b` is reconstructed velocity in the middle of the
+    bottom element:
+
+    .. math::
+        \textbf{u}_b = \textbf{u}\Big|_{\Gamma_{bot}} + \frac{\partial \textbf{u}}{\partial z}\Big|_{\Gamma_{bot}} h_b,
+
+    :math:`h_b` being half of the element height.
+    For implicit solvers we linearize the stress as
+    :math:`\tau_b = C_D \| \textbf{u}_b^{n} \| \textbf{u}_b^{n+1}`
+
+    The drag is computed from the law-of-the wall
+
+    .. math::
+        C_D = \left( \frac{\kappa}{\ln (h_b + z_0)/z_0} \right)^2
+
+    where :math:`z_0` is the bottom roughness length, read from ``z0_friction``
+    field.
+    The user can override the :math:`C_D` value by providing ``quadratic_drag``
+    field.
+
+    """
+    # TODO z_0 should be a field in the options dict, remove from physical_constants
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
         if self.use_bottom_friction:
@@ -387,6 +600,11 @@ class BottomFrictionTerm(MomentumTerm):
 
 
 class LinearDragTerm(MomentumTerm):
+    r"""
+    Linear drag term, :math:`\tau_b = D \textbf{u}_b`
+
+    where :math:`D` is the drag coefficient, read from ``linear_drag`` field.
+    """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         linear_drag = fields_old.get('linear_drag')
         f = 0
@@ -398,6 +616,9 @@ class LinearDragTerm(MomentumTerm):
 
 
 class CoriolisTerm(MomentumTerm):
+    r"""
+    Coriolis term, :math:`f\textbf{e}_z\wedge \bar{\textbf{u}}`
+    """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         coriolis = fields_old.get('coriolis')
         f = 0
@@ -408,9 +629,29 @@ class CoriolisTerm(MomentumTerm):
 
 
 class SourceTerm(MomentumTerm):
+    r"""
+    Generic momentun source term
+
+    The weak form reads
+
+    .. math::
+        F_s = \int_\Omega \sigma \cdot \psi dx
+
+    where :math:`\sigma` is a user defined vector valued :class:`Function`.
+
+    This term also implements the wind stress, :math:`-\tau_w/(H \rho_0)`.
+    :math:`\tau_w` is a user-defined wind stress :class:`Function`
+    ``wind_stress``. The weak form is
+
+    .. math::
+        F_w = \int_{\Gamma_s} \frac{1}{\rho_0} \tau_w \cdot \psi dx
+
+    Wind stress is only included if vertical viscosity is provided.
+
+    .. note ::
+        Due to the sign convention of :class:`.equation.Term`, this term is assembled to the left hand side of the equation
     """
-    Generic source term
-    """
+    # TODO implement wind stress as a separate term
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
         source = fields_old.get('source')
@@ -428,12 +669,31 @@ class SourceTerm(MomentumTerm):
 
 class MomentumEquation(Equation):
     """
-    3D momentum equation for hydrostatic Boussinesq flow.
+    Hydrostatic 3D momentum equation :eq:`mom_eq_split` for mode split models
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
                  nonlin=True, use_bottom_friction=False,
                  use_elevation_gradient=True):
+        """
+        :param function_space: :class:`FunctionSpace` where the solution belongs
+        :param bathymetry: bathymetry of the domain
+        :type bathymetry: 3D :class:`Function` or :class:`Constant`
+        :param v_elem_size: scalar :class:`Function` that defines the vertical
+            element size
+        :param h_elem_size: scalar :class:`Function` that defines the horizontal
+            element size
+        :param nonlin: If False defines the linear shallow water equations
+        :type nonlin: bool
+        :param use_bottom_friction: If True includes bottom friction term
+        :type use_bottom_friction: bool
+        :param use_elevation_gradient: If True includes external pressure
+            gradient in the pressure gradient term
+        :type use_elevation_gradient: bool
+        """
+        # TODO remove use_elevation_gradient because it's OBSOLETE
+        # TODO remove OBSOLETE ALESourceTerm
+        # TODO rename for reflect the fact that this is eq for the split eqns
         super(MomentumEquation, self).__init__(function_space)
 
         args = (function_space, bathymetry,
