@@ -1,7 +1,19 @@
-"""
+r"""
 3D advection diffusion equation for tracers.
 
-Tuomas Karna 2015-09-08
+The advection-diffusion equation of tracer :math:`T` in conservative form reads
+
+.. math::
+   \frac{\partial T}{\partial t}
+    + \nabla_h \cdot (\textbf{u} T)
+    + \frac{\partial (w T)}{\partial z}
+    = \nabla_h \cdot (\mu_h \nabla_h T)
+    + \frac{\partial}{\partial z} \Big(\mu \frac{T}{\partial z}\Big)
+   :label: tracer
+
+where :math:`\nabla_h` denotes horizontal gradient, :math:`\textbf{u}` and
+:math:`w` are the horizontal and vertical velocities, respectively, and
+:math:`\mu_h` and :math:`\mu` denote horizontal and vertical diffusivity.
 """
 from __future__ import absolute_import
 from .utility import *
@@ -16,6 +28,18 @@ class TracerTerm(Term):
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
                  use_symmetric_surf_bnd=True):
+        """
+        :param function_space: :class:`FunctionSpace` where the solution belongs
+        :param bathymetry: bathymetry of the domain
+        :type bathymetry: 3D :class:`Function` or :class:`Constant`
+        :param v_elem_size: scalar :class:`Function` that defines the vertical
+            element size
+        :param h_elem_size: scalar :class:`Function` that defines the horizontal
+            element size
+        :param use_symmetric_surf_bnd: If True, use symmetric surface boundary
+            condition in the horizontal advection term
+        :type use_symmetric_surf_bnd: bool
+        """
         super(TracerTerm, self).__init__(function_space)
         self.bathymetry = bathymetry
         self.h_elem_size = h_elem_size
@@ -37,11 +61,19 @@ class TracerTerm(Term):
 
     def get_bnd_functions(self, c_in, uv_in, elev_in, bnd_id, bnd_conditions):
         """
-        Returns external values tracer and uv for all supported
+        Returns external values of tracer and uv for all supported
         boundary conditions.
 
-        volume flux (flux) and normal velocity (un) are defined positive out of
+        Volume flux (flux) and normal velocity (un) are defined positive out of
         the domain.
+
+        :param c_in: Internal value of tracer
+        :param uv_in: Internal value of horizontal velocity
+        :param elev_in: Internal value of elevation
+        :param bnd_id: boundary id
+        :type bnd_id: int
+        :param bnd_conditions: dict of boundary conditions:
+            ``{bnd_id: {field: value, ...}, ...}``
         """
         funcs = bnd_conditions.get(bnd_id)
 
@@ -69,8 +101,26 @@ class TracerTerm(Term):
 
 
 class HorizontalAdvectionTerm(TracerTerm):
-    """
-    Horizontal scalar advection term
+    r"""
+    Horizontal advection term :math:`\nabla_h \cdot (\textbf{u} T)`
+
+    The weak formulation reads
+
+    .. math::
+        \int_\Omega \nabla_h \cdot (\textbf{u} T) \phi dx
+            = -\int_\Omega T\textbf{u} \cdot \nabla_h \phi dx
+            + \int_{\mathcal{I}_h\cup\mathcal{I}_v}
+                T^{\text{up}} \text{mean}(\textbf{u}) \cdot
+                \text{jump}(\phi \textbf{n}_h) dS
+
+    where the right hand side has been integrated by parts;
+    :math:`\mathcal{I}_h,\mathcal{I}_v` denote the set of horizontal and
+    vertical facets,
+    :math:`\textbf{n}_h` is the horizontal projection of the unit normal vector,
+    :math:`T^{\text{up}}` is the upwind value, and :math:`\text{jump}` and
+    :math:`\text{avg}` denote the jump and average operators across the
+    interface. If :math:`T` belongs to a discontinuous function space, the
+    latter form is used.
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('uv_3d') is None:
@@ -133,11 +183,29 @@ class HorizontalAdvectionTerm(TracerTerm):
 
 
 class VerticalAdvectionTerm(TracerTerm):
-    """
-    Vertical scalar advection term
+    r"""
+    Vertical advection term :math:`\partial (w T)/(\partial z)`
+
+    The weak form reads
+
+    .. math::
+        \int_\Omega \frac{\partial (w T)}{\partial z} \phi dx
+        = - \int_\Omega T w \frac{\partial \phi}{\partial z} dx
+        + \int_{\mathcal{I}_v} T^{\text{up}} \text{mean}(w) \text{jump}(\phi n_z) dS
+
+    where the right hand side has been integrated by parts;
+    :math:`\mathcal{I}_v` denotes the set of vertical facets,
+    :math:`n_z` is the vertical projection of the unit normal vector,
+    :math:`T^{\text{up}}` is the
+    upwind value, and :math:`\text{jump}` and :math:`\text{avg}` denote the
+    jump and average operators across the interface.
+    If :math:`T` belongs to a discontinuous function space, the
+    latter form is used.
+
+    In the case of ALE moving mesh we substitute :math:`w` with :math:`w - w_m`,
+    :math:`w_m` being the mesh velocity.
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        # TODO linearize, use solution/solution_old correctly
         w = fields_old.get('w')
         if w is None:
             return 0
@@ -165,7 +233,12 @@ class VerticalAdvectionTerm(TracerTerm):
         return -f
 
 
+# OBSOLETE
 class ALESourceTerm(TracerTerm):
+    """
+    Source term for non-conservative ALE method
+    """
+    # TODO remove non-conservative form, and dw_mesh_dz field
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         dw_mesh_dz = fields_old.get('dw_mesh_dz')
         f = 0
@@ -176,8 +249,35 @@ class ALESourceTerm(TracerTerm):
 
 
 class HorizontalDiffusionTerm(TracerTerm):
-    """
-    Horizontal scalar diffusion term
+    r"""
+    Horizontal diffusion term :math:`-\nabla_h \cdot (\mu_h \nabla_h T)`
+
+    The weak form reads
+
+    .. math::
+        -\int_\Omega \nabla_h \cdot (\mu_h \nabla_h T) \phi dx
+        = \int_\Omega \mu_h (\nabla_h \phi) \cdot (\nabla_h T) dx
+        - \int_{\mathcal{I}_h\cup\mathcal{I}_v} \text{mean}(\mu_h \nabla_h T)
+            \cdot \text{jump}(\phi \textbf{n}_h) dS
+
+    If :math:`T` belongs to a discontinuous function space, we
+    augment the right hand side with symmetric interior penalty method:
+
+    .. math::
+        SIPS
+        = - \int_{\mathcal{I}_h\cup\mathcal{I}_v} \text{jump}(T \textbf{n}_h) \cdot \text{avg}(\mu_h  \nabla \phi) dS
+        + \int_{\mathcal{I}_h\cup\mathcal{I}_v} \sigma \text{avg}(\mu_h) \text{jump}(T \textbf{n}_h) \cdot
+            \text{jump}(\phi \textbf{n}_h) dS
+
+    where :math:`\sigma` is a penalty parameter,
+    see Epshteyn and Riviere (2007).
+
+    Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
+    interior penalty Galerkin methods. Journal of Computational and Applied
+    Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
+
+    .. note ::
+        Note the minus sign due to :class:`.equation.Term` sign convention
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_h') is None:
@@ -230,8 +330,34 @@ class HorizontalDiffusionTerm(TracerTerm):
 
 
 class VerticalDiffusionTerm(TracerTerm):
-    """
-    Vertical scalar diffusion term
+    r"""
+    Vertical diffusion term :math:`-\frac{\partial}{\partial z} \Big(\mu \frac{T}{\partial z}\Big)`
+
+    The weak form reads
+
+    .. math::
+        -\int_\Omega \frac{\partial}{\partial z} \Big(\mu \frac{T}{\partial z}\Big) \phi dx
+            = \int_\Omega \mu \frac{\partial T}{\partial z} \frac{\partial \phi}{\partial z} dz
+            - \int_{\mathcal{I}_{h}} \text{mean}(\mu \frac{\partial T}{\partial z}) \text{jump}(\phi n_z) dS
+
+    If :math:`T` belongs to a discontinuous function space, we
+    augment the right hand side with symmetric interior penalty method:
+
+    .. math::
+        SIPS
+        = - \int_{\mathcal{I}_{h}} \text{mean}(\mu \frac{\partial \phi}{\partial z}) \text{jump}(T n_z) dS
+        + \int_{\mathcal{I}_{h}} \sigma \text{avg}(\mu) \text{jump}(T n_z) \cdot
+            \text{jump}(\phi n_z) dS
+
+    where :math:`\sigma` is a penalty parameter,
+    see Epshteyn and Riviere (2007).
+
+    Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
+    interior penalty Galerkin methods. Journal of Computational and Applied
+    Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
+
+    .. note ::
+        Note the minus sign due to :class:`.equation.Term` sign convention
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_v') is None:
@@ -273,7 +399,17 @@ class VerticalDiffusionTerm(TracerTerm):
 
 class SourceTerm(TracerTerm):
     """
-    Generic tracer source term
+    Generic source term
+
+    The weak form reads
+
+    .. math::
+        F_s = \int_\Omega \sigma \phi dx
+
+    where :math:`\sigma` is a user defined scalar :class:`Function`.
+
+    .. note ::
+        Due to the sign convention of :class:`.equation.Term`, this term is assembled to the left hand side of the equation
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
@@ -285,18 +421,29 @@ class SourceTerm(TracerTerm):
 
 class TracerEquation(Equation):
     """
-    3D tracer advection-diffusion equation
+    3D tracer advection-diffusion equation in conservative form
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
                  use_symmetric_surf_bnd=True):
+        """
+        :param function_space: :class:`FunctionSpace` where the solution belongs
+        :param bathymetry: bathymetry of the domain
+        :type bathymetry: 3D :class:`Function` or :class:`Constant`
+        :param v_elem_size: scalar :class:`Function` that defines the vertical
+            element size
+        :param h_elem_size: scalar :class:`Function` that defines the horizontal
+            element size
+        :param use_symmetric_surf_bnd: If True, use symmetric surface boundary
+            condition in the horizontal advection term
+        :type use_symmetric_surf_bnd: bool
+        """
         super(TracerEquation, self).__init__(function_space)
 
         args = (function_space, bathymetry,
                 v_elem_size, h_elem_size, use_symmetric_surf_bnd)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')
-        # self.add_term(ALESourceTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(VerticalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
