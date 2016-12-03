@@ -27,7 +27,8 @@ The non-conservative momentum equation reads
    :label: swe_momentum
 
 where :math:`g` is the gravitational acceleration, :math:`f` is the Coriolis
-frequency, :math:`\textbf{e}_z` is a vertical unit vector, and :math:`\nu_h`
+frequency, :math:`\wedge` is the cross product,
+:math:`\textbf{e}_z` is a vertical unit vector, and :math:`\nu_h`
 is viscosity. Water density is given by :math:`\rho = \rho'(T, S, p) + \rho_0`,
 where :math:`\rho_0` is a constant reference density.
 
@@ -333,17 +334,17 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
     The weak form is
 
     .. math::
-        \int_\Omega \bar{\textbf{u}} \cdot \nabla\bar{\textbf{u}} \cdot \psi dx =
-        \int_\Gamma \bar{\textbf{u}}^{\text{up}} \cdot \text{jump}(\psi \otimes \textbf{n}) \cdot \text{avg}(\bar{\textbf{u}}) dS
-        - \int_\Omega \nabla \psi : \bar{\textbf{u}} \bar{\textbf{u}} dx
+        \int_\Omega \bar{\textbf{u}} \cdot \nabla\bar{\textbf{u}} \cdot \psi dx
+        = - \int_\Omega \nabla_h \cdot (\bar{\textbf{u}} \otimes \psi) \cdot \bar{\textbf{u}} dx
+        + \int_\Gamma \bar{\textbf{u}}^{\text{up}} \cdot \text{jump}(\psi \otimes \textbf{n}) \cdot \text{avg}(\bar{\textbf{u}}) dS
 
     where the right hand side has been integrated by parts; :math:`\otimes`
     stands for tensor outer product, :math:`\textbf{n}` is the unit normal of
     the element interfaces, :math:`\bar{\textbf{u}}^{\text{up}}` is the
     upwind value, and :math:`\text{jump}` and :math:`\text{avg}` denote the
     jump and average operators across the interface.
-    If :math:`\bar{\textbf{u}}` belongs to a discontinuous function space, the
-    latter form is used.
+    If the function space of :math:`\textbf{u}` is discontinuous in the
+    horizontal direction, the latter form is used.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         uv_lax_friedrichs = fields_old.get('uv_lax_friedrichs')
@@ -415,7 +416,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
     augment the right hand side with symmetric interior penalty method:
 
     .. math::
-        SIPS
+        SIPG
         = - \int_\Gamma \text{jump}(\bar{\textbf{u}} \otimes \textbf{n}) \cdot \text{avg}(\nu_h  \nabla \psi) dS
         + \int_\Gamma \sigma \text{avg}(\nu_h) \text{jump}(\bar{\textbf{u}} \otimes \textbf{n}) \cdot \text{jump}(\psi \otimes \textbf{n}) dS
 
@@ -598,8 +599,9 @@ class InternalPressureGradientTerm(ShallowWaterMomentumTerm):
     .. math::
         F_{IPG} = g\nabla(\bar{s} H) - g\nabla \Big(\frac{1}{H} \Big) H^2\bar{s} - g s_{bot}\nabla h
 
-    where :math:`\bar{s},s_{bot}` are the depth average and bottom value of :math:`s`.
-
+    where :math:`\bar{s},s_{bot}` are the depth average and bottom value of
+    :math:`s`. This term is implemented as a source term not integrated by
+    parts.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         baroc_head = fields_old.get('baroc_head')
@@ -730,7 +732,7 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
         :param function_space: Mixed function space where the solution belongs
         :param bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
-        :param nonlin: If False defines linear shallow water equations
+        :param nonlin: If False defines the linear shallow water equations
         :type nonlin: bool
         :param include_grad_div_viscosity_term: If True includes grad(nu div(u))
             viscosity term
@@ -791,7 +793,7 @@ class ModeSplit2DEquations(BaseShallowWaterEquation):
         :param function_space: Mixed function space where the solution belongs
         :param bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
-        :param nonlin: If False defines linear shallow water equations
+        :param nonlin: If False defines the linear shallow water equations
         :type nonlin: bool
         :param include_grad_div_viscosity_term: If True includes grad(nu div(u))
             viscosity term
@@ -843,7 +845,7 @@ class FreeSurfaceEquation(BaseShallowWaterEquation):
         :param function_space: Mixed function space where the solution belongs
         :param bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
-        :param nonlin: If False defines linear shallow water equations
+        :param nonlin: If False defines the linear shallow water equations
         :type nonlin: bool
         """
         super(FreeSurfaceEquation, self).__init__(eta_space, bathymetry, nonlin)
@@ -874,7 +876,7 @@ class ShallowWaterMomentumEquation(BaseShallowWaterEquation):
         :param function_space: Mixed function space where the solution belongs
         :param bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
-        :param nonlin: If False defines linear shallow water equations
+        :param nonlin: If False defines the linear shallow water equations
         :type nonlin: bool
         :param include_grad_div_viscosity_term: If True includes grad(nu div(u))
             viscosity term
