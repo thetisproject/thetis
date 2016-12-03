@@ -1,10 +1,11 @@
 """
-Default values for common constants and parameters in a dictionary.
-
-Tuomas Karna 2015-02-23
+Default values for physical constants and parameters
 """
 from __future__ import absolute_import
 from .firedrake import Constant
+
+# TODO this module should only contain scalar variables
+# TODO all parameters that can be spatially varying should be in options
 
 physical_constants = \
     {'g_grav': Constant(9.81),      # gravitational acceleration
