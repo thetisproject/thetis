@@ -1,36 +1,65 @@
-"""
+r"""
 Implements turbulence closure model stability functions.
+
+.. math::
+    S_m &= S_m(\alpha_M, \alpha_N) \\
+    S_\rho &= S_\rho(\alpha_M, \alpha_N)
+
+where :math:`\alpha_M, \alpha_N` are the normalized shear and buoyancy frequency
+
+    .. math::
+        \alpha_M &= \frac{k^2}{\varepsilon^2} M^2 \\
+        \alpha_N &= \frac{k^2}{\varepsilon^2} N^2
+
+The following stability functions have been implemented
+
+- Canuto A
+- Canuto B
+- Kantha-Clayson
+- Cheng
 
 References:
 
-[1] Umlauf, L. and Burchard, H. (2005). Second-order turbulence closure models
-    for geophysical boundary layers. A review of recent work. Continental Shelf
-    Research, 25(7-8):795--827.
-    http://dx.doi.org/10.1016/j.csr.2004.08.004
+Umlauf, L. and Burchard, H. (2005). Second-order turbulence closure models
+for geophysical boundary layers. A review of recent work. Continental Shelf
+Research, 25(7-8):795--827. http://dx.doi.org/10.1016/j.csr.2004.08.004
 
-[2] Burchard, H. and Bolding, K. (2001). Comparative Analysis of Four Second-Moment
-    Turbulence Closure Models for the Oceanic Mixed Layer. Journal of Physical
-    Oceanography, 31(8):1943--1968.
-    http://dx.doi.org/10.1175/1520-0485(2001)031
+Burchard, H. and Bolding, K. (2001). Comparative Analysis of Four
+Second-Moment Turbulence Closure Models for the Oceanic Mixed Layer. Journal of
+Physical Oceanography, 31(8):1943--1968.
+http://dx.doi.org/10.1175/1520-0485(2001)031
 
-[3] Umlauf, L. and Burchard, H. (2003). A generic length-scale equation for
-    geophysical turbulence models. Journal of Marine Research, 61:235--265(31).
-    http://dx.doi.org/10.1357/002224003322005087
+Umlauf, L. and Burchard, H. (2003). A generic length-scale equation for
+geophysical turbulence models. Journal of Marine Research, 61:235--265(31).
+http://dx.doi.org/10.1357/002224003322005087
 
 """
 from __future__ import absolute_import
 import numpy as np
 
-__all__ = ('StabilityFunctionCanutoA',
+__all__ = ('StabilityFunction',
+           'StabilityFunctionCanutoA',
            'StabilityFunctionCanutoB',
            'StabilityFunctionKanthaClayson',
-           'StabilityFunctionCheng')
+           'StabilityFunctionCheng',
+           'compute_normalized_frequencies'
+           )
 
 
 def compute_normalized_frequencies(shear2, buoy2, k, eps):
-    """
+    r"""
     Computes normalized buoyancy and shear frequency squared.
-    Follows Burchard and Bolding JPO (2001).
+
+    .. math::
+        \alpha_M &= \frac{k^2}{\varepsilon^2} M^2 \\
+        \alpha_N &= \frac{k^2}{\varepsilon^2} N^2
+
+    From Burchard and Bolding (2001).
+
+    :param shear2: :math:`M^2`
+    :param buoy2: :math:`N^2`
+    :param k: turbulent kinetic energy
+    :param eps: TKE dissipation rate
     """
     alpha_buoy = k**2/eps**2*buoy2
     alpha_shear = k**2/eps**2*shear2
@@ -45,6 +74,20 @@ class StabilityFunction(object):
     """Base class for all stability functions"""
     def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
                  smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
+        r"""
+        :param lim_alpha_shear: limit maximum :math:`\alpha_M` values
+            (see Umlauf and Burchard (2005) eq. 44)
+        :type lim_alpha_shear: bool
+        :param lim_alpha_buoy: limit minimum (negative) :math:`\alpha_N` values
+            (see Umlauf and Burchard (2005))
+        :type lim_alpha_buoy: bool
+        :param smooth_alpha_buoy_lim: if :math:`\alpha_N` is limited, apply a
+            smooth limiter (see Burchard and Bolding (2001) eq. 19). Otherwise
+            :math:`\alpha_N` is clipped at minimum value.
+        :type smooth_alpha_buoy_lim: bool
+        :param alpha_buoy_crit: parameter for :math:`\alpha_N` smooth limiter
+        :type alpha_buoy_crit: float
+        """
         self.lim_alpha_shear = lim_alpha_shear
         self.lim_alpha_buoy = lim_alpha_buoy
         self.smooth_alpha_buoy_lim = smooth_alpha_buoy_lim
@@ -97,15 +140,16 @@ class StabilityFunction(object):
             (6.0*self.a1*(self.a2 - 3.0*self.a3) - 4.0*(self.a2**2 - 3.0*self.a3**2))*self.ab3*self.nn*self.nb
 
     def compute_c3_minus(self, c1, c2, ri_st):
-        """
+        r"""
         Compute c3_minus parameter from c1, c2 and stability functions.
 
         c3_minus is solved from equation
 
-        ri_st = s_m/s_h*(c2 - c1)/(c2 - c3_minus)   [1]
+        .. math::
+            Ri_{st} = \frac{s_m}{s_h} \frac{c2 - c1}{c2 - c3_minus}
 
-        where ri_st is the steady state gradient Richardson number.
-        (Burchard and Bolding, 2001, eq 32)
+        where :math:`Ri_{st}` is the steady state gradient Richardson number.
+        (see Burchard and Bolding, 2001, eq 32)
         """
 
         # A) solve numerically
@@ -136,7 +180,7 @@ class StabilityFunction(object):
         # evaluate stability functions for equilibrium conditions
         s_m, s_h = self.eval_funcs(a_buoy, a_shear)
 
-        # compute c3 minus from [1]
+        # compute c3 minus from Umlauf and Burchard (2005)
         c3_minus = c2 - (c2 - c1)*s_m/s_h/ri_st
 
         # check error in ri_st
@@ -159,7 +203,7 @@ class StabilityFunction(object):
         Computes von Karman constant from the Psi Schmidt number.
 
         n, c1, c2 are GLS model parameters.
-s
+
         from Umlauf and Burchard (2003) eq (14)
         """
         kappa = np.sqrt(sigma_psi * self.compute_cmu0()**2 * (c2 - c1)/(n**2))
@@ -178,10 +222,13 @@ s
         return an_min
 
     def get_alpha_shear_max(self, alpha_buoy, alpha_shear):
-        """
+        r"""
         Compute maximum alpha shear
 
         from Umlauf and Buchard (2005) eq (44)
+
+        :param alpha_buoy: normalized buoyancy frequency :math:`\alpha_N`
+        :param alpha_shear: normalized shear frequency :math:`\alpha_M`
         """
         as_max_n = (self.d0*self.n0 +
                     (self.d0*self.n1 + self.d1*self.n0)*alpha_buoy +
@@ -193,18 +240,23 @@ s
         return as_max_n/as_max_d
 
     def get_alpha_buoy_smooth_min(self, alpha_buoy):
-        """
+        r"""
         Compute smoothed alpha_buoy minimum
 
         from Burchard and Petersen (1999) eq (19)
+
+        :param alpha_buoy: normalized buoyancy frequency :math:`\alpha_N`
         """
         return alpha_buoy - (alpha_buoy - self.alpha_buoy_crit)**2/(alpha_buoy + self.get_alpha_buoy_min() - 2*self.alpha_buoy_crit)
 
     def eval_funcs(self, alpha_buoy, alpha_shear):
-        """
+        r"""
         Evaluate (unlimited) stability functions
 
         from Burchard and Petersen (1999) eqns (30) and (31)
+
+        :param alpha_buoy: normalized buoyancy frequency :math:`\alpha_N`
+        :param alpha_shear: normalized shear frequency :math:`\alpha_M`
         """
         den = self.d0 + self.d1*alpha_buoy + self.d2*alpha_shear + self.d3*alpha_buoy*alpha_shear + self.d4*alpha_buoy**2 + self.d5*alpha_shear**2
         c_mu = (self.n0 + self.n1*alpha_buoy + self.n2*alpha_shear) / den
@@ -214,6 +266,11 @@ s
     def evaluate(self, shear2, buoy2, k, eps):
         """
         Evaluates stability functions. Applies limiters on alpha_buoy and alpha_shear.
+
+        :param shear2: :math:`M^2`
+        :param buoy2: :math:`N^2`
+        :param k: turbulent kinetic energy
+        :param eps: TKE dissipation rate
         """
         alpha_buoy, alpha_shear = compute_normalized_frequencies(shear2, buoy2, k, eps)
         if self.lim_alpha_buoy:
@@ -237,10 +294,13 @@ s
 
 
 class StabilityFunctionCanutoA(StabilityFunction):
-    """Canuto et al. (2001) version A stability functions"""
+    """
+    Canuto et al. (2001) version A stability functions
+
+    Parameters are from Umlauf and Buchard (2005), Table 1
+    """
     def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
                  smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
-        # parameters from Umlauf and Buchard (2005), Table 1
         self.cc1 = 5.0000
         self.cc2 = 0.8000
         self.cc3 = 1.9680
@@ -263,10 +323,13 @@ class StabilityFunctionCanutoA(StabilityFunction):
 
 
 class StabilityFunctionCanutoB(StabilityFunction):
-    """Canuto et al. (2001) version B stability functions"""
+    """
+    Canuto et al. (2001) version B stability functions
+
+    Parameters are from Umlauf and Buchard (2005), Table 1
+    """
     def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
                  smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
-        # parameters from Umlauf and Buchard (2005), Table 1
         self.cc1 = 5.0000
         self.cc2 = 0.6983
         self.cc3 = 1.9664
@@ -289,10 +352,13 @@ class StabilityFunctionCanutoB(StabilityFunction):
 
 
 class StabilityFunctionKanthaClayson(StabilityFunction):
-    """Kantha and Clayson (1994) quasi-equilibrium stability functions"""
+    """
+    Kantha and Clayson (1994) quasi-equilibrium stability functions
+
+    Parameters are from Umlauf and Buchard (2005), Table 1
+    """
     def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
                  smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
-        # parameters from Umlauf and Buchard (2005), Table 1
         self.cc1 = 6.0000
         self.cc2 = 0.3200
         self.cc3 = 0.0000
@@ -315,10 +381,13 @@ class StabilityFunctionKanthaClayson(StabilityFunction):
 
 
 class StabilityFunctionCheng(StabilityFunction):
-    """Cheng et al. (2002) quasi-equilibrium stability functions"""
+    """
+    Cheng et al. (2002) quasi-equilibrium stability functions
+
+    Parameters are from Umlauf and Buchard (2005), Table 1
+    """
     def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
                  smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
-        # parameters from Umlauf and Buchard (2005), Table 1
         self.cc1 = 5.0000
         self.cc2 = 0.7983
         self.cc3 = 1.9680
