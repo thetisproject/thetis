@@ -50,15 +50,31 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
     def _update_2d_coupling(self):
         """Does 2D-3D coupling for the velocity field"""
         with timed_stage('aux_uv_coupling'):
+            self._remove_depth_average_from_uv_3d()
+            self._update_2d_coupling_term()
+            self._copy_uv_2d_to_3d()
+
+    def _remove_depth_average_from_uv_3d(self):
+        """Computes depth averaged velocity and removes it from the 3D velocity field"""
+        with timed_stage('aux_uv_coupling'):
             # compute depth averaged 3D velocity
-            self.solver.uv_averager.solve()
-            self.solver.extract_surf_dav_uv.solve()
-            self.solver.copy_uv_dav_to_uv_dav_3d.solve()
-            # remore depth average from 3D velocity
+            self.solver.uv_averager.solve()  # uv -> uv_dav_3d
+            self.solver.extract_surf_dav_uv.solve()  # uv_dav_3d -> uv_dav_2d
+            self.solver.copy_uv_dav_to_uv_dav_3d.solve()  # uv_dav_2d -> uv_dav_3d
+            # remove depth average from 3D velocity
             self.fields.uv_3d -= self.fields.uv_dav_3d
+
+    def _copy_uv_2d_to_3d(self):
+        """Copies uv_2d to uv_dav_3d"""
+        with timed_stage('aux_uv_coupling'):
             self.solver.copy_uv_to_uv_dav_3d.solve()
-            # add depth averaged 2D velocity
-            self.fields.uv_3d += self.fields.uv_dav_3d
+
+    def _update_2d_coupling_term(self):
+        """Update split_residual_2d field for 2D-3D coupling"""
+        with timed_stage('aux_uv_coupling'):
+            # scale dav uv 2D to be used as a forcing in 2D mom eq.
+            self.fields.split_residual_2d.assign(self.fields.uv_dav_2d)
+            self.fields.split_residual_2d /= self.timestepper_mom_3d.dt_const
 
     def _update_baroclinicity(self):
         """Computes baroclinic head"""
@@ -148,6 +164,9 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
 
     def _create_integrators(self):
         solver = self.solver
+        uv_source_2d = solver.fields.split_residual_2d
+        if self.options.uv_source_2d is not None:
+            uv_source_2d = solver.fields.split_residual_2d + self.options.uv_source_2d
         fields = {
             'uv_bottom': solver.fields.get('uv_bottom_2d'),
             'bottom_drag': solver.fields.get('bottom_drag_2d'),
@@ -157,7 +176,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             'uv_lax_friedrichs': self.options.uv_lax_friedrichs,
             'coriolis': self.options.coriolis,
             'wind_stress': self.options.wind_stress,
-            'uv_source': self.options.uv_source_2d,
+            'uv_source': uv_source_2d,
             'elev_source': self.options.elev_source_2d,
             'linear_drag': self.options.linear_drag}
 
@@ -190,6 +209,8 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
 
         fields = {'eta': self.fields.elev_3d,  # FIXME rename elev
                   'baroc_head': self.fields.get('baroc_head_3d'),
+                  'mean_baroc_head': self.fields.get('baroc_head_int_3d'),
+                  'uv_depth_av': self.fields.get('uv_dav_3d'),
                   'w': self.fields.w_3d,
                   'w_mesh': self.fields.get('w_mesh_3d'),
                   'dw_mesh_dz': self.fields.get('w_mesh_ddz_3d'),
@@ -210,6 +231,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         if self.solver.options.solve_vert_diffusion:
             fields = {'viscosity_v': implicit_v_visc,
                       'wind_stress': self.fields.get('wind_stress_3d'),
+                      'uv_depth_av': self.fields.get('uv_dav_3d'),
                       }
             self.timestepper_mom_vdff_3d = self.integrator_vert_3d(
                 solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt,
@@ -219,6 +241,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         if self.solver.options.solve_salt:
             fields = {'elev_3d': self.fields.elev_3d,
                       'uv_3d': self.fields.uv_3d,
+                      'uv_depth_av': self.fields.get('uv_dav_3d'),
                       'w': self.fields.w_3d,
                       'w_mesh': self.fields.get('w_mesh_3d'),
                       'dw_mesh_dz': self.fields.get('w_mesh_ddz_3d'),
@@ -245,6 +268,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         if self.solver.options.solve_temp:
             fields = {'elev_3d': self.fields.elev_3d,
                       'uv_3d': self.fields.uv_3d,
+                      'uv_depth_av': self.fields.get('uv_dav_3d'),
                       'w': self.fields.w_3d,
                       'w_mesh': self.fields.get('w_mesh_3d'),
                       'dw_mesh_dz': self.fields.get('w_mesh_ddz_3d'),
@@ -286,6 +310,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             if self.solver.options.use_turbulence_advection:
                 fields = {'elev_3d': self.fields.elev_3d,
                           'uv_3d': self.fields.uv_3d,
+                          'uv_depth_av': self.fields.get('uv_dav_3d'),
                           'w': self.fields.w_3d,
                           'w_mesh': self.fields.get('w_mesh_3d'),
                           'dw_mesh_dz': self.fields.get('w_mesh_ddz_3d'),
@@ -646,7 +671,6 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
     Leap-Frog Adams-Moulton 3 time integrator for coupled 2D-3D problem
     """
     integrator_2d = rungekutta.DIRK22
-    # integrator_2d = rungekutta.CrankNicolsonRK
     integrator_3d = timeintegrator.LeapFrogAM3
     integrator_vert_3d = rungekutta.BackwardEuler
 
@@ -668,7 +692,8 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
         # - Forward Euler step in fixed domain Omega_n
         # -------------------------------------------------
 
-        self.fields.w_mesh_3d.assign(0.0)
+        if self.options.use_ale_moving_mesh:
+            self.fields.w_mesh_3d.assign(0.0)
 
         with timed_stage('salt_eq'):
             if self.options.solve_salt:
@@ -688,16 +713,18 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
             self.timestepper_mom_3d.predict()
 
         # dependencies for 2D update
+        self._update_2d_coupling()
         self._update_baroclinicity()
-        # self._update_2d_coupling()
         self._update_bottom_friction()
 
         # update 2D
-        self.solver.mesh_updater.compute_mesh_velocity_begin()
+        if self.options.use_ale_moving_mesh:
+            self.solver.mesh_updater.compute_mesh_velocity_begin()
         self.uv_old_2d.assign(self.fields.uv_2d)
         with timed_stage('mode2d'):
             self.timestepper2d.advance(t, update_forcings)
-        self.solver.mesh_updater.compute_mesh_velocity_finalize()
+        if self.options.use_ale_moving_mesh:
+            self.solver.mesh_updater.compute_mesh_velocity_finalize()
         self.uv_new_2d.assign(self.fields.uv_2d)
 
         # set 3D elevation to half step

@@ -284,7 +284,7 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False):
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
             ax.set_ylabel('log10(L2 error)')
-            ax.set_title(field_str)
+            ax.set_title('tracer adv-diff MMS DG p={:}'.format(order))
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
             order_str = 'o{:}'.format(order)
             imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str])
@@ -332,4 +332,4 @@ def test_setup4_dg():
 
 
 if __name__ == '__main__':
-    run_convergence(setup3dg, [1, 2, 3], 1, save_plot=True)
+    run_convergence(setup3dg, [1, 2, 3, 4, 6], 1, save_plot=True)

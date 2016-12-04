@@ -36,16 +36,19 @@
 from thetis import *
 
 # set physical constants
-physical_constants['rho0'].assign(1025.0)
+rho0 = 1025.0
+physical_constants['rho0'].assign(rho0)
 
 outputdir = 'outputs'
-layers = 20
+layers = 30
 mesh2d = Mesh('tartinville_physical.msh')
 print_output('Loaded mesh ' + mesh2d.name)
 dt = 25.0
-t_end = 288 * 3600
+t_end = 360 * 3600
 t_export = 900.0
 depth = 20.0
+reynolds_number = 100.
+viscosity = 'const'
 
 temp_const = 10.0
 salt_center = 33.75
@@ -61,9 +64,20 @@ f0, beta = 1.15e-4, 0.0
 coriolis_2d.interpolate(
     Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0))
 
+# compute horizontal viscosity
+uscale = 1.0
+delta_x = 800.0
+nu_scale = uscale * delta_x / reynolds_number
+
+u_max = 1.0
+w_max = 1.2e-2
+
+
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solver_obj.options
+options.element_family = 'dg-dg'
+options.timestepper_type = 'leapfrog'
 options.solve_salt = True
 options.solve_temp = False
 options.constant_temp = Constant(temp_const)
@@ -71,18 +85,22 @@ options.solve_vert_diffusion = False
 options.use_bottom_friction = False
 options.use_turbulence = False
 options.use_turbulence_advection = False
-options.use_ale_moving_mesh = False
+# options.use_ale_moving_mesh = False
 options.baroclinic = True
 options.coriolis = coriolis_2d
-options.uv_lax_friedrichs = Constant(1.0)
-options.tracer_lax_friedrichs = Constant(1.0)
+options.uv_lax_friedrichs = None
+options.tracer_lax_friedrichs = None
 # options.h_diffusivity = Constant(50.0)
 # options.h_viscosity = Constant(50.0)
 options.v_viscosity = Constant(1.3e-6)  # background value
 options.v_diffusivity = Constant(1.4e-7)  # background value
 options.use_limiter_for_tracers = True
-Re_h = 5.0
-options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
+if viscosity == 'smag':
+    options.smagorinsky_factor = Constant(1.0/np.sqrt(reynolds_number))
+elif viscosity == 'const':
+    options.h_viscosity = Constant(nu_scale)
+else:
+    raise Exception('Unknow viscosity type {:}'.format(viscosity))
 options.t_export = t_export
 options.t_end = t_end
 options.outputdir = outputdir
@@ -95,7 +113,19 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d', 'density_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                             'baroc_head_2d']
-options.fields_to_export_numpy = ['salt_3d', 'baroc_head_3d', 'elev_2d']
+options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
+                                 'w_3d', 'salt_3d', 'smag_visc_3d',
+                                 'eddy_visc_3d', 'shear_freq_3d',
+                                 'buoy_freq_3d', 'tke_3d', 'psi_3d',
+                                 'eps_3d', 'len_3d']
+options.equation_of_state = 'linear'
+options.lin_equation_of_state_params = {
+    'rho_ref': rho0,
+    's_ref': 33.75,
+    'th_ref': 5.0,
+    'alpha': 0.0,
+    'beta': 0.78,
+}
 
 solver_obj.create_equations()
 # assign initial salinity

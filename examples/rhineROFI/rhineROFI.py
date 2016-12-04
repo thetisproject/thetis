@@ -18,6 +18,46 @@
 
 from thetis import *
 
+
+class FreshwaterConservationCallback(DiagnosticCallback):
+    """Checks conservation of freshwater"""
+    name = 'fresh water volume'
+    variable_names = ['integral', 'difference']
+
+    def __init__(self, ref_salinity, solver_obj, outputdir=None, export_to_hdf5=False,
+                 append_to_log=True):
+        """
+        Creates fresh water conservation check callback object
+
+        ref_salinity : float
+            constant maximum salinity value used to compute freshwater tracer
+        """
+        super(FreshwaterConservationCallback, self).__init__(solver_obj,
+                                                             outputdir,
+                                                             export_to_hdf5,
+                                                             append_to_log)
+        self.ref_salinity = ref_salinity
+
+        def mass():
+            freshwater = 1.0 - self.solver_obj.fields['salt_3d']/self.ref_salinity
+            return comp_tracer_mass_3d(freshwater)
+
+        self.scalar_callback = mass
+        self.previous_value = None
+
+    def __call__(self):
+        value = self.scalar_callback()
+        if self.previous_value is None:
+            self.previous_value = value
+        diff = (value - self.previous_value)
+        self.previous_value = value
+        return value, diff
+
+    def message_str(self, *args):
+        line = '{0:s} {1:11.4e}, diff {2:11.4e}'.format(self.name, args[0], args[1])
+        return line
+
+
 # set physical constants
 physical_constants['rho0'].assign(1000.0)
 physical_constants['z0_friction'].assign(0.005)
@@ -25,24 +65,24 @@ physical_constants['z0_friction'].assign(0.005)
 reso = 'fine'
 layers = 12
 if reso == 'fine':
-    layers = 20
+    layers = 30  # NOTE 40 in [2]
 outputdir = 'outputs_{:}'.format(reso)
 mesh2d = Mesh('mesh_rhineRofi_{:}.msh'.format(reso))
 print_output('Loaded mesh ' + mesh2d.name)
 print_output('Exporting to ' + outputdir)
 
 # Physical parameters
-eta_amplitude = 1.00  # mean (Fisher et al. 2009 tidal range 2.00 )
+eta_amplitude = 1.00  # tidal range 2.00; mean scenario in [2]
 eta_phase = 0
 H_ocean = 20  # water depth
 H_river = 5  # water depth at river inlet
-L_river = 45e3
-Q_river = 3.0e3  # 1.5e3 river discharge (Fisher et al. 2009)
+L_river = 45e3  # NOTE L_river is 75 km in [2]
+Q_river = 1.5e3  # 1.5e3 or 2.2e3 river discharge [2]
 temp_const = 10.0
 salt_river = 0.0
 salt_ocean = 32.0
 
-Ttide = 44714.0  # M2 tidal period (Fisher et al. 2009)
+Ttide = 44714.0  # M2 tidal period [2]
 Tday = 0.99726968*24*60*60  # sidereal time of Earth revolution
 OmegaEarth = 2*np.pi/Tday
 OmegaTide = 2*np.pi/Ttide
@@ -55,8 +95,8 @@ kelvin_k = OmegaTide/c  # [1/m] initial wave number of tidal wave, no friction
 kelvin_m = (coriolis_f/c)  # [-] Cross-shore variation
 
 dt = 7.0
-t_end = 32*44714
-t_export = 900.0  # 44714/12
+t_end = 34*Ttide
+t_export = Ttide/40  # approx 18.6 min
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -69,6 +109,8 @@ simple_barotropic = False  # for debugging
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solver_obj.options
+options.element_family = 'dg-dg'
+options.timestepper_type = 'leapfrog'
 options.solve_salt = not simple_barotropic
 options.solve_temp = False
 options.constant_temp = Constant(temp_const)
@@ -76,7 +118,7 @@ options.solve_vert_diffusion = not simple_barotropic
 options.use_bottom_friction = not simple_barotropic
 options.use_turbulence = not simple_barotropic
 options.use_turbulence_advection = not simple_barotropic
-options.use_ale_moving_mesh = False
+# options.use_ale_moving_mesh = False
 options.baroclinic = not simple_barotropic
 options.uv_lax_friedrichs = Constant(1.0)
 options.tracer_lax_friedrichs = Constant(1.0)
@@ -92,9 +134,6 @@ options.t_export = t_export
 options.t_end = t_end
 options.outputdir = outputdir
 options.u_advection = Constant(2.0)
-options.check_vol_conservation_2d = True
-options.check_vol_conservation_3d = True
-options.check_salt_conservation = True
 options.check_salt_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
@@ -171,11 +210,8 @@ l = test[1]*uv*dx
 solve(a == l, uv_init)
 salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
 salt_init3d.interpolate(Expression('d_ocean - (d_ocean - d_river)*(1 + tanh((x[0] - xoff)/sigma))/2',
-                                   sigma=8000.0, d_ocean=salt_ocean,
-                                   d_river=salt_river, xoff=20.0e3))
-# salt_init3d.interpolate(Expression('d_ocean - (d_ocean - d_river)*fmin(fmax((x[0] - xoff)/L, 0.0), 1.0)',
-#                                    sigma=12000.0, d_ocean=salt_ocean,
-#                                    d_river=salt_river, xoff=2.0e3, L=10e3))
+                                   sigma=2000.0, d_ocean=salt_ocean,
+                                   d_river=salt_river, xoff=10.5e3))
 
 
 def update_forcings(t):
@@ -184,13 +220,10 @@ def update_forcings(t):
     cp_bnd_elev_to_3d.solve()
 
 
+solver_obj.add_callback(FreshwaterConservationCallback(salt_ocean,
+                                                       solver_obj,
+                                                       export_to_hdf5=True,
+                                                       append_to_log=True))
+
 solver_obj.assign_initial_conditions(elev=elev_init, salt=salt_init3d, uv_2d=uv_init)
 solver_obj.iterate(update_forcings=update_forcings)
-
-# tests
-# 6572744 - omitting solver_obj.eq_momentum.bnd_functions : FAILS
-# 6572791 - init salt only no elev/uv init or forcing : works
-# 6572869 - added elev_init : works
-# 6572873 - added uv_init : works
-# 6572878 - added swe bnds : FAILS salt blows up at river boundary after some iterations
-# - added salt bnd conditions

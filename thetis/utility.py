@@ -356,7 +356,7 @@ class VerticalIntegrator(object):
         else:
             source = input
         self.l = inner(source, phi)*self.dx + bnd_term
-        self.prob = LinearVariationalProblem(self.a, self.l, output, constant_jacobian=False)
+        self.prob = LinearVariationalProblem(self.a, self.l, output, constant_jacobian=average)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
@@ -409,12 +409,19 @@ def compute_baroclinic_head(solver):
 
     r = 1/rho_0 int_{z=-h}^{\eta} rho' dz
     """
-    solver.density_solver.solve()
-    solver.rho_integrator.solve()
-    solver.fields.baroc_head_3d *= -physical_constants['rho0_inv']
-    solver.extract_bot_baro_head.solve()
-    solver.baro_head_averager.solve()
-    solver.extract_surf_baro_head.solve()
+    with timed_region('density_solve'):
+        solver.density_solver.solve()
+    with timed_region('rho_integral'):
+        solver.rho_integrator.solve()
+        solver.fields.baroc_head_3d *= -physical_constants['rho0_inv']
+    with timed_region('extr_bot_bhead'):
+        solver.extract_bot_baro_head.solve()
+    with timed_region('average_bhead'):
+        solver.baro_head_averager.solve()
+    with timed_region('extr_top_bhead'):
+        solver.extract_surf_baro_head.solve()
+    with timed_region('copy_bhead_3d'):
+        solver.copy_mean_baroc_head_to_3d.solve()
 
 
 class VelocityMagnitudeSolver(object):

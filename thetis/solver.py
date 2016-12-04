@@ -346,6 +346,7 @@ class FlowSolver(FrozenClass):
         self.fields.z_coord_ref_3d = Function(coord_fs)
         self.fields.uv_dav_3d = Function(self.function_spaces.Uproj)
         self.fields.uv_dav_2d = Function(self.function_spaces.Uproj_2d)
+        self.fields.split_residual_2d = Function(self.function_spaces.Uproj_2d)
         self.fields.uv_mag_3d = Function(self.function_spaces.P0)
         self.fields.uv_p1_3d = Function(self.function_spaces.P1v)
         self.fields.w_3d = Function(self.function_spaces.W)
@@ -443,7 +444,7 @@ class FlowSolver(FrozenClass):
         # ----- Equations
         if self.use_full_2d_mode:
             # full 2D shallow water equations
-            self.eq_sw = shallowwater_eq.ShallowWaterEquations(
+            self.eq_sw = shallowwater_eq.ModeSplit2DEquations(
                 self.fields.solution_2d.function_space(),
                 self.fields.bathymetry_2d,
                 nonlin=self.options.nonlin,
@@ -531,7 +532,6 @@ class FlowSolver(FrozenClass):
         if self.options.timestepper_type.lower() == 'ssprk33':
             self.timestepper = coupled_timeintegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
         elif self.options.timestepper_type.lower() == 'leapfrog':
-            assert self.options.use_ale_moving_mesh, '{:} time integrator requires ALE mesh'.format(self.options.timestepper_type)
             self.timestepper = coupled_timeintegrator.CoupledLeapFrogAM3(weakref.proxy(self))
         elif self.options.timestepper_type.lower() == 'imexale':
             assert self.options.use_ale_moving_mesh, '{:} time integrator requires ALE mesh'.format(self.options.timestepper_type)
@@ -572,8 +572,9 @@ class FlowSolver(FrozenClass):
             self.exporters['hdf5'] = e
 
         # ----- Operators
+        tot_uv_3d = self.fields.uv_3d + self.fields.uv_dav_3d
         self.w_solver = VerticalVelocitySolver(self.fields.w_3d,
-                                               self.fields.uv_3d,
+                                               tot_uv_3d,
                                                self.fields.bathymetry_3d,
                                                self.eq_momentum.bnd_functions)
         self.uv_averager = VerticalIntegrator(self.fields.uv_3d,
@@ -614,6 +615,8 @@ class FlowSolver(FrozenClass):
             self.extract_surf_baro_head = SubFunctionExtractor(self.fields.baroc_head_int_3d,
                                                                self.fields.baroc_head_2d,
                                                                boundary='top', elem_facet='top')
+            self.copy_mean_baroc_head_to_3d = ExpandFunctionTo3d(self.fields.baroc_head_2d,
+                                                                 self.fields.baroc_head_int_3d)
             self.extract_bot_baro_head = SubFunctionExtractor(self.fields.baroc_head_3d,
                                                               self.fields.baroc_head_bot_2d,
                                                               boundary='bottom', elem_facet='bottom')
@@ -688,8 +691,9 @@ class FlowSolver(FrozenClass):
             self.fields.elev_2d.project(elev)
         if uv_2d is not None:
             self.fields.uv_2d.project(uv_2d)
-            ExpandFunctionTo3d(self.fields.uv_2d, self.fields.uv_3d,
-                               elem_height=self.fields.v_elem_size_3d).solve()
+            if uv_3d is None:
+                ExpandFunctionTo3d(self.fields.uv_2d, self.fields.uv_3d,
+                                   elem_height=self.fields.v_elem_size_3d).solve()
         if uv_3d is not None:
             self.fields.uv_3d.project(uv_3d)
         if salt is not None and self.options.solve_salt:
@@ -727,8 +731,13 @@ class FlowSolver(FrozenClass):
 
     def export(self):
         self.callbacks.evaluate(mode='export')
+        # set uv to total uv instead of deviation from depth average
+        # TODO find a cleaner way of doing this ...
+        self.fields.uv_3d += self.fields.uv_dav_3d
         for key in self.exporters:
             self.exporters[key].export()
+        # restore uv_3d
+        self.fields.uv_3d -= self.fields.uv_dav_3d
 
     def load_state(self, i_export, outputdir=None, t=None, iteration=None):
         """
@@ -761,6 +770,8 @@ class FlowSolver(FrozenClass):
         e.exporters['uv_2d'].load(i_export, self.fields.uv_2d)
         e.exporters['elev_2d'].load(i_export, self.fields.elev_2d)
         e.exporters['uv_3d'].load(i_export, self.fields.uv_3d)
+        # NOTE remove mean from uv_3d
+        self.timestepper._remove_depth_average_from_uv_3d()
         salt = temp = tke = psi = None
         if self.options.solve_salt:
             salt = self.fields.salt_3d

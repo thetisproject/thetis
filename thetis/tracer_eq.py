@@ -77,6 +77,10 @@ class HorizontalAdvectionTerm(TracerTerm):
             return 0
         elev = fields_old['elev_3d']
         uv = fields_old['uv_3d']
+        uv_depth_av = fields_old['uv_depth_av']
+        if uv_depth_av is not None:
+            uv = uv + uv_depth_av
+
         uv_p1 = fields_old.get('uv_p1')
         uv_mag = fields_old.get('uv_mag')
         # FIXME is this an option?

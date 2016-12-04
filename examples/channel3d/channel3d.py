@@ -7,7 +7,7 @@
 # Flow is forced with tidal volume flux in the deep (ocean) end of the
 # channel, and a constant volume flux in the shallow (river) end.
 #
-# This test is useful for testing open boundary conditions.
+# This example demonstrates how to set up time dependent boundary conditions.
 #
 # Tuomas Karna 2015-03-03
 from thetis import *
@@ -15,11 +15,11 @@ from thetis import *
 n_layers = 6
 outputdir = 'outputs'
 mesh2d = Mesh('channel_mesh.msh')
-print_output('Loaded mesh '+mesh2d.name)
-print_output('Exporting to '+outputdir)
-t_end = 48 * 3600
+print_output('Loaded mesh ' + mesh2d.name)
+print_output('Exporting to ' + outputdir)
+t_end = 24 * 3600
 u_mag = Constant(2.5)
-t_export = 100.0
+t_export = 900.0
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -29,22 +29,27 @@ depth_oce = 20.0
 depth_riv = 7.0
 bathymetry_2d.interpolate(Expression('ho - (ho-hr)*x[0]/100e3',
                                      ho=depth_oce, hr=depth_riv))
+u_max = 2.0
+w_max = 5e-3
 
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solver_obj.options
+options.element_family = 'dg-dg'
+options.timestepper_type = 'leapfrog'
 options.solve_salt = True
 options.solve_temp = False
 options.solve_vert_diffusion = False
 options.use_bottom_friction = False
-options.use_ale_moving_mesh = False
-options.uv_lax_friedrichs = Constant(1.0)
-options.tracer_lax_friedrichs = Constant(1.0)
-# options.baroclinic = True
+options.use_ale_moving_mesh = True
+options.use_limiter_for_tracers = True
+options.uv_lax_friedrichs = None
+options.tracer_lax_friedrichs = None
 options.t_export = t_export
 options.t_end = t_end
 options.outputdir = outputdir
-options.u_advection = u_mag
+options.u_advection = Constant(u_max)
+options.w_advection = Constant(w_max)
 options.check_salt_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
@@ -60,15 +65,15 @@ L_y = 1900
 h_amp = 2.0
 un_amp = -2.0
 flux_amp = L_y*depth_oce*un_amp
-h_t = 12 * 3600  # 44714.0
+t_tide = 12 * 3600.
 un_river = -0.3
 flux_river = L_y*depth_riv*un_river
 t = 0.0
-T_ramp = 1000.0
+t_ramp = 6*3600.0  # use linear ramp up for boundary forcings
 # python function that returns time dependent boundary values
-ocean_flux_func = lambda t: (flux_amp*sin(2 * pi * t / h_t) -
-                             flux_river)*min(t/T_ramp, 1.0)
-river_flux_func = lambda t: flux_river*min(t/T_ramp, 1.0)
+ocean_flux_func = lambda t: (flux_amp*sin(2 * pi * t / t_tide) -
+                             flux_river)*min(t/t_ramp, 1.0)
+river_flux_func = lambda t: flux_river*min(t/t_ramp, 1.0)
 # Constants that will be fed to the model
 ocean_flux = Constant(ocean_flux_func(t))
 river_flux = Constant(river_flux_func(t))
@@ -78,8 +83,8 @@ river_flux = Constant(river_flux_func(t))
 # here setting outward bnd flux (positive outward)
 ocean_funcs = {'flux': ocean_flux}
 river_funcs = {'flux': river_flux}
-ocean_funcs_3d = {'flux': ocean_flux}
-river_funcs_3d = {'flux': river_flux}
+ocean_funcs_3d = {'symm': None}
+river_funcs_3d = {'symm': None}
 # and constant salinity (for inflow)
 ocean_salt_3d = {'value': salt_init3d}
 river_salt_3d = {'value': salt_init3d}
@@ -90,9 +95,10 @@ river_tag = 1
 # these must be assigned before equations are created
 solver_obj.bnd_functions['shallow_water'] = {ocean_tag: ocean_funcs,
                                              river_tag: river_funcs}
-# solver_obj.bnd_functions['momentum'] = {2: ocean_funcs_3d, 1: river_funcs_3d}
-solver_obj.bnd_functions['momentum'] = {}
-solver_obj.bnd_functions['salt'] = {2: ocean_salt_3d, 1: river_salt_3d}
+solver_obj.bnd_functions['momentum'] = {ocean_tag: ocean_funcs_3d,
+                                        river_tag: river_funcs_3d}
+solver_obj.bnd_functions['salt'] = {ocean_tag: ocean_salt_3d,
+                                    river_tag: river_salt_3d}
 
 
 def update_forcings(t_new):

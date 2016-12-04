@@ -29,131 +29,204 @@ set to constant 1e-4 m2/s. Tracer diffusion is set to zero.
 """
 
 from thetis import *
-comm = COMM_WORLD
+from diagnostics import *
 
-# NOTE 4km mesh with 20 layers is OOM on stampede
-# TODO reduce mem usage or use more nodes ...
 
-delta_x = 10*1.e3
-lx = 160e3
-ly = 500e3
-nx = int(lx/delta_x)
-ny = int(ly/delta_x)
-delta_x = lx/nx
-mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x')
-depth = 1000.
-nlayers = 20
+def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
+                reynolds_number=20.0, dt=None,
+                viscosity='const', laxfriedrichs=0.0):
+    """
+    Runs problem with a bunch of user defined options.
+    """
+    delta_x = reso_dx*1.e3
+    nlayers = 20
 
-# compute horizontal viscosity
-reynolds_number = 2000.
-uscale = 0.1
-nu_scale = uscale * delta_x / reynolds_number
+    comm = COMM_WORLD
 
-f_cori = -1.2e-4
-bottom_drag = 0.01
-t_end = 200*24*3600.  # 365*24*3600.
-t_export = 3*3600.
+    lx = 160e3
+    ly = 500e3
+    nx = int(lx/delta_x)
+    ny = int(ly/delta_x)
+    delta_x = lx/nx
+    mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x')
+    depth = 1000.
 
-# bathymetry
-P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-bathymetry_2d = Function(P1_2d, name='Bathymetry')
-bathymetry_2d.assign(depth)
+    u_max = 1.0
+    w_max = 1e-3
+    # compute horizontal viscosity
+    uscale = 0.1
+    nu_scale = uscale * delta_x / reynolds_number
 
-# temperature and salinity, results in 2.0 kg/m3 density difference
-salt_const = 35.0
-temp_bot = 10.1
-temp_surf = 13.1
-rho_0 = 1000.0
-physical_constants['rho0'].assign(rho_0)
+    f_cori = -1.2e-4
+    bottom_drag = 0.01
+    t_end = 200*24*3600.  # 365*24*3600.
+    t_export = 3*3600.
 
-# create solver
-solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, nlayers)
-options = solver_obj.options
-options.element_family = 'dg-dg'
-options.timestepper_type = 'leapfrog'
-options.solve_salt = False
-options.constant_salt = Constant(salt_const)
-options.solve_temp = True
-options.solve_vert_diffusion = True
-options.use_bottom_friction = True
-options.quadratic_drag = Constant(bottom_drag)
-options.baroclinic = True
-options.coriolis = Constant(f_cori)
-options.uv_lax_friedrichs = Constant(0.01)
-options.tracer_lax_friedrichs = Constant(0.01)
-# options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
-options.use_limiter_for_tracers = True
-options.v_viscosity = Constant(1.0e-4)
-options.h_viscosity = Constant(nu_scale)
-options.nu_viscosity = Constant(nu_scale)
-options.h_diffusivity = None
-options.t_export = t_export
-options.t_end = t_end
-options.dt = 100.
-options.u_advection = Constant(0.5)
-options.w_advection = Constant(1e-2)
-options.check_vol_conservation_2d = True
-options.check_vol_conservation_3d = True
-options.check_temp_conservation = True
-options.check_temp_overshoot = True
-options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
-                            'w_3d', 'w_mesh_3d', 'temp_3d', 'salt_3d', 'density_3d',
-                            'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                            'baroc_head_2d',
-                            'smag_visc_3d', 'salt_jump_diff']
-options.equation_of_state = 'linear'
-options.lin_equation_of_state_params = {
-    'rho_ref': rho_0,
-    's_ref': salt_const,
-    'th_ref': 5.0,
-    'alpha': 0.2,
-    'beta': 0.0,
-}
+    nnodes = mesh2d.topology.num_vertices()
+    ntriangles = mesh2d.topology.num_cells()
+    nprisms = ntriangles * nlayers
+    ndofs = nprisms * 6 if poly_order == 1 else nprisms
 
-solver_obj.create_equations()
+    reso_str = 'dx' + str(np.round(delta_x/1000., decimals=1))
+    options_str = '_'.join([reso_str,
+                            element_family,
+                            'p{:}'.format(poly_order),
+                            'visc-{:}'.format(viscosity),
+                            'Re{:}'.format(reynolds_number),
+                            'lf{:.1f}'.format(laxfriedrichs),
+                            ])
+    outputdir = 'outputs_' + options_str
 
-print_output('Running eddy test case with options:')
-print_output('Number of cores: {:}'.format(comm.size))
-print_output('Mesh resolution dx={:} nlayers={:}'.format(delta_x, nlayers))
-print_output('Reynolds number: {:}'.format(reynolds_number))
-print_output('Horizontal viscosity: {:}'.format(nu_scale))
+    # bathymetry
+    P1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    bathymetry_2d = Function(P1_2d, name='Bathymetry')
+    bathymetry_2d.assign(depth)
 
-xyz = SpatialCoordinate(solver_obj.mesh)
-# vertical background stratification
-temp_vert = temp_bot + (temp_surf - temp_bot)*(-depth - xyz[2])/-depth
-# sinusoidal temperature anomaly
-temp_delta = -1.2
-y0 = 250.e3
-ya = 40.e3
-k = 3
-yd = 40.e3
-yw = y0 - ya*sin(2*pi*k*xyz[0]/lx)
-fy = (1. - (xyz[1] - yw)/yd)
-s_lo = 0.5*(sign(fy) + 1.)
-s_hi = 0.5*(sign(1. - fy) + 1.)
-temp_wave = temp_delta*(fy*s_lo*s_hi + (1.0-s_hi))
-# perturbation of one crest
-temp_delta2 = -0.3
-x2 = 110.e3
-x3 = 130.e3
-yw2 = y0 - ya/2*sin(pi*(xyz[0] - x2)/(x3 - x2))
-fy = (1. - (xyz[1] - yw2)/(yd/2))
-s_lo = 0.5*(sign(fy) + 1.)
-s_hi = 0.5*(sign(2. - fy) + 1.)
-temp_wave2 = temp_delta2*(fy*s_lo*s_hi + (1.0-s_hi))
-s_wave2 = 0.5*(sign(xyz[0] - x2)*(-1)*sign(xyz[0] - x3) + 1.)*s_hi
-temp_expr = temp_vert + s_wave2*temp_wave2 + (1.0 - s_wave2)*temp_wave
-temp_init3d = Function(solver_obj.function_spaces.H)
-temp_init3d.interpolate(temp_expr)
-solver_obj.assign_initial_conditions(temp=temp_init3d)
+    # temperature and salinity, results in 2.0 kg/m3 density difference
+    salt_const = 35.0
+    temp_bot = 10.1
+    temp_surf = 13.1
+    rho_0 = 1000.0
+    physical_constants['rho0'].assign(rho_0)
 
-# compute 2D baroclinic head and use it to initialize elevation field
-# to remove fast 2D gravity wave caused by the initial density difference
-compute_baroclinic_head(solver_obj)
-elev_init = Function(solver_obj.function_spaces.H_2d)
-elev_init.assign(-solver_obj.fields.baroc_head_2d*depth)
-mean_elev = assemble(elev_init*dx)/lx/ly
-elev_init += -mean_elev
-solver_obj.assign_initial_conditions(temp=temp_init3d, elev=elev_init)
+    # create solver
+    solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, nlayers)
+    options = solver_obj.options
+    options.order = poly_order
+    options.element_family = element_family
+    options.timestepper_type = 'leapfrog'
+    options.solve_salt = False
+    options.constant_salt = Constant(salt_const)
+    options.solve_temp = True
+    options.solve_vert_diffusion = True
+    options.use_bottom_friction = True
+    options.quadratic_drag = Constant(bottom_drag)
+    options.baroclinic = True
+    options.coriolis = Constant(f_cori)
+    options.uv_lax_friedrichs = Constant(laxfriedrichs)
+    options.tracer_lax_friedrichs = Constant(laxfriedrichs)
+    # options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
+    options.use_limiter_for_tracers = True
+    options.v_viscosity = Constant(1.0e-4)
+    if viscosity == 'smag':
+        options.smagorinsky_factor = Constant(1.0/np.sqrt(reynolds_number))
+        options.nu_viscosity = Constant(nu_scale)
+    elif viscosity == 'const':
+        options.h_viscosity = Constant(nu_scale)
+        options.nu_viscosity = Constant(nu_scale)
+    elif viscosity != 'none':
+        raise Exception('Unknow viscosity type {:}'.format(viscosity))
+    options.h_diffusivity = None
+    options.dt = dt
+    options.t_export = t_export
+    options.t_end = t_end
+    options.outputdir = outputdir
+    options.u_advection = Constant(u_max)
+    options.w_advection = Constant(w_max)
+    options.check_vol_conservation_2d = True
+    options.check_vol_conservation_3d = True
+    options.check_temp_conservation = True
+    options.check_temp_overshoot = True
+    options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
+                                'w_3d', 'w_mesh_3d', 'temp_3d', 'salt_3d', 'density_3d',
+                                'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
+                                'baroc_head_2d',
+                                'smag_visc_3d', 'salt_jump_diff']
+    options.equation_of_state = 'linear'
+    options.lin_equation_of_state_params = {
+        'rho_ref': rho_0,
+        's_ref': salt_const,
+        'th_ref': 5.0,
+        'alpha': 0.2,
+        'beta': 0.0,
+    }
 
-solver_obj.iterate()
+    solver_obj.add_callback(RPECalculator(solver_obj))
+
+    solver_obj.create_equations()
+
+    print_output('Running eddy test case with options:')
+    print_output('Number of cores: {:}'.format(comm.size))
+    print_output('Mesh resolution dx={:} nlayers={:}'.format(delta_x, nlayers))
+    print_output('Number of 2D nodes={:}, triangles={:}'.format(nnodes, ntriangles))
+    print_output('Number of prisms={:.2g}, DOFs={:.2g}'.format(nprisms, ndofs))
+    print_output('Reynolds number: {:}'.format(reynolds_number))
+    print_output('Horizontal viscosity: {:}'.format(nu_scale))
+    print_output('Lax-Friedrichs factor: {:}'.format(laxfriedrichs))
+    print_output('Exporting to {:}'.format(outputdir))
+
+    xyz = SpatialCoordinate(solver_obj.mesh)
+    # vertical background stratification
+    temp_vert = temp_bot + (temp_surf - temp_bot)*(-depth - xyz[2])/-depth
+    # sinusoidal temperature anomaly
+    temp_delta = -1.2
+    y0 = 250.e3
+    ya = 40.e3
+    k = 3
+    yd = 40.e3
+    yw = y0 - ya*sin(2*pi*k*xyz[0]/lx)
+    fy = (1. - (xyz[1] - yw)/yd)
+    s_lo = 0.5*(sign(fy) + 1.)
+    s_hi = 0.5*(sign(1. - fy) + 1.)
+    temp_wave = temp_delta*(fy*s_lo*s_hi + (1.0-s_hi))
+    # perturbation of one crest
+    temp_delta2 = -0.3
+    x2 = 110.e3
+    x3 = 130.e3
+    yw2 = y0 - ya/2*sin(pi*(xyz[0] - x2)/(x3 - x2))
+    fy = (1. - (xyz[1] - yw2)/(yd/2))
+    s_lo = 0.5*(sign(fy) + 1.)
+    s_hi = 0.5*(sign(2. - fy) + 1.)
+    temp_wave2 = temp_delta2*(fy*s_lo*s_hi + (1.0-s_hi))
+    s_wave2 = 0.5*(sign(xyz[0] - x2)*(-1)*sign(xyz[0] - x3) + 1.)*s_hi
+    temp_expr = temp_vert + s_wave2*temp_wave2 + (1.0 - s_wave2)*temp_wave
+    temp_init3d = Function(solver_obj.function_spaces.H)
+    temp_init3d.interpolate(temp_expr)
+    solver_obj.assign_initial_conditions(temp=temp_init3d)
+
+    # compute 2D baroclinic head and use it to initialize elevation field
+    # to remove fast 2D gravity wave caused by the initial density difference
+    compute_baroclinic_head(solver_obj)
+    elev_init = Function(solver_obj.function_spaces.H_2d)
+    elev_init.assign(-solver_obj.fields.baroc_head_2d*depth)
+    mean_elev = assemble(elev_init*dx)/lx/ly
+    elev_init += -mean_elev
+    solver_obj.assign_initial_conditions(temp=temp_init3d, elev=elev_init)
+
+    solver_obj.iterate()
+
+
+def get_argparser():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-r', '--reso_dx', type=float,
+                        help='mesh resolution in kilometers',
+                        default=10.0)
+    parser.add_argument('-p', '--poly_order', type=int, default=1,
+                        help='order of finite element space')
+    parser.add_argument('-f', '--element-family', type=str,
+                        help='finite element family', default='dg-dg')
+    parser.add_argument('-re', '--reynolds-number', type=float, default=1.0,
+                        help='mesh Reynolds number for Smagorinsky scheme')
+    parser.add_argument('-dt', '--dt', type=float,
+                        help='force value for 3D time step')
+    parser.add_argument('-visc', '--viscosity', type=str,
+                        help='Type of horizontal viscosity',
+                        default='const',
+                        choices=['const', 'smag', 'none'])
+    parser.add_argument('-lf', '--laxfriedrichs', type=float,
+                        help='Lax-Friedrichs flux factor for uv and temperature',
+                        default=0.0)
+    return parser
+
+
+def parse_options():
+    parser = get_argparser()
+    args, unknown_args = parser.parse_known_args()
+    args_dict = vars(args)
+    run_problem(**args_dict)
+
+
+if __name__ == '__main__':
+    parse_options()

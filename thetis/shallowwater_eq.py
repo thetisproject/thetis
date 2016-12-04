@@ -453,17 +453,21 @@ class InternalPressureGradientTerm(ShallowWaterMomentumTerm):
         depth_old = self.get_total_depth(eta_old)
         depth = self.get_total_depth(eta)
         source = baroc_head*depth
+        by_parts = False  # FIXME breaks p0 elements
 
         f = 0
-        f = -g_grav*source*nabla_div(self.u_test)*self.dx
-        head_star = avg(source)
-        f += g_grav*head_star*jump(self.u_test, self.normal)*self.dS
-        for bnd_marker in self.boundary_markers:
-            ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-            # use internal value
-            head_rie = source
-            f += g_grav*head_rie*dot(self.u_test, self.normal)*ds_bnd
-        f += -g_grav*inner(grad(1/depth_old)*depth_old*depth*baroc_head, self.u_test)*self.dx
+        if by_parts:
+            f = -g_grav*source*nabla_div(self.u_test)*self.dx
+            head_star = avg(source)
+            f += g_grav*head_star*jump(self.u_test, self.normal)*self.dS
+            for bnd_marker in self.boundary_markers:
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                # use internal value
+                head_rie = source
+                f += g_grav*head_rie*dot(self.u_test, self.normal)*ds_bnd
+        else:
+            f = g_grav*inner(grad(source), self.u_test)*self.dx
+        f += -g_grav*inner(grad(1/depth_old)*depth_old*source, self.u_test)*self.dx
         f += -g_grav*inner(grad(self.bathymetry)*baroc_head_bot, self.u_test)*self.dx
         return -f
 
@@ -585,6 +589,49 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
         :arg bnd_conditions: A dictionary describing boundary conditions.
             E.g. {3: {'elev_2d': Constant(1.0)}} replaces elev_2d function by a constant on boundary ID 3.
         """
+        if isinstance(solution, list):
+            uv, eta = solution
+        else:
+            uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
+        return self.residual_uv_eta(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+
+
+class ModeSplit2DEquations(BaseShallowWaterEquation):
+    """
+    2D depth-averaged shallow water equations for 2D-3D mode splitting
+    """
+    def __init__(self, function_space,
+                 bathymetry,
+                 nonlin=True,
+                 include_grad_div_viscosity_term=False,
+                 include_grad_depth_viscosity_term=True):
+        super(ModeSplit2DEquations, self).__init__(function_space, bathymetry, nonlin)
+
+        u_test, eta_test = TestFunctions(function_space)
+        u_space, eta_space = function_space.split()
+
+        self.add_momentum_terms(u_test, u_space, eta_space,
+                                bathymetry,
+                                nonlin,
+                                include_grad_div_viscosity_term,
+                                include_grad_depth_viscosity_term)
+
+        self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, nonlin)
+
+    def add_momentum_terms(self, *args):
+        self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
+        # self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
+        # self.add_term(HorizontalViscosityTerm(*args), 'explicit')
+        self.add_term(CoriolisTerm(*args), 'explicit')
+        # self.add_term(WindStressTerm(*args), 'source')
+        # self.add_term(QuadraticDragTerm(*args), 'explicit')
+        # self.add_term(LinearDragTerm(*args), 'explicit')
+        # self.add_term(BottomDrag3DTerm(*args), 'source')
+        self.add_term(InternalPressureGradientTerm(*args), 'source')
+        self.add_term(MomentumSourceTerm(*args), 'source')
+
+    def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         if isinstance(solution, list):
             uv, eta = solution
         else:

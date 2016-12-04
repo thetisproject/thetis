@@ -620,7 +620,8 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
             self.sol_expressions = []
             for i_stage in range(self.n_stages):
                 sol_expr = reduce(operator.add,
-                                  map(operator.mul, self.tendency[:i_stage], self.a[i_stage][:i_stage]))
+                                  map(operator.mul, self.tendency[:i_stage], self.a[i_stage][:i_stage]),
+                                  0.0)
                 self.sol_expressions.append(sol_expr)
             self.final_sol_expr = reduce(operator.add,
                                          map(operator.mul, self.tendency, self.b))
@@ -650,7 +651,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
         """
         if not additive:
             self.solution.assign(self.solution_old)
-        if self._nontrivial:
+        if self._nontrivial and i_stage > 0:
             self.solution += self.sol_expressions[i_stage]
 
     def solve_tendency(self, i_stage, t, update_forcings=None):

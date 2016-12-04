@@ -71,7 +71,6 @@ options.use_limiter_for_tracers = True
 options.t_export = t_export
 options.dt = dt
 options.t_end = t_end
-options.outputdir = outputdir
 options.u_advection = u_mag
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'uv_dav_2d', 'uv_bottom_2d',
@@ -94,12 +93,15 @@ surf_slope = -1.0e-5  # d elev/dx
 pressure_grad = -physical_constants['g_grav'] * surf_slope
 options.uv_source_2d = Constant((pressure_grad, 0))
 
+solver_obj.create_equations()
+
+xyz = SpatialCoordinate(solver_obj.mesh)
 if fast_convergence:
     # speed-up convergence by stating with u > 0
     u_init_2d = 0.5
     solver_obj.assign_initial_conditions(uv_2d=Constant((u_init_2d, 0)))
     # consistent 3d velocity with slope
-    solver_obj.fields.uv_3d.project(Expression(('u*(1.0 + 0.3*(x[2]/d + 0.5))', 0, 0), d=depth, u=u_init_2d))
+    solver_obj.fields.uv_3d.project(as_vector((u_init_2d*0.3*(xyz[2]/depth + 0.5), 0, 0)))
 
 if __name__ == '__main__':
     solver_obj.iterate()
@@ -113,14 +115,12 @@ if __name__ == '__main__':
     z_0 = physical_constants['z0_friction'].dat.data[0]
     u_b = u_max * kappa / np.log((depth + z_0)/z_0)
     log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')
-    log_uv.project(Expression(('u_b / kappa * log((x[2] + depth + z_0)/z_0)', 0, 0),
-                              u_b=u_b, kappa=kappa,
-                              depth=depth, z_0=z_0))
-    out = File(outputdir + '/log_uv.pvd')
+    log_uv.project(as_vector((u_b / kappa * ln((xyz[2] + depth + z_0)/z_0), 0, 0)))
+    out = File(options.outputdir + '/log_uv.pvd')
     out.write(log_uv)
 
     uv_p1_dg = Function(solver_obj.function_spaces.P1DGv, name='velocity p1dg')
-    uv_p1_dg.project(solver_obj.fields.uv_3d)
+    uv_p1_dg.project(solver_obj.fields.uv_3d + solver_obj.fields.uv_dav_3d)
     volume = lx*ly*depth
     uv_l2_err = errornorm(log_uv, uv_p1_dg)/numpy.sqrt(volume)
     assert uv_l2_err < l2_tol, 'L2 error is too large: {:} > {:}'.format(uv_l2_err, l2_tol)
