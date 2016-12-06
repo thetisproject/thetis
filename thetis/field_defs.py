@@ -1,7 +1,5 @@
 """
-Definitions of fields.
-
-Tuomas Karna 2015-10-17
+Definitions and meta data of fields
 """
 
 field_metadata = {}
