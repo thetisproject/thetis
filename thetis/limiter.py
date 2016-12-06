@@ -1,7 +1,5 @@
 """
-Slope limiter implementation.
-
-Tuomas Karna 2015-08-26
+Slope limiters for discontinuous fields
 """
 from __future__ import absolute_import
 from .utility import *
@@ -17,6 +15,10 @@ def assert_function_space(fs, family, degree):
     Raises AssertionError if function space differs.
     If the function space lies on an extruded mesh, checks both spaces of the
     outer product.
+
+    :param fs: function space
+    :param string family: name of element family
+    :param int degree: polynomial degree of the function space
     """
     ufl_elem = fs.ufl_element()
     if isinstance(ufl_elem, ufl.VectorElement):
@@ -43,29 +45,19 @@ def assert_function_space(fs, family, degree):
 
 class VertexBasedP1DGLimiter(VertexBasedLimiter):
     """
-    Vertex based limiter for P1DG tracer fields.
+    Vertex based limiter for P1DG tracer fields, see Kuzmin (2010)
 
-    Based on firedrake implementation by Andrew McRae.
+    .. note::
+        Currently only scalar fields are supported
 
-    [1] Kuzmin Dmitri (2010). A vertex-based hierarchical slope limiter
+    Kuzmin (2010). A vertex-based hierarchical slope limiter
     for p-adaptive discontinuous Galerkin methods. Journal of Computational
     and Applied Mathematics, 233(12):3077-3085.
     http://dx.doi.org/10.1016/j.cam.2009.05.028
     """
     def __init__(self, p1dg_space):
         """
-        Initialize limiter.
-
-        Parameters
-        ----------
-
-        p1dg_space : FunctionSpace instance
-            P1DG function space where the scalar field belongs to
-        p1cg_space : FunctionSpace instance
-            Corresponding continuous function space (for min/max limits)
-        p0_space : FunctionSpace instance
-            Corresponding P0 function space (for centroids)
-
+        :param p1dg_space: P1DG function space
         """
 
         assert_function_space(p1dg_space, 'Discontinuous Lagrange', 1)
@@ -76,6 +68,8 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
     def _update_centroids(self, field):
         """
         Re-compute element centroid values
+
+        :param field: :class:`Function` to limit
         """
         tri = TrialFunction(self.P0)
         test = TestFunction(self.P0)
@@ -87,6 +81,8 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
     def compute_bounds(self, field):
         """
         Re-compute min/max values of all neighbouring centroids
+
+        :param field: :class:`Function` to limit
         """
         # Call general-purpose bound computation.
         super(VertexBasedP1DGLimiter, self).compute_bounds(field)
@@ -139,5 +135,10 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
                          iterate=op2.ON_TOP)
 
     def apply(self, field):
+        """
+        Applies the limiter on the given field (in place)
+
+        :param field: :class:`Function` to limit
+        """
         with timed_stage('limiter'):
             super(VertexBasedP1DGLimiter, self).apply(field)
