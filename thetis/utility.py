@@ -590,12 +590,14 @@ class ExpandFunctionTo3d(object):
     Copies a field from 2D mesh to 3D mesh, assigning the same value over the
     vertical dimension. Horizontal function spaces must be the same.
 
-        >>> U = FunctionSpace(mesh, 'DG', 1)
-        >>> U_2d = FunctionSpace(mesh2d, 'DG', 1)
-        >>> func2d = Function(U_2d)
-        >>> func3d = Function(U)
-        >>> ex = ExpandFunctionTo3d(func2d, func3d)
-        >>> ex.solve()
+    .. code-block:: python
+
+        U = FunctionSpace(mesh, 'DG', 1)
+        U_2d = FunctionSpace(mesh2d, 'DG', 1)
+        func2d = Function(U_2d)
+        func3d = Function(U)
+        ex = ExpandFunctionTo3d(func2d, func3d)
+        ex.solve()
     """
     def __init__(self, input_2d, output_3d, elem_height=None):
         """
@@ -682,28 +684,36 @@ class SubFunctionExtractor(object):
 
     Given 2D and 3D functions,
 
-        >>> U = FunctionSpace(mesh, 'DG', 1)
-        >>> U_2d = FunctionSpace(mesh2d, 'DG', 1)
-        >>> func2d = Function(U_2d)
-        >>> func3d = Function(U)
+    .. code-block:: python
+
+        U = FunctionSpace(mesh, 'DG', 1)
+        U_2d = FunctionSpace(mesh2d, 'DG', 1)
+        func2d = Function(U_2d)
+        func3d = Function(U)
 
     Get surface value:
 
-        >>> ex = SubFunctionExtractor(func3d, func2d,
-                boundary='top', elem_facet='top')
-        >>> ex.solve()
+    .. code-block:: python
+
+        ex = SubFunctionExtractor(func3d, func2d,
+            boundary='top', elem_facet='top')
+        ex.solve()
 
     Get bottom value:
 
-        >>> ex = SubFunctionExtractor(func3d, func2d,
-                boundary='bottom', elem_facet='bottom')
-        >>> ex.solve()
+    .. code-block:: python
+
+        ex = SubFunctionExtractor(func3d, func2d,
+            boundary='bottom', elem_facet='bottom')
+        ex.solve()
 
     Get value at the top of bottom element:
 
-        >>> ex = SubFunctionExtractor(func3d, func2d,
-                boundary='bottom', elem_facet='top')
-        >>> ex.solve()
+    .. code-block:: python
+
+        ex = SubFunctionExtractor(func3d, func2d,
+            boundary='bottom', elem_facet='top')
+        ex.solve()
     """
     def __init__(self, input_3d, output_2d,
                  boundary='top', elem_facet=None,

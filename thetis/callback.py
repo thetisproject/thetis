@@ -17,16 +17,20 @@ class CallbackManager(defaultdict):
 
     Create callbacks and register them under ``'export'`` mode
 
-    >>> cb1 = VolumeConservation3DCallback(...)
-    >>> cb2 = TracerMassConservationCallback(...)
-    >>> cm = CallbackManager()
-    >>> cm.add(cb1, 'export')
-    >>> cm.add(cb2, 'export')
+    .. code-block:: python
+
+        cb1 = VolumeConservation3DCallback(...)
+        cb2 = TracerMassConservationCallback(...)
+        cm = CallbackManager()
+        cm.add(cb1, 'export')
+        cm.add(cb2, 'export')
 
     Evaluate callbacks, calls :func:`evaluate` method of all callbacks registered
     in the given mode.
 
-    >>> cm.evaluate('export')
+    .. code-block:: python
+
+        cm.evaluate('export')
 
     """
     def __init__(self):

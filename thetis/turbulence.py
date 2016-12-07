@@ -68,12 +68,14 @@ The GLS model parameters are controlled via the :class:`.GLSModelOptions` class.
 
 The parameters can be accessed from the solver object:
 
-    >>> solver = FlowSolver(...)
-    >>> solver.options.turbulence_model = 'gls'  # activate GLS model (default)
-    >>> gls_options = solver.options.gls_options
-    >>> gls_options.closure_name = 'k-omega'
-    >>> gls_options.stability_name = 'CB'
-    >>> gls_options.compute_c3_minus = True
+.. code-block:: python
+
+    solver = FlowSolver(...)
+    solver.options.turbulence_model = 'gls'  # activate GLS model (default)
+    gls_options = solver.options.gls_options
+    gls_options.closure_name = 'k-omega'
+    gls_options.stability_name = 'CB'
+    gls_options.compute_c3_minus = True
 
 Currently the following closures have been implemented:
 

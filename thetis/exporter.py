@@ -385,14 +385,16 @@ class ExportManager(object):
     """
     Helper object for exporting multiple fields simultaneously
 
-    >>> from .field_defs import field_metadata
-    >>> field_dict = {'elev_2d': Function(...), 'uv_3d': Function(...), ...}
-    >>> e = exporter.ExportManager('mydirectory',
+    .. code-block:: python
+
+        from .field_defs import field_metadata
+        field_dict = {'elev_2d': Function(...), 'uv_3d': Function(...), ...}
+        e = exporter.ExportManager('mydirectory',
                                    ['elev_2d', 'uv_3d', salt_3d'],
                                    field_dict,
                                    field_metadata,
                                    export_type='vtk')
-    >>> e.export()
+        e.export()
 
     """
     def __init__(self, outputdir, fields_to_export, functions, field_metadata,
