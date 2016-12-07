@@ -14,6 +14,10 @@ class Term(object):
         Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
     """
     def __init__(self, function_space):
+        """
+        :param function_space: :class:`FunctionSpace` where the solution belongs
+            to
+        """
         # define bunch of members needed to construct forms
         self.function_space = function_space
         self.mesh = self.function_space.mesh()
@@ -61,6 +65,10 @@ class Equation(object):
     SUPPORTED_LABELS = ['source', 'explicit', 'implicit', 'nonlinear']
 
     def __init__(self, function_space):
+        """
+        :param function_space: :class:`FunctionSpace` where the solution belongs
+            to
+        """
         self.terms = {}
         self.labels = {}
         self.function_space = function_space
@@ -74,13 +82,21 @@ class Equation(object):
 
     def mass_term(self, solution):
         """
-        Default mass matrix term for the used solution function space.
+        Returns default mass matrix term for the solution function space.
 
-        Can be overloaded in derived classes if needed.
+        :returns: UFL form of the mass term
         """
         return inner(solution, self.test) * dx
 
     def add_term(self, term, label):
+        """
+        Adds a term in the equation
+
+        :param term: :class:`.Term` object to add_term
+        :param string label: Assign a label to the term. Generally one of
+            'implicit', 'explicit', 'source' indicating how this term should be
+            treated in the time integrator.
+        """
         key = term.__class__.__name__
         self.terms[key] = term
         self.label_term(key, label)
@@ -103,7 +119,9 @@ class Equation(object):
     def select_terms(self, label):
         """
         Generator function that selects terms by label(s).
-        label can be a single label (e.g. 'explicit'), 'all' or a tuple of labels
+
+        label can be a single label (e.g. 'explicit'), 'all' or a tuple of
+        labels.
         """
         if isinstance(label, str):
             if label == 'all':
