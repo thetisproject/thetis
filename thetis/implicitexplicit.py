@@ -81,6 +81,17 @@ class IMEXGeneric(TimeIntegrator):
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, solver_parameters_dirk={}):
         super(IMEXGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
+        """
+        :param equation: equation to solve
+        :type equation: :class:`Equation` object
+        :param solution: :class:`Function` where solution will be stored
+        :param fields: Dictionary of fields that are passed to the equation
+        :type fields: dict of :class:`Function` or :class:`Constant` objects
+        :param float dt: time step in seconds
+        :param dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :param solver_parameters: PETSc solver options for explicit solver
+        :param dict solver_parameters_dirk: PETSc solver options for implicit solver
+        """
 
         # implicit scheme
         self.dirk = self.dirk_class(equation, solution, fields, dt, bnd_conditions,
@@ -97,6 +108,7 @@ class IMEXGeneric(TimeIntegrator):
         self.cfl_coeff = self.dirk.cfl_coeff
 
     def update_solver(self):
+        """Create solver objects"""
         self.dirk.update_solver()
         self.erk.update_solver()
 
@@ -136,6 +148,11 @@ class IMEXGeneric(TimeIntegrator):
         self.erk.solution_old.assign(self.dirk.solution)
 
     def set_dt(self, dt):
+        """
+        Update time step
+
+        :arg float dt: time step
+        """
         self.erk.set_dt(dt)
         self.dirk.set_dt(dt)
 
