@@ -1,5 +1,5 @@
 from firedrake import *
-from firedrake.petsc import PETSc
+from petsc4py import PETSc
 
 class AssembledSchurPC(PCBase):
     """Preconditioner for the Schur complement, where the preconditioner

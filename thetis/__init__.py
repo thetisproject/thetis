@@ -6,5 +6,6 @@ import thetis.solver as solver  # NOQA
 import thetis.solver2d as solver2d  # NOQA
 from thetis.callback import DiagnosticCallback  # NOQA
 import thetis.limiter as limiter      # NOQA
+from thetis.assembledschur import AssembledSchurPC
 
 parameters['assembly_cache']['enabled'] = False
