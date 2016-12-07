@@ -1,7 +1,5 @@
 """
-Module for coupled 2D-3D flow solver.
-
-Tuomas Karna 2015-04-01
+Module for three dimensional baroclinic solver
 """
 from __future__ import absolute_import
 from .utility import *
@@ -22,30 +20,99 @@ from .log import *
 
 
 class FlowSolver(FrozenClass):
-    """Creates and solves coupled 2D-3D equations"""
+    """
+    Main object for 3D solver
+
+    **Example**
+
+    Create 2D mesh
+
+    .. code-block:: python
+
+        from thetis import *
+        mesh2d = RectangleMesh(20, 20, 10e3, 10e3)
+
+    Create bathymetry function, set a constant value
+
+    .. code-block:: python
+
+        fs_p1 = FunctionSpace(mesh2d, 'CG', 1)
+        bathymetry_2d = Function(fs_p1, name='Bathymetry').assign(10.0)
+
+    Create a 3D model with 6 uniform levels, and set some options
+    (see :class:`.ModelOptions`)
+
+    .. code-block:: python
+
+        solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers=6)
+        options = solver_obj.options
+        options.element_family = 'dg-dg'
+        options.order = 1
+        options.timestepper_type = 'ssprk22'
+        options.solve_salt = False
+        options.solve_temp = False
+        options.t_export = 50.0
+        options.t_end = 3600.
+        options.dt = 25.0
+
+    Assign initial condition for water elevation
+
+    .. code-block:: python
+
+        solver_obj.create_function_spaces()
+        init_elev = Function(solver_obj.function_spaces.H_2d)
+        coords = SpatialCoordinate(mesh2d)
+        init_elev.project(2.0*exp(-((coords[0] - 4e3)**2 + (coords[1] - 4.5e3)**2)/2.2e3**2))
+        solver_obj.assign_initial_conditions(elev=init_elev)
+
+    Run simulation
+
+    .. code-block:: python
+
+        solver_obj.iterate()
+
+    See the manual for more complex examples.
+    """
     def __init__(self, mesh2d, bathymetry_2d, n_layers,
                  options=None):
+        """
+        :param mesh2d: :class:`Mesh` object of the 2D mesh
+        :param bathymetry_2d: Bathymetry of the domain. Bathymetry stands for
+            the mean water depth (positive downwards).
+        :type bathymetry_2d: 2D :class:`Function`
+        :param int n_layers: Number of layers in the vertical direction.
+            Elements are distributed uniformly over the vertical.
+        :param options: Model options (optional). Model options can also be
+            changed directly via the :attr:`.options` class property.
+        :type options: :class:`.ModelOptions` instance
+        """
         self._initialized = False
 
         self.bathymetry_cg_2d = bathymetry_2d
 
-        # create 3D mesh
         self.mesh2d = mesh2d
+        """2D :class`Mesh`"""
         self.mesh = extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d)
-
+        """3D :class`Mesh`"""
         self.comm = mesh2d.comm
+
         # add boundary length info
         bnd_len = compute_boundary_length(self.mesh2d)
         self.mesh2d.boundary_len = bnd_len
         self.mesh.boundary_len = bnd_len
 
-        # Time integrator setup
         self.dt = None
+        """Time step"""
         self.dt_2d = None
+        """Time of the 2D solver"""
         self.M_modesplit = None
+        """Mode split ratio (int)"""
 
         # override default options
         self.options = ModelOptions()
+        """
+        Dictionary of all options. A :class:`.ModelOptions` object.
+        """
         if options is not None:
             self.options.update(options)
 
@@ -62,18 +129,34 @@ class FlowSolver(FrozenClass):
                               }
 
         self.callbacks = callback.CallbackManager()
-        """Callback manager object"""
+        """
+        :class:`.CallbackManager` object that stores all callbacks
+        """
 
         self.fields = FieldDict()
-        """Holds all functions needed by the solver object."""
+        """
+        :class:`.FieldDict` that holds all functions needed by the solver
+        object
+        """
+
         self.function_spaces = AttrDict()
-        """Holds all function spaces needed by the solver object."""
+        """
+        :class:`.AttrDict` that holds all function spaces needed by the
+        solver object
+        """
+
         self.export_initial_state = True
         """Do export initial state. False if continuing a simulation"""
-        self._isfrozen = True  # disallow creating new attributes
+
+        self._isfrozen = True
 
     def compute_dx_factor(self):
-        """Computes a normalized distance between nodes in the horizontal mesh"""
+        """
+        Computes normalized distance between nodes in the horizontal direction
+
+        The factor depends on the finite element space and its polynomial
+        degree. It is used to compute maximal stable time steps.
+        """
         p = self.options.order
         if self.options.element_family == 'rt-dg':
             # velocity space is essentially p+1
@@ -84,21 +167,29 @@ class FlowSolver(FrozenClass):
         return factor
 
     def compute_dz_factor(self):
-        """Computes a normalized distance between nodes in the vertical mesh"""
+        """
+        Computes a normalized distance between nodes in the vertical direction
+
+        The factor depends on the finite element space and its polynomial
+        degree. It is used to compute maximal stable time steps.
+        """
         p = self.options.order
         # assuming DG basis functions in an interval
         l_r = 1.0/max(p, 1)
         factor = 0.5*0.25/l_r
         return factor
 
-    def compute_dt_2d(self, u_mag):
-        """
+    def compute_dt_2d(self, u_scale):
+        r"""
         Computes maximum explicit time step from CFL condition.
 
-        dt = CellSize/U
+        .. math :: \Delta t = \frac{\Delta x}{U}
 
-        Assumes velocity scale U = sqrt(g*H) + u_mag
-        where u_mag is estimated advective velocity
+        Assumes velocity scale :math:`U = \sqrt{g H} + U_{scale}` where
+        :math:`U_{scale}` is estimated advective velocity.
+
+        :param u_scale: User provided maximum advective velocity scale
+        :type u_scale: float or :class:`Constant`
         """
         csize = self.fields.h_elem_size_2d
         bath = self.fields.bathymetry_2d
@@ -111,7 +202,7 @@ class FlowSolver(FrozenClass):
         trial = TrialFunction(fs)
         solution = Function(fs)
         g = physical_constants['g_grav']
-        u = (sqrt(g * bath_pos) + u_mag)
+        u = (sqrt(g * bath_pos) + u_scale)
         a = inner(test, trial) * dx
         l = inner(test, csize / u) * dx
         solve(a == l, solution)
@@ -121,12 +212,15 @@ class FlowSolver(FrozenClass):
         return dt
 
     def compute_dt_h_advection(self, u_scale):
-        """
-        Computes maximum explicit time step from CFL condition.
+        r"""
+        Computes maximum explicit time step for horizontal advection
 
-        dt = CellSize_h/u_scale
+        .. math :: \Delta t = \frac{\Delta x}{U_{scale}}
 
-        Assumes advective horizontal velocity scale u_scale
+        where :math:`U_{scale}` is estimated horizontal advective velocity.
+
+        :param u_scale: User provided maximum horizontal velocity scale
+        :type u_scale: float or :class:`Constant`
         """
         u = u_scale
         if isinstance(u_scale, FiredrakeConstant):
@@ -140,12 +234,15 @@ class FlowSolver(FrozenClass):
         return dt
 
     def compute_dt_v_advection(self, w_scale):
-        """
-        Computes maximum explicit time step from CFL condition.
+        r"""
+        Computes maximum explicit time step for vertical advection
 
-        dt = CellSize_v/w_scale
+        .. math :: \Delta t = \frac{\Delta z}{W_{scale}}
 
-        Assumes advective vertical velocity scale w_scale
+        where :math:`W_{scale}` is estimated vertical advective velocity.
+
+        :param w_scale: User provided maximum vertical velocity scale
+        :type w_scale: float or :class:`Constant`
         """
         w = w_scale
         if isinstance(w_scale, FiredrakeConstant):
@@ -159,12 +256,12 @@ class FlowSolver(FrozenClass):
         return dt
 
     def compute_dt_diffusion(self, nu_scale):
-        """
+        r"""
         Computes maximum explicit time step for horizontal diffusion.
 
-        dt = alpha*CellSize**2/nu_scale
+        .. math :: \Delta t = \alpha \frac{(\Delta x)^2}{\nu_{scale}}
 
-        where nu_scale is estimated diffusivity scale
+        where :math:`\nu_{scale}` is estimated diffusivity scale.
         """
         nu = nu_scale
         if isinstance(nu_scale, FiredrakeConstant):
@@ -179,6 +276,15 @@ class FlowSolver(FrozenClass):
         return dt
 
     def set_time_step(self):
+        """
+        Sets the model the model time step
+
+        Uses ``options.dt`` and ``options.dt_2d`` if set, otherwise sets the
+        maximum time step allowed by the CFL conditions.
+
+        Once the time step is determined, will adjust it to be an integer
+        fraction of export interval ``options.t_export``.
+        """
         cfl2d = self.timestepper.cfl_coeff_2d
         cfl3d = self.timestepper.cfl_coeff_3d
         max_dt_swe = self.compute_dt_2d(self.options.u_advection)
@@ -237,7 +343,12 @@ class FlowSolver(FrozenClass):
         sys.stdout.flush()
 
     def create_function_spaces(self):
-        """Creates function spaces"""
+        """
+        Creates function spaces
+
+        Function spaces are accessible via :attr:`.function_spaces`
+        object.
+        """
         self._isfrozen = False
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.function_spaces.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0, name='P0')
@@ -298,7 +409,9 @@ class FlowSolver(FrozenClass):
         self._isfrozen = True
 
     def create_equations(self):
-        """Creates function spaces, functions, equations and time steppers."""
+        """
+        Creates all dynamic equations and time integrators
+        """
         if not hasattr(self, 'U_2d'):
             self.create_function_spaces()
         self._isfrozen = False
@@ -689,6 +802,24 @@ class FlowSolver(FrozenClass):
 
     def assign_initial_conditions(self, elev=None, salt=None, temp=None,
                                   uv_2d=None, uv_3d=None, tke=None, psi=None):
+        """
+        Assigns initial conditions
+
+        :param elev: Initial condition for water elevation
+        :type elev: scalar 2D :class:`Function`, :class:`Constant`, or an expression
+        :param salt: Initial condition for salinity field
+        :type salt: scalar 3D :class:`Function`, :class:`Constant`, or an expression
+        :param temp: Initial condition for temperature field
+        :type temp: scalar 3D :class:`Function`, :class:`Constant`, or an expression
+        :param uv_2d: Initial condition for depth averaged velocity
+        :type uv_2d: vector valued 2D :class:`Function`, :class:`Constant`, or an expression
+        :param uv_3d: Initial condition for horizontal velocity
+        :type uv_3d: vector valued 3D :class:`Function`, :class:`Constant`, or an expression
+        :param tke: Initial condition for turbulent kinetic energy field
+        :type tke: scalar 3D :class:`Function`, :class:`Constant`, or an expression
+        :param psi: Initial condition for turbulence generic lenght scale field
+        :type psi: scalar 3D :class:`Function`, :class:`Constant`, or an expression
+        """
         if not self._initialized:
             self.create_equations()
         if elev is not None:
@@ -726,14 +857,22 @@ class FlowSolver(FrozenClass):
             self.gls_model.initialize()
 
     def add_callback(self, callback, eval_interval='export'):
-        """Adds callback to solver object
+        """
+        Adds callback to solver object
 
-        :arg callback: DiagnosticCallback instance
-        "arg eval_interval: 'export'|'timestep' Determines when callback will be evaluated.
+        :arg callback: :class:`.DiagnosticCallback` instance
+        :arg string eval_interval: Determines when callback will be evaluated,
+            either 'export' or 'timestep' for evaluating after each export or
+            time step.
         """
         self.callbacks.add(callback, eval_interval)
 
     def export(self):
+        """
+        Export all fields to disk
+
+        Also evaluates all callbacks set to 'export' interval.
+        """
         self.callbacks.evaluate(mode='export')
         # set uv to total uv instead of deviation from depth average
         # TODO find a cleaner way of doing this ...
@@ -747,7 +886,7 @@ class FlowSolver(FrozenClass):
         """
         Loads simulation state from hdf5 outputs.
 
-        This replaces assign_initial_conditions in model initilization.
+        This replaces :meth:`.assign_initial_conditions` in model initilization.
 
         This assumes that model setup is kept the same (e.g. time step) and
         all pronostic state variables are exported in hdf5 format.  The required
@@ -756,6 +895,13 @@ class FlowSolver(FrozenClass):
 
         Currently hdf5 field import only works for the same number of MPI
         processes.
+
+        :param int i_export: export index to load
+        :param string outputdir: (optional) directory where files are read from.
+            By default ``options.outputdir``.
+        :param float t: simulation time. Overrides the time stamp stored in the
+            hdf5 files.
+        :param int iteration: Overrides the iteration count in the hdf5 files.
         """
         if not self._initialized:
             self.create_equations()
@@ -816,6 +962,11 @@ class FlowSolver(FrozenClass):
             self.exporters[k].set_next_export_ix(self.i_export + offset)
 
     def print_state(self, cputime):
+        """
+        Print a summary of the model state on stdout
+
+        :param float cputime: Measured CPU time
+        """
         norm_h = norm(self.fields.elev_2d)
         norm_u = norm(self.fields.uv_3d)
 
@@ -828,6 +979,21 @@ class FlowSolver(FrozenClass):
 
     def iterate(self, update_forcings=None, update_forcings3d=None,
                 export_func=None):
+        """
+        Runs the simulation
+
+        Iterates over the time loop until time ``options.t_end`` is reached.
+        Exports fields to disk on ``options.t_export`` intervals.
+
+        :param update_forcings: User-defined function that takes simulation
+            time as an argument and updates time-dependent boundary conditions
+            of the 2D system (if any).
+        :param update_forcings_3d: User-defined function that takes simulation
+            time as an argument and updates time-dependent boundary conditions
+            of the 3D equations (if any).
+        :param export_func: User-defined function (with no arguments) that will
+            be called on every export.
+        """
         if not self._initialized:
             self.create_equations()
 
