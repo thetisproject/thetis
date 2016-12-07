@@ -7,6 +7,7 @@ import thetis.solver2d as solver2d  # NOQA
 from thetis.callback import DiagnosticCallback  # NOQA
 import thetis.limiter as limiter      # NOQA
 from thetis._version import get_versions
+from thetis.assembledschur import AssembledSchurPC  # NOQA
 __version__ = get_versions()['version']
 del get_versions
 
