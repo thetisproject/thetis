@@ -181,11 +181,27 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         self._create_integrators()
         self.n_stages = self.timestepper2d.n_stages
 
-    def _create_integrators(self):
+    def _get_vert_diffusivity_functions(self):
         """
-        Creates all time integrators with the correct arguments
+        Assign vertical viscosity/diffusivity to implicit/explicit parts
         """
-        # TODO refactor
+        if self.options.solve_vert_diffusion:
+            impl_v_visc = self.solver.tot_v_visc.get_sum()
+            expl_v_visc = None
+            impl_v_diff = self.solver.tot_v_diff.get_sum()
+            expl_v_diff = None
+        else:
+            impl_v_visc = None
+            expl_v_visc = self.solver.tot_v_visc.get_sum()
+            impl_v_diff = None
+            expl_v_diff = self.solver.tot_v_diff.get_sum()
+
+        return impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff
+
+    def _create_swe_integrator(self):
+        """
+        Create time integrator for 2D system
+        """
         solver = self.solver
         uv_source_2d = solver.fields.split_residual_2d
         if self.options.uv_source_2d is not None:
@@ -218,17 +234,12 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 bnd_conditions=solver.bnd_functions['shallow_water'],
                 solver_parameters=self.options.solver_parameters_sw)
 
-        # assign viscosity/diffusivity to correct equations
-        if self.options.solve_vert_diffusion:
-            implicit_v_visc = solver.tot_v_visc.get_sum()
-            explicit_v_visc = None
-            implicit_v_diff = solver.tot_v_diff.get_sum()
-            explicit_v_diff = None
-        else:
-            implicit_v_visc = None
-            explicit_v_visc = solver.tot_v_visc.get_sum()
-            implicit_v_diff = None
-            explicit_v_diff = solver.tot_v_diff.get_sum()
+    def _create_mom_integrator(self):
+        """
+        Create time integrator for 3D momentum equation
+        """
+        solver = self.solver
+        impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
 
         fields = {'eta': self.fields.elev_3d,  # FIXME rename elev
                   'baroc_head': self.fields.get('baroc_head_3d'),
@@ -237,7 +248,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                   'w': self.fields.w_3d,
                   'w_mesh': self.fields.get('w_mesh_3d'),
                   'dw_mesh_dz': self.fields.get('w_mesh_ddz_3d'),
-                  'viscosity_v': explicit_v_visc,
+                  'viscosity_v': expl_v_visc,
                   'viscosity_h': self.solver.tot_h_visc.get_sum(),
                   'source': self.options.uv_source_3d,
                   # uv_mag': self.fields.uv_mag_3d,
@@ -252,7 +263,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             bnd_conditions=solver.bnd_functions['momentum'],
             solver_parameters=self.options.solver_parameters_momentum_explicit)
         if self.solver.options.solve_vert_diffusion:
-            fields = {'viscosity_v': implicit_v_visc,
+            fields = {'viscosity_v': impl_v_visc,
                       'wind_stress': self.fields.get('wind_stress_3d'),
                       'uv_depth_av': self.fields.get('uv_dav_3d'),
                       }
@@ -260,6 +271,13 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['momentum'],
                 solver_parameters=self.options.solver_parameters_momentum_implicit)
+
+    def _create_salt_integrator(self):
+        """
+        Create time integrator for salinity equation
+        """
+        solver = self.solver
+        impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
 
         if self.solver.options.solve_salt:
             fields = {'elev_3d': self.fields.elev_3d,
@@ -269,7 +287,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'w_mesh': self.fields.get('w_mesh_3d'),
                       'dw_mesh_dz': self.fields.get('w_mesh_ddz_3d'),
                       'diffusivity_h': self.solver.tot_h_diff.get_sum(),
-                      'diffusivity_v': explicit_v_diff,
+                      'diffusivity_v': expl_v_diff,
                       'source': self.options.salt_source_3d,
                       # uv_mag': self.fields.uv_mag_3d,
                       'uv_p1': self.fields.get('uv_p1_3d'),
@@ -281,12 +299,19 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 solver_parameters=self.options.solver_parameters_tracer_explicit)
             if self.solver.options.solve_vert_diffusion:
                 fields = {'elev_3d': self.fields.elev_3d,
-                          'diffusivity_v': implicit_v_diff,
+                          'diffusivity_v': impl_v_diff,
                           }
                 self.timestepper_salt_vdff_3d = self.integrator_vert_3d(
                     solver.eq_salt_vdff, solver.fields.salt_3d, fields, solver.dt,
                     bnd_conditions=solver.bnd_functions['salt'],
                     solver_parameters=self.options.solver_parameters_tracer_implicit)
+
+    def _create_temp_integrator(self):
+        """
+        Create time integrator for temperature equation
+        """
+        solver = self.solver
+        impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
 
         if self.solver.options.solve_temp:
             fields = {'elev_3d': self.fields.elev_3d,
@@ -296,7 +321,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'w_mesh': self.fields.get('w_mesh_3d'),
                       'dw_mesh_dz': self.fields.get('w_mesh_ddz_3d'),
                       'diffusivity_h': self.solver.tot_h_diff.get_sum(),
-                      'diffusivity_v': explicit_v_diff,
+                      'diffusivity_v': expl_v_diff,
                       'source': self.options.temp_source_3d,
                       # uv_mag': self.fields.uv_mag_3d,
                       'uv_p1': self.fields.get('uv_p1_3d'),
@@ -308,16 +333,23 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 solver_parameters=self.options.solver_parameters_tracer_explicit)
             if self.solver.options.solve_vert_diffusion:
                 fields = {'elev_3d': self.fields.elev_3d,
-                          'diffusivity_v': implicit_v_diff,
+                          'diffusivity_v': impl_v_diff,
                           }
                 self.timestepper_temp_vdff_3d = self.integrator_vert_3d(
                     solver.eq_temp_vdff, solver.fields.temp_3d, fields, solver.dt,
                     bnd_conditions=solver.bnd_functions['temp'],
                     solver_parameters=self.options.solver_parameters_tracer_implicit)
 
+    def _create_turb_integrator(self):
+        """
+        Create time integrators for turbulence equations
+        """
+        solver = self.solver
+        impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
+
         if self.solver.options.use_turbulence:
-            fields = {'diffusivity_v': implicit_v_diff,
-                      'viscosity_v': implicit_v_visc,
+            fields = {'diffusivity_v': impl_v_diff,
+                      'viscosity_v': impl_v_visc,
                       'k': solver.fields.tke_3d,
                       'epsilon': solver.gls_model.epsilon,
                       'shear_freq2': solver.gls_model.m2,
@@ -347,6 +379,17 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 self.timestepper_psi_adv_eq = self.integrator_3d(
                     solver.eq_psi_adv, solver.fields.psi_3d, fields, solver.dt,
                     solver_parameters=self.options.solver_parameters_tracer_explicit)
+
+    def _create_integrators(self):
+        """
+        Creates all time integrators with the correct arguments
+        """
+        self._create_swe_integrator()
+        self._create_mom_integrator()
+        self._create_salt_integrator()
+        self._create_temp_integrator()
+        self._create_turb_integrator()
+
         self.cfl_coeff_3d = self.timestepper_mom_3d.cfl_coeff
         self.cfl_coeff_2d = self.timestepper2d.cfl_coeff
 
@@ -668,7 +711,6 @@ class CoupledIMEXALE(CoupledTimeIntegrator):
 
         :arg i_stage: state of the Runge-Kutta iteration
         """
-        # TODO remove dt from args to comply with timeintegrator API
         fields = self.solver.fields
 
         self.solver.elev_2d_to_cg_projector.project()
@@ -901,7 +943,6 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
             self.timestepper_mom_3d.correct()
 
         if self.options.solve_vert_diffusion:
-            # TODO figure out minimal set of dependency updates (costly)
             self._update_2d_coupling()
             self._update_baroclinicity()
             self._update_bottom_friction()
