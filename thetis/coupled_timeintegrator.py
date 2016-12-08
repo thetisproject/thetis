@@ -354,16 +354,15 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         """
         Set time step for the coupled time integrator
 
-        :arg dt: Time step. This is the master (macro) time step used to
+        :arg float dt: Time step. This is the master (macro) time step used to
             march the 3D equations.
-        :type dt: float
-        :arg dt_2d: Time step for 2D equations. For consistency :attr:`dt_2d`
-            must be an integer fraction of :attr:`dt`. If 2D solver is implicit
-            set :attr:`dt_2d` equal to :attr:`dt`.
-        :type dt_2d: float
-
+        :arg float dt_2d: Time step for 2D equations. For consistency
+            :attr:`dt_2d` must be an integer fraction of :attr:`dt`.
+            If 2D solver is implicit set :attr:`dt_2d` equal to :attr:`dt`.
         """
-        # TODO check mod(dt, dt_2d) == 0
+        assert np.isclose(dt/dt_2d, np.round(dt/dt_2d)), \
+            'dt_2d is not integer fraction of dt'
+
         if dt != dt_2d:
             raise NotImplementedError('Case dt_2d < dt is not implemented yet')
         self.timestepper2d.set_dt(dt)
