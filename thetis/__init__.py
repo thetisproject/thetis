@@ -8,4 +8,3 @@ from thetis.callback import DiagnosticCallback  # NOQA
 import thetis.limiter as limiter      # NOQA
 from thetis.assembledschur import AssembledSchurPC
 
-parameters['assembly_cache']['enabled'] = False
