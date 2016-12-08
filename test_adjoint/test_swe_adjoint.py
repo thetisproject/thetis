@@ -11,6 +11,8 @@ op2.init(log_level=INFO)
 
 velocity_u = 2.0
 
+parameters['coffee'] = {}  # temporarily disable COFFEE due to bug
+# https://github.com/coneoproject/COFFEE/issues/110
 
 def basic_setup():
     lx = 100.0
