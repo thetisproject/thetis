@@ -16,16 +16,13 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
 
     Provides common functionality for updating diagnostic fields etc.
     """
-    def __init__(self, solver, options, fields):
+    def __init__(self, solver):
         """
         :arg solver: :class:`.FlowSolver` object
-        :arg options: :class:`.ModelOptions` object
-        :arg fields: :class:`.FieldDict` object
         """
-        # TODO remove option, field args as these are members of solver
         self.solver = solver
-        self.options = options
-        self.fields = fields
+        self.options = solver.options
+        self.fields = solver.fields
 
     def _update_3d_elevation(self):
         """Projects elevation to 3D"""
@@ -174,9 +171,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         """
         :arg solver: :class:`.FlowSolver` object
         """
-        super(CoupledTimeIntegrator, self).__init__(solver,
-                                                    solver.options,
-                                                    solver.fields)
+        super(CoupledTimeIntegrator, self).__init__(solver)
         print_output('Coupled time integrator: {:}'.format(self.__class__.__name__))
         print_output('  2D time integrator: {:}'.format(self.integrator_2d.__name__))
         print_output('  3D time integrator: {:}'.format(self.integrator_3d.__name__))
