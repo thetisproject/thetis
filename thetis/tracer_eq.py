@@ -239,21 +239,6 @@ class VerticalAdvectionTerm(TracerTerm):
         return -f
 
 
-# OBSOLETE
-class ALESourceTerm(TracerTerm):
-    """
-    Source term for non-conservative ALE method
-    """
-    # TODO remove non-conservative form, and dw_mesh_dz field
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        dw_mesh_dz = fields_old.get('dw_mesh_dz')
-        f = 0
-        # Non-conservative ALE source term
-        if dw_mesh_dz is not None:
-            f += dw_mesh_dz*solution*self.test*self.dx
-        return -f
-
-
 class HorizontalDiffusionTerm(TracerTerm):
     r"""
     Horizontal diffusion term :math:`-\nabla_h \cdot (\mu_h \nabla_h T)`

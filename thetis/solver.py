@@ -466,7 +466,6 @@ class FlowSolver(FrozenClass):
         self.fields.w_3d = Function(self.function_spaces.W)
         if self.options.use_ale_moving_mesh:
             self.fields.w_mesh_3d = Function(coord_fs)
-            self.fields.w_mesh_ddz_3d = Function(coord_fs)
             self.fields.w_mesh_surf_3d = Function(coord_fs)
             self.fields.w_mesh_surf_2d = Function(coord_fs_2d)
         if self.options.solve_salt:

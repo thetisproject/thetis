@@ -372,21 +372,6 @@ class VerticalAdvectionTerm(MomentumTerm):
         return -f
 
 
-class ALESourceTerm(MomentumTerm):
-    """
-    Source term for non-conservative ALE formulation
-    """
-    # TODO OBSOLETE take me to the void
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        dw_mesh_dz = fields_old.get('dw_mesh_dz')
-        f = 0
-        # Non-conservative ALE source term
-        if dw_mesh_dz is not None:
-            f += dw_mesh_dz*(solution[0]*self.test[0] +
-                             solution[1]*self.test[1])*self.dx
-        return -f
-
-
 class HorizontalViscosityTerm(MomentumTerm):
     r"""
     Horizontal viscosity term, :math:`- \nabla_h \cdot \left( \nu_h \nabla_h \textbf{u} \right)`
@@ -680,7 +665,6 @@ class MomentumEquation(Equation):
             gradient in the pressure gradient term
         """
         # TODO remove use_elevation_gradient because it's OBSOLETE
-        # TODO remove OBSOLETE ALESourceTerm
         # TODO rename for reflect the fact that this is eq for the split eqns
         super(MomentumEquation, self).__init__(function_space)
 
@@ -690,7 +674,6 @@ class MomentumEquation(Equation):
         self.add_term(PressureGradientTerm(*args), 'source')
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')
-        # self.add_term(ALESourceTerm(*args), 'explicit')
         self.add_term(HorizontalViscosityTerm(*args), 'explicit')
         self.add_term(VerticalViscosityTerm(*args), 'explicit')
         self.add_term(BottomFrictionTerm(*args), 'explicit')
