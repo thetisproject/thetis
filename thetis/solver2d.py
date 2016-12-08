@@ -394,7 +394,7 @@ class FlowSolver2d(FrozenClass):
             self.create_exporters()
         self._initialized = True
 
-    def assign_initial_conditions(self, elev=None, uv_init=None):
+    def assign_initial_conditions(self, elev=None, uv=None):
         """
         Assigns initial conditions
 
@@ -408,8 +408,8 @@ class FlowSolver2d(FrozenClass):
         uv_2d, elev_2d = self.fields.solution_2d.split()
         if elev is not None:
             elev_2d.project(elev)
-        if uv_init is not None:
-            uv_2d.project(uv_init)
+        if uv is not None:
+            uv_2d.project(uv)
 
         self.timestepper.initialize(self.fields.solution_2d)
 
