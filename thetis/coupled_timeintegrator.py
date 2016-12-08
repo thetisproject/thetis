@@ -428,8 +428,17 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
     integrator_3d = rungekutta.SSPRK33
     integrator_vert_3d = rungekutta.BackwardEuler
 
-    def advance(self, t, dt, update_forcings=None, update_forcings3d=None):
-        """Advances the equations for one time step"""
+    def advance(self, t, update_forcings=None, update_forcings3d=None):
+        """
+        Advances the equations for one time step
+
+        :arg float t: simulation time
+        :kwarg update_forcings: Optional user-defined function that takes
+            simulation time and updates time-dependent boundary conditions of
+            the 2D equations.
+        :kwarg update_forcings3d: Optional user defined function that updates
+            boundary conditions of the 3D equations
+        """
         if not self._initialized:
             self.initialize()
 
@@ -532,21 +541,17 @@ class CoupledERKALE(CoupledTimeIntegrator):
         h = fields.bathymetry_3d.dat.data[:]
         fields.w_mesh_3d.dat.data[:] = w_mesh_surf * (z_ref/h + 1.0)
 
-    def advance(self, t, dt, update_forcings=None, update_forcings3d=None):
+    def advance(self, t, update_forcings=None, update_forcings3d=None):
         """
         Advances the equations for one time step
 
-        :arg t: simulation time
-        :type t: float
-        :arg dt: time step
-        :type dt: float
+        :arg float t: simulation time
         :kwarg update_forcings: Optional user-defined function that takes
             simulation time and updates time-dependent boundary conditions of
             the 2D equations.
         :kwarg update_forcings3d: Optional user defined function that updates
             boundary conditions of the 3D equations
         """
-        # TODO remove dt from args to comply with timeintegrator API
         if not self._initialized:
             self.initialize()
 
@@ -686,8 +691,17 @@ class CoupledIMEXALE(CoupledTimeIntegrator):
         h = fields.bathymetry_3d.dat.data[:]
         fields.w_mesh_3d.dat.data[:] = w_mesh_surf * (z_ref/h + 1.0)
 
-    def advance(self, t, dt, update_forcings=None, update_forcings3d=None):
-        """Advances the equations for one time step"""
+    def advance(self, t, update_forcings=None, update_forcings3d=None):
+        """
+        Advances the equations for one time step
+
+        :arg float t: simulation time
+        :kwarg update_forcings: Optional user-defined function that takes
+            simulation time and updates time-dependent boundary conditions of
+            the 2D equations.
+        :kwarg update_forcings3d: Optional user defined function that updates
+            boundary conditions of the 3D equations
+        """
         if not self._initialized:
             self.initialize()
 
@@ -776,8 +790,17 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
         self.uv_old_2d = Function(self.fields.uv_2d)
         self.uv_new_2d = Function(self.fields.uv_2d)
 
-    def advance(self, t, dt, update_forcings=None, update_forcings3d=None):
-        """Advances the equations for one time step"""
+    def advance(self, t, update_forcings=None, update_forcings3d=None):
+        """
+        Advances the equations for one time step
+
+        :arg float t: simulation time
+        :kwarg update_forcings: Optional user-defined function that takes
+            simulation time and updates time-dependent boundary conditions of
+            the 2D equations.
+        :kwarg update_forcings3d: Optional user defined function that updates
+            boundary conditions of the 3D equations
+        """
         if not self._initialized:
             self.initialize()
 
@@ -963,8 +986,17 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
             h = self.fields.bathymetry_3d.dat.data[:]
             self.fields.w_mesh_3d.dat.data[:] = w_mesh_surf * (z_ref + h)/h
 
-    def advance(self, t, dt, update_forcings=None, update_forcings3d=None):
-        """Advances the equations for one time step"""
+    def advance(self, t, update_forcings=None, update_forcings3d=None):
+        """
+        Advances the equations for one time step
+
+        :arg float t: simulation time
+        :kwarg update_forcings: Optional user-defined function that takes
+            simulation time and updates time-dependent boundary conditions of
+            the 2D equations.
+        :kwarg update_forcings3d: Optional user defined function that updates
+            boundary conditions of the 3D equations
+        """
         if not self._initialized:
             self.initialize()
 

@@ -1054,7 +1054,7 @@ class FlowSolver(FrozenClass):
 
         while self.simulation_time <= self.options.t_end - t_epsilon:
 
-            self.timestepper.advance(self.simulation_time, self.dt,
+            self.timestepper.advance(self.simulation_time,
                                      update_forcings, update_forcings3d)
 
             # Move to next time step
