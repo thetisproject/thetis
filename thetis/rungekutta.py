@@ -651,8 +651,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
             self.sol_expressions = []
             for i_stage in range(self.n_stages):
                 sol_expr = reduce(operator.add,
-                                  map(operator.mul, self.tendency[:i_stage], self.a[i_stage][:i_stage]),
-                                  0.0)
+                                  map(operator.mul, self.tendency[:i_stage], self.a[i_stage][:i_stage]), 0.0)
                 self.sol_expressions.append(sol_expr)
             self.final_sol_expr = reduce(operator.add,
                                          map(operator.mul, self.tendency, self.b))
