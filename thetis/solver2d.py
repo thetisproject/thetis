@@ -361,14 +361,6 @@ class FlowSolver2d(FrozenClass):
                                        export_type='vtk',
                                        verbose=self.options.verbose > 0)
             self.exporters['vtk'] = e
-            numpy_dir = os.path.join(self.options.outputdir, 'numpy')
-            e = exporter.ExportManager(numpy_dir,
-                                       self.options.fields_to_export_numpy,
-                                       self.fields,
-                                       field_metadata,
-                                       export_type='numpy',
-                                       verbose=self.options.verbose > 0)
-            self.exporters['numpy'] = e
             hdf5_dir = os.path.join(self.options.outputdir, 'hdf5')
             e = exporter.ExportManager(hdf5_dir,
                                        self.options.fields_to_export_hdf5,
