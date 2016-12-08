@@ -3,16 +3,22 @@ Generic time integration schemes to advance equations in time.
 """
 from __future__ import absolute_import
 from .utility import *
-from abc import ABCMeta, abstractproperty
+from abc import ABCMeta, abstractmethod
+
+CFL_UNCONDITIONALLY_STABLE = np.inf
+# CFL coefficient for unconditionally stable methods
 
 
 class TimeIntegratorBase(object):
     """
     Abstract class that defines the API for all time integrators
+
+    Both :class:`TimeIntegrator` and :class:`CoupledTimeIntegrator` inherit
+    from this class.
     """
     __metaclass__ = ABCMeta
 
-    @abstractproperty
+    @abstractmethod
     def advance(self, t, update_forcings=None):
         """
         Advances equations for one time step
@@ -24,7 +30,7 @@ class TimeIntegratorBase(object):
         """
         pass
 
-    @abstractproperty
+    @abstractmethod
     def initialize(self, init_solution):
         """
         Initialize the time integrator
@@ -38,7 +44,6 @@ class TimeIntegrator(TimeIntegratorBase):
     """
     Base class for all time integrator objects that march a single equation
     """
-    # TODO add abstract property cfl_coeff
     def __init__(self, equation, solution, fields, dt, solver_parameters={}):
         """
         :arg equation: the equation to solve
@@ -71,6 +76,8 @@ class TimeIntegrator(TimeIntegratorBase):
 
 class ForwardEuler(TimeIntegrator):
     """Standard forward Euler time integration scheme."""
+    cfl_coeff = 1.0
+
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
         """
         :arg equation: the equation to solve
@@ -130,6 +137,8 @@ class ForwardEuler(TimeIntegrator):
 
 class CrankNicolson(TimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
+    cfl_coeff = CFL_UNCONDITIONALLY_STABLE
+
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, theta=0.5, semi_implicit=False):
         """
         :arg equation: the equation to solve
@@ -217,6 +226,8 @@ class SteadyState(TimeIntegrator):
     Time integrator that solves the steady state equations, leaving out the
     mass terms
     """
+    cfl_coeff = CFL_UNCONDITIONALLY_STABLE
+
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
         """
         :arg equation: the equation to solve
@@ -262,6 +273,8 @@ class PressureProjectionPicard(TimeIntegrator):
     equations
 
     """
+    cfl_coeff = 1.0  # FIXME what is the right value?
+
     # TODO add more documentation
     def __init__(self, equation, equation_mom, solution, fields, dt,
                  bnd_conditions=None, solver_parameters={},
@@ -418,6 +431,8 @@ class LeapFrogAM3(TimeIntegrator):
     Fine-Scale, Multiprocess, Longtime Oceanic Simulations, 14:121-183.
     http://dx.doi.org/10.1016/S1570-8659(08)01202-0
     """
+    cfl_coeff = 1.5874
+
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, terms_to_add='all'):
         """
@@ -463,7 +478,6 @@ class LeapFrogAM3(TimeIntegrator):
         self.l_prediction = a*self.mass_old + b*self.mass_new + c*self.l
 
         self._nontrivial = self.l != 0
-        self.cfl_coeff = 1.5874
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
@@ -564,6 +578,8 @@ class SSPRK22ALE(TimeIntegrator):
     Both stages are implemented as ALE updates from geometry :math:`\Omega_n`
     to :math:`\Omega_{(1)}`, and :math:`\Omega_{n+1}`.
     """
+    cfl_coeff = 1.0
+
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, terms_to_add='all'):
         """
@@ -597,7 +613,6 @@ class SSPRK22ALE(TimeIntegrator):
         self.mu_form = inner(self.solution, self.equation.test)*dx
         self._nontrivial = self.l != 0
 
-        self.cfl_coeff = 1.0
         self.n_stages = 2
         self.c = [0, 1]
 
@@ -715,6 +730,8 @@ class TwoStageTrapezoid(TimeIntegrator):
     This time integrator is used to solve the 2D system with the 3D SSPRK(2,2)
     scheme.
     """
+    cfl_coeff = CFL_UNCONDITIONALLY_STABLE
+
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, terms_to_add='all'):
         """
@@ -737,7 +754,6 @@ class TwoStageTrapezoid(TimeIntegrator):
 
         self.solution_old = Function(self.equation.function_space, name='old solution')
 
-        self.cfl_coeff = np.inf
         self.n_stages = 2
         self.c = [0, 1]
 

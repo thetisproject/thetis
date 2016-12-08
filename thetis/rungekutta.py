@@ -6,11 +6,8 @@ coefficients, and can be used to implement generic time integrators.
 """
 from __future__ import absolute_import
 from .timeintegrator import *
-from abc import ABCMeta, abstractproperty
+from abc import ABCMeta, abstractproperty, abstractmethod
 import operator
-
-CFL_UNCONDITIONALLY_STABLE = np.inf
-# CFL coefficient for unconditionally stable methods
 
 
 def butcher_to_shuosher_form(a, b):
@@ -429,14 +426,14 @@ class RungeKuttaTimeIntegrator(TimeIntegrator):
     """Abstract base class for all Runge-Kutta time integrators"""
     __metaclass__ = ABCMeta
 
-    @abstractproperty
+    @abstractmethod
     def get_final_solution(self, additive=False):
         """
         Evaluates the final solution
         """
         pass
 
-    @abstractproperty
+    @abstractmethod
     def solve_stage(self, i_stage, t, update_forcings=None):
         """
         Solves a single stage of step from t to t+dt.
@@ -722,7 +719,6 @@ class ERKGenericShuOsher(TimeIntegrator):
 
     Implements the Shu-Osher form.
     """
-    # TODO derive from RungeKuttaTimeIntegrator class?
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, terms_to_add='all'):
         """
         :arg equation: the equation to solve
