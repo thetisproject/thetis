@@ -422,8 +422,6 @@ class FlowSolver(FrozenClass):
             filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
             output_logger.addHandler(filehandler)
 
-        self.use_full_2d_mode = True  # 2d solution is (uv, eta) not (eta)
-
         # mesh velocity etc fields must be in the same space as 3D coordinates
         e = self.mesh2d.coordinates.function_space().fiat_element
         coord_is_dg = element_continuity(e).dg
@@ -555,32 +553,19 @@ class FlowSolver(FrozenClass):
         self.tot_v_diff.add(self.fields.get('eddy_diff_3d'))
 
         # ----- Equations
-        if self.use_full_2d_mode:
-            # full 2D shallow water equations
-            self.eq_sw = shallowwater_eq.ModeSplit2DEquations(
-                self.fields.solution_2d.function_space(),
-                self.fields.bathymetry_2d,
-                nonlin=self.options.nonlin,
-                include_grad_div_viscosity_term=self.options.include_grad_div_viscosity_term,
-                include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term
-            )
-        else:
-            # solve elevation only: 2D free surface equation
-            uv, eta = self.fields.solution_2d.split()
-            eta_test = TestFunction(eta)
-            self.eq_sw = shallowwater_eq.FreeSurfaceEquation(
-                eta_test, eta.function_space(), uv.function_space(),
-                self.fields.bathymetry_2d,
-                nonlin=self.options.nonlin,
-            )
+        self.eq_sw = shallowwater_eq.ModeSplit2DEquations(
+            self.fields.solution_2d.function_space(),
+            self.fields.bathymetry_2d,
+            nonlin=self.options.nonlin,
+            include_grad_div_viscosity_term=self.options.include_grad_div_viscosity_term,
+            include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term)
 
         self.eq_momentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
                                                         bathymetry=self.fields.bathymetry_3d,
                                                         v_elem_size=self.fields.v_elem_size_3d,
                                                         h_elem_size=self.fields.h_elem_size_3d,
                                                         nonlin=self.options.nonlin,
-                                                        use_bottom_friction=False,
-                                                        use_elevation_gradient=not self.use_full_2d_mode)
+                                                        use_bottom_friction=False)
         if self.options.solve_vert_diffusion:
             self.eq_vertmomentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
                                                                 bathymetry=self.fields.bathymetry_3d,
