@@ -449,9 +449,17 @@ class LeapFrogAM3(TimeIntegrator):
 
 
 class SSPRK22ALE(TimeIntegrator):
-    """
-    SSPRK(2,2) ALE time integrator
+    r"""
+    SSPRK(2,2) ALE time integrator for 3D fields
 
+    The scheme is
+
+    .. math::
+        u^{(1)} &= u^{n} + \Delta t F(u^{n}) \\
+        u^{n+1} &= u^{n} + \frac{\Delta t}{2}(F(u^{n}) +  F(u^{(1)}))
+
+    Both stages are implemented as ALE updates from geometry :math:`\Omega_n`
+    to :math:`\Omega_{(1)}`, and :math:`\Omega_{n+1}`.
     """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, solver_parameters_dirk={}, terms_to_add='all'):
@@ -579,9 +587,17 @@ class SSPRK22ALE(TimeIntegrator):
 
 
 class TwoStageTrapezoid(TimeIntegrator):
-    """
-    Implicit time integrator to accompany SSPRK(2,2) ALE time integrator.
+    r"""
+    Implicit scheme to accompany SSPRK(2,2) ALE time integrator.
 
+    The scheme is
+
+    .. math::
+        u^{(1)} &= u^{n} + \Delta t F(u^{n}) \\
+        u^{n+1} &= u^{n} + \frac{\Delta t}{2}(F(u^{n}) +  F(u^{n+1}))
+
+    This time integrator is used to solve the 2D system with the 3D SSPRK(2,2)
+    scheme.
     """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, solver_parameters_dirk={}, terms_to_add='all'):
