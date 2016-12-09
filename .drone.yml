@@ -13,7 +13,7 @@ pipeline:
       - THETIS_GID=1000
       - THETIS_UID=1000
       - CC=mpicc
-      - PETSC_CONFIGURE_OPTIONS="--download-mumps --download-scalapack --download-parmetis --download-metis"
+      - PETSC_CONFIGURE_OPTIONS="--download-mumps --download-scalapack --download-parmetis --download-metis --with-make-np=1"
       - GIT_SOURCE_DIR=/drone/src
     commands:
       # Bring the image up to date
