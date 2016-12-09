@@ -23,15 +23,16 @@ import logging
 try:
     import meshio
 except ImportError:
-    logging.error( 'Can not import meshio')
-    logging.exception( 'Please try: $ pip install meshio')
+    logging.error('Can not import meshio')
+    logging.exception('Please try: $ pip install meshio')
     sys.exit(1)
 
 try:
     from parsers import parserSELAFIN
 except ImportError:
     logging.error('Can not import selafin parser')
-    logging.error('Have you set your PYTHONPATH to include the selafin parsers?')
+    logging.error('Have you set your PYTHONPATH to' +
+                  'include the selafin parsers?')
     sys.exit(1)
 
 
@@ -42,15 +43,17 @@ def args_in_list(list_of_args, args):
 def get_nodes(slfData):
     xCoords = slfData.MESHX
     yCoords = slfData.MESHY
-    zCoords = np.zeros(xCoords.shape)    
-    return zip(xCoords,yCoords,zCoords)
+    zCoords = np.zeros(xCoords.shape)
+    return zip(xCoords, yCoords, zCoords)
 
 
 def get_lines(slfData):
     ''' This returns all lines of the Selafin file. Sometimes this can
     include internal lines, so will have to be filtered using the
     clean_lines function '''
-    return parserSELAFIN.getEdgesSLF(slfData.IKLE3, slfData.MESHX, slfData.MESHY)
+    return parserSELAFIN.getEdgesSLF(slfData.IKLE3,
+                                     slfData.MESHX,
+                                     slfData.MESHY)
 
 
 def clean_lines(lines, clifile):
@@ -61,7 +64,8 @@ def clean_lines(lines, clifile):
         boundary_nodes.append(int(line.split()[11]))
     cli_file.close()
 
-    return np.array([line for line in lines if args_in_list(boundary_nodes,[line[0]+1,line[1]+1])])
+    return np.array([line for line in lines if
+                     args_in_list(boundary_nodes, [line[0]+1, line[1]+1])])
 
 
 def write_tmp_mesh(fileName, points, lines, triangles):
@@ -80,11 +84,12 @@ def add_tags_to_gmsh_from_cli(meshFile, cliFile):
     changes the number-of-tags to 2, and adds the following tags:
 
     1: For all lines on a closed boundary (2 2 2 in the cli file)
-    5: For all lines on an open boundary (anything other than 222 in the cli file)
+    5: For all lines on an open boundary
+       (anything other than 222 in the cli file)
     9: For all triangles (surface ID)
 
-    Suggested future improvement: To distinguish between the different types of
-    liquid boundaries.
+    Suggested future improvement: To distinguish between the
+    different types of liquid boundaries.
     '''
 
     fixed = open(meshFile.replace('_tmp', ''), 'w')
@@ -109,12 +114,13 @@ def add_tags_to_gmsh_from_cli(meshFile, cliFile):
                     hack = line.split()
                     hack[2] = '2'
                     if hack[1] == '1':
-                        if args_in_list(fluid_nodes, [int(hack[-1]), int(hack[-2])]):
-                            add_tag_to_line(hack,'5')
+                        if args_in_list(fluid_nodes,
+                                        [int(hack[-1]), int(hack[-2])]):
+                            add_tag_to_line(hack, '5')
                         else:
-                            add_tag_to_line(hack,'1')
+                            add_tag_to_line(hack, '1')
                     else:
-                        add_tag_to_line(hack,'9')
+                        add_tag_to_line(hack, '9')
                     line = ' '.join(hack) + '\n'
                     counter += 1
 
@@ -128,8 +134,10 @@ def add_tags_to_gmsh_from_cli(meshFile, cliFile):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('selafin_file', nargs=1, help='The selafin file to convert')
-    parser.add_argument('conlim_file', nargs=1, help='The boundary conditions file for TELEMAC (.cli)')
+    parser.add_argument('selafin_file', nargs=1,
+                        help='The selafin file to convert')
+    parser.add_argument('conlim_file', nargs=1,
+                        help='The boundary conditions file for TELEMAC (.cli)')
     parser.add_argument('-v', '--verbose', action='store_true', default=False)
 
     args = parser.parse_args()
@@ -140,12 +148,12 @@ if __name__ == '__main__':
     if args.verbose:
         logging.basicConfig(level='DEBUG')
 
-    if infile[-4:]!='.slf' or clifile[-4:]!='.cli':
+    if infile[-4:] != '.slf' or clifile[-4:] != '.cli':
         logging.error('Unable to reconcile slf and cli files')
         parser.print_usage()
         sys.exit(1)
 
-    outfile = infile.split('.')[0]+'_tmp.msh'
+    outfile = infile.split('.')[0] + '_tmp.msh'
 
     logging.info('Reading ' + str(infile))
     slfData = parserSELAFIN.SELAFIN(infile)
