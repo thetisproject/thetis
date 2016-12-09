@@ -14,31 +14,24 @@
 # slm06 09/12/2016
 # Initial commit
 
+import argparse
 import numpy as np
 import sys
 
-
-def usage():
-    print 'USAGE:' 
-    print '   slf2gmsh.py <selafin_file> <cli_file>'
-    print '   <selafin_file> is the name of the selafin file'
-    print '   <cli_file> the name of the cli file'
-    print '   Will produce a .msh file with the same name as the input slf'
-
+import logging
 
 try:
     import meshio
 except ImportError:
-    print 'ERROR: Can not import meshio'
-    print 'Please try: $ pip install meshio'
+    logging.error( 'Can not import meshio')
+    logging.exception( 'Please try: $ pip install meshio')
     sys.exit(1)
-
 
 try:
     from parsers import parserSELAFIN
 except ImportError:
-    print 'ERROR: Can not import selafin parser'
-    print 'Have you set your PYTHONPATH correctly?'
+    logging.error('Can not import selafin parser')
+    logging.error('Have you set your PYTHONPATH to include the selafin parsers?')
     sys.exit(1)
 
 
@@ -134,36 +127,41 @@ def add_tags_to_gmsh_from_cli(meshFile, cliFile):
     meshFile.close()
 
 if __name__ == '__main__':
-    try:
-        infile = sys.argv[1]
-        clifile = sys.argv[2]
-    except IndexError:
-        print 'ERROR setting source and/or destination files'
-        usage()
-        sys.exit(2)
+    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser.add_argument('selafin_file', nargs=1, help='The selafin file to convert')
+    parser.add_argument('conlim_file', nargs=1, help='The boundary conditions file for TELEMAC (.cli)')
+    parser.add_argument('-v', '--verbose', action='store_true', default=False)
+
+    args = parser.parse_args()
+
+    infile = args.selafin_file[0]
+    clifile = args.conlim_file[0]
+
+    if args.verbose:
+        logging.basicConfig(level='DEBUG')
 
     if infile[-4:]!='.slf' or clifile[-4:]!='.cli':
-        print 'Unable to reconcile slf and cli files'
-        usage()
-        sys.exit(3)
+        logging.error('Unable to reconcile slf and cli files')
+        parser.print_usage()
+        sys.exit(1)
 
     outfile = infile.split('.')[0]+'_tmp.msh'
 
-    print 'Reading ', infile
+    logging.info('Reading ' + str(infile))
     slfData = parserSELAFIN.SELAFIN(infile)
 
-    print 'Extracting nodes, lines, and triangles'
+    logging.info('Extracting nodes, lines, and triangles')
     nodes = get_nodes(slfData)
     lines = get_lines(slfData)
     triangles = slfData.IKLE3
 
-    print 'Filtering internal lines, this may take some time'
+    logging.info('Filtering internal lines, this may take some time')
     lines = clean_lines(lines, clifile)
 
-    print 'Writing tmp mesh file without physical tags'
+    logging.info('Writing tmp mesh file without physical tags')
     write_tmp_mesh(outfile, nodes, lines, triangles)
 
-    print 'Adding physical tags'
+    logging.info('Adding physical tags')
     add_tags_to_gmsh_from_cli(outfile, clifile)
 
-    print 'Converted ', infile, ' to ', outfile
+    logging.info('Converted ' + str(infile) + ' to ' + str(outfile))
