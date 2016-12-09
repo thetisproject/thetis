@@ -20,20 +20,11 @@ import sys
 
 import logging
 
-try:
-    import meshio
-except ImportError:
-    logging.error('Can not import meshio')
-    logging.exception('Please try: $ pip install meshio')
-    sys.exit(1)
 
-try:
-    from parsers import parserSELAFIN
-except ImportError:
-    logging.error('Can not import selafin parser')
-    logging.error('Have you set your PYTHONPATH to' +
-                  'include the selafin parsers?')
-    sys.exit(1)
+def print_desc():
+    return '''This script converts selafin files generated
+for TELEMAC to Gmsh files compatible with the
+Thetis suite of solvers.'''
 
 
 def args_in_list(list_of_args, args):
@@ -133,7 +124,7 @@ def add_tags_to_gmsh_from_cli(meshFile, cliFile):
     meshFile.close()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser = argparse.ArgumentParser(description=print_desc())
     parser.add_argument('selafin_file', nargs=1,
                         help='The selafin file to convert')
     parser.add_argument('conlim_file', nargs=1,
@@ -144,6 +135,21 @@ if __name__ == '__main__':
 
     infile = args.selafin_file[0]
     clifile = args.conlim_file[0]
+
+    try:
+        import meshio
+    except ImportError:
+        logging.error('Can not import meshio')
+        logging.exception('Please try: $ pip install meshio')
+        sys.exit(1)
+
+    try:
+        from parsers import parserSELAFIN
+    except ImportError:
+        logging.error('Can not import selafin parser')
+        logging.error('Have you set your PYTHONPATH to' +
+                      'include the selafin parsers?')
+        sys.exit(1)
 
     if args.verbose:
         logging.basicConfig(level='DEBUG')
