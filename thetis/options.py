@@ -88,10 +88,6 @@ class ModelOptions(AttrDict, FrozenClass):
 
         See :class:`.SmagorinskyViscosity`.
         """
-        self.salt_jump_diff_factor = None
-        """:class:`Constant` or None: Non-linear jump diffusion factor"""
-        self.salt_range = Constant(30.0)
-        """:class:`Constant` or None: Salt max-min range for jump diffusion"""
         self.use_limiter_for_tracers = False
         """bool: Apply P1DG limiter for tracer fields"""
         self.uv_lax_friedrichs = Constant(1.0)

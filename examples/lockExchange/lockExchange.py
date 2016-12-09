@@ -127,8 +127,6 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
         lf_factor = Constant(laxfriedrichs)
     options.uv_lax_friedrichs = lf_factor
     options.tracer_lax_friedrichs = lf_factor
-    options.salt_jump_diff_factor = None  # Constant(1.0)
-    options.salt_range = Constant(5.0)
     options.use_limiter_for_tracers = use_limiter
     # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
     if viscosity == 'smag':

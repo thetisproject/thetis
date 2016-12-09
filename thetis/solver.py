@@ -502,8 +502,6 @@ class FlowSolver(FrozenClass):
         self.fields.max_h_diff = Function(self.function_spaces.P1)
         if self.options.smagorinsky_factor is not None:
             self.fields.smag_visc_3d = Function(self.function_spaces.P1)
-        if self.options.salt_jump_diff_factor is not None:
-            self.fields.salt_jump_diff = Function(self.function_spaces.P1)
         if self.options.use_limiter_for_tracers and self.options.order > 0:
             self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H)
         else:
@@ -740,11 +738,6 @@ class FlowSolver(FrozenClass):
                                                                  elem_height=self.fields.v_elem_size_3d)
         self.mesh_updater = ALEMeshUpdater(self)
 
-        if self.options.salt_jump_diff_factor is not None:
-            self.horiz_jump_diff_solver = HorizontalJumpDiffusivity(self.options.salt_jump_diff_factor, self.fields.salt_3d,
-                                                                    self.fields.salt_jump_diff, self.fields.h_elem_size_3d,
-                                                                    self.fields.uv_mag_3d, self.options.salt_range,
-                                                                    self.fields.max_h_diff)
         if self.options.smagorinsky_factor is not None:
             self.smagorinsky_diff_solver = SmagorinskyViscosity(self.fields.uv_p1_3d, self.fields.smag_visc_3d,
                                                                 self.options.smagorinsky_factor, self.fields.h_elem_size_3d,

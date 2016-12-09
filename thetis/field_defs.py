@@ -272,12 +272,6 @@ field_metadata['smag_visc_3d'] = {
     'unit': 'm2 s-1',
     'filename': 'SmagViscosity3d',
 }
-field_metadata['salt_jump_diff'] = {
-    'name': 'Salt Jump Diffusivity',
-    'shortname': 'Salt Jump Diffusivity',
-    'unit': 'm2 s-1',
-    'filename': 'SaltJumpDiff3d',
-}
 field_metadata['max_h_diff'] = {
     'name': 'Maximum stable horizontal diffusivity',
     'shortname': 'Maximum horizontal diffusivity',

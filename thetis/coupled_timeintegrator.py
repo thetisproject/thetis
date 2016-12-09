@@ -112,8 +112,6 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
             self.solver.uv_p1_projector.project()
             if self.options.smagorinsky_factor is not None:
                 self.solver.smagorinsky_diff_solver.solve()
-            if self.options.salt_jump_diff_factor is not None:
-                self.solver.horiz_jump_diff_solver.solve()
 
     def _update_all_dependencies(self, t,
                                  do_2d_coupling=False,
