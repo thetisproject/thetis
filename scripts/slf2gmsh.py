@@ -123,6 +123,7 @@ def add_tags_to_gmsh_from_cli(meshFile, cliFile):
     fixed.close()
     meshFile.close()
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=print_desc())
     parser.add_argument('selafin_file', nargs=1,
