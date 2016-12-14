@@ -322,3 +322,9 @@ field_metadata['wind_stress_3d'] = {
     'unit': 'Pa',
     'filename': 'wind_stress_3d',
 }
+field_metadata['hcc_metric_3d'] = {
+    'name': 'HCC mesh quality',
+    'shortname': 'HCC metric',
+    'unit': '-',
+    'filename': 'HCCMetric3d',
+}
