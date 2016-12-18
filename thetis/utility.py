@@ -405,11 +405,10 @@ class VerticalIntegrator(object):
             mass_bnd_term = normal[2]*inner(tri, phi)*self.ds_bottom
 
         self.a = -inner(Dx(phi, 2), tri)*self.dx + mass_bnd_term
-        gamma = (normal[2] + abs(normal[2]))
         if bottom_to_top:
-            up_value = avg(tri*gamma)
+            up_value = tri('+')
         else:
-            up_value = avg(tri*(1 - gamma))
+            up_value = tri('-')
         if vertical_is_dg:
             if len(input.ufl_shape) > 0:
                 dim = input.ufl_shape[0]
@@ -417,7 +416,6 @@ class VerticalIntegrator(object):
                     self.a += up_value[i]*jump(phi[i], normal[2])*self.dS_h
             else:
                 self.a += up_value*jump(phi, normal[2])*self.dS_h
-        source = input
         if average:
             source = input/(elevation + bathymetry)
         else:
