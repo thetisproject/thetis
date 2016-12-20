@@ -3,8 +3,13 @@
 from distutils.core import setup
 from glob import glob
 
+import versioneer
+
+cmdclass = versioneer.get_cmdclass()
+
 setup(name='thetis',
-      version='0.1',
+      cmdclass=cmdclass,
+      version=versioneer.get_version(),
       description='Finite element ocean model',
       author='Tuomas Karna',
       author_email='tuomas.karna@gmail.com',
