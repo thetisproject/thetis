@@ -35,19 +35,140 @@
 
 from thetis import *
 
+
+class VorticityCalculator(DiagnosticCallback):
+    """
+    Computes the total vorticity of the horizontal velocity field.
+
+    Relative vorticity is defined as
+
+    zeta = -dudy + dvdx
+
+    Absolute vorticity is
+
+    q = zeta + f,
+
+    where f is the Coriolis factor.
+
+    This routine computes integral of zeta over the whole domain. Assuming that f
+    is a constant, the integral of zeta should be conserved.
+
+    NOTE in this test case zeta is initially zero, so we are not computing relative change.
+
+    """
+    name = 'vorticity'
+    variable_names = ['vorticity', 'rel_change']
+
+    def _initialize(self):
+        self.initial_val = None
+        self._initialized = True
+        uv = self.solver_obj.fields.uv_3d
+        # zeta = du/dy + dv/dy + f
+        self.vort_expression = -Dx(uv[0], 1) + Dx(uv[1], 0)
+        cylinder_r = 15e3
+        cylinder_vol = np.pi*cylinder_r**2*depth
+        self.constant_val = f0*cylinder_vol
+
+    def __call__(self):
+        if not hasattr(self, '_initialized') or self._initialized is False:
+            self._initialize()
+        zeta = assemble(self.vort_expression*dx) + self.constant_val
+        if self.initial_val is None:
+            self.initial_val = zeta
+        rel_change = (zeta - self.initial_val)/self.initial_val
+        return (zeta, rel_change)
+
+    def message_str(self, *args):
+        line = 'vorticity: {:16.10e}, rel. change {:14.8e}'.format(args[0], args[1])
+        return line
+
+
+class AngularMomentumCalculator(DiagnosticCallback):
+    """
+    Computes the total angular momentum the horizontal velocity field.
+
+    H = \rho (r x u)
+
+    where \rho is the water density, r radial vector from origin, and u the
+    horizontal velocity.
+
+    Here we are computing the total momentum as
+
+    q = int_V H dx / int_V \rho dx
+
+    where V is the 3d domain.
+    """
+    name = 'angmom'
+    variable_names = ['angmom']
+
+    def _initialize(self):
+        self.initial_val = None
+        self._initialized = True
+        uv = self.solver_obj.fields.uv_3d
+        rho = self.solver_obj.fields.density_3d
+        xyz = SpatialCoordinate(self.solver_obj.mesh)
+        self.expression = rho*(xyz[0]*uv[1] - xyz[1]*uv[0])
+        self.mass = assemble(rho*dx)
+
+    def __call__(self):
+        if not hasattr(self, '_initialized') or self._initialized is False:
+            self._initialize()
+        val = assemble(self.expression*dx)/self.mass
+        if self.initial_val is None:
+            self.initial_val = val
+        return (val, )
+
+    def message_str(self, *args):
+        line = 'angular momentum: {:16.10e}'.format(args[0])
+        return line
+
+
+class KineticEnergyCalculator(DiagnosticCallback):
+    """
+    Computes the total kinetic energy of the horizontal velocity field.
+
+    Ke = 1/2 \int \rho * |u|**2 dx
+
+    where \rho is the water density, and u the horizontal velocity.
+    """
+    name = 'kine'
+    variable_names = ['kine']
+
+    def _initialize(self):
+        self.initial_val = None
+        self._initialized = True
+        uv = self.solver_obj.fields.uv_3d
+        rho = self.solver_obj.fields.density_3d + rho0
+        self.expression = 0.5*rho*(uv[0]*uv[0] + uv[1]*uv[1])
+
+    def __call__(self):
+        if not hasattr(self, '_initialized') or self._initialized is False:
+            self._initialize()
+        val = assemble(self.expression*dx)
+        if self.initial_val is None:
+            self.initial_val = val
+        return (val, )
+
+    def message_str(self, *args):
+        line = 'kinetic energy: {:16.10e}'.format(args[0])
+        return line
+
+
 # set physical constants
 rho0 = 1025.0
 physical_constants['rho0'].assign(rho0)
 
-outputdir = 'outputs'
-layers = 30
-mesh2d = Mesh('tartinville_physical.msh')
+reso = 'coarse'
+
+outputdir = 'outputs_{:}'.format(reso)
+layers = 7 if reso == 'coarse' else 30
+mesh2d = Mesh('mesh_{:}.msh'.format(reso))
 print_output('Loaded mesh ' + mesh2d.name)
 dt = 25.0
 t_end = 360 * 3600
 t_export = 900.0
 depth = 20.0
-reynolds_number = 100.
+reynolds_number = 75.
 viscosity = 'const'
 
 temp_const = 10.0
@@ -66,8 +187,11 @@ coriolis_2d.interpolate(
 
 # compute horizontal viscosity
 uscale = 1.0
-delta_x = 800.0
+delta_x = 1200.0 if reso == 'coarse' else 800.0
 nu_scale = uscale * delta_x / reynolds_number
+print_output('Mesh Reynolds number: {:}'.format(reynolds_number))
+if viscosity == 'const':
+    print_output('Viscosity: {:}'.format(nu_scale))
 
 u_max = 1.0
 w_max = 1.2e-2
@@ -77,7 +201,7 @@ w_max = 1.2e-2
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solver_obj.options
 options.element_family = 'dg-dg'
-options.timestepper_type = 'leapfrog'
+options.timestepper_type = 'ssprk22'
 options.solve_salt = True
 options.solve_temp = False
 options.constant_temp = Constant(temp_const)
@@ -126,6 +250,10 @@ options.lin_equation_of_state_params = {
     'alpha': 0.0,
     'beta': 0.78,
 }
+
+solver_obj.add_callback(VorticityCalculator(solver_obj))
+solver_obj.add_callback(AngularMomentumCalculator(solver_obj))
+solver_obj.add_callback(KineticEnergyCalculator(solver_obj))
 
 solver_obj.create_equations()
 # assign initial salinity

@@ -211,8 +211,9 @@ def implicit(request):
 
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
-                         [('ssprk33', False),
-                          ('leapfrog', True)])
+                         [pytest.mark.not_travis(reason='travis timeout')(('ssprk33', False)),
+                          ('leapfrog', True),
+                          ('ssprk22', True)])
 def test_vertical_viscosity(order, implicit, element_family, stepper, use_ale):
     run_convergence([1, 2, 3], order=order, implicit=implicit,
                     element_family=element_family,

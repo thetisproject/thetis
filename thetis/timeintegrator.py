@@ -446,3 +446,222 @@ class LeapFrogAM3(TimeIntegrator):
             self.predict()
             self.eval_rhs()
             self.correct()
+
+
+class SSPRK22ALE(TimeIntegrator):
+    r"""
+    SSPRK(2,2) ALE time integrator for 3D fields
+
+    The scheme is
+
+    .. math::
+        u^{(1)} &= u^{n} + \Delta t F(u^{n}) \\
+        u^{n+1} &= u^{n} + \frac{\Delta t}{2}(F(u^{n}) +  F(u^{(1)}))
+
+    Both stages are implemented as ALE updates from geometry :math:`\Omega_n`
+    to :math:`\Omega_{(1)}`, and :math:`\Omega_{n+1}`.
+    """
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
+                 solver_parameters={}, solver_parameters_dirk={}, terms_to_add='all'):
+        super(SSPRK22ALE, self).__init__(equation, solution, fields, dt, solver_parameters)
+
+        fs = self.equation.function_space
+        self.mu = Function(fs, name='dual solution')
+        self.mu_old = Function(fs, name='dual solution')
+        self.tendency = Function(fs, name='tendency')
+
+        # fully explicit evaluation
+        self.a = self.equation.mass_term(self.equation.trial)
+        self.l = self.dt_const*self.equation.residual(terms_to_add,
+                                                      self.solution,
+                                                      self.solution,
+                                                      self.fields,
+                                                      self.fields,
+                                                      bnd_conditions)
+        self.mu_form = inner(self.solution, self.equation.test)*dx
+        self._nontrivial = self.l != 0
+
+        self.cfl_coeff = 1.0
+        self.n_stages = 2
+        self.c = [0, 1]
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution.assign(solution)
+
+        mass_matrix = assemble(self.a)
+        self.lin_solver = LinearSolver(mass_matrix)
+
+    def stage_one_prep(self):
+        """
+        Preprocess first stage: compute all forms on the old geometry
+        """
+        if self._nontrivial:
+            # Compute $Mu$ and assign $q_{old} = Mu$
+            with timed_region('pre1_asseble_mu'):
+                assemble(self.mu_form, self.mu_old)
+            # Evaluate $k = \Delta t F(u)$
+            with timed_region('pre1_asseble_f'):
+                assemble(self.l, self.tendency)
+            # $q = q_{old} + k$
+            with timed_region('pre1_incr_rhs'):
+                self.mu.assign(self.mu_old + self.tendency)
+
+    def stage_one_solve(self):
+        """
+        First stage: solve :math:`u^{(1)}` given previous solution :math:`u^n`.
+
+        This is a forward Euler ALE step between domains :math:`\Omega^n` and :math:`\Omega^{(1)}`:
+
+        .. math::
+
+            \int_{\Omega^{(1)}} u^{(1)} \psi dx = \int_{\Omega^n} u^n \psi dx + \Delta t \int_{\Omega^n} F(u^n) \psi dx
+
+        """
+        if self._nontrivial:
+            # Solve $u = M^{-1}q$
+            with timed_region('sol1_assemble_A'):
+                assemble(self.a, self.lin_solver.A)
+                self.lin_solver.A.force_evaluation()
+            with timed_region('sol1_solve'):
+                self.lin_solver.solve(self.solution, self.mu)
+
+    def stage_two_prep(self):
+        """
+        Preprocess 2nd stage: compute all forms on the old geometry
+        """
+        if self._nontrivial:
+            # Evaluate $k = \Delta t F(u)$
+            with timed_region('pre2_asseble_f'):
+                assemble(self.l, self.tendency)
+            # $q = \frac{1}{2}q + \frac{1}{2}q_{old} + \frac{1}{2}k$
+            with timed_region('pre2_incr_rhs'):
+                self.mu.assign(0.5*self.mu + 0.5*self.mu_old + 0.5*self.tendency)
+
+    def stage_two_solve(self):
+        r"""
+        2nd stage: solve :math:`u^{n+1}` given previous solutions :math:`u^n, u^{(1)}`.
+
+        This is an ALE step:
+
+        .. math::
+
+            \int_{\Omega^{n+1}} u^{n+1} \psi dx &= \int_{\Omega^n} u^n \psi dx \\
+                &+ \frac{\Delta t}{2} \int_{\Omega^n} F(u^n) \psi dx \\
+                &+ \frac{\Delta t}{2} \int_{\Omega^{(1)}} F(u^{(1)}) \psi dx
+
+        """
+        if self._nontrivial:
+            # Solve $u = M^{-1}q$
+            with timed_region('sol2_assemble_A'):
+                assemble(self.a, self.lin_solver.A)
+                self.lin_solver.A.force_evaluation()
+            with timed_region('sol2_solve'):
+                self.lin_solver.solve(self.solution, self.mu)
+
+    def solve_stage(self, i_stage):
+        """Solves stage i_stage"""
+        if i_stage == 0:
+            self.stage_one_solve()
+        else:
+            self.stage_two_solve()
+
+    def prepare_stage(self, i_stage, t, update_forcings=None):
+        """
+        Preprocess stage i_stage.
+
+        This must be called prior to updating mesh geometry.
+        """
+        if update_forcings is not None:
+            update_forcings(t + self.c[i_stage]*self.dt)
+        if i_stage == 0:
+            self.stage_one_prep()
+        else:
+            self.stage_two_prep()
+
+    def advance(self, t, update_forcings=None):
+        """Advances equations for one time step."""
+        for i_stage in range(self.n_stages):
+            self.prepare_stage(i_stage, t, update_forcings)
+            self.solve_stage(i_stage)
+
+
+class TwoStageTrapezoid(TimeIntegrator):
+    r"""
+    Implicit scheme to accompany SSPRK(2,2) ALE time integrator.
+
+    The scheme is
+
+    .. math::
+        u^{(1)} &= u^{n} + \Delta t F(u^{n}) \\
+        u^{n+1} &= u^{n} + \frac{\Delta t}{2}(F(u^{n}) +  F(u^{n+1}))
+
+    This time integrator is used to solve the 2D system with the 3D SSPRK(2,2)
+    scheme.
+    """
+    def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
+                 solver_parameters={}, solver_parameters_dirk={}, terms_to_add='all'):
+        super(TwoStageTrapezoid, self).__init__(equation, solution, fields, dt, solver_parameters)
+
+        test = self.equation.test
+        trial = self.equation.trial
+
+        self.solution_old = Function(self.equation.function_space, name='old solution')
+
+        self.cfl_coeff = np.inf
+        self.n_stages = 2
+        self.c = [0, 1]
+
+        self.rhs_old = self.dt_const*self.equation.residual(terms_to_add,
+                                                            self.solution_old,
+                                                            self.solution_old,
+                                                            fields,
+                                                            fields,
+                                                            bnd_conditions)
+        self.rhs_new = self.dt_const*self.equation.residual(terms_to_add,
+                                                            self.solution,
+                                                            self.solution_old,
+                                                            fields,
+                                                            fields,
+                                                            bnd_conditions)
+        self._nontrivial = self.rhs_new != 0
+
+        # stage 0: forward Euler
+        a = inner(trial, test)*dx
+        l = inner(self.solution_old, test)*dx + self.rhs_old
+        p = LinearVariationalProblem(a, l, self.solution, constant_jacobian=True)
+        sname = '{:}_stage{:}_'.format(self.name, 0)
+        self.solver_0 = LinearVariationalSolver(p,
+                                                solver_parameters=self.solver_parameters,
+                                                options_prefix=sname)
+
+        # stage 1: trapezoid
+        f = inner(self.solution, test)*dx - inner(self.solution_old, test)*dx - 0.5*(self.rhs_new + self.rhs_old)
+        p = NonlinearVariationalProblem(f, self.solution)
+        sname = '{:}_stage{:}_'.format(self.name, 1)
+        self.solver_1 = NonlinearVariationalSolver(p,
+                                                   solver_parameters=self.solver_parameters,
+                                                   options_prefix=sname)
+
+    def initialize(self, solution):
+        """Assigns initial conditions to all required fields."""
+        self.solution.assign(solution)
+        self.solution_old.assign(solution)
+
+    def solve_stage(self, i_stage, t, update_forcings=None):
+        """Solves sub-stage i_stage"""
+        if self._nontrivial:
+            if update_forcings is not None:
+                update_forcings(t + self.c[i_stage]*self.dt)
+            if i_stage == 0:
+                self.solver_0.solve()
+            else:
+                self.solver_1.solve()
+                # shift time index
+                self.solution_old.assign(self.solution)
+
+    def advance(self, t, update_forcings=None):
+        """Advances equations for one time step."""
+        if self._nontrivial:
+            for i in range(self.n_stages):
+                self.solve_stage(i, t, update_forcings)

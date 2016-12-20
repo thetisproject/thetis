@@ -805,3 +805,117 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
             self._update_bottom_friction()
             self._update_vertical_velocity()
             self._update_stabilization_params()
+
+
+class CoupledTwoStageRK(CoupledTimeIntegrator):
+    """
+    Coupled time integrator based on SSPRK(2,2) scheme
+    """
+    integrator_2d = rungekutta.TwoStageTrapezoid
+    integrator_3d = timeintegrator.SSPRK22ALE
+    integrator_vert_3d = rungekutta.BackwardEuler
+
+    def __init__(self, solver):
+        super(CoupledTwoStageRK, self).__init__(solver)
+        # allocate CG elevation fields for storing mesh geometry
+        self.elev_fields = []
+        for i in range(self.n_stages):
+            e = Function(self.fields.elev_cg_2d)
+            self.elev_fields.append(e)
+
+    def store_elevation(self, istage):
+        """Stores elevation field for stage istage for computing mesh velocity"""
+        if self.options.use_ale_moving_mesh:
+            self.solver.mesh_updater.compute_mesh_velocity_begin()
+            self.elev_fields[istage].assign(self.fields.elev_cg_2d)
+
+    def compute_mesh_velocity(self, istage):
+        """Computes mesh velocity for stage i"""
+        if self.options.use_ale_moving_mesh:
+            self.solver.mesh_updater.compute_mesh_velocity_begin()
+            current_elev = self.fields.elev_cg_2d
+            if istage == 0:
+                # compute w_mesh at surface as (elev^{(1)} - elev^{n})/dt
+                w_s = (current_elev - self.elev_fields[0])/self.solver.dt
+            else:
+                # compute w_mesh at surface as (2*elev^{n+1} - elev^{(1)} - elev^{n})/dt
+                w_s = (2*current_elev - self.elev_fields[1] - self.elev_fields[0])/self.solver.dt
+            self.fields.w_mesh_surf_2d.assign(w_s)
+            # use that to compute w_mesh in whole domain
+            self.solver.mesh_updater.cp_w_mesh_surf_2d_to_3d.solve()
+            # solve w_mesh at nodes
+            w_mesh_surf = self.fields.w_mesh_surf_3d.dat.data[:]
+            z_ref = self.fields.z_coord_ref_3d.dat.data[:]
+            h = self.fields.bathymetry_3d.dat.data[:]
+            self.fields.w_mesh_3d.dat.data[:] = w_mesh_surf * (z_ref + h)/h
+
+    def advance(self, t, dt, update_forcings=None, update_forcings3d=None):
+        """Advances the equations for one time step"""
+        if not self._initialized:
+            self.initialize()
+
+        for i_stage in range(self.n_stages):
+
+            # solve 2D mode
+            self.store_elevation(i_stage)
+            with timed_stage('mode2d'):
+                self.timestepper2d.solve_stage(i_stage, t, update_forcings)
+            self.compute_mesh_velocity(i_stage)
+
+            # solve 3D mode: preprocess in old mesh
+            with timed_stage('salt_eq'):
+                if self.options.solve_salt:
+                    self.timestepper_salt_3d.prepare_stage(i_stage, t, update_forcings3d)
+            with timed_stage('temp_eq'):
+                if self.options.solve_temp:
+                    self.timestepper_temp_3d.prepare_stage(i_stage, t, update_forcings3d)
+            with timed_stage('turb_advection'):
+                if self.options.use_turbulence_advection:
+                    self.timestepper_tke_adv_eq.prepare_stage(i_stage, t, update_forcings3d)
+                    self.timestepper_psi_adv_eq.prepare_stage(i_stage, t, update_forcings3d)
+            with timed_stage('momentum_eq'):
+                self.timestepper_mom_3d.prepare_stage(i_stage, t, update_forcings3d)
+
+            # update mesh
+            self._update_3d_elevation()
+            self._update_moving_mesh()
+
+            # solve 3D mode
+            with timed_stage('salt_eq'):
+                if self.options.solve_salt:
+                    self.timestepper_salt_3d.solve_stage(i_stage)
+                    if self.options.use_limiter_for_tracers:
+                        self.solver.tracer_limiter.apply(self.fields.salt_3d)
+            with timed_stage('temp_eq'):
+                if self.options.solve_temp:
+                    self.timestepper_temp_3d.solve_stage(i_stage)
+                    if self.options.use_limiter_for_tracers:
+                        self.solver.tracer_limiter.apply(self.fields.temp_3d)
+            with timed_stage('turb_advection'):
+                if self.options.use_turbulence_advection:
+                    self.timestepper_tke_adv_eq.solve_stage(i_stage)
+                    self.timestepper_psi_adv_eq.solve_stage(i_stage)
+            with timed_stage('momentum_eq'):
+                self.timestepper_mom_3d.solve_stage(i_stage)
+
+            # update coupling terms
+            last = i_stage == self.n_stages - 1
+
+            if last:
+                self._update_2d_coupling()
+            self._update_baroclinicity()
+            self._update_bottom_friction()
+            if i_stage == last and self.options.solve_vert_diffusion:
+                self._update_turbulence(t)
+                if self.options.solve_salt:
+                    with timed_stage('impl_salt_vdiff'):
+                        self.timestepper_salt_vdff_3d.advance(t)
+                if self.options.solve_temp:
+                    with timed_stage('impl_temp_vdiff'):
+                        self.timestepper_temp_vdff_3d.advance(t)
+                with timed_stage('impl_mom_vvisc'):
+                    self.timestepper_mom_vdff_3d.advance(t)
+                self._update_baroclinicity()
+            self._update_vertical_velocity()
+            if i_stage == last:
+                self._update_stabilization_params()

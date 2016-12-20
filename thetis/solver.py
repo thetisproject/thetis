@@ -170,9 +170,10 @@ class FlowSolver(FrozenClass):
         if isinstance(nu_scale, FiredrakeConstant):
             nu = nu_scale.dat.data[0]
         min_dx = self.fields.h_elem_size_2d.dat.data.min()
-        # alpha = 0.25 if self.options.element_family == 'rt-dg' else 1.0
-        # dt = 0.75*alpha*1.0/60.0/(self.options.order + 1)*(min_dx)**2/nu
-        min_dx *= 1.5*self.compute_dx_factor()
+        factor = 2.0
+        if self.options.timestepper_type == 'leapfrog':
+            factor = 1.2
+        min_dx *= factor*self.compute_dx_factor()
         dt = (min_dx)**2/nu
         dt = self.comm.allreduce(dt, op=MPI.MIN)
         return dt
@@ -491,7 +492,8 @@ class FlowSolver(FrozenClass):
             self.eq_temp = tracer_eq.TracerEquation(self.fields.temp_3d.function_space(),
                                                     bathymetry=self.fields.bathymetry_3d,
                                                     v_elem_size=self.fields.v_elem_size_3d,
-                                                    h_elem_size=self.fields.h_elem_size_3d)
+                                                    h_elem_size=self.fields.h_elem_size_3d,
+                                                    use_symmetric_surf_bnd=self.options.element_family == 'dg-dg')
             if self.options.solve_vert_diffusion:
                 self.eq_temp_vdff = tracer_eq.TracerEquation(self.fields.temp_3d.function_space(),
                                                              bathymetry=self.fields.bathymetry_3d,
@@ -533,6 +535,8 @@ class FlowSolver(FrozenClass):
             self.timestepper = coupled_timeintegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
         elif self.options.timestepper_type.lower() == 'leapfrog':
             self.timestepper = coupled_timeintegrator.CoupledLeapFrogAM3(weakref.proxy(self))
+        elif self.options.timestepper_type.lower() == 'ssprk22':
+            self.timestepper = coupled_timeintegrator.CoupledTwoStageRK(weakref.proxy(self))
         elif self.options.timestepper_type.lower() == 'imexale':
             assert self.options.use_ale_moving_mesh, '{:} time integrator requires ALE mesh'.format(self.options.timestepper_type)
             self.timestepper = coupled_timeintegrator.CoupledIMEXALE(weakref.proxy(self))
