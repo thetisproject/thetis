@@ -1,0 +1,2 @@
+include versioneer.py
+include thetis/_version.py
