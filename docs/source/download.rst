@@ -17,7 +17,7 @@ activating the Firedrake virtualenv and running::
 
 The Thetis source will be installed in the ``src/thetis`` subdirectory
 of your Firedrake install. Using this install method you should
-**not** add add Thetis to your ``PYTHONPATH``. Instead, Thetis will
+**not** add Thetis to your ``PYTHONPATH``. Instead, Thetis will
 automatically be available to import whenever your Firedrake
 virtualenv is active.
 
