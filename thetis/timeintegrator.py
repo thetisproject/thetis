@@ -620,7 +620,8 @@ class SSPRK22ALE(TimeIntegrator):
         self.solution.assign(solution)
 
         mass_matrix = assemble(self.a)
-        self.lin_solver = LinearSolver(mass_matrix)
+        self.lin_solver = LinearSolver(mass_matrix,
+                                       solver_parameters=self.solver_parameters)
 
     def stage_one_prep(self):
         """
