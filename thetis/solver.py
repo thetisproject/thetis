@@ -298,8 +298,6 @@ class FlowSolver(FrozenClass):
         max_dt_2d = cfl2d*max_dt_swe
         max_dt_3d = cfl3d*min(max_dt_hadv, max_dt_vadv, max_dt_diff)
         print_output('  - CFL adjusted dt: 2D: {:} 3D: {:}'.format(max_dt_2d, max_dt_3d))
-        if round(max_dt_3d) > 0:
-            max_dt_3d = np.floor(max_dt_3d)
         if self.options.dt_2d is not None or self.options.dt is not None:
             print_output('  - User defined dt: 2D: {:} 3D: {:}'.format(self.options.dt_2d, self.options.dt))
         self.dt = self.options.dt
@@ -328,7 +326,7 @@ class FlowSolver(FrozenClass):
 
         # fit dt to export time
         m_exp = int(np.ceil(self.options.t_export/self.dt))
-        self.dt = self.options.t_export/m_exp
+        self.dt = float(self.options.t_export)/m_exp
         if self.dt_mode == 'split':
             self.M_modesplit = int(np.ceil(self.dt/self.dt_2d))
             self.dt_2d = self.dt/self.M_modesplit
