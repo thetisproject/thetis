@@ -139,8 +139,9 @@ See :mod:`.stability_functions` for more information.
     http://dx.doi.org/10.1016/S0924-7963(99)00004-4
 """
 from __future__ import absolute_import
-from .tracer_eq import *
 from .utility import *
+from .equation import Equation
+from .tracer_eq import *
 from .stability_functions import *
 from .log import *
 

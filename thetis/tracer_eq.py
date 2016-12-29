@@ -9,7 +9,7 @@ The advection-diffusion equation of tracer :math:`T` in conservative form reads
     + \frac{\partial (w T)}{\partial z}
     = \nabla_h \cdot (\mu_h \nabla_h T)
     + \frac{\partial}{\partial z} \Big(\mu \frac{T}{\partial z}\Big)
-   :label: tracer
+   :label: tracer_eq
 
 where :math:`\nabla_h` denotes horizontal gradient, :math:`\textbf{u}` and
 :math:`w` are the horizontal and vertical velocities, respectively, and
@@ -18,6 +18,16 @@ where :math:`\nabla_h` denotes horizontal gradient, :math:`\textbf{u}` and
 from __future__ import absolute_import
 from .utility import *
 from .equation import Term, Equation
+
+__all__ = [
+    'TracerEquation',
+    'TracerTerm',
+    'HorizontalAdvectionTerm',
+    'VerticalAdvectionTerm',
+    'HorizontalDiffusionTerm',
+    'VerticalDiffusionTerm',
+    'SourceTerm',
+]
 
 
 class TracerTerm(Term):
@@ -110,7 +120,7 @@ class HorizontalAdvectionTerm(TracerTerm):
         \int_\Omega \nabla_h \cdot (\textbf{u} T) \phi dx
             = -\int_\Omega T\textbf{u} \cdot \nabla_h \phi dx
             + \int_{\mathcal{I}_h\cup\mathcal{I}_v}
-                T^{\text{up}} \text{mean}(\textbf{u}) \cdot
+                T^{\text{up}} \text{avg}(\textbf{u}) \cdot
                 \text{jump}(\phi \textbf{n}_h) dS
 
     where the right hand side has been integrated by parts;
@@ -191,7 +201,7 @@ class VerticalAdvectionTerm(TracerTerm):
     .. math::
         \int_\Omega \frac{\partial (w T)}{\partial z} \phi dx
         = - \int_\Omega T w \frac{\partial \phi}{\partial z} dx
-        + \int_{\mathcal{I}_v} T^{\text{up}} \text{mean}(w) \text{jump}(\phi n_z) dS
+        + \int_{\mathcal{I}_v} T^{\text{up}} \text{avg}(w) \text{jump}(\phi n_z) dS
 
     where the right hand side has been integrated by parts;
     :math:`\mathcal{I}_v` denotes the set of vertical facets,
@@ -252,21 +262,16 @@ class HorizontalDiffusionTerm(TracerTerm):
     r"""
     Horizontal diffusion term :math:`-\nabla_h \cdot (\mu_h \nabla_h T)`
 
-    The weak form reads
+    Using the symmetric interior penalty method the weak form becomes
 
     .. math::
         -\int_\Omega \nabla_h \cdot (\mu_h \nabla_h T) \phi dx
-        = \int_\Omega \mu_h (\nabla_h \phi) \cdot (\nabla_h T) dx
-        - \int_{\mathcal{I}_h\cup\mathcal{I}_v} \text{mean}(\mu_h \nabla_h T)
-            \cdot \text{jump}(\phi \textbf{n}_h) dS
-
-    If :math:`T` belongs to a discontinuous function space, we
-    augment the right hand side with symmetric interior penalty method:
-
-    .. math::
-        SIPS
-        = - \int_{\mathcal{I}_h\cup\mathcal{I}_v} \text{jump}(T \textbf{n}_h) \cdot \text{avg}(\mu_h  \nabla \phi) dS
-        + \int_{\mathcal{I}_h\cup\mathcal{I}_v} \sigma \text{avg}(\mu_h) \text{jump}(T \textbf{n}_h) \cdot
+        =& \int_\Omega \mu_h (\nabla_h \phi) \cdot (\nabla_h T) dx \\
+        &- \int_{\mathcal{I}_h\cup\mathcal{I}_v} \text{jump}(\phi \textbf{n}_h)
+        \cdot \text{avg}(\mu_h \nabla_h T) dS
+        - \int_{\mathcal{I}_h\cup\mathcal{I}_v} \text{jump}(T \textbf{n}_h)
+        \cdot \text{avg}(\mu_h  \nabla \phi) dS \\
+        &+ \int_{\mathcal{I}_h\cup\mathcal{I}_v} \sigma \text{avg}(\mu_h) \text{jump}(T \textbf{n}_h) \cdot
             \text{jump}(\phi \textbf{n}_h) dS
 
     where :math:`\sigma` is a penalty parameter,
@@ -333,20 +338,14 @@ class VerticalDiffusionTerm(TracerTerm):
     r"""
     Vertical diffusion term :math:`-\frac{\partial}{\partial z} \Big(\mu \frac{T}{\partial z}\Big)`
 
-    The weak form reads
+    Using the symmetric interior penalty method the weak form becomes
 
     .. math::
         -\int_\Omega \frac{\partial}{\partial z} \Big(\mu \frac{T}{\partial z}\Big) \phi dx
-            = \int_\Omega \mu \frac{\partial T}{\partial z} \frac{\partial \phi}{\partial z} dz
-            - \int_{\mathcal{I}_{h}} \text{mean}(\mu \frac{\partial T}{\partial z}) \text{jump}(\phi n_z) dS
-
-    If :math:`T` belongs to a discontinuous function space, we
-    augment the right hand side with symmetric interior penalty method:
-
-    .. math::
-        SIPS
-        = - \int_{\mathcal{I}_{h}} \text{mean}(\mu \frac{\partial \phi}{\partial z}) \text{jump}(T n_z) dS
-        + \int_{\mathcal{I}_{h}} \sigma \text{avg}(\mu) \text{jump}(T n_z) \cdot
+        =& \int_\Omega \mu \frac{\partial T}{\partial z} \frac{\partial \phi}{\partial z} dz \\
+        &- \int_{\mathcal{I}_{h}} \text{jump}(\phi n_z) \text{avg}\Big(\mu \frac{\partial T}{\partial z}\Big) dS
+        - \int_{\mathcal{I}_{h}} \text{jump}(T n_z) \text{avg}\Big(\mu \frac{\partial \phi}{\partial z}\Big) dS \\
+        &+ \int_{\mathcal{I}_{h}} \sigma \text{avg}(\mu) \text{jump}(T n_z) \cdot
             \text{jump}(\phi n_z) dS
 
     where :math:`\sigma` is a penalty parameter,
@@ -421,7 +420,7 @@ class SourceTerm(TracerTerm):
 
 class TracerEquation(Equation):
     """
-    3D tracer advection-diffusion equation in conservative form
+    3D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,

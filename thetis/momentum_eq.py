@@ -5,7 +5,7 @@ The three dimensional momentum equation reads
 
 .. math::
     \frac{\partial \textbf{u}}{\partial t}
-        + \nabla_h \cdot (\textbf{u} \otimes \textbf{u})
+        + \nabla_h \cdot (\textbf{u} \textbf{u})
         + \frac{\partial \left(w\textbf{u} \right)}{\partial z}
         + f\textbf{e}_z\wedge\textbf{u} + g\nabla_h \eta + g\nabla_h r
         = \nabla_h \cdot \left( \nu_h \nabla_h \textbf{u} \right)
@@ -14,7 +14,7 @@ The three dimensional momentum equation reads
 
 where :math:`\textbf{u}` and :math:`w` denote horizontal and vertical velocity,
 :math:`\nabla_h` is the horizontal gradient,
-:math:`\otimes` and :math:`\wedge` denote the outer and cross products,
+:math:`\wedge` denotes the cross product,
 :math:`g` is the gravitational acceleration, :math:`f` is the Coriolis
 frequency, :math:`\textbf{e}_z` is a vertical unit vector, and
 :math:`\nu_h, \nu` stand for horizontal and vertical viscosity.
@@ -36,7 +36,7 @@ Following Higdon and de Szoeke (1997) we write an equation for the deviation
 
 .. math::
     \frac{\partial \textbf{u}'}{\partial t} =
-        + \nabla_h \cdot (\textbf{u} \otimes \textbf{u})
+        + \nabla_h \cdot (\textbf{u} \textbf{u})
         + \frac{\partial \left(w\textbf{u} \right)}{\partial z}
         + f\textbf{e}_z\wedge\textbf{u}' + g\nabla_h r
         = \nabla_h \cdot \left( \nu_h \nabla_h \textbf{u} \right)
@@ -54,6 +54,20 @@ http://dx.doi.org/10.1006/jcph.1997.5733
 from __future__ import absolute_import
 from .utility import *
 from .equation import Term, Equation
+
+__all__ = [
+    'MomentumEquation',
+    'MomentumTerm',
+    'HorizontalAdvectionTerm',
+    'VerticalAdvectionTerm',
+    'HorizontalViscosityTerm',
+    'VerticalViscosityTerm',
+    'PressureGradientTerm',
+    'CoriolisTerm',
+    'BottomFrictionTerm',
+    'LinearDragTerm',
+    'SourceTerm',
+]
 
 g_grav = physical_constants['g_grav']
 rho_0 = physical_constants['rho0']
@@ -112,7 +126,7 @@ class PressureGradientTerm(MomentumTerm):
     Internal pressure gradient term, :math:`g\nabla_h r`
 
     where :math:`r` is the baroclinic head :eq:`baroc_head`. Let :math:`s`
-    denote :math:`r H`. We can then write
+    denote :math:`r/H`. We can then write
 
     .. math::
         F_{IPG} = g\nabla_h((s -\bar{s}) H)
@@ -126,9 +140,9 @@ class PressureGradientTerm(MomentumTerm):
     integrated by parts. Its weak form reads
 
     .. math::
-        \int_\Omega g\nabla_h((s -\bar{s}) H) \cdot \psi dx
-            = - \int_\Omega g (s -\bar{s}) H \nabla_h \cdot \psi dx
-            + \int_{\mathcal{I}_h \cup \mathcal{I}_v} g (s -\bar{s}) H \psi  \cdot \textbf{n}_h dx
+        \int_\Omega g\nabla_h((s -\bar{s}) H) \cdot \boldsymbol{\psi} dx
+            = - \int_\Omega g (s -\bar{s}) H \nabla_h \cdot \boldsymbol{\psi} dx
+            + \int_{\mathcal{I}_h \cup \mathcal{I}_v} g (s -\bar{s}) H \boldsymbol{\psi}  \cdot \textbf{n}_h dx
     """
     # TODO revise
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
@@ -204,18 +218,18 @@ class PressureGradientTerm(MomentumTerm):
 
 class HorizontalAdvectionTerm(MomentumTerm):
     r"""
-    Horizontal advection term, :math:`\nabla_h \cdot (\textbf{u} \otimes \textbf{u})`
+    Horizontal advection term, :math:`\nabla_h \cdot (\textbf{u} \textbf{u})`
 
     The weak form reads
 
     .. math::
-        \int_\Omega \nabla_h \cdot (\textbf{u} \otimes \textbf{u}) \cdot \psi dx
-        = - \int_\Omega \nabla_h \psi : (\textbf{u} \otimes \textbf{u}) dx
-        + \int_{\mathcal{I}_h \cup \mathcal{I}_v} \textbf{u}^{\text{up}} \cdot \text{jump}(\psi \otimes \textbf{n}_h) \cdot \text{avg}(\textbf{u}) dS
+        \int_\Omega \nabla_h \cdot (\textbf{u} \textbf{u}) \cdot \boldsymbol{\psi} dx
+        = - \int_\Omega \nabla_h \boldsymbol{\psi} : (\textbf{u} \textbf{u}) dx
+        + \int_{\mathcal{I}_h \cup \mathcal{I}_v} \textbf{u}^{\text{up}} \cdot
+        \text{jump}(\boldsymbol{\psi} \textbf{n}_h) \cdot \text{avg}(\textbf{u}) dS
 
-    where the right hand side has been integrated by parts; :math:`\otimes`
-    and :math:`:` stand for outer and the Frobenius inner products,
-    :math:`\textbf{n}_h` is the horizontal
+    where the right hand side has been integrated by parts; :math:`:` stand for
+    the Frobenius inner product, :math:`\textbf{n}_h` is the horizontal
     projection of the normal vector, :math:`\textbf{u}^{\text{up}}` is the
     upwind value, and :math:`\text{jump}` and :math:`\text{avg}` denote the
     jump and average operators across the interface.
@@ -323,9 +337,9 @@ class VerticalAdvectionTerm(MomentumTerm):
     The weak form reads
 
     .. math::
-        \int_\Omega \frac{\partial \left(w\textbf{u} \right)}{\partial z} \cdot \psi dx
-        = - \int_\Omega \left( w \textbf{u} \right) \cdot \frac{\partial \psi}{\partial z} dx
-        + \int_{\mathcal{I}_{h}} \textbf{u}^{\text{up}} \cdot \text{jump}(\psi n_z) \text{mean}(w) dS
+        \int_\Omega \frac{\partial \left(w\textbf{u} \right)}{\partial z} \cdot \boldsymbol{\psi} dx
+        = - \int_\Omega \left( w \textbf{u} \right) \cdot \frac{\partial \boldsymbol{\psi}}{\partial z} dx
+        + \int_{\mathcal{I}_{h}} \textbf{u}^{\text{up}} \cdot \text{jump}(\boldsymbol{\psi} n_z) \text{avg}(w) dS
 
     If the function space of :math:`\textbf{u}` is discontinuous in the
     vertical direction, we use the latter form.
@@ -386,21 +400,14 @@ class HorizontalViscosityTerm(MomentumTerm):
     r"""
     Horizontal viscosity term, :math:`- \nabla_h \cdot \left( \nu_h \nabla_h \textbf{u} \right)`
 
-    The weak form reads
+    Using the symmetric interior penalty method the weak form becomes
 
     .. math::
-        - \int_\Omega \nabla_h \cdot \left( \nu_h \nabla_h \textbf{u} \right) \cdot \psi dx
-        = \int_\Omega \nu_h (\nabla_h \psi) : (\nabla_h \textbf{u})^T dx
-        - \int_{\mathcal{I}_h \cup \mathcal{I}_v} \text{jump}(\psi \otimes \textbf{n}_h) \cdot \text{mean}( \nu_h \nabla_h \textbf{u}) dS
-
-    If the function space of :math:`\textbf{u}` is discontinuous in the
-    horizontal direction, we augment the right hand side with symmetric interior
-    penalty method:
-
-    .. math::
-        SIPG
-        = - \int_{\mathcal{I}_h \cup \mathcal{I}_v} \text{jump}(\textbf{u} \otimes \textbf{n}_h) \cdot \text{mean}( \nu_h \nabla_h \psi) dS
-        + \int_{\mathcal{I}_h \cup \mathcal{I}_v} \sigma \text{mean}(\nu_h) \text{jump}(\textbf{u} \otimes \textbf{n}_h) \cdot \text{jump}(\psi \otimes \textbf{n}_h) dS
+        - \int_\Omega \nabla_h \cdot \left( \nu_h \nabla_h \textbf{u} \right) \cdot \boldsymbol{\psi} dx
+        =& \int_\Omega \nu_h (\nabla_h \boldsymbol{\psi}) : (\nabla_h \textbf{u})^T dx \\
+        &- \int_{\mathcal{I}_h \cup \mathcal{I}_v} \text{jump}(\boldsymbol{\psi} \textbf{n}_h) \cdot \text{avg}( \nu_h \nabla_h \textbf{u}) dS
+        - \int_{\mathcal{I}_h \cup \mathcal{I}_v} \text{jump}(\textbf{u} \textbf{n}_h) \cdot \text{avg}( \nu_h \nabla_h \boldsymbol{\psi}) dS \\
+        &+ \int_{\mathcal{I}_h \cup \mathcal{I}_v} \sigma \text{avg}(\nu_h) \text{jump}(\textbf{u} \textbf{n}_h) \cdot \text{jump}(\boldsymbol{\psi} \textbf{n}_h) dS
 
     where :math:`\sigma` is a penalty parameter,
     see Epshteyn and Riviere (2007).
@@ -480,21 +487,14 @@ class VerticalViscosityTerm(MomentumTerm):
     r"""
     Vertical viscosity term, :math:`- \frac{\partial }{\partial z}\left( \nu \frac{\partial \textbf{u}}{\partial z}\right)`
 
-    The weak form reads
+    Using the symmetric interior penalty method the weak form becomes
 
     .. math::
-        - \int_\Omega \frac{\partial }{\partial z}\left( \nu \frac{\partial \textbf{u}}{\partial z}\right) \cdot \psi dx
-        = \int_\Omega \nu \frac{\partial \psi}{\partial z} \cdot \frac{\partial \textbf{u}}{\partial z} dx
-        - \int_{\mathcal{I}_h} \text{jump}(\psi n_z) \cdot \text{mean}\left(\nu \frac{\partial \textbf{u}}{\partial z}\right) dS
-
-    If the function space of :math:`\bar{\textbf{u}}` is discontinuous in the
-    vertical direction, we augment the right hand side with symmetric interior
-    penalty method:
-
-    .. math::
-        SIPG
-        = - \int_{\mathcal{I}_h} \text{jump}(\textbf{u} n_z) \cdot \text{mean}\left(\nu \frac{\partial \psi}{\partial z}\right) dS
-        + \int_{\mathcal{I}_h} \sigma \text{mean}(\nu) \text{jump}(\textbf{u} n_z) \cdot \text{jump}(\psi n_z) dS
+        - \int_\Omega \frac{\partial }{\partial z}\left( \nu \frac{\partial \textbf{u}}{\partial z}\right) \cdot \boldsymbol{\psi} dx
+        =& \int_\Omega \nu \frac{\partial \boldsymbol{\psi}}{\partial z} \cdot \frac{\partial \textbf{u}}{\partial z} dx \\
+        &- \int_{\mathcal{I}_h} \text{jump}(\boldsymbol{\psi} n_z) \cdot \text{avg}\left(\nu \frac{\partial \textbf{u}}{\partial z}\right) dS
+        - \int_{\mathcal{I}_h} \text{jump}(\textbf{u} n_z) \cdot \text{avg}\left(\nu \frac{\partial \boldsymbol{\psi}}{\partial z}\right) dS \\
+        &+ \int_{\mathcal{I}_h} \sigma \text{avg}(\nu) \text{jump}(\textbf{u} n_z) \cdot \text{jump}(\boldsymbol{\psi} n_z) dS
 
     where :math:`\sigma` is a penalty parameter,
     see Epshteyn and Riviere (2007).
@@ -547,7 +547,7 @@ class BottomFrictionTerm(MomentumTerm):
     The weak formulation reads
 
     .. math::
-        \int_{\Gamma_{bot}} \tau_b \cdot \psi dx = \int_{\Gamma_{bot}} C_D \| \textbf{u}_b \| \textbf{u}_b \cdot \psi dx
+        \int_{\Gamma_{bot}} \tau_b \cdot \boldsymbol{\psi} dx = \int_{\Gamma_{bot}} C_D \| \textbf{u}_b \| \textbf{u}_b \cdot \boldsymbol{\psi} dx
 
     where :math:`\textbf{u}_b` is reconstructed velocity in the middle of the
     bottom element:
@@ -635,7 +635,7 @@ class SourceTerm(MomentumTerm):
     The weak form reads
 
     .. math::
-        F_s = \int_\Omega \sigma \cdot \psi dx
+        F_s = \int_\Omega \sigma \cdot \boldsymbol{\psi} dx
 
     where :math:`\sigma` is a user defined vector valued :class:`Function`.
 
@@ -644,7 +644,7 @@ class SourceTerm(MomentumTerm):
     ``wind_stress``. The weak form is
 
     .. math::
-        F_w = \int_{\Gamma_s} \frac{1}{\rho_0} \tau_w \cdot \psi dx
+        F_w = \int_{\Gamma_s} \frac{1}{\rho_0} \tau_w \cdot \boldsymbol{\psi} dx
 
     Wind stress is only included if vertical viscosity is provided.
 

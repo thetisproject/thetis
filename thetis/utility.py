@@ -267,11 +267,11 @@ class VerticalVelocitySolver(object):
 
     .. math::
         \int_{\Gamma_s} w n_z \varphi dS
-        + \int_{\mathcal{I}_h} \text{mean}(w) \text{jump}(\varphi n_z) dS
+        + \int_{\mathcal{I}_h} \text{avg}(w) \text{jump}(\varphi n_z) dS
         - \int_{\Omega} w \frac{\partial \varphi}{\partial z} dx
         = \\
         \int_{\Omega} \mathbf{u} \cdot \nabla_h \varphi dx
-        - \int_{\mathcal{I}_h \cup \mathcal{I}_v} \text{mean}(\mathbf{u}) \cdot \text{jump}(\varphi \mathbf{n}_h) dS
+        - \int_{\mathcal{I}_h \cup \mathcal{I}_v} \text{avg}(\mathbf{u}) \cdot \text{jump}(\varphi \mathbf{n}_h) dS
         - \int_{\Gamma_s} \mathbf{u} \cdot \varphi \mathbf{n}_h dS
 
     where the :math:`\Gamma_b` terms vanish due to the bottom impermeability
@@ -1357,10 +1357,11 @@ def tensor_jump(v, n):
     Jump term for vector functions based on the tensor product
 
     .. math::
-        \text{jump}(v, n) = (v^+ \otimes n^+) + (v^- \otimes n^-)
+        \text{jump}(\mathbf{u}, \mathbf{n}) = (\mathbf{u}^+ \mathbf{n}^+) +
+        (\mathbf{u}^- \mathbf{n}^-)
 
-    This is the discrete equivalent of grad(u) as opposed to the normal
-    vectorial jump operator in UFL which represents div(u).
+    This is the discrete equivalent of grad(u) as opposed to the
+    vectorial UFL jump operator :meth:`ufl.jump` which represents div(u).
     """
     return outer(v('+'), n('+')) + outer(v('-'), n('-'))
 

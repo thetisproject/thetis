@@ -42,9 +42,17 @@ class ModelOptions(AttrDict, FrozenClass):
         See :class:`.ParabolicViscosity`
         """
         self.include_grad_div_viscosity_term = False
-        """bool: Include grad(nu div(u)) term in the depth-averaged viscosity"""
+        r"""
+        bool: Include :math:`\nabla (\nu_h \nabla \cdot \bar{\textbf{u}})` term in the depth-averaged viscosity
+
+        See :class:`.shallowwater_eq.HorizontalViscosityTerm` for details.
+        """
         self.include_grad_depth_viscosity_term = True
-        """bool: Include grad(H) term in the depth-averaged viscosity"""
+        r"""
+        bool: Include :math:`\nabla H` term in the depth-averaged viscosity
+
+        See :class:`.shallowwater_eq.HorizontalViscosityTerm` for details.
+        """
         self.use_ale_moving_mesh = True
         """bool: Use ALE formulation where 3D mesh tracks free surface"""
         self.timestepper_type = 'ssprk33'

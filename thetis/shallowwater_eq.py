@@ -23,7 +23,8 @@ The non-conservative momentum equation reads
    f\textbf{e}_z\wedge \bar{\textbf{u}} +
    g \nabla \eta +
    g \frac{1}{H}\int_{-h}^\eta \nabla r dz
-   = \nabla \cdot ( \nu_h \nabla \bar{\textbf{u}} ),
+   = \nabla \cdot \big( \nu_h ( \nabla \bar{\textbf{u}} + (\nabla \bar{\textbf{u}})^T )\big) +
+   \frac{\nu_h \nabla(H)}{H} \cdot ( \nabla \bar{\textbf{u}} + (\nabla \bar{\textbf{u}})^T ),
    :label: swe_momentum
 
 where :math:`g` is the gravitational acceleration, :math:`f` is the Coriolis
@@ -41,7 +42,7 @@ Above :math:`r` denotes the baroclinic head
 In the case of purely barotropic problems the :math:`r` and the internal pressure
 gradient are omitted.
 
-If the option :attr:`nonlin` is ``False``, we solve the linear shallow water
+If the option :attr:`.ModelOptions.nonlin` is ``False``, we solve the linear shallow water
 equations (i.e. wave equation):
 
 .. math::
@@ -52,8 +53,26 @@ equations (i.e. wave equation):
    \frac{\partial \bar{\textbf{u}}}{\partial t} +
    f\textbf{e}_z\wedge \bar{\textbf{u}} +
    g \nabla \eta
-   = \nabla \cdot ( \nu_h \nabla \bar{\textbf{u}} ).
+   = \nabla \cdot \big( \nu_h ( \nabla \bar{\textbf{u}} + (\nabla \bar{\textbf{u}})^T )\big) +
+   \frac{\nu_h \nabla(H)}{H} \cdot ( \nabla \bar{\textbf{u}} + (\nabla \bar{\textbf{u}})^T ).
    :label: swe_momentum_linear
+
+In case of a 3D problem with mode splitting, we use a simplified 2D
+system that contains nothing but the rotational external gravity waves:
+
+.. math::
+    \frac{\partial \eta}{\partial t} + \nabla \cdot (H \bar{\textbf{u}}) = 0
+    :label: swe_freesurf_modesplit
+
+.. math::
+    \frac{\partial \bar{\textbf{u}}}{\partial t} +
+    f\textbf{e}_z\wedge \bar{\textbf{u}} +
+    g \nabla \eta + g \frac{1}{H}\int_{-h}^\eta \nabla r dz
+    = \textbf{G},
+    :label: swe_momentum_modesplit
+
+where :math:`\textbf{G}` is a source term used to couple the 2D and 3D momentum
+equations.
 
 -------------------
 Boundary Conditions
@@ -62,28 +81,74 @@ Boundary Conditions
 All boundary conditions are imposed weakly by providing external values for
 :math:`\eta` and :math:`\bar{\textbf{u}}`.
 
-Boundary conditions are set with :attr:`ShallowWaterEquations.bnd_functions`
-dictionary. For example to assign elevation and volume flux for boundary 1:
+Boundary conditions are set with a dictionary that defines all prescribed
+variables at each open boundary.
+For example, to assign elevation and volume flux on boundary ``1`` we set
 
-    sw = sw.bnd_functions[1] = {'elev':myfunc1, 'flux':myfunc2}
+.. code-block:: python
 
-where ``myfunc1`` and ``myfunc2`` are :class:`Function` or :class:`Function` objects.
+    swe_bnd_funcs = {}
+    swe_bnd_funcs[1] = {'elev':myfunc1, 'flux':myfunc2}
+
+where ``myfunc1`` and ``myfunc2`` are :class:`Constant` or :class:`Function`
+objects.
 
 The user can provide :math:`\eta` and/or :math:`\bar{\textbf{u}}` values.
 Supported combinations are:
 
- - 'elev': elevation only (usually unstable)
- - 'uv': 2d velocity vector :math:`\bar{\textbf{u}}=(u, v)` (in model coordinates)
- - 'un': normal velocity (scalar, positive out of domain)
- - 'flux': normal volume flux (scalar, positive out of domain)
- - 'elev' and 'uv': water elevation and 2d velocity vector
- - 'elev' and 'un': water elevation and normal velocity (scalar)
- - 'elev' and 'flux': water elevation and normal flux (scalar)
+- *unspecified* : impermeable (land) boundary, implies symmetric :math:`\eta` condition and zero normal velocity
+- ``'elev'``: elevation only, symmetric velocity (usually unstable)
+- ``'uv'``: 2d velocity vector :math:`\bar{\textbf{u}}=(u, v)` (in mesh coordinates), symmetric elevation
+- ``'un'``: normal velocity (scalar, positive out of domain), symmetric elevation
+- ``'flux'``: normal volume flux (scalar, positive out of domain), symmetric elevation
+- ``'elev'`` and ``'uv'``: water elevation and 2d velocity vector
+- ``'elev'`` and ``'un'``: water elevation and normal velocity
+- ``'elev'`` and ``'flux'``: water elevation and normal flux
+
+The boundary conditions are assigned to the :class:`.FlowSolver2d` or
+:class:`.FlowSolver` objects:
+
+.. code-block:: python
+
+    solver_obj = solver2d.FlowSolver2d(...)
+    ...
+    solver_obj.bnd_functions['shallow_water'] = swe_bnd_funcs
+
+Internally the boundary conditions passed to the :meth:`.Term.residual` method
+of each term:
+
+.. code-block:: python
+
+    adv_term = shallowwater_eq.HorizontalAdvectionTerm(...)
+    adv_form = adv_term.residual(..., bnd_conditions=swe_bnd_funcs)
 
 """
 from __future__ import absolute_import
 from .utility import *
 from .equation import Term, Equation
+
+__all__ = [
+    'BaseShallowWaterEquation',
+    'ShallowWaterEquations',
+    'ModeSplit2DEquations',
+    'ShallowWaterMomentumEquation',
+    'FreeSurfaceEquation',
+    'ShallowWaterTerm',
+    'ShallowWaterMomentumTerm',
+    'ShallowWaterContinuityTerm',
+    'HUDivTerm',
+    'ContinuitySourceTerm',
+    'HorizontalAdvectionTerm',
+    'HorizontalViscosityTerm',
+    'ExternalPressureGradientTerm',
+    'InternalPressureGradientTerm',
+    'CoriolisTerm',
+    'LinearDragTerm',
+    'QuadraticDragTerm',
+    'BottomDrag3DTerm',
+    'MomentumSourceTerm',
+    'WindStressTerm',
+]
 
 g_grav = physical_constants['g_grav']
 rho_0 = physical_constants['rho0']
@@ -217,9 +282,9 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
     The weak form reads
 
     .. math::
-        \int_\Omega g \nabla \eta \cdot \psi dx
-        = \int_\Gamma g \eta^* \text{jump}(\psi \cdot \textbf{n}) dS
-        - \int_\Omega g \eta \nabla \cdot \psi dx
+        \int_\Omega g \nabla \eta \cdot \boldsymbol{\psi} dx
+        = \int_\Gamma g \eta^* \text{jump}(\boldsymbol{\psi} \cdot \textbf{n}) dS
+        - \int_\Omega g \eta \nabla \cdot \boldsymbol{\psi} dx
 
     where the right hand side has been integrated by parts; :math:`\textbf{n}`
     denotes the unit normal of the element interfaces, :math:`n^*` is value at
@@ -334,14 +399,14 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
     The weak form is
 
     .. math::
-        \int_\Omega \bar{\textbf{u}} \cdot \nabla\bar{\textbf{u}} \cdot \psi dx
-        = - \int_\Omega \nabla_h \cdot (\bar{\textbf{u}} \otimes \psi) \cdot \bar{\textbf{u}} dx
-        + \int_\Gamma \bar{\textbf{u}}^{\text{up}} \cdot \text{jump}(\psi \otimes \textbf{n}) \cdot \text{avg}(\bar{\textbf{u}}) dS
+        \int_\Omega \bar{\textbf{u}} \cdot \nabla\bar{\textbf{u}} \cdot \boldsymbol{\psi} dx
+        = - \int_\Omega \nabla_h \cdot (\bar{\textbf{u}} \boldsymbol{\psi}) \cdot \bar{\textbf{u}} dx
+        + \int_\Gamma \text{avg}(\bar{\textbf{u}}) \cdot \text{jump}(\boldsymbol{\psi}
+        (\bar{\textbf{u}}\cdot\textbf{n})) dS
 
-    where the right hand side has been integrated by parts; :math:`\otimes`
-    stands for tensor outer product, :math:`\textbf{n}` is the unit normal of
-    the element interfaces, :math:`\bar{\textbf{u}}^{\text{up}}` is the
-    upwind value, and :math:`\text{jump}` and :math:`\text{avg}` denote the
+    where the right hand side has been integrated by parts;
+    :math:`\textbf{n}` is the unit normal of
+    the element interfaces, and :math:`\text{jump}` and :math:`\text{avg}` denote the
     jump and average operators across the interface.
     If the function space of :math:`\textbf{u}` is discontinuous in the
     horizontal direction, the latter form is used.
@@ -403,25 +468,40 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
 
 class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
     r"""
-    Viscosity of momentum term :math:`-\nabla \cdot (\nu_h \nabla \bar{\textbf{u}})`
+    Viscosity of momentum term
 
-    The weak form reads
-
-    .. math::
-        \int_\Omega -\nabla \cdot (\nu_h \nabla \bar{\textbf{u}}) \cdot \psi dx
-        = \int_\Omega \nu_h (\nabla \psi) : (\nabla \bar{\textbf{u}})^T dx
-        - \int_\Gamma \text{jump}(\psi \otimes \textbf{n}) \cdot \text{avg}(\nu_h  \nabla \bar{\textbf{u}}) dS
-
-    If :math:`\bar{\textbf{u}}` belongs to a discontinuous function space, we
-    augment the right hand side with symmetric interior penalty method:
+    If option :attr:`.ModelOptions.include_grad_div_viscosity_term` is ``True``, we
+    use the symmetric viscous stress :math:`\boldsymbol{\tau}_\nu = \nu_h ( \nabla \bar{\textbf{u}} + (\nabla \bar{\textbf{u}})^T )`.
+    Using the symmetric interior penalty method the weak form then reads
 
     .. math::
-        SIPG
-        = - \int_\Gamma \text{jump}(\bar{\textbf{u}} \otimes \textbf{n}) \cdot \text{avg}(\nu_h  \nabla \psi) dS
-        + \int_\Gamma \sigma \text{avg}(\nu_h) \text{jump}(\bar{\textbf{u}} \otimes \textbf{n}) \cdot \text{jump}(\psi \otimes \textbf{n}) dS
+        \int_\Omega -\nabla \cdot \boldsymbol{\tau}_\nu \cdot \boldsymbol{\psi} dx
+        =& \int_\Omega (\nabla \boldsymbol{\psi}) : \boldsymbol{\tau}_\nu dx \\
+        &- \int_\Gamma \text{jump}(\boldsymbol{\psi} \textbf{n}) \cdot \text{avg}(\boldsymbol{\tau}_\nu) dS
+        - \int_\Gamma \text{avg}(\nu_h)\big(\text{jump}(\bar{\textbf{u}} \textbf{n}) + \text{jump}(\bar{\textbf{u}} \textbf{n})^T\big) \cdot \text{avg}(\nabla \boldsymbol{\psi}) dS \\
+        &+ \int_\Gamma \sigma \text{avg}(\nu_h) \big(\text{jump}(\bar{\textbf{u}} \textbf{n}) + \text{jump}(\bar{\textbf{u}} \textbf{n})^T\big) \cdot \text{jump}(\boldsymbol{\psi} \textbf{n}) dS
 
     where :math:`\sigma` is a penalty parameter,
     see Epshteyn and Riviere (2007).
+
+    If option :attr:`.ModelOptions.include_grad_div_viscosity_term` is ``False``,
+    we use viscous stress :math:`\boldsymbol{\tau}_\nu = \nu_h \nabla \bar{\textbf{u}}`.
+    In this case the weak form is
+
+    .. math::
+        \int_\Omega -\nabla \cdot \boldsymbol{\tau}_\nu \cdot \boldsymbol{\psi} dx
+        =& \int_\Omega (\nabla \boldsymbol{\psi}) : \boldsymbol{\tau}_\nu dx \\
+        &- \int_\Gamma \text{jump}(\boldsymbol{\psi} \textbf{n}) \cdot \text{avg}(\boldsymbol{\tau}_\nu) dS
+        - \int_\Gamma \text{avg}(\nu_h)\text{jump}(\bar{\textbf{u}} \textbf{n}) \cdot \text{avg}(\nabla \boldsymbol{\psi}) dS \\
+        &+ \int_\Gamma \sigma \text{avg}(\nu_h) \text{jump}(\bar{\textbf{u}} \textbf{n}) \cdot \text{jump}(\boldsymbol{\psi} \textbf{n}) dS
+
+    If option :attr:`.ModelOptions.include_grad_depth_viscosity_term` is ``True``, we also include
+    the term
+
+    .. math::
+        \boldsymbol{\tau}_{\nabla H} = - \frac{\nu_h \nabla(H)}{H} \cdot ( \nabla \bar{\textbf{u}} + (\nabla \bar{\textbf{u}})^T )
+
+    as a source term.
 
     Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
     interior penalty Galerkin methods. Journal of Computational and Applied
@@ -594,7 +674,7 @@ class InternalPressureGradientTerm(ShallowWaterMomentumTerm):
         F_{IPG} = \frac{g}{H} \int_{-h}^{\eta} (\nabla r) dz,
 
     where :math:`r` is the baroc_head.
-    Let :math:`s` denote :math:`r H`. We can then write
+    Let :math:`s` denote :math:`r/H`. We can then write
 
     .. math::
         F_{IPG} = g\nabla(\bar{s} H) - g\nabla \Big(\frac{1}{H} \Big) H^2\bar{s} - g s_{bot}\nabla h
@@ -639,9 +719,9 @@ class MomentumSourceTerm(ShallowWaterMomentumTerm):
     The weak form reads
 
     .. math::
-        F_s = \int_\Omega \sigma \cdot \psi dx
+        F_s = \int_\Omega \boldsymbol{\tau} \cdot \boldsymbol{\psi} dx
 
-    where :math:`\sigma` is a user defined vector valued :class:`Function`.
+    where :math:`\boldsymbol{\tau}` is a user defined vector valued :class:`Function`.
 
     .. note ::
         Due to the sign convention of :class:`.equation.Term`, this term is assembled to the left hand side of the equation
@@ -662,9 +742,9 @@ class ContinuitySourceTerm(ShallowWaterContinuityTerm):
     The weak form reads
 
     .. math::
-        F_s = \int_\Omega \sigma \phi dx
+        F_s = \int_\Omega S \phi dx
 
-    where :math:`\sigma` is a user defined scalar :class:`Function`.
+    where :math:`S` is a user defined scalar :class:`Function`.
 
     .. note ::
         Due to the sign convention of :class:`.equation.Term`, this term is assembled to the left hand side of the equation
@@ -765,24 +845,10 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
 
 class ModeSplit2DEquations(BaseShallowWaterEquation):
     r"""
-    2D depth-averaged shallow water equations for 2D-3D mode splitting.
+    2D depth-averaged shallow water equations for mode splitting schemes.
 
-    Here the 2D system only contains rotational external gravity waves:
-
-    .. math::
-        \frac{\partial \eta}{\partial t} + \nabla \cdot (H \bar{\textbf{u}}) = 0
-        :label: swe_freesurf_modesplit
-
-    .. math::
-        \frac{\partial \bar{\textbf{u}}}{\partial t} +
-        f\textbf{e}_z\wedge \bar{\textbf{u}} +
-        g \nabla \eta + g \frac{1}{H}\int_{-h}^\eta \nabla r dz
-        = \textbf{G},
-        :label: swe_momentum_modesplit
-
-   where :math:`\textbf{G}` is a source term containing all other terms. In
-   practice :math:`\textbf{G}` is computed as a residual of the 3D momentum
-   equation.
+    Defines the equations :eq:`swe_freesurf_modesplit` -
+    :eq:`swe_momentum_modesplit`.
     """
     def __init__(self, function_space,
                  bathymetry,
