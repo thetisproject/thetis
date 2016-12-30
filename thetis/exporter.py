@@ -17,7 +17,7 @@ def get_visu_space(fs):
     """
     Returns an appropriate VTK visualization space for a function space
 
-    :param fs: function space
+    :arg fs: function space
     :return: function space for VTK visualization
     """
     is_vector = len(fs.ufl_element().value_shape()) == 1
@@ -38,10 +38,10 @@ class ExporterBase(object):
     """
     def __init__(self, filename, outputdir, next_export_ix=0, verbose=False):
         """
-        :param string filename: output file name (without directory)
-        :param string outputdir: directory where file is stored
-        :param int next_export_ix: set the index for next output
-        :param verbose: print debug info to stdout
+        :arg string filename: output file name (without directory)
+        :arg string outputdir: directory where file is stored
+        :kwarg int next_export_ix: set the index for next output
+        :kwarg bool verbose: print debug info to stdout
         """
         self.filename = filename
         self.outputdir = create_directory(outputdir)
@@ -64,18 +64,18 @@ class VTKExporter(ExporterBase):
                  next_export_ix=0, project_output=False,
                  coords_dg=None, verbose=False):
         """
-        :param fs_visu: function space where input function will be cast
+        :arg fs_visu: function space where input function will be cast
             before exporting
-        :param func_name: name of the function
-        :param outputdir: output directory
-        :param filename: name of the pvd file
-        :kwarg next_export_ix: index for next export (default 0)
-        :kwarg project_output: project function to output space instead of
+        :arg func_name: name of the function
+        :arg outputdir: output directory
+        :arg filename: name of the pvd file
+        :kwarg int next_export_ix: index for next export (default 0)
+        :kwarg bool project_output: project function to output space instead of
             interpolating
-        :kwarg coords_dg: Discontinuous coordinate field. Needed to avoid
+        :kwarg bool coords_dg: Discontinuous coordinate field. Needed to avoid
             allocating new coordinate field in case of discontinuous export
             functions.
-        :kwarg verbose: print debug info to stdout
+        :kwarg bool verbose: print debug info to stdout
         """
         super(VTKExporter, self).__init__(filename, outputdir, next_export_ix,
                                           verbose)
@@ -318,13 +318,13 @@ class HDF5Exporter(ExporterBase):
         """
         Create exporter object for given function.
 
-        :param function_space: space where the exported functions belong
+        :arg function_space: space where the exported functions belong
         :type function_space: :class:`FunctionSpace`
-        :param string outputdir: directory where outputs will be stored
-        :param string filename_prefix: prefix of output filename. Filename is
+        :arg string outputdir: directory where outputs will be stored
+        :arg string filename_prefix: prefix of output filename. Filename is
             prefix_nnnnn.h5 where nnnnn is the export number.
-        :kwarg next_export_ix: index for next export (default 0)
-        :kwarg verbose: print debug info to stdout
+        :kwarg int next_export_ix: index for next export (default 0)
+        :kwarg bool verbose: print debug info to stdout
         """
         super(HDF5Exporter, self).__init__(filename_prefix, outputdir,
                                            next_export_ix, verbose)
@@ -334,7 +334,7 @@ class HDF5Exporter(ExporterBase):
         """
         Generate file name 'prefix_nnnnn.h5' for i-th export
 
-        :param int iexport: export index >= 0
+        :arg int iexport: export index >= 0
         """
         filename = '{0:s}_{1:05d}'.format(self.filename, iexport)
         return os.path.join(self.outputdir, filename)
@@ -343,8 +343,8 @@ class HDF5Exporter(ExporterBase):
         """
         Export function to disk using the specified export index number
 
-        :param int iexport: export index >= 0
-        :param function: :class:`Function` to export
+        :arg int iexport: export index >= 0
+        :arg function: :class:`Function` to export
         """
         assert function.function_space() == self.function_space,\
             'Function space does not match'
@@ -361,7 +361,7 @@ class HDF5Exporter(ExporterBase):
 
         Increments export index by 1.
 
-        :param function: :class:`Function` to export
+        :arg function: :class:`Function` to export
         """
         self.export_as_index(self.next_export_ix, function)
 
@@ -369,8 +369,8 @@ class HDF5Exporter(ExporterBase):
         """
         Loads nodal values from disk and assigns to the given function
 
-        :param int iexport: export index >= 0
-        :param function: target :class:`Function`
+        :arg int iexport: export index >= 0
+        :arg function: target :class:`Function`
         """
         assert function.function_space() == self.function_space,\
             'Function space does not match'
@@ -400,14 +400,14 @@ class ExportManager(object):
     def __init__(self, outputdir, fields_to_export, functions, field_metadata,
                  export_type='vtk', next_export_ix=0, verbose=False):
         """
-        :param string outputdir: directory where files are stored
-        :param fields_to_export: list of fields to export
+        :arg string outputdir: directory where files are stored
+        :arg fields_to_export: list of fields to export
         :type fields_to_export: list of strings
-        :param functions: dict that contains all existing :class:`Function` s
-        :param field_metadata: dict of all field metadata.
+        :arg functions: dict that contains all existing :class:`Function` s
+        :arg field_metadata: dict of all field metadata.
             See :mod:`.field_defs`
-        :param string export_type: export format, one of 'vtk', 'hdf5', 'numpy'
-        :kwarg next_export_ix: index for next export (default 0)
+        :arg string export_type: export format, one of 'vtk', 'hdf5', 'numpy'
+        :kwarg int next_export_ix: index for next export (default 0)
         :kwarg bool verbose: print debug info to stdout
         """
         self.outputdir = outputdir
@@ -488,7 +488,7 @@ class ExportManager(object):
 
         Bathymetry does not vary in time so this only needs to be called once.
 
-        :param bathymetry_2d: 2D bathymetry :class:`Function`
+        :arg bathymetry_2d: 2D bathymetry :class:`Function`
         """
         bathfile = File(os.path.join(self.outputdir, 'bath.pvd'))
         bathfile.write(bathymetry_2d)

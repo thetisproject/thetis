@@ -18,9 +18,9 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
     """
     def __init__(self, solver, options, fields):
         """
-        :param solver: :class:`.FlowSolver` object
-        :param options: :class:`.ModelOptions` object
-        :param fields: :class:`.FieldDict` object
+        :arg solver: :class:`.FlowSolver` object
+        :arg options: :class:`.ModelOptions` object
+        :arg fields: :class:`.FieldDict` object
         """
         # TODO remove option, field args as these are members of solver
         self.solver = solver
@@ -95,7 +95,7 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
         """
         Updates turbulence related fields
 
-        :param t: simulation time
+        :arg t: simulation time
         """
         if self.options.use_turbulence:
             with timed_stage('turbulence'):
@@ -172,7 +172,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
 
     def __init__(self, solver):
         """
-        :param solver: :class:`.FlowSolver` object
+        :arg solver: :class:`.FlowSolver` object
         """
         super(CoupledTimeIntegrator, self).__init__(solver,
                                                     solver.options,
@@ -359,10 +359,10 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         """
         Set time step for the coupled time integrator
 
-        :param dt: Time step. This is the master (macro) time step used to
+        :arg dt: Time step. This is the master (macro) time step used to
             march the 3D equations.
         :type dt: float
-        :param dt_2d: Time step for 2D equations. For constency :attr:`dt_2d`
+        :arg dt_2d: Time step for 2D equations. For constency :attr:`dt_2d`
             must be an integer fraction of :attr:`dt`. If 2D solver is implicit
             use set :attr:`dt_2d` equal to :attr:`dt`.
         :type dt_2d: float
@@ -500,7 +500,7 @@ class CoupledERKALE(CoupledTimeIntegrator):
         """
         Begin mesh velocity computation by storing current elevation field
 
-        :param i_stage: state of the Runge-Kutta iteration
+        :arg i_stage: state of the Runge-Kutta iteration
         """
         if i_stage == 0:
             fields = self.solver.fields
@@ -514,7 +514,7 @@ class CoupledERKALE(CoupledTimeIntegrator):
         Mesh velocity is solved from the Runge-Kutta coefficients of the
         implicit 2D solver.
 
-        :param i_stage: state of the Runge-Kutta iteration
+        :arg i_stage: state of the Runge-Kutta iteration
         """
         fields = self.solver.fields
 
@@ -541,14 +541,14 @@ class CoupledERKALE(CoupledTimeIntegrator):
         """
         Advances the equations for one time step
 
-        :param t: simulation time
+        :arg t: simulation time
         :type t: float
-        :param dt: time step
+        :arg dt: time step
         :type dt: float
-        :param update_forcings: Optional user-defined function that takes
+        :kwarg update_forcings: Optional user-defined function that takes
             simulation time and updates time-dependent boundary conditions of
             the 2D equations.
-        :param update_forcings3d: Optional user defined function that updates
+        :kwarg update_forcings3d: Optional user defined function that updates
             boundary conditions of the 3D equations
         """
         # TODO remove dt from args to comply with timeintegrator API
@@ -653,7 +653,7 @@ class CoupledIMEXALE(CoupledTimeIntegrator):
         """
         Begin mesh velocity computation by storing current elevation field
 
-        :param i_stage: state of the Runge-Kutta iteration
+        :arg i_stage: state of the Runge-Kutta iteration
         """
         if i_stage == 0:
             fields = self.solver.fields
@@ -667,7 +667,7 @@ class CoupledIMEXALE(CoupledTimeIntegrator):
         Mesh velocity is solved from the Runge-Kutta coefficients of the
         implicit 2D solver.
 
-        :param i_stage: state of the Runge-Kutta iteration
+        :arg i_stage: state of the Runge-Kutta iteration
         """
         # TODO remove dt from args to comply with timeintegrator API
         fields = self.solver.fields
@@ -934,7 +934,7 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
 
         Must be called before updating the 2D mode.
 
-        :param istage: stage of the Runge-Kutta iteration
+        :arg istage: stage of the Runge-Kutta iteration
         :type istage: int
         """
         if self.options.use_ale_moving_mesh:
@@ -947,7 +947,7 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
 
         Must be called after updating the 2D mode.
 
-        :param istage: stage of the Runge-Kutta iteration
+        :arg istage: stage of the Runge-Kutta iteration
         :type istage: int
         """
         if self.options.use_ale_moving_mesh:

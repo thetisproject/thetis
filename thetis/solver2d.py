@@ -69,11 +69,11 @@ class FlowSolver2d(FrozenClass):
     """
     def __init__(self, mesh2d, bathymetry_2d, options=None):
         """
-        :param mesh2d: :class:`Mesh` object of the 2D mesh
-        :param bathymetry_2d: Bathymetry of the domain. Bathymetry stands for
+        :arg mesh2d: :class:`Mesh` object of the 2D mesh
+        :arg bathymetry_2d: Bathymetry of the domain. Bathymetry stands for
             the mean water depth (positive downwards).
         :type bathymetry_2d: :class:`Function`
-        :param options: Model options (optional). Model options can also be
+        :kwarg options: Model options (optional). Model options can also be
             changed directly via the :attr:`.options` class property.
         :type options: :class:`.ModelOptions` instance
         """
@@ -136,7 +136,7 @@ class FlowSolver2d(FrozenClass):
         Assumes velocity scale :math:`U = \sqrt{g H} + U_{scale}` where
         :math:`U_{scale}` is estimated advective velocity.
 
-        :param u_scale: User provided maximum advective velocity scale
+        :kwarg u_scale: User provided maximum advective velocity scale
         :type u_scale: float or :class:`Constant`
         """
         csize = self.fields.h_elem_size_2d
@@ -163,7 +163,7 @@ class FlowSolver2d(FrozenClass):
         Uses ``options.dt`` if set, otherwise sets the maximum time step
         allowed by the CFL condition (see :meth:`.compute_time_step`).
 
-        :param float alpha: CFL number scaling factor
+        :kwarg float alpha: CFL number scaling factor
         """
         # TODO revisit math alpha is OBSOLETE
         self.dt = self.options.dt
@@ -398,9 +398,9 @@ class FlowSolver2d(FrozenClass):
         """
         Assigns initial conditions
 
-        :param elev: Initial condition for water elevation
+        :kwarg elev: Initial condition for water elevation
         :type elev: scalar :class:`Function`, :class:`Constant`, or an expression
-        :param uv: Initial condition for depth averaged velocity
+        :kwarg uv: Initial condition for depth averaged velocity
         :type uv: vector valued :class:`Function`, :class:`Constant`, or an expression
         """
         if not self._initialized:
@@ -418,7 +418,7 @@ class FlowSolver2d(FrozenClass):
         Adds callback to solver object
 
         :arg callback: :class:`.DiagnosticCallback` instance
-        :arg string eval_interval: Determines when callback will be evaluated,
+        :kwarg string eval_interval: Determines when callback will be evaluated,
             either 'export' or 'timestep' for evaluating after each export or
             time step.
         """
@@ -447,12 +447,12 @@ class FlowSolver2d(FrozenClass):
         Currently hdf5 field import only works for the same number of MPI
         processes.
 
-        :param int i_export: export index to load
-        :param string outputdir: (optional) directory where files are read from.
+        :arg int i_export: export index to load
+        :kwarg string outputdir: (optional) directory where files are read from.
             By default ``options.outputdir``.
-        :param float t: simulation time. Overrides the time stamp stored in the
+        :kwarg float t: simulation time. Overrides the time stamp stored in the
             hdf5 files.
-        :param int iteration: Overrides the iteration count in the hdf5 files.
+        :kwarg int iteration: Overrides the iteration count in the hdf5 files.
         """
         if not self._initialized:
             self.initialize()
@@ -495,7 +495,7 @@ class FlowSolver2d(FrozenClass):
         """
         Print a summary of the model state on stdout
 
-        :param float cputime: Measured CPU time
+        :arg float cputime: Measured CPU time
         """
         norm_h = norm(self.fields.solution_2d.split()[1])
         norm_u = norm(self.fields.solution_2d.split()[0])
@@ -515,10 +515,10 @@ class FlowSolver2d(FrozenClass):
         Iterates over the time loop until time ``options.t_end`` is reached.
         Exports fields to disk on ``options.t_export`` intervals.
 
-        :param update_forcings: User-defined function that takes simulation
+        :kwarg update_forcings: User-defined function that takes simulation
             time as an argument and updates time-dependent boundary conditions
             (if any).
-        :param export_func: User-defined function (with no arguments) that will
+        :kwarg export_func: User-defined function (with no arguments) that will
             be called on every export.
         """
         # TODO I think export function is obsolete as callbacks are in place

@@ -17,9 +17,9 @@ class TimeIntegratorBase(object):
         """
         Advances equations for one time step
 
-        :param t: simulation time
+        :arg t: simulation time
         :type t: float
-        :param update_forcings: user-defined function that takes the simulation
+        :arg update_forcings: user-defined function that takes the simulation
             time and updates any time-dependent boundary conditions
         """
         pass
@@ -29,7 +29,7 @@ class TimeIntegratorBase(object):
         """
         Initialize the time integrator
 
-        :param init_solution: initial solution
+        :arg init_solution: initial solution
         """
         pass
 
@@ -41,15 +41,13 @@ class TimeIntegrator(TimeIntegratorBase):
     # TODO add abstract property cfl_coeff
     def __init__(self, equation, solution, fields, dt, solver_parameters={}):
         """
-        :param equation: the equation to solve
+        :arg equation: the equation to solve
         :type equation: :class:`Equation` object
-        :param solution: :class:`Function` where solution will be stored
-        :param fields: Dictionary of fields that are passed to the equation
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
-        :param dt: time step in seconds
-        :type dt: float
-        :param solver_parameters: PETSc solver options
-        :type solver_parameters: dict
+        :arg float dt: time step in seconds
+        :kwarg dict solver_parameters: PETSc solver options
         """
         super(TimeIntegrator, self).__init__()
 
@@ -75,17 +73,14 @@ class ForwardEuler(TimeIntegrator):
     """Standard forward Euler time integration scheme."""
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
         """
-        :param equation: the equation to solve
+        :arg equation: the equation to solve
         :type equation: :class:`Equation` object
-        :param solution: :class:`Function` where solution will be stored
-        :param fields: Dictionary of fields that are passed to the equation
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
-        :param dt: time step in seconds
-        :type dt: float
-        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :type bnd_conditions: dict
-        :param solver_parameters: PETSc solver options
-        :type solver_parameters: dict
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
         """
         super(ForwardEuler, self).__init__(equation, solution, fields, dt, solver_parameters)
         self.solution_old = Function(self.equation.function_space)
@@ -137,21 +132,16 @@ class CrankNicolson(TimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, theta=0.5, semi_implicit=False):
         """
-        :param equation: the equation to solve
+        :arg equation: the equation to solve
         :type equation: :class:`Equation` object
-        :param solution: :class:`Function` where solution will be stored
-        :param fields: Dictionary of fields that are passed to the equation
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
-        :param dt: time step in seconds
-        :type dt: float
-        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :type bnd_conditions: dict
-        :param solver_parameters: PETSc solver options
-        :type solver_parameters: dict
-        :param theta: Implicitness parameter, default 0.5
-        :type theta: float
-        :param semi_implicit: If True use a linearized semi-implicit scheme
-        :type semi_implicit: bool
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
+        :kwarg float theta: Implicitness parameter, default 0.5
+        :kwarg bool semi_implicit: If True use a linearized semi-implicit scheme
         """
         super(CrankNicolson, self).__init__(equation, solution, fields, dt, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
@@ -229,17 +219,14 @@ class SteadyState(TimeIntegrator):
     """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
         """
-        :param equation: the equation to solve
+        :arg equation: the equation to solve
         :type equation: :class:`Equation` object
-        :param solution: :class:`Function` where solution will be stored
-        :param fields: Dictionary of fields that are passed to the equation
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
-        :param dt: time step in seconds
-        :type dt: float
-        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :type bnd_conditions: dict
-        :param solver_parameters: PETSc solver options
-        :type solver_parameters: dict
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
         """
         super(SteadyState, self).__init__(equation, solution, fields, dt, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
@@ -281,27 +268,20 @@ class PressureProjectionPicard(TimeIntegrator):
                  solver_parameters_mom={}, theta=0.5, semi_implicit=False,
                  iterations=2):
         """
-        :param equation: free surface equation
+        :arg equation: free surface equation
         :type equation: :class:`Equation` object
-        :param equation_mom: momentum equation
+        :arg equation_mom: momentum equation
         :type equation_mom: :class:`Equation` object
-        :param solution: :class:`Function` where solution will be stored
-        :param fields: Dictionary of fields that are passed to the equation
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
-        :param dt: time step in seconds
-        :type dt: float
-        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :type bnd_conditions: dict
-        :param solver_parameters: PETSc solver options for pressure solver
-        :type solver_parameters: dict
-        :param solver_parameters_mom: PETSc solver options for velocity solver
-        :type solver_parameters_mom: dict
-        :param theta: Implicitness parameter, default 0.5
-        :type theta: float
-        :param semi_implicit: If True use a linearized semi-implicit scheme
-        :type semi_implicit: bool
-        :param iterations: Number of Picard iterations
-        :type iterations: int
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
+        :kwarg dict solver_parameters_mom: PETSc solver options for velocity solver
+        :kwarg float theta: Implicitness parameter, default 0.5
+        :kwarg bool semi_implicit: If True use a linearized semi-implicit scheme
+        :kwarg int iterations: Number of Picard iterations
         """
         super(PressureProjectionPicard, self).__init__(equation, solution, fields, dt, solver_parameters)
 
@@ -441,18 +421,15 @@ class LeapFrogAM3(TimeIntegrator):
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, terms_to_add='all'):
         """
-        :param equation: equation to solve
+        :arg equation: equation to solve
         :type equation: :class:`Equation` object
-        :param solution: :class:`Function` where solution will be stored
-        :param fields: Dictionary of fields that are passed to the equation
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
-        :param dt: time step in seconds
-        :type dt: float
-        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :type bnd_conditions: dict
-        :param solver_parameters: PETSc solver options
-        :type solver_parameters: dict
-        :param terms_to_add: Defines which terms of the equation are to be
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
+        :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
         """
@@ -590,18 +567,15 @@ class SSPRK22ALE(TimeIntegrator):
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, terms_to_add='all'):
         """
-        :param equation: equation to solve
+        :arg equation: equation to solve
         :type equation: :class:`Equation` object
-        :param solution: :class:`Function` where solution will be stored
-        :param fields: Dictionary of fields that are passed to the equation
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
-        :param dt: time step in seconds
-        :type dt: float
-        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :type bnd_conditions: dict
-        :param solver_parameters: PETSc solver options
-        :type solver_parameters: dict
-        :param terms_to_add: Defines which terms of the equation are to be
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
+        :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
         """
@@ -744,18 +718,15 @@ class TwoStageTrapezoid(TimeIntegrator):
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, terms_to_add='all'):
         """
-        :param equation: equation to solve
+        :arg equation: equation to solve
         :type equation: :class:`Equation` object
-        :param solution: :class:`Function` where solution will be stored
-        :param fields: Dictionary of fields that are passed to the equation
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
-        :param dt: time step in seconds
-        :type dt: float
-        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :type bnd_conditions: dict
-        :param solver_parameters: PETSc solver options
-        :type solver_parameters: dict
-        :param terms_to_add: Defines which terms of the equation are to be
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
+        :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
         """

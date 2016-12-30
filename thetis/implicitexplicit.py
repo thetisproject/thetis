@@ -82,15 +82,15 @@ class IMEXGeneric(TimeIntegrator):
                  solver_parameters={}, solver_parameters_dirk={}):
         super(IMEXGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
         """
-        :param equation: equation to solve
+        :arg equation: equation to solve
         :type equation: :class:`Equation` object
-        :param solution: :class:`Function` where solution will be stored
-        :param fields: Dictionary of fields that are passed to the equation
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
-        :param float dt: time step in seconds
-        :param dict bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :param solver_parameters: PETSc solver options for explicit solver
-        :param dict solver_parameters_dirk: PETSc solver options for implicit solver
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg solver_parameters: PETSc solver options for explicit solver
+        :kwarg dict solver_parameters_dirk: PETSc solver options for implicit solver
         """
 
         # implicit scheme

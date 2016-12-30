@@ -464,18 +464,15 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
     def __init__(self, equation, solution, fields, dt,
                  bnd_conditions=None, solver_parameters={}, terms_to_add='all'):
         """
-        :param equation: the equation to solve
+        :arg equation: the equation to solve
         :type equation: :class:`Equation` object
-        :param solution: :class:`Function` where solution will be stored
-        :param fields: Dictionary of fields that are passed to the equation
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
-        :param dt: time step in seconds
-        :type dt: float
-        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :type bnd_conditions: dict
-        :param solver_parameters: PETSc solver options
-        :type solver_parameters: dict
-        :param terms_to_add: Defines which terms of the equation are to be
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
+        :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
         """
@@ -625,18 +622,15 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, terms_to_add='all'):
         """
-        :param equation: the equation to solve
+        :arg equation: the equation to solve
         :type equation: :class:`Equation` object
-        :param solution: :class:`Function` where solution will be stored
-        :param fields: Dictionary of fields that are passed to the equation
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
-        :param dt: time step in seconds
-        :type dt: float
-        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :type bnd_conditions: dict
-        :param solver_parameters: PETSc solver options
-        :type solver_parameters: dict
-        :param terms_to_add: Defines which terms of the equation are to be
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
+        :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
         """
@@ -731,18 +725,15 @@ class ERKGenericShuOsher(TimeIntegrator):
     # TODO derive from RungeKuttaTimeIntegrator class?
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, terms_to_add='all'):
         """
-        :param equation: the equation to solve
+        :arg equation: the equation to solve
         :type equation: :class:`Equation` object
-        :param solution: :class:`Function` where solution will be stored
-        :param fields: Dictionary of fields that are passed to the equation
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
-        :param dt: time step in seconds
-        :type dt: float
-        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :type bnd_conditions: dict
-        :param solver_parameters: PETSc solver options
-        :type solver_parameters: dict
-        :param terms_to_add: Defines which terms of the equation are to be
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
+        :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
         """
@@ -817,20 +808,14 @@ class ERKGenericALE2(RungeKuttaTimeIntegrator):
 
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
         """
-        :param equation: the equation to solve
+        :arg equation: the equation to solve
         :type equation: :class:`Equation` object
-        :param solution: :class:`Function` where solution will be stored
-        :param fields: Dictionary of fields that are passed to the equation
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
-        :param dt: time step in seconds
-        :type dt: float
-        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :type bnd_conditions: dict
-        :param solver_parameters: PETSc solver options
-        :type solver_parameters: dict
-        :param terms_to_add: Defines which terms of the equation are to be
-            added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
-        :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
         """
         super(ERKGenericALE2, self).__init__(equation, solution, fields, dt, solver_parameters)
 
@@ -922,21 +907,16 @@ class ERKSemiImplicitGeneric(RungeKuttaTimeIntegrator):
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, semi_implicit=False, theta=0.5):
         """
-        :param equation: the equation to solve
+        :arg equation: the equation to solve
         :type equation: :class:`Equation` object
-        :param solution: :class:`Function` where solution will be stored
-        :param fields: Dictionary of fields that are passed to the equation
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
         :type fields: dict of :class:`Function` or :class:`Constant` objects
-        :param dt: time step in seconds
-        :type dt: float
-        :param bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :type bnd_conditions: dict
-        :param solver_parameters: PETSc solver options
-        :type solver_parameters: dict
-        :param semi_implicit: If True use a linearized semi-implicit scheme
-        :type semi_implicit: bool
-        :param theta: Implicitness parameter, default 0.5
-        :type theta: float
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
+        :kwarg bool semi_implicit: If True use a linearized semi-implicit scheme
+        :kwarg float theta: Implicitness parameter, default 0.5
         """
         super(ERKSemiImplicitGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
 

@@ -15,7 +15,7 @@ class Term(object):
     """
     def __init__(self, function_space):
         """
-        :param function_space: :class:`FunctionSpace` where the solution belongs
+        :arg function_space: :class:`FunctionSpace` where the solution belongs
             to
         """
         # define bunch of members needed to construct forms
@@ -66,7 +66,7 @@ class Equation(object):
 
     def __init__(self, function_space):
         """
-        :param function_space: :class:`FunctionSpace` where the solution belongs
+        :arg function_space: :class:`FunctionSpace` where the solution belongs
             to
         """
         self.terms = {}
@@ -92,8 +92,8 @@ class Equation(object):
         """
         Adds a term in the equation
 
-        :param term: :class:`.Term` object to add_term
-        :param string label: Assign a label to the term. Generally one of
+        :arg term: :class:`.Term` object to add_term
+        :arg string label: Assign a label to the term. Generally one of
             'implicit', 'explicit', 'source' indicating how this term should be
             treated in the time integrator.
         """

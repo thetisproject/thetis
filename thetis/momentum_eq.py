@@ -83,20 +83,17 @@ class MomentumTerm(Term):
                  nonlin=True, use_bottom_friction=False,
                  use_elevation_gradient=True):
         """
-        :param function_space: :class:`FunctionSpace` where the solution belongs
-        :param bathymetry: bathymetry of the domain
+        :arg function_space: :class:`FunctionSpace` where the solution belongs
+        :kwarg bathymetry: bathymetry of the domain
         :type bathymetry: 3D :class:`Function` or :class:`Constant`
-        :param v_elem_size: scalar :class:`Function` that defines the vertical
+        :kwarg v_elem_size: scalar :class:`Function` that defines the vertical
             element size
-        :param h_elem_size: scalar :class:`Function` that defines the horizontal
+        :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
             element size
-        :param nonlin: If False defines the linear shallow water equations
-        :type nonlin: bool
-        :param use_bottom_friction: If True includes bottom friction term
-        :type use_bottom_friction: bool
-        :param use_elevation_gradient: If True includes external pressure
+        :kwarg bool nonlin: If False defines the linear shallow water equations
+        :kwarg bool use_bottom_friction: If True includes bottom friction term
+        :kwarg bool use_elevation_gradient: If True includes external pressure
             gradient in the pressure gradient term
-        :type use_elevation_gradient: bool
         """
         super(MomentumTerm, self).__init__(function_space)
         self.bathymetry = bathymetry
@@ -676,20 +673,17 @@ class MomentumEquation(Equation):
                  nonlin=True, use_bottom_friction=False,
                  use_elevation_gradient=True):
         """
-        :param function_space: :class:`FunctionSpace` where the solution belongs
-        :param bathymetry: bathymetry of the domain
+        :arg function_space: :class:`FunctionSpace` where the solution belongs
+        :kwarg bathymetry: bathymetry of the domain
         :type bathymetry: 3D :class:`Function` or :class:`Constant`
-        :param v_elem_size: scalar :class:`Function` that defines the vertical
+        :kwarg v_elem_size: scalar :class:`Function` that defines the vertical
             element size
-        :param h_elem_size: scalar :class:`Function` that defines the horizontal
+        :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
             element size
-        :param nonlin: If False defines the linear shallow water equations
-        :type nonlin: bool
-        :param use_bottom_friction: If True includes bottom friction term
-        :type use_bottom_friction: bool
-        :param use_elevation_gradient: If True includes external pressure
+        :kwarg bool nonlin: If False defines the linear shallow water equations
+        :kwarg bool use_bottom_friction: If True includes bottom friction term
+        :kwarg bool use_elevation_gradient: If True includes external pressure
             gradient in the pressure gradient term
-        :type use_elevation_gradient: bool
         """
         # TODO remove use_elevation_gradient because it's OBSOLETE
         # TODO remove OBSOLETE ALESourceTerm

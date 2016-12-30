@@ -76,13 +76,13 @@ class FlowSolver(FrozenClass):
     def __init__(self, mesh2d, bathymetry_2d, n_layers,
                  options=None):
         """
-        :param mesh2d: :class:`Mesh` object of the 2D mesh
-        :param bathymetry_2d: Bathymetry of the domain. Bathymetry stands for
+        :arg mesh2d: :class:`Mesh` object of the 2D mesh
+        :arg bathymetry_2d: Bathymetry of the domain. Bathymetry stands for
             the mean water depth (positive downwards).
         :type bathymetry_2d: 2D :class:`Function`
-        :param int n_layers: Number of layers in the vertical direction.
+        :arg int n_layers: Number of layers in the vertical direction.
             Elements are distributed uniformly over the vertical.
-        :param options: Model options (optional). Model options can also be
+        :kwarg options: Model options (optional). Model options can also be
             changed directly via the :attr:`.options` class property.
         :type options: :class:`.ModelOptions` instance
         """
@@ -188,7 +188,7 @@ class FlowSolver(FrozenClass):
         Assumes velocity scale :math:`U = \sqrt{g H} + U_{scale}` where
         :math:`U_{scale}` is estimated advective velocity.
 
-        :param u_scale: User provided maximum advective velocity scale
+        :arg u_scale: User provided maximum advective velocity scale
         :type u_scale: float or :class:`Constant`
         """
         csize = self.fields.h_elem_size_2d
@@ -219,7 +219,7 @@ class FlowSolver(FrozenClass):
 
         where :math:`U_{scale}` is estimated horizontal advective velocity.
 
-        :param u_scale: User provided maximum horizontal velocity scale
+        :arg u_scale: User provided maximum horizontal velocity scale
         :type u_scale: float or :class:`Constant`
         """
         u = u_scale
@@ -241,7 +241,7 @@ class FlowSolver(FrozenClass):
 
         where :math:`W_{scale}` is estimated vertical advective velocity.
 
-        :param w_scale: User provided maximum vertical velocity scale
+        :arg w_scale: User provided maximum vertical velocity scale
         :type w_scale: float or :class:`Constant`
         """
         w = w_scale
@@ -805,19 +805,19 @@ class FlowSolver(FrozenClass):
         """
         Assigns initial conditions
 
-        :param elev: Initial condition for water elevation
+        :kwarg elev: Initial condition for water elevation
         :type elev: scalar 2D :class:`Function`, :class:`Constant`, or an expression
-        :param salt: Initial condition for salinity field
+        :kwarg salt: Initial condition for salinity field
         :type salt: scalar 3D :class:`Function`, :class:`Constant`, or an expression
-        :param temp: Initial condition for temperature field
+        :kwarg temp: Initial condition for temperature field
         :type temp: scalar 3D :class:`Function`, :class:`Constant`, or an expression
-        :param uv_2d: Initial condition for depth averaged velocity
+        :kwarg uv_2d: Initial condition for depth averaged velocity
         :type uv_2d: vector valued 2D :class:`Function`, :class:`Constant`, or an expression
-        :param uv_3d: Initial condition for horizontal velocity
+        :kwarg uv_3d: Initial condition for horizontal velocity
         :type uv_3d: vector valued 3D :class:`Function`, :class:`Constant`, or an expression
-        :param tke: Initial condition for turbulent kinetic energy field
+        :kwarg tke: Initial condition for turbulent kinetic energy field
         :type tke: scalar 3D :class:`Function`, :class:`Constant`, or an expression
-        :param psi: Initial condition for turbulence generic lenght scale field
+        :kwarg psi: Initial condition for turbulence generic lenght scale field
         :type psi: scalar 3D :class:`Function`, :class:`Constant`, or an expression
         """
         if not self._initialized:
@@ -861,7 +861,7 @@ class FlowSolver(FrozenClass):
         Adds callback to solver object
 
         :arg callback: :class:`.DiagnosticCallback` instance
-        :arg string eval_interval: Determines when callback will be evaluated,
+        :kwarg str eval_interval: Determines when callback will be evaluated,
             either 'export' or 'timestep' for evaluating after each export or
             time step.
         """
@@ -896,12 +896,12 @@ class FlowSolver(FrozenClass):
         Currently hdf5 field import only works for the same number of MPI
         processes.
 
-        :param int i_export: export index to load
-        :param string outputdir: (optional) directory where files are read from.
+        :arg int i_export: export index to load
+        :kwarg string outputdir: (optional) directory where files are read from.
             By default ``options.outputdir``.
-        :param float t: simulation time. Overrides the time stamp stored in the
+        :kwarg float t: simulation time. Overrides the time stamp stored in the
             hdf5 files.
-        :param int iteration: Overrides the iteration count in the hdf5 files.
+        :kwarg int iteration: Overrides the iteration count in the hdf5 files.
         """
         if not self._initialized:
             self.create_equations()
@@ -965,7 +965,7 @@ class FlowSolver(FrozenClass):
         """
         Print a summary of the model state on stdout
 
-        :param float cputime: Measured CPU time
+        :arg float cputime: Measured CPU time
         """
         norm_h = norm(self.fields.elev_2d)
         norm_u = norm(self.fields.uv_3d)
@@ -985,13 +985,13 @@ class FlowSolver(FrozenClass):
         Iterates over the time loop until time ``options.t_end`` is reached.
         Exports fields to disk on ``options.t_export`` intervals.
 
-        :param update_forcings: User-defined function that takes simulation
+        :kwarg update_forcings: User-defined function that takes simulation
             time as an argument and updates time-dependent boundary conditions
             of the 2D system (if any).
-        :param update_forcings_3d: User-defined function that takes simulation
+        :kwarg update_forcings_3d: User-defined function that takes simulation
             time as an argument and updates time-dependent boundary conditions
             of the 3D equations (if any).
-        :param export_func: User-defined function (with no arguments) that will
+        :kwarg export_func: User-defined function (with no arguments) that will
             be called on every export.
         """
         if not self._initialized:

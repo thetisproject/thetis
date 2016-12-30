@@ -165,9 +165,9 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d):
 
     Generates a uniform terrain following mesh.
 
-    :param mesh2d: 2D mesh
-    :param n_layers: number of vertical layers
-    :param bathymetry: 2D :class:`Function` of the bathymetry
+    :arg mesh2d: 2D mesh
+    :arg n_layers: number of vertical layers
+    :arg bathymetry: 2D :class:`Function` of the bathymetry
         (the depth of the domain; positive downwards)
     """
     mesh = ExtrudedMesh(mesh2d, layers=n_layers, layer_height=1.0/n_layers)
@@ -224,7 +224,7 @@ def comp_tracer_mass_3d(scalar_func):
     """
     Computes total tracer mass in the 3D domain
 
-    :param scalar_func: scalar :class:`Function` to integrate
+    :arg scalar_func: scalar :class:`Function` to integrate
     """
     val = assemble(scalar_func*dx)
     return val
@@ -234,7 +234,7 @@ def get_zcoord_from_mesh(zcoord, solver_parameters={}):
     """
     Evaluates z coordinates from the 3D mesh
 
-    :param zcoord: scalar :class:`Function` where coordinates will be stored
+    :arg zcoord: scalar :class:`Function` where coordinates will be stored
     """
     # TODO coordinates should probably be interpolated instead
     solver_parameters.setdefault('ksp_atol', 1e-12)
@@ -280,14 +280,12 @@ class VerticalVelocitySolver(object):
     def __init__(self, solution, uv, bathymetry, boundary_funcs={},
                  solver_parameters={}):
         """
-        :param solution: w :class:`Function`
-        :param uv: horizontal velocity :class:`Function`
-        :param bathymetry: bathymetry :class:`Function`
-        :param boundary_funcs: boundary conditions used in the 3D momentum
+        :arg solution: w :class:`Function`
+        :arg uv: horizontal velocity :class:`Function`
+        :arg bathymetry: bathymetry :class:`Function`
+        :kwarg dict boundary_funcs: boundary conditions used in the 3D momentum
             equation. Provides external values of uv (if any).
-        :type boundary_funcs: dict
-        :param solver_parameters: PETSc solver options
-        :type solver_parameters: dict
+        :kwarg dict solver_parameters: PETSc solver options
         """
         solver_parameters.setdefault('snes_type', 'ksponly')
         solver_parameters.setdefault('ksp_type', 'preonly')
@@ -361,15 +359,14 @@ class VerticalIntegrator(object):
                  bnd_value=Constant(0.0), average=False,
                  bathymetry=None, elevation=None, solver_parameters={}):
         """
-        :param input: 3D field to integrate
-        :param output: 3D field where the integral is stored
-        :param bottom_to_top: Defines the integration direction: If True integration is performed along the z axis, from bottom surface to top surface.
-        :param bnd_value: Value of the integral at the bottom (top) boundary if bottom_to_top is True (False)
-        :param average: If True computes the vertical average instead. Requires bathymetry and elevation fields
-        :param bathymetry: 3D field defining the bathymetry
-        :param elevation: 3D field defining the free surface elevation
-        :param solver_parameters: PETSc solver options
-        :type solver_parameters: dict
+        :arg input: 3D field to integrate
+        :arg output: 3D field where the integral is stored
+        :kwarg bottom_to_top: Defines the integration direction: If True integration is performed along the z axis, from bottom surface to top surface.
+        :kwarg bnd_value: Value of the integral at the bottom (top) boundary if bottom_to_top is True (False)
+        :kwarg average: If True computes the vertical average instead. Requires bathymetry and elevation fields
+        :kwarg bathymetry: 3D field defining the bathymetry
+        :kwarg elevation: 3D field defining the free surface elevation
+        :kwarg dict solver_parameters: PETSc solver options
         """
         solver_parameters.setdefault('snes_type', 'ksponly')
         solver_parameters.setdefault('ksp_type', 'preonly')
@@ -444,13 +441,13 @@ class DensitySolver(object):
     """
     def __init__(self, salinity, temperature, density, eos_class):
         """
-        :param salinity: water salinity field
+        :arg salinity: water salinity field
         :type salinity: :class:`Function`
-        :param temperature: water temperature field
+        :arg temperature: water temperature field
         :type temperature: :class:`Function`
-        :param density: water density field
+        :arg density: water density field
         :type density: :class:`Function`
-        :param eos_class: equation of state that defines water density
+        :arg eos_class: equation of state that defines water density
         :type eos_class: :class:`EquationOfState`
         """
         self.fs = density.function_space()
@@ -513,17 +510,15 @@ class VelocityMagnitudeSolver(object):
     def __init__(self, solution, u=None, w=None, min_val=1e-6,
                  solver_parameters={}):
         """
-        :param solution: scalar field for velocity magnitude scalar :class:`Function`
+        :arg solution: scalar field for velocity magnitude scalar :class:`Function`
         :type solution: :class:`Function`
-        :param u: horizontal velocity
+        :kwarg u: horizontal velocity
         :type u: :class:`Function`
-        :param w: horizontal velocity
+        :kwarg w: vertical velocity
         :type w: :class:`Function`
-        :param min_val: minimum value of magnitude. Minimum value of solution
+        :kwarg float min_val: minimum value of magnitude. Minimum value of solution
             will be clipped to this value
-        :type min_val: float
-        :param solver_parameters: PETSc solver options
-        :type solver_parameters: dict
+        :kwarg dict solver_parameters: PETSc solver options
 
 
         If ``u`` is None computes magnitude of (0,0,w).
@@ -601,11 +596,11 @@ class ExpandFunctionTo3d(object):
     """
     def __init__(self, input_2d, output_3d, elem_height=None):
         """
-        :param input_2d: 2D source field
+        :arg input_2d: 2D source field
         :type input_2d: :class:`Function`
-        :param output_3d: 3D target field
+        :arg output_3d: 3D target field
         :type output_3d: :class:`Function`
-        :param elem_height: scalar :class:`Function` in 3D mesh that defines
+        :kwarg elem_height: scalar :class:`Function` in 3D mesh that defines
             the vertical element size. Needed only in the case of HDiv function
             spaces.
         """
@@ -719,18 +714,16 @@ class SubFunctionExtractor(object):
                  boundary='top', elem_facet=None,
                  elem_height=None):
         """
-        :param input_3d: 3D source field
+        :arg input_3d: 3D source field
         :type input_3d: :class:`Function`
-        :param output_2d: 2D target field
+        :arg output_2d: 2D target field
         :type output_2d: :class:`Function`
-        :param boundary: 'top'|'bottom'
+        :kwarg str boundary: 'top'|'bottom'
             Defines whether to extract from the surface or bottom 3D elements
-        :type boundary: string
-        :param elem_facet: 'top'|'bottom'|'average'
+        :kwarg str elem_facet: 'top'|'bottom'|'average'
             Defines which facet of the 3D element is extracted. The 'average'
             computes mean of the top and bottom facets of the 3D element.
-        :type elem_facet: string
-        :param elem_height: scalar :class:`Function` in 2D mesh that defines
+        :kwarg elem_height: scalar :class:`Function` in 2D mesh that defines
             the vertical element size. Needed only in the case of HDiv function
             spaces.
         """
@@ -835,9 +828,9 @@ def compute_elem_height(zcoord, output):
     """
     Computes the element height on an extruded mesh.
 
-    :param zcoord: field that contains the z coordinates of the mesh
+    :arg zcoord: field that contains the z coordinates of the mesh
     :type zcoord: :class:`Function`
-    :param output: field where element height is stored
+    :arg output: field where element height is stored
     :type output: :class:`Function`
     """
     fs_in = zcoord.function_space()
@@ -874,10 +867,10 @@ def compute_bottom_drag(h_b, drag):
     .. math::
         C_D = \left( \frac{\kappa}{\ln (h_b + z_0)/z_0} \right)^2
 
-    :param h_b: the height above bed where the bottom velocity is evaluated in
+    :arg h_b: the height above bed where the bottom velocity is evaluated in
         the law-of-the-wall fit
     :type h_b: :class:`Function`
-    :param drag: field where C_D is stored
+    :arg drag: field where C_D is stored
     :type drag: :class:`Function`
     """
     # FIXME z0 should be a field, i.e. an argument to this function
@@ -893,16 +886,16 @@ def compute_bottom_friction(solver, uv_3d, uv_bottom_2d,
     """
     Updates bottom friction related fields for the 3D model
 
-    :param solver: :class:`FlowSolver` object
-    :param uv_3d: horizontal velocity
+    :arg solver: :class:`FlowSolver` object
+    :arg uv_3d: horizontal velocity
     :type uv_3d: 3D vector :class:`Function`
-    :param uv_bottom_2d: 2D bottom velocity field
+    :arg uv_bottom_2d: 2D bottom velocity field
     :type uv_bottom_2d: 2D vector :class:`Function`
-    :param z_bottom_2d: Bottom element z coordinate
+    :arg z_bottom_2d: Bottom element z coordinate
     :type z_bottom_2d: 2D scalar :class:`Function`
-    :param bathymetry_2d: Bathymetry field
+    :arg bathymetry_2d: Bathymetry field
     :type bathymetry_2d: 2D scalar :class:`Function`
-    :param bottom_drag_2d: Bottom grad field
+    :arg bottom_drag_2d: Bottom grad field
     :type bottom_drag_2d: 2D scalar :class:`Function`
     """
     # TODO all input fields could be just fetched from solver.fields ...
@@ -920,7 +913,7 @@ def get_horizontal_elem_size_2d(sol2d):
     """
     Computes horizontal element size from the 2D mesh
 
-    :param sol2d: 2D :class:`Function` where result is stored
+    :arg sol2d: 2D :class:`Function` where result is stored
     """
     p1_2d = sol2d.function_space()
     mesh = p1_2d.mesh()
@@ -936,8 +929,8 @@ def get_horizontal_elem_size_3d(sol2d, sol3d):
     Computes horizontal element size from the 2D mesh, then copies it on a 3D
     field
 
-    :param sol2d: 2D :class:`Function` for the element size field
-    :param sol3d: 3D :class:`Function` for the element size field
+    :arg sol2d: 2D :class:`Function` for the element size field
+    :arg sol3d: 3D :class:`Function` for the element size field
     """
     get_horizontal_elem_size_2d(sol2d)
     ExpandFunctionTo3d(sol2d, sol3d).solve()
@@ -958,7 +951,7 @@ class ALEMeshUpdater(object):
     """
     def __init__(self, solver):
         """
-        :param solver: :class:`FlowSolver` object
+        :arg solver: :class:`FlowSolver` object
         """
         self.solver = solver
         self.fields = solver.fields
@@ -1054,16 +1047,15 @@ class ParabolicViscosity(object):
     def __init__(self, uv_bottom, bottom_drag, bathymetry, nu,
                  solver_parameters={}):
         """
-        :param uv_bottom: bottom velocity
+        :arg uv_bottom: bottom velocity
         :type uv_bottom: 3D :class:`Function`
-        :param bottom_drag: bottom drag field
+        :arg bottom_drag: bottom drag field
         :type bottom_drag: 3D :class:`Function`
-        :param bathymetry: bathymetry field
+        :arg bathymetry: bathymetry field
         :type bathymetry: 3D :class:`Function`
-        :param nu: eddy viscosity field
+        :arg nu: eddy viscosity field
         :type nu: 3D :class:`Function`
-        :param solver_parameters: PETSc solver options
-        :type solver_parameters: dict
+        :kwarg dict solver_parameters: PETSc solver options
         """
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
@@ -1097,7 +1089,7 @@ def beta_plane_coriolis_params(latitude):
     r"""
     Computes beta plane parameters :math:`f_0,\beta` based on latitude
 
-    :param float latitude: latitude in degrees
+    :arg float latitude: latitude in degrees
     :return: f_0, beta
     :rtype: float
     """
@@ -1119,9 +1111,9 @@ def beta_plane_coriolis_function(latitude, out_function, y_offset=0.0):
     """
     Interpolates beta plane Coriolis function to a field
 
-    :param float latitude: latitude in degrees
-    :param out_function: :class:`Function` where to interpolate
-    :param float y_offset: offset (y - y_0) used in Beta-plane approximation.
+    :arg float latitude: latitude in degrees
+    :arg out_function: :class:`Function` where to interpolate
+    :kwarg float y_offset: offset (y - y_0) used in Beta-plane approximation.
         A constant in mesh coordinates.
     """
     # NOTE assumes that mesh y coordinate spans [-L_y, L_y]
@@ -1165,20 +1157,21 @@ class SmagorinskyViscosity(object):
     def __init__(self, uv, output, c_s, h_elem_size, max_val, min_val=1e-10,
                  weak_form=True, solver_parameters={}):
         """
-        :param uv_3d: horizontal velocity
+        :arg uv_3d: horizontal velocity
         :type uv_3d: 3D vector :class:`Function`
-        :param output: Smagorinsky viscosity field
+        :arg output: Smagorinsky viscosity field
         :type output: 3D scalar :class:`Function`
-        :param c_s: Smagorinsky coefficient
+        :arg c_s: Smagorinsky coefficient
         :type c_s: float or :class:`Constant`
-        :param h_elem_size: field that defines the horizontal element size
+        :arg h_elem_size: field that defines the horizontal element size
         :type h_elem_size: 3D scalar :class:`Function` or :class:`Constant`
-        :param float max_val: Maximum allowed viscosity. Viscosity will be clipped at
+        :arg float max_val: Maximum allowed viscosity. Viscosity will be clipped at
             this value.
-        :param float min_val: Minimum allowed viscosity. Viscosity will be clipped at
+        :kwarg float min_val: Minimum allowed viscosity. Viscosity will be clipped at
             this value.
-        :param bool weak_form: Compute velocity shear by integrating by parts.
+        :kwarg bool weak_form: Compute velocity shear by integrating by parts.
             Necessary for some function spaces (e.g. P0).
+        :kwarg dict solver_parameters: PETSc solver options
         """
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
@@ -1279,14 +1272,14 @@ class EquationOfState(object):
         r"""
         Computes sea water density.
 
-        :param s: Salinity expressed on the Practical Salinity Scale 1978
+        :arg s: Salinity expressed on the Practical Salinity Scale 1978
         :type s: float or numpy.array
-        :param th: Potential temperature in Celsius, referenced to pressure
+        :arg th: Potential temperature in Celsius, referenced to pressure
             p_r = 0 dbar.
         :type th: float or numpy.array
-        :param p: Pressure in decibars (1 dbar = 1e4 Pa)
+        :arg p: Pressure in decibars (1 dbar = 1e4 Pa)
         :type p: float or numpy.array
-        :param float rho0: Optional reference density. If provided computes
+        :kwarg float rho0: Optional reference density. If provided computes
             :math:`\rho' = \rho(S, Th, p) - \rho_0`
         :return: water density
         :rtype: float or numpy.array
@@ -1317,11 +1310,11 @@ class LinearEquationOfState(object):
     """
     def __init__(self, rho_ref, alpha, beta, th_ref, s_ref):
         """
-        :param float rho_ref: reference density
-        :param float alpha: thermal expansion coefficient
-        :param float beta: haline contraction coefficient
-        :param float th_ref: reference temperature
-        :param float s_ref: reference salinity
+        :arg float rho_ref: reference density
+        :arg float alpha: thermal expansion coefficient
+        :arg float beta: haline contraction coefficient
+        :arg float th_ref: reference temperature
+        :arg float s_ref: reference salinity
         """
         self.rho_ref = rho_ref
         self.alpha = alpha
@@ -1333,13 +1326,13 @@ class LinearEquationOfState(object):
         r"""
         Computes sea water density.
 
-        :param s: Salinity expressed on the Practical Salinity Scale 1978
+        :arg s: Salinity expressed on the Practical Salinity Scale 1978
         :type s: float or numpy.array
-        :param th: Potential temperature in Celsius
+        :arg th: Potential temperature in Celsius
         :type th: float or numpy.array
-        :param p: Pressure in decibars (1 dbar = 1e4 Pa)
+        :arg p: Pressure in decibars (1 dbar = 1e4 Pa)
         :type p: float or numpy.array
-        :param float rho0: Optional reference density. If provided computes
+        :kwarg float rho0: Optional reference density. If provided computes
             :math:`\rho' = \rho(S, Th, p) - \rho_0`
         :return: water density
         :rtype: float or numpy.array

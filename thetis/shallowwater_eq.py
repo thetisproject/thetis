@@ -809,17 +809,14 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
                  include_grad_div_viscosity_term=False,
                  include_grad_depth_viscosity_term=True):
         """
-        :param function_space: Mixed function space where the solution belongs
-        :param bathymetry: bathymetry of the domain
+        :arg function_space: Mixed function space where the solution belongs
+        :arg bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
-        :param nonlin: If False defines the linear shallow water equations
-        :type nonlin: bool
-        :param include_grad_div_viscosity_term: If True includes grad(nu div(u))
+        :kwarg bool nonlin: If False defines the linear shallow water equations
+        :kwarg bool include_grad_div_viscosity_term: If True includes grad(nu div(u))
             viscosity term
-        :type include_grad_div_viscosity_term: bool
-        :param include_grad_depth_viscosity_term: If True includes grad(H) term
+        :kwarg bool include_grad_depth_viscosity_term: If True includes grad(H) term
             in viscosity operator
-        :type include_grad_depth_viscosity_term: bool
         """
         super(ShallowWaterEquations, self).__init__(function_space, bathymetry, nonlin)
 
@@ -856,17 +853,14 @@ class ModeSplit2DEquations(BaseShallowWaterEquation):
                  include_grad_div_viscosity_term=False,
                  include_grad_depth_viscosity_term=True):
         """
-        :param function_space: Mixed function space where the solution belongs
-        :param bathymetry: bathymetry of the domain
+        :arg function_space: Mixed function space where the solution belongs
+        :arg bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
-        :param nonlin: If False defines the linear shallow water equations
-        :type nonlin: bool
-        :param include_grad_div_viscosity_term: If True includes grad(nu div(u))
+        :kwarg bool nonlin: If False defines the linear shallow water equations
+        :kwarg bool include_grad_div_viscosity_term: If True includes grad(nu div(u))
             viscosity term
-        :type include_grad_div_viscosity_term: bool
-        :param include_grad_depth_viscosity_term: If True includes grad(H) term
+        :kwarg bool include_grad_depth_viscosity_term: If True includes grad(H) term
             in viscosity operator
-        :type include_grad_depth_viscosity_term: bool
         """
         # TODO remove include_grad_* options as viscosity operator is omitted
         super(ModeSplit2DEquations, self).__init__(function_space, bathymetry, nonlin)
@@ -905,14 +899,13 @@ class FreeSurfaceEquation(BaseShallowWaterEquation):
                  bathymetry,
                  nonlin=True):
         """
-        :param eta_test: test function of the elevation function space
-        :param eta_space: elevation function space
-        :param u_space: velocity function space
-        :param function_space: Mixed function space where the solution belongs
-        :param bathymetry: bathymetry of the domain
+        :arg eta_test: test function of the elevation function space
+        :arg eta_space: elevation function space
+        :arg u_space: velocity function space
+        :arg function_space: Mixed function space where the solution belongs
+        :arg bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
-        :param nonlin: If False defines the linear shallow water equations
-        :type nonlin: bool
+        :kwarg bool nonlin: If False defines the linear shallow water equations
         """
         super(FreeSurfaceEquation, self).__init__(eta_space, bathymetry, nonlin)
         self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, nonlin)
@@ -936,20 +929,17 @@ class ShallowWaterMomentumEquation(BaseShallowWaterEquation):
                  include_grad_div_viscosity_term=False,
                  include_grad_depth_viscosity_term=True):
         """
-        :param eta_test: test function of the elevation function space
-        :param eta_space: elevation function space
-        :param u_space: velocity function space
-        :param function_space: Mixed function space where the solution belongs
-        :param bathymetry: bathymetry of the domain
+        :arg eta_test: test function of the elevation function space
+        :arg eta_space: elevation function space
+        :arg u_space: velocity function space
+        :arg function_space: Mixed function space where the solution belongs
+        :arg bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
-        :param nonlin: If False defines the linear shallow water equations
-        :type nonlin: bool
-        :param include_grad_div_viscosity_term: If True includes grad(nu div(u))
+        :kwarg bool nonlin: If False defines the linear shallow water equations
+        :kwarg bool include_grad_div_viscosity_term: If True includes grad(nu div(u))
             viscosity term
-        :type include_grad_div_viscosity_term: bool
-        :param include_grad_depth_viscosity_term: If True includes grad(H) term
+        :kwarg bool include_grad_depth_viscosity_term: If True includes grad(H) term
             in viscosity operator
-        :type include_grad_depth_viscosity_term: bool
         """
         super(ShallowWaterMomentumEquation, self).__init__(u_space, bathymetry, nonlin)
         self.add_momentum_terms(eta_test, u_space, eta_space,

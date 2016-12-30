@@ -1,7 +1,6 @@
 """
 This file defines all options of the 2D/3D models excluding field values.
 
-Tuomas Karna 2015-10-17
 """
 from __future__ import absolute_import
 from .utility import *

@@ -16,9 +16,9 @@ def assert_function_space(fs, family, degree):
     If the function space lies on an extruded mesh, checks both spaces of the
     outer product.
 
-    :param fs: function space
-    :param string family: name of element family
-    :param int degree: polynomial degree of the function space
+    :arg fs: function space
+    :arg string family: name of element family
+    :arg int degree: polynomial degree of the function space
     """
     ufl_elem = fs.ufl_element()
     if isinstance(ufl_elem, ufl.VectorElement):
@@ -57,7 +57,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
     """
     def __init__(self, p1dg_space):
         """
-        :param p1dg_space: P1DG function space
+        :arg p1dg_space: P1DG function space
         """
 
         assert_function_space(p1dg_space, 'Discontinuous Lagrange', 1)
@@ -69,7 +69,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         """
         Re-compute element centroid values
 
-        :param field: :class:`Function` to limit
+        :arg field: :class:`Function` to limit
         """
         tri = TrialFunction(self.P0)
         test = TestFunction(self.P0)
@@ -82,7 +82,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         """
         Re-compute min/max values of all neighbouring centroids
 
-        :param field: :class:`Function` to limit
+        :arg field: :class:`Function` to limit
         """
         # Call general-purpose bound computation.
         super(VertexBasedP1DGLimiter, self).compute_bounds(field)
@@ -138,7 +138,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         """
         Applies the limiter on the given field (in place)
 
-        :param field: :class:`Function` to limit
+        :arg field: :class:`Function` to limit
         """
         with timed_stage('limiter'):
             super(VertexBasedP1DGLimiter, self).apply(field)

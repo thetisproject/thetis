@@ -39,16 +39,15 @@ class TracerTerm(Term):
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
                  use_symmetric_surf_bnd=True):
         """
-        :param function_space: :class:`FunctionSpace` where the solution belongs
-        :param bathymetry: bathymetry of the domain
+        :arg function_space: :class:`FunctionSpace` where the solution belongs
+        :kwarg bathymetry: bathymetry of the domain
         :type bathymetry: 3D :class:`Function` or :class:`Constant`
-        :param v_elem_size: scalar :class:`Function` that defines the vertical
+        :kwarg v_elem_size: scalar :class:`Function` that defines the vertical
             element size
-        :param h_elem_size: scalar :class:`Function` that defines the horizontal
+        :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
             element size
-        :param use_symmetric_surf_bnd: If True, use symmetric surface boundary
+        :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
             condition in the horizontal advection term
-        :type use_symmetric_surf_bnd: bool
         """
         super(TracerTerm, self).__init__(function_space)
         self.bathymetry = bathymetry
@@ -77,12 +76,12 @@ class TracerTerm(Term):
         Volume flux (flux) and normal velocity (un) are defined positive out of
         the domain.
 
-        :param c_in: Internal value of tracer
-        :param uv_in: Internal value of horizontal velocity
-        :param elev_in: Internal value of elevation
-        :param bnd_id: boundary id
+        :arg c_in: Internal value of tracer
+        :arg uv_in: Internal value of horizontal velocity
+        :arg elev_in: Internal value of elevation
+        :arg bnd_id: boundary id
         :type bnd_id: int
-        :param bnd_conditions: dict of boundary conditions:
+        :arg bnd_conditions: dict of boundary conditions:
             ``{bnd_id: {field: value, ...}, ...}``
         """
         funcs = bnd_conditions.get(bnd_id)
@@ -426,16 +425,15 @@ class TracerEquation(Equation):
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
                  use_symmetric_surf_bnd=True):
         """
-        :param function_space: :class:`FunctionSpace` where the solution belongs
-        :param bathymetry: bathymetry of the domain
+        :arg function_space: :class:`FunctionSpace` where the solution belongs
+        :kwarg bathymetry: bathymetry of the domain
         :type bathymetry: 3D :class:`Function` or :class:`Constant`
-        :param v_elem_size: scalar :class:`Function` that defines the vertical
+        :kwarg v_elem_size: scalar :class:`Function` that defines the vertical
             element size
-        :param h_elem_size: scalar :class:`Function` that defines the horizontal
+        :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
             element size
-        :param use_symmetric_surf_bnd: If True, use symmetric surface boundary
+        :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
             condition in the horizontal advection term
-        :type use_symmetric_surf_bnd: bool
         """
         super(TracerEquation, self).__init__(function_space)
 

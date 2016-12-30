@@ -238,7 +238,7 @@ class GLSModelOptions(AttrDict):
         """
         Applies default parameters for given closure name
 
-        :param closure_name: name of the turbulence closure model
+        :arg closure_name: name of the turbulence closure model
         :type closure_name: string
 
         Sets default values for parameters p, m, n, schmidt_nb_tke,
@@ -335,9 +335,9 @@ class P1Average(object):
     """
     def __init__(self, p0, p1, p1dg):
         """
-        :param p0: P0 function space
-        :param p1: P1 function space
-        :param p1dg: P1DG function space
+        :arg p0: P0 function space
+        :arg p1: P1 function space
+        :arg p1dg: P1DG function space
         """
         self.p0 = p0
         self.p1 = p1
@@ -394,9 +394,10 @@ class VerticalGradSolver(object):
     # TODO add weak form of the problem
     def __init__(self, source, solution, solver_parameters=None):
         """
-        :param source: A :class:`Function` or expression to differentiate.
-        :param solution: A :class:`Function` where the solution will be stored.
+        :arg source: A :class:`Function` or expression to differentiate.
+        :arg solution: A :class:`Function` where the solution will be stored.
             Must be in P0 space.
+        :kwarg dict solver_parameters: PETSc solver options
         """
         if solver_parameters is None:
             solver_parameters = {}
@@ -438,8 +439,8 @@ class SmoothVerticalGradSolver(object):
     """
     def __init__(self, source, solution):
         """
-        :param source: A :class:`Function` or expression to differentiate.
-        :param solution: A :class:`Function` where the solution will be stored.
+        :arg source: A :class:`Function` or expression to differentiate.
+        :arg solution: A :class:`Function` where the solution will be stored.
         """
         self.source = source
         self.solution = solution
@@ -494,21 +495,19 @@ class ShearFrequencySolver(object):
     """
     def __init__(self, uv, m2, mu, mv, mu_tmp, relaxation=1.0, minval=1e-12):
         """
-        :param uv: horizontal velocity field
+        :arg uv: horizontal velocity field
         :type uv: :class:`Function`
-        :param m2: :math:`M^2` field
+        :arg m2: :math:`M^2` field
         :type m2: :class:`Function`
-        :param mu: field for x component of :math:`M^2`
+        :arg mu: field for x component of :math:`M^2`
         :type mu: :class:`Function`
-        :param mv: field for y component of :math:`M^2`
+        :arg mv: field for y component of :math:`M^2`
         :type mv: :class:`Function`
-        :param mu_tmp: temporary field
+        :arg mu_tmp: temporary field
         :type mu_tmp: :class:`Function`
-        :param relaxation: relaxation coefficient for mixing old and new values
+        :kwarg float relaxation: relaxation coefficient for mixing old and new values
             M2 = relaxation*M2_new + (1-relaxation)*M2_old
-        :type relaxation: float
-        :param minval: minimum value for :math:`M^2`
-        :type minval: float
+        :kwarg float minval: minimum value for :math:`M^2`
         """
         # TODO store the tmp etc fields in this class
         self.mu = mu
@@ -527,7 +526,7 @@ class ShearFrequencySolver(object):
         """
         Computes buoyancy frequency
 
-        :param init_solve: Set to True if solving for the first time, skips
+        :kwarg bool init_solve: Set to True if solving for the first time, skips
             relaxation
         """
         # TODO init_solve can be omitted with a boolean property
@@ -554,17 +553,15 @@ class BuoyFrequencySolver(object):
     """
     def __init__(self, rho, n2, n2_tmp, relaxation=1.0, minval=1e-12):
         """
-        :param rho: water density field
+        :arg rho: water density field
         :type rho: :class:`Function`
-        :param n2: :math:`N^2` field
+        :arg n2: :math:`N^2` field
         :type n2: :class:`Function`
-        :param n2_tmp: temporary field
+        :arg n2_tmp: temporary field
         :type n2_tmp: :class:`Function`
-        :param relaxation: relaxation coefficient for mixing old and new values
-            N2 = relaxation*N2_new + (1-relaxation)*N2_old
-        :type relaxation: float
-        :param minval: minimum value for :math:`N^2`
-        :type minval: float
+        :kwarg float relaxation: relaxation coefficient for mixing old and new
+            values N2 = relaxation*N2_new + (1-relaxation)*N2_old
+        :kwarg float minval: minimum value for :math:`N^2`
         """
         # TODO store the tmp etc fields in this class
         self._no_op = False
@@ -589,7 +586,7 @@ class BuoyFrequencySolver(object):
         """
         Computes buoyancy frequency
 
-        :param init_solve: Set to True if solving for the first time, skips
+        :kwarg bool init_solve: Set to True if solving for the first time, skips
             relaxation
         """
         # TODO init_solve can be omitted with a boolean property
@@ -610,27 +607,28 @@ class GenericLengthScaleModel(object):
                  eddy_diffusivity, eddy_viscosity,
                  n2, m2, options=None):
         """
-        :param solver: FlowSolver object
-        :param k_field: turbulent kinetic energy (TKE) field
+        :arg solver: FlowSolver object
+        :arg k_field: turbulent kinetic energy (TKE) field
         :type k_field: :class:`Function`
-        :param psi_field: generic length scale field
+        :arg psi_field: generic length scale field
         :type psi_field: :class:`Function`
-        :param uv_field: horizontal velocity field
+        :arg uv_field: horizontal velocity field
         :type uv_field: :class:`Function`
-        :param rho_field: water density field
+        :arg rho_field: water density field
         :type rho_field: :class:`Function`
-        :param epsilon_field: TKE dissipation rate field
-        :type epsilon_field: :class:`Function`
-        :param l_field: turbulence length scale field
+        :arg l_field: turbulence length scale field
         :type l_field: :class:`Function`
-        :param eddy_viscosity: eddy viscosity field
-        :type eddy_viscosity: :class:`Function`
-        :param eddy_diffusivity: eddy diffusivity field
+        :arg epsilon_field: TKE dissipation rate field
+        :type epsilon_field: :class:`Function`
+        :arg eddy_diffusivity: eddy diffusivity field
         :type eddy_diffusivity: :class:`Function`
-        :param n2: field for buoyancy frequency squared
+        :arg eddy_viscosity: eddy viscosity field
+        :type eddy_viscosity: :class:`Function`
+        :arg n2: field for buoyancy frequency squared
         :type n2: :class:`Function`
-        :param m2: field for vertical shear frequency squared
+        :arg m2: field for vertical shear frequency squared
         :type m2: :class:`Function`
+        :kwarg options: GLS model options
         """
         # TODO this could be simplified by getting fields from solver.fields
         self.solver = solver
@@ -854,13 +852,13 @@ class TKESourceTerm(TracerTerm):
     def __init__(self, function_space, gls_model,
                  bathymetry=None, v_elem_size=None, h_elem_size=None):
         """
-        :param function_space: :class:`FunctionSpace` where the solution belongs
-        :param gls_model: :class:`.GenericLengthScaleModel` object
-        :param bathymetry: bathymetry of the domain
+        :arg function_space: :class:`FunctionSpace` where the solution belongs
+        :arg gls_model: :class:`.GenericLengthScaleModel` object
+        :kwarg bathymetry: bathymetry of the domain
         :type bathymetry: 3D :class:`Function` or :class:`Constant`
-        :param v_elem_size: scalar :class:`Function` that defines the vertical
+        :kwarg v_elem_size: scalar :class:`Function` that defines the vertical
             element size
-        :param h_elem_size: scalar :class:`Function` that defines the horizontal
+        :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
             element size
         """
         super(TKESourceTerm, self).__init__(function_space,
@@ -919,13 +917,13 @@ class PsiSourceTerm(TracerTerm):
     def __init__(self, function_space, gls_model,
                  bathymetry=None, v_elem_size=None, h_elem_size=None):
         """
-        :param function_space: :class:`FunctionSpace` where the solution belongs
-        :param gls_model: :class:`.GenericLengthScaleModel` object
-        :param bathymetry: bathymetry of the domain
+        :arg function_space: :class:`FunctionSpace` where the solution belongs
+        :arg gls_model: :class:`.GenericLengthScaleModel` object
+        :kwarg bathymetry: bathymetry of the domain
         :type bathymetry: 3D :class:`Function` or :class:`Constant`
-        :param v_elem_size: scalar :class:`Function` that defines the vertical
+        :kwarg v_elem_size: scalar :class:`Function` that defines the vertical
             element size
-        :param h_elem_size: scalar :class:`Function` that defines the horizontal
+        :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
             element size
         """
         super(PsiSourceTerm, self).__init__(function_space,
@@ -1001,13 +999,13 @@ class GLSVerticalDiffusionTerm(VerticalDiffusionTerm):
     def __init__(self, function_space, schmidt_nb,
                  bathymetry=None, v_elem_size=None, h_elem_size=None):
         """
-        :param function_space: :class:`FunctionSpace` where the solution belongs
-        :param schmidt_nb: the Schmidt number of TKE or Psi
-        :param bathymetry: bathymetry of the domain
+        :arg function_space: :class:`FunctionSpace` where the solution belongs
+        :arg schmidt_nb: the Schmidt number of TKE or Psi
+        :kwarg bathymetry: bathymetry of the domain
         :type bathymetry: 3D :class:`Function` or :class:`Constant`
-        :param v_elem_size: scalar :class:`Function` that defines the vertical
+        :kwarg v_elem_size: scalar :class:`Function` that defines the vertical
             element size
-        :param h_elem_size: scalar :class:`Function` that defines the horizontal
+        :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
             element size
         """
         super(GLSVerticalDiffusionTerm, self).__init__(function_space,
@@ -1030,13 +1028,13 @@ class TKEEquation(Equation):
     def __init__(self, function_space, gls_model,
                  bathymetry=None, v_elem_size=None, h_elem_size=None):
         """
-        :param function_space: :class:`FunctionSpace` where the solution belongs
-        :param gls_model: :class:`.GenericLengthScaleModel` object
-        :param bathymetry: bathymetry of the domain
+        :arg function_space: :class:`FunctionSpace` where the solution belongs
+        :arg gls_model: :class:`.GenericLengthScaleModel` object
+        :kwarg bathymetry: bathymetry of the domain
         :type bathymetry: 3D :class:`Function` or :class:`Constant`
-        :param v_elem_size: scalar :class:`Function` that defines the vertical
+        :kwarg v_elem_size: scalar :class:`Function` that defines the vertical
             element size
-        :param h_elem_size: scalar :class:`Function` that defines the horizontal
+        :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
             element size
         """
         super(TKEEquation, self).__init__(function_space)
@@ -1060,13 +1058,13 @@ class PsiEquation(Equation):
     def __init__(self, function_space, gls_model,
                  bathymetry=None, v_elem_size=None, h_elem_size=None):
         """
-        :param function_space: :class:`FunctionSpace` where the solution belongs
-        :param gls_model: :class:`.GenericLengthScaleModel` object
-        :param bathymetry: bathymetry of the domain
+        :arg function_space: :class:`FunctionSpace` where the solution belongs
+        :arg gls_model: :class:`.GenericLengthScaleModel` object
+        :kwarg bathymetry: bathymetry of the domain
         :type bathymetry: 3D :class:`Function` or :class:`Constant`
-        :param v_elem_size: scalar :class:`Function` that defines the vertical
+        :kwarg v_elem_size: scalar :class:`Function` that defines the vertical
             element size
-        :param h_elem_size: scalar :class:`Function` that defines the horizontal
+        :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
             element size
         """
         super(PsiEquation, self).__init__(function_space)

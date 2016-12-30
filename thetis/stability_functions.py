@@ -56,10 +56,10 @@ def compute_normalized_frequencies(shear2, buoy2, k, eps):
 
     From Burchard and Bolding (2001).
 
-    :param shear2: :math:`M^2`
-    :param buoy2: :math:`N^2`
-    :param k: turbulent kinetic energy
-    :param eps: TKE dissipation rate
+    :arg shear2: :math:`M^2`
+    :arg buoy2: :math:`N^2`
+    :arg k: turbulent kinetic energy
+    :arg eps: TKE dissipation rate
     """
     alpha_buoy = k**2/eps**2*buoy2
     alpha_shear = k**2/eps**2*shear2
@@ -75,18 +75,14 @@ class StabilityFunction(object):
     def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
                  smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
         r"""
-        :param lim_alpha_shear: limit maximum :math:`\alpha_M` values
+        :kwarg bool lim_alpha_shear: limit maximum :math:`\alpha_M` values
             (see Umlauf and Burchard (2005) eq. 44)
-        :type lim_alpha_shear: bool
-        :param lim_alpha_buoy: limit minimum (negative) :math:`\alpha_N` values
+        :kwarg bool lim_alpha_buoy: limit minimum (negative) :math:`\alpha_N` values
             (see Umlauf and Burchard (2005))
-        :type lim_alpha_buoy: bool
-        :param smooth_alpha_buoy_lim: if :math:`\alpha_N` is limited, apply a
+        :kwarg bool smooth_alpha_buoy_lim: if :math:`\alpha_N` is limited, apply a
             smooth limiter (see Burchard and Bolding (2001) eq. 19). Otherwise
             :math:`\alpha_N` is clipped at minimum value.
-        :type smooth_alpha_buoy_lim: bool
-        :param alpha_buoy_crit: parameter for :math:`\alpha_N` smooth limiter
-        :type alpha_buoy_crit: float
+        :kwarg float alpha_buoy_crit: parameter for :math:`\alpha_N` smooth limiter
         """
         self.lim_alpha_shear = lim_alpha_shear
         self.lim_alpha_buoy = lim_alpha_buoy
@@ -227,8 +223,8 @@ class StabilityFunction(object):
 
         from Umlauf and Buchard (2005) eq (44)
 
-        :param alpha_buoy: normalized buoyancy frequency :math:`\alpha_N`
-        :param alpha_shear: normalized shear frequency :math:`\alpha_M`
+        :arg alpha_buoy: normalized buoyancy frequency :math:`\alpha_N`
+        :arg alpha_shear: normalized shear frequency :math:`\alpha_M`
         """
         as_max_n = (self.d0*self.n0 +
                     (self.d0*self.n1 + self.d1*self.n0)*alpha_buoy +
@@ -245,7 +241,7 @@ class StabilityFunction(object):
 
         from Burchard and Petersen (1999) eq (19)
 
-        :param alpha_buoy: normalized buoyancy frequency :math:`\alpha_N`
+        :arg alpha_buoy: normalized buoyancy frequency :math:`\alpha_N`
         """
         return alpha_buoy - (alpha_buoy - self.alpha_buoy_crit)**2/(alpha_buoy + self.get_alpha_buoy_min() - 2*self.alpha_buoy_crit)
 
@@ -255,8 +251,8 @@ class StabilityFunction(object):
 
         from Burchard and Petersen (1999) eqns (30) and (31)
 
-        :param alpha_buoy: normalized buoyancy frequency :math:`\alpha_N`
-        :param alpha_shear: normalized shear frequency :math:`\alpha_M`
+        :arg alpha_buoy: normalized buoyancy frequency :math:`\alpha_N`
+        :arg alpha_shear: normalized shear frequency :math:`\alpha_M`
         """
         den = self.d0 + self.d1*alpha_buoy + self.d2*alpha_shear + self.d3*alpha_buoy*alpha_shear + self.d4*alpha_buoy**2 + self.d5*alpha_shear**2
         c_mu = (self.n0 + self.n1*alpha_buoy + self.n2*alpha_shear) / den
@@ -267,10 +263,10 @@ class StabilityFunction(object):
         """
         Evaluates stability functions. Applies limiters on alpha_buoy and alpha_shear.
 
-        :param shear2: :math:`M^2`
-        :param buoy2: :math:`N^2`
-        :param k: turbulent kinetic energy
-        :param eps: TKE dissipation rate
+        :arg shear2: :math:`M^2`
+        :arg buoy2: :math:`N^2`
+        :arg k: turbulent kinetic energy
+        :arg eps: TKE dissipation rate
         """
         alpha_buoy, alpha_shear = compute_normalized_frequencies(shear2, buoy2, k, eps)
         if self.lim_alpha_buoy:
