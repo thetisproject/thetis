@@ -10,25 +10,26 @@ from abc import ABCMeta, abstractproperty
 import operator
 
 CFL_UNCONDITIONALLY_STABLE = np.inf
+# CFL coefficient for unconditionally stable methods
 
 
 def butcher_to_shuosher_form(a, b):
-    """
+    r"""
     Converts Butcher tableau to Shu-Osher form.
 
     The Shu-Osher form of a s-stage scheme is defined by two s+1 by s+1 arrays
-    alpha and beta:
+    :math:`\alpha` and :math:`\beta`:
 
-    u^{0} = u^n
-    u^(i) = sum_{j=0}^s alpha_{i,j} u^(j) + sum_{j=0}^s beta_{i,j} F(u^(j))
-    u^{n+1} = u^(s)
+    .. math::
+        u^{0} &= u^n \\
+        u^{(i)} &= \sum_{j=0}^s \alpha_{i,j} u^{(j)} + \sum_{j=0}^s \beta_{i,j} F(u^{(j)}) \\
+        u^{n+1} &= u^{(s)}
 
     The Shu-Osher form is not unique. Here we construct the form where beta
     values are the diagonal entries (for DIRK schemes) or sub-diagonal entries
-    (for explicit schemes) of the concatenated (a,b) Butcher tableau.
+    (for explicit schemes) of the concatenated Butcher tableau [:math:`a`; :math:`b`].
 
-    See Ketchelson et al. (2009) for more information
-    http://dx.doi.org/10.1016/j.apnum.2008.03.034
+    For more information see Ketchelson et al. (2009) http://dx.doi.org/10.1016/j.apnum.2008.03.034
     """
     import numpy.linalg as linalg
 
@@ -93,8 +94,8 @@ class AbstractRKScheme(object):
     """
     Abstract class for defining Runge-Kutta schemes.
 
-    Derived classes must define the Butcher tableau (with :arg a:, :arg b:,
-    :arg c:) and the CFL number (:arg cfl_coeff:).
+    Derived classes must define the Butcher tableau (arrays :attr:`a`, :attr:`b`,
+    :attr:`c`) and the CFL number (:attr:`cfl_coeff`).
 
     Currently only explicit or diagonally implicit schemes are supported.
     """
@@ -102,18 +103,26 @@ class AbstractRKScheme(object):
 
     @abstractproperty
     def a(self):
+        """Runge-Kutta matrix :math:`a_{i,j}` of the Butcher tableau"""
         pass
 
     @abstractproperty
     def b(self):
+        """weights :math:`b_{i}` of the Butcher tableau"""
         pass
 
     @abstractproperty
     def c(self):
+        """nodes :math:`c_{i}` of the Butcher tableau"""
         pass
 
     @abstractproperty
     def cfl_coeff(self):
+        """
+        CFL number of the scheme
+
+        Value 1.0 corresponds to Forward Euler time step.
+        """
         pass
 
     def __init__(self):
@@ -137,10 +146,7 @@ class AbstractRKScheme(object):
 
 class ForwardEulerAbstract(AbstractRKScheme):
     """
-    Forward Euler
-    Explicit Runge Kutta method
-
-    CFL coefficient is 1.0
+    Forward Euler method
     """
     a = [[0]]
     b = [1.0]
@@ -151,12 +157,6 @@ class ForwardEulerAbstract(AbstractRKScheme):
 class BackwardEulerAbstract(AbstractRKScheme):
     """
     Backward Euler method
-
-    This method has the Butcher tableau
-
-    1   | 1
-    ---------
-        | 1
     """
     a = [[1.0]]
     b = [1.0]
@@ -165,14 +165,17 @@ class BackwardEulerAbstract(AbstractRKScheme):
 
 
 class ImplicitMidpointAbstract(AbstractRKScheme):
-    """
+    r"""
     Implicit midpoint method, second order.
 
     This method has the Butcher tableau
 
-    0.5 | 0.5
-    ---------
-        | 1
+    .. math::
+        \begin{array}{c|c}
+        0.5 & 0.5 \\ \hline
+            & 1.0
+        \end{array}
+
     """
     a = [[0.5]]
     b = [1.0]
@@ -181,6 +184,9 @@ class ImplicitMidpointAbstract(AbstractRKScheme):
 
 
 class CrankNicolsonAbstract(AbstractRKScheme):
+    """
+    Crack-Nicolson scheme
+    """
     a = [[0.0, 0.0],
          [0.5, 0.5]]
     b = [0.5, 0.5]
@@ -189,6 +195,18 @@ class CrankNicolsonAbstract(AbstractRKScheme):
 
 
 class ERKTrapezoidAbstract(AbstractRKScheme):
+    r"""
+    Explicit Trapezoid scheme
+
+    This method has the Butcher tableau
+
+    .. math::
+        \begin{array}{c|cc}
+        0.0 & 0.0 & 0.0 \\
+        1.0 & 1.0 & 0.0 \\ \hline
+            & 0.5 & 0.5
+        \end{array}
+    """
     a = [[0.0, 0.0],
          [1.0, 0.0]]
     b = [0.5, 0.5]
@@ -197,24 +215,25 @@ class ERKTrapezoidAbstract(AbstractRKScheme):
 
 
 class DIRK22Abstract(AbstractRKScheme):
-    """
-    DIRK22, 2-stage, 2nd order, L-stable
-    Diagonally Implicit Runge Kutta method
+    r"""
+    2-stage, 2nd order, L-stable Diagonally Implicit Runge Kutta method
 
     This method has the Butcher tableau
 
-    gamma   | gamma     0
-    1       | 1-gamma  gamma
-    -------------------------
-            | 0.5       0.5
-    with
-    gamma = (2 + sqrt(2))/2
+    .. math::
+        \begin{array}{c|cc}
+        \gamma &   \gamma &       0 \\
+              1 & 1-\gamma & \gamma \\ \hline
+                &       1/2 &     1/2
+        \end{array}
+
+    with :math:`\gamma = (2 + \sqrt{2})/2`.
 
     From DIRK(2,3,2) IMEX scheme in Ascher et al. (1997)
 
-    [1] Ascher et al. (1997). Implicit-explicit Runge-Kutta methods for
-        time-dependent partial differential equations. Applied Numerical
-        Mathematics, 25:151-167.
+    Ascher et al. (1997). Implicit-explicit Runge-Kutta methods for
+    time-dependent partial differential equations. Applied Numerical
+    Mathematics, 25:151-167. http://dx.doi.org/10.1137/0732037
     """
     gamma = (2.0 + np.sqrt(2.0))/2.0
     a = [[gamma, 0],
@@ -225,20 +244,25 @@ class DIRK22Abstract(AbstractRKScheme):
 
 
 class DIRK23Abstract(AbstractRKScheme):
-    """
-    DIRK23, 2-stage, 3rd order
-    Diagonally Implicit Runge Kutta method
+    r"""
+    2-stage, 3rd order Diagonally Implicit Runge Kutta method
 
     This method has the Butcher tableau
 
-    gamma   | gamma     0
-    1-gamma | 1-2*gamma gamma
-    -------------------------
-            | 0.5       0.5
-    with
-    gamma = (3 + sqrt(3))/6
+    .. math::
+        \begin{array}{c|cc}
+          \gamma &    \gamma &       0 \\
+        1-\gamma & 1-2\gamma & \gamma \\ \hline
+                  &        1/2 &     1/2
+        \end{array}
+
+    with :math:`\gamma = (3 + \sqrt{3})/6`.
 
     From DIRK(2,3,3) IMEX scheme in Ascher et al. (1997)
+
+    Ascher et al. (1997). Implicit-explicit Runge-Kutta methods for
+    time-dependent partial differential equations. Applied Numerical
+    Mathematics, 25:151-167. http://dx.doi.org/10.1137/0732037
     """
     gamma = (3 + np.sqrt(3))/6
     a = [[gamma, 0],
@@ -250,10 +274,13 @@ class DIRK23Abstract(AbstractRKScheme):
 
 class DIRK33Abstract(AbstractRKScheme):
     """
-    DIRK33, 3-stage, 3rd order, L-stable
-    Diagonally Implicit Runge Kutta method
+    3-stage, 3rd order, L-stable Diagonally Implicit Runge Kutta method
 
     From DIRK(3,4,3) IMEX scheme in Ascher et al. (1997)
+
+    Ascher et al. (1997). Implicit-explicit Runge-Kutta methods for
+    time-dependent partial differential equations. Applied Numerical
+    Mathematics, 25:151-167. http://dx.doi.org/10.1137/0732037
     """
     gamma = 0.4358665215
     b1 = -3.0/2.0*gamma**2 + 4*gamma - 1.0/4.0
@@ -268,10 +295,13 @@ class DIRK33Abstract(AbstractRKScheme):
 
 class DIRK43Abstract(AbstractRKScheme):
     """
-    DIRK43, 4-stage, 3rd order, L-stable
-    Diagonally Implicit Runge Kutta method
+    4-stage, 3rd order, L-stable Diagonally Implicit Runge Kutta method
 
     From DIRK(4,4,3) IMEX scheme in Ascher et al. (1997)
+
+    Ascher et al. (1997). Implicit-explicit Runge-Kutta methods for
+    time-dependent partial differential equations. Applied Numerical
+    Mathematics, 25:151-167. http://dx.doi.org/10.1137/0732037
     """
     a = [[0.5, 0, 0, 0],
          [1.0/6.0, 0.5, 0, 0],
@@ -284,14 +314,13 @@ class DIRK43Abstract(AbstractRKScheme):
 
 class DIRKLSPUM2Abstract(AbstractRKScheme):
     """
-    DIRKLSPUM2, 3-stage, 2nd order, L-stable
-    Diagonally Implicit Runge Kutta method
+    DIRKLSPUM2, 3-stage, 2nd order, L-stable Diagonally Implicit Runge Kutta method
 
     From IMEX RK scheme (17) in Higureras et al. (2014).
 
-    [1] Higueras et al (2014). Optimized strong stability preserving IMEX
-        Runge-Kutta methods. Journal of Computational and Applied
-        Mathematics 272(2014) 116-140.
+    Higueras et al (2014). Optimized strong stability preserving IMEX
+    Runge-Kutta methods. Journal of Computational and Applied Mathematics
+    272(2014) 116-140. http://dx.doi.org/10.1016/j.cam.2014.05.011
     """
     a = [[2.0/11.0, 0, 0],
          [205.0/462.0, 2.0/11.0, 0],
@@ -303,14 +332,13 @@ class DIRKLSPUM2Abstract(AbstractRKScheme):
 
 class DIRKLPUM2Abstract(AbstractRKScheme):
     """
-    DIRKLPUM2, 3-stage, 2nd order, L-stable
-    Diagonally Implicit Runge Kutta method
+    DIRKLPUM2, 3-stage, 2nd order, L-stable Diagonally Implicit Runge Kutta method
 
     From IMEX RK scheme (20) in Higureras et al. (2014).
 
-    [1] Higueras et al (2014). Optimized strong stability preserving IMEX
-        Runge-Kutta methods. Journal of Computational and Applied
-        Mathematics 272(2014) 116-140.
+    Higueras et al (2014). Optimized strong stability preserving IMEX
+    Runge-Kutta methods. Journal of Computational and Applied Mathematics
+    272(2014) 116-140. http://dx.doi.org/10.1016/j.cam.2014.05.011
     """
     a = [[2.0/11.0, 0, 0],
          [41.0/154.0, 2.0/11.0, 0],
@@ -321,15 +349,18 @@ class DIRKLPUM2Abstract(AbstractRKScheme):
 
 
 class SSPRK33Abstract(AbstractRKScheme):
-    """
+    r"""
     3rd order Strong Stability Preserving Runge-Kutta scheme, SSP(3,3).
 
     This scheme has Butcher tableau
-    0   |
-    1   | 1
-    1/2 | 1/4 1/4
-    ---------------
-        | 1/6 1/6 2/3
+
+    .. math::
+        \begin{array}{c|ccc}
+            0 &                 \\
+            1 & 1               \\
+          1/2 & 1/4 & 1/4 &     \\ \hline
+              & 1/6 & 1/6 & 2/3
+        \end{array}
 
     CFL coefficient is 1.0
     """
@@ -343,16 +374,13 @@ class SSPRK33Abstract(AbstractRKScheme):
 
 class ERKLSPUM2Abstract(AbstractRKScheme):
     """
-    ERKLSPUM2, 3-stage, 2nd order
-    Explicit Runge Kutta method
+    ERKLSPUM2, 3-stage, 2nd order Explicit Runge Kutta method
 
     From IMEX RK scheme (17) in Higureras et al. (2014).
 
-    [1] Higueras et al (2014). Optimized strong stability preserving IMEX
-        Runge-Kutta methods. Journal of Computational and Applied
-        Mathematics 272(2014) 116-140.
-
-    CFL coefficient is 2.0
+    Higueras et al (2014). Optimized strong stability preserving IMEX
+    Runge-Kutta methods. Journal of Computational and Applied Mathematics
+    272(2014) 116-140. http://dx.doi.org/10.1016/j.cam.2014.05.011
     """
     a = [[0, 0, 0],
          [5.0/6.0, 0, 0],
@@ -369,11 +397,9 @@ class ERKLPUM2Abstract(AbstractRKScheme):
 
     From IMEX RK scheme (20) in Higureras et al. (2014).
 
-    [1] Higueras et al (2014). Optimized strong stability preserving IMEX
-        Runge-Kutta methods. Journal of Computational and Applied
-        Mathematics 272(2014) 116-140.
-
-    CFL coefficient is 2.0
+    Higueras et al (2014). Optimized strong stability preserving IMEX
+    Runge-Kutta methods. Journal of Computational and Applied Mathematics
+    272(2014) 116-140. http://dx.doi.org/10.1016/j.cam.2014.05.011
     """
     a = [[0, 0, 0],
          [1.0/2.0, 0, 0],
@@ -400,7 +426,7 @@ class ESDIRKMidpointAbstract(AbstractRKScheme):
 
 
 class RungeKuttaTimeIntegrator(TimeIntegrator):
-    """Abstract base class for all Runge-Kutta implementations"""
+    """Abstract base class for all Runge-Kutta time integrators"""
     __metaclass__ = ABCMeta
 
     @abstractproperty
@@ -432,30 +458,23 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
     """
     Generic implementation of Diagonally Implicit Runge Kutta schemes.
 
-    All derived classes must define the tableau via properties
-    a  : array_like (n_stages, n_stages)
-        coefficients for the Butcher tableau, must be lower diagonal
-    b,c : array_like (n_stages,)
-        coefficients for the Butcher tableau
-
-    This method also works for explicit RK schemes if one with the zeros on the first row of a.
+    All derived classes must define the Butcher tableau coefficients :attr:`a`,
+    :attr:`b`, :attr:`c`.
     """
     def __init__(self, equation, solution, fields, dt,
                  bnd_conditions=None, solver_parameters={}, terms_to_add='all'):
         """
-        Create new DIRK solver.
-
-        Parameters
-        ----------
-        equation : equation object
-            the equation to solve
-        dt : float
-            time step (constant)
-        solver_parameters : dict
-            PETSc options for solver
-        terms_to_add : 'all' or list of 'implicit', 'explicit', 'source'
-            Defines which terms of the equation are to be added to this solver.
-            Default 'all' implies terms_to_add = ['implicit', 'explicit', 'source']
+        :arg equation: the equation to solve
+        :type equation: :class:`Equation` object
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
+        :type fields: dict of :class:`Function` or :class:`Constant` objects
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
+        :kwarg terms_to_add: Defines which terms of the equation are to be
+            added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
+        :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
         """
         super(DIRKGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
@@ -512,6 +531,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
                                      self.solution_old)
 
     def update_solver(self):
+        """Create solver objects"""
         self.solver = []
         for i in xrange(self.n_stages):
             p = NonlinearVariationalProblem(self.F[i], self.k[i])
@@ -536,7 +556,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
 
     def solve_tendency(self, i_stage, t, update_forcings=None):
         """
-        Evaluates the tendency k at stage i_stage
+        Evaluates the tendency of i-th stage.
         """
         if i_stage == 0:
             # NOTE solution may have changed in coupled system
@@ -548,9 +568,11 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         self.solver[i_stage].solve()
 
     def get_final_solution(self):
+        """Assign final solution to :attr:`self.solution`"""
         self.solution.assign(self.final_sol_expr)
 
     def solve_stage(self, i_stage, t, update_forcings=None):
+        """Solve i-th stage and assign solution to :attr:`self.solution`."""
         self.solve_tendency(i_stage, t, update_forcings)
         self.update_solution(i_stage)
 
@@ -595,11 +617,23 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
     """
     Generic explicit Runge-Kutta time integrator.
 
-    Implements the Butcher form.
+    Implements the Butcher form. All terms in the equation are treated explicitly.
     """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, terms_to_add='all'):
-        """Creates forms for the time integrator"""
+        """
+        :arg equation: the equation to solve
+        :type equation: :class:`Equation` object
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
+        :type fields: dict of :class:`Function` or :class:`Constant` objects
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
+        :kwarg terms_to_add: Defines which terms of the equation are to be
+            added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
+        :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
+        """
         super(ERKGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         self.solution_old = Function(self.equation.function_space, name='old solution')
@@ -643,10 +677,11 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
 
     def update_solution(self, i_stage, additive=False):
         """
-        Updates solution to i_stage sub-stage.
+        Computes the solution of the i-th stage
 
         Tendencies must have been evaluated first.
-        If additive=False, will overwrite self.solution function, otherwise
+
+        If additive=False, will overwrite :attr:`solution` function, otherwise
         will add to it.
         """
         if not additive:
@@ -656,7 +691,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
 
     def solve_tendency(self, i_stage, t, update_forcings=None):
         """
-        Evaluates the tendency k at stage i_stage
+        Evaluates the tendency of i-th stage
         """
         if self._nontrivial:
             if update_forcings is not None:
@@ -664,6 +699,11 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
             self.solver[i_stage].solve()
 
     def get_final_solution(self, additive=False):
+        """Assign final solution to :attr:`self.solution`
+
+        If additive=False, will overwrite :attr:`solution` function, otherwise
+        will add to it.
+        """
         if not additive:
             self.solution.assign(self.solution_old)
         if self._nontrivial:
@@ -671,6 +711,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
         self.solution_old.assign(self.solution)
 
     def solve_stage(self, i_stage, t, update_forcings=None):
+        """Solve i-th stage and assign solution to :attr:`self.solution`."""
         self.update_solution(i_stage)
         self.solve_tendency(i_stage, t, update_forcings)
 
@@ -681,9 +722,21 @@ class ERKGenericShuOsher(TimeIntegrator):
 
     Implements the Shu-Osher form.
     """
-
+    # TODO derive from RungeKuttaTimeIntegrator class?
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}, terms_to_add='all'):
-        """Creates forms for the time integrator"""
+        """
+        :arg equation: the equation to solve
+        :type equation: :class:`Equation` object
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
+        :type fields: dict of :class:`Function` or :class:`Constant` objects
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
+        :kwarg terms_to_add: Defines which terms of the equation are to be
+            added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
+        :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
+        """
         super(ERKGenericShuOsher, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         self.tendency = Function(self.equation.function_space, name='tendency')
@@ -723,6 +776,7 @@ class ERKGenericShuOsher(TimeIntegrator):
         pass
 
     def solve_stage(self, i_stage, t, update_forcings=None):
+        """Solve i-th stage and assign solution to :attr:`self.solution`."""
         if self._nontrivial:
             if update_forcings is not None:
                 update_forcings(t + self.c[i_stage]*self.dt)
@@ -753,7 +807,16 @@ class ERKGenericALE2(RungeKuttaTimeIntegrator):
     """
 
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
-        """Creates forms for the time integrator"""
+        """
+        :arg equation: the equation to solve
+        :type equation: :class:`Equation` object
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
+        :type fields: dict of :class:`Function` or :class:`Constant` objects
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
+        """
         super(ERKGenericALE2, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         self.l_form = Function(self.equation.function_space, name='linear form')
@@ -794,7 +857,7 @@ class ERKGenericALE2(RungeKuttaTimeIntegrator):
 
     def update_solution(self, i_stage):
         """
-        Updates solution to i_stage sub-stage.
+        Computes the solution of the i-th stage
 
         Tendencies must have been evaluated first.
         """
@@ -807,7 +870,7 @@ class ERKGenericALE2(RungeKuttaTimeIntegrator):
 
     def solve_tendency(self, i_stage, t, update_forcings=None):
         """
-        Evaluates the tendency k at stage i_stage
+        Evaluates the tendency of i-th stage
         """
         if self._nontrivial:
             if update_forcings is not None:
@@ -815,6 +878,7 @@ class ERKGenericALE2(RungeKuttaTimeIntegrator):
             assemble(self.l_rk, self.stage_mk[i_stage])
 
     def get_final_solution(self):
+        """Assign final solution to :attr:`self.solution` """
         if self._nontrivial:
             self.l_form.assign(self.final_sol_expr)
             assemble(self.a_rk, self.A)
@@ -822,6 +886,7 @@ class ERKGenericALE2(RungeKuttaTimeIntegrator):
             assemble(self.mass_term, self.msol_old)
 
     def solve_stage(self, i_stage, t, update_forcings=None):
+        """Solve i-th stage and assign solution to :attr:`self.solution`."""
         self.update_solution(i_stage)
         self.solve_tendency(i_stage, t, update_forcings)
         if i_stage == self.n_stages - 1:
@@ -832,17 +897,27 @@ class ERKSemiImplicitGeneric(RungeKuttaTimeIntegrator):
     """
     Generic implementation of semi-implicit RK schemes.
 
-    If semi_implicit=True, this corresponds to a linearized semi-implicit scheme.
-    The linearization must be defined in the equation using solution and solution_old functions:
-    residual = residual(solution, solution_old)
+    If semi_implicit=True, this corresponds to a linearized semi-implicit
+    scheme. The linearization must be defined in the equation using solution and
+    solution_old functions: residual = residual(solution, solution_old)
 
     If semi_implicit=False, this corresponds to a fully non-linear scheme:
     residual = residual(solution, solution)
     """
-
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters={}, semi_implicit=False, theta=0.5):
-        """Creates forms for the time integrator"""
+        """
+        :arg equation: the equation to solve
+        :type equation: :class:`Equation` object
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
+        :type fields: dict of :class:`Function` or :class:`Constant` objects
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
+        :kwarg bool semi_implicit: If True use a linearized semi-implicit scheme
+        :kwarg float theta: Implicitness parameter, default 0.5
+        """
         super(ERKSemiImplicitGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
 
         assert self.n_stages == 3, 'This method supports only for 3 stages'
@@ -865,7 +940,8 @@ class ERKSemiImplicitGeneric(RungeKuttaTimeIntegrator):
 
         sol_nl = [None]*self.n_stages
         if semi_implicit:
-            # linearize around previous sub-timestep using the fact that all terms are written in the form A(u_nl) u
+            # linearize around previous sub-timestep using the fact that all
+            # terms are written in the form A(u_nl) u
             sol_nl[0] = self.solution_old
             sol_nl[1] = self.stage_sol[0]
             sol_nl[2] = self.stage_sol[1]
@@ -916,6 +992,7 @@ class ERKSemiImplicitGeneric(RungeKuttaTimeIntegrator):
         self.solution_old.assign(solution)
 
     def solve_stage(self, i_stage, t, update_forcings=None):
+        """Solve i-th stage and assign solution to :attr:`self.solution`."""
         if update_forcings is not None:
             update_forcings(t + self.c[i_stage]*self.dt)
         self.solver[i_stage].solve()

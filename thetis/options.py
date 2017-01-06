@@ -1,7 +1,6 @@
 """
 This file defines all options of the 2D/3D models excluding field values.
 
-Tuomas Karna 2015-10-17
 """
 from __future__ import absolute_import
 from .utility import *
@@ -14,13 +13,17 @@ class ModelOptions(AttrDict, FrozenClass):
     """
     def __init__(self):
         """
-        Initialize with default options
+        Every instance is initialized with default values
         """
         super(ModelOptions, self).__init__()
         self.order = 1
         """int: Polynomial degree of elements"""
         self.element_family = 'rt-dg'
-        """str: Finite element family. Currently 'dg-dg', 'rt-dg', or 'dg-cg' velocity-pressure pairs are supported."""
+        """str: Finite element family.
+
+        2D solver supports 'dg-dg', 'rt-dg', or 'dg-cg' velocity-pressure pairs.
+        3D solver supports 'dg-dg', or 'rt-dg' velocity-pressure pairs.
+        """
         self.nonlin = True
         """bool: Use nonlinear shallow water equations"""
         self.solve_salt = True
@@ -28,90 +31,174 @@ class ModelOptions(AttrDict, FrozenClass):
         self.solve_temp = True
         """bool: Solve temperature transport"""
         self.solve_vert_diffusion = True
-        """bool: Solve implicit vert diffusion"""
+        """bool: Solve implicit vertical diffusion"""
         self.use_bottom_friction = True
-        """bool: Apply log layer bottom stress"""
+        """bool: Apply log layer bottom stress in the 3D model"""
         self.use_parabolic_viscosity = False
-        """bool: Compute parabolic eddy viscosity"""
+        """
+        bool: Use idealized parabolic eddy viscosity
+
+        See :class:`.ParabolicViscosity`
+        """
         self.include_grad_div_viscosity_term = False
-        """bool: Include grad(nu div(u)) term in the depth-averaged viscosity"""
+        r"""
+        bool: Include :math:`\nabla (\nu_h \nabla \cdot \bar{\textbf{u}})` term in the depth-averaged viscosity
+
+        See :class:`.shallowwater_eq.HorizontalViscosityTerm` for details.
+        """
         self.include_grad_depth_viscosity_term = True
-        """bool: Include grad(H) term in the depth-averaged viscosity"""
+        r"""
+        bool: Include :math:`\nabla H` term in the depth-averaged viscosity
+
+        See :class:`.shallowwater_eq.HorizontalViscosityTerm` for details.
+        """
         self.use_ale_moving_mesh = True
-        """bool: 3D mesh tracks free surface"""
+        """bool: Use ALE formulation where 3D mesh tracks free surface"""
         self.timestepper_type = 'ssprk33'
-        """str: time integrator option.
-        For 2D solver: 'forwardeuler'|'backwardeuler'|'ssprk33'|'ssprk33semi'|
-                       'cranknicolson'|'sspimex'|'steadystate'
-        For 3D solver: 'ssprk33'|'erkale'|'leapfrog'|'imexale'"""
+        """
+        str: time integrator option.
+
+        Valid options for the 2D solver: 'forwardeuler'|'backwardeuler'|'ssprk33'|'ssprk33semi'|'cranknicolson'|'sspimex'|'steadystate'
+
+        Valid options for the 2D solver: 'ssprk33'|'erkale'|'leapfrog'|'imexale'|'ssprk22'
+        """
         self.use_linearized_semi_implicit_2d = False
         """bool: Use linearized semi-implicit time integration for the horizontal mode"""
         self.shallow_water_theta = 0.5
         """float: theta parameter for shallow water semi-implicit scheme"""
         self.use_turbulence = False
-        """bool: GLS turbulence model"""
+        """bool: Activate GLS turbulence model"""
         self.use_smooth_eddy_viscosity = False
         """bool: Cast eddy viscosity to p1 space instead of p0"""
         self.turbulence_model = 'gls'
-        """str: Defines the type of vertical turbulence model. Currently only 'gls'"""
+        """
+        str: Defines the type of vertical turbulence model.
+
+        Currently only 'gls' is supported
+        """
         self.gls_options = GLSModelOptions()
-        """GLSModelOptions: Dictionary of default GLS model options"""
+        """:class:`.GLSModelOptions`: Dictionary of default GLS model options"""
         self.use_turbulence_advection = False
-        """bool: Advect tke,psi with velocity"""
+        """bool: Advect TKE and Psi in the GLS turbulence model"""
         self.baroclinic = False
         """bool: Compute internal pressure gradient in momentum equation"""
         self.smagorinsky_factor = None
-        """Constant or None: Smagorinsky viscosity factor C_S"""
+        """
+        :class:`Constant` or None: Smagorinsky viscosity factor :math:`C_S`
+
+        See :class:`.SmagorinskyViscosity`.
+        """
         self.salt_jump_diff_factor = None
-        """Constant or None: Non-linear jump diffusion factor"""
+        """:class:`Constant` or None: Non-linear jump diffusion factor"""
         self.salt_range = Constant(30.0)
-        """Constant or None: Salt max-min range for jump diffusion"""
+        """:class:`Constant` or None: Salt max-min range for jump diffusion"""
         self.use_limiter_for_tracers = False
         """bool: Apply P1DG limiter for tracer fields"""
         self.uv_lax_friedrichs = Constant(1.0)
-        """Constant or None: Scaling factor for uv L-F stability term."""
+        """:class:`Constant` or None: Scaling factor for uv L-F stability term."""
         self.tracer_lax_friedrichs = Constant(1.0)
-        """Constant or None: Scaling factor for tracer L-F stability term."""
+        """:class:`Constant` or None: Scaling factor for tracer L-F stability term."""
         self.check_vol_conservation_2d = False
-        """bool: Print deviation from initial volume for 2D mode (eta)"""
+        """
+        bool: Compute volume of the 2D mode at every export
+
+        2D volume is defined as the integral of the water elevation field.
+        Prints deviation from the initial volume to stdout.
+        """
         self.check_vol_conservation_3d = False
-        """bool: Print deviation from initial volume for 3D mode (domain volume)"""
+        """
+        bool: Compute volume of the 2D domain at every export
+
+        Prints deviation from the initial volume to stdout.
+        """
         self.check_salt_conservation = False
-        """bool: Print deviation from initial salt mass"""
+        """
+        bool: Compute total salinity mass at every export
+
+        Prints deviation from the initial mass to stdout.
+        """
         self.check_salt_overshoot = False
-        """bool: Print overshoots that exceed initial range"""
+        """
+        bool: Compute salinity overshoots at every export
+
+        Prints overshoot values that exceed the initial range to stdout.
+        """
         self.check_temp_conservation = False
-        """bool: Print deviation from initial temp mass"""
+        """
+        bool: Compute total temperature mass at every export
+
+        Prints deviation from the initial mass to stdout.
+        """
         self.check_temp_overshoot = False
-        """bool: Print overshoots that exceed initial range"""
+        """
+        bool: Compute temperature overshoots at every export
+
+        Prints overshoot values that exceed the initial range to stdout.
+        """
         self.log_output = True
         """bool: Redirect all output to log file in output directory"""
         self.dt = None
-        """float: Time step. If set overrides automatically computed stable dt"""
+        """
+        float: Time step.
+
+        If set, overrides automatically computed stable dt
+        """
         self.dt_2d = None
-        """float: Time step for 2d mode. If set overrides automatically computed stable dt"""
+        """
+        float: Time step of the 2d mode
+
+        If set overrides automatically computed stable dt
+        """
         self.cfl_2d = 1.0
         """float: Factor to scale the 2d time step"""
+        # TODO OBSOLETE
         self.cfl_3d = 1.0
         """float: Factor to scale the 2d time step"""
+        # TODO OBSOLETE
         self.t_export = 100.0
-        """float: Export interval in seconds. All fields in fields_to_export list will be stored to disk and diagnostics will be computed."""
+        """
+        float: Export interval in seconds
+
+        All fields in fields_to_export list will be stored to disk and
+        diagnostics will be computed
+        """
         self.t_end = 1000.0
         """float: Simulation duration in seconds"""
         self.u_advection = Constant(0.1)
-        """Constant: Max. horizontal velocity magnitude for computing max stable advection time step."""
+        """
+        :class:`Constant`: Maximum horizontal velocity magnitude
+
+        Used to compute max stable advection time step.
+        """
         self.w_advection = Constant(1e-4)
-        """Constant: Max. vertical velocity magnitude for computing max stable advection time step."""
+        """
+        :class:`Constant`: Maximum vertical velocity magnitude
+
+        Used to compute max stable advection time step.
+        """
         self.nu_viscosity = Constant(1.0)
-        """Constant: Max. horizontal viscosity magnitude for computing max stable diffusion time step."""
+        """
+        :class:`Constant`: Maximum horizontal viscosity
+
+        Used to compute max stable diffusion time step.
+        """
         self.outputdir = 'outputs'
         """str: Directory where model output files are stored"""
         self.no_exports = False
-        """bool: Do not store any outputs to disk, used in CI test suite. Disables vtk and hdf5 field outputs and hdf5 diagnostic outputs."""
+        """
+        bool: Do not store any outputs to disk
+
+        Disables VTK and HDF5 field outputs. and HDF5 diagnostic outputs.
+        Used in CI test suite.
+        """
         self.export_diagnostics = True
-        """bool: Store diagnostic variables to disk in hdf5 format"""
+        """bool: Store diagnostic variables to disk in HDF5 format"""
         self.equation_of_state = 'full'
-        """str: type of equation of state, either 'full' or 'linear'"""
+        """str: type of equation of state that defines water density
+
+        Either 'full' or 'linear'. See :class:`.EquationOfState` and
+        :class:`.LinearEquationOfState`.
+        """
         self.lin_equation_of_state_params = {
             'rho_ref': 1000.0,
             's_ref': 35.0,
@@ -119,7 +206,7 @@ class ModelOptions(AttrDict, FrozenClass):
             'alpha': 0.2,
             'beta': 0.77,
         }
-        """dict: definition of linear equation of state"""
+        """dict: Parameters for linear equation of state"""
         self.fields_to_export = ['elev_2d', 'uv_2d', 'uv_3d', 'w_3d']
         """list of str: Fields to export in VTK format"""
         self.fields_to_export_numpy = []
@@ -130,29 +217,39 @@ class ModelOptions(AttrDict, FrozenClass):
         """int: Verbosity level"""
         # NOTE these are fields, potentially Functions: move out of this class?
         self.linear_drag = None
-        """Coefficient or None: 2D linear drag parameter tau/rho_0 = -drag*u*H"""
+        r"""
+        Coefficient or None: 2D linear drag parameter :math:`L`
+
+        Bottom stress is :math:`\tau_b/\rho_0 = -L \mathbf{u} H`
+        """
         self.quadratic_drag = None
-        """Coefficient or None: dimensionless 2D quadratic drag parameter tau/rho_0 = -drag*|u|*u"""
+        r"""Coefficient or None: dimensionless 2D quadratic drag parameter :math:`C_D`
+
+        Bottom stress is :math:`\tau_b/\rho_0 = -C_D |\mathbf{u}|\mathbf{u}`
+        """
         self.mu_manning = None
-        """Coefficient or None: Manning-Strickler 2D quadratic drag parameter tau/rho_0 = -g*mu**2*|u|*u/H^(1/3)"""
+        r"""Coefficient or None: Manning-Strickler 2D quadratic drag parameter :math:`\mu`
+
+        Bottom stress is :math:`\tau_b/\rho_0 = -g \mu^2 |\mathbf{u}|\mathbf{u}/H^{1/3}`
+        """
         self.h_diffusivity = None
-        """Coefficient or None: Background diffusivity"""
+        """Coefficient or None: Background horizontal diffusivity for tracers"""
         self.v_diffusivity = None
-        """Coefficient or None: background diffusivity"""
+        """Coefficient or None: background vertical diffusivity for tracers"""
         self.h_viscosity = None
-        """Coefficient or None: background viscosity"""
+        """Coefficient or None: background horizontal viscosity"""
         self.v_viscosity = None
-        """Coefficient or None: background viscosity"""
+        """Coefficient or None: background vertical viscosity"""
         self.coriolis = None
         """2D Coefficient or None: Coriolis parameter"""
         self.wind_stress = None
         """Coefficient or None: Stress at free surface (2D vector function)"""
         self.uv_source_2d = None
-        """Coefficient or None: source term for 2d momentum equation"""
+        """Coefficient or None: source term for 2D momentum equation"""
         self.uv_source_3d = None
-        """Coefficient or None: source term for 3d momentum equation"""
+        """Coefficient or None: source term for 3D momentum equation"""
         self.elev_source_2d = None
-        """Coefficient or None: source term for 2d continuity equation"""
+        """Coefficient or None: source term for 2D continuity equation"""
         self.salt_source_3d = None
         """Coefficient or None: source term for salinity equation"""
         self.temp_source_3d = None

@@ -9,8 +9,14 @@ from .utility import *
 class Term(object):
     """
     Implements a single term of an equation.
+
+    .. note::
+        Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
     """
     def __init__(self, function_space):
+        """
+        :arg function_space: the :class:`FunctionSpace` the solution belongs to
+        """
         # define bunch of members needed to construct forms
         self.function_space = function_space
         self.mesh = self.function_space.mesh()
@@ -25,8 +31,6 @@ class Term(object):
         """
         Returns an UFL form of the term.
 
-        Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
-
         :arg solution: solution :class:`.Function` of the corresponding equation
         :arg solution_old: a time lagged solution :class:`.Function`
         :arg fields: a dictionary that provides all the remaining fields that the term depends on.
@@ -40,8 +44,6 @@ class Term(object):
     def jacobian(self, solution, solution_old, fields, fields_old, bnd_conditions):
         """
         Returns an UFL form of the Jacobian of the term.
-
-        Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
 
         :arg solution: solution :class:`.Function` of the corresponding equation
         :arg solution_old: a time lagged solution :class:`.Function`
@@ -60,8 +62,27 @@ class Equation(object):
     Implements an equation, made out of terms.
     """
     SUPPORTED_LABELS = ['source', 'explicit', 'implicit', 'nonlinear']
+    """
+    Valid labels for terms, indicating how they should be treated in the time
+    integrator.
+
+    source
+        The term is a source term, i.e. does not depend on the solution.
+
+    explicit
+        The term should be treated explicitly
+
+    implicit
+        The term should be treated implicitly
+
+    nonlinear
+        The term is nonlinear and should be treated fully implicitly
+    """
 
     def __init__(self, function_space):
+        """
+        :arg function_space: the :class:`FunctionSpace` the solution belongs to
+        """
         self.terms = {}
         self.labels = {}
         self.function_space = function_space
@@ -75,13 +96,20 @@ class Equation(object):
 
     def mass_term(self, solution):
         """
-        Default mass matrix term for the used solution function space.
+        Returns default mass matrix term for the solution function space.
 
-        Can be overloaded in derived classes if needed.
+        :returns: UFL form of the mass term
         """
         return inner(solution, self.test) * dx
 
     def add_term(self, term, label):
+        """
+        Adds a term in the equation
+
+        :arg term: :class:`.Term` object to add_term
+        :arg string label: Assign a label to the term. Valid labels are given by
+            :attr:`.SUPPORTED_LABELS`.
+        """
         key = term.__class__.__name__
         self.terms[key] = term
         self.label_term(key, label)
@@ -104,7 +132,9 @@ class Equation(object):
     def select_terms(self, label):
         """
         Generator function that selects terms by label(s).
-        label can be a single label (e.g. 'explicit'), 'all' or a tuple of labels
+
+        label can be a single label (e.g. 'explicit'), 'all' or a tuple of
+        labels.
         """
         if isinstance(label, str):
             if label == 'all':

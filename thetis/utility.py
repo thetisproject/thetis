@@ -1,7 +1,5 @@
 """
 Utility functions and classes for 3D hydrostatic ocean model
-
-Tuomas Karna 2015-02-21
 """
 from __future__ import absolute_import
 from .firedrake import *
@@ -20,8 +18,8 @@ from firedrake import Constant as FiredrakeConstant
 
 ds_surf = ds_t
 ds_bottom = ds_b
-# NOTE some functions now depend on FlowSolver object
-# TODO move those functions in the solver class
+
+# TODO move 3d model classes to separate module
 
 
 class FrozenClass(object):
@@ -52,9 +50,6 @@ class SumFunction(object):
         """
         if coeff is None:
             return
-        # classes = (Function, Constant, ufl.algebra.Sum, ufl.algebra.Product)
-        # assert not isinstance(coeff, classes), \
-            # ('bad argument type: ' + str(type(coeff)))
         self.coeff_list.append(coeff)
 
     def get_sum(self):
@@ -149,10 +144,15 @@ def element_continuity(fiat_element):
 
 
 def create_directory(path, comm=COMM_WORLD):
+    """
+    Create a directory on disk
+
+    Raises IOError if a file with the same name already exists.
+    """
     if comm.rank == 0:
         if os.path.exists(path):
             if not os.path.isdir(path):
-                raise Exception('file with same name exists', path)
+                raise IOError('file with same name exists', path)
         else:
             os.makedirs(path)
     comm.barrier()
@@ -160,7 +160,16 @@ def create_directory(path, comm=COMM_WORLD):
 
 
 def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d):
-    """Extrudes 2d surface mesh with bathymetry data defined in a 2d field."""
+    """
+    Extrudes a 2d surface mesh with bathymetry data defined in a 2d field.
+
+    Generates a uniform terrain following mesh.
+
+    :arg mesh2d: 2D mesh
+    :arg n_layers: number of vertical layers
+    :arg bathymetry: 2D :class:`Function` of the bathymetry
+        (the depth of the domain; positive downwards)
+    """
     mesh = ExtrudedMesh(mesh2d, layers=n_layers, layer_height=1.0/n_layers)
 
     coordinates = mesh.coordinates
@@ -199,23 +208,35 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d):
 
 
 def comp_volume_2d(eta, bath):
+    """Computes volume of the 2D domain as an integral of the elevation field"""
     val = assemble((eta+bath)*dx)
     return val
 
 
 def comp_volume_3d(mesh):
+    """Computes volume of the 3D domain as an integral"""
     one = Constant(1.0, domain=mesh.coordinates.ufl_domain())
     val = assemble(one*dx)
     return val
 
 
 def comp_tracer_mass_3d(scalar_func):
+    """
+    Computes total tracer mass in the 3D domain
+
+    :arg scalar_func: scalar :class:`Function` to integrate
+    """
     val = assemble(scalar_func*dx)
     return val
 
 
 def get_zcoord_from_mesh(zcoord, solver_parameters={}):
-    """Evaluates z coordinates from the 3D mesh"""
+    """
+    Evaluates z coordinates from the 3D mesh
+
+    :arg zcoord: scalar :class:`Function` where coordinates will be stored
+    """
+    # TODO coordinates should probably be interpolated instead
     solver_parameters.setdefault('ksp_atol', 1e-12)
     solver_parameters.setdefault('ksp_rtol', 1e-16)
     fs = zcoord.function_space()
@@ -228,9 +249,44 @@ def get_zcoord_from_mesh(zcoord, solver_parameters={}):
 
 
 class VerticalVelocitySolver(object):
-    """Computes vertical velocity from continuity equation"""
+    r"""
+    Computes vertical velocity diagnostically from the continuity equation
+
+    Vertical velocity is obtained from the continuity equation
+
+    .. math::
+        \frac{\partial w}{\partial z} = \nabla_h \cdot \textbf{u}
+
+    and the bottom impermeability condition (:math:`h` denotes the bathymetry)
+
+    .. math::
+        \textbf{n}_h \cdot \textbf{u} + w n_z &= 0 \quad \forall \mathbf{x} \in \Gamma_{b} \\
+        \Leftrightarrow w &= -\nabla_h h \cdot \mathbf{u} \quad \forall \mathbf{x} \in \Gamma_{b}
+
+    :math:`w` can be solved with the weak form
+
+    .. math::
+        \int_{\Gamma_s} w n_z \varphi dS
+        + \int_{\mathcal{I}_h} \text{avg}(w) \text{jump}(\varphi n_z) dS
+        - \int_{\Omega} w \frac{\partial \varphi}{\partial z} dx
+        = \\
+        \int_{\Omega} \mathbf{u} \cdot \nabla_h \varphi dx
+        - \int_{\mathcal{I}_h \cup \mathcal{I}_v} \text{avg}(\mathbf{u}) \cdot \text{jump}(\varphi \mathbf{n}_h) dS
+        - \int_{\Gamma_s} \mathbf{u} \cdot \varphi \mathbf{n}_h dS
+
+    where the :math:`\Gamma_b` terms vanish due to the bottom impermeability
+    condition.
+    """
     def __init__(self, solution, uv, bathymetry, boundary_funcs={},
                  solver_parameters={}):
+        """
+        :arg solution: w :class:`Function`
+        :arg uv: horizontal velocity :class:`Function`
+        :arg bathymetry: bathymetry :class:`Function`
+        :kwarg dict boundary_funcs: boundary conditions used in the 3D momentum
+            equation. Provides external values of uv (if any).
+        :kwarg dict solver_parameters: PETSc solver options
+        """
         solver_parameters.setdefault('snes_type', 'ksponly')
         solver_parameters.setdefault('ksp_type', 'preonly')
         solver_parameters.setdefault('pc_type', 'bjacobi')
@@ -290,6 +346,7 @@ class VerticalVelocitySolver(object):
                                               solver_parameters=solver_parameters)
 
     def solve(self):
+        """Compute w"""
         self.solver.solve()
 
 
@@ -297,17 +354,20 @@ class VerticalIntegrator(object):
     """
     Computes vertical integral (or average) of a field.
 
-    :param input: 3D field to integrate
-    :param output: 3D field where the integral is stored
-    :param bottom_to_top: Defines the integration direction: If True integration is performed along the z axis, from bottom surface to top surface.
-    :param bnd_value: Value of the integral at the bottom (top) boundary if bottom_to_top is True (False)
-    :param average: If True computes the vertical average instead. Requires bathymetry and elevation fields
-    :param bathymetry: 3D field defining the bathymetry
-    :param elevation: 3D field defining the free surface elevation
     """
     def __init__(self, input, output, bottom_to_top=True,
                  bnd_value=Constant(0.0), average=False,
                  bathymetry=None, elevation=None, solver_parameters={}):
+        """
+        :arg input: 3D field to integrate
+        :arg output: 3D field where the integral is stored
+        :kwarg bottom_to_top: Defines the integration direction: If True integration is performed along the z axis, from bottom surface to top surface.
+        :kwarg bnd_value: Value of the integral at the bottom (top) boundary if bottom_to_top is True (False)
+        :kwarg average: If True computes the vertical average instead. Requires bathymetry and elevation fields
+        :kwarg bathymetry: 3D field defining the bathymetry
+        :kwarg elevation: 3D field defining the free surface elevation
+        :kwarg dict solver_parameters: PETSc solver options
+        """
         solver_parameters.setdefault('snes_type', 'ksponly')
         solver_parameters.setdefault('ksp_type', 'preonly')
         solver_parameters.setdefault('pc_type', 'bjacobi')
@@ -361,19 +421,35 @@ class VerticalIntegrator(object):
 
     def solve(self):
         """
-        Computes the integral and stores it in the :arg:`output` field.
+        Computes the integral and stores it in the output field.
         """
         self.solver.solve()
 
 
 class DensitySolver(object):
-    """
+    r"""
     Computes density from salinity and temperature using the equation of state.
 
-    Density is computed point-wise assuming that T,S and rho are in the same
-    function space.
+    Water density is defined as
+
+    .. math::
+        \rho = \rho'(T, S, p) + \rho_0
+
+    This method computes the density anomaly :math:`\rho'`.
+    Density is computed point-wise assuming that temperature, salinity and
+    density are in the same function space.
     """
     def __init__(self, salinity, temperature, density, eos_class):
+        """
+        :arg salinity: water salinity field
+        :type salinity: :class:`Function`
+        :arg temperature: water temperature field
+        :type temperature: :class:`Function`
+        :arg density: water density field
+        :type density: :class:`Function`
+        :arg eos_class: equation of state that defines water density
+        :type eos_class: :class:`EquationOfState`
+        """
         self.fs = density.function_space()
         self.eos = eos_class
 
@@ -387,6 +463,7 @@ class DensitySolver(object):
         self.rho = density
 
     def _get_array(self, function):
+        """Returns numpy data array from a :class:`Function`"""
         if isinstance(function, FiredrakeFunction):
             assert self.fs == function.function_space()
             return function.dat.data[:]
@@ -396,6 +473,7 @@ class DensitySolver(object):
         return function
 
     def solve(self):
+        """Compute density"""
         s = self._get_array(self.s)
         th = self._get_array(self.t)
         p = 0.0  # NOTE ignore pressure for now
@@ -404,10 +482,11 @@ class DensitySolver(object):
 
 
 def compute_baroclinic_head(solver):
-    """
-    Computes baroclinic head from density field
+    r"""
+    Computes the baroclinic head :math:`r` from the density field
 
-    r = 1/rho_0 int_{z=-h}^{\eta} rho' dz
+    .. math::
+        r = \frac{1}{\rho_0} \int_{z}^\eta  \rho' d\zeta.
     """
     with timed_region('density_solve'):
         solver.density_solver.solve()
@@ -430,6 +509,22 @@ class VelocityMagnitudeSolver(object):
     """
     def __init__(self, solution, u=None, w=None, min_val=1e-6,
                  solver_parameters={}):
+        """
+        :arg solution: scalar field for velocity magnitude scalar :class:`Function`
+        :type solution: :class:`Function`
+        :kwarg u: horizontal velocity
+        :type u: :class:`Function`
+        :kwarg w: vertical velocity
+        :type w: :class:`Function`
+        :kwarg float min_val: minimum value of magnitude. Minimum value of solution
+            will be clipped to this value
+        :kwarg dict solver_parameters: PETSc solver options
+
+
+        If ``u`` is None computes magnitude of (0,0,w).
+
+        If ``w`` is None computes magnitude of (u[0],u[1],0).
+        """
         self.solution = solution
         self.min_val = min_val
         function_space = solution.function_space()
@@ -447,12 +542,14 @@ class VelocityMagnitudeSolver(object):
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
+        """Compute the magnitude"""
         self.solver.solve()
         np.maximum(self.solution.dat.data, self.min_val, self.solution.dat.data)
 
 
 class HorizontalJumpDiffusivity(object):
     """Computes tracer jump diffusivity for horizontal advection."""
+    # TODO OBSOLETE should be shipped to oblivion
     def __init__(self, alpha, tracer, output, h_elem_size, umag,
                  tracer_mag, max_val, min_val=1e-6, solver_parameters={}):
         solver_parameters.setdefault('ksp_atol', 1e-6)
@@ -483,10 +580,30 @@ class HorizontalJumpDiffusivity(object):
 
 class ExpandFunctionTo3d(object):
     """
-    Copies a field from 2d mesh to 3d mesh, assigning the same value over the
-    vertical dimension. Horizontal function space must be the same.
+    Copy a 2D field to 3D
+
+    Copies a field from 2D mesh to 3D mesh, assigning the same value over the
+    vertical dimension. Horizontal function spaces must be the same.
+
+    .. code-block:: python
+
+        U = FunctionSpace(mesh, 'DG', 1)
+        U_2d = FunctionSpace(mesh2d, 'DG', 1)
+        func2d = Function(U_2d)
+        func3d = Function(U)
+        ex = ExpandFunctionTo3d(func2d, func3d)
+        ex.solve()
     """
     def __init__(self, input_2d, output_3d, elem_height=None):
+        """
+        :arg input_2d: 2D source field
+        :type input_2d: :class:`Function`
+        :arg output_3d: 3D target field
+        :type output_3d: :class:`Function`
+        :kwarg elem_height: scalar :class:`Function` in 3D mesh that defines
+            the vertical element size. Needed only in the case of HDiv function
+            spaces.
+        """
         self.input_2d = input_2d
         self.output_3d = output_3d
         self.fs_2d = self.input_2d.function_space()
@@ -558,22 +675,58 @@ class ExpandFunctionTo3d(object):
 
 class SubFunctionExtractor(object):
     """
-    Extract a 2D subfunction from a 3D extruded mesh.
+    Extract a 2D sub-function from a 3D function in an extruded mesh
 
-    input_3d: Function in 3d mesh
-    output_2d: Function in 2d mesh
-    boundary: 'top'|'bottom'
-        Defines whether to extract from the surface or bottom 3D elements
-    elem_facet: 'top'|'bottom'|'average'
-        Defines which facet of the 3D element is extracted. The 'average'
-        computes mean of the top and bottom facets of the 3D element.
-    elem_height: Function in 2d mesh
-        Function that defines the element heights
-        (required for Raviart-Thomas spaces only)
+    Given 2D and 3D functions,
+
+    .. code-block:: python
+
+        U = FunctionSpace(mesh, 'DG', 1)
+        U_2d = FunctionSpace(mesh2d, 'DG', 1)
+        func2d = Function(U_2d)
+        func3d = Function(U)
+
+    Get surface value:
+
+    .. code-block:: python
+
+        ex = SubFunctionExtractor(func3d, func2d,
+            boundary='top', elem_facet='top')
+        ex.solve()
+
+    Get bottom value:
+
+    .. code-block:: python
+
+        ex = SubFunctionExtractor(func3d, func2d,
+            boundary='bottom', elem_facet='bottom')
+        ex.solve()
+
+    Get value at the top of bottom element:
+
+    .. code-block:: python
+
+        ex = SubFunctionExtractor(func3d, func2d,
+            boundary='bottom', elem_facet='top')
+        ex.solve()
     """
     def __init__(self, input_3d, output_2d,
                  boundary='top', elem_facet=None,
                  elem_height=None):
+        """
+        :arg input_3d: 3D source field
+        :type input_3d: :class:`Function`
+        :arg output_2d: 2D target field
+        :type output_2d: :class:`Function`
+        :kwarg str boundary: 'top'|'bottom'
+            Defines whether to extract from the surface or bottom 3D elements
+        :kwarg str elem_facet: 'top'|'bottom'|'average'
+            Defines which facet of the 3D element is extracted. The 'average'
+            computes mean of the top and bottom facets of the 3D element.
+        :kwarg elem_height: scalar :class:`Function` in 2D mesh that defines
+            the vertical element size. Needed only in the case of HDiv function
+            spaces.
+        """
         self.input_3d = input_3d
         self.output_2d = output_2d
         self.fs_3d = self.input_3d.function_space()
@@ -673,9 +826,12 @@ class SubFunctionExtractor(object):
 
 def compute_elem_height(zcoord, output):
     """
-    Compute element heights on an extruded mesh.
-    zcoord (P1CG) contains zcoordinates of the mesh
-    element height is stored in output function (typ. P1DG).
+    Computes the element height on an extruded mesh.
+
+    :arg zcoord: field that contains the z coordinates of the mesh
+    :type zcoord: :class:`Function`
+    :arg output: field where element height is stored
+    :type output: :class:`Function`
     """
     fs_in = zcoord.function_space()
     fs_out = output.function_space()
@@ -704,17 +860,45 @@ def compute_elem_height(zcoord, output):
     return output
 
 
-def compute_bottom_drag(z_bottom, drag):
-    """Computes bottom drag coefficient (Cd) from boundary log layer."""
+def compute_bottom_drag(h_b, drag):
+    r"""
+    Computes bottom drag coefficient (Cd) from the law-of-the wall
+
+    .. math::
+        C_D = \left( \frac{\kappa}{\ln (h_b + z_0)/z_0} \right)^2
+
+    :arg h_b: the height above bed where the bottom velocity is evaluated in
+        the law-of-the-wall fit
+    :type h_b: :class:`Function`
+    :arg drag: field where C_D is stored
+    :type drag: :class:`Function`
+    """
+    # FIXME z0 should be a field, i.e. an argument to this function
     von_karman = physical_constants['von_karman']
     z0_friction = physical_constants['z0_friction']
-    drag.assign((von_karman / ln((z_bottom + z0_friction)/z0_friction))**2)
+    drag.assign((von_karman / ln((h_b + z0_friction)/z0_friction))**2)
     return drag
 
 
 def compute_bottom_friction(solver, uv_3d, uv_bottom_2d,
                             z_bottom_2d, bathymetry_2d,
                             bottom_drag_2d):
+    """
+    Updates bottom friction related fields for the 3D model
+
+    :arg solver: :class:`FlowSolver` object
+    :arg uv_3d: horizontal velocity
+    :type uv_3d: 3D vector :class:`Function`
+    :arg uv_bottom_2d: 2D bottom velocity field
+    :type uv_bottom_2d: 2D vector :class:`Function`
+    :arg z_bottom_2d: Bottom element z coordinate
+    :type z_bottom_2d: 2D scalar :class:`Function`
+    :arg bathymetry_2d: Bathymetry field
+    :type bathymetry_2d: 2D scalar :class:`Function`
+    :arg bottom_drag_2d: Bottom grad field
+    :type bottom_drag_2d: 2D scalar :class:`Function`
+    """
+    # TODO all input fields could be just fetched from solver.fields ...
     # compute velocity at middle of bottom element
     solver.extract_uv_bottom.solve()
     solver.extract_z_bottom.solve()
@@ -727,8 +911,9 @@ def compute_bottom_friction(solver, uv_3d, uv_bottom_2d,
 
 def get_horizontal_elem_size_2d(sol2d):
     """
-    Computes horizontal element size from the 2D mesh, stores the output in
-    the given field.
+    Computes horizontal element size from the 2D mesh
+
+    :arg sol2d: 2D :class:`Function` where result is stored
     """
     p1_2d = sol2d.function_space()
     mesh = p1_2d.mesh()
@@ -737,13 +922,15 @@ def get_horizontal_elem_size_2d(sol2d):
     a = inner(test, tri) * dx
     l = inner(test, sqrt(CellVolume(mesh))) * dx
     solve(a == l, sol2d)
-    return sol2d
 
 
 def get_horizontal_elem_size_3d(sol2d, sol3d):
     """
     Computes horizontal element size from the 2D mesh, then copies it on a 3D
-    field.
+    field
+
+    :arg sol2d: 2D :class:`Function` for the element size field
+    :arg sol3d: 3D :class:`Function` for the element size field
     """
     get_horizontal_elem_size_2d(sol2d)
     ExpandFunctionTo3d(sol2d, sol3d).solve()
@@ -751,9 +938,21 @@ def get_horizontal_elem_size_3d(sol2d, sol3d):
 
 class ALEMeshUpdater(object):
     """
-    Computes mesh velocity from changes in (continuous) 2D elevation field
+    Class that handles vertically moving ALE mesh
+
+    Mesh geometry is updated to match the elevation field
+    (``solver.fields.elev_2d``). First the discontinuous elevation field is
+    projected to continuous space, and this field is used to update the mesh
+    coordinates.
+
+    This class stores the reference coordinate field and keeps track of the
+    updated mesh coordinates. It also provides a method for computing the mesh
+    velocity from two adjacent elevation fields.
     """
     def __init__(self, solver):
+        """
+        :arg solver: :class:`FlowSolver` object
+        """
         self.solver = solver
         self.fields = solver.fields
         if self.solver.options.use_ale_moving_mesh:
@@ -791,8 +990,12 @@ class ALEMeshUpdater(object):
         self.proj_elev_cg_to_coords_2d.project()
 
     def compute_mesh_velocity_finalize(self, c=1.0):
-        """Stores the current 2D elevation state as the "new" fields,
-        and compute w_mesh using the given time step factor."""
+        """
+        Computes mesh velocity from the elevation difference
+
+        Stores the current 2D elevation state as the "new" field,
+        and computes w_mesh using the given time step factor ``c``.
+        """
         # compute w_mesh_surf = (elev_new - elev_old)/dt/c
         assert self.solver.options.use_ale_moving_mesh
         self.fields.w_mesh_surf_2d.assign(self.fields.elev_cg_2d)
@@ -812,7 +1015,8 @@ class ALEMeshUpdater(object):
         """
         Updates 3D mesh coordinates to match current elev_2d field
 
-        elev_2d is first projected to continous space"""
+        elev_2d is first projected to continous space
+        """
         assert self.solver.options.use_ale_moving_mesh
         self.proj_elev_to_cg_2d.project()
         self.proj_elev_cg_to_coords_2d.project()
@@ -828,13 +1032,31 @@ class ALEMeshUpdater(object):
 
 
 class ParabolicViscosity(object):
-    """Computes parabolic eddy viscosity profile assuming log layer flow
-    nu = kappa * u_bf * (-z) * (bath + z0 + z) / (bath + z0)
+    r"""
+    Computes parabolic eddy viscosity profile assuming log layer flow
+
+    .. math::
+        \nu = \kappa u_{bf}  \frac{(-z)(h + z_0 + z)}{h + z_0}
+
     with
-    u_bf = sqrt(Cd)*|uv_bottom|
+
+    .. math::
+        u_{bf} = \sqrt{C_D} |\mathbf{u}_b|
+
     """
     def __init__(self, uv_bottom, bottom_drag, bathymetry, nu,
                  solver_parameters={}):
+        """
+        :arg uv_bottom: bottom velocity
+        :type uv_bottom: 3D :class:`Function`
+        :arg bottom_drag: bottom drag field
+        :type bottom_drag: 3D :class:`Function`
+        :arg bathymetry: bathymetry field
+        :type bathymetry: 3D :class:`Function`
+        :arg nu: eddy viscosity field
+        :type nu: 3D :class:`Function`
+        :kwarg dict solver_parameters: PETSc solver options
+        """
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
         self.min_val = 1e-10
@@ -854,6 +1076,9 @@ class ParabolicViscosity(object):
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
+        """
+        Computes viscosity and stores it in nu field
+        """
         self.solver.solve()
         # remove negative values
         ix = self.solution.dat.data[:] < self.min_val
@@ -861,7 +1086,13 @@ class ParabolicViscosity(object):
 
 
 def beta_plane_coriolis_params(latitude):
-    """Computes beta plane parameters based on the latitude (given in degrees)."""
+    r"""
+    Computes beta plane parameters :math:`f_0,\beta` based on latitude
+
+    :arg float latitude: latitude in degrees
+    :return: f_0, beta
+    :rtype: float
+    """
     omega = 7.2921150e-5  # rad/s Earth rotation rate
     r = 6371.e3  # Earth radius
     # Coriolis parameter f = 2 Omega sin(alpha)
@@ -876,40 +1107,72 @@ def beta_plane_coriolis_params(latitude):
     return f_0, beta
 
 
-def beta_plane_coriolis_function(degrees, out_function, y_offset=0.0):
-    """Interpolates beta plane Coriolis parameter to the given functions."""
+def beta_plane_coriolis_function(latitude, out_function, y_offset=0.0):
+    """
+    Interpolates beta plane Coriolis function to a field
+
+    :arg float latitude: latitude in degrees
+    :arg out_function: :class:`Function` where to interpolate
+    :kwarg float y_offset: offset (y - y_0) used in Beta-plane approximation.
+        A constant in mesh coordinates.
+    """
     # NOTE assumes that mesh y coordinate spans [-L_y, L_y]
-    f0, beta = beta_plane_coriolis_params(45.0)
+    f0, beta = beta_plane_coriolis_params(latitude)
     out_function.interpolate(
         Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=y_offset))
 
 
 class SmagorinskyViscosity(object):
-    """
-    Computes Smagorinsky subgrid scale viscosity.
+    r"""
+    Computes Smagorinsky subgrid scale horizontal viscosity
 
-    This formulation is according to [1] and [2].
+    This formulation is according to Ilicak et al. (2012) and
+    Griffies and Hallberg (2000).
 
-    nu = (C_s L_x)**2 |S|
-    |S| = sqrt(D_T**2 + D_S**2)
-    D_T = du/dx - dv/dy
-    D_S = du/dy + dv/dx
-    L_x is the horizontal element size
-    C_s is the Smagorinsky coefficient
+    .. math::
+        \nu = (C_s \Delta x)^2 |S|
 
-    To match a certain mesh Reynolds number Re_h set
-    C_s = 1/sqrt(Re_h)
+    with the deformation rate
 
-    [1] Ilicak et al. (2012). Spurious dianeutral mixing and the role of
-        momentum closure. Ocean Modelling, 45-46(0):37-58.
-        http://dx.doi.org/10.1016/j.ocemod.2011.10.003
-    [2] Griffies and Hallberg (2000). Biharmonic friction with a
-        Smagorinsky-like viscosity for use in large-scale eddy-permitting
-        ocean models. Monthly Weather Review, 128(8):2935-2946.
-        http://dx.doi.org/10.1175/1520-0493(2000)128%3C2935:BFWASL%3E2.0.CO;2
+    .. math::
+        |S| &= \sqrt{D_T^2 + D_S^2} \\
+        D_T &= \frac{\partial u}{\partial x} - \frac{\partial v}{\partial y} \\
+        D_S &= \frac{\partial u}{\partial y} + \frac{\partial v}{\partial x}
+
+    :math:`\Delta x` is the horizontal element size and :math:`C_s` is the
+    Smagorinsky coefficient.
+
+    To match a certain mesh Reynolds number :math:`Re_h` set
+    :math:`C_s = 1/\sqrt{Re_h}`.
+
+    Ilicak et al. (2012). Spurious dianeutral mixing and the role of
+    momentum closure. Ocean Modelling, 45-46(0):37-58.
+    http://dx.doi.org/10.1016/j.ocemod.2011.10.003
+
+    Griffies and Hallberg (2000). Biharmonic friction with a
+    Smagorinsky-like viscosity for use in large-scale eddy-permitting
+    ocean models. Monthly Weather Review, 128(8):2935-2946.
+    http://dx.doi.org/10.1175/1520-0493(2000)128%3C2935:BFWASL%3E2.0.CO;2
     """
     def __init__(self, uv, output, c_s, h_elem_size, max_val, min_val=1e-10,
                  weak_form=True, solver_parameters={}):
+        """
+        :arg uv_3d: horizontal velocity
+        :type uv_3d: 3D vector :class:`Function`
+        :arg output: Smagorinsky viscosity field
+        :type output: 3D scalar :class:`Function`
+        :arg c_s: Smagorinsky coefficient
+        :type c_s: float or :class:`Constant`
+        :arg h_elem_size: field that defines the horizontal element size
+        :type h_elem_size: 3D scalar :class:`Function` or :class:`Constant`
+        :arg float max_val: Maximum allowed viscosity. Viscosity will be clipped at
+            this value.
+        :kwarg float min_val: Minimum allowed viscosity. Viscosity will be clipped at
+            this value.
+        :kwarg bool weak_form: Compute velocity shear by integrating by parts.
+            Necessary for some function spaces (e.g. P0).
+        :kwarg dict solver_parameters: PETSc solver options
+        """
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
         assert max_val.function_space() == output.function_space(), \
@@ -964,6 +1227,7 @@ class SmagorinskyViscosity(object):
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
     def solve(self):
+        """Compute viscosity"""
         if self.weak_form:
             for icomp in [0, 1]:
                 for j in [0, 1]:
@@ -979,15 +1243,21 @@ class SmagorinskyViscosity(object):
 
 
 class EquationOfState(object):
-    """
-    Equation of State according to [1] for computing sea water density.
+    r"""
+    Equation of State according of Jackett et al. (2006) for computing sea
+    water density.
 
-    [1] Jackett, D. R., McDougall, T. J., Feistel, R., Wright, D. G., and
-        Griffies, S. M. (2006). Algorithms for Density, Potential Temperature,
-        Conservative Temperature, and the Freezing Temperature of Seawater.
-        Journal of Atmospheric and Oceanic Technology, 23(12):1709-1728.
+    .. math ::
+        \rho = \rho'(T, S, p) + \rho_0
+
+    Jackett et al. (2006). Algorithms for Density, Potential Temperature,
+    Conservative Temperature, and the Freezing Temperature of Seawater.
+    Journal of Atmospheric and Oceanic Technology, 23(12):1709-1728.
+    http://dx.doi.org/10.1175/JTECH1946.1
     """
+    # TODO make an abstract base class
     def __init__(self):
+        """Sets coefficients"""
         # polynomial coefficients
         self.a = np.array([9.9984085444849347e2, 7.3471625860981584e0, -5.3211231792841769e-2,
                            3.6492439109814549e-4, 2.5880571023991390e0, -6.7168282786692355e-3,
@@ -999,19 +1269,23 @@ class EquationOfState(object):
                            6.7103246285651894e-6, -2.4461698007024582e-17, -9.1534417604289062e-18])
 
     def compute_rho(self, s, th, p, rho0=0.0):
-        """
+        r"""
         Computes sea water density.
 
-        :param S: Salinity expressed on the Practical Salinity Scale 1978
-        :param Th: Potential temperature in Celsius
-        :param p: Pressure in decibars (1 dbar = 1e4 Pa)
-        :param rho0: Optional reference density
+        :arg s: Salinity expressed on the Practical Salinity Scale 1978
+        :type s: float or numpy.array
+        :arg th: Potential temperature in Celsius, referenced to pressure
+            p_r = 0 dbar.
+        :type th: float or numpy.array
+        :arg p: Pressure in decibars (1 dbar = 1e4 Pa)
+        :type p: float or numpy.array
+        :kwarg float rho0: Optional reference density. If provided computes
+            :math:`\rho' = \rho(S, Th, p) - \rho_0`
+        :return: water density
+        :rtype: float or numpy.array
 
-        Th is referenced to pressure p_r = 0 dbar. All pressures are gauge
-        pressures: they are the absolute pressures minus standard atmosperic
+        All pressures are gauge pressures: they are the absolute pressures minus standard atmosperic
         pressure 10.1325 dbar.
-        Last optional argument rho0 is for computing deviation
-        rho' = rho(S, Th, p) - rho0.
         """
         s_pos = np.maximum(s, 0.0)  # ensure salinity is positive
         a = self.a
@@ -1028,12 +1302,20 @@ class EquationOfState(object):
 
 
 class LinearEquationOfState(object):
-    """
-    Linear Equation of State.
+    r"""
+    Linear Equation of State for computing sea water density
 
-    rho = rho_ref - alpha*(T - T_ref) + beta*(S - S_ref)
+    .. math::
+        \rho = \rho_{ref} - \alpha (T - T_{ref}) + \beta (S - S_{ref})
     """
     def __init__(self, rho_ref, alpha, beta, th_ref, s_ref):
+        """
+        :arg float rho_ref: reference density
+        :arg float alpha: thermal expansion coefficient
+        :arg float beta: haline contraction coefficient
+        :arg float th_ref: reference temperature
+        :arg float s_ref: reference salinity
+        """
         self.rho_ref = rho_ref
         self.alpha = alpha
         self.beta = beta
@@ -1041,13 +1323,19 @@ class LinearEquationOfState(object):
         self.S_ref = s_ref
 
     def compute_rho(self, s, th, p, rho0=0.0):
-        """
+        r"""
         Computes sea water density.
 
-        :param S: Salinity expressed on the Practical Salinity Scale 1978
-        :param Th: Potential temperature in Celsius
-        :param p: Pressure in decibars (1 dbar = 1e4 Pa)
-        :param rho0: Optional reference density
+        :arg s: Salinity expressed on the Practical Salinity Scale 1978
+        :type s: float or numpy.array
+        :arg th: Potential temperature in Celsius
+        :type th: float or numpy.array
+        :arg p: Pressure in decibars (1 dbar = 1e4 Pa)
+        :type p: float or numpy.array
+        :kwarg float rho0: Optional reference density. If provided computes
+            :math:`\rho' = \rho(S, Th, p) - \rho_0`
+        :return: water density
+        :rtype: float or numpy.array
 
         Pressure is ingored in this equation of state.
         """
@@ -1058,15 +1346,22 @@ class LinearEquationOfState(object):
 
 
 def tensor_jump(v, n):
-    """Jump term for vector functions based on the tensor product.
-    This is the discrete equivalent of grad(u) as opposed to the normal vectorial
-    jump which represents div(u)."""
+    r"""
+    Jump term for vector functions based on the tensor product
+
+    .. math::
+        \text{jump}(\mathbf{u}, \mathbf{n}) = (\mathbf{u}^+ \mathbf{n}^+) +
+        (\mathbf{u}^- \mathbf{n}^-)
+
+    This is the discrete equivalent of grad(u) as opposed to the
+    vectorial UFL jump operator :meth:`ufl.jump` which represents div(u).
+    """
     return outer(v('+'), n('+')) + outer(v('-'), n('-'))
 
 
 def compute_boundary_length(mesh2d):
     """
-    Computes the length of the boundary segments in 2d mesh.
+    Computes the length of the boundary segments in given 2d mesh
     """
     p1 = FunctionSpace(mesh2d, 'CG', 1)
     boundary_markers = mesh2d.exterior_facets.unique_markers

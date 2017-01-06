@@ -1,7 +1,5 @@
 """
 Routines for handling file exports.
-
-Tuomas Karna 2015-07-06
 """
 from __future__ import absolute_import
 from .utility import *
@@ -11,13 +9,16 @@ import itertools
 
 
 def is_2d(fs):
-    """Tests wether a function space is 2d or 3d"""
+    """Tests wether a function space is 2D or 3D"""
     return fs.mesh().geometric_dimension() == 2
 
 
 def get_visu_space(fs):
     """
-    Figure out the appropriate linear visualization space for fs
+    Returns an appropriate VTK visualization space for a function space
+
+    :arg fs: function space
+    :return: function space for VTK visualization
     """
     is_vector = len(fs.ufl_element().value_shape()) == 1
     mesh = fs.mesh()
@@ -36,6 +37,12 @@ class ExporterBase(object):
     Base class for exporter objects.
     """
     def __init__(self, filename, outputdir, next_export_ix=0, verbose=False):
+        """
+        :arg string filename: output file name (without directory)
+        :arg string outputdir: directory where file is stored
+        :kwarg int next_export_ix: set the index for next output
+        :kwarg bool verbose: print debug info to stdout
+        """
         self.filename = filename
         self.outputdir = create_directory(outputdir)
         self.verbose = verbose
@@ -47,26 +54,28 @@ class ExporterBase(object):
         self.next_export_ix = next_export_ix
 
     def export(self, function):
+        """Exports given function to disk"""
         raise NotImplementedError('This method must be implemented in the derived class')
 
 
 class VTKExporter(ExporterBase):
-    """Class that handles Paraview file exports."""
+    """Class that handles Paraview VTK file exports"""
     def __init__(self, fs_visu, func_name, outputdir, filename,
                  next_export_ix=0, project_output=False,
                  coords_dg=None, verbose=False):
         """
-        Creates VTK exporter object.
-
         :arg fs_visu: function space where input function will be cast
             before exporting
         :arg func_name: name of the function
         :arg outputdir: output directory
         :arg filename: name of the pvd file
-        :kwarg next_export_ix: index for next export (default 0)
-        :kwarg project_output: project function to output space instead of
+        :kwarg int next_export_ix: index for next export (default 0)
+        :kwarg bool project_output: project function to output space instead of
             interpolating
-        :kwarg varbose: print debug info to stdout
+        :kwarg bool coords_dg: Discontinuous coordinate field. Needed to avoid
+            allocating new coordinate field in case of discontinuous export
+            functions.
+        :kwarg bool verbose: print debug info to stdout
         """
         super(VTKExporter, self).__init__(filename, outputdir, next_export_ix,
                                           verbose)
@@ -89,7 +98,7 @@ class VTKExporter(ExporterBase):
         self.outfile.counter = itertools.count(start=self.next_export_ix)
 
     def export(self, function):
-        """Exports given function to disk."""
+        """Exports given function to disk"""
         assert self.fs_visu.max_work_functions == 1
         tmp_proj_func = self.fs_visu.get_work_function()
         # NOTE tmp function must be invariant as the projector is built only once
@@ -124,13 +133,12 @@ class NaiveFieldExporter(ExporterBase):
 
     Works for simple Pn and PnDG fields.
     """
+    # TODO this is OBSOLETE time to sail to valhalla
     def __init__(self, function_space, outputdir, filename_prefix,
                  next_export_ix=0, verbose=False):
         """
         Create exporter object for given function.
 
-        Parameters
-        ----------
         function_space : FunctionSpace
             function space where the exported functions belong
         outputdir : string
@@ -268,7 +276,8 @@ class NaiveFieldExporter(ExporterBase):
     def export(self, function):
         """
         Exports the given function to disk.
-        Increments previous export index by 1.
+
+        Increments export index by 1.
         """
         self.export_as_index(self.next_export_ix, function)
 
@@ -301,34 +310,41 @@ class NaiveFieldExporter(ExporterBase):
 
 
 class HDF5Exporter(ExporterBase):
-    """Stores fields in disk in native discretization using HDF5 containers"""
+    """
+    Stores fields in disk in native discretization using HDF5 containers
+    """
     def __init__(self, function_space, outputdir, filename_prefix,
                  next_export_ix=0, verbose=False):
         """
         Create exporter object for given function.
 
-        Parameters
-        ----------
-        function_space : FunctionSpace
-            function space where the exported functions belong
-        outputdir : string
-            directory where outputs will be stored
-        filename : string
-            prefix of output filename. Filename is prefix_nnnnn.h5
-            where nnnnn is the export number.
+        :arg function_space: space where the exported functions belong
+        :type function_space: :class:`FunctionSpace`
+        :arg string outputdir: directory where outputs will be stored
+        :arg string filename_prefix: prefix of output filename. Filename is
+            prefix_nnnnn.h5 where nnnnn is the export number.
+        :kwarg int next_export_ix: index for next export (default 0)
+        :kwarg bool verbose: print debug info to stdout
         """
         super(HDF5Exporter, self).__init__(filename_prefix, outputdir,
                                            next_export_ix, verbose)
         self.function_space = function_space
 
     def gen_filename(self, iexport):
+        """
+        Generate file name 'prefix_nnnnn.h5' for i-th export
+
+        :arg int iexport: export index >= 0
+        """
         filename = '{0:s}_{1:05d}'.format(self.filename, iexport)
         return os.path.join(self.outputdir, filename)
 
     def export_as_index(self, iexport, function):
         """
-        Exports the given function to disk using the specified export
-        index number.
+        Export function to disk using the specified export index number
+
+        :arg int iexport: export index >= 0
+        :arg function: :class:`Function` to export
         """
         assert function.function_space() == self.function_space,\
             'Function space does not match'
@@ -341,14 +357,20 @@ class HDF5Exporter(ExporterBase):
 
     def export(self, function):
         """
-        Exports the given function to disk.
-        Increments previous export index by 1.
+        Export function to disk.
+
+        Increments export index by 1.
+
+        :arg function: :class:`Function` to export
         """
         self.export_as_index(self.next_export_ix, function)
 
     def load(self, iexport, function):
         """
-        Loads nodal values from disk and assigns to the given function.
+        Loads nodal values from disk and assigns to the given function
+
+        :arg int iexport: export index >= 0
+        :arg function: target :class:`Function`
         """
         assert function.function_space() == self.function_space,\
             'Function space does not match'
@@ -360,10 +382,34 @@ class HDF5Exporter(ExporterBase):
 
 
 class ExportManager(object):
-    """Handles a list of file exporter objects"""
+    """
+    Helper object for exporting multiple fields simultaneously
 
+    .. code-block:: python
+
+        from .field_defs import field_metadata
+        field_dict = {'elev_2d': Function(...), 'uv_3d': Function(...), ...}
+        e = exporter.ExportManager('mydirectory',
+                                   ['elev_2d', 'uv_3d', salt_3d'],
+                                   field_dict,
+                                   field_metadata,
+                                   export_type='vtk')
+        e.export()
+
+    """
     def __init__(self, outputdir, fields_to_export, functions, field_metadata,
                  export_type='vtk', next_export_ix=0, verbose=False):
+        """
+        :arg string outputdir: directory where files are stored
+        :arg fields_to_export: list of fields to export
+        :type fields_to_export: list of strings
+        :arg functions: dict that contains all existing :class:`Function` s
+        :arg field_metadata: dict of all field metadata.
+            See :mod:`.field_defs`
+        :arg string export_type: export format, one of 'vtk', 'hdf5', 'numpy'
+        :kwarg int next_export_ix: index for next export (default 0)
+        :kwarg bool verbose: print debug info to stdout
+        """
         self.outputdir = outputdir
         self.fields_to_export = fields_to_export
         self.functions = functions
@@ -397,7 +443,10 @@ class ExportManager(object):
                                                        next_export_ix=next_export_ix)
 
     def _get_dg_coordinates(self, fs):
-        """Get a cached dg function to be used as dg coordinate field in VTK output objects."""
+        """
+        Get a cached dg function to be used as dg coordinate field in VTK
+        output objects
+        """
         if is_2d(fs):
             if self.coords_dg_2d is None:
                 coord_fs = VectorFunctionSpace(fs.mesh(), 'DG', 1, name='P1DGv_2d')
@@ -410,11 +459,16 @@ class ExportManager(object):
         return self.coords_dg_3d
 
     def set_next_export_ix(self, next_export_ix):
-        """Sets the correct export index to all child exporters"""
+        """Set export index to all child exporters"""
         for k in self.exporters:
             self.exporters[k].set_next_export_ix(next_export_ix)
 
     def export(self):
+        """
+        Export all designated functions to disk
+
+        Increments export index by 1.
+        """
         if self.verbose and COMM_WORLD.rank == 0:
             sys.stdout.write('Exporting: ')
         for key in self.exporters:
@@ -429,5 +483,12 @@ class ExportManager(object):
             sys.stdout.flush()
 
     def export_bathymetry(self, bathymetry_2d):
+        """
+        Special function to export 2D bathymetry data to disk
+
+        Bathymetry does not vary in time so this only needs to be called once.
+
+        :arg bathymetry_2d: 2D bathymetry :class:`Function`
+        """
         bathfile = File(os.path.join(self.outputdir, 'bath.pvd'))
         bathfile.write(bathymetry_2d)

@@ -1,7 +1,5 @@
 """
-Time integrators for solving coupled 2D-3D-tracer equations.
-
-Tuomas Karna 2015-07-06
+Time integrators for solving coupled 2D-3D system of equations.
 """
 from __future__ import absolute_import
 from .utility import *
@@ -13,8 +11,18 @@ from abc import ABCMeta, abstractproperty
 
 
 class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
-    """Base class for coupled time integrators"""
+    """
+    Base class for coupled 2D-3D time integrators
+
+    Provides common functionality for updating diagnostic fields etc.
+    """
     def __init__(self, solver, options, fields):
+        """
+        :arg solver: :class:`.FlowSolver` object
+        :arg options: :class:`.ModelOptions` object
+        :arg fields: :class:`.FieldDict` object
+        """
+        # TODO remove option, field args as these are members of solver
         self.solver = solver
         self.options = options
         self.fields = fields
@@ -25,11 +33,12 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
             self.solver.copy_elev_to_3d.solve()  # at t_{n+1}
 
     def _update_vertical_velocity(self):
+        """Solve vertical velocity"""
         with timed_stage('continuity_eq'):
             self.solver.w_solver.solve()
 
     def _update_moving_mesh(self):
-        """Updates mesh to match elevation field"""
+        """Updates 3D mesh to match elevation field"""
         if self.options.use_ale_moving_mesh:
             with timed_stage('aux_mesh_ale'):
                 self.solver.mesh_updater.update_mesh_coordinates()
@@ -83,7 +92,11 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
                 compute_baroclinic_head(self.solver)
 
     def _update_turbulence(self, t):
-        """Updates turbulence related fields"""
+        """
+        Updates turbulence related fields
+
+        :arg t: simulation time
+        """
         if self.options.use_turbulence:
             with timed_stage('turbulence'):
                 self.solver.gls_model.preprocess()
@@ -93,8 +106,9 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
                 self.solver.gls_model.postprocess()
 
     def _update_stabilization_params(self):
-        """Computes Smagorinsky viscosity etc fields"""
-        # update velocity magnitude
+        """
+        Computes Smagorinsky viscosity etc fields
+        """
         with timed_stage('aux_stability'):
             self.solver.uv_mag_solver.solve()
             # update P1 velocity field
@@ -135,21 +149,31 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
 
 
 class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
+    """
+    Base class of mode-split time integrators that use 2D, 3D and implicit 3D
+    time integrators.
+    """
     __metaclass__ = ABCMeta
 
     @abstractproperty
     def integrator_2d(self):
+        """time integrator for 2D equations"""
         pass
 
     @abstractproperty
     def integrator_3d(self):
+        """time integrator for explicit 3D equations (momentum, tracers)"""
         pass
 
     @abstractproperty
     def integrator_vert_3d(self):
+        """time integrator for implicit 3D equations (vertical diffusion)"""
         pass
 
     def __init__(self, solver):
+        """
+        :arg solver: :class:`.FlowSolver` object
+        """
         super(CoupledTimeIntegrator, self).__init__(solver,
                                                     solver.options,
                                                     solver.fields)
@@ -163,6 +187,10 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         self.n_stages = self.timestepper2d.n_stages
 
     def _create_integrators(self):
+        """
+        Creates all time integrators with the correct arguments
+        """
+        # TODO refactor
         solver = self.solver
         uv_source_2d = solver.fields.split_residual_2d
         if self.options.uv_source_2d is not None:
@@ -328,7 +356,21 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         self.cfl_coeff_2d = self.timestepper2d.cfl_coeff
 
     def set_dt(self, dt, dt_2d):
-        # TODO decide which dt to use where ...
+        """
+        Set time step for the coupled time integrator
+
+        :arg dt: Time step. This is the master (macro) time step used to
+            march the 3D equations.
+        :type dt: float
+        :arg dt_2d: Time step for 2D equations. For consistency :attr:`dt_2d`
+            must be an integer fraction of :attr:`dt`. If 2D solver is implicit
+            set :attr:`dt_2d` equal to :attr:`dt`.
+        :type dt_2d: float
+
+        """
+        # TODO check mod(dt, dt_2d) == 0
+        if dt != dt_2d:
+            raise NotImplementedError('Case dt_2d < dt is not implemented yet')
         self.timestepper2d.set_dt(dt)
         self.timestepper_mom_3d.set_dt(dt)
         if self.solver.options.solve_vert_diffusion:
@@ -349,7 +391,11 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 self.timestepper_psi_adv_eq.set_dt(dt)
 
     def initialize(self):
-        """Assign initial conditions to all necessary fields"""
+        """
+        Assign initial conditions to all necessary fields
+
+        Initial conditions are read from :attr:`fields` dictionary.
+        """
         self.timestepper2d.initialize(self.fields.solution_2d)
         self.timestepper_mom_3d.initialize(self.fields.uv_3d)
         if self.options.solve_vert_diffusion:
@@ -374,8 +420,14 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
 
 class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
     """
-    Solves coupled equations with simultaneous SSPRK33 stages, where 2d gravity
-    waves are solved semi-implicitly. This saves CPU cos diffuses gravity waves.
+    Solves coupled equations with SSPRK33 time integrator using the same time
+    step for the 2D and 3D modes.
+
+    In the 2D mode the surface gravity waves are solved semi-implicitly. This
+    allows longer time steps but diffuses free surface waves.
+
+    This time integrator uses a static 3D mesh. It is not compliant with the
+    ALE moving mesh.
     """
     integrator_2d = rungekutta.SSPRK33SemiImplicit
     integrator_3d = rungekutta.SSPRK33
@@ -421,10 +473,11 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
 class CoupledERKALE(CoupledTimeIntegrator):
     """
     Implicit-Explicit SSP RK solver for conservative ALE formulation
+
+    A fully explicit mode-split time integrator where both the 2D and 3D modes
+    use the same time step. The time step is typically chosen to match the 2D
+    surface gravity wave speed. Only vertical diffusion is treated implicitly.
     """
-    # integrator_2d = rungekutta.ERKEulerALE
-    # integrator_3d = rungekutta.ERKEulerALE
-    # integrator_vert_3d = rungekutta.BackwardEuler
     integrator_2d = rungekutta.ERKLPUM2
     integrator_3d = rungekutta.ERKLPUM2ALE
     integrator_vert_3d = rungekutta.BackwardEuler
@@ -444,13 +497,25 @@ class CoupledERKALE(CoupledTimeIntegrator):
         self.a_inv = linalg.inv(a)
 
     def _compute_mesh_velocity_pre(self, i_stage):
+        """
+        Begin mesh velocity computation by storing current elevation field
+
+        :arg i_stage: state of the Runge-Kutta iteration
+        """
         if i_stage == 0:
             fields = self.solver.fields
             self.solver.elev_2d_to_cg_projector.project()
             self.elev_cg_old_2d[i_stage].assign(fields.elev_cg_2d)
 
     def compute_mesh_velocity(self, i_stage):
-        """Compute mesh velocity from 2D solver runge-kutta scheme"""
+        """
+        Compute mesh velocity from 2D solver runge-kutta scheme
+
+        Mesh velocity is solved from the Runge-Kutta coefficients of the
+        implicit 2D solver.
+
+        :arg i_stage: state of the Runge-Kutta iteration
+        """
         fields = self.solver.fields
 
         self.solver.elev_2d_to_cg_projector.project()
@@ -458,7 +523,7 @@ class CoupledERKALE(CoupledTimeIntegrator):
 
         w_mesh = fields.w_mesh_surf_2d
         w_mesh.assign(0.0)
-        # stage consistent mesh velcity is obtained from inv bucher tableau
+        # stage consistent mesh velocity is obtained from inv bucher tableau
         for j in range(i_stage + 1):
             x_j = self.elev_cg_old_2d[j + 1]
             x_0 = self.elev_cg_old_2d[0]
@@ -473,7 +538,20 @@ class CoupledERKALE(CoupledTimeIntegrator):
         fields.w_mesh_3d.dat.data[:] = w_mesh_surf * (z_ref/h + 1.0)
 
     def advance(self, t, dt, update_forcings=None, update_forcings3d=None):
-        """Advances the equations for one time step"""
+        """
+        Advances the equations for one time step
+
+        :arg t: simulation time
+        :type t: float
+        :arg dt: time step
+        :type dt: float
+        :kwarg update_forcings: Optional user-defined function that takes
+            simulation time and updates time-dependent boundary conditions of
+            the 2D equations.
+        :kwarg update_forcings3d: Optional user defined function that updates
+            boundary conditions of the 3D equations
+        """
+        # TODO remove dt from args to comply with timeintegrator API
         if not self._initialized:
             self.initialize()
 
@@ -548,11 +626,14 @@ class CoupledERKALE(CoupledTimeIntegrator):
 class CoupledIMEXALE(CoupledTimeIntegrator):
     """
     Implicit-Explicit SSP RK solver for conservative ALE formulation
+
+    Advances the 2D-3D system with IMEX scheme: the free surface gravity waves
+    are solved with the implicit scheme while all other terms are solved with the
+    explicit scheme. Vertical diffusion is however solved with a separate
+    implicit scheme (backward Euler) for efficiency.
     """
     integrator_2d = implicitexplicit.IMEXLPUM2
     integrator_3d = rungekutta.ERKLPUM2ALE
-    # integrator_2d = implicitexplicit.IMEXEuler
-    # integrator_3d = rungekutta.ERKEulerALE
     integrator_vert_3d = rungekutta.BackwardEuler
 
     def __init__(self, solver):
@@ -569,13 +650,26 @@ class CoupledIMEXALE(CoupledTimeIntegrator):
         self.a_inv = linalg.inv(ti.a)
 
     def _compute_mesh_velocity_pre(self, i_stage):
+        """
+        Begin mesh velocity computation by storing current elevation field
+
+        :arg i_stage: state of the Runge-Kutta iteration
+        """
         if i_stage == 0:
             fields = self.solver.fields
             self.solver.elev_2d_to_cg_projector.project()
             self.elev_cg_old_2d[i_stage].assign(fields.elev_cg_2d)
 
     def compute_mesh_velocity(self, i_stage):
-        """Compute mesh velocity from 2D solver runge-kutta scheme"""
+        """
+        Compute mesh velocity from 2D solver runge-kutta scheme
+
+        Mesh velocity is solved from the Runge-Kutta coefficients of the
+        implicit 2D solver.
+
+        :arg i_stage: state of the Runge-Kutta iteration
+        """
+        # TODO remove dt from args to comply with timeintegrator API
         fields = self.solver.fields
 
         self.solver.elev_2d_to_cg_projector.project()
@@ -583,7 +677,7 @@ class CoupledIMEXALE(CoupledTimeIntegrator):
 
         w_mesh = fields.w_mesh_surf_2d
         w_mesh.assign(0.0)
-        # stage consistent mesh velcity is obtained from inv bucher tableau
+        # stage consistent mesh velocity is obtained from inv bucher tableau
         for j in range(i_stage + 1):
             x_j = self.elev_cg_old_2d[j + 1]
             x_0 = self.elev_cg_old_2d[0]
@@ -669,6 +763,13 @@ class CoupledIMEXALE(CoupledTimeIntegrator):
 class CoupledLeapFrogAM3(CoupledTimeIntegrator):
     """
     Leap-Frog Adams-Moulton 3 time integrator for coupled 2D-3D problem
+
+    This is an ALE time integrator.
+    Implementation follows the SLIM time integrator by Karna et al (2013)
+
+    Karna, et al. (2013). A baroclinic discontinuous Galerkin finite element
+    model for coastal flows. Ocean Modelling, 61(0):1-20.
+    http://dx.doi.org/10.1016/j.ocemod.2012.09.009
     """
     integrator_2d = rungekutta.DIRK22
     integrator_3d = timeintegrator.LeapFrogAM3
@@ -810,6 +911,10 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
 class CoupledTwoStageRK(CoupledTimeIntegrator):
     """
     Coupled time integrator based on SSPRK(2,2) scheme
+
+    This ALE time integration method uses SSPRK(2,2) scheme to advance the 3D
+    equations and a compatible implicit Trapezoid method to advance the 2D
+    equations. Backward Euler scheme is used for vertical diffusion.
     """
     integrator_2d = rungekutta.TwoStageTrapezoid
     integrator_3d = timeintegrator.SSPRK22ALE
@@ -824,13 +929,27 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
             self.elev_fields.append(e)
 
     def store_elevation(self, istage):
-        """Stores elevation field for stage istage for computing mesh velocity"""
+        """
+        Store current elevation field for computing mesh velocity
+
+        Must be called before updating the 2D mode.
+
+        :arg istage: stage of the Runge-Kutta iteration
+        :type istage: int
+        """
         if self.options.use_ale_moving_mesh:
             self.solver.mesh_updater.compute_mesh_velocity_begin()
             self.elev_fields[istage].assign(self.fields.elev_cg_2d)
 
     def compute_mesh_velocity(self, istage):
-        """Computes mesh velocity for stage i"""
+        """
+        Computes mesh velocity for stage i
+
+        Must be called after updating the 2D mode.
+
+        :arg istage: stage of the Runge-Kutta iteration
+        :type istage: int
+        """
         if self.options.use_ale_moving_mesh:
             self.solver.mesh_updater.compute_mesh_velocity_begin()
             current_elev = self.fields.elev_cg_2d
