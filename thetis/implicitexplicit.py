@@ -62,7 +62,7 @@ class IMEXGeneric(TimeIntegrator):
     :attr:`erk_class` Runge-Kutta time integrator classes.
 
     This method solves the linearized equations: All implicit terms are fed to
-    the implicit solver, while all the other terms are fed to the implicit
+    the implicit solver, while all the other terms are fed to the explicit
     solver. In case of non-linear terms proper linearization must defined in the
     equation using the two solution functions (solution, solution_old)
     """

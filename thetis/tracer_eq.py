@@ -128,8 +128,7 @@ class HorizontalAdvectionTerm(TracerTerm):
     :math:`\textbf{n}_h` is the horizontal projection of the unit normal vector,
     :math:`T^{\text{up}}` is the upwind value, and :math:`\text{jump}` and
     :math:`\text{avg}` denote the jump and average operators across the
-    interface. If :math:`T` belongs to a discontinuous function space, the
-    latter form is used.
+    interface.
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('uv_3d') is None:
@@ -208,8 +207,6 @@ class VerticalAdvectionTerm(TracerTerm):
     :math:`T^{\text{up}}` is the
     upwind value, and :math:`\text{jump}` and :math:`\text{avg}` denote the
     jump and average operators across the interface.
-    If :math:`T` belongs to a discontinuous function space, the
-    latter form is used.
 
     In the case of ALE moving mesh we substitute :math:`w` with :math:`w - w_m`,
     :math:`w_m` being the mesh velocity.

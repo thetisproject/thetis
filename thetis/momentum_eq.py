@@ -29,8 +29,8 @@ Above :math:`r` denotes the baroclinic head
 In the case of purely barotropic problems the :math:`r` and the internal pressure
 gradient are omitted.
 
-When using mode spliting we split the velocity field to depth average and a
-deviation, :math:`\textbf{u} = \bar{\textbf{u}} + \textbf{u}'`.
+When using mode splitting we split the velocity field into a depth average and
+a deviation, :math:`\textbf{u} = \bar{\textbf{u}} + \textbf{u}'`.
 Following Higdon and de Szoeke (1997) we write an equation for the deviation
 :math:`\textbf{u}'`:
 
@@ -230,9 +230,6 @@ class HorizontalAdvectionTerm(MomentumTerm):
     projection of the normal vector, :math:`\textbf{u}^{\text{up}}` is the
     upwind value, and :math:`\text{jump}` and :math:`\text{avg}` denote the
     jump and average operators across the interface.
-    If :math:`\bar{\textbf{u}}` belongs to a discontinuous function space, the
-    latter form is used.
-
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if not self.nonlin:
@@ -337,9 +334,6 @@ class VerticalAdvectionTerm(MomentumTerm):
         \int_\Omega \frac{\partial \left(w\textbf{u} \right)}{\partial z} \cdot \boldsymbol{\psi} dx
         = - \int_\Omega \left( w \textbf{u} \right) \cdot \frac{\partial \boldsymbol{\psi}}{\partial z} dx
         + \int_{\mathcal{I}_{h}} \textbf{u}^{\text{up}} \cdot \text{jump}(\boldsymbol{\psi} n_z) \text{avg}(w) dS
-
-    If the function space of :math:`\textbf{u}` is discontinuous in the
-    vertical direction, we use the latter form.
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         w = fields_old.get('w')
@@ -627,7 +621,7 @@ class CoriolisTerm(MomentumTerm):
 
 class SourceTerm(MomentumTerm):
     r"""
-    Generic momentun source term
+    Generic momentum source term
 
     The weak form reads
 

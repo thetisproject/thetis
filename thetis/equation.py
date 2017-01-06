@@ -15,8 +15,7 @@ class Term(object):
     """
     def __init__(self, function_space):
         """
-        :arg function_space: :class:`FunctionSpace` where the solution belongs
-            to
+        :arg function_space: the :class:`FunctionSpace` the solution belongs to
         """
         # define bunch of members needed to construct forms
         self.function_space = function_space
@@ -63,11 +62,26 @@ class Equation(object):
     Implements an equation, made out of terms.
     """
     SUPPORTED_LABELS = ['source', 'explicit', 'implicit', 'nonlinear']
+    """
+    Valid labels for terms, indicating how they should be treated in the time
+    integrator.
+
+    source
+        The term is a source term, i.e. does not depend on the solution.
+
+    explicit
+        The term should be treated explicitly
+
+    implicit
+        The term should be treated implicitly
+
+    nonlinear
+        The term is nonlinear and should be treated fully implicitly
+    """
 
     def __init__(self, function_space):
         """
-        :arg function_space: :class:`FunctionSpace` where the solution belongs
-            to
+        :arg function_space: the :class:`FunctionSpace` the solution belongs to
         """
         self.terms = {}
         self.labels = {}
@@ -93,9 +107,8 @@ class Equation(object):
         Adds a term in the equation
 
         :arg term: :class:`.Term` object to add_term
-        :arg string label: Assign a label to the term. Generally one of
-            'implicit', 'explicit', 'source' indicating how this term should be
-            treated in the time integrator.
+        :arg string label: Assign a label to the term. Valid labels are given by
+            :attr:`.SUPPORTED_LABELS`.
         """
         key = term.__class__.__name__
         self.terms[key] = term

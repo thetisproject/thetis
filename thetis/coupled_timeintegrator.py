@@ -362,9 +362,9 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         :arg dt: Time step. This is the master (macro) time step used to
             march the 3D equations.
         :type dt: float
-        :arg dt_2d: Time step for 2D equations. For constency :attr:`dt_2d`
+        :arg dt_2d: Time step for 2D equations. For consistency :attr:`dt_2d`
             must be an integer fraction of :attr:`dt`. If 2D solver is implicit
-            use set :attr:`dt_2d` equal to :attr:`dt`.
+            set :attr:`dt_2d` equal to :attr:`dt`.
         :type dt_2d: float
 
         """
@@ -476,7 +476,7 @@ class CoupledERKALE(CoupledTimeIntegrator):
 
     A fully explicit mode-split time integrator where both the 2D and 3D modes
     use the same time step. The time step is typically chosen to match the 2D
-    surface gravity wave speed.
+    surface gravity wave speed. Only vertical diffusion is treated implicitly.
     """
     integrator_2d = rungekutta.ERKLPUM2
     integrator_3d = rungekutta.ERKLPUM2ALE

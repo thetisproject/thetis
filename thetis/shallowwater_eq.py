@@ -289,8 +289,9 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
     where the right hand side has been integrated by parts; :math:`\textbf{n}`
     denotes the unit normal of the element interfaces, :math:`n^*` is value at
     the interface obtained from an approximate Riemann solver.
-    If :math:`\eta` belongs to a discontinuous function space, the latter
-    form is used.
+
+    If :math:`\eta` belongs to a discontinuous function space, the form on the
+    right hand side is used.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
@@ -352,9 +353,9 @@ class HUDivTerm(ShallowWaterContinuityTerm):
     and :math:`\text{avg}` denote the jump and average operators across the
     interface. :math:`H^*, \bar{\textbf{u}}^*` are values at the interface
     obtained from an approximate Riemann solver.
-    If :math:`\bar{\textbf{u}}` belongs to a discontinuous function space,
-    the latter form is used.
 
+    If :math:`\bar{\textbf{u}}` belongs to a discontinuous function space,
+    the form on the right hand side is used.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
@@ -408,8 +409,6 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
     :math:`\textbf{n}` is the unit normal of
     the element interfaces, and :math:`\text{jump}` and :math:`\text{avg}` denote the
     jump and average operators across the interface.
-    If the function space of :math:`\textbf{u}` is discontinuous in the
-    horizontal direction, the latter form is used.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         uv_lax_friedrichs = fields_old.get('uv_lax_friedrichs')
