@@ -422,8 +422,6 @@ class FlowSolver(FrozenClass):
             filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
             output_logger.addHandler(filehandler)
 
-        self.use_full_2d_mode = True  # 2d solution is (uv, eta) not (eta)
-
         # mesh velocity etc fields must be in the same space as 3D coordinates
         e = self.mesh2d.coordinates.function_space().fiat_element
         coord_is_dg = element_continuity(e).dg
@@ -466,7 +464,6 @@ class FlowSolver(FrozenClass):
         self.fields.w_3d = Function(self.function_spaces.W)
         if self.options.use_ale_moving_mesh:
             self.fields.w_mesh_3d = Function(coord_fs)
-            self.fields.w_mesh_ddz_3d = Function(coord_fs)
             self.fields.w_mesh_surf_3d = Function(coord_fs)
             self.fields.w_mesh_surf_2d = Function(coord_fs_2d)
         if self.options.solve_salt:
@@ -505,8 +502,6 @@ class FlowSolver(FrozenClass):
         self.fields.max_h_diff = Function(self.function_spaces.P1)
         if self.options.smagorinsky_factor is not None:
             self.fields.smag_visc_3d = Function(self.function_spaces.P1)
-        if self.options.salt_jump_diff_factor is not None:
-            self.fields.salt_jump_diff = Function(self.function_spaces.P1)
         if self.options.use_limiter_for_tracers and self.options.order > 0:
             self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H)
         else:
@@ -556,32 +551,19 @@ class FlowSolver(FrozenClass):
         self.tot_v_diff.add(self.fields.get('eddy_diff_3d'))
 
         # ----- Equations
-        if self.use_full_2d_mode:
-            # full 2D shallow water equations
-            self.eq_sw = shallowwater_eq.ModeSplit2DEquations(
-                self.fields.solution_2d.function_space(),
-                self.fields.bathymetry_2d,
-                nonlin=self.options.nonlin,
-                include_grad_div_viscosity_term=self.options.include_grad_div_viscosity_term,
-                include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term
-            )
-        else:
-            # solve elevation only: 2D free surface equation
-            uv, eta = self.fields.solution_2d.split()
-            eta_test = TestFunction(eta)
-            self.eq_sw = shallowwater_eq.FreeSurfaceEquation(
-                eta_test, eta.function_space(), uv.function_space(),
-                self.fields.bathymetry_2d,
-                nonlin=self.options.nonlin,
-            )
+        self.eq_sw = shallowwater_eq.ModeSplit2DEquations(
+            self.fields.solution_2d.function_space(),
+            self.fields.bathymetry_2d,
+            nonlin=self.options.nonlin,
+            include_grad_div_viscosity_term=self.options.include_grad_div_viscosity_term,
+            include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term)
 
         self.eq_momentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
                                                         bathymetry=self.fields.bathymetry_3d,
                                                         v_elem_size=self.fields.v_elem_size_3d,
                                                         h_elem_size=self.fields.h_elem_size_3d,
                                                         nonlin=self.options.nonlin,
-                                                        use_bottom_friction=False,
-                                                        use_elevation_gradient=not self.use_full_2d_mode)
+                                                        use_bottom_friction=False)
         if self.options.solve_vert_diffusion:
             self.eq_vertmomentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
                                                                 bathymetry=self.fields.bathymetry_3d,
@@ -671,14 +653,6 @@ class FlowSolver(FrozenClass):
                                        export_type='vtk',
                                        verbose=self.options.verbose > 0)
             self.exporters['vtk'] = e
-            numpy_dir = os.path.join(self.options.outputdir, 'numpy')
-            e = exporter.ExportManager(numpy_dir,
-                                       self.options.fields_to_export_numpy,
-                                       self.fields,
-                                       field_metadata,
-                                       export_type='numpy',
-                                       verbose=self.options.verbose > 0)
-            self.exporters['numpy'] = e
             hdf5_dir = os.path.join(self.options.outputdir, 'hdf5')
             e = exporter.ExportManager(hdf5_dir,
                                        self.options.fields_to_export_hdf5,
@@ -764,11 +738,6 @@ class FlowSolver(FrozenClass):
                                                                  elem_height=self.fields.v_elem_size_3d)
         self.mesh_updater = ALEMeshUpdater(self)
 
-        if self.options.salt_jump_diff_factor is not None:
-            self.horiz_jump_diff_solver = HorizontalJumpDiffusivity(self.options.salt_jump_diff_factor, self.fields.salt_3d,
-                                                                    self.fields.salt_jump_diff, self.fields.h_elem_size_3d,
-                                                                    self.fields.uv_mag_3d, self.options.salt_range,
-                                                                    self.fields.max_h_diff)
         if self.options.smagorinsky_factor is not None:
             self.smagorinsky_diff_solver = SmagorinskyViscosity(self.fields.uv_p1_3d, self.fields.smag_visc_3d,
                                                                 self.options.smagorinsky_factor, self.fields.h_elem_size_3d,
@@ -1054,7 +1023,7 @@ class FlowSolver(FrozenClass):
 
         while self.simulation_time <= self.options.t_end - t_epsilon:
 
-            self.timestepper.advance(self.simulation_time, self.dt,
+            self.timestepper.advance(self.simulation_time,
                                      update_forcings, update_forcings3d)
 
             # Move to next time step

@@ -88,10 +88,6 @@ class ModelOptions(AttrDict, FrozenClass):
 
         See :class:`.SmagorinskyViscosity`.
         """
-        self.salt_jump_diff_factor = None
-        """:class:`Constant` or None: Non-linear jump diffusion factor"""
-        self.salt_range = Constant(30.0)
-        """:class:`Constant` or None: Salt max-min range for jump diffusion"""
         self.use_limiter_for_tracers = False
         """bool: Apply P1DG limiter for tracer fields"""
         self.uv_lax_friedrichs = Constant(1.0)
@@ -209,10 +205,8 @@ class ModelOptions(AttrDict, FrozenClass):
         """dict: Parameters for linear equation of state"""
         self.fields_to_export = ['elev_2d', 'uv_2d', 'uv_3d', 'w_3d']
         """list of str: Fields to export in VTK format"""
-        self.fields_to_export_numpy = []
-        """list of str: Fields to export in HDF5 format"""
         self.fields_to_export_hdf5 = []
-        """list of str: Fields to export in numpy format"""
+        """list of str: Fields to export in HDF5 format"""
         self.verbose = 0
         """int: Verbosity level"""
         # NOTE these are fields, potentially Functions: move out of this class?

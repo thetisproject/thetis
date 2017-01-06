@@ -60,6 +60,6 @@ uv_init = Function(solver_obj.function_spaces.U_2d)
 uv_init.project(Expression(('g/f*eta_amp*2*x[1]/s/s*exp(-(x[0]*x[0]+x[1]*x[1])/s/s)',
                             '-g/f*eta_amp*2*x[0]/s/s*exp(-(x[0]*x[0]+x[1]*x[1])/s/s)'), eta_amp=elev_amp, s=sigma, g=9.81, f=f0))
 
-solver_obj.assign_initial_conditions(elev=elev_init, uv_init=uv_init)
+solver_obj.assign_initial_conditions(elev=elev_init, uv=uv_init)
 
 solver_obj.iterate()

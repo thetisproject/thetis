@@ -332,10 +332,10 @@ class FlowSolver2d(FrozenClass):
                 'pc_type': 'fieldsplit',
                 'pc_fieldsplit_type': 'multiplicative',
             }
-            self.timestepper = implicitexplicit.SSPIMEX(self.eq_sw, self.fields.solution_2d, fields, self.dt,
-                                                        bnd_conditions=self.bnd_functions['shallow_water'],
-                                                        solver_parameters=sp_expl,
-                                                        solver_parameters_dirk=sp_impl)
+            self.timestepper = implicitexplicit.IMEXLPUM2(self.eq_sw, self.fields.solution_2d, fields, self.dt,
+                                                          bnd_conditions=self.bnd_functions['shallow_water'],
+                                                          solver_parameters=sp_expl,
+                                                          solver_parameters_dirk=sp_impl)
         else:
             raise Exception('Unknown time integrator type: '+str(self.options.timestepper_type))
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
@@ -361,14 +361,6 @@ class FlowSolver2d(FrozenClass):
                                        export_type='vtk',
                                        verbose=self.options.verbose > 0)
             self.exporters['vtk'] = e
-            numpy_dir = os.path.join(self.options.outputdir, 'numpy')
-            e = exporter.ExportManager(numpy_dir,
-                                       self.options.fields_to_export_numpy,
-                                       self.fields,
-                                       field_metadata,
-                                       export_type='numpy',
-                                       verbose=self.options.verbose > 0)
-            self.exporters['numpy'] = e
             hdf5_dir = os.path.join(self.options.outputdir, 'hdf5')
             e = exporter.ExportManager(hdf5_dir,
                                        self.options.fields_to_export_hdf5,
@@ -394,7 +386,7 @@ class FlowSolver2d(FrozenClass):
             self.create_exporters()
         self._initialized = True
 
-    def assign_initial_conditions(self, elev=None, uv_init=None):
+    def assign_initial_conditions(self, elev=None, uv=None):
         """
         Assigns initial conditions
 
@@ -408,8 +400,8 @@ class FlowSolver2d(FrozenClass):
         uv_2d, elev_2d = self.fields.solution_2d.split()
         if elev is not None:
             elev_2d.project(elev)
-        if uv_init is not None:
-            uv_2d.project(uv_init)
+        if uv is not None:
+            uv_2d.project(uv)
 
         self.timestepper.initialize(self.fields.solution_2d)
 

@@ -158,12 +158,6 @@ field_metadata['w_mesh_surf_2d'] = {
     'unit': 'm s-1',
     'filename': 'SurfMeshVelo3d',
 }
-field_metadata['w_mesh_ddz_3d'] = {
-    'name': 'Vertical grad of mesh velocity',
-    'shortname': 'Vertical grad of mesh velocity',
-    'unit': 's-1',
-    'filename': 'd_mesh_velo_dz_3d',
-}
 field_metadata['salt_3d'] = {
     'name': 'Water salinity',
     'shortname': 'Salinity',
@@ -277,12 +271,6 @@ field_metadata['smag_visc_3d'] = {
     'shortname': 'Smagorinsky viscosity',
     'unit': 'm2 s-1',
     'filename': 'SmagViscosity3d',
-}
-field_metadata['salt_jump_diff'] = {
-    'name': 'Salt Jump Diffusivity',
-    'shortname': 'Salt Jump Diffusivity',
-    'unit': 'm2 s-1',
-    'filename': 'SaltJumpDiff3d',
 }
 field_metadata['max_h_diff'] = {
     'name': 'Maximum stable horizontal diffusivity',

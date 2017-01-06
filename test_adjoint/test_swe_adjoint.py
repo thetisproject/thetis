@@ -105,7 +105,7 @@ def run_model(solver_obj):
     solver_obj.simulation_time = 0.
     solver_obj.iteration = 0
     solver_obj.i_export = 0
-    solver_obj.assign_initial_conditions(uv_init=as_vector((velocity_u, 0.0)), elev=Constant(0.0))
+    solver_obj.assign_initial_conditions(uv=as_vector((velocity_u, 0.0)), elev=Constant(0.0))
     solver_obj.iterate()
 
 

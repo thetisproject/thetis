@@ -547,37 +547,6 @@ class VelocityMagnitudeSolver(object):
         np.maximum(self.solution.dat.data, self.min_val, self.solution.dat.data)
 
 
-class HorizontalJumpDiffusivity(object):
-    """Computes tracer jump diffusivity for horizontal advection."""
-    # TODO OBSOLETE should be shipped to oblivion
-    def __init__(self, alpha, tracer, output, h_elem_size, umag,
-                 tracer_mag, max_val, min_val=1e-6, solver_parameters={}):
-        solver_parameters.setdefault('ksp_atol', 1e-6)
-        solver_parameters.setdefault('ksp_rtol', 1e-8)
-        if output.function_space() != max_val.function_space():
-            raise Exception('output and max_val function spaces do not match')
-        self.output = output
-        self.min_val = min_val
-        self.max_val = max_val
-
-        fs = output.function_space()
-        test = TestFunction(fs)
-        tri = TrialFunction(fs)
-        a = inner(test, tri)*dx + jump(test, tri)*dS_v
-        tracer_jump = jump(tracer)
-        # TODO jump scalar must depend on the tracer value scale
-        # TODO can this be estimated automatically e.g. global_max(abs(S))
-        maxjump = Constant(0.05)*tracer_mag
-        l = alpha*avg(umag*h_elem_size)*(tracer_jump/maxjump)**2*avg(test)*dS_v
-        self.prob = LinearVariationalProblem(a, l, output)
-        self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
-
-    def solve(self):
-        self.solver.solve()
-        np.minimum(self.max_val.dat.data, self.output.dat.data, self.output.dat.data)
-        self.output.dat.data[self.output.dat.data[:] < self.min_val] = self.min_val
-
-
 class ExpandFunctionTo3d(object):
     """
     Copy a 2D field to 3D

@@ -242,7 +242,7 @@ def run(setup, refinement, order, do_export=True, options=None,
         #     bnd_str += '{:}: {:}, '.format(k, name)
         # print_output('bnd {:}: {:}'.format(bnd_id, bnd_str))
 
-    solver_obj.assign_initial_conditions(elev=elev_ana, uv_init=uv_ana)
+    solver_obj.assign_initial_conditions(elev=elev_ana, uv=uv_ana)
     if solver_parameters is not None:
         # HACK: need to change prefix of solver options in order to overwrite them
         solver_obj.timestepper.name += '_'

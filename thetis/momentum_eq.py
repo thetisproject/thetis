@@ -80,8 +80,7 @@ class MomentumTerm(Term):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 nonlin=True, use_bottom_friction=False,
-                 use_elevation_gradient=True):
+                 nonlin=True, use_bottom_friction=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -92,8 +91,6 @@ class MomentumTerm(Term):
             element size
         :kwarg bool nonlin: If False defines the linear shallow water equations
         :kwarg bool use_bottom_friction: If True includes bottom friction term
-        :kwarg bool use_elevation_gradient: If True includes external pressure
-            gradient in the pressure gradient term
         """
         super(MomentumTerm, self).__init__(function_space)
         self.bathymetry = bathymetry
@@ -104,7 +101,6 @@ class MomentumTerm(Term):
         self.vertical_dg = continuity.vertical_dg
         self.nonlin = nonlin
         self.use_bottom_friction = use_bottom_friction
-        self.use_elevation_gradient = use_elevation_gradient
 
         # define measures with a reasonable quadrature degree
         p, q = self.function_space.ufl_element().degree()
@@ -156,19 +152,12 @@ class PressureGradientTerm(MomentumTerm):
         if baroc_head is not None:
             assert mean_baroc_head is not None, 'mean_baroc_head must be provided'
             baroc_head = (baroc_head - mean_baroc_head)*total_h
-        eta = fields_old.get('eta') if self.use_elevation_gradient else None
 
-        if eta is None and baroc_head is None:
+        if baroc_head is None:
             return 0
-        if eta is None:
-            by_parts = element_continuity(fields_old.get('baroc_head').function_space().fiat_element).dg
-            head = baroc_head
-        elif baroc_head is None:
-            by_parts = element_continuity(eta.function_space().fiat_element).dg
-            head = eta
-        else:
-            by_parts = element_continuity(eta.function_space().fiat_element).dg
-            head = eta + baroc_head
+
+        by_parts = element_continuity(fields_old.get('baroc_head').function_space().fiat_element).dg
+        head = baroc_head
 
         use_lin_stab = False
 
@@ -187,25 +176,10 @@ class PressureGradientTerm(MomentumTerm):
                           self.normal[1]*self.test[1])
             f += g_grav*head*n_dot_test*(self.ds_bottom + self.ds_surf)
             for bnd_marker in self.boundary_markers:
-                funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
                 if baroc_head is not None:
                     f += g_grav*baroc_head*n_dot_test*ds_bnd
-                if eta is not None:
-                    special_eta_flux = funcs is not None and 'elev' in funcs
-                    if not special_eta_flux:
-                        if use_lin_stab:
-                            un_jump = (solution_old[0]*self.normal[0] +
-                                       solution_old[1]*self.normal[1])
-                            eta_star = eta + sqrt(total_h/g_grav)*un_jump
-                        else:
-                            eta_star = eta
-                        f += g_grav*eta_star*n_dot_test*ds_bnd
-                    if funcs is not None:
-                        if 'elev' in funcs:
-                            # prescribe elevation only
-                            h_ext = funcs['elev']
-                            f += g_grav*(eta + h_ext)/2*dot(self.normal, self.test)*ds_bnd
+
         else:
             grad_head_dot_test = (Dx(head, 0)*self.test[0] +
                                   Dx(head, 1)*self.test[1])
@@ -369,21 +343,6 @@ class VerticalAdvectionTerm(MomentumTerm):
         f += (uv[0]*vertvelo*self.test[0]*self.normal[2] +
               uv[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
         # NOTE bottom impermeability condition is naturally satisfied by the defition of w
-        return -f
-
-
-class ALESourceTerm(MomentumTerm):
-    """
-    Source term for non-conservative ALE formulation
-    """
-    # TODO OBSOLETE take me to the void
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        dw_mesh_dz = fields_old.get('dw_mesh_dz')
-        f = 0
-        # Non-conservative ALE source term
-        if dw_mesh_dz is not None:
-            f += dw_mesh_dz*(solution[0]*self.test[0] +
-                             solution[1]*self.test[1])*self.dx
         return -f
 
 
@@ -664,8 +623,7 @@ class MomentumEquation(Equation):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 nonlin=True, use_bottom_friction=False,
-                 use_elevation_gradient=True):
+                 nonlin=True, use_bottom_friction=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -676,21 +634,15 @@ class MomentumEquation(Equation):
             element size
         :kwarg bool nonlin: If False defines the linear shallow water equations
         :kwarg bool use_bottom_friction: If True includes bottom friction term
-        :kwarg bool use_elevation_gradient: If True includes external pressure
-            gradient in the pressure gradient term
         """
-        # TODO remove use_elevation_gradient because it's OBSOLETE
-        # TODO remove OBSOLETE ALESourceTerm
         # TODO rename for reflect the fact that this is eq for the split eqns
         super(MomentumEquation, self).__init__(function_space)
 
         args = (function_space, bathymetry,
-                v_elem_size, h_elem_size, nonlin, use_bottom_friction,
-                use_elevation_gradient)
+                v_elem_size, h_elem_size, nonlin, use_bottom_friction)
         self.add_term(PressureGradientTerm(*args), 'source')
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')
-        # self.add_term(ALESourceTerm(*args), 'explicit')
         self.add_term(HorizontalViscosityTerm(*args), 'explicit')
         self.add_term(VerticalViscosityTerm(*args), 'explicit')
         self.add_term(BottomFrictionTerm(*args), 'explicit')

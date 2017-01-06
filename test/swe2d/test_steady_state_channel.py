@@ -51,7 +51,7 @@ def test_steady_state_channel(do_export=False):
     parameters['quadrature_degree'] = 5
 
     solver_obj.create_equations()
-    solver_obj.assign_initial_conditions(uv_init=Expression(("1.0", "0.0")))
+    solver_obj.assign_initial_conditions(uv=Expression(("1.0", "0.0")))
 
     solver_obj.iterate()
 

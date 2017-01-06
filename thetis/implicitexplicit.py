@@ -6,54 +6,6 @@ from __future__ import absolute_import
 from .rungekutta import *
 
 
-# OBSOLETE
-class SSPIMEX(TimeIntegrator):
-    """
-    SSP-IMEX time integration scheme based on [1], method (17).
-
-    [1] Higueras et al (2014). Optimized strong stability preserving IMEX
-        Runge-Kutta methods. Journal of Computational and Applied
-        Mathematics 272(2014) 116-140.
-    """
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
-                 solver_parameters={}, solver_parameters_dirk={}):
-        super(SSPIMEX, self).__init__(equation, solution, fields, dt, solver_parameters)
-        Warning('This method is OBSOLETE: use IMEXGeneric based methods instead')
-
-        # implicit scheme
-        self.dirk = DIRKLSPUM2(equation, solution, fields, dt, bnd_conditions,
-                               solver_parameters=solver_parameters_dirk,
-                               terms_to_add=('implicit'))
-        # explicit scheme
-        self.erk = ERKLSPUM2(equation, solution, fields, dt, bnd_conditions,
-                             solver_parameters=solver_parameters,
-                             terms_to_add=('explicit', 'source'))
-        self.n_stages = len(self.erk.b)
-
-    def update_solver(self):
-        self.dirk.update_solver()
-        self.erk.update_solver()
-
-    def initialize(self, solution):
-        """Assigns initial conditions to all required fields."""
-        self.dirk.initialize(solution)
-        self.erk.initialize(solution)
-
-    def advance(self, t, update_forcings=None):
-        """Advances equations for one time step."""
-        for i in xrange(self.n_stages):
-            self.solve_stage(i, t, update_forcings)
-        self.get_final_solution()
-
-    def solve_stage(self, i_stage, t, update_forcings=None):
-        self.erk.solve_stage(i_stage, t, update_forcings)
-        self.dirk.solve_stage(i_stage, t, update_forcings)
-
-    def get_final_solution(self):
-        self.erk.get_final_solution()
-        self.dirk.get_final_solution()
-
-
 class IMEXGeneric(TimeIntegrator):
     """
     Generic implementation of Runge-Kutta Implicit-Explicit schemes
@@ -103,9 +55,9 @@ class IMEXGeneric(TimeIntegrator):
                                   terms_to_add=('explicit', 'source'))
         assert self.erk.n_stages == self.dirk.n_stages
         self.n_stages = self.erk.n_stages
-        # FIXME this assumes that we are limited by whatever DIRK solves ...
-        # FIXME this really depends on the DIRK/ERK processes ...
-        self.cfl_coeff = self.dirk.cfl_coeff
+        # FIXME this assumes that we are limited by whatever ERK solves ...
+        # FIXME may violate max DIRK SSP time step (if any)
+        self.cfl_coeff = self.erk.cfl_coeff
 
     def update_solver(self):
         """Create solver objects"""
@@ -121,6 +73,7 @@ class IMEXGeneric(TimeIntegrator):
         """Advances equations for one time step."""
         for i in xrange(self.n_stages):
             self.solve_stage(i, t, update_forcings)
+        self.get_final_solution()
 
     def solve_stage(self, i_stage, t, update_forcings=None):
         """
