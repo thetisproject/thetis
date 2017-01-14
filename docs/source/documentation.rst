@@ -5,17 +5,29 @@
 Installation
 ============
 
-See :doc:`obtaining Thetis <download>`.
+See :doc:`obtaining Thetis <download>` for installation instructions.
 
 Tutorials
 =========
 
-- 2D simulation example
-    - Continuing a simulation
-    - Setting boundary conditions
-- 3D simulation example
-    - Setting boundary conditions
-    - Adding custom callback functions
+Once Thetis is successfully installed, you can start running some example
+simulations that demonstrate the basic functionality.
+
+.. note::
+
+    Setting up Thetis simulations makes use of Firedrake objects,
+    such as meshes, functions, and expression.
+    In order to be able to follow these demo simulations,
+    it is essential to have a basic understanding of these objects.
+    Please refer to the
+    `Firedrake manual <http://firedrakeproject.org/documentation.html>`_
+    when reading these demos.
+
+.. toctree::
+   :maxdepth: 1
+
+   2D channel with closed boundaries.<demo_2d_channel.rst>
+   2D channel with boundary conditions.<demo_2d_channel_bnd.rst>
 
 Manual
 ======
