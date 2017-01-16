@@ -33,15 +33,10 @@ simulations that demonstrate basic functionality.
 Manual
 ======
 
-- Model formulation
-    - 2D depth averaged model
-    - 3D baroclinic model
-    - Turbulence closure models
+.. toctree::
+    :maxdepth: 1
 
-- Test cases
-    - Lock exchange benchmark
-    - Idealized estuary simulation
-    - Idealized river plume simulation
+    List of physical fields.<field_documentation.rst>
 
 API documentation
 =================

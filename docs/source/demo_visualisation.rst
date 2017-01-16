@@ -17,9 +17,7 @@ directory one would set::
     options.outputdir = 'mydir'
     options.fields_to_export = ['elev_2d', 'temp_3d']
 
-Every field in Thetis is identified with an unique tag, such as ``'elev_2d'``
-for 2d water elevation field.
-For full list of available fields, refer to **TODO**:fields-doc-page.
+For a full list of available fields, refer to :doc:`physical fields <field_documentation>`.
 
 See Firedrake's
 `visualisation documentation <http://firedrakeproject.org/visualisation.html>`_

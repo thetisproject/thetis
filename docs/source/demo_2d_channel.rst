@@ -1,5 +1,3 @@
-.. _demo-twod-channel:
-
 2D channel example
 ==================
 

@@ -4,14 +4,16 @@ Definitions and meta data of fields
 
 field_metadata = {}
 """
-Holds description, units and output file information for each field.
+Dictionary that contains the meta data of each field.
 
-name      - human readable description
-shortname - description used in visualization etc
-unit      - SI unit of the field
-filename  - filename for output files
+Required meta data entries are:
 
-Naming convention for fields is snake_case: field_name_3d
+- **name**: human readable description
+- **shortname**: description used in visualization etc
+- **unit**: SI unit of the field
+- **filename**: filename for output files
+
+The naming convention for field keys is snake_case: ``field_name_3d``
 """
 
 field_metadata['bathymetry_2d'] = {

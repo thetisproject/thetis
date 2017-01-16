@@ -3,7 +3,7 @@
 
 .. highlight:: python
 
-Here we extend the :ref:`demo-twod-channel` by adding constant and time
+Here we extend the :doc:`2D channel example <demo_2d_channel>` by adding constant and time
 dependent boundary conditions.
 
 We begin by defining the domain and solver as before::

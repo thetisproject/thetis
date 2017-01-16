@@ -15,10 +15,13 @@ help:
 
 .PHONY: help Makefile clean
 
-GENERATED_FILES = source/teamgrid.rst
+GENERATED_FILES = source/teamgrid.rst source/field_list.rst
 
 source/teamgrid.rst: source/team.py
 	cd source; python team.py
+
+source/field_list.rst: source/gen_field_doc.py
+	cd source; python gen_field_doc.py
 
 SPHINX_TARGETS = html dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub \
 	latex latexpdf latexpdfja text man texinfo info gettext changes \
