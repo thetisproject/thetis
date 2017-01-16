@@ -11,7 +11,7 @@ Tutorials
 =========
 
 Once Thetis is successfully installed, you can start running some example
-simulations that demonstrate the basic functionality.
+simulations that demonstrate basic functionality.
 
 .. note::
 
@@ -24,10 +24,11 @@ simulations that demonstrate the basic functionality.
     when reading these demos.
 
 .. toctree::
-   :maxdepth: 1
+    :maxdepth: 1
 
-   2D channel with closed boundaries.<demo_2d_channel.rst>
-   2D channel with boundary conditions.<demo_2d_channel_bnd.rst>
+    2D channel with closed boundaries.<demo_2d_channel.rst>
+    2D channel with boundary conditions.<demo_2d_channel_bnd.rst>
+    Visualising model results.<demo_visualisation.rst>
 
 Manual
 ======
