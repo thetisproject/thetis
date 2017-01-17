@@ -99,3 +99,5 @@ the L2 norms of the elevation and depth averaged velocity fields, respectively.
 The last column stands for the (approximate) wall-clock time between exports.
 
 The simulation terminates once the end time is reached.
+See :doc:`outputs and visualization <outputs_and_visu>` page on how to
+visualize the results.
