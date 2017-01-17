@@ -26,8 +26,9 @@ simulations that demonstrate basic functionality.
 .. toctree::
     :maxdepth: 1
 
-    2D channel with closed boundaries.<demo_2d_channel.rst>
-    2D channel with boundary conditions.<demo_2d_channel_bnd.rst>
+    2D channel with closed boundaries.<demo_2d_channel>
+    2D channel with boundary conditions.<demo_2d_channel_bnd>
+    3D channel with boundary conditions.<demo_3d_channel>
 
 Manual
 ======
@@ -35,8 +36,8 @@ Manual
 .. toctree::
     :maxdepth: 1
 
-    Model outputs and visualization.<outputs_and_visu.rst>
-    List of physical fields.<field_documentation.rst>
+    Model outputs and visualization.<outputs_and_visu>
+    List of physical fields.<field_documentation>
 
 API documentation
 =================
