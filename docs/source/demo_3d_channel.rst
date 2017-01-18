@@ -180,5 +180,5 @@ and also prints out the over/undershoots in the salinity field:
         3    15 T=   2700.00 eta norm:   229.6974 u norm:     0.0000  0.35
     salt_3d overshoot -6.35199e-11 6.6346e-11
 
-Note that here the ``u norm`` is the norm of *u'*, i.e. the prognostic 3D
+Note that here the ``u norm`` is the norm of :math:`\mathbf{u}'`, i.e. the prognostic 3D
 horizontal velocity field (3D velocity minus its vertical average).

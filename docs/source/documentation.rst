@@ -10,7 +10,7 @@ See :doc:`obtaining Thetis <download>` for installation instructions.
 Tutorials
 =========
 
-Once Thetis is successfully installed, you can start running some example
+Once Thetis is successfully installed, you can start running example
 simulations that demonstrate basic functionality.
 
 .. note::
@@ -21,14 +21,14 @@ simulations that demonstrate basic functionality.
     it is essential to have a basic understanding of these objects.
     Please refer to the
     `Firedrake manual <http://firedrakeproject.org/documentation.html>`_
-    when reading these demos.
+    for more information.
 
 .. toctree::
     :maxdepth: 1
 
-    2D channel with closed boundaries.<demo_2d_channel>
-    2D channel with boundary conditions.<demo_2d_channel_bnd>
-    3D channel with boundary conditions.<demo_3d_channel>
+    2D channel with closed boundaries<demo_2d_channel>
+    2D channel with boundary conditions<demo_2d_channel_bnd>
+    3D channel with boundary conditions<demo_3d_channel>
 
 Manual
 ======
@@ -36,8 +36,9 @@ Manual
 .. toctree::
     :maxdepth: 1
 
-    Model outputs and visualization.<outputs_and_visu>
-    List of physical fields.<field_documentation>
+    Three dimensional model formulation<model_formulation_3d>
+    Model outputs and visualization<outputs_and_visu>
+    List of physical fields<field_documentation>
 
 API documentation
 =================

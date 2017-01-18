@@ -83,7 +83,7 @@ Model setup is now complelete. We run the model by issuing::
 
     solver_obj.iterate()
 
-On the command line Thetis prints some statistics of the simulation:
+While the model is running, Thetis prints some statistics on the command line:
 
 .. code-block:: none
 
