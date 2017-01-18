@@ -36,7 +36,8 @@ Manual
 .. toctree::
     :maxdepth: 1
 
-    Three dimensional model formulation<model_formulation_3d>
+    2D model formulation<model_formulation_2d>
+    3D model formulation<model_formulation_3d>
     Model outputs and visualization<outputs_and_visu>
     List of physical fields<field_documentation>
 
