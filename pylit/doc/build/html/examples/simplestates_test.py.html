@@ -1,0 +1,807 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>simplestates_test.py: &#8212; PyLit</title>
+    
+    <link rel="stylesheet" href="../_static/pylit-sphinx.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.7.9',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="iterqueue_test.py" href="iterqueue_test.py.html" />
+    <link rel="prev" title="pylit_test.py" href="pylit_test.py.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="simplestates-test-py">
+<h1><a class="toc-backref" href="#id10">simplestates_test.py:</a><a class="headerlink" href="#simplestates-test-py" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="test-the-simplestates-py-generic-state-machine">
+<h2><a class="toc-backref" href="#id11">Test the simplestates.py generic state machine</a><a class="headerlink" href="#test-the-simplestates-py-generic-state-machine" title="Permalink to this headline">¶</a></h2>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Status:</th><td class="field-body">draft</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Date:</th><td class="field-body">2006-12-01</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Copyright:</th><td class="field-body">2006 Guenter Milde.
+Released under the terms of the GNU General Public License
+(v. 2 or later)</td>
+</tr>
+</tbody>
+</table>
+<div class="contents topic" id="contents">
+<p class="topic-title first">Contents</p>
+<ul class="simple">
+<li><a class="reference internal" href="#simplestates-test-py" id="id10">simplestates_test.py:</a><ul>
+<li><a class="reference internal" href="#test-the-simplestates-py-generic-state-machine" id="id11">Test the simplestates.py generic state machine</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="abstract-state-machine-class">
+<h3>Abstract State Machine Class<a class="headerlink" href="#abstract-state-machine-class" title="Permalink to this headline">¶</a></h3>
+<p>First version of an abstract state machine</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">SimpleStates1</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;generic state machine acting on iterable data</span>
+
+<span class="sd">    Class attributes</span>
+<span class="sd">    init_state -- name of the first state_handler method</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">init_state</span> <span class="o">=</span> <span class="s1">&#39;start&#39;</span>
+</pre></div>
+</div>
+<p>Initialisation</p>
+<ul class="simple">
+<li>sets the data object to the <code class="docutils literal"><span class="pre">data</span></code> argument.</li>
+<li>remaining keyword arguments are stored as class attributes (or methods, if
+they are function objects) overwriting class defaults (a neat little trick
+I found somewhere on the net)</li>
+<li>the <code class="docutils literal"><span class="pre">state_handler</span></code> attribute is set to the method named in <code class="docutils literal"><span class="pre">init_state</span></code></li>
+</ul>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="o">**</span><span class="n">keyw</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;data   --  iterable data object</span>
+<span class="sd">                  (list, file, generator, string, ...)</span>
+<span class="sd">       **keyw --  all remaining keyword arguments are</span>
+<span class="sd">                  stored as class attributes</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">keyw</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The special <code class="docutils literal"><span class="pre">__iter__</span></code> method returns an <a class="reference internal" href="#iterator">iterator</a>. This allows to use
+a  class instance directly in an iteration loop.  We define it as is a
+<a class="reference internal" href="#generator">generator</a> method that sets the initial state and then iterates over the
+data calling the state methods:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_state</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>To use class instances as callable objects, we add a <code class="docutils literal"><span class="pre">__call__</span></code> method:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Run state-machine and return tokens as a list&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">token</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">]</span>
+</pre></div>
+</div>
+<div class="section" id="example-1-a-two-state-machine-sorting-numbers">
+<h4>Example 1: A two-state machine sorting numbers<a class="headerlink" href="#example-1-a-two-state-machine-sorting-numbers" title="Permalink to this headline">¶</a></h4>
+<p>Our small example state machine subclasses the <code class="docutils literal"><span class="pre">SimpleStates1</span></code> class:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Example1</span><span class="p">(</span><span class="n">SimpleStates1</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A silly example two-state machine sorting numbers</span>
+<span class="sd">    in the categories &quot;low&quot; (&lt; 3) and &quot;high&quot; (&gt;= 3).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p>It will be completed by two state methods and a <code class="docutils literal"><span class="pre">__str__</span></code> method.</p>
+<div class="section" id="state-methods">
+<h5>State Methods<a class="headerlink" href="#state-methods" title="Permalink to this headline">¶</a></h5>
+<p>State methods are functions that are called to iterate over the data. They
+will typically</p>
+<ul class="simple">
+<li>test the data token for a change of state indicator</li>
+<li>return the data token after some processing</li>
+</ul>
+<p>In our example, the <code class="docutils literal"><span class="pre">low</span></code> method switches to <code class="docutils literal"><span class="pre">high</span></code> (and calls it with the
+data token), if token is bigger than 3. If not, it returns &#8220;l(token)&#8221;:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">low</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">):</span>
+    <span class="c1"># print &quot;low(&quot;, token, &quot;)&quot;,</span>
+    <span class="k">if</span> <span class="n">token</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">high</span>
+        <span class="c1"># backtracking</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">&quot;l(</span><span class="si">%d</span><span class="s2">)&quot;</span><span class="o">%</span><span class="n">token</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal"><span class="pre">high</span></code> method switches to <code class="docutils literal"><span class="pre">low</span></code>, if token is bigger than 3. If not, it
+returns &#8220;h(token)&#8221;:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">high</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">):</span>
+    <span class="c1"># print &quot;high(&quot;, token, &quot;)&quot;,</span>
+    <span class="k">if</span> <span class="n">token</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">low</span>
+        <span class="c1"># backtracking</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">&quot;h(</span><span class="si">%d</span><span class="s2">)&quot;</span><span class="o">%</span><span class="n">token</span>
+</pre></div>
+</div>
+<p>Conversion of the class instance to a string is done by joining the list
+that is returned by a call to the instance with spaces:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="test">
+<h5>Test<a class="headerlink" href="#test" title="Permalink to this headline">¶</a></h5>
+<p>Testing is done with the <a class="reference external" href="http://somethingaboutorange.com/mrl/projects/nose/">nose</a> test framework. This will collect and
+execute all test functions and methods (basically everything that starts or
+ends with &#8220;[Tt]est&#8221;). This is similar to the more known &#8220;py.test&#8221;.</p>
+<p>We set up some test data:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">testdata</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>and define a test function:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_Example1</span><span class="p">():</span>
+    <span class="n">statemachine</span> <span class="o">=</span> <span class="n">Example1</span><span class="p">(</span><span class="n">testdata</span><span class="p">,</span> <span class="n">init_state</span><span class="o">=</span><span class="s1">&#39;low&#39;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">statemachine</span><span class="p">:</span>
+        <span class="nb">print</span> <span class="n">result</span><span class="p">,</span>
+    <span class="nb">print</span>
+
+    <span class="c1"># Calling an instance should return a list of results</span>
+    <span class="nb">print</span> <span class="n">statemachine</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">statemachine</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="s1">&#39;l(1)&#39;</span><span class="p">,</span><span class="s1">&#39;l(2)&#39;</span><span class="p">,</span><span class="s1">&#39;l(3)&#39;</span><span class="p">,</span>  <span class="c1"># low numbers</span>
+                             <span class="s1">&#39;h(4)&#39;</span><span class="p">,</span><span class="s1">&#39;h(5)&#39;</span><span class="p">,</span><span class="s1">&#39;h(4)&#39;</span><span class="p">,</span>  <span class="c1"># high numbers</span>
+                             <span class="s1">&#39;l(3)&#39;</span><span class="p">,</span><span class="s1">&#39;l(2)&#39;</span><span class="p">,</span><span class="s1">&#39;l(1)&#39;</span><span class="p">]</span>  <span class="c1"># low again</span>
+
+    <span class="c1"># Converting to a string should call the __str__ method::</span>
+    <span class="nb">print</span> <span class="nb">str</span><span class="p">(</span><span class="n">statemachine</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">statemachine</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;l(1) l(2) l(3) h(4) h(5) h(4) l(3) l(2) l(1)&quot;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="discussion">
+<h5>Discussion<a class="headerlink" href="#discussion" title="Permalink to this headline">¶</a></h5>
+<p>The sorting works as expected. However, as the state handlers get the data
+token by token, acting on subsequent tokens or tests that combine the
+knowledge of several tokens are hard to achieve.</p>
+<p>An example would be a state handler that sums up the data tokens and
+returns the result if it exceeds a threshold.</p>
+</div>
+</div>
+</div>
+<div class="section" id="varied-state-machine-class-template">
+<h3>Varied State Machine Class Template<a class="headerlink" href="#varied-state-machine-class-template" title="Permalink to this headline">¶</a></h3>
+<p>The second version of an abstract state machine converts the test data to an
+iterator which is shared by the state methods.</p>
+<p>There is no need to pass this on via arguments, as class methods share the
+class instances attributes (class variables).</p>
+<p>We subclass our first version and modify to our needs:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">SimpleStates2</span><span class="p">(</span><span class="n">SimpleStates1</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;second version of the abstract state machine class</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p>We add the initialisation of the data to the <code class="docutils literal"><span class="pre">__iter__</span></code> method. The data is
+transformed into an <a class="reference internal" href="#iterator">iterator</a> first.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">data_iterator</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_state</span><span class="p">)</span>
+    <span class="c1"># do not pass data tokens as argument</span>
+    <span class="c1"># (state methods should call self.data_iterator.next() instead)</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Iterators &#8220;use up&#8221; the data, so the state methods will always get a &#8220;new&#8221;
+token until the data is fully &#8220;used up&#8221; and <code class="docutils literal"><span class="pre">StopIteration</span></code> is raised
+aborting the iteration.</p>
+<p>Doing the conversion from iterable to iterator in <code class="docutils literal"><span class="pre">__iter__</span></code> and not in
+<code class="docutils literal"><span class="pre">__init__</span></code> allows repeated iteration over the class instance (if the data is
+a list or a file and not already a generator) as the &#8220;used up&#8221; generator is
+replaced by a new one.</p>
+<div class="section" id="example-2-another-two-state-machine-sorting-numbers">
+<h4>Example 2: Another two-state machine sorting numbers<a class="headerlink" href="#example-2-another-two-state-machine-sorting-numbers" title="Permalink to this headline">¶</a></h4>
+<p>Our small example state machine subclasses the <code class="docutils literal"><span class="pre">SimpleStates2</span></code> class
+and adds 2 methods as state handlers.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Example2</span><span class="p">(</span><span class="n">SimpleStates2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An example two-state machine sorting numbers</span>
+<span class="sd">    in the categories &quot;low&quot; (&lt; 3) and &quot;high&quot; (&gt;= 3).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<div class="section" id="id1">
+<h5>State methods<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h5>
+<p>This time, the state methods will get the data tokens not as argument but
+take them from the <code class="docutils literal"><span class="pre">data_iterator</span></code>. Note that <em>backtracking</em> is impossible
+with a standard iterator. See below for the problem this causes for our
+sorting algorithm.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">low</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="c1"># print &quot;low(&quot;, token, &quot;)&quot;,</span>
+    <span class="n">token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_iterator</span><span class="o">.</span><span class="n">next</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">token</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">high</span>
+    <span class="k">return</span> <span class="s2">&quot;l(</span><span class="si">%d</span><span class="s2">)&quot;</span><span class="o">%</span><span class="n">token</span>
+<span class="k">def</span> <span class="nf">high</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="c1"># print &quot;high(&quot;, token, &quot;)&quot;,</span>
+    <span class="n">token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_iterator</span><span class="o">.</span><span class="n">next</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">token</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">low</span>
+    <span class="k">return</span> <span class="s2">&quot;h(</span><span class="si">%d</span><span class="s2">)&quot;</span><span class="o">%</span><span class="n">token</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="id2">
+<h5>Test<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h5>
+<p>Define a second test function:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_Example2</span><span class="p">():</span>
+    <span class="n">statemachine</span> <span class="o">=</span> <span class="n">Example2</span><span class="p">(</span><span class="n">testdata</span><span class="p">,</span> <span class="n">init_state</span><span class="o">=</span><span class="s1">&#39;low&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Calling an instance should return a list of results. However, as
+we cannot backtrack on a normal iterator, the result is not as we expected:
+There is a &#8220;hysteresis&#8221; the &#8220;switch triggering&#8221; token is always processed by
+the &#8220;old&#8221; state:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">print</span> <span class="n">statemachine</span><span class="p">()</span>
+<span class="k">assert</span> <span class="n">statemachine</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="s1">&#39;l(1)&#39;</span><span class="p">,</span> <span class="s1">&#39;l(2)&#39;</span><span class="p">,</span> <span class="s1">&#39;l(3)&#39;</span><span class="p">,</span> <span class="c1"># low numbers</span>
+                         <span class="s1">&#39;l(4)&#39;</span><span class="p">,</span> <span class="s1">&#39;h(5)&#39;</span><span class="p">,</span> <span class="s1">&#39;h(4)&#39;</span><span class="p">,</span> <span class="c1"># high numbers</span>
+                         <span class="s1">&#39;h(3)&#39;</span><span class="p">,</span> <span class="s1">&#39;l(2)&#39;</span><span class="p">,</span> <span class="s1">&#39;l(1)&#39;</span><span class="p">]</span> <span class="c1"># low numbers</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="id3">
+<h5>Discussion<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h5>
+<p>Missing backtracks break our number sorting machine. The remedy
+is the use of an iterator with an appendleft() method (known from the
+dqueue() standard class). We will come to this in <a class="reference internal" href="#example-4-a-two-state-machine-with-generators-and-backtracking">Example 4</a></p>
+<p>OTOH, as the state methods do the fetching of data tokens themself, a state
+handler that sums up the data tokens and returns the result if it exceeds a
+threshold would be easy to implement. We will do this in our next example
+using state handler generators.</p>
+</div>
+</div>
+</div>
+<div class="section" id="state-machine-class-using-state-handler-generators">
+<h3>State Machine class using state_handler generators<a class="headerlink" href="#state-machine-class-using-state-handler-generators" title="Permalink to this headline">¶</a></h3>
+<p>The variations in <code class="docutils literal"><span class="pre">StateMachine2</span></code> complicate the StateMachine design. They
+makes sense, however, if we use generated iterators to handle the states.
+No changes are needed to the abstract base class, so that Example 3 can
+build on <code class="docutils literal"><span class="pre">StateMachine2</span></code>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Example3</span><span class="p">(</span><span class="n">SimpleStates2</span><span class="p">):</span>
+</pre></div>
+</div>
+<div class="section" id="example-3-a-two-state-machine-with-state-handler-generators">
+<h4>Example 3: A two-state machine with state handler generators<a class="headerlink" href="#example-3-a-two-state-machine-with-state-handler-generators" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="state-generators">
+<h5>State Generators<a class="headerlink" href="#state-generators" title="Permalink to this headline">¶</a></h5>
+<p>State Generators generate and return an iterator that will handle the next
+data token(s) if its .next() method is called. This is easily achieved with a
+for loop over self.data and the <code class="docutils literal"><span class="pre">yield</span></code> keyword.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">high_handler_generator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Return an iterator, whose next() method</span>
+<span class="sd">    returns &quot;h(token)&quot; and switches to `low`, if token &gt; 3</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_iterator</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">token</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">low</span>
+        <span class="k">yield</span> <span class="s2">&quot;h(</span><span class="si">%d</span><span class="s2">)&quot;</span><span class="o">%</span><span class="n">token</span>
+<span class="c1">#</span>
+<span class="k">def</span> <span class="nf">low_handler_generator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Return an iterator, whose next() method sums up data tokens.</span>
+<span class="sd">    If the sum exceeds 8, it is returned and the state</span>
+<span class="sd">    switches to `high`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">sum</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_iterator</span><span class="p">:</span>
+        <span class="nb">sum</span> <span class="o">+=</span> <span class="n">token</span>
+        <span class="k">if</span> <span class="nb">sum</span> <span class="o">&gt;</span> <span class="mi">8</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">high</span>
+            <span class="k">yield</span> <span class="s2">&quot;s=</span><span class="si">%d</span><span class="s2">&quot;</span><span class="o">%</span><span class="nb">sum</span>
+            <span class="nb">sum</span> <span class="o">=</span> <span class="mi">0</span> <span class="c1"># next iteration continues here</span>
+    <span class="c1"># no more tokens but sum not reached</span>
+    <span class="k">yield</span> <span class="s2">&quot;p=</span><span class="si">%d</span><span class="s2">&quot;</span><span class="o">%</span><span class="nb">sum</span> <span class="c1"># partial sum</span>
+</pre></div>
+</div>
+<p>The iterator must instantiate the state-iterators before starting the
+iteration loop:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Generate and return an iterator</span>
+
+<span class="sd">    * convert `data` to an iterator</span>
+<span class="sd">    * convert the state generators into iterators</span>
+<span class="sd">    * (re) set the state_handler attribute to the init-state</span>
+<span class="sd">    * pass control to the active states state_handler</span>
+<span class="sd">      which should call and process self.data_iterator.next()</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">data_iterator</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">high</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_handler_generator</span><span class="p">()</span><span class="o">.</span><span class="n">next</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">low</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_handler_generator</span><span class="p">()</span><span class="o">.</span><span class="n">next</span>
+    <span class="c1"># init state</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_state</span><span class="p">)</span>
+    <span class="c1"># now start the iteration, aborts if data is empty</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="id5">
+<h5>Test<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h5>
+<p>Again define a test function that gets an instance of the Example3 class</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_Example3</span><span class="p">():</span>
+    <span class="n">statemachine</span> <span class="o">=</span> <span class="n">Example3</span><span class="p">(</span><span class="n">testdata</span><span class="p">,</span> <span class="n">init_state</span><span class="o">=</span><span class="s1">&#39;low&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Calling statemachine() should iterate over the test data and return the
+processed values as list:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">print</span> <span class="n">statemachine</span><span class="p">()</span>
+<span class="k">assert</span> <span class="n">statemachine</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="s1">&#39;s=10&#39;</span><span class="p">,</span><span class="s1">&#39;h(5)&#39;</span><span class="p">,</span><span class="s1">&#39;h(4)&#39;</span><span class="p">,</span><span class="s1">&#39;h(3)&#39;</span><span class="p">,</span> <span class="s1">&#39;p=3&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="backtracking">
+<h3>Backtracking<a class="headerlink" href="#backtracking" title="Permalink to this headline">¶</a></h3>
+<p>the iterqueue module provides an &#8220;extensible&#8221; iterator with, e.g.,
+an <code class="docutils literal"><span class="pre">appendleft</span></code> method to push back values:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">iterqueue</span> <span class="k">import</span> <span class="n">XIter</span>
+</pre></div>
+</div>
+<p>Thus we can prepend a non-processed data item
+to the data iterator for use by the next state handler</p>
+<div class="section" id="example-4-a-two-state-machine-with-generators-and-backtracking">
+<h4>Example 4: A two-state machine with generators and backtracking<a class="headerlink" href="#example-4-a-two-state-machine-with-generators-and-backtracking" title="Permalink to this headline">¶</a></h4>
+<p>Again we start from the <code class="docutils literal"><span class="pre">SimpleStates2</span></code> base class:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Example4</span><span class="p">(</span><span class="n">SimpleStates2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;two-state machine with generators and backtracking</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p>Let the iterator wrap the data in an XIter instance with <code class="docutils literal"><span class="pre">appendleft</span></code>
+method:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Generate and return an iterator</span>
+
+<span class="sd">    * convert `data` to an iterator queue</span>
+<span class="sd">    * convert the state generators into iterators</span>
+<span class="sd">    * (re) set the state_handler attribute to the init-state</span>
+<span class="sd">    * pass control to the active states state_handler</span>
+<span class="sd">      which should call and process self.data_iterator.next()</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">data_iterator</span> <span class="o">=</span> <span class="n">XIter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span> <span class="c1"># queue with `appendleft` method</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">high</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">high_handler_generator</span><span class="p">()</span><span class="o">.</span><span class="n">next</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">low</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">low_handler_generator</span><span class="p">()</span><span class="o">.</span><span class="n">next</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_state</span><span class="p">)</span>
+    <span class="c1"># now start the iteration</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Add state method generators that use the &#8220;backtracking&#8221; feature:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">high_handler_generator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Return an iterator, whose next() method</span>
+<span class="sd">    returns &quot;h(token)&quot; and switches to `low`, if token &gt; 3</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_iterator</span><span class="p">:</span>
+        <span class="c1"># print &quot;high got&quot;, token</span>
+        <span class="k">if</span> <span class="n">token</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="c1"># push back data token</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data_iterator</span><span class="o">.</span><span class="n">appendleft</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+            <span class="c1"># set the new state</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">low</span>
+            <span class="c1"># return non-value indicating the state switch</span>
+            <span class="k">yield</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="s2">&quot;h(</span><span class="si">%d</span><span class="s2">)&quot;</span><span class="o">%</span><span class="n">token</span>
+<span class="c1">#</span>
+<span class="k">def</span> <span class="nf">low_handler_generator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Return an iterator, whose next() method</span>
+<span class="sd">    returns &quot;l(token)&quot; and switches to `high`, if token &lt;=3</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_iterator</span><span class="p">:</span>
+        <span class="c1"># print &quot;low got&quot;, token</span>
+        <span class="k">if</span> <span class="n">token</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data_iterator</span><span class="o">.</span><span class="n">appendleft</span><span class="p">(</span><span class="n">token</span><span class="p">)</span> <span class="c1"># push back</span>
+            <span class="c1"># set and run the new state</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">high</span>
+            <span class="c1"># alternatively, return the token processed by the new</span>
+            <span class="c1"># state handler</span>
+            <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="s2">&quot;l(</span><span class="si">%d</span><span class="s2">)&quot;</span><span class="o">%</span><span class="n">token</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal"><span class="pre">__str__</span></code> converter should ignore the switch-indicator:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">tokens</span> <span class="o">=</span> <span class="p">[</span><span class="n">token</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">()</span> <span class="k">if</span> <span class="n">token</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="k">return</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="id6">
+<h5>Test<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h5>
+<p>Again define a test function. This time with an instance of the Example4
+class</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_Example4</span><span class="p">():</span>
+    <span class="n">statemachine</span> <span class="o">=</span> <span class="n">Example4</span><span class="p">(</span><span class="n">testdata</span><span class="p">,</span> <span class="n">init_state</span><span class="o">=</span><span class="s1">&#39;low&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Calling statemachine() should iterate over the test data and return the
+processed values as list. If the state of the machine changes, the special
+&#8220;non-value&#8221; <code class="docutils literal"><span class="pre">None</span></code> is returned.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">print</span> <span class="n">statemachine</span><span class="p">()</span> <span class="c1"># only printed if something goes wrong</span>
+<span class="k">assert</span> <span class="n">statemachine</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="s1">&#39;l(1)&#39;</span><span class="p">,</span> <span class="s1">&#39;l(2)&#39;</span><span class="p">,</span> <span class="s1">&#39;l(3)&#39;</span><span class="p">,</span>
+                         <span class="s1">&#39;h(4)&#39;</span><span class="p">,</span> <span class="s1">&#39;h(5)&#39;</span><span class="p">,</span> <span class="s1">&#39;h(4)&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="c1"># switch indicator</span>
+                         <span class="s1">&#39;l(3)&#39;</span><span class="p">,</span> <span class="s1">&#39;l(2)&#39;</span><span class="p">,</span> <span class="s1">&#39;l(1)&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Converting to a string should skip the <code class="docutils literal"><span class="pre">None</span></code> values:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">print</span> <span class="n">statemachine</span>
+<span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">statemachine</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;l(1) l(2) l(3) h(4) h(5) h(4) l(3) l(2) l(1)&quot;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="id7">
+<h5>Discussion<a class="headerlink" href="#id7" title="Permalink to this headline">¶</a></h5>
+<p>The <code class="docutils literal"><span class="pre">XIter</span></code> class allows backtracking also in a state machine with state
+handlers acting on a common iterator object. The &#8220;high&#8221; and &#8220;low&#8221; handlers
+demonstrate two possible actions for the state-transition with backtrack:
+Either call the new state handler from the current one
+(like the <code class="docutils literal"><span class="pre">low_handler_generator</span></code>) or return a &#8220;non-value&#8221; that signifies
+that processing the data token did not produce any output data.</p>
+<p>Using generators made the state handlers shorter and (once the concept of a
+generator is clear) easier. Further advantages of the generator concept are</p>
+<ul class="simple">
+<li>internal variables are easily saved over subsequent invocations</li>
+<li>no function-call overhead (not relevant in this example but maybe for a
+state machine that has to process long data lists.</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="section" id="converting-all-state-method-generators-with-a-generic-function">
+<h3>Converting all state method generators with a generic function<a class="headerlink" href="#converting-all-state-method-generators-with-a-generic-function" title="Permalink to this headline">¶</a></h3>
+<p>In <code class="docutils literal"><span class="pre">Example4</span></code>, we had to redefine the <code class="docutils literal"><span class="pre">__iter__</span></code> method to convert the
+method state generators into iterators. It would be nice if this could be
+done in the base class.</p>
+<p><code class="docutils literal"><span class="pre">SimpleStates3</span></code> adds a generic function for this task that relies on a
+simple naming convention: functions whose name matches
+<code class="docutils literal"><span class="pre">&lt;state&gt;_handler_generator</span></code> should be converted to iterators and their
+<code class="docutils literal"><span class="pre">.next()</span></code> method stored as <code class="docutils literal"><span class="pre">&lt;state&gt;</span></code>.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">SimpleStates5</span><span class="p">(</span><span class="n">SimpleStates2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;generic state machine acting on iterable data</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_initialize_state_generators</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Generic function to initialise state handlers from generators</span>
+
+<span class="sd">        functions whose name matches `[^_]&lt;state&gt;_handler_generator` should</span>
+<span class="sd">        be converted to iterators and their `.next()` method stored as</span>
+<span class="sd">        `&lt;state&gt;`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">suffix</span> <span class="o">=</span> <span class="s2">&quot;_handler_generator&quot;</span>
+        <span class="n">shg_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+                      <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">suffix</span><span class="p">)</span>
+                      <span class="ow">and</span> <span class="ow">not</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">shg_names</span><span class="p">:</span>
+            <span class="n">shg</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+            <span class="nb">print</span> <span class="n">shg</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">[:</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">suffix</span><span class="p">)],</span> <span class="n">shg</span><span class="p">()</span><span class="o">.</span><span class="n">next</span><span class="p">)</span>
+
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Generate and return an iterator</span>
+
+<span class="sd">        * convert `data` to an iterator queue</span>
+<span class="sd">        * convert the state generators into iterators</span>
+<span class="sd">        * (re) set the state_handler attribute to the init-state</span>
+<span class="sd">        * pass control to the active states state_handler</span>
+<span class="sd">          which should call and process self.data_iterator.next()</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_iterator</span> <span class="o">=</span> <span class="n">XIter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span> <span class="c1"># queue with `appendleft` method</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_state_generators</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_state</span><span class="p">)</span>
+        <span class="c1"># now start the iteration</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="section" id="example-5">
+<h4>Example 5<a class="headerlink" href="#example-5" title="Permalink to this headline">¶</a></h4>
+<p>The next example combines the state handlers from Example 4 and the new
+class.:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Example5</span><span class="p">(</span><span class="n">Example4</span><span class="p">,</span> <span class="n">SimpleStates5</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;one more example&quot;&quot;&quot;</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<div class="section" id="id8">
+<h5>Test<a class="headerlink" href="#id8" title="Permalink to this headline">¶</a></h5>
+<p>A function that has the generator-suffix but is prefixed with an underscore,
+should be skipped by the <code class="docutils literal"><span class="pre">_initialize_state_generators</span></code> method:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Test_SimpleStates5</span><span class="p">:</span>
+    <span class="n">E5</span> <span class="o">=</span> <span class="n">Example5</span><span class="p">(</span><span class="n">testdata</span><span class="p">)</span>
+    <span class="n">E5</span><span class="o">.</span><span class="n">_bogus_handler_generator</span> <span class="o">=</span> <span class="s2">&quot;low&quot;</span>
+    <span class="k">def</span> <span class="nf">test_initialize_state_generators</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">E5</span><span class="o">.</span><span class="n">_initialize_state_generators</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>A test function. This time with an instance of the Example5 class</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_Example5</span><span class="p">():</span>
+    <span class="n">statemachine</span> <span class="o">=</span> <span class="n">Example5</span><span class="p">(</span><span class="n">testdata</span><span class="p">,</span> <span class="n">init_state</span><span class="o">=</span><span class="s1">&#39;low&#39;</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="n">statemachine</span><span class="o">.</span><span class="n">__dict__</span>
+</pre></div>
+</div>
+<p>Calling statemachine() should iterate over the test data and return the
+processed values as list. If the state of the machine changes, the special
+&#8220;non-value&#8221; <code class="docutils literal"><span class="pre">None</span></code> is returned.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">print</span> <span class="n">statemachine</span><span class="p">()</span> <span class="c1"># only printed if something goes wrong</span>
+<span class="k">assert</span> <span class="n">statemachine</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="s1">&#39;l(1)&#39;</span><span class="p">,</span> <span class="s1">&#39;l(2)&#39;</span><span class="p">,</span> <span class="s1">&#39;l(3)&#39;</span><span class="p">,</span>
+                         <span class="s1">&#39;h(4)&#39;</span><span class="p">,</span> <span class="s1">&#39;h(5)&#39;</span><span class="p">,</span> <span class="s1">&#39;h(4)&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="c1"># switch indicator</span>
+                         <span class="s1">&#39;l(3)&#39;</span><span class="p">,</span> <span class="s1">&#39;l(2)&#39;</span><span class="p">,</span> <span class="s1">&#39;l(1)&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Converting to a string should skip the <code class="docutils literal"><span class="pre">None</span></code> values:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">print</span> <span class="n">statemachine</span>
+<span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">statemachine</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;l(1) l(2) l(3) h(4) h(5) h(4) l(3) l(2) l(1)&quot;</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="putting-it-together">
+<h3>Putting it together<a class="headerlink" href="#putting-it-together" title="Permalink to this headline">¶</a></h3>
+<p>The file <code class="docutils literal"><span class="pre">simplestates.py</span></code> contains the full definition of the <code class="docutils literal"><span class="pre">SimpleStates5</span></code>
+class in a self-contained version.</p>
+<div class="section" id="example-6">
+<h4>Example 6<a class="headerlink" href="#example-6" title="Permalink to this headline">¶</a></h4>
+<p>The final Example is used to test whether we have put it together well. It
+subclasses SimpleStates and adds state method generators for &#8220;high&#8221; and
+&#8220;low&#8221;:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">simplestates</span>
+<span class="k">class</span> <span class="nc">Example6</span><span class="p">(</span><span class="n">simplestates</span><span class="o">.</span><span class="n">SimpleStates</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;two-state machine with generators and backtracking</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">high_handler_generator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return an iterator, whose next() method</span>
+<span class="sd">        returns &quot;h(token)&quot; and switches to `low`, if token &gt; 3</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_iterator</span><span class="p">:</span>
+            <span class="c1"># print &quot;high got&quot;, token</span>
+            <span class="k">if</span> <span class="n">token</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="c1"># push back data token</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data_iterator</span><span class="o">.</span><span class="n">appendleft</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+                <span class="c1"># set the new state</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">low</span>
+                <span class="c1"># return the token processed by the new state handler</span>
+                <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="s2">&quot;h(</span><span class="si">%d</span><span class="s2">)&quot;</span><span class="o">%</span><span class="n">token</span>
+    <span class="c1">#</span>
+    <span class="k">def</span> <span class="nf">low_handler_generator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return an iterator, whose next() method</span>
+<span class="sd">        returns &quot;l(token)&quot; and switches to `high`, if token &lt;=3</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_iterator</span><span class="p">:</span>
+            <span class="c1"># print &quot;low got&quot;, token</span>
+            <span class="k">if</span> <span class="n">token</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data_iterator</span><span class="o">.</span><span class="n">appendleft</span><span class="p">(</span><span class="n">token</span><span class="p">)</span> <span class="c1"># push back</span>
+                <span class="c1"># set and run the new state</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">high</span>
+                <span class="c1"># return the token processed by the new state handler</span>
+                <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_handler</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="s2">&quot;l(</span><span class="si">%d</span><span class="s2">)&quot;</span><span class="o">%</span><span class="n">token</span>
+</pre></div>
+</div>
+<div class="section" id="id9">
+<h5>Test<a class="headerlink" href="#id9" title="Permalink to this headline">¶</a></h5>
+<p>In order not to make it dependent on the iterqueue module, the final
+<code class="docutils literal"><span class="pre">SimpleStates</span></code> does not wrap the data in an XIter instance. This step should
+be done at the instantiation of a state machine.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_Example5</span><span class="p">():</span>
+    <span class="n">statemachine</span> <span class="o">=</span> <span class="n">Example5</span><span class="p">(</span><span class="n">XIter</span><span class="p">(</span><span class="n">testdata</span><span class="p">),</span> <span class="n">init_state</span><span class="o">=</span><span class="s1">&#39;low&#39;</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="n">statemachine</span><span class="o">.</span><span class="n">__dict__</span>
+</pre></div>
+</div>
+<p>Calling statemachine() should iterate over the test data and return the
+processed values as list:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">print</span> <span class="n">statemachine</span><span class="p">()</span> <span class="c1"># only printed if something goes wrong</span>
+<span class="c1"># reset the data iterator as it is &quot;used up&quot; now</span>
+<span class="n">statemachine</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">XIter</span><span class="p">(</span><span class="n">testdata</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">statemachine</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="s1">&#39;l(1)&#39;</span><span class="p">,</span> <span class="s1">&#39;l(2)&#39;</span><span class="p">,</span> <span class="s1">&#39;l(3)&#39;</span><span class="p">,</span>
+                         <span class="s1">&#39;h(4)&#39;</span><span class="p">,</span> <span class="s1">&#39;h(5)&#39;</span><span class="p">,</span> <span class="s1">&#39;h(4)&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span>
+                         <span class="s1">&#39;l(3)&#39;</span><span class="p">,</span> <span class="s1">&#39;l(2)&#39;</span><span class="p">,</span> <span class="s1">&#39;l(1)&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="index">
+<h3>Index<a class="headerlink" href="#index" title="Permalink to this headline">¶</a></h3>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name"><span class="target" id="generator">generator</span>:</th><td class="field-body">A function with a <code class="docutils literal"><span class="pre">yield</span></code> keyword. Calling this function will
+return an <a class="reference internal" href="#iterator">iterator</a></td>
+</tr>
+<tr class="field-even field"><th class="field-name"><span class="target" id="iterator">iterator</span>:</th><td class="field-body">An object with a <code class="docutils literal"><span class="pre">next()</span></code> method. Calling <code class="docutils literal"><span class="pre">&lt;iterator&gt;.next()</span></code>
+will (typically) return one data token (list element, line in
+a file, ...). If there is no more data the <code class="docutils literal"><span class="pre">StopIteration</span></code>
+exception is raised.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="command-line-usage">
+<h3>Command line usage<a class="headerlink" href="#command-line-usage" title="Permalink to this headline">¶</a></h3>
+<p>running this script should explore it in the &#8220;nose&#8221; test framework:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">nose</span><span class="o">,</span> <span class="nn">doctest</span>
+    <span class="c1"># first run any doctests</span>
+    <span class="n">doctest</span><span class="o">.</span><span class="n">testmod</span><span class="p">()</span>
+    <span class="c1"># then run nose on this module</span>
+    <span class="n">nose</span><span class="o">.</span><span class="n">runmodule</span><span class="p">()</span> <span class="c1"># requires nose 0.9.1</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/pylit-bold-framed.png" alt="Logo"/>
+            </a></p>
+    <h3>Contents</h3>
+    <!-- Contents of current page -->
+    <ul>
+<li><a class="reference internal" href="#">simplestates_test.py:</a><ul>
+<li><a class="reference internal" href="#test-the-simplestates-py-generic-state-machine">Test the simplestates.py generic state machine</a><ul>
+<li><a class="reference internal" href="#abstract-state-machine-class">Abstract State Machine Class</a><ul>
+<li><a class="reference internal" href="#example-1-a-two-state-machine-sorting-numbers">Example 1: A two-state machine sorting numbers</a><ul>
+<li><a class="reference internal" href="#state-methods">State Methods</a></li>
+<li><a class="reference internal" href="#test">Test</a></li>
+<li><a class="reference internal" href="#discussion">Discussion</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#varied-state-machine-class-template">Varied State Machine Class Template</a><ul>
+<li><a class="reference internal" href="#example-2-another-two-state-machine-sorting-numbers">Example 2: Another two-state machine sorting numbers</a><ul>
+<li><a class="reference internal" href="#id1">State methods</a></li>
+<li><a class="reference internal" href="#id2">Test</a></li>
+<li><a class="reference internal" href="#id3">Discussion</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#state-machine-class-using-state-handler-generators">State Machine class using state_handler generators</a><ul>
+<li><a class="reference internal" href="#example-3-a-two-state-machine-with-state-handler-generators">Example 3: A two-state machine with state handler generators</a><ul>
+<li><a class="reference internal" href="#state-generators">State Generators</a></li>
+<li><a class="reference internal" href="#id5">Test</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#backtracking">Backtracking</a><ul>
+<li><a class="reference internal" href="#example-4-a-two-state-machine-with-generators-and-backtracking">Example 4: A two-state machine with generators and backtracking</a><ul>
+<li><a class="reference internal" href="#id6">Test</a></li>
+<li><a class="reference internal" href="#id7">Discussion</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#converting-all-state-method-generators-with-a-generic-function">Converting all state method generators with a generic function</a><ul>
+<li><a class="reference internal" href="#example-5">Example 5</a><ul>
+<li><a class="reference internal" href="#id8">Test</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#putting-it-together">Putting it together</a><ul>
+<li><a class="reference internal" href="#example-6">Example 6</a><ul>
+<li><a class="reference internal" href="#id9">Test</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#index">Index</a></li>
+<li><a class="reference internal" href="#command-line-usage">Command line usage</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+    <!-- Site Contents -->
+    <!-- <ul>
+<li class="toctree-l1"><a class="reference internal" href="../features.html">Features</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorial</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../literate-programming.html">Literate Programming</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../download/index.html">Requirements</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../download/index.html#download">Download</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../download/index.html#installation">Installation</a></li>
+</ul>
+ -->
+    <hr />
+    <h4>Previous Page</h4>
+    <p class="topless">
+      <a href="pylit_test.py.html" title="previous section">pylit_test.py</a>
+    </p>
+    <h4>Next Page</h4>
+    <p class="topless">
+      <a href="iterqueue_test.py.html" title="next section">iterqueue_test.py</a>
+    </p>
+    <h4>Up</h4>
+    <p class="topless">
+       <a href="index.html" title="up">Examples</a>
+    </p>
+  <hr />
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/examples/simplestates_test.py.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+    <h3>Search this site</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" size="12" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+ <p class="thanks">
+  <!-- Thanks to	      -->
+  <!-- for hosting this site. -->
+ </p>
+
+  </body>
+</html>

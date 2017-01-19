@@ -29,9 +29,9 @@ simulations that demonstrate basic functionality.
 .. toctree::
     :maxdepth: 1
 
-    2D channel with closed boundaries<demo_2d_channel>
-    2D channel with boundary conditions<demo_2d_channel_bnd>
-    3D channel with boundary conditions<demo_3d_channel>
+    2D channel with closed boundaries<demos/demo_2d_channel.py>
+    2D channel with boundary conditions<demos/demo_2d_channel_bnd.py>
+    3D channel with boundary conditions<demos/demo_3d_channel.py>
 
 Manual
 ======

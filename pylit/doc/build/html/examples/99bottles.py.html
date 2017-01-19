@@ -1,0 +1,220 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>99bottles.py &#8212; PyLit</title>
+    
+    <link rel="stylesheet" href="../_static/pylit-sphinx.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.7.9',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="simplestates.py" href="simplestates.py.html" />
+    <link rel="prev" title="Examples" href="index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="bottles-py">
+<h1>99bottles.py<a class="headerlink" href="#bottles-py" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introductory-example-to-literate-programming">
+<h2>Introductory Example to Literate Programming<a class="headerlink" href="#introductory-example-to-literate-programming" title="Permalink to this headline">¶</a></h2>
+<p>Print the famous <cite>99 bottles of beer</cite> song lyrics</p>
+<p>This was used as an introductory example to literate programming
+in the (no longer available) <cite>LiteratePrograms.org Wiki</cite>.</p>
+<div class="section" id="the-lyrics">
+<h3>The lyrics<a class="headerlink" href="#the-lyrics" title="Permalink to this headline">¶</a></h3>
+<p>We take the lyrics from the Wikipedia, which says in the
+<a class="reference external" href="http://en.wikipedia.org/wiki/99_Bottles_of_Beer">99 bottles of beer</a> entry:</p>
+<p>The verse format is very formulaic, and can be expressed as follows:</p>
+<p>From 99 down to 1:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">verse_template</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">&lt;number&gt; bottles of beer on the wall</span>
+<span class="s2">&lt;number&gt; bottles of beer!</span>
+<span class="s2">Take one down, pass it around</span>
+<span class="s2">&lt;number - 1&gt; bottles of beer on the wall!&quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p>There is much variation in the final verse. One common final verse (which
+could potentially cause an infinite-loop motif) is:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">final_verse</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">No bottles of beer on the wall!</span>
+<span class="s2">No bottles of beer!</span>
+<span class="s2">Go to the store and buy some more</span>
+<span class="s2">99 bottles of beer on the wall!&quot;&quot;&quot;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="the-python-program">
+<h3>The Python program<a class="headerlink" href="#the-python-program" title="Permalink to this headline">¶</a></h3>
+<p>There are a countless number of ways to implement a program that prints the
+whole song in Python. The following examples uses a <cite>for</cite> loop and the
+<cite>replace</cite> method of string objects.</p>
+<p>Basic version</p>
+<p>Count down from 99 to 1 and print the verses:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">print_verses_1</span><span class="p">(</span><span class="n">start_number</span><span class="o">=</span><span class="mi">99</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">number</span> <span class="ow">in</span> <span class="n">xrange</span><span class="p">(</span><span class="n">start_number</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">verse</span> <span class="o">=</span> <span class="n">verse_template</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&lt;number&gt;&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">number</span><span class="p">))</span>
+        <span class="nb">print</span> <span class="n">verse</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&lt;number - 1&gt;&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">number</span><span class="o">-</span><span class="mi">1</span> <span class="ow">or</span> <span class="s2">&quot;No&quot;</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Consider the singular case</p>
+<p>There is one problem left, we should check whether to print &#8216;bottles&#8217; or
+&#8216;bottle&#8217;.</p>
+<p>An improved version will replace the &#8220;bottles&#8221; with a construct that
+takes into account the actual number of bottles:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">print_verses_2</span><span class="p">(</span><span class="n">start_number</span><span class="o">=</span><span class="mi">99</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">number</span> <span class="ow">in</span> <span class="n">xrange</span><span class="p">(</span><span class="n">start_number</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">verse</span> <span class="o">=</span> <span class="n">verse_template</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&lt;number&gt;&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">number</span><span class="p">))</span>
+        <span class="n">verse</span> <span class="o">=</span> <span class="n">verse</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;bottles&quot;</span><span class="p">,</span> <span class="s2">&quot;bottle&quot;</span> <span class="o">+</span> <span class="n">plural_suffix</span><span class="p">(</span><span class="n">number</span><span class="p">))</span>
+        <span class="nb">print</span> <span class="n">verse</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&lt;number - 1&gt;&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">number</span><span class="o">-</span><span class="mi">1</span> <span class="ow">or</span> <span class="s2">&quot;No&quot;</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>where an auxiliary function returns the matching suffix (or not):</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">plural_suffix</span><span class="p">(</span><span class="n">number</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">number</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;s&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+</pre></div>
+</div>
+<p>Still, the last line come out wrong, as here we have &lt;number-1&gt; bottles. To
+treat this case we either could split the last line and treat it differently,
+or use a modified template as e.g.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">verse_template_2</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">&lt;number&gt; bottle&lt;s&gt; of beer on the wall</span>
+<span class="s2">&lt;number&gt; bottle&lt;s&gt; of beer!</span>
+<span class="s2">Take one down, pass it around</span>
+<span class="s2">&lt;number - 1&gt; bottle&lt;s&gt; of beer on the wall!&quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p>together with:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">print_verses_3</span><span class="p">(</span><span class="n">start_number</span><span class="o">=</span><span class="mi">99</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">number</span> <span class="ow">in</span> <span class="n">xrange</span><span class="p">(</span><span class="n">start_number</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">verse</span> <span class="o">=</span> <span class="n">verse_template_2</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&lt;number&gt;&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">number</span><span class="p">))</span>
+        <span class="n">verse</span> <span class="o">=</span> <span class="n">verse</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&lt;s&gt;&quot;</span><span class="p">,</span> <span class="n">plural_suffix</span><span class="p">(</span><span class="n">number</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">verse</span> <span class="o">=</span> <span class="n">verse</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&lt;s&gt;&quot;</span><span class="p">,</span> <span class="n">plural_suffix</span><span class="p">(</span><span class="n">number</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="nb">print</span> <span class="n">verse</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;&lt;number - 1&gt;&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">number</span><span class="o">-</span><span class="mi">1</span> <span class="ow">or</span> <span class="s2">&quot;No&quot;</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="command-line-use">
+<h3>Command line use<a class="headerlink" href="#command-line-use" title="Permalink to this headline">¶</a></h3>
+<p>Print the lyrics if this script is called from the command line:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">print_verses_3</span><span class="p">()</span>
+    <span class="nb">print</span> <span class="n">final_verse</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/pylit-bold-framed.png" alt="Logo"/>
+            </a></p>
+    <h3>Contents</h3>
+    <!-- Contents of current page -->
+    <ul>
+<li><a class="reference internal" href="#">99bottles.py</a><ul>
+<li><a class="reference internal" href="#introductory-example-to-literate-programming">Introductory Example to Literate Programming</a><ul>
+<li><a class="reference internal" href="#the-lyrics">The lyrics</a></li>
+<li><a class="reference internal" href="#the-python-program">The Python program</a></li>
+<li><a class="reference internal" href="#command-line-use">Command line use</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+    <!-- Site Contents -->
+    <!-- <ul>
+<li class="toctree-l1"><a class="reference internal" href="../features.html">Features</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorial</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../literate-programming.html">Literate Programming</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../download/index.html">Requirements</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../download/index.html#download">Download</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../download/index.html#installation">Installation</a></li>
+</ul>
+ -->
+    <hr />
+    <h4>Previous Page</h4>
+    <p class="topless">
+      <a href="index.html" title="previous section">Examples</a>
+    </p>
+    <h4>Next Page</h4>
+    <p class="topless">
+      <a href="simplestates.py.html" title="next section">simplestates.py</a>
+    </p>
+    <h4>Up</h4>
+    <p class="topless">
+       <a href="index.html" title="up">Examples</a>
+    </p>
+  <hr />
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/examples/99bottles.py.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+    <h3>Search this site</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" size="12" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+ <p class="thanks">
+  <!-- Thanks to	      -->
+  <!-- for hosting this site. -->
+ </p>
+
+  </body>
+</html>
