@@ -3,7 +3,7 @@
 
 .. highlight:: python
 
-This example demonstrates a 3D barotropic model in a tidal channle with sloping
+This example demonstrates a 3D barotropic model in a tidal channel with sloping
 bathymetry. We also add a constant, passive salinity tracer to demonstrate local
 tracer conservation. This simulation uses the ALE moving mesh.
 
@@ -18,8 +18,9 @@ We begin by defining the 2D mesh as before::
     mesh2d = RectangleMesh(nx, ny, lx, ly)
 
 In this case we define a linearly sloping bathymetry in the x-direction.
-The bathymetry function is defined as an UFL expression making use of the
-coordinates of the 2D mesh (i.e. Firedrake's :py:func:`SpatialCoordinate`).
+The bathymetry function is defined as an
+`UFL <http://fenics-ufl.readthedocs.io/en/latest/>`_ expression making use of the
+coordinates of the 2D mesh.
 The expression is interpolated on the P1 bathymetry field::
 
     P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -103,7 +104,7 @@ both boundaries::
     def river_flux_func(t):
         return flux_river*min(t/t_ramp, 1.0)
 
-We then define :py:class:`Constant` objects for the fluxes and
+We then define :py:class:`~.firedrake.constant.Constant` objects for the fluxes and
 use them as boundary conditions for the 2D shallow water model::
 
     ocean_flux = Constant(ocean_flux_func(0))

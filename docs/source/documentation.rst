@@ -22,6 +22,9 @@ simulations that demonstrate basic functionality.
     Please refer to the
     `Firedrake manual <http://firedrakeproject.org/documentation.html>`_
     for more information.
+    `Defining variational problems <http://firedrakeproject.org/variational-problems.html>`_
+    page is a good primer for understanding the Firedrake concepts.
+
 
 .. toctree::
     :maxdepth: 1

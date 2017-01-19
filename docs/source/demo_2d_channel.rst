@@ -7,8 +7,9 @@ This example demonstrates a depth-averaged 2D simulation in a closed
 rectangular domain, where the flow is forced by an initial pertubation in the
 water elevation field.
 
-We begin by importing Thetis and creating a rectangular mesh, 40 km long and
-2 km wide. We generate 25 elements in the along-channel direction and 2 in the
+We begin by importing Thetis and creating a rectangular mesh with :py:func:`~.firedrake.utility_meshes.RectangleMesh`.
+The domain is 40 km long and 2 km wide.
+We generate 25 elements in the along-channel direction and 2 in the
 cross-channel direction::
 
     from thetis import *
@@ -19,9 +20,6 @@ cross-channel direction::
     ny = 2
     mesh2d = RectangleMesh(nx, ny, lx, ly)
 
-See the `Firedrake manual <http://firedrakeproject.org/variational-problems.html>`_
-for more information on mesh generation and functions.
-
 Next we define a bathymetry function in the 2D mesh, using continuous linear
 elements. In this example we set the bathymetry to constant 20 m depth::
 
@@ -29,6 +27,12 @@ elements. In this example we set the bathymetry to constant 20 m depth::
     bathymetry_2d = Function(P1_2d, name='Bathymetry')
     depth = 20.0
     bathymetry_2d.assign(depth)
+
+.. note::
+
+    See
+    `Firedrake manual <http://firedrakeproject.org/variational-problems.html>`_
+    for more information on mesh generation, functions and function spaces.
 
 We are now ready to create a 2D solver object, and set some options::
 
@@ -60,8 +64,8 @@ function (in the same linear continous function space)::
     elev_init = Function(P1_2d, name='initial elevation')
 
 We then need to define an analytical expression the the x,y coordinates of the
-mesh. To this end, we use Firedrake's ``SpatialCoordinate`` and define an
-UFL expression (see
+mesh. To this end, we use
+:py:func:`SpatialCoordinate` and define an `UFL <http://fenics-ufl.readthedocs.io/en/latest/>`_ expression (see
 `Firedrake's interpolation manual <http://firedrakeproject.org/interpolation.html>`_
 for more information)::
 

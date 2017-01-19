@@ -39,7 +39,8 @@ Note that we have increased ``t_end`` and ``t_export`` to better illustrate
 tidal dynamics.
 
 Boundary condtitions are defined for each external boundary using their ID.
-In this example we are using a :class:`RectangleMesh` which assigns IDs 1, 2, 3,
+In this example we are using a
+:py:func:`~.firedrake.utility_meshes.RectangleMesh` which assigns IDs 1, 2, 3,
 and 4 for the four sides of the rectangle::
 
     left_bnd_id = 1
@@ -47,8 +48,8 @@ and 4 for the four sides of the rectangle::
 
 At each boundary we need to define the external value of the prognostic
 variables, i.e. in this case the water elevation and velocity.
-The value should be either a Firedrake :py:class:`Constant` or
-:py:class:`Function` (in case the boundary condition is not uniform in space).
+The value should be either a Firedrake :py:class:`~.firedrake.constant.Constant` or
+:py:class:`~.firedrake.function.Function` (in case the boundary condition is not uniform in space).
 
 We store the boundary conditions in a dictionary::
 
@@ -94,7 +95,8 @@ condition as the simulation progresses.
 For this purpose we use the optional ``update_forcings`` argument of the
 :py:meth:`~.FlowSolver2d.iterate` method.
 ``update_forcings`` is a python function that updates all time dependent
-:py:class:`Constant`\s or :py:class:`Function`\s used to force the model.
+:py:class:`~.firedrake.constant.Constant`\s or
+:py:class:`~.firedrake.function.Function`\s used to force the model.
 In this case we only need to update ``tide_flux_const``::
 
     def update_forcings(t_new):
