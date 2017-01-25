@@ -149,11 +149,9 @@ if __name__ == '__main__':
     parser.add_argument('-p', action='store_true', dest='parallel_vtu',
                         help='regenerate PVD files for parallel outputs')
     parser.add_argument('-f', '--first-time-step', type=int, default=0,
-                        help='last time step for regenerated PVD file')
+                        help='first time step to be included in regenerated PVD file')
     parser.add_argument('-l', '--last-time-step', type=int, default=100,
-                        help='last time step for regenerated PVD file')
-    parser.add_argument('--default-outputdir', type=str, default='outputs',
-                        help='outputdir in *.pvsm file that will be replaced by outputdir')
+                        help='last time step to be included in regenerated PVD file')
 
     args = parser.parse_args()
     timesteps = range(args.first_time_step, args.last_time_step + 1)

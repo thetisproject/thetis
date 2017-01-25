@@ -40,13 +40,27 @@ Creating a complex visualization is a time consuming task.
 ParaView allows users to store the active visualization state into a file
 (File → Save State), and restore it later (File → Load State).
 
-Thetis has an helper utility `visualize_output.py` that loads a prevously
-stored ParaView state file, using outputs in any user-defined directory::
+To quickly launch a previously saved visualization you can use
+the ``visualize_output.py`` utility.
+This script opens a ParaView state file using model outputs in any user-defined
+directory::
 
     visualize_output.py <outputdir> <statefile.pvsm>
 
-The script replaces all ``*.pvd`` file paths in the ``statefile.pvsm`` to point
+The script replaces all ``*.pvd`` file paths in ``statefile.pvsm`` to point
 to ``outputdir``, and launches ParaView.
+You'll need to have ``paraview`` in your seach path for this to work.
+Run ``visualize-output.py -h`` to see full usage instructions.
+
+.. note::
+
+    If you add ParaView's ``bin`` directory to your ``PATH``
+    environment variable, be careful:
+    ParaView has its own ``python`` and ``mpiexec`` binaries which may
+    break your Firedrake installation. It's advisable to modify ``PATH``
+    before activating the Firedrake virtual environment, or appending
+    (rather than prepending) the directory to ``PATH``.
+
 
 HDF5 outputs
 ------------
