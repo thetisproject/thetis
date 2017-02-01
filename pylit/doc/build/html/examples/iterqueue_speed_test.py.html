@@ -1,0 +1,221 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>iterqueue_speed_test.py &#8212; PyLit</title>
+    
+    <link rel="stylesheet" href="../_static/pylit-sphinx.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.7.9',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Extending Iterators for use as Queue" href="iterqueue.py.html" />
+    <link rel="prev" title="iterqueue_test.py" href="iterqueue_test.py.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="iterqueue-speed-test-py">
+<h1>iterqueue_speed_test.py<a class="headerlink" href="#iterqueue-speed-test-py" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="profiling-the-iterqueue-extended-iterator-classes">
+<h2>Profiling the iterqueue extended iterator classes<a class="headerlink" href="#profiling-the-iterqueue-extended-iterator-classes" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span><span class="o">,</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">itertools</span>
+<span class="kn">from</span> <span class="nn">timeit</span> <span class="k">import</span> <span class="n">Timer</span>
+<span class="kn">import</span> <span class="nn">iterqueue</span>
+<span class="kn">from</span> <span class="nn">iterqueue_test</span> <span class="k">import</span> <span class="n">wrappers</span><span class="p">,</span> <span class="n">peekables</span><span class="p">,</span> <span class="n">pushables</span><span class="p">,</span> \
+     <span class="n">state_reporters</span><span class="p">,</span> <span class="n">iqueues</span>
+
+
+<span class="k">def</span> <span class="nf">print_iterator_lists</span><span class="p">():</span>
+    <span class="nb">print</span> <span class="s2">&quot;Wrappers&quot;</span>
+    <span class="nb">print</span> <span class="s2">&quot; &quot;</span><span class="p">,</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">wrapper</span><span class="o">.</span><span class="n">__name__</span> <span class="k">for</span> <span class="n">wrapper</span> <span class="ow">in</span> <span class="n">wrappers</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;Peekables&quot;</span>
+    <span class="nb">print</span> <span class="s2">&quot; &quot;</span><span class="p">,</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">peekable</span><span class="o">.</span><span class="n">__name__</span> <span class="k">for</span> <span class="n">peekable</span> <span class="ow">in</span> <span class="n">peekables</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;Pushables&quot;</span>
+    <span class="nb">print</span> <span class="s2">&quot; &quot;</span><span class="p">,</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pushable</span><span class="o">.</span><span class="n">__name__</span> <span class="k">for</span> <span class="n">pushable</span> <span class="ow">in</span> <span class="n">pushables</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;State Reporters&quot;</span>
+    <span class="nb">print</span> <span class="s2">&quot; &quot;</span><span class="p">,</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">state_reporter</span><span class="o">.</span><span class="n">__name__</span>
+                     <span class="k">for</span> <span class="n">state_reporter</span> <span class="ow">in</span> <span class="n">state_reporters</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;Iterator Queues&quot;</span>
+    <span class="nb">print</span> <span class="s2">&quot; &quot;</span><span class="p">,</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">  &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">iqueue</span><span class="o">.</span><span class="n">__name__</span> <span class="k">for</span> <span class="n">iqueue</span> <span class="ow">in</span> <span class="n">iqueues</span><span class="p">)</span>
+
+
+<span class="c1">#print_iterator_lists()</span>
+</pre></div>
+</div>
+<div class="section" id="use-cases-benchmarks">
+<h3>use cases (benchmarks)<a class="headerlink" href="#use-cases-benchmarks" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">loop</span><span class="p">(</span><span class="n">iterator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;baseline: empty `for` loop&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">iterator</span><span class="p">:</span>
+        <span class="k">pass</span>
+
+<span class="k">def</span> <span class="nf">peek_in_loop</span><span class="p">(</span><span class="n">iterator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;peek in every loop&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">iterator</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">iterator</span><span class="o">.</span><span class="n">peek</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+<span class="k">def</span> <span class="nf">peek_before_loop</span><span class="p">(</span><span class="n">iterator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;peek at first value once, then loop&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">iterator</span><span class="o">.</span><span class="n">peek</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">iterator</span><span class="p">:</span>
+        <span class="k">pass</span>
+
+<span class="k">def</span> <span class="nf">bool_in_loop</span><span class="p">(</span><span class="n">iterator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;test for values in every loop&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">iterator</span><span class="p">:</span>
+        <span class="nb">bool</span><span class="p">(</span><span class="n">iterator</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">bool_before_loop</span><span class="p">(</span><span class="n">iterator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;test for values once, then loop&quot;&quot;&quot;</span>
+    <span class="nb">bool</span><span class="p">(</span><span class="n">iterator</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">iterator</span><span class="p">:</span>
+        <span class="k">pass</span>
+
+
+<span class="k">def</span> <span class="nf">time_benchmark</span><span class="p">(</span><span class="n">fun</span><span class="p">,</span> <span class="n">wrappers</span><span class="p">,</span> <span class="n">iterator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;profile benchmark `fun` with `iterator` wrapped in `wrappers`&quot;&quot;&quot;</span>
+
+    <span class="nb">print</span> <span class="n">fun</span><span class="o">.</span><span class="n">__doc__</span><span class="p">,</span> <span class="s2">&quot;(</span><span class="si">%s</span><span class="s2">)&quot;</span><span class="o">%</span><span class="n">iterator</span>
+    <span class="n">setup</span> <span class="o">=</span> <span class="s2">&quot;import iterqueue_speed_test</span><span class="se">\n</span><span class="s2">import iterqueue&quot;</span>
+    <span class="n">benchmark</span> <span class="o">=</span> <span class="s2">&quot;iterqueue_speed_test.</span><span class="si">%s</span><span class="s2">(iterqueue.</span><span class="si">%s</span><span class="s2">(</span><span class="si">%s</span><span class="s2">))&quot;</span>
+    <span class="n">stmts</span> <span class="o">=</span> <span class="p">[</span><span class="n">benchmark</span><span class="o">%</span><span class="p">(</span><span class="n">fun</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="n">iterator</span><span class="p">)</span>
+             <span class="k">for</span> <span class="n">wrapper</span> <span class="ow">in</span> <span class="n">wrappers</span><span class="p">]</span>
+    <span class="n">timers</span> <span class="o">=</span> <span class="p">[</span><span class="n">Timer</span><span class="p">(</span><span class="n">stmt</span><span class="o">=</span><span class="n">stmt</span><span class="p">,</span> <span class="n">setup</span><span class="o">=</span><span class="n">setup</span><span class="p">)</span> <span class="k">for</span> <span class="n">stmt</span> <span class="ow">in</span> <span class="n">stmts</span><span class="p">]</span>
+
+    <span class="n">t_i</span> <span class="o">=</span> <span class="p">[</span><span class="nb">min</span><span class="p">(</span><span class="n">timer</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">number</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="mi">3</span><span class="p">))</span> <span class="k">for</span> <span class="n">timer</span> <span class="ow">in</span> <span class="n">timers</span><span class="p">]</span>
+
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;</span><span class="si">%.5f</span><span class="s2"> s   </span><span class="si">%s</span><span class="s2">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">__name__</span><span class="p">)</span>
+               <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">wrapper</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">t_i</span><span class="p">,</span> <span class="n">wrappers</span><span class="p">)]</span>
+    <span class="n">results</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+    <span class="nb">print</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>time_benchmark(loop, iterqueue.XIter, xrange(1000))</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">time_benchmark</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">wrappers</span><span class="p">,</span> <span class="n">xrange</span><span class="p">(</span><span class="mi">1000</span><span class="p">))</span>
+<span class="nb">print</span>
+<span class="n">time_benchmark</span><span class="p">(</span><span class="n">peek_before_loop</span><span class="p">,</span> <span class="n">peekables</span><span class="p">,</span> <span class="n">xrange</span><span class="p">(</span><span class="mi">1000</span><span class="p">))</span>
+<span class="nb">print</span>
+<span class="n">time_benchmark</span><span class="p">(</span><span class="n">peek_in_loop</span><span class="p">,</span> <span class="n">peekables</span><span class="p">,</span> <span class="n">xrange</span><span class="p">(</span><span class="mi">1000</span><span class="p">))</span>
+<span class="nb">print</span>
+<span class="n">time_benchmark</span><span class="p">(</span><span class="n">bool_before_loop</span><span class="p">,</span> <span class="n">state_reporters</span><span class="p">,</span> <span class="n">xrange</span><span class="p">(</span><span class="mi">1000</span><span class="p">))</span>
+<span class="nb">print</span>
+<span class="n">time_benchmark</span><span class="p">(</span><span class="n">bool_in_loop</span><span class="p">,</span> <span class="n">state_reporters</span><span class="p">,</span> <span class="n">xrange</span><span class="p">(</span><span class="mi">1000</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/pylit-bold-framed.png" alt="Logo"/>
+            </a></p>
+    <h3>Contents</h3>
+    <!-- Contents of current page -->
+    <ul>
+<li><a class="reference internal" href="#">iterqueue_speed_test.py</a><ul>
+<li><a class="reference internal" href="#profiling-the-iterqueue-extended-iterator-classes">Profiling the iterqueue extended iterator classes</a><ul>
+<li><a class="reference internal" href="#use-cases-benchmarks">use cases (benchmarks)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+    <!-- Site Contents -->
+    <!-- <ul>
+<li class="toctree-l1"><a class="reference internal" href="../features.html">Features</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorial</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../literate-programming.html">Literate Programming</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../download/index.html">Requirements</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../download/index.html#download">Download</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../download/index.html#installation">Installation</a></li>
+</ul>
+ -->
+    <hr />
+    <h4>Previous Page</h4>
+    <p class="topless">
+      <a href="iterqueue_test.py.html" title="previous section">iterqueue_test.py</a>
+    </p>
+    <h4>Next Page</h4>
+    <p class="topless">
+      <a href="iterqueue.py.html" title="next section">Extending Iterators for use as Queue</a>
+    </p>
+    <h4>Up</h4>
+    <p class="topless">
+       <a href="index.html" title="up">Examples</a>
+    </p>
+  <hr />
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/examples/iterqueue_speed_test.py.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+    <h3>Search this site</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" size="12" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+ <p class="thanks">
+  <!-- Thanks to	      -->
+  <!-- for hosting this site. -->
+ </p>
+
+  </body>
+</html>

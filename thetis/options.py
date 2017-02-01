@@ -58,7 +58,7 @@ class ModelOptions(AttrDict, FrozenClass):
         """
         str: time integrator option.
 
-        Valid options for the 2D solver: 'forwardeuler'|'backwardeuler'|'ssprk33'|'ssprk33semi'|'cranknicolson'|'sspimex'|'steadystate'
+        Valid options for the 2D solver: 'forwardeuler'|'backwardeuler'|'ssprk33'|'ssprk33semi'|'cranknicolson'|'sspimex'|'pressureprojectionpicard'|'steadystate'
 
         Valid options for the 2D solver: 'ssprk33'|'erkale'|'leapfrog'|'imexale'|'ssprk22'
         """

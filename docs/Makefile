@@ -15,10 +15,24 @@ help:
 
 .PHONY: help Makefile clean
 
-GENERATED_FILES = source/teamgrid.rst
+GENERATED_FILES = source/teamgrid.rst source/field_list.rst source/demos
+
+.PHONY: copy_demos
+
+source/demos: copy_demos
+
+copy_demos:
+	install -d source/demos
+	cp ../demos/*.py source/demos
+	for file in source/demos/*.py; do ../pylit/pylit.py -c $$file; mv $$file.txt $$file.rst; done
+	install -d $(BUILDDIR)/html/demos
+	cp source/demos/*.py $(BUILDDIR)/html/demos
 
 source/teamgrid.rst: source/team.py
 	cd source; python team.py
+
+source/field_list.rst: source/gen_field_doc.py
+	cd source; python gen_field_doc.py
 
 SPHINX_TARGETS = html dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub \
 	latex latexpdf latexpdfja text man texinfo info gettext changes \

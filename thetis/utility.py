@@ -255,7 +255,8 @@ class VerticalVelocitySolver(object):
     Vertical velocity is obtained from the continuity equation
 
     .. math::
-        \frac{\partial w}{\partial z} = \nabla_h \cdot \textbf{u}
+        \frac{\partial w}{\partial z} = -\nabla_h \cdot \textbf{u}
+        :label: continuity_eq_3d
 
     and the bottom impermeability condition (:math:`h` denotes the bathymetry)
 
@@ -1218,6 +1219,7 @@ class EquationOfState(object):
 
     .. math ::
         \rho = \rho'(T, S, p) + \rho_0
+        :label: equation_of_state
 
     Jackett et al. (2006). Algorithms for Density, Potential Temperature,
     Conservative Temperature, and the Freezing Temperature of Seawater.

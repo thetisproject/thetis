@@ -5,30 +5,44 @@
 Installation
 ============
 
-See :doc:`obtaining Thetis <download>`.
+See :doc:`obtaining Thetis <download>` for installation instructions.
 
 Tutorials
 =========
 
-- 2D simulation example
-    - Continuing a simulation
-    - Setting boundary conditions
-- 3D simulation example
-    - Setting boundary conditions
-    - Adding custom callback functions
+Once Thetis is successfully installed, you can start running example
+simulations that demonstrate basic functionality.
+
+.. note::
+
+    Setting up Thetis simulations makes use of Firedrake objects,
+    such as meshes, functions, and expression.
+    In order to be able to follow these demo simulations,
+    it is essential to have a basic understanding of these objects.
+    Please refer to the
+    `Firedrake manual <http://firedrakeproject.org/documentation.html>`_
+    for more information.
+    `Defining variational problems <http://firedrakeproject.org/variational-problems.html>`_
+    page is a good primer for understanding the Firedrake concepts.
+
+
+.. toctree::
+    :maxdepth: 1
+
+    2D channel with closed boundaries<demos/demo_2d_channel.py>
+    2D channel with boundary conditions<demos/demo_2d_channel_bnd.py>
+    3D channel with boundary conditions<demos/demo_3d_channel.py>
 
 Manual
 ======
 
-- Model formulation
-    - 2D depth averaged model
-    - 3D baroclinic model
-    - Turbulence closure models
+.. toctree::
+    :maxdepth: 1
 
-- Test cases
-    - Lock exchange benchmark
-    - Idealized estuary simulation
-    - Idealized river plume simulation
+    2D model formulation<model_formulation_2d>
+    3D model formulation<model_formulation_3d>
+    Model outputs and visualization<outputs_and_visu>
+    List of physical fields<field_documentation>
 
 API documentation
 =================
