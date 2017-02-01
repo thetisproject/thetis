@@ -65,7 +65,7 @@ elev_init = Function(P1_2d, name='initial elevation')
 
 # We then need to define an analytical expression the the x,y coordinates of the
 # mesh. To this end, we use
-# :py:func:`SpatialCoordinate` and define an `UFL <http://fenics-ufl.readthedocs.io/en/latest/>`_ expression (see
+# :py:class:`~.ufl.classes.SpatialCoordinate` and define a `UFL <http://fenics-ufl.readthedocs.io/en/latest/>`_ expression (see
 # `Firedrake's interpolation manual <http://firedrakeproject.org/interpolation.html>`_
 # for more information)::
 
@@ -103,7 +103,7 @@ solver_obj.iterate()
 # The last column stands for the (approximate) wall-clock time between exports.
 # 
 # The simulation terminates once the end time is reached.
-# See :doc:`outputs and visualization <outputs_and_visu>` page on how to
+# See :doc:`outputs and visualization <../outputs_and_visu>` page on how to
 # visualize the results.
 #
 # This tutorial can be dowloaded as a Python script `here <demo_2d_channel.py>`__.
