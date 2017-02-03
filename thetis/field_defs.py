@@ -238,35 +238,11 @@ field_metadata['baroc_head_3d'] = {
     'unit': 'm',
     'filename': 'BaroHead3d',
 }
-field_metadata['baroc_head_int_3d'] = {
-    'name': 'Vertical integral of baroclinic head',
-    'shortname': 'Vertically integrated baroclinic head',
-    'unit': 'm2',
-    'filename': 'BaroHeadInt3d',
-}
-field_metadata['baroc_head_2d'] = {
-    'name': 'Depth averaged baroclinic head',
-    'shortname': 'Dav baroclinic head',
-    'unit': 'm',
-    'filename': 'BaroHead2d',
-}
-field_metadata['baroc_head_bot_2d'] = {
-    'name': 'Baroclinic head at bottom',
-    'shortname': 'Baroclinic head at bottom',
-    'unit': 'm',
-    'filename': 'BaroHeadBot2d',
-}
-field_metadata['gjv_alpha_h_3d'] = {
-    'name': 'GJV Parameter h',
-    'shortname': 'GJV Parameter h',
-    'unit': '',
-    'filename': 'GJVParamH',
-}
-field_metadata['gjv_alpha_v_3d'] = {
-    'name': 'GJV Parameter v',
-    'shortname': 'GJV Parameter v',
-    'unit': '',
-    'filename': 'GJVParamV',
+field_metadata['int_pg_3d'] = {
+    'name': 'Internal pressure gradient',
+    'shortname': 'Int. Pressure gradient',
+    'unit': 'm s-2',
+    'filename': 'IntPG3d',
 }
 field_metadata['smag_visc_3d'] = {
     'name': 'Smagorinsky viscosity',

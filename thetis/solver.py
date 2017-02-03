@@ -385,8 +385,21 @@ class FlowSolver(FrozenClass):
         self.function_spaces.Uint = self.function_spaces.U  # vertical integral of uv
         # tracers
         self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='DG', vdegree=max(0, self.options.order), name='H')
-        # vertical integral of tracers
-        self.function_spaces.Hint = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='CG', vdegree=self.options.order+1, name='Hint')
+        # define function spaces for baroclinic head and internal pressure gradient
+        if self.options.element_family == 'dg-dg':
+            h_order = self.options.order + 1
+            self.function_spaces.H_bhead = FunctionSpace(self.mesh, 'DG', h_order,
+                                                         vfamily='CG', vdegree=self.options.order+1, name='H_bhead')
+            self.function_spaces.H_bhead_2d = FunctionSpace(self.mesh2d, 'DG', h_order, name='H_bhead_2d')
+            self.function_spaces.U_int_pg = VectorFunctionSpace(self.mesh, 'DG', self.options.order+1,
+                                                                vfamily='CG', vdegree=self.options.order, name='U_int_pg')
+        elif self.options.element_family == 'rt-dg':
+            h_order = self.options.order
+            self.function_spaces.H_bhead = FunctionSpace(self.mesh, 'DG', h_order,
+                                                         vfamily='CG', vdegree=self.options.order+1, name='H_bhead')
+            self.function_spaces.H_bhead_2d = FunctionSpace(self.mesh2d, 'DG', h_order, name='H_bhead_2d')
+            self.function_spaces.U_int_pg = self.function_spaces.U
+        # function space for turbulent quantitiess
         self.function_spaces.turb_space = self.function_spaces.P0
 
         # 2D spaces
@@ -400,8 +413,6 @@ class FlowSolver(FrozenClass):
         elif self.options.element_family == 'dg-dg':
             self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
         self.function_spaces.Uproj_2d = self.function_spaces.U_2d
-        # TODO is this needed?
-        # self.function_spaces.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_scalar_2d')
         self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='H_2d')
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d], name='V_2d')
         self._isfrozen = True
@@ -472,11 +483,8 @@ class FlowSolver(FrozenClass):
             self.fields.parab_visc_3d = Function(self.function_spaces.P1)
         if self.options.baroclinic:
             self.fields.density_3d = Function(self.function_spaces.H, name='Density')
-            self.fields.baroc_head_3d = Function(self.function_spaces.Hint)
-            # NOTE only used in 2D eqns no need to use higher order Hint space
-            self.fields.baroc_head_int_3d = Function(self.function_spaces.H)
-            self.fields.baroc_head_2d = Function(self.function_spaces.H_2d)
-            self.fields.baroc_head_bot_2d = Function(self.function_spaces.H_2d)
+            self.fields.baroc_head_3d = Function(self.function_spaces.H_bhead)
+            self.fields.int_pg_3d = Function(self.function_spaces.U_int_pg, name='int_pg_3d')
         if self.options.coriolis is not None:
             if isinstance(self.options.coriolis, FiredrakeConstant):
                 self.fields.coriolis_3d = self.options.coriolis
@@ -692,23 +700,13 @@ class FlowSolver(FrozenClass):
             self.rho_integrator = VerticalIntegrator(self.fields.density_3d,
                                                      self.fields.baroc_head_3d,
                                                      bottom_to_top=False,
-                                                     average=True,
+                                                     average=False,
                                                      bathymetry=self.fields.bathymetry_3d,
                                                      elevation=self.fields.elev_cg_3d)
-            self.baro_head_averager = VerticalIntegrator(self.fields.baroc_head_3d,
-                                                         self.fields.baroc_head_int_3d,
-                                                         bottom_to_top=True,
-                                                         average=True,
-                                                         bathymetry=self.fields.bathymetry_3d,
-                                                         elevation=self.fields.elev_cg_3d)
-            self.extract_surf_baro_head = SubFunctionExtractor(self.fields.baroc_head_int_3d,
-                                                               self.fields.baroc_head_2d,
-                                                               boundary='top', elem_facet='top')
-            self.copy_mean_baroc_head_to_3d = ExpandFunctionTo3d(self.fields.baroc_head_2d,
-                                                                 self.fields.baroc_head_int_3d)
-            self.extract_bot_baro_head = SubFunctionExtractor(self.fields.baroc_head_3d,
-                                                              self.fields.baroc_head_bot_2d,
-                                                              boundary='bottom', elem_facet='bottom')
+            self.int_pg_calculator = momentum_eq.InternalPressureGradientCalculator(
+                self.fields, self.options,
+                self.bnd_functions['momentum'],
+                solver_parameters=self.options.solver_parameters_momentum_explicit)
         self.extract_surf_dav_uv = SubFunctionExtractor(self.fields.uv_dav_3d,
                                                         self.fields.uv_dav_2d,
                                                         boundary='top', elem_facet='top',

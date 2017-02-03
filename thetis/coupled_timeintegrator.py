@@ -85,8 +85,7 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
     def _update_baroclinicity(self):
         """Computes baroclinic head"""
         if self.options.baroclinic:
-            with timed_stage('aux_baroclin'):
-                compute_baroclinic_head(self.solver)
+            compute_baroclinic_head(self.solver)
 
     def _update_turbulence(self, t):
         """
@@ -207,8 +206,6 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         fields = {
             'uv_bottom': solver.fields.get('uv_bottom_2d'),
             'bottom_drag': solver.fields.get('bottom_drag_2d'),
-            'baroc_head': solver.fields.get('baroc_head_2d'),
-            'baroc_head_bot': solver.fields.get('baroc_head_bot_2d'),
             'viscosity_h': self.options.get('h_viscosity'),  # FIXME should be total h visc
             'uv_lax_friedrichs': self.options.uv_lax_friedrichs,
             'coriolis': self.options.coriolis,
@@ -240,8 +237,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
 
         fields = {'eta': self.fields.elev_3d,  # FIXME rename elev
-                  'baroc_head': self.fields.get('baroc_head_3d'),
-                  'mean_baroc_head': self.fields.get('baroc_head_int_3d'),
+                  'int_pg': self.fields.get('int_pg_3d'),
                   'uv_depth_av': self.fields.get('uv_dav_3d'),
                   'w': self.fields.w_3d,
                   'w_mesh': self.fields.get('w_mesh_3d'),

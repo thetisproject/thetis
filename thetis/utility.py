@@ -391,7 +391,8 @@ class VerticalIntegrator(object):
 
         # define measures with a reasonable quadrature degree
         p, q = space.ufl_element().degree()
-        self.quad_degree = (2*p, 2*q + 1)
+        p_in, q_in = input.function_space().ufl_element().degree()
+        self.quad_degree = (p+p_in+1, q+q_in+1)
         self.dx = dx(degree=self.quad_degree)
         self.dS_h = dS_h(degree=self.quad_degree)
         self.ds_surf = ds_surf(degree=self.quad_degree)
@@ -493,20 +494,25 @@ def compute_baroclinic_head(solver):
     .. math::
         r = \frac{1}{\rho_0} \int_{z}^\eta  \rho' d\zeta.
     """
-    with timed_region('density_solve'):
+    with timed_stage('density_solve'):
         solver.density_solver.solve()
-    with timed_region('rho_integral'):
+    with timed_stage('rho_integral'):
         solver.rho_integrator.solve()
         solver.fields.baroc_head_3d *= -physical_constants['rho0_inv']
-    with timed_region('extr_bot_bhead'):
-        solver.extract_bot_baro_head.solve()
-    with timed_region('average_bhead'):
-        solver.baro_head_averager.solve()
-    with timed_region('extr_top_bhead'):
-        solver.extract_surf_baro_head.solve()
-    with timed_region('copy_bhead_3d'):
-        solver.copy_mean_baroc_head_to_3d.solve()
-
+    # with timed_stage('extr_bot_bhead'):
+    #     solver.extract_bot_baro_head.solve()
+    # with timed_stage('copy_bot_bhead'):
+    #     solver.copy_bot_baroc_head_to_3d.solve()
+    # with timed_stage('average_bhead'):
+    #     solver.baro_head_averager.solve()
+    # with timed_stage('extr_top_bhead'):
+    #     solver.extract_surf_baro_head.solve()
+    # with timed_stage('copy_bhead_3d'):
+    #     solver.copy_mean_baroc_head_to_3d.solve()
+    #solver.extract_surf_rho.solve()
+    #solver.copy_surf_density_to_3d.solve()
+    with timed_stage('int_pg_solve'):
+        solver.int_pg_calculator.solve()
 
 class VelocityMagnitudeSolver(object):
     """
@@ -579,6 +585,7 @@ class Mesh3DConsistencyCalculator(object):
     surface node. In general a good criterion is :math:`\delta > 0.2`.
     """
     DELTA_MIN_THRESHOLD = 0.1
+
     def __init__(self, solver_obj):
         """
         :arg solver_obj: :class:`FlowSolver` object
@@ -616,7 +623,6 @@ class Mesh3DConsistencyCalculator(object):
             }""" % {'nodes': self.fs_2d.cell_node_map().arity},
             'my_kernel')
 
-
     def _update_coords(self):
         """
         Updates all mesh coordinate related fields after mesh update"""
@@ -634,6 +640,7 @@ class Mesh3DConsistencyCalculator(object):
             msg = '3D mesh violates hydrostatic consistency criterion: d_min = {:.2f}'
             warning(msg.format(min_val))
         print_output('HCC: {:} .. {:}'.format(min_val, self.output.dat.data.max()))
+
 
 class ExpandFunctionTo3d(object):
     """
