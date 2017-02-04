@@ -192,7 +192,7 @@ class ModelOptions(AttrDict, FrozenClass):
         self.equation_of_state = 'full'
         """str: type of equation of state that defines water density
 
-        Either 'full' or 'linear'. See :class:`.EquationOfState` and
+        Either 'full' or 'linear'. See :class:`.JackettEquationOfState` and
         :class:`.LinearEquationOfState`.
         """
         self.lin_equation_of_state_params = {

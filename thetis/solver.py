@@ -694,9 +694,11 @@ class FlowSolver(FrozenClass):
                 eos_params = self.options.lin_equation_of_state_params
                 self.equation_of_state = LinearEquationOfState(**eos_params)
             else:
-                self.equation_of_state = EquationOfState()
-            self.density_solver = DensitySolver(s, t, self.fields.density_3d,
-                                                self.equation_of_state)
+                self.equation_of_state = JackettEquationOfState()
+            #self.density_solver = DensitySolver(s, t, self.fields.density_3d,
+                                                #self.equation_of_state)
+            self.density_solver = DensitySolverWeak(s, t, self.fields.density_3d,
+                                                    self.equation_of_state)
             self.rho_integrator = VerticalIntegrator(self.fields.density_3d,
                                                      self.fields.baroc_head_3d,
                                                      bottom_to_top=False,

@@ -16,6 +16,7 @@ from .field_defs import field_metadata
 from .log import *
 from firedrake import Function as FiredrakeFunction
 from firedrake import Constant as FiredrakeConstant
+from abc import ABCMeta, abstractmethod
 
 ds_surf = ds_t
 ds_bottom = ds_b
@@ -442,6 +443,7 @@ class DensitySolver(object):
         \rho = \rho'(T, S, p) + \rho_0
 
     This method computes the density anomaly :math:`\rho'`.
+
     Density is computed point-wise assuming that temperature, salinity and
     density are in the same function space.
     """
@@ -487,6 +489,63 @@ class DensitySolver(object):
         self.rho.dat.data[:] = self.eos.compute_rho(s, th, p, rho0)
 
 
+class DensitySolverWeak(object):
+    r"""
+    Computes density from salinity and temperature using the equation of state.
+
+    Water density is defined as
+
+    .. math::
+        \rho = \rho'(T, S, p) + \rho_0
+
+    This method computes the density anomaly :math:`\rho'`.
+
+    Density is computed in a weak sense by projecting the analytical expression
+    on the density field.
+    """
+    def __init__(self, salinity, temperature, density, eos_class):
+        """
+        :arg salinity: water salinity field
+        :type salinity: :class:`Function`
+        :arg temperature: water temperature field
+        :type temperature: :class:`Function`
+        :arg density: water density field
+        :type density: :class:`Function`
+        :arg eos_class: equation of state that defines water density
+        :type eos_class: :class:`EquationOfState`
+        """
+        self.fs = density.function_space()
+        self.eos = eos_class
+
+        assert isinstance(salinity, (FiredrakeFunction, FiredrakeConstant))
+        assert isinstance(temperature, (FiredrakeFunction, FiredrakeConstant))
+
+        self.s = salinity
+        self.t = temperature
+        self.density = density
+        self.p = Constant(0.)
+        rho0 = physical_constants['rho0']
+
+        f = self.eos.eval(self.s, self.t, self.p, rho0)
+        self.projector = Projector(f, self.density)
+
+    def ensure_positive_salinity(self):
+        """
+        make sure salinity is not negative
+
+        some EOS depend on sqrt(salt).
+        """
+        # FIXME this is really hacky and modifies the state variable
+        # NOTE if salt field is P2 checking nodal values is not enough ..
+        ix = self.s.dat.data < 0
+        self.s.dat.data[ix] = 0.0
+
+    def solve(self):
+        """Compute density"""
+        self.ensure_positive_salinity()
+        self.projector.project()
+
+
 def compute_baroclinic_head(solver):
     r"""
     Computes the baroclinic head :math:`r` from the density field
@@ -499,20 +558,9 @@ def compute_baroclinic_head(solver):
     with timed_stage('rho_integral'):
         solver.rho_integrator.solve()
         solver.fields.baroc_head_3d *= -physical_constants['rho0_inv']
-    # with timed_stage('extr_bot_bhead'):
-    #     solver.extract_bot_baro_head.solve()
-    # with timed_stage('copy_bot_bhead'):
-    #     solver.copy_bot_baroc_head_to_3d.solve()
-    # with timed_stage('average_bhead'):
-    #     solver.baro_head_averager.solve()
-    # with timed_stage('extr_top_bhead'):
-    #     solver.extract_surf_baro_head.solve()
-    # with timed_stage('copy_bhead_3d'):
-    #     solver.copy_mean_baroc_head_to_3d.solve()
-    #solver.extract_surf_rho.solve()
-    #solver.copy_surf_density_to_3d.solve()
     with timed_stage('int_pg_solve'):
         solver.int_pg_calculator.solve()
+
 
 class VelocityMagnitudeSolver(object):
     """
@@ -1307,6 +1355,42 @@ class SmagorinskyViscosity(object):
 
 
 class EquationOfState(object):
+    """
+    Base class of all equation of state objects
+    """
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def compute_rho(self, s, th, p, rho0=0.0):
+        r"""
+        Compute sea water density.
+
+        :arg s: Salinity expressed on the Practical Salinity Scale 1978
+        :type s: float or numpy.array
+        :arg th: Potential temperature in Celsius, referenced to pressure
+            p_r = 0 dbar.
+        :type th: float or numpy.array
+        :arg p: Pressure in decibars (1 dbar = 1e4 Pa)
+        :type p: float or numpy.array
+        :kwarg float rho0: Optional reference density. If provided computes
+            :math:`\rho' = \rho(S, Th, p) - \rho_0`
+        :return: water density
+        :rtype: float or numpy.array
+
+        All pressures are gauge pressures: they are the absolute pressures minus standard atmosperic
+        pressure 10.1325 dbar.
+        """
+        pass
+
+    @abstractmethod
+    def eval(self, s, th, p, rho0=0.0):
+        r"""
+        Compute sea water density.
+        """
+        pass
+
+
+class JackettEquationOfState(EquationOfState):
     r"""
     Equation of State according of Jackett et al. (2006) for computing sea
     water density.
@@ -1315,27 +1399,25 @@ class EquationOfState(object):
         \rho = \rho'(T, S, p) + \rho_0
         :label: equation_of_state
 
+    :math:`\rho'(T, S, p)` is a nonlinear rational function.
+
     Jackett et al. (2006). Algorithms for Density, Potential Temperature,
     Conservative Temperature, and the Freezing Temperature of Seawater.
     Journal of Atmospheric and Oceanic Technology, 23(12):1709-1728.
     http://dx.doi.org/10.1175/JTECH1946.1
     """
-    # TODO make an abstract base class
-    def __init__(self):
-        """Sets coefficients"""
-        # polynomial coefficients
-        self.a = np.array([9.9984085444849347e2, 7.3471625860981584e0, -5.3211231792841769e-2,
-                           3.6492439109814549e-4, 2.5880571023991390e0, -6.7168282786692355e-3,
-                           1.9203202055760151e-3, 1.1798263740430364e-2, 9.8920219266399117e-8,
-                           4.6996642771754730e-6, -2.5862187075154352e-8, -3.2921414007960662e-12])
-        self.b = np.array([1.0, 7.2815210113327091e-3, -4.4787265461983921e-5, 3.3851002965802430e-7,
-                           1.3651202389758572e-10, 1.7632126669040377e-3, -8.8066583251206474e-6,
-                           -1.8832689434804897e-10, 5.7463776745432097e-6, 1.4716275472242334e-9,
-                           6.7103246285651894e-6, -2.4461698007024582e-17, -9.1534417604289062e-18])
+    a = np.array([9.9984085444849347e2, 7.3471625860981584e0, -5.3211231792841769e-2,
+                  3.6492439109814549e-4, 2.5880571023991390e0, -6.7168282786692355e-3,
+                  1.9203202055760151e-3, 1.1798263740430364e-2, 9.8920219266399117e-8,
+                  4.6996642771754730e-6, -2.5862187075154352e-8, -3.2921414007960662e-12])
+    b = np.array([1.0, 7.2815210113327091e-3, -4.4787265461983921e-5, 3.3851002965802430e-7,
+                  1.3651202389758572e-10, 1.7632126669040377e-3, -8.8066583251206474e-6,
+                  -1.8832689434804897e-10, 5.7463776745432097e-6, 1.4716275472242334e-9,
+                  6.7103246285651894e-6, -2.4461698007024582e-17, -9.1534417604289062e-18])
 
     def compute_rho(self, s, th, p, rho0=0.0):
         r"""
-        Computes sea water density.
+        Compute sea water density.
 
         :arg s: Salinity expressed on the Practical Salinity Scale 1978
         :type s: float or numpy.array
@@ -1353,20 +1435,23 @@ class EquationOfState(object):
         pressure 10.1325 dbar.
         """
         s_pos = np.maximum(s, 0.0)  # ensure salinity is positive
+        return self.eval(s_pos, th, p, rho0)
+
+    def eval(self, s, th, p, rho0=0.0):
         a = self.a
         b = self.b
-        pn = (a[0] + th*a[1] + th*th*a[2] + th*th*th*a[3] + s_pos*a[4] +
-              th*s_pos*a[5] + s_pos*s_pos*a[6] + p*a[7] + p*th * th*a[8] + p*s_pos*a[9] +
+        pn = (a[0] + th*a[1] + th*th*a[2] + th*th*th*a[3] + s*a[4] +
+              th*s*a[5] + s*s*a[6] + p*a[7] + p*th * th*a[8] + p*s*a[9] +
               p*p*a[10] + p*p*th*th * a[11])
         pd = (b[0] + th*b[1] + th*th*b[2] + th*th*th*b[3] +
-              th*th*th*th*b[4] + s_pos*b[5] + s_pos*th*b[6] + s_pos*th*th*th*b[7] +
-              pow(s_pos, 1.5)*b[8] + pow(s_pos, 1.5)*th*th*b[9] + p*b[10] +
+              th*th*th*th*b[4] + s*b[5] + s*th*b[6] + s*th*th*th*b[7] +
+              pow(s, 1.5)*b[8] + pow(s, 1.5)*th*th*b[9] + p*b[10] +
               p*p*th*th*th*b[11] + p*p*p*th*b[12])
         rho = pn/pd - rho0
         return rho
 
 
-class LinearEquationOfState(object):
+class LinearEquationOfState(EquationOfState):
     r"""
     Linear Equation of State for computing sea water density
 
@@ -1389,7 +1474,7 @@ class LinearEquationOfState(object):
 
     def compute_rho(self, s, th, p, rho0=0.0):
         r"""
-        Computes sea water density.
+        Compute sea water density.
 
         :arg s: Salinity expressed on the Practical Salinity Scale 1978
         :type s: float or numpy.array
@@ -1408,6 +1493,9 @@ class LinearEquationOfState(object):
                self.alpha*(th - self.th_ref) +
                self.beta*(s - self.S_ref))
         return rho
+
+    def eval(self, s, th, p, rho0=0.0):
+        return self.compute_rho(s, th, p, rho0)
 
 
 def tensor_jump(v, n):
