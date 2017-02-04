@@ -203,6 +203,25 @@ class ModelOptions(AttrDict, FrozenClass):
             'beta': 0.77,
         }
         """dict: Parameters for linear equation of state"""
+        self.use_quadratic_pressure = False
+        """
+        bool: use P2DGxP2 space for baroclinic head.
+
+        If element_family='dg-dg', P2DGxP2 space is also used for the internal
+        pressure gradient.
+
+        This is useful to alleviate bathymetry-induced pressure gradient errors.
+        If False, the baroclinic head is in the tracer space, and internal
+        pressure gradient is in the velocity space.
+        """
+        self.use_quadratic_density = False
+        """
+        bool: water density is projected to P2DGxP2 space.
+
+        This reduces pressure gradient errors associated with nonlinear
+        equation of state.
+        If False, density is computed point-wise in the tracer space.
+        """
         self.fields_to_export = ['elev_2d', 'uv_2d', 'uv_3d', 'w_3d']
         """list of str: Fields to export in VTK format"""
         self.fields_to_export_hdf5 = []

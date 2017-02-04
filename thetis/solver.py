@@ -385,20 +385,7 @@ class FlowSolver(FrozenClass):
         self.function_spaces.Uint = self.function_spaces.U  # vertical integral of uv
         # tracers
         self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='DG', vdegree=max(0, self.options.order), name='H')
-        # define function spaces for baroclinic head and internal pressure gradient
-        if self.options.element_family == 'dg-dg':
-            h_order = self.options.order + 1
-            self.function_spaces.H_bhead = FunctionSpace(self.mesh, 'DG', h_order,
-                                                         vfamily='CG', vdegree=self.options.order+1, name='H_bhead')
-            self.function_spaces.H_bhead_2d = FunctionSpace(self.mesh2d, 'DG', h_order, name='H_bhead_2d')
-            self.function_spaces.U_int_pg = VectorFunctionSpace(self.mesh, 'DG', self.options.order+1,
-                                                                vfamily='CG', vdegree=self.options.order, name='U_int_pg')
-        elif self.options.element_family == 'rt-dg':
-            h_order = self.options.order
-            self.function_spaces.H_bhead = FunctionSpace(self.mesh, 'DG', h_order,
-                                                         vfamily='CG', vdegree=self.options.order+1, name='H_bhead')
-            self.function_spaces.H_bhead_2d = FunctionSpace(self.mesh2d, 'DG', h_order, name='H_bhead_2d')
-            self.function_spaces.U_int_pg = self.function_spaces.U
+
         # function space for turbulent quantitiess
         self.function_spaces.turb_space = self.function_spaces.P0
 
@@ -415,6 +402,26 @@ class FlowSolver(FrozenClass):
         self.function_spaces.Uproj_2d = self.function_spaces.U_2d
         self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='H_2d')
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d], name='V_2d')
+
+        # define function spaces for baroclinic head and internal pressure gradient
+        if self.options.use_quadratic_pressure:
+            self.function_spaces.P2DGxP2 = FunctionSpace(self.mesh, 'DG', 2, vfamily='CG', vdegree=2, name='P2DGxP2')
+            self.function_spaces.P2DG_2d = FunctionSpace(self.mesh2d, 'DG', 2, name='P2DG_2d')
+            if self.options.element_family == 'dg-dg':
+                self.function_spaces.P2DGxP2v = VectorFunctionSpace(self.mesh, 'DG', 2, vfamily='CG', vdegree=2, name='P2DGxP2v')
+                self.function_spaces.H_bhead = self.function_spaces.P2DGxP2
+                self.function_spaces.H_bhead_2d = self.function_spaces.P2DG_2d
+                self.function_spaces.U_int_pg = self.function_spaces.P2DGxP2v
+            elif self.options.element_family == 'rt-dg':
+                self.function_spaces.H_bhead = self.function_spaces.P2DGxP2
+                self.function_spaces.H_bhead_2d = self.function_spaces.P2DG_2d
+                self.function_spaces.U_int_pg = self.function_spaces.U
+        else:
+            self.function_spaces.P1DGxP2 = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=2, name='P1DGxP2')
+            self.function_spaces.H_bhead = self.function_spaces.P1DGxP2
+            self.function_spaces.H_bhead_2d = self.function_spaces.P1DG_2d
+            self.function_spaces.U_int_pg = self.function_spaces.U
+
         self._isfrozen = True
 
     def create_equations(self):
@@ -482,7 +489,10 @@ class FlowSolver(FrozenClass):
         if self.options.solve_vert_diffusion and self.options.use_parabolic_viscosity:
             self.fields.parab_visc_3d = Function(self.function_spaces.P1)
         if self.options.baroclinic:
-            self.fields.density_3d = Function(self.function_spaces.H, name='Density')
+            if self.options.use_quadratic_density:
+                self.fields.density_3d = Function(self.function_spaces.P2DGxP2, name='Density')
+            else:
+                self.fields.density_3d = Function(self.function_spaces.H, name='Density')
             self.fields.baroc_head_3d = Function(self.function_spaces.H_bhead)
             self.fields.int_pg_3d = Function(self.function_spaces.U_int_pg, name='int_pg_3d')
         if self.options.coriolis is not None:
@@ -695,9 +705,11 @@ class FlowSolver(FrozenClass):
                 self.equation_of_state = LinearEquationOfState(**eos_params)
             else:
                 self.equation_of_state = JackettEquationOfState()
-            #self.density_solver = DensitySolver(s, t, self.fields.density_3d,
-                                                #self.equation_of_state)
-            self.density_solver = DensitySolverWeak(s, t, self.fields.density_3d,
+            if self.options.use_quadratic_density:
+                self.density_solver = DensitySolverWeak(s, t, self.fields.density_3d,
+                                                        self.equation_of_state)
+            else:
+                self.density_solver = DensitySolver(s, t, self.fields.density_3d,
                                                     self.equation_of_state)
             self.rho_integrator = VerticalIntegrator(self.fields.density_3d,
                                                      self.fields.baroc_head_3d,
