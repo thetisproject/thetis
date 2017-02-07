@@ -130,7 +130,6 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'temp_3d', 'salt_3d', 'density_3d',
                                 'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                                'baroc_head_2d',
                                 'smag_visc_3d']
     options.equation_of_state = 'linear'
     options.lin_equation_of_state_params = {
@@ -188,6 +187,8 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     # to remove fast 2D gravity wave caused by the initial density difference
     compute_baroclinic_head(solver_obj)
     elev_init = Function(solver_obj.function_spaces.H_2d)
+    # FIXME this does not work anymore: baroc_head_2d is gone ...
+    # TODO compute manually here?
     elev_init.assign(-solver_obj.fields.baroc_head_2d*depth)
     mean_elev = assemble(elev_init*dx)/lx/ly
     elev_init += -mean_elev

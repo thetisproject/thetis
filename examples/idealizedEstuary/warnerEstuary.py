@@ -85,7 +85,7 @@ options.check_salt_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d', 'density_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                            'baroc_head_2d', 'smag_visc_3d',
+                            'smag_visc_3d',
                             'eddy_visc_3d', 'shear_freq_3d',
                             'buoy_freq_3d', 'tke_3d', 'psi_3d',
                             'eps_3d', 'len_3d']
