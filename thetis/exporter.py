@@ -23,7 +23,9 @@ def get_visu_space(fs):
     mesh = fs.mesh()
     family = 'Lagrange' if is_cg(fs) else 'Discontinuous Lagrange'
     if is_vector:
-        visu_fs = VectorFunctionSpace(mesh, family, 1, vfamily=family, vdegree=1)
+        dim = fs.dim
+        visu_fs = VectorFunctionSpace(mesh, family, 1,
+                                      vfamily=family, vdegree=1, dim=dim)
     else:
         visu_fs = FunctionSpace(mesh, family, 1, vfamily=family, vdegree=1)
     # make sure that you always get the same temp work function
