@@ -157,7 +157,7 @@ def compute_pg_error(**kwargs):
         'lin_strat': True,
         'equation_of_state': 'linear',
         'geometry': 'warped',
-        'target': 1e-14,
+        'target': 1e-13,
     },
     {
         'element_family': 'dg-dg',
@@ -220,7 +220,7 @@ def compute_pg_error(**kwargs):
         'lin_strat': True,
         'equation_of_state': 'linear',
         'geometry': 'warped',
-        'target': 4e-8,
+        'target': 1e-7,
     },
     {
         'element_family': 'rt-dg',
@@ -291,7 +291,7 @@ def test_int_pg(pg_test_setup):
         'lin_strat': True,
         'equation_of_state': 'linear',
         'geometry': 'warped',
-        'target': 4e-12,
+        'target': 1e-11,
     },
     {
         'element_family': 'rt-dg',
@@ -309,7 +309,7 @@ def test_int_pg(pg_test_setup):
         'lin_strat': True,
         'equation_of_state': 'linear',
         'geometry': 'warped',
-        'target': 1e-4,
+        'target': 5e-4,
     },
 ],)
 def stability_setup(request):
