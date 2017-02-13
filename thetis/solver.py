@@ -395,8 +395,6 @@ class FlowSolver(FrozenClass):
         self.function_spaces.Uint = self.function_spaces.U  # vertical integral of uv
         # tracers
         self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.polynomial_degree, vfamily='DG', vdegree=max(0, self.options.polynomial_degree), name='H')
-
-        # function space for turbulent quantitiess
         self.function_spaces.turb_space = self.function_spaces.P0
 
         # 2D spaces
@@ -434,9 +432,9 @@ class FlowSolver(FrozenClass):
 
         self._isfrozen = True
 
-    def create_equations(self):
+    def create_fields(self):
         """
-        Creates all dynamic equations and time integrators
+        Creates all fields
         """
         if not hasattr(self, 'U_2d'):
             self.create_function_spaces()
@@ -576,7 +574,22 @@ class FlowSolver(FrozenClass):
         self.tot_v_diff.add(self.options.vertical_diffusivity)
         self.tot_v_diff.add(self.fields.get('eddy_diff_3d'))
 
-        # ----- Equations
+        self._isfrozen = True
+
+    def create_equations(self):
+        """
+        Creates all dynamic equations and time integrators
+        """
+        if 'uv_3d' not in self.fields:
+            self.create_fields()
+        self._isfrozen = False
+
+        if self.options.log_output and not self.options.no_exports:
+            logfile = os.path.join(create_directory(self.options.outputdir), 'log')
+            filehandler = logging.logging.FileHandler(logfile, mode='w')
+            filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
+            output_logger.addHandler(filehandler)
+
         self.eq_sw = shallowwater_eq.ModeSplit2DEquations(
             self.fields.solution_2d.function_space(),
             self.fields.bathymetry_2d,
