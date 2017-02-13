@@ -26,8 +26,14 @@ Above :math:`r` denotes the baroclinic head
     r = \frac{1}{\rho_0} \int_{z}^\eta  \rho' d\zeta.
     :label: baroc_head
 
-In the case of purely barotropic problems the :math:`r` and the internal pressure
-gradient are omitted.
+The internal pressure gradient is computed as a separate diagnostic field:
+
+.. math::
+    \mathbf{F}_{pg} = g\nabla_h r.
+    :label: int_pg_eq
+
+In the case of purely barotropic problems the :math:`r` and
+:math:`\mathbf{F}_{pg}` fields are omitted.
 
 When using mode splitting we split the velocity field into a depth average and
 a deviation, :math:`\textbf{u} = \bar{\textbf{u}} + \textbf{u}'`.

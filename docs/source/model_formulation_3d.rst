@@ -40,6 +40,9 @@ The equation of state is set by the option
 :math:`\rho_0` is defined in the :py:mod:`~.physical_constants` module.
 Water density affects the internal pressure gradient through the baroclinic
 head, :math:`r`, which we can solve diagnostically from :eq:`baroc_head`.
+The internal pressure gradient, :math:`\mathbf{F}_{pg} = g\nabla_h r`, is
+computed weakly as separate field.
+The solver is implemented in :py:class:`~.InternalPressureGradientCalculator`.
 
 Setting option :py:attr:`.ModelOptions.baroclinic` = ``True`` activates
 baroclinicity, i.e. the computation of water density, baroclinic head and
@@ -67,6 +70,7 @@ Variable           Symbol                   Equation                      Thetis
 Vertical velocity  :math:`w`                :eq:`continuity_eq_3d`        ``w_3d``
 Water density      :math:`\rho`             :eq:`equation_of_state`       ``rho_3d``
 Baroclinic head    :math:`r`                :eq:`baroc_head`              ``baroc_head_3d``
+Pressure gradient  :math:`\mathbf{F}_{pg}`  :eq:`int_pg_eq`               ``int_pg_3d``
 ================== ======================== ============================= ======================
 
 Table 2. *Diagnostic variables in the 3D model.*
@@ -96,6 +100,7 @@ Water salinity     :math:`S`                P1DG x P1DG
 Vertical velocity  :math:`w`                P1DG x P1DG
 Water density      :math:`\rho`             P1DG x P1DG
 Baroclinic head    :math:`r`                P1DG x P2
+Pressure gradient  :math:`\mathbf{F}_{pg}`  P1DG x P1DG
 ================== ======================== =============================
 
 Table 3. *Equal order Discontinuous Galerkin function spaces (degree=1).*
@@ -111,6 +116,7 @@ Water salinity     :math:`S`                P1DG x P1DG
 Vertical velocity  :math:`w`                HDiv(P1DG x P2)
 Water density      :math:`\rho`             P1DG x P1DG
 Baroclinic head    :math:`r`                P1DG x P2
+Pressure gradient  :math:`\mathbf{F}_{pg}`  HDiv(RT2 x P1DG)
 ================== ======================== =============================
 
 Table 4. *Raviart-Thomas Discontinuous Galerkin function spaces (degree=1).*
