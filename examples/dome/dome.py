@@ -31,7 +31,7 @@ physical_constants['rho0'] = setup.rho_0
 
 reso_str = 'coarse'
 delta_x_dict = {'normal': 4e3, 'coarse': 20e3}
-n_layers_dict = {'normal': 12, 'coarse': 7}
+n_layers_dict = {'normal': 16, 'coarse': 7}
 n_layers = n_layers_dict[reso_str]
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
 print_output('Loaded mesh '+mesh2d.name)
@@ -59,12 +59,9 @@ u_max_int = np.sqrt(setup.g/setup.rho_0*setup.delta_rho/setup.depth_lim[0])*setu
 u_max = 3.5
 w_max = 3e-2
 
-# NOTE needs nonzero viscosity to remain stable (no surprize really)
-# NOTE needs to estimate speed of internal waves to estimate dt ...
-
 # compute horizontal viscosity
 uscale = 2.0
-reynolds_number = 25.0  # 400.0 corresponds to Legg et al (2006)
+reynolds_number = 160.   # 160 corresponds to Legg et al. (2006)
 nu_scale = uscale * delta_x / reynolds_number
 
 # create solver
@@ -73,20 +70,19 @@ options = solver_obj.options
 options.element_family = 'dg-dg'
 outputdir += '_' + options.element_family
 options.timestepper_type = 'SSPRK22'
-# options.timestepper_type = 'LeapFrog'
 options.solve_salinity = True
 options.solve_temperature = True
 options.use_implicit_vertical_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = True
 options.use_baroclinic_formulation = True
-options.use_lax_friedrichs_velocity = True
-options.use_lax_friedrichs_tracer = True
+options.use_lax_friedrichs_velocity = False
+options.use_lax_friedrichs_tracer = False
 options.coriolis_frequency = Constant(setup.f_0)
 options.use_limiter_for_tracers = True
 options.vertical_viscosity = Constant(1.0e-2)
 options.horizontal_viscosity = Constant(nu_scale)
-options.horizontal_diffusivity = None
+options.h_diffusivity = Constant(10.0)
 options.use_quadratic_pressure = True
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
@@ -109,6 +105,7 @@ options.equation_of_state_options.alpha = setup.alpha
 options.equation_of_state_options.beta = setup.beta
 
 solver_obj.create_function_spaces()
+solver_obj.create_fields()
 
 xyz = SpatialCoordinate(solver_obj.mesh)
 
@@ -124,6 +121,22 @@ x_w_arr = x_arr - setup.bay_x_lim[0]
 ix = y_arr > setup.basin_ly + 50e3  # assign only in the bay
 temp_init_3d.dat.data[ix] = setup.temp_func(x_w_arr[ix], z_arr[ix])
 
+# add a relaxation term for temperature:
+# dT/dt ... - 1/tau*(T_relax - T) = 0
+temp_relax = temp_init_3d
+t_temp_relax = Constant(6.*3600.)  # time scale
+mask_temp_relax_3d = Function(solver_obj.function_spaces.H, name='mask_temp_relax_3d')
+ly_relax = 100e3
+lx_relax = 100e3
+mask_numpy_y0 = (1 - y_arr/ly_relax)
+mask_numpy_x0 = (1 - x_arr/lx_relax)
+mask_numpy_x1 = (x_arr-setup.basin_lx)/lx_relax + 1
+mask_temp_relax_3d.dat.data[:] = np.maximum(np.maximum(mask_numpy_x0, mask_numpy_x1), mask_numpy_y0)
+ix = mask_temp_relax_3d.dat.data < 0
+mask_temp_relax_3d.dat.data[ix] = 0.0
+# out = File('mask.pvd').write(mask_temp_relax)
+options.temp_source_3d = mask_temp_relax_3d/t_temp_relax*(temp_relax - solver_obj.fields.temp_3d)
+
 # use salinity field as a passive tracer for tracking inflowing waters
 salt_init_3d = Function(solver_obj.function_spaces.H, name='inflow salinity')
 # mark waters T < 15.0 degC as 1.0, 0.0 otherwise
@@ -133,6 +146,14 @@ salt_init_3d.dat.data[ix] = (setup.temp_lim[1] - setup.temp_func(x_w_arr[ix], z_
 uv_inflow_3d = Function(solver_obj.function_spaces.P1DGv, name='inflow velocity')
 uv_inflow_3d.dat.data[ix, 1] = setup.v_func(x_w_arr[ix], z_arr[ix])
 uv_inflow_2d = Function(solver_obj.function_spaces.P1DGv_2d, name='inflow velocity')
+
+# compute total volume flux at inflow bnd
+init_inflow = abs(assemble(dot(uv_inflow_3d, FacetNormal(solver_obj.mesh))*ds_v(int(4))))
+target_inflow = 5e6
+flow_corr_fact = Constant(target_inflow/init_inflow)
+tot_inflow = abs(assemble(dot(flow_corr_fact*uv_inflow_3d, FacetNormal(solver_obj.mesh))*ds_v(int(4))))
+
+bhead_init_3d = Function(solver_obj.fields.baroc_head_3d.function_space(), name='init bhead')
 
 
 def compute_depth_av_inflow(uv_inflow_3d, uv_inflow_2d):
@@ -147,29 +168,26 @@ def compute_depth_av_inflow(uv_inflow_3d, uv_inflow_2d):
                                          elevation=solver_obj.fields.elev_cg_3d)
     inflow_extract = SubFunctionExtractor(tmp_inflow_3d,
                                           uv_inflow_2d,
-                                          boundary='top', elem_facet='top',
-                                          elem_height=solver_obj.fields.v_elem_size_2d)
+                                          boundary='top', elem_facet='top')
     inflow_averager.solve()
     inflow_extract.solve()
+    # remove depth av. from 3D
+    uv_inflow_3d += -tmp_inflow_3d
 
-
-# compute total volume flux at inflow bnd
-tot_inflow = abs(assemble(dot(uv_inflow_3d, FacetNormal(solver_obj.mesh))*ds_v(int(4))))
 
 # set boundary conditions
 symm_swe_bnd = {'symm': None}
 radiation_swe_bnd = {'elev': Constant(0.0), 'uv': Constant((0, 0))}
 outflow_swe_bnd = {'elev': Constant(0.0), 'flux': Constant(tot_inflow)}
-inflow_swe_bnd = {'uv': uv_inflow_2d}
+inflow_swe_bnd = {'uv': flow_corr_fact*uv_inflow_2d}
 zero_swe_bnd = {'elev': Constant(0.0), 'uv': Constant((0, 0))}
 inflow_salt_bnd = {'value': salt_init_3d}
 inflow_temp_bnd = {'value': temp_init_3d}
 symm_temp_bnd = {'symm': None}
 zero_salt_bnd = {'value': Constant(0.0)}
-inflow_uv_bnd = {'uv': uv_inflow_3d}
-symm_uv_bnd = {'symm': None}
-outflow_uv_bnd = {'flux': Constant(tot_inflow)}
-zero_uv_bnd = {'uv': Constant((0, 0, 0))}
+inflow_uv_bnd = {'uv': flow_corr_fact*uv_inflow_3d, 'baroc_head': bhead_init_3d}
+outflow_uv_bnd = {'flux': Constant(tot_inflow), 'baroc_head': bhead_init_3d}
+zero_uv_bnd = {'uv': Constant((0, 0, 0)), 'baroc_head': bhead_init_3d}
 
 bnd_id_west = 1
 bnd_id_east = 2
@@ -203,6 +221,8 @@ solver_obj.bnd_functions['salt'] = {
 solver_obj.create_equations()
 
 compute_depth_av_inflow(uv_inflow_3d, uv_inflow_2d)
+tot_inflow_2d = abs(assemble(dot(setup.depth_lim[1]*flow_corr_fact*uv_inflow_2d, FacetNormal(solver_obj.mesh2d))*ds(int(4))))
+
 hcc_obj = Mesh3DConsistencyCalculator(solver_obj)
 hcc_obj.solve()
 
@@ -214,12 +234,13 @@ print_output('Reynolds number: {:}'.format(reynolds_number))
 print_output('Number of cores: {:}'.format(comm.size))
 print_output('Mesh resolution dx={:} nlayers={:} dz={:}'.format(delta_x, n_layers, delta_z))
 print_output('Number of 2D nodes={:}, triangles={:}, prisms={:}'.format(nnodes, ntriangles, nprisms))
-print_output('Tracer DOFs per core: {:}'.format(6*nprisms/comm.size))
+print_output('Tracer DOFs per core: {:}'.format(6*nprisms))
 hcc = solver_obj.fields.hcc_metric_3d.dat.data
 print_output('HCC mesh consistency: {:} .. {:}'.format(hcc.min(), hcc.max()))
 print_output('Horizontal viscosity: {:}'.format(nu_scale))
 print_output('Internal wave speed: {:.3f}'.format(u_max_int))
-print_output('Total inflow: {:.3f} Sv'.format(tot_inflow/1e6))
+print_output('Total inflow: {:.3f} Sv (uncorrected {:.3f} Sv)'.format(tot_inflow/1e6, init_inflow/1e6))
+print_output('Total 2D inflow: {:.3f} Sv'.format(tot_inflow_2d/1e6))
 print_output('Exporting to {:}'.format(outputdir))
 
 
@@ -229,4 +250,6 @@ def show_uv_mag():
 
 
 solver_obj.assign_initial_conditions(temp=temp_init_3d, salt=salt_init_3d)
+# use initial baroclinic head on the boundary
+bhead_init_3d.assign(solver_obj.fields.baroc_head_3d)
 solver_obj.iterate(export_func=show_uv_mag)
