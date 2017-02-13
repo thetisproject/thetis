@@ -138,4 +138,4 @@ def test_gradient_from_adjoint(setup):
     parameters["adjoint"]["stop_annotating"] = True
 
     minconv = taylor_test(jfunc, c, J0, dJdc)
-    assert minconv > 1.95
+    assert minconv > 1.90
