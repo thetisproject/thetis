@@ -23,7 +23,7 @@ def get_visu_space(fs):
     mesh = fs.mesh()
     family = 'Lagrange' if is_cg(fs) else 'Discontinuous Lagrange'
     if is_vector:
-        dim = fs.dim
+        dim = fs.ufl_element().value_shape()[0]
         visu_fs = VectorFunctionSpace(mesh, family, 1,
                                       vfamily=family, vdegree=1, dim=dim)
     else:
