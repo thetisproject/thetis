@@ -248,8 +248,8 @@ class ShallowWaterMomentumTerm(ShallowWaterTerm):
         self.u_space = u_space
         self.eta_space = eta_space
 
-        self.u_is_dg = element_continuity(self.u_space.fiat_element).dg
-        self.eta_is_dg = element_continuity(self.eta_space.fiat_element).dg
+        self.u_is_dg = element_continuity(self.u_space.finat_element).dg
+        self.eta_is_dg = element_continuity(self.eta_space.finat_element).dg
         self.u_is_hdiv = self.u_space.ufl_element().family() == 'Raviart-Thomas'
 
 
@@ -270,8 +270,8 @@ class ShallowWaterContinuityTerm(ShallowWaterTerm):
         self.eta_space = eta_space
         self.u_space = u_space
 
-        self.u_is_dg = element_continuity(self.u_space.fiat_element).dg
-        self.eta_is_dg = element_continuity(self.eta_space.fiat_element).dg
+        self.u_is_dg = element_continuity(self.u_space.finat_element).dg
+        self.eta_is_dg = element_continuity(self.eta_space.finat_element).dg
         self.u_is_hdiv = self.u_space.ufl_element().family() == 'Raviart-Thomas'
 
 

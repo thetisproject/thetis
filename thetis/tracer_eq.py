@@ -53,7 +53,7 @@ class TracerTerm(Term):
         self.bathymetry = bathymetry
         self.h_elem_size = h_elem_size
         self.v_elem_size = v_elem_size
-        continuity = element_continuity(self.function_space.fiat_element)
+        continuity = element_continuity(self.function_space.finat_element)
         self.horizontal_dg = continuity.horizontal_dg
         self.vertical_dg = continuity.vertical_dg
         self.use_symmetric_surf_bnd = use_symmetric_surf_bnd

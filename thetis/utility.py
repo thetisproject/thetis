@@ -114,32 +114,29 @@ ElementContinuity = namedtuple("ElementContinuity", ["dg", "horizontal_dg", "ver
 """A named tuple describing the continuity of an element."""
 
 
-def element_continuity(fiat_element):
+def element_continuity(finat_element):
     """Return an :class:`ElementContinuity` instance with the
     continuity of a given element.
 
-    :arg fiat_element: The fiat element to determine the continuity
+    :arg finat_element: The finat element to determine the continuity
         of.
     :returns: A new :class:`ElementContinuity` instance.
     """
     import FIAT
-    cell = fiat_element.get_reference_element()
+    cell = finat_element.cell
 
+    dofs = finat_element.entity_dofs()
     if isinstance(cell, FIAT.reference_element.TensorProductCell):
-        # Pull apart
-        horiz = element_continuity(fiat_element.A).dg
-        vert = element_continuity(fiat_element.B).dg
-        return ElementContinuity(dg=horiz and vert,
-                                 horizontal_dg=horiz,
+        A, B = cell.cells
+        dimA = A.get_spatial_dimension()
+        dimB = B.get_spatial_dimension()
+        horiz = all(sum(map(len, dofs[(a, b)].values())) == 0 for a in range(dimA) for b in range(dimB+1))
+        vert = all(sum(map(len, dofs[(a, b)].values())) == 0 for a in range(dimA+1) for b in range(dimB))
+        return ElementContinuity(dg=horiz and vert, horizontal_dg=horiz,
                                  vertical_dg=vert)
     else:
-        edofs = fiat_element.entity_dofs()
         dim = cell.get_spatial_dimension()
-        dg = True
-        for i in range(dim - 1):
-            if any(len(k) for k in edofs[i].values()):
-                dg = False
-                break
+        dg = len(dofs[dim][0]) == finat_element.space_dimension()
         return ElementContinuity(dg, dg, dg)
 
 
@@ -178,7 +175,7 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d):
     new_coordinates = Function(fs_3d)
 
     # number of nodes in vertical direction
-    n_vert_nodes = len(fs_3d.fiat_element.B.entity_closure_dofs()[1][0])
+    n_vert_nodes = fs_3d.finat_element.space_dimension() / fs_2d.finat_element.space_dimension()
 
     nodes = fs_3d.bt_masks['geometric'][0]
     idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
@@ -191,7 +188,7 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d):
                     new_coords[idx[d]+e][2] = -bath2d[d][0] * (1.0 - old_coords[idx[d]+e][2]);
                 }
             }
-        }""" % {'nodes': bathymetry_2d.cell_node_map().arity,
+        }""" % {'nodes': fs_2d.finat_element.space_dimension(),
                 'v_nodes': n_vert_nodes},
         'my_kernel')
 
@@ -378,7 +375,7 @@ class VerticalIntegrator(object):
         self.output = output
         space = output.function_space()
         mesh = space.mesh()
-        vertical_is_dg = element_continuity(space.fiat_element).vertical_dg
+        vertical_is_dg = element_continuity(space.finat_element).vertical_dg
         tri = TrialFunction(space)
         phi = TestFunction(space)
         normal = FacetNormal(mesh)
@@ -599,7 +596,7 @@ class ExpandFunctionTo3d(object):
         self.iter_domain = op2.ALL
 
         # number of nodes in vertical direction
-        n_vert_nodes = len(self.fs_3d.fiat_element.B.entity_closure_dofs()[1][0])
+        n_vert_nodes = self.fs_3d.finat_element.space_dimension() / self.fs_2d.finat_element.space_dimension()
 
         nodes = self.fs_3d.bt_masks['geometric'][0]
         self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
@@ -612,7 +609,7 @@ class ExpandFunctionTo3d(object):
                         }
                     }
                 }
-            }""" % {'nodes': self.input_2d.cell_node_map().arity,
+            }""" % {'nodes': self.fs_2d.finat_element.space_dimension(),
                     'func_dim': self.input_2d.function_space().dim,
                     'v_nodes': n_vert_nodes},
             'my_kernel')
@@ -735,7 +732,7 @@ class SubFunctionExtractor(object):
         elif boundary == 'bottom':
             self.iter_domain = op2.ON_BOTTOM
 
-        out_nodes = self.fs_2d.fiat_element.space_dimension()
+        out_nodes = self.fs_2d.finat_element.space_dimension()
 
         if elem_facet == 'average':
             assert (len(nodes) == 2*out_nodes)

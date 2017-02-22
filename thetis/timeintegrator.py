@@ -458,7 +458,7 @@ class LeapFrogAM3(TimeIntegrator):
         self.msolution_old = Function(fs, name='dual solution')
         self.rhs_func = Function(fs, name='rhs linear form')
 
-        continuity = element_continuity(fs.fiat_element)
+        continuity = element_continuity(fs.finat_element)
         fs_is_hdiv = isinstance(fs.ufl_element(), ufl.HDivElement)
         self.fs_is_dg = continuity.horizontal_dg and continuity.vertical_dg and not fs_is_hdiv
 
