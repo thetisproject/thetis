@@ -110,34 +110,42 @@ class FieldDict(AttrDict):
         super(FieldDict, self).__setattr__(key, value)
 
 
-ElementContinuity = namedtuple("ElementContinuity", ["dg", "horizontal_dg", "vertical_dg"])
-"""A named tuple describing the continuity of an element."""
+ElementContinuity = namedtuple("ElementContinuity", ["horizontal", "vertical"])
+"""
+A named tuple describing the continuity of an element in the horizontal/vertical direction.
+
+The field value is one of "cg", "hdiv", or "dg".
+"""
 
 
-def element_continuity(finat_element):
+def element_continuity(ufl_element):
     """Return an :class:`ElementContinuity` instance with the
     continuity of a given element.
 
-    :arg finat_element: The finat element to determine the continuity
+    :arg ufl_element: The UFL element to determine the continuity
         of.
     :returns: A new :class:`ElementContinuity` instance.
     """
-    import FIAT
-    cell = finat_element.cell
+    elem = ufl_element
+    elem_types = {
+        'Discontinuous Lagrange': 'dg',
+        'Lagrange': 'cg',
+        'Raviart-Thomas': 'hdiv',
+    }
 
-    dofs = finat_element.entity_dofs()
-    if isinstance(cell, FIAT.reference_element.TensorProductCell):
-        A, B = cell.cells
-        dimA = A.get_spatial_dimension()
-        dimB = B.get_spatial_dimension()
-        horiz = all(sum(map(len, dofs[(a, b)].values())) == 0 for a in range(dimA) for b in range(dimB+1))
-        vert = all(sum(map(len, dofs[(a, b)].values())) == 0 for a in range(dimA+1) for b in range(dimB))
-        return ElementContinuity(dg=horiz and vert, horizontal_dg=horiz,
-                                 vertical_dg=vert)
+    if isinstance(elem, ufl.finiteelement.mixedelement.VectorElement):
+        elem = elem.sub_elements()[0]  # take the elem of first component
+    if isinstance(elem, ufl.finiteelement.tensorproductelement.TensorProductElement):
+        a, b = elem.sub_elements()
+        horiz_type = elem_types[a.family()]
+        vert_type = elem_types[b.family()]
+    elif isinstance(elem, ufl.finiteelement.hdivcurl.HDivElement):
+        horiz_type = 'hdiv'
+        vert_type = 'hdiv'
     else:
-        dim = cell.get_spatial_dimension()
-        dg = len(dofs[dim][0]) == finat_element.space_dimension()
-        return ElementContinuity(dg, dg, dg)
+        horiz_type = elem_types[elem.family()]
+        vert_type = horiz_type
+    return ElementContinuity(horiz_type, vert_type)
 
 
 def create_directory(path, comm=COMM_WORLD):
@@ -375,7 +383,7 @@ class VerticalIntegrator(object):
         self.output = output
         space = output.function_space()
         mesh = space.mesh()
-        vertical_is_dg = element_continuity(space.finat_element).vertical_dg
+        vertical_is_dg = element_continuity(space.ufl_element()).vertical in ['dg', 'hdiv']
         tri = TrialFunction(space)
         phi = TestFunction(space)
         normal = FacetNormal(mesh)

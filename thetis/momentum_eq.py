@@ -96,9 +96,9 @@ class MomentumTerm(Term):
         self.bathymetry = bathymetry
         self.h_elem_size = h_elem_size
         self.v_elem_size = v_elem_size
-        continuity = element_continuity(self.function_space.finat_element)
-        self.horizontal_dg = continuity.horizontal_dg
-        self.vertical_dg = continuity.vertical_dg
+        continuity = element_continuity(self.function_space.ufl_element())
+        self.horizontal_continuity = continuity.horizontal
+        self.vertical_continuity = continuity.vertical
         self.nonlin = nonlin
         self.use_bottom_friction = use_bottom_friction
 
@@ -156,7 +156,7 @@ class PressureGradientTerm(MomentumTerm):
         if baroc_head is None:
             return 0
 
-        by_parts = element_continuity(fields_old.get('baroc_head').function_space().finat_element).dg
+        by_parts = element_continuity(fields_old.get('baroc_head').function_space().ufl_element()).horizontal == 'dg'
         head = baroc_head
 
         use_lin_stab = False
@@ -229,7 +229,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
                  uv_av[1]*self.normal('-')[1])
         s = 0.5*(sign(un_av) + 1.0)
         uv_up = uv('-')*s + uv('+')*(1-s)
-        if self.horizontal_dg:
+        if self.horizontal_continuity in ['dg', 'hdiv']:
             f += (uv_up[0]*uv_av[0]*jump(self.test[0], self.normal[0]) +
                   uv_up[0]*uv_av[1]*jump(self.test[0], self.normal[1]) +
                   uv_up[1]*uv_av[0]*jump(self.test[1], self.normal[0]) +
@@ -329,7 +329,7 @@ class VerticalAdvectionTerm(MomentumTerm):
         adv_v = -(Dx(self.test[0], 2)*uv[0]*vertvelo +
                   Dx(self.test[1], 2)*uv[1]*vertvelo)
         f += adv_v * self.dx
-        if self.vertical_dg:
+        if self.vertical_continuity in ['dg', 'hdiv']:
             w_av = avg(vertvelo)
             s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
             uv_up = uv('-')*s + uv('+')*(1-s)
@@ -394,7 +394,7 @@ class HorizontalViscosityTerm(MomentumTerm):
         stress = dot(visc_tensor, grad_uv)
         f += inner(grad_test, stress)*self.dx
 
-        if self.horizontal_dg:
+        if self.horizontal_continuity in ['dg', 'hdiv']:
             assert self.h_elem_size is not None, 'h_elem_size must be defined'
             assert self.v_elem_size is not None, 'v_elem_size must be defined'
             # Interior Penalty method by
@@ -465,7 +465,7 @@ class VerticalViscosityTerm(MomentumTerm):
         diff_flux = viscosity_v*Dx(solution, 2)
         f += inner(grad_test, diff_flux)*self.dx
 
-        if self.vertical_dg:
+        if self.vertical_continuity in ['dg', 'hdiv']:
             assert self.h_elem_size is not None, 'h_elem_size must be defined'
             assert self.v_elem_size is not None, 'v_elem_size must be defined'
             # Interior Penalty method by

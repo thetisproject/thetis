@@ -142,7 +142,7 @@ def test_implicit_friction(do_export=False, do_assert=True):
     if do_assert:
         target_u_min = 0.4
         target_u_max = 1.0
-        target_u_tol = 1e-2
+        target_u_tol = 5e-2
         target_zero = 1e-6
         solution_p1_dg.project(solution)
         uvw = solution_p1_dg.dat.data

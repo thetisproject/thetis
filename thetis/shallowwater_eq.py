@@ -248,9 +248,8 @@ class ShallowWaterMomentumTerm(ShallowWaterTerm):
         self.u_space = u_space
         self.eta_space = eta_space
 
-        self.u_is_dg = element_continuity(self.u_space.finat_element).dg
-        self.eta_is_dg = element_continuity(self.eta_space.finat_element).dg
-        self.u_is_hdiv = self.u_space.ufl_element().family() == 'Raviart-Thomas'
+        self.u_continuity = element_continuity(self.u_space.ufl_element()).horizontal
+        self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
 
 class ShallowWaterContinuityTerm(ShallowWaterTerm):
@@ -270,9 +269,8 @@ class ShallowWaterContinuityTerm(ShallowWaterTerm):
         self.eta_space = eta_space
         self.u_space = u_space
 
-        self.u_is_dg = element_continuity(self.u_space.finat_element).dg
-        self.eta_is_dg = element_continuity(self.eta_space.finat_element).dg
-        self.u_is_hdiv = self.u_space.ufl_element().family() == 'Raviart-Thomas'
+        self.u_continuity = element_continuity(self.u_space.ufl_element()).horizontal
+        self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
 
 class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
@@ -360,7 +358,7 @@ class HUDivTerm(ShallowWaterContinuityTerm):
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
 
-        hu_by_parts = self.u_is_dg or self.u_is_hdiv
+        hu_by_parts = self.u_continuity in ['dg', 'hdiv']
 
         if hu_by_parts:
             f = -inner(grad(self.eta_test), total_h*uv)*self.dx
@@ -424,7 +422,7 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
                   Dx(uv_old[0]*self.u_test[1], 0)*uv[1] +
                   Dx(uv_old[1]*self.u_test[0], 1)*uv[0] +
                   Dx(uv_old[1]*self.u_test[1], 1)*uv[1])*self.dx
-            if self.u_is_dg:
+            if self.u_continuity in ['dg', 'hdiv']:
                 un_av = dot(avg(uv_old), self.normal('-'))
                 # NOTE solver can stagnate
                 # s = 0.5*(sign(un_av) + 1.0)
@@ -528,7 +526,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
 
         f = inner(grad(self.u_test), stress)*self.dx
 
-        if self.u_is_dg:
+        if self.u_continuity in ['dg', 'hdiv']:
             # from Epshteyn et al. 2007 (http://dx.doi.org/10.1016/j.cam.2006.08.029)
             # the scheme is stable for alpha > 3*X*p*(p+1)*cot(theta), where X is the
             # maximum ratio of viscosity within a triangle, p the degree, and theta
