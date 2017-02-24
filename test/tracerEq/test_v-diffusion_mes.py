@@ -53,6 +53,7 @@ def run(refinement, **model_options):
     options = solverobj.options
     options.nonlin = False
     options.use_ale_moving_mesh = False
+    options.use_limiter_for_tracers = False
     options.u_advection = Constant(1.0)
     options.no_exports = True
     options.outputdir = outputdir
@@ -208,7 +209,7 @@ def test_vertical_diffusion(order, implicit, stepper, use_ale):
 
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], order=0,
+    run_convergence([1, 2, 3], order=1,
                     implicit=False,
                     element_family='dg-dg',
                     timestepper_type='ssprk22',

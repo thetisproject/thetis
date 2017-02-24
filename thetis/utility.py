@@ -110,37 +110,42 @@ class FieldDict(AttrDict):
         super(FieldDict, self).__setattr__(key, value)
 
 
-ElementContinuity = namedtuple("ElementContinuity", ["dg", "horizontal_dg", "vertical_dg"])
-"""A named tuple describing the continuity of an element."""
+ElementContinuity = namedtuple("ElementContinuity", ["horizontal", "vertical"])
+"""
+A named tuple describing the continuity of an element in the horizontal/vertical direction.
+
+The field value is one of "cg", "hdiv", or "dg".
+"""
 
 
-def element_continuity(fiat_element):
+def element_continuity(ufl_element):
     """Return an :class:`ElementContinuity` instance with the
     continuity of a given element.
 
-    :arg fiat_element: The fiat element to determine the continuity
+    :arg ufl_element: The UFL element to determine the continuity
         of.
     :returns: A new :class:`ElementContinuity` instance.
     """
-    import FIAT
-    cell = fiat_element.get_reference_element()
+    elem = ufl_element
+    elem_types = {
+        'Discontinuous Lagrange': 'dg',
+        'Lagrange': 'cg',
+        'Raviart-Thomas': 'hdiv',
+    }
 
-    if isinstance(cell, FIAT.reference_element.TensorProductCell):
-        # Pull apart
-        horiz = element_continuity(fiat_element.A).dg
-        vert = element_continuity(fiat_element.B).dg
-        return ElementContinuity(dg=horiz and vert,
-                                 horizontal_dg=horiz,
-                                 vertical_dg=vert)
+    if isinstance(elem, ufl.finiteelement.mixedelement.VectorElement):
+        elem = elem.sub_elements()[0]  # take the elem of first component
+    if isinstance(elem, ufl.finiteelement.tensorproductelement.TensorProductElement):
+        a, b = elem.sub_elements()
+        horiz_type = elem_types[a.family()]
+        vert_type = elem_types[b.family()]
+    elif isinstance(elem, ufl.finiteelement.hdivcurl.HDivElement):
+        horiz_type = 'hdiv'
+        vert_type = 'hdiv'
     else:
-        edofs = fiat_element.entity_dofs()
-        dim = cell.get_spatial_dimension()
-        dg = True
-        for i in range(dim - 1):
-            if any(len(k) for k in edofs[i].values()):
-                dg = False
-                break
-        return ElementContinuity(dg, dg, dg)
+        horiz_type = elem_types[elem.family()]
+        vert_type = horiz_type
+    return ElementContinuity(horiz_type, vert_type)
 
 
 def create_directory(path, comm=COMM_WORLD):
@@ -178,7 +183,7 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d):
     new_coordinates = Function(fs_3d)
 
     # number of nodes in vertical direction
-    n_vert_nodes = len(fs_3d.fiat_element.B.entity_closure_dofs()[1][0])
+    n_vert_nodes = fs_3d.finat_element.space_dimension() / fs_2d.finat_element.space_dimension()
 
     nodes = fs_3d.bt_masks['geometric'][0]
     idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
@@ -191,7 +196,7 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d):
                     new_coords[idx[d]+e][2] = -bath2d[d][0] * (1.0 - old_coords[idx[d]+e][2]);
                 }
             }
-        }""" % {'nodes': bathymetry_2d.cell_node_map().arity,
+        }""" % {'nodes': fs_2d.finat_element.space_dimension(),
                 'v_nodes': n_vert_nodes},
         'my_kernel')
 
@@ -378,7 +383,7 @@ class VerticalIntegrator(object):
         self.output = output
         space = output.function_space()
         mesh = space.mesh()
-        vertical_is_dg = element_continuity(space.fiat_element).vertical_dg
+        vertical_is_dg = element_continuity(space.ufl_element()).vertical in ['dg', 'hdiv']
         tri = TrialFunction(space)
         phi = TestFunction(space)
         normal = FacetNormal(mesh)
@@ -599,7 +604,7 @@ class ExpandFunctionTo3d(object):
         self.iter_domain = op2.ALL
 
         # number of nodes in vertical direction
-        n_vert_nodes = len(self.fs_3d.fiat_element.B.entity_closure_dofs()[1][0])
+        n_vert_nodes = self.fs_3d.finat_element.space_dimension() / self.fs_2d.finat_element.space_dimension()
 
         nodes = self.fs_3d.bt_masks['geometric'][0]
         self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
@@ -612,7 +617,7 @@ class ExpandFunctionTo3d(object):
                         }
                     }
                 }
-            }""" % {'nodes': self.input_2d.cell_node_map().arity,
+            }""" % {'nodes': self.fs_2d.finat_element.space_dimension(),
                     'func_dim': self.input_2d.function_space().dim,
                     'v_nodes': n_vert_nodes},
             'my_kernel')
@@ -735,7 +740,7 @@ class SubFunctionExtractor(object):
         elif boundary == 'bottom':
             self.iter_domain = op2.ON_BOTTOM
 
-        out_nodes = self.fs_2d.fiat_element.space_dimension()
+        out_nodes = self.fs_2d.finat_element.space_dimension()
 
         if elem_facet == 'average':
             assert (len(nodes) == 2*out_nodes)

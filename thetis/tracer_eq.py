@@ -53,9 +53,9 @@ class TracerTerm(Term):
         self.bathymetry = bathymetry
         self.h_elem_size = h_elem_size
         self.v_elem_size = v_elem_size
-        continuity = element_continuity(self.function_space.fiat_element)
-        self.horizontal_dg = continuity.horizontal_dg
-        self.vertical_dg = continuity.vertical_dg
+        continuity = element_continuity(self.function_space.ufl_element())
+        self.horizontal_dg = continuity.horizontal == 'dg'
+        self.vertical_dg = continuity.vertical == 'dg'
         self.use_symmetric_surf_bnd = use_symmetric_surf_bnd
 
         # define measures with a reasonable quadrature degree

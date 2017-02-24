@@ -423,8 +423,7 @@ class FlowSolver(FrozenClass):
             output_logger.addHandler(filehandler)
 
         # mesh velocity etc fields must be in the same space as 3D coordinates
-        e = self.mesh2d.coordinates.function_space().fiat_element
-        coord_is_dg = element_continuity(e).dg
+        coord_is_dg = element_continuity(self.mesh2d.coordinates.function_space().ufl_element()).horizontal == 'dg'
         if coord_is_dg:
             coord_fs = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
             coord_fs_2d = self.function_spaces.P1DG_2d
