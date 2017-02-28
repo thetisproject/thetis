@@ -408,10 +408,10 @@ class FlowSolver(FrozenClass):
             self.function_spaces.P2DGxP2 = FunctionSpace(self.mesh, 'DG', 2, vfamily='CG', vdegree=2, name='P2DGxP2')
             self.function_spaces.P2DG_2d = FunctionSpace(self.mesh2d, 'DG', 2, name='P2DG_2d')
             if self.options.element_family == 'dg-dg':
-                self.function_spaces.P2DGxP2v = VectorFunctionSpace(self.mesh, 'DG', 2, vfamily='CG', vdegree=2, name='P2DGxP2v', dim=2)
+                self.function_spaces.P2DGxP1DGv = VectorFunctionSpace(self.mesh, 'DG', 2, vfamily='DG', vdegree=1, name='P2DGxP1DGv', dim=2)
                 self.function_spaces.H_bhead = self.function_spaces.P2DGxP2
                 self.function_spaces.H_bhead_2d = self.function_spaces.P2DG_2d
-                self.function_spaces.U_int_pg = self.function_spaces.P2DGxP2v
+                self.function_spaces.U_int_pg = self.function_spaces.P2DGxP1DGv
             elif self.options.element_family == 'rt-dg':
                 self.function_spaces.H_bhead = self.function_spaces.P2DGxP2
                 self.function_spaces.H_bhead_2d = self.function_spaces.P2DG_2d

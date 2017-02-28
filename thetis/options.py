@@ -207,7 +207,7 @@ class ModelOptions(AttrDict, FrozenClass):
         """
         bool: use P2DGxP2 space for baroclinic head.
 
-        If element_family='dg-dg', P2DGxP2 space is also used for the internal
+        If element_family='dg-dg', P2DGxP1DG space is also used for the internal
         pressure gradient.
 
         This is useful to alleviate bathymetry-induced pressure gradient errors.
