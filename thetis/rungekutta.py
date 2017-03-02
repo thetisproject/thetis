@@ -422,6 +422,14 @@ class ESDIRKMidpointAbstract(AbstractRKScheme):
     cfl_coeff = 1.0
 
 
+class ESDIRKTrapezoidAbstract(AbstractRKScheme):
+    a = [[0.0, 0.0],
+         [0.5, 0.5]]
+    b = [0.5, 0.5]
+    c = [0.0, 1.0]
+    cfl_coeff = CFL_UNCONDITIONALLY_STABLE
+
+
 class RungeKuttaTimeIntegrator(TimeIntegrator):
     """Abstract base class for all Runge-Kutta time integrators"""
     __metaclass__ = ABCMeta
@@ -1045,6 +1053,10 @@ class ERKMidpointALE(ERKGenericALE2, ERKMidpointAbstract):
 
 
 class ESDIRKMidpoint(DIRKGeneric, ESDIRKMidpointAbstract):
+    pass
+
+
+class ESDIRKTrapezoid(DIRKGeneric, ESDIRKTrapezoidAbstract):
     pass
 
 

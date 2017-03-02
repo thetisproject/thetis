@@ -964,7 +964,7 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
     equations and a compatible implicit Trapezoid method to advance the 2D
     equations. Backward Euler scheme is used for vertical diffusion.
     """
-    integrator_2d = rungekutta.TwoStageTrapezoid
+    integrator_2d = rungekutta.ESDIRKTrapezoid
     integrator_3d = timeintegrator.SSPRK22ALE
     integrator_vert_3d = rungekutta.BackwardEuler
 
@@ -1077,8 +1077,7 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
             # update coupling terms
             last = i_stage == self.n_stages - 1
 
-            if last:
-                self._update_2d_coupling()
+            self._update_2d_coupling()
             self._update_baroclinicity()
             self._update_bottom_friction()
             if i_stage == last and self.options.solve_vert_diffusion:
