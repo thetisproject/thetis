@@ -175,7 +175,7 @@ def compute_pg_error(**kwargs):
         'lin_strat': True,
         'equation_of_state': 'full',
         'geometry': 'warped',
-        'target': 5e-7,
+        'target': 1e-6,
     },
     {
         'element_family': 'dg-dg',
