@@ -41,7 +41,8 @@ from plotting import *
 
 def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
                      reynolds_number=1.0, use_limiter=True, dt=None,
-                     viscosity='const', laxfriedrichs=0.0):
+                     viscosity='const', laxfriedrichs=0.0,
+                     load_export_ix=None, iterate=True, **custom_options):
     """
     Runs lock exchange problem with a bunch of user defined options.
     """
@@ -164,6 +165,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.equation_of_state_options.th_ref = 5.0
     options.equation_of_state_options.alpha = 0.2
     options.equation_of_state_options.beta = 0.0
+    options.update(**custom_options)
 
     if comm.size == 1:
         solver_obj.add_callback(RPECalculator(solver_obj))
@@ -198,8 +200,16 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     temp_init3d.interpolate(Expression('v_l - (v_l - v_r)*0.5*(tanh(x[0]/sigma) + 1.0)',
                                        sigma=10.0, v_l=temp_left, v_r=temp_right))
 
-    solver_obj.assign_initial_conditions(temp=temp_init3d)
-    solver_obj.iterate()
+    if load_export_ix is None:
+        solver_obj.assign_initial_conditions(temp=temp_init3d)
+    else:
+        assert isinstance(load_export_ix, int)
+        solver_obj.load_state(load_export_ix)
+
+    if iterate:
+        solver_obj.iterate()
+
+    return solver_obj
 
 
 def get_argparser():
