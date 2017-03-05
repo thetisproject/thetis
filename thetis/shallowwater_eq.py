@@ -67,7 +67,7 @@ system that contains nothing but the rotational external gravity waves:
 .. math::
     \frac{\partial \bar{\textbf{u}}}{\partial t} +
     f\textbf{e}_z\wedge \bar{\textbf{u}} +
-    g \nabla \eta + g \frac{1}{H}\int_{-h}^\eta \nabla r dz
+    g \nabla \eta
     = \textbf{G},
     :label: swe_momentum_modesplit
 
@@ -141,7 +141,6 @@ __all__ = [
     'HorizontalAdvectionTerm',
     'HorizontalViscosityTerm',
     'ExternalPressureGradientTerm',
-    'InternalPressureGradientTerm',
     'CoriolisTerm',
     'LinearDragTerm',
     'QuadraticDragTerm',
@@ -663,52 +662,6 @@ class BottomDrag3DTerm(ShallowWaterMomentumTerm):
         return -f
 
 
-class InternalPressureGradientTerm(ShallowWaterMomentumTerm):
-    r"""
-    Internal pressure gradient term
-
-    .. math::
-        F_{IPG} = \frac{g}{H} \int_{-h}^{\eta} (\nabla r) dz,
-
-    where :math:`r` is the baroc_head.
-    Let :math:`s` denote :math:`r/H`. We can then write
-
-    .. math::
-        F_{IPG} = g\nabla(\bar{s} H) - g\nabla \Big(\frac{1}{H} \Big) H^2\bar{s} - g s_{bot}\nabla h
-
-    where :math:`\bar{s},s_{bot}` are the depth average and bottom value of
-    :math:`s`. This term is implemented as a source term not integrated by
-    parts.
-    """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
-        baroc_head = fields_old.get('baroc_head')
-        baroc_head_bot = fields_old.get('baroc_head_bot')
-
-        if baroc_head is None:
-            return 0
-
-        depth_old = self.get_total_depth(eta_old)
-        depth = self.get_total_depth(eta)
-        source = baroc_head*depth
-        by_parts = False  # FIXME breaks p0 elements
-
-        f = 0
-        if by_parts:
-            f = -g_grav*source*nabla_div(self.u_test)*self.dx
-            head_star = avg(source)
-            f += g_grav*head_star*jump(self.u_test, self.normal)*self.dS
-            for bnd_marker in self.boundary_markers:
-                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                # use internal value
-                head_rie = source
-                f += g_grav*head_rie*dot(self.u_test, self.normal)*ds_bnd
-        else:
-            f = g_grav*inner(grad(source), self.u_test)*self.dx
-        f += -g_grav*inner(grad(1/depth_old)*depth_old*source, self.u_test)*self.dx
-        f += -g_grav*inner(grad(self.bathymetry)*baroc_head_bot, self.u_test)*self.dx
-        return -f
-
-
 class MomentumSourceTerm(ShallowWaterMomentumTerm):
     r"""
     Generic source term in the shallow water momentum equation
@@ -779,7 +732,6 @@ class BaseShallowWaterEquation(Equation):
         self.add_term(QuadraticDragTerm(*args), 'explicit')
         self.add_term(LinearDragTerm(*args), 'explicit')
         self.add_term(BottomDrag3DTerm(*args), 'source')
-        self.add_term(InternalPressureGradientTerm(*args), 'source')
         self.add_term(MomentumSourceTerm(*args), 'source')
 
     def add_continuity_terms(self, *args):
@@ -876,7 +828,6 @@ class ModeSplit2DEquations(BaseShallowWaterEquation):
     def add_momentum_terms(self, *args):
         self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
         self.add_term(CoriolisTerm(*args), 'explicit')
-        self.add_term(InternalPressureGradientTerm(*args), 'source')
         self.add_term(MomentumSourceTerm(*args), 'source')
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):

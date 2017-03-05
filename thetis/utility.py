@@ -13,8 +13,10 @@ import ufl  # NOQA
 import coffee.base as ast  # NOQA
 from collections import OrderedDict, namedtuple  # NOQA
 from .field_defs import field_metadata
+from .log import *
 from firedrake import Function as FiredrakeFunction
 from firedrake import Constant as FiredrakeConstant
+from abc import ABCMeta, abstractmethod
 
 ds_surf = ds_t
 ds_bottom = ds_b
@@ -390,7 +392,8 @@ class VerticalIntegrator(object):
 
         # define measures with a reasonable quadrature degree
         p, q = space.ufl_element().degree()
-        self.quad_degree = (2*p, 2*q + 1)
+        p_in, q_in = input.function_space().ufl_element().degree()
+        self.quad_degree = (p+p_in+1, q+q_in+1)
         self.dx = dx(degree=self.quad_degree)
         self.dS_h = dS_h(degree=self.quad_degree)
         self.ds_surf = ds_surf(degree=self.quad_degree)
@@ -404,11 +407,10 @@ class VerticalIntegrator(object):
             mass_bnd_term = normal[2]*inner(tri, phi)*self.ds_bottom
 
         self.a = -inner(Dx(phi, 2), tri)*self.dx + mass_bnd_term
-        gamma = (normal[2] + abs(normal[2]))
         if bottom_to_top:
-            up_value = avg(tri*gamma)
+            up_value = tri('+')
         else:
-            up_value = avg(tri*(1 - gamma))
+            up_value = tri('-')
         if vertical_is_dg:
             if len(input.ufl_shape) > 0:
                 dim = input.ufl_shape[0]
@@ -416,7 +418,6 @@ class VerticalIntegrator(object):
                     self.a += up_value[i]*jump(phi[i], normal[2])*self.dS_h
             else:
                 self.a += up_value*jump(phi, normal[2])*self.dS_h
-        source = input
         if average:
             source = input/(elevation + bathymetry)
         else:
@@ -442,6 +443,7 @@ class DensitySolver(object):
         \rho = \rho'(T, S, p) + \rho_0
 
     This method computes the density anomaly :math:`\rho'`.
+
     Density is computed point-wise assuming that temperature, salinity and
     density are in the same function space.
     """
@@ -487,6 +489,63 @@ class DensitySolver(object):
         self.rho.dat.data[:] = self.eos.compute_rho(s, th, p, rho0)
 
 
+class DensitySolverWeak(object):
+    r"""
+    Computes density from salinity and temperature using the equation of state.
+
+    Water density is defined as
+
+    .. math::
+        \rho = \rho'(T, S, p) + \rho_0
+
+    This method computes the density anomaly :math:`\rho'`.
+
+    Density is computed in a weak sense by projecting the analytical expression
+    on the density field.
+    """
+    def __init__(self, salinity, temperature, density, eos_class):
+        """
+        :arg salinity: water salinity field
+        :type salinity: :class:`Function`
+        :arg temperature: water temperature field
+        :type temperature: :class:`Function`
+        :arg density: water density field
+        :type density: :class:`Function`
+        :arg eos_class: equation of state that defines water density
+        :type eos_class: :class:`EquationOfState`
+        """
+        self.fs = density.function_space()
+        self.eos = eos_class
+
+        assert isinstance(salinity, (FiredrakeFunction, FiredrakeConstant))
+        assert isinstance(temperature, (FiredrakeFunction, FiredrakeConstant))
+
+        self.s = salinity
+        self.t = temperature
+        self.density = density
+        self.p = Constant(0.)
+        rho0 = physical_constants['rho0']
+
+        f = self.eos.eval(self.s, self.t, self.p, rho0)
+        self.projector = Projector(f, self.density)
+
+    def ensure_positive_salinity(self):
+        """
+        make sure salinity is not negative
+
+        some EOS depend on sqrt(salt).
+        """
+        # FIXME this is really hacky and modifies the state variable
+        # NOTE if salt field is P2 checking nodal values is not enough ..
+        ix = self.s.dat.data < 0
+        self.s.dat.data[ix] = 0.0
+
+    def solve(self):
+        """Compute density"""
+        self.ensure_positive_salinity()
+        self.projector.project()
+
+
 def compute_baroclinic_head(solver):
     r"""
     Computes the baroclinic head :math:`r` from the density field
@@ -494,19 +553,13 @@ def compute_baroclinic_head(solver):
     .. math::
         r = \frac{1}{\rho_0} \int_{z}^\eta  \rho' d\zeta.
     """
-    with timed_region('density_solve'):
+    with timed_stage('density_solve'):
         solver.density_solver.solve()
-    with timed_region('rho_integral'):
+    with timed_stage('rho_integral'):
         solver.rho_integrator.solve()
         solver.fields.baroc_head_3d *= -physical_constants['rho0_inv']
-    with timed_region('extr_bot_bhead'):
-        solver.extract_bot_baro_head.solve()
-    with timed_region('average_bhead'):
-        solver.baro_head_averager.solve()
-    with timed_region('extr_top_bhead'):
-        solver.extract_surf_baro_head.solve()
-    with timed_region('copy_bhead_3d'):
-        solver.copy_mean_baroc_head_to_3d.solve()
+    with timed_stage('int_pg_solve'):
+        solver.int_pg_calculator.solve()
 
 
 class VelocityMagnitudeSolver(object):
@@ -551,6 +604,90 @@ class VelocityMagnitudeSolver(object):
         """Compute the magnitude"""
         self.solver.solve()
         np.maximum(self.solution.dat.data, self.min_val, self.solution.dat.data)
+
+
+class Mesh3DConsistencyCalculator(object):
+    r"""
+    Computes a hydrostatic consistency criterion metric on the 3D mesh.
+
+    Loosely speaking, the hydrostatic consistency criterion means that 3D
+    elements cannot be too skewed due to bathymetry: the highest bottom node of
+    an element cannot be higher than the lowest top node.
+
+    Violating the hydrostatic consistency criterion leads to internal pressure
+    gradient errors. Mesh consistency can be improved by coarsening the vertical
+    mesh, refining the horizontal mesh, or smoothing the bathymetry.
+
+    For a 3D prism, let :math:`z_t` denote the z coordinate of the surface node,
+    :math:`z_b` the z coordinate of the bottom node (in the same vertical line),
+    and :math:`z_0` the z coordinate of the center of mass of the 3D element.
+    We then define the hydrostatic consistency metric as
+
+    .. math::
+        \delta_t &= 2 \frac{z_t - z_0}{z_t - z_b} \\
+        \delta_b &= 2\frac{z_0 - z_b}{z_t - z_b} \\
+        \delta &= \text{min}(\delta_t, \delta_b)
+
+    For a straight prism we get :math:`\delta = 1`, and :math:`\delta = 0` in
+    the case where the highest bottom node is at the same level as the lowest
+    surface node. In general a good criterion is :math:`\delta > 0.2`.
+    """
+    DELTA_MIN_THRESHOLD = 0.1
+
+    def __init__(self, solver_obj):
+        """
+        :arg solver_obj: :class:`FlowSolver` object
+        """
+        self.solver_obj = solver_obj
+        self.output = self.solver_obj.fields.hcc_metric_3d
+
+        # create par loop for computing delta
+        self.fs_3d = self.solver_obj.function_spaces.P1DG
+        self.fs_2d = self.solver_obj.function_spaces.P1DG_2d
+
+        self.z_coord = solver_obj.fields.z_coord_3d
+        self.z_p0_coord = Function(solver_obj.function_spaces.P0, name='P0 z coordinate')
+        self.coord_projector = Projector(self.z_coord, self.z_p0_coord)
+
+        self._update_coords()
+
+        nodes = self.fs_3d.bt_masks['geometric'][0]
+        self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
+        self.kernel = op2.Kernel("""
+            void my_kernel(double **delta, double **z_field, double **z_field_p0, int *idx) {
+                for ( int d = 0; d < %(nodes)d; d++ ) {
+                    double z0 = z_field_p0[0][0];
+                    int i_top = 1;
+                    int i_bot = 0;
+                    double z_top = z_field[idx[d] + i_top][0];
+                    double z_bot = z_field[idx[d] + i_bot][0];
+                    double h = z_top - z_bot;
+                    double delta_t = 2*(z_field_p0[0][0] - z_bot)/h;
+                    double delta_b = 2*(z_top - z_field_p0[0][0])/h;
+                    double delta_min = fmin(delta_t, delta_b);
+                    delta[idx[d] + i_bot][0] = delta_min;
+                    delta[idx[d] + i_top][0] = delta_min;
+                }
+            }""" % {'nodes': self.fs_2d.cell_node_map().arity},
+            'my_kernel')
+
+    def _update_coords(self):
+        """
+        Updates all mesh coordinate related fields after mesh update"""
+        self.coord_projector.project()
+
+    def solve(self):
+        op2.par_loop(self.kernel, self.solver_obj.mesh.cell_set,
+                     self.output.dat(op2.WRITE, self.output.function_space().cell_node_map()),
+                     self.z_coord.dat(op2.READ, self.z_coord.function_space().cell_node_map()),
+                     self.z_p0_coord.dat(op2.READ, self.z_p0_coord.function_space().cell_node_map()),
+                     self.idx(op2.READ),
+                     iterate=op2.ALL)
+        min_val = self.output.dat.data.min()
+        if min_val < self.DELTA_MIN_THRESHOLD:
+            msg = '3D mesh violates hydrostatic consistency criterion: d_min = {:.2f}'
+            warning(msg.format(min_val))
+        print_output('HCC: {:} .. {:}'.format(min_val, self.output.dat.data.max()))
 
 
 class ExpandFunctionTo3d(object):
@@ -1218,6 +1355,42 @@ class SmagorinskyViscosity(object):
 
 
 class EquationOfState(object):
+    """
+    Base class of all equation of state objects
+    """
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def compute_rho(self, s, th, p, rho0=0.0):
+        r"""
+        Compute sea water density.
+
+        :arg s: Salinity expressed on the Practical Salinity Scale 1978
+        :type s: float or numpy.array
+        :arg th: Potential temperature in Celsius, referenced to pressure
+            p_r = 0 dbar.
+        :type th: float or numpy.array
+        :arg p: Pressure in decibars (1 dbar = 1e4 Pa)
+        :type p: float or numpy.array
+        :kwarg float rho0: Optional reference density. If provided computes
+            :math:`\rho' = \rho(S, Th, p) - \rho_0`
+        :return: water density
+        :rtype: float or numpy.array
+
+        All pressures are gauge pressures: they are the absolute pressures minus standard atmosperic
+        pressure 10.1325 dbar.
+        """
+        pass
+
+    @abstractmethod
+    def eval(self, s, th, p, rho0=0.0):
+        r"""
+        Compute sea water density.
+        """
+        pass
+
+
+class JackettEquationOfState(EquationOfState):
     r"""
     Equation of State according of Jackett et al. (2006) for computing sea
     water density.
@@ -1226,27 +1399,25 @@ class EquationOfState(object):
         \rho = \rho'(T, S, p) + \rho_0
         :label: equation_of_state
 
+    :math:`\rho'(T, S, p)` is a nonlinear rational function.
+
     Jackett et al. (2006). Algorithms for Density, Potential Temperature,
     Conservative Temperature, and the Freezing Temperature of Seawater.
     Journal of Atmospheric and Oceanic Technology, 23(12):1709-1728.
     http://dx.doi.org/10.1175/JTECH1946.1
     """
-    # TODO make an abstract base class
-    def __init__(self):
-        """Sets coefficients"""
-        # polynomial coefficients
-        self.a = np.array([9.9984085444849347e2, 7.3471625860981584e0, -5.3211231792841769e-2,
-                           3.6492439109814549e-4, 2.5880571023991390e0, -6.7168282786692355e-3,
-                           1.9203202055760151e-3, 1.1798263740430364e-2, 9.8920219266399117e-8,
-                           4.6996642771754730e-6, -2.5862187075154352e-8, -3.2921414007960662e-12])
-        self.b = np.array([1.0, 7.2815210113327091e-3, -4.4787265461983921e-5, 3.3851002965802430e-7,
-                           1.3651202389758572e-10, 1.7632126669040377e-3, -8.8066583251206474e-6,
-                           -1.8832689434804897e-10, 5.7463776745432097e-6, 1.4716275472242334e-9,
-                           6.7103246285651894e-6, -2.4461698007024582e-17, -9.1534417604289062e-18])
+    a = np.array([9.9984085444849347e2, 7.3471625860981584e0, -5.3211231792841769e-2,
+                  3.6492439109814549e-4, 2.5880571023991390e0, -6.7168282786692355e-3,
+                  1.9203202055760151e-3, 1.1798263740430364e-2, 9.8920219266399117e-8,
+                  4.6996642771754730e-6, -2.5862187075154352e-8, -3.2921414007960662e-12])
+    b = np.array([1.0, 7.2815210113327091e-3, -4.4787265461983921e-5, 3.3851002965802430e-7,
+                  1.3651202389758572e-10, 1.7632126669040377e-3, -8.8066583251206474e-6,
+                  -1.8832689434804897e-10, 5.7463776745432097e-6, 1.4716275472242334e-9,
+                  6.7103246285651894e-6, -2.4461698007024582e-17, -9.1534417604289062e-18])
 
     def compute_rho(self, s, th, p, rho0=0.0):
         r"""
-        Computes sea water density.
+        Compute sea water density.
 
         :arg s: Salinity expressed on the Practical Salinity Scale 1978
         :type s: float or numpy.array
@@ -1264,20 +1435,23 @@ class EquationOfState(object):
         pressure 10.1325 dbar.
         """
         s_pos = np.maximum(s, 0.0)  # ensure salinity is positive
+        return self.eval(s_pos, th, p, rho0)
+
+    def eval(self, s, th, p, rho0=0.0):
         a = self.a
         b = self.b
-        pn = (a[0] + th*a[1] + th*th*a[2] + th*th*th*a[3] + s_pos*a[4] +
-              th*s_pos*a[5] + s_pos*s_pos*a[6] + p*a[7] + p*th * th*a[8] + p*s_pos*a[9] +
+        pn = (a[0] + th*a[1] + th*th*a[2] + th*th*th*a[3] + s*a[4] +
+              th*s*a[5] + s*s*a[6] + p*a[7] + p*th * th*a[8] + p*s*a[9] +
               p*p*a[10] + p*p*th*th * a[11])
         pd = (b[0] + th*b[1] + th*th*b[2] + th*th*th*b[3] +
-              th*th*th*th*b[4] + s_pos*b[5] + s_pos*th*b[6] + s_pos*th*th*th*b[7] +
-              pow(s_pos, 1.5)*b[8] + pow(s_pos, 1.5)*th*th*b[9] + p*b[10] +
+              th*th*th*th*b[4] + s*b[5] + s*th*b[6] + s*th*th*th*b[7] +
+              pow(s, 1.5)*b[8] + pow(s, 1.5)*th*th*b[9] + p*b[10] +
               p*p*th*th*th*b[11] + p*p*p*th*b[12])
         rho = pn/pd - rho0
         return rho
 
 
-class LinearEquationOfState(object):
+class LinearEquationOfState(EquationOfState):
     r"""
     Linear Equation of State for computing sea water density
 
@@ -1300,7 +1474,7 @@ class LinearEquationOfState(object):
 
     def compute_rho(self, s, th, p, rho0=0.0):
         r"""
-        Computes sea water density.
+        Compute sea water density.
 
         :arg s: Salinity expressed on the Practical Salinity Scale 1978
         :type s: float or numpy.array
@@ -1319,6 +1493,9 @@ class LinearEquationOfState(object):
                self.alpha*(th - self.th_ref) +
                self.beta*(s - self.S_ref))
         return rho
+
+    def eval(self, s, th, p, rho0=0.0):
+        return self.compute_rho(s, th, p, rho0)
 
 
 def tensor_jump(v, n):

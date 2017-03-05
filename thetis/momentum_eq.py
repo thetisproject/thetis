@@ -26,8 +26,14 @@ Above :math:`r` denotes the baroclinic head
     r = \frac{1}{\rho_0} \int_{z}^\eta  \rho' d\zeta.
     :label: baroc_head
 
-In the case of purely barotropic problems the :math:`r` and the internal pressure
-gradient are omitted.
+The internal pressure gradient is computed as a separate diagnostic field:
+
+.. math::
+    \mathbf{F}_{pg} = g\nabla_h r.
+    :label: int_pg_eq
+
+In the case of purely barotropic problems the :math:`r` and
+:math:`\mathbf{F}_{pg}` fields are omitted.
 
 When using mode splitting we split the velocity field into a depth average and
 a deviation, :math:`\textbf{u} = \bar{\textbf{u}} + \textbf{u}'`.
@@ -67,6 +73,7 @@ __all__ = [
     'BottomFrictionTerm',
     'LinearDragTerm',
     'SourceTerm',
+    'InternalPressureGradientCalculator',
 ]
 
 g_grav = physical_constants['g_grav']
@@ -137,53 +144,13 @@ class PressureGradientTerm(MomentumTerm):
             = - \int_\Omega g (s -\bar{s}) H \nabla_h \cdot \boldsymbol{\psi} dx
             + \int_{\mathcal{I}_h \cup \mathcal{I}_v} g (s -\bar{s}) H \boldsymbol{\psi}  \cdot \textbf{n}_h dx
     """
-    # TODO revise
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-
-        if self.nonlin:
-            total_h = self.bathymetry + fields_old.get('eta')
-        else:
-            total_h = self.bathymetry
-
-        # TODO include additional 2D pressure gradient terms ...
-        # TODO update naming convention: baroc_head is actually s not r
-        baroc_head = fields_old.get('baroc_head')
-        mean_baroc_head = fields_old.get('mean_baroc_head')
-        if baroc_head is not None:
-            assert mean_baroc_head is not None, 'mean_baroc_head must be provided'
-            baroc_head = (baroc_head - mean_baroc_head)*total_h
-
-        if baroc_head is None:
+        int_pg = fields.get('int_pg')
+        if int_pg is None:
             return 0
 
-        by_parts = element_continuity(fields_old.get('baroc_head').function_space().ufl_element()).horizontal == 'dg'
-        head = baroc_head
+        f = (int_pg[0]*self.test[0] + int_pg[1]*self.test[1])*self.dx
 
-        use_lin_stab = False
-
-        if by_parts:
-            div_test = (Dx(self.test[0], 0) +
-                        Dx(self.test[1], 1))
-            f = -g_grav*head*div_test*self.dx
-            if use_lin_stab:
-                head_star = avg(head) + 0.5*sqrt(avg(total_h)/g_grav)*jump(solution_old, self.normal)
-            else:
-                head_star = avg(head)
-            jump_n_dot_test = (jump(self.test[0], self.normal[0]) +
-                               jump(self.test[1], self.normal[1]))
-            f += g_grav*head_star*jump_n_dot_test*(self.dS_v + self.dS_h)
-            n_dot_test = (self.normal[0]*self.test[0] +
-                          self.normal[1]*self.test[1])
-            f += g_grav*head*n_dot_test*(self.ds_bottom + self.ds_surf)
-            for bnd_marker in self.boundary_markers:
-                ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
-                if baroc_head is not None:
-                    f += g_grav*baroc_head*n_dot_test*ds_bnd
-
-        else:
-            grad_head_dot_test = (Dx(head, 0)*self.test[0] +
-                                  Dx(head, 1)*self.test[1])
-            f = g_grav * grad_head_dot_test * self.dx
         return -f
 
 
@@ -258,11 +225,15 @@ class HorizontalAdvectionTerm(MomentumTerm):
                 else:
                     uv_in = uv
                     use_lf = True
-                    if 'symm' in funcs or 'elev' in funcs:
+                    if 'symm' in funcs:
                         # use internal normal velocity
-                        # NOTE should this be symmetic normal velocity?
+                        # NOTE should this be symmetric normal velocity?
                         uv_ext = uv_in
                         use_lf = False
+                    elif 'uv' in funcs:
+                        # prescribe external velocity
+                        uv_ext = funcs['uv']
+                        un_ext = dot(uv_ext, self.normal)
                     elif 'un' in funcs:
                         # prescribe normal velocity
                         un_ext = funcs['un']
@@ -274,6 +245,8 @@ class HorizontalAdvectionTerm(MomentumTerm):
                         total_h = self.bathymetry + eta
                         un_ext = funcs['flux'] / total_h / sect_len
                         uv_ext = self.normal*un_ext
+                    else:
+                        raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
                     if self.nonlin:
                         uv_av = 0.5*(uv_in + uv_ext)
                         un_av = uv_av[0]*self.normal[0] + uv_av[1]*self.normal[1]
@@ -649,3 +622,88 @@ class MomentumEquation(Equation):
         self.add_term(LinearDragTerm(*args), 'explicit')
         self.add_term(CoriolisTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
+
+
+class InternalPressureGradientCalculator(MomentumTerm):
+    r"""
+    Computes the internal pressure gradient term, :math:`g\nabla_h r`
+
+    where :math:`r` is the baroclinic head :eq:`baroc_head`.
+
+    If :math:`r` belongs to a discontinuous function space, the term is
+    integrated by parts:
+
+    .. math::
+        \int_\Omega g \nabla_h r \cdot \boldsymbol{\psi} dx
+            = - \int_\Omega g r \nabla_h \cdot \boldsymbol{\psi} dx
+            + \int_{\mathcal{I}_h \cup \mathcal{I}_v} g \text{avg}(r) \text{jump}(\boldsymbol{\psi} \cdot \textbf{n}_h) dx
+    """
+    def __init__(self, fields, options, bnd_functions, solver_parameters=None):
+        """
+        :arg solver: `class`FlowSolver` object
+        :kwarg dict solver_parameters: PETSc solver options
+        """
+        if solver_parameters is None:
+            solver_parameters = {}
+        self.fields = fields
+        self.options = options
+        function_space = self.fields.int_pg_3d.function_space()
+        bathymetry = self.fields.bathymetry_3d
+        super(InternalPressureGradientCalculator, self).__init__(
+            function_space, bathymetry=bathymetry)
+
+        solution = self.fields.int_pg_3d
+        fields = {
+            'baroc_head': self.fields.baroc_head_3d,
+        }
+        l = self.residual(solution, solution, fields, fields,
+                          bnd_conditions=bnd_functions)
+        trial = TrialFunction(self.function_space)
+        a = inner(trial, self.test) * self.dx
+        prob = LinearVariationalProblem(a, l, solution)
+        self.lin_solver = LinearVariationalSolver(prob, solver_parameters=solver_parameters)
+
+    def solve(self):
+        """
+        Computes internal pressure gradient and stores it in int_pg_3d field
+        """
+        self.lin_solver.solve()
+
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+
+        bhead = fields_old.get('baroc_head')
+
+        if bhead is None:
+            return 0
+
+        by_parts = element_continuity(bhead.function_space().ufl_element()).horizontal == 'dg'
+
+        if by_parts:
+            div_test = (Dx(self.test[0], 0) + Dx(self.test[1], 1))
+            f = -g_grav*bhead*div_test*self.dx
+            head_star = avg(bhead)
+            jump_n_dot_test = (jump(self.test[0], self.normal[0]) +
+                               jump(self.test[1], self.normal[1]))
+            f += g_grav*head_star*jump_n_dot_test*(self.dS_v + self.dS_h)
+            n_dot_test = (self.normal[0]*self.test[0] +
+                          self.normal[1]*self.test[1])
+            f += g_grav*bhead*n_dot_test*(self.ds_bottom + self.ds_surf)
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
+                if bhead is not None:
+                    if funcs is not None and 'baroc_head' in funcs:
+                        r_ext = funcs['baroc_head']
+                        head_ext = r_ext
+                        head_in = bhead
+                        head_star = 0.5*(head_ext + head_in)
+                    else:
+                        head_star = bhead
+                    f += g_grav*head_star*n_dot_test*ds_bnd
+
+        else:
+            grad_head_dot_test = (Dx(bhead, 0)*self.test[0] +
+                                  Dx(bhead, 1)*self.test[1])
+            f = g_grav * grad_head_dot_test * self.dx
+
+        return f

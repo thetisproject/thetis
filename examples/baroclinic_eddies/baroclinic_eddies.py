@@ -130,7 +130,6 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'temp_3d', 'salt_3d', 'density_3d',
                                 'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                                'baroc_head_2d',
                                 'smag_visc_3d']
     options.equation_of_state = 'linear'
     options.lin_equation_of_state_params = {
@@ -186,11 +185,30 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
 
     # compute 2D baroclinic head and use it to initialize elevation field
     # to remove fast 2D gravity wave caused by the initial density difference
-    compute_baroclinic_head(solver_obj)
-    elev_init = Function(solver_obj.function_spaces.H_2d)
-    elev_init.assign(-solver_obj.fields.baroc_head_2d*depth)
+    elev_init = Function(solver_obj.function_spaces.H_bhead_2d)
+
+    def compute_2d_baroc_head(solver_obj, output):
+        """Computes vertical integral of baroc_head_3d"""
+        compute_baroclinic_head(solver_obj)
+        tmp_3d = Function(solver_obj.function_spaces.H_bhead)
+        bhead_av_op = VerticalIntegrator(
+            solver_obj.fields.baroc_head_3d,
+            tmp_3d,
+            bottom_to_top=True,
+            average=True,
+            elevation=solver_obj.fields.elev_cg_3d,
+            bathymetry=solver_obj.fields.bathymetry_3d)
+        bhead_surf_extract_op = SubFunctionExtractor(
+            tmp_3d,
+            output,
+            boundary='top', elem_facet='top')
+        bhead_av_op.solve()
+        bhead_surf_extract_op.solve()
+
+    compute_2d_baroc_head(solver_obj, elev_init)
+    elev_init *= -1  # flip sign => total pressure gradient is zero
     mean_elev = assemble(elev_init*dx)/lx/ly
-    elev_init += -mean_elev
+    elev_init += -mean_elev  # remove mean
     solver_obj.assign_initial_conditions(temp=temp_init3d, elev=elev_init)
 
     solver_obj.iterate()

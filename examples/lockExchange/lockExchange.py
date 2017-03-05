@@ -151,7 +151,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'temp_3d', 'density_3d',
                                 'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                                'baroc_head_2d', 'smag_visc_3d']
+                                'smag_visc_3d']
     options.fields_to_export_hdf5 = list(options.fields_to_export)
     options.equation_of_state = 'linear'
     options.lin_equation_of_state_params = {

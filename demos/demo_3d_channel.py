@@ -49,8 +49,7 @@ options.use_limiter_for_tracers = True
 options.t_export = 900.0
 options.t_end = 24 * 3600
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
-                            'w_3d', 'w_mesh_3d', 'salt_3d',
-                            'baroc_head_3d', 'baroc_head_2d',
+                            'w_3d', 'w_mesh_3d', 'salt_3d', 'baroc_head_3d',
                             'uv_dav_2d', 'uv_bottom_2d']
 
 # We set this simulation to be barotropic (i.e. salinity and temperature do not

@@ -85,8 +85,7 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
     def _update_baroclinicity(self):
         """Computes baroclinic head"""
         if self.options.baroclinic:
-            with timed_stage('aux_baroclin'):
-                compute_baroclinic_head(self.solver)
+            compute_baroclinic_head(self.solver)
 
     def _update_turbulence(self, t):
         """
@@ -207,8 +206,6 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         fields = {
             'uv_bottom': solver.fields.get('uv_bottom_2d'),
             'bottom_drag': solver.fields.get('bottom_drag_2d'),
-            'baroc_head': solver.fields.get('baroc_head_2d'),
-            'baroc_head_bot': solver.fields.get('baroc_head_bot_2d'),
             'viscosity_h': self.options.get('h_viscosity'),  # FIXME should be total h visc
             'uv_lax_friedrichs': self.options.uv_lax_friedrichs,
             'coriolis': self.options.coriolis,
@@ -240,8 +237,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
 
         fields = {'eta': self.fields.elev_3d,  # FIXME rename elev
-                  'baroc_head': self.fields.get('baroc_head_3d'),
-                  'mean_baroc_head': self.fields.get('baroc_head_int_3d'),
+                  'int_pg': self.fields.get('int_pg_3d'),
                   'uv_depth_av': self.fields.get('uv_dav_3d'),
                   'w': self.fields.w_3d,
                   'w_mesh': self.fields.get('w_mesh_3d'),
@@ -968,7 +964,7 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
     equations and a compatible implicit Trapezoid method to advance the 2D
     equations. Backward Euler scheme is used for vertical diffusion.
     """
-    integrator_2d = rungekutta.TwoStageTrapezoid
+    integrator_2d = rungekutta.ESDIRKTrapezoid
     integrator_3d = timeintegrator.SSPRK22ALE
     integrator_vert_3d = rungekutta.BackwardEuler
 
@@ -1081,8 +1077,7 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
             # update coupling terms
             last = i_stage == self.n_stages - 1
 
-            if last:
-                self._update_2d_coupling()
+            self._update_2d_coupling()
             self._update_baroclinicity()
             self._update_bottom_friction()
             if i_stage == last and self.options.solve_vert_diffusion:

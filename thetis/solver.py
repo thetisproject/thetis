@@ -298,8 +298,6 @@ class FlowSolver(FrozenClass):
         max_dt_2d = cfl2d*max_dt_swe
         max_dt_3d = cfl3d*min(max_dt_hadv, max_dt_vadv, max_dt_diff)
         print_output('  - CFL adjusted dt: 2D: {:} 3D: {:}'.format(max_dt_2d, max_dt_3d))
-        if round(max_dt_3d) > 0:
-            max_dt_3d = np.floor(max_dt_3d)
         if self.options.dt_2d is not None or self.options.dt is not None:
             print_output('  - User defined dt: 2D: {:} 3D: {:}'.format(self.options.dt_2d, self.options.dt))
         self.dt = self.options.dt
@@ -328,7 +326,7 @@ class FlowSolver(FrozenClass):
 
         # fit dt to export time
         m_exp = int(np.ceil(self.options.t_export/self.dt))
-        self.dt = self.options.t_export/m_exp
+        self.dt = float(self.options.t_export)/m_exp
         if self.dt_mode == 'split':
             self.M_modesplit = int(np.ceil(self.dt/self.dt_2d))
             self.dt_2d = self.dt/self.M_modesplit
@@ -387,8 +385,8 @@ class FlowSolver(FrozenClass):
         self.function_spaces.Uint = self.function_spaces.U  # vertical integral of uv
         # tracers
         self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='DG', vdegree=max(0, self.options.order), name='H')
-        # vertical integral of tracers
-        self.function_spaces.Hint = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='CG', vdegree=self.options.order+1, name='Hint')
+
+        # function space for turbulent quantitiess
         self.function_spaces.turb_space = self.function_spaces.P0
 
         # 2D spaces
@@ -402,10 +400,28 @@ class FlowSolver(FrozenClass):
         elif self.options.element_family == 'dg-dg':
             self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
         self.function_spaces.Uproj_2d = self.function_spaces.U_2d
-        # TODO is this needed?
-        # self.function_spaces.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_scalar_2d')
         self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='H_2d')
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d], name='V_2d')
+
+        # define function spaces for baroclinic head and internal pressure gradient
+        if self.options.use_quadratic_pressure:
+            self.function_spaces.P2DGxP2 = FunctionSpace(self.mesh, 'DG', 2, vfamily='CG', vdegree=2, name='P2DGxP2')
+            self.function_spaces.P2DG_2d = FunctionSpace(self.mesh2d, 'DG', 2, name='P2DG_2d')
+            if self.options.element_family == 'dg-dg':
+                self.function_spaces.P2DGxP1DGv = VectorFunctionSpace(self.mesh, 'DG', 2, vfamily='DG', vdegree=1, name='P2DGxP1DGv', dim=2)
+                self.function_spaces.H_bhead = self.function_spaces.P2DGxP2
+                self.function_spaces.H_bhead_2d = self.function_spaces.P2DG_2d
+                self.function_spaces.U_int_pg = self.function_spaces.P2DGxP1DGv
+            elif self.options.element_family == 'rt-dg':
+                self.function_spaces.H_bhead = self.function_spaces.P2DGxP2
+                self.function_spaces.H_bhead_2d = self.function_spaces.P2DG_2d
+                self.function_spaces.U_int_pg = self.function_spaces.U
+        else:
+            self.function_spaces.P1DGxP2 = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=2, name='P1DGxP2')
+            self.function_spaces.H_bhead = self.function_spaces.P1DGxP2
+            self.function_spaces.H_bhead_2d = self.function_spaces.P1DG_2d
+            self.function_spaces.U_int_pg = self.function_spaces.U
+
         self._isfrozen = True
 
     def create_equations(self):
@@ -461,6 +477,7 @@ class FlowSolver(FrozenClass):
         self.fields.uv_mag_3d = Function(self.function_spaces.P0)
         self.fields.uv_p1_3d = Function(self.function_spaces.P1v)
         self.fields.w_3d = Function(self.function_spaces.W)
+        self.fields.hcc_metric_3d = Function(self.function_spaces.P1DG, name='mesh consistency')
         if self.options.use_ale_moving_mesh:
             self.fields.w_mesh_3d = Function(coord_fs)
             self.fields.w_mesh_surf_3d = Function(coord_fs)
@@ -472,12 +489,12 @@ class FlowSolver(FrozenClass):
         if self.options.solve_vert_diffusion and self.options.use_parabolic_viscosity:
             self.fields.parab_visc_3d = Function(self.function_spaces.P1)
         if self.options.baroclinic:
-            self.fields.density_3d = Function(self.function_spaces.H, name='Density')
-            self.fields.baroc_head_3d = Function(self.function_spaces.Hint)
-            # NOTE only used in 2D eqns no need to use higher order Hint space
-            self.fields.baroc_head_int_3d = Function(self.function_spaces.H)
-            self.fields.baroc_head_2d = Function(self.function_spaces.H_2d)
-            self.fields.baroc_head_bot_2d = Function(self.function_spaces.H_2d)
+            if self.options.use_quadratic_density:
+                self.fields.density_3d = Function(self.function_spaces.P2DGxP2, name='Density')
+            else:
+                self.fields.density_3d = Function(self.function_spaces.H, name='Density')
+            self.fields.baroc_head_3d = Function(self.function_spaces.H_bhead)
+            self.fields.int_pg_3d = Function(self.function_spaces.U_int_pg, name='int_pg_3d')
         if self.options.coriolis is not None:
             if isinstance(self.options.coriolis, FiredrakeConstant):
                 self.fields.coriolis_3d = self.options.coriolis
@@ -687,29 +704,23 @@ class FlowSolver(FrozenClass):
                 eos_params = self.options.lin_equation_of_state_params
                 self.equation_of_state = LinearEquationOfState(**eos_params)
             else:
-                self.equation_of_state = EquationOfState()
-            self.density_solver = DensitySolver(s, t, self.fields.density_3d,
-                                                self.equation_of_state)
+                self.equation_of_state = JackettEquationOfState()
+            if self.options.use_quadratic_density:
+                self.density_solver = DensitySolverWeak(s, t, self.fields.density_3d,
+                                                        self.equation_of_state)
+            else:
+                self.density_solver = DensitySolver(s, t, self.fields.density_3d,
+                                                    self.equation_of_state)
             self.rho_integrator = VerticalIntegrator(self.fields.density_3d,
                                                      self.fields.baroc_head_3d,
                                                      bottom_to_top=False,
-                                                     average=True,
+                                                     average=False,
                                                      bathymetry=self.fields.bathymetry_3d,
                                                      elevation=self.fields.elev_cg_3d)
-            self.baro_head_averager = VerticalIntegrator(self.fields.baroc_head_3d,
-                                                         self.fields.baroc_head_int_3d,
-                                                         bottom_to_top=True,
-                                                         average=True,
-                                                         bathymetry=self.fields.bathymetry_3d,
-                                                         elevation=self.fields.elev_cg_3d)
-            self.extract_surf_baro_head = SubFunctionExtractor(self.fields.baroc_head_int_3d,
-                                                               self.fields.baroc_head_2d,
-                                                               boundary='top', elem_facet='top')
-            self.copy_mean_baroc_head_to_3d = ExpandFunctionTo3d(self.fields.baroc_head_2d,
-                                                                 self.fields.baroc_head_int_3d)
-            self.extract_bot_baro_head = SubFunctionExtractor(self.fields.baroc_head_3d,
-                                                              self.fields.baroc_head_bot_2d,
-                                                              boundary='bottom', elem_facet='bottom')
+            self.int_pg_calculator = momentum_eq.InternalPressureGradientCalculator(
+                self.fields, self.options,
+                self.bnd_functions['momentum'],
+                solver_parameters=self.options.solver_parameters_momentum_explicit)
         self.extract_surf_dav_uv = SubFunctionExtractor(self.fields.uv_dav_3d,
                                                         self.fields.uv_dav_2d,
                                                         boundary='top', elem_facet='top',

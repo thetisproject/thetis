@@ -85,7 +85,6 @@ options.check_salt_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d', 'density_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                            'baroc_head_2d',
                             'smag_visc_3d']
 
 solver_obj.create_equations()
