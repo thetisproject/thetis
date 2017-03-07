@@ -22,17 +22,20 @@ def vertex_limiter_test(dim=3, type='linear', direction='x', export=False):
         xyz = mesh.coordinates
         xyz.dat.data[:, 2] *= 1.0 + 0.25 - 0.5*xyz.dat.data[:, 0]
         p1dg = FunctionSpace(mesh, 'DP', 1, vfamily='DP', vdegree=1)
+        x, y, z = SpatialCoordinate(mesh)
     else:
         p1dg = FunctionSpace(mesh2d, 'DP', 1)
+        x, y = SpatialCoordinate(mesh2d)
+        z = Constant(0)
 
-    coordname = {'x': 'x[0]', 'y': 'x[1]', 'z': 'x[2]', 'xz': 'x[0]*x[2]'}
+    coord_expr = {'x': x, 'y': y, 'xy': x + 0.5*y - 0.25, 'z': z, 'xz': x * z}
 
     tracer = Function(p1dg, name='tracer')
     tracer_original = Function(p1dg, name='tracer original')
     if type == 'linear':
-        tracer_original.project(Expression(coordname[direction]))
+        tracer_original.project(coord_expr[direction])
     if type == 'jump':
-        tracer_original.project(Expression('0.5 + 0.5*tanh(20*({x}-0.5))'.format(x=coordname[direction])))
+        tracer_original.project(0.5 + 0.5*tanh(20*(coord_expr[direction]-0.5)))
     tracer.project(tracer_original)
 
     if export:
@@ -54,17 +57,18 @@ def vertex_limiter_test(dim=3, type='linear', direction='x', export=False):
         assert tracer.dat.data.min() > -2e-5
 
 
-@pytest.fixture(params=['x', 'y'])
+@pytest.fixture(params=['x', 'y', pytest.mark.xfail(reason='corner elements will be limited')('xy')])
 def direction_2d(request):
     return request.param
 
 
-@pytest.fixture(params=['x', 'y', 'z'])
+@pytest.fixture(params=['x', 'y', pytest.mark.xfail(reason='surface corner elements will be limited')('z'),
+                        pytest.mark.xfail(reason='corner elements will be limited')('xz')])
 def direction_3d(request):
     return request.param
 
 
-@pytest.fixture(params=[pytest.mark.xfail(reason='incomplete bnd treatment')('linear'), 'jump'])
+@pytest.fixture(params=['linear', 'jump'])
 def type(request):
     return request.param
 
@@ -78,6 +82,5 @@ def test_limiter_3d(type, direction_3d):
 
 
 if __name__ == '__main__':
-    vertex_limiter_test(dim=2, type='jump', direction='y', export=True)
-    vertex_limiter_test(dim=3, type='jump', direction='z', export=True)
-    vertex_limiter_test(dim=3, type='linear', direction='z', export=True)
+    vertex_limiter_test(dim=2, type='linear', direction='x', export=True)
+    vertex_limiter_test(dim=3, type='linear', direction='x', export=True)
