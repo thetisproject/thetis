@@ -30,7 +30,7 @@ comm = COMM_WORLD
 physical_constants['rho0'] = setup.rho_0
 
 reso_str = 'coarse'
-delta_x_dict = {'normal': 4e3, 'coarse': 20e3}
+delta_x_dict = {'normal': 6e3, 'coarse': 20e3}
 n_layers_dict = {'normal': 16, 'coarse': 7}
 n_layers = n_layers_dict[reso_str]
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
@@ -61,7 +61,7 @@ w_max = 3e-2
 
 # compute horizontal viscosity
 uscale = 2.0
-reynolds_number = 160.   # 160 corresponds to Legg et al. (2006)
+reynolds_number = 240.
 nu_scale = uscale * delta_x / reynolds_number
 
 # create solver
