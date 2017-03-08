@@ -1078,3 +1078,146 @@ class PsiEquation(Equation):
                                bathymetry, v_elem_size, h_elem_size)
         self.add_term(diff, 'implicit')
         self.add_term(source, 'implicit')
+
+
+class PacanowskiPhilanderOptions(AttrDict):
+    """
+    Options for Generic Length Scale turbulence model
+    """
+    def __init__(self):
+        super(PacanowskiPhilanderOptions, self).__init__()
+        self.max_viscosity = 5e-2
+        r"""float: Constant maximum viscosity :math:`\nu_{max}`"""
+        self.alpha = 10.0
+        """float: Richardson number multiplier"""
+        self.exponent = 2.0
+        """float: Exponent of viscosity numerator :math:`n`"""
+
+    def print_summary(self):
+        """Prints all defined parameters and their values."""
+        print_output('Pacanowski-Philander model parameters')
+        for k in sorted(self.keys()):
+            print_output('  {:16s} : {:}'.format(k, self[k]))
+
+
+class PacanowskiPhilanderModel(object):
+    r"""
+    Gradient Richardson number based model by Pacanowski and Philander (1981).
+
+    Given the gradient Richardson number :math:`Ri` the eddy viscosity and
+    diffusivity are computed diagnostically as
+
+    .. math::
+        \nu &= \frac{\nu_{max}}{(1 + \alpha Ri)^n} \\
+        \mu &= \frac{\nu}{1 + \alpha Ri}
+
+    where :math:`\nu_{max},\alpha,n` are constant parameters.
+    In unstably stratified cases where :math:`Ri<0`, value :math:`Ri=0` is used.
+
+    Pacanowski and Philander (1981). Parameterization of vertical mixing in
+    numerical models of tropical oceans. Journal of Physical Oceanography,
+    11(11):1443-1451.
+    http://dx.doi.org/10.1175/1520-0485(1981)011%3C1443:POVMIN%3E2.0.CO;2
+    """
+    def __init__(self, solver, uv_field, rho_field,
+                 eddy_diffusivity, eddy_viscosity,
+                 n2, m2, options=None):
+        """
+        :arg solver: FlowSolver object
+        :arg uv_field: horizontal velocity field
+        :type uv_field: :class:`Function`
+        :arg rho_field: water density field
+        :type rho_field: :class:`Function`
+        :arg eddy_diffusivity: eddy diffusivity field
+        :type eddy_diffusivity: :class:`Function`
+        :arg eddy_viscosity: eddy viscosity field
+        :type eddy_viscosity: :class:`Function`
+        :arg n2: field for buoyancy frequency squared
+        :type n2: :class:`Function`
+        :arg m2: field for vertical shear frequency squared
+        :type m2: :class:`Function`
+        :kwarg options: model options
+        """
+        self.solver = solver
+        # 3d model fields
+        self.uv = uv_field
+        self.rho = rho_field
+        # diagnostic fields
+        self.viscosity = eddy_viscosity
+        self.diffusivity = eddy_diffusivity
+        self.n2 = n2
+        self.m2 = m2
+        self.mu_tmp = Function(self.m2.function_space(),
+                               name='tmp Shear frequency')
+        self.mu = Function(self.m2.function_space(), name='Shear frequency X')
+        self.mv = Function(self.m2.function_space(), name='Shear frequency Y')
+        self.n2_tmp = Function(self.n2.function_space(),
+                               name='tmp buoyancy frequency')
+        self.n2_pos = Function(self.n2.function_space(),
+                               name='positive buoyancy frequency')
+
+        if self.solver.options.use_smooth_eddy_viscosity:
+            self.viscosity_native = Function(self.n2.function_space(),
+                                             name='eddy viscosity')
+            self.diffusivity_native = Function(self.n2.function_space(),
+                                               name='eddy diffusivity')
+            self.p1_averager = P1Average(solver.function_spaces.P0,
+                                         solver.function_spaces.P1,
+                                         solver.function_spaces.P1DG)
+        else:
+            self.viscosity_native = self.viscosity
+            self.diffusivity_native = self.diffusivity
+
+        self.options = PacanowskiPhilanderOptions()
+        if options is not None:
+            self.options.update(options)
+
+        self.shear_frequency_solver = ShearFrequencySolver(self.uv, self.m2,
+                                                           self.mu, self.mv,
+                                                           self.mu_tmp)
+        if self.rho is not None:
+            self.buoy_frequency_solver = BuoyFrequencySolver(self.rho, self.n2,
+                                                             self.n2_tmp)
+
+        self.initialize()
+        self.options.print_summary()
+
+    def initialize(self):
+        """Initializes fields"""
+        self.n2.assign(1e-12)
+        self.n2_pos.assign(1e-12)
+        self.preprocess(init_solve=True)
+        self.postprocess()
+
+    def preprocess(self, init_solve=False):
+        """
+        Computes diagnostic variables that the dynamic equations depend on
+        """
+
+        self.shear_frequency_solver.solve(init_solve=init_solve)
+
+        if self.rho is not None:
+            self.buoy_frequency_solver.solve(init_solve=init_solve)
+            # split to positive and negative parts
+            self.n2_pos.assign(1e-12)
+            pos_ix = self.n2.dat.data[:] >= 0.0
+            self.n2_pos.dat.data[pos_ix] = self.n2.dat.data[pos_ix]
+
+    def postprocess(self):
+        """
+        Compute eddy viscosity and diffusivity
+        """
+        ri = self.n2_pos.dat.data[:]/self.m2.dat.data[:]
+        denom = 1.0 + self.options.alpha*ri
+        self.viscosity_native.dat.data[:] = self.options.max_viscosity/denom**self.options.exponent
+        self.diffusivity_native.dat.data[:] = self.viscosity_native.dat.data[:]/denom
+
+        if self.solver.options.use_smooth_eddy_viscosity:
+            self.p1_averager.apply(self.viscosity_native, self.viscosity)
+            self.p1_averager.apply(self.diffusivity_native, self.diffusivity)
+
+        # print_output('{:8s} {:10.3e} {:10.3e}'.format('M2', self.m2.dat.data.min(), self.m2.dat.data.max()))
+        # print_output('{:8s} {:10.3e} {:10.3e}'.format('N2', self.n2.dat.data.min(), self.n2.dat.data.max()))
+        # print_output('{:8s} {:10.3e} {:10.3e}'.format('N2+', self.n2_pos.dat.data.min(), self.n2_pos.dat.data.max()))
+        # print_output('{:8s} {:10.3e} {:10.3e}'.format('nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max()))
+        # print_output('{:8s} {:10.3e} {:10.3e}'.format('muv', self.diffusivity.dat.data.min(), self.diffusivity.dat.data.max()))
