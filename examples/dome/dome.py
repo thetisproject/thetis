@@ -72,17 +72,18 @@ outputdir += '_' + options.element_family
 options.timestepper_type = 'SSPRK22'
 options.solve_salinity = True
 options.solve_temperature = True
-options.use_implicit_vertical_diffusion = False
-options.use_bottom_friction = False
+options.use_implicit_vertical_diffusion = True
+options.use_bottom_friction = True
 options.use_ale_moving_mesh = True
 options.use_baroclinic_formulation = True
 options.use_lax_friedrichs_velocity = False
 options.use_lax_friedrichs_tracer = False
 options.coriolis_frequency = Constant(setup.f_0)
 options.use_limiter_for_tracers = True
+options.quadratic_drag_coefficient = Constant(0.002)
 options.vertical_viscosity = Constant(1.0e-2)
 options.horizontal_viscosity = Constant(nu_scale)
-options.h_diffusivity = Constant(10.0)
+options.horizontal_diffusivity = Constant(10.0)
 options.use_quadratic_pressure = True
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
@@ -135,7 +136,9 @@ mask_temp_relax_3d.dat.data[:] = np.maximum(np.maximum(mask_numpy_x0, mask_numpy
 ix = mask_temp_relax_3d.dat.data < 0
 mask_temp_relax_3d.dat.data[ix] = 0.0
 # out = File('mask.pvd').write(mask_temp_relax)
-options.temp_source_3d = mask_temp_relax_3d/t_temp_relax*(temp_relax - solver_obj.fields.temp_3d)
+temp_source_3d = Function(solver_obj.function_spaces.H, name='temperature_relax')
+temp_source_3d.interpolate(mask_temp_relax_3d/t_temp_relax*(temp_relax - solver_obj.fields.temp_3d))
+options.temperature_source_3d = temp_source_3d
 
 # use salinity field as a passive tracer for tracking inflowing waters
 salt_init_3d = Function(solver_obj.function_spaces.H, name='inflow salinity')
