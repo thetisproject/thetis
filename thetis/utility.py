@@ -610,84 +610,93 @@ class Mesh3DConsistencyCalculator(object):
     r"""
     Computes a hydrostatic consistency criterion metric on the 3D mesh.
 
-    Loosely speaking, the hydrostatic consistency criterion means that 3D
-    elements cannot be too skewed due to bathymetry: the highest bottom node of
-    an element cannot be higher than the lowest top node.
-
-    Violating the hydrostatic consistency criterion leads to internal pressure
-    gradient errors. Mesh consistency can be improved by coarsening the vertical
-    mesh, refining the horizontal mesh, or smoothing the bathymetry.
-
-    For a 3D prism, let :math:`z_t` denote the z coordinate of the surface node,
-    :math:`z_b` the z coordinate of the bottom node (in the same vertical line),
-    and :math:`z_0` the z coordinate of the center of mass of the 3D element.
-    We then define the hydrostatic consistency metric as
+    Let :math:`\Delta x` and :math:`\Delta z` denote the horizontal and vertical
+    element sizes. The hydrostatic consistency criterion (HCC) can then be
+    expressed as
 
     .. math::
-        \delta_t &= 2 \frac{z_t - z_0}{z_t - z_b} \\
-        \delta_b &= 2\frac{z_0 - z_b}{z_t - z_b} \\
-        \delta &= \text{min}(\delta_t, \delta_b)
+        R = \frac{|\nabla h| \Delta x}{\Delta z} < 1
 
-    For a straight prism we get :math:`\delta = 1`, and :math:`\delta = 0` in
+    where :math:`\nabla h` is the bathymetry gradient (or gradient of the
+    internal horizontal facet).
+
+    Violating the hydrostatic consistency criterion leads to internal pressure
+    gradient errors.
+    In practice one can violate the :math:`R < 1` condition without
+    jeopardizing numerical stability; typically :math:`R < 5`.
+    Mesh consistency can be improved by coarsening the vertical
+    mesh, refining the horizontal mesh, or smoothing the bathymetry.
+
+    For a 3D prism, let :math:`\delta z_t,\delta z_b` denote the maximal
+    :math:`z` coordinate difference in the surface and bottom facets,
+    respectively, and :math:`\Delta z` the height of the prism.
+    We can then compute :math:`R` for the two facets as
+
+    .. math::
+        R_t &= \frac{\delta z_t}{\Delta z} \\
+        R_b &= \frac{\delta z_b}{\Delta z}
+
+    For a straight prism we have :math:`R = 0`, and :math:`R = 1` in
     the case where the highest bottom node is at the same level as the lowest
-    surface node. In general a good criterion is :math:`\delta > 0.2`.
+    surface node.
     """
-    DELTA_MIN_THRESHOLD = 0.1
-
     def __init__(self, solver_obj):
         """
         :arg solver_obj: :class:`FlowSolver` object
         """
         self.solver_obj = solver_obj
         self.output = self.solver_obj.fields.hcc_metric_3d
+        self.z_coord = solver_obj.fields.z_coord_3d
 
         # create par loop for computing delta
         self.fs_3d = self.solver_obj.function_spaces.P1DG
-        self.fs_2d = self.solver_obj.function_spaces.P1DG_2d
-
-        self.z_coord = solver_obj.fields.z_coord_3d
-        self.z_p0_coord = Function(solver_obj.function_spaces.P0, name='P0 z coordinate')
-        self.coord_projector = Projector(self.z_coord, self.z_p0_coord)
-
-        self._update_coords()
+        assert self.output.function_space() == self.fs_3d
 
         nodes = self.fs_3d.bt_masks['geometric'][0]
         self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
         self.kernel = op2.Kernel("""
-            void my_kernel(double **delta, double **z_field, double **z_field_p0, int *idx) {
+            void my_kernel(double **output, double **z_field, int *idx) {
+                // compute max delta z on top and bottom facets
+                double z_top_max = -1e20;
+                double z_top_min = 1e20;
+                double z_bot_max = -1e20;
+                double z_bot_min = 1e20;
+                int i_top = 1;
+                int i_bot = 0;
                 for ( int d = 0; d < %(nodes)d; d++ ) {
-                    double z0 = z_field_p0[0][0];
-                    int i_top = 1;
-                    int i_bot = 0;
+                    double z_top = z_field[idx[d] + i_top][0];
+                    double z_bot = z_field[idx[d] + i_bot][0];
+                    z_top_max = fmax(z_top, z_top_max);
+                    z_top_min = fmin(z_top, z_top_min);
+                    z_bot_max = fmax(z_bot, z_bot_max);
+                    z_bot_min = fmin(z_bot, z_bot_min);
+                }
+                double delta_z_top = z_top_max - z_top_min;
+                double delta_z_bot = z_bot_max - z_bot_min;
+                // compute R ratio
+                for ( int d = 0; d < %(nodes)d; d++ ) {
                     double z_top = z_field[idx[d] + i_top][0];
                     double z_bot = z_field[idx[d] + i_bot][0];
                     double h = z_top - z_bot;
-                    double delta_t = 2*(z_field_p0[0][0] - z_bot)/h;
-                    double delta_b = 2*(z_top - z_field_p0[0][0])/h;
-                    double delta_min = fmin(delta_t, delta_b);
-                    delta[idx[d] + i_bot][0] = delta_min;
-                    delta[idx[d] + i_top][0] = delta_min;
+                    output[idx[d] + i_top][0] = delta_z_top/h;
+                    output[idx[d] + i_bot][0] = delta_z_bot/h;
                 }
-            }""" % {'nodes': self.fs_2d.cell_node_map().arity},
+            }""" % {'nodes': len(nodes)},
             'my_kernel')
 
-    def _update_coords(self):
-        """
-        Updates all mesh coordinate related fields after mesh update"""
-        self.coord_projector.project()
-
     def solve(self):
+        """Compute the HCC metric"""
         op2.par_loop(self.kernel, self.solver_obj.mesh.cell_set,
                      self.output.dat(op2.WRITE, self.output.function_space().cell_node_map()),
                      self.z_coord.dat(op2.READ, self.z_coord.function_space().cell_node_map()),
-                     self.z_p0_coord.dat(op2.READ, self.z_p0_coord.function_space().cell_node_map()),
                      self.idx(op2.READ),
                      iterate=op2.ALL)
-        min_val = self.output.dat.data.min()
-        if min_val < self.DELTA_MIN_THRESHOLD:
-            msg = '3D mesh violates hydrostatic consistency criterion: d_min = {:.2f}'
-            warning(msg.format(min_val))
-        print_output('HCC: {:} .. {:}'.format(min_val, self.output.dat.data.max()))
+        # compute global min/max
+        r_min = self.output.dat.data.min()
+        r_max = self.output.dat.data.max()
+        r_min = self.solver_obj.comm.allreduce(r_min, op=MPI.MIN)
+        r_max = self.solver_obj.comm.allreduce(r_max, op=MPI.MAX)
+        print_output('HCC: {:} .. {:}'.format(r_min, r_max))
 
 
 class ExpandFunctionTo3d(object):
