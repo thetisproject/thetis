@@ -128,12 +128,10 @@ temp_init_3d.dat.data[ix] = setup.temp_func(x_w_arr[ix], z_arr[ix])
 temp_relax = temp_init_3d
 t_temp_relax = Constant(6.*3600.)  # time scale
 mask_temp_relax_3d = Function(solver_obj.function_spaces.H, name='mask_temp_relax_3d')
-ly_relax = 100e3
-lx_relax = 100e3
-mask_numpy_y0 = (1 - y_arr/ly_relax)
+lx_relax = 160e3
 mask_numpy_x0 = (1 - (x_arr + setup.basin_extend)/lx_relax)
 mask_numpy_x1 = (x_arr-setup.basin_lx)/lx_relax + 1
-mask_temp_relax_3d.dat.data[:] = np.maximum(np.maximum(mask_numpy_x0, mask_numpy_x1), mask_numpy_y0)
+mask_temp_relax_3d.dat.data[:] = np.maximum(mask_numpy_x0, mask_numpy_x1)
 ix = mask_temp_relax_3d.dat.data < 0
 mask_temp_relax_3d.dat.data[ix] = 0.0
 # out = File('mask.pvd').write(mask_temp_relax)
@@ -180,46 +178,38 @@ def compute_depth_av_inflow(uv_inflow_3d, uv_inflow_2d):
 
 
 # set boundary conditions
-symm_swe_bnd = {'symm': None}
 radiation_swe_bnd = {'elev': Constant(0.0), 'uv': Constant((0, 0))}
 outflow_swe_bnd = {'elev': Constant(0.0), 'flux': Constant(tot_inflow)}
 inflow_swe_bnd = {'uv': flow_corr_fact*uv_inflow_2d}
-zero_swe_bnd = {'elev': Constant(0.0), 'uv': Constant((0, 0))}
 inflow_salt_bnd = {'value': salt_init_3d}
 inflow_temp_bnd = {'value': temp_init_3d}
-symm_temp_bnd = {'symm': None}
 zero_salt_bnd = {'value': Constant(0.0)}
 inflow_uv_bnd = {'uv': flow_corr_fact*uv_inflow_3d, 'baroc_head': bhead_init_3d}
-outflow_uv_bnd = {'flux': Constant(tot_inflow), 'baroc_head': bhead_init_3d}
+outflow_uv_bnd = {'symm': None, 'baroc_head': bhead_init_3d}
 zero_uv_bnd = {'uv': Constant((0, 0, 0)), 'baroc_head': bhead_init_3d}
 
 bnd_id_west = 1
 bnd_id_east = 2
-bnd_id_south = 3
 bnd_id_inflow = 4
 solver_obj.bnd_functions['shallow_water'] = {
     bnd_id_inflow: inflow_swe_bnd,
     bnd_id_west: outflow_swe_bnd,
     bnd_id_east: radiation_swe_bnd,
-    bnd_id_south: radiation_swe_bnd,
 }
 solver_obj.bnd_functions['momentum'] = {
     bnd_id_inflow: inflow_uv_bnd,
     bnd_id_west: outflow_uv_bnd,
     bnd_id_east: zero_uv_bnd,
-    bnd_id_south: zero_uv_bnd,
 }
 solver_obj.bnd_functions['temp'] = {
     bnd_id_inflow: inflow_temp_bnd,
     bnd_id_west: inflow_temp_bnd,
     bnd_id_east: inflow_temp_bnd,
-    bnd_id_south: inflow_temp_bnd,
 }
 solver_obj.bnd_functions['salt'] = {
     bnd_id_inflow: inflow_salt_bnd,
     bnd_id_west: zero_salt_bnd,
     bnd_id_east: zero_salt_bnd,
-    bnd_id_south: zero_salt_bnd,
 }
 
 solver_obj.create_equations()
