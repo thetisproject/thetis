@@ -2,7 +2,7 @@
 Diagnostic callbacks for DOME test case
 """
 from thetis import *
-import itertools
+from scipy.stats import binned_statistic_2d
 
 
 class VerticalProfileCallback(DiagnosticCallback):
@@ -30,7 +30,6 @@ class VerticalProfileCallback(DiagnosticCallback):
         self.y = y
         self.npoints = npoints
         self.field = self.solver_obj.fields[self.fieldname]
-        self.export_count = itertools.count()
         self._initialized = False
 
     def _initialize(self):
@@ -66,5 +65,85 @@ class VerticalProfileCallback(DiagnosticCallback):
         maxval = args[1].max()
 
         line = 'Evaluated {:} profile, value range: {:.3g} - {:.3g}'.format(
+            self.fieldname, minval, maxval)
+        return line
+
+
+class TracerHistogramCallback(DiagnosticCallback):
+    """
+    Evaluates a 2D (x, rho) histogram of tracer volume field.
+
+    For every (x, rho) bin we compute the integral
+
+    .. math::
+        I = \int_{Omega} \lambda C dx
+
+    where :math:`\lambda` is a binary indicator function of the (x, rho) bin
+    and :math:`C` is the tracer.
+    """
+    name = 'histogram'
+    variable_names = ['value']
+
+    def __init__(self, solver_obj, fieldname, x_bins, rho_bins,
+                 outputdir=None, export_to_hdf5=True,
+                 append_to_log=False):
+        assert export_to_hdf5 is True
+        self.fieldname = fieldname
+        self.name += '_' + self.fieldname
+        npoints = (len(x_bins) - 1)*(len(rho_bins) - 1)
+        attrs = {'x_bins': x_bins, 'rho_bins': rho_bins}
+        super(TracerHistogramCallback, self).__init__(
+            solver_obj,
+            outputdir=outputdir,
+            array_dim=npoints,
+            attrs=attrs,
+            export_to_hdf5=export_to_hdf5,
+            append_to_log=append_to_log)
+        self.x_bins = x_bins
+        self.rho_bins = rho_bins
+        self.npoints = npoints
+        self.field = self.solver_obj.fields[self.fieldname]
+        self.density = self.solver_obj.fields.density_3d
+        self._initialized = False
+
+    def _initialize(self):
+        outputdir = self.outputdir
+        if outputdir is None:
+            outputdir = self.solver_obj.options.outputdir
+
+        # compute x coords and nodal volume fields
+        fs = self.field.function_space()
+        assert fs == self.density.function_space()
+        xyz = SpatialCoordinate(self.solver_obj.mesh)
+        self.x_coords = Function(fs, name='x').interpolate(xyz[0])
+        test = TestFunction(fs)
+        self.nodal_volume = assemble(test*dx)
+
+    def __call__(self):
+        if not self._initialized:
+            self._initialize()
+
+        # we want to bin array field*nodal_volume based on x_coords and rho
+        ndecimals = 4  # round to avoid jitter in binning from parallelization
+        x_arr = np.around(self.x_coords.dat.data[:], ndecimals)
+        rho_arr = np.around(self.density.dat.data[:], ndecimals)
+        c_arr = self.field.dat.data[:]*self.nodal_volume.dat.data[:]
+
+        statistic = 'sum'
+        hist, rho_edges, x_edges, binnumber = binned_statistic_2d(
+            rho_arr, x_arr, c_arr,
+            statistic=statistic,
+            bins=[self.rho_bins, self.x_bins])
+        # compute global histogram by summing
+        comm = self.solver_obj.comm
+        global_hist = comm.reduce(hist.ravel(), op=MPI.SUM)
+
+        return (global_hist, )
+
+    def message_str(self, *args):
+        minval = args[0].min()
+        maxval = args[0].max()
+
+        line = 'Evaluated {:} histogram, value range: {:.3g} - {:.3g}'.format(
             self.fieldname, minval, maxval)
         return line

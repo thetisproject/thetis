@@ -44,6 +44,7 @@ class CallbackManager(defaultdict):
         :arg mode: register callback under this mode
         :type mode: string
         """
+        assert isinstance(mode, (str, unicode))
         key = callback.name
         self[mode][key] = callback
 

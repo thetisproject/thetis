@@ -36,7 +36,7 @@ n_layers_dict = {'normal': 16, 'coarse': 7}
 n_layers = n_layers_dict[reso_str]
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
 print_output('Loaded mesh '+mesh2d.name)
-t_end = 40 * 24 * 3600
+t_end = 47 * 24 * 3600
 t_export = 3 * 3600
 outputdir = 'outputs_' + reso_str
 
@@ -227,6 +227,9 @@ solver_obj.create_equations()
 solver_obj.add_callback(
     diagnostics.VerticalProfileCallback(
         solver_obj, 'salt_3d', x=700e3, y=560e3, npoints=48))
+solver_obj.add_callback(
+    diagnostics.TracerHistogramCallback(
+        solver_obj, 'salt_3d', x_bins=np.linspace(0, 850e3, 61), rho_bins=np.linspace(0.0, 2.0, 41)))
 
 compute_depth_av_inflow(uv_inflow_3d, uv_inflow_2d)
 tot_inflow_2d = abs(assemble(dot(setup.depth_lim[1]*flow_corr_fact*uv_inflow_2d, FacetNormal(solver_obj.mesh2d))*ds(int(4))))
