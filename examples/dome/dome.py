@@ -131,7 +131,7 @@ mask_temp_relax_3d = Function(solver_obj.function_spaces.H, name='mask_temp_rela
 ly_relax = 100e3
 lx_relax = 100e3
 mask_numpy_y0 = (1 - y_arr/ly_relax)
-mask_numpy_x0 = (1 - x_arr/lx_relax)
+mask_numpy_x0 = (1 - (x_arr + setup.basin_extend)/lx_relax)
 mask_numpy_x1 = (x_arr-setup.basin_lx)/lx_relax + 1
 mask_temp_relax_3d.dat.data[:] = np.maximum(np.maximum(mask_numpy_x0, mask_numpy_x1), mask_numpy_y0)
 ix = mask_temp_relax_3d.dat.data < 0

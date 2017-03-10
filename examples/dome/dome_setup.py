@@ -15,6 +15,7 @@ bay_length = 50e3
 bay_x_lim = [800e3, 900e3]
 basin_lx = 1100e3
 basin_ly = 600e3
+basin_extend = 120e3
 basin_depth = 3600.
 
 # define bathymetry slope
