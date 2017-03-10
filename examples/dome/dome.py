@@ -24,6 +24,7 @@ Typical mesh resolution is dx=10 km, 21 sigma levels [2]
 """
 from thetis import *
 import dome_setup as setup
+import diagnostics
 
 comm = COMM_WORLD
 
@@ -222,6 +223,10 @@ solver_obj.bnd_functions['salt'] = {
 }
 
 solver_obj.create_equations()
+
+solver_obj.add_callback(
+    diagnostics.VerticalProfileCallback(
+        solver_obj, 'salt_3d', x=700e3, y=560e3, npoints=48))
 
 compute_depth_av_inflow(uv_inflow_3d, uv_inflow_2d)
 tot_inflow_2d = abs(assemble(dot(setup.depth_lim[1]*flow_corr_fact*uv_inflow_2d, FacetNormal(solver_obj.mesh2d))*ds(int(4))))
