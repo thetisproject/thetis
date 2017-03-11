@@ -75,6 +75,9 @@ options.solve_salinity = True
 options.solve_temperature = True
 options.use_implicit_vertical_diffusion = True
 options.use_bottom_friction = True
+options.use_turbulence = True
+options.turbulence_model_type = 'pacanowski'
+options.use_smooth_eddy_viscosity = True
 options.use_ale_moving_mesh = True
 options.use_baroclinic_formulation = True
 options.use_lax_friedrichs_velocity = False
@@ -82,9 +85,10 @@ options.use_lax_friedrichs_tracer = False
 options.coriolis_frequency = Constant(setup.f_0)
 options.use_limiter_for_tracers = True
 options.quadratic_drag_coefficient = Constant(0.002)
-options.vertical_viscosity = Constant(1.0e-2)
+options.vertical_viscosity = Constant(2e-5)
 options.horizontal_viscosity = Constant(nu_scale)
 options.horizontal_diffusivity = Constant(10.0)
+options.vertical_diffusivity = Constant(2e-5)
 options.use_quadratic_pressure = True
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
@@ -97,7 +101,8 @@ options.check_salinity_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'temp_3d', 'salt_3d',
                             'density_3d', 'uv_dav_2d', 'uv_dav_3d',
-                            'baroc_head_3d',
+                            'baroc_head_3d', 'smag_visc_3d',
+                            'eddy_visc_3d', 'eddy_diff_3d',
                             'int_pg_3d', 'hcc_metric_3d']
 options.equation_of_state_type = 'linear'
 options.equation_of_state_options.rho_ref = setup.rho_0
@@ -105,6 +110,9 @@ options.equation_of_state_options.s_ref = setup.salt_const
 options.equation_of_state_options.th_ref = setup.temp_lim[1]
 options.equation_of_state_options.alpha = setup.alpha
 options.equation_of_state_options.beta = setup.beta
+options.turbulence_model_options.alpha = 10.
+options.turbulence_model_options.exponent = 2
+options.turbulence_model_options.max_viscosity = 0.05
 
 solver_obj.create_function_spaces()
 solver_obj.create_fields()
