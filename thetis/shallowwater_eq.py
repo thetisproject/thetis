@@ -847,6 +847,7 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
         :arg bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
         :kwarg bool nonlin: If False defines the linear shallow water equations
+        :kwarg wd_alpha: wetting-drying parameter
         :kwarg bool include_grad_div_viscosity_term: If True includes grad(nu div(u))
             viscosity term
         :kwarg bool include_grad_depth_viscosity_term: If True includes grad(H) term
@@ -948,6 +949,7 @@ class FreeSurfaceEquation(BaseShallowWaterEquation):
         :arg bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
         :kwarg bool nonlin: If False defines the linear shallow water equations
+        :kwarg wd_alpha: wetting-drying parameter
         """
         super(FreeSurfaceEquation, self).__init__(eta_space, bathymetry, nonlin, wd_alpha)
         self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, nonlin, wd_alpha)
@@ -985,6 +987,7 @@ class ShallowWaterMomentumEquation(BaseShallowWaterEquation):
         :arg bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
         :kwarg bool nonlin: If False defines the linear shallow water equations
+        :kwarg wd_alpha: wetting-drying parameter
         :kwarg bool include_grad_div_viscosity_term: If True includes grad(nu div(u))
             viscosity term
         :kwarg bool include_grad_depth_viscosity_term: If True includes grad(H) term
