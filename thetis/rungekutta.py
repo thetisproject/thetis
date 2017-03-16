@@ -453,8 +453,8 @@ class RungeKuttaTimeIntegrator(TimeIntegrator):
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
         if not self._initialized:
-            error('Time integrator {:} is not initialized'.format(self.name))
-        for i in range(self.n_stages):
+            self.initialize(self.solution)
+        for i in xrange(self.n_stages):
             self.solve_stage(i, t, update_forcings)
         self.get_final_solution()
 
