@@ -293,10 +293,10 @@ class FlowSolver2d(FrozenClass):
                                                             semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
                                                             theta=self.options.timestepper_options.implicitness_theta)
         elif self.options.timestepper_type == 'DIRK22':
-            self.timestepper = rungekutta.CrankNicolsonRK(self.eq_sw, self.fields.solution_2d,
-                                                          fields, self.dt,
-                                                          bnd_conditions=self.bnd_functions['shallow_water'],
-                                                          solver_parameters=self.options.timestepper_options.solver_parameters)
+            self.timestepper = rungekutta.DIRK22(self.eq_sw, self.fields.solution_2d,
+                                                 fields, self.dt,
+                                                 bnd_conditions=self.bnd_functions['shallow_water'],
+                                                 solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type == 'DIRK33':
             self.timestepper = rungekutta.DIRK33(self.eq_sw, self.fields.solution_2d,
                                                  fields, self.dt,
