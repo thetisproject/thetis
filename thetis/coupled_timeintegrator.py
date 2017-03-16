@@ -251,9 +251,13 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                   'uv_p1': self.fields.get('uv_p1_3d'),
                   'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
                   'coriolis': self.fields.get('coriolis_3d'),
+                  }
+        friction_fields = {
                   'linear_drag_coefficient': self.options.linear_drag_coefficient,
                   'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
                   }
+        if not self.solver.options.solve_vert_diffusion:
+            fields.update(friction_fields)
         self.timesteppers.mom_expl = self.integrator_3d(
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,
             bnd_conditions=solver.bnd_functions['momentum'],
@@ -263,6 +267,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'wind_stress': self.fields.get('wind_stress_3d'),
                       'uv_depth_av': self.fields.get('uv_dav_3d'),
                       }
+            fields.update(friction_fields)
             self.timesteppers.mom_impl = self.integrator_vert_3d(
                 solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['momentum'],
