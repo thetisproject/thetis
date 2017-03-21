@@ -193,7 +193,7 @@ inflow_salt_bnd = {'value': salt_init_3d}
 inflow_temp_bnd = {'value': temp_init_3d}
 zero_salt_bnd = {'value': Constant(0.0)}
 inflow_uv_bnd = {'uv': flow_corr_fact*uv_inflow_3d, 'baroc_head': bhead_init_3d}
-outflow_uv_bnd = {'symm': None, 'baroc_head': bhead_init_3d}
+outflow_uv_bnd = {'flux': Constant(tot_inflow), 'baroc_head': bhead_init_3d}
 zero_uv_bnd = {'uv': Constant((0, 0, 0)), 'baroc_head': bhead_init_3d}
 
 bnd_id_west = 1
