@@ -224,7 +224,7 @@ class ShallowWaterTerm(Term):
     def wd_bathymetry_displacement(self, eta):
         """
         Returns wetting and drying bathymetry discplacement as described in:
-        K\"arna et al.,  2011.
+        Karna et al.,  2011.
         """
         if self.wd_alpha is None:
             return 0.
@@ -738,14 +738,23 @@ class ContinuitySourceTerm(ShallowWaterContinuityTerm):
 
 
 class BathymetryDisplacementMassTerm(ShallowWaterContinuityTerm):
+    r"""
+    Bathmetry mass displacement term, :math:`\partial \eta / \partial t + \partial \tilde{h} / \partial t`
+
+    The weak form reads
+
+    .. math::
+        \int_\Omega ( \partial \eta / \partial t + \partial \tilde{h} / \partial t ) \phi dx
+         = \int_\Omega (\partial \tilde{H} / \partial t) \phi dx
     """
-    Contribution to water level mass term of bathymetry displacement function, used in wetting and drying.
-    Note, that this is a mass term that only takes eta as argument (unlike all other shallow water terms)
-    """
-    def residual(self, eta):
+    def residual(self, solution):
+        if isinstance(solution, list):
+            uv, eta = solution
+        else:
+            uv, eta = split(solution)
         f = 0
         if self.wd_alpha is not None:
-            f += inner(self.wd_bathymetry_displacement(eta), self.eta_test)*dx
+            f += inner(self.wd_bathymetry_displacement(eta), self.eta_test)*self.dx
         return f
 
 
@@ -827,11 +836,7 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
 
     def mass_term(self, solution):
         f = super(ShallowWaterEquations, self).mass_term(solution)
-        if isinstance(solution, list):
-            uv, eta = solution
-        else:
-            uv, eta = split(solution)
-        f += self.bathymetry_displacement_mass_term.residual(eta)
+        f += self.bathymetry_displacement_mass_term.residual(solution)
         return f
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):

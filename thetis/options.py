@@ -246,7 +246,11 @@ class ModelOptions(AttrDict, FrozenClass):
         Bottom stress is :math:`\tau_b/\rho_0 = -g \mu^2 |\mathbf{u}|\mathbf{u}/H^{1/3}`
         """
         self.wd_alpha = None
-        """Coefficient (units of length) used in bathymetry displacement function that ensures positive water depths."""
+        r"""Coefficient or None: Wetting-drying parameter :math:`\alpha`
+
+        Used in bathymetry displacement function that ensures positive water depths. Unit is meters.
+        Default is None, which disables wetting and drying.
+        """
         self.h_diffusivity = None
         """Coefficient or None: Background horizontal diffusivity for tracers"""
         self.v_diffusivity = None
