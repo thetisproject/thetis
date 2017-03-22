@@ -71,12 +71,13 @@ solverObj.bnd_functions['shallow_water'] = {
     2: ocean_funcs
 }
 
+
 # callback function to update boundary forcing
 def update_forcings(t):
     print_output("Updating boundary condition at t={}".format(t))
     ocean_elev.assign(ocean_elev_func(t))
 
 # initial condition: assign non-zero velocity
-solverObj.assign_initial_conditions(uv=Constant((1e-7,0.)))
+solverObj.assign_initial_conditions(uv=Constant((1e-7, 0.)))
 
 solverObj.iterate(update_forcings=update_forcings)
