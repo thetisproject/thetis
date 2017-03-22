@@ -424,7 +424,7 @@ class ESDIRKMidpointAbstract(AbstractRKScheme):
 
 class ESDIRKTrapezoidAbstract(AbstractRKScheme):
     a = [[0.0, 0.0],
-         [0.5, 0.5]]
+         [0.499, 0.501]]
     b = [0.5, 0.5]
     c = [0.0, 1.0]
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
