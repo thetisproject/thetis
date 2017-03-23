@@ -123,6 +123,27 @@ of each term:
     adv_term = shallowwater_eq.HorizontalAdvectionTerm(...)
     adv_form = adv_term.residual(..., bnd_conditions=swe_bnd_funcs)
 
+------------------
+Wetting and drying
+------------------
+
+If the option :attr:`.ModelOptions.wd_alpha` is not ``None``, then wetting and drying is included through the formulation of Karna et al (2010).
+
+The method introduces a modified bathymetry :math:`\tilde{h} = h + f(H)`, which ensures positive total water depth, and is defined by
+
+.. math::
+   f(H) = \frac{1}{2}(\sqrt{H^2 + \alpha^2} - H),
+
+introducing a wetting-drying parameter :math:`\alpha`, with dimensions of length. This results in a modified total water depth :math:`\tilde{H}=H+f(H)`.
+
+The value for :math:`\alpha` is specified by the user through the option :attr:`.ModelOptions.wd_alpha`.
+
+When wetting and drying is turned on, the governing equations are modified by replacing all instances of :math:`H` with :math:`\tilde{H}`, and the addition of a bathymetry displacement term in the free surface equation, resulting in, for the free surface equation,
+
+.. math::
+   \frac{\partial \eta}{\partial t} + \frac{\partial \tilde{h}}{\partial t} + \nabla \cdot (H \bar{\textbf{u}}) = 0.
+   :label: swe_freesurf_wd
+
 """
 from __future__ import absolute_import
 from .utility import *
