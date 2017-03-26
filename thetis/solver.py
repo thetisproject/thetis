@@ -75,7 +75,7 @@ class FlowSolver(FrozenClass):
     See the manual for more complex examples.
     """
     def __init__(self, mesh2d, bathymetry_2d, n_layers,
-                 options=None):
+                 options=None, extrude_options=None):
         """
         :arg mesh2d: :class:`Mesh` object of the 2D mesh
         :arg bathymetry_2d: Bathymetry of the domain. Bathymetry stands for
@@ -93,7 +93,9 @@ class FlowSolver(FrozenClass):
 
         self.mesh2d = mesh2d
         """2D :class`Mesh`"""
-        self.mesh = extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d)
+        if extrude_options is None:
+            extrude_options = {}
+        self.mesh = extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, **extrude_options)
         """3D :class`Mesh`"""
         self.comm = mesh2d.comm
 
