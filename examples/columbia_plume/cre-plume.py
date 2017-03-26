@@ -23,7 +23,7 @@ physical_constants['rho0'].assign(rho0)
 physical_constants['z0_friction'].assign(0.005)
 
 reso_str = 'coarse'
-nlayers = 5
+nlayers = 9
 outputdir = 'outputs_{:}'.format(reso_str)
 mesh2d = Mesh('mesh_cre-plume002.msh')
 print_output('Loaded mesh ' + mesh2d.name)
@@ -42,6 +42,17 @@ bathymetry_2d = smooth_bathymetry(
     alpha=5e6, exponent=1,
     minimum_depth=5., niter=20)
 
+# 3d mesh vertical stretch factor
+z_stretch_fact_2d = Function(bathymetry_2d.function_space(), name='z_stretch')
+# 1.0 (sigma mesh) in shallow areas, 4.0 in deep ocean
+max_z_stretch = 4.
+max_bath = 1800.
+surf_elem_height = 5.0
+z_stretch_fact_2d.project(-ln(surf_elem_height/bathymetry_2d)/ln(nlayers))
+z_stretch_fact_2d.dat.data[z_stretch_fact_2d.dat.data < 1.0] = 1.0
+z_stretch_fact_2d.dat.data[z_stretch_fact_2d.dat.data > max_z_stretch] = max_z_stretch
+print 'z_stretch', z_stretch_fact_2d.dat.data.min(), z_stretch_fact_2d.dat.data.max()
+
 coriolis_f, coriolis_beta = beta_plane_coriolis_params(46.25)
 q_river = 5000.
 salt_river = 0.0
@@ -59,7 +70,13 @@ nu_scale = u_scale * delta_x / reynolds_number
 simple_barotropic = False  # for debugging
 
 # create solver
-solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, nlayers)
+extrude_options = {
+    'z_stretch_fact': z_stretch_fact_2d,
+    #'min_depth': [10.0, 20.0, 40.0, 80., 200., 400., 900.],
+}
+
+solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, nlayers,
+                               extrude_options=extrude_options)
 options = solver_obj.options
 options.element_family = 'dg-dg'
 options.timestepper_type = 'ssprk22'
