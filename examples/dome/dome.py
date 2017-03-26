@@ -104,6 +104,8 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'baroc_head_3d', 'smag_visc_3d',
                             'eddy_visc_3d', 'eddy_diff_3d',
                             'int_pg_3d', 'hcc_metric_3d']
+options.fields_to_export_hdf5 = ['elev_2d', 'uv_2d', 'uv_3d', 'salt_3d',
+                                 'temp_3d', 'tke_3d', 'psi_3d']
 options.equation_of_state_type = 'linear'
 options.equation_of_state_options.rho_ref = setup.rho_0
 options.equation_of_state_options.s_ref = setup.salt_const
