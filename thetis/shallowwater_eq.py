@@ -261,7 +261,7 @@ class ShallowWaterTerm(Term):
         Returns wetting and drying bathymetry displacement as described in:
         Karna et al.,  2011.
         """
-        if self.wetting_and_drying == False:
+        if self.wetting_and_drying is False:
             return 0.
         else:
             H = self.bathymetry + eta
@@ -286,7 +286,7 @@ class ShallowWaterMomentumTerm(ShallowWaterTerm):
     def __init__(self, u_test, u_space, eta_space,
                  bathymetry=None,
                  nonlin=True,
-                 wetting_and_drying = False,
+                 wetting_and_drying=False,
                  wd_alpha=0.5,
                  include_grad_div_viscosity_term=False,
                  include_grad_depth_viscosity_term=True):
@@ -790,7 +790,7 @@ class BathymetryDisplacementMassTerm(ShallowWaterContinuityTerm):
         else:
             uv, eta = split(solution)
         f = 0
-        if self.wetting_and_drying == True:
+        if self.wetting_and_drying:
             f += inner(self.wd_bathymetry_displacement(eta), self.eta_test)*self.dx
         return f
 
