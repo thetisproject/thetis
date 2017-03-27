@@ -62,6 +62,17 @@ salt_gradient_depth = 3000.
 bg_salt_gradient = (salt_ocean_surface - salt_ocean_bottom)/salt_gradient_depth
 reynolds_number = 160.0
 
+eta_amplitude = 1.00  # tidal range 2.00; mean scenario in [2]
+eta_phase = 0
+H_ocean = 70  # ~mean water depth in coast
+Ttide = 44714.0  # M2 tidal period [2]
+Tday = 0.99726968*24*60*60  # sidereal time of Earth revolution
+OmegaTide = 2*np.pi/Ttide
+g = physical_constants['g_grav']
+c = sqrt(g*H_ocean)  # [m/s] wave speed
+kelvin_k = OmegaTide/c  # [1/m] initial wave number of tidal wave, no friction
+kelvin_m = (coriolis_f/c)  # [-] Cross-shore variation
+
 u_scale = 3.0
 w_scale = 1e-3
 delta_x = 2e3
@@ -116,30 +127,72 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'int_pg_3d', 'hcc_metric_3d']
 options.equation_of_state = 'full'
 
-river_bnd_id = 4
-river_swe_funcs = {'flux': Constant(-q_river)}
-open_uv_funcs = {'symm': None}
-bnd_river_salt = {'value': Constant(salt_river)}
-solver_obj.bnd_functions['shallow_water'] = {
-    river_bnd_id: river_swe_funcs,
-}
-solver_obj.bnd_functions['momentum'] = {
-    river_bnd_id: open_uv_funcs,
-}
-solver_obj.bnd_functions['salt'] = {
-    river_bnd_id: bnd_river_salt,
-}
-
-solver_obj.create_equations()
+solver_obj.create_function_spaces()
 
 xyz = SpatialCoordinate(solver_obj.mesh)
 # vertical stratification in the ocean
 salt_stratif = salt_ocean_bottom + (salt_ocean_surface - salt_ocean_bottom)*(1 + tanh((xyz[2] + 1200.)/700.))/2
 river_blend = (1 + tanh((xyz[0] - 350e3)/2000.))/2  # 1 in river, 0 in ocean
 salt_expr = salt_river*river_blend + (1 - river_blend)*salt_stratif
-salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
-salt_init3d.interpolate(salt_expr)
-salt_init3d.dat.data[salt_init3d.dat.data > salt_ocean_bottom] = salt_ocean_bottom
+salt_init_3d = Function(solver_obj.function_spaces.H, name='initial salinity')
+salt_init_3d.interpolate(salt_expr)
+salt_init_3d.dat.data[salt_init_3d.dat.data > salt_ocean_bottom] = salt_ocean_bottom
+
+elev_init = Function(solver_obj.function_spaces.H_2d, name='initial elevation')
+#elev_init.interpolate(Expression('(x[0]<=x0) ? amp*exp((x[0]-x0)*kelvin_m)*cos(x[1]*kelvin_k) : amp*cos(x[1]*kelvin_k)',
+                      #amp=eta_amplitude, kelvin_m=kelvin_m, kelvin_k=kelvin_k, x0=330000.))
+
+x0 = 330000.
+xy = SpatialCoordinate(mesh2d)
+elev_init.interpolate(conditional(le(xy[0], x0),
+                                  eta_amplitude*exp((xy[0]-x0)*kelvin_m)*cos(xy[1]*kelvin_k),
+                                  eta_amplitude*cos(xy[1]*kelvin_k)))
+
+fs_2d = bathymetry_2d.function_space()
+bnd_elev = Function(fs_2d, name='Boundary elevation')
+bnd_time = Constant(0)
+xyz = solver_obj.mesh2d.coordinates
+tri = TrialFunction(fs_2d)
+test = TestFunction(fs_2d)
+elev = eta_amplitude*exp(xyz[0]*kelvin_m)*cos(xyz[1]*kelvin_k - OmegaTide*bnd_time)
+a = inner(test, tri)*dx
+L = test*elev*dx
+bnd_elev_prob = LinearVariationalProblem(a, L, bnd_elev)
+bnd_elev_solver = LinearVariationalSolver(bnd_elev_prob)
+bnd_elev_solver.solve()
+
+north_bnd_id = 1
+west_bnd_id = 2
+south_bnd_id = 3
+river_bnd_id = 4
+river_swe_funcs = {'flux': Constant(-q_river)}
+tide_elev_funcs = {'elev': bnd_elev}
+zero_elev_funcs = {'elev': Constant(0)}
+open_uv_funcs = {'symm': None}
+zero_uv_funcs = {'uv': Constant((0, 0, 0))}
+bnd_river_salt = {'value': Constant(salt_river)}
+ocean_salt_funcs = {'value': salt_init_3d}
+solver_obj.bnd_functions['shallow_water'] = {
+    river_bnd_id: river_swe_funcs,
+    south_bnd_id: tide_elev_funcs,
+    north_bnd_id: tide_elev_funcs,
+    west_bnd_id: tide_elev_funcs,
+}
+solver_obj.bnd_functions['momentum'] = {
+    river_bnd_id: open_uv_funcs,
+    south_bnd_id: zero_uv_funcs,
+    north_bnd_id: zero_uv_funcs,
+    west_bnd_id: zero_uv_funcs,
+}
+solver_obj.bnd_functions['salt'] = {
+    river_bnd_id: bnd_river_salt,
+    south_bnd_id: ocean_salt_funcs,
+    north_bnd_id: ocean_salt_funcs,
+    west_bnd_id: ocean_salt_funcs,
+}
+
+solver_obj.create_equations()
+
 
 hcc_obj = Mesh3DConsistencyCalculator(solver_obj)
 hcc_obj.solve()
@@ -156,7 +209,7 @@ print_output('Tracer DOFs: {:}'.format(6*nprisms))
 print_output('Tracer DOFs per core: {:}'.format(float(6*nprisms)/comm.size))
 print_output('Exporting to {:}'.format(outputdir))
 
-solver_obj.assign_initial_conditions(salt=salt_init3d)
+solver_obj.assign_initial_conditions(elev=elev_init, salt=salt_init_3d)
 
 
 def show_uv_mag():
@@ -166,4 +219,8 @@ def show_uv_mag():
     print_output('int pg: {:9.2e} .. {:9.2e}'.format(ipg.min(), ipg.max()))
 
 
-solver_obj.iterate(export_func=show_uv_mag)
+def update_forcings(t):
+    bnd_time.assign(t)
+    bnd_elev_solver.solve()
+
+solver_obj.iterate(update_forcings=update_forcings, export_func=show_uv_mag)
