@@ -245,11 +245,16 @@ class ModelOptions(AttrDict, FrozenClass):
 
         Bottom stress is :math:`\tau_b/\rho_0 = -g \mu^2 |\mathbf{u}|\mathbf{u}/H^{1/3}`
         """
-        self.wd_alpha = None
-        r"""Coefficient or None: Wetting-drying parameter :math:`\alpha`
+        self.wetting_and_drying = False
+        r"""bool: Turn on wetting and drying
+    
+        Uses the wetting and drying scheme from Karna et al (2010).
+        If ``True``, one should also set :attr:`wd_alpha` to control the bathymetry displacement.
+        """
+        self.wd_alpha = 0.5
+        r"""Coefficient: Wetting and drying parameter :math:`alpha`.
 
         Used in bathymetry displacement function that ensures positive water depths. Unit is meters.
-        Default is None, which disables wetting and drying.
         """
         self.h_diffusivity = None
         """Coefficient or None: Background horizontal diffusivity for tracers"""

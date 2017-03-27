@@ -36,7 +36,8 @@ bathymetry.interpolate(x[0] / 2760.0)
 
 # bottom friction suppresses reflection from wet-dry front
 mu_manning = 0.02
-# wetting-drying parameter turns on wetting and drying
+# wetting-drying options
+wetting_and_drying = True
 wd_alpha = 0.4
 
 # --- create solver ---
@@ -49,6 +50,7 @@ options.check_vol_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.timestepper_type = 'cranknicolson'
 options.shallow_water_theta = 0.5
+options.wetting_and_drying = wetting_and_drying
 options.wd_alpha = wd_alpha
 options.mu_manning = mu_manning
 options.dt = dt

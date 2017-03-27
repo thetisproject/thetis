@@ -12,6 +12,11 @@ The prognostic variables are the water elevation :math:`\eta` and depth
 averaged velocity :math:`\bar{\mathbf{u}}`.
 The corresponding fields in Thetis are called ``'elev_2d'`` and  ``'uv_2d'``.
 
+Wetting and drying
+------------------
+
+Wetting and drying is included through the modified bathymetry formulation of Karna et al. (2010). The modified equations are given by :eq:`swe_freesurf_wd`\-:eq:`swe_momentum_wd`.
+
 Spatial discretization
 ----------------------
 
