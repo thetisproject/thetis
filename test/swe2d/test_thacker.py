@@ -35,7 +35,7 @@ def test_thacker(n, dt, alpha, max_err):
     options.timestepper_type = 'cranknicolson'
     options.shallow_water_theta = 0.5
     options.wetting_and_drying = True
-    options.wd_alpha = alpha
+    options.wd_alpha = Constant(alpha)
     options.solver_parameters_sw = {
         'snes_type': 'newtonls',
         'snes_monitor': True,

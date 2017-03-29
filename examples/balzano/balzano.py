@@ -18,7 +18,6 @@ from thetis import *
 
 outputdir = 'outputs'
 mesh2d = RectangleMesh(12, 6, 13800, 7200)
-print_output('Loaded mesh '+mesh2d.name)
 print_output('Exporting to '+outputdir)
 
 # time step in seconds
@@ -35,10 +34,10 @@ x = SpatialCoordinate(mesh2d)
 bathymetry.interpolate(x[0] / 2760.0)
 
 # bottom friction suppresses reflection from wet-dry front
-mu_manning = 0.02
+mu_manning = Constant(0.02)
 # wetting-drying options
 wetting_and_drying = True
-wd_alpha = 0.4
+wd_alpha = Constant(0.4)
 
 # --- create solver ---
 solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry)
@@ -73,6 +72,17 @@ solverObj.bnd_functions['shallow_water'] = {
     2: ocean_funcs
 }
 
+# User-defined output: moving bathymetry
+wd_bathfile = File(os.path.join(outputdir, 'moving_bath.pvd'))
+moving_bath = Function(P1_2d, name="moving_bath")
+
+
+def export_func():
+    wd_bath_displacement = solverObj.eq_sw.bathymetry_displacement_mass_term.wd_bathymetry_displacement
+    eta = solverObj.fields.elev_2d
+    moving_bath.project(bathymetry + wd_bath_displacement(eta))
+    wd_bathfile.write(moving_bath)
+
 
 # callback function to update boundary forcing
 def update_forcings(t):
@@ -83,4 +93,4 @@ def update_forcings(t):
 # initial condition: assign non-zero velocity
 solverObj.assign_initial_conditions(uv=Constant((1e-7, 0.)))
 
-solverObj.iterate(update_forcings=update_forcings)
+solverObj.iterate(update_forcings=update_forcings, export_func=export_func)

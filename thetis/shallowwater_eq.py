@@ -127,20 +127,34 @@ of each term:
 Wetting and drying
 ------------------
 
-If the option :attr:`.ModelOptions.wetting_and_drying` is ``True``, then wetting and drying is included through the formulation of Karna et al. (2010).
+If the option :attr:`.ModelOptions.wetting_and_drying` is ``True``, then wetting and
+drying is included through the formulation of Karna et al. (2010).
 
-The method introduces a modified bathymetry :math:`\tilde{h} = h + f(H)`, which ensures positive total water depth, with :math:`f(H)` defined by
+The method introduces a modified bathymetry :math:`\tilde{h} = h + f(H)`, which ensures
+positive total water depth, with :math:`f(H)` defined by
 
 .. math::
    f(H) = \frac{1}{2}(\sqrt{H^2 + \alpha^2} - H),
 
-introducing a wetting-drying parameter :math:`\alpha`, with dimensions of length. This results in a modified total water depth :math:`\tilde{H}=H+f(H)`.
+introducing a wetting-drying parameter :math:`\alpha`, with dimensions of length. This
+results in a modified total water depth :math:`\tilde{H}=H+f(H)`.
 
-The value for :math:`\alpha` is specified by the user through the option :attr:`.ModelOptions.wd_alpha`, in units of metres. The default value for :attr:`.ModelOptions.wd_alpha` is 0.5, but the appropriate value is problem specific and should be set by the user.
+The value for :math:`\alpha` is specified by the user through the
+option :attr:`.ModelOptions.wd_alpha`, in units of meters. The default value
+for :attr:`.ModelOptions.wd_alpha` is 0.5, but the appropriate value is problem
+specific and should be set by the user.
 
-An approximate method for selecting a suitable value for :math:`\alpha` is suggested by Karna et al. (2010) as :math:`\alpha \approx L_x|\nabla h|`, where :math:`L_x` is the horizontal length scale and :math:`h` the bathymetry depth as defined in the shallow water equations. Smaller :math:`\alpha` leads to more accurate solutions to the shallow water equations in wet regions, but if :math:`\alpha` is too small the simulation will become unstable.
+An approximate method for selecting a suitable value for :math:`\alpha` is suggested
+by Karna et al. (2010). Defining :math:`L_x` as the horizontal length scale of the
+mesh elements at the wet-dry front, it can be reasoned that :math:`\alpha \approx L_x
+\nabla h|` yields a suitable choice. Smaller :math:`\alpha` leads to a more accurate
+solution to the shallow water equations in wet regions, but if :math:`\alpha` is too
+small the simulation will become unstable.
 
-When wetting and drying is turned on, the governing equations are modified by replacing all instances of :math:`H` with :math:`\tilde{H}`, and the addition of a bathymetry displacement term in the free surface equation, resulting in, for the free surface equation and momentum equation respectively,
+When the wetting and drying option is turned on, the governing equations are modified by
+replacing all instances of :math:`H` with :math:`\tilde{H}`, and the addition of a
+bathymetry displacement term in the free surface equation. This results in, for the
+free surface equation and momentum equation respectively,
 
 .. math::
    \frac{\partial \eta}{\partial t} + \frac{\partial \tilde{h}}{\partial t} + \nabla \cdot (H \bar{\textbf{u}}) = 0,
