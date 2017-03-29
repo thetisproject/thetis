@@ -128,7 +128,7 @@ Wetting and drying
 ------------------
 
 If the option :attr:`.ModelOptions.wetting_and_drying` is ``True``, then wetting and
-drying is included through the formulation of Karna et al. (2010).
+drying is included through the formulation of Karna et al. (2011).
 
 The method introduces a modified bathymetry :math:`\tilde{h} = h + f(H)`, which ensures
 positive total water depth, with :math:`f(H)` defined by
@@ -145,19 +145,20 @@ for :attr:`.ModelOptions.wd_alpha` is 0.5, but the appropriate value is problem
 specific and should be set by the user.
 
 An approximate method for selecting a suitable value for :math:`\alpha` is suggested
-by Karna et al. (2010). Defining :math:`L_x` as the horizontal length scale of the
-mesh elements at the wet-dry front, it can be reasoned that :math:`\alpha \approx L_x
+by Karna et al. (2011). Defining :math:`L_x` as the horizontal length scale of the
+mesh elements at the wet-dry front, it can be reasoned that :math:`\alpha \approx |L_x
 \nabla h|` yields a suitable choice. Smaller :math:`\alpha` leads to a more accurate
 solution to the shallow water equations in wet regions, but if :math:`\alpha` is too
 small the simulation will become unstable.
 
-When the wetting and drying option is turned on, the governing equations are modified by
-replacing all instances of :math:`H` with :math:`\tilde{H}`, and the addition of a
-bathymetry displacement term in the free surface equation. This results in, for the
-free surface equation and momentum equation respectively,
+When wetting and drying is turned on, two things occur:
+
+    1. All instances of the height, :math:`H`, are replaced by :math:`\tilde{H}` (as defined above);
+    2. An additional displacement term :math:`\frac{\partial \tilde{h}}{\partial t}` is added to the bathymetry in the free surface equation.
+The free surface and momentum equations then become:
 
 .. math::
-   \frac{\partial \eta}{\partial t} + \frac{\partial \tilde{h}}{\partial t} + \nabla \cdot (H \bar{\textbf{u}}) = 0,
+   \frac{\partial \eta}{\partial t} + \frac{\partial \tilde{h}}{\partial t} + \nabla \cdot (\tilde{H} \bar{\textbf{u}}) = 0,
    :label: swe_freesurf_wd
 
 .. math::
@@ -275,18 +276,17 @@ class ShallowWaterTerm(Term):
         Returns wetting and drying bathymetry displacement as described in:
         Karna et al.,  2011.
         """
-        if self.wetting_and_drying is False:
-            return 0.
-        else:
-            H = self.bathymetry + eta
-            return 0.5 * (sqrt(H ** 2 + self.wd_alpha ** 2) - H)
+        H = self.bathymetry + eta
+        return 0.5 * (sqrt(H ** 2 + self.wd_alpha ** 2) - H)
 
     def get_total_depth(self, eta):
         """
         Returns total water column depth
         """
         if self.nonlin:
-            total_h = self.bathymetry + eta + self.wd_bathymetry_displacement(eta)
+            total_h = self.bathymetry + eta
+            if self.wetting_and_drying:
+                 total_h += self.wd_bathymetry_displacement(eta)
         else:
             total_h = self.bathymetry
         return total_h

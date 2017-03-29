@@ -248,7 +248,7 @@ class ModelOptions(AttrDict, FrozenClass):
         self.wetting_and_drying = False
         r"""bool: Turn on wetting and drying
 
-        Uses the wetting and drying scheme from Karna et al (2010).
+        Uses the wetting and drying scheme from Karna et al (2011).
         If ``True``, one should also set :attr:`wd_alpha` to control the bathymetry displacement.
         """
         self.wd_alpha = Constant(0.5)
