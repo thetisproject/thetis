@@ -11,6 +11,11 @@
 #
 # Demonstrates the use of wetting and drying within Thetis
 #
+# In addition to bathymetry, elevation and velocity fields,
+# user-specified outputs are used for the moving bathymetry
+# (h_tilde) and total water depth imposed on original
+# bathymetry (eta_tilde), the latter being useful for
+# comparisons with other WD models.
 #
 # Simon Warder 2017-03-21
 
@@ -72,16 +77,21 @@ solverObj.bnd_functions['shallow_water'] = {
     2: ocean_funcs
 }
 
-# User-defined output: moving bathymetry
+# User-defined output: moving bathymetry and eta_tilde
 wd_bathfile = File(os.path.join(outputdir, 'moving_bath.pvd'))
 moving_bath = Function(P1_2d, name="moving_bath")
+eta_tildefile = File(os.path.join(outputdir, 'eta_tilde.pvd'))
+eta_tilde = Function(P1_2d, name="eta_tilde")
 
 
+# user-specified export function
 def export_func():
     wd_bath_displacement = solverObj.eq_sw.bathymetry_displacement_mass_term.wd_bathymetry_displacement
     eta = solverObj.fields.elev_2d
     moving_bath.project(bathymetry + wd_bath_displacement(eta))
     wd_bathfile.write(moving_bath)
+    eta_tilde.project(eta+wd_bath_displacement(eta))
+    eta_tildefile.write(eta_tilde)
 
 
 # callback function to update boundary forcing
