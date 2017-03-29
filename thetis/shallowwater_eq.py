@@ -286,7 +286,7 @@ class ShallowWaterTerm(Term):
         if self.nonlin:
             total_h = self.bathymetry + eta
             if self.wetting_and_drying:
-                 total_h += self.wd_bathymetry_displacement(eta)
+                total_h += self.wd_bathymetry_displacement(eta)
         else:
             total_h = self.bathymetry
         return total_h
