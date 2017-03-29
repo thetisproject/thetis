@@ -17,11 +17,11 @@
 # bathymetry (eta_tilde), the latter being useful for
 # comparisons with other WD models.
 #
-# [1] O. Gourgue, R. Comblen, J. Lambrechts, T. Kärnä, V.
-#     Legat, and E. Deleersnijder. A flux-limiting wetting–
+# [1] O. Gourgue, R. Comblen, J. Lambrechts, T. Karna, V.
+#     Legat, and E. Deleersnijder. A flux-limiting wetting-
 #     drying method for finite-element shallow-water models,
 #     with application to the scheldt estuary. Advances in
-#     Water Resources, 32:1726 – 1739, 2009.
+#     Water Resources, 32:1726 - 1739, 2009.
 #     doi: 10.1016/j.advwatres.2009.09.005.
 #
 # Simon Warder 2017-03-21
