@@ -1,13 +1,13 @@
 #  Balzano wetting-drying test case
 # ==============================================
 #
-# Details from e.g. Gourgue et al (2009)
-#
 # Solves shallow water equations with wetting and drying in
 # rectangular domain with sloping bathymetry, with periodic
 # free surface boundary condition applied at deep end.
 #
 # Initial water elevation and velocity are zero everywhere.
+#
+# Further details can be found in, e.g, [1]
 #
 # Demonstrates the use of wetting and drying within Thetis
 #
@@ -16,6 +16,13 @@
 # (h_tilde) and total water depth imposed on original
 # bathymetry (eta_tilde), the latter being useful for
 # comparisons with other WD models.
+#
+# [1] O. Gourgue, R. Comblen, J. Lambrechts, T. Kärnä, V.
+#     Legat, and E. Deleersnijder. A flux-limiting wetting–
+#     drying method for finite-element shallow-water models,
+#     with application to the scheldt estuary. Advances in
+#     Water Resources, 32:1726 – 1739, 2009.
+#     doi: 10.1016/j.advwatres.2009.09.005.
 #
 # Simon Warder 2017-03-21
 
