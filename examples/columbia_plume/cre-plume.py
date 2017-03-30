@@ -51,7 +51,6 @@ surf_elem_height = 5.0
 z_stretch_fact_2d.project(-ln(surf_elem_height/bathymetry_2d)/ln(nlayers))
 z_stretch_fact_2d.dat.data[z_stretch_fact_2d.dat.data < 1.0] = 1.0
 z_stretch_fact_2d.dat.data[z_stretch_fact_2d.dat.data > max_z_stretch] = max_z_stretch
-print 'z_stretch', z_stretch_fact_2d.dat.data.min(), z_stretch_fact_2d.dat.data.max()
 
 coriolis_f, coriolis_beta = beta_plane_coriolis_params(46.25)
 q_river = 5000.
@@ -62,9 +61,9 @@ salt_gradient_depth = 3000.
 bg_salt_gradient = (salt_ocean_surface - salt_ocean_bottom)/salt_gradient_depth
 reynolds_number = 160.0
 
-eta_amplitude = 1.00  # tidal range 2.00; mean scenario in [2]
+eta_amplitude = 1.00
 eta_phase = 0
-H_ocean = 70  # ~mean water depth in coast
+H_ocean = 200  # ~mean water depth in coast
 Ttide = 44714.0  # M2 tidal period [2]
 Tday = 0.99726968*24*60*60  # sidereal time of Earth revolution
 OmegaTide = 2*np.pi/Ttide
@@ -154,7 +153,9 @@ bnd_time = Constant(0)
 xyz = solver_obj.mesh2d.coordinates
 tri = TrialFunction(fs_2d)
 test = TestFunction(fs_2d)
-elev = eta_amplitude*exp(xyz[0]*kelvin_m)*cos(xyz[1]*kelvin_k - OmegaTide*bnd_time)
+ramp_t = 12*3600.
+elev_ramp = conditional(bnd_time < ramp_t, bnd_time/ramp_t, 1.0)
+elev = elev_ramp*eta_amplitude*exp(xyz[0]*kelvin_m)*cos(xyz[1]*kelvin_k - OmegaTide*bnd_time)
 a = inner(test, tri)*dx
 L = test*elev*dx
 bnd_elev_prob = LinearVariationalProblem(a, L, bnd_elev)
@@ -209,7 +210,7 @@ print_output('Tracer DOFs: {:}'.format(6*nprisms))
 print_output('Tracer DOFs per core: {:}'.format(float(6*nprisms)/comm.size))
 print_output('Exporting to {:}'.format(outputdir))
 
-solver_obj.assign_initial_conditions(elev=elev_init, salt=salt_init_3d)
+solver_obj.assign_initial_conditions(salt=salt_init_3d)
 
 
 def show_uv_mag():
