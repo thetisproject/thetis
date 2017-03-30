@@ -1,7 +1,7 @@
 # Idealised channel flow in 3D
 # ============================
 #
-# Solves shallow water equations in closed rectangular domain
+# Solves shallow water equations in rectangular domain
 # with sloping bathymetry.
 #
 # Flow is forced with tidal volume flux in the deep (ocean) end of the
@@ -14,21 +14,23 @@ from thetis import *
 
 n_layers = 6
 outputdir = 'outputs'
-mesh2d = Mesh('channel_mesh.msh')
-print_output('Loaded mesh ' + mesh2d.name)
+lx = 100e3
+ly = 3000.
+nx = 80
+ny = 3
+mesh2d = RectangleMesh(nx, ny, lx, ly)
 print_output('Exporting to ' + outputdir)
 t_end = 24 * 3600
-u_mag = Constant(2.5)
 t_export = 900.0
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
 
-depth_oce = 20.0
-depth_riv = 7.0
-bathymetry_2d.interpolate(Expression('ho - (ho-hr)*x[0]/100e3',
-                                     ho=depth_oce, hr=depth_riv))
+depth_max = 20.0
+depth_min = 7.0
+xy = SpatialCoordinate(mesh2d)
+bathymetry_2d.interpolate(depth_max - (depth_max-depth_min)*xy[0]/lx)
 u_max = 2.0
 w_max = 5e-3
 
@@ -36,7 +38,7 @@ w_max = 5e-3
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solver_obj.options
 options.element_family = 'dg-dg'
-options.timestepper_type = 'leapfrog'
+options.timestepper_type = 'ssprk22'
 options.solve_salt = True
 options.solve_temp = False
 options.solve_vert_diffusion = False
@@ -59,17 +61,14 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
 # initial conditions
 salt_init3d = Constant(4.5)
 
-
 # weak boundary conditions
-L_y = 1900
-h_amp = 2.0
-un_amp = -2.0
-flux_amp = L_y*depth_oce*un_amp
+un_amp = -0.5
+flux_amp = ly*depth_max*un_amp
 t_tide = 12 * 3600.
 un_river = -0.3
-flux_river = L_y*depth_riv*un_river
+flux_river = ly*depth_min*un_river
 t = 0.0
-t_ramp = 6*3600.0  # use linear ramp up for boundary forcings
+t_ramp = 12*3600.0  # use linear ramp up for boundary forcings
 # python function that returns time dependent boundary values
 ocean_flux_func = lambda t: (flux_amp*sin(2 * pi * t / t_tide) -
                              flux_river)*min(t/t_ramp, 1.0)
@@ -89,8 +88,8 @@ river_funcs_3d = {'symm': None}
 ocean_salt_3d = {'value': salt_init3d}
 river_salt_3d = {'value': salt_init3d}
 # bnd conditions are assigned to each boundary tag with another dict
-ocean_tag = 2
-river_tag = 1
+ocean_tag = 1
+river_tag = 2
 # assigning conditions for each equation
 # these must be assigned before equations are created
 solver_obj.bnd_functions['shallow_water'] = {ocean_tag: ocean_funcs,
@@ -108,14 +107,6 @@ def update_forcings(t_new):
     river_flux.assign(river_flux_func(t_new))
 
 
-def update_forcings3d(t_new):
-    """Callback function that updates all time dependent forcing fields
-    for the 3D mode"""
-    ocean_flux.assign(ocean_flux_func(t_new))
-    river_flux.assign(river_flux_func(t_new))
-
-
 # set init conditions, this will create all function spaces, equations etc
 solver_obj.assign_initial_conditions(salt=salt_init3d)
-solver_obj.iterate(update_forcings=update_forcings,
-                   update_forcings3d=update_forcings3d)
+solver_obj.iterate(update_forcings=update_forcings)
