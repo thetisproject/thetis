@@ -73,7 +73,7 @@ c = sqrt(g*H_ocean)  # [m/s] wave speed
 kelvin_k = OmegaTide/c  # [1/m] initial wave number of tidal wave, no friction
 kelvin_m = (coriolis_f/c)  # [-] Cross-shore variation
 
-u_scale = 3.0
+u_scale = 5.0
 w_scale = 1e-3
 delta_x = 2e3
 nu_scale = u_scale * delta_x / reynolds_number
