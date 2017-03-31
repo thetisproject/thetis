@@ -191,8 +191,6 @@ solver_obj.bnd_functions['salt'] = {1: bnd_ocean_salt, 2: bnd_ocean_salt,
 solver_obj.create_equations()
 
 elev_init = Function(solver_obj.function_spaces.H_2d, name='initial elevation')
-#elev_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvin_m)*cos(x[1]*kelvin_k) : amp*cos(x[1]*kelvin_k)',
-                      #amp=eta_amplitude, kelvin_m=kelvin_m, kelvin_k=kelvin_k))
 xy = SpatialCoordinate(mesh2d)
 elev_init.interpolate(conditional(le(xy[0], 0.0),
                                   eta_amplitude*exp((xy[0])*kelvin_m)*cos(xy[1]*kelvin_k),
@@ -202,8 +200,6 @@ elev_init2 = Function(solver_obj.function_spaces.H_2d, name='initial elevation')
 elev_init2.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvin_m)*cos(x[1]*kelvin_k) : 0.0',
                        amp=eta_amplitude, kelvin_m=kelvin_m, kelvin_k=kelvin_k))
 uv_init = Function(solver_obj.function_spaces.U_2d, name='initial velocity')
-# uv_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvin_m)*cos(x[1]*kelvin_k) : amp*cos(x[1]*kelvin_k)',
-#                       amp=eta_amplitude, kelvin_m=kelvin_m, kelvin_k=kelvin_k))
 tri = TrialFunction(solver_obj.function_spaces.U_2d)
 test = TestFunction(solver_obj.function_spaces.U_2d)
 a = inner(test, tri)*dx
