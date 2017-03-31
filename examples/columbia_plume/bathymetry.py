@@ -96,12 +96,34 @@ def smooth_bathymetry(bathymetry, delta_sigma=1.0, r_max=0.0, bg_diff=0.0,
     return solution
 
 
-def smooth_bathymetry_recursive(bathymetry, niter=100, *args, **kwargs):
-    """Applies smoother recursively"""
+def smooth_bathymetry_at_bnd(bathymetry, bnd_id, strength=8000.):
+    """Smooths bathymetry near open boundaries"""
     fs = bathymetry.function_space()
+    mesh = fs.mesh()
+
+    # step 1: created diffusivity field
     solution = Function(fs, name='bathymetry')
-    tmp_bath = Function(fs).assign(bathymetry)
-    for i in range(niter):
-        smooth_bathymetry(tmp_bath, solution=solution, *args, **kwargs)
-        tmp_bath.assign(solution)
+    diffusivity = Function(fs, name='diff')
+
+    delta_x = sqrt(CellVolume(mesh))
+    distance = 2*delta_x
+
+    test = TestFunction(fs)
+    f = inner(diffusivity, test)*dx
+    f += distance**2*inner(grad(diffusivity), grad(test))*dx
+    bc = DirichletBC(fs, 1.0, bnd_id)
+
+    prob = NonlinearVariationalProblem(f, diffusivity, bcs=[bc])
+    solver = NonlinearVariationalSolver(prob)
+    solver.solve()
+
+    # step 2: solve diffusion eq
+    f = inner(solution - bathymetry, test)*dx
+    f += strength**2*diffusivity*inner(grad(solution), grad(test))*dx
+
+    prob = NonlinearVariationalProblem(f, solution)
+    solver = NonlinearVariationalSolver(prob)
+
+    solver.solve()
+
     return solution

@@ -3,7 +3,7 @@ Columbia river plume simulation
 ===============================
 """
 from thetis import *
-from bathymetry import get_bathymetry, smooth_bathymetry
+from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_bnd
 comm = COMM_WORLD
 
 # TODO add background stratification
@@ -41,6 +41,7 @@ bathymetry_2d = smooth_bathymetry(
     bathymetry_2d, delta_sigma=1.0, bg_diff=0,
     alpha=5e6, exponent=1,
     minimum_depth=5., niter=20)
+bathymetry_2d = smooth_bathymetry_at_bnd(bathymetry_2d, [1, 3])
 
 # 3d mesh vertical stretch factor
 z_stretch_fact_2d = Function(bathymetry_2d.function_space(), name='z_stretch')
@@ -82,7 +83,6 @@ simple_barotropic = False  # for debugging
 # create solver
 extrude_options = {
     'z_stretch_fact': z_stretch_fact_2d,
-    #'min_depth': [10.0, 20.0, 40.0, 80., 200., 400., 900.],
 }
 
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, nlayers,
@@ -138,8 +138,6 @@ salt_init_3d.interpolate(salt_expr)
 salt_init_3d.dat.data[salt_init_3d.dat.data > salt_ocean_bottom] = salt_ocean_bottom
 
 elev_init = Function(solver_obj.function_spaces.H_2d, name='initial elevation')
-#elev_init.interpolate(Expression('(x[0]<=x0) ? amp*exp((x[0]-x0)*kelvin_m)*cos(x[1]*kelvin_k) : amp*cos(x[1]*kelvin_k)',
-                      #amp=eta_amplitude, kelvin_m=kelvin_m, kelvin_k=kelvin_k, x0=330000.))
 
 x0 = 330000.
 xy = SpatialCoordinate(mesh2d)
@@ -223,5 +221,6 @@ def show_uv_mag():
 def update_forcings(t):
     bnd_time.assign(t)
     bnd_elev_solver.solve()
+
 
 solver_obj.iterate(update_forcings=update_forcings, export_func=show_uv_mag)
