@@ -257,6 +257,8 @@ class ModelOptions(AttrDict, FrozenClass):
         """2D Coefficient or None: Coriolis parameter"""
         self.wind_stress = None
         """Coefficient or None: Stress at free surface (2D vector function)"""
+        self.atmospheric_pressure = None
+        """Coefficient or None: Atmospheric pressure at free surface"""
         self.uv_source_2d = None
         """Coefficient or None: source term for 2D momentum equation"""
         self.uv_source_3d = None

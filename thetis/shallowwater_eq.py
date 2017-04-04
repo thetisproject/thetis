@@ -147,6 +147,7 @@ __all__ = [
     'BottomDrag3DTerm',
     'MomentumSourceTerm',
     'WindStressTerm',
+    'AtmosphericPressureTerm',
 ]
 
 g_grav = physical_constants['g_grav']
@@ -597,6 +598,20 @@ class WindStressTerm(ShallowWaterMomentumTerm):
         return -f
 
 
+class AtmosphericPressureTerm(ShallowWaterMomentumTerm):
+    r"""
+    Atmospheric pressure term, :math:`\nabla (p / \rho_0)`
+
+    Here :math:`p` is a user-defined atmospheric pressure :class:`Function`.
+    """
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        atmospheric_pressure = fields_old.get('atmospheric_pressure')
+        f = 0
+        if atmospheric_pressure is not None:
+            f += dot(grad(atmospheric_pressure), self.u_test)/rho_0*self.dx
+        return -f
+
+
 class QuadraticDragTerm(ShallowWaterMomentumTerm):
     r"""
     Quadratic Manning bottom friction term
@@ -729,6 +744,7 @@ class BaseShallowWaterEquation(Equation):
         self.add_term(HorizontalViscosityTerm(*args), 'explicit')
         self.add_term(CoriolisTerm(*args), 'explicit')
         self.add_term(WindStressTerm(*args), 'source')
+        self.add_term(AtmosphericPressureTerm(*args), 'source')
         self.add_term(QuadraticDragTerm(*args), 'explicit')
         self.add_term(LinearDragTerm(*args), 'explicit')
         self.add_term(BottomDrag3DTerm(*args), 'source')
