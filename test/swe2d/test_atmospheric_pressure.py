@@ -67,5 +67,6 @@ def test_pressure_forcing(nx, dt, max_rel_err):
     assert(rel_err < max_rel_err)
     print_output("PASSED")
 
+
 if __name__ == '__main__':
     test_pressure_forcing(10, 1200, 2e-6)
