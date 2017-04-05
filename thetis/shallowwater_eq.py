@@ -850,7 +850,7 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
         :arg function_space: Mixed function space where the solution belongs
         :arg bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
-        :arg options: Object containing all circulation model options
+        :arg options: :class:`.AttrDict` object containing all circulation model options
         """
         super(ShallowWaterEquations, self).__init__(function_space, bathymetry, options)
 
