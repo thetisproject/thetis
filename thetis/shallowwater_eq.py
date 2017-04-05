@@ -891,7 +891,7 @@ class ModeSplit2DEquations(BaseShallowWaterEquation):
         :arg function_space: Mixed function space where the solution belongs
         :arg bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
-        :arg options: Object containing all circulation model options
+        :arg options: :class:`.AttrDict` object containing all circulation model options
         """
         # TODO remove include_grad_* options as viscosity operator is omitted
         super(ModeSplit2DEquations, self).__init__(function_space, bathymetry, options)
@@ -933,7 +933,7 @@ class FreeSurfaceEquation(BaseShallowWaterEquation):
         :arg function_space: Mixed function space where the solution belongs
         :arg bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
-        :arg options: Object containing all circulation model options
+        :arg options: :class:`.AttrDict` object containing all circulation model options
         """
         super(FreeSurfaceEquation, self).__init__(eta_space, bathymetry, options)
         self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, options)
@@ -967,7 +967,7 @@ class ShallowWaterMomentumEquation(BaseShallowWaterEquation):
         :arg function_space: Mixed function space where the solution belongs
         :arg bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
-        :arg options: Object containing all circulation model options
+        :arg options: :class:`.AttrDict` object containing all circulation model options
         """
         super(ShallowWaterMomentumEquation, self).__init__(u_space, bathymetry, options)
         self.add_momentum_terms(eta_test, u_space, eta_space,
