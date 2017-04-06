@@ -258,7 +258,7 @@ class ModelOptions(AttrDict, FrozenClass):
         self.wind_stress = None
         """Coefficient or None: Stress at free surface (2D vector function)"""
         self.atmospheric_pressure = None
-        """Coefficient or None: Atmospheric pressure at free surface"""
+        """Coefficient or None: Atmospheric pressure at free surface, in pascals"""
         self.uv_source_2d = None
         """Coefficient or None: source term for 2D momentum equation"""
         self.uv_source_3d = None

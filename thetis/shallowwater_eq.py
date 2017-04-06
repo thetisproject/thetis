@@ -22,14 +22,15 @@ The non-conservative momentum equation reads
    \bar{\textbf{u}} \cdot \nabla\bar{\textbf{u}} +
    f\textbf{e}_z\wedge \bar{\textbf{u}} +
    g \nabla \eta +
+   \nabla \left(\frac{p_a}{\rho_0} \right) +
    g \frac{1}{H}\int_{-h}^\eta \nabla r dz
    = \nabla \cdot \big( \nu_h ( \nabla \bar{\textbf{u}} + (\nabla \bar{\textbf{u}})^T )\big) +
    \frac{\nu_h \nabla(H)}{H} \cdot ( \nabla \bar{\textbf{u}} + (\nabla \bar{\textbf{u}})^T ),
    :label: swe_momentum
 
 where :math:`g` is the gravitational acceleration, :math:`f` is the Coriolis
-frequency, :math:`\wedge` is the cross product,
-:math:`\textbf{e}_z` is a vertical unit vector, and :math:`\nu_h`
+frequency, :math:`\wedge` is the cross product, :math:`\textbf{e}_z` is a vertical unit vector,
+:math:`p_a` is the atmospheric pressure at the free surface, and :math:`\nu_h`
 is viscosity. Water density is given by :math:`\rho = \rho'(T, S, p) + \rho_0`,
 where :math:`\rho_0` is a constant reference density.
 
@@ -600,9 +601,9 @@ class WindStressTerm(ShallowWaterMomentumTerm):
 
 class AtmosphericPressureTerm(ShallowWaterMomentumTerm):
     r"""
-    Atmospheric pressure term, :math:`\nabla (p / \rho_0)`
+    Atmospheric pressure term, :math:`\nabla (p_a / \rho_0)`
 
-    Here :math:`p` is a user-defined atmospheric pressure :class:`Function`.
+    Here :math:`p_a` is a user-defined atmospheric pressure :class:`Function`.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         atmospheric_pressure = fields_old.get('atmospheric_pressure')
