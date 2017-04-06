@@ -93,10 +93,11 @@ options.timestepper_type = 'ssprk22'
 options.solve_salt = not simple_barotropic
 options.solve_temp = False
 options.constant_temp = Constant(20.)
-options.solve_vert_diffusion = False  # not simple_barotropic
-options.use_bottom_friction = False  # not simple_barotropic
-options.use_turbulence = False  # not simple_barotropic
-options.use_turbulence_advection = False  # not simple_barotropic
+options.solve_vert_diffusion = True  # not simple_barotropic
+options.use_bottom_friction = True  # not simple_barotropic
+options.use_turbulence = True  # not simple_barotropic
+options.use_turbulence_advection = True  # not simple_barotropic
+options.use_smooth_eddy_viscosity = True
 options.baroclinic = not simple_barotropic
 options.uv_lax_friedrichs = Constant(1.0)
 options.tracer_lax_friedrichs = Constant(1.0)
@@ -125,6 +126,9 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'eps_3d', 'len_3d',
                             'int_pg_3d', 'hcc_metric_3d']
 options.equation_of_state = 'full'
+gls_options = options.gls_options
+gls_options.apply_defaults('k-omega')
+gls_options.stability_name = 'CB'
 
 solver_obj.create_function_spaces()
 
