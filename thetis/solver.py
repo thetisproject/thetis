@@ -278,6 +278,30 @@ class FlowSolver(FrozenClass):
         dt = self.comm.allreduce(dt, op=MPI.MIN)
         return dt
 
+    def compute_mesh_stats(self):
+        """
+        Computes number of elements, nodes etc and prints to sdtout
+        """
+        nnodes = self.comm.allreduce(self.mesh2d.topology.num_vertices(), MPI.SUM)
+        ntriangles = self.comm.allreduce(self.mesh2d.topology.num_cells(), MPI.SUM)
+        nlayers = self.mesh.topology.layers - 1
+        nprisms = ntriangles*nlayers
+        dofs_per_elem = len(self.function_spaces.H.finat_element.entity_dofs())
+        ntracer_dofs = dofs_per_elem*nprisms
+        min_h_size = self.comm.allreduce(self.fields.h_elem_size_2d.dat.data.min(), MPI.MIN)
+        max_h_size = self.comm.allreduce(self.fields.h_elem_size_2d.dat.data.max(), MPI.MAX)
+        min_v_size = self.comm.allreduce(self.fields.v_elem_size_3d.dat.data.min(), MPI.MIN)
+        max_v_size = self.comm.allreduce(self.fields.v_elem_size_3d.dat.data.max(), MPI.MAX)
+
+        print_output('2D mesh: {:} nodes, {:} triangles'.format(nnodes, ntriangles))
+        print_output('3D mesh: {:} layers, {:} prisms'.format(nlayers, nprisms))
+        print_output('Horizontal element size: {:.2f} ... {:.2f} m'.format(min_h_size, max_h_size))
+        print_output('Vertical element size: {:.3f} ... {:.3f} m'.format(min_v_size, max_v_size))
+        print_output('Element family: {:}, order: {:}'.format(self.options.element_family, self.options.order))
+        print_output('Number of tracer DOFs: {:}'.format(ntracer_dofs))
+        print_output('Number of cores: {:}'.format(self.comm.size))
+        print_output('Tracer DOFs per core: ~{:.1f}'.format(float(ntracer_dofs)/self.comm.size))
+
     def set_time_step(self):
         """
         Sets the model the model time step
@@ -824,6 +848,7 @@ class FlowSolver(FrozenClass):
         self.fields.bathymetry_2d.project(self.bathymetry_cg_2d)
         ExpandFunctionTo3d(self.fields.bathymetry_2d, self.fields.bathymetry_3d).solve()
         self.mesh_updater.initialize()
+        self.compute_mesh_stats()
         self.set_time_step()
         self.timestepper.set_dt(self.dt, self.dt_2d)
         # compute maximal diffusivity for explicit schemes
