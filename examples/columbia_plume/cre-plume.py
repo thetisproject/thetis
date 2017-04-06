@@ -73,7 +73,7 @@ c = sqrt(g*H_ocean)  # [m/s] wave speed
 kelvin_k = OmegaTide/c  # [1/m] initial wave number of tidal wave, no friction
 kelvin_m = (coriolis_f/c)  # [-] Cross-shore variation
 
-u_scale = 5.0
+u_scale = 3.0
 w_scale = 1e-3
 delta_x = 2e3
 nu_scale = u_scale * delta_x / reynolds_number
@@ -141,21 +141,23 @@ elev_init = Function(solver_obj.function_spaces.H_2d, name='initial elevation')
 
 x0 = 330000.
 xy = SpatialCoordinate(mesh2d)
-elev_init.interpolate(conditional(le(xy[0], x0),
-                                  eta_amplitude*exp((xy[0]-x0)*kelvin_m)*cos(xy[1]*kelvin_k),
-                                  eta_amplitude*cos(xy[1]*kelvin_k)))
+bnd_time = Constant(0)
+elev_expr = eta_amplitude*conditional(le(xy[0], x0),
+                                      exp((xy[0]-x0)*kelvin_m)*cos(xy[1]*kelvin_k - OmegaTide*bnd_time),
+                                      cos(xy[1]*kelvin_k - OmegaTide*bnd_time))
+elev_init.interpolate(elev_expr)
 
 fs_2d = bathymetry_2d.function_space()
 bnd_elev = Function(fs_2d, name='Boundary elevation')
-bnd_time = Constant(0)
+
 xyz = solver_obj.mesh2d.coordinates
 tri = TrialFunction(fs_2d)
 test = TestFunction(fs_2d)
 ramp_t = 12*3600.
-elev_ramp = conditional(bnd_time < ramp_t, bnd_time/ramp_t, 1.0)
-elev = elev_ramp*eta_amplitude*exp(xyz[0]*kelvin_m)*cos(xyz[1]*kelvin_k - OmegaTide*bnd_time)
+elev_ramp = conditional(le(bnd_time, ramp_t), bnd_time/ramp_t, 1.0)
+elev_bnd_expr = elev_ramp*elev_expr
 a = inner(test, tri)*dx
-L = test*elev*dx
+L = test*elev_bnd_expr*dx
 bnd_elev_prob = LinearVariationalProblem(a, L, bnd_elev)
 bnd_elev_solver = LinearVariationalSolver(bnd_elev_prob)
 bnd_elev_solver.solve()
