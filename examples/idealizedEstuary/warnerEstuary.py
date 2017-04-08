@@ -30,12 +30,13 @@ refinement = {'coarse': 1, 'normal': 2}
 lx = 100.0e3
 ly = 1000.0/refinement[reso_str]
 nx = int(round(100*refinement[reso_str]))
+delta_x = lx/nx
 ny = 2
 layers = int(round(10*refinement[reso_str]))
 mesh2d = RectangleMesh(nx, ny, lx, ly)
 print_output('Exporting to ' + outputdir)
 dt = 25.0  # 25.0/refinement[reso_str]  # TODO tune dt
-t_end = 20*24*3600
+t_end = 1.5*24*3600
 # export every 9 min, day 16 is export 2720
 t_export = 9*60.0
 
@@ -75,13 +76,17 @@ options.use_lax_friedrichs_tracer = True
 options.vertical_viscosity = Constant(1.3e-6)  # background value
 options.vertical_diffusivity = Constant(1.4e-7)  # background value
 options.use_limiter_for_tracers = True
-Re_h = 5.0
-options.use_smagorinsky_viscosity = True
-options.smagorinsky_coefficient = Constant(1.0/np.sqrt(Re_h))
+Re_h = 10.0
+uscale = 1.0
+nu_scale = uscale * delta_x / Re_h
+print_output('Horizontal viscosity {:}'.format(nu_scale))
+options.horizontal_viscosity = Constant(nu_scale)
+options.horizontal_diffusivity = Constant(5.0)
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
 options.output_directory = outputdir
 options.horizontal_velocity_scale = Constant(2.0)
+options.horizontal_viscosity_scale = Constant(nu_scale)
 options.check_salinity_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d', 'density_3d',
