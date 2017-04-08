@@ -490,6 +490,9 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                     self.timesteppers.tke_expl.solve_stage(k, t)
             with timed_stage('momentum_eq'):
                 self.timesteppers.mom_expl.solve_stage(k, t)
+                self.timestepper_mom_3d.solve_stage(k, t)
+                if self.options.use_limiter_for_velocity:
+                    self.solver.uv_limiter.apply(self.fields.uv_3d)
             with timed_stage('mode2d'):
                 self.timesteppers.swe2d.solve_stage(k, t, update_forcings)
             last_step = (k == 2)
@@ -627,6 +630,8 @@ class CoupledERKALE(CoupledTimeIntegrator):
                         self.timesteppers.tke_expl.get_final_solution()
                 with timed_stage('momentum_eq'):
                     self.timesteppers.mom_expl.get_final_solution()
+                    if self.options.use_limiter_for_velocity:
+                        self.solver.uv_limiter.apply(self.fields.uv_3d)
             else:
                 with timed_stage('salt_eq'):
                     if self.options.solve_salinity:
@@ -645,6 +650,8 @@ class CoupledERKALE(CoupledTimeIntegrator):
                         self.timesteppers.tke_expl.update_solution(k)
                 with timed_stage('momentum_eq'):
                     self.timesteppers.mom_expl.update_solution(k)
+                    if self.options.use_limiter_for_velocity:
+                        self.solver.uv_limiter.apply(self.fields.uv_3d)
 
             self._update_all_dependencies(t, do_vert_diffusion=last_step,
                                           do_2d_coupling=True,
@@ -745,6 +752,8 @@ class CoupledIMEXALE(CoupledTimeIntegrator):
             if k > 0:
                 self.timesteppers.swe2d.erk.update_solution(k)
                 self.timesteppers.mom_expl.update_solution(k)
+                if self.options.use_limiter_for_velocity:
+                    self.solver.uv_limiter.apply(self.fields.uv_3d)
                 if self.options.solve_salinity:
                     self.timesteppers.salt_expl.update_solution(k)
                     if self.options.use_limiter_for_tracers:
@@ -781,6 +790,8 @@ class CoupledIMEXALE(CoupledTimeIntegrator):
             self._update_moving_mesh()
             if last_step:
                 self.timesteppers.mom_expl.get_final_solution()
+                if self.options.use_limiter_for_velocity:
+                    self.solver.uv_limiter.apply(self.fields.uv_3d)
                 self._update_vertical_velocity()
                 if self.options.solve_salinity:
                     self.timesteppers.salt_expl.get_final_solution()
@@ -862,6 +873,8 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
 
         with timed_stage('momentum_eq'):
             self.timesteppers.mom_expl.predict()
+            if self.options.use_limiter_for_velocity:
+                self.solver.uv_limiter.apply(self.fields.uv_3d)
 
         # dependencies for 2D update
         self._update_2d_coupling()
@@ -934,6 +947,8 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
                 self.timesteppers.tke_expl.correct()
         with timed_stage('momentum_eq'):
             self.timesteppers.mom_expl.correct()
+            if self.options.use_limiter_for_velocity:
+                self.solver.uv_limiter.apply(self.fields.uv_3d)
 
         if self.options.use_implicit_vertical_diffusion:
             self._update_2d_coupling()
@@ -1078,6 +1093,8 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
                     self.timesteppers.tke_expl.solve_stage(i_stage)
             with timed_stage('momentum_eq'):
                 self.timesteppers.mom_expl.solve_stage(i_stage)
+                if self.options.use_limiter_for_velocity:
+                    self.solver.uv_limiter.apply(self.fields.uv_3d)
 
             # update coupling terms
             last = i_stage == self.n_stages - 1
