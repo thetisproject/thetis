@@ -556,6 +556,10 @@ class FlowSolver(FrozenClass):
             self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H)
         else:
             self.tracer_limiter = None
+        if self.options.use_limiter_for_velocity and self.options.order > 0:
+            self.uv_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.U)
+        else:
+            self.uv_limiter = None
         if self.options.use_turbulence:
             if self.options.turbulence_model_type == 'gls':
                 # NOTE tke and psi should be in H as tracers ??
@@ -1067,6 +1071,8 @@ class FlowSolver(FrozenClass):
         self.options.check_temperature_overshoot &= self.options.solve_temperature
         self.options.check_volume_conservation_3d &= self.options.use_ale_moving_mesh
         self.options.use_limiter_for_tracers &= self.options.polynomial_degree > 0
+        self.options.use_limiter_for_velocity &= self.options.polynomial_degree > 0
+        self.options.use_limiter_for_velocity &= self.options.element_family == 'dg-dg'
 
         t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()
