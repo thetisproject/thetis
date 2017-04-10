@@ -964,10 +964,12 @@ class FlowSolver(FrozenClass):
             temp = self.fields.temp_3d
             e.exporters['temp_3d'].load(i_export, temp)
         if self.options.use_turbulence:
-            tke = self.fields.tke_3d
-            psi = self.fields.psi_3d
-            e.exporters['tke_3d'].load(i_export, tke)
-            e.exporters['psi_3d'].load(i_export, psi)
+            if 'tke_3d' in self.fields:
+                tke = self.fields.tke_3d
+                e.exporters['tke_3d'].load(i_export, tke)
+            if 'psi_3d' in self.fields:
+                psi = self.fields.psi_3d
+                e.exporters['psi_3d'].load(i_export, psi)
         self.assign_initial_conditions(elev=self.fields.elev_2d,
                                        uv_2d=self.fields.uv_2d,
                                        uv_3d=self.fields.uv_3d,
