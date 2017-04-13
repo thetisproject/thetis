@@ -95,16 +95,17 @@ options.solve_temp = False
 options.constant_temp = Constant(20.)
 options.solve_vert_diffusion = True  # not simple_barotropic
 options.use_bottom_friction = True  # not simple_barotropic
-options.use_turbulence = False  # not simple_barotropic
+options.use_turbulence = True  # not simple_barotropic
 options.use_turbulence_advection = False  # not simple_barotropic
 options.use_smooth_eddy_viscosity = False
+options.turbulence_model = 'pacanowski'
 options.baroclinic = not simple_barotropic
 options.uv_lax_friedrichs = Constant(1.0)
 options.tracer_lax_friedrichs = Constant(1.0)
-options.v_viscosity = Constant(1e-3)
-options.v_diffusivity = Constant(1e-3)
+options.v_viscosity = Constant(2e-5)
+options.v_diffusivity = Constant(2e-5)
 options.h_viscosity = Constant(nu_scale)
-options.h_diffusivity = Constant(10.0)
+options.h_diffusivity = Constant(5.0)
 options.use_quadratic_pressure = True
 options.use_limiter_for_tracers = True
 options.use_limiter_for_velocity = True
@@ -129,9 +130,12 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
                                  'salt_3d', 'temp_3d', 'tke_3d', 'psi_3d']
 options.equation_of_state = 'full'
-gls_options = options.gls_options
-gls_options.apply_defaults('k-omega')
-gls_options.stability_name = 'CB'
+# gls_options = options.gls_options
+# gls_options.apply_defaults('k-omega')
+# gls_options.stability_name = 'CB'
+options.pacanowski_options['alpha'] = 10.
+options.pacanowski_options['exponent'] = 2
+options.pacanowski_options['max_viscosity'] = 0.05
 
 solver_obj.create_function_spaces()
 
