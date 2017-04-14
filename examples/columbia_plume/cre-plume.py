@@ -6,11 +6,6 @@ from thetis import *
 from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_bnd
 comm = COMM_WORLD
 
-# TODO add background stratification
-# TODO add non-uniform vertical levels
-# TODO add temperature
-# TODO add time-dependent tidal elevation (kelvin wave)
-# TODO add bottom friction, turbulence
 # TODO add time-dependent river discharge
 # TODO add tidal elevation netdf reader
 # TODO add wind stress formulations
@@ -58,8 +53,9 @@ q_river = 5000.
 salt_river = 0.0
 salt_ocean_surface = 32.0
 salt_ocean_bottom = 34.0
-salt_gradient_depth = 3000.
-bg_salt_gradient = (salt_ocean_surface - salt_ocean_bottom)/salt_gradient_depth
+temp_river = 15.0
+temp_ocean_surface = 13.0
+temp_ocean_bottom = 8.0
 reynolds_number = 160.0
 
 eta_amplitude = 1.00
@@ -91,8 +87,7 @@ options = solver_obj.options
 options.element_family = 'dg-dg'
 options.timestepper_type = 'ssprk22'
 options.solve_salt = not simple_barotropic
-options.solve_temp = False
-options.constant_temp = Constant(20.)
+options.solve_temp = not simple_barotropic
 options.solve_vert_diffusion = True  # not simple_barotropic
 options.use_bottom_friction = True  # not simple_barotropic
 options.use_turbulence = True  # not simple_barotropic
@@ -118,8 +113,9 @@ options.u_advection = Constant(u_scale)
 options.w_advection = Constant(w_scale)
 options.nu_viscosity = Constant(nu_scale)
 options.check_salt_overshoot = True
+options.check_temp_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
-                            'w_3d', 'w_mesh_3d', 'salt_3d',
+                            'w_3d', 'w_mesh_3d', 'salt_3d', 'temp_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                             'density_3d',
                             'smag_visc_3d',
@@ -141,12 +137,16 @@ solver_obj.create_function_spaces()
 
 xyz = SpatialCoordinate(solver_obj.mesh)
 # vertical stratification in the ocean
-salt_stratif = salt_ocean_bottom + (salt_ocean_surface - salt_ocean_bottom)*(1 + tanh((xyz[2] + 1200.)/700.))/2
 river_blend = (1 + tanh((xyz[0] - 350e3)/2000.))/2  # 1 in river, 0 in ocean
+salt_stratif = salt_ocean_bottom + (salt_ocean_surface - salt_ocean_bottom)*(1 + tanh((xyz[2] + 1200.)/700.))/2
 salt_expr = salt_river*river_blend + (1 - river_blend)*salt_stratif
 salt_init_3d = Function(solver_obj.function_spaces.H, name='initial salinity')
 salt_init_3d.interpolate(salt_expr)
-salt_init_3d.dat.data[salt_init_3d.dat.data > salt_ocean_bottom] = salt_ocean_bottom
+
+temp_stratif = temp_ocean_bottom + (temp_ocean_surface - temp_ocean_bottom)*(1 + tanh((xyz[2] + 50.)/15.))/2
+temp_expr = temp_river*river_blend + (1 - river_blend)*temp_stratif
+temp_init_3d = Function(solver_obj.function_spaces.H, name='initial temperature')
+temp_init_3d.interpolate(temp_expr)
 
 elev_init = Function(solver_obj.function_spaces.H_2d, name='initial elevation')
 
@@ -184,6 +184,8 @@ open_uv_funcs = {'symm': None}
 zero_uv_funcs = {'uv': Constant((0, 0, 0))}
 bnd_river_salt = {'value': Constant(salt_river)}
 ocean_salt_funcs = {'value': salt_init_3d}
+bnd_river_temp = {'value': Constant(temp_river)}
+ocean_temp_funcs = {'value': temp_init_3d}
 solver_obj.bnd_functions['shallow_water'] = {
     river_bnd_id: river_swe_funcs,
     south_bnd_id: tide_elev_funcs,
@@ -201,6 +203,12 @@ solver_obj.bnd_functions['salt'] = {
     south_bnd_id: ocean_salt_funcs,
     north_bnd_id: ocean_salt_funcs,
     west_bnd_id: ocean_salt_funcs,
+}
+solver_obj.bnd_functions['temp'] = {
+    river_bnd_id: bnd_river_temp,
+    south_bnd_id: ocean_temp_funcs,
+    north_bnd_id: ocean_temp_funcs,
+    west_bnd_id: ocean_temp_funcs,
 }
 
 solver_obj.create_equations()
@@ -221,7 +229,7 @@ print_output('Tracer DOFs: {:}'.format(6*nprisms))
 print_output('Tracer DOFs per core: {:}'.format(float(6*nprisms)/comm.size))
 print_output('Exporting to {:}'.format(outputdir))
 
-solver_obj.assign_initial_conditions(salt=salt_init_3d)
+solver_obj.assign_initial_conditions(salt=salt_init_3d, temp=temp_init_3d)
 
 
 def show_uv_mag():
