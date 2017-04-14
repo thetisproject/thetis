@@ -1,13 +1,24 @@
 """
 Columbia river plume simulation
 ===============================
+
+requirements:
+netCDF4
+pyproj
+scipy
+uptide
+
 """
 from thetis import *
 from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_bnd
+from tidal_forcing import TidalBoundaryForcing
+from timeseries_forcing import NetCDFTimeSeriesInterpolator
+from diagnostics import TimeSeriesCallback2D
+from timezone import *
+from atm_forcing import *
 comm = COMM_WORLD
 
 # TODO add time-dependent river discharge
-# TODO add tidal elevation netdf reader
 # TODO add wind stress formulations
 # TODO add atm netcdf reader, time dependent wind stress
 # TODO add intial condition from ROMS/HYCOM
@@ -26,6 +37,9 @@ print_output('Loaded mesh ' + mesh2d.name)
 nnodes = comm.allreduce(mesh2d.topology.num_vertices(), MPI.SUM)
 ntriangles = comm.allreduce(mesh2d.topology.num_cells(), MPI.SUM)
 nprisms = ntriangles*nlayers
+
+timezone = FixedTimeZone(-8, 'PST')
+init_date = datetime.datetime(2016, 5, 1, tzinfo=timezone)
 
 t_end = 10*24*3600.
 t_export = 900.
@@ -57,17 +71,6 @@ temp_river = 15.0
 temp_ocean_surface = 13.0
 temp_ocean_bottom = 8.0
 reynolds_number = 160.0
-
-eta_amplitude = 1.00
-eta_phase = 0
-H_ocean = 200  # ~mean water depth in coast
-Ttide = 44714.0  # M2 tidal period [2]
-Tday = 0.99726968*24*60*60  # sidereal time of Earth revolution
-OmegaTide = 2*np.pi/Ttide
-g = physical_constants['g_grav']
-c = sqrt(g*H_ocean)  # [m/s] wave speed
-kelvin_k = OmegaTide/c  # [1/m] initial wave number of tidal wave, no friction
-kelvin_m = (coriolis_f/c)  # [-] Cross-shore variation
 
 u_scale = 3.0
 w_scale = 1e-3
@@ -135,6 +138,18 @@ options.pacanowski_options['max_viscosity'] = 0.05
 
 solver_obj.create_function_spaces()
 
+wind_stress_3d = Function(solver_obj.function_spaces.P1v, name='wind stress')
+wind_stress_2d = Function(solver_obj.function_spaces.P1v_2d, name='wind stress')
+atm_pressure_2d = Function(solver_obj.function_spaces.P1_2d, name='atm pressure')
+options.wind_stress = wind_stress_3d
+options.atmospheric_pressure = atm_pressure_2d
+copy_wind_stress_to_3d = ExpandFunctionTo3d(wind_stress_2d, wind_stress_3d)
+wrf_pattern = 'forcings/atm/wrf/wrf_air.2016_*_*.nc'
+wrf_atm = WRFInterpolator(
+    solver_obj.function_spaces.P1_2d,
+    wind_stress_2d, atm_pressure_2d, wrf_pattern, init_date)
+wrf_atm.set_fields(0.0)
+
 xyz = SpatialCoordinate(solver_obj.mesh)
 # vertical stratification in the ocean
 river_blend = (1 + tanh((xyz[0] - 350e3)/2000.))/2  # 1 in river, 0 in ocean
@@ -148,37 +163,35 @@ temp_expr = temp_river*river_blend + (1 - river_blend)*temp_stratif
 temp_init_3d = Function(solver_obj.function_spaces.H, name='initial temperature')
 temp_init_3d.interpolate(temp_expr)
 
-elev_init = Function(solver_obj.function_spaces.H_2d, name='initial elevation')
-
 x0 = 330000.
 xy = SpatialCoordinate(mesh2d)
 bnd_time = Constant(0)
-elev_expr = eta_amplitude*conditional(le(xy[0], x0),
-                                      exp((xy[0]-x0)*kelvin_m)*cos(xy[1]*kelvin_k - OmegaTide*bnd_time),
-                                      cos(xy[1]*kelvin_k - OmegaTide*bnd_time))
-elev_init.interpolate(elev_expr)
 
 fs_2d = bathymetry_2d.function_space()
-bnd_elev = Function(fs_2d, name='Boundary elevation')
+elev_tide_2d = Function(fs_2d, name='Boundary elevation')
 
 xyz = solver_obj.mesh2d.coordinates
 tri = TrialFunction(fs_2d)
 test = TestFunction(fs_2d)
 ramp_t = 12*3600.
 elev_ramp = conditional(le(bnd_time, ramp_t), bnd_time/ramp_t, 1.0)
-elev_bnd_expr = elev_ramp*elev_expr
-a = inner(test, tri)*dx
-L = test*elev_bnd_expr*dx
-bnd_elev_prob = LinearVariationalProblem(a, L, bnd_elev)
-bnd_elev_solver = LinearVariationalSolver(bnd_elev_prob)
-bnd_elev_solver.solve()
+elev_bnd_expr = elev_ramp*elev_tide_2d
 
 north_bnd_id = 1
 west_bnd_id = 2
 south_bnd_id = 3
 river_bnd_id = 4
-river_swe_funcs = {'flux': Constant(-q_river)}
-tide_elev_funcs = {'elev': bnd_elev}
+
+bnd_elev_updater = TidalBoundaryForcing(
+    elev_tide_2d, init_date,
+    boundary_ids=[north_bnd_id, west_bnd_id, south_bnd_id])
+river_flux_interp = NetCDFTimeSeriesInterpolator(
+    'forcings/stations/bvao3/bvao3.0.A.FLUX/*.nc',
+    'time', 'flux', init_date, scalar=-1.0)
+river_flux_const = Constant(river_flux_interp(0))
+
+river_swe_funcs = {'flux': river_flux_const}
+tide_elev_funcs = {'elev': elev_bnd_expr}
 zero_elev_funcs = {'elev': Constant(0)}
 open_uv_funcs = {'symm': None}
 zero_uv_funcs = {'uv': Constant((0, 0, 0))}
@@ -213,6 +226,9 @@ solver_obj.bnd_functions['temp'] = {
 
 solver_obj.create_equations()
 
+solver_obj.add_callback(
+    TimeSeriesCallback2D(
+        solver_obj, 'elev_2d', x=357450.0, y=287571.0, location_name='tpoin'))
 
 hcc_obj = Mesh3DConsistencyCalculator(solver_obj)
 hcc_obj.solve()
@@ -232,16 +248,28 @@ print_output('Exporting to {:}'.format(outputdir))
 solver_obj.assign_initial_conditions(salt=salt_init_3d, temp=temp_init_3d)
 
 
-def show_uv_mag():
-    uv = solver_obj.fields.uv_3d.dat.data
-    print_output('uv: {:9.2e} .. {:9.2e}'.format(uv.min(), uv.max()))
-    ipg = solver_obj.fields.int_pg_3d.dat.data
-    print_output('int pg: {:9.2e} .. {:9.2e}'.format(ipg.min(), ipg.max()))
+# def show_uv_mag():
+#     uv = solver_obj.fields.uv_3d.dat.data
+#     print_output('uv: {:9.2e} .. {:9.2e}'.format(uv.min(), uv.max()))
+#     ipg = solver_obj.fields.int_pg_3d.dat.data
+#     print_output('int pg: {:9.2e} .. {:9.2e}'.format(ipg.min(), ipg.max()))
 
 
 def update_forcings(t):
     bnd_time.assign(t)
-    bnd_elev_solver.solve()
+    bnd_elev_updater.set_tidal_field(t)
+    river_flux_const.assign(river_flux_interp(t))
+    wrf_atm.set_fields(t)
+    copy_wind_stress_to_3d.solve()
 
 
-solver_obj.iterate(update_forcings=update_forcings, export_func=show_uv_mag)
+out_atm_pressure = File(options.outputdir + '/AtmPressure2d.pvd')
+out_wind_stress = File(options.outputdir + '/WindStress2d.pvd')
+
+
+def export_atm_fields():
+    out_atm_pressure.write(atm_pressure_2d)
+    out_wind_stress.write(wind_stress_2d)
+
+
+solver_obj.iterate(update_forcings=update_forcings, export_func=export_atm_fields)
