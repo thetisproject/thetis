@@ -6,8 +6,8 @@ from scipy.interpolate import interp1d
 import netCDF4
 import numpy as np
 from calendar import timegm
-import pytz
 import glob
+import pytz
 
 utc_tz = pytz.timezone('UTC')
 epoch = datetime.datetime(1970, 1, 1, tzinfo=utc_tz)

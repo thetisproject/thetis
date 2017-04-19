@@ -7,6 +7,7 @@ from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_b
 from tidal_forcing import TidalBoundaryForcing
 from timeseries_forcing import NetCDFTimeSeriesInterpolator
 import datetime
+import pytz
 comm = COMM_WORLD
 
 # TODO add time-dependent river discharge
@@ -29,8 +30,8 @@ nnodes = comm.allreduce(mesh2d.topology.num_vertices(), MPI.SUM)
 ntriangles = comm.allreduce(mesh2d.topology.num_cells(), MPI.SUM)
 nprisms = ntriangles*nlayers
 
-init_date = datetime.datetime(2016, 5 , 1, 0, 0, 0)
-init_date_gmt = init_date - datetime.timedelta(hours=8)
+timezone = pytz.timezone('Etc/GMT+8')
+init_date = datetime.datetime(2016, 5 , 1, tzinfo=timezone)
 
 t_end = 10*24*3600.
 t_export = 900.

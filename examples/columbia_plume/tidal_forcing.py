@@ -4,6 +4,9 @@ import uptide.tidal_netcdf
 from firedrake import *
 import numpy as np
 import os
+import pytz
+
+utc_tz = pytz.timezone('UTC')
 
 tide_file = 'tide.fes2004.nc'
 msg = 'File {:} not found, download it from \nftp://ftp.legos.obs-mip.fr/pub/soa/maree/tide_model/global_solution/fes2004/'.format(tide_file)
@@ -58,7 +61,8 @@ class TidalBoundaryForcing(object):
             ranges = None
 
         tide = uptide.Tides(constituents)
-        tide.set_initial_time(init_time)
+        init_time_utc = init_time.astimezone(utc_tz).replace(tzinfo=None)
+        tide.set_initial_time(init_time_utc)
         self.tnci = uptide.tidal_netcdf.FESTidalInterpolator(tide, tide_file, ranges=ranges)
         self.tidal_field = tidal_field
 
