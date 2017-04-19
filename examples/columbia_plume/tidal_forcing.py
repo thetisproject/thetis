@@ -30,18 +30,14 @@ class TidalBoundaryForcing(object):
         fs = tidal_field.function_space()
         if boundary_ids is None:
             # interpolate in the whole domain
-            self.nodes = np.arange(self.tidal_field.dat.data.shape[0])
+            self.nodes = np.arange(self.tidal_field.dat.data_with_halos.shape[0])
         else:
             bc = DirichletBC(fs, 0., boundary_ids, method='geometric')
-            node_set = bc.node_set
-            tmp_func = fs.get_work_function(zero=True)
-            tmp_func.assign(1, subset=node_set)
-            self.nodes = np.where(tmp_func.dat.data > 0.5)[0]
-            fs.restore_work_function(tmp_func)
+            self.nodes = bc.nodes
 
         xy = SpatialCoordinate(fs.mesh())
-        fsx = Function(fs).interpolate(xy[0]).dat.data
-        fsy = Function(fs).interpolate(xy[1]).dat.data
+        fsx = Function(fs).interpolate(xy[0]).dat.data_with_halos
+        fsy = Function(fs).interpolate(xy[1]).dat.data_with_halos
         # compute lat lon bounds for each process
         if len(self.nodes) > 0:
             bounds_x = [fsx[self.nodes].min(), fsx[self.nodes].max()]
@@ -75,7 +71,7 @@ class TidalBoundaryForcing(object):
 
     def set_tidal_field(self, t):
         self.tnci.set_time(t)
-        data = self.tidal_field.dat.data
+        data = self.tidal_field.dat.data_with_halos
         for node, (lat, lon) in self.nll:
             try:
                 val = self.tnci.get_val((lat, lon), allow_extrapolation=True)
