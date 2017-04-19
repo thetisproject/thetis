@@ -6,6 +6,7 @@ from thetis import *
 from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_bnd
 from tidal_forcing import TidalBoundaryForcing
 from timeseries_forcing import NetCDFTimeSeriesInterpolator
+from diagnostics import TimeSeriesCallback2D
 import datetime
 import pytz
 comm = COMM_WORLD
@@ -206,6 +207,9 @@ solver_obj.bnd_functions['temp'] = {
 
 solver_obj.create_equations()
 
+solver_obj.add_callback(
+    TimeSeriesCallback2D(
+        solver_obj, 'elev_2d', x=357450.0, y=287571.0, location_name='tpoin'))
 
 hcc_obj = Mesh3DConsistencyCalculator(solver_obj)
 hcc_obj.solve()
