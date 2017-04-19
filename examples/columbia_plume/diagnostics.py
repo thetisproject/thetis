@@ -19,9 +19,10 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         assert export_to_hdf5 is True
         self.fieldname = fieldname
         self.name += '_' + self.fieldname
+        self.location_name = location_name
         attrs = {'x': x, 'y': y}
-        attrs['location_name'] = location_name
-        self.name += '_{:}'.format(location_name)
+        attrs['location_name'] = self.location_name
+        self.name += '_{:}'.format(self.location_name)
         super(TimeSeriesCallback2D, self).__init__(
             solver_obj,
             outputdir=outputdir,
@@ -57,9 +58,8 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         return (arr, )
 
     def message_str(self, *args):
-        minval = args[0].min()
-        maxval = args[0].max()
+        val = args[0][0]
 
-        line = 'Evaluated {:} elevation, value range: {:.3g} - {:.3g}'.format(
-            self.fieldname, minval, maxval)
+        line = 'Value of {:} at {:}: {:.3g}'.format(
+            self.fieldname, self.location_name, val)
         return line
