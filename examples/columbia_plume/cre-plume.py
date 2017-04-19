@@ -5,11 +5,11 @@ Columbia river plume simulation
 from thetis import *
 from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_bnd
 from tidal_forcing import TidalBoundaryForcing
+from timeseries_forcing import NetCDFTimeSeriesInterpolator
 import datetime
 comm = COMM_WORLD
 
 # TODO add time-dependent river discharge
-# TODO add tidal elevation netdf reader
 # TODO add wind stress formulations
 # TODO add atm netcdf reader, time dependent wind stress
 # TODO add intial condition from ROMS/HYCOM
@@ -30,6 +30,8 @@ ntriangles = comm.allreduce(mesh2d.topology.num_cells(), MPI.SUM)
 nprisms = ntriangles*nlayers
 
 init_date = datetime.datetime(2016, 5 , 1, 0, 0, 0)
+init_date_gmt = init_date - datetime.timedelta(hours=8)
+
 t_end = 10*24*3600.
 t_export = 900.
 
@@ -162,11 +164,12 @@ river_bnd_id = 4
 bnd_elev_updater = TidalBoundaryForcing(
     elev_tide_2d, init_date,
     boundary_ids=[north_bnd_id, west_bnd_id, south_bnd_id])
-# init_elev_updater = TidalBoundaryForcing(
-#     elev_tide_2d, init_date)
-# init_elev_updater.set_tidal_field(0)
+river_flux_interp = NetCDFTimeSeriesInterpolator(
+    'forcings/stations/bvao3/bvao3.0.A.FLUX/*.nc',
+    'time', 'flux', init_date, t_end, scalar=-1.0)
+river_flux_const = Constant(river_flux_interp.get(0))
 
-river_swe_funcs = {'flux': Constant(-q_river)}
+river_swe_funcs = {'flux': river_flux_const}
 tide_elev_funcs = {'elev': elev_bnd_expr}
 zero_elev_funcs = {'elev': Constant(0)}
 open_uv_funcs = {'symm': None}
@@ -231,6 +234,7 @@ def show_uv_mag():
 def update_forcings(t):
     bnd_time.assign(t)
     bnd_elev_updater.set_tidal_field(t)
+    river_flux_const.assign(river_flux_interp.get(t))
 
 
 solver_obj.iterate(update_forcings=update_forcings, export_func=show_uv_mag)
