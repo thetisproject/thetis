@@ -13,10 +13,9 @@ utc_tz = pytz.timezone('UTC')
 epoch = datetime.datetime(1970, 1, 1, tzinfo=utc_tz)
 
 
-def datetimeToEpochTime(t):
-    """Convert python datetime object to epoch time stamp.
-    By default, time.mktime converts from system's local time zone to UTC epoch.
-    Here the input is treated as PST and local time zone information is discarded.
+def datetime_to_epoch(t):
+    """
+    Convert python datetime object to epoch time stamp.
     """
     return (t - epoch).total_seconds()
 
@@ -62,7 +61,7 @@ class NetCDFTimeSeriesInterpolator(object):
             # TODO try to sniff from netCDF metadata
             data_tz = utc_tz
         time, vals = gather_nc_files(file_pattern, time_var, value_var)
-        time_offset = datetimeToEpochTime(init_date.astimezone(data_tz))
+        time_offset = datetime_to_epoch(init_date.astimezone(data_tz))
         time_sim = time - time_offset
 
         self.scalar = scalar
@@ -77,7 +76,7 @@ class NetCDFTimeSeriesInterpolator(object):
 # ----- test -----
 
 # init_date = datetime.datetime(1969, 12, 31, 16, tzinfo=sim_tz)
-# print datetimeToEpochTime(init_date)
+# print datetime_to_epoch(init_date)
 
 # sim_tz = pytz.timezone('Etc/GMT+8')
 # init_date = datetime.datetime(2016, 5, 1, tzinfo=sim_tz)
