@@ -21,8 +21,9 @@ def to_latlon(x, y):
 
 
 class TidalBoundaryForcing(object):
-    def __init__(self, tidal_field, init_time,
+    def __init__(self, tidal_field, init_date,
                  constituents=None, boundary_ids=None):
+        assert init_date.tzinfo is not None, 'init_date must have time zone information'
         if constituents is None:
             constituents = ['Q1', 'O1', 'P1', 'K1', 'N2', 'M2', 'S2', 'K2']
 
@@ -57,8 +58,7 @@ class TidalBoundaryForcing(object):
             ranges = None
 
         tide = uptide.Tides(constituents)
-        init_time_utc = init_time.astimezone(utc_tz).replace(tzinfo=None)
-        tide.set_initial_time(init_time_utc)
+        tide.set_initial_time(init_date)
         self.tnci = uptide.tidal_netcdf.FESTidalInterpolator(tide, tide_file, ranges=ranges)
         self.tidal_field = tidal_field
 
@@ -79,22 +79,30 @@ class TidalBoundaryForcing(object):
             except uptide.netcdf_reader.CoordinateError:
                 data[node] = 0.
 
-# x = 333000.
-# y = 295000.
-# print x, y, to_latlon(x, y)
 
-# import datetime
-# mesh2d = Mesh('mesh_cre-plume002.msh')
-# p1 = FunctionSpace(mesh2d, 'CG', 1)
-# m2_field = Function(p1, name='elevation')
-#
-# tbnd = TidalBoundaryForcing(m2_field, datetime.datetime(2016, 5, 1), constituents=['M2'], boundary_ids=[1, 2, 3])
-# tbnd.set_tidal_field(0.0)
-#
-# out = File('tmp/tidal_elev.pvd')
-# for t in np.linspace(0, 12*3600., 60):
-#     tbnd.set_tidal_field(t)
-#     n = norm(m2_field)
-#     if m2_field.function_space().mesh().comm.rank == 0:
-#         print n
-#     out.write(m2_field)
+def test():
+    import datetime
+    mesh2d = Mesh('mesh_cre-plume002.msh')
+    p1 = FunctionSpace(mesh2d, 'CG', 1)
+    m2_field = Function(p1, name='elevation')
+
+    timezone = pytz.timezone('Etc/GMT+8')
+    init_date = datetime.datetime(2016, 5 , 1, tzinfo=timezone)
+
+    tbnd = TidalBoundaryForcing(m2_field,
+                                init_date,
+                                constituents=['M2'],
+                                boundary_ids=[1, 2, 3])
+    tbnd.set_tidal_field(0.0)
+
+    out = File('tmp/tidal_elev.pvd')
+    for t in np.linspace(0, 12*3600., 60):
+        tbnd.set_tidal_field(t)
+        n = norm(m2_field)
+        if m2_field.function_space().mesh().comm.rank == 0:
+            print n
+        out.write(m2_field)
+
+
+if __name__ == '__main__':
+    test()
