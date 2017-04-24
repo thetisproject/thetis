@@ -4,9 +4,7 @@ import uptide.tidal_netcdf
 from firedrake import *
 import numpy as np
 import os
-import pytz
-
-utc_tz = pytz.timezone('UTC')
+from timezone import *
 
 tide_file = 'tide.fes2004.nc'
 msg = 'File {:} not found, download it from \nftp://ftp.legos.obs-mip.fr/pub/soa/maree/tide_model/global_solution/fes2004/'.format(tide_file)
@@ -86,7 +84,7 @@ def test():
     p1 = FunctionSpace(mesh2d, 'CG', 1)
     m2_field = Function(p1, name='elevation')
 
-    timezone = pytz.timezone('Etc/GMT+8')
+    timezone = FixedTimeZone(-8, 'PST')
     init_date = datetime.datetime(2016, 5 , 1, tzinfo=timezone)
 
     tbnd = TidalBoundaryForcing(m2_field,

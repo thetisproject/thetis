@@ -1,23 +1,11 @@
 """
 Implements time series interpolators that can be used as forcing terms.
 """
-import datetime
 from scipy.interpolate import interp1d
 import netCDF4
 import numpy as np
-from calendar import timegm
 import glob
-import pytz
-
-utc_tz = pytz.timezone('UTC')
-epoch = datetime.datetime(1970, 1, 1, tzinfo=utc_tz)
-
-
-def datetime_to_epoch(t):
-    """
-    Convert python datetime object to epoch time stamp.
-    """
-    return (t - epoch).total_seconds()
+from timezone import *
 
 
 def read_nc_time_series(filename, time_var, value_var):
@@ -61,7 +49,8 @@ class NetCDFTimeSeriesInterpolator(object):
             # TODO try to sniff from netCDF metadata
             data_tz = utc_tz
         time, vals = gather_nc_files(file_pattern, time_var, value_var)
-        time_offset = datetime_to_epoch(init_date.astimezone(data_tz))
+        #time_offset = datetime_to_epoch(init_date.astimezone(data_tz))
+        time_offset = datetime_to_epoch(init_date)
         time_sim = time - time_offset
 
         self.scalar = scalar
@@ -73,20 +62,26 @@ class NetCDFTimeSeriesInterpolator(object):
         """Evaluate the time series at time t."""
         return self.interpolator(t)
 
-# ----- test -----
 
-# init_date = datetime.datetime(1969, 12, 31, 16, tzinfo=sim_tz)
-# print datetime_to_epoch(init_date)
+def test():
+    sim_tz = FixedTimeZone(-8, 'PST')
+    init_date = datetime.datetime(1969, 12, 31, 16, tzinfo=sim_tz)
+    print datetime_to_epoch(datetime.datetime(1970, 1, 1, tzinfo=utc_tz)), datetime_to_epoch(init_date)
 
-# sim_tz = pytz.timezone('Etc/GMT+8')
-# init_date = datetime.datetime(2016, 5, 1, tzinfo=sim_tz)
-# t_end = 15*24*3600.
-# river_flux_interp = NetCDFTimeSeriesInterpolator(
-#     'forcings/stations/bvao3/bvao3.0.A.FLUX/*.nc',
-#     'time', 'flux', init_date, t_end, scalar=-1.0)
-# print river_flux_interp.get(0.)
-#
-# ncd = netCDF4.Dataset('forcings/stations/bvao3/bvao3.0.A.FLUX/201605.nc')
-# t = ncd['time'][:]
-# v = ncd['flux'][:]
-# print datetime.datetime.fromtimestamp(t[0], tz=sim_tz), v[0]
+    print datetime_to_epoch(datetime.datetime(2016, 5, 1, 8, tzinfo=utc_tz)), datetime_to_epoch(datetime.datetime(2016, 5, 1, tzinfo=sim_tz))
+
+    init_date = datetime.datetime(2016, 5, 1, tzinfo=sim_tz)
+    t_end = 15*24*3600.
+    river_flux_interp = NetCDFTimeSeriesInterpolator(
+        'forcings/stations/bvao3/bvao3.0.A.FLUX/*.nc',
+        'time', 'flux', init_date, t_end, scalar=-1.0)
+    print datetime_to_epoch(init_date), init_date, river_flux_interp.get(0.)
+
+    ncd = netCDF4.Dataset('forcings/stations/bvao3/bvao3.0.A.FLUX/201605.nc')
+    t = ncd['time'][:]
+    v = ncd['flux'][:]
+    print t[0], datetime.datetime.fromtimestamp(t[0], tz=utc_tz), v[0]
+
+
+if __name__ == '__main__':
+    test()

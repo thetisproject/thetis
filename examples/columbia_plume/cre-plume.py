@@ -7,7 +7,7 @@ from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_b
 from tidal_forcing import TidalBoundaryForcing
 from timeseries_forcing import NetCDFTimeSeriesInterpolator
 from diagnostics import TimeSeriesCallback2D
-import datetime
+from timezone import *
 import pytz
 comm = COMM_WORLD
 
@@ -31,7 +31,7 @@ nnodes = comm.allreduce(mesh2d.topology.num_vertices(), MPI.SUM)
 ntriangles = comm.allreduce(mesh2d.topology.num_cells(), MPI.SUM)
 nprisms = ntriangles*nlayers
 
-timezone = pytz.timezone('Etc/GMT+8')
+timezone = FixedTimeZone(-8, 'PST')
 init_date = datetime.datetime(2016, 5 , 1, tzinfo=timezone)
 
 t_end = 10*24*3600.
