@@ -134,7 +134,8 @@ solver_obj.create_function_spaces()
 
 wind_stress_3d = Function(solver_obj.function_spaces.P1v, name='wind stress')
 wind_stress_2d = Function(solver_obj.function_spaces.P1v_2d, name='wind stress')
-atm_pressure_2d = Function(solver_obj.function_spaces.P1_2d, name='wind stress')
+atm_pressure_2d = Function(solver_obj.function_spaces.P1_2d, name='atm pressure')
+options.wind_stress = wind_stress_3d
 copy_wind_stress_to_3d = ExpandFunctionTo3d(wind_stress_2d, wind_stress_3d)
 wrf_pattern = 'forcings/atm/wrf/wrf_air.2016_*_*.nc'
 wrf_atm = WRFInterpolator(
