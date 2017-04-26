@@ -210,7 +210,8 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             'coriolis': self.options.coriolis_frequency,
             'momentum_source': momentum_source_2d,
             'volume_source': self.options.volume_source_2d,
-            }
+            'atmospheric_pressure': self.options.atmospheric_pressure,
+        }
 
         if issubclass(self.integrator_2d, (rungekutta.ERKSemiImplicitGeneric)):
             self.timesteppers.swe2d = self.integrator_2d(
@@ -248,10 +249,10 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                   'coriolis': self.fields.get('coriolis_3d'),
                   }
         friction_fields = {
-                  'linear_drag_coefficient': self.options.linear_drag_coefficient,
-                  'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
-                  'wind_stress': self.fields.get('wind_stress_3d'),
-                  }
+            'linear_drag_coefficient': self.options.linear_drag_coefficient,
+            'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
+            'wind_stress': self.fields.get('wind_stress_3d'),
+        }
         if not self.solver.options.solve_vert_diffusion:
             fields.update(friction_fields)
         self.timesteppers.mom_expl = self.integrator_3d(
