@@ -250,6 +250,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         friction_fields = {
                   'linear_drag_coefficient': self.options.linear_drag_coefficient,
                   'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
+                  'wind_stress': self.fields.get('wind_stress_3d'),
                   }
         if not self.solver.options.solve_vert_diffusion:
             fields.update(friction_fields)
@@ -259,7 +260,6 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
         if self.solver.options.use_implicit_vertical_diffusion:
             fields = {'viscosity_v': impl_v_visc,
-                      'wind_stress': self.fields.get('wind_stress_3d'),
                       'uv_depth_av': self.fields.get('uv_dav_3d'),
                       }
             fields.update(friction_fields)
