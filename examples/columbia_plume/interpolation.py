@@ -2,11 +2,13 @@
 Methods for data interpolation
 """
 import glob
+import os
 from timezone import *
 import numpy as np
 import scipy.spatial.qhull as qhull
 import netCDF4
-
+from abc import abstractmethod
+from firedrake import *
 
 class GridInterpolator(object):
     """
@@ -42,7 +44,7 @@ class TimeSearch(object):
     """
     Abstract base class for searching nearest time steps from a database
     """
-    #@abstract_property
+    @abstractmethod
     def find(self, time, previous=False):
         """
         Find a next (previous) time stamp from a given time
@@ -191,19 +193,66 @@ class NetCDFTime(object):
         return itime
 
 
-class DBReader(object):
+class FileTreeReader(object):
     """
     Abstract base class of file tree reader object
     """
+    @abstractmethod
     def __call__(self, descriptor, time_index):
         """
         Reads a time_index from the data base
 
         :arg str descriptor: a descriptor where to find the data (e.g. filename)
         :arg int time_index: time index to read
-        :return: a float or numpy.array_like value
+        :return: a list of floats or numpy.array_like objects
         """
         pass
+
+
+class NetCDFReader(FileTreeReader):
+    """
+    A simple netCDF reader that returns a time slice of the given variable.
+    """
+    def __init__(self, variable_list, time_variable_name='time'):
+        self.variable_list = variable_list
+        self.time_variable_name = time_variable_name
+        self.time_dim = None
+        self.ndims = None
+
+    def _detect_time_dim(self, ncfile):
+        assert self.time_variable_name in ncfile.dimensions
+        nc_var = ncfile[self.variable_list[0]]
+        assert self.time_variable_name in nc_var.dimensions
+        self.time_dim = nc_var.dimensions.index('time')
+        self.ndims = len(nc_var.dimensions)
+
+    def _get_slice(self, time_index):
+        """
+        Returns a slice object that extracts a single time index
+        """
+        if self.ndims == 1:
+            return time_index
+        slice_list = [slice(None, None, None)]*self.ndims
+        slice_list[self.time_dim] = slice(time_index, time_index+1, None)
+        return slice
+
+    def __call__(self, filename, time_index):
+        """
+        Reads a time_index from the data base
+
+        :arg str filename: netcdf file where to find the data
+        :arg int time_index: time index to read
+        :return: a float or numpy.array_like value
+        """
+        assert os.path.isfile(filename), 'File not found: {:}'.format(filename)
+        with netCDF4.Dataset(filename) as ncfile:
+            if self.time_dim is None:
+                self._detect_time_dim(ncfile)
+            output = []
+            for var in self.variable_list:
+                values = ncfile[var][self._get_slice(time_index)]
+                output.append(values)
+            return output
 
 
 class LinearTimeInterpolator(object):
@@ -217,7 +266,7 @@ class LinearTimeInterpolator(object):
     def __init__(self, timesearch_obj, reader):
         """
         :arg timesearch_obj: TimeSearch object
-        :arg reader: DBReader object
+        :arg reader: FileTreeReader object
         """
         self.timesearch = timesearch_obj
         self.reader = reader
@@ -257,5 +306,102 @@ class LinearTimeInterpolator(object):
         TOL = 1e-6
         assert alpha + TOL >= 0.0 and alpha <= 1.0 + TOL, \
             'Value {:} out of range {:} .. {:}'.format(t, t_prev, t_next)
-        val = (1 - alpha)*prev + alpha*next
+
+        val = [(1.0 - alpha)*p + alpha*n for p, n in zip(prev, next)]
         return val
+
+
+class NetCDFSpatialInterpolator(FileTreeReader):
+    """
+    Wrapper class that provides FileTreeReader API for grid interpolators
+    """
+    def __init__(self, grid_interpolator, variable_list):
+        self.grid_interpolator = grid_interpolator
+        self.variable_list = variable_list
+
+    def __call__(self, filename, time_index):
+        return self.grid_interpolator.interpolate(filename, self.variable_list, time_index)
+
+
+class NetCDFLatLonInterpolator2d(object):
+    """
+    Interpolates netCDF data on local 2D unstructured mesh
+    """
+    def __init__(self, function_space, to_latlon):
+        """
+        :arg function_space: target Firedrake FunctionSpace
+        :arg to_latlon: Python function that converts local mesh coordinates to
+            latitude and longitude: 'lat, lon = to_latlon(x, y)'
+        """
+        self.function_space = function_space
+
+        # construct local coordinates
+        xy = SpatialCoordinate(self.function_space.mesh())
+        fsx = Function(self.function_space).interpolate(xy[0]).dat.data_with_halos
+        fsy = Function(self.function_space).interpolate(xy[1]).dat.data_with_halos
+
+        mesh_lonlat = []
+        for node in range(len(fsx)):
+            lat, lon = to_latlon(fsx[node], fsy[node])
+            mesh_lonlat.append((lon, lat))
+        self.mesh_lonlat = np.array(mesh_lonlat)
+
+        self._initialized = False
+
+    def _get_subset_nodes(self, grid_x, grid_y, target_x, target_y):
+        """
+        Retuns grid nodes that are necessary for intepolating onto target_x,y
+        """
+        orig_shape = grid_x.shape
+        grid_xy = np.array((grid_x.ravel(), grid_y.ravel())).T
+        target_xy = np.array((target_x.ravel(), target_y.ravel())).T
+        tri = qhull.Delaunay(grid_xy)
+        simplex = tri.find_simplex(target_xy)
+        vertices = np.take(tri.simplices, simplex, axis=0)
+        nodes = np.unique(vertices.ravel())
+        nodes_x, nodes_y = np.unravel_index(nodes, orig_shape)
+
+        # x and y bounds for reading a subset of the netcdf data
+        ind_x = np.arange(nodes_x.min(), nodes_x.max() + 1)
+        ind_y = np.arange(nodes_y.min(), nodes_y.max() + 1)
+
+        return nodes, ind_x, ind_y
+
+    def _create_interpolator(self, ncfile):
+        # create grid interpolator
+        grid_lat_full = ncfile['lat'][:]
+        grid_lon_full = ncfile['lon'][:]
+
+
+        self.nodes, self.ind_lon, self.ind_lat = self._get_subset_nodes(
+            grid_lon_full,
+            grid_lat_full,
+            self.mesh_lonlat[:, 0],
+            self.mesh_lonlat[:, 1]
+        )
+
+        grid_lat = ncfile['lat'][self.ind_lon, self.ind_lat].ravel()
+        grid_lon = ncfile['lon'][self.ind_lon, self.ind_lat].ravel()
+        grid_lonlat = np.array((grid_lon, grid_lat)).T
+        self.interpolator = GridInterpolator(grid_lonlat, self.mesh_lonlat)
+        self._initialized = True
+
+        # debug: plot subsets
+        # import matplotlib.pyplot as plt
+        # plt.plot(grid_lon_full, grid_lat_full, 'k.')
+        # plt.plot(grid_lonlat[:, 0], grid_lonlat[:, 1], 'b.')
+        # plt.plot(self.mesh_lonlat[:, 0], self.mesh_lonlat[:, 1], 'r.')
+        # plt.show()
+
+    def interpolate(self, nc_filename, variable_list, itime):
+        with netCDF4.Dataset(nc_filename, 'r') as ncfile:
+            if not self._initialized:
+                self._create_interpolator(ncfile)
+            output = []
+            for var in variable_list:
+                assert var in ncfile.variables
+                # TODO generalize data dimensions, sniff from netcdf file
+                grid_data = ncfile[var][itime, self.ind_lon, self.ind_lat].ravel()
+                data = self.interpolator(grid_data)
+                output.append(data)
+            return output

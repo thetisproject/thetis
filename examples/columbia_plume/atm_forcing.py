@@ -40,132 +40,18 @@ def to_latlon(x, y, positive_lon=False):
 
 def compute_wind_stress(wind_u, wind_v):
     wind_mag = np.hypot(wind_u, wind_v)
-    if wind_mag < 11.0:
-        C_D = 1.2e-3
-    else:
-        C_D = 10e-3*(0.49 + 0.065*wind_mag)
+    CD_LOW = 1.2e-3
+    C_D = np.ones_like(wind_u)*CD_LOW
+    high_wind = wind_mag > 11.0
+    C_D[high_wind] = 10e-3*(0.49 + 0.065*wind_mag[high_wind])
+    #if wind_mag < 11.0:
+        #C_D = 1.2e-3
+    #else:
+        #C_D = 10e-3*(0.49 + 0.065*wind_mag)
     tau = C_D*rho_air*wind_mag
     tau_x = tau*wind_u
     tau_y = tau*wind_v
     return tau_x, tau_y
-
-
-
-
-class WindStressForcing(object):
-    def __init__(self, wind_stress_field, init_date):
-
-        self.wind_stress_field = wind_stress_field
-
-        # determine nodes at the boundary
-        fs = self.wind_stress_field.function_space()
-        self.nodes = np.arange(self.wind_stress_field.dat.data_with_halos.shape[0])
-
-        xy = SpatialCoordinate(fs.mesh())
-        fsx = Function(fs).interpolate(xy[0]).dat.data_with_halos
-        fsy = Function(fs).interpolate(xy[1]).dat.data_with_halos
-
-        # compute lat lon bounds for each process
-        if len(self.nodes) > 0:
-            bounds_x = [fsx[self.nodes].min(), fsx[self.nodes].max()]
-            bounds_y = [fsy[self.nodes].min(), fsy[self.nodes].max()]
-            bounds_lat = [1e20, -1e20]
-            bounds_lon = [1e20, -1e20]
-            for x in bounds_x:
-                for y in bounds_y:
-                    atm_lat, atm_lon = to_latlon(x, y)
-                    bounds_lat[0] = min(bounds_lat[0], atm_lat)
-                    bounds_lat[1] = max(bounds_lat[1], atm_lat)
-                    bounds_lon[0] = min(bounds_lon[0], atm_lon)
-                    bounds_lon[1] = max(bounds_lon[1], atm_lon)
-
-            ranges = (bounds_lat, bounds_lon)
-        else:
-            ranges = None
-
-        mesh_lonlat = []
-        for node in self.nodes:
-            lat, lon = to_latlon(fsx[node], fsy[node])
-            mesh_lonlat.append((lon, lat))
-        mesh_lonlat = np.array(mesh_lonlat)
-
-        # get and example file FIXME
-        nc_atm_file = 'forcings/atm/wrf/wrf_air.2016_05_01.nc'
-        itime = 0
-
-
-        # create grid interpolator
-        d = netCDF4.Dataset(nc_atm_file)
-        atm_shape = d['lat'].shape
-        atm_lat = d['lat'][:]
-        atm_lon = d['lon'][:]
-        #atm_lonlat_orig = np.array((atm_lon.ravel(), atm_lat.ravel())).T
-
-        def get_subset_nodes(grid_x, grid_y, target_x, target_y):
-            """
-            Retuns grid nodes that are necessary for intepolating onto target_xyz
-            """
-            orig_shape = grid_x.shape
-            grid_xy = np.array((grid_x.ravel(), grid_y.ravel())).T
-            target_xy = np.array((target_x.ravel(), target_y.ravel())).T
-            tri = qhull.Delaunay(grid_xy)
-            simplex = tri.find_simplex(target_xy)
-            vertices = np.take(tri.simplices, simplex, axis=0)
-            nodes = np.unique(vertices.ravel())
-            nodes_x, nodes_y = np.unravel_index(nodes, orig_shape)
-
-            # x and y bounds for reading a subset of the netcdf data
-            ind_x = np.arange(nodes_x.min(), nodes_x.max() + 1)
-            ind_y = np.arange(nodes_y.min(), nodes_y.max() + 1)
-
-            return nodes, ind_x, ind_y
-
-        self.nodes, self.ind_x, self.ind_y = get_subset_nodes(atm_lon, atm_lat, mesh_lonlat[:, 0], mesh_lonlat[:, 1])
-
-        atm_lat = d['lat'][self.ind_x, self.ind_y].ravel()
-        atm_lon = d['lon'][self.ind_x, self.ind_y].ravel()
-        atm_lonlat = np.array((atm_lon, atm_lat)).T
-        self.interpolator = GridInterpolator(atm_lonlat, mesh_lonlat)
-
-        #import matplotlib.pyplot as plt
-        #plt.plot(atm_lonlat_orig[:, 0], atm_lonlat_orig[:, 1], 'k.')
-        #plt.plot(atm_lonlat[:, 0], atm_lonlat[:, 1], 'b.')
-        #plt.plot(lonlat[:, 0], lonlat[:, 1], 'r.')
-        #plt.show()
-
-
-        #atm_val = d['uwind'][itime, self.ind_x, self.ind_y].ravel()
-        #import time
-        #t0 = time.clock()
-        #vals = scipy.interpolate.griddata(atm_lonlat, atm_val, lonlat, method='linear')
-        #print 'duration', time.clock() - t0
-        #t0 = time.clock()
-        #self.interpolator = GridInterpolator(atm_lonlat, lonlat)
-        #print 'duration', time.clock() - t0
-        #t0 = time.clock()
-        #vals2 = self.interpolator(atm_val)
-        #print 'duration', time.clock() - t0
-        #print np.allclose(vals, vals2)
-
-        wind_u = self.interpolator(d['uwind'][itime, self.ind_x, self.ind_y].ravel())
-        # TODO add coordsys vector rotation
-
-    def set_tidal_field(self, t):
-        pass
-        # given time t
-        # figure out the file and time index for previous time stamp
-        # read values from netcdf
-        # interpolate on mesh
-        # store field in cache, prev_vals
-        # repeat same procedure for the next time stamp
-        # invoke temporal interpolator to evaluate field at time t
-
-        # TODO needed:
-        # - class that gets the files and time steps, prev or next
-        #   - returns fn, itime, time
-        # - time interpolator object for each field
-        #   - stores previous values, does time interp
-        #   - uses self.interpolator
 
 
 class WRFNetCDFTime(NetCDFTime):
@@ -178,31 +64,92 @@ class WRFNetCDFTime(NetCDFTime):
         self.ntimesteps = 24
 
 
+class WRFInterpolator(object):
+    """
+    Interpolates WRF atmospheric model data on 2D fields
+    """
+    def __init__(self, function_space, wind_stress_field,
+                 atm_pressure_field, ncfile_pattern, init_date, to_latlon):
+        self.function_space = function_space
+        self.wind_stress_field = wind_stress_field
+        self.atm_pressure_field = atm_pressure_field
+
+        # construct interpolators
+        self.grid_interpolator = NetCDFLatLonInterpolator2d(self.function_space, to_latlon)
+        self.reader = NetCDFSpatialInterpolator(self.grid_interpolator, ['uwind', 'vwind', 'prmsl'])
+        self.timesearch_obj = NetCDFTimeSearch(ncfile_pattern, init_date, WRFNetCDFTime)
+        self.interpolator = LinearTimeInterpolator(self.timesearch_obj, self.reader)
+
+    def set_fields(self, time):
+        """
+        Evaluates forcing fields at the given time
+        """
+        uwind, vwind, prmsl = self.interpolator(time)
+        u_stress, v_stress = compute_wind_stress(uwind, vwind)
+        self.wind_stress_field.dat.data_with_halos[:, 0] = u_stress
+        self.wind_stress_field.dat.data_with_halos[:, 1] = v_stress
+        self.atm_pressure_field.dat.data_with_halos[:] = prmsl
+
+
 def test():
-    #timezone = FixedTimeZone(-8, 'PST')
-    timezone = pytz.timezone('UTC')
+    mesh2d = Mesh('mesh_cre-plume002.msh')
+    comm = mesh2d.comm
+    p1 = FunctionSpace(mesh2d, 'CG', 1)
+    p1v = VectorFunctionSpace(mesh2d, 'CG', 1)
+    windstress_2d = Function(p1v, name='wind stress')
+    atmpressure_2d = Function(p1, name='atm pressure')
+
+    timezone = FixedTimeZone(-8, 'PST')
     init_date = datetime.datetime(2016, 5 , 1, tzinfo=timezone)
-
     pattern = 'forcings/atm/wrf/wrf_air.2016_*_*.nc'
-    nts = NetCDFTimeSearch(pattern, init_date, WRFNetCDFTime)
 
-    print nts.find(3600.0, previous=True)
-    print nts.find(3600.0, previous=False)
+    wrf = WRFInterpolator(p1, windstress_2d, atmpressure_2d, pattern, init_date, to_latlon)
 
+    # create a naive interpolation for first file
+    xy = SpatialCoordinate(p1.mesh())
+    fsx = Function(p1).interpolate(xy[0]).dat.data_with_halos
+    fsy = Function(p1).interpolate(xy[1]).dat.data_with_halos
+
+    mesh_lonlat = []
+    for node in range(len(fsx)):
+        lat, lon = to_latlon(fsx[node], fsy[node])
+        mesh_lonlat.append((lon, lat))
+    mesh_lonlat = np.array(mesh_lonlat)
+
+    ncfile = netCDF4.Dataset('forcings/atm/wrf/wrf_air.2016_05_01.nc')
+    itime = 10
+    grid_lat = ncfile['lat'][:].ravel()
+    grid_lon = ncfile['lon'][:].ravel()
+    grid_lonlat = np.array((grid_lon, grid_lat)).T
+    grid_pres = ncfile['prmsl'][itime, :, :].ravel()
+    pres = scipy.interpolate.griddata(grid_lonlat, grid_pres, mesh_lonlat, method='linear')
+    grid_uwind = ncfile['uwind'][itime, :, :].ravel()
+    uwind = scipy.interpolate.griddata(grid_lonlat, grid_uwind, mesh_lonlat, method='linear')
+    grid_vwind = ncfile['vwind'][itime, :, :].ravel()
+    vwind = scipy.interpolate.griddata(grid_lonlat, grid_vwind, mesh_lonlat, method='linear')
+    u_stress, v_stress = compute_wind_stress(uwind, vwind)
+
+    # compare
+    wrf.set_fields((itime - 8)*3600.)  # NOTE timezone offset
+    assert np.allclose(pres, atmpressure_2d.dat.data_with_halos)
+    assert np.allclose(u_stress, windstress_2d.dat.data_with_halos[:, 0])
+
+    # write fields to disk for visualization
+    out_pres = File('tmp/atm_pressure.pvd')
+    out_wind = File('tmp/wind_stress.pvd')
     hours = 24*3
     granule = 4
     simtime = np.arange(granule*hours)*3600./granule
+    i = 0
     for t in simtime:
-        print t, nts.simulation_time_to_datetime(t)
-        print nts.find(t, previous=True)
-        print nts.find(t, previous=False)
-
-    #import datetime
-    #mesh2d = Mesh('mesh_cre-plume002.msh')
-    #p1 = FunctionSpace(mesh2d, 'CG', 1)
-    #m2_field = Function(p1, name='elevation')
-
-    #wsf = WindStressForcing(m2_field, datetime.datetime(2016, 5, 1))
+        wrf.set_fields(t)
+        norm_atm = norm(atmpressure_2d)
+        norm_wind = norm(windstress_2d)
+        if comm.rank == 0:
+            print('{:} {:} {:} {:}'.format(i, t, norm_atm, norm_wind))
+        out_pres.write(atmpressure_2d)
+        out_wind.write(windstress_2d)
+        i += 1
 
 
 if __name__ == '__main__':
