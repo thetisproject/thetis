@@ -207,15 +207,10 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         if self.options.momentum_source_2d is not None:
             momentum_source_2d = solver.fields.split_residual_2d + self.options.momentum_source_2d
         fields = {
-            'uv_bottom': solver.fields.get('uv_bottom_2d'),
-            'bottom_drag': solver.fields.get('bottom_drag_2d'),
-            'viscosity_h': self.options.horizontal_viscosity,  # FIXME should be total h visc
-            'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
             'coriolis': self.options.coriolis_frequency,
-            'wind_stress': self.options.wind_stress,
             'momentum_source': momentum_source_2d,
             'volume_source': self.options.volume_source_2d,
-            'linear_drag_coefficient': self.options.linear_drag_coefficient}
+            }
 
         if issubclass(self.integrator_2d, (rungekutta.ERKSemiImplicitGeneric)):
             self.timesteppers.swe2d = self.integrator_2d(
