@@ -69,7 +69,7 @@ class WRFInterpolator(object):
     Interpolates WRF atmospheric model data on 2D fields
     """
     def __init__(self, function_space, wind_stress_field,
-                 atm_pressure_field, ncfile_pattern, init_date, to_latlon):
+                 atm_pressure_field, ncfile_pattern, init_date):
         self.function_space = function_space
         self.wind_stress_field = wind_stress_field
         self.atm_pressure_field = atm_pressure_field
@@ -103,7 +103,7 @@ def test():
     init_date = datetime.datetime(2016, 5 , 1, tzinfo=timezone)
     pattern = 'forcings/atm/wrf/wrf_air.2016_*_*.nc'
 
-    wrf = WRFInterpolator(p1, windstress_2d, atmpressure_2d, pattern, init_date, to_latlon)
+    wrf = WRFInterpolator(p1, windstress_2d, atmpressure_2d, pattern, init_date)
 
     # create a naive interpolation for first file
     xy = SpatialCoordinate(p1.mesh())

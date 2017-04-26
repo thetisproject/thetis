@@ -8,6 +8,7 @@ from tidal_forcing import TidalBoundaryForcing
 from timeseries_forcing import NetCDFTimeSeriesInterpolator
 from diagnostics import TimeSeriesCallback2D
 from timezone import *
+from atm_forcing import *
 import pytz
 comm = COMM_WORLD
 
@@ -131,6 +132,15 @@ options.pacanowski_options['max_viscosity'] = 0.05
 
 solver_obj.create_function_spaces()
 
+wind_stress_3d = Function(solver_obj.function_spaces.P1v, name='wind stress')
+wind_stress_2d = Function(solver_obj.function_spaces.P1v_2d, name='wind stress')
+atm_pressure_2d = Function(solver_obj.function_spaces.P1_2d, name='wind stress')
+copy_wind_stress_to_3d = ExpandFunctionTo3d(wind_stress_2d, wind_stress_3d)
+wrf_pattern = 'forcings/atm/wrf/wrf_air.2016_*_*.nc'
+wrf_atm = WRFInterpolator(
+    solver_obj.function_spaces.P1_2d,
+    wind_stress_2d, atm_pressure_2d, wrf_pattern, init_date)
+
 xyz = SpatialCoordinate(solver_obj.mesh)
 # vertical stratification in the ocean
 river_blend = (1 + tanh((xyz[0] - 350e3)/2000.))/2  # 1 in river, 0 in ocean
@@ -240,6 +250,8 @@ def update_forcings(t):
     bnd_time.assign(t)
     bnd_elev_updater.set_tidal_field(t)
     river_flux_const.assign(river_flux_interp.get(t))
+    wrf_atm.set_fields(t)
+    copy_wind_stress_to_3d.solve()
 
 
 solver_obj.iterate(update_forcings=update_forcings, export_func=show_uv_mag)

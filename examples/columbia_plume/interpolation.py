@@ -71,7 +71,6 @@ class NetCDFTimeSearch(TimeSearch):
         dates = []
         ncfiles = []
         for fn in all_files:
-            print('Reading {:}'.format(fn))
             nc = self.netcdf_class(fn)
             ncfiles.append(nc)
             dates.append(nc.get_start_time())
