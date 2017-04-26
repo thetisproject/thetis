@@ -1,6 +1,13 @@
 """
 Columbia river plume simulation
 ===============================
+
+requirements:
+netCDF4
+pyproj
+scipy
+uptide
+
 """
 from thetis import *
 from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_bnd
@@ -142,6 +149,7 @@ wrf_pattern = 'forcings/atm/wrf/wrf_air.2016_*_*.nc'
 wrf_atm = WRFInterpolator(
     solver_obj.function_spaces.P1_2d,
     wind_stress_2d, atm_pressure_2d, wrf_pattern, init_date)
+wrf_atm.set_fields(0.0)
 
 xyz = SpatialCoordinate(solver_obj.mesh)
 # vertical stratification in the ocean
@@ -241,11 +249,11 @@ print_output('Exporting to {:}'.format(outputdir))
 solver_obj.assign_initial_conditions(salt=salt_init_3d, temp=temp_init_3d)
 
 
-def show_uv_mag():
-    uv = solver_obj.fields.uv_3d.dat.data
-    print_output('uv: {:9.2e} .. {:9.2e}'.format(uv.min(), uv.max()))
-    ipg = solver_obj.fields.int_pg_3d.dat.data
-    print_output('int pg: {:9.2e} .. {:9.2e}'.format(ipg.min(), ipg.max()))
+# def show_uv_mag():
+#     uv = solver_obj.fields.uv_3d.dat.data
+#     print_output('uv: {:9.2e} .. {:9.2e}'.format(uv.min(), uv.max()))
+#     ipg = solver_obj.fields.int_pg_3d.dat.data
+#     print_output('int pg: {:9.2e} .. {:9.2e}'.format(ipg.min(), ipg.max()))
 
 
 def update_forcings(t):
@@ -255,5 +263,12 @@ def update_forcings(t):
     wrf_atm.set_fields(t)
     copy_wind_stress_to_3d.solve()
 
+out_atm_pressure = File(options.outputdir + '/AtmPressure2d.pvd')
+out_wind_stress = File(options.outputdir + '/WindStress2d.pvd')
 
-solver_obj.iterate(update_forcings=update_forcings, export_func=show_uv_mag)
+
+def export_atm_fields():
+    out_atm_pressure.write(atm_pressure_2d)
+    out_wind_stress.write(wind_stress_2d)
+
+solver_obj.iterate(update_forcings=update_forcings, export_func=export_atm_fields)
