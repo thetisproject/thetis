@@ -537,9 +537,10 @@ class FlowSolver(FrozenClass):
                 ExpandFunctionTo3d(self.options.coriolis_frequency, self.fields.coriolis_3d).solve()
         if self.options.wind_stress is not None:
             if isinstance(self.options.wind_stress, FiredrakeFunction):
+                assert self.options.wind_stress.function_space().mesh().geometric_dimension() == 3, \
+                    'wind stress field must be a 3D function'
                 # assume 2d function and expand to 3d
-                self.fields.wind_stress_3d = Function(self.function_spaces.P1)
-                ExpandFunctionTo3d(self.options.wind_stress, self.fields.wind_stress_3d).solve()
+                self.fields.wind_stress_3d = self.options.wind_stress
             elif isinstance(self.options.wind_stress, FiredrakeConstant):
                 self.fields.wind_stress_3d = self.options.wind_stress
             else:
