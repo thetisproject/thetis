@@ -39,15 +39,16 @@ def to_latlon(x, y, positive_lon=False):
 
 
 def compute_wind_stress(wind_u, wind_v):
+    """
+    Wind stress formulation by Large and Pond (1981).
+
+    Large and Pond (1981), J. Phys. Oceanog., 11, 324-336.
+    """
     wind_mag = np.hypot(wind_u, wind_v)
     CD_LOW = 1.2e-3
     C_D = np.ones_like(wind_u)*CD_LOW
     high_wind = wind_mag > 11.0
-    C_D[high_wind] = 10e-3*(0.49 + 0.065*wind_mag[high_wind])
-    #if wind_mag < 11.0:
-        #C_D = 1.2e-3
-    #else:
-        #C_D = 10e-3*(0.49 + 0.065*wind_mag)
+    C_D[high_wind] = 1.0e-3*(0.49 + 0.065*wind_mag[high_wind])
     tau = C_D*rho_air*wind_mag
     tau_x = tau*wind_u
     tau_y = tau*wind_v
