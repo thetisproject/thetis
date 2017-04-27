@@ -1,72 +1,97 @@
 # Atmospheric pressure test case
-# Constant pressure gradient applied at surface
-# Result compared to analytic solution
-
+#
+# Flow in a rectangular channel is forced by a spatially sinusoidal atmospheric
+# pressure gradient until the solution reaches a steady state, in which the
+# pressure gradient is balanced by the elevation gradient.
+#
+# The elevation is compared to an analytic solution derived from the balance of
+# pressure and elevation gradients.
+#
+# A high bottom friction coefficient is used to suppress oscillations and reach
+# the steady state quickly.
+#
 from thetis import *
 import pytest
 import numpy as np
 
 
-@pytest.mark.parametrize("nx,dt,max_rel_err", [(10, 1200, 2e-6)])
-def test_pressure_forcing(nx, dt, max_rel_err):
-    lx = 21000
-    ly = 5000
+@pytest.mark.parametrize("element_family", [
+    'dg-dg', 'rt-dg', 'dg-cg', ])
+@pytest.mark.parametrize("timestepper", [
+    'cranknicolson', ])
+def test_pressure_forcing(element_family, timestepper):
+    order = 1
 
-    mesh2d = RectangleMesh(nx, 1, lx, ly)
+    lx = 10000
+    ly = 10000
+    area = lx*ly
 
-    # Simulation time
-    t_end = 4*24*3600.
-
-    # bathymetry
-    P1 = FunctionSpace(mesh2d, "DG", 1)
-    bathymetry = Function(P1, name='bathymetry')
-    x = SpatialCoordinate(mesh2d)
-    bathymetry.interpolate(Constant(5.0))
-
-    # bottom drag
-    mu_manning = Constant(2.0)
-
-    # atmospheric pressure
-    atmospheric_pressure = Function(P1, name='atmospheric_pressure')
-    atmospheric_pressure.interpolate(x[0])
-
-    # --- create solver ---
-    solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry)
-    options = solverObj.options
-    options.dt = dt
-    options.t_export = options.dt
-    options.t_end = t_end - 0.1*options.dt
-    solverObj.options.no_exports = True
-    options.check_vol_conservation_2d = True
-    options.fields_to_export = ['uv_2d', 'elev_2d']
-    options.timestepper_type = 'cranknicolson'
-    options.shallow_water_theta = 0.5
-    options.mu_manning = mu_manning
-    options.atmospheric_pressure = atmospheric_pressure
-    options.solver_parameters_sw = {
-        'snes_type': 'newtonls',
-        'snes_monitor': False,
-        'ksp_type': 'gmres',
-        'pc_type': 'fieldsplit',
-    }
-
-    solverObj.assign_initial_conditions(uv=Constant((1e-7, 0.)))
-
-    solverObj.iterate()
-
-    eta = solverObj.fields.elev_2d
-
-    analytic = Function(P1, name='analytic')
+    # Test case parameters
     rho0 = physical_constants['rho0']
     g = physical_constants['g_grav']
-    analytic.interpolate(-(x[0]-lx/2)/(rho0*g))
+    A = 2.0
+    mu_manning = Constant(1.0)
 
-    area = lx*ly
-    rel_err = errornorm(analytic, eta)/np.sqrt(area)
-    print_output(rel_err)
-    assert(rel_err < max_rel_err)
+    # Simulation time
+    t_end = 1.5*24*3600.
+
+    eta_errs = []
+
+    n_tests = 3
+    ns = [2.0**(i+1) for i in range(n_tests)]
+    dts = [2400.0/(2**i) for i in range(n_tests)]
+
+    for i in range(n_tests):
+        nx = ns[i]
+        ny = ns[i]
+        dt = dts[i]
+        mesh2d = RectangleMesh(nx, ny, lx, ly)
+        x = SpatialCoordinate(mesh2d)
+
+        atmos_pressure_expr = -rho0*g*A*cos(pi*x[0]/lx)*cos(pi*x[1]/ly)
+        eta_expr = A*cos(pi*x[0]/lx)*cos(pi*x[1]/ly)
+
+        # bathymetry
+        P1 = FunctionSpace(mesh2d, "DG", 1)
+        bathymetry = Function(P1, name='bathymetry')
+        bathymetry.interpolate(Constant(5.0))
+
+        # atmospheric pressure
+        atmospheric_pressure = Function(P1, name='atmospheric_pressure')
+        atmospheric_pressure.interpolate(atmos_pressure_expr)
+
+        # --- create solver ---
+        solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry)
+        solverObj.options.order = order
+        solverObj.options.timestepper_type = timestepper
+        solverObj.options.element_family = element_family
+        solverObj.options.dt = dt
+        solverObj.options.t_export = dt
+        solverObj.options.t_end = t_end
+        solverObj.options.no_exports = True
+        solverObj.options.fields_to_export = ['uv_2d', 'elev_2d']
+        solverObj.options.shallow_water_theta = 0.5
+        solverObj.options.mu_manning = mu_manning
+        solverObj.options.atmospheric_pressure = atmospheric_pressure
+        solverObj.options.solver_parameters_sw = {
+            'snes_type': 'newtonls',
+            'snes_monitor': False,
+            'ksp_type': 'gmres',
+            'pc_type': 'fieldsplit',
+        }
+
+        solverObj.assign_initial_conditions(uv=Constant((1e-7, 0.)))
+        solverObj.iterate()
+
+        uv, eta = solverObj.fields.solution_2d.split()
+        eta_ana = project(eta_expr, solverObj.function_spaces.H_2d)
+        eta_errs.append(errornorm(eta_ana, eta)/np.sqrt(area))
+
+    eta_errs = np.array(eta_errs)
+    expected_order = order + 1
+    assert(all(eta_errs[:-1]/eta_errs[1:] > 2.**expected_order*0.75))
+    assert(eta_errs[0]/eta_errs[-1] > (2.**expected_order)**(len(eta_errs)-1)*0.75)
     print_output("PASSED")
 
-
 if __name__ == '__main__':
-    test_pressure_forcing(10, 1200, 2e-6)
+    test_pressure_forcing(el_fam='dg-dg', timestepper='cranknicolson')
