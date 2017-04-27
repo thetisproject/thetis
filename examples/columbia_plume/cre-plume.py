@@ -188,8 +188,8 @@ bnd_elev_updater = TidalBoundaryForcing(
     boundary_ids=[north_bnd_id, west_bnd_id, south_bnd_id])
 river_flux_interp = NetCDFTimeSeriesInterpolator(
     'forcings/stations/bvao3/bvao3.0.A.FLUX/*.nc',
-    'time', 'flux', init_date, t_end, scalar=-1.0)
-river_flux_const = Constant(river_flux_interp.get(0))
+    'time', 'flux', init_date, scalar=-1.0)
+river_flux_const = Constant(river_flux_interp(0))
 
 river_swe_funcs = {'flux': river_flux_const}
 tide_elev_funcs = {'elev': elev_bnd_expr}
@@ -259,7 +259,7 @@ solver_obj.assign_initial_conditions(salt=salt_init_3d, temp=temp_init_3d)
 def update_forcings(t):
     bnd_time.assign(t)
     bnd_elev_updater.set_tidal_field(t)
-    river_flux_const.assign(river_flux_interp.get(t))
+    river_flux_const.assign(river_flux_interp(t))
     wrf_atm.set_fields(t)
     copy_wind_stress_to_3d.solve()
 

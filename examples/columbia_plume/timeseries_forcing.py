@@ -10,8 +10,8 @@ from timezone import *
 
 def read_nc_time_series(filename, time_var, value_var):
     ncd = netCDF4.Dataset(filename)
-    time = ncd['time'][:]
-    vals = ncd['flux'][:]
+    time = ncd[time_var][:]
+    vals = ncd[value_var][:]
     return time, vals
 
 
@@ -32,7 +32,7 @@ class NetCDFTimeSeriesInterpolator(object):
     """
     Time series interpolator that reads the data from a sequence of netCDF files.
     """
-    def __init__(self, file_pattern, time_var, value_var, init_date, t_end,
+    def __init__(self, file_pattern, time_var, value_var, init_date,
                  scalar=1.0, data_tz=None):
         """
         :arg string file_pattern: where to look for netCDF file(s), e.g.
@@ -40,7 +40,6 @@ class NetCDFTimeSeriesInterpolator(object):
         :arg string time_var: name of the time variable in the netCDF file
         :arg string value_var: name of the value variable in the netCDF file
         :arg datetime init_date: simulation start time
-        :arg float t_end: simulation duration in seconds
         :kwarg float scalar: value will be scaled by this value (default: 1.0)
         """
         assert init_date.tzinfo is not None, 'init_date must have time zone information'
@@ -51,16 +50,26 @@ class NetCDFTimeSeriesInterpolator(object):
         time, vals = gather_nc_files(file_pattern, time_var, value_var)
         #time_offset = datetime_to_epoch(init_date.astimezone(data_tz))
         time_offset = datetime_to_epoch(init_date)
-        time_sim = time - time_offset
+        self.time_sim = time - time_offset
 
         self.scalar = scalar
-        vals = self.scalar*vals
+        self.values = self.scalar*vals
 
-        self.interpolator = interp1d(time_sim, vals)
+        self.interpolator = interp1d(self.time_sim, self.values)
 
-    def get(self, t):
+    def __call__(self, t):
         """Evaluate the time series at time t."""
         return self.interpolator(t)
+
+    def get_raw_data(self):
+        """
+        Returns the time series as read from the netCDF files.
+
+        Time is seconds since init_date. Values have been scaled by scalar.
+
+        :returns: (time, values) tuple of numpy arrays
+        """
+        return self.time_sim, self.values
 
 
 def test():
