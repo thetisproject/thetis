@@ -80,13 +80,17 @@ class WRFInterpolator(object):
         self.reader = NetCDFSpatialInterpolator(self.grid_interpolator, ['uwind', 'vwind', 'prmsl'])
         self.timesearch_obj = NetCDFTimeSearch(ncfile_pattern, init_date, WRFNetCDFTime)
         self.interpolator = LinearTimeInterpolator(self.timesearch_obj, self.reader)
+        lon = self.grid_interpolator.mesh_lonlat[:, 0]
+        lat = self.grid_interpolator.mesh_lonlat[:, 1]
+        self.vect_rotator = coordsys_spcs.VectorCoordSysRotation(lon, lat, coordsys_spcs.SPCS_N_OR)
 
     def set_fields(self, time):
         """
         Evaluates forcing fields at the given time
         """
-        uwind, vwind, prmsl = self.interpolator(time)
-        u_stress, v_stress = compute_wind_stress(uwind, vwind)
+        lon_wind, lat_wind, prmsl = self.interpolator(time)
+        u_wind , v_wind = self.vect_rotator(lon_wind, lat_wind)
+        u_stress, v_stress = compute_wind_stress(u_wind, v_wind)
         self.wind_stress_field.dat.data_with_halos[:, 0] = u_stress
         self.wind_stress_field.dat.data_with_halos[:, 1] = v_stress
         self.atm_pressure_field.dat.data_with_halos[:] = prmsl
@@ -128,6 +132,8 @@ def test():
     uwind = scipy.interpolate.griddata(grid_lonlat, grid_uwind, mesh_lonlat, method='linear')
     grid_vwind = ncfile['vwind'][itime, :, :].ravel()
     vwind = scipy.interpolate.griddata(grid_lonlat, grid_vwind, mesh_lonlat, method='linear')
+    vrot = coordsys_spcs.VectorCoordSysRotation(mesh_lonlat[:, 0], mesh_lonlat[:, 1], coordsys_spcs.SPCS_N_OR)
+    uwind, vwind = vrot(uwind, vwind)
     u_stress, v_stress = compute_wind_stress(uwind, vwind)
 
     # compare

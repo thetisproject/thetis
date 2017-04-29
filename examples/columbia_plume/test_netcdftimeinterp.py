@@ -144,5 +144,3 @@ def test_lineartimeinterpolator(dataset, netcdf_files, plot=False):
         plt.show()
 
     assert np.allclose(y_interp, y_interp2)
-
-
