@@ -22,6 +22,7 @@ def load_function(var, export_ix):
     h5reader.load(export_ix, func)
     return func
 
+
 # construct plot coordinates
 npoints = layers*4
 z_max = -(depth - 1e-10)
@@ -40,6 +41,7 @@ def get_mixed_layer_depth(export_ix):
         return 0.0
     ml_depth = -z[ix].min()
     return ml_depth
+
 
 timestamps = np.arange(360 + 1)
 ntime = len(timestamps)

@@ -11,6 +11,8 @@ op2.init(log_level=INFO)
 
 velocity_u = 2.0
 
+parameters['coffee'] = {}  # temporarily disable COFFEE due to bug
+# https://github.com/coneoproject/COFFEE/issues/110
 
 def basic_setup():
     lx = 100.0
@@ -31,7 +33,7 @@ def basic_setup():
     bathymetry_2d.assign(depth)
 
     # --- create solver ---
-    solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=1)
+    solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     options = solver_obj.options
     options.t_export = t_export
     options.check_vol_conservation_2d = True
@@ -103,7 +105,7 @@ def run_model(solver_obj):
     solver_obj.simulation_time = 0.
     solver_obj.iteration = 0
     solver_obj.i_export = 0
-    solver_obj.assign_initial_conditions(uv_init=as_vector((velocity_u, 0.0)), elev=Constant(0.0))
+    solver_obj.assign_initial_conditions(uv=as_vector((velocity_u, 0.0)), elev=Constant(0.0))
     solver_obj.iterate()
 
 
@@ -136,4 +138,4 @@ def test_gradient_from_adjoint(setup):
     parameters["adjoint"]["stop_annotating"] = True
 
     minconv = taylor_test(jfunc, c, J0, dJdc)
-    assert minconv > 1.95
+    assert minconv > 1.90

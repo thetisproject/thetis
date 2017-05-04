@@ -76,7 +76,7 @@ def launch_run(scriptname, options, option_strings):
     # generate command for running python script
     optstrs = [' '.join([option_strings[k], str(v)]).strip() for
                k, v in options.iteritems()]
-    cmd = ['python', scriptname] + optstrs
+    cmd = ['{mpiexec}', 'python', scriptname] + optstrs
     cmd = ' '.join(cmd)
 
     # generate HPC job submission script
@@ -208,6 +208,7 @@ def parse_options():
     scriptname = thetistestcase.__name__ + '.py'
     for comb in combinations:
         launch_run(scriptname, comb, label_to_optstr)
+
 
 if __name__ == '__main__':
     parse_options()

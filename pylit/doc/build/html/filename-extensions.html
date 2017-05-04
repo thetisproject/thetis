@@ -1,0 +1,112 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Finding a Filename Extension for Literate Sources &#8212; PyLit</title>
+    
+    <link rel="stylesheet" href="_static/pylit-sphinx.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.7.9',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="finding-a-filename-extension-for-literate-sources">
+<h1>Finding a Filename Extension for Literate Sources<a class="headerlink" href="#finding-a-filename-extension-for-literate-sources" title="Permalink to this headline">¶</a></h1>
+<p>Finding an easy to remember, unused file name extension is not easy.</p>
+<dl class="docutils">
+<dt>.py.txt</dt>
+<dd>a double extension (similar to .tar.gz, say) seems most appropriate (at
+least on UNIX). The same scheme can be used for c.txt, p.txt and the like.
+However, it fails on FAT16 file systems.</dd>
+<dt>.pytxt</dt>
+<dd>is recognised as extension by os.path.splitext but also fails on FAT16</dd>
+<dt>.pyt</dt>
+<dd>(PYthon Text) is used by the Python test interpreter
+<a class="reference external" href="http//:www.zetadev.com/software/pytest/">pytest</a></dd>
+<dt>.pyl</dt>
+<dd>was once mentioned as extension for &#8220;literate Python&#8221; files in an email
+exchange but subsequently used for Python libraries.</dd>
+<dt>.lpy</dt>
+<dd>seems to be free (as by a Google search, &#8220;lpy&#8221; is the name of a python
+code pretty printer but this should not pose a problem).</dd>
+<dt>.tpy</dt>
+<dd>seems to be free as well.</dd>
+</dl>
+<p>All these extensions are Python specific. A new search for nice and unused
+extensions would have to be repeated for every language supported by PyLit.</p>
+<p>After considering the alternatives, the additional extension <code class="docutils literal"><span class="pre">.txt</span></code> was
+chosen for the text source (for Python this becomes <code class="docutils literal"><span class="pre">py.txt</span></code>).</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/pylit-bold-framed.png" alt="Logo"/>
+            </a></p>
+    <h4>Up</h4>
+    <p class="topless">
+       <a href="index.html" title="up">Home</a>
+    </p>
+  <hr />
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/filename-extensions.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+    <h3>Search this site</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" size="12" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+ <p class="thanks">
+  <!-- Thanks to	      -->
+  <!-- for hosting this site. -->
+ </p>
+
+  </body>
+</html>

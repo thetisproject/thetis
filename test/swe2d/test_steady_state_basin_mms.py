@@ -242,7 +242,7 @@ def run(setup, refinement, order, do_export=True, options=None,
         #     bnd_str += '{:}: {:}, '.format(k, name)
         # print_output('bnd {:}: {:}'.format(bnd_id, bnd_str))
 
-    solver_obj.assign_initial_conditions(elev=elev_ana, uv_init=uv_ana)
+    solver_obj.assign_initial_conditions(elev=elev_ana, uv=uv_ana)
     if solver_parameters is not None:
         # HACK: need to change prefix of solver options in order to overwrite them
         solver_obj.timestepper.name += '_'
@@ -321,7 +321,9 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False,
 # ---------------------------
 
 
-@pytest.fixture(params=[setup7, setup8, setup9],
+@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')(setup7),
+                        setup8,
+                        pytest.mark.not_travis(reason='travis timeout')(setup9)],
                 ids=["Setup7", "Setup8", "Setup9"])
 def setup(request):
     return request.param
@@ -330,10 +332,10 @@ def setup(request):
 @pytest.fixture(params=[
     {'element_family': 'dg-dg',
      'timestepper_type': 'cranknicolson'},
-    {'element_family': 'rt-dg',
-     'timestepper_type': 'cranknicolson'},
-    {'element_family': 'dg-cg',
-     'timestepper_type': 'cranknicolson'}],
+    pytest.mark.not_travis(reason='travis timeout')({'element_family': 'rt-dg',
+                                                     'timestepper_type': 'cranknicolson'}),
+    pytest.mark.not_travis(reason='travis timeout')({'element_family': 'dg-cg',
+                                                     'timestepper_type': 'cranknicolson'})],
     ids=["dg-dg", "rt-dg", "dg-cg"]
 )
 def options(request):

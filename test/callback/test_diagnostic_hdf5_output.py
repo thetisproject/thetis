@@ -40,7 +40,7 @@ def test_callbacks(tmp_outputdir):
     n_steps = 20
     dt = round(float(t_cycle/n_steps))
     t_export = dt
-    t_end = t_cycle/2
+    t_end = 10*t_export
 
     # create solver
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
@@ -51,10 +51,7 @@ def test_callbacks(tmp_outputdir):
     options.solve_vert_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = False
-    if options.use_mode_split:
-        options.dt = dt/5.0
-    else:
-        options.dt = dt/40.0
+    options.dt = dt/40.0
     options.t_export = t_export
     options.t_end = t_end
     options.u_advection = u_mag

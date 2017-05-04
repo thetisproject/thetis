@@ -34,7 +34,7 @@ depth = 50.0
 bathymetry_2d.assign(depth)
 
 # --- create solver ---
-solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=1)
+solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
 # options.nonlin = False
 options.t_export = t_export
@@ -81,7 +81,7 @@ outflow_bc = {'elev': Constant(0.0)}
 solver_obj.bnd_functions['shallow_water'] = {inflow_tag: inflow_bc,
                                              outflow_tag: outflow_bc}
 
-solver_obj.assign_initial_conditions(uv_init=as_vector((velocity_u, 0.0)))
+solver_obj.assign_initial_conditions(uv=as_vector((velocity_u, 0.0)))
 solver_obj.iterate()
 
 adj_html("forward.html", "forward")
@@ -105,10 +105,11 @@ def jfunc(m):
     solver_obj.simulation_time = 0.
     solver_obj.iteration = 0
     solver_obj.i_export = 0
-    solver_obj.assign_initial_conditions(uv_init=as_vector((velocity_u, 0.0)), elev=Constant(0.0))
+    solver_obj.assign_initial_conditions(uv=as_vector((velocity_u, 0.0)), elev=Constant(0.0))
     solver_obj.iterate()
     Jm = assemble(integral)
     return Jm
+
 
 success = replay_dolfin(tol=0.0, stop=False)
 print_output(solver_obj.fields.solution_2d.vector().array()[0:10])

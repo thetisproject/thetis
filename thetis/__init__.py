@@ -8,3 +8,12 @@ from thetis.callback import DiagnosticCallback  # NOQA
 import thetis.limiter as limiter      # NOQA
 from thetis.assembledschur import AssembledSchurPC
 
+from thetis._version import get_versions
+__version__ = get_versions()['version']
+del get_versions
+
+parameters['pyop2_options']['lazy_evaluation'] = False
+
+from ._version import get_versions
+__version__ = get_versions()['version']
+del get_versions

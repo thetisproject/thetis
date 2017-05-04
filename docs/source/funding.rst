@@ -1,0 +1,34 @@
+.. title: Funding
+
+Thetis is supported by:
+=======================
+
+.. |EPSRC| image:: /images/epsrc-logo.*
+  :height: 60px
+  :target: http://www.epsrc.ac.uk
+
+.. |NSF| image:: /images/nsf-logo.*
+  :height: 60px
+  :target: http://www.nsf.gov
+
+.. |CMOP| image:: /images/cmop-logo.*
+  :height: 60px
+  :target: http://www.stccmop.org/
+
+.. |Imperial College London| image:: /images/imperial-logo.*
+  :height: 60px
+  :target: http://www.imperial.ac.uk
+
++---------------------------+------------+
+| |Imperial College London| | |CMOP|     |
++---------------------------+------------+
+| |NSF|                     | |EPSRC|    |
++---------------------------+------------+
+
+and in particular the following grants:
+
+EPSRC grant `EP/M011054/1 <http://gow.epsrc.ac.uk/NGBOViewGrant.aspx?GrantRef=EP/M011054/1>`_:
+A new simulation and optimisation platform for marine technology.
+
+The National Science Foundation partially supported this research through
+cooperative agreement `OCE-0424602 <http://www.nsf.gov/awardsearch/showAward?AWD_ID=0424602>`_.

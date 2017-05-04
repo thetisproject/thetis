@@ -13,53 +13,51 @@
 # This test is also useful for testing tracer conservation and consistency
 # by advecting a constant passive tracer.
 #
-# Setting
-# solver_obj.nonlin = False
-# uses linear wave equation instead, and no shock develops.
 #
 # Tuomas Karna 2015-03-03
 
-from scipy.interpolate import interp1d
 from thetis import *
 
 n_layers = 6
 outputdir = 'outputs_closed'
-mesh2d = Mesh('channel_mesh.msh')
-print_output('Loaded mesh '+mesh2d.name)
-print_output('Exporting to '+outputdir)
-t_end = 48 * 3600
-u_mag = Constant(4.2)
-t_export = 100.0
+lx = 100e3
+ly = 3000.
+nx = 80
+ny = 3
+mesh2d = RectangleMesh(nx, ny, lx, ly)
+print_output('Exporting to ' + outputdir)
+t_end = 6 * 3600
+t_export = 900.0
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
 
-depth_oce = 20.0
-depth_riv = 7.0
-bathymetry_2d.interpolate(Expression('ho - (ho-hr)*x[0]/100e3',
-                                     ho=depth_oce, hr=depth_riv))
-# bathymetry_2d.interpolate(Expression('ho - (ho-hr)*0.5*(1+tanh((x[0]-50e3)/15e3))',
-#                                      ho=depth_oce, hr=depth_riv))
+depth_max = 20.0
+depth_min = 7.0
+xy = SpatialCoordinate(mesh2d)
+bathymetry_2d.interpolate(depth_max - (depth_max-depth_min)*xy[0]/lx)
+u_max = 4.5
+w_max = 5e-3
 
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solver_obj.options
+options.element_family = 'dg-dg'
+options.timestepper_type = 'ssprk22'
 options.solve_salt = True
 options.solve_temp = False
 options.solve_vert_diffusion = False
 options.use_bottom_friction = False
-options.use_ale_moving_mesh = False
-options.uv_lax_friedrichs = Constant(1.0)
-options.tracer_lax_friedrichs = Constant(1.0)
-# options.use_imex = True
-# options.use_semi_implicit_2d = False
-# options.use_mode_split = False
-# options.baroclinic = True
+options.use_ale_moving_mesh = True
+options.use_limiter_for_tracers = True
+options.uv_lax_friedrichs = None
+options.tracer_lax_friedrichs = None
 options.t_export = t_export
 options.t_end = t_end
 options.outputdir = outputdir
-options.u_advection = u_mag
+options.u_advection = Constant(u_max)
+options.w_advection = Constant(w_max)
 options.check_vol_conservation_2d = True
 options.check_vol_conservation_3d = True
 options.check_salt_conservation = True
@@ -67,25 +65,13 @@ options.check_salt_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
                             'uv_dav_2d', 'uv_bottom_2d']
-options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
-                                 'w_3d', 'w_mesh_3d', 'salt_3d',
-                                 'uv_dav_2d', 'uv_bottom_2d']
 
-# initial conditions, piecewise linear function
-elev_x = np.array([0, 30e3, 100e3])
-elev_v = np.array([6, 0, 0])
+# initial elevation, piecewise linear function
+elev_init_2d = Function(P1_2d, name='elev_2d_init')
+max_elev = 6.0
+elev_slope_x = 30e3
+elev_init_2d.interpolate(conditional(xy[0] < elev_slope_x, -xy[0]*max_elev/elev_slope_x + max_elev, 0.0))
+salt_init_3d = Constant(4.5)
 
-
-def elevation(x, y, z, x_array, val_array):
-    padval = 1e20
-    x0 = np.hstack(([-padval], x_array, [padval]))
-    vals0 = np.hstack(([val_array[0]], val_array, [val_array[-1]]))
-    return interp1d(x0, vals0)(x)
-
-x_func = Function(P1_2d).interpolate(Expression('x[0]'))
-elev_init = Function(P1_2d)
-elev_init.dat.data[:] = elevation(x_func.dat.data, 0, 0,
-                                  elev_x, elev_v)
-salt_init3d = Constant(4.5)
-solver_obj.assign_initial_conditions(elev=elev_init, salt=salt_init3d)
+solver_obj.assign_initial_conditions(elev=elev_init_2d, salt=salt_init_3d)
 solver_obj.iterate()

@@ -1,10 +1,38 @@
 #! /usr/bin/env python
 """
-Lauches ParaView visualization.
+Launches a ParaView visualization of a simulation.
 
-User provides ParaView state file and output directory.
+User provides saved ParaView state file and output directory.
 
-Tuomas Karna 2015-12-02
+Usage:
+
+.. code-block:: bash
+
+    visualize-output outputs my_visu_state.pvsm
+
+Opens paraview visualization for state ``my_visu_state.pvsm`` where all pvd
+files are read from ``outputs`` directory.
+
+.. code-block:: bash
+
+    visualize-output -r outputs my_visu_state.pvsm
+
+As above but first regenerates all ``*.pvd`` files that contain ``*.vtu`` files
+for time indices 0..100. Useful in cases where a shorter pvd file has been
+created by another simulation run.
+
+.. code-block:: bash
+
+    visualize-output -r -f 20 -l 200 outputs my_visu_state.pvsm
+
+As above but generates ``*.pvd`` files for time indices 20..200.
+
+.. code-block:: bash
+
+    visualize-output -r outputs my_visu_state.pvsm
+
+As above but first generates all ``*.pvd`` for a parallel run, i.e. it lists
+``*.pvtu`` files instead of ``*.vtu`` files.
 """
 import argparse
 import glob
@@ -19,6 +47,11 @@ def generate_pvd_file(outdir, fieldname, timesteps, usepvtu=False):
     """
     Generates ParaView PVD XML file fieldName.pvd that contains vtu or ptvu files for
     the given time steps range.
+
+    :arg str outdir: directory where pvd files are stored
+    :arg str fieldname: name of the field that appears in vtu/pvtu file names
+    :arg timesteps: list of time indices of vtu files to include in the pvd file
+    :type timesteps: list of int
     """
     template_header = """<?xml version="1.0"?>\n"""
     template_openblock = """<VTKFile byte_order="LittleEndian" version="0.1" type="Collection">\n<Collection>\n"""
@@ -42,6 +75,10 @@ def generate_pvd_file(outdir, fieldname, timesteps, usepvtu=False):
 def replace_path_in_xml(filename, outputfile, new_path):
     """
     Replaces all paths in paraview xml file PVDReader entries.
+
+    :arg str filename: XML file to process
+    :arg str outputfile: file where updated XML file is saved
+    :arg new_path: a new path for all pvd files
 
     All PVDReader entries of the form
     <Proxy group="sources" type="PVDReader" ...>
@@ -75,7 +112,11 @@ def replace_path_in_xml(filename, outputfile, new_path):
     tree.write(outputfile)
 
 
-def process_args(outputdir, state_file, regenerate_pvd=True, timesteps=None, parallel_vtu=True):
+def process_args(outputdir, state_file, regenerate_pvd=True, timesteps=None,
+                 parallel_vtu=True):
+    """
+    Processes command line arguments
+    """
     temp_state_file = os.path.join(TMP_DIR, 'tmp.pvsm')
     paraview_bin = 'paraview'
     pv_log_file = os.path.join(TMP_DIR, 'log_pvoutput.txt')
@@ -108,11 +149,9 @@ if __name__ == '__main__':
     parser.add_argument('-p', action='store_true', dest='parallel_vtu',
                         help='regenerate PVD files for parallel outputs')
     parser.add_argument('-f', '--first-time-step', type=int, default=0,
-                        help='last time step for regenerated PVD file')
+                        help='first time step to be included in regenerated PVD file')
     parser.add_argument('-l', '--last-time-step', type=int, default=100,
-                        help='last time step for regenerated PVD file')
-    parser.add_argument('--default-outputdir', type=str, default='outputs',
-                        help='outputdir in *.pvsm file that will be replaced by outputdir')
+                        help='last time step to be included in regenerated PVD file')
 
     args = parser.parse_args()
     timesteps = range(args.first_time_step, args.last_time_step + 1)

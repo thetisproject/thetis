@@ -1,0 +1,1236 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pylit_test.py &#8212; PyLit</title>
+    
+    <link rel="stylesheet" href="../_static/pylit-sphinx.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.7.9',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="simplestates_test.py:" href="simplestates_test.py.html" />
+    <link rel="prev" title="testmod_literate" href="testmod_literate.py.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="pylit-test-py">
+<h1><a class="toc-backref" href="#id3">pylit_test.py</a><a class="headerlink" href="#pylit-test-py" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="test-pylit-py-python-module">
+<h2><a class="toc-backref" href="#id4">Test pylit.py Python Module</a><a class="headerlink" href="#test-pylit-py-python-module" title="Permalink to this headline">¶</a></h2>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Date:</th><td class="field-body">$Date: 2007-05-17 $</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Version:</th><td class="field-body">SVN-Revision $Revision: 45 $</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">URL:</th><td class="field-body">$URL: svn+ssh://svn.berlios.de/svnroot/repos/pylit/trunk/test/pylit_test.py $</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Copyright:</th><td class="field-body">2006 Guenter Milde.
+Released under the terms of the GNU General Public License
+(v. 2 or later)</td>
+</tr>
+</tbody>
+</table>
+<div class="contents topic" id="contents">
+<p class="topic-title first">Contents</p>
+<ul class="simple">
+<li><a class="reference internal" href="#pylit-test-py" id="id3">pylit_test.py</a><ul>
+<li><a class="reference internal" href="#test-pylit-py-python-module" id="id4">Test pylit.py Python Module</a><ul>
+<li><a class="reference internal" href="#a-catalogue-of-errors" id="id5">A catalogue of errors</a></li>
+<li><a class="reference internal" href="#text-code-conversion" id="id6">Text &lt;-&gt; Code conversion</a></li>
+<li><a class="reference internal" href="#test-strings" id="id7">Test strings</a></li>
+<li><a class="reference internal" href="#textcodeconverter" id="id8">TextCodeConverter</a></li>
+<li><a class="reference internal" href="#text2code" id="id9">Text2Code</a><ul>
+<li><a class="reference internal" href="#special-cases" id="id10">Special Cases</a><ul>
+<li><a class="reference internal" href="#code-follows-text-block-without-blank-line" id="id11">Code follows text block without blank line</a></li>
+<li><a class="reference internal" href="#text-follows-code-block-without-blank-line" id="id12">Text follows code block without blank line</a></li>
+<li><a class="reference internal" href="#a-double-colon-on-a-line-on-its-own" id="id13">A double colon on a line on its own</a></li>
+<li><a class="reference internal" href="#header-samples" id="id14">header samples</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#code2text" id="id15">Code2Text</a><ul>
+<li><a class="reference internal" href="#id1" id="id16">Special cases</a><ul>
+<li><a class="reference internal" href="#blank-comment-line" id="id17">blank comment line</a></li>
+<li><a class="reference internal" href="#no-blank-line-after-text" id="id18">No blank line after text</a></li>
+<li><a class="reference internal" href="#missing-literal-block-marker" id="id19">missing literal block marker</a></li>
+<li><a class="reference internal" href="#id2" id="id20">header samples</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#filter-tests" id="id21">Filter tests</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="a-catalogue-of-errors">
+<h3><a class="toc-backref" href="#id5">A catalogue of errors</a><a class="headerlink" href="#a-catalogue-of-errors" title="Permalink to this headline">¶</a></h3>
+<p>from <a class="reference external" href="file:///home/milde/Texte/Doc/Programmierung/Software-Carpentry/lec/unit.html">file:///home/milde/Texte/Doc/Programmierung/Software-Carpentry/lec/unit.html</a></p>
+<ul class="simple">
+<li>Numbers: zero, largest, smallest magnitude, most negative</li>
+<li>Structures: empty, exactly one element, maximum number of elements
+- Duplicate elements (e.g., letter &#8220;J&#8221; appears three times in a string)
+- Aliased elements (e.g., a list contains two references to another list)
+- Circular structures (e.g., a list that contains a reference to itself)</li>
+<li>Searching: no match found, one match found, multiple matches found,
+everything matches
+- Code like x = find_all(structure)[0] is almost always wrong
+- Should also check aliased matches (same thing found multiple times)</li>
+</ul>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="sd">&quot;&quot;&quot;pylit_test.py: test the &quot;literal python&quot; module&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">pprint</span> <span class="k">import</span> <span class="n">pprint</span>
+<span class="kn">import</span> <span class="nn">operator</span>
+<span class="kn">from</span> <span class="nn">pylit</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">import</span> <span class="nn">nose</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="text-code-conversion">
+<h3><a class="toc-backref" href="#id6">Text &lt;-&gt; Code conversion</a><a class="headerlink" href="#text-code-conversion" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="test-strings">
+<h3><a class="toc-backref" href="#id7">Test strings</a><a class="headerlink" href="#test-strings" title="Permalink to this headline">¶</a></h3>
+<p>Example of text, code and stripped code with typical features&#8221;:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">text</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;..  #!/usr/bin/env python</span>
+<span class="s2">  # -*- coding: iso-8859-1 -*-</span>
+
+<span class="s2">Leading text</span>
+
+<span class="s2">in several paragraphs followed by a literal block::</span>
+
+<span class="s2">  block1 = &#39;first block&#39;</span>
+
+<span class="s2">Some more text and the next block. ::</span>
+
+<span class="s2">  block2 = &#39;second block&#39;</span>
+<span class="s2">  print block1, block2</span>
+
+<span class="s2">Trailing text.</span>
+<span class="s2">&quot;&quot;&quot;</span>
+<span class="c1"># print text</span>
+</pre></div>
+</div>
+<p>The converter expects the data in separate lines (iterator or list)
+with trailing newlines. We use the <cite>splitlines</cite> string method with
+<cite>keepends=True</cite>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">textdata</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+<span class="c1"># print textdata</span>
+</pre></div>
+</div>
+<p>If a &#8220;code&#8221; source is converted with the <cite>strip</cite> option, only text blocks
+are extracted, which leads to:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">stripped_text</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;Leading text</span>
+
+<span class="s2">in several paragraphs followed by a literal block:</span>
+
+<span class="s2">Some more text and the next block.</span>
+
+<span class="s2">Trailing text.</span>
+<span class="s2">&quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p>The code corresponding to the text test string.</p>
+<p>Using a triple-quoted string for the code (and stripped_code) can create
+problems with the conversion of this test by pylit (as the text parts
+would be converted to text).
+A workaround is using a different comment string for the text blocks and
+converting with e.g. <code class="docutils literal"><span class="pre">pylit</span> <span class="pre">--comment-string='##</span> <span class="pre">'</span> <span class="pre">pylit_test.py</span></code>.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">code</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;#!/usr/bin/env python</span>
+<span class="s2"># -*- coding: iso-8859-1 -*-</span>
+
+<span class="s2"># Leading text</span>
+<span class="s2">#</span>
+<span class="s2"># in several paragraphs followed by a literal block::</span>
+
+<span class="s2">block1 = &#39;first block&#39;</span>
+
+<span class="s2"># Some more text and the next block. ::</span>
+
+<span class="s2">block2 = &#39;second block&#39;</span>
+<span class="s2">print block1, block2</span>
+
+<span class="s2"># Trailing text.</span>
+<span class="s2">&quot;&quot;&quot;</span>
+<span class="c1"># print code</span>
+
+<span class="n">codedata</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Converting the text teststring with the <cite>strip</cite> option leads to:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">stripped_code</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;#!/usr/bin/env python</span>
+<span class="s2"># -*- coding: iso-8859-1 -*-</span>
+
+<span class="s2">block1 = &#39;first block&#39;</span>
+
+<span class="s2">block2 = &#39;second block&#39;</span>
+<span class="s2">print block1, block2</span>
+
+<span class="s2">&quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p>pprint(textdata)
+pprint(stripped_code.splitlines(True))</p>
+<p>Containers for special case examples:</p>
+<p>1. Text2Code samples
+<code class="docutils literal"><span class="pre">textsamples[&quot;what&quot;]</span> <span class="pre">=</span> <span class="pre">(&lt;text</span> <span class="pre">data&gt;,</span> <span class="pre">&lt;output&gt;,</span> <span class="pre">&lt;output</span> <span class="pre">(with</span> <span class="pre">`strip`)</span></code></p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">textsamples</span> <span class="o">=</span> <span class="p">{}</span>
+</pre></div>
+</div>
+<p>2. Code2Text samples
+<code class="docutils literal"><span class="pre">codesamples[&quot;what&quot;]</span> <span class="pre">=</span> <span class="pre">(&lt;code</span> <span class="pre">data&gt;,</span> <span class="pre">&lt;output&gt;,</span> <span class="pre">&lt;output</span> <span class="pre">(with</span> <span class="pre">`strip`)</span></code></p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">codesamples</span> <span class="o">=</span> <span class="p">{}</span>
+</pre></div>
+</div>
+<p>Auxiliary function to test the textsamples and codesamples:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">check_converter</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">converter</span><span class="p">,</span> <span class="n">output</span><span class="p">):</span>
+    <span class="nb">print</span> <span class="s2">&quot;E:&quot;</span><span class="p">,</span> <span class="n">key</span>
+    <span class="n">extract</span> <span class="o">=</span> <span class="n">converter</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">extract</span><span class="p">)</span>
+    <span class="n">outstr</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">extract</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;soll:&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;ist: &quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">outstr</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">output</span> <span class="o">==</span> <span class="n">outstr</span>
+</pre></div>
+</div>
+<p>Test generator for textsample tests:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_Text2Code_samples</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">sample</span> <span class="ow">in</span> <span class="n">textsamples</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+        <span class="k">yield</span> <span class="p">(</span><span class="n">check_converter</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span>
+               <span class="n">Text2Code</span><span class="p">(</span><span class="n">sample</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(</span><span class="kc">True</span><span class="p">)),</span> <span class="n">sample</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="p">(</span><span class="n">check_converter</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span>
+                   <span class="n">Text2Code</span><span class="p">(</span><span class="n">sample</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(</span><span class="kc">True</span><span class="p">),</span> <span class="n">strip</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                   <span class="n">sample</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>Test generator for codesample tests:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_Code2Text_samples</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">sample</span> <span class="ow">in</span> <span class="n">codesamples</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+        <span class="k">yield</span> <span class="p">(</span><span class="n">check_converter</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span>
+               <span class="n">Code2Text</span><span class="p">(</span><span class="n">sample</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(</span><span class="kc">True</span><span class="p">)),</span> <span class="n">sample</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="p">(</span><span class="n">check_converter</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span>
+                   <span class="n">Code2Text</span><span class="p">(</span><span class="n">sample</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(</span><span class="kc">True</span><span class="p">),</span> <span class="n">strip</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                   <span class="n">sample</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>Pre and postprocessing filters (for testing the filter hooks)</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">r2l_filter</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+    <span class="nb">print</span> <span class="s2">&quot;applying r2l filter&quot;</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">line</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="s2">&quot;l&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">defaults</span><span class="o">.</span><span class="n">preprocessors</span><span class="p">[</span><span class="s2">&quot;rl2text&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">r2l_filter</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">l2r_filter</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+    <span class="nb">print</span> <span class="s2">&quot;applying l2r filter&quot;</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">line</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;l&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">defaults</span><span class="o">.</span><span class="n">preprocessors</span><span class="p">[</span><span class="s2">&quot;text2rl&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">l2r_filter</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">x2u_filter</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+    <span class="nb">print</span> <span class="s2">&quot;applying x2u filter&quot;</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">line</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;u&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">defaults</span><span class="o">.</span><span class="n">postprocessors</span><span class="p">[</span><span class="s2">&quot;x2text&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">x2u_filter</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">u2x_filter</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+    <span class="nb">print</span> <span class="s2">&quot;applying u2x filter&quot;</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">line</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">defaults</span><span class="o">.</span><span class="n">postprocessors</span><span class="p">[</span><span class="s2">&quot;text2x&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">u2x_filter</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_x2u_filter</span><span class="p">():</span>
+    <span class="n">soll</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;u&quot;</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">line</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">x2u_filter</span><span class="p">(</span><span class="n">textdata</span><span class="p">)])</span>
+    <span class="nb">print</span> <span class="s2">&quot;soll&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;ist&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">soll</span> <span class="o">==</span> <span class="n">result</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="textcodeconverter">
+<h3><a class="toc-backref" href="#id8">TextCodeConverter</a><a class="headerlink" href="#textcodeconverter" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">test_TextCodeConverter</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Test the TextCodeConverter parent class</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">check_marker_regexp_true</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sample</span><span class="p">,</span> <span class="n">converter</span><span class="p">):</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">converter</span><span class="o">.</span><span class="n">marker_regexp</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s1">&#39;marker: </span><span class="si">%r</span><span class="s1">; sample </span><span class="si">%r</span><span class="s1">&#39;</span> <span class="o">%</span><span class="p">(</span><span class="n">converter</span><span class="o">.</span><span class="n">code_block_marker</span><span class="p">,</span> <span class="n">sample</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s1">&#39;match </span><span class="si">%r</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">match</span>
+    <span class="k">assert</span> <span class="n">match</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">check_marker_regexp_false</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sample</span><span class="p">,</span> <span class="n">converter</span><span class="p">):</span>
+    <span class="nb">print</span> <span class="s1">&#39;marker: </span><span class="si">%r</span><span class="s1">; sample </span><span class="si">%r</span><span class="s1">&#39;</span> <span class="o">%</span><span class="p">(</span><span class="n">converter</span><span class="o">.</span><span class="n">code_block_marker</span><span class="p">,</span> <span class="n">sample</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">converter</span><span class="o">.</span><span class="n">marker_regexp</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_marker_regexp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="c1"># Samples</span>
+    <span class="n">literal</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;::&#39;</span><span class="p">,</span>
+               <span class="s1">&#39;  ::&#39;</span><span class="p">,</span>
+               <span class="s1">&#39;t ::&#39;</span><span class="p">,</span>
+               <span class="s1">&#39;text::&#39;</span><span class="p">,</span>
+               <span class="s1">&#39; indented::&#39;</span><span class="p">,</span>
+               <span class="s1">&#39; indented ::&#39;</span><span class="p">,</span>
+               <span class="s1">&#39;more text :: &#39;</span><span class="p">,</span>
+               <span class="s1">&#39; indented text :: &#39;</span><span class="p">,</span>
+               <span class="s1">&#39;. no-directive::&#39;</span><span class="p">,</span>
+               <span class="s1">&#39;a .. directive:: somewhere::&#39;</span><span class="p">]</span>
+    <span class="n">directives</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;.. code-block:: python&#39;</span><span class="p">,</span>
+                 <span class="s1">&#39;  .. code-block:: python&#39;</span><span class="p">,</span>
+                 <span class="s1">&#39;.. code-block:: python listings&#39;</span><span class="p">,</span>
+                 <span class="s1">&#39;  .. code-block:: python listings&#39;</span><span class="p">]</span>
+    <span class="n">misses</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;.. comment string ::&#39;</span><span class="p">,</span>
+              <span class="s1">&#39;.. ::&#39;</span><span class="p">,</span>
+              <span class="s1">&#39;text:&#39;</span><span class="p">]</span>
+    <span class="c1"># default code_block_marker (&#39;::&#39;)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span> <span class="o">=</span> <span class="n">TextCodeConverter</span><span class="p">(</span><span class="n">textdata</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">code_block_marker</span> <span class="o">==</span> <span class="s1">&#39;::&#39;</span>
+    <span class="c1"># self.converter is not seen by the check_marker_regexp_true() method</span>
+    <span class="k">for</span> <span class="n">sample</span> <span class="ow">in</span> <span class="n">literal</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">check_marker_regexp_true</span><span class="p">,</span> <span class="n">sample</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">sample</span> <span class="ow">in</span> <span class="n">directives</span><span class="o">+</span><span class="n">misses</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">check_marker_regexp_false</span><span class="p">,</span> <span class="n">sample</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="p">)</span>
+    <span class="c1"># code-block directive as marker</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span> <span class="o">=</span> <span class="n">TextCodeConverter</span><span class="p">(</span><span class="n">textdata</span><span class="p">,</span>
+                                       <span class="n">code_block_marker</span><span class="o">=</span><span class="s1">&#39;.. code-block::&#39;</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">code_block_marker</span> <span class="o">==</span> <span class="s1">&#39;.. code-block::&#39;</span>
+    <span class="k">for</span> <span class="n">sample</span> <span class="ow">in</span> <span class="n">directives</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">check_marker_regexp_true</span><span class="p">,</span> <span class="n">sample</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">sample</span> <span class="ow">in</span> <span class="n">literal</span><span class="o">+</span><span class="n">misses</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">check_marker_regexp_false</span><span class="p">,</span> <span class="n">sample</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_get_indent</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">converter</span> <span class="o">=</span> <span class="n">TextCodeConverter</span><span class="p">(</span><span class="n">textdata</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">converter</span><span class="o">.</span><span class="n">get_indent</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="k">assert</span> <span class="n">converter</span><span class="o">.</span><span class="n">get_indent</span><span class="p">(</span><span class="s2">&quot; foo&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+    <span class="k">assert</span> <span class="n">converter</span><span class="o">.</span><span class="n">get_indent</span><span class="p">(</span><span class="s2">&quot;  foo&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_collect_blocks</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">converter</span> <span class="o">=</span> <span class="n">TextCodeConverter</span><span class="p">(</span><span class="n">textdata</span><span class="p">)</span>
+    <span class="n">textblocks</span> <span class="o">=</span> <span class="p">[</span><span class="n">block</span> <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">collect_blocks</span><span class="p">(</span><span class="n">textdata</span><span class="p">)]</span>
+    <span class="nb">print</span> <span class="n">textblocks</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">textblocks</span><span class="p">)</span> <span class="o">==</span> <span class="mi">7</span><span class="p">,</span> <span class="s2">&quot;text sample has 7 blocks&quot;</span>
+    <span class="k">assert</span> <span class="n">reduce</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">__add__</span><span class="p">,</span> <span class="n">textblocks</span><span class="p">)</span> <span class="o">==</span> <span class="n">textdata</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="text2code">
+<h3><a class="toc-backref" href="#id9">Text2Code</a><a class="headerlink" href="#text2code" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">test_Text2Code</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Test the Text2Code class converting rst-&gt;code&quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span> <span class="o">=</span> <span class="n">Text2Code</span><span class="p">(</span><span class="n">textdata</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>test helper funs</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_set_state_empty</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">set_state</span><span class="p">([])</span>
+        <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">,</span> <span class="s2">&quot;should raise StopIteration&quot;</span>
+    <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+        <span class="k">pass</span>
+
+<span class="k">def</span> <span class="nf">test_set_state_header</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;test for &quot;header&quot; or &quot;documentation&quot; for first block&quot;&quot;&quot;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="c1"># normally set by the `convert` method</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">set_state</span><span class="p">([</span><span class="s2">&quot;.. header&quot;</span><span class="p">,</span> <span class="s2">&quot; block&quot;</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">&quot;header&quot;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="c1"># normally set by the `convert` method</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">set_state</span><span class="p">([</span><span class="s2">&quot;documentation&quot;</span><span class="p">,</span> <span class="s2">&quot;block&quot;</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">&quot;documentation&quot;</span>
+
+<span class="k">def</span> <span class="nf">test_set_state_code_block</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;test for &quot;header&quot; or &quot;documentation&quot; for &quot;code_block&quot; &quot;&quot;&quot;</span>
+    <span class="c1"># normally set by the `convert` method</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">_textindent</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s2">&quot;code_block&quot;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">set_state</span><span class="p">([</span><span class="s2">&quot;documentation&quot;</span><span class="p">,</span> <span class="s2">&quot;  block&quot;</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">&quot;documentation&quot;</span>
+
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s2">&quot;code_block&quot;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">set_state</span><span class="p">([</span><span class="s2">&quot;  documentation&quot;</span><span class="p">,</span> <span class="s2">&quot;block&quot;</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">&quot;documentation&quot;</span>
+
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s2">&quot;code_block&quot;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">set_state</span><span class="p">([</span><span class="s2">&quot;  code&quot;</span><span class="p">,</span> <span class="s2">&quot;  block&quot;</span><span class="p">])</span>
+    <span class="nb">print</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">state</span>
+    <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">&quot;code_block&quot;</span>
+
+<span class="k">def</span> <span class="nf">test_header_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;should strip header-string from header&quot;&quot;&quot;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">_codeindent</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">sample</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;.. header&quot;</span><span class="p">,</span> <span class="s2">&quot; block&quot;</span><span class="p">]</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">header_handler</span><span class="p">(</span><span class="n">sample</span><span class="p">)]</span>
+    <span class="nb">print</span> <span class="n">lines</span>
+    <span class="k">assert</span> <span class="n">lines</span> <span class="o">==</span> <span class="p">[</span><span class="s2">&quot;header&quot;</span><span class="p">,</span> <span class="s2">&quot;block&quot;</span><span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">test_documentation_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;should add comment string to documentation&quot;&quot;&quot;</span>
+    <span class="n">sample</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;doc&quot;</span><span class="p">,</span> <span class="s2">&quot;block&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">]</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span> <span class="k">for</span> <span class="n">line</span>
+              <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">documentation_handler</span><span class="p">(</span><span class="n">sample</span><span class="p">)]</span>
+    <span class="nb">print</span> <span class="n">lines</span>
+    <span class="k">assert</span> <span class="n">lines</span> <span class="o">==</span> <span class="p">[</span><span class="s2">&quot;# doc&quot;</span><span class="p">,</span> <span class="s2">&quot;# block&quot;</span><span class="p">,</span> <span class="s2">&quot;# &quot;</span><span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">test_documentation_handler_set_state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;should add comment string to documentation&quot;&quot;&quot;</span>
+    <span class="n">sample</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;doc&quot;</span><span class="p">,</span> <span class="s2">&quot;block::&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">]</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span> <span class="k">for</span> <span class="n">line</span>
+              <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">documentation_handler</span><span class="p">(</span><span class="n">sample</span><span class="p">)]</span>
+    <span class="nb">print</span> <span class="n">lines</span>
+    <span class="k">assert</span> <span class="n">lines</span> <span class="o">==</span> <span class="p">[</span><span class="s2">&quot;# doc&quot;</span><span class="p">,</span> <span class="s2">&quot;# block::&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">&quot;code_block&quot;</span>
+
+<span class="k">def</span> <span class="nf">test_code_block_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;should un-indent code-blocks&quot;&quot;&quot;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">_codeindent</span> <span class="o">=</span> <span class="mi">0</span> <span class="c1"># normally set in `convert`</span>
+    <span class="n">sample</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;  code&quot;</span><span class="p">,</span> <span class="s2">&quot;  block&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">]</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span> <span class="k">for</span> <span class="n">line</span>
+              <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">code_block_handler</span><span class="p">(</span><span class="n">sample</span><span class="p">)]</span>
+    <span class="nb">print</span> <span class="n">lines</span>
+    <span class="k">assert</span> <span class="n">lines</span> <span class="o">==</span> <span class="p">[</span><span class="s2">&quot;code&quot;</span><span class="p">,</span> <span class="s2">&quot;block&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>base tests on the &#8220;long&#8221; test data</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_call</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calling a Text2Code instance should return the converted data as list of lines&quot;&quot;&quot;</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="p">()</span>
+    <span class="nb">print</span> <span class="nb">repr</span><span class="p">(</span><span class="n">codedata</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="nb">repr</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">codedata</span> <span class="o">==</span> <span class="n">output</span>
+
+<span class="k">def</span> <span class="nf">test_call_strip</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;strip=True should strip text parts&quot;&quot;&quot;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">strip</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="p">()</span>
+    <span class="nb">print</span> <span class="nb">repr</span><span class="p">(</span><span class="n">stripped_code</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(</span><span class="kc">True</span><span class="p">))</span>
+    <span class="nb">print</span> <span class="nb">repr</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">stripped_code</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span> <span class="o">==</span> <span class="n">output</span>
+
+<span class="k">def</span> <span class="nf">test_str</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">outstr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="nb">repr</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="nb">repr</span><span class="p">(</span><span class="n">outstr</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">code</span> <span class="o">==</span> <span class="n">outstr</span>
+
+<span class="k">def</span> <span class="nf">test_str_strip1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;strip=True should strip text parts.</span>
+
+<span class="sd">    Version 1 with `strip` given as optional argument&quot;&quot;&quot;</span>
+    <span class="n">outstr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Text2Code</span><span class="p">(</span><span class="n">textdata</span><span class="p">,</span> <span class="n">strip</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+    <span class="nb">print</span> <span class="s2">&quot;ist &quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">outstr</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;soll&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">stripped_code</span><span class="p">)</span>
+    <span class="c1"># pprint(outstr)</span>
+    <span class="k">assert</span> <span class="n">stripped_code</span> <span class="o">==</span> <span class="n">outstr</span>
+
+<span class="k">def</span> <span class="nf">test_str_strip2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;strip=True should strip text parts</span>
+
+<span class="sd">    Version 2 with `strip` set after instantiation&quot;&quot;&quot;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">strip</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">outstr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;ist &quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">outstr</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;soll&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">stripped_code</span><span class="p">)</span>
+    <span class="c1"># pprint(outstr)</span>
+    <span class="k">assert</span> <span class="n">stripped_code</span> <span class="o">==</span> <span class="n">outstr</span>
+
+<span class="k">def</span> <span class="nf">test_malindented_code_line</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;raise error if code line is less indented than code-indent&quot;&quot;&quot;</span>
+    <span class="n">data1</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;..    #!/usr/bin/env python</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="c1"># indent == 4 * &quot; &quot;</span>
+            <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;  print &#39;hello world&#39;&quot;</span><span class="p">]</span>          <span class="c1"># indent == 2 * &quot; &quot;</span>
+    <span class="n">data2</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;..</span><span class="se">\t</span><span class="s2">#!/usr/bin/env python</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>   <span class="c1"># indent == 8 * &quot; &quot;</span>
+            <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;  print &#39;hello world&#39;&quot;</span><span class="p">]</span>          <span class="c1"># indent == 2 * &quot; &quot;</span>
+    <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="p">(</span><span class="n">data1</span><span class="p">,</span> <span class="n">data2</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">blocks</span> <span class="o">=</span> <span class="n">Text2Code</span><span class="p">(</span><span class="n">data</span><span class="p">)()</span>
+            <span class="k">assert</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;wrong indent did not raise ValueError&quot;</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+<span class="k">def</span> <span class="nf">test_str_different_comment_string</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Convert only comments with the specified comment string to text</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;..  #!/usr/bin/env python</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;::</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>  <span class="c1"># leading code block as header</span>
+            <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s2">&quot;  block1 = &#39;first block&#39;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s1">&#39;  </span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;more text&#39;</span><span class="p">]</span>
+    <span class="n">soll</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="s2">&quot;#!/usr/bin/env python&quot;</span><span class="p">,</span>
+                      <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                      <span class="s2">&quot;##::&quot;</span><span class="p">,</span>
+                      <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                      <span class="s2">&quot;block1 = &#39;first block&#39;&quot;</span><span class="p">,</span>
+                      <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                      <span class="s2">&quot;##more text&quot;</span><span class="p">]</span>
+                    <span class="p">)</span>
+    <span class="n">outstr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Text2Code</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">comment_string</span><span class="o">=</span><span class="s2">&quot;##&quot;</span><span class="p">))</span>
+    <span class="nb">print</span> <span class="s2">&quot;soll:&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">soll</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;ist: &quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">outstr</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">outstr</span> <span class="o">==</span> <span class="n">soll</span>
+
+<span class="c1"># Filters: test pre- and postprocessing of data</span>
+
+<span class="k">def</span> <span class="nf">test_get_filter_preprocessor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;should return filter from filter_set for language&quot;&quot;&quot;</span>
+    <span class="n">preprocessor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">get_filter</span><span class="p">(</span><span class="s2">&quot;preprocessors&quot;</span><span class="p">,</span> <span class="s2">&quot;rl&quot;</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="n">preprocessor</span>
+    <span class="k">assert</span> <span class="n">preprocessor</span> <span class="o">==</span> <span class="n">l2r_filter</span>
+
+<span class="k">def</span> <span class="nf">test_get_filter_postprocessor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;should return filter from filter_set for language&quot;&quot;&quot;</span>
+    <span class="n">postprocessor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">get_filter</span><span class="p">(</span><span class="s2">&quot;postprocessors&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="n">postprocessor</span>
+    <span class="k">assert</span> <span class="n">postprocessor</span> <span class="o">==</span> <span class="n">u2x_filter</span>
+
+<span class="k">def</span> <span class="nf">test_get_css_postprocessor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;should return filter from filter_set for language&quot;&quot;&quot;</span>
+    <span class="n">postprocessor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">get_filter</span><span class="p">(</span><span class="s2">&quot;postprocessors&quot;</span><span class="p">,</span> <span class="s2">&quot;css&quot;</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="n">postprocessor</span>
+    <span class="k">assert</span> <span class="n">postprocessor</span> <span class="o">==</span> <span class="n">dumb_c_postprocessor</span>
+
+<span class="k">def</span> <span class="nf">test_get_filter_nonexisting_language_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;should return identity_filter if language has no filter in set&quot;&quot;&quot;</span>
+    <span class="n">preprocessor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">get_filter</span><span class="p">(</span><span class="s2">&quot;preprocessors&quot;</span><span class="p">,</span> <span class="s2">&quot;foo&quot;</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="n">preprocessor</span>
+    <span class="k">assert</span> <span class="n">preprocessor</span> <span class="o">==</span> <span class="n">identity_filter</span>
+
+<span class="k">def</span> <span class="nf">test_get_filter_nonexisting_filter_set</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;should return identity_filter if filter_set does not exist&quot;&quot;&quot;</span>
+    <span class="n">processor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">get_filter</span><span class="p">(</span><span class="s2">&quot;foo_filters&quot;</span><span class="p">,</span> <span class="s2">&quot;foo&quot;</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="n">processor</span>
+    <span class="k">assert</span> <span class="n">processor</span> <span class="o">==</span> <span class="n">identity_filter</span>
+
+<span class="k">def</span> <span class="nf">test_preprocessor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Preprocess data with registered preprocessor for language&quot;&quot;&quot;</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">Text2Code</span><span class="p">(</span><span class="n">textdata</span><span class="p">,</span> <span class="n">language</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">comment_string</span><span class="o">=</span><span class="s2">&quot;# &quot;</span><span class="p">)()</span>
+    <span class="n">soll</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">u2x_filter</span><span class="p">(</span><span class="n">codedata</span><span class="p">)]</span>
+    <span class="nb">print</span> <span class="s2">&quot;soll: &quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">soll</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;ist:  &quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">output</span> <span class="o">==</span> <span class="n">soll</span>
+
+<span class="k">def</span> <span class="nf">test_postprocessor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Preprocess data with registered postprocessor for language&quot;&quot;&quot;</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">Text2Code</span><span class="p">(</span><span class="n">textdata</span><span class="p">,</span> <span class="n">language</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">comment_string</span><span class="o">=</span><span class="s2">&quot;# &quot;</span><span class="p">)()</span>
+    <span class="n">soll</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">u2x_filter</span><span class="p">(</span><span class="n">codedata</span><span class="p">)]</span>
+    <span class="nb">print</span> <span class="s2">&quot;soll:&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">soll</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;ist: &quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">output</span> <span class="o">==</span> <span class="n">soll</span>
+</pre></div>
+</div>
+<div class="section" id="special-cases">
+<h4><a class="toc-backref" href="#id10">Special Cases</a><a class="headerlink" href="#special-cases" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="code-follows-text-block-without-blank-line">
+<h5><a class="toc-backref" href="#id11">Code follows text block without blank line</a><a class="headerlink" href="#code-follows-text-block-without-blank-line" title="Permalink to this headline">¶</a></h5>
+<p>End of text block detected (&#8216;::&#8217;) but no paragraph separator (blank line)
+follows</p>
+<p>It is an reStructuredText syntax error, if a &#8220;literal block
+marker&#8221; is not followed by a blank line.</p>
+<p>Assuming that no double colon at end of line occurs accidentally,
+pylit could fix this and issue a warning:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># Do we need this feature? (Complicates code a lot)</span>
+<span class="c1"># textsamples[&quot;ensure blank line after text&quot;] = (</span>
+<span class="c1"># &quot;&quot;&quot;text followed by a literal block::</span>
+<span class="c1">#   block1 = &#39;first block&#39;</span>
+<span class="c1"># &quot;&quot;&quot;,</span>
+<span class="c1"># &quot;&quot;&quot;# text followed by a literal block::</span>
+<span class="c1">#</span>
+<span class="c1"># block1 = &#39;first block&#39;</span>
+<span class="c1"># &quot;&quot;&quot;)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="text-follows-code-block-without-blank-line">
+<h5><a class="toc-backref" href="#id12">Text follows code block without blank line</a><a class="headerlink" href="#text-follows-code-block-without-blank-line" title="Permalink to this headline">¶</a></h5>
+<p>End of code block detected (a line not more indented than the preceding text
+block)</p>
+<p>reStructuredText syntax demands a paragraph separator (blank line) before
+it.</p>
+<p>Assuming that the unindent is not accidental, pylit could fix this and
+issues a warning:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># Do we need this feature? (Complicates code)</span>
+<span class="c1"># textsamples[&quot;ensure blank line after code&quot;] = (</span>
+<span class="c1"># &quot;&quot;&quot;::</span>
+<span class="c1">#</span>
+<span class="c1">#   block1 = &#39;first block&#39;</span>
+<span class="c1"># more text</span>
+<span class="c1"># &quot;&quot;&quot;,</span>
+<span class="c1"># &quot;&quot;&quot;# ::</span>
+<span class="c1">#</span>
+<span class="c1"># block1 = &#39;first block&#39;</span>
+<span class="c1">#</span>
+<span class="c1"># more text</span>
+<span class="c1"># &quot;&quot;&quot;)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="a-double-colon-on-a-line-on-its-own">
+<h5><a class="toc-backref" href="#id13">A double colon on a line on its own</a><a class="headerlink" href="#a-double-colon-on-a-line-on-its-own" title="Permalink to this headline">¶</a></h5>
+<p>As a double colon is added by the Code2Text conversion after a text block
+(if not already present), it could be removed by the Text2Code conversion
+to keep the source small and pretty.</p>
+<p>However, this would put the text and code source line numbers out of sync,
+which is bad for error reporting, failing doctests, and the JED editor
+support with the <cite>pylit_buffer()</cite> function in
+<a class="reference external" href="http://jedmodes.sourceforge.net/mode/pylit">http://jedmodes.sourceforge.net/mode/pylit</a>.</p>
+<p>Maybe this could be left to a post-processing filter:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># textsamples[&quot;remove single double colon&quot;] = (</span>
+<span class="c1">#    [&quot;text followed by a literal block\n&quot;,</span>
+<span class="c1">#     &quot;\n&quot;,</span>
+<span class="c1">#     &quot;::\n&quot;,</span>
+<span class="c1">#     &quot;\n&quot;,</span>
+<span class="c1">#     &quot;  foo = &#39;first&#39;\n&quot;]</span>
+<span class="c1">#    [&quot;&quot;, # empty header</span>
+<span class="c1">#     &quot;# text followed by a literal block\n\n&quot;,</span>
+<span class="c1">#     &quot;foo = &#39;first&#39;\n&quot;]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="header-samples">
+<h5><a class="toc-backref" href="#id14">header samples</a><a class="headerlink" href="#header-samples" title="Permalink to this headline">¶</a></h5>
+<p>Convert a leading reStructured text comment  (variant: only if there is
+content on the first line) to a leading code block.  Return an empty list,
+if there is no header.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">textsamples</span><span class="p">[</span><span class="s2">&quot;simple header&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;..  print &#39;hello world&#39;&quot;</span><span class="p">,</span>
+                                <span class="s2">&quot;print &#39;hello world&#39;&quot;</span><span class="p">)</span>
+
+<span class="n">textsamples</span><span class="p">[</span><span class="s2">&quot;no header (start with text)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<span class="sd">&quot;&quot;&quot;a classical example without header::</span>
+
+<span class="sd">  print &#39;hello world&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;# a classical example without header::</span>
+
+<span class="sd">print &#39;hello world&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">)</span>
+
+
+<span class="n">textsamples</span><span class="p">[</span><span class="s2">&quot;no header (start with blank line)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">a classical example without header::</span>
+
+<span class="sd">  print &#39;hello world&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;#</span>
+<span class="sd"># a classical example without header::</span>
+
+<span class="sd">print &#39;hello world&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">)</span>
+
+
+<span class="n">textsamples</span><span class="p">[</span><span class="s2">&quot;standard header, followed by text&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<span class="sd">&quot;&quot;&quot;..  #!/usr/bin/env python</span>
+<span class="sd">  # -*- coding: iso-8859-1 -*-</span>
+
+<span class="sd">a classical example with header::</span>
+
+<span class="sd">  print &#39;hello world&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;#!/usr/bin/env python</span>
+<span class="sd"># -*- coding: iso-8859-1 -*-</span>
+
+<span class="sd"># a classical example with header::</span>
+
+<span class="sd">print &#39;hello world&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">)</span>
+
+<span class="n">textsamples</span><span class="p">[</span><span class="s2">&quot;standard header, followed by code&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<span class="sd">&quot;&quot;&quot;..  #!/usr/bin/env python</span>
+
+<span class="sd">  print &#39;hello world&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;#!/usr/bin/env python</span>
+
+<span class="sd">print &#39;hello world&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">)</span>
+
+<span class="n">textsamples</span><span class="p">[</span><span class="s2">&quot;null string&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="code2text">
+<h3><a class="toc-backref" href="#id15">Code2Text</a><a class="headerlink" href="#code2text" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">test_Code2Text</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converter</span> <span class="o">=</span> <span class="n">Code2Text</span><span class="p">(</span><span class="n">codedata</span><span class="p">)</span>
+
+<span class="c1">## Code2Text.strip_literal_marker</span>
+<span class="c1">##</span>
+<span class="c1">## * strip `::`-line as well as preceding blank line if on a line on its own</span>
+<span class="c1">## * strip `::` if it is preceded by whitespace.</span>
+<span class="c1">## * convert `::` to a single colon if preceded by text</span>
+<span class="c1">##</span>
+<span class="c1">## ::</span>
+    <span class="k">def</span> <span class="nf">check_strip_code_block_marker</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sample</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;test Code2Text.strip_code_block_marker&quot;&quot;&quot;</span>
+        <span class="n">ist</span> <span class="o">=</span> <span class="n">sample</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">soll</span> <span class="o">=</span> <span class="n">sample</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+        <span class="nb">print</span> <span class="s2">&quot;before&quot;</span><span class="p">,</span> <span class="n">ist</span>
+        <span class="n">converter</span> <span class="o">=</span> <span class="n">Code2Text</span><span class="p">(</span><span class="n">codedata</span><span class="p">)</span>
+        <span class="n">converter</span><span class="o">.</span><span class="n">strip_code_block_marker</span><span class="p">(</span><span class="n">ist</span><span class="p">)</span>
+        <span class="nb">print</span> <span class="s2">&quot;soll:&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">soll</span><span class="p">)</span>
+        <span class="nb">print</span> <span class="s2">&quot;ist: &quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">ist</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">ist</span> <span class="o">==</span> <span class="n">soll</span>
+
+
+    <span class="k">def</span> <span class="nf">test_strip_code_block_marker</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">samples</span> <span class="o">=</span> <span class="p">((</span><span class="s2">&quot;text</span><span class="se">\n\n</span><span class="s2">::</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;text</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">),</span>
+                   <span class="p">(</span><span class="s2">&quot;text</span><span class="se">\n</span><span class="s2">::</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;text</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">),</span>
+                   <span class="p">(</span><span class="s2">&quot;text ::</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;text</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">),</span>
+                   <span class="p">(</span><span class="s2">&quot;text::</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;text:</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">),</span>
+                   <span class="p">(</span><span class="s2">&quot;text:</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;text:</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">),</span>
+                   <span class="p">(</span><span class="s2">&quot;text</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;text</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">),</span>
+                   <span class="p">(</span><span class="s2">&quot;text</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;text</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                   <span class="p">)</span>
+        <span class="k">for</span> <span class="n">sample</span> <span class="ow">in</span> <span class="n">samples</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">check_strip_code_block_marker</span><span class="p">,</span> <span class="n">sample</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Code2Text.set_state</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_set_state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">samples</span> <span class="o">=</span> <span class="p">((</span><span class="s2">&quot;code_block&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;code_block</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">],</span> <span class="s2">&quot;code_block&quot;</span><span class="p">),</span>
+               <span class="p">(</span><span class="s2">&quot;code_block&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;#code_block</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">],</span> <span class="s2">&quot;code_block&quot;</span><span class="p">),</span>
+               <span class="p">(</span><span class="s2">&quot;code_block&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;## code_block</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">],</span> <span class="s2">&quot;code_block&quot;</span><span class="p">),</span>
+               <span class="p">(</span><span class="s2">&quot;code_block&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;# documentation</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">],</span> <span class="s2">&quot;documentation&quot;</span><span class="p">),</span>
+               <span class="p">(</span><span class="s2">&quot;code_block&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;#  documentation</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">],</span> <span class="s2">&quot;documentation&quot;</span><span class="p">),</span>
+               <span class="p">(</span><span class="s2">&quot;code_block&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;# </span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">],</span> <span class="s2">&quot;documentation&quot;</span><span class="p">),</span>
+               <span class="p">(</span><span class="s2">&quot;code_block&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;#</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">],</span> <span class="s2">&quot;documentation&quot;</span><span class="p">),</span>
+               <span class="p">(</span><span class="s2">&quot;code_block&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">],</span> <span class="s2">&quot;documentation&quot;</span><span class="p">),</span>
+               <span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;code_block</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">],</span> <span class="s2">&quot;header&quot;</span><span class="p">),</span>
+               <span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;# documentation</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">],</span> <span class="s2">&quot;documentation&quot;</span><span class="p">),</span>
+               <span class="p">(</span><span class="s2">&quot;documentation&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;code_block</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">],</span> <span class="s2">&quot;code_block&quot;</span><span class="p">),</span>
+               <span class="p">(</span><span class="s2">&quot;documentation&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;# documentation</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">],</span> <span class="s2">&quot;documentation&quot;</span><span class="p">),</span>
+              <span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;comment string&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">comment_string</span><span class="p">)</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">old_state</span><span class="p">,</span> <span class="n">lines</span><span class="p">,</span> <span class="n">soll</span><span class="p">)</span> <span class="ow">in</span> <span class="n">samples</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">old_state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">set_state</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+        <span class="nb">print</span> <span class="nb">repr</span><span class="p">(</span><span class="n">lines</span><span class="p">),</span> <span class="s2">&quot;old state&quot;</span><span class="p">,</span> <span class="n">old_state</span>
+        <span class="nb">print</span> <span class="s2">&quot;soll&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">soll</span><span class="p">),</span>
+        <span class="nb">print</span> <span class="s2">&quot;result&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">soll</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">state</span>
+</pre></div>
+</div>
+<p>base tests on the &#8220;long&#8221; test strings</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_call</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="p">()</span>
+    <span class="nb">print</span> <span class="nb">repr</span><span class="p">(</span><span class="n">textdata</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="nb">repr</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">textdata</span> <span class="o">==</span> <span class="n">output</span>
+
+<span class="k">def</span> <span class="nf">test_call_strip</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">Code2Text</span><span class="p">(</span><span class="n">codedata</span><span class="p">,</span> <span class="n">strip</span><span class="o">=</span><span class="kc">True</span><span class="p">)()</span>
+    <span class="nb">print</span> <span class="nb">repr</span><span class="p">(</span><span class="n">stripped_text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(</span><span class="kc">True</span><span class="p">))</span>
+    <span class="nb">print</span> <span class="nb">repr</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">stripped_text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span> <span class="o">==</span> <span class="n">output</span>
+
+<span class="k">def</span> <span class="nf">test_str</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Test Code2Text class converting code-&gt;text&quot;&quot;&quot;</span>
+    <span class="n">outstr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="p">)</span>
+    <span class="c1"># print text</span>
+    <span class="nb">print</span> <span class="s2">&quot;soll:&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;ist: &quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">outstr</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">text</span> <span class="o">==</span> <span class="n">outstr</span>
+
+<span class="k">def</span> <span class="nf">test_str_strip</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Test Code2Text class converting code-&gt;rst with strip=True</span>
+
+<span class="sd">    Should strip code blocks</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">outstr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Code2Text</span><span class="p">(</span><span class="n">codedata</span><span class="p">,</span> <span class="n">strip</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+    <span class="nb">print</span> <span class="nb">repr</span><span class="p">(</span><span class="n">stripped_text</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="nb">repr</span><span class="p">(</span><span class="n">outstr</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">stripped_text</span> <span class="o">==</span> <span class="n">outstr</span>
+
+<span class="k">def</span> <span class="nf">test_str_different_comment_string</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Convert only comments with the specified comment string to text</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">outstr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Code2Text</span><span class="p">(</span><span class="n">codedata</span><span class="p">,</span> <span class="n">comment_string</span><span class="o">=</span><span class="s2">&quot;##&quot;</span><span class="p">,</span> <span class="n">strip</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+    <span class="nb">print</span> <span class="n">outstr</span>
+    <span class="k">assert</span> <span class="n">outstr</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;# ::</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;block1 = &#39;first block&#39;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;## more text&quot;</span><span class="p">]</span>
+    <span class="n">soll</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="s1">&#39;..  # ::&#39;</span><span class="p">,</span>  <span class="c1"># leading code block as header</span>
+                      <span class="s1">&#39;  &#39;</span><span class="p">,</span>
+                      <span class="s2">&quot;  block1 = &#39;first block&#39;&quot;</span><span class="p">,</span>
+                      <span class="s1">&#39;  &#39;</span><span class="p">,</span>
+                      <span class="s1">&#39; more text&#39;</span><span class="p">]</span>   <span class="c1"># keep space (not part of comment string)</span>
+                    <span class="p">)</span>
+    <span class="n">outstr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Code2Text</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">comment_string</span><span class="o">=</span><span class="s2">&quot;##&quot;</span><span class="p">))</span>
+    <span class="nb">print</span> <span class="s2">&quot;soll:&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">soll</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;ist: &quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">outstr</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">outstr</span> <span class="o">==</span> <span class="n">soll</span>
+
+<span class="k">def</span> <span class="nf">test_call_different_code_block_marker</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;recognize specified code-block marker</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;# .. code-block:: python</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;block1 = &#39;first block&#39;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;#  more text</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">]</span>
+    <span class="n">soll</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;.. code-block:: python</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s2">&quot;  block1 = &#39;first block&#39;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s1">&#39;  </span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s1">&#39; more text</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">]</span>   <span class="c1"># keep space (not part of comment string)</span>
+
+    <span class="n">converter</span> <span class="o">=</span> <span class="n">Code2Text</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">code_block_marker</span><span class="o">=</span><span class="s1">&#39;.. code-block::&#39;</span><span class="p">)</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">converter</span><span class="p">()</span>
+    <span class="nb">print</span> <span class="s2">&quot;soll:&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">soll</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;ist: &quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">output</span> <span class="o">==</span> <span class="n">soll</span>
+
+<span class="c1"># Filters: test pre- and postprocessing of Code2Text data conversion</span>
+
+<span class="k">def</span> <span class="nf">test_get_filter_preprocessor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;should return Code2Text preprocessor for language&quot;&quot;&quot;</span>
+    <span class="n">preprocessor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">get_filter</span><span class="p">(</span><span class="s2">&quot;preprocessors&quot;</span><span class="p">,</span> <span class="s2">&quot;rl&quot;</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="n">preprocessor</span>
+    <span class="k">assert</span> <span class="n">preprocessor</span> <span class="o">==</span> <span class="n">r2l_filter</span>
+
+<span class="k">def</span> <span class="nf">test_get_css_preprocessor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;should return filter from filter_set for language&quot;&quot;&quot;</span>
+    <span class="n">preprocessor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">get_filter</span><span class="p">(</span><span class="s2">&quot;preprocessors&quot;</span><span class="p">,</span> <span class="s2">&quot;css&quot;</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="n">preprocessor</span>
+    <span class="k">assert</span> <span class="n">preprocessor</span> <span class="o">==</span> <span class="n">dumb_c_preprocessor</span>
+
+<span class="k">def</span> <span class="nf">test_get_filter_postprocessor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;should return Code2Text postprocessor for language&quot;&quot;&quot;</span>
+    <span class="n">postprocessor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">get_filter</span><span class="p">(</span><span class="s2">&quot;postprocessors&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="n">postprocessor</span>
+    <span class="k">assert</span> <span class="n">postprocessor</span> <span class="o">==</span> <span class="n">x2u_filter</span>
+
+<span class="k">def</span> <span class="nf">test_get_filter_nonexisting_language_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;should return identity_filter if language has no filter in set&quot;&quot;&quot;</span>
+    <span class="n">preprocessor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">get_filter</span><span class="p">(</span><span class="s2">&quot;preprocessors&quot;</span><span class="p">,</span> <span class="s2">&quot;foo&quot;</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="n">preprocessor</span>
+    <span class="k">assert</span> <span class="n">preprocessor</span> <span class="o">==</span> <span class="n">identity_filter</span>
+
+<span class="k">def</span> <span class="nf">test_get_filter_nonexisting_filter_set</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;should return identity_filter if filter_set does not exist&quot;&quot;&quot;</span>
+    <span class="n">processor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">converter</span><span class="o">.</span><span class="n">get_filter</span><span class="p">(</span><span class="s2">&quot;foo_filters&quot;</span><span class="p">,</span> <span class="s2">&quot;foo&quot;</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="n">processor</span>
+    <span class="k">assert</span> <span class="n">processor</span> <span class="o">==</span> <span class="n">identity_filter</span>
+
+<span class="k">def</span> <span class="nf">test_preprocessor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Preprocess data with registered preprocessor for language&quot;&quot;&quot;</span>
+    <span class="n">converter</span> <span class="o">=</span> <span class="n">Code2Text</span><span class="p">(</span><span class="n">codedata</span><span class="p">,</span> <span class="n">language</span><span class="o">=</span><span class="s2">&quot;rl&quot;</span><span class="p">,</span> <span class="n">comment_string</span><span class="o">=</span><span class="s2">&quot;# &quot;</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;preprocessor&quot;</span><span class="p">,</span> <span class="n">converter</span><span class="o">.</span><span class="n">preprocessor</span>
+    <span class="nb">print</span> <span class="s2">&quot;postprocessor&quot;</span><span class="p">,</span> <span class="n">converter</span><span class="o">.</span><span class="n">postprocessor</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">converter</span><span class="p">()</span>
+    <span class="n">soll</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="s2">&quot;l&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">textdata</span><span class="p">]</span>
+    <span class="nb">print</span> <span class="s2">&quot;ist: &quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;soll:&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">soll</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">output</span> <span class="o">==</span> <span class="n">soll</span>
+
+<span class="k">def</span> <span class="nf">test_postprocessor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Postprocess data with registered postprocessor for language&quot;&quot;&quot;</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">Code2Text</span><span class="p">(</span><span class="n">codedata</span><span class="p">,</span> <span class="n">language</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">comment_string</span><span class="o">=</span><span class="s2">&quot;# &quot;</span><span class="p">)()</span>
+    <span class="n">soll</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;u&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">textdata</span><span class="p">]</span>
+    <span class="nb">print</span> <span class="s2">&quot;soll:&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">soll</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="s2">&quot;ist: &quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">output</span> <span class="o">==</span> <span class="n">soll</span>
+</pre></div>
+</div>
+<div class="section" id="id1">
+<h4><a class="toc-backref" href="#id16">Special cases</a><a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="blank-comment-line">
+<h5><a class="toc-backref" href="#id17">blank comment line</a><a class="headerlink" href="#blank-comment-line" title="Permalink to this headline">¶</a></h5>
+<p>Normally, whitespace in the comment string is significant, i.e. with
+<code class="docutils literal"><span class="pre">comment_string</span> <span class="pre">=</span> <span class="pre">&quot;#</span> <span class="pre">&quot;</span></code>, a line <code class="docutils literal"><span class="pre">&quot;#something\n&quot;</span></code> will count as code.</p>
+<p>However, if a comment line is blank, trailing whitespace in the comment
+string should be ignored, i.e. <code class="docutils literal"><span class="pre">#\n</span></code> is recognised as a blank text line:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">codesamples</span><span class="p">[</span><span class="s2">&quot;ignore trailing whitespace in comment string for blank line&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<span class="sd">&quot;&quot;&quot;# ::</span>
+
+<span class="sd">block1 = &#39;first block&#39;</span>
+
+<span class="sd">#</span>
+<span class="sd"># more text</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;::</span>
+
+<span class="sd">  block1 = &#39;first block&#39;</span>
+
+
+<span class="sd">more text</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="no-blank-line-after-text">
+<h5><a class="toc-backref" href="#id18">No blank line after text</a><a class="headerlink" href="#no-blank-line-after-text" title="Permalink to this headline">¶</a></h5>
+<p>If a matching comment precedes or follows a code line (i.e. any line
+without matching comment) without a blank line in between, it counts as code
+line.</p>
+<p>This will keep small inline comments close to the code they comment on. It
+will also keep blocks together where one commented line does not match the
+comment string (the whole block will be kept as commented code)</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">codesamples</span><span class="p">[</span><span class="s2">&quot;comment before code (without blank line)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<span class="sd">&quot;&quot;&quot;# this is text::</span>
+
+<span class="sd"># this is a comment</span>
+<span class="sd">foo = &#39;first&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;this is text::</span>
+
+<span class="sd">  # this is a comment</span>
+<span class="sd">  foo = &#39;first&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;this is text:</span>
+
+<span class="sd">&quot;&quot;&quot;</span><span class="p">)</span>
+
+<span class="n">codesamples</span><span class="p">[</span><span class="s2">&quot;comment block before code (without blank line)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<span class="sd">&quot;&quot;&quot;# no text (watch the comment sign in the next line)::</span>
+<span class="sd">#</span>
+<span class="sd"># this is a comment</span>
+<span class="sd">foo = &#39;first&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;..  # no text (watch the comment sign in the next line)::</span>
+<span class="sd">  #</span>
+<span class="sd">  # this is a comment</span>
+<span class="sd">  foo = &#39;first&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+<span class="n">codesamples</span><span class="p">[</span><span class="s2">&quot;comment after code (without blank line)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<span class="sd">&quot;&quot;&quot;# ::</span>
+
+<span class="sd">block1 = &#39;first block&#39;</span>
+<span class="sd"># commented code</span>
+
+<span class="sd"># text again</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;::</span>
+
+<span class="sd">  block1 = &#39;first block&#39;</span>
+<span class="sd">  # commented code</span>
+
+<span class="sd">text again</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">text again</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">)</span>
+
+<span class="n">codesamples</span><span class="p">[</span><span class="s2">&quot;comment block after code (without blank line)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<span class="sd">&quot;&quot;&quot;# ::</span>
+
+<span class="sd">block1 = &#39;first block&#39;</span>
+<span class="sd"># commented code</span>
+<span class="sd">#</span>
+<span class="sd"># still comment</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;::</span>
+
+<span class="sd">  block1 = &#39;first block&#39;</span>
+<span class="sd">  # commented code</span>
+<span class="sd">  #</span>
+<span class="sd">  # still comment</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="missing-literal-block-marker">
+<h5><a class="toc-backref" href="#id19">missing literal block marker</a><a class="headerlink" href="#missing-literal-block-marker" title="Permalink to this headline">¶</a></h5>
+<p>If text (with matching comment string) is followed by code (line(s) without
+matching comment string), but there is no double colon at the end, back
+conversion would not recognise the end of text!</p>
+<p>Therefore, pylit adds a paragraph containing only <code class="docutils literal"><span class="pre">::</span></code> &#8211; the literal
+block marker in expanded form. (While it would in many cases be nicer to
+add the double colon to the last text line, this is not always valid rst
+syntax, e.g. after a section header or a list. Therefore the automatic
+insertion will use the save form, feel free to correct this by hand.):</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">codesamples</span><span class="p">[</span><span class="s2">&quot;insert missing double colon after text block&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<span class="sd">&quot;&quot;&quot;# text followed by code without double colon</span>
+
+<span class="sd">foo = &#39;first&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;text followed by code without double colon</span>
+
+<span class="sd">::</span>
+
+<span class="sd">  foo = &#39;first&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;text followed by code without double colon</span>
+
+<span class="sd">&quot;&quot;&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="id2">
+<h5><a class="toc-backref" href="#id20">header samples</a><a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h5>
+<p>Convert a header (leading code block) to a reStructured text comment.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">codesamples</span><span class="p">[</span><span class="s2">&quot;no matching comment, just code&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<span class="sd">&quot;&quot;&quot;print &#39;hello world&#39;</span>
+
+<span class="sd">print &#39;ende&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;..  print &#39;hello world&#39;</span>
+
+<span class="sd">  print &#39;ende&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">)</span>
+
+<span class="n">codesamples</span><span class="p">[</span><span class="s2">&quot;empty header (start with matching comment)&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<span class="sd">&quot;&quot;&quot;# a classical example without header::</span>
+
+<span class="sd">print &#39;hello world&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;a classical example without header::</span>
+
+<span class="sd">  print &#39;hello world&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;a classical example without header:</span>
+
+<span class="sd">&quot;&quot;&quot;</span><span class="p">)</span>
+
+<span class="n">codesamples</span><span class="p">[</span><span class="s2">&quot;standard header, followed by text&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<span class="sd">&quot;&quot;&quot;#!/usr/bin/env python</span>
+<span class="sd"># -*- coding: iso-8859-1 -*-</span>
+
+<span class="sd"># a classical example with header::</span>
+
+<span class="sd">print &#39;hello world&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;..  #!/usr/bin/env python</span>
+<span class="sd">  # -*- coding: iso-8859-1 -*-</span>
+
+<span class="sd">a classical example with header::</span>
+
+<span class="sd">  print &#39;hello world&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;a classical example with header:</span>
+
+<span class="sd">&quot;&quot;&quot;</span><span class="p">)</span>
+
+<span class="n">codesamples</span><span class="p">[</span><span class="s2">&quot;standard header, followed by code&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<span class="sd">&quot;&quot;&quot;#!/usr/bin/env python</span>
+
+<span class="sd">print &#39;hello world&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="sd">&quot;&quot;&quot;..  #!/usr/bin/env python</span>
+
+<span class="sd">  print &#39;hello world&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span><span class="p">,</span>
+<span class="s2">&quot;&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="filter-tests">
+<h3><a class="toc-backref" href="#id21">Filter tests</a><a class="headerlink" href="#filter-tests" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">css_code</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;/* import the default Docutils style sheet */</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;/* --------------------------------------- */</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;/* :: */</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;/*comment*/</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;@import url(&quot;html4css1.css&quot;); /* style */</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">css_filtered_code</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;// import the default Docutils style sheet</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+                     <span class="s1">&#39;// ---------------------------------------</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+                     <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+                     <span class="s1">&#39;// ::</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+                     <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+                     <span class="s1">&#39;/*comment*/</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span>
+                     <span class="s1">&#39;@import url(&quot;html4css1.css&quot;); /* style */</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_dumb_c_preprocessor</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;convert `C` to `C++` comments&quot;&quot;&quot;</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">dumb_c_preprocessor</span><span class="p">(</span><span class="n">css_code</span><span class="p">)]</span>
+    <span class="nb">print</span> <span class="s2">&quot;ist:  </span><span class="si">%r</span><span class="s2">&quot;</span><span class="o">%</span><span class="n">output</span>
+    <span class="nb">print</span> <span class="s2">&quot;soll: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="o">%</span><span class="n">css_filtered_code</span>
+    <span class="k">assert</span> <span class="n">output</span> <span class="o">==</span> <span class="n">css_filtered_code</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_dumb_c_postprocessor</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;convert `C++` to `C` comments&quot;&quot;&quot;</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">dumb_c_postprocessor</span><span class="p">(</span><span class="n">css_filtered_code</span><span class="p">)]</span>
+    <span class="nb">print</span> <span class="s2">&quot;ist:  </span><span class="si">%r</span><span class="s2">&quot;</span><span class="o">%</span><span class="n">output</span>
+    <span class="nb">print</span> <span class="s2">&quot;soll: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="o">%</span><span class="n">css_code</span>
+    <span class="k">assert</span> <span class="n">output</span> <span class="o">==</span> <span class="n">css_code</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">nose</span><span class="o">.</span><span class="n">runmodule</span><span class="p">()</span> <span class="c1"># requires nose 0.9.1</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/pylit-bold-framed.png" alt="Logo"/>
+            </a></p>
+    <h3>Contents</h3>
+    <!-- Contents of current page -->
+    <ul>
+<li><a class="reference internal" href="#">pylit_test.py</a><ul>
+<li><a class="reference internal" href="#test-pylit-py-python-module">Test pylit.py Python Module</a><ul>
+<li><a class="reference internal" href="#a-catalogue-of-errors">A catalogue of errors</a></li>
+<li><a class="reference internal" href="#text-code-conversion">Text &lt;-&gt; Code conversion</a></li>
+<li><a class="reference internal" href="#test-strings">Test strings</a></li>
+<li><a class="reference internal" href="#textcodeconverter">TextCodeConverter</a></li>
+<li><a class="reference internal" href="#text2code">Text2Code</a><ul>
+<li><a class="reference internal" href="#special-cases">Special Cases</a><ul>
+<li><a class="reference internal" href="#code-follows-text-block-without-blank-line">Code follows text block without blank line</a></li>
+<li><a class="reference internal" href="#text-follows-code-block-without-blank-line">Text follows code block without blank line</a></li>
+<li><a class="reference internal" href="#a-double-colon-on-a-line-on-its-own">A double colon on a line on its own</a></li>
+<li><a class="reference internal" href="#header-samples">header samples</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#code2text">Code2Text</a><ul>
+<li><a class="reference internal" href="#id1">Special cases</a><ul>
+<li><a class="reference internal" href="#blank-comment-line">blank comment line</a></li>
+<li><a class="reference internal" href="#no-blank-line-after-text">No blank line after text</a></li>
+<li><a class="reference internal" href="#missing-literal-block-marker">missing literal block marker</a></li>
+<li><a class="reference internal" href="#id2">header samples</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#filter-tests">Filter tests</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+    <!-- Site Contents -->
+    <!-- <ul>
+<li class="toctree-l1"><a class="reference internal" href="../features.html">Features</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorial</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../literate-programming.html">Literate Programming</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../download/index.html">Requirements</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../download/index.html#download">Download</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../download/index.html#installation">Installation</a></li>
+</ul>
+ -->
+    <hr />
+    <h4>Previous Page</h4>
+    <p class="topless">
+      <a href="testmod_literate.py.html" title="previous section">testmod_literate</a>
+    </p>
+    <h4>Next Page</h4>
+    <p class="topless">
+      <a href="simplestates_test.py.html" title="next section">simplestates_test.py:</a>
+    </p>
+    <h4>Up</h4>
+    <p class="topless">
+       <a href="index.html" title="up">Examples</a>
+    </p>
+  <hr />
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/examples/pylit_test.py.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+    <h3>Search this site</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" size="12" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+ <p class="thanks">
+  <!-- Thanks to	      -->
+  <!-- for hosting this site. -->
+ </p>
+
+  </body>
+</html>

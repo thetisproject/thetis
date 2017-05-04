@@ -130,5 +130,6 @@ def update_forcings(t):
     bnd_elev_solver.solve()
     # bnd_v_solver.solve()
 
-solver_obj.assign_initial_conditions(elev=elev_init, uv_init=uv_init)
+
+solver_obj.assign_initial_conditions(elev=elev_init, uv=uv_init)
 solver_obj.iterate(update_forcings=update_forcings)

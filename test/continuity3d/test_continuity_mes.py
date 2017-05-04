@@ -256,10 +256,7 @@ def run(setup, refinement, order, do_export=True):
     # elevation field
     solver_obj.fields.elev_2d.project(sdict['elev_expr'])
     # update mesh and fields
-    solver_obj.copy_elev_to_3d.solve()
-    solver_obj.mesh_coord_updater.solve()
-    compute_elem_height(solver_obj.fields.z_coord_3d, solver_obj.fields.v_elem_size_3d)
-    solver_obj.copy_v_elem_size_to_2d.solve()
+    solver_obj.mesh_updater.update_mesh_coordinates()
 
     # velocity field
     solver_obj.fields.uv_3d.project(sdict['uv_expr'])  # NOTE for DG only
@@ -376,8 +373,7 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False):
 # standard tests for pytest
 # ---------------------------
 
-
-@pytest.mark.not_travis
+@pytest.mark.not_travis(reason='travis out-of-memory')
 def test_setup5_dg():
     run_convergence(setup5dg, [1, 2, 3], 1, save_plot=False)
 

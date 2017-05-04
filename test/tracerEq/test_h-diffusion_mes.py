@@ -9,8 +9,10 @@ from scipy import stats
 import pytest
 
 
-def run(refinement, order=1, warped_mesh=False, do_export=True):
+def run(refinement, **model_options):
     print_output('--- running refinement {:}'.format(refinement))
+    warped_mesh = model_options.pop('warped_mesh', False)
+
     # domain dimensions - channel in x-direction
     lx = 15.0e3
     ly = 6.0e3/refinement
@@ -24,20 +26,26 @@ def run(refinement, order=1, warped_mesh=False, do_export=True):
     ny = 1  # constant -- channel
     mesh2d = RectangleMesh(nx, ny, lx, ly)
 
-    # set time steps
-    # stable explicit time step for diffusion
-    dx = lx/nx
-    alpha = 1.0/200.0  # TODO theoretical alpha...
-    dt = alpha * dx**2/h_diffusivity
+    # # set time steps
+    # # stable explicit time step for diffusion
+    # dx = lx/nx
+    # alpha = 1.0/200.0  # TODO theoretical alpha...
+    # dt = alpha * dx**2/h_diffusivity
+    # # simulation run time
+    # t_end = 3000.0
+    # # initial time
+    # t_init = 1000.0  # NOTE start from t > 0 for smoother init cond
+    # # eliminate reminder
+    # ndt = np.ceil((t_end-t_init)/dt)
+    # dt = (t_end-t_init)/ndt
+    # dt_2d = dt/2
+    # t_export = (t_end-t_init)/20.0
+
     # simulation run time
     t_end = 3000.0
     # initial time
     t_init = 1000.0  # NOTE start from t > 0 for smoother init cond
-    # eliminate reminder
-    ndt = np.ceil((t_end-t_init)/dt)
-    dt = (t_end-t_init)/ndt
-    dt_2d = dt/2
-    t_export = (t_end-t_init)/20.0
+    t_export = (t_end - t_init)/8.0
 
     # outputs
     outputdir = 'outputs'
@@ -52,22 +60,21 @@ def run(refinement, order=1, warped_mesh=False, do_export=True):
         bathymetry_2d.interpolate(Expression('h + 20.0*x[0]/lx', h=depth, lx=lx))
 
     solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
-    solverobj.options.order = order
-    solverobj.options.element_family = 'dg-dg'
-    solverobj.options.nonlin = False
-    solverobj.options.use_ale_moving_mesh = True
-    solverobj.options.u_advection = Constant(1.0)
-    solverobj.options.no_exports = not do_export
-    solverobj.options.outputdir = outputdir
-    solverobj.options.t_end = t_end
-    solverobj.options.t_export = t_export
-    solverobj.options.dt = dt
-    solverobj.options.dt_2d = dt_2d
-    solverobj.options.solve_salt = True
-    solverobj.options.solve_vert_diffusion = False
-    solverobj.options.use_limiter_for_tracers = False
-    solverobj.options.fields_to_export = ['salt_3d']
-    solverobj.options.h_diffusivity = Constant(h_diffusivity)
+    options = solverobj.options
+    options.nonlin = False
+    options.use_ale_moving_mesh = False
+    options.u_advection = Constant(1.0)
+    options.no_exports = True
+    options.outputdir = outputdir
+    options.t_end = t_end
+    options.t_export = t_export
+    options.solve_salt = True
+    options.solve_vert_diffusion = False
+    options.use_limiter_for_tracers = False
+    options.fields_to_export = ['salt_3d']
+    options.h_diffusivity = Constant(h_diffusivity)
+    options.nu_viscosity = Constant(h_diffusivity)
+    options.update(model_options)
 
     solverobj.create_equations()
 
@@ -80,8 +87,8 @@ def run(refinement, order=1, warped_mesh=False, do_export=True):
     salt_ana = Function(solverobj.function_spaces.H, name='salt analytical')
     salt_ana_p1 = Function(solverobj.function_spaces.P1, name='salt analytical')
 
-    p1dg_ho = FunctionSpace(solverobj.mesh, 'DG', order + 2,
-                            vfamily='DG', vdegree=order + 2)
+    p1dg_ho = FunctionSpace(solverobj.mesh, 'DG', options.order + 2,
+                            vfamily='DG', vdegree=options.order + 2)
     salt_ana_ho = Function(p1dg_ho, name='salt analytical')
 
     elev_init = Function(solverobj.function_spaces.H_2d, name='elev init')
@@ -90,11 +97,11 @@ def run(refinement, order=1, warped_mesh=False, do_export=True):
     solverobj.assign_initial_conditions(elev=elev_init, salt=ana_salt_expr)
 
     # export analytical solution
-    if do_export:
-        out_salt_ana = File(os.path.join(solverobj.options.outputdir, 'salt_ana.pvd'))
+    if not options.no_exports:
+        out_salt_ana = File(os.path.join(options.outputdir, 'salt_ana.pvd'))
 
     def export_func():
-        if do_export:
+        if not options.no_exports:
             solverobj.export()
             # update analytical solution to correct time
             t_const.assign(t)
@@ -111,8 +118,8 @@ def run(refinement, order=1, warped_mesh=False, do_export=True):
     iexport = 1
     next_export_t = t + solverobj.options.t_export
     while t < t_end - 1e-8:
-        ti.advance(t, dt, solverobj.fields.salt_3d)
-        t += dt
+        ti.advance(t)
+        t += solverobj.dt
         i += 1
         if t >= next_export_t - 1e-8:
             print_output('{:3d} i={:5d} t={:8.2f} s salt={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.salt_3d)))
@@ -134,7 +141,6 @@ def run(refinement, order=1, warped_mesh=False, do_export=True):
 def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
     order = options.get('order', 1)
-    options.setdefault('do_export', False)
     l2_err = []
     for r in ref_list:
         l2_err.append(run(r, **options))
@@ -187,22 +193,36 @@ def run_convergence(ref_list, saveplot=False, **options):
 # ---------------------------
 
 
-@pytest.fixture(params=[0, 1])
+@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')(0), 1])
 def order(request):
     return request.param
 
 
-@pytest.fixture(params=[True, False], ids=['warped', 'regular'])
+@pytest.fixture(params=[True, False], ids=[pytest.mark.not_travis(reason='travis timeout')('warped'),
+                                           'regular'])
 def warped(request):
     return request.param
 
 
-def test_horizontal_diffusion(warped, order):
-    run_convergence([1, 2, 3], order=order, warped_mesh=warped)
+@pytest.mark.parametrize(('stepper', 'use_ale'),
+                         [('ssprk33', False),
+                          ('leapfrog', True),
+                          ('ssprk22', True)])
+def test_horizontal_diffusion(warped, order, stepper, use_ale):
+    run_convergence([1, 2, 3], order=order,
+                    warped_mesh=warped,
+                    timestepper_type=stepper,
+                    use_ale_moving_mesh=use_ale)
 
 # ---------------------------
 # run individual setup for debugging
 # ---------------------------
 
+
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], order=0, warped_mesh=False, do_export=True, saveplot=True)
+    run_convergence([1, 2, 3], order=1,
+                    warped_mesh=True,
+                    element_family='dg-dg',
+                    timestepper_type='ssprk22',
+                    use_ale_moving_mesh=True,
+                    no_exports=False, saveplot=True)

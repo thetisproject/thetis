@@ -15,10 +15,11 @@ def load_function(var, export_ix):
     func = solver_obj.fields[var]
     fs = func.function_space()
     fname = field_metadata[var]['filename']
-    h5reader = HDF5Exporter(fs, outputdir + '/hdf5', fname,
+    h5reader = HDF5Exporter(fs, options.outputdir + '/hdf5', fname,
                             next_export_ix=0, verbose=False)
     h5reader.load(export_ix, func)
     return func
+
 
 # construct plot coordinates
 npoints = layers*6
@@ -45,13 +46,14 @@ ana_data = {'uv_3d': (z, u_log),
             }
 
 # plot instantaneous profiles
-export_ix = 45
+export_ix = 100
 varlist = ['uv_3d', 'shear_freq_3d', 'tke_3d', 'eps_3d', 'len_3d', 'eddy_visc_3d']
 nplots = len(varlist)
-fig, axlist = plt.subplots(nrows=1, ncols=nplots, sharey=True, figsize=(nplots*2.0, 7))
+fig, axlist = plt.subplots(nrows=1, ncols=nplots, sharey=True, figsize=(nplots*2.0, 6))
 for v, ax in zip(varlist, axlist):
     func = load_function(v, export_ix)
     arr = numpy.array(func.at(tuple(xyz)))
+    print('field: {:} min {:} max {:}'.format(v, arr.min(), arr.max()))
     if len(arr.shape) == 2:
         # take first component of vectors
         arr = arr[:, 0]
@@ -69,4 +71,4 @@ for v, ax in zip(varlist, axlist):
     ax.xaxis.set_major_formatter(fmt)
 axlist[0].set_ylabel('z [m]')
 axlist[0].set_ylim([-depth*1.005, 0])
-plt.savefig('friction_profiles.png', bbox_inches='tight')
+plt.savefig('friction_profiles.png', bbox_inches='tight', dpi=200.)

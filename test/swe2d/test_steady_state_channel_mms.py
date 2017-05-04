@@ -50,7 +50,8 @@ def test_steady_state_channel_mms(options):
         source_func = project(source_expr*xhat, source_space, name="Source")
 
         # --- create solver ---
-        solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=order)
+        solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
+        solver_obj.options.order = order
         solver_obj.options.nonlin = True
         solver_obj.options.quadratic_drag = C_D
         solver_obj.options.t_export = dt
@@ -85,7 +86,7 @@ def test_steady_state_channel_mms(options):
         solver_obj.create_timestepper()
         solver_obj.timestepper.name = 'test_steady_state_channel_mms'
         solver_obj.timestepper.update_solver()
-        solver_obj.assign_initial_conditions(uv_init=Expression(("1.0", "0.0")))
+        solver_obj.assign_initial_conditions(uv=Expression(("1.0", "0.0")))
 
         if do_exports:
             File('source_{}.pvd'.format(i)).write(source_func)

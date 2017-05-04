@@ -109,14 +109,15 @@ class RPECalculator(DiagnosticCallback):
         self.area_2d = assemble(one_2d*dx)
         self.rho = self.solver_obj.fields.density_3d
         fs = self.rho.function_space()
-        test = TestFunction(fs)
-        self.nodal_volume = assemble(test*dx)
+        self.test = TestFunction(fs)
+        self.nodal_volume = assemble(self.test*dx)
         self.initial_rpe = None
         self._initialized = True
 
     def __call__(self):
         if not hasattr(self, '_initialized') or self._initialized is False:
             self._initialize()
+        self.nodal_volume = assemble(self.test*dx)
         rho_array = self.rho.dat.data[:]
         sorted_ix = np.argsort(rho_array)[::-1]
         rho_array = rho_array[sorted_ix] + physical_constants['rho0'].dat.data[0]

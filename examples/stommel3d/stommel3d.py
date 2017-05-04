@@ -56,7 +56,6 @@ options.use_bottom_friction = False
 options.use_ale_moving_mesh = False
 options.use_linearized_semi_implicit_2d = True
 options.solver_parameters_sw['snes_type'] = 'ksponly'
-# options.use_mode_split = False
 options.baroclinic = False
 options.coriolis = coriolis_2d
 options.wind_stress = wind_stress_2d

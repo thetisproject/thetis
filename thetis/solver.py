@@ -1,7 +1,5 @@
 """
-Module for coupled 2D-3D flow solver.
-
-Tuomas Karna 2015-04-01
+Module for three dimensional baroclinic solver
 """
 from __future__ import absolute_import
 from .utility import *
@@ -22,28 +20,99 @@ from .log import *
 
 
 class FlowSolver(FrozenClass):
-    """Creates and solves coupled 2D-3D equations"""
+    """
+    Main object for 3D solver
+
+    **Example**
+
+    Create 2D mesh
+
+    .. code-block:: python
+
+        from thetis import *
+        mesh2d = RectangleMesh(20, 20, 10e3, 10e3)
+
+    Create bathymetry function, set a constant value
+
+    .. code-block:: python
+
+        fs_p1 = FunctionSpace(mesh2d, 'CG', 1)
+        bathymetry_2d = Function(fs_p1, name='Bathymetry').assign(10.0)
+
+    Create a 3D model with 6 uniform levels, and set some options
+    (see :class:`.ModelOptions`)
+
+    .. code-block:: python
+
+        solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers=6)
+        options = solver_obj.options
+        options.element_family = 'dg-dg'
+        options.order = 1
+        options.timestepper_type = 'ssprk22'
+        options.solve_salt = False
+        options.solve_temp = False
+        options.t_export = 50.0
+        options.t_end = 3600.
+        options.dt = 25.0
+
+    Assign initial condition for water elevation
+
+    .. code-block:: python
+
+        solver_obj.create_function_spaces()
+        init_elev = Function(solver_obj.function_spaces.H_2d)
+        coords = SpatialCoordinate(mesh2d)
+        init_elev.project(2.0*exp(-((coords[0] - 4e3)**2 + (coords[1] - 4.5e3)**2)/2.2e3**2))
+        solver_obj.assign_initial_conditions(elev=init_elev)
+
+    Run simulation
+
+    .. code-block:: python
+
+        solver_obj.iterate()
+
+    See the manual for more complex examples.
+    """
     def __init__(self, mesh2d, bathymetry_2d, n_layers,
                  options=None):
+        """
+        :arg mesh2d: :class:`Mesh` object of the 2D mesh
+        :arg bathymetry_2d: Bathymetry of the domain. Bathymetry stands for
+            the mean water depth (positive downwards).
+        :type bathymetry_2d: 2D :class:`Function`
+        :arg int n_layers: Number of layers in the vertical direction.
+            Elements are distributed uniformly over the vertical.
+        :kwarg options: Model options (optional). Model options can also be
+            changed directly via the :attr:`.options` class property.
+        :type options: :class:`.ModelOptions` instance
+        """
         self._initialized = False
 
-        # create 3D mesh
-        self.mesh2d = mesh2d
-        self.mesh = extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d)
+        self.bathymetry_cg_2d = bathymetry_2d
 
+        self.mesh2d = mesh2d
+        """2D :class`Mesh`"""
+        self.mesh = extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d)
+        """3D :class`Mesh`"""
         self.comm = mesh2d.comm
+
         # add boundary length info
         bnd_len = compute_boundary_length(self.mesh2d)
         self.mesh2d.boundary_len = bnd_len
         self.mesh.boundary_len = bnd_len
 
-        # Time integrator setup
         self.dt = None
+        """Time step"""
         self.dt_2d = None
+        """Time of the 2D solver"""
         self.M_modesplit = None
+        """Mode split ratio (int)"""
 
         # override default options
         self.options = ModelOptions()
+        """
+        Dictionary of all options. A :class:`.ModelOptions` object.
+        """
         if options is not None:
             self.options.update(options)
 
@@ -60,25 +129,67 @@ class FlowSolver(FrozenClass):
                               }
 
         self.callbacks = callback.CallbackManager()
-        """Callback manager object"""
+        """
+        :class:`.CallbackManager` object that stores all callbacks
+        """
 
         self.fields = FieldDict()
-        """Holds all functions needed by the solver object."""
+        """
+        :class:`.FieldDict` that holds all functions needed by the solver
+        object
+        """
+
         self.function_spaces = AttrDict()
-        """Holds all function spaces needed by the solver object."""
-        self.fields.bathymetry_2d = bathymetry_2d
+        """
+        :class:`.AttrDict` that holds all function spaces needed by the
+        solver object
+        """
+
         self.export_initial_state = True
         """Do export initial state. False if continuing a simulation"""
-        self._isfrozen = True  # disallow creating new attributes
 
-    def compute_time_step_2d(self, u_mag=Constant(0.0)):
+        self._isfrozen = True
+
+    def compute_dx_factor(self):
         """
+        Computes normalized distance between nodes in the horizontal direction
+
+        The factor depends on the finite element space and its polynomial
+        degree. It is used to compute maximal stable time steps.
+        """
+        p = self.options.order
+        if self.options.element_family == 'rt-dg':
+            # velocity space is essentially p+1
+            p = self.options.order + 1
+        # assuming DG basis functions on triangles
+        l_r = p**2/3.0 + 7.0/6.0*p + 1.0
+        factor = 0.5*0.25/l_r
+        return factor
+
+    def compute_dz_factor(self):
+        """
+        Computes a normalized distance between nodes in the vertical direction
+
+        The factor depends on the finite element space and its polynomial
+        degree. It is used to compute maximal stable time steps.
+        """
+        p = self.options.order
+        # assuming DG basis functions in an interval
+        l_r = 1.0/max(p, 1)
+        factor = 0.5*0.25/l_r
+        return factor
+
+    def compute_dt_2d(self, u_scale):
+        r"""
         Computes maximum explicit time step from CFL condition.
 
-        dt = CellSize/U
+        .. math :: \Delta t = \frac{\Delta x}{U}
 
-        Assumes velocity scale U = sqrt(g*H) + u_mag
-        where u_mag is estimated advective velocity
+        Assumes velocity scale :math:`U = \sqrt{g H} + U_{scale}` where
+        :math:`U_{scale}` is estimated advective velocity.
+
+        :arg u_scale: User provided maximum advective velocity scale
+        :type u_scale: float or :class:`Constant`
         """
         csize = self.fields.h_elem_size_2d
         bath = self.fields.bathymetry_2d
@@ -91,67 +202,151 @@ class FlowSolver(FrozenClass):
         trial = TrialFunction(fs)
         solution = Function(fs)
         g = physical_constants['g_grav']
-        u = (sqrt(g * bath_pos) + u_mag)
+        u = (sqrt(g * bath_pos) + u_scale)
         a = inner(test, trial) * dx
         l = inner(test, csize / u) * dx
         solve(a == l, solution)
-        return solution
+        dt = float(solution.dat.data.min())
+        dt = self.comm.allreduce(dt, op=MPI.MIN)
+        dt *= self.compute_dx_factor()
+        return dt
 
-    def compute_time_step_3d(self, u_mag=Constant(1.0)):
+    def compute_dt_h_advection(self, u_scale):
+        r"""
+        Computes maximum explicit time step for horizontal advection
+
+        .. math :: \Delta t = \frac{\Delta x}{U_{scale}}
+
+        where :math:`U_{scale}` is estimated horizontal advective velocity.
+
+        :arg u_scale: User provided maximum horizontal velocity scale
+        :type u_scale: float or :class:`Constant`
         """
-        Computes maximum explicit time step from CFL condition.
+        u = u_scale
+        if isinstance(u_scale, FiredrakeConstant):
+            u = u_scale.dat.data[0]
+        min_dx = self.fields.h_elem_size_2d.dat.data.min()
+        # alpha = 0.5 if self.options.element_family == 'rt-dg' else 1.0
+        # dt = alpha*1.0/10.0/(self.options.order + 1)*min_dx/u
+        min_dx *= self.compute_dx_factor()
+        dt = min_dx/u
+        dt = self.comm.allreduce(dt, op=MPI.MIN)
+        return dt
 
-        dt = CellSize/U
+    def compute_dt_v_advection(self, w_scale):
+        r"""
+        Computes maximum explicit time step for vertical advection
 
-        Assumes velocity scale U = u_mag
-        where u_mag is estimated advective velocity
+        .. math :: \Delta t = \frac{\Delta z}{W_{scale}}
+
+        where :math:`W_{scale}` is estimated vertical advective velocity.
+
+        :arg w_scale: User provided maximum vertical velocity scale
+        :type w_scale: float or :class:`Constant`
         """
-        csize = self.fields.h_elem_size_2d
-        bath = self.fields.bathymetry_2d
-        fs = bath.function_space()
-        test = TestFunction(fs)
-        trial = TrialFunction(fs)
-        solution = Function(fs)
-        a = inner(test, trial) * dx
-        l = inner(test, csize / u_mag) * dx
-        solve(a == l, solution)
-        return solution
+        w = w_scale
+        if isinstance(w_scale, FiredrakeConstant):
+            w = w_scale.dat.data[0]
+        min_dz = self.fields.v_elem_size_2d.dat.data.min()
+        # alpha = 0.5 if self.options.element_family == 'rt-dg' else 1.0
+        # dt = alpha*1.0/1.5/(self.options.order + 1)*min_dz/w
+        min_dz *= self.compute_dz_factor()
+        dt = min_dz/w
+        dt = self.comm.allreduce(dt, op=MPI.MIN)
+        return dt
 
-    def set_time_step(self, alpha=0.05):
-        comm = self.comm
-        if self.options.use_mode_split:
-            self.dt = self.options.dt
+    def compute_dt_diffusion(self, nu_scale):
+        r"""
+        Computes maximum explicit time step for horizontal diffusion.
+
+        .. math :: \Delta t = \alpha \frac{(\Delta x)^2}{\nu_{scale}}
+
+        where :math:`\nu_{scale}` is estimated diffusivity scale.
+        """
+        nu = nu_scale
+        if isinstance(nu_scale, FiredrakeConstant):
+            nu = nu_scale.dat.data[0]
+        min_dx = self.fields.h_elem_size_2d.dat.data.min()
+        factor = 2.0
+        if self.options.timestepper_type == 'leapfrog':
+            factor = 1.2
+        min_dx *= factor*self.compute_dx_factor()
+        dt = (min_dx)**2/nu
+        dt = self.comm.allreduce(dt, op=MPI.MIN)
+        return dt
+
+    def set_time_step(self):
+        """
+        Sets the model the model time step
+
+        Uses ``options.dt`` and ``options.dt_2d`` if set, otherwise sets the
+        maximum time step allowed by the CFL conditions.
+
+        Once the time step is determined, will adjust it to be an integer
+        fraction of export interval ``options.t_export``.
+        """
+        cfl2d = self.timestepper.cfl_coeff_2d
+        cfl3d = self.timestepper.cfl_coeff_3d
+        max_dt_swe = self.compute_dt_2d(self.options.u_advection)
+        max_dt_hadv = self.compute_dt_h_advection(self.options.u_advection)
+        max_dt_vadv = self.compute_dt_v_advection(self.options.w_advection)
+        max_dt_diff = self.compute_dt_diffusion(self.options.nu_viscosity)
+        print_output('  - dt 2d swe: {:}'.format(max_dt_swe))
+        print_output('  - dt h. advection: {:}'.format(max_dt_hadv))
+        print_output('  - dt v. advection: {:}'.format(max_dt_vadv))
+        print_output('  - dt viscosity: {:}'.format(max_dt_diff))
+        max_dt_2d = cfl2d*max_dt_swe
+        max_dt_3d = cfl3d*min(max_dt_hadv, max_dt_vadv, max_dt_diff)
+        print_output('  - CFL adjusted dt: 2D: {:} 3D: {:}'.format(max_dt_2d, max_dt_3d))
+        if self.options.dt_2d is not None or self.options.dt is not None:
+            print_output('  - User defined dt: 2D: {:} 3D: {:}'.format(self.options.dt_2d, self.options.dt))
+        self.dt = self.options.dt
+        self.dt_2d = self.options.dt_2d
+
+        if self.dt_mode == 'split':
             if self.dt is None:
-                mesh_dt = self.compute_time_step_3d(u_mag=self.options.u_advection)
-                dt = self.options.cfl_3d*alpha*float(np.floor(mesh_dt.dat.data.min()))
-                dt = comm.allreduce(dt, op=MPI.MIN)
-                if round(dt) > 0:
-                    dt = round(dt)
-                self.dt = dt
-            self.dt_2d = self.options.dt_2d
+                self.dt = max_dt_3d
             if self.dt_2d is None:
-                mesh2d_dt = self.compute_time_step_2d(u_mag=self.options.u_advection)
-                dt_2d = self.options.cfl_2d*alpha*float(mesh2d_dt.dat.data.min())
-                dt_2d = comm.allreduce(dt_2d, op=MPI.MIN)
-                self.dt_2d = dt_2d
+                self.dt_2d = max_dt_2d
             # compute mode split ratio and force it to be integer
             self.M_modesplit = int(np.ceil(self.dt/self.dt_2d))
             self.dt_2d = self.dt/self.M_modesplit
-        else:
-            mesh2d_dt = self.compute_time_step_2d(u_mag=self.options.u_advection)
-            dt_2d = self.options.cfl_2d*alpha*float(mesh2d_dt.dat.data.min())
-            dt_2d = comm.allreduce(dt_2d, op=MPI.MIN)
+        elif self.dt_mode == '2d':
             if self.dt is None:
-                self.dt = dt_2d
+                self.dt = min(max_dt_2d, max_dt_3d)
+            self.dt_2d = self.dt
+            self.M_modesplit = 1
+        elif self.dt_mode == '3d':
+            if self.dt is None:
+                self.dt = max_dt_3d
             self.dt_2d = self.dt
             self.M_modesplit = 1
 
+        print_output('  - chosen dt: 2D: {:} 3D: {:}'.format(self.dt_2d, self.dt))
+
+        # fit dt to export time
+        m_exp = int(np.ceil(self.options.t_export/self.dt))
+        self.dt = float(self.options.t_export)/m_exp
+        if self.dt_mode == 'split':
+            self.M_modesplit = int(np.ceil(self.dt/self.dt_2d))
+            self.dt_2d = self.dt/self.M_modesplit
+        else:
+            self.dt_2d = self.dt
+
+        print_output('  - adjusted dt: 2D: {:} 3D: {:}'.format(self.dt_2d, self.dt))
+
         print_output('dt = {0:f}'.format(self.dt))
-        print_output('2D dt = {0:f} {1:d}'.format(self.dt_2d, self.M_modesplit))
+        if self.dt_mode == 'split':
+            print_output('2D dt = {0:f} {1:d}'.format(self.dt_2d, self.M_modesplit))
         sys.stdout.flush()
 
     def create_function_spaces(self):
-        """Creates function spaces"""
+        """
+        Creates function spaces
+
+        Function spaces are accessible via :attr:`.function_spaces`
+        object.
+        """
         self._isfrozen = False
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.function_spaces.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0, name='P0')
@@ -190,8 +385,8 @@ class FlowSolver(FrozenClass):
         self.function_spaces.Uint = self.function_spaces.U  # vertical integral of uv
         # tracers
         self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='DG', vdegree=max(0, self.options.order), name='H')
-        # vertical integral of tracers
-        self.function_spaces.Hint = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='CG', vdegree=self.options.order+1, name='Hint')
+
+        # function space for turbulent quantitiess
         self.function_spaces.turb_space = self.function_spaces.P0
 
         # 2D spaces
@@ -205,17 +400,52 @@ class FlowSolver(FrozenClass):
         elif self.options.element_family == 'dg-dg':
             self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
         self.function_spaces.Uproj_2d = self.function_spaces.U_2d
-        # TODO is this needed?
-        # self.function_spaces.U_scalar_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_scalar_2d')
         self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='H_2d')
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d], name='V_2d')
+
+        # define function spaces for baroclinic head and internal pressure gradient
+        if self.options.use_quadratic_pressure:
+            self.function_spaces.P2DGxP2 = FunctionSpace(self.mesh, 'DG', 2, vfamily='CG', vdegree=2, name='P2DGxP2')
+            self.function_spaces.P2DG_2d = FunctionSpace(self.mesh2d, 'DG', 2, name='P2DG_2d')
+            if self.options.element_family == 'dg-dg':
+                self.function_spaces.P2DGxP1DGv = VectorFunctionSpace(self.mesh, 'DG', 2, vfamily='DG', vdegree=1, name='P2DGxP1DGv', dim=2)
+                self.function_spaces.H_bhead = self.function_spaces.P2DGxP2
+                self.function_spaces.H_bhead_2d = self.function_spaces.P2DG_2d
+                self.function_spaces.U_int_pg = self.function_spaces.P2DGxP1DGv
+            elif self.options.element_family == 'rt-dg':
+                self.function_spaces.H_bhead = self.function_spaces.P2DGxP2
+                self.function_spaces.H_bhead_2d = self.function_spaces.P2DG_2d
+                self.function_spaces.U_int_pg = self.function_spaces.U
+        else:
+            self.function_spaces.P1DGxP2 = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=2, name='P1DGxP2')
+            self.function_spaces.H_bhead = self.function_spaces.P1DGxP2
+            self.function_spaces.H_bhead_2d = self.function_spaces.P1DG_2d
+            self.function_spaces.U_int_pg = self.function_spaces.U
+
         self._isfrozen = True
 
     def create_equations(self):
-        """Creates function spaces, functions, equations and time steppers."""
+        """
+        Creates all dynamic equations and time integrators
+        """
         if not hasattr(self, 'U_2d'):
             self.create_function_spaces()
         self._isfrozen = False
+
+        if self.options.log_output and not self.options.no_exports:
+            logfile = os.path.join(create_directory(self.options.outputdir), 'log')
+            filehandler = logging.logging.FileHandler(logfile, mode='w')
+            filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
+            output_logger.addHandler(filehandler)
+
+        # mesh velocity etc fields must be in the same space as 3D coordinates
+        coord_is_dg = element_continuity(self.mesh2d.coordinates.function_space().ufl_element()).horizontal == 'dg'
+        if coord_is_dg:
+            coord_fs = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
+            coord_fs_2d = self.function_spaces.P1DG_2d
+        else:
+            coord_fs = self.function_spaces.P1
+            coord_fs_2d = self.function_spaces.P1_2d
 
         # ----- fields
         self.fields.solution_2d = Function(self.function_spaces.V_2d)
@@ -225,43 +455,46 @@ class FlowSolver(FrozenClass):
         self.fields.elev_2d = eta2d
         if self.options.use_bottom_friction:
             self.fields.uv_bottom_2d = Function(self.function_spaces.P1v_2d)
-            self.fields.z_bottom_2d = Function(self.function_spaces.P1_2d)
-            self.fields.bottom_drag_2d = Function(self.function_spaces.P1_2d)
+            self.fields.z_bottom_2d = Function(coord_fs_2d)
+            self.fields.bottom_drag_2d = Function(coord_fs_2d)
 
         self.fields.elev_3d = Function(self.function_spaces.H)
-        self.fields.elev_cg_3d = Function(self.function_spaces.P1)
-        self.fields.bathymetry_3d = Function(self.function_spaces.P1)
+        self.fields.elev_cg_3d = Function(coord_fs)
+        self.fields.elev_cg_2d = Function(coord_fs_2d)
         self.fields.uv_3d = Function(self.function_spaces.U)
         if self.options.use_bottom_friction:
             self.fields.uv_bottom_3d = Function(self.function_spaces.P1v)
-            self.fields.bottom_drag_3d = Function(self.function_spaces.P1)
+            self.fields.bottom_drag_3d = Function(coord_fs)
+        self.fields.bathymetry_2d = Function(coord_fs_2d)
+        self.fields.bathymetry_3d = Function(coord_fs)
         # z coordinate in the strecthed mesh
-        self.fields.z_coord_3d = Function(self.function_spaces.P1)
+        self.fields.z_coord_3d = Function(coord_fs)
         # z coordinate in the reference mesh (eta=0)
-        self.fields.z_coord_ref_3d = Function(self.function_spaces.P1)
+        self.fields.z_coord_ref_3d = Function(coord_fs)
         self.fields.uv_dav_3d = Function(self.function_spaces.Uproj)
         self.fields.uv_dav_2d = Function(self.function_spaces.Uproj_2d)
+        self.fields.split_residual_2d = Function(self.function_spaces.Uproj_2d)
         self.fields.uv_mag_3d = Function(self.function_spaces.P0)
         self.fields.uv_p1_3d = Function(self.function_spaces.P1v)
         self.fields.w_3d = Function(self.function_spaces.W)
+        self.fields.hcc_metric_3d = Function(self.function_spaces.P1DG, name='mesh consistency')
         if self.options.use_ale_moving_mesh:
-            self.fields.w_mesh_3d = Function(self.function_spaces.H)
-            self.fields.w_mesh_ddz_3d = Function(self.function_spaces.H)
-            self.fields.w_mesh_surf_3d = Function(self.function_spaces.H)
-            self.fields.w_mesh_surf_2d = Function(self.function_spaces.H_2d)
+            self.fields.w_mesh_3d = Function(coord_fs)
+            self.fields.w_mesh_surf_3d = Function(coord_fs)
+            self.fields.w_mesh_surf_2d = Function(coord_fs_2d)
         if self.options.solve_salt:
             self.fields.salt_3d = Function(self.function_spaces.H, name='Salinity')
         if self.options.solve_temp:
             self.fields.temp_3d = Function(self.function_spaces.H, name='Temperature')
         if self.options.solve_vert_diffusion and self.options.use_parabolic_viscosity:
-            # FIXME use_parabolic_viscosity is OBSOLETE
             self.fields.parab_visc_3d = Function(self.function_spaces.P1)
         if self.options.baroclinic:
-            self.fields.density_3d = Function(self.function_spaces.H, name='Density')
-            self.fields.baroc_head_3d = Function(self.function_spaces.Hint)
-            # NOTE only used in 2D eqns no need to use higher order Hint space
-            self.fields.baroc_head_int_3d = Function(self.function_spaces.H)
-            self.fields.baroc_head_2d = Function(self.function_spaces.H_2d)
+            if self.options.use_quadratic_density:
+                self.fields.density_3d = Function(self.function_spaces.P2DGxP2, name='Density')
+            else:
+                self.fields.density_3d = Function(self.function_spaces.H, name='Density')
+            self.fields.baroc_head_3d = Function(self.function_spaces.H_bhead)
+            self.fields.int_pg_3d = Function(self.function_spaces.U_int_pg, name='int_pg_3d')
         if self.options.coriolis is not None:
             if isinstance(self.options.coriolis, FiredrakeConstant):
                 self.fields.coriolis_3d = self.options.coriolis
@@ -285,8 +518,6 @@ class FlowSolver(FrozenClass):
         self.fields.max_h_diff = Function(self.function_spaces.P1)
         if self.options.smagorinsky_factor is not None:
             self.fields.smag_visc_3d = Function(self.function_spaces.P1)
-        if self.options.salt_jump_diff_factor is not None:
-            self.fields.salt_jump_diff = Function(self.function_spaces.P1)
         if self.options.use_limiter_for_tracers and self.options.order > 0:
             self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H)
         else:
@@ -336,24 +567,12 @@ class FlowSolver(FrozenClass):
         self.tot_v_diff.add(self.fields.get('eddy_diff_3d'))
 
         # ----- Equations
-        if self.options.use_mode_split:
-            # full 2D shallow water equations
-            self.eq_sw = shallowwater_eq.ShallowWaterEquations(
-                self.fields.solution_2d.function_space(),
-                self.fields.bathymetry_2d,
-                nonlin=self.options.nonlin,
-                include_grad_div_viscosity_term=self.options.include_grad_div_viscosity_term,
-                include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term
-            )
-        else:
-            # solve elevation only: 2D free surface equation
-            uv, eta = self.fields.solution_2d.split()
-            eta_test = TestFunction(eta)
-            self.eq_sw = shallowwater_eq.FreeSurfaceEquation(
-                eta_test, eta.function_space(), uv.function_space(),
-                self.fields.bathymetry_2d,
-                nonlin=self.options.nonlin,
-            )
+        self.eq_sw = shallowwater_eq.ModeSplit2DEquations(
+            self.fields.solution_2d.function_space(),
+            self.fields.bathymetry_2d,
+            nonlin=self.options.nonlin,
+            include_grad_div_viscosity_term=self.options.include_grad_div_viscosity_term,
+            include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term)
 
         self.eq_momentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
                                                         bathymetry=self.fields.bathymetry_3d,
@@ -372,7 +591,8 @@ class FlowSolver(FrozenClass):
             self.eq_salt = tracer_eq.TracerEquation(self.fields.salt_3d.function_space(),
                                                     bathymetry=self.fields.bathymetry_3d,
                                                     v_elem_size=self.fields.v_elem_size_3d,
-                                                    h_elem_size=self.fields.h_elem_size_3d)
+                                                    h_elem_size=self.fields.h_elem_size_3d,
+                                                    use_symmetric_surf_bnd=self.options.element_family == 'dg-dg')
             if self.options.solve_vert_diffusion:
                 self.eq_salt_vdff = tracer_eq.TracerEquation(self.fields.salt_3d.function_space(),
                                                              bathymetry=self.fields.bathymetry_3d,
@@ -383,7 +603,8 @@ class FlowSolver(FrozenClass):
             self.eq_temp = tracer_eq.TracerEquation(self.fields.temp_3d.function_space(),
                                                     bathymetry=self.fields.bathymetry_3d,
                                                     v_elem_size=self.fields.v_elem_size_3d,
-                                                    h_elem_size=self.fields.h_elem_size_3d)
+                                                    h_elem_size=self.fields.h_elem_size_3d,
+                                                    use_symmetric_surf_bnd=self.options.element_family == 'dg-dg')
             if self.options.solve_vert_diffusion:
                 self.eq_temp_vdff = tracer_eq.TracerEquation(self.fields.temp_3d.function_space(),
                                                              bathymetry=self.fields.bathymetry_3d,
@@ -420,24 +641,22 @@ class FlowSolver(FrozenClass):
                                                       h_elem_size=self.fields.h_elem_size_3d)
 
         # ----- Time integrators
-        self.set_time_step()
-        if self.options.use_mode_split:
-            if self.options.use_imex:
-                self.timestepper = coupled_timeintegrator.CoupledSSPIMEX(weakref.proxy(self))
-            elif self.options.use_semi_implicit_2d:
-                self.timestepper = coupled_timeintegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
-            else:
-                self.timestepper = coupled_timeintegrator.CoupledSSPRKSync(weakref.proxy(self))
+        self.dt_mode = '3d'  # 'split'|'2d'|'3d' use constant 2d/3d dt, or split
+        if self.options.timestepper_type.lower() == 'ssprk33':
+            self.timestepper = coupled_timeintegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
+        elif self.options.timestepper_type.lower() == 'leapfrog':
+            self.timestepper = coupled_timeintegrator.CoupledLeapFrogAM3(weakref.proxy(self))
+        elif self.options.timestepper_type.lower() == 'ssprk22':
+            self.timestepper = coupled_timeintegrator.CoupledTwoStageRK(weakref.proxy(self))
+        elif self.options.timestepper_type.lower() == 'imexale':
+            assert self.options.use_ale_moving_mesh, '{:} time integrator requires ALE mesh'.format(self.options.timestepper_type)
+            self.timestepper = coupled_timeintegrator.CoupledIMEXALE(weakref.proxy(self))
+        elif self.options.timestepper_type.lower() == 'erkale':
+            assert self.options.use_ale_moving_mesh, '{:} time integrator requires ALE mesh'.format(self.options.timestepper_type)
+            self.timestepper = coupled_timeintegrator.CoupledERKALE(weakref.proxy(self))
+            self.dt_mode = '2d'
         else:
-            self.timestepper = coupled_timeintegrator.CoupledSSPRKSingleMode(weakref.proxy(self))
-        print_output('using {:} time integrator'.format(self.timestepper.__class__.__name__))
-
-        # compute maximal diffusivity for explicit schemes
-        degree_h, degree_v = self.function_spaces.H.ufl_element().degree()
-        max_diff_alpha = 1.0/60.0/max((degree_h*(degree_h + 1)), 1.0)  # FIXME depends on element type and order
-        self.fields.max_h_diff.assign(max_diff_alpha/self.dt * self.fields.h_elem_size_3d**2)
-        d = self.fields.max_h_diff.dat.data
-        print_output('max h diff {:} - {:}'.format(d.min(), d.max()))
+            raise Exception('Unknown time integrator type: '+str(self.options.timestepper_type))
 
         # ----- File exporters
         # create export_managers and store in a list
@@ -450,14 +669,6 @@ class FlowSolver(FrozenClass):
                                        export_type='vtk',
                                        verbose=self.options.verbose > 0)
             self.exporters['vtk'] = e
-            numpy_dir = os.path.join(self.options.outputdir, 'numpy')
-            e = exporter.ExportManager(numpy_dir,
-                                       self.options.fields_to_export_numpy,
-                                       self.fields,
-                                       field_metadata,
-                                       export_type='numpy',
-                                       verbose=self.options.verbose > 0)
-            self.exporters['numpy'] = e
             hdf5_dir = os.path.join(self.options.outputdir, 'hdf5')
             e = exporter.ExportManager(hdf5_dir,
                                        self.options.fields_to_export_hdf5,
@@ -468,8 +679,9 @@ class FlowSolver(FrozenClass):
             self.exporters['hdf5'] = e
 
         # ----- Operators
+        tot_uv_3d = self.fields.uv_3d + self.fields.uv_dav_3d
         self.w_solver = VerticalVelocitySolver(self.fields.w_3d,
-                                               self.fields.uv_3d,
+                                               tot_uv_3d,
                                                self.fields.bathymetry_3d,
                                                self.eq_momentum.bnd_functions)
         self.uv_averager = VerticalIntegrator(self.fields.uv_3d,
@@ -477,7 +689,8 @@ class FlowSolver(FrozenClass):
                                               bottom_to_top=True,
                                               bnd_value=Constant((0.0, 0.0, 0.0)),
                                               average=True,
-                                              bathymetry=self.fields.bathymetry_3d)
+                                              bathymetry=self.fields.bathymetry_3d,
+                                              elevation=self.fields.elev_cg_3d)
         if self.options.baroclinic:
             if self.options.solve_salt:
                 s = self.fields.salt_3d
@@ -491,28 +704,29 @@ class FlowSolver(FrozenClass):
                 eos_params = self.options.lin_equation_of_state_params
                 self.equation_of_state = LinearEquationOfState(**eos_params)
             else:
-                self.equation_of_state = EquationOfState()
-            self.density_solver = DensitySolver(s, t, self.fields.density_3d,
-                                                self.equation_of_state)
+                self.equation_of_state = JackettEquationOfState()
+            if self.options.use_quadratic_density:
+                self.density_solver = DensitySolverWeak(s, t, self.fields.density_3d,
+                                                        self.equation_of_state)
+            else:
+                self.density_solver = DensitySolver(s, t, self.fields.density_3d,
+                                                    self.equation_of_state)
             self.rho_integrator = VerticalIntegrator(self.fields.density_3d,
                                                      self.fields.baroc_head_3d,
-                                                     bottom_to_top=False)
-            self.baro_head_averager = VerticalIntegrator(self.fields.baroc_head_3d,
-                                                         self.fields.baroc_head_int_3d,
-                                                         bottom_to_top=True,
-                                                         average=True,
-                                                         bathymetry=self.fields.bathymetry_3d)
-            self.extract_surf_baro_head = SubFunctionExtractor(self.fields.baroc_head_int_3d,
-                                                               self.fields.baroc_head_2d,
-                                                               boundary='top', elem_facet='top')
+                                                     bottom_to_top=False,
+                                                     average=False,
+                                                     bathymetry=self.fields.bathymetry_3d,
+                                                     elevation=self.fields.elev_cg_3d)
+            self.int_pg_calculator = momentum_eq.InternalPressureGradientCalculator(
+                self.fields, self.options,
+                self.bnd_functions['momentum'],
+                solver_parameters=self.options.solver_parameters_momentum_explicit)
         self.extract_surf_dav_uv = SubFunctionExtractor(self.fields.uv_dav_3d,
                                                         self.fields.uv_dav_2d,
                                                         boundary='top', elem_facet='top',
                                                         elem_height=self.fields.v_elem_size_2d)
-        self.copy_v_elem_size_to_2d = SubFunctionExtractor(self.fields.v_elem_size_3d,
-                                                           self.fields.v_elem_size_2d,
-                                                           boundary='top', elem_facet='top')
         self.copy_elev_to_3d = ExpandFunctionTo3d(self.fields.elev_2d, self.fields.elev_3d)
+        self.copy_elev_cg_to_3d = ExpandFunctionTo3d(self.fields.elev_cg_2d, self.fields.elev_cg_3d)
         self.copy_uv_dav_to_uv_dav_3d = ExpandFunctionTo3d(self.fields.uv_dav_2d, self.fields.uv_dav_3d,
                                                            elem_height=self.fields.v_elem_size_3d)
         self.copy_uv_to_uv_dav_3d = ExpandFunctionTo3d(self.fields.uv_2d, self.fields.uv_dav_3d,
@@ -532,32 +746,8 @@ class FlowSolver(FrozenClass):
                 self.copy_bottom_drag_to_3d = ExpandFunctionTo3d(self.fields.bottom_drag_2d,
                                                                  self.fields.bottom_drag_3d,
                                                                  elem_height=self.fields.v_elem_size_3d)
-        if self.options.use_ale_moving_mesh:
-            self.mesh_coord_updater = ALEMeshCoordinateUpdater(self.mesh,
-                                                               self.fields.elev_3d,
-                                                               self.fields.bathymetry_3d,
-                                                               self.fields.z_coord_3d,
-                                                               self.fields.z_coord_ref_3d)
-            self.extract_surf_w = SubFunctionExtractor(self.fields.w_mesh_surf_3d,
-                                                       self.fields.w_mesh_surf_2d,
-                                                       boundary='top', elem_facet='top')
-            self.copy_surf_w_mesh_to_3d = ExpandFunctionTo3d(self.fields.w_mesh_surf_2d,
-                                                             self.fields.w_mesh_surf_3d)
-            self.w_mesh_solver = MeshVelocitySolver(self, self.fields.elev_3d,
-                                                    self.fields.uv_3d,
-                                                    self.fields.w_3d,
-                                                    self.fields.w_mesh_3d,
-                                                    self.fields.w_mesh_surf_3d,
-                                                    self.fields.w_mesh_surf_2d,
-                                                    self.fields.w_mesh_ddz_3d,
-                                                    self.fields.bathymetry_3d,
-                                                    self.fields.z_coord_ref_3d)
+        self.mesh_updater = ALEMeshUpdater(self)
 
-        if self.options.salt_jump_diff_factor is not None:
-            self.horiz_jump_diff_solver = HorizontalJumpDiffusivity(self.options.salt_jump_diff_factor, self.fields.salt_3d,
-                                                                    self.fields.salt_jump_diff, self.fields.h_elem_size_3d,
-                                                                    self.fields.uv_mag_3d, self.options.salt_range,
-                                                                    self.fields.max_h_diff)
         if self.options.smagorinsky_factor is not None:
             self.smagorinsky_diff_solver = SmagorinskyViscosity(self.fields.uv_p1_3d, self.fields.smag_visc_3d,
                                                                 self.options.smagorinsky_factor, self.fields.h_elem_size_3d,
@@ -570,13 +760,20 @@ class FlowSolver(FrozenClass):
                                                                  self.fields.parab_visc_3d)
         self.uv_p1_projector = Projector(self.fields.uv_3d, self.fields.uv_p1_3d)
         self.elev_3d_to_cg_projector = Projector(self.fields.elev_3d, self.fields.elev_cg_3d)
+        self.elev_2d_to_cg_projector = Projector(self.fields.elev_2d, self.fields.elev_cg_2d)
 
         # ----- set initial values
+        self.fields.bathymetry_2d.project(self.bathymetry_cg_2d)
         ExpandFunctionTo3d(self.fields.bathymetry_2d, self.fields.bathymetry_3d).solve()
-        get_zcoord_from_mesh(self.fields.z_coord_ref_3d)
-        self.fields.z_coord_3d.assign(self.fields.z_coord_ref_3d)
-        compute_elem_height(self.fields.z_coord_3d, self.fields.v_elem_size_3d)
-        self.copy_v_elem_size_to_2d.solve()
+        self.mesh_updater.initialize()
+        self.set_time_step()
+        self.timestepper.set_dt(self.dt, self.dt_2d)
+        # compute maximal diffusivity for explicit schemes
+        degree_h, degree_v = self.function_spaces.H.ufl_element().degree()
+        max_diff_alpha = 1.0/60.0/max((degree_h*(degree_h + 1)), 1.0)  # FIXME depends on element type and order
+        self.fields.max_h_diff.assign(max_diff_alpha/self.dt * self.fields.h_elem_size_3d**2)
+        d = self.fields.max_h_diff.dat.data
+        print_output('max h diff {:} - {:}'.format(d.min(), d.max()))
 
         self.next_export_t = self.simulation_time + self.options.t_export
         self._initialized = True
@@ -584,14 +781,33 @@ class FlowSolver(FrozenClass):
 
     def assign_initial_conditions(self, elev=None, salt=None, temp=None,
                                   uv_2d=None, uv_3d=None, tke=None, psi=None):
+        """
+        Assigns initial conditions
+
+        :kwarg elev: Initial condition for water elevation
+        :type elev: scalar 2D :class:`Function`, :class:`Constant`, or an expression
+        :kwarg salt: Initial condition for salinity field
+        :type salt: scalar 3D :class:`Function`, :class:`Constant`, or an expression
+        :kwarg temp: Initial condition for temperature field
+        :type temp: scalar 3D :class:`Function`, :class:`Constant`, or an expression
+        :kwarg uv_2d: Initial condition for depth averaged velocity
+        :type uv_2d: vector valued 2D :class:`Function`, :class:`Constant`, or an expression
+        :kwarg uv_3d: Initial condition for horizontal velocity
+        :type uv_3d: vector valued 3D :class:`Function`, :class:`Constant`, or an expression
+        :kwarg tke: Initial condition for turbulent kinetic energy field
+        :type tke: scalar 3D :class:`Function`, :class:`Constant`, or an expression
+        :kwarg psi: Initial condition for turbulence generic lenght scale field
+        :type psi: scalar 3D :class:`Function`, :class:`Constant`, or an expression
+        """
         if not self._initialized:
             self.create_equations()
         if elev is not None:
             self.fields.elev_2d.project(elev)
         if uv_2d is not None:
             self.fields.uv_2d.project(uv_2d)
-            ExpandFunctionTo3d(self.fields.uv_2d, self.fields.uv_3d,
-                               elem_height=self.fields.v_elem_size_3d).solve()
+            if uv_3d is None:
+                ExpandFunctionTo3d(self.fields.uv_2d, self.fields.uv_3d,
+                                   elem_height=self.fields.v_elem_size_3d).solve()
         if uv_3d is not None:
             self.fields.uv_3d.project(uv_3d)
         if salt is not None and self.options.solve_salt:
@@ -605,6 +821,9 @@ class FlowSolver(FrozenClass):
                 self.fields.psi_3d.project(psi)
             self.gls_model.initialize()
 
+        if self.options.use_ale_moving_mesh:
+            self.timestepper._update_3d_elevation()
+            self.timestepper._update_moving_mesh()
         self.timestepper.initialize()
         # update all diagnostic variables
         self.timestepper._update_all_dependencies(self.simulation_time,
@@ -617,23 +836,36 @@ class FlowSolver(FrozenClass):
             self.gls_model.initialize()
 
     def add_callback(self, callback, eval_interval='export'):
-        """Adds callback to solver object
+        """
+        Adds callback to solver object
 
-        :arg callback: DiagnosticCallback instance
-        "arg eval_interval: 'export'|'timestep' Determines when callback will be evaluated.
+        :arg callback: :class:`.DiagnosticCallback` instance
+        :kwarg str eval_interval: Determines when callback will be evaluated,
+            either 'export' or 'timestep' for evaluating after each export or
+            time step.
         """
         self.callbacks.add(callback, eval_interval)
 
     def export(self):
+        """
+        Export all fields to disk
+
+        Also evaluates all callbacks set to 'export' interval.
+        """
         self.callbacks.evaluate(mode='export')
+        # set uv to total uv instead of deviation from depth average
+        # TODO find a cleaner way of doing this ...
+        self.fields.uv_3d += self.fields.uv_dav_3d
         for key in self.exporters:
             self.exporters[key].export()
+        # restore uv_3d
+        self.fields.uv_3d -= self.fields.uv_dav_3d
 
     def load_state(self, i_export, outputdir=None, t=None, iteration=None):
         """
         Loads simulation state from hdf5 outputs.
 
-        This replaces assign_initial_conditions in model initilization.
+        This replaces :meth:`.assign_initial_conditions` in model initilization.
 
         This assumes that model setup is kept the same (e.g. time step) and
         all pronostic state variables are exported in hdf5 format.  The required
@@ -642,6 +874,13 @@ class FlowSolver(FrozenClass):
 
         Currently hdf5 field import only works for the same number of MPI
         processes.
+
+        :arg int i_export: export index to load
+        :kwarg string outputdir: (optional) directory where files are read from.
+            By default ``options.outputdir``.
+        :kwarg float t: simulation time. Overrides the time stamp stored in the
+            hdf5 files.
+        :kwarg int iteration: Overrides the iteration count in the hdf5 files.
         """
         if not self._initialized:
             self.create_equations()
@@ -660,6 +899,8 @@ class FlowSolver(FrozenClass):
         e.exporters['uv_2d'].load(i_export, self.fields.uv_2d)
         e.exporters['elev_2d'].load(i_export, self.fields.elev_2d)
         e.exporters['uv_3d'].load(i_export, self.fields.uv_3d)
+        # NOTE remove mean from uv_3d
+        self.timestepper._remove_depth_average_from_uv_3d()
         salt = temp = tke = psi = None
         if self.options.solve_salt:
             salt = self.fields.salt_3d
@@ -700,6 +941,11 @@ class FlowSolver(FrozenClass):
             self.exporters[k].set_next_export_ix(self.i_export + offset)
 
     def print_state(self, cputime):
+        """
+        Print a summary of the model state on stdout
+
+        :arg float cputime: Measured CPU time
+        """
         norm_h = norm(self.fields.elev_2d)
         norm_u = norm(self.fields.uv_3d)
 
@@ -712,6 +958,21 @@ class FlowSolver(FrozenClass):
 
     def iterate(self, update_forcings=None, update_forcings3d=None,
                 export_func=None):
+        """
+        Runs the simulation
+
+        Iterates over the time loop until time ``options.t_end`` is reached.
+        Exports fields to disk on ``options.t_export`` intervals.
+
+        :kwarg update_forcings: User-defined function that takes simulation
+            time as an argument and updates time-dependent boundary conditions
+            of the 2D system (if any).
+        :kwarg update_forcings_3d: User-defined function that takes simulation
+            time as an argument and updates time-dependent boundary conditions
+            of the 3D equations (if any).
+        :kwarg export_func: User-defined function (with no arguments) that will
+            be called on every export.
+        """
         if not self._initialized:
             self.create_equations()
 
@@ -770,9 +1031,9 @@ class FlowSolver(FrozenClass):
             if 'vtk' in self.exporters:
                 self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
-        while self.simulation_time <= self.options.t_end + t_epsilon:
+        while self.simulation_time <= self.options.t_end - t_epsilon:
 
-            self.timestepper.advance(self.simulation_time, self.dt,
+            self.timestepper.advance(self.simulation_time,
                                      update_forcings, update_forcings3d)
 
             # Move to next time step

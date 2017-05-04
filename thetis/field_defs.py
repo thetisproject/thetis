@@ -1,19 +1,19 @@
 """
-Definitions of fields.
-
-Tuomas Karna 2015-10-17
+Definitions and meta data of fields
 """
 
 field_metadata = {}
 """
-Holds description, units and output file information for each field.
+Dictionary that contains the meta data of each field.
 
-name      - human readable description
-shortname - description used in visualization etc
-unit      - SI unit of the field
-filename  - filename for output files
+Required meta data entries are:
 
-Naming convention for fields is snake_case: field_name_3d
+- **name**: human readable description
+- **shortname**: description used in visualization etc
+- **unit**: SI unit of the field
+- **filename**: filename for output files
+
+The naming convention for field keys is snake_case: ``field_name_3d``
 """
 
 field_metadata['bathymetry_2d'] = {
@@ -70,6 +70,12 @@ field_metadata['uv_dav_2d'] = {
     'unit': 'm s-1',
     'filename': 'DAVelocity2d',
 }
+field_metadata['split_residual_2d'] = {
+    'name': 'Momentum eq. residual for mode splitting',
+    'shortname': 'Momentum residual',
+    'unit': 'm s-2',
+    'filename': 'SplitResidual2d',
+}
 field_metadata['uv_bottom_2d'] = {
     'name': 'Bottom velocity',
     'shortname': 'Bottom velocity',
@@ -118,6 +124,12 @@ field_metadata['elev_cg_3d'] = {
     'unit': 'm',
     'filename': 'ElevationCG3d',
 }
+field_metadata['elev_cg_2d'] = {
+    'name': 'Water elevation CG',
+    'shortname': 'Elevation',
+    'unit': 'm',
+    'filename': 'ElevationCG2d',
+}
 field_metadata['uv_3d'] = {
     'name': 'Horizontal velocity',
     'shortname': 'Horizontal velocity',
@@ -147,12 +159,6 @@ field_metadata['w_mesh_surf_2d'] = {
     'shortname': 'Surface mesh velocity',
     'unit': 'm s-1',
     'filename': 'SurfMeshVelo3d',
-}
-field_metadata['w_mesh_ddz_3d'] = {
-    'name': 'Vertical grad of mesh velocity',
-    'shortname': 'Vertical grad of mesh velocity',
-    'unit': 's-1',
-    'filename': 'd_mesh_velo_dz_3d',
 }
 field_metadata['salt_3d'] = {
     'name': 'Water salinity',
@@ -232,41 +238,17 @@ field_metadata['baroc_head_3d'] = {
     'unit': 'm',
     'filename': 'BaroHead3d',
 }
-field_metadata['baroc_head_int_3d'] = {
-    'name': 'Vertical integral of baroclinic head',
-    'shortname': 'Vertically integrated baroclinic head',
-    'unit': 'm2',
-    'filename': 'BaroHeadInt3d',
-}
-field_metadata['baroc_head_2d'] = {
-    'name': 'Depth averaged baroclinic head',
-    'shortname': 'Dav baroclinic head',
-    'unit': 'm',
-    'filename': 'BaroHead2d',
-}
-field_metadata['gjv_alpha_h_3d'] = {
-    'name': 'GJV Parameter h',
-    'shortname': 'GJV Parameter h',
-    'unit': '',
-    'filename': 'GJVParamH',
-}
-field_metadata['gjv_alpha_v_3d'] = {
-    'name': 'GJV Parameter v',
-    'shortname': 'GJV Parameter v',
-    'unit': '',
-    'filename': 'GJVParamV',
+field_metadata['int_pg_3d'] = {
+    'name': 'Internal pressure gradient',
+    'shortname': 'Int. Pressure gradient',
+    'unit': 'm s-2',
+    'filename': 'IntPG3d',
 }
 field_metadata['smag_visc_3d'] = {
     'name': 'Smagorinsky viscosity',
     'shortname': 'Smagorinsky viscosity',
     'unit': 'm2 s-1',
     'filename': 'SmagViscosity3d',
-}
-field_metadata['salt_jump_diff'] = {
-    'name': 'Salt Jump Diffusivity',
-    'shortname': 'Salt Jump Diffusivity',
-    'unit': 'm2 s-1',
-    'filename': 'SaltJumpDiff3d',
 }
 field_metadata['max_h_diff'] = {
     'name': 'Maximum stable horizontal diffusivity',
@@ -315,4 +297,10 @@ field_metadata['wind_stress_3d'] = {
     'shortname': 'Wind stress',
     'unit': 'Pa',
     'filename': 'wind_stress_3d',
+}
+field_metadata['hcc_metric_3d'] = {
+    'name': 'HCC mesh quality',
+    'shortname': 'HCC metric',
+    'unit': '-',
+    'filename': 'HCCMetric3d',
 }

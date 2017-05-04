@@ -129,6 +129,7 @@ def generate_setup(name, description, h, f, eta, u, v, nu):
     print('')
     print(txt)
 
+
 name = 'setup7'
 description = """Non-trivial Coriolis, bath, elev, u and v, tangential velocity is zero at bnd to test flux BCs"""
 h = 4.0 + h0*sympy.sqrt(0.3*x*x + 0.2*y*y + 0.1)/lx

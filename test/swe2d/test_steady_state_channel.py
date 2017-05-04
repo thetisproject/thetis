@@ -21,7 +21,7 @@ def test_steady_state_channel(do_export=False):
     f = g/lx  # linear friction coef.
 
     # --- create solver ---
-    solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, order=1)
+    solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     solver_obj.options.nonlin = False
     solver_obj.options.t_export = dt
     solver_obj.options.t_end = n*dt
@@ -51,7 +51,7 @@ def test_steady_state_channel(do_export=False):
     parameters['quadrature_degree'] = 5
 
     solver_obj.create_equations()
-    solver_obj.assign_initial_conditions(uv_init=Expression(("1.0", "0.0")))
+    solver_obj.assign_initial_conditions(uv=Expression(("1.0", "0.0")))
 
     solver_obj.iterate()
 

@@ -21,10 +21,10 @@ Initially buoyancy frequency is constant N = 0.01 s-1.
 Tuomas Karna 2016-03-05
 """
 from thetis import *
-import numpy
+import pytest
 
 
-def run_katophillips(do_export=False):
+def run_katophillips(**model_options):
     physical_constants['rho0'] = 1027.0  # NOTE must match empirical setup
 
     outputdir = 'outputs'
@@ -72,7 +72,7 @@ def run_katophillips(do_export=False):
     options.v_viscosity = Constant(1.3e-6)  # background value
     options.v_diffusivity = Constant(1.4e-7)  # background value
     options.wind_stress = wind_stress_2d
-    options.no_exports = not do_export
+    options.no_exports = True
     options.t_export = t_export
     options.dt = dt
     options.t_end = t_end
@@ -81,15 +81,14 @@ def run_katophillips(do_export=False):
     options.check_salt_overshoot = True
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'salt_3d',
-                                'baroc_head_3d', 'baroc_head_2d',
+                                'baroc_head_3d',
                                 'uv_dav_2d', 'uv_bottom_2d',
                                 'parab_visc_3d', 'eddy_visc_3d',
                                 'shear_freq_3d', 'buoy_freq_3d',
                                 'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
-    options.fields_to_export_hdf5 = ['uv_3d', 'salt_3d', 'uv_bottom_2d',
-                                     'eddy_visc_3d', 'eddy_diff_3d',
-                                     'shear_freq_3d', 'buoy_freq_3d',
-                                     'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
+    options.update(**model_options)
+    if options['timestepper_type'] == 'leapfrog':
+        options['use_ale_moving_mesh'] = True
 
     solver_obj.create_function_spaces()
 
@@ -108,11 +107,12 @@ def run_katophillips(do_export=False):
 
     # check mixed layer depth
     npoints = layers*4
-    z = numpy.linspace(0, -depth, npoints)
-    x = numpy.zeros_like(z)
-    y = numpy.zeros_like(z)
-    xyz = numpy.vstack((x, y, z)).T
-    tke_arr = numpy.array(solver_obj.fields.tke_3d.at(tuple(xyz)))
+    tol = 1e-4
+    z = np.linspace(-tol, -depth + tol, npoints)
+    x = np.zeros_like(z)
+    y = np.zeros_like(z)
+    xyz = np.vstack((x, y, z)).T
+    tke_arr = np.array(solver_obj.fields.tke_3d.at(tuple(xyz)))
     # mixed layer depth: lowest point where tke > tol
     tke_tol = 1e-5
     ix = tke_arr > tke_tol
@@ -128,10 +128,28 @@ def run_katophillips(do_export=False):
     rel_err = (ml_depth - target)/target
     assert rel_err > -rtol, 'mixed layer is too shallow: {:} < {:}'.format(ml_depth, target)
     assert rel_err < rtol, 'mixed layer is too deep: {:} > {:}'.format(ml_depth, target)
+    print_output('Mixed layer depth: {:.2f} (target: {:.2f}) PASSED'.format(ml_depth, target))
 
 
-def test_katophillips():
-    run_katophillips()
+@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')('rt-dg'),
+                        'dg-dg'])
+def element_family(request):
+    return request.param
+
+
+@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')('ssprk33'),
+                        'leapfrog',
+                        'ssprk22'])
+def timestepper_type(request):
+    return request.param
+
+
+def test_katophillips(element_family, timestepper_type):
+    run_katophillips(element_family=element_family,
+                     timestepper_type=timestepper_type)
+
 
 if __name__ == '__main__':
-    run_katophillips(do_export=True)
+    run_katophillips(element_family='dg-dg',
+                     timestepper_type='ssprk22',
+                     no_exports=False)

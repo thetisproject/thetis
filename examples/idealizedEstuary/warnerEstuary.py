@@ -58,6 +58,8 @@ simple_barotropic = False  # for testing flux boundary conditions
 # create solver
 solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solverobj.options
+options.element_family = 'dg-dg'
+options.timestepper_type = 'ssprk22'
 options.solve_salt = not simple_barotropic
 options.solve_temp = False
 options.constant_temp = Constant(temp_const)
@@ -65,9 +67,6 @@ options.solve_vert_diffusion = not simple_barotropic
 options.use_bottom_friction = not simple_barotropic
 options.use_turbulence = not simple_barotropic
 options.use_turbulence_advection = not simple_barotropic
-options.use_ale_moving_mesh = False
-# options.use_semi_implicit_2d = False
-# options.use_mode_split = False
 options.baroclinic = not simple_barotropic
 options.uv_lax_friedrichs = Constant(1.0)
 options.tracer_lax_friedrichs = Constant(1.0)
@@ -78,20 +77,15 @@ options.v_diffusivity = Constant(1.4e-7)  # background value
 options.use_limiter_for_tracers = True
 Re_h = 5.0
 options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
-if options.use_mode_split:
-    options.dt = dt
 options.t_export = t_export
 options.t_end = t_end
 options.outputdir = outputdir
 options.u_advection = Constant(2.0)
-options.check_vol_conservation_2d = True
-options.check_vol_conservation_3d = True
-options.check_salt_conservation = True
 options.check_salt_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d', 'density_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                            'baroc_head_2d', 'smag_visc_3d',
+                            'smag_visc_3d',
                             'eddy_visc_3d', 'shear_freq_3d',
                             'buoy_freq_3d', 'tke_3d', 'psi_3d',
                             'eps_3d', 'len_3d']
@@ -100,6 +94,9 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
                                  'eddy_visc_3d', 'shear_freq_3d',
                                  'buoy_freq_3d', 'tke_3d', 'psi_3d',
                                  'eps_3d', 'len_3d']
+gls_options = options.gls_options
+gls_options.apply_defaults('k-omega')
+gls_options.stability_name = 'CB'
 
 solverobj.create_function_spaces()
 
@@ -142,6 +139,7 @@ solverobj.bnd_functions['salt'] = {1: ocean_salt_3d, 2: river_salt_3d}
 def update_forcings(t_new):
     ocean_flux.assign(ocean_flux_func(t_new))
     river_flux.assign(river_flux_func(t_new))
+
 
 solverobj.assign_initial_conditions(salt=salt_init3d)
 solverobj.iterate(update_forcings=update_forcings)

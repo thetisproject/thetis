@@ -1,0 +1,475 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Tutorial &#8212; PyLit</title>
+    
+    <link rel="stylesheet" href="../_static/pylit-sphinx.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.7.9',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Examples" href="../examples/index.html" />
+    <link rel="prev" title="Usage" href="../usage.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="tutorial">
+<h1>Tutorial<a class="headerlink" href="#tutorial" title="Permalink to this headline">¶</a></h1>
+<p>How to Write Literate Programs with PyLit</p>
+<div class="section" id="hello-world">
+<h2>Hello World<a class="headerlink" href="#hello-world" title="Permalink to this headline">¶</a></h2>
+<p>We start with a classic example in <a class="reference external" href="www.python.org">Python</a></p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># The classical programming example in Python</span>
+
+<span class="nb">print</span> <span class="s2">&quot;Hello world.&quot;</span>
+</pre></div>
+</div>
+<p>save it as <code class="docutils literal"><span class="pre">hello.py</span></code> and convert to a <a class="reference external" href="http://docutils.sourceforge.net/docs/user/rst/quickref.html">reStructured Text</a> document
+with <code class="docutils literal"><span class="pre">pylit.py</span></code>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1">#&gt; python pylit.py hello.py</span>
+<span class="n">extract</span> <span class="n">written</span> <span class="n">to</span> <span class="n">hello</span><span class="o">.</span><span class="n">py</span><span class="o">.</span><span class="n">txt</span>
+</pre></div>
+</div>
+<p>The output file <code class="docutils literal"><span class="pre">hello.py.txt</span></code> looks like</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">The</span> <span class="n">classical</span> <span class="n">programming</span> <span class="n">example</span> <span class="ow">in</span> <span class="n">Python</span>
+
+<span class="p">::</span>
+
+  <span class="nb">print</span> <span class="s2">&quot;Hello world.&quot;</span>
+</pre></div>
+</div>
+<p>We can see the difference between &#8220;commented code&#8221; and &#8220;code living in a
+text document&#8221;.</p>
+<p>Points to mention:</p>
+<ul class="simple">
+<li>One can start literate programming with an existing code file (and without
+knowledge of reStructured Text syntax).</li>
+<li><em>Documentation</em> is uncommented (if it is separated from code by a
+blank line and has a recognised comment string at the start of each line).</li>
+<li>A double colon is added at the end of the text block. It is the
+<a class="reference external" href="http://docutils.sourceforge.net/docs/user/rst/quickref.html">reStructured Text</a> marker for the following <a class="reference external" href="http://docutils.sourceforge.net/docs/user/rst/quickref.html#literal-blocks">literal block</a>.
+(No marker is added, if the text block already ends with a double colon.)</li>
+<li><em>Code</em> is indented to form a literal block. It will be printed using a
+monospaced font and without reStructured Text substitutions.</li>
+<li>PyLit adds &#8221;.txt&#8221; to the filename for the text version.</li>
+</ul>
+<p>Now we can add some more documentation and a link (of course, knowledge of
+<a class="reference external" href="http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html">reStructured Text syntax</a> helps in this stage):</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>The classical programming example in Python
+
+Let Python_ print a string literal::
+
+  print &quot;Hello world.&quot;
+
+It&#39;s easy, isn&#39;t it?
+
+.. _Python: www.python.org
+</pre></div>
+</div>
+<p>Pretty-printed with Docutils, it looks like</p>
+<div class="topic">
+<p class="topic-title first">Example Output</p>
+<p>The classical programming example in Python</p>
+<p>Let <a class="reference external" href="www.python.org">Python</a> print a string literal:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">print</span> <span class="s2">&quot;Hello world.&quot;</span>
+</pre></div>
+</div>
+<p>It&#8217;s easy, isn&#8217;t it?</p>
+</div>
+<p>If we re-convert the result to code,</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1">#&gt; python pylit.py hello_2.py.txt</span>
+<span class="n">extract</span> <span class="n">written</span> <span class="n">to</span> <span class="n">hello_2</span><span class="o">.</span><span class="n">py</span>
+</pre></div>
+</div>
+<p>we get</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># The classical programming example in Python</span>
+<span class="c1"># </span>
+<span class="c1"># Let Python_ print a string literal::</span>
+
+<span class="nb">print</span> <span class="s2">&quot;Hello world.&quot;</span>
+
+<span class="c1"># It&#39;s easy, isn&#39;t it?</span>
+<span class="c1"># </span>
+<span class="c1"># .. _Python: www.python.org</span>
+</pre></div>
+</div>
+<p>Points to mention:</p>
+<ul>
+<li><p class="first">The double colon that was added in the first conversion is not stripped in
+the re-conversion.</p>
+<p>(Generally, a round-trip should not introduce changes after the first
+cycle. This way it is ensured that the line-numbers are the same in text
+and code source.)</p>
+</li>
+<li><p class="first">The code block ends at the first non indented line (Precisely, at the
+first line that is not more indented than the preceding text block.)</p>
+</li>
+</ul>
+</div>
+<div class="section" id="text-blocks-and-comments">
+<h2>Text Blocks and Comments<a class="headerlink" href="#text-blocks-and-comments" title="Permalink to this headline">¶</a></h2>
+<p>Comment lines are only transformed to a text block, if they</p>
+<ul class="simple">
+<li>start with a matching <cite>comment string</cite> (whitespace counts!, the Python
+default is <code class="docutils literal"><span class="pre">'#</span> <span class="pre">'</span></code>), and</li>
+<li>are separated from non-text lines by at least one blank <a class="footnote-reference" href="#id2" id="id1">[1]</a> line</li>
+</ul>
+<p>Otherwise, they are kept as commented code.</p>
+<p>An example will illustrate this. The code:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># 99bottles.py -- print the famous &quot;99 bottles of beer&quot; song lyrics</span>
+
+<span class="c1"># Introductory example to literate programming</span>
+<span class="c1">#</span>
+<span class="c1"># count down from 99 to 1</span>
+<span class="k">for</span> <span class="n">bottles</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">99</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+    <span class="o">....</span>
+</pre></div>
+</div>
+<p>is mapped to text as:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="mi">99</span><span class="n">bottles</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span> <span class="nb">print</span> <span class="n">the</span> <span class="n">famous</span> <span class="s2">&quot;99 bottles of beer&quot;</span> <span class="n">song</span> <span class="n">lyrics</span>
+
+<span class="p">::</span>
+
+  <span class="c1"># Introductory example to literate programming</span>
+  <span class="c1">#</span>
+  <span class="c1"># count down from 99 to 1</span>
+  <span class="k">for</span> <span class="n">bottles</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">99</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+      <span class="o">....</span>
+</pre></div>
+</div>
+<p>The comment in the 5th line marks the &#8220;secondary documentation&#8221; as part of
+the code block.</p>
+<p>However,</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># 99bottles.py -- print the famous &quot;99 bottles of beer&quot; song lyrics</span>
+<span class="c1">#</span>
+<span class="c1"># Introductory example to literate programming</span>
+
+<span class="c1"># count down from 99 to 1</span>
+<span class="k">for</span> <span class="n">bottles</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">99</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+    <span class="o">....</span>
+</pre></div>
+</div>
+<p>is mapped to text as:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="mi">99</span><span class="n">bottles</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span> <span class="nb">print</span> <span class="n">the</span> <span class="n">famous</span> <span class="s2">&quot;99 bottles of beer&quot;</span> <span class="n">song</span> <span class="n">lyrics</span>
+
+<span class="n">Introductory</span> <span class="n">example</span> <span class="n">to</span> <span class="n">literate</span> <span class="n">programming</span>
+
+<span class="p">::</span>
+
+  <span class="c1"># count down from 99 to 1</span>
+  <span class="k">for</span> <span class="n">bottles</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">99</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+      <span class="o">....</span>
+</pre></div>
+</div>
+<p>The comment in the 2nd line is removed, as it is inside a documentation block.</p>
+<table class="docutils footnote" frame="void" id="id2" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[1]</a></td><td>a line is considered blank, if it contains only whitespace</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="ordinary-literal-blocks">
+<h2>Ordinary Literal Blocks<a class="headerlink" href="#ordinary-literal-blocks" title="Permalink to this headline">¶</a></h2>
+<p>How can I include a literal block that should not be in the executable code
+(e.g. an example, an earlier version or variant)?</p>
+<p>Workarounds:</p>
+<ul>
+<li><p class="first">Python session examples and doctests can use <a class="reference external" href="http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#doctest-blocks">doctest block</a> syntax.
+See the <a class="reference internal" href="#doctests">doctests</a> section.</p>
+</li>
+<li><p class="first">Use a &#8220;code-block&#8221; directive and set the <cite>code_block_marker</cite> option
+or use a distinct directive for ordinary literal blocks.</p>
+<p>Drawback: such directives are not part of the core rst syntax (yet) but
+must be defined in an add-on (see <a class="reference external" href="../features/syntax-highlight.html">syntax highlight</a> for examples).</p>
+</li>
+<li><p class="first">Use a <a class="reference external" href="http://docutils.sourceforge.net/docs/ref/rst/directives.html#parsed-literal-block">parsed-literal block</a> directive and mark lines containing
+&#8220;accidental&#8221; markup as <a class="reference external" href="http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#inline-literals">inline literals</a>. E.g. the text</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>This will be printed as literal block
+but not become part of the source code:
+
+.. parsed-literal::
+
+  print &quot;code example that should not run&quot;
+  ``result = 5 *n* 2``
+</pre></div>
+</div>
+<p>will be typeset as</p>
+<blockquote>
+<div><p>This will be printed as literal block
+but not become part of the source code:</p>
+<pre class="literal-block">
+print &quot;code example that should not run&quot;
+<code class="docutils literal"><span class="pre">result</span> <span class="pre">=</span> <span class="pre">5</span> <span class="pre">*n*</span> <span class="pre">2</span></code>
+</pre>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="file-headers">
+<h2>File Headers<a class="headerlink" href="#file-headers" title="Permalink to this headline">¶</a></h2>
+<p>Sometimes code needs to remain on the first line(s) of the document to be
+valid. The most common example is the <a class="reference external" href="http://en.wikipedia.org/wiki/Shebang_(Unix)">shebang</a> line that tells a POSIX shell
+how to process an executable file. In Python, the magic comment specifying
+the <a class="reference external" href="http://docs.python.org/tutorial/interpreter.html">source code encoding</a> must occur on line one or two:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># -*- coding: iso-8859-1 -*-</span>
+
+<span class="c1"># The classical programming example in Python::</span>
+
+<span class="nb">print</span> <span class="s2">&quot;Hello world.&quot;</span>
+</pre></div>
+</div>
+<p>Headers are converted to a comment in the text source:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">..</span>  <span class="c1">#!/usr/bin/env python</span>
+  <span class="c1"># -*- coding: iso-8859-1 -*-</span>
+
+<span class="n">The</span> <span class="n">classical</span> <span class="n">programming</span> <span class="n">example</span> <span class="ow">in</span> <span class="n">Python</span><span class="p">::</span>
+
+  <span class="nb">print</span> <span class="s2">&quot;Hello world.&quot;</span>
+</pre></div>
+</div>
+<p>Pretty-printed with Docutils, it looks like</p>
+<div class="admonition-hello-with-header admonition">
+<p class="first admonition-title">hello_with_header</p>
+<p>The classical programming example in Python:</p>
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="nb">print</span> <span class="s2">&quot;Hello world.&quot;</span>
+</pre></div>
+</div>
+</div>
+<p>Everything before the first text block (i.e. before the first paragraph
+using the matching comment string) will be hidden in HTML or PDF output.</p>
+<p>It may come as surprise that a part of the file is not &#8220;printed&#8221;.
+(In the case that there is no matching comment at all, the complete code
+source will become a comment, however, in this case it is not likely
+the source is a literate program anyway). But there are advantages also:</p>
+<ul class="simple">
+<li>line numbers are kept during the text &lt;&#8211;&gt; code conversion (which would be
+impossible with a literal block marker as this needs to be at the end of
+the preceding paragraph)</li>
+<li>you can hide a repeating (or boring) header in a project consisting of
+many source files.</li>
+</ul>
+<p>If needed for the documentation, it is possible to repeat the header in the
+the first text block, e.g. using a <a class="reference external" href="http://docutils.sourceforge.net/docs/ref/rst/directives.html#parsed-literal-block">parsed literal block</a>:</p>
+<pre class="literal-block">
+#!/usr/bin/env python
+# -<em>- coding: iso-8859-1 -</em>-
+</pre>
+</div>
+<div class="section" id="doctests">
+<h2>Doctests<a class="headerlink" href="#doctests" title="Permalink to this headline">¶</a></h2>
+<p>Pylit supports <a class="reference external" href="http://docs.python.org/library/doctest.html">Python doctests</a> in a literate script.</p>
+<p>We add a <a class="reference external" href="http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#doctest-blocks">doctest block</a> <a class="footnote-reference" href="#id5" id="id3">[2]</a> to our example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># The classical programming example in Python will print a familiar greeting:</span>
+<span class="c1">#    </span>
+<span class="c1"># &gt;&gt;&gt; execfile(&quot;hello_with_doctest.py&quot;)</span>
+<span class="c1"># Hello world</span>
+<span class="c1"># </span>
+<span class="c1"># ::</span>
+
+<span class="nb">print</span> <span class="s2">&quot;Hello world.&quot;</span>
+</pre></div>
+</div>
+<p>Now try it with</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1">#&gt;  python -c &quot;import doctest; doctest.testfile(&#39;hello_with_doctest.py&#39;)&quot;</span>
+</pre></div>
+</div>
+<p>There is no output. So everything is OK? Unfortunately not:
+<code class="docutils literal"><span class="pre">doctest.testfile</span></code> does not find the test, as it is &#8220;hidden&#8221; in a comment.
+<a class="footnote-reference" href="#id6" id="id4">[3]</a></p>
+<p>Pylit converts the source to the text version, feeds it to the <a class="reference external" href="http://docs.python.org/library/doctest.html">doctest</a>
+module&#8217;s <a class="reference external" href="http://docs.python.org/library/doctest.html#doctest-advanced-api">Advanced API</a> (introduced in Python 2.4), and we get</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1">#&gt; pylit --doctest hello_with_doctest.py</span>
+<span class="o">**********************************************************************</span>
+<span class="n">File</span> <span class="s2">&quot;hello_with_doctest.py&quot;</span><span class="p">,</span> <span class="n">line</span> <span class="mi">3</span><span class="p">,</span> <span class="ow">in</span>
+<span class="n">Failed</span> <span class="n">example</span><span class="p">:</span>
+    <span class="n">execfile</span><span class="p">(</span><span class="s2">&quot;hello_with_doctest.py&quot;</span><span class="p">)</span>
+<span class="n">Expected</span><span class="p">:</span>
+    <span class="n">Hello</span> <span class="n">world</span>
+<span class="n">Got</span><span class="p">:</span>
+    <span class="n">Hello</span> <span class="n">world</span><span class="o">.</span>
+</pre></div>
+</div>
+<p>Ah yes, we forgot the full-stop in our test. Adding it and testing again:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1">#&gt; pylit --doctest hello_with_doctest_2.py</span>
+<span class="mi">0</span> <span class="n">failures</span> <span class="ow">in</span> <span class="mi">1</span> <span class="n">tests</span>
+</pre></div>
+</div>
+<p>The printed summary will ensure us that the test actually passed.</p>
+<p>Read more about doctests in the <a class="reference external" href="../examples/literate-doctests/index.html">literate doctests example</a>.</p>
+<table class="docutils footnote" frame="void" id="id5" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id3">[2]</a></td><td>There is no double colon before the doctest; a doctest block is
+recognised by starting with the Python interpreter prompt <code class="docutils literal"><span class="pre">&gt;&gt;&gt;</span></code>
+instead.</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="id6" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id4">[3]</a></td><td>The tests will be found, if <code class="docutils literal"><span class="pre">doctest.testfile</span></code> is run on the text
+source, i.e.
+<code class="docutils literal"><span class="pre">python</span> <span class="pre">-c</span> <span class="pre">&quot;import</span> <span class="pre">doctest;</span> <span class="pre">doctest.testfile('hello_with_doctest.py.txt')&quot;</span></code></td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="including-files">
+<h2>Including Files<a class="headerlink" href="#including-files" title="Permalink to this headline">¶</a></h2>
+<p>PyLit does not allow the specification of a separate output file for
+individual code blocks like e.g. <a class="reference external" href="http://www.cs.tufts.edu/~nr/noweb/">noweb</a>. The &#8220;dual source&#8221; concept limits
+the choice to one output file per input file. However, this can be
+compensated by the use of the <a class="reference external" href="http://docutils.sourceforge.net/docs/ref/rst/directives.html#including-an-external-document-fragment">include directive</a>.</p>
+<p>Let us assume that for some reason, the friendly greeting should be defined
+in a separate file <code class="docutils literal"><span class="pre">greeting.py</span></code>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># a friendly greeting stored in a variable ::</span>
+
+<span class="n">greeting</span> <span class="o">=</span> <span class="s2">&quot;Hello world.&quot;</span>
+</pre></div>
+</div>
+<p>The documentation of the calling file can include the executed file</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># The classical programming example with the greeting from a variable in</span>
+<span class="c1"># another file::</span>
+
+<span class="kn">import</span> <span class="nn">greeting</span>
+<span class="nb">print</span> <span class="n">greeting</span><span class="o">.</span><span class="n">greeting</span>
+
+<span class="c1"># Where ``greeting.py`` contains:</span>
+<span class="c1"># </span>
+<span class="c1"># .. include:: greeting.py.txt</span>
+</pre></div>
+</div>
+<p>Saved to <code class="docutils literal"><span class="pre">hello_multifile.py.txt</span></code> and pretty-printed with Docutils, this
+looks like</p>
+<div class="admonition-hello-multifile admonition">
+<p class="first admonition-title">hello_multifile</p>
+<p>The classical programming example with the greeting from a variable in
+another file:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">greeting</span>
+<span class="nb">print</span> <span class="n">greeting</span><span class="o">.</span><span class="n">greeting</span>
+</pre></div>
+</div>
+<p>Where <code class="docutils literal"><span class="pre">greeting.py</span></code> contains:</p>
+<p>a friendly greeting stored in a variable</p>
+<div class="last highlight-default"><div class="highlight"><pre><span></span><span class="n">greeting</span> <span class="o">=</span> <span class="s2">&quot;Hello world.&quot;</span>
+</pre></div>
+</div>
+</div>
+<ul class="simple">
+<li>you have to convert both, <code class="docutils literal"><span class="pre">greeting.py</span></code> and <code class="docutils literal"><span class="pre">hello_multifile.py</span></code>.
+(Currently, pylit cannot do &#8216;batch processing&#8217; of multiple input files.)</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/pylit-bold-framed.png" alt="Logo"/>
+            </a></p>
+    <h3>Contents</h3>
+    <!-- Contents of current page -->
+    <ul>
+<li><a class="reference internal" href="#">Tutorial</a><ul>
+<li><a class="reference internal" href="#hello-world">Hello World</a></li>
+<li><a class="reference internal" href="#text-blocks-and-comments">Text Blocks and Comments</a></li>
+<li><a class="reference internal" href="#ordinary-literal-blocks">Ordinary Literal Blocks</a></li>
+<li><a class="reference internal" href="#file-headers">File Headers</a></li>
+<li><a class="reference internal" href="#doctests">Doctests</a></li>
+<li><a class="reference internal" href="#including-files">Including Files</a></li>
+</ul>
+</li>
+</ul>
+
+    <!-- Site Contents -->
+    <!-- <ul>
+<li class="toctree-l1"><a class="reference internal" href="../features.html">Features</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../literate-programming.html">Literate Programming</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../download/index.html">Requirements</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../download/index.html#download">Download</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../download/index.html#installation">Installation</a></li>
+</ul>
+ -->
+    <hr />
+    <h4>Previous Page</h4>
+    <p class="topless">
+      <a href="../usage.html" title="previous section">Usage</a>
+    </p>
+    <h4>Next Page</h4>
+    <p class="topless">
+      <a href="../examples/index.html" title="next section">Examples</a>
+    </p>
+    <h4>Up</h4>
+    <p class="topless">
+       <a href="../index.html" title="up">Home</a>
+    </p>
+  <hr />
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/tutorial/index.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+    <h3>Search this site</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" size="12" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+ <p class="thanks">
+  <!-- Thanks to	      -->
+  <!-- for hosting this site. -->
+ </p>
+
+  </body>
+</html>
