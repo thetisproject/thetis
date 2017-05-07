@@ -59,7 +59,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
 
     f_cori = -1.2e-4
     bottom_drag = 0.01
-    t_end = 200*24*3600.  # 365*24*3600.
+    t_end = 320*24*3600.  # 365*24*3600.
     t_export = 3*3600.
 
     nnodes = mesh2d.topology.num_vertices()
@@ -113,6 +113,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
         options.use_lax_friedrichs_tracer = False
     options.use_limiter_for_tracers = True
     options.vertical_viscosity = Constant(1.0e-4)
+    options.use_limiter_for_velocity = True
     if viscosity == 'smag':
         options.use_smagorinsky_viscosity = True
         options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
