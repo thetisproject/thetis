@@ -215,7 +215,16 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     elev_init += -mean_elev  # remove mean
     solver_obj.assign_initial_conditions(temp=temp_init3d, elev=elev_init)
 
-    solver_obj.iterate()
+    # custom export of surface temperature field
+    surf_temp_2d = Function(solver_obj.function_spaces.H_2d, name='Temperature')
+    extract_surf_temp = SubFunctionExtractor(solver_obj.fields.temp_3d, surf_temp_2d)
+    surf_temp_file = File(options.outputdir + '/SurfTemperature2d.pvd')
+
+    def export_func():
+        extract_surf_temp.solve()
+        surf_temp_file.write(surf_temp_2d)
+
+    solver_obj.iterate(export_func=export_func)
 
 
 def get_argparser():
