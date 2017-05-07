@@ -5,7 +5,6 @@ Uses pyproj library.
 
 import pyproj
 import numpy as np
-import collections
 
 UTM_ZONE10 = pyproj.Proj(
     proj='utm',
@@ -55,6 +54,7 @@ def utm2spcs(lon, lat):
 def WGS842spcs(lon, lat):
     """Converts longitude-latitude to SPCS."""
     return convertCoords(lon, lat, LL_WGS84, SPCS_N_OR)
+
 
 def getVectorRotationMatrix(lon, lat, target_csys, source_csys=None):
     """

@@ -16,7 +16,6 @@ from timeseries_forcing import NetCDFTimeSeriesInterpolator
 from diagnostics import TimeSeriesCallback2D
 from timezone import *
 from atm_forcing import *
-import pytz
 comm = COMM_WORLD
 
 # TODO add time-dependent river discharge
@@ -40,7 +39,7 @@ ntriangles = comm.allreduce(mesh2d.topology.num_cells(), MPI.SUM)
 nprisms = ntriangles*nlayers
 
 timezone = FixedTimeZone(-8, 'PST')
-init_date = datetime.datetime(2016, 5 , 1, tzinfo=timezone)
+init_date = datetime.datetime(2016, 5, 1, tzinfo=timezone)
 
 t_end = 10*24*3600.
 t_export = 900.
@@ -263,6 +262,7 @@ def update_forcings(t):
     wrf_atm.set_fields(t)
     copy_wind_stress_to_3d.solve()
 
+
 out_atm_pressure = File(options.outputdir + '/AtmPressure2d.pvd')
 out_wind_stress = File(options.outputdir + '/WindStress2d.pvd')
 
@@ -270,5 +270,6 @@ out_wind_stress = File(options.outputdir + '/WindStress2d.pvd')
 def export_atm_fields():
     out_atm_pressure.write(atm_pressure_2d)
     out_wind_stress.write(wind_stress_2d)
+
 
 solver_obj.iterate(update_forcings=update_forcings, export_func=export_atm_fields)

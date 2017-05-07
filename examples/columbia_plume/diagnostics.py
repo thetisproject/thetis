@@ -2,7 +2,6 @@
 Diagnostic callbacks for the Columbia river plume application
 """
 from thetis import *
-from scipy.stats import binned_statistic_2d
 
 
 class TimeSeriesCallback2D(DiagnosticCallback):
@@ -43,7 +42,6 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         # construct mesh points
         xx = np.array([self.x])
         yy = np.array([self.y])
-        zz = np.zeros_like(xx)
         self.mesh_shape = xx.shape
         self.xyz = np.vstack((xx.ravel(), yy.ravel())).T
 

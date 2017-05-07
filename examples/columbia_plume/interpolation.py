@@ -10,6 +10,7 @@ import netCDF4
 from abc import abstractmethod
 from firedrake import *
 
+
 class GridInterpolator(object):
     """
     A reuseable griddata interpolator object
@@ -105,7 +106,7 @@ class NetCDFTimeSearch(TimeSearch):
                 itime = nc.find_time_stamp(self.sim_start_time + simulation_time, previous=previous)
                 time = nc.start_epoch + nc.timestep*itime - self.sim_start_time
                 break
-            except IndexError as e:
+            except IndexError:
                 pass
         if itime is None:
             raise Exception(err_msg)
@@ -146,7 +147,7 @@ class NetCDFTime(object):
                 assert numbers == 3, msg
                 try:
                     self.basetime = datetime.datetime.strptime(base_date_srt, '%Y-%m-%d').replace(tzinfo=utc_tz)
-                except ValueError as e:
+                except ValueError:
                     raise ValueError(msg)
             if len(words) == 4:
                 # assuming format "days since 2000-01-01 00:00:00" in UTC
@@ -162,14 +163,13 @@ class NetCDFTime(object):
                     timezone = utc_tz
                 try:
                     self.basetime = datetime.datetime.strptime(base_date_srt, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone)
-                except ValueError as e:
+                except ValueError:
                     raise ValueError(msg)
             self.start_time = self.basetime + datetime.timedelta(seconds=float(time_var[0]))
 
             self.ntimesteps = len(time_var)
             dt_arr = np.diff(time_var[:])
             assert np.allclose(dt_arr, dt_arr[0]), 'Time step is not constant. {:}'.format(self.filename)
-            #self.timestep = np.round(dt_arr[0]*self.time_scalar, decimals=3)
             self.timestep = dt_arr[0]*self.time_scalar
 
             self.start_epoch = datetime_to_epoch(self.start_time)
@@ -301,7 +301,7 @@ class LinearTimeInterpolator(object):
         # interpolate
         t_prev = prev_id[2]
         t_next = next_id[2]
-        alpha =  (t - t_prev)/(t_next - t_prev)
+        alpha = (t - t_prev)/(t_next - t_prev)
         TOL = 1e-6
         assert alpha + TOL >= 0.0 and alpha <= 1.0 + TOL, \
             'Value {:} out of range {:} .. {:}'.format(t, t_prev, t_next)
@@ -370,7 +370,6 @@ class NetCDFLatLonInterpolator2d(object):
         # create grid interpolator
         grid_lat_full = ncfile['lat'][:]
         grid_lon_full = ncfile['lon'][:]
-
 
         self.nodes, self.ind_lon, self.ind_lat = self._get_subset_nodes(
             grid_lon_full,

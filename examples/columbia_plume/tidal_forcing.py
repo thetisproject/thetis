@@ -85,7 +85,7 @@ def test():
     m2_field = Function(p1, name='elevation')
 
     timezone = FixedTimeZone(-8, 'PST')
-    init_date = datetime.datetime(2016, 5 , 1, tzinfo=timezone)
+    init_date = datetime.datetime(2016, 5, 1, tzinfo=timezone)
 
     tbnd = TidalBoundaryForcing(m2_field,
                                 init_date,

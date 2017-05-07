@@ -23,8 +23,6 @@ import coordsys_spcs
 from firedrake import *
 import numpy as np
 import scipy.interpolate
-import glob
-import os
 from timezone import *
 from interpolation import *
 
@@ -89,7 +87,7 @@ class WRFInterpolator(object):
         Evaluates forcing fields at the given time
         """
         lon_wind, lat_wind, prmsl = self.interpolator(time)
-        u_wind , v_wind = self.vect_rotator(lon_wind, lat_wind)
+        u_wind, v_wind = self.vect_rotator(lon_wind, lat_wind)
         u_stress, v_stress = compute_wind_stress(u_wind, v_wind)
         self.wind_stress_field.dat.data_with_halos[:, 0] = u_stress
         self.wind_stress_field.dat.data_with_halos[:, 1] = v_stress
@@ -105,7 +103,7 @@ def test():
     atmpressure_2d = Function(p1, name='atm pressure')
 
     timezone = FixedTimeZone(-8, 'PST')
-    init_date = datetime.datetime(2016, 5 , 1, tzinfo=timezone)
+    init_date = datetime.datetime(2016, 5, 1, tzinfo=timezone)
     pattern = 'forcings/atm/wrf/wrf_air.2016_*_*.nc'
 
     wrf = WRFInterpolator(p1, windstress_2d, atmpressure_2d, pattern, init_date)

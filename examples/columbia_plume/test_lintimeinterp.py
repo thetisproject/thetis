@@ -4,9 +4,7 @@ Test LinearTimeInterpolator object
 
 from interpolation import *
 import numpy as np
-import random
 from scipy.interpolate import interp1d
-import pytest
 
 
 def do_interpolation(plot=False):
@@ -24,7 +22,6 @@ def do_interpolation(plot=False):
 
     # get correct solution with scipy
     y_interp = interp1d(xx, yy)(x_interp)
-
 
     class TimeSeriesReader(DBReader):
         def __init__(self, y):
@@ -45,7 +42,6 @@ def do_interpolation(plot=False):
                 raise Exception('Index out of bounds')
             tstamp = self.t[ix]
             return ('cat', ix, tstamp)
-
 
     timesearch_obj = SimpleTimeSearch(xx)
     reader = TimeSeriesReader(yy)

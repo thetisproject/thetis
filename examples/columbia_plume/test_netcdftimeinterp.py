@@ -3,7 +3,6 @@ Test netcd time interpolation
 """
 from interpolation import *
 import numpy as np
-import random
 from scipy.interpolate import interp1d
 import netCDF4
 import pytest
@@ -57,8 +56,8 @@ def netcdf_files(request, dataset, tmp_outputdir):
         ix = np.arange(n*i, n*(i+1))
         fn = ncfile_pattern.format(i)
         d = netCDF4.Dataset(fn, 'w')
-        time = d.createDimension('time', None)
-        time_var = d.createVariable('time', 'f8', ('time',))
+        d.createDimension('time', None)
+        time_var = d.createVariable('time', 'f8', ('time', ))
         time_var.long_name = 'Time'
         time_var.standard_name = 'time'
         time_var.units = 'seconds since {:}'.format(basetime_str)

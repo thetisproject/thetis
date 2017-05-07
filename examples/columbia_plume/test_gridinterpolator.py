@@ -4,7 +4,6 @@ Test GridInterpolator object
 
 from interpolation import *
 import numpy as np
-import random
 from scipy.interpolate import griddata
 import pytest
 
@@ -48,7 +47,6 @@ def do_interpolation(dataset='random', plot=False):
 
     if plot:
         import matplotlib.pyplot as plt
-        from mpl_toolkits.mplot3d import Axes3D
 
         fig = plt.figure()
         ax = fig.add_subplot(111)

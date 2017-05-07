@@ -2,7 +2,6 @@
 Test vector rotation
 """
 import coordsys_spcs
-import atm_forcing
 import numpy as np
 import pytest
 
@@ -29,8 +28,6 @@ def compute_rotation_error(direction='lat'):
     mag2 = np.hypot(delta_xy[0, 0], delta_xy[1, 0])
     nvect_x2, nvect_y2 = delta_xy[0, 0]/mag2, delta_xy[1, 0]/mag2
 
-    xx = R[0, 0] + R[0, 1]
-    yy = R[1, 0] + R[1, 1]
     assert np.allclose(nvect_x, nvect_x2, atol=1e-5)
     assert np.allclose(nvect_y, nvect_y2, atol=1e-5)
 
@@ -38,4 +35,3 @@ def compute_rotation_error(direction='lat'):
 @pytest.mark.parametrize('direction', ['lat', 'lon'])
 def test_vector_rotation(direction):
     compute_rotation_error(direction=direction)
-

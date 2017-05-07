@@ -48,7 +48,6 @@ class NetCDFTimeSeriesInterpolator(object):
             # TODO try to sniff from netCDF metadata
             data_tz = utc_tz
         time, vals = gather_nc_files(file_pattern, time_var, value_var)
-        #time_offset = datetime_to_epoch(init_date.astimezone(data_tz))
         time_offset = datetime_to_epoch(init_date)
         self.time_sim = time - time_offset
 
