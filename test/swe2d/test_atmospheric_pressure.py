@@ -93,5 +93,6 @@ def test_pressure_forcing(element_family, timestepper):
     assert(eta_errs[0]/eta_errs[-1] > (2.**expected_order)**(len(eta_errs)-1)*0.75)
     print_output("PASSED")
 
+
 if __name__ == '__main__':
     test_pressure_forcing(el_fam='dg-dg', timestepper='cranknicolson')
