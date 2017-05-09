@@ -73,15 +73,19 @@ class FlowSolver(FrozenClass):
 
     See the manual for more complex examples.
     """
-    def __init__(self, mesh2d, bathymetry_2d, n_layers,
-                 options=None):
+    def __init__(self, mesh2d, bathymetry_2d, n_layers=None,
+                 mesh=None, options=None):
         """
         :arg mesh2d: :class:`Mesh` object of the 2D mesh
         :arg bathymetry_2d: Bathymetry of the domain. Bathymetry stands for
             the mean water depth (positive downwards).
         :type bathymetry_2d: 2D :class:`Function`
-        :arg int n_layers: Number of layers in the vertical direction.
-            Elements are distributed uniformly over the vertical.
+        :kwarg int n_layers: Number of layers in the vertical direction for a
+            sigma layer mesh. Elements are distributed uniformly over the
+            vertical.
+        :kwarg mesh: Optionally the user can provide a custom extruded mesh.
+            The given bathymetry field must match the z coordinate at the bottom
+            of the mesh.
         :kwarg options: Model options (optional). Model options can also be
             changed directly via the :attr:`.options` class property.
         :type options: :class:`.ModelOptions` instance
@@ -90,9 +94,14 @@ class FlowSolver(FrozenClass):
 
         self.bathymetry_cg_2d = bathymetry_2d
 
+        if mesh is None and n_layers is None:
+            raise Exception('Either mesh or n_layers must be provided')
         self.mesh2d = mesh2d
         """2D :class`Mesh`"""
-        self.mesh = extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d)
+        if mesh is None:
+            self.mesh = extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d)
+        else:
+            self.mesh = mesh
         """3D :class`Mesh`"""
         self.comm = mesh2d.comm
 
