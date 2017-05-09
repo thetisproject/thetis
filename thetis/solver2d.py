@@ -540,7 +540,7 @@ class FlowSolver2d(FrozenClass):
             self.export()
             if export_func is not None:
                 export_func()
-            if 'vtk' in self.exporters:
+            if 'vtk' in self.exporters and isinstance(self.fields.bathymetry_2d, Function):
                 self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
         while self.simulation_time <= self.options.simulation_end_time + t_epsilon:
@@ -550,6 +550,10 @@ class FlowSolver2d(FrozenClass):
             # Move to next time step
             self.iteration += 1
             self.simulation_time = self.iteration*self.dt
+
+            if thetis_config.adjoint:
+                finished=self.simulation_time > self.options.t_end + t_epsilon
+                adj_inc_timestep(time=self.simulation_time, finished=finished)
 
             self.callbacks.evaluate(mode='timestep')
 

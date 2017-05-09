@@ -1,119 +1,161 @@
-# Open tidal farm example
-# =======================
+# Tidal farm optimisation example
+# =======================================
 #
-# Implements open tidal farm example "Farm power production" forward model
-# with a dummy friction field.
+# This example is based on the OpenTidalFarm example:
+# http://opentidalfarm.readthedocs.io/en/latest/examples/headland-optimization/headland-optimization.html
 #
-# http://opentidalfarm.readthedocs.io/en/latest/examples/farm-performance/farm-performance.html
-#
+# It optimises the layout of a tidalfarm using the so called continuous approach where
+# the density of turbines within a farm (n/o turbines per unit area) is optimised. This
+# allows a.o to include a cost term based on the number of turbines which is computed as
+# the integral of the density. For more details, see:
+#   S.W. Funke, S.C. Kramer, and M.D. Piggott, "Design optimisation and resource assessment
+#   for tidal-stream renewable energy farms using a new continuous turbine approach",
+#   Renewable Energy 99 (2016), pp. 1046-1061, http://doi.org/10.1016/j.renene.2016.07.039
+
+# to enable a gradient-based optimisation using the adjoint to compute gradients,
+# we need to import from thetis_adjoint instead of thetis
 from thetis_adjoint import *
 op2.init(log_level=INFO)
 
-outputdir = 'outputs_adjoint'
+parameters['coffee'] = {}  # temporarily disable COFFEE due to bug
 
-lx = 100.0
-ly = 50.0
-nx = 20.0
-ny = 10.0
-mesh2d = RectangleMesh(nx, ny, lx, ly)
-print_output('Exporting to ' + outputdir)
+test_gradient = False # whether to check the gradient computed by the adjoint
+optimise = True
 
-# total duration in seconds
-t_end = 20.
-# estimate of max advective velocity used to estimate time step
-u_mag = Constant(4.0)
-# export interval in seconds
-t_export = 0.5
-timestep = 0.5
+# setup the Thetis solver obj as usual:
+mesh2d = Mesh('headland.msh')
 
-# bathymetry
-P1_2d = FunctionSpace(mesh2d, 'CG', 1)
-bathymetry_2d = Function(P1_2d, name='Bathymetry')
+tidal_amplitude = 5.
+tidal_period = 12.42*60*60
+H = 40
+timestep = tidal_period/50
 
-depth = 50.0
-bathymetry_2d.assign(depth)
-
-# --- create solver ---
-solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
+# create solver and set options
+solver_obj = solver2d.FlowSolver2d(mesh2d, Constant(H))
 options = solver_obj.options
-# options.use_nonlinear_equations = False
-options.simulation_export_time = t_export
-options.simulation_end_time = t_end
-options.output_directory = outputdir
-options.horizontal_velocity_scale = u_mag
-options.check_volume_conservation_2d = True
-options.fields_to_export = ['uv_2d', 'elev_2d']
-solver_obj.options.timestepper_type = 'CrankNicolson'
-solver_obj.options.shallow_water_theta = 1.0
-solver_obj.options.solver_parameters_sw = {
-    'mat_type': 'aij',
-    'ksp_type': 'preonly',
-    'pc_type': 'lu',
-    'pc_factor_mat_solver_package': 'mumps',
-    'snes_monitor': False,
-    'snes_type': 'newtonls',
-}
 options.timestep = timestep
+options.simulation_export_time = timestep
+options.simulation_end_time = tidal_period/2
+options.output_directory = 'outputs'
+options.check_volume_conservation_2d = True
+solver_obj.options.element_family = 'dg-cg'
+solver_obj.options.timestepper_type = 'PressureProjectionPicard'
+solver_obj.options.timestepper_options.implicitness_theta = 0.6
 options.horizontal_viscosity = Constant(2.0)
+options.quadratic_drag_coefficient = Constant(0.0025)
 
-# create function spaces
-solver_obj.create_function_spaces()
-
-# create drag function and set something there
-drag_func = Function(solver_obj.function_spaces.P1_2d, name='bottomdrag')
-x = SpatialCoordinate(mesh2d)
-drag_center = 12.0
-drag_bg = 0.0025
-x0 = lx/2
-y0 = ly/2
-sigma = 20.0
-drag_func.project(drag_center*exp(-((x[0]-x0)**2 + (x[1]-y0)**2)/sigma**2) + drag_bg, annotate=False)
-# assign fiction field
-options.quadratic_drag_coefficient = drag_func
-
-velocity_u = 2.0
 # assign boundary conditions
-inflow_tag = 1
-outflow_tag = 2
-inflow_bc = {'un': Constant(-velocity_u)}  # NOTE negative into domain
-outflow_bc = {'elev': Constant(0.0)}
-
-solver_obj.bnd_functions['shallow_water'] = {inflow_tag: inflow_bc,
-                                             outflow_tag: outflow_bc}
-
-solver_obj.assign_initial_conditions(uv=as_vector((velocity_u, 0.0)))
-solver_obj.iterate()
-
-adj_html("forward.html", "forward")
-adj_html("adjoint.html", "adjoint")
+left_tag = 1
+right_tag = 2
+coasts_tag = 3
+tidal_elev = Function(FunctionSpace(mesh2d, "CG", 1), name='tidal_elev')
+tidal_elev_bc = {'elev': tidal_elev}
+noslip_bc = {'uv': Constant((0.0, 0.0))}
+solver_obj.bnd_functions['shallow_water'] = {
+        left_tag: tidal_elev_bc,
+        right_tag: tidal_elev_bc,
+        coasts_tag: noslip_bc
+}
 
 
-integral = solver_obj.fields.solution_2d[0]*dx
-J = Functional(integral*dt[FINISH_TIME], name="MyFunctional")
-c = Control(drag_func)
-dJdc = compute_gradient(J, c, forget=False)
-out = File('gradient_J.pvd')
-out.write(dJdc)
-J0 = assemble(integral)
-print_output("Functional evaluated by hand: ", J0)
+# first setup all the usual SWE terms
+solver_obj.create_equations()
 
+# defines an additional turbine drag term to the SWE
+turbine_friction = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_friction')
+class TurbineDragTerm(shallowwater_eq.ShallowWaterMomentumTerm):
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        total_h = self.get_total_depth(eta_old)
+        C_D = turbine_friction
+        f = C_D * sqrt(dot(uv_old, uv_old)) * inner(self.u_test, uv) / total_h * self.dx(2)
+        return -f
+
+# add it to the shallow water equations
+fs = solver_obj.fields.solution_2d.function_space()
+u_test, eta_test = TestFunctions(fs)
+u_space, eta_space = fs.split()
+turbine_drag_term = TurbineDragTerm(u_test, u_space, eta_space,
+        bathymetry=solver_obj.fields.bathymetry_2d)
+turbine_drag_term.dx = dx(2)
+solver_obj.eq_sw.add_term(turbine_drag_term, 'implicit')
+
+adj_start_timestep(0.0) # TODO: this needs to move somewhere in the solver
+solver_obj.assign_initial_conditions(uv=as_vector((1e-7, 0.0)))
+
+# Setup the functional. It computes a measure of the profit as the difference
+# of the power output of the farm (the "revenue") minus the cost based on the number
+# of turbines
+
+u, eta = split(solver_obj.fields.solution_2d)
+# should multiply this by density to get power in W - assuming rho=1000 we get kW instead
+power_integral = turbine_friction * (u[0]*u[0] + u[1]*u[1])**1.5 * dx(2)
+
+# turbine friction=C_T*A_T/2.*turbine_density
+C_T = 0.8 # turbine thrust coefficient
+A_T = pi * (16./2)**2 # turbine cross section
+# cost integral is n/o turbines = \int turbine_density = \int c_t/(C_T A_T/2.)
+cost_integral = 1./(C_T*A_T/2.) * turbine_friction * dx(2)
+
+break_even_wattage = 10 # (kW) amount of power produced per turbine on average to "break even" (cost = revenue)
+combined_functional = Functional((power_integral - break_even_wattage * cost_integral) * dt)
+
+
+# a function to update the tidal_elev bc value every timestep
+# we also use it to display the profit each time step (which will be a time-integrated into the functional)
+x = SpatialCoordinate(mesh2d)
+g = 9.81
+omega = 2 * pi / tidal_period
+
+def update_forcings(t, annotate=True):
+    print "Updating tidal elevation at t = ", t
+    P = assemble(power_integral)
+    N = assemble(cost_integral)
+    print "Power, N turbines, profit =", P, N, P-break_even_wattage*N
+    # NOTE: we need to explicitly tell dolfin-adjoint to annotate this as by default it seems to
+    # only annotate if the interpoland is a Function (is this reasonable?)
+    tidal_elev.interpolate(tidal_amplitude*sin(omega*t + omega/pow(g*H, 0.5)*x[0]), annotate=annotate)
+    # NOTE: it seems firedrake-adjoint (dolfin-adjoint in general?) cannot handle functions that are part of a
+    # time-integrated Functional which do not change over time and are therefore not annotated
+    turbine_friction.project(turbine_friction, annotate=annotate)
+
+
+# run as normal (this run will be annotated by firedrake-adjoint)
+solver_obj.iterate(update_forcings=update_forcings)
+
+
+# everything relevant should be annotated now
 parameters["adjoint"]["stop_annotating"] = True
+# write out the annotation for debugging purposes
+adj_html('forward.html', 'forward')
 
+# this reduces the functional J(u, tf) to a function purely of
+# rf(tf) = J(u(tf), tf) where the velocities u(tf) of the entire simulation
+# are computed by replaying the forward model for any provided turbine friction tf
+c = Control(turbine_friction)
+rf = ReducedFunctional(combined_functional, c)
 
-def jfunc(m):
-    drag_func.assign(m)
-    solver_obj.simulation_time = 0.
-    solver_obj.iteration = 0
-    solver_obj.i_export = 0
-    solver_obj.assign_initial_conditions(uv=as_vector((velocity_u, 0.0)), elev=Constant(0.0))
-    solver_obj.iterate()
-    Jm = assemble(integral)
-    return Jm
+if test_gradient:
+    dJdc = compute_gradient(combined_functional, c, forget=False)
+    File('dJdc.pvd').write(dJdc)
+    J0 = rf(turbine_friction)
+    minconv = taylor_test(rf, c, J0, dJdc, seed=1e-4)
+    print "Order of convergence with taylor test (should be 2) =", minconv
 
+    assert minconv > 1.95
 
-success = replay_dolfin(tol=0.0, stop=False)
-print_output(solver_obj.fields.solution_2d.vector().array()[0:10])
-Jhat = ReducedFunctional(J, c)
-print_output("Output of Jhat: ", Jhat(drag_func))
-minconv = taylor_test(jfunc, c, J0, dJdc, seed=1e-4)
-assert minconv > 1.95
+if optimise:
+    # an output file that stores the turbine friction in every iteration
+    # of the optimisation loop
+    tfpvd = File('tf.pvd')
+    def optimisation_callback(m):
+        turbine_friction.dat.data[:] = m
+        tfpvd.write(turbine_friction)
+
+    # compute maximum turbine density
+    max_density = 1./(16.*2.5*16.*5)
+    max_tf = C_T * A_T/2. * max_density
+    print "Maximum turbine density =", max_tf
+
+    tf_opt = maximise(rf, bounds=[0, max_tf],
+            options={'maxiter': 100},
+            callback=optimisation_callback)
