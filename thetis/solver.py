@@ -305,7 +305,8 @@ class FlowSolver(FrozenClass):
         print_output('  - dt v. advection: {:}'.format(max_dt_vadv))
         print_output('  - dt viscosity: {:}'.format(max_dt_diff))
         max_dt_2d = cfl2d*max_dt_swe
-        max_dt_3d = cfl3d*min(max_dt_hadv, max_dt_vadv, max_dt_diff)
+        #max_dt_3d = cfl3d*min(max_dt_hadv, max_dt_vadv, max_dt_diff)
+        max_dt_3d = cfl3d*min(max_dt_hadv, max_dt_diff)
         print_output('  - CFL adjusted dt: 2D: {:} 3D: {:}'.format(max_dt_2d, max_dt_3d))
         if self.options.dt_2d is not None or self.options.dt is not None:
             print_output('  - User defined dt: 2D: {:} 3D: {:}'.format(self.options.dt_2d, self.options.dt))
