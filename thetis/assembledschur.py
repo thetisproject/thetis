@@ -11,7 +11,6 @@ class AssembledSchurPC(PCBase):
         v and u are the test and trial of the 00 block. This gives the exact 
         inverse of the mass matrix for a DG discretisation."""
     def initialize(self, pc):
-        print "Initializing AssembledSchurPC"
         _, P = pc.getOperators()
         ctx = P.getPythonContext()
         a = ctx.appctx['a']
@@ -41,7 +40,6 @@ class AssembledSchurPC(PCBase):
         self.update(pc)
 
     def update(self, pc):
-        print "Updating AssembledSchurPC"
         self.A01 = assemble(self.a01, tensor=self.A01)
         self.A10 = assemble(self.a10, tensor=self.A10)
         self.A11 = assemble(self.a11, tensor=self.A11)
@@ -60,8 +58,6 @@ class AssembledSchurPC(PCBase):
         self.ksp.setOperators(self.schur_plus)
 
     def apply(self, pc, X, Y):
-        print "Applying AssembledSchurPC"
-
         self.ksp.solve(X, Y)
         r = self.ksp.getConvergedReason()
         if r < 0:
