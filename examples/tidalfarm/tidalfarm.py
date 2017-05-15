@@ -76,10 +76,11 @@ u_test, eta_test = TestFunctions(fs)
 u_space, eta_space = fs.split()
 turbine_drag_term = TurbineDragTerm(u_test, u_space, eta_space,
         bathymetry=solver_obj.fields.bathymetry_2d)
-turbine_drag_term.dx = dx(2)
 solver_obj.eq_sw.add_term(turbine_drag_term, 'implicit')
 
 adj_start_timestep(0.0) # TODO: this needs to move somewhere in the solver
+
+turbine_friction.assign(0.0)
 solver_obj.assign_initial_conditions(uv=as_vector((1e-7, 0.0)))
 
 # Setup the functional. It computes a measure of the profit as the difference
@@ -97,7 +98,12 @@ A_T = pi * (16./2)**2 # turbine cross section
 cost_integral = 1./(C_T*A_T/2.) * turbine_friction * dx(2)
 
 break_even_wattage = 10 # (kW) amount of power produced per turbine on average to "break even" (cost = revenue)
-combined_functional = Functional((power_integral - break_even_wattage * cost_integral) * dt)
+
+# we rescale the functional such that the gradients are ~ order magnitude 1.
+# the scaling is chosen such that the gradient of break_even_wattage * cost_integral is of order 1
+# the power-integral is assumed to be of the same order of magnitude
+scaling = 1./assemble(break_even_wattage/(C_T*A_T/2.) * dx(2, domain=mesh2d))
+combined_functional = Functional(scaling * (power_integral - break_even_wattage * cost_integral) * dt)
 
 
 # a function to update the tidal_elev bc value every timestep
@@ -128,11 +134,28 @@ parameters["adjoint"]["stop_annotating"] = True
 # write out the annotation for debugging purposes
 adj_html('forward.html', 'forward')
 
+# our own version of a ReducedFunctional, which when asked
+# to compute its derivative, calls the standard derivative()
+# method of ReducedFunctional but additionaly outputs that
+# gradient and the current value of the control to a .pvd
+tfpvd = File('turbine_friction.pvd')
+class MyReducedFunctional(ReducedFunctional):
+    def derivative(self, **kwargs):
+        dj = super(MyReducedFunctional, self).derivative(**kwargs)
+        # need to make sure dj always has the same name in the output
+        grad = dj[0].copy()
+        grad.rename("Gradient")
+        # same thing for the control
+        tf = self.controls[0].data().copy()
+        tf.rename('TurbineFriction')
+        tfpvd.write(grad, tf)
+        return dj
+
 # this reduces the functional J(u, tf) to a function purely of
 # rf(tf) = J(u(tf), tf) where the velocities u(tf) of the entire simulation
 # are computed by replaying the forward model for any provided turbine friction tf
 c = Control(turbine_friction)
-rf = ReducedFunctional(combined_functional, c)
+rf = MyReducedFunctional(combined_functional, c)
 
 if test_gradient:
     dJdc = compute_gradient(combined_functional, c, forget=False)
@@ -144,18 +167,10 @@ if test_gradient:
     assert minconv > 1.95
 
 if optimise:
-    # an output file that stores the turbine friction in every iteration
-    # of the optimisation loop
-    tfpvd = File('tf.pvd')
-    def optimisation_callback(m):
-        turbine_friction.dat.data[:] = m
-        tfpvd.write(turbine_friction)
-
     # compute maximum turbine density
     max_density = 1./(16.*2.5*16.*5)
     max_tf = C_T * A_T/2. * max_density
     print "Maximum turbine density =", max_tf
 
     tf_opt = maximise(rf, bounds=[0, max_tf],
-            options={'maxiter': 100},
-            callback=optimisation_callback)
+            options={'maxiter': 100})
