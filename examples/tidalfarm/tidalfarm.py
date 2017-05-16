@@ -78,8 +78,6 @@ turbine_drag_term = TurbineDragTerm(u_test, u_space, eta_space,
         bathymetry=solver_obj.fields.bathymetry_2d)
 solver_obj.eq_sw.add_term(turbine_drag_term, 'implicit')
 
-adj_start_timestep(0.0) # TODO: this needs to move somewhere in the solver
-
 turbine_friction.assign(0.0)
 solver_obj.assign_initial_conditions(uv=as_vector((1e-7, 0.0)))
 
