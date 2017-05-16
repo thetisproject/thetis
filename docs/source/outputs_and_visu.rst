@@ -4,8 +4,8 @@ Model outputs and visualization
 VTK outputs
 -----------
 
-By default Thetis stores outputs in `VTK <http://www.vtk.org/>`_
-format, suitable for visualization with `ParaView <http://www.paraview.org/>`_.
+By default Thetis stores outputs in `VTK <http://www.vtk.org/>`__
+format, suitable for visualization with `ParaView <http://www.paraview.org/>`__.
 
 By default results are stored to ``outputs`` sub-directory.
 Users can define a custom output directory with :py:attr:`~.ModelOptions.outputdir`
@@ -30,7 +30,7 @@ cases). This can be achieved by setting :py:attr:`~.ModelOptions.no_exports`
 option to ``True``.
 
 See Firedrake's
-`documentation <http://firedrakeproject.org/visualisation.html>`_
+`documentation <http://firedrakeproject.org/visualisation.html>`__
 for more information on visualization cababilities.
 
 Visualizing stored ParaView state files
@@ -72,7 +72,7 @@ loading a previous model state from disk.
 
     Currently HDF5 checkpointing file can only be
     loaded on same number of MPI processes as were used to create the file.
-    See Firedrake's `documentation <http://firedrakeproject.org/checkpointing.html>`_
+    See Firedrake's `documentation <http://firedrakeproject.org/checkpointing.html>`__
     for more information.
 
 The fields to be exported in HDF5 format are defined in
