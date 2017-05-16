@@ -1,6 +1,7 @@
 from firedrake import *
 from petsc4py import PETSc
 
+
 class AssembledSchurPC(PCBase):
     """Preconditioner for the Schur complement, where the preconditioner
     matrix is assembled by explicitly matrix multiplying A10*Minv*A10. Here:
@@ -31,9 +32,9 @@ class AssembledSchurPC(PCBase):
         self.schur_plus = None
 
         fs = dict(formmanipulation.split_form(a))
-        self.a01 = fs[(0,1)]
-        self.a10 = fs[(1,0)]
-        self.a11 = fs[(1,1)]
+        self.a01 = fs[(0, 1)]
+        self.a10 = fs[(1, 0)]
+        self.a11 = fs[(1, 1)]
         self.ksp = PETSc.KSP().create()
         self.ksp.setOptionsPrefix(options_prefix + 'schur_')
         self.ksp.setFromOptions()
@@ -48,9 +49,9 @@ class AssembledSchurPC(PCBase):
         self.A10_A00_inv = self.A10.matMult(self.A00_inv, self.A10_A00_inv, 2.0)
         self.schur = self.A10_A00_inv.matMult(self.A01, self.schur, 2.0)
         if self.schur_plus is None:
-          self.schur_plus = self.schur.duplicate(copy=True)
+            self.schur_plus = self.schur.duplicate(copy=True)
         else:
-          self.schur_plus = self.schur.copy(self.schur_plus, PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
+            self.schur_plus = self.schur.copy(self.schur_plus, PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
         self.schur_plus.aypx(-1.0, self.A11, PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
         self.ksp.setOperators(self.schur_plus)
 
