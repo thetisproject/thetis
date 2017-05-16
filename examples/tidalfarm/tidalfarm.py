@@ -19,7 +19,7 @@ op2.init(log_level=INFO)
 
 parameters['coffee'] = {}  # temporarily disable COFFEE due to bug
 
-test_gradient = False # whether to check the gradient computed by the adjoint
+test_gradient = False  # whether to check the gradient computed by the adjoint
 optimise = True
 
 # setup the Thetis solver obj as usual:
@@ -52,9 +52,9 @@ tidal_elev = Function(FunctionSpace(mesh2d, "CG", 1), name='tidal_elev')
 tidal_elev_bc = {'elev': tidal_elev}
 noslip_bc = {'uv': Constant((0.0, 0.0))}
 solver_obj.bnd_functions['shallow_water'] = {
-        left_tag: tidal_elev_bc,
-        right_tag: tidal_elev_bc,
-        coasts_tag: noslip_bc
+    left_tag: tidal_elev_bc,
+    right_tag: tidal_elev_bc,
+    coasts_tag: noslip_bc
 }
 
 
@@ -63,6 +63,8 @@ solver_obj.create_equations()
 
 # defines an additional turbine drag term to the SWE
 turbine_friction = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_friction')
+
+
 class TurbineDragTerm(shallowwater_eq.ShallowWaterMomentumTerm):
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
@@ -70,12 +72,13 @@ class TurbineDragTerm(shallowwater_eq.ShallowWaterMomentumTerm):
         f = C_D * sqrt(dot(uv_old, uv_old)) * inner(self.u_test, uv) / total_h * self.dx(2)
         return -f
 
+
 # add it to the shallow water equations
 fs = solver_obj.fields.solution_2d.function_space()
 u_test, eta_test = TestFunctions(fs)
 u_space, eta_space = fs.split()
 turbine_drag_term = TurbineDragTerm(u_test, u_space, eta_space,
-        bathymetry=solver_obj.fields.bathymetry_2d)
+                                    bathymetry=solver_obj.fields.bathymetry_2d)
 solver_obj.eq_sw.add_term(turbine_drag_term, 'implicit')
 
 turbine_friction.assign(0.0)
@@ -90,12 +93,12 @@ u, eta = split(solver_obj.fields.solution_2d)
 power_integral = turbine_friction * (u[0]*u[0] + u[1]*u[1])**1.5 * dx(2)
 
 # turbine friction=C_T*A_T/2.*turbine_density
-C_T = 0.8 # turbine thrust coefficient
-A_T = pi * (16./2)**2 # turbine cross section
+C_T = 0.8  # turbine thrust coefficient
+A_T = pi * (16./2)**2  # turbine cross section
 # cost integral is n/o turbines = \int turbine_density = \int c_t/(C_T A_T/2.)
 cost_integral = 1./(C_T*A_T/2.) * turbine_friction * dx(2)
 
-break_even_wattage = 10 # (kW) amount of power produced per turbine on average to "break even" (cost = revenue)
+break_even_wattage = 10  # (kW) amount of power produced per turbine on average to "break even" (cost = revenue)
 
 # we rescale the functional such that the gradients are ~ order magnitude 1.
 # the scaling is chosen such that the gradient of break_even_wattage * cost_integral is of order 1
@@ -109,6 +112,7 @@ combined_functional = Functional(scaling * (power_integral - break_even_wattage 
 x = SpatialCoordinate(mesh2d)
 g = 9.81
 omega = 2 * pi / tidal_period
+
 
 def update_forcings(t, annotate=True):
     print "Updating tidal elevation at t = ", t
@@ -137,6 +141,8 @@ adj_html('forward.html', 'forward')
 # method of ReducedFunctional but additionaly outputs that
 # gradient and the current value of the control to a .pvd
 tfpvd = File('turbine_friction.pvd')
+
+
 class MyReducedFunctional(ReducedFunctional):
     def derivative(self, **kwargs):
         dj = super(MyReducedFunctional, self).derivative(**kwargs)
@@ -148,6 +154,7 @@ class MyReducedFunctional(ReducedFunctional):
         tf.rename('TurbineFriction')
         tfpvd.write(grad, tf)
         return dj
+
 
 # this reduces the functional J(u, tf) to a function purely of
 # rf(tf) = J(u(tf), tf) where the velocities u(tf) of the entire simulation
@@ -171,4 +178,4 @@ if optimise:
     print "Maximum turbine density =", max_tf
 
     tf_opt = maximise(rf, bounds=[0, max_tf],
-            options={'maxiter': 100})
+                      options={'maxiter': 100})
