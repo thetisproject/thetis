@@ -1,7 +1,6 @@
 from firedrake import *
 from petsc4py import PETSc
 
-
 class AssembledSchurPC(PCBase):
     """Preconditioner for the Schur complement, where the preconditioner
     matrix is assembled by explicitly matrix multiplying A10*Minv*A10. Here:
@@ -22,41 +21,27 @@ class AssembledSchurPC(PCBase):
         V, Q = W.split()
         v = TestFunction(V)
         u = TrialFunction(V)
-        mass = dot(v, u)*dx
-        self.A00_inv = assemble(mass, inverse=True, mat_type='aij').M.handle
-        self.A10_A00_inv = None
-        self.schur = None
-        self.schur_plus = None
+        mass = Tensor(dot(v, u)*dx)
 
         fs = dict(formmanipulation.split_form(a))
-        self.a01 = fs[(0, 1)]
-        self.a10 = fs[(1, 0)]
-        self.a11 = fs[(1, 1)]
-        self.A01 = None
-        self.A10 = None
-        self.A11 = None
-        self.ksp = PETSc.KSP().create()
+        A01 = Tensor(fs[(0, 1)])
+        A10 = Tensor(fs[(1, 0)])
+        A11 = Tensor(fs[(1, 1)])
+        self.S = A11 - A10*mass.inv*A01
+
+        self.ksp = PETSc.KSP().create(comm=pc.comm)
         self.ksp.setOptionsPrefix(options_prefix + 'schur_')
+        self.Smat = assemble(self.S, form_compiler_parameters=ctx.fc_params)
+        #self.Smat_assembler = create_assembly_callable(self.S, tensor=self.Smat, form_compiler_parameters=ctx.fc_params)
+        #self.Smat_assembler()
+        self.Smat.force_evaluation()
+        self.ksp.setOperators(self.Smat.petscmat, self.Smat.petscmat)
         self.ksp.setFromOptions()
         self.update(pc)
 
     def update(self, pc):
-        self.A01 = assemble(self.a01, tensor=self.A01)
-        self.A10 = assemble(self.a10, tensor=self.A10)
-        self.A11 = assemble(self.a11, tensor=self.A11)
-        A01 = self.A01.M.handle
-        A10 = self.A10.M.handle
-        A11 = self.A11.M.handle
-
-        self.A10_A00_inv = A10.matMult(self.A00_inv, self.A10_A00_inv, 2.0)
-        self.schur = self.A10_A00_inv.matMult(A01, self.schur, 2.0)
-        if self.schur_plus is None:
-            self.schur_plus = self.schur.duplicate(copy=True)
-            self.schur_plus.aypx(-1.0, A11, PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
-        else:
-            self.schur_plus = self.schur.copy(self.schur_plus, PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
-            self.schur_plus.aypx(-1.0, A11, PETSc.Mat.Structure.SAME_NONZERO_PATTERN)
-        self.ksp.setOperators(self.schur_plus)
+        assemble(self.S, tensor=self.Smat, form_compiler_parameters=ctx.fc_params)
+        self.Smat.force_evaluation()
 
     def apply(self, pc, X, Y):
         self.ksp.solve(X, Y)
