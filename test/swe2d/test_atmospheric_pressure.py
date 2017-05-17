@@ -18,7 +18,7 @@ import numpy as np
 @pytest.mark.parametrize("element_family", [
     'dg-dg', 'rt-dg', 'dg-cg', ])
 @pytest.mark.parametrize("timestepper", [
-    'cranknicolson', ])
+    'cranknicolson', 'ssprk33', ])
 def test_pressure_forcing(element_family, timestepper):
     order = 1
 
@@ -33,13 +33,16 @@ def test_pressure_forcing(element_family, timestepper):
     mu_manning = Constant(1.0)
 
     # Simulation time
-    t_end = 1.5*24*3600.
+    t_end = 43200.
 
     eta_errs = []
 
     n_tests = 3
     ns = [2.0**(i+1) for i in range(n_tests)]
-    dts = [2400.0/(2**i) for i in range(n_tests)]
+    if timestepper == 'cranknicolson':
+        dts = [2400.0/(2**i) for i in range(n_tests)]
+    else:
+        dts = [20.0/(2**i) for i in range(n_tests)]
 
     for i in range(n_tests):
         nx = ns[i]
@@ -92,7 +95,3 @@ def test_pressure_forcing(element_family, timestepper):
     assert(all(eta_errs[:-1]/eta_errs[1:] > 2.**expected_order*0.75))
     assert(eta_errs[0]/eta_errs[-1] > (2.**expected_order)**(len(eta_errs)-1)*0.75)
     print_output("PASSED")
-
-
-if __name__ == '__main__':
-    test_pressure_forcing(el_fam='dg-dg', timestepper='cranknicolson')
