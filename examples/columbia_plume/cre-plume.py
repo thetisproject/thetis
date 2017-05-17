@@ -18,9 +18,6 @@ from timezone import *
 from atm_forcing import *
 comm = COMM_WORLD
 
-# TODO add time-dependent river discharge
-# TODO add wind stress formulations
-# TODO add atm netcdf reader, time dependent wind stress
 # TODO add intial condition from ROMS/HYCOM
 
 rho0 = 1000.0
@@ -29,9 +26,18 @@ physical_constants['rho0'].assign(rho0)
 physical_constants['z0_friction'].assign(0.005)
 
 reso_str = 'coarse'
-nlayers = 9
+meshfile = {
+    'coarse': 'mesh_cre-plume002.msh',
+    'normal': 'mesh_cre-plume003.msh',
+}
+zgrid_params = {
+    # nlayers, surf_elem_height, max_z_stretch
+    'coarse': (9, 5.0, 4.0),
+    'normal': (15, 0.8, 4.0),
+}
+nlayers, surf_elem_height, max_z_stretch = zgrid_params[reso_str]
 outputdir = 'outputs_{:}'.format(reso_str)
-mesh2d = Mesh('mesh_cre-plume002.msh')
+mesh2d = Mesh(meshfile[reso_str])
 print_output('Loaded mesh ' + mesh2d.name)
 
 nnodes = comm.allreduce(mesh2d.topology.num_vertices(), MPI.SUM)
@@ -49,15 +55,12 @@ bathymetry_2d = get_bathymetry('bathymetry_300m.npz', mesh2d, project=False)
 bathymetry_2d = smooth_bathymetry(
     bathymetry_2d, delta_sigma=1.0, bg_diff=0,
     alpha=5e6, exponent=1,
-    minimum_depth=5., niter=20)
+    minimum_depth=3.5, niter=20)
 bathymetry_2d = smooth_bathymetry_at_bnd(bathymetry_2d, [1, 3])
 
 # 3d mesh vertical stretch factor
 z_stretch_fact_2d = Function(bathymetry_2d.function_space(), name='z_stretch')
 # 1.0 (sigma mesh) in shallow areas, 4.0 in deep ocean
-max_z_stretch = 4.
-max_bath = 1800.
-surf_elem_height = 5.0
 z_stretch_fact_2d.project(-ln(surf_elem_height/bathymetry_2d)/ln(nlayers))
 z_stretch_fact_2d.dat.data[z_stretch_fact_2d.dat.data < 1.0] = 1.0
 z_stretch_fact_2d.dat.data[z_stretch_fact_2d.dat.data > max_z_stretch] = max_z_stretch
