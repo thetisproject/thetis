@@ -165,7 +165,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.equation_of_state_options.th_ref = 5.0
     options.equation_of_state_options.alpha = 0.2
     options.equation_of_state_options.beta = 0.0
-    options.update(**custom_options)
+    options.update(custom_options)
 
     if comm.size == 1:
         solver_obj.add_callback(RPECalculator(solver_obj))

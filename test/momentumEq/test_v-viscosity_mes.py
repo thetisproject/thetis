@@ -107,9 +107,9 @@ def run(refinement, **model_options):
 
     # custom time loop that solves momemtum eq only
     if implicit:
-        ti = solverobj.timestepper.timestepper_mom_vdff_3d
+        ti = solverobj.timestepper.timesteppers.mom_impl
     else:
-        ti = solverobj.timestepper.timestepper_mom_3d
+        ti = solverobj.timestepper.timesteppers.mom_expl
     ti.initialize(solverobj.fields.uv_3d)
 
     i = 0

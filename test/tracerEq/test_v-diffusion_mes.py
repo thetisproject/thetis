@@ -104,9 +104,9 @@ def run(refinement, **model_options):
 
     # custom time loop that solves tracer eq only
     if implicit:
-        ti = solverobj.timestepper.timestepper_salt_vdff_3d
+        ti = solverobj.timestepper.timesteppers.salt_impl
     else:
-        ti = solverobj.timestepper.timestepper_salt_3d
+        ti = solverobj.timestepper.timesteppers.salt_expl
     i = 0
     iexport = 1
     next_export_t = t + solverobj.options.simulation_export_time
