@@ -1,18 +1,18 @@
-import coordsys_spcs
+import thetis.coordsys as coordsys
+import thetis.timezone as timezone
 import uptide
 import uptide.tidal_netcdf
 from firedrake import *
 import numpy as np
 import os
-from timezone import *
 
-tide_file = 'tide.fes2004.nc'
+tide_file = 'forcings/tide.fes2004.nc'
 msg = 'File {:} not found, download it from \nftp://ftp.legos.obs-mip.fr/pub/soa/maree/tide_model/global_solution/fes2004/'.format(tide_file)
 assert os.path.exists(tide_file), msg
 
 
 def to_latlon(x, y):
-    lon, lat = coordsys_spcs.spcs2lonlat(x, y)
+    lon, lat = coordsys.convertCoords(x, y, coordsys.SPCS_N_OR, coordsys.LL_WO)
     if lon < 0.0:
         lon += 360.
     return lat, lon
@@ -26,6 +26,7 @@ class TidalBoundaryForcing(object):
             constituents = ['Q1', 'O1', 'P1', 'K1', 'N2', 'M2', 'S2', 'K2']
 
         # determine nodes at the boundary
+        self.tidal_field = tidal_field
         fs = tidal_field.function_space()
         if boundary_ids is None:
             # interpolate in the whole domain
@@ -33,44 +34,35 @@ class TidalBoundaryForcing(object):
         else:
             bc = DirichletBC(fs, 0., boundary_ids, method='geometric')
             self.nodes = bc.nodes
+        self._empty_set = self.nodes.size == 0
 
         xy = SpatialCoordinate(fs.mesh())
-        fsx = Function(fs).interpolate(xy[0]).dat.data_with_halos
-        fsy = Function(fs).interpolate(xy[1]).dat.data_with_halos
-        # compute lat lon bounds for each process
-        if len(self.nodes) > 0:
-            bounds_x = [fsx[self.nodes].min(), fsx[self.nodes].max()]
-            bounds_y = [fsy[self.nodes].min(), fsy[self.nodes].max()]
-            bounds_lat = [1e20, -1e20]
-            bounds_lon = [1e20, -1e20]
-            for x in bounds_x:
-                for y in bounds_y:
-                    lat, lon = to_latlon(x, y)
-                    bounds_lat[0] = min(bounds_lat[0], lat)
-                    bounds_lat[1] = max(bounds_lat[1], lat)
-                    bounds_lon[0] = min(bounds_lon[0], lon)
-                    bounds_lon[1] = max(bounds_lon[1], lon)
+        fsx = Function(fs).interpolate(xy[0]).dat.data_ro_with_halos
+        fsy = Function(fs).interpolate(xy[1]).dat.data_ro_with_halos
+        if not self._empty_set:
 
+            latlon = []
+            for node in self.nodes:
+                x, y = fsx[node], fsy[node]
+                lat, lon = to_latlon(x, y)
+                latlon.append((lat, lon))
+            self.latlon = np.array(latlon)
+
+            # compute bounding box
+            bounds_lat = [self.latlon[:, 0].min(), self.latlon[:, 0].max()]
+            bounds_lon = [self.latlon[:, 1].min(), self.latlon[:, 1].max()]
             ranges = (bounds_lat, bounds_lon)
-        else:
-            ranges = None
 
-        tide = uptide.Tides(constituents)
-        tide.set_initial_time(init_date)
-        self.tnci = uptide.tidal_netcdf.FESTidalInterpolator(tide, tide_file, ranges=ranges)
-        self.tidal_field = tidal_field
-
-        latlon = []
-        for node in self.nodes:
-            x, y = fsx[node], fsy[node]
-            lat, lon = to_latlon(x, y)
-            latlon.append((lat, lon))
-        self.nll = zip(self.nodes, latlon)
+            tide = uptide.Tides(constituents)
+            tide.set_initial_time(init_date)
+            self.tnci = uptide.tidal_netcdf.FESTidalInterpolator(tide, tide_file, ranges=ranges)
 
     def set_tidal_field(self, t):
-        self.tnci.set_time(t)
+        if not self._empty_set:
+            self.tnci.set_time(t)
         data = self.tidal_field.dat.data_with_halos
-        for node, (lat, lon) in self.nll:
+        for i, node in enumerate(self.nodes):
+            lat, lon = self.latlon[i, :]
             try:
                 val = self.tnci.get_val((lat, lon), allow_extrapolation=True)
                 data[node] = val
@@ -84,8 +76,8 @@ def test():
     p1 = FunctionSpace(mesh2d, 'CG', 1)
     m2_field = Function(p1, name='elevation')
 
-    timezone = FixedTimeZone(-8, 'PST')
-    init_date = datetime.datetime(2016, 5, 1, tzinfo=timezone)
+    sim_tz = timezone.FixedTimeZone(-8, 'PST')
+    init_date = datetime.datetime(2016, 5, 1, tzinfo=sim_tz)
 
     tbnd = TidalBoundaryForcing(m2_field,
                                 init_date,
