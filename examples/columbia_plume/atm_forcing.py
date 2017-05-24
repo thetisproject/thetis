@@ -19,18 +19,20 @@ Large and Pond (1981):
 Formulation is based on
 Large and Pond (1981), J. Phys. Oceanog., 11, 324-336
 """
-import coordsys_spcs
 from firedrake import *
 import numpy as np
 import scipy.interpolate
-from timezone import *
-from interpolation import *
+import thetis.timezone as timezone
+import thetis.interpolation as interpolation
+import thetis.coordsys as coordsys
+import datetime
+import netCDF4
 
 rho_air = 1.22  # kg/m3
 
 
 def to_latlon(x, y, positive_lon=False):
-    lon, lat = coordsys_spcs.spcs2lonlat(x, y)
+    lon, lat = coordsys.convertCoords(x, y, coordsys.SPCS_N_OR, coordsys.LL_WO)
     if positive_lon and lon < 0.0:
         lon += 360.
     return lat, lon
@@ -53,14 +55,16 @@ def compute_wind_stress(wind_u, wind_v):
     return tau_x, tau_y
 
 
-class WRFNetCDFTime(NetCDFTime):
+class WRFNetCDFTime(interpolation.NetCDFTimeParser):
     """
     Custom class to handle WRF atmospheric model forecast files
     """
     def __init__(self, filename):
-        super(WRFNetCDFTime, self).__init__(filename)
+        super(WRFNetCDFTime, self).__init__(filename, time_variable_name='time')
         # NOTE these are daily forecast files, limit time steps to one day
-        self.ntimesteps = 24
+        self.time_array = self.time_array[:24]
+        self.start_time = timezone.epoch_to_datetime(float(self.time_array[0]))
+        self.end_time = timezone.epoch_to_datetime(float(self.time_array[-1]))
 
 
 class WRFInterpolator(object):
@@ -74,13 +78,13 @@ class WRFInterpolator(object):
         self.atm_pressure_field = atm_pressure_field
 
         # construct interpolators
-        self.grid_interpolator = NetCDFLatLonInterpolator2d(self.function_space, to_latlon)
-        self.reader = NetCDFSpatialInterpolator(self.grid_interpolator, ['uwind', 'vwind', 'prmsl'])
-        self.timesearch_obj = NetCDFTimeSearch(ncfile_pattern, init_date, WRFNetCDFTime)
-        self.interpolator = LinearTimeInterpolator(self.timesearch_obj, self.reader)
+        self.grid_interpolator = interpolation.NetCDFLatLonInterpolator2d(self.function_space, to_latlon)
+        self.reader = interpolation.NetCDFSpatialInterpolator(self.grid_interpolator, ['uwind', 'vwind', 'prmsl'])
+        self.timesearch_obj = interpolation.NetCDFTimeSearch(ncfile_pattern, init_date, WRFNetCDFTime)
+        self.interpolator = interpolation.LinearTimeInterpolator(self.timesearch_obj, self.reader)
         lon = self.grid_interpolator.mesh_lonlat[:, 0]
         lat = self.grid_interpolator.mesh_lonlat[:, 1]
-        self.vect_rotator = coordsys_spcs.VectorCoordSysRotation(lon, lat, coordsys_spcs.SPCS_N_OR)
+        self.vect_rotator = coordsys.VectorCoordSysRotation(lon, lat, coordsys.SPCS_N_OR)
 
     def set_fields(self, time):
         """
@@ -102,8 +106,8 @@ def test():
     windstress_2d = Function(p1v, name='wind stress')
     atmpressure_2d = Function(p1, name='atm pressure')
 
-    timezone = FixedTimeZone(-8, 'PST')
-    init_date = datetime.datetime(2016, 5, 1, tzinfo=timezone)
+    tz = timezone.FixedTimeZone(-8, 'PST')
+    init_date = datetime.datetime(2016, 5, 1, tzinfo=tz)
     pattern = 'forcings/atm/wrf/wrf_air.2016_*_*.nc'
 
     wrf = WRFInterpolator(p1, windstress_2d, atmpressure_2d, pattern, init_date)
@@ -130,7 +134,7 @@ def test():
     uwind = scipy.interpolate.griddata(grid_lonlat, grid_uwind, mesh_lonlat, method='linear')
     grid_vwind = ncfile['vwind'][itime, :, :].ravel()
     vwind = scipy.interpolate.griddata(grid_lonlat, grid_vwind, mesh_lonlat, method='linear')
-    vrot = coordsys_spcs.VectorCoordSysRotation(mesh_lonlat[:, 0], mesh_lonlat[:, 1], coordsys_spcs.SPCS_N_OR)
+    vrot = coordsys.VectorCoordSysRotation(mesh_lonlat[:, 0], mesh_lonlat[:, 1], coordsys.SPCS_N_OR)
     uwind, vwind = vrot(uwind, vwind)
     u_stress, v_stress = compute_wind_stress(uwind, vwind)
 
