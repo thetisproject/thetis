@@ -14,7 +14,6 @@ from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_b
 from tidal_forcing import TidalBoundaryForcing
 from timeseries_forcing import NetCDFTimeSeriesInterpolator
 from diagnostics import TimeSeriesCallback2D
-from timezone import *
 from atm_forcing import *
 comm = COMM_WORLD
 
@@ -44,8 +43,8 @@ nnodes = comm.allreduce(mesh2d.topology.num_vertices(), MPI.SUM)
 ntriangles = comm.allreduce(mesh2d.topology.num_cells(), MPI.SUM)
 nprisms = ntriangles*nlayers
 
-timezone = FixedTimeZone(-8, 'PST')
-init_date = datetime.datetime(2016, 5, 1, tzinfo=timezone)
+sim_tz = timezone.FixedTimeZone(-8, 'PST')
+init_date = datetime.datetime(2016, 5, 1, tzinfo=sim_tz)
 
 t_end = 10*24*3600.
 t_export = 900.
@@ -188,10 +187,10 @@ river_bnd_id = 4
 bnd_elev_updater = TidalBoundaryForcing(
     elev_tide_2d, init_date,
     boundary_ids=[north_bnd_id, west_bnd_id, south_bnd_id])
-river_flux_interp = NetCDFTimeSeriesInterpolator(
+river_flux_interp = interpolation.NetCDFTimeSeriesInterpolator(
     'forcings/stations/bvao3/bvao3.0.A.FLUX/*.nc',
-    'time', 'flux', init_date, scalar=-1.0)
-river_flux_const = Constant(river_flux_interp(0))
+    ['flux'], init_date, scalars=[-1.0])
+river_flux_const = Constant(river_flux_interp(0)[0])
 
 river_swe_funcs = {'flux': river_flux_const}
 tide_elev_funcs = {'elev': elev_bnd_expr}
@@ -261,7 +260,7 @@ solver_obj.assign_initial_conditions(salt=salt_init_3d, temp=temp_init_3d)
 def update_forcings(t):
     bnd_time.assign(t)
     bnd_elev_updater.set_tidal_field(t)
-    river_flux_const.assign(river_flux_interp(t))
+    river_flux_const.assign(river_flux_interp(t)[0])
     wrf_atm.set_fields(t)
     copy_wind_stress_to_3d.solve()
 
