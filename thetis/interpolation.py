@@ -152,9 +152,9 @@ class NetCDFTimeSeriesReader(FileTreeReader):
             return output
 
 
-class NetCDFLatLonInterpolator2d(object):
+class SpatialInterpolator2d(object):
     """
-    Interpolates netCDF data on local 2D unstructured mesh
+    Abstract spatial interpolator class that can interpolate onto a Function
     """
     def __init__(self, function_space, to_latlon):
         """
@@ -191,27 +191,26 @@ class NetCDFLatLonInterpolator2d(object):
         nodes_x, nodes_y = np.unravel_index(nodes, orig_shape)
 
         # x and y bounds for reading a subset of the netcdf data
-        ind_x = np.arange(nodes_x.min(), nodes_x.max() + 1)
-        ind_y = np.arange(nodes_y.min(), nodes_y.max() + 1)
+        ind_x = slice(nodes_x.min(), nodes_x.max() + 1)
+        ind_y = slice(nodes_y.min(), nodes_y.max() + 1)
 
         return nodes, ind_x, ind_y
 
-    def _create_interpolator(self, ncfile):
-        # create grid interpolator
-        grid_lat_full = ncfile['lat'][:]
-        grid_lon_full = ncfile['lon'][:]
-
+    def _create_interpolator(self, lat_array, lon_array):
+        """
+        Create compact interpolator by finding the minimal necessary support
+        """
         self.nodes, self.ind_lon, self.ind_lat = self._get_subset_nodes(
-            grid_lon_full,
-            grid_lat_full,
+            lon_array,
+            lat_array,
             self.mesh_lonlat[:, 0],
             self.mesh_lonlat[:, 1]
         )
 
-        grid_lat = ncfile['lat'][self.ind_lon, self.ind_lat].ravel()
-        grid_lon = ncfile['lon'][self.ind_lon, self.ind_lat].ravel()
-        grid_lonlat = np.array((grid_lon, grid_lat)).T
-        self.interpolator = GridInterpolator(grid_lonlat, self.mesh_lonlat)
+        subset_lat = lat_array[self.ind_lon, self.ind_lat].ravel()
+        subset_lon = lon_array[self.ind_lon, self.ind_lat].ravel()
+        subset_lonlat = np.array((subset_lon, subset_lat)).T
+        self.interpolator = GridInterpolator(subset_lonlat, self.mesh_lonlat)
         self._initialized = True
 
         # debug: plot subsets
@@ -221,10 +220,44 @@ class NetCDFLatLonInterpolator2d(object):
         # plt.plot(self.mesh_lonlat[:, 0], self.mesh_lonlat[:, 1], 'r.')
         # plt.show()
 
+    @abstractmethod
+    def interpolate(self, data):
+        """
+        Calls the interpolator object
+        """
+        return self.interpolator(data)
+
+
+class NetCDFLatLonInterpolator2d(SpatialInterpolator2d):
+    """
+    Interpolates netCDF data on local 2D unstructured mesh
+
+    This routine returns the data in numpy arrays.
+
+    Usage:
+
+    .. code-block:: python
+        fs = FunctionSpace(...)
+        myfunc = Function(fs, ...)
+        ncinterp2d = NetCDFLatLonInterpolator2d(fs, to_latlon)
+        val1, val2 = ncinterp2d.interpolate(nc_filename, ['var1', 'var2'], 10)
+        myfunc.dat.data_with_halos[:] = val1 + val2
+
+    """
     def interpolate(self, nc_filename, variable_list, itime):
+        """
+        Interpolates data from a netCDF file onto Firedrake function space.
+
+        :arg str nc_filename: netCDF file to read
+        :arg variable_list: list of netCDF variable names to read
+        :arg int itime: time index to read
+        :returns: list of numpy.arrays corresponding to variable_list
+        """
         with netCDF4.Dataset(nc_filename, 'r') as ncfile:
             if not self._initialized:
-                self._create_interpolator(ncfile)
+                grid_lat = ncfile['lat'][:]
+                grid_lon = ncfile['lon'][:]
+                self._create_interpolator(grid_lat, grid_lon)
             output = []
             for var in variable_list:
                 assert var in ncfile.variables
@@ -432,7 +465,7 @@ class LinearTimeInterpolator(object):
     """
     Interpolates time series in time
 
-    User must provide timesearch_obj that can be used to find time stamps from
+    User must provide timesearch_obj that finds time stamps from
     a file tree, and a reader that can read those time stamps into numpy arrays.
 
     Previous/next data sets are cached in memory to avoid hitting disk every
@@ -490,7 +523,7 @@ class LinearTimeInterpolator(object):
 
 class NetCDFTimeSeriesInterpolator(object):
     """
-    Interpolates time series defined in a sequence of netCDF files.
+    Reads and interpolates scalar time series from a sequence of netCDF files.
     """
     def __init__(self, ncfile_pattern, variable_list, init_date,
                  time_variable_name='time', scalars=None, allow_gaps=False):
