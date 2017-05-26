@@ -12,8 +12,8 @@ class AssembledSchurPC(PCBase):
         inverse of the mass matrix for a DG discretisation."""
     def initialize(self, pc):
         _, P = pc.getOperators()
-        ctx = P.getPythonContext()
-        a = ctx.appctx['a']
+        self.ctx = P.getPythonContext()
+        a = self.ctx.appctx['a']
         options_prefix = pc.getOptionsPrefix()
 
         test, trial = a.arguments()
@@ -31,7 +31,7 @@ class AssembledSchurPC(PCBase):
 
         self.ksp = PETSc.KSP().create(comm=pc.comm)
         self.ksp.setOptionsPrefix(options_prefix + 'schur_')
-        self.Smat = assemble(self.S, form_compiler_parameters=ctx.fc_params)
+        self.Smat = assemble(self.S, form_compiler_parameters=self.ctx.fc_params)
         #self.Smat_assembler = create_assembly_callable(self.S, tensor=self.Smat, form_compiler_parameters=ctx.fc_params)
         #self.Smat_assembler()
         self.Smat.force_evaluation()
@@ -40,7 +40,7 @@ class AssembledSchurPC(PCBase):
         self.update(pc)
 
     def update(self, pc):
-        assemble(self.S, tensor=self.Smat, form_compiler_parameters=ctx.fc_params)
+        assemble(self.S, tensor=self.Smat, form_compiler_parameters=self.ctx.fc_params)
         self.Smat.force_evaluation()
 
     def apply(self, pc, X, Y):
