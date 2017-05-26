@@ -222,9 +222,7 @@ class FlowSolver2d(FrozenClass):
         self.eq_sw = shallowwater_eq.ShallowWaterEquations(
             self.fields.solution_2d.function_space(),
             self.fields.bathymetry_2d,
-            nonlin=self.options.nonlin,
-            include_grad_div_viscosity_term=self.options.include_grad_div_viscosity_term,
-            include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term
+            self.options
         )
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         self._isfrozen = True  # disallow creating new attributes
@@ -308,9 +306,7 @@ class FlowSolver2d(FrozenClass):
             self.eq_mom = shallowwater_eq.ShallowWaterMomentumEquation(
                 u_test, self.function_spaces.H_2d, self.function_spaces.U_2d,
                 self.fields.bathymetry_2d,
-                nonlin=self.options.nonlin,
-                include_grad_div_viscosity_term=self.options.include_grad_div_viscosity_term,
-                include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term
+                options=self.options
             )
             self.eq_mom.bnd_functions = self.bnd_functions['shallow_water']
             self.timestepper = timeintegrator.PressureProjectionPicard(self.eq_sw, self.eq_mom, self.fields.solution_2d,

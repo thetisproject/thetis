@@ -123,6 +123,54 @@ of each term:
     adv_term = shallowwater_eq.HorizontalAdvectionTerm(...)
     adv_form = adv_term.residual(..., bnd_conditions=swe_bnd_funcs)
 
+------------------
+Wetting and drying
+------------------
+
+If the option :attr:`.ModelOptions.wetting_and_drying` is ``True``, then wetting and
+drying is included through the formulation of Karna et al. (2011).
+
+The method introduces a modified bathymetry :math:`\tilde{h} = h + f(H)`, which ensures
+positive total water depth, with :math:`f(H)` defined by
+
+.. math::
+   f(H) = \frac{1}{2}(\sqrt{H^2 + \alpha^2} - H),
+
+introducing a wetting-drying parameter :math:`\alpha`, with dimensions of length. This
+results in a modified total water depth :math:`\tilde{H}=H+f(H)`.
+
+The value for :math:`\alpha` is specified by the user through the
+option :attr:`.ModelOptions.wd_alpha`, in units of meters. The default value
+for :attr:`.ModelOptions.wd_alpha` is 0.5, but the appropriate value is problem
+specific and should be set by the user.
+
+An approximate method for selecting a suitable value for :math:`\alpha` is suggested
+by Karna et al. (2011). Defining :math:`L_x` as the horizontal length scale of the
+mesh elements at the wet-dry front, it can be reasoned that :math:`\alpha \approx |L_x
+\nabla h|` yields a suitable choice. Smaller :math:`\alpha` leads to a more accurate
+solution to the shallow water equations in wet regions, but if :math:`\alpha` is too
+small the simulation will become unstable.
+
+When wetting and drying is turned on, two things occur:
+
+    1. All instances of the height, :math:`H`, are replaced by :math:`\tilde{H}` (as defined above);
+    2. An additional displacement term :math:`\frac{\partial \tilde{h}}{\partial t}` is added to the bathymetry in the free surface equation.
+The free surface and momentum equations then become:
+
+.. math::
+   \frac{\partial \eta}{\partial t} + \frac{\partial \tilde{h}}{\partial t} + \nabla \cdot (\tilde{H} \bar{\textbf{u}}) = 0,
+   :label: swe_freesurf_wd
+
+.. math::
+   \frac{\partial \bar{\textbf{u}}}{\partial t} +
+   \bar{\textbf{u}} \cdot \nabla\bar{\textbf{u}} +
+   f\textbf{e}_z\wedge \bar{\textbf{u}} +
+   g \nabla \eta +
+   g \frac{1}{\tilde{H}}\int_{-h}^\eta \nabla r dz
+   = \nabla \cdot \big( \nu_h ( \nabla \bar{\textbf{u}} + (\nabla \bar{\textbf{u}})^T )\big) +
+   \frac{\nu_h \nabla(\tilde{H})}{\tilde{H}} \cdot ( \nabla \bar{\textbf{u}} + (\nabla \bar{\textbf{u}})^T ).
+   :label: swe_momentum_wd
+
 """
 from __future__ import absolute_import
 from .utility import *
@@ -162,11 +210,11 @@ class ShallowWaterTerm(Term):
     """
     def __init__(self, space,
                  bathymetry=None,
-                 nonlin=True):
+                 options=None):
         super(ShallowWaterTerm, self).__init__(space)
 
         self.bathymetry = bathymetry
-        self.nonlin = nonlin
+        self.options = options
 
         # mesh dependent variables
         self.cellsize = CellSize(self.mesh)
@@ -219,12 +267,22 @@ class ShallowWaterTerm(Term):
             raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
         return eta_ext, uv_ext
 
+    def wd_bathymetry_displacement(self, eta):
+        """
+        Returns wetting and drying bathymetry displacement as described in:
+        Karna et al.,  2011.
+        """
+        H = self.bathymetry + eta
+        return 0.5 * (sqrt(H ** 2 + self.options.wd_alpha ** 2) - H)
+
     def get_total_depth(self, eta):
         """
         Returns total water column depth
         """
-        if self.nonlin:
+        if self.options.nonlin:
             total_h = self.bathymetry + eta
+            if self.options.wetting_and_drying:
+                total_h += self.wd_bathymetry_displacement(eta)
         else:
             total_h = self.bathymetry
         return total_h
@@ -237,13 +295,10 @@ class ShallowWaterMomentumTerm(ShallowWaterTerm):
     """
     def __init__(self, u_test, u_space, eta_space,
                  bathymetry=None,
-                 nonlin=True,
-                 include_grad_div_viscosity_term=False,
-                 include_grad_depth_viscosity_term=True):
-        super(ShallowWaterMomentumTerm, self).__init__(u_space, bathymetry, nonlin)
+                 options=None):
+        super(ShallowWaterMomentumTerm, self).__init__(u_space, bathymetry, options)
 
-        self.include_grad_div_viscosity_term = include_grad_div_viscosity_term
-        self.include_grad_depth_viscosity_term = include_grad_depth_viscosity_term
+        self.options = options
 
         self.u_test = u_test
         self.u_space = u_space
@@ -260,11 +315,8 @@ class ShallowWaterContinuityTerm(ShallowWaterTerm):
     """
     def __init__(self, eta_test, eta_space, u_space,
                  bathymetry=None,
-                 nonlin=True):
-        super(ShallowWaterContinuityTerm, self).__init__(eta_space, bathymetry, nonlin)
-
-        self.bathymetry = bathymetry
-        self.nonlin = nonlin
+                 options=None):
+        super(ShallowWaterContinuityTerm, self).__init__(eta_space, bathymetry, options)
 
         self.eta_test = eta_test
         self.eta_space = eta_space
@@ -319,8 +371,7 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
                     # assume land boundary
                     # impermeability implies external un=0
                     un_jump = inner(uv, self.normal)
-                    h = self.bathymetry
-                    head_rie = head + sqrt(h/g_grav)*un_jump
+                    head_rie = head + sqrt(total_h/g_grav)*un_jump
                     f += g_grav*head_rie*dot(self.u_test, self.normal)*ds_bnd
         else:
             f = g_grav*inner(grad(head), self.u_test) * self.dx
@@ -375,7 +426,8 @@ class HUDivTerm(ShallowWaterContinuityTerm):
                     eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
                     eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
-                    h_av = self.bathymetry + 0.5*(eta_old + eta_ext_old)
+                    total_h_ext = self.get_total_depth(eta_ext_old)
+                    h_av = 0.5*(total_h + total_h_ext)
                     eta_jump = eta - eta_ext
                     un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h_av)*eta_jump
                     un_jump = inner(uv_old - uv_ext_old, self.normal)
@@ -412,7 +464,7 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         uv_lax_friedrichs = fields_old.get('uv_lax_friedrichs')
 
-        if not self.nonlin:
+        if not self.options.nonlin:
             return 0
 
         horiz_advection_by_parts = True
@@ -457,7 +509,8 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
                     eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     eta_jump = eta_old - eta_ext_old
-                    un_rie = 0.5*inner(uv_old + uv_ext_old, self.normal) + sqrt(g_grav/self.bathymetry)*eta_jump
+                    total_h = self.get_total_depth(eta_old)
+                    un_rie = 0.5*inner(uv_old + uv_ext_old, self.normal) + sqrt(g_grav/total_h)*eta_jump
                     uv_av = 0.5*(uv_ext + uv)
                     f += (uv_av[0]*self.u_test[0]*un_rie +
                           uv_av[1]*self.u_test[1]*un_rie)*ds_bnd
@@ -518,7 +571,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
         n = self.normal
         h = self.cellsize
 
-        if self.include_grad_div_viscosity_term:
+        if self.options.include_grad_div_viscosity_term:
             stress = nu*2.*sym(grad(uv))
             stress_jump = avg(nu)*2.*sym(tensor_jump(uv, n))
         else:
@@ -555,7 +608,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
                             continue
                         delta_uv = uv - uv_ext
 
-                    if self.include_grad_div_viscosity_term:
+                    if self.options.include_grad_div_viscosity_term:
                         stress_jump = nu*2.*sym(outer(delta_uv, n))
                     else:
                         stress_jump = nu*outer(delta_uv, n)
@@ -566,7 +619,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
                         - inner(outer(self.u_test, n), stress)*ds_bnd
                     )
 
-        if self.include_grad_depth_viscosity_term:
+        if self.options.include_grad_depth_viscosity_term:
             f += -dot(self.u_test, dot(grad(total_h)/total_h, stress))*self.dx
 
         return -f
@@ -724,6 +777,27 @@ class ContinuitySourceTerm(ShallowWaterContinuityTerm):
         return -f
 
 
+class BathymetryDisplacementMassTerm(ShallowWaterContinuityTerm):
+    r"""
+    Bathmetry mass displacement term, :math:`\partial \eta / \partial t + \partial \tilde{h} / \partial t`
+
+    The weak form reads
+
+    .. math::
+        \int_\Omega ( \partial \eta / \partial t + \partial \tilde{h} / \partial t ) \phi dx
+         = \int_\Omega (\partial \tilde{H} / \partial t) \phi dx
+    """
+    def residual(self, solution):
+        if isinstance(solution, list):
+            uv, eta = solution
+        else:
+            uv, eta = split(solution)
+        f = 0
+        if self.options.wetting_and_drying:
+            f += inner(self.wd_bathymetry_displacement(eta), self.eta_test)*self.dx
+        return f
+
+
 class BaseShallowWaterEquation(Equation):
     """
     Abstract base class for ShallowWaterEquations, ShallowWaterMomentumEquation
@@ -734,10 +808,10 @@ class BaseShallowWaterEquation(Equation):
     """
     def __init__(self, function_space,
                  bathymetry,
-                 nonlin=True):
+                 options):
         super(BaseShallowWaterEquation, self).__init__(function_space)
         self.bathymetry = bathymetry
-        self.nonlin = nonlin
+        self.options = options
 
     def add_momentum_terms(self, *args):
         self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
@@ -771,31 +845,28 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
     """
     def __init__(self, function_space,
                  bathymetry,
-                 nonlin=True,
-                 include_grad_div_viscosity_term=False,
-                 include_grad_depth_viscosity_term=True):
+                 options):
         """
         :arg function_space: Mixed function space where the solution belongs
         :arg bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
-        :kwarg bool nonlin: If False defines the linear shallow water equations
-        :kwarg bool include_grad_div_viscosity_term: If True includes grad(nu div(u))
-            viscosity term
-        :kwarg bool include_grad_depth_viscosity_term: If True includes grad(H) term
-            in viscosity operator
+        :arg options: :class:`.AttrDict` object containing all circulation model options
         """
-        super(ShallowWaterEquations, self).__init__(function_space, bathymetry, nonlin)
+        super(ShallowWaterEquations, self).__init__(function_space, bathymetry, options)
 
         u_test, eta_test = TestFunctions(function_space)
         u_space, eta_space = function_space.split()
 
         self.add_momentum_terms(u_test, u_space, eta_space,
-                                bathymetry,
-                                nonlin,
-                                include_grad_div_viscosity_term,
-                                include_grad_depth_viscosity_term)
+                                bathymetry, options)
 
-        self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, nonlin)
+        self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, options)
+        self.bathymetry_displacement_mass_term = BathymetryDisplacementMassTerm(eta_test, eta_space, u_space, bathymetry, options)
+
+    def mass_term(self, solution):
+        f = super(ShallowWaterEquations, self).mass_term(solution)
+        f += self.bathymetry_displacement_mass_term.residual(solution)
+        return f
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         if isinstance(solution, list):
@@ -815,32 +886,24 @@ class ModeSplit2DEquations(BaseShallowWaterEquation):
     """
     def __init__(self, function_space,
                  bathymetry,
-                 nonlin=True,
-                 include_grad_div_viscosity_term=False,
-                 include_grad_depth_viscosity_term=True):
+                 options):
         """
         :arg function_space: Mixed function space where the solution belongs
         :arg bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
-        :kwarg bool nonlin: If False defines the linear shallow water equations
-        :kwarg bool include_grad_div_viscosity_term: If True includes grad(nu div(u))
-            viscosity term
-        :kwarg bool include_grad_depth_viscosity_term: If True includes grad(H) term
-            in viscosity operator
+        :arg options: :class:`.AttrDict` object containing all circulation model options
         """
         # TODO remove include_grad_* options as viscosity operator is omitted
-        super(ModeSplit2DEquations, self).__init__(function_space, bathymetry, nonlin)
+        super(ModeSplit2DEquations, self).__init__(function_space, bathymetry, options)
 
         u_test, eta_test = TestFunctions(function_space)
         u_space, eta_space = function_space.split()
 
         self.add_momentum_terms(u_test, u_space, eta_space,
                                 bathymetry,
-                                nonlin,
-                                include_grad_div_viscosity_term,
-                                include_grad_depth_viscosity_term)
+                                options)
 
-        self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, nonlin)
+        self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, options)
 
     def add_momentum_terms(self, *args):
         self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
@@ -862,7 +925,7 @@ class FreeSurfaceEquation(BaseShallowWaterEquation):
     """
     def __init__(self, eta_test, eta_space, u_space,
                  bathymetry,
-                 nonlin=True):
+                 options):
         """
         :arg eta_test: test function of the elevation function space
         :arg eta_space: elevation function space
@@ -870,10 +933,16 @@ class FreeSurfaceEquation(BaseShallowWaterEquation):
         :arg function_space: Mixed function space where the solution belongs
         :arg bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
-        :kwarg bool nonlin: If False defines the linear shallow water equations
+        :arg options: :class:`.AttrDict` object containing all circulation model options
         """
-        super(FreeSurfaceEquation, self).__init__(eta_space, bathymetry, nonlin)
-        self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, nonlin)
+        super(FreeSurfaceEquation, self).__init__(eta_space, bathymetry, options)
+        self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, options)
+        self.bathymetry_displacement_mass_term = BathymetryDisplacementMassTerm(eta_test, eta_space, u_space, bathymetry, options)
+
+    def mass_term(self, solution):
+        f = super(ShallowWaterEquations, self).mass_term(solution)
+        f += self.bathymetry_displacement_mass_term.residual(solution)
+        return f
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         uv = fields['uv']
@@ -890,9 +959,7 @@ class ShallowWaterMomentumEquation(BaseShallowWaterEquation):
     """
     def __init__(self, eta_test, eta_space, u_space,
                  bathymetry,
-                 nonlin=True,
-                 include_grad_div_viscosity_term=False,
-                 include_grad_depth_viscosity_term=True):
+                 options):
         """
         :arg eta_test: test function of the elevation function space
         :arg eta_space: elevation function space
@@ -900,18 +967,11 @@ class ShallowWaterMomentumEquation(BaseShallowWaterEquation):
         :arg function_space: Mixed function space where the solution belongs
         :arg bathymetry: bathymetry of the domain
         :type bathymetry: :class:`Function` or :class:`Constant`
-        :kwarg bool nonlin: If False defines the linear shallow water equations
-        :kwarg bool include_grad_div_viscosity_term: If True includes grad(nu div(u))
-            viscosity term
-        :kwarg bool include_grad_depth_viscosity_term: If True includes grad(H) term
-            in viscosity operator
+        :arg options: :class:`.AttrDict` object containing all circulation model options
         """
-        super(ShallowWaterMomentumEquation, self).__init__(u_space, bathymetry, nonlin)
+        super(ShallowWaterMomentumEquation, self).__init__(u_space, bathymetry, options)
         self.add_momentum_terms(eta_test, u_space, eta_space,
-                                bathymetry,
-                                nonlin,
-                                include_grad_div_viscosity_term,
-                                include_grad_depth_viscosity_term)
+                                bathymetry, options)
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         uv = solution

@@ -570,9 +570,7 @@ class FlowSolver(FrozenClass):
         self.eq_sw = shallowwater_eq.ModeSplit2DEquations(
             self.fields.solution_2d.function_space(),
             self.fields.bathymetry_2d,
-            nonlin=self.options.nonlin,
-            include_grad_div_viscosity_term=self.options.include_grad_div_viscosity_term,
-            include_grad_depth_viscosity_term=self.options.include_grad_depth_viscosity_term)
+            self.options)
 
         self.eq_momentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
                                                         bathymetry=self.fields.bathymetry_3d,
