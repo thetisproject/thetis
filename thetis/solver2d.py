@@ -253,6 +253,7 @@ class FlowSolver2d(FrozenClass):
             'uv_lax_friedrichs': self.options.uv_lax_friedrichs,
             'coriolis': self.options.coriolis,
             'wind_stress': self.options.wind_stress,
+            'atmospheric_pressure': self.options.atmospheric_pressure,
             'uv_source': self.options.uv_source_2d,
             'elev_source': self.options.elev_source_2d, }
         self.set_time_step()
