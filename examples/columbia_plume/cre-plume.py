@@ -43,7 +43,7 @@ ntriangles = comm.allreduce(mesh2d.topology.num_cells(), MPI.SUM)
 nprisms = ntriangles*nlayers
 
 sim_tz = timezone.FixedTimeZone(-8, 'PST')
-init_date = datetime.datetime(2016, 5, 1, tzinfo=sim_tz)
+init_date = datetime.datetime(2015, 5, 16, tzinfo=sim_tz)
 
 t_end = 10*24*3600.
 t_export = 900.
@@ -145,7 +145,7 @@ atm_pressure_2d = Function(solver_obj.function_spaces.P1_2d, name='atm pressure'
 options.wind_stress = wind_stress_3d
 options.atmospheric_pressure = atm_pressure_2d
 copy_wind_stress_to_3d = ExpandFunctionTo3d(wind_stress_2d, wind_stress_3d)
-wrf_pattern = 'forcings/atm/wrf/wrf_air.2016_*_*.nc'
+wrf_pattern = 'forcings/atm/wrf/wrf_air.{year}_*_*.nc'.format(year=init_date.year)
 wrf_atm = WRFInterpolator(
     solver_obj.function_spaces.P1_2d,
     wind_stress_2d, atm_pressure_2d, wrf_pattern, init_date)
