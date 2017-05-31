@@ -6,7 +6,7 @@ from firedrake import *
 import numpy as np
 import os
 
-tide_file = 'tide.fes2004.nc'
+tide_file = 'forcings/tide.fes2004.nc'
 msg = 'File {:} not found, download it from \nftp://ftp.legos.obs-mip.fr/pub/soa/maree/tide_model/global_solution/fes2004/'.format(tide_file)
 assert os.path.exists(tide_file), msg
 
