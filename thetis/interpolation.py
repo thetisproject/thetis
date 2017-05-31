@@ -59,31 +59,94 @@ from firedrake import *
 
 class GridInterpolator(object):
     """
-    A reuseable griddata interpolator object
+    A reuseable griddata interpolator object.
+
+    Usage:
+
+    .. code-block:: python
+
+        interpolator = GridInterpolator(source_xyz, target_xyz)
+        vals = interpolator(source_data)
+
+    Example:
+
+    .. code-block:: python
+
+        x0 = np.linspace(0, 10, 10)
+        y0 = np.linspace(5, 10, 10)
+        X, Y = np.meshgrid(x, y)
+        x = X.ravel(); y = Y.ravel()
+        data = x + 25.*y
+        x_target = np.linspace(1, 10, 20)
+        y_target = np.linspace(5, 10, 20)
+        interpolator = GridInterpolator(np.vstack((x, y)).T, np.vstack((target_x, target_y)).T)
+        vals = interpolator(data)
 
     Based on
     http://stackoverflow.com/questions/20915502/speedup-scipy-griddata-for-multiple-interpolations-between-two-irregular-grids
     """
-    def __init__(self, grid_xyz, target_xyz):
-        # compute interpolation interpolation weights
-        d = grid_xyz.shape[1]
-        tri = qhull.Delaunay(grid_xyz)
-        simplex = tri.find_simplex(target_xyz)
+    def __init__(self, grid_xyz, target_xyz, fill_mode=None, fill_value=np.nan, normalize=False):
+        """
+        :arg grid_xyz: Array of source grid coordinates, shape (npoints, 2) or  (npoints, 3)
+        :arg target_xyz: Array of target grid coordinates, shape (n, 2) or  (n, 3)
+        """
+        self.fill_value = np.nan
+        self.fill_mode = fill_mode
+        self.normalize = normalize
+        if self.normalize:
+
+            def get_norm_params(x, scale=None):
+                min = x.min()
+                max = x.max()
+                if scale is None:
+                    scale = max - min
+                a = 1./scale
+                b = -min*a
+                return a, b
+
+            ax, bx = get_norm_params(target_xyz[:, 0])
+            ay, by = get_norm_params(target_xyz[:, 1])
+            az, bz = get_norm_params(target_xyz[:, 2])
+            self.norm_a = np.array([ax, ay, az])
+            self.norm_b = np.array([bx, by, bz])
+
+        ngrid_xyz = self._normalize_coords(grid_xyz)
+        ntarget_xyz = self._normalize_coords(target_xyz)
+        d = ngrid_xyz.shape[1]
+        tri = qhull.Delaunay(ngrid_xyz)
+        # NOTE this becomes expensive in 3D for npoints > 10k
+        simplex = tri.find_simplex(ntarget_xyz)
         vertices = np.take(tri.simplices, simplex, axis=0)
         temp = np.take(tri.transform, simplex, axis=0)
-        delta = target_xyz - temp[:, d]
+        delta = ntarget_xyz - temp[:, d]
         bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
         self.vtx = vertices
         self.wts = np.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
+        self.outside = np.nonzero(np.any(self.wts < 0, axis=1))[0]
+        self.fill_nearest = self.fill_mode == 'nearest' and len(self.outside) > 0
+        if self.fill_nearest:
+            # find nearest neighbor in the data set
+            from scipy.spatial import cKDTree
+            dist, ix = cKDTree(ngrid_xyz).query(ntarget_xyz[self.outside])
+            self.outside_to_nearest = ix
 
-    def __call__(self, values, fill_value=np.nan):
+    def _normalize_coords(self, xyz):
+        if self.normalize:
+            return self.norm_a*xyz + self.norm_b
+        return xyz
+
+    def __call__(self, values):
         """
         Interpolate values defined on grid_xyz to target_xyz.
 
-        Uses fill_value for points outside grid_xyz
+        :arg values: Array of source values to interpolate, shape (npoints, )
+        :kwarg float fill_value: Fill value to use outside the source grid (default: NaN)
         """
         ret = np.einsum('nj,nj->n', np.take(values, self.vtx), self.wts)
-        ret[np.any(self.wts < 0, axis=1)] = fill_value
+        if self.fill_mode is None:
+            ret[self.outside] = self.fill_value
+        elif self.fill_nearest:
+            ret[self.outside] = values[self.outside_to_nearest]
         return ret
 
 
