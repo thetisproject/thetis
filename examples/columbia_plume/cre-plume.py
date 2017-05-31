@@ -12,7 +12,6 @@ uptide
 from thetis import *
 from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_bnd
 from tidal_forcing import TidalBoundaryForcing
-from timeseries_forcing import NetCDFTimeSeriesInterpolator
 from diagnostics import TimeSeriesCallback2D
 from atm_forcing import *
 comm = COMM_WORLD
