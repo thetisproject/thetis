@@ -49,7 +49,8 @@ Usage:
 """
 import glob
 import os
-from timezone import *
+from .timezone import *
+from .log import *
 import numpy as np
 import scipy.spatial.qhull as qhull
 import netCDF4
@@ -328,7 +329,7 @@ class NetCDFLatLonInterpolator2d(SpatialInterpolator2d):
                 grid_data = ncfile[var][itime, self.ind_lon, self.ind_lat].ravel()
                 data = self.interpolator(grid_data)
                 output.append(data)
-            return output
+        return output
 
 
 class NetCDFSpatialInterpolator(FileTreeReader):
@@ -477,6 +478,7 @@ class NetCDFTimeSearch(TimeSearch):
         self.netcdf_class = netcdf_class
         self.init_date = init_date
         self.sim_start_time = datetime_to_epoch(self.init_date)
+        self.verbose = kwargs.pop('verbose', False)
         dates = []
         ncfiles = []
         for fn in all_files:
@@ -489,6 +491,10 @@ class NetCDFTimeSearch(TimeSearch):
         self.start_datetime = np.array(dates)[sort_ix]
         self.start_times = [(s - self.init_date).total_seconds() for s in self.start_datetime]
         self.start_times = np.array(self.start_times)
+        if self.verbose:
+            print_output('{:}: Found time index:'.format(self.__class__.__name__))
+            for i in range(len(self.files)):
+                print_output('{:} {:} {:}'.format(i, self.files[i], self.start_times[i]))
 
     def simulation_time_to_datetime(self, t):
         return epoch_to_datetime(datetime_to_epoch(self.init_date) + t).astimezone(self.init_date.tzinfo)
