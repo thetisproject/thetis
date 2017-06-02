@@ -26,6 +26,7 @@ class TidalBoundaryForcing(object):
             constituents = ['Q1', 'O1', 'P1', 'K1', 'N2', 'M2', 'S2', 'K2']
 
         # determine nodes at the boundary
+        self.tidal_field = tidal_field
         fs = tidal_field.function_space()
         if boundary_ids is None:
             # interpolate in the whole domain
@@ -33,30 +34,32 @@ class TidalBoundaryForcing(object):
         else:
             bc = DirichletBC(fs, 0., boundary_ids, method='geometric')
             self.nodes = bc.nodes
+        self._empty_set = self.nodes.size == 0
 
         xy = SpatialCoordinate(fs.mesh())
-        fsx = Function(fs).interpolate(xy[0]).dat.data_with_halos
-        fsy = Function(fs).interpolate(xy[1]).dat.data_with_halos
+        fsx = Function(fs).interpolate(xy[0]).dat.data_ro_with_halos
+        fsy = Function(fs).interpolate(xy[1]).dat.data_ro_with_halos
+        if not self._empty_set:
 
-        latlon = []
-        for node in self.nodes:
-            x, y = fsx[node], fsy[node]
-            lat, lon = to_latlon(x, y)
-            latlon.append((lat, lon))
-        self.latlon = np.array(latlon)
+            latlon = []
+            for node in self.nodes:
+                x, y = fsx[node], fsy[node]
+                lat, lon = to_latlon(x, y)
+                latlon.append((lat, lon))
+            self.latlon = np.array(latlon)
 
-        # compute bounding box
-        bounds_lat = [self.latlon[:, 0].min(), self.latlon[:, 0].max()]
-        bounds_lon = [self.latlon[:, 1].min(), self.latlon[:, 1].max()]
-        ranges = (bounds_lat, bounds_lon)
+            # compute bounding box
+            bounds_lat = [self.latlon[:, 0].min(), self.latlon[:, 0].max()]
+            bounds_lon = [self.latlon[:, 1].min(), self.latlon[:, 1].max()]
+            ranges = (bounds_lat, bounds_lon)
 
-        tide = uptide.Tides(constituents)
-        tide.set_initial_time(init_date)
-        self.tnci = uptide.tidal_netcdf.FESTidalInterpolator(tide, tide_file, ranges=ranges)
-        self.tidal_field = tidal_field
+            tide = uptide.Tides(constituents)
+            tide.set_initial_time(init_date)
+            self.tnci = uptide.tidal_netcdf.FESTidalInterpolator(tide, tide_file, ranges=ranges)
 
     def set_tidal_field(self, t):
-        self.tnci.set_time(t)
+        if not self._empty_set:
+            self.tnci.set_time(t)
         data = self.tidal_field.dat.data_with_halos
         for i, node in enumerate(self.nodes):
             lat, lon = self.latlon[i, :]
