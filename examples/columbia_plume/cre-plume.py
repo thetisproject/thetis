@@ -13,6 +13,7 @@ from thetis import *
 from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_bnd
 from tidal_forcing import TidalBoundaryForcing
 from diagnostics import TimeSeriesCallback2D
+from roms_forcing import LiveOceanInterpolator
 from atm_forcing import *
 comm = COMM_WORLD
 
@@ -139,6 +140,7 @@ options.pacanowski_options['max_viscosity'] = 0.05
 
 solver_obj.create_function_spaces()
 
+# atm forcing
 wind_stress_3d = Function(solver_obj.function_spaces.P1v, name='wind stress')
 wind_stress_2d = Function(solver_obj.function_spaces.P1v_2d, name='wind stress')
 atm_pressure_2d = Function(solver_obj.function_spaces.P1_2d, name='atm pressure')
@@ -151,29 +153,21 @@ wrf_atm = WRFInterpolator(
     wind_stress_2d, atm_pressure_2d, wrf_pattern, init_date)
 wrf_atm.set_fields(0.0)
 
-xyz = SpatialCoordinate(solver_obj.mesh)
-# vertical stratification in the ocean
-river_blend = (1 + tanh((xyz[0] - 350e3)/2000.))/2  # 1 in river, 0 in ocean
-salt_stratif = salt_ocean_bottom + (salt_ocean_surface - salt_ocean_bottom)*(1 + tanh((xyz[2] + 1200.)/700.))/2
-salt_expr = salt_river*river_blend + (1 - river_blend)*salt_stratif
-salt_init_3d = Function(solver_obj.function_spaces.H, name='initial salinity')
-salt_init_3d.interpolate(salt_expr)
+# ocean initial conditions
+salt_init_3d = Function(solver_obj.function_spaces.P1, name='initial salinity')
+temp_init_3d = Function(solver_obj.function_spaces.P1, name='initial temperature')
+liveocean_interp = LiveOceanInterpolator(solver_obj.function_spaces.P1,
+                                         [salt_init_3d, temp_init_3d],
+                                         ['salt', 'temp'],
+                                         'forcings/liveocean/f2015.*/ocean_his_*.nc',
+                                         init_date)
+liveocean_interp.set_fields(0.0)
 
-temp_stratif = temp_ocean_bottom + (temp_ocean_surface - temp_ocean_bottom)*(1 + tanh((xyz[2] + 50.)/15.))/2
-temp_expr = temp_river*river_blend + (1 - river_blend)*temp_stratif
-temp_init_3d = Function(solver_obj.function_spaces.H, name='initial temperature')
-temp_init_3d.interpolate(temp_expr)
 
-x0 = 330000.
-xy = SpatialCoordinate(mesh2d)
+# tides
+elev_tide_2d = Function(bathymetry_2d.function_space(), name='Boundary elevation')
 bnd_time = Constant(0)
 
-fs_2d = bathymetry_2d.function_space()
-elev_tide_2d = Function(fs_2d, name='Boundary elevation')
-
-xyz = solver_obj.mesh2d.coordinates
-tri = TrialFunction(fs_2d)
-test = TestFunction(fs_2d)
 ramp_t = 12*3600.
 elev_ramp = conditional(le(bnd_time, ramp_t), bnd_time/ramp_t, 1.0)
 elev_bnd_expr = elev_ramp*elev_tide_2d
@@ -186,6 +180,8 @@ river_bnd_id = 4
 bnd_elev_updater = TidalBoundaryForcing(
     elev_tide_2d, init_date,
     boundary_ids=[north_bnd_id, west_bnd_id, south_bnd_id])
+
+# river flux
 river_flux_interp = interpolation.NetCDFTimeSeriesInterpolator(
     'forcings/stations/bvao3/bvao3.0.A.FLUX/*.nc',
     ['flux'], init_date, scalars=[-1.0])
@@ -260,6 +256,7 @@ def update_forcings(t):
     bnd_time.assign(t)
     bnd_elev_updater.set_tidal_field(t)
     river_flux_const.assign(river_flux_interp(t)[0])
+    liveocean_interp.set_fields(t)
     wrf_atm.set_fields(t)
     copy_wind_stress_to_3d.solve()
 
