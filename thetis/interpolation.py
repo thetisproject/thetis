@@ -57,6 +57,8 @@ import netCDF4
 from abc import abstractmethod
 from firedrake import *
 
+TIMESEARCH_TOL = 1e-6
+
 
 class GridInterpolator(object):
     """
@@ -442,11 +444,13 @@ class NetCDFTimeParser(TimeParser):
     def find_time_stamp(self, t, previous=False):
         t_epoch = datetime_to_epoch(t) if isinstance(t, datetime.datetime) else t
 
-        itime = np.searchsorted(self.time_array, t_epoch)  # next
+        itime = np.searchsorted(self.time_array, t_epoch + TIMESEARCH_TOL)  # next
         if previous:
             itime -= 1
         if itime < 0:
-            raise IndexError('Requested time out of bounds {:} < {:}'.format(t_epoch, self.time_array[0]))
+            raise IndexError('Requested time out of bounds {:} < {:} in {:}'.format(t_epoch, self.time_array[0], self.filename))
+        if itime >= len(self.time_array):
+            raise IndexError('Requested time out of bounds {:} > {:} in {:}'.format(t_epoch, self.time_array[0], self.filename))
         return itime
 
 
@@ -509,7 +513,7 @@ class NetCDFTimeSearch(TimeSearch):
         :return: (filename, time index, simulation time) of found data
         """
         err_msg = 'No file found for time {:}'.format(self.simulation_time_to_datetime(simulation_time))
-        ix = np.searchsorted(self.start_times, simulation_time)
+        ix = np.searchsorted(self.start_times, simulation_time + TIMESEARCH_TOL)
         if ix > 0:
             candidates = [ix-1, ix]
         else:
@@ -582,8 +586,8 @@ class LinearTimeInterpolator(object):
         t_prev = prev_id[2]
         t_next = next_id[2]
         alpha = (t - t_prev)/(t_next - t_prev)
-        TOL = 1e-6
-        assert alpha + TOL >= 0.0 and alpha <= 1.0 + TOL, \
+        RELTOL = 1e-6
+        assert alpha >= 0.0 - RELTOL and alpha <= 1.0 + RELTOL, \
             'Value {:} out of range {:} .. {:}'.format(t, t_prev, t_next)
 
         val = [(1.0 - alpha)*p + alpha*n for p, n in zip(prev, next)]
