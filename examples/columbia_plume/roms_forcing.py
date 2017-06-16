@@ -209,6 +209,14 @@ def test():
     assert itime == 0
     assert time == 3600.0
 
+    dt = 10.465116
+    for i in range(100):
+        print(i)
+        fn, itime, time = timesearch_obj.find(i*dt, previous=True)
+        print('  {:} {:}'.format(fn, itime))
+        fn, itime, time = timesearch_obj.find(i*dt, previous=False)
+        print('  {:} {:}'.format(fn, itime))
+
     # test full interpolator
     interp = LiveOceanInterpolator(p1,
                                    [salt, temp],
@@ -222,8 +230,9 @@ def test():
     out_salt.write(salt)
     out_temp.write(temp)
 
-    for i in range(32):
-        interp.set_fields((i+1)*3600.0)
+    dt = 900.
+    for i in range(20):
+        interp.set_fields((i+1)*dt)
         out_salt.write(salt)
         out_temp.write(temp)
 
