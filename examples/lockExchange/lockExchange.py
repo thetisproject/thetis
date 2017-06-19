@@ -111,7 +111,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     # create solver
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
     options = solver_obj.options
-    options.order = poly_order
+    options.polynomial_degree = poly_order
     options.element_family = element_family
     options.timestepper_type = 'ssprk22'
     options.solve_salt = False

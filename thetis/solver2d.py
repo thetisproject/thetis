@@ -43,7 +43,7 @@ class FlowSolver2d(FrozenClass):
         solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
         options = solver_obj.options
         options.element_family = 'dg-dg'
-        options.order = 1
+        options.polynomial_degree = 1
         options.timestepper_type = 'cranknicolson'
         options.t_export = 50.0
         options.t_end = 3600.
@@ -192,14 +192,14 @@ class FlowSolver2d(FrozenClass):
         self.function_spaces.P1DGv_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1)
         # 2D velocity space
         if self.options.element_family == 'rt-dg':
-            self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.order+1)
-            self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
+            self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.polynomial_degree+1)
+            self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree)
         elif self.options.element_family == 'dg-cg':
-            self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
-            self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'CG', self.options.order+1)
+            self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d')
+            self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'CG', self.options.polynomial_degree+1)
         elif self.options.element_family == 'dg-dg':
-            self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
-            self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
+            self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d')
+            self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree)
         else:
             raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d])

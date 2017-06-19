@@ -47,7 +47,7 @@ class FlowSolver(FrozenClass):
         solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers=6)
         options = solver_obj.options
         options.element_family = 'dg-dg'
-        options.order = 1
+        options.polynomial_degree = 1
         options.timestepper_type = 'ssprk22'
         options.solve_salt = False
         options.solve_temp = False
@@ -157,10 +157,10 @@ class FlowSolver(FrozenClass):
         The factor depends on the finite element space and its polynomial
         degree. It is used to compute maximal stable time steps.
         """
-        p = self.options.order
+        p = self.options.polynomial_degree
         if self.options.element_family == 'rt-dg':
             # velocity space is essentially p+1
-            p = self.options.order + 1
+            p = self.options.polynomial_degree + 1
         # assuming DG basis functions on triangles
         l_r = p**2/3.0 + 7.0/6.0*p + 1.0
         factor = 0.5*0.25/l_r
@@ -173,7 +173,7 @@ class FlowSolver(FrozenClass):
         The factor depends on the finite element space and its polynomial
         degree. It is used to compute maximal stable time steps.
         """
-        p = self.options.order
+        p = self.options.polynomial_degree
         # assuming DG basis functions in an interval
         l_r = 1.0/max(p, 1)
         factor = 0.5*0.25/l_r
@@ -227,7 +227,7 @@ class FlowSolver(FrozenClass):
             u = u_scale.dat.data[0]
         min_dx = self.fields.h_elem_size_2d.dat.data.min()
         # alpha = 0.5 if self.options.element_family == 'rt-dg' else 1.0
-        # dt = alpha*1.0/10.0/(self.options.order + 1)*min_dx/u
+        # dt = alpha*1.0/10.0/(self.options.polynomial_degree + 1)*min_dx/u
         min_dx *= self.compute_dx_factor()
         dt = min_dx/u
         dt = self.comm.allreduce(dt, op=MPI.MIN)
@@ -249,7 +249,7 @@ class FlowSolver(FrozenClass):
             w = w_scale.dat.data[0]
         min_dz = self.fields.v_elem_size_2d.dat.data.min()
         # alpha = 0.5 if self.options.element_family == 'rt-dg' else 1.0
-        # dt = alpha*1.0/1.5/(self.options.order + 1)*min_dz/w
+        # dt = alpha*1.0/1.5/(self.options.polynomial_degree + 1)*min_dz/w
         min_dz *= self.compute_dz_factor()
         dt = min_dz/w
         dt = self.comm.allreduce(dt, op=MPI.MIN)
@@ -357,12 +357,12 @@ class FlowSolver(FrozenClass):
 
         # Construct HDiv TensorProductElements
         # for horizontal velocity component
-        u_h_elt = FiniteElement('RT', triangle, self.options.order+1)
-        u_v_elt = FiniteElement('DG', interval, self.options.order)
+        u_h_elt = FiniteElement('RT', triangle, self.options.polynomial_degree+1)
+        u_v_elt = FiniteElement('DG', interval, self.options.polynomial_degree)
         u_elt = HDiv(TensorProductElement(u_h_elt, u_v_elt))
         # for vertical velocity component
-        w_h_elt = FiniteElement('DG', triangle, self.options.order)
-        w_v_elt = FiniteElement('CG', interval, self.options.order+1)
+        w_h_elt = FiniteElement('DG', triangle, self.options.polynomial_degree)
+        w_v_elt = FiniteElement('CG', interval, self.options.polynomial_degree+1)
         w_elt = HDiv(TensorProductElement(w_h_elt, w_v_elt))
         # final spaces
         if self.options.element_family == 'rt-dg':
@@ -370,12 +370,12 @@ class FlowSolver(FrozenClass):
             self.function_spaces.U = FunctionSpace(self.mesh, u_elt, name='U')  # uv
             self.function_spaces.W = FunctionSpace(self.mesh, w_elt, name='W')  # w
         elif self.options.element_family == 'dg-dg':
-            self.function_spaces.U = VectorFunctionSpace(self.mesh, 'DG', self.options.order,
-                                                         vfamily='DG', vdegree=self.options.order,
+            self.function_spaces.U = VectorFunctionSpace(self.mesh, 'DG', self.options.polynomial_degree,
+                                                         vfamily='DG', vdegree=self.options.polynomial_degree,
                                                          name='U')
             # NOTE for tracer consistency W should be equivalent to tracer space H
-            self.function_spaces.W = VectorFunctionSpace(self.mesh, 'DG', self.options.order,
-                                                         vfamily='DG', vdegree=self.options.order,
+            self.function_spaces.W = VectorFunctionSpace(self.mesh, 'DG', self.options.polynomial_degree,
+                                                         vfamily='DG', vdegree=self.options.polynomial_degree,
                                                          name='W')
         else:
             raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
@@ -384,7 +384,7 @@ class FlowSolver(FrozenClass):
 
         self.function_spaces.Uint = self.function_spaces.U  # vertical integral of uv
         # tracers
-        self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.order, vfamily='DG', vdegree=max(0, self.options.order), name='H')
+        self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.polynomial_degree, vfamily='DG', vdegree=max(0, self.options.polynomial_degree), name='H')
 
         # function space for turbulent quantitiess
         self.function_spaces.turb_space = self.function_spaces.P0
@@ -396,11 +396,11 @@ class FlowSolver(FrozenClass):
         self.function_spaces.P1DGv_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1, name='P1DGv_2d')
         # 2D velocity space
         if self.options.element_family == 'rt-dg':
-            self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.order+1)
+            self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.polynomial_degree+1)
         elif self.options.element_family == 'dg-dg':
-            self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.order, name='U_2d')
+            self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d')
         self.function_spaces.Uproj_2d = self.function_spaces.U_2d
-        self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order, name='H_2d')
+        self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='H_2d')
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d], name='V_2d')
 
         # define function spaces for baroclinic head and internal pressure gradient
@@ -518,7 +518,7 @@ class FlowSolver(FrozenClass):
         self.fields.max_h_diff = Function(self.function_spaces.P1)
         if self.options.smagorinsky_factor is not None:
             self.fields.smag_visc_3d = Function(self.function_spaces.P1)
-        if self.options.use_limiter_for_tracers and self.options.order > 0:
+        if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
             self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H)
         else:
             self.tracer_limiter = None
@@ -750,7 +750,7 @@ class FlowSolver(FrozenClass):
             self.smagorinsky_diff_solver = SmagorinskyViscosity(self.fields.uv_p1_3d, self.fields.smag_visc_3d,
                                                                 self.options.smagorinsky_factor, self.fields.h_elem_size_3d,
                                                                 self.fields.max_h_diff,
-                                                                weak_form=self.options.order == 0)
+                                                                weak_form=self.options.polynomial_degree == 0)
         if self.options.use_parabolic_viscosity:
             self.parabolic_viscosity_solver = ParabolicViscosity(self.fields.uv_bottom_3d,
                                                                  self.fields.bottom_drag_3d,
@@ -979,7 +979,7 @@ class FlowSolver(FrozenClass):
         self.options.check_temp_conservation *= self.options.solve_temp
         self.options.check_temp_overshoot *= self.options.solve_temp
         self.options.check_vol_conservation_3d *= self.options.use_ale_moving_mesh
-        self.options.use_limiter_for_tracers *= self.options.order > 0
+        self.options.use_limiter_for_tracers *= self.options.polynomial_degree > 0
 
         t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()

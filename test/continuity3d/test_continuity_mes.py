@@ -234,7 +234,7 @@ def run(setup, refinement, order, do_export=True):
     bathymetry_2d.project(sdict['bath_expr'])
 
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
-    solver_obj.options.order = order
+    solver_obj.options.polynomial_degree = order
     solver_obj.options.element_family = 'dg-dg'
     solver_obj.options.solve_salt = False
     solver_obj.options.solve_temp = False

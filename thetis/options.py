@@ -16,7 +16,7 @@ class ModelOptions(AttrDict, FrozenClass):
         Every instance is initialized with default values
         """
         super(ModelOptions, self).__init__()
-        self.order = 1
+        self.polynomial_degree = 1
         """int: Polynomial degree of elements"""
         self.element_family = 'rt-dg'
         """str: Finite element family.

@@ -51,7 +51,7 @@ def test_steady_state_channel_mms(options):
 
         # --- create solver ---
         solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
-        solver_obj.options.order = order
+        solver_obj.options.polynomial_degree = order
         solver_obj.options.nonlin = True
         solver_obj.options.quadratic_drag = C_D
         solver_obj.options.t_export = dt

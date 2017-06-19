@@ -92,7 +92,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     # create solver
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, nlayers)
     options = solver_obj.options
-    options.order = poly_order
+    options.polynomial_degree = poly_order
     options.element_family = element_family
     options.timestepper_type = 'leapfrog'
     options.solve_salt = False

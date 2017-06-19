@@ -87,8 +87,8 @@ def run(refinement, **model_options):
     salt_ana = Function(solverobj.function_spaces.H, name='salt analytical')
     salt_ana_p1 = Function(solverobj.function_spaces.P1, name='salt analytical')
 
-    p1dg_ho = FunctionSpace(solverobj.mesh, 'DG', options.order + 2,
-                            vfamily='DG', vdegree=options.order + 2)
+    p1dg_ho = FunctionSpace(solverobj.mesh, 'DG', options.polynomial_degree + 2,
+                            vfamily='DG', vdegree=options.polynomial_degree + 2)
     salt_ana_ho = Function(p1dg_ho, name='salt analytical')
 
     elev_init = Function(solverobj.function_spaces.H_2d, name='elev init')

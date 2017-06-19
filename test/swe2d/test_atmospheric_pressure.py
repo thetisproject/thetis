@@ -65,7 +65,7 @@ def test_pressure_forcing(element_family, timestepper):
 
         # --- create solver ---
         solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry)
-        solverObj.options.order = order
+        solverObj.options.polynomial_degree = order
         solverObj.options.timestepper_type = timestepper
         solverObj.options.element_family = element_family
         solverObj.options.dt = dt
