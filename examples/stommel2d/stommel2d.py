@@ -46,7 +46,7 @@ linear_drag = Constant(1e-6)
 # --- create solver ---
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
-options.nonlin = False
+options.use_nonlinear_equations = False
 options.coriolis = coriolis_2d
 options.wind_stress = wind_stress_2d
 options.linear_drag = linear_drag

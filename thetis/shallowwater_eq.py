@@ -43,7 +43,7 @@ Above :math:`r` denotes the baroclinic head
 In the case of purely barotropic problems the :math:`r` and the internal pressure
 gradient are omitted.
 
-If the option :attr:`.ModelOptions.nonlin` is ``False``, we solve the linear shallow water
+If the option :attr:`.ModelOptions.use_nonlinear_equations` is ``False``, we solve the linear shallow water
 equations (i.e. wave equation):
 
 .. math::
@@ -279,7 +279,7 @@ class ShallowWaterTerm(Term):
         """
         Returns total water column depth
         """
-        if self.options.nonlin:
+        if self.options.use_nonlinear_equations:
             total_h = self.bathymetry + eta
             if self.options.wetting_and_drying:
                 total_h += self.wd_bathymetry_displacement(eta)
@@ -464,7 +464,7 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         uv_lax_friedrichs = fields_old.get('uv_lax_friedrichs')
 
-        if not self.options.nonlin:
+        if not self.options.use_nonlinear_equations:
             return 0
 
         horiz_advection_by_parts = True

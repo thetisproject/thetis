@@ -36,7 +36,7 @@ bathymetry_2d.assign(depth)
 # --- create solver ---
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
-# options.nonlin = False
+# options.use_nonlinear_equations = False
 options.t_export = t_export
 options.t_end = t_end
 options.outputdir = outputdir

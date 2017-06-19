@@ -22,7 +22,7 @@ def test_steady_state_channel(do_export=False):
 
     # --- create solver ---
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
-    solver_obj.options.nonlin = False
+    solver_obj.options.use_nonlinear_equations = False
     solver_obj.options.t_export = dt
     solver_obj.options.t_end = n*dt
     solver_obj.options.no_exports = not do_export

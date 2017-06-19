@@ -576,14 +576,14 @@ class FlowSolver(FrozenClass):
                                                         bathymetry=self.fields.bathymetry_3d,
                                                         v_elem_size=self.fields.v_elem_size_3d,
                                                         h_elem_size=self.fields.h_elem_size_3d,
-                                                        nonlin=self.options.nonlin,
+                                                        use_nonlinear_equations=self.options.use_nonlinear_equations,
                                                         use_bottom_friction=False)
         if self.options.solve_vert_diffusion:
             self.eq_vertmomentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
                                                                 bathymetry=self.fields.bathymetry_3d,
                                                                 v_elem_size=self.fields.v_elem_size_3d,
                                                                 h_elem_size=self.fields.h_elem_size_3d,
-                                                                nonlin=False,
+                                                                use_nonlinear_equations=False,
                                                                 use_bottom_friction=self.options.use_bottom_friction)
         if self.options.solve_salt:
             self.eq_salt = tracer_eq.TracerEquation(self.fields.salt_3d.function_space(),

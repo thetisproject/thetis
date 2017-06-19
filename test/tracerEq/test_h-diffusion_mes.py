@@ -61,7 +61,7 @@ def run(refinement, **model_options):
 
     solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     options = solverobj.options
-    options.nonlin = False
+    options.use_nonlinear_equations = False
     options.use_ale_moving_mesh = False
     options.u_advection = Constant(1.0)
     options.no_exports = True

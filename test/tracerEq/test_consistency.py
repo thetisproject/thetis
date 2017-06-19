@@ -72,7 +72,7 @@ def run_tracer_consistency(**model_options):
         coords.dat.data[:, 2] = sigma
 
     options = solver_obj.options
-    options.nonlin = True
+    options.use_nonlinear_equations = True
     options.solve_salt = True
     options.solve_temp = False
     options.solve_vert_diffusion = False

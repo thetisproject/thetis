@@ -87,7 +87,7 @@ class MomentumTerm(Term):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 nonlin=True, use_bottom_friction=False):
+                 use_nonlinear_equations=True, use_bottom_friction=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -96,7 +96,7 @@ class MomentumTerm(Term):
             element size
         :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
             element size
-        :kwarg bool nonlin: If False defines the linear shallow water equations
+        :kwarg bool use_nonlinear_equations: If False defines the linear shallow water equations
         :kwarg bool use_bottom_friction: If True includes bottom friction term
         """
         super(MomentumTerm, self).__init__(function_space)
@@ -106,7 +106,7 @@ class MomentumTerm(Term):
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_continuity = continuity.horizontal
         self.vertical_continuity = continuity.vertical
-        self.nonlin = nonlin
+        self.use_nonlinear_equations = use_nonlinear_equations
         self.use_bottom_friction = use_bottom_friction
 
         # define measures with a reasonable quadrature degree
@@ -173,7 +173,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
     jump and average operators across the interface.
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        if not self.nonlin:
+        if not self.use_nonlinear_equations:
             return 0
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_factor')
         uv_p1 = fields_old.get('uv_p1')
@@ -247,7 +247,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
                         uv_ext = self.normal*un_ext
                     else:
                         raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
-                    if self.nonlin:
+                    if self.use_nonlinear_equations:
                         uv_av = 0.5*(uv_in + uv_ext)
                         un_av = uv_av[0]*self.normal[0] + uv_av[1]*self.normal[1]
                         s = 0.5*(sign(un_av) + 1.0)
@@ -286,7 +286,7 @@ class VerticalAdvectionTerm(MomentumTerm):
         w = fields_old.get('w')
         w_mesh = fields_old.get('w_mesh')
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_factor')
-        if w is None or not self.nonlin:
+        if w is None or not self.use_nonlinear_equations:
             return 0
         f = 0
 
@@ -596,7 +596,7 @@ class MomentumEquation(Equation):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 nonlin=True, use_bottom_friction=False):
+                 use_nonlinear_equations=True, use_bottom_friction=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -605,14 +605,14 @@ class MomentumEquation(Equation):
             element size
         :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
             element size
-        :kwarg bool nonlin: If False defines the linear shallow water equations
+        :kwarg bool use_nonlinear_equations: If False defines the linear shallow water equations
         :kwarg bool use_bottom_friction: If True includes bottom friction term
         """
         # TODO rename for reflect the fact that this is eq for the split eqns
         super(MomentumEquation, self).__init__(function_space)
 
         args = (function_space, bathymetry,
-                v_elem_size, h_elem_size, nonlin, use_bottom_friction)
+                v_elem_size, h_elem_size, use_nonlinear_equations, use_bottom_friction)
         self.add_term(PressureGradientTerm(*args), 'source')
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')

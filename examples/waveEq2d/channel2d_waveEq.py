@@ -48,7 +48,7 @@ t_end = 10*T_cycle + 1e-3
 # --- create solver ---
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
-options.nonlin = False  # use linear wave equation
+options.use_nonlinear_equations = False  # use linear wave equation
 options.t_export = t_export
 options.t_end = t_end
 options.outputdir = outputdir

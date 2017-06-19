@@ -69,7 +69,7 @@ if warped:
     coords.dat.data[:, 2] = sigma
 
 options = solver_obj.options
-options.nonlin = True
+options.use_nonlinear_equations = True
 # options.element_family = 'rt-dg'
 options.element_family = 'dg-dg'
 options.timestepper_type = 'ssprk22'

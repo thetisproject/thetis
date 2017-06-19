@@ -24,7 +24,7 @@ class ModelOptions(AttrDict, FrozenClass):
         2D solver supports 'dg-dg', 'rt-dg', or 'dg-cg' velocity-pressure pairs.
         3D solver supports 'dg-dg', or 'rt-dg' velocity-pressure pairs.
         """
-        self.nonlin = True
+        self.use_nonlinear_equations = True
         """bool: Use nonlinear shallow water equations"""
         self.solve_salt = True
         """bool: Solve salt transport"""

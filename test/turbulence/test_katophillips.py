@@ -59,7 +59,7 @@ def run_katophillips(**model_options):
     # create solver
     solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
     options = solver_obj.options
-    options.nonlin = False
+    options.use_nonlinear_equations = False
     options.solve_salt = True
     options.solve_temp = False
     options.constant_temp = Constant(10.0)
