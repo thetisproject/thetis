@@ -82,9 +82,11 @@ class ModelOptions(AttrDict, FrozenClass):
         """bool: Advect TKE and Psi in the GLS turbulence model"""
         self.baroclinic = False
         """bool: Compute internal pressure gradient in momentum equation"""
-        self.smagorinsky_factor = None
+        self.use_smagorinsky_viscosity = False
+        """:bool:use Smagorinsky viscosity"""
+        self.smagorinsky_coefficient = Constant(0.1)
         """
-        :class:`Constant` or None: Smagorinsky viscosity factor :math:`C_S`
+        :class:`Constant` Smagorinsky viscosity coefficient :math:`C_S`
 
         See :class:`.SmagorinskyViscosity`.
         """

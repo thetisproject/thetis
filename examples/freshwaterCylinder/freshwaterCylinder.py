@@ -220,7 +220,8 @@ options.v_viscosity = Constant(1.3e-6)  # background value
 options.v_diffusivity = Constant(1.4e-7)  # background value
 options.use_limiter_for_tracers = True
 if viscosity == 'smag':
-    options.smagorinsky_factor = Constant(1.0/np.sqrt(reynolds_number))
+    options.use_smagorinsky_viscosity = True
+    options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
 elif viscosity == 'const':
     options.h_viscosity = Constant(nu_scale)
 else:

@@ -130,7 +130,8 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.use_limiter_for_tracers = use_limiter
     # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
     if viscosity == 'smag':
-        options.smagorinsky_factor = Constant(1.0/np.sqrt(reynolds_number))
+        options.use_smagorinsky_viscosity = True
+        options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
     elif viscosity == 'const':
         options.h_viscosity = Constant(nu_scale)
     else:

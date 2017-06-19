@@ -82,7 +82,6 @@ options.use_ale_moving_mesh = True
 options.baroclinic = True
 options.uv_lax_friedrichs = Constant(1.0)
 options.tracer_lax_friedrichs = Constant(1.0)
-# options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
 options.coriolis = Constant(setup.f_0)
 options.use_limiter_for_tracers = True
 options.v_viscosity = Constant(1.0e-2)
@@ -100,7 +99,7 @@ options.check_salt_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'temp_3d', 'salt_3d',
                             'density_3d', 'uv_dav_2d', 'uv_dav_3d',
-                            'baroc_head_3d', 'smag_visc_3d',
+                            'baroc_head_3d', 
                             'int_pg_3d', 'hcc_metric_3d']
 options.equation_of_state = 'linear'
 options.lin_equation_of_state_params = {

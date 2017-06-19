@@ -105,11 +105,11 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.coriolis = Constant(f_cori)
     options.uv_lax_friedrichs = Constant(laxfriedrichs)
     options.tracer_lax_friedrichs = Constant(laxfriedrichs)
-    # options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
     options.use_limiter_for_tracers = True
     options.v_viscosity = Constant(1.0e-4)
     if viscosity == 'smag':
-        options.smagorinsky_factor = Constant(1.0/np.sqrt(reynolds_number))
+        options.use_smagorinsky_viscosity = True
+        options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
         options.nu_viscosity = Constant(nu_scale)
     elif viscosity == 'const':
         options.h_viscosity = Constant(nu_scale)

@@ -109,7 +109,7 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
             self.solver.uv_mag_solver.solve()
             # update P1 velocity field
             self.solver.uv_p1_projector.project()
-            if self.options.smagorinsky_factor is not None:
+            if self.options.use_smagorinsky_viscosity:
                 self.solver.smagorinsky_diff_solver.solve()
 
     def _update_all_dependencies(self, t,
