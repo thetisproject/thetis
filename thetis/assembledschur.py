@@ -71,6 +71,7 @@ class AssembledSchurPC(PCBase):
         if viewer.getType() != PETSc.Viewer.Type.ASCII:
             return
         viewer.pushASCIITab()
+        viewer.printfASCII("Solves assembled Schur system D - C M.inv C^T\n")
         self.ksp.view(viewer)
         viewer.popASCIITab()
 
