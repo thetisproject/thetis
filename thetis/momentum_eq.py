@@ -87,7 +87,7 @@ class MomentumTerm(Term):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 use_nonlinear_equations=True, use_bottom_friction=False):
+                 use_nonlinear_equations=True, use_lax_friedrichs=True, use_bottom_friction=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -107,6 +107,7 @@ class MomentumTerm(Term):
         self.horizontal_continuity = continuity.horizontal
         self.vertical_continuity = continuity.vertical
         self.use_nonlinear_equations = use_nonlinear_equations
+        self.use_lax_friedrichs = use_lax_friedrichs
         self.use_bottom_friction = use_bottom_friction
 
         # define measures with a reasonable quadrature degree
@@ -175,9 +176,9 @@ class HorizontalAdvectionTerm(MomentumTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if not self.use_nonlinear_equations:
             return 0
-        lax_friedrichs_factor = fields_old.get('lax_friedrichs_factor')
         uv_p1 = fields_old.get('uv_p1')
         uv_mag = fields_old.get('uv_mag')
+        lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
 
         uv_depth_av = fields_old.get('uv_depth_av')
         if uv_depth_av is not None:
@@ -202,7 +203,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
                   uv_up[1]*uv_av[0]*jump(self.test[1], self.normal[0]) +
                   uv_up[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_v + self.dS_h)
             # Lax-Friedrichs stabilization
-            if lax_friedrichs_factor is not None and uv_mag is not None:
+            if self.use_lax_friedrichs:
                 if uv_p1 is not None:
                     gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
                                      avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
@@ -218,7 +219,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
                 if funcs is None:
                     un = dot(uv, self.normal)
                     uv_ext = uv - 2*un*self.normal
-                    if lax_friedrichs_factor is not None:
+                    if self.use_lax_friedrichs:
                         gamma = 0.5*abs(un)*lax_friedrichs_factor
                         f += gamma*(self.test[0]*(uv[0] - uv_ext[0]) +
                                     self.test[1]*(uv[1] - uv_ext[1]))*ds_bnd
@@ -258,7 +259,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
                               uv_up[1]*self.test[1]*self.normal[1]*uv_av[1])*ds_bnd
                         if use_lf:
                             # Lax-Friedrichs stabilization
-                            if lax_friedrichs_factor is not None:
+                            if self.use_lax_friedrichs:
                                 gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                                 f += gamma*(self.test[0]*(uv_in[0] - uv_ext[0]) +
                                             self.test[1]*(uv_in[1] - uv_ext[1]))*ds_bnd
@@ -285,7 +286,7 @@ class VerticalAdvectionTerm(MomentumTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         w = fields_old.get('w')
         w_mesh = fields_old.get('w_mesh')
-        lax_friedrichs_factor = fields_old.get('lax_friedrichs_factor')
+        lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
         if w is None or not self.use_nonlinear_equations:
             return 0
         f = 0
@@ -308,7 +309,7 @@ class VerticalAdvectionTerm(MomentumTerm):
             uv_up = uv('-')*s + uv('+')*(1-s)
             f += (uv_up[0]*w_av*jump(self.test[0], self.normal[2]) +
                   uv_up[1]*w_av*jump(self.test[1], self.normal[2]))*self.dS_h
-            if lax_friedrichs_factor is not None:
+            if self.use_lax_friedrichs:
                 # Lax-Friedrichs
                 gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
                 f += gamma*(jump(self.test[0])*jump(uv[0]) +
@@ -596,7 +597,7 @@ class MomentumEquation(Equation):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 use_nonlinear_equations=True, use_bottom_friction=False):
+                 use_nonlinear_equations=True, use_lax_friedrichs=True, use_bottom_friction=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -612,7 +613,7 @@ class MomentumEquation(Equation):
         super(MomentumEquation, self).__init__(function_space)
 
         args = (function_space, bathymetry,
-                v_elem_size, h_elem_size, use_nonlinear_equations, use_bottom_friction)
+                v_elem_size, h_elem_size, use_nonlinear_equations, use_lax_friedrichs, use_bottom_friction)
         self.add_term(PressureGradientTerm(*args), 'source')
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')

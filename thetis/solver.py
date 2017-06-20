@@ -577,6 +577,7 @@ class FlowSolver(FrozenClass):
                                                         v_elem_size=self.fields.v_elem_size_3d,
                                                         h_elem_size=self.fields.h_elem_size_3d,
                                                         use_nonlinear_equations=self.options.use_nonlinear_equations,
+                                                        use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
                                                         use_bottom_friction=False)
         if self.options.solve_vert_diffusion:
             self.eq_vertmomentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
@@ -584,30 +585,35 @@ class FlowSolver(FrozenClass):
                                                                 v_elem_size=self.fields.v_elem_size_3d,
                                                                 h_elem_size=self.fields.h_elem_size_3d,
                                                                 use_nonlinear_equations=False,
+                                                                use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
                                                                 use_bottom_friction=self.options.use_bottom_friction)
         if self.options.solve_salt:
             self.eq_salt = tracer_eq.TracerEquation(self.fields.salt_3d.function_space(),
                                                     bathymetry=self.fields.bathymetry_3d,
                                                     v_elem_size=self.fields.v_elem_size_3d,
                                                     h_elem_size=self.fields.h_elem_size_3d,
+                                                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
                                                     use_symmetric_surf_bnd=self.options.element_family == 'dg-dg')
             if self.options.solve_vert_diffusion:
                 self.eq_salt_vdff = tracer_eq.TracerEquation(self.fields.salt_3d.function_space(),
                                                              bathymetry=self.fields.bathymetry_3d,
                                                              v_elem_size=self.fields.v_elem_size_3d,
-                                                             h_elem_size=self.fields.h_elem_size_3d)
+                                                             h_elem_size=self.fields.h_elem_size_3d,
+                                                             use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
 
         if self.options.solve_temp:
             self.eq_temp = tracer_eq.TracerEquation(self.fields.temp_3d.function_space(),
                                                     bathymetry=self.fields.bathymetry_3d,
                                                     v_elem_size=self.fields.v_elem_size_3d,
                                                     h_elem_size=self.fields.h_elem_size_3d,
+                                                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
                                                     use_symmetric_surf_bnd=self.options.element_family == 'dg-dg')
             if self.options.solve_vert_diffusion:
                 self.eq_temp_vdff = tracer_eq.TracerEquation(self.fields.temp_3d.function_space(),
                                                              bathymetry=self.fields.bathymetry_3d,
                                                              v_elem_size=self.fields.v_elem_size_3d,
-                                                             h_elem_size=self.fields.h_elem_size_3d)
+                                                             h_elem_size=self.fields.h_elem_size_3d,
+                                                             use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         self.eq_momentum.bnd_functions = self.bnd_functions['momentum']
@@ -621,11 +627,13 @@ class FlowSolver(FrozenClass):
                 self.eq_tke_adv = tracer_eq.TracerEquation(self.fields.tke_3d.function_space(),
                                                            bathymetry=self.fields.bathymetry_3d,
                                                            v_elem_size=self.fields.v_elem_size_3d,
-                                                           h_elem_size=self.fields.h_elem_size_3d)
+                                                           h_elem_size=self.fields.h_elem_size_3d,
+                                                           use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
                 self.eq_psi_adv = tracer_eq.TracerEquation(self.fields.psi_3d.function_space(),
                                                            bathymetry=self.fields.bathymetry_3d,
                                                            v_elem_size=self.fields.v_elem_size_3d,
-                                                           h_elem_size=self.fields.h_elem_size_3d)
+                                                           h_elem_size=self.fields.h_elem_size_3d,
+                                                           use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
             # implicit vertical diffusion eqn with production terms
             self.eq_tke_diff = turbulence.TKEEquation(self.fields.tke_3d.function_space(),
                                                       self.gls_model,

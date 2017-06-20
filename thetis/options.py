@@ -92,10 +92,14 @@ class ModelOptions(AttrDict, FrozenClass):
         """
         self.use_limiter_for_tracers = False
         """bool: Apply P1DG limiter for tracer fields"""
-        self.uv_lax_friedrichs = Constant(1.0)
-        """:class:`Constant` or None: Scaling factor for uv L-F stability term."""
-        self.tracer_lax_friedrichs = Constant(1.0)
-        """:class:`Constant` or None: Scaling factor for tracer L-F stability term."""
+        self.use_lax_friedrichs_velocity = True
+        """bool: use Lax Friedrichs stabilisation in horizontal momentum advection."""
+        self.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
+        """:class:`Constant`: Scaling factor for Lax Friedrichs stabilisation term in horiozonal momentum advection."""
+        self.use_lax_friedrichs_tracer = True
+        """bool: use Lax Friedrichs stabilisation in tracer advection."""
+        self.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
+        """:class:`Constant`: Scaling factor for tracer Lax Friedrichs stability term."""
         self.check_vol_conservation_2d = False
         """
         bool: Compute volume of the 2D mode at every export

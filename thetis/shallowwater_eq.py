@@ -462,7 +462,6 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
     jump and average operators across the interface.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
-        uv_lax_friedrichs = fields_old.get('uv_lax_friedrichs')
 
         if not self.options.use_nonlinear_equations:
             return 0
@@ -489,7 +488,8 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
                       uv_up[0]*jump(self.u_test[0], uv_old[1]*self.normal[1]) +
                       uv_up[1]*jump(self.u_test[1], uv_old[1]*self.normal[1]))*self.dS
                 # Lax-Friedrichs stabilization
-                if uv_lax_friedrichs is not None:
+                if self.options.use_lax_friedrichs_velocity:
+                    uv_lax_friedrichs = fields_old.get('lax_friedrichs_velocity_scaling_factor')
                     gamma = 0.5*abs(un_av)*uv_lax_friedrichs
                     f += gamma*dot(jump(self.u_test), jump(uv))*self.dS
                     for bnd_marker in self.boundary_markers:

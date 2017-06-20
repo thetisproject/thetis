@@ -122,11 +122,13 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.use_ale_moving_mesh = True
     options.baroclinic = True
     if laxfriedrichs is None or laxfriedrichs == 0.0:
-        lf_factor = None
+        options.use_lax_friedrichs_velocity = False
+        options.use_lax_friedrichs_tracer = False
     else:
-        lf_factor = Constant(laxfriedrichs)
-    options.uv_lax_friedrichs = lf_factor
-    options.tracer_lax_friedrichs = lf_factor
+        options.use_lax_friedrichs_velocity = True
+        options.use_lax_friedrichs_tracer = True
+        options.lax_friedrichs_velocity_scaling_factor = laxfriedrichs
+        options.lax_friedrichs_tracer_scaling_factor = laxfriedrichs
     options.use_limiter_for_tracers = use_limiter
     # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
     if viscosity == 'smag':

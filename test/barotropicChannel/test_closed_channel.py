@@ -47,8 +47,8 @@ def test_closed_channel(**user_options):
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = True
     options.use_limiter_for_tracers = True
-    options.uv_lax_friedrichs = None
-    options.tracer_lax_friedrichs = None
+    options.use_lax_friedrichs_velocity = False
+    options.use_lax_friedrichs_tracer = False
     options.t_export = t_export
     options.t_end = t_end
     options.no_exports = True

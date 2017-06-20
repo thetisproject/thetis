@@ -103,8 +103,14 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.quadratic_drag = Constant(bottom_drag)
     options.baroclinic = True
     options.coriolis = Constant(f_cori)
-    options.uv_lax_friedrichs = Constant(laxfriedrichs)
-    options.tracer_lax_friedrichs = Constant(laxfriedrichs)
+    if laxfriedrichs>0.0:
+        options.use_lax_friedrichs_velocity = True
+        options.use_lax_friedrichs_tracer = True
+        options.lax_friedrichs_velocity_scaling_factor = Constant(laxfriedrichs)
+        options.lax_friedrichs_tracer_scaling_factor = Constant(laxfriedrichs)
+    else:
+        options.use_lax_friedrichs_velocity = False
+        options.use_lax_friedrichs_tracer = False
     options.use_limiter_for_tracers = True
     options.v_viscosity = Constant(1.0e-4)
     if viscosity == 'smag':

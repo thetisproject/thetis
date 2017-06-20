@@ -207,7 +207,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             'uv_bottom': solver.fields.get('uv_bottom_2d'),
             'bottom_drag': solver.fields.get('bottom_drag_2d'),
             'viscosity_h': self.options.get('h_viscosity'),  # FIXME should be total h visc
-            'uv_lax_friedrichs': self.options.uv_lax_friedrichs,
+            'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
             'coriolis': self.options.coriolis,
             'wind_stress': self.options.wind_stress,
             'uv_source': uv_source_2d,
@@ -246,7 +246,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                   'source': self.options.uv_source_3d,
                   # uv_mag': self.fields.uv_mag_3d,
                   'uv_p1': self.fields.get('uv_p1_3d'),
-                  'lax_friedrichs_factor': self.options.uv_lax_friedrichs,
+                  'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
                   'coriolis': self.fields.get('coriolis_3d'),
                   'linear_drag': self.options.linear_drag,
                   'quadratic_drag': self.options.quadratic_drag,
@@ -283,7 +283,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'source': self.options.salt_source_3d,
                       # uv_mag': self.fields.uv_mag_3d,
                       'uv_p1': self.fields.get('uv_p1_3d'),
-                      'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
+                      'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                       }
             self.timestepper_salt_3d = self.integrator_3d(
                 solver.eq_salt, solver.fields.salt_3d, fields, solver.dt,
@@ -316,7 +316,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'source': self.options.temp_source_3d,
                       # uv_mag': self.fields.uv_mag_3d,
                       'uv_p1': self.fields.get('uv_p1_3d'),
-                      'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
+                      'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                       }
             self.timestepper_temp_3d = self.integrator_3d(
                 solver.eq_temp, solver.fields.temp_3d, fields, solver.dt,
@@ -361,7 +361,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                           'w_mesh': self.fields.get('w_mesh_3d'),
                           # uv_mag': self.fields.uv_mag_3d,
                           'uv_p1': self.fields.get('uv_p1_3d'),
-                          'lax_friedrichs_factor': self.options.tracer_lax_friedrichs,
+                          'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                           }
                 self.timestepper_tke_adv_eq = self.integrator_3d(
                     solver.eq_tke_adv, solver.fields.tke_3d, fields, solver.dt,
