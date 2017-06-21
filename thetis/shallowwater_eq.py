@@ -127,7 +127,7 @@ of each term:
 Wetting and drying
 ------------------
 
-If the option :attr:`.ModelOptions.wetting_and_drying` is ``True``, then wetting and
+If the option :attr:`.ModelOptions.use_wetting_and_drying` is ``True``, then wetting and
 drying is included through the formulation of Karna et al. (2011).
 
 The method introduces a modified bathymetry :math:`\tilde{h} = h + f(H)`, which ensures
@@ -281,7 +281,7 @@ class ShallowWaterTerm(Term):
         """
         if self.options.use_nonlinear_equations:
             total_h = self.bathymetry + eta
-            if self.options.wetting_and_drying:
+            if self.options.use_wetting_and_drying:
                 total_h += self.wd_bathymetry_displacement(eta)
         else:
             total_h = self.bathymetry
@@ -793,7 +793,7 @@ class BathymetryDisplacementMassTerm(ShallowWaterContinuityTerm):
         else:
             uv, eta = split(solution)
         f = 0
-        if self.options.wetting_and_drying:
+        if self.options.use_wetting_and_drying:
             f += inner(self.wd_bathymetry_displacement(eta), self.eta_test)*self.dx
         return f
 

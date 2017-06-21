@@ -251,7 +251,7 @@ class ModelOptions(AttrDict, FrozenClass):
 
         Bottom stress is :math:`\tau_b/\rho_0 = -g \mu^2 |\mathbf{u}|\mathbf{u}/H^{1/3}`
         """
-        self.wetting_and_drying = False
+        self.use_wetting_and_drying = False
         r"""bool: Turn on wetting and drying
 
         Uses the wetting and drying scheme from Karna et al (2011).
