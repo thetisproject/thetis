@@ -49,8 +49,8 @@ options.timestepper_type = 'leapfrog'
 # options.timestepper_type = 'imexale'
 # options.timestepper_type = 'erkale'
 options.use_nonlinear_equations = False
-options.solve_salt = False
-options.solve_temp = False
+options.solve_salinity = False
+options.solve_temperature = False
 options.solve_vert_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = True
@@ -70,7 +70,7 @@ solver_obj.create_equations()
 elev_init = Function(solver_obj.function_spaces.H_2d)
 elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/lx)', eta_amp=elev_amp,
                              lx=lx))
-if options.solve_salt:
+if options.solve_salinity:
     salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
     # salt_init3d.interpolate(Expression('x[0]/1.0e5*10.0+2.0'))
     salt_init3d.assign(4.5)

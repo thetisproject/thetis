@@ -46,8 +46,8 @@ def test_callbacks(tmp_outputdir):
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     options = solver_obj.options
     options.use_nonlinear_equations = False
-    options.solve_salt = True
-    options.solve_temp = False
+    options.solve_salinity = True
+    options.solve_temperature = False
     options.solve_vert_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = False

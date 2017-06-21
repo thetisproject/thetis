@@ -26,9 +26,9 @@ class ModelOptions(AttrDict, FrozenClass):
         """
         self.use_nonlinear_equations = True
         """bool: Use nonlinear shallow water equations"""
-        self.solve_salt = True
+        self.solve_salinity = True
         """bool: Solve salt transport"""
-        self.solve_temp = True
+        self.solve_temperature = True
         """bool: Solve temperature transport"""
         self.solve_vert_diffusion = True
         """bool: Solve implicit vertical diffusion"""

@@ -49,8 +49,8 @@ class FlowSolver(FrozenClass):
         options.element_family = 'dg-dg'
         options.polynomial_degree = 1
         options.timestepper_type = 'ssprk22'
-        options.solve_salt = False
-        options.solve_temp = False
+        options.solve_salinity = False
+        options.solve_temperature = False
         options.t_export = 50.0
         options.t_end = 3600.
         options.dt = 25.0
@@ -482,9 +482,9 @@ class FlowSolver(FrozenClass):
             self.fields.w_mesh_3d = Function(coord_fs)
             self.fields.w_mesh_surf_3d = Function(coord_fs)
             self.fields.w_mesh_surf_2d = Function(coord_fs_2d)
-        if self.options.solve_salt:
+        if self.options.solve_salinity:
             self.fields.salt_3d = Function(self.function_spaces.H, name='Salinity')
-        if self.options.solve_temp:
+        if self.options.solve_temperature:
             self.fields.temp_3d = Function(self.function_spaces.H, name='Temperature')
         if self.options.solve_vert_diffusion and self.options.use_parabolic_viscosity:
             self.fields.parab_visc_3d = Function(self.function_spaces.P1)
@@ -587,7 +587,7 @@ class FlowSolver(FrozenClass):
                                                                 use_nonlinear_equations=False,
                                                                 use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
                                                                 use_bottom_friction=self.options.use_bottom_friction)
-        if self.options.solve_salt:
+        if self.options.solve_salinity:
             self.eq_salt = tracer_eq.TracerEquation(self.fields.salt_3d.function_space(),
                                                     bathymetry=self.fields.bathymetry_3d,
                                                     v_elem_size=self.fields.v_elem_size_3d,
@@ -601,7 +601,7 @@ class FlowSolver(FrozenClass):
                                                              h_elem_size=self.fields.h_elem_size_3d,
                                                              use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
 
-        if self.options.solve_temp:
+        if self.options.solve_temperature:
             self.eq_temp = tracer_eq.TracerEquation(self.fields.temp_3d.function_space(),
                                                     bathymetry=self.fields.bathymetry_3d,
                                                     v_elem_size=self.fields.v_elem_size_3d,
@@ -617,9 +617,9 @@ class FlowSolver(FrozenClass):
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         self.eq_momentum.bnd_functions = self.bnd_functions['momentum']
-        if self.options.solve_salt:
+        if self.options.solve_salinity:
             self.eq_salt.bnd_functions = self.bnd_functions['salt']
-        if self.options.solve_temp:
+        if self.options.solve_temperature:
             self.eq_temp.bnd_functions = self.bnd_functions['temp']
         if self.options.use_turbulence:
             if self.options.use_turbulence_advection:
@@ -698,11 +698,11 @@ class FlowSolver(FrozenClass):
                                               bathymetry=self.fields.bathymetry_3d,
                                               elevation=self.fields.elev_cg_3d)
         if self.options.baroclinic:
-            if self.options.solve_salt:
+            if self.options.solve_salinity:
                 s = self.fields.salt_3d
             else:
                 s = self.options.constant_salt
-            if self.options.solve_temp:
+            if self.options.solve_temperature:
                 t = self.fields.temp_3d
             else:
                 t = self.options.constant_temp
@@ -816,9 +816,9 @@ class FlowSolver(FrozenClass):
                                    elem_height=self.fields.v_elem_size_3d).solve()
         if uv_3d is not None:
             self.fields.uv_3d.project(uv_3d)
-        if salt is not None and self.options.solve_salt:
+        if salt is not None and self.options.solve_salinity:
             self.fields.salt_3d.project(salt)
-        if temp is not None and self.options.solve_temp:
+        if temp is not None and self.options.solve_temperature:
             self.fields.temp_3d.project(temp)
         if self.options.use_turbulence:
             if tke is not None:
@@ -908,10 +908,10 @@ class FlowSolver(FrozenClass):
         # NOTE remove mean from uv_3d
         self.timestepper._remove_depth_average_from_uv_3d()
         salt = temp = tke = psi = None
-        if self.options.solve_salt:
+        if self.options.solve_salinity:
             salt = self.fields.salt_3d
             e.exporters['salt_3d'].load(i_export, salt)
-        if self.options.solve_temp:
+        if self.options.solve_temperature:
             temp = self.fields.temp_3d
             e.exporters['temp_3d'].load(i_export, temp)
         if self.options.use_turbulence:
@@ -982,10 +982,10 @@ class FlowSolver(FrozenClass):
         if not self._initialized:
             self.create_equations()
 
-        self.options.check_salt_conservation *= self.options.solve_salt
-        self.options.check_salt_overshoot *= self.options.solve_salt
-        self.options.check_temp_conservation *= self.options.solve_temp
-        self.options.check_temp_overshoot *= self.options.solve_temp
+        self.options.check_salt_conservation *= self.options.solve_salinity
+        self.options.check_salt_overshoot *= self.options.solve_salinity
+        self.options.check_temp_conservation *= self.options.solve_temperature
+        self.options.check_temp_overshoot *= self.options.solve_temperature
         self.options.check_vol_conservation_3d *= self.options.use_ale_moving_mesh
         self.options.use_limiter_for_tracers *= self.options.polynomial_degree > 0
 

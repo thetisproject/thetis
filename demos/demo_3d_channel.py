@@ -57,8 +57,8 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
 # tracer::
 
 options.baroclinic = False
-options.solve_salt = True
-options.solve_temp = False
+options.solve_salinity = True
+options.solve_temperature = False
 
 # We also want to see how much the salinity value deviates from its initial
 # value::

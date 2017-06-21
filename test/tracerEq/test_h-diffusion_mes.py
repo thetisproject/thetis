@@ -68,7 +68,7 @@ def run(refinement, **model_options):
     options.outputdir = outputdir
     options.t_end = t_end
     options.t_export = t_export
-    options.solve_salt = True
+    options.solve_salinity = True
     options.solve_vert_diffusion = False
     options.use_limiter_for_tracers = False
     options.fields_to_export = ['salt_3d']

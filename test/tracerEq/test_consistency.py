@@ -73,8 +73,8 @@ def run_tracer_consistency(**model_options):
 
     options = solver_obj.options
     options.use_nonlinear_equations = True
-    options.solve_salt = True
-    options.solve_temp = False
+    options.solve_salinity = True
+    options.solve_temperature = False
     options.solve_vert_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = False
@@ -105,10 +105,10 @@ def run_tracer_consistency(**model_options):
 
     salt_init3d = None
     temp_init3d = None
-    if options.solve_salt:
+    if options.solve_salinity:
         salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
         salt_init3d.assign(salt_value)
-    if options.solve_temp:
+    if options.solve_temperature:
         temp_init3d = Function(solver_obj.function_spaces.H, name='initial temperature')
         xyz = SpatialCoordinate(solver_obj.mesh)
         temp_l = 0
@@ -124,7 +124,7 @@ def run_tracer_consistency(**model_options):
     if options.use_ale_moving_mesh:
         vol3d, vol3d_rerr = solver_obj.callbacks['export']['volume3d']()
         assert vol3d_rerr < 1e-10, '3D volume is not conserved'
-    if options.solve_salt:
+    if options.solve_salinity:
         salt_int, salt_int_rerr = solver_obj.callbacks['export']['salt_3d mass']()
         assert salt_int_rerr < 1e-6, 'salt is not conserved'
         smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['salt_3d overshoot']()
@@ -134,7 +134,7 @@ def run_tracer_consistency(**model_options):
             overshoot_tol = 1e-4
         msg = 'Salt overshoots are too large: {:}'.format(max_abs_overshoot)
         assert max_abs_overshoot < overshoot_tol, msg
-    if options.solve_temp:
+    if options.solve_temperature:
         temp_int, temp_int_rerr = solver_obj.callbacks['export']['temp_3d mass']()
         mass_tol = 1e-4 if options.use_ale_moving_mesh else 1e-3
         assert temp_int_rerr < mass_tol, 'temp is not conserved'
@@ -175,8 +175,8 @@ def test_ale_const_tracer(element_family, meshtype, timestepper_type):
     run_tracer_consistency(element_family=element_family,
                            meshtype=meshtype,
                            use_ale_moving_mesh=True,
-                           solve_salt=True,
-                           solve_temp=False,
+                           solve_salinity=True,
+                           solve_temperature=False,
                            use_limiter_for_tracers=False,
                            timestepper_type=timestepper_type,
                            no_exports=True)
@@ -199,8 +199,8 @@ def test_ale_nonconst_tracer(element_family, meshtype, timestepper_type):
     run_tracer_consistency(element_family=element_family,
                            meshtype=meshtype,
                            use_ale_moving_mesh=True,
-                           solve_salt=True,
-                           solve_temp=True,
+                           solve_salinity=True,
+                           solve_temperature=True,
                            use_limiter_for_tracers=True,
                            timestepper_type=timestepper_type,
                            no_exports=True)
@@ -212,7 +212,7 @@ if __name__ == '__main__':
                            nonlin=True,
                            timestepper_type='leapfrog',
                            use_ale_moving_mesh=True,
-                           solve_salt=True,
-                           solve_temp=True,
+                           solve_salinity=True,
+                           solve_temperature=True,
                            use_limiter_for_tracers=True,
                            no_exports=False)

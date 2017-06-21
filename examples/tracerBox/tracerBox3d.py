@@ -73,8 +73,8 @@ options.use_nonlinear_equations = True
 # options.element_family = 'rt-dg'
 options.element_family = 'dg-dg'
 options.timestepper_type = 'ssprk22'
-options.solve_salt = True
-options.solve_temp = True
+options.solve_salinity = True
+options.solve_temperature = True
 options.solve_vert_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = True
@@ -108,10 +108,10 @@ elev_init.project(5.0*ss*(xy[0] - x_0)/(lx - x_0))
 
 salt_init3d = None
 temp_init3d = None
-if options.solve_salt:
+if options.solve_salinity:
     # constant tracer field to test consistency with 3d continuity eq
     salt_init3d = Constant(4.5)
-if options.solve_temp:
+if options.solve_temperature:
     temp_init3d = Function(solver_obj.function_spaces.H, name='initial temperature')
     xyz = SpatialCoordinate(solver_obj.mesh)
     temp_l = 0

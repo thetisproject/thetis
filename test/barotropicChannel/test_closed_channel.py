@@ -41,8 +41,8 @@ def test_closed_channel(**user_options):
     options = solver_obj.options
     options.element_family = 'dg-dg'
     options.timestepper_type = 'ssprk22'
-    options.solve_salt = True
-    options.solve_temp = False
+    options.solve_salinity = True
+    options.solve_temperature = False
     options.solve_vert_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = True
@@ -79,7 +79,7 @@ def test_closed_channel(**user_options):
     if options.use_ale_moving_mesh:
         vol3d, vol3d_rerr = solver_obj.callbacks['export']['volume3d']()
         assert vol3d_rerr < 1e-12, '3D volume is not conserved'
-    if options.solve_salt:
+    if options.solve_salinity:
         salt_int, salt_int_rerr = solver_obj.callbacks['export']['salt_3d mass']()
         assert salt_int_rerr < 1e-8, 'salt is not conserved'
         smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['salt_3d overshoot']()

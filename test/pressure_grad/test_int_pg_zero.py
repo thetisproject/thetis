@@ -62,8 +62,8 @@ def compute_pg_error(**kwargs):
     options = solver_obj.options
     options.element_family = 'dg-dg'
     options.timestepper_type = 'ssprk22'
-    options.solve_salt = False
-    options.solve_temp = True
+    options.solve_salinity = False
+    options.solve_temperature = True
     options.constant_salt = Constant(salt_const)
     options.solve_vert_diffusion = False
     options.use_bottom_friction = False

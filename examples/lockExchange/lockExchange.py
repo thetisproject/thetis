@@ -114,9 +114,9 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.polynomial_degree = poly_order
     options.element_family = element_family
     options.timestepper_type = 'ssprk22'
-    options.solve_salt = False
+    options.solve_salinity = False
     options.constant_salt = Constant(salt_const)
-    options.solve_temp = True
+    options.solve_temperature = True
     options.solve_vert_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = True

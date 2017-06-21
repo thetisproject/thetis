@@ -53,8 +53,8 @@ def run(refinement, **model_options):
     options.outputdir = outputdir
     options.t_end = t_end
     options.t_export = t_export
-    options.solve_salt = False
-    options.solve_temp = False
+    options.solve_salinity = False
+    options.solve_temperature = False
     options.fields_to_export = ['uv_3d']
     options.h_viscosity = Constant(h_viscosity)
     options.nu_viscosity = Constant(h_viscosity)
