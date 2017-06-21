@@ -18,7 +18,7 @@ def run(refinement, **model_options):
     ly = 6.0e3/refinement
     area = lx*ly
     depth = 40.0
-    h_viscosity = 1.0e3
+    horizontal_viscosity = 1.0e3
 
     # mesh
     n_layers = 4*refinement
@@ -56,8 +56,8 @@ def run(refinement, **model_options):
     options.solve_salinity = False
     options.solve_temperature = False
     options.fields_to_export = ['uv_3d']
-    options.h_viscosity = Constant(h_viscosity)
-    options.nu_viscosity = Constant(h_viscosity)
+    options.horizontal_viscosity = Constant(horizontal_viscosity)
+    options.nu_viscosity = Constant(horizontal_viscosity)
     options.update(model_options)
 
     solverobj.create_equations()
@@ -66,8 +66,8 @@ def run(refinement, **model_options):
 
     ana_sol_expr = '0.5*(u_max + u_min) - 0.5*(u_max - u_min)*erf((x[0] - x0)/sqrt(4*D*t))'
     t_const = Constant(t)
-    ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_viscosity, t=t_const)
-    ana_uv_expr_2d = Expression((ana_sol_expr, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_viscosity, t=t_const)
+    ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=horizontal_viscosity, t=t_const)
+    ana_uv_expr_2d = Expression((ana_sol_expr, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=horizontal_viscosity, t=t_const)
 
     uv_ana = Function(solverobj.function_spaces.U, name='uv analytical')
     uv_ana_p1 = Function(solverobj.function_spaces.P1v, name='uv analytical')
@@ -89,7 +89,7 @@ def run(refinement, **model_options):
             solverobj.export()
             # update analytical solution to correct time
             t_const.assign(t)
-            ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_viscosity, t=t_const)
+            ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=horizontal_viscosity, t=t_const)
             uv_ana.project(ana_uv_expr)
             out_uv_ana.write(uv_ana_p1.project(uv_ana))
 
@@ -113,7 +113,7 @@ def run(refinement, **model_options):
 
     # project analytical solultion on high order mesh
     t_const.assign(t)
-    ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_viscosity, t=t_const)
+    ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=horizontal_viscosity, t=t_const)
     uv_ana_ho.project(ana_uv_expr)
     # compute L2 norm
     l2_err = errornorm(uv_ana_ho, solverobj.fields.uv_3d)/numpy.sqrt(area)

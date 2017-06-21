@@ -39,7 +39,7 @@ def basic_setup():
     options.check_volume_conservation_2d = True
     options.fields_to_export = ['uv_2d', 'elev_2d']
     options.dt = timestep  # override computed dt
-    options.h_viscosity = Constant(2.0)
+    options.horizontal_viscosity = Constant(2.0)
 
     # create function spaces
     solver_obj.create_function_spaces()

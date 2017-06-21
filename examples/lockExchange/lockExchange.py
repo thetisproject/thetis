@@ -135,7 +135,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
         options.use_smagorinsky_viscosity = True
         options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
     elif viscosity == 'const':
-        options.h_viscosity = Constant(nu_scale)
+        options.horizontal_viscosity = Constant(nu_scale)
     else:
         raise Exception('Unknow viscosity type {:}'.format(viscosity))
     options.v_viscosity = Constant(1e-4)

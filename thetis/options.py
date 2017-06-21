@@ -266,9 +266,9 @@ class ModelOptions(AttrDict, FrozenClass):
         """Coefficient or None: Background horizontal diffusivity for tracers"""
         self.v_diffusivity = None
         """Coefficient or None: background vertical diffusivity for tracers"""
-        self.h_viscosity = None
+        self.horizontal_viscosity = None
         """Coefficient or None: background horizontal viscosity"""
-        self.v_viscosity = None
+        self.vertical_viscosity = None
         """Coefficient or None: background vertical viscosity"""
         self.coriolis_frequency = None
         """2D Coefficient or None: Coriolis parameter"""

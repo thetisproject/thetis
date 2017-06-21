@@ -74,7 +74,7 @@ def compute_pg_error(**kwargs):
     options.coriolis_frequency = None
     options.use_limiter_for_tracers = False
     options.v_viscosity = None
-    options.h_viscosity = None
+    options.horizontal_viscosity = None
     options.h_diffusivity = None
     options.t_export = 900.
     options.t_end = 4*900.

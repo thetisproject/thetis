@@ -554,10 +554,10 @@ class FlowSolver(FrozenClass):
             self.gls_model = None
         # copute total viscosity/diffusivity
         self.tot_h_visc = SumFunction()
-        self.tot_h_visc.add(self.options.get('h_viscosity'))
+        self.tot_h_visc.add(self.options.get('horizontal_viscosity'))
         self.tot_h_visc.add(self.fields.get('smag_visc_3d'))
         self.tot_v_visc = SumFunction()
-        self.tot_v_visc.add(self.options.get('v_viscosity'))
+        self.tot_v_visc.add(self.options.get('vertical_viscosity'))
         self.tot_v_visc.add(self.fields.get('eddy_visc_3d'))
         self.tot_v_visc.add(self.fields.get('parab_visc_3d'))
         self.tot_h_diff = SumFunction()

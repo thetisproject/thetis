@@ -54,7 +54,7 @@ solver_obj.options.solver_parameters_sw = {
     'snes_type': 'newtonls',
 }
 options.dt = timestep  # override computed dt
-options.h_viscosity = Constant(2.0)
+options.horizontal_viscosity = Constant(2.0)
 
 # create function spaces
 solver_obj.create_function_spaces()

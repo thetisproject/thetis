@@ -182,7 +182,7 @@ def run(setup, refinement, order, do_export=True, options=None,
         viscosity_space = FunctionSpace(solver_obj.mesh2d, "CG", order)
         viscosity_func = Function(viscosity_space, name='viscosity')
         viscosity_func.project(sdict['visc_expr'])
-        solver_obj.options.h_viscosity = viscosity_func
+        solver_obj.options.horizontal_viscosity = viscosity_func
 
     # functions for boundary conditions
     # analytical elevation

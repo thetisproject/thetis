@@ -118,7 +118,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
         options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
         options.nu_viscosity = Constant(nu_scale)
     elif viscosity == 'const':
-        options.h_viscosity = Constant(nu_scale)
+        options.horizontal_viscosity = Constant(nu_scale)
         options.nu_viscosity = Constant(nu_scale)
     elif viscosity != 'none':
         raise Exception('Unknow viscosity type {:}'.format(viscosity))
