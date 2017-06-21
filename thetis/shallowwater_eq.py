@@ -140,8 +140,8 @@ introducing a wetting-drying parameter :math:`\alpha`, with dimensions of length
 results in a modified total water depth :math:`\tilde{H}=H+f(H)`.
 
 The value for :math:`\alpha` is specified by the user through the
-option :attr:`.ModelOptions.wd_alpha`, in units of meters. The default value
-for :attr:`.ModelOptions.wd_alpha` is 0.5, but the appropriate value is problem
+option :attr:`.ModelOptions.wetting_and_drying_alpha`, in units of meters. The default value
+for :attr:`.ModelOptions.wetting_and_drying_alpha` is 0.5, but the appropriate value is problem
 specific and should be set by the user.
 
 An approximate method for selecting a suitable value for :math:`\alpha` is suggested
@@ -273,7 +273,7 @@ class ShallowWaterTerm(Term):
         Karna et al.,  2011.
         """
         H = self.bathymetry + eta
-        return 0.5 * (sqrt(H ** 2 + self.options.wd_alpha ** 2) - H)
+        return 0.5 * (sqrt(H ** 2 + self.options.wetting_and_drying_alpha ** 2) - H)
 
     def get_total_depth(self, eta):
         """

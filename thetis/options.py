@@ -255,9 +255,9 @@ class ModelOptions(AttrDict, FrozenClass):
         r"""bool: Turn on wetting and drying
 
         Uses the wetting and drying scheme from Karna et al (2011).
-        If ``True``, one should also set :attr:`wd_alpha` to control the bathymetry displacement.
+        If ``True``, one should also set :attr:`wetting_and_drying_alpha` to control the bathymetry displacement.
         """
-        self.wd_alpha = Constant(0.5)
+        self.wetting_and_drying_alpha = Constant(0.5)
         r"""Coefficient: Wetting and drying parameter :math:`alpha`.
 
         Used in bathymetry displacement function that ensures positive water depths. Unit is meters.

@@ -49,7 +49,7 @@ bathymetry.interpolate(x[0] / 2760.0)
 mu_manning = Constant(0.02)
 # wetting-drying options
 use_wetting_and_drying = True
-wd_alpha = Constant(0.4)
+wetting_and_drying_alpha = Constant(0.4)
 
 # --- create solver ---
 solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry)
@@ -62,7 +62,7 @@ options.fields_to_export = ['uv_2d', 'elev_2d']
 options.timestepper_type = 'cranknicolson'
 options.shallow_water_theta = 0.5
 options.use_wetting_and_drying = use_wetting_and_drying
-options.wd_alpha = wd_alpha
+options.wetting_and_drying_alpha = wetting_and_drying_alpha
 options.mu_manning = mu_manning
 options.dt = dt
 options.solver_parameters_sw = {
