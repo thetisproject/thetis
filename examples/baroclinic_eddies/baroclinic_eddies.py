@@ -103,7 +103,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.quadratic_drag = Constant(bottom_drag)
     options.baroclinic = True
     options.coriolis = Constant(f_cori)
-    if laxfriedrichs>0.0:
+    if laxfriedrichs > 0.0:
         options.use_lax_friedrichs_velocity = True
         options.use_lax_friedrichs_tracer = True
         options.lax_friedrichs_velocity_scaling_factor = Constant(laxfriedrichs)
