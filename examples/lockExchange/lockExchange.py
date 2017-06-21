@@ -138,7 +138,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
         options.horizontal_viscosity = Constant(nu_scale)
     else:
         raise Exception('Unknow viscosity type {:}'.format(viscosity))
-    options.v_viscosity = Constant(1e-4)
+    options.vertical_viscosity = Constant(1e-4)
     options.horizontal_diffusivity = None
     options.horizontal_viscosity_scale = Constant(nu_scale)
     options.horizontal_velocity_scale = Constant(u_max)

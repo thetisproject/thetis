@@ -112,7 +112,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
         options.use_lax_friedrichs_velocity = False
         options.use_lax_friedrichs_tracer = False
     options.use_limiter_for_tracers = True
-    options.v_viscosity = Constant(1.0e-4)
+    options.vertical_viscosity = Constant(1.0e-4)
     if viscosity == 'smag':
         options.use_smagorinsky_viscosity = True
         options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))

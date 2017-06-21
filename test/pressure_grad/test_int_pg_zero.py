@@ -73,7 +73,7 @@ def compute_pg_error(**kwargs):
     options.use_lax_friedrichs_tracer = False
     options.coriolis_frequency = None
     options.use_limiter_for_tracers = False
-    options.v_viscosity = None
+    options.vertical_viscosity = None
     options.horizontal_viscosity = None
     options.horizontal_diffusivity = None
     options.t_export = 900.

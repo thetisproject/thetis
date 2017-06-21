@@ -69,7 +69,7 @@ def run_katophillips(**model_options):
     options.use_ale_moving_mesh = False
     options.baroclinic = True
     options.use_limiter_for_tracers = False
-    options.v_viscosity = Constant(1.3e-6)  # background value
+    options.vertical_viscosity = Constant(1.3e-6)  # background value
     options.vertical_diffusivity = Constant(1.4e-7)  # background value
     options.wind_stress = wind_stress_2d
     options.no_exports = True
