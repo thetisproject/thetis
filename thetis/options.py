@@ -276,15 +276,15 @@ class ModelOptions(AttrDict, FrozenClass):
         """Coefficient or None: Stress at free surface (2D vector function)"""
         self.atmospheric_pressure = None
         """Coefficient or None: Atmospheric pressure at free surface, in pascals"""
-        self.uv_source_2d = None
+        self.momentum_source_2d = None
         """Coefficient or None: source term for 2D momentum equation"""
-        self.uv_source_3d = None
+        self.momentum_source_3d = None
         """Coefficient or None: source term for 3D momentum equation"""
-        self.elev_source_2d = None
+        self.volume_source_2d = None
         """Coefficient or None: source term for 2D continuity equation"""
-        self.salt_source_3d = None
+        self.salinity_source_3d = None
         """Coefficient or None: source term for salinity equation"""
-        self.temp_source_3d = None
+        self.temperature_source_3d = None
         """Coefficient or None: source term for temperature equation"""
         self.constant_temperature = Constant(10.0)
         """Coefficient: Constant temperature if temperature is not solved"""

@@ -167,7 +167,7 @@ def run(setup, refinement, order, do_export=True, **options):
     # functions for source terms
     source_salt = Function(solver_obj.function_spaces.H, name='salinity source')
     source_salt.project(sdict['res_expr'])
-    solver_obj.options.salt_source_3d = source_salt
+    solver_obj.options.salinity_source_3d = source_salt
 
     # diffusivuty
     kappa = Function(solver_obj.function_spaces.P1, name='diffusivity')

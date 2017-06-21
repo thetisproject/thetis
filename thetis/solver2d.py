@@ -252,8 +252,8 @@ class FlowSolver2d(FrozenClass):
             'coriolis': self.options.coriolis_frequency,
             'wind_stress': self.options.wind_stress,
             'atmospheric_pressure': self.options.atmospheric_pressure,
-            'uv_source': self.options.uv_source_2d,
-            'elev_source': self.options.elev_source_2d, }
+            'momentum_source': self.options.momentum_source_2d,
+            'volume_source': self.options.volume_source_2d, }
         self.set_time_step()
         if self.options.timestepper_type.lower() == 'ssprk33':
             self.timestepper = rungekutta.SSPRK33(self.eq_sw, self.fields.solution_2d,

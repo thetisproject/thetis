@@ -200,9 +200,9 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         Create time integrator for 2D system
         """
         solver = self.solver
-        uv_source_2d = solver.fields.split_residual_2d
-        if self.options.uv_source_2d is not None:
-            uv_source_2d = solver.fields.split_residual_2d + self.options.uv_source_2d
+        momentum_source_2d = solver.fields.split_residual_2d
+        if self.options.momentum_source_2d is not None:
+            momentum_source_2d = solver.fields.split_residual_2d + self.options.momentum_source_2d
         fields = {
             'uv_bottom': solver.fields.get('uv_bottom_2d'),
             'bottom_drag': solver.fields.get('bottom_drag_2d'),
@@ -210,8 +210,8 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
             'coriolis': self.options.coriolis_frequency,
             'wind_stress': self.options.wind_stress,
-            'uv_source': uv_source_2d,
-            'elev_source': self.options.elev_source_2d,
+            'momentum_source': momentum_source_2d,
+            'volume_source': self.options.volume_source_2d,
             'linear_drag_coefficient': self.options.linear_drag_coefficient}
 
         if issubclass(self.integrator_2d, (rungekutta.ERKSemiImplicitGeneric)):
@@ -243,7 +243,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                   'w_mesh': self.fields.get('w_mesh_3d'),
                   'viscosity_v': expl_v_visc,
                   'viscosity_h': self.solver.tot_h_visc.get_sum(),
-                  'source': self.options.uv_source_3d,
+                  'source': self.options.momentum_source_3d,
                   # uv_mag': self.fields.uv_mag_3d,
                   'uv_p1': self.fields.get('uv_p1_3d'),
                   'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
@@ -280,7 +280,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'w_mesh': self.fields.get('w_mesh_3d'),
                       'diffusivity_h': self.solver.tot_h_diff.get_sum(),
                       'diffusivity_v': expl_v_diff,
-                      'source': self.options.salt_source_3d,
+                      'source': self.options.salinity_source_3d,
                       # uv_mag': self.fields.uv_mag_3d,
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
@@ -313,7 +313,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'w_mesh': self.fields.get('w_mesh_3d'),
                       'diffusivity_h': self.solver.tot_h_diff.get_sum(),
                       'diffusivity_v': expl_v_diff,
-                      'source': self.options.temp_source_3d,
+                      'source': self.options.temperature_source_3d,
                       # uv_mag': self.fields.uv_mag_3d,
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,

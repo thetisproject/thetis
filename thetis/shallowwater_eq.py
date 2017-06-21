@@ -747,10 +747,10 @@ class MomentumSourceTerm(ShallowWaterMomentumTerm):
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
-        uv_source = fields_old.get('uv_source')
+        momentum_source = fields_old.get('momentum_source')
 
-        if uv_source is not None:
-            f += -inner(uv_source, self.u_test)*self.dx
+        if momentum_source is not None:
+            f += -inner(momentum_source, self.u_test)*self.dx
         return -f
 
 
@@ -770,10 +770,10 @@ class ContinuitySourceTerm(ShallowWaterContinuityTerm):
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
-        elev_source = fields_old.get('elev_source')
+        volume_source = fields_old.get('volume_source')
 
-        if elev_source is not None:
-            f += -inner(elev_source, self.eta_test)*self.dx
+        if volume_source is not None:
+            f += -inner(volume_source, self.eta_test)*self.dx
         return -f
 
 

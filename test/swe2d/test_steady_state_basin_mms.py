@@ -172,8 +172,8 @@ def run(setup, refinement, order, do_export=True, options=None,
     source_uv.project(sdict['res_uv_expr'])
     source_elev = Function(solver_obj.function_spaces.H_2d, name='continuity source')
     source_elev.project(sdict['res_elev_expr'])
-    solver_obj.options.uv_source_2d = source_uv
-    solver_obj.options.elev_source_2d = source_elev
+    solver_obj.options.momentum_source_2d = source_uv
+    solver_obj.options.volume_source_2d = source_elev
     if 'cori_expr' in sdict:
         coriolis_func = Function(solver_obj.function_spaces.H_2d, name='coriolis')
         coriolis_func.project(sdict['cori_expr'])
