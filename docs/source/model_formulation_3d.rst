@@ -25,11 +25,11 @@ The solver is implemented in :py:class:`~.VerticalVelocitySolver`.
 
 Water temperature and salinity are modeled as tracers by the means of the
 tracer advection-diffusion equation :eq:`tracer_eq`.
-Options :py:attr:`.ModelOptions.solve_temp`, :py:attr:`.ModelOptions.solve_salt`
+Options :py:attr:`.ModelOptions.solve_temperature`, :py:attr:`.ModelOptions.solve_salinity`
 determine whether the dynamic equations are solved at run time.
 If not, we treat these variables as constants whose value is set with
-:py:attr:`.ModelOptions.constant_temp` and
-:py:attr:`.ModelOptions.constant_salt` options.
+:py:attr:`.ModelOptions.constant_temperature` and
+:py:attr:`.ModelOptions.constant_salinity` options.
 
 In baroclinic simulations the water density, :math:`\rho`,  depends on the
 temperature and salinity via the equation of state:
@@ -84,7 +84,7 @@ Equal order Discontinuous Galerkin (DG)
 (option ``'dg-dg'``), and mimetic Raviart-Thomas-DG family (``'rt-dg'``).
 The element family is set by the :py:attr:`.ModelOptions.element_family` option.
 Currently only linear elements are supported, i.e.
-:py:attr:`.ModelOptions.order` must be 1.
+:py:attr:`.ModelOrder.polynomial_degree` must be 1.
 
 The function spaces for both element families are summarized in the following
 tables.

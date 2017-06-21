@@ -36,7 +36,7 @@ P1DG-P2            ``'dg-cg'``  1           P(n)DG     P(n+1)
 
 Table 1. *Finite element families for polynomial degree n.*
 
-The element family and polynomial degree are set by the :py:attr:`.ModelOptions.element_family` and :py:attr:`.ModelOptions.order` options.
+The element family and polynomial degree are set by the :py:attr:`.ModelOptions.element_family` and :py:attr:`.ModelOrder.polynomial_degree` options.
 
 Temporal discretization
 -----------------------
