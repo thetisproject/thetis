@@ -81,7 +81,7 @@ options.smagorinsky_coefficient = Constant(1.0/np.sqrt(Re_h))
 options.t_export = t_export
 options.t_end = t_end
 options.output_directory = outputdir
-options.u_advection = Constant(2.0)
+options.horizontal_velocity_scale = Constant(2.0)
 options.check_salinity_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d', 'density_3d',

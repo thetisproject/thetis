@@ -141,8 +141,8 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.v_viscosity = Constant(1e-4)
     options.horizontal_diffusivity = None
     options.nu_viscosity = Constant(nu_scale)
-    options.u_advection = Constant(u_max)
-    options.w_advection = Constant(w_max)
+    options.horizontal_velocity_scale = Constant(u_max)
+    options.vertical_velocity_scale = Constant(w_max)
     options.dt = dt
     options.t_export = t_export
     options.t_end = t_end

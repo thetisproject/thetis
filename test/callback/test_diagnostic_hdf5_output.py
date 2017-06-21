@@ -54,7 +54,7 @@ def test_callbacks(tmp_outputdir):
     options.dt = dt/40.0
     options.t_export = t_export
     options.t_end = t_end
-    options.u_advection = u_mag
+    options.horizontal_velocity_scale = u_mag
     options.check_salinity_conservation = True
     options.check_salinity_overshoot = True
     options.check_volume_conservation_2d = True

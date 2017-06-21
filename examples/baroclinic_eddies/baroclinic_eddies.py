@@ -127,8 +127,8 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.t_export = t_export
     options.t_end = t_end
     options.output_directory = outputdir
-    options.u_advection = Constant(u_max)
-    options.w_advection = Constant(w_max)
+    options.horizontal_velocity_scale = Constant(u_max)
+    options.vertical_velocity_scale = Constant(w_max)
     options.check_volume_conservation_2d = True
     options.check_volume_conservation_3d = True
     options.check_temperature_conservation = True

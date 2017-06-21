@@ -287,9 +287,9 @@ class FlowSolver(FrozenClass):
         """
         cfl2d = self.timestepper.cfl_coeff_2d
         cfl3d = self.timestepper.cfl_coeff_3d
-        max_dt_swe = self.compute_dt_2d(self.options.u_advection)
-        max_dt_hadv = self.compute_dt_h_advection(self.options.u_advection)
-        max_dt_vadv = self.compute_dt_v_advection(self.options.w_advection)
+        max_dt_swe = self.compute_dt_2d(self.options.horizontal_velocity_scale)
+        max_dt_hadv = self.compute_dt_h_advection(self.options.horizontal_velocity_scale)
+        max_dt_vadv = self.compute_dt_v_advection(self.options.vertical_velocity_scale)
         max_dt_diff = self.compute_dt_diffusion(self.options.nu_viscosity)
         print_output('  - dt 2d swe: {:}'.format(max_dt_swe))
         print_output('  - dt h. advection: {:}'.format(max_dt_hadv))

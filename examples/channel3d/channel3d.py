@@ -50,8 +50,8 @@ options.use_lax_friedrichs_tracer = False
 options.t_export = t_export
 options.t_end = t_end
 options.output_directory = outputdir
-options.u_advection = Constant(u_max)
-options.w_advection = Constant(w_max)
+options.horizontal_velocity_scale = Constant(u_max)
+options.vertical_velocity_scale = Constant(w_max)
 options.check_salinity_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',

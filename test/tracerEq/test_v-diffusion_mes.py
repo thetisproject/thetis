@@ -54,7 +54,7 @@ def run(refinement, **model_options):
     options.use_nonlinear_equations = False
     options.use_ale_moving_mesh = False
     options.use_limiter_for_tracers = False
-    options.u_advection = Constant(1.0)
+    options.horizontal_velocity_scale = Constant(1.0)
     options.no_exports = True
     options.output_directory = outputdir
     options.t_end = t_end

@@ -166,13 +166,13 @@ class ModelOptions(AttrDict, FrozenClass):
         """
         self.t_end = 1000.0
         """float: Simulation duration in seconds"""
-        self.u_advection = Constant(0.1)
+        self.horizontal_velocity_scale = Constant(0.1)
         """
         :class:`Constant`: Maximum horizontal velocity magnitude
 
         Used to compute max stable advection time step.
         """
-        self.w_advection = Constant(1e-4)
+        self.vertical_velocity_scale = Constant(1e-4)
         """
         :class:`Constant`: Maximum vertical velocity magnitude
 

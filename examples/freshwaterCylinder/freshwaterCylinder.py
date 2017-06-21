@@ -229,7 +229,7 @@ else:
 options.t_export = t_export
 options.t_end = t_end
 options.output_directory = outputdir
-options.u_advection = Constant(1.5)
+options.horizontal_velocity_scale = Constant(1.5)
 options.check_volume_conservation_2d = True
 options.check_volume_conservation_3d = True
 options.check_salinity_conservation = True

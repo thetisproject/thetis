@@ -156,8 +156,8 @@ Thetis can also estimate the maximum stable time step based on the mesh
 resolution, used element family and time integration scheme.
 To use this feature, the user should provide the following estimates:
 
-- :py:attr:`.ModelOptions.u_advection`: Maximal horizontal velocity scale
-- :py:attr:`.ModelOptions.w_advection`: Maximal vertical velocity scale
+- :py:attr:`.ModelOptions.horizontal_velocity_scale`: Maximal horizontal velocity scale
+- :py:attr:`.ModelOptions.vertical_velocity_scale`: Maximal vertical velocity scale
 - :py:attr:`.ModelOptions.nu_viscosity`: Maximal horizontal viscosity scale
 
 When the simulation initializes, Thetis will compute the maximal feasible time

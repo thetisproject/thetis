@@ -168,7 +168,7 @@ class FlowSolver2d(FrozenClass):
         # TODO revisit math alpha is OBSOLETE
         self.dt = self.options.dt
         if self.dt is None:
-            mesh2d_dt = self.compute_time_step(u_scale=self.options.u_advection)
+            mesh2d_dt = self.compute_time_step(u_scale=self.options.horizontal_velocity_scale)
             dt = self.options.cfl_2d*alpha*float(mesh2d_dt.dat.data.min())
             dt = self.comm.allreduce(dt, op=MPI.MIN)
             self.dt = dt

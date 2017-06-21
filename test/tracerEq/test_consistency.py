@@ -83,7 +83,7 @@ def run_tracer_consistency(**model_options):
     options.use_lax_friedrichs_velocity = False
     options.t_export = t_export
     options.t_end = t_end
-    options.u_advection = u_mag
+    options.horizontal_velocity_scale = u_mag
     options.check_volume_conservation_2d = True
     options.check_volume_conservation_3d = True
     options.check_salinity_conservation = True

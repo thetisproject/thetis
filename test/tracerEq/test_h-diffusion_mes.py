@@ -63,7 +63,7 @@ def run(refinement, **model_options):
     options = solverobj.options
     options.use_nonlinear_equations = False
     options.use_ale_moving_mesh = False
-    options.u_advection = Constant(1.0)
+    options.horizontal_velocity_scale = Constant(1.0)
     options.no_exports = True
     options.output_directory = outputdir
     options.t_end = t_end

@@ -53,8 +53,8 @@ def test_closed_channel(**user_options):
     options.t_end = t_end
     options.no_exports = True
     options.output_directory = outputdir
-    options.u_advection = Constant(u_max)
-    options.w_advection = Constant(w_max)
+    options.horizontal_velocity_scale = Constant(u_max)
+    options.vertical_velocity_scale = Constant(w_max)
     options.check_volume_conservation_2d = True
     options.check_volume_conservation_3d = True
     options.check_salinity_conservation = True

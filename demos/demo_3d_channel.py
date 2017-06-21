@@ -72,8 +72,8 @@ options.check_salinity_overshoot = True
 
 u_max = 0.5
 w_max = 2e-4
-options.u_advection = Constant(u_max)
-options.w_advection = Constant(w_max)
+options.horizontal_velocity_scale = Constant(u_max)
+options.vertical_velocity_scale = Constant(w_max)
 
 
 # Next we define the boundary conditions. Note that in a 3D model there are

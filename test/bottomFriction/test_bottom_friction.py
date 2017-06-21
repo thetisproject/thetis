@@ -77,7 +77,7 @@ def run_bottom_friction(parabolic_visosity=False,
     options.t_end = t_end
     options.no_exports = not do_export
     options.output_directory = outputdir
-    options.u_advection = u_mag
+    options.horizontal_velocity_scale = u_mag
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                                 'uv_dav_2d', 'uv_bottom_2d',
                                 'parab_visc_3d', 'eddy_visc_3d', 'shear_freq_3d',
