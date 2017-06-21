@@ -40,7 +40,7 @@ coriolis_2d.interpolate(
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
 options.use_nonlinear_equations = False
-options.coriolis = coriolis_2d
+options.coriolis_frequency = coriolis_2d
 options.t_export = t_export
 options.t_end = t_end
 options.dt = 20.0

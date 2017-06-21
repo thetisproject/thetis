@@ -208,7 +208,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             'bottom_drag': solver.fields.get('bottom_drag_2d'),
             'viscosity_h': self.options.get('h_viscosity'),  # FIXME should be total h visc
             'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
-            'coriolis': self.options.coriolis,
+            'coriolis': self.options.coriolis_frequency,
             'wind_stress': self.options.wind_stress,
             'uv_source': uv_source_2d,
             'elev_source': self.options.elev_source_2d,

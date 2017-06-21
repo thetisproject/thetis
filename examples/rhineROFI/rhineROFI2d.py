@@ -61,7 +61,7 @@ bathymetry_2d.interpolate(Expression('(x[0] > 0.0) ? H*(1-x[0]/Lriver) + HInlet*
 # create solver
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
-options.coriolis = Constant(coriolis_f)
+options.coriolis_frequency = Constant(coriolis_f)
 options.h_viscosity = Constant(10.0)
 options.t_export = t_export
 options.t_end = t_end

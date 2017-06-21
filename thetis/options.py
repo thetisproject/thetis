@@ -270,7 +270,7 @@ class ModelOptions(AttrDict, FrozenClass):
         """Coefficient or None: background horizontal viscosity"""
         self.v_viscosity = None
         """Coefficient or None: background vertical viscosity"""
-        self.coriolis = None
+        self.coriolis_frequency = None
         """2D Coefficient or None: Coriolis parameter"""
         self.wind_stress = None
         """Coefficient or None: Stress at free surface (2D vector function)"""

@@ -177,7 +177,7 @@ def run(setup, refinement, order, do_export=True, options=None,
     if 'cori_expr' in sdict:
         coriolis_func = Function(solver_obj.function_spaces.H_2d, name='coriolis')
         coriolis_func.project(sdict['cori_expr'])
-        solver_obj.options.coriolis = coriolis_func
+        solver_obj.options.coriolis_frequency = coriolis_func
     if 'visc_expr' in sdict:
         viscosity_space = FunctionSpace(solver_obj.mesh2d, "CG", order)
         viscosity_func = Function(viscosity_space, name='viscosity')

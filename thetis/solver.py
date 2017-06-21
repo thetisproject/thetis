@@ -495,12 +495,12 @@ class FlowSolver(FrozenClass):
                 self.fields.density_3d = Function(self.function_spaces.H, name='Density')
             self.fields.baroc_head_3d = Function(self.function_spaces.H_bhead)
             self.fields.int_pg_3d = Function(self.function_spaces.U_int_pg, name='int_pg_3d')
-        if self.options.coriolis is not None:
-            if isinstance(self.options.coriolis, FiredrakeConstant):
-                self.fields.coriolis_3d = self.options.coriolis
+        if self.options.coriolis_frequency is not None:
+            if isinstance(self.options.coriolis_frequency, FiredrakeConstant):
+                self.fields.coriolis_3d = self.options.coriolis_frequency
             else:
                 self.fields.coriolis_3d = Function(self.function_spaces.P1)
-                ExpandFunctionTo3d(self.options.coriolis, self.fields.coriolis_3d).solve()
+                ExpandFunctionTo3d(self.options.coriolis_frequency, self.fields.coriolis_3d).solve()
         if self.options.wind_stress is not None:
             if isinstance(self.options.wind_stress, FiredrakeFunction):
                 # assume 2d function and expand to 3d

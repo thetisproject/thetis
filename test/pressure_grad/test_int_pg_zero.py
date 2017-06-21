@@ -71,7 +71,7 @@ def compute_pg_error(**kwargs):
     options.baroclinic = True
     options.use_lax_friedrichs_velocity = False
     options.use_lax_friedrichs_tracer = False
-    options.coriolis = None
+    options.coriolis_frequency = None
     options.use_limiter_for_tracers = False
     options.v_viscosity = None
     options.h_viscosity = None

@@ -249,7 +249,7 @@ class FlowSolver2d(FrozenClass):
             'manning_drag_coefficient': self.options.manning_drag_coefficient,
             'viscosity_h': self.options.h_viscosity,
             'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
-            'coriolis': self.options.coriolis,
+            'coriolis': self.options.coriolis_frequency,
             'wind_stress': self.options.wind_stress,
             'atmospheric_pressure': self.options.atmospheric_pressure,
             'uv_source': self.options.uv_source_2d,
