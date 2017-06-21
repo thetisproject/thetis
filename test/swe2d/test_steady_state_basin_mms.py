@@ -147,7 +147,7 @@ def run(setup, refinement, order, do_export=True, options=None,
     solver_obj.options.element_family = 'rt-dg'
     solver_obj.options.u_advection = Constant(1.0)
     solver_obj.options.no_exports = not do_export
-    solver_obj.options.outputdir = outputdir
+    solver_obj.options.output_directory = outputdir
     solver_obj.options.t_end = t_end
     solver_obj.options.dt = dt
     solver_obj.options.t_export = t_export

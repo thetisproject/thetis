@@ -128,7 +128,7 @@ class DiagnosticCallback(object):
         """
         self.solver_obj = solver_obj
         if outputdir is None:
-            self.outputdir = self.solver_obj.options.outputdir
+            self.outputdir = self.solver_obj.options.output_directory
         else:
             self.outputdir = outputdir
         self.append_to_hdf5 = export_to_hdf5

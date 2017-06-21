@@ -50,7 +50,7 @@ def run(refinement, **model_options):
     options.use_ale_moving_mesh = False
     options.u_advection = Constant(1.0)
     options.no_exports = True
-    options.outputdir = outputdir
+    options.output_directory = outputdir
     options.t_end = t_end
     options.t_export = t_export
     options.solve_salinity = False
@@ -82,7 +82,7 @@ def run(refinement, **model_options):
 
     # export analytical solution
     if not options.no_exports:
-        out_uv_ana = File(os.path.join(options.outputdir, 'uv_ana.pvd'))
+        out_uv_ana = File(os.path.join(options.output_directory, 'uv_ana.pvd'))
 
     def export_func():
         if not options.no_exports:

@@ -90,13 +90,13 @@ def run_tracer_consistency(**model_options):
     options.check_salinity_overshoot = True
     options.check_temperature_conservation = True
     options.check_temperature_overshoot = True
-    options.outputdir = outputdir
+    options.output_directory = outputdir
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'salt_3d', 'temp_3d',
                                 'uv_dav_2d', 'uv_bottom_2d']
     options.update(model_options)
     if not options.no_exports:
-        print_output('Exporting to {:}'.format(options.outputdir))
+        print_output('Exporting to {:}'.format(options.output_directory))
 
     solver_obj.create_function_spaces()
     elev_init = Function(solver_obj.function_spaces.H_2d)

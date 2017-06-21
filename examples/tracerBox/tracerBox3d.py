@@ -92,7 +92,7 @@ options.check_salinity_conservation = True
 options.check_salinity_overshoot = True
 options.check_temperature_conservation = True
 options.check_temperature_overshoot = True
-options.outputdir = outputdir
+options.output_directory = outputdir
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d', 'temp_3d',
                             'uv_dav_2d', 'uv_bottom_2d']

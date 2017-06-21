@@ -36,7 +36,7 @@ class PlotCallback(DiagnosticCallback):
         if MATPLOTLIB_INSTALLED:
             outputdir = self.outputdir
             if outputdir is None:
-                outputdir = self.solver_obj.options.outputdir
+                outputdir = self.solver_obj.options.output_directory
             imgdir = os.path.join(outputdir, 'plots')
             self.imgdir = create_directory(imgdir)
             # store density difference

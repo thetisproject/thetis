@@ -76,7 +76,7 @@ def run_katophillips(**model_options):
     options.t_export = t_export
     options.dt = dt
     options.t_end = t_end
-    options.outputdir = outputdir
+    options.output_directory = outputdir
     options.u_advection = u_mag
     options.check_salinity_overshoot = True
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',

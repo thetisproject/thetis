@@ -240,7 +240,7 @@ def run(setup, refinement, order, do_export=True):
     solver_obj.options.solve_temperature = False
     solver_obj.options.u_advection = Constant(1.0)
     solver_obj.options.no_exports = not do_export
-    solver_obj.options.outputdir = outputdir
+    solver_obj.options.output_directory = outputdir
     solver_obj.options.dt = 30.0
     solver_obj.options.dt_2d = 10.0
     solver_obj.options.update(sdict['options'])

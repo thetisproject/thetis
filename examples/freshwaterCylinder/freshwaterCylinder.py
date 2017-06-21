@@ -228,7 +228,7 @@ else:
     raise Exception('Unknow viscosity type {:}'.format(viscosity))
 options.t_export = t_export
 options.t_end = t_end
-options.outputdir = outputdir
+options.output_directory = outputdir
 options.u_advection = Constant(1.5)
 options.check_volume_conservation_2d = True
 options.check_volume_conservation_3d = True

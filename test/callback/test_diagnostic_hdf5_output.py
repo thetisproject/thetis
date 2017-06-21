@@ -97,7 +97,7 @@ def test_callbacks(tmp_outputdir):
     cb = ConstCallback(const_value,
                        solver_obj,
                        export_to_hdf5=True,
-                       outputdir=solver_obj.options.outputdir)
+                       outputdir=solver_obj.options.output_directory)
 
     # test call interface
     val, integral = cb()

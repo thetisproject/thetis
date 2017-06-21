@@ -237,7 +237,7 @@ class FlowSolver2d(FrozenClass):
         self._isfrozen = False
 
         if self.options.log_output and not self.options.no_exports:
-            logfile = os.path.join(create_directory(self.options.outputdir), 'log')
+            logfile = os.path.join(create_directory(self.options.output_directory), 'log')
             filehandler = logging.logging.FileHandler(logfile, mode='w')
             filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
             output_logger.addHandler(filehandler)
@@ -351,14 +351,14 @@ class FlowSolver2d(FrozenClass):
         self.fields.elev_2d = elev_2d
         self.exporters = {}
         if not self.options.no_exports:
-            e = exporter.ExportManager(self.options.outputdir,
+            e = exporter.ExportManager(self.options.output_directory,
                                        self.options.fields_to_export,
                                        self.fields,
                                        field_metadata,
                                        export_type='vtk',
                                        verbose=self.options.verbose > 0)
             self.exporters['vtk'] = e
-            hdf5_dir = os.path.join(self.options.outputdir, 'hdf5')
+            hdf5_dir = os.path.join(self.options.output_directory, 'hdf5')
             e = exporter.ExportManager(hdf5_dir,
                                        self.options.fields_to_export_hdf5,
                                        self.fields,
@@ -438,7 +438,7 @@ class FlowSolver2d(FrozenClass):
 
         :arg int i_export: export index to load
         :kwarg string outputdir: (optional) directory where files are read from.
-            By default ``options.outputdir``.
+            By default ``options.output_directory``.
         :kwarg float t: simulation time. Overrides the time stamp stored in the
             hdf5 files.
         :kwarg int iteration: Overrides the iteration count in the hdf5 files.
@@ -446,7 +446,7 @@ class FlowSolver2d(FrozenClass):
         if not self._initialized:
             self.initialize()
         if outputdir is None:
-            outputdir = self.options.outputdir
+            outputdir = self.options.output_directory
         # create new ExportManager with desired outputdir
         state_fields = ['uv_2d', 'elev_2d']
         hdf5_dir = os.path.join(outputdir, 'hdf5')
@@ -471,7 +471,7 @@ class FlowSolver2d(FrozenClass):
         self.simulation_time = t
 
         # for next export
-        self.export_initial_state = outputdir != self.options.outputdir
+        self.export_initial_state = outputdir != self.options.output_directory
         if self.export_initial_state:
             offset = 0
         else:

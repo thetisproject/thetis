@@ -146,7 +146,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.dt = dt
     options.t_export = t_export
     options.t_end = t_end
-    options.outputdir = outputdir
+    options.output_directory = outputdir
     options.check_volume_conservation_2d = True
     options.check_volume_conservation_3d = True
     options.check_temperature_conservation = True

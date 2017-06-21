@@ -83,8 +83,8 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d', 'uv_bottom_2d',
 gls_options = options.gls_options
 gls_options.apply_defaults('k-omega')
 gls_options.stability_name = 'CB'
-options.outputdir = outputdir + '_' + gls_options.closure_name + '-' + gls_options.stability_name
-print_output('Exporting to ' + options.outputdir)
+options.output_directory = outputdir + '_' + gls_options.closure_name + '-' + gls_options.stability_name
+print_output('Exporting to ' + options.output_directory)
 
 solver_obj.create_function_spaces()
 
@@ -116,7 +116,7 @@ if __name__ == '__main__':
     u_b = u_max * kappa / np.log((depth + z_0)/z_0)
     log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')
     log_uv.project(as_vector((u_b / kappa * ln((xyz[2] + depth + z_0)/z_0), 0, 0)))
-    out = File(options.outputdir + '/log_uv.pvd')
+    out = File(options.output_directory + '/log_uv.pvd')
     out.write(log_uv)
 
     uv_p1_dg = Function(solver_obj.function_spaces.P1DGv, name='velocity p1dg')

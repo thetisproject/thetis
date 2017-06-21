@@ -184,7 +184,7 @@ class ModelOptions(AttrDict, FrozenClass):
 
         Used to compute max stable diffusion time step.
         """
-        self.outputdir = 'outputs'
+        self.output_directory = 'outputs'
         """str: Directory where model output files are stored"""
         self.no_exports = False
         """
