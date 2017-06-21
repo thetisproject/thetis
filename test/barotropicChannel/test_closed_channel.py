@@ -55,8 +55,8 @@ def test_closed_channel(**user_options):
     options.outputdir = outputdir
     options.u_advection = Constant(u_max)
     options.w_advection = Constant(w_max)
-    options.check_vol_conservation_2d = True
-    options.check_vol_conservation_3d = True
+    options.check_volume_conservation_2d = True
+    options.check_volume_conservation_3d = True
     options.check_salt_conservation = True
     options.check_salt_overshoot = True
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',

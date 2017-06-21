@@ -46,7 +46,7 @@ options.t_end = t_end
 options.dt = 20.0
 options.outputdir = outputdir
 options.u_advection = Constant(0.01)
-options.check_vol_conservation_2d = True
+options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.timestepper_type = 'CrankNicolson'
 

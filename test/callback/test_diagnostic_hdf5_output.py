@@ -57,8 +57,8 @@ def test_callbacks(tmp_outputdir):
     options.u_advection = u_mag
     options.check_salt_conservation = True
     options.check_salt_overshoot = True
-    options.check_vol_conservation_2d = True
-    options.check_vol_conservation_3d = True
+    options.check_volume_conservation_2d = True
+    options.check_volume_conservation_3d = True
     options.fields_to_export = []
     options.fields_to_export_hdf5 = []
 

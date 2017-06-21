@@ -147,8 +147,8 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.t_export = t_export
     options.t_end = t_end
     options.outputdir = outputdir
-    options.check_vol_conservation_2d = True
-    options.check_vol_conservation_3d = True
+    options.check_volume_conservation_2d = True
+    options.check_volume_conservation_3d = True
     options.check_temp_conservation = True
     options.check_temp_overshoot = True
     options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',

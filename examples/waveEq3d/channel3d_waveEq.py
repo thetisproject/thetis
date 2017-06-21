@@ -57,8 +57,8 @@ options.use_ale_moving_mesh = True
 options.t_export = t_export
 options.t_end = t_end
 options.u_advection = u_mag
-options.check_vol_conservation_2d = True
-options.check_vol_conservation_3d = True
+options.check_volume_conservation_2d = True
+options.check_volume_conservation_3d = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
                             'uv_dav_2d', 'uv_bottom_2d']

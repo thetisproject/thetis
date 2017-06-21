@@ -66,8 +66,8 @@ options.dt_2d = 20.0
 options.dt = 450.0
 options.outputdir = outputdir
 options.u_advection = Constant(0.01)
-options.check_vol_conservation_2d = True
-options.check_vol_conservation_3d = True
+options.check_volume_conservation_2d = True
+options.check_volume_conservation_3d = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'uv_dav_2d']
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d']

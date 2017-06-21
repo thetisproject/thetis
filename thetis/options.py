@@ -100,14 +100,14 @@ class ModelOptions(AttrDict, FrozenClass):
         """bool: use Lax Friedrichs stabilisation in tracer advection."""
         self.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
         """:class:`Constant`: Scaling factor for tracer Lax Friedrichs stability term."""
-        self.check_vol_conservation_2d = False
+        self.check_volume_conservation_2d = False
         """
         bool: Compute volume of the 2D mode at every export
 
         2D volume is defined as the integral of the water elevation field.
         Prints deviation from the initial volume to stdout.
         """
-        self.check_vol_conservation_3d = False
+        self.check_volume_conservation_3d = False
         """
         bool: Compute volume of the 2D domain at every export
 

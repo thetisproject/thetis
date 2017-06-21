@@ -986,19 +986,19 @@ class FlowSolver(FrozenClass):
         self.options.check_salt_overshoot *= self.options.solve_salinity
         self.options.check_temp_conservation *= self.options.solve_temperature
         self.options.check_temp_overshoot *= self.options.solve_temperature
-        self.options.check_vol_conservation_3d *= self.options.use_ale_moving_mesh
+        self.options.check_volume_conservation_3d *= self.options.use_ale_moving_mesh
         self.options.use_limiter_for_tracers *= self.options.polynomial_degree > 0
 
         t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()
 
         dump_hdf5 = self.options.export_diagnostics and not self.options.no_exports
-        if self.options.check_vol_conservation_2d:
+        if self.options.check_volume_conservation_2d:
             c = callback.VolumeConservation2DCallback(self,
                                                       export_to_hdf5=dump_hdf5,
                                                       append_to_log=True)
             self.add_callback(c, eval_interval='export')
-        if self.options.check_vol_conservation_3d:
+        if self.options.check_volume_conservation_3d:
             c = callback.VolumeConservation3DCallback(self,
                                                       export_to_hdf5=dump_hdf5,
                                                       append_to_log=True)

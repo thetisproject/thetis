@@ -36,7 +36,7 @@ def basic_setup():
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     options = solver_obj.options
     options.t_export = t_export
-    options.check_vol_conservation_2d = True
+    options.check_volume_conservation_2d = True
     options.fields_to_export = ['uv_2d', 'elev_2d']
     options.dt = timestep  # override computed dt
     options.h_viscosity = Constant(2.0)

@@ -519,7 +519,7 @@ class FlowSolver2d(FrozenClass):
         next_export_t = self.simulation_time + self.options.t_export
 
         dump_hdf5 = self.options.export_diagnostics and not self.options.no_exports
-        if self.options.check_vol_conservation_2d:
+        if self.options.check_volume_conservation_2d:
             c = callback.VolumeConservation2DCallback(self,
                                                       export_to_hdf5=dump_hdf5,
                                                       append_to_log=True)
