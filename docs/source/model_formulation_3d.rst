@@ -158,7 +158,7 @@ To use this feature, the user should provide the following estimates:
 
 - :py:attr:`.ModelOptions.horizontal_velocity_scale`: Maximal horizontal velocity scale
 - :py:attr:`.ModelOptions.vertical_velocity_scale`: Maximal vertical velocity scale
-- :py:attr:`.ModelOptions.nu_viscosity`: Maximal horizontal viscosity scale
+- :py:attr:`.ModelOptions.horizontal_viscosity_scale`: Maximal horizontal viscosity scale
 
 When the simulation initializes, Thetis will compute the maximal feasible time
 step:

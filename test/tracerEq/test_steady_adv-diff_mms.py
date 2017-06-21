@@ -159,7 +159,7 @@ def run(setup, refinement, order, do_export=True, **options):
     solver_obj.options.t_end = t_end
     solver_obj.options.fields_to_export = ['salt_3d', 'uv_3d', 'w_3d']
     solver_obj.options.update(sdict['options'])
-    solver_obj.options.nu_viscosity = Constant(kappa0)
+    solver_obj.options.horizontal_viscosity_scale = Constant(kappa0)
     solver_obj.options.update(options)
 
     solver_obj.create_function_spaces()

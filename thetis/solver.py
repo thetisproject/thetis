@@ -290,7 +290,7 @@ class FlowSolver(FrozenClass):
         max_dt_swe = self.compute_dt_2d(self.options.horizontal_velocity_scale)
         max_dt_hadv = self.compute_dt_h_advection(self.options.horizontal_velocity_scale)
         max_dt_vadv = self.compute_dt_v_advection(self.options.vertical_velocity_scale)
-        max_dt_diff = self.compute_dt_diffusion(self.options.nu_viscosity)
+        max_dt_diff = self.compute_dt_diffusion(self.options.horizontal_viscosity_scale)
         print_output('  - dt 2d swe: {:}'.format(max_dt_swe))
         print_output('  - dt h. advection: {:}'.format(max_dt_hadv))
         print_output('  - dt v. advection: {:}'.format(max_dt_vadv))

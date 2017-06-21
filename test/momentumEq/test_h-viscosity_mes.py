@@ -57,7 +57,7 @@ def run(refinement, **model_options):
     options.solve_temperature = False
     options.fields_to_export = ['uv_3d']
     options.horizontal_viscosity = Constant(horizontal_viscosity)
-    options.nu_viscosity = Constant(horizontal_viscosity)
+    options.horizontal_viscosity_scale = Constant(horizontal_viscosity)
     options.update(model_options)
 
     solverobj.create_equations()

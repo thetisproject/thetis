@@ -73,7 +73,7 @@ def run(refinement, **model_options):
     options.use_limiter_for_tracers = False
     options.fields_to_export = ['salt_3d']
     options.horizontal_diffusivity = Constant(horizontal_diffusivity)
-    options.nu_viscosity = Constant(horizontal_diffusivity)
+    options.horizontal_viscosity_scale = Constant(horizontal_diffusivity)
     options.update(model_options)
 
     solverobj.create_equations()

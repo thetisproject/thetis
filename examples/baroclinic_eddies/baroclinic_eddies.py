@@ -116,10 +116,10 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     if viscosity == 'smag':
         options.use_smagorinsky_viscosity = True
         options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
-        options.nu_viscosity = Constant(nu_scale)
+        options.horizontal_viscosity_scale = Constant(nu_scale)
     elif viscosity == 'const':
         options.horizontal_viscosity = Constant(nu_scale)
-        options.nu_viscosity = Constant(nu_scale)
+        options.horizontal_viscosity_scale = Constant(nu_scale)
     elif viscosity != 'none':
         raise Exception('Unknow viscosity type {:}'.format(viscosity))
     options.horizontal_diffusivity = None

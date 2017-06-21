@@ -178,7 +178,7 @@ class ModelOptions(AttrDict, FrozenClass):
 
         Used to compute max stable advection time step.
         """
-        self.nu_viscosity = Constant(1.0)
+        self.horizontal_viscosity_scale = Constant(1.0)
         """
         :class:`Constant`: Maximum horizontal viscosity
 
