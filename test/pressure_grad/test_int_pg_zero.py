@@ -75,7 +75,7 @@ def compute_pg_error(**kwargs):
     options.use_limiter_for_tracers = False
     options.v_viscosity = None
     options.horizontal_viscosity = None
-    options.h_diffusivity = None
+    options.horizontal_diffusivity = None
     options.t_export = 900.
     options.t_end = 4*900.
     options.dt = 100.

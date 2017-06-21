@@ -262,9 +262,9 @@ class ModelOptions(AttrDict, FrozenClass):
 
         Used in bathymetry displacement function that ensures positive water depths. Unit is meters.
         """
-        self.h_diffusivity = None
+        self.horizontal_diffusivity = None
         """Coefficient or None: Background horizontal diffusivity for tracers"""
-        self.v_diffusivity = None
+        self.vertical_diffusivity = None
         """Coefficient or None: background vertical diffusivity for tracers"""
         self.horizontal_viscosity = None
         """Coefficient or None: background horizontal viscosity"""

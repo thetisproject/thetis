@@ -18,7 +18,7 @@ def run(refinement, **model_options):
     ly = 6.0e3/refinement
     area = lx*ly
     depth = 40.0
-    h_diffusivity = 1.0e3
+    horizontal_diffusivity = 1.0e3
 
     # mesh
     n_layers = 4*refinement
@@ -30,7 +30,7 @@ def run(refinement, **model_options):
     # # stable explicit time step for diffusion
     # dx = lx/nx
     # alpha = 1.0/200.0  # TODO theoretical alpha...
-    # dt = alpha * dx**2/h_diffusivity
+    # dt = alpha * dx**2/horizontal_diffusivity
     # # simulation run time
     # t_end = 3000.0
     # # initial time
@@ -72,8 +72,8 @@ def run(refinement, **model_options):
     options.use_implicit_vertical_diffusion = False
     options.use_limiter_for_tracers = False
     options.fields_to_export = ['salt_3d']
-    options.h_diffusivity = Constant(h_diffusivity)
-    options.nu_viscosity = Constant(h_diffusivity)
+    options.horizontal_diffusivity = Constant(horizontal_diffusivity)
+    options.nu_viscosity = Constant(horizontal_diffusivity)
     options.update(model_options)
 
     solverobj.create_equations()
@@ -82,7 +82,7 @@ def run(refinement, **model_options):
 
     ana_sol_expr = '0.5*(u_max + u_min) - 0.5*(u_max - u_min)*erf((x[0] - x0)/sqrt(4*D*t))'
     t_const = Constant(t)
-    ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_diffusivity, t=t_const)
+    ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, x0=lx/2.0, D=horizontal_diffusivity, t=t_const)
 
     salt_ana = Function(solverobj.function_spaces.H, name='salt analytical')
     salt_ana_p1 = Function(solverobj.function_spaces.P1, name='salt analytical')
@@ -105,7 +105,7 @@ def run(refinement, **model_options):
             solverobj.export()
             # update analytical solution to correct time
             t_const.assign(t)
-            ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_diffusivity, t=t_const)
+            ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, x0=lx/2.0, D=horizontal_diffusivity, t=t_const)
             salt_ana.project(ana_salt_expr)
             out_salt_ana.write(salt_ana_p1.project(salt_ana))
 
@@ -129,7 +129,7 @@ def run(refinement, **model_options):
 
     # project analytical solultion on high order mesh
     t_const.assign(t)
-    ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_diffusivity, t=t_const)
+    ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, x0=lx/2.0, D=horizontal_diffusivity, t=t_const)
     salt_ana_ho.project(ana_salt_expr)
     # compute L2 norm
     l2_err = errornorm(salt_ana_ho, solverobj.fields.salt_3d)/numpy.sqrt(area)

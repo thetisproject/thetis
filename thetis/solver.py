@@ -561,9 +561,9 @@ class FlowSolver(FrozenClass):
         self.tot_v_visc.add(self.fields.get('eddy_visc_3d'))
         self.tot_v_visc.add(self.fields.get('parab_visc_3d'))
         self.tot_h_diff = SumFunction()
-        self.tot_h_diff.add(self.options.get('h_diffusivity'))
+        self.tot_h_diff.add(self.options.get('horizontal_diffusivity'))
         self.tot_v_diff = SumFunction()
-        self.tot_v_diff.add(self.options.get('v_diffusivity'))
+        self.tot_v_diff.add(self.options.get('vertical_diffusivity'))
         self.tot_v_diff.add(self.fields.get('eddy_diff_3d'))
 
         # ----- Equations

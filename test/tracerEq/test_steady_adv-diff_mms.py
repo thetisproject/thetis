@@ -172,7 +172,7 @@ def run(setup, refinement, order, do_export=True, **options):
     # diffusivuty
     kappa = Function(solver_obj.function_spaces.P1, name='diffusivity')
     kappa.project(sdict['kappa_expr'])
-    solver_obj.options.h_diffusivity = kappa
+    solver_obj.options.horizontal_diffusivity = kappa
 
     # analytical solution in high-order space for computing L2 norms
     h_ho = FunctionSpace(solver_obj.mesh, 'DG', order+3)

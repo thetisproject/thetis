@@ -214,10 +214,10 @@ options.baroclinic = True
 options.coriolis_frequency = coriolis_2d
 options.use_lax_friedrichs_velocity = False
 options.use_lax_friedrichs_tracer = False
-# options.h_diffusivity = Constant(50.0)
+# options.horizontal_diffusivity = Constant(50.0)
 # options.horizontal_viscosity = Constant(50.0)
 options.v_viscosity = Constant(1.3e-6)  # background value
-options.v_diffusivity = Constant(1.4e-7)  # background value
+options.vertical_diffusivity = Constant(1.4e-7)  # background value
 options.use_limiter_for_tracers = True
 if viscosity == 'smag':
     options.use_smagorinsky_viscosity = True
