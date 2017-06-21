@@ -68,7 +68,7 @@ def compute_pg_error(**kwargs):
     options.use_implicit_vertical_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = True
-    options.baroclinic = True
+    options.use_baroclinic_formulation = True
     options.use_lax_friedrichs_velocity = False
     options.use_lax_friedrichs_tracer = False
     options.coriolis_frequency = None

@@ -84,7 +84,7 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
 
     def _update_baroclinicity(self):
         """Computes baroclinic head"""
-        if self.options.baroclinic:
+        if self.options.use_baroclinic_formulation:
             compute_baroclinic_head(self.solver)
 
     def _update_turbulence(self, t):

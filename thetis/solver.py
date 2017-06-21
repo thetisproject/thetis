@@ -488,7 +488,7 @@ class FlowSolver(FrozenClass):
             self.fields.temp_3d = Function(self.function_spaces.H, name='Temperature')
         if self.options.use_implicit_vertical_diffusion and self.options.use_parabolic_viscosity:
             self.fields.parab_visc_3d = Function(self.function_spaces.P1)
-        if self.options.baroclinic:
+        if self.options.use_baroclinic_formulation:
             if self.options.use_quadratic_density:
                 self.fields.density_3d = Function(self.function_spaces.P2DGxP2, name='Density')
             else:
@@ -697,7 +697,7 @@ class FlowSolver(FrozenClass):
                                               average=True,
                                               bathymetry=self.fields.bathymetry_3d,
                                               elevation=self.fields.elev_cg_3d)
-        if self.options.baroclinic:
+        if self.options.use_baroclinic_formulation:
             if self.options.solve_salinity:
                 s = self.fields.salt_3d
             else:

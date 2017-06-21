@@ -80,7 +80,7 @@ class ModelOptions(AttrDict, FrozenClass):
         """:class:`.GLSModelOptions`: Dictionary of default GLS model options"""
         self.use_turbulence_advection = False
         """bool: Advect TKE and Psi in the GLS turbulence model"""
-        self.baroclinic = False
+        self.use_baroclinic_formulation = False
         """bool: Compute internal pressure gradient in momentum equation"""
         self.use_smagorinsky_viscosity = False
         """:bool:use Smagorinsky viscosity"""

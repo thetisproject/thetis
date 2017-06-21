@@ -44,7 +44,7 @@ The internal pressure gradient, :math:`\mathbf{F}_{pg} = g\nabla_h r`, is
 computed weakly as separate field.
 The solver is implemented in :py:class:`~.InternalPressureGradientCalculator`.
 
-Setting option :py:attr:`.ModelOptions.baroclinic` = ``True`` activates
+Setting option :py:attr:`.ModelOptions.use_baroclinic_formulation` = ``True`` activates
 baroclinicity, i.e. the computation of water density, baroclinic head and
 (both 2D and 3D) internal pressure gradients.
 If ``baroclinic=False``, water density is not computed. Temperature and

@@ -56,7 +56,7 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
 # affect water density), but we still wish to simulate salinity as a passive
 # tracer::
 
-options.baroclinic = False
+options.use_baroclinic_formulation = False
 options.solve_salinity = True
 options.solve_temperature = False
 
