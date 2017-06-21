@@ -201,7 +201,7 @@ class ModelOptions(AttrDict, FrozenClass):
         Either 'full' or 'linear'. See :class:`.JackettEquationOfState` and
         :class:`.LinearEquationOfState`.
         """
-        self.lin_equation_of_state_params = {
+        self.linear_equation_of_state_parameters = {
             'rho_ref': 1000.0,
             's_ref': 35.0,
             'th_ref': 15.0,

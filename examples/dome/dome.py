@@ -102,7 +102,7 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'baroc_head_3d',
                             'int_pg_3d', 'hcc_metric_3d']
 options.equation_of_state = 'linear'
-options.lin_equation_of_state_params = {
+options.linear_equation_of_state_parameters = {
     'rho_ref': setup.rho_0,
     's_ref': setup.salt_const,
     'th_ref': setup.temp_lim[1],

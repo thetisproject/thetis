@@ -707,7 +707,7 @@ class FlowSolver(FrozenClass):
             else:
                 t = self.options.constant_temperature
             if self.options.equation_of_state == 'linear':
-                eos_params = self.options.lin_equation_of_state_params
+                eos_params = self.options.linear_equation_of_state_parameters
                 self.equation_of_state = LinearEquationOfState(**eos_params)
             else:
                 self.equation_of_state = JackettEquationOfState()

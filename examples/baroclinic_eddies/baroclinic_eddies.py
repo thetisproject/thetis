@@ -138,7 +138,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
                                 'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                                 'smag_visc_3d']
     options.equation_of_state = 'linear'
-    options.lin_equation_of_state_params = {
+    options.linear_equation_of_state_parameters = {
         'rho_ref': rho_0,
         's_ref': salt_const,
         'th_ref': 5.0,

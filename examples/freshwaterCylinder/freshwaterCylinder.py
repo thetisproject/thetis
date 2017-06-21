@@ -243,7 +243,7 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
                                  'buoy_freq_3d', 'tke_3d', 'psi_3d',
                                  'eps_3d', 'len_3d']
 options.equation_of_state = 'linear'
-options.lin_equation_of_state_params = {
+options.linear_equation_of_state_parameters = {
     'rho_ref': rho0,
     's_ref': 33.75,
     'th_ref': 5.0,

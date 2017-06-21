@@ -86,7 +86,7 @@ def compute_pg_error(**kwargs):
                                 'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                                 'smag_visc_3d', 'int_pg_3d',
                                 'hcc_metric_3d']
-    options.lin_equation_of_state_params = {
+    options.linear_equation_of_state_parameters = {
         'rho_ref': rho_0,
         's_ref': salt_const,
         'th_ref': t_ref,
