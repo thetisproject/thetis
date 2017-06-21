@@ -676,18 +676,18 @@ class QuadraticDragTerm(ShallowWaterMomentumTerm):
     .. math::
         C_D = g \frac{\mu^2}{H^{1/3}}
 
-    if the Manning coefficient :math:`\mu` is defined (see field :attr:`mu_manning`).
-    Otherwise :math:`C_D` is taken as a constant (see field :attr:`quadratic_drag`).
+    if the Manning coefficient :math:`\mu` is defined (see field :attr:`manning_drag_coefficient`).
+    Otherwise :math:`C_D` is taken as a constant (see field :attr:`quadratic_drag_coefficient`).
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
-        mu_manning = fields_old.get('mu_manning')
-        C_D = fields_old.get('quadratic_drag')
+        manning_drag_coefficient = fields_old.get('manning_drag_coefficient')
+        C_D = fields_old.get('quadratic_drag_coefficient')
         f = 0
-        if mu_manning is not None:
+        if manning_drag_coefficient is not None:
             if C_D is not None:
                 raise Exception('Cannot set both dimensionless and Manning drag parameter')
-            C_D = g_grav * mu_manning**2 / total_h**(1./3.)
+            C_D = g_grav * manning_drag_coefficient**2 / total_h**(1./3.)
 
         if C_D is not None:
             f += C_D * sqrt(dot(uv_old, uv_old)) * inner(self.u_test, uv) / total_h * self.dx
@@ -701,10 +701,10 @@ class LinearDragTerm(ShallowWaterMomentumTerm):
     Here :math:`C` is a user-defined drag coefficient.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
-        linear_drag = fields_old.get('linear_drag')
+        linear_drag_coefficient = fields_old.get('linear_drag_coefficient')
         f = 0
-        if linear_drag is not None:
-            bottom_fri = linear_drag*inner(self.u_test, uv)*self.dx
+        if linear_drag_coefficient is not None:
+            bottom_fri = linear_drag_coefficient*inner(self.u_test, uv)*self.dx
             f += bottom_fri
         return -f
 

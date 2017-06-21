@@ -100,7 +100,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.solve_temperature = True
     options.use_implicit_vertical_diffusion = True
     options.use_bottom_friction = True
-    options.quadratic_drag = Constant(bottom_drag)
+    options.quadratic_drag_coefficient = Constant(bottom_drag)
     options.baroclinic = True
     options.coriolis = Constant(f_cori)
     if laxfriedrichs > 0.0:

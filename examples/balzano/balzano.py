@@ -46,7 +46,7 @@ x = SpatialCoordinate(mesh2d)
 bathymetry.interpolate(x[0] / 2760.0)
 
 # bottom friction suppresses reflection from wet-dry front
-mu_manning = Constant(0.02)
+manning_drag_coefficient = Constant(0.02)
 # wetting-drying options
 use_wetting_and_drying = True
 wetting_and_drying_alpha = Constant(0.4)
@@ -63,7 +63,7 @@ options.timestepper_type = 'cranknicolson'
 options.shallow_water_theta = 0.5
 options.use_wetting_and_drying = use_wetting_and_drying
 options.wetting_and_drying_alpha = wetting_and_drying_alpha
-options.mu_manning = mu_manning
+options.manning_drag_coefficient = manning_drag_coefficient
 options.dt = dt
 options.solver_parameters_sw = {
     'snes_type': 'newtonls',

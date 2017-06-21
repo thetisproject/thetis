@@ -30,7 +30,7 @@ def test_pressure_forcing(element_family, timestepper):
     rho0 = physical_constants['rho0']
     g = physical_constants['g_grav']
     A = 2.0
-    mu_manning = Constant(1.0)
+    manning_drag_coefficient = Constant(1.0)
 
     # Simulation time
     t_end = 43200.
@@ -74,7 +74,7 @@ def test_pressure_forcing(element_family, timestepper):
         solverObj.options.no_exports = True
         solverObj.options.fields_to_export = ['uv_2d', 'elev_2d']
         solverObj.options.shallow_water_theta = 0.5
-        solverObj.options.mu_manning = mu_manning
+        solverObj.options.manning_drag_coefficient = manning_drag_coefficient
         solverObj.options.atmospheric_pressure = atmospheric_pressure
         solverObj.options.solver_parameters_sw = {
             'snes_type': 'newtonls',

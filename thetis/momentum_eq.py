@@ -490,7 +490,7 @@ class BottomFrictionTerm(MomentumTerm):
 
     where :math:`z_0` is the bottom roughness length, read from ``z0_friction``
     field.
-    The user can override the :math:`C_D` value by providing ``quadratic_drag``
+    The user can override the :math:`C_D` value by providing ``quadratic_drag_coefficient``
     field.
 
     """
@@ -506,7 +506,7 @@ class BottomFrictionTerm(MomentumTerm):
                 uv = solution
                 uv_old = solution_old
 
-            drag = fields_old.get('quadratic_drag')
+            drag = fields_old.get('quadratic_drag_coefficient')
             if drag is None:
                 z0_friction = physical_constants['z0_friction']
                 z_bot = 0.5*self.v_elem_size
@@ -527,14 +527,14 @@ class LinearDragTerm(MomentumTerm):
     r"""
     Linear drag term, :math:`\tau_b = D \textbf{u}_b`
 
-    where :math:`D` is the drag coefficient, read from ``linear_drag`` field.
+    where :math:`D` is the drag coefficient, read from ``linear_drag_coefficient`` field.
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        linear_drag = fields_old.get('linear_drag')
+        linear_drag_coefficient = fields_old.get('linear_drag_coefficient')
         f = 0
         # Linear drag (consistent with drag in 2D mode)
-        if linear_drag is not None:
-            bottom_fri = linear_drag*inner(self.test, solution)*self.dx
+        if linear_drag_coefficient is not None:
+            bottom_fri = linear_drag_coefficient*inner(self.test, solution)*self.dx
             f += bottom_fri
         return -f
 

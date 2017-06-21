@@ -69,7 +69,7 @@ y0 = ly/2
 sigma = 20.0
 drag_func.project(drag_center*exp(-((x[0]-x0)**2 + (x[1]-y0)**2)/sigma**2) + drag_bg, annotate=False)
 # assign fiction field
-options.quadratic_drag = drag_func
+options.quadratic_drag_coefficient = drag_func
 
 velocity_u = 2.0
 # assign boundary conditions

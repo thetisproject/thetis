@@ -244,9 +244,9 @@ class FlowSolver2d(FrozenClass):
 
         # ----- Time integrators
         fields = {
-            'linear_drag': self.options.linear_drag,
-            'quadratic_drag': self.options.quadratic_drag,
-            'mu_manning': self.options.mu_manning,
+            'linear_drag_coefficient': self.options.linear_drag_coefficient,
+            'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
+            'manning_drag_coefficient': self.options.manning_drag_coefficient,
             'viscosity_h': self.options.h_viscosity,
             'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
             'coriolis': self.options.coriolis,

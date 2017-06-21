@@ -212,7 +212,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             'wind_stress': self.options.wind_stress,
             'uv_source': uv_source_2d,
             'elev_source': self.options.elev_source_2d,
-            'linear_drag': self.options.linear_drag}
+            'linear_drag_coefficient': self.options.linear_drag_coefficient}
 
         if issubclass(self.integrator_2d, (rungekutta.ERKSemiImplicitGeneric)):
             self.timestepper2d = self.integrator_2d(
@@ -248,8 +248,8 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                   'uv_p1': self.fields.get('uv_p1_3d'),
                   'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
                   'coriolis': self.fields.get('coriolis_3d'),
-                  'linear_drag': self.options.linear_drag,
-                  'quadratic_drag': self.options.quadratic_drag,
+                  'linear_drag_coefficient': self.options.linear_drag_coefficient,
+                  'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
                   }
         self.timestepper_mom_3d = self.integrator_3d(
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,

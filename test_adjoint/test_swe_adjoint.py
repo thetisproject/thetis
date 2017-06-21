@@ -54,7 +54,7 @@ def basic_setup():
     sigma = 20.0
     drag_func.project(drag_center*exp(-((x[0]-x0)**2 + (x[1]-y0)**2)/sigma**2) + drag_bg, annotate=False)
     # assign fiction field
-    options.quadratic_drag = drag_func
+    options.quadratic_drag_coefficient = drag_func
 
     # assign boundary conditions
     inflow_tag = 1
@@ -112,7 +112,7 @@ def run_model(solver_obj):
 def make_python_functional(solver_obj, functional_expr):
     """Returns a python function that runs the model for a given drag and returns the assembled functional value."""
     def jfunc(drag):
-        solver_obj.options.quadratic_drag.assign(drag)
+        solver_obj.options.quadratic_drag_coefficient.assign(drag)
         run_model(solver_obj)
         return assemble(functional_expr)
     return jfunc
@@ -128,7 +128,7 @@ def test_gradient_from_adjoint(setup):
     integral = solver_obj.fields.solution_2d[0]*dx
     jfunc = make_python_functional(solver_obj, integral)
 
-    drag_func = solver_obj.options.quadratic_drag
+    drag_func = solver_obj.options.quadratic_drag_coefficient
     J0 = jfunc(drag_func)  # first run, recorded by firedrake_adjoint
 
     J = Functional(integral*dt[FINISH_TIME], name="MyFunctional")

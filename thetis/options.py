@@ -235,18 +235,18 @@ class ModelOptions(AttrDict, FrozenClass):
         self.verbose = 0
         """int: Verbosity level"""
         # NOTE these are fields, potentially Functions: move out of this class?
-        self.linear_drag = None
+        self.linear_drag_coefficient = None
         r"""
         Coefficient or None: 2D linear drag parameter :math:`L`
 
         Bottom stress is :math:`\tau_b/\rho_0 = -L \mathbf{u} H`
         """
-        self.quadratic_drag = None
+        self.quadratic_drag_coefficient = None
         r"""Coefficient or None: dimensionless 2D quadratic drag parameter :math:`C_D`
 
         Bottom stress is :math:`\tau_b/\rho_0 = -C_D |\mathbf{u}|\mathbf{u}`
         """
-        self.mu_manning = None
+        self.manning_drag_coefficient = None
         r"""Coefficient or None: Manning-Strickler 2D quadratic drag parameter :math:`\mu`
 
         Bottom stress is :math:`\tau_b/\rho_0 = -g \mu^2 |\mathbf{u}|\mathbf{u}/H^{1/3}`
