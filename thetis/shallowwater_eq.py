@@ -521,7 +521,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
     r"""
     Viscosity of momentum term
 
-    If option :attr:`.ModelOptions.include_grad_div_viscosity_term` is ``True``, we
+    If option :attr:`.ModelOptions.use_grad_div_viscosity_term` is ``True``, we
     use the symmetric viscous stress :math:`\boldsymbol{\tau}_\nu = \nu_h ( \nabla \bar{\textbf{u}} + (\nabla \bar{\textbf{u}})^T )`.
     Using the symmetric interior penalty method the weak form then reads
 
@@ -535,7 +535,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
     where :math:`\sigma` is a penalty parameter,
     see Epshteyn and Riviere (2007).
 
-    If option :attr:`.ModelOptions.include_grad_div_viscosity_term` is ``False``,
+    If option :attr:`.ModelOptions.use_grad_div_viscosity_term` is ``False``,
     we use viscous stress :math:`\boldsymbol{\tau}_\nu = \nu_h \nabla \bar{\textbf{u}}`.
     In this case the weak form is
 
@@ -546,7 +546,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
         - \int_\Gamma \text{avg}(\nu_h)\text{jump}(\bar{\textbf{u}} \textbf{n}) \cdot \text{avg}(\nabla \boldsymbol{\psi}) dS \\
         &+ \int_\Gamma \sigma \text{avg}(\nu_h) \text{jump}(\bar{\textbf{u}} \textbf{n}) \cdot \text{jump}(\boldsymbol{\psi} \textbf{n}) dS
 
-    If option :attr:`.ModelOptions.include_grad_depth_viscosity_term` is ``True``, we also include
+    If option :attr:`.ModelOptions.use_grad_depth_viscosity_term` is ``True``, we also include
     the term
 
     .. math::
@@ -571,7 +571,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
         n = self.normal
         h = self.cellsize
 
-        if self.options.include_grad_div_viscosity_term:
+        if self.options.use_grad_div_viscosity_term:
             stress = nu*2.*sym(grad(uv))
             stress_jump = avg(nu)*2.*sym(tensor_jump(uv, n))
         else:
@@ -608,7 +608,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
                             continue
                         delta_uv = uv - uv_ext
 
-                    if self.options.include_grad_div_viscosity_term:
+                    if self.options.use_grad_div_viscosity_term:
                         stress_jump = nu*2.*sym(outer(delta_uv, n))
                     else:
                         stress_jump = nu*outer(delta_uv, n)
@@ -619,7 +619,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
                         - inner(outer(self.u_test, n), stress)*ds_bnd
                     )
 
-        if self.options.include_grad_depth_viscosity_term:
+        if self.options.use_grad_depth_viscosity_term:
             f += -dot(self.u_test, dot(grad(total_h)/total_h, stress))*self.dx
 
         return -f

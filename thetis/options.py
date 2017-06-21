@@ -40,13 +40,13 @@ class ModelOptions(AttrDict, FrozenClass):
 
         See :class:`.ParabolicViscosity`
         """
-        self.include_grad_div_viscosity_term = False
+        self.use_grad_div_viscosity_term = False
         r"""
         bool: Include :math:`\nabla (\nu_h \nabla \cdot \bar{\textbf{u}})` term in the depth-averaged viscosity
 
         See :class:`.shallowwater_eq.HorizontalViscosityTerm` for details.
         """
-        self.include_grad_depth_viscosity_term = True
+        self.use_grad_depth_viscosity_term = True
         r"""
         bool: Include :math:`\nabla H` term in the depth-averaged viscosity
 
