@@ -117,7 +117,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.solve_salinity = False
     options.constant_salt = Constant(salt_const)
     options.solve_temperature = True
-    options.solve_vert_diffusion = False
+    options.use_implicit_vertical_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = True
     options.baroclinic = True

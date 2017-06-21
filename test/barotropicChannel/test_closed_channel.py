@@ -43,7 +43,7 @@ def test_closed_channel(**user_options):
     options.timestepper_type = 'ssprk22'
     options.solve_salinity = True
     options.solve_temperature = False
-    options.solve_vert_diffusion = False
+    options.use_implicit_vertical_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = True
     options.use_limiter_for_tracers = True

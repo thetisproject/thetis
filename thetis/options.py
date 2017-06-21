@@ -30,8 +30,8 @@ class ModelOptions(AttrDict, FrozenClass):
         """bool: Solve salt transport"""
         self.solve_temperature = True
         """bool: Solve temperature transport"""
-        self.solve_vert_diffusion = True
-        """bool: Solve implicit vertical diffusion"""
+        self.use_implicit_vertical_diffusion = True
+        """bool: Solve vertical diffusion and viscosity implicitly"""
         self.use_bottom_friction = True
         """bool: Apply log layer bottom stress in the 3D model"""
         self.use_parabolic_viscosity = False

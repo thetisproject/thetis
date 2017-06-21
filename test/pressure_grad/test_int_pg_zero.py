@@ -65,7 +65,7 @@ def compute_pg_error(**kwargs):
     options.solve_salinity = False
     options.solve_temperature = True
     options.constant_salt = Constant(salt_const)
-    options.solve_vert_diffusion = False
+    options.use_implicit_vertical_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = True
     options.baroclinic = True

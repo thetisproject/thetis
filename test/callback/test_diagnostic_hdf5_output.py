@@ -48,7 +48,7 @@ def test_callbacks(tmp_outputdir):
     options.use_nonlinear_equations = False
     options.solve_salinity = True
     options.solve_temperature = False
-    options.solve_vert_diffusion = False
+    options.use_implicit_vertical_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = False
     options.dt = dt/40.0

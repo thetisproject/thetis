@@ -98,7 +98,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.solve_salinity = False
     options.constant_salt = Constant(salt_const)
     options.solve_temperature = True
-    options.solve_vert_diffusion = True
+    options.use_implicit_vertical_diffusion = True
     options.use_bottom_friction = True
     options.quadratic_drag = Constant(bottom_drag)
     options.baroclinic = True

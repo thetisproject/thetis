@@ -61,7 +61,7 @@ def run(refinement, **model_options):
     options.dt_2d = dt_2d
     options.solve_salinity = False
     options.solve_temperature = False
-    options.solve_vert_diffusion = implicit
+    options.use_implicit_vertical_diffusion = implicit
     options.fields_to_export = ['uv_3d']
     options.v_viscosity = Constant(v_viscosity)
     options.update(model_options)

@@ -62,7 +62,7 @@ def run(refinement, **model_options):
     options.dt = dt
     options.dt_2d = dt_2d
     options.solve_salinity = True
-    options.solve_vert_diffusion = implicit
+    options.use_implicit_vertical_diffusion = implicit
     options.fields_to_export = ['salt_3d']
     options.v_diffusivity = Constant(v_diffusivity)
     options.update(model_options)

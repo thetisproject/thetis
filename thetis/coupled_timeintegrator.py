@@ -129,7 +129,7 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
         self._update_baroclinicity()
         if do_turbulence:
             self._update_turbulence(t)
-        if do_vert_diffusion and self.options.solve_vert_diffusion:
+        if do_vert_diffusion and self.options.use_implicit_vertical_diffusion:
             with timed_stage('impl_mom_vvisc'):
                 self.timestepper_mom_vdff_3d.advance(t)
             if self.options.solve_salinity:
@@ -182,7 +182,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         """
         Assign vertical viscosity/diffusivity to implicit/explicit parts
         """
-        if self.options.solve_vert_diffusion:
+        if self.options.use_implicit_vertical_diffusion:
             impl_v_visc = self.solver.tot_v_visc.get_sum()
             expl_v_visc = None
             impl_v_diff = self.solver.tot_v_diff.get_sum()
@@ -255,7 +255,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,
             bnd_conditions=solver.bnd_functions['momentum'],
             solver_parameters=self.options.solver_parameters_momentum_explicit)
-        if self.solver.options.solve_vert_diffusion:
+        if self.solver.options.use_implicit_vertical_diffusion:
             fields = {'viscosity_v': impl_v_visc,
                       'wind_stress': self.fields.get('wind_stress_3d'),
                       'uv_depth_av': self.fields.get('uv_dav_3d'),
@@ -289,7 +289,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 solver.eq_salt, solver.fields.salt_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['salt'],
                 solver_parameters=self.options.solver_parameters_tracer_explicit)
-            if self.solver.options.solve_vert_diffusion:
+            if self.solver.options.use_implicit_vertical_diffusion:
                 fields = {'elev_3d': self.fields.elev_3d,
                           'diffusivity_v': impl_v_diff,
                           }
@@ -322,7 +322,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 solver.eq_temp, solver.fields.temp_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['temp'],
                 solver_parameters=self.options.solver_parameters_tracer_explicit)
-            if self.solver.options.solve_vert_diffusion:
+            if self.solver.options.use_implicit_vertical_diffusion:
                 fields = {'elev_3d': self.fields.elev_3d,
                           'diffusivity_v': impl_v_diff,
                           }
@@ -400,15 +400,15 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             raise NotImplementedError('Case dt_2d < dt is not implemented yet')
         self.timestepper2d.set_dt(dt)
         self.timestepper_mom_3d.set_dt(dt)
-        if self.solver.options.solve_vert_diffusion:
+        if self.solver.options.use_implicit_vertical_diffusion:
             self.timestepper_mom_vdff_3d.set_dt(dt)
         if self.solver.options.solve_salinity:
             self.timestepper_salt_3d.set_dt(dt)
-            if self.solver.options.solve_vert_diffusion:
+            if self.solver.options.use_implicit_vertical_diffusion:
                 self.timestepper_salt_vdff_3d.set_dt(dt)
         if self.solver.options.solve_temperature:
             self.timestepper_temp_3d.set_dt(dt)
-            if self.solver.options.solve_vert_diffusion:
+            if self.solver.options.use_implicit_vertical_diffusion:
                 self.timestepper_temp_vdff_3d.set_dt(dt)
         if self.solver.options.use_turbulence:
             self.timestepper_tke_3d.set_dt(dt)
@@ -425,15 +425,15 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         """
         self.timestepper2d.initialize(self.fields.solution_2d)
         self.timestepper_mom_3d.initialize(self.fields.uv_3d)
-        if self.options.solve_vert_diffusion:
+        if self.options.use_implicit_vertical_diffusion:
             self.timestepper_mom_vdff_3d.initialize(self.fields.uv_3d)
         if self.options.solve_salinity:
             self.timestepper_salt_3d.initialize(self.fields.salt_3d)
-            if self.options.solve_vert_diffusion:
+            if self.options.use_implicit_vertical_diffusion:
                 self.timestepper_salt_vdff_3d.initialize(self.fields.salt_3d)
         if self.options.solve_temperature:
             self.timestepper_temp_3d.initialize(self.fields.temp_3d)
-            if self.options.solve_vert_diffusion:
+            if self.options.use_implicit_vertical_diffusion:
                 self.timestepper_temp_vdff_3d.initialize(self.fields.temp_3d)
         if self.solver.options.use_turbulence:
             self.timestepper_tke_3d.initialize(self.fields.tke_3d)
@@ -932,7 +932,7 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
         with timed_stage('momentum_eq'):
             self.timestepper_mom_3d.correct()
 
-        if self.options.solve_vert_diffusion:
+        if self.options.use_implicit_vertical_diffusion:
             self._update_2d_coupling()
             self._update_baroclinicity()
             self._update_bottom_friction()
@@ -1080,7 +1080,7 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
             self._update_2d_coupling()
             self._update_baroclinicity()
             self._update_bottom_friction()
-            if i_stage == last and self.options.solve_vert_diffusion:
+            if i_stage == last and self.options.use_implicit_vertical_diffusion:
                 self._update_turbulence(t)
                 if self.options.solve_salinity:
                     with timed_stage('impl_salt_vdiff'):

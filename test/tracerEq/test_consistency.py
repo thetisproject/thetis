@@ -75,7 +75,7 @@ def run_tracer_consistency(**model_options):
     options.use_nonlinear_equations = True
     options.solve_salinity = True
     options.solve_temperature = False
-    options.solve_vert_diffusion = False
+    options.use_implicit_vertical_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = False
     options.use_limiter_for_tracers = False

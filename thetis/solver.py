@@ -486,7 +486,7 @@ class FlowSolver(FrozenClass):
             self.fields.salt_3d = Function(self.function_spaces.H, name='Salinity')
         if self.options.solve_temperature:
             self.fields.temp_3d = Function(self.function_spaces.H, name='Temperature')
-        if self.options.solve_vert_diffusion and self.options.use_parabolic_viscosity:
+        if self.options.use_implicit_vertical_diffusion and self.options.use_parabolic_viscosity:
             self.fields.parab_visc_3d = Function(self.function_spaces.P1)
         if self.options.baroclinic:
             if self.options.use_quadratic_density:
@@ -579,7 +579,7 @@ class FlowSolver(FrozenClass):
                                                         use_nonlinear_equations=self.options.use_nonlinear_equations,
                                                         use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
                                                         use_bottom_friction=False)
-        if self.options.solve_vert_diffusion:
+        if self.options.use_implicit_vertical_diffusion:
             self.eq_vertmomentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
                                                                 bathymetry=self.fields.bathymetry_3d,
                                                                 v_elem_size=self.fields.v_elem_size_3d,
@@ -594,7 +594,7 @@ class FlowSolver(FrozenClass):
                                                     h_elem_size=self.fields.h_elem_size_3d,
                                                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
                                                     use_symmetric_surf_bnd=self.options.element_family == 'dg-dg')
-            if self.options.solve_vert_diffusion:
+            if self.options.use_implicit_vertical_diffusion:
                 self.eq_salt_vdff = tracer_eq.TracerEquation(self.fields.salt_3d.function_space(),
                                                              bathymetry=self.fields.bathymetry_3d,
                                                              v_elem_size=self.fields.v_elem_size_3d,
@@ -608,7 +608,7 @@ class FlowSolver(FrozenClass):
                                                     h_elem_size=self.fields.h_elem_size_3d,
                                                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
                                                     use_symmetric_surf_bnd=self.options.element_family == 'dg-dg')
-            if self.options.solve_vert_diffusion:
+            if self.options.use_implicit_vertical_diffusion:
                 self.eq_temp_vdff = tracer_eq.TracerEquation(self.fields.temp_3d.function_space(),
                                                              bathymetry=self.fields.bathymetry_3d,
                                                              v_elem_size=self.fields.v_elem_size_3d,
