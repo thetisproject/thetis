@@ -88,10 +88,10 @@ options.u_advection = u_mag
 options.w_advection = w_mag
 options.check_volume_conservation_2d = True
 options.check_volume_conservation_3d = True
-options.check_salt_conservation = True
-options.check_salt_overshoot = True
-options.check_temp_conservation = True
-options.check_temp_overshoot = True
+options.check_salinity_conservation = True
+options.check_salinity_overshoot = True
+options.check_temperature_conservation = True
+options.check_temperature_overshoot = True
 options.outputdir = outputdir
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d', 'temp_3d',

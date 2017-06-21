@@ -113,25 +113,25 @@ class ModelOptions(AttrDict, FrozenClass):
 
         Prints deviation from the initial volume to stdout.
         """
-        self.check_salt_conservation = False
+        self.check_salinity_conservation = False
         """
         bool: Compute total salinity mass at every export
 
         Prints deviation from the initial mass to stdout.
         """
-        self.check_salt_overshoot = False
+        self.check_salinity_overshoot = False
         """
         bool: Compute salinity overshoots at every export
 
         Prints overshoot values that exceed the initial range to stdout.
         """
-        self.check_temp_conservation = False
+        self.check_temperature_conservation = False
         """
         bool: Compute total temperature mass at every export
 
         Prints deviation from the initial mass to stdout.
         """
-        self.check_temp_overshoot = False
+        self.check_temperature_overshoot = False
         """
         bool: Compute temperature overshoots at every export
 

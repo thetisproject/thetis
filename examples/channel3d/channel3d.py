@@ -52,7 +52,7 @@ options.t_end = t_end
 options.outputdir = outputdir
 options.u_advection = Constant(u_max)
 options.w_advection = Constant(w_max)
-options.check_salt_overshoot = True
+options.check_salinity_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
                             'baroc_head_3d',

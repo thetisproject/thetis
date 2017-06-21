@@ -982,10 +982,10 @@ class FlowSolver(FrozenClass):
         if not self._initialized:
             self.create_equations()
 
-        self.options.check_salt_conservation *= self.options.solve_salinity
-        self.options.check_salt_overshoot *= self.options.solve_salinity
-        self.options.check_temp_conservation *= self.options.solve_temperature
-        self.options.check_temp_overshoot *= self.options.solve_temperature
+        self.options.check_salinity_conservation *= self.options.solve_salinity
+        self.options.check_salinity_overshoot *= self.options.solve_salinity
+        self.options.check_temperature_conservation *= self.options.solve_temperature
+        self.options.check_temperature_overshoot *= self.options.solve_temperature
         self.options.check_volume_conservation_3d *= self.options.use_ale_moving_mesh
         self.options.use_limiter_for_tracers *= self.options.polynomial_degree > 0
 
@@ -1003,25 +1003,25 @@ class FlowSolver(FrozenClass):
                                                       export_to_hdf5=dump_hdf5,
                                                       append_to_log=True)
             self.add_callback(c, eval_interval='export')
-        if self.options.check_salt_conservation:
+        if self.options.check_salinity_conservation:
             c = callback.TracerMassConservationCallback('salt_3d',
                                                         self,
                                                         export_to_hdf5=dump_hdf5,
                                                         append_to_log=True)
             self.add_callback(c, eval_interval='export')
-        if self.options.check_salt_overshoot:
+        if self.options.check_salinity_overshoot:
             c = callback.TracerOvershootCallBack('salt_3d',
                                                  self,
                                                  export_to_hdf5=dump_hdf5,
                                                  append_to_log=True)
             self.add_callback(c, eval_interval='export')
-        if self.options.check_temp_conservation:
+        if self.options.check_temperature_conservation:
             c = callback.TracerMassConservationCallback('temp_3d',
                                                         self,
                                                         export_to_hdf5=dump_hdf5,
                                                         append_to_log=True)
             self.add_callback(c, eval_interval='export')
-        if self.options.check_temp_overshoot:
+        if self.options.check_temperature_overshoot:
             c = callback.TracerOvershootCallBack('temp_3d',
                                                  self,
                                                  export_to_hdf5=dump_hdf5,

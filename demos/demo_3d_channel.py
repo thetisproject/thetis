@@ -63,7 +63,7 @@ options.solve_temperature = False
 # We also want to see how much the salinity value deviates from its initial
 # value::
 
-options.check_salt_overshoot = True
+options.check_salinity_overshoot = True
 
 # In this simulation we do not set the time step manually but instead use the
 # automatic time step estimation of Thetis. Time step is estimated based on the

@@ -80,7 +80,7 @@ def compute_pg_error(**kwargs):
     options.t_end = 4*900.
     options.dt = 100.
     options.no_exports = True
-    options.check_temp_overshoot = False
+    options.check_temperature_overshoot = False
     options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'temp_3d', 'density_3d',
                                 'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',

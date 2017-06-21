@@ -94,8 +94,8 @@ options.outputdir = outputdir
 options.nu_viscosity = Constant(nu_scale)
 options.u_advection = Constant(u_max)
 options.w_advection = Constant(w_max)
-options.check_temp_overshoot = True
-options.check_salt_overshoot = True
+options.check_temperature_overshoot = True
+options.check_salinity_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'temp_3d', 'salt_3d',
                             'density_3d', 'uv_dav_2d', 'uv_dav_3d',
