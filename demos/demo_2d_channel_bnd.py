@@ -31,6 +31,7 @@ options = solver_obj.options
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
 options.timestepper_type = 'CrankNicolson'
+options.use_automatic_timestep = False
 options.timestep = 50.0
 
 # We will force the model with a constant volume flux at the right boundary

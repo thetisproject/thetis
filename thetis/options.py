@@ -139,17 +139,26 @@ class ModelOptions(AttrDict, FrozenClass):
         """
         self.log_output = True
         """bool: Redirect all output to log file in output directory"""
-        self.timestep = None
+        self.timestep = 10.0
         """
         float: Time step.
-
-        If set, overrides automatically computed stable dt
         """
-        self.timestep_2d = None
+        self.timestep_2d = 10.0
         """
         float: Time step of the 2d mode
 
-        If set overrides automatically computed stable dt
+        This option is only used in the 3d solver, if 2d mode is solved
+        explicitly.
+        """
+        self.use_automatic_timestep = True
+        """
+        bool: Set time step automatically.
+
+        Solver computes the largest stable time step based on user-defined
+        velocity and viscosity scales. See
+        :attr:`horizontal_velocity_scale`,
+        :attr:`vertical_velocity_scale`,
+        :attr:`horizontal_viscosity_scale`.
         """
         self.cfl_2d = 1.0
         """float: Factor to scale the 2d time step"""

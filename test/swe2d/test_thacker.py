@@ -28,6 +28,7 @@ def test_thacker(n, dt, alpha, max_err):
     solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry)
     options = solverObj.options
 
+    options.use_automatic_timestep = False
     options.timestep = dt
     options.simulation_end_time = 43200 - 0.1*options.timestep
     options.simulation_export_time = options.timestep

@@ -73,6 +73,7 @@ def run_bottom_friction(parabolic_visosity=False,
     options.use_ale_moving_mesh = False
     options.use_limiter_for_tracers = True
     options.simulation_export_time = t_export
+    options.use_automatic_timestep = False
     options.timestep = dt
     options.simulation_end_time = t_end
     options.no_exports = not do_export

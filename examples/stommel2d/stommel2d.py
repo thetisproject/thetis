@@ -52,6 +52,7 @@ options.wind_stress = wind_stress_2d
 options.linear_drag_coefficient = linear_drag_coefficient
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
+options.use_automatic_timestep = False
 options.timestep = 45.0
 options.output_directory = outputdir
 options.horizontal_velocity_scale = Constant(0.01)

@@ -43,6 +43,7 @@ options.use_nonlinear_equations = False
 options.coriolis_frequency = coriolis_2d
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
+options.use_automatic_timestep = False
 options.timestep = 20.0
 options.output_directory = outputdir
 options.horizontal_velocity_scale = Constant(0.01)

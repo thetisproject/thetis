@@ -69,6 +69,7 @@ options.vertical_diffusivity = Constant(1.4e-7)  # background value
 # options.use_ale_moving_mesh = False
 options.use_limiter_for_tracers = True
 options.simulation_export_time = t_export
+options.use_automatic_timestep = False
 options.timestep = dt
 options.simulation_end_time = t_end
 options.horizontal_velocity_scale = u_mag

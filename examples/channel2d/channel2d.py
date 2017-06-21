@@ -62,7 +62,8 @@ options.timestepper_type = 'SSPRK33'
 # options.timestepper_type = 'SSPIMEX'
 # options.timestepper_type = 'CrankNicolson'
 if options.timestepper_type in ['CrankNicolson', 'SSPIMEX']:
-    options.timestep = 10.0  # override estimated dt
+    options.use_automatic_timestep = False
+    options.timestep = 10.0
 # initial conditions, piecewise linear function
 elev_x = np.array([0, 30e3, 100e3])
 elev_v = np.array([6, 0, 0])

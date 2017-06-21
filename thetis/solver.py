@@ -53,6 +53,7 @@ class FlowSolver(FrozenClass):
         options.solve_temperature = False
         options.simulation_export_time = 50.0
         options.simulation_end_time = 3600.
+        options.use_automatic_timestep = False
         options.timestep = 25.0
 
     Assign initial condition for water elevation
@@ -279,8 +280,9 @@ class FlowSolver(FrozenClass):
         """
         Sets the model the model time step
 
-        Uses ``options.timestep`` and ``options.timestep_2d`` if set, otherwise sets the
-        maximum time step allowed by the CFL conditions.
+        If :attr:`ModelOptions.use_automatic_timestep` is `True`, computes the
+        maximum time step allowed by the CFL conditions. Otherwise uses
+        :attr:`ModelOptions.use_automatic_timestep`.
 
         Once the time step is determined, will adjust it to be an integer
         fraction of export interval ``options.simulation_export_time``.
@@ -302,22 +304,27 @@ class FlowSolver(FrozenClass):
             print_output('  - User defined dt: 2D: {:} 3D: {:}'.format(self.options.timestep_2d, self.options.timestep))
         self.dt = self.options.timestep
         self.dt_2d = self.options.timestep_2d
+        if self.options.use_automatic_timestep:
+            assert self.options.timestep is not None
+            assert self.options.timestep > 0.0
+            assert self.options.timestep_2d is not None
+            assert self.options.timestep_2d > 0.0
 
         if self.dt_mode == 'split':
-            if self.dt is None:
+            if self.options.use_automatic_timestep:
                 self.dt = max_dt_3d
-            if self.dt_2d is None:
+            if self.options.use_automatic_timestep:
                 self.dt_2d = max_dt_2d
             # compute mode split ratio and force it to be integer
             self.M_modesplit = int(np.ceil(self.dt/self.dt_2d))
             self.dt_2d = self.dt/self.M_modesplit
         elif self.dt_mode == '2d':
-            if self.dt is None:
+            if self.options.use_automatic_timestep:
                 self.dt = min(max_dt_2d, max_dt_3d)
             self.dt_2d = self.dt
             self.M_modesplit = 1
         elif self.dt_mode == '3d':
-            if self.dt is None:
+            if self.options.use_automatic_timestep:
                 self.dt = max_dt_3d
             self.dt_2d = self.dt
             self.M_modesplit = 1

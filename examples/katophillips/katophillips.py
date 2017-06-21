@@ -70,6 +70,7 @@ options.vertical_viscosity = Constant(1.3e-6)  # background value
 options.vertical_diffusivity = Constant(1.4e-7)  # background value
 options.wind_stress = wind_stress_2d
 options.simulation_export_time = t_export
+options.use_automatic_timestep = False
 options.timestep = dt
 options.simulation_end_time = t_end
 options.output_directory = outputdir

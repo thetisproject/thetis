@@ -149,6 +149,7 @@ def run(setup, refinement, order, do_export=True, options=None,
     solver_obj.options.no_exports = not do_export
     solver_obj.options.output_directory = outputdir
     solver_obj.options.simulation_end_time = t_end
+    options.use_automatic_timestep = False
     solver_obj.options.timestep = dt
     solver_obj.options.simulation_export_time = t_export
     # solver_obj.options.timestepper_type = 'cranknicolson'

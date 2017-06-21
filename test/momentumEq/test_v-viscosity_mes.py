@@ -57,6 +57,7 @@ def run(refinement, **model_options):
     options.output_directory = outputdir
     options.simulation_end_time = t_end
     options.simulation_export_time = t_export
+    options.use_automatic_timestep = False
     options.timestep = dt
     options.timestep_2d = dt_2d
     options.solve_salinity = False

@@ -123,6 +123,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     elif viscosity != 'none':
         raise Exception('Unknow viscosity type {:}'.format(viscosity))
     options.horizontal_diffusivity = None
+    options.use_automatic_timestep = False
     options.timestep = dt
     options.simulation_export_time = t_export
     options.simulation_end_time = t_end

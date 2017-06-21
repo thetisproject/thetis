@@ -78,6 +78,7 @@ def compute_pg_error(**kwargs):
     options.horizontal_diffusivity = None
     options.simulation_export_time = 900.
     options.simulation_end_time = 4*900.
+    options.use_automatic_timestep = False
     options.timestep = 100.
     options.no_exports = True
     options.check_temperature_overshoot = False

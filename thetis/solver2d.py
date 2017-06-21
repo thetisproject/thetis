@@ -160,18 +160,22 @@ class FlowSolver2d(FrozenClass):
         """
         Sets the model the model time step
 
-        Uses ``options.timestep`` if set, otherwise sets the maximum time step
-        allowed by the CFL condition (see :meth:`.compute_time_step`).
+        If :attr:`ModelOptions.use_automatic_timestep` is `True`, computes the
+        maximum time step allowed by the CFL condition. Otherwise uses
+        :attr:`ModelOptions.use_automatic_timestep`.
 
         :kwarg float alpha: CFL number scaling factor
         """
         # TODO revisit math alpha is OBSOLETE
-        self.dt = self.options.timestep
-        if self.dt is None:
+        if self.options.use_automatic_timestep:
             mesh2d_dt = self.compute_time_step(u_scale=self.options.horizontal_velocity_scale)
             dt = self.options.cfl_2d*alpha*float(mesh2d_dt.dat.data.min())
             dt = self.comm.allreduce(dt, op=MPI.MIN)
             self.dt = dt
+        else:
+            assert self.options.timestep is not None
+            assert self.options.timestep > 0.0
+            self.dt = self.options.timestep
         if self.comm.rank == 0:
             print_output('dt = {:}'.format(self.dt))
             sys.stdout.flush()

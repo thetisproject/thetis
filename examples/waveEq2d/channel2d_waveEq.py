@@ -56,6 +56,7 @@ options.horizontal_velocity_scale = u_mag
 options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
+options.use_automatic_timestep = False
 # options.timestepper_type = 'SSPRK33'
 # options.timestep = dt/40.0  # for explicit schemes
 options.timestepper_type = 'CrankNicolson'

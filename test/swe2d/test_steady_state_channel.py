@@ -36,6 +36,7 @@ def test_steady_state_channel(do_export=False):
         'snes_type': 'newtonls',
     }
     solver_obj.options.linear_drag_coefficient = f
+    options.use_automatic_timestep = False
     solver_obj.options.timestep = dt
 
     # boundary conditions

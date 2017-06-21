@@ -65,6 +65,7 @@ def test_steady_state_channel_mms(options):
             'snes_monitor': False,
             'snes_type': 'newtonls',
         }
+        options.use_automatic_timestep = False
         solver_obj.options.timestep = dt
         solver_obj.options.update(options)
 

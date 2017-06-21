@@ -241,6 +241,7 @@ def run(setup, refinement, order, do_export=True):
     solver_obj.options.horizontal_velocity_scale = Constant(1.0)
     solver_obj.options.no_exports = not do_export
     solver_obj.options.output_directory = outputdir
+    options.use_automatic_timestep = False
     solver_obj.options.timestep = 30.0
     solver_obj.options.timestep_2d = 10.0
     solver_obj.options.update(sdict['options'])

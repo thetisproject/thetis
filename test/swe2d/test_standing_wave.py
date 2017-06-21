@@ -80,6 +80,7 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
             'pc_type': 'bjacobi',
             'pc_bjacobi_type': 'ilu',
         }
+    options.use_automatic_timestep = False
     solver_obj.options.timestep = dt
 
     # boundary conditions
