@@ -701,11 +701,11 @@ class FlowSolver(FrozenClass):
             if self.options.solve_salinity:
                 s = self.fields.salt_3d
             else:
-                s = self.options.constant_salt
+                s = self.options.constant_salinity
             if self.options.solve_temperature:
                 t = self.fields.temp_3d
             else:
-                t = self.options.constant_temp
+                t = self.options.constant_temperature
             if self.options.equation_of_state == 'linear':
                 eos_params = self.options.lin_equation_of_state_params
                 self.equation_of_state = LinearEquationOfState(**eos_params)

@@ -62,7 +62,7 @@ def run_katophillips(**model_options):
     options.use_nonlinear_equations = False
     options.solve_salinity = True
     options.solve_temperature = False
-    options.constant_temp = Constant(10.0)
+    options.constant_temperature = Constant(10.0)
     options.use_implicit_vertical_diffusion = True
     options.use_bottom_friction = True
     options.use_turbulence = True

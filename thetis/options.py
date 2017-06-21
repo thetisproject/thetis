@@ -286,9 +286,9 @@ class ModelOptions(AttrDict, FrozenClass):
         """Coefficient or None: source term for salinity equation"""
         self.temp_source_3d = None
         """Coefficient or None: source term for temperature equation"""
-        self.constant_temp = Constant(10.0)
+        self.constant_temperature = Constant(10.0)
         """Coefficient: Constant temperature if temperature is not solved"""
-        self.constant_salt = Constant(0.0)
+        self.constant_salinity = Constant(0.0)
         """Coefficient: Constant salinity if salinity is not solved"""
         self.solver_parameters_sw = {
             'ksp_type': 'gmres',

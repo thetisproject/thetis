@@ -64,7 +64,7 @@ def compute_pg_error(**kwargs):
     options.timestepper_type = 'ssprk22'
     options.solve_salinity = False
     options.solve_temperature = True
-    options.constant_salt = Constant(salt_const)
+    options.constant_salinity = Constant(salt_const)
     options.use_implicit_vertical_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = True

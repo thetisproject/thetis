@@ -96,7 +96,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.element_family = element_family
     options.timestepper_type = 'leapfrog'
     options.solve_salinity = False
-    options.constant_salt = Constant(salt_const)
+    options.constant_salinity = Constant(salt_const)
     options.solve_temperature = True
     options.use_implicit_vertical_diffusion = True
     options.use_bottom_friction = True
