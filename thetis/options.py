@@ -70,7 +70,7 @@ class ModelOptions(AttrDict, FrozenClass):
         """bool: Activate GLS turbulence model"""
         self.use_smooth_eddy_viscosity = False
         """bool: Cast eddy viscosity to p1 space instead of p0"""
-        self.turbulence_model = 'gls'
+        self.turbulence_model_type = 'gls'
         """
         str: Defines the type of vertical turbulence model.
 
