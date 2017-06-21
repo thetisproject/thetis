@@ -53,7 +53,7 @@ solver_obj.options.solver_parameters_sw = {
     'snes_monitor': False,
     'snes_type': 'newtonls',
 }
-options.dt = timestep  # override computed dt
+options.timestep = timestep  # override computed dt
 options.horizontal_viscosity = Constant(2.0)
 
 # create function spaces

@@ -68,7 +68,7 @@ def test_pressure_forcing(element_family, timestepper):
         solverObj.options.polynomial_degree = order
         solverObj.options.timestepper_type = timestepper
         solverObj.options.element_family = element_family
-        solverObj.options.dt = dt
+        solverObj.options.timestep = dt
         solverObj.options.t_export = dt
         solverObj.options.t_end = t_end
         solverObj.options.no_exports = True

@@ -78,7 +78,7 @@ def compute_pg_error(**kwargs):
     options.horizontal_diffusivity = None
     options.t_export = 900.
     options.t_end = 4*900.
-    options.dt = 100.
+    options.timestep = 100.
     options.no_exports = True
     options.check_temperature_overshoot = False
     options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',

@@ -47,7 +47,7 @@ class FlowSolver2d(FrozenClass):
         options.timestepper_type = 'cranknicolson'
         options.t_export = 50.0
         options.t_end = 3600.
-        options.dt = 25.0
+        options.timestep = 25.0
 
     Assign initial condition for water elevation
 
@@ -160,13 +160,13 @@ class FlowSolver2d(FrozenClass):
         """
         Sets the model the model time step
 
-        Uses ``options.dt`` if set, otherwise sets the maximum time step
+        Uses ``options.timestep`` if set, otherwise sets the maximum time step
         allowed by the CFL condition (see :meth:`.compute_time_step`).
 
         :kwarg float alpha: CFL number scaling factor
         """
         # TODO revisit math alpha is OBSOLETE
-        self.dt = self.options.dt
+        self.dt = self.options.timestep
         if self.dt is None:
             mesh2d_dt = self.compute_time_step(u_scale=self.options.horizontal_velocity_scale)
             dt = self.options.cfl_2d*alpha*float(mesh2d_dt.dat.data.min())

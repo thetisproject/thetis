@@ -53,7 +53,7 @@ class FlowSolver(FrozenClass):
         options.solve_temperature = False
         options.t_export = 50.0
         options.t_end = 3600.
-        options.dt = 25.0
+        options.timestep = 25.0
 
     Assign initial condition for water elevation
 
@@ -279,7 +279,7 @@ class FlowSolver(FrozenClass):
         """
         Sets the model the model time step
 
-        Uses ``options.dt`` and ``options.dt_2d`` if set, otherwise sets the
+        Uses ``options.timestep`` and ``options.timestep_2d`` if set, otherwise sets the
         maximum time step allowed by the CFL conditions.
 
         Once the time step is determined, will adjust it to be an integer
@@ -298,10 +298,10 @@ class FlowSolver(FrozenClass):
         max_dt_2d = cfl2d*max_dt_swe
         max_dt_3d = cfl3d*min(max_dt_hadv, max_dt_vadv, max_dt_diff)
         print_output('  - CFL adjusted dt: 2D: {:} 3D: {:}'.format(max_dt_2d, max_dt_3d))
-        if self.options.dt_2d is not None or self.options.dt is not None:
-            print_output('  - User defined dt: 2D: {:} 3D: {:}'.format(self.options.dt_2d, self.options.dt))
-        self.dt = self.options.dt
-        self.dt_2d = self.options.dt_2d
+        if self.options.timestep_2d is not None or self.options.timestep is not None:
+            print_output('  - User defined dt: 2D: {:} 3D: {:}'.format(self.options.timestep_2d, self.options.timestep))
+        self.dt = self.options.timestep
+        self.dt_2d = self.options.timestep_2d
 
         if self.dt_mode == 'split':
             if self.dt is None:

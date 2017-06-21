@@ -143,7 +143,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.horizontal_viscosity_scale = Constant(nu_scale)
     options.horizontal_velocity_scale = Constant(u_max)
     options.vertical_velocity_scale = Constant(w_max)
-    options.dt = dt
+    options.timestep = dt
     options.t_export = t_export
     options.t_end = t_end
     options.output_directory = outputdir

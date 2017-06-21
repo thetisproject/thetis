@@ -53,7 +53,7 @@ options.t_end = t_end
 # Next we define the used time integrator, and set the time step::
 
 options.timestepper_type = 'CrankNicolson'
-options.dt = 50.0
+options.timestep = 50.0
 
 # Because Crank-Nicolson is an uncondionally stable method, we can set
 # the time step freely.

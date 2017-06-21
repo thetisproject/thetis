@@ -57,8 +57,8 @@ def run(refinement, **model_options):
     options.output_directory = outputdir
     options.t_end = t_end
     options.t_export = t_export
-    options.dt = dt
-    options.dt_2d = dt_2d
+    options.timestep = dt
+    options.timestep_2d = dt_2d
     options.solve_salinity = False
     options.solve_temperature = False
     options.use_implicit_vertical_diffusion = implicit

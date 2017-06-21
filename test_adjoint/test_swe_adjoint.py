@@ -38,7 +38,7 @@ def basic_setup():
     options.t_export = t_export
     options.check_volume_conservation_2d = True
     options.fields_to_export = ['uv_2d', 'elev_2d']
-    options.dt = timestep  # override computed dt
+    options.timestep = timestep  # override computed dt
     options.horizontal_viscosity = Constant(2.0)
 
     # create function spaces

@@ -31,7 +31,7 @@ options = solver_obj.options
 options.t_export = t_export
 options.t_end = t_end
 options.timestepper_type = 'CrankNicolson'
-options.dt = 50.0
+options.timestep = 50.0
 
 # We will force the model with a constant volume flux at the right boundary
 # (x=40 km) and impose a tidal volume flux on the left boundary (x=0 km).

@@ -74,7 +74,7 @@ def run_katophillips(**model_options):
     options.wind_stress = wind_stress_2d
     options.no_exports = True
     options.t_export = t_export
-    options.dt = dt
+    options.timestep = dt
     options.t_end = t_end
     options.output_directory = outputdir
     options.horizontal_velocity_scale = u_mag

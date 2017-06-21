@@ -80,7 +80,7 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
             'pc_type': 'bjacobi',
             'pc_bjacobi_type': 'ilu',
         }
-    solver_obj.options.dt = dt
+    solver_obj.options.timestep = dt
 
     # boundary conditions
     solver_obj.bnd_functions['shallow_water'] = {}

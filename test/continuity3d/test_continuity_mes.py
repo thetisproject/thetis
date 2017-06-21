@@ -241,8 +241,8 @@ def run(setup, refinement, order, do_export=True):
     solver_obj.options.horizontal_velocity_scale = Constant(1.0)
     solver_obj.options.no_exports = not do_export
     solver_obj.options.output_directory = outputdir
-    solver_obj.options.dt = 30.0
-    solver_obj.options.dt_2d = 10.0
+    solver_obj.options.timestep = 30.0
+    solver_obj.options.timestep_2d = 10.0
     solver_obj.options.update(sdict['options'])
 
     assert solver_obj.options.element_family == 'dg-dg', ('this test is not suitable '

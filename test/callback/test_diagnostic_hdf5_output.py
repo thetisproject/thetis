@@ -51,7 +51,7 @@ def test_callbacks(tmp_outputdir):
     options.use_implicit_vertical_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = False
-    options.dt = dt/40.0
+    options.timestep = dt/40.0
     options.t_export = t_export
     options.t_end = t_end
     options.horizontal_velocity_scale = u_mag

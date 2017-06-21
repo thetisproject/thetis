@@ -139,13 +139,13 @@ class ModelOptions(AttrDict, FrozenClass):
         """
         self.log_output = True
         """bool: Redirect all output to log file in output directory"""
-        self.dt = None
+        self.timestep = None
         """
         float: Time step.
 
         If set, overrides automatically computed stable dt
         """
-        self.dt_2d = None
+        self.timestep_2d = None
         """
         float: Time step of the 2d mode
 

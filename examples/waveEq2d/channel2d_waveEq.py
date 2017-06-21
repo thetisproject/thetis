@@ -57,11 +57,11 @@ options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
 # options.timestepper_type = 'SSPRK33'
-# options.dt = dt/40.0  # for explicit schemes
+# options.timestep = dt/40.0  # for explicit schemes
 options.timestepper_type = 'CrankNicolson'
-# options.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
+# options.timestep = 10.0  # override dt for CrankNicolson (semi-implicit)
 # options.timestepper_type = 'SSPIMEX'
-options.dt = 10.0  # override dt for IMEX (semi-implicit)
+options.timestep = 10.0  # override dt for IMEX (semi-implicit)
 
 # need to call creator to create the function spaces
 solver_obj.create_equations()

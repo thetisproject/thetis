@@ -146,8 +146,8 @@ Time integrator          Thetis class                           2D mode  ALE mes
 Table 5. *Supported 3D time integrators.*
 
 
-The 2D and 3D time steps can be set via :py:attr:`.ModelOptions.dt` and
-:py:attr:`.ModelOptions.dt_2d` options.
+The 2D and 3D time steps can be set via :py:attr:`.ModelOptions.timestep` and
+:py:attr:`.ModelOptions.timestep_2d` options.
 The 2D mode can be treated either implicitly or explicitly.
 In case of an implicit 2D mode, the 2D time step is equal to the 3D time step
 and ``dt_2d`` option is ignored.

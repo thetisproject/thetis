@@ -28,9 +28,9 @@ def test_thacker(n, dt, alpha, max_err):
     solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry)
     options = solverObj.options
 
-    options.dt = dt
-    options.t_end = 43200 - 0.1*options.dt
-    options.t_export = options.dt
+    options.timestep = dt
+    options.t_end = 43200 - 0.1*options.timestep
+    options.t_export = options.timestep
     options.no_exports = True
     options.timestepper_type = 'cranknicolson'
     options.shallow_water_theta = 0.5

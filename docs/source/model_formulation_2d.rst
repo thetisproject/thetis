@@ -59,10 +59,10 @@ Time integrator                 Thetis class                           Unconditi
 
 Table 2. *Time integration methods for 2D model.*
 
-Model time step is defined by the :py:attr:`.ModelOptions.dt` option.
+Model time step is defined by the :py:attr:`.ModelOptions.timestep` option.
 
 For explicit solvers, Thetis can also estimate the maximum stable time step
 based on the mesh resolution, used element family and time integration scheme.
 To use this feature, the user should provide the maximal horizontal velocity
 scale with :py:attr:`.ModelOptions.horizontal_velocity_scale` option and leave
-:py:attr:`.ModelOptions.dt` undefined (or set it to ``None``).
+:py:attr:`.ModelOptions.timestep` undefined (or set it to ``None``).
