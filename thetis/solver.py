@@ -51,8 +51,8 @@ class FlowSolver(FrozenClass):
         options.timestepper_type = 'ssprk22'
         options.solve_salinity = False
         options.solve_temperature = False
-        options.t_export = 50.0
-        options.t_end = 3600.
+        options.simulation_export_time = 50.0
+        options.simulation_end_time = 3600.
         options.timestep = 25.0
 
     Assign initial condition for water elevation
@@ -120,7 +120,7 @@ class FlowSolver(FrozenClass):
         self.simulation_time = 0
         self.iteration = 0
         self.i_export = 0
-        self.next_export_t = self.simulation_time + self.options.t_export
+        self.next_export_t = self.simulation_time + self.options.simulation_export_time
 
         self.bnd_functions = {'shallow_water': {},
                               'momentum': {},
@@ -283,7 +283,7 @@ class FlowSolver(FrozenClass):
         maximum time step allowed by the CFL conditions.
 
         Once the time step is determined, will adjust it to be an integer
-        fraction of export interval ``options.t_export``.
+        fraction of export interval ``options.simulation_export_time``.
         """
         cfl2d = self.timestepper.cfl_coeff_2d
         cfl3d = self.timestepper.cfl_coeff_3d
@@ -325,8 +325,8 @@ class FlowSolver(FrozenClass):
         print_output('  - chosen dt: 2D: {:} 3D: {:}'.format(self.dt_2d, self.dt))
 
         # fit dt to export time
-        m_exp = int(np.ceil(self.options.t_export/self.dt))
-        self.dt = float(self.options.t_export)/m_exp
+        m_exp = int(np.ceil(self.options.simulation_export_time/self.dt))
+        self.dt = float(self.options.simulation_export_time)/m_exp
         if self.dt_mode == 'split':
             self.M_modesplit = int(np.ceil(self.dt/self.dt_2d))
             self.dt_2d = self.dt/self.M_modesplit
@@ -781,7 +781,7 @@ class FlowSolver(FrozenClass):
         d = self.fields.max_h_diff.dat.data
         print_output('max h diff {:} - {:}'.format(d.min(), d.max()))
 
-        self.next_export_t = self.simulation_time + self.options.t_export
+        self.next_export_t = self.simulation_time + self.options.simulation_export_time
         self._initialized = True
         self._isfrozen = True
 
@@ -928,7 +928,7 @@ class FlowSolver(FrozenClass):
 
         # time stepper bookkeeping for export time step
         self.i_export = i_export
-        self.next_export_t = self.i_export*self.options.t_export
+        self.next_export_t = self.i_export*self.options.simulation_export_time
         if iteration is None:
             iteration = int(np.ceil(self.next_export_t/self.dt))
         if t is None:
@@ -942,7 +942,7 @@ class FlowSolver(FrozenClass):
             offset = 0
         else:
             offset = 1
-        self.next_export_t += self.options.t_export
+        self.next_export_t += self.options.simulation_export_time
         for k in self.exporters:
             self.exporters[k].set_next_export_ix(self.i_export + offset)
 
@@ -967,8 +967,8 @@ class FlowSolver(FrozenClass):
         """
         Runs the simulation
 
-        Iterates over the time loop until time ``options.t_end`` is reached.
-        Exports fields to disk on ``options.t_export`` intervals.
+        Iterates over the time loop until time ``options.simulation_end_time`` is reached.
+        Exports fields to disk on ``options.simulation_export_time`` intervals.
 
         :kwarg update_forcings: User-defined function that takes simulation
             time as an argument and updates time-dependent boundary conditions
@@ -1037,7 +1037,7 @@ class FlowSolver(FrozenClass):
             if 'vtk' in self.exporters:
                 self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
-        while self.simulation_time <= self.options.t_end - t_epsilon:
+        while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
 
             self.timestepper.advance(self.simulation_time,
                                      update_forcings, update_forcings3d)
@@ -1051,7 +1051,7 @@ class FlowSolver(FrozenClass):
             # Write the solution to file
             if self.simulation_time >= self.next_export_t - t_epsilon:
                 self.i_export += 1
-                self.next_export_t += self.options.t_export
+                self.next_export_t += self.options.simulation_export_time
 
                 cputime = time_mod.clock() - cputimestamp
                 cputimestamp = time_mod.clock()

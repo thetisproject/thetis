@@ -66,8 +66,8 @@ def run(refinement, **model_options):
     options.horizontal_velocity_scale = Constant(1.0)
     options.no_exports = True
     options.output_directory = outputdir
-    options.t_end = t_end
-    options.t_export = t_export
+    options.simulation_end_time = t_end
+    options.simulation_export_time = t_export
     options.solve_salinity = True
     options.use_implicit_vertical_diffusion = False
     options.use_limiter_for_tracers = False
@@ -116,7 +116,7 @@ def run(refinement, **model_options):
     ti = solverobj.timestepper.timestepper_salt_3d
     i = 0
     iexport = 1
-    next_export_t = t + solverobj.options.t_export
+    next_export_t = t + solverobj.options.simulation_export_time
     while t < t_end - 1e-8:
         ti.advance(t)
         t += solverobj.dt
@@ -124,7 +124,7 @@ def run(refinement, **model_options):
         if t >= next_export_t - 1e-8:
             print_output('{:3d} i={:5d} t={:8.2f} s salt={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.salt_3d)))
             export_func()
-            next_export_t += solverobj.options.t_export
+            next_export_t += solverobj.options.simulation_export_time
             iexport += 1
 
     # project analytical solultion on high order mesh

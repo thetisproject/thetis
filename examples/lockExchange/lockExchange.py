@@ -144,8 +144,8 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.horizontal_velocity_scale = Constant(u_max)
     options.vertical_velocity_scale = Constant(w_max)
     options.timestep = dt
-    options.t_export = t_export
-    options.t_end = t_end
+    options.simulation_export_time = t_export
+    options.simulation_end_time = t_end
     options.output_directory = outputdir
     options.check_volume_conservation_2d = True
     options.check_volume_conservation_3d = True

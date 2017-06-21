@@ -29,8 +29,8 @@ def test_thacker(n, dt, alpha, max_err):
     options = solverObj.options
 
     options.timestep = dt
-    options.t_end = 43200 - 0.1*options.timestep
-    options.t_export = options.timestep
+    options.simulation_end_time = 43200 - 0.1*options.timestep
+    options.simulation_export_time = options.timestep
     options.no_exports = True
     options.timestepper_type = 'cranknicolson'
     options.shallow_water_theta = 0.5

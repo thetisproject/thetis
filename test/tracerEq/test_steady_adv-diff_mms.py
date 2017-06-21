@@ -156,7 +156,7 @@ def run(setup, refinement, order, do_export=True, **options):
     solver_obj.options.horizontal_velocity_scale = Constant(1.0)
     solver_obj.options.no_exports = not do_export
     solver_obj.options.output_directory = outputdir
-    solver_obj.options.t_end = t_end
+    solver_obj.options.simulation_end_time = t_end
     solver_obj.options.fields_to_export = ['salt_3d', 'uv_3d', 'w_3d']
     solver_obj.options.update(sdict['options'])
     solver_obj.options.horizontal_viscosity_scale = Constant(kappa0)

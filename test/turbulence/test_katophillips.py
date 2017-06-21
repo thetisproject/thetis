@@ -73,9 +73,9 @@ def run_katophillips(**model_options):
     options.vertical_diffusivity = Constant(1.4e-7)  # background value
     options.wind_stress = wind_stress_2d
     options.no_exports = True
-    options.t_export = t_export
+    options.simulation_export_time = t_export
     options.timestep = dt
-    options.t_end = t_end
+    options.simulation_end_time = t_end
     options.output_directory = outputdir
     options.horizontal_velocity_scale = u_mag
     options.check_salinity_overshoot = True

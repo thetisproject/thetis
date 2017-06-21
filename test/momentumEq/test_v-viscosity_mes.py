@@ -55,8 +55,8 @@ def run(refinement, **model_options):
     options.horizontal_velocity_scale = Constant(1.0)
     options.no_exports = True
     options.output_directory = outputdir
-    options.t_end = t_end
-    options.t_export = t_export
+    options.simulation_end_time = t_end
+    options.simulation_export_time = t_export
     options.timestep = dt
     options.timestep_2d = dt_2d
     options.solve_salinity = False
@@ -112,7 +112,7 @@ def run(refinement, **model_options):
 
     i = 0
     iexport = 0
-    next_export_t = t + solverobj.options.t_export
+    next_export_t = t + solverobj.options.simulation_export_time
     # export initial conditions
     print_output('{:3d} i={:5d} t={:8.2f} s uv={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.uv_3d)))
     export_func()
@@ -126,7 +126,7 @@ def run(refinement, **model_options):
             iexport += 1
             print_output('{:3d} i={:5d} t={:8.2f} s uv={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.uv_3d)))
             export_func()
-            next_export_t += solverobj.options.t_export
+            next_export_t += solverobj.options.simulation_export_time
 
     # project analytical solultion on high order mesh
     t_const.assign(t)

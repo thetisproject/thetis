@@ -81,8 +81,8 @@ def run_tracer_consistency(**model_options):
     options.use_limiter_for_tracers = False
     options.use_lax_friedrichs_tracer = False
     options.use_lax_friedrichs_velocity = False
-    options.t_export = t_export
-    options.t_end = t_end
+    options.simulation_export_time = t_export
+    options.simulation_end_time = t_end
     options.horizontal_velocity_scale = u_mag
     options.check_volume_conservation_2d = True
     options.check_volume_conservation_3d = True

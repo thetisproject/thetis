@@ -68,9 +68,9 @@ options.vertical_viscosity = Constant(1.3e-6)  # background value
 options.vertical_diffusivity = Constant(1.4e-7)  # background value
 # options.use_ale_moving_mesh = False
 options.use_limiter_for_tracers = True
-options.t_export = t_export
+options.simulation_export_time = t_export
 options.timestep = dt
-options.t_end = t_end
+options.simulation_end_time = t_end
 options.horizontal_velocity_scale = u_mag
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'uv_dav_2d', 'uv_bottom_2d',

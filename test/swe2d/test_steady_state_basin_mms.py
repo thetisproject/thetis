@@ -148,9 +148,9 @@ def run(setup, refinement, order, do_export=True, options=None,
     solver_obj.options.horizontal_velocity_scale = Constant(1.0)
     solver_obj.options.no_exports = not do_export
     solver_obj.options.output_directory = outputdir
-    solver_obj.options.t_end = t_end
+    solver_obj.options.simulation_end_time = t_end
     solver_obj.options.timestep = dt
-    solver_obj.options.t_export = t_export
+    solver_obj.options.simulation_export_time = t_export
     # solver_obj.options.timestepper_type = 'cranknicolson'
     if 'options' in sdict:
         solver_obj.options.update(sdict['options'])

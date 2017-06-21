@@ -52,8 +52,8 @@ def test_callbacks(tmp_outputdir):
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = False
     options.timestep = dt/40.0
-    options.t_export = t_export
-    options.t_end = t_end
+    options.simulation_export_time = t_export
+    options.simulation_end_time = t_end
     options.horizontal_velocity_scale = u_mag
     options.check_salinity_conservation = True
     options.check_salinity_overshoot = True
@@ -119,7 +119,7 @@ def test_callbacks(tmp_outputdir):
         value = h5file['constant'][:]
         integral = h5file['integral'][:]
         correct_time = np.arange(11, dtype=float)[:, np.newaxis]
-        correct_time *= solver_obj.options.t_export
+        correct_time *= solver_obj.options.simulation_export_time
         correct_value = np.ones_like(correct_time)*const_value
         correct_integral = np.ones_like(correct_time)*const_value*lx*ly*depth
         assert np.allclose(time, correct_time)
@@ -131,7 +131,7 @@ def test_callbacks(tmp_outputdir):
         reldiff = h5file['relative_difference'][:]
         integral = h5file['integral'][:]
         correct_time = np.arange(11, dtype=float)[:, np.newaxis]
-        correct_time *= solver_obj.options.t_export
+        correct_time *= solver_obj.options.simulation_export_time
         correct_integral = np.ones_like(correct_time)*lx*ly*depth
         correct_reldiff = np.zeros_like(correct_time)
         assert np.allclose(time, correct_time)
@@ -143,7 +143,7 @@ def test_callbacks(tmp_outputdir):
         reldiff = h5file['relative_difference'][:]
         integral = h5file['integral'][:]
         correct_time = np.arange(11, dtype=float)[:, np.newaxis]
-        correct_time *= solver_obj.options.t_export
+        correct_time *= solver_obj.options.simulation_export_time
         correct_integral = np.ones_like(correct_time)*lx*ly*depth*3.45
         correct_reldiff = np.zeros_like(correct_time)
         assert np.allclose(time, correct_time)

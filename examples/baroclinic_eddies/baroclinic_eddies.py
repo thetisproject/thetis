@@ -124,8 +124,8 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
         raise Exception('Unknow viscosity type {:}'.format(viscosity))
     options.horizontal_diffusivity = None
     options.timestep = dt
-    options.t_export = t_export
-    options.t_end = t_end
+    options.simulation_export_time = t_export
+    options.simulation_end_time = t_end
     options.output_directory = outputdir
     options.horizontal_velocity_scale = Constant(u_max)
     options.vertical_velocity_scale = Constant(w_max)

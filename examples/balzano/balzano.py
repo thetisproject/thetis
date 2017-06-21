@@ -54,8 +54,8 @@ wetting_and_drying_alpha = Constant(0.4)
 # --- create solver ---
 solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry)
 options = solverObj.options
-options.t_export = t_export
-options.t_end = t_end
+options.simulation_export_time = t_export
+options.simulation_end_time = t_end
 options.output_directory = outputdir
 options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']

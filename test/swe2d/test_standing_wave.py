@@ -41,8 +41,8 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
     # --- create solver ---
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     solver_obj.options.use_nonlinear_equations = True
-    solver_obj.options.t_export = dt
-    solver_obj.options.t_end = t_end
+    solver_obj.options.simulation_export_time = dt
+    solver_obj.options.simulation_end_time = t_end
     solver_obj.options.no_exports = not do_export
     solver_obj.options.element_family = 'dg-dg'
     solver_obj.options.timestepper_type = timestepper

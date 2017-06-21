@@ -157,14 +157,14 @@ class ModelOptions(AttrDict, FrozenClass):
         self.cfl_3d = 1.0
         """float: Factor to scale the 2d time step"""
         # TODO OBSOLETE
-        self.t_export = 100.0
+        self.simulation_export_time = 100.0
         """
         float: Export interval in seconds
 
         All fields in fields_to_export list will be stored to disk and
         diagnostics will be computed
         """
-        self.t_end = 1000.0
+        self.simulation_end_time = 1000.0
         """float: Simulation duration in seconds"""
         self.horizontal_velocity_scale = Constant(0.1)
         """

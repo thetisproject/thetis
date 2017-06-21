@@ -45,8 +45,8 @@ class FlowSolver2d(FrozenClass):
         options.element_family = 'dg-dg'
         options.polynomial_degree = 1
         options.timestepper_type = 'cranknicolson'
-        options.t_export = 50.0
-        options.t_end = 3600.
+        options.simulation_export_time = 50.0
+        options.simulation_end_time = 3600.
         options.timestep = 25.0
 
     Assign initial condition for water elevation
@@ -99,7 +99,7 @@ class FlowSolver2d(FrozenClass):
         self.simulation_time = 0
         self.iteration = 0
         self.i_export = 0
-        self.next_export_t = self.simulation_time + self.options.t_export
+        self.next_export_t = self.simulation_time + self.options.simulation_export_time
 
         self.callbacks = callback.CallbackManager()
         """
@@ -462,7 +462,7 @@ class FlowSolver2d(FrozenClass):
 
         # time stepper bookkeeping for export time step
         self.i_export = i_export
-        self.next_export_t = self.i_export*self.options.t_export
+        self.next_export_t = self.i_export*self.options.simulation_export_time
         if iteration is None:
             iteration = int(np.ceil(self.next_export_t/self.dt))
         if t is None:
@@ -476,7 +476,7 @@ class FlowSolver2d(FrozenClass):
             offset = 0
         else:
             offset = 1
-        self.next_export_t += self.options.t_export
+        self.next_export_t += self.options.simulation_export_time
         for k in self.exporters:
             self.exporters[k].set_next_export_ix(self.i_export + offset)
 
@@ -501,8 +501,8 @@ class FlowSolver2d(FrozenClass):
         """
         Runs the simulation
 
-        Iterates over the time loop until time ``options.t_end`` is reached.
-        Exports fields to disk on ``options.t_export`` intervals.
+        Iterates over the time loop until time ``options.simulation_end_time`` is reached.
+        Exports fields to disk on ``options.simulation_export_time`` intervals.
 
         :kwarg update_forcings: User-defined function that takes simulation
             time as an argument and updates time-dependent boundary conditions
@@ -516,7 +516,7 @@ class FlowSolver2d(FrozenClass):
 
         t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()
-        next_export_t = self.simulation_time + self.options.t_export
+        next_export_t = self.simulation_time + self.options.simulation_export_time
 
         dump_hdf5 = self.options.export_diagnostics and not self.options.no_exports
         if self.options.check_volume_conservation_2d:
@@ -534,7 +534,7 @@ class FlowSolver2d(FrozenClass):
             if 'vtk' in self.exporters:
                 self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
-        while self.simulation_time <= self.options.t_end + t_epsilon:
+        while self.simulation_time <= self.options.simulation_end_time + t_epsilon:
 
             self.timestepper.advance(self.simulation_time, update_forcings)
 
@@ -547,7 +547,7 @@ class FlowSolver2d(FrozenClass):
             # Write the solution to file
             if self.simulation_time >= next_export_t - t_epsilon:
                 self.i_export += 1
-                next_export_t += self.options.t_export
+                next_export_t += self.options.simulation_export_time
 
                 cputime = time_mod.clock() - cputimestamp
                 cputimestamp = time_mod.clock()

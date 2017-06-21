@@ -69,8 +69,8 @@ def test_pressure_forcing(element_family, timestepper):
         solverObj.options.timestepper_type = timestepper
         solverObj.options.element_family = element_family
         solverObj.options.timestep = dt
-        solverObj.options.t_export = dt
-        solverObj.options.t_end = t_end
+        solverObj.options.simulation_export_time = dt
+        solverObj.options.simulation_end_time = t_end
         solverObj.options.no_exports = True
         solverObj.options.fields_to_export = ['uv_2d', 'elev_2d']
         solverObj.options.shallow_water_theta = 0.5

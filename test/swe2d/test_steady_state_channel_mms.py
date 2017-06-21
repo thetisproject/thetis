@@ -54,8 +54,8 @@ def test_steady_state_channel_mms(options):
         solver_obj.options.polynomial_degree = order
         solver_obj.options.use_nonlinear_equations = True
         solver_obj.options.quadratic_drag_coefficient = C_D
-        solver_obj.options.t_export = dt
-        solver_obj.options.t_end = n*dt
+        solver_obj.options.simulation_export_time = dt
+        solver_obj.options.simulation_end_time = n*dt
         solver_obj.options.uv_source_2d = source_func
         solver_obj.options.timestepper_type = 'steadystate'
         solver_obj.options.solver_parameters_sw = {

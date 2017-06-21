@@ -35,7 +35,7 @@ def basic_setup():
     # --- create solver ---
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     options = solver_obj.options
-    options.t_export = t_export
+    options.simulation_export_time = t_export
     options.check_volume_conservation_2d = True
     options.fields_to_export = ['uv_2d', 'elev_2d']
     options.timestep = timestep  # override computed dt
@@ -70,7 +70,7 @@ def basic_setup():
 def setup_steady():
     solver_obj = basic_setup()
     solver_obj.options.timestepper_type = 'steadystate'
-    solver_obj.options.t_end = 0.499
+    solver_obj.options.simulation_end_time = 0.499
     # firedrake-adjoint does not remember that in the adjoint solve
     solver_obj.options.solver_parameters_sw = {
         'mat_type': 'aij',
@@ -87,7 +87,7 @@ def setup_steady():
 def setup_unsteady():
     solver_obj = basic_setup()
     solver_obj.options.timestepper_type = 'cranknicolson'
-    solver_obj.options.t_end = 2.0
+    solver_obj.options.simulation_end_time = 2.0
     solver_obj.options.shallow_water_theta = 1.0
     solver_obj.options.solver_parameters_sw = {
         'mat_type': 'aij',

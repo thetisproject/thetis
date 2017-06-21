@@ -49,8 +49,8 @@ def test_closed_channel(**user_options):
     options.use_limiter_for_tracers = True
     options.use_lax_friedrichs_velocity = False
     options.use_lax_friedrichs_tracer = False
-    options.t_export = t_export
-    options.t_end = t_end
+    options.simulation_export_time = t_export
+    options.simulation_end_time = t_end
     options.no_exports = True
     options.output_directory = outputdir
     options.horizontal_velocity_scale = Constant(u_max)

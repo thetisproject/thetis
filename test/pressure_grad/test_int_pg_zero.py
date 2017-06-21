@@ -76,8 +76,8 @@ def compute_pg_error(**kwargs):
     options.vertical_viscosity = None
     options.horizontal_viscosity = None
     options.horizontal_diffusivity = None
-    options.t_export = 900.
-    options.t_end = 4*900.
+    options.simulation_export_time = 900.
+    options.simulation_end_time = 4*900.
     options.timestep = 100.
     options.no_exports = True
     options.check_temperature_overshoot = False

@@ -28,8 +28,8 @@ t_export = 300.0
 
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
-options.t_export = t_export
-options.t_end = t_end
+options.simulation_export_time = t_export
+options.simulation_end_time = t_end
 options.timestepper_type = 'CrankNicolson'
 options.timestep = 50.0
 

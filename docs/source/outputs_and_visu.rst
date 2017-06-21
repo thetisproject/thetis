@@ -80,7 +80,7 @@ The fields to be exported in HDF5 format are defined in
 The files are stored in ``outputdir/hdf5`` directory in format
 ``Elevation2d_00001.h5`` where the prefix is the output file name of the field,
 followed by the export index. HDF5 files are stored at the same time intervals
-as VTK files, defined by :py:attr:`~.ModelOptions.t_export` option.
+as VTK files, defined by :py:attr:`~.ModelOptions.simulation_export_time` option.
 
 In order to be able to restart a previous simulation, one has to export all
 the prognostic variables that define the model state.
