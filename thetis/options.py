@@ -207,6 +207,7 @@ class FrozenHasTraits(HasTraits):
     definition or when  self._isfrozen is False.
     """
     _isfrozen = False
+
     def __init__(self, *args, **kwargs):
         super(FrozenHasTraits, self).__init__(*args, **kwargs)
         self._isfrozen = True
@@ -223,6 +224,7 @@ class FrozenConfigurable(Configurable):
     definition or when  self._isfrozen is False.
     """
     _isfrozen = False
+
     def __init__(self, *args, **kwargs):
         super(FrozenConfigurable, self).__init__(*args, **kwargs)
         self._isfrozen = True
@@ -246,10 +248,10 @@ class ExplicitTimestepperOptions(TimeStepperOptions):
 class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
     """Options for 2d explicit time integrator"""
     solver_parameters = PETScSolverParameters({
-            'ksp_type': 'gmres',
-            'pc_type': 'fieldsplit',
-            'pc_fieldsplit_type': 'multiplicative',
-        }).tag(config=True)
+        'ksp_type': 'gmres',
+        'pc_type': 'fieldsplit',
+        'pc_fieldsplit_type': 'multiplicative',
+    }).tag(config=True)
 
 
 class SteadyStateTimestepperOptions2d(TimeStepperOptions):
@@ -258,7 +260,7 @@ class SteadyStateTimestepperOptions2d(TimeStepperOptions):
         'ksp_type': 'preonly',
         'pc_type': 'lu',
         'mat_type': 'aij'
-        }).tag(config=True)
+    }).tag(config=True)
 
 
 class CrankNicolsonTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
@@ -271,67 +273,67 @@ class CrankNicolsonTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
 class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
     """Options for 2d pressure-projection time integrator"""
     solver_parameters_pressure = PETScSolverParameters({
-            'ksp_type': 'gmres',
-            'pc_type': 'fieldsplit',
-            'pc_fieldsplit_type': 'multiplicative',
-        }).tag(config=True)
+        'ksp_type': 'gmres',
+        'pc_type': 'fieldsplit',
+        'pc_fieldsplit_type': 'multiplicative',
+    }).tag(config=True)
     solver_parameters_momentum = PETScSolverParameters({
-            'ksp_type': 'gmres',
-            'pc_type': 'bjacobi',
-            'sub_ksp_type': 'preonly',
-            'sub_pc_type': 'sor',
-        }).tag(config=True)
+        'ksp_type': 'gmres',
+        'pc_type': 'bjacobi',
+        'sub_ksp_type': 'preonly',
+        'sub_pc_type': 'sor',
+    }).tag(config=True)
 
 
 class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
     """Options for 2d explicit time integrator"""
     solver_parameters = PETScSolverParameters({
-            'snes_type': 'ksponly',
-            'ksp_type': 'cg',
-            'pc_type': 'bjacobi',
-            'sub_ksp_type': 'preonly',
-            'sub_pc_type': 'ilu',
-            'mat_type': 'aij',
-        }).tag(config=True)
+        'snes_type': 'ksponly',
+        'ksp_type': 'cg',
+        'pc_type': 'bjacobi',
+        'sub_ksp_type': 'preonly',
+        'sub_pc_type': 'ilu',
+        'mat_type': 'aij',
+    }).tag(config=True)
 
 
 class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
     """Base class for all 3d time stepper options"""
     solver_parameters_2d_swe = PETScSolverParameters({
-            'ksp_type': 'gmres',
-            'pc_type': 'fieldsplit',
-            'pc_fieldsplit_type': 'multiplicative',
-        }).tag(config=True)
+        'ksp_type': 'gmres',
+        'pc_type': 'fieldsplit',
+        'pc_fieldsplit_type': 'multiplicative',
+    }).tag(config=True)
     solver_parameters_momentum_explicit = PETScSolverParameters({
-            'snes_type': 'ksponly',
-            'ksp_type': 'cg',
-            'pc_type': 'bjacobi',
-            'sub_ksp_type': 'preonly',
-            'sub_pc_type': 'ilu',
-        }).tag(config=True)
+        'snes_type': 'ksponly',
+        'ksp_type': 'cg',
+        'pc_type': 'bjacobi',
+        'sub_ksp_type': 'preonly',
+        'sub_pc_type': 'ilu',
+    }).tag(config=True)
     solver_parameters_momentum_implicit = PETScSolverParameters({
-            'snes_monitor': False,
-            'snes_type': 'ksponly',
-            'ksp_type': 'preonly',
-            'pc_type': 'bjacobi',
-            'sub_ksp_type': 'preonly',
-            'sub_pc_type': 'ilu',
-        }).tag(config=True)
+        'snes_monitor': False,
+        'snes_type': 'ksponly',
+        'ksp_type': 'preonly',
+        'pc_type': 'bjacobi',
+        'sub_ksp_type': 'preonly',
+        'sub_pc_type': 'ilu',
+    }).tag(config=True)
     solver_parameters_tracer_explicit = PETScSolverParameters({
-            'snes_type': 'ksponly',
-            'ksp_type': 'cg',
-            'pc_type': 'bjacobi',
-            'sub_ksp_type': 'preonly',
-            'sub_pc_type': 'ilu',
-        }).tag(config=True)
+        'snes_type': 'ksponly',
+        'ksp_type': 'cg',
+        'pc_type': 'bjacobi',
+        'sub_ksp_type': 'preonly',
+        'sub_pc_type': 'ilu',
+    }).tag(config=True)
     solver_parameters_tracer_implicit = PETScSolverParameters({
-            'snes_monitor': False,
-            'snes_type': 'ksponly',
-            'ksp_type': 'preonly',
-            'pc_type': 'bjacobi',
-            'sub_ksp_type': 'preonly',
-            'sub_pc_type': 'ilu',
-        }).tag(config=True)
+        'snes_monitor': False,
+        'snes_type': 'ksponly',
+        'ksp_type': 'preonly',
+        'pc_type': 'bjacobi',
+        'sub_ksp_type': 'preonly',
+        'sub_pc_type': 'ilu',
+    }).tag(config=True)
 
 
 class GLSModelOptions(FrozenHasTraits):
@@ -548,8 +550,7 @@ class CommonModelOptions(FrozenConfigurable):
         help="""Finite element family
 
         2D solver supports 'dg-dg', 'rt-dg', or 'dg-cg' velocity-pressure pairs.
-        3D solver supports 'dg-dg', or 'rt-dg' velocity-pressure pairs."""
-        ).tag(config=True)
+        3D solver supports 'dg-dg', or 'rt-dg' velocity-pressure pairs.""").tag(config=True)
 
     use_nonlinear_equations = Bool(True, help='Use nonlinear shallow water equations').tag(config=True)
     use_grad_div_viscosity_term = Bool(
