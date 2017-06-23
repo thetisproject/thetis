@@ -315,7 +315,66 @@ class GLSModelOptions(FrozenHasTraits):
         ['Canuto A', 'Canuto B', 'Kantha-Clayson', 'Cheng'],
         default_value='Canuto A',
         help='Name of stability function family')
-    # TODO add remaining parameters
+    p = Float(3.0,
+              help='float: parameter p for the definition of psi')
+    m = Float(1.5,
+              help='float: parameter m for the definition of psi')
+    n = Float(-1.0,
+              help='float: parameter n for the definition of psi')
+    schmidt_nb_tke = PositiveFloat(1.0,
+                                   help='float: turbulent kinetic energy Schmidt number')
+    schmidt_nb_psi = PositiveFloat(1.3,
+                                   help='float: psi Schmidt number')
+    cmu0 = PositiveFloat(0.5477,
+                         help='float: cmu0 parameter')
+    compute_cmu0 = Bool(
+        True, help="""bool: compute cmu0 from stability function parameters
+
+        If :attr:`compute_cmu0` is True, this value will be overriden""")
+    c1 = Float(1.44, help='float: c1 parameter for Psi equations')
+    c2 = Float(1.92, help='float: c2 parameter for Psi equations')
+    c3_minus = Float(
+        -0.52, help="""float: c3 parameter for Psi equations, stable stratification
+
+        If :attr:`compute_c3_minus` is True this value will be overriden""")
+    c3_plus = Float(1.0,
+                    help='float: c3 parameter for Psi equations, unstable stratification')
+    compute_c3_minus = Bool(True,
+                            help='bool: compute :attr:`c3_minus` from :attr:`ri_st`')
+    f_wall = Float(1.0, help='float: wall function parameter')
+    ri_st = Float(0.25, help='steady state gradient Richardson number')
+    # FIXME should default to physical_constants['von_karman'] ??
+    # FIXME remove the dualism of von Karman constant
+    kappa = Float(
+        0.4, help="""float: von Karman constant
+
+        If :attr:`compute_kappa` is True this value will be overriden""")
+    compute_kappa = Bool(True,
+                         help='bool: compute von Karman constant from :attr:`schmidt_nb_psi`')
+    k_min = PositiveFloat(3.7e-8,
+                          help='float: minimum value for turbulent kinetic energy')
+    psi_min = PositiveFloat(1.0e-10, help='float: minimum value for psi')
+    eps_min = PositiveFloat(1.0e-10, help='float: minimum value for epsilon')
+    len_min = PositiveFloat(1.0e-10,
+                            help='float: minimum value for turbulent lenght scale')
+    compute_len_min = Bool(True,
+                           help='bool: compute min_len from k_min and psi_min')
+    compute_psi_min = Bool(True,
+                           help='bool: compute psi_len from k_min and eps_min')
+    visc_min = PositiveFloat(1.0e-8,
+                             help='float: minimum value for eddy viscosity')
+    diff_min = PositiveFloat(1.0e-8,
+                             help='float: minimum value for eddy diffusivity')
+    galperin_lim = PositiveFloat(0.56,
+                                 help='float: Galperin lenght scale limitation parameter')
+
+    limit_len = Bool(False, help='bool: apply Galperin lenght scale limit')
+    limit_psi = Bool(False,
+                     help='bool: apply Galperin lenght scale limit on psi')
+    limit_eps = Bool(False,
+                     help='bool: apply Galperin lenght scale limit on epsilon')
+    limit_len_min = Bool(True,
+                         help='bool: limit minimum turbulent length scale to len_min')
 
 
 class EquationOfStateOptions(FrozenHasTraits):
