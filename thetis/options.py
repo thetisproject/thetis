@@ -219,7 +219,7 @@ class TimeStepperOptions(FrozenHasTraits):
 
 class ExplicitTimestepperOptions(TimeStepperOptions):
     """Options for explicit time integrator"""
-    use_automatic_timestep = Bool(True, help='Set time step automatically based on local CFL conditions.')
+    use_automatic_timestep = Bool(True, help='Set time step automatically based on local CFL conditions.').tag(config=True)
 
 
 class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
@@ -228,7 +228,7 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
             'ksp_type': 'gmres',
             'pc_type': 'fieldsplit',
             'pc_fieldsplit_type': 'multiplicative',
-        })
+        }).tag(config=True)
 
 
 class SteadyStateTimestepperOptions2d(TimeStepperOptions):
@@ -237,14 +237,14 @@ class SteadyStateTimestepperOptions2d(TimeStepperOptions):
         'ksp_type': 'preonly',
         'pc_type': 'lu',
         'mat_type': 'aij'
-        })
+        }).tag(config=True)
 
 
 class CrankNicolsonTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
     """Options for 2d Crank-Nicolson time integrator"""
     implicitness_theta = BoundedFloat(
         default_value=0.5, bounds=[0.5, 1.0],
-        help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.')
+        help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.').tag(config=True)
 
 
 class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
@@ -253,13 +253,13 @@ class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
             'ksp_type': 'gmres',
             'pc_type': 'fieldsplit',
             'pc_fieldsplit_type': 'multiplicative',
-        })
+        }).tag(config=True)
     solver_parameters_momentum = PETScSolverParameters({
             'ksp_type': 'gmres',
             'pc_type': 'bjacobi',
             'sub_ksp_type': 'preonly',
             'sub_pc_type': 'sor',
-        })
+        }).tag(config=True)
 
 
 class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
@@ -268,7 +268,7 @@ class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
             'ksp_type': 'gmres',
             'pc_type': 'fieldsplit',
             'pc_fieldsplit_type': 'multiplicative',
-        })
+        }).tag(config=True)
 
 
 class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
@@ -279,7 +279,7 @@ class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
             'pc_type': 'bjacobi',
             'sub_ksp_type': 'preonly',
             'sub_pc_type': 'ilu',
-        })
+        }).tag(config=True)
     solver_parameters_momentum_implicit = PETScSolverParameters({
             'snes_monitor': False,
             'snes_type': 'ksponly',
@@ -287,14 +287,14 @@ class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
             'pc_type': 'bjacobi',
             'sub_ksp_type': 'preonly',
             'sub_pc_type': 'ilu',
-        })
+        }).tag(config=True)
     solver_parameters_tracer_explicit = PETScSolverParameters({
             'snes_type': 'ksponly',
             'ksp_type': 'cg',
             'pc_type': 'bjacobi',
             'sub_ksp_type': 'preonly',
             'sub_pc_type': 'ilu',
-        })
+        }).tag(config=True)
     solver_parameters_tracer_implicit = PETScSolverParameters({
             'snes_monitor': False,
             'snes_type': 'ksponly',
@@ -302,7 +302,7 @@ class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
             'pc_type': 'bjacobi',
             'sub_ksp_type': 'preonly',
             'sub_pc_type': 'ilu',
-        })
+        }).tag(config=True)
 
 
 class GLSModelOptions(FrozenHasTraits):
@@ -310,71 +310,71 @@ class GLSModelOptions(FrozenHasTraits):
     closure_name = Enum(
         ['k-epsilon', 'k-omega', 'Generic Lenght Scale'],
         default_value='k-epsilon',
-        help='Name of two-equation closure')
+        help='Name of two-equation closure').tag(config=True)
     stability_function_name = Enum(
         ['Canuto A', 'Canuto B', 'Kantha-Clayson', 'Cheng'],
         default_value='Canuto A',
-        help='Name of stability function family')
+        help='Name of stability function family').tag(config=True)
     p = Float(3.0,
-              help='float: parameter p for the definition of psi')
+              help='float: parameter p for the definition of psi').tag(config=True)
     m = Float(1.5,
-              help='float: parameter m for the definition of psi')
+              help='float: parameter m for the definition of psi').tag(config=True)
     n = Float(-1.0,
-              help='float: parameter n for the definition of psi')
+              help='float: parameter n for the definition of psi').tag(config=True)
     schmidt_nb_tke = PositiveFloat(1.0,
-                                   help='float: turbulent kinetic energy Schmidt number')
+                                   help='float: turbulent kinetic energy Schmidt number').tag(config=True)
     schmidt_nb_psi = PositiveFloat(1.3,
-                                   help='float: psi Schmidt number')
+                                   help='float: psi Schmidt number').tag(config=True)
     cmu0 = PositiveFloat(0.5477,
-                         help='float: cmu0 parameter')
+                         help='float: cmu0 parameter').tag(config=True)
     compute_cmu0 = Bool(
         True, help="""bool: compute cmu0 from stability function parameters
 
-        If :attr:`compute_cmu0` is True, this value will be overriden""")
-    c1 = Float(1.44, help='float: c1 parameter for Psi equations')
-    c2 = Float(1.92, help='float: c2 parameter for Psi equations')
+        If :attr:`compute_cmu0` is True, this value will be overriden""").tag(config=True)
+    c1 = Float(1.44, help='float: c1 parameter for Psi equations').tag(config=True)
+    c2 = Float(1.92, help='float: c2 parameter for Psi equations').tag(config=True)
     c3_minus = Float(
         -0.52, help="""float: c3 parameter for Psi equations, stable stratification
 
-        If :attr:`compute_c3_minus` is True this value will be overriden""")
+        If :attr:`compute_c3_minus` is True this value will be overriden""").tag(config=True)
     c3_plus = Float(1.0,
-                    help='float: c3 parameter for Psi equations, unstable stratification')
+                    help='float: c3 parameter for Psi equations, unstable stratification').tag(config=True)
     compute_c3_minus = Bool(True,
-                            help='bool: compute :attr:`c3_minus` from :attr:`ri_st`')
-    f_wall = Float(1.0, help='float: wall function parameter')
-    ri_st = Float(0.25, help='steady state gradient Richardson number')
+                            help='bool: compute :attr:`c3_minus` from :attr:`ri_st`').tag(config=True)
+    f_wall = Float(1.0, help='float: wall function parameter').tag(config=True)
+    ri_st = Float(0.25, help='steady state gradient Richardson number').tag(config=True)
     # FIXME should default to physical_constants['von_karman'] ??
     # FIXME remove the dualism of von Karman constant
     kappa = Float(
         0.4, help="""float: von Karman constant
 
-        If :attr:`compute_kappa` is True this value will be overriden""")
+        If :attr:`compute_kappa` is True this value will be overriden""").tag(config=True)
     compute_kappa = Bool(True,
-                         help='bool: compute von Karman constant from :attr:`schmidt_nb_psi`')
+                         help='bool: compute von Karman constant from :attr:`schmidt_nb_psi`').tag(config=True)
     k_min = PositiveFloat(3.7e-8,
-                          help='float: minimum value for turbulent kinetic energy')
-    psi_min = PositiveFloat(1.0e-10, help='float: minimum value for psi')
-    eps_min = PositiveFloat(1.0e-10, help='float: minimum value for epsilon')
+                          help='float: minimum value for turbulent kinetic energy').tag(config=True)
+    psi_min = PositiveFloat(1.0e-10, help='float: minimum value for psi').tag(config=True)
+    eps_min = PositiveFloat(1.0e-10, help='float: minimum value for epsilon').tag(config=True)
     len_min = PositiveFloat(1.0e-10,
-                            help='float: minimum value for turbulent lenght scale')
+                            help='float: minimum value for turbulent lenght scale').tag(config=True)
     compute_len_min = Bool(True,
-                           help='bool: compute min_len from k_min and psi_min')
+                           help='bool: compute min_len from k_min and psi_min').tag(config=True)
     compute_psi_min = Bool(True,
-                           help='bool: compute psi_len from k_min and eps_min')
+                           help='bool: compute psi_len from k_min and eps_min').tag(config=True)
     visc_min = PositiveFloat(1.0e-8,
-                             help='float: minimum value for eddy viscosity')
+                             help='float: minimum value for eddy viscosity').tag(config=True)
     diff_min = PositiveFloat(1.0e-8,
-                             help='float: minimum value for eddy diffusivity')
+                             help='float: minimum value for eddy diffusivity').tag(config=True)
     galperin_lim = PositiveFloat(0.56,
-                                 help='float: Galperin lenght scale limitation parameter')
+                                 help='float: Galperin lenght scale limitation parameter').tag(config=True)
 
-    limit_len = Bool(False, help='bool: apply Galperin lenght scale limit')
+    limit_len = Bool(False, help='bool: apply Galperin lenght scale limit').tag(config=True)
     limit_psi = Bool(False,
-                     help='bool: apply Galperin lenght scale limit on psi')
+                     help='bool: apply Galperin lenght scale limit on psi').tag(config=True)
     limit_eps = Bool(False,
-                     help='bool: apply Galperin lenght scale limit on epsilon')
+                     help='bool: apply Galperin lenght scale limit on epsilon').tag(config=True)
     limit_len_min = Bool(True,
-                         help='bool: limit minimum turbulent length scale to len_min')
+                         help='bool: limit minimum turbulent length scale to len_min').tag(config=True)
 
 
 class EquationOfStateOptions(FrozenHasTraits):
@@ -386,11 +386,11 @@ class LinearEquationOfStateOptions(EquationOfStateOptions):
     """Linear equation of state options"""
     # TODO more human readable parameter names
     # TODO document the actual equation somewhere
-    rho_ref = PositiveFloat(1000.0, help='Reference water density')
-    s_ref = PositiveFloat(35.0, help='Reference water salinity')
-    th_ref = Float(15.0, help='Reference water temperature')
-    alpha = Float(0.2, help='Thermal expansion coefficient of ocean water')
-    beta = Float(0.77, help='Saline contraction coefficient of ocean water')
+    rho_ref = PositiveFloat(1000.0, help='Reference water density').tag(config=True)
+    s_ref = PositiveFloat(35.0, help='Reference water salinity').tag(config=True)
+    th_ref = Float(15.0, help='Reference water temperature').tag(config=True)
+    alpha = Float(0.2, help='Thermal expansion coefficient of ocean water').tag(config=True)
+    beta = Float(0.77, help='Saline contraction coefficient of ocean water').tag(config=True)
 
 
 def attach_paired_options(name, name_trait, value_trait):
