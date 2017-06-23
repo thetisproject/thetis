@@ -214,18 +214,95 @@ class FrozenConfigurable(Configurable):
 
 class TimeStepperOptions(FrozenHasTraits):
     """Base class for all time stepper options"""
-
-
-class CrankNicolsonOptions(TimeStepperOptions):
-    """Options for Crank-Nicolson time integrator"""
-    implicitness_theta = BoundedFloat(default_value=0.5, bounds=[0.5, 1.0], help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.')
-    solver_parameters = PETScSolverParameters()
+    pass
 
 
 class ExplicitTimestepperOptions(TimeStepperOptions):
     """Options for explicit time integrator"""
     use_automatic_timestep = Bool(True, help='Set time step automatically based on local CFL conditions.')
-    solver_parameters = PETScSolverParameters()
+
+
+class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
+    """Options for 2d explicit time integrator"""
+    solver_parameters = PETScSolverParameters({
+            'ksp_type': 'gmres',
+            'pc_type': 'fieldsplit',
+            'pc_fieldsplit_type': 'multiplicative',
+        })
+
+
+class SteadyStateTimestepperOptions2d(TimeStepperOptions):
+    """Options for 2d steady state solver"""
+    solver_parameters = PETScSolverParameters({
+        'ksp_type': 'preonly',
+        'pc_type': 'lu',
+        'mat_type': 'aij'
+        })
+
+
+class CrankNicolsonTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
+    """Options for 2d Crank-Nicolson time integrator"""
+    implicitness_theta = BoundedFloat(
+        default_value=0.5, bounds=[0.5, 1.0],
+        help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.')
+
+
+class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
+    """Options for 2d pressure-projection time integrator"""
+    solver_parameters_pressure = PETScSolverParameters({
+            'ksp_type': 'gmres',
+            'pc_type': 'fieldsplit',
+            'pc_fieldsplit_type': 'multiplicative',
+        })
+    solver_parameters_momentum = PETScSolverParameters({
+            'ksp_type': 'gmres',
+            'pc_type': 'bjacobi',
+            'sub_ksp_type': 'preonly',
+            'sub_pc_type': 'sor',
+        })
+
+
+class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
+    """Options for 2d explicit time integrator"""
+    solver_parameters = PETScSolverParameters({
+            'ksp_type': 'gmres',
+            'pc_type': 'fieldsplit',
+            'pc_fieldsplit_type': 'multiplicative',
+        })
+
+
+class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
+    """Base class for all 3d time stepper options"""
+    solver_parameters_momentum_explicit = PETScSolverParameters({
+            'snes_type': 'ksponly',
+            'ksp_type': 'cg',
+            'pc_type': 'bjacobi',
+            'sub_ksp_type': 'preonly',
+            'sub_pc_type': 'ilu',
+        })
+    solver_parameters_momentum_implicit = PETScSolverParameters({
+            'snes_monitor': False,
+            'snes_type': 'ksponly',
+            'ksp_type': 'preonly',
+            'pc_type': 'bjacobi',
+            'sub_ksp_type': 'preonly',
+            'sub_pc_type': 'ilu',
+        })
+    solver_parameters_tracer_explicit = PETScSolverParameters({
+            'snes_type': 'ksponly',
+            'ksp_type': 'cg',
+            'pc_type': 'bjacobi',
+            'sub_ksp_type': 'preonly',
+            'sub_pc_type': 'ilu',
+        })
+    solver_parameters_tracer_implicit = PETScSolverParameters({
+            'snes_monitor': False,
+            'snes_type': 'ksponly',
+            'ksp_type': 'preonly',
+            'pc_type': 'bjacobi',
+            'sub_ksp_type': 'preonly',
+            'sub_pc_type': 'ilu',
+        })
 
 
 class GLSModelOptions(FrozenHasTraits):
@@ -294,6 +371,7 @@ def attach_paired_options(name, name_trait, value_trait):
 
 
 class CommonModelOptions(FrozenConfigurable):
+    """Options that are common for both 2d and 3d models"""
     polynomial_degree = PositiveInteger(1, help='Polynomial degree of elements').tag(config=True)
     element_family = Enum(
         ['dg-dg', 'rt-dg', 'dg-cg'],
@@ -417,88 +495,25 @@ class CommonModelOptions(FrozenConfigurable):
     volume_source_2d = FiredrakeCoefficient(
         None, allow_none=True, help="Source term for 2D continuity equation").tag(config=True)
 
-    #solver_parameters_sw = {
-            #'ksp_type': 'gmres',
-            #'pc_type': 'fieldsplit',
-            #'pc_fieldsplit_type': 'multiplicative',
-        #}
-        #"""PETSc solver parameters for 2D shallow water equations"""
-    #solver_parameters_sw_momentum = {
-            #'ksp_type': 'gmres',
-            #'pc_type': 'bjacobi',
-            #'sub_ksp_type': 'preonly',
-            #'sub_pc_type': 'sor',
-        #}
-        #"""PETSc solver parameters for 2D depth averaged momentum equation"""
-    #solver_parameters_momentum_explicit = {
-            #'snes_type': 'ksponly',
-            #'ksp_type': 'cg',
-            #'pc_type': 'bjacobi',
-            #'sub_ksp_type': 'preonly',
-            #'sub_pc_type': 'ilu',
-        #}
-        #"""PETSc solver parameters for explicit 3D momentum equation"""
-    #solver_parameters_momentum_implicit = {
-            #'snes_monitor': False,
-            #'snes_type': 'ksponly',
-            #'ksp_type': 'preonly',
-            #'pc_type': 'bjacobi',
-            #'sub_ksp_type': 'preonly',
-            #'sub_pc_type': 'ilu',
-        #}
-        #"""PETSc solver parameters for implicit 3D momentum equation"""
-    #solver_parameters_tracer_explicit = {
-            #'snes_type': 'ksponly',
-            #'ksp_type': 'cg',
-            #'pc_type': 'bjacobi',
-            #'sub_ksp_type': 'preonly',
-            #'sub_pc_type': 'ilu',
-        #}
-        #"""PETSc solver parameters for explicit 3D tracer equations"""
-    #solver_parameters_tracer_implicit = {
-            #'snes_monitor': False,
-            #'snes_type': 'ksponly',
-            #'ksp_type': 'preonly',
-            #'pc_type': 'bjacobi',
-            #'sub_ksp_type': 'preonly',
-            #'sub_pc_type': 'ilu',
-        #}
-        #"""PETSc solver parameters for implicit 3D tracer equations"""
 
-
-
-    # -----------
-    #timestepper = SubOptions(
-        #valid_values=['CrankNicolson', 'SSPRK22'],
-        #default_value='SSPRK22',
-        #help='Name of the time integrator',
-        #children=[
-            #('options',
-             #{
-                 #'CrankNicolson': CrankNicolsonOptions(),
-                 #'SSPRK22': ExplicitTimestepperOptions(),
-             #})]
-         #)
-
-    #timestepper_name = Enum(
-        #['SSPRK22', 'CrankNicolson'],
-        #default_value='SSPRK22',
-        #help='Name of the time integrator').tag(config=True)
-    #timestepper_options = Instance(TimeStepperOptions, args=()).tag(config=True)
-
-    #default_values = {
-        #'CrankNicolson': CrankNicolsonOptions(),
-        #'SSPRK22': ExplicitTimestepperOptions(),
-    #}
-    #@observe('timestepper_name')
-    #def _observe_name(self, change):
-        #self.__setattr__('timestepper_options', self.default_values[change['new']])
-
-    #@default('timestepper_options')
-    #def get_def_options(self):
-        #return self.default_values[type(self).timestepper_name.default_value]
-
-
+# NOTE all parameters are now case sensitive
+# TODO rename time stepper types? Allow capitals and spaces?
+@attach_paired_options("timestepper_type",
+                       PairedEnum([('ssprk33', ExplicitTimestepperOptions2d()),
+                                   ('ssprk33semi', SemiImplicitTimestepperOptions2d()),
+                                   ('forwardeuler', ExplicitTimestepperOptions2d()),
+                                   ('backwardeuler', SemiImplicitTimestepperOptions2d()),
+                                   ('cranknicolson', CrankNicolsonTimestepperOptions2d()),
+                                   ('dirk22', SemiImplicitTimestepperOptions2d()),
+                                   ('dirk33', SemiImplicitTimestepperOptions2d()),
+                                   ('steadystate', SteadyStateTimestepperOptions2d()),
+                                   ('pressureprojectionpicard', PressureProjectionTimestepperOptions2d()),
+                                   ('sspimex', SemiImplicitTimestepperOptions2d()),
+                                   ],
+                                  "timestepper_options",
+                                  default_value='cranknicolson',
+                                  help='Name of the time integrator').tag(config=True),
+                       Instance(TimeStepperOptions, args=()).tag(config=True))
 class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
     use_linearized_semi_implicit_2d = Bool(
@@ -520,10 +535,14 @@ class ModelOptions2d(CommonModelOptions):
 
 
 @attach_paired_options("timestepper_type",
-                       PairedEnum([('SSPRK22', ExplicitTimestepperOptions()),
-                                   ('CrankNicolson', CrankNicolsonOptions())],
+                       PairedEnum([('ssprk33', ExplicitTimestepperOptions()),
+                                   ('leapfrog', ExplicitTimestepperOptions()),
+                                   ('ssprk22', ExplicitTimestepperOptions()),
+                                   ('imexale', ExplicitTimestepperOptions()),
+                                   ('erkale', ExplicitTimestepperOptions()),
+                                   ],
                                   "timestepper_options",
-                                  default_value='SSPRK22',
+                                  default_value='ssprk22',
                                   help='Name of the time integrator').tag(config=True),
                        Instance(TimeStepperOptions, args=()).tag(config=True))
 @attach_paired_options("turbulence_model_type",

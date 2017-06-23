@@ -14,7 +14,7 @@ from mpi4py import MPI
 from . import exporter
 import weakref
 from .field_defs import field_metadata
-from .options import ModelOptions
+from .options import ModelOptions3d
 from . import callback
 from .log import *
 
@@ -40,7 +40,7 @@ class FlowSolver(FrozenClass):
         bathymetry_2d = Function(fs_p1, name='Bathymetry').assign(10.0)
 
     Create a 3D model with 6 uniform levels, and set some options
-    (see :class:`.ModelOptions`)
+    (see :class:`.ModelOptions3d`)
 
     .. code-block:: python
 
@@ -85,7 +85,7 @@ class FlowSolver(FrozenClass):
             Elements are distributed uniformly over the vertical.
         :kwarg options: Model options (optional). Model options can also be
             changed directly via the :attr:`.options` class property.
-        :type options: :class:`.ModelOptions` instance
+        :type options: :class:`.ModelOptions3d` instance
         """
         self._initialized = False
 
@@ -110,9 +110,9 @@ class FlowSolver(FrozenClass):
         """Mode split ratio (int)"""
 
         # override default options
-        self.options = ModelOptions()
+        self.options = ModelOptions3d()
         """
-        Dictionary of all options. A :class:`.ModelOptions` object.
+        Dictionary of all options. A :class:`.ModelOptions3d` object.
         """
         if options is not None:
             self.options.update(options)
@@ -280,9 +280,9 @@ class FlowSolver(FrozenClass):
         """
         Sets the model the model time step
 
-        If :attr:`ModelOptions.use_automatic_timestep` is `True`, computes the
+        If :attr:`ModelOptions3d.use_automatic_timestep` is `True`, computes the
         maximum time step allowed by the CFL conditions. Otherwise uses
-        :attr:`ModelOptions.use_automatic_timestep`.
+        :attr:`ModelOptions3d.use_automatic_timestep`.
 
         Once the time step is determined, will adjust it to be an integer
         fraction of export interval ``options.simulation_export_time``.

@@ -11,7 +11,7 @@ import time as time_mod
 from mpi4py import MPI
 from . import exporter
 from .field_defs import field_metadata
-from .options import ModelOptions
+from .options import ModelOptions2d
 from . import callback
 from .log import *
 
@@ -75,7 +75,7 @@ class FlowSolver2d(FrozenClass):
         :type bathymetry_2d: :class:`Function`
         :kwarg options: Model options (optional). Model options can also be
             changed directly via the :attr:`.options` class property.
-        :type options: :class:`.ModelOptions` instance
+        :type options: :class:`.ModelOptions2d` instance
         """
         self._initialized = False
         self.mesh2d = mesh2d
@@ -88,9 +88,9 @@ class FlowSolver2d(FrozenClass):
         self.dt = None
         """Time step"""
 
-        self.options = ModelOptions()
+        self.options = ModelOptions2d()
         """
-        Dictionary of all options. A :class:`.ModelOptions` object.
+        Dictionary of all options. A :class:`.ModelOptions2d` object.
         """
         if options is not None:
             self.options.update(options)
@@ -160,9 +160,9 @@ class FlowSolver2d(FrozenClass):
         """
         Sets the model the model time step
 
-        If :attr:`ModelOptions.use_automatic_timestep` is `True`, computes the
+        If :attr:`ModelOptions2d.use_automatic_timestep` is `True`, computes the
         maximum time step allowed by the CFL condition. Otherwise uses
-        :attr:`ModelOptions.use_automatic_timestep`.
+        :attr:`ModelOptions2d.use_automatic_timestep`.
 
         :kwarg float alpha: CFL number scaling factor
         """
@@ -263,47 +263,47 @@ class FlowSolver2d(FrozenClass):
             self.timestepper = rungekutta.SSPRK33(self.eq_sw, self.fields.solution_2d,
                                                   fields, self.dt,
                                                   bnd_conditions=self.bnd_functions['shallow_water'],
-                                                  solver_parameters=self.options.solver_parameters_sw)
+                                                  solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type.lower() == 'ssprk33semi':
             self.timestepper = rungekutta.SSPRK33SemiImplicit(self.eq_sw, self.fields.solution_2d,
                                                               fields, self.dt,
                                                               bnd_conditions=self.bnd_functions['shallow_water'],
-                                                              solver_parameters=self.options.solver_parameters_sw,
+                                                              solver_parameters=self.options.timestepper_options.solver_parameters,
                                                               semi_implicit=self.options.use_linearized_semi_implicit_2d,
-                                                              theta=self.options.shallow_water_theta)
+                                                              theta=self.options.timestepper_options.implicitness_theta)
 
         elif self.options.timestepper_type.lower() == 'forwardeuler':
             self.timestepper = timeintegrator.ForwardEuler(self.eq_sw, self.fields.solution_2d,
                                                            fields, self.dt,
                                                            bnd_conditions=self.bnd_functions['shallow_water'],
-                                                           solver_parameters=self.options.solver_parameters_sw)
+                                                           solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type.lower() == 'backwardeuler':
             self.timestepper = rungekutta.BackwardEuler(self.eq_sw, self.fields.solution_2d,
                                                         fields, self.dt,
                                                         bnd_conditions=self.bnd_functions['shallow_water'],
-                                                        solver_parameters=self.options.solver_parameters_sw)
+                                                        solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type.lower() == 'cranknicolson':
             self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
                                                             fields, self.dt,
                                                             bnd_conditions=self.bnd_functions['shallow_water'],
-                                                            solver_parameters=self.options.solver_parameters_sw,
+                                                            solver_parameters=self.options.timestepper_options.solver_parameters,
                                                             semi_implicit=self.options.use_linearized_semi_implicit_2d,
                                                             theta=self.options.shallow_water_theta)
         elif self.options.timestepper_type.lower() == 'dirk22':
             self.timestepper = rungekutta.CrankNicolsonRK(self.eq_sw, self.fields.solution_2d,
                                                           fields, self.dt,
                                                           bnd_conditions=self.bnd_functions['shallow_water'],
-                                                          solver_parameters=self.options.solver_parameters_sw)
+                                                          solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type.lower() == 'dirk33':
             self.timestepper = rungekutta.DIRK33(self.eq_sw, self.fields.solution_2d,
                                                  fields, self.dt,
                                                  bnd_conditions=self.bnd_functions['shallow_water'],
-                                                 solver_parameters=self.options.solver_parameters_sw)
+                                                 solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type.lower() == 'steadystate':
             self.timestepper = timeintegrator.SteadyState(self.eq_sw, self.fields.solution_2d,
                                                           fields, self.dt,
                                                           bnd_conditions=self.bnd_functions['shallow_water'],
-                                                          solver_parameters=self.options.solver_parameters_sw)
+                                                          solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type.lower() == 'pressureprojectionpicard':
 
             u_test = TestFunction(self.function_spaces.U_2d)
@@ -316,8 +316,8 @@ class FlowSolver2d(FrozenClass):
             self.timestepper = timeintegrator.PressureProjectionPicard(self.eq_sw, self.eq_mom, self.fields.solution_2d,
                                                                        fields, self.dt,
                                                                        bnd_conditions=self.bnd_functions['shallow_water'],
-                                                                       solver_parameters=self.options.solver_parameters_sw,
-                                                                       solver_parameters_mom=self.options.solver_parameters_sw_momentum,
+                                                                       solver_parameters=self.options.timestepper_options.solver_parameters_pressure,
+                                                                       solver_parameters_mom=self.options.timestepper_options.solver_parameters_momentum,
                                                                        semi_implicit=self.options.use_linearized_semi_implicit_2d,
                                                                        theta=self.options.shallow_water_theta)
 
