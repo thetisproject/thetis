@@ -687,8 +687,6 @@ class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
     use_linearized_semi_implicit_2d = Bool(
         False, help="Use linearized semi-implicit time integration for the horizontal mode").tag(config=True)
-    shallow_water_theta = BoundedFloat(
-        0.5, bounds=[0.5, 1.0], help='Theta parameter for shallow water semi-implicit scheme').tag(config=True)
     use_wetting_and_drying = Bool(
         False, help=r"""bool: Turn on wetting and drying
 

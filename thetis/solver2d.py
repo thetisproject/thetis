@@ -288,7 +288,7 @@ class FlowSolver2d(FrozenClass):
                                                             bnd_conditions=self.bnd_functions['shallow_water'],
                                                             solver_parameters=self.options.timestepper_options.solver_parameters,
                                                             semi_implicit=self.options.use_linearized_semi_implicit_2d,
-                                                            theta=self.options.shallow_water_theta)
+                                                            theta=self.options.timestepper_options.implicitness_theta)
         elif self.options.timestepper_type == 'DIRK22':
             self.timestepper = rungekutta.CrankNicolsonRK(self.eq_sw, self.fields.solution_2d,
                                                           fields, self.dt,
@@ -319,7 +319,7 @@ class FlowSolver2d(FrozenClass):
                                                                        solver_parameters=self.options.timestepper_options.solver_parameters_pressure,
                                                                        solver_parameters_mom=self.options.timestepper_options.solver_parameters_momentum,
                                                                        semi_implicit=self.options.use_linearized_semi_implicit_2d,
-                                                                       theta=self.options.shallow_water_theta)
+                                                                       theta=self.options.timestepper_options.implicitness_theta)
 
         elif self.options.timestepper_type == 'SSPIMEX':
             # TODO meaningful solver params
