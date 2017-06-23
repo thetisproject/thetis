@@ -655,16 +655,16 @@ class FlowSolver(FrozenClass):
 
         # ----- Time integrators
         self.dt_mode = '3d'  # 'split'|'2d'|'3d' use constant 2d/3d dt, or split
-        if self.options.timestepper_type.lower() == 'SSPRK33':
+        if self.options.timestepper_type == 'SSPRK33':
             self.timestepper = coupled_timeintegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
-        elif self.options.timestepper_type.lower() == 'LeapFrog':
+        elif self.options.timestepper_type == 'LeapFrog':
             self.timestepper = coupled_timeintegrator.CoupledLeapFrogAM3(weakref.proxy(self))
-        elif self.options.timestepper_type.lower() == 'SSPRK22':
+        elif self.options.timestepper_type == 'SSPRK22':
             self.timestepper = coupled_timeintegrator.CoupledTwoStageRK(weakref.proxy(self))
-        elif self.options.timestepper_type.lower() == 'IMEXALE':
+        elif self.options.timestepper_type == 'IMEXALE':
             assert self.options.use_ale_moving_mesh, '{:} time integrator requires ALE mesh'.format(self.options.timestepper_type)
             self.timestepper = coupled_timeintegrator.CoupledIMEXALE(weakref.proxy(self))
-        elif self.options.timestepper_type.lower() == 'ERKALE':
+        elif self.options.timestepper_type == 'ERKALE':
             assert self.options.use_ale_moving_mesh, '{:} time integrator requires ALE mesh'.format(self.options.timestepper_type)
             self.timestepper = coupled_timeintegrator.CoupledERKALE(weakref.proxy(self))
             self.dt_mode = '2d'
