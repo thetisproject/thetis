@@ -6,7 +6,6 @@ Equations are based on Legg et al. (2006)
 
 """
 import numpy
-import matplotlib.pyplot as plt
 
 # constants
 bay_width = 100e3
@@ -78,6 +77,7 @@ temp_func = lambda x_w, z: -(rho_func(x_w, z) - rho_0)/alpha + t_ref
 def plot_fields():
     """plots inflow temperature and velocity fields"""
 
+    import matplotlib.pyplot as plt
     x_plot = numpy.linspace(0, bay_width, 500)
     z_plot = numpy.linspace(-bay_depth, 0, 400)
 
