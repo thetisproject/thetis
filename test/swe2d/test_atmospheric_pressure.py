@@ -69,20 +69,15 @@ def test_pressure_forcing(element_family, timestepper):
         solverObj.options.timestepper_type = timestepper
         solverObj.options.element_family = element_family
         solverObj.options.use_automatic_timestep = False
+        solverObj.options.check_volume_conservation_2d = False
         solverObj.options.timestep = dt
-        solverObj.options.simulation_export_time = dt
+        solverObj.options.simulation_export_time = 3600.
         solverObj.options.simulation_end_time = t_end
         solverObj.options.no_exports = True
         solverObj.options.fields_to_export = ['uv_2d', 'elev_2d']
         solverObj.options.shallow_water_theta = 0.5
         solverObj.options.manning_drag_coefficient = manning_drag_coefficient
         solverObj.options.atmospheric_pressure = atmospheric_pressure
-        solverObj.options.solver_parameters_sw = {
-            'snes_type': 'newtonls',
-            'snes_monitor': False,
-            'ksp_type': 'gmres',
-            'pc_type': 'fieldsplit',
-        }
 
         solverObj.assign_initial_conditions(uv=Constant((1e-7, 0.)))
         solverObj.iterate()

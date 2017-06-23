@@ -265,9 +265,12 @@ class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
 class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
     """Options for 2d explicit time integrator"""
     solver_parameters = PETScSolverParameters({
-            'ksp_type': 'gmres',
-            'pc_type': 'fieldsplit',
-            'pc_fieldsplit_type': 'multiplicative',
+            'snes_type': 'ksponly',
+            'ksp_type': 'cg',
+            'pc_type': 'bjacobi',
+            'sub_ksp_type': 'preonly',
+            'sub_pc_type': 'ilu',
+            'mat_type': 'aij',
         }).tag(config=True)
 
 
