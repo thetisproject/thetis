@@ -206,7 +206,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         fields = {
             'uv_bottom': solver.fields.get('uv_bottom_2d'),
             'bottom_drag': solver.fields.get('bottom_drag_2d'),
-            'viscosity_h': self.options.get('h_viscosity'),  # FIXME should be total h visc
+            'viscosity_h': self.options.horizontal_viscosity,  # FIXME should be total h visc
             'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
             'coriolis': self.options.coriolis_frequency,
             'wind_stress': self.options.wind_stress,
@@ -219,15 +219,15 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 solver.eq_sw, self.fields.solution_2d,
                 fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['shallow_water'],
-                solver_parameters=self.options.solver_parameters_sw,
-                semi_implicit=self.options.use_linearized_semi_implicit_2d,
-                theta=self.options.shallow_water_theta)
+                solver_parameters=self.options.timestepper_options.solver_parameters_2d_swe,
+                semi_implicit=self.options.True,
+                theta=self.options.timestepper_options.implicitness_theta)
         else:
             self.timestepper2d = self.integrator_2d(
                 solver.eq_sw, self.fields.solution_2d,
                 fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['shallow_water'],
-                solver_parameters=self.options.solver_parameters_sw)
+                solver_parameters=self.options.timestepper_options.solver_parameters_2d_swe)
 
     def _create_mom_integrator(self):
         """
@@ -254,7 +254,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         self.timestepper_mom_3d = self.integrator_3d(
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,
             bnd_conditions=solver.bnd_functions['momentum'],
-            solver_parameters=self.options.solver_parameters_momentum_explicit)
+            solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
         if self.solver.options.use_implicit_vertical_diffusion:
             fields = {'viscosity_v': impl_v_visc,
                       'wind_stress': self.fields.get('wind_stress_3d'),
@@ -263,7 +263,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             self.timestepper_mom_vdff_3d = self.integrator_vert_3d(
                 solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['momentum'],
-                solver_parameters=self.options.solver_parameters_momentum_implicit)
+                solver_parameters=self.options.timestepper_options.solver_parameters_momentum_implicit)
 
     def _create_salt_integrator(self):
         """
@@ -288,7 +288,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             self.timestepper_salt_3d = self.integrator_3d(
                 solver.eq_salt, solver.fields.salt_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['salt'],
-                solver_parameters=self.options.solver_parameters_tracer_explicit)
+                solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
             if self.solver.options.use_implicit_vertical_diffusion:
                 fields = {'elev_3d': self.fields.elev_3d,
                           'diffusivity_v': impl_v_diff,
@@ -296,7 +296,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 self.timestepper_salt_vdff_3d = self.integrator_vert_3d(
                     solver.eq_salt_vdff, solver.fields.salt_3d, fields, solver.dt,
                     bnd_conditions=solver.bnd_functions['salt'],
-                    solver_parameters=self.options.solver_parameters_tracer_implicit)
+                    solver_parameters=self.options.timestepper_options.solver_parameters_tracer_implicit)
 
     def _create_temp_integrator(self):
         """
@@ -321,7 +321,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             self.timestepper_temp_3d = self.integrator_3d(
                 solver.eq_temp, solver.fields.temp_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['temp'],
-                solver_parameters=self.options.solver_parameters_tracer_explicit)
+                solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
             if self.solver.options.use_implicit_vertical_diffusion:
                 fields = {'elev_3d': self.fields.elev_3d,
                           'diffusivity_v': impl_v_diff,
@@ -329,7 +329,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 self.timestepper_temp_vdff_3d = self.integrator_vert_3d(
                     solver.eq_temp_vdff, solver.fields.temp_3d, fields, solver.dt,
                     bnd_conditions=solver.bnd_functions['temp'],
-                    solver_parameters=self.options.solver_parameters_tracer_implicit)
+                    solver_parameters=self.options.timestepper_options.solver_parameters_tracer_implicit)
 
     def _create_turb_integrator(self):
         """
@@ -349,10 +349,10 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       }
             self.timestepper_tke_3d = self.integrator_vert_3d(
                 solver.eq_tke_diff, solver.fields.tke_3d, fields, solver.dt,
-                solver_parameters=self.options.solver_parameters_tracer_implicit)
+                solver_parameters=self.options.timestepper_options.solver_parameters_tracer_implicit)
             self.timestepper_psi_3d = self.integrator_vert_3d(
                 solver.eq_psi_diff, solver.fields.psi_3d, fields, solver.dt,
-                solver_parameters=self.options.solver_parameters_tracer_implicit)
+                solver_parameters=self.options.timestepper_options.solver_parameters_tracer_implicit)
             if self.solver.options.use_turbulence_advection:
                 fields = {'elev_3d': self.fields.elev_3d,
                           'uv_3d': self.fields.uv_3d,
@@ -365,10 +365,10 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                           }
                 self.timestepper_tke_adv_eq = self.integrator_3d(
                     solver.eq_tke_adv, solver.fields.tke_3d, fields, solver.dt,
-                    solver_parameters=self.options.solver_parameters_tracer_explicit)
+                    solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
                 self.timestepper_psi_adv_eq = self.integrator_3d(
                     solver.eq_psi_adv, solver.fields.psi_3d, fields, solver.dt,
-                    solver_parameters=self.options.solver_parameters_tracer_explicit)
+                    solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
 
     def _create_integrators(self):
         """

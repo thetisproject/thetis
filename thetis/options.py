@@ -10,6 +10,7 @@ from traitlets import *
 
 from thetis import FiredrakeConstant as Constant
 from thetis import FiredrakeFunction as Function
+from thetis import print_output
 
 
 def rst_all_options(cls, nspace=0, prefix=None):
@@ -86,6 +87,26 @@ class PositiveFloat(Float):
     def validate(self, obj, proposal):
         super(PositiveFloat, self).validate(obj, proposal)
         assert proposal > 0.0, self.error(obj, proposal)
+        return proposal
+
+
+class NonNegativeInteger(Integer):
+    def info(self):
+        return u'a non-negative integer'
+
+    def validate(self, obj, proposal):
+        super(NonNegativeInteger, self).validate(obj, proposal)
+        assert proposal >= 0, self.error(obj, proposal)
+        return proposal
+
+
+class NonNegativeFloat(Float):
+    def info(self):
+        return u'a non-negative float'
+
+    def validate(self, obj, proposal):
+        super(NonNegativeFloat, self).validate(obj, proposal)
+        assert proposal >= 0.0, self.error(obj, proposal)
         return proposal
 
 
@@ -276,6 +297,11 @@ class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
 
 class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
     """Base class for all 3d time stepper options"""
+    solver_parameters_2d_swe = PETScSolverParameters({
+            'ksp_type': 'gmres',
+            'pc_type': 'fieldsplit',
+            'pc_fieldsplit_type': 'multiplicative',
+        }).tag(config=True)
     solver_parameters_momentum_explicit = PETScSolverParameters({
             'snes_type': 'ksponly',
             'ksp_type': 'cg',
@@ -379,6 +405,87 @@ class GLSModelOptions(FrozenHasTraits):
     limit_len_min = Bool(True,
                          help='bool: limit minimum turbulent length scale to len_min').tag(config=True)
 
+    def apply_defaults(self, closure_name):
+        """
+        Applies default parameters for given closure name
+
+        :arg closure_name: name of the turbulence closure model
+        :type closure_name: string
+
+        Sets default values for parameters p, m, n, schmidt_nb_tke,
+        schmidt_nb_psi, c1, c2, c3_plus, c3_minus,
+        f_wall, k_min, psi_min
+        """
+
+        kepsilon = {'p': 3,
+                    'm': 1.5,
+                    'n': -1.0,
+                    'cmu0': 0.5477,
+                    'schmidt_nb_tke': 1.0,
+                    'schmidt_nb_psi': 1.3,
+                    'c1': 1.44,
+                    'c2': 1.92,
+                    'c3_plus': 1.0,
+                    'c3_minus': -0.52,
+                    'f_wall': 1.0,
+                    'k_min': 3.7e-8,
+                    'psi_min': 1.0e-10,
+                    'closure_name': 'k-epsilon',
+                    }
+        # k-epsilon defaults, from tables 1 and 2 in [3]
+        komega = {'p': -1.0,
+                  'm': 0.5,
+                  'n': -1.0,
+                  'cmu0': 0.5477,
+                  'schmidt_nb_tke': 2.0,
+                  'schmidt_nb_psi': 2.0,
+                  'c1': 0.555,
+                  'c2': 0.833,
+                  'c3_plus': 1.0,
+                  'c3_minus': -0.52,
+                  'f_wall': 1.0,
+                  'k_min': 3.7e-8,
+                  'eps_min': 1.0e-10,
+                  'psi_min': 1.0e-10,
+                  'closure_name': 'k-omega',
+                  }
+        # k-omega defaults, from tables 1 and 2 in [3]
+        gen = {'p': 2.0,
+               'm': 1.0,
+               'n': -0.67,
+               'cmu0': 0.5477,
+               'schmidt_nb_tke': 0.8,
+               'schmidt_nb_psi': 1.07,
+               'c1': 1.0,
+               'c2': 1.22,
+               'c3_plus': 1.0,
+               'c3_minus': 0.05,
+               'f_wall': 1.0,
+               'k_min': 3.7e-8,
+               'eps_min': 1.0e-10,
+               'psi_min': 2.0e-7,
+               'closure_name': 'gen',
+               }
+        # GLS model A defaults, from tables 1 and 2 in [3]
+
+        if closure_name == 'k-epsilon':
+            self.update(kepsilon)
+        elif closure_name == 'k-omega':
+            self.update(komega)
+        elif closure_name == 'gen':
+            self.update(gen)
+
+    def update(self, params_dict):
+            for key in params_dict:
+                self.__setattr__(key, params_dict[key])
+
+    def print_summary(self):
+        """Prints all defined parameters and their values."""
+        print_output('GLS Turbulence model parameters')
+        params_dict = self._trait_values
+        for k in sorted(params_dict.keys()):
+            print_output('  {:16s} : {:}'.format(k, params_dict[k]))
+
 
 class EquationOfStateOptions(FrozenHasTraits):
     """Base class of equation of state options"""
@@ -389,8 +496,8 @@ class LinearEquationOfStateOptions(EquationOfStateOptions):
     """Linear equation of state options"""
     # TODO more human readable parameter names
     # TODO document the actual equation somewhere
-    rho_ref = PositiveFloat(1000.0, help='Reference water density').tag(config=True)
-    s_ref = PositiveFloat(35.0, help='Reference water salinity').tag(config=True)
+    rho_ref = NonNegativeFloat(1000.0, help='Reference water density').tag(config=True)
+    s_ref = NonNegativeFloat(35.0, help='Reference water salinity').tag(config=True)
     th_ref = Float(15.0, help='Reference water temperature').tag(config=True)
     alpha = Float(0.2, help='Thermal expansion coefficient of ocean water').tag(config=True)
     beta = Float(0.77, help='Saline contraction coefficient of ocean water').tag(config=True)
@@ -480,7 +587,7 @@ class CommonModelOptions(FrozenConfigurable):
         :attr:`horizontal_velocity_scale`,
         :attr:`vertical_velocity_scale`,
         :attr:`horizontal_viscosity_scale`.
-        """).tag(config=True)
+        """).tag(config=True)  # TODO OBSOLETE now located under timestepper_options
     cfl_2d = PositiveFloat(
         1.0, help="Factor to scale the 2d time step OBSOLETE").tag(config=True)  # TODO OBSOLETE
     cfl_3d = PositiveFloat(
@@ -597,11 +704,11 @@ class ModelOptions2d(CommonModelOptions):
 
 
 @attach_paired_options("timestepper_type",
-                       PairedEnum([('SSPRK33', ExplicitTimestepperOptions()),
-                                   ('LeapFrog', ExplicitTimestepperOptions()),
-                                   ('SSPRK22', ExplicitTimestepperOptions()),
-                                   ('IMEXALE', ExplicitTimestepperOptions()),
-                                   ('ERKALE', ExplicitTimestepperOptions()),
+                       PairedEnum([('SSPRK33', ExplicitTimestepperOptions3d()),
+                                   ('LeapFrog', ExplicitTimestepperOptions3d()),
+                                   ('SSPRK22', ExplicitTimestepperOptions3d()),
+                                   ('IMEXALE', ExplicitTimestepperOptions3d()),
+                                   ('ERKALE', ExplicitTimestepperOptions3d()),
                                    ],
                                   "timestepper_options",
                                   default_value='SSPRK22',

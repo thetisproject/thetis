@@ -281,7 +281,7 @@ class ShallowWaterTerm(Term):
         """
         if self.options.use_nonlinear_equations:
             total_h = self.bathymetry + eta
-            if self.options.use_wetting_and_drying:
+            if hasattr(self.options, 'use_wetting_and_drying') and self.options.use_wetting_and_drying:
                 total_h += self.wd_bathymetry_displacement(eta)
         else:
             total_h = self.bathymetry

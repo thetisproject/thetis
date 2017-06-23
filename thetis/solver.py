@@ -300,31 +300,31 @@ class FlowSolver(FrozenClass):
         max_dt_2d = cfl2d*max_dt_swe
         max_dt_3d = cfl3d*min(max_dt_hadv, max_dt_vadv, max_dt_diff)
         print_output('  - CFL adjusted dt: 2D: {:} 3D: {:}'.format(max_dt_2d, max_dt_3d))
-        if self.options.timestep_2d is not None or self.options.timestep is not None:
+        if not self.options.timestepper_options.use_automatic_timestep:
             print_output('  - User defined dt: 2D: {:} 3D: {:}'.format(self.options.timestep_2d, self.options.timestep))
         self.dt = self.options.timestep
         self.dt_2d = self.options.timestep_2d
-        if self.options.use_automatic_timestep:
+        if self.options.timestepper_options.use_automatic_timestep:
             assert self.options.timestep is not None
             assert self.options.timestep > 0.0
             assert self.options.timestep_2d is not None
             assert self.options.timestep_2d > 0.0
 
         if self.dt_mode == 'split':
-            if self.options.use_automatic_timestep:
+            if self.options.timestepper_options.use_automatic_timestep:
                 self.dt = max_dt_3d
-            if self.options.use_automatic_timestep:
+            if self.options.timestepper_options.use_automatic_timestep:
                 self.dt_2d = max_dt_2d
             # compute mode split ratio and force it to be integer
             self.M_modesplit = int(np.ceil(self.dt/self.dt_2d))
             self.dt_2d = self.dt/self.M_modesplit
         elif self.dt_mode == '2d':
-            if self.options.use_automatic_timestep:
+            if self.options.timestepper_options.use_automatic_timestep:
                 self.dt = min(max_dt_2d, max_dt_3d)
             self.dt_2d = self.dt
             self.M_modesplit = 1
         elif self.dt_mode == '3d':
-            if self.options.use_automatic_timestep:
+            if self.options.timestepper_options.use_automatic_timestep:
                 self.dt = max_dt_3d
             self.dt_2d = self.dt
             self.M_modesplit = 1
@@ -561,16 +561,16 @@ class FlowSolver(FrozenClass):
             self.gls_model = None
         # copute total viscosity/diffusivity
         self.tot_h_visc = SumFunction()
-        self.tot_h_visc.add(self.options.get('horizontal_viscosity'))
+        self.tot_h_visc.add(self.options.horizontal_viscosity)
         self.tot_h_visc.add(self.fields.get('smag_visc_3d'))
         self.tot_v_visc = SumFunction()
-        self.tot_v_visc.add(self.options.get('vertical_viscosity'))
+        self.tot_v_visc.add(self.options.vertical_viscosity)
         self.tot_v_visc.add(self.fields.get('eddy_visc_3d'))
         self.tot_v_visc.add(self.fields.get('parab_visc_3d'))
         self.tot_h_diff = SumFunction()
-        self.tot_h_diff.add(self.options.get('horizontal_diffusivity'))
+        self.tot_h_diff.add(self.options.horizontal_diffusivity)
         self.tot_v_diff = SumFunction()
-        self.tot_v_diff.add(self.options.get('vertical_diffusivity'))
+        self.tot_v_diff.add(self.options.vertical_diffusivity)
         self.tot_v_diff.add(self.fields.get('eddy_diff_3d'))
 
         # ----- Equations
@@ -713,9 +713,13 @@ class FlowSolver(FrozenClass):
                 t = self.fields.temp_3d
             else:
                 t = self.options.constant_temperature
-            if self.options.equation_of_state == 'linear':
-                eos_params = self.options.linear_equation_of_state_parameters
-                self.equation_of_state = LinearEquationOfState(**eos_params)
+            if self.options.equation_of_state_type == 'linear':
+                eos_options = self.options.equation_of_state_options
+                self.equation_of_state = LinearEquationOfState(eos_options.rho_ref,
+                                                               eos_options.alpha,
+                                                               eos_options.beta,
+                                                               eos_options.th_ref,
+                                                               eos_options.s_ref)
             else:
                 self.equation_of_state = JackettEquationOfState()
             if self.options.use_quadratic_density:
@@ -733,7 +737,7 @@ class FlowSolver(FrozenClass):
             self.int_pg_calculator = momentum_eq.InternalPressureGradientCalculator(
                 self.fields, self.options,
                 self.bnd_functions['momentum'],
-                solver_parameters=self.options.solver_parameters_momentum_explicit)
+                solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
         self.extract_surf_dav_uv = SubFunctionExtractor(self.fields.uv_dav_3d,
                                                         self.fields.uv_dav_2d,
                                                         boundary='top', elem_facet='top',
@@ -989,12 +993,12 @@ class FlowSolver(FrozenClass):
         if not self._initialized:
             self.create_equations()
 
-        self.options.check_salinity_conservation *= self.options.solve_salinity
-        self.options.check_salinity_overshoot *= self.options.solve_salinity
-        self.options.check_temperature_conservation *= self.options.solve_temperature
-        self.options.check_temperature_overshoot *= self.options.solve_temperature
-        self.options.check_volume_conservation_3d *= self.options.use_ale_moving_mesh
-        self.options.use_limiter_for_tracers *= self.options.polynomial_degree > 0
+        self.options.check_salinity_conservation &= self.options.solve_salinity
+        self.options.check_salinity_overshoot &= self.options.solve_salinity
+        self.options.check_temperature_conservation &= self.options.solve_temperature
+        self.options.check_temperature_overshoot &= self.options.solve_temperature
+        self.options.check_volume_conservation_3d &= self.options.use_ale_moving_mesh
+        self.options.use_limiter_for_tracers &= self.options.polynomial_degree > 0
 
         t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()
