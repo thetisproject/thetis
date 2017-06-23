@@ -4,11 +4,69 @@ Thetis options for the 2D and 3D model
 All options are type-checked and they are stored in traitlets Configurable
 objects.
 """
+from ipython_genutils.text import indent, dedent
 from traitlets.config.configurable import Configurable
 from traitlets import *
 
 from thetis import FiredrakeConstant as Constant
 from thetis import FiredrakeFunction as Function
+
+
+def rst_all_options(cls, nspace=0, prefix=None):
+    """Recursively generate rST for a provided Configurable class.
+
+    :arg cls: The Configurable class.
+    :arg nspace: Indentation level.
+    :arg prefix: Prefix to use for new traits."""
+    lines = []
+    classname = cls.__name__
+
+    # Slaved options don't appear directly, but underneath their controlling enum.
+    slaved_options = set()
+    for trait in cls.class_own_traits().values():
+        if isinstance(trait, PairedEnum):
+            slaved_options.add(trait.paired_name)
+    for k, trait in sorted(cls.class_own_traits(config=True).items()):
+        typ = trait.__class__.__name__
+        if trait.name in slaved_options:
+            continue
+        if prefix is not None:
+            termline = prefix + "." + trait.name
+        else:
+            termline = classname + "." + trait.name
+
+        if 'Enum' in typ:
+            termline += ' : ' + '|'.join(repr(x) for x in trait.values)
+        else:
+            termline += ' : ' + typ
+        lines.append(indent(termline, nspace))
+
+        if isinstance(trait, PairedEnum):
+            # Find the slaved option and recurse to fill in the subtree.
+            dvr = trait.default_value_repr()
+            extra = ["",
+                     "Setting value implies configuration of sub-tree %s.%s:" % (classname, trait.paired_name),
+                     ""]
+            for opt, val in trait.paired_defaults.items():
+                extra.append("'%s':" % opt)
+                extra.append("")
+                extra.append(rst_all_options(val.__class__, 4 + nspace, prefix=classname + "." + trait.paired_name))
+            extra = "\n".join(extra)
+        else:
+            extra = None
+            try:
+                dvr = trait.default_value_repr()
+            except Exception:
+                dvr = None
+        help = trait.help or 'No description'
+        lines.append(indent(dedent(help), 4 + nspace))
+        lines.append('')
+        lines.append(indent("Default:\n", 4 + nspace))
+        lines.append(indent(dvr.replace("\\n", "\\\\n"), 4 + nspace))
+        if extra is not None:
+            lines.append(indent(extra, 4 + nspace))
+        lines.append('')
+    return "\n".join(lines)
 
 
 class PositiveInteger(Integer):
@@ -102,6 +160,26 @@ class PETScSolverParameters(Dict):
         self.error(obj, value)
 
 
+class PairedEnum(Enum):
+    """A enum whose value must be in a given sequence.
+
+    This enum controls a slaved option, with default values provided here.
+
+    :arg values: iterable of (value, HasTraits) pairs
+    :arg paired_name: trait name this enum is paired with.
+    :arg default_value: default value.
+    """
+    def __init__(self, values, paired_name, default_value=Undefined, **kwargs):
+        self.paired_defaults = dict(values)
+        self.paired_name = paired_name
+        values, _ = zip(*values)
+        super(PairedEnum, self).__init__(values, default_value, **kwargs)
+
+    def info(self):
+        result = "This option also requires configuration of %s\n" % (self.paired_name)
+        return result + super(PairedEnum, self).info()
+
+
 class FrozenHasTraits(HasTraits):
     """
     A HasTraits class that only allows adding new attributes in the class
@@ -177,40 +255,37 @@ class LinearEquationOfStateOptions(EquationOfStateOptions):
     beta = Float(0.77, help='Saline contraction coefficient of ocean water')
 
 
-def attach_paired_options(options_name_trait, options_value_trait, default_values):
+def attach_paired_options(name, name_trait, value_trait):
     """Attach paired options to a Configurable object.
 
-    :arg options_name_trait: a tuple (name, Trait) for the options name (a choice).
-    :arg options_value_trait: a tuple (name, Trait) for the options value (some configurable object)
-    :arg default_values: a dict mapping valid values for the options name to valid defaults for the options value."""
-
-    name, name_trait = options_name_trait
-    value, value_trait = options_value_trait
+    :arg name: the name of the enum trait
+    :arg name_trait: the enum trait (a PairedEnum)
+    :arg value_trait: the slaved value trait."""
 
     def _observer(self, change):
         "Observer called when the choice option is updated."
-        setattr(self, value, default_values[change["new"]])
+        setattr(self, name_trait.paired_name, name_trait.paired_defaults[change["new"]])
 
     def _default(self):
         "Dynamic default value setter"
         if hasattr(name_trait, 'default_value') and name_trait.default_value is not None:
-            return default_values[name_trait.default_value]
+            return name_trait.paired_defaults[name_trait.default_value]
 
     obs_handler = ObserveHandler(name, type="change")
-    def_handler = DefaultHandler(value)
+    def_handler = DefaultHandler(name_trait.paired_name)
 
     def update_class(cls):
         "Programmatically update the class"
         # Set the new class attributes
         setattr(cls, name, name_trait)
-        setattr(cls, value, value_trait)
+        setattr(cls, name_trait.paired_name, value_trait)
         setattr(cls, "_%s_observer" % name, obs_handler(_observer))
-        setattr(cls, "_%s_default" % value, def_handler(_default))
+        setattr(cls, "_%s_default" % name_trait.paired_name, def_handler(_default))
         # Mimic the magic metaclass voodoo.
         name_trait.class_init(cls, name)
-        value_trait.class_init(cls, value)
+        value_trait.class_init(cls, name_trait.paired_name)
         obs_handler.class_init(cls, "_%s_observer" % name)
-        def_handler.class_init(cls, "_%s_default" % value)
+        def_handler.class_init(cls, "_%s_default" % name_trait.paired_name)
 
         return cls
     return update_class
@@ -524,35 +599,26 @@ class ModelOptions2d(CommonModelOptions):
         """).tag(config=True)
 
 
-@attach_paired_options(("timestepper_type",
-                        Enum(['SSPRK22', 'CrankNicolson'],
-                             default_value='SSPRK22',
-                             help='Name of the time integrator').tag(config=True)
-                        ), ("timestepper_options",
-                           Instance(TimeStepperOptions, args=()).tag(config=True)),
-                        {
-                            'CrankNicolson': CrankNicolsonOptions(),
-                            'SSPRK22': ExplicitTimestepperOptions(),
-                        })
-@attach_paired_options(("turbulence_model_type",
-                        Enum(['gls'],
-                             default_value='gls',
-                             help='Type of vertical turbulence model').tag(config=True)
-                        ), ("gls_options",
-                           Instance(GLSModelOptions, args=()).tag(config=True)),
-                        {
-                            'gls': GLSModelOptions(),
-                        })
-@attach_paired_options(("equation_of_state_type",
-                        Enum(['full', 'linear'],
-                             default_value='full',
-                             help='Type of equation of state').tag(config=True)
-                        ), ("equation_of_state_options",
-                           Instance(EquationOfStateOptions, args=()).tag(config=True)),
-                        {
-                            'full': EquationOfStateOptions(),
-                            'linear': LinearEquationOfStateOptions(),
-                        })
+@attach_paired_options("timestepper_type",
+                       PairedEnum([('SSPRK22', ExplicitTimestepperOptions()),
+                                   ('CrankNicolson', CrankNicolsonOptions())],
+                                  "timestepper_options",
+                                  default_value='SSPRK22',
+                                  help='Name of the time integrator').tag(config=True),
+                       Instance(TimeStepperOptions, args=()).tag(config=True))
+@attach_paired_options("turbulence_model_type",
+                       PairedEnum([('gls', GLSModelOptions())],
+                                  "gls_options",
+                                  default_value='gls',
+                                  help='Type of vertical turbulence model').tag(config=True),
+                       Instance(GLSModelOptions, args=()).tag(config=True))
+@attach_paired_options("equation_of_state_type",
+                       PairedEnum([('full', EquationOfStateOptions()),
+                                   ('linear', LinearEquationOfStateOptions())],
+                                  "equation_of_state_options",
+                                  default_value='full',
+                                  help='Type of equation of state').tag(config=True),
+                       Instance(EquationOfStateOptions, args=()).tag(config=True))
 class ModelOptions3d(CommonModelOptions):
     """Options for 3D hydrostatic model"""
     solve_salinity = Bool(True, help='Solve salinity transport').tag(config=True)
