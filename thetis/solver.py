@@ -48,7 +48,7 @@ class FlowSolver(FrozenClass):
         options = solver_obj.options
         options.element_family = 'dg-dg'
         options.polynomial_degree = 1
-        options.timestepper_type = 'ssprk22'
+        options.timestepper_type = 'SSPRK22'
         options.solve_salinity = False
         options.solve_temperature = False
         options.simulation_export_time = 50.0
@@ -269,7 +269,7 @@ class FlowSolver(FrozenClass):
             nu = nu_scale.dat.data[0]
         min_dx = self.fields.h_elem_size_2d.dat.data.min()
         factor = 2.0
-        if self.options.timestepper_type == 'leapfrog':
+        if self.options.timestepper_type == 'LeapFrog':
             factor = 1.2
         min_dx *= factor*self.compute_dx_factor()
         dt = (min_dx)**2/nu
@@ -655,16 +655,16 @@ class FlowSolver(FrozenClass):
 
         # ----- Time integrators
         self.dt_mode = '3d'  # 'split'|'2d'|'3d' use constant 2d/3d dt, or split
-        if self.options.timestepper_type.lower() == 'ssprk33':
+        if self.options.timestepper_type.lower() == 'SSPRK33':
             self.timestepper = coupled_timeintegrator.CoupledSSPRKSemiImplicit(weakref.proxy(self))
-        elif self.options.timestepper_type.lower() == 'leapfrog':
+        elif self.options.timestepper_type.lower() == 'LeapFrog':
             self.timestepper = coupled_timeintegrator.CoupledLeapFrogAM3(weakref.proxy(self))
-        elif self.options.timestepper_type.lower() == 'ssprk22':
+        elif self.options.timestepper_type.lower() == 'SSPRK22':
             self.timestepper = coupled_timeintegrator.CoupledTwoStageRK(weakref.proxy(self))
-        elif self.options.timestepper_type.lower() == 'imexale':
+        elif self.options.timestepper_type.lower() == 'IMEXALE':
             assert self.options.use_ale_moving_mesh, '{:} time integrator requires ALE mesh'.format(self.options.timestepper_type)
             self.timestepper = coupled_timeintegrator.CoupledIMEXALE(weakref.proxy(self))
-        elif self.options.timestepper_type.lower() == 'erkale':
+        elif self.options.timestepper_type.lower() == 'ERKALE':
             assert self.options.use_ale_moving_mesh, '{:} time integrator requires ALE mesh'.format(self.options.timestepper_type)
             self.timestepper = coupled_timeintegrator.CoupledERKALE(weakref.proxy(self))
             self.dt_mode = '2d'

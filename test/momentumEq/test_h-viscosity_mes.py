@@ -187,9 +187,9 @@ def warped(request):
 
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
-                         [pytest.mark.not_travis(reason='travis timeout')(('ssprk33', False)),
-                          ('leapfrog', True),
-                          ('ssprk22', True)])
+                         [pytest.mark.not_travis(reason='travis timeout')(('SSPRK33', False)),
+                          ('LeapFrog', True),
+                          ('SSPRK22', True)])
 @pytest.mark.parametrize(('family', 'order'),
                          [pytest.mark.not_travis(reason='travis timeout')(('dg-dg', 0)),
                           ('dg-dg', 1),
@@ -209,6 +209,6 @@ if __name__ == '__main__':
     run_convergence([1, 2, 3], order=1,
                     warped_mesh=True,
                     element_family='rt-dg',
-                    timestepper_type='leapfrog',
+                    timestepper_type='LeapFrog',
                     use_ale_moving_mesh=True,
                     no_exports=False, saveplot=True)

@@ -47,14 +47,14 @@ Thetis supports different time integration methods, set by the
 =============================== ====================================== ====================== ============
 Time integrator                 Thetis class                           Unconditionally stable Description
 =============================== ====================================== ====================== ============
-``'forwardeuler'``              :py:class:`~.ForwardEuler`             No                     Forward Euler method
-``'backwardeuler'``             :py:class:`~.BackwardEuler`            Yes                    Backward Euler method
-``'cranknicolson'``             :py:class:`~.CrankNicolson`            Yes                    Crank-Nicolson method
-``'dirk33'``                    :py:class:`~.DIRK33`                   Yes                    DIRK(3,4,3) method
-``'ssprk33'``                   :py:class:`~.SSPRK33`                  No                     SSPRK(3,3) method
-``'sspimex'``                   :py:class:`~.IMEXLPUM2`                No                     LPUM2 SSP IMEX scheme
-``'pressureprojectionpicard'``  :py:class:`~.PressureProjectionPicard` No                     Efficient pressure projection solver
-``'steadystate'``               :py:class:`~.SteadyState`              --                     Solves equations in steady state
+``'ForwardEuler'``              :py:class:`~.ForwardEuler`             No                     Forward Euler method
+``'BackwardEuler'``             :py:class:`~.BackwardEuler`            Yes                    Backward Euler method
+``'CrankNicolson'``             :py:class:`~.CrankNicolson`            Yes                    Crank-Nicolson method
+``'DIRK33'``                    :py:class:`~.DIRK33`                   Yes                    DIRK(3,4,3) method
+``'SSPRK33'``                   :py:class:`~.SSPRK33`                  No                     SSPRK(3,3) method
+``'SSPIMEX'``                   :py:class:`~.IMEXLPUM2`                No                     LPUM2 SSP IMEX scheme
+``'PressureProjectionPicard'``  :py:class:`~.PressureProjectionPicard` No                     Efficient pressure projection solver
+``'SteadyState'``               :py:class:`~.SteadyState`              --                     Solves equations in steady state
 =============================== ====================================== ====================== ============
 
 Table 2. *Time integration methods for 2D model.*

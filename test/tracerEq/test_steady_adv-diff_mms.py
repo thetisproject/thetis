@@ -281,7 +281,7 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False, **
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=['leapfrog', 'ssprk22'])
+@pytest.fixture(params=['LeapFrog', 'SSPRK22'])
 def timestepper_type(request):
     return request.param
 
@@ -311,4 +311,4 @@ def test_convergence(setup, timestepper_type):
 
 
 if __name__ == '__main__':
-    run_convergence(setup4, [1, 2, 3], 1, save_plot=True, timestepper_type='ssprk22')
+    run_convergence(setup4, [1, 2, 3], 1, save_plot=True, timestepper_type='SSPRK22')

@@ -57,7 +57,7 @@ bathymetry2d.assign(depth)
 solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
 options = solver_obj.options
 options.element_family = 'dg-dg'
-options.timestepper_type = 'leapfrog'
+options.timestepper_type = 'LeapFrog'
 options.solve_salinity = False
 options.solve_temperature = False
 options.use_implicit_vertical_diffusion = True

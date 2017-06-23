@@ -88,7 +88,7 @@ def run_katophillips(**model_options):
                                 'shear_freq_3d', 'buoy_freq_3d',
                                 'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
     options.update(**model_options)
-    if options['timestepper_type'] == 'leapfrog':
+    if options['timestepper_type'] == 'LeapFrog':
         options['use_ale_moving_mesh'] = True
 
     solver_obj.create_function_spaces()
@@ -138,9 +138,9 @@ def element_family(request):
     return request.param
 
 
-@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')('ssprk33'),
-                        'leapfrog',
-                        'ssprk22'])
+@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')('SSPRK33'),
+                        'LeapFrog',
+                        'SSPRK22'])
 def timestepper_type(request):
     return request.param
 
@@ -152,5 +152,5 @@ def test_katophillips(element_family, timestepper_type):
 
 if __name__ == '__main__':
     run_katophillips(element_family='dg-dg',
-                     timestepper_type='ssprk22',
+                     timestepper_type='SSPRK22',
                      no_exports=False)

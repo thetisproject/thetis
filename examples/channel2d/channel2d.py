@@ -58,10 +58,10 @@ options.output_directory = outputdir
 options.horizontal_velocity_scale = u_mag
 options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
-options.timestepper_type = 'ssprk33'
+options.timestepper_type = 'SSPRK33'
 # options.timestepper_type = 'SSPIMEX'
-# options.timestepper_type = 'cranknicolson'
-if options.timestepper_type in ['cranknicolson', 'SSPIMEX']:
+# options.timestepper_type = 'CrankNicolson'
+if options.timestepper_type in ['CrankNicolson', 'SSPIMEX']:
     options.use_automatic_timestep = False
     options.timestep = 10.0
 # initial conditions, piecewise linear function

@@ -18,7 +18,7 @@ import numpy as np
 @pytest.mark.parametrize("element_family", [
     'dg-dg', 'rt-dg', 'dg-cg', ])
 @pytest.mark.parametrize("timestepper", [
-    'cranknicolson', 'ssprk33', ])
+    'CrankNicolson', 'SSPRK33', ])
 def test_pressure_forcing(element_family, timestepper):
     order = 1
 
@@ -39,7 +39,7 @@ def test_pressure_forcing(element_family, timestepper):
 
     n_tests = 3
     ns = [2.0**(i+1) for i in range(n_tests)]
-    if timestepper == 'cranknicolson':
+    if timestepper == 'CrankNicolson':
         dts = [2400.0/(2**i) for i in range(n_tests)]
     else:
         dts = [20.0/(2**i) for i in range(n_tests)]

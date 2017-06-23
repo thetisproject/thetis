@@ -57,7 +57,7 @@ def test_steady_state_channel_mms(options):
         solver_obj.options.simulation_export_time = dt
         solver_obj.options.simulation_end_time = n*dt
         solver_obj.options.momentum_source_2d = source_func
-        solver_obj.options.timestepper_type = 'steadystate'
+        solver_obj.options.timestepper_type = 'SteadyState'
         solver_obj.options.solver_parameters_sw = {
             'ksp_type': 'preonly',
             'pc_type': 'lu',

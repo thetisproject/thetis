@@ -136,11 +136,11 @@ option. Currently supported time integrators are listed below.
 ======================== ====================================== ======== ================ ============
 Time integrator          Thetis class                           2D mode  ALE mesh support Description
 ======================== ====================================== ======== ================ ============
-``'ssprk22'``            :py:class:`~.CoupledTwoStageRK`        implicit yes              Coupled method based on SSPRK(2,2) scheme
-``'ssprk33'``            :py:class:`~.CoupledSSPRKSemiImplicit` implicit no               Coupled method based on SSPRK(3,3) scheme
-``'leapfrog'``           :py:class:`~.CoupledLeapFrogAM3`       implicit yes              Leapfrog Adams-Moulton 3 method
-``'erkale'``             :py:class:`~.CoupledERKALE`            explicit yes              Fully explicit RK scheme
-``'imexale'``            :py:class:`~.CoupledIMEXALE`           implicit yes              Coupled IMEX method
+``'SSPRK22'``            :py:class:`~.CoupledTwoStageRK`        implicit yes              Coupled method based on SSPRK(2,2) scheme
+``'SSPRK33'``            :py:class:`~.CoupledSSPRKSemiImplicit` implicit no               Coupled method based on SSPRK(3,3) scheme
+``'LeapFrog'``           :py:class:`~.CoupledLeapFrogAM3`       implicit yes              Leapfrog Adams-Moulton 3 method
+``'ERKALE'``             :py:class:`~.CoupledERKALE`            explicit yes              Fully explicit RK scheme
+``'IMEXALE'``            :py:class:`~.CoupledIMEXALE`           implicit yes              Coupled IMEX method
 ======================== ====================================== ======== ================ ============
 
 Table 5. *Supported 3D time integrators.*

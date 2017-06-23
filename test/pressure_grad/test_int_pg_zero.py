@@ -61,7 +61,7 @@ def compute_pg_error(**kwargs):
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
     options = solver_obj.options
     options.element_family = 'dg-dg'
-    options.timestepper_type = 'ssprk22'
+    options.timestepper_type = 'SSPRK22'
     options.solve_salinity = False
     options.solve_temperature = True
     options.constant_salinity = Constant(salt_const)

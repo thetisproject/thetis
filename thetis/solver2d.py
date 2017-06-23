@@ -44,7 +44,7 @@ class FlowSolver2d(FrozenClass):
         options = solver_obj.options
         options.element_family = 'dg-dg'
         options.polynomial_degree = 1
-        options.timestepper_type = 'cranknicolson'
+        options.timestepper_type = 'CrankNicolson'
         options.simulation_export_time = 50.0
         options.simulation_end_time = 3600.
         options.timestep = 25.0
@@ -259,12 +259,12 @@ class FlowSolver2d(FrozenClass):
             'momentum_source': self.options.momentum_source_2d,
             'volume_source': self.options.volume_source_2d, }
         self.set_time_step()
-        if self.options.timestepper_type.lower() == 'ssprk33':
+        if self.options.timestepper_type.lower() == 'SSPRK33':
             self.timestepper = rungekutta.SSPRK33(self.eq_sw, self.fields.solution_2d,
                                                   fields, self.dt,
                                                   bnd_conditions=self.bnd_functions['shallow_water'],
                                                   solver_parameters=self.options.timestepper_options.solver_parameters)
-        elif self.options.timestepper_type.lower() == 'ssprk33semi':
+        elif self.options.timestepper_type.lower() == 'SSPRK33Semi':
             self.timestepper = rungekutta.SSPRK33SemiImplicit(self.eq_sw, self.fields.solution_2d,
                                                               fields, self.dt,
                                                               bnd_conditions=self.bnd_functions['shallow_water'],
@@ -272,39 +272,39 @@ class FlowSolver2d(FrozenClass):
                                                               semi_implicit=self.options.use_linearized_semi_implicit_2d,
                                                               theta=self.options.timestepper_options.implicitness_theta)
 
-        elif self.options.timestepper_type.lower() == 'forwardeuler':
+        elif self.options.timestepper_type.lower() == 'ForwardEuler':
             self.timestepper = timeintegrator.ForwardEuler(self.eq_sw, self.fields.solution_2d,
                                                            fields, self.dt,
                                                            bnd_conditions=self.bnd_functions['shallow_water'],
                                                            solver_parameters=self.options.timestepper_options.solver_parameters)
-        elif self.options.timestepper_type.lower() == 'backwardeuler':
+        elif self.options.timestepper_type.lower() == 'BackwardEuler':
             self.timestepper = rungekutta.BackwardEuler(self.eq_sw, self.fields.solution_2d,
                                                         fields, self.dt,
                                                         bnd_conditions=self.bnd_functions['shallow_water'],
                                                         solver_parameters=self.options.timestepper_options.solver_parameters)
-        elif self.options.timestepper_type.lower() == 'cranknicolson':
+        elif self.options.timestepper_type.lower() == 'CrankNicolson':
             self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
                                                             fields, self.dt,
                                                             bnd_conditions=self.bnd_functions['shallow_water'],
                                                             solver_parameters=self.options.timestepper_options.solver_parameters,
                                                             semi_implicit=self.options.use_linearized_semi_implicit_2d,
                                                             theta=self.options.shallow_water_theta)
-        elif self.options.timestepper_type.lower() == 'dirk22':
+        elif self.options.timestepper_type.lower() == 'DIRK22':
             self.timestepper = rungekutta.CrankNicolsonRK(self.eq_sw, self.fields.solution_2d,
                                                           fields, self.dt,
                                                           bnd_conditions=self.bnd_functions['shallow_water'],
                                                           solver_parameters=self.options.timestepper_options.solver_parameters)
-        elif self.options.timestepper_type.lower() == 'dirk33':
+        elif self.options.timestepper_type.lower() == 'DIRK33':
             self.timestepper = rungekutta.DIRK33(self.eq_sw, self.fields.solution_2d,
                                                  fields, self.dt,
                                                  bnd_conditions=self.bnd_functions['shallow_water'],
                                                  solver_parameters=self.options.timestepper_options.solver_parameters)
-        elif self.options.timestepper_type.lower() == 'steadystate':
+        elif self.options.timestepper_type.lower() == 'SteadyState':
             self.timestepper = timeintegrator.SteadyState(self.eq_sw, self.fields.solution_2d,
                                                           fields, self.dt,
                                                           bnd_conditions=self.bnd_functions['shallow_water'],
                                                           solver_parameters=self.options.timestepper_options.solver_parameters)
-        elif self.options.timestepper_type.lower() == 'pressureprojectionpicard':
+        elif self.options.timestepper_type.lower() == 'PressureProjectionPicard':
 
             u_test = TestFunction(self.function_spaces.U_2d)
             self.eq_mom = shallowwater_eq.ShallowWaterMomentumEquation(
@@ -321,7 +321,7 @@ class FlowSolver2d(FrozenClass):
                                                                        semi_implicit=self.options.use_linearized_semi_implicit_2d,
                                                                        theta=self.options.shallow_water_theta)
 
-        elif self.options.timestepper_type.lower() == 'sspimex':
+        elif self.options.timestepper_type.lower() == 'SSPIMEX':
             # TODO meaningful solver params
             sp_impl = {
                 'ksp_type': 'gmres',

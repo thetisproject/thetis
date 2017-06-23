@@ -152,7 +152,7 @@ def run_tracer_consistency(**model_options):
 @pytest.mark.parametrize('meshtype', ['regular',
                                       pytest.mark.not_travis(reason='travis timeout')('sloped'),
                                       pytest.mark.not_travis(reason='travis timeout')('warped')])
-@pytest.mark.parametrize('timestepper_type', ['ssprk33'])
+@pytest.mark.parametrize('timestepper_type', ['SSPRK33'])
 def test_consistency_fixed_mesh(element_family, meshtype, timestepper_type):
     run_tracer_consistency(element_family=element_family,
                            meshtype=meshtype,
@@ -166,7 +166,7 @@ def test_consistency_fixed_mesh(element_family, meshtype, timestepper_type):
 @pytest.mark.parametrize('meshtype', ['regular',
                                       pytest.mark.not_travis(reason='travis timeout')('sloped'),
                                       pytest.mark.not_travis(reason='travis timeout')('warped')])
-@pytest.mark.parametrize('timestepper_type', ['leapfrog', 'ssprk22'])
+@pytest.mark.parametrize('timestepper_type', ['LeapFrog', 'SSPRK22'])
 def test_ale_const_tracer(element_family, meshtype, timestepper_type):
     """
     Test ALE timeintegrators without slope limiters
@@ -187,10 +187,10 @@ def test_ale_const_tracer(element_family, meshtype, timestepper_type):
 @pytest.mark.parametrize('meshtype', ['regular',
                                       pytest.mark.not_travis(reason='travis timeout')('sloped'),
                                       pytest.mark.not_travis(reason='travis timeout')('warped')])
-@pytest.mark.parametrize('timestepper_type', [pytest.mark.skip(reason='obsolete')('imexale'),
-                                              'leapfrog',
-                                              'ssprk22',
-                                              pytest.mark.skip(reason='obsolete')('erkale')])
+@pytest.mark.parametrize('timestepper_type', [pytest.mark.skip(reason='obsolete')('IMEXALE'),
+                                              'LeapFrog',
+                                              'SSPRK22',
+                                              pytest.mark.skip(reason='obsolete')('ERKALE')])
 def test_ale_nonconst_tracer(element_family, meshtype, timestepper_type):
     """
     Test ALE timeintegrators with slope limiters
@@ -210,7 +210,7 @@ if __name__ == '__main__':
     run_tracer_consistency(element_family='dg-dg',
                            meshtype='regular',
                            nonlin=True,
-                           timestepper_type='leapfrog',
+                           timestepper_type='LeapFrog',
                            use_ale_moving_mesh=True,
                            solve_salinity=True,
                            solve_temperature=True,

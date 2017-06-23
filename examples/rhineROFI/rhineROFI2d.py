@@ -71,7 +71,7 @@ options.output_directory = outputdir
 options.horizontal_velocity_scale = Constant(1.5)
 options.fields_to_export = ['uv_2d', 'elev_2d']
 # options.timestepper_type = 'CrankNicolson'
-options.timestepper_type = 'ssprk33semi'
+options.timestepper_type = 'SSPRK33Semi'
 
 bnd_elev = Function(P1_2d, name='Boundary elevation')
 bnd_time = Constant(0)

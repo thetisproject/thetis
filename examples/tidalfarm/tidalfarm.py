@@ -43,7 +43,7 @@ options.output_directory = outputdir
 options.horizontal_velocity_scale = u_mag
 options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
-solver_obj.options.timestepper_type = 'cranknicolson'
+solver_obj.options.timestepper_type = 'CrankNicolson'
 solver_obj.options.shallow_water_theta = 1.0
 solver_obj.options.solver_parameters_sw = {
     'mat_type': 'aij',

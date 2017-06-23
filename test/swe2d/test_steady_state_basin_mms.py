@@ -125,7 +125,7 @@ def run(setup, refinement, order, do_export=True, options=None,
     ny = 5*refinement
     mesh2d = RectangleMesh(nx, ny, lx, ly)
     dt = 4.0/refinement
-    if options is not None and options.get('timestepper_type') == 'cranknicolson':
+    if options is not None and options.get('timestepper_type') == 'CrankNicolson':
         dt *= 100.
 
     x = SpatialCoordinate(mesh2d)
@@ -152,7 +152,7 @@ def run(setup, refinement, order, do_export=True, options=None,
     options.use_automatic_timestep = False
     solver_obj.options.timestep = dt
     solver_obj.options.simulation_export_time = t_export
-    # solver_obj.options.timestepper_type = 'cranknicolson'
+    # solver_obj.options.timestepper_type = 'CrankNicolson'
     if 'options' in sdict:
         solver_obj.options.update(sdict['options'])
     if options is not None:
@@ -332,11 +332,11 @@ def setup(request):
 
 @pytest.fixture(params=[
     {'element_family': 'dg-dg',
-     'timestepper_type': 'cranknicolson'},
+     'timestepper_type': 'CrankNicolson'},
     pytest.mark.not_travis(reason='travis timeout')({'element_family': 'rt-dg',
-                                                     'timestepper_type': 'cranknicolson'}),
+                                                     'timestepper_type': 'CrankNicolson'}),
     pytest.mark.not_travis(reason='travis timeout')({'element_family': 'dg-cg',
-                                                     'timestepper_type': 'cranknicolson'})],
+                                                     'timestepper_type': 'CrankNicolson'})],
     ids=["dg-dg", "rt-dg", "dg-cg"]
 )
 def options(request):

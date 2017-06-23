@@ -1,8 +1,8 @@
-# Test for temporal convergence of cranknicolson and pressureprojection picard timesteppers,
+# Test for temporal convergence of CrankNicolson and pressureprojection picard timesteppers,
 # tests convergence of a single period of a standing wave in a rectangular channel.
 # This only tests against a linear solution, so does not really test whether the splitting
-# in pressureprojectionpicard between nonlinear momentum and linearized wave equation terms is correct.
-# pressureprojectionpicard does need two iterations to ensure 2nd order convergence
+# in PressureProjectionPicard between nonlinear momentum and linearized wave equation terms is correct.
+# PressureProjectionPicard does need two iterations to ensure 2nd order convergence
 from thetis import *
 import pytest
 import math
@@ -14,7 +14,7 @@ import math
 #  (10,0.02), (20,5e-3), (40, 1.25e-3)
 # with nonlin=False further converge is possible
 @pytest.mark.parametrize("timestepper", [
-    'cranknicolson', 'pressureprojectionpicard', ])
+    'CrankNicolson', 'PressureProjectionPicard', ])
 def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=False):
 
     lx = 5e3
@@ -47,7 +47,7 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
     solver_obj.options.element_family = 'dg-dg'
     solver_obj.options.timestepper_type = timestepper
     solver_obj.options.shallow_water_theta = 0.5
-    if timestepper == 'cranknicolson':
+    if timestepper == 'CrankNicolson':
         solver_obj.options.solver_parameters_sw = {
             'ksp_type': 'preonly',
             'pc_type': 'lu',
@@ -55,7 +55,7 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
             'snes_monitor': False,
             'snes_type': 'newtonls',
         }
-    elif timestepper == 'pressureprojectionpicard':
+    elif timestepper == 'PressureProjectionPicard':
         # solver options for the linearized wave equation terms
         solver_obj.options.solver_parameters_sw = {
             'snes_type': 'ksponly',  # we've linearized, so no snes needed

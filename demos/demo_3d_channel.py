@@ -41,7 +41,7 @@ solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 
 options = solver_obj.options
 options.element_family = 'dg-dg'
-options.timestepper_type = 'ssprk22'
+options.timestepper_type = 'SSPRK22'
 options.use_implicit_vertical_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = True

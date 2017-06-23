@@ -26,7 +26,7 @@ def test_steady_state_channel(do_export=False):
     solver_obj.options.simulation_export_time = dt
     solver_obj.options.simulation_end_time = n*dt
     solver_obj.options.no_exports = not do_export
-    solver_obj.options.timestepper_type = 'cranknicolson'
+    solver_obj.options.timestepper_type = 'CrankNicolson'
     solver_obj.options.shallow_water_theta = 1.0
     solver_obj.options.solver_parameters_sw = {
         'ksp_type': 'preonly',
