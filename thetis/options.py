@@ -219,11 +219,13 @@ class TimeStepperOptions(FrozenHasTraits):
 class CrankNicolsonOptions(TimeStepperOptions):
     """Options for Crank-Nicolson time integrator"""
     implicitness_theta = BoundedFloat(default_value=0.5, bounds=[0.5, 1.0], help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.')
+    solver_parameters = PETScSolverParameters()
 
 
 class ExplicitTimestepperOptions(TimeStepperOptions):
     """Options for explicit time integrator"""
     use_automatic_timestep = Bool(True, help='Set time step automatically based on local CFL conditions.')
+    solver_parameters = PETScSolverParameters()
 
 
 class GLSModelOptions(FrozenHasTraits):
@@ -318,10 +320,6 @@ class CommonModelOptions(FrozenConfigurable):
         True, help="use Lax Friedrichs stabilisation in horizontal momentum advection.").tag(config=True)
     lax_friedrichs_velocity_scaling_factor = FiredrakeConstant(
         Constant(1.0), help="Scaling factor for Lax Friedrichs stabilisation term in horiozonal momentum advection.").tag(config=True)
-    use_lax_friedrichs_tracer = Bool(
-        True, help="Use Lax Friedrichs stabilisation in tracer advection.").tag(config=True)
-    lax_friedrichs_tracer_scaling_factor = FiredrakeConstant(
-        Constant(1.0), help="Scaling factor for tracer Lax Friedrichs stability term.").tag(config=True)
     check_volume_conservation_2d = Bool(
         False, help="""
         Compute volume of the 2D mode at every export
@@ -329,47 +327,10 @@ class CommonModelOptions(FrozenConfigurable):
         2D volume is defined as the integral of the water elevation field.
         Prints deviation from the initial volume to stdout.
         """).tag(config=True)
-    check_volume_conservation_3d = Bool(
-        False, help="""
-        Compute volume of the 3D domain at every export
-
-        Prints deviation from the initial volume to stdout.
-        """).tag(config=True)
-    check_salinity_conservation = Bool(
-        False, help="""
-        Compute total salinity mass at every export
-
-        Prints deviation from the initial mass to stdout.
-        """).tag(config=True)
-    check_salinity_overshoot = Bool(
-        False, help="""
-        Compute salinity overshoots at every export
-
-        Prints overshoot values that exceed the initial range to stdout.
-        """).tag(config=True)
-    check_temperature_conservation = Bool(
-        False, help="""
-        Compute total temperature mass at every export
-
-        Prints deviation from the initial mass to stdout.
-        """).tag(config=True)
-    check_temperature_overshoot = Bool(
-        False, help="""
-        Compute temperature overshoots at every export
-
-        Prints overshoot values that exceed the initial range to stdout.
-        """).tag(config=True)
     log_output = Bool(
         True, help="Redirect all output to log file in output directory").tag(config=True)
     timestep = PositiveFloat(
         10.0, help="Time step").tag(config=True)
-    timestep_2d = PositiveFloat(
-        10.0, help="""
-        Time step of the 2d mode
-
-        This option is only used in the 3d solver, if 2d mode is solved
-        explicitly.
-        """).tag(config=True)
     use_automatic_timestep = Bool(
         True, help="""
         Set time step automatically.
@@ -399,12 +360,6 @@ class CommonModelOptions(FrozenConfigurable):
 
         Used to compute max stable advection time step.
         """).tag(config=True)
-    vertical_velocity_scale = FiredrakeConstant(
-        Constant(1e-4), help="""
-        Maximum vertical velocity magnitude
-
-        Used to compute max stable advection time step.
-        """).tag(config=True)
     horizontal_viscosity_scale = FiredrakeConstant(
         Constant(1.0), help="""
         Maximum horizontal viscosity
@@ -422,25 +377,6 @@ class CommonModelOptions(FrozenConfigurable):
         """).tag(config=True)
     export_diagnostics = Bool(
         True, help="Store diagnostic variables to disk in HDF5 format").tag(config=True)
-    use_quadratic_pressure = Bool(
-        False, help="""
-        Use P2DGxP2 space for baroclinic head.
-
-        If element_family='dg-dg', P2DGxP1DG space is also used for the internal
-        pressure gradient.
-
-        This is useful to alleviate bathymetry-induced pressure gradient errors.
-        If False, the baroclinic head is in the tracer space, and internal
-        pressure gradient is in the velocity space.
-        """).tag(config=True)
-    use_quadratic_density = Bool(
-        False, help="""
-        Water density is projected to P2DGxP2 space.
-
-        This reduces pressure gradient errors associated with nonlinear
-        equation of state.
-        If False, density is computed point-wise in the tracer space.
-        """).tag(config=True)
     fields_to_export = List(
         trait=Unicode,
         default_value=['elev_2d', 'uv_2d', 'uv_3d', 'w_3d'],
@@ -468,14 +404,8 @@ class CommonModelOptions(FrozenConfigurable):
 
         Bottom stress is :math:`\tau_b/\rho_0 = -g \mu^2 |\mathbf{u}|\mathbf{u}/H^{1/3}`
         """).tag(config=True)
-    horizontal_diffusivity = FiredrakeCoefficient(
-        None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
-    vertical_diffusivity = FiredrakeCoefficient(
-        None, allow_none=True, help="Vertical diffusivity for tracers").tag(config=True)
     horizontal_viscosity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal viscosity").tag(config=True)
-    vertical_viscosity = FiredrakeCoefficient(
-        None, allow_none=True, help="Vertical viscosity").tag(config=True)
     coriolis_frequency = FiredrakeCoefficient(
         None, allow_none=True, help="2D Coriolis parameter").tag(config=True)
     wind_stress = FiredrakeCoefficient(
@@ -484,18 +414,8 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Atmospheric pressure at free surface, in pascals").tag(config=True)
     momentum_source_2d = FiredrakeCoefficient(
         None, allow_none=True, help="Source term for 2D momentum equation").tag(config=True)
-    momentum_source_3d = FiredrakeCoefficient(
-        None, allow_none=True, help="Source term for 3D momentum equation").tag(config=True)
     volume_source_2d = FiredrakeCoefficient(
         None, allow_none=True, help="Source term for 2D continuity equation").tag(config=True)
-    salinity_source_3d = FiredrakeCoefficient(
-        None, allow_none=True, help="Source term for salinity equation").tag(config=True)
-    temperature_source_3d = FiredrakeCoefficient(
-        None, allow_none=True, help="Source term for temperature equation").tag(config=True)
-    constant_temperature = FiredrakeConstant(
-        Constant(10.0), help="Constant temperature if temperature is not solved").tag(config=True)
-    constant_salinity = FiredrakeConstant(
-        Constant(0.0), help="Constant salinity if salinity is not solved").tag(config=True)
 
     #solver_parameters_sw = {
             #'ksp_type': 'gmres',
@@ -651,3 +571,85 @@ class ModelOptions3d(CommonModelOptions):
 
     use_limiter_for_tracers = Bool(
         False, help="Apply P1DG limiter for tracer fields").tag(config=True)
+    use_lax_friedrichs_tracer = Bool(
+        True, help="Use Lax Friedrichs stabilisation in tracer advection.").tag(config=True)
+    lax_friedrichs_tracer_scaling_factor = FiredrakeConstant(
+        Constant(1.0), help="Scaling factor for tracer Lax Friedrichs stability term.").tag(config=True)
+    check_volume_conservation_3d = Bool(
+        False, help="""
+        Compute volume of the 3D domain at every export
+
+        Prints deviation from the initial volume to stdout.
+        """).tag(config=True)
+    check_salinity_conservation = Bool(
+        False, help="""
+        Compute total salinity mass at every export
+
+        Prints deviation from the initial mass to stdout.
+        """).tag(config=True)
+    check_salinity_overshoot = Bool(
+        False, help="""
+        Compute salinity overshoots at every export
+
+        Prints overshoot values that exceed the initial range to stdout.
+        """).tag(config=True)
+    check_temperature_conservation = Bool(
+        False, help="""
+        Compute total temperature mass at every export
+
+        Prints deviation from the initial mass to stdout.
+        """).tag(config=True)
+    check_temperature_overshoot = Bool(
+        False, help="""
+        Compute temperature overshoots at every export
+
+        Prints overshoot values that exceed the initial range to stdout.
+        """).tag(config=True)
+    timestep_2d = PositiveFloat(
+        10.0, help="""
+        Time step of the 2d mode
+
+        This option is only used in the 3d solver, if 2d mode is solved
+        explicitly.
+        """).tag(config=True)
+    vertical_velocity_scale = FiredrakeConstant(
+        Constant(1e-4), help="""
+        Maximum vertical velocity magnitude
+
+        Used to compute max stable advection time step.
+        """).tag(config=True)
+    use_quadratic_pressure = Bool(
+        False, help="""
+        Use P2DGxP2 space for baroclinic head.
+
+        If element_family='dg-dg', P2DGxP1DG space is also used for the internal
+        pressure gradient.
+
+        This is useful to alleviate bathymetry-induced pressure gradient errors.
+        If False, the baroclinic head is in the tracer space, and internal
+        pressure gradient is in the velocity space.
+        """).tag(config=True)
+    use_quadratic_density = Bool(
+        False, help="""
+        Water density is projected to P2DGxP2 space.
+
+        This reduces pressure gradient errors associated with nonlinear
+        equation of state.
+        If False, density is computed point-wise in the tracer space.
+        """).tag(config=True)
+    horizontal_diffusivity = FiredrakeCoefficient(
+        None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
+    vertical_diffusivity = FiredrakeCoefficient(
+        None, allow_none=True, help="Vertical diffusivity for tracers").tag(config=True)
+    vertical_viscosity = FiredrakeCoefficient(
+        None, allow_none=True, help="Vertical viscosity").tag(config=True)
+    momentum_source_3d = FiredrakeCoefficient(
+        None, allow_none=True, help="Source term for 3D momentum equation").tag(config=True)
+    salinity_source_3d = FiredrakeCoefficient(
+        None, allow_none=True, help="Source term for salinity equation").tag(config=True)
+    temperature_source_3d = FiredrakeCoefficient(
+        None, allow_none=True, help="Source term for temperature equation").tag(config=True)
+    constant_temperature = FiredrakeConstant(
+        Constant(10.0), help="Constant temperature if temperature is not solved").tag(config=True)
+    constant_salinity = FiredrakeConstant(
+        Constant(0.0), help="Constant salinity if salinity is not solved").tag(config=True)
