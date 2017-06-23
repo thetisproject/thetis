@@ -65,13 +65,13 @@ options.coriolis_frequency = Constant(coriolis_f)
 options.horizontal_viscosity = Constant(10.0)
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
-options.use_automatic_timestep = False
-options.timestep = dt
+options.timestepper_type = 'SSPRK33Semi'
+if hasattr(options.timestepper_options, 'use_automatic_timestep'):
+    options.timestep = dt
 options.output_directory = outputdir
 options.horizontal_velocity_scale = Constant(1.5)
 options.fields_to_export = ['uv_2d', 'elev_2d']
 # options.timestepper_type = 'CrankNicolson'
-options.timestepper_type = 'SSPRK33Semi'
 
 bnd_elev = Function(P1_2d, name='Boundary elevation')
 bnd_time = Constant(0)

@@ -53,19 +53,20 @@ def test_steady_state_channel_mms(options):
         solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
         solver_obj.options.polynomial_degree = order
         solver_obj.options.use_nonlinear_equations = True
-        solver_obj.options.quadratic_drag_coefficient = C_D
+        solver_obj.options.quadratic_drag_coefficient = Constant(C_D)
         solver_obj.options.simulation_export_time = dt
         solver_obj.options.simulation_end_time = n*dt
         solver_obj.options.momentum_source_2d = source_func
         solver_obj.options.timestepper_type = 'SteadyState'
-        solver_obj.options.solver_parameters_sw = {
+        solver_obj.options.timestepper_options.solver_parameters = {
             'ksp_type': 'preonly',
             'pc_type': 'lu',
             'pc_factor_mat_solver_package': 'mumps',
             'snes_monitor': False,
             'snes_type': 'newtonls',
         }
-        options.use_automatic_timestep = False
+        if hasattr(solver_obj.options.timestepper_options, 'use_automatic_timestep'):
+            solver_obj.options.timestepper_options.use_automatic_timestep = False
         solver_obj.options.timestep = dt
         solver_obj.options.update(options)
 

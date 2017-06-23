@@ -143,8 +143,9 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.horizontal_viscosity_scale = Constant(nu_scale)
     options.horizontal_velocity_scale = Constant(u_max)
     options.vertical_velocity_scale = Constant(w_max)
-    options.use_automatic_timestep = False
-    options.timestep = dt
+    if dt is not None:
+        options.timestepper_options.use_automatic_timestep = False
+        options.timestep = dt
     options.simulation_export_time = t_export
     options.simulation_end_time = t_end
     options.output_directory = outputdir
@@ -157,24 +158,12 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
                                 'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                                 'smag_visc_3d']
     options.fields_to_export_hdf5 = list(options.fields_to_export)
-    options.equation_of_state = 'linear'
-    options.linear_equation_of_state_parameters = {
-        'rho_ref': rho_0,
-        's_ref': 35.0,
-        'th_ref': 5.0,
-        'alpha': 0.2,
-        'beta': 0.0,
-    }
-
-    # Use direct solver for 2D
-    # options.solver_parameters_sw = {
-    #     'mat_type': 'aij',
-    #     'ksp_type': 'preonly',
-    #     'pc_type': 'lu',
-    #     'pc_factor_mat_solver_package': 'mumps',
-    #     'snes_monitor': False,
-    #     'snes_type': 'newtonls',
-    # }
+    options.equation_of_state_type = 'linear'
+    options.equation_of_state_options.rho_ref = rho_0
+    options.equation_of_state_options.s_ref = 35.0
+    options.equation_of_state_options.th_ref = 5.0
+    options.equation_of_state_options.alpha = 0.2
+    options.equation_of_state_options.beta = 0.0
 
     if comm.size == 1:
         solver_obj.add_callback(RPECalculator(solver_obj))

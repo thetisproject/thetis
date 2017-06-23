@@ -57,15 +57,16 @@ def run(refinement, **model_options):
     options.output_directory = outputdir
     options.simulation_end_time = t_end
     options.simulation_export_time = t_export
-    options.use_automatic_timestep = False
-    options.timestep = dt
-    options.timestep_2d = dt_2d
     options.solve_salinity = False
     options.solve_temperature = False
     options.use_implicit_vertical_diffusion = implicit
     options.fields_to_export = ['uv_3d']
     options.vertical_viscosity = Constant(vertical_viscosity)
     options.update(model_options)
+    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
+        options.timestepper_options.use_automatic_timestep = False
+    options.timestep = dt
+    options.timestep_2d = dt_2d
 
     solverobj.create_equations()
 
@@ -142,7 +143,7 @@ def run(refinement, **model_options):
 
 def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
-    order = options.get('order', 1)
+    polynomial_degree = options.get('polynomial_degree', 1)
     space_str = options.get('element_family')
     l2_err = []
     for r in ref_list:
@@ -172,10 +173,10 @@ def run_convergence(ref_list, saveplot=False, **options):
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
             ax.set_ylabel('log10(L2 error)')
-            ax.set_title(' '.join([setup_name, field_str, 'order={:}'.format(order), space_str]))
+            ax.set_title(' '.join([setup_name, field_str, 'degree={:}'.format(polynomial_degree), space_str]))
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
-            order_str = 'o{:}'.format(order)
-            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str, space_str])
+            degree_str = 'o{:}'.format(polynomial_degree)
+            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, degree_str, space_str])
             imgfile += '.png'
             imgdir = create_directory('plots')
             imgfile = os.path.join(imgdir, imgfile)
@@ -189,20 +190,20 @@ def run_convergence(ref_list, saveplot=False, **options):
             print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
-    check_convergence(x_log, y_log, order+1, 'uv', saveplot)
+    check_convergence(x_log, y_log, polynomial_degree+1, 'uv', saveplot)
 
 # ---------------------------
 # standard tests for pytest
 # ---------------------------
 
 
-@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')('rt-dg'), 'dg-dg'])
+@pytest.fixture(params=['rt-dg', 'dg-dg'])
 def element_family(request):
     return request.param
 
 
-@pytest.fixture(params=[0, 1], ids=['order-0', 'order-1'])
-def order(request):
+@pytest.fixture(params=[0, 1], ids=['polynomial_degree-0', 'polynomial_degree-1'])
+def polynomial_degree(request):
     return request.param
 
 
@@ -212,11 +213,11 @@ def implicit(request):
 
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
-                         [pytest.mark.not_travis(reason='travis timeout')(('SSPRK33', False)),
+                         [('SSPRK33', False),
                           ('LeapFrog', True),
                           ('SSPRK22', True)])
-def test_vertical_viscosity(order, implicit, element_family, stepper, use_ale):
-    run_convergence([1, 2, 3], order=order, implicit=implicit,
+def test_vertical_viscosity(polynomial_degree, implicit, element_family, stepper, use_ale):
+    run_convergence([1, 2, 3], polynomial_degree=polynomial_degree, implicit=implicit,
                     element_family=element_family,
                     timestepper_type=stepper, use_ale_moving_mesh=use_ale)
 
@@ -226,9 +227,9 @@ def test_vertical_viscosity(order, implicit, element_family, stepper, use_ale):
 
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], order=1,
+    run_convergence([1, 2, 3], polynomial_degree=0,
                     implicit=True,
-                    element_family='dg-dg',
+                    element_family='rt-dg',
                     timestepper_type='SSPRK33',
                     use_ale_moving_mesh=False,
                     no_exports=True, saveplot=False)

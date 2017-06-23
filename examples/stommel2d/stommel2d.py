@@ -17,8 +17,7 @@ lx = 1.0e6
 nx = 20
 mesh2d = RectangleMesh(nx, nx, lx, lx)
 outputdir = 'outputs'
-print_output('Loaded mesh '+mesh2d.name)
-print_output('Exporting to '+outputdir)
+print_output('Exporting to ' + outputdir)
 depth = 1000.0
 t_end = 75*12*2*3600
 t_export = 3600*2
@@ -52,13 +51,12 @@ options.wind_stress = wind_stress_2d
 options.linear_drag_coefficient = linear_drag_coefficient
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
-options.use_automatic_timestep = False
+options.timestepper_type = 'CrankNicolson'
 options.timestep = 45.0
 options.output_directory = outputdir
 options.horizontal_velocity_scale = Constant(0.01)
 options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
-# options.timestepper_type = 'CrankNicolson'
 
 solver_obj.iterate()

@@ -15,7 +15,7 @@ import math
 # with nonlin=False further converge is possible
 @pytest.mark.parametrize("timestepper", [
     'CrankNicolson', 'PressureProjectionPicard', ])
-def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=False):
+def test_standing_wave_channel(timesteps, max_rel_err, timestepper, do_export=False):
 
     lx = 5e3
     ly = 1e3
@@ -46,9 +46,9 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
     solver_obj.options.no_exports = not do_export
     solver_obj.options.element_family = 'dg-dg'
     solver_obj.options.timestepper_type = timestepper
-    solver_obj.options.shallow_water_theta = 0.5
     if timestepper == 'CrankNicolson':
-        solver_obj.options.solver_parameters_sw = {
+        solver_obj.options.timestepper_options.implicitness_theta = 0.5
+        solver_obj.options.timestepper_options.solver_parameters = {
             'ksp_type': 'preonly',
             'pc_type': 'lu',
             'pc_factor_mat_solver_package': 'mumps',
@@ -57,7 +57,8 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
         }
     elif timestepper == 'PressureProjectionPicard':
         # solver options for the linearized wave equation terms
-        solver_obj.options.solver_parameters_sw = {
+        solver_obj.options.timestepper_options.implicitness_theta = 0.5
+        solver_obj.options.timestepper_options.solver_parameters_pressure = {
             'snes_type': 'ksponly',  # we've linearized, so no snes needed
             'ksp_type': 'preonly',  # we solve the full schur complement exactly, so no need for outer krylov
             'pc_type': 'fieldsplit',
@@ -73,14 +74,15 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
             'fieldsplit_1_ksp_max_it': 100,
             'fieldsplit_1_ksp_converged_reason': True,
         }
-        options.solver_parameters_sw_momentum = {
+        solver_obj.options.timestepper_options.solver_parameters_momentum = {
             'snes_monitor': True,
             'ksp_type': 'gmres',
             'ksp_converged_reason': True,
             'pc_type': 'bjacobi',
             'pc_bjacobi_type': 'ilu',
         }
-    options.use_automatic_timestep = False
+    if hasattr(solver_obj.options.timestepper_options, 'use_automatic_timestep'):
+        solver_obj.options.timestepper_options.use_automatic_timestep = False
     solver_obj.options.timestep = dt
 
     # boundary conditions
@@ -102,4 +104,4 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
 
 
 if __name__ == '__main__':
-    test_steady_state_channel(do_export=True)
+    test_standing_wave_channel(do_export=True)

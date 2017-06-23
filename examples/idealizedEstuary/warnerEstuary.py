@@ -97,7 +97,7 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
                                  'eps_3d', 'len_3d']
 gls_options = options.gls_options
 gls_options.apply_defaults('k-omega')
-gls_options.stability_name = 'CB'
+gls_options.stability_function_name = 'Canuto B'
 
 solverobj.create_function_spaces()
 

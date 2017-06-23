@@ -94,7 +94,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options = solver_obj.options
     options.polynomial_degree = poly_order
     options.element_family = element_family
-    options.timestepper_type = 'LeapFrog'
+    options.timestepper_type = 'SSPRK22'
     options.solve_salinity = False
     options.constant_salinity = Constant(salt_const)
     options.solve_temperature = True
@@ -123,8 +123,9 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     elif viscosity != 'none':
         raise Exception('Unknow viscosity type {:}'.format(viscosity))
     options.horizontal_diffusivity = None
-    options.use_automatic_timestep = False
-    options.timestep = dt
+    if dt is not None:
+        options.timestepper_options.use_automatic_timestep = False
+        options.timestep = dt
     options.simulation_export_time = t_export
     options.simulation_end_time = t_end
     options.output_directory = outputdir
@@ -138,14 +139,12 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
                                 'w_3d', 'w_mesh_3d', 'temp_3d', 'salt_3d', 'density_3d',
                                 'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                                 'smag_visc_3d']
-    options.equation_of_state = 'linear'
-    options.linear_equation_of_state_parameters = {
-        'rho_ref': rho_0,
-        's_ref': salt_const,
-        'th_ref': 5.0,
-        'alpha': 0.2,
-        'beta': 0.0,
-    }
+    options.equation_of_state_type = 'linear'
+    options.equation_of_state_options.rho_ref = rho_0
+    options.equation_of_state_options.s_ref = salt_const
+    options.equation_of_state_options.th_ref = 5.0
+    options.equation_of_state_options.alpha = 0.2
+    options.equation_of_state_options.beta = 0.0
 
     solver_obj.add_callback(RPECalculator(solver_obj))
 

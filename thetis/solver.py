@@ -288,6 +288,9 @@ class FlowSolver(FrozenClass):
         Once the time step is determined, will adjust it to be an integer
         fraction of export interval ``options.simulation_export_time``.
         """
+        automatic_timestep = (hasattr(self.options.timestepper_options, 'use_automatic_timestep') and
+                              self.options.timestepper_options.use_automatic_timestep)
+
         cfl2d = self.timestepper.cfl_coeff_2d
         cfl3d = self.timestepper.cfl_coeff_3d
         max_dt_swe = self.compute_dt_2d(self.options.horizontal_velocity_scale)
@@ -301,31 +304,30 @@ class FlowSolver(FrozenClass):
         max_dt_2d = cfl2d*max_dt_swe
         max_dt_3d = cfl3d*min(max_dt_hadv, max_dt_vadv, max_dt_diff)
         print_output('  - CFL adjusted dt: 2D: {:} 3D: {:}'.format(max_dt_2d, max_dt_3d))
-        if not self.options.timestepper_options.use_automatic_timestep:
+        if not automatic_timestep:
             print_output('  - User defined dt: 2D: {:} 3D: {:}'.format(self.options.timestep_2d, self.options.timestep))
         self.dt = self.options.timestep
         self.dt_2d = self.options.timestep_2d
-        if self.options.timestepper_options.use_automatic_timestep:
+        if automatic_timestep:
             assert self.options.timestep is not None
             assert self.options.timestep > 0.0
             assert self.options.timestep_2d is not None
             assert self.options.timestep_2d > 0.0
 
         if self.dt_mode == 'split':
-            if self.options.timestepper_options.use_automatic_timestep:
+            if automatic_timestep:
                 self.dt = max_dt_3d
-            if self.options.timestepper_options.use_automatic_timestep:
                 self.dt_2d = max_dt_2d
             # compute mode split ratio and force it to be integer
             self.M_modesplit = int(np.ceil(self.dt/self.dt_2d))
             self.dt_2d = self.dt/self.M_modesplit
         elif self.dt_mode == '2d':
-            if self.options.timestepper_options.use_automatic_timestep:
+            if automatic_timestep:
                 self.dt = min(max_dt_2d, max_dt_3d)
             self.dt_2d = self.dt
             self.M_modesplit = 1
         elif self.dt_mode == '3d':
-            if self.options.timestepper_options.use_automatic_timestep:
+            if automatic_timestep:
                 self.dt = max_dt_3d
             self.dt_2d = self.dt
             self.M_modesplit = 1

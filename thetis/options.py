@@ -234,6 +234,13 @@ class FrozenConfigurable(Configurable):
             raise TypeError('Adding new attribute "{:}" to {:} class is forbidden'.format(key, self.__class__.__name__))
         super(FrozenConfigurable, self).__setattr__(key, value)
 
+    def update(self, source):
+        if isinstance(source, dict):
+            for key in source:
+                self.__setattr__(key, source[key])
+        else:
+            self.add_traits(**source.traits())
+
 
 class TimeStepperOptions(FrozenHasTraits):
     """Base class for all time stepper options"""
@@ -283,6 +290,9 @@ class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'sor',
     }).tag(config=True)
+    implicitness_theta = BoundedFloat(
+        default_value=0.5, bounds=[0.5, 1.0],
+        help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.').tag(config=True)
 
 
 class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
@@ -334,6 +344,13 @@ class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
     }).tag(config=True)
+
+
+class SemiImplicitTimestepperOptions3d(ExplicitTimestepperOptions3d):
+    """Class for all 3d time steppers that have a configurable semi-implicit 2D solver"""
+    implicitness_theta_2d = BoundedFloat(
+        default_value=0.5, bounds=[0.5, 1.0],
+        help='implicitness parameter theta for 2D solver. Value 1.0 implies fully implicit formulation.').tag(config=True)
 
 
 class GLSModelOptions(FrozenHasTraits):
@@ -543,7 +560,7 @@ def attach_paired_options(name, name_trait, value_trait):
 
 class CommonModelOptions(FrozenConfigurable):
     """Options that are common for both 2d and 3d models"""
-    polynomial_degree = PositiveInteger(1, help='Polynomial degree of elements').tag(config=True)
+    polynomial_degree = NonNegativeInteger(1, help='Polynomial degree of elements').tag(config=True)
     element_family = Enum(
         ['dg-dg', 'rt-dg', 'dg-cg'],
         default_value='dg-dg',
@@ -660,7 +677,7 @@ class CommonModelOptions(FrozenConfigurable):
 # TODO rename time stepper types? Allow capitals and spaces?
 @attach_paired_options("timestepper_type",
                        PairedEnum([('SSPRK33', ExplicitTimestepperOptions2d()),
-                                   ('SSPRK33Semi', SemiImplicitTimestepperOptions2d()),
+                                   ('SSPRK33Semi', CrankNicolsonTimestepperOptions2d()),
                                    ('ForwardEuler', ExplicitTimestepperOptions2d()),
                                    ('BackwardEuler', SemiImplicitTimestepperOptions2d()),
                                    ('CrankNicolson', CrankNicolsonTimestepperOptions2d()),
@@ -693,7 +710,7 @@ class ModelOptions2d(CommonModelOptions):
 
 
 @attach_paired_options("timestepper_type",
-                       PairedEnum([('SSPRK33', ExplicitTimestepperOptions3d()),
+                       PairedEnum([('SSPRK33', SemiImplicitTimestepperOptions3d()),
                                    ('LeapFrog', ExplicitTimestepperOptions3d()),
                                    ('SSPRK22', ExplicitTimestepperOptions3d()),
                                    ('IMEXALE', ExplicitTimestepperOptions3d()),

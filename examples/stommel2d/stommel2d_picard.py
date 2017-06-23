@@ -20,8 +20,7 @@ lx = 1.0e6
 nx = 20
 mesh2d = RectangleMesh(nx, nx, lx, lx)
 outputdir = 'outputs_picard'
-print_output('Loaded mesh '+mesh2d.name)
-print_output('Exporting to '+outputdir)
+print_output('Exporting to ' + outputdir)
 depth = 1000.0
 t_end = 75*12*2*3600
 t_export = 3600*2
@@ -55,7 +54,6 @@ options.wind_stress = wind_stress_2d
 options.linear_drag_coefficient = linear_drag_coefficient
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
-options.use_automatic_timestep = False
 options.timestep = 3600.*2.
 options.output_directory = outputdir
 options.horizontal_velocity_scale = Constant(0.01)
@@ -63,8 +61,8 @@ options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
 options.timestepper_type = 'PressureProjectionPicard'
-options.use_linearized_semi_implicit_2d = True
-options.shallow_water_theta = 1.0
+options.use_linearized_semi_implicit_2d = True  # FIXME
+options.shallow_water_theta = 1.0  # FIXME
 options.solver_parameters_sw = {
     'snes_type': 'ksponly',
     'ksp_type': 'preonly',

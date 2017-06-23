@@ -27,16 +27,17 @@ def test_steady_state_channel(do_export=False):
     solver_obj.options.simulation_end_time = n*dt
     solver_obj.options.no_exports = not do_export
     solver_obj.options.timestepper_type = 'CrankNicolson'
-    solver_obj.options.shallow_water_theta = 1.0
-    solver_obj.options.solver_parameters_sw = {
+    solver_obj.options.timestepper_options.implicitness_theta = 1.0
+    solver_obj.options.timestepper_options.solver_parameters = {
         'ksp_type': 'preonly',
         'pc_type': 'lu',
         'pc_factor_mat_solver_package': 'mumps',
         'snes_monitor': False,
         'snes_type': 'newtonls',
     }
-    solver_obj.options.linear_drag_coefficient = f
-    options.use_automatic_timestep = False
+    solver_obj.options.linear_drag_coefficient = Constant(f)
+    if hasattr(solver_obj.options.timestepper_options, 'use_automatic_timestep'):
+        solver_obj.options.timestepper_options.use_automatic_timestep = False
     solver_obj.options.timestep = dt
 
     # boundary conditions

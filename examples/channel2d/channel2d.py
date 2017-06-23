@@ -61,8 +61,7 @@ options.fields_to_export = ['uv_2d', 'elev_2d']
 options.timestepper_type = 'SSPRK33'
 # options.timestepper_type = 'SSPIMEX'
 # options.timestepper_type = 'CrankNicolson'
-if options.timestepper_type in ['CrankNicolson', 'SSPIMEX']:
-    options.use_automatic_timestep = False
+if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
     options.timestep = 10.0
 # initial conditions, piecewise linear function
 elev_x = np.array([0, 30e3, 100e3])

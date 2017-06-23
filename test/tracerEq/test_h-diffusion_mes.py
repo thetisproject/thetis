@@ -75,6 +75,8 @@ def run(refinement, **model_options):
     options.horizontal_diffusivity = Constant(horizontal_diffusivity)
     options.horizontal_viscosity_scale = Constant(horizontal_diffusivity)
     options.update(model_options)
+    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
+        options.timestepper_options.use_automatic_timestep = True
 
     solverobj.create_equations()
 
@@ -140,7 +142,7 @@ def run(refinement, **model_options):
 
 def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
-    order = options.get('order', 1)
+    polynomial_degree = options.get('polynomial_degree', 1)
     l2_err = []
     for r in ref_list:
         l2_err.append(run(r, **options))
@@ -169,10 +171,10 @@ def run_convergence(ref_list, saveplot=False, **options):
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
             ax.set_ylabel('log10(L2 error)')
-            ax.set_title(' '.join([setup_name, field_str, 'order={:}'.format(order)]))
+            ax.set_title(' '.join([setup_name, field_str, 'degree={:}'.format(polynomial_degree)]))
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
-            order_str = 'o{:}'.format(order)
-            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str])
+            degree_str = 'o{:}'.format(polynomial_degree)
+            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, degree_str])
             imgfile += '.png'
             imgdir = create_directory('plots')
             imgfile = os.path.join(imgdir, imgfile)
@@ -186,7 +188,7 @@ def run_convergence(ref_list, saveplot=False, **options):
             print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
-    check_convergence(x_log, y_log, order+1, 'salt', saveplot)
+    check_convergence(x_log, y_log, polynomial_degree+1, 'salt', saveplot)
 
 # ---------------------------
 # standard tests for pytest
@@ -194,7 +196,7 @@ def run_convergence(ref_list, saveplot=False, **options):
 
 
 @pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')(0), 1])
-def order(request):
+def polynomial_degree(request):
     return request.param
 
 
@@ -208,8 +210,8 @@ def warped(request):
                          [('SSPRK33', False),
                           ('LeapFrog', True),
                           ('SSPRK22', True)])
-def test_horizontal_diffusion(warped, order, stepper, use_ale):
-    run_convergence([1, 2, 3], order=order,
+def test_horizontal_diffusion(warped, polynomial_degree, stepper, use_ale):
+    run_convergence([1, 2, 3], polynomial_degree=polynomial_degree,
                     warped_mesh=warped,
                     timestepper_type=stepper,
                     use_ale_moving_mesh=use_ale)
@@ -220,7 +222,7 @@ def test_horizontal_diffusion(warped, order, stepper, use_ale):
 
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], order=1,
+    run_convergence([1, 2, 3], polynomial_degree=1,
                     warped_mesh=True,
                     element_family='dg-dg',
                     timestepper_type='SSPRK22',

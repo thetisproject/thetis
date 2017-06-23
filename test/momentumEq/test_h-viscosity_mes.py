@@ -59,6 +59,8 @@ def run(refinement, **model_options):
     options.horizontal_viscosity = Constant(horizontal_viscosity)
     options.horizontal_viscosity_scale = Constant(horizontal_viscosity)
     options.update(model_options)
+    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
+        options.timestepper_options.use_automatic_timestep = True
 
     solverobj.create_equations()
 
@@ -124,7 +126,7 @@ def run(refinement, **model_options):
 
 def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
-    order = options.get('order', 1)
+    polynomial_degree = options.get('polynomial_degree', 1)
     space_str = options.get('element_family')
     l2_err = []
     for r in ref_list:
@@ -154,10 +156,10 @@ def run_convergence(ref_list, saveplot=False, **options):
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
             ax.set_ylabel('log10(L2 error)')
-            ax.set_title(' '.join([setup_name, field_str, 'order={:}'.format(order), space_str]))
+            ax.set_title(' '.join([setup_name, field_str, 'degree={:}'.format(polynomial_degree), space_str]))
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
-            order_str = 'o{:}'.format(order)
-            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str, space_str])
+            degree_str = 'o{:}'.format(polynomial_degree)
+            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, degree_str, space_str])
             imgfile += '.png'
             imgdir = create_directory('plots')
             imgfile = os.path.join(imgdir, imgfile)
@@ -171,7 +173,7 @@ def run_convergence(ref_list, saveplot=False, **options):
             print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
-    check_convergence(x_log, y_log, order+1, 'uv', saveplot)
+    check_convergence(x_log, y_log, polynomial_degree+1, 'uv', saveplot)
 
 # ---------------------------
 # standard tests for pytest
@@ -180,23 +182,23 @@ def run_convergence(ref_list, saveplot=False, **options):
 # NOTE mimetic elements do not converge optimally, rate is 1.48
 
 
-@pytest.fixture(params=[True, False], ids=[pytest.mark.not_travis(reason='travis timeout')('warped'),
+@pytest.fixture(params=[True, False], ids=['warped',
                                            'regular'])
 def warped(request):
     return request.param
 
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
-                         [pytest.mark.not_travis(reason='travis timeout')(('SSPRK33', False)),
+                         [('SSPRK33', False),
                           ('LeapFrog', True),
                           ('SSPRK22', True)])
-@pytest.mark.parametrize(('family', 'order'),
-                         [pytest.mark.not_travis(reason='travis timeout')(('dg-dg', 0)),
+@pytest.mark.parametrize(('family', 'polynomial_degree'),
+                         [('dg-dg', 0),
                           ('dg-dg', 1),
                           pytest.mark.skip(reason='rt-0 still broken')(('rt-dg', 0)),
-                          pytest.mark.not_travis(reason='travis timeout')(('rt-dg', 1))])
-def test_horizontal_viscosity(warped, order, family, stepper, use_ale):
-    run_convergence([1, 2, 3], order=order, warped_mesh=warped,
+                          ('rt-dg', 1)])
+def test_horizontal_viscosity(warped, polynomial_degree, family, stepper, use_ale):
+    run_convergence([1, 2, 3], polynomial_degree=polynomial_degree, warped_mesh=warped,
                     element_family=family, timestepper_type=stepper,
                     use_ale_moving_mesh=use_ale)
 
@@ -206,9 +208,9 @@ def test_horizontal_viscosity(warped, order, family, stepper, use_ale):
 
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], order=1,
+    run_convergence([1, 2, 3], polynomial_degree=1,
                     warped_mesh=True,
                     element_family='rt-dg',
-                    timestepper_type='LeapFrog',
+                    timestepper_type='SSPRK22',
                     use_ale_moving_mesh=True,
                     no_exports=False, saveplot=True)

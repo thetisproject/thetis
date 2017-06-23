@@ -57,7 +57,7 @@ bathymetry2d.assign(depth)
 solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
 options = solver_obj.options
 options.element_family = 'dg-dg'
-options.timestepper_type = 'LeapFrog'
+options.timestepper_type = 'SSPRK22'
 options.solve_salinity = False
 options.solve_temperature = False
 options.use_implicit_vertical_diffusion = True
@@ -69,10 +69,10 @@ options.vertical_diffusivity = Constant(1.4e-7)  # background value
 # options.use_ale_moving_mesh = False
 options.use_limiter_for_tracers = True
 options.simulation_export_time = t_export
-options.use_automatic_timestep = False
+options.timestepper_options.use_automatic_timestep = False
 options.timestep = dt
 options.simulation_end_time = t_end
-options.horizontal_velocity_scale = u_mag
+options.horizontal_velocity_scale = Constant(u_mag)
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'uv_dav_2d', 'uv_bottom_2d',
                             'parab_visc_3d', 'eddy_visc_3d', 'shear_freq_3d',
@@ -83,8 +83,8 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d', 'uv_bottom_2d',
                                  'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
 gls_options = options.gls_options
 gls_options.apply_defaults('k-omega')
-gls_options.stability_name = 'CB'
-options.output_directory = outputdir + '_' + gls_options.closure_name + '-' + gls_options.stability_name
+gls_options.stability_function_name = 'Canuto B'
+options.output_directory = outputdir + '_' + gls_options.closure_name + '-' + gls_options.stability_function_name
 print_output('Exporting to ' + options.output_directory)
 
 solver_obj.create_function_spaces()

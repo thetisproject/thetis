@@ -78,7 +78,7 @@ def compute_pg_error(**kwargs):
     options.horizontal_diffusivity = None
     options.simulation_export_time = 900.
     options.simulation_end_time = 4*900.
-    options.use_automatic_timestep = False
+    options.timestepper_options.use_automatic_timestep = False
     options.timestep = 100.
     options.no_exports = True
     options.check_temperature_overshoot = False
@@ -87,14 +87,13 @@ def compute_pg_error(**kwargs):
                                 'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                                 'smag_visc_3d', 'int_pg_3d',
                                 'hcc_metric_3d']
-    options.linear_equation_of_state_parameters = {
-        'rho_ref': rho_0,
-        's_ref': salt_const,
-        'th_ref': t_ref,
-        'alpha': alpha,
-        'beta': beta,
-    }
     options.update(kwargs)
+    if options.equation_of_state_type == 'linear':
+        options.equation_of_state_options.rho_ref = rho_0
+        options.equation_of_state_options.s_ref = salt_const
+        options.equation_of_state_options.th_ref = t_ref
+        options.equation_of_state_options.alpha = alpha
+        options.equation_of_state_options.beta = beta
 
     solver_obj.create_function_spaces()
 
@@ -138,7 +137,7 @@ def compute_pg_error(**kwargs):
         'use_quadratic_pressure': True,
         'use_quadratic_density': True,
         'lin_strat': False,
-        'equation_of_state': 'full',
+        'equation_of_state_type': 'full',
         'geometry': 'seamount',
         'target': 2e-6,
     },
@@ -147,7 +146,7 @@ def compute_pg_error(**kwargs):
         'use_quadratic_pressure': False,
         'use_quadratic_density': False,
         'lin_strat': True,
-        'equation_of_state': 'linear',
+        'equation_of_state_type': 'linear',
         'geometry': 'warped',
         'target': 7e-4,
     },
@@ -156,7 +155,7 @@ def compute_pg_error(**kwargs):
         'use_quadratic_pressure': True,
         'use_quadratic_density': False,
         'lin_strat': True,
-        'equation_of_state': 'linear',
+        'equation_of_state_type': 'linear',
         'geometry': 'warped',
         'target': 1e-13,
     },
@@ -165,7 +164,7 @@ def compute_pg_error(**kwargs):
         'use_quadratic_pressure': True,
         'use_quadratic_density': False,
         'lin_strat': True,
-        'equation_of_state': 'full',
+        'equation_of_state_type': 'full',
         'geometry': 'warped',
         'target': 7e-6,
     },
@@ -174,7 +173,7 @@ def compute_pg_error(**kwargs):
         'use_quadratic_pressure': True,
         'use_quadratic_density': True,
         'lin_strat': True,
-        'equation_of_state': 'full',
+        'equation_of_state_type': 'full',
         'geometry': 'warped',
         'target': 1e-6,
     },
@@ -183,7 +182,7 @@ def compute_pg_error(**kwargs):
         'use_quadratic_pressure': True,
         'use_quadratic_density': False,
         'lin_strat': False,
-        'equation_of_state': 'full',
+        'equation_of_state_type': 'full',
         'geometry': 'warped',
         'target': 3e-5,
     },
@@ -192,7 +191,7 @@ def compute_pg_error(**kwargs):
         'use_quadratic_pressure': True,
         'use_quadratic_density': True,
         'lin_strat': False,
-        'equation_of_state': 'full',
+        'equation_of_state_type': 'full',
         'geometry': 'warped',
         'target': 1e-5,
     },
@@ -201,7 +200,7 @@ def compute_pg_error(**kwargs):
         'use_quadratic_pressure': True,
         'use_quadratic_density': True,
         'lin_strat': False,
-        'equation_of_state': 'full',
+        'equation_of_state_type': 'full',
         'geometry': 'seamount',
         'target': 9.0,
     },
@@ -210,7 +209,7 @@ def compute_pg_error(**kwargs):
         'use_quadratic_pressure': False,
         'use_quadratic_density': False,
         'lin_strat': True,
-        'equation_of_state': 'linear',
+        'equation_of_state_type': 'linear',
         'geometry': 'warped',
         'target': 850.,
     },
@@ -219,7 +218,7 @@ def compute_pg_error(**kwargs):
         'use_quadratic_pressure': True,
         'use_quadratic_density': False,
         'lin_strat': True,
-        'equation_of_state': 'linear',
+        'equation_of_state_type': 'linear',
         'geometry': 'warped',
         'target': 1e-7,
     },
@@ -228,7 +227,7 @@ def compute_pg_error(**kwargs):
         'use_quadratic_pressure': True,
         'use_quadratic_density': False,
         'lin_strat': True,
-        'equation_of_state': 'full',
+        'equation_of_state_type': 'full',
         'geometry': 'warped',
         'target': 30.,
     },
@@ -237,7 +236,7 @@ def compute_pg_error(**kwargs):
         'use_quadratic_pressure': True,
         'use_quadratic_density': True,
         'lin_strat': True,
-        'equation_of_state': 'full',
+        'equation_of_state_type': 'full',
         'geometry': 'warped',
         'target': 9.,
     },
@@ -246,7 +245,7 @@ def compute_pg_error(**kwargs):
         'use_quadratic_pressure': True,
         'use_quadratic_density': False,
         'lin_strat': False,
-        'equation_of_state': 'full',
+        'equation_of_state_type': 'full',
         'geometry': 'warped',
         'target': 60.,
     },
@@ -255,7 +254,7 @@ def compute_pg_error(**kwargs):
         'use_quadratic_pressure': True,
         'use_quadratic_density': True,
         'lin_strat': False,
-        'equation_of_state': 'full',
+        'equation_of_state_type': 'full',
         'geometry': 'warped',
         'target': 40.,
     },
@@ -281,7 +280,7 @@ def test_int_pg(pg_test_setup):
         'use_quadratic_pressure': True,
         'use_quadratic_density': True,
         'lin_strat': False,
-        'equation_of_state': 'full',
+        'equation_of_state_type': 'full',
         'geometry': 'warped',
         'target': 0.02,
     },
@@ -290,7 +289,7 @@ def test_int_pg(pg_test_setup):
         'use_quadratic_pressure': True,
         'use_quadratic_density': False,
         'lin_strat': True,
-        'equation_of_state': 'linear',
+        'equation_of_state_type': 'linear',
         'geometry': 'warped',
         'target': 1e-11,
     },
@@ -299,7 +298,7 @@ def test_int_pg(pg_test_setup):
         'use_quadratic_pressure': True,
         'use_quadratic_density': True,
         'lin_strat': False,
-        'equation_of_state': 'full',
+        'equation_of_state_type': 'full',
         'geometry': 'warped',
         'target': 80e3,
     },
@@ -308,7 +307,7 @@ def test_int_pg(pg_test_setup):
         'use_quadratic_pressure': True,
         'use_quadratic_density': False,
         'lin_strat': True,
-        'equation_of_state': 'linear',
+        'equation_of_state_type': 'linear',
         'geometry': 'warped',
         'target': 5e-4,
     },
@@ -333,7 +332,7 @@ if __name__ == '__main__':
         'use_quadratic_pressure': True,
         'use_quadratic_density': False,
         'lin_strat': True,
-        'equation_of_state': 'linear',
+        'equation_of_state_type': 'linear',
         'geometry': 'warped',
         'target': 1e-4,
     }

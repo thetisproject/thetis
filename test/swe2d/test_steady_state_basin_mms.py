@@ -149,14 +149,14 @@ def run(setup, refinement, order, do_export=True, options=None,
     solver_obj.options.no_exports = not do_export
     solver_obj.options.output_directory = outputdir
     solver_obj.options.simulation_end_time = t_end
-    options.use_automatic_timestep = False
     solver_obj.options.timestep = dt
     solver_obj.options.simulation_export_time = t_export
-    # solver_obj.options.timestepper_type = 'CrankNicolson'
     if 'options' in sdict:
         solver_obj.options.update(sdict['options'])
     if options is not None:
         solver_obj.options.update(options)
+    if hasattr(solver_obj.options.timestepper_options, 'use_automatic_timestep'):
+        solver_obj.options.timestepper_options.use_automatic_timestep = False
 
     solver_obj.create_function_spaces()
 

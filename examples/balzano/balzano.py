@@ -64,7 +64,6 @@ options.shallow_water_theta = 0.5
 options.use_wetting_and_drying = use_wetting_and_drying
 options.wetting_and_drying_alpha = wetting_and_drying_alpha
 options.manning_drag_coefficient = manning_drag_coefficient
-options.use_automatic_timestep = False
 options.timestep = dt
 options.solver_parameters_sw = {
     'snes_type': 'newtonls',

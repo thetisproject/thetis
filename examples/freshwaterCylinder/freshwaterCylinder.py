@@ -242,14 +242,12 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
                                  'eddy_visc_3d', 'shear_freq_3d',
                                  'buoy_freq_3d', 'tke_3d', 'psi_3d',
                                  'eps_3d', 'len_3d']
-options.equation_of_state = 'linear'
-options.linear_equation_of_state_parameters = {
-    'rho_ref': rho0,
-    's_ref': 33.75,
-    'th_ref': 5.0,
-    'alpha': 0.0,
-    'beta': 0.78,
-}
+options.equation_of_state_type = 'linear'
+options.equation_of_state_options.rho_ref = rho0
+options.equation_of_state_options.s_ref = 33.75
+options.equation_of_state_options.th_ref = 5.0
+options.equation_of_state_options.alpha = 0.0
+options.equation_of_state_options.beta = 0.78
 
 solver_obj.add_callback(VorticityCalculator(solver_obj))
 solver_obj.add_callback(AngularMomentumCalculator(solver_obj))

@@ -1,7 +1,7 @@
 # Stommel gyre test case in 3D
 # ============================
 #
-# Wind-driven geostrophic gyre in larege basin.
+# Wind-driven geostrophic gyre in large basin.
 # Setup is according to [1]. This version us for 3D equations. As the problem
 # is purely baroclinic the solution is the same as in 2D.
 #
@@ -11,6 +11,8 @@
 #     for Numerical Methods in Fluids, 63(6):701-724.
 #
 # Tuomas Karna 2015-04-28
+
+# NOTE this example is currently broken and must be fixed upstream
 
 from thetis import *
 
@@ -62,7 +64,8 @@ options.wind_stress = wind_stress_2d
 options.linear_drag_coefficient = linear_drag_coefficient
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
-options.use_automatic_timestep = False
+options.timestepper_type = 'SSPRK22'
+options.timestepper_options.use_automatic_timestep = False
 options.timestep_2d = 20.0
 options.timestep = 450.0
 options.output_directory = outputdir

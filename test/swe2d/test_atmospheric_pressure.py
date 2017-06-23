@@ -68,14 +68,16 @@ def test_pressure_forcing(element_family, timestepper):
         solverObj.options.polynomial_degree = order
         solverObj.options.timestepper_type = timestepper
         solverObj.options.element_family = element_family
-        solverObj.options.use_automatic_timestep = False
         solverObj.options.check_volume_conservation_2d = False
+        if hasattr(solverObj.options.timestepper_options, 'use_automatic_timestep'):
+            solverObj.options.timestepper_options.use_automatic_timestep = False
         solverObj.options.timestep = dt
         solverObj.options.simulation_export_time = 3600.
         solverObj.options.simulation_end_time = t_end
         solverObj.options.no_exports = True
         solverObj.options.fields_to_export = ['uv_2d', 'elev_2d']
-        solverObj.options.shallow_water_theta = 0.5
+        if solverObj.options.timestepper_type == 'CrankNicolson':
+            solverObj.options.timestepper_options.implicitness_theta = 0.5
         solverObj.options.manning_drag_coefficient = manning_drag_coefficient
         solverObj.options.atmospheric_pressure = atmospheric_pressure
 

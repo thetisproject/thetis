@@ -101,14 +101,12 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'density_3d', 'uv_dav_2d', 'uv_dav_3d',
                             'baroc_head_3d',
                             'int_pg_3d', 'hcc_metric_3d']
-options.equation_of_state = 'linear'
-options.linear_equation_of_state_parameters = {
-    'rho_ref': setup.rho_0,
-    's_ref': setup.salt_const,
-    'th_ref': setup.temp_lim[1],
-    'alpha': setup.alpha,
-    'beta': setup.beta,
-}
+options.equation_of_state_type = 'linear'
+options.equation_of_state_options.rho_ref = setup.rho_0
+options.equation_of_state_options.s_ref = setup.salt_const
+options.equation_of_state_options.th_ref = setup.temp_lim[1]
+options.equation_of_state_options.alpha = setup.alpha
+options.equation_of_state_options.beta = setup.beta
 
 solver_obj.create_function_spaces()
 

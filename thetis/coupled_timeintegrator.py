@@ -220,8 +220,8 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['shallow_water'],
                 solver_parameters=self.options.timestepper_options.solver_parameters_2d_swe,
-                semi_implicit=self.options.True,
-                theta=self.options.timestepper_options.implicitness_theta)
+                semi_implicit=True,
+                theta=self.options.timestepper_options.implicitness_theta_2d)
         else:
             self.timestepper2d = self.integrator_2d(
                 solver.eq_sw, self.fields.solution_2d,

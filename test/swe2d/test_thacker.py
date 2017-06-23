@@ -28,16 +28,15 @@ def test_thacker(n, dt, alpha, max_err):
     solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry)
     options = solverObj.options
 
-    options.use_automatic_timestep = False
     options.timestep = dt
     options.simulation_end_time = 43200 - 0.1*options.timestep
     options.simulation_export_time = options.timestep
     options.no_exports = True
     options.timestepper_type = 'CrankNicolson'
-    options.shallow_water_theta = 0.5
     options.use_wetting_and_drying = True
     options.wetting_and_drying_alpha = Constant(alpha)
-    options.solver_parameters_sw = {
+    options.timestepper_options.implicitness_theta = 0.5
+    options.timestepper_options.solver_parameters = {
         'snes_type': 'newtonls',
         'snes_monitor': True,
         'ksp_type': 'gmres',

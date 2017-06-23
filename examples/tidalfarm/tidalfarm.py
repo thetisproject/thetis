@@ -53,7 +53,6 @@ solver_obj.options.solver_parameters_sw = {
     'snes_monitor': False,
     'snes_type': 'newtonls',
 }
-options.use_automatic_timestep = False
 options.timestep = timestep
 options.horizontal_viscosity = Constant(2.0)
 
