@@ -1,226 +1,355 @@
 """
-This file defines all options of the 2D/3D models excluding field values.
+Thetis options for the 2D and 3D model
 
+All options are type-checked and they are stored in traitlets Configurable
+objects.
 """
-from __future__ import absolute_import
-from .utility import *
-from .turbulence import GLSModelOptions
+from traitlets.config.configurable import Configurable
+from traitlets import *
+
+from thetis import FiredrakeConstant as Constant
+from thetis import FiredrakeFunction as Function
 
 
-class ModelOptions(AttrDict, FrozenClass):
+class PositiveInteger(Integer):
+    def info(self):
+        return u'a positive integer'
+
+    def validate(self, obj, proposal):
+        super(PositiveInteger, self).validate(obj, proposal)
+        assert proposal > 0, self.error(obj, proposal)
+        return proposal
+
+
+class PositiveFloat(Float):
+    def info(self):
+        return u'a positive float'
+
+    def validate(self, obj, proposal):
+        super(PositiveFloat, self).validate(obj, proposal)
+        assert proposal > 0.0, self.error(obj, proposal)
+        return proposal
+
+
+class BoundedInteger(Integer):
+    def __init__(self, default_value=Undefined, bounds=None, **kwargs):
+        super(BoundedInteger, self).__init__(default_value, **kwargs)
+        self.minval = bounds[0]
+        self.maxval = bounds[1]
+
+    def info(self):
+        return u'an integer between {:} and {:}'.format(self.minval, self.maxval)
+
+    def validate(self, obj, proposal):
+        super(BoundedInteger, self).validate(obj, proposal)
+        assert proposal >= self.minval, self.error(obj, proposal)
+        assert proposal <= self.maxval, self.error(obj, proposal)
+        return proposal
+
+
+class BoundedFloat(Float):
+    def __init__(self, default_value=Undefined, bounds=None, **kwargs):
+        self.minval = bounds[0]
+        self.maxval = bounds[1]
+        super(BoundedFloat, self).__init__(default_value, **kwargs)
+
+    def info(self):
+        return u'a float between {:} and {:}'.format(self.minval, self.maxval)
+
+    def validate(self, obj, proposal):
+        super(BoundedFloat, self).validate(obj, proposal)
+        assert proposal >= self.minval, self.error(obj, proposal)
+        assert proposal <= self.maxval, self.error(obj, proposal)
+        return proposal
+
+
+class FiredrakeConstant(TraitType):
+    default_value = None
+    info_text = 'a Firedrake Constant'
+
+    def validate(self, obj, value):
+        if isinstance(value, Constant):
+            return value
+        self.error(obj, value)
+
+    def default_value_repr(self):
+        return 'Constant({:})'.format(self.default_value.dat.data[0])
+
+
+class FiredrakeCoefficient(TraitType):
+    default_value = None
+    info_text = 'a Firedrake Constant or Function'
+
+    def validate(self, obj, value):
+        if isinstance(value, (Constant, Function)):
+            return value
+        self.error(obj, value)
+
+    def default_value_repr(self):
+        if isinstance(self.default_value, Constant):
+            return 'Constant({:})'.format(self.default_value.dat.data[0])
+        return 'Function'
+
+
+class PETScSolverParameters(Dict):
+    """PETSc solver options dictionary"""
+    default_value = None
+    info_text = 'a PETSc solver options dictionary'
+
+    def validate(self, obj, value):
+        if isinstance(value, dict):
+            return value
+        self.error(obj, value)
+
+
+class FrozenHasTraits(HasTraits):
     """
-    Stores all circulation model options
+    A HasTraits class that only allows adding new attributes in the class
+    definition or when  self._isfrozen is False.
     """
-    def __init__(self):
-        """
-        Every instance is initialized with default values
-        """
-        super(ModelOptions, self).__init__()
-        self.polynomial_degree = 1
-        """int: Polynomial degree of elements"""
-        self.element_family = 'rt-dg'
-        """str: Finite element family.
+    _isfrozen = False
+    def __init__(self, *args, **kwargs):
+        super(FrozenHasTraits, self).__init__(*args, **kwargs)
+        self._isfrozen = True
+
+    def __setattr__(self, key, value):
+        if self._isfrozen and not hasattr(self, key):
+            raise TypeError('Adding new attribute "{:}" to {:} class is forbidden'.format(key, self.__class__.__name__))
+        super(FrozenHasTraits, self).__setattr__(key, value)
+
+
+class FrozenConfigurable(Configurable):
+    """
+    A Configurable class that only allows adding new attributes in the class
+    definition or when  self._isfrozen is False.
+    """
+    _isfrozen = False
+    def __init__(self, *args, **kwargs):
+        super(FrozenConfigurable, self).__init__(*args, **kwargs)
+        self._isfrozen = True
+
+    def __setattr__(self, key, value):
+        if self._isfrozen and not hasattr(self, key):
+            raise TypeError('Adding new attribute "{:}" to {:} class is forbidden'.format(key, self.__class__.__name__))
+        super(FrozenConfigurable, self).__setattr__(key, value)
+
+
+class TimeStepperOptions(FrozenHasTraits):
+    """Base class for all time stepper options"""
+
+
+class CrankNicolsonOptions(TimeStepperOptions):
+    """Options for Crank-Nicolson time integrator"""
+    implicitness_theta = BoundedFloat(default_value=0.5, bounds=[0.5, 1.0], help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.')
+
+
+class ExplicitTimestepperOptions(TimeStepperOptions):
+    """Options for explicit time integrator"""
+    use_automatic_timestep = Bool(True, help='Set time step automatically based on local CFL conditions.')
+
+
+class GLSModelOptions(FrozenHasTraits):
+    """Options for generic length scale turbulence model"""
+    closure_name = Enum(
+        ['k-epsilon', 'k-omega', 'Generic Lenght Scale'],
+        default_value='k-epsilon',
+        help='Name of two-equation closure')
+    stability_function_name = Enum(
+        ['Canuto A', 'Canuto B', 'Kantha-Clayson', 'Cheng'],
+        default_value='Canuto A',
+        help='Name of stability function family')
+    # TODO add remaining parameters
+
+
+class EquationOfStateOptions(FrozenHasTraits):
+    """Base class of equation of state options"""
+    pass
+
+
+class LinearEquationOfStateOptions(EquationOfStateOptions):
+    """Linear equation of state options"""
+    # TODO more human readable parameter names
+    # TODO document the actual equation somewhere
+    rho_ref = PositiveFloat(1000.0, help='Reference water density')
+    s_ref = PositiveFloat(35.0, help='Reference water salinity')
+    th_ref = Float(15.0, help='Reference water temperature')
+    alpha = Float(0.2, help='Thermal expansion coefficient of ocean water')
+    beta = Float(0.77, help='Saline contraction coefficient of ocean water')
+
+
+def attach_paired_options(options_name_trait, options_value_trait, default_values):
+    """Attach paired options to a Configurable object.
+
+    :arg options_name_trait: a tuple (name, Trait) for the options name (a choice).
+    :arg options_value_trait: a tuple (name, Trait) for the options value (some configurable object)
+    :arg default_values: a dict mapping valid values for the options name to valid defaults for the options value."""
+
+    name, name_trait = options_name_trait
+    value, value_trait = options_value_trait
+
+    def _observer(self, change):
+        "Observer called when the choice option is updated."
+        setattr(self, value, default_values[change["new"]])
+
+    def _default(self):
+        "Dynamic default value setter"
+        if hasattr(name_trait, 'default_value') and name_trait.default_value is not None:
+            return default_values[name_trait.default_value]
+
+    obs_handler = ObserveHandler(name, type="change")
+    def_handler = DefaultHandler(value)
+
+    def update_class(cls):
+        "Programmatically update the class"
+        # Set the new class attributes
+        setattr(cls, name, name_trait)
+        setattr(cls, value, value_trait)
+        setattr(cls, "_%s_observer" % name, obs_handler(_observer))
+        setattr(cls, "_%s_default" % value, def_handler(_default))
+        # Mimic the magic metaclass voodoo.
+        name_trait.class_init(cls, name)
+        value_trait.class_init(cls, value)
+        obs_handler.class_init(cls, "_%s_observer" % name)
+        def_handler.class_init(cls, "_%s_default" % value)
+
+        return cls
+    return update_class
+
+
+class CommonModelOptions(FrozenConfigurable):
+    polynomial_degree = PositiveInteger(1, help='Polynomial degree of elements').tag(config=True)
+    element_family = Enum(
+        ['dg-dg', 'rt-dg', 'dg-cg'],
+        default_value='dg-dg',
+        help="""Finite element family
 
         2D solver supports 'dg-dg', 'rt-dg', or 'dg-cg' velocity-pressure pairs.
-        3D solver supports 'dg-dg', or 'rt-dg' velocity-pressure pairs.
-        """
-        self.use_nonlinear_equations = True
-        """bool: Use nonlinear shallow water equations"""
-        self.solve_salinity = True
-        """bool: Solve salt transport"""
-        self.solve_temperature = True
-        """bool: Solve temperature transport"""
-        self.use_implicit_vertical_diffusion = True
-        """bool: Solve vertical diffusion and viscosity implicitly"""
-        self.use_bottom_friction = True
-        """bool: Apply log layer bottom stress in the 3D model"""
-        self.use_parabolic_viscosity = False
-        """
-        bool: Use idealized parabolic eddy viscosity
+        3D solver supports 'dg-dg', or 'rt-dg' velocity-pressure pairs."""
+        ).tag(config=True)
 
-        See :class:`.ParabolicViscosity`
-        """
-        self.use_grad_div_viscosity_term = False
-        r"""
-        bool: Include :math:`\nabla (\nu_h \nabla \cdot \bar{\textbf{u}})` term in the depth-averaged viscosity
+    use_nonlinear_equations = Bool(True, help='Use nonlinear shallow water equations').tag(config=True)
+    use_grad_div_viscosity_term = Bool(
+        False,
+        help=r"""Include :math:`\nabla (\nu_h \nabla \cdot \bar{\textbf{u}})` term in the depth-averaged viscosity
 
-        See :class:`.shallowwater_eq.HorizontalViscosityTerm` for details.
-        """
-        self.use_grad_depth_viscosity_term = True
-        r"""
-        bool: Include :math:`\nabla H` term in the depth-averaged viscosity
+        See :class:`.shallowwater_eq.HorizontalViscosityTerm` for details.""").tag(config=True)
+    use_grad_depth_viscosity_term = Bool(
+        True,
+        help=r"""Include :math:`\nabla H` term in the depth-averaged viscosity
 
-        See :class:`.shallowwater_eq.HorizontalViscosityTerm` for details.
-        """
-        self.use_ale_moving_mesh = True
-        """bool: Use ALE formulation where 3D mesh tracks free surface"""
-        self.timestepper_type = 'ssprk33'
-        """
-        str: time integrator option.
+        See :class:`.shallowwater_eq.HorizontalViscosityTerm` for details.""").tag(config=True)
 
-        Valid options for the 2D solver: 'forwardeuler'|'backwardeuler'|'ssprk33'|'ssprk33semi'|'cranknicolson'|'sspimex'|'pressureprojectionpicard'|'steadystate'
-
-        Valid options for the 2D solver: 'ssprk33'|'erkale'|'leapfrog'|'imexale'|'ssprk22'
-        """
-        self.use_linearized_semi_implicit_2d = False
-        """bool: Use linearized semi-implicit time integration for the horizontal mode"""
-        self.shallow_water_theta = 0.5
-        """float: theta parameter for shallow water semi-implicit scheme"""
-        self.use_turbulence = False
-        """bool: Activate GLS turbulence model"""
-        self.use_smooth_eddy_viscosity = False
-        """bool: Cast eddy viscosity to p1 space instead of p0"""
-        self.turbulence_model_type = 'gls'
-        """
-        str: Defines the type of vertical turbulence model.
-
-        Currently only 'gls' is supported
-        """
-        self.gls_options = GLSModelOptions()
-        """:class:`.GLSModelOptions`: Dictionary of default GLS model options"""
-        self.use_turbulence_advection = False
-        """bool: Advect TKE and Psi in the GLS turbulence model"""
-        self.use_baroclinic_formulation = False
-        """bool: Compute internal pressure gradient in momentum equation"""
-        self.use_smagorinsky_viscosity = False
-        """:bool:use Smagorinsky viscosity"""
-        self.smagorinsky_coefficient = Constant(0.1)
-        """
-        :class:`Constant` Smagorinsky viscosity coefficient :math:`C_S`
-
-        See :class:`.SmagorinskyViscosity`.
-        """
-        self.use_limiter_for_tracers = False
-        """bool: Apply P1DG limiter for tracer fields"""
-        self.use_lax_friedrichs_velocity = True
-        """bool: use Lax Friedrichs stabilisation in horizontal momentum advection."""
-        self.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
-        """:class:`Constant`: Scaling factor for Lax Friedrichs stabilisation term in horiozonal momentum advection."""
-        self.use_lax_friedrichs_tracer = True
-        """bool: use Lax Friedrichs stabilisation in tracer advection."""
-        self.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
-        """:class:`Constant`: Scaling factor for tracer Lax Friedrichs stability term."""
-        self.check_volume_conservation_2d = False
-        """
-        bool: Compute volume of the 2D mode at every export
+    use_lax_friedrichs_velocity = Bool(
+        True, help="use Lax Friedrichs stabilisation in horizontal momentum advection.").tag(config=True)
+    lax_friedrichs_velocity_scaling_factor = FiredrakeConstant(
+        Constant(1.0), help="Scaling factor for Lax Friedrichs stabilisation term in horiozonal momentum advection.").tag(config=True)
+    use_lax_friedrichs_tracer = Bool(
+        True, help="Use Lax Friedrichs stabilisation in tracer advection.").tag(config=True)
+    lax_friedrichs_tracer_scaling_factor = FiredrakeConstant(
+        Constant(1.0), help="Scaling factor for tracer Lax Friedrichs stability term.").tag(config=True)
+    check_volume_conservation_2d = Bool(
+        False, help="""
+        Compute volume of the 2D mode at every export
 
         2D volume is defined as the integral of the water elevation field.
         Prints deviation from the initial volume to stdout.
-        """
-        self.check_volume_conservation_3d = False
-        """
-        bool: Compute volume of the 2D domain at every export
+        """).tag(config=True)
+    check_volume_conservation_3d = Bool(
+        False, help="""
+        Compute volume of the 3D domain at every export
 
         Prints deviation from the initial volume to stdout.
-        """
-        self.check_salinity_conservation = False
-        """
-        bool: Compute total salinity mass at every export
+        """).tag(config=True)
+    check_salinity_conservation = Bool(
+        False, help="""
+        Compute total salinity mass at every export
 
         Prints deviation from the initial mass to stdout.
-        """
-        self.check_salinity_overshoot = False
-        """
-        bool: Compute salinity overshoots at every export
+        """).tag(config=True)
+    check_salinity_overshoot = Bool(
+        False, help="""
+        Compute salinity overshoots at every export
 
         Prints overshoot values that exceed the initial range to stdout.
-        """
-        self.check_temperature_conservation = False
-        """
-        bool: Compute total temperature mass at every export
+        """).tag(config=True)
+    check_temperature_conservation = Bool(
+        False, help="""
+        Compute total temperature mass at every export
 
         Prints deviation from the initial mass to stdout.
-        """
-        self.check_temperature_overshoot = False
-        """
-        bool: Compute temperature overshoots at every export
+        """).tag(config=True)
+    check_temperature_overshoot = Bool(
+        False, help="""
+        Compute temperature overshoots at every export
 
         Prints overshoot values that exceed the initial range to stdout.
-        """
-        self.log_output = True
-        """bool: Redirect all output to log file in output directory"""
-        self.timestep = 10.0
-        """
-        float: Time step.
-        """
-        self.timestep_2d = 10.0
-        """
-        float: Time step of the 2d mode
+        """).tag(config=True)
+    log_output = Bool(
+        True, help="Redirect all output to log file in output directory").tag(config=True)
+    timestep = PositiveFloat(
+        10.0, help="Time step").tag(config=True)
+    timestep_2d = PositiveFloat(
+        10.0, help="""
+        Time step of the 2d mode
 
         This option is only used in the 3d solver, if 2d mode is solved
         explicitly.
-        """
-        self.use_automatic_timestep = True
-        """
-        bool: Set time step automatically.
+        """).tag(config=True)
+    use_automatic_timestep = Bool(
+        True, help="""
+        Set time step automatically.
 
         Solver computes the largest stable time step based on user-defined
         velocity and viscosity scales. See
         :attr:`horizontal_velocity_scale`,
         :attr:`vertical_velocity_scale`,
         :attr:`horizontal_viscosity_scale`.
-        """
-        self.cfl_2d = 1.0
-        """float: Factor to scale the 2d time step"""
-        # TODO OBSOLETE
-        self.cfl_3d = 1.0
-        """float: Factor to scale the 2d time step"""
-        # TODO OBSOLETE
-        self.simulation_export_time = 100.0
-        """
-        float: Export interval in seconds
+        """).tag(config=True)
+    cfl_2d = PositiveFloat(
+        1.0, help="Factor to scale the 2d time step OBSOLETE").tag(config=True)  # TODO OBSOLETE
+    cfl_3d = PositiveFloat(
+        1.0, help="Factor to scale the 2d time step OBSOLETE").tag(config=True)  # TODO OBSOLETE
+    simulation_export_time = PositiveFloat(
+        100.0, help="""
+        Export interval in seconds
 
         All fields in fields_to_export list will be stored to disk and
         diagnostics will be computed
-        """
-        self.simulation_end_time = 1000.0
-        """float: Simulation duration in seconds"""
-        self.horizontal_velocity_scale = Constant(0.1)
-        """
-        :class:`Constant`: Maximum horizontal velocity magnitude
+        """).tag(config=True)
+    simulation_end_time = PositiveFloat(
+        1000.0, help="Simulation duration in seconds").tag(config=True)
+    horizontal_velocity_scale = FiredrakeConstant(
+        Constant(0.1), help="""
+        Maximum horizontal velocity magnitude
 
         Used to compute max stable advection time step.
-        """
-        self.vertical_velocity_scale = Constant(1e-4)
-        """
-        :class:`Constant`: Maximum vertical velocity magnitude
+        """).tag(config=True)
+    vertical_velocity_scale = FiredrakeConstant(
+        Constant(1e-4), help="""
+        Maximum vertical velocity magnitude
 
         Used to compute max stable advection time step.
-        """
-        self.horizontal_viscosity_scale = Constant(1.0)
-        """
-        :class:`Constant`: Maximum horizontal viscosity
+        """).tag(config=True)
+    horizontal_viscosity_scale = FiredrakeConstant(
+        Constant(1.0), help="""
+        Maximum horizontal viscosity
 
         Used to compute max stable diffusion time step.
-        """
-        self.output_directory = 'outputs'
-        """str: Directory where model output files are stored"""
-        self.no_exports = False
-        """
-        bool: Do not store any outputs to disk
+        """).tag(config=True)
+    output_directory = Unicode(
+        'outputs', help="Directory where model output files are stored").tag(config=True)
+    no_exports = Bool(
+        False, help="""
+        Do not store any outputs to disk
 
         Disables VTK and HDF5 field outputs. and HDF5 diagnostic outputs.
         Used in CI test suite.
-        """
-        self.export_diagnostics = True
-        """bool: Store diagnostic variables to disk in HDF5 format"""
-        self.equation_of_state = 'full'
-        """str: type of equation of state that defines water density
-
-        Either 'full' or 'linear'. See :class:`.JackettEquationOfState` and
-        :class:`.LinearEquationOfState`.
-        """
-        self.linear_equation_of_state_parameters = {
-            'rho_ref': 1000.0,
-            's_ref': 35.0,
-            'th_ref': 15.0,
-            'alpha': 0.2,
-            'beta': 0.77,
-        }
-        """dict: Parameters for linear equation of state"""
-        self.use_quadratic_pressure = False
-        """
-        bool: use P2DGxP2 space for baroclinic head.
+        """).tag(config=True)
+    export_diagnostics = Bool(
+        True, help="Store diagnostic variables to disk in HDF5 format").tag(config=True)
+    use_quadratic_pressure = Bool(
+        False, help="""
+        Use P2DGxP2 space for baroclinic head.
 
         If element_family='dg-dg', P2DGxP1DG space is also used for the internal
         pressure gradient.
@@ -228,123 +357,231 @@ class ModelOptions(AttrDict, FrozenClass):
         This is useful to alleviate bathymetry-induced pressure gradient errors.
         If False, the baroclinic head is in the tracer space, and internal
         pressure gradient is in the velocity space.
-        """
-        self.use_quadratic_density = False
-        """
-        bool: water density is projected to P2DGxP2 space.
+        """).tag(config=True)
+    use_quadratic_density = Bool(
+        False, help="""
+        Water density is projected to P2DGxP2 space.
 
         This reduces pressure gradient errors associated with nonlinear
         equation of state.
         If False, density is computed point-wise in the tracer space.
-        """
-        self.fields_to_export = ['elev_2d', 'uv_2d', 'uv_3d', 'w_3d']
-        """list of str: Fields to export in VTK format"""
-        self.fields_to_export_hdf5 = []
-        """list of str: Fields to export in HDF5 format"""
-        self.verbose = 0
-        """int: Verbosity level"""
-        # NOTE these are fields, potentially Functions: move out of this class?
-        self.linear_drag_coefficient = None
-        r"""
-        Coefficient or None: 2D linear drag parameter :math:`L`
+        """).tag(config=True)
+    fields_to_export = List(
+        trait=Unicode,
+        default_value=['elev_2d', 'uv_2d', 'uv_3d', 'w_3d'],
+        help="Fields to export in VTK format").tag(config=True)
+    fields_to_export_hdf5 = List(
+        trait=Unicode,
+        default_value=[],
+        help="Fields to export in HDF5 format").tag(config=True)
+    verbose = Integer(0, help="Verbosity level").tag(config=True)
+    linear_drag_coefficient = FiredrakeCoefficient(
+        None, allow_none=True, help=r"""
+        2D linear drag parameter :math:`L`
 
         Bottom stress is :math:`\tau_b/\rho_0 = -L \mathbf{u} H`
-        """
-        self.quadratic_drag_coefficient = None
-        r"""Coefficient or None: dimensionless 2D quadratic drag parameter :math:`C_D`
+        """).tag(config=True)
+    quadratic_drag_coefficient = FiredrakeCoefficient(
+        None, allow_none=True, help=r"""
+        Dimensionless 2D quadratic drag parameter :math:`C_D`
 
         Bottom stress is :math:`\tau_b/\rho_0 = -C_D |\mathbf{u}|\mathbf{u}`
-        """
-        self.manning_drag_coefficient = None
-        r"""Coefficient or None: Manning-Strickler 2D quadratic drag parameter :math:`\mu`
+        """).tag(config=True)
+    manning_drag_coefficient = FiredrakeCoefficient(
+        None, allow_none=True, help=r"""
+        Manning-Strickler 2D quadratic drag parameter :math:`\mu`
 
         Bottom stress is :math:`\tau_b/\rho_0 = -g \mu^2 |\mathbf{u}|\mathbf{u}/H^{1/3}`
-        """
-        self.use_wetting_and_drying = False
-        r"""bool: Turn on wetting and drying
+        """).tag(config=True)
+    horizontal_diffusivity = FiredrakeCoefficient(
+        None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
+    vertical_diffusivity = FiredrakeCoefficient(
+        None, allow_none=True, help="Vertical diffusivity for tracers").tag(config=True)
+    horizontal_viscosity = FiredrakeCoefficient(
+        None, allow_none=True, help="Horizontal viscosity").tag(config=True)
+    vertical_viscosity = FiredrakeCoefficient(
+        None, allow_none=True, help="Vertical viscosity").tag(config=True)
+    coriolis_frequency = FiredrakeCoefficient(
+        None, allow_none=True, help="2D Coriolis parameter").tag(config=True)
+    wind_stress = FiredrakeCoefficient(
+        None, allow_none=True, help="Stress at free surface (2D vector function)").tag(config=True)
+    atmospheric_pressure = FiredrakeCoefficient(
+        None, allow_none=True, help="Atmospheric pressure at free surface, in pascals").tag(config=True)
+    momentum_source_2d = FiredrakeCoefficient(
+        None, allow_none=True, help="Source term for 2D momentum equation").tag(config=True)
+    momentum_source_3d = FiredrakeCoefficient(
+        None, allow_none=True, help="Source term for 3D momentum equation").tag(config=True)
+    volume_source_2d = FiredrakeCoefficient(
+        None, allow_none=True, help="Source term for 2D continuity equation").tag(config=True)
+    salinity_source_3d = FiredrakeCoefficient(
+        None, allow_none=True, help="Source term for salinity equation").tag(config=True)
+    temperature_source_3d = FiredrakeCoefficient(
+        None, allow_none=True, help="Source term for temperature equation").tag(config=True)
+    constant_temperature = FiredrakeConstant(
+        Constant(10.0), help="Constant temperature if temperature is not solved").tag(config=True)
+    constant_salinity = FiredrakeConstant(
+        Constant(0.0), help="Constant salinity if salinity is not solved").tag(config=True)
+
+    #solver_parameters_sw = {
+            #'ksp_type': 'gmres',
+            #'pc_type': 'fieldsplit',
+            #'pc_fieldsplit_type': 'multiplicative',
+        #}
+        #"""PETSc solver parameters for 2D shallow water equations"""
+    #solver_parameters_sw_momentum = {
+            #'ksp_type': 'gmres',
+            #'pc_type': 'bjacobi',
+            #'sub_ksp_type': 'preonly',
+            #'sub_pc_type': 'sor',
+        #}
+        #"""PETSc solver parameters for 2D depth averaged momentum equation"""
+    #solver_parameters_momentum_explicit = {
+            #'snes_type': 'ksponly',
+            #'ksp_type': 'cg',
+            #'pc_type': 'bjacobi',
+            #'sub_ksp_type': 'preonly',
+            #'sub_pc_type': 'ilu',
+        #}
+        #"""PETSc solver parameters for explicit 3D momentum equation"""
+    #solver_parameters_momentum_implicit = {
+            #'snes_monitor': False,
+            #'snes_type': 'ksponly',
+            #'ksp_type': 'preonly',
+            #'pc_type': 'bjacobi',
+            #'sub_ksp_type': 'preonly',
+            #'sub_pc_type': 'ilu',
+        #}
+        #"""PETSc solver parameters for implicit 3D momentum equation"""
+    #solver_parameters_tracer_explicit = {
+            #'snes_type': 'ksponly',
+            #'ksp_type': 'cg',
+            #'pc_type': 'bjacobi',
+            #'sub_ksp_type': 'preonly',
+            #'sub_pc_type': 'ilu',
+        #}
+        #"""PETSc solver parameters for explicit 3D tracer equations"""
+    #solver_parameters_tracer_implicit = {
+            #'snes_monitor': False,
+            #'snes_type': 'ksponly',
+            #'ksp_type': 'preonly',
+            #'pc_type': 'bjacobi',
+            #'sub_ksp_type': 'preonly',
+            #'sub_pc_type': 'ilu',
+        #}
+        #"""PETSc solver parameters for implicit 3D tracer equations"""
+
+
+
+    # -----------
+    #timestepper = SubOptions(
+        #valid_values=['CrankNicolson', 'SSPRK22'],
+        #default_value='SSPRK22',
+        #help='Name of the time integrator',
+        #children=[
+            #('options',
+             #{
+                 #'CrankNicolson': CrankNicolsonOptions(),
+                 #'SSPRK22': ExplicitTimestepperOptions(),
+             #})]
+         #)
+
+    #timestepper_name = Enum(
+        #['SSPRK22', 'CrankNicolson'],
+        #default_value='SSPRK22',
+        #help='Name of the time integrator').tag(config=True)
+    #timestepper_options = Instance(TimeStepperOptions, args=()).tag(config=True)
+
+    #default_values = {
+        #'CrankNicolson': CrankNicolsonOptions(),
+        #'SSPRK22': ExplicitTimestepperOptions(),
+    #}
+    #@observe('timestepper_name')
+    #def _observe_name(self, change):
+        #self.__setattr__('timestepper_options', self.default_values[change['new']])
+
+    #@default('timestepper_options')
+    #def get_def_options(self):
+        #return self.default_values[type(self).timestepper_name.default_value]
+
+
+class ModelOptions2d(CommonModelOptions):
+    """Options for 2D depth-averaged shallow water model"""
+    use_linearized_semi_implicit_2d = Bool(
+        False, help="Use linearized semi-implicit time integration for the horizontal mode").tag(config=True)
+    shallow_water_theta = BoundedFloat(
+        0.5, bounds=[0.5, 1.0], help='Theta parameter for shallow water semi-implicit scheme').tag(config=True)
+    use_wetting_and_drying = Bool(
+        False, help=r"""bool: Turn on wetting and drying
 
         Uses the wetting and drying scheme from Karna et al (2011).
         If ``True``, one should also set :attr:`wetting_and_drying_alpha` to control the bathymetry displacement.
-        """
-        self.wetting_and_drying_alpha = Constant(0.5)
-        r"""Coefficient: Wetting and drying parameter :math:`alpha`.
+        """).tag(config=True)
+    wetting_and_drying_alpha = FiredrakeConstant(
+        Constant(0.5), help=r"""
+        Coefficient: Wetting and drying parameter :math:`alpha`.
 
         Used in bathymetry displacement function that ensures positive water depths. Unit is meters.
-        """
-        self.horizontal_diffusivity = None
-        """Coefficient or None: Background horizontal diffusivity for tracers"""
-        self.vertical_diffusivity = None
-        """Coefficient or None: background vertical diffusivity for tracers"""
-        self.horizontal_viscosity = None
-        """Coefficient or None: background horizontal viscosity"""
-        self.vertical_viscosity = None
-        """Coefficient or None: background vertical viscosity"""
-        self.coriolis_frequency = None
-        """2D Coefficient or None: Coriolis parameter"""
-        self.wind_stress = None
-        """Coefficient or None: Stress at free surface (2D vector function)"""
-        self.atmospheric_pressure = None
-        """Coefficient or None: Atmospheric pressure at free surface, in pascals"""
-        self.momentum_source_2d = None
-        """Coefficient or None: source term for 2D momentum equation"""
-        self.momentum_source_3d = None
-        """Coefficient or None: source term for 3D momentum equation"""
-        self.volume_source_2d = None
-        """Coefficient or None: source term for 2D continuity equation"""
-        self.salinity_source_3d = None
-        """Coefficient or None: source term for salinity equation"""
-        self.temperature_source_3d = None
-        """Coefficient or None: source term for temperature equation"""
-        self.constant_temperature = Constant(10.0)
-        """Coefficient: Constant temperature if temperature is not solved"""
-        self.constant_salinity = Constant(0.0)
-        """Coefficient: Constant salinity if salinity is not solved"""
-        self.solver_parameters_sw = {
-            'ksp_type': 'gmres',
-            'pc_type': 'fieldsplit',
-            'pc_fieldsplit_type': 'multiplicative',
-        }
-        """PETSc solver parameters for 2D shallow water equations"""
-        self.solver_parameters_sw_momentum = {
-            'ksp_type': 'gmres',
-            'pc_type': 'bjacobi',
-            'sub_ksp_type': 'preonly',
-            'sub_pc_type': 'sor',
-        }
-        """PETSc solver parameters for 2D depth averaged momentum equation"""
-        self.solver_parameters_momentum_explicit = {
-            'snes_type': 'ksponly',
-            'ksp_type': 'cg',
-            'pc_type': 'bjacobi',
-            'sub_ksp_type': 'preonly',
-            'sub_pc_type': 'ilu',
-        }
-        """PETSc solver parameters for explicit 3D momentum equation"""
-        self.solver_parameters_momentum_implicit = {
-            'snes_monitor': False,
-            'snes_type': 'ksponly',
-            'ksp_type': 'preonly',
-            'pc_type': 'bjacobi',
-            'sub_ksp_type': 'preonly',
-            'sub_pc_type': 'ilu',
-        }
-        """PETSc solver parameters for implicit 3D momentum equation"""
-        self.solver_parameters_tracer_explicit = {
-            'snes_type': 'ksponly',
-            'ksp_type': 'cg',
-            'pc_type': 'bjacobi',
-            'sub_ksp_type': 'preonly',
-            'sub_pc_type': 'ilu',
-        }
-        """PETSc solver parameters for explicit 3D tracer equations"""
-        self.solver_parameters_tracer_implicit = {
-            'snes_monitor': False,
-            'snes_type': 'ksponly',
-            'ksp_type': 'preonly',
-            'pc_type': 'bjacobi',
-            'sub_ksp_type': 'preonly',
-            'sub_pc_type': 'ilu',
-        }
-        """PETSc solver parameters for implicit 3D tracer equations"""
+        """).tag(config=True)
 
-        self._isfrozen = True
+
+@attach_paired_options(("timestepper_type",
+                        Enum(['SSPRK22', 'CrankNicolson'],
+                             default_value='SSPRK22',
+                             help='Name of the time integrator').tag(config=True)
+                        ), ("timestepper_options",
+                           Instance(TimeStepperOptions, args=()).tag(config=True)),
+                        {
+                            'CrankNicolson': CrankNicolsonOptions(),
+                            'SSPRK22': ExplicitTimestepperOptions(),
+                        })
+@attach_paired_options(("turbulence_model_type",
+                        Enum(['gls'],
+                             default_value='gls',
+                             help='Type of vertical turbulence model').tag(config=True)
+                        ), ("gls_options",
+                           Instance(GLSModelOptions, args=()).tag(config=True)),
+                        {
+                            'gls': GLSModelOptions(),
+                        })
+@attach_paired_options(("equation_of_state_type",
+                        Enum(['full', 'linear'],
+                             default_value='full',
+                             help='Type of equation of state').tag(config=True)
+                        ), ("equation_of_state_options",
+                           Instance(EquationOfStateOptions, args=()).tag(config=True)),
+                        {
+                            'full': EquationOfStateOptions(),
+                            'linear': LinearEquationOfStateOptions(),
+                        })
+class ModelOptions3d(CommonModelOptions):
+    """Options for 3D hydrostatic model"""
+    solve_salinity = Bool(True, help='Solve salinity transport').tag(config=True)
+    solve_temperature = Bool(True, help='Solve temperature transport').tag(config=True)
+    use_implicit_vertical_diffusion = Bool(True, help='Solve vertical diffusion and viscosity implicitly').tag(config=True)
+    use_bottom_friction = Bool(True, help='Apply log layer bottom stress in the 3D model').tag(config=True)
+    use_parabolic_viscosity = Bool(
+        False,
+        help="""Use idealized parabolic eddy viscosity
+
+        See :class:`.ParabolicViscosity`""").tag(config=True)
+    use_ale_moving_mesh = Bool(
+        True, help="Use ALE formulation where 3D mesh tracks free surface").tag(config=True)
+    use_baroclinic_formulation = Bool(
+        False, help="Compute internal pressure gradient in momentum equation").tag(config=True)
+    use_turbulence = Bool(
+        False, help="Activate turbulence model in the 3D model").tag(config=True)
+
+    use_turbulence_advection = Bool(
+        False, help="Advect TKE and Psi in the GLS turbulence model").tag(config=True)
+    use_smooth_eddy_viscosity = Bool(
+        False, help="Cast eddy viscosity to p1 space instead of p0").tag(config=True)
+    use_smagorinsky_viscosity = Bool(
+        False, help="Use Smagorinsky horisontal viscosity parametrization").tag(config=True)
+    smagorinsky_coefficient = FiredrakeConstant(
+        Constant(0.1),
+        help="""Smagorinsky viscosity coefficient :math:`C_S`
+
+        See :class:`.SmagorinskyViscosity`.""").tag(config=True)
+
+    use_limiter_for_tracers = Bool(
+        False, help="Apply P1DG limiter for tracer fields").tag(config=True)
