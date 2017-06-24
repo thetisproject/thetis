@@ -579,16 +579,6 @@ class CommonModelOptions(FrozenConfigurable):
         True, help="Redirect all output to log file in output directory").tag(config=True)
     timestep = PositiveFloat(
         10.0, help="Time step").tag(config=True)
-    use_automatic_timestep = Bool(
-        True, help="""
-        Set time step automatically.
-
-        Solver computes the largest stable time step based on user-defined
-        velocity and viscosity scales. See
-        :attr:`horizontal_velocity_scale`,
-        :attr:`vertical_velocity_scale`,
-        :attr:`horizontal_viscosity_scale`.
-        """).tag(config=True)  # TODO OBSOLETE now located under timestepper_options
     cfl_2d = PositiveFloat(
         1.0, help="Factor to scale the 2d time step OBSOLETE").tag(config=True)  # TODO OBSOLETE
     cfl_3d = PositiveFloat(

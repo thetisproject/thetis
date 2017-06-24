@@ -49,11 +49,11 @@ class FlowSolver(FrozenClass):
         options.element_family = 'dg-dg'
         options.polynomial_degree = 1
         options.timestepper_type = 'SSPRK22'
+        options.timestepper_options.use_automatic_timestep = False
         options.solve_salinity = False
         options.solve_temperature = False
         options.simulation_export_time = 50.0
         options.simulation_end_time = 3600.
-        options.use_automatic_timestep = False
         options.timestep = 25.0
 
     Assign initial condition for water elevation
@@ -280,9 +280,10 @@ class FlowSolver(FrozenClass):
         """
         Sets the model the model time step
 
-        If :attr:`ModelOptions3d.use_automatic_timestep` is `True`, computes the
-        maximum time step allowed by the CFL conditions. Otherwise uses
-        :attr:`ModelOptions3d.use_automatic_timestep`.
+        If the time integrator supports automatic time step, and
+        :attr:`ModelOptions3d.timestepper_options.use_automatic_timestep` is
+        `True`, we compute the maximum time step allowed by the CFL condition.
+        Otherwise uses :attr:`ModelOptions3d.timestep`.
 
         Once the time step is determined, will adjust it to be an integer
         fraction of export interval ``options.simulation_export_time``.
