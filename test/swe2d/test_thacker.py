@@ -5,7 +5,7 @@ from thetis import *
 import pytest
 
 
-@pytest.mark.parametrize("n,dt,alpha,max_err", [(25, 300., 4., 0.009), (10, 600., 8., 0.06)], ids=['fine', 'coarse'])
+@pytest.mark.parametrize("n,dt,alpha,max_err", [(25, 300., 4., 0.009), (10, 600., 8., 0.07)], ids=['fine', 'coarse'])
 def test_thacker(n, dt, alpha, max_err):
     # Domain size
     l_mesh = 951646.46
