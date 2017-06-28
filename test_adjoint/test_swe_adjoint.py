@@ -73,7 +73,7 @@ def setup_steady():
     solver_obj.options.timestepper_type = 'SteadyState'
     solver_obj.options.simulation_end_time = 0.499
     # firedrake-adjoint does not remember that in the adjoint solve
-    solver_obj.options.solver_parameters_sw = {
+    solver_obj.options.timestepper_options.solver_parameters = {
         'mat_type': 'aij',
         'ksp_type': 'preonly',
         'pc_type': 'lu',
@@ -89,8 +89,8 @@ def setup_unsteady():
     solver_obj = basic_setup()
     solver_obj.options.timestepper_type = 'CrankNicolson'
     solver_obj.options.simulation_end_time = 2.0
-    solver_obj.options.shallow_water_theta = 1.0
-    solver_obj.options.solver_parameters_sw = {
+    solver_obj.options.timestepper_options.implicitness_theta = 1.0
+    solver_obj.options.timestepper_options.solver_parameters = {
         'mat_type': 'aij',
         'ksp_type': 'preonly',
         'pc_type': 'lu',
