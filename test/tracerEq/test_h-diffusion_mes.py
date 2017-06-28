@@ -200,8 +200,8 @@ def polynomial_degree(request):
     return request.param
 
 
-@pytest.fixture(params=[True, False], ids=[pytest.mark.not_travis(reason='travis timeout')('warped'),
-                                           'regular'])
+@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')(True), False],
+                ids=['warped', 'regular'])
 def warped(request):
     return request.param
 
