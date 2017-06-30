@@ -191,7 +191,12 @@ class FlowSolver2d(FrozenClass):
         self.function_spaces.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1)
         self.function_spaces.P1DGv_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1)
         # 2D velocity space
-        if self.options.element_family == 'rt-dg':
+        if self.options.element_family == 'bdm-dg':
+            cell = self.mesh2d.ufl_cell().cellname()
+            V1_elt = FiniteElement('BDM', cell, self.options.order+1)
+            self.function_spaces.U_2d = FunctionSpace(self.mesh2d, V1_elt)
+            self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
+        elif self.options.element_family == 'rt-dg':
             self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.order+1)
             self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.order)
         elif self.options.element_family == 'dg-cg':

@@ -133,6 +133,7 @@ def element_continuity(ufl_element):
         'Discontinuous Lagrange': 'dg',
         'Lagrange': 'cg',
         'Raviart-Thomas': 'hdiv',
+        'Brezzi-Douglas-Marini': 'bdm',
     }
 
     if isinstance(elem, ufl.finiteelement.mixedelement.VectorElement):
