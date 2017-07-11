@@ -370,10 +370,10 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                           'uv_p1': self.fields.get('uv_p1_3d'),
                           'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                           }
-                self.timestepper.tke_expl = self.integrator_3d(
+                self.timesteppers.tke_expl = self.integrator_3d(
                     eq_tke_adv, solver.fields.tke_3d, fields, solver.dt,
                     solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
-                self.timestepper.psi_expl = self.integrator_3d(
+                self.timesteppers.psi_expl = self.integrator_3d(
                     eq_psi_adv, solver.fields.psi_3d, fields, solver.dt,
                     solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
 
@@ -432,9 +432,9 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         if 'tke_impl' in self.timesteppers:
             self.timesteppers.tke_impl.initialize(self.fields.tke_3d)
         if 'psi_expl' in self.timesteppers:
-            self.timestepper.psi_expl.initialize(self.fields.psi_3d)
+            self.timesteppers.psi_expl.initialize(self.fields.psi_3d)
         if 'tke_expl' in self.timesteppers:
-            self.timestepper.tke_expl.initialize(self.fields.tke_3d)
+            self.timesteppers.tke_expl.initialize(self.fields.tke_3d)
         self._initialized = True
 
 
@@ -480,9 +480,9 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                         self.solver.tracer_limiter.apply(self.fields.temp_3d)
             with timed_stage('turb_advection'):
                 if 'psi_expl' in self.timesteppers:
-                    self.timestepper.psi_expl.solve_stage(k, t)
+                    self.timesteppers.psi_expl.solve_stage(k, t)
                 if 'tke_expl' in self.timesteppers:
-                    self.timestepper.tke_expl.solve_stage(k, t)
+                    self.timesteppers.tke_expl.solve_stage(k, t)
             with timed_stage('momentum_eq'):
                 self.timesteppers.mom_expl.solve_stage(k, t)
             with timed_stage('mode2d'):
@@ -596,9 +596,9 @@ class CoupledERKALE(CoupledTimeIntegrator):
                     self.timesteppers.temp_expl.solve_tendency(k, t, update_forcings3d)
             with timed_stage('turb_advection'):
                 if 'psi_expl' in self.timesteppers:
-                    self.timestepper.psi_expl.solve_tendency(k, t, update_forcings3d)
+                    self.timesteppers.psi_expl.solve_tendency(k, t, update_forcings3d)
                 if 'tke_expl' in self.timesteppers:
-                    self.timestepper.tke_expl.solve_tendency(k, t, update_forcings3d)
+                    self.timesteppers.tke_expl.solve_tendency(k, t, update_forcings3d)
             with timed_stage('momentum_eq'):
                 self.timesteppers.mom_expl.solve_tendency(k, t, update_forcings3d)
 
@@ -617,9 +617,9 @@ class CoupledERKALE(CoupledTimeIntegrator):
                             self.solver.tracer_limiter.apply(self.fields.temp_3d)
                 with timed_stage('turb_advection'):
                     if 'psi_expl' in self.timesteppers:
-                        self.timestepper.psi_expl.get_final_solution()
+                        self.timesteppers.psi_expl.get_final_solution()
                     if 'tke_expl' in self.timesteppers:
-                        self.timestepper.tke_expl.get_final_solution()
+                        self.timesteppers.tke_expl.get_final_solution()
                 with timed_stage('momentum_eq'):
                     self.timesteppers.mom_expl.get_final_solution()
             else:
@@ -635,9 +635,9 @@ class CoupledERKALE(CoupledTimeIntegrator):
                             self.solver.tracer_limiter.apply(self.fields.temp_3d)
                 with timed_stage('turb_advection'):
                     if 'psi_expl' in self.timesteppers:
-                        self.timestepper.psi_expl.update_solution(k)
+                        self.timesteppers.psi_expl.update_solution(k)
                     if 'tke_expl' in self.timesteppers:
-                        self.timestepper.tke_expl.update_solution(k)
+                        self.timesteppers.tke_expl.update_solution(k)
                 with timed_stage('momentum_eq'):
                     self.timesteppers.mom_expl.update_solution(k)
 
@@ -786,9 +786,9 @@ class CoupledIMEXALE(CoupledTimeIntegrator):
                     if self.options.use_limiter_for_tracers:
                         self.solver.tracer_limiter.apply(self.fields.temp_3d)
                 if 'psi_expl' in self.timesteppers:
-                    self.timestepper.psi_expl.get_final_solution()
+                    self.timesteppers.psi_expl.get_final_solution()
                 if 'tke_expl' in self.timesteppers:
-                    self.timestepper.tke_expl.get_final_solution()
+                    self.timesteppers.tke_expl.get_final_solution()
 
             self._update_2d_coupling()
             self._update_vertical_velocity()
@@ -851,9 +851,9 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
                     self.solver.tracer_limiter.apply(self.fields.temp_3d)
         with timed_stage('turb_advection'):
             if 'psi_expl' in self.timesteppers:
-                self.timestepper.psi_expl.predict()
+                self.timesteppers.psi_expl.predict()
             if 'tke_expl' in self.timesteppers:
-                self.timestepper.tke_expl.predict()
+                self.timesteppers.tke_expl.predict()
 
         with timed_stage('momentum_eq'):
             self.timesteppers.mom_expl.predict()
@@ -903,9 +903,9 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
                 self.timesteppers.temp_expl.eval_rhs()
         with timed_stage('turb_advection'):
             if 'psi_expl' in self.timesteppers:
-                self.timestepper.psi_expl.eval_rhs()
+                self.timesteppers.psi_expl.eval_rhs()
             if 'tke_expl' in self.timesteppers:
-                self.timestepper.tke_expl.eval_rhs()
+                self.timesteppers.tke_expl.eval_rhs()
         with timed_stage('momentum_eq'):
             self.timesteppers.mom_expl.eval_rhs()
 
@@ -924,9 +924,9 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
                     self.solver.tracer_limiter.apply(self.fields.temp_3d)
         with timed_stage('turb_advection'):
             if 'psi_expl' in self.timesteppers:
-                self.timestepper.psi_expl.correct()
+                self.timesteppers.psi_expl.correct()
             if 'tke_expl' in self.timesteppers:
-                self.timestepper.tke_expl.correct()
+                self.timesteppers.tke_expl.correct()
         with timed_stage('momentum_eq'):
             self.timesteppers.mom_expl.correct()
 
@@ -1045,9 +1045,9 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
                     self.timesteppers.temp_expl.prepare_stage(i_stage, t, update_forcings3d)
             with timed_stage('turb_advection'):
                 if 'psi_expl' in self.timesteppers:
-                    self.timestepper.psi_expl.prepare_stage(i_stage, t, update_forcings3d)
+                    self.timesteppers.psi_expl.prepare_stage(i_stage, t, update_forcings3d)
                 if 'tke_expl' in self.timesteppers:
-                    self.timestepper.tke_expl.prepare_stage(i_stage, t, update_forcings3d)
+                    self.timesteppers.tke_expl.prepare_stage(i_stage, t, update_forcings3d)
             with timed_stage('momentum_eq'):
                 self.timesteppers.mom_expl.prepare_stage(i_stage, t, update_forcings3d)
 
@@ -1068,9 +1068,9 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
                         self.solver.tracer_limiter.apply(self.fields.temp_3d)
             with timed_stage('turb_advection'):
                 if 'psi_expl' in self.timesteppers:
-                    self.timestepper.psi_expl.solve_stage(i_stage)
+                    self.timesteppers.psi_expl.solve_stage(i_stage)
                 if 'tke_expl' in self.timesteppers:
-                    self.timestepper.tke_expl.solve_stage(i_stage)
+                    self.timesteppers.tke_expl.solve_stage(i_stage)
             with timed_stage('momentum_eq'):
                 self.timesteppers.mom_expl.solve_stage(i_stage)
 
