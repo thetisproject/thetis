@@ -33,7 +33,7 @@ from diagnostics import *
 
 
 def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
-                reynolds_number=20.0, dt=None,
+                reynolds_number=20.0, viscosity_scale=None, dt=None,
                 viscosity='const', laxfriedrichs=0.0):
     """
     Runs problem with a bunch of user defined options.
@@ -53,7 +53,15 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     w_max = 1e-3
     # compute horizontal viscosity
     uscale = 0.1
-    nu_scale = uscale * delta_x / reynolds_number
+    if viscosity_scale is None:
+        # compute viscosity scale from mesh Reynolds number
+        nu_scale = uscale * delta_x / reynolds_number
+        visc_str = 'Re{:}'.format(reynolds_number)
+    else:
+        # compute mesh Reynolds number from viscosity scale
+        nu_scale = viscosity_scale
+        reynolds_number = uscale * delta_x / nu_scale
+        visc_str = 'nu{:}'.format(nu_scale)
 
     f_cori = -1.2e-4
     bottom_drag = 0.01
@@ -61,11 +69,12 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     t_export = 3*3600.
 
     reso_str = 'dx' + str(np.round(delta_x/1000., decimals=1))
+
     options_str = '_'.join([reso_str,
                             element_family,
                             'p{:}'.format(poly_order),
                             'visc-{:}'.format(viscosity),
-                            'Re{:}'.format(reynolds_number),
+                            visc_str,
                             'lf{:.1f}'.format(laxfriedrichs),
                             ])
     outputdir = 'outputs_' + options_str
@@ -235,6 +244,8 @@ def get_argparser():
                         help='finite element family', default='dg-dg')
     parser.add_argument('-re', '--reynolds-number', type=float, default=1.0,
                         help='mesh Reynolds number for Smagorinsky scheme')
+    parser.add_argument('-nu', '--viscosity-scale', type=float,
+                        help='constant viscosity scale (optional, use instead of Re)')
     parser.add_argument('-dt', '--dt', type=float,
                         help='force value for 3D time step')
     parser.add_argument('-visc', '--viscosity', type=str,
