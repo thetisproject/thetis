@@ -7,7 +7,6 @@ from traitlets import *
 
 from thetis import FiredrakeConstant as Constant
 from thetis import FiredrakeFunction as Function
-from thetis import print_output
 
 
 def rst_all_options(cls, nspace=0, prefix=None):
