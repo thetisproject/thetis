@@ -8,9 +8,9 @@ By default Thetis stores outputs in `VTK <http://www.vtk.org/>`__
 format, suitable for visualization with `ParaView <http://www.paraview.org/>`__.
 
 By default results are stored to ``outputs`` sub-directory.
-Users can define a custom output directory with :py:attr:`~.ModelOptions.outputdir`
+Users can define a custom output directory with :ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.output_directory`
 option. The fields to be exported are defined with
-:py:attr:`~.ModelOptions.fields_to_export` list.
+:ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.fields_to_export` list.
 
 For example to store only 2D water elevation and 3D temperature fields to ``mydir``
 directory one would set::
@@ -26,7 +26,7 @@ Note that fields are exported only if they are defined; e.g. exporting a field
 ``'temp_3d'`` is ignored if you are running a 2D model.
 
 In some cases it is useful to suppress all output to disk (e.g. with some test
-cases). This can be achieved by setting :py:attr:`~.ModelOptions.no_exports`
+cases). This can be achieved by setting :ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.no_exports`
 option to ``True``.
 
 See Firedrake's
@@ -76,11 +76,11 @@ loading a previous model state from disk.
     for more information.
 
 The fields to be exported in HDF5 format are defined in
-:py:attr:`~.ModelOptions.fields_to_export_hdf5` list, that is empty by default.
+:ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.fields_to_export_hdf5` list, that is empty by default.
 The files are stored in ``outputdir/hdf5`` directory in format
 ``Elevation2d_00001.h5`` where the prefix is the output file name of the field,
 followed by the export index. HDF5 files are stored at the same time intervals
-as VTK files, defined by :py:attr:`~.ModelOptions.simulation_export_time` option.
+as VTK files, defined by :ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.simulation_export_time` option.
 
 In order to be able to restart a previous simulation, one has to export all
 the prognostic variables that define the model state.

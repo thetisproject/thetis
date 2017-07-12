@@ -27,10 +27,8 @@ def rst_all_options(cls, nspace=0, prefix=None):
         typ = trait.__class__.__name__
         if trait.name in slaved_options:
             continue
-        if prefix is not None:
-            termline = prefix + "." + trait.name
-        else:
-            termline = classname + "." + trait.name
+        _prefix = prefix if prefix is not None else classname
+        termline = "{prefix:}.\ **{suffix:}**".format(prefix=_prefix, suffix=trait.name)
 
         if 'Enum' in typ:
             termline += ' : ' + '|'.join(repr(x) for x in trait.values)

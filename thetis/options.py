@@ -4,8 +4,6 @@ Thetis options for the 2D and 3D model
 All options are type-checked and they are stored in traitlets Configurable
 objects.
 """
-from traitlets import *
-
 from thetis import FiredrakeConstant as Constant
 from thetis import print_output
 from configuration import *
@@ -436,7 +434,7 @@ class ModelOptions2d(CommonModelOptions):
         """).tag(config=True)
     wetting_and_drying_alpha = FiredrakeConstant(
         Constant(0.5), help=r"""
-        Coefficient: Wetting and drying parameter :math:`alpha`.
+        Coefficient: Wetting and drying parameter :math:`\alpha`.
 
         Used in bathymetry displacement function that ensures positive water depths. Unit is meters.
         """).tag(config=True)

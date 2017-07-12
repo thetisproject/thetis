@@ -25,18 +25,18 @@ The solver is implemented in :py:class:`~.VerticalVelocitySolver`.
 
 Water temperature and salinity are modeled as tracers by the means of the
 tracer advection-diffusion equation :eq:`tracer_eq`.
-Options :py:attr:`.ModelOptions.solve_temperature`, :py:attr:`.ModelOptions.solve_salinity`
+Options :ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.solve_temperature`, :ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.solve_salinity`
 determine whether the dynamic equations are solved at run time.
 If not, we treat these variables as constants whose value is set with
-:py:attr:`.ModelOptions.constant_temperature` and
-:py:attr:`.ModelOptions.constant_salinity` options.
+:ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.constant_temperature` and
+:ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.constant_salinity` options.
 
 In baroclinic simulations the water density, :math:`\rho`,  depends on the
 temperature and salinity via the equation of state:
 :math:`\rho = \rho'(T, S, p) + \rho_0`, where :math:`\rho_0`
 is a constant reference density.
 The equation of state is set by the option
-:py:attr:`.ModelOptions.equation_of_state`, and
+:ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.equation_of_state_type`, and
 :math:`\rho_0` is defined in the :py:mod:`~.physical_constants` module.
 Water density affects the internal pressure gradient through the baroclinic
 head, :math:`r`, which we can solve diagnostically from :eq:`baroc_head`.
@@ -44,10 +44,10 @@ The internal pressure gradient, :math:`\mathbf{F}_{pg} = g\nabla_h r`, is
 computed weakly as separate field.
 The solver is implemented in :py:class:`~.InternalPressureGradientCalculator`.
 
-Setting option :py:attr:`.ModelOptions.use_baroclinic_formulation` = ``True`` activates
+Setting option :ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.use_baroclinic_formulation`\ ``=True`` activates
 baroclinicity, i.e. the computation of water density, baroclinic head and
 (both 2D and 3D) internal pressure gradients.
-If ``baroclinic=False``, water density is not computed. Temperature and
+If :py:attr:`.use_baroclinic_formulation`\ ``=False``, water density is not computed. Temperature and
 salinity may still be simulated, but they are treated as passive tracers.
 
 The following tables summarize the prognostic and diagnostic variables.
@@ -82,9 +82,9 @@ Spatial discretization
 Currently Thetis supports two finite element families:
 Equal order Discontinuous Galerkin (DG)
 (option ``'dg-dg'``), and mimetic Raviart-Thomas-DG family (``'rt-dg'``).
-The element family is set by the :py:attr:`.ModelOptions.element_family` option.
+The element family is set by the :ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.element_family` option.
 Currently only linear elements are supported, i.e.
-:py:attr:`.ModelOrder.polynomial_degree` must be 1.
+:ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.polynomial_degree` must be 1.
 
 The function spaces for both element families are summarized in the following
 tables.
@@ -130,7 +130,7 @@ Temporal discretization
 
 The system of coupled equations is marched in time with a
 :py:class:`~.CoupledTimeIntegrator`.
-The time integration method is set by :py:attr:`.ModelOptions.timestepper_type`
+The time integration method is set by :ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.timestepper_type`
 option. Currently supported time integrators are listed below.
 
 ======================== ====================================== ======== ================ ============
@@ -146,19 +146,19 @@ Time integrator          Thetis class                           2D mode  ALE mes
 Table 5. *Supported 3D time integrators.*
 
 
-The 2D and 3D time steps can be set via :py:attr:`.ModelOptions.timestep` and
-:py:attr:`.ModelOptions.timestep_2d` options.
+The 2D and 3D time steps can be set via :ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.timestep` and
+:ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.timestep_2d` options.
 The 2D mode can be treated either implicitly or explicitly.
 In case of an implicit 2D mode, the 2D time step is equal to the 3D time step
-and ``dt_2d`` option is ignored.
+and :py:attr:`.timestep_2d` option is ignored.
 
 Thetis can also estimate the maximum stable time step based on the mesh
 resolution, used element family and time integration scheme.
 To use this feature, the user should provide the following estimates:
 
-- :py:attr:`.ModelOptions.horizontal_velocity_scale`: Maximal horizontal velocity scale
-- :py:attr:`.ModelOptions.vertical_velocity_scale`: Maximal vertical velocity scale
-- :py:attr:`.ModelOptions.horizontal_viscosity_scale`: Maximal horizontal viscosity scale
+- :ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.horizontal_velocity_scale`: Maximal horizontal velocity scale
+- :ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.vertical_velocity_scale`: Maximal vertical velocity scale
+- :ref:`ModelOptions3d<model_options_3d>`.\ :py:attr:`.horizontal_viscosity_scale`: Maximal horizontal viscosity scale
 
 When the simulation initializes, Thetis will compute the maximal feasible time
 step:

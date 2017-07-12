@@ -36,13 +36,13 @@ P1DG-P2            ``'dg-cg'``  1           P(n)DG     P(n+1)
 
 Table 1. *Finite element families for polynomial degree n.*
 
-The element family and polynomial degree are set by the :py:attr:`.ModelOptions.element_family` and :py:attr:`.ModelOrder.polynomial_degree` options.
+The element family and polynomial degree are set by the :ref:`CommonModelOptions.element_family` :ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.element_family` and :ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.polynomial_degree` options.
 
 Temporal discretization
 -----------------------
 
 Thetis supports different time integration methods, set by the
-:py:attr:`.ModelOptions.timestepper_type` option.
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.timestepper_type` option.
 
 =============================== ====================================== ====================== ============
 Time integrator                 Thetis class                           Unconditionally stable Description
@@ -59,10 +59,10 @@ Time integrator                 Thetis class                           Unconditi
 
 Table 2. *Time integration methods for 2D model.*
 
-Model time step is defined by the :py:attr:`.ModelOptions.timestep` option.
+Model time step is defined by the :ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.timestep` option.
 
 For explicit solvers, Thetis can also estimate the maximum stable time step
 based on the mesh resolution, used element family and time integration scheme.
 To use this feature, the user should provide the maximal horizontal velocity
-scale with :py:attr:`.ModelOptions.horizontal_velocity_scale` option and leave
-:py:attr:`.ModelOptions.timestep` undefined (or set it to ``None``).
+scale with :ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.horizontal_velocity_scale` option and set
+:ref:`ModelOptions2d<model_options_2d>`.\ :py:attr:`.timestepper_options`.\ :py:attr:`.use_automatic_timestep` to ``True``.
