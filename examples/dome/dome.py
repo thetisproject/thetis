@@ -70,6 +70,7 @@ solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solver_obj.options
 options.element_family = 'dg-dg'
 outputdir += '_' + options.element_family
+
 options.timestepper_type = 'SSPRK22'
 options.solve_salinity = True
 options.solve_temperature = True
@@ -144,7 +145,7 @@ mask_numpy_x1 = (x_arr-setup.basin_lx)/lx_relax + 1
 mask_temp_relax_3d.dat.data[:] = np.maximum(mask_numpy_x0, mask_numpy_x1)
 ix = mask_temp_relax_3d.dat.data < 0
 mask_temp_relax_3d.dat.data[ix] = 0.0
-# out = File('mask.pvd').write(mask_temp_relax)
+# File('mask.pvd').write(mask_temp_relax_3d)
 temp_source_3d = Function(solver_obj.function_spaces.H, name='temperature_relax')
 temp_source_3d.interpolate(mask_temp_relax_3d/t_temp_relax*(temp_relax - solver_obj.fields.temp_3d))
 options.temperature_source_3d = temp_source_3d

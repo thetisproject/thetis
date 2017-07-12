@@ -95,9 +95,9 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
                                  'eddy_visc_3d', 'shear_freq_3d',
                                  'buoy_freq_3d', 'tke_3d', 'psi_3d',
                                  'eps_3d', 'len_3d']
-gls_options = options.gls_options
-gls_options.apply_defaults('k-omega')
-gls_options.stability_function_name = 'Canuto B'
+turbulence_model_options = options.turbulence_model_options
+turbulence_model_options.apply_defaults('k-omega')
+turbulence_model_options.stability_function_name = 'Canuto B'
 
 solverobj.create_function_spaces()
 

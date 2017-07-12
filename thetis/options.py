@@ -151,8 +151,34 @@ class SemiImplicitTimestepperOptions3d(ExplicitTimestepperOptions3d):
         help='implicitness parameter theta for 2D solver. Value 1.0 implies fully implicit formulation.').tag(config=True)
 
 
-class GLSModelOptions(FrozenHasTraits):
-    """Options for generic length scale turbulence model"""
+class TurbulenceModelOptions(FrozenHasTraits):
+    """Abstract base class for all turbulence model options"""
+    def update(self, options):
+        if isinstance(options, dict):
+            params_dict = options
+        else:
+            # assume HasTraits
+            params_dict = options._trait_values
+        for key in params_dict:
+            self.__setattr__(key, params_dict[key])
+
+
+class PacanowskiPhilanderModelOptions(TurbulenceModelOptions):
+    """Options for Pacanowski-Philander turbulence model"""
+    max_viscosity = PositiveFloat(5e-2, help=r"float: Constant maximum viscosity :math:`\nu_{max}`").tag(config=True)
+    alpha = PositiveFloat(10.0, help="float: Richardson number multiplier").tag(config=True)
+    exponent = PositiveFloat(2.0, help=r"float: Exponent of viscosity numerator :math:`n`").tag(config=True)
+
+    def print_summary(self):
+        """Prints all defined parameters and their values."""
+        print_output('Pacanowski-Philander model parameters')
+        params_dict = self._trait_values
+        for k in sorted(params_dict.keys()):
+            print_output('  {:16s} : {:}'.format(k, params_dict[k]))
+
+
+class GLSModelOptions(TurbulenceModelOptions):
+    """Options for Generic Length Scale turbulence model"""
     closure_name = Enum(
         ['k-epsilon', 'k-omega', 'Generic Lenght Scale'],
         default_value='k-epsilon',
@@ -291,10 +317,6 @@ class GLSModelOptions(FrozenHasTraits):
             self.update(komega)
         elif closure_name == 'gen':
             self.update(gen)
-
-    def update(self, params_dict):
-            for key in params_dict:
-                self.__setattr__(key, params_dict[key])
 
     def print_summary(self):
         """Prints all defined parameters and their values."""
@@ -481,11 +503,13 @@ class ModelOptions2d(CommonModelOptions):
                                   help='Name of the time integrator').tag(config=True),
                        Instance(TimeStepperOptions, args=()).tag(config=True))
 @attach_paired_options("turbulence_model_type",
-                       PairedEnum([('gls', GLSModelOptions())],
-                                  "gls_options",
+                       PairedEnum([('gls', GLSModelOptions()),
+                                   ('pacanowski', PacanowskiPhilanderModelOptions())
+                                   ],
+                                  "turbulence_model_options",
                                   default_value='gls',
                                   help='Type of vertical turbulence model').tag(config=True),
-                       Instance(GLSModelOptions, args=()).tag(config=True))
+                       Instance(TurbulenceModelOptions, args=()).tag(config=True))
 @attach_paired_options("equation_of_state_type",
                        PairedEnum([('full', EquationOfStateOptions()),
                                    ('linear', LinearEquationOfStateOptions())],

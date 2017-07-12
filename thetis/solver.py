@@ -531,7 +531,7 @@ class FlowSolver(FrozenClass):
         else:
             self.tracer_limiter = None
         if self.options.use_turbulence:
-            if self.options.turbulence_model == 'gls':
+            if self.options.turbulence_model_type == 'gls':
                 # NOTE tke and psi should be in H as tracers ??
                 self.fields.tke_3d = Function(self.function_spaces.turb_space)
                 self.fields.psi_3d = Function(self.function_spaces.turb_space)
@@ -559,8 +559,8 @@ class FlowSolver(FrozenClass):
                     self.fields.eddy_visc_3d,
                     self.fields.buoy_freq_3d,
                     self.fields.shear_freq_3d,
-                    options=self.options.gls_options)
-            elif self.options.turbulence_model == 'pacanowski':
+                    options=self.options.turbulence_model_options)
+            elif self.options.turbulence_model_type == 'pacanowski':
                 if self.options.use_smooth_eddy_viscosity:
                     self.fields.eddy_visc_3d = Function(self.function_spaces.P1)
                     self.fields.eddy_diff_3d = Function(self.function_spaces.P1)
@@ -577,7 +577,7 @@ class FlowSolver(FrozenClass):
                     self.fields.eddy_visc_3d,
                     self.fields.buoy_freq_3d,
                     self.fields.shear_freq_3d,
-                    options=self.options.pacanowski_options)
+                    options=self.options.turbulence_model_options)
             else:
                 raise Exception('Unsupported turbulence model: {:}'.format(self.options.turbulence_model))
         else:
@@ -666,7 +666,7 @@ class FlowSolver(FrozenClass):
             self.eq_salt.bnd_functions = self.bnd_functions['salt']
         if self.options.solve_temperature:
             self.eq_temp.bnd_functions = self.bnd_functions['temp']
-        if self.options.use_turbulence and self.options.turbulence_model == 'gls':
+        if self.options.use_turbulence and self.options.turbulence_model_type == 'gls':
             if self.options.use_turbulence_advection:
                 # explicit advection equations
                 self.eq_tke_adv = tracer_eq.TracerEquation(self.fields.tke_3d.function_space(),
@@ -869,7 +869,7 @@ class FlowSolver(FrozenClass):
             self.fields.salt_3d.project(salt)
         if temp is not None and self.options.solve_temperature:
             self.fields.temp_3d.project(temp)
-        if self.options.use_turbulence and self.options.turbulence_model == 'gls':
+        if self.options.use_turbulence and self.options.turbulence_model_type == 'gls':
             if tke is not None:
                 self.fields.tke_3d.project(tke)
             if psi is not None:
