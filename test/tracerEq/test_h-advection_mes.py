@@ -41,17 +41,18 @@ def run(refinement, **model_options):
 
     solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     options = solverobj.options
-    options.nonlin = False
+    options.use_nonlinear_equations = False
     options.use_ale_moving_mesh = False
-    options.uv_lax_friedrichs = Constant(1.0)
-    options.tracer_lax_friedrichs = None
-    options.u_advection = Constant(abs(u))
+    options.use_lax_friedrichs_velocity = True
+    options.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
+    options.use_lax_friedrichs_tracer = False
+    options.horizontal_velocity_scale = Constant(abs(u))
     options.no_exports = True
-    options.outputdir = outputdir
-    options.t_end = t_end
-    options.t_export = t_export
-    options.solve_salt = True
-    options.solve_vert_diffusion = False
+    options.output_directory = outputdir
+    options.simulation_end_time = t_end
+    options.simulation_export_time = t_export
+    options.solve_salinity = True
+    options.use_implicit_vertical_diffusion = False
     options.use_limiter_for_tracers = True
     options.fields_to_export = ['salt_3d']
     options.update(model_options)
@@ -81,8 +82,8 @@ def run(refinement, **model_options):
     salt_ana = Function(solverobj.function_spaces.H, name='salt analytical')
     salt_ana_p1 = Function(solverobj.function_spaces.P1, name='salt analytical')
 
-    p1dg_ho = FunctionSpace(solverobj.mesh, 'DG', options.order + 2,
-                            vfamily='DG', vdegree=options.order + 2)
+    p1dg_ho = FunctionSpace(solverobj.mesh, 'DG', options.polynomial_degree + 2,
+                            vfamily='DG', vdegree=options.polynomial_degree + 2)
     salt_ana_ho = Function(p1dg_ho, name='salt analytical')
 
     uv_init = Function(solverobj.function_spaces.U, name='initial uv')
@@ -91,7 +92,7 @@ def run(refinement, **model_options):
 
     # export analytical solution
     if not options.no_exports:
-        out_salt_ana = File(os.path.join(options.outputdir, 'salt_ana.pvd'))
+        out_salt_ana = File(os.path.join(options.output_directory, 'salt_ana.pvd'))
 
     def export_func():
         if not options.no_exports:
@@ -105,10 +106,10 @@ def run(refinement, **model_options):
     export_func()
 
     # custom time loop that solves tracer equation only
-    ti = solverobj.timestepper.timestepper_salt_3d
+    ti = solverobj.timestepper.timesteppers.salt_expl
     i = 0
     iexport = 1
-    next_export_t = t + solverobj.options.t_export
+    next_export_t = t + solverobj.options.simulation_export_time
     while t < t_end - 1e-8:
         ti.advance(t)
         t += solverobj.dt
@@ -116,7 +117,7 @@ def run(refinement, **model_options):
         if t >= next_export_t - 1e-8:
             print_output('{:3d} i={:5d} t={:8.2f} s salt={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.salt_3d)))
             export_func()
-            next_export_t += solverobj.options.t_export
+            next_export_t += solverobj.options.simulation_export_time
             iexport += 1
 
     # project analytical solultion on high order mesh
@@ -131,7 +132,7 @@ def run(refinement, **model_options):
 
 def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
-    order = options.get('order', 1)
+    polynomial_degree = options.get('polynomial_degree', 1)
     l2_err = []
     for r in ref_list:
         l2_err.append(run(r, **options))
@@ -160,10 +161,10 @@ def run_convergence(ref_list, saveplot=False, **options):
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
             ax.set_ylabel('log10(L2 error)')
-            ax.set_title(' '.join([setup_name, field_str, 'order={:}'.format(order)]))
+            ax.set_title(' '.join([setup_name, field_str, 'degree={:}'.format(polynomial_degree)]))
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
-            order_str = 'o{:}'.format(order)
-            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str])
+            degree_str = 'o{:}'.format(polynomial_degree)
+            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, degree_str])
             imgfile += '.png'
             imgdir = create_directory('plots')
             imgfile = os.path.join(imgdir, imgfile)
@@ -177,7 +178,7 @@ def run_convergence(ref_list, saveplot=False, **options):
             print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
-    check_convergence(x_log, y_log, order+1, 'salt', saveplot)
+    check_convergence(x_log, y_log, polynomial_degree+1, 'salt', saveplot)
 
 # ---------------------------
 # standard tests for pytest
@@ -185,16 +186,16 @@ def run_convergence(ref_list, saveplot=False, **options):
 
 
 @pytest.fixture(params=[1])
-def order(request):
+def polynomial_degree(request):
     return request.param
 
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
-                         [('ssprk33', False),
-                          ('leapfrog', True),
-                          ('ssprk22', True)])
-def test_horizontal_advection(order, stepper, use_ale):
-    run_convergence([1, 2, 3], order=order,
+                         [('SSPRK33', False),
+                          ('LeapFrog', True),
+                          ('SSPRK22', True)])
+def test_horizontal_advection(polynomial_degree, stepper, use_ale):
+    run_convergence([1, 2, 3], polynomial_degree=polynomial_degree,
                     timestepper_type=stepper,
                     use_ale_moving_mesh=use_ale)
 
@@ -204,9 +205,9 @@ def test_horizontal_advection(order, stepper, use_ale):
 
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], order=0,
+    run_convergence([1, 2, 3], polynomial_degree=0,
                     warped_mesh=True,
                     element_family='dg-dg',
-                    timestepper_type='ssprk22',
+                    timestepper_type='SSPRK22',
                     use_ale_moving_mesh=True,
                     no_exports=False, saveplot=True)
