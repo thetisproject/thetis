@@ -253,7 +253,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
             'wind_stress': self.fields.get('wind_stress_3d'),
         }
-        if not self.solver.options.solve_vert_diffusion:
+        if not self.solver.options.use_implicit_vertical_diffusion:
             fields.update(friction_fields)
         self.timesteppers.mom_expl = self.integrator_3d(
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,
@@ -486,7 +486,6 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                     self.timesteppers.tke_expl.solve_stage(k, t)
             with timed_stage('momentum_eq'):
                 self.timesteppers.mom_expl.solve_stage(k, t)
-                self.timestepper_mom_3d.solve_stage(k, t)
                 if self.options.use_limiter_for_velocity:
                     self.solver.uv_limiter.apply(self.fields.uv_3d)
             with timed_stage('mode2d'):

@@ -297,7 +297,7 @@ class FlowSolver(FrozenClass):
         print_output('3D mesh: {:} layers, {:} prisms'.format(nlayers, nprisms))
         print_output('Horizontal element size: {:.2f} ... {:.2f} m'.format(min_h_size, max_h_size))
         print_output('Vertical element size: {:.3f} ... {:.3f} m'.format(min_v_size, max_v_size))
-        print_output('Element family: {:}, order: {:}'.format(self.options.element_family, self.options.order))
+        print_output('Element family: {:}, order: {:}'.format(self.options.element_family, self.options.polynomial_degree))
         print_output('Number of tracer DOFs: {:}'.format(ntracer_dofs))
         print_output('Number of cores: {:}'.format(self.comm.size))
         print_output('Tracer DOFs per core: ~{:.1f}'.format(float(ntracer_dofs)/self.comm.size))
@@ -557,7 +557,7 @@ class FlowSolver(FrozenClass):
             self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H)
         else:
             self.tracer_limiter = None
-        if self.options.use_limiter_for_velocity and self.options.order > 0:
+        if self.options.use_limiter_for_velocity and self.options.polynomial_degree > 0:
             self.uv_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.U)
         else:
             self.uv_limiter = None
@@ -648,7 +648,7 @@ class FlowSolver(FrozenClass):
             self.fields.bathymetry_2d,
             self.options)
 
-        expl_bottom_friction = self.options.use_bottom_friction and not self.options.solve_vert_diffusion
+        expl_bottom_friction = self.options.use_bottom_friction and not self.options.use_implicit_vertical_diffusion
         self.eq_momentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
                                                         bathymetry=self.fields.bathymetry_3d,
                                                         v_elem_size=self.fields.v_elem_size_3d,
