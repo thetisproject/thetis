@@ -56,7 +56,6 @@ options.solve_temperature = False
 options.use_implicit_vertical_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = False
-options.use_linearized_semi_implicit_2d = True
 options.solver_parameters_sw['snes_type'] = 'ksponly'
 options.use_baroclinic_formulation = False
 options.coriolis_frequency = coriolis_2d

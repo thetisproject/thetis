@@ -272,7 +272,7 @@ class FlowSolver2d(FrozenClass):
                                                               fields, self.dt,
                                                               bnd_conditions=self.bnd_functions['shallow_water'],
                                                               solver_parameters=self.options.timestepper_options.solver_parameters,
-                                                              semi_implicit=self.options.use_linearized_semi_implicit_2d,
+                                                              semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
                                                               theta=self.options.timestepper_options.implicitness_theta)
 
         elif self.options.timestepper_type == 'ForwardEuler':
@@ -290,7 +290,7 @@ class FlowSolver2d(FrozenClass):
                                                             fields, self.dt,
                                                             bnd_conditions=self.bnd_functions['shallow_water'],
                                                             solver_parameters=self.options.timestepper_options.solver_parameters,
-                                                            semi_implicit=self.options.use_linearized_semi_implicit_2d,
+                                                            semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
                                                             theta=self.options.timestepper_options.implicitness_theta)
         elif self.options.timestepper_type == 'DIRK22':
             self.timestepper = rungekutta.CrankNicolsonRK(self.eq_sw, self.fields.solution_2d,
@@ -321,7 +321,7 @@ class FlowSolver2d(FrozenClass):
                                                                        bnd_conditions=self.bnd_functions['shallow_water'],
                                                                        solver_parameters=self.options.timestepper_options.solver_parameters_pressure,
                                                                        solver_parameters_mom=self.options.timestepper_options.solver_parameters_momentum,
-                                                                       semi_implicit=self.options.use_linearized_semi_implicit_2d,
+                                                                       semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
                                                                        theta=self.options.timestepper_options.implicitness_theta)
 
         elif self.options.timestepper_type == 'SSPIMEX':

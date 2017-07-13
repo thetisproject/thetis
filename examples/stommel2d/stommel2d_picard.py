@@ -61,26 +61,6 @@ options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
 options.timestepper_type = 'PressureProjectionPicard'
-options.use_linearized_semi_implicit_2d = True  # FIXME
-options.shallow_water_theta = 1.0  # FIXME
-options.solver_parameters_sw = {
-    'snes_type': 'ksponly',
-    'ksp_type': 'preonly',
-    'pc_type': 'fieldsplit',
-    'pc_fieldsplit_type': 'schur',
-    'pc_fieldsplit_schur_fact_type': 'full',
-    'pc_fieldsplit_schur_precondition': 'selfp',
-    'fieldsplit_0_ksp_type': 'gmres',
-    'fieldsplit_0_pc_type': 'sor',
-    'fieldsplit_1_ksp_type': 'gmres',
-    'fieldsplit_1_ksp_converged_reason': True,
-    'fieldsplit_1_pc_type': 'hypre',
-}
-options.solver_parameters_sw_momentum = {
-    'ksp_type': 'gmres',
-    'ksp_converged_reason': True,
-    'pc_type': 'sor',
-    'pc_factor_mat_solver_package': 'mumps',
-}
+options.timestepper_options.implicitness_theta = 1.0
 
 solver_obj.iterate()
