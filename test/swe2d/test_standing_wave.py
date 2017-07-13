@@ -47,47 +47,15 @@ def test_standing_wave_channel(timesteps, max_rel_err, timestepper, do_export=Fa
     solver_obj.options.element_family = 'dg-dg'
     solver_obj.options.timestepper_type = timestepper
     if timestepper == 'CrankNicolson':
-        solver_obj.options.timestepper_options.implicitness_theta = 0.5
-        solver_obj.options.timestepper_options.solver_parameters = {
-            'ksp_type': 'preonly',
-            'pc_type': 'lu',
-            'pc_factor_mat_solver_package': 'mumps',
-            'snes_monitor': False,
-            'snes_type': 'newtonls',
-        }
-    elif timestepper == 'PressureProjectionPicard':
-        # solver options for the linearized wave equation terms
-        solver_obj.options.timestepper_options.implicitness_theta = 0.5
-        solver_obj.options.timestepper_options.solver_parameters_pressure = {
-            'snes_type': 'ksponly',  # we've linearized, so no snes needed
-            'ksp_type': 'preonly',  # we solve the full schur complement exactly, so no need for outer krylov
-            'pc_type': 'fieldsplit',
-            'pc_fieldsplit_type': 'schur',
-            'pc_fieldsplit_schur_fact_type': 'full',
-            'pc_fieldsplit_schur_precondition': 'selfp',
-            # velocity mass block:
-            'fieldsplit_0_ksp_type': 'preonly',  # NOTE: this is only an exact solver for the velocity mass block if velocity is DG
-            'fieldsplit_0_pc_type': 'ilu',
-            'fieldsplit_1_ksp_type': 'gmres',
-            # schur complement:
-            'fieldsplit_1_pc_type': 'gamg',
-            'fieldsplit_1_ksp_max_it': 100,
-            'fieldsplit_1_ksp_converged_reason': True,
-        }
-        solver_obj.options.timestepper_options.solver_parameters_momentum = {
-            'snes_monitor': True,
-            'ksp_type': 'gmres',
-            'ksp_converged_reason': True,
-            'pc_type': 'bjacobi',
-            'pc_bjacobi_type': 'ilu',
-        }
+        # when linearising the equations, CrankNicolson (theta=0.5) stops being 2nd order
+        # (for PressureProjectionPicard we restore 2nd order because of the 2 iterations)
+        solver_obj.options.timestepper_options.use_semi_implicit_linearization = False
     if hasattr(solver_obj.options.timestepper_options, 'use_automatic_timestep'):
         solver_obj.options.timestepper_options.use_automatic_timestep = False
     solver_obj.options.timestep = dt
 
     # boundary conditions
     solver_obj.bnd_functions['shallow_water'] = {}
-    parameters['quadrature_degree'] = 5
 
     solver_obj.create_equations()
     solver_obj.assign_initial_conditions(elev=elev_init)
