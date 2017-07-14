@@ -41,8 +41,6 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     delta_x = reso_dx*1.e3
     nlayers = 20
 
-    comm = COMM_WORLD
-
     lx = 160e3
     ly = 500e3
     nx = int(lx/delta_x)
@@ -61,11 +59,6 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     bottom_drag = 0.01
     t_end = 320*24*3600.  # 365*24*3600.
     t_export = 3*3600.
-
-    nnodes = mesh2d.topology.num_vertices()
-    ntriangles = mesh2d.topology.num_cells()
-    nprisms = ntriangles * nlayers
-    ndofs = nprisms * 6 if poly_order == 1 else nprisms
 
     reso_str = 'dx' + str(np.round(delta_x/1000., decimals=1))
     options_str = '_'.join([reso_str,
