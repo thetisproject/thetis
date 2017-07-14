@@ -140,6 +140,8 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
                                 'w_3d', 'w_mesh_3d', 'temp_3d', 'salt_3d', 'density_3d',
                                 'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                                 'smag_visc_3d']
+    options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
+                                     'salt_3d', 'temp_3d', 'tke_3d', 'psi_3d']
     options.equation_of_state_type = 'linear'
     options.equation_of_state_options.rho_ref = rho_0
     options.equation_of_state_options.s_ref = salt_const
