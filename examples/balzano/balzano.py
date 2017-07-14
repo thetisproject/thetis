@@ -60,17 +60,11 @@ options.output_directory = outputdir
 options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.timestepper_type = 'CrankNicolson'
-options.shallow_water_theta = 0.5
+options.timestepper_options.implicitness_theta = 0.5
 options.use_wetting_and_drying = use_wetting_and_drying
 options.wetting_and_drying_alpha = wetting_and_drying_alpha
 options.manning_drag_coefficient = manning_drag_coefficient
 options.timestep = dt
-options.solver_parameters_sw = {
-    'snes_type': 'newtonls',
-    'snes_monitor': True,
-    'ksp_type': 'gmres',
-    'pc_type': 'fieldsplit',
-}
 
 # boundary conditions
 h_amp = -2.0      # ocean boundary forcing amplitude
