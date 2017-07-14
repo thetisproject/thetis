@@ -78,6 +78,7 @@ def test_pressure_forcing(element_family, timestepper):
         solverObj.options.fields_to_export = ['uv_2d', 'elev_2d']
         if solverObj.options.timestepper_type == 'CrankNicolson':
             solverObj.options.timestepper_options.implicitness_theta = 0.5
+            solverObj.options.timestepper_options.use_semi_implicit_linearization = False
         solverObj.options.manning_drag_coefficient = manning_drag_coefficient
         solverObj.options.atmospheric_pressure = atmospheric_pressure
 
