@@ -151,6 +151,7 @@ class FlowSolver(FrozenClass):
         self.export_initial_state = True
         """Do export initial state. False if continuing a simulation"""
 
+        self._simulation_continued = False
         self._isfrozen = True
 
     def compute_dx_factor(self):
@@ -297,7 +298,7 @@ class FlowSolver(FrozenClass):
         print_output('3D mesh: {:} layers, {:} prisms'.format(nlayers, nprisms))
         print_output('Horizontal element size: {:.2f} ... {:.2f} m'.format(min_h_size, max_h_size))
         print_output('Vertical element size: {:.3f} ... {:.3f} m'.format(min_v_size, max_v_size))
-        print_output('Element family: {:}, order: {:}'.format(self.options.element_family, self.options.polynomial_degree))
+        print_output('Element family: {:}, degree: {:}'.format(self.options.element_family, self.options.polynomial_degree))
         print_output('Number of tracer DOFs: {:}'.format(ntracer_dofs))
         print_output('Number of cores: {:}'.format(self.comm.size))
         print_output('Tracer DOFs per core: ~{:.1f}'.format(float(ntracer_dofs)/self.comm.size))
@@ -940,7 +941,7 @@ class FlowSolver(FrozenClass):
 
         Also evaluates all callbacks set to 'export' interval.
         """
-        self.callbacks.evaluate(mode='export')
+        self.callbacks.evaluate(mode='export', index=self.i_export)
         # set uv to total uv instead of deviation from depth average
         # TODO find a cleaner way of doing this ...
         self.fields.uv_3d += self.fields.uv_dav_3d
@@ -1030,6 +1031,8 @@ class FlowSolver(FrozenClass):
         for k in self.exporters:
             self.exporters[k].set_next_export_ix(self.i_export + offset)
 
+        self._simulation_continued = True
+
     def print_state(self, cputime):
         """
         Print a summary of the model state on stdout
@@ -1113,6 +1116,12 @@ class FlowSolver(FrozenClass):
                                                  export_to_hdf5=dump_hdf5,
                                                  append_to_log=True)
             self.add_callback(c, eval_interval='export')
+
+        if self._simulation_continued:
+            # set all callbacks to append mode
+            for m in self.callbacks:
+                for k in self.callbacks[m]:
+                    self.callbacks[m][k].set_write_mode('append')
 
         # initial export
         self.print_state(0.0)
