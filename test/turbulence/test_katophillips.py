@@ -59,26 +59,27 @@ def run_katophillips(**model_options):
     # create solver
     solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
     options = solver_obj.options
-    options.nonlin = False
-    options.solve_salt = True
-    options.solve_temp = False
-    options.constant_temp = Constant(10.0)
-    options.solve_vert_diffusion = True
+    options.use_nonlinear_equations = False
+    options.solve_salinity = True
+    options.solve_temperature = False
+    options.constant_temperature = Constant(10.0)
+    options.use_implicit_vertical_diffusion = True
     options.use_bottom_friction = True
     options.use_turbulence = True
     options.use_ale_moving_mesh = False
-    options.baroclinic = True
+    options.use_baroclinic_formulation = True
     options.use_limiter_for_tracers = False
-    options.v_viscosity = Constant(1.3e-6)  # background value
-    options.v_diffusivity = Constant(1.4e-7)  # background value
+    options.vertical_viscosity = Constant(1.3e-6)  # background value
+    options.vertical_diffusivity = Constant(1.4e-7)  # background value
     options.wind_stress = wind_stress_2d
     options.no_exports = True
-    options.t_export = t_export
-    options.dt = dt
-    options.t_end = t_end
-    options.outputdir = outputdir
-    options.u_advection = u_mag
-    options.check_salt_overshoot = True
+    options.simulation_export_time = t_export
+    options.timestepper_options.use_automatic_timestep = False
+    options.timestep = dt
+    options.simulation_end_time = t_end
+    options.output_directory = outputdir
+    options.horizontal_velocity_scale = Constant(u_mag)
+    options.check_salinity_overshoot = True
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'salt_3d',
                                 'baroc_head_3d',
@@ -86,9 +87,11 @@ def run_katophillips(**model_options):
                                 'parab_visc_3d', 'eddy_visc_3d',
                                 'shear_freq_3d', 'buoy_freq_3d',
                                 'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
-    options.update(**model_options)
-    if options['timestepper_type'] == 'leapfrog':
-        options['use_ale_moving_mesh'] = True
+    options.update(model_options)
+    if options.timestepper_type in ['LeapFrog', 'SSPRK22']:
+        options.use_ale_moving_mesh = True
+    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
+        options.timestepper_options.use_automatic_timestep = False
 
     solver_obj.create_function_spaces()
 
@@ -137,9 +140,9 @@ def element_family(request):
     return request.param
 
 
-@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')('ssprk33'),
-                        'leapfrog',
-                        'ssprk22'])
+@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')('SSPRK33'),
+                        'LeapFrog',
+                        'SSPRK22'])
 def timestepper_type(request):
     return request.param
 
@@ -151,5 +154,5 @@ def test_katophillips(element_family, timestepper_type):
 
 if __name__ == '__main__':
     run_katophillips(element_family='dg-dg',
-                     timestepper_type='ssprk22',
+                     timestepper_type='SSPRK22',
                      no_exports=False)

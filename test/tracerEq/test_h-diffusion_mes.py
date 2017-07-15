@@ -18,7 +18,7 @@ def run(refinement, **model_options):
     ly = 6.0e3/refinement
     area = lx*ly
     depth = 40.0
-    h_diffusivity = 1.0e3
+    horizontal_diffusivity = 1.0e3
 
     # mesh
     n_layers = 4*refinement
@@ -30,7 +30,7 @@ def run(refinement, **model_options):
     # # stable explicit time step for diffusion
     # dx = lx/nx
     # alpha = 1.0/200.0  # TODO theoretical alpha...
-    # dt = alpha * dx**2/h_diffusivity
+    # dt = alpha * dx**2/horizontal_diffusivity
     # # simulation run time
     # t_end = 3000.0
     # # initial time
@@ -61,20 +61,22 @@ def run(refinement, **model_options):
 
     solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     options = solverobj.options
-    options.nonlin = False
+    options.use_nonlinear_equations = False
     options.use_ale_moving_mesh = False
-    options.u_advection = Constant(1.0)
+    options.horizontal_velocity_scale = Constant(1.0)
     options.no_exports = True
-    options.outputdir = outputdir
-    options.t_end = t_end
-    options.t_export = t_export
-    options.solve_salt = True
-    options.solve_vert_diffusion = False
+    options.output_directory = outputdir
+    options.simulation_end_time = t_end
+    options.simulation_export_time = t_export
+    options.solve_salinity = True
+    options.use_implicit_vertical_diffusion = False
     options.use_limiter_for_tracers = False
     options.fields_to_export = ['salt_3d']
-    options.h_diffusivity = Constant(h_diffusivity)
-    options.nu_viscosity = Constant(h_diffusivity)
+    options.horizontal_diffusivity = Constant(horizontal_diffusivity)
+    options.horizontal_viscosity_scale = Constant(horizontal_diffusivity)
     options.update(model_options)
+    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
+        options.timestepper_options.use_automatic_timestep = True
 
     solverobj.create_equations()
 
@@ -82,13 +84,13 @@ def run(refinement, **model_options):
 
     ana_sol_expr = '0.5*(u_max + u_min) - 0.5*(u_max - u_min)*erf((x[0] - x0)/sqrt(4*D*t))'
     t_const = Constant(t)
-    ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_diffusivity, t=t_const)
+    ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, x0=lx/2.0, D=horizontal_diffusivity, t=t_const)
 
     salt_ana = Function(solverobj.function_spaces.H, name='salt analytical')
     salt_ana_p1 = Function(solverobj.function_spaces.P1, name='salt analytical')
 
-    p1dg_ho = FunctionSpace(solverobj.mesh, 'DG', options.order + 2,
-                            vfamily='DG', vdegree=options.order + 2)
+    p1dg_ho = FunctionSpace(solverobj.mesh, 'DG', options.polynomial_degree + 2,
+                            vfamily='DG', vdegree=options.polynomial_degree + 2)
     salt_ana_ho = Function(p1dg_ho, name='salt analytical')
 
     elev_init = Function(solverobj.function_spaces.H_2d, name='elev init')
@@ -98,14 +100,14 @@ def run(refinement, **model_options):
 
     # export analytical solution
     if not options.no_exports:
-        out_salt_ana = File(os.path.join(options.outputdir, 'salt_ana.pvd'))
+        out_salt_ana = File(os.path.join(options.output_directory, 'salt_ana.pvd'))
 
     def export_func():
         if not options.no_exports:
             solverobj.export()
             # update analytical solution to correct time
             t_const.assign(t)
-            ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_diffusivity, t=t_const)
+            ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, x0=lx/2.0, D=horizontal_diffusivity, t=t_const)
             salt_ana.project(ana_salt_expr)
             out_salt_ana.write(salt_ana_p1.project(salt_ana))
 
@@ -116,7 +118,7 @@ def run(refinement, **model_options):
     ti = solverobj.timestepper.timestepper_salt_3d
     i = 0
     iexport = 1
-    next_export_t = t + solverobj.options.t_export
+    next_export_t = t + solverobj.options.simulation_export_time
     while t < t_end - 1e-8:
         ti.advance(t)
         t += solverobj.dt
@@ -124,12 +126,12 @@ def run(refinement, **model_options):
         if t >= next_export_t - 1e-8:
             print_output('{:3d} i={:5d} t={:8.2f} s salt={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.salt_3d)))
             export_func()
-            next_export_t += solverobj.options.t_export
+            next_export_t += solverobj.options.simulation_export_time
             iexport += 1
 
     # project analytical solultion on high order mesh
     t_const.assign(t)
-    ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_diffusivity, t=t_const)
+    ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, x0=lx/2.0, D=horizontal_diffusivity, t=t_const)
     salt_ana_ho.project(ana_salt_expr)
     # compute L2 norm
     l2_err = errornorm(salt_ana_ho, solverobj.fields.salt_3d)/numpy.sqrt(area)
@@ -140,7 +142,7 @@ def run(refinement, **model_options):
 
 def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
-    order = options.get('order', 1)
+    polynomial_degree = options.get('polynomial_degree', 1)
     l2_err = []
     for r in ref_list:
         l2_err.append(run(r, **options))
@@ -169,10 +171,10 @@ def run_convergence(ref_list, saveplot=False, **options):
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
             ax.set_ylabel('log10(L2 error)')
-            ax.set_title(' '.join([setup_name, field_str, 'order={:}'.format(order)]))
+            ax.set_title(' '.join([setup_name, field_str, 'degree={:}'.format(polynomial_degree)]))
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
-            order_str = 'o{:}'.format(order)
-            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str])
+            degree_str = 'o{:}'.format(polynomial_degree)
+            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, degree_str])
             imgfile += '.png'
             imgdir = create_directory('plots')
             imgfile = os.path.join(imgdir, imgfile)
@@ -186,7 +188,7 @@ def run_convergence(ref_list, saveplot=False, **options):
             print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
-    check_convergence(x_log, y_log, order+1, 'salt', saveplot)
+    check_convergence(x_log, y_log, polynomial_degree+1, 'salt', saveplot)
 
 # ---------------------------
 # standard tests for pytest
@@ -194,22 +196,22 @@ def run_convergence(ref_list, saveplot=False, **options):
 
 
 @pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')(0), 1])
-def order(request):
+def polynomial_degree(request):
     return request.param
 
 
-@pytest.fixture(params=[True, False], ids=[pytest.mark.not_travis(reason='travis timeout')('warped'),
-                                           'regular'])
+@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')(True), False],
+                ids=['warped', 'regular'])
 def warped(request):
     return request.param
 
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
-                         [('ssprk33', False),
-                          ('leapfrog', True),
-                          ('ssprk22', True)])
-def test_horizontal_diffusion(warped, order, stepper, use_ale):
-    run_convergence([1, 2, 3], order=order,
+                         [('SSPRK33', False),
+                          ('LeapFrog', True),
+                          ('SSPRK22', True)])
+def test_horizontal_diffusion(warped, polynomial_degree, stepper, use_ale):
+    run_convergence([1, 2, 3], polynomial_degree=polynomial_degree,
                     warped_mesh=warped,
                     timestepper_type=stepper,
                     use_ale_moving_mesh=use_ale)
@@ -220,9 +222,9 @@ def test_horizontal_diffusion(warped, order, stepper, use_ale):
 
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], order=1,
+    run_convergence([1, 2, 3], polynomial_degree=1,
                     warped_mesh=True,
                     element_family='dg-dg',
-                    timestepper_type='ssprk22',
+                    timestepper_type='SSPRK22',
                     use_ale_moving_mesh=True,
                     no_exports=False, saveplot=True)

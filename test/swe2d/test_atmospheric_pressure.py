@@ -18,7 +18,7 @@ import numpy as np
 @pytest.mark.parametrize("element_family", [
     'dg-dg', 'rt-dg', 'dg-cg', ])
 @pytest.mark.parametrize("timestepper", [
-    'cranknicolson', 'ssprk33', ])
+    'CrankNicolson', 'SSPRK33', ])
 def test_pressure_forcing(element_family, timestepper):
     order = 1
 
@@ -30,7 +30,7 @@ def test_pressure_forcing(element_family, timestepper):
     rho0 = physical_constants['rho0']
     g = physical_constants['g_grav']
     A = 2.0
-    mu_manning = Constant(1.0)
+    manning_drag_coefficient = Constant(1.0)
 
     # Simulation time
     t_end = 43200.
@@ -39,7 +39,7 @@ def test_pressure_forcing(element_family, timestepper):
 
     n_tests = 3
     ns = [2.0**(i+1) for i in range(n_tests)]
-    if timestepper == 'cranknicolson':
+    if timestepper == 'CrankNicolson':
         dts = [2400.0/(2**i) for i in range(n_tests)]
     else:
         dts = [20.0/(2**i) for i in range(n_tests)]
@@ -65,23 +65,22 @@ def test_pressure_forcing(element_family, timestepper):
 
         # --- create solver ---
         solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry)
-        solverObj.options.order = order
+        solverObj.options.polynomial_degree = order
         solverObj.options.timestepper_type = timestepper
         solverObj.options.element_family = element_family
-        solverObj.options.dt = dt
-        solverObj.options.t_export = dt
-        solverObj.options.t_end = t_end
+        solverObj.options.check_volume_conservation_2d = False
+        if hasattr(solverObj.options.timestepper_options, 'use_automatic_timestep'):
+            solverObj.options.timestepper_options.use_automatic_timestep = False
+        solverObj.options.timestep = dt
+        solverObj.options.simulation_export_time = 3600.
+        solverObj.options.simulation_end_time = t_end
         solverObj.options.no_exports = True
         solverObj.options.fields_to_export = ['uv_2d', 'elev_2d']
-        solverObj.options.shallow_water_theta = 0.5
-        solverObj.options.mu_manning = mu_manning
+        if solverObj.options.timestepper_type == 'CrankNicolson':
+            solverObj.options.timestepper_options.implicitness_theta = 0.5
+            solverObj.options.timestepper_options.use_semi_implicit_linearization = False
+        solverObj.options.manning_drag_coefficient = manning_drag_coefficient
         solverObj.options.atmospheric_pressure = atmospheric_pressure
-        solverObj.options.solver_parameters_sw = {
-            'snes_type': 'newtonls',
-            'snes_monitor': False,
-            'ksp_type': 'gmres',
-            'pc_type': 'fieldsplit',
-        }
 
         solverObj.assign_initial_conditions(uv=Constant((1e-7, 0.)))
         solverObj.iterate()

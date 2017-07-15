@@ -982,6 +982,7 @@ class ERKSemiImplicitGeneric(RungeKuttaTimeIntegrator):
                      self.alpha[3][2]*self.equation.mass_term(self.stage_sol[1]) -
                      self.beta[3][2]*self.dt_const*self.L[2])
         self.update_solver()
+        self._initialized = False
 
     def update_solver(self):
         self.solver = []
@@ -993,9 +994,12 @@ class ERKSemiImplicitGeneric(RungeKuttaTimeIntegrator):
 
     def initialize(self, solution):
         self.solution_old.assign(solution)
+        self._initialized = True
 
     def solve_stage(self, i_stage, t, update_forcings=None):
         """Solve i-th stage and assign solution to :attr:`self.solution`."""
+        if not self._initialized:
+            error('Time integrator {:} is not initialized'.format(self.name))
         if update_forcings is not None:
             update_forcings(t + self.c[i_stage]*self.dt)
         self.solver[i_stage].solve()

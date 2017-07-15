@@ -61,16 +61,17 @@ bathymetry_2d.interpolate(Expression('(x[0] > 0.0) ? H*(1-x[0]/Lriver) + HInlet*
 # create solver
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
-options.coriolis = Constant(coriolis_f)
-options.h_viscosity = Constant(10.0)
-options.t_export = t_export
-options.t_end = t_end
-options.dt = dt
-options.outputdir = outputdir
-options.u_advection = Constant(1.5)
+options.coriolis_frequency = Constant(coriolis_f)
+options.horizontal_viscosity = Constant(10.0)
+options.simulation_export_time = t_export
+options.simulation_end_time = t_end
+options.timestepper_type = 'SSPRK33Semi'
+if hasattr(options.timestepper_options, 'use_automatic_timestep'):
+    options.timestep = dt
+options.output_directory = outputdir
+options.horizontal_velocity_scale = Constant(1.5)
 options.fields_to_export = ['uv_2d', 'elev_2d']
 # options.timestepper_type = 'CrankNicolson'
-options.timestepper_type = 'ssprk33semi'
 
 bnd_elev = Function(P1_2d, name='Boundary elevation')
 bnd_time = Constant(0)

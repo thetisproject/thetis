@@ -72,31 +72,31 @@ def run_tracer_consistency(**model_options):
         coords.dat.data[:, 2] = sigma
 
     options = solver_obj.options
-    options.nonlin = True
-    options.solve_salt = True
-    options.solve_temp = False
-    options.solve_vert_diffusion = False
+    options.use_nonlinear_equations = True
+    options.solve_salinity = True
+    options.solve_temperature = False
+    options.use_implicit_vertical_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = False
     options.use_limiter_for_tracers = False
-    options.tracer_lax_friedrichs = None
-    options.uv_lax_friedrichs = None
-    options.t_export = t_export
-    options.t_end = t_end
-    options.u_advection = u_mag
-    options.check_vol_conservation_2d = True
-    options.check_vol_conservation_3d = True
-    options.check_salt_conservation = True
-    options.check_salt_overshoot = True
-    options.check_temp_conservation = True
-    options.check_temp_overshoot = True
-    options.outputdir = outputdir
+    options.use_lax_friedrichs_tracer = False
+    options.use_lax_friedrichs_velocity = False
+    options.simulation_export_time = t_export
+    options.simulation_end_time = t_end
+    options.horizontal_velocity_scale = Constant(u_mag)
+    options.check_volume_conservation_2d = True
+    options.check_volume_conservation_3d = True
+    options.check_salinity_conservation = True
+    options.check_salinity_overshoot = True
+    options.check_temperature_conservation = True
+    options.check_temperature_overshoot = True
+    options.output_directory = outputdir
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'salt_3d', 'temp_3d',
                                 'uv_dav_2d', 'uv_bottom_2d']
     options.update(model_options)
     if not options.no_exports:
-        print_output('Exporting to {:}'.format(options.outputdir))
+        print_output('Exporting to {:}'.format(options.output_directory))
 
     solver_obj.create_function_spaces()
     elev_init = Function(solver_obj.function_spaces.H_2d)
@@ -105,10 +105,10 @@ def run_tracer_consistency(**model_options):
 
     salt_init3d = None
     temp_init3d = None
-    if options.solve_salt:
+    if options.solve_salinity:
         salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
         salt_init3d.assign(salt_value)
-    if options.solve_temp:
+    if options.solve_temperature:
         temp_init3d = Function(solver_obj.function_spaces.H, name='initial temperature')
         xyz = SpatialCoordinate(solver_obj.mesh)
         temp_l = 0
@@ -120,11 +120,11 @@ def run_tracer_consistency(**model_options):
 
     # TODO do these checks every export ...
     vol2d, vol2d_rerr = solver_obj.callbacks['export']['volume2d']()
-    assert vol2d_rerr < 1e-10, '2D volume is not conserved'
+    assert vol2d_rerr < 1e-9 if options.element_family == 'rt-dg' else 1e-10, '2D volume is not conserved'
     if options.use_ale_moving_mesh:
         vol3d, vol3d_rerr = solver_obj.callbacks['export']['volume3d']()
         assert vol3d_rerr < 1e-10, '3D volume is not conserved'
-    if options.solve_salt:
+    if options.solve_salinity:
         salt_int, salt_int_rerr = solver_obj.callbacks['export']['salt_3d mass']()
         assert salt_int_rerr < 1e-6, 'salt is not conserved'
         smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['salt_3d overshoot']()
@@ -134,7 +134,7 @@ def run_tracer_consistency(**model_options):
             overshoot_tol = 1e-4
         msg = 'Salt overshoots are too large: {:}'.format(max_abs_overshoot)
         assert max_abs_overshoot < overshoot_tol, msg
-    if options.solve_temp:
+    if options.solve_temperature:
         temp_int, temp_int_rerr = solver_obj.callbacks['export']['temp_3d mass']()
         mass_tol = 1e-4 if options.use_ale_moving_mesh else 1e-3
         assert temp_int_rerr < mass_tol, 'temp is not conserved'
@@ -148,11 +148,11 @@ def run_tracer_consistency(**model_options):
 
 
 @pytest.mark.parametrize('element_family', ['dg-dg',
-                                            pytest.mark.not_travis(reason='travis timeout')('rt-dg')])
+                                            'rt-dg'])
 @pytest.mark.parametrize('meshtype', ['regular',
-                                      pytest.mark.not_travis(reason='travis timeout')('sloped'),
-                                      pytest.mark.not_travis(reason='travis timeout')('warped')])
-@pytest.mark.parametrize('timestepper_type', ['ssprk33'])
+                                      'sloped',
+                                      'warped'])
+@pytest.mark.parametrize('timestepper_type', ['SSPRK33'])
 def test_consistency_fixed_mesh(element_family, meshtype, timestepper_type):
     run_tracer_consistency(element_family=element_family,
                            meshtype=meshtype,
@@ -166,7 +166,7 @@ def test_consistency_fixed_mesh(element_family, meshtype, timestepper_type):
 @pytest.mark.parametrize('meshtype', ['regular',
                                       pytest.mark.not_travis(reason='travis timeout')('sloped'),
                                       pytest.mark.not_travis(reason='travis timeout')('warped')])
-@pytest.mark.parametrize('timestepper_type', ['leapfrog', 'ssprk22'])
+@pytest.mark.parametrize('timestepper_type', ['LeapFrog', 'SSPRK22'])
 def test_ale_const_tracer(element_family, meshtype, timestepper_type):
     """
     Test ALE timeintegrators without slope limiters
@@ -175,8 +175,8 @@ def test_ale_const_tracer(element_family, meshtype, timestepper_type):
     run_tracer_consistency(element_family=element_family,
                            meshtype=meshtype,
                            use_ale_moving_mesh=True,
-                           solve_salt=True,
-                           solve_temp=False,
+                           solve_salinity=True,
+                           solve_temperature=False,
                            use_limiter_for_tracers=False,
                            timestepper_type=timestepper_type,
                            no_exports=True)
@@ -187,10 +187,8 @@ def test_ale_const_tracer(element_family, meshtype, timestepper_type):
 @pytest.mark.parametrize('meshtype', ['regular',
                                       pytest.mark.not_travis(reason='travis timeout')('sloped'),
                                       pytest.mark.not_travis(reason='travis timeout')('warped')])
-@pytest.mark.parametrize('timestepper_type', [pytest.mark.skip(reason='obsolete')('imexale'),
-                                              'leapfrog',
-                                              'ssprk22',
-                                              pytest.mark.skip(reason='obsolete')('erkale')])
+@pytest.mark.parametrize('timestepper_type', ['LeapFrog',
+                                              'SSPRK22', ])
 def test_ale_nonconst_tracer(element_family, meshtype, timestepper_type):
     """
     Test ALE timeintegrators with slope limiters
@@ -199,8 +197,8 @@ def test_ale_nonconst_tracer(element_family, meshtype, timestepper_type):
     run_tracer_consistency(element_family=element_family,
                            meshtype=meshtype,
                            use_ale_moving_mesh=True,
-                           solve_salt=True,
-                           solve_temp=True,
+                           solve_salinity=True,
+                           solve_temperature=True,
                            use_limiter_for_tracers=True,
                            timestepper_type=timestepper_type,
                            no_exports=True)
@@ -210,9 +208,9 @@ if __name__ == '__main__':
     run_tracer_consistency(element_family='dg-dg',
                            meshtype='regular',
                            nonlin=True,
-                           timestepper_type='leapfrog',
+                           timestepper_type='LeapFrog',
                            use_ale_moving_mesh=True,
-                           solve_salt=True,
-                           solve_temp=True,
+                           solve_salinity=True,
+                           solve_temperature=True,
                            use_limiter_for_tracers=True,
                            no_exports=False)

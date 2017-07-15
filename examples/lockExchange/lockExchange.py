@@ -111,66 +111,59 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     # create solver
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
     options = solver_obj.options
-    options.order = poly_order
+    options.polynomial_degree = poly_order
     options.element_family = element_family
-    options.timestepper_type = 'ssprk22'
-    options.solve_salt = False
-    options.constant_salt = Constant(salt_const)
-    options.solve_temp = True
-    options.solve_vert_diffusion = False
+    options.timestepper_type = 'SSPRK22'
+    options.solve_salinity = False
+    options.constant_salinity = Constant(salt_const)
+    options.solve_temperature = True
+    options.use_implicit_vertical_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = True
-    options.baroclinic = True
+    options.use_baroclinic_formulation = True
     if laxfriedrichs is None or laxfriedrichs == 0.0:
-        lf_factor = None
+        options.use_lax_friedrichs_velocity = False
+        options.use_lax_friedrichs_tracer = False
     else:
-        lf_factor = Constant(laxfriedrichs)
-    options.uv_lax_friedrichs = lf_factor
-    options.tracer_lax_friedrichs = lf_factor
+        options.use_lax_friedrichs_velocity = True
+        options.use_lax_friedrichs_tracer = True
+        options.lax_friedrichs_velocity_scaling_factor = laxfriedrichs
+        options.lax_friedrichs_tracer_scaling_factor = laxfriedrichs
     options.use_limiter_for_tracers = use_limiter
     # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
     if viscosity == 'smag':
-        options.smagorinsky_factor = Constant(1.0/np.sqrt(reynolds_number))
+        options.use_smagorinsky_viscosity = True
+        options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
     elif viscosity == 'const':
-        options.h_viscosity = Constant(nu_scale)
+        options.horizontal_viscosity = Constant(nu_scale)
     else:
         raise Exception('Unknow viscosity type {:}'.format(viscosity))
-    options.v_viscosity = Constant(1e-4)
-    options.h_diffusivity = None
-    options.nu_viscosity = Constant(nu_scale)
-    options.u_advection = Constant(u_max)
-    options.w_advection = Constant(w_max)
-    options.dt = dt
-    options.t_export = t_export
-    options.t_end = t_end
-    options.outputdir = outputdir
-    options.check_vol_conservation_2d = True
-    options.check_vol_conservation_3d = True
-    options.check_temp_conservation = True
-    options.check_temp_overshoot = True
+    options.vertical_viscosity = Constant(1e-4)
+    options.horizontal_diffusivity = None
+    options.horizontal_viscosity_scale = Constant(nu_scale)
+    options.horizontal_velocity_scale = Constant(u_max)
+    options.vertical_velocity_scale = Constant(w_max)
+    if dt is not None:
+        options.timestepper_options.use_automatic_timestep = False
+        options.timestep = dt
+    options.simulation_export_time = t_export
+    options.simulation_end_time = t_end
+    options.output_directory = outputdir
+    options.check_volume_conservation_2d = True
+    options.check_volume_conservation_3d = True
+    options.check_temperature_conservation = True
+    options.check_temperature_overshoot = True
     options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'temp_3d', 'density_3d',
                                 'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                                 'smag_visc_3d']
     options.fields_to_export_hdf5 = list(options.fields_to_export)
-    options.equation_of_state = 'linear'
-    options.lin_equation_of_state_params = {
-        'rho_ref': rho_0,
-        's_ref': 35.0,
-        'th_ref': 5.0,
-        'alpha': 0.2,
-        'beta': 0.0,
-    }
-
-    # Use direct solver for 2D
-    # options.solver_parameters_sw = {
-    #     'mat_type': 'aij',
-    #     'ksp_type': 'preonly',
-    #     'pc_type': 'lu',
-    #     'pc_factor_mat_solver_package': 'mumps',
-    #     'snes_monitor': False,
-    #     'snes_type': 'newtonls',
-    # }
+    options.equation_of_state_type = 'linear'
+    options.equation_of_state_options.rho_ref = rho_0
+    options.equation_of_state_options.s_ref = 35.0
+    options.equation_of_state_options.th_ref = 5.0
+    options.equation_of_state_options.alpha = 0.2
+    options.equation_of_state_options.beta = 0.0
 
     if comm.size == 1:
         solver_obj.add_callback(RPECalculator(solver_obj))

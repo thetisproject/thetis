@@ -62,36 +62,38 @@ def run_bottom_friction(parabolic_visosity=False,
     solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
     options = solver_obj.options
     options.element_family = 'dg-dg'
-    options.solve_salt = False
-    options.solve_temp = False
-    options.solve_vert_diffusion = True
+    options.solve_salinity = False
+    options.solve_temperature = False
+    options.use_implicit_vertical_diffusion = True
     options.use_bottom_friction = True
     options.use_turbulence = not parabolic_visosity
     options.use_parabolic_viscosity = parabolic_visosity
-    options.v_viscosity = Constant(1.3e-6)  # background value
-    options.v_diffusivity = Constant(1.4e-7)  # background value
+    options.vertical_viscosity = Constant(1.3e-6)  # background value
+    options.vertical_diffusivity = Constant(1.4e-7)  # background value
     options.use_ale_moving_mesh = False
     options.use_limiter_for_tracers = True
-    options.t_export = t_export
-    options.dt = dt
-    options.t_end = t_end
+    options.simulation_export_time = t_export
+    options.timestep = dt
+    options.simulation_end_time = t_end
     options.no_exports = not do_export
-    options.outputdir = outputdir
-    options.u_advection = u_mag
+    options.output_directory = outputdir
+    options.horizontal_velocity_scale = Constant(u_mag)
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                                 'uv_dav_2d', 'uv_bottom_2d',
                                 'parab_visc_3d', 'eddy_visc_3d', 'shear_freq_3d',
                                 'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
     options.update(model_options)
-    if options['timestepper_type'] == 'leapfrog':
-        options['use_ale_moving_mesh'] = True
+    if options.timestepper_type == 'LeapFrog':
+        options.use_ale_moving_mesh = True
+    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
+        options.timestepper_options.use_automatic_timestep = False
 
     solver_obj.create_function_spaces()
 
     # drive flow with momentum source term equivalent to constant surface slope
     surf_slope = -1.0e-5  # d elev/dx
     pressure_grad = -physical_constants['g_grav'] * surf_slope
-    options.uv_source_2d = Constant((pressure_grad, 0))
+    options.momentum_source_2d = Constant((pressure_grad, 0))
 
     solver_obj.create_equations()
 
@@ -144,8 +146,8 @@ def element_family(request):
     return request.param
 
 
-@pytest.fixture(params=[pytest.mark.not_travis(reason='travis will timeout')('ssprk33'),
-                        'leapfrog', 'ssprk22'])
+@pytest.fixture(params=[pytest.mark.not_travis(reason='travis will timeout')('SSPRK33'),
+                        'LeapFrog', 'SSPRK22'])
 def timestepper_type(request):
     return request.param
 
@@ -157,5 +159,5 @@ def test_bottom_friction(parabolic_visosity, element_family, timestepper_type):
 
 if __name__ == '__main__':
     run_bottom_friction(parabolic_visosity=False,
-                        element_family='dg-dg', timestepper_type='ssprk22',
+                        element_family='dg-dg', timestepper_type='SSPRK22',
                         do_assert=True, do_export=True)

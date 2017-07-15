@@ -5,7 +5,7 @@ from thetis import *
 import pytest
 
 
-@pytest.mark.parametrize("n,dt,alpha,max_err", [(25, 300., 4., 0.009), (10, 600., 8., 0.06)], ids=['fine', 'coarse'])
+@pytest.mark.parametrize("n,dt,alpha,max_err", [(25, 300., 4., 0.009), (10, 600., 8., 0.07)], ids=['fine', 'coarse'])
 def test_thacker(n, dt, alpha, max_err):
     # Domain size
     l_mesh = 951646.46
@@ -28,15 +28,15 @@ def test_thacker(n, dt, alpha, max_err):
     solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry)
     options = solverObj.options
 
-    options.dt = dt
-    options.t_end = 43200 - 0.1*options.dt
-    options.t_export = options.dt
+    options.timestep = dt
+    options.simulation_end_time = 43200 - 0.1*options.timestep
+    options.simulation_export_time = options.timestep
     options.no_exports = True
-    options.timestepper_type = 'cranknicolson'
-    options.shallow_water_theta = 0.5
-    options.wetting_and_drying = True
-    options.wd_alpha = Constant(alpha)
-    options.solver_parameters_sw = {
+    options.timestepper_type = 'CrankNicolson'
+    options.use_wetting_and_drying = True
+    options.wetting_and_drying_alpha = Constant(alpha)
+    options.timestepper_options.implicitness_theta = 0.5
+    options.timestepper_options.solver_parameters = {
         'snes_type': 'newtonls',
         'snes_monitor': True,
         'ksp_type': 'gmres',

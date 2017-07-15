@@ -1,7 +1,7 @@
 # Stommel gyre test case in 3D
 # ============================
 #
-# Wind-driven geostrophic gyre in larege basin.
+# Wind-driven geostrophic gyre in large basin.
 # Setup is according to [1]. This version us for 3D equations. As the problem
 # is purely baroclinic the solution is the same as in 2D.
 #
@@ -11,6 +11,8 @@
 #     for Numerical Methods in Fluids, 63(6):701-724.
 #
 # Tuomas Karna 2015-04-28
+
+# NOTE this example is currently broken and must be fixed upstream
 
 from thetis import *
 
@@ -43,31 +45,32 @@ tau_max = 0.1
 wind_stress_2d.interpolate(Expression(('tau_max*sin(pi*(x[1]/L - 0.5))', '0'), tau_max=tau_max, L=lx))
 
 # linear dissipation: tau_bot/(h*rho) = -bf_gamma*u
-linear_drag = Constant(1e-6)
+linear_drag_coefficient = Constant(1e-6)
 
 # --- create solver ---
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solver_obj.options
-options.nonlin = False
-options.solve_salt = False
-options.solve_temp = False
-options.solve_vert_diffusion = False
+options.use_nonlinear_equations = False
+options.solve_salinity = False
+options.solve_temperature = False
+options.use_implicit_vertical_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = False
-options.use_linearized_semi_implicit_2d = True
-options.solver_parameters_sw['snes_type'] = 'ksponly'
-options.baroclinic = False
-options.coriolis = coriolis_2d
+options.use_baroclinic_formulation = False
+options.coriolis_frequency = coriolis_2d
 options.wind_stress = wind_stress_2d
-options.linear_drag = linear_drag
-options.t_export = t_export
-options.t_end = t_end
-options.dt_2d = 20.0
-options.dt = 450.0
-options.outputdir = outputdir
-options.u_advection = Constant(0.01)
-options.check_vol_conservation_2d = True
-options.check_vol_conservation_3d = True
+options.linear_drag_coefficient = linear_drag_coefficient
+options.simulation_export_time = t_export
+options.simulation_end_time = t_end
+options.timestepper_type = 'SSPRK22'
+options.timestepper_options.solver_parameters_2d_swe['snes_type'] = 'ksponly'
+options.timestepper_options.use_automatic_timestep = False
+options.timestep_2d = 20.0
+options.timestep = 450.0
+options.output_directory = outputdir
+options.horizontal_velocity_scale = Constant(0.01)
+options.check_volume_conservation_2d = True
+options.check_volume_conservation_3d = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'uv_dav_2d']
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d']

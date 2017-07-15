@@ -97,8 +97,8 @@ def setup9(x, lx, ly, h0, f0, nu0, g):
                         4: {'uv': None},
                         }
     out['options'] = {
-        'include_grad_div_viscosity_term': True,
-        'include_grad_depth_viscosity_term': True,
+        'use_grad_div_viscosity_term': True,
+        'use_grad_depth_viscosity_term': True,
     }
 
     return out
@@ -125,7 +125,7 @@ def run(setup, refinement, order, do_export=True, options=None,
     ny = 5*refinement
     mesh2d = RectangleMesh(nx, ny, lx, ly)
     dt = 4.0/refinement
-    if options is not None and options.get('timestepper_type') == 'cranknicolson':
+    if options is not None and options.get('timestepper_type') == 'CrankNicolson':
         dt *= 100.
 
     x = SpatialCoordinate(mesh2d)
@@ -143,19 +143,20 @@ def run(setup, refinement, order, do_export=True, options=None,
         raise Exception('Negative bathymetry')
 
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
-    solver_obj.options.order = order
+    solver_obj.options.polynomial_degree = order
     solver_obj.options.element_family = 'rt-dg'
-    solver_obj.options.u_advection = Constant(1.0)
+    solver_obj.options.horizontal_velocity_scale = Constant(1.0)
     solver_obj.options.no_exports = not do_export
-    solver_obj.options.outputdir = outputdir
-    solver_obj.options.t_end = t_end
-    solver_obj.options.dt = dt
-    solver_obj.options.t_export = t_export
-    # solver_obj.options.timestepper_type = 'cranknicolson'
+    solver_obj.options.output_directory = outputdir
+    solver_obj.options.simulation_end_time = t_end
+    solver_obj.options.timestep = dt
+    solver_obj.options.simulation_export_time = t_export
     if 'options' in sdict:
         solver_obj.options.update(sdict['options'])
     if options is not None:
         solver_obj.options.update(options)
+    if hasattr(solver_obj.options.timestepper_options, 'use_automatic_timestep'):
+        solver_obj.options.timestepper_options.use_automatic_timestep = False
 
     solver_obj.create_function_spaces()
 
@@ -172,17 +173,17 @@ def run(setup, refinement, order, do_export=True, options=None,
     source_uv.project(sdict['res_uv_expr'])
     source_elev = Function(solver_obj.function_spaces.H_2d, name='continuity source')
     source_elev.project(sdict['res_elev_expr'])
-    solver_obj.options.uv_source_2d = source_uv
-    solver_obj.options.elev_source_2d = source_elev
+    solver_obj.options.momentum_source_2d = source_uv
+    solver_obj.options.volume_source_2d = source_elev
     if 'cori_expr' in sdict:
         coriolis_func = Function(solver_obj.function_spaces.H_2d, name='coriolis')
         coriolis_func.project(sdict['cori_expr'])
-        solver_obj.options.coriolis = coriolis_func
+        solver_obj.options.coriolis_frequency = coriolis_func
     if 'visc_expr' in sdict:
         viscosity_space = FunctionSpace(solver_obj.mesh2d, "CG", order)
         viscosity_func = Function(viscosity_space, name='viscosity')
         viscosity_func.project(sdict['visc_expr'])
-        solver_obj.options.h_viscosity = viscosity_func
+        solver_obj.options.horizontal_viscosity = viscosity_func
 
     # functions for boundary conditions
     # analytical elevation
@@ -331,11 +332,11 @@ def setup(request):
 
 @pytest.fixture(params=[
     {'element_family': 'dg-dg',
-     'timestepper_type': 'cranknicolson'},
+     'timestepper_type': 'CrankNicolson'},
     pytest.mark.not_travis(reason='travis timeout')({'element_family': 'rt-dg',
-                                                     'timestepper_type': 'cranknicolson'}),
+                                                     'timestepper_type': 'CrankNicolson'}),
     pytest.mark.not_travis(reason='travis timeout')({'element_family': 'dg-cg',
-                                                     'timestepper_type': 'cranknicolson'})],
+                                                     'timestepper_type': 'CrankNicolson'})],
     ids=["dg-dg", "rt-dg", "dg-cg"]
 )
 def options(request):

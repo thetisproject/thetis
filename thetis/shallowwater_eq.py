@@ -43,7 +43,7 @@ Above :math:`r` denotes the baroclinic head
 In the case of purely barotropic problems the :math:`r` and the internal pressure
 gradient are omitted.
 
-If the option :attr:`.ModelOptions.nonlin` is ``False``, we solve the linear shallow water
+If the option :attr:`.ModelOptions.use_nonlinear_equations` is ``False``, we solve the linear shallow water
 equations (i.e. wave equation):
 
 .. math::
@@ -127,7 +127,7 @@ of each term:
 Wetting and drying
 ------------------
 
-If the option :attr:`.ModelOptions.wetting_and_drying` is ``True``, then wetting and
+If the option :attr:`.ModelOptions.use_wetting_and_drying` is ``True``, then wetting and
 drying is included through the formulation of Karna et al. (2011).
 
 The method introduces a modified bathymetry :math:`\tilde{h} = h + f(H)`, which ensures
@@ -140,8 +140,8 @@ introducing a wetting-drying parameter :math:`\alpha`, with dimensions of length
 results in a modified total water depth :math:`\tilde{H}=H+f(H)`.
 
 The value for :math:`\alpha` is specified by the user through the
-option :attr:`.ModelOptions.wd_alpha`, in units of meters. The default value
-for :attr:`.ModelOptions.wd_alpha` is 0.5, but the appropriate value is problem
+option :attr:`.ModelOptions.wetting_and_drying_alpha`, in units of meters. The default value
+for :attr:`.ModelOptions.wetting_and_drying_alpha` is 0.5, but the appropriate value is problem
 specific and should be set by the user.
 
 An approximate method for selecting a suitable value for :math:`\alpha` is suggested
@@ -273,15 +273,15 @@ class ShallowWaterTerm(Term):
         Karna et al.,  2011.
         """
         H = self.bathymetry + eta
-        return 0.5 * (sqrt(H ** 2 + self.options.wd_alpha ** 2) - H)
+        return 0.5 * (sqrt(H ** 2 + self.options.wetting_and_drying_alpha ** 2) - H)
 
     def get_total_depth(self, eta):
         """
         Returns total water column depth
         """
-        if self.options.nonlin:
+        if self.options.use_nonlinear_equations:
             total_h = self.bathymetry + eta
-            if self.options.wetting_and_drying:
+            if hasattr(self.options, 'use_wetting_and_drying') and self.options.use_wetting_and_drying:
                 total_h += self.wd_bathymetry_displacement(eta)
         else:
             total_h = self.bathymetry
@@ -462,9 +462,8 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
     jump and average operators across the interface.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
-        uv_lax_friedrichs = fields_old.get('uv_lax_friedrichs')
 
-        if not self.options.nonlin:
+        if not self.options.use_nonlinear_equations:
             return 0
 
         horiz_advection_by_parts = True
@@ -489,7 +488,8 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
                       uv_up[0]*jump(self.u_test[0], uv_old[1]*self.normal[1]) +
                       uv_up[1]*jump(self.u_test[1], uv_old[1]*self.normal[1]))*self.dS
                 # Lax-Friedrichs stabilization
-                if uv_lax_friedrichs is not None:
+                if self.options.use_lax_friedrichs_velocity:
+                    uv_lax_friedrichs = fields_old.get('lax_friedrichs_velocity_scaling_factor')
                     gamma = 0.5*abs(un_av)*uv_lax_friedrichs
                     f += gamma*dot(jump(self.u_test), jump(uv))*self.dS
                     for bnd_marker in self.boundary_markers:
@@ -521,7 +521,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
     r"""
     Viscosity of momentum term
 
-    If option :attr:`.ModelOptions.include_grad_div_viscosity_term` is ``True``, we
+    If option :attr:`.ModelOptions.use_grad_div_viscosity_term` is ``True``, we
     use the symmetric viscous stress :math:`\boldsymbol{\tau}_\nu = \nu_h ( \nabla \bar{\textbf{u}} + (\nabla \bar{\textbf{u}})^T )`.
     Using the symmetric interior penalty method the weak form then reads
 
@@ -535,7 +535,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
     where :math:`\sigma` is a penalty parameter,
     see Epshteyn and Riviere (2007).
 
-    If option :attr:`.ModelOptions.include_grad_div_viscosity_term` is ``False``,
+    If option :attr:`.ModelOptions.use_grad_div_viscosity_term` is ``False``,
     we use viscous stress :math:`\boldsymbol{\tau}_\nu = \nu_h \nabla \bar{\textbf{u}}`.
     In this case the weak form is
 
@@ -546,7 +546,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
         - \int_\Gamma \text{avg}(\nu_h)\text{jump}(\bar{\textbf{u}} \textbf{n}) \cdot \text{avg}(\nabla \boldsymbol{\psi}) dS \\
         &+ \int_\Gamma \sigma \text{avg}(\nu_h) \text{jump}(\bar{\textbf{u}} \textbf{n}) \cdot \text{jump}(\boldsymbol{\psi} \textbf{n}) dS
 
-    If option :attr:`.ModelOptions.include_grad_depth_viscosity_term` is ``True``, we also include
+    If option :attr:`.ModelOptions.use_grad_depth_viscosity_term` is ``True``, we also include
     the term
 
     .. math::
@@ -571,7 +571,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
         n = self.normal
         h = self.cellsize
 
-        if self.options.include_grad_div_viscosity_term:
+        if self.options.use_grad_div_viscosity_term:
             stress = nu*2.*sym(grad(uv))
             stress_jump = avg(nu)*2.*sym(tensor_jump(uv, n))
         else:
@@ -608,7 +608,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
                             continue
                         delta_uv = uv - uv_ext
 
-                    if self.options.include_grad_div_viscosity_term:
+                    if self.options.use_grad_div_viscosity_term:
                         stress_jump = nu*2.*sym(outer(delta_uv, n))
                     else:
                         stress_jump = nu*outer(delta_uv, n)
@@ -619,7 +619,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
                         - inner(outer(self.u_test, n), stress)*ds_bnd
                     )
 
-        if self.options.include_grad_depth_viscosity_term:
+        if self.options.use_grad_depth_viscosity_term:
             f += -dot(self.u_test, dot(grad(total_h)/total_h, stress))*self.dx
 
         return -f
@@ -676,18 +676,18 @@ class QuadraticDragTerm(ShallowWaterMomentumTerm):
     .. math::
         C_D = g \frac{\mu^2}{H^{1/3}}
 
-    if the Manning coefficient :math:`\mu` is defined (see field :attr:`mu_manning`).
-    Otherwise :math:`C_D` is taken as a constant (see field :attr:`quadratic_drag`).
+    if the Manning coefficient :math:`\mu` is defined (see field :attr:`manning_drag_coefficient`).
+    Otherwise :math:`C_D` is taken as a constant (see field :attr:`quadratic_drag_coefficient`).
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
-        mu_manning = fields_old.get('mu_manning')
-        C_D = fields_old.get('quadratic_drag')
+        manning_drag_coefficient = fields_old.get('manning_drag_coefficient')
+        C_D = fields_old.get('quadratic_drag_coefficient')
         f = 0
-        if mu_manning is not None:
+        if manning_drag_coefficient is not None:
             if C_D is not None:
                 raise Exception('Cannot set both dimensionless and Manning drag parameter')
-            C_D = g_grav * mu_manning**2 / total_h**(1./3.)
+            C_D = g_grav * manning_drag_coefficient**2 / total_h**(1./3.)
 
         if C_D is not None:
             f += C_D * sqrt(dot(uv_old, uv_old)) * inner(self.u_test, uv) / total_h * self.dx
@@ -701,10 +701,10 @@ class LinearDragTerm(ShallowWaterMomentumTerm):
     Here :math:`C` is a user-defined drag coefficient.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
-        linear_drag = fields_old.get('linear_drag')
+        linear_drag_coefficient = fields_old.get('linear_drag_coefficient')
         f = 0
-        if linear_drag is not None:
-            bottom_fri = linear_drag*inner(self.u_test, uv)*self.dx
+        if linear_drag_coefficient is not None:
+            bottom_fri = linear_drag_coefficient*inner(self.u_test, uv)*self.dx
             f += bottom_fri
         return -f
 
@@ -747,10 +747,10 @@ class MomentumSourceTerm(ShallowWaterMomentumTerm):
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
-        uv_source = fields_old.get('uv_source')
+        momentum_source = fields_old.get('momentum_source')
 
-        if uv_source is not None:
-            f += -inner(uv_source, self.u_test)*self.dx
+        if momentum_source is not None:
+            f += -inner(momentum_source, self.u_test)*self.dx
         return -f
 
 
@@ -770,10 +770,10 @@ class ContinuitySourceTerm(ShallowWaterContinuityTerm):
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
-        elev_source = fields_old.get('elev_source')
+        volume_source = fields_old.get('volume_source')
 
-        if elev_source is not None:
-            f += -inner(elev_source, self.eta_test)*self.dx
+        if volume_source is not None:
+            f += -inner(volume_source, self.eta_test)*self.dx
         return -f
 
 
@@ -793,7 +793,7 @@ class BathymetryDisplacementMassTerm(ShallowWaterContinuityTerm):
         else:
             uv, eta = split(solution)
         f = 0
-        if self.options.wetting_and_drying:
+        if self.options.use_wetting_and_drying:
             f += inner(self.wd_bathymetry_displacement(eta), self.eta_test)*self.dx
         return f
 

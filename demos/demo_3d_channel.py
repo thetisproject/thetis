@@ -41,13 +41,13 @@ solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 
 options = solver_obj.options
 options.element_family = 'dg-dg'
-options.timestepper_type = 'ssprk22'
-options.solve_vert_diffusion = False
+options.timestepper_type = 'SSPRK22'
+options.use_implicit_vertical_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = True
 options.use_limiter_for_tracers = True
-options.t_export = 900.0
-options.t_end = 24 * 3600
+options.simulation_export_time = 900.0
+options.simulation_end_time = 24 * 3600
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d', 'baroc_head_3d',
                             'uv_dav_2d', 'uv_bottom_2d']
@@ -56,14 +56,14 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
 # affect water density), but we still wish to simulate salinity as a passive
 # tracer::
 
-options.baroclinic = False
-options.solve_salt = True
-options.solve_temp = False
+options.use_baroclinic_formulation = False
+options.solve_salinity = True
+options.solve_temperature = False
 
 # We also want to see how much the salinity value deviates from its initial
 # value::
 
-options.check_salt_overshoot = True
+options.check_salinity_overshoot = True
 
 # In this simulation we do not set the time step manually but instead use the
 # automatic time step estimation of Thetis. Time step is estimated based on the
@@ -72,8 +72,8 @@ options.check_salt_overshoot = True
 
 u_max = 0.5
 w_max = 2e-4
-options.u_advection = Constant(u_max)
-options.w_advection = Constant(w_max)
+options.horizontal_velocity_scale = Constant(u_max)
+options.vertical_velocity_scale = Constant(w_max)
 
 
 # Next we define the boundary conditions. Note that in a 3D model there are

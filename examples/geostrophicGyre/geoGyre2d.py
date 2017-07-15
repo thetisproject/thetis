@@ -39,16 +39,17 @@ coriolis_2d.interpolate(
 # --- create solver ---
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
-options.nonlin = False
-options.coriolis = coriolis_2d
-options.t_export = t_export
-options.t_end = t_end
-options.dt = 20.0
-options.outputdir = outputdir
-options.u_advection = Constant(0.01)
-options.check_vol_conservation_2d = True
-options.fields_to_export = ['uv_2d', 'elev_2d']
+options.use_nonlinear_equations = False
+options.coriolis_frequency = coriolis_2d
+options.simulation_export_time = t_export
+options.simulation_end_time = t_end
 options.timestepper_type = 'CrankNicolson'
+options.timestepper_options.use_automatic_timestep = False
+options.timestep = 20.0
+options.output_directory = outputdir
+options.horizontal_velocity_scale = Constant(0.01)
+options.check_volume_conservation_2d = True
+options.fields_to_export = ['uv_2d', 'elev_2d']
 
 solver_obj.create_equations()
 sigma = 160.0e3

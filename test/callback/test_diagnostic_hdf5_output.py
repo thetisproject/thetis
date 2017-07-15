@@ -45,20 +45,22 @@ def test_callbacks(tmp_outputdir):
     # create solver
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     options = solver_obj.options
-    options.nonlin = False
-    options.solve_salt = True
-    options.solve_temp = False
-    options.solve_vert_diffusion = False
+    options.use_nonlinear_equations = False
+    options.solve_salinity = True
+    options.solve_temperature = False
+    options.use_implicit_vertical_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = False
-    options.dt = dt/40.0
-    options.t_export = t_export
-    options.t_end = t_end
-    options.u_advection = u_mag
-    options.check_salt_conservation = True
-    options.check_salt_overshoot = True
-    options.check_vol_conservation_2d = True
-    options.check_vol_conservation_3d = True
+    options.timestepper_type = 'SSPRK22'
+    options.timestepper_options.use_automatic_timestep = False
+    options.timestep = dt/40.0
+    options.simulation_export_time = t_export
+    options.simulation_end_time = t_end
+    options.horizontal_velocity_scale = Constant(u_mag)
+    options.check_salinity_conservation = True
+    options.check_salinity_overshoot = True
+    options.check_volume_conservation_2d = True
+    options.check_volume_conservation_3d = True
     options.fields_to_export = []
     options.fields_to_export_hdf5 = []
 
@@ -97,7 +99,7 @@ def test_callbacks(tmp_outputdir):
     cb = ConstCallback(const_value,
                        solver_obj,
                        export_to_hdf5=True,
-                       outputdir=solver_obj.options.outputdir)
+                       outputdir=solver_obj.options.output_directory)
 
     # test call interface
     val, integral = cb()
@@ -119,7 +121,7 @@ def test_callbacks(tmp_outputdir):
         value = h5file['constant'][:]
         integral = h5file['integral'][:]
         correct_time = np.arange(11, dtype=float)[:, np.newaxis]
-        correct_time *= solver_obj.options.t_export
+        correct_time *= solver_obj.options.simulation_export_time
         correct_value = np.ones_like(correct_time)*const_value
         correct_integral = np.ones_like(correct_time)*const_value*lx*ly*depth
         assert np.allclose(time, correct_time)
@@ -131,7 +133,7 @@ def test_callbacks(tmp_outputdir):
         reldiff = h5file['relative_difference'][:]
         integral = h5file['integral'][:]
         correct_time = np.arange(11, dtype=float)[:, np.newaxis]
-        correct_time *= solver_obj.options.t_export
+        correct_time *= solver_obj.options.simulation_export_time
         correct_integral = np.ones_like(correct_time)*lx*ly*depth
         correct_reldiff = np.zeros_like(correct_time)
         assert np.allclose(time, correct_time)
@@ -143,7 +145,7 @@ def test_callbacks(tmp_outputdir):
         reldiff = h5file['relative_difference'][:]
         integral = h5file['integral'][:]
         correct_time = np.arange(11, dtype=float)[:, np.newaxis]
-        correct_time *= solver_obj.options.t_export
+        correct_time *= solver_obj.options.simulation_export_time
         correct_integral = np.ones_like(correct_time)*lx*ly*depth*3.45
         correct_reldiff = np.zeros_like(correct_time)
         assert np.allclose(time, correct_time)

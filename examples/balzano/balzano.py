@@ -46,31 +46,25 @@ x = SpatialCoordinate(mesh2d)
 bathymetry.interpolate(x[0] / 2760.0)
 
 # bottom friction suppresses reflection from wet-dry front
-mu_manning = Constant(0.02)
+manning_drag_coefficient = Constant(0.02)
 # wetting-drying options
-wetting_and_drying = True
-wd_alpha = Constant(0.4)
+use_wetting_and_drying = True
+wetting_and_drying_alpha = Constant(0.4)
 
 # --- create solver ---
 solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry)
 options = solverObj.options
-options.t_export = t_export
-options.t_end = t_end
-options.outputdir = outputdir
-options.check_vol_conservation_2d = True
+options.simulation_export_time = t_export
+options.simulation_end_time = t_end
+options.output_directory = outputdir
+options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
-options.timestepper_type = 'cranknicolson'
-options.shallow_water_theta = 0.5
-options.wetting_and_drying = wetting_and_drying
-options.wd_alpha = wd_alpha
-options.mu_manning = mu_manning
-options.dt = dt
-options.solver_parameters_sw = {
-    'snes_type': 'newtonls',
-    'snes_monitor': True,
-    'ksp_type': 'gmres',
-    'pc_type': 'fieldsplit',
-}
+options.timestepper_type = 'CrankNicolson'
+options.timestepper_options.implicitness_theta = 0.5
+options.use_wetting_and_drying = use_wetting_and_drying
+options.wetting_and_drying_alpha = wetting_and_drying_alpha
+options.manning_drag_coefficient = manning_drag_coefficient
+options.timestep = dt
 
 # boundary conditions
 h_amp = -2.0      # ocean boundary forcing amplitude

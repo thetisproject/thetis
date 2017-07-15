@@ -35,11 +35,12 @@ def basic_setup():
     # --- create solver ---
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     options = solver_obj.options
-    options.t_export = t_export
-    options.check_vol_conservation_2d = True
+    options.simulation_export_time = t_export
+    options.check_volume_conservation_2d = True
     options.fields_to_export = ['uv_2d', 'elev_2d']
-    options.dt = timestep  # override computed dt
-    options.h_viscosity = Constant(2.0)
+    options.timestepper_type = 'CrankNicolson'
+    options.timestep = timestep
+    options.horizontal_viscosity = Constant(2.0)
 
     # create function spaces
     solver_obj.create_function_spaces()
@@ -54,7 +55,7 @@ def basic_setup():
     sigma = 20.0
     drag_func.project(drag_center*exp(-((x[0]-x0)**2 + (x[1]-y0)**2)/sigma**2) + drag_bg, annotate=False)
     # assign fiction field
-    options.quadratic_drag = drag_func
+    options.quadratic_drag_coefficient = drag_func
 
     # assign boundary conditions
     inflow_tag = 1
@@ -69,10 +70,10 @@ def basic_setup():
 
 def setup_steady():
     solver_obj = basic_setup()
-    solver_obj.options.timestepper_type = 'steadystate'
-    solver_obj.options.t_end = 0.499
+    solver_obj.options.timestepper_type = 'SteadyState'
+    solver_obj.options.simulation_end_time = 0.499
     # firedrake-adjoint does not remember that in the adjoint solve
-    solver_obj.options.solver_parameters_sw = {
+    solver_obj.options.timestepper_options.solver_parameters = {
         'mat_type': 'aij',
         'ksp_type': 'preonly',
         'pc_type': 'lu',
@@ -86,10 +87,10 @@ def setup_steady():
 
 def setup_unsteady():
     solver_obj = basic_setup()
-    solver_obj.options.timestepper_type = 'cranknicolson'
-    solver_obj.options.t_end = 2.0
-    solver_obj.options.shallow_water_theta = 1.0
-    solver_obj.options.solver_parameters_sw = {
+    solver_obj.options.timestepper_type = 'CrankNicolson'
+    solver_obj.options.simulation_end_time = 2.0
+    solver_obj.options.timestepper_options.implicitness_theta = 1.0
+    solver_obj.options.timestepper_options.solver_parameters = {
         'mat_type': 'aij',
         'ksp_type': 'preonly',
         'pc_type': 'lu',
@@ -112,7 +113,7 @@ def run_model(solver_obj):
 def make_python_functional(solver_obj, functional_expr):
     """Returns a python function that runs the model for a given drag and returns the assembled functional value."""
     def jfunc(drag):
-        solver_obj.options.quadratic_drag.assign(drag)
+        solver_obj.options.quadratic_drag_coefficient.assign(drag)
         run_model(solver_obj)
         return assemble(functional_expr)
     return jfunc
@@ -128,7 +129,7 @@ def test_gradient_from_adjoint(setup):
     integral = solver_obj.fields.solution_2d[0]*dx
     jfunc = make_python_functional(solver_obj, integral)
 
-    drag_func = solver_obj.options.quadratic_drag
+    drag_func = solver_obj.options.quadratic_drag_coefficient
     J0 = jfunc(drag_func)  # first run, recorded by firedrake_adjoint
 
     J = Functional(integral*dt[FINISH_TIME], name="MyFunctional")

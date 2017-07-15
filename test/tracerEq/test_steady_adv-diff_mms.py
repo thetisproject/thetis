@@ -152,14 +152,14 @@ def run(setup, refinement, order, do_export=True, **options):
 
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     solver_obj.options.element_family = 'dg-dg'
-    solver_obj.options.order = order
-    solver_obj.options.u_advection = Constant(1.0)
+    solver_obj.options.polynomial_degree = order
+    solver_obj.options.horizontal_velocity_scale = Constant(1.0)
     solver_obj.options.no_exports = not do_export
-    solver_obj.options.outputdir = outputdir
-    solver_obj.options.t_end = t_end
+    solver_obj.options.output_directory = outputdir
+    solver_obj.options.simulation_end_time = t_end
     solver_obj.options.fields_to_export = ['salt_3d', 'uv_3d', 'w_3d']
     solver_obj.options.update(sdict['options'])
-    solver_obj.options.nu_viscosity = Constant(kappa0)
+    solver_obj.options.horizontal_viscosity_scale = Constant(kappa0)
     solver_obj.options.update(options)
 
     solver_obj.create_function_spaces()
@@ -167,12 +167,12 @@ def run(setup, refinement, order, do_export=True, **options):
     # functions for source terms
     source_salt = Function(solver_obj.function_spaces.H, name='salinity source')
     source_salt.project(sdict['res_expr'])
-    solver_obj.options.salt_source_3d = source_salt
+    solver_obj.options.salinity_source_3d = source_salt
 
     # diffusivuty
     kappa = Function(solver_obj.function_spaces.P1, name='diffusivity')
     kappa.project(sdict['kappa_expr'])
-    solver_obj.options.h_diffusivity = kappa
+    solver_obj.options.horizontal_diffusivity = kappa
 
     # analytical solution in high-order space for computing L2 norms
     h_ho = FunctionSpace(solver_obj.mesh, 'DG', order+3)
@@ -281,7 +281,7 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False, **
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=['leapfrog', 'ssprk22'])
+@pytest.fixture(params=['LeapFrog', 'SSPRK22'])
 def timestepper_type(request):
     return request.param
 
@@ -311,4 +311,4 @@ def test_convergence(setup, timestepper_type):
 
 
 if __name__ == '__main__':
-    run_convergence(setup4, [1, 2, 3], 1, save_plot=True, timestepper_type='ssprk22')
+    run_convergence(setup4, [1, 2, 3], 1, save_plot=True, timestepper_type='SSPRK22')

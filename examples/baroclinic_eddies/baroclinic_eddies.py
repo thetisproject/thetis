@@ -92,53 +92,59 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     # create solver
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, nlayers)
     options = solver_obj.options
-    options.order = poly_order
+    options.polynomial_degree = poly_order
     options.element_family = element_family
-    options.timestepper_type = 'leapfrog'
-    options.solve_salt = False
-    options.constant_salt = Constant(salt_const)
-    options.solve_temp = True
-    options.solve_vert_diffusion = True
+    options.timestepper_type = 'SSPRK22'
+    options.solve_salinity = False
+    options.constant_salinity = Constant(salt_const)
+    options.solve_temperature = True
+    options.use_implicit_vertical_diffusion = True
     options.use_bottom_friction = True
-    options.quadratic_drag = Constant(bottom_drag)
-    options.baroclinic = True
-    options.coriolis = Constant(f_cori)
-    options.uv_lax_friedrichs = Constant(laxfriedrichs)
-    options.tracer_lax_friedrichs = Constant(laxfriedrichs)
-    # options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
+    options.quadratic_drag_coefficient = Constant(bottom_drag)
+    options.use_baroclinic_formulation = True
+    options.coriolis_frequency = Constant(f_cori)
+    if laxfriedrichs > 0.0:
+        options.use_lax_friedrichs_velocity = True
+        options.use_lax_friedrichs_tracer = True
+        options.lax_friedrichs_velocity_scaling_factor = Constant(laxfriedrichs)
+        options.lax_friedrichs_tracer_scaling_factor = Constant(laxfriedrichs)
+    else:
+        options.use_lax_friedrichs_velocity = False
+        options.use_lax_friedrichs_tracer = False
     options.use_limiter_for_tracers = True
-    options.v_viscosity = Constant(1.0e-4)
+    options.vertical_viscosity = Constant(1.0e-4)
     if viscosity == 'smag':
-        options.smagorinsky_factor = Constant(1.0/np.sqrt(reynolds_number))
-        options.nu_viscosity = Constant(nu_scale)
+        options.use_smagorinsky_viscosity = True
+        options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
+        options.horizontal_viscosity_scale = Constant(nu_scale)
     elif viscosity == 'const':
-        options.h_viscosity = Constant(nu_scale)
-        options.nu_viscosity = Constant(nu_scale)
+        options.horizontal_viscosity = Constant(nu_scale)
+        options.horizontal_viscosity_scale = Constant(nu_scale)
     elif viscosity != 'none':
         raise Exception('Unknow viscosity type {:}'.format(viscosity))
-    options.h_diffusivity = None
-    options.dt = dt
-    options.t_export = t_export
-    options.t_end = t_end
-    options.outputdir = outputdir
-    options.u_advection = Constant(u_max)
-    options.w_advection = Constant(w_max)
-    options.check_vol_conservation_2d = True
-    options.check_vol_conservation_3d = True
-    options.check_temp_conservation = True
-    options.check_temp_overshoot = True
+    options.horizontal_diffusivity = None
+    if dt is not None:
+        options.timestepper_options.use_automatic_timestep = False
+        options.timestep = dt
+    options.simulation_export_time = t_export
+    options.simulation_end_time = t_end
+    options.output_directory = outputdir
+    options.horizontal_velocity_scale = Constant(u_max)
+    options.vertical_velocity_scale = Constant(w_max)
+    options.check_volume_conservation_2d = True
+    options.check_volume_conservation_3d = True
+    options.check_temperature_conservation = True
+    options.check_temperature_overshoot = True
     options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'temp_3d', 'salt_3d', 'density_3d',
                                 'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                                 'smag_visc_3d']
-    options.equation_of_state = 'linear'
-    options.lin_equation_of_state_params = {
-        'rho_ref': rho_0,
-        's_ref': salt_const,
-        'th_ref': 5.0,
-        'alpha': 0.2,
-        'beta': 0.0,
-    }
+    options.equation_of_state_type = 'linear'
+    options.equation_of_state_options.rho_ref = rho_0
+    options.equation_of_state_options.s_ref = salt_const
+    options.equation_of_state_options.th_ref = 5.0
+    options.equation_of_state_options.alpha = 0.2
+    options.equation_of_state_options.beta = 0.0
 
     solver_obj.add_callback(RPECalculator(solver_obj))
 

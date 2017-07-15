@@ -57,21 +57,22 @@ bathymetry2d.assign(depth)
 solver_obj = solver.FlowSolver(mesh2d, bathymetry2d, layers)
 options = solver_obj.options
 options.element_family = 'dg-dg'
-options.timestepper_type = 'leapfrog'
-options.solve_salt = False
-options.solve_temp = False
-options.solve_vert_diffusion = True
+options.timestepper_type = 'SSPRK22'
+options.solve_salinity = False
+options.solve_temperature = False
+options.use_implicit_vertical_diffusion = True
 options.use_bottom_friction = True
 options.use_turbulence = True
 options.use_parabolic_viscosity = False
-options.v_viscosity = Constant(1.3e-6)  # background value
-options.v_diffusivity = Constant(1.4e-7)  # background value
+options.vertical_viscosity = Constant(1.3e-6)  # background value
+options.vertical_diffusivity = Constant(1.4e-7)  # background value
 # options.use_ale_moving_mesh = False
 options.use_limiter_for_tracers = True
-options.t_export = t_export
-options.dt = dt
-options.t_end = t_end
-options.u_advection = u_mag
+options.simulation_export_time = t_export
+options.timestepper_options.use_automatic_timestep = False
+options.timestep = dt
+options.simulation_end_time = t_end
+options.horizontal_velocity_scale = Constant(u_mag)
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'uv_dav_2d', 'uv_bottom_2d',
                             'parab_visc_3d', 'eddy_visc_3d', 'shear_freq_3d',
@@ -82,16 +83,16 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d', 'uv_bottom_2d',
                                  'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
 gls_options = options.gls_options
 gls_options.apply_defaults('k-omega')
-gls_options.stability_name = 'CB'
-options.outputdir = outputdir + '_' + gls_options.closure_name + '-' + gls_options.stability_name
-print_output('Exporting to ' + options.outputdir)
+gls_options.stability_function_name = 'Canuto B'
+options.output_directory = outputdir + '_' + gls_options.closure_name + '-' + gls_options.stability_function_name
+print_output('Exporting to ' + options.output_directory)
 
 solver_obj.create_function_spaces()
 
 # drive flow with momentum source term equivalent to constant surface slope
 surf_slope = -1.0e-5  # d elev/dx
 pressure_grad = -physical_constants['g_grav'] * surf_slope
-options.uv_source_2d = Constant((pressure_grad, 0))
+options.momentum_source_2d = Constant((pressure_grad, 0))
 
 solver_obj.create_equations()
 
@@ -116,7 +117,7 @@ if __name__ == '__main__':
     u_b = u_max * kappa / np.log((depth + z_0)/z_0)
     log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')
     log_uv.project(as_vector((u_b / kappa * ln((xyz[2] + depth + z_0)/z_0), 0, 0)))
-    out = File(options.outputdir + '/log_uv.pvd')
+    out = File(options.output_directory + '/log_uv.pvd')
     out.write(log_uv)
 
     uv_p1_dg = Function(solver_obj.function_spaces.P1DGv, name='velocity p1dg')

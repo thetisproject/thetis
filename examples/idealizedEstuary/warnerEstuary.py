@@ -59,29 +59,30 @@ simple_barotropic = False  # for testing flux boundary conditions
 solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solverobj.options
 options.element_family = 'dg-dg'
-options.timestepper_type = 'ssprk22'
-options.solve_salt = not simple_barotropic
-options.solve_temp = False
-options.constant_temp = Constant(temp_const)
-options.solve_vert_diffusion = not simple_barotropic
+options.timestepper_type = 'SSPRK22'
+options.solve_salinity = not simple_barotropic
+options.solve_temperature = False
+options.constant_temperature = Constant(temp_const)
+options.use_implicit_vertical_diffusion = not simple_barotropic
 options.use_bottom_friction = not simple_barotropic
 options.use_turbulence = not simple_barotropic
 options.use_turbulence_advection = not simple_barotropic
-options.baroclinic = not simple_barotropic
-options.uv_lax_friedrichs = Constant(1.0)
-options.tracer_lax_friedrichs = Constant(1.0)
-# options.h_diffusivity = Constant(50.0)
-# options.h_viscosity = Constant(50.0)
-options.v_viscosity = Constant(1.3e-6)  # background value
-options.v_diffusivity = Constant(1.4e-7)  # background value
+options.use_baroclinic_formulation = not simple_barotropic
+options.use_lax_friedrichs_velocity = True
+options.use_lax_friedrichs_tracer = True
+# options.horizontal_diffusivity = Constant(50.0)
+# options.horizontal_viscosity = Constant(50.0)
+options.vertical_viscosity = Constant(1.3e-6)  # background value
+options.vertical_diffusivity = Constant(1.4e-7)  # background value
 options.use_limiter_for_tracers = True
 Re_h = 5.0
-options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
-options.t_export = t_export
-options.t_end = t_end
-options.outputdir = outputdir
-options.u_advection = Constant(2.0)
-options.check_salt_overshoot = True
+options.use_smagorinsky_viscosity = True
+options.smagorinsky_coefficient = Constant(1.0/np.sqrt(Re_h))
+options.simulation_export_time = t_export
+options.simulation_end_time = t_end
+options.output_directory = outputdir
+options.horizontal_velocity_scale = Constant(2.0)
+options.check_salinity_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d', 'density_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
@@ -96,7 +97,7 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
                                  'eps_3d', 'len_3d']
 gls_options = options.gls_options
 gls_options.apply_defaults('k-omega')
-gls_options.stability_name = 'CB'
+gls_options.stability_function_name = 'Canuto B'
 
 solverobj.create_function_spaces()
 

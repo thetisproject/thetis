@@ -72,44 +72,41 @@ solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solver_obj.options
 options.element_family = 'dg-dg'
 outputdir += '_' + options.element_family
-options.timestepper_type = 'ssprk22'
-# options.timestepper_type = 'leapfrog'
-options.solve_salt = True
-options.solve_temp = True
-options.solve_vert_diffusion = False
+options.timestepper_type = 'SSPRK22'
+# options.timestepper_type = 'LeapFrog'
+options.solve_salinity = True
+options.solve_temperature = True
+options.use_implicit_vertical_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = True
-options.baroclinic = True
-options.uv_lax_friedrichs = Constant(1.0)
-options.tracer_lax_friedrichs = Constant(1.0)
-# options.smagorinsky_factor = Constant(1.0/np.sqrt(Re_h))
-options.coriolis = Constant(setup.f_0)
+options.use_baroclinic_formulation = True
+options.use_lax_friedrichs_velocity = True
+options.use_lax_friedrichs_tracer = True
+options.coriolis_frequency = Constant(setup.f_0)
 options.use_limiter_for_tracers = True
-options.v_viscosity = Constant(1.0e-2)
-options.h_viscosity = Constant(nu_scale)
-options.h_diffusivity = None
+options.vertical_viscosity = Constant(1.0e-2)
+options.horizontal_viscosity = Constant(nu_scale)
+options.horizontal_diffusivity = None
 options.use_quadratic_pressure = True
-options.t_export = t_export
-options.t_end = t_end
-options.outputdir = outputdir
-options.nu_viscosity = Constant(nu_scale)
-options.u_advection = Constant(u_max)
-options.w_advection = Constant(w_max)
-options.check_temp_overshoot = True
-options.check_salt_overshoot = True
+options.simulation_export_time = t_export
+options.simulation_end_time = t_end
+options.output_directory = outputdir
+options.horizontal_viscosity_scale = Constant(nu_scale)
+options.horizontal_velocity_scale = Constant(u_max)
+options.vertical_velocity_scale = Constant(w_max)
+options.check_temperature_overshoot = True
+options.check_salinity_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'temp_3d', 'salt_3d',
                             'density_3d', 'uv_dav_2d', 'uv_dav_3d',
-                            'baroc_head_3d', 'smag_visc_3d',
+                            'baroc_head_3d',
                             'int_pg_3d', 'hcc_metric_3d']
-options.equation_of_state = 'linear'
-options.lin_equation_of_state_params = {
-    'rho_ref': setup.rho_0,
-    's_ref': setup.salt_const,
-    'th_ref': setup.temp_lim[1],
-    'alpha': setup.alpha,
-    'beta': setup.beta,
-}
+options.equation_of_state_type = 'linear'
+options.equation_of_state_options.rho_ref = setup.rho_0
+options.equation_of_state_options.s_ref = setup.salt_const
+options.equation_of_state_options.th_ref = setup.temp_lim[1]
+options.equation_of_state_options.alpha = setup.alpha
+options.equation_of_state_options.beta = setup.beta
 
 solver_obj.create_function_spaces()
 
@@ -212,7 +209,7 @@ hcc_obj.solve()
 print_output('Running DOME problem with options:')
 print_output('Resolution: {:}'.format(reso_str))
 print_output('Element family: {:}'.format(options.element_family))
-print_output('Polynomial order: {:}'.format(options.order))
+print_output('Polynomial order: {:}'.format(options.polynomial_degree))
 print_output('Reynolds number: {:}'.format(reynolds_number))
 print_output('Number of cores: {:}'.format(comm.size))
 print_output('Mesh resolution dx={:} nlayers={:} dz={:}'.format(delta_x, n_layers, delta_z))

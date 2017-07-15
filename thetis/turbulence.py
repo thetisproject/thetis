@@ -71,10 +71,10 @@ The parameters can be accessed from the solver object:
 .. code-block:: python
 
     solver = FlowSolver(...)
-    solver.options.turbulence_model = 'gls'  # activate GLS model (default)
+    solver.options.turbulence_model_type = 'gls'  # activate GLS model (default)
     gls_options = solver.options.gls_options
     gls_options.closure_name = 'k-omega'
-    gls_options.stability_name = 'CB'
+    gls_options.stability_function_name = 'CB'
     gls_options.compute_c3_minus = True
 
 Currently the following closures have been implemented:
@@ -160,7 +160,7 @@ class GLSModelOptions(AttrDict):
         - ``k-omega``: k-epsilon setup
         - ``gen``: Generic Length Scale setup A
         """
-        self.stability_name = 'CA'
+        self.stability_function_name = 'CA'
         """str: name of used stability function family
 
         'CA': Canuto A
@@ -672,26 +672,27 @@ class GenericLengthScaleModel(object):
         # parameter to mix old and new viscosity values (1 => new only)
         self.relaxation = 1.0
 
-        self.options = GLSModelOptions()
         if options is not None:
-            self.options.update(options)
+            self.options = options
+        else:
+            self.options = GLSModelOptions()
 
         o = self.options
-        stability_name = o.stability_name
+        stability_function_name = o.stability_function_name
         stab_args = {'lim_alpha_shear': True,
                      'lim_alpha_buoy': True,
                      'smooth_alpha_buoy_lim': False}
-        if stability_name == 'KC':
+        if stability_function_name == 'Kantha-Clayson':
             self.stability_func = StabilityFunctionKanthaClayson(**stab_args)
-        elif stability_name == 'CA':
+        elif stability_function_name == 'Canuto A':
             self.stability_func = StabilityFunctionCanutoA(**stab_args)
-        elif stability_name == 'CB':
+        elif stability_function_name == 'Canuto B':
             self.stability_func = StabilityFunctionCanutoB(**stab_args)
-        elif stability_name == 'CH':
+        elif stability_function_name == 'Cheng':
             self.stability_func = StabilityFunctionCheng(**stab_args)
         else:
             raise Exception('Unknown stability function type: ' +
-                            stability_name)
+                            stability_function_name)
 
         if o.compute_cmu0:
             o.cmu0 = self.stability_func.compute_cmu0()

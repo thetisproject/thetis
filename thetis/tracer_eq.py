@@ -37,7 +37,7 @@ class TracerTerm(Term):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 use_symmetric_surf_bnd=True):
+                 use_symmetric_surf_bnd=True, use_lax_friedrichs=True):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -57,6 +57,7 @@ class TracerTerm(Term):
         self.horizontal_dg = continuity.horizontal == 'dg'
         self.vertical_dg = continuity.vertical == 'dg'
         self.use_symmetric_surf_bnd = use_symmetric_surf_bnd
+        self.use_lax_friedrichs = use_lax_friedrichs
 
         # define measures with a reasonable quadrature degree
         p, q = self.function_space.ufl_element().degree()
@@ -142,7 +143,7 @@ class HorizontalAdvectionTerm(TracerTerm):
         uv_p1 = fields_old.get('uv_p1')
         uv_mag = fields_old.get('uv_mag')
         # FIXME is this an option?
-        lax_friedrichs_factor = fields_old.get('lax_friedrichs_factor')
+        lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
 
         f = 0
         f += -solution*inner(uv, nabla_grad(self.test))*self.dx
@@ -160,7 +161,7 @@ class HorizontalAdvectionTerm(TracerTerm):
                        uv_av[1]*jump(self.test, self.normal[1]) +
                        uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_h)
             # Lax-Friedrichs stabilization
-            if lax_friedrichs_factor is not None:
+            if self.use_lax_friedrichs:
                 if uv_p1 is not None:
                     gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
                                      avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
@@ -216,7 +217,7 @@ class VerticalAdvectionTerm(TracerTerm):
         if w is None:
             return 0
         w_mesh = fields_old.get('w_mesh')
-        lax_friedrichs_factor = fields_old.get('lax_friedrichs_factor')
+        lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
 
         vertvelo = w[2]
         if w_mesh is not None:
@@ -228,7 +229,7 @@ class VerticalAdvectionTerm(TracerTerm):
             s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
             c_up = solution('-')*s + solution('+')*(1-s)
             f += c_up*w_av*jump(self.test, self.normal[2])*self.dS_h
-            if lax_friedrichs_factor is not None:
+            if self.use_lax_friedrichs:
                 # Lax-Friedrichs
                 gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
                 f += gamma*dot(jump(self.test), jump(solution))*self.dS_h
@@ -405,7 +406,7 @@ class TracerEquation(Equation):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 use_symmetric_surf_bnd=True):
+                 use_symmetric_surf_bnd=True, use_lax_friedrichs=True):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -420,7 +421,7 @@ class TracerEquation(Equation):
         super(TracerEquation, self).__init__(function_space)
 
         args = (function_space, bathymetry,
-                v_elem_size, h_elem_size, use_symmetric_surf_bnd)
+                v_elem_size, h_elem_size, use_symmetric_surf_bnd, use_lax_friedrichs)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')

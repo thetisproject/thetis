@@ -36,14 +36,14 @@ bathymetry_2d.assign(depth)
 # --- create solver ---
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
-# options.nonlin = False
-options.t_export = t_export
-options.t_end = t_end
-options.outputdir = outputdir
-options.u_advection = u_mag
-options.check_vol_conservation_2d = True
+# options.use_nonlinear_equations = False
+options.simulation_export_time = t_export
+options.simulation_end_time = t_end
+options.output_directory = outputdir
+options.horizontal_velocity_scale = u_mag
+options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
-solver_obj.options.timestepper_type = 'cranknicolson'
+solver_obj.options.timestepper_type = 'CrankNicolson'
 solver_obj.options.shallow_water_theta = 1.0
 solver_obj.options.solver_parameters_sw = {
     'mat_type': 'aij',
@@ -53,8 +53,8 @@ solver_obj.options.solver_parameters_sw = {
     'snes_monitor': False,
     'snes_type': 'newtonls',
 }
-options.dt = timestep  # override computed dt
-options.h_viscosity = Constant(2.0)
+options.timestep = timestep
+options.horizontal_viscosity = Constant(2.0)
 
 # create function spaces
 solver_obj.create_function_spaces()
@@ -69,7 +69,7 @@ y0 = ly/2
 sigma = 20.0
 drag_func.project(drag_center*exp(-((x[0]-x0)**2 + (x[1]-y0)**2)/sigma**2) + drag_bg, annotate=False)
 # assign fiction field
-options.quadratic_drag = drag_func
+options.quadratic_drag_coefficient = drag_func
 
 velocity_u = 2.0
 # assign boundary conditions

@@ -201,38 +201,39 @@ w_max = 1.2e-2
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solver_obj.options
 options.element_family = 'dg-dg'
-options.timestepper_type = 'ssprk22'
-options.solve_salt = True
-options.solve_temp = False
-options.constant_temp = Constant(temp_const)
-options.solve_vert_diffusion = False
+options.timestepper_type = 'SSPRK22'
+options.solve_salinity = True
+options.solve_temperature = False
+options.constant_temperature = Constant(temp_const)
+options.use_implicit_vertical_diffusion = False
 options.use_bottom_friction = False
 options.use_turbulence = False
 options.use_turbulence_advection = False
 # options.use_ale_moving_mesh = False
-options.baroclinic = True
-options.coriolis = coriolis_2d
-options.uv_lax_friedrichs = None
-options.tracer_lax_friedrichs = None
-# options.h_diffusivity = Constant(50.0)
-# options.h_viscosity = Constant(50.0)
-options.v_viscosity = Constant(1.3e-6)  # background value
-options.v_diffusivity = Constant(1.4e-7)  # background value
+options.use_baroclinic_formulation = True
+options.coriolis_frequency = coriolis_2d
+options.use_lax_friedrichs_velocity = False
+options.use_lax_friedrichs_tracer = False
+# options.horizontal_diffusivity = Constant(50.0)
+# options.horizontal_viscosity = Constant(50.0)
+options.vertical_viscosity = Constant(1.3e-6)  # background value
+options.vertical_diffusivity = Constant(1.4e-7)  # background value
 options.use_limiter_for_tracers = True
 if viscosity == 'smag':
-    options.smagorinsky_factor = Constant(1.0/np.sqrt(reynolds_number))
+    options.use_smagorinsky_viscosity = True
+    options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
 elif viscosity == 'const':
-    options.h_viscosity = Constant(nu_scale)
+    options.horizontal_viscosity = Constant(nu_scale)
 else:
     raise Exception('Unknow viscosity type {:}'.format(viscosity))
-options.t_export = t_export
-options.t_end = t_end
-options.outputdir = outputdir
-options.u_advection = Constant(1.5)
-options.check_vol_conservation_2d = True
-options.check_vol_conservation_3d = True
-options.check_salt_conservation = True
-options.check_salt_overshoot = True
+options.simulation_export_time = t_export
+options.simulation_end_time = t_end
+options.output_directory = outputdir
+options.horizontal_velocity_scale = Constant(1.5)
+options.check_volume_conservation_2d = True
+options.check_volume_conservation_3d = True
+options.check_salinity_conservation = True
+options.check_salinity_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d', 'density_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d']
@@ -241,14 +242,12 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
                                  'eddy_visc_3d', 'shear_freq_3d',
                                  'buoy_freq_3d', 'tke_3d', 'psi_3d',
                                  'eps_3d', 'len_3d']
-options.equation_of_state = 'linear'
-options.lin_equation_of_state_params = {
-    'rho_ref': rho0,
-    's_ref': 33.75,
-    'th_ref': 5.0,
-    'alpha': 0.0,
-    'beta': 0.78,
-}
+options.equation_of_state_type = 'linear'
+options.equation_of_state_options.rho_ref = rho0
+options.equation_of_state_options.s_ref = 33.75
+options.equation_of_state_options.th_ref = 5.0
+options.equation_of_state_options.alpha = 0.0
+options.equation_of_state_options.beta = 0.78
 
 solver_obj.add_callback(VorticityCalculator(solver_obj))
 solver_obj.add_callback(AngularMomentumCalculator(solver_obj))

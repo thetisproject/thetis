@@ -48,20 +48,22 @@ t_end = 10*T_cycle + 1e-3
 # --- create solver ---
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
-options.nonlin = False  # use linear wave equation
-options.t_export = t_export
-options.t_end = t_end
-options.outputdir = outputdir
-options.u_advection = u_mag
-options.check_vol_conservation_2d = True
+options.use_nonlinear_equations = False  # use linear wave equation
+options.simulation_export_time = t_export
+options.simulation_end_time = t_end
+options.output_directory = outputdir
+options.horizontal_velocity_scale = u_mag
+options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
-# options.timestepper_type = 'SSPRK33'
-# options.dt = dt/40.0  # for explicit schemes
 options.timestepper_type = 'CrankNicolson'
-# options.dt = 10.0  # override dt for CrankNicolson (semi-implicit)
 # options.timestepper_type = 'SSPIMEX'
-options.dt = 10.0  # override dt for IMEX (semi-implicit)
+# options.timestepper_type = 'SSPRK33'
+if hasattr(options.timestepper_options, 'use_automatic_timestep'):
+    options.timestepper_options.use_automatic_timestep = False
+    options.timestep = dt/40.0  # for explicit schemes
+else:
+    options.timestep = 10.0  # override dt for implicit schemes
 
 # need to call creator to create the function spaces
 solver_obj.create_equations()

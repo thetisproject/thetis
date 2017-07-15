@@ -18,7 +18,7 @@ def run(refinement, **model_options):
     ly = 6.0e3/refinement
     area = lx*ly
     depth = 40.0
-    h_viscosity = 1.0e3
+    horizontal_viscosity = 1.0e3
 
     # mesh
     n_layers = 4*refinement
@@ -46,19 +46,21 @@ def run(refinement, **model_options):
 
     solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     options = solverobj.options
-    options.nonlin = False
+    options.use_nonlinear_equations = False
     options.use_ale_moving_mesh = False
-    options.u_advection = Constant(1.0)
+    options.horizontal_velocity_scale = Constant(1.0)
     options.no_exports = True
-    options.outputdir = outputdir
-    options.t_end = t_end
-    options.t_export = t_export
-    options.solve_salt = False
-    options.solve_temp = False
+    options.output_directory = outputdir
+    options.simulation_end_time = t_end
+    options.simulation_export_time = t_export
+    options.solve_salinity = False
+    options.solve_temperature = False
     options.fields_to_export = ['uv_3d']
-    options.h_viscosity = Constant(h_viscosity)
-    options.nu_viscosity = Constant(h_viscosity)
+    options.horizontal_viscosity = Constant(horizontal_viscosity)
+    options.horizontal_viscosity_scale = Constant(horizontal_viscosity)
     options.update(model_options)
+    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
+        options.timestepper_options.use_automatic_timestep = True
 
     solverobj.create_equations()
 
@@ -66,14 +68,14 @@ def run(refinement, **model_options):
 
     ana_sol_expr = '0.5*(u_max + u_min) - 0.5*(u_max - u_min)*erf((x[0] - x0)/sqrt(4*D*t))'
     t_const = Constant(t)
-    ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_viscosity, t=t_const)
-    ana_uv_expr_2d = Expression((ana_sol_expr, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_viscosity, t=t_const)
+    ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=horizontal_viscosity, t=t_const)
+    ana_uv_expr_2d = Expression((ana_sol_expr, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=horizontal_viscosity, t=t_const)
 
     uv_ana = Function(solverobj.function_spaces.U, name='uv analytical')
     uv_ana_p1 = Function(solverobj.function_spaces.P1v, name='uv analytical')
 
-    p1dg_v_ho = VectorFunctionSpace(solverobj.mesh, 'DG', options.order + 2,
-                                    vfamily='DG', vdegree=options.order + 2)
+    p1dg_v_ho = VectorFunctionSpace(solverobj.mesh, 'DG', options.polynomial_degree + 2,
+                                    vfamily='DG', vdegree=options.polynomial_degree + 2)
     uv_ana_ho = Function(p1dg_v_ho, name='uv analytical')
     uv_ana.project(ana_uv_expr)
 
@@ -82,14 +84,14 @@ def run(refinement, **model_options):
 
     # export analytical solution
     if not options.no_exports:
-        out_uv_ana = File(os.path.join(options.outputdir, 'uv_ana.pvd'))
+        out_uv_ana = File(os.path.join(options.output_directory, 'uv_ana.pvd'))
 
     def export_func():
         if not options.no_exports:
             solverobj.export()
             # update analytical solution to correct time
             t_const.assign(t)
-            ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_viscosity, t=t_const)
+            ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=horizontal_viscosity, t=t_const)
             uv_ana.project(ana_uv_expr)
             out_uv_ana.write(uv_ana_p1.project(uv_ana))
 
@@ -100,7 +102,7 @@ def run(refinement, **model_options):
     ti = solverobj.timestepper.timestepper_mom_3d
     i = 0
     iexport = 1
-    next_export_t = t + solverobj.options.t_export
+    next_export_t = t + solverobj.options.simulation_export_time
     while t < t_end - 1e-8:
         ti.advance(t)
         t += solverobj.dt
@@ -108,12 +110,12 @@ def run(refinement, **model_options):
         if t >= next_export_t - 1e-8:
             print_output('{:3d} i={:5d} t={:8.2f} s uv={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.uv_3d)))
             export_func()
-            next_export_t += solverobj.options.t_export
+            next_export_t += solverobj.options.simulation_export_time
             iexport += 1
 
     # project analytical solultion on high order mesh
     t_const.assign(t)
-    ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=h_viscosity, t=t_const)
+    ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, x0=lx/2.0, D=horizontal_viscosity, t=t_const)
     uv_ana_ho.project(ana_uv_expr)
     # compute L2 norm
     l2_err = errornorm(uv_ana_ho, solverobj.fields.uv_3d)/numpy.sqrt(area)
@@ -124,7 +126,7 @@ def run(refinement, **model_options):
 
 def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
-    order = options.get('order', 1)
+    polynomial_degree = options.get('polynomial_degree', 1)
     space_str = options.get('element_family')
     l2_err = []
     for r in ref_list:
@@ -154,10 +156,10 @@ def run_convergence(ref_list, saveplot=False, **options):
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
             ax.set_ylabel('log10(L2 error)')
-            ax.set_title(' '.join([setup_name, field_str, 'order={:}'.format(order), space_str]))
+            ax.set_title(' '.join([setup_name, field_str, 'degree={:}'.format(polynomial_degree), space_str]))
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
-            order_str = 'o{:}'.format(order)
-            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str, space_str])
+            degree_str = 'o{:}'.format(polynomial_degree)
+            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, degree_str, space_str])
             imgfile += '.png'
             imgdir = create_directory('plots')
             imgfile = os.path.join(imgdir, imgfile)
@@ -171,7 +173,7 @@ def run_convergence(ref_list, saveplot=False, **options):
             print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
-    check_convergence(x_log, y_log, order+1, 'uv', saveplot)
+    check_convergence(x_log, y_log, polynomial_degree+1, 'uv', saveplot)
 
 # ---------------------------
 # standard tests for pytest
@@ -180,23 +182,23 @@ def run_convergence(ref_list, saveplot=False, **options):
 # NOTE mimetic elements do not converge optimally, rate is 1.48
 
 
-@pytest.fixture(params=[True, False], ids=[pytest.mark.not_travis(reason='travis timeout')('warped'),
+@pytest.fixture(params=[True, False], ids=['warped',
                                            'regular'])
 def warped(request):
     return request.param
 
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
-                         [pytest.mark.not_travis(reason='travis timeout')(('ssprk33', False)),
-                          ('leapfrog', True),
-                          ('ssprk22', True)])
-@pytest.mark.parametrize(('family', 'order'),
-                         [pytest.mark.not_travis(reason='travis timeout')(('dg-dg', 0)),
+                         [('SSPRK33', False),
+                          ('LeapFrog', True),
+                          ('SSPRK22', True)])
+@pytest.mark.parametrize(('family', 'polynomial_degree'),
+                         [('dg-dg', 0),
                           ('dg-dg', 1),
                           pytest.mark.skip(reason='rt-0 still broken')(('rt-dg', 0)),
-                          pytest.mark.not_travis(reason='travis timeout')(('rt-dg', 1))])
-def test_horizontal_viscosity(warped, order, family, stepper, use_ale):
-    run_convergence([1, 2, 3], order=order, warped_mesh=warped,
+                          ('rt-dg', 1)])
+def test_horizontal_viscosity(warped, polynomial_degree, family, stepper, use_ale):
+    run_convergence([1, 2, 3], polynomial_degree=polynomial_degree, warped_mesh=warped,
                     element_family=family, timestepper_type=stepper,
                     use_ale_moving_mesh=use_ale)
 
@@ -206,9 +208,9 @@ def test_horizontal_viscosity(warped, order, family, stepper, use_ale):
 
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], order=1,
+    run_convergence([1, 2, 3], polynomial_degree=1,
                     warped_mesh=True,
                     element_family='rt-dg',
-                    timestepper_type='leapfrog',
+                    timestepper_type='SSPRK22',
                     use_ale_moving_mesh=True,
                     no_exports=False, saveplot=True)

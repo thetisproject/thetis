@@ -56,6 +56,8 @@ Manual
     2D model formulation<model_formulation_2d>
     3D model formulation<model_formulation_3d>
     Model outputs and visualization<outputs_and_visu>
+    List of 2D model options<model_options_2d>
+    List of 3D model options<model_options_3d>
     List of physical fields<field_documentation>
 
 API documentation

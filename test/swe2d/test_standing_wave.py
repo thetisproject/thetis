@@ -1,8 +1,8 @@
-# Test for temporal convergence of cranknicolson and pressureprojection picard timesteppers,
+# Test for temporal convergence of CrankNicolson and pressureprojection picard timesteppers,
 # tests convergence of a single period of a standing wave in a rectangular channel.
 # This only tests against a linear solution, so does not really test whether the splitting
-# in pressureprojectionpicard between nonlinear momentum and linearized wave equation terms is correct.
-# pressureprojectionpicard does need two iterations to ensure 2nd order convergence
+# in PressureProjectionPicard between nonlinear momentum and linearized wave equation terms is correct.
+# PressureProjectionPicard does need two iterations to ensure 2nd order convergence
 from thetis import *
 import pytest
 import math
@@ -14,8 +14,8 @@ import math
 #  (10,0.02), (20,5e-3), (40, 1.25e-3)
 # with nonlin=False further converge is possible
 @pytest.mark.parametrize("timestepper", [
-    'cranknicolson', 'pressureprojectionpicard', ])
-def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=False):
+    'CrankNicolson', 'PressureProjectionPicard', ])
+def test_standing_wave_channel(timesteps, max_rel_err, timestepper, do_export=False):
 
     lx = 5e3
     ly = 1e3
@@ -40,51 +40,22 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
 
     # --- create solver ---
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
-    solver_obj.options.nonlin = True
-    solver_obj.options.t_export = dt
-    solver_obj.options.t_end = t_end
+    solver_obj.options.use_nonlinear_equations = True
+    solver_obj.options.simulation_export_time = dt
+    solver_obj.options.simulation_end_time = t_end
     solver_obj.options.no_exports = not do_export
     solver_obj.options.element_family = 'dg-dg'
     solver_obj.options.timestepper_type = timestepper
-    solver_obj.options.shallow_water_theta = 0.5
-    if timestepper == 'cranknicolson':
-        solver_obj.options.solver_parameters_sw = {
-            'ksp_type': 'preonly',
-            'pc_type': 'lu',
-            'pc_factor_mat_solver_package': 'mumps',
-            'snes_monitor': False,
-            'snes_type': 'newtonls',
-        }
-    elif timestepper == 'pressureprojectionpicard':
-        # solver options for the linearized wave equation terms
-        solver_obj.options.solver_parameters_sw = {
-            'snes_type': 'ksponly',  # we've linearized, so no snes needed
-            'ksp_type': 'preonly',  # we solve the full schur complement exactly, so no need for outer krylov
-            'pc_type': 'fieldsplit',
-            'pc_fieldsplit_type': 'schur',
-            'pc_fieldsplit_schur_fact_type': 'full',
-            'pc_fieldsplit_schur_precondition': 'selfp',
-            # velocity mass block:
-            'fieldsplit_0_ksp_type': 'preonly',  # NOTE: this is only an exact solver for the velocity mass block if velocity is DG
-            'fieldsplit_0_pc_type': 'ilu',
-            'fieldsplit_1_ksp_type': 'gmres',
-            # schur complement:
-            'fieldsplit_1_pc_type': 'gamg',
-            'fieldsplit_1_ksp_max_it': 100,
-            'fieldsplit_1_ksp_converged_reason': True,
-        }
-        options.solver_parameters_sw_momentum = {
-            'snes_monitor': True,
-            'ksp_type': 'gmres',
-            'ksp_converged_reason': True,
-            'pc_type': 'bjacobi',
-            'pc_bjacobi_type': 'ilu',
-        }
-    solver_obj.options.dt = dt
+    if timestepper == 'CrankNicolson':
+        # when linearising the equations, CrankNicolson (theta=0.5) stops being 2nd order
+        # (for PressureProjectionPicard we restore 2nd order because of the 2 iterations)
+        solver_obj.options.timestepper_options.use_semi_implicit_linearization = False
+    if hasattr(solver_obj.options.timestepper_options, 'use_automatic_timestep'):
+        solver_obj.options.timestepper_options.use_automatic_timestep = False
+    solver_obj.options.timestep = dt
 
     # boundary conditions
     solver_obj.bnd_functions['shallow_water'] = {}
-    parameters['quadrature_degree'] = 5
 
     solver_obj.create_equations()
     solver_obj.assign_initial_conditions(elev=elev_init)
@@ -101,4 +72,4 @@ def test_steady_state_channel(timesteps, max_rel_err, timestepper, do_export=Fal
 
 
 if __name__ == '__main__':
-    test_steady_state_channel(do_export=True)
+    test_standing_wave_channel(do_export=True)

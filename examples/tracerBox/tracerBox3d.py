@@ -69,30 +69,30 @@ if warped:
     coords.dat.data[:, 2] = sigma
 
 options = solver_obj.options
-options.nonlin = True
+options.use_nonlinear_equations = True
 # options.element_family = 'rt-dg'
 options.element_family = 'dg-dg'
-options.timestepper_type = 'ssprk22'
-options.solve_salt = True
-options.solve_temp = True
-options.solve_vert_diffusion = False
+options.timestepper_type = 'SSPRK22'
+options.solve_salinity = True
+options.solve_temperature = True
+options.use_implicit_vertical_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = True
 options.use_limiter_for_tracers = True
-options.uv_lax_friedrichs = None
-options.tracer_lax_friedrichs = None
-# options.h_viscosity = Constant(100.0)
-options.t_export = t_export
-options.t_end = t_end
-options.u_advection = u_mag
-options.w_advection = w_mag
-options.check_vol_conservation_2d = True
-options.check_vol_conservation_3d = True
-options.check_salt_conservation = True
-options.check_salt_overshoot = True
-options.check_temp_conservation = True
-options.check_temp_overshoot = True
-options.outputdir = outputdir
+options.use_lax_friedrichs_velocity = False
+options.use_lax_friedrichs_tracer = False
+# options.horizontal_viscosity = Constant(100.0)
+options.simulation_export_time = t_export
+options.simulation_end_time = t_end
+options.horizontal_velocity_scale = u_mag
+options.vertical_velocity_scale = w_mag
+options.check_volume_conservation_2d = True
+options.check_volume_conservation_3d = True
+options.check_salinity_conservation = True
+options.check_salinity_overshoot = True
+options.check_temperature_conservation = True
+options.check_temperature_overshoot = True
+options.output_directory = outputdir
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d', 'temp_3d',
                             'uv_dav_2d', 'uv_bottom_2d']
@@ -108,10 +108,10 @@ elev_init.project(5.0*ss*(xy[0] - x_0)/(lx - x_0))
 
 salt_init3d = None
 temp_init3d = None
-if options.solve_salt:
+if options.solve_salinity:
     # constant tracer field to test consistency with 3d continuity eq
     salt_init3d = Constant(4.5)
-if options.solve_temp:
+if options.solve_temperature:
     temp_init3d = Function(solver_obj.function_spaces.H, name='initial temperature')
     xyz = SpatialCoordinate(solver_obj.mesh)
     temp_l = 0

@@ -40,25 +40,25 @@ def test_closed_channel(**user_options):
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     options = solver_obj.options
     options.element_family = 'dg-dg'
-    options.timestepper_type = 'ssprk22'
-    options.solve_salt = True
-    options.solve_temp = False
-    options.solve_vert_diffusion = False
+    options.timestepper_type = 'SSPRK22'
+    options.solve_salinity = True
+    options.solve_temperature = False
+    options.use_implicit_vertical_diffusion = False
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = True
     options.use_limiter_for_tracers = True
-    options.uv_lax_friedrichs = None
-    options.tracer_lax_friedrichs = None
-    options.t_export = t_export
-    options.t_end = t_end
+    options.use_lax_friedrichs_velocity = False
+    options.use_lax_friedrichs_tracer = False
+    options.simulation_export_time = t_export
+    options.simulation_end_time = t_end
     options.no_exports = True
-    options.outputdir = outputdir
-    options.u_advection = Constant(u_max)
-    options.w_advection = Constant(w_max)
-    options.check_vol_conservation_2d = True
-    options.check_vol_conservation_3d = True
-    options.check_salt_conservation = True
-    options.check_salt_overshoot = True
+    options.output_directory = outputdir
+    options.horizontal_velocity_scale = Constant(u_max)
+    options.vertical_velocity_scale = Constant(w_max)
+    options.check_volume_conservation_2d = True
+    options.check_volume_conservation_3d = True
+    options.check_salinity_conservation = True
+    options.check_salinity_overshoot = True
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'salt_3d',
                                 'uv_dav_2d', 'uv_bottom_2d']
@@ -79,7 +79,7 @@ def test_closed_channel(**user_options):
     if options.use_ale_moving_mesh:
         vol3d, vol3d_rerr = solver_obj.callbacks['export']['volume3d']()
         assert vol3d_rerr < 1e-12, '3D volume is not conserved'
-    if options.solve_salt:
+    if options.solve_salinity:
         salt_int, salt_int_rerr = solver_obj.callbacks['export']['salt_3d mass']()
         assert salt_int_rerr < 1e-8, 'salt is not conserved'
         smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['salt_3d overshoot']()

@@ -15,7 +15,7 @@ def load_function(var, export_ix):
     func = solver_obj.fields[var]
     fs = func.function_space()
     fname = field_metadata[var]['filename']
-    h5reader = HDF5Exporter(fs, options.outputdir + '/hdf5', fname,
+    h5reader = HDF5Exporter(fs, options.output_directory + '/hdf5', fname,
                             next_export_ix=0, verbose=False)
     h5reader.load(export_ix, func)
     return func

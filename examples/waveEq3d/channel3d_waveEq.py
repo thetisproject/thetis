@@ -44,21 +44,21 @@ t_end = 10*T_cycle + 1e-3
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
 options = solver_obj.options
 options.element_family = 'dg-dg'
-# options.timestepper_type = 'ssprk33'
-options.timestepper_type = 'leapfrog'
-# options.timestepper_type = 'imexale'
-# options.timestepper_type = 'erkale'
-options.nonlin = False
-options.solve_salt = False
-options.solve_temp = False
-options.solve_vert_diffusion = False
+# options.timestepper_type = 'SSPRK33'
+options.timestepper_type = 'LeapFrog'
+# options.timestepper_type = 'IMEXALE'
+# options.timestepper_type = 'ERKALE'
+options.use_nonlinear_equations = False
+options.solve_salinity = False
+options.solve_temperature = False
+options.use_implicit_vertical_diffusion = False
 options.use_bottom_friction = False
 options.use_ale_moving_mesh = True
-options.t_export = t_export
-options.t_end = t_end
-options.u_advection = u_mag
-options.check_vol_conservation_2d = True
-options.check_vol_conservation_3d = True
+options.simulation_export_time = t_export
+options.simulation_end_time = t_end
+options.horizontal_velocity_scale = u_mag
+options.check_volume_conservation_2d = True
+options.check_volume_conservation_3d = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
                             'uv_dav_2d', 'uv_bottom_2d']
@@ -70,7 +70,7 @@ solver_obj.create_equations()
 elev_init = Function(solver_obj.function_spaces.H_2d)
 elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/lx)', eta_amp=elev_amp,
                              lx=lx))
-if options.solve_salt:
+if options.solve_salinity:
     salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
     # salt_init3d.interpolate(Expression('x[0]/1.0e5*10.0+2.0'))
     salt_init3d.assign(4.5)

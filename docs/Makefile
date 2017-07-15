@@ -15,7 +15,7 @@ help:
 
 .PHONY: help Makefile clean
 
-GENERATED_FILES = source/teamgrid.rst source/field_list.rst source/demos
+GENERATED_FILES = source/teamgrid.rst source/field_list.rst source/demos source/model_options_2d.rst source/model_options_3d.rst source/turbulence_options.rst source/eos_options.rst
 
 .PHONY: copy_demos
 
@@ -33,6 +33,9 @@ source/teamgrid.rst: source/team.py
 
 source/field_list.rst: source/gen_field_doc.py
 	cd source; python gen_field_doc.py
+
+source/model_options_2d.rst source/model_options_3d.rst source/turbulence_options_2d.rst source/eos_options_2d.rst: source/gen_model_options_doc.py
+	cd source; python gen_model_options_doc.py
 
 SPHINX_TARGETS = html dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub \
 	latex latexpdf latexpdfja text man texinfo info gettext changes \
