@@ -319,6 +319,20 @@ class PressureProjectionPicard(TimeIntegrator):
         uv_lagged, eta_lagged = self.solution_lagged.split()
         uv_old, eta_old = self.solution_old.split()
 
+        if (solver_parameters['ksp_type'] == 'preonly'
+                and 'fieldsplit_H_2d' in solver_parameters
+                and solver_parameters['fieldsplit_H_2d']['ksp_type'] == 'preonly'
+                and solver_parameters['fieldsplit_H_2d']['pc_python_type'] == 'thetis.AssembledSchurPC'
+                and element_continuity(eta_old.function_space().ufl_element()).horizontal != 'cg'):
+            # the default settings use AssembledSchurPC which assumes that the velocity block is only a dg mass matrix
+            # Under these assumptions this preconditioner assembles the exact Schur complement. If this is not true, we either need
+            # iterations with the unassembled Schur complement (fieldsplit_H_2d_ksp_type), or alternatively iterations outside
+            # the fieldsplit to deal with the fact that we haven't solved the Schur complement exactly.
+            # Currently only the dg-cg element pair, gives a pure DG  mass matrix velocity block: for dg-dg the pressure gradient adds a
+            # Riemann term in the velocity block, for rt-dg the velocity block cannot be explicitly inverted either.
+            raise Exception("The timestepper PressureProjectionPicard is only recommended in combination with the "
+                            "dg-cg element_family. If you want to use it in combination with dg-dg or rt-dg you need to adjust the solver_parameters_pressure option.")
+
         # create functions to hold the values of previous time step
         self.fields_old = {}
         for k in self.fields:
@@ -388,6 +402,7 @@ class PressureProjectionPicard(TimeIntegrator):
             self.solver_parameters['mat_type'] = 'aij'
         prob = NonlinearVariationalProblem(self.F, self.solution)
         self.solver = NonlinearVariationalSolver(prob,
+                                                 appctx={'a': derivative(self.F, self.solution)},
                                                  solver_parameters=self.solver_parameters,
                                                  options_prefix=self.name)
 
@@ -408,8 +423,10 @@ class PressureProjectionPicard(TimeIntegrator):
         for it in range(self.iterations):
             if self.iterations > 1:
                 self.solution_lagged.assign(self.solution)
-            self.solver_mom.solve()
-            self.solver.solve()
+            with timed_stage("Momentum solve"):
+                self.solver_mom.solve()
+            with timed_stage("Pressure solve"):
+                self.solver.solve()
 
         # shift time
         for k in self.fields_old:
