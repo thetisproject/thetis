@@ -322,7 +322,8 @@ class FlowSolver2d(FrozenClass):
                                                                        solver_parameters=self.options.timestepper_options.solver_parameters_pressure,
                                                                        solver_parameters_mom=self.options.timestepper_options.solver_parameters_momentum,
                                                                        semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-                                                                       theta=self.options.timestepper_options.implicitness_theta)
+                                                                       theta=self.options.timestepper_options.implicitness_theta,
+                                                                       iterations=self.options.timestepper_options.picard_iterations)
 
         elif self.options.timestepper_type == 'SSPIMEX':
             # TODO meaningful solver params

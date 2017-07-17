@@ -49,12 +49,36 @@ class CrankNicolsonTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
 class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
     """Options for 2d pressure-projection time integrator"""
     solver_parameters_pressure = PETScSolverParameters({
-        'ksp_type': 'gmres',
+        'ksp_type': 'preonly',  # we solve the full schur complement exactly, so no need for outer krylov
+        'mat_type': 'matfree',
         'pc_type': 'fieldsplit',
-        'pc_fieldsplit_type': 'multiplicative',
+        'pc_fieldsplit_type': 'schur',
+        'pc_fieldsplit_schur_fact_type': 'full',
+        # velocity mass block:
+        'fieldsplit_U_2d': {
+            'ksp_type': 'gmres',
+            'pc_type': 'python',
+            'pc_python_type': 'firedrake.AssembledPC',
+            'assembled_ksp_type': 'preonly',
+            'assembled_pc_type': 'bjacobi',
+            'assembled_sub_pc_type': 'ilu',
+        },
+        # schur system: explicitly assemble the schur system
+        # this only works with pressureprojectionicard if the velocity block is just the mass matrix
+        # and if the velocity is DG so that this mass matrix can be inverted explicitly
+        'fieldsplit_H_2d': {
+            'ksp_type': 'preonly',
+            'pc_type': 'python',
+            'pc_python_type': 'thetis.AssembledSchurPC',
+            'schur_ksp_type': 'gmres',
+            'schur_ksp_max_it': 100,
+            'schur_ksp_converged_reason': True,
+            'schur_pc_type': 'gamg',
+        },
     }).tag(config=True)
     solver_parameters_momentum = PETScSolverParameters({
         'ksp_type': 'gmres',
+        'ksp_converged_reason': True,
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'sor',
@@ -64,6 +88,9 @@ class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
         help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.').tag(config=True)
     use_semi_implicit_linearization = Bool(
         True, help="Use linearized semi-implicit time integration").tag(config=True)
+    picard_iterations = PositiveInteger(
+        default_value=2,
+        help='number of Picard iterations to converge the nonlinearity in the equations.')
 
 
 class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
