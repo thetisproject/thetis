@@ -584,7 +584,7 @@ class GenericLengthScaleModel(TurbulenceModel):
                                                              self.n2_tmp)
 
         self.initialize()
-        self.options.print_summary()
+        print_output(self.options)
 
     def initialize(self):
         """Initializes fields"""
@@ -1026,7 +1026,7 @@ class PacanowskiPhilanderModel(TurbulenceModel):
                                                              self.n2_tmp)
 
         self.initialize()
-        self.options.print_summary()
+        print_output(self.options)
 
     def initialize(self):
         """Initializes fields"""

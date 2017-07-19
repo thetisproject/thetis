@@ -5,13 +5,12 @@ All options are type-checked and they are stored in traitlets Configurable
 objects.
 """
 from thetis import FiredrakeConstant as Constant
-from thetis import print_output
 from .configuration import *
 
 
 class TimeStepperOptions(FrozenHasTraits):
     """Base class for all time stepper options"""
-    pass
+    name = 'Time stepper'
 
 
 class ExplicitTimestepperOptions(TimeStepperOptions):
@@ -153,32 +152,20 @@ class SemiImplicitTimestepperOptions3d(ExplicitTimestepperOptions3d):
 
 class TurbulenceModelOptions(FrozenHasTraits):
     """Abstract base class for all turbulence model options"""
-    def update(self, options):
-        if isinstance(options, dict):
-            params_dict = options
-        else:
-            # assume HasTraits
-            params_dict = options._trait_values
-        for key in params_dict:
-            self.__setattr__(key, params_dict[key])
+    name = 'Turbulence closure model'
 
 
 class PacanowskiPhilanderModelOptions(TurbulenceModelOptions):
     """Options for Pacanowski-Philander turbulence model"""
+    name = 'Pacanowski-Philander turbulence closure model'
     max_viscosity = PositiveFloat(5e-2, help=r"float: Constant maximum viscosity :math:`\nu_{max}`").tag(config=True)
     alpha = PositiveFloat(10.0, help="float: Richardson number multiplier").tag(config=True)
     exponent = PositiveFloat(2.0, help=r"float: Exponent of viscosity numerator :math:`n`").tag(config=True)
 
-    def print_summary(self):
-        """Prints all defined parameters and their values."""
-        print_output('Pacanowski-Philander model parameters')
-        params_dict = self._trait_values
-        for k in sorted(params_dict.keys()):
-            print_output('  {:16s} : {:}'.format(k, params_dict[k]))
-
 
 class GLSModelOptions(TurbulenceModelOptions):
     """Options for Generic Length Scale turbulence model"""
+    name = 'Generic Lenght Scale turbulence closure model'
     closure_name = Enum(
         ['k-epsilon', 'k-omega', 'Generic Lenght Scale'],
         default_value='k-epsilon',
@@ -318,23 +305,17 @@ class GLSModelOptions(TurbulenceModelOptions):
         elif closure_name == 'gen':
             self.update(gen)
 
-    def print_summary(self):
-        """Prints all defined parameters and their values."""
-        print_output('GLS Turbulence model parameters')
-        params_dict = self._trait_values
-        for k in sorted(params_dict.keys()):
-            print_output('  {:16s} : {:}'.format(k, params_dict[k]))
-
 
 class EquationOfStateOptions(FrozenHasTraits):
     """Base class of equation of state options"""
-    pass
+    name = 'Equation of State'
 
 
 class LinearEquationOfStateOptions(EquationOfStateOptions):
     """Linear equation of state options"""
     # TODO more human readable parameter names
     # TODO document the actual equation somewhere
+    name = 'Linear Equation of State'
     rho_ref = NonNegativeFloat(1000.0, help='Reference water density').tag(config=True)
     s_ref = NonNegativeFloat(35.0, help='Reference water salinity').tag(config=True)
     th_ref = Float(15.0, help='Reference water temperature').tag(config=True)
@@ -344,6 +325,7 @@ class LinearEquationOfStateOptions(EquationOfStateOptions):
 
 class CommonModelOptions(FrozenConfigurable):
     """Options that are common for both 2d and 3d models"""
+    name = 'Model options'
     polynomial_degree = NonNegativeInteger(1, help='Polynomial degree of elements').tag(config=True)
     element_family = Enum(
         ['dg-dg', 'rt-dg', 'dg-cg'],
@@ -477,6 +459,7 @@ class CommonModelOptions(FrozenConfigurable):
                        Instance(TimeStepperOptions, args=()).tag(config=True))
 class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
+    name = 'Depth-averaged 2D model'
     use_wetting_and_drying = Bool(
         False, help=r"""bool: Turn on wetting and drying
 
@@ -519,6 +502,7 @@ class ModelOptions2d(CommonModelOptions):
                        Instance(EquationOfStateOptions, args=()).tag(config=True))
 class ModelOptions3d(CommonModelOptions):
     """Options for 3D hydrostatic model"""
+    name = '3D hydrostatic model'
     solve_salinity = Bool(True, help='Solve salinity transport').tag(config=True)
     solve_temperature = Bool(True, help='Solve temperature transport').tag(config=True)
     use_implicit_vertical_diffusion = Bool(True, help='Solve vertical diffusion and viscosity implicitly').tag(config=True)

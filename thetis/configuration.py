@@ -195,7 +195,38 @@ class PairedEnum(Enum):
         return result + super(PairedEnum, self).info()
 
 
-class FrozenHasTraits(HasTraits):
+class OptionsBase(object):
+    """Abstract base class for all options classes"""
+
+    def name(self):
+        """Human readable name of the configurable object"""
+        pass
+
+    def update(self, options):
+        """
+        Assign options from another container
+
+        :arg options: Either a dictionary of options or another
+            HasTraits object
+        """
+        if isinstance(options, dict):
+            params_dict = options
+        else:
+            assert isinstance(options, HasTraits), 'options must be a dict or HasTraits object'
+            params_dict = options._trait_values
+        for key in params_dict:
+            self.__setattr__(key, params_dict[key])
+
+    def __str__(self):
+        """Returs a summary of all defined parameters and their values in a string"""
+        output = '{:} parameters\n'.format(self.name)
+        params_dict = self._trait_values
+        for k in sorted(params_dict.keys()):
+            output += '  {:16s} : {:}\n'.format(k, params_dict[k])
+        return output
+
+
+class FrozenHasTraits(OptionsBase, HasTraits):
     """
     A HasTraits class that only allows adding new attributes in the class
     definition or when  self._isfrozen is False.
@@ -212,7 +243,7 @@ class FrozenHasTraits(HasTraits):
         super(FrozenHasTraits, self).__setattr__(key, value)
 
 
-class FrozenConfigurable(Configurable):
+class FrozenConfigurable(OptionsBase, Configurable):
     """
     A Configurable class that only allows adding new attributes in the class
     definition or when  self._isfrozen is False.
@@ -227,13 +258,6 @@ class FrozenConfigurable(Configurable):
         if self._isfrozen and not hasattr(self, key):
             raise TypeError('Adding new attribute "{:}" to {:} class is forbidden'.format(key, self.__class__.__name__))
         super(FrozenConfigurable, self).__setattr__(key, value)
-
-    def update(self, source):
-        if isinstance(source, dict):
-            for key in source:
-                self.__setattr__(key, source[key])
-        else:
-            self.add_traits(**source.traits())
 
 
 def attach_paired_options(name, name_trait, value_trait):
