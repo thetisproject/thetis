@@ -8,6 +8,8 @@ from traitlets import *
 from thetis import FiredrakeConstant as Constant
 from thetis import FiredrakeFunction as Function
 
+from abc import ABCMeta, abstractproperty
+
 
 def rst_all_options(cls, nspace=0, prefix=None):
     """Recursively generate rST for a provided Configurable class.
@@ -198,6 +200,9 @@ class PairedEnum(Enum):
 class OptionsBase(object):
     """Abstract base class for all options classes"""
 
+    __metaclass__ = ABCMeta
+
+    @abstractproperty
     def name(self):
         """Human readable name of the configurable object"""
         pass
@@ -226,7 +231,16 @@ class OptionsBase(object):
         return output
 
 
+# HasTraits and Configurable (and all their subclasses) have MetaHasTraits as their metaclass
+# to subclass from HasTraits and another class with ABCMeta as its metaclass, we need a combined
+# meta class that sub(meta)classes from ABCMeta and MetaHasTraits
+class ABCMetaHasTraits(ABCMeta, MetaHasTraits):
+    """Combined metaclass of ABCMeta and MetaHasTraits"""
+    pass
+
+
 class FrozenHasTraits(OptionsBase, HasTraits):
+    __metaclass__ = ABCMetaHasTraits
     """
     A HasTraits class that only allows adding new attributes in the class
     definition or when  self._isfrozen is False.
@@ -248,6 +262,9 @@ class FrozenConfigurable(OptionsBase, Configurable):
     A Configurable class that only allows adding new attributes in the class
     definition or when  self._isfrozen is False.
     """
+    __metaclass__ = ABCMetaHasTraits
+
+
     _isfrozen = False
 
     def __init__(self, *args, **kwargs):
