@@ -264,7 +264,6 @@ class FrozenConfigurable(OptionsBase, Configurable):
     """
     __metaclass__ = ABCMetaHasTraits
 
-
     _isfrozen = False
 
     def __init__(self, *args, **kwargs):
