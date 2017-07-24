@@ -297,8 +297,8 @@ class FlowSolver2d(FrozenClass):
                                                           fields, self.dt,
                                                           bnd_conditions=self.bnd_functions['shallow_water'],
                                                           solver_parameters=self.options.timestepper_options.solver_parameters)
-        elif self.options.timestepper_type == 'CrankNicolsonPicard':
-            self.timestepper = rungekutta.CrankNicolsonPicardRK(self.eq_sw,
+        elif self.options.timestepper_type == 'PicardCrankNicolson':
+            self.timestepper = rungekutta.PicardCrankNicolsonRK(self.eq_sw,
                                                                 self.fields.solution_2d,
                                                                 fields,
                                                                 self.dt,

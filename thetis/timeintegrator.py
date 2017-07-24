@@ -732,3 +732,86 @@ class SSPRK22ALE(TimeIntegrator):
         for i_stage in range(self.n_stages):
             self.prepare_stage(i_stage, t, update_forcings)
             self.solve_stage(i_stage)
+
+
+class SubcycledTimeIntegrator(TimeIntegrator):
+    """TimeIntegrator to be combined with any other fixed-timestep TimeIntegrator to allow subcycling.
+
+    The number of subcycles is determined by calling a callback `calculate_number_of_subcycles`. The
+    advance() method is overloaded such that the time integration is always advanced by the same amount
+    given by the fixed time step `dt`. However this is divided in `n=calculcate_number_of_subcycles()`
+    subcycles with a timestep of `dt/n`."""
+    def __init__(self, equation, solution, fields, dt, **kwargs):
+        super(SubcycledTimeIntegrator, self).__init__(self, equation, solution, fields, dt, **kwargs)
+
+        if calculate_number_of_subcycles in kwargs:
+            self.calculate_number_of_subcycles = kwargs[calculate_number_of_subcycles]
+        else:
+            raise ValueError("Need to provide calculate_number_of_subcycles call-back to time-integrator " + self.name)
+        self.full_dt = self.dt
+
+    def advance(self, t, update_forcings=None):
+        n = self.calculate_number_of_subcycles(t)
+        self.set_dt(self.full_dt/n)
+        for i in xrange(n):
+            super(SubcycledTimeIntegrator, self).advance(t, update_forcings=update_forcings)
+
+
+class StagedTimeIntegrator(TimeIntegratorBase):
+    """TimeIntegrator that performs a timestep in more than one stage
+
+    Each stage consists of a timestep of a TimeIntegrator, where the solution of one feeds into the next one."""
+
+    def __init__(self, timesteppers, dt):
+        self.timesteppers = timesteppers
+        # make sure we have a consistent timestep:
+        self.set_dt(dt)
+
+    def initialize(self, init_solution):
+        for timestepper in self.timesteppers:
+            timestepper.initialize(init_solution)
+
+    def set_dt(self, dt):
+        for timestepper in self.timesteppers:
+            timestepper.set_dt(dt)
+
+    def advance(self, t, update_forcings=None):
+        for timestepper in self.timesteppers:
+            timestepper.advance(t, update_forcings=update_forcings)
+
+
+class PicardTimeIntegrator(TimeIntegrator):
+    """
+    Picard loop for TimeIntegrators.
+
+    Combined with any TimeIntegrator that allows linearisation around solution_lagged via an __init__ argument,
+    this adds an outside Picard loop to the TimeIntegrator, updating solution_lagged after each
+    timestep of the base timeintegrator. The beginning-of-timestep solution (solution_old) is then reset and
+    the same timestep is performed with an updated solution_lagged. This assumes that the advance() method of the
+    TimeIntegrator this is combined with, sets the beginning-of-timestep solution to the value of solution at
+    the start of the advance() call.
+    """
+    def __init__(self, equation, solution, fields, dt,
+                 picard_iterations=2, **kwargs):
+        solution_lagged = Function(equation.function_space, name='lagged solution')
+        super(PicardTimeIntegrator, self).__init__(equation, solution, fields, dt,
+                                                   solution_lagged=solution_lagged,
+                                                   **kwargs)
+        self.picard_iterations = picard_iterations
+
+    def initialize(self, init_cond):
+        """Assigns initial conditions to all required fields."""
+        self.solution_lagged.assign(init_cond)
+        super(PicardTimeIntegrator, self).initialize(init_cond)
+
+    def advance_picard_iteration(self, t, update_forcings=None):
+        """Advances linearized equations for one Picard iteration."""
+        self.solution_lagged.assign(self.solution)
+        self.solution.assign(self.solution_old)
+        super(PicardTimeIntegrator, self).advance(t, update_forcings=update_forcings)
+
+    def advance(self, t, update_forcings=None):
+        """Advances equations for one time step."""
+        self.solution_old.assign(self.solution)
+        for i in xrange(self.picard_iterations):
+            self.advance_picard_iteration(t, update_forcings=update_forcings)
