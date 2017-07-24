@@ -443,6 +443,7 @@ class CommonModelOptions(FrozenConfigurable):
                                    ('ForwardEuler', ExplicitTimestepperOptions2d()),
                                    ('BackwardEuler', SemiImplicitTimestepperOptions2d()),
                                    ('CrankNicolson', CrankNicolsonTimestepperOptions2d()),
+                                   ('CrankNicolsonPicard', SemiImplicitTimestepperOptions2d()),
                                    ('DIRK22', SemiImplicitTimestepperOptions2d()),
                                    ('DIRK33', SemiImplicitTimestepperOptions2d()),
                                    ('SteadyState', SteadyStateTimestepperOptions2d()),

@@ -467,7 +467,8 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
     :attr:`b`, :attr:`c`.
     """
     def __init__(self, equation, solution, fields, dt,
-                 bnd_conditions=None, solver_parameters={}, terms_to_add='all'):
+                 bnd_conditions=None, solver_parameters={}, terms_to_add='all',
+                 solution_lagged=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -483,11 +484,15 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         """
         super(DIRKGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
         self.solver_parameters.setdefault('snes_monitor', False)
-        self.solver_parameters.setdefault('snes_type', 'newtonls')
+        self.solver_parameters.setdefault('snes_type', 'ksponly')
         self._initialized = False
 
         fs = self.equation.function_space
         self.solution_old = Function(self.equation.function_space, name='old solution')
+        if solution_lagged is None:
+            self.solution_lagged = self.solution_old
+        else:
+            self.solution_lagged = solution_lagged
 
         test = self.equation.test
         mixed_space = len(fs) > 1
@@ -508,7 +513,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
                     else:
                         u += self.a[i][j]*self.dt_const*self.k[j]
                 self.F.append(-inner(self.k[i], test)*dx +
-                              self.equation.residual(terms_to_add, u, self.solution_old, fields, fields, bnd_conditions))
+                              self.equation.residual(terms_to_add, u, self.solution_lagged, fields, fields, bnd_conditions))
         else:
             # solution must be split before computing sum
             # pass components to equation in a list
@@ -522,7 +527,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
                         for l, k in enumerate(split(self.k[j])):
                             u[l] += self.a[i][j]*self.dt_const*k
                 self.F.append(-inner(self.k[i], test)*dx +
-                              self.equation.residual(terms_to_add, u, self.solution_old, fields, fields, bnd_conditions))
+                              self.equation.residual(terms_to_add, u, self.solution_lagged, fields, fields, bnd_conditions))
         self.update_solver()
 
         # construct expressions for stage solutions
@@ -556,13 +561,19 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         """
         self.solution += self.sol_expressions[i_stage]
 
+    def _reset_solution_old(self):
+        """Reset solution_old and solution_lagged at the beginning of the timestep."""
+        self.solution_old.assign(self.solution)
+        if self.solution_lagged is not self.solution_old:
+            self.solution_lagged.assign(self.solution)
+
     def solve_tendency(self, i_stage, t, update_forcings=None):
         """
         Evaluates the tendency of i-th stage.
         """
         if i_stage == 0:
             # NOTE solution may have changed in coupled system
-            self.solution_old.assign(self.solution)
+            self._reset_solution_old()
         if not self._initialized:
             error('Time integrator {:} is not initialized'.format(self.name))
         if update_forcings is not None:
@@ -579,6 +590,44 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         self.update_solution(i_stage)
 
 
+class DIRKPicardGeneric(DIRKGeneric):
+    """
+    Generic implementation of Diagonally Implicit Runge Kutta schemes.
+
+    All derived classes must define the Butcher tableau coefficients :attr:`a`,
+    :attr:`b`, :attr:`c`.
+    """
+    def __init__(self, equation, solution, fields, dt,
+                 bnd_conditions=None, solver_parameters={}, terms_to_add='all',
+                 picard_iterations=2):
+        solution_lagged = Function(equation.function_space, name='lagged solution')
+        super(DIRKPicardGeneric, self).__init__(equation, solution, fields, dt,
+                                                bnd_conditions=bnd_conditions,
+                                                solver_parameters=solver_parameters,
+                                                terms_to_add=terms_to_add,
+                                                solution_lagged=solution_lagged)
+        self.picard_iterations = picard_iterations
+
+    def initialize(self, init_cond):
+        """Assigns initial conditions to all required fields."""
+        self.solution_lagged.assign(init_cond)
+        super(DIRKPicardGeneric, self).initialize(init_cond)
+
+    def _reset_solution_old(self):
+        """Reset solution_lagged at the beginning of each Picard iteration."""
+        self.solution_lagged.assign(self.solution)
+
+    def advance_picard_iteration(self, t, update_forcings=None):
+        """Advances linearized equations for one Picard iteration."""
+        super(DIRKPicardGeneric, self).advance(t, update_forcings=update_forcings)
+
+    def advance(self, t, update_forcings=None):
+        """Advances equations for one time step."""
+        self.solution_old.assign(self.solution)
+        for i in xrange(self.picard_iterations):
+            self.advance_picard_iteration(t, update_forcings=update_forcings)
+
+
 class BackwardEuler(DIRKGeneric, BackwardEulerAbstract):
     pass
 
@@ -588,6 +637,10 @@ class ImplicitMidpoint(DIRKGeneric, ImplicitMidpointAbstract):
 
 
 class CrankNicolsonRK(DIRKGeneric, CrankNicolsonAbstract):
+    pass
+
+
+class CrankNicolsonPicardRK(DIRKPicardGeneric, CrankNicolsonAbstract):
     pass
 
 

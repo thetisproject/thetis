@@ -14,7 +14,7 @@ import math
 #  (10,0.02), (20,5e-3), (40, 1.25e-3)
 # with nonlin=False further converge is possible
 @pytest.mark.parametrize("timestepper", [
-    'CrankNicolson', 'PressureProjectionPicard', ])
+    'CrankNicolsonPicard', 'CrankNicolson', 'PressureProjectionPicard', ])
 def test_standing_wave_channel(timesteps, max_rel_err, timestepper, do_export=False):
 
     lx = 5e3
