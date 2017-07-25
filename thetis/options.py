@@ -4,8 +4,8 @@ Thetis options for the 2D and 3D model
 All options are type-checked and they are stored in traitlets Configurable
 objects.
 """
-from thetis import FiredrakeConstant as Constant
 from .configuration import *
+from .firedrake import Constant
 
 
 class TimeStepperOptions(FrozenHasTraits):
@@ -353,7 +353,7 @@ class CommonModelOptions(FrozenConfigurable):
 
     use_lax_friedrichs_velocity = Bool(
         True, help="use Lax Friedrichs stabilisation in horizontal momentum advection.").tag(config=True)
-    lax_friedrichs_velocity_scaling_factor = FiredrakeConstant(
+    lax_friedrichs_velocity_scaling_factor = FiredrakeConstantTraitlet(
         Constant(1.0), help="Scaling factor for Lax Friedrichs stabilisation term in horiozonal momentum advection.").tag(config=True)
     use_lax_friedrichs_tracer = Bool(
         True, help="Use Lax Friedrichs stabilisation in tracer advection.").tag(config=True)
@@ -386,13 +386,13 @@ class CommonModelOptions(FrozenConfigurable):
         """).tag(config=True)
     simulation_end_time = PositiveFloat(
         1000.0, help="Simulation duration in seconds").tag(config=True)
-    horizontal_velocity_scale = FiredrakeConstant(
+    horizontal_velocity_scale = FiredrakeConstantTraitlet(
         Constant(0.1), help="""
         Maximum horizontal velocity magnitude
 
         Used to compute max stable advection time step.
         """).tag(config=True)
-    horizontal_viscosity_scale = FiredrakeConstant(
+    horizontal_viscosity_scale = FiredrakeConstantTraitlet(
         Constant(1.0), help="""
         Maximum horizontal viscosity
 
@@ -481,7 +481,7 @@ class ModelOptions2d(CommonModelOptions):
         Uses the wetting and drying scheme from Karna et al (2011).
         If ``True``, one should also set :attr:`wetting_and_drying_alpha` to control the bathymetry displacement.
         """).tag(config=True)
-    wetting_and_drying_alpha = FiredrakeConstant(
+    wetting_and_drying_alpha = FiredrakeConstantTraitlet(
         Constant(0.5), help=r"""
         Coefficient: Wetting and drying parameter :math:`\alpha`.
 
@@ -551,7 +551,7 @@ class ModelOptions3d(CommonModelOptions):
         False, help="Cast eddy viscosity to p1 space instead of p0").tag(config=True)
     use_smagorinsky_viscosity = Bool(
         False, help="Use Smagorinsky horisontal viscosity parametrization").tag(config=True)
-    smagorinsky_coefficient = FiredrakeConstant(
+    smagorinsky_coefficient = FiredrakeConstantTraitlet(
         Constant(0.1),
         help="""Smagorinsky viscosity coefficient :math:`C_S`
 
@@ -561,7 +561,7 @@ class ModelOptions3d(CommonModelOptions):
         True, help="Apply P1DG limiter for 3D horizontal velocity field").tag(config=True)
     use_lax_friedrichs_tracer = Bool(
         True, help="Use Lax Friedrichs stabilisation in tracer advection.").tag(config=True)
-    lax_friedrichs_tracer_scaling_factor = FiredrakeConstant(
+    lax_friedrichs_tracer_scaling_factor = FiredrakeConstantTraitlet(
         Constant(1.0), help="Scaling factor for tracer Lax Friedrichs stability term.").tag(config=True)
     check_volume_conservation_3d = Bool(
         False, help="""
@@ -600,7 +600,7 @@ class ModelOptions3d(CommonModelOptions):
         This option is only used in the 3d solver, if 2d mode is solved
         explicitly.
         """).tag(config=True)
-    vertical_velocity_scale = FiredrakeConstant(
+    vertical_velocity_scale = FiredrakeConstantTraitlet(
         Constant(1e-4), help="""
         Maximum vertical velocity magnitude
 
@@ -637,7 +637,7 @@ class ModelOptions3d(CommonModelOptions):
         None, allow_none=True, help="Source term for salinity equation").tag(config=True)
     temperature_source_3d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for temperature equation").tag(config=True)
-    constant_temperature = FiredrakeConstant(
+    constant_temperature = FiredrakeConstantTraitlet(
         Constant(10.0), help="Constant temperature if temperature is not solved").tag(config=True)
-    constant_salinity = FiredrakeConstant(
+    constant_salinity = FiredrakeConstantTraitlet(
         Constant(0.0), help="Constant salinity if salinity is not solved").tag(config=True)
