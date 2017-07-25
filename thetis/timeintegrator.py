@@ -337,10 +337,10 @@ class PressureProjectionPicard(TimeIntegrator):
         self.fields_old = {}
         for k in sorted(self.fields):
             if self.fields[k] is not None:
-                if isinstance(self.fields[k], Function):
+                if isinstance(self.fields[k], FiredrakeFunction):
                     self.fields_old[k] = Function(
                         self.fields[k].function_space())
-                elif isinstance(self.fields[k], Constant):
+                elif isinstance(self.fields[k], FiredrakeConstant):
                     self.fields_old[k] = Constant(self.fields[k])
         # for the mom. eqn. the 'eta' field is just one of the 'other' fields
         fields_mom = self.fields.copy()
