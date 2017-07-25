@@ -46,9 +46,8 @@ class CrankNicolsonTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
         False, help="Use linearized semi-implicit time integration").tag(config=True)
 
 
-class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
-    """Options for 2d pressure-projection time integrator"""
-    solver_parameters_pressure = PETScSolverParameters({
+class PressureCorrectionCrankNicolson(CrankNicolsonTimestepperOptions2d):
+    solver_parameters = PETScSolverParameters({
         'ksp_type': 'preonly',  # we solve the full schur complement exactly, so no need for outer krylov
         'mat_type': 'matfree',
         'pc_type': 'fieldsplit',
@@ -76,21 +75,39 @@ class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
             'schur_pc_type': 'gamg',
         },
     }).tag(config=True)
-    solver_parameters_momentum = PETScSolverParameters({
-        'ksp_type': 'gmres',
-        'ksp_converged_reason': True,
-        'pc_type': 'bjacobi',
-        'sub_ksp_type': 'preonly',
-        'sub_pc_type': 'sor',
-    }).tag(config=True)
-    implicitness_theta = BoundedFloat(
-        default_value=0.5, bounds=[0.5, 1.0],
-        help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.').tag(config=True)
-    use_semi_implicit_linearization = Bool(
-        True, help="Use linearized semi-implicit time integration").tag(config=True)
-    picard_iterations = PositiveInteger(
-        default_value=2,
-        help='number of Picard iterations to converge the nonlinearity in the equations.')
+
+
+@attach_paired_options("momentum_timestepper_type",
+                       PairedEnum([('SSPRK33', ExplicitTimestepperOptions2d()),
+                                   ('SSPRK33Semi', CrankNicolsonTimestepperOptions2d()),
+                                   ('ForwardEuler', ExplicitTimestepperOptions2d()),
+                                   ('BackwardEuler', SemiImplicitTimestepperOptions2d()),
+                                   ('CrankNicolson', CrankNicolsonTimestepperOptions2d()),
+                                   ('PicardCrankNicolson', SemiImplicitTimestepperOptions2d()),
+                                   ('DIRK22', SemiImplicitTimestepperOptions2d()),
+                                   ('DIRK33', SemiImplicitTimestepperOptions2d()),
+                                   ('SSPIMEX', SemiImplicitTimestepperOptions2d()),
+                                   ],
+                                  "momentum_timestepper_options",
+                                  default_value='CrankNicolson',
+                                  help='Name of the momentum time integrator').tag(config=True),
+                       Instance(TimeStepperOptions, args=()).tag(config=True))
+@attach_paired_options("pressure_correction_timestepper_type",
+                       PairedEnum([('SSPRK33', ExplicitTimestepperOptions2d()),
+                                   ('SSPRK33Semi', CrankNicolsonTimestepperOptions2d()),
+                                   ('ForwardEuler', ExplicitTimestepperOptions2d()),
+                                   ('BackwardEuler', SemiImplicitTimestepperOptions2d()),
+                                   ('CrankNicolson', PressureCorrectionCrankNicolsonTimestepperOptions2d()),
+                                   ('DIRK22', SemiImplicitTimestepperOptions2d()),
+                                   ('DIRK33', SemiImplicitTimestepperOptions2d()),
+                                   ],
+                                  "pressure_correction_timestepper_options",
+                                  default_value='CrankNicolson',
+                                  help='Name of the pressure correction time integrator').tag(config=True),
+                       Instance(TimeStepperOptions, args=()).tag(config=True))
+class PressureCorrectionTimestepperOptions2d(TimeStepperOptions):
+    """Options for 2d pressure-projection time integrator"""
+    pass
 
 
 class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
@@ -447,7 +464,8 @@ class CommonModelOptions(FrozenConfigurable):
                                    ('DIRK22', SemiImplicitTimestepperOptions2d()),
                                    ('DIRK33', SemiImplicitTimestepperOptions2d()),
                                    ('SteadyState', SteadyStateTimestepperOptions2d()),
-                                   ('PressureProjectionPicard', PressureProjectionTimestepperOptions2d()),
+                                   ('PressureCorrection', PressureCorrectionTimestepperOptions2d()),
+                                   ('PicardPressureProjection', PressureProjectionTimestepperOptions2d()),
                                    ('SSPIMEX', SemiImplicitTimestepperOptions2d()),
                                    ],
                                   "timestepper_options",
