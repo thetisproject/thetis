@@ -373,7 +373,7 @@ class P1Average(object):
                     }
                 }
             }""" % {'nodes': solution.cell_node_map().arity,
-                    'func_dim': solution.function_space().dim,
+                    'func_dim': solution.function_space().value_size,
                     'source_str': source_str},
             'my_kernel')
 

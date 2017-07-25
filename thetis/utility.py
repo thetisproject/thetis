@@ -755,7 +755,7 @@ class ExpandFunctionTo3d(object):
                     }
                 }
             }""" % {'nodes': self.fs_2d.finat_element.space_dimension(),
-                    'func_dim': self.input_2d.function_space().dim,
+                    'func_dim': self.input_2d.function_space().value_size,
                     'v_nodes': n_vert_nodes},
             'my_kernel')
 
@@ -897,7 +897,7 @@ class SubFunctionExtractor(object):
                         }
                     }
                 }""" % {'nodes': self.output_2d.cell_node_map().arity,
-                        'func_dim': self.output_2d.function_space().dim},
+                        'func_dim': self.output_2d.function_space().value_size},
                 'my_kernel')
         else:
             self.kernel = op2.Kernel("""
@@ -908,7 +908,7 @@ class SubFunctionExtractor(object):
                         }
                     }
                 }""" % {'nodes': self.output_2d.cell_node_map().arity,
-                        'func_dim': self.output_2d.function_space().dim},
+                        'func_dim': self.output_2d.function_space().value_size},
                 'my_kernel')
 
         if self.do_rt_scaling:
@@ -961,7 +961,7 @@ def compute_elem_height(zcoord, output):
                 }
             }
         }""" % {'nodes': zcoord.cell_node_map().arity,
-                'func_dim': zcoord.function_space().dim},
+                'func_dim': zcoord.function_space().value_size},
         'my_kernel')
     op2.par_loop(
         kernel, fs_out.mesh().cell_set,
