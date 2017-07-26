@@ -586,7 +586,7 @@ class FlowSolver2d(FrozenClass):
             self.simulation_time = initial_simulation_time + internal_iteration*self.dt
 
             if thetis_config.adjoint:
-                finished = self.simulation_time > self.options.t_end + t_epsilon
+                finished = self.simulation_time > self.options.simulation_end_time + t_epsilon
                 adj_inc_timestep(time=self.simulation_time, finished=finished)
 
             self.callbacks.evaluate(mode='timestep')
