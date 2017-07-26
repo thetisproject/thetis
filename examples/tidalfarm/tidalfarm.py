@@ -38,10 +38,16 @@ options.simulation_export_time = timestep
 options.simulation_end_time = tidal_period/2
 options.output_directory = 'outputs'
 options.check_volume_conservation_2d = True
-solver_obj.options.element_family = 'dg-cg'
-solver_obj.options.timestepper_type = 'PressureProjectionPicard'
-solver_obj.options.timestepper_options.implicitness_theta = 0.6
-options.horizontal_viscosity = Constant(2.0)
+options.element_family = 'dg-dg'
+options.timestepper_type = 'CrankNicolson'
+options.timestepper_options.implicitness_theta = 0.6
+options.timestepper_options.solver_parameters = {'snes_monitor': True,
+                                                 'ksp_type': 'preonly',
+                                                 'pc_type': 'lu',
+                                                 'pc_factor_mat_solver_package': 'mumps',
+                                                 'mat_type': 'aij'
+                                                 }
+options.horizontal_viscosity = Constant(100.0)
 options.quadratic_drag_coefficient = Constant(0.0025)
 
 # assign boundary conditions
@@ -78,7 +84,8 @@ fs = solver_obj.fields.solution_2d.function_space()
 u_test, eta_test = TestFunctions(fs)
 u_space, eta_space = fs.split()
 turbine_drag_term = TurbineDragTerm(u_test, u_space, eta_space,
-                                    bathymetry=solver_obj.fields.bathymetry_2d)
+                                    bathymetry=solver_obj.fields.bathymetry_2d,
+                                    options=options)
 solver_obj.eq_sw.add_term(turbine_drag_term, 'implicit')
 
 turbine_friction.assign(0.0)
@@ -98,7 +105,7 @@ A_T = pi * (16./2)**2  # turbine cross section
 # cost integral is n/o turbines = \int turbine_density = \int c_t/(C_T A_T/2.)
 cost_integral = 1./(C_T*A_T/2.) * turbine_friction * dx(2)
 
-break_even_wattage = 10  # (kW) amount of power produced per turbine on average to "break even" (cost = revenue)
+break_even_wattage = 100  # (kW) amount of power produced per turbine on average to "break even" (cost = revenue)
 
 # we rescale the functional such that the gradients are ~ order magnitude 1.
 # the scaling is chosen such that the gradient of break_even_wattage * cost_integral is of order 1
@@ -115,10 +122,10 @@ omega = 2 * pi / tidal_period
 
 
 def update_forcings(t, annotate=True):
-    print "Updating tidal elevation at t = ", t
+    print_output("Updating tidal elevation at t = {}".format(t))
     P = assemble(power_integral)
     N = assemble(cost_integral)
-    print "Power, N turbines, profit =", P, N, P-break_even_wattage*N
+    print_output("Power, N turbines, profit = {}, {}, {}".format(P, N, P-break_even_wattage*N))
     # NOTE: we need to explicitly tell dolfin-adjoint to annotate this as by default it seems to
     # only annotate if the interpoland is a Function (is this reasonable?)
     tidal_elev.interpolate(tidal_amplitude*sin(omega*t + omega/pow(g*H, 0.5)*x[0]), annotate=annotate)
@@ -136,13 +143,13 @@ parameters["adjoint"]["stop_annotating"] = True
 # write out the annotation for debugging purposes
 adj_html('forward.html', 'forward')
 
+tfpvd = File('turbine_friction.pvd')
+
+
 # our own version of a ReducedFunctional, which when asked
 # to compute its derivative, calls the standard derivative()
 # method of ReducedFunctional but additionaly outputs that
 # gradient and the current value of the control to a .pvd
-tfpvd = File('turbine_friction.pvd')
-
-
 class MyReducedFunctional(ReducedFunctional):
     def derivative(self, **kwargs):
         dj = super(MyReducedFunctional, self).derivative(**kwargs)
@@ -167,7 +174,7 @@ if test_gradient:
     File('dJdc.pvd').write(dJdc)
     J0 = rf(turbine_friction)
     minconv = taylor_test(rf, c, J0, dJdc, seed=1e-4)
-    print "Order of convergence with taylor test (should be 2) =", minconv
+    print_output("Order of convergence with taylor test (should be 2) = {}".format(minconv))
 
     assert minconv > 1.95
 
@@ -175,7 +182,7 @@ if optimise:
     # compute maximum turbine density
     max_density = 1./(16.*2.5*16.*5)
     max_tf = C_T * A_T/2. * max_density
-    print "Maximum turbine density =", max_tf
+    print_output("Maximum turbine density =".format(max_tf))
 
     tf_opt = maximise(rf, bounds=[0, max_tf],
                       options={'maxiter': 100})
