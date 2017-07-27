@@ -48,7 +48,7 @@ def pytest_runtest_teardown(item, nextitem):
     from firedrake.tsfc_interface import TSFCKernel
     from pyop2.op2 import Kernel
     from pyop2.base import JITModule
-    from dolfin_adjoint import adj_reset
+    from firedrake_adjoint import get_working_tape
 
     # disgusting hack, clear the Class-Cached objects in PyOP2 and
     # Firedrake, otherwise these will never be collected.  The Kernels
@@ -57,4 +57,4 @@ def pytest_runtest_teardown(item, nextitem):
     TSFCKernel._cache.clear()
     JITModule._cache.clear()
     # clear the adjoint tape, so subsequent tests don't interfere
-    adj_reset()
+    get_working_tape().clear_tape()

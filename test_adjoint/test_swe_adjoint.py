@@ -11,9 +11,6 @@ op2.init(log_level=INFO)
 
 velocity_u = 2.0
 
-parameters['coffee'] = {}  # temporarily disable COFFEE due to bug
-# https://github.com/coneoproject/COFFEE/issues/110
-
 def basic_setup():
     lx = 100.0
     ly = 50.0
@@ -72,13 +69,12 @@ def setup_steady():
     solver_obj = basic_setup()
     solver_obj.options.timestepper_type = 'SteadyState'
     solver_obj.options.simulation_end_time = 0.499
-    # firedrake-adjoint does not remember that in the adjoint solve
     solver_obj.options.timestepper_options.solver_parameters = {
         'mat_type': 'aij',
         'ksp_type': 'preonly',
         'pc_type': 'lu',
         'pc_factor_mat_solver_package': 'mumps',
-        'snes_monitor': False,
+        'snes_monitor': True,
         'snes_type': 'newtonls',
     }
     solver_obj.create_equations()
@@ -95,28 +91,11 @@ def setup_unsteady():
         'ksp_type': 'preonly',
         'pc_type': 'lu',
         'pc_factor_mat_solver_package': 'mumps',
-        'snes_monitor': False,
+        'snes_monitor': True,
         'snes_type': 'newtonls',
     }
     solver_obj.create_equations()
     return solver_obj
-
-
-def run_model(solver_obj):
-    solver_obj.simulation_time = 0.
-    solver_obj.iteration = 0
-    solver_obj.i_export = 0
-    solver_obj.assign_initial_conditions(uv=as_vector((velocity_u, 0.0)), elev=Constant(0.0))
-    solver_obj.iterate()
-
-
-def make_python_functional(solver_obj, functional_expr):
-    """Returns a python function that runs the model for a given drag and returns the assembled functional value."""
-    def jfunc(drag):
-        solver_obj.options.quadratic_drag_coefficient.assign(drag)
-        run_model(solver_obj)
-        return assemble(functional_expr)
-    return jfunc
 
 
 @pytest.fixture(params=[setup_steady, setup_unsteady])
@@ -126,17 +105,17 @@ def setup(request):
 
 def test_gradient_from_adjoint(setup):
     solver_obj = setup()
-    integral = solver_obj.fields.solution_2d[0]*dx
-    jfunc = make_python_functional(solver_obj, integral)
+    solver_obj.assign_initial_conditions(uv=as_vector((velocity_u, 0.0)), elev=Constant(0.0))
+    solver_obj.iterate()
+    J0 = assemble(solver_obj.fields.solution_2d[0]*dx)
 
     drag_func = solver_obj.options.quadratic_drag_coefficient
-    J0 = jfunc(drag_func)  # first run, recorded by firedrake_adjoint
+    Jhat = ReducedFunctional(J0, drag_func)
 
-    J = Functional(integral*dt[FINISH_TIME], name="MyFunctional")
-    c = Control(drag_func)
-    dJdc = compute_gradient(J, c, forget=False)
-
-    parameters["adjoint"]["stop_annotating"] = True
-
-    minconv = taylor_test(jfunc, c, J0, dJdc)
+    c = Function(drag_func)
+    dc = Function(c)
+    from numpy.random import rand
+    c.vector()[:] = rand(*c.dat.shape)
+    dc.vector()[:] = rand(*dc.dat.shape)
+    minconv = taylor_test(Jhat, c, dc)
     assert minconv > 1.90
