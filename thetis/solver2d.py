@@ -400,8 +400,6 @@ class FlowSolver2d(FrozenClass):
             self.create_timestepper()
         if not hasattr(self, 'exporters'):
             self.create_exporters()
-        if thetis_config.adjoint:
-            adj_start_timestep(0.0)
         self._initialized = True
 
     def assign_initial_conditions(self, elev=None, uv=None, tracer=None):
@@ -584,10 +582,6 @@ class FlowSolver2d(FrozenClass):
             self.iteration += 1
             internal_iteration += 1
             self.simulation_time = initial_simulation_time + internal_iteration*self.dt
-
-            if thetis_config.adjoint:
-                finished = self.simulation_time > self.options.simulation_end_time + t_epsilon
-                adj_inc_timestep(time=self.simulation_time, finished=finished)
 
             self.callbacks.evaluate(mode='timestep')
 
