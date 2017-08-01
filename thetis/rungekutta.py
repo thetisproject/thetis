@@ -454,7 +454,7 @@ class RungeKuttaTimeIntegrator(TimeIntegrator):
         """Advances equations for one time step."""
         if not self._initialized:
             error('Time integrator {:} is not initialized'.format(self.name))
-        for i in xrange(self.n_stages):
+        for i in range(self.n_stages):
             self.solve_stage(i, t, update_forcings)
         self.get_final_solution()
 
@@ -494,15 +494,15 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
 
         # Allocate tendency fields
         self.k = []
-        for i in xrange(self.n_stages):
+        for i in range(self.n_stages):
             fname = '{:}_k{:}'.format(self.name, i)
             self.k.append(Function(fs, name=fname))
 
         # construct variational problems
         self.F = []
         if not mixed_space:
-            for i in xrange(self.n_stages):
-                for j in xrange(i+1):
+            for i in range(self.n_stages):
+                for j in range(i+1):
                     if j == 0:
                         u = self.solution_old + self.a[i][j]*self.dt_const*self.k[j]
                     else:
@@ -512,8 +512,8 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         else:
             # solution must be split before computing sum
             # pass components to equation in a list
-            for i in xrange(self.n_stages):
-                for j in xrange(i+1):
+            for i in range(self.n_stages):
+                for j in range(i+1):
                     if j == 0:
                         u = []  # list of components in the mixed space
                         for s, k in zip(split(self.solution_old), split(self.k[j])):
@@ -528,17 +528,14 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         # construct expressions for stage solutions
         self.sol_expressions = []
         for i_stage in range(self.n_stages):
-            sol_expr = reduce(operator.add,
-                              map(operator.mul, self.k[:i_stage+1], self.dt_const*self.a[i_stage][:i_stage+1]))
+            sol_expr = sum(map(operator.mul, self.k[:i_stage+1], self.dt_const*self.a[i_stage][:i_stage+1]))
             self.sol_expressions.append(sol_expr)
-        self.final_sol_expr = reduce(operator.add,
-                                     map(operator.mul, self.k, self.dt_const*self.b),
-                                     self.solution_old)
+        self.final_sol_expr = sum(map(operator.mul, self.k, self.dt_const*self.b)) + self.solution_old
 
     def update_solver(self):
         """Create solver objects"""
         self.solver = []
-        for i in xrange(self.n_stages):
+        for i in range(self.n_stages):
             p = NonlinearVariationalProblem(self.F[i], self.k[i])
             sname = '{:}_stage{:}_'.format(self.name, i)
             self.solver.append(
@@ -658,11 +655,9 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
         if self._nontrivial:
             self.sol_expressions = []
             for i_stage in range(self.n_stages):
-                sol_expr = reduce(operator.add,
-                                  map(operator.mul, self.tendency[:i_stage], self.a[i_stage][:i_stage]), 0.0)
+                sol_expr = sum(map(operator.mul, self.tendency[:i_stage], self.a[i_stage][:i_stage]))
                 self.sol_expressions.append(sol_expr)
-            self.final_sol_expr = reduce(operator.add,
-                                         map(operator.mul, self.tendency, self.b))
+            self.final_sol_expr = sum(map(operator.mul, self.tendency, self.b))
 
         self.update_solver()
 
@@ -760,11 +755,9 @@ class ERKGenericShuOsher(TimeIntegrator):
         if self._nontrivial:
             self.sol_expressions = []
             for i_stage in range(self.n_stages):
-                sol_expr = reduce(operator.add,
-                                  map(operator.mul,
-                                      self.stage_sol[:i_stage + 1],
-                                      self.alpha[i_stage + 1][:i_stage + 1]),
-                                  self.tendency*self.beta[i_stage + 1][i_stage])
+                sol_expr = self.tendency*self.beta[i_stage + 1][i_stage] + sum(
+                    map(operator.mul, self.stage_sol[:i_stage + 1],
+                        self.alpha[i_stage + 1][:i_stage + 1]))
                 self.sol_expressions.append(sol_expr)
 
         self.update_solver()
@@ -798,7 +791,7 @@ class ERKGenericShuOsher(TimeIntegrator):
 
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
-        for i in xrange(self.n_stages):
+        for i in range(self.n_stages):
             self.solve_stage(i, t, update_forcings)
 
 
@@ -840,13 +833,9 @@ class ERKGenericALE2(RungeKuttaTimeIntegrator):
         self.sol_expressions = []
         if self._nontrivial:
             for i_stage in range(self.n_stages):
-                sol_expr = reduce(operator.add,
-                                  map(operator.mul, self.stage_mk[:i_stage], self.a[i_stage][:i_stage]),
-                                  self.msol_old)
+                sol_expr = self.msol_old + sum(map(operator.mul, self.stage_mk[:i_stage], self.a[i_stage][:i_stage]))
                 self.sol_expressions.append(sol_expr)
-        self.final_sol_expr = reduce(operator.add,
-                                     map(operator.mul, self.stage_mk, self.b),
-                                     self.msol_old)
+        self.final_sol_expr = self.msol_old + sum(map(operator.mul, self.stage_mk, self.b))
 
         self.update_solver()
 
