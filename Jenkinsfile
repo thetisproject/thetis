@@ -20,10 +20,8 @@ pipeline {
                 sh 'mkdir build'
                 dir('build') {
                     timestamps {
-                        sh 'pip2 install virtualenv'
-                        sh 'curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install'
+                        sh 'curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install || (cat firedrake-install.log && /bin/false)'
                         sh 'python3 ./firedrake-install --disable-ssh --minimal-petsc --adjoint'
-                        sh '$HOME/.local/bin/virtualenv --relocatable firedrake'
                     }
                 }
             }
@@ -33,8 +31,8 @@ pipeline {
                 timestamps {
                     sh '''
 . build/firedrake/bin/activate
-pip install -r requirements.txt
-pip install -e .
+python -m pip install -r requirements.txt
+python -m pip install -e .
 '''
                 }
             }
@@ -54,10 +52,8 @@ make lint
                 timestamps {
                     sh '''
 . build/firedrake/bin/activate
-export PYOP2_CACHE_DIR=${VIRTUAL_ENV}/pyop2_cache
-export FIREDRAKE_TSFC_KERNEL_CACHE_DIR=${VIRTUAL_ENV}/tsfc_cache
-firedrake-clean
-py.test -v test/ -n 4
+python $(which firedrake-clean)
+python -mpytest -v test/ -n 4
 '''
                 }
             }
@@ -67,10 +63,8 @@ py.test -v test/ -n 4
                 timestamps {
                     sh '''
 . build/firedrake/bin/activate
-export PYOP2_CACHE_DIR=${VIRTUAL_ENV}/pyop2_cache
-export FIREDRAKE_TSFC_KERNEL_CACHE_DIR=${VIRTUAL_ENV}/tsfc_cache
-firedrake-clean
-py.test -v test_adjoint/
+python $(which firedrake-clean)
+python -mpytest -v test_adjoint/
 '''
                 }
             }
