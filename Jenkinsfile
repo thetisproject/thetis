@@ -22,7 +22,7 @@ pipeline {
                     timestamps {
                         sh 'pip2 install virtualenv'
                         sh 'curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install'
-                        sh 'python2 ./firedrake-install --disable-ssh --minimal-petsc --adjoint'
+                        sh 'python3 ./firedrake-install --disable-ssh --minimal-petsc --adjoint'
                         sh '$HOME/.local/bin/virtualenv --relocatable firedrake'
                     }
                 }
