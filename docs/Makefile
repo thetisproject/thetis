@@ -50,7 +50,7 @@ html: apidoc $(GENERATED_FILES)
 
 .PHONY: apidoc
 apidoc:
-	$(SPHINXAPIDOC) $$(python -c 'import thetis; import os; print os.path.dirname(thetis.__file__)') -o source -f -T
+	$(SPHINXAPIDOC) $$(python -c 'import thetis; import os; print(os.path.dirname(thetis.__file__))') -o source -f -T
 
 
 clean:

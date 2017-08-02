@@ -530,7 +530,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         for i_stage in range(self.n_stages):
             sol_expr = sum(map(operator.mul, self.k[:i_stage+1], self.dt_const*self.a[i_stage][:i_stage+1]))
             self.sol_expressions.append(sol_expr)
-        self.final_sol_expr = sum(map(operator.mul, self.k, self.dt_const*self.b)) + self.solution_old
+        self.final_sol_expr = self.solution_old + sum(map(operator.mul, self.k, self.dt_const*self.b))
 
     def update_solver(self):
         """Create solver objects"""
