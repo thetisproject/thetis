@@ -1,10 +1,8 @@
 lint:
-	@echo "    Linting thetis codebase"
-	@flake8 thetis
-	@echo "    Linting thetis test suite"
-	@flake8 test
-	@echo "    Linting thetis examples"
-	@flake8 examples
-	@echo "    Linting thetis scripts"
-	@flake8 scripts
+	@echo "    Linting firedrake codebase"
+	@python -m flake8 firedrake
+	@echo "    Linting firedrake test suite"
+	@python -m flake8 tests
+	@echo "    Linting firedrake scripts"
+	@python -m flake8 scripts --filename=*
 

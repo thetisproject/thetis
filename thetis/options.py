@@ -6,7 +6,7 @@ objects.
 """
 from thetis import FiredrakeConstant as Constant
 from thetis import print_output
-from configuration import *
+from .configuration import *
 
 
 class TimeStepperOptions(FrozenHasTraits):
