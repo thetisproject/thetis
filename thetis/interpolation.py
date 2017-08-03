@@ -17,11 +17,10 @@ Simple example of an atmospheric pressure interpolator:
     class WRFInterpolator(object):
         # Interpolates WRF atmospheric model data on 2D fields
         def __init__(self, function_space, atm_pressure_field, ncfile_pattern, init_date):
-            self.function_space = function_space
             self.atm_pressure_field = atm_pressure_field
 
             # object that interpolates forcing data from structured grid on the local mesh
-            self.grid_interpolator = NetCDFLatLonInterpolator2d(self.function_space, to_latlon)
+            self.grid_interpolator = NetCDFLatLonInterpolator2d(function_space, to_latlon)
             # reader object that can read fields from netCDF files, applies spatial interpolation
             self.reader = NetCDFSpatialInterpolator(self.grid_interpolator, ['prmsl'])
             # object that can find previous/next time stamps in a collection of netCDF files
@@ -113,8 +112,12 @@ class GridInterpolator(object):
             self.norm_a = np.array([ax, ay, az])
             self.norm_b = np.array([bx, by, bz])
 
-        ngrid_xyz = self._normalize_coords(grid_xyz)
-        ntarget_xyz = self._normalize_coords(target_xyz)
+            ngrid_xyz = self.norm_a*grid_xyz + self.norm_b
+            ntarget_xyz = self.norm_a*target_xyz + self.norm_b
+        else:
+            ngrid_xyz = grid_xyz
+            ntarget_xyz = target_xyz
+
         d = ngrid_xyz.shape[1]
         tri = qhull.Delaunay(ngrid_xyz)
         # NOTE this becomes expensive in 3D for npoints > 10k
@@ -132,11 +135,6 @@ class GridInterpolator(object):
             from scipy.spatial import cKDTree
             dist, ix = cKDTree(ngrid_xyz).query(ntarget_xyz[self.outside])
             self.outside_to_nearest = ix
-
-    def _normalize_coords(self, xyz):
-        if self.normalize:
-            return self.norm_a*xyz + self.norm_b
-        return xyz
 
     def __call__(self, values):
         """
@@ -197,7 +195,7 @@ class NetCDFTimeSeriesReader(FileTreeReader):
             return time_index
         slice_list = [slice(None, None, None)]*self.ndims
         slice_list[self.time_dim] = slice(time_index, time_index+1, None)
-        return slice
+        return slice_list
 
     def __call__(self, filename, time_index):
         """
@@ -218,6 +216,26 @@ class NetCDFTimeSeriesReader(FileTreeReader):
             return output
 
 
+def _get_subset_nodes(grid_x, grid_y, target_x, target_y):
+    """
+    Retuns grid nodes that are necessary for intepolating onto target_x,y
+    """
+    orig_shape = grid_x.shape
+    grid_xy = np.array((grid_x.ravel(), grid_y.ravel())).T
+    target_xy = np.array((target_x.ravel(), target_y.ravel())).T
+    tri = qhull.Delaunay(grid_xy)
+    simplex = tri.find_simplex(target_xy)
+    vertices = np.take(tri.simplices, simplex, axis=0)
+    nodes = np.unique(vertices.ravel())
+    nodes_x, nodes_y = np.unravel_index(nodes, orig_shape)
+
+    # x and y bounds for reading a subset of the netcdf data
+    ind_x = slice(nodes_x.min(), nodes_x.max() + 1)
+    ind_y = slice(nodes_y.min(), nodes_y.max() + 1)
+
+    return nodes, ind_x, ind_y
+
+
 class SpatialInterpolator2d(object):
     """
     Abstract spatial interpolator class that can interpolate onto a Function
@@ -228,12 +246,12 @@ class SpatialInterpolator2d(object):
         :arg to_latlon: Python function that converts local mesh coordinates to
             latitude and longitude: 'lat, lon = to_latlon(x, y)'
         """
-        self.function_space = function_space
+        assert function_space.ufl_element().value_shape() == ()
 
         # construct local coordinates
-        xy = SpatialCoordinate(self.function_space.mesh())
-        fsx = Function(self.function_space).interpolate(xy[0]).dat.data_with_halos
-        fsy = Function(self.function_space).interpolate(xy[1]).dat.data_with_halos
+        x, y = SpatialCoordinate(function_space.mesh())
+        fsx = Function(function_space).interpolate(x).dat.data_with_halos
+        fsy = Function(function_space).interpolate(y).dat.data_with_halos
 
         mesh_lonlat = []
         for node in range(len(fsx)):
@@ -243,30 +261,11 @@ class SpatialInterpolator2d(object):
 
         self._initialized = False
 
-    def _get_subset_nodes(self, grid_x, grid_y, target_x, target_y):
-        """
-        Retuns grid nodes that are necessary for intepolating onto target_x,y
-        """
-        orig_shape = grid_x.shape
-        grid_xy = np.array((grid_x.ravel(), grid_y.ravel())).T
-        target_xy = np.array((target_x.ravel(), target_y.ravel())).T
-        tri = qhull.Delaunay(grid_xy)
-        simplex = tri.find_simplex(target_xy)
-        vertices = np.take(tri.simplices, simplex, axis=0)
-        nodes = np.unique(vertices.ravel())
-        nodes_x, nodes_y = np.unravel_index(nodes, orig_shape)
-
-        # x and y bounds for reading a subset of the netcdf data
-        ind_x = slice(nodes_x.min(), nodes_x.max() + 1)
-        ind_y = slice(nodes_y.min(), nodes_y.max() + 1)
-
-        return nodes, ind_x, ind_y
-
     def _create_interpolator(self, lat_array, lon_array):
         """
         Create compact interpolator by finding the minimal necessary support
         """
-        self.nodes, self.ind_lon, self.ind_lat = self._get_subset_nodes(
+        self.nodes, self.ind_lon, self.ind_lat = _get_subset_nodes(
             lon_array,
             lat_array,
             self.mesh_lonlat[:, 0],
@@ -296,7 +295,11 @@ class SpatialInterpolator2d(object):
 
 class NetCDFLatLonInterpolator2d(SpatialInterpolator2d):
     """
-    Interpolates netCDF data on local 2D unstructured mesh
+    Interpolates netCDF data on a local 2D unstructured mesh
+
+    The intepolator is constructed for a single netCDF file that defines the
+    source grid. Once the interpolator has been constructed, data can be read
+    from any file that uses the same grid.
 
     This routine returns the data in numpy arrays.
 
@@ -305,11 +308,27 @@ class NetCDFLatLonInterpolator2d(SpatialInterpolator2d):
     .. code-block:: python
         fs = FunctionSpace(...)
         myfunc = Function(fs, ...)
-        ncinterp2d = NetCDFLatLonInterpolator2d(fs, to_latlon)
+        ncinterp2d = NetCDFLatLonInterpolator2d(fs, to_latlon, nc_filename)
         val1, val2 = ncinterp2d.interpolate(nc_filename, ['var1', 'var2'], 10)
         myfunc.dat.data_with_halos[:] = val1 + val2
 
     """
+    def __init__(self, function_space, to_latlon, nc_filename):
+        """
+        :arg function_space: target Firedrake FunctionSpace
+        :arg to_latlon: Python function that converts local mesh coordinates to
+            latitude and longitude: 'lat, lon = to_latlon(x, y)'
+        :arg str nc_filename: a netCDF file that contains the source grid.
+
+        """
+
+        super(NetCDFLatLonInterpolator2d, self).__init__(function_space, to_latlon)
+        with netCDF4.Dataset(nc_filename, 'r') as ncfile:
+            grid_lat = ncfile['lat'][:]
+            grid_lon = ncfile['lon'][:]
+            self._create_interpolator(grid_lat, grid_lon)
+            self._initialized = True
+
     def interpolate(self, nc_filename, variable_list, itime):
         """
         Interpolates data from a netCDF file onto Firedrake function space.
@@ -412,7 +431,7 @@ class NetCDFTimeParser(TimeParser):
                 numbers = len(base_date_srt.split('-'))
                 assert numbers == 3, msg
                 try:
-                    self.basetime = datetime.datetime.strptime(base_date_srt, '%Y-%m-%d').replace(tzinfo=utc_tz)
+                    self.basetime = datetime.datetime.strptime(base_date_srt, '%Y-%m-%d').replace(tzinfo=pytz.utc)
                 except ValueError:
                     raise ValueError(msg)
             if len(words) == 4:
@@ -426,7 +445,7 @@ class NetCDFTimeParser(TimeParser):
                     tz_offset = int(words[3][-3:])
                     timezone = FixedTimeZone(tz_offset, 'UTC{:}'.format(tz_offset))
                 else:
-                    timezone = utc_tz
+                    timezone = pytz.utc
                 try:
                     self.basetime = datetime.datetime.strptime(base_date_srt, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone)
                 except ValueError:
@@ -565,7 +584,7 @@ class LinearTimeInterpolator(object):
         """
         Remove cached data sets that are no longer needed
         """
-        for key in self.cache.keys():
+        for key in list(self.cache.keys()):
             if key not in keys_to_keep:
                 self.cache.pop(key)
 

@@ -4,8 +4,7 @@ Timezone definitions and conversion methods
 import datetime
 import pytz
 
-utc_tz = pytz.timezone('UTC')
-epoch = datetime.datetime(1970, 1, 1, tzinfo=utc_tz)
+epoch = datetime.datetime(1970, 1, 1, tzinfo=pytz.utc)
 
 
 class FixedTimeZone(pytz._FixedOffset):

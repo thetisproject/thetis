@@ -62,11 +62,11 @@ def get_vector_rotation_matrix(source_sys, target_sys, x, y, delta=None):
     """
     if delta is None:
         delta = 1e-6  # ~1 m in LL_WO
-    x, y = pyproj.transform(source_sys, target_sys, x, y)
+    x1, y1 = pyproj.transform(source_sys, target_sys, x, y)
 
     x2, y2 = pyproj.transform(source_sys, target_sys, x, y + delta)
-    dxdl = (x2 - x) / delta
-    dydl = (y2 - y) / delta
+    dxdl = (x2 - x1) / delta
+    dydl = (y2 - y1) / delta
     theta = np.arctan2(-dxdl, dydl)
 
     c = np.cos(theta)

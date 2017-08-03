@@ -16,14 +16,17 @@ def compute_rotation_error(direction='lat'):
         delta_lon = delta_mag
 
     # compute direction in xy space
-    x, y = coordsys.convertCoords(lon, lat, coordsys.LL_WO, coordsys.SPCS_N_OR)
-    x2, y2 = coordsys.convertCoords(lon + delta_lon, lat + delta_lat, coordsys.LL_WO, coordsys.SPCS_N_OR)
+    x, y = coordsys.convert_coords(coordsys.LL_WGS84, coordsys.SPCS_N_OR,
+                                   lon, lat)
+    x2, y2 = coordsys.convert_coords(coordsys.LL_WGS84, coordsys.SPCS_N_OR,
+                                     lon + delta_lon, lat + delta_lat)
     vect_x, vect_y = x2-x, y2-y
     mag = np.hypot(vect_x, vect_y)
     nvect_x, nvect_y = vect_x/mag, vect_y/mag
 
     # we should be able to get the same unit vector through rotation
-    R, theta = coordsys.getVectorRotationMatrix(lon, lat, coordsys.SPCS_N_OR, source_csys=coordsys.LL_WO)
+    R, theta = coordsys.get_vector_rotation_matrix(
+        coordsys.LL_WGS84, coordsys.SPCS_N_OR, lon, lat, delta=delta_mag)
     delta_xy = np.matmul(R, np.array([[delta_lon], [delta_lat]]))
     mag2 = np.hypot(delta_xy[0, 0], delta_xy[1, 0])
     nvect_x2, nvect_y2 = delta_xy[0, 0]/mag2, delta_xy[1, 0]/mag2

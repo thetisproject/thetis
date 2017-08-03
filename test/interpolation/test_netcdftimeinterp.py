@@ -45,14 +45,14 @@ def netcdf_files(request, dataset, tmp_outputdir):
         basetime = FixedTimeZone(-6, 'FFF').localize(datetime.datetime(1972, 1, 1))
         basetime_str = basetime.strftime('%Y-%m-%d %H:%M:%S')+basetime.strftime('%z')[:-2]
     else:
-        basetime = utc_tz.localize(datetime.datetime(1972, 1, 1))
+        basetime = pytz.utc.localize(datetime.datetime(1972, 1, 1))
         basetime_str = basetime.strftime('%Y-%m-%d')
 
     print('Basetime: {:}'.format(basetime))
     nfiles = 5
     all_files = []
     for i in range(nfiles):
-        n = ndata/nfiles
+        n = int(ndata/nfiles)
         ix = np.arange(n*i, n*(i+1))
         fn = ncfile_pattern.format(i)
         d = netCDF4.Dataset(fn, 'w')
@@ -85,8 +85,9 @@ def test_netcdftime(dataset, netcdf_files):
     # test NetCDFTimeParser
     for i in range(nfiles):
         nct = NetCDFTimeParser(files[i])
-        t_offset = xx[i*ndata/nfiles]
-        t_offset_end = xx[(i+1)*ndata/nfiles - 1]
+        nn = int(ndata/nfiles)
+        t_offset = xx[i*nn]
+        t_offset_end = xx[(i+1)*nn - 1]
         assert nct.time_unit == 'seconds'
         assert nct.start_time == basetime + datetime.timedelta(seconds=t_offset)
         assert nct.get_start_time() == epoch_to_datetime(datetime_to_epoch(basetime) + t_offset)
