@@ -19,8 +19,8 @@ op2.init(log_level=INFO)
 
 parameters['coffee'] = {}  # temporarily disable COFFEE due to bug
 
-test_gradient = False  # whether to check the gradient computed by the adjoint
-optimise = True
+test_gradient = True  # whether to check the gradient computed by the adjoint
+optimise = False
 
 # setup the Thetis solver obj as usual:
 mesh2d = Mesh('headland.msh')
@@ -35,13 +35,14 @@ solver_obj = solver2d.FlowSolver2d(mesh2d, Constant(H))
 options = solver_obj.options
 options.timestep = timestep
 options.simulation_export_time = timestep
-options.simulation_end_time = tidal_period/2
+options.simulation_end_time = tidal_period/20
 options.output_directory = 'outputs'
 options.check_volume_conservation_2d = True
 options.element_family = 'dg-dg'
 options.timestepper_type = 'CrankNicolson'
 options.timestepper_options.implicitness_theta = 0.6
 options.timestepper_options.solver_parameters = {'snes_monitor': True,
+                                                 'snes_rtol': 1e-9,
                                                  'ksp_type': 'preonly',
                                                  'pc_type': 'lu',
                                                  'pc_factor_mat_solver_package': 'mumps',
@@ -57,10 +58,11 @@ coasts_tag = 3
 tidal_elev = Function(FunctionSpace(mesh2d, "CG", 1), name='tidal_elev')
 tidal_elev_bc = {'elev': tidal_elev}
 noslip_bc = {'uv': Constant((0.0, 0.0))}
+freeslip_bc = {'un': Constant(0.0)}
 solver_obj.bnd_functions['shallow_water'] = {
     left_tag: tidal_elev_bc,
     right_tag: tidal_elev_bc,
-    coasts_tag: noslip_bc
+    coasts_tag: freeslip_bc #TODO: was noslip_bc
 }
 
 
@@ -88,16 +90,19 @@ turbine_drag_term = TurbineDragTerm(u_test, u_space, eta_space,
                                     options=options)
 solver_obj.eq_sw.add_term(turbine_drag_term, 'implicit')
 
-turbine_friction.assign(0.0)
+# TODO: this cannot be assign as it will always be replayed - is this correct?
+turbine_friction.project(Constant(0.1))
 solver_obj.assign_initial_conditions(uv=as_vector((1e-7, 0.0)))
 
 # Setup the functional. It computes a measure of the profit as the difference
 # of the power output of the farm (the "revenue") minus the cost based on the number
 # of turbines
 
-u, eta = split(solver_obj.fields.solution_2d)
+# TODO: was u, eta = split(solution)
+u, v, eta = solver_obj.fields.solution_2d
 # should multiply this by density to get power in W - assuming rho=1000 we get kW instead
-power_integral = turbine_friction * (u[0]*u[0] + u[1]*u[1])**1.5 * dx(2)
+power_integral = turbine_friction * (u*u + v*v)**1.5 * dx(2)
+power_integral = u * dx(2)
 
 # turbine friction=C_T*A_T/2.*turbine_density
 C_T = 0.8  # turbine thrust coefficient
@@ -105,13 +110,13 @@ A_T = pi * (16./2)**2  # turbine cross section
 # cost integral is n/o turbines = \int turbine_density = \int c_t/(C_T A_T/2.)
 cost_integral = 1./(C_T*A_T/2.) * turbine_friction * dx(2)
 
-break_even_wattage = 100  # (kW) amount of power produced per turbine on average to "break even" (cost = revenue)
+break_even_wattage = 0  # (kW) amount of power produced per turbine on average to "break even" (cost = revenue)
 
 # we rescale the functional such that the gradients are ~ order magnitude 1.
 # the scaling is chosen such that the gradient of break_even_wattage * cost_integral is of order 1
 # the power-integral is assumed to be of the same order of magnitude
-scaling = 1./assemble(break_even_wattage/(C_T*A_T/2.) * dx(2, domain=mesh2d))
-combined_functional = Functional(scaling * (power_integral - break_even_wattage * cost_integral) * dt)
+#scaling = 1./assemble(break_even_wattage/(C_T*A_T/2.) * dx(2, domain=mesh2d))
+scaling = 1.
 
 
 # a function to update the tidal_elev bc value every timestep
@@ -119,33 +124,30 @@ combined_functional = Functional(scaling * (power_integral - break_even_wattage 
 x = SpatialCoordinate(mesh2d)
 g = 9.81
 omega = 2 * pi / tidal_period
-
+#
+time_integrated_functional = 0.0
+#
 
 def update_forcings(t, annotate=True):
     print_output("Updating tidal elevation at t = {}".format(t))
     P = assemble(power_integral)
     N = assemble(cost_integral)
-    print_output("Power, N turbines, profit = {}, {}, {}".format(P, N, P-break_even_wattage*N))
-    # NOTE: we need to explicitly tell dolfin-adjoint to annotate this as by default it seems to
-    # only annotate if the interpoland is a Function (is this reasonable?)
-    tidal_elev.interpolate(tidal_amplitude*sin(omega*t + omega/pow(g*H, 0.5)*x[0]), annotate=annotate)
-    # NOTE: it seems firedrake-adjoint (dolfin-adjoint in general?) cannot handle functions that are part of a
-    # time-integrated Functional which do not change over time and are therefore not annotated
-    turbine_friction.project(turbine_friction, annotate=annotate)
+    profit = P - break_even_wattage * N
+    print_output("Power, N turbines, profit = {}, {}, {}".format(P, N, profit))
+    ## TODO: this was an interpolate
+    #tidal_elev.project(tidal_amplitude*sin(omega*t + omega/pow(g*H, 0.5)*x[0]), annotate=annotate)
+    tidal_elev.project(tidal_amplitude*sin(omega*tidal_period/50 + omega/pow(g*H, 0.5)*x[0]), annotate=annotate)
 
+    global time_integrated_functional
+    ## TODO: this was +=
+    time_integrated_functional =  time_integrated_functional + profit
 
-# run as normal (this run will be annotated by firedrake-adjoint)
+# run as normal (this run will be annotated by firedrake_adjoint)
 solver_obj.iterate(update_forcings=update_forcings)
+update_forcings(options.simulation_end_time)
 
-
-# everything relevant should be annotated now
-parameters["adjoint"]["stop_annotating"] = True
-# write out the annotation for debugging purposes
-adj_html('forward.html', 'forward')
 
 tfpvd = File('turbine_friction.pvd')
-
-
 # our own version of a ReducedFunctional, which when asked
 # to compute its derivative, calls the standard derivative()
 # method of ReducedFunctional but additionaly outputs that
@@ -153,6 +155,7 @@ tfpvd = File('turbine_friction.pvd')
 class MyReducedFunctional(ReducedFunctional):
     def derivative(self, **kwargs):
         dj = super(MyReducedFunctional, self).derivative(**kwargs)
+        return dj
         # need to make sure dj always has the same name in the output
         grad = dj[0].copy()
         grad.rename("Gradient")
@@ -163,17 +166,30 @@ class MyReducedFunctional(ReducedFunctional):
         return dj
 
 
+#scaled_functional = AdjFloat(scaling * time_integrated_functional)
+#scaled_functional = assemble(solver_obj.fields.solution_2d[0]*dx)
+scaled_functional = time_integrated_functional
+
+print scaled_functional
+
 # this reduces the functional J(u, tf) to a function purely of
 # rf(tf) = J(u(tf), tf) where the velocities u(tf) of the entire simulation
 # are computed by replaying the forward model for any provided turbine friction tf
-c = Control(turbine_friction)
-rf = MyReducedFunctional(combined_functional, c)
+rf = MyReducedFunctional(scaled_functional, turbine_friction)
 
 if test_gradient:
-    dJdc = compute_gradient(combined_functional, c, forget=False)
-    File('dJdc.pvd').write(dJdc)
-    J0 = rf(turbine_friction)
-    minconv = taylor_test(rf, c, J0, dJdc, seed=1e-4)
+    #dJdc = compute_gradient(scaled_functional, turbine_friction)
+    #File('dJdc.pvd').write(dJdc)
+    tf0 = Function(turbine_friction)
+    dtf = Function(turbine_friction)
+    #tf0.assign(turbine_friction)
+    #print rf(tf0)
+    #stop
+    import numpy
+    tf0.dat.data[:] = numpy.random.random(tf0.dat.data.shape)
+    #print rf(tf0)
+    dtf.dat.data[:] = numpy.random.random(dtf.dat.data.shape)
+    minconv = taylor_test(rf, tf0, dtf)
     print_output("Order of convergence with taylor test (should be 2) = {}".format(minconv))
 
     assert minconv > 1.95
