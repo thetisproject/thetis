@@ -14,6 +14,7 @@ from .field_defs import field_metadata
 from .options import ModelOptions2d
 from . import callback
 from .log import *
+from collections import OrderedDict
 
 
 class FlowSolver2d(FrozenClass):
@@ -357,7 +358,7 @@ class FlowSolver2d(FrozenClass):
         uv_2d, elev_2d = self.fields.solution_2d.split()
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = elev_2d
-        self.exporters = {}
+        self.exporters = OrderedDict()
         if not self.options.no_exports:
             e = exporter.ExportManager(self.options.output_directory,
                                        self.options.fields_to_export,
@@ -428,8 +429,8 @@ class FlowSolver2d(FrozenClass):
         Also evaluates all callbacks set to 'export' interval.
         """
         self.callbacks.evaluate(mode='export')
-        for key in self.exporters:
-            self.exporters[key].export()
+        for e in self.exporters.values():
+            e.export()
 
     def load_state(self, i_export, outputdir=None, t=None, iteration=None):
         """
@@ -485,8 +486,8 @@ class FlowSolver2d(FrozenClass):
         else:
             offset = 1
         self.next_export_t += self.options.simulation_export_time
-        for k in self.exporters:
-            self.exporters[k].set_next_export_ix(self.i_export + offset)
+        for e in self.exporters.values():
+            e.set_next_export_ix(self.i_export + offset)
 
     def print_state(self, cputime):
         """

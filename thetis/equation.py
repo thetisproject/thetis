@@ -4,6 +4,7 @@ Implements Equation and Term classes.
 """
 from __future__ import absolute_import
 from .utility import *
+from collections import OrderedDict
 
 
 class Term(object):
@@ -61,7 +62,7 @@ class Equation(object):
     """
     Implements an equation, made out of terms.
     """
-    SUPPORTED_LABELS = ['source', 'explicit', 'implicit', 'nonlinear']
+    SUPPORTED_LABELS = frozenset(['source', 'explicit', 'implicit', 'nonlinear'])
     """
     Valid labels for terms, indicating how they should be treated in the time
     integrator.
@@ -83,7 +84,7 @@ class Equation(object):
         """
         :arg function_space: the :class:`FunctionSpace` the solution belongs to
         """
-        self.terms = {}
+        self.terms = OrderedDict()
         self.labels = {}
         self.function_space = function_space
         self.mesh = self.function_space.mesh()
@@ -140,12 +141,12 @@ class Equation(object):
             if label == 'all':
                 labels = self.SUPPORTED_LABELS
             else:
-                labels = [label]
+                labels = frozenset([label])
         else:
-            labels = list(label)
-        for key in self.terms:
+            labels = frozenset(label)
+        for key, value in self.terms.items():
             if self.labels[key] in labels:
-                yield self.terms[key]
+                yield value
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         """
