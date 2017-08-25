@@ -113,7 +113,7 @@ def run_bottom_friction(parabolic_visosity=False,
             kappa = physical_constants['von_karman']
             l2_tol = 0.12
         else:
-            kappa = solver_obj.gls_model.options.kappa
+            kappa = solver_obj.options.turbulence_model_options.kappa
             l2_tol = 0.05
         z_0 = physical_constants['z0_friction'].dat.data[0]
         u_b = u_max * kappa / np.log((depth + z_0)/z_0)

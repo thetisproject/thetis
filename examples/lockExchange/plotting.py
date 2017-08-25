@@ -26,9 +26,9 @@ class PlotCallback(DiagnosticCallback):
                  append_to_log=True):
         assert export_to_hdf5 is False
         super(PlotCallback, self).__init__(solver_obj,
-                                           outputdir,
-                                           export_to_hdf5,
-                                           append_to_log)
+                                           outputdir=outputdir,
+                                           export_to_hdf5=export_to_hdf5,
+                                           append_to_log=append_to_log)
         self.export_count = itertools.count()
         self._initialized = False
 

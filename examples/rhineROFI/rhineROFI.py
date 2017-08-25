@@ -33,9 +33,9 @@ class FreshwaterConservationCallback(DiagnosticCallback):
             constant maximum salinity value used to compute freshwater tracer
         """
         super(FreshwaterConservationCallback, self).__init__(solver_obj,
-                                                             outputdir,
-                                                             export_to_hdf5,
-                                                             append_to_log)
+                                                             outputdir=outputdir,
+                                                             export_to_hdf5=export_to_hdf5,
+                                                             append_to_log=append_to_log)
         self.ref_salinity = ref_salinity
 
         def mass():

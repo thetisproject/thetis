@@ -5,13 +5,12 @@ All options are type-checked and they are stored in traitlets Configurable
 objects.
 """
 from thetis import FiredrakeConstant as Constant
-from thetis import print_output
 from .configuration import *
 
 
 class TimeStepperOptions(FrozenHasTraits):
     """Base class for all time stepper options"""
-    pass
+    name = 'Time stepper'
 
 
 class ExplicitTimestepperOptions(TimeStepperOptions):
@@ -151,8 +150,22 @@ class SemiImplicitTimestepperOptions3d(ExplicitTimestepperOptions3d):
         help='implicitness parameter theta for 2D solver. Value 1.0 implies fully implicit formulation.').tag(config=True)
 
 
-class GLSModelOptions(FrozenHasTraits):
-    """Options for generic length scale turbulence model"""
+class TurbulenceModelOptions(FrozenHasTraits):
+    """Abstract base class for all turbulence model options"""
+    name = 'Turbulence closure model'
+
+
+class PacanowskiPhilanderModelOptions(TurbulenceModelOptions):
+    """Options for Pacanowski-Philander turbulence model"""
+    name = 'Pacanowski-Philander turbulence closure model'
+    max_viscosity = PositiveFloat(5e-2, help=r"float: Constant maximum viscosity :math:`\nu_{max}`").tag(config=True)
+    alpha = PositiveFloat(10.0, help="float: Richardson number multiplier").tag(config=True)
+    exponent = PositiveFloat(2.0, help=r"float: Exponent of viscosity numerator :math:`n`").tag(config=True)
+
+
+class GLSModelOptions(TurbulenceModelOptions):
+    """Options for Generic Length Scale turbulence model"""
+    name = 'Generic Lenght Scale turbulence closure model'
     closure_name = Enum(
         ['k-epsilon', 'k-omega', 'Generic Lenght Scale'],
         default_value='k-epsilon',
@@ -292,27 +305,17 @@ class GLSModelOptions(FrozenHasTraits):
         elif closure_name == 'gen':
             self.update(gen)
 
-    def update(self, params_dict):
-            for key in params_dict:
-                self.__setattr__(key, params_dict[key])
-
-    def print_summary(self):
-        """Prints all defined parameters and their values."""
-        print_output('GLS Turbulence model parameters')
-        params_dict = self._trait_values
-        for k in sorted(params_dict.keys()):
-            print_output('  {:16s} : {:}'.format(k, params_dict[k]))
-
 
 class EquationOfStateOptions(FrozenHasTraits):
     """Base class of equation of state options"""
-    pass
+    name = 'Equation of State'
 
 
 class LinearEquationOfStateOptions(EquationOfStateOptions):
     """Linear equation of state options"""
     # TODO more human readable parameter names
     # TODO document the actual equation somewhere
+    name = 'Linear Equation of State'
     rho_ref = NonNegativeFloat(1000.0, help='Reference water density').tag(config=True)
     s_ref = NonNegativeFloat(35.0, help='Reference water salinity').tag(config=True)
     th_ref = Float(15.0, help='Reference water temperature').tag(config=True)
@@ -322,6 +325,7 @@ class LinearEquationOfStateOptions(EquationOfStateOptions):
 
 class CommonModelOptions(FrozenConfigurable):
     """Options that are common for both 2d and 3d models"""
+    name = 'Model options'
     polynomial_degree = NonNegativeInteger(1, help='Polynomial degree of elements').tag(config=True)
     element_family = Enum(
         ['dg-dg', 'rt-dg', 'dg-cg'],
@@ -455,6 +459,7 @@ class CommonModelOptions(FrozenConfigurable):
                        Instance(TimeStepperOptions, args=()).tag(config=True))
 class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
+    name = 'Depth-averaged 2D model'
     use_wetting_and_drying = Bool(
         False, help=r"""bool: Turn on wetting and drying
 
@@ -481,11 +486,13 @@ class ModelOptions2d(CommonModelOptions):
                                   help='Name of the time integrator').tag(config=True),
                        Instance(TimeStepperOptions, args=()).tag(config=True))
 @attach_paired_options("turbulence_model_type",
-                       PairedEnum([('gls', GLSModelOptions())],
-                                  "gls_options",
+                       PairedEnum([('gls', GLSModelOptions()),
+                                   ('pacanowski', PacanowskiPhilanderModelOptions())
+                                   ],
+                                  "turbulence_model_options",
                                   default_value='gls',
                                   help='Type of vertical turbulence model').tag(config=True),
-                       Instance(GLSModelOptions, args=()).tag(config=True))
+                       Instance(TurbulenceModelOptions, args=()).tag(config=True))
 @attach_paired_options("equation_of_state_type",
                        PairedEnum([('full', EquationOfStateOptions()),
                                    ('linear', LinearEquationOfStateOptions())],
@@ -495,6 +502,7 @@ class ModelOptions2d(CommonModelOptions):
                        Instance(EquationOfStateOptions, args=()).tag(config=True))
 class ModelOptions3d(CommonModelOptions):
     """Options for 3D hydrostatic model"""
+    name = '3D hydrostatic model'
     solve_salinity = Bool(True, help='Solve salinity transport').tag(config=True)
     solve_temperature = Bool(True, help='Solve temperature transport').tag(config=True)
     use_implicit_vertical_diffusion = Bool(True, help='Solve vertical diffusion and viscosity implicitly').tag(config=True)

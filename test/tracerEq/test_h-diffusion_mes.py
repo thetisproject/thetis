@@ -115,7 +115,7 @@ def run(refinement, **model_options):
     export_func()
 
     # custom time loop that solves tracer equation only
-    ti = solverobj.timestepper.timestepper_salt_3d
+    ti = solverobj.timestepper.timesteppers.salt_expl
     i = 0
     iexport = 1
     next_export_t = t + solverobj.options.simulation_export_time

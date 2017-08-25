@@ -209,10 +209,10 @@ def run(setup, refinement, order, do_export=True, **options):
 
     # solve salinity advection-diffusion equation with residual source term
     ti = solver_obj.timestepper
-    ti.timestepper_salt_3d.initialize(ti.fields.salt_3d)
+    ti.timesteppers.salt_expl.initialize(ti.fields.salt_3d)
     t = 0
     while t < t_end - 1e-5:
-        ti.timestepper_salt_3d.advance(t)
+        ti.timesteppers.salt_expl.advance(t)
         if ti.options.use_limiter_for_tracers:
             ti.solver.tracer_limiter.apply(ti.fields.salt_3d)
         t += dt

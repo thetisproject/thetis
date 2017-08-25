@@ -78,10 +78,11 @@ def test_callbacks(tmp_outputdir):
 
         def __init__(self, const_val, solver_obj, outputdir=None, export_to_hdf5=False,
                      append_to_log=True):
-            super(ConstCallback, self).__init__(solver_obj,
-                                                outputdir,
-                                                export_to_hdf5,
-                                                append_to_log)
+            super(ConstCallback, self).__init__(
+                solver_obj,
+                outputdir=outputdir,
+                export_to_hdf5=export_to_hdf5,
+                append_to_log=append_to_log)
             self.const_val = const_val
 
         def __call__(self):
@@ -95,26 +96,68 @@ def test_callbacks(tmp_outputdir):
             line = 'Constant: {0:11.4e} Integral: {1:11.4e}'.format(*args)
             return line
 
+    class SimpleVectorCallback(DiagnosticCallback):
+        """A callback that exports a numpy array and sets some attributes."""
+        name = 'dummyvector'
+        variable_names = ['value']
+
+        def __init__(self, solver_obj, array_dim=30, attrs=None,
+                     outputdir=None, export_to_hdf5=False,
+                     append_to_log=True):
+            self.array_dim = array_dim
+            super(SimpleVectorCallback, self).__init__(
+                solver_obj,
+                outputdir=outputdir,
+                attrs=attrs,
+                array_dim=self.array_dim,
+                export_to_hdf5=export_to_hdf5,
+                append_to_log=append_to_log)
+
+        def __call__(self):
+            time = self.solver_obj.simulation_time
+            value = np.linspace(time, 2*time + 1, self.array_dim)
+            return (value, )
+
+        def message_str(self, *args):
+            minval = args[0].min()
+            maxval = args[0].max()
+            line = 'Array value range: {0:11.4e} - {1:11.4e}'.format(minval, maxval)
+            return line
+
+    # test call interface for ConstCallback
     const_value = 4.5
     cb = ConstCallback(const_value,
                        solver_obj,
                        export_to_hdf5=True,
                        outputdir=solver_obj.options.output_directory)
-
-    # test call interface
     val, integral = cb()
     assert np.allclose(val, const_value)
     assert np.allclose(integral, const_value*lx*ly*depth)
     msg = cb.message_str(val, integral)
     assert msg == 'Constant:  4.5000e+00 Integral:  3.0375e+10'
-
     solver_obj.add_callback(cb)
+
+    # test call interface for SimpleVectorCallback
+    attrs = {'one': 1, 'two': 2}
+    cb = SimpleVectorCallback(solver_obj,
+                              array_dim=4,
+                              attrs=attrs,
+                              export_to_hdf5=True,
+                              outputdir=solver_obj.options.output_directory)
+    arr = cb()[0]
+    assert np.allclose(arr, np.linspace(0., 1., 4))
+    msg = cb.message_str(arr)
+    assert msg == 'Array value range:  0.0000e+00 -  1.0000e+00'
+    solver_obj.add_callback(cb)
+
     vcb = VolumeConservation3DCallback(solver_obj)
     solver_obj.add_callback(vcb)
     solver_obj.assign_initial_conditions(elev=elev_init, salt=salt_init3d)
     solver_obj.iterate()
 
     # verify hdf file contents
+    correct_time = np.arange(11, dtype=float)[:, np.newaxis]
+    correct_time *= solver_obj.options.simulation_export_time
 
     with h5py.File('outputs/diagnostic_constintegral.hdf5', 'r') as h5file:
         time = h5file['time'][:]
@@ -127,6 +170,19 @@ def test_callbacks(tmp_outputdir):
         assert np.allclose(time, correct_time)
         assert np.allclose(value, correct_value)
         assert np.allclose(integral, correct_integral)
+
+    with h5py.File('outputs/diagnostic_dummyvector.hdf5', 'r') as h5file:
+        time = h5file['time'][:]
+        value = h5file['value'][:]
+        correct_value = np.zeros((11, 4))
+        for row in range(11):
+            t = correct_time[row]
+            correct_value[row, :] = np.linspace(t, 2*t + 1, 4)
+        assert np.allclose(time, correct_time)
+        assert np.allclose(value, correct_value)
+        for a in attrs:
+            assert a in h5file.attrs.keys()
+            assert h5file.attrs[a] == attrs[a]
 
     with h5py.File('outputs/diagnostic_volume2d.hdf5', 'r') as h5file:
         time = h5file['time'][:]

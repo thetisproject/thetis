@@ -395,8 +395,6 @@ class FlowSolver(FrozenClass):
         self.function_spaces.Uint = self.function_spaces.U  # vertical integral of uv
         # tracers
         self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.polynomial_degree, vfamily='DG', vdegree=max(0, self.options.polynomial_degree), name='H')
-
-        # function space for turbulent quantitiess
         self.function_spaces.turb_space = self.function_spaces.P0
 
         # 2D spaces
@@ -434,9 +432,9 @@ class FlowSolver(FrozenClass):
 
         self._isfrozen = True
 
-    def create_equations(self):
+    def create_fields(self):
         """
-        Creates all dynamic equations and time integrators
+        Creates all fields
         """
         if not hasattr(self, 'U_2d'):
             self.create_function_spaces()
@@ -533,35 +531,57 @@ class FlowSolver(FrozenClass):
         else:
             self.tracer_limiter = None
         if self.options.use_turbulence:
-            # NOTE tke and psi should be in H as tracers ??
-            self.fields.tke_3d = Function(self.function_spaces.turb_space)
-            self.fields.psi_3d = Function(self.function_spaces.turb_space)
-            # NOTE other turb. quantities should share the same nodes ??
-            self.fields.eps_3d = Function(self.function_spaces.turb_space)
-            self.fields.len_3d = Function(self.function_spaces.turb_space)
-            if self.options.use_smooth_eddy_viscosity:
-                self.fields.eddy_visc_3d = Function(self.function_spaces.P1)
-                self.fields.eddy_diff_3d = Function(self.function_spaces.P1)
+            if self.options.turbulence_model_type == 'gls':
+                # NOTE tke and psi should be in H as tracers ??
+                self.fields.tke_3d = Function(self.function_spaces.turb_space)
+                self.fields.psi_3d = Function(self.function_spaces.turb_space)
+                # NOTE other turb. quantities should share the same nodes ??
+                self.fields.eps_3d = Function(self.function_spaces.turb_space)
+                self.fields.len_3d = Function(self.function_spaces.turb_space)
+                if self.options.use_smooth_eddy_viscosity:
+                    self.fields.eddy_visc_3d = Function(self.function_spaces.P1)
+                    self.fields.eddy_diff_3d = Function(self.function_spaces.P1)
+                else:
+                    self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
+                    self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
+                # NOTE M2 and N2 depend on d(.)/dz -> use CG in vertical ?
+                self.fields.shear_freq_3d = Function(self.function_spaces.turb_space)
+                self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)
+                self.turbulence_model = turbulence.GenericLengthScaleModel(
+                    weakref.proxy(self),
+                    self.fields.tke_3d,
+                    self.fields.psi_3d,
+                    self.fields.uv_3d,
+                    self.fields.get('density_3d'),
+                    self.fields.len_3d,
+                    self.fields.eps_3d,
+                    self.fields.eddy_diff_3d,
+                    self.fields.eddy_visc_3d,
+                    self.fields.buoy_freq_3d,
+                    self.fields.shear_freq_3d,
+                    options=self.options.turbulence_model_options)
+            elif self.options.turbulence_model_type == 'pacanowski':
+                if self.options.use_smooth_eddy_viscosity:
+                    self.fields.eddy_visc_3d = Function(self.function_spaces.P1)
+                    self.fields.eddy_diff_3d = Function(self.function_spaces.P1)
+                else:
+                    self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
+                    self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
+                self.fields.shear_freq_3d = Function(self.function_spaces.turb_space)
+                self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)
+                self.turbulence_model = turbulence.PacanowskiPhilanderModel(
+                    weakref.proxy(self),
+                    self.fields.uv_3d,
+                    self.fields.get('density_3d'),
+                    self.fields.eddy_diff_3d,
+                    self.fields.eddy_visc_3d,
+                    self.fields.buoy_freq_3d,
+                    self.fields.shear_freq_3d,
+                    options=self.options.turbulence_model_options)
             else:
-                self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
-                self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
-            # NOTE M2 and N2 depend on d(.)/dz -> use CG in vertical ?
-            self.fields.shear_freq_3d = Function(self.function_spaces.turb_space)
-            self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)
-            self.gls_model = turbulence.GenericLengthScaleModel(weakref.proxy(self),
-                                                                self.fields.tke_3d,
-                                                                self.fields.psi_3d,
-                                                                self.fields.uv_3d,
-                                                                self.fields.get('density_3d'),
-                                                                self.fields.len_3d,
-                                                                self.fields.eps_3d,
-                                                                self.fields.eddy_diff_3d,
-                                                                self.fields.eddy_visc_3d,
-                                                                self.fields.buoy_freq_3d,
-                                                                self.fields.shear_freq_3d,
-                                                                options=self.options.gls_options)
+                raise Exception('Unsupported turbulence model: {:}'.format(self.options.turbulence_model))
         else:
-            self.gls_model = None
+            self.turbulence_model = None
         # copute total viscosity/diffusivity
         self.tot_h_visc = SumFunction()
         self.tot_h_visc.add(self.options.horizontal_viscosity)
@@ -576,7 +596,22 @@ class FlowSolver(FrozenClass):
         self.tot_v_diff.add(self.options.vertical_diffusivity)
         self.tot_v_diff.add(self.fields.get('eddy_diff_3d'))
 
-        # ----- Equations
+        self._isfrozen = True
+
+    def create_equations(self):
+        """
+        Creates all dynamic equations and time integrators
+        """
+        if 'uv_3d' not in self.fields:
+            self.create_fields()
+        self._isfrozen = False
+
+        if self.options.log_output and not self.options.no_exports:
+            logfile = os.path.join(create_directory(self.options.output_directory), 'log')
+            filehandler = logging.logging.FileHandler(logfile, mode='w')
+            filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
+            output_logger.addHandler(filehandler)
+
         self.eq_sw = shallowwater_eq.ModeSplit2DEquations(
             self.fields.solution_2d.function_space(),
             self.fields.bathymetry_2d,
@@ -631,7 +666,7 @@ class FlowSolver(FrozenClass):
             self.eq_salt.bnd_functions = self.bnd_functions['salt']
         if self.options.solve_temperature:
             self.eq_temp.bnd_functions = self.bnd_functions['temp']
-        if self.options.use_turbulence:
+        if self.options.use_turbulence and self.options.turbulence_model_type == 'gls':
             if self.options.use_turbulence_advection:
                 # explicit advection equations
                 self.eq_tke_adv = tracer_eq.TracerEquation(self.fields.tke_3d.function_space(),
@@ -646,12 +681,12 @@ class FlowSolver(FrozenClass):
                                                            use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
             # implicit vertical diffusion eqn with production terms
             self.eq_tke_diff = turbulence.TKEEquation(self.fields.tke_3d.function_space(),
-                                                      self.gls_model,
+                                                      self.turbulence_model,
                                                       bathymetry=self.fields.bathymetry_3d,
                                                       v_elem_size=self.fields.v_elem_size_3d,
                                                       h_elem_size=self.fields.h_elem_size_3d)
             self.eq_psi_diff = turbulence.PsiEquation(self.fields.psi_3d.function_space(),
-                                                      self.gls_model,
+                                                      self.turbulence_model,
                                                       bathymetry=self.fields.bathymetry_3d,
                                                       v_elem_size=self.fields.v_elem_size_3d,
                                                       h_elem_size=self.fields.h_elem_size_3d)
@@ -834,12 +869,12 @@ class FlowSolver(FrozenClass):
             self.fields.salt_3d.project(salt)
         if temp is not None and self.options.solve_temperature:
             self.fields.temp_3d.project(temp)
-        if self.options.use_turbulence:
+        if self.options.use_turbulence and self.options.turbulence_model_type == 'gls':
             if tke is not None:
                 self.fields.tke_3d.project(tke)
             if psi is not None:
                 self.fields.psi_3d.project(psi)
-            self.gls_model.initialize()
+            self.turbulence_model.initialize()
 
         if self.options.use_ale_moving_mesh:
             self.timestepper._update_3d_elevation()
@@ -853,7 +888,7 @@ class FlowSolver(FrozenClass):
                                                   do_stab_params=True,
                                                   do_turbulence=False)
         if self.options.use_turbulence:
-            self.gls_model.initialize()
+            self.turbulence_model.initialize()
 
     def add_callback(self, callback, eval_interval='export'):
         """
@@ -929,10 +964,12 @@ class FlowSolver(FrozenClass):
             temp = self.fields.temp_3d
             e.exporters['temp_3d'].load(i_export, temp)
         if self.options.use_turbulence:
-            tke = self.fields.tke_3d
-            psi = self.fields.psi_3d
-            e.exporters['tke_3d'].load(i_export, tke)
-            e.exporters['psi_3d'].load(i_export, psi)
+            if 'tke_3d' in self.fields:
+                tke = self.fields.tke_3d
+                e.exporters['tke_3d'].load(i_export, tke)
+            if 'psi_3d' in self.fields:
+                psi = self.fields.psi_3d
+                e.exporters['psi_3d'].load(i_export, psi)
         self.assign_initial_conditions(elev=self.fields.elev_2d,
                                        uv_2d=self.fields.uv_2d,
                                        uv_3d=self.fields.uv_3d,

@@ -59,26 +59,30 @@ class DiagnosticHDF5(object):
     """
     A HDF5 file for storing diagnostic time series arrays.
     """
-    def __init__(self, filename, varnames, comm=COMM_WORLD):
+    def __init__(self, filename, varnames, array_dim=1, attrs=None, comm=COMM_WORLD):
         """
-        :arg filename: Full filename of the HDF5 file.
-        :type filename: string
+        :arg str filename: Full filename of the HDF5 file.
         :arg varnames: List of variable names that the diagnostic callback
             provides
+        :kwarg int array_dim: Dimension of the output array. 1 for scalars.
+        :kwarg dict attrs: Additional attributes to be saved in the hdf5 file.
         :kwarg comm: MPI communicator
         """
         self.comm = comm
         self.filename = filename
         self.varnames = varnames
         self.nvars = len(varnames)
+        self.array_dim = array_dim
         if comm.rank == 0:
             # create empty file with correct datasets
             with h5py.File(filename, 'w') as hdf5file:
                 hdf5file.create_dataset('time', (0, 1),
                                         maxshape=(None, 1))
                 for var in self.varnames:
-                    hdf5file.create_dataset(var, (0, 1),
-                                            maxshape=(None, 1))
+                    hdf5file.create_dataset(var, (0, array_dim),
+                                            maxshape=(None, array_dim))
+                if attrs is not None:
+                    hdf5file.attrs.update(attrs)
 
     def _expand(self, hdf5file):
         """Expands data arrays by 1 entry"""
@@ -105,7 +109,7 @@ class DiagnosticHDF5(object):
                 ix = hdf5file['time'].shape[0] - 1
                 hdf5file['time'][ix] = time
                 for i in range(self.nvars):
-                    hdf5file[self.varnames[i]][ix] = variables[i]
+                    hdf5file[self.varnames[i]][ix, :] = variables[i]
                 hdf5file.close()
 
 
@@ -115,12 +119,15 @@ class DiagnosticCallback(object):
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, solver_obj, outputdir=None, export_to_hdf5=True,
+    def __init__(self, solver_obj, outputdir=None, array_dim=1, attrs=None,
+                 export_to_hdf5=True,
                  append_to_log=True):
         """
         :arg solver_obj: Thetis solver object
         :kwarg str outputdir: Custom directory where hdf5 files will be stored. By
             default solver's output directory is used.
+        :kwarg int array_dim: Dimension of the output array. 1 for scalars.
+        :kwarg dict attrs: Additional attributes to be saved in the hdf5 file.
         :kwarg bool export_to_hdf5: If True, diagnostics will be stored in hdf5
             format
         :kwarg bool append_to_log: If True, callback output messages will be printed
@@ -131,6 +138,8 @@ class DiagnosticCallback(object):
             self.outputdir = self.solver_obj.options.output_directory
         else:
             self.outputdir = outputdir
+        self.array_dim = array_dim
+        self.attrs = attrs
         self.append_to_hdf5 = export_to_hdf5
         self.append_to_log = append_to_log
         self._hdf5_initialized = False
@@ -145,6 +154,8 @@ class DiagnosticCallback(object):
             fname = 'diagnostic_{:}.hdf5'.format(self.name.replace(' ', '_'))
             fname = os.path.join(self.outputdir, fname)
             self.hdf_exporter = DiagnosticHDF5(fname, self.variable_names,
+                                               array_dim=self.array_dim,
+                                               attrs=self.attrs,
                                                comm=comm)
         self._hdf5_initialized = True
 
@@ -227,9 +238,9 @@ class ScalarConservationCallback(DiagnosticCallback):
             in log
         """
         super(ScalarConservationCallback, self).__init__(solver_obj,
-                                                         outputdir,
-                                                         export_to_hdf5,
-                                                         append_to_log)
+                                                         outputdir=outputdir,
+                                                         export_to_hdf5=export_to_hdf5,
+                                                         append_to_log=append_to_log)
         self.scalar_callback = scalar_callback
         self.initial_value = None
 
@@ -264,9 +275,9 @@ class VolumeConservation3DCallback(ScalarConservationCallback):
             return comp_volume_3d(self.solver_obj.mesh)
         super(VolumeConservation3DCallback, self).__init__(vol3d,
                                                            solver_obj,
-                                                           outputdir,
-                                                           export_to_hdf5,
-                                                           append_to_log)
+                                                           outputdir=outputdir,
+                                                           export_to_hdf5=export_to_hdf5,
+                                                           append_to_log=append_to_log)
 
 
 class VolumeConservation2DCallback(ScalarConservationCallback):
@@ -289,9 +300,9 @@ class VolumeConservation2DCallback(ScalarConservationCallback):
                                   self.solver_obj.fields.bathymetry_2d)
         super(VolumeConservation2DCallback, self).__init__(vol2d,
                                                            solver_obj,
-                                                           outputdir,
-                                                           export_to_hdf5,
-                                                           append_to_log)
+                                                           outputdir=outputdir,
+                                                           export_to_hdf5=export_to_hdf5,
+                                                           append_to_log=append_to_log)
 
 
 class TracerMassConservationCallback(ScalarConservationCallback):
@@ -316,9 +327,9 @@ class TracerMassConservationCallback(ScalarConservationCallback):
             return comp_tracer_mass_3d(self.solver_obj.fields[tracer_name])
         super(TracerMassConservationCallback, self).__init__(mass,
                                                              solver_obj,
-                                                             outputdir,
-                                                             export_to_hdf5,
-                                                             append_to_log)
+                                                             outputdir=outputdir,
+                                                             export_to_hdf5=export_to_hdf5,
+                                                             append_to_log=append_to_log)
 
 
 class MinMaxConservationCallback(DiagnosticCallback):
@@ -339,9 +350,9 @@ class MinMaxConservationCallback(DiagnosticCallback):
             in log
         """
         super(MinMaxConservationCallback, self).__init__(solver_obj,
-                                                         outputdir,
-                                                         export_to_hdf5,
-                                                         append_to_log)
+                                                         outputdir=outputdir,
+                                                         export_to_hdf5=export_to_hdf5,
+                                                         append_to_log=append_to_log)
         self.minmax_callback = minmax_callback
         self.initial_value = None
 
@@ -384,6 +395,6 @@ class TracerOvershootCallBack(MinMaxConservationCallback):
             return tracer_min, tracer_max
         super(TracerOvershootCallBack, self).__init__(minmax,
                                                       solver_obj,
-                                                      outputdir,
-                                                      export_to_hdf5,
-                                                      append_to_log)
+                                                      outputdir=outputdir,
+                                                      export_to_hdf5=export_to_hdf5,
+                                                      append_to_log=append_to_log)

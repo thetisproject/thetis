@@ -72,10 +72,10 @@ The parameters can be accessed from the solver object:
 
     solver = FlowSolver(...)
     solver.options.turbulence_model_type = 'gls'  # activate GLS model (default)
-    gls_options = solver.options.gls_options
-    gls_options.closure_name = 'k-omega'
-    gls_options.stability_function_name = 'CB'
-    gls_options.compute_c3_minus = True
+    turbulence_model_options = solver.options.turbulence_model_options
+    turbulence_model_options.closure_name = 'k-omega'
+    turbulence_model_options.stability_function_name = 'CB'
+    turbulence_model_options.compute_c3_minus = True
 
 Currently the following closures have been implemented:
 
@@ -144,171 +144,7 @@ from .equation import Equation
 from .tracer_eq import *
 from .stability_functions import *
 from .log import *
-
-
-class GLSModelOptions(AttrDict):
-    """
-    Options for Generic Length Scale turbulence model
-    """
-    def __init__(self):
-        super(GLSModelOptions, self).__init__()
-        self.closure_name = 'k-epsilon'
-        """
-        str: name of common closures, one of
-
-        - ``k-epsilon``: k-epsilon setup
-        - ``k-omega``: k-epsilon setup
-        - ``gen``: Generic Length Scale setup A
-        """
-        self.stability_function_name = 'CA'
-        """str: name of used stability function family
-
-        'CA': Canuto A
-        'CB': Canuto B
-        'KC': Kantha-Clayson
-        'CH': Cheng
-        """
-        self.p = 3.0
-        """float: parameter p for the definition of psi"""
-        self.m = 1.5
-        """float: parameter m for the definition of psi"""
-        self.n = -1.0
-        """float: parameter n for the definition of psi"""
-        self.schmidt_nb_tke = 1.0
-        """float: turbulent kinetic energy Schmidt number"""
-        self.schmidt_nb_psi = 1.3
-        """float: psi Schmidt number"""
-        self.cmu0 = 0.5477
-        """float: cmu0 parameter"""
-        self.compute_cmu0 = True
-        """bool: compute cmu0 from stability function parameters
-
-        If :attr:`compute_cmu0` is True, this value will be overriden"""
-        self.c1 = 1.44
-        """float: c1 parameter for Psi equations"""
-        self.c2 = 1.92
-        """float: c2 parameter for Psi equations"""
-        self.c3_minus = -0.52
-        """float: c3 parameter for Psi equations, stable stratification
-
-        If :attr:`compute_c3_minus` is True this value will be overriden"""
-        self.c3_plus = 1.0
-        """float: c3 parameter for Psi equations, unstable stratification"""
-        self.compute_c3_minus = True
-        """bool: compute :attr:`c3_minus` from :attr:`ri_st`"""
-        self.f_wall = 1.0
-        """float: wall function parameter"""
-        self.ri_st = 0.25
-        """steady state gradient Richardson number"""
-        self.kappa = physical_constants['von_karman']
-        """float: von Karman constant
-
-        If :attr:`compute_kappa` is True this value will be overriden"""
-        self.compute_kappa = True
-        """bool: compute von Karman constant from :attr:`schmidt_nb_psi`"""
-        self.k_min = 3.7e-8
-        """float: minimum value for turbulent kinetic energy"""
-        self.psi_min = 1.0e-10
-        """float: minimum value for psi"""
-        self.eps_min = 1.0e-10
-        """float: minimum value for epsilon"""
-        self.len_min = 1.0e-10
-        """float: minimum value for turbulent lenght scale"""
-        self.compute_len_min = True
-        """bool: compute min_len from k_min and psi_min"""
-        self.compute_psi_min = True
-        """bool: compute psi_len from k_min and eps_min"""
-        self.visc_min = 1.0e-8
-        """float: minimum value for eddy viscosity"""
-        self.diff_min = 1.0e-8
-        """float: minimum value for eddy diffusivity"""
-        self.galperin_lim = 0.56
-        """float: Galperin lenght scale limitation parameter"""
-
-        self.limit_len = False
-        """bool: apply Galperin lenght scale limit"""
-        self.limit_psi = False
-        """bool: apply Galperin lenght scale limit on psi"""
-        self.limit_eps = False
-        """bool: apply Galperin lenght scale limit on epsilon"""
-        self.limit_len_min = True
-        """bool: limit minimum turbulent length scale to len_min"""
-
-    def apply_defaults(self, closure_name):
-        """
-        Applies default parameters for given closure name
-
-        :arg closure_name: name of the turbulence closure model
-        :type closure_name: string
-
-        Sets default values for parameters p, m, n, schmidt_nb_tke,
-        schmidt_nb_psi, c1, c2, c3_plus, c3_minus,
-        f_wall, k_min, psi_min
-        """
-
-        kepsilon = {'p': 3,
-                    'm': 1.5,
-                    'n': -1.0,
-                    'cmu0': 0.5477,
-                    'schmidt_nb_tke': 1.0,
-                    'schmidt_nb_psi': 1.3,
-                    'c1': 1.44,
-                    'c2': 1.92,
-                    'c3_plus': 1.0,
-                    'c3_minus': -0.52,
-                    'f_wall': 1.0,
-                    'k_min': 3.7e-8,
-                    'psi_min': 1.0e-10,
-                    'closure_name': 'k-epsilon',
-                    }
-        # k-epsilon defaults, from tables 1 and 2 in [3]
-        komega = {'p': -1.0,
-                  'm': 0.5,
-                  'n': -1.0,
-                  'cmu0': 0.5477,
-                  'schmidt_nb_tke': 2.0,
-                  'schmidt_nb_psi': 2.0,
-                  'c1': 0.555,
-                  'c2': 0.833,
-                  'c3_plus': 1.0,
-                  'c3_minus': -0.52,
-                  'f_wall': 1.0,
-                  'k_min': 3.7e-8,
-                  'eps_min': 1.0e-10,
-                  'psi_min': 1.0e-10,
-                  'closure_name': 'k-omega',
-                  }
-        # k-omega defaults, from tables 1 and 2 in [3]
-        gen = {'p': 2.0,
-               'm': 1.0,
-               'n': -0.67,
-               'cmu0': 0.5477,
-               'schmidt_nb_tke': 0.8,
-               'schmidt_nb_psi': 1.07,
-               'c1': 1.0,
-               'c2': 1.22,
-               'c3_plus': 1.0,
-               'c3_minus': 0.05,
-               'f_wall': 1.0,
-               'k_min': 3.7e-8,
-               'eps_min': 1.0e-10,
-               'psi_min': 2.0e-7,
-               'closure_name': 'gen',
-               }
-        # GLS model A defaults, from tables 1 and 2 in [3]
-
-        if closure_name == 'k-epsilon':
-            self.__dict__.update(kepsilon)
-        elif closure_name == 'k-omega':
-            self.__dict__.update(komega)
-        elif closure_name == 'gen':
-            self.__dict__.update(gen)
-
-    def print_summary(self):
-        """Prints all defined parameters and their values."""
-        print_output('GLS Turbulence model parameters')
-        for k in sorted(self.keys()):
-            print_output('  {:16s} : {:}'.format(k, self[k]))
+from .options import GLSModelOptions, PacanowskiPhilanderModelOptions
 
 
 def set_func_min_val(f, minval):
@@ -598,7 +434,36 @@ class BuoyFrequencySolver(object):
                                (1.0 - gamma)*self.n2)
 
 
-class GenericLengthScaleModel(object):
+class TurbulenceModel(object):
+    """Base class for all vertical turbulence models"""
+
+    @abstractmethod
+    def initialize(self):
+        """Initialize all turbulence fields"""
+        pass
+
+    @abstractmethod
+    def preprocess(self, init_solve=False):
+        """
+        Computes all diagnostic variables that depend on the mean flow model
+        variables.
+
+        To be called before updating the turbulence PDEs.
+        """
+        pass
+
+    @abstractmethod
+    def postprocess(self):
+        """
+        Updates all diagnostic variables that depend on the turbulence state
+        variables.
+
+        To be called after updating the turbulence PDEs.
+        """
+        pass
+
+
+class GenericLengthScaleModel(TurbulenceModel):
     """
     Generic Length Scale turbulence closure model implementation
     """
@@ -719,7 +584,7 @@ class GenericLengthScaleModel(object):
                                                              self.n2_tmp)
 
         self.initialize()
-        self.options.print_summary()
+        print_output(self.options)
 
     def initialize(self):
         """Initializes fields"""
@@ -731,9 +596,10 @@ class GenericLengthScaleModel(object):
 
     def preprocess(self, init_solve=False):
         """
-        Computes diagnostic variables that the dynamic equations depend on
+        Computes all diagnostic variables that depend on the mean flow model
+        variables.
 
-        To be called before evaluating the equations.
+        To be called before updating the turbulence PDEs.
         """
 
         self.shear_frequency_solver.solve(init_solve=init_solve)
@@ -748,11 +614,11 @@ class GenericLengthScaleModel(object):
             self.n2_neg.dat.data[~pos_ix] = self.n2.dat.data[~pos_ix]
 
     def postprocess(self):
-        """
+        r"""
         Updates all diagnostic variables that depend on the turbulence state
-        variables :math:`k,\psi`
+        variables :math:`k,\psi`.
 
-        To be called after evaluating the equations.
+        To be called after updating the turbulence PDEs.
         """
         with timed_stage('turb_postproc'):
             o = self.options
@@ -1078,3 +944,132 @@ class PsiEquation(Equation):
                                bathymetry, v_elem_size, h_elem_size)
         self.add_term(diff, 'implicit')
         self.add_term(source, 'implicit')
+
+
+class PacanowskiPhilanderModel(TurbulenceModel):
+    r"""
+    Gradient Richardson number based model by Pacanowski and Philander (1981).
+
+    Given the gradient Richardson number :math:`Ri` the eddy viscosity and
+    diffusivity are computed diagnostically as
+
+    .. math::
+        \nu &= \frac{\nu_{max}}{(1 + \alpha Ri)^n} \\
+        \mu &= \frac{\nu}{1 + \alpha Ri}
+
+    where :math:`\nu_{max},\alpha,n` are constant parameters.
+    In unstably stratified cases where :math:`Ri<0`, value :math:`Ri=0` is used.
+
+    Pacanowski and Philander (1981). Parameterization of vertical mixing in
+    numerical models of tropical oceans. Journal of Physical Oceanography,
+    11(11):1443-1451.
+    http://dx.doi.org/10.1175/1520-0485(1981)011%3C1443:POVMIN%3E2.0.CO;2
+    """
+    def __init__(self, solver, uv_field, rho_field,
+                 eddy_diffusivity, eddy_viscosity,
+                 n2, m2, options=None):
+        """
+        :arg solver: FlowSolver object
+        :arg uv_field: horizontal velocity field
+        :type uv_field: :class:`Function`
+        :arg rho_field: water density field
+        :type rho_field: :class:`Function`
+        :arg eddy_diffusivity: eddy diffusivity field
+        :type eddy_diffusivity: :class:`Function`
+        :arg eddy_viscosity: eddy viscosity field
+        :type eddy_viscosity: :class:`Function`
+        :arg n2: field for buoyancy frequency squared
+        :type n2: :class:`Function`
+        :arg m2: field for vertical shear frequency squared
+        :type m2: :class:`Function`
+        :kwarg options: model options
+        """
+        self.solver = solver
+        # 3d model fields
+        self.uv = uv_field
+        self.rho = rho_field
+        # diagnostic fields
+        self.viscosity = eddy_viscosity
+        self.diffusivity = eddy_diffusivity
+        self.n2 = n2
+        self.m2 = m2
+        self.mu_tmp = Function(self.m2.function_space(),
+                               name='tmp Shear frequency')
+        self.mu = Function(self.m2.function_space(), name='Shear frequency X')
+        self.mv = Function(self.m2.function_space(), name='Shear frequency Y')
+        self.n2_tmp = Function(self.n2.function_space(),
+                               name='tmp buoyancy frequency')
+        self.n2_pos = Function(self.n2.function_space(),
+                               name='positive buoyancy frequency')
+
+        if self.solver.options.use_smooth_eddy_viscosity:
+            self.viscosity_native = Function(self.n2.function_space(),
+                                             name='eddy viscosity')
+            self.diffusivity_native = Function(self.n2.function_space(),
+                                               name='eddy diffusivity')
+            self.p1_averager = P1Average(solver.function_spaces.P0,
+                                         solver.function_spaces.P1,
+                                         solver.function_spaces.P1DG)
+        else:
+            self.viscosity_native = self.viscosity
+            self.diffusivity_native = self.diffusivity
+
+        self.options = PacanowskiPhilanderModelOptions()
+        if options is not None:
+            self.options.update(options)
+
+        self.shear_frequency_solver = ShearFrequencySolver(self.uv, self.m2,
+                                                           self.mu, self.mv,
+                                                           self.mu_tmp)
+        if self.rho is not None:
+            self.buoy_frequency_solver = BuoyFrequencySolver(self.rho, self.n2,
+                                                             self.n2_tmp)
+
+        self.initialize()
+        print_output(self.options)
+
+    def initialize(self):
+        """Initializes fields"""
+        self.n2.assign(1e-12)
+        self.n2_pos.assign(1e-12)
+        self.preprocess(init_solve=True)
+        self.postprocess()
+
+    def preprocess(self, init_solve=False):
+        """
+        Computes all diagnostic variables that depend on the mean flow model
+        variables.
+
+        To be called before updating the turbulence PDEs.
+        """
+
+        self.shear_frequency_solver.solve(init_solve=init_solve)
+
+        if self.rho is not None:
+            self.buoy_frequency_solver.solve(init_solve=init_solve)
+            # split to positive and negative parts
+            self.n2_pos.assign(1e-12)
+            pos_ix = self.n2.dat.data[:] >= 0.0
+            self.n2_pos.dat.data[pos_ix] = self.n2.dat.data[pos_ix]
+
+    def postprocess(self):
+        """
+        Updates all diagnostic variables that depend on the turbulence state
+        variables.
+
+        To be called after evaluating the equations.
+        """
+        ri = self.n2_pos.dat.data[:]/self.m2.dat.data[:]
+        denom = 1.0 + self.options.alpha*ri
+        self.viscosity_native.dat.data[:] = self.options.max_viscosity/denom**self.options.exponent
+        self.diffusivity_native.dat.data[:] = self.viscosity_native.dat.data[:]/denom
+
+        if self.solver.options.use_smooth_eddy_viscosity:
+            self.p1_averager.apply(self.viscosity_native, self.viscosity)
+            self.p1_averager.apply(self.diffusivity_native, self.diffusivity)
+
+        # print_output('{:8s} {:10.3e} {:10.3e}'.format('M2', self.m2.dat.data.min(), self.m2.dat.data.max()))
+        # print_output('{:8s} {:10.3e} {:10.3e}'.format('N2', self.n2.dat.data.min(), self.n2.dat.data.max()))
+        # print_output('{:8s} {:10.3e} {:10.3e}'.format('N2+', self.n2_pos.dat.data.min(), self.n2_pos.dat.data.max()))
+        # print_output('{:8s} {:10.3e} {:10.3e}'.format('nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max()))
+        # print_output('{:8s} {:10.3e} {:10.3e}'.format('muv', self.diffusivity.dat.data.min(), self.diffusivity.dat.data.max()))
