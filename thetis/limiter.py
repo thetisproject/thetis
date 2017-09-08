@@ -61,7 +61,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         """
 
         assert_function_space(p1dg_space, 'Discontinuous Lagrange', 1)
-        self.is_vector = p1dg_space.dim > 1
+        self.is_vector = p1dg_space.value_size > 1
         if self.is_vector:
             p1dg_scalar_space = FunctionSpace(p1dg_space.mesh(), 'DG', 1)
             super(VertexBasedP1DGLimiter, self).__init__(p1dg_scalar_space)
@@ -186,11 +186,10 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
             if self.is_vector:
                 tmp_func = self.P1DG.get_work_function()
                 fs = field.function_space()
-                for i in range(fs.dim):
-                    # FIXME how can I assign a compoent without interpolate/project
-                    tmp_func.dat.data[:] = field.dat.data[:, i]
+                for i in range(fs.value_size):
+                    tmp_func.dat.data_with_halos[:] = field.dat.data_with_halos[:, i]
                     super(VertexBasedP1DGLimiter, self).apply(tmp_func)
-                    field.dat.data[:, i] = tmp_func.dat.data[:]
+                    field.dat.data_with_halos[:, i] = tmp_func.dat.data_with_halos[:]
                 self.P1DG.restore_work_function(tmp_func)
             else:
                 super(VertexBasedP1DGLimiter, self).apply(field)
