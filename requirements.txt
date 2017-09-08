@@ -1,1 +1,3 @@
 scipy
+netCDF4
+pyproj
