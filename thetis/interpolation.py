@@ -53,7 +53,7 @@ from .log import *
 import numpy as np
 import scipy.spatial.qhull as qhull
 import netCDF4
-from abc import abstractmethod
+from abc import ABCMeta, abstractmethod
 from firedrake import *
 
 TIMESEARCH_TOL = 1e-6
@@ -236,10 +236,35 @@ def _get_subset_nodes(grid_x, grid_y, target_x, target_y):
     return nodes, ind_x, ind_y
 
 
-class SpatialInterpolator2d(object):
+class SpatialInterpolator():
     """
-    Abstract spatial interpolator class that can interpolate onto a Function
+    Abstract base class for spatial interpolators that read data from disk
     """
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def __init__(self, function_space, to_latlon):
+        """
+        :arg function_space: target Firedrake FunctionSpace
+        :arg to_latlon: Python function that converts local mesh coordinates to
+            latitude and longitude: 'lat, lon = to_latlon(x, y)'
+        """
+        pass
+
+    @abstractmethod
+    def interpolate(self, filename, variable_list, itime):
+        """
+        Interpolates data from the given file at given time step
+        """
+        pass
+
+
+class SpatialInterpolator2d(SpatialInterpolator):
+    """
+    Abstract spatial interpolator class that can interpolate onto a 2D Function
+    """
+    __metaclass__ = ABCMeta
+
     def __init__(self, function_space, to_latlon):
         """
         :arg function_space: target Firedrake FunctionSpace
@@ -275,7 +300,7 @@ class SpatialInterpolator2d(object):
         subset_lat = lat_array[self.ind_lon, self.ind_lat].ravel()
         subset_lon = lon_array[self.ind_lon, self.ind_lat].ravel()
         subset_lonlat = np.array((subset_lon, subset_lat)).T
-        self.interpolator = GridInterpolator(subset_lonlat, self.mesh_lonlat)
+        self.grid_interpolator = GridInterpolator(subset_lonlat, self.mesh_lonlat)
         self._initialized = True
 
         # debug: plot subsets
@@ -286,11 +311,11 @@ class SpatialInterpolator2d(object):
         # plt.show()
 
     @abstractmethod
-    def interpolate(self, data):
+    def interpolate(self, filename, variable_list, time):
         """
         Calls the interpolator object
         """
-        return self.interpolator(data)
+        pass
 
 
 class NetCDFLatLonInterpolator2d(SpatialInterpolator2d):
@@ -313,22 +338,6 @@ class NetCDFLatLonInterpolator2d(SpatialInterpolator2d):
         myfunc.dat.data_with_halos[:] = val1 + val2
 
     """
-    def __init__(self, function_space, to_latlon, nc_filename):
-        """
-        :arg function_space: target Firedrake FunctionSpace
-        :arg to_latlon: Python function that converts local mesh coordinates to
-            latitude and longitude: 'lat, lon = to_latlon(x, y)'
-        :arg str nc_filename: a netCDF file that contains the source grid.
-
-        """
-
-        super(NetCDFLatLonInterpolator2d, self).__init__(function_space, to_latlon)
-        with netCDF4.Dataset(nc_filename, 'r') as ncfile:
-            grid_lat = ncfile['lat'][:]
-            grid_lon = ncfile['lon'][:]
-            self._create_interpolator(grid_lat, grid_lon)
-            self._initialized = True
-
     def interpolate(self, nc_filename, variable_list, itime):
         """
         Interpolates data from a netCDF file onto Firedrake function space.
@@ -348,7 +357,7 @@ class NetCDFLatLonInterpolator2d(SpatialInterpolator2d):
                 assert var in ncfile.variables
                 # TODO generalize data dimensions, sniff from netcdf file
                 grid_data = ncfile[var][itime, self.ind_lon, self.ind_lat].ravel()
-                data = self.interpolator(grid_data)
+                data = self.grid_interpolator(grid_data)
                 output.append(data)
         return output
 
@@ -635,7 +644,7 @@ class NetCDFTimeSeriesInterpolator(object):
         self.timesearch_obj = NetCDFTimeSearch(
             ncfile_pattern, init_date, NetCDFTimeParser,
             time_variable_name=time_variable_name, allow_gaps=allow_gaps)
-        self.interpolator = LinearTimeInterpolator(self.timesearch_obj, self.reader)
+        self.time_interpolator = LinearTimeInterpolator(self.timesearch_obj, self.reader)
         if scalars is not None:
             assert len(scalars) == len(variable_list)
         self.scalars = scalars
@@ -646,7 +655,7 @@ class NetCDFTimeSeriesInterpolator(object):
 
         :returns: list of scalars or numpy.arrays
         """
-        vals = self.interpolator(time)
+        vals = self.time_interpolator(time)
         if self.scalars is not None:
             for i in range(len(vals)):
                 vals[i] *= self.scalars[i]
