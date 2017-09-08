@@ -7,7 +7,7 @@ from thetis.timezone import *
 from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_bnd
 import netCDF4
 import scipy.spatial.qhull as qhull
-from thetis.interpolation import GridInterpolator
+from thetis.interpolation import GridInterpolator, SpatialInterpolator
 
 # load and extrude mesh
 nlayers, surf_elem_height, max_z_stretch = (9, 5.0, 4.0)
@@ -47,7 +47,7 @@ salt = Function(p1, name='salinity')
 temp = Function(p1, name='temperature')
 
 
-class SpatialInterpolatorROMS3d(object):
+class SpatialInterpolatorROMS3d(SpatialInterpolator):
     """
     Abstract spatial interpolator class that can interpolate onto a Function
     """
@@ -176,13 +176,13 @@ class LiveOceanInterpolator(object):
         self.grid_interpolator = SpatialInterpolatorROMS3d(self.function_space, to_latlon)
         self.reader = interpolation.NetCDFSpatialInterpolator(self.grid_interpolator, field_names)
         self.timesearch_obj = interpolation.NetCDFTimeSearch(ncfile_pattern, init_date, interpolation.NetCDFTimeParser, time_variable_name='ocean_time', verbose=False)
-        self.interpolator = interpolation.LinearTimeInterpolator(self.timesearch_obj, self.reader)
+        self.time_interpolator = interpolation.LinearTimeInterpolator(self.timesearch_obj, self.reader)
 
     def set_fields(self, time):
         """
         Evaluates forcing fields at the given time
         """
-        vals = self.interpolator(time)
+        vals = self.time_interpolator(time)
         for i in range(len(self.fields)):
             self.fields[i].dat.data_with_halos[:] = vals[i]
 
@@ -190,7 +190,7 @@ class LiveOceanInterpolator(object):
 def test():
     # test time parser
     tp = interpolation.NetCDFTimeParser('forcings/liveocean/f2015.05.16/ocean_his_0002.nc', time_variable_name='ocean_time')
-    nc_start = datetime.datetime(2015, 5, 16, 1, tzinfo=utc_tz)
+    nc_start = datetime.datetime(2015, 5, 16, 1, tzinfo=pytz.utc)
     assert tp.start_time == nc_start
     assert tp.end_time == nc_start
     assert np.allclose(tp.time_array, np.array([datetime_to_epoch(nc_start)]))

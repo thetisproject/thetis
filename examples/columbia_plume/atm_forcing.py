@@ -32,7 +32,7 @@ rho_air = 1.22  # kg/m3
 
 
 def to_latlon(x, y, positive_lon=False):
-    lon, lat = coordsys.convertCoords(x, y, coordsys.SPCS_N_OR, coordsys.LL_WO)
+    lon, lat = coordsys.convert_coords(coordsys.SPCS_N_OR, coordsys.LL_WGS84, x, y)
     if positive_lon and lon < 0.0:
         lon += 360.
     return lat, lon
@@ -81,16 +81,16 @@ class WRFInterpolator(object):
         self.grid_interpolator = interpolation.NetCDFLatLonInterpolator2d(self.function_space, to_latlon)
         self.reader = interpolation.NetCDFSpatialInterpolator(self.grid_interpolator, ['uwind', 'vwind', 'prmsl'])
         self.timesearch_obj = interpolation.NetCDFTimeSearch(ncfile_pattern, init_date, WRFNetCDFTime)
-        self.interpolator = interpolation.LinearTimeInterpolator(self.timesearch_obj, self.reader)
+        self.time_interpolator = interpolation.LinearTimeInterpolator(self.timesearch_obj, self.reader)
         lon = self.grid_interpolator.mesh_lonlat[:, 0]
         lat = self.grid_interpolator.mesh_lonlat[:, 1]
-        self.vect_rotator = coordsys.VectorCoordSysRotation(lon, lat, coordsys.SPCS_N_OR)
+        self.vect_rotator = coordsys.VectorCoordSysRotation(coordsys.LL_WGS84, coordsys.SPCS_N_OR, lon, lat)
 
     def set_fields(self, time):
         """
         Evaluates forcing fields at the given time
         """
-        lon_wind, lat_wind, prmsl = self.interpolator(time)
+        lon_wind, lat_wind, prmsl = self.time_interpolator(time)
         u_wind, v_wind = self.vect_rotator(lon_wind, lat_wind)
         u_stress, v_stress = compute_wind_stress(u_wind, v_wind)
         self.wind_stress_field.dat.data_with_halos[:, 0] = u_stress
@@ -106,9 +106,9 @@ def test():
     windstress_2d = Function(p1v, name='wind stress')
     atmpressure_2d = Function(p1, name='atm pressure')
 
-    tz = timezone.FixedTimeZone(-8, 'PST')
-    init_date = datetime.datetime(2016, 5, 1, tzinfo=tz)
-    pattern = 'forcings/atm/wrf/wrf_air.2016_*_*.nc'
+    sim_tz = timezone.FixedTimeZone(-8, 'PST')
+    init_date = datetime.datetime(2015, 5, 16, tzinfo=sim_tz)
+    pattern = 'forcings/atm/wrf/wrf_air.2015_*_*.nc'
 
     wrf = WRFInterpolator(p1, windstress_2d, atmpressure_2d, pattern, init_date)
 
@@ -123,7 +123,7 @@ def test():
         mesh_lonlat.append((lon, lat))
     mesh_lonlat = np.array(mesh_lonlat)
 
-    ncfile = netCDF4.Dataset('forcings/atm/wrf/wrf_air.2016_05_01.nc')
+    ncfile = netCDF4.Dataset('forcings/atm/wrf/wrf_air.2015_05_16.nc')
     itime = 10
     grid_lat = ncfile['lat'][:].ravel()
     grid_lon = ncfile['lon'][:].ravel()
@@ -134,7 +134,7 @@ def test():
     uwind = scipy.interpolate.griddata(grid_lonlat, grid_uwind, mesh_lonlat, method='linear')
     grid_vwind = ncfile['vwind'][itime, :, :].ravel()
     vwind = scipy.interpolate.griddata(grid_lonlat, grid_vwind, mesh_lonlat, method='linear')
-    vrot = coordsys.VectorCoordSysRotation(mesh_lonlat[:, 0], mesh_lonlat[:, 1], coordsys.SPCS_N_OR)
+    vrot = coordsys.VectorCoordSysRotation(coordsys.LL_WGS84, coordsys.SPCS_N_OR, mesh_lonlat[:, 0], mesh_lonlat[:, 1])
     uwind, vwind = vrot(uwind, vwind)
     u_stress, v_stress = compute_wind_stress(uwind, vwind)
 
