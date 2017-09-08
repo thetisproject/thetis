@@ -61,7 +61,7 @@ def get_vector_rotation_matrix(source_sys, target_sys, x, y, delta=None):
 
     """
     if delta is None:
-        delta = 1e-6  # ~1 m in LL_WO
+        delta = 1e-6  # ~1 m in LL_WGS84
     x1, y1 = pyproj.transform(source_sys, target_sys, x, y)
 
     x2, y2 = pyproj.transform(source_sys, target_sys, x, y + delta)
@@ -86,11 +86,10 @@ class VectorCoordSysRotation(object):
         """
         :arg source_sys: pyproj coordinate system where (x, y) are defined in
         :arg target_sys: target pyproj coordinate system
-        :arg x: xgitude coordinate
-        :arg y: yyitude coordinate
+        :arg x: x coordinate
+        :arg y: y coordinate
         """
-        self.target_sys = target_sys
-        R, theta = get_vector_rotation_matrix(x, y, self.target_sys)
+        R, theta = get_vector_rotation_matrix(source_sys, target_sys, x, y)
         self.rotation_sin = np.sin(theta)
         self.rotation_cos = np.cos(theta)
 
