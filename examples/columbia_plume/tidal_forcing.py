@@ -12,7 +12,7 @@ assert os.path.exists(tide_file), msg
 
 
 def to_latlon(x, y):
-    lon, lat = coordsys.convertCoords(x, y, coordsys.SPCS_N_OR, coordsys.LL_WO)
+    lon, lat = coordsys.convert_coords(coordsys.SPCS_N_OR, coordsys.LL_WGS84, x, y)
     if lon < 0.0:
         lon += 360.
     return lat, lon
@@ -90,7 +90,7 @@ def test():
         tbnd.set_tidal_field(t)
         n = norm(m2_field)
         if m2_field.function_space().mesh().comm.rank == 0:
-            print n
+            print(n)
         out.write(m2_field)
 
 

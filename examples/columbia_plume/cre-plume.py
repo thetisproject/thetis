@@ -261,8 +261,8 @@ def update_forcings(t):
     copy_wind_stress_to_3d.solve()
 
 
-out_atm_pressure = File(options.outputdir + '/AtmPressure2d.pvd')
-out_wind_stress = File(options.outputdir + '/WindStress2d.pvd')
+out_atm_pressure = File(options.output_directory + '/AtmPressure2d.pvd')
+out_wind_stress = File(options.output_directory + '/WindStress2d.pvd')
 
 
 def export_atm_fields():
