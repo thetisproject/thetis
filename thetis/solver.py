@@ -541,7 +541,6 @@ class FlowSolver(FrozenClass):
             if isinstance(self.options.wind_stress, FiredrakeFunction):
                 assert self.options.wind_stress.function_space().mesh().geometric_dimension() == 3, \
                     'wind stress field must be a 3D function'
-                # assume 2d function and expand to 3d
                 self.fields.wind_stress_3d = self.options.wind_stress
             elif isinstance(self.options.wind_stress, FiredrakeConstant):
                 self.fields.wind_stress_3d = self.options.wind_stress
