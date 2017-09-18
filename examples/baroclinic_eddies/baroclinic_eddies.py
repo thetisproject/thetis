@@ -34,12 +34,20 @@ from diagnostics import *
 
 def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
                 reynolds_number=20.0, viscosity_scale=None, dt=None,
-                viscosity='const', laxfriedrichs=0.0):
+                number_of_z_levels=None, viscosity='const', laxfriedrichs=0.0):
     """
     Runs problem with a bunch of user defined options.
     """
+
+    def get_nlayers(dx):
+        # compute number of vertical layers
+        return int(60./dx*1000. + 20)
+
     delta_x = reso_dx*1.e3
-    nlayers = 20
+    if number_of_z_levels is not None:
+        nlayers = number_of_z_levels
+    else:
+        nlayers = get_nlayers(delta_x)
 
     lx = 160e3
     ly = 500e3
@@ -69,6 +77,9 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     t_export = 3*3600.
 
     reso_str = 'dx' + str(np.round(delta_x/1000., decimals=1))
+    reso_str += '_nz' + str(nlayers)
+    if dt is not None:
+        reso_str += '_dt{:}'.format(np.round(dt, 1))
 
     options_str = '_'.join([reso_str,
                             element_family,
@@ -248,6 +259,8 @@ def get_argparser():
                         help='constant viscosity scale (optional, use instead of Re)')
     parser.add_argument('-dt', '--dt', type=float,
                         help='force value for 3D time step')
+    parser.add_argument('-nz', '--number-of-z-levels', type=int,
+                        help='force number of vertical levels')
     parser.add_argument('-visc', '--viscosity', type=str,
                         help='Type of horizontal viscosity',
                         default='const',
