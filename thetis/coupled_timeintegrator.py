@@ -1091,23 +1091,29 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
                 if self.options.use_limiter_for_velocity:
                     self.solver.uv_limiter.apply(self.fields.uv_3d)
 
-            # update coupling terms
-            last = i_stage == self.n_stages - 1
+            last_stage = i_stage == self.n_stages - 1
 
-            self._update_2d_coupling()
-            self._update_baroclinicity()
-            self._update_bottom_friction()
-            if i_stage == last and self.options.use_implicit_vertical_diffusion:
-                self._update_turbulence(t)
-                if self.options.solve_salinity:
-                    with timed_stage('impl_salt_vdiff'):
-                        self.timesteppers.salt_impl.advance(t)
-                if self.options.solve_temperature:
-                    with timed_stage('impl_temp_vdiff'):
-                        self.timesteppers.temp_impl.advance(t)
-                with timed_stage('impl_mom_vvisc'):
-                    self.timesteppers.mom_impl.advance(t)
+            if last_stage:
+                # compute final prognostic variables
+                self._update_2d_coupling()  # due before impl. viscosity
+                if self.options.use_implicit_vertical_diffusion:
+                    if self.options.solve_salinity:
+                        with timed_stage('impl_salt_vdiff'):
+                            self.timesteppers.salt_impl.advance(t)
+                    if self.options.solve_temperature:
+                        with timed_stage('impl_temp_vdiff'):
+                            self.timesteppers.temp_impl.advance(t)
+                    with timed_stage('impl_mom_vvisc'):
+                        self.timesteppers.mom_impl.advance(t)
+                # compute final diagnostic fields
                 self._update_baroclinicity()
-            self._update_vertical_velocity()
-            if i_stage == last:
+                self._update_vertical_velocity()
+                # update parametrizations
+                self._update_turbulence(t)
+                self._update_bottom_friction()
                 self._update_stabilization_params()
+            else:
+                # update variables that explict solvers depend on
+                self._update_2d_coupling()
+                self._update_baroclinicity()
+                self._update_vertical_velocity()
