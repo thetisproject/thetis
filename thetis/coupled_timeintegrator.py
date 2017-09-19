@@ -1070,16 +1070,18 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
             self._update_3d_elevation()
             self._update_moving_mesh()
 
+            last_stage = i_stage == self.n_stages - 1
+
             # solve 3D mode
             with timed_stage('salt_eq'):
                 if self.options.solve_salinity:
                     self.timesteppers.salt_expl.solve_stage(i_stage)
-                    if self.options.use_limiter_for_tracers:
+                    if self.options.use_limiter_for_tracers and last_stage:
                         self.solver.tracer_limiter.apply(self.fields.salt_3d)
             with timed_stage('temp_eq'):
                 if self.options.solve_temperature:
                     self.timesteppers.temp_expl.solve_stage(i_stage)
-                    if self.options.use_limiter_for_tracers:
+                    if self.options.use_limiter_for_tracers and last_stage:
                         self.solver.tracer_limiter.apply(self.fields.temp_3d)
             with timed_stage('turb_advection'):
                 if 'psi_expl' in self.timesteppers:
@@ -1088,16 +1090,14 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
                     self.timesteppers.tke_expl.solve_stage(i_stage)
             with timed_stage('momentum_eq'):
                 self.timesteppers.mom_expl.solve_stage(i_stage)
-                if self.options.use_limiter_for_velocity:
+                if self.options.use_limiter_for_velocity and last_stage:
                     self.solver.uv_limiter.apply(self.fields.uv_3d)
 
             # update coupling terms
-            last = i_stage == self.n_stages - 1
-
             self._update_2d_coupling()
             self._update_baroclinicity()
             self._update_bottom_friction()
-            if i_stage == last and self.options.use_implicit_vertical_diffusion:
+            if i_stage == last_stage and self.options.use_implicit_vertical_diffusion:
                 self._update_turbulence(t)
                 if self.options.solve_salinity:
                     with timed_stage('impl_salt_vdiff'):
@@ -1109,5 +1109,5 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
                     self.timesteppers.mom_impl.advance(t)
                 self._update_baroclinicity()
             self._update_vertical_velocity()
-            if i_stage == last:
+            if i_stage == last_stage:
                 self._update_stabilization_params()
