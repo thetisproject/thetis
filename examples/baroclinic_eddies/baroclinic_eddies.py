@@ -33,15 +33,23 @@ from diagnostics import *
 
 
 def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
-                reynolds_number=20.0, dt=None,
-                viscosity='const', laxfriedrichs=0.0):
+                reynolds_number=20.0, viscosity_scale=None, dt=None,
+                number_of_z_levels=None, viscosity='const', laxfriedrichs=0.0):
     """
     Runs problem with a bunch of user defined options.
     """
-    delta_x = reso_dx*1.e3
-    nlayers = 20
 
-    comm = COMM_WORLD
+
+    def get_nlayers(dx):
+        # compute number of vertical layers
+        return int(60./dx*1000. + 20)
+
+
+    delta_x = reso_dx*1.e3
+    if number_of_z_levels is not None:
+        nlayers = number_of_z_levels
+    else:
+        nlayers = get_nlayers(delta_x)
 
     lx = 160e3
     ly = 500e3
@@ -55,24 +63,31 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     w_max = 1e-3
     # compute horizontal viscosity
     uscale = 0.1
-    nu_scale = uscale * delta_x / reynolds_number
+    if viscosity_scale is None:
+        # compute viscosity scale from mesh Reynolds number
+        nu_scale = uscale * delta_x / reynolds_number
+        visc_str = 'Re{:}'.format(reynolds_number)
+    else:
+        # compute mesh Reynolds number from viscosity scale
+        nu_scale = viscosity_scale
+        reynolds_number = uscale * delta_x / nu_scale
+        visc_str = 'nu{:}'.format(nu_scale)
 
     f_cori = -1.2e-4
     bottom_drag = 0.01
-    t_end = 200*24*3600.  # 365*24*3600.
+    t_end = 320*24*3600.  # 365*24*3600.
     t_export = 3*3600.
 
-    nnodes = mesh2d.topology.num_vertices()
-    ntriangles = mesh2d.topology.num_cells()
-    nprisms = ntriangles * nlayers
-    ndofs = nprisms * 6 if poly_order == 1 else nprisms
-
     reso_str = 'dx' + str(np.round(delta_x/1000., decimals=1))
+    reso_str += '_nz' + str(nlayers)
+    if dt is not None:
+        reso_str += '_dt{:}'.format(np.round(dt, 1))
+
     options_str = '_'.join([reso_str,
                             element_family,
                             'p{:}'.format(poly_order),
                             'visc-{:}'.format(viscosity),
-                            'Re{:}'.format(reynolds_number),
+                            visc_str,
                             'lf{:.1f}'.format(laxfriedrichs),
                             ])
     outputdir = 'outputs_' + options_str
@@ -113,6 +128,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
         options.use_lax_friedrichs_tracer = False
     options.use_limiter_for_tracers = True
     options.vertical_viscosity = Constant(1.0e-4)
+    options.use_limiter_for_velocity = True
     if viscosity == 'smag':
         options.use_smagorinsky_viscosity = True
         options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
@@ -139,6 +155,8 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
                                 'w_3d', 'w_mesh_3d', 'temp_3d', 'salt_3d', 'density_3d',
                                 'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                                 'smag_visc_3d']
+    options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
+                                     'salt_3d', 'temp_3d', 'tke_3d', 'psi_3d']
     options.equation_of_state_type = 'linear'
     options.equation_of_state_options.rho_ref = rho_0
     options.equation_of_state_options.s_ref = salt_const
@@ -151,10 +169,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     solver_obj.create_equations()
 
     print_output('Running eddy test case with options:')
-    print_output('Number of cores: {:}'.format(comm.size))
     print_output('Mesh resolution dx={:} nlayers={:}'.format(delta_x, nlayers))
-    print_output('Number of 2D nodes={:}, triangles={:}'.format(nnodes, ntriangles))
-    print_output('Number of prisms={:.2g}, DOFs={:.2g}'.format(nprisms, ndofs))
     print_output('Reynolds number: {:}'.format(reynolds_number))
     print_output('Horizontal viscosity: {:}'.format(nu_scale))
     print_output('Lax-Friedrichs factor: {:}'.format(laxfriedrichs))
@@ -217,7 +232,16 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     elev_init += -mean_elev  # remove mean
     solver_obj.assign_initial_conditions(temp=temp_init3d, elev=elev_init)
 
-    solver_obj.iterate()
+    # custom export of surface temperature field
+    surf_temp_2d = Function(solver_obj.function_spaces.H_2d, name='Temperature')
+    extract_surf_temp = SubFunctionExtractor(solver_obj.fields.temp_3d, surf_temp_2d)
+    surf_temp_file = File(options.output_directory + '/SurfTemperature2d.pvd')
+
+    def export_func():
+        extract_surf_temp.solve()
+        surf_temp_file.write(surf_temp_2d)
+
+    solver_obj.iterate(export_func=export_func)
 
 
 def get_argparser():
@@ -233,8 +257,12 @@ def get_argparser():
                         help='finite element family', default='dg-dg')
     parser.add_argument('-re', '--reynolds-number', type=float, default=1.0,
                         help='mesh Reynolds number for Smagorinsky scheme')
+    parser.add_argument('-nu', '--viscosity-scale', type=float,
+                        help='constant viscosity scale (optional, use instead of Re)')
     parser.add_argument('-dt', '--dt', type=float,
                         help='force value for 3D time step')
+    parser.add_argument('-nz', '--number-of-z-levels', type=int,
+                        help='force number of vertical levels')
     parser.add_argument('-visc', '--viscosity', type=str,
                         help='Type of horizontal viscosity',
                         default='const',

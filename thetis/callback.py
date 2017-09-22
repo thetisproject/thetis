@@ -41,25 +41,29 @@ class CallbackManager(defaultdict):
         Add a callback under the given mode
 
         :arg callback: a :class:`.DiagnosticCallback` object
-        :arg mode: register callback under this mode
-        :type mode: string
+        :arg str mode: register callback under this mode
         """
         key = callback.name
         self[mode][key] = callback
 
-    def evaluate(self, mode):
+    def evaluate(self, mode, index=None):
         """
         Evaluate all callbacks registered under the given mode
+
+        :arg str mode: evaluate all callbacks under this mode
+        :kwarg int index: if provided, sets the export index. Default behavior
+            is to append to the file or stream.
         """
         for key in self[mode]:
-            self[mode][key].evaluate()
+            self[mode][key].evaluate(index=index)
 
 
 class DiagnosticHDF5(object):
     """
     A HDF5 file for storing diagnostic time series arrays.
     """
-    def __init__(self, filename, varnames, array_dim=1, attrs=None, comm=COMM_WORLD):
+    def __init__(self, filename, varnames, array_dim=1, attrs=None,
+                 comm=COMM_WORLD, new_file=True):
         """
         :arg str filename: Full filename of the HDF5 file.
         :arg varnames: List of variable names that the diagnostic callback
@@ -67,13 +71,15 @@ class DiagnosticHDF5(object):
         :kwarg int array_dim: Dimension of the output array. 1 for scalars.
         :kwarg dict attrs: Additional attributes to be saved in the hdf5 file.
         :kwarg comm: MPI communicator
+        :kwarg bool new_file: Define whether to create a new hdf5 file or append to
+            an existing one (if any)
         """
         self.comm = comm
         self.filename = filename
         self.varnames = varnames
         self.nvars = len(varnames)
         self.array_dim = array_dim
-        if comm.rank == 0:
+        if comm.rank == 0 and new_file:
             # create empty file with correct datasets
             with h5py.File(filename, 'w') as hdf5file:
                 hdf5file.create_dataset('time', (0, 1),
@@ -92,7 +98,7 @@ class DiagnosticHDF5(object):
             shape = arr.shape
             arr.resize((shape[0] + 1, shape[1]))
 
-    def export(self, time, variables):
+    def export(self, time, variables, index=None):
         """
         Appends a new entry of (time, variables) to the file.
 
@@ -102,11 +108,18 @@ class DiagnosticHDF5(object):
         :type time: float
         :arg variables: values of entry
         :type variables: tuple of float
+        :kwarg int index: If provided, defines the time index in the file
         """
         if self.comm.rank == 0:
             with h5py.File(self.filename, 'a') as hdf5file:
-                self._expand(hdf5file)
-                ix = hdf5file['time'].shape[0] - 1
+                ntime = hdf5file['time'].shape[0]
+                if index is not None:
+                    assert index <= ntime, 'time index out of range {:} <= {:} \n  in file {:}'.format(index, ntime, self.filename)
+                    expand_required = index == ntime
+                    ix = index
+                if index is None or expand_required:
+                    self._expand(hdf5file)
+                    ix = hdf5file['time'].shape[0] - 1
                 hdf5file['time'][ix] = time
                 for i in range(self.nvars):
                     hdf5file[self.varnames[i]][ix, :] = variables[i]
@@ -142,7 +155,17 @@ class DiagnosticCallback(object):
         self.attrs = attrs
         self.append_to_hdf5 = export_to_hdf5
         self.append_to_log = append_to_log
+        self._create_new_file = True
         self._hdf5_initialized = False
+
+    def set_write_mode(self, mode):
+        """
+        Define whether to create a new hdf5 file or append to an exisiting one
+
+        :arg str mode: Either 'create' (default) or 'append'
+        """
+        assert mode in ['create', 'append']
+        self._create_new_file = mode == 'create'
 
     def _create_hdf5_file(self):
         """
@@ -155,6 +178,7 @@ class DiagnosticCallback(object):
             fname = os.path.join(self.outputdir, fname)
             self.hdf_exporter = DiagnosticHDF5(fname, self.variable_names,
                                                array_dim=self.array_dim,
+                                               new_file=self._create_new_file,
                                                attrs=self.attrs,
                                                comm=comm)
         self._hdf5_initialized = True
@@ -197,7 +221,7 @@ class DiagnosticCallback(object):
         """
         print_output(self.message_str(*args))
 
-    def push_to_hdf5(self, time, args):
+    def push_to_hdf5(self, time, args, index=None):
         """
         Append values to HDF5 file.
 
@@ -206,16 +230,16 @@ class DiagnosticCallback(object):
         """
         if not self._hdf5_initialized:
             self._create_hdf5_file()
-        self.hdf_exporter.export(time, args)
+        self.hdf_exporter.export(time, args, index=index)
 
-    def evaluate(self):
+    def evaluate(self, index=None):
         """Evaluates callback and pushes values to log and hdf file (if enabled)"""
         values = self.__call__()
         time = self.solver_obj.simulation_time
         if self.append_to_log:
             self.push_to_log(time, values)
         if self.append_to_hdf5:
-            self.push_to_hdf5(time, values)
+            self.push_to_hdf5(time, values, index=index)
 
 
 class ScalarConservationCallback(DiagnosticCallback):

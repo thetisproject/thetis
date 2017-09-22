@@ -207,15 +207,11 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         if self.options.momentum_source_2d is not None:
             momentum_source_2d = solver.fields.split_residual_2d + self.options.momentum_source_2d
         fields = {
-            'uv_bottom': solver.fields.get('uv_bottom_2d'),
-            'bottom_drag': solver.fields.get('bottom_drag_2d'),
-            'viscosity_h': self.options.horizontal_viscosity,  # FIXME should be total h visc
-            'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
             'coriolis': self.options.coriolis_frequency,
-            'wind_stress': self.options.wind_stress,
             'momentum_source': momentum_source_2d,
             'volume_source': self.options.volume_source_2d,
-            'linear_drag_coefficient': self.options.linear_drag_coefficient}
+            'atmospheric_pressure': self.options.atmospheric_pressure,
+        }
 
         if issubclass(self.integrator_2d, (rungekutta.ERKSemiImplicitGeneric)):
             self.timesteppers.swe2d = self.integrator_2d(
@@ -251,18 +247,23 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                   'uv_p1': self.fields.get('uv_p1_3d'),
                   'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
                   'coriolis': self.fields.get('coriolis_3d'),
-                  'linear_drag_coefficient': self.options.linear_drag_coefficient,
-                  'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
                   }
+        friction_fields = {
+            'linear_drag_coefficient': self.options.linear_drag_coefficient,
+            'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
+            'wind_stress': self.fields.get('wind_stress_3d'),
+        }
+        if not self.solver.options.use_implicit_vertical_diffusion:
+            fields.update(friction_fields)
         self.timesteppers.mom_expl = self.integrator_3d(
             solver.eq_momentum, solver.fields.uv_3d, fields, solver.dt,
             bnd_conditions=solver.bnd_functions['momentum'],
             solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
         if self.solver.options.use_implicit_vertical_diffusion:
             fields = {'viscosity_v': impl_v_visc,
-                      'wind_stress': self.fields.get('wind_stress_3d'),
                       'uv_depth_av': self.fields.get('uv_dav_3d'),
                       }
+            fields.update(friction_fields)
             self.timesteppers.mom_impl = self.integrator_vert_3d(
                 solver.eq_vertmomentum, solver.fields.uv_3d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['momentum'],
@@ -485,6 +486,8 @@ class CoupledSSPRKSemiImplicit(CoupledTimeIntegrator):
                     self.timesteppers.tke_expl.solve_stage(k, t)
             with timed_stage('momentum_eq'):
                 self.timesteppers.mom_expl.solve_stage(k, t)
+                if self.options.use_limiter_for_velocity:
+                    self.solver.uv_limiter.apply(self.fields.uv_3d)
             with timed_stage('mode2d'):
                 self.timesteppers.swe2d.solve_stage(k, t, update_forcings)
             last_step = (k == 2)
@@ -622,6 +625,8 @@ class CoupledERKALE(CoupledTimeIntegrator):
                         self.timesteppers.tke_expl.get_final_solution()
                 with timed_stage('momentum_eq'):
                     self.timesteppers.mom_expl.get_final_solution()
+                    if self.options.use_limiter_for_velocity:
+                        self.solver.uv_limiter.apply(self.fields.uv_3d)
             else:
                 with timed_stage('salt_eq'):
                     if self.options.solve_salinity:
@@ -640,6 +645,8 @@ class CoupledERKALE(CoupledTimeIntegrator):
                         self.timesteppers.tke_expl.update_solution(k)
                 with timed_stage('momentum_eq'):
                     self.timesteppers.mom_expl.update_solution(k)
+                    if self.options.use_limiter_for_velocity:
+                        self.solver.uv_limiter.apply(self.fields.uv_3d)
 
             self._update_all_dependencies(t, do_vert_diffusion=last_step,
                                           do_2d_coupling=True,
@@ -740,6 +747,8 @@ class CoupledIMEXALE(CoupledTimeIntegrator):
             if k > 0:
                 self.timesteppers.swe2d.erk.update_solution(k)
                 self.timesteppers.mom_expl.update_solution(k)
+                if self.options.use_limiter_for_velocity:
+                    self.solver.uv_limiter.apply(self.fields.uv_3d)
                 if self.options.solve_salinity:
                     self.timesteppers.salt_expl.update_solution(k)
                     if self.options.use_limiter_for_tracers:
@@ -776,6 +785,8 @@ class CoupledIMEXALE(CoupledTimeIntegrator):
             self._update_moving_mesh()
             if last_step:
                 self.timesteppers.mom_expl.get_final_solution()
+                if self.options.use_limiter_for_velocity:
+                    self.solver.uv_limiter.apply(self.fields.uv_3d)
                 self._update_vertical_velocity()
                 if self.options.solve_salinity:
                     self.timesteppers.salt_expl.get_final_solution()
@@ -857,6 +868,8 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
 
         with timed_stage('momentum_eq'):
             self.timesteppers.mom_expl.predict()
+            if self.options.use_limiter_for_velocity:
+                self.solver.uv_limiter.apply(self.fields.uv_3d)
 
         # dependencies for 2D update
         self._update_2d_coupling()
@@ -929,6 +942,8 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
                 self.timesteppers.tke_expl.correct()
         with timed_stage('momentum_eq'):
             self.timesteppers.mom_expl.correct()
+            if self.options.use_limiter_for_velocity:
+                self.solver.uv_limiter.apply(self.fields.uv_3d)
 
         if self.options.use_implicit_vertical_diffusion:
             self._update_2d_coupling()
@@ -1055,16 +1070,18 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
             self._update_3d_elevation()
             self._update_moving_mesh()
 
+            last_stage = i_stage == self.n_stages - 1
+
             # solve 3D mode
             with timed_stage('salt_eq'):
                 if self.options.solve_salinity:
                     self.timesteppers.salt_expl.solve_stage(i_stage)
-                    if self.options.use_limiter_for_tracers:
+                    if self.options.use_limiter_for_tracers and last_stage:
                         self.solver.tracer_limiter.apply(self.fields.salt_3d)
             with timed_stage('temp_eq'):
                 if self.options.solve_temperature:
                     self.timesteppers.temp_expl.solve_stage(i_stage)
-                    if self.options.use_limiter_for_tracers:
+                    if self.options.use_limiter_for_tracers and last_stage:
                         self.solver.tracer_limiter.apply(self.fields.temp_3d)
             with timed_stage('turb_advection'):
                 if 'psi_expl' in self.timesteppers:
@@ -1073,24 +1090,31 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
                     self.timesteppers.tke_expl.solve_stage(i_stage)
             with timed_stage('momentum_eq'):
                 self.timesteppers.mom_expl.solve_stage(i_stage)
+                if self.options.use_limiter_for_velocity and last_stage:
+                    self.solver.uv_limiter.apply(self.fields.uv_3d)
 
-            # update coupling terms
-            last = i_stage == self.n_stages - 1
-
-            self._update_2d_coupling()
-            self._update_baroclinicity()
-            self._update_bottom_friction()
-            if i_stage == last and self.options.use_implicit_vertical_diffusion:
-                self._update_turbulence(t)
-                if self.options.solve_salinity:
-                    with timed_stage('impl_salt_vdiff'):
-                        self.timesteppers.salt_impl.advance(t)
-                if self.options.solve_temperature:
-                    with timed_stage('impl_temp_vdiff'):
-                        self.timesteppers.temp_impl.advance(t)
-                with timed_stage('impl_mom_vvisc'):
-                    self.timesteppers.mom_impl.advance(t)
+            if last_stage:
+                # NOTE compute final prognostic variables
+                self._update_2d_coupling()  # should be done before implicit viscosity
+                if self.options.use_implicit_vertical_diffusion:
+                    if self.options.solve_salinity:
+                        with timed_stage('impl_salt_vdiff'):
+                            self.timesteppers.salt_impl.advance(t)
+                    if self.options.solve_temperature:
+                        with timed_stage('impl_temp_vdiff'):
+                            self.timesteppers.temp_impl.advance(t)
+                    with timed_stage('impl_mom_vvisc'):
+                        self.timesteppers.mom_impl.advance(t)
+                # NOTE prognostic fields are at t_{n+1}
+                # update diagnostic fields
                 self._update_baroclinicity()
-            self._update_vertical_velocity()
-            if i_stage == last:
+                self._update_vertical_velocity()
+                self._update_turbulence(t)
+                self._update_bottom_friction()
                 self._update_stabilization_params()
+            else:
+                # NOTE do not update anything that's needed my the implicit diffusion equation
+                # i.e. friction, viscosity, turbulence
+                self._update_2d_coupling()
+                self._update_baroclinicity()
+                self._update_vertical_velocity()
