@@ -110,7 +110,7 @@ def convergence_test(ref_list, order=1, export=False, saveplot=False):
             yy = intercept + slope*xx
             # plot line
             ax.plot(xx, yy, linestyle='--', linewidth=0.5, color='k')
-            ax.text(xx[2*npoints/3], yy[2*npoints/3], '{:4.2f}'.format(slope),
+            ax.text(xx[2*int(npoints/3)], yy[2*int(npoints/3)], '{:4.2f}'.format(slope),
                     verticalalignment='top',
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
@@ -135,9 +135,9 @@ def convergence_test(ref_list, order=1, export=False, saveplot=False):
     check_convergence(x_log, y_log_uv, order + 1, 'divergence_2d', 'uv', saveplot)
 
 
-def test_divergence_2d():
-    convergence_test([1, 2, 4, 8])
+def test_divergence_2d(**kwargs):
+    convergence_test([1, 2, 4, 8], **kwargs)
 
 
 if __name__ == '__main__':
-    test_divergence_2d()
+    test_divergence_2d(saveplot=True)
