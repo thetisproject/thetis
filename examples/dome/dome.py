@@ -41,10 +41,6 @@ t_export = 3 * 3600
 outputdir = 'outputs_' + reso_str
 
 delta_x = delta_x_dict[reso_str]
-delta_z = setup.depth_lim[1]/n_layers
-nnodes = mesh2d.topology.num_vertices()
-ntriangles = mesh2d.topology.num_cells()
-nprisms = ntriangles*n_layers
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -240,13 +236,7 @@ hcc_obj.solve()
 
 print_output('Running DOME problem with options:')
 print_output('Resolution: {:}'.format(reso_str))
-print_output('Element family: {:}'.format(options.element_family))
-print_output('Polynomial order: {:}'.format(options.polynomial_degree))
 print_output('Reynolds number: {:}'.format(reynolds_number))
-print_output('Number of cores: {:}'.format(comm.size))
-print_output('Mesh resolution dx={:} nlayers={:} dz={:}'.format(delta_x, n_layers, delta_z))
-print_output('Number of 2D nodes={:}, triangles={:}, prisms={:}'.format(nnodes, ntriangles, nprisms))
-print_output('Tracer DOFs per core: {:}'.format(6*nprisms))
 hcc = solver_obj.fields.hcc_metric_3d.dat.data
 print_output('HCC mesh consistency: {:} .. {:}'.format(hcc.min(), hcc.max()))
 print_output('Horizontal viscosity: {:}'.format(nu_scale))

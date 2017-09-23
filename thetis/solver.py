@@ -283,8 +283,8 @@ class FlowSolver(FrozenClass):
         """
         Computes number of elements, nodes etc and prints to sdtout
         """
-        nnodes = self.comm.allreduce(self.mesh2d.topology.num_vertices(), MPI.SUM)
-        ntriangles = self.comm.allreduce(self.mesh2d.topology.num_cells(), MPI.SUM)
+        nnodes = self.function_spaces.P1_2d.dim()
+        ntriangles = int(self.function_spaces.P1DG_2d.dim()/3)
         nlayers = self.mesh.topology.layers - 1
         nprisms = ntriangles*nlayers
         dofs_per_elem = len(self.function_spaces.H.finat_element.entity_dofs())
