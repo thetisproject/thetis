@@ -54,7 +54,7 @@ class CallbackManager(defaultdict):
         :kwarg int index: if provided, sets the export index. Default behavior
             is to append to the file or stream.
         """
-        for key in self[mode]:
+        for key in sorted(self[mode]):
             self[mode][key].evaluate(index=index)
 
 

@@ -25,7 +25,7 @@ class Term(object):
         self.tri = TrialFunction(self.function_space)
         self.normal = FacetNormal(self.mesh)
         # TODO construct them here from mesh ?
-        self.boundary_markers = function_space.mesh().exterior_facets.unique_markers
+        self.boundary_markers = sorted(function_space.mesh().exterior_facets.unique_markers)
         self.boundary_len = function_space.mesh().boundary_len
 
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions):
@@ -115,19 +115,19 @@ class Equation(object):
         self.terms[key] = term
         self.label_term(key, label)
 
-    def label_term(self, key, label):
+    def label_term(self, term, label):
         """
         Assings a label to the given term(s).
 
         :arg term: :class:`.Term` object, or a tuple of terms
         :arg label: string label to assign
         """
-        if isinstance(key, str):
-            assert key in self.terms, 'Unknown term, add it to the equation'
+        if isinstance(term, str):
+            assert term in self.terms, 'Unknown term, add it to the equation'
             assert label in self.SUPPORTED_LABELS, 'bad label: {:}'.format(label)
-            self.labels[key] = label
+            self.labels[term] = label
         else:
-            for k in iter(key):
+            for k in iter(term):
                 self.label_term(k, label)
 
     def select_terms(self, label):
