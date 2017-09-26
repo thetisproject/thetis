@@ -45,13 +45,9 @@ delta_x = lx/nx
 delta_y = ly/ny
 mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x')
 depth = 1600.
-nlayers = 6  # FIXME
+nlayers = 10  # FIXME
 reso_str = str(int(np.round(delta_x/1000.))) + 'km'
 outputdir = 'outputs_{:}'.format(reso_str)
-
-nnodes = comm.allreduce(mesh2d.topology.num_vertices(), MPI.SUM)
-ntriangles = comm.allreduce(mesh2d.topology.num_cells(), MPI.SUM)
-nprisms = ntriangles*nlayers
 
 t_end = 3*365*24*3600.
 t_export = 1*24*3600.
@@ -82,39 +78,44 @@ nu_scale = u_scale * delta_x / reynolds_number
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, nlayers)
 options = solver_obj.options
 options.element_family = 'dg-dg'
-options.timestepper_type = 'ssprk22'
-options.solve_salt = False
-options.constant_salt = Constant(salt_const)
-options.solve_temp = True
-options.solve_vert_diffusion = False
+options.timestepper_type = 'SSPRK22'
+options.solve_salinity = False
+options.constant_salinity = Constant(salt_const)
+options.solve_temperature = True
+options.use_implicit_vertical_diffusion = False
 options.use_bottom_friction = True
 # options.use_turbulence = True
 # options.turbulence_model = 'pacanowski'
 options.use_ale_moving_mesh = True
-options.baroclinic = True
-options.coriolis = coriolis_2d
-options.uv_lax_friedrichs = Constant(1.0)
-options.tracer_lax_friedrichs = Constant(1.0)
+options.use_baroclinic_formulation = True
+options.coriolis_frequency = coriolis_2d
+options.use_lax_friedrichs_velocity = True
+options.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
+options.use_lax_friedrichs_tracer = True
+options.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
 options.use_limiter_for_tracers = True
-options.quadratic_drag = Constant(0.0025)
-options.h_viscosity = Constant(nu_scale)
-options.h_diffusivity = None  # Constant(30.)
-options.v_viscosity = Constant(1e-2)  # tmp replacement for turbulence
+options.quadratic_drag_coefficient = Constant(0.0025)
+options.horizontal_viscosity_scale = Constant(nu_scale)
+options.horizontal_viscosity = Constant(nu_scale)
+options.horizontal_diffusivity = None  # Constant(30.)
+options.vertical_viscosity = Constant(1e-2)  # tmp replacement for turbulence
 # options.v_viscosity = Constant(1.0e-3)
-options.v_diffusivity = Constant(1.0e-5)
-options.outputdir = outputdir
-options.t_export = t_export
-options.t_end = t_end
-options.u_advection = Constant(u_max)
-options.w_advection = Constant(w_max)
-options.check_vol_conservation_2d = True
-options.check_vol_conservation_3d = True
-options.check_temp_conservation = True
-options.check_temp_overshoot = True
+options.vertical_diffusivity = Constant(1.0e-5)
+options.output_directory = outputdir
+options.simulation_export_time = t_export
+options.simulation_end_time = t_end
+options.horizontal_velocity_scale = Constant(u_max)
+options.vertical_velocity_scale = Constant(w_max)
+options.check_volume_conservation_2d = True
+options.check_volume_conservation_3d = True
+options.check_temperature_conservation = True
+options.check_temperature_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'temp_3d', 'salt_3d', 'density_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                             'smag_visc_3d', 'int_pg_3d']
+options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
+                                 'salt_3d', 'temp_3d', 'tke_3d', 'psi_3d']
 
 solver_obj.create_function_spaces()
 solver_obj.create_fields()
@@ -144,7 +145,8 @@ mask_temp_relax_3d.dat.data[:] = np.maximum(mask_numpy_y0, mask_numpy_y1)
 ix = mask_temp_relax_3d.dat.data < 0
 mask_temp_relax_3d.dat.data[ix] = 0.0
 # File('mask.pvd').write(mask_temp_relax_3d)
-options.temp_source_3d = mask_temp_relax_3d/t_temp_relax*(temp_relax - solver_obj.fields.temp_3d)
+# NOTE must accept ufl expressions as forcing term!
+options.temperature_source_3d = mask_temp_relax_3d/t_temp_relax*(temp_relax - solver_obj.fields.temp_3d)
 
 solver_obj.create_equations()
 solver_obj.assign_initial_conditions(temp=temp_init_3d)
@@ -181,15 +183,8 @@ elev_init_2d += -mean_elev  # remove mean
 solver_obj.assign_initial_conditions(temp=temp_init_3d + temp_pertubation, elev=elev_init_2d)
 
 print_output('Resolution: {:}'.format(delta_x))
-print_output('Element family: {:}'.format(options.element_family))
-print_output('Polynomial order: {:}'.format(options.order))
 print_output('Reynolds number: {:}'.format(reynolds_number))
 print_output('Horizontal viscosity: {:}'.format(nu_scale))
-print_output('Number of cores: {:}'.format(comm.size))
-print_output('Number of 2D nodes={:}, triangles={:}, prisms={:}'.format(nnodes, ntriangles, nprisms))
-print_output('Tracer DOFs: {:}'.format(6*nprisms))
-print_output('Tracer DOFs per core: {:}'.format(float(6*nprisms)/comm.size))
 print_output('Exporting to {:}'.format(outputdir))
-
 
 solver_obj.iterate()
