@@ -312,7 +312,7 @@ class FlowSolver2d(FrozenClass):
 
             u_test = TestFunction(self.function_spaces.U_2d)
             self.eq_mom = shallowwater_eq.ShallowWaterMomentumEquation(
-                u_test, self.function_spaces.H_2d, self.function_spaces.U_2d,
+                u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
                 self.fields.bathymetry_2d,
                 options=self.options
             )
