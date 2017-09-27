@@ -382,11 +382,13 @@ class PressureProjectionPicard(TimeIntegrator):
             )
         )
         # subtract G eta_lagged: G is the implicit term in the mom. eqn.
-        for term in self.equation_mom.select_terms('implicit'):
-            self.F += -self.dt_const*(
-                - theta_const*term.residual(self.uv_star, eta_lagged, uv_star_nl, eta_lagged, self.fields, self.fields, bnd_conditions)
-                - (1-theta_const)*term.residual(uv_old, eta_old, uv_old, eta_old, self.fields_old, self.fields_old, bnd_conditions)
-            )
+        for key in self.equation_mom.terms:
+            if self.equation_mom.labels[key] == 'implicit':
+                term = self.equation.terms[key]
+                self.F += -self.dt_const*(
+                    - theta_const*term.residual(self.uv_star, eta_lagged, uv_star_nl, eta_lagged, self.fields, self.fields, bnd_conditions)
+                    - (1-theta_const)*term.residual(uv_old, eta_old, uv_old, eta_old, self.fields_old, self.fields_old, bnd_conditions)
+                )
 
         self.update_solver()
 
