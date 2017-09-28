@@ -17,6 +17,7 @@ from .field_defs import field_metadata
 from .options import ModelOptions3d
 from . import callback
 from .log import *
+from collections import OrderedDict
 
 
 class FlowSolver(FrozenClass):
@@ -744,7 +745,7 @@ class FlowSolver(FrozenClass):
 
         # ----- File exporters
         # create export_managers and store in a list
-        self.exporters = {}
+        self.exporters = OrderedDict()
         if not self.options.no_exports:
             e = exporter.ExportManager(self.options.output_directory,
                                        self.options.fields_to_export,
@@ -945,8 +946,8 @@ class FlowSolver(FrozenClass):
         # set uv to total uv instead of deviation from depth average
         # TODO find a cleaner way of doing this ...
         self.fields.uv_3d += self.fields.uv_dav_3d
-        for key in self.exporters:
-            self.exporters[key].export()
+        for e in self.exporters.values():
+            e.export()
         # restore uv_3d
         self.fields.uv_3d -= self.fields.uv_dav_3d
 
@@ -1028,8 +1029,8 @@ class FlowSolver(FrozenClass):
         else:
             offset = 1
         self.next_export_t += self.options.simulation_export_time
-        for k in self.exporters:
-            self.exporters[k].set_next_export_ix(self.i_export + offset)
+        for e in self.exporters.values():
+            e.set_next_export_ix(self.i_export + offset)
 
         self._simulation_continued = True
 

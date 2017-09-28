@@ -4,6 +4,7 @@ Routines for handling file exports.
 from __future__ import absolute_import
 from .utility import *
 from firedrake.output import is_cg
+from collections import OrderedDict
 import itertools
 
 
@@ -238,7 +239,7 @@ class ExportManager(object):
         self.coords_dg_2d = None
         self.coords_dg_3d = None
         # for each field create an exporter
-        self.exporters = {}
+        self.exporters = OrderedDict()
         for key in fields_to_export:
             shortname = self.field_metadata[key]['shortname']
             fn = self.field_metadata[key]['filename']

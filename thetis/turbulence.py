@@ -353,10 +353,9 @@ class ShearFrequencySolver(object):
         self.minval = minval
         self.relaxation = relaxation
 
-        self.var_solvers = {}
+        self.var_solvers = []
         for i_comp in range(2):
-            solver = VerticalGradSolver(uv[i_comp], mu_tmp)
-            self.var_solvers[i_comp] = solver
+            self.var_solvers.append(VerticalGradSolver(uv[i_comp], mu_tmp))
 
     def solve(self, init_solve=False):
         """
@@ -369,8 +368,8 @@ class ShearFrequencySolver(object):
         with timed_stage('shear_freq_solv'):
             mu_comp = [self.mu, self.mv]
             self.m2.assign(0.0)
-            for i_comp in range(2):
-                self.var_solvers[i_comp].solve()
+            for i_comp, solver in enumerate(self.var_solvers):
+                solver.solve()
                 gamma = self.relaxation if not init_solve else 1.0
                 mu_comp[i_comp].assign(gamma*self.mu_tmp +
                                        (1.0 - gamma)*mu_comp[i_comp])
@@ -409,8 +408,6 @@ class BuoyFrequencySolver(object):
             self.n2 = n2
             self.n2_tmp = n2_tmp
             self.relaxation = relaxation
-
-            self.var_solvers = {}
 
             g = physical_constants['g_grav']
             rho0 = physical_constants['rho0']
