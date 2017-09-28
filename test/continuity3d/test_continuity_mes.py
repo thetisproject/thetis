@@ -338,7 +338,7 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False):
             yy = intercept + slope*xx
             # plot line
             ax.plot(xx, yy, linestyle='--', linewidth=0.5, color='k')
-            ax.text(xx[2*npoints/3], yy[2*npoints/3], '{:4.2f}'.format(slope),
+            ax.text(xx[2*int(npoints/3)], yy[2*int(npoints/3)], '{:4.2f}'.format(slope),
                     verticalalignment='top',
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
@@ -378,24 +378,6 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False):
 def test_setup5_dg():
     run_convergence(setup5dg, [1, 2, 3], 1, save_plot=False)
 
-# ---------------------------
-# run individual setup for debugging
-# ---------------------------
 
-# run(setup2, 2, 1)
-
-# ---------------------------
-# run individual scaling test
-# ---------------------------
-
-# run_convergence(setup5dg, [1, 2, 3], 1, save_plot=True)
-
-# ---------------------------
-# run all defined setups
-# ---------------------------
-
-# import inspect
-# all_setups = [obj for name,obj in inspect.getmembers(sys.modules[__name__])
-#               if inspect.isfunction(obj) and obj.__name__.startswith('setup')]
-# for s in all_setups:
-#     run(s, 2, 1)
+if __name__ == '__main__':
+    run_convergence(setup5dg, [1, 2, 3], 1, save_plot=True)

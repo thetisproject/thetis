@@ -188,7 +188,8 @@ def get_facet_mask(function_space, mode='geometric', facet='bottom'):
     return indices
 
 
-def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d):
+def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, z_stretch_fact=1.0,
+                       min_depth=None):
     """
     Extrudes a 2d surface mesh with bathymetry data defined in a 2d field.
 
@@ -206,29 +207,51 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d):
     fs_2d = bathymetry_2d.function_space()
     new_coordinates = Function(fs_3d)
 
+    z_stretch_func = Function(fs_2d)
+    if isinstance(z_stretch_fact, FiredrakeFunction):
+        assert z_stretch_fact.function_space() == fs_2d
+        z_stretch_func = z_stretch_fact
+    else:
+        z_stretch_func.assign(z_stretch_fact)
+
     # number of nodes in vertical direction
     n_vert_nodes = fs_3d.finat_element.space_dimension() / fs_2d.finat_element.space_dimension()
 
+    min_depth_arr = np.ones((n_layers+1, ))*1e22
+    if min_depth is not None:
+        for i, v in enumerate(min_depth):
+            min_depth_arr[i] = v
+
     nodes = get_facet_mask(fs_3d, 'geometric', 'bottom')
     idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
+    min_depth_op2 = op2.Global(len(min_depth_arr), min_depth_arr, name='min_depth')
     kernel = op2.Kernel("""
-        void my_kernel(double **new_coords, double **old_coords, double **bath2d, int *idx) {
+        void my_kernel(double **new_coords, double **old_coords, double **bath2d, double **z_stretch, int *idx, double *min_depth) {
             for ( int d = 0; d < %(nodes)d; d++ ) {
+                double s_fact = z_stretch[d][0];
                 for ( int e = 0; e < %(v_nodes)d; e++ ) {
                     new_coords[idx[d]+e][0] = old_coords[idx[d]+e][0];
                     new_coords[idx[d]+e][1] = old_coords[idx[d]+e][1];
-                    new_coords[idx[d]+e][2] = -bath2d[d][0] * (1.0 - old_coords[idx[d]+e][2]);
+                    double sigma = 1.0 - old_coords[idx[d]+e][2]; // top 0, bot 1
+                    double new_z = -bath2d[d][0] * pow(sigma, s_fact) ;
+                    int layer = fmin(fmax(round(sigma*(%(n_layers)d + 1) - 1.0), 0.0), %(n_layers)d);
+                    double max_z = -min_depth[layer];
+                    new_z = fmax(new_z, max_z);
+                    new_coords[idx[d]+e][2] = new_z;
                 }
             }
         }""" % {'nodes': fs_2d.finat_element.space_dimension(),
-                'v_nodes': n_vert_nodes},
+                'v_nodes': n_vert_nodes,
+                'n_layers': n_layers},
         'my_kernel')
 
     op2.par_loop(kernel, mesh.cell_set,
                  new_coordinates.dat(op2.WRITE, fs_3d.cell_node_map()),
                  coordinates.dat(op2.READ, fs_3d.cell_node_map()),
                  bathymetry_2d.dat(op2.READ, fs_2d.cell_node_map()),
+                 z_stretch_func.dat(op2.READ, fs_2d.cell_node_map()),
                  idx(op2.READ),
+                 min_depth_op2(op2.READ),
                  iterate=op2.ALL)
 
     mesh.coordinates.assign(new_coordinates)

@@ -59,6 +59,7 @@ def run(refinement, **model_options):
     options.simulation_export_time = t_export
     options.solve_salinity = False
     options.solve_temperature = False
+    options.use_bottom_friction = False
     options.use_implicit_vertical_diffusion = implicit
     options.fields_to_export = ['uv_3d']
     options.vertical_viscosity = Constant(vertical_viscosity)
@@ -153,7 +154,7 @@ def run_convergence(ref_list, saveplot=False, **options):
     setup_name = 'v-viscosity'
 
     def check_convergence(x_log, y_log, expected_slope, field_str, saveplot):
-        slope_rtol = 0.07
+        slope_rtol = 0.05
         slope, intercept, r_value, p_value, std_err = stats.linregress(x_log, y_log)
         if saveplot:
             import matplotlib.pyplot as plt
@@ -168,7 +169,7 @@ def run_convergence(ref_list, saveplot=False, **options):
             yy = intercept + slope*xx
             # plot line
             ax.plot(xx, yy, linestyle='--', linewidth=0.5, color='k')
-            ax.text(xx[2*npoints/3], yy[2*npoints/3], '{:4.2f}'.format(slope),
+            ax.text(xx[2*int(npoints/3)], yy[2*int(npoints/3)], '{:4.2f}'.format(slope),
                     verticalalignment='top',
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
@@ -207,7 +208,7 @@ def polynomial_degree(request):
     return request.param
 
 
-@pytest.fixture(params=[pytest.mark.skip(reason='mysterious travis bug')(True), False], ids=['implicit', 'explicit'])
+@pytest.fixture(params=[True, False], ids=['implicit', 'explicit'])
 def implicit(request):
     return request.param
 
@@ -228,8 +229,8 @@ def test_vertical_viscosity(polynomial_degree, implicit, element_family, stepper
 
 if __name__ == '__main__':
     run_convergence([1, 2, 3], polynomial_degree=0,
-                    implicit=True,
-                    element_family='rt-dg',
-                    timestepper_type='SSPRK33',
-                    use_ale_moving_mesh=False,
-                    no_exports=True, saveplot=False)
+                    implicit=False,
+                    element_family='dg-dg',
+                    timestepper_type='SSPRK22',
+                    use_ale_moving_mesh=True,
+                    no_exports=True, saveplot=True)

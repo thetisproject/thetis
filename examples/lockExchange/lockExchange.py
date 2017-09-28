@@ -61,7 +61,6 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
         layers = int(round(10*refinement[reso_str]))
         if reso_str == 'ilicak':
             layers = 20
-    delta_z = depth/layers
 
     # generate unit mesh and transform its coords
     x_max = 32.0e3
@@ -72,10 +71,6 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     # x in [x_min, x_max], y in [-dx, dx]
     coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min
     coords.dat.data[:, 1] = coords.dat.data[:, 1]*2*delta_x - delta_x
-
-    nnodes = mesh2d.topology.num_vertices()
-    ntriangles = mesh2d.topology.num_cells()
-    nprisms = ntriangles*layers
 
     # temperature and salinity, for linear eq. of state (from Petersen, 2015)
     temp_left = 5.0
@@ -176,13 +171,8 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
 
     print_output('Running lock exchange problem with options:')
     print_output('Resolution: {:}'.format(reso_str))
-    print_output('Element family: {:}'.format(element_family))
-    print_output('Polynomial order: {:}'.format(poly_order))
     print_output('Reynolds number: {:}'.format(reynolds_number))
     print_output('Use slope limiters: {:}'.format(use_limiter))
-    print_output('Number of cores: {:}'.format(comm.size))
-    print_output('Mesh resolution dx={:} nlayers={:} dz={:}'.format(delta_x, layers, delta_z))
-    print_output('Number of 2D nodes={:}, triangles={:}, prisms={:}'.format(nnodes, ntriangles, nprisms))
     print_output('Horizontal viscosity: {:}'.format(nu_scale))
     print_output('Lax-Friedrichs factor: {:}'.format(laxfriedrichs))
     print_output('Exporting to {:}'.format(outputdir))

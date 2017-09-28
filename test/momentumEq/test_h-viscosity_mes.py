@@ -55,6 +55,7 @@ def run(refinement, **model_options):
     options.simulation_export_time = t_export
     options.solve_salinity = False
     options.solve_temperature = False
+    options.use_bottom_friction = False
     options.fields_to_export = ['uv_3d']
     options.horizontal_viscosity = Constant(horizontal_viscosity)
     options.horizontal_viscosity_scale = Constant(horizontal_viscosity)
@@ -151,7 +152,7 @@ def run_convergence(ref_list, saveplot=False, **options):
             yy = intercept + slope*xx
             # plot line
             ax.plot(xx, yy, linestyle='--', linewidth=0.5, color='k')
-            ax.text(xx[2*npoints/3], yy[2*npoints/3], '{:4.2f}'.format(slope),
+            ax.text(xx[2*int(npoints/3)], yy[2*int(npoints/3)], '{:4.2f}'.format(slope),
                     verticalalignment='top',
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
@@ -210,7 +211,7 @@ def test_horizontal_viscosity(warped, polynomial_degree, family, stepper, use_al
 if __name__ == '__main__':
     run_convergence([1, 2, 3], polynomial_degree=1,
                     warped_mesh=True,
-                    element_family='rt-dg',
+                    element_family='dg-dg',
                     timestepper_type='SSPRK22',
                     use_ale_moving_mesh=True,
                     no_exports=False, saveplot=True)

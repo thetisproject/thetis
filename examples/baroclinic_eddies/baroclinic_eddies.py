@@ -151,10 +151,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     solver_obj.create_equations()
 
     print_output('Running eddy test case with options:')
-    print_output('Number of cores: {:}'.format(comm.size))
     print_output('Mesh resolution dx={:} nlayers={:}'.format(delta_x, nlayers))
-    print_output('Number of 2D nodes={:}, triangles={:}'.format(nnodes, ntriangles))
-    print_output('Number of prisms={:.2g}, DOFs={:.2g}'.format(nprisms, ndofs))
     print_output('Reynolds number: {:}'.format(reynolds_number))
     print_output('Horizontal viscosity: {:}'.format(nu_scale))
     print_output('Lax-Friedrichs factor: {:}'.format(laxfriedrichs))

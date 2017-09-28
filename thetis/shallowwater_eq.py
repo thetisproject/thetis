@@ -909,6 +909,7 @@ class ModeSplit2DEquations(BaseShallowWaterEquation):
         self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
         self.add_term(CoriolisTerm(*args), 'explicit')
         self.add_term(MomentumSourceTerm(*args), 'source')
+        self.add_term(AtmosphericPressureTerm(*args), 'source')
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         if isinstance(solution, list):

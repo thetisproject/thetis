@@ -76,7 +76,7 @@ class FlowSolver(FrozenClass):
     See the manual for more complex examples.
     """
     def __init__(self, mesh2d, bathymetry_2d, n_layers,
-                 options=None):
+                 options=None, extrude_options=None):
         """
         :arg mesh2d: :class:`Mesh` object of the 2D mesh
         :arg bathymetry_2d: Bathymetry of the domain. Bathymetry stands for
@@ -94,7 +94,9 @@ class FlowSolver(FrozenClass):
 
         self.mesh2d = mesh2d
         """2D :class`Mesh`"""
-        self.mesh = extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d)
+        if extrude_options is None:
+            extrude_options = {}
+        self.mesh = extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, **extrude_options)
         """3D :class`Mesh`"""
         self.comm = mesh2d.comm
 
@@ -150,6 +152,7 @@ class FlowSolver(FrozenClass):
         self.export_initial_state = True
         """Do export initial state. False if continuing a simulation"""
 
+        self._simulation_continued = False
         self._isfrozen = True
 
     def compute_dx_factor(self):
@@ -276,6 +279,30 @@ class FlowSolver(FrozenClass):
         dt = (min_dx)**2/nu
         dt = self.comm.allreduce(dt, op=MPI.MIN)
         return dt
+
+    def compute_mesh_stats(self):
+        """
+        Computes number of elements, nodes etc and prints to sdtout
+        """
+        nnodes = self.function_spaces.P1_2d.dim()
+        ntriangles = int(self.function_spaces.P1DG_2d.dim()/3)
+        nlayers = self.mesh.topology.layers - 1
+        nprisms = ntriangles*nlayers
+        dofs_per_elem = len(self.function_spaces.H.finat_element.entity_dofs())
+        ntracer_dofs = dofs_per_elem*nprisms
+        min_h_size = self.comm.allreduce(self.fields.h_elem_size_2d.dat.data.min(), MPI.MIN)
+        max_h_size = self.comm.allreduce(self.fields.h_elem_size_2d.dat.data.max(), MPI.MAX)
+        min_v_size = self.comm.allreduce(self.fields.v_elem_size_3d.dat.data.min(), MPI.MIN)
+        max_v_size = self.comm.allreduce(self.fields.v_elem_size_3d.dat.data.max(), MPI.MAX)
+
+        print_output('2D mesh: {:} nodes, {:} triangles'.format(nnodes, ntriangles))
+        print_output('3D mesh: {:} layers, {:} prisms'.format(nlayers, nprisms))
+        print_output('Horizontal element size: {:.2f} ... {:.2f} m'.format(min_h_size, max_h_size))
+        print_output('Vertical element size: {:.3f} ... {:.3f} m'.format(min_v_size, max_v_size))
+        print_output('Element family: {:}, degree: {:}'.format(self.options.element_family, self.options.polynomial_degree))
+        print_output('Number of tracer DOFs: {:}'.format(ntracer_dofs))
+        print_output('Number of cores: {:}'.format(self.comm.size))
+        print_output('Tracer DOFs per core: ~{:.1f}'.format(float(ntracer_dofs)/self.comm.size))
 
     def set_time_step(self):
         """
@@ -512,9 +539,10 @@ class FlowSolver(FrozenClass):
                 ExpandFunctionTo3d(self.options.coriolis_frequency, self.fields.coriolis_3d).solve()
         if self.options.wind_stress is not None:
             if isinstance(self.options.wind_stress, FiredrakeFunction):
+                assert self.options.wind_stress.function_space().mesh().geometric_dimension() == 3, \
+                    'wind stress field must be a 3D function'
                 # assume 2d function and expand to 3d
-                self.fields.wind_stress_3d = Function(self.function_spaces.P1)
-                ExpandFunctionTo3d(self.options.wind_stress, self.fields.wind_stress_3d).solve()
+                self.fields.wind_stress_3d = self.options.wind_stress
             elif isinstance(self.options.wind_stress, FiredrakeConstant):
                 self.fields.wind_stress_3d = self.options.wind_stress
             else:
@@ -531,6 +559,10 @@ class FlowSolver(FrozenClass):
             self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H)
         else:
             self.tracer_limiter = None
+        if self.options.use_limiter_for_velocity and self.options.polynomial_degree > 0:
+            self.uv_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.U)
+        else:
+            self.uv_limiter = None
         if self.options.use_turbulence:
             if self.options.turbulence_model_type == 'gls':
                 # NOTE tke and psi should be in H as tracers ??
@@ -618,13 +650,14 @@ class FlowSolver(FrozenClass):
             self.fields.bathymetry_2d,
             self.options)
 
+        expl_bottom_friction = self.options.use_bottom_friction and not self.options.use_implicit_vertical_diffusion
         self.eq_momentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
                                                         bathymetry=self.fields.bathymetry_3d,
                                                         v_elem_size=self.fields.v_elem_size_3d,
                                                         h_elem_size=self.fields.h_elem_size_3d,
                                                         use_nonlinear_equations=self.options.use_nonlinear_equations,
                                                         use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
-                                                        use_bottom_friction=False)
+                                                        use_bottom_friction=expl_bottom_friction)
         if self.options.use_implicit_vertical_diffusion:
             self.eq_vertmomentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
                                                                 bathymetry=self.fields.bathymetry_3d,
@@ -822,6 +855,7 @@ class FlowSolver(FrozenClass):
         self.fields.bathymetry_2d.project(self.bathymetry_cg_2d)
         ExpandFunctionTo3d(self.fields.bathymetry_2d, self.fields.bathymetry_3d).solve()
         self.mesh_updater.initialize()
+        self.compute_mesh_stats()
         self.set_time_step()
         self.timestepper.set_dt(self.dt, self.dt_2d)
         # compute maximal diffusivity for explicit schemes
@@ -908,7 +942,7 @@ class FlowSolver(FrozenClass):
 
         Also evaluates all callbacks set to 'export' interval.
         """
-        self.callbacks.evaluate(mode='export')
+        self.callbacks.evaluate(mode='export', index=self.i_export)
         # set uv to total uv instead of deviation from depth average
         # TODO find a cleaner way of doing this ...
         self.fields.uv_3d += self.fields.uv_dav_3d
@@ -998,6 +1032,8 @@ class FlowSolver(FrozenClass):
         for e in self.exporters.values():
             e.set_next_export_ix(self.i_export + offset)
 
+        self._simulation_continued = True
+
     def print_state(self, cputime):
         """
         Print a summary of the model state on stdout
@@ -1040,6 +1076,8 @@ class FlowSolver(FrozenClass):
         self.options.check_temperature_overshoot &= self.options.solve_temperature
         self.options.check_volume_conservation_3d &= self.options.use_ale_moving_mesh
         self.options.use_limiter_for_tracers &= self.options.polynomial_degree > 0
+        self.options.use_limiter_for_velocity &= self.options.polynomial_degree > 0
+        self.options.use_limiter_for_velocity &= self.options.element_family == 'dg-dg'
 
         t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()
@@ -1079,6 +1117,12 @@ class FlowSolver(FrozenClass):
                                                  export_to_hdf5=dump_hdf5,
                                                  append_to_log=True)
             self.add_callback(c, eval_interval='export')
+
+        if self._simulation_continued:
+            # set all callbacks to append mode
+            for m in self.callbacks:
+                for k in self.callbacks[m]:
+                    self.callbacks[m][k].set_write_mode('append')
 
         # initial export
         self.print_state(0.0)

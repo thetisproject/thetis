@@ -157,7 +157,7 @@ def run_convergence(ref_list, saveplot=False, **options):
             yy = intercept + slope*xx
             # plot line
             ax.plot(xx, yy, linestyle='--', linewidth=0.5, color='k')
-            ax.text(xx[2*npoints/3], yy[2*npoints/3], '{:4.2f}'.format(slope),
+            ax.text(xx[2*int(npoints/3)], yy[2*int(npoints/3)], '{:4.2f}'.format(slope),
                     verticalalignment='top',
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
