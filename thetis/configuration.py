@@ -5,6 +5,7 @@ from ipython_genutils.text import indent, dedent
 from traitlets.config.configurable import Configurable
 from traitlets import *
 
+import ufl
 from thetis import FiredrakeConstant as Constant
 from thetis import FiredrakeFunction as Function
 
@@ -164,6 +165,23 @@ class FiredrakeCoefficient(TraitType):
         if isinstance(self.default_value, Constant):
             return 'Constant({:})'.format(self.default_value.dat.data[0])
         return 'Function'
+
+
+class FiredrakeExpression(TraitType):
+    default_value = None
+    info_text = 'a UFL expression, Firedrake Constant or Function'
+
+    def validate(self, obj, value):
+        if isinstance(value, (Constant, Function, ufl.core.operator.Operator)):
+            return value
+        self.error(obj, value)
+
+    def default_value_repr(self):
+        if isinstance(self.default_value, Constant):
+            return 'Constant({:})'.format(self.default_value.dat.data[0])
+        if isinstance(self.default_value, Function):
+            return 'Function'
+        return 'UFL expression'
 
 
 class PETScSolverParameters(Dict):
