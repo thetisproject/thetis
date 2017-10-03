@@ -407,7 +407,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         if dt != dt_2d:
             raise NotImplementedError('Case dt_2d < dt is not implemented yet')
 
-        for stepper in self.timesteppers:
+        for stepper in sorted(self.timesteppers):
             self.timesteppers[stepper].set_dt(dt)
 
     def initialize(self):

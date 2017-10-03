@@ -380,7 +380,7 @@ class VerticalVelocitySolver(object):
               uv[2]*normal[2]
               )*test[2]*self.ds_surf
              )
-        for bnd_marker in mesh.exterior_facets.unique_markers:
+        for bnd_marker in sorted(mesh.exterior_facets.unique_markers):
             funcs = boundary_funcs.get(bnd_marker)
             ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
             if funcs is None:
@@ -1349,10 +1349,11 @@ class SmagorinskyViscosity(object):
             # solve grad(u) weakly
             mesh = output.function_space().mesh()
             fs_grad = FunctionSpace(mesh, 'DP', 1, vfamily='DP', vdegree=1)
-            self.grad = {}
-            for icomp in [0, 1]:
-                for j in [0, 1]:
-                    self.grad[(icomp, j)] = Function(fs_grad, name='uv_grad({:},{:})'.format(icomp, j))
+            self.grad = []
+            for icomp in range(2):
+                self.grad[icomp] = []
+                for j in range(2):
+                    self.grad[icomp][j] = Function(fs_grad, name='uv_grad({:},{:})'.format(icomp, j))
 
             tri_grad = TrialFunction(fs_grad)
             test_grad = TestFunction(fs_grad)
@@ -1360,16 +1361,17 @@ class SmagorinskyViscosity(object):
             normal = FacetNormal(mesh)
             a = inner(tri_grad, test_grad)*dx
 
-            self.solver_grad = {}
-            for icomp in [0, 1]:
-                for j in [0, 1]:
+            self.solver_grad = []
+            for icomp in range(2):
+                self.solver_grad[icomp] = []
+                for j in range(2):
                     a = inner(tri_grad, test_grad)*dx
                     # l = inner(Dx(uv[0], 0), test_grad)*dx
                     l = -inner(Dx(test_grad, j), uv[icomp])*dx
                     l += inner(avg(uv[icomp]), jump(test_grad, normal[j]))*dS_v
                     l += inner(uv[icomp], test_grad*normal[j])*ds_v
-                    prob = LinearVariationalProblem(a, l, self.grad[(icomp, j)])
-                    self.solver_grad[(icomp, j)] = LinearVariationalSolver(prob, solver_parameters=solver_parameters)
+                    prob = LinearVariationalProblem(a, l, self.grad[icomp][j])
+                    self.solver_grad[icomp][j] = LinearVariationalSolver(prob, solver_parameters=solver_parameters)
 
         fs = output.function_space()
         tri = TrialFunction(fs)
@@ -1392,9 +1394,9 @@ class SmagorinskyViscosity(object):
     def solve(self):
         """Compute viscosity"""
         if self.weak_form:
-            for icomp in [0, 1]:
-                for j in [0, 1]:
-                    self.solver_grad[(icomp, j)].solve()
+            for icomp in range(2):
+                for j in range(2):
+                    self.solver_grad[icomp][j].solve()
         self.solver.solve()
         # remove negative values
         ix = self.output.dat.data < self.min_val
@@ -1568,8 +1570,8 @@ def compute_boundary_length(mesh2d):
     Computes the length of the boundary segments in given 2d mesh
     """
     p1 = FunctionSpace(mesh2d, 'CG', 1)
-    boundary_markers = mesh2d.exterior_facets.unique_markers
-    boundary_len = {}
+    boundary_markers = sorted(mesh2d.exterior_facets.unique_markers)
+    boundary_len = OrderedDict()
     for i in boundary_markers:
         ds_restricted = ds(int(i))
         one_func = Function(p1).assign(1.0)
