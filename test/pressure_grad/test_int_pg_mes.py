@@ -58,15 +58,22 @@ def compute_l2_error(refinement=1, quadratic=False, no_exports=True):
         fs_pg = VectorFunctionSpace(mesh, 'DG', 1, vfamily='CG', vdegree=2, dim=2)
         fs_scalar = FunctionSpace(mesh, 'DG', 1, vfamily='CG', vdegree=2)
 
-    scalar_3d = Function(fs_scalar, name='scalar')
+    density_3d = Function(fs_scalar, name='density')
+    baroc_head_3d = Function(fs_scalar, name='baroclinic head')
     int_pg_3d = Function(fs_pg, name='pressure gradient')
     elev_3d = Function(p1, name='elevation')
     bathymetry_3d = Function(p1, name='elevation')
     ExpandFunctionTo3d(bathymetry_2d, bathymetry_3d).solve()
 
-    # deform mesh by elevation
+    # analytic expressions
     xyz = SpatialCoordinate(mesh)
-    elev_expr = 1000.*tanh(2*(xyz[0]-lx/2)/lx)*sin(1.5*xyz[1]/ly+0.3)
+    elev_expr = 2000.0*sin(0.3 + 1.5*xyz[1]/ly)*cos(2*xyz[0]/lx)
+    density_expr = sin((xyz[1] - 0.3)/lx)*cos(2*xyz[2]/depth)*cos(2*xyz[0]/lx)
+    baroc_head_expr = -depth*sin((2*xyz[2] - 4000.0*sin((0.3*ly + 1.5*xyz[1])/ly)*cos(2*xyz[0]/lx))/depth)*sin((xyz[1] - 0.3)/lx)*cos(2*xyz[0]/lx)/2
+    baroc_head_expr_dx = (depth*sin((2*xyz[2] - 4000.0*sin((0.3*ly + 1.5*xyz[1])/ly)*cos(2*xyz[0]/lx))/depth) - 4000.0*sin((0.3*ly + 1.5*xyz[1])/ly)*cos((2*xyz[2] - 4000.0*sin((0.3*ly + 1.5*xyz[1])/ly)*cos(2*xyz[0]/lx))/depth)*cos(2*xyz[0]/lx))*sin(2*xyz[0]/lx)*sin((xyz[1] - 0.3)/lx)/lx
+    baroc_head_expr_dy = (-depth*ly*sin((2*xyz[2] - 4000.0*sin((0.3*ly + 1.5*xyz[1])/ly)*cos(2*xyz[0]/lx))/depth)*cos((xyz[1] - 0.3)/lx) + 6000.0*lx*sin((xyz[1] - 0.3)/lx)*cos((2*xyz[2] - 4000.0*sin((0.3*ly + 1.5*xyz[1])/ly)*cos(2*xyz[0]/lx))/depth)*cos(2*xyz[0]/lx)*cos((0.3*ly + 1.5*xyz[1])/ly))*cos(2*xyz[0]/lx)/(2*lx*ly)
+
+    # deform mesh by elevation
     elev_3d.project(elev_expr)
     z_ref = mesh.coordinates.dat.data[:, 2]
     bath = bathymetry_3d.dat.data[:]
@@ -75,18 +82,17 @@ def compute_l2_error(refinement=1, quadratic=False, no_exports=True):
     mesh.coordinates.dat.data[:, 2] = new_z
 
     if not no_exports:
-        out_scalar = File('scalar.pvd')
+        out_density = File('density.pvd')
+        out_bhead = File('baroc_head.pvd')
         out_pg = File('int_pg.pvd')
 
     # project initial scalar
-    scalar_expr = 10*cos(2*xyz[0]/lx)*sin((xyz[1]-0.3)/lx)*sin(-0.5/depth*xyz[2])
-    scalar_expr_dx = -10*2/lx*sin(2*xyz[0]/lx)*sin((xyz[1]-0.3)/lx)*sin(-0.5/depth*xyz[2])
-    scalar_expr_dy = 10*cos(2*xyz[0]/lx)/lx*cos((xyz[1]-0.3)/lx)*sin(-0.5/depth*xyz[2])
-    scalar_3d.project(scalar_expr)
+    density_3d.project(density_expr)
+    baroc_head_3d.project(baroc_head_expr)
 
     # compute int_pg
     fields = FieldDict()
-    fields.baroc_head_3d = scalar_3d
+    fields.baroc_head_3d = baroc_head_3d
     fields.int_pg_3d = int_pg_3d
     fields.bathymetry_3d = bathymetry_3d
     options = None
@@ -99,21 +105,23 @@ def compute_l2_error(refinement=1, quadratic=False, no_exports=True):
     int_pg_solver.solve()
 
     if not no_exports:
-        out_scalar.write(scalar_3d)
+        out_density.write(density_3d)
+        out_bhead.write(baroc_head_3d)
         out_pg.write(int_pg_3d)
 
     g_grav = physical_constants['g_grav']
 
     ana_sol_expr = g_grav*as_vector((
-        scalar_expr_dx,
-        scalar_expr_dy,))
+        baroc_head_expr_dx,
+        baroc_head_expr_dy,))
 
     volume = comp_volume_3d(mesh)
     l2_err = errornorm(ana_sol_expr, int_pg_3d, degree_rise=2)/np.sqrt(volume)
     print_output('L2 error {:}'.format(l2_err))
 
     if not no_exports:
-        out_scalar.write(scalar_3d)
+        out_density.write(density_3d)
+        out_bhead.write(baroc_head_3d)
         out_pg.write(int_pg_3d.project(ana_sol_expr))
 
     return l2_err
@@ -147,7 +155,7 @@ def run_convergence(ref_list, save_plot=False, **options):
             yy = intercept + slope*xx
             # plot line
             ax.plot(xx, yy, linestyle='--', linewidth=0.5, color='k')
-            ax.text(xx[2*n/3], yy[2*n/3], '{:4.2f}'.format(slope),
+            ax.text(xx[int(2*n/3)], yy[int(2*n/3)], '{:4.2f}'.format(slope),
                     verticalalignment='top',
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
@@ -178,4 +186,5 @@ def test_int_pg(quadratic):
 
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], quadratic=False, save_plot=True, no_exports=False)
+    # compute_l2_error(refinement=3, quadratic=False, no_exports=False)
+    run_convergence([1, 2, 3, 4, 6, 8], quadratic=False, save_plot=True, no_exports=True)
