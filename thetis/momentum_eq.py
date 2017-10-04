@@ -212,7 +212,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
                 else:
                     raise Exception('either uv_p1 or uv_mag must be given')
                 f += gamma*(jump(self.test[0])*jump(uv[0]) +
-                            jump(self.test[1])*jump(uv[1]))*self.dS_v
+                            jump(self.test[1])*jump(uv[1]))*(self.dS_v + self.dS_h)
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
