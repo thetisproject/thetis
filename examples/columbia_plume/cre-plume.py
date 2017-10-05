@@ -90,35 +90,36 @@ solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, nlayers,
                                extrude_options=extrude_options)
 options = solver_obj.options
 options.element_family = 'dg-dg'
-options.timestepper_type = 'ssprk22'
-options.solve_salt = not simple_barotropic
-options.solve_temp = not simple_barotropic
-options.solve_vert_diffusion = True  # not simple_barotropic
+options.timestepper_type = 'SSPRK22'
+options.solve_salinity = not simple_barotropic
+options.solve_temperature = not simple_barotropic
+options.use_implicit_vertical_diffusion = True  # not simple_barotropic
 options.use_bottom_friction = True  # not simple_barotropic
 options.use_turbulence = True  # not simple_barotropic
 options.use_turbulence_advection = False  # not simple_barotropic
 options.use_smooth_eddy_viscosity = False
-options.turbulence_model = 'pacanowski'
-options.baroclinic = not simple_barotropic
-options.uv_lax_friedrichs = Constant(1.0)
-options.tracer_lax_friedrichs = Constant(1.0)
-options.v_viscosity = Constant(2e-5)
-options.v_diffusivity = Constant(2e-5)
-options.h_viscosity = Constant(2.0)
-options.h_diffusivity = Constant(2.0)
+options.turbulence_model_type = 'pacanowski'
+options.use_baroclinic_formulation = not simple_barotropic
+options.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
+options.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
+options.vertical_viscosity = Constant(2e-5)
+options.vertical_diffusivity = Constant(2e-5)
+options.horizontal_viscosity = Constant(2.0)
+options.horizontal_diffusivity = Constant(2.0)
 options.use_quadratic_pressure = True
 options.use_limiter_for_tracers = True
 options.use_limiter_for_velocity = True
-options.smagorinsky_factor = Constant(1.0/np.sqrt(reynolds_number))
-options.coriolis = Constant(coriolis_f)
-options.t_export = t_export
-options.t_end = t_end
-options.outputdir = outputdir
-options.u_advection = Constant(u_scale)
-options.w_advection = Constant(w_scale)
-options.nu_viscosity = Constant(nu_scale)
-options.check_salt_overshoot = True
-options.check_temp_overshoot = True
+options.use_smagorinsky_viscosity = True
+options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
+options.coriolis_frequency = Constant(coriolis_f)
+options.simulation_export_time = t_export
+options.simulation_end_time = t_end
+options.output_directory = outputdir
+options.horizontal_velocity_scale = Constant(u_scale)
+options.vertical_velocity_scale = Constant(w_scale)
+options.horizontal_viscosity_scale = Constant(nu_scale)
+options.check_salinity_overshoot = True
+options.check_temperature_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d', 'temp_3d',
                             'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
@@ -130,13 +131,10 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'int_pg_3d', 'hcc_metric_3d']
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
                                  'salt_3d', 'temp_3d', 'tke_3d', 'psi_3d']
-options.equation_of_state = 'full'
-# gls_options = options.gls_options
-# gls_options.apply_defaults('k-omega')
-# gls_options.stability_name = 'CB'
-options.pacanowski_options['alpha'] = 10.
-options.pacanowski_options['exponent'] = 2
-options.pacanowski_options['max_viscosity'] = 0.05
+options.equation_of_state_type = 'full'
+options.turbulence_model_options.alpha = 10.
+options.turbulence_model_options.exponent = 2
+options.turbulence_model_options.max_viscosity = 0.05
 
 solver_obj.create_function_spaces()
 
@@ -232,14 +230,8 @@ hcc_obj.solve()
 
 print_output('Running CRE plume with options:')
 print_output('Resolution: {:}'.format(reso_str))
-print_output('Element family: {:}'.format(options.element_family))
-print_output('Polynomial order: {:}'.format(options.order))
 print_output('Reynolds number: {:}'.format(reynolds_number))
 print_output('Horizontal viscosity: {:}'.format(nu_scale))
-print_output('Number of cores: {:}'.format(comm.size))
-print_output('Number of 2D nodes={:}, triangles={:}, prisms={:}'.format(nnodes, ntriangles, nprisms))
-print_output('Tracer DOFs: {:}'.format(6*nprisms))
-print_output('Tracer DOFs per core: {:}'.format(float(6*nprisms)/comm.size))
 print_output('Exporting to {:}'.format(outputdir))
 
 solver_obj.assign_initial_conditions(salt=salt_init_3d, temp=temp_init_3d)

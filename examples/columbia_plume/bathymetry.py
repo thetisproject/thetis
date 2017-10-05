@@ -20,9 +20,10 @@ def interpolate_onto(interp_func, output_func, coords, min_val):
 def retrieve_bath_file(bathfile):
     """Download bathymetry raster if it does not exists."""
     if not os.path.isfile(bathfile):
-        import urllib
+        import urllib.request
         bath_url = 'http://www.stccmop.org/~karnat/thetis/columbia_plume/'
-        urllib.urlretrieve(bath_url + bathfile, bathfile)
+        print('Downloading bathymetry from {:}'.format(bath_url + bathfile))
+        urllib.request.urlretrieve(bath_url + bathfile, bathfile)
 
 
 def get_bathymetry(bathymetry_file, mesh2d, minimum_depth=5.0, project=False):
