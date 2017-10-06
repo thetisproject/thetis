@@ -4,12 +4,10 @@ r"""
 The advection-diffusion equation of tracer :math:`T` in conservative form reads
 
 .. math::
-   \frac{\partial T}{\partial t}
+    \frac{\partial T}{\partial t}
     + \nabla_h \cdot (\textbf{u} T)
-  % + \frac{\partial (w T)}{\partial z}
     = \nabla_h \cdot (\mu_h \nabla_h T)
-  %  + \frac{\partial}{\partial z} \Big(\mu \frac{T}{\partial z}\Big)
-   :label: tracer_eq
+    :label: tracer_eq
 
 where :math:`\nabla_h` denotes horizontal gradient, :math:`\textbf{u}` are the horizontal
 velocities, respectively, and
@@ -23,9 +21,7 @@ __all__ = [
     'TracerEquation',
     'TracerTerm',
     'HorizontalAdvectionTerm',
-#    'VerticalAdvectionTerm',
     'HorizontalDiffusionTerm',
-#    'VerticalDiffusionTerm',
     'SourceTerm',
 ]
 
@@ -36,39 +32,27 @@ class TracerTerm(Term):
     boundary functions.
     """
     def __init__(self, function_space,
-                 bathymetry=None, # v_elem_size=None,
-                 h_elem_size=None,
-                 use_symmetric_surf_bnd=False, use_lax_friedrichs=True):   #Use_lax_friedrichs?
+                 bathymetry=None, h_elem_size=None, use_lax_friedrichs=True):   
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
         :type bathymetry: 3D :class:`Function` or :class:`Constant`
- #       :kwarg v_elem_size: scalar :class:`Function` that defines the vertical
- #           element size
         :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
             element size
-        :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
-            condition in the horizontal advection term
         """
         super(TracerTerm, self).__init__(function_space)
         self.bathymetry = bathymetry
         self.h_elem_size = h_elem_size
-#        self.v_elem_size = v_elem_size
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
- #       self.vertical_dg = continuity.vertical == 'dg'
-        self.use_symmetric_surf_bnd = use_symmetric_surf_bnd
         self.use_lax_friedrichs = use_lax_friedrichs
 
         # define measures with a reasonable quadrature degree
         p, q = self.function_space.ufl_element().degree()
         self.quad_degree = (2*p + 1, 2*q + 1)
         self.dx = dx(degree=self.quad_degree)
-        self.dS_h = dS_h(degree=self.quad_degree)
-        self.dS_v = dS_v(degree=self.quad_degree)
+        self.dS = dS(degree=self.quad_degree)
         self.ds = ds(degree=self.quad_degree)
-        self.ds_surf = ds_surf(degree=self.quad_degree)
-        self.ds_bottom = ds_bottom(degree=self.quad_degree)
 
     def get_bnd_functions(self, c_in, uv_in, elev_in, bnd_id, bnd_conditions):
         """
@@ -112,6 +96,7 @@ class TracerTerm(Term):
 
 
 class HorizontalAdvectionTerm(TracerTerm):
+    # TODO adapt equation for 2-D case
     r"""
     Horizontal advection term :math:`\nabla_h \cdot (\textbf{u} T)`
 
@@ -156,12 +141,8 @@ class HorizontalAdvectionTerm(TracerTerm):
             s = 0.5*(sign(un_av) + 1.0)
             c_up = solution('-')*s + solution('+')*(1-s)
             f += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
-                       uv_av[1]*jump(self.test, self.normal[1])) * self.dS #  +
-                    #   uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_v)
-          #  f += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
-          #             uv_av[1]*jump(self.test, self.normal[1]) +
-          #             uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_h)
-            # Lax-Friedrichs stabilization
+                       uv_av[1]*jump(self.test, self.normal[1])) * self.dS 
+           # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
                 if uv_p1 is not None:
                     gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
@@ -170,11 +151,11 @@ class HorizontalAdvectionTerm(TracerTerm):
                     gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
                 else:
                     raise Exception('either uv_p1 or uv_mag must be given')
-                f += gamma*dot(jump(self.test), jump(solution))*(self.dS) # _v + self.dS_h)
+                f += gamma*dot(jump(self.test), jump(solution))*(self.dS) 
             if bnd_conditions is not None:
                 for bnd_marker in self.boundary_markers:
                     funcs = bnd_conditions.get(bnd_marker)
-                    ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
+                    ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)    # FIXME Where does that ds_v term come from?
                     if funcs is None:
                         continue
                     else:
@@ -191,57 +172,9 @@ class HorizontalAdvectionTerm(TracerTerm):
             f += solution*(uv[0]*self.normal[0] + uv[1]*self.normal[1])*self.test*ds_surf
         return -f
 
-"""
-class VerticalAdvectionTerm(TracerTerm):
-    r""""""
-    Vertical advection term :math:`\partial (w T)/(\partial z)`
-
-    The weak form reads
-
-    .. math::
-        \int_\Omega \frac{\partial (w T)}{\partial z} \phi dx
-        = - \int_\Omega T w \frac{\partial \phi}{\partial z} dx
-        + \int_{\mathcal{I}_v} T^{\text{up}} \text{avg}(w) \text{jump}(\phi n_z) dS
-
-    where the right hand side has been integrated by parts;
-    :math:`\mathcal{I}_v` denotes the set of vertical facets,
-    :math:`n_z` is the vertical projection of the unit normal vector,
-    :math:`T^{\text{up}}` is the
-    upwind value, and :math:`\text{jump}` and :math:`\text{avg}` denote the
-    jump and average operators across the interface.
-
-    In the case of ALE moving mesh we substitute :math:`w` with :math:`w - w_m`,
-    :math:`w_m` being the mesh velocity.
-    """"""
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        w = fields_old.get('w')
-        if w is None:
-            return 0
-        w_mesh = fields_old.get('w_mesh')
-        lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
-
-        vertvelo = w[2]
-        if w_mesh is not None:
-            vertvelo = w[2] - w_mesh
-        f = 0
-        f += -solution*vertvelo*Dx(self.test, 2)*self.dx
-        if self.vertical_dg:
-            w_av = avg(vertvelo)
-            s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
-            c_up = solution('-')*s + solution('+')*(1-s)
-            f += c_up*w_av*jump(self.test, self.normal[2])*self.dS_h
-            if self.use_lax_friedrichs:
-                # Lax-Friedrichs
-                gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
-                f += gamma*dot(jump(self.test), jump(solution))*self.dS_h
-
-        # NOTE Bottom impermeability condition is naturally satisfied by the definition of w
-        # NOTE imex solver fails with this in tracerBox example
-        f += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
-        return -f
-"""
 
 class HorizontalDiffusionTerm(TracerTerm):
+    # TODO adapt equation for 2-D case
     r"""
     Horizontal diffusion term :math:`-\nabla_h \cdot (\mu_h \nabla_h T)`
 
@@ -297,10 +230,8 @@ class HorizontalDiffusionTerm(TracerTerm):
 
             degree_h, degree_v = self.function_space.ufl_element().degree()
             # TODO compute elemsize as CellVolume/FacetArea
-            # h = n.D.n where D = diag(h_h, h_h, h_v)
             elemsize = (self.h_elem_size*(self.normal[0]**2 +
                                           self.normal[1]**2)) # +
-                   #     self.v_elem_size*self.normal[2]**2)
             sigma = 5.0*degree_h*(degree_h + 1)/elemsize
             if degree_h == 0:
                 sigma = 1.5/elemsize
@@ -313,77 +244,8 @@ class HorizontalDiffusionTerm(TracerTerm):
             f += -inner(jump(self.test, self.normal),
                         avg(dot(diff_tensor, grad(solution))))*ds_interior
 
-        # symmetric bottom boundary condition
-        # NOTE introduces a flux through the bed - breaks mass conservation
-        f += - inner(diff_flux, self.normal)*self.test*self.ds_bottom
-        f += - inner(diff_flux, self.normal)*self.test*self.ds_surf
-
         return -f
 
-
-""" class VerticalDiffusionTerm(TracerTerm):
-    r""""""
-    Vertical diffusion term :math:`-\frac{\partial}{\partial z} \Big(\mu \frac{T}{\partial z}\Big)`
-
-    Using the symmetric interior penalty method the weak form becomes
-
-    .. math::
-        -\int_\Omega \frac{\partial}{\partial z} \Big(\mu \frac{T}{\partial z}\Big) \phi dx
-        =& \int_\Omega \mu \frac{\partial T}{\partial z} \frac{\partial \phi}{\partial z} dz \\
-        &- \int_{\mathcal{I}_{h}} \text{jump}(\phi n_z) \text{avg}\Big(\mu \frac{\partial T}{\partial z}\Big) dS
-        - \int_{\mathcal{I}_{h}} \text{jump}(T n_z) \text{avg}\Big(\mu \frac{\partial \phi}{\partial z}\Big) dS \\
-        &+ \int_{\mathcal{I}_{h}} \sigma \text{avg}(\mu) \text{jump}(T n_z) \cdot
-            \text{jump}(\phi n_z) dS
-
-    where :math:`\sigma` is a penalty parameter,
-    see Epshteyn and Riviere (2007).
-
-    Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
-    interior penalty Galerkin methods. Journal of Computational and Applied
-    Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
-
-    .. note ::
-        Note the minus sign due to :class:`.equation.Term` sign convention
-    """
-"""
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        if fields_old.get('diffusivity_v') is None:
-            return 0
-
-        diffusivity_v = fields_old['diffusivity_v']
-
-        grad_test = Dx(self.test, 2)
-        diff_flux = dot(diffusivity_v, Dx(solution, 2))
-
-        f = 0
-        f += inner(grad_test, diff_flux)*self.dx
-
-        if self.vertical_dg:
-            assert self.h_elem_size is not None, 'h_elem_size must be defined'
-            assert self.v_elem_size is not None, 'v_elem_size must be defined'
-            # Interior Penalty method by
-            # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
-            degree_h, degree_v = self.function_space.ufl_element().degree()
-            # TODO compute elemsize as CellVolume/FacetArea
-            # h = n.D.n where D = diag(h_h, h_h, h_v)
-            elemsize = (self.h_elem_size*(self.normal[0]**2 +
-                                          self.normal[1]**2) +
-                        self.v_elem_size*self.normal[2]**2)
-            sigma = 5.0*degree_v*(degree_v + 1)/elemsize
-            if degree_v == 0:
-                sigma = 1.0/elemsize
-            alpha = avg(sigma)
-            ds_interior = (self.dS_h)
-            f += alpha*inner(jump(self.test, self.normal[2]),
-                             dot(avg(diffusivity_v), jump(solution, self.normal[2])))*ds_interior
-            f += -inner(avg(dot(diffusivity_v, Dx(self.test, 2))),
-                        jump(solution, self.normal[2]))*ds_interior
-            f += -inner(jump(self.test, self.normal[2]),
-                        avg(dot(diffusivity_v, Dx(solution, 2))))*ds_interior
-
-        return -f
-
-"""
 class SourceTerm(TracerTerm):
     """
     Generic source term
@@ -411,15 +273,12 @@ class TracerEquation(Equation):
     3D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
     def __init__(self, function_space,
-                 bathymetry=None, #  v_elem_size=None,
- 		 h_elem_size=None,
-                 use_symmetric_surf_bnd=False, use_lax_friedrichs=True):
+                 bathymetry=None, h_elem_size=None,
+                 use_lax_friedrichs=True):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
         :type bathymetry: 3D :class:`Function` or :class:`Constant`
-   #     :kwarg v_elem_size: scalar :class:`Function` that defines the vertical
-   #         element size
         :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
             element size
         :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
@@ -428,9 +287,7 @@ class TracerEquation(Equation):
         super(TracerEquation, self).__init__(function_space)
 
         args = (function_space, bathymetry,
-                v_elem_size, h_elem_size, use_symmetric_surf_bnd, use_lax_friedrichs)
+                h_elem_size,  use_lax_friedrichs)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
-    #    self.add_term(VerticalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
-    #    self.add_term(VerticalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
