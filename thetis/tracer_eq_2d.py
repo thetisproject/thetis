@@ -155,7 +155,7 @@ class HorizontalAdvectionTerm(TracerTerm):
             if bnd_conditions is not None:
                 for bnd_marker in self.boundary_markers:
                     funcs = bnd_conditions.get(bnd_marker)
-                    ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)    # FIXME Where does that ds_v term come from?
+                    ds_bnd = ds(int(bnd_marker), degree=self.quad_degree) 
                     if funcs is None:
                         continue
                     else:
@@ -168,8 +168,6 @@ class HorizontalAdvectionTerm(TracerTerm):
                         f += c_up*(uv_av[0]*self.normal[0] +
                                    uv_av[1]*self.normal[1])*self.test*ds_bnd
 
-        if self.use_symmetric_surf_bnd:
-            f += solution*(uv[0]*self.normal[0] + uv[1]*self.normal[1])*self.test*ds_surf
         return -f
 
 
