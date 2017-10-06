@@ -407,9 +407,9 @@ class SourceTerm(TracerTerm):
 
 
 class TracerEquation(Equation):
-    """"""
+    """
     3D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
-    """"""
+    """
     def __init__(self, function_space,
                  bathymetry=None, #  v_elem_size=None,
  		 h_elem_size=None,
