@@ -215,8 +215,6 @@ class HorizontalDiffusionTerm(TracerTerm):
 
         if self.horizontal_dg:
             assert self.h_elem_size is not None, 'h_elem_size must be defined'
-          #  assert self.v_elem_size is not None, 'v_elem_size must be defined'
-           
             # Interior Penalty method by
             # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
             # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
@@ -231,12 +229,12 @@ class HorizontalDiffusionTerm(TracerTerm):
             degree_h, degree_v = self.function_space.ufl_element().degree()
             # TODO compute elemsize as CellVolume/FacetArea
             elemsize = (self.h_elem_size*(self.normal[0]**2 +
-                                          self.normal[1]**2)) # +
+                                          self.normal[1]**2)) 
             sigma = 5.0*degree_h*(degree_h + 1)/elemsize
             if degree_h == 0:
                 sigma = 1.5/elemsize
             alpha = avg(sigma)
-            ds_interior = (self.dS) # _h + self.dS_v)
+            ds_interior = (self.dS) 
             f += alpha*inner(jump(self.test, self.normal),
                              dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
             f += -inner(avg(dot(diff_tensor, grad(self.test))),
