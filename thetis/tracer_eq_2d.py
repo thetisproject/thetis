@@ -156,11 +156,11 @@ class HorizontalAdvectionTerm(TracerTerm):
             s = 0.5*(sign(un_av) + 1.0)
             c_up = solution('-')*s + solution('+')*(1-s)
             f += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
-                       uv_av[1]*jump(self.test, self.normal[1]) +
-                       uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_v)
-            f += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
-                       uv_av[1]*jump(self.test, self.normal[1]) +
-                       uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_h)
+                       uv_av[1]*jump(self.test, self.normal[1])) * self.dS #  +
+                    #   uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_v)
+          #  f += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
+          #             uv_av[1]*jump(self.test, self.normal[1]) +
+          #             uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_h)
             # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
                 if uv_p1 is not None:
@@ -170,7 +170,7 @@ class HorizontalAdvectionTerm(TracerTerm):
                     gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
                 else:
                     raise Exception('either uv_p1 or uv_mag must be given')
-                f += gamma*dot(jump(self.test), jump(solution))*(self.dS_v + self.dS_h)
+                f += gamma*dot(jump(self.test), jump(solution))*(self.dS) # _v + self.dS_h)
             if bnd_conditions is not None:
                 for bnd_marker in self.boundary_markers:
                     funcs = bnd_conditions.get(bnd_marker)
@@ -292,7 +292,9 @@ class HorizontalDiffusionTerm(TracerTerm):
             # Theta        - min angle of triangles
             # assuming k_max/k_min=2, Theta=pi/3
             # sigma = 6.93 = 3.5*p*(p+1)
-        
+
+       # TODO check if this is needed in 2-D :
+
             degree_h, degree_v = self.function_space.ufl_element().degree()
             # TODO compute elemsize as CellVolume/FacetArea
             # h = n.D.n where D = diag(h_h, h_h, h_v)
@@ -405,9 +407,9 @@ class SourceTerm(TracerTerm):
 
 
 class TracerEquation(Equation):
-    """
+    """"""
     3D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
-    """
+    """"""
     def __init__(self, function_space,
                  bathymetry=None, #  v_elem_size=None,
  		 h_elem_size=None,
