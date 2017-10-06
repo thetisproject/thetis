@@ -53,7 +53,7 @@ class TracerTerm(Term):
         super(TracerTerm, self).__init__(function_space)
         self.bathymetry = bathymetry
         self.h_elem_size = h_elem_size
-        self.v_elem_size = v_elem_size
+#        self.v_elem_size = v_elem_size
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
  #       self.vertical_dg = continuity.vertical == 'dg'
@@ -191,9 +191,9 @@ class HorizontalAdvectionTerm(TracerTerm):
             f += solution*(uv[0]*self.normal[0] + uv[1]*self.normal[1])*self.test*ds_surf
         return -f
 
-
+"""
 class VerticalAdvectionTerm(TracerTerm):
-    r"""
+    r""""""
     Vertical advection term :math:`\partial (w T)/(\partial z)`
 
     The weak form reads
@@ -212,7 +212,7 @@ class VerticalAdvectionTerm(TracerTerm):
 
     In the case of ALE moving mesh we substitute :math:`w` with :math:`w - w_m`,
     :math:`w_m` being the mesh velocity.
-    """
+    """"""
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         w = fields_old.get('w')
         if w is None:
@@ -239,7 +239,7 @@ class VerticalAdvectionTerm(TracerTerm):
         # NOTE imex solver fails with this in tracerBox example
         f += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
         return -f
-
+"""
 
 class HorizontalDiffusionTerm(TracerTerm):
     r"""
@@ -282,7 +282,8 @@ class HorizontalDiffusionTerm(TracerTerm):
 
         if self.horizontal_dg:
             assert self.h_elem_size is not None, 'h_elem_size must be defined'
-            assert self.v_elem_size is not None, 'v_elem_size must be defined'
+          #  assert self.v_elem_size is not None, 'v_elem_size must be defined'
+           
             # Interior Penalty method by
             # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
             # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
@@ -291,17 +292,18 @@ class HorizontalDiffusionTerm(TracerTerm):
             # Theta        - min angle of triangles
             # assuming k_max/k_min=2, Theta=pi/3
             # sigma = 6.93 = 3.5*p*(p+1)
+        
             degree_h, degree_v = self.function_space.ufl_element().degree()
             # TODO compute elemsize as CellVolume/FacetArea
             # h = n.D.n where D = diag(h_h, h_h, h_v)
             elemsize = (self.h_elem_size*(self.normal[0]**2 +
-                                          self.normal[1]**2) +
-                        self.v_elem_size*self.normal[2]**2)
+                                          self.normal[1]**2)) # +
+                   #     self.v_elem_size*self.normal[2]**2)
             sigma = 5.0*degree_h*(degree_h + 1)/elemsize
             if degree_h == 0:
                 sigma = 1.5/elemsize
             alpha = avg(sigma)
-            ds_interior = (self.dS_h + self.dS_v)
+            ds_interior = (self.dS) # _h + self.dS_v)
             f += alpha*inner(jump(self.test, self.normal),
                              dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
             f += -inner(avg(dot(diff_tensor, grad(self.test))),
@@ -317,8 +319,8 @@ class HorizontalDiffusionTerm(TracerTerm):
         return -f
 
 
-class VerticalDiffusionTerm(TracerTerm):
-    r"""
+""" class VerticalDiffusionTerm(TracerTerm):
+    r""""""
     Vertical diffusion term :math:`-\frac{\partial}{\partial z} \Big(\mu \frac{T}{\partial z}\Big)`
 
     Using the symmetric interior penalty method the weak form becomes
@@ -341,6 +343,7 @@ class VerticalDiffusionTerm(TracerTerm):
     .. note ::
         Note the minus sign due to :class:`.equation.Term` sign convention
     """
+"""
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_v') is None:
             return 0
@@ -378,7 +381,7 @@ class VerticalDiffusionTerm(TracerTerm):
 
         return -f
 
-
+"""
 class SourceTerm(TracerTerm):
     """
     Generic source term
@@ -406,14 +409,15 @@ class TracerEquation(Equation):
     3D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
     def __init__(self, function_space,
-                 bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 use_symmetric_surf_bnd=True, use_lax_friedrichs=True):
+                 bathymetry=None, #  v_elem_size=None,
+ 		 h_elem_size=None,
+                 use_symmetric_surf_bnd=False, use_lax_friedrichs=True):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
         :type bathymetry: 3D :class:`Function` or :class:`Constant`
-        :kwarg v_elem_size: scalar :class:`Function` that defines the vertical
-            element size
+   #     :kwarg v_elem_size: scalar :class:`Function` that defines the vertical
+   #         element size
         :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
             element size
         :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
@@ -424,7 +428,7 @@ class TracerEquation(Equation):
         args = (function_space, bathymetry,
                 v_elem_size, h_elem_size, use_symmetric_surf_bnd, use_lax_friedrichs)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
-        self.add_term(VerticalAdvectionTerm(*args), 'explicit')
+    #    self.add_term(VerticalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
-        self.add_term(VerticalDiffusionTerm(*args), 'explicit')
+    #    self.add_term(VerticalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
