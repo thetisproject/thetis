@@ -47,7 +47,7 @@ def rst_all_options(cls, nspace=0, prefix=None):
             for opt, val in trait.paired_defaults.items():
                 extra.append("'%s':" % opt)
                 extra.append("")
-                extra.append(rst_all_options(val.__class__, 4 + nspace, prefix=classname + "." + trait.paired_name))
+                extra.append(rst_all_options(val, 4 + nspace, prefix=classname + "." + trait.paired_name))
             extra = "\n".join(extra)
         else:
             extra = None
@@ -182,7 +182,9 @@ class PairedEnum(Enum):
 
     This enum controls a slaved option, with default values provided here.
 
-    :arg values: iterable of (value, HasTraits) pairs
+    :arg values: iterable of (value, HasTraits class) pairs.
+        The HasTraits class will be called (with no arguments) to
+        create default values if necessary.
     :arg paired_name: trait name this enum is paired with.
     :arg default_value: default value.
     """
@@ -285,12 +287,13 @@ def attach_paired_options(name, name_trait, value_trait):
 
     def _observer(self, change):
         "Observer called when the choice option is updated."
-        setattr(self, name_trait.paired_name, name_trait.paired_defaults[change["new"]])
+        setattr(self, name_trait.paired_name,
+                name_trait.paired_defaults[change["new"]]())
 
     def _default(self):
         "Dynamic default value setter"
         if hasattr(name_trait, 'default_value') and name_trait.default_value is not None:
-            return name_trait.paired_defaults[name_trait.default_value]
+            return name_trait.paired_defaults[name_trait.default_value]()
 
     obs_handler = ObserveHandler(name, type="change")
     def_handler = DefaultHandler(name_trait.paired_name)
