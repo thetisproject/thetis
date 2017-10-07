@@ -98,7 +98,7 @@ options.use_bottom_friction = True  # not simple_barotropic
 options.use_turbulence = True  # not simple_barotropic
 options.use_turbulence_advection = False  # not simple_barotropic
 options.use_smooth_eddy_viscosity = False
-options.turbulence_model_type = 'pacanowski'
+options.turbulence_model_type = 'gls'
 options.use_baroclinic_formulation = not simple_barotropic
 options.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
 options.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
@@ -132,9 +132,6 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
                                  'salt_3d', 'temp_3d', 'tke_3d', 'psi_3d']
 options.equation_of_state_type = 'full'
-options.turbulence_model_options.alpha = 10.
-options.turbulence_model_options.exponent = 2
-options.turbulence_model_options.max_viscosity = 0.05
 
 solver_obj.create_function_spaces()
 
