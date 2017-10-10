@@ -249,12 +249,18 @@ print_output('Total 2D inflow: {:.3f} Sv'.format(tot_inflow_2d/1e6))
 print_output('Exporting to {:}'.format(outputdir))
 
 
-def show_uv_mag():
-    uv = solver_obj.fields.uv_3d.dat.data
-    print_output('uv: {:9.2e} .. {:9.2e}'.format(uv.min(), uv.max()))
+# Export bottom salinity
+bot_salt_2d = Function(solver_obj.function_spaces.H_2d, name='Salinity')
+extract_bot_salt = SubFunctionExtractor(solver_obj.fields.salt_3d, bot_salt_2d, boundary='bottom')
+bot_salt_file = File(options.output_directory + '/BotSalinity2d.pvd')
+
+
+def export_func():
+    extract_bot_salt.solve()
+    bot_salt_file.write(bot_salt_2d)
 
 
 solver_obj.assign_initial_conditions(temp=temp_init_3d, salt=salt_init_3d)
 # use initial baroclinic head on the boundary
 bhead_init_3d.assign(solver_obj.fields.baroc_head_3d)
-solver_obj.iterate(export_func=show_uv_mag)
+solver_obj.iterate(export_func=export_func)
