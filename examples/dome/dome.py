@@ -81,6 +81,11 @@ options.use_lax_friedrichs_velocity = False
 options.use_lax_friedrichs_tracer = False
 options.coriolis_frequency = Constant(setup.f_0)
 options.use_limiter_for_tracers = True
+options.use_limiter_for_velocity = True
+options.use_lax_friedrichs_tracer = True
+options.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
+options.use_lax_friedrichs_velocity = True
+options.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
 options.quadratic_drag_coefficient = Constant(0.002)
 options.vertical_viscosity = Constant(2e-5)
 options.horizontal_viscosity = Constant(nu_scale)
@@ -142,9 +147,7 @@ mask_temp_relax_3d.dat.data[:] = np.maximum(mask_numpy_x0, mask_numpy_x1)
 ix = mask_temp_relax_3d.dat.data < 0
 mask_temp_relax_3d.dat.data[ix] = 0.0
 # File('mask.pvd').write(mask_temp_relax_3d)
-temp_source_3d = Function(solver_obj.function_spaces.H, name='temperature_relax')
-temp_source_3d.interpolate(mask_temp_relax_3d/t_temp_relax*(temp_relax - solver_obj.fields.temp_3d))
-options.temperature_source_3d = temp_source_3d
+options.temperature_source_3d = mask_temp_relax_3d/t_temp_relax*(temp_relax - solver_obj.fields.temp_3d)
 
 # use salinity field as a passive tracer for tracking inflowing waters
 salt_init_3d = Function(solver_obj.function_spaces.H, name='inflow salinity')
