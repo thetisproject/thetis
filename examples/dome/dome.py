@@ -32,7 +32,7 @@ physical_constants['rho0'] = setup.rho_0
 
 reso_str = 'coarse'
 delta_x_dict = {'normal': 6e3, 'coarse': 20e3}
-n_layers_dict = {'normal': 16, 'coarse': 7}
+n_layers_dict = {'normal': 24, 'coarse': 7}
 n_layers = n_layers_dict[reso_str]
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
 print_output('Loaded mesh '+mesh2d.name)
