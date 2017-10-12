@@ -2,11 +2,24 @@
 Columbia river plume simulation
 ===============================
 
-requirements:
-netCDF4
-pyproj
-scipy
-uptide
+Simulates the Columbia river plume with realistic tides and wind, atmospheric
+pressure and river discharge forcings.
+
+Initial and boundary conditions for salinity and temperature are obtained from
+LiveOcean ROMS hindcast simulation. Tides are computed from the FES2004 tidal
+models. Atmospheric forcings are from the WRF model forecasts. Bathymetry is a
+CMOP composite for Columbia river and the adjacent shelf.
+
+The forcing data are loaded from subdirectories:
+
+- bathymetry
+    ./bathymetry_300m.npz
+- tides
+    ./forcings/tide.fes2004.nc
+- atmospheric data
+    ./forcings/atm/wrf/wrf_air.YYYY_MM_DD.nc
+- LiveOcean data
+    ./forcings/liveocean/fYYYY.MM.DD/ocean_his_00??.nc
 
 """
 from thetis import *
@@ -16,8 +29,6 @@ from diagnostics import TimeSeriesCallback2D
 from roms_forcing import LiveOceanInterpolator
 from atm_forcing import *
 comm = COMM_WORLD
-
-# TODO add intial condition from ROMS/HYCOM
 
 rho0 = 1000.0
 # set physical constants
@@ -134,6 +145,7 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
 options.equation_of_state_type = 'full'
 
 solver_obj.create_function_spaces()
+solver_obj.create_fields()
 
 # atm forcing
 wind_stress_3d = Function(solver_obj.function_spaces.P1v, name='wind stress')
@@ -149,10 +161,10 @@ wrf_atm = WRFInterpolator(
 wrf_atm.set_fields(0.0)
 
 # ocean initial conditions
-salt_init_3d = Function(solver_obj.function_spaces.P1, name='initial salinity')
-temp_init_3d = Function(solver_obj.function_spaces.P1, name='initial temperature')
+salt_roms_3d = Function(solver_obj.function_spaces.P1, name='ROMS salinity')
+temp_roms_3d = Function(solver_obj.function_spaces.P1, name='ROMS temperature')
 liveocean_interp = LiveOceanInterpolator(solver_obj.function_spaces.P1,
-                                         [salt_init_3d, temp_init_3d],
+                                         [salt_roms_3d, temp_roms_3d],
                                          ['salt', 'temp'],
                                          'forcings/liveocean/f2015.*/ocean_his_*.nc',
                                          init_date)
@@ -188,9 +200,9 @@ zero_elev_funcs = {'elev': Constant(0)}
 open_uv_funcs = {'symm': None}
 zero_uv_funcs = {'uv': Constant((0, 0, 0))}
 bnd_river_salt = {'value': Constant(salt_river)}
-ocean_salt_funcs = {'value': salt_init_3d}
+ocean_salt_funcs = {'value': salt_roms_3d}
 bnd_river_temp = {'value': Constant(temp_river)}
-ocean_temp_funcs = {'value': temp_init_3d}
+ocean_temp_funcs = {'value': temp_roms_3d}
 solver_obj.bnd_functions['shallow_water'] = {
     river_bnd_id: river_swe_funcs,
     south_bnd_id: tide_elev_funcs,
@@ -216,6 +228,31 @@ solver_obj.bnd_functions['temp'] = {
     west_bnd_id: ocean_temp_funcs,
 }
 
+# add relaxation terms for temperature and salinity
+# dT/dt ... - 1/tau*(T_relax - T) = 0
+t_tracer_relax = Constant(12.*3600.)  # time scale
+mask_tracer_relax_3d = Function(solver_obj.function_spaces.H, name='mask_temp_relax_3d')
+lx_relax = 30e3
+x_min = 150000.
+y_min = 226600.
+y_max = 440797.
+x, y, z = SpatialCoordinate(solver_obj.mesh)
+mask_x0 = 1 - (x - x_min)/lx_relax
+mask_y0 = 1 - (y - y_min)/lx_relax
+mask_y1 = 1 + (y - y_max)/lx_relax
+mask_tracer_relax_3d.interpolate(mask_x0)
+tmp_func = solver_obj.function_spaces.H.get_work_function()
+tmp_func.interpolate(mask_y0)
+mask_tracer_relax_3d.dat.data[:] = np.maximum(mask_tracer_relax_3d.dat.data[:], tmp_func.dat.data[:])
+tmp_func.interpolate(mask_y1)
+mask_tracer_relax_3d.dat.data[:] = np.maximum(mask_tracer_relax_3d.dat.data[:], tmp_func.dat.data[:])
+solver_obj.function_spaces.H.restore_work_function(tmp_func)
+ix = mask_tracer_relax_3d.dat.data < 0
+mask_tracer_relax_3d.dat.data[ix] = 0.0
+# File('mask.pvd').write(mask_tracer_relax_3d)
+options.temperature_source_3d = mask_tracer_relax_3d/t_tracer_relax*(temp_roms_3d - solver_obj.fields.temp_3d)
+options.salinity_source_3d = mask_tracer_relax_3d/t_tracer_relax*(salt_roms_3d - solver_obj.fields.salt_3d)
+
 solver_obj.create_equations()
 
 solver_obj.add_callback(
@@ -231,14 +268,7 @@ print_output('Reynolds number: {:}'.format(reynolds_number))
 print_output('Horizontal viscosity: {:}'.format(nu_scale))
 print_output('Exporting to {:}'.format(outputdir))
 
-solver_obj.assign_initial_conditions(salt=salt_init_3d, temp=temp_init_3d)
-
-
-# def show_uv_mag():
-#     uv = solver_obj.fields.uv_3d.dat.data
-#     print_output('uv: {:9.2e} .. {:9.2e}'.format(uv.min(), uv.max()))
-#     ipg = solver_obj.fields.int_pg_3d.dat.data
-#     print_output('int pg: {:9.2e} .. {:9.2e}'.format(ipg.min(), ipg.max()))
+solver_obj.assign_initial_conditions(salt=salt_roms_3d, temp=temp_roms_3d)
 
 
 def update_forcings(t):
