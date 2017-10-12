@@ -43,7 +43,7 @@ meshfile = {
 zgrid_params = {
     # nlayers, surf_elem_height, max_z_stretch
     'coarse': (9, 5.0, 4.0),
-    'normal': (15, 0.8, 4.0),
+    'normal': (24, 0.25, 4.0),
 }
 nlayers, surf_elem_height, max_z_stretch = zgrid_params[reso_str]
 outputdir = 'outputs_{:}'.format(reso_str)
