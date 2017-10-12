@@ -9,43 +9,6 @@ import netCDF4
 import scipy.spatial.qhull as qhull
 from thetis.interpolation import GridInterpolator, SpatialInterpolator
 
-# load and extrude mesh
-nlayers, surf_elem_height, max_z_stretch = (9, 5.0, 4.0)
-mesh2d = Mesh('mesh_cre-plume002.msh')
-comm = mesh2d.comm
-
-sim_tz = timezone.FixedTimeZone(-8, 'PST')
-init_date = datetime.datetime(2015, 5, 16, tzinfo=sim_tz)
-
-t_end = 10*24*3600.
-t_export = 900.
-
-# interpolate bathymetry and smooth it
-bathymetry_2d = get_bathymetry('bathymetry_300m.npz', mesh2d, project=False)
-bathymetry_2d = smooth_bathymetry(
-    bathymetry_2d, delta_sigma=1.0, bg_diff=0,
-    alpha=5e6, exponent=1,
-    minimum_depth=3.5, niter=20)
-bathymetry_2d = smooth_bathymetry_at_bnd(bathymetry_2d, [1, 3])
-
-# 3d mesh vertical stretch factor
-z_stretch_fact_2d = Function(bathymetry_2d.function_space(), name='z_stretch')
-# 1.0 (sigma mesh) in shallow areas, 4.0 in deep ocean
-z_stretch_fact_2d.project(-ln(surf_elem_height/bathymetry_2d)/ln(nlayers))
-z_stretch_fact_2d.dat.data[z_stretch_fact_2d.dat.data < 1.0] = 1.0
-z_stretch_fact_2d.dat.data[z_stretch_fact_2d.dat.data > max_z_stretch] = max_z_stretch
-
-extrude_options = {
-    'z_stretch_fact': z_stretch_fact_2d,
-}
-mesh = extrude_mesh_sigma(mesh2d, nlayers, bathymetry_2d, **extrude_options)
-p1 = FunctionSpace(mesh, 'CG', 1)
-p1v = VectorFunctionSpace(mesh, 'CG', 1)
-
-# make functions
-salt = Function(p1, name='salinity')
-temp = Function(p1, name='temperature')
-
 
 class SpatialInterpolatorROMS3d(SpatialInterpolator):
     """
@@ -60,10 +23,13 @@ class SpatialInterpolatorROMS3d(SpatialInterpolator):
         self.function_space = function_space
 
         # construct local coordinates
-        xyz = SpatialCoordinate(mesh)
-        xyz_func = Function(p1v, name='coordinates')
-        xyz_func.interpolate(xyz)
-        xyz_array = xyz_func.dat.data_with_halos[:]
+        xyz = SpatialCoordinate(self.function_space.mesh())
+        tmp_func = self.function_space.get_work_function()
+        xyz_array = np.zeros((tmp_func.dat.data_with_halos.shape[0], 3))
+        for i in range(3):
+            tmp_func.interpolate(xyz[i])
+            xyz_array[:, i] = tmp_func.dat.data_with_halos[:]
+        self.function_space.restore_work_function(tmp_func)
 
         self.latlonz_array = np.zeros_like(xyz_array)
         lat, lon = to_latlon(xyz_array[:, 0], xyz_array[:, 1])
@@ -168,6 +134,8 @@ class LiveOceanInterpolator(object):
     """
     def __init__(self, function_space, fields, field_names, ncfile_pattern, init_date):
         self.function_space = function_space
+        for f in fields:
+            assert f.function_space() == self.function_space, 'field \'{:}\' does not belong to given function space {:}.'.format(f.name(), self.function_space.name)
         assert len(fields) == len(field_names)
         self.fields = fields
         self.field_names = field_names
