@@ -407,35 +407,35 @@ class CommonModelOptions(FrozenConfigurable):
         default_value=[],
         help="Fields to export in HDF5 format").tag(config=True)
     verbose = Integer(0, help="Verbosity level").tag(config=True)
-    linear_drag_coefficient = FiredrakeExpression(
+    linear_drag_coefficient = FiredrakeScalarExpression(
         None, allow_none=True, help=r"""
         2D linear drag parameter :math:`L`
 
         Bottom stress is :math:`\tau_b/\rho_0 = -L \mathbf{u} H`
         """).tag(config=True)
-    quadratic_drag_coefficient = FiredrakeExpression(
+    quadratic_drag_coefficient = FiredrakeScalarExpression(
         None, allow_none=True, help=r"""
         Dimensionless 2D quadratic drag parameter :math:`C_D`
 
         Bottom stress is :math:`\tau_b/\rho_0 = -C_D |\mathbf{u}|\mathbf{u}`
         """).tag(config=True)
-    manning_drag_coefficient = FiredrakeExpression(
+    manning_drag_coefficient = FiredrakeScalarExpression(
         None, allow_none=True, help=r"""
         Manning-Strickler 2D quadratic drag parameter :math:`\mu`
 
         Bottom stress is :math:`\tau_b/\rho_0 = -g \mu^2 |\mathbf{u}|\mathbf{u}/H^{1/3}`
         """).tag(config=True)
-    horizontal_viscosity = FiredrakeExpression(
+    horizontal_viscosity = FiredrakeScalarExpression(
         None, allow_none=True, help="Horizontal viscosity").tag(config=True)
-    coriolis_frequency = FiredrakeExpression(
+    coriolis_frequency = FiredrakeScalarExpression(
         None, allow_none=True, help="2D Coriolis parameter").tag(config=True)
-    wind_stress = FiredrakeExpression(
+    wind_stress = FiredrakeVectorExpression(
         None, allow_none=True, help="Stress at free surface (2D vector function)").tag(config=True)
-    atmospheric_pressure = FiredrakeExpression(
+    atmospheric_pressure = FiredrakeScalarExpression(
         None, allow_none=True, help="Atmospheric pressure at free surface, in pascals").tag(config=True)
-    momentum_source_2d = FiredrakeExpression(
+    momentum_source_2d = FiredrakeVectorExpression(
         None, allow_none=True, help="Source term for 2D momentum equation").tag(config=True)
-    volume_source_2d = FiredrakeExpression(
+    volume_source_2d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for 2D continuity equation").tag(config=True)
 
 
@@ -601,17 +601,17 @@ class ModelOptions3d(CommonModelOptions):
         equation of state.
         If False, density is computed point-wise in the tracer space.
         """).tag(config=True)
-    horizontal_diffusivity = FiredrakeExpression(
+    horizontal_diffusivity = FiredrakeScalarExpression(
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
-    vertical_diffusivity = FiredrakeExpression(
+    vertical_diffusivity = FiredrakeScalarExpression(
         None, allow_none=True, help="Vertical diffusivity for tracers").tag(config=True)
-    vertical_viscosity = FiredrakeExpression(
+    vertical_viscosity = FiredrakeScalarExpression(
         None, allow_none=True, help="Vertical viscosity").tag(config=True)
-    momentum_source_3d = FiredrakeExpression(
+    momentum_source_3d = FiredrakeVectorExpression(
         None, allow_none=True, help="Source term for 3D momentum equation").tag(config=True)
-    salinity_source_3d = FiredrakeExpression(
+    salinity_source_3d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for salinity equation").tag(config=True)
-    temperature_source_3d = FiredrakeExpression(
+    temperature_source_3d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for temperature equation").tag(config=True)
     constant_temperature = FiredrakeConstant(
         Constant(10.0), help="Constant temperature if temperature is not solved").tag(config=True)
