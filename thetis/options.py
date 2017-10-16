@@ -427,6 +427,13 @@ class CommonModelOptions(FrozenConfigurable):
         """).tag(config=True)
     horizontal_viscosity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal viscosity").tag(config=True)
+    use_smagorinsky_viscosity = Bool(
+        False, help="Use Smagorinsky horisontal viscosity parametrization").tag(config=True)
+    smagorinsky_coefficient = FiredrakeConstant(
+        Constant(0.1),
+        help="""Smagorinsky viscosity coefficient :math:`C_S`
+
+        See :class:`.SmagorinskyViscosity`.""").tag(config=True)
     coriolis_frequency = FiredrakeCoefficient(
         None, allow_none=True, help="2D Coriolis parameter").tag(config=True)
     wind_stress = FiredrakeCoefficient(
@@ -523,13 +530,6 @@ class ModelOptions3d(CommonModelOptions):
         False, help="Advect TKE and Psi in the GLS turbulence model").tag(config=True)
     use_smooth_eddy_viscosity = Bool(
         False, help="Cast eddy viscosity to p1 space instead of p0").tag(config=True)
-    use_smagorinsky_viscosity = Bool(
-        False, help="Use Smagorinsky horisontal viscosity parametrization").tag(config=True)
-    smagorinsky_coefficient = FiredrakeConstant(
-        Constant(0.1),
-        help="""Smagorinsky viscosity coefficient :math:`C_S`
-
-        See :class:`.SmagorinskyViscosity`.""").tag(config=True)
 
     use_limiter_for_tracers = Bool(
         False, help="Apply P1DG limiter for tracer fields").tag(config=True)

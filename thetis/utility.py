@@ -1317,8 +1317,8 @@ class SmagorinskyViscosity(object):
     ocean models. Monthly Weather Review, 128(8):2935-2946.
     http://dx.doi.org/10.1175/1520-0493(2000)128%3C2935:BFWASL%3E2.0.CO;2
     """
-    def __init__(self, uv, output, c_s, h_elem_size, max_val, min_val=1e-10,
-                 weak_form=True, solver_parameters={}):
+    def __init__(self, uv, output, c_s, h_elem_size, max_val=None, min_val=1e-10,
+                 weak_form=True, solver_parameters={}, c_f=None, depth=None):
         """
         :arg uv_3d: horizontal velocity
         :type uv_3d: 3D vector :class:`Function`
@@ -1338,8 +1338,9 @@ class SmagorinskyViscosity(object):
         """
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
-        assert max_val.function_space() == output.function_space(), \
-            'max_val function must belong to the same space as output'
+        if max_val is not None:
+            assert max_val.function_space() == output.function_space(), \
+                'max_val function must belong to the same space as output'
         self.max_val = max_val
         self.min_val = min_val
         self.output = output
@@ -1349,11 +1350,7 @@ class SmagorinskyViscosity(object):
             # solve grad(u) weakly
             mesh = output.function_space().mesh()
             fs_grad = FunctionSpace(mesh, 'DP', 1, vfamily='DP', vdegree=1)
-            self.grad = []
-            for icomp in range(2):
-                self.grad[icomp] = []
-                for j in range(2):
-                    self.grad[icomp][j] = Function(fs_grad, name='uv_grad({:},{:})'.format(icomp, j))
+            self.grad = [[Function(fs_grad, name='uv_grad({:},{:})'.format(icomp, j)) for icomp in range(2)] for j in range(2)]
 
             tri_grad = TrialFunction(fs_grad)
             test_grad = TestFunction(fs_grad)
@@ -1384,7 +1381,13 @@ class SmagorinskyViscosity(object):
         else:
             d_t = Dx(uv[0], 0) - Dx(uv[1], 1)
             d_s = Dx(uv[0], 1) + Dx(uv[1], 0)
-        nu = c_s**2*h_elem_size**2 * sqrt(d_t**2 + d_s**2)
+            d_c = Dx(uv[0], 0) + Dx(uv[1], 1)
+        nu = c_s**2*h_elem_size**2 * sqrt(d_t**2 + d_s**2 + d_c**2)
+        if c_f is not None:
+            # Elder term
+            assert depth is not None
+            c_h = 0.07
+            nu += c_h * sqrt(c_f * dot(uv, uv)) * depth
 
         a = test*tri*dx
         l = test*nu*dx
@@ -1403,8 +1406,9 @@ class SmagorinskyViscosity(object):
         self.output.dat.data[ix] = self.min_val
 
         # crop too large values
-        ix = self.output.dat.data > self.max_val.dat.data
-        self.output.dat.data[ix] = self.max_val.dat.data[ix]
+        if self.max_val is not None:
+            ix = self.output.dat.data > self.max_val.dat.data
+            self.output.dat.data[ix] = self.max_val.dat.data[ix]
 
 
 class EquationOfState(object):
