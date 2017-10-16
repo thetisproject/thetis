@@ -450,6 +450,22 @@ class FlowSolver2d(FrozenClass):
                 self.depth, self.options)
             self.equations.fs.bnd_functions = self.bnd_functions['shallow_water']
 
+        if self.options.use_smagorinsky_viscosity:
+            self.fields.smag_visc_2d = Function(self.function_spaces.P1_2d, name='smag_visc_2d')
+            self.tot_h_visc = self.options.horizontal_viscosity + self.fields.smag_visc_2d
+            self.fields.uv_p1_2d = Function(self.function_spaces.P1v_2d, name='uv_p1_2d')
+            uv, eta = self.fields.solution_2d.split()
+            self.uv_p1_projector = Projector(uv, self.fields.uv_p1_2d)
+
+            self.smagorinsky_diff_solver = SmagorinskyViscosity(self.fields.uv_p1_2d, self.fields.smag_visc_2d,
+                                                                self.options.smagorinsky_coefficient, self.fields.h_elem_size_2d,
+                                                                weak_form=False,
+                                                                c_f=self.options.quadratic_drag_coefficient,
+                                                                depth=self.fields.bathymetry_2d)
+        else:
+            self.tot_h_visc = self.options.horizontal_viscosity
+
+
         self._isfrozen = True  # disallow creating new attributes
 
     def get_swe_timestepper(self, integrator):
@@ -461,7 +477,7 @@ class FlowSolver2d(FrozenClass):
             'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
             'manning_drag_coefficient': self.options.manning_drag_coefficient,
             'nikuradse_bed_roughness': self.options.nikuradse_bed_roughness,
-            'viscosity_h': self.options.horizontal_viscosity,
+            'viscosity_h': self.tot_h_visc,
             'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
             'coriolis': self.options.coriolis_frequency,
             'wind_stress': self.options.wind_stress,
@@ -469,6 +485,8 @@ class FlowSolver2d(FrozenClass):
             'momentum_source': self.options.momentum_source_2d,
             'volume_source': self.options.volume_source_2d,
         }
+        if 'smag_visc_2d' in self.fields:
+            fields['smag_visc_2d'] = self.fields.smag_visc_2d
         bnd_conditions = self.bnd_functions['shallow_water']
         if self.options.swe_timestepper_type == 'PressureProjectionPicard':
             u_test = TestFunction(self.function_spaces.U_2d)
@@ -886,7 +904,13 @@ class FlowSolver2d(FrozenClass):
         internal_iteration = 0
 
         while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
+
+            if self.options.use_smagorinsky_viscosity:
+                self.uv_p1_projector.project()
+                self.smagorinsky_diff_solver.solve()
+
             self.timestepper.advance(self.simulation_time, update_forcings)
+
 
             # Move to next time step
             self.iteration += 1

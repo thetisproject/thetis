@@ -883,7 +883,7 @@ class SmagorinskyViscosity(object):
     http://dx.doi.org/10.1175/1520-0493(2000)128%3C2935:BFWASL%3E2.0.CO;2
     """
     def __init__(self, uv, output, c_s, h_elem_size, max_val, min_val=1e-10,
-                 weak_form=True, solver_parameters=None):
+                 weak_form=True, solver_parameters=None, c_f=None, depth=None):
         """
         :arg uv_3d: horizontal velocity
         :type uv_3d: 3D vector :class:`Function`
@@ -905,8 +905,9 @@ class SmagorinskyViscosity(object):
             solver_parameters = {}
         solver_parameters.setdefault('ksp_atol', 1e-12)
         solver_parameters.setdefault('ksp_rtol', 1e-16)
-        assert max_val.function_space() == output.function_space(), \
-            'max_val function must belong to the same space as output'
+        if max_val is not None:
+            assert max_val.function_space() == output.function_space(), \
+                'max_val function must belong to the same space as output'
         self.max_val = max_val
         self.min_val = min_val
         self.output = output
@@ -943,12 +944,18 @@ class SmagorinskyViscosity(object):
             # rate of strain tensor
             d_t = Dx(uv[0], 0) - Dx(uv[1], 1)
             d_s = Dx(uv[0], 1) + Dx(uv[1], 0)
+            d_c = Dx(uv[0], 0) + Dx(uv[1], 1)
 
         fs = output.function_space()
         tri = TrialFunction(fs)
         test = TestFunction(fs)
 
-        nu = c_s**2*h_elem_size**2 * sqrt(d_t**2 + d_s**2)
+        nu = c_s**2*h_elem_size**2 * sqrt(d_t**2 + d_s**2 + d_c**2)
+        if c_f is not None:
+            # Elder term
+            assert depth is not None
+            c_h = 0.07
+            nu += c_h * sqrt(c_f * dot(uv, uv)) * depth
 
         a = test*tri*dx
         l = test*nu*dx
@@ -965,8 +972,9 @@ class SmagorinskyViscosity(object):
         self.output.dat.data[ix] = self.min_val
 
         # crop too large values
-        ix = self.output.dat.data > self.max_val.dat.data
-        self.output.dat.data[ix] = self.max_val.dat.data[ix]
+        if self.max_val is not None:
+            ix = self.output.dat.data > self.max_val.dat.data
+            self.output.dat.data[ix] = self.max_val.dat.data[ix]
 
 
 class EquationOfState(object):
