@@ -189,20 +189,17 @@ solver_obj.bnd_functions['salt'] = {1: bnd_ocean_salt, 2: bnd_ocean_salt,
                                     3: bnd_ocean_salt, 6: bnd_river_salt}
 
 solver_obj.create_equations()
-bnd_elev_3d = Function(solver_obj.function_spaces.P1, name='Boundary elevation 3d')
-cp_bnd_elev_to_3d = ExpandFunctionTo3d(bnd_elev, bnd_elev_3d)
-cp_bnd_elev_to_3d.solve()
-tide_elev_funcs_3d = {'elev': bnd_elev_3d}
 
 elev_init = Function(solver_obj.function_spaces.H_2d, name='initial elevation')
-elev_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvin_m)*cos(x[1]*kelvin_k) : amp*cos(x[1]*kelvin_k)',
-                      amp=eta_amplitude, kelvin_m=kelvin_m, kelvin_k=kelvin_k))
+xy = SpatialCoordinate(mesh2d)
+elev_init.interpolate(conditional(le(xy[0], 0.0),
+                                  eta_amplitude*exp((xy[0])*kelvin_m)*cos(xy[1]*kelvin_k),
+                                  eta_amplitude*cos(xy[1]*kelvin_k)))
+
 elev_init2 = Function(solver_obj.function_spaces.H_2d, name='initial elevation')
 elev_init2.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvin_m)*cos(x[1]*kelvin_k) : 0.0',
                        amp=eta_amplitude, kelvin_m=kelvin_m, kelvin_k=kelvin_k))
 uv_init = Function(solver_obj.function_spaces.U_2d, name='initial velocity')
-# uv_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvin_m)*cos(x[1]*kelvin_k) : amp*cos(x[1]*kelvin_k)',
-#                       amp=eta_amplitude, kelvin_m=kelvin_m, kelvin_k=kelvin_k))
 tri = TrialFunction(solver_obj.function_spaces.U_2d)
 test = TestFunction(solver_obj.function_spaces.U_2d)
 a = inner(test, tri)*dx
@@ -218,7 +215,6 @@ salt_init3d.interpolate(Expression('d_ocean - (d_ocean - d_river)*(1 + tanh((x[0
 def update_forcings(t):
     bnd_time.assign(t)
     bnd_elev_solver.solve()
-    cp_bnd_elev_to_3d.solve()
 
 
 solver_obj.add_callback(FreshwaterConservationCallback(salt_ocean,

@@ -5,6 +5,7 @@ from ipython_genutils.text import indent, dedent
 from traitlets.config.configurable import Configurable
 from traitlets import *
 
+import ufl
 from thetis import FiredrakeConstant as Constant
 from thetis import FiredrakeFunction as Function
 
@@ -164,6 +165,42 @@ class FiredrakeCoefficient(TraitType):
         if isinstance(self.default_value, Constant):
             return 'Constant({:})'.format(self.default_value.dat.data[0])
         return 'Function'
+
+
+class FiredrakeScalarExpression(TraitType):
+    default_value = None
+    info_text = 'a scalar UFL expression'
+
+    def validate(self, obj, value):
+        if isinstance(value, ufl.core.expr.Expr) and \
+            ufl.checks.is_ufl_scalar(value):
+            return value
+        self.error(obj, value)
+
+    def default_value_repr(self):
+        if isinstance(self.default_value, Constant):
+            return 'Constant({:})'.format(self.default_value.dat.data[0])
+        if isinstance(self.default_value, Function):
+            return 'Function'
+        return 'UFL scalar expression'
+
+
+class FiredrakeVectorExpression(TraitType):
+    default_value = None
+    info_text = 'a vector UFL expression'
+
+    def validate(self, obj, value):
+        if isinstance(value, ufl.core.expr.Expr) and \
+            not ufl.checks.is_ufl_scalar(value):
+            return value
+        self.error(obj, value)
+
+    def default_value_repr(self):
+        if isinstance(self.default_value, Constant):
+            return 'Constant({:})'.format(self.default_value.dat.data[0])
+        if isinstance(self.default_value, Function):
+            return 'Function'
+        return 'UFL vector expression'
 
 
 class PETScSolverParameters(Dict):
