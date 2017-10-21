@@ -14,71 +14,46 @@
 # solver_obj.nonlin = False
 # uses linear wave equation instead, and no shock develops.
 #
-# Tuomas Karna 2015-03-03
-from scipy.interpolate import interp1d
 from thetis import *
 
-outputdir = 'outputs'
-mesh2d = Mesh('channel_mesh.msh')
-print_output('Loaded mesh '+mesh2d.name)
-print_output('Exporting to '+outputdir)
-# total duration in seconds
-t_end = 6 * 3600
-# estimate of max advective velocity used to estimate time step
-u_mag = Constant(6.0)
-# export interval in seconds
-t_export = 100.0
+# generate mesh
+lx = 100e3
+ly = 3750
+nx = 80
+ny = 3
+mesh2d = RectangleMesh(nx, ny, lx, ly)
+
+t_end = 6 * 3600.  # total duration in seconds
+u_mag = Constant(6.0)  # estimate of max velocity to compute time step
+t_export = 100.0  # export interval in seconds
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
-
+# assign bathymetry to a linear function
+x, y = SpatialCoordinate(mesh2d)
 depth_oce = 20.0
-depth_riv = 5.0  # 5.0 closed
-bath_x = np.array([0, 100e3])
-bath_v = np.array([depth_oce, depth_riv])
+depth_riv = 5.0
+bathymetry_2d.interpolate(depth_oce + (depth_riv - depth_oce)*x/lx)
 
-
-def bath(x, y, z):
-    padval = 1e20
-    x0 = np.hstack(([-padval], bath_x, [padval]))
-    vals0 = np.hstack(([bath_v[0]], bath_v, [bath_v[-1]]))
-    return interp1d(x0, vals0)(x)
-
-
-x_func = Function(P1_2d).interpolate(Expression('x[0]'))
-bathymetry_2d.dat.data[:] = bath(x_func.dat.data, 0, 0)
-
-# --- create solver ---
+# create solver
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
-options.output_directory = outputdir
 options.horizontal_velocity_scale = u_mag
 options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.timestepper_type = 'SSPRK33'
-# options.timestepper_type = 'SSPIMEX'
-# options.timestepper_type = 'CrankNicolson'
 if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
     options.timestep = 10.0
-# initial conditions, piecewise linear function
-elev_x = np.array([0, 30e3, 100e3])
-elev_v = np.array([6, 0, 0])
-
-
-def elevation(x, y, z, x_array, val_array):
-    padval = 1e20
-    x0 = np.hstack(([-padval], x_array, [padval]))
-    vals0 = np.hstack(([val_array[0]], val_array, [val_array[-1]]))
-    return interp1d(x0, vals0)(x)
-
-
-x_func = Function(P1_2d).interpolate(Expression('x[0]'))
+# set initial condition for elevation, piecewise linear function
 elev_init = Function(P1_2d)
-elev_init.dat.data[:] = elevation(x_func.dat.data, 0, 0,
-                                  elev_x, elev_v)
+elev_height = 6.0
+elev_ramp_lx = 30e3
+elev_init.interpolate(conditional(x < elev_ramp_lx,
+                                  elev_height*(1 - x/elev_ramp_lx),
+                                  0.0))
 solver_obj.assign_initial_conditions(elev=elev_init)
 
 solver_obj.iterate()
