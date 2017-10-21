@@ -52,7 +52,8 @@ temp_const = 10.0
 # bathymetry
 p1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(p1_2d, name='Bathymetry')
-bathymetry_2d.interpolate(Expression('h_oce - (h_oce - h_riv)*x[0]/lx', h_oce=depth_ocean, h_riv=depth_river, lx=lx))
+x, y = SpatialCoordinate(mesh2d)
+bathymetry_2d.interpolate(depth_ocean - (depth_ocean - depth_river)*x/lx)
 
 simple_barotropic = False  # for testing flux boundary conditions
 
@@ -109,11 +110,10 @@ solverobj.create_function_spaces()
 # initial conditions
 salt_init3d = Function(solverobj.function_spaces.H, name='initial salinity')
 # original vertically uniform initial condition
-salt_init3d.interpolate(Expression('s_oce - (s_oce - s_riv)*(x[0] - 30000 + 10*x[2])/50000 ',
-                                   s_oce=salt_ocean, s_riv=salt_river))
+x, y, z = SpatialCoordinate(solverobj.mesh)
+salt_init3d.interpolate(salt_ocean - (salt_ocean - salt_river)*(x - 30e3)/50e3)
 # start from idealized salt wedge
-# salt_init3d.interpolate(Expression('(s_riv + (s_riv - s_oce)*(x[0] - 80000)/50000 * (0.5 - 0.5*tanh(4*(x[2] + 2.0))) )',
-#                                    s_oce=salt_ocean, s_riv=salt_river))
+# salt_init3d.interpolate(salt_river + (salt_river - salt_ocean)*(x - 80e3)/50e3 * (0.5 - 0.5*tanh(4*(z + 2.0))))
 min_ix = salt_init3d.dat.data < salt_river
 salt_init3d.dat.data[min_ix] = salt_river
 max_ix = salt_init3d.dat.data > salt_ocean
