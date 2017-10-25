@@ -48,8 +48,8 @@ class TracerTerm(Term):
         self.use_lax_friedrichs = use_lax_friedrichs
 
         # define measures with a reasonable quadrature degree
-        p, q = self.function_space.ufl_element().degree()
-        self.quad_degree = (2*p + 1, 2*q + 1)
+        p  = self.function_space.ufl_element().degree()
+        self.quad_degree = 2*p + 1
         self.dx = dx(degree=self.quad_degree)
         self.dS = dS(degree=self.quad_degree)
         self.ds = ds(degree=self.quad_degree)
@@ -118,13 +118,10 @@ class HorizontalAdvectionTerm(TracerTerm):
     interface.
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        if fields_old.get('uv_3d') is None:
+        if fields_old.get('uv_2d') is None:
             return 0
-        elev = fields_old['elev_3d']
-        uv = fields_old['uv_3d']
-        uv_depth_av = fields_old['uv_depth_av']
-        if uv_depth_av is not None:
-            uv = uv + uv_depth_av
+        elev = fields_old['elev_2d']
+        uv = fields_old['uv_2d']
 
         uv_p1 = fields_old.get('uv_p1')
         uv_mag = fields_old.get('uv_mag')
@@ -202,9 +199,8 @@ class HorizontalDiffusionTerm(TracerTerm):
         if fields_old.get('diffusivity_h') is None:
             return 0
         diffusivity_h = fields_old['diffusivity_h']
-        diff_tensor = as_matrix([[diffusivity_h, 0, 0],
-                                 [0, diffusivity_h, 0],
-                                 [0, 0, 0]])
+        diff_tensor = as_matrix([[diffusivity_h, 0, ],
+                                 [0, diffusivity_h, ]])
         grad_test = grad(self.test)
         diff_flux = dot(diff_tensor, grad(solution))
 
@@ -224,7 +220,7 @@ class HorizontalDiffusionTerm(TracerTerm):
 
        # TODO check if this is needed in 2-D :
 
-            degree_h, degree_v = self.function_space.ufl_element().degree()
+            degree_h  = self.function_space.ufl_element().degree()
             # TODO compute elemsize as CellVolume/FacetArea
             elemsize = (self.h_elem_size*(self.normal[0]**2 +
                                           self.normal[1]**2)) 
@@ -264,13 +260,13 @@ class SourceTerm(TracerTerm):
         return -f
 
 
-class TracerEquation(Equation):
+class TracerEquation2D(Equation):
     """
     3D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
     def __init__(self, function_space,
                  bathymetry=None, h_elem_size=None,
-                 use_lax_friedrichs=True):
+                 use_lax_friedrichs=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -280,7 +276,7 @@ class TracerEquation(Equation):
         :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
             condition in the horizontal advection term
         """
-        super(TracerEquation, self).__init__(function_space)
+        super(TracerEquation2D, self).__init__(function_space)
 
         args = (function_space, bathymetry,
                 h_elem_size,  use_lax_friedrichs)
