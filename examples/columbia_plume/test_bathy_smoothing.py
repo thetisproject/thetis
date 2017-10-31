@@ -24,7 +24,7 @@ t_export = 900.
 
 # bathymetry
 bathymetry_2d = get_bathymetry('bathymetry_300m.npz', mesh2d, project=False)
-print 'bath', bathymetry_2d.dat.data.min(), bathymetry_2d.dat.data.max()
+print('bath min: {:} max: {:}'.format(bathymetry_2d.dat.data.min(), bathymetry_2d.dat.data.max()))
 
 new_bathymetry_2d = smooth_bathymetry(
     bathymetry_2d, delta_sigma=1.0, bg_diff=0,
