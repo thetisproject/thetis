@@ -558,7 +558,9 @@ class FlowSolver(FrozenClass):
             self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H)
         else:
             self.tracer_limiter = None
-        if self.options.use_limiter_for_velocity and self.options.polynomial_degree > 0:
+        if (self.options.use_limiter_for_velocity and
+                self.options.polynomial_degree > 0 and
+                self.options.element_family == 'dg-dg'):
             self.uv_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.U)
         else:
             self.uv_limiter = None

@@ -532,9 +532,9 @@ class ModelOptions3d(CommonModelOptions):
         See :class:`.SmagorinskyViscosity`.""").tag(config=True)
 
     use_limiter_for_tracers = Bool(
-        False, help="Apply P1DG limiter for tracer fields").tag(config=True)
+        True, help="Apply P1DG limiter for tracer fields").tag(config=True)
     use_limiter_for_velocity = Bool(
-        False, help="Apply P1DG limiter for 3D horizontal velocity field").tag(config=True)
+        True, help="Apply P1DG limiter for 3D horizontal velocity field").tag(config=True)
     use_lax_friedrichs_tracer = Bool(
         True, help="Use Lax Friedrichs stabilisation in tracer advection.").tag(config=True)
     lax_friedrichs_tracer_scaling_factor = FiredrakeConstant(
