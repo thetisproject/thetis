@@ -23,13 +23,11 @@ def compute(refinement=1, order=1, do_export=False):
     p1dg_ho = FunctionSpace(mesh, family, order + 2)
     p1dg_v_ho = VectorFunctionSpace(mesh, family, order + 2)
 
-    uv_expr = Expression(
-        ('sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)',
-         '0.2*sin(0.2*pi*(1.0*x[0] + 3.0*x[1])/lx)', ),
-        lx=1.0)
-    div_expr = Expression(
-        '0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/lx)/lx + 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx',
-        lx=1.0)
+    lx = 1.0
+    x, y = SpatialCoordinate(mesh)
+    uv_expr = as_vector((sin(0.2*pi*(3.0*x + 1.0*y)/lx),
+                         0.2*sin(0.2*pi*(1.0*x + 3.0*y)/lx)))
+    div_expr = 0.12*pi*cos(0.2*pi*(1.0*x + 3.0*y)/lx)/lx + 0.6*pi*cos(0.2*pi*(3.0*x + 1.0*y)/lx)/lx
 
     div_uv = Function(p1dg, name='div')
     div_uv.project(div_expr)

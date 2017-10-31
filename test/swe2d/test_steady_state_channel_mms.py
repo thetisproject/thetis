@@ -88,7 +88,7 @@ def test_steady_state_channel_mms(options):
         solver_obj.create_timestepper()
         solver_obj.timestepper.name = 'test_steady_state_channel_mms'
         solver_obj.timestepper.update_solver()
-        solver_obj.assign_initial_conditions(uv=Expression(("1.0", "0.0")))
+        solver_obj.assign_initial_conditions(uv=Constant((1.0, 0.0)))
 
         if do_exports:
             File('source_{}.pvd'.format(i)).write(source_func)

@@ -73,9 +73,13 @@ def run(refinement, **model_options):
 
     t = t_init  # simulation time
 
-    ana_sol_expr = '0.5*(u_max + u_min) - 0.5*(u_max - u_min)*erf((x[2] - z0)/sqrt(4*D*t))'
+    x, y, z = SpatialCoordinate(solverobj.mesh)
     t_const = Constant(t)
-    ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, z0=-depth/2.0, D=vertical_viscosity, t=t_const)
+    u_max = 1.0
+    u_min = -1.0
+    z0 = -depth/2.0
+    ana_sol_expr = 0.5*(u_max + u_min) - 0.5*(u_max - u_min)*erf((z - z0)/sqrt(4*vertical_viscosity*t_const))
+    ana_uv_expr = as_vector((ana_sol_expr, 0.0, 0.0))
 
     uv_ana = Function(solverobj.function_spaces.U, name='uv analytical')
     uv_ana_p1 = Function(solverobj.function_spaces.P1v, name='uv analytical')
@@ -95,7 +99,6 @@ def run(refinement, **model_options):
             solverobj.export()
             # update analytical solution to correct time
             t_const.assign(t)
-            ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, z0=-depth/2.0, D=vertical_viscosity, t=t_const)
             uv_ana.project(ana_uv_expr)
             out_uv_ana.write(uv_ana_p1.project(uv_ana))
 
@@ -133,7 +136,6 @@ def run(refinement, **model_options):
 
     # project analytical solultion on high order mesh
     t_const.assign(t)
-    ana_uv_expr = Expression((ana_sol_expr, 0.0, 0.0), u_max=1.0, u_min=-1.0, z0=-depth/2.0, D=vertical_viscosity, t=t_const)
     uv_ana_ho.project(ana_uv_expr)
     # compute L2 norm
     l2_err = errornorm(uv_ana_ho, solverobj.fields.uv_3d)/numpy.sqrt(area)

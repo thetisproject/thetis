@@ -67,12 +67,12 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     dt_const = Constant(dt)
 
     # analytical solution
-    ana_sol_str = '0.5*(u_max + u_min) - ' \
-                  '0.5*(u_max - u_min)*erf((x[2] - z0)/sqrt(4*D*t))'
-    ana_sol_expr = Expression(ana_sol_str,
-                              D=diffusivity_v, t=t_const,
-                              u_max=1.0, u_min=-1.0,
-                              z0=-depth/2.0)
+    u_max = 1.0
+    u_min = -1.0
+    z0 = -depth/2.0
+    x, y, z = SpatialCoordinate(mesh)
+    ana_sol_expr = 0.5*(u_max + u_min) - 0.5*(u_max - u_min)*erf((z - z0)/sqrt(4*diffusivity_v*t_const))
+
     # initial condition
     solution.project(ana_sol_expr)
     ana_sol.project(ana_sol_expr)
@@ -189,10 +189,6 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
 
     # update analytical solution
     t_const.assign(t)
-    ana_sol_expr = Expression(ana_sol_str,
-                              D=diffusivity_v, t=t_const,
-                              u_max=1.0, u_min=-1.0,
-                              z0=-depth/2.0)
     ana_sol.project(ana_sol_expr)
     if do_export:
         sol_file.write(solution)
