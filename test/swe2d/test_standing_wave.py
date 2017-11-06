@@ -6,6 +6,7 @@
 from thetis import *
 import pytest
 import math
+import h5py
 
 
 @pytest.mark.parametrize("timesteps,max_rel_err", [
@@ -68,6 +69,15 @@ def test_standing_wave_channel(timesteps, max_rel_err, timestepper, do_export=Fa
     solver_obj.create_equations()
     solver_obj.assign_initial_conditions(elev=elev_init)
 
+    # first two detector locations are outside domain
+    xy = [[-2*lx, ly/2.], [-lx/2, ly/2.], [lx/4., ly/2.], [3*lx/4., ly/2.]]
+    # but second one can be moved with dist<lx
+    xy = select_and_move_detectors(mesh2d, xy, maximum_distance=lx)
+    # thus we should end up with only the first one removed
+    assert len(xy)==3
+    cb = DetectorsCallback(solver_obj, xy, ['elev_2d', 'uv_2d'])
+    solver_obj.add_callback(cb)
+
     solver_obj.iterate()
 
     uv, eta = solver_obj.fields.solution_2d.split()
@@ -77,6 +87,13 @@ def test_standing_wave_channel(timesteps, max_rel_err, timestepper, do_export=Fa
     print_output(rel_err)
     assert(rel_err < max_rel_err)
     print_output("PASSED")
+
+    with h5py.File('outputs/diagnostic_detectors.hdf5', 'r') as df:
+        assert all(df.attrs['field_dims'][:]==[1,2])
+        trange = np.arange(n+1)*dt
+        np.testing.assert_almost_equal(df['time'][:,0], trange)
+        x = lx/4.  # location of detector1
+        np.testing.assert_allclose(df['detector1'][:][:,0], np.cos(pi*x/lx)*np.cos(2*pi*trange/period), atol=5e-2, rtol=0.5)
 
 
 if __name__ == '__main__':

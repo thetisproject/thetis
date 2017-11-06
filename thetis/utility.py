@@ -1577,3 +1577,51 @@ def compute_boundary_length(mesh2d):
         one_func = Function(p1).assign(1.0)
         boundary_len[i] = assemble(one_func * ds_restricted)
     return boundary_len
+
+
+def select_and_move_detectors(mesh, detector_locations, detector_names=None,
+                              maximum_distance=0.):
+    """Select those detectors that are within the domain and/or move them to the nearest cell centre within the domain."""
+    # auxilary function to test whether we can interpolate it in the given locations
+    V = FunctionSpace(mesh, "CG", 1)
+    v = Function(V)
+
+    P0 = FunctionSpace(mesh, "DG", 0)
+    VP0 = VectorFunctionSpace(mesh, "DG", 0)
+    dist = Function(P0)
+    loc_const = Constant(detector_locations[0])
+    xy = SpatialCoordinate(mesh)
+    p0xy = Function(VP0).interpolate(xy)
+
+    def min_first_entry(x, y, datatype):
+        if x[0] < y[0]:
+            y[:] = x
+    min_first_entry_op = MPI.Op.Create(min_first_entry)
+
+    def move_to_nearest_cell_center(location):
+        loc_const.assign(location)
+        dist.interpolate(dot(xy-loc_const, xy-loc_const))
+        ind = dist.dat.data_ro.argmin()
+        local_loc = p0xy.dat.data_ro[ind]
+        local_dist = np.sqrt(dist.dat.data_ro[ind])
+        global_dist_loc = mesh.comm.allreduce([local_dist, local_loc], op=min_first_entry_op)
+        return global_dist_loc
+
+    accepted_locations = []
+    accepted_names = []
+    if detector_names is None:
+        names = [None] * len(detector_locations)
+    for location, name in zip(detector_locations, names):
+        try:
+            v(location)
+        except PointNotInDomainError:
+            moved_dist, location = move_to_nearest_cell_center(location)
+            if moved_dist > maximum_distance:
+                continue
+        accepted_locations.append(location)
+        accepted_names.append(name)
+
+    if detector_names is None:
+        return accepted_locations
+    else:
+        return accepted_locations, accepted_names
