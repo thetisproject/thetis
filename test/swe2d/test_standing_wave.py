@@ -75,6 +75,7 @@ def test_standing_wave_channel(timesteps, max_rel_err, timestepper, do_export=Fa
     xy = select_and_move_detectors(mesh2d, xy, maximum_distance=lx)
     # thus we should end up with only the first one removed
     assert len(xy)==3
+    np.testing.assert_almost_equal(xy[0][0], lx/nx/3.)
     cb = DetectorsCallback(solver_obj, xy, ['elev_2d', 'uv_2d'])
     solver_obj.add_callback(cb)
 

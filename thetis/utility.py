@@ -1593,19 +1593,27 @@ def select_and_move_detectors(mesh, detector_locations, detector_names=None,
     xy = SpatialCoordinate(mesh)
     p0xy = Function(VP0).interpolate(xy)
 
-    def min_first_entry(x, y, datatype):
-        if x[0] < y[0]:
-            y[:] = x
-    min_first_entry_op = MPI.Op.Create(min_first_entry)
+    # comparison operator that sorts on first entry first, etc.
+    def min_lexsort(x, y, datatype):
+        for xi, yi in zip(x,y):
+            if xi<yi:
+                return x
+            elif yi<xi:
+                return y
+        # all entries the same:
+        return x
+    min_lexsort_op = MPI.Op.Create(min_lexsort, commute=False)
 
     def move_to_nearest_cell_center(location):
         loc_const.assign(location)
         dist.interpolate(dot(xy-loc_const, xy-loc_const))
         ind = dist.dat.data_ro.argmin()
-        local_loc = p0xy.dat.data_ro[ind]
+        # smallest distance to a cell centre location on this process:
+        local_loc = list(p0xy.dat.data_ro[ind])
         local_dist = np.sqrt(dist.dat.data_ro[ind])
-        global_dist_loc = mesh.comm.allreduce([local_dist, local_loc], op=min_first_entry_op)
-        return global_dist_loc
+        # select the smallest distance on all processes. If some distances are equal, pick a unique loc. based on lexsort
+        global_dist_loc = mesh.comm.allreduce([local_dist]+local_loc, op=min_lexsort_op)
+        return global_dist_loc[0], global_dist_loc[1:]
 
     accepted_locations = []
     accepted_names = []
