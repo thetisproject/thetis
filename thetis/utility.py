@@ -1619,6 +1619,8 @@ def select_and_move_detectors(mesh, detector_locations, detector_names=None,
     accepted_names = []
     if detector_names is None:
         names = [None] * len(detector_locations)
+    else:
+        names = detector_names
     for location, name in zip(detector_locations, names):
         try:
             v(location)
