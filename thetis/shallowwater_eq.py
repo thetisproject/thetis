@@ -572,27 +572,38 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
         h = self.cellsize
 
         if self.options.use_grad_div_viscosity_term:
-            stress = nu*2.*sym(grad(uv))
-            stress_jump = avg(nu)*2.*sym(tensor_jump(uv, n))
+            stress = 2.*sym(grad(uv))
+            stress_jump = 2.*sym(tensor_jump(uv, n))
         else:
-            stress = nu*grad(uv)
-            stress_jump = avg(nu)*tensor_jump(uv, n)
+            stress = grad(uv)
+            stress_jump = tensor_jump(uv, n)
 
-        f = inner(grad(self.u_test), stress)*self.dx
+        f = inner(grad(self.u_test), nu * stress)*self.dx
 
         if self.u_continuity in ['dg', 'hdiv']:
-            # from Epshteyn et al. 2007 (http://dx.doi.org/10.1016/j.cam.2006.08.029)
-            # the scheme is stable for alpha > 3*X*p*(p+1)*cot(theta), where X is the
-            # maximum ratio of viscosity within a triangle, p the degree, and theta
-            # with X=2, theta=6: cot(theta)~10, 3*X*cot(theta)~60
+            # the penalty parameter is based on a modified version of
+            # Epshteyn et al. 2007 (http://dx.doi.org/10.1016/j.cam.2006.08.029)
+            # In 2D, eqn. (11) they have 2D the penalty term as:
+            #   \sigma_e / |e| * \int_e [w][v]
+            # where |e| is the edge length. In (46), they derive an lower bound for
+            # \sigma_e based on minimum angles in the adjacent triangles. If however,
+            # we do not use (37), we get the (tighter) lower bound of:
+            #   [3 k_1^2 |e|^2 p (p+1) / (8 k_0 |E|)]_{E^1} + [ "" ]_{E^2}
+            # where k_1 and K-0 are the cell max and min of viscosity, |E| is the triangle area,
+            # and p is the polynomial degree
+
+            # FIMXE: find a solution for this:
+            maxnu = nu
+            minnu = nu
+
             p = self.u_space.ufl_element().degree()
-            alpha = 5.*p*(p+1)
-            if p == 0:
-                alpha = 1.5
+            sigma_over_e = avg((3 * maxnu**2 * FacetArea(self.mesh))/(4 * minnu * CellVolume(self.mesh)))
+            if p > 0:
+                sigma_over_e = sigma_over_e * p * (p+1)
             f += (
-                + alpha/avg(h)*inner(tensor_jump(self.u_test, n), stress_jump)*self.dS
-                - inner(avg(grad(self.u_test)), stress_jump)*self.dS
-                - inner(tensor_jump(self.u_test, n), avg(stress))*self.dS
+                sigma_over_e * inner(tensor_jump(self.u_test, n), stress_jump)*self.dS
+                - inner(avg(nu * grad(self.u_test)), stress_jump)*self.dS
+                - inner(tensor_jump(self.u_test, n), avg(nu * stress))*self.dS
             )
 
             # Dirichlet bcs only for DG
@@ -609,18 +620,21 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
                         delta_uv = uv - uv_ext
 
                     if self.options.use_grad_div_viscosity_term:
-                        stress_jump = nu*2.*sym(outer(delta_uv, n))
+                        stress_jump = 2.*sym(outer(delta_uv, n))
                     else:
-                        stress_jump = nu*outer(delta_uv, n)
+                        stress_jump = outer(delta_uv, n)
 
+                    sigma_over_e = (3 * maxnu**2 * FacetArea(self.mesh))/(2 * minnu * CellVolume(self.mesh))
+                    if p > 0:
+                        sigma_over_e = sigma_over_e * p * (p+1)
                     f += (
-                        alpha/h*inner(outer(self.u_test, n), stress_jump)*ds_bnd
-                        - inner(grad(self.u_test), stress_jump)*ds_bnd
-                        - inner(outer(self.u_test, n), stress)*ds_bnd
+                        sigma_over_e*inner(outer(self.u_test, n), stress_jump)*ds_bnd
+                        - inner(grad(self.u_test), nu * stress_jump)*ds_bnd
+                        - inner(outer(self.u_test, n), nu * stress)*ds_bnd
                     )
 
         if self.options.use_grad_depth_viscosity_term:
-            f += -dot(self.u_test, dot(grad(total_h)/total_h, stress))*self.dx
+            f += -dot(self.u_test, dot(grad(total_h)/total_h, nu * stress))*self.dx
 
         return -f
 
