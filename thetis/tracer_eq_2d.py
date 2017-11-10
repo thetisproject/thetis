@@ -18,7 +18,7 @@ from .utility import *
 from .equation import Term, Equation
 
 __all__ = [
-    'TracerEquation',
+    'TracerEquation2D',
     'TracerTerm',
     'HorizontalAdvectionTerm',
     'HorizontalDiffusionTerm',
@@ -270,7 +270,7 @@ class TracerEquation2D(Equation):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
-        :type bathymetry: 3D :class:`Function` or :class:`Constant`
+        :type bathymetry: 2D :class:`Function` or :class:`Constant`
         :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
             element size
         :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
