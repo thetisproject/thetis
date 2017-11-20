@@ -289,11 +289,7 @@ class VolumeConservation3DCallback(ScalarConservationCallback):
         """
         def vol3d():
             return comp_volume_3d(self.solver_obj.mesh)
-        super(VolumeConservation3DCallback, self).__init__(vol3d,
-                                                           solver_obj,
-                                                           outputdir=outputdir,
-                                                           export_to_hdf5=export_to_hdf5,
-                                                           append_to_log=append_to_log)
+        super(VolumeConservation3DCallback, self).__init__(vol3d, solver_obj, **kwargs)
 
 
 class VolumeConservation2DCallback(ScalarConservationCallback):
@@ -315,8 +311,7 @@ class TracerMassConservationCallback(ScalarConservationCallback):
     """Checks conservation of total tracer mass"""
     name = 'tracer mass'
 
-    def __init__(self, tracer_name, solver_obj, outputdir=None, export_to_hdf5=False,
-                 append_to_log=True):
+    def __init__(self, tracer_name, solver_obj, **kwargs):
         """
         :arg tracer_name: Name of the tracer. Use canonical field names as in :class:`.FieldDict`.
         :arg solver_obj: Thetis solver object
