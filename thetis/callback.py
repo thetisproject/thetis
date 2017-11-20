@@ -380,18 +380,19 @@ class TracerOvershootCallBack(MinMaxConservationCallback):
 
 class DetectorsCallback(DiagnosticCallback):
     """Callback that writes the specified fields interpolated in the specified detector locations"""
-    name = 'detectors'
-
     def __init__(self, solver_obj,
                  detector_locations,
                  field_names,
+                 name,
                  detector_names=None,
                  **kwargs):
         """
         :arg solver_obj: Thetis solver object
-        :list detector_locations: Locations in which fields are to be interpolated.
-        :list field_names: Fields to be interpolated.
-        :list detector_names: Names for each of the detectors. If not provided automatic names
+        :arg detector_locations: List of x, y locations in which fields are to be interpolated.
+        :arg field_names: List of fields to be interpolated.
+        :arg name: Unique name for this callback and its associated set of detectors. This determines the name
+           of the output h5 file (prefixed with diagnostic_).
+        :arg detector_names: List of names for each of the detectors. If not provided automatic names
            of the form 'detectorNNN' are created where NNN is the (0-padded) detector number.
         :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
         """
@@ -415,6 +416,11 @@ class DetectorsCallback(DiagnosticCallback):
         self._variable_names = detector_names
         self.detector_locations = detector_locations
         self.field_names = field_names
+        self._name = name
+
+    @property
+    def name(self):
+        return self._name
 
     @property
     def variable_names(self):

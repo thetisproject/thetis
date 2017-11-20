@@ -1581,7 +1581,19 @@ def compute_boundary_length(mesh2d):
 
 def select_and_move_detectors(mesh, detector_locations, detector_names=None,
                               maximum_distance=0.):
-    """Select those detectors that are within the domain and/or move them to the nearest cell centre within the domain."""
+    """Select those detectors that are within the domain and/or move them to
+    the nearest cell centre within the domain
+
+    :arg mesh: Defines the domain in which detectors are to be located
+    :arg detector_locations: List of x, y locations
+    :arg detector_names: List of detector names (optional). If provided, a list
+       of selected locations and a list of selected detector names are returned,
+       otherwise only a list of selected locations is returned
+    :arg maximum_distance: Detectors whose initial locations is outside the domain,
+      but for which the nearest cell centre is within the specified distance, are
+      moved to this location. By default a maximum distance of 0.0 is used, i.e
+      no detectors are moved.
+    """
     # auxilary function to test whether we can interpolate it in the given locations
     V = FunctionSpace(mesh, "CG", 1)
     v = Function(V)
