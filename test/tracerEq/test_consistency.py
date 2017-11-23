@@ -49,10 +49,9 @@ def run_tracer_consistency(**model_options):
     p1_2d = FunctionSpace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     bathymetry_2d.assign(depth)
-
+    x_2d, y_2d = SpatialCoordinate(mesh2d)
     if sloped:
-        bathymetry_2d.interpolate(Expression('h + 20.0*x[0]/lx',
-                                             h=depth, lx=lx))
+        bathymetry_2d.interpolate(depth + 20.0*x_2d/lx)
 
     # set time step, export interval and run duration
     n_steps = 8
@@ -100,8 +99,7 @@ def run_tracer_consistency(**model_options):
 
     solver_obj.create_function_spaces()
     elev_init = Function(solver_obj.function_spaces.H_2d)
-    elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/lx)', eta_amp=elev_amp,
-                                 lx=lx))
+    elev_init.project(-elev_amp*cos(2*pi*x_2d/lx))
 
     salt_init3d = None
     temp_init3d = None
@@ -110,10 +108,10 @@ def run_tracer_consistency(**model_options):
         salt_init3d.assign(salt_value)
     if options.solve_temperature:
         temp_init3d = Function(solver_obj.function_spaces.H, name='initial temperature')
-        xyz = SpatialCoordinate(solver_obj.mesh)
+        x, y, z = SpatialCoordinate(solver_obj.mesh)
         temp_l = 0
         temp_r = 30.0
-        temp_init3d.interpolate(temp_l + (temp_r - temp_l)*0.5*(1.0 + sign(xyz[0] - lx/2)))
+        temp_init3d.interpolate(temp_l + (temp_r - temp_l)*0.5*(1.0 + sign(x - lx/2)))
 
     solver_obj.assign_initial_conditions(elev=elev_init, salt=salt_init3d, temp=temp_init3d)
     solver_obj.iterate()

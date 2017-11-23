@@ -55,8 +55,10 @@ t_export = 900.0  # 44714/12
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
-bathymetry_2d.interpolate(Expression('(x[0] > 0.0) ? H*(1-x[0]/Lriver) + HInlet*(x[0]/Lriver) : H',
-                                     H=H, HInlet=HInlet, Lriver=Lriver))
+x, y = SpatialCoordinate(mesh2d)
+bathymetry_2d.interpolate(conditional(x > 0.0,
+                                      H*(1-x/Lriver) + HInlet*(x/Lriver),
+                                      H))
 
 # create solver
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
@@ -110,14 +112,17 @@ solver_obj.bnd_functions['shallow_water'] = {1: tide_elev_funcs,
 # TODO set correct boundary conditions
 solver_obj.create_equations()
 elev_init = Function(solver_obj.function_spaces.H_2d, name='initial elevation')
-elev_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvin_m)*cos(x[1]*kelvin_k) : amp*cos(x[1]*kelvin_k)',
-                      amp=eta_amplitude, kelvin_m=kelvin_m, kelvin_k=kelvin_k))
+elev_init.interpolate(conditional(le(x, 0.0),
+                                  eta_amplitude*exp((x)*kelvin_m)*cos(y*kelvin_k),
+                                  eta_amplitude*cos(y*kelvin_k)))
 elev_init2 = Function(solver_obj.function_spaces.H_2d, name='initial elevation')
-elev_init2.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvin_m)*cos(x[1]*kelvin_k) : 0.0',
-                       amp=eta_amplitude, kelvin_m=kelvin_m, kelvin_k=kelvin_k))
+elev_init2.interpolate(conditional(le(x, 0.0),
+                                   eta_amplitude*exp(x*kelvin_m)*cos(y*kelvin_k),
+                                   0.0))
 uv_init = Function(solver_obj.function_spaces.U_2d, name='initial velocity')
-# uv_init.interpolate(Expression('(x[0]<=0) ? amp*exp(x[0]*kelvin_m)*cos(x[1]*kelvin_k) : amp*cos(x[1]*kelvin_k)',
-#                      amp=eta_amplitude, kelvin_m=kelvin_m, kelvin_k=kelvin_k))
+# uv_init.interpolate(conditional(le(x, 0.0),
+#                                 eta_amplitude*exp(x*kelvin_m)*cos(y*kelvin_k),
+#                                 eta_amplitude*cos(y*kelvin_k)))
 tri = TrialFunction(solver_obj.function_spaces.U_2d)
 test = TestFunction(solver_obj.function_spaces.U_2d)
 a = inner(test, tri)*dx

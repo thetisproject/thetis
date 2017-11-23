@@ -123,9 +123,10 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     else:
         options.use_lax_friedrichs_velocity = True
         options.use_lax_friedrichs_tracer = True
-        options.lax_friedrichs_velocity_scaling_factor = laxfriedrichs
-        options.lax_friedrichs_tracer_scaling_factor = laxfriedrichs
+        options.lax_friedrichs_velocity_scaling_factor = Constant(laxfriedrichs)
+        options.lax_friedrichs_tracer_scaling_factor = Constant(laxfriedrichs)
     options.use_limiter_for_tracers = use_limiter
+    options.use_limiter_for_velocity = use_limiter
     # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
     if viscosity == 'smag':
         options.use_smagorinsky_viscosity = True
@@ -183,12 +184,13 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     print_output('Elem size: {:} {:}'.format(min_elem_size, max_elem_size))
 
     temp_init3d = Function(solver_obj.function_spaces.H, name='initial temperature')
+    x, y, z = SpatialCoordinate(solver_obj.mesh)
     # vertical barrier
-    # temp_init3d.interpolate(Expression('(x[0] > 0.0) ? v_r : v_l',
-    #                                    v_l=temp_left, v_r=temp_right))
+    # temp_init3d.interpolate(conditional(x > 0.0, temp_right, temp_left))
     # smooth condition
-    temp_init3d.interpolate(Expression('v_l - (v_l - v_r)*0.5*(tanh(x[0]/sigma) + 1.0)',
-                                       sigma=10.0, v_l=temp_left, v_r=temp_right))
+    sigma = 10.0
+    temp_init3d.interpolate(temp_left -
+                            (temp_left - temp_right)*0.5*(tanh(x/sigma) + 1.0))
 
     if load_export_ix is None:
         solver_obj.assign_initial_conditions(temp=temp_init3d)

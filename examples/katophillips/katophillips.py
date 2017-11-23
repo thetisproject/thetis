@@ -99,7 +99,8 @@ rho_grad = -N0**2 * physical_constants['rho0'] / physical_constants['g_grav']
 beta = 0.7865  # haline contraction coefficient [kg m-3 psu-1]
 salt_grad = rho_grad/beta
 salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
-salt_init_expr = Expression('dsdz*x[2]', dsdz=salt_grad)
+x, y, z = SpatialCoordinate(solver_obj.mesh)
+salt_init_expr = salt_grad*z
 salt_init3d.interpolate(salt_init_expr)
 
 if __name__ == '__main__':

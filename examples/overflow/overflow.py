@@ -32,7 +32,7 @@ physical_constants['rho0'] = 999.7
 
 reso_str = 'medium'
 refinement = {'medium': 1}
-layers = int(round(50*refinement[reso_str]))/2
+layers = int(round(50*refinement[reso_str])/2)
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
 print_output('Loaded mesh '+mesh2d.name)
 dt = 5.0/refinement[reso_str]
@@ -45,8 +45,12 @@ outputdir = 'outputs_' + reso_str + '_Re' + str(int(Re_h))
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
-bathymetry_2d.interpolate(Expression('hmin + 0.5*(hmax - hmin)*(1 + tanh((x[0] - x0)/Ls))',
-                          hmin=500.0, hmax=2000.0, Ls=10.0e3, x0=40.0e3))
+hmin = 500.0
+hmax = 2000.0
+Ls = 10.0e3
+x0 = 40.0e3
+x, y = SpatialCoordinate(mesh2d)
+bathymetry_2d.interpolate(hmin + 0.5*(hmax - hmin)*(1 + tanh((x - x0)/Ls)))
 
 # temperature and salinity, results in 2.0 kg/m3 density difference
 salt_left = 2.5489
@@ -90,12 +94,13 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
 
 solver_obj.create_equations()
 salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
+x, y, z = SpatialCoordinate(solver_obj.mesh)
+x0 = 20.0e3
 # vertical barrier
-# salt_init3d.interpolate(Expression('(x[0] > 20.0e3) ? s_r : s_l',
-#                                    s_l=salt_left, s_r=salt_right))
+salt_init3d.interpolate(conditional(le(x, x0), salt_left, salt_right))
 # smooth condition
-salt_init3d.interpolate(Expression('s_l + (s_r - s_l)*0.5*(1.0 + tanh((x[0] - x0)/sigma))',
-                                   s_l=salt_left, s_r=salt_right, x0=20.0e3, sigma=1000.0))
+# sigma = 1000.0
+# salt_init3d.interpolate(salt_left + (salt_right - salt_left)*0.5*(1.0 + tanh((x - x0)/sigma)))
 
 solver_obj.assign_initial_conditions(salt=salt_init3d)
 solver_obj.iterate()

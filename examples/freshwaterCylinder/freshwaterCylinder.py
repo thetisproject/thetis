@@ -1,37 +1,35 @@
-# Geostrophic freshwater cylinder test case
-# =========================================
-#
-# For detailed description and discussion of the test case see
-# [1] Tartinville et al. (1998). A coastal ocean model intercomparison study
-#     for a three-dimensional idealised test case. Applied Mathematical
-#     Modelling, 22(3):165-182.
-#     http://dx.doi.org/10.1016/S0307-904X(98)00015-8
-#
-# Test case setup:
-# domain: 30 km x 30 km, 20 m deep
-# mesh resolution: 1 km, 20 vertical levels
-# coriolis: f=1.15e-4 1/s
-# initial salinity: cylinder
-#    center: center of domain
-#    radius: 3 km
-#    depth: surface to 10 m deep
-#    salinity inside: 1.1*(r/1000/3)^8 + 33.75 psu
-#       (r radial distance in m)
-#    salinity outside: 34.85 psu
-# equation of state: 1025 + 0.78*(S - 33.75)
-# density inside: rho = 1025 + 0.78*1.1*(r/1000/3)^8
-# density outside: 1025 + 0.78*1.1 = 1025.858
-# initial elevation: zero
-# initial velocity: zero
-# inertial period: 144 h / 9.5 = 54568.42 s ~= 30 exports
-# simulation period: 144 h
-#
-# S contours are 33.8, 34.0, 34.2, 34.4, 34.6, 34.8
-# which correspond to rho' 0.039,  0.195,  0.351,  0.507,  0.663,  0.819
-#
-# NOTE with SLIM mode-2 instability starts to develop around t=100 h
-#
-# Tuomas Karna 2015-05-30
+"""
+Geostrophic freshwater cylinder test case
+=========================================
+
+For detailed description and discussion of the test case see
+[1] Tartinville et al. (1998). A coastal ocean model intercomparison study
+    for a three-dimensional idealised test case. Applied Mathematical
+    Modelling, 22(3):165-182.
+    http://dx.doi.org/10.1016/S0307-904X(98)00015-8
+
+Test case setup:
+domain: 30 km x 30 km, 20 m deep
+mesh resolution: 1 km, 20 vertical levels
+coriolis: f=1.15e-4 1/s
+initial salinity: cylinder
+   center: center of domain
+   radius: 3 km
+   depth: surface to 10 m deep
+   salinity inside: 1.1*(r/1000/3)^8 + 33.75 psu
+      (r radial distance in m)
+   salinity outside: 34.85 psu
+equation of state: 1025 + 0.78*(S - 33.75)
+density inside: rho = 1025 + 0.78*1.1*(r/1000/3)^8
+density outside: 1025 + 0.78*1.1 = 1025.858
+initial elevation: zero
+initial velocity: zero
+inertial period: 144 h / 9.5 = 54568.42 s ~= 30 exports
+simulation period: 144 h
+
+S contours are 33.8, 34.0, 34.2, 34.4, 34.6, 34.8
+which correspond to rho' 0.039,  0.195,  0.351,  0.507,  0.663,  0.819
+"""
 
 from thetis import *
 
@@ -181,9 +179,9 @@ bathymetry_2d = Function(P1_2d, name='Bathymetry')
 bathymetry_2d.assign(depth)
 
 coriolis_2d = Function(P1_2d)
-f0, beta = 1.15e-4, 0.0
-coriolis_2d.interpolate(
-    Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0))
+x, y = SpatialCoordinate(mesh2d)
+f0, beta, y_0 = 1.15e-4, 0.0, 0.0
+coriolis_2d.interpolate(f0 + beta*(y-y_0))
 
 # compute horizontal viscosity
 uscale = 1.0
@@ -257,7 +255,10 @@ solver_obj.create_equations()
 # assign initial salinity
 # impose rho' = rho - 1025.0
 salt_init3d = Function(solver_obj.function_spaces.P1, name='initial salinity')
-salt_init3d.interpolate(Expression('s_0 + 1.1*pow((sqrt(x[0]*x[0] + x[1]*x[1])/1000/3 + (1.0-tanh(10*(x[2] + 10.0)))*0.5), 8)', s_0=salt_center))
+x, y, z = SpatialCoordinate(solver_obj.mesh)
+salt_expr = salt_center + 1.1*pow((sqrt(x*x + y*y)/1000/3 +
+                                   (1.0-tanh(10*(z + 10.0)))*0.5), 8)
+salt_init3d.interpolate(salt_expr)
 # crop bad values
 ix = salt_init3d.dat.data[:] > salt_outside
 salt_init3d.dat.data[ix] = salt_outside

@@ -67,8 +67,8 @@ def test_callbacks(tmp_outputdir):
     # need to call creator to create the function spaces
     solver_obj.create_equations()
     elev_init = Function(solver_obj.function_spaces.H_2d)
-    elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/lx)', eta_amp=elev_amp,
-                                 lx=lx))
+    x, y = SpatialCoordinate(mesh2d)
+    elev_init.interpolate(-elev_amp*cos(2*pi*x/lx))
     salt_init3d = Constant(3.45)
 
     class ConstCallback(DiagnosticCallback):

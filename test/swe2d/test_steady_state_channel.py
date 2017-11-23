@@ -44,22 +44,23 @@ def test_steady_state_channel(do_export=False):
     inflow_tag = 1
     outflow_tag = 2
     inflow_func = Function(p1_2d)
-    inflow_func.interpolate(Expression(-1.0))  # NOTE negative into domain
+    inflow_func.interpolate(Constant(-1.0))  # NOTE negative into domain
     inflow_bc = {'un': inflow_func}
     outflow_func = Function(p1_2d)
-    outflow_func.interpolate(Expression(0.0))
+    outflow_func.interpolate(Constant(0.0))
     outflow_bc = {'elev': outflow_func}
     solver_obj.bnd_functions['shallow_water'] = {inflow_tag: inflow_bc, outflow_tag: outflow_bc}
     parameters['quadrature_degree'] = 5
 
     solver_obj.create_equations()
-    solver_obj.assign_initial_conditions(uv=Expression(("1.0", "0.0")))
+    solver_obj.assign_initial_conditions(uv=Constant((1.0, 0.0)))
 
     solver_obj.iterate()
 
     uv, eta = solver_obj.fields.solution_2d.split()
 
-    eta_ana = interpolate(Expression("1-x[0]/lx", lx=lx), p1_2d)
+    x_2d, y_2d = SpatialCoordinate(mesh2d)
+    eta_ana = interpolate(1 - x_2d/lx, p1_2d)
     area = lx*ly
     l2norm = errornorm(eta_ana, eta)/math.sqrt(area)
     print_output(l2norm)

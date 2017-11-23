@@ -172,8 +172,8 @@ class FiredrakeScalarExpression(TraitType):
     info_text = 'a scalar UFL expression'
 
     def validate(self, obj, value):
-        if isinstance(value, ufl.core.expr.Expr) and \
-            ufl.checks.is_ufl_scalar(value):
+        if (isinstance(value, ufl.core.expr.Expr) and
+                ufl.checks.is_ufl_scalar(value)):
             return value
         self.error(obj, value)
 
@@ -190,8 +190,8 @@ class FiredrakeVectorExpression(TraitType):
     info_text = 'a vector UFL expression'
 
     def validate(self, obj, value):
-        if isinstance(value, ufl.core.expr.Expr) and \
-            not ufl.checks.is_ufl_scalar(value):
+        if (isinstance(value, ufl.core.expr.Expr) and
+                not ufl.checks.is_ufl_scalar(value)):
             return value
         self.error(obj, value)
 

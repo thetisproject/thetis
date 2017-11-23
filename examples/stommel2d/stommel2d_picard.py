@@ -34,13 +34,14 @@ bathymetry_2d.assign(depth)
 # Coriolis forcing
 coriolis_2d = Function(P1_2d)
 f0, beta = 1.0e-4, 2.0e-11
-coriolis_2d.interpolate(
-    Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=0.0))
+y_0 = 0.0
+x, y = SpatialCoordinate(mesh2d)
+coriolis_2d.interpolate(f0 + beta*(y-y_0))
 
 # Wind stress
 wind_stress_2d = Function(P1v_2d, name='wind stress')
 tau_max = 0.1
-wind_stress_2d.interpolate(Expression(('tau_max*sin(pi*(x[1]/L - 0.5))', '0'), tau_max=tau_max, L=lx))
+wind_stress_2d.interpolate(as_vector((tau_max*sin(pi*(y/lx - 0.5)), 0)))
 
 # linear dissipation: tau_bot/(h*rho) = -bf_gamma*u
 linear_drag_coefficient = Constant(1e-6)

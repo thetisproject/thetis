@@ -541,7 +541,6 @@ class FlowSolver(FrozenClass):
             if isinstance(self.options.wind_stress, FiredrakeFunction):
                 assert self.options.wind_stress.function_space().mesh().geometric_dimension() == 3, \
                     'wind stress field must be a 3D function'
-                # assume 2d function and expand to 3d
                 self.fields.wind_stress_3d = self.options.wind_stress
             elif isinstance(self.options.wind_stress, FiredrakeConstant):
                 self.fields.wind_stress_3d = self.options.wind_stress
@@ -559,7 +558,9 @@ class FlowSolver(FrozenClass):
             self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H)
         else:
             self.tracer_limiter = None
-        if self.options.use_limiter_for_velocity and self.options.polynomial_degree > 0:
+        if (self.options.use_limiter_for_velocity and
+                self.options.polynomial_degree > 0 and
+                self.options.element_family == 'dg-dg'):
             self.uv_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.U)
         else:
             self.uv_limiter = None

@@ -4,7 +4,6 @@ Methods for reading ROMS model outputs
 from thetis import *
 from atm_forcing import to_latlon
 from thetis.timezone import *
-from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_bnd
 import netCDF4
 import scipy.spatial.qhull as qhull
 from thetis.interpolation import GridInterpolator, SpatialInterpolator

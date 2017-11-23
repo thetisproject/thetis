@@ -57,46 +57,55 @@ def u(mesh, spaces):
 
 @pytest.fixture
 def c3d(p1):
-    return Function(p1, name="Tracer").interpolate(Expression("x[2] + 2.0"))
+    x, y, z = SpatialCoordinate(p1.mesh())
+    return Function(p1, name="Tracer").interpolate(z + 2.0)
 
 
 @pytest.fixture
 def c3d_x(p1):
-    return Function(p1, name="Tracer").interpolate(Expression("x[0] + 2.0"))
+    x, y, z = SpatialCoordinate(p1.mesh())
+    return Function(p1, name="Tracer").interpolate(x + 2.0)
 
 
 @pytest.fixture
 def c2d(p1_2d):
-    return Function(p1_2d, name="Tracer").interpolate(Expression("4.0"))
+    x, y = SpatialCoordinate(p1_2d.mesh())
+    return Function(p1_2d, name="Tracer").interpolate(Constant(4.0))
 
 
 @pytest.fixture
 def c2d_x(p1_2d):
-    return Function(p1_2d, name="Tracer").interpolate(Expression("2*x[0]"))
+    x, y = SpatialCoordinate(p1_2d.mesh())
+    return Function(p1_2d, name="Tracer").interpolate(2*x)
 
 
 @pytest.fixture
 def uv_3d(u):
-    return Function(u, name="Velocity").interpolate(Expression(('x[2] + 1.0',
-                                                                '2.0*x[2] + 4.0',
-                                                                '3.0*x[2] + 6.0')))
+    x, y, z = SpatialCoordinate(u.mesh())
+    return Function(u, name="Velocity").interpolate(as_vector((z + 1.0,
+                                                               2.0*z + 4.0,
+                                                               3.0*z + 6.0)))
 
 
 @pytest.fixture
 def uv_3d_x(u):
-    return Function(u, name="Velocity").interpolate(Expression(('x[0] + 1.0',
-                                                                '2.0*x[1] + 4.0',
-                                                                '3.0*x[0]*x[2] + 6.0')))
+    x, y, z = SpatialCoordinate(u.mesh())
+    return Function(u, name="Velocity").interpolate(as_vector((x + 1.0,
+                                                               2.0*y + 4.0,
+                                                               3.0*x*z + 6.0)))
 
 
 @pytest.fixture
 def uv_2d(u_2d):
-    return Function(u_2d, name="Velocity").interpolate(Expression(('4.0', '8.0')))
+    x, y = SpatialCoordinate(u_2d.mesh())
+    return Function(u_2d, name="Velocity").interpolate(Constant((4.0, 8.0)))
 
 
 @pytest.fixture
 def uv_2d_x(u_2d):
-    return Function(u_2d, name="Velocity").interpolate(Expression(('4.0*x[0]', '8.0*x[1]')))
+    x, y = SpatialCoordinate(u_2d.mesh())
+    return Function(u_2d, name="Velocity").interpolate(as_vector((4.0*x,
+                                                                  8.0*y)))
 
 
 @pytest.mark.parametrize('params',

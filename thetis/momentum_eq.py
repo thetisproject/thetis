@@ -534,7 +534,12 @@ class LinearDragTerm(MomentumTerm):
         f = 0
         # Linear drag (consistent with drag in 2D mode)
         if linear_drag_coefficient is not None:
-            bottom_fri = linear_drag_coefficient*inner(self.test, solution)*self.dx
+            uv_depth_av = fields_old.get('uv_depth_av')
+            if uv_depth_av is not None:
+                uv = solution + uv_depth_av
+            else:
+                uv = solution
+            bottom_fri = linear_drag_coefficient*inner(self.test, uv)*self.dx
             f += bottom_fri
         return -f
 
@@ -581,6 +586,8 @@ class SourceTerm(MomentumTerm):
         source = fields_old.get('source')
         viscosity_v = fields_old.get('viscosity_v')
         wind_stress = fields_old.get('wind_stress')
+        if wind_stress is not None and viscosity_v is None:
+            warning('Wind stress is prescribed but vertical viscosity is not:\n  Wind stress will be ignored.')
         if viscosity_v is not None:
             # wind stress
             if wind_stress is not None:

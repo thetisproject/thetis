@@ -13,10 +13,10 @@
 # Tuomas Karna 2015-03-11
 from thetis import *
 
-nx = 25
-ny = 2
 lx = 44294.46
 ly = 3000.0
+nx = 25
+ny = 2
 mesh2d = RectangleMesh(nx, ny, lx, ly)
 depth = 50.0
 elev_amp = 1.0
@@ -68,11 +68,10 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
 # need to call creator to create the function spaces
 solver_obj.create_equations()
 elev_init = Function(solver_obj.function_spaces.H_2d)
-elev_init.project(Expression('-eta_amp*cos(2*pi*x[0]/lx)', eta_amp=elev_amp,
-                             lx=lx))
+x, y = SpatialCoordinate(mesh2d)
+elev_init.interpolate(-elev_amp*cos(2*pi*x/lx))
 if options.solve_salinity:
     salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
-    # salt_init3d.interpolate(Expression('x[0]/1.0e5*10.0+2.0'))
     salt_init3d.assign(4.5)
 else:
     salt_init3d = None
