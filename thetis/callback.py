@@ -405,7 +405,7 @@ class DetectorsCallback(DiagnosticCallback):
         ndetectors = len(detector_locations)
         if detector_names is None:
             fill = len(str(ndetectors))
-            detector_names = ['detector' + str(i).zfill(fill) for i in range(ndetectors)]
+            detector_names = ['detector{:0{fill}d}'.format(i, fill=fill) for i in range(ndetectors)]
         else:
             assert ndetectors == len(detector_names), "Different number of detector locations and names"
         self._variable_names = detector_names
