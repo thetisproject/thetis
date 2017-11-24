@@ -394,12 +394,12 @@ class DetectorsCallback(DiagnosticCallback):
         # printing all detector output to log is probably not a useful default:
         kwargs.setdefault('append_to_log', False)
         field_dims = [solver_obj.fields[field_name].function_space().value_size
-                          for field_name in field_names]
+                      for field_name in field_names]
         attrs = {
-                 # use null-padded ascii strings, dtype='U' not supported in hdf5, see http://docs.h5py.org/en/latest/strings.html
-                 'field_names': np.array(field_names, dtype='S'),
-                 'field_dims': field_dims,
-                }
+            # use null-padded ascii strings, dtype='U' not supported in hdf5, see http://docs.h5py.org/en/latest/strings.html
+            'field_names': np.array(field_names, dtype='S'),
+            'field_dims': field_dims,
+        }
         super().__init__(solver_obj, array_dim=sum(field_dims), attrs=attrs, **kwargs)
 
         ndetectors = len(detector_locations)

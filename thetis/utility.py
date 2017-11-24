@@ -1607,10 +1607,10 @@ def select_and_move_detectors(mesh, detector_locations, detector_names=None,
 
     # comparison operator that sorts on first entry first, etc.
     def min_lexsort(x, y, datatype):
-        for xi, yi in zip(x,y):
-            if xi<yi:
+        for xi, yi in zip(x, y):
+            if xi < yi:
                 return x
-            elif yi<xi:
+            elif yi < xi:
                 return y
         # all entries the same:
         return x
