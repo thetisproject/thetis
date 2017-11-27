@@ -8,6 +8,8 @@ from abc import ABCMeta, abstractproperty, abstractmethod
 import h5py
 from collections import defaultdict
 from .log import *
+from .firedrake import *
+import numpy as np
 
 
 class CallbackManager(defaultdict):
@@ -63,7 +65,7 @@ class DiagnosticHDF5(object):
     A HDF5 file for storing diagnostic time series arrays.
     """
     def __init__(self, filename, varnames, array_dim=1, attrs=None,
-                 comm=COMM_WORLD, new_file=True):
+                 comm=COMM_WORLD, new_file=True, dtype='d'):
         """
         :arg str filename: Full filename of the HDF5 file.
         :arg varnames: List of variable names that the diagnostic callback
@@ -83,10 +85,10 @@ class DiagnosticHDF5(object):
             # create empty file with correct datasets
             with h5py.File(filename, 'w') as hdf5file:
                 hdf5file.create_dataset('time', (0, 1),
-                                        maxshape=(None, 1))
+                                        maxshape=(None, 1), dtype=dtype)
                 for var in self.varnames:
                     hdf5file.create_dataset(var, (0, array_dim),
-                                            maxshape=(None, array_dim))
+                                            maxshape=(None, array_dim), dtype=dtype)
                 if attrs is not None:
                     hdf5file.attrs.update(attrs)
 
@@ -132,9 +134,11 @@ class DiagnosticCallback(object):
     """
     __metaclass__ = ABCMeta
 
-    def __init__(self, solver_obj, outputdir=None, array_dim=1, attrs=None,
+    def __init__(self, solver_obj, array_dim=1, attrs=None,
+                 outputdir=None,
                  export_to_hdf5=True,
-                 append_to_log=True):
+                 append_to_log=True,
+                 hdf5_dtype='d'):
         """
         :arg solver_obj: Thetis solver object
         :kwarg str outputdir: Custom directory where hdf5 files will be stored. By
@@ -145,6 +149,8 @@ class DiagnosticCallback(object):
             format
         :kwarg bool append_to_log: If True, callback output messages will be printed
             in log
+        :kwarg hdf5_dtype: Precision to use in hdf5 output: 'd' for double precision (default),
+            and 'f for single precision
         """
         self.solver_obj = solver_obj
         if outputdir is None:
@@ -155,6 +161,7 @@ class DiagnosticCallback(object):
         self.attrs = attrs
         self.append_to_hdf5 = export_to_hdf5
         self.append_to_log = append_to_log
+        self.hdf5_dtype = hdf5_dtype
         self._create_new_file = True
         self._hdf5_initialized = False
 
@@ -180,7 +187,7 @@ class DiagnosticCallback(object):
                                                array_dim=self.array_dim,
                                                new_file=self._create_new_file,
                                                attrs=self.attrs,
-                                               comm=comm)
+                                               comm=comm, dtype=self.hdf5_dtype)
         self._hdf5_initialized = True
 
     @abstractproperty
@@ -246,25 +253,16 @@ class ScalarConservationCallback(DiagnosticCallback):
     """Base class for callbacks that check conservation of a scalar quantity"""
     variable_names = ['integral', 'relative_difference']
 
-    def __init__(self, scalar_callback, solver_obj, outputdir=None, export_to_hdf5=False,
-                 append_to_log=True):
+    def __init__(self, scalar_callback, solver_obj, **kwargs):
         """
         Creates scalar conservation check callback object
 
         :arg scalar_callback: Python function that takes the solver object as an argument and
             returns a scalar quantity of interest
         :arg solver_obj: Thetis solver object
-        :kwarg str outputdir: Custom directory where hdf5 files will be stored. By
-            default solver's output directory is used.
-        :kwarg bool export_to_hdf5: If True, diagnostics will be stored in hdf5
-            format
-        :kwarg bool append_to_log: If True, callback output messages will be printed
-            in log
+        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
         """
-        super(ScalarConservationCallback, self).__init__(solver_obj,
-                                                         outputdir=outputdir,
-                                                         export_to_hdf5=export_to_hdf5,
-                                                         append_to_log=append_to_log)
+        super(ScalarConservationCallback, self).__init__(solver_obj, **kwargs)
         self.scalar_callback = scalar_callback
         self.initial_value = None
 
@@ -284,99 +282,60 @@ class VolumeConservation3DCallback(ScalarConservationCallback):
     """Checks conservation of 3D volume (volume of 3D mesh)"""
     name = 'volume3d'
 
-    def __init__(self, solver_obj, outputdir=None, export_to_hdf5=False,
-                 append_to_log=True):
+    def __init__(self, solver_obj, **kwargs):
         """
         :arg solver_obj: Thetis solver object
-        :kwarg str outputdir: Custom directory where hdf5 files will be stored. By
-            default solver's output directory is used.
-        :kwarg bool export_to_hdf5: If True, diagnostics will be stored in hdf5
-            format
-        :kwarg bool append_to_log: If True, callback output messages will be printed
-            in log
+        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
         """
         def vol3d():
             return comp_volume_3d(self.solver_obj.mesh)
-        super(VolumeConservation3DCallback, self).__init__(vol3d,
-                                                           solver_obj,
-                                                           outputdir=outputdir,
-                                                           export_to_hdf5=export_to_hdf5,
-                                                           append_to_log=append_to_log)
+        super(VolumeConservation3DCallback, self).__init__(vol3d, solver_obj, **kwargs)
 
 
 class VolumeConservation2DCallback(ScalarConservationCallback):
     """Checks conservation of 2D volume (integral of water elevation field)"""
     name = 'volume2d'
 
-    def __init__(self, solver_obj, outputdir=None, export_to_hdf5=False,
-                 append_to_log=True):
+    def __init__(self, solver_obj, **kwargs):
         """
         :arg solver_obj: Thetis solver object
-        :kwarg str outputdir: Custom directory where hdf5 files will be stored. By
-            default solver's output directory is used.
-        :kwarg bool export_to_hdf5: If True, diagnostics will be stored in hdf5
-            format
-        :kwarg bool append_to_log: If True, callback output messages will be printed
-            in log
+        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
         """
         def vol2d():
             return comp_volume_2d(self.solver_obj.fields.elev_2d,
                                   self.solver_obj.fields.bathymetry_2d)
-        super(VolumeConservation2DCallback, self).__init__(vol2d,
-                                                           solver_obj,
-                                                           outputdir=outputdir,
-                                                           export_to_hdf5=export_to_hdf5,
-                                                           append_to_log=append_to_log)
+        super(VolumeConservation2DCallback, self).__init__(vol2d, solver_obj, **kwargs)
 
 
 class TracerMassConservationCallback(ScalarConservationCallback):
     """Checks conservation of total tracer mass"""
     name = 'tracer mass'
 
-    def __init__(self, tracer_name, solver_obj, outputdir=None, export_to_hdf5=False,
-                 append_to_log=True):
+    def __init__(self, tracer_name, solver_obj, **kwargs):
         """
         :arg tracer_name: Name of the tracer. Use canonical field names as in :class:`.FieldDict`.
         :arg solver_obj: Thetis solver object
-        :kwarg str outputdir: Custom directory where hdf5 files will be stored. By
-            default solver's output directory is used.
-        :kwarg bool export_to_hdf5: If True, diagnostics will be stored in hdf5
-            format
-        :kwarg bool append_to_log: If True, callback output messages will be printed
-            in log
+        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
         """
         self.name = tracer_name + ' mass'  # override name for given tracer
 
         def mass():
             return comp_tracer_mass_3d(self.solver_obj.fields[tracer_name])
-        super(TracerMassConservationCallback, self).__init__(mass,
-                                                             solver_obj,
-                                                             outputdir=outputdir,
-                                                             export_to_hdf5=export_to_hdf5,
-                                                             append_to_log=append_to_log)
+        super(TracerMassConservationCallback, self).__init__(mass, solver_obj, **kwargs)
 
 
 class MinMaxConservationCallback(DiagnosticCallback):
     """Base class for callbacks that check conservation of a minimum/maximum"""
     variable_names = ['min_value', 'max_value', 'undershoot', 'overshoot']
 
-    def __init__(self, minmax_callback, solver_obj, outputdir=None, export_to_hdf5=False,
-                 append_to_log=True):
+    def __init__(self, minmax_callback, solver_obj, **kwargs):
         """
         :arg minmax_callback: Python function that takes the solver object as
             an argument and returns a (min, max) value tuple
         :arg solver_obj: Thetis solver object
-        :kwarg str outputdir: Custom directory where hdf5 files will be stored. By
-            default solver's output directory is used.
-        :kwarg bool export_to_hdf5: If True, diagnostics will be stored in hdf5
-            format
-        :kwarg bool append_to_log: If True, callback output messages will be printed
-            in log
+        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
         """
-        super(MinMaxConservationCallback, self).__init__(solver_obj,
-                                                         outputdir=outputdir,
-                                                         export_to_hdf5=export_to_hdf5,
-                                                         append_to_log=append_to_log)
+        super(MinMaxConservationCallback, self).__init__(solver_obj, **kwargs)
         self.minmax_callback = minmax_callback
         self.initial_value = None
 
@@ -397,17 +356,11 @@ class TracerOvershootCallBack(MinMaxConservationCallback):
     """Checks overshoots of the given tracer field."""
     name = 'tracer overshoot'
 
-    def __init__(self, tracer_name, solver_obj, outputdir=None, export_to_hdf5=False,
-                 append_to_log=True):
+    def __init__(self, tracer_name, solver_obj, **kwargs):
         """
         :arg tracer_name: Name of the tracer. Use canonical field names as in :class:`.FieldDict`.
         :arg solver_obj: Thetis solver object
-        :kwarg str outputdir: Custom directory where hdf5 files will be stored. By
-            default solver's output directory is used.
-        :kwarg bool export_to_hdf5: If True, diagnostics will be stored in hdf5
-            format
-        :kwarg bool append_to_log: If True, callback output messages will be printed
-            in log
+        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
         """
         self.name = tracer_name + ' overshoot'
 
@@ -417,8 +370,67 @@ class TracerOvershootCallBack(MinMaxConservationCallback):
             tracer_min = self.solver_obj.comm.allreduce(tracer_min, op=MPI.MIN)
             tracer_max = self.solver_obj.comm.allreduce(tracer_max, op=MPI.MAX)
             return tracer_min, tracer_max
-        super(TracerOvershootCallBack, self).__init__(minmax,
-                                                      solver_obj,
-                                                      outputdir=outputdir,
-                                                      export_to_hdf5=export_to_hdf5,
-                                                      append_to_log=append_to_log)
+        super(TracerOvershootCallBack, self).__init__(minmax, solver_obj, **kwargs)
+
+
+class DetectorsCallback(DiagnosticCallback):
+    """Callback that writes the specified fields interpolated in the specified detector locations"""
+    def __init__(self, solver_obj,
+                 detector_locations,
+                 field_names,
+                 name,
+                 detector_names=None,
+                 **kwargs):
+        """
+        :arg solver_obj: Thetis solver object
+        :arg detector_locations: List of x, y locations in which fields are to be interpolated.
+        :arg field_names: List of fields to be interpolated.
+        :arg name: Unique name for this callback and its associated set of detectors. This determines the name
+           of the output h5 file (prefixed with diagnostic_).
+        :arg detector_names: List of names for each of the detectors. If not provided automatic names
+           of the form 'detectorNNN' are created where NNN is the (0-padded) detector number.
+        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
+        """
+        # printing all detector output to log is probably not a useful default:
+        kwargs.setdefault('append_to_log', False)
+        field_dims = [solver_obj.fields[field_name].function_space().value_size
+                      for field_name in field_names]
+        attrs = {
+            # use null-padded ascii strings, dtype='U' not supported in hdf5, see http://docs.h5py.org/en/latest/strings.html
+            'field_names': np.array(field_names, dtype='S'),
+            'field_dims': field_dims,
+        }
+        super().__init__(solver_obj, array_dim=sum(field_dims), attrs=attrs, **kwargs)
+
+        ndetectors = len(detector_locations)
+        if detector_names is None:
+            fill = len(str(ndetectors))
+            detector_names = ['detector{:0{fill}d}'.format(i, fill=fill) for i in range(ndetectors)]
+        else:
+            assert ndetectors == len(detector_names), "Different number of detector locations and names"
+        self._variable_names = detector_names
+        self.detector_locations = detector_locations
+        self.field_names = field_names
+        self._name = name
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def variable_names(self):
+        return self._variable_names
+
+    def _evaluate_field(self, field_name):
+        return self.solver_obj.fields[field_name](self.detector_locations)
+
+    def __call__(self):
+        """Evaluate all current fields in all detector locations
+
+        Returns a ndetectors x ndims array, where ndims is the sum of the dimension of the fields."""
+        ndetectors = len(self.detector_locations)
+        field_vals = []
+        for field_name in self.field_names:
+            field_vals.append(np.reshape(self._evaluate_field(field_name), (ndetectors, -1)))
+
+        return np.hstack(field_vals)

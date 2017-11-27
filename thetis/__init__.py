@@ -4,7 +4,7 @@ from thetis.log import *
 import thetis.timeintegrator as timeintegrator  # NOQA
 import thetis.solver as solver  # NOQA
 import thetis.solver2d as solver2d  # NOQA
-from thetis.callback import DiagnosticCallback  # NOQA
+from thetis.callback import DiagnosticCallback, DetectorsCallback  # NOQA
 import thetis.limiter as limiter      # NOQA
 import thetis.interpolation as interpolation      # NOQA
 import thetis.coordsys as coordsys      # NOQA

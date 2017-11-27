@@ -1577,3 +1577,73 @@ def compute_boundary_length(mesh2d):
         one_func = Function(p1).assign(1.0)
         boundary_len[i] = assemble(one_func * ds_restricted)
     return boundary_len
+
+
+def select_and_move_detectors(mesh, detector_locations, detector_names=None,
+                              maximum_distance=0.):
+    """Select those detectors that are within the domain and/or move them to
+    the nearest cell centre within the domain
+
+    :arg mesh: Defines the domain in which detectors are to be located
+    :arg detector_locations: List of x, y locations
+    :arg detector_names: List of detector names (optional). If provided, a list
+       of selected locations and a list of selected detector names are returned,
+       otherwise only a list of selected locations is returned
+    :arg maximum_distance: Detectors whose initial locations is outside the domain,
+      but for which the nearest cell centre is within the specified distance, are
+      moved to this location. By default a maximum distance of 0.0 is used, i.e
+      no detectors are moved.
+    """
+    # auxilary function to test whether we can interpolate it in the given locations
+    V = FunctionSpace(mesh, "CG", 1)
+    v = Function(V)
+
+    P0 = FunctionSpace(mesh, "DG", 0)
+    VP0 = VectorFunctionSpace(mesh, "DG", 0)
+    dist = Function(P0)
+    loc_const = Constant(detector_locations[0])
+    xy = SpatialCoordinate(mesh)
+    p0xy = Function(VP0).interpolate(xy)
+
+    # comparison operator that sorts on first entry first, etc.
+    def min_lexsort(x, y, datatype):
+        for xi, yi in zip(x, y):
+            if xi < yi:
+                return x
+            elif yi < xi:
+                return y
+        # all entries the same:
+        return x
+    min_lexsort_op = MPI.Op.Create(min_lexsort, commute=False)
+
+    def move_to_nearest_cell_center(location):
+        loc_const.assign(location)
+        dist.interpolate(dot(xy-loc_const, xy-loc_const))
+        ind = dist.dat.data_ro.argmin()
+        # smallest distance to a cell centre location on this process:
+        local_loc = list(p0xy.dat.data_ro[ind])
+        local_dist = np.sqrt(dist.dat.data_ro[ind])
+        # select the smallest distance on all processes. If some distances are equal, pick a unique loc. based on lexsort
+        global_dist_loc = mesh.comm.allreduce([local_dist]+local_loc, op=min_lexsort_op)
+        return global_dist_loc[0], global_dist_loc[1:]
+
+    accepted_locations = []
+    accepted_names = []
+    if detector_names is None:
+        names = [None] * len(detector_locations)
+    else:
+        names = detector_names
+    for location, name in zip(detector_locations, names):
+        try:
+            v(location)
+        except PointNotInDomainError:
+            moved_dist, location = move_to_nearest_cell_center(location)
+            if moved_dist > maximum_distance:
+                continue
+        accepted_locations.append(location)
+        accepted_names.append(name)
+
+    if detector_names is None:
+        return accepted_locations
+    else:
+        return accepted_locations, accepted_names
