@@ -50,8 +50,6 @@ options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
 options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d']
 options.timestepper_type = 'CrankNicolson'
-# options.timestepper_type = 'SSPIMEX'
-# options.timestepper_type = 'SSPRK33'
 if hasattr(options.timestepper_options, 'use_automatic_timestep'):
     options.timestepper_options.use_automatic_timestep = False
     options.timestep = dt/40.0  # for explicit schemes

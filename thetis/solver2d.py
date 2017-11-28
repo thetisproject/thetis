@@ -268,14 +268,6 @@ class FlowSolver2d(FrozenClass):
                                                   fields, self.dt,
                                                   bnd_conditions=self.bnd_functions['shallow_water'],
                                                   solver_parameters=self.options.timestepper_options.solver_parameters)
-        elif self.options.timestepper_type == 'SSPRK33Semi':
-            self.timestepper = rungekutta.SSPRK33SemiImplicit(self.eq_sw, self.fields.solution_2d,
-                                                              fields, self.dt,
-                                                              bnd_conditions=self.bnd_functions['shallow_water'],
-                                                              solver_parameters=self.options.timestepper_options.solver_parameters,
-                                                              semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-                                                              theta=self.options.timestepper_options.implicitness_theta)
-
         elif self.options.timestepper_type == 'ForwardEuler':
             self.timestepper = timeintegrator.ForwardEuler(self.eq_sw, self.fields.solution_2d,
                                                            fields, self.dt,

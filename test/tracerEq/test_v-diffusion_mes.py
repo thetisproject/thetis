@@ -198,8 +198,7 @@ def implicit(request):
 
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
-                         [('SSPRK33', False),
-                          ('LeapFrog', True),
+                         [('LeapFrog', True),
                           ('SSPRK22', True)])
 def test_vertical_diffusion(polynomial_degree, implicit, stepper, use_ale):
     run_convergence([1, 2, 4], polynomial_degree=polynomial_degree, implicit=implicit,
