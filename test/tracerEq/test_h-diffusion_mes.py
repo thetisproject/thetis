@@ -197,12 +197,12 @@ def run_convergence(ref_list, saveplot=False, **options):
 # ---------------------------
 
 
-@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')(0), 1])
+@pytest.fixture(params=[0, 1])
 def polynomial_degree(request):
     return request.param
 
 
-@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')(True), False],
+@pytest.fixture(params=[True, False],
                 ids=['warped', 'regular'])
 def warped(request):
     return request.param

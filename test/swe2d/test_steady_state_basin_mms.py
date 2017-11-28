@@ -322,9 +322,7 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False,
 # ---------------------------
 
 
-@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')(setup7),
-                        setup8,
-                        pytest.mark.not_travis(reason='travis timeout')(setup9)],
+@pytest.fixture(params=[setup7, setup8, setup9],
                 ids=["Setup7", "Setup8", "Setup9"])
 def setup(request):
     return request.param
@@ -333,10 +331,10 @@ def setup(request):
 @pytest.fixture(params=[
     {'element_family': 'dg-dg',
      'timestepper_type': 'CrankNicolson'},
-    pytest.mark.not_travis(reason='travis timeout')({'element_family': 'rt-dg',
-                                                     'timestepper_type': 'CrankNicolson'}),
-    pytest.mark.not_travis(reason='travis timeout')({'element_family': 'dg-cg',
-                                                     'timestepper_type': 'CrankNicolson'})],
+    {'element_family': 'rt-dg',
+     'timestepper_type': 'CrankNicolson'},
+    {'element_family': 'dg-cg',
+     'timestepper_type': 'CrankNicolson'}],
     ids=["dg-dg", "rt-dg", "dg-cg"]
 )
 def options(request):
