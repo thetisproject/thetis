@@ -5,6 +5,7 @@ from thetis import *
 from thetis.equation import Term, Equation
 from thetis.timeintegrator import *
 from thetis.rungekutta import *
+from thetis.implicitexplicit import *
 from abc import ABCMeta, abstractproperty, abstractmethod
 from scipy import stats
 import pytest
@@ -64,8 +65,9 @@ class SimpleODEEquation(Equation):
         self.a_test, self.b_test = TestFunctions(function_space)
         self.alpha = alpha
         if mode=='imex':
-            self.add_term_a(mode, 'explicit')
-            self.add_term_b(mode, 'implicit')
+            # solve one term implicitly, the other explicitly
+            self.add_term_a('explicit')
+            self.add_term_b('implicit')
         else:
             self.add_terms(mode)
 
@@ -106,9 +108,12 @@ def run(timeintegrator_class, refinement=1):
     alpha = 2*np.pi
 
     mode = 'explicit'
-    if (timeintegrator_class.cfl_coeff==CFL_UNCONDITIONALLY_STABLE or
+    cfl_coeff = timeintegrator_class.cfl_coeff if hasattr(timeintegrator_class, 'cfl_coeff') else None
+    if (cfl_coeff==CFL_UNCONDITIONALLY_STABLE or
             isinstance(timeintegrator_class, DIRKGeneric)):
         mode = 'implicit'
+    if (IMEXGeneric in timeintegrator_class.__bases__):
+        mode = 'imex'
     equation = SimpleODEEquation(fs, alpha, mode=mode)
 
     init_solution = [0, 1]
@@ -188,6 +193,10 @@ def run_convergence(timeintegrator_class, ref_list,
                              (ERKMidpoint, 2.0),
                              (ESDIRKMidpoint, 2.0),
                              (ESDIRKTrapezoid, 2.0),
+                             (IMEXLPUM2, 2.0),
+                             (IMEXLSPUM2, 2.0),
+                             (IMEXMidpoint, 2.0),
+                             (IMEXEuler, 1.0),
                          ])
 def test_timeintegrator_convergence(ti_class, convergence_rate):
     run_convergence(ti_class, [1, 2, 3, 4], convergence_rate)
