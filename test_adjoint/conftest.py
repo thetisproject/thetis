@@ -6,12 +6,6 @@ def pytest_addoption(parser):
                      help="Only run tests marked for Travis")
 
 
-def pytest_runtest_setup(item):
-    not_travis = item.get_marker("not_travis")
-    if not_travis is not None and item.config.getoption("--travis"):
-        pytest.skip("Skipping test marked not for Travis")
-
-
 # Print a progress "." once a minute when running in travis mode
 # This is an attempt to stop travis timing the builds out due to lack
 # of output.
