@@ -111,7 +111,7 @@ def compute_l2_error(refinement=1, quadratic=False, no_exports=True):
 
     g_grav = physical_constants['g_grav']
 
-    ana_sol_expr = g_grav*as_vector((
+    ana_sol_expr = -g_grav*as_vector((
         baroc_head_expr_dx,
         baroc_head_expr_dy,))
 

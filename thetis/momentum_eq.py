@@ -635,6 +635,9 @@ class InternalPressureGradientCalculator(MomentumTerm):
         \int_\Omega g \nabla_h r \cdot \boldsymbol{\psi} dx
             = - \int_\Omega g r \nabla_h \cdot \boldsymbol{\psi} dx
             + \int_{\mathcal{I}_h \cup \mathcal{I}_v} g \text{avg}(r) \text{jump}(\boldsymbol{\psi} \cdot \textbf{n}_h) dx
+
+    .. note ::
+        Due to the :class:`Term` sign convention this term is assembled on the right-hand-side.
     """
     def __init__(self, fields, options, bnd_functions, solver_parameters=None):
         """

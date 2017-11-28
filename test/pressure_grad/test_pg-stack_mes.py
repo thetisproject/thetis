@@ -167,7 +167,7 @@ def compute_l2_error(refinement=1, quadratic_pressure=False, quadratic_density=F
     bhead_dx_expr = a*b_dx*(c_xy + c_z) + a*b*c_xy_dx
     bhead_dy_expr = a*b_dy*(c_xy + c_z) + a*b*c_xy_dy
 
-    int_pg_expr = g_grav*as_vector((bhead_dx_expr, bhead_dy_expr))
+    int_pg_expr = -g_grav*as_vector((bhead_dx_expr, bhead_dy_expr))
 
     # error norms
     volume = comp_volume_3d(mesh)
