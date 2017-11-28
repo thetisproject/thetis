@@ -152,7 +152,7 @@ class PressureGradientTerm(MomentumTerm):
 
         f = (int_pg[0]*self.test[0] + int_pg[1]*self.test[1])*self.dx
 
-        return -f
+        return f
 
 
 class HorizontalAdvectionTerm(MomentumTerm):
@@ -327,11 +327,11 @@ class HorizontalViscosityTerm(MomentumTerm):
     Using the symmetric interior penalty method the weak form becomes
 
     .. math::
-        - \int_\Omega \nabla_h \cdot \left( \nu_h \nabla_h \textbf{u} \right) \cdot \boldsymbol{\psi} dx
-        =& \int_\Omega \nu_h (\nabla_h \boldsymbol{\psi}) : (\nabla_h \textbf{u})^T dx \\
-        &- \int_{\mathcal{I}_h \cup \mathcal{I}_v} \text{jump}(\boldsymbol{\psi} \textbf{n}_h) \cdot \text{avg}( \nu_h \nabla_h \textbf{u}) dS
-        - \int_{\mathcal{I}_h \cup \mathcal{I}_v} \text{jump}(\textbf{u} \textbf{n}_h) \cdot \text{avg}( \nu_h \nabla_h \boldsymbol{\psi}) dS \\
-        &+ \int_{\mathcal{I}_h \cup \mathcal{I}_v} \sigma \text{avg}(\nu_h) \text{jump}(\textbf{u} \textbf{n}_h) \cdot \text{jump}(\boldsymbol{\psi} \textbf{n}_h) dS
+        \int_\Omega \nabla_h \cdot \left( \nu_h \nabla_h \textbf{u} \right) \cdot \boldsymbol{\psi} dx
+        =& -\int_\Omega \nu_h (\nabla_h \boldsymbol{\psi}) : (\nabla_h \textbf{u})^T dx \\
+        &+ \int_{\mathcal{I}_h \cup \mathcal{I}_v} \text{jump}(\boldsymbol{\psi} \textbf{n}_h) \cdot \text{avg}( \nu_h \nabla_h \textbf{u}) dS
+        + \int_{\mathcal{I}_h \cup \mathcal{I}_v} \text{jump}(\textbf{u} \textbf{n}_h) \cdot \text{avg}( \nu_h \nabla_h \boldsymbol{\psi}) dS \\
+        &- \int_{\mathcal{I}_h \cup \mathcal{I}_v} \sigma \text{avg}(\nu_h) \text{jump}(\textbf{u} \textbf{n}_h) \cdot \text{jump}(\boldsymbol{\psi} \textbf{n}_h) dS
 
     where :math:`\sigma` is a penalty parameter,
     see Epshteyn and Riviere (2007).
@@ -339,9 +339,6 @@ class HorizontalViscosityTerm(MomentumTerm):
     Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
     interior penalty Galerkin methods. Journal of Computational and Applied
     Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
-
-    .. note ::
-        Note the minus sign due to :class:`.equation.Term` sign convention
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         viscosity_h = fields_old.get('viscosity_h')
@@ -414,11 +411,11 @@ class VerticalViscosityTerm(MomentumTerm):
     Using the symmetric interior penalty method the weak form becomes
 
     .. math::
-        - \int_\Omega \frac{\partial }{\partial z}\left( \nu \frac{\partial \textbf{u}}{\partial z}\right) \cdot \boldsymbol{\psi} dx
-        =& \int_\Omega \nu \frac{\partial \boldsymbol{\psi}}{\partial z} \cdot \frac{\partial \textbf{u}}{\partial z} dx \\
-        &- \int_{\mathcal{I}_h} \text{jump}(\boldsymbol{\psi} n_z) \cdot \text{avg}\left(\nu \frac{\partial \textbf{u}}{\partial z}\right) dS
-        - \int_{\mathcal{I}_h} \text{jump}(\textbf{u} n_z) \cdot \text{avg}\left(\nu \frac{\partial \boldsymbol{\psi}}{\partial z}\right) dS \\
-        &+ \int_{\mathcal{I}_h} \sigma \text{avg}(\nu) \text{jump}(\textbf{u} n_z) \cdot \text{jump}(\boldsymbol{\psi} n_z) dS
+        \int_\Omega \frac{\partial }{\partial z}\left( \nu \frac{\partial \textbf{u}}{\partial z}\right) \cdot \boldsymbol{\psi} dx
+        =& -\int_\Omega \nu \frac{\partial \boldsymbol{\psi}}{\partial z} \cdot \frac{\partial \textbf{u}}{\partial z} dx \\
+        &+ \int_{\mathcal{I}_h} \text{jump}(\boldsymbol{\psi} n_z) \cdot \text{avg}\left(\nu \frac{\partial \textbf{u}}{\partial z}\right) dS
+        + \int_{\mathcal{I}_h} \text{jump}(\textbf{u} n_z) \cdot \text{avg}\left(\nu \frac{\partial \boldsymbol{\psi}}{\partial z}\right) dS \\
+        &- \int_{\mathcal{I}_h} \sigma \text{avg}(\nu) \text{jump}(\textbf{u} n_z) \cdot \text{jump}(\boldsymbol{\psi} n_z) dS
 
     where :math:`\sigma` is a penalty parameter,
     see Epshteyn and Riviere (2007).
@@ -426,9 +423,6 @@ class VerticalViscosityTerm(MomentumTerm):
     Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
     interior penalty Galerkin methods. Journal of Computational and Applied
     Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
-
-    .. note ::
-        Note the minus sign due to :class:`.equation.Term` sign convention
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         viscosity_v = fields_old.get('viscosity_v')
@@ -492,7 +486,6 @@ class BottomFrictionTerm(MomentumTerm):
     field.
     The user can override the :math:`C_D` value by providing ``quadratic_drag_coefficient``
     field.
-
     """
     # TODO z_0 should be a field in the options dict, remove from physical_constants
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
@@ -576,9 +569,6 @@ class SourceTerm(MomentumTerm):
         F_w = \int_{\Gamma_s} \frac{1}{\rho_0} \tau_w \cdot \boldsymbol{\psi} dx
 
     Wind stress is only included if vertical viscosity is provided.
-
-    .. note ::
-        Due to the sign convention of :class:`.equation.Term`, this term is assembled to the left hand side of the equation
     """
     # TODO implement wind stress as a separate term
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
@@ -714,4 +704,4 @@ class InternalPressureGradientCalculator(MomentumTerm):
                                   Dx(bhead, 1)*self.test[1])
             f = g_grav * grad_head_dot_test * self.dx
 
-        return f
+        return -f

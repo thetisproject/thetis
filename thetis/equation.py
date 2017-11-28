@@ -12,7 +12,7 @@ class Term(object):
     Implements a single term of an equation.
 
     .. note::
-        Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
+        Sign convention: all terms are assumed to be on the right hand side of the equation: d(u)/dt = term.
     """
     def __init__(self, function_space):
         """
@@ -152,7 +152,7 @@ class Equation(object):
         """
         Returns an UFL form of the residual by summing up all the terms with the desired label.
 
-        Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
+        Sign convention: all terms are assumed to be on the right hand side of the equation: d(u)/dt = term.
 
         :arg label: string defining the type of terms to sum up. Currently one of
             'source'|'explicit'|'implicit'|'nonlinear'. Can be a list of multiple labels, or 'all' in which
@@ -174,7 +174,7 @@ class Equation(object):
         """
         Returns an UFL form of the Jacobian by summing up all the Jacobians of the terms.
 
-        Sign convention: all terms are assumed to be on the left hand side of the equation A + term = 0.
+        Sign convention: all terms are assumed to be on the right hand side of the equation: d(u)/dt = term.
 
         :arg label: string defining the type of terms to sum up. Currently one of
             'source'|'explicit'|'implicit'|'nonlinear'. Can be a list of multiple labels, or 'all' in which

@@ -247,13 +247,13 @@ class HorizontalDiffusionTerm(TracerTerm):
     Using the symmetric interior penalty method the weak form becomes
 
     .. math::
-        -\int_\Omega \nabla_h \cdot (\mu_h \nabla_h T) \phi dx
-        =& \int_\Omega \mu_h (\nabla_h \phi) \cdot (\nabla_h T) dx \\
-        &- \int_{\mathcal{I}_h\cup\mathcal{I}_v} \text{jump}(\phi \textbf{n}_h)
+        \int_\Omega \nabla_h \cdot (\mu_h \nabla_h T) \phi dx
+        =& -\int_\Omega \mu_h (\nabla_h \phi) \cdot (\nabla_h T) dx \\
+        &+ \int_{\mathcal{I}_h\cup\mathcal{I}_v} \text{jump}(\phi \textbf{n}_h)
         \cdot \text{avg}(\mu_h \nabla_h T) dS
-        - \int_{\mathcal{I}_h\cup\mathcal{I}_v} \text{jump}(T \textbf{n}_h)
+        + \int_{\mathcal{I}_h\cup\mathcal{I}_v} \text{jump}(T \textbf{n}_h)
         \cdot \text{avg}(\mu_h  \nabla \phi) dS \\
-        &+ \int_{\mathcal{I}_h\cup\mathcal{I}_v} \sigma \text{avg}(\mu_h) \text{jump}(T \textbf{n}_h) \cdot
+        &- \int_{\mathcal{I}_h\cup\mathcal{I}_v} \sigma \text{avg}(\mu_h) \text{jump}(T \textbf{n}_h) \cdot
             \text{jump}(\phi \textbf{n}_h) dS
 
     where :math:`\sigma` is a penalty parameter,
@@ -262,9 +262,6 @@ class HorizontalDiffusionTerm(TracerTerm):
     Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
     interior penalty Galerkin methods. Journal of Computational and Applied
     Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
-
-    .. note ::
-        Note the minus sign due to :class:`.equation.Term` sign convention
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_h') is None:
@@ -323,11 +320,11 @@ class VerticalDiffusionTerm(TracerTerm):
     Using the symmetric interior penalty method the weak form becomes
 
     .. math::
-        -\int_\Omega \frac{\partial}{\partial z} \Big(\mu \frac{T}{\partial z}\Big) \phi dx
-        =& \int_\Omega \mu \frac{\partial T}{\partial z} \frac{\partial \phi}{\partial z} dz \\
-        &- \int_{\mathcal{I}_{h}} \text{jump}(\phi n_z) \text{avg}\Big(\mu \frac{\partial T}{\partial z}\Big) dS
-        - \int_{\mathcal{I}_{h}} \text{jump}(T n_z) \text{avg}\Big(\mu \frac{\partial \phi}{\partial z}\Big) dS \\
-        &+ \int_{\mathcal{I}_{h}} \sigma \text{avg}(\mu) \text{jump}(T n_z) \cdot
+        \int_\Omega \frac{\partial}{\partial z} \Big(\mu \frac{T}{\partial z}\Big) \phi dx
+        =& -\int_\Omega \mu \frac{\partial T}{\partial z} \frac{\partial \phi}{\partial z} dz \\
+        &+ \int_{\mathcal{I}_{h}} \text{jump}(\phi n_z) \text{avg}\Big(\mu \frac{\partial T}{\partial z}\Big) dS
+        + \int_{\mathcal{I}_{h}} \text{jump}(T n_z) \text{avg}\Big(\mu \frac{\partial \phi}{\partial z}\Big) dS \\
+        &- \int_{\mathcal{I}_{h}} \sigma \text{avg}(\mu) \text{jump}(T n_z) \cdot
             \text{jump}(\phi n_z) dS
 
     where :math:`\sigma` is a penalty parameter,
@@ -336,9 +333,6 @@ class VerticalDiffusionTerm(TracerTerm):
     Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
     interior penalty Galerkin methods. Journal of Computational and Applied
     Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
-
-    .. note ::
-        Note the minus sign due to :class:`.equation.Term` sign convention
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_v') is None:
@@ -388,16 +382,13 @@ class SourceTerm(TracerTerm):
         F_s = \int_\Omega \sigma \phi dx
 
     where :math:`\sigma` is a user defined scalar :class:`Function`.
-
-    .. note ::
-        Due to the sign convention of :class:`.equation.Term`, this term is assembled to the left hand side of the equation
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
         source = fields_old.get('source')
         if source is not None:
-            f += -inner(source, self.test)*self.dx
-        return -f
+            f += inner(source, self.test)*self.dx
+        return f
 
 
 class TracerEquation(Equation):
