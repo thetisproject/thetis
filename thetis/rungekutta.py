@@ -554,7 +554,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
 
         Tendencies must have been evaluated first.
         """
-        self.solution += self.sol_expressions[i_stage]
+        self.solution.assign(self.solution_old + self.sol_expressions[i_stage])
 
     def solve_tendency(self, i_stage, t, update_forcings=None):
         """
