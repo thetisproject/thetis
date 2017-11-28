@@ -637,7 +637,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
         """
         super(ERKGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
-
+        self._initialized = False
         self.solution_old = Function(self.equation.function_space, name='old solution')
 
         self.tendency = []
@@ -673,6 +673,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
+        self._initialized = True
 
     def update_solution(self, i_stage, additive=False):
         """
@@ -1058,8 +1059,4 @@ class ERKEuler(ERKGeneric, ForwardEulerAbstract):
 
 
 class ERKEulerALE(ERKGenericALE2, ForwardEulerAbstract):
-    pass
-
-
-class DIRKEuler(DIRKGeneric, BackwardEulerAbstract):
     pass

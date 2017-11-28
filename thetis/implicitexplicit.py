@@ -155,4 +155,4 @@ class IMEXEuler(IMEXGeneric):
     Forward-Backward Euler
     """
     erk_class = ERKEuler
-    dirk_class = DIRKEuler
+    dirk_class = BackwardEuler

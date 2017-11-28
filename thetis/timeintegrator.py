@@ -125,7 +125,6 @@ class ForwardEuler(TimeIntegrator):
 
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
-        self.dt_const.assign(dt)
         if update_forcings is not None:
             update_forcings(t + self.dt)
         self.solution_old.assign(self.solution)
@@ -476,8 +475,11 @@ class LeapFrogAM3(TimeIntegrator):
         self.msolution_old = Function(fs, name='dual solution')
         self.rhs_func = Function(fs, name='rhs linear form')
 
-        continuity = element_continuity(fs.ufl_element())
-        self.fs_is_dg = continuity.horizontal == 'dg' and continuity.vertical == 'dg'
+        try:
+            continuity = element_continuity(fs.ufl_element())
+            self.fs_is_dg = continuity.horizontal == 'dg' and continuity.vertical == 'dg'
+        except Exception:
+            self.fs_is_dg = False
 
         # fully explicit evaluation
         self.a = self.equation.mass_term(self.equation.trial)
@@ -629,6 +631,7 @@ class SSPRK22ALE(TimeIntegrator):
                                                       bnd_conditions)
         self.mu_form = inner(self.solution, self.equation.test)*dx
         self._nontrivial = self.l != 0
+        self._initialized = False
 
         self.n_stages = 2
         self.c = [0, 1]
@@ -640,6 +643,7 @@ class SSPRK22ALE(TimeIntegrator):
         mass_matrix = assemble(self.a)
         self.lin_solver = LinearSolver(mass_matrix,
                                        solver_parameters=self.solver_parameters)
+        self._initialized = True
 
     def stage_one_prep(self):
         """
@@ -730,6 +734,8 @@ class SSPRK22ALE(TimeIntegrator):
 
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
+        if not self._initialized:
+            self.initialize(self.solution)
         for i_stage in range(self.n_stages):
             self.prepare_stage(i_stage, t, update_forcings)
             self.solve_stage(i_stage)
