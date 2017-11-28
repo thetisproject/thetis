@@ -786,7 +786,7 @@ class BathymetryDisplacementMassTerm(ShallowWaterContinuityTerm):
         f = 0
         if self.options.use_wetting_and_drying:
             f += inner(self.wd_bathymetry_displacement(eta), self.eta_test)*self.dx
-        return f
+        return -f
 
 
 class BaseShallowWaterEquation(Equation):
@@ -856,7 +856,7 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
 
     def mass_term(self, solution):
         f = super(ShallowWaterEquations, self).mass_term(solution)
-        f += self.bathymetry_displacement_mass_term.residual(solution)
+        f += -self.bathymetry_displacement_mass_term.residual(solution)
         return f
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
@@ -933,7 +933,7 @@ class FreeSurfaceEquation(BaseShallowWaterEquation):
 
     def mass_term(self, solution):
         f = super(ShallowWaterEquations, self).mass_term(solution)
-        f += self.bathymetry_displacement_mass_term.residual(solution)
+        f += -self.bathymetry_displacement_mass_term.residual(solution)
         return f
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
