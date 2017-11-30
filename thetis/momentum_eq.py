@@ -152,7 +152,7 @@ class PressureGradientTerm(MomentumTerm):
 
         f = (int_pg[0]*self.test[0] + int_pg[1]*self.test[1])*self.dx
 
-        return f
+        return -f
 
 
 class HorizontalAdvectionTerm(MomentumTerm):
@@ -657,8 +657,8 @@ class InternalPressureGradientCalculator(MomentumTerm):
         fields = {
             'baroc_head': self.fields.baroc_head_3d,
         }
-        l = self.residual(solution, solution, fields, fields,
-                          bnd_conditions=bnd_functions)
+        l = -self.residual(solution, solution, fields, fields,
+                           bnd_conditions=bnd_functions)
         trial = TrialFunction(self.function_space)
         a = inner(trial, self.test) * self.dx
         prob = LinearVariationalProblem(a, l, solution)
