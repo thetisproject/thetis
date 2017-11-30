@@ -230,8 +230,8 @@ def print_latex_expressions():
     _g = sympy.symbols('g', positive=True)
 
     def for_latex(e):
-        o = e.subs(x, _x).subs(y, _y).subs(z, _z).subs(lx, _lx).subs(ly, _ly).subs(depth, _depth).subs(g, _g)
-        o = o.subs(eos_alpha, _eos_alpha).subs(eos_beta, _eos_beta).subs(eos_t0, _eos_t0).subs(eos_s0, _eos_s0).subs(rho0, _rho0).subs(salt0, _salt0)
+        o = e.subs([(x, _x), (y, _y), (z, _z), (lx, _lx), (ly, _ly), (depth, _depth), (g, _g)])
+        o = o.subs([(eos_alpha, _eos_alpha), (eos_beta, _eos_beta), (eos_t0, _eos_t0), (eos_s0, _eos_s0), (rho0, _rho0), (salt0, _salt0)])
         return sympy.simplify(o)
 
     print('\nAnalytical functions:\n')
