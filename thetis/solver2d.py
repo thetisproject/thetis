@@ -233,6 +233,16 @@ class FlowSolver2d(FrozenClass):
             self.options
         )
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
+
+        if self.options.timestepper_type == 'PressureProjectionPicard':
+            u_test = TestFunction(self.function_spaces.U_2d)
+            self.eq_mom = shallowwater_eq.ShallowWaterMomentumEquation(
+                u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
+                self.fields.bathymetry_2d,
+                options=self.options
+            )
+            self.eq_mom.bnd_functions = self.bnd_functions['shallow_water']
+
         self._isfrozen = True  # disallow creating new attributes
 
     def create_timestepper(self):
@@ -310,13 +320,6 @@ class FlowSolver2d(FrozenClass):
                                                           solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type == 'PressureProjectionPicard':
 
-            u_test = TestFunction(self.function_spaces.U_2d)
-            self.eq_mom = shallowwater_eq.ShallowWaterMomentumEquation(
-                u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
-                self.fields.bathymetry_2d,
-                options=self.options
-            )
-            self.eq_mom.bnd_functions = self.bnd_functions['shallow_water']
             self.timestepper = timeintegrator.PressureProjectionPicard(self.eq_sw, self.eq_mom, self.fields.solution_2d,
                                                                        fields, self.dt,
                                                                        bnd_conditions=self.bnd_functions['shallow_water'],
