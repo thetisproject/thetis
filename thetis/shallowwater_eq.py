@@ -557,9 +557,6 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
     Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
     interior penalty Galerkin methods. Journal of Computational and Applied
     Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
-
-    .. note ::
-        Note the minus sign due to :class:`.equation.Term` sign convention
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
@@ -648,8 +645,8 @@ class WindStressTerm(ShallowWaterMomentumTerm):
         total_h = self.get_total_depth(eta_old)
         f = 0
         if wind_stress is not None:
-            f += -dot(wind_stress, self.u_test)/total_h/rho_0*self.dx
-        return -f
+            f += dot(wind_stress, self.u_test)/total_h/rho_0*self.dx
+        return f
 
 
 class AtmosphericPressureTerm(ShallowWaterMomentumTerm):
@@ -741,17 +738,14 @@ class MomentumSourceTerm(ShallowWaterMomentumTerm):
         F_s = \int_\Omega \boldsymbol{\tau} \cdot \boldsymbol{\psi} dx
 
     where :math:`\boldsymbol{\tau}` is a user defined vector valued :class:`Function`.
-
-    .. note ::
-        Due to the sign convention of :class:`.equation.Term`, this term is assembled to the left hand side of the equation
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
         momentum_source = fields_old.get('momentum_source')
 
         if momentum_source is not None:
-            f += -inner(momentum_source, self.u_test)*self.dx
-        return -f
+            f += inner(momentum_source, self.u_test)*self.dx
+        return f
 
 
 class ContinuitySourceTerm(ShallowWaterContinuityTerm):
@@ -764,17 +758,14 @@ class ContinuitySourceTerm(ShallowWaterContinuityTerm):
         F_s = \int_\Omega S \phi dx
 
     where :math:`S` is a user defined scalar :class:`Function`.
-
-    .. note ::
-        Due to the sign convention of :class:`.equation.Term`, this term is assembled to the left hand side of the equation
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
         volume_source = fields_old.get('volume_source')
 
         if volume_source is not None:
-            f += -inner(volume_source, self.eta_test)*self.dx
-        return -f
+            f += inner(volume_source, self.eta_test)*self.dx
+        return f
 
 
 class BathymetryDisplacementMassTerm(ShallowWaterContinuityTerm):
@@ -795,7 +786,7 @@ class BathymetryDisplacementMassTerm(ShallowWaterContinuityTerm):
         f = 0
         if self.options.use_wetting_and_drying:
             f += inner(self.wd_bathymetry_displacement(eta), self.eta_test)*self.dx
-        return f
+        return -f
 
 
 class BaseShallowWaterEquation(Equation):
@@ -865,7 +856,7 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
 
     def mass_term(self, solution):
         f = super(ShallowWaterEquations, self).mass_term(solution)
-        f += self.bathymetry_displacement_mass_term.residual(solution)
+        f += -self.bathymetry_displacement_mass_term.residual(solution)
         return f
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
@@ -942,7 +933,7 @@ class FreeSurfaceEquation(BaseShallowWaterEquation):
 
     def mass_term(self, solution):
         f = super(ShallowWaterEquations, self).mass_term(solution)
-        f += self.bathymetry_displacement_mass_term.residual(solution)
+        f += -self.bathymetry_displacement_mass_term.residual(solution)
         return f
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
