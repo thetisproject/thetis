@@ -475,11 +475,8 @@ class LeapFrogAM3(TimeIntegrator):
         self.msolution_old = Function(fs, name='dual solution')
         self.rhs_func = Function(fs, name='rhs linear form')
 
-        try:
-            continuity = element_continuity(fs.ufl_element())
-            self.fs_is_dg = continuity.horizontal == 'dg' and continuity.vertical == 'dg'
-        except Exception:
-            self.fs_is_dg = False
+        continuity = element_continuity(fs.ufl_element())
+        self.fs_is_dg = continuity.horizontal == 'dg' and continuity.vertical == 'dg'
 
         # fully explicit evaluation
         self.a = self.equation.mass_term(self.equation.trial)

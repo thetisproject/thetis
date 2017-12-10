@@ -135,6 +135,8 @@ def element_continuity(ufl_element):
         'Raviart-Thomas': 'hdiv',
     }
 
+    if isinstance(elem, ufl.finiteelement.mixedelement.MixedElement):
+        elem = elem.sub_elements()[0]
     if isinstance(elem, ufl.finiteelement.mixedelement.VectorElement):
         elem = elem.sub_elements()[0]  # take the elem of first component
     if isinstance(elem, ufl.finiteelement.tensorproductelement.TensorProductElement):
