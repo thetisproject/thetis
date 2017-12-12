@@ -25,6 +25,11 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
         'pc_type': 'fieldsplit',
         'pc_fieldsplit_type': 'multiplicative',
     }).tag(config=True)
+    solver_parameters_tracer = PETScSolverParameters({
+        'ksp_type': 'gmres',
+        'pc_type': 'fieldsplit',
+        'pc_fieldsplit_type': 'multiplicative',
+    }).tag(config=True)
 
 
 class SteadyStateTimestepperOptions2d(TimeStepperOptions):
@@ -351,6 +356,11 @@ class CommonModelOptions(FrozenConfigurable):
         True, help="use Lax Friedrichs stabilisation in horizontal momentum advection.").tag(config=True)
     lax_friedrichs_velocity_scaling_factor = FiredrakeConstant(
         Constant(1.0), help="Scaling factor for Lax Friedrichs stabilisation term in horiozonal momentum advection.").tag(config=True)
+    use_lax_friedrichs_tracer = Bool(
+        True, help="Use Lax Friedrichs stabilisation in tracer advection.").tag(config=True)
+    lax_friedrichs_tracer_scaling_factor = FiredrakeConstant(
+        Constant(1.0), help="Scaling factor for tracer Lax Friedrichs stability term.").tag(config=True)
+
     check_volume_conservation_2d = Bool(
         False, help="""
         Compute volume of the 2D mode at every export
@@ -437,6 +447,8 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Source term for 2D momentum equation").tag(config=True)
     volume_source_2d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for 2D continuity equation").tag(config=True)
+    tracer_source_2d = FiredrakeCoefficient(
+        None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
 
 
 # NOTE all parameters are now case sensitive
@@ -459,6 +471,7 @@ class CommonModelOptions(FrozenConfigurable):
 class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
     name = 'Depth-averaged 2D model'
+    solve_tracer = Bool(True, help='Solve salinity transport').tag(config=True)
     use_wetting_and_drying = Bool(
         False, help=r"""bool: Turn on wetting and drying
 
