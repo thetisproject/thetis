@@ -8,6 +8,8 @@ from . import timeintegrator
 from . import rungekutta
 from . import implicitexplicit
 from . import coupled_timeintegrator_2d
+from . import tracer_eq_2d
+import weakref
 import time as time_mod
 from mpi4py import MPI
 from . import exporter
@@ -125,7 +127,7 @@ class FlowSolver2d(FrozenClass):
         self.export_initial_state = True
         """Do export initial state. False if continuing a simulation"""
 
-        self.bnd_functions = {'shallow_water': {}}
+        self.bnd_functions = {'shallow_water': {}, 'tracer': {}}
 
         self._isfrozen = True
 
@@ -238,7 +240,7 @@ class FlowSolver2d(FrozenClass):
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         if self.options.solve_tracer:
             self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
-            self.eq_tracer.TracerEquation2D(self.function_spaces.Q_2d, bathymetry=self.fields.bathymetry_2d,
+            self.eq_tracer = tracer_eq_2d.TracerEquation2D(self.function_spaces.Q_2d, bathymetry=self.fields.bathymetry_2d,
                                             use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
             self.eq_tracer.bnd_functions = self.bnd_functions['tracer']
         self._isfrozen = True  # disallow creating new attributes
@@ -395,7 +397,7 @@ class FlowSolver2d(FrozenClass):
             self.create_exporters()
         self._initialized = True
 
-    def assign_initial_conditions(self, elev=None, uv=None):
+    def assign_initial_conditions(self, elev=None, uv=None, tracer=None):
         """
         Assigns initial conditions
 
@@ -411,6 +413,8 @@ class FlowSolver2d(FrozenClass):
             elev_2d.project(elev)
         if uv is not None:
             uv_2d.project(uv)
+        if tracer is not None and self.options.solve_tracer:
+            self.fields.tracer_2d.project(tracer)
 
         self.timestepper.initialize(self.fields.solution_2d)
 

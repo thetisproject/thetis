@@ -27,8 +27,7 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
     }).tag(config=True)
     solver_parameters_tracer = PETScSolverParameters({
         'ksp_type': 'gmres',
-        'pc_type': 'fieldsplit',
-        'pc_fieldsplit_type': 'multiplicative',
+        'pc_type': 'ilu',
     }).tag(config=True)
 
 
@@ -449,6 +448,8 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Source term for 2D continuity equation").tag(config=True)
     tracer_source_2d = FiredrakeCoefficient(
         None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
+    horizontal_diffusivity = FiredrakeCoefficient(
+        None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
 
 
 # NOTE all parameters are now case sensitive

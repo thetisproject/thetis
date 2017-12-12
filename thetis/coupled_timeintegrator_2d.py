@@ -36,7 +36,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self.fields = solver.fields
         self.timesteppers = AttrDict()
         print_output('Coupled time integrator: {:}'.format(self.__class__.__name__))
-        print_output('  2D time integrator: {:}'.format(self.integrator_2d.__name__))
+        print_output('  Shallow Water time integrator: {:}'.format(self.swe_integrator.__name__))
+        print_output('  Tracer time integrator: {:}'.format(self.tracer_integrator.__name__))
         self._initialized = False
 
         self._create_integrators()
@@ -46,22 +47,25 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         Create time integrator for 2D system
         """
         solver = self.solver
-        momentum_source_2d = solver.fields.split_residual_2d
-        if self.options.momentum_source_2d is not None:
-            momentum_source_2d = solver.fields.split_residual_2d + self.options.momentum_source_2d
         fields = {
+            'linear_drag_coefficient': self.options.linear_drag_coefficient,
+            'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
+            'manning_drag_coefficient': self.options.manning_drag_coefficient,
+            'viscosity_h': self.options.horizontal_viscosity,
+            'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
             'coriolis': self.options.coriolis_frequency,
-            'momentum_source': momentum_source_2d,
-            'volume_source': self.options.volume_source_2d,
+            'wind_stress': self.options.wind_stress,
             'atmospheric_pressure': self.options.atmospheric_pressure,
-        }
+            'momentum_source': self.options.momentum_source_2d,
+            'volume_source': self.options.volume_source_2d, }
+
 
         if issubclass(self.swe_integrator, (rungekutta.ERKSemiImplicitGeneric)):
             self.timesteppers.swe2d = self.swe_integrator(
                 solver.eq_sw, self.fields.solution_2d,
                 fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['shallow_water'],
-                solver_parameters=self.options.timestepper_options.solver_parameters_2d_swe,
+                solver_parameters=self.options.timestepper_options.solver_parameters,
                 semi_implicit=True,
                 theta=self.options.timestepper_options.implicitness_theta_2d)
         else:
@@ -69,7 +73,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
                 solver.eq_sw, self.fields.solution_2d,
                 fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['shallow_water'],
-                solver_parameters=self.options.timestepper_options.solver_parameters_2d_swe)
+                solver_parameters=self.options.timestepper_options.solver_parameters)
 
     def _create_tracer_integrator(self):
         """
@@ -78,9 +82,10 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         solver = self.solver
 
         if self.solver.options.solve_tracer:
-            fields = {'elev_2d': self.fields.elev_2d,
-                      'uv_2d': self.fields.uv_2d,
-                      'diffusivity_h': self.solver.tot_h_diff.get_sum(),
+            uv, elev = self.fields.solution_2d.split()
+            fields = {'elev_2d': elev,
+                      'uv_2d': uv,
+                      'diffusivity_h': self.options.horizontal_diffusivity,
                       'source': self.options.tracer_source_2d,
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                       }
@@ -106,12 +111,17 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         for stepper in sorted(self.timesteppers):
             self.timesteppers[stepper].set_dt(dt)
 
-    def initialize(self):
+    def initialize(self, solution2d):
         """
         Assign initial conditions to all necessary fields
 
         Initial conditions are read from :attr:`fields` dictionary.
         """
+
+        # solution2d is only provided to make a timeintegrator of just the swe
+        # compatible with the 2d coupled timeintegrator
+        assert solution2d==self.fields.solution_2d
+
         self.timesteppers.swe2d.initialize(self.fields.solution_2d)
         if self.options.solve_tracer:
             self.timesteppers.tracer.initialize(self.fields.tracer_2d)
@@ -119,8 +129,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self._initialized = True
 
     def advance(self, t, update_forcings=None):
-        self.timesteppers.swe2d.advance(t, update_forcing=update_forcings)
-        self.timesteppers.tracer.advance(t, update_forcing=update_forcings)
+        self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
+        self.timesteppers.tracer.advance(t, update_forcings=update_forcings)
 
 
 class CoupledCrankNicolson2D(CoupledTimeIntegrator2D):

@@ -145,7 +145,7 @@ class HorizontalAdvectionTerm(TracerTerm):
                 elif uv_mag is not None:
                     gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
                 else:
-                    raise Exception('either uv_p1 or uv_mag must be given')
+                    gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                 f += gamma*dot(jump(self.test), jump(solution))*(self.dS) 
             if bnd_conditions is not None:
                 for bnd_marker in self.boundary_markers:
