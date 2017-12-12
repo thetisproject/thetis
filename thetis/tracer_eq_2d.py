@@ -32,17 +32,15 @@ class TracerTerm(Term):
     boundary functions.
     """
     def __init__(self, function_space,
-                 bathymetry=None, h_elem_size=None, use_lax_friedrichs=True):   
+                 bathymetry=None, use_lax_friedrichs=True):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
         :type bathymetry: 3D :class:`Function` or :class:`Constant`
-        :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
-            element size
         """
         super(TracerTerm, self).__init__(function_space)
         self.bathymetry = bathymetry
-        self.h_elem_size = h_elem_size
+        self.cellsize = CellSize(self.mesh)
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
         self.use_lax_friedrichs = use_lax_friedrichs
@@ -208,7 +206,6 @@ class HorizontalDiffusionTerm(TracerTerm):
         f += inner(grad_test, diff_flux)*self.dx
 
         if self.horizontal_dg:
-            assert self.h_elem_size is not None, 'h_elem_size must be defined'
             # Interior Penalty method by
             # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
             # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
@@ -221,12 +218,9 @@ class HorizontalDiffusionTerm(TracerTerm):
        # TODO check if this is needed in 2-D :
 
             degree_h  = self.function_space.ufl_element().degree()
-            # TODO compute elemsize as CellVolume/FacetArea
-            elemsize = (self.h_elem_size*(self.normal[0]**2 +
-                                          self.normal[1]**2)) 
-            sigma = 5.0*degree_h*(degree_h + 1)/elemsize
+            sigma = 5.0*degree_h*(degree_h + 1)/self.cellsize
             if degree_h == 0:
-                sigma = 1.5/elemsize
+                sigma = 1.5 / self.cellsize
             alpha = avg(sigma)
             ds_interior = (self.dS) 
             f += alpha*inner(jump(self.test, self.normal),
@@ -265,21 +259,19 @@ class TracerEquation2D(Equation):
     3D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
     def __init__(self, function_space,
-                 bathymetry=None, h_elem_size=None,
+                 bathymetry=None,
                  use_lax_friedrichs=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
         :type bathymetry: 2D :class:`Function` or :class:`Constant`
-        :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
-            element size
+
         :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
             condition in the horizontal advection term
         """
         super(TracerEquation2D, self).__init__(function_space)
 
-        args = (function_space, bathymetry,
-                h_elem_size,  use_lax_friedrichs)
+        args = (function_space, bathymetry, use_lax_friedrichs)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')

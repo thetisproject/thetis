@@ -7,6 +7,7 @@ from . import shallowwater_eq
 from . import timeintegrator
 from . import rungekutta
 from . import implicitexplicit
+from . import coupled_timeintegrator_2d
 import time as time_mod
 from mpi4py import MPI
 from . import exporter
@@ -212,6 +213,8 @@ class FlowSolver2d(FrozenClass):
             raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d])
 
+        self.function_spaces.Q_2d = FunctionSpace(self.mesh2d, 'DG', 1, name='Q_2d')
+
         self._isfrozen = True
 
     def create_equations(self):
@@ -233,6 +236,11 @@ class FlowSolver2d(FrozenClass):
             self.options
         )
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
+        if self.options.solve_tracer:
+            self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
+            self.eq_tracer.TracerEquation2D(self.function_spaces.Q_2d, bathymetry=self.fields.bathymetry_2d,
+                                            use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
+            self.eq_tracer.bnd_functions = self.bnd_functions['tracer']
         self._isfrozen = True  # disallow creating new attributes
 
     def create_timestepper(self):
@@ -279,7 +287,10 @@ class FlowSolver2d(FrozenClass):
                                                         bnd_conditions=self.bnd_functions['shallow_water'],
                                                         solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type == 'CrankNicolson':
-            self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
+            if self.options.solve_tracer:
+                self.timestepper = coupled_timeintegrator_2d.CoupledCrankNicolson2D(weakref.proxy(self))
+            else:
+                self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
                                                             fields, self.dt,
                                                             bnd_conditions=self.bnd_functions['shallow_water'],
                                                             solver_parameters=self.options.timestepper_options.solver_parameters,
