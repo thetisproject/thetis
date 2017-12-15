@@ -191,26 +191,6 @@ class CrankNicolsonAbstract(AbstractRKScheme):
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
 
-class ERKTrapezoidAbstract(AbstractRKScheme):
-    r"""
-    Explicit Trapezoid scheme
-
-    This method has the Butcher tableau
-
-    .. math::
-        \begin{array}{c|cc}
-        0.0 & 0.0 & 0.0 \\
-        1.0 & 1.0 & 0.0 \\ \hline
-            & 0.5 & 0.5
-        \end{array}
-    """
-    a = [[0.0, 0.0],
-         [1.0, 0.0]]
-    b = [0.5, 0.5]
-    c = [0.0, 1.0]
-    cfl_coeff = 1.0
-
-
 class DIRK22Abstract(AbstractRKScheme):
     r"""
     2-stage, 2nd order, L-stable Diagonally Implicit Runge Kutta method
@@ -554,7 +534,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
 
         Tendencies must have been evaluated first.
         """
-        self.solution += self.sol_expressions[i_stage]
+        self.solution.assign(self.solution_old + self.sol_expressions[i_stage])
 
     def solve_tendency(self, i_stage, t, update_forcings=None):
         """
@@ -637,7 +617,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
         """
         super(ERKGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
-
+        self._initialized = False
         self.solution_old = Function(self.equation.function_space, name='old solution')
 
         self.tendency = []
@@ -673,6 +653,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
+        self._initialized = True
 
     def update_solution(self, i_stage, additive=False):
         """
@@ -795,221 +776,7 @@ class ERKGenericShuOsher(TimeIntegrator):
             self.solve_stage(i, t, update_forcings)
 
 
-class ERKGenericALE2(RungeKuttaTimeIntegrator):
-    """
-    Generic explicit Runge-Kutta time integrator for conservative ALE schemes.
-
-    Implements the Butcher tableau.
-    """
-
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters={}):
-        """
-        :arg equation: the equation to solve
-        :type equation: :class:`Equation` object
-        :arg solution: :class:`Function` where solution will be stored
-        :arg fields: Dictionary of fields that are passed to the equation
-        :type fields: dict of :class:`Function` or :class:`Constant` objects
-        :arg float dt: time step in seconds
-        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :kwarg dict solver_parameters: PETSc solver options
-        """
-        super(ERKGenericALE2, self).__init__(equation, solution, fields, dt, solver_parameters)
-
-        self.l_form = Function(self.equation.function_space, name='linear form')
-        self.msol_old = Function(self.equation.function_space, name='old dual solution')
-        self.stage_mk = []  # mass_matrix*tendency
-        for i in range(self.n_stages):
-            s = Function(self.equation.function_space, name='dual tendency {:}'.format(i))
-            self.stage_mk.append(s)
-
-        # fully explicit evaluation
-        self.a_rk = self.equation.mass_term(self.equation.trial)
-        self.l_rk = self.dt_const*self.equation.residual('all', self.solution, self.solution, self.fields, self.fields, bnd_conditions)
-        self.mass_term = self.equation.mass_term(self.solution)
-
-        self._nontrivial = self.l_rk != 0
-
-        # construct expressions for stage solutions
-        self.sol_expressions = []
-        if self._nontrivial:
-            for i_stage in range(self.n_stages):
-                sol_expr = self.msol_old + sum(map(operator.mul, self.stage_mk[:i_stage], self.a[i_stage][:i_stage]))
-                self.sol_expressions.append(sol_expr)
-        self.final_sol_expr = self.msol_old + sum(map(operator.mul, self.stage_mk, self.b))
-
-        self.update_solver()
-
-    def update_solver(self):
-        if self._nontrivial:
-            self.A = assemble(self.a_rk)
-
-    def initialize(self, solution):
-        """Assigns initial conditions to all required fields."""
-        assemble(self.mass_term, self.msol_old)
-
-    def update_solution(self, i_stage):
-        """
-        Computes the solution of the i-th stage
-
-        Tendencies must have been evaluated first.
-        """
-        if self._nontrivial:
-            # construct full form: L = c*dt*F + M_n*sol_n + ...
-            self.l_form.assign(self.sol_expressions[i_stage])
-
-            assemble(self.a_rk, self.A)
-            solve(self.A, self.solution, self.l_form)
-
-    def solve_tendency(self, i_stage, t, update_forcings=None):
-        """
-        Evaluates the tendency of i-th stage
-        """
-        if self._nontrivial:
-            if update_forcings is not None:
-                update_forcings(t + self.c[i_stage]*self.dt)
-            assemble(self.l_rk, self.stage_mk[i_stage])
-
-    def get_final_solution(self):
-        """Assign final solution to :attr:`self.solution` """
-        if self._nontrivial:
-            self.l_form.assign(self.final_sol_expr)
-            assemble(self.a_rk, self.A)
-            solve(self.A, self.solution, self.l_form)
-            assemble(self.mass_term, self.msol_old)
-
-    def solve_stage(self, i_stage, t, update_forcings=None):
-        """Solve i-th stage and assign solution to :attr:`self.solution`."""
-        self.update_solution(i_stage)
-        self.solve_tendency(i_stage, t, update_forcings)
-        if i_stage == self.n_stages - 1:
-            self.get_final_solution()
-
-
-class ERKSemiImplicitGeneric(RungeKuttaTimeIntegrator):
-    """
-    Generic implementation of semi-implicit RK schemes.
-
-    If semi_implicit=True, this corresponds to a linearized semi-implicit
-    scheme. The linearization must be defined in the equation using solution and
-    solution_old functions: residual = residual(solution, solution_old)
-
-    If semi_implicit=False, this corresponds to a fully non-linear scheme:
-    residual = residual(solution, solution)
-    """
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
-                 solver_parameters={}, semi_implicit=False, theta=0.5):
-        """
-        :arg equation: the equation to solve
-        :type equation: :class:`Equation` object
-        :arg solution: :class:`Function` where solution will be stored
-        :arg fields: Dictionary of fields that are passed to the equation
-        :type fields: dict of :class:`Function` or :class:`Constant` objects
-        :arg float dt: time step in seconds
-        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
-        :kwarg dict solver_parameters: PETSc solver options
-        :kwarg bool semi_implicit: If True use a linearized semi-implicit scheme
-        :kwarg float theta: Implicitness parameter, default 0.5
-        """
-        super(ERKSemiImplicitGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
-
-        assert self.n_stages == 3, 'This method supports only for 3 stages'
-
-        self.solver_parameters.setdefault('snes_monitor', False)
-        if semi_implicit:
-            self.solver_parameters.setdefault('snes_type', 'ksponly')
-        else:
-            self.solver_parameters.setdefault('snes_type', 'newtonls')
-
-        self.theta = Constant(theta)
-
-        self.solution_old = Function(self.equation.function_space, name='old solution')
-
-        self.stage_sol = []
-        for i in range(self.n_stages - 1):
-            s = Function(self.equation.function_space, name='solution stage {:}'.format(i))
-            self.stage_sol.append(s)
-        self.stage_sol.append(self.solution)
-
-        sol_nl = [None]*self.n_stages
-        if semi_implicit:
-            # linearize around previous sub-timestep using the fact that all
-            # terms are written in the form A(u_nl) u
-            sol_nl[0] = self.solution_old
-            sol_nl[1] = self.stage_sol[0]
-            sol_nl[2] = self.stage_sol[1]
-        else:
-            # solve the full nonlinear residual form
-            sol_nl[0] = self.stage_sol[0]
-            sol_nl[1] = self.stage_sol[1]
-            sol_nl[2] = self.solution
-
-        args = (self.fields, self.fields, bnd_conditions)
-        self.L = [None]*self.n_stages
-        self.F = [None]*self.n_stages
-        self.L[0] = (self.theta*self.equation.residual('implicit', self.stage_sol[0], sol_nl[0], *args) +
-                     (1-self.theta)*self.equation.residual('implicit', self.solution_old, self.solution_old, *args) +
-                     self.equation.residual('explicit', self.solution_old, self.solution_old, *args) +
-                     self.equation.residual('source', self.solution_old, self.solution_old, *args))
-        self.F[0] = (self.equation.mass_term(self.stage_sol[0]) -
-                     self.alpha[1][0]*self.equation.mass_term(self.solution_old) -
-                     self.beta[1][0]*self.dt_const*self.L[0])
-        self.L[1] = (self.theta*self.equation.residual('implicit', self.stage_sol[1], sol_nl[1], *args) +
-                     (1-self.theta)*self.equation.residual('implicit', self.stage_sol[0], self.stage_sol[0], *args) +
-                     self.equation.residual('explicit', self.stage_sol[0], self.stage_sol[0], *args) +
-                     self.equation.residual('source', self.solution_old, self.solution_old, *args))
-        self.F[1] = (self.equation.mass_term(self.stage_sol[1]) -
-                     self.alpha[2][0]*self.equation.mass_term(self.solution_old) -
-                     self.alpha[2][1]*self.equation.mass_term(self.stage_sol[0]) -
-                     self.beta[2][1]*self.dt_const*self.L[1])
-        self.L[2] = (self.theta*self.equation.residual('implicit', self.stage_sol[2], sol_nl[2], *args) +
-                     (1-self.theta)*self.equation.residual('implicit', self.stage_sol[1], self.stage_sol[1], *args) +
-                     self.equation.residual('explicit', self.stage_sol[1], self.stage_sol[1], *args) +
-                     self.equation.residual('source', self.solution_old, self.solution_old, *args))
-        self.F[2] = (self.equation.mass_term(self.stage_sol[2]) -
-                     self.alpha[3][0]*self.equation.mass_term(self.solution_old) -
-                     self.alpha[3][1]*self.equation.mass_term(self.stage_sol[0]) -
-                     self.alpha[3][2]*self.equation.mass_term(self.stage_sol[1]) -
-                     self.beta[3][2]*self.dt_const*self.L[2])
-        self.update_solver()
-        self._initialized = False
-
-    def update_solver(self):
-        self.solver = []
-        for i in range(self.n_stages):
-            prob = NonlinearVariationalProblem(self.F[i], self.stage_sol[i])
-            solv = NonlinearVariationalSolver(prob, options_prefix=self.name + '_k{:}'.format(i),
-                                              solver_parameters=self.solver_parameters)
-            self.solver.append(solv)
-
-    def initialize(self, solution):
-        self.solution_old.assign(solution)
-        self._initialized = True
-
-    def solve_stage(self, i_stage, t, update_forcings=None):
-        """Solve i-th stage and assign solution to :attr:`self.solution`."""
-        if not self._initialized:
-            error('Time integrator {:} is not initialized'.format(self.name))
-        if update_forcings is not None:
-            update_forcings(t + self.c[i_stage]*self.dt)
-        self.solver[i_stage].solve()
-        if i_stage == self.n_stages - 1:
-            self.solution_old.assign(self.solution)
-        else:
-            self.solution.assign(self.stage_sol[i_stage])
-
-    def get_final_solution(self):
-        pass
-
-
-class SSPRK33SemiImplicit(ERKSemiImplicitGeneric, SSPRK33Abstract):
-    pass
-
-
 class SSPRK33(ERKGenericShuOsher, SSPRK33Abstract):
-    pass
-
-
-class ERKLSPUM2SemiImplicit(ERKSemiImplicitGeneric, ERKLSPUM2Abstract):
     pass
 
 
@@ -1017,31 +784,11 @@ class ERKLSPUM2(ERKGeneric, ERKLSPUM2Abstract):
     pass
 
 
-class ERKLSPUM2ALE(ERKGenericALE2, ERKLSPUM2Abstract):
-    pass
-
-
-class ERKLPUM2SemiImplicit(ERKSemiImplicitGeneric, ERKLPUM2Abstract):
-    pass
-
-
 class ERKLPUM2(ERKGeneric, ERKLPUM2Abstract):
     pass
 
 
-class ERKLPUM2ALE(ERKGenericALE2, ERKLPUM2Abstract):
-    pass
-
-
-class ERKTrapezoidRK(ERKGeneric, ERKTrapezoidAbstract):
-    pass
-
-
 class ERKMidpoint(ERKGeneric, ERKMidpointAbstract):
-    pass
-
-
-class ERKMidpointALE(ERKGenericALE2, ERKMidpointAbstract):
     pass
 
 
@@ -1054,12 +801,4 @@ class ESDIRKTrapezoid(DIRKGeneric, ESDIRKTrapezoidAbstract):
 
 
 class ERKEuler(ERKGeneric, ForwardEulerAbstract):
-    pass
-
-
-class ERKEulerALE(ERKGenericALE2, ForwardEulerAbstract):
-    pass
-
-
-class DIRKEuler(DIRKGeneric, BackwardEulerAbstract):
     pass

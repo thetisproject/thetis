@@ -81,6 +81,8 @@ class IMEXGeneric(TimeIntegrator):
         """
         # set solution to u_n + dt*sum(a*k_erk)
         self.erk.update_solution(i_stage, additive=False)
+        # set correct reference solution in the DIRK solver
+        self.dirk.solution_old.assign(self.erk.solution)
         # solve implicit tendency (this is implicit solve)
         self.dirk.solve_tendency(i_stage, t, update_forcings)
         # set solution to u_n + dt*sum(a*k_erk) + *sum(a*k_dirk)
@@ -94,10 +96,11 @@ class IMEXGeneric(TimeIntegrator):
         """
         # set solution to u_n + sum(b*k_erk)
         self.erk.get_final_solution(additive=False)
+        # set correct reference solution in the DIRK solver
+        self.dirk.solution_old.assign(self.erk.solution)
         # set solution to u_n + sum(b*k_erk) + sum(b*k_dirk)
         self.dirk.get_final_solution()
         # update old solution
-        # TODO share old solution func between dirk and erk
         self.erk.solution_old.assign(self.dirk.solution)
 
     def set_dt(self, dt):
@@ -155,4 +158,4 @@ class IMEXEuler(IMEXGeneric):
     Forward-Backward Euler
     """
     erk_class = ERKEuler
-    dirk_class = DIRKEuler
+    dirk_class = BackwardEuler

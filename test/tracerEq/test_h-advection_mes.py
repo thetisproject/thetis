@@ -191,8 +191,7 @@ def polynomial_degree(request):
 
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
-                         [('SSPRK33', False),
-                          ('LeapFrog', True),
+                         [('LeapFrog', True),
                           ('SSPRK22', True)])
 def test_horizontal_advection(polynomial_degree, stepper, use_ale):
     run_convergence([1, 2, 3], polynomial_degree=polynomial_degree,
