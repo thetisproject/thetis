@@ -96,24 +96,20 @@ class TracerTerm(Term):
 class HorizontalAdvectionTerm(TracerTerm):
     # TODO adapt equation for 2-D case
     r"""
-    Horizontal advection term :math:`\nabla_h \cdot (\textbf{u} T)`
+    Advection of tracer term, :math:`\bar{\textbf{u}} \cdot \nabla T`
 
-    The weak formulation reads
+    The weak form is
 
     .. math::
-        \int_\Omega \nabla_h \cdot (\textbf{u} T) \phi dx
-            = -\int_\Omega T\textbf{u} \cdot \nabla_h \phi dx
-            + \int_{\mathcal{I}_h\cup\mathcal{I}_v}
-                T^{\text{up}} \text{avg}(\textbf{u}) \cdot
-                \text{jump}(\phi \textbf{n}_h) dS
+        \int_\Omega \bar{\textbf{u}} \cdot \boldsymbol{\psi} \cdot \nabla T  dx
+        = - \int_\Omega \nabla_h \cdot (\bar{\textbf{u}} \boldsymbol{\psi}) \cdot T dx
+        + \int_\Gamma \text{avg}(T) \cdot \text{jump}(\boldsymbol{\psi}
+        (\bar{\textbf{u}}\cdot\textbf{n})) dS
 
     where the right hand side has been integrated by parts;
-    :math:`\mathcal{I}_h,\mathcal{I}_v` denote the set of horizontal and
-    vertical facets,
-    :math:`\textbf{n}_h` is the horizontal projection of the unit normal vector,
-    :math:`T^{\text{up}}` is the upwind value, and :math:`\text{jump}` and
-    :math:`\text{avg}` denote the jump and average operators across the
-    interface.
+    :math:`\textbf{n}` is the unit normal of
+    the element interfaces, and :math:`\text{jump}` and :math:`\text{avg}` denote the
+    jump and average operators across the interface.
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('uv_2d') is None:
@@ -127,7 +123,9 @@ class HorizontalAdvectionTerm(TracerTerm):
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
 
         f = 0
-        f += -solution*inner(uv, nabla_grad(self.test))*self.dx
+        f += -(Dx(uv[0] * self.test, 0) * solution +
+              Dx(uv[1] * self.test, 1) * solution) * self.dx
+
         if self.horizontal_dg:
             # add interface term
             uv_av = avg(uv)
@@ -135,8 +133,9 @@ class HorizontalAdvectionTerm(TracerTerm):
                      uv_av[1]*self.normal('-')[1])
             s = 0.5*(sign(un_av) + 1.0)
             c_up = solution('-')*s + solution('+')*(1-s)
-            f += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
-                       uv_av[1]*jump(self.test, self.normal[1])) * self.dS 
+
+            f += c_up*(jump(self.test, uv[0] * self.normal[0]) +
+                       jump(self.test, uv[1] * self.normal[1])) * self.dS
            # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
                 if uv_p1 is not None:
@@ -150,11 +149,12 @@ class HorizontalAdvectionTerm(TracerTerm):
             if bnd_conditions is not None:
                 for bnd_marker in self.boundary_markers:
                     funcs = bnd_conditions.get(bnd_marker)
-                    ds_bnd = ds(int(bnd_marker), degree=self.quad_degree) 
+                    ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                    c_in = solution
                     if funcs is None:
-                        continue
+                        f += c_in * (uv[0]*self.normal[0] +
+                                     uv[1]*self.normal[1])*self.test*ds_bnd
                     else:
-                        c_in = solution
                         c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
                         uv_av = 0.5*(uv + uv_ext)
                         un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]

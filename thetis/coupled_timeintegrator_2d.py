@@ -136,3 +136,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
 class CoupledCrankNicolson2D(CoupledTimeIntegrator2D):
     swe_integrator = timeintegrator.CrankNicolson
     tracer_integrator = timeintegrator.CrankNicolson
+
+class CoupledCrankEuler2D(CoupledTimeIntegrator2D):
+    swe_integrator = timeintegrator.CrankNicolson
+    tracer_integrator = rungekutta.ERKEuler

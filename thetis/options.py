@@ -27,7 +27,7 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
     }).tag(config=True)
     solver_parameters_tracer = PETScSolverParameters({
         'ksp_type': 'gmres',
-        'pc_type': 'ilu',
+        'pc_type': 'sor',
     }).tag(config=True)
 
 
