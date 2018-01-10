@@ -18,6 +18,7 @@ from .options import ModelOptions2d
 from . import callback
 from .log import *
 from collections import OrderedDict
+import thetis.limiter as limiter
 
 
 class FlowSolver2d(FrozenClass):
@@ -243,8 +244,13 @@ class FlowSolver2d(FrozenClass):
             self.eq_tracer = tracer_eq_2d.TracerEquation2D(self.function_spaces.Q_2d, bathymetry=self.fields.bathymetry_2d,
                                             use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
             self.eq_tracer.bnd_functions = self.bnd_functions['tracer']
-        self._isfrozen = True  # disallow creating new attributes
+            if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
+                self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
+            else:
+                self.tracer_limiter = None
 
+        self._isfrozen = True  # disallow creating new attributes
+            
     def create_timestepper(self):
         """
         Creates time stepper instance
@@ -290,8 +296,8 @@ class FlowSolver2d(FrozenClass):
                                                         solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type == 'CrankNicolson':
             if self.options.solve_tracer:
-                # self.timestepper = coupled_timeintegrator_2d.CoupledCrankNicolson2D(weakref.proxy(self))
-                self.timestepper = coupled_timeintegrator_2d.CoupledCrankEuler2D(weakref.proxy(self))
+                self.timestepper = coupled_timeintegrator_2d.CoupledCrankNicolson2D(weakref.proxy(self))
+               # self.timestepper = coupled_timeintegrator_2d.CoupledCrankEuler2D(weakref.proxy(self))
             else:
                 self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
                                                             fields, self.dt,
@@ -531,6 +537,8 @@ class FlowSolver2d(FrozenClass):
         if not self._initialized:
             self.initialize()
 
+        self.options.use_limiter_for_tracers &= self.options.polynomial_degree > 0
+        
         t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()
         next_export_t = self.simulation_time + self.options.simulation_export_time

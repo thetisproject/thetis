@@ -12,7 +12,7 @@ import thetis.timezone as timezone      # NOQA
 from thetis._version import get_versions
 from thetis.assembledschur import AssembledSchurPC  # NOQA
 from thetis.tracer_eq_2d import *
-from thetis.rungekutta import SSPRK33,SSPRK33SemiImplicit
+
 __version__ = get_versions()['version']
 del get_versions
 

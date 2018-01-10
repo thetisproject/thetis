@@ -59,21 +59,21 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
             'momentum_source': self.options.momentum_source_2d,
             'volume_source': self.options.volume_source_2d, }
 
-
-        if issubclass(self.swe_integrator, (rungekutta.ERKSemiImplicitGeneric)):
-            self.timesteppers.swe2d = self.swe_integrator(
-                solver.eq_sw, self.fields.solution_2d,
-                fields, solver.dt,
-                bnd_conditions=solver.bnd_functions['shallow_water'],
-                solver_parameters=self.options.timestepper_options.solver_parameters,
-                semi_implicit=True,
-                theta=self.options.timestepper_options.implicitness_theta_2d)
-        else:
-            self.timesteppers.swe2d = self.swe_integrator(
-                solver.eq_sw, self.fields.solution_2d,
-                fields, solver.dt,
-                bnd_conditions=solver.bnd_functions['shallow_water'],
-                solver_parameters=self.options.timestepper_options.solver_parameters)
+        #
+        # if issubclass(self.swe_integrator, (rungekutta.ERKSemiImplicitGeneric)):
+        #     self.timesteppers.swe2d = self.swe_integrator(
+        #         solver.eq_sw, self.fields.solution_2d,
+        #         fields, solver.dt,
+        #         bnd_conditions=solver.bnd_functions['shallow_water'],
+        #         solver_parameters=self.options.timestepper_options.solver_parameters,
+        #         semi_implicit=True,
+        #         theta=self.options.timestepper_options.implicitness_theta_2d)
+        # else:
+        self.timesteppers.swe2d = self.swe_integrator(
+            solver.eq_sw, self.fields.solution_2d,
+            fields, solver.dt,
+            bnd_conditions=solver.bnd_functions['shallow_water'],
+            solver_parameters=self.options.timestepper_options.solver_parameters)
 
     def _create_tracer_integrator(self):
         """
@@ -131,6 +131,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
     def advance(self, t, update_forcings=None):
         self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
         self.timesteppers.tracer.advance(t, update_forcings=update_forcings)
+        if self.options.use_limiter_for_tracers:
+            self.solver.tracer_limiter.apply(self.fields.tracer_2d)
 
 
 class CoupledCrankNicolson2D(CoupledTimeIntegrator2D):
@@ -139,4 +141,4 @@ class CoupledCrankNicolson2D(CoupledTimeIntegrator2D):
 
 class CoupledCrankEuler2D(CoupledTimeIntegrator2D):
     swe_integrator = timeintegrator.CrankNicolson
-    tracer_integrator = rungekutta.ERKEuler
+    tracer_integrator = timeintegrator.ForwardEuler

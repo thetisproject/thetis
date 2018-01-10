@@ -359,6 +359,8 @@ class CommonModelOptions(FrozenConfigurable):
         True, help="Use Lax Friedrichs stabilisation in tracer advection.").tag(config=True)
     lax_friedrichs_tracer_scaling_factor = FiredrakeConstant(
         Constant(1.0), help="Scaling factor for tracer Lax Friedrichs stability term.").tag(config=True)
+    use_limiter_for_tracers = Bool(
+        True, help="Apply P1DG limiter for tracer fields").tag(config=True)
 
     check_volume_conservation_2d = Bool(
         False, help="""
@@ -472,7 +474,7 @@ class CommonModelOptions(FrozenConfigurable):
 class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
     name = 'Depth-averaged 2D model'
-    solve_tracer = Bool(True, help='Solve salinity transport').tag(config=True)
+    solve_tracer = Bool(False, help='Solve salinity transport').tag(config=True)
     use_wetting_and_drying = Bool(
         False, help=r"""bool: Turn on wetting and drying
 
@@ -541,8 +543,7 @@ class ModelOptions3d(CommonModelOptions):
 
         See :class:`.SmagorinskyViscosity`.""").tag(config=True)
 
-    use_limiter_for_tracers = Bool(
-        True, help="Apply P1DG limiter for tracer fields").tag(config=True)
+
     use_limiter_for_velocity = Bool(
         True, help="Apply P1DG limiter for 3D horizontal velocity field").tag(config=True)
     use_lax_friedrichs_tracer = Bool(
