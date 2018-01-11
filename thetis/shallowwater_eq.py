@@ -347,7 +347,12 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
 
-        head = eta
+        if fields['equilibrium_tide'] is not None:
+            alpha = self.options.equilibrium_tide_alpha
+            beta = self.options.equilibrium_tide_beta
+            head = beta * eta - alpha * fields['equilibrium_tide']
+        else:
+            head = eta
 
         grad_eta_by_parts = self.eta_is_dg
 

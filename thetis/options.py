@@ -471,6 +471,14 @@ class ModelOptions2d(CommonModelOptions):
 
         Used in bathymetry displacement function that ensures positive water depths. Unit is meters.
         """).tag(config=True)
+    equilibrium_tide = FiredrakeScalarExpression(
+        None, allow_none=True, help="Equilibrium tide solution").tag(config=True)
+    equilibrium_tide_alpha = FiredrakeConstant(
+        Constant(0.693), help=r"""
+        Coefficient: Love number to include solid Earth tide""")
+    equilibrium_tide_beta = FiredrakeConstant(
+        Constant(0.945), help=r"""
+        Coefficient: Love number for self-loading and attraction""")
 
 
 @attach_paired_options("timestepper_type",

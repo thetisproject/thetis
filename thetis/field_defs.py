@@ -304,3 +304,9 @@ field_metadata['hcc_metric_3d'] = {
     'unit': '-',
     'filename': 'HCCMetric3d',
 }
+field_metadata['equilibrium_tide'] = {
+    'name': 'Equilibrium tide',
+    'shortname': 'Equilibrium tide',
+    'unit': 'm',
+    'filename': 'EquilibriumTide',
+}
