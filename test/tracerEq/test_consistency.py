@@ -145,11 +145,8 @@ def run_tracer_consistency(**model_options):
         assert max_abs_overshoot < overshoot_tol, msg
 
 
-@pytest.mark.parametrize('element_family', ['dg-dg',
-                                            pytest.mark.not_travis(reason='travis timeout')('rt-dg')])
-@pytest.mark.parametrize('meshtype', ['regular',
-                                      pytest.mark.not_travis(reason='travis timeout')('sloped'),
-                                      pytest.mark.not_travis(reason='travis timeout')('warped')])
+@pytest.mark.parametrize('element_family', ['dg-dg', 'rt-dg'])
+@pytest.mark.parametrize('meshtype', ['regular', 'sloped', 'warped'])
 @pytest.mark.parametrize('timestepper_type', ['LeapFrog', 'SSPRK22'])
 def test_ale_const_tracer(element_family, meshtype, timestepper_type):
     """
@@ -166,12 +163,9 @@ def test_ale_const_tracer(element_family, meshtype, timestepper_type):
                            no_exports=True)
 
 
-@pytest.mark.parametrize('element_family', ['dg-dg',
-                                            pytest.mark.not_travis(reason='travis timeout')('rt-dg')])
-@pytest.mark.parametrize('meshtype', ['regular',
-                                      pytest.mark.not_travis(reason='travis timeout')('sloped'),
-                                      pytest.mark.not_travis(reason='travis timeout')('warped')])
-@pytest.mark.parametrize('timestepper_type', ['LeapFrog', 'SSPRK22', ])
+@pytest.mark.parametrize('element_family', ['dg-dg', 'rt-dg'])
+@pytest.mark.parametrize('meshtype', ['regular', 'sloped', 'warped'])
+@pytest.mark.parametrize('timestepper_type', ['LeapFrog', 'SSPRK22'])
 def test_ale_nonconst_tracer(element_family, meshtype, timestepper_type):
     """
     Test ALE timeintegrators with slope limiters
