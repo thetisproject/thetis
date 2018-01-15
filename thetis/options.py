@@ -488,6 +488,19 @@ class ModelOptions2d(CommonModelOptions):
         Used in bathymetry displacement function that ensures positive water depths. Unit is meters.
         """).tag(config=True)
 
+    check_tracer_conservation_2d = Bool(
+        False, help="""
+        Compute total salinity mass at every export
+        
+        Prints deviation from the initial mass to stdout.
+        """).tag(config=True)
+
+    check_tracer_overshoot_2d = Bool(
+        False, help="""
+        Compute salinity overshoots at every export
+
+        Prints overshoot values that exceed the initial range to stdout.
+        """).tag(config=True)
 
 @attach_paired_options("timestepper_type",
                        PairedEnum([('LeapFrog', ExplicitTimestepperOptions3d),

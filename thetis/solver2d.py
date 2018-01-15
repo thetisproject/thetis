@@ -549,6 +549,20 @@ class FlowSolver2d(FrozenClass):
                                                       append_to_log=True)
             self.add_callback(c)
 
+        if self.options.check_tracer_conservation_2d:
+            c = callback.TracerMassConservationCallback('tracer_2d',
+                                                        self,
+                                                        export_to_hdf5=dump_hdf5,
+                                                        append_to_log=True)
+            self.add_callback(c, eval_interval='export')
+
+        if self.options.check_tracer_overshoot_2d:
+            c = callback.TracerOvershootCallBack('tracer_2d',
+                                                 self,
+                                                 export_to_hdf5=dump_hdf5,
+                                                 append_to_log=True)
+            self.add_callback(c, eval_interval='export')
+            
         # initial export
         self.print_state(0.0)
         if self.export_initial_state:

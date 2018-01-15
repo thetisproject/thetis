@@ -306,6 +306,23 @@ class VolumeConservation2DCallback(ScalarConservationCallback):
                                   self.solver_obj.fields.bathymetry_2d)
         super(VolumeConservation2DCallback, self).__init__(vol2d, solver_obj, **kwargs)
 
+class TracerMassConservationCallback_2d(ScalarConservationCallback):
+    """Checks conservation of total tracer mass"""
+    name = 'tracer mass'
+
+    def __init__(self, tracer_name, solver_obj, **kwargs):
+        """
+        :arg tracer_name: Name of the tracer. Use canonical field names as in :class:`.FieldDict`.
+        :arg solver_obj: Thetis solver object
+        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
+        """
+        self.name = tracer_name + ' mass'  # override name for given tracer
+
+        def mass():
+            return comp_tracer_mass_2d(self.solver_obj.fields.elev_2d,
+                                       self.solver_obj.fields.bathymetry_2d,
+                                       self.solver_obj.fields[tracer_name])
+        super(TracerMassConservationCallback_2d, self).__init__(mass, solver_obj, **kwargs)
 
 class TracerMassConservationCallback(ScalarConservationCallback):
     """Checks conservation of total tracer mass"""
