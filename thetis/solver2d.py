@@ -297,7 +297,6 @@ class FlowSolver2d(FrozenClass):
         elif self.options.timestepper_type == 'CrankNicolson':
             if self.options.solve_tracer:
                 self.timestepper = coupled_timeintegrator_2d.CoupledCrankNicolson2D(weakref.proxy(self))
-               # self.timestepper = coupled_timeintegrator_2d.CoupledCrankEuler2D(weakref.proxy(self))
             else:
                 self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
                                                             fields, self.dt,
