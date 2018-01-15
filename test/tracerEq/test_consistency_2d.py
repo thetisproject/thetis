@@ -10,7 +10,7 @@
 # oscillation frequency. Initial condition repeats every 20 exports.
 #
 #
-# Thanasis Angeloudis 15-01-2018
+# Thanasis Angeloudis based on Tuomas Karna test_consistency.py 15-01-2018
 
 from thetis import *
 
