@@ -1,4 +1,4 @@
-# Tracer box in 3D
+# Tracer box in 2D
 # ================
 #
 # Solves a standing wave in a rectangular basin using wave equation.
@@ -10,13 +10,11 @@
 # oscillation frequency. Initial condition repeats every 20 exports.
 #
 #
-# Tuomas Karna 2015-03-11
-from thetis import *
-import pytest
+# Thanasis Angeloudis 15-01-2018
 
+from thetis import *
 
 def run_tracer_consistency(constant_c = True, **model_options):
-    # meshtype = model_options.pop('meshtype')
 
     t_cycle = 2000.0  # standing wave period
     depth = 50.0
@@ -30,28 +28,14 @@ def run_tracer_consistency(constant_c = True, **model_options):
     # estimate of max advective velocity used to estimate time step
     u_mag = Constant(1.0)
 
-    # sloped = False
-    # warped = False
-    #
-    # if meshtype == 'sloped':
-    #     sloped = True
-    # elif meshtype == 'warped':
-    #     warped = True
-    #
-    # suffix = ''
-    # if sloped:
-    #     suffix = '_sloped'
-    # if warped:
-    #     suffix = '_warped'
-    outputdir = 'outputs' # + suffix
+    outputdir = 'outputs'
 
     # bathymetry
     p1_2d = FunctionSpace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     bathymetry_2d.assign(depth)
     x_2d, y_2d = SpatialCoordinate(mesh2d)
-    # if sloped:
-    #     bathymetry_2d.interpolate(depth + 20.0*x_2d/lx)
+
 
     # set time step, export interval and run duration
     n_steps = 8
@@ -60,16 +44,6 @@ def run_tracer_consistency(constant_c = True, **model_options):
 
     # create solver
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
-
-    # if warped:
-    #     # warp interior mesh, top/bottom surfaces are horizontal
-    #     coords = solver_obj.mesh.coordinates
-    #     z = coords.dat.data[:, 2].copy()
-    #     x = coords.dat.data[:, 0]
-    #     p = 2.5*x/lx + 0.5
-    #     sigma = -depth * (0.5*np.tanh(p*(-2.0*z/depth - 1.0))/np.tanh(p) + 0.5)
-    #     coords.dat.data[:, 2] = sigma
-
     options = solver_obj.options
     options.use_nonlinear_equations = True
     options.solve_tracer = True
@@ -82,7 +56,8 @@ def run_tracer_consistency(constant_c = True, **model_options):
     options.timestepper_type = 'CrankNicolson'
     options.output_directory = outputdir
     options.fields_to_export = ['uv_2d', 'elev_2d', 'tracer_2d']
-    # options.update(model_options)
+    options.update(model_options)
+
     if not options.no_exports:
         print_output('Exporting to {:}'.format(options.output_directory))
 
@@ -106,10 +81,7 @@ def run_tracer_consistency(constant_c = True, **model_options):
 
     # TODO do these checks every export ...
     vol2d, vol2d_rerr = solver_obj.callbacks['export']['volume2d']()
-    assert vol2d_rerr < 1e-9 if options.element_family == 'rt-dg' else 1e-10, '2D volume is not conserved'
-    # if options.use_ale_moving_mesh:
-    #     vol3d, vol3d_rerr = solver_obj.callbacks['export']['volume3d']()
-    #     assert vol3d_rerr < 1e-10, '3D volume is not conserved'
+    assert vol2d_rerr < 1e-10, '2D volume is not conserved'
     if options.solve_tracer and constant == True:
         tracer_int, tracer_int_rerr = solver_obj.callbacks['export']['tracer_2d mass']()
         assert tracer_int_rerr < 1e-6, 'tracer is not conserved'
@@ -120,23 +92,16 @@ def run_tracer_consistency(constant_c = True, **model_options):
         assert max_abs_overshoot < overshoot_tol, msg
 
 
-""" Comment AA - reached up to here."""
 
-# @pytest.mark.parametrize('element_family', ['dg-dg',
-#                                             pytest.mark.not_travis(reason='travis timeout')('rt-dg')])
-# # @pytest.mark.parametrize('meshtype', ['regular',
-# #                                       pytest.mark.not_travis(reason='travis timeout')('sloped'),
-# #                                       pytest.mark.not_travis(reason='travis timeout')('warped')])
-# @pytest.mark.parametrize('timestepper_type', ['LeapFrog', 'SSPRK22'])
-def test_const_tracer(element_family, meshtype, timestepper_type):
+def test_const_tracer():
     """
-    Test ALE timeintegrators without slope limiters
+    Test CrankNicolson timeintegrator without slope limiters
     One constant tracer, should remain constants
     """
     run_tracer_consistency(constant_c= True,
                            use_nonlinear_equations=True,
                            solve_tracer=True,
-                           use_limiter_for_tracers=True,
+                           use_limiter_for_tracers=False,
                            no_exports=True)
 
 
@@ -157,5 +122,5 @@ if __name__ == '__main__':
     run_tracer_consistency(constant_c= False,
                            use_nonlinear_equations=True,
                            solve_tracer=True,
-                           use_limiter_for_tracers=True,
+                           use_limiter_for_tracers=False,
                            no_exports=False)
