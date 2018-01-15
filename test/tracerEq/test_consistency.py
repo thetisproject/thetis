@@ -184,7 +184,7 @@ def test_ale_nonconst_tracer(element_family, meshtype, timestepper_type):
 if __name__ == '__main__':
     run_tracer_consistency(element_family='dg-dg',
                            meshtype='regular',
-                           nonlin=True,
+                           use_nonlinear_equations=True,
                            timestepper_type='LeapFrog',
                            use_ale_moving_mesh=True,
                            solve_salinity=True,
