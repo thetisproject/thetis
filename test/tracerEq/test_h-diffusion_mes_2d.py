@@ -11,21 +11,18 @@ import pytest
 
 def run(refinement, **model_options):
     print_output('--- running refinement {:}'.format(refinement))
-#    warped_mesh = model_options.pop('warped_mesh', False)
 
     # domain dimensions - channel in x-direction
-    lx = 15.0e3
-    ly = 6.0e3/refinement
+    lx = 20.0e3
+    ly = 5.0e3 / refinement
     area = lx*ly
-    depth = 40.0
+    depth = 30.0
     horizontal_diffusivity = 1.0e3
 
     # mesh
-#    n_layers = 4*refinement
-    nx = 4*refinement + 1
+    nx = 4 * refinement + 1
     ny = 1  # constant -- channel
     mesh2d = RectangleMesh(nx, ny, lx, ly)
-
 
     # simulation run time
     t_end = 3000.0
@@ -41,12 +38,6 @@ def run(refinement, **model_options):
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     bathymetry_2d.assign(depth)
 
-    # x_2d, y_2d = SpatialCoordinate(mesh2d)
-    # # if warped_mesh:
-    #     # linear bathymetry and elevation
-    #     # NOTE should be linear so all meshes can fully resolve geometry
-    #     bathymetry_2d.interpolate(depth + 20.0*x_2d/lx)
-
     solverobj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     options = solverobj.options
     options.use_nonlinear_equations = False
@@ -56,7 +47,7 @@ def run(refinement, **model_options):
     options.simulation_end_time = t_end
     options.simulation_export_time = t_export
     options.solve_tracer = True
-    options.use_limiter_for_tracers = False
+    options.use_limiter_for_tracers = True
     options.fields_to_export = ['tracer_2d']
     options.horizontal_diffusivity = Constant(horizontal_diffusivity)
     options.horizontal_viscosity_scale = Constant(horizontal_diffusivity)
@@ -80,11 +71,9 @@ def run(refinement, **model_options):
 
     p1dg_ho = FunctionSpace(solverobj.mesh2d, 'DG', options.polynomial_degree + 2,
                             vfamily='DG', vdegree=options.polynomial_degree + 2)
-    tracer_ana_ho = Function(p1dg_ho, name='salt analytical')
+    tracer_ana_ho = Function(p1dg_ho, name='tracer analytical')
 
     elev_init = Function(solverobj.function_spaces.H_2d, name='elev init')
-    # if warped_mesh:
-    #     elev_init.interpolate(20.0*x_2d/lx)
     solverobj.assign_initial_conditions(elev=elev_init, tracer=tracer_expr)
 
     # export analytical solution
@@ -113,7 +102,7 @@ def run(refinement, **model_options):
         t += solverobj.dt
         i += 1
         if t >= next_export_t - 1e-8:
-            print_output('{:3d} i={:5d} t={:8.2f} s salt={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.tracer_2d)))
+            print_output('{:3d} i={:5d} t={:8.2f} s tracer={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.tracer_2d)))
             export_func()
             next_export_t += solverobj.options.simulation_export_time
             iexport += 1
@@ -176,22 +165,11 @@ def run_convergence(ref_list, saveplot=False, **options):
             print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
-    check_convergence(x_log, y_log, polynomial_degree+1, 'salt', saveplot)
+    check_convergence(x_log, y_log, polynomial_degree+1, 'tracer', saveplot)
 
 # ---------------------------
 # standard tests for pytest
 # ---------------------------
-
-
-@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')(0), 1])
-def polynomial_degree(request):
-    return request.param
-
-
-@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')(True), False],)
-def warped(request):
-    return request.param
-
 
 @pytest.mark.parametrize(('stepper'),
                          [('CrankNicolson')])
@@ -205,6 +183,6 @@ def test_horizontal_diffusion(polynomial_degree, stepper):
 
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], polynomial_degree=1,
+    run_convergence([1, 2, 4, 6, 8], polynomial_degree=1,
                     timestepper_type='CrankNicolson',
                     no_exports=False, saveplot=True)

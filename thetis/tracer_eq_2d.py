@@ -215,8 +215,6 @@ class HorizontalDiffusionTerm(TracerTerm):
             # assuming k_max/k_min=2, Theta=pi/3
             # sigma = 6.93 = 3.5*p*(p+1)
 
-       # TODO check if this is needed in 2-D :
-
             degree_h  = self.function_space.ufl_element().degree()
             sigma = 5.0*degree_h*(degree_h + 1)/self.cellsize
             if degree_h == 0:
