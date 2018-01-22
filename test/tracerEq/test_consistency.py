@@ -124,12 +124,12 @@ def run_tracer_consistency(**model_options):
         assert vol3d_rerr < 1e-10, '3D volume is not conserved'
     if options.solve_salinity:
         salt_int, salt_int_rerr = solver_obj.callbacks['export']['salt_3d mass']()
-        assert salt_int_rerr < 1e-6, 'salt is not conserved'
+        assert salt_int_rerr < 1e-9, 'salt is not conserved'
         smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['salt_3d overshoot']()
         max_abs_overshoot = max(abs(undershoot), abs(overshoot))
         overshoot_tol = 1e-10 if warped else 1e-12
         if options.use_ale_moving_mesh:
-            overshoot_tol = 1e-4
+            overshoot_tol = 1e-6
         msg = 'Salt overshoots are too large: {:}'.format(max_abs_overshoot)
         assert max_abs_overshoot < overshoot_tol, msg
     if options.solve_temperature:
@@ -140,7 +140,7 @@ def run_tracer_consistency(**model_options):
         max_abs_overshoot = max(abs(undershoot), abs(overshoot))
         overshoot_tol = 1e-11 if warped else 1e-12
         if options.use_ale_moving_mesh:
-            overshoot_tol = 1e-4
+            overshoot_tol = 1e-6
         msg = 'Temp overshoots are too large: {:}'.format(max_abs_overshoot)
         assert max_abs_overshoot < overshoot_tol, msg
 
@@ -184,7 +184,7 @@ def test_ale_nonconst_tracer(element_family, meshtype, timestepper_type):
 if __name__ == '__main__':
     run_tracer_consistency(element_family='dg-dg',
                            meshtype='regular',
-                           nonlin=True,
+                           use_nonlinear_equations=True,
                            timestepper_type='LeapFrog',
                            use_ale_moving_mesh=True,
                            solve_salinity=True,
