@@ -59,17 +59,17 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
             'momentum_source': self.options.momentum_source_2d,
             'volume_source': self.options.volume_source_2d, }
 
-        #
-        # if issubclass(self.swe_integrator, (rungekutta.ERKSemiImplicitGeneric)):
-        #     self.timesteppers.swe2d = self.swe_integrator(
-        #         solver.eq_sw, self.fields.solution_2d,
-        #         fields, solver.dt,
-        #         bnd_conditions=solver.bnd_functions['shallow_water'],
-        #         solver_parameters=self.options.timestepper_options.solver_parameters,
-        #         semi_implicit=True,
-        #         theta=self.options.timestepper_options.implicitness_theta_2d)
-        # else:
-        self.timesteppers.swe2d = self.swe_integrator(
+
+        if issubclass(self.swe_integrator, timeintegrator.CrankNicolson):
+            self.timesteppers.swe2d = self.swe_integrator(
+                solver.eq_sw, self.fields.solution_2d,
+                fields, solver.dt,
+                bnd_conditions=solver.bnd_functions['shallow_water'],
+                solver_parameters=self.options.timestepper_options.solver_parameters,
+                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+                theta=self.options.timestepper_options.implicitness_theta)
+        else:
+            self.timesteppers.swe2d = self.swe_integrator(
             solver.eq_sw, self.fields.solution_2d,
             fields, solver.dt,
             bnd_conditions=solver.bnd_functions['shallow_water'],
@@ -89,10 +89,18 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
                       'source': self.options.tracer_source_2d,
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                       }
-            self.timesteppers.tracer = self.tracer_integrator(
+            if issubclass(self.tracer_integrator, timeintegrator.CrankNicolson):
+                self.timesteppers.tracer = self.tracer_integrator(
+                    solver.eq_tracer, solver.fields.tracer_2d, fields, solver.dt,
+                    bnd_conditions=solver.bnd_functions['tracer'],
+                    solver_parameters=self.options.timestepper_options.solver_parameters_tracer,
+                    semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+                    theta=self.options.timestepper_options.implicitness_theta)
+            else:
+                self.timesteppers.tracer = self.tracer_integrator(
                 solver.eq_tracer, solver.fields.tracer_2d, fields, solver.dt,
                 bnd_conditions=solver.bnd_functions['tracer'],
-                solver_parameters=self.options.timestepper_options.solver_parameters_tracer)
+                solver_parameters=self.options.timestepper_options.solver_parameters_tracer,)
 
     def _create_integrators(self):
         """
