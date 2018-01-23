@@ -94,14 +94,13 @@ def run(setup, refinement, do_export=True, **options):
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, )
     solver_obj.options.element_family = 'dg-dg'
     solver_obj.options.horizontal_velocity_scale = Constant(1.0)
-    # solver_obj.options.no_exports = not do_export
+    solver_obj.options.no_exports = not do_export
     solver_obj.options.output_directory = outputdir
     solver_obj.options.simulation_end_time = t_end
     solver_obj.options.fields_to_export = ['tracer_2d', 'uv_2d',]
     solver_obj.options.horizontal_viscosity_scale = Constant(50.0)
     solver_obj.options.update(options)
     solver_obj.options.solve_tracer = True
-    solver_obj.options.timestep = 10
     solver_obj.options.timestepper_options.implicitness_theta = 1.0
     solver_obj.create_function_spaces()
 
@@ -134,8 +133,8 @@ def run(setup, refinement, do_export=True, **options):
         # if ti.options.use_limiter_for_tracers:
         #     ti.solver.tracer_limiter.apply(ti.fields.tracer_2d)
         t += solver_obj.dt
-        out_2.write(ti.fields.tracer_2d)
-
+        if do_export:
+            out_2.write(ti.fields.tracer_2d)
 
     l2_err = errornorm(trac_ana, solver_obj.fields.tracer_2d)/numpy.sqrt(area)
     print_output('L2 error {:.12f}'.format(l2_err))
@@ -143,11 +142,11 @@ def run(setup, refinement, do_export=True, **options):
     return l2_err
 
 
-def run_convergence(setup, ref_list, order, do_export=False, save_plot=False, **options):
+def run_convergence(setup, ref_list, do_export=False, save_plot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
     l2_err = []
     for r in ref_list:
-        l2_err.append(run(setup, r, order, do_export=do_export, **options))
+        l2_err.append(run(setup, r,  do_export=do_export, **options))
     x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
     y_log = numpy.log10(numpy.array(l2_err))
 
@@ -173,10 +172,10 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False, **
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
             ax.set_ylabel('log10(L2 error)')
-            ax.set_title('tracer adv-diff MMS DG p={:}'.format(order))
+            ax.set_title('tracer adv-diff MMS DG ')
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
-            order_str = 'o{:}'.format(order)
-            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, order_str])
+
+            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str,])
             imgfile += '.png'
             img_dir = create_directory('plots')
             imgfile = os.path.join(img_dir, imgfile)
@@ -190,7 +189,7 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False, **
             print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
-    check_convergence(x_log, y_log, order+1, 'tracer', save_plot)
+    check_convergence(x_log, y_log, 2, 'tracer', save_plot)
 
 
 # ---------------------------
@@ -210,8 +209,8 @@ def setup(request):
 
 
 def test_convergence(setup, timestepper_type):
-    run_convergence(setup, [1, 2, 3], 1, save_plot=False, timestepper_type=timestepper_type)
+    run_convergence(setup, [1, 2, 3], save_plot=False, timestepper_type=timestepper_type)
 
 
 if __name__ == '__main__':
-    run_convergence(Setup2, [1, 2, 3, 4], save_plot=True, timestepper_type='CrankNicolson')
+    run_convergence(Setup1, [1, 2, 3], save_plot=True, timestepper_type='CrankNicolson')

@@ -167,7 +167,6 @@ class HorizontalAdvectionTerm(TracerTerm):
 
 
 class HorizontalDiffusionTerm(TracerTerm):
-    # TODO adapt equation for 2-D case
     r"""
     Horizontal diffusion term :math:`-\nabla_h \cdot (\mu_h \nabla_h T)`
 
