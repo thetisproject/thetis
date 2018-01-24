@@ -306,8 +306,8 @@ class VolumeConservation2DCallback(ScalarConservationCallback):
                                   self.solver_obj.fields.bathymetry_2d)
         super(VolumeConservation2DCallback, self).__init__(vol2d, solver_obj, **kwargs)
 
-class TracerMassConservationCallback_2d(ScalarConservationCallback):
-    """Checks conservation of total tracer mass"""
+class TracerMassConservation2DCallback(ScalarConservationCallback):
+    """Checks conservation of depth-averaged tracer mass (integral of 2D tracer multiplied by total depth)"""
     name = 'tracer mass'
 
     def __init__(self, tracer_name, solver_obj, **kwargs):
@@ -322,7 +322,7 @@ class TracerMassConservationCallback_2d(ScalarConservationCallback):
             return comp_tracer_mass_2d(self.solver_obj.fields.elev_2d,
                                        self.solver_obj.fields.bathymetry_2d,
                                        self.solver_obj.fields[tracer_name])
-        super(TracerMassConservationCallback_2d, self).__init__(mass, solver_obj, **kwargs)
+        super(TracerMassConservation2DCallback, self).__init__(mass, solver_obj, **kwargs)
 
 class TracerMassConservationCallback(ScalarConservationCallback):
     """Checks conservation of total tracer mass"""
