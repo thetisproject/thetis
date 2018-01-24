@@ -550,7 +550,7 @@ class FlowSolver2d(FrozenClass):
             self.add_callback(c)
 
         if self.options.check_tracer_conservation:
-            c = callback.TracerMassConservationCallback('tracer_2d',
+            c = callback.TracerMassConservation2DCallback('tracer_2d',
                                                         self,
                                                         export_to_hdf5=dump_hdf5,
                                                         append_to_log=True)
