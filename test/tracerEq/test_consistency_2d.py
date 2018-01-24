@@ -17,7 +17,7 @@ from thetis import *
 def run_tracer_consistency(constant_c = True, **model_options):
 
     t_cycle = 2000.0  # standing wave period
-    depth = 50.0
+    depth = 50.0  # average depth
     lx = np.sqrt(9.81*depth)*t_cycle  # wave length
     ly = 3000.0
     nx = 18
@@ -33,14 +33,16 @@ def run_tracer_consistency(constant_c = True, **model_options):
     # bathymetry
     p1_2d = FunctionSpace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
-    bathymetry_2d.assign(depth)
     x_2d, y_2d = SpatialCoordinate(mesh2d)
+    # non-trivial bathymetry, to properly test 2d tracer conservation
+    bathymetry_2d.interpolate(depth + depth/10.*sin(x_2d/lx*pi))
 
 
     # set time step, export interval and run duration
     n_steps = 8
     t_export = round(float(t_cycle/n_steps))
-    t_end = 2*t_cycle
+    # for testing tracer conservation, we don't want to come back to the initial condition
+    t_end = 2.5*t_cycle
 
     # create solver
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
@@ -72,10 +74,9 @@ def run_tracer_consistency(constant_c = True, **model_options):
         tracer_init2d.assign(tracer_value)
     if options.solve_tracer and not constant_c:
         tracer_init2d = Function(solver_obj.function_spaces.Q_2d, name='initial tracer')
-        x, y = SpatialCoordinate(solver_obj.mesh2d)
         tracer_l = 0
         tracer_r = 30.0
-        tracer_init2d.interpolate(tracer_l + (tracer_r - tracer_l)*0.5*(1.0 + sign(x - lx/2)))
+        tracer_init2d.interpolate(tracer_l + (tracer_r - tracer_l)*0.5*(1.0 + sign(x_2d - lx/4)))
 
     solver_obj.assign_initial_conditions(elev=elev_init, tracer=tracer_init2d )
     solver_obj.iterate()
@@ -85,7 +86,7 @@ def run_tracer_consistency(constant_c = True, **model_options):
     assert vol2d_rerr < 1e-10, '2D volume is not conserved'
     if options.solve_tracer:
         tracer_int, tracer_int_rerr = solver_obj.callbacks['export']['tracer_2d mass']()
-        assert tracer_int_rerr < 1e-6, 'tracer is not conserved'
+        assert abs(tracer_int_rerr) < 1e-4, 'tracer is not conserved'
         smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['tracer_2d overshoot']()
         max_abs_overshoot = max(abs(undershoot), abs(overshoot))
         overshoot_tol = 1e-12
