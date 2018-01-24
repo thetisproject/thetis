@@ -53,6 +53,7 @@ def run_tracer_consistency(constant_c = True, **model_options):
     options.horizontal_velocity_scale = Constant(u_mag)
     options.check_volume_conservation_2d = True
     options.check_tracer_conservation_2d = True
+    options.check_tracer_overshoot_2d = True
     options.timestepper_type = 'CrankNicolson'
     options.output_directory = outputdir
     options.fields_to_export = ['uv_2d', 'elev_2d', 'tracer_2d']
@@ -66,10 +67,10 @@ def run_tracer_consistency(constant_c = True, **model_options):
     elev_init.project(-elev_amp*cos(2*pi*x_2d/lx))
 
     tracer_init2d = None
-    if options.solve_tracer and constant_c == True:
+    if options.solve_tracer and constant_c:
         tracer_init2d = Function(solver_obj.function_spaces.Q_2d, name='initial tracer')
         tracer_init2d.assign(tracer_value)
-    if options.solve_tracer and constant_c == False:
+    if options.solve_tracer and not constant_c:
         tracer_init2d = Function(solver_obj.function_spaces.Q_2d, name='initial tracer')
         x, y = SpatialCoordinate(solver_obj.mesh2d)
         tracer_l = 0
@@ -82,7 +83,7 @@ def run_tracer_consistency(constant_c = True, **model_options):
     # TODO do these checks every export ...
     vol2d, vol2d_rerr = solver_obj.callbacks['export']['volume2d']()
     assert vol2d_rerr < 1e-10, '2D volume is not conserved'
-    if options.solve_tracer and constant == True:
+    if options.solve_tracer:
         tracer_int, tracer_int_rerr = solver_obj.callbacks['export']['tracer_2d mass']()
         assert tracer_int_rerr < 1e-6, 'tracer is not conserved'
         smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['tracer_2d overshoot']()
