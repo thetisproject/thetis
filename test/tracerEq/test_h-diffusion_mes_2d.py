@@ -20,7 +20,7 @@ def run(refinement, **model_options):
     horizontal_diffusivity = 1.0e3
 
     # mesh
-    nx = 4 * refinement + 1
+    nx = 8 * refinement + 1
     ny = 1  # constant -- channel
     mesh2d = RectangleMesh(nx, ny, lx, ly)
 
@@ -173,8 +173,8 @@ def run_convergence(ref_list, saveplot=False, **options):
 
 @pytest.mark.parametrize(('stepper'),
                          [('CrankNicolson')])
-def test_horizontal_diffusion(polynomial_degree, stepper):
-    run_convergence([1, 2, 3], polynomial_degree=polynomial_degree,
+def test_horizontal_diffusion(stepper):
+    run_convergence([1, 2, 3], polynomial_degree=1,
                     timestepper_type=stepper,
                     )
 # ---------------------------
