@@ -11,7 +11,6 @@ import thetis.coordsys as coordsys      # NOQA
 import thetis.timezone as timezone      # NOQA
 from thetis._version import get_versions
 from thetis.assembledschur import AssembledSchurPC  # NOQA
-from thetis.tracer_eq_2d import *
 
 __version__ = get_versions()['version']
 del get_versions
