@@ -47,7 +47,7 @@ def run_tracer_consistency(constant_c = True, **model_options):
     options = solver_obj.options
     options.use_nonlinear_equations = True
     options.solve_tracer = True
-    options.use_limiter_for_tracers = True
+    options.use_limiter_for_tracers = not constant_c
     options.simulation_export_time = t_export
     options.simulation_end_time = t_end
     options.horizontal_velocity_scale = Constant(u_mag)
@@ -97,7 +97,7 @@ def run_tracer_consistency(constant_c = True, **model_options):
 def test_const_tracer():
     """
     Test CrankNicolson timeintegrator without slope limiters
-    One constant tracer, should remain constants
+    Constant tracer, should remain constant
     """
     run_tracer_consistency(constant_c= True,
                            use_nonlinear_equations=True,
@@ -110,7 +110,7 @@ def test_const_tracer():
 def test_nonconst_tracer():
     """
     Test CrankNicolson timeintegrator  with slope limiters
-    One constant and one non-trivial tracer, should see no overshoots
+    Non-trivial tracer, should see no overshoots and be conserved
     """
     run_tracer_consistency(constant_c= False,
                            use_nonlinear_equations=True,
