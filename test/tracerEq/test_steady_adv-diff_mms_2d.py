@@ -1,5 +1,5 @@
 """
-Testing 3D tracer advection-diffusion equation with method of manufactured solution (MMS).
+Testing 2D tracer advection-diffusion equation with method of manufactured solution (MMS).
 
 Tuomas Karna 2015-11-28
 """
@@ -75,7 +75,6 @@ def run(setup, refinement, do_export=True, **options):
     setup_obj = setup()
 
     # mesh
-    # n_layers = 4*refinement
     nx = 4*refinement
     ny = 4*refinement
     mesh2d = RectangleMesh(nx, ny, lx, ly)
@@ -130,8 +129,8 @@ def run(setup, refinement, do_export=True, **options):
     t = 0
     while t < t_end :
         ti.timesteppers.tracer.advance(t)
-        # if ti.options.use_limiter_for_tracers:
-        #     ti.solver.tracer_limiter.apply(ti.fields.tracer_2d)
+        if ti.options.use_limiter_for_tracers:
+            ti.solver.tracer_limiter.apply(ti.fields.tracer_2d)
         t += solver_obj.dt
         if do_export:
             out_2.write(ti.fields.tracer_2d)
