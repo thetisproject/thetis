@@ -474,7 +474,7 @@ class CommonModelOptions(FrozenConfigurable):
 class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
     name = 'Depth-averaged 2D model'
-    solve_tracer = Bool(False, help='Solve salinity transport').tag(config=True)
+    solve_tracer = Bool(False, help='Solve tracer transport').tag(config=True)
     use_wetting_and_drying = Bool(
         False, help=r"""bool: Turn on wetting and drying
 
@@ -488,16 +488,16 @@ class ModelOptions2d(CommonModelOptions):
         Used in bathymetry displacement function that ensures positive water depths. Unit is meters.
         """).tag(config=True)
 
-    check_tracer_conservation_2d = Bool(
+    check_tracer_conservation = Bool(
         False, help="""
-        Compute total salinity mass at every export
+        Compute total tracer mass at every export
         
         Prints deviation from the initial mass to stdout.
         """).tag(config=True)
 
-    check_tracer_overshoot_2d = Bool(
+    check_tracer_overshoot = Bool(
         False, help="""
-        Compute salinity overshoots at every export
+        Compute tracer overshoots at every export
 
         Prints overshoot values that exceed the initial range to stdout.
         """).tag(config=True)

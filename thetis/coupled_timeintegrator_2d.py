@@ -1,5 +1,5 @@
 """
-Time integrators for solving coupled 2D-3D system of equations.
+Time integrators for solving coupled depth-averaged equations, currently shallow water equations coupled with one tracer.
 """
 from __future__ import absolute_import
 from .utility import *
@@ -12,8 +12,7 @@ from abc import ABCMeta, abstractproperty
 
 class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
     """
-    Base class of mode-split time integrators that use 2D, 3D and implicit 3D
-    time integrators.
+    Base class of time integrator for coupled shallow water and tracer equations
     """
     __metaclass__ = ABCMeta
 
@@ -146,6 +145,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
 class CoupledCrankNicolson2D(CoupledTimeIntegrator2D):
     swe_integrator = timeintegrator.CrankNicolson
     tracer_integrator = timeintegrator.CrankNicolson
+
 
 class CoupledCrankEuler2D(CoupledTimeIntegrator2D):
     swe_integrator = timeintegrator.CrankNicolson
