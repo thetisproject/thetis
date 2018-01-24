@@ -46,7 +46,7 @@ class TracerTerm(Term):
         self.use_lax_friedrichs = use_lax_friedrichs
 
         # define measures with a reasonable quadrature degree
-        p  = self.function_space.ufl_element().degree()
+        p = self.function_space.ufl_element().degree()
         self.quad_degree = 2*p + 1
         self.dx = dx(degree=self.quad_degree)
         self.dS = dS(degree=self.quad_degree)
@@ -124,7 +124,7 @@ class HorizontalAdvectionTerm(TracerTerm):
 
         f = 0
         f += -(Dx(uv[0] * self.test, 0) * solution +
-              Dx(uv[1] * self.test, 1) * solution) * self.dx
+               Dx(uv[1] * self.test, 1) * solution) * self.dx
 
         if self.horizontal_dg:
             # add interface term
@@ -136,7 +136,7 @@ class HorizontalAdvectionTerm(TracerTerm):
 
             f += c_up*(jump(self.test, uv[0] * self.normal[0]) +
                        jump(self.test, uv[1] * self.normal[1])) * self.dS
-           # Lax-Friedrichs stabilization
+            # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
                 if uv_p1 is not None:
                     gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
@@ -145,7 +145,7 @@ class HorizontalAdvectionTerm(TracerTerm):
                     gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
                 else:
                     gamma = 0.5*abs(un_av)*lax_friedrichs_factor
-                f += gamma*dot(jump(self.test), jump(solution))*(self.dS) 
+                f += gamma*dot(jump(self.test), jump(solution))*(self.dS)
             if bnd_conditions is not None:
                 for bnd_marker in self.boundary_markers:
                     funcs = bnd_conditions.get(bnd_marker)
@@ -214,12 +214,12 @@ class HorizontalDiffusionTerm(TracerTerm):
             # assuming k_max/k_min=2, Theta=pi/3
             # sigma = 6.93 = 3.5*p*(p+1)
 
-            degree_h  = self.function_space.ufl_element().degree()
+            degree_h = self.function_space.ufl_element().degree()
             sigma = 5.0*degree_h*(degree_h + 1)/self.cellsize
             if degree_h == 0:
                 sigma = 1.5 / self.cellsize
             alpha = avg(sigma)
-            ds_interior = (self.dS) 
+            ds_interior = (self.dS)
             f += alpha*inner(jump(self.test, self.normal),
                              dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
             f += -inner(avg(dot(diff_tensor, grad(self.test))),
@@ -228,6 +228,7 @@ class HorizontalDiffusionTerm(TracerTerm):
                         avg(dot(diff_tensor, grad(solution))))*ds_interior
 
         return -f
+
 
 class SourceTerm(TracerTerm):
     """

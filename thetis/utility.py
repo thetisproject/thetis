@@ -281,7 +281,7 @@ def comp_tracer_mass_2d(eta, bath, scalar_func):
     :arg bath: bathymetry :class: 'Function'
     :arg scalar_func: scalar :class:`Function` to integrate
     """
-    
+
     val = assemble((eta+bath)*scalar_func*dx)
     return val
 

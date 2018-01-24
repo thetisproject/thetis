@@ -491,7 +491,7 @@ class ModelOptions2d(CommonModelOptions):
     check_tracer_conservation = Bool(
         False, help="""
         Compute total tracer mass at every export
-        
+
         Prints deviation from the initial mass to stdout.
         """).tag(config=True)
 
@@ -501,6 +501,7 @@ class ModelOptions2d(CommonModelOptions):
 
         Prints overshoot values that exceed the initial range to stdout.
         """).tag(config=True)
+
 
 @attach_paired_options("timestepper_type",
                        PairedEnum([('LeapFrog', ExplicitTimestepperOptions3d),
@@ -555,7 +556,6 @@ class ModelOptions3d(CommonModelOptions):
         help="""Smagorinsky viscosity coefficient :math:`C_S`
 
         See :class:`.SmagorinskyViscosity`.""").tag(config=True)
-
 
     use_limiter_for_velocity = Bool(
         True, help="Apply P1DG limiter for 3D horizontal velocity field").tag(config=True)

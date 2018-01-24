@@ -5,8 +5,6 @@ from __future__ import absolute_import
 from .utility import *
 from . import timeintegrator
 from .log import *
-from . import rungekutta
-from . import implicitexplicit
 from abc import ABCMeta, abstractproperty
 
 
@@ -58,7 +56,6 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
             'momentum_source': self.options.momentum_source_2d,
             'volume_source': self.options.volume_source_2d, }
 
-
         if issubclass(self.swe_integrator, timeintegrator.CrankNicolson):
             self.timesteppers.swe2d = self.swe_integrator(
                 solver.eq_sw, self.fields.solution_2d,
@@ -68,11 +65,10 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
                 semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
                 theta=self.options.timestepper_options.implicitness_theta)
         else:
-            self.timesteppers.swe2d = self.swe_integrator(
-            solver.eq_sw, self.fields.solution_2d,
-            fields, solver.dt,
-            bnd_conditions=solver.bnd_functions['shallow_water'],
-            solver_parameters=self.options.timestepper_options.solver_parameters)
+            self.timesteppers.swe2d = self.swe_integrator(solver.eq_sw, self.fields.solution_2d,
+                                                          fields, solver.dt,
+                                                          bnd_conditions=solver.bnd_functions['shallow_water'],
+                                                          solver_parameters=self.options.timestepper_options.solver_parameters)
 
     def _create_tracer_integrator(self):
         """
@@ -96,10 +92,9 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
                     semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
                     theta=self.options.timestepper_options.implicitness_theta)
             else:
-                self.timesteppers.tracer = self.tracer_integrator(
-                solver.eq_tracer, solver.fields.tracer_2d, fields, solver.dt,
-                bnd_conditions=solver.bnd_functions['tracer'],
-                solver_parameters=self.options.timestepper_options.solver_parameters_tracer,)
+                self.timesteppers.tracer = self.tracer_integrator(solver.eq_tracer, solver.fields.tracer_2d, fields, solver.dt,
+                                                                  bnd_conditions=solver.bnd_functions['tracer'],
+                                                                  solver_parameters=self.options.timestepper_options.solver_parameters_tracer,)
 
     def _create_integrators(self):
         """
@@ -127,7 +122,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
 
         # solution2d is only provided to make a timeintegrator of just the swe
         # compatible with the 2d coupled timeintegrator
-        assert solution2d==self.fields.solution_2d
+        assert solution2d == self.fields.solution_2d
 
         self.timesteppers.swe2d.initialize(self.fields.solution_2d)
         if self.options.solve_tracer:

@@ -242,7 +242,7 @@ class FlowSolver2d(FrozenClass):
         if self.options.solve_tracer:
             self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
             self.eq_tracer = tracer_eq_2d.TracerEquation2D(self.function_spaces.Q_2d, bathymetry=self.fields.bathymetry_2d,
-                                            use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
+                                                           use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
             self.eq_tracer.bnd_functions = self.bnd_functions['tracer']
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
@@ -250,7 +250,7 @@ class FlowSolver2d(FrozenClass):
                 self.tracer_limiter = None
 
         self._isfrozen = True  # disallow creating new attributes
-            
+
     def create_timestepper(self):
         """
         Creates time stepper instance
@@ -299,11 +299,11 @@ class FlowSolver2d(FrozenClass):
                 self.timestepper = coupled_timeintegrator_2d.CoupledCrankNicolson2D(weakref.proxy(self))
             else:
                 self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
-                                                            fields, self.dt,
-                                                            bnd_conditions=self.bnd_functions['shallow_water'],
-                                                            solver_parameters=self.options.timestepper_options.solver_parameters,
-                                                            semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-                                                            theta=self.options.timestepper_options.implicitness_theta)
+                                                                fields, self.dt,
+                                                                bnd_conditions=self.bnd_functions['shallow_water'],
+                                                                solver_parameters=self.options.timestepper_options.solver_parameters,
+                                                                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+                                                                theta=self.options.timestepper_options.implicitness_theta)
         elif self.options.timestepper_type == 'DIRK22':
             self.timestepper = rungekutta.DIRK22(self.eq_sw, self.fields.solution_2d,
                                                  fields, self.dt,
@@ -537,7 +537,7 @@ class FlowSolver2d(FrozenClass):
             self.initialize()
 
         self.options.use_limiter_for_tracers &= self.options.polynomial_degree > 0
-        
+
         t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()
         next_export_t = self.simulation_time + self.options.simulation_export_time
@@ -551,9 +551,9 @@ class FlowSolver2d(FrozenClass):
 
         if self.options.check_tracer_conservation:
             c = callback.TracerMassConservation2DCallback('tracer_2d',
-                                                        self,
-                                                        export_to_hdf5=dump_hdf5,
-                                                        append_to_log=True)
+                                                          self,
+                                                          export_to_hdf5=dump_hdf5,
+                                                          append_to_log=True)
             self.add_callback(c, eval_interval='export')
 
         if self.options.check_tracer_overshoot:
@@ -562,7 +562,7 @@ class FlowSolver2d(FrozenClass):
                                                  export_to_hdf5=dump_hdf5,
                                                  append_to_log=True)
             self.add_callback(c, eval_interval='export')
-            
+
         # initial export
         self.print_state(0.0)
         if self.export_initial_state:
