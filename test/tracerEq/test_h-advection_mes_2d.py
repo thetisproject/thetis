@@ -1,7 +1,7 @@
 """
 Testing 2D horizontal advection of tracers
 
-Tuomas Karna , edited by Athanasios Angeloudis
+Tuomas Karna, edited by Athanasios Angeloudis
 """
 from thetis import *
 import numpy
@@ -102,7 +102,6 @@ def run(refinement, **model_options):
     export_func()
 
     # custom time loop that solves tracer equation only
-#    ti = solverobj.timestepper.timesteppers.salt_expl
     ti = solverobj.timestepper.timesteppers.tracer
 
     i = 0
@@ -178,7 +177,7 @@ def run_convergence(ref_list, saveplot=False, **options):
             print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
-    check_convergence(x_log, y_log, polynomial_degree+1, 'salt', saveplot)
+    check_convergence(x_log, y_log, polynomial_degree+1, 'tracer', saveplot)
 
 # ---------------------------
 # standard tests for pytest
