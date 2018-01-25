@@ -145,7 +145,7 @@ class HorizontalAdvectionTerm(TracerTerm):
                     gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
                 else:
                     gamma = 0.5*abs(un_av)*lax_friedrichs_factor
-                f += gamma*dot(jump(self.test), jump(solution))*(self.dS)
+                f += gamma*dot(jump(self.test), jump(solution))*self.dS
             if bnd_conditions is not None:
                 for bnd_marker in self.boundary_markers:
                     funcs = bnd_conditions.get(bnd_marker)
@@ -219,7 +219,7 @@ class HorizontalDiffusionTerm(TracerTerm):
             if degree_h == 0:
                 sigma = 1.5 / self.cellsize
             alpha = avg(sigma)
-            ds_interior = (self.dS)
+            ds_interior = self.dS
             f += alpha*inner(jump(self.test, self.normal),
                              dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
             f += -inner(avg(dot(diff_tensor, grad(self.test))),
