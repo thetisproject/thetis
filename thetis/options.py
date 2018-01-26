@@ -448,7 +448,7 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Source term for 2D momentum equation").tag(config=True)
     volume_source_2d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for 2D continuity equation").tag(config=True)
-    tracer_source_2d = FiredrakeCoefficient(
+    tracer_source_2d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
     horizontal_diffusivity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
