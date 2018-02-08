@@ -1,7 +1,6 @@
 """
 Testing 2D horizontal diffusion of tracers against analytical solution.
 
-Tuomas Karna 2015-12-14, Athanasios Angeloudis 16/01/2018
 """
 from thetis import *
 import numpy
@@ -52,8 +51,6 @@ def run(refinement, **model_options):
     options.horizontal_diffusivity = Constant(horizontal_diffusivity)
     options.horizontal_viscosity_scale = Constant(horizontal_diffusivity)
     options.update(model_options)
-    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
-        options.timestepper_options.use_automatic_timestep = True
 
     solverobj.create_equations()
 
