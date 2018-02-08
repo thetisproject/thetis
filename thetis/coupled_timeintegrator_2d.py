@@ -1,5 +1,7 @@
 """
-Time integrators for solving coupled depth-averaged equations, currently shallow water equations coupled with one tracer.
+Time integrators for solving coupled depth-averaged equations, 
+Currently shallow water equations coupled with one tracer.
+
 """
 from __future__ import absolute_import
 from .utility import *
@@ -72,7 +74,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
 
     def _create_tracer_integrator(self):
         """
-        Create time integrator for salinity equation
+        Create time integrator for tracer equation
         """
         solver = self.solver
 

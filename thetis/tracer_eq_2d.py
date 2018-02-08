@@ -1,7 +1,7 @@
 r"""
 2D advection diffusion equation for tracers.
 
-The advection-diffusion equation of tracer :math:`T` in conservative form reads
+The advection-diffusion equation of tracer :math:`T` in non-conservative form reads
 
 .. math::
     \frac{\partial T}{\partial t}
@@ -36,7 +36,7 @@ class TracerTerm(Term):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
-        :type bathymetry: 3D :class:`Function` or :class:`Constant`
+        :type bathymetry: 2D :class:`Function` or :class:`Constant`
         """
         super(TracerTerm, self).__init__(function_space)
         self.bathymetry = bathymetry
@@ -94,7 +94,6 @@ class TracerTerm(Term):
 
 
 class HorizontalAdvectionTerm(TracerTerm):
-    # TODO adapt equation for 2-D case
     r"""
     Advection of tracer term, :math:`\bar{\textbf{u}} \cdot \nabla T`
 
@@ -189,8 +188,6 @@ class HorizontalDiffusionTerm(TracerTerm):
     interior penalty Galerkin methods. Journal of Computational and Applied
     Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
 
-    .. note ::
-        Note the minus sign due to :class:`.equation.Term` sign convention
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_h') is None:
@@ -241,8 +238,6 @@ class SourceTerm(TracerTerm):
 
     where :math:`\sigma` is a user defined scalar :class:`Function`.
 
-    .. note ::
-        Due to the sign convention of :class:`.equation.Term`, this term is assembled to the left hand side of the equation
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
@@ -254,7 +249,7 @@ class SourceTerm(TracerTerm):
 
 class TracerEquation2D(Equation):
     """
-    3D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
+    2D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
     def __init__(self, function_space,
                  bathymetry=None,
