@@ -1,7 +1,5 @@
 """
-Time integrators for solving coupled depth-averaged equations, 
-Currently shallow water equations coupled with one tracer.
-
+Time integrators for solving coupled shallow water equations with one tracer.
 """
 from __future__ import absolute_import
 from .utility import *
