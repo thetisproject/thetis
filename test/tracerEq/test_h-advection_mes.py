@@ -120,7 +120,7 @@ def run(refinement, **model_options):
             next_export_t += solverobj.options.simulation_export_time
             iexport += 1
 
-    # project analytical solultion on high order mesh
+    # project analytical solution on high order mesh
     t_const.assign(t)
     salt_ana_ho.project(ana_salt_expr)
     # compute L2 norm

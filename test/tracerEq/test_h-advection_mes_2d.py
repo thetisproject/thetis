@@ -1,6 +1,7 @@
 """
 Testing 2D horizontal advection of tracers
 
+Tuomas Karna, edited by Athanasios Angeloudis
 """
 from thetis import *
 import numpy
@@ -73,9 +74,7 @@ def run(refinement, **model_options):
     xy = SpatialCoordinate(solverobj.mesh2d)
     t_const = Constant(t)
     ana_tracer_expr = exp(-(xy[0] - x0 - u*t_const)**2/sigma**2)
-
     tracer_ana = Function(solverobj.function_spaces.H_2d, name='tracer analytical')
-    tracer_ana_p1 = Function(solverobj.function_spaces.P1_2d, name='tracer analytical')
 
     p1dg_ho = FunctionSpace(solverobj.mesh2d, 'DG', options.polynomial_degree + 2,
                             vfamily='DG', vdegree=options.polynomial_degree + 2)
@@ -94,8 +93,7 @@ def run(refinement, **model_options):
             solverobj.export()
             # update analytical solution to correct time
             t_const.assign(t)
-            tracer_ana.project(ana_tracer_expr)
-            out_tracer_ana.write(tracer_ana_p1.project(tracer_ana))
+            out_tracer_ana.write(tracer_ana.project(ana_tracer_expr))
 
     # export initial conditions
     export_func()

@@ -64,8 +64,6 @@ def run(refinement, **model_options):
     tracer_expr = 0.5*(u_max + u_min) - 0.5*(u_max - u_min)*erf((x - x0)/sqrt(4*horizontal_diffusivity*t_const))
 
     tracer_ana = Function(solverobj.function_spaces.H_2d, name='tracer analytical')
-    tracer_ana_p1 = Function(solverobj.function_spaces.P1_2d, name='tracer analytical')
-
     p1dg_ho = FunctionSpace(solverobj.mesh2d, 'DG', options.polynomial_degree + 2,
                             vfamily='DG', vdegree=options.polynomial_degree + 2)
     tracer_ana_ho = Function(p1dg_ho, name='tracer analytical')
@@ -82,8 +80,7 @@ def run(refinement, **model_options):
             solverobj.export()
             # update analytical solution to correct time
             t_const.assign(t)
-            tracer_ana.project(tracer_expr)
-            out_tracer_ana.write(tracer_ana_p1.project(tracer_ana))
+            out_tracer_ana.write(tracer_ana.project(tracer_expr))
 
     # export initial conditions
     export_func()
