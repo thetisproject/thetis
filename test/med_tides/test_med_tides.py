@@ -14,13 +14,13 @@ def get_bathymetry_from_netcdf(bathymetry_file, mesh2d, minimum_depth=2.0, absci
   from netCDF4 import Dataset as NetCDFFile
   import scipy.interpolate
   #Read data from NetCDF file.
-  print('Reading bathymetry/topography data from '+bathymetry_file)
+  print_output('Reading bathymetry/topography data from '+bathymetry_file)
   nc = NetCDFFile(bathymetry_file)
   lat = nc.variables[ordinate_name][:]
   lon = nc.variables[abscissa_name][:]
   values = nc.variables[variable_name][:,:]
-  print('Structured NetCDF grid abscissa extents: '+str(min(lon))+' to '+str(max(lon)))
-  print('Structured NetCDF grid ordinate extents: '+str(min(lat))+' to '+str(max(lat)))
+  print_output('Structured NetCDF grid abscissa extents: '+str(min(lon))+' to '+str(max(lon)))
+  print_output('Structured NetCDF grid ordinate extents: '+str(min(lat))+' to '+str(max(lat)))
   #Construct a bathymetry function in the appropriate function space.
   P1_2d = FunctionSpace(mesh2d, 'CG', 1)
   bathymetry_2d = Function(P1_2d, name="bathymetry")
@@ -29,15 +29,15 @@ def get_bathymetry_from_netcdf(bathymetry_file, mesh2d, minimum_depth=2.0, absci
   xvector = mesh2d.coordinates.dat.data
   bvector = bathymetry_2d.dat.data
   assert xvector.shape[0]==bvector.shape[0]
-  print('Interpollating bathymetry/topography data onto simulation mesh')
+  print_output('Interpollating bathymetry/topography data onto simulation mesh')
   #Construct a scipy regular grid interpolator obect, defined on the
   # structured-mesh data from the NetCDF file.
   interpolator = scipy.interpolate.RegularGridInterpolator((lat, lon), values)
   #At each point of the mesh, convert the coordinates to lat-lon and interpolate
   # between the structured bathymetry data.
   lat, lon = numpy.degrees(latlon_from_xyz(xvector))
-  print('Unstructured simulation grid abscissa extents: '+str(min(lon))+' to '+str(max(lon)))
-  print('Unstructured simulation grid ordinate extents: '+str(min(lat))+' to '+str(max(lat)))
+  print_output('Unstructured simulation grid abscissa extents: '+str(min(lon))+' to '+str(max(lon)))
+  print_output('Unstructured simulation grid ordinate extents: '+str(min(lat))+' to '+str(max(lat)))
   #In Thetis depth is a positive number, but frequently in NetCDF files it is given
   # as a negative number. Use the negative_netcdf_depth to get the right sign
   if negative_netcdf_depth:
@@ -46,9 +46,27 @@ def get_bathymetry_from_netcdf(bathymetry_file, mesh2d, minimum_depth=2.0, absci
       netcfd_bathy_sign = 1
   for i,(lati,loni) in enumerate(zip(lat, lon)):
       bvector[i] = max(netcfd_bathy_sign*interpolator((lati, loni)), minimum_depth)
-  print('Bathymetry/topography min:'+str(min(bvector)))
-  print('Bathymetry/topography max:'+str(max(bvector)))
+  print_output('Bathymetry/topography min:'+str(min(bvector)))
+  print_output('Bathymetry/topography max:'+str(max(bvector)))
   return bathymetry_2d
+
+class TidalForcing:
+    def __init__(self, dt0, lat, lon):
+        constituents = ['Q1', 'O1', 'P1', 'K1', 'N2', 'M2', 'S2', 'K2']
+        self.tide = uptide.Tides(constituents)
+        self.tide.set_initial_time(dt0)
+        self.tnci = uptide.tidal_netcdf.OTPSncTidalInterpolator(self.tide,
+          'gridMed.nc', 'hf.Med2011.nc')
+        self.lat, self.lon = numpy.rad2deg(lat), numpy.rad2deg(lon)
+
+    def set_tidal_field(self, elev, t):
+      self.tnci.set_time(t)
+      evector = elev.dat.data
+      for i, (lat, lon) in enumerate(zip(self.lat, self.lon)):
+        try:
+          evector[i] = self.tnci.get_val((lon, lat))
+        except uptide.netcdf_reader.CoordinateError:
+          evector[i] = 0.
 
 def smoothen_bathymetry(bathymetry_2d):
   v = TestFunction(bathymetry_2d.function_space())
@@ -120,22 +138,34 @@ def test_med_tides(do_export=False):
     solver_obj.options.equilibrium_tide_alpha = Constant(0.693)
     solver_obj.options.equilibrium_tide_beta = Constant(0.953)
 
+    # h2dxyz and lat and lon are coordinate functions on the pressure space
     h2dxyz = Function(H_2d*H_2d*H_2d)
     for i, h2dxyzi in enumerate(h2dxyz.split()):
         h2dxyzi.interpolate(x[i])
     lat, lon = latlon_from_xyz(numpy.vstack(h2dxyz.vector()[:]).T)
 
+    dt0 = datetime.datetime(2013, 1, 1)
     tide = uptide.Tides(uptide.ALL_EQUILIBRIUM_TIDAL_CONSTITUENTS)
-    tide.set_initial_time(datetime.datetime(2013, 1, 1))
+    tide.set_initial_time(dt0)
 
-    # a function called every timestep that updates the equilibrium tide
+    tidal_elev = Function(H_2d)
+    tidal_forcing = TidalForcing(dt0, lat, lon)
+    solver_obj.bnd_functions['shallow_water'] = {
+          384: {'elev': tidal_elev},  # use TPXO solution at open boundary
+          388: {'un': 0.0},  # closed boundary
+    }
+
+
+    # a function called every timestep that updates the equilibrium tide and the boundary forcing
     def update_forcings(t):
+        print_output('Updating equilibrium tide and forcing at t={}'.format(t))
         equilibrium_tide.vector()[:] = uptide.equilibrium_tide(tide, lat, lon, t)
+        tidal_forcing.set_tidal_field(tidal_elev, t)
 
     update_forcings(0)
 
-    # we start with eta=equilibrium tide to avoid initial shock and need for ramp up
-    solver_obj.assign_initial_conditions(elev=equilibrium_tide)
+    # we start with the TPXO solution as initial condition for elevation
+    solver_obj.assign_initial_conditions(elev=tidal_elev)
 
     solver_obj.iterate(update_forcings=update_forcings)
 
