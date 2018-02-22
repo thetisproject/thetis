@@ -7,6 +7,9 @@ from . import shallowwater_eq
 from . import timeintegrator
 from . import rungekutta
 from . import implicitexplicit
+from . import coupled_timeintegrator_2d
+from . import tracer_eq_2d
+import weakref
 import time as time_mod
 from mpi4py import MPI
 from . import exporter
@@ -15,6 +18,7 @@ from .options import ModelOptions2d
 from . import callback
 from .log import *
 from collections import OrderedDict
+import thetis.limiter as limiter
 
 
 class FlowSolver2d(FrozenClass):
@@ -124,7 +128,7 @@ class FlowSolver2d(FrozenClass):
         self.export_initial_state = True
         """Do export initial state. False if continuing a simulation"""
 
-        self.bnd_functions = {'shallow_water': {}}
+        self.bnd_functions = {'shallow_water': {}, 'tracer': {}}
 
         self._isfrozen = True
 
@@ -212,6 +216,8 @@ class FlowSolver2d(FrozenClass):
             raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d])
 
+        self.function_spaces.Q_2d = FunctionSpace(self.mesh2d, 'DG', 1, name='Q_2d')
+
         self._isfrozen = True
 
     def create_equations(self):
@@ -233,6 +239,15 @@ class FlowSolver2d(FrozenClass):
             self.options
         )
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
+        if self.options.solve_tracer:
+            self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
+            self.eq_tracer = tracer_eq_2d.TracerEquation2D(self.function_spaces.Q_2d, bathymetry=self.fields.bathymetry_2d,
+                                                           use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
+            if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
+                self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
+            else:
+                self.tracer_limiter = None
+
         self._isfrozen = True  # disallow creating new attributes
 
     def create_timestepper(self):
@@ -279,12 +294,15 @@ class FlowSolver2d(FrozenClass):
                                                         bnd_conditions=self.bnd_functions['shallow_water'],
                                                         solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type == 'CrankNicolson':
-            self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
-                                                            fields, self.dt,
-                                                            bnd_conditions=self.bnd_functions['shallow_water'],
-                                                            solver_parameters=self.options.timestepper_options.solver_parameters,
-                                                            semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-                                                            theta=self.options.timestepper_options.implicitness_theta)
+            if self.options.solve_tracer:
+                self.timestepper = coupled_timeintegrator_2d.CoupledCrankNicolson2D(weakref.proxy(self))
+            else:
+                self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
+                                                                fields, self.dt,
+                                                                bnd_conditions=self.bnd_functions['shallow_water'],
+                                                                solver_parameters=self.options.timestepper_options.solver_parameters,
+                                                                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+                                                                theta=self.options.timestepper_options.implicitness_theta)
         elif self.options.timestepper_type == 'DIRK22':
             self.timestepper = rungekutta.DIRK22(self.eq_sw, self.fields.solution_2d,
                                                  fields, self.dt,
@@ -384,7 +402,7 @@ class FlowSolver2d(FrozenClass):
             self.create_exporters()
         self._initialized = True
 
-    def assign_initial_conditions(self, elev=None, uv=None):
+    def assign_initial_conditions(self, elev=None, uv=None, tracer=None):
         """
         Assigns initial conditions
 
@@ -400,6 +418,8 @@ class FlowSolver2d(FrozenClass):
             elev_2d.project(elev)
         if uv is not None:
             uv_2d.project(uv)
+        if tracer is not None and self.options.solve_tracer:
+            self.fields.tracer_2d.project(tracer)
 
         self.timestepper.initialize(self.fields.solution_2d)
 
@@ -515,6 +535,8 @@ class FlowSolver2d(FrozenClass):
         if not self._initialized:
             self.initialize()
 
+        self.options.use_limiter_for_tracers &= self.options.polynomial_degree > 0
+
         t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()
         next_export_t = self.simulation_time + self.options.simulation_export_time
@@ -525,6 +547,20 @@ class FlowSolver2d(FrozenClass):
                                                       export_to_hdf5=dump_hdf5,
                                                       append_to_log=True)
             self.add_callback(c)
+
+        if self.options.check_tracer_conservation:
+            c = callback.TracerMassConservation2DCallback('tracer_2d',
+                                                          self,
+                                                          export_to_hdf5=dump_hdf5,
+                                                          append_to_log=True)
+            self.add_callback(c, eval_interval='export')
+
+        if self.options.check_tracer_overshoot:
+            c = callback.TracerOvershootCallBack('tracer_2d',
+                                                 self,
+                                                 export_to_hdf5=dump_hdf5,
+                                                 append_to_log=True)
+            self.add_callback(c, eval_interval='export')
 
         # initial export
         self.print_state(0.0)

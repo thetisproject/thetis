@@ -1,7 +1,7 @@
 """
-Testing 3D horizontal advection of tracers
+Testing 2D horizontal advection of tracers
 
-Tuomas Karna
+Tuomas Karna, edited by Athanasios Angeloudis
 """
 from thetis import *
 import numpy
@@ -20,7 +20,6 @@ def run(refinement, **model_options):
     u = 1.0
 
     # mesh
-    n_layers = 3*refinement
     nx = 6*refinement + 1
     ny = 1  # constant -- channel
     mesh2d = RectangleMesh(nx, ny, lx, ly)
@@ -35,14 +34,13 @@ def run(refinement, **model_options):
     outputdir = 'outputs'
 
     # bathymetry
-    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
-    bathymetry_2d = Function(p1_2d, name='Bathymetry')
+    P1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    bathymetry_2d = Function(P1_2d, name='Bathymetry')
     bathymetry_2d.assign(depth)
 
-    solverobj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
+    solverobj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     options = solverobj.options
     options.use_nonlinear_equations = False
-    options.use_ale_moving_mesh = False
     options.use_lax_friedrichs_velocity = True
     options.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
     options.use_lax_friedrichs_tracer = False
@@ -51,22 +49,20 @@ def run(refinement, **model_options):
     options.output_directory = outputdir
     options.simulation_end_time = t_end
     options.simulation_export_time = t_export
-    options.solve_salinity = True
-    options.use_implicit_vertical_diffusion = False
+    options.solve_tracer = True
     options.use_limiter_for_tracers = True
-    options.fields_to_export = ['salt_3d']
+    options.fields_to_export = ['tracer_2d']
     options.update(model_options)
-
-    uv_expr = as_vector((u, 0, 0))
-    bnd_salt_3d = {'value': Constant(0.0), 'uv': uv_expr}
-    bnd_uv_3d = {'uv': uv_expr}
-    solverobj.bnd_functions['salt'] = {
-        1: bnd_salt_3d,
-        2: bnd_salt_3d,
+    uv_expr = as_vector((u, 0))
+    bnd_salt_2d = {'value': Constant(0.0), 'uv': uv_expr}
+    bnd_uv_2d = {'uv': uv_expr}
+    solverobj.bnd_functions['tracer'] = {
+        1: bnd_salt_2d,
+        2: bnd_salt_2d,
     }
     solverobj.bnd_functions['momentum'] = {
-        1: bnd_uv_3d,
-        2: bnd_uv_3d,
+        1: bnd_uv_2d,
+        2: bnd_uv_2d,
     }
 
     solverobj.create_equations()
@@ -75,38 +71,31 @@ def run(refinement, **model_options):
 
     x0 = 0.3*lx
     sigma = 1600.
-    xyz = SpatialCoordinate(solverobj.mesh)
+    xy = SpatialCoordinate(solverobj.mesh2d)
     t_const = Constant(t)
-    ana_salt_expr = exp(-(xyz[0] - x0 - u*t_const)**2/sigma**2)
-
-    salt_ana = Function(solverobj.function_spaces.H, name='salt analytical')
-    salt_ana_p1 = Function(solverobj.function_spaces.P1, name='salt analytical')
-
-    p1dg_ho = FunctionSpace(solverobj.mesh, 'DG', options.polynomial_degree + 2,
-                            vfamily='DG', vdegree=options.polynomial_degree + 2)
-    salt_ana_ho = Function(p1dg_ho, name='salt analytical')
-
-    uv_init = Function(solverobj.function_spaces.U, name='initial uv')
+    ana_tracer_expr = exp(-(xy[0] - x0 - u*t_const)**2/sigma**2)
+    tracer_ana = Function(solverobj.function_spaces.H_2d, name='tracer analytical')
+    uv_init = Function(solverobj.function_spaces.U_2d, name='initial uv')
     uv_init.project(uv_expr)
-    solverobj.assign_initial_conditions(uv_3d=uv_init, salt=ana_salt_expr)
+    solverobj.assign_initial_conditions(uv=uv_init, tracer=ana_tracer_expr)
 
     # export analytical solution
     if not options.no_exports:
-        out_salt_ana = File(os.path.join(options.output_directory, 'salt_ana.pvd'))
+        out_tracer_ana = File(os.path.join(options.output_directory, 'tracer_ana.pvd'))
 
     def export_func():
         if not options.no_exports:
             solverobj.export()
             # update analytical solution to correct time
             t_const.assign(t)
-            salt_ana.project(ana_salt_expr)
-            out_salt_ana.write(salt_ana_p1.project(salt_ana))
+            out_tracer_ana.write(tracer_ana.project(ana_tracer_expr))
 
     # export initial conditions
     export_func()
 
     # custom time loop that solves tracer equation only
-    ti = solverobj.timestepper.timesteppers.salt_expl
+    ti = solverobj.timestepper.timesteppers.tracer
+
     i = 0
     iexport = 1
     next_export_t = t + solverobj.options.simulation_export_time
@@ -115,16 +104,16 @@ def run(refinement, **model_options):
         t += solverobj.dt
         i += 1
         if t >= next_export_t - 1e-8:
-            print_output('{:3d} i={:5d} t={:8.2f} s salt={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.salt_3d)))
+            print_output('{:3d} i={:5d} t={:8.2f} s salt={:8.2f}'.format(iexport, i, t, norm(solverobj.fields.tracer_2d)))
             export_func()
             next_export_t += solverobj.options.simulation_export_time
             iexport += 1
 
     # project analytical solution on high order mesh
     t_const.assign(t)
-    salt_ana_ho.project(ana_salt_expr)
+
     # compute L2 norm
-    l2_err = errornorm(salt_ana_ho, solverobj.fields.salt_3d)/numpy.sqrt(area)
+    l2_err = errornorm(ana_tracer_expr, solverobj.fields.tracer_2d)/numpy.sqrt(area)
     print_output('L2 error {:.12f}'.format(l2_err))
 
     return l2_err
@@ -132,6 +121,7 @@ def run(refinement, **model_options):
 
 def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
+
     polynomial_degree = options.get('polynomial_degree', 1)
     l2_err = []
     for r in ref_list:
@@ -178,7 +168,7 @@ def run_convergence(ref_list, saveplot=False, **options):
             print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
-    check_convergence(x_log, y_log, polynomial_degree+1, 'salt', saveplot)
+    check_convergence(x_log, y_log, polynomial_degree+1, 'tracer', saveplot)
 
 # ---------------------------
 # standard tests for pytest
@@ -190,13 +180,12 @@ def polynomial_degree(request):
     return request.param
 
 
-@pytest.mark.parametrize(('stepper', 'use_ale'),
-                         [('LeapFrog', True),
-                          ('SSPRK22', True)])
-def test_horizontal_advection(polynomial_degree, stepper, use_ale):
+@pytest.mark.parametrize(('stepper'),
+                         [('CrankNicolson')])
+
+def test_horizontal_advection(polynomial_degree, stepper, ):
     run_convergence([1, 2, 3], polynomial_degree=polynomial_degree,
-                    timestepper_type=stepper,
-                    use_ale_moving_mesh=use_ale)
+                    timestepper_type=stepper)
 
 # ---------------------------
 # run individual setup for debugging
@@ -204,9 +193,6 @@ def test_horizontal_advection(polynomial_degree, stepper, use_ale):
 
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 3], polynomial_degree=0,
-                    warped_mesh=True,
-                    element_family='dg-dg',
-                    timestepper_type='SSPRK22',
-                    use_ale_moving_mesh=True,
+    run_convergence([1, 2, 3, 4], polynomial_degree=1,
+                    timestepper_type='CrankNicolson',
                     no_exports=False, saveplot=True)
