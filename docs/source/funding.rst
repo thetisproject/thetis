@@ -32,3 +32,6 @@ A new simulation and optimisation platform for marine technology.
 
 The National Science Foundation partially supported this research through
 cooperative agreement `OCE-0424602 <http://www.nsf.gov/awardsearch/showAward?AWD_ID=0424602>`_.
+
+NERC fellowship grant `NE/R013209/1 <http://gotw.nerc.ac.uk/list_full.asp?pcode=NE/R013209/1>`_: 
+Tidal energy operational and spatial planning optimisation.
