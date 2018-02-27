@@ -26,7 +26,7 @@ Thetis is supported by:
 +---------------------------+------------+
 | |Imperial College London| | |CMOP|     |
 +---------------------------+------------+------------+
-| |NSF|                     | |EPSRC|    | |EPSRC|    |
+| |NSF|                     | |EPSRC|    | |NERC|    |
 +---------------------------+------------+------------+
 
 and in particular the following grants:
