@@ -15,15 +15,19 @@ Thetis is supported by:
   :height: 60px
   :target: http://www.stccmop.org/
 
+.. |NERC| image:: /images/nerc-logo.*
+  :height: 60px
+  :target: http://www.epsrc.ac.uk
+
 .. |Imperial College London| image:: /images/imperial-logo.*
   :height: 60px
   :target: http://www.imperial.ac.uk
 
 +---------------------------+------------+
 | |Imperial College London| | |CMOP|     |
-+---------------------------+------------+
-| |NSF|                     | |EPSRC|    |
-+---------------------------+------------+
++---------------------------+------------+------------+
+| |NSF|                     | |EPSRC|    | |EPSRC|    |
++---------------------------+------------+------------+
 
 and in particular the following grants:
 
