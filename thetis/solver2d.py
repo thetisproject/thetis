@@ -577,7 +577,7 @@ class FlowSolver2d(FrozenClass):
 
             # Move to next time step
             self.iteration += 1
-            self.simulation_time = self.iteration*self.dt
+            self.simulation_time += self.dt
 
             self.callbacks.evaluate(mode='timestep')
 
