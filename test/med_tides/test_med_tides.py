@@ -1,7 +1,6 @@
 from thetis import *
 import numpy
 import uptide
-import datetime
 
 
 def latlon_from_xyz(xyz):
@@ -77,10 +76,12 @@ def smoothen_bathymetry(bathymetry_2d):
       sb.pointwiseMult(ml, mb)
 
 def test_med_tides(do_export=False):
-
-    dt = 600. #Timestep-size
+    import datetime
     day = 86400. #One day in seconds
-    Omega = 2*pi/day
+    Omega = 2*pi/day #Earth's rotational velocity
+    dt = 300. #Timestep-size
+    simulation_initial_time = datetime.datetime(2013, 1, 1) #Simulation start time, as a calendar date
+    simulated_time = 4*day #Simulated time, in seconds
     nonlin = True
     coriolis = True
     family = 'rt-dg'
@@ -109,7 +110,7 @@ def test_med_tides(do_export=False):
     solver_obj.options.use_nonlinear_equations = nonlin
     solver_obj.options.simulation_export_time = dt
     solver_obj.options.output_directory = outputdir
-    solver_obj.options.simulation_end_time = 4*day
+    solver_obj.options.simulation_end_time = simulated_time
     solver_obj.options.no_exports = not do_export
     solver_obj.options.fields_to_export = ['uv_2d', 'elev_2d', 'equilibrium_tide']
     solver_obj.options.horizontal_viscosity = Constant(100.0)
@@ -144,28 +145,31 @@ def test_med_tides(do_export=False):
         h2dxyzi.interpolate(x[i])
     lat, lon = latlon_from_xyz(numpy.vstack(h2dxyz.vector()[:]).T)
 
-    dt0 = datetime.datetime(2013, 1, 1)
     tide = uptide.Tides(uptide.ALL_EQUILIBRIUM_TIDAL_CONSTITUENTS)
-    tide.set_initial_time(dt0)
+    tide.set_initial_time(simulation_initial_time)
 
     tidal_elev = Function(H_2d)
-    tidal_forcing = TidalForcing(dt0, lat, lon)
-    solver_obj.bnd_functions['shallow_water'] = {
-          384: {'elev': tidal_elev},  # use TPXO solution at open boundary
-          388: {'un': 0.0},  # closed boundary
-    }
+    tidal_forcing = TidalForcing(simulation_initial_time, lat, lon)
+    #solver_obj.bnd_functions['shallow_water'] = {
+    #      #384: {'elev': tidal_elev},  # use TPXO solution at open boundary
+    #      384: {'un': 0.0},  # 
+    #      388: {'un': 0.0},  # closed boundary
+    #}
 
 
     # a function called every timestep that updates the equilibrium tide and the boundary forcing
     def update_forcings(t):
-        print_output('Updating equilibrium tide and forcing at t={}'.format(t))
+        print_output('Updating equilibrium tide at t={}'.format(t))
         equilibrium_tide.vector()[:] = uptide.equilibrium_tide(tide, lat, lon, t)
-        tidal_forcing.set_tidal_field(tidal_elev, t)
+        if t >= 2*day:
+            print_output('Updating equilibrium forcing at t={}'.format(t))
+            tidal_forcing.set_tidal_field(tidal_elev, t)
 
     update_forcings(0)
 
     # we start with the TPXO solution as initial condition for elevation
     solver_obj.assign_initial_conditions(elev=tidal_elev)
+    #solver_obj.assign_initial_conditions()
 
     solver_obj.iterate(update_forcings=update_forcings)
 
