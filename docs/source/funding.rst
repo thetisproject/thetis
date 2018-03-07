@@ -23,10 +23,10 @@ Thetis is supported by:
   :height: 60px
   :target: http://www.imperial.ac.uk
 
-+---------------------------+------------+
-| |Imperial College London| | |CMOP|     |
 +---------------------------+------------+------------+
-| |NSF|                     | |EPSRC|    | |NERC|    |
+| |Imperial College London| | |CMOP|     |            |
++---------------------------+------------+------------+
+| |NSF|                     | |EPSRC|    | |NERC|     |
 +---------------------------+------------+------------+
 
 and in particular the following grants:
