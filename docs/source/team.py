@@ -8,6 +8,7 @@ team = OrderedDict([
      "http://www.imperial.ac.uk/people/lawrence.mitchell"),
     ("Stephan Kramer", "http://www.imperial.ac.uk/people/s.kramer"),
     ("Matthew Piggott", "http://www.imperial.ac.uk/people/m.d.piggott"),
+    ("Athanasios Angeloudis","http://www.imperial.ac.uk/people/a.angeloudis06")
 ])
 
 cols = 4
