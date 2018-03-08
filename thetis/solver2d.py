@@ -572,7 +572,7 @@ class FlowSolver2d(FrozenClass):
                 self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
         initial_simulation_time = self.simulation_time
-        iteration = 0
+        internal_iteration = 0
 
         while self.simulation_time <= self.options.simulation_end_time + t_epsilon:
 
@@ -580,8 +580,8 @@ class FlowSolver2d(FrozenClass):
 
             # Move to next time step
             self.iteration += 1
-            iteration += 1
-            self.simulation_time = initial_simulation_time + iteration*self.dt
+            internal_iteration += 1
+            self.simulation_time = initial_simulation_time + internal_iteration*self.dt
 
             self.callbacks.evaluate(mode='timestep')
 
