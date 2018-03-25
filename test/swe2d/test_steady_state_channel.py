@@ -31,7 +31,7 @@ def test_steady_state_channel(do_export=False):
     solver_obj.options.timestepper_options.solver_parameters = {
         'ksp_type': 'preonly',
         'pc_type': 'lu',
-        'pc_factor_mat_solver_package': 'mumps',
+        'pc_factor_mat_solver_type': 'mumps',
         'snes_monitor': False,
         'snes_type': 'newtonls',
     }

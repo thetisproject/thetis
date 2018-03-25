@@ -77,7 +77,7 @@ def setup_steady():
         'mat_type': 'aij',
         'ksp_type': 'preonly',
         'pc_type': 'lu',
-        'pc_factor_mat_solver_package': 'mumps',
+        'pc_factor_mat_solver_type': 'mumps',
         'snes_monitor': False,
         'snes_type': 'newtonls',
     }
@@ -94,7 +94,7 @@ def setup_unsteady():
         'mat_type': 'aij',
         'ksp_type': 'preonly',
         'pc_type': 'lu',
-        'pc_factor_mat_solver_package': 'mumps',
+        'pc_factor_mat_solver_type': 'mumps',
         'snes_monitor': False,
         'snes_type': 'newtonls',
     }
