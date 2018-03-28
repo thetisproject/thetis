@@ -1657,6 +1657,8 @@ def select_and_move_detectors(mesh, detector_locations, detector_names=None,
         accepted_locations.append(location)
         accepted_names.append(name)
 
+    min_lexsort_op.Free()
+
     if detector_names is None:
         return accepted_locations
     else:
