@@ -1125,14 +1125,18 @@ class FlowSolver(FrozenClass):
             if 'vtk' in self.exporters:
                 self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
+        initial_simulation_time = self.simulation_time
+        internal_iteration = 0
+
         while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
 
             self.timestepper.advance(self.simulation_time,
                                      update_forcings, update_forcings3d)
 
             # Move to next time step
-            self.simulation_time += self.dt
             self.iteration += 1
+            internal_iteration += 1
+            self.simulation_time = initial_simulation_time + internal_iteration*self.dt
 
             self.callbacks.evaluate(mode='timestep')
 
