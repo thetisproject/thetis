@@ -2,7 +2,7 @@
 from collections import OrderedDict
 
 team = OrderedDict([
-    ("Tuomas Kärnä", "http://www.stccmop.org/user/karna"),
+    ("Tuomas Kärnä", "https://orcid.org/0000-0002-9247-4830"),
     ("David Ham", "http://www.imperial.ac.uk/people/david.ham"),
     ("Lawrence Mitchell",
      "http://www.imperial.ac.uk/people/lawrence.mitchell"),
@@ -34,7 +34,7 @@ names = []
 
 def imagename(name):
     puny = name.split()[0].lower().encode("punycode").decode()
-    return puny[:-1] if puny[-1]=="-" else puny 
+    return puny[:-1] if puny[-1]=="-" else puny
 
 # Write substitution rules for member images.
 for member, url in team.items():
