@@ -1,7 +1,18 @@
-.. Thetis documentation master file, created by
-   sphinx-quickstart on Tue Sep 20 18:25:49 2016.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+.. title:: The Thetis project
+
+.. only:: html
+
+  .. sidebar:: Current development information.
+
+     Thetis source code is hosted on  `Github
+     <https://github.com/thetisproject/thetis/>`__.
+     Thetis is continually tested using `Jenkins <https://jenkins.io/>`__.
+
+     Latest Thetis status: |thetisbuild|
+
+     .. |thetisbuild| image:: https://jenkins.ese.ic.ac.uk:1080/job/thetisproject/job/thetis/job/master/badge/icon
+                                 :target: https://jenkins.ese.ic.ac.uk:1080/blue/organizations/jenkins/thetisproject%2Fthetis/branches/
+
 
 The Thetis project
 ==================

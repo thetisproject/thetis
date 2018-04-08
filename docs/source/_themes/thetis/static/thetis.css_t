@@ -69,6 +69,8 @@ div.body {
     background-color: #ffffff;
     color: #3E4349;
     padding: 0 30px 30px 30px;
+    margin: 0 0 0 0;
+    max-width: 1500px;
     font-size: 14px;
     overflow: auto;
 }
@@ -121,14 +123,15 @@ td.label {
 /* -- sidebars -------------------------------------------------------------- */
 
 div.sidebar {
-    margin: 0 0 0.5em 1em;
-    border: 2px solid #8c1b1e;
+    margin: 0.5em 0em 0em 0em;
+    border-style: solid;
+    border-width: 2px;
+    border-color: #888;
     background-color: #eee;
     width: 300px;
     float: right;
-    border-right-style: none;
-    border-left-style: none;
-    padding: 0px 0px;
+    padding: 6px 6px 6px 6px;
+    border-radius: 8px;
 }
 
 div.latest-commit {
