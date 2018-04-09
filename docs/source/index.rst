@@ -17,9 +17,12 @@
 The Thetis project
 ==================
 
-Thetis is an unstructured grid ocean modelling framework built using
-`Firedrake <http://www.firedrakeproject.org/>`__.
+Thetis is an unstructured grid coastal ocean model built using the
+`Firedrake <http://www.firedrakeproject.org/>`__ finite element framework.
+Currently Thetis consists of a 2D depth averaged and a full 3D baroclinic models.
 
+Some example animations are shown below. More animations can be found in the
+`Youtube channel <https://www.youtube.com/channel/UC0FYtpH1unCy_qcoI46CnRA>`__.
 
 .. only:: html
 
