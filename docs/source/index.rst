@@ -2,17 +2,19 @@
 
 .. only:: html
 
-  .. sidebar:: Current development information.
+  .. sidebar:: Current build status
 
-     Thetis source code is hosted on  `Github
-     <https://github.com/thetisproject/thetis/>`__.
-     Thetis is continually tested using `Jenkins <https://jenkins.io/>`__.
+    .. container:: buildstatus
 
-     Latest Thetis status: |thetisbuild|
+        |thetisbuild|
 
-     .. |thetisbuild| image:: https://jenkins.ese.ic.ac.uk:1080/job/thetisproject/job/thetis/job/master/badge/icon
-                                 :target: https://jenkins.ese.ic.ac.uk:1080/blue/organizations/jenkins/thetisproject%2Fthetis/branches/
+    Thetis source code is hosted on  `Github
+    <https://github.com/thetisproject/thetis/>`__ and is being
+    continually tested using `Jenkins <https://jenkins.io/>`__.
 
+    .. |thetisbuild| image:: https://jenkins.ese.ic.ac.uk:1080/job/thetisproject/job/thetis/job/master/badge/icon
+                             :target: https://jenkins.ese.ic.ac.uk:1080/blue/organizations/jenkins/thetisproject%2Fthetis/branches/
+                             :align: top
 
 The Thetis project
 ==================

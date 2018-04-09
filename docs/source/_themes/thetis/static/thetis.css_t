@@ -253,6 +253,11 @@ div.highlight{
     background-color: white;
 }
 
+div.buildstatus {
+    margin-top: -36px;
+    float: right;
+}
+
 div.note {
     border: 2px solid #7a9eec;
     border-right-style: none;
