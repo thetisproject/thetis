@@ -10,13 +10,13 @@
  */
 
 @import url("basic.css");
-@import url("nobile-fontfacekit/stylesheet.css");
-@import url("neuton-fontfacekit/stylesheet.css");
+@import url("open-sans-fontfacekit/stylesheet.css");
+@import url("pt-serif-fontfacekit/stylesheet.css");
 
 /* -- page layout ----------------------------------------------------------- */
 
 body {
-    font-family: "Nobile", sans-serif;
+    font-family: "open_sansregular", sans-serif;
     font-size: 14px;
     background-color: #ffffff;
     color: #ffffff;
@@ -191,7 +191,7 @@ div.body h3,
 div.body h4,
 div.body h5,
 div.body h6 {
-    font-family: "NeutonRegular", sans-serif;
+    font-family: "pt_serifregular", sans-serif;
     background-color: #ffffff;
     font-weight: normal;
     color: #222;
@@ -200,17 +200,17 @@ div.body h6 {
 }
 
 div.body h1 {
-    font-size: 2.2em;
+    font-size: 2.3em;
     line-height: 1;
     margin-bottom: 0.4em;
 }
 div.body h2 {
-    font-size: 1.6em;
+    font-size: 1.7em;
     line-height: 1;
     margin-bottom: 0.6em;
 }
 div.body h3 {
-    font-size: 1.2em;
+    font-size: 1.3em;
     line-height: 1;
     margin-bottom: 0.8em;
 }
@@ -283,7 +283,7 @@ div.warning div.last {
 }
 
 #thetis-package h2 {
-    background-color: #fafafa;                   
+    background-color: #fafafa;
     border: 2px solid #8c1b1e;
     border-right-style: none;
     border-left-style: none;
