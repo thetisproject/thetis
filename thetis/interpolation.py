@@ -331,6 +331,7 @@ class NetCDFLatLonInterpolator2d(SpatialInterpolator2d):
     Usage:
 
     .. code-block:: python
+
         fs = FunctionSpace(...)
         myfunc = Function(fs, ...)
         ncinterp2d = NetCDFLatLonInterpolator2d(fs, to_latlon, nc_filename)
@@ -633,9 +634,10 @@ class NetCDFTimeSeriesInterpolator(object):
         :arg variable_list: list if netCDF variable names to read
         :arg datetime.datetime init_date: simulation start time
         :kwarg scalars: (optional) list of scalars; scale output variables by
-        a factor.
+            a factor.
 
-        .. note:
+        .. note::
+
             All the variables must have the same dimensions in the netCDF files.
             If the shapes differ, create separate interpolator instances.
         """

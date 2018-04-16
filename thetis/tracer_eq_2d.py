@@ -7,7 +7,7 @@ The advection-diffusion equation of tracer :math:`T` in non-conservative form re
     \frac{\partial T}{\partial t}
     + \nabla_h \cdot (\textbf{u} T)
     = \nabla_h \cdot (\mu_h \nabla_h T)
-    :label: tracer_eq
+    :label: tracer_eq_2d
 
 where :math:`\nabla_h` denotes horizontal gradient, :math:`\textbf{u}` are the horizontal
 velocities, respectively, and

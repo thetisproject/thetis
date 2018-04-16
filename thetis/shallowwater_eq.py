@@ -155,6 +155,7 @@ When wetting and drying is turned on, two things occur:
 
     1. All instances of the height, :math:`H`, are replaced by :math:`\tilde{H}` (as defined above);
     2. An additional displacement term :math:`\frac{\partial \tilde{h}}{\partial t}` is added to the bathymetry in the free surface equation.
+
 The free surface and momentum equations then become:
 
 .. math::

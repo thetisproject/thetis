@@ -27,8 +27,8 @@ class CallbackManager(defaultdict):
         cm.add(cb1, 'export')
         cm.add(cb2, 'export')
 
-    Evaluate callbacks, calls :func:`evaluate` method of all callbacks registered
-    in the given mode.
+    Evaluate callbacks, calls :func:`evaluate` method of all callbacks
+    registered in the given mode.
 
     .. code-block:: python
 
@@ -73,8 +73,8 @@ class DiagnosticHDF5(object):
         :kwarg int array_dim: Dimension of the output array. 1 for scalars.
         :kwarg dict attrs: Additional attributes to be saved in the hdf5 file.
         :kwarg comm: MPI communicator
-        :kwarg bool new_file: Define whether to create a new hdf5 file or append to
-            an existing one (if any)
+        :kwarg bool new_file: Define whether to create a new hdf5 file or
+            append to an existing one (if any)
         """
         self.comm = comm
         self.filename = filename
@@ -141,16 +141,16 @@ class DiagnosticCallback(object):
                  hdf5_dtype='d'):
         """
         :arg solver_obj: Thetis solver object
-        :kwarg str outputdir: Custom directory where hdf5 files will be stored. By
-            default solver's output directory is used.
+        :kwarg str outputdir: Custom directory where hdf5 files will be stored.
+            By default solver's output directory is used.
         :kwarg int array_dim: Dimension of the output array. 1 for scalars.
         :kwarg dict attrs: Additional attributes to be saved in the hdf5 file.
         :kwarg bool export_to_hdf5: If True, diagnostics will be stored in hdf5
             format
-        :kwarg bool append_to_log: If True, callback output messages will be printed
-            in log
-        :kwarg hdf5_dtype: Precision to use in hdf5 output: 'd' for double precision (default),
-            and 'f for single precision
+        :kwarg bool append_to_log: If True, callback output messages will be
+            printed in log
+        :kwarg hdf5_dtype: Precision to use in hdf5 output: `d` for double
+            precision (default), and `f` for single precision
         """
         self.solver_obj = solver_obj
         if outputdir is None:
@@ -215,7 +215,8 @@ class DiagnosticCallback(object):
         """
         A string representation.
 
-        :arg args: If provided, these will be the return value from :meth:`__call__`.
+        :arg args: If provided, these will be the return value from
+            :meth:`__call__`.
         """
         return "{} diagnostic".format(self.name)
 
@@ -240,7 +241,9 @@ class DiagnosticCallback(object):
         self.hdf_exporter.export(time, args, index=index)
 
     def evaluate(self, index=None):
-        """Evaluates callback and pushes values to log and hdf file (if enabled)"""
+        """
+        Evaluates callback and pushes values to log and hdf file (if enabled)
+        """
         values = self.__call__()
         time = self.solver_obj.simulation_time
         if self.append_to_log:
@@ -257,10 +260,11 @@ class ScalarConservationCallback(DiagnosticCallback):
         """
         Creates scalar conservation check callback object
 
-        :arg scalar_callback: Python function that takes the solver object as an argument and
-            returns a scalar quantity of interest
+        :arg scalar_callback: Python function that takes the solver object as
+            an argument and returns a scalar quantity of interest
         :arg solver_obj: Thetis solver object
-        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
+        :arg kwargs: any additional keyword arguments, see
+            :class:`.DiagnosticCallback`.
         """
         super(ScalarConservationCallback, self).__init__(solver_obj, **kwargs)
         self.scalar_callback = scalar_callback
@@ -285,7 +289,8 @@ class VolumeConservation3DCallback(ScalarConservationCallback):
     def __init__(self, solver_obj, **kwargs):
         """
         :arg solver_obj: Thetis solver object
-        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
+        :arg kwargs: any additional keyword arguments, see
+            :class:`.DiagnosticCallback`.
         """
         def vol3d():
             return comp_volume_3d(self.solver_obj.mesh)
@@ -299,7 +304,8 @@ class VolumeConservation2DCallback(ScalarConservationCallback):
     def __init__(self, solver_obj, **kwargs):
         """
         :arg solver_obj: Thetis solver object
-        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
+        :arg kwargs: any additional keyword arguments, see
+            :class:`.DiagnosticCallback`.
         """
 
         def vol2d():
@@ -309,14 +315,21 @@ class VolumeConservation2DCallback(ScalarConservationCallback):
 
 
 class TracerMassConservation2DCallback(ScalarConservationCallback):
-    """Checks conservation of depth-averaged tracer mass (integral of 2D tracer multiplied by total depth)"""
+    """
+    Checks conservation of depth-averaged tracer mass
+
+    Depth-averaged tracer mass is defined as the integral of 2D tracer
+    multiplied by total depth.
+    """
     name = 'tracer mass'
 
     def __init__(self, tracer_name, solver_obj, **kwargs):
         """
-        :arg tracer_name: Name of the tracer. Use canonical field names as in :class:`.FieldDict`.
+        :arg tracer_name: Name of the tracer. Use canonical field names as in
+            :class:`.FieldDict`.
         :arg solver_obj: Thetis solver object
-        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
+        :arg kwargs: any additional keyword arguments, see
+            :class:`.DiagnosticCallback`.
         """
         self.name = tracer_name + ' mass'  # override name for given tracer
 
@@ -333,9 +346,11 @@ class TracerMassConservationCallback(ScalarConservationCallback):
 
     def __init__(self, tracer_name, solver_obj, **kwargs):
         """
-        :arg tracer_name: Name of the tracer. Use canonical field names as in :class:`.FieldDict`.
+        :arg tracer_name: Name of the tracer. Use canonical field names as in
+            :class:`.FieldDict`.
         :arg solver_obj: Thetis solver object
-        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
+        :arg kwargs: any additional keyword arguments, see
+            :class:`.DiagnosticCallback`.
         """
         self.name = tracer_name + ' mass'  # override name for given tracer
 
@@ -353,7 +368,8 @@ class MinMaxConservationCallback(DiagnosticCallback):
         :arg minmax_callback: Python function that takes the solver object as
             an argument and returns a (min, max) value tuple
         :arg solver_obj: Thetis solver object
-        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
+        :arg kwargs: any additional keyword arguments, see
+            :class:`.DiagnosticCallback`.
         """
         super(MinMaxConservationCallback, self).__init__(solver_obj, **kwargs)
         self.minmax_callback = minmax_callback
@@ -378,9 +394,11 @@ class TracerOvershootCallBack(MinMaxConservationCallback):
 
     def __init__(self, tracer_name, solver_obj, **kwargs):
         """
-        :arg tracer_name: Name of the tracer. Use canonical field names as in :class:`.FieldDict`.
+        :arg tracer_name: Name of the tracer. Use canonical field names as in
+            :class:`.FieldDict`.
         :arg solver_obj: Thetis solver object
-        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
+        :arg kwargs: any additional keyword arguments, see
+            :class:`.DiagnosticCallback`.
         """
         self.name = tracer_name + ' overshoot'
 
@@ -394,7 +412,9 @@ class TracerOvershootCallBack(MinMaxConservationCallback):
 
 
 class DetectorsCallback(DiagnosticCallback):
-    """Callback that writes the specified fields interpolated in the specified detector locations"""
+    """
+    Callback that evaluates the specified fields at the specified locations
+    """
     def __init__(self, solver_obj,
                  detector_locations,
                  field_names,
@@ -403,13 +423,17 @@ class DetectorsCallback(DiagnosticCallback):
                  **kwargs):
         """
         :arg solver_obj: Thetis solver object
-        :arg detector_locations: List of x, y locations in which fields are to be interpolated.
+        :arg detector_locations: List of x, y locations in which fields are to
+            be interpolated.
         :arg field_names: List of fields to be interpolated.
-        :arg name: Unique name for this callback and its associated set of detectors. This determines the name
-           of the output h5 file (prefixed with diagnostic_).
-        :arg detector_names: List of names for each of the detectors. If not provided automatic names
-           of the form 'detectorNNN' are created where NNN is the (0-padded) detector number.
-        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
+        :arg name: Unique name for this callback and its associated set of
+            detectors. This determines the name of the output h5 file
+            (prefixed with `diagnostic_`).
+        :arg detector_names: List of names for each of the detectors. If not
+            provided automatic names of the form `detectorNNN` are created
+            where NNN is the (0-padded) detector number.
+        :arg kwargs: any additional keyword arguments, see
+            :class:`.DiagnosticCallback`.
         """
         # printing all detector output to log is probably not a useful default:
         kwargs.setdefault('append_to_log', False)
@@ -445,9 +469,12 @@ class DetectorsCallback(DiagnosticCallback):
         return self.solver_obj.fields[field_name](self.detector_locations)
 
     def __call__(self):
-        """Evaluate all current fields in all detector locations
+        """
+        Evaluate all current fields in all detector locations
 
-        Returns a ndetectors x ndims array, where ndims is the sum of the dimension of the fields."""
+        Returns a ndetectors x ndims array, where ndims is the sum of the
+        dimension of the fields.
+        """
         ndetectors = len(self.detector_locations)
         field_vals = []
         for field_name in self.field_names:
