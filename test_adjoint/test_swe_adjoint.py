@@ -109,10 +109,10 @@ def test_gradient_from_adjoint(setup):
     solver_obj.iterate()
     J0 = assemble(solver_obj.fields.solution_2d[0]*dx)
 
-    drag_func = solver_obj.options.quadratic_drag_coefficient
+    drag_func = Control(solver_obj.options.quadratic_drag_coefficient)
     Jhat = ReducedFunctional(J0, drag_func)
 
-    c = Function(drag_func)
+    c = Function(solver_obj.options.quadratic_drag_coefficient)
     dc = Function(c)
     from numpy.random import rand
     c.vector()[:] = rand(*c.dat.shape)
