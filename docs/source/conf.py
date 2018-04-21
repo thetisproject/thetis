@@ -155,7 +155,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'Thetis', u'Thetis Documentation',
-     author, 'Thetis', 'One line description of project.',
+     author, 'Thetis', 'Thetis - an unstructured grid coastal ocean model',
      'Miscellaneous'),
 ]
 

@@ -20,7 +20,8 @@ body {
     font-size: 14px;
     background-color: #ffffff;
     color: #ffffff;
-    margin: 0;    padding: 0;
+    margin: 0;
+    padding: 0;
 }
 
 div.documentwrapper {
@@ -29,7 +30,7 @@ div.documentwrapper {
 }
 
 div.bodywrapper {
-    width: 950px;
+    width: 900px;
     margin-left: auto;
     margin-right: auto;
 }
@@ -40,6 +41,7 @@ hr {
 
 div.document {
     background-color: #fff;
+    min-height: 765px;
 }
 
 div.header{
@@ -68,7 +70,7 @@ div.logo-small {
 div.body {
     background-color: #ffffff;
     color: #3E4349;
-    padding: 0 30px 30px 30px;
+    padding: 5px 20px 30px 20px;
     margin: 0 0 0 0;
     max-width: 1500px;
     font-size: 14px;
@@ -77,11 +79,12 @@ div.body {
 
 div.footer {
     color: #aaa;
-    width: 100%;
-    padding: 13px 0;
+    margin: 10px auto 0;
+    width: 900px;
+    padding: 23px 0px 30px 0px;
     text-align: center;
     font-size: 13px;
-    background: #000;
+    background: #fbf8f0;
     clear:both;
 }
 
@@ -120,15 +123,16 @@ td.label {
     font-weight: normal;
     text-shadow: none;
 }
+
 /* -- sidebars -------------------------------------------------------------- */
 
 div.sidebar {
-    margin: 0.5em 0em 0em 0em;
+    margin: 15px -10px 0em 5px;
     border-style: solid;
     border-width: 2px;
     border-color: #888;
     background-color: #eee;
-    width: 300px;
+    width: 250px;
     float: right;
     padding: 6px 6px 6px 6px;
     border-radius: 8px;
@@ -377,8 +381,13 @@ table.imagegrid td{
     text-align: center;
 }
 
+table.docutils {
+    margin: 10px -5px 10px -5px;
+}
+
 table.docutils td {
-    padding: 0.5em;
+    text-align: center;
+    padding: 20px 10px 15px 10px;
 }
 
 table.highlighttable {
