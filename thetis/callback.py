@@ -167,7 +167,7 @@ class DiagnosticCallback(object):
 
     def set_write_mode(self, mode):
         """
-        Define whether to create a new hdf5 file or append to an exisiting one
+        Define whether to create a new hdf5 file or append to an existing one
 
         :arg str mode: Either 'create' (default) or 'append'
         """
@@ -481,3 +481,49 @@ class DetectorsCallback(DiagnosticCallback):
             field_vals.append(np.reshape(self._evaluate_field(field_name), (ndetectors, -1)))
 
         return np.hstack(field_vals)
+
+
+class FunctionalCallback(DiagnosticCallback):
+    """Base class for callbacks that evaluate a functional involving integrals in both time and space. This callback
+    can also be used to assemble time dependent objective functionals for adjoint simulations. Time integration is
+    achieved using the trapezium rule."""
+    variable_names = ['current integral', 'objective value']
+
+    def __init__(self, scalar_callback, solver_obj, **kwargs):
+        """
+        Creates error comparison check callback object
+
+        :arg scalar_callback: Python function that takes the solver object as an argument and
+            returns a list of values of an objective functional.
+        :arg solver_obj: Thetis solver object
+        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
+        """
+        kwargs.setdefault('export_to_hdf5', False)
+        kwargs.setdefault('append_to_log', False)
+        super(FunctionalCallback, self).__init__(solver_obj, **kwargs)
+        self.scalar_callback = scalar_callback      # Evaluate functional
+        self.objective_value = [scalar_callback()]  # Store functional value
+        self.dt = solver_obj.options.timestep
+        self.t = solver_obj.simulation_time
+
+    def __call__(self):
+        value = self.scalar_callback()
+        if self.t > 0.5 * self.dt:              # Don't store the first value twice
+            self.objective_value.append(value)
+        self.t += self.dt
+
+        return value, self.objective_value
+
+    def get_vals(self):
+        return self.objective_value
+
+    def message_str(self, *args):
+        line = '{0:s} value {1:11.4e}'.format(self.name, args[1])
+        return line
+
+    def quadrature(self):
+        func = self.objective_value
+        J = 0
+        for i in range(1, len(func)):
+            J += 0.5 * (func[i] + func[i-1]) * self.dt
+        return J
