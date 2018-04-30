@@ -56,7 +56,7 @@ def rst_all_options(cls, nspace=0, prefix=None):
                 dvr = trait.default_value_repr()
             except Exception:
                 dvr = None
-        help = trait.help or 'No description'
+        help = trait.help.strip() if trait.help else 'No description'
         lines.append(indent(dedent(help), 4 + nspace))
         lines.append('')
         lines.append(indent("Default:\n", 4 + nspace))
