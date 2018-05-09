@@ -15,9 +15,9 @@
 # to enable a gradient-based optimisation using the adjoint to compute gradients,
 # we need to import from thetis_adjoint instead of thetis
 from thetis_adjoint import *
+from pyadjoint.optimization.optimization import maximise
+import numpy
 op2.init(log_level=INFO)
-
-parameters['coffee'] = {}  # temporarily disable COFFEE due to bug
 
 test_gradient = True  # whether to check the gradient computed by the adjoint
 optimise = False
@@ -170,25 +170,30 @@ class MyReducedFunctional(ReducedFunctional):
 #scaled_functional = assemble(solver_obj.fields.solution_2d[0]*dx)
 scaled_functional = time_integrated_functional
 
-print scaled_functional
+print_output(scaled_functional)
 
-# this reduces the functional J(u, tf) to a function purely of
+# specifies the control we want to vary in the optimisation
+c = Control(turbine_friction)
+# this reduces the functional J(u, tf) to a function purely of the control tf:
 # rf(tf) = J(u(tf), tf) where the velocities u(tf) of the entire simulation
 # are computed by replaying the forward model for any provided turbine friction tf
-rf = MyReducedFunctional(scaled_functional, turbine_friction)
+rf = MyReducedFunctional(scaled_functional, c)
 
 if test_gradient:
-    #dJdc = compute_gradient(scaled_functional, turbine_friction)
-    #File('dJdc.pvd').write(dJdc)
+    # whenever the forward model is changed - for example different terms in the equation, different types of boundary conditions, etc.
+    # it is a good idea to test whether the gradient computed by the adjoint is still correct, as some steps in the model may not have
+    # been annotated correctly. This can be done via the Taylor test.
+    # Using the standard Taylor series, we should have (for a sufficiently smooth problem):
+    #   rf(tf0+h*dtf) - rf(tf0) - < drf/dtf(rf0), h dtf> = O(h^2)
+
+    # we choose a random point in the control space, i.e. a randomized turbine friction with values between 0 and 1
+    # and choose a random direction dtf to vary it in
     tf0 = Function(turbine_friction)
     dtf = Function(turbine_friction)
-    #tf0.assign(turbine_friction)
-    #print rf(tf0)
-    #stop
-    import numpy
     tf0.dat.data[:] = numpy.random.random(tf0.dat.data.shape)
-    #print rf(tf0)
     dtf.dat.data[:] = numpy.random.random(dtf.dat.data.shape)
+
+    # this tests whether the above Taylor series residual indeed converges to zero at 2nd order in h as h->0
     minconv = taylor_test(rf, tf0, dtf)
     print_output("Order of convergence with taylor test (should be 2) = {}".format(minconv))
 
