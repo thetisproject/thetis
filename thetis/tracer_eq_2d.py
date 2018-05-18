@@ -114,7 +114,9 @@ class HorizontalAdvectionTerm(TracerTerm):
         if fields_old.get('uv_2d') is None:
             return 0
         elev = fields_old['elev_2d']
-        uv = fields_old['uv_2d']
+        uv = fields_old['tracer_advective_velocity']
+        if uv is None:
+            uv = fields_old['uv_2d']
 
         uv_p1 = fields_old.get('uv_p1')
         uv_mag = fields_old.get('uv_mag')

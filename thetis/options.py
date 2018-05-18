@@ -466,6 +466,8 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Source term for 2D continuity equation").tag(config=True)
     tracer_source_2d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
+    tracer_advective_velocity = FiredrakeVectorExpression(
+        None, allow_none=True, help="Velocity to used in tracer advection equation.").tag(config=True)
     horizontal_diffusivity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
 
