@@ -183,7 +183,7 @@ def lagoon_operation(h_i, h_o, t, status, control, turbine_specs, sluice_specs, 
 def lagoon(t, Dt, h_i, h_o, status, control, params, boundaries):
     """
     Calculates based on the head differences and the operational conditions the fluxes of a normal tidal lagoon/barrage
-    by calling lagoon__operation. Exports to file and imposes the boundary conditions.
+    by calling lagoon__operation. Imposes hydraulic structure fluxes if available.
     :param t: time (s)
     :param Dt: timestep (s)
     :param h_i: upstream water level (m)
