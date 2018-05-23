@@ -4,18 +4,17 @@ from modules.parameterisations import turbine_parametrisation, gate_sluicing, tu
 
 
 def lagoon_operation(h_i, h_o, t, status, control, turbine_specs, sluice_specs, flux_limiter=0.2):
-    # --------------------------------------------------------------------------------------------------
-    # turbine_specs["h_min"] = minimum head, z_up = upstream water level, z_dn = downstream water level
-    # z_dn0 = downstream WL at previous timestep, t = time, ht = maximum holdtime, mod_0 = mode of operation at [i-1]
-    # mod_t = time the current mode changed, status["m_dt"] = duration of current mode, f_g = grid frequency (turbine)
-    # g_p = generator poles, g = gravitational acceleration, t_d = turbine diameter, t_cap = turbine capacity
-    # dens = turbine fluid density (kg/m3) , control["N_t"] = number of turbines, a_s = total sluice area,
-    # status["f_r"] = ramp function,
-    # cd_t = turbine operating in sluice mode discharge coefficient.
-
-    # Variables for pumping:
-    # control["h_p"] = dictates which discharge will be calculated on the hill chart
-    # t_pump = pumping duration in the current mode, h_boost = head difference desired for pumping
+    """
+    :param h_i: Inner (Upstream) water elevation 
+    :param h_o: Outer (downstream) water elevation
+    :param t: time
+    :param status: current status of power plant dictionary
+    :param control: control parameters for operation dictionary
+    :param turbine_specs: turbine specifications
+    :param sluice_specs: sluice gate specifications
+    :param flux_limiter: flux limiter (to avoid unrealistic instabilities)
+    :return: 
+    """
 
     mod_0 = status["m"]
     status["DZ"] = h_i - h_o
