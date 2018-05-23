@@ -5,7 +5,7 @@ from modules.parameterisations import turbine_parametrisation, gate_sluicing, tu
 
 def lagoon_operation(h_i, h_o, t, status, control, turbine_specs, sluice_specs, flux_limiter=0.2):
     """
-    :param h_i: Inner (Upstream) water elevation 
+    :param h_i: Inner (Upstream) water elevation
     :param h_o: Outer (downstream) water elevation
     :param t: time
     :param status: current status of power plant dictionary
@@ -13,7 +13,7 @@ def lagoon_operation(h_i, h_o, t, status, control, turbine_specs, sluice_specs, 
     :param turbine_specs: turbine specifications
     :param sluice_specs: sluice gate specifications
     :param flux_limiter: flux limiter (to avoid unrealistic instabilities)
-    :return: 
+    :return:
     """
 
     mod_0 = status["m"]
