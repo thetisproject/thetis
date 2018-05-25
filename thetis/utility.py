@@ -16,6 +16,7 @@ from .field_defs import field_metadata
 from .log import *
 from firedrake import Function as FiredrakeFunction
 from firedrake import Constant as FiredrakeConstant
+from firedrake import Expression as FiredrakeExpression
 from abc import ABCMeta, abstractmethod
 
 ds_surf = ds_t
@@ -999,6 +1000,43 @@ class SubFunctionExtractor(object):
 
             if self.do_rt_scaling:
                 self.rt_scale_solver.solve()
+
+
+class SubdomainProjector(object):
+    """Projector that projects the restriction of an expression to the specified subdomain."""
+    def __init__(self, v, v_out, subdomain_id, solver_parameters=None, constant_jacobian=True):
+
+        if isinstance(v, FiredrakeExpression) or \
+           not isinstance(v, (ufl.core.expr.Expr, FiredrakeFunction)):
+            raise ValueError("Can only project UFL expression or Functions not '%s'" % type(v))
+
+        self.v = v
+        self.v_out = v_out
+
+        V = v_out.function_space()
+
+        p = TestFunction(V)
+        q = TrialFunction(V)
+
+        a = inner(p, q)*dx
+        L = inner(p, v)*dx(subdomain_id)
+
+        problem = LinearVariationalProblem(a, L, v_out,
+                                           constant_jacobian=constant_jacobian)
+
+        if solver_parameters is None:
+            solver_parameters = {}
+
+        solver_parameters.setdefault("ksp_type", "cg")
+
+        self.solver = LinearVariationalSolver(problem,
+                                              solver_parameters=solver_parameters)
+
+    def project(self):
+        """
+        Apply the projection.
+        """
+        self.solver.solve()
 
 
 def compute_elem_height(zcoord, output):

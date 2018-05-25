@@ -4,7 +4,7 @@ Defines custom callback functions used to compute various metrics at runtime.
 """
 from __future__ import absolute_import
 from .utility import *
-from abc import ABCMeta, abstractproperty, abstractmethod
+from abc import ABC, abstractproperty, abstractmethod
 import h5py
 from collections import defaultdict
 from .log import *
@@ -65,7 +65,8 @@ class DiagnosticHDF5(object):
     A HDF5 file for storing diagnostic time series arrays.
     """
     def __init__(self, filename, varnames, array_dim=1, attrs=None,
-                 comm=COMM_WORLD, new_file=True, dtype='d'):
+                 comm=COMM_WORLD, new_file=True, dtype='d',
+                 include_time=True):
         """
         :arg str filename: Full filename of the HDF5 file.
         :arg varnames: List of variable names that the diagnostic callback
@@ -81,11 +82,13 @@ class DiagnosticHDF5(object):
         self.varnames = varnames
         self.nvars = len(varnames)
         self.array_dim = array_dim
+        self.include_time = include_time
         if comm.rank == 0 and new_file:
             # create empty file with correct datasets
             with h5py.File(filename, 'w') as hdf5file:
-                hdf5file.create_dataset('time', (0, 1),
-                                        maxshape=(None, 1), dtype=dtype)
+                if include_time:
+                    hdf5file.create_dataset('time', (0, 1),
+                                            maxshape=(None, 1), dtype=dtype)
                 for var in self.varnames:
                     hdf5file.create_dataset(var, (0, array_dim),
                                             maxshape=(None, array_dim), dtype=dtype)
@@ -95,12 +98,19 @@ class DiagnosticHDF5(object):
     def _expand(self, hdf5file):
         """Expands data arrays by 1 entry"""
         # TODO is there an easier way for doing this?
-        for var in self.varnames + ['time']:
+        for var in self.varnames:
             arr = hdf5file[var]
             shape = arr.shape
             arr.resize((shape[0] + 1, shape[1]))
+        if self.include_time:
+            arr = hdf5file['time']
+            shape = arr.shape
+            arr.resize((shape[0] + 1, shape[1]))
 
-    def export(self, time, variables, index=None):
+    def _nentries(self, hdf5file):
+        return hdf5file[self.varnames[0]].shape[0]
+
+    def export(self, variables, time=None, index=None):
         """
         Appends a new entry of (time, variables) to the file.
 
@@ -114,30 +124,32 @@ class DiagnosticHDF5(object):
         """
         if self.comm.rank == 0:
             with h5py.File(self.filename, 'a') as hdf5file:
-                ntime = hdf5file['time'].shape[0]
                 if index is not None:
-                    assert index <= ntime, 'time index out of range {:} <= {:} \n  in file {:}'.format(index, ntime, self.filename)
-                    expand_required = index == ntime
+                    nentries = self._name(hdf5file)
+                    assert index <= nentries, 'time index out of range {:} <= {:} \n  in file {:}'.format(index, nentries, self.filename)
+                    expand_required = index == nentries
                     ix = index
                 if index is None or expand_required:
                     self._expand(hdf5file)
-                    ix = hdf5file['time'].shape[0] - 1
-                hdf5file['time'][ix] = time
+                    ix = self._nentries(hdf5file) - 1
+                if self.include_time:
+                    assert time is not None, 'time should be provided as 2nd argument to export()'
+                    hdf5file['time'][ix] = time
                 for i in range(self.nvars):
                     hdf5file[self.varnames[i]][ix, :] = variables[i]
                 hdf5file.close()
 
 
-class DiagnosticCallback(object):
+class DiagnosticCallback(ABC):
     """
     A base class for all Callback classes
     """
-    __metaclass__ = ABCMeta
 
     def __init__(self, solver_obj, array_dim=1, attrs=None,
                  outputdir=None,
                  export_to_hdf5=True,
                  append_to_log=True,
+                 include_time=True,
                  hdf5_dtype='d'):
         """
         :arg solver_obj: Thetis solver object
@@ -149,6 +161,7 @@ class DiagnosticCallback(object):
             format
         :kwarg bool append_to_log: If True, callback output messages will be
             printed in log
+        :kwarg bool include_time: whether to include time in the hdf5 file
         :kwarg hdf5_dtype: Precision to use in hdf5 output: `d` for double
             precision (default), and `f` for single precision
         """
@@ -162,6 +175,7 @@ class DiagnosticCallback(object):
         self.append_to_hdf5 = export_to_hdf5
         self.append_to_log = append_to_log
         self.hdf5_dtype = hdf5_dtype
+        self.include_time = include_time
         self._create_new_file = True
         self._hdf5_initialized = False
 
@@ -187,7 +201,8 @@ class DiagnosticCallback(object):
                                                array_dim=self.array_dim,
                                                new_file=self._create_new_file,
                                                attrs=self.attrs,
-                                               comm=comm, dtype=self.hdf5_dtype)
+                                               comm=comm, dtype=self.hdf5_dtype,
+                                               include_time=self.include_time)
         self._hdf5_initialized = True
 
     @abstractproperty
@@ -238,7 +253,7 @@ class DiagnosticCallback(object):
         """
         if not self._hdf5_initialized:
             self._create_hdf5_file()
-        self.hdf_exporter.export(time, args, index=index)
+        self.hdf_exporter.export(args, time=time, index=index)
 
     def evaluate(self, index=None):
         """
