@@ -375,7 +375,7 @@ class CommonModelOptions(FrozenConfigurable):
         Constant(1.0), help="Scaling factor for Lax Friedrichs stabilisation term in horiozonal momentum advection.").tag(config=True)
     use_lax_friedrichs_tracer = Bool(
         True, help="Use Lax Friedrichs stabilisation in tracer advection.").tag(config=True)
-    lax_friedrichs_tracer_scaling_factor = FiredrakeConstant(
+    lax_friedrichs_tracer_scaling_factor = FiredrakeConstantTraitlet(
         Constant(1.0), help="Scaling factor for tracer Lax Friedrichs stability term.").tag(config=True)
     use_limiter_for_tracers = Bool(
         True, help="Apply P1DG limiter for tracer fields").tag(config=True)
