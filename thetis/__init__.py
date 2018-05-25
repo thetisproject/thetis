@@ -9,8 +9,11 @@ import thetis.limiter as limiter      # NOQA
 import thetis.interpolation as interpolation      # NOQA
 import thetis.coordsys as coordsys      # NOQA
 import thetis.timezone as timezone      # NOQA
+import thetis.turbines  # NOQA
+import thetis.optimisation  # NOQA
 from thetis._version import get_versions
 from thetis.assembledschur import AssembledSchurPC  # NOQA
+from thetis.options import TidalTurbineFarmOptions  # NOQA
 __version__ = get_versions()['version']
 del get_versions
 

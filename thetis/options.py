@@ -323,6 +323,24 @@ class LinearEquationOfStateOptions(EquationOfStateOptions):
     beta = Float(0.77, help='Saline contraction coefficient of ocean water').tag(config=True)
 
 
+class TidalTurbineOptions(FrozenHasTraits):
+    """Tidal turbine parameters"""
+    thrust_coefficient = PositiveFloat(
+        0.8, help='Thrust coefficient C_T').tag(config=True)
+    diameter = PositiveFloat(
+        18., help='Turbine diameter').tag(config=True)
+
+
+class TidalTurbineFarmOptions(FrozenHasTraits, TraitType):
+    """Tidal turbine farm options"""
+    name = 'Farm options'
+    turbine_options = TidalTurbineOptions()
+    turbine_density = FiredrakeScalarExpression(
+        Constant(0.0), help='Density of turbines within the farm')
+    break_even_wattage = NonNegativeFloat(
+        0.0, help='Average power production per turbine required to break even')
+
+
 class CommonModelOptions(FrozenConfigurable):
     """Options that are common for both 2d and 3d models"""
     name = 'Model options'
@@ -472,6 +490,8 @@ class ModelOptions2d(CommonModelOptions):
 
         Used in bathymetry displacement function that ensures positive water depths. Unit is meters.
         """).tag(config=True)
+    tidal_turbine_farms = Dict(trait=TidalTurbineFarmOptions,
+                               default_value={}, help='Dictionary mapping subdomain ids to the options of the corresponding farm')
 
 
 @attach_paired_options("timestepper_type",
