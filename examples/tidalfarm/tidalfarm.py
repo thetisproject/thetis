@@ -13,14 +13,17 @@
 #   Renewable Energy 99 (2016), pp. 1046-1061, http://doi.org/10.1016/j.renene.2016.07.039
 
 # to enable a gradient-based optimisation using the adjoint to compute gradients,
-# we need to import from thetis_adjoint instead of thetis
+# we need to import from thetis_adjoint instead of thetis. This ensure all firedrake
+# operations in the Thetis model are annotated automatically, in such a way that we
+# can rerun the model with different input parameters, and also derive the adjoint-based
+# gradient of a specified input (the functional) with respect to a specified input (the control)
 from thetis_adjoint import *
-from pyadjoint.optimization.optimization import maximise
+from pyadjoint.optimization.optimization import minimise
 import numpy
 op2.init(log_level=INFO)
 
-test_gradient = True  # whether to check the gradient computed by the adjoint
-optimise = False
+test_gradient = False  # whether to check the gradient computed by the adjoint (see note below)
+optimise = True
 
 # setup the Thetis solver obj as usual:
 mesh2d = Mesh('headland.msh')
@@ -28,19 +31,20 @@ mesh2d = Mesh('headland.msh')
 tidal_amplitude = 5.
 tidal_period = 12.42*60*60
 H = 40
-timestep = tidal_period/50
+timestep = 800.
 
 # create solver and set options
 solver_obj = solver2d.FlowSolver2d(mesh2d, Constant(H))
 options = solver_obj.options
 options.timestep = timestep
 options.simulation_export_time = timestep
-options.simulation_end_time = tidal_period/20
+options.simulation_end_time = tidal_period
 options.output_directory = 'outputs'
 options.check_volume_conservation_2d = True
-options.element_family = 'dg-dg'
+options.element_family = 'dg-cg'
 options.timestepper_type = 'CrankNicolson'
 options.timestepper_options.implicitness_theta = 0.6
+# using direct solver as PressurePicard does not work with dolfin-adjoint (due to .split() not being annotated correctly)
 options.timestepper_options.solver_parameters = {'snes_monitor': True,
                                                  'snes_rtol': 1e-9,
                                                  'ksp_type': 'preonly',
@@ -57,153 +61,130 @@ right_tag = 2
 coasts_tag = 3
 tidal_elev = Function(FunctionSpace(mesh2d, "CG", 1), name='tidal_elev')
 tidal_elev_bc = {'elev': tidal_elev}
-noslip_bc = {'uv': Constant((0.0, 0.0))}
+# noslip currently doesn't work (vector Constants are broken in firedrake_adjoint)
 freeslip_bc = {'un': Constant(0.0)}
 solver_obj.bnd_functions['shallow_water'] = {
     left_tag: tidal_elev_bc,
     right_tag: tidal_elev_bc,
-    coasts_tag: freeslip_bc #TODO: was noslip_bc
+    coasts_tag: freeslip_bc
 }
 
-
-# first setup all the usual SWE terms
-solver_obj.create_equations()
-
-# defines an additional turbine drag term to the SWE
-turbine_friction = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_friction')
-
-
-class TurbineDragTerm(shallowwater_eq.ShallowWaterMomentumTerm):
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
-        total_h = self.get_total_depth(eta_old)
-        C_D = turbine_friction
-        f = C_D * sqrt(dot(uv_old, uv_old)) * inner(self.u_test, uv) / total_h * self.dx(2)
-        return -f
-
-
-# add it to the shallow water equations
-fs = solver_obj.fields.solution_2d.function_space()
-u_test, eta_test = TestFunctions(fs)
-u_space, eta_space = fs.split()
-turbine_drag_term = TurbineDragTerm(u_test, u_space, eta_space,
-                                    bathymetry=solver_obj.fields.bathymetry_2d,
-                                    options=options)
-solver_obj.eq_sw.add_term(turbine_drag_term, 'implicit')
-
-# TODO: this cannot be assign as it will always be replayed - is this correct?
-turbine_friction.project(Constant(0.1))
-solver_obj.assign_initial_conditions(uv=as_vector((1e-7, 0.0)))
-
-# Setup the functional. It computes a measure of the profit as the difference
-# of the power output of the farm (the "revenue") minus the cost based on the number
-# of turbines
-
-# TODO: was u, eta = split(solution)
-u, v, eta = solver_obj.fields.solution_2d
-# should multiply this by density to get power in W - assuming rho=1000 we get kW instead
-power_integral = turbine_friction * (u*u + v*v)**1.5 * dx(2)
-power_integral = u * dx(2)
-
-# turbine friction=C_T*A_T/2.*turbine_density
-C_T = 0.8  # turbine thrust coefficient
-A_T = pi * (16./2)**2  # turbine cross section
-# cost integral is n/o turbines = \int turbine_density = \int c_t/(C_T A_T/2.)
-cost_integral = 1./(C_T*A_T/2.) * turbine_friction * dx(2)
-
-break_even_wattage = 0  # (kW) amount of power produced per turbine on average to "break even" (cost = revenue)
-
-# we rescale the functional such that the gradients are ~ order magnitude 1.
-# the scaling is chosen such that the gradient of break_even_wattage * cost_integral is of order 1
-# the power-integral is assumed to be of the same order of magnitude
-#scaling = 1./assemble(break_even_wattage/(C_T*A_T/2.) * dx(2, domain=mesh2d))
-scaling = 1.
-
-
 # a function to update the tidal_elev bc value every timestep
-# we also use it to display the profit each time step (which will be a time-integrated into the functional)
 x = SpatialCoordinate(mesh2d)
 g = 9.81
 omega = 2 * pi / tidal_period
-#
-time_integrated_functional = 0.0
-#
 
-def update_forcings(t, annotate=True):
+
+def update_forcings(t):
     print_output("Updating tidal elevation at t = {}".format(t))
-    P = assemble(power_integral)
-    N = assemble(cost_integral)
-    profit = P - break_even_wattage * N
-    print_output("Power, N turbines, profit = {}, {}, {}".format(P, N, profit))
-    ## TODO: this was an interpolate
-    #tidal_elev.project(tidal_amplitude*sin(omega*t + omega/pow(g*H, 0.5)*x[0]), annotate=annotate)
-    tidal_elev.project(tidal_amplitude*sin(omega*tidal_period/50 + omega/pow(g*H, 0.5)*x[0]), annotate=annotate)
+    tidal_elev.project(tidal_amplitude*sin(omega*t + omega/pow(g*H, 0.5)*x[0]))
 
-    global time_integrated_functional
-    ## TODO: this was +=
-    time_integrated_functional =  time_integrated_functional + profit
+
+# a density function (to be optimised below) that specifies the number of turbines per unit area
+turbine_density = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_density')
+# associate subdomain_id 2 (as in dx(2)) with a tidal turbine farm
+# (implemented via a drag term) with specified turbine density
+# Turbine characteristic can be specified via:
+# - farm_options.turbine_options.thrust_coefficient (default 0.8)
+# - farm_options.turbine_options.diameter (default 16.0)
+farm_options = TidalTurbineFarmOptions()
+farm_options.turbine_density = turbine_density
+# amount of power produced per turbine (kW) on average to "break even" (cost = revenue)
+# this is used to scale the cost, which is assumed to be linear with the number of turbines,
+# in such a way that the cost is expressed in kW which can be subtracted from the profit
+# which is calculated as the power extracted by the turbines
+farm_options.break_even_wattage = 100
+options.tidal_turbine_farms[2] = farm_options
+
+# we first run the "forward" model with no turbines
+turbine_density.assign(0.0)
+
+# create a density restricted to the farm
+# the turbine_density, which is the control that will be varied in the optimisation,
+# is defined everywhere, but it's influence is restricted to the farm area -
+# the turbine drag term is integrated over the farm area only
+# Because the turbine density is CG, the nodal values at the farm boundaries
+# introduces a jagged edge around the farm where these values are tapered to zero.
+# These nonzero values outside the farm itself do not contribute in any of the
+# computations. For visualisation purposes we therefore project to a DG field
+# restricted to the farm.
+farm_density = Function(FunctionSpace(mesh2d, "DG", 1), name='farm_density')
+projector = SubdomainProjector(turbine_density, farm_density, 2)
+projector.project()
+
+cb = turbines.TurbineFunctionalCallback(solver_obj)
+solver_obj.add_callback(cb, 'timestep')
+
 
 # run as normal (this run will be annotated by firedrake_adjoint)
+solver_obj.assign_initial_conditions(uv=as_vector((1e-7, 0.0)), elev=tidal_elev)
 solver_obj.iterate(update_forcings=update_forcings)
-update_forcings(options.simulation_end_time)
 
 
-tfpvd = File('turbine_friction.pvd')
-# our own version of a ReducedFunctional, which when asked
-# to compute its derivative, calls the standard derivative()
-# method of ReducedFunctional but additionaly outputs that
-# gradient and the current value of the control to a .pvd
-class MyReducedFunctional(ReducedFunctional):
-    def derivative(self, **kwargs):
-        dj = super(MyReducedFunctional, self).derivative(**kwargs)
-        return dj
-        # need to make sure dj always has the same name in the output
-        grad = dj[0].copy()
-        grad.rename("Gradient")
-        # same thing for the control
-        tf = self.controls[0].data().copy()
-        tf.rename('TurbineFriction')
-        tfpvd.write(grad, tf)
-        return dj
+# compute maximum turbine density (based on a minimum of 1.5D between
+# turbines laterally, and 5D in the streamwise direction)
+D = farm_options.turbine_options.diameter
+max_density = 1./(2.5*D*5*D)
+print_output("Maximum turbine density = {}".format(max_density))
 
-
-#scaled_functional = AdjFloat(scaling * time_integrated_functional)
-#scaled_functional = assemble(solver_obj.fields.solution_2d[0]*dx)
-scaled_functional = time_integrated_functional
-
-print_output(scaled_functional)
+# we rescale the functional such that the gradients are ~ order magnitude 1.
+# the scaling is based on the maximum cost term
+# also we multiply by -1 so that if we minimize the functional, we maximize profit
+# (maximize is also availble from pyadjoint but currently broken)
+scaling = -1./assemble(max(farm_options.break_even_wattage, 100) * max_density * dx(2, domain=mesh2d))
+scaled_functional = scaling * cb.average_profit
 
 # specifies the control we want to vary in the optimisation
-c = Control(turbine_friction)
-# this reduces the functional J(u, tf) to a function purely of the control tf:
-# rf(tf) = J(u(tf), tf) where the velocities u(tf) of the entire simulation
-# are computed by replaying the forward model for any provided turbine friction tf
-rf = MyReducedFunctional(scaled_functional, c)
+c = Control(turbine_density)
+
+# a number of callbacks to provide output during the optimisation iterations:
+# - ControlsExportOptimisationCallback export the turbine_friction values (the control)
+#            to outputs/control_turbine_friction.pvd. This can also be used to checkpoint
+#            the optimisation by using the export_type='hdf5' option.
+# - DerivativesExportOptimisationCallback export the derivative of the functional wrt
+#            the control as computed by the adjoint to outputs/derivative_turbine_friction.pvd
+# - UserExportOptimisationCallback can be used to output any further functions used in the
+#            forward model. Note that only function states that contribute to the functional are
+#            guaranteed to be updated when the model is replayed for different control values.
+# - FunctionalOptimisationCallback simply writes out the (scaled) functional values
+# - the TurbineOptimsationCallback outputs the average power, cost and profit (for each
+#            farm if multiple are defined)
+callback_list = optimisation.OptimisationCallbackList([
+    optimisation.ControlsExportOptimisationCallback(solver_obj),
+    optimisation.DerivativesExportOptimisationCallback(solver_obj),
+    optimisation.UserExportOptimisationCallback(solver_obj, (farm_density,)),
+    optimisation.FunctionalOptimisationCallback(solver_obj),
+    turbines.TurbineOptimisationCallback(solver_obj, cb),
+])
+
+# this reduces the functional J(u, td) to a function purely of the control td:
+# rf(td) = J(u(td), td) where the velocities u(td) of the entire simulation
+# are computed by replaying the forward model for any provided turbine density td
+rf = ReducedFunctional(scaled_functional, c, derivative_cb_post=callback_list)
+
 
 if test_gradient:
-    # whenever the forward model is changed - for example different terms in the equation, different types of boundary conditions, etc.
-    # it is a good idea to test whether the gradient computed by the adjoint is still correct, as some steps in the model may not have
-    # been annotated correctly. This can be done via the Taylor test.
+    # whenever the forward model is changed - for example different terms in the equation,
+    # different types of boundary conditions, etc. - it is a good idea to test whether the
+    # gradient computed by the adjoint is still correct, as some steps in the model may
+    # not have been annotated correctly. This can be done via the Taylor test.
     # Using the standard Taylor series, we should have (for a sufficiently smooth problem):
-    #   rf(tf0+h*dtf) - rf(tf0) - < drf/dtf(rf0), h dtf> = O(h^2)
+    #   rf(td0+h*dtd) - rf(td0) - < drf/dtd(rf0), h dtd> = O(h^2)
 
-    # we choose a random point in the control space, i.e. a randomized turbine friction with values between 0 and 1
-    # and choose a random direction dtf to vary it in
-    tf0 = Function(turbine_friction)
-    dtf = Function(turbine_friction)
-    tf0.dat.data[:] = numpy.random.random(tf0.dat.data.shape)
-    dtf.dat.data[:] = numpy.random.random(dtf.dat.data.shape)
+    # we choose a random point in the control space, i.e. a randomized turbine density with
+    # values between 0 and 1 and choose a random direction dtd to vary it in
+    td0 = Function(turbine_density)
+    dtd = Function(turbine_density)
+    td0.dat.data[:] = numpy.random.random(td0.dat.data.shape)
+    dtd.dat.data[:] = numpy.random.random(dtd.dat.data.shape)
 
     # this tests whether the above Taylor series residual indeed converges to zero at 2nd order in h as h->0
-    minconv = taylor_test(rf, tf0, dtf)
+    minconv = taylor_test(rf, td0, dtd)
     print_output("Order of convergence with taylor test (should be 2) = {}".format(minconv))
 
     assert minconv > 1.95
 
 if optimise:
-    # compute maximum turbine density
-    max_density = 1./(16.*2.5*16.*5)
-    max_tf = C_T * A_T/2. * max_density
-    print_output("Maximum turbine density =".format(max_tf))
-
-    tf_opt = maximise(rf, bounds=[0, max_tf],
+    td_opt = minimise(rf, bounds=[0, max_density],
                       options={'maxiter': 100})
+    File('optimal_density.pvd').write(td_opt)
