@@ -93,7 +93,7 @@ farm_options.turbine_density = turbine_density
 # this is used to scale the cost, which is assumed to be linear with the number of turbines,
 # in such a way that the cost is expressed in kW which can be subtracted from the profit
 # which is calculated as the power extracted by the turbines
-farm_options.break_even_wattage = 100
+farm_options.break_even_wattage = 200
 options.tidal_turbine_farms[2] = farm_options
 
 # we first run the "forward" model with no turbines
@@ -185,6 +185,12 @@ if test_gradient:
     assert minconv > 1.95
 
 if optimise:
+    # Optimise the control for minimal functional (i.e. maximum profit)
+    # with a gradient based optimisation algorithm using the reduced functional
+    # to replay the model, and computing its derivative via the adjoint
+    # By default scipy's implementation of L-BFGS-B is used, see
+    #   https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_l_bfgs_b.html
+    # options, such as maxiter and pgtol can be passed on.
     td_opt = minimise(rf, bounds=[0, max_density],
-                      options={'maxiter': 100})
+                      options={'maxiter': 100, 'pgtol': 1e-3})
     File('optimal_density.pvd').write(td_opt)
