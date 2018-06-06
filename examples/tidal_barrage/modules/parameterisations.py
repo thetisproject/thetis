@@ -3,8 +3,12 @@ import numpy as np
 
 
 def hill_chart_parametrisation(h, turbine_specs):
-    # f_g = grid frequency, g_p = generator poles,
-    # t_cap = Turbine capacity, h = head difference, dens = water density
+    """
+    Calculates power and flow rate through bulb turbines based on Aggidis and Feather (2012)
+
+    f_g = grid frequency, g_p = generator poles,
+    t_cap = Turbine capacity, h = head difference, dens = water density
+    """
     turb_sp = 2 * 60 * turbine_specs["f_g"] / turbine_specs["g_p"]
 
     # Step 1: Calculate Hill Chart based on empirical equations
@@ -32,6 +36,9 @@ def hill_chart_parametrisation(h, turbine_specs):
 
 
 def ideal_turbine_parametrisation(h, turbine_specs):
+    """
+    Calculates power and flow through a bulb turbine excluding efficiency loses
+    """
     q = math.pi * ((turbine_specs["t_d"] / 2)**2) * math.sqrt(2 * turbine_specs["g"] * h)
     p1 = turbine_specs["dens"] * turbine_specs["g"] * q * h / (10 ** 6)
 
@@ -46,6 +53,9 @@ def ideal_turbine_parametrisation(h, turbine_specs):
 
 
 def turbine_parametrisation(h, turbine_specs):
+    """
+    Chooses between hill chart or idealised turbine parameterisation.
+    """
     if turbine_specs["options"] == 0:
 
         p, q = hill_chart_parametrisation(h, turbine_specs)
@@ -56,6 +66,9 @@ def turbine_parametrisation(h, turbine_specs):
 
 
 def gate_sluicing(h, ramp_f, N_s, q_s0, sluice_specs, flux_limiter=0.2):
+    """
+    Calculates overall flow through power plant sluice gates given the status of the operation
+    """
     temp = ramp_f ** 2 * N_s * sluice_specs["c_d"] * sluice_specs["a_s"] * math.sqrt(2 * sluice_specs["g"] * abs(h))
     if ramp_f >= 0.5 and abs(temp) >= abs(q_s0) > 0.:
         q_s = -np.sign(h) * min(abs((1 + flux_limiter) * q_s0), abs(temp))
@@ -67,6 +80,9 @@ def gate_sluicing(h, ramp_f, N_s, q_s0, sluice_specs, flux_limiter=0.2):
 
 
 def turbine_sluicing(h, ramp_f, N_t, q_t0, sluice_specs, turbine_specs, flux_limiter=0.2):
+    """
+    Calculates flow through turbines operating in sluicing mode
+    """
     temp = ramp_f ** 2 * N_t * sluice_specs["c_t"] * (math.pi * (turbine_specs["t_d"] / 2) ** 2) *\
         math.sqrt(2 * sluice_specs["g"] * abs(h))
     if ramp_f >= 0.5 and abs(temp) >= abs(q_t0):

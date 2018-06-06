@@ -12,13 +12,17 @@ Updated by Athanasios Angeloudis, 05/2018
 
 """
 from thetis import *
+
+# modules.tools contains the LagoonCallback that is called during the simulation
 from modules.tools import *
+
+# input_barrages contains functions to initialise the lagoon status and generic control parameters for the operation
 from modules import input_barrages
 
 mesh2d = Mesh('lagoon.msh')
 
 # Initial functions for lagoon
-lagoon_input = input_barrages.input_predefined_barrage_specs(NumTB=25, NumSL=0, operation='two-way')
+lagoon_input = input_barrages.input_predefined_barrage_specs(turbine_number=25, sluice_number=0, operation='two-way')
 
 t_end = 48 * 3600.  # total duration in seconds
 t_export = 200.0    # export interval in seconds

@@ -1,13 +1,16 @@
+# Using the module parameterisations module to determine turbine discharge coefficient for smooth transition between generating and sluicing
 from modules.parameterisations import *
 
 
-def initialise_barrage(Barrage_Number=1):
+def initialise_barrage(barrage_number=1):
     """
-    :param Barrage_Number: Number of barrages considered.
+    Initialises dictionary of barrage status - this contains information about the status of the barrage
+
+    :param barrage_number: Number of barrages considered.
     :return:
     """
     barrage_status = []
-    for i in range(Barrage_Number):
+    for i in range(barrage_number):
         QTurbines, QSluices, PowerGT, SumPower, Mode, ModeTime, ModeDuration, DZ, rampf, hdn0 =\
             0., 0., 0., 0., 1., 0., 0., 0., 0., 0.
         barrage_status.append({"m": Mode, "m_t": ModeTime, "m_dt": ModeDuration, "DZ": DZ, "f_r": rampf, "Q_t": QTurbines,
@@ -15,10 +18,12 @@ def initialise_barrage(Barrage_Number=1):
     return barrage_status
 
 
-def input_predefined_barrage_specs(NumTB, NumSL, operation='two-way'):
+def input_predefined_barrage_specs(turbine_number, sluice_number, operation='two-way'):
     """
-    :param NumTB: Number of turbines
-    :param NumSL: Number of sluice gates
+    Initialises certain control parameters depending on the general strategy to be adopted over the course of the operation.
+
+    :param turbine_number: Number of turbines
+    :param sluice_number: Number of sluice gates
     :param operation: operation options: Ebb-only generation        ==> "ebb"
                                          Ebb-pump generation        ==> "ebb-pump"
                                          Two-way generation         ==> "two-way"
@@ -41,15 +46,15 @@ def input_predefined_barrage_specs(NumTB, NumSL, operation='two-way'):
 
     if operation == "ebb":
         input_2D.append({"h_t": [3.5, 0.], "h_p": 2.5, "t_p": [0., 0.], "g_t": [6.0, 6.0], "tr_l": [7, -6],
-                         "N_t": NumTB, "N_s": NumSL})
+                         "N_t": turbine_number, "N_s": sluice_number})
     elif operation == "ebb-pump":
         input_2D.append({"h_t": [3.5, 0.], "h_p": 2.5, "t_p": [1.0, 0.], "g_t": [6.0, 6.0], "tr_l": [7, -6],
-                         "N_t": NumTB, "N_s": NumSL})
+                         "N_t": turbine_number, "N_s": sluice_number})
     elif operation == "two-way":
         input_2D.append({"h_t": [3.0, 3.0], "h_p": 2.5, "t_p": [0., 0.], "g_t": [3.0, 3.0], "tr_l": [7, -6],
-                         "N_t": NumTB, "N_s": NumSL})
+                         "N_t": turbine_number, "N_s": sluice_number})
     elif operation == "two-way-pump":
         input_2D.append({"h_t": [2.0, 2.0], "h_p": 2.5, "t_p": [0.5, 0.5], "g_t": [3.0, 3.0], "tr_l": [7, -6],
-                         "N_t": NumTB, "N_s": NumSL})
+                         "N_t": turbine_number, "N_s": sluice_number})
 
     return input_2D, params
