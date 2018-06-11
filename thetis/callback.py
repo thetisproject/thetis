@@ -452,22 +452,23 @@ class DetectorsCallback(DiagnosticCallback):
         """
         # printing all detector output to log is probably not a useful default:
         kwargs.setdefault('append_to_log', False)
-        field_dims = [solver_obj.fields[field_name].function_space().value_size
+        self.field_dims = [solver_obj.fields[field_name].function_space().value_size
                       for field_name in field_names]
         attrs = {
             # use null-padded ascii strings, dtype='U' not supported in hdf5, see http://docs.h5py.org/en/latest/strings.html
             'field_names': np.array(field_names, dtype='S'),
-            'field_dims': field_dims,
+            'field_dims': self.field_dims,
         }
-        super().__init__(solver_obj, array_dim=sum(field_dims), attrs=attrs, **kwargs)
+        super().__init__(solver_obj, array_dim=sum(self.field_dims), attrs=attrs, **kwargs)
 
         ndetectors = len(detector_locations)
         if detector_names is None:
             fill = len(str(ndetectors))
-            detector_names = ['detector{:0{fill}d}'.format(i, fill=fill) for i in range(ndetectors)]
+            self.detector_names = ['detector{:0{fill}d}'.format(i, fill=fill) for i in range(ndetectors)]
         else:
             assert ndetectors == len(detector_names), "Different number of detector locations and names"
-        self._variable_names = detector_names
+            self.detector_names = detector_names
+        self._variable_names = self.detector_names
         self.detector_locations = detector_locations
         self.field_names = field_names
         self._name = name
@@ -478,7 +479,23 @@ class DetectorsCallback(DiagnosticCallback):
 
     @property
     def variable_names(self):
-        return self._variable_names
+        return self.detector_names
+
+    def _values_per_field(self, values):
+        """
+        Given all values evaulated in a detector location, return the values per field"""
+        i = 0
+        result = []
+        for dim in self.field_dims:
+            result.append(values[i:i+dim])
+            i += dim
+        return result
+
+    def message_str(self, *args):
+        return '\n'.join(
+            'In {}: '.format(name) + ', '.join(
+                '{}={}'.format(field_name, field_val) for field_name, field_val in zip(self.field_names, self._values_per_field(values)))
+            for name, values in zip(self.detector_names, args))
 
     def _evaluate_field(self, field_name):
         return self.solver_obj.fields[field_name](self.detector_locations)

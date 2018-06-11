@@ -77,10 +77,10 @@ def test_standing_wave_channel(timesteps, max_rel_err, timestepper, do_export=Fa
     assert len(xy)==3
     np.testing.assert_almost_equal(xy[0][0], lx/nx/3.)
     # first set of detectors
-    cb1 = DetectorsCallback(solver_obj, xy, ['elev_2d', 'uv_2d'], name='set1')
+    cb1 = DetectorsCallback(solver_obj, xy, ['elev_2d', 'uv_2d'], name='set1', append_to_log=True)
     # same set in reverse order, now with named detectors and only elevations
     cb2 = DetectorsCallback(solver_obj, xy[::-1], ['elev_2d',], name='set2',
-                            detector_names=['two', 'one', 'zero'])
+                            detector_names=['two', 'one', 'zero'], append_to_log=True)
     solver_obj.add_callback(cb1)
     solver_obj.add_callback(cb2)
 
