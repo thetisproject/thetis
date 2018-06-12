@@ -125,7 +125,7 @@ class DiagnosticHDF5(object):
         if self.comm.rank == 0:
             with h5py.File(self.filename, 'a') as hdf5file:
                 if index is not None:
-                    nentries = self._name(hdf5file)
+                    nentries = self._nentries(hdf5file)
                     assert index <= nentries, 'time index out of range {:} <= {:} \n  in file {:}'.format(index, nentries, self.filename)
                     expand_required = index == nentries
                     ix = index
