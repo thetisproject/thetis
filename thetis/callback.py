@@ -484,17 +484,14 @@ class DetectorsCallback(DiagnosticCallback):
 
 
 class FunctionalCallback(DiagnosticCallback):
-    """Base class for callbacks that evaluate a functional involving integrals in both time and space. This callback
-    can also be used to assemble time dependent objective functionals for adjoint simulations. Time integration is
-    achieved using the trapezium rule."""
+    """Callback that evaluates a functional involving integrals in both time and space. This callback can also be used 
+    to assemble time dependent objective functionals for adjoint simulations. Time integration is achieved using the 
+    trapezium rule."""
     variable_names = ['current integral', 'objective value']
 
     def __init__(self, scalar_callback, solver_obj, **kwargs):
         """
-        Creates error comparison check callback object
-
-        :arg scalar_callback: Python function that takes the solver object as an argument and
-            returns a list of values of an objective functional.
+        :arg scalar_callback: Python function that returns a list of values of an objective functional.
         :arg solver_obj: Thetis solver object
         :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
         """
@@ -502,23 +499,20 @@ class FunctionalCallback(DiagnosticCallback):
         kwargs.setdefault('append_to_log', False)
         super(FunctionalCallback, self).__init__(solver_obj, **kwargs)
         self.scalar_callback = scalar_callback      # Evaluate functional
-        self.objective_value = [scalar_callback()]  # Store functional value
+        self.objective_value = []   # Store functional value
         self.dt = solver_obj.options.timestep
-        self.t = solver_obj.simulation_time
 
     def __call__(self):
         value = self.scalar_callback()
-        if self.t > 0.5 * self.dt:              # Don't store the first value twice
-            self.objective_value.append(value)
-        self.t += self.dt
+        self.objective_value.append(value)
 
-        return value, self.objective_value
+        return value
 
     def get_vals(self):
         return self.objective_value
 
     def message_str(self, *args):
-        line = '{0:s} value {1:11.4e}'.format(self.name, args[1])
+        line = '{0:s} value {1:11.4e}'.format(self.name, args[0])
         return line
 
     def quadrature(self):
