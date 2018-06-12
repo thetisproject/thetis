@@ -484,8 +484,8 @@ class DetectorsCallback(DiagnosticCallback):
 
 
 class FunctionalCallback(DiagnosticCallback):
-    """Callback that evaluates a functional involving integrals in both time and space. This callback can also be used 
-    to assemble time dependent objective functionals for adjoint simulations. Time integration is achieved using the 
+    """Callback that evaluates a functional involving integrals in both time and space. This callback can also be used
+    to assemble time dependent objective functionals for adjoint simulations. Time integration is achieved using the
     trapezium rule."""
     variable_names = ['current integral', 'objective value']
 
