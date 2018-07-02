@@ -452,6 +452,7 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
     horizontal_diffusivity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
+    tracer_only = Bool(False, help="Hold shallow water variables in initial state.").tag(config=True)
 
 
 # NOTE all parameters are now case sensitive
