@@ -95,17 +95,19 @@ class DiagnosticHDF5(object):
                 if attrs is not None:
                     hdf5file.attrs.update(attrs)
 
+    def _expand_array(self, hdf5file, varname):
+        """Expands array varname by 1 entry"""
+        arr = hdf5file[varname]
+        shape = arr.shape
+        arr.resize((shape[0] + 1, shape[1]))
+
     def _expand(self, hdf5file):
         """Expands data arrays by 1 entry"""
         # TODO is there an easier way for doing this?
         for var in self.varnames:
-            arr = hdf5file[var]
-            shape = arr.shape
-            arr.resize((shape[0] + 1, shape[1]))
+            self._expand_array(hdf5file, var)
         if self.include_time:
-            arr = hdf5file['time']
-            shape = arr.shape
-            arr.resize((shape[0] + 1, shape[1]))
+            self._expand_array(hdf5file, 'time')
 
     def _nentries(self, hdf5file):
         return hdf5file[self.varnames[0]].shape[0]
