@@ -739,7 +739,7 @@ class TurbineDragTerm(ShallowWaterMomentumTerm):
     (n/o turbines per unit area), by:
 
     .. math::
-        C_D = (C_T A_T d)/2
+        c_t = (C_T A_T d)/2
 
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
