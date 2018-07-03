@@ -483,11 +483,11 @@ class DetectorsCallback(DiagnosticCallback):
         return np.hstack(field_vals)
 
 
-class FunctionalCallback(DiagnosticCallback):
-    """Callback that evaluates a functional involving integrals in both time and space. This callback can also be used
-    to assemble time dependent objective functionals for adjoint simulations. Time integration is achieved using the
-    trapezium rule."""
-    variable_names = ['current integral', 'objective value']
+class ScalarIntegrationCallback(DiagnosticCallback):
+    """Callback that evaluates a (scalar) functional involving integrals in both time and space. This callback can also
+    be used to assemble time dependent objective functionals for adjoint simulations. Time integration is achieved using
+    the trapezium rule."""
+    variable_names = ['spatial integral at current timestep']
 
     def __init__(self, scalar_callback, solver_obj, **kwargs):
         """
@@ -497,27 +497,23 @@ class FunctionalCallback(DiagnosticCallback):
         """
         kwargs.setdefault('export_to_hdf5', False)
         kwargs.setdefault('append_to_log', False)
-        super(FunctionalCallback, self).__init__(solver_obj, **kwargs)
+        super(ScalarIntegrationCallback, self).__init__(solver_obj, **kwargs)
         self.scalar_callback = scalar_callback      # Evaluate functional
-        self.objective_value = []   # Store functional value
         self.dt = solver_obj.options.timestep
+        self.integrant = 0.
+        self.old_value = None
 
     def __call__(self):
-        value = self.scalar_callback()
-        self.objective_value.append(value)
+        scalar_value = self.scalar_callback()
+        if self.old_value is not None:
+            self.integrant += 0.5 * (self.old_value + scalar_value) * self.dt
+        self.old_value = scalar_value
 
-        return value
+        return scalar_value
 
-    def get_vals(self):
-        return self.objective_value
+    def get_val(self):
+        return self.integrant
 
     def message_str(self, *args):
         line = '{0:s} value {1:11.4e}'.format(self.name, args[0])
         return line
-
-    def quadrature(self):
-        func = self.objective_value
-        J = 0
-        for i in range(1, len(func)):
-            J += 0.5 * (func[i] + func[i-1]) * self.dt
-        return J
