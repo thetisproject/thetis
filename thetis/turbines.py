@@ -34,7 +34,7 @@ class TurbineFarm(object):
     """
     def __init__(self, farm_options, subdomain_id, u, v, dt):
         """
-        :arg farm_options: a :TidalTurbineFarmOptions: object that define the farm and the turbines used
+        :arg farm_options: a :class:`TidalTurbineFarmOptions` object that define the farm and the turbines used
         :arg int subdomain_id: the farm is restricted to this subdomain
         :arg u,v: the depth-averaged velocity field
         :arg float dt: used for time-integration."""
@@ -66,15 +66,15 @@ class TurbineFarm(object):
 
 class TurbineFunctionalCallback(DiagnosticCallback):
     """
-    DiagnosticCallback that evaluates the performance of each tidal turbine farm."""
+    :class:`.DiagnosticCallback` that evaluates the performance of each tidal turbine farm."""
 
     name = 'turbine'  # this name will be used in the hdf5 file
     variable_names = ['current_power', 'average_power', 'average_profit']
 
     def __init__(self, solver_obj, **kwargs):
         """
-        :arg solver_obj: a :FlowSolver2d: object containing the tidal_turbine_farms
-        :arg **kwargs: see :DiagnosticCallback:"""
+        :arg solver_obj: a :class:`.FlowSolver2d` object containing the tidal_turbine_farms
+        :arg kwargs: see :class:`DiagnosticCallback`"""
         nfarms = len(solver_obj.options.tidal_turbine_farms)
         super().__init__(solver_obj, array_dim=nfarms, **kwargs)
 
@@ -113,17 +113,17 @@ class TurbineFunctionalCallback(DiagnosticCallback):
 
 class TurbineOptimisationCallback(DiagnosticOptimisationCallback):
     """
-    DiagnosticOptimisationCallback that evaluates the performance of each tidal turbine farm during an optimisation.
+    :class:`DiagnosticOptimisationCallback` that evaluates the performance of each tidal turbine farm during an optimisation.
 
-    See the :optimisation: module for more info about the use of OptimisationCallbacks."""
+    See the :py:mod:`optimisation` module for more info about the use of OptimisationCallbacks."""
     name = 'farm_optimisation'
     variable_names = ['cost', 'average_power', 'average_profit']
 
     def __init__(self, solver_obj, turbine_functional_callback, **kwargs):
         """
-        :arg solver_obj: a :FlowSolver2d: object
-        :arg turbine_functional_callback: a :TurbineFunctionalCallback: used in the forward model
-        :args **kwargs: see :DiagnosticOptimisationCallback"""
+        :arg solver_obj: a :class:`.FlowSolver2d` object
+        :arg turbine_functional_callback: a :class:`.TurbineFunctionalCallback` used in the forward model
+        :args kwargs: see :class:`.DiagnosticOptimisationCallback`"""
         self.tfc = turbine_functional_callback
         super().__init__(solver_obj, **kwargs)
 

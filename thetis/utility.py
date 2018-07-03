@@ -278,8 +278,8 @@ def comp_volume_3d(mesh):
 def comp_tracer_mass_2d(eta, bath, scalar_func):
     """
     Computes total tracer mass in the 2D domain
-    :arg eta: elevation :class: 'Function'
-    :arg bath: bathymetry :class: 'Function'
+    :arg eta: elevation :class:`Function`
+    :arg bath: bathymetry :class:`Function`
     :arg scalar_func: scalar :class:`Function` to integrate
     """
 

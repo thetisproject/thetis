@@ -2,11 +2,14 @@
 Some classes to help optimisation problems formulated with thetis_adjoint.
 
 In particular this module contains some OptimisationCallbacks that can be used
-as callbacks of a :ReduecdFunctional: called at various stages during the optimisation
+as callbacks of a :class:`ReducedFunctional` called at various stages during the optimisation
 process:
-    eval_cb_pre(controls) and eval_cb_post(functional, controls)                    called before and after (re)evaluation of the forward model
-    derivative_cb_pre(controls) and eval_cb_post(functional, derivative, controls)  called before and after the gradient computation using the adjoint of the model
-    hessian_cb_pre(controls) and eval_cb_post(functional, derivative, controls)     called before and after the hessian computation
+- eval_cb_pre(controls) and eval_cb_post(functional, controls)                    called before and after (re)evaluation of the forward model
+- derivative_cb_pre(controls) and eval_cb_post(functional, derivative, controls)  called before and after the gradient computation using the adjoint of the model
+- hessian_cb_pre(controls) and eval_cb_post(functional, derivative, controls)     called before and after the hessian computation
+OptimisationCallbacks that (can) use controls, functional and derivative information, work out
+what is provided by the number of arguments: current control values are always in the last argument;
+if more than 2 arguments are provided, the first is the latest evaluated functional value.
 """
 from .firedrake import *
 from .callback import DiagnosticCallback
@@ -20,20 +23,25 @@ class UserExportManager(ExportManager):
     """
     ExportManager for user provided functions (not necessarily known to Thetis)
 
-    If function.name() is in field_defs.field_metadata, the filename and shortname are
-    obtained there. If the function.name() is unknown, both are based on function.name()
-    directly (with an optional additional filename_prefix). Filenames and shortnames
-    can be overruled by the shortnames and filenames arguments."""
+    In the standard :class:`.ExportManager` all provided functions need to have standard names
+    present in :py:data:`.field_metadata`. Here, any functions can be provided. If function.name() is in
+    :py:data:`.field_metadata`, the standard filename and shortname  are used.
+    If the function.name() is unknown, both are based on function.name()
+    directly (with an optional additional filename_prefix). Filenames and
+    shortnames can be overruled by the shortnames and filenames arguments."""
     def __init__(self, solver_obj_or_outputdir, functions_to_export,
                  filenames=None, filename_prefix='',
                  shortnames=None, **kwargs):
         """
-        :arg solver_obj_or_outputdir: a :FlowSolver2d:, :FlowSolver2d: or string to determine the output directory
-        :arg function_to_export: a list of :Function:s
-        :arg filenames: a list of strings that override standard and automatic filenames based on function.name()
-        :arg filename_prefix: a string prefixed to standard and automatic filenames based on function.name()
-        :arg shortnames: a list of shortnames (the name used in the output file) overrides standard shortnames and
-        :arg **kwargs: any further keyword arguments are passed on to :ExportManager:"""
+        :arg solver_obj_or_outputdir: a :class:`.FlowSolver2d` object, used to determine the output directory. Alternatively, the
+              outputdir can be specified with a string as the first argument.
+        :arg functions_to_export: a list of :class:`Function` s
+        :arg filenames: a list of strings that specify the filename for each provided function. If not provided,
+              filenames are based on function.name().
+        :arg filename_prefix: a string prefixed to each filename
+        :arg shortnames: a list of strings with the shortnames used for each provided function. If not provided,
+              shortnames are based on function.name().
+        :arg kwargs: any further keyword arguments are passed on to :class:`.ExportManager`"""
         try:
             outputdir = solver_obj_or_outputdir.options.output_directory
         except AttributeError:
@@ -72,21 +80,22 @@ class DeferredExportManager(object):
 
     In addition the functions provided in the export call are copied into a fixed set of functions,
     where the functions provided in subsequent calls may be different (they need to be in the same
-    function space). This is used in the :ControlsExportOptimisationCallback:
-    and :DerivativesExportOptimisationCallback:."""
+    function space). This is used in the :class:`.ControlsExportOptimisationCallback`
+    and :class:`.DerivativesExportOptimisationCallback`."""
     def __init__(self, solver_obj_or_outputdir, **kwargs):
         """
-        :arg solver_obj_or_outputdir: a :FlowSolver2d:, :FlowSolver2d: or string to determine the output directory
-        :arg **kwargs: any further keyword arguments are passed on to :UserExportManager:"""
+        :arg solver_obj_or_outputdir: a :class:`.FlowSolver2d` object, used to determine the output directory. Alternatively, the
+              outputdir can be specified with a string as the first argument.
+        :arg kwargs: any further keyword arguments are passed on to :class:`.UserExportManager`"""
         self.solver_obj_or_outputdir = solver_obj_or_outputdir
         self.kwargs = kwargs
         self.export_manager = None
 
     def export(self, functions, suggested_names=None):
         """
-        Create the :UserExportManager: (first call only), and call its export() method.
+        Create the :class:`.UserExportManager` (first call only), and call its export() method.
 
-        :arg functions: a list of :Function:s that the :UserExportManager: will be based on. Their values
+        :arg functions: a list of :class:`Function` s that the :class:`.UserExportManager` will be based on. Their values
               are first copied. The list may contain different functions in subsequent calls,
               but their function space should remain the same.
         """
@@ -108,14 +117,15 @@ class DeferredExportManager(object):
 
 
 class UserExportOptimisationCallback(UserExportManager):
-    """A :UserExportManager: that can be used as a :ReducedFunctional: callback
+    """A :class:`.UserExportManager` that can be used as a :class:`ReducedFunctional` callback
 
     Any callback arguments (functional value, derivatives, controls) are ignored"""
     def __init__(self, solver_obj_or_outputdir, functions_to_export, **kwargs):
         """
-        :arg solver_obj_or_outputdir: a :FlowSolver2d:, :FlowSolver2d: or string to determine the output directory
-        :arg function_to_export: a list of :Function:s
-        :arg **kwargs: any further keyword arguments are passed on to :UserExportManager:"""
+        :arg solver_obj_or_outputdir: a :class:`.FlowSolver2d` object, used to determine the output directory. Alternatively, the
+              outputdir can be specified with a string as the first argument.
+        :arg functions_to_export: a list of :class:`Function` s
+        :arg kwargs: any further keyword arguments are passed on to :class:`.UserExportManager`"""
         kwargs.setdefault('filename_prefix', 'optimisation_')  # use prefix to avoid overwriting forward model output
         super().__init__(solver_obj_or_outputdir, functions_to_export, **kwargs)
         # we need to maintain the original functions in the dict as it
@@ -125,7 +135,7 @@ class UserExportOptimisationCallback(UserExportManager):
 
     def __call__(self, *args):
         """
-        Ensure the :UserExportManager: uses the checkpointed values and call its export().
+        Ensure the :class:`.UserExportManager` uses the checkpointed values and call its export().
 
         :args: these are ignored"""
         for name in self.fields_to_export:
@@ -134,13 +144,14 @@ class UserExportOptimisationCallback(UserExportManager):
 
 
 class ControlsExportOptimisationCallback(DeferredExportManager):
-    """A callback that exports the current control values (assumed to all be :Function:s)
+    """A callback that exports the current control values (assumed to all be :class:`Function` s)
 
-    The control values are assumed to be the last argument in the callback (as for all :ReducedFunctional: callbacks)."""
+    The control values are assumed to be the last argument in the callback (as for all :class:`ReducedFunctional` callbacks)."""
     def __init__(self, solver_obj_or_outputdir, **kwargs):
         """
-        :arg solver_obj_or_outputdir: a :FlowSolver2d:, :FlowSolver2d: or string to determine the output directory
-        :arg **kwargs: any further keyword arguments are passed on to :UserExportManager:"""
+        :arg solver_obj_or_outputdir: a :class:`.FlowSolver2d` object, used to determine the output directory. Alternatively, the
+              outputdir can be specified with a string as the first argument.
+        :arg kwargs: any further keyword arguments are passed on to :class:`.UserExportManager`"""
         kwargs.setdefault('filename_prefix', 'control_')
         super().__init__(solver_obj_or_outputdir, **kwargs)
 
@@ -152,11 +163,12 @@ class DerivativesExportOptimisationCallback(DeferredExportManager):
     """A callback that exports the derivatives calculated by the adjoint.
 
     The derivatives are assumed to be the second argument in the callback. This can therefore
-    be used as a derivative_cb_post callback in a :ReducedFunctional:"""
+    be used as a derivative_cb_post callback in a :class:`ReducedFunctional`"""
     def __init__(self, solver_obj_or_outputdir, **kwargs):
         """
-        :arg solver_obj_or_outputdir: a :FlowSolver2d:, :FlowSolver2d: or string to determine the output directory
-        :arg **kwargs: any further keyword arguments are passed on to :UserExportManager:"""
+        :arg solver_obj_or_outputdir: a :class:`.FlowSolver2d` object, used to determine the output directory. Alternatively, the
+              outputdir can be specified with a string as the first argument.
+        :arg kwargs: any further keyword arguments are passed on to :class:`.UserExportManager`"""
         kwargs.setdefault('filename_prefix', 'derivative_')
         super().__init__(solver_obj_or_outputdir, **kwargs)
 
@@ -184,17 +196,17 @@ class OptimisationCallbackList(list):
 
 class DiagnosticOptimisationCallback(DiagnosticCallback):
     """
-    An OptimsationCallback similar to DiagnosticCallback that can be used as callback in a :ReducedFunctional:.
+    An OptimsationCallback similar to :class:`.DiagnosticCallback` that can be used as callback in a :class:`ReducedFunctional`.
 
     Note that in this case the computing of the values needs to be defined in the compute_values method,
-    not in the __call__ method (as this one is directly called from the :ReducedFunctional:). In addition,
-    like any DiagnosticCallback, the name and variable_names properties and a message_str method need to be defined.
+    not in the __call__ method (as this one is directly called from the :class:`ReducedFunctional`). In addition,
+    like any :class:`.DiagnosticCallback`, the name and variable_names properties and a message_str method need to be defined.
     """
 
     def __init__(self, solver_obj, **kwargs):
         """
         :arg solver_obj: Thetis solver object
-        :arg kwargs: keyword arguments passed to :DiagnosticCallback:
+        :arg kwargs: keyword arguments passed to :class:`.DiagnosticCallback`
         """
         kwargs.setdefault('include_time', False)
         super().__init__(solver_obj, **kwargs)
@@ -204,7 +216,7 @@ class DiagnosticOptimisationCallback(DiagnosticCallback):
         """
         Compute diagnostic values.
 
-        This method is to be implemented in concrete subclasses of a DiagnosticOptimisationCallback.
+        This method is to be implemented in concrete subclasses of a :class:`.DiagnosticOptimisationCallback`.
         The number of arguments varies depending on which of the 6 [eval|derivative|hessian]_cb_[pre|post] callbacks
         this is used as. The last argument always contains the current controls. In the "pre" callbacks this is
         the only argument. In all "post" callbacks the 0th argument is the current functional value. eval_cb_post
