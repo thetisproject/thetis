@@ -8,7 +8,7 @@ The advection-diffusion equation of tracer :math:`T` in conservative form reads
     + \nabla_h \cdot (\textbf{u} T)
     + \frac{\partial (w T)}{\partial z}
     = \nabla_h \cdot (\mu_h \nabla_h T)
-    + \frac{\partial}{\partial z} \Big(\mu \frac{T}{\partial z}\Big)
+    + \frac{\partial}{\partial z} \Big(\mu \frac{\partial T}{\partial z}\Big)
    :label: tracer_eq
 
 where :math:`\nabla_h` denotes horizontal gradient, :math:`\textbf{u}` and
