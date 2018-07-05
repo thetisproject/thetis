@@ -483,7 +483,7 @@ class DetectorsCallback(DiagnosticCallback):
         return np.hstack(field_vals)
 
 
-class ScalarIntegrationCallback(DiagnosticCallback):
+class AccumulatorCallback(DiagnosticCallback):
     """Callback that evaluates a (scalar) functional involving integrals in both time and space. This callback can also
     be used to assemble time dependent objective functionals for adjoint simulations. Time integration is achieved using
     the trapezium rule."""
@@ -497,7 +497,7 @@ class ScalarIntegrationCallback(DiagnosticCallback):
         """
         kwargs.setdefault('export_to_hdf5', False)
         kwargs.setdefault('append_to_log', False)
-        super(ScalarIntegrationCallback, self).__init__(solver_obj, **kwargs)
+        super(AccumulatorCallback, self).__init__(solver_obj, **kwargs)
         self.scalar_callback = scalar_callback      # Evaluate functional
         self.dt = solver_obj.options.timestep
         self.integrant = 0.
