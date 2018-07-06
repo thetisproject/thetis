@@ -1020,4 +1020,18 @@ class ShallowWaterStrongResidualTerm(ShallowWaterTerm):
         self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
 
-# TODO: Include strong residual terms
+# TODO: Include strong residual terms:
+# TODO: ExternalPressureGradient
+# TODO: HUDiv
+# TODO: HorizontalAdvection
+# TODO: HorizontalViscosity
+# TODO: Coriolis
+# TODO: WindStress
+# TODO: AtmosphericPressure
+# TODO: QuadraticDrag
+# TODO: LinearDrag
+# TODO: BottomDrag3D
+# TODO: TurbineDrag
+# TODO: MomentumSource
+# TODO: ContinuitySource
+# TODO: BathymetryDisplacementMass
