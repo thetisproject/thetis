@@ -452,8 +452,6 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
     horizontal_diffusivity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
-    tracer_only = Bool(
-        False, help="Hold shallow water variables in initial state and consider tracer advection in the associated (constant) velocity field").tag(config=True)
 
 
 # NOTE all parameters are now case sensitive
@@ -502,6 +500,11 @@ class ModelOptions2d(CommonModelOptions):
         Compute tracer overshoots at every export
 
         Prints overshoot values that exceed the initial range to stdout.
+        """).tag(config=True)
+    tracer_only = Bool(
+        False, help="""Hold shallow water variables in initial state 
+         
+        Advects tracer in the associated (constant) velocity field.
         """).tag(config=True)
 
 
