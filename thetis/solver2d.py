@@ -578,7 +578,7 @@ class FlowSolver2d(FrozenClass):
             self.export()
             if export_func is not None:
                 export_func()
-            if 'vtk' in self.exporters:
+            if 'vtk' in self.exporters and isinstance(self.fields.bathymetry_2d, Function):
                 self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
         initial_simulation_time = self.simulation_time

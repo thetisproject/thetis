@@ -21,7 +21,7 @@ pipeline {
                 dir('build') {
                     timestamps {
                         sh 'curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install || (cat firedrake-install.log && /bin/false)'
-                        sh 'python3 ./firedrake-install --disable-ssh --minimal-petsc --adjoint'
+                        sh 'python3 ./firedrake-install --disable-ssh --minimal-petsc --install pyadjoint'
                     }
                 }
             }
