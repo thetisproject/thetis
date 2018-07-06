@@ -998,3 +998,26 @@ class ShallowWaterMomentumEquation(BaseShallowWaterEquation):
         eta = fields['eta']
         eta_old = fields_old['eta']
         return self.residual_uv_eta(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+
+
+class ShallowWaterStrongResidualTerm(ShallowWaterTerm):
+    """
+    Generic term in the strong form shallow water equations that provides commonly used
+    members and mapping for boundary functions.
+    """
+
+    def __init__(self, u_space, eta_space,
+                 bathymetry=None,
+                 options=None):
+        super(ShallowWaterStrongResidualTerm, self).__init__(u_space, bathymetry, options)
+
+        self.options = options
+
+        self.u_space = u_space
+        self.eta_space = eta_space
+
+        self.u_continuity = element_continuity(self.u_space.ufl_element()).horizontal
+        self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
+
+
+# TODO: Include strong residual terms
