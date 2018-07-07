@@ -1020,6 +1020,49 @@ class ShallowWaterStrongResidualTerm(ShallowWaterTerm):
         self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
 
+
+
+class MomentumSourceTerm(ShallowWaterStrongResidualTerm):
+    r"""
+    Generic source term :math:`\boldsymbol{\tau}` in the shallow water momentum equation.
+    """
+
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        f = 0
+        momentum_source = fields_old.get('momentum_source')
+
+        if momentum_source is not None:
+            f += momentum_source
+        return f
+
+class ContinuitySourceTerm(ShallowWaterStrongResidualTerm):
+    r"""
+    Generic source term :math:`S` in the depth-averaged continuity equation.
+    """
+
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        f = 0
+        volume_source = fields_old.get('volume_source')
+
+        if volume_source is not None:
+            f += volume_source
+        return f
+
+class BathymetryDisplacementMassTerm(ShallowWaterStrongResidualTerm):
+    r"""
+    Bathmetry mass displacement term, :math:`\partial \eta / \partial t + \partial \tilde{h} / \partial t`.
+    """
+
+    def residual(self, solution):
+        if isinstance(solution, list):
+            uv, eta = solution
+        else:
+            uv, eta = split(solution)
+        f = 0
+        if self.options.use_wetting_and_drying:
+            f += self.wd_bathymetry_displacement(eta)
+        return -f
+
 # TODO: Include strong residual terms:
 # TODO: ExternalPressureGradient
 # TODO: HUDiv
@@ -1032,6 +1075,6 @@ class ShallowWaterStrongResidualTerm(ShallowWaterTerm):
 # TODO: LinearDrag
 # TODO: BottomDrag3D
 # TODO: TurbineDrag
-# TODO: MomentumSource
-# TODO: ContinuitySource
-# TODO: BathymetryDisplacementMass
+# Done: MomentumSource
+# Done: ContinuitySource
+# Done: BathymetryDisplacementMass
