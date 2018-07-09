@@ -1020,9 +1020,113 @@ class ShallowWaterStrongResidualTerm(ShallowWaterTerm):
         self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
 
+class CoriolisResidual(ShallowWaterStrongResidualTerm):
+    r"""
+    Coriolis term, :math:`f\textbf{e}_z\wedge \bar{\textbf{u}}`
+    """
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        coriolis = fields_old.get('coriolis')
+        f = 0
+        if coriolis is not None:
+            f += coriolis * (-uv[1], uv[0])
+        return -f
 
 
-class MomentumSourceTerm(ShallowWaterStrongResidualTerm):
+class WindStressResidual(ShallowWaterStrongResidualTerm):
+    r"""
+    Wind stress term, :math:`-\tau_w/(H \rho_0)`
+
+    Here :math:`\tau_w` is a user-defined wind stress :class:`Function`.
+    """
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        wind_stress = fields_old.get('wind_stress')
+        total_h = self.get_total_depth(eta_old)
+        f = 0
+        if wind_stress is not None:
+            f += wind_stress / total_h / rho_0
+        return f
+
+
+class AtmosphericPressureResidual(ShallowWaterStrongResidualTerm):
+    r"""
+    Atmospheric pressure term, :math:`\nabla (p_a / \rho_0)`
+
+    Here :math:`p_a` is a user-defined atmospheric pressure :class:`Function`.
+    """
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        atmospheric_pressure = fields_old.get('atmospheric_pressure')
+        f = 0
+        if atmospheric_pressure is not None:
+            f += grad(atmospheric_pressure) / rho_0
+        return -f
+
+
+class QuadraticDragResidual(ShallowWaterStrongResidualTerm):
+    r"""
+    Quadratic Manning bottom friction term
+    :math:`C_D \| \bar{\textbf{u}} \| \bar{\textbf{u}}`
+
+    where the drag term is computed with the Manning formula
+
+    .. math::
+        C_D = g \frac{\mu^2}{H^{1/3}}
+
+    if the Manning coefficient :math:`\mu` is defined (see field :attr:`manning_drag_coefficient`).
+    Otherwise :math:`C_D` is taken as a constant (see field :attr:`quadratic_drag_coefficient`).
+    """
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        total_h = self.get_total_depth(eta_old)
+        manning_drag_coefficient = fields_old.get('manning_drag_coefficient')
+        C_D = fields_old.get('quadratic_drag_coefficient')
+        f = 0
+        if manning_drag_coefficient is not None:
+            if C_D is not None:
+                raise Exception('Cannot set both dimensionless and Manning drag parameter')
+            C_D = g_grav * manning_drag_coefficient**2 / total_h**(1./3.)
+
+        if C_D is not None:
+            f += C_D * sqrt(dot(uv_old, uv_old)) * uv / total_h
+        return -f
+
+
+class LinearDragResidual(ShallowWaterStrongResidualTerm):
+    r"""
+    Linear friction term, :math:`C \bar{\textbf{u}}`
+
+    Here :math:`C` is a user-defined drag coefficient.
+    """
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        linear_drag_coefficient = fields_old.get('linear_drag_coefficient')
+        f = 0
+        if linear_drag_coefficient is not None:
+            bottom_fri = linear_drag_coefficient*uv
+            f += bottom_fri
+        return -f
+
+
+class BottomDrag3DResidual(ShallowWaterStrongResidualTerm):
+    r"""
+    Bottom drag term consistent with the 3D mode,
+    :math:`C_D \| \textbf{u}_b \| \textbf{u}_b`
+
+    Here :math:`\textbf{u}_b` is the bottom velocity used in the 3D mode, and
+    :math:`C_D` the corresponding bottom drag.
+    These fields are computed in the 3D model.
+    """
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        total_h = self.get_total_depth(eta_old)
+        bottom_drag = fields_old.get('bottom_drag')
+        uv_bottom = fields_old.get('uv_bottom')
+        f = 0
+        if bottom_drag is not None and uv_bottom is not None:
+            uvb_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
+            stress = bottom_drag*uvb_mag*uv_bottom/total_h
+            bot_friction = stress
+            f += bot_friction
+        return -f
+
+
+class MomentumSourceResidual(ShallowWaterStrongResidualTerm):
     r"""
     Generic source term :math:`\boldsymbol{\tau}` in the shallow water momentum equation.
     """
@@ -1035,7 +1139,8 @@ class MomentumSourceTerm(ShallowWaterStrongResidualTerm):
             f += momentum_source
         return f
 
-class ContinuitySourceTerm(ShallowWaterStrongResidualTerm):
+
+class ContinuitySourceResidual(ShallowWaterStrongResidualTerm):
     r"""
     Generic source term :math:`S` in the depth-averaged continuity equation.
     """
@@ -1048,7 +1153,8 @@ class ContinuitySourceTerm(ShallowWaterStrongResidualTerm):
             f += volume_source
         return f
 
-class BathymetryDisplacementMassTerm(ShallowWaterStrongResidualTerm):
+
+class BathymetryDisplacementMassResidual(ShallowWaterStrongResidualTerm):
     r"""
     Bathmetry mass displacement term, :math:`\partial \eta / \partial t + \partial \tilde{h} / \partial t`.
     """
@@ -1064,16 +1170,17 @@ class BathymetryDisplacementMassTerm(ShallowWaterStrongResidualTerm):
         return -f
 
 # TODO: Include strong residual terms:
+
 # TODO: ExternalPressureGradient
 # TODO: HUDiv
 # TODO: HorizontalAdvection
 # TODO: HorizontalViscosity
-# TODO: Coriolis
-# TODO: WindStress
-# TODO: AtmosphericPressure
-# TODO: QuadraticDrag
-# TODO: LinearDrag
-# TODO: BottomDrag3D
+# Done: Coriolis
+# Done: WindStress
+# Done: AtmosphericPressure
+# Done: QuadraticDrag
+# Done: LinearDrag
+# Done: BottomDrag3D
 # TODO: TurbineDrag
 # Done: MomentumSource
 # Done: ContinuitySource
