@@ -231,6 +231,10 @@ class CrankNicolson(TimeIntegrator):
 
         self.update_solver()
 
+        # These parameters are needed again for strong residuals
+        self.theta = theta
+        self.semi_implicit = semi_implicit
+
     def update_solver(self):
         """Create solver objects"""
         # Ensure LU assembles monolithic matrices
@@ -262,13 +266,28 @@ class CrankNicolson(TimeIntegrator):
         """
         Evaluate shallow water strong residual on element interiors. 
         """
-        uv, eta = self.solution.split()
-        uv_old, eta_old = self.solution_old.split()
+        sol = self.solution
+        uv, eta = sol.split()
+        sol_old = self.solution_old
+        uv_old, eta_old = sol_old.split()
+        f = self.fields
+        f_old = self.fields_old
+        if self.semi_implicit:
+            # linearize around last timestep using the fact that all terms are
+            # written in the form A(u_nl) u
+            sol_nl = sol_old
+        else:
+            # solve the full nonlinear residual form
+            sol_nl = sol
+
         mom_res = (uv - uv_old) / self.dt_const
         cty_res = (eta - eta_old) / self.dt_const
+        theta_const = Constant(self.theta)
 
-        mom_res += -self.sw_mom.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
-        cty_res += -self.sw_cty.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
+        mom_res += -theta_const * self.sw_mom.interior_residual(label, sol, sol_nl, f, f, None)
+        mom_res += -(1 - theta_const) * self.sw_mom.interior_residual(label, sol_old, sol_old, f_old, f_old, None)
+        cty_res += -theta_const * self.sw_cty.interior_residual(label, sol, sol_nl, f, f_old, None)
+        cty_res += -(1 - theta_const) * self.sw_cty.interior_residual(label, sol_old, sol_old, f_old, f_old, None)
 
         return mom_res, cty_res
 
