@@ -151,7 +151,7 @@ class ForwardEuler(TimeIntegrator):
 
     def interior_residual(self, label='all'):
         """
-        Evaluate shallow water strong residual on element interiors. 
+        Evaluate shallow water strong residual on element interiors.
         """
         uv, eta = self.solution.split()
         uv_old, eta_old = self.solution_old.split()
@@ -264,7 +264,7 @@ class CrankNicolson(TimeIntegrator):
 
     def interior_residual(self, label='all'):
         """
-        Evaluate shallow water strong residual on element interiors. 
+        Evaluate shallow water strong residual on element interiors.
         """
         sol = self.solution
         uv, eta = sol.split()
@@ -348,7 +348,7 @@ class SteadyState(TimeIntegrator):
 
     def interior_residual(self, label='all'):
         """
-        Evaluate shallow water strong residual on element interiors. 
+        Evaluate shallow water strong residual on element interiors.
         """
         fields = self.fields
         solution = fields.solution_2d

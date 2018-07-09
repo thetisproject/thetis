@@ -535,7 +535,7 @@ class ErrorEstimateCallback(DiagnosticCallback):
         self.estimator = scalar_estimator
 
     def __call__(self):
-        return self.scalar_estimator()
+        return self.estimator(), 0.
 
     def message_str(self, *args):
         line = '{0:s} value {1:11.4e}'.format(self.name, args[0])
@@ -549,13 +549,13 @@ class InteriorResidualCallback(ErrorEstimateCallback):
     def __init__(self, solver_obj, **kwargs):
         """
         Creates error estimator corresponding to the strong residual on element interiors.
-        
+
         :param solver_obj: Thetis solver object.
         :param kwargs: any additional keyword arguments, see
             :class:`.DiagnosticCallback`.
         """
-        def interior_residual(self):
-            res_u, res_e = solver_obj.interior_residual()
+        def interior_residual():
+            res_u, res_e = solver_obj.timestepper.interior_residual()
             return assemble((inner(res_u, res_u) + res_e * res_e) * dx)
 
         super(InteriorResidualCallback, self).__init__(interior_residual, solver_obj, **kwargs)
@@ -573,8 +573,8 @@ class BoundaryResidualCallback(ErrorEstimateCallback):
         :param kwargs: any additional keyword arguments, see
             :class:`.DiagnosticCallback`.
         """
-        def boundary_residual(self):
-            res_u1, res_u2, res_e = solver_obj.boundary_residual()
+        def boundary_residual():
+            res_u1, res_u2, res_e = solver_obj.timestepper.boundary_residual()
             return assemble((res_u1 * res_u1 + res_u2 * res_u2 + res_e * res_e) * dx)
 
         super(BoundaryResidualCallback, self).__init__(boundary_residual, solver_obj, **kwargs)
