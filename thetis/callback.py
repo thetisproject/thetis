@@ -544,12 +544,18 @@ class ErrorEstimateCallback(DiagnosticCallback):
         if self.export_to_hdf5:
             index = (5 - len(str(self.ix))) * '0' + str(self.ix)
             with DumbCheckpoint(self.directory + self.label + index, mode=FILE_CREATE) as dc:
-                for fi in f:
-                    dc.store(fi)
+                if isinstance(f, FiredrakeFunction):
+                    dc.store(f)
+                else:
+                    for fi in list(f):
+                        dc.store(fi)
                 dc.close()
         self.ix += 1
 
-        return assemble(sum(inner(fi, fi) for fi in f) * dx), 0. # TODO: Why can't we just have one arg?
+        if isinstance(f, FiredrakeFunction):        # TODO: Why can't we just have one output?
+            return assemble(inner(f, f) * dx), 0
+        else:
+            return assemble(sum(inner(fi, fi) for fi in f) * dx), 0.
 
     def message_str(self, *args):
         line = '{0:s} residual {1:11.4e}'.format(self.name, args[0])
@@ -614,3 +620,45 @@ class BoundaryResidualCallback(ErrorEstimateCallback):
             return Ru1, Ru2, Re
 
         super(BoundaryResidualCallback, self).__init__(boundary_residual, solver_obj, **kwargs)
+
+
+class ExplicitErrorCallback(ErrorEstimateCallback):
+    r"""
+    Estimate error using an a posteriori error indicator [Ainsworth & Oden, 1997], given by
+
+    .. math::
+        \|\textbf{R}(\textbf{q}_h)\|_{\mathcal{L}_2(K)}
+            + h_K^{-1}\|\textbf{r}(\textbf{q}_h)\|_{\mathcal{L}_2(\partial K)},
+
+    where
+    :math:`\textbf{q}_h` is the approximation to the PDE solution,
+    :math:`\textbf{R}` denotes the strong residual on element interiors,
+    :math:`\textbf{r}` denotes the strong residual on element boundaries,
+    :math:`h_K` is the size of mesh element `K`.
+    """
+    name = 'explicit'
+    label = 'ExplicitError2d'
+
+    def __init__(self, solver_obj, **kwargs):
+        """
+        Creates error estimator corresponding to the strong residual across element boundaries.
+
+        :param solver_obj: Thetis solver object.
+        :param kwargs: any additional keyword arguments, see
+            :class:`.DiagnosticCallback`.
+        """
+        def explicit_error():
+            mesh = solver_obj.mesh2d
+            P0 = FunctionSpace(mesh, "DG", 0)
+            v = TestFunction(P0)
+            ee = Function(P0)
+            h = CellSize(mesh)
+
+            res_u, res_e = solver_obj.timestepper.interior_residual()
+            bres_u1, bres_u2, bres_e = solver_obj.timestepper.boundary_residual()
+            ee.interpolate(assemble(v * (inner(res_u, res_u) + res_e * res_e
+                                         + (bres_u1 * bres_u1 + bres_u2 * bres_u2 + bres_e * bres_e) / sqrt(h)) * dx))
+
+            return ee
+
+        super(ExplicitErrorCallback, self).__init__(explicit_error, solver_obj, **kwargs)
