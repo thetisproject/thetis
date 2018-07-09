@@ -155,8 +155,8 @@ class ForwardEuler(TimeIntegrator):
         """
         uv, eta = self.solution.split()
         uv_old, eta_old = self.solution_old.split()
-        mom_res = uv - uv_old
-        cty_res = eta - eta_old
+        mom_res = (uv - uv_old) / self.dt_const
+        cty_res = (eta - eta_old) / self.dt_const
 
         mom_res += -self.sw_mom.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
         cty_res += -self.sw_cty.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
@@ -264,8 +264,8 @@ class CrankNicolson(TimeIntegrator):
         """
         uv, eta = self.solution.split()
         uv_old, eta_old = self.solution_old.split()
-        mom_res = uv - uv_old
-        cty_res = eta - eta_old
+        mom_res = (uv - uv_old) / self.dt_const
+        cty_res = (eta - eta_old) / self.dt_const
 
         mom_res += -self.sw_mom.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
         cty_res += -self.sw_cty.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
