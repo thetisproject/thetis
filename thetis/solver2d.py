@@ -625,29 +625,35 @@ class FlowSolver2d(FrozenClass):
                 if export_func is not None:
                     export_func()
 
-    def interior_residual(self):
+    def interior_residual(self, label='all'):
         """
         Evaluate shallow water strong residual on element interiors. 
         """
+        if self.sw_momentum_res is None:
+            self.create_residual_objects()
+
         fields = self.fields
         solution = fields.solution_2d
         fields_old = self.timestepper.fields_old
         solution_old = self.timestepper.solution_old
-        mom_res = self.sw_momentum_res.interior_residual("swe_freesurf", solution, solution_old, fields, fields_old, None)
-        cty_res = self.sw_continuity_res.interior_residual("swe_momentum", solution, solution_old, fields, fields_old, None)
+        mom_res = self.sw_momentum_res.interior_residual(label, solution, solution_old, fields, fields_old, None)
+        cty_res = self.sw_continuity_res.interior_residual(label, solution, solution_old, fields, fields_old, None)
 
         return mom_res, cty_res
 
-    def boundary_residual(self):
+    def boundary_residual(self, label='all'):
         """
         Evaluate shallow water strong residual on element boundaries.
         """
+        if self.sw_momentum_res is None:
+            self.create_residual_objects()
+
         fields = self.fields
         solution = fields.solution_2d
         fields_old = self.timestepper.fields_old
         solution_old = self.timestepper.solution_old
-        mom_res0, mom_res1 = self.sw_momentum_res.boundary_residual("swe_freesurf", solution, solution_old, fields, fields_old, None)
-        cty_res = self.sw_continuity_res.boundary_residual("swe_freesurf", solution, solution_old, fields, fields_old, None)
+        mom_res0, mom_res1 = self.sw_momentum_res.boundary_residual(label, solution, solution_old, fields, fields_old, None)
+        cty_res = self.sw_continuity_res.boundary_residual(label, solution, solution_old, fields, fields_old, None)
 
         return mom_res0, mom_res1, cty_res
 
