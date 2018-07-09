@@ -543,7 +543,7 @@ class ErrorEstimateCallback(DiagnosticCallback):
 
         if self.export_to_hdf5:
             index = (5 - len(str(self.ix))) * '0' + str(self.ix)
-            with DumbCheckpoint(self.directory + self.label + index, mode=FILE_CREATE) as dc:
+            with DumbCheckpoint(self.directory + 'hdf5/' + self.label + index, mode=FILE_CREATE) as dc:
                 if isinstance(f, FiredrakeFunction):
                     dc.store(f)
                 else:
@@ -558,14 +558,14 @@ class ErrorEstimateCallback(DiagnosticCallback):
             return assemble(sum(inner(fi, fi) for fi in f) * dx), 0.
 
     def message_str(self, *args):
-        line = '{0:s} residual {1:11.4e}'.format(self.name, args[0])
+        line = '{0:s} error estimate {1:11.4e}'.format(self.name, args[0])
         return line
 
 
 class InteriorResidualCallback(ErrorEstimateCallback):
     """Callback which evaluates strong residual on element interiors."""
-    name = 'interior'
-    label = 'InteriorResidual2d'
+    name = 'interior residual'
+    label = 'InteriorResidual2d_'
 
     def __init__(self, solver_obj, **kwargs):
         """
@@ -590,8 +590,8 @@ class InteriorResidualCallback(ErrorEstimateCallback):
 
 class BoundaryResidualCallback(ErrorEstimateCallback):
     """Callback which evaluates strong residual across element boundaries."""
-    name = 'boundary'
-    label = 'BoundaryResidual2d'
+    name = 'boundary residual'
+    label = 'BoundaryResidual2d_'
 
     def __init__(self, solver_obj, **kwargs):
         """
@@ -637,7 +637,7 @@ class ExplicitErrorCallback(ErrorEstimateCallback):
     :math:`h_K` is the size of mesh element `K`.
     """
     name = 'explicit'
-    label = 'ExplicitError2d'
+    label = 'ExplicitError2d_'
 
     def __init__(self, solver_obj, **kwargs):
         """
@@ -651,7 +651,7 @@ class ExplicitErrorCallback(ErrorEstimateCallback):
             mesh = solver_obj.mesh2d
             P0 = FunctionSpace(mesh, "DG", 0)
             v = TestFunction(P0)
-            ee = Function(P0)
+            ee = Function(P0, name="explicit error")
             h = CellSize(mesh)
 
             res_u, res_e = solver_obj.timestepper.interior_residual()
