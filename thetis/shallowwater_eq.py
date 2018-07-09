@@ -1024,30 +1024,42 @@ class ExternalPressureGradientResidual(ShallowWaterStrongResidualTerm):
     r"""
     External pressure gradient term, :math:`g \nabla \eta`
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
 
         f = g_grav * grad(eta)
 
         return -f
+
+    def boundary_residual(self, solution):
+
+        # TODO
+
+        raise NotImplementedError
 
 
 class HUDivResidual(ShallowWaterStrongResidualTerm):
     r"""
     Divergence term, :math:`\nabla \cdot (H \bar{\textbf{u}})`
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
 
         f = div(total_h*uv)
 
         return -f
 
+    def boundary_residual(self, solution):
+
+        # TODO
+
+        raise NotImplementedError
+
 
 class HorizontalAdvectionResidual(ShallowWaterStrongResidualTerm):
     r"""
     Advection of momentum term, :math:`\bar{\textbf{u}} \cdot \nabla\bar{\textbf{u}}`
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
 
         if not self.options.use_nonlinear_equations:
             return 0
@@ -1055,6 +1067,12 @@ class HorizontalAdvectionResidual(ShallowWaterStrongResidualTerm):
         f = dot(uv_old, nabla_grad(uv))
 
         return -f
+
+    def boundary_residual(self, solution):
+
+        # TODO
+
+        raise NotImplementedError
 
 
 class HorizontalViscosityResidual(ShallowWaterStrongResidualTerm):
@@ -1075,7 +1093,7 @@ class HorizontalViscosityResidual(ShallowWaterStrongResidualTerm):
 
     as a source term.
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
 
         nu = fields_old.get('viscosity_h')
@@ -1094,12 +1112,18 @@ class HorizontalViscosityResidual(ShallowWaterStrongResidualTerm):
 
         return -f
 
+    def boundary_residual(self, solution):
+
+        # TODO
+
+        raise NotImplementedError
+
 
 class CoriolisResidual(ShallowWaterStrongResidualTerm):
     r"""
     Coriolis term, :math:`f\textbf{e}_z\wedge \bar{\textbf{u}}`
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         coriolis = fields_old.get('coriolis')
         f = 0
         if coriolis is not None:
@@ -1113,7 +1137,7 @@ class WindStressResidual(ShallowWaterStrongResidualTerm):
 
     Here :math:`\tau_w` is a user-defined wind stress :class:`Function`.
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         wind_stress = fields_old.get('wind_stress')
         total_h = self.get_total_depth(eta_old)
         f = 0
@@ -1128,7 +1152,7 @@ class AtmosphericPressureResidual(ShallowWaterStrongResidualTerm):
 
     Here :math:`p_a` is a user-defined atmospheric pressure :class:`Function`.
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         atmospheric_pressure = fields_old.get('atmospheric_pressure')
         f = 0
         if atmospheric_pressure is not None:
@@ -1149,7 +1173,7 @@ class QuadraticDragResidual(ShallowWaterStrongResidualTerm):
     if the Manning coefficient :math:`\mu` is defined (see field :attr:`manning_drag_coefficient`).
     Otherwise :math:`C_D` is taken as a constant (see field :attr:`quadratic_drag_coefficient`).
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
         manning_drag_coefficient = fields_old.get('manning_drag_coefficient')
         C_D = fields_old.get('quadratic_drag_coefficient')
@@ -1170,7 +1194,7 @@ class LinearDragResidual(ShallowWaterStrongResidualTerm):
 
     Here :math:`C` is a user-defined drag coefficient.
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         linear_drag_coefficient = fields_old.get('linear_drag_coefficient')
         f = 0
         if linear_drag_coefficient is not None:
@@ -1188,7 +1212,7 @@ class BottomDrag3DResidual(ShallowWaterStrongResidualTerm):
     :math:`C_D` the corresponding bottom drag.
     These fields are computed in the 3D model.
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
         bottom_drag = fields_old.get('bottom_drag')
         uv_bottom = fields_old.get('uv_bottom')
@@ -1206,7 +1230,7 @@ class MomentumSourceResidual(ShallowWaterStrongResidualTerm):
     Generic source term :math:`\boldsymbol{\tau}` in the shallow water momentum equation.
     """
 
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
         momentum_source = fields_old.get('momentum_source')
 
@@ -1220,7 +1244,7 @@ class ContinuitySourceResidual(ShallowWaterStrongResidualTerm):
     Generic source term :math:`S` in the depth-averaged continuity equation.
     """
 
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
         volume_source = fields_old.get('volume_source')
 
@@ -1234,7 +1258,7 @@ class BathymetryDisplacementMassResidual(ShallowWaterStrongResidualTerm):
     Bathmetry mass displacement term, :math:`\partial \eta / \partial t + \partial \tilde{h} / \partial t`.
     """
 
-    def residual(self, solution):
+    def interior_residual(self, solution):
         if isinstance(solution, list):
             uv, eta = solution
         else:
