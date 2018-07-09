@@ -521,30 +521,45 @@ class ErrorEstimateCallback(DiagnosticCallback):
     """Base class for callbacks that evaluate an error estimator"""
     variable_names = ['error estimate']
 
-    def __init__(self, scalar_estimator, solver_obj, **kwargs):
+    def __init__(self, error_type, solver_obj, **kwargs):
         """
         Creates error estimate evaluation callback object
 
-        :arg scalar_callback: Python function that takes the solver object as
-            an argument and returns a scalar error estimator
+        :arg error_type: Python function that takes the solver object as
+            an argument and returns an error estimator
         :arg solver_obj: Thetis solver object
         :arg kwargs: any additional keyword arguments, see
             :class:`.DiagnosticCallback`.
         """
+        kwargs.setdefault('export_to_hdf5', False)
+        self.export_to_hdf5 = kwargs.get('export_to_hdf5')
         super(ErrorEstimateCallback, self).__init__(solver_obj, **kwargs)
-        self.estimator = scalar_estimator
+        self.estimator = error_type
+        self.directory = solver_obj.options.output_directory
+        self.ix = 0
 
     def __call__(self):
-        return self.estimator(), 0.
+        f = self.estimator()
+
+        if self.export_to_hdf5:
+            index = (5 - len(str(self.ix))) * '0' + str(self.ix)
+            with DumbCheckpoint(self.directory + self.label + index, mode=FILE_CREATE) as dc:
+                for fi in f:
+                    dc.store(fi)
+                dc.close()
+        self.ix += 1
+
+        return assemble(sum(inner(fi, fi) for fi in f) * dx), 0. # TODO: Why can't we just have one arg?
 
     def message_str(self, *args):
-        line = '{0:s} value {1:11.4e}'.format(self.name, args[0])
+        line = '{0:s} residual {1:11.4e}'.format(self.name, args[0])
         return line
 
 
 class InteriorResidualCallback(ErrorEstimateCallback):
     """Callback which evaluates strong residual on element interiors."""
-    name = 'interior residual'
+    name = 'interior'
+    label = 'InteriorResidual2d'
 
     def __init__(self, solver_obj, **kwargs):
         """
@@ -556,14 +571,21 @@ class InteriorResidualCallback(ErrorEstimateCallback):
         """
         def interior_residual():
             res_u, res_e = solver_obj.timestepper.interior_residual()
-            return assemble((inner(res_u, res_u) + res_e * res_e) * dx)
+            R = Function(solver_obj.fields.solution_2d.function_space())
+            Ru, Re = R.split()
+            Ru.rename("momentum residual")
+            Re.rename("continuity residual")
+            Ru.interpolate(res_u)
+            Re.interpolate(res_e)
+            return Ru, Re
 
         super(InteriorResidualCallback, self).__init__(interior_residual, solver_obj, **kwargs)
 
 
 class BoundaryResidualCallback(ErrorEstimateCallback):
     """Callback which evaluates strong residual across element boundaries."""
-    name = 'boundary residual'
+    name = 'boundary'
+    label = 'BoundaryResidual2d'
 
     def __init__(self, solver_obj, **kwargs):
         """
@@ -575,6 +597,20 @@ class BoundaryResidualCallback(ErrorEstimateCallback):
         """
         def boundary_residual():
             res_u1, res_u2, res_e = solver_obj.timestepper.boundary_residual()
-            return assemble((res_u1 * res_u1 + res_u2 * res_u2 + res_e * res_e) * dx)
+            fs = solver_obj.fields.solution_2d.function_space()
+            mesh = solver_obj.mesh2d()
+            els = fs.ufl_element().sub_elements()
+            V1 = FunctionSpace(mesh, els[0].family, els[0].degree)
+            V2 = FunctionSpace(mesh, els[1].family, els[1].degree)
+            R = Function(V1 * V1 * V2)
+            Ru1, Ru2, Re = R.split()
+            Ru1.rename("momentum residual 1")
+            Ru2.rename("momentum residual 2")
+            Re.rename("continuity residual")
+
+            Ru1.interpolate(res_u1)
+            Ru2.interpolate(res_u2)
+            Re.interpolate(res_e)
+            return Ru1, Ru2, Re
 
         super(BoundaryResidualCallback, self).__init__(boundary_residual, solver_obj, **kwargs)
