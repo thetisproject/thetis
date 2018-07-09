@@ -250,6 +250,21 @@ class FlowSolver2d(FrozenClass):
 
         self._isfrozen = True  # disallow creating new attributes
 
+    def create_residual_objects(self):
+        """
+        Enable computation of strong residuals. NOTE: must first create equations.
+        """
+        self.sw_momentum_res = shallowwater_eq.ShallowWaterMomentumResidual(
+            self.fields.solution_2d.function_space(),
+            self.fields.bathymetry_2d,
+            self.options
+        )
+        self.sw_continuity_res = shallowwater_eq.ContinuityResidual(
+            self.fields.solution_2d.function_space(),
+            self.fields.bathymetry_2d,
+            self.options
+        )
+
     def create_timestepper(self):
         """
         Creates time stepper instance

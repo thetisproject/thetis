@@ -198,6 +198,9 @@ __all__ = [
     'MomentumSourceTerm',
     'WindStressTerm',
     'AtmosphericPressureTerm',
+    'BaseShallowWaterResidual',
+    'ShallowWaterMomentumResidual',
+    'FreeSurfaceResidual',
 ]
 
 g_grav = physical_constants['g_grav']
@@ -1368,12 +1371,11 @@ class FreeSurfaceResidual(BaseShallowWaterResidual):
     """
     2D free surface equation :eq:`swe_freesurf` in non-conservative form.
     """
-    def __init__(self, eta_test, eta_space, u_space,
+    def __init__(self, eta_space, u_space,
                  bathymetry,
                  options):
         """
         :arg eta_test: test function of the elevation function space
-        :arg eta_space: elevation function space
         :arg u_space: velocity function space
         :arg function_space: Mixed function space where the solution belongs
         :arg bathymetry: bathymetry of the domain
@@ -1381,7 +1383,7 @@ class FreeSurfaceResidual(BaseShallowWaterResidual):
         :arg options: :class:`.AttrDict` object containing all circulation model options
         """
         super(FreeSurfaceResidual, self).__init__(eta_space, bathymetry, options)
-        self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, options)
+        self.add_continuity_terms(eta_space, u_space, bathymetry, options)
         self.bathymetry_displacement_mass_term = BathymetryDisplacementMassTerm(eta_test, eta_space, u_space, bathymetry, options)
 
     def interior_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
@@ -1404,11 +1406,10 @@ class ShallowWaterMomentumResidual(BaseShallowWaterResidual):
     2D depth averaged momentum equation :eq:`swe_momentum` in non-conservative
     form.
     """
-    def __init__(self, u_test, u_space, eta_space,
+    def __init__(self, u_space, eta_space,
                  bathymetry,
                  options):
         """
-        :arg u_test: test function of the velocity function space
         :arg u_space: velocity function space
         :arg eta_space: elevation function space
         :arg bathymetry: bathymetry of the domain
@@ -1416,7 +1417,7 @@ class ShallowWaterMomentumResidual(BaseShallowWaterResidual):
         :arg options: :class:`.AttrDict` object containing all circulation model options
         """
         super(ShallowWaterMomentumResidual, self).__init__(u_space, bathymetry, options)
-        self.add_momentum_terms(u_test, u_space, eta_space,
+        self.add_momentum_terms(u_space, eta_space,
                                 bathymetry, options)
 
     def interior_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
