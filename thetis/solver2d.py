@@ -617,13 +617,31 @@ class FlowSolver2d(FrozenClass):
         """
         Evaluate shallow water strong residual on element interiors. 
         """
-        # TODO
+        fields = self.fields
+        fields_old = self.timestepper.fields_old
+        uv = fields.uv_2d
+        eta = fields.elev_2d
+        uv_old = fields_old.uv_old
+        eta_old = fields_old.elev_old
+        mom_res = self.sw_momentum_res.interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old)
+        cty_res = self.sw_continuity_res.interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old)
+
+        return mom_res, cty_res
 
     def boundary_residual(self):
         """
         Evaluate shallow water strong residual on element boundaries.
         """
-        # TODO
+        fields = self.fields
+        fields_old = self.timestepper.fields_old
+        uv = fields.uv_2d
+        eta = fields.elev_2d
+        uv_old = fields_old.uv_old
+        eta_old = fields_old.elev_old
+        mom_res0, mom_res1 = self.sw_momentum_res.boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old)
+        cty_res = self.sw_continuity_res.boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old)
+
+        return mom_res0, mom_res1, cty_res
 
     def explicit_error(self):
         r"""

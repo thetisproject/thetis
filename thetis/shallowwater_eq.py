@@ -1086,7 +1086,7 @@ class HorizontalAdvectionResidual(ShallowWaterMomentumResidualTerm):
 
         return -f
 
-    def boundary_residual(self, solution):
+    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
 
         # TODO
 
@@ -1130,7 +1130,7 @@ class HorizontalViscosityResidual(ShallowWaterMomentumResidualTerm):
 
         return -f
 
-    def boundary_residual(self, solution):
+    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
 
         # TODO
 
