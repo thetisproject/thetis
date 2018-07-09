@@ -1145,6 +1145,10 @@ class CoriolisResidual(ShallowWaterMomentumResidualTerm):
             f += coriolis * as_vector((-uv[1], uv[0]))
         return -f
 
+    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        f = 0
+        return -f
+
 
 class WindStressResidual(ShallowWaterMomentumResidualTerm):
     r"""
@@ -1160,6 +1164,10 @@ class WindStressResidual(ShallowWaterMomentumResidualTerm):
             f += wind_stress / total_h / rho_0
         return f
 
+    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        f = 0
+        return -f
+
 
 class AtmosphericPressureResidual(ShallowWaterMomentumResidualTerm):
     r"""
@@ -1172,6 +1180,10 @@ class AtmosphericPressureResidual(ShallowWaterMomentumResidualTerm):
         f = 0
         if atmospheric_pressure is not None:
             f += grad(atmospheric_pressure) / rho_0
+        return -f
+
+    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        f = 0
         return -f
 
 
@@ -1202,6 +1214,10 @@ class QuadraticDragResidual(ShallowWaterMomentumResidualTerm):
             f += C_D * sqrt(dot(uv_old, uv_old)) * uv / total_h
         return -f
 
+    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        f = 0
+        return -f
+
 
 class LinearDragResidual(ShallowWaterMomentumResidualTerm):
     r"""
@@ -1215,6 +1231,10 @@ class LinearDragResidual(ShallowWaterMomentumResidualTerm):
         if linear_drag_coefficient is not None:
             bottom_fri = linear_drag_coefficient*uv
             f += bottom_fri
+        return -f
+
+    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        f = 0
         return -f
 
 
@@ -1239,6 +1259,10 @@ class BottomDrag3DResidual(ShallowWaterMomentumResidualTerm):
             f += bot_friction
         return -f
 
+    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        f = 0
+        return -f
+
 
 # TODO: TurbineDragResidual
 
@@ -1256,6 +1280,10 @@ class MomentumSourceResidual(ShallowWaterMomentumResidualTerm):
             f += momentum_source
         return f
 
+    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        f = 0
+        return -f
+
 
 class ContinuitySourceResidual(ShallowWaterContinuityResidualTerm):
     r"""
@@ -1269,6 +1297,10 @@ class ContinuitySourceResidual(ShallowWaterContinuityResidualTerm):
         if volume_source is not None:
             f += volume_source
         return f
+
+    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        f = 0
+        return -f
 
 
 class BathymetryDisplacementMassResidual(ShallowWaterMomentumResidualTerm):
@@ -1284,6 +1316,10 @@ class BathymetryDisplacementMassResidual(ShallowWaterMomentumResidualTerm):
         f = 0
         if self.options.use_wetting_and_drying:
             f += self.wd_bathymetry_displacement(eta)
+        return -f
+
+    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        f = 0
         return -f
 
 
