@@ -1000,16 +1000,15 @@ class ShallowWaterMomentumEquation(BaseShallowWaterEquation):
         return self.residual_uv_eta(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
 
 
-class ShallowWaterStrongResidualTerm(ShallowWaterTerm):
+class ShallowWaterMomentumResidualTerm(ShallowWaterTerm):
     """
-    Generic term in the strong form shallow water equations that provides commonly used
-    members and mapping for boundary functions.
+    Generic term in the strong form shallow water momentum equation.
     """
 
     def __init__(self, u_space, eta_space,
                  bathymetry=None,
                  options=None):
-        super(ShallowWaterStrongResidualTerm, self).__init__(u_space, bathymetry, options)
+        super(ShallowWaterMomentumResidualTerm, self).__init__(u_space, bathymetry, options)
 
         self.options = options
 
@@ -1020,7 +1019,23 @@ class ShallowWaterStrongResidualTerm(ShallowWaterTerm):
         self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
 
-class ExternalPressureGradientResidual(ShallowWaterStrongResidualTerm):
+class ShallowWaterContinuityResidualTerm(ShallowWaterTerm):
+    """
+    Generic term in the strong form depth-integrated continuity equation.
+    """
+    def __init__(self, eta_space, u_space,
+                 bathymetry=None,
+                 options=None):
+        super(ShallowWaterContinuityResidualTerm, self).__init__(eta_space, bathymetry, options)
+
+        self.eta_space = eta_space
+        self.u_space = u_space
+
+        self.u_continuity = element_continuity(self.u_space.ufl_element()).horizontal
+        self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
+
+
+class ExternalPressureGradientResidual(ShallowWaterMomentumResidualTerm):
     r"""
     External pressure gradient term, :math:`g \nabla \eta`
     """
@@ -1037,7 +1052,7 @@ class ExternalPressureGradientResidual(ShallowWaterStrongResidualTerm):
         raise NotImplementedError
 
 
-class HUDivResidual(ShallowWaterStrongResidualTerm):
+class HUDivResidual(ShallowWaterContinuityResidualTerm):
     r"""
     Divergence term, :math:`\nabla \cdot (H \bar{\textbf{u}})`
     """
@@ -1055,7 +1070,7 @@ class HUDivResidual(ShallowWaterStrongResidualTerm):
         raise NotImplementedError
 
 
-class HorizontalAdvectionResidual(ShallowWaterStrongResidualTerm):
+class HorizontalAdvectionResidual(ShallowWaterMomentumResidualTerm):
     r"""
     Advection of momentum term, :math:`\bar{\textbf{u}} \cdot \nabla\bar{\textbf{u}}`
     """
@@ -1075,7 +1090,7 @@ class HorizontalAdvectionResidual(ShallowWaterStrongResidualTerm):
         raise NotImplementedError
 
 
-class HorizontalViscosityResidual(ShallowWaterStrongResidualTerm):
+class HorizontalViscosityResidual(ShallowWaterMomentumResidualTerm):
     r"""
     Viscosity of momentum term
 
@@ -1119,7 +1134,7 @@ class HorizontalViscosityResidual(ShallowWaterStrongResidualTerm):
         raise NotImplementedError
 
 
-class CoriolisResidual(ShallowWaterStrongResidualTerm):
+class CoriolisResidual(ShallowWaterMomentumResidualTerm):
     r"""
     Coriolis term, :math:`f\textbf{e}_z\wedge \bar{\textbf{u}}`
     """
@@ -1131,7 +1146,7 @@ class CoriolisResidual(ShallowWaterStrongResidualTerm):
         return -f
 
 
-class WindStressResidual(ShallowWaterStrongResidualTerm):
+class WindStressResidual(ShallowWaterMomentumResidualTerm):
     r"""
     Wind stress term, :math:`-\tau_w/(H \rho_0)`
 
@@ -1146,7 +1161,7 @@ class WindStressResidual(ShallowWaterStrongResidualTerm):
         return f
 
 
-class AtmosphericPressureResidual(ShallowWaterStrongResidualTerm):
+class AtmosphericPressureResidual(ShallowWaterMomentumResidualTerm):
     r"""
     Atmospheric pressure term, :math:`\nabla (p_a / \rho_0)`
 
@@ -1160,7 +1175,7 @@ class AtmosphericPressureResidual(ShallowWaterStrongResidualTerm):
         return -f
 
 
-class QuadraticDragResidual(ShallowWaterStrongResidualTerm):
+class QuadraticDragResidual(ShallowWaterMomentumResidualTerm):
     r"""
     Quadratic Manning bottom friction term
     :math:`C_D \| \bar{\textbf{u}} \| \bar{\textbf{u}}`
@@ -1188,7 +1203,7 @@ class QuadraticDragResidual(ShallowWaterStrongResidualTerm):
         return -f
 
 
-class LinearDragResidual(ShallowWaterStrongResidualTerm):
+class LinearDragResidual(ShallowWaterMomentumResidualTerm):
     r"""
     Linear friction term, :math:`C \bar{\textbf{u}}`
 
@@ -1203,7 +1218,7 @@ class LinearDragResidual(ShallowWaterStrongResidualTerm):
         return -f
 
 
-class BottomDrag3DResidual(ShallowWaterStrongResidualTerm):
+class BottomDrag3DResidual(ShallowWaterMomentumResidualTerm):
     r"""
     Bottom drag term consistent with the 3D mode,
     :math:`C_D \| \textbf{u}_b \| \textbf{u}_b`
@@ -1225,7 +1240,7 @@ class BottomDrag3DResidual(ShallowWaterStrongResidualTerm):
         return -f
 
 
-class MomentumSourceResidual(ShallowWaterStrongResidualTerm):
+class MomentumSourceResidual(ShallowWaterMomentumResidualTerm):
     r"""
     Generic source term :math:`\boldsymbol{\tau}` in the shallow water momentum equation.
     """
@@ -1239,7 +1254,7 @@ class MomentumSourceResidual(ShallowWaterStrongResidualTerm):
         return f
 
 
-class ContinuitySourceResidual(ShallowWaterStrongResidualTerm):
+class ContinuitySourceResidual(ShallowWaterContinuityResidualTerm):
     r"""
     Generic source term :math:`S` in the depth-averaged continuity equation.
     """
@@ -1253,7 +1268,7 @@ class ContinuitySourceResidual(ShallowWaterStrongResidualTerm):
         return f
 
 
-class BathymetryDisplacementMassResidual(ShallowWaterStrongResidualTerm):
+class BathymetryDisplacementMassResidual(ShallowWaterMomentumResidualTerm):
     r"""
     Bathmetry mass displacement term, :math:`\partial \eta / \partial t + \partial \tilde{h} / \partial t`.
     """
