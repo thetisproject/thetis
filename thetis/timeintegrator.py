@@ -5,6 +5,9 @@ from __future__ import absolute_import
 from .utility import *
 from abc import ABCMeta, abstractmethod
 
+# TODO: Make this more general
+from .shallowwater_eq import ShallowWaterMomentumResidual, FreeSurfaceResidual
+
 CFL_UNCONDITIONALLY_STABLE = np.inf
 # CFL coefficient for unconditionally stable methods
 
@@ -67,6 +70,19 @@ class TimeIntegrator(TimeIntegratorBase):
                               self.equation.__class__.__name__])
         self.solver_parameters = {}
         self.solver_parameters.update(solver_parameters)
+
+        self.sw_mom = ShallowWaterMomentumResidual(
+            self.solution.function_space().sub(0),
+            self.solution.function_space().sub(1),
+            self.equation.bathymetry,
+            self.equation.options
+        )
+        self.sw_cty = FreeSurfaceResidual(
+            self.solution.function_space().sub(1),
+            self.solution.function_space().sub(0),
+            self.equation.bathymetry,
+            self.equation.options
+        )
 
     def set_dt(self, dt):
         """Update time step"""
@@ -132,6 +148,24 @@ class ForwardEuler(TimeIntegrator):
         # shift time
         for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
+
+    def interior_residual(self, label='all'):
+        """
+        Evaluate shallow water strong residual on element interiors. 
+        """
+        mom_res = self.sw_mom.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
+        cty_res = self.sw_cty.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
+
+        return mom_res, cty_res
+
+    def boundary_residual(self, label='all'):
+        """
+        Evaluate shallow water strong residual on element boundaries.
+        """
+        mom_res0, mom_res1 = self.sw_mom.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
+        cty_res = self.sw_cty.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
+
+        return mom_res0, mom_res1, cty_res
 
 
 class CrankNicolson(TimeIntegrator):
@@ -219,6 +253,18 @@ class CrankNicolson(TimeIntegrator):
         for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
+    def interior_residual(self, label='all'):
+        """
+        Evaluate shallow water strong residual on element interiors. 
+        """
+        raise NotImplementedError
+
+    def boundary_residual(self, label='all'):
+        """
+        Evaluate shallow water strong residual on element boundaries.
+        """
+        raise NotImplementedError
+
 
 class SteadyState(TimeIntegrator):
     """
@@ -264,6 +310,33 @@ class SteadyState(TimeIntegrator):
         if update_forcings is not None:
             update_forcings(t + self.dt)
         self.solver.solve()
+
+    def interior_residual(self, label='all'):
+        """
+        Evaluate shallow water strong residual on element interiors. 
+        """
+        fields = self.fields
+        solution = fields.solution_2d
+        fields_old = self.fields_old
+        solution_old = self.solution_old
+        mom_res = self.sw_mom.interior_residual(label, solution, solution_old, fields, fields_old, None)
+        cty_res = self.sw_cty.interior_residual(label, solution, solution_old, fields, fields_old, None)
+
+        return mom_res, cty_res
+
+    def boundary_residual(self, label='all'):
+        """
+        Evaluate shallow water strong residual on element boundaries.
+        """
+
+        fields = self.fields
+        solution = fields.solution_2d
+        fields_old = self.fields_old
+        solution_old = self.solution_old
+        mom_res0, mom_res1 = self.sw_mom.boundary_residual(label, solution, solution_old, fields, fields_old, None)
+        cty_res = self.sw_cty.boundary_residual(label, solution, solution_old, fields, fields_old, None)
+
+        return mom_res0, mom_res1, cty_res
 
 
 class PressureProjectionPicard(TimeIntegrator):
@@ -432,6 +505,12 @@ class PressureProjectionPicard(TimeIntegrator):
         for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
+    def interior_residual(self, label='all'):
+        raise NotImplementedError
+
+    def boundary_residual(self, label='all'):
+        raise NotImplementedError
+
 
 class LeapFrogAM3(TimeIntegrator):
     """
@@ -579,6 +658,12 @@ class LeapFrogAM3(TimeIntegrator):
             self.predict()
             self.eval_rhs()
             self.correct()
+
+    def interior_residual(self, label='all'):
+        raise NotImplementedError
+
+    def boundary_residual(self, label='all'):
+        raise NotImplementedError
 
 
 class SSPRK22ALE(TimeIntegrator):
@@ -736,3 +821,9 @@ class SSPRK22ALE(TimeIntegrator):
         for i_stage in range(self.n_stages):
             self.prepare_stage(i_stage, t, update_forcings)
             self.solve_stage(i_stage)
+
+    def interior_residual(self, label='all'):
+        raise NotImplementedError
+
+    def boundary_residual(self, label='all'):
+        raise NotImplementedError

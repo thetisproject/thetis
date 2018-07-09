@@ -130,9 +130,6 @@ class FlowSolver2d(FrozenClass):
 
         self.bnd_functions = {'shallow_water': {}, 'tracer': {}}
 
-        self.sw_momentum_res = None
-        self.sw_continuity_res = None
-
         self._isfrozen = True
 
     def compute_time_step(self, u_scale=Constant(0.0)):
@@ -279,7 +276,8 @@ class FlowSolver2d(FrozenClass):
             'wind_stress': self.options.wind_stress,
             'atmospheric_pressure': self.options.atmospheric_pressure,
             'momentum_source': self.options.momentum_source_2d,
-            'volume_source': self.options.volume_source_2d, }
+            'volume_source': self.options.volume_source_2d,
+        }
         self.set_time_step()
         if self.options.timestepper_type == 'SSPRK33':
             self.timestepper = rungekutta.SSPRK33(self.eq_sw, self.fields.solution_2d,
@@ -390,30 +388,6 @@ class FlowSolver2d(FrozenClass):
             self.exporters['hdf5'] = e
 
         self._isfrozen = True  # disallow creating new attributes
-
-    def create_residual_objects(self):
-        """
-        Enable computation of strong residuals.
-        """
-        if not hasattr(self, 'U_2d'):
-            self.create_function_spaces()
-        if not hasattr(self, 'eq_sw'):
-            self.create_equations()
-        if not hasattr(self, 'timestepper'):
-            self.create_timestepper()
-
-        self.sw_momentum_res = shallowwater_eq.ShallowWaterMomentumResidual(
-            self.fields.solution_2d.function_space().sub(0),
-            self.fields.solution_2d.function_space().sub(1),
-            self.fields.bathymetry_2d,
-            self.options
-        )
-        self.sw_continuity_res = shallowwater_eq.FreeSurfaceResidual(
-            self.fields.solution_2d.function_space().sub(1),
-            self.fields.solution_2d.function_space().sub(0),
-            self.fields.bathymetry_2d,
-            self.options
-        )
 
     def initialize(self):
         """
@@ -625,38 +599,6 @@ class FlowSolver2d(FrozenClass):
                 if export_func is not None:
                     export_func()
 
-    def interior_residual(self, label='all'):
-        """
-        Evaluate shallow water strong residual on element interiors. 
-        """
-        if self.sw_momentum_res is None:
-            self.create_residual_objects()
-
-        fields = self.fields
-        solution = fields.solution_2d
-        fields_old = self.timestepper.fields_old
-        solution_old = self.timestepper.solution_old
-        mom_res = self.sw_momentum_res.interior_residual(label, solution, solution_old, fields, fields_old, None)
-        cty_res = self.sw_continuity_res.interior_residual(label, solution, solution_old, fields, fields_old, None)
-
-        return mom_res, cty_res
-
-    def boundary_residual(self, label='all'):
-        """
-        Evaluate shallow water strong residual on element boundaries.
-        """
-        if self.sw_momentum_res is None:
-            self.create_residual_objects()
-
-        fields = self.fields
-        solution = fields.solution_2d
-        fields_old = self.timestepper.fields_old
-        solution_old = self.timestepper.solution_old
-        mom_res0, mom_res1 = self.sw_momentum_res.boundary_residual(label, solution, solution_old, fields, fields_old, None)
-        cty_res = self.sw_continuity_res.boundary_residual(label, solution, solution_old, fields, fields_old, None)
-
-        return mom_res0, mom_res1, cty_res
-
     def explicit_error(self):
         r"""
         Estimate error locally using an a posteriori error indicator [Ainsworth & Oden, 1997], given by
@@ -671,13 +613,14 @@ class FlowSolver2d(FrozenClass):
         :math:`\textbf{r}` denotes the strong residual on element boundaries,
         :math:`h_K` is the size of mesh element `K`.
         """
-        P0 = FunctionSpace(self.mesh2d, "DG", 0)
+        mesh = self.fields.solution_2d.function_space().mesh()
+        P0 = FunctionSpace(mesh, "DG", 0)
         v = TestFunction(P0)
         ee = Function(P0)
-        h = CellSize(self.mesh2d)
+        h = CellSize(mesh)
 
-        res_u, res_e = self.interior_residual()
-        bres_u1, bres_u2, bres_e = self.boundary_residual()
+        res_u, res_e = self.timestepper.interior_residual()
+        bres_u1, bres_u2, bres_e = self.timestepper.boundary_residual()
         ee.interpolate(assemble(v * (inner(res_u, res_u) + res_e * res_e
                                      + (bres_u1 * bres_u1 + bres_u2 * bres_u2 + bres_e * bres_e) / sqrt(h)) * dx))
 
