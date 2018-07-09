@@ -1048,11 +1048,24 @@ class ExternalPressureGradientResidual(ShallowWaterMomentumResidualTerm):
 
         return -f
 
-    def residual_bdy(self, solution):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
 
-        # TODO
+        head = eta
+        P0 = FunctionSpace(eta.function_space().mesh(), "DG", 0)
+        VP0 = VectorFunctionSpace(eta.function_space().mesh(), "DG", 0)
+        v = TestFunction(P0)
+        grad_eta_by_parts = self.eta_is_dg
 
-        raise NotImplementedError
+        f = Function(VP0)
+        if grad_eta_by_parts:
+            f0 = Function(P0).interpolate(assemble(jump(g_grav * v * head, n=self.normal[0]) * self.dS))
+            f1 = Function(P0).interpolate(assemble(jump(g_grav * v * head, n=self.normal[1]) * self.dS))
+        f.dat.data[:, 0] = f0.dat.data
+        f.dat.data[:, 1] = f1.dat.data  # TODO: How can this be done in a cleaner, parallelisible way?
+
+        # TODO: Account for BCs
+
+        return f
 
 
 class HUDivResidual(ShallowWaterContinuityResidualTerm):
@@ -1066,11 +1079,20 @@ class HUDivResidual(ShallowWaterContinuityResidualTerm):
 
         return -f
 
-    def residual_bdy(self, solution):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
 
-        # TODO
+        total_h = self.get_total_depth(eta_old)
+        P0 = FunctionSpace(eta.function_space().mesh(), "DG", 0)
+        v = TestFunction(P0)
+        hu_by_parts = self.u_continuity in ['dg', 'hdiv']
 
-        raise NotImplementedError
+        if hu_by_parts:
+            if self.eta_is_dg:
+                f = Function(P0).interpolate(assemble(jump(v * total_h * uv, n=self.normal) * self.dS))
+
+        # TODO: Account for BCs
+
+        return -f
 
 
 class HorizontalAdvectionResidual(ShallowWaterMomentumResidualTerm):
@@ -1086,9 +1108,9 @@ class HorizontalAdvectionResidual(ShallowWaterMomentumResidualTerm):
 
     def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
 
-        # TODO
+        # TODO: How to write this in strong form?
 
-        raise NotImplementedError
+        return None
 
 
 class HorizontalViscosityResidual(ShallowWaterMomentumResidualTerm):
@@ -1129,9 +1151,9 @@ class HorizontalViscosityResidual(ShallowWaterMomentumResidualTerm):
 
     def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
 
-        # TODO
+        # TODO: How to write this in strong form?
 
-        raise NotImplementedError
+        return None
 
 
 class CoriolisResidual(ShallowWaterMomentumResidualTerm):

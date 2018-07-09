@@ -598,10 +598,10 @@ class BoundaryResidualCallback(ErrorEstimateCallback):
         def boundary_residual():
             res_u1, res_u2, res_e = solver_obj.timestepper.boundary_residual()
             fs = solver_obj.fields.solution_2d.function_space()
-            mesh = solver_obj.mesh2d()
+            mesh = solver_obj.mesh2d
             els = fs.ufl_element().sub_elements()
-            V1 = FunctionSpace(mesh, els[0].family, els[0].degree)
-            V2 = FunctionSpace(mesh, els[1].family, els[1].degree)
+            V1 = FunctionSpace(mesh, els[0].family(), els[0].degree())
+            V2 = FunctionSpace(mesh, els[1].family(), els[1].degree())
             R = Function(V1 * V1 * V2)
             Ru1, Ru2, Re = R.split()
             Ru1.rename("momentum residual 1")
