@@ -1020,6 +1020,81 @@ class ShallowWaterStrongResidualTerm(ShallowWaterTerm):
         self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
 
+class ExternalPressureGradientResidual(ShallowWaterStrongResidualTerm):
+    r"""
+    External pressure gradient term, :math:`g \nabla \eta`
+    """
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+
+        f = g_grav * grad(eta)
+
+        return -f
+
+
+class HUDivResidual(ShallowWaterStrongResidualTerm):
+    r"""
+    Divergence term, :math:`\nabla \cdot (H \bar{\textbf{u}})`
+    """
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        total_h = self.get_total_depth(eta_old)
+
+        f = div(total_h*uv)
+
+        return -f
+
+
+class HorizontalAdvectionResidual(ShallowWaterStrongResidualTerm):
+    r"""
+    Advection of momentum term, :math:`\bar{\textbf{u}} \cdot \nabla\bar{\textbf{u}}`
+    """
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+
+        if not self.options.use_nonlinear_equations:
+            return 0
+
+        f = dot(uv_old, nabla_grad(uv))
+
+        return -f
+
+
+class HorizontalViscosityResidual(ShallowWaterStrongResidualTerm):
+    r"""
+    Viscosity of momentum term
+
+    If option :attr:`.ModelOptions.use_grad_div_viscosity_term` is ``True``, we
+    use the symmetric viscous stress :math:`\boldsymbol{\tau}_\nu = \nu_h ( \nabla \bar{\textbf{u}} + (\nabla \bar{\textbf{u}})^T )`.
+
+    If option :attr:`.ModelOptions.use_grad_div_viscosity_term` is ``False``,
+    we use viscous stress :math:`\boldsymbol{\tau}_\nu = \nu_h \nabla \bar{\textbf{u}}`.
+
+    If option :attr:`.ModelOptions.use_grad_depth_viscosity_term` is ``True``, we also include
+    the term
+
+    .. math::
+        \boldsymbol{\tau}_{\nabla H} = - \frac{\nu_h \nabla(H)}{H} \cdot ( \nabla \bar{\textbf{u}} + (\nabla \bar{\textbf{u}})^T )
+
+    as a source term.
+    """
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        total_h = self.get_total_depth(eta_old)
+
+        nu = fields_old.get('viscosity_h')
+        if nu is None:
+            return 0
+
+        if self.options.use_grad_div_viscosity_term:
+            stress = nu*2.*sym(grad(uv))
+        else:
+            stress = nu*grad(uv)
+
+        f = div(stress)
+
+        if self.options.use_grad_depth_viscosity_term:
+            f += -dot(grad(total_h)/total_h, stress)
+
+        return -f
+
+
 class CoriolisResidual(ShallowWaterStrongResidualTerm):
     r"""
     Coriolis term, :math:`f\textbf{e}_z\wedge \bar{\textbf{u}}`
@@ -1028,7 +1103,7 @@ class CoriolisResidual(ShallowWaterStrongResidualTerm):
         coriolis = fields_old.get('coriolis')
         f = 0
         if coriolis is not None:
-            f += coriolis * (-uv[1], uv[0])
+            f += coriolis * as_vector((-uv[1], uv[0]))
         return -f
 
 
@@ -1169,19 +1244,5 @@ class BathymetryDisplacementMassResidual(ShallowWaterStrongResidualTerm):
             f += self.wd_bathymetry_displacement(eta)
         return -f
 
-# TODO: Include strong residual terms:
 
-# TODO: ExternalPressureGradient
-# TODO: HUDiv
-# TODO: HorizontalAdvection
-# TODO: HorizontalViscosity
-# Done: Coriolis
-# Done: WindStress
-# Done: AtmosphericPressure
-# Done: QuadraticDrag
-# Done: LinearDrag
-# Done: BottomDrag3D
-# TODO: TurbineDrag
-# Done: MomentumSource
-# Done: ContinuitySource
-# Done: BathymetryDisplacementMass
+# TODO: TurbineDragResidual
