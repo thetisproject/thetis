@@ -1240,6 +1240,9 @@ class BottomDrag3DResidual(ShallowWaterMomentumResidualTerm):
         return -f
 
 
+# TODO: TurbineDragResidual
+
+
 class MomentumSourceResidual(ShallowWaterMomentumResidualTerm):
     r"""
     Generic source term :math:`\boldsymbol{\tau}` in the shallow water momentum equation.
@@ -1284,4 +1287,112 @@ class BathymetryDisplacementMassResidual(ShallowWaterMomentumResidualTerm):
         return -f
 
 
-# TODO: TurbineDragResidual
+class BaseShallowWaterResidual(Equation):
+    """
+    Abstract base class for ShallowWaterMomentumResidual and FreeSurfaceResidual.
+    """
+    def __init__(self, function_space,
+                 bathymetry,
+                 options):
+        super(BaseShallowWaterResidual, self).__init__(function_space)
+        self.bathymetry = bathymetry
+        self.options = options
+
+    def add_momentum_terms(self, *args):
+        self.add_term(ExternalPressureGradientResidual(*args), 'implicit')
+        self.add_term(HorizontalAdvectionResidual(*args), 'explicit')
+        self.add_term(HorizontalViscosityResidual(*args), 'explicit')
+        self.add_term(CoriolisResidual(*args), 'explicit')
+        self.add_term(WindStressTerm(*args), 'source')
+        self.add_term(AtmosphericPressureResidual(*args), 'source')
+        self.add_term(QuadraticDragResidual(*args), 'explicit')
+        self.add_term(LinearDragResidual(*args), 'explicit')
+        self.add_term(BottomDrag3DResidual(*args), 'source')
+        # self.add_term(TurbineDragResidual(*args), 'implicit')     # TODO
+        self.add_term(MomentumSourceResidual(*args), 'source')
+
+    def add_continuity_terms(self, *args):
+        self.add_term(HUDivResidual(*args), 'implicit')
+        self.add_term(ContinuitySourceResidual(*args), 'source')
+
+    def interior_residual(self, label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
+        f = 0
+        for term in self.select_terms(label):
+            f += term.interior_residual(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+        return f
+
+    def boundary_residual(self, label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
+        f = 0
+        for term in self.select_terms(label):
+            f += term.boundary_residual(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+        return f
+
+
+class FreeSurfaceResidual(BaseShallowWaterResidual):
+    """
+    2D free surface equation :eq:`swe_freesurf` in non-conservative form.
+    """
+    def __init__(self, eta_test, eta_space, u_space,
+                 bathymetry,
+                 options):
+        """
+        :arg eta_test: test function of the elevation function space
+        :arg eta_space: elevation function space
+        :arg u_space: velocity function space
+        :arg function_space: Mixed function space where the solution belongs
+        :arg bathymetry: bathymetry of the domain
+        :type bathymetry: :class:`Function` or :class:`Constant`
+        :arg options: :class:`.AttrDict` object containing all circulation model options
+        """
+        super(FreeSurfaceResidual, self).__init__(eta_space, bathymetry, options)
+        self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, options)
+        self.bathymetry_displacement_mass_term = BathymetryDisplacementMassTerm(eta_test, eta_space, u_space, bathymetry, options)
+
+    def interior_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
+        uv = fields['uv']
+        uv_old = fields_old['uv']
+        eta = solution
+        eta_old = solution_old
+        return self.interior_residual(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+
+    def boundary_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
+        uv = fields['uv']
+        uv_old = fields_old['uv']
+        eta = solution
+        eta_old = solution_old
+        return self.boundary_residual(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+
+
+class ShallowWaterMomentumResidual(BaseShallowWaterResidual):
+    """
+    2D depth averaged momentum equation :eq:`swe_momentum` in non-conservative
+    form.
+    """
+    def __init__(self, u_test, u_space, eta_space,
+                 bathymetry,
+                 options):
+        """
+        :arg u_test: test function of the velocity function space
+        :arg u_space: velocity function space
+        :arg eta_space: elevation function space
+        :arg bathymetry: bathymetry of the domain
+        :type bathymetry: :class:`Function` or :class:`Constant`
+        :arg options: :class:`.AttrDict` object containing all circulation model options
+        """
+        super(ShallowWaterMomentumResidual, self).__init__(u_space, bathymetry, options)
+        self.add_momentum_terms(u_test, u_space, eta_space,
+                                bathymetry, options)
+
+    def interior_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
+        uv = solution
+        uv_old = solution_old
+        eta = fields['eta']
+        eta_old = fields_old['eta']
+        return self.interior_residual(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+
+    def boundary_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
+        uv = solution
+        uv_old = solution_old
+        eta = fields['eta']
+        eta_old = fields_old['eta']
+        return self.boundary_residual(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
