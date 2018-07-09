@@ -153,8 +153,13 @@ class ForwardEuler(TimeIntegrator):
         """
         Evaluate shallow water strong residual on element interiors. 
         """
-        mom_res = self.sw_mom.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
-        cty_res = self.sw_cty.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
+        uv, eta = self.solution.split()
+        uv_old, eta_old = self.solution_old.split()
+        mom_res = uv - uv_old
+        cty_res = eta - eta_old
+
+        mom_res += -self.sw_mom.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
+        cty_res += -self.sw_cty.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
 
         return mom_res, cty_res
 
@@ -257,13 +262,24 @@ class CrankNicolson(TimeIntegrator):
         """
         Evaluate shallow water strong residual on element interiors. 
         """
-        raise NotImplementedError
+        uv, eta = self.solution.split()
+        uv_old, eta_old = self.solution_old.split()
+        mom_res = uv - uv_old
+        cty_res = eta - eta_old
+
+        mom_res += -self.sw_mom.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
+        cty_res += -self.sw_cty.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
+
+        return mom_res, cty_res
 
     def boundary_residual(self, label='all'):
         """
         Evaluate shallow water strong residual on element boundaries.
         """
-        raise NotImplementedError
+        mom_res0, mom_res1 = self.sw_mom.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
+        cty_res = self.sw_cty.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
+
+        return mom_res0, mom_res1, cty_res
 
 
 class SteadyState(TimeIntegrator):
