@@ -130,6 +130,9 @@ class FlowSolver2d(FrozenClass):
 
         self.bnd_functions = {'shallow_water': {}, 'tracer': {}}
 
+        self.sw_momentum_res = None
+        self.sw_continuity_res = None
+
         self._isfrozen = True
 
     def compute_time_step(self, u_scale=Constant(0.0)):
@@ -249,21 +252,6 @@ class FlowSolver2d(FrozenClass):
                 self.tracer_limiter = None
 
         self._isfrozen = True  # disallow creating new attributes
-
-    def create_residual_objects(self):
-        """
-        Enable computation of strong residuals. NOTE: must first create equations.
-        """
-        self.sw_momentum_res = shallowwater_eq.ShallowWaterMomentumResidual(
-            self.fields.solution_2d.function_space(),
-            self.fields.bathymetry_2d,
-            self.options
-        )
-        self.sw_continuity_res = shallowwater_eq.ContinuityResidual(
-            self.fields.solution_2d.function_space(),
-            self.fields.bathymetry_2d,
-            self.options
-        )
 
     def create_timestepper(self):
         """
@@ -402,6 +390,30 @@ class FlowSolver2d(FrozenClass):
             self.exporters['hdf5'] = e
 
         self._isfrozen = True  # disallow creating new attributes
+
+    def create_residual_objects(self):
+        """
+        Enable computation of strong residuals.
+        """
+        if not hasattr(self, 'U_2d'):
+            self.create_function_spaces()
+        if not hasattr(self, 'eq_sw'):
+            self.create_equations()
+        if not hasattr(self, 'timestepper'):
+            self.create_timestepper()
+
+        self.sw_momentum_res = shallowwater_eq.ShallowWaterMomentumResidual(
+            self.fields.solution_2d.function_space().sub(0),
+            self.fields.solution_2d.function_space().sub(1),
+            self.fields.bathymetry_2d,
+            self.options
+        )
+        self.sw_continuity_res = shallowwater_eq.FreeSurfaceResidual(
+            self.fields.solution_2d.function_space().sub(1),
+            self.fields.solution_2d.function_space().sub(0),
+            self.fields.bathymetry_2d,
+            self.options
+        )
 
     def initialize(self):
         """
@@ -618,13 +630,11 @@ class FlowSolver2d(FrozenClass):
         Evaluate shallow water strong residual on element interiors. 
         """
         fields = self.fields
+        solution = fields.solution_2d
         fields_old = self.timestepper.fields_old
-        uv = fields.uv_2d
-        eta = fields.elev_2d
-        uv_old = fields_old.uv_old
-        eta_old = fields_old.elev_old
-        mom_res = self.sw_momentum_res.interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old)
-        cty_res = self.sw_continuity_res.interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old)
+        solution_old = self.timestepper.solution_old
+        mom_res = self.sw_momentum_res.interior_residual("swe_freesurf", solution, solution_old, fields, fields_old, None)
+        cty_res = self.sw_continuity_res.interior_residual("swe_momentum", solution, solution_old, fields, fields_old, None)
 
         return mom_res, cty_res
 
@@ -633,13 +643,11 @@ class FlowSolver2d(FrozenClass):
         Evaluate shallow water strong residual on element boundaries.
         """
         fields = self.fields
+        solution = fields.solution_2d
         fields_old = self.timestepper.fields_old
-        uv = fields.uv_2d
-        eta = fields.elev_2d
-        uv_old = fields_old.uv_old
-        eta_old = fields_old.elev_old
-        mom_res0, mom_res1 = self.sw_momentum_res.boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old)
-        cty_res = self.sw_continuity_res.boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old)
+        solution_old = self.timestepper.solution_old
+        mom_res0, mom_res1 = self.sw_momentum_res.boundary_residual("swe_freesurf", solution, solution_old, fields, fields_old, None)
+        cty_res = self.sw_continuity_res.boundary_residual("swe_freesurf", solution, solution_old, fields, fields_old, None)
 
         return mom_res0, mom_res1, cty_res
 

@@ -1042,13 +1042,13 @@ class ExternalPressureGradientResidual(ShallowWaterMomentumResidualTerm):
     r"""
     External pressure gradient term, :math:`g \nabla \eta`
     """
-    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
 
         f = g_grav * grad(eta)
 
         return -f
 
-    def boundary_residual(self, solution):
+    def residual_bdy(self, solution):
 
         # TODO
 
@@ -1059,14 +1059,14 @@ class HUDivResidual(ShallowWaterContinuityResidualTerm):
     r"""
     Divergence term, :math:`\nabla \cdot (H \bar{\textbf{u}})`
     """
-    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
 
         f = div(total_h*uv)
 
         return -f
 
-    def boundary_residual(self, solution):
+    def residual_bdy(self, solution):
 
         # TODO
 
@@ -1077,7 +1077,7 @@ class HorizontalAdvectionResidual(ShallowWaterMomentumResidualTerm):
     r"""
     Advection of momentum term, :math:`\bar{\textbf{u}} \cdot \nabla\bar{\textbf{u}}`
     """
-    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
 
         if not self.options.use_nonlinear_equations:
             return 0
@@ -1086,7 +1086,7 @@ class HorizontalAdvectionResidual(ShallowWaterMomentumResidualTerm):
 
         return -f
 
-    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
 
         # TODO
 
@@ -1111,7 +1111,7 @@ class HorizontalViscosityResidual(ShallowWaterMomentumResidualTerm):
 
     as a source term.
     """
-    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
 
         nu = fields_old.get('viscosity_h')
@@ -1130,7 +1130,7 @@ class HorizontalViscosityResidual(ShallowWaterMomentumResidualTerm):
 
         return -f
 
-    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
 
         # TODO
 
@@ -1141,14 +1141,14 @@ class CoriolisResidual(ShallowWaterMomentumResidualTerm):
     r"""
     Coriolis term, :math:`f\textbf{e}_z\wedge \bar{\textbf{u}}`
     """
-    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         coriolis = fields_old.get('coriolis')
         f = 0
         if coriolis is not None:
             f += coriolis * as_vector((-uv[1], uv[0]))
         return -f
 
-    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
         return -f
 
@@ -1159,7 +1159,7 @@ class WindStressResidual(ShallowWaterMomentumResidualTerm):
 
     Here :math:`\tau_w` is a user-defined wind stress :class:`Function`.
     """
-    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         wind_stress = fields_old.get('wind_stress')
         total_h = self.get_total_depth(eta_old)
         f = 0
@@ -1167,7 +1167,7 @@ class WindStressResidual(ShallowWaterMomentumResidualTerm):
             f += wind_stress / total_h / rho_0
         return f
 
-    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
         return -f
 
@@ -1178,14 +1178,14 @@ class AtmosphericPressureResidual(ShallowWaterMomentumResidualTerm):
 
     Here :math:`p_a` is a user-defined atmospheric pressure :class:`Function`.
     """
-    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         atmospheric_pressure = fields_old.get('atmospheric_pressure')
         f = 0
         if atmospheric_pressure is not None:
             f += grad(atmospheric_pressure) / rho_0
         return -f
 
-    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
         return -f
 
@@ -1203,7 +1203,7 @@ class QuadraticDragResidual(ShallowWaterMomentumResidualTerm):
     if the Manning coefficient :math:`\mu` is defined (see field :attr:`manning_drag_coefficient`).
     Otherwise :math:`C_D` is taken as a constant (see field :attr:`quadratic_drag_coefficient`).
     """
-    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
         manning_drag_coefficient = fields_old.get('manning_drag_coefficient')
         C_D = fields_old.get('quadratic_drag_coefficient')
@@ -1217,7 +1217,7 @@ class QuadraticDragResidual(ShallowWaterMomentumResidualTerm):
             f += C_D * sqrt(dot(uv_old, uv_old)) * uv / total_h
         return -f
 
-    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
         return -f
 
@@ -1228,7 +1228,7 @@ class LinearDragResidual(ShallowWaterMomentumResidualTerm):
 
     Here :math:`C` is a user-defined drag coefficient.
     """
-    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         linear_drag_coefficient = fields_old.get('linear_drag_coefficient')
         f = 0
         if linear_drag_coefficient is not None:
@@ -1236,7 +1236,7 @@ class LinearDragResidual(ShallowWaterMomentumResidualTerm):
             f += bottom_fri
         return -f
 
-    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
         return -f
 
@@ -1250,7 +1250,7 @@ class BottomDrag3DResidual(ShallowWaterMomentumResidualTerm):
     :math:`C_D` the corresponding bottom drag.
     These fields are computed in the 3D model.
     """
-    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
         bottom_drag = fields_old.get('bottom_drag')
         uv_bottom = fields_old.get('uv_bottom')
@@ -1262,7 +1262,7 @@ class BottomDrag3DResidual(ShallowWaterMomentumResidualTerm):
             f += bot_friction
         return -f
 
-    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
         return -f
 
@@ -1275,7 +1275,7 @@ class MomentumSourceResidual(ShallowWaterMomentumResidualTerm):
     Generic source term :math:`\boldsymbol{\tau}` in the shallow water momentum equation.
     """
 
-    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
         momentum_source = fields_old.get('momentum_source')
 
@@ -1283,7 +1283,7 @@ class MomentumSourceResidual(ShallowWaterMomentumResidualTerm):
             f += momentum_source
         return f
 
-    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
         return -f
 
@@ -1293,7 +1293,7 @@ class ContinuitySourceResidual(ShallowWaterContinuityResidualTerm):
     Generic source term :math:`S` in the depth-averaged continuity equation.
     """
 
-    def interior_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
         volume_source = fields_old.get('volume_source')
 
@@ -1301,7 +1301,7 @@ class ContinuitySourceResidual(ShallowWaterContinuityResidualTerm):
             f += volume_source
         return f
 
-    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
         return -f
 
@@ -1311,7 +1311,7 @@ class BathymetryDisplacementMassResidual(ShallowWaterMomentumResidualTerm):
     Bathmetry mass displacement term, :math:`\partial \eta / \partial t + \partial \tilde{h} / \partial t`.
     """
 
-    def interior_residual(self, solution):
+    def residual_int(self, solution):
         if isinstance(solution, list):
             uv, eta = solution
         else:
@@ -1321,7 +1321,7 @@ class BathymetryDisplacementMassResidual(ShallowWaterMomentumResidualTerm):
             f += self.wd_bathymetry_displacement(eta)
         return -f
 
-    def boundary_residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         f = 0
         return -f
 
@@ -1354,16 +1354,16 @@ class BaseShallowWaterResidual(Equation):
         self.add_term(HUDivResidual(*args), 'implicit')
         self.add_term(ContinuitySourceResidual(*args), 'source')
 
-    def interior_residual(self, label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
+    def residual_int(self, label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         f = 0
         for term in self.select_terms(label):
-            f += term.interior_residual(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+            f += term.residual_int(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
         return f
 
-    def boundary_residual(self, label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
+    def residual_bdy(self, label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         f = 0
         for term in self.select_terms(label):
-            f += term.boundary_residual(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+            f += term.residual_bdy(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
         return f
 
 
@@ -1384,21 +1384,16 @@ class FreeSurfaceResidual(BaseShallowWaterResidual):
         """
         super(FreeSurfaceResidual, self).__init__(eta_space, bathymetry, options)
         self.add_continuity_terms(eta_space, u_space, bathymetry, options)
-        self.bathymetry_displacement_mass_term = BathymetryDisplacementMassTerm(eta_test, eta_space, u_space, bathymetry, options)
 
     def interior_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
-        uv = fields['uv']
-        uv_old = fields_old['uv']
-        eta = solution
-        eta_old = solution_old
-        return self.interior_residual(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+        uv, eta = solution.split()
+        uv_old, eta_old = solution_old.split()
+        return self.residual_int(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
 
     def boundary_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
-        uv = fields['uv']
-        uv_old = fields_old['uv']
-        eta = solution
-        eta_old = solution_old
-        return self.boundary_residual(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+        uv, eta = solution.split()
+        uv_old, eta_old = solution_old.split()
+        return self.residual_bdy(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
 
 
 class ShallowWaterMomentumResidual(BaseShallowWaterResidual):
@@ -1417,19 +1412,14 @@ class ShallowWaterMomentumResidual(BaseShallowWaterResidual):
         :arg options: :class:`.AttrDict` object containing all circulation model options
         """
         super(ShallowWaterMomentumResidual, self).__init__(u_space, bathymetry, options)
-        self.add_momentum_terms(u_space, eta_space,
-                                bathymetry, options)
+        self.add_momentum_terms(u_space, eta_space, bathymetry, options)
 
     def interior_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
-        uv = solution
-        uv_old = solution_old
-        eta = fields['eta']
-        eta_old = fields_old['eta']
-        return self.interior_residual(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+        uv, eta = solution.split()
+        uv_old, eta_old = solution_old.split()
+        return self.residual_int(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
 
     def boundary_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
-        uv = solution
-        uv_old = solution_old
-        eta = fields['eta']
-        eta_old = fields_old['eta']
-        return self.boundary_residual(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+        uv, eta = solution.split()
+        uv_old, eta_old = solution_old.split()
+        return self.residual_bdy(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
