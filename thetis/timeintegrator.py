@@ -71,18 +71,19 @@ class TimeIntegrator(TimeIntegratorBase):
         self.solver_parameters = {}
         self.solver_parameters.update(solver_parameters)
 
-        self.momentum_res = ShallowWaterMomentumResidual(
-            self.solution.function_space().sub(0),
-            self.solution.function_space().sub(1),
-            self.equation.bathymetry,
-            self.equation.options
-        )   # TODO: Need to account for Navier-Stokes options
-        self.continuity_res = FreeSurfaceResidual(
-            self.solution.function_space().sub(1),
-            self.solution.function_space().sub(0),
-            self.equation.bathymetry,
-            self.equation.options
-        )
+        if self.equation.__class__.__name__ == "ShallowWaterEquations":
+            self.momentum_res = ShallowWaterMomentumResidual(
+                self.solution.function_space().sub(0),
+                self.solution.function_space().sub(1),
+                self.equation.bathymetry,
+                self.equation.options
+            )
+            self.continuity_res = FreeSurfaceResidual(
+                self.solution.function_space().sub(1),
+                self.solution.function_space().sub(0),
+                self.equation.bathymetry,
+                self.equation.options
+            )   # TODO: Need to account for Navier-Stokes and advection equations
 
     def set_dt(self, dt):
         """Update time step"""
