@@ -432,7 +432,7 @@ class HorizontalAdvectionResidual(TracerTerm):
             if uv_depth_av is not None:
                 uv = uv + uv_depth_av
 
-            f = -solution*inner(uv, nabla_grad(self.test))*self.dx
+            f = div(grad(solution*uv))
 
             return -f
 
