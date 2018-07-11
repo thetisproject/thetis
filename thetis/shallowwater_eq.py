@@ -1021,6 +1021,10 @@ class ShallowWaterMomentumResidualTerm(ShallowWaterTerm):
         self.u_continuity = element_continuity(self.u_space.ufl_element()).horizontal
         self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
+        self.p0_space = FunctionSpace(u_space.mesh(), "DG", 0)
+        self.vector_p0_space = VectorFunctionSpace(u_space.mesh(), "DG", 0)
+        self.p0_test = TestFunction(self.p0_space)
+
 
 class ShallowWaterContinuityResidualTerm(ShallowWaterTerm):
     """
@@ -1037,6 +1041,10 @@ class ShallowWaterContinuityResidualTerm(ShallowWaterTerm):
         self.u_continuity = element_continuity(self.u_space.ufl_element()).horizontal
         self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
+        self.p0_space = FunctionSpace(eta_space.mesh(), "DG", 0)
+        self.vector_p0_space = VectorFunctionSpace(eta_space.mesh(), "DG", 0)
+        self.p0_test = TestFunction(self.p0_space)
+
 
 class ExternalPressureGradientResidual(ShallowWaterMomentumResidualTerm):
     r"""
@@ -1051,15 +1059,13 @@ class ExternalPressureGradientResidual(ShallowWaterMomentumResidualTerm):
     def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
 
         head = eta
-        P0 = FunctionSpace(eta.function_space().mesh(), "DG", 0)
-        VP0 = VectorFunctionSpace(eta.function_space().mesh(), "DG", 0)
-        v = TestFunction(P0)
+        v = self.p0_test
         grad_eta_by_parts = self.eta_is_dg
 
-        f = Function(VP0)
+        f = Function(self.vector_p0_space)
         if grad_eta_by_parts:
-            f0 = Function(P0).interpolate(assemble(jump(g_grav * v * head, n=self.normal[0]) * self.dS))
-            f1 = Function(P0).interpolate(assemble(jump(g_grav * v * head, n=self.normal[1]) * self.dS))
+            f0 = Function(self.p0_space).interpolate(assemble(jump(g_grav * v * head, n=self.normal[0]) * self.dS))
+            f1 = Function(self.p0_space).interpolate(assemble(jump(g_grav * v * head, n=self.normal[1]) * self.dS))
         f.dat.data[:, 0] = f0.dat.data
         f.dat.data[:, 1] = f1.dat.data  # TODO: How can this be done in a cleaner, parallelisible way?
 
@@ -1082,13 +1088,12 @@ class HUDivResidual(ShallowWaterContinuityResidualTerm):
     def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
 
         total_h = self.get_total_depth(eta_old)
-        P0 = FunctionSpace(eta.function_space().mesh(), "DG", 0)
-        v = TestFunction(P0)
+        v = self.p0_test
         hu_by_parts = self.u_continuity in ['dg', 'hdiv']
 
         if hu_by_parts:
             if self.eta_is_dg:
-                f = Function(P0).interpolate(assemble(jump(v * total_h * uv, n=self.normal) * self.dS))
+                f = Function(self.p0_space).interpolate(assemble(jump(v * total_h * uv, n=self.normal) * self.dS))
 
         # TODO: Account for BCs
 
@@ -1273,7 +1278,32 @@ class BottomDrag3DResidual(ShallowWaterMomentumResidualTerm):
         return None
 
 
-# TODO: TurbineDragResidual
+class TurbineDragResidual(ShallowWaterMomentumResidualTerm):
+    r"""
+    Turbine drag parameterisation implemented through quadratic drag term
+    :math:`c_t \| \bar{\textbf{u}} \| \bar{\textbf{u}}`
+
+    where the turbine drag :math:`c_t` is related to the turbine thrust coefficient
+    :math:`C_T`, the turbine diameter :math:`A_T`, and the turbine density :math:`d`
+    (n/o turbines per unit area), by:
+
+    .. math::
+        c_t = (C_T A_T d)/2
+
+    """
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        total_h = self.get_total_depth(eta_old)
+        f = 0
+        v = self.p0_test
+
+        for subdomain_id, farm_options in self.options.tidal_turbine_farms.items():
+            density = farm_options.turbine_density
+            C_T = farm_options.turbine_options.thrust_coefficient
+            A_T = pi * (farm_options.turbine_options.diameter/2.)**2
+            C_D = (C_T * A_T * density)/2.
+            unorm = sqrt(dot(uv_old, uv_old))
+            f += C_D * unorm * inner(self.u_test, uv) / total_h * self.dx(subdomain_id)
+        return assemble(-v * f)
 
 
 class MomentumSourceResidual(ShallowWaterMomentumResidualTerm):
@@ -1347,7 +1377,7 @@ class BaseShallowWaterResidual(Equation):
         self.add_term(QuadraticDragResidual(*args), 'explicit')
         self.add_term(LinearDragResidual(*args), 'explicit')
         self.add_term(BottomDrag3DResidual(*args), 'source')
-        # self.add_term(TurbineDragResidual(*args), 'implicit')     # TODO
+        self.add_term(TurbineDragResidual(*args), 'implicit')
         self.add_term(MomentumSourceResidual(*args), 'source')
 
     def add_continuity_terms(self, *args):

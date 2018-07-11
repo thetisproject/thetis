@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from .utility import *
 from abc import ABCMeta, abstractmethod
 
-# TODO: Make this more general
+# TODO: Consider tracer and NS equations too
 from .shallowwater_eq import ShallowWaterMomentumResidual, FreeSurfaceResidual
 
 CFL_UNCONDITIONALLY_STABLE = np.inf
