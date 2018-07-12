@@ -648,12 +648,16 @@ class ExplicitErrorCallback(ErrorEstimateCallback):
             :class:`.DiagnosticCallback`.
         """
         def explicit_error():
+            # Create P0 spaces and an associated TestFunction `v`, scaled to take value 1 in each cell. Suppose we have
+            # an error estimator `e`. Then this ensures `assemble(assemble(p0_test * e * dx) * dx) = assemble(e * dx)`
+            # (for piecewise constant and piecewise linear estimators `e`).
             mesh = solver_obj.mesh2d
             P0 = FunctionSpace(mesh, "DG", 0)
-            v = TestFunction(P0)
+            v = Constant(mesh.num_cells()) * TestFunction(P0)
             ee = Function(P0, name="explicit error")
             h = CellSize(mesh)
 
+            # Take a weighted sum of residual contributions from element interiors and element boundaries
             res_u, res_e = solver_obj.timestepper.interior_residual()
             bres_u1, bres_u2, bres_e = solver_obj.timestepper.boundary_residual()
             ee.interpolate(assemble(v * (inner(res_u, res_u) + res_e * res_e
