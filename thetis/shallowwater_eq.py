@@ -1026,7 +1026,7 @@ class ShallowWaterMomentumResidualTerm(ShallowWaterTerm):
         # (for piecewise constant and piecewise linear estimators `e`).
         self.p0_space = FunctionSpace(u_space.mesh(), "DG", 0)
         self.vector_p0_space = VectorFunctionSpace(u_space.mesh(), "DG", 0)
-        self.p0_test = Constant(u_space.mesh.num_cells()) * TestFunction(self.p0_space)
+        self.p0_test = Constant(u_space.mesh().num_cells()) * TestFunction(self.p0_space)
 
 
 class ShallowWaterContinuityResidualTerm(ShallowWaterTerm):
@@ -1049,7 +1049,7 @@ class ShallowWaterContinuityResidualTerm(ShallowWaterTerm):
         # (for piecewise constant and piecewise linear estimators `e`).
         self.p0_space = FunctionSpace(eta_space.mesh(), "DG", 0)
         self.vector_p0_space = VectorFunctionSpace(u_space.mesh(), "DG", 0)
-        self.p0_test = Constant(eta_space.mesh.num_cells()) * TestFunction(self.p0_space)
+        self.p0_test = Constant(eta_space.mesh().num_cells()) * TestFunction(self.p0_space)
 
 
 class ExternalPressureGradientResidual(ShallowWaterMomentumResidualTerm):
