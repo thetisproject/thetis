@@ -1291,7 +1291,10 @@ class TurbineDragResidual(ShallowWaterMomentumResidualTerm):
         c_t = (C_T A_T d)/2
 
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        return None
+
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
         f = 0
         v = self.p0_test

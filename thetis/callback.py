@@ -624,7 +624,7 @@ class BoundaryResidualCallback(ErrorEstimateCallback):
 
 class ExplicitErrorCallback(ErrorEstimateCallback):
     r"""
-    Estimate error using an a posteriori error indicator [Ainsworth & Oden, 1997], given by
+    Estimate error using an a posteriori error indicator [Ainsworth and Oden, 1997], given by
 
     .. math::
         \|\textbf{R}(\textbf{q}_h)\|_{\mathcal{L}_2(K)}
