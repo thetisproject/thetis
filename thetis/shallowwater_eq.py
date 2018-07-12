@@ -1021,9 +1021,12 @@ class ShallowWaterMomentumResidualTerm(ShallowWaterTerm):
         self.u_continuity = element_continuity(self.u_space.ufl_element()).horizontal
         self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
+        # Create P0 spaces and an associated TestFunction `p0_test`, scaled to take value 1 in each cell. Suppose we
+        # have an error estimator `e`. Then this ensures `assemble(assemble(p0_test * e * dx) * dx) = assemble(e * dx)`
+        # (for piecewise constant and piecewise linear estimators `e`).
         self.p0_space = FunctionSpace(u_space.mesh(), "DG", 0)
         self.vector_p0_space = VectorFunctionSpace(u_space.mesh(), "DG", 0)
-        self.p0_test = TestFunction(self.p0_space)
+        self.p0_test = Constant(u_space.mesh.num_cells()) * TestFunction(self.p0_space)
 
 
 class ShallowWaterContinuityResidualTerm(ShallowWaterTerm):
@@ -1041,9 +1044,12 @@ class ShallowWaterContinuityResidualTerm(ShallowWaterTerm):
         self.u_continuity = element_continuity(self.u_space.ufl_element()).horizontal
         self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
+        # Create P0 spaces and an associated TestFunction `p0_test`, scaled to take value 1 in each cell. Suppose we
+        # have an error estimator `e`. Then this ensures `assemble(assemble(p0_test * e * dx) * dx) = assemble(e * dx)`
+        # (for piecewise constant and piecewise linear estimators `e`).
         self.p0_space = FunctionSpace(eta_space.mesh(), "DG", 0)
-        self.vector_p0_space = VectorFunctionSpace(eta_space.mesh(), "DG", 0)
-        self.p0_test = TestFunction(self.p0_space)
+        self.vector_p0_space = VectorFunctionSpace(u_space.mesh(), "DG", 0)
+        self.p0_test = Constant(eta_space.mesh.num_cells()) * TestFunction(self.p0_space)
 
 
 class ExternalPressureGradientResidual(ShallowWaterMomentumResidualTerm):
