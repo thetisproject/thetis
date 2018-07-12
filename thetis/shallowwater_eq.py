@@ -1299,14 +1299,15 @@ class TurbineDragResidual(ShallowWaterMomentumResidualTerm):
         f = 0
         v = self.p0_test
 
-        for subdomain_id, farm_options in self.options.tidal_turbine_farms.items():
-            density = farm_options.turbine_density
-            C_T = farm_options.turbine_options.thrust_coefficient
-            A_T = pi * (farm_options.turbine_options.diameter/2.)**2
-            C_D = (C_T * A_T * density)/2.
-            unorm = sqrt(dot(uv_old, uv_old))
-            f += C_D * unorm * inner(self.u_test, uv) / total_h * self.dx(subdomain_id)
-        return assemble(-v * f)
+        if self.options.tidal_turbine_farms != {}:
+            for subdomain_id, farm_options in self.options.tidal_turbine_farms.items():
+                density = farm_options.turbine_density
+                C_T = farm_options.turbine_options.thrust_coefficient
+                A_T = pi * (farm_options.turbine_options.diameter/2.)**2
+                C_D = (C_T * A_T * density)/2.
+                unorm = sqrt(dot(uv_old, uv_old))
+                f += C_D * unorm * inner(self.u_test, uv) / total_h * self.dx(subdomain_id)
+            return assemble(-v * f)
 
 
 class MomentumSourceResidual(ShallowWaterMomentumResidualTerm):
