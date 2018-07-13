@@ -420,7 +420,35 @@ class TracerEquation(Equation):
         self.add_term(SourceTerm(*args), 'source')
 
 
-class HorizontalAdvectionResidual(TracerTerm):
+class TracerResidualTerm(TracerTerm):
+    """
+    Generic term in the strong form advection diffusion equation.
+    """
+
+    def __init__(self, function_space,
+                 bathymetry=None, v_elem_size=None, h_elem_size=None,
+                 use_symmetric_surf_bnd=True, use_lax_friedrichs=True):
+        """
+        :arg function_space: :class:`FunctionSpace` where the solution belongs
+        :kwarg bathymetry: bathymetry of the domain
+        :type bathymetry: 3D :class:`Function` or :class:`Constant`
+        :kwarg v_elem_size: scalar :class:`Function` that defines the vertical
+            element size
+        :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
+            element size
+        :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
+            condition in the horizontal advection term
+        """
+        super(TracerResidualTerm, self).__init__(function_space)
+
+        # Create P0 spaces and an associated TestFunction `p0_test`, scaled to take value 1 in each cell. Suppose we
+        # have an error estimator `e`. Then this ensures `assemble(assemble(p0_test * e * dx) * dx) = assemble(e * dx)`
+        # (for piecewise constant and piecewise linear estimators `e`).
+        self.p0_space = FunctionSpace(function_space.mesh(), "DG", 0)
+        self.p0_test = Constant(function_space.mesh().num_cells()) * TestFunction(self.p0_space)
+
+
+class HorizontalAdvectionResidual(TracerResidualTerm):
     r"""
     Horizontal advection term :math:`\nabla_h \cdot (\textbf{u} T)`
     """
@@ -443,16 +471,14 @@ class HorizontalAdvectionResidual(TracerTerm):
             uv_depth_av = fields_old['uv_depth_av']
             if uv_depth_av is not None:
                 uv = uv + uv_depth_av
-            mesh = uv.function_space().mesh()
-            P0 = FunctionSpace(mesh, "DG", 0)
-            v = TestFunction(P0)
+            v = self.p0_test
 
             uv_p1 = fields_old.get('uv_p1')
             uv_mag = fields_old.get('uv_mag')
             # FIXME is this an option?
             lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
 
-            f = Constant(0.)
+            f = 0
             if self.horizontal_dg:
                 # add interface term
                 uv_av = avg(uv)
@@ -460,12 +486,12 @@ class HorizontalAdvectionResidual(TracerTerm):
                          uv_av[1] * self.normal('-')[1])
                 s = 0.5 * (sign(un_av) + 1.0)
                 c_up = solution('-') * s + solution('+') * (1 - s)
-                f += c_up * (uv_av[0] * jump(self.test, self.normal[0]) +
-                             uv_av[1] * jump(self.test, self.normal[1]) +
-                             uv_av[2] * jump(self.test, self.normal[2])) * (self.dS_v)
-                f += c_up * (uv_av[0] * jump(self.test, self.normal[0]) +
-                             uv_av[1] * jump(self.test, self.normal[1]) +
-                             uv_av[2] * jump(self.test, self.normal[2])) * (self.dS_h)
+                f += c_up * (uv_av[0] * jump(v, n=self.normal[0]) +
+                             uv_av[1] * jump(v, n=self.normal[1]) +
+                             uv_av[2] * jump(v, n=self.normal[2])) * (self.dS_v)
+                f += c_up * (uv_av[0] * jump(v, n=self.normal[0]) +
+                             uv_av[1] * jump(v, n=self.normal[1]) +
+                             uv_av[2] * jump(v, n=self.normal[2])) * (self.dS_h)
                 # Lax-Friedrichs stabilization
                 if self.use_lax_friedrichs:
                     if uv_p1 is not None:
@@ -475,14 +501,17 @@ class HorizontalAdvectionResidual(TracerTerm):
                         gamma = 0.5 * avg(uv_mag) * lax_friedrichs_factor
                     else:
                         raise Exception('either uv_p1 or uv_mag must be given')
-                    f += gamma * dot(jump(self.test), jump(solution)) * (self.dS_v + self.dS_h)
+                    f += gamma * dot(jump(v), jump(solution)) * (self.dS_v + self.dS_h)
 
             if self.use_symmetric_surf_bnd:
-                f += solution * (uv[0] * self.normal[0] + uv[1] * self.normal[1]) * self.test * ds_surf
-            return assemble(-v * f)
+                f += v * solution * (uv[0] * self.normal[0] + uv[1] * self.normal[1]) * ds_surf
+
+            if f != 0:
+                F = Function(self.p0_space).interpolate(assemble(-f))
+                return F
 
 
-class VerticalAdvectionResidual(TracerTerm):
+class VerticalAdvectionResidual(TracerResidualTerm):
     r"""
     Vertical advection term :math:`\partial (w T)/(\partial z)`
 
@@ -496,7 +525,7 @@ class VerticalAdvectionResidual(TracerTerm):
         raise NotImplementedError
 
 
-class HorizontalDiffusionResidual(TracerTerm):
+class HorizontalDiffusionResidual(TracerResidualTerm):
     r"""
     Horizontal diffusion term :math:`-\nabla_h \cdot (\mu_h \nabla_h T)`
     """
@@ -523,7 +552,7 @@ class HorizontalDiffusionResidual(TracerTerm):
             P0 = FunctionSpace(mesh, "DG", 0)
             v = TestFunction(P0)
 
-            f = Constant(0.)
+            f = 0
             if self.horizontal_dg:
                 assert self.h_elem_size is not None, 'h_elem_size must be defined'
                 assert self.v_elem_size is not None, 'v_elem_size must be defined'
@@ -538,22 +567,24 @@ class HorizontalDiffusionResidual(TracerTerm):
                     sigma = 1.5/elemsize
                 alpha = avg(sigma)
                 ds_interior = (self.dS_h + self.dS_v)
-                f += alpha*inner(jump(self.test, self.normal),
+                f += alpha*inner(jump(self.p0_test, self.normal),
                                  dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
-                f += -inner(avg(dot(diff_tensor, grad(self.test))),
+                f += -inner(avg(dot(diff_tensor, grad(self.p0_test))),
                             jump(solution, self.normal))*ds_interior
-                f += -inner(jump(self.test, self.normal),
+                f += -inner(jump(self.p0_test, self.normal),
                             avg(dot(diff_tensor, grad(solution))))*ds_interior
 
             # symmetric bottom boundary condition
             # NOTE introduces a flux through the bed - breaks mass conservation
-            f += - inner(diff_flux, self.normal)*self.test*self.ds_bottom
-            f += - inner(diff_flux, self.normal)*self.test*self.ds_surf
+            f += - inner(diff_flux, self.normal)*self.p0_test*self.ds_bottom
+            f += - inner(diff_flux, self.normal)*self.p0_test*self.ds_surf
 
-            return assemble(-v * f)
+            if f != 0:
+                F = Function(self.p0_space).interpolate(assemble(-f))
+                return F
 
 
-class VerticalDiffusionResidual(TracerTerm):
+class VerticalDiffusionResidual(TracerResidualTerm):
     r"""
     Vertical diffusion term :math:`-\frac{\partial}{\partial z} \Big(\mu \frac{T}{\partial z}\Big)`
     """
@@ -563,7 +594,7 @@ class VerticalDiffusionResidual(TracerTerm):
         raise NotImplementedError
 
 
-class SourceResidual(TracerTerm):
+class SourceResidual(TracerResidualTerm):
     """
     Generic source term
     """
@@ -571,6 +602,9 @@ class SourceResidual(TracerTerm):
         source = fields_old.get('source')
         if source is not None:
             return source
+
+    def residual_bdy(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        return None
 
 
 class TracerResidual(Equation):
