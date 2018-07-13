@@ -223,7 +223,7 @@ class FlowSolver2d(FrozenClass):
             try:
                 assert(self.options.use_limiter_for_tracers == False)
             except:
-                print("WARNING: Limiter for tracers turned off")
+                print("NOTE: Limiter for tracers turned off since tracer is CG")
                 self.options.use_limiter_for_tracers = False
         else:
             raise Exception('Unsupported tracer finite element family {:}'.format(self.options.tracer_family))

@@ -524,7 +524,7 @@ class ModelOptions2d(CommonModelOptions):
 
     tracer_family = Unicode('dg', help="""
         Specify whether tracer should be continuous or discontinous
-        
+
         Choose from 'dg' and 'cg'.
         """).tag(config=True)
 
