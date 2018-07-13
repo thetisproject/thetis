@@ -666,8 +666,8 @@ class ExplicitErrorCallback(ErrorEstimateCallback):
                 res = inner(res_u, res_u) + res_e * res_e
                 bres_u1, bres_u2, bres_e = solver_obj.timestepper.boundary_residual()
                 bres = bres_u1 * bres_u1 + bres_u2 * bres_u2 + bres_e * bres_e
-            print("interior residual norm = %.4e" % norm(res))
-            print("boundary residual norm = %.4e" % norm(bres))
+            print("interior residual norm = {i:.4e}".format(norm(res)))
+            print("boundary residual norm = {b:.4e}".format(norm(bres)))
             ee.interpolate(assemble(v * sqrt(assemble(v * (res + bres) / h * dx)) * dx))
 
             return ee
