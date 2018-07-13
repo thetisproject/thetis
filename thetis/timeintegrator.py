@@ -87,7 +87,7 @@ class TimeIntegrator(TimeIntegratorBase):
             )
         elif self.equation.__class__.__name__ == "TracerEquation2D":
             self.residual = TracerResidual(
-                self.function_space()
+                self.solution.function_space()
             )
         else:
             print(self.equation.__class__.__name__)
