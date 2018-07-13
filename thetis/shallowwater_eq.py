@@ -1204,15 +1204,15 @@ class HorizontalAdvectionResidual(ShallowWaterMomentumResidualTerm):
                     # uv_up = uv('-')*s + uv('+')*(1-s)
                     # NOTE mean flux
                     uv_up = avg(uv)
-                    f0 += v * uv_up[0] * jump(uv_old, n=self.normal) * self.dS
-                    f1 += v * uv_up[1] * jump(uv_old, n=self.normal) * self.dS
+                    f0 += uv_up[0] * jump(v * uv_old, n=self.normal) * self.dS
+                    f1 += uv_up[1] * jump(v * uv_old, n=self.normal) * self.dS
 
                     # Lax-Friedrichs stabilization
                     if self.options.use_lax_friedrichs_velocity:
                         uv_lax_friedrichs = fields_old.get('lax_friedrichs_velocity_scaling_factor')
                         gamma = 0.5*abs(un_av)*uv_lax_friedrichs
-                        f0 += v * gamma * jump(uv[0]) * self.dS
-                        f1 += v * gamma * jump(uv[1]) * self.dS
+                        f0 += gamma * jump(v * uv[0]) * self.dS
+                        f1 += gamma * jump(v * uv[1]) * self.dS
                         for bnd_marker in self.boundary_markers:
                             funcs = bnd_conditions.get(bnd_marker)
                             ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
