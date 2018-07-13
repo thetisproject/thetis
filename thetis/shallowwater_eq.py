@@ -1079,8 +1079,8 @@ class ExternalPressureGradientResidual(ShallowWaterMomentumResidualTerm):
             else:
                 head_star = avg(head)
 
-            f0 += head_star * jump(v * g_grav, n=self.normal[0]) * self.dS
-            f1 += head_star * jump(v * g_grav, n=self.normal[1]) * self.dS
+            f0 += g_grav * head_star * jump(v, n=self.normal[0]) * self.dS
+            f1 += g_grav * head_star * jump(v, n=self.normal[1]) * self.dS
 
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
@@ -1090,16 +1090,16 @@ class ExternalPressureGradientResidual(ShallowWaterMomentumResidualTerm):
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     un_jump = inner(uv - uv_ext, self.normal)
                     eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
-                    f0 += v * g_grav * eta_rie * self.normal[0] * ds_bnd
-                    f1 += v * g_grav * eta_rie * self.normal[1] * ds_bnd
+                    f0 += g_grav * eta_rie * v * self.normal[0] * ds_bnd
+                    f1 += g_grav * eta_rie * v * self.normal[1] * ds_bnd
 
                 if funcs is None or 'symm' in funcs:
                     # assume land boundary
                     # impermeability implies external un=0
                     un_jump = inner(uv, self.normal)
                     head_rie = head + sqrt(total_h/g_grav)*un_jump
-                    f0 += v * g_grav * head_rie * self.normal[0] * ds_bnd
-                    f1 += v * g_grav * head_rie * self.normal[1] * ds_bnd
+                    f0 += g_grav * head_rie * v * self.normal[0] * ds_bnd
+                    f1 += g_grav * head_rie * v * self.normal[1] * ds_bnd
         else:
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
@@ -1109,8 +1109,8 @@ class ExternalPressureGradientResidual(ShallowWaterMomentumResidualTerm):
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     un_jump = inner(uv - uv_ext, self.normal)
                     eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
-                    f0 += g_grav * v * (eta_rie-head) * self.normal[0] * ds_bnd
-                    f1 += g_grav * v * (eta_rie-head) * self.normal[1] * ds_bnd
+                    f0 += g_grav * (eta_rie-head) * v * self.normal[0] * ds_bnd
+                    f1 += g_grav * (eta_rie-head) * v * self.normal[1] * ds_bnd
 
         if f0 != 0 and f1 != 0:
             F = Function(self.vector_p0_space)
@@ -1144,7 +1144,8 @@ class HUDivResidual(ShallowWaterContinuityResidualTerm):
             if self.eta_is_dg:
                 h = avg(total_h)
                 uv_rie = avg(uv) + sqrt(g_grav / h) * jump(eta, self.normal)
-                f += inner(uv_rie, jump(v * total_h, n=self.normal)) * self.dS
+                hu_star = h * uv_rie
+                f += inner(jump(v, n=self.normal), hu_star) * self.dS
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
@@ -1159,7 +1160,7 @@ class HUDivResidual(ShallowWaterContinuityResidualTerm):
                     un_jump = inner(uv_old - uv_ext_old, self.normal)
                     eta_rie = 0.5 * (eta_old + eta_ext_old) + sqrt(h_av / g_grav) * un_jump
                     h_rie = self.bathymetry + eta_rie
-                    f += v * h_rie * un_rie * ds_bnd
+                    f += h_rie * un_rie * v * ds_bnd
         else:
             if len(self.boundary_markers) != 0:
                 f = 0
@@ -1167,7 +1168,7 @@ class HUDivResidual(ShallowWaterContinuityResidualTerm):
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if funcs is None or 'un' in funcs:
-                    f += -v * total_h * dot(uv, self.normal) * ds_bnd
+                    f += -total_h * dot(uv, self.normal) * v * ds_bnd
 
         if f != 0:
             F = Function(self.p0_space).interpolate(assemble(-f))
@@ -1221,8 +1222,8 @@ class HorizontalAdvectionResidual(ShallowWaterMomentumResidualTerm):
                                 n = self.normal
                                 uv_ext = uv - 2*dot(uv, n)*n
                                 gamma = 0.5*abs(dot(uv_old, n))*uv_lax_friedrichs
-                                f0 += v * gamma * (uv[0]-uv_ext[0])*ds_bnd
-                                f1 += v * gamma * (uv[1]-uv_ext[1])*ds_bnd
+                                f0 += gamma * v * (uv[0]-uv_ext[0])*ds_bnd
+                                f1 += gamma * v * (uv[1]-uv_ext[1])*ds_bnd
                 for bnd_marker in self.boundary_markers:
                     funcs = bnd_conditions.get(bnd_marker)
                     ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
@@ -1234,8 +1235,8 @@ class HorizontalAdvectionResidual(ShallowWaterMomentumResidualTerm):
                         total_h = self.get_total_depth(eta_old)
                         un_rie = 0.5*inner(uv_old + uv_ext_old, self.normal) + sqrt(g_grav/total_h)*eta_jump
                         uv_av = 0.5*(uv_ext + uv)
-                        f0 += v * uv_av[0] * un_rie * ds_bnd
-                        f1 += v * uv_av[1] * un_rie * ds_bnd
+                        f0 += uv_av[0] * un_rie * ds_bnd
+                        f1 += uv_av[1] * un_rie * ds_bnd
                 if f0 != 0 and f1 != 0:
                     F = Function(self.vector_p0_space)
                     F0 = Function(self.p0_space).interpolate(assemble(-f0))
@@ -1425,7 +1426,6 @@ class TurbineDragResidual(ShallowWaterMomentumResidualTerm):
     def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         total_h = self.get_total_depth(eta_old)
         f = 0
-        v = self.p0_test
 
         if self.options.tidal_turbine_farms != {}:
             for subdomain_id, farm_options in self.options.tidal_turbine_farms.items():
@@ -1434,7 +1434,7 @@ class TurbineDragResidual(ShallowWaterMomentumResidualTerm):
                 A_T = pi * (farm_options.turbine_options.diameter/2.)**2
                 C_D = (C_T * A_T * density)/2.
                 unorm = sqrt(dot(uv_old, uv_old))
-                f += v * C_D * unorm * inner(self.u_test, uv) / total_h * self.dx(subdomain_id)
+                f += C_D * unorm * inner(self.p0_test, uv) / total_h * self.dx(subdomain_id)
             return assemble(-f)
 
 
