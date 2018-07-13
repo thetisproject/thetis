@@ -216,8 +216,17 @@ class FlowSolver2d(FrozenClass):
             raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d])
 
-        self.function_spaces.Q_2d = FunctionSpace(self.mesh2d, 'DG', 1, name='Q_2d')
-
+        if self.options.tracer_family == 'dg':
+            self.function_spaces.Q_2d = FunctionSpace(self.mesh2d, 'DG', 1, name='Q_2d')
+        elif self.options.tracer_family == 'cg':
+            self.function_spaces.Q_2d = FunctionSpace(self.mesh2d, 'CG', 1, name='Q_2d')
+            try:
+                assert(self.options.use_limiter_for_tracers == False)
+            except:
+                print("WARNING: Limiter for tracers turned off")
+                self.options.use_limiter_for_tracers = False
+        else:
+            raise Exception('Unsupported tracer finite element family {:}'.format(self.options.tracer_family))
         self._isfrozen = True
 
     def create_equations(self):

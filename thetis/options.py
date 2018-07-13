@@ -522,6 +522,12 @@ class ModelOptions2d(CommonModelOptions):
         Prints overshoot values that exceed the initial range to stdout.
         """).tag(config=True)
 
+    tracer_family = Unicode('dg', help="""
+        Specify whether tracer should be continuous or discontinous
+        
+        Choose from 'dg' and 'cg'.
+        """).tag(config=True)
+
 
 @attach_paired_options("timestepper_type",
                        PairedEnum([('LeapFrog', ExplicitTimestepperOptions3d),
