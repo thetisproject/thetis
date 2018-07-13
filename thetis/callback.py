@@ -553,9 +553,9 @@ class ErrorEstimateCallback(DiagnosticCallback):
         self.ix += 1
 
         if isinstance(f, FiredrakeFunction):        # TODO: Why can't we just have one output?
-            return assemble(inner(f, f) * dx), 0
+            return norm(f), 0                       # TODO: Not really the right thing to output for ExplicitErrorCallback
         else:
-            return assemble(sum(inner(fi, fi) for fi in f) * dx), 0.
+            return sqrt(assemble(sum(inner(fi, fi) for fi in f) * dx)), 0.
 
     def message_str(self, *args):
         line = '{0:s} error estimate {1:11.4e}'.format(self.name, args[0])
@@ -658,10 +658,17 @@ class ExplicitErrorCallback(ErrorEstimateCallback):
             h = CellSize(mesh)
 
             # Take a weighted sum of residual contributions from element interiors and element boundaries
-            res_u, res_e = solver_obj.timestepper.interior_residual()
-            bres_u1, bres_u2, bres_e = solver_obj.timestepper.boundary_residual()
-            ee.interpolate(assemble(v * (inner(res_u, res_u) + res_e * res_e
-                                         + (bres_u1 * bres_u1 + bres_u2 * bres_u2 + bres_e * bres_e) / sqrt(h)) * dx))
+            if solver_obj.options.tracer_only:
+                res = solver_obj.timestepper.tracer_integrator.interior_residual()
+                bres = solver_obj.timestepper.tracer_integrator.boundary_residual()
+            else:
+                res_u, res_e = solver_obj.timestepper.interior_residual()
+                res = inner(res_u, res_u) + res_e * res_e
+                bres_u1, bres_u2, bres_e = solver_obj.timestepper.boundary_residual()
+                bres = bres_u1 * bres_u1 + bres_u2 * bres_u2 + bres_e * bres_e
+            print("interior residual norm = %.4e" % norm(res))
+            print("boundary residual norm = %.4e" % norm(bres))
+            ee.interpolate(assemble(v * sqrt(assemble(v * (res + bres) / h * dx)) * dx))
 
             return ee
 
