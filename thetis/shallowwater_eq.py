@@ -1204,8 +1204,8 @@ class HorizontalAdvectionResidual(ShallowWaterMomentumResidualTerm):
                     # uv_up = uv('-')*s + uv('+')*(1-s)
                     # NOTE mean flux
                     uv_up = avg(uv)
-                    f0 += v * (uv_up[0]*jump(uv_old[0], n=self.normal[0]) + uv_up[0]*jump(uv_old[1], n=self.normal[1])) * self.dS
-                    f1 += v * (uv_up[1]*jump(uv_old[0], n=self.normal[0]) + uv_up[1]*jump(uv_old[1], n=self.normal[1])) * self.dS
+                    f0 += v * uv_up[0] * jump(uv_old, n=self.normal) * self.dS
+                    f1 += v * uv_up[1] * jump(uv_old, n=self.normal) * self.dS
 
                     # Lax-Friedrichs stabilization
                     if self.options.use_lax_friedrichs_velocity:
