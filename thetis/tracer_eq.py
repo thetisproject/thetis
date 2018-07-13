@@ -27,6 +27,7 @@ __all__ = [
     'HorizontalDiffusionTerm',
     'VerticalDiffusionTerm',
     'SourceTerm',
+    'TracerResidual',
 ]
 
 

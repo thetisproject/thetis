@@ -5,8 +5,9 @@ from __future__ import absolute_import
 from .utility import *
 from abc import ABCMeta, abstractmethod
 
-# TODO: Consider tracer and NS equations too
+# TODO: Consider NS equations too
 from .shallowwater_eq import ShallowWaterMomentumResidual, FreeSurfaceResidual
+from .tracer_eq import TracerResidual
 
 CFL_UNCONDITIONALLY_STABLE = np.inf
 # CFL coefficient for unconditionally stable methods
@@ -72,18 +73,25 @@ class TimeIntegrator(TimeIntegratorBase):
         self.solver_parameters.update(solver_parameters)
 
         if self.equation.__class__.__name__ == "ShallowWaterEquations":
-            self.momentum_res = ShallowWaterMomentumResidual(
+            self.momentum_residual = ShallowWaterMomentumResidual(
                 self.solution.function_space().sub(0),
                 self.solution.function_space().sub(1),
                 self.equation.bathymetry,
                 self.equation.options
             )
-            self.continuity_res = FreeSurfaceResidual(
+            self.continuity_residual = FreeSurfaceResidual(
                 self.solution.function_space().sub(1),
                 self.solution.function_space().sub(0),
                 self.equation.bathymetry,
                 self.equation.options
-            )   # TODO: Need to account for Navier-Stokes and advection equations
+            )
+        elif self.equation.__class__.__name__ == "TracerEquation":
+            self.residual = TracerResidual(
+                self.function_space()
+            )
+        else:
+            # TODO: Need to account for Navier-Stokes equations
+            raise NotImplementedError
 
     def set_dt(self, dt):
         """Update time step"""
@@ -156,24 +164,40 @@ class ForwardEuler(TimeIntegrator):
         """
         Evaluate shallow water strong residual on element interiors.
         """
-        uv, eta = self.solution.split()
-        uv_old, eta_old = self.solution_old.split()
-        mom_res = (uv - uv_old) / self.dt_const
-        cty_res = (eta - eta_old) / self.dt_const
+        if self.equation.__class__.__name__ == "ShallowWaterEquations":
+            uv, eta = self.solution.split()
+            uv_old, eta_old = self.solution_old.split()
+            mom_res = (uv - uv_old) / self.dt_const
+            cty_res = (eta - eta_old) / self.dt_const
 
-        mom_res += -self.momentum_res.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
-        cty_res += -self.continuity_res.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
+            mom_res += -self.momentum_residual.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
+            cty_res += -self.continuity_residual.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
 
-        return mom_res, cty_res
+            return mom_res, cty_res
+        elif self.equation.__class__.__name__ == "TracerEquation":
+            q = self.solution
+            q_old = self.solution_old
+            res = (q - q_old) / self.dt_const
+
+            res += -self.residual.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
+
+            return res
 
     def boundary_residual(self, label='all'):
         """
         Evaluate shallow water strong residual on element boundaries.
         """
-        mom_res0, mom_res1 = self.momentum_res.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
-        cty_res = self.continuity_res.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
+        if self.equation.__class__.__name__ == "ShallowWaterEquations":
+            mom_res0, mom_res1 = -self.momentum_residual.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
+            cty_res = -self.continuity_residual.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
 
-        return mom_res0, mom_res1, cty_res
+            return mom_res0, mom_res1, cty_res
+        elif self.equation.__class__.__name__ == "TracerEquation":
+            res = -self.residual.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
+
+            return res
+        else:
+            raise NotImplementedError
 
 
 class CrankNicolson(TimeIntegrator):
@@ -270,9 +294,7 @@ class CrankNicolson(TimeIntegrator):
         Evaluate shallow water strong residual on element interiors.
         """
         sol = self.solution
-        uv, eta = sol.split()
         sol_old = self.solution_old
-        uv_old, eta_old = sol_old.split()
         f = self.fields
         f_old = self.fields_old
         if self.semi_implicit:
@@ -283,25 +305,62 @@ class CrankNicolson(TimeIntegrator):
             # solve the full nonlinear residual form
             sol_nl = sol
 
-        mom_res = (uv - uv_old) / self.dt_const
-        cty_res = (eta - eta_old) / self.dt_const
         theta_const = Constant(self.theta)
+        if self.equation.__class__.__name__ == "ShallowWaterEquations":
+            uv, eta = sol.split()
+            uv_old, eta_old = sol_old.split()
 
-        mom_res += -theta_const * self.momentum_res.interior_residual(label, sol, sol_nl, f, f, self.bnd_conditions)
-        mom_res += -(1 - theta_const) * self.momentum_res.interior_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
-        cty_res += -theta_const * self.continuity_res.interior_residual(label, sol, sol_nl, f, f_old, self.bnd_conditions)
-        cty_res += -(1 - theta_const) * self.continuity_res.interior_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
+            mom_res = (uv - uv_old) / self.dt_const
+            cty_res = (eta - eta_old) / self.dt_const
 
-        return mom_res, cty_res
+            mom_res += -theta_const * self.momentum_residual.interior_residual(label, sol, sol_nl, f, f, self.bnd_conditions)
+            mom_res += -(1 - theta_const) * self.momentum_residual.interior_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
+            cty_res += -theta_const * self.continuity_residual.interior_residual(label, sol, sol_nl, f, f_old, self.bnd_conditions)
+            cty_res += -(1 - theta_const) * self.continuity_residual.interior_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
+
+            return mom_res, cty_res
+
+        elif self.equation.__class__.__name__ == "TracerEquation":
+            q = self.solution
+            q_old = self.solution_old
+            res = (q - q_old) / self.dt_const
+
+            res += -theta_const * self.residual.interior_residual(label, sol, sol_nl, f, f, self.bnd_conditions)
+            res += -(1 - theta_const) * self.residual.interior_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
+
+            return res
+
+        else:
+            raise NotImplementedError
 
     def boundary_residual(self, label='all'):
         """
         Evaluate shallow water strong residual on element boundaries.
         """
-        mom_res0, mom_res1 = self.momentum_res.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
-        cty_res = self.continuity_res.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
+        sol = self.solution
+        sol_old = self.solution_old
+        f = self.fields
+        f_old = self.fields_old
+        if self.semi_implicit:
+            # linearize around last timestep using the fact that all terms are
+            # written in the form A(u_nl) u
+            sol_nl = sol_old
+        else:
+            # solve the full nonlinear residual form
+            sol_nl = sol
 
-        return mom_res0, mom_res1, cty_res
+        if self.equation.__class__.__name__ == "ShallowWaterEquations":
+            mom_res0, mom_res1 = - self.momentum_residual.boundary_residual(label, sol, sol_nl, f, f, self.bnd_conditions)
+            cty_res = - self.continuity_residual.boundary_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
+
+            return mom_res0, mom_res1, cty_res
+        elif self.equation.__class__.__name__ == "TracerEquation":
+            res = - self.residual.boundary_residual(label, sol, sol_nl, f, f, self.bnd_conditions)
+
+            return res
+
+        else:
+            raise NotImplementedError
 
 
 class SteadyState(TimeIntegrator):
@@ -359,24 +418,43 @@ class SteadyState(TimeIntegrator):
         solution = fields.solution_2d
         fields_old = self.fields_old
         solution_old = self.solution_old
-        mom_res = self.momentum_res.interior_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
-        cty_res = self.continuity_res.interior_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
 
-        return mom_res, cty_res
+        if self.equation.__class__.__name__ == "ShallowWaterEquations":
+            mom_res = -self.momentum_residual.interior_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
+            cty_res = -self.continuity_residual.interior_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
+
+            return mom_res, cty_res
+
+        elif self.equation.__class__.__name__ == "TracerEquation":
+            res = -self.residual.interior_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
+
+            return res
+
+        else:
+            raise NotImplementedError
 
     def boundary_residual(self, label='all'):
         """
         Evaluate shallow water strong residual on element boundaries.
         """
-
         fields = self.fields
         solution = fields.solution_2d
         fields_old = self.fields_old
         solution_old = self.solution_old
-        mom_res0, mom_res1 = self.momentum_res.boundary_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
-        cty_res = self.continuity_res.boundary_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
 
-        return mom_res0, mom_res1, cty_res
+        if self.equation.__class__.__name__ == "ShallowWaterEquations":
+            mom_res0, mom_res1 = self.momentum_residual.boundary_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
+            cty_res = self.continuity_residual.boundary_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
+
+            return mom_res0, mom_res1, cty_res
+
+        elif self.equation.__class__.__name__ == "TracerEquation":
+            res = -self.residual.boundary_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
+
+            return res
+
+        else:
+            raise NotImplementedError
 
 
 class PressureProjectionPicard(TimeIntegrator):
