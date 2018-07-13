@@ -119,11 +119,13 @@ class ForwardEuler(TimeIntegrator):
                 elif isinstance(self.fields[k], FiredrakeConstant):
                     self.fields_old[k] = Constant(self.fields[k])
 
+        self.bnd_conditions = bnd_conditions
+
         u_old = self.solution_old
         u_tri = self.equation.trial
         self.A = self.equation.mass_term(u_tri)
         self.L = (self.equation.mass_term(u_old) +
-                  self.dt_const*self.equation.residual('all', u_old, u_old, self.fields_old, self.fields_old, bnd_conditions)
+                  self.dt_const*self.equation.residual('all', u_old, u_old, self.fields_old, self.fields_old, self.bnd_conditions)
                   )
 
         self.update_solver()
@@ -159,8 +161,8 @@ class ForwardEuler(TimeIntegrator):
         mom_res = (uv - uv_old) / self.dt_const
         cty_res = (eta - eta_old) / self.dt_const
 
-        mom_res += -self.momentum_res.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
-        cty_res += -self.continuity_res.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
+        mom_res += -self.momentum_res.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
+        cty_res += -self.continuity_res.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
 
         return mom_res, cty_res
 
@@ -168,8 +170,8 @@ class ForwardEuler(TimeIntegrator):
         """
         Evaluate shallow water strong residual on element boundaries.
         """
-        mom_res0, mom_res1 = self.momentum_res.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
-        cty_res = self.continuity_res.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
+        mom_res0, mom_res1 = self.momentum_res.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
+        cty_res = self.continuity_res.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
 
         return mom_res0, mom_res1, cty_res
 
@@ -218,15 +220,15 @@ class CrankNicolson(TimeIntegrator):
         else:
             # solve the full nonlinear residual form
             u_nl = u
-        bnd = bnd_conditions
+        self.bnd_conditions = bnd_conditions
         f = self.fields
         f_old = self.fields_old
 
         # Crank-Nicolson
         theta_const = Constant(theta)
         self.F = (self.equation.mass_term(u) - self.equation.mass_term(u_old) -
-                  self.dt_const*(theta_const*self.equation.residual('all', u, u_nl, f, f, bnd) +
-                                 (1-theta_const)*self.equation.residual('all', u_old, u_old, f_old, f_old, bnd)
+                  self.dt_const*(theta_const*self.equation.residual('all', u, u_nl, f, f, self.bnd_conditions) +
+                                 (1-theta_const)*self.equation.residual('all', u_old, u_old, f_old, f_old, self.bnd_conditions)
                                  )
                   )
 
@@ -285,10 +287,10 @@ class CrankNicolson(TimeIntegrator):
         cty_res = (eta - eta_old) / self.dt_const
         theta_const = Constant(self.theta)
 
-        mom_res += -theta_const * self.momentum_res.interior_residual(label, sol, sol_nl, f, f, None)
-        mom_res += -(1 - theta_const) * self.momentum_res.interior_residual(label, sol_old, sol_old, f_old, f_old, None)
-        cty_res += -theta_const * self.continuity_res.interior_residual(label, sol, sol_nl, f, f_old, None)
-        cty_res += -(1 - theta_const) * self.continuity_res.interior_residual(label, sol_old, sol_old, f_old, f_old, None)
+        mom_res += -theta_const * self.momentum_res.interior_residual(label, sol, sol_nl, f, f, self.bnd_conditions)
+        mom_res += -(1 - theta_const) * self.momentum_res.interior_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
+        cty_res += -theta_const * self.continuity_res.interior_residual(label, sol, sol_nl, f, f_old, self.bnd_conditions)
+        cty_res += -(1 - theta_const) * self.continuity_res.interior_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
 
         return mom_res, cty_res
 
@@ -296,8 +298,8 @@ class CrankNicolson(TimeIntegrator):
         """
         Evaluate shallow water strong residual on element boundaries.
         """
-        mom_res0, mom_res1 = self.momentum_res.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
-        cty_res = self.continuity_res.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, None)
+        mom_res0, mom_res1 = self.momentum_res.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
+        cty_res = self.continuity_res.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
 
         return mom_res0, mom_res1, cty_res
 
@@ -325,6 +327,8 @@ class SteadyState(TimeIntegrator):
         self.solver_parameters.setdefault('snes_type', 'newtonls')
         self.F = self.equation.residual('all', solution, solution, fields, fields, bnd_conditions)
         self.update_solver()
+
+        self.bnd_conditions = bnd_conditions
 
     def update_solver(self):
         """Create solver objects"""
@@ -355,8 +359,8 @@ class SteadyState(TimeIntegrator):
         solution = fields.solution_2d
         fields_old = self.fields_old
         solution_old = self.solution_old
-        mom_res = self.momentum_res.interior_residual(label, solution, solution_old, fields, fields_old, None)
-        cty_res = self.continuity_res.interior_residual(label, solution, solution_old, fields, fields_old, None)
+        mom_res = self.momentum_res.interior_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
+        cty_res = self.continuity_res.interior_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
 
         return mom_res, cty_res
 
@@ -369,8 +373,8 @@ class SteadyState(TimeIntegrator):
         solution = fields.solution_2d
         fields_old = self.fields_old
         solution_old = self.solution_old
-        mom_res0, mom_res1 = self.momentum_res.boundary_residual(label, solution, solution_old, fields, fields_old, None)
-        cty_res = self.continuity_res.boundary_residual(label, solution, solution_old, fields, fields_old, None)
+        mom_res0, mom_res1 = self.momentum_res.boundary_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
+        cty_res = self.continuity_res.boundary_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
 
         return mom_res0, mom_res1, cty_res
 

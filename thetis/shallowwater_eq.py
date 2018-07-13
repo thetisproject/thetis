@@ -1056,72 +1056,194 @@ class ExternalPressureGradientResidual(ShallowWaterMomentumResidualTerm):
     r"""
     External pressure gradient term, :math:`g \nabla \eta`
     """
-    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
 
         f = g_grav * grad(eta)
 
         return -f
 
-    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
+        total_h = self.get_total_depth(eta_old)
 
         head = eta
+
         v = self.p0_test
         grad_eta_by_parts = self.eta_is_dg
 
-        f = Function(self.vector_p0_space)
+        f0 = 0
+        f1 = 0
+
         if grad_eta_by_parts:
-            f0 = Function(self.p0_space).interpolate(assemble(jump(g_grav * v * head, n=self.normal[0]) * self.dS))
-            f1 = Function(self.p0_space).interpolate(assemble(jump(g_grav * v * head, n=self.normal[1]) * self.dS))
-        f.dat.data[:, 0] = f0.dat.data
-        f.dat.data[:, 1] = f1.dat.data  # TODO: How can this be done in a cleaner, parallelisible way?
+            if uv is not None:
+                head_star = avg(head) + 0.5*sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
+            else:
+                head_star = avg(head)
 
-        # TODO: Account for BCs
+            f0 += head_star * jump(v * g_grav, n=self.normal[0]) * self.dS
+            f1 += head_star * jump(v * g_grav, n=self.normal[1]) * self.dS
 
-        return f
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                if funcs is not None:
+                    eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
+                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                    un_jump = inner(uv - uv_ext, self.normal)
+                    eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
+                    f0 += v * g_grav * eta_rie * self.normal[0] * ds_bnd
+                    f1 += v * g_grav * eta_rie * self.normal[1] * ds_bnd
+
+                if funcs is None or 'symm' in funcs:
+                    # assume land boundary
+                    # impermeability implies external un=0
+                    un_jump = inner(uv, self.normal)
+                    head_rie = head + sqrt(total_h/g_grav)*un_jump
+                    f0 += v * g_grav * head_rie * self.normal[0] * ds_bnd
+                    f1 += v * g_grav * head_rie * self.normal[1] * ds_bnd
+        else:
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                if funcs is not None:
+                    eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
+                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                    un_jump = inner(uv - uv_ext, self.normal)
+                    eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
+                    f0 += g_grav * v * (eta_rie-head) * self.normal[0] * ds_bnd
+                    f1 += g_grav * v * (eta_rie-head) * self.normal[1] * ds_bnd
+
+        if f0 != 0 and f1 != 0:
+            F = Function(self.vector_p0_space)
+            F0 = Function(self.p0_space).interpolate(assemble(-f0))
+            F1 = Function(self.p0_space).interpolate(assemble(-f1))
+            F.dat.data[:, 0] = F0.dat.data
+            F.dat.data[:, 1] = F1.dat.data  # TODO: How can this be done in a cleaner, parallelisible way?
+
+            return F
 
 
 class HUDivResidual(ShallowWaterContinuityResidualTerm):
     r"""
     Divergence term, :math:`\nabla \cdot (H \bar{\textbf{u}})`
     """
-    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         total_h = self.get_total_depth(eta_old)
 
         f = div(total_h*uv)
 
         return -f
 
-    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
-
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         total_h = self.get_total_depth(eta_old)
+
         v = self.p0_test
         hu_by_parts = self.u_continuity in ['dg', 'hdiv']
+        f = 0
 
         if hu_by_parts:
             if self.eta_is_dg:
-                f = Function(self.p0_space).interpolate(assemble(jump(v * total_h * uv, n=self.normal) * self.dS))
+                h = avg(total_h)
+                uv_rie = avg(uv) + sqrt(g_grav / h) * jump(eta, self.normal)
+                f += inner(uv_rie, jump(v * total_h, n=self.normal)) * self.dS
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                if funcs is not None:
+                    eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
+                    eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
+                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                    total_h_ext = self.get_total_depth(eta_ext_old)
+                    h_av = 0.5 * (total_h + total_h_ext)
+                    eta_jump = eta - eta_ext
+                    un_rie = 0.5 * inner(uv + uv_ext, self.normal) + sqrt(g_grav / h_av) * eta_jump
+                    un_jump = inner(uv_old - uv_ext_old, self.normal)
+                    eta_rie = 0.5 * (eta_old + eta_ext_old) + sqrt(h_av / g_grav) * un_jump
+                    h_rie = self.bathymetry + eta_rie
+                    f += v * h_rie * un_rie * ds_bnd
+        else:
+            if len(self.boundary_markers) != 0:
+                f = 0
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                if funcs is None or 'un' in funcs:
+                    f += -v * total_h * dot(uv, self.normal) * ds_bnd
 
-        # TODO: Account for BCs
-
-        return -f
+        if f != 0:
+            F = Function(self.p0_space).interpolate(assemble(-f))
+            return F
 
 
 class HorizontalAdvectionResidual(ShallowWaterMomentumResidualTerm):
     r"""
     Advection of momentum term, :math:`\bar{\textbf{u}} \cdot \nabla\bar{\textbf{u}}`
     """
-    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
 
         if self.options.use_nonlinear_equations:
             f = dot(uv_old, nabla_grad(uv))
 
             return -f
 
-    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
 
-        # TODO: How to write this in strong form?
+        if self.options.use_nonlinear_equations:
 
-        return None
+            v = self.p0_test
+            horiz_advection_by_parts = True
+
+            if horiz_advection_by_parts:
+                f0 = 0
+                f1 = 0
+                if self.u_continuity in ['dg', 'hdiv']:
+                    un_av = dot(avg(uv_old), self.normal('-'))
+                    # NOTE solver can stagnate
+                    # s = 0.5*(sign(un_av) + 1.0)
+                    # NOTE smooth sign change between [-0.02, 0.02], slow
+                    # s = 0.5*tanh(100.0*un_av) + 0.5
+                    # uv_up = uv('-')*s + uv('+')*(1-s)
+                    # NOTE mean flux
+                    uv_up = avg(uv)
+                    f0 += v * (uv_up[0]*jump(uv_old[0], n=self.normal[0]) + uv_up[0]*jump(uv_old[1], n=self.normal[1])) * self.dS
+                    f1 += v * (uv_up[1]*jump(uv_old[0], n=self.normal[0]) + uv_up[1]*jump(uv_old[1], n=self.normal[1])) * self.dS
+
+                    # Lax-Friedrichs stabilization
+                    if self.options.use_lax_friedrichs_velocity:
+                        uv_lax_friedrichs = fields_old.get('lax_friedrichs_velocity_scaling_factor')
+                        gamma = 0.5*abs(un_av)*uv_lax_friedrichs
+                        f0 += v * gamma * jump(uv[0]) * self.dS
+                        f1 += v * gamma * jump(uv[1]) * self.dS
+                        for bnd_marker in self.boundary_markers:
+                            funcs = bnd_conditions.get(bnd_marker)
+                            ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                            if funcs is None:
+                                # impose impermeability with mirror velocity
+                                n = self.normal
+                                uv_ext = uv - 2*dot(uv, n)*n
+                                gamma = 0.5*abs(dot(uv_old, n))*uv_lax_friedrichs
+                                f0 += v * gamma * (uv[0]-uv_ext[0])*ds_bnd
+                                f1 += v * gamma * (uv[1]-uv_ext[1])*ds_bnd
+                for bnd_marker in self.boundary_markers:
+                    funcs = bnd_conditions.get(bnd_marker)
+                    ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                    if funcs is not None:
+                        eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
+                        eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
+                        # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                        eta_jump = eta_old - eta_ext_old
+                        total_h = self.get_total_depth(eta_old)
+                        un_rie = 0.5*inner(uv_old + uv_ext_old, self.normal) + sqrt(g_grav/total_h)*eta_jump
+                        uv_av = 0.5*(uv_ext + uv)
+                        f0 += v * uv_av[0] * un_rie * ds_bnd
+                        f1 += v * uv_av[1] * un_rie * ds_bnd
+                if f0 != 0 and f1 != 0:
+                    F = Function(self.vector_p0_space)
+                    F0 = Function(self.p0_space).interpolate(assemble(-f0))
+                    F1 = Function(self.p0_space).interpolate(assemble(-f1))
+                    F.dat.data[:, 0] = F0.dat.data
+                    F.dat.data[:, 1] = F1.dat.data  # TODO: How can this be done in a cleaner, parallelisible way?
+
+                    return F
 
 
 class HorizontalViscosityResidual(ShallowWaterMomentumResidualTerm):
@@ -1142,7 +1264,7 @@ class HorizontalViscosityResidual(ShallowWaterMomentumResidualTerm):
 
     as a source term.
     """
-    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         total_h = self.get_total_depth(eta_old)
 
         nu = fields_old.get('viscosity_h')
@@ -1160,7 +1282,7 @@ class HorizontalViscosityResidual(ShallowWaterMomentumResidualTerm):
 
             return -f
 
-    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
 
         # TODO: How to write this in strong form?
 
@@ -1171,13 +1293,13 @@ class CoriolisResidual(ShallowWaterMomentumResidualTerm):
     r"""
     Coriolis term, :math:`f\textbf{e}_z\wedge \bar{\textbf{u}}`
     """
-    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         coriolis = fields_old.get('coriolis')
         if coriolis is not None:
             f = coriolis * as_vector((-uv[1], uv[0]))
             return -f
 
-    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         return None
 
 
@@ -1187,14 +1309,14 @@ class WindStressResidual(ShallowWaterMomentumResidualTerm):
 
     Here :math:`\tau_w` is a user-defined wind stress :class:`Function`.
     """
-    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         wind_stress = fields_old.get('wind_stress')
         total_h = self.get_total_depth(eta_old)
         if wind_stress is not None:
             f = wind_stress / total_h / rho_0
             return f
 
-    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         return None
 
 
@@ -1204,13 +1326,13 @@ class AtmosphericPressureResidual(ShallowWaterMomentumResidualTerm):
 
     Here :math:`p_a` is a user-defined atmospheric pressure :class:`Function`.
     """
-    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         atmospheric_pressure = fields_old.get('atmospheric_pressure')
         if atmospheric_pressure is not None:
             f = grad(atmospheric_pressure) / rho_0
             return -f
 
-    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         return None
 
 
@@ -1227,7 +1349,7 @@ class QuadraticDragResidual(ShallowWaterMomentumResidualTerm):
     if the Manning coefficient :math:`\mu` is defined (see field :attr:`manning_drag_coefficient`).
     Otherwise :math:`C_D` is taken as a constant (see field :attr:`quadratic_drag_coefficient`).
     """
-    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         total_h = self.get_total_depth(eta_old)
         manning_drag_coefficient = fields_old.get('manning_drag_coefficient')
         C_D = fields_old.get('quadratic_drag_coefficient')
@@ -1239,7 +1361,7 @@ class QuadraticDragResidual(ShallowWaterMomentumResidualTerm):
             f = C_D * sqrt(dot(uv_old, uv_old)) * uv / total_h
             return -f
 
-    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         return None
 
 
@@ -1249,14 +1371,14 @@ class LinearDragResidual(ShallowWaterMomentumResidualTerm):
 
     Here :math:`C` is a user-defined drag coefficient.
     """
-    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         linear_drag_coefficient = fields_old.get('linear_drag_coefficient')
         if linear_drag_coefficient is not None:
             bottom_fri = linear_drag_coefficient*uv
             f = bottom_fri
             return -f
 
-    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         return None
 
 
@@ -1269,7 +1391,7 @@ class BottomDrag3DResidual(ShallowWaterMomentumResidualTerm):
     :math:`C_D` the corresponding bottom drag.
     These fields are computed in the 3D model.
     """
-    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         total_h = self.get_total_depth(eta_old)
         bottom_drag = fields_old.get('bottom_drag')
         uv_bottom = fields_old.get('uv_bottom')
@@ -1280,7 +1402,7 @@ class BottomDrag3DResidual(ShallowWaterMomentumResidualTerm):
             f = bot_friction
             return -f
 
-    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         return None
 
 
@@ -1297,10 +1419,10 @@ class TurbineDragResidual(ShallowWaterMomentumResidualTerm):
         c_t = (C_T A_T d)/2
 
     """
-    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         return None
 
-    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         total_h = self.get_total_depth(eta_old)
         f = 0
         v = self.p0_test
@@ -1321,14 +1443,14 @@ class MomentumSourceResidual(ShallowWaterMomentumResidualTerm):
     Generic source term :math:`\boldsymbol{\tau}` in the shallow water momentum equation.
     """
 
-    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         momentum_source = fields_old.get('momentum_source')
 
         if momentum_source is not None:
             f = momentum_source
             return f
 
-    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         return None
 
 
@@ -1337,14 +1459,14 @@ class ContinuitySourceResidual(ShallowWaterContinuityResidualTerm):
     Generic source term :math:`S` in the depth-averaged continuity equation.
     """
 
-    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         volume_source = fields_old.get('volume_source')
 
         if volume_source is not None:
             f = volume_source
             return f
 
-    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         return None
 
 
@@ -1362,7 +1484,7 @@ class BathymetryDisplacementMassResidual(ShallowWaterMomentumResidualTerm):
             f = self.wd_bathymetry_displacement(eta)
         return -f
 
-    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         return None
 
 
