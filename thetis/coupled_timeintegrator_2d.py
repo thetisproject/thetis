@@ -131,7 +131,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self._initialized = True
 
     def advance(self, t, update_forcings=None):
-        self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
+        if not self.options.tracer_only:
+            self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
         self.timesteppers.tracer.advance(t, update_forcings=update_forcings)
         if self.options.use_limiter_for_tracers:
             self.solver.tracer_limiter.apply(self.fields.tracer_2d)
