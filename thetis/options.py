@@ -521,6 +521,11 @@ class ModelOptions2d(CommonModelOptions):
 
         Prints overshoot values that exceed the initial range to stdout.
         """).tag(config=True)
+    tracer_only = Bool(
+        False, help="""Hold shallow water variables in initial state
+
+        Advects tracer in the associated (constant) velocity field.
+        """).tag(config=True)
 
 
 @attach_paired_options("timestepper_type",
