@@ -183,7 +183,7 @@ class DiagnosticCallback(ABC):
 
     def set_write_mode(self, mode):
         """
-        Define whether to create a new hdf5 file or append to an exisiting one
+        Define whether to create a new hdf5 file or append to an existing one
 
         :arg str mode: Either 'create' (default) or 'append'
         """
@@ -515,3 +515,39 @@ class DetectorsCallback(DiagnosticCallback):
             field_vals.append(np.reshape(self._evaluate_field(field_name), (ndetectors, -1)))
 
         return np.hstack(field_vals)
+
+
+class AccumulatorCallback(DiagnosticCallback):
+    """Callback that evaluates a (scalar) functional involving integrals in both time and space. This callback can also
+    be used to assemble time dependent objective functionals for adjoint simulations. Time integration is achieved using
+    the trapezium rule."""
+    variable_names = ['spatial integral at current timestep']
+
+    def __init__(self, scalar_callback, solver_obj, **kwargs):
+        """
+        :arg scalar_callback: Python function that returns a list of values of an objective functional.
+        :arg solver_obj: Thetis solver object
+        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
+        """
+        kwargs.setdefault('export_to_hdf5', False)
+        kwargs.setdefault('append_to_log', False)
+        super(AccumulatorCallback, self).__init__(solver_obj, **kwargs)
+        self.scalar_callback = scalar_callback      # Evaluate functional
+        self.dt = solver_obj.options.timestep
+        self.integrant = 0.
+        self.old_value = None
+
+    def __call__(self):
+        scalar_value = self.scalar_callback()
+        if self.old_value is not None:
+            self.integrant += 0.5 * (self.old_value + scalar_value) * self.dt
+        self.old_value = scalar_value
+
+        return scalar_value
+
+    def get_val(self):
+        return self.integrant
+
+    def message_str(self, *args):
+        line = '{0:s} value {1:11.4e}'.format(self.name, args[0])
+        return line
