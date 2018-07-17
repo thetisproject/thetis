@@ -529,6 +529,10 @@ class VerticalAdvectionResidual(TracerResidualTerm):
 class HorizontalDiffusionResidual(TracerResidualTerm):
     r"""
     Horizontal diffusion term :math:`-\nabla_h \cdot (\mu_h \nabla_h T)`
+    
+    Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
+    interior penalty Galerkin methods. Journal of Computational and Applied
+    Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
     """
     def residual_int(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_h') is not None:
@@ -549,9 +553,6 @@ class HorizontalDiffusionResidual(TracerResidualTerm):
                                      [0, diffusivity_h, 0],
                                      [0, 0, 0]])
             diff_flux = dot(diff_tensor, grad(solution))
-            mesh = solution.function_space().mesh()
-            P0 = FunctionSpace(mesh, "DG", 0)
-            v = TestFunction(P0)
 
             f = 0
             if self.horizontal_dg:

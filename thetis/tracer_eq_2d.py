@@ -23,6 +23,7 @@ __all__ = [
     'HorizontalAdvectionTerm',
     'HorizontalDiffusionTerm',
     'SourceTerm',
+    'TracerResidual2D',
 ]
 
 
@@ -268,3 +269,195 @@ class TracerEquation2D(Equation):
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
+
+
+class TracerResidualTerm(TracerTerm):
+    """
+    Generic term in the strong form advection diffusion equation.
+    """
+
+    def __init__(self, function_space,
+                 bathymetry=None, use_lax_friedrichs=True):
+        """
+        :arg function_space: :class:`FunctionSpace` where the solution belongs
+        :kwarg bathymetry: bathymetry of the domain
+        :type bathymetry: 3D :class:`Function` or :class:`Constant`
+        """
+        super(TracerResidualTerm, self).__init__(function_space)
+
+        # Create P0 spaces and an associated TestFunction `p0_test`, scaled to take value 1 in each cell. Suppose we
+        # have an error estimator `e`. Then this ensures `assemble(assemble(p0_test * e * dx) * dx) = assemble(e * dx)`
+        # (for piecewise constant and piecewise linear estimators `e`).
+        self.p0_space = FunctionSpace(function_space.mesh(), "DG", 0)
+        self.p0_test = Constant(function_space.mesh().num_cells()) * TestFunction(self.p0_space)
+
+
+class HorizontalAdvectionResidual(TracerResidualTerm):
+    r"""
+    Advection of tracer term, :math:`\bar{\textbf{u}} \cdot \nabla T`
+    """
+    def residual_int(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        if fields_old.get('uv_2d') is not None:
+            uv = fields_old['uv_2d']
+            f = div(grad(solution*uv))
+
+            return -f
+
+    def residual_bdy(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        if fields_old.get('uv_2d') is not None:
+            elev = fields_old['elev_2d']
+            uv = fields_old['uv_2d']
+
+            uv_p1 = fields_old.get('uv_p1')
+            uv_mag = fields_old.get('uv_mag')
+            # FIXME is this an option?
+            lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
+
+            f = 0
+            if self.horizontal_dg:
+                # add interface term
+                uv_av = avg(uv)
+                un_av = (uv_av[0]*self.normal('-')[0] +
+                         uv_av[1]*self.normal('-')[1])
+                s = 0.5*(sign(un_av) + 1.0)
+                c_up = solution('-')*s + solution('+')*(1-s)
+
+                f += c_up*(jump(self.p0_test, uv[0] * self.normal[0]) +
+                           jump(self.p0_test, uv[1] * self.normal[1])) * self.dS
+                # Lax-Friedrichs stabilization
+                if self.use_lax_friedrichs:
+                    if uv_p1 is not None:
+                        gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
+                                         avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
+                    elif uv_mag is not None:
+                        gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
+                    else:
+                        gamma = 0.5*abs(un_av)*lax_friedrichs_factor
+                    f += gamma*dot(jump(self.p0_test), jump(solution))*self.dS
+                if bnd_conditions is not None:
+                    for bnd_marker in self.boundary_markers:
+                        funcs = bnd_conditions.get(bnd_marker)
+                        ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                        c_in = solution
+                        if funcs is None:
+                            f += c_in * (uv[0]*self.normal[0] +
+                                         uv[1]*self.normal[1])*self.p0_test*ds_bnd
+                        else:
+                            c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                            uv_av = 0.5*(uv + uv_ext)
+                            un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
+                            s = 0.5*(sign(un_av) + 1.0)
+                            c_up = c_in*s + c_ext*(1-s)
+                            f += c_up*(uv_av[0]*self.normal[0] +
+                                       uv_av[1]*self.normal[1])*self.p0_test*ds_bnd
+
+            if f != 0:
+                F = Function(self.p0_space).interpolate(assemble(-f))
+                return F
+
+
+class HorizontalDiffusionResidual(TracerResidualTerm):
+    r"""
+    Horizontal diffusion term :math:`-\nabla_h \cdot (\mu_h \nabla_h T)`
+
+    Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
+    interior penalty Galerkin methods. Journal of Computational and Applied
+    Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
+
+    """
+    def residual_int(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        if fields_old.get('diffusivity_h') is not None:
+            diffusivity_h = fields_old['diffusivity_h']
+            diff_tensor = as_matrix([[diffusivity_h, 0, ],
+                                     [0, diffusivity_h, ]])
+            diff_flux = dot(diff_tensor, grad(solution))
+
+            f = -div(diff_flux)
+
+            return -f
+
+    def residual_bdy(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        if fields_old.get('diffusivity_h') is not None:
+            diffusivity_h = fields_old['diffusivity_h']
+            diff_tensor = as_matrix([[diffusivity_h, 0, ],
+                                     [0, diffusivity_h, ]])
+
+            f = 0
+            if self.horizontal_dg:
+                # Interior Penalty method by
+                # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
+                # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
+                # k_max/k_min  - max/min diffusivity
+                # p            - polynomial degree
+                # Theta        - min angle of triangles
+                # assuming k_max/k_min=2, Theta=pi/3
+                # sigma = 6.93 = 3.5*p*(p+1)
+
+                degree_h = self.function_space.ufl_element().degree()
+                sigma = 5.0*degree_h*(degree_h + 1)/self.cellsize
+                if degree_h == 0:
+                    sigma = 1.5 / self.cellsize
+                alpha = avg(sigma)
+                ds_interior = self.dS
+                f += alpha*inner(jump(self.p0_test, self.normal),
+                                 dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
+                f += -inner(avg(dot(diff_tensor, grad(self.p0_test))),
+                            jump(solution, self.normal))*ds_interior
+                f += -inner(jump(self.p0_test, self.normal),
+                            avg(dot(diff_tensor, grad(solution))))*ds_interior
+
+            if f != 0:
+                F = Function(self.p0_space).interpolate(assemble(-f))
+                return F
+
+
+class SourceResidual(TracerResidualTerm):
+    """
+    Generic source term
+    """
+    def residual_int(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        source = fields_old.get('source')
+        if source is not None:
+            return source
+
+    def residual_bdy(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        return None
+
+
+class TracerResidual2D(Equation):
+    """
+    2D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
+    """
+    def __init__(self, function_space,
+                 bathymetry=None, use_lax_friedrichs=True):
+        """
+        :arg function_space: :class:`FunctionSpace` where the solution belongs
+        :kwarg bathymetry: bathymetry of the domain
+        :type bathymetry: 3D :class:`Function` or :class:`Constant`
+        """
+        super(TracerResidual2D, self).__init__(function_space)
+
+        args = (function_space, bathymetry, use_lax_friedrichs)
+        self.add_term(HorizontalAdvectionResidual(*args), 'explicit')
+        self.add_term(HorizontalDiffusionResidual(*args), 'explicit')
+        self.add_term(SourceResidual(*args), 'source')
+
+    def interior_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
+        uv, eta = solution.split()
+        uv_old, eta_old = solution_old.split()
+        f = 0
+        for term in self.select_terms(label):
+            r = term.residual_int(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+            if r is not None:
+                f += r
+        return f
+
+    def boundary_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
+        uv, eta = solution.split()
+        uv_old, eta_old = solution_old.split()
+        f = 0
+        for term in self.select_terms(label):
+            r = term.residual_bdy(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+            if r is not None:
+                f += r
+        return f
