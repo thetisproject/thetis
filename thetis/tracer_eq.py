@@ -529,7 +529,7 @@ class VerticalAdvectionResidual(TracerResidualTerm):
 class HorizontalDiffusionResidual(TracerResidualTerm):
     r"""
     Horizontal diffusion term :math:`-\nabla_h \cdot (\mu_h \nabla_h T)`
-    
+
     Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
     interior penalty Galerkin methods. Journal of Computational and Applied
     Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029

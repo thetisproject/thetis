@@ -8,6 +8,7 @@ from abc import ABCMeta, abstractmethod
 # TODO: Consider NS equations too
 from .shallowwater_eq import ShallowWaterMomentumResidual, FreeSurfaceResidual
 from .tracer_eq import TracerResidual
+from .tracer_eq_2d import TracerResidual2D
 
 CFL_UNCONDITIONALLY_STABLE = np.inf
 # CFL coefficient for unconditionally stable methods
@@ -85,8 +86,12 @@ class TimeIntegrator(TimeIntegratorBase):
                 self.equation.bathymetry,
                 self.equation.options
             )
-        elif self.equation.__class__.__name__ == "TracerEquation2D":
+        elif self.equation.__class__.__name__ == "TracerEquation":
             self.residual = TracerResidual(
+                self.solution.function_space()
+            )
+        elif self.equation.__class__.__name__ == "TracerEquation2D":
+            self.residual = TracerResidual2D(
                 self.solution.function_space()
             )
         else:
