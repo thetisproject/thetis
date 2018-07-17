@@ -180,7 +180,7 @@ class ForwardEuler(TimeIntegrator):
             cty_res += -self.continuity_residual.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
 
             return mom_res, cty_res
-        elif self.equation.__class__.__name__ == "TracerEquation2D":
+        elif self.equation.__class__.__name__ in ("TracerEquation", "TracerEquation2D"):
             q = self.solution
             q_old = self.solution_old
             res = (q - q_old) / self.dt_const
@@ -198,7 +198,7 @@ class ForwardEuler(TimeIntegrator):
             cty_res = -self.continuity_residual.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
 
             return mom_res0, mom_res1, cty_res
-        elif self.equation.__class__.__name__ == "TracerEquation2D":
+        elif self.equation.__class__.__name__ in ("TracerEquation", "TracerEquation2D"):
             res = -self.residual.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
 
             return res
@@ -326,7 +326,7 @@ class CrankNicolson(TimeIntegrator):
 
             return mom_res, cty_res
 
-        elif self.equation.__class__.__name__ == "TracerEquation2D":
+        elif self.equation.__class__.__name__ in ("TracerEquation", "TracerEquation2D"):
             q = self.solution
             q_old = self.solution_old
             res = (q - q_old) / self.dt_const
@@ -360,7 +360,7 @@ class CrankNicolson(TimeIntegrator):
             cty_res = - self.continuity_residual.boundary_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
 
             return mom_res0, mom_res1, cty_res
-        elif self.equation.__class__.__name__ == "TracerEquation2D":
+        elif self.equation.__class__.__name__ in ("TracerEquation", "TracerEquation2D"):
             res = - self.residual.boundary_residual(label, sol, sol_nl, f, f, self.bnd_conditions)
 
             return res
@@ -431,7 +431,7 @@ class SteadyState(TimeIntegrator):
 
             return mom_res, cty_res
 
-        elif self.equation.__class__.__name__ == "TracerEquation2D":
+        elif self.equation.__class__.__name__ in ("TracerEquation", "TracerEquation2D"):
             res = -self.residual.interior_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
 
             return res
@@ -454,7 +454,7 @@ class SteadyState(TimeIntegrator):
 
             return mom_res0, mom_res1, cty_res
 
-        elif self.equation.__class__.__name__ == "TracerEquation2D":
+        elif self.equation.__class__.__name__ in ("TracerEquation", "TracerEquation2D"):
             res = -self.residual.boundary_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
 
             return res

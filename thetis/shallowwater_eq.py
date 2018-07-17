@@ -1021,13 +1021,6 @@ class ShallowWaterMomentumResidualTerm(ShallowWaterTerm):
         self.u_continuity = element_continuity(self.u_space.ufl_element()).horizontal
         self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
-        # Create P0 spaces and an associated TestFunction `p0_test`, scaled to take value 1 in each cell. Suppose we
-        # have an error estimator `e`. Then this ensures `assemble(assemble(p0_test * e * dx) * dx) = assemble(e * dx)`
-        # (for piecewise constant and piecewise linear estimators `e`).
-        self.p0_space = FunctionSpace(u_space.mesh(), "DG", 0)
-        self.vector_p0_space = VectorFunctionSpace(u_space.mesh(), "DG", 0)
-        self.p0_test = Constant(u_space.mesh().num_cells()) * TestFunction(self.p0_space)
-
 
 class ShallowWaterContinuityResidualTerm(ShallowWaterTerm):
     """
@@ -1044,13 +1037,6 @@ class ShallowWaterContinuityResidualTerm(ShallowWaterTerm):
         self.u_continuity = element_continuity(self.u_space.ufl_element()).horizontal
         self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
-        # Create P0 spaces and an associated TestFunction `p0_test`, scaled to take value 1 in each cell. Suppose we
-        # have an error estimator `e`. Then this ensures `assemble(assemble(p0_test * e * dx) * dx) = assemble(e * dx)`
-        # (for piecewise constant and piecewise linear estimators `e`).
-        self.p0_space = FunctionSpace(eta_space.mesh(), "DG", 0)
-        self.vector_p0_space = VectorFunctionSpace(u_space.mesh(), "DG", 0)
-        self.p0_test = Constant(eta_space.mesh().num_cells()) * TestFunction(self.p0_space)
-
 
 class ExternalPressureGradientResidual(ShallowWaterMomentumResidualTerm):
     r"""
@@ -1063,63 +1049,7 @@ class ExternalPressureGradientResidual(ShallowWaterMomentumResidualTerm):
         return -f
 
     def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
-        total_h = self.get_total_depth(eta_old)
-
-        head = eta
-
-        v = self.p0_test
-        grad_eta_by_parts = self.eta_is_dg
-
-        f0 = 0
-        f1 = 0
-
-        if grad_eta_by_parts:
-            if uv is not None:
-                head_star = avg(head) + 0.5*sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
-            else:
-                head_star = avg(head)
-
-            f0 += g_grav * head_star * jump(v, n=self.normal[0]) * self.dS
-            f1 += g_grav * head_star * jump(v, n=self.normal[1]) * self.dS
-
-            for bnd_marker in self.boundary_markers:
-                funcs = bnd_conditions.get(bnd_marker)
-                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is not None:
-                    eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
-                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
-                    un_jump = inner(uv - uv_ext, self.normal)
-                    eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
-                    f0 += g_grav * eta_rie * v * self.normal[0] * ds_bnd
-                    f1 += g_grav * eta_rie * v * self.normal[1] * ds_bnd
-
-                if funcs is None or 'symm' in funcs:
-                    # assume land boundary
-                    # impermeability implies external un=0
-                    un_jump = inner(uv, self.normal)
-                    head_rie = head + sqrt(total_h/g_grav)*un_jump
-                    f0 += g_grav * head_rie * v * self.normal[0] * ds_bnd
-                    f1 += g_grav * head_rie * v * self.normal[1] * ds_bnd
-        else:
-            for bnd_marker in self.boundary_markers:
-                funcs = bnd_conditions.get(bnd_marker)
-                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is not None:
-                    eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
-                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
-                    un_jump = inner(uv - uv_ext, self.normal)
-                    eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
-                    f0 += g_grav * (eta_rie-head) * v * self.normal[0] * ds_bnd
-                    f1 += g_grav * (eta_rie-head) * v * self.normal[1] * ds_bnd
-
-        if f0 != 0 and f1 != 0:
-            F = Function(self.vector_p0_space)
-            F0 = Function(self.p0_space).interpolate(assemble(-f0))
-            F1 = Function(self.p0_space).interpolate(assemble(-f1))
-            F.dat.data[:, 0] = F0.dat.data
-            F.dat.data[:, 1] = F1.dat.data  # TODO: How can this be done in a cleaner, parallelisible way?
-
-            return F
+        return None
 
 
 class HUDivResidual(ShallowWaterContinuityResidualTerm):
@@ -1134,45 +1064,7 @@ class HUDivResidual(ShallowWaterContinuityResidualTerm):
         return -f
 
     def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
-        total_h = self.get_total_depth(eta_old)
-
-        v = self.p0_test
-        hu_by_parts = self.u_continuity in ['dg', 'hdiv']
-        f = 0
-
-        if hu_by_parts:
-            if self.eta_is_dg:
-                h = avg(total_h)
-                uv_rie = avg(uv) + sqrt(g_grav / h) * jump(eta, self.normal)
-                hu_star = h * uv_rie
-                f += inner(jump(v, n=self.normal), hu_star) * self.dS
-            for bnd_marker in self.boundary_markers:
-                funcs = bnd_conditions.get(bnd_marker)
-                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is not None:
-                    eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
-                    eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
-                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
-                    total_h_ext = self.get_total_depth(eta_ext_old)
-                    h_av = 0.5 * (total_h + total_h_ext)
-                    eta_jump = eta - eta_ext
-                    un_rie = 0.5 * inner(uv + uv_ext, self.normal) + sqrt(g_grav / h_av) * eta_jump
-                    un_jump = inner(uv_old - uv_ext_old, self.normal)
-                    eta_rie = 0.5 * (eta_old + eta_ext_old) + sqrt(h_av / g_grav) * un_jump
-                    h_rie = self.bathymetry + eta_rie
-                    f += h_rie * un_rie * v * ds_bnd
-        else:
-            if len(self.boundary_markers) != 0:
-                f = 0
-            for bnd_marker in self.boundary_markers:
-                funcs = bnd_conditions.get(bnd_marker)
-                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is None or 'un' in funcs:
-                    f += -total_h * dot(uv, self.normal) * v * ds_bnd
-
-        if f != 0:
-            F = Function(self.p0_space).interpolate(assemble(-f))
-            return F
+        return None
 
 
 class HorizontalAdvectionResidual(ShallowWaterMomentumResidualTerm):
@@ -1187,64 +1079,7 @@ class HorizontalAdvectionResidual(ShallowWaterMomentumResidualTerm):
             return -f
 
     def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
-
-        if self.options.use_nonlinear_equations:
-
-            v = self.p0_test
-            horiz_advection_by_parts = True
-
-            if horiz_advection_by_parts:
-                f0 = 0
-                f1 = 0
-                if self.u_continuity in ['dg', 'hdiv']:
-                    un_av = dot(avg(uv_old), self.normal('-'))
-                    # NOTE solver can stagnate
-                    # s = 0.5*(sign(un_av) + 1.0)
-                    # NOTE smooth sign change between [-0.02, 0.02], slow
-                    # s = 0.5*tanh(100.0*un_av) + 0.5
-                    # uv_up = uv('-')*s + uv('+')*(1-s)
-                    # NOTE mean flux
-                    uv_up = avg(uv)
-                    f0 += uv_up[0] * jump(v * uv_old, n=self.normal) * self.dS
-                    f1 += uv_up[1] * jump(v * uv_old, n=self.normal) * self.dS
-
-                    # Lax-Friedrichs stabilization
-                    if self.options.use_lax_friedrichs_velocity:
-                        uv_lax_friedrichs = fields_old.get('lax_friedrichs_velocity_scaling_factor')
-                        gamma = 0.5*abs(un_av)*uv_lax_friedrichs
-                        f0 += gamma * jump(v * uv[0]) * self.dS
-                        f1 += gamma * jump(v * uv[1]) * self.dS
-                        for bnd_marker in self.boundary_markers:
-                            funcs = bnd_conditions.get(bnd_marker)
-                            ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                            if funcs is None:
-                                # impose impermeability with mirror velocity
-                                n = self.normal
-                                uv_ext = uv - 2*dot(uv, n)*n
-                                gamma = 0.5*abs(dot(uv_old, n))*uv_lax_friedrichs
-                                f0 += gamma * v * (uv[0]-uv_ext[0])*ds_bnd
-                                f1 += gamma * v * (uv[1]-uv_ext[1])*ds_bnd
-                for bnd_marker in self.boundary_markers:
-                    funcs = bnd_conditions.get(bnd_marker)
-                    ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                    if funcs is not None:
-                        eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
-                        eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
-                        # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
-                        eta_jump = eta_old - eta_ext_old
-                        total_h = self.get_total_depth(eta_old)
-                        un_rie = 0.5*inner(uv_old + uv_ext_old, self.normal) + sqrt(g_grav/total_h)*eta_jump
-                        uv_av = 0.5*(uv_ext + uv)
-                        f0 += uv_av[0] * un_rie * ds_bnd
-                        f1 += uv_av[1] * un_rie * ds_bnd
-                if f0 != 0 and f1 != 0:
-                    F = Function(self.vector_p0_space)
-                    F0 = Function(self.p0_space).interpolate(assemble(-f0))
-                    F1 = Function(self.p0_space).interpolate(assemble(-f1))
-                    F.dat.data[:, 0] = F0.dat.data
-                    F.dat.data[:, 1] = F1.dat.data  # TODO: How can this be done in a cleaner, parallelisible way?
-
-                    return F
+        return None
 
 
 class HorizontalViscosityResidual(ShallowWaterMomentumResidualTerm):
@@ -1284,9 +1119,6 @@ class HorizontalViscosityResidual(ShallowWaterMomentumResidualTerm):
             return -f
 
     def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
-
-        # TODO: How to write this in strong form?
-
         return None
 
 
@@ -1421,21 +1253,23 @@ class TurbineDragResidual(ShallowWaterMomentumResidualTerm):
 
     """
     def residual_int(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
-        return None
-
-    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         total_h = self.get_total_depth(eta_old)
         f = 0
+        mesh = uv.function_space().mesh()
+        p0_test = Constant(mesh.num_cells()) * TestFunction(FunctionSpace(mesh, "DG", 0))
 
         if self.options.tidal_turbine_farms != {}:
             for subdomain_id, farm_options in self.options.tidal_turbine_farms.items():
                 density = farm_options.turbine_density
                 C_T = farm_options.turbine_options.thrust_coefficient
-                A_T = pi * (farm_options.turbine_options.diameter/2.)**2
-                C_D = (C_T * A_T * density)/2.
+                A_T = pi * (farm_options.turbine_options.diameter / 2.) ** 2
+                C_D = (C_T * A_T * density) / 2.
                 unorm = sqrt(dot(uv_old, uv_old))
-                f += C_D * unorm * inner(self.p0_test, uv) / total_h * self.dx(subdomain_id)
+                f += C_D * unorm * inner(p0_test, uv) / total_h * self.dx(subdomain_id)
             return assemble(-f)
+
+    def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
+        return None
 
 
 class MomentumSourceResidual(ShallowWaterMomentumResidualTerm):

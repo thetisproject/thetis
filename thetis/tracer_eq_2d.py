@@ -304,56 +304,7 @@ class HorizontalAdvectionResidual(TracerResidualTerm):
             return -f
 
     def residual_bdy(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        if fields_old.get('uv_2d') is not None:
-            elev = fields_old['elev_2d']
-            uv = fields_old['uv_2d']
-
-            uv_p1 = fields_old.get('uv_p1')
-            uv_mag = fields_old.get('uv_mag')
-            # FIXME is this an option?
-            lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
-
-            f = 0
-            if self.horizontal_dg:
-                # add interface term
-                uv_av = avg(uv)
-                un_av = (uv_av[0]*self.normal('-')[0] +
-                         uv_av[1]*self.normal('-')[1])
-                s = 0.5*(sign(un_av) + 1.0)
-                c_up = solution('-')*s + solution('+')*(1-s)
-
-                f += c_up*(jump(self.p0_test, uv[0] * self.normal[0]) +
-                           jump(self.p0_test, uv[1] * self.normal[1])) * self.dS
-                # Lax-Friedrichs stabilization
-                if self.use_lax_friedrichs:
-                    if uv_p1 is not None:
-                        gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
-                                         avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
-                    elif uv_mag is not None:
-                        gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
-                    else:
-                        gamma = 0.5*abs(un_av)*lax_friedrichs_factor
-                    f += gamma*dot(jump(self.p0_test), jump(solution))*self.dS
-                if bnd_conditions is not None:
-                    for bnd_marker in self.boundary_markers:
-                        funcs = bnd_conditions.get(bnd_marker)
-                        ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                        c_in = solution
-                        if funcs is None:
-                            f += c_in * (uv[0]*self.normal[0] +
-                                         uv[1]*self.normal[1])*self.p0_test*ds_bnd
-                        else:
-                            c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
-                            uv_av = 0.5*(uv + uv_ext)
-                            un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
-                            s = 0.5*(sign(un_av) + 1.0)
-                            c_up = c_in*s + c_ext*(1-s)
-                            f += c_up*(uv_av[0]*self.normal[0] +
-                                       uv_av[1]*self.normal[1])*self.p0_test*ds_bnd
-
-            if f != 0:
-                F = Function(self.p0_space).interpolate(assemble(-f))
-                return F
+        return None
 
 
 class HorizontalDiffusionResidual(TracerResidualTerm):
@@ -377,38 +328,7 @@ class HorizontalDiffusionResidual(TracerResidualTerm):
             return -f
 
     def residual_bdy(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        if fields_old.get('diffusivity_h') is not None:
-            diffusivity_h = fields_old['diffusivity_h']
-            diff_tensor = as_matrix([[diffusivity_h, 0, ],
-                                     [0, diffusivity_h, ]])
-
-            f = 0
-            if self.horizontal_dg:
-                # Interior Penalty method by
-                # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
-                # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
-                # k_max/k_min  - max/min diffusivity
-                # p            - polynomial degree
-                # Theta        - min angle of triangles
-                # assuming k_max/k_min=2, Theta=pi/3
-                # sigma = 6.93 = 3.5*p*(p+1)
-
-                degree_h = self.function_space.ufl_element().degree()
-                sigma = 5.0*degree_h*(degree_h + 1)/self.cellsize
-                if degree_h == 0:
-                    sigma = 1.5 / self.cellsize
-                alpha = avg(sigma)
-                ds_interior = self.dS
-                f += alpha*inner(jump(self.p0_test, self.normal),
-                                 dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
-                f += -inner(avg(dot(diff_tensor, grad(self.p0_test))),
-                            jump(solution, self.normal))*ds_interior
-                f += -inner(jump(self.p0_test, self.normal),
-                            avg(dot(diff_tensor, grad(solution))))*ds_interior
-
-            if f != 0:
-                F = Function(self.p0_space).interpolate(assemble(-f))
-                return F
+        return None
 
 
 class SourceResidual(TracerResidualTerm):
