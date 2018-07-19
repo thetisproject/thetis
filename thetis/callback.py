@@ -612,14 +612,19 @@ class InteriorResidualCallback(ErrorEstimateCallback):
             :class:`.DiagnosticCallback`.
         """
         def interior_residual():
-            res_u, res_e = solver_obj.timestepper.interior_residual()
-            R = Function(solver_obj.fields.solution_2d.function_space())
-            Ru, Re = R.split()
-            Ru.rename("momentum residual")
-            Re.rename("continuity residual")
-            Ru.interpolate(res_u)
-            Re.interpolate(res_e)
-            return Ru, Re
+            R = Function(solver_obj.fields.solution_2d.function_space(), name="residual")
+            if solver_obj.options.tracer_only:
+                res = solver_obj.timestepper.tracer_integrator.interior_residual()
+                R.interpolate(res)
+                return R
+            else:
+                res_u, res_e = solver_obj.timestepper.interior_residual()
+                Ru, Re = R.split()
+                Ru.rename("momentum residual")
+                Re.rename("continuity residual")
+                Ru.interpolate(res_u)
+                Re.interpolate(res_e)
+                return Ru, Re
 
         super(InteriorResidualCallback, self).__init__(interior_residual, solver_obj, **kwargs)
 
@@ -638,22 +643,28 @@ class BoundaryResidualCallback(ErrorEstimateCallback):
             :class:`.DiagnosticCallback`.
         """
         def boundary_residual():
-            res_u1, res_u2, res_e = solver_obj.timestepper.boundary_residual()
-            fs = solver_obj.fields.solution_2d.function_space()
-            mesh = solver_obj.mesh2d
-            els = fs.ufl_element().sub_elements()
-            V1 = FunctionSpace(mesh, els[0].family(), els[0].degree())
-            V2 = FunctionSpace(mesh, els[1].family(), els[1].degree())
-            R = Function(V1 * V1 * V2)
-            Ru1, Ru2, Re = R.split()
-            Ru1.rename("momentum residual 1")
-            Ru2.rename("momentum residual 2")
-            Re.rename("continuity residual")
+            if solver_obj.options.tracer_only:
+                R = Function(solver_obj.solution_2d.function_space(), name="residual")
+                res = solver_obj.timestepper.tracer_integrator.boundary_residual()
+                R.interpolate(res)
+                return R
+            else:
+                res_u1, res_u2, res_e = solver_obj.timestepper.boundary_residual()
+                fs = solver_obj.fields.solution_2d.function_space()
+                mesh = solver_obj.mesh2d
+                els = fs.ufl_element().sub_elements()
+                V1 = FunctionSpace(mesh, els[0].family(), els[0].degree())
+                V2 = FunctionSpace(mesh, els[1].family(), els[1].degree())
+                R = Function(V1 * V1 * V2)
+                Ru1, Ru2, Re = R.split()
+                Ru1.rename("momentum residual 1")
+                Ru2.rename("momentum residual 2")
+                Re.rename("continuity residual")
 
-            Ru1.interpolate(res_u1)
-            Ru2.interpolate(res_u2)
-            Re.interpolate(res_e)
-            return Ru1, Ru2, Re
+                Ru1.interpolate(res_u1)
+                Ru2.interpolate(res_u2)
+                Re.interpolate(res_e)
+                return Ru1, Ru2, Re
 
         super(BoundaryResidualCallback, self).__init__(boundary_residual, solver_obj, **kwargs)
 
