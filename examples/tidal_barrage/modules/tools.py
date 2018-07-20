@@ -67,3 +67,6 @@ class LagoonCallback(DiagnosticCallback):
         return [lagoon_operation.lagoon(self.time_operation, self.solver_obj.options.timestep,
                                         self.elevation_mean["inner"], self.elevation_mean["outer"],
                                         self.status, self.control, self.parameters, self.boundaries)]
+
+    def message_str(self, *args):
+        super().message_str(*args)
