@@ -516,14 +516,24 @@ class FlowSolver2d(FrozenClass):
 
         :arg float cputime: Measured CPU time
         """
-        norm_h = norm(self.fields.solution_2d.split()[1])
-        norm_u = norm(self.fields.solution_2d.split()[0])
+        if self.options.tracer_only:
+            norm_q = norm(self.fields.tracer_2d)
 
-        line = ('{iexp:5d} {i:5d} T={t:10.2f} '
-                'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
-        print_output(line.format(iexp=self.i_export, i=self.iteration,
-                                 t=self.simulation_time, e=norm_h,
-                                 u=norm_u, cpu=cputime))
+            line = ('{iexp:5d} {i:5d} T={t:10.2f} '
+                    'tracer norm: {q:10.4f} {cpu:5.2f}')
+
+            print_output(line.format(iexp=self.i_export, i=self.iteration,
+                                     t=self.simulation_time, q=norm_q,
+                                     cpu=cputime))
+        else:
+            norm_h = norm(self.fields.solution_2d.split()[1])
+            norm_u = norm(self.fields.solution_2d.split()[0])
+
+            line = ('{iexp:5d} {i:5d} T={t:10.2f} '
+                    'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
+            print_output(line.format(iexp=self.i_export, i=self.iteration,
+                                     t=self.simulation_time, e=norm_h,
+                                     u=norm_u, cpu=cputime))
         sys.stdout.flush()
 
     def iterate(self, update_forcings=None,
