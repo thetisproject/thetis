@@ -1256,17 +1256,18 @@ class TurbineDragResidual(ShallowWaterMomentumResidualTerm):
         total_h = self.get_total_depth(eta_old)
         f = 0
         mesh = uv.function_space().mesh()
-        p0_test = Constant(mesh.num_cells()) * TestFunction(FunctionSpace(mesh, "DG", 0))
+        p0_test = TestFunction(FunctionSpace(mesh, "DG", 0))
 
         if self.options.tidal_turbine_farms != {}:
             for subdomain_id, farm_options in self.options.tidal_turbine_farms.items():
+                indicator = assemble(p0_test * dx(subdomain_id))
                 density = farm_options.turbine_density
                 C_T = farm_options.turbine_options.thrust_coefficient
                 A_T = pi * (farm_options.turbine_options.diameter / 2.) ** 2
                 C_D = (C_T * A_T * density) / 2.
                 unorm = sqrt(dot(uv_old, uv_old))
-                f += C_D * unorm * inner(p0_test, uv) / total_h * self.dx(subdomain_id)
-            return assemble(-f)
+                f += C_D * unorm * indicator * uv / total_h
+            return -f
 
     def residual_bdy(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
         return None

@@ -557,7 +557,7 @@ class ErrorEstimateCallback(DiagnosticCallback):
     """Base class for callbacks that evaluate an error estimator"""
     variable_names = ['error estimate']
 
-    def __init__(self, error_type, solver_obj, **kwargs):
+    def __init__(self, error_type, solver_obj, export_to_pvd=False, **kwargs):
         """
         Creates error estimate evaluation callback object
 
@@ -573,6 +573,9 @@ class ErrorEstimateCallback(DiagnosticCallback):
         self.estimator = error_type
         self.directory = solver_obj.options.output_directory
         self.ix = 0
+        self.export_to_pvd = export_to_pvd
+        if self.export_to_pvd:
+            self.plot_file = File(self.directory + 'ErrorEstimator2d.pvd')
 
     def __call__(self):
         f = self.estimator()
@@ -582,9 +585,13 @@ class ErrorEstimateCallback(DiagnosticCallback):
             with DumbCheckpoint(self.directory + 'hdf5/' + self.label + index, mode=FILE_CREATE) as dc:
                 if isinstance(f, FiredrakeFunction):
                     dc.store(f)
+                    if self.export_to_pvd:
+                        self.plot_file.write(f, time=float(self.ix))
                 else:
-                    for fi in list(f):
-                        dc.store(fi)
+                    dc.store(f[0])
+                    dc.store(f[1])
+                    if self.export_to_pvd:
+                        self.plot_file.write(f[0], f[1], time=float(self.ix))
                 dc.close()
         self.ix += 1
 

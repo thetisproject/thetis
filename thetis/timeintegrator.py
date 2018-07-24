@@ -393,6 +393,7 @@ class SteadyState(TimeIntegrator):
         self.F = self.equation.residual('all', solution, solution, fields, fields, bnd_conditions)
         self.update_solver()
 
+        self.solution_2d = solution
         self.bnd_conditions = bnd_conditions
 
     def update_solver(self):
@@ -421,13 +422,11 @@ class SteadyState(TimeIntegrator):
         Evaluate shallow water strong residual on element interiors.
         """
         fields = self.fields
-        solution = fields.solution_2d
-        fields_old = self.fields_old
-        solution_old = self.solution_old
+        solution = self.solution_2d
 
         if self.equation.__class__.__name__ == "ShallowWaterEquations":
-            mom_res = -self.momentum_residual.interior_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
-            cty_res = -self.continuity_residual.interior_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
+            mom_res = -self.momentum_residual.interior_residual(label, solution, solution, fields, fields, self.bnd_conditions)
+            cty_res = -self.continuity_residual.interior_residual(label, solution, solution, fields, fields, self.bnd_conditions)
 
             return mom_res, cty_res
 
