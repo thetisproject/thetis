@@ -30,9 +30,11 @@ import netCDF4
 
 rho_air = 1.22  # kg/m3
 
+COORDSYS = coordsys.UTM_ZONE10
 
 def to_latlon(x, y, positive_lon=False):
-    lon, lat = coordsys.convert_coords(coordsys.SPCS_N_OR, coordsys.LL_WGS84, x, y)
+    lon, lat = coordsys.convert_coords(COORDSYS,
+                                       coordsys.LL_WGS84, x, y)
     if positive_lon and lon < 0.0:
         lon += 360.
     return lat, lon
@@ -84,7 +86,7 @@ class WRFInterpolator(object):
         self.time_interpolator = interpolation.LinearTimeInterpolator(self.timesearch_obj, self.reader)
         lon = self.grid_interpolator.mesh_lonlat[:, 0]
         lat = self.grid_interpolator.mesh_lonlat[:, 1]
-        self.vect_rotator = coordsys.VectorCoordSysRotation(coordsys.LL_WGS84, coordsys.SPCS_N_OR, lon, lat)
+        self.vect_rotator = coordsys.VectorCoordSysRotation(coordsys.LL_WGS84, COORDSYS, lon, lat)
 
     def set_fields(self, time):
         """
@@ -99,7 +101,15 @@ class WRFInterpolator(object):
 
 
 def test():
-    mesh2d = Mesh('mesh_cre-plume002.msh')
+    """
+    Tests atmospheric model data interpolation.
+
+    .. note::
+        The following files must be present
+        forcings/atm/wrf/wrf_air.2015_05_16.nc
+        forcings/atm/wrf/wrf_air.2015_05_17.nc
+    """
+    mesh2d = Mesh('mesh_cre-plume_02.msh')
     comm = mesh2d.comm
     p1 = FunctionSpace(mesh2d, 'CG', 1)
     p1v = VectorFunctionSpace(mesh2d, 'CG', 1)
@@ -110,7 +120,8 @@ def test():
     init_date = datetime.datetime(2015, 5, 16, tzinfo=sim_tz)
     pattern = 'forcings/atm/wrf/wrf_air.2015_*_*.nc'
 
-    wrf = WRFInterpolator(p1, windstress_2d, atmpressure_2d, pattern, init_date)
+    wrf = WRFInterpolator(p1, windstress_2d, atmpressure_2d, pattern,
+                          init_date)
 
     # create a naive interpolation for first file
     xy = SpatialCoordinate(p1.mesh())
@@ -134,7 +145,7 @@ def test():
     uwind = scipy.interpolate.griddata(grid_lonlat, grid_uwind, mesh_lonlat, method='linear')
     grid_vwind = ncfile['vwind'][itime, :, :].ravel()
     vwind = scipy.interpolate.griddata(grid_lonlat, grid_vwind, mesh_lonlat, method='linear')
-    vrot = coordsys.VectorCoordSysRotation(coordsys.LL_WGS84, coordsys.SPCS_N_OR, mesh_lonlat[:, 0], mesh_lonlat[:, 1])
+    vrot = coordsys.VectorCoordSysRotation(coordsys.LL_WGS84, COORDSYS, mesh_lonlat[:, 0], mesh_lonlat[:, 1])
     uwind, vwind = vrot(uwind, vwind)
     u_stress, v_stress = compute_wind_stress(uwind, vwind)
 
@@ -144,9 +155,12 @@ def test():
     assert np.allclose(u_stress, windstress_2d.dat.data_with_halos[:, 0])
 
     # write fields to disk for visualization
-    out_pres = File('tmp/atm_pressure.pvd')
-    out_wind = File('tmp/wind_stress.pvd')
-    hours = 24*3
+    pres_fn = 'tmp/atm_pressure.pvd'
+    wind_fn = 'tmp/wind_stress.pvd'
+    print('Saving output to {:} {:}'.format(pres_fn, wind_fn))
+    out_pres = File(pres_fn)
+    out_wind = File(wind_fn)
+    hours = 24*1.5
     granule = 4
     simtime = np.arange(granule*hours)*3600./granule
     i = 0
