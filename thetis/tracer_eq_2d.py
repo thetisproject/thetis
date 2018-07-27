@@ -271,43 +271,22 @@ class TracerEquation2D(Equation):
         self.add_term(SourceTerm(*args), 'source')
 
 
-class TracerResidualTerm(TracerTerm):
-    """
-    Generic term in the strong form advection diffusion equation.
-    """
-
-    def __init__(self, function_space,
-                 bathymetry=None, use_lax_friedrichs=True):
-        """
-        :arg function_space: :class:`FunctionSpace` where the solution belongs
-        :kwarg bathymetry: bathymetry of the domain
-        :type bathymetry: 3D :class:`Function` or :class:`Constant`
-        """
-        super(TracerResidualTerm, self).__init__(function_space)
-
-        # Create P0 spaces and an associated TestFunction `p0_test`, scaled to take value 1 in each cell. Suppose we
-        # have an error estimator `e`. Then this ensures `assemble(assemble(p0_test * e * dx) * dx) = assemble(e * dx)`
-        # (for piecewise constant and piecewise linear estimators `e`).
-        self.p0_space = FunctionSpace(function_space.mesh(), "DG", 0)
-        self.p0_test = Constant(function_space.mesh().num_cells()) * TestFunction(self.p0_space)
-
-
-class HorizontalAdvectionResidual(TracerResidualTerm):
+class HorizontalAdvectionResidual(TracerTerm):
     r"""
     Advection of tracer term, :math:`\bar{\textbf{u}} \cdot \nabla T`
     """
-    def residual_int(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual_cell(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('uv_2d') is not None:
             uv = fields_old['uv_2d']
             f = div(solution*uv)
 
             return -f
 
-    def residual_bdy(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual_edge(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         return None
 
 
-class HorizontalDiffusionResidual(TracerResidualTerm):
+class HorizontalDiffusionResidual(TracerTerm):
     r"""
     Horizontal diffusion term :math:`-\nabla_h \cdot (\mu_h \nabla_h T)`
 
@@ -316,7 +295,7 @@ class HorizontalDiffusionResidual(TracerResidualTerm):
     Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
 
     """
-    def residual_int(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual_cell(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_h') is not None:
             diffusivity_h = fields_old['diffusivity_h']
             diff_tensor = as_matrix([[diffusivity_h, 0, ],
@@ -327,20 +306,20 @@ class HorizontalDiffusionResidual(TracerResidualTerm):
 
             return -f
 
-    def residual_bdy(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual_edge(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         return None
 
 
-class SourceResidual(TracerResidualTerm):
+class SourceResidual(TracerTerm):
     """
     Generic source term
     """
-    def residual_int(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual_cell(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         source = fields_old.get('source')
         if source is not None:
             return source
 
-    def residual_bdy(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual_edge(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         return None
 
 
@@ -362,18 +341,18 @@ class TracerResidual2D(Equation):
         self.add_term(HorizontalDiffusionResidual(*args), 'explicit')
         self.add_term(SourceResidual(*args), 'source')
 
-    def interior_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
+    def cell_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         f = 0
         for term in self.select_terms(label):
-            r = term.residual_int(solution, solution_old, fields, fields_old, bnd_conditions)
+            r = term.residual_cell(solution, solution_old, fields, fields_old, bnd_conditions)
             if r is not None:
                 f += r
         return f
 
-    def boundary_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
+    def edge_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         f = 0
         for term in self.select_terms(label):
-            r = term.residual_bdy(solution, solution_old, fields, fields_old, bnd_conditions)
+            r = term.residual_edge(solution, solution_old, fields, fields_old, bnd_conditions)
             if r is not None:
                 f += r
         return f

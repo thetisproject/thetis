@@ -453,7 +453,7 @@ class HorizontalAdvectionResidual(TracerResidualTerm):
     r"""
     Horizontal advection term :math:`\nabla_h \cdot (\textbf{u} T)`
     """
-    def residual_int(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual_cell(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('uv_3d') is not None:
 
             uv = fields_old['uv_3d']
@@ -461,11 +461,11 @@ class HorizontalAdvectionResidual(TracerResidualTerm):
             if uv_depth_av is not None:
                 uv = uv + uv_depth_av
 
-            f = div(grad(solution*uv))
+            f = div(solution*uv)
 
             return -f
 
-    def residual_bdy(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual_edge(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         return None
 
 
@@ -476,10 +476,10 @@ class VerticalAdvectionResidual(TracerResidualTerm):
     In the case of ALE moving mesh we substitute :math:`w` with :math:`w - w_m`,
     :math:`w_m` being the mesh velocity.
     """
-    def residual_int(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual_cell(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         raise NotImplementedError
 
-    def residual_bdy(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual_edge(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         raise NotImplementedError
 
 
@@ -491,7 +491,7 @@ class HorizontalDiffusionResidual(TracerResidualTerm):
     interior penalty Galerkin methods. Journal of Computational and Applied
     Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
     """
-    def residual_int(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual_cell(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_h') is not None:
             diffusivity_h = fields_old['diffusivity_h']
             diff_tensor = as_matrix([[diffusivity_h, 0, 0],
@@ -503,7 +503,7 @@ class HorizontalDiffusionResidual(TracerResidualTerm):
 
             return -f
 
-    def residual_bdy(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual_edge(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         return None
 
 
@@ -511,9 +511,9 @@ class VerticalDiffusionResidual(TracerResidualTerm):
     r"""
     Vertical diffusion term :math:`-\frac{\partial}{\partial z} \Big(\mu \frac{T}{\partial z}\Big)`
     """
-    def residual_int(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual_cell(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         raise NotImplementedError
-    def residual_bdy(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual_edge(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         raise NotImplementedError
 
 
@@ -521,12 +521,12 @@ class SourceResidual(TracerResidualTerm):
     """
     Generic source term
     """
-    def residual_int(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual_cell(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         source = fields_old.get('source')
         if source is not None:
             return source
 
-    def residual_bdy(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+    def residual_edge(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         return None
 
 
@@ -558,22 +558,18 @@ class TracerResidual(Equation):
         # self.add_term(VerticalDiffusionResidual(*args), 'explicit')   # TODO
         self.add_term(SourceResidual(*args), 'source')
 
-    def interior_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
-        uv, eta = solution.split()
-        uv_old, eta_old = solution_old.split()
+    def cell_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         f = 0
         for term in self.select_terms(label):
-            r = term.residual_int(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+            r = term.residual_cell(solution, solution_old, fields, fields_old, bnd_conditions)
             if r is not None:
                 f += r
         return f
 
-    def boundary_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
-        uv, eta = solution.split()
-        uv_old, eta_old = solution_old.split()
+    def edge_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         f = 0
         for term in self.select_terms(label):
-            r = term.residual_bdy(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+            r = term.residual_edge(solution, solution_old, fields, fields_old, bnd_conditions)
             if r is not None:
                 f += r
         return f

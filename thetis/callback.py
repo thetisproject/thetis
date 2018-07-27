@@ -605,14 +605,14 @@ class ErrorEstimateCallback(DiagnosticCallback):
         return line
 
 
-class InteriorResidualCallback(ErrorEstimateCallback):
-    """Callback which evaluates strong residual on element interiors."""
-    name = 'interior residual'
-    label = 'InteriorResidual2d_'
+class CellResidualCallback(ErrorEstimateCallback):
+    """Callback which evaluates strong residual on element cells."""
+    name = 'cell residual'
+    label = 'CellResidual2d_'
 
     def __init__(self, solver_obj, **kwargs):
         """
-        Creates error estimator corresponding to the strong residual on element interiors.
+        Creates error estimator corresponding to the strong residual on element cells.
 
         :param solver_obj: Thetis solver object.
         :param kwargs: any additional keyword arguments, see
@@ -625,12 +625,12 @@ class InteriorResidualCallback(ErrorEstimateCallback):
                                                                              solver_obj.fields.tracer_2d,
                                                                              solver_obj.fields,
                                                                              solver_obj.options.timestep)
-                res = tracer_integrator.interior_residual()
+                res = tracer_integrator.cell_residual()
                 R.interpolate(res)
                 return R
             else:
                 R = Function(solver_obj.fields.solution_2d.function_space(), name="residual")
-                res_u, res_e = solver_obj.timestepper.interior_residual()
+                res_u, res_e = solver_obj.timestepper.cell_residual()
                 Ru, Re = R.split()
                 Ru.rename("momentum residual")
                 Re.rename("continuity residual")
@@ -638,17 +638,17 @@ class InteriorResidualCallback(ErrorEstimateCallback):
                 Re.interpolate(res_e)
                 return Ru, Re
 
-        super(InteriorResidualCallback, self).__init__(cell_residual, solver_obj, **kwargs)
+        super(CellResidualCallback, self).__init__(cell_residual, solver_obj, **kwargs)
 
 
-class BoundaryResidualCallback(ErrorEstimateCallback):
-    """Callback which evaluates strong residual across element boundaries."""
-    name = 'boundary residual'
-    label = 'BoundaryResidual2d_'
+class EdgeResidualCallback(ErrorEstimateCallback):
+    """Callback which evaluates strong residual across element edges."""
+    name = 'edge residual'
+    label = 'EdgeResidual2d_'
 
     def __init__(self, solver_obj, **kwargs):
         """
-        Creates error estimator corresponding to the strong residual across element boundaries.
+        Creates error estimator corresponding to the strong residual across element edges.
 
         :param solver_obj: Thetis solver object.
         :param kwargs: any additional keyword arguments, see
@@ -656,12 +656,16 @@ class BoundaryResidualCallback(ErrorEstimateCallback):
         """
         def edge_residual():
             if solver_obj.options.tracer_only:
-                R = Function(solver_obj.solution_2d.function_space(), name="residual")
-                res = solver_obj.timestepper.tracer_integrator.boundary_residual()
+                R = Function(solver_obj.fields.tracer_2d.function_space(), name="residual")
+                tracer_integrator = solver_obj.timestepper.tracer_integrator(solver_obj.eq_tracer,
+                                                                             solver_obj.fields.tracer_2d,
+                                                                             solver_obj.fields,
+                                                                             solver_obj.options.timestep)
+                res = tracer_integrator.edge_residual()
                 R.interpolate(res)
                 return R
             else:
-                res_u1, res_u2, res_e = solver_obj.timestepper.boundary_residual()
+                res_u1, res_u2, res_e = solver_obj.timestepper.edge_residual()
                 fs = solver_obj.fields.solution_2d.function_space()
                 mesh = solver_obj.mesh2d
                 els = fs.ufl_element().sub_elements()
@@ -678,7 +682,7 @@ class BoundaryResidualCallback(ErrorEstimateCallback):
                 Re.interpolate(res_e)
                 return Ru1, Ru2, Re
 
-        super(BoundaryResidualCallback, self).__init__(edge_residual, solver_obj, **kwargs)
+        super(EdgeResidualCallback, self).__init__(edge_residual, solver_obj, **kwargs)
 
 
 class ExplicitErrorCallback(ErrorEstimateCallback):
@@ -691,8 +695,8 @@ class ExplicitErrorCallback(ErrorEstimateCallback):
 
     where
     :math:`\textbf{q}_h` is the approximation to the PDE solution,
-    :math:`\textbf{R}` denotes the strong residual on element interiors,
-    :math:`\textbf{r}` denotes the strong residual on element boundaries,
+    :math:`\textbf{R}` denotes the strong residual on cells (element interiors),
+    :math:`\textbf{r}` denotes the strong residual on edges,
     :math:`h_K` is the size of mesh element `K`.
     """
     name = 'explicit'
@@ -700,7 +704,7 @@ class ExplicitErrorCallback(ErrorEstimateCallback):
 
     def __init__(self, solver_obj, **kwargs):
         """
-        Creates error estimator corresponding to the strong residual across element boundaries.
+        Creates error estimator corresponding to the strong residual across edges.
 
         :param solver_obj: Thetis solver object.
         :param kwargs: any additional keyword arguments, see
@@ -716,17 +720,17 @@ class ExplicitErrorCallback(ErrorEstimateCallback):
             ee = Function(P0, name="explicit error")
             h = CellSize(mesh)
 
-            # Take a weighted sum of residual contributions from element interiors and element boundaries
+            # Take a weighted sum of residual contributions from element cells and element edges
             if solver_obj.options.tracer_only:
-                res = solver_obj.timestepper.tracer_integrator.interior_residual()
-                bres = solver_obj.timestepper.tracer_integrator.boundary_residual()
+                res = solver_obj.timestepper.tracer_integrator.cell_residual()
+                bres = solver_obj.timestepper.tracer_integrator.edge_residual()
             else:
-                res_u, res_e = solver_obj.timestepper.interior_residual()
+                res_u, res_e = solver_obj.timestepper.cell_residual()
                 res = inner(res_u, res_u) + res_e * res_e
-                bres_u1, bres_u2, bres_e = solver_obj.timestepper.boundary_residual()
+                bres_u1, bres_u2, bres_e = solver_obj.timestepper.edge_residual()
                 bres = bres_u1 * bres_u1 + bres_u2 * bres_u2 + bres_e * bres_e
-            print("interior residual norm = {i:.4e}".format(i=norm(res)))
-            print("boundary residual norm = {b:.4e}".format(b=norm(bres)))
+            print("cell residual norm = {i:.4e}".format(i=norm(res)))
+            print("edge residual norm = {b:.4e}".format(b=norm(bres)))
             ee.interpolate(assemble(v * sqrt(assemble(v * (res + bres / h) * dx)) * dx))
 
             return ee
