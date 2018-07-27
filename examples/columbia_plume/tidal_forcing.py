@@ -1,5 +1,6 @@
 import thetis.coordsys as coordsys
 import thetis.timezone as timezone
+from atm_forcing import to_latlon
 import uptide
 import uptide.tidal_netcdf
 from firedrake import *
@@ -9,13 +10,6 @@ import os
 tide_file = 'forcings/tide.fes2004.nc'
 msg = 'File {:} not found, download it from \nftp://ftp.legos.obs-mip.fr/pub/soa/maree/tide_model/global_solution/fes2004/'.format(tide_file)
 assert os.path.exists(tide_file), msg
-
-
-def to_latlon(x, y):
-    lon, lat = coordsys.convert_coords(coordsys.SPCS_N_OR, coordsys.LL_WGS84, x, y)
-    if lon < 0.0:
-        lon += 360.
-    return lat, lon
 
 
 class TidalBoundaryForcing(object):
@@ -44,7 +38,7 @@ class TidalBoundaryForcing(object):
             latlon = []
             for node in self.nodes:
                 x, y = fsx[node], fsy[node]
-                lat, lon = to_latlon(x, y)
+                lat, lon = to_latlon(x, y, positive_lon=True)
                 latlon.append((lat, lon))
             self.latlon = np.array(latlon)
 
@@ -72,7 +66,7 @@ class TidalBoundaryForcing(object):
 
 def test():
     import datetime
-    mesh2d = Mesh('mesh_cre-plume002.msh')
+    mesh2d = Mesh('mesh_cre-plume_02.msh')
     p1 = FunctionSpace(mesh2d, 'CG', 1)
     m2_field = Function(p1, name='elevation')
 
@@ -82,7 +76,7 @@ def test():
     tbnd = TidalBoundaryForcing(m2_field,
                                 init_date,
                                 constituents=['M2'],
-                                boundary_ids=[1, 2, 3])
+                                boundary_ids=[2, 5, 7])
     tbnd.set_tidal_field(0.0)
 
     out = File('tmp/tidal_elev.pvd')

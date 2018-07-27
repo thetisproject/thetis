@@ -30,9 +30,11 @@ import netCDF4
 
 rho_air = 1.22  # kg/m3
 
+COORDSYS = coordsys.UTM_ZONE10
 
 def to_latlon(x, y, positive_lon=False):
-    lon, lat = coordsys.convert_coords(coordsys.SPCS_N_OR, coordsys.LL_WGS84, x, y)
+    lon, lat = coordsys.convert_coords(COORDSYS,
+                                       coordsys.LL_WGS84, x, y)
     if positive_lon and lon < 0.0:
         lon += 360.
     return lat, lon
@@ -84,7 +86,7 @@ class WRFInterpolator(object):
         self.time_interpolator = interpolation.LinearTimeInterpolator(self.timesearch_obj, self.reader)
         lon = self.grid_interpolator.mesh_lonlat[:, 0]
         lat = self.grid_interpolator.mesh_lonlat[:, 1]
-        self.vect_rotator = coordsys.VectorCoordSysRotation(coordsys.LL_WGS84, coordsys.SPCS_N_OR, lon, lat)
+        self.vect_rotator = coordsys.VectorCoordSysRotation(coordsys.LL_WGS84, COORDSYS, lon, lat)
 
     def set_fields(self, time):
         """
@@ -99,7 +101,7 @@ class WRFInterpolator(object):
 
 
 def test():
-    mesh2d = Mesh('mesh_cre-plume002.msh')
+    mesh2d = Mesh('mesh_cre-plume_02.msh')
     comm = mesh2d.comm
     p1 = FunctionSpace(mesh2d, 'CG', 1)
     p1v = VectorFunctionSpace(mesh2d, 'CG', 1)
@@ -134,7 +136,7 @@ def test():
     uwind = scipy.interpolate.griddata(grid_lonlat, grid_uwind, mesh_lonlat, method='linear')
     grid_vwind = ncfile['vwind'][itime, :, :].ravel()
     vwind = scipy.interpolate.griddata(grid_lonlat, grid_vwind, mesh_lonlat, method='linear')
-    vrot = coordsys.VectorCoordSysRotation(coordsys.LL_WGS84, coordsys.SPCS_N_OR, mesh_lonlat[:, 0], mesh_lonlat[:, 1])
+    vrot = coordsys.VectorCoordSysRotation(coordsys.LL_WGS84, COORDSYS, mesh_lonlat[:, 0], mesh_lonlat[:, 1])
     uwind, vwind = vrot(uwind, vwind)
     u_stress, v_stress = compute_wind_stress(uwind, vwind)
 
