@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import scipy.interpolate
+from netCDF4 import Dataset
 from firedrake import *
 
 
@@ -29,10 +30,10 @@ def retrieve_bath_file(bathfile):
 def get_bathymetry(bathymetry_file, mesh2d, minimum_depth=5.0, project=False):
     """Interpolates/projects bathymetry from a raster to P1 field."""
     retrieve_bath_file(bathymetry_file)
-    d = np.load(bathymetry_file)
-    x = d['x']
-    y = d['y']
-    bath = d['value']
+    d =  Dataset(bathymetry_file)
+    x = d['x'][:]
+    y = d['y'][:]
+    bath = -d['bathymetry'][:].filled(minimum_depth)
     bath[~np.isfinite(bath)] = minimum_depth
     interpolator = scipy.interpolate.RegularGridInterpolator((x, y), bath.T)
 
@@ -77,9 +78,9 @@ def smooth_bathymetry(bathymetry, delta_sigma=1.0, r_max=0.0, bg_diff=0.0,
     delta_x = sqrt(CellVolume(mesh))
     bath_grad = grad(tmp_bath)
     grad_h = sqrt(bath_grad[0]**2 + bath_grad[1]**2)
-    hcc = grad_h * delta_x / (tmp_bath * delta_sigma)
+    hcc = (grad_h * delta_x)**exponent / (tmp_bath * delta_sigma)
 
-    cost = bg_diff + alpha*hcc**exponent
+    cost = bg_diff + alpha*hcc
     f = inner(solution - tmp_bath, test)*dx
     f += cost*inner(grad(solution), grad(test))*dx
 

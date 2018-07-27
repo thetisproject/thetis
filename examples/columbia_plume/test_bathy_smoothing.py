@@ -11,7 +11,7 @@ physical_constants['rho0'].assign(1000.0)
 physical_constants['z0_friction'].assign(0.005)
 
 nlayers = 15
-mesh2d = Mesh('mesh_cre-plume003.msh')
+mesh2d = Mesh('mesh_cre-plume_02.msh')
 print_output('Loaded mesh ' + mesh2d.name)
 
 nnodes = comm.allreduce(mesh2d.topology.num_vertices(), MPI.SUM)
@@ -23,20 +23,19 @@ t_end = 10*24*3600.
 t_export = 900.
 
 # bathymetry
-bathymetry_2d = get_bathymetry('bathymetry_300m.npz', mesh2d, project=False)
+bathymetry_2d = get_bathymetry('bathymetry_utm.nc', mesh2d, project=False)
 print('bath min: {:} max: {:}'.format(bathymetry_2d.dat.data.min(), bathymetry_2d.dat.data.max()))
 
 new_bathymetry_2d = smooth_bathymetry(
     bathymetry_2d, delta_sigma=1.0, bg_diff=0,
-    alpha=5e6, exponent=1,
-    minimum_depth=3.5, niter=20)
+    alpha=1e4, exponent=2.2,
+    minimum_depth=0.5, niter=10)
 
 out = File('bath.pvd')
 out.write(bathymetry_2d)
 out.write(new_bathymetry_2d)
 
-new_bathymetry_2d = smooth_bathymetry_at_bnd(new_bathymetry_2d, [1, 3])
-
+new_bathymetry_2d = smooth_bathymetry_at_bnd(new_bathymetry_2d, [2, 7])
 out.write(new_bathymetry_2d)
 
 
