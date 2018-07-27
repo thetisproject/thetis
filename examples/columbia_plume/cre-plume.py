@@ -37,8 +37,8 @@ physical_constants['z0_friction'].assign(0.005)
 
 reso_str = 'coarse'
 meshfile = {
-    'coarse': 'mesh_cre-plume002.msh',
-    'normal': 'mesh_cre-plume003.msh',
+    'coarse': 'no-coarse-mesh-has-been-generated-yet',
+    'normal': 'mesh_cre-plume_02.msh',
 }
 zgrid_params = {
     # nlayers, surf_elem_height, max_z_stretch
@@ -179,18 +179,10 @@ ramp_t = 12*3600.
 elev_ramp = conditional(le(bnd_time, ramp_t), bnd_time/ramp_t, 1.0)
 elev_bnd_expr = elev_ramp*elev_tide_2d
 
-north_bnd_id = 1
-west_bnd_id = 2
-south_bnd_id = 3
-river_bnd_id = 4
-
-# tags in new mesh
-# 1 2 "north"
-# 1 3 "island"
-# 1 4 "coast"
-# 1 5 "west"
-# 1 6 "river"
-# 1 7 "south"
+north_bnd_id = 2
+west_bnd_id = 5
+south_bnd_id = 7
+river_bnd_id = 6
 
 bnd_elev_updater = TidalBoundaryForcing(
     elev_tide_2d, init_date,
