@@ -166,7 +166,7 @@ class ForwardEuler(TimeIntegrator):
         for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
-    def interior_residual(self, label='all'):
+    def cell_residual(self, label='all'):
         """
         Evaluate shallow water strong residual on element interiors.
         """
@@ -176,8 +176,8 @@ class ForwardEuler(TimeIntegrator):
             mom_res = (uv - uv_old) / self.dt_const
             cty_res = (eta - eta_old) / self.dt_const
 
-            mom_res += -self.momentum_residual.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
-            cty_res += -self.continuity_residual.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
+            mom_res += -self.momentum_residual.cell_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
+            cty_res += -self.continuity_residual.cell_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
 
             return mom_res, cty_res
         elif self.equation.__class__.__name__ in ("TracerEquation", "TracerEquation2D"):
@@ -185,21 +185,21 @@ class ForwardEuler(TimeIntegrator):
             q_old = self.solution_old
             res = (q - q_old) / self.dt_const
 
-            res += -self.residual.interior_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
+            res += -self.residual.cell_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
 
             return res
 
-    def boundary_residual(self, label='all'):
+    def edge_residual(self, label='all'):
         """
         Evaluate shallow water strong residual on element boundaries.
         """
         if self.equation.__class__.__name__ == "ShallowWaterEquations":
-            mom_res0, mom_res1 = -self.momentum_residual.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
-            cty_res = -self.continuity_residual.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
+            mom_res0, mom_res1 = -self.momentum_residual.edge_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
+            cty_res = -self.continuity_residual.edge_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
 
             return mom_res0, mom_res1, cty_res
         elif self.equation.__class__.__name__ in ("TracerEquation", "TracerEquation2D"):
-            res = -self.residual.boundary_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
+            res = -self.residual.edge_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
 
             return res
         else:
@@ -295,7 +295,7 @@ class CrankNicolson(TimeIntegrator):
         for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
-    def interior_residual(self, label='all'):
+    def cell_residual(self, label='all'):
         """
         Evaluate shallow water strong residual on element interiors.
         """
@@ -319,10 +319,10 @@ class CrankNicolson(TimeIntegrator):
             mom_res = (uv - uv_old) / self.dt_const
             cty_res = (eta - eta_old) / self.dt_const
 
-            mom_res += -theta_const * self.momentum_residual.interior_residual(label, sol, sol_nl, f, f, self.bnd_conditions)
-            mom_res += -(1 - theta_const) * self.momentum_residual.interior_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
-            cty_res += -theta_const * self.continuity_residual.interior_residual(label, sol, sol_nl, f, f_old, self.bnd_conditions)
-            cty_res += -(1 - theta_const) * self.continuity_residual.interior_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
+            mom_res += -theta_const * self.momentum_residual.cell_residual(label, sol, sol_nl, f, f, self.bnd_conditions)
+            mom_res += -(1 - theta_const) * self.momentum_residual.cell_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
+            cty_res += -theta_const * self.continuity_residual.cell_residual(label, sol, sol_nl, f, f_old, self.bnd_conditions)
+            cty_res += -(1 - theta_const) * self.continuity_residual.cell_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
 
             return mom_res, cty_res
 
@@ -331,15 +331,15 @@ class CrankNicolson(TimeIntegrator):
             q_old = self.solution_old
             res = (q - q_old) / self.dt_const
 
-            res += -theta_const * self.residual.interior_residual(label, sol, sol_nl, f, f, self.bnd_conditions)
-            res += -(1 - theta_const) * self.residual.interior_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
+            res += -theta_const * self.residual.cell_residual(label, sol, sol_nl, f, f, self.bnd_conditions)
+            res += -(1 - theta_const) * self.residual.cell_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
 
             return res
 
         else:
             raise NotImplementedError
 
-    def boundary_residual(self, label='all'):
+    def edge_residual(self, label='all'):
         """
         Evaluate shallow water strong residual on element boundaries.
         """
@@ -356,12 +356,12 @@ class CrankNicolson(TimeIntegrator):
             sol_nl = sol
 
         if self.equation.__class__.__name__ == "ShallowWaterEquations":
-            mom_res0, mom_res1 = - self.momentum_residual.boundary_residual(label, sol, sol_nl, f, f, self.bnd_conditions)
-            cty_res = - self.continuity_residual.boundary_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
+            mom_res0, mom_res1 = - self.momentum_residual.edge_residual(label, sol, sol_nl, f, f, self.bnd_conditions)
+            cty_res = - self.continuity_residual.edge_residual(label, sol_old, sol_old, f_old, f_old, self.bnd_conditions)
 
             return mom_res0, mom_res1, cty_res
         elif self.equation.__class__.__name__ in ("TracerEquation", "TracerEquation2D"):
-            res = - self.residual.boundary_residual(label, sol, sol_nl, f, f, self.bnd_conditions)
+            res = - self.residual.edge_residual(label, sol, sol_nl, f, f, self.bnd_conditions)
 
             return res
 
@@ -417,7 +417,7 @@ class SteadyState(TimeIntegrator):
             update_forcings(t + self.dt)
         self.solver.solve()
 
-    def interior_residual(self, label='all'):
+    def cell_residual(self, label='all'):
         """
         Evaluate shallow water strong residual on element interiors.
         """
@@ -425,20 +425,20 @@ class SteadyState(TimeIntegrator):
         solution = self.solution_2d
 
         if self.equation.__class__.__name__ == "ShallowWaterEquations":
-            mom_res = -self.momentum_residual.interior_residual(label, solution, solution, fields, fields, self.bnd_conditions)
-            cty_res = -self.continuity_residual.interior_residual(label, solution, solution, fields, fields, self.bnd_conditions)
+            mom_res = -self.momentum_residual.cell_residual(label, solution, solution, fields, fields, self.bnd_conditions)
+            cty_res = -self.continuity_residual.cell_residual(label, solution, solution, fields, fields, self.bnd_conditions)
 
             return mom_res, cty_res
 
         elif self.equation.__class__.__name__ in ("TracerEquation", "TracerEquation2D"):
-            res = -self.residual.interior_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
+            res = -self.residual.cell_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
 
             return res
 
         else:
             raise NotImplementedError
 
-    def boundary_residual(self, label='all'):
+    def edge_residual(self, label='all'):
         """
         Evaluate shallow water strong residual on element boundaries.
         """
@@ -448,13 +448,13 @@ class SteadyState(TimeIntegrator):
         solution_old = self.solution_old
 
         if self.equation.__class__.__name__ == "ShallowWaterEquations":
-            mom_res0, mom_res1 = self.momentum_residual.boundary_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
-            cty_res = self.continuity_residual.boundary_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
+            mom_res0, mom_res1 = self.momentum_residual.edge_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
+            cty_res = self.continuity_residual.edge_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
 
             return mom_res0, mom_res1, cty_res
 
         elif self.equation.__class__.__name__ in ("TracerEquation", "TracerEquation2D"):
-            res = -self.residual.boundary_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
+            res = -self.residual.edge_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
 
             return res
 
@@ -628,10 +628,10 @@ class PressureProjectionPicard(TimeIntegrator):
         for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
-    def interior_residual(self, label='all'):
+    def cell_residual(self, label='all'):
         raise NotImplementedError
 
-    def boundary_residual(self, label='all'):
+    def edge_residual(self, label='all'):
         raise NotImplementedError
 
 
@@ -782,10 +782,10 @@ class LeapFrogAM3(TimeIntegrator):
             self.eval_rhs()
             self.correct()
 
-    def interior_residual(self, label='all'):
+    def cell_residual(self, label='all'):
         raise NotImplementedError
 
-    def boundary_residual(self, label='all'):
+    def edge_residual(self, label='all'):
         raise NotImplementedError
 
 
@@ -945,8 +945,8 @@ class SSPRK22ALE(TimeIntegrator):
             self.prepare_stage(i_stage, t, update_forcings)
             self.solve_stage(i_stage)
 
-    def interior_residual(self, label='all'):
+    def cell_residual(self, label='all'):
         raise NotImplementedError
 
-    def boundary_residual(self, label='all'):
+    def edge_residual(self, label='all'):
         raise NotImplementedError
