@@ -28,8 +28,8 @@ print('bath min: {:} max: {:}'.format(bathymetry_2d.dat.data.min(), bathymetry_2
 
 new_bathymetry_2d = smooth_bathymetry(
     bathymetry_2d, delta_sigma=1.0, bg_diff=0,
-    alpha=1e4, exponent=2.2,
-    minimum_depth=0.5, niter=10)
+    alpha=1e2, exponent=2.5,
+    minimum_depth=3.5, niter=30)
 
 out = File('bath.pvd')
 out.write(bathymetry_2d)

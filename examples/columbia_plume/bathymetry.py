@@ -78,7 +78,7 @@ def smooth_bathymetry(bathymetry, delta_sigma=1.0, r_max=0.0, bg_diff=0.0,
     delta_x = sqrt(CellVolume(mesh))
     bath_grad = grad(tmp_bath)
     grad_h = sqrt(bath_grad[0]**2 + bath_grad[1]**2)
-    hcc = (grad_h * delta_x)**exponent / (tmp_bath * delta_sigma)
+    hcc = (grad_h * delta_x)**exponent / (tmp_bath**0.5 * delta_sigma)
 
     cost = bg_diff + alpha*hcc
     f = inner(solution - tmp_bath, test)*dx
