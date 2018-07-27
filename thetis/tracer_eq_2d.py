@@ -299,7 +299,7 @@ class HorizontalAdvectionResidual(TracerResidualTerm):
     def residual_int(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('uv_2d') is not None:
             uv = fields_old['uv_2d']
-            f = div(grad(solution*uv))
+            f = div(solution*uv)
 
             return -f
 
@@ -363,21 +363,17 @@ class TracerResidual2D(Equation):
         self.add_term(SourceResidual(*args), 'source')
 
     def interior_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
-        uv, eta = solution.split()
-        uv_old, eta_old = solution_old.split()
         f = 0
         for term in self.select_terms(label):
-            r = term.residual_int(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+            r = term.residual_int(solution, solution_old, fields, fields_old, bnd_conditions)
             if r is not None:
                 f += r
         return f
 
     def boundary_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
-        uv, eta = solution.split()
-        uv_old, eta_old = solution_old.split()
         f = 0
         for term in self.select_terms(label):
-            r = term.residual_bdy(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+            r = term.residual_bdy(solution, solution_old, fields, fields_old, bnd_conditions)
             if r is not None:
                 f += r
         return f

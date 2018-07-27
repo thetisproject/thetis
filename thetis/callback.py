@@ -618,13 +618,18 @@ class InteriorResidualCallback(ErrorEstimateCallback):
         :param kwargs: any additional keyword arguments, see
             :class:`.DiagnosticCallback`.
         """
-        def interior_residual():
-            R = Function(solver_obj.fields.solution_2d.function_space(), name="residual")
+        def cell_residual():
             if solver_obj.options.tracer_only:
-                res = solver_obj.timestepper.tracer_integrator.interior_residual()
+                R = Function(solver_obj.fields.tracer_2d.function_space(), name="residual")
+                tracer_integrator = solver_obj.timestepper.tracer_integrator(solver_obj.eq_tracer,
+                                                                             solver_obj.fields.tracer_2d,
+                                                                             solver_obj.fields,
+                                                                             solver_obj.options.timestep)
+                res = tracer_integrator.interior_residual()
                 R.interpolate(res)
                 return R
             else:
+                R = Function(solver_obj.fields.solution_2d.function_space(), name="residual")
                 res_u, res_e = solver_obj.timestepper.interior_residual()
                 Ru, Re = R.split()
                 Ru.rename("momentum residual")
@@ -633,7 +638,7 @@ class InteriorResidualCallback(ErrorEstimateCallback):
                 Re.interpolate(res_e)
                 return Ru, Re
 
-        super(InteriorResidualCallback, self).__init__(interior_residual, solver_obj, **kwargs)
+        super(InteriorResidualCallback, self).__init__(cell_residual, solver_obj, **kwargs)
 
 
 class BoundaryResidualCallback(ErrorEstimateCallback):
@@ -649,7 +654,7 @@ class BoundaryResidualCallback(ErrorEstimateCallback):
         :param kwargs: any additional keyword arguments, see
             :class:`.DiagnosticCallback`.
         """
-        def boundary_residual():
+        def edge_residual():
             if solver_obj.options.tracer_only:
                 R = Function(solver_obj.solution_2d.function_space(), name="residual")
                 res = solver_obj.timestepper.tracer_integrator.boundary_residual()
@@ -673,7 +678,7 @@ class BoundaryResidualCallback(ErrorEstimateCallback):
                 Re.interpolate(res_e)
                 return Ru1, Ru2, Re
 
-        super(BoundaryResidualCallback, self).__init__(boundary_residual, solver_obj, **kwargs)
+        super(BoundaryResidualCallback, self).__init__(edge_residual, solver_obj, **kwargs)
 
 
 class ExplicitErrorCallback(ErrorEstimateCallback):
