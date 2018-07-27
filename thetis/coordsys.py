@@ -10,7 +10,7 @@ import numpy as np
 UTM_ZONE10 = pyproj.Proj(
     proj='utm',
     zone=10,
-    datum='NAD83',
+    datum='WGS84',
     units='m',
     errcheck=True)
 SPCS_N_OR = pyproj.Proj(init='nad27:3601', errcheck=True)
