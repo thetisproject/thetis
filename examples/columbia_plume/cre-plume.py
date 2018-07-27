@@ -184,6 +184,14 @@ west_bnd_id = 2
 south_bnd_id = 3
 river_bnd_id = 4
 
+# tags in new mesh
+# 1 2 "north"
+# 1 3 "island"
+# 1 4 "coast"
+# 1 5 "west"
+# 1 6 "river"
+# 1 7 "south"
+
 bnd_elev_updater = TidalBoundaryForcing(
     elev_tide_2d, init_date,
     boundary_ids=[north_bnd_id, west_bnd_id, south_bnd_id])
