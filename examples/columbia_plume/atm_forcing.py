@@ -101,6 +101,14 @@ class WRFInterpolator(object):
 
 
 def test():
+    """
+    Tests atmospheric model data interpolation.
+
+    .. note::
+        The following files must be present
+        forcings/atm/wrf/wrf_air.2015_05_16.nc
+        forcings/atm/wrf/wrf_air.2015_05_17.nc
+    """
     mesh2d = Mesh('mesh_cre-plume_02.msh')
     comm = mesh2d.comm
     p1 = FunctionSpace(mesh2d, 'CG', 1)
@@ -112,7 +120,8 @@ def test():
     init_date = datetime.datetime(2015, 5, 16, tzinfo=sim_tz)
     pattern = 'forcings/atm/wrf/wrf_air.2015_*_*.nc'
 
-    wrf = WRFInterpolator(p1, windstress_2d, atmpressure_2d, pattern, init_date)
+    wrf = WRFInterpolator(p1, windstress_2d, atmpressure_2d, pattern,
+                          init_date)
 
     # create a naive interpolation for first file
     xy = SpatialCoordinate(p1.mesh())
@@ -146,9 +155,12 @@ def test():
     assert np.allclose(u_stress, windstress_2d.dat.data_with_halos[:, 0])
 
     # write fields to disk for visualization
-    out_pres = File('tmp/atm_pressure.pvd')
-    out_wind = File('tmp/wind_stress.pvd')
-    hours = 24*3
+    pres_fn = 'tmp/atm_pressure.pvd'
+    wind_fn = 'tmp/wind_stress.pvd'
+    print('Saving output to {:} {:}'.format(pres_fn, wind_fn))
+    out_pres = File(pres_fn)
+    out_wind = File(wind_fn)
+    hours = 24*1.5
     granule = 4
     simtime = np.arange(granule*hours)*3600./granule
     i = 0
