@@ -61,12 +61,12 @@ t_end = 10*24*3600.
 t_export = 900.
 
 # interpolate bathymetry and smooth it
-bathymetry_2d = get_bathymetry('bathymetry_300m.npz', mesh2d, project=False)
+bathymetry_2d = get_bathymetry('bathymetry_utm.nc', mesh2d, project=False)
 bathymetry_2d = smooth_bathymetry(
     bathymetry_2d, delta_sigma=1.0, bg_diff=0,
-    alpha=5e6, exponent=1,
-    minimum_depth=3.5, niter=20)
-bathymetry_2d = smooth_bathymetry_at_bnd(bathymetry_2d, [1, 3])
+    alpha=1e2, exponent=2.5,
+    minimum_depth=3.5, niter=30)
+bathymetry_2d = smooth_bathymetry_at_bnd(bathymetry_2d, [2, 7])
 
 # 3d mesh vertical stretch factor
 z_stretch_fact_2d = Function(bathymetry_2d.function_space(), name='z_stretch')
