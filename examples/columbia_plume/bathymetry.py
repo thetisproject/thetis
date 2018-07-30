@@ -103,23 +103,16 @@ def smooth_bathymetry_at_bnd(bathymetry, bnd_id, strength=8000.):
     fs = bathymetry.function_space()
     mesh = fs.mesh()
 
-    # step 1: created diffusivity field
     solution = Function(fs, name='bathymetry')
     diffusivity = Function(fs, name='diff')
 
+    # step 1: create diffusivity field
     delta_x = sqrt(CellVolume(mesh))
     distance = 2*delta_x
-
-    test = TestFunction(fs)
-    f = inner(diffusivity, test)*dx
-    f += distance**2*inner(grad(diffusivity), grad(test))*dx
-    bc = DirichletBC(fs, 1.0, bnd_id)
-
-    prob = NonlinearVariationalProblem(f, diffusivity, bcs=[bc])
-    solver = NonlinearVariationalSolver(prob)
-    solver.solve()
+    get_boundary_relaxation_field(diffusivity, bnd_id, distance)
 
     # step 2: solve diffusion eq
+    test = TestFunction(fs)
     f = inner(solution - bathymetry, test)*dx
     f += strength**2*diffusivity*inner(grad(solution), grad(test))*dx
 
@@ -129,3 +122,24 @@ def smooth_bathymetry_at_bnd(bathymetry, bnd_id, strength=8000.):
     solver.solve()
 
     return solution
+
+
+def get_boundary_relaxation_field(mask_func, bnd_id, dist_scale,
+                                  scalar=1.0, cutoff=0.0):
+    """
+    Generate a smooth relaxation coefficient field near boundaries
+    """
+    fs = mask_func.function_space()
+    test = TestFunction(fs)
+    f = inner(mask_func, test)*dx
+    f += (dist_scale**2 *
+          inner(grad(mask_func), grad(test))*dx)
+    bc = DirichletBC(fs, scalar, bnd_id)
+    prob = NonlinearVariationalProblem(f, mask_func, bcs=[bc])
+    solver = NonlinearVariationalSolver(prob)
+    solver.solve()
+    if cutoff > 0.0:
+        ix = mask_func.dat.data_ro < cutoff
+        mask_func.dat.data[ix] = 0.0
+
+    return mask_func

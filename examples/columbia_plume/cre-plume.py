@@ -23,7 +23,7 @@ The forcing data are loaded from subdirectories:
 
 """
 from thetis import *
-from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_bnd
+from bathymetry import *
 from tidal_forcing import TidalBoundaryForcing
 from diagnostics import TimeSeriesCallback2D
 from roms_forcing import LiveOceanInterpolator
@@ -37,7 +37,7 @@ physical_constants['z0_friction'].assign(0.005)
 
 reso_str = 'coarse'
 meshfile = {
-    'coarse': 'no-coarse-mesh-has-been-generated-yet',
+    'coarse': 'mesh_cre-plume_02_coarse.msh',
     'normal': 'mesh_cre-plume_02.msh',
 }
 zgrid_params = {
@@ -49,6 +49,17 @@ nlayers, surf_elem_height, max_z_stretch = zgrid_params[reso_str]
 outputdir = 'outputs_{:}'.format(reso_str)
 mesh2d = Mesh(meshfile[reso_str])
 print_output('Loaded mesh ' + mesh2d.name)
+
+north_bnd_id = 2
+west_bnd_id = 5
+south_bnd_id = 7
+river_bnd_id = 6
+
+if reso_str == 'coarse':
+    north_bnd_id = 2
+    west_bnd_id = 4
+    south_bnd_id = 6
+    river_bnd_id = 5
 
 nnodes = comm.allreduce(mesh2d.topology.num_vertices(), MPI.SUM)
 ntriangles = comm.allreduce(mesh2d.topology.num_cells(), MPI.SUM)
@@ -66,7 +77,8 @@ bathymetry_2d = smooth_bathymetry(
     bathymetry_2d, delta_sigma=1.0, bg_diff=0,
     alpha=1e2, exponent=2.5,
     minimum_depth=3.5, niter=30)
-bathymetry_2d = smooth_bathymetry_at_bnd(bathymetry_2d, [2, 7])
+bathymetry_2d = smooth_bathymetry_at_bnd(bathymetry_2d,
+                                         [north_bnd_id, south_bnd_id])
 
 # 3d mesh vertical stretch factor
 z_stretch_fact_2d = Function(bathymetry_2d.function_space(), name='z_stretch')
@@ -170,7 +182,6 @@ liveocean_interp = LiveOceanInterpolator(solver_obj.function_spaces.P1,
                                          init_date)
 liveocean_interp.set_fields(0.0)
 
-
 # tides
 elev_tide_2d = Function(bathymetry_2d.function_space(), name='Boundary elevation')
 bnd_time = Constant(0)
@@ -178,11 +189,6 @@ bnd_time = Constant(0)
 ramp_t = 12*3600.
 elev_ramp = conditional(le(bnd_time, ramp_t), bnd_time/ramp_t, 1.0)
 elev_bnd_expr = elev_ramp*elev_tide_2d
-
-north_bnd_id = 2
-west_bnd_id = 5
-south_bnd_id = 7
-river_bnd_id = 6
 
 bnd_elev_updater = TidalBoundaryForcing(
     elev_tide_2d, init_date,
@@ -230,34 +236,26 @@ solver_obj.bnd_functions['temp'] = {
 
 # add relaxation terms for temperature and salinity
 # dT/dt ... - 1/tau*(T_relax - T) = 0
-t_tracer_relax = Constant(12.*3600.)  # time scale
-mask_tracer_relax_3d = Function(solver_obj.function_spaces.H, name='mask_temp_relax_3d')
-lx_relax = 30e3
-x_min = 150000.
-y_min = 226600.
-y_max = 440797.
-x, y, z = SpatialCoordinate(solver_obj.mesh)
-mask_x0 = 1 - (x - x_min)/lx_relax
-mask_y0 = 1 - (y - y_min)/lx_relax
-mask_y1 = 1 + (y - y_max)/lx_relax
-mask_tracer_relax_3d.interpolate(mask_x0)
-tmp_func = solver_obj.function_spaces.H.get_work_function()
-tmp_func.interpolate(mask_y0)
-mask_tracer_relax_3d.dat.data[:] = np.maximum(mask_tracer_relax_3d.dat.data[:], tmp_func.dat.data[:])
-tmp_func.interpolate(mask_y1)
-mask_tracer_relax_3d.dat.data[:] = np.maximum(mask_tracer_relax_3d.dat.data[:], tmp_func.dat.data[:])
-solver_obj.function_spaces.H.restore_work_function(tmp_func)
-ix = mask_tracer_relax_3d.dat.data < 0
-mask_tracer_relax_3d.dat.data[ix] = 0.0
+t_tracer_relax = 12.*3600.  # time scale
+lx_relax = 10e3  # distance scale from bnd
+mask_tracer_relax_2d = solver_obj.function_spaces.P1_2d.get_work_function()
+get_boundary_relaxation_field(mask_tracer_relax_2d,
+                              [north_bnd_id, west_bnd_id, south_bnd_id],
+                              lx_relax, scalar=1.0, cutoff=0.02)
+mask_tracer_relax_3d = Function(solver_obj.function_spaces.P1,
+                                name='mask_temp_relax_3d')
+ExpandFunctionTo3d(mask_tracer_relax_2d, mask_tracer_relax_3d).solve()
+solver_obj.function_spaces.P1_2d.restore_work_function(mask_tracer_relax_2d)
 # File('mask.pvd').write(mask_tracer_relax_3d)
-options.temperature_source_3d = mask_tracer_relax_3d/t_tracer_relax*(temp_roms_3d - solver_obj.fields.temp_3d)
-options.salinity_source_3d = mask_tracer_relax_3d/t_tracer_relax*(salt_roms_3d - solver_obj.fields.salt_3d)
+f_rel = mask_tracer_relax_3d/t_tracer_relax
+options.temperature_source_3d = f_rel*(temp_roms_3d - solver_obj.fields.temp_3d)
+options.salinity_source_3d = f_rel*(salt_roms_3d - solver_obj.fields.salt_3d)
 
 solver_obj.create_equations()
 
 solver_obj.add_callback(
     TimeSeriesCallback2D(
-        solver_obj, 'elev_2d', x=357450.0, y=287571.0, location_name='tpoin'))
+        solver_obj, 'elev_2d', x=440659., y=5117484., location_name='tpoin'))
 
 hcc_obj = Mesh3DConsistencyCalculator(solver_obj)
 hcc_obj.solve()
