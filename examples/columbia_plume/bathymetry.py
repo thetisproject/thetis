@@ -30,10 +30,12 @@ def retrieve_bath_file(bathfile):
 def get_bathymetry(bathymetry_file, mesh2d, minimum_depth=5.0, project=False):
     """Interpolates/projects bathymetry from a raster to P1 field."""
     retrieve_bath_file(bathymetry_file)
-    d =  Dataset(bathymetry_file)
+    d = Dataset(bathymetry_file)
     x = d['x'][:]
     y = d['y'][:]
-    bath = -d['bathymetry'][:].filled(minimum_depth)
+    bath = -d['bathymetry'][:]
+    if np.ma.isMaskedArray(bath):
+        bath = bath.filled(minimum_depth)
     bath[~np.isfinite(bath)] = minimum_depth
     interpolator = scipy.interpolate.RegularGridInterpolator((x, y), bath.T)
 

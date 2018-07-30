@@ -97,9 +97,15 @@ class SpatialInterpolatorROMS3d(SpatialInterpolator):
         nz = grid_z.shape[0]
 
         # data shape is [nz, neta, nxi]
-        grid_lat = np.tile(lat_subset, (nz, 1, 1)).ravel().filled(0.0)
-        grid_lon = np.tile(lon_subset, (nz, 1, 1)).ravel().filled(0.0)
-        grid_z = grid_z.ravel().filled(0.0)
+        grid_lat = np.tile(lat_subset, (nz, 1, 1)).ravel()
+        grid_lon = np.tile(lon_subset, (nz, 1, 1)).ravel()
+        grid_z = grid_z.ravel()
+        if np.ma.isMaskedArray(grid_lat):
+            grid_lat = grid_lat.filled(0.0)
+        if np.ma.isMaskedArray(grid_lon):
+            grid_lon = grid_lon.filled(0.0)
+        if np.ma.isMaskedArray(grid_z):
+            grid_z = grid_z.filled(0.0)
         grid_latlonz = np.vstack((grid_lat, grid_lon, grid_z)).T
 
         # building 3D interpolator, this can take a long time (minutes)
@@ -167,7 +173,6 @@ def test_time_search():
         ./forcings/liveocean/f2015.05.16/ocean_his_0011.nc
     """
 
-
     # test time parser
     tp = interpolation.NetCDFTimeParser(
         'forcings/liveocean/f2015.05.16/ocean_his_0009.nc',
@@ -220,7 +225,6 @@ def test_interpolator():
     from bathymetry import get_bathymetry, smooth_bathymetry, smooth_bathymetry_at_bnd
     nlayers, surf_elem_height, max_z_stretch = (9, 5.0, 4.0)
     mesh2d = Mesh('mesh_cre-plume_02.msh')
-    comm = mesh2d.comm
 
     # interpolate bathymetry and smooth it
     bathymetry_2d = get_bathymetry('bathymetry_utm.nc', mesh2d, project=False)
@@ -243,7 +247,6 @@ def test_interpolator():
     mesh = extrude_mesh_sigma(mesh2d, nlayers, bathymetry_2d,
                               **extrude_options)
     p1 = FunctionSpace(mesh, 'CG', 1)
-    p1v = VectorFunctionSpace(mesh, 'CG', 1)
 
     # make functions
     salt = Function(p1, name='salinity')
