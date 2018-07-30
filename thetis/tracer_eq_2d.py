@@ -93,7 +93,7 @@ class TracerTerm(Term):
         return c_ext, uv_ext, elev_ext
 
 
-class HorizontalAdvectionTerm(TracerTerm):
+class HorizontalAdvectionTerm(TracerTerm):  # TODO: Implement SUPG advection scheme
     r"""
     Advection of tracer term, :math:`\bar{\textbf{u}} \cdot \nabla T`
 

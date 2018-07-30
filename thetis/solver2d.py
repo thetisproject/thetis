@@ -220,11 +220,9 @@ class FlowSolver2d(FrozenClass):
             self.function_spaces.Q_2d = FunctionSpace(self.mesh2d, 'DG', 1, name='Q_2d')
         elif self.options.tracer_family == 'cg':
             self.function_spaces.Q_2d = FunctionSpace(self.mesh2d, 'CG', 1, name='Q_2d')
-            try:
-                assert(self.options.use_limiter_for_tracers == False)
-            except:
+            if self.options.use_limiter_for_tracers:
                 print("NOTE: Limiter for tracers turned off since tracer is CG")
-                self.options.use_limiter_for_tracers = False
+            self.options.use_limiter_for_tracers = False
         else:
             raise Exception('Unsupported tracer finite element family {:}'.format(self.options.tracer_family))
         self._isfrozen = True
