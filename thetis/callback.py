@@ -523,7 +523,7 @@ class AccumulatorCallback(DiagnosticCallback):
     the trapezium rule."""
     variable_names = ['spatial integral at current timestep']
 
-    def __init__(self, scalar_callback, solver_obj, **kwargs):
+    def __init__(self, scalar_callback, solver_obj, parameters=None, **kwargs):
         """
         :arg scalar_callback: Python function that returns a list of values of an objective functional.
         :arg solver_obj: Thetis solver object
@@ -531,11 +531,12 @@ class AccumulatorCallback(DiagnosticCallback):
         """
         kwargs.setdefault('export_to_hdf5', False)
         kwargs.setdefault('append_to_log', False)
-        super(AccumulatorCallback, self).__init__(solver_obj, **kwargs)
+        super(AccumulatorCallback, self).__init__(solver_obj, parameters, **kwargs)
         self.scalar_callback = scalar_callback      # Evaluate functional
         self.dt = solver_obj.options.timestep
         self.integrant = 0.
         self.old_value = None
+        self.parameters = parameters
 
     def __call__(self):
         scalar_value = self.scalar_callback()
