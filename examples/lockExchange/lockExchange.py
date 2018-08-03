@@ -43,6 +43,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
                      reynolds_number=1.0, use_limiter=True, dt=None,
                      viscosity='const', laxfriedrichs_vel=0.0,
                      laxfriedrichs_trc=0.0,
+                     elem_type='tri',
                      load_export_ix=None, iterate=True, **custom_options):
     """
     Runs lock exchange problem with a bunch of user defined options.
@@ -72,7 +73,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     x_max = 32.0e3
     x_min = -32.0e3
     n_x = (x_max - x_min)/delta_x
-    mesh2d = UnitSquareMesh(n_x, 2)
+    mesh2d = UnitSquareMesh(n_x, 2, quadrilateral=(elem_type == 'quad'))
     coords = mesh2d.coordinates
     # x in [x_min, x_max], y in [-dx, dx]
     coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min
@@ -102,6 +103,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     lim_str = '_lim' if use_limiter else ''
     options_str = '_'.join([reso_str,
                             element_family,
+                            elem_type,
                             'p{:}'.format(poly_order),
                             'visc-{:}'.format(viscosity),
                             'Re{:}'.format(reynolds_number),
@@ -239,6 +241,9 @@ def get_argparser():
     parser.add_argument('-lf-vel', '--laxfriedrichs-vel', type=float,
                         help='Lax-Friedrichs flux factor for velocity',
                         default=0.0)
+    parser.add_argument('-e', '--elem-type', type=str,
+                        help='Type of 2D element, either "tri" or "quad"',
+                        default='tri')
     return parser
 
 
