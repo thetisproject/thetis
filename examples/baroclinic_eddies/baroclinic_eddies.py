@@ -35,7 +35,8 @@ from diagnostics import *
 def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
                 reynolds_number=20.0, viscosity_scale=None, dt=None,
                 elem_type='tri',
-                number_of_z_levels=None, viscosity='const', laxfriedrichs=0.0):
+                laxfriedrichs_vel=0.0, laxfriedrichs_trc=0.0,
+                number_of_z_levels=None, viscosity='const'):
     """
     Runs problem with a bunch of user defined options.
     """
@@ -91,7 +92,8 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
                             'p{:}'.format(poly_order),
                             'visc-{:}'.format(viscosity),
                             visc_str,
-                            'lf{:.1f}'.format(laxfriedrichs),
+                            'lf-vel{:.1f}'.format(laxfriedrichs_vel),
+                            'lf-trc{:.1f}'.format(laxfriedrichs_trc),
                             ])
     outputdir = 'outputs_' + options_str
 
@@ -121,14 +123,10 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.quadratic_drag_coefficient = Constant(bottom_drag)
     options.use_baroclinic_formulation = True
     options.coriolis_frequency = Constant(f_cori)
-    if laxfriedrichs > 0.0:
-        options.use_lax_friedrichs_velocity = True
-        options.use_lax_friedrichs_tracer = True
-        options.lax_friedrichs_velocity_scaling_factor = Constant(laxfriedrichs)
-        options.lax_friedrichs_tracer_scaling_factor = Constant(laxfriedrichs)
-    else:
-        options.use_lax_friedrichs_velocity = False
-        options.use_lax_friedrichs_tracer = False
+    options.use_lax_friedrichs_velocity = laxfriedrichs_vel > 0.0
+    options.use_lax_friedrichs_tracer = laxfriedrichs_trc > 0.0
+    options.lax_friedrichs_velocity_scaling_factor = Constant(laxfriedrichs_vel)
+    options.lax_friedrichs_tracer_scaling_factor = Constant(laxfriedrichs_trc)
     options.use_limiter_for_tracers = True
     options.vertical_viscosity = Constant(1.0e-4)
     options.use_limiter_for_velocity = True
@@ -175,7 +173,8 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     print_output('Mesh resolution dx={:} nlayers={:}'.format(delta_x, nlayers))
     print_output('Reynolds number: {:}'.format(reynolds_number))
     print_output('Horizontal viscosity: {:}'.format(nu_scale))
-    print_output('Lax-Friedrichs factor: {:}'.format(laxfriedrichs))
+    print_output('Lax-Friedrichs factor vel: {:}'.format(laxfriedrichs_vel))
+    print_output('Lax-Friedrichs factor trc: {:}'.format(laxfriedrichs_trc))
     print_output('Exporting to {:}'.format(outputdir))
 
     xyz = SpatialCoordinate(solver_obj.mesh)
@@ -270,9 +269,12 @@ def get_argparser():
                         help='Type of horizontal viscosity',
                         default='const',
                         choices=['const', 'smag', 'none'])
-    parser.add_argument('-lf', '--laxfriedrichs', type=float,
-                        help='Lax-Friedrichs flux factor for uv and temperature',
+    parser.add_argument('-lf-trc', '--laxfriedrichs-trc', type=float,
+                        help='Lax-Friedrichs flux factor for tracers',
                         default=0.0)
+    parser.add_argument('-lf-vel', '--laxfriedrichs-vel', type=float,
+                        help='Lax-Friedrichs flux factor for velocity',
+                        default=1.0)
     parser.add_argument('-e', '--elem-type', type=str,
                         help='Type of 2D element, either "tri" or "quad"',
                         default='tri')
