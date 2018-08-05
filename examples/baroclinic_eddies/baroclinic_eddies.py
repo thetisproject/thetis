@@ -34,6 +34,7 @@ from diagnostics import *
 
 def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
                 reynolds_number=20.0, viscosity_scale=None, dt=None,
+                elem_type='tri',
                 number_of_z_levels=None, viscosity='const', laxfriedrichs=0.0):
     """
     Runs problem with a bunch of user defined options.
@@ -54,7 +55,10 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     nx = int(lx/delta_x)
     ny = int(ly/delta_x)
     delta_x = lx/nx
-    mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x')
+    mesh2d = PeriodicRectangleMesh(
+        nx, ny, lx, ly, direction='x',
+        quadrilateral=(elem_type == 'quad')
+    )
     depth = 1000.
 
     u_max = 1.0
@@ -83,6 +87,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
 
     options_str = '_'.join([reso_str,
                             element_family,
+                            elem_type,
                             'p{:}'.format(poly_order),
                             'visc-{:}'.format(viscosity),
                             visc_str,
@@ -268,6 +273,9 @@ def get_argparser():
     parser.add_argument('-lf', '--laxfriedrichs', type=float,
                         help='Lax-Friedrichs flux factor for uv and temperature',
                         default=0.0)
+    parser.add_argument('-e', '--elem-type', type=str,
+                        help='Type of 2D element, either "tri" or "quad"',
+                        default='tri')
     return parser
 
 
