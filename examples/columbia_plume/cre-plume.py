@@ -166,11 +166,11 @@ atm_pressure_2d = Function(solver_obj.function_spaces.P1_2d, name='atm pressure'
 options.wind_stress = wind_stress_3d
 options.atmospheric_pressure = atm_pressure_2d
 copy_wind_stress_to_3d = ExpandFunctionTo3d(wind_stress_2d, wind_stress_3d)
-wrf_pattern = 'forcings/atm/wrf/wrf_air.{year}_*_*.nc'.format(year=init_date.year)
-wrf_atm = WRFInterpolator(
+atm_pattern = 'forcings/atm/wrf/wrf_air.{year}_*_*.nc'.format(year=init_date.year)
+atm_interp = ATMInterpolator(
     solver_obj.function_spaces.P1_2d,
-    wind_stress_2d, atm_pressure_2d, wrf_pattern, init_date)
-wrf_atm.set_fields(0.0)
+    wind_stress_2d, atm_pressure_2d, atm_pattern, init_date)
+atm_interp.set_fields(0.0)
 
 # ocean initial conditions
 salt_roms_3d = Function(solver_obj.function_spaces.P1, name='ROMS salinity')
@@ -274,7 +274,7 @@ def update_forcings(t):
     bnd_elev_updater.set_tidal_field(t)
     river_flux_const.assign(river_flux_interp(t)[0])
     liveocean_interp.set_fields(t)
-    wrf_atm.set_fields(t)
+    atm_interp.set_fields(t)
     copy_wind_stress_to_3d.solve()
 
 
