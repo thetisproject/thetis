@@ -33,11 +33,16 @@ rho_air = 1.22  # kg/m3
 
 COORDSYS = coordsys.UTM_ZONE10
 
+
 def to_latlon(x, y, positive_lon=False):
     lon, lat = coordsys.convert_coords(COORDSYS,
                                        coordsys.LL_WGS84, x, y)
-    if positive_lon and lon < 0.0:
-        lon += 360.
+    if positive_lon:
+        if isinstance(lon, np.ndarray):
+            ix = lon < 0.0
+            lon[ix] += 360.
+        else:  # assume float
+            lon += 360.
     return lat, lon
 
 
