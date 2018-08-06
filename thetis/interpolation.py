@@ -55,6 +55,8 @@ import scipy.spatial.qhull as qhull
 import netCDF4
 from abc import ABCMeta, abstractmethod
 from firedrake import *
+import re
+import string
 
 TIMESEARCH_TOL = 1e-6
 
@@ -575,6 +577,95 @@ class NetCDFTimeSearch(TimeSearch):
                 pass
         if itime is None:
             raise Exception(err_msg)
+        return self.files[i], itime, time
+
+
+class DailyFileTimeSearch(TimeSearch):
+    """
+    Treats a list of daily files as a time series.
+
+    File name pattern must be given as a string where the 4-digit year is
+    tagged with "{year:04d}", and 2-digit zero-padded month and year are tagged
+    with "{month:02d}" and "{day:02d}", respectively. The tags can be used
+    multiple times.
+
+    Example pattern:
+        'ncom/{year:04d}/s3d.glb8_2f_{year:04d}{month:02d}{day:02d}00.nc'
+
+    In this time search method the time stamps are parsed solely from the
+    filename, no other metadata is used. By default the data is assumed to be
+    centered at 12:00 UTC every day.
+    """
+    def __init__(self, file_pattern, init_date, verbose=False,
+                 center_hour=12, center_timezone=pytz.utc):
+        self.file_pattern = file_pattern
+
+        self.init_date = init_date
+        self.sim_start_time = datetime_to_epoch(self.init_date)
+        self.verbose = verbose
+
+        all_files = self._find_files()
+        dates = []
+        for fn in all_files:
+            d = self._parse_date(fn)
+            timestamp = datetime.datetime(d['year'], d['month'], d['day'],
+                                          center_hour, tzinfo=center_timezone)
+            dates.append(timestamp)
+        sort_ix = np.argsort(dates)
+        self.files = np.array(all_files)[sort_ix]
+        self.start_datetime = np.array(dates)[sort_ix]
+        self.start_times = [(s - self.init_date).total_seconds() for s in self.start_datetime]
+        self.start_times = np.array(self.start_times)
+        if self.verbose:
+            print_output('{:}: Found time index:'.format(self.__class__.__name__))
+            for i in range(len(self.files)):
+                print_output('{:} {:} {:}'.format(i, self.files[i], self.start_times[i]))
+                print_output('  {:}'.format(self.start_datetime[i]))
+
+    def _find_files(self):
+        """Finds all files that match the given pattern."""
+        search_pattern = str(self.file_pattern)
+        search_pattern = search_pattern.replace(':02d}', ':}')
+        search_pattern = search_pattern.replace(':04d}', ':}')
+        search_pattern = search_pattern.format(year='*', month='*', day='*')
+        all_files = glob.glob(search_pattern)
+        assert len(all_files) > 0, 'No files found: {:}'.format(search_pattern)
+        return all_files
+
+    def _parse_date(self, filename):
+        """
+        Parse year, month, day from filename using the given pattern.
+        """
+        re_pattern = str(self.file_pattern)
+        re_pattern = re_pattern.replace('{year:04d}', '(\d{4,4})')
+        re_pattern = re_pattern.replace('{month:02d}', '(\d{2,2})')
+        re_pattern = re_pattern.replace('{day:02d}', '(\d{2,2})')
+        o = re.findall(re_pattern, filename)
+        assert len(o) == 1, 'parsing date from filename failed\n  {:}'.format(filename)
+        values = [int(v) for v in o[0]]
+        fmt = string.Formatter()
+        labels = [s[1] for s in fmt.parse(self.file_pattern) if s[1] is not None]
+        return dict(zip(labels, values))
+
+    def simulation_time_to_datetime(self, t):
+        return epoch_to_datetime(datetime_to_epoch(self.init_date) + t).astimezone(self.init_date.tzinfo)
+
+    def find(self, simulation_time, previous=False):
+        """
+        Find file that contains the given simulation time
+
+        :arg float simulation_time: simulation time in seconds
+        :kwarg bool previous: if True finds previous existing time stamp instead
+            of next (default False).
+        :return: (filename, time index, simulation time) of found data
+        """
+        err_msg = 'No file found for time {:}'.format(self.simulation_time_to_datetime(simulation_time))
+        ix = np.searchsorted(self.start_times, simulation_time + TIMESEARCH_TOL)
+        i = ix - 1 if previous else ix
+        assert i >= 0, err_msg
+        assert i < len(self.start_times), err_msg
+        itime = 0
+        time = self.start_times[i]
         return self.files[i], itime, time
 
 

@@ -1,5 +1,5 @@
 r"""
-Wind stress from WRF atmospheric model
+Wind stress from WRF/NAM atmospheric model
 
 wind stress is defined as
 
@@ -25,6 +25,7 @@ import scipy.interpolate
 import thetis.timezone as timezone
 import thetis.interpolation as interpolation
 import thetis.coordsys as coordsys
+from thetis.log import *
 import datetime
 import netCDF4
 
@@ -32,11 +33,16 @@ rho_air = 1.22  # kg/m3
 
 COORDSYS = coordsys.UTM_ZONE10
 
+
 def to_latlon(x, y, positive_lon=False):
     lon, lat = coordsys.convert_coords(COORDSYS,
                                        coordsys.LL_WGS84, x, y)
-    if positive_lon and lon < 0.0:
-        lon += 360.
+    if positive_lon:
+        if isinstance(lon, np.ndarray):
+            ix = lon < 0.0
+            lon[ix] += 360.
+        else:  # assume float
+            lon += 360.
     return lat, lon
 
 
@@ -57,24 +63,33 @@ def compute_wind_stress(wind_u, wind_v):
     return tau_x, tau_y
 
 
-class WRFNetCDFTime(interpolation.NetCDFTimeParser):
+class ATMNetCDFTime(interpolation.NetCDFTimeParser):
     """
-    Custom class to handle WRF atmospheric model forecast files
+    Custom class to handle WRF/NAM atmospheric model forecast files
     """
-    def __init__(self, filename):
-        super(WRFNetCDFTime, self).__init__(filename, time_variable_name='time')
+    def __init__(self, filename, max_duration=24.*3600., verbose=False):
+        super(ATMNetCDFTime, self).__init__(filename, time_variable_name='time')
         # NOTE these are daily forecast files, limit time steps to one day
-        self.time_array = self.time_array[:24]
         self.start_time = timezone.epoch_to_datetime(float(self.time_array[0]))
+        self.end_time_raw = timezone.epoch_to_datetime(float(self.time_array[-1]))
+        self.time_step = np.mean(np.diff(self.time_array))
+        self.max_steps = int(max_duration / self.time_step)
+        self.time_array = self.time_array[:self.max_steps]
         self.end_time = timezone.epoch_to_datetime(float(self.time_array[-1]))
+        if verbose:
+            print_output('Parsed file {:}'.format(filename))
+            print_output('  Raw time span: {:} -> {:}'.format(self.start_time, self.end_time_raw))
+            print_output('  Time step: {:} h'.format(self.time_step/3600.))
+            print_output('  Restricting duration to {:} h -> keeping {:} steps'.format(max_duration/3600., self.max_steps))
+            print_output('  New time span: {:} -> {:}'.format(self.start_time, self.end_time))
 
 
-class WRFInterpolator(object):
+class ATMInterpolator(object):
     """
-    Interpolates WRF atmospheric model data on 2D fields
+    Interpolates WRF/NAM atmospheric model data on 2D fields
     """
     def __init__(self, function_space, wind_stress_field,
-                 atm_pressure_field, ncfile_pattern, init_date):
+                 atm_pressure_field, ncfile_pattern, init_date, verbose=False):
         self.function_space = function_space
         self.wind_stress_field = wind_stress_field
         self.atm_pressure_field = atm_pressure_field
@@ -82,7 +97,7 @@ class WRFInterpolator(object):
         # construct interpolators
         self.grid_interpolator = interpolation.NetCDFLatLonInterpolator2d(self.function_space, to_latlon)
         self.reader = interpolation.NetCDFSpatialInterpolator(self.grid_interpolator, ['uwind', 'vwind', 'prmsl'])
-        self.timesearch_obj = interpolation.NetCDFTimeSearch(ncfile_pattern, init_date, WRFNetCDFTime)
+        self.timesearch_obj = interpolation.NetCDFTimeSearch(ncfile_pattern, init_date, ATMNetCDFTime, verbose=verbose)
         self.time_interpolator = interpolation.LinearTimeInterpolator(self.timesearch_obj, self.reader)
         lon = self.grid_interpolator.mesh_lonlat[:, 0]
         lat = self.grid_interpolator.mesh_lonlat[:, 1]
@@ -108,6 +123,9 @@ def test():
         The following files must be present
         forcings/atm/wrf/wrf_air.2015_05_16.nc
         forcings/atm/wrf/wrf_air.2015_05_17.nc
+
+        forcings/atm/nam/nam_air.local.2006_04_19.nc
+        forcings/atm/nam/nam_air.local.2006_04_20.nc
     """
     mesh2d = Mesh('mesh_cre-plume_02.msh')
     comm = mesh2d.comm
@@ -117,11 +135,21 @@ def test():
     atmpressure_2d = Function(p1, name='atm pressure')
 
     sim_tz = timezone.FixedTimeZone(-8, 'PST')
-    init_date = datetime.datetime(2015, 5, 16, tzinfo=sim_tz)
-    pattern = 'forcings/atm/wrf/wrf_air.2015_*_*.nc'
 
-    wrf = WRFInterpolator(p1, windstress_2d, atmpressure_2d, pattern,
-                          init_date)
+    # WRF
+    # init_date = datetime.datetime(2015, 5, 16, tzinfo=sim_tz)
+    # pattern = 'forcings/atm/wrf/wrf_air.2015_*_*.nc'
+    # atm_time_step = 3600.  # for verification only
+    # test_atm_file = 'forcings/atm/wrf/wrf_air.2015_05_16.nc'
+
+    # NAM
+    init_date = datetime.datetime(2006, 4, 19, tzinfo=sim_tz)
+    pattern = 'forcings/atm/nam/nam_air.local.2006_*_*.nc'
+    atm_time_step = 3*3600.
+    test_atm_file = 'forcings/atm/nam/nam_air.local.2006_04_19.nc'
+
+    atm_interp = ATMInterpolator(p1, windstress_2d, atmpressure_2d,
+                                 pattern, init_date, verbose=True)
 
     # create a naive interpolation for first file
     xy = SpatialCoordinate(p1.mesh())
@@ -134,8 +162,8 @@ def test():
         mesh_lonlat.append((lon, lat))
     mesh_lonlat = np.array(mesh_lonlat)
 
-    ncfile = netCDF4.Dataset('forcings/atm/wrf/wrf_air.2015_05_16.nc')
-    itime = 10
+    ncfile = netCDF4.Dataset(test_atm_file)
+    itime = 6
     grid_lat = ncfile['lat'][:].ravel()
     grid_lon = ncfile['lon'][:].ravel()
     grid_lonlat = np.array((grid_lon, grid_lat)).T
@@ -150,7 +178,7 @@ def test():
     u_stress, v_stress = compute_wind_stress(uwind, vwind)
 
     # compare
-    wrf.set_fields((itime - 8)*3600.)  # NOTE timezone offset
+    atm_interp.set_fields(itime*atm_time_step - 8*3600.)  # NOTE timezone offset
     assert np.allclose(pres, atmpressure_2d.dat.data_with_halos)
     assert np.allclose(u_stress, windstress_2d.dat.data_with_halos[:, 0])
 
@@ -165,7 +193,7 @@ def test():
     simtime = np.arange(granule*hours)*3600./granule
     i = 0
     for t in simtime:
-        wrf.set_fields(t)
+        atm_interp.set_fields(t)
         norm_atm = norm(atmpressure_2d)
         norm_wind = norm(windstress_2d)
         if comm.rank == 0:

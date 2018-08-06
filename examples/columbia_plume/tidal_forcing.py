@@ -1,4 +1,3 @@
-import thetis.coordsys as coordsys
 import thetis.timezone as timezone
 from atm_forcing import to_latlon
 import uptide
@@ -71,7 +70,7 @@ def test():
     m2_field = Function(p1, name='elevation')
 
     sim_tz = timezone.FixedTimeZone(-8, 'PST')
-    init_date = datetime.datetime(2016, 5, 1, tzinfo=sim_tz)
+    init_date = datetime.datetime(2006, 5, 15, tzinfo=sim_tz)
 
     tbnd = TidalBoundaryForcing(m2_field,
                                 init_date,
@@ -79,7 +78,9 @@ def test():
                                 boundary_ids=[2, 5, 7])
     tbnd.set_tidal_field(0.0)
 
-    out = File('tmp/tidal_elev.pvd')
+    outfn = 'tmp/tidal_elev.pvd'
+    print('Saving to {:}'.format(outfn))
+    out = File(outfn)
     for t in np.linspace(0, 12*3600., 60):
         tbnd.set_tidal_field(t)
         n = norm(m2_field)
