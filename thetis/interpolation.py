@@ -412,15 +412,16 @@ class NetCDFTimeParser(TimeParser):
         'days': 24*3600.0,
     }
 
-    def __init__(self, filename, time_variable_name='time', allow_gaps=False):
+    def __init__(self, filename, time_variable_name='time', allow_gaps=False,
+                 verbose=False):
         """
         Construct a new object by scraping data from the given netcdf file.
 
         :arg str filename: name of the netCDF file to read
         :kwarg str time_variable_name: name of the time variable in the netCDF
             file (default: 'time')
-        :kwarg bool allow_gaps: if False, an error is raised if time step is not
-            constant.
+        :kwarg bool allow_gaps: if False, an error is raised if time step is
+            not constant.
         """
         self.filename = filename
         self.time_variable_name = time_variable_name
@@ -463,6 +464,14 @@ class NetCDFTimeParser(TimeParser):
             self.time_array = datetime_to_epoch(self.basetime) + np.array(time_var[:]*self.time_scalar, dtype=float)
             self.start_time = epoch_to_datetime(float(self.time_array[0]))
             self.end_time = epoch_to_datetime(float(self.time_array[-1]))
+            self.time_step = np.mean(np.diff(self.time_array))
+            self.nb_steps = len(self.time_array)
+            if verbose:
+                print_output('Parsed file {:}'.format(filename))
+                print_output('  Time span: {:} -> {:}'.format(self.start_time, self.end_time))
+                print_output('  Number of time steps: {:}'.format(self.nb_steps))
+                if self.nb_steps > 1:
+                    print_output('  Time step: {:} h'.format(self.time_step/3600.))
 
     def get_start_time(self):
         return self.start_time
@@ -511,7 +520,7 @@ class NetCDFTimeSearch(TimeSearch):
         self.netcdf_class = netcdf_class
         self.init_date = init_date
         self.sim_start_time = datetime_to_epoch(self.init_date)
-        self.verbose = kwargs.pop('verbose', False)
+        self.verbose = kwargs.get('verbose', False)
         dates = []
         ncfiles = []
         for fn in all_files:
@@ -528,6 +537,12 @@ class NetCDFTimeSearch(TimeSearch):
             print_output('{:}: Found time index:'.format(self.__class__.__name__))
             for i in range(len(self.files)):
                 print_output('{:} {:} {:}'.format(i, self.files[i], self.start_times[i]))
+                nc = self.ncfiles[i]
+                print_output('  {:} -> {:}'.format(nc.start_time, nc.end_time))
+                if nc.nb_steps > 1:
+                    print_output('  {:} time steps, dt = {:} s'.format(nc.nb_steps, nc.time_step))
+                else:
+                    print_output('  {:} time steps'.format(nc.nb_steps))
 
     def simulation_time_to_datetime(self, t):
         return epoch_to_datetime(datetime_to_epoch(self.init_date) + t).astimezone(self.init_date.tzinfo)
