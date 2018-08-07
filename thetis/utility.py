@@ -1246,6 +1246,7 @@ class ALEMeshUpdater(object):
         self.solver.mesh.coordinates.dat.data[:, 2] = new_z
         self.fields.z_coord_3d.dat.data[:] = new_z
         self.update_elem_height()
+        self.solver.mesh.clear_spatial_index()
 
 
 class ParabolicViscosity(object):
