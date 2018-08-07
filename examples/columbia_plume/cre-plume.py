@@ -31,7 +31,7 @@ The forcing data are loaded from subdirectories:
 from thetis import *
 from bathymetry import *
 from tidal_forcing import TidalBoundaryForcing
-from diagnostics import TimeSeriesCallback2D
+from diagnostics import *
 from ncom_forcing import NCOMInterpolator
 from atm_forcing import *
 comm = COMM_WORLD
@@ -260,9 +260,109 @@ options.salinity_source_3d = f_rel*(salt_bnd_3d - solver_obj.fields.salt_3d)
 
 solver_obj.create_equations()
 
+
+#dsdma.730.A.CT
+#ogi01.5000.F.CT
+#ogi01.1100.F.CT
+#ogi01.500.F.CT
+#ogi01.80.F.CT
+#red26.330.A.CT
+#red26.750.A.CT
+#red26.900.A.CT
+#sandi.790.A.CT
+#tansy.840.A.CTD
+
+
+#tpoin 440659.578553 5117484.62516
+#dsdma 426349.84778 5119564.31117
+#ogi01 x=402180., y=5099093.
+#red26 x=426607., y=5117537.
+#sandi 424296.196056 5122980.89603
+#tansy 429055.902341 5115438.36687
+#rino  x=400032., y=5143472.
+#rice  x=407717., y=5113304.
+#riso  x=414871., y=5100523.
+
+
+
+
 solver_obj.add_callback(
     TimeSeriesCallback2D(
         solver_obj, 'elev_2d', x=440659., y=5117484., location_name='tpoin'))
+
+solver_obj.add_callback(
+    TimeSeriesCallback3D(
+        solver_obj, 'salt_3d', x=426349. , y=5119564., z=-7.30, location_name='dsdma')
+)
+solver_obj.add_callback(
+    TimeSeriesCallback3D(
+        solver_obj, 'temp_3d', x=426349. , y=5119564., z=-7.30, location_name='dsdma')
+)
+solver_obj.add_callback(
+    TimeSeriesCallback3D(
+        solver_obj, 'salt_3d', x=426607. , y=5117537., z=-7.50, location_name='red26')
+)
+solver_obj.add_callback(
+    TimeSeriesCallback3D(
+        solver_obj, 'temp_3d', x=426607. , y=5117537., z=-7.50, location_name='red26')
+)
+solver_obj.add_callback(
+    TimeSeriesCallback3D(
+        solver_obj, 'salt_3d', x=424296. , y=5122980., z=-7.90, location_name='sandi')
+)
+solver_obj.add_callback(
+    TimeSeriesCallback3D(
+        solver_obj, 'temp_3d', x=424296. , y=5122980., z=-7.90, location_name='sandi')
+)
+# solver_obj.add_callback(
+#     TimeSeriesCallback3D(
+#         solver_obj, 'salt_3d', x=429055. , y=5115438., z=-7.90, location_name='tansy')
+# )
+# solver_obj.add_callback(
+#     TimeSeriesCallback3D(
+#         solver_obj, 'temp_3d', x=429055. , y=5115438., z=-7.90, location_name='tansy')
+# )
+
+solver_obj.add_callback(
+    VerticalProfileCallback(
+        solver_obj, 'salt_3d', x=400032., y=5143472., location_name='rino')
+)
+solver_obj.add_callback(
+    VerticalProfileCallback(
+        solver_obj, 'temp_3d', x=400032., y=5143472., location_name='rino')
+)
+solver_obj.add_callback(
+    VerticalProfileCallback(
+        solver_obj, 'salt_3d', x=407717., y=5113304., location_name='rice')
+)
+solver_obj.add_callback(
+    VerticalProfileCallback(
+        solver_obj, 'temp_3d', x=407717., y=5113304., location_name='rice')
+)
+solver_obj.add_callback(
+    VerticalProfileCallback(
+        solver_obj, 'salt_3d', x=414871., y=5100523., location_name='riso')
+)
+solver_obj.add_callback(
+    VerticalProfileCallback(
+        solver_obj, 'temp_3d', x=414871., y=5100523., location_name='riso')
+)
+solver_obj.add_callback(
+    VerticalProfileCallback(
+        solver_obj, 'salt_3d', x=402180., y=5099093., location_name='ogi01')
+)
+solver_obj.add_callback(
+    VerticalProfileCallback(
+        solver_obj, 'temp_3d', x=402180., y=5099093., location_name='ogi01')
+)
+solver_obj.add_callback(
+    VerticalProfileCallback(
+        solver_obj, 'salt_3d', x=426607., y=5117537., location_name='red26')
+)
+solver_obj.add_callback(
+    VerticalProfileCallback(
+        solver_obj, 'temp_3d', x=426607., y=5117537., location_name='red26')
+)
 
 hcc_obj = Mesh3DConsistencyCalculator(solver_obj)
 hcc_obj.solve()
