@@ -31,7 +31,7 @@ The forcing data are loaded from subdirectories:
 from thetis import *
 from bathymetry import *
 from tidal_forcing import TidalBoundaryForcing
-from diagnostics import TimeSeriesCallback2D
+from diagnostics import *
 from ncom_forcing import NCOMInterpolator
 from atm_forcing import *
 comm = COMM_WORLD
@@ -260,9 +260,32 @@ options.salinity_source_3d = f_rel*(salt_bnd_3d - solver_obj.fields.salt_3d)
 
 solver_obj.create_equations()
 
-solver_obj.add_callback(
-    TimeSeriesCallback2D(
-        solver_obj, 'elev_2d', x=440659., y=5117484., location_name='tpoin'))
+station_list = [
+    ('tpoin', ['elev_2d'], 440659., 5117484., None),
+    ('dsdma', ['salt_3d', 'temp_3d'], 426349., 5119564., -7.30),
+    ('red26', ['salt_3d', 'temp_3d'], 426607., 5117537., -7.50),
+    ('sandi', ['salt_3d', 'temp_3d'], 424296., 5122980., -7.90),
+    ('tansy', ['salt_3d', 'temp_3d'], 429120., 5115500., -8.40),
+    ('rino', ['salt_3d', 'temp_3d'], 400032., 5143472., 'prof'),
+    ('rice', ['salt_3d', 'temp_3d'], 407717., 5113304., 'prof'),
+    ('riso', ['salt_3d', 'temp_3d'], 414871., 5100523., 'prof'),
+    ('ogi01', ['salt_3d', 'temp_3d'], 402180., 5099093., 'prof'),
+    ('red26', ['salt_3d', 'temp_3d'], 426607., 5117537., 'prof'),
+]
+
+for name, varlist, x, y, z in station_list:
+
+    def _append_callback(cls, *args, **kwargs):
+        kwargs.setdefault('append_to_log', False)
+        cb = cls(solver_obj, *args, **kwargs)
+        solver_obj.add_callback(cb)
+
+    if z is None:
+        _append_callback(TimeSeriesCallback2D, varlist, x, y, name)
+    elif z == 'prof':
+        _append_callback(VerticalProfileCallback, varlist, x, y, name)
+    else:
+        _append_callback(TimeSeriesCallback3D, varlist, x, y, z, name)
 
 hcc_obj = Mesh3DConsistencyCalculator(solver_obj)
 hcc_obj.solve()
@@ -272,6 +295,10 @@ print_output('Resolution: {:}'.format(reso_str))
 print_output('Reynolds number: {:}'.format(reynolds_number))
 print_output('Horizontal viscosity: {:}'.format(nu_scale))
 print_output('Exporting to {:}'.format(outputdir))
+
+# set init salt in estuary to zero
+xyz = solver_obj.mesh.coordinates
+salt_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), 0.0, salt_bnd_3d))
 
 solver_obj.assign_initial_conditions(salt=salt_bnd_3d, temp=temp_bnd_3d)
 
