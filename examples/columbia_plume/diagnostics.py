@@ -39,6 +39,13 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         if outputdir is None:
             outputdir = self.solver_obj.options.outputdir
 
+        # test evaluation
+        try:
+            min_z = -self.solver_obj.fields.bathymetry_2d.at((self.x, self.y))
+        except PointNotInDomainError as e:
+            error('{:}: Station "{:}" out of horizontal domain'.format(self.__class__.__name__, self.location_name))
+            raise e
+
         # construct mesh points
         xx = np.array([self.x])
         yy = np.array([self.y])
@@ -47,15 +54,15 @@ class TimeSeriesCallback2D(DiagnosticCallback):
     def __call__(self):
         if not self._initialized:
             self._initialize()
-
-        func = self.field
-        arr = np.array(func.at(tuple(self.xyz)))
-
+        try:
+            arr = np.array(self.field.at(tuple(self.xyz)))
+        except PointNotInDomainError as e:
+            error('{:}: Cannot evaluate data at station {:}'.format(self.__class__.__name__, self.location_name))
+            raise e
         return (arr, )
 
     def message_str(self, *args):
         val = args[0][0]
-
         line = 'Value of {:} at {:}: {:.3g}'.format(
             self.fieldname, self.location_name, val)
         return line
@@ -97,6 +104,17 @@ class TimeSeriesCallback3D(DiagnosticCallback):
         if outputdir is None:
             outputdir = self.solver_obj.options.outputdir
 
+        try:
+            min_z = -self.solver_obj.fields.bathymetry_2d.at((self.x, self.y))
+        except PointNotInDomainError as e:
+            error('{:}: Station "{:}" out of horizontal domain'.format(self.__class__.__name__, self.location_name))
+            raise e
+
+        if self.z < min_z:
+            new_z = min_z + 0.1
+            warning('Water depth too shallow at {:}; replacing z={:} by z={:}'.format(self.location_name, self.z, new_z))
+            self.z = new_z
+
         # construct mesh points
         xx = np.array([self.x]).ravel()
         yy = np.array([self.y]).ravel()
@@ -106,15 +124,15 @@ class TimeSeriesCallback3D(DiagnosticCallback):
     def __call__(self):
         if not self._initialized:
             self._initialize()
-
-        func = self.field
-        arr = np.array(func.at(tuple(self.xyz)))
-
+        try:
+            arr = np.array(self.field.at(tuple(self.xyz)))
+        except PointNotInDomainError as e:
+            error('{:}: Cannot evaluate data at station {:}'.format(self.__class__.__name__, self.location_name))
+            raise e
         return (arr, )
 
     def message_str(self, *args):
         val = args[0][0]
-
         line = 'Value of {:} at {:} {:} m: {:.3g}'.format(
             self.fieldname, self.location_name, self.z, val)
         return line
@@ -158,8 +176,12 @@ class VerticalProfileCallback(DiagnosticCallback):
             outputdir = self.solver_obj.options.outputdir
 
         # construct mesh points for func evaluation
-        depth = self.solver_obj.fields.bathymetry_2d.at((self.x, self.y))
-        elev = self.solver_obj.fields.elev_cg_2d.at((self.x, self.y))
+        try:
+            depth = self.solver_obj.fields.bathymetry_2d.at((self.x, self.y))
+            elev = self.solver_obj.fields.elev_cg_2d.at((self.x, self.y))
+        except PointNotInDomainError as e:
+            error('{:}: Station "{:}" out of horizontal domain'.format(self.__class__.__name__, self.location_name))
+            raise e
         epsilon = 1e-2  # nudge points to avoid libspatialindex errors
         z_min = -(depth - epsilon)
         z_max = elev - epsilon
@@ -173,16 +195,16 @@ class VerticalProfileCallback(DiagnosticCallback):
     def __call__(self):
         if not self._initialized:
             self._initialize()
-
-        func = self.field
-        arr = np.array(func.at(tuple(self.xyz)))
-
+        try:
+            arr = np.array(self.field.at(tuple(self.xyz)))
+        except PointNotInDomainError as e:
+            error('{:}: Cannot evaluate data at station {:}'.format(self.__class__.__name__, self.location_name))
+            raise e
         return (self.z, arr)
 
     def message_str(self, *args):
         minval = args[1].min()
         maxval = args[1].max()
-
         line = 'Evaluated {:} profile, value range: {:.3g} - {:.3g}'.format(
             self.fieldname, minval, maxval)
         return line
