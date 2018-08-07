@@ -6,8 +6,8 @@ Simulates the Columbia river plume with realistic tides and wind, atmospheric
 pressure and river discharge forcings.
 
 Initial and boundary conditions for salinity and temperature are obtained from
-LiveOcean ROMS hindcast simulation. Tides are computed from the FES2004 tidal
-models. Atmospheric forcings are from the WRF model forecasts. Bathymetry is a
+NCOM hindcast simulation. Tides are computed from the FES2004 tidal
+models. Atmospheric forcings are from the NAM model forecasts. Bathymetry is a
 CMOP composite for Columbia river and the adjacent shelf.
 
 The forcing data are loaded from subdirectories:
@@ -17,16 +17,22 @@ The forcing data are loaded from subdirectories:
 - tides
     ./forcings/tide.fes2004.nc
 - atmospheric data
-    ./forcings/atm/wrf/wrf_air.YYYY_MM_DD.nc
-- LiveOcean data
-    ./forcings/liveocean/fYYYY.MM.DD/ocean_his_00??.nc
+    ./forcings/atm/nam/nam_air.local.YYYY_MM_DD.nc
+- NCOM ocean data
+    ./forcings/ncom/model_h.nc
+    ./forcings/ncom/model_lat.nc
+    ./forcings/ncom/model_ang.nc
+    ./forcings/ncom/model_lon.nc
+    ./forcings/ncom/model_zm.nc
+    ./forcings/ncom/YYYY/t3d/t3d.glb8_2f_YYYYMMDD00.nc
+    ./forcings/ncom/YYYY/s3d/s3d.glb8_2f_YYYYMMDD00.nc
 
 """
 from thetis import *
 from bathymetry import *
 from tidal_forcing import TidalBoundaryForcing
 from diagnostics import TimeSeriesCallback2D
-from roms_forcing import LiveOceanInterpolator
+from ncom_forcing import NCOMInterpolator
 from atm_forcing import *
 comm = COMM_WORLD
 
@@ -66,9 +72,9 @@ ntriangles = comm.allreduce(mesh2d.topology.num_cells(), MPI.SUM)
 nprisms = ntriangles*nlayers
 
 sim_tz = timezone.FixedTimeZone(-8, 'PST')
-init_date = datetime.datetime(2015, 5, 16, tzinfo=sim_tz)
+init_date = datetime.datetime(2006, 5, 10, tzinfo=sim_tz)
 
-t_end = 10*24*3600.
+t_end = 52*24*3600.
 t_export = 900.
 
 # interpolate bathymetry and smooth it
@@ -166,21 +172,22 @@ atm_pressure_2d = Function(solver_obj.function_spaces.P1_2d, name='atm pressure'
 options.wind_stress = wind_stress_3d
 options.atmospheric_pressure = atm_pressure_2d
 copy_wind_stress_to_3d = ExpandFunctionTo3d(wind_stress_2d, wind_stress_3d)
-atm_pattern = 'forcings/atm/wrf/wrf_air.{year}_*_*.nc'.format(year=init_date.year)
+atm_pattern = 'forcings/atm/nam/nam_air.local.{year}_*_*.nc'.format(year=init_date.year)
 atm_interp = ATMInterpolator(
     solver_obj.function_spaces.P1_2d,
     wind_stress_2d, atm_pressure_2d, atm_pattern, init_date)
 atm_interp.set_fields(0.0)
 
 # ocean initial conditions
-salt_roms_3d = Function(solver_obj.function_spaces.P1, name='ROMS salinity')
-temp_roms_3d = Function(solver_obj.function_spaces.P1, name='ROMS temperature')
-liveocean_interp = LiveOceanInterpolator(solver_obj.function_spaces.P1,
-                                         [salt_roms_3d, temp_roms_3d],
-                                         ['salt', 'temp'],
-                                         'forcings/liveocean/f2015.*/ocean_his_*.nc',
-                                         init_date)
-liveocean_interp.set_fields(0.0)
+salt_bnd_3d = Function(solver_obj.function_spaces.P1, name='NCOM salinity')
+temp_bnd_3d = Function(solver_obj.function_spaces.P1, name='NCOM temperature')
+oce_bnd_interp = NCOMInterpolator(
+    solver_obj.function_spaces.P1, [salt_bnd_3d, temp_bnd_3d],
+    ['Salinity', 'Temperature'], ['s3d', 't3d'],
+    'forcings/ncom/{year:04d}/{fieldstr:}/{fieldstr:}.glb8_2f_{year:04d}{month:02d}{day:02d}00.nc',
+    init_date
+)
+oce_bnd_interp.set_fields(0.0)
 
 # tides
 elev_tide_2d = Function(bathymetry_2d.function_space(), name='Boundary elevation')
@@ -196,7 +203,7 @@ bnd_elev_updater = TidalBoundaryForcing(
 
 # river flux
 river_flux_interp = interpolation.NetCDFTimeSeriesInterpolator(
-    'forcings/stations/bvao3/bvao3.0.A.FLUX/*.nc',
+    'forcings/stations/beaverarmy/flux_*.nc',
     ['flux'], init_date, scalars=[-1.0])
 river_flux_const = Constant(river_flux_interp(0)[0])
 
@@ -206,9 +213,9 @@ zero_elev_funcs = {'elev': Constant(0)}
 open_uv_funcs = {'symm': None}
 zero_uv_funcs = {'uv': Constant((0, 0, 0))}
 bnd_river_salt = {'value': Constant(salt_river)}
-ocean_salt_funcs = {'value': salt_roms_3d}
+ocean_salt_funcs = {'value': salt_bnd_3d}
 bnd_river_temp = {'value': Constant(temp_river)}
-ocean_temp_funcs = {'value': temp_roms_3d}
+ocean_temp_funcs = {'value': temp_bnd_3d}
 solver_obj.bnd_functions['shallow_water'] = {
     river_bnd_id: river_swe_funcs,
     south_bnd_id: tide_elev_funcs,
@@ -248,8 +255,8 @@ ExpandFunctionTo3d(mask_tracer_relax_2d, mask_tracer_relax_3d).solve()
 solver_obj.function_spaces.P1_2d.restore_work_function(mask_tracer_relax_2d)
 # File('mask.pvd').write(mask_tracer_relax_3d)
 f_rel = mask_tracer_relax_3d/t_tracer_relax
-options.temperature_source_3d = f_rel*(temp_roms_3d - solver_obj.fields.temp_3d)
-options.salinity_source_3d = f_rel*(salt_roms_3d - solver_obj.fields.salt_3d)
+options.temperature_source_3d = f_rel*(temp_bnd_3d - solver_obj.fields.temp_3d)
+options.salinity_source_3d = f_rel*(salt_bnd_3d - solver_obj.fields.salt_3d)
 
 solver_obj.create_equations()
 
@@ -266,14 +273,14 @@ print_output('Reynolds number: {:}'.format(reynolds_number))
 print_output('Horizontal viscosity: {:}'.format(nu_scale))
 print_output('Exporting to {:}'.format(outputdir))
 
-solver_obj.assign_initial_conditions(salt=salt_roms_3d, temp=temp_roms_3d)
+solver_obj.assign_initial_conditions(salt=salt_bnd_3d, temp=temp_bnd_3d)
 
 
 def update_forcings(t):
     bnd_time.assign(t)
     bnd_elev_updater.set_tidal_field(t)
     river_flux_const.assign(river_flux_interp(t)[0])
-    liveocean_interp.set_fields(t)
+    oce_bnd_interp.set_fields(t)
     atm_interp.set_fields(t)
     copy_wind_stress_to_3d.solve()
 
