@@ -5,7 +5,6 @@ from thetis import *
 from atm_forcing import to_latlon
 from thetis.timezone import *
 import netCDF4
-import scipy.spatial.qhull as qhull
 from thetis.interpolation import GridInterpolator, SpatialInterpolator
 
 
@@ -39,33 +38,6 @@ class SpatialInterpolatorNCOM3d(SpatialInterpolator):
 
         self._initialized = False
 
-    def _get_subset_nodes(self, grid_x, grid_y, target_x, target_y,
-                          grid_bbox=None):
-        """
-        Retuns grid nodes that are necessary for intepolating onto target_x,y
-        """
-        orig_shape = grid_x.shape
-        x = grid_x.ravel()
-        y = grid_y.ravel()
-        if grid_bbox is not None:
-            ix_x = np.logical_and(x >= grid_bbox[0], x <= grid_bbox[1])
-            ix_y = np.logical_and(y >= grid_bbox[2], y <= grid_bbox[3])
-            bbox_map = np.nonzero(np.logical_and(ix_x, ix_y))[0]
-            x = x[bbox_map]
-            y = y[bbox_map]
-
-        grid_xy = np.array((x.ravel(), y.ravel())).T
-        target_xy = np.array((target_x.ravel(), target_y.ravel())).T
-        tri = qhull.Delaunay(grid_xy)
-        simplex = tri.find_simplex(target_xy)
-        vertices = np.take(tri.simplices, simplex, axis=0)
-        nodes = np.unique(vertices.ravel())
-        if grid_bbox is not None:
-            nodes = bbox_map[nodes]
-        nodes_x, nodes_y = np.unravel_index(nodes, orig_shape)
-
-        return nodes, nodes_x, nodes_y
-
     def _get_forcing_grid(self, filename, varname):
         v = None
         with netCDF4.Dataset(os.path.join(self.grid_path, filename), 'r') as ncfile:
@@ -83,45 +55,71 @@ class SpatialInterpolatorNCOM3d(SpatialInterpolator):
         lon = lon_full[y_ind, :][:, x_ind]
         lat = lat_full[y_ind, :][:, x_ind]
 
-        # bound global grid to speed up subset search
-        buffer = 3.0
-        lat_min = self.latlonz_array[:, 0].min() - buffer
-        lat_max = self.latlonz_array[:, 0].max() + buffer
-        lon_min = self.latlonz_array[:, 1].min() - buffer
-        lon_max = self.latlonz_array[:, 1].max() + buffer
-        bbox = [lat_min, lat_max, lon_min, lon_max]
-
-        sub = self._get_subset_nodes(lat, lon,
-                                     self.latlonz_array[:, 0],
-                                     self.latlonz_array[:, 1],
-                                     grid_bbox=bbox)
-        self.nodes, self.ind_lat, self.ind_lon = sub
-        lat_subset = lat[self.ind_lat, self.ind_lon]
-        lon_subset = lon[self.ind_lat, self.ind_lon]
-
-        zm = self._get_forcing_grid('model_zm.nc', 'zm')
-        zm = zm[:, y_ind, :][:, :, x_ind]
-
-        grid_z = zm[:, self.ind_lat, self.ind_lon]  # shape (nz, nlatlon)
-        grid_z = grid_z.filled(-5000.)
-        # nudge water surface higher for interpolation
-        grid_z[0, :] = 1.5
-        nz = grid_z.shape[0]
-
-        # find mask where data values are not defined, omit from grid
+        # find where data values are not defined
         varkey = None
         for k in ncfile.variables.keys():
             if k not in ['X_Index', 'Y_Index', 'level']:
                 varkey = k
                 break
         assert varkey is not None, 'Could not find variable in file'
-        vals = ncfile[varkey][:][:, self.ind_lat, self.ind_lon]
-        self.good_mask = ~vals.mask
+        vals = ncfile[varkey][:]  # shape nz, lat, lon
+        land_mask = np.all(vals.mask, axis=0)
+
+        # build 2d mask
+        mask_good_values = ~land_mask
+        # neighborhood mask with bounding box
+        mask_cover = np.zeros_like(mask_good_values)
+        buffer = 0.2
+        lat_min = self.latlonz_array[:, 0].min() - buffer
+        lat_max = self.latlonz_array[:, 0].max() + buffer
+        lon_min = self.latlonz_array[:, 1].min() - buffer
+        lon_max = self.latlonz_array[:, 1].max() + buffer
+        mask_cover[(lat >= lat_min) *
+                   (lat <= lat_max) *
+                   (lon >= lon_min) *
+                   (lon <= lon_max)] = True
+        mask_cover *= mask_good_values
+        # include nearest valid neighbors
+        # needed for nearest neighbor filling
+        from scipy.spatial import cKDTree
+        good_lat = lat[mask_good_values]
+        good_lon = lon[mask_good_values]
+        ll = np.vstack([good_lat.ravel(), good_lon.ravel()]).T
+        dist, ix = cKDTree(ll).query(self.latlonz_array[:, :2])
+        ix = np.unique(ix)
+        ix = np.nonzero(mask_good_values.ravel())[0][ix]
+        a, b = np.unravel_index(ix, lat.shape)
+        mask_nn = np.zeros_like(mask_good_values)
+        mask_nn[a, b] = True
+        # final mask
+        mask = mask_cover + mask_nn
+
+        self.nodes = np.nonzero(mask.ravel())[0]
+        self.ind_lat, self.ind_lon = np.unravel_index(self.nodes, lat.shape)
+
+        # find 3d mask where data is not defined
+        vals = vals[:, self.ind_lat, self.ind_lon]
+        self.good_mask_3d = ~vals.mask
+
+        lat_subset = lat[self.ind_lat, self.ind_lon]
+        lon_subset = lon[self.ind_lat, self.ind_lon]
+
+        assert len(lat_subset) > 0, 'rank {:} has no source lat points'
+        assert len(lon_subset) > 0, 'rank {:} has no source lon points'
+
+        # construct vertical grid
+        zm = self._get_forcing_grid('model_zm.nc', 'zm')
+        zm = zm[:, y_ind, :][:, :, x_ind]
+        grid_z = zm[:, self.ind_lat, self.ind_lon]  # shape (nz, nlatlon)
+        grid_z = grid_z.filled(-5000.)
+        # nudge water surface higher for interpolation
+        grid_z[0, :] = 1.5
+        nz = grid_z.shape[0]
 
         # data shape is [nz, neta*nxi]
-        grid_lat = np.tile(lat_subset, (nz, 1))[self.good_mask]
-        grid_lon = np.tile(lon_subset, (nz, 1))[self.good_mask]
-        grid_z = grid_z[self.good_mask]
+        grid_lat = np.tile(lat_subset, (nz, 1))[self.good_mask_3d]
+        grid_lon = np.tile(lon_subset, (nz, 1))[self.good_mask_3d]
+        grid_z = grid_z[self.good_mask_3d]
         if np.ma.isMaskedArray(grid_lat):
             grid_lat = grid_lat.filled(0.0)
         if np.ma.isMaskedArray(grid_lon):
@@ -134,7 +132,8 @@ class SpatialInterpolatorNCOM3d(SpatialInterpolator):
         print_output('Constructing 3D GridInterpolator...')
         self.interpolator = GridInterpolator(grid_latlonz, self.latlonz_array,
                                              normalize=True,
-                                             fill_mode='nearest')
+                                             fill_mode='nearest',
+                                             dont_raise=True)
         print_output('done.')
         self._initialized = True
 
@@ -149,7 +148,7 @@ class SpatialInterpolatorNCOM3d(SpatialInterpolator):
             for var in variable_list:
                 assert var in ncfile.variables
                 # TODO generalize data dimensions, sniff from netcdf file
-                grid_data = ncfile[var][:][:, self.ind_lat, self.ind_lon][self.good_mask]
+                grid_data = ncfile[var][:][:, self.ind_lat, self.ind_lon][self.good_mask_3d]
                 data = self.interpolator(grid_data)
                 output.append(data)
         return output
