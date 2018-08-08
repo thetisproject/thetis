@@ -275,23 +275,17 @@ station_list = [
 
 for name, varlist, x, y, z in station_list:
 
-    def _ts2d(*args, **kwargs):
-        return TimeSeriesCallback2D(solver_obj, *args, **kwargs)
-
-    def _ts3d(*args, **kwargs):
-        return TimeSeriesCallback3D(solver_obj, *args, **kwargs)
-
-    def _vprof3d(*args, **kwargs):
-        return VerticalProfileCallback(solver_obj, *args, **kwargs)
-
-    for v in varlist:
-        if '_2d' in v:
-            cb = _ts2d(v, x=x, y=y, location_name=name)
-        elif z == 'prof':
-            cb = _vprof3d(v, x=x, y=y, location_name=name)
-        else:
-            cb = _ts3d(v, x=x, y=y, z=z, location_name=name)
+    def _append_callback(cls, *args, **kwargs):
+        kwargs.setdefault('append_to_log', False)
+        cb = cls(solver_obj, *args, **kwargs)
         solver_obj.add_callback(cb)
+
+    if z is None:
+        _append_callback(TimeSeriesCallback2D, varlist, x, y, name)
+    elif z == 'prof':
+        _append_callback(VerticalProfileCallback, varlist, x, y, name)
+    else:
+        _append_callback(TimeSeriesCallback3D, varlist, x, y, z, name)
 
 hcc_obj = Mesh3DConsistencyCalculator(solver_obj)
 hcc_obj.solve()
