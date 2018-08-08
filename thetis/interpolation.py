@@ -89,14 +89,31 @@ class GridInterpolator(object):
     Based on
     http://stackoverflow.com/questions/20915502/speedup-scipy-griddata-for-multiple-interpolations-between-two-irregular-grids
     """
-    def __init__(self, grid_xyz, target_xyz, fill_mode=None, fill_value=np.nan, normalize=False):
+    def __init__(self, grid_xyz, target_xyz, fill_mode=None, fill_value=np.nan,
+                 normalize=False, dont_raise=False):
         """
-        :arg grid_xyz: Array of source grid coordinates, shape (npoints, 2) or  (npoints, 3)
-        :arg target_xyz: Array of target grid coordinates, shape (n, 2) or  (n, 3)
+        :arg grid_xyz: Array of source grid coordinates, shape (npoints, 2) or
+            (npoints, 3)
+        :arg target_xyz: Array of target grid coordinates, shape (n, 2) or
+            (n, 3)
+        :kwarg fill_mode: Determines how points outside the source grid will be
+            treated. If 'nearest', value of the nearest source point will be
+            used. Otherwise a constant fill value will be used (default).
+        :kwarg float fill_value: Set the fill value (default: NaN)
+        :kwarg bool normalize: If true the data is scaled to unit cube before
+            interpolation. Default: False.
+        :kwarg bool dont_raise: Do not raise a Qhull error if triangulation
+            fails. In this case the data will be set to fill value or nearest
+            neighbor value.
         """
-        self.fill_value = np.nan
+        self.fill_value = fill_value
         self.fill_mode = fill_mode
         self.normalize = normalize
+        self.fill_nearest = self.fill_mode == 'nearest'
+        self.shape = (target_xyz.shape[0], )
+        ngrid_points = grid_xyz.shape[0]
+        if self.fill_nearest:
+            assert ngrid_points > 0, 'at least one source point is needed'
         if self.normalize:
 
             def get_norm_params(x, scale=None):
@@ -120,23 +137,36 @@ class GridInterpolator(object):
             ngrid_xyz = grid_xyz
             ntarget_xyz = target_xyz
 
-        d = ngrid_xyz.shape[1]
-        tri = qhull.Delaunay(ngrid_xyz)
-        # NOTE this becomes expensive in 3D for npoints > 10k
-        simplex = tri.find_simplex(ntarget_xyz)
-        vertices = np.take(tri.simplices, simplex, axis=0)
-        temp = np.take(tri.transform, simplex, axis=0)
-        delta = ntarget_xyz - temp[:, d]
-        bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
-        self.vtx = vertices
-        self.wts = np.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
-        self.outside = np.nonzero(np.any(self.wts < 0, axis=1))[0]
-        self.fill_nearest = self.fill_mode == 'nearest' and len(self.outside) > 0
-        if self.fill_nearest:
-            # find nearest neighbor in the data set
-            from scipy.spatial import cKDTree
-            dist, ix = cKDTree(ngrid_xyz).query(ntarget_xyz[self.outside])
-            self.outside_to_nearest = ix
+        self.cannot_interpolate = False
+        try:
+            d = ngrid_xyz.shape[1]
+            tri = qhull.Delaunay(ngrid_xyz)
+            # NOTE this becomes expensive in 3D for npoints > 10k
+            simplex = tri.find_simplex(ntarget_xyz)
+            vertices = np.take(tri.simplices, simplex, axis=0)
+            temp = np.take(tri.transform, simplex, axis=0)
+            delta = ntarget_xyz - temp[:, d]
+            bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
+            self.vtx = vertices
+            self.wts = np.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
+            self.outside = np.any(~np.isfinite(self.wts), axis=1)
+            self.outside += np.any(self.wts < 0, axis=1)
+            self.outside = np.nonzero(self.outside)[0]
+            self.fill_nearest *= len(self.outside) > 0
+            if self.fill_nearest:
+                # find nearest neighbor in the data set
+                from scipy.spatial import cKDTree
+                dist, ix = cKDTree(ngrid_xyz).query(ntarget_xyz[self.outside])
+                self.outside_to_nearest = ix
+        except qhull.QhullError as e:
+            if not dont_raise:
+                raise e
+            self.cannot_interpolate = True
+            if self.fill_nearest:
+                # find nearest neighbor in the data set
+                from scipy.spatial import cKDTree
+                dist, ix = cKDTree(ngrid_xyz).query(ntarget_xyz)
+                self.outside_to_nearest = ix
 
     def __call__(self, values):
         """
@@ -145,11 +175,17 @@ class GridInterpolator(object):
         :arg values: Array of source values to interpolate, shape (npoints, )
         :kwarg float fill_value: Fill value to use outside the source grid (default: NaN)
         """
-        ret = np.einsum('nj,nj->n', np.take(values, self.vtx), self.wts)
-        if self.fill_mode is None:
-            ret[self.outside] = self.fill_value
-        elif self.fill_nearest:
-            ret[self.outside] = values[self.outside_to_nearest]
+        if self.cannot_interpolate:
+            if self.fill_nearest:
+                ret = values[self.outside_to_nearest]
+            else:
+                ret = np.ones(self.shape)*self.fill_value
+        else:
+            ret = np.einsum('nj,nj->n', np.take(values, self.vtx), self.wts)
+            if self.fill_nearest:
+                ret[self.outside] = values[self.outside_to_nearest]
+            else:
+                ret[self.outside] = self.fill_value
         return ret
 
 
