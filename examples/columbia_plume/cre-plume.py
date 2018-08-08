@@ -44,12 +44,12 @@ physical_constants['z0_friction'].assign(0.005)
 reso_str = 'coarse'
 meshfile = {
     'coarse': 'mesh_cre-plume_02_coarse.msh',
-    'normal': 'mesh_cre-plume_02.msh',
+    'normal': 'mesh_cre-plume_02_normal.msh',
 }
 zgrid_params = {
     # nlayers, surf_elem_height, max_z_stretch
     'coarse': (9, 5.0, 4.0),
-    'normal': (24, 0.25, 4.0),
+    'normal': (20, 0.25, 4.0),
 }
 nlayers, surf_elem_height, max_z_stretch = zgrid_params[reso_str]
 outputdir = 'outputs_{:}'.format(reso_str)
