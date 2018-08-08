@@ -41,7 +41,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
 
         # test evaluation
         try:
-            min_z = -self.solver_obj.fields.bathymetry_2d.at((self.x, self.y))
+            self.solver_obj.fields.bathymetry_2d.at((self.x, self.y))
         except PointNotInDomainError as e:
             error('{:}: Station "{:}" out of horizontal domain'.format(self.__class__.__name__, self.location_name))
             raise e
@@ -50,6 +50,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         xx = np.array([self.x])
         yy = np.array([self.y])
         self.xyz = np.vstack((xx.ravel(), yy.ravel())).T
+        self._initialized = True
 
     def __call__(self):
         if not self._initialized:
@@ -120,6 +121,7 @@ class TimeSeriesCallback3D(DiagnosticCallback):
         yy = np.array([self.y]).ravel()
         zz = np.array([self.z]).ravel()
         self.xyz = np.vstack((xx, yy, zz)).T
+        self._initialized = True
 
     def __call__(self):
         if not self._initialized:
@@ -174,7 +176,9 @@ class VerticalProfileCallback(DiagnosticCallback):
         outputdir = self.outputdir
         if outputdir is None:
             outputdir = self.solver_obj.options.outputdir
+        self._initialized = True
 
+    def _construct_z_array(self):
         # construct mesh points for func evaluation
         try:
             depth = self.solver_obj.fields.bathymetry_2d.at((self.x, self.y))
@@ -195,6 +199,8 @@ class VerticalProfileCallback(DiagnosticCallback):
     def __call__(self):
         if not self._initialized:
             self._initialize()
+        # update time-dependent z array
+        self._construct_z_array()
         try:
             arr = np.array(self.field.at(tuple(self.xyz)))
         except PointNotInDomainError as e:
