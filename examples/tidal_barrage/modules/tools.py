@@ -6,7 +6,7 @@ class LagoonCallback(DiagnosticCallback):
     """Callback that sets fluxes through lagoons"""
 
     def __init__(self, solver_obj, marked_areas, lagoon_input, name="lagoon", thetis_boundaries=None,
-                 number_timesteps=5, time=0., **kwargs):
+                 number_timesteps=5, time=0., status=None, adaptive_control=None, holding_time=None, **kwargs):
         """
         transient field averaging for use in the simulation
 
@@ -37,9 +37,19 @@ class LagoonCallback(DiagnosticCallback):
 
         self.elevation_mean = {"inner": self.elevation_value["inner"], "outer": self.elevation_value["outer"]}
         self.marked_areas = marked_areas
-        self.status = input_barrages.initialise_barrage(1)[0]
+
+        if status is None:
+            self.status = input_barrages.initialise_barrage(1, time=time)[0]
+        else:
+            self.status = status
+
         self.control, self.parameters = lagoon_input[0][0], lagoon_input[1][0]
+        self.output = np.zeros(12)
         self.boundaries = thetis_boundaries
+
+        # Additional options for adaptive operation
+        self.adaptive_control = adaptive_control
+        self.holding_time = holding_time
 
         field_dims = [12]
         attrs = {'field_names': np.array(["operation_output"], dtype='S'),
@@ -59,14 +69,15 @@ class LagoonCallback(DiagnosticCallback):
 
     def __call__(self):
         self.time_operation += self.solver_obj.options.timestep
-        for i in self.marked_areas:
+        for i in ["inner", "outer"]:
             self.elevation_value[i] = assemble(self.solver_obj.fields['elev_2d'] * self.marked_areas[i]) / self.area[i]
             self.elevation_array[i] = np.append(np.delete(self.elevation_array[i], [0]), self.elevation_value[i])
             self.elevation_mean[i] = np.average(self.elevation_array[i])
 
-        return [lagoon_operation.lagoon(self.time_operation, self.solver_obj.options.timestep,
-                                        self.elevation_mean["inner"], self.elevation_mean["outer"],
-                                        self.status, self.control, self.parameters, self.boundaries)]
+        self.output = lagoon_operation.lagoon(self.time_operation, self.solver_obj.options.timestep,
+                                              self.elevation_mean["inner"], self.elevation_mean["outer"],
+                                              self.status, self.control, self.parameters, self.boundaries)
+        return [self.output]
 
     def message_str(self, *args):
         super().message_str(*args)
