@@ -46,13 +46,18 @@ meshfile = {
     'coarse': 'mesh_cre-plume_02_coarse.msh',
     'normal': 'mesh_cre-plume_02_normal.msh',
 }
+dt_select = {
+    'coarse': 30.,
+    'normal': 15.,
+}
+dt = dt_select[reso_str]
 zgrid_params = {
     # nlayers, surf_elem_height, max_z_stretch
     'coarse': (9, 5.0, 4.0),
     'normal': (20, 0.25, 4.0),
 }
 nlayers, surf_elem_height, max_z_stretch = zgrid_params[reso_str]
-outputdir = 'outputs_{:}'.format(reso_str)
+outputdir = 'outputs_{:}_dt{:}'.format(reso_str, int(dt))
 mesh2d = Mesh(meshfile[reso_str])
 print_output('Loaded mesh ' + mesh2d.name)
 
@@ -143,6 +148,9 @@ options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
 options.coriolis_frequency = Constant(coriolis_f)
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
+if dt is not None:
+    options.timestepper_options.use_automatic_timestep = False
+    options.timestep = dt
 options.output_directory = outputdir
 options.horizontal_velocity_scale = Constant(u_scale)
 options.vertical_velocity_scale = Constant(w_scale)
