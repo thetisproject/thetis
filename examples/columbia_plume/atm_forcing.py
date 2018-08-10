@@ -46,17 +46,33 @@ def to_latlon(x, y, positive_lon=False):
     return lat, lon
 
 
-def compute_wind_stress(wind_u, wind_v):
+def compute_wind_stress(wind_u, wind_v, method='LargePond1981'):
     """
-    Wind stress formulation by Large and Pond (1981).
+    Compute wind stress from atmospheric 10 m wind.
 
-    Large and Pond (1981), J. Phys. Oceanog., 11, 324-336.
+    Two formulation are currently implemented:
+
+    - "LargePond1981":
+        Wind stress formulation by [1]
+    - "SmithBanke1975":
+        Wind stress formulation by [2]
+
+    [1] Large and Pond (1981). Open Ocean Momentum Flux Measurements in
+        Moderate to Strong Winds. Journal of Physical Oceanography,
+        11(3):324-336.
+        https://doi.org/10.1175/1520-0485(1981)011%3C0324:OOMFMI%3E2.0.CO;2
+    [2] Smith and Banke (1975). Variation of the sea surface drag coefficient with
+        wind speed. Q J R Meteorol Soc., 101(429):665-673.
+        https://doi.org/10.1002/qj.49710142920
     """
     wind_mag = np.hypot(wind_u, wind_v)
-    CD_LOW = 1.2e-3
-    C_D = np.ones_like(wind_u)*CD_LOW
-    high_wind = wind_mag > 11.0
-    C_D[high_wind] = 1.0e-3*(0.49 + 0.065*wind_mag[high_wind])
+    if method == 'LargePond1981':
+        CD_LOW = 1.2e-3
+        C_D = np.ones_like(wind_u)*CD_LOW
+        high_wind = wind_mag > 11.0
+        C_D[high_wind] = 1.0e-3*(0.49 + 0.065*wind_mag[high_wind])
+    elif method == 'SmithBanke1975':
+        C_D = (0.63 + 0.066 * wind_mag)/1000.
     tau = C_D*rho_air*wind_mag
     tau_x = tau*wind_u
     tau_y = tau*wind_v
