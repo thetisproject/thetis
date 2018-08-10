@@ -171,7 +171,6 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
 options.equation_of_state_type = 'full'
 
 solver_obj.create_function_spaces()
-solver_obj.create_fields()
 
 # atm forcing
 wind_stress_3d = Function(solver_obj.function_spaces.P1v, name='wind stress')
@@ -248,6 +247,8 @@ solver_obj.bnd_functions['temp'] = {
     north_bnd_id: ocean_temp_funcs,
     west_bnd_id: ocean_temp_funcs,
 }
+
+solver_obj.create_fields()
 
 # add relaxation terms for temperature and salinity
 # dT/dt ... - 1/tau*(T_relax - T) = 0
