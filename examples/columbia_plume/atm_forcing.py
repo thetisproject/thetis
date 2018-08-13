@@ -199,8 +199,8 @@ def test():
     assert np.allclose(u_stress, windstress_2d.dat.data_with_halos[:, 0])
 
     # write fields to disk for visualization
-    pres_fn = 'tmp/atm_pressure.pvd'
-    wind_fn = 'tmp/wind_stress.pvd'
+    pres_fn = 'tmp/AtmPressure2d.pvd'
+    wind_fn = 'tmp/WindStress2d.pvd'
     print('Saving output to {:} {:}'.format(pres_fn, wind_fn))
     out_pres = File(pres_fn)
     out_wind = File(wind_fn)
