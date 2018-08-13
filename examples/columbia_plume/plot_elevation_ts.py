@@ -73,7 +73,7 @@ def make_plot(data):
         t_min = min(t_min, time[0])
         t_max = max(t_max, time[-1])
 
-        ax.plot(datetime_arr, vals, label=tag)
+        ax.plot(datetime_arr, vals, label=tag, alpha=0.8)
 
     ax.set_ylabel('Elevation [m]')
     fig.autofmt_xdate()
