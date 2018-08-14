@@ -24,6 +24,29 @@ ds_bottom = ds_b
 
 # TODO move 3d model classes to separate module
 
+from contextlib import ContextDecorator
+import datetime
+
+
+class TraceExecution(ContextDecorator):
+    """
+    Context manager for tracing parallel execution
+    """
+    def __init__(self, name, file_obj):
+        self.name = name
+        self.file = file_obj
+
+    def __enter__(self):
+        self.comm = COMM_WORLD
+        self.rank = self.comm.rank
+        now = datetime.datetime.now()
+        self.file.write('{:03d}: {:} Stating "{:}"\n'.format(self.rank, now, self.name))
+        return self
+
+    def __exit__(self, type, value, traceback):
+        now = datetime.datetime.now()
+        self.file.write('{:03d}: {:} Done    "{:}"\n'.format(self.rank, now, self.name))
+
 
 class FrozenClass(object):
     """A class where creating a new attribute will raise an exception if _isfrozen == True"""
