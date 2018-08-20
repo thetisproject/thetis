@@ -2,19 +2,18 @@
 from modules.parameterisations import *
 
 
-def initialise_barrage(barrage_number=1):
+def initialise_barrage(Barrage_Number=1, time=0.):
     """
     Initialises dictionary of barrage status - this contains information about the status of the barrage
 
-    :param barrage_number: Number of barrages considered.
+    :param Barrage_Number: Number of barrages considered.
     :return:
     """
     barrage_status = []
-    for i in range(barrage_number):
-        QTurbines, QSluices, PowerGT, SumPower, Mode, ModeTime, ModeDuration, DZ, rampf, hdn0 =\
-            0., 0., 0., 0., 1., 0., 0., 0., 0., 0.
-        barrage_status.append({"m": Mode, "m_t": ModeTime, "m_dt": ModeDuration, "DZ": DZ, "f_r": rampf, "Q_t": QTurbines,
-                               "Q_s": QSluices, "P": PowerGT, "E": SumPower, "eta_d0": hdn0})
+    for i in range(Barrage_Number):
+        QTurbines, QSluices, PowerGT, SumPower, Mode, ModeDuration, DZ, rampf = 0., 0., 0., 0., 1., 0., 0., 0.,
+        barrage_status.append({"m": Mode, "m_t": time/3600, "m_dt": ModeDuration, "DZ": DZ, "f_r": rampf,
+                               "Q_t": QTurbines, "Q_s": QSluices, "P": PowerGT, "E": SumPower})
     return barrage_status
 
 
