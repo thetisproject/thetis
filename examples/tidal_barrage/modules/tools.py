@@ -6,7 +6,7 @@ class LagoonCallback(DiagnosticCallback):
     """Callback that sets fluxes through lagoons"""
 
     def __init__(self, solver_obj, marked_areas, lagoon_input, name="lagoon", thetis_boundaries=None,
-                 number_timesteps=5, time=0., status=None, adaptive_control=None, holding_time=None, **kwargs):
+                 number_timesteps=5, time=0., status=None, **kwargs):
         """
         transient field averaging for use in the simulation
 
@@ -46,10 +46,6 @@ class LagoonCallback(DiagnosticCallback):
         self.control, self.parameters = lagoon_input[0][0], lagoon_input[1][0]
         self.output = np.zeros(12)
         self.boundaries = thetis_boundaries
-
-        # Additional options for adaptive operation
-        self.adaptive_control = adaptive_control
-        self.holding_time = holding_time
 
         field_dims = [12]
         attrs = {'field_names': np.array(["operation_output"], dtype='S'),
