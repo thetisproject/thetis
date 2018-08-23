@@ -70,8 +70,8 @@ def make_plot(data):
         vals = d[list(d.keys())[1]]
 
         datetime_arr = epoch_to_datetime(time)
-        t_min = min(t_min, time[0])
-        t_max = max(t_max, time[-1])
+        t_min = min(t_min, time.min())
+        t_max = max(t_max, time.max())
 
         ax.plot(datetime_arr, vals, label=tag, alpha=0.8)
 

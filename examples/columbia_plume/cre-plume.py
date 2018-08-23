@@ -310,19 +310,13 @@ salt_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), 0.0, salt_bnd_3d))
 
 solver_obj.assign_initial_conditions(salt=salt_bnd_3d, temp=temp_bnd_3d)
 
-tracefile = open('trace_{:04d}.txt'.format(comm.rank), 'w')
-
 
 def update_forcings(t):
     bnd_time.assign(t)
-    with TraceExecution('01-elev-bound', tracefile):
-        bnd_elev_updater.set_tidal_field(t)
-    with TraceExecution('02-river-flux', tracefile):
-        river_flux_const.assign(river_flux_interp(t)[0])
-    with TraceExecution('03-oce-interp', tracefile):
-        oce_bnd_interp.set_fields(t)
-    with TraceExecution('04-atm-interp', tracefile):
-        atm_interp.set_fields(t)
+    bnd_elev_updater.set_tidal_field(t)
+    river_flux_const.assign(river_flux_interp(t)[0])
+    oce_bnd_interp.set_fields(t)
+    atm_interp.set_fields(t)
     copy_wind_stress_to_3d.solve()
 
 
