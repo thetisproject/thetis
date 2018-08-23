@@ -99,13 +99,7 @@ z_stretch_fact_2d.dat.data[z_stretch_fact_2d.dat.data < 1.0] = 1.0
 z_stretch_fact_2d.dat.data[z_stretch_fact_2d.dat.data > max_z_stretch] = max_z_stretch
 
 coriolis_f, coriolis_beta = beta_plane_coriolis_params(46.25)
-q_river = 5000.
 salt_river = 0.0
-salt_ocean_surface = 32.0
-salt_ocean_bottom = 34.0
-temp_river = 15.0
-temp_ocean_surface = 13.0
-temp_ocean_bottom = 8.0
 reynolds_number = 160.0
 
 u_scale = 3.0
@@ -207,11 +201,15 @@ bnd_elev_updater = TidalBoundaryForcing(
     elev_tide_2d, init_date,
     boundary_ids=[north_bnd_id, west_bnd_id, south_bnd_id])
 
-# river flux
+# river temperature and volume flux
 river_flux_interp = interpolation.NetCDFTimeSeriesInterpolator(
     'forcings/stations/beaverarmy/flux_*.nc',
     ['flux'], init_date, scalars=[-1.0])
 river_flux_const = Constant(river_flux_interp(0)[0])
+river_temp_interp = interpolation.NetCDFTimeSeriesInterpolator(
+    'forcings/stations/beaverarmy/temp_*.nc',
+    ['temp'], init_date)
+river_temp_const = Constant(river_temp_interp(0)[0])
 
 river_swe_funcs = {'flux': river_flux_const}
 tide_elev_funcs = {'elev': elev_bnd_expr}
@@ -220,7 +218,7 @@ open_uv_funcs = {'symm': None}
 zero_uv_funcs = {'uv': Constant((0, 0, 0))}
 bnd_river_salt = {'value': Constant(salt_river)}
 ocean_salt_funcs = {'value': salt_bnd_3d}
-bnd_river_temp = {'value': Constant(temp_river)}
+bnd_river_temp = {'value': river_temp_const}
 ocean_temp_funcs = {'value': temp_bnd_3d}
 solver_obj.bnd_functions['shallow_water'] = {
     river_bnd_id: river_swe_funcs,
@@ -304,9 +302,10 @@ print_output('Reynolds number: {:}'.format(reynolds_number))
 print_output('Horizontal viscosity: {:}'.format(nu_scale))
 print_output('Exporting to {:}'.format(outputdir))
 
-# set init salt in estuary to zero
+# set init salt,temp in estuary
 xyz = solver_obj.mesh.coordinates
-salt_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), 0.0, salt_bnd_3d))
+salt_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), salt_river, salt_bnd_3d))
+temp_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), river_temp_const, temp_bnd_3d))
 
 solver_obj.assign_initial_conditions(salt=salt_bnd_3d, temp=temp_bnd_3d)
 
@@ -315,6 +314,7 @@ def update_forcings(t):
     bnd_time.assign(t)
     bnd_elev_updater.set_tidal_field(t)
     river_flux_const.assign(river_flux_interp(t)[0])
+    river_temp_const.assign(river_temp_interp(t)[0])
     oce_bnd_interp.set_fields(t)
     atm_interp.set_fields(t)
     copy_wind_stress_to_3d.solve()
