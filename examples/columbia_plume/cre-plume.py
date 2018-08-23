@@ -307,6 +307,27 @@ xyz = solver_obj.mesh.coordinates
 salt_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), salt_river, salt_bnd_3d))
 temp_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), river_temp_const, temp_bnd_3d))
 
+# add custom exporters
+# extract and export surface salinity
+surf_salt_2d = Function(solver_obj.function_spaces.H_2d, name='surf salinity')
+extract_surf_salt = SubFunctionExtractor(solver_obj.fields.salt_3d, surf_salt_2d)
+
+
+def prepare_surf_salt():
+    extract_surf_salt.solve()
+
+
+solver_obj.exporters['vtk'].add_export(
+    'surf_salt_2d', surf_salt_2d, export_type='vtk',
+    shortname='Salinity', filename='SurfSalinity2d',
+    preproc_func=prepare_surf_salt)
+solver_obj.exporters['vtk'].add_export(
+    'atm_pressure_2d', atm_pressure_2d, export_type='vtk',
+    shortname='Atm pressure', filename='AtmPressure2d')
+solver_obj.exporters['vtk'].add_export(
+    'wind_stress_2d', wind_stress_2d, export_type='vtk',
+    shortname='Wind stress', filename='WindStress2d')
+
 solver_obj.assign_initial_conditions(salt=salt_bnd_3d, temp=temp_bnd_3d)
 
 
@@ -320,13 +341,4 @@ def update_forcings(t):
     copy_wind_stress_to_3d.solve()
 
 
-out_atm_pressure = File(options.output_directory + '/AtmPressure2d.pvd')
-out_wind_stress = File(options.output_directory + '/WindStress2d.pvd')
-
-
-def export_atm_fields():
-    out_atm_pressure.write(atm_pressure_2d)
-    out_wind_stress.write(wind_stress_2d)
-
-
-solver_obj.iterate(update_forcings=update_forcings, export_func=export_atm_fields)
+solver_obj.iterate(update_forcings=update_forcings)
