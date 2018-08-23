@@ -28,7 +28,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         super(TimeSeriesCallback2D, self).__init__(
             solver_obj,
             outputdir=outputdir,
-            array_dim=len(self.fieldnames),
+            array_dim=1,
             attrs=attrs,
             export_to_hdf5=export_to_hdf5,
             append_to_log=append_to_log)
@@ -101,7 +101,7 @@ class TimeSeriesCallback3D(DiagnosticCallback):
         super(TimeSeriesCallback3D, self).__init__(
             solver_obj,
             outputdir=outputdir,
-            array_dim=len(self.fieldnames),
+            array_dim=1,
             attrs=attrs,
             export_to_hdf5=export_to_hdf5,
             append_to_log=append_to_log)
