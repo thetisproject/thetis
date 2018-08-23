@@ -77,7 +77,7 @@ ntriangles = comm.allreduce(mesh2d.topology.num_cells(), MPI.SUM)
 nprisms = ntriangles*nlayers
 
 sim_tz = timezone.FixedTimeZone(-8, 'PST')
-init_date = datetime.datetime(2006, 5, 10, tzinfo=sim_tz)
+init_date = datetime.datetime(2006, 5, 1, tzinfo=sim_tz)
 
 t_end = 52*24*3600.
 t_export = 900.
