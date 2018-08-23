@@ -10,8 +10,8 @@ The advection-diffusion equation of tracer :math:`T` in non-conservative form re
     :label: tracer_eq_2d
 
 where :math:`\nabla_h` denotes horizontal gradient, :math:`\textbf{u}` are the horizontal
-velocities, respectively, and
-:math:`\mu_h` denote horizontal and vertical diffusivity.
+velocities, and
+:math:`\mu_h` denotes horizontal diffusivity.
 """
 from __future__ import absolute_import
 from .utility import *
