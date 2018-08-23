@@ -272,9 +272,9 @@ station_list = [
     ('red26', ['salt_3d', 'temp_3d'], 426607., 5117537., -7.50),
     ('sandi', ['salt_3d', 'temp_3d'], 424296., 5122980., -7.90),
     ('tansy', ['salt_3d', 'temp_3d'], 429120., 5115500., -8.40),
-    ('rino', ['salt_3d', 'temp_3d'], 400032., 5143472., 'prof'),
-    ('rice', ['salt_3d', 'temp_3d'], 407717., 5113304., 'prof'),
-    ('riso', ['salt_3d', 'temp_3d'], 414871., 5100523., 'prof'),
+    ('rino', ['salt_3d', 'temp_3d'], 386598., 5208089., 'prof'),
+    ('rice', ['salt_3d', 'temp_3d'], 407708., 5113274., 'prof'),
+    ('riso', ['salt_3d', 'temp_3d'], 413834., 5039088., 'prof'),
     ('ogi01', ['salt_3d', 'temp_3d'], 402180., 5099093., 'prof'),
     ('red26', ['salt_3d', 'temp_3d'], 426607., 5117537., 'prof'),
 ]
