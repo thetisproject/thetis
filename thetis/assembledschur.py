@@ -13,11 +13,11 @@ class AssembledSchurPC(PCBase):
 
     - :math:`A01`, :math:`A10` are the assembled sub-blocks of the saddle point
         system. The form of this system needs to be supplied in the
-        :math:`appctx` to the solver as :math:`appctx['a']`.
+        :code:`appctx` argument to the solver as :code:`appctx['a']`.
 
     - :math:`Minv` is the inverse of the mass-matrix which is assembled as
-        :math:`assemble(v*u*dx, inverse=True)`, i.e. the element-wise inverse,
-        where :math:`v` and :math:`u` are the test and trial of the :math:`00`
+        :code:`assemble(v*u*dx, inverse=True)`, i.e. the element-wise inverse,
+        where :math:`v` and :math:`u` are the test and trial of the :math:`A00`
         block. This gives the exact inverse of the mass matrix for a DG
         discretisation.
     """
