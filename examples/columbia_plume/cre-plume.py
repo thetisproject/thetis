@@ -30,7 +30,7 @@ The forcing data are loaded from subdirectories:
 """
 from thetis import *
 from bathymetry import *
-from tidal_forcing import TidalBoundaryForcing
+from tidal_forcing import TPXOTidalBoundaryForcing
 from diagnostics import *
 from ncom_forcing import NCOMInterpolator
 from atm_forcing import *
@@ -128,12 +128,13 @@ options.use_turbulence_advection = False  # not simple_barotropic
 options.use_smooth_eddy_viscosity = False
 options.turbulence_model_type = 'gls'
 options.use_baroclinic_formulation = not simple_barotropic
+options.use_lax_friedrichs_velocity = True
+options.use_lax_friedrichs_tracer = False
 options.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
-options.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
 options.vertical_viscosity = Constant(2e-5)
 options.vertical_diffusivity = Constant(2e-5)
-options.horizontal_viscosity = Constant(2.0)
-options.horizontal_diffusivity = Constant(2.0)
+options.horizontal_viscosity = Constant(1.0)
+options.horizontal_diffusivity = Constant(1.0)
 options.use_quadratic_pressure = True
 options.use_limiter_for_tracers = True
 options.use_limiter_for_velocity = True
@@ -158,11 +159,25 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'eddy_visc_3d', 'shear_freq_3d',
                             'buoy_freq_3d', 'tke_3d', 'psi_3d',
                             'eps_3d', 'len_3d',
-                            'int_pg_3d']
+                            'int_pg_3d', 'baroc_head_3d']
 options.fields_to_export_hdf5 = []
 options.equation_of_state_type = 'full'
 
 solver_obj.create_function_spaces()
+
+# additional diffusion at ocean boundary
+viscosity_bnd_2d = solver_obj.function_spaces.P1_2d.get_work_function()
+viscosity_bnd_3d = Function(solver_obj.function_spaces.P1, name='visc_bnd_3d')
+visc_bnd_dist = 60e3
+visc_bnd_value = 80.0
+get_boundary_relaxation_field(viscosity_bnd_2d,
+                              [north_bnd_id, west_bnd_id, south_bnd_id],
+                              visc_bnd_dist, scalar=visc_bnd_value)
+viscosity_bnd_2d.assign(viscosity_bnd_2d + options.horizontal_viscosity)
+ExpandFunctionTo3d(viscosity_bnd_2d, viscosity_bnd_3d).solve()
+# File('bnd_visc.pvd').write(viscosity_bnd_2d)
+solver_obj.function_spaces.P1_2d.restore_work_function(viscosity_bnd_2d)
+options.horizontal_viscosity = viscosity_bnd_3d
 
 # atm forcing
 wind_stress_3d = Function(solver_obj.function_spaces.P1v, name='wind stress')
@@ -177,28 +192,60 @@ atm_interp = ATMInterpolator(
     wind_stress_2d, atm_pressure_2d, atm_pattern, init_date)
 atm_interp.set_fields(0.0)
 
+solver_obj.create_fields()
+
 # ocean initial conditions
-salt_bnd_3d = Function(solver_obj.function_spaces.P1, name='NCOM salinity')
-temp_bnd_3d = Function(solver_obj.function_spaces.P1, name='NCOM temperature')
+# FIXME these should be CG fields
+# NOTE velocity splitting fails with CG fields?
+salt_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM salinity')
+temp_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM temperature')
+uvel_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM u velocity')
+vvel_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM v velocity')
+density_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM density')
+baroc_head_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM baroclinic head')
+ncom_vel_mask_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM velocity mask')
+
+uv_bnd_3d = Function(solver_obj.function_spaces.P1DGv, name='NCOM velocity')
+uv_bnd_2d = Function(solver_obj.function_spaces.P1DGv_2d, name='NCOM velocity')
+uv_bnd_dav_3d = Function(solver_obj.function_spaces.P1DGv, name='NCOM depth averaged velocity')
+
 oce_bnd_interp = NCOMInterpolator(
-    solver_obj.function_spaces.P1, [salt_bnd_3d, temp_bnd_3d],
-    ['Salinity', 'Temperature'], ['s3d', 't3d'],
+    solver_obj.function_spaces.P1DG,
+    [salt_bnd_3d, temp_bnd_3d, uvel_bnd_3d, vvel_bnd_3d],
+    ['Salinity', 'Temperature', 'U_Velocity', 'V_Velocity'],
+    ['s3d', 't3d', 'u3d', 'v3d'],
     'forcings/ncom/{year:04d}/{fieldstr:}/{fieldstr:}.glb8_2f_{year:04d}{month:02d}{day:02d}00.nc',
     init_date
 )
-oce_bnd_interp.set_fields(0.0)
+
+
+def interp_ocean_bnd(time):
+    oce_bnd_interp.set_fields(time)
+    uvel_bnd_3d.assign(uvel_bnd_3d*ncom_vel_mask_3d)
+    vvel_bnd_3d.assign(vvel_bnd_3d*ncom_vel_mask_3d)
+    
 
 # tides
-elev_tide_2d = Function(bathymetry_2d.function_space(), name='Boundary elevation')
+elev_tide_2d = Function(solver_obj.function_spaces.P1_2d, name='Tidal elevation')
+UV_tide_2d = Function(solver_obj.function_spaces.P1v_2d, name='Tidal transport')
+UV_tide_3d = Function(solver_obj.function_spaces.P1v, name='Tidal transport')
 bnd_time = Constant(0)
 
 ramp_t = 12*3600.
 elev_ramp = conditional(le(bnd_time, ramp_t), bnd_time/ramp_t, 1.0)
-elev_bnd_expr = elev_ramp*elev_tide_2d
+tide_elev_expr_2d = elev_ramp*elev_tide_2d
+depth_2d = solver_obj.fields.bathymetry_2d + solver_obj.fields.elev_cg_2d
+depth_3d = solver_obj.fields.bathymetry_3d + solver_obj.fields.elev_cg_3d
+tide_uv_expr_2d = elev_ramp*UV_tide_2d/depth_2d
+tide_uv_expr_3d = elev_ramp*UV_tide_3d/depth_3d
 
-bnd_elev_updater = TidalBoundaryForcing(
+tide_bnd_interp = TPXOTidalBoundaryForcing(
     elev_tide_2d, init_date,
+    uv_field=UV_tide_2d, data_dir='forcings',
     boundary_ids=[north_bnd_id, west_bnd_id, south_bnd_id])
+
+# ramp up bnd baroclinicity
+bnd_baroc_head_expr = elev_ramp*baroc_head_bnd_3d + (1-elev_ramp)*solver_obj.fields.baroc_head_3d
 
 # river temperature and volume flux
 river_flux_interp = interpolation.NetCDFTimeSeriesInterpolator(
@@ -211,59 +258,72 @@ river_temp_interp = interpolation.NetCDFTimeSeriesInterpolator(
 river_temp_const = Constant(river_temp_interp(0)[0])
 
 river_swe_funcs = {'flux': river_flux_const}
-tide_elev_funcs = {'elev': elev_bnd_expr}
-zero_elev_funcs = {'elev': Constant(0)}
+ocean_tide_funcs = {'elev': tide_elev_expr_2d, 'uv': uv_bnd_2d + tide_uv_expr_2d}
+west_tide_funcs = {'elev': tide_elev_expr_2d, 'uv': tide_uv_expr_2d}
 open_uv_funcs = {'symm': None}
-zero_uv_funcs = {'uv': Constant((0, 0, 0))}
 bnd_river_salt = {'value': Constant(salt_river)}
-ocean_salt_funcs = {'value': salt_bnd_3d}
+uv_bnd_sum_3d = uv_bnd_3d + uv_bnd_dav_3d + tide_uv_expr_3d
+ocean_salt_funcs = {'value': salt_bnd_3d, 'uv': uv_bnd_sum_3d}
+west_salt_funcs = {'value': salt_bnd_3d, 'uv': tide_uv_expr_3d}
 bnd_river_temp = {'value': river_temp_const}
-ocean_temp_funcs = {'value': temp_bnd_3d}
+ocean_temp_funcs = {'value': temp_bnd_3d, 'uv': uv_bnd_sum_3d}
+west_temp_funcs = {'value': temp_bnd_3d, 'uv': tide_uv_expr_3d}
+ocean_uv_funcs = {'uv': uv_bnd_sum_3d, 'baroc_head': bnd_baroc_head_expr}
+west_uv_funcs = {'uv': tide_uv_expr_3d, 'baroc_head': bnd_baroc_head_expr}
 solver_obj.bnd_functions['shallow_water'] = {
     river_bnd_id: river_swe_funcs,
-    south_bnd_id: tide_elev_funcs,
-    north_bnd_id: tide_elev_funcs,
-    west_bnd_id: tide_elev_funcs,
+    south_bnd_id: ocean_tide_funcs,
+    north_bnd_id: ocean_tide_funcs,
+    west_bnd_id: west_tide_funcs,
 }
 solver_obj.bnd_functions['momentum'] = {
     river_bnd_id: open_uv_funcs,
-    south_bnd_id: zero_uv_funcs,
-    north_bnd_id: zero_uv_funcs,
-    west_bnd_id: zero_uv_funcs,
+    south_bnd_id: ocean_uv_funcs,
+    north_bnd_id: ocean_uv_funcs,
+    west_bnd_id: west_uv_funcs,
 }
 solver_obj.bnd_functions['salt'] = {
     river_bnd_id: bnd_river_salt,
     south_bnd_id: ocean_salt_funcs,
     north_bnd_id: ocean_salt_funcs,
-    west_bnd_id: ocean_salt_funcs,
+    west_bnd_id: west_salt_funcs,
 }
 solver_obj.bnd_functions['temp'] = {
     river_bnd_id: bnd_river_temp,
     south_bnd_id: ocean_temp_funcs,
     north_bnd_id: ocean_temp_funcs,
-    west_bnd_id: ocean_temp_funcs,
+    west_bnd_id: west_temp_funcs,
 }
 
-solver_obj.create_fields()
-
-# add relaxation terms for temperature and salinity
+# add relaxation terms for T, S, uv
 # dT/dt ... - 1/tau*(T_relax - T) = 0
-t_tracer_relax = 12.*3600.  # time scale
-lx_relax = 10e3  # distance scale from bnd
-mask_tracer_relax_2d = solver_obj.function_spaces.P1_2d.get_work_function()
-get_boundary_relaxation_field(mask_tracer_relax_2d,
-                              [north_bnd_id, west_bnd_id, south_bnd_id],
-                              lx_relax, scalar=1.0, cutoff=0.02)
+t_bnd_relax = 12.*3600.  # time scale
+lx_relax = 30e3  # distance scale from bnd
+mask_tmp_2d = solver_obj.function_spaces.P1_2d.get_work_function()
 mask_tracer_relax_3d = Function(solver_obj.function_spaces.P1,
                                 name='mask_temp_relax_3d')
-ExpandFunctionTo3d(mask_tracer_relax_2d, mask_tracer_relax_3d).solve()
-solver_obj.function_spaces.P1_2d.restore_work_function(mask_tracer_relax_2d)
+mask_uv_relax_3d = Function(solver_obj.function_spaces.P1,
+                            name='mask_uv_relax_3d')
+get_boundary_relaxation_field(mask_tmp_2d,
+                              [north_bnd_id, west_bnd_id, south_bnd_id],
+                              lx_relax, scalar=1.0/t_bnd_relax)
+ExpandFunctionTo3d(mask_tmp_2d, mask_tracer_relax_3d).solve()
+get_boundary_relaxation_field(mask_tmp_2d,
+                              [north_bnd_id, west_bnd_id],
+                              lx_relax, scalar=1.0/t_bnd_relax)
+ExpandFunctionTo3d(mask_tmp_2d, mask_uv_relax_3d).solve()
+solver_obj.function_spaces.P1_2d.restore_work_function(mask_tmp_2d)
 # File('mask.pvd').write(mask_tracer_relax_3d)
-f_rel = mask_tracer_relax_3d/t_tracer_relax
-options.temperature_source_3d = f_rel*(temp_bnd_3d - solver_obj.fields.temp_3d)
-options.salinity_source_3d = f_rel*(salt_bnd_3d - solver_obj.fields.salt_3d)
+# options.temperature_source_3d = mask_tracer_relax_3d*(temp_bnd_3d - solver_obj.fields.temp_3d)
+# options.salinity_source_3d = mask_tracer_relax_3d*(salt_bnd_3d - solver_obj.fields.salt_3d)
+# options.momentum_source_3d = mask_uv_relax_3d*(uv_bnd_3d - solver_obj.fields.uv_3d)
 
 solver_obj.create_equations()
+
+vel_mask_bath_min = 20.0
+vel_mask_bath_max = 500.0
+ncom_vel_mask_3d.interpolate(0.5*tanh(3*(2*(solver_obj.fields.bathymetry_3d-vel_mask_bath_min)/(vel_mask_bath_max-vel_mask_bath_min)-1)) + 0.5)
+interp_ocean_bnd(0.0)
 
 station_list = [
     ('tpoin', ['elev_2d'], 440659., 5117484., None),
@@ -301,10 +361,49 @@ print_output('Reynolds number: {:}'.format(reynolds_number))
 print_output('Horizontal viscosity: {:}'.format(nu_scale))
 print_output('Exporting to {:}'.format(outputdir))
 
-# set init salt,temp in estuary
+
+# set initial conditions in the estuary
 xyz = solver_obj.mesh.coordinates
 salt_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), salt_river, salt_bnd_3d))
 temp_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), river_temp_const, temp_bnd_3d))
+uvel_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), 0.0, uvel_bnd_3d))
+vvel_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), 0.0, vvel_bnd_3d))
+
+# construct bnd velocity splitter
+uv_bnd_averager = VerticalIntegrator(uv_bnd_3d,
+                                     uv_bnd_dav_3d,
+                                     bottom_to_top=True,
+                                     bnd_value=Constant((0.0, 0.0, 0.0)),
+                                     average=True,
+                                     bathymetry=solver_obj.fields.bathymetry_3d,
+                                     elevation=solver_obj.fields.elev_cg_3d)
+extract_uv_bnd = SubFunctionExtractor(uv_bnd_dav_3d, uv_bnd_2d)
+copy_uv_bnd_dav_to_3d = ExpandFunctionTo3d(uv_bnd_2d, uv_bnd_dav_3d)
+copy_uv_tide_to_3d = ExpandFunctionTo3d(UV_tide_2d, UV_tide_3d)
+
+
+def split_3d_bnd_velocity():
+    uv_bnd_3d.dat.data_with_halos[:, 0] = uvel_bnd_3d.dat.data_with_halos[:]
+    uv_bnd_3d.dat.data_with_halos[:, 1] = vvel_bnd_3d.dat.data_with_halos[:]
+    uv_bnd_averager.solve()  # uv_bnd_3d -> uv_bnd_dav_3d
+    extract_uv_bnd.solve()  # uv_bnd_dav_3d -> uv_bnd_2d
+    copy_uv_bnd_dav_to_3d.solve()  # uv_bnd_2d -> uv_bnd_dav_3d
+    uv_bnd_3d.assign(uv_bnd_3d - uv_bnd_dav_3d)  # rm depth av
+
+# compute density and baroclinic head at boundary
+bnd_density_solver = DensitySolver(salt_bnd_3d, temp_bnd_3d, density_bnd_3d,
+                                   solver_obj.equation_of_state)
+bnd_rho_integrator = VerticalIntegrator(density_bnd_3d,
+                                        baroc_head_bnd_3d,
+                                        bottom_to_top=False,
+                                        average=False,
+                                        bathymetry=solver_obj.fields.bathymetry_3d,
+                                        elevation=solver_obj.fields.elev_cg_3d)
+
+def compute_bnd_baroclinicity():
+    bnd_density_solver.solve()
+    bnd_rho_integrator.solve()
+    baroc_head_bnd_3d.assign(-physical_constants['rho0_inv']*baroc_head_bnd_3d)
 
 # add custom exporters
 # extract and export surface salinity
@@ -357,15 +456,20 @@ solver_obj.exporters['vtk'].add_export(
     'wind_stress_2d', wind_stress_2d, export_type='vtk',
     shortname='Wind stress', filename='WindStress2d')
 
-solver_obj.assign_initial_conditions(salt=salt_bnd_3d, temp=temp_bnd_3d)
+split_3d_bnd_velocity()
+solver_obj.assign_initial_conditions(salt=salt_bnd_3d, temp=temp_bnd_3d,
+                                     uv_2d=uv_bnd_2d, uv_3d=uv_bnd_3d)
 
 
 def update_forcings(t):
     bnd_time.assign(t)
-    bnd_elev_updater.set_tidal_field(t)
+    tide_bnd_interp.set_tidal_field(t)
+    copy_uv_tide_to_3d.solve()
     river_flux_const.assign(river_flux_interp(t)[0])
     river_temp_const.assign(river_temp_interp(t)[0])
     oce_bnd_interp.set_fields(t)
+    split_3d_bnd_velocity()
+    compute_bnd_baroclinicity()
     atm_interp.set_fields(t)
     copy_wind_stress_to_3d.solve()
 
