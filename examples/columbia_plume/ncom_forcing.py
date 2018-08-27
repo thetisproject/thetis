@@ -2,7 +2,7 @@
 Methods for reading NCOM ocean model outputs
 """
 from thetis import *
-from atm_forcing import to_latlon
+from atm_forcing import to_latlon, COORDSYS
 from thetis.timezone import *
 import netCDF4
 from thetis.interpolation import GridInterpolator, SpatialInterpolator
@@ -165,8 +165,8 @@ class NCOMInterpolator(object):
             assert f.function_space() == self.function_space, 'field \'{:}\' does not belong to given function space {:}.'.format(f.name(), self.function_space.name)
         assert len(fields) == len(field_names)
         assert len(fields) == len(field_fnstr)
-        self.fields = fields
         self.field_names = field_names
+        self.fields = dict(zip(self.field_names, fields))
 
         # construct interpolators
         self.grid_interpolator = SpatialInterpolatorNCOM3d(self.function_space, to_latlon, 'forcings/ncom/')
@@ -179,14 +179,34 @@ class NCOMInterpolator(object):
             ts = interpolation.DailyFileTimeSearch(pat, init_date, verbose=verbose)
             ti = interpolation.LinearTimeInterpolator(ts, r)
             self.time_interpolator[ncvarname] = ti
+        # construct velocity rotation object
+        self.rotate_velocity = ('U_Velocity' in field_names and
+                                'V_Velocity' in field_names)
+        self.scalar_field_names = list(self.field_names)
+        if self.rotate_velocity:
+            self.scalar_field_names.remove('U_Velocity')
+            self.scalar_field_names.remove('V_Velocity')
+            lat = self.grid_interpolator.latlonz_array[:, 0]
+            lon = self.grid_interpolator.latlonz_array[:, 1]
+            self.vect_rotator = coordsys.VectorCoordSysRotation(
+                coordsys.LL_WGS84, COORDSYS, lon, lat)
 
     def set_fields(self, time):
         """
         Evaluates forcing fields at the given time
         """
-        for i in range(len(self.fields)):
-            vals = self.time_interpolator[self.field_names[i]](time)
-            self.fields[i].dat.data_with_halos[:] = vals[0]
+        if self.rotate_velocity:
+            # water_u (meter/sec) = Eastward Water Velocity
+            # water_v (meter/sec) = Northward Water Velocity
+            lon_vel = self.time_interpolator['U_Velocity'](time)[0]
+            lat_vel = self.time_interpolator['V_Velocity'](time)[0]
+            u, v = self.vect_rotator(lon_vel, lat_vel)
+            self.fields['U_Velocity'].dat.data_with_halos[:] = u
+            self.fields['V_Velocity'].dat.data_with_halos[:] = v
+
+        for fname in self.scalar_field_names:
+            vals = self.time_interpolator[fname](time)[0]
+            self.fields[fname].dat.data_with_halos[:] = vals
 
 
 def test_time_search():
@@ -280,23 +300,33 @@ def test_interpolator():
     # make functions
     salt = Function(p1, name='salinity')
     temp = Function(p1, name='temperature')
+    uvel = Function(p1, name='u-velocity')
+    vvel = Function(p1, name='v-velocity')
 
     sim_tz = timezone.FixedTimeZone(-8, 'PST')
-    init_date = datetime.datetime(2006, 4, 20, tzinfo=sim_tz)
+    init_date = datetime.datetime(2006, 5, 1, tzinfo=sim_tz)
     interp = NCOMInterpolator(
-        p1, [salt, temp], ['Salinity', 'Temperature'], ['s3d', 't3d'],
+        p1, [salt, temp, uvel, vvel],
+        ['Salinity', 'Temperature', 'U_Velocity', 'V_Velocity'],
+        ['s3d', 't3d', 'u3d', 'v3d'],
         'forcings/ncom/{year:04d}/{fieldstr:}/{fieldstr:}.glb8_2f_{year:04d}{month:02d}{day:02d}00.nc',
         init_date, verbose=True
     )
     interp.set_fields(0.0)
     salt_fn = 'tmp/salt.pvd'
     temp_fn = 'tmp/temp.pvd'
-    print('Saving output to {:} {:}'.format(salt_fn, temp_fn))
+    uvel_fn = 'tmp/uvel.pvd'
+    vvel_fn = 'tmp/vvel.pvd'
+    print('Saving output to {:} {:} {:} {:}'.format(salt_fn, temp_fn, uvel_fn, vvel_fn))
     out_salt = File(salt_fn)
     out_temp = File(temp_fn)
+    out_uvel = File(uvel_fn)
+    out_vvel = File(vvel_fn)
 
     out_salt.write(salt)
     out_temp.write(temp)
+    out_uvel.write(uvel)
+    out_vvel.write(vvel)
 
     dt = 900.
     for i in range(8):
@@ -304,6 +334,8 @@ def test_interpolator():
         interp.set_fields(i*dt)
         out_salt.write(salt)
         out_temp.write(temp)
+        out_uvel.write(uvel)
+        out_vvel.write(vvel)
 
 
 if __name__ == '__main__':

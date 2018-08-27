@@ -181,9 +181,15 @@ atm_interp.set_fields(0.0)
 # ocean initial conditions
 salt_bnd_3d = Function(solver_obj.function_spaces.P1, name='NCOM salinity')
 temp_bnd_3d = Function(solver_obj.function_spaces.P1, name='NCOM temperature')
+uvel_bnd_3d = Function(solver_obj.function_spaces.P1, name='NCOM u velocity')
+vvel_bnd_3d = Function(solver_obj.function_spaces.P1, name='NCOM v velocity')
+uv_bnd_3d = as_vector((uvel_bnd_3d, vvel_bnd_3d, 0))
+
 oce_bnd_interp = NCOMInterpolator(
-    solver_obj.function_spaces.P1, [salt_bnd_3d, temp_bnd_3d],
-    ['Salinity', 'Temperature'], ['s3d', 't3d'],
+    solver_obj.function_spaces.P1,
+    [salt_bnd_3d, temp_bnd_3d, uvel_bnd_3d, vvel_bnd_3d],
+    ['Salinity', 'Temperature', 'U_Velocity', 'V_Velocity'],
+    ['s3d', 't3d', 'u3d', 'v3d'],
     'forcings/ncom/{year:04d}/{fieldstr:}/{fieldstr:}.glb8_2f_{year:04d}{month:02d}{day:02d}00.nc',
     init_date
 )
@@ -213,13 +219,12 @@ river_temp_const = Constant(river_temp_interp(0)[0])
 
 river_swe_funcs = {'flux': river_flux_const}
 tide_elev_funcs = {'elev': elev_bnd_expr}
-zero_elev_funcs = {'elev': Constant(0)}
 open_uv_funcs = {'symm': None}
-zero_uv_funcs = {'uv': Constant((0, 0, 0))}
 bnd_river_salt = {'value': Constant(salt_river)}
 ocean_salt_funcs = {'value': salt_bnd_3d}
 bnd_river_temp = {'value': river_temp_const}
 ocean_temp_funcs = {'value': temp_bnd_3d}
+ocean_uv_funcs = {'uv': uv_bnd_3d}
 solver_obj.bnd_functions['shallow_water'] = {
     river_bnd_id: river_swe_funcs,
     south_bnd_id: tide_elev_funcs,
@@ -228,9 +233,9 @@ solver_obj.bnd_functions['shallow_water'] = {
 }
 solver_obj.bnd_functions['momentum'] = {
     river_bnd_id: open_uv_funcs,
-    south_bnd_id: zero_uv_funcs,
-    north_bnd_id: zero_uv_funcs,
-    west_bnd_id: zero_uv_funcs,
+    south_bnd_id: ocean_uv_funcs,
+    north_bnd_id: ocean_uv_funcs,
+    west_bnd_id: ocean_uv_funcs,
 }
 solver_obj.bnd_functions['salt'] = {
     river_bnd_id: bnd_river_salt,
@@ -302,10 +307,12 @@ print_output('Reynolds number: {:}'.format(reynolds_number))
 print_output('Horizontal viscosity: {:}'.format(nu_scale))
 print_output('Exporting to {:}'.format(outputdir))
 
-# set init salt,temp in estuary
+# set initial conditions in the estuary
 xyz = solver_obj.mesh.coordinates
 salt_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), salt_river, salt_bnd_3d))
 temp_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), river_temp_const, temp_bnd_3d))
+uvel_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), 0.0, uvel_bnd_3d))
+vvel_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), 0.0, vvel_bnd_3d))
 
 # add custom exporters
 # extract and export surface salinity
@@ -328,7 +335,8 @@ solver_obj.exporters['vtk'].add_export(
     'wind_stress_2d', wind_stress_2d, export_type='vtk',
     shortname='Wind stress', filename='WindStress2d')
 
-solver_obj.assign_initial_conditions(salt=salt_bnd_3d, temp=temp_bnd_3d)
+solver_obj.assign_initial_conditions(salt=salt_bnd_3d, temp=temp_bnd_3d,
+                                     uv_3d=uv_bnd_3d)
 
 
 def update_forcings(t):
