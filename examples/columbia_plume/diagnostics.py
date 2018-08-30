@@ -49,9 +49,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
             raise e
 
         # construct mesh points
-        xx = np.array([self.x])
-        yy = np.array([self.y])
-        self.xyz = np.vstack((xx.ravel(), yy.ravel())).T
+        self.xyz = np.array([[self.x, self.y]])
         self._initialized = True
 
     def __call__(self):
@@ -61,7 +59,7 @@ class TimeSeriesCallback2D(DiagnosticCallback):
         for fieldname in self.fieldnames:
             try:
                 field = self.solver_obj.fields[fieldname]
-                arr = np.array(field.at(tuple(self.xyz)))
+                arr = np.array(field.at(self.xyz))
                 outvals.append(arr)
             except PointNotInDomainError as e:
                 error('{:}: Cannot evaluate data at station {:}'.format(self.__class__.__name__, self.location_name))
@@ -127,10 +125,7 @@ class TimeSeriesCallback3D(DiagnosticCallback):
             self.z = new_z
 
         # construct mesh points
-        xx = np.array([self.x]).ravel()
-        yy = np.array([self.y]).ravel()
-        zz = np.array([self.z]).ravel()
-        self.xyz = np.vstack((xx, yy, zz)).T
+        self.xyz = np.array([[self.x, self.y, self.z]])
         self._initialized = True
 
     def __call__(self):
@@ -140,7 +135,7 @@ class TimeSeriesCallback3D(DiagnosticCallback):
         for fieldname in self.fieldnames:
             try:
                 field = self.solver_obj.fields[fieldname]
-                arr = np.array(field.at(tuple(self.xyz)))
+                arr = np.array(field.at(self.xyz))
                 outvals.append(arr)
             except PointNotInDomainError as e:
                 error('{:}: Cannot evaluate data at station {:}'.format(self.__class__.__name__, self.location_name))
@@ -188,6 +183,12 @@ class VerticalProfileCallback(DiagnosticCallback):
         self.x = x
         self.y = y
         self.npoints = npoints
+        self.xy = np.array([self.x, self.y])
+        self.xyz = np.zeros((self.npoints, 3))
+        self.xyz[:, 0] = self.x
+        self.xyz[:, 1] = self.y
+        self.epsilon = 1e-2  # nudge points to avoid libspatialindex errors
+        self.alpha = np.linspace(0, 1, self.npoints)
         self._initialized = False
 
     def _initialize(self):
@@ -199,20 +200,14 @@ class VerticalProfileCallback(DiagnosticCallback):
     def _construct_z_array(self):
         # construct mesh points for func evaluation
         try:
-            depth = self.solver_obj.fields.bathymetry_2d.at((self.x, self.y))
-            elev = self.solver_obj.fields.elev_cg_2d.at((self.x, self.y))
+            depth = self.solver_obj.fields.bathymetry_2d.at(self.xy)
+            elev = self.solver_obj.fields.elev_cg_2d.at(self.xy)
         except PointNotInDomainError as e:
             error('{:}: Station "{:}" out of horizontal domain'.format(self.__class__.__name__, self.location_name))
             raise e
-        epsilon = 1e-2  # nudge points to avoid libspatialindex errors
-        z_min = -(depth - epsilon)
-        z_max = elev - epsilon
-        self.z = np.linspace(z_max, z_min, self.npoints)
-        x = np.array([self.x])
-        xx, zz = np.meshgrid(x, self.z)
-        yy = np.ones_like(xx)*self.y
-        self.mesh_shape = xx.shape
-        self.xyz = np.vstack((xx.ravel(), yy.ravel(), zz.ravel())).T
+        z_min = -(depth - self.epsilon)
+        z_max = elev - self.epsilon
+        self.xyz[:, 2] = z_max + (z_min - z_max)*self.alpha
 
     def __call__(self):
         if not self._initialized:
@@ -220,11 +215,11 @@ class VerticalProfileCallback(DiagnosticCallback):
         # update time-dependent z array
         self._construct_z_array()
 
-        outvals = [self.z]
+        outvals = [self.xyz[:, 2]]
         for fieldname in self.fieldnames:
             try:
                 field = self.solver_obj.fields[fieldname]
-                arr = np.array(field.at(tuple(self.xyz)))
+                arr = np.array(field.at(self.xyz))
                 outvals.append(arr)
             except PointNotInDomainError as e:
                 error('{:}: Cannot evaluate data at station {:}'.format(self.__class__.__name__, self.location_name))
