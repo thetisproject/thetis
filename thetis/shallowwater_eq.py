@@ -1280,7 +1280,7 @@ class TurbineDragResidual(ShallowWaterMomentumResidualTerm):
 
         if self.options.tidal_turbine_farms != {}:
             for subdomain_id, farm_options in self.options.tidal_turbine_farms.items():
-                indicator = assemble(p0_test * dx(subdomain_id))
+                indicator = assemble(p0_test/CellVolume(mesh) * dx(subdomain_id))
                 density = farm_options.turbine_density
                 C_T = farm_options.turbine_options.thrust_coefficient
                 A_T = pi * (farm_options.turbine_options.diameter / 2.) ** 2
