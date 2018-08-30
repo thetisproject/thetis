@@ -252,7 +252,7 @@ solver_obj.bnd_functions['temp'] = {
 
 solver_obj.create_fields()
 
-# add relaxation terms for temperature and salinity
+# add relaxation terms for T, S, uv
 # dT/dt ... - 1/tau*(T_relax - T) = 0
 t_tracer_relax = 12.*3600.  # time scale
 lx_relax = 10e3  # distance scale from bnd
@@ -268,6 +268,7 @@ solver_obj.function_spaces.P1_2d.restore_work_function(mask_tracer_relax_2d)
 f_rel = mask_tracer_relax_3d/t_tracer_relax
 options.temperature_source_3d = f_rel*(temp_bnd_3d - solver_obj.fields.temp_3d)
 options.salinity_source_3d = f_rel*(salt_bnd_3d - solver_obj.fields.salt_3d)
+options.momentum_source_3d = f_rel*(uv_bnd_3d - solver_obj.fields.uv_3d)
 
 solver_obj.create_equations()
 
