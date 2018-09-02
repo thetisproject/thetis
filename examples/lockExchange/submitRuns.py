@@ -74,8 +74,8 @@ def launch_run(scriptname, options, option_strings):
     test_only = options.pop('test', False)
     verbose = options.pop('verbose', False)
     # generate command for running python script
-    optstrs = [' '.join([option_strings[k], str(v)]).strip() for
-               k, v in options.iteritems()]
+    optstrs = [' '.join([option_strings[k], str(options[k])]).strip() for
+               k in options]
     cmd = ['{mpiexec}', 'python', scriptname] + optstrs
     cmd = ' '.join(cmd)
 
@@ -142,7 +142,8 @@ def parse_options():
     batchparser.add_argument('--verbose', action='store_true',
                              help='Print generated job script and debug info')
     # copy conventional arguments, but enable setting lists
-    for label, action in store_opts.iteritems():
+    for label in store_opts:
+        action = store_opts[label]
         batchparser.add_argument(*action.option_strings, type=action.type,
                                  help=action.help,
                                  dest=action.dest,
@@ -150,14 +151,16 @@ def parse_options():
                                  nargs='+',
                                  choices=action.choices)
     # store true/false arguments will be morphed into list of 0|1
-    for label, action in store_true_opts.iteritems():
+    for label in store_true_opts:
+        action = store_true_opts[label]
         batchparser.add_argument(*action.option_strings, type=int,
                                  help=action.help,
                                  dest=action.dest,
                                  default=0,
                                  nargs='+',
                                  choices=[0, 1])
-    for label, action in store_false_opts.iteritems():
+    for label in store_false_opts:
+        action = store_false_opts[label]
         batchparser.add_argument(*action.option_strings, type=int,
                                  help=action.help,
                                  dest=action.dest,
@@ -185,13 +188,13 @@ def parse_options():
         value_list = listify(args_dict[label])
         value_list = list(OrderedDict.fromkeys(value_list))  # rm duplicates
         nargs = len(value_list)
-        if label in store_true_opts.keys() + store_false_opts.keys():
+        if label in list(store_true_opts.keys()) + list(store_false_opts.keys()):
             # if 1 use (label, ''), if 0 use ('', '')
             label_list = [label if i == 1 else '' for i in value_list]
             value_list = ['']*nargs
         else:
             label_list = [label]*nargs
-        pairs = zip(label_list, value_list)
+        pairs = list(zip(label_list, value_list))
         all_args.append(listify(pairs))
     # get all combinations of options
     combinations_tuples = itertools.product(*all_args)

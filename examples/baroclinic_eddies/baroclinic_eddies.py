@@ -74,7 +74,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     f_cori = -1.2e-4
     bottom_drag = 0.01
     t_end = 320*24*3600.  # 365*24*3600.
-    t_export = 3*3600.
+    t_export = 12*3600.
 
     reso_str = 'dx' + str(np.round(delta_x/1000., decimals=1))
     reso_str += '_nz' + str(nlayers)

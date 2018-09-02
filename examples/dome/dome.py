@@ -30,7 +30,7 @@ comm = COMM_WORLD
 
 physical_constants['rho0'] = setup.rho_0
 
-reso_str = 'coarse'
+reso_str = 'normal'
 delta_x_dict = {'normal': 6e3, 'coarse': 20e3}
 n_layers_dict = {'normal': 24, 'coarse': 7}
 n_layers = n_layers_dict[reso_str]
@@ -77,12 +77,10 @@ options.turbulence_model_type = 'pacanowski'
 options.use_smooth_eddy_viscosity = True
 options.use_ale_moving_mesh = True
 options.use_baroclinic_formulation = True
-options.use_lax_friedrichs_velocity = False
-options.use_lax_friedrichs_tracer = False
 options.coriolis_frequency = Constant(setup.f_0)
 options.use_limiter_for_tracers = True
 options.use_limiter_for_velocity = True
-options.use_lax_friedrichs_tracer = True
+options.use_lax_friedrichs_tracer = False
 options.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
 options.use_lax_friedrichs_velocity = True
 options.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
