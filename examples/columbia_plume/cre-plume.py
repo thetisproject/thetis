@@ -318,16 +318,46 @@ vvel_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), 0.0, vvel_bnd_3d))
 # extract and export surface salinity
 surf_salt_2d = Function(solver_obj.function_spaces.H_2d, name='surf salinity')
 extract_surf_salt = SubFunctionExtractor(solver_obj.fields.salt_3d, surf_salt_2d)
+surf_temp_2d = Function(solver_obj.function_spaces.H_2d, name='surf temperature')
+extract_surf_temp = SubFunctionExtractor(solver_obj.fields.temp_3d, surf_temp_2d)
+surf_uv_2d = Function(solver_obj.function_spaces.U_2d, name='surf velocity')
+extract_surf_uv = SubFunctionExtractor(solver_obj.fields.uv_3d, surf_uv_2d)
+surf_w_2d = Function(solver_obj.function_spaces.P1DG_2d, name='surf vertical velocity')
+extract_surf_w = SubFunctionExtractor(solver_obj.fields.w_3d, surf_w_2d)
 
 
 def prepare_surf_salt():
     extract_surf_salt.solve()
 
 
+def prepare_surf_temp():
+    extract_surf_temp.solve()
+
+
+def prepare_surf_uv():
+    extract_surf_uv.solve()
+
+
+def prepare_surf_w():
+    extract_surf_w.solve()
+
+
 solver_obj.exporters['vtk'].add_export(
     'surf_salt_2d', surf_salt_2d, export_type='vtk',
     shortname='Salinity', filename='SurfSalinity2d',
     preproc_func=prepare_surf_salt)
+solver_obj.exporters['vtk'].add_export(
+    'surf_temp_2d', surf_temp_2d, export_type='vtk',
+    shortname='Temperature', filename='SurfTemperature2d',
+    preproc_func=prepare_surf_temp)
+solver_obj.exporters['vtk'].add_export(
+    'surf_uv_2d', surf_uv_2d, export_type='vtk',
+    shortname='Velocity', filename='SurfVelocity2d',
+    preproc_func=prepare_surf_uv)
+solver_obj.exporters['vtk'].add_export(
+    'surf_w_2d', surf_w_2d, export_type='vtk',
+    shortname='Vertical velocity', filename='SurfVertVelo2d',
+    preproc_func=prepare_surf_w)
 solver_obj.exporters['vtk'].add_export(
     'atm_pressure_2d', atm_pressure_2d, export_type='vtk',
     shortname='Atm pressure', filename='AtmPressure2d')
