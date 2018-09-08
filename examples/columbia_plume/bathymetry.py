@@ -127,21 +127,29 @@ def smooth_bathymetry_at_bnd(bathymetry, bnd_id, strength=8000.):
 
 
 def get_boundary_relaxation_field(mask_func, bnd_id, dist_scale,
-                                  scalar=1.0, cutoff=0.0):
+                                  scalar=None):
     """
     Generate a smooth relaxation coefficient field near boundaries
+
+    Solution is a linear function ranging from 1.0 at the boundary to 0.0 at
+    approximately dist_scale from the boundary. Use `scalar` argument to scale the
+    field.
     """
     fs = mask_func.function_space()
     test = TestFunction(fs)
     f = inner(mask_func, test)*dx
     f += (dist_scale**2 *
           inner(grad(mask_func), grad(test))*dx)
-    bc = DirichletBC(fs, scalar, bnd_id)
+    bc = DirichletBC(fs, 1.0, bnd_id)
     prob = NonlinearVariationalProblem(f, mask_func, bcs=[bc])
     solver = NonlinearVariationalSolver(prob)
     solver.solve()
-    if cutoff > 0.0:
-        ix = mask_func.dat.data_ro < cutoff
-        mask_func.dat.data[ix] = 0.0
+    # solution is e^(-x), convert to -x
+    buff = 1e-7
+    mask_func.assign(ln(mask_func + buff) - buff + 1.0)
+    # remove negative values
+    mask_func.dat.data[mask_func.dat.data < 0.0] = 0.0
+    if scalar is not None:
+        mask_func.assign(mask_func*scalar)
 
     return mask_func

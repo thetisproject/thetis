@@ -132,8 +132,8 @@ options.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
 options.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
 options.vertical_viscosity = Constant(2e-5)
 options.vertical_diffusivity = Constant(2e-5)
-options.horizontal_viscosity = Constant(2.0)
-options.horizontal_diffusivity = Constant(2.0)
+options.horizontal_viscosity = Constant(1.0)
+options.horizontal_diffusivity = Constant(1.0)
 options.use_quadratic_pressure = True
 options.use_limiter_for_tracers = True
 options.use_limiter_for_velocity = True
@@ -163,6 +163,20 @@ options.fields_to_export_hdf5 = []
 options.equation_of_state_type = 'full'
 
 solver_obj.create_function_spaces()
+
+# additional diffusion at ocean boundary
+viscosity_bnd_2d = solver_obj.function_spaces.P1_2d.get_work_function()
+viscosity_bnd_3d = Function(solver_obj.function_spaces.P1, name='visc_bnd_3d')
+visc_bnd_dist = 30e3
+visc_bnd_value = 80.0
+get_boundary_relaxation_field(viscosity_bnd_2d,
+                              [north_bnd_id, west_bnd_id, south_bnd_id],
+                              visc_bnd_dist, scalar=visc_bnd_value)
+viscosity_bnd_2d.assign(viscosity_bnd_2d + options.horizontal_viscosity)
+ExpandFunctionTo3d(viscosity_bnd_2d, viscosity_bnd_3d).solve()
+# File('bnd_visc.pvd').write(viscosity_bnd_2d)
+solver_obj.function_spaces.P1_2d.restore_work_function(viscosity_bnd_2d)
+options.horizontal_viscosity = viscosity_bnd_3d
 
 # atm forcing
 wind_stress_3d = Function(solver_obj.function_spaces.P1v, name='wind stress')
@@ -254,11 +268,11 @@ solver_obj.create_fields()
 # add relaxation terms for T, S, uv
 # dT/dt ... - 1/tau*(T_relax - T) = 0
 t_tracer_relax = 12.*3600.  # time scale
-lx_relax = 10e3  # distance scale from bnd
+lx_relax = 30e3  # distance scale from bnd
 mask_tracer_relax_2d = solver_obj.function_spaces.P1_2d.get_work_function()
 get_boundary_relaxation_field(mask_tracer_relax_2d,
                               [north_bnd_id, west_bnd_id, south_bnd_id],
-                              lx_relax, scalar=1.0, cutoff=0.02)
+                              lx_relax, scalar=1.0)
 mask_tracer_relax_3d = Function(solver_obj.function_spaces.P1,
                                 name='mask_temp_relax_3d')
 ExpandFunctionTo3d(mask_tracer_relax_2d, mask_tracer_relax_3d).solve()
