@@ -237,6 +237,7 @@ river_temp_const = Constant(river_temp_interp(0)[0])
 
 river_swe_funcs = {'flux': river_flux_const}
 tide_elev_funcs = {'elev': elev_bnd_expr, 'uv': uv_bnd_2d}
+south_elev_funcs = {'elev': elev_bnd_expr}
 open_uv_funcs = {'symm': None}
 bnd_river_salt = {'value': Constant(salt_river)}
 ocean_salt_funcs = {'value': salt_bnd_3d}
@@ -245,7 +246,7 @@ ocean_temp_funcs = {'value': temp_bnd_3d}
 ocean_uv_funcs = {'uv': uv_bnd_3d}
 solver_obj.bnd_functions['shallow_water'] = {
     river_bnd_id: river_swe_funcs,
-    south_bnd_id: tide_elev_funcs,
+    south_bnd_id: south_elev_funcs,
     north_bnd_id: tide_elev_funcs,
     west_bnd_id: tide_elev_funcs,
 }
@@ -272,21 +273,26 @@ solver_obj.create_fields()
 
 # add relaxation terms for T, S, uv
 # dT/dt ... - 1/tau*(T_relax - T) = 0
-t_tracer_relax = 12.*3600.  # time scale
+t_bnd_relax = 12.*3600.  # time scale
 lx_relax = 30e3  # distance scale from bnd
-mask_tracer_relax_2d = solver_obj.function_spaces.P1_2d.get_work_function()
-get_boundary_relaxation_field(mask_tracer_relax_2d,
-                              [north_bnd_id, west_bnd_id, south_bnd_id],
-                              lx_relax, scalar=1.0)
+mask_tmp_2d = solver_obj.function_spaces.P1_2d.get_work_function()
 mask_tracer_relax_3d = Function(solver_obj.function_spaces.P1,
                                 name='mask_temp_relax_3d')
-ExpandFunctionTo3d(mask_tracer_relax_2d, mask_tracer_relax_3d).solve()
-solver_obj.function_spaces.P1_2d.restore_work_function(mask_tracer_relax_2d)
+mask_uv_relax_3d = Function(solver_obj.function_spaces.P1,
+                            name='mask_uv_relax_3d')
+get_boundary_relaxation_field(mask_tmp_2d,
+                              [north_bnd_id, west_bnd_id, south_bnd_id],
+                              lx_relax, scalar=1.0/t_bnd_relax)
+ExpandFunctionTo3d(mask_tmp_2d, mask_tracer_relax_3d).solve()
+get_boundary_relaxation_field(mask_tmp_2d,
+                              [north_bnd_id, west_bnd_id],
+                              lx_relax, scalar=1.0/t_bnd_relax)
+ExpandFunctionTo3d(mask_tmp_2d, mask_uv_relax_3d).solve()
+solver_obj.function_spaces.P1_2d.restore_work_function(mask_tmp_2d)
 # File('mask.pvd').write(mask_tracer_relax_3d)
-f_rel = mask_tracer_relax_3d/t_tracer_relax
-options.temperature_source_3d = f_rel*(temp_bnd_3d - solver_obj.fields.temp_3d)
-options.salinity_source_3d = f_rel*(salt_bnd_3d - solver_obj.fields.salt_3d)
-options.momentum_source_3d = f_rel*(uv_bnd_3d - solver_obj.fields.uv_3d)
+options.temperature_source_3d = mask_tracer_relax_3d*(temp_bnd_3d - solver_obj.fields.temp_3d)
+options.salinity_source_3d = mask_tracer_relax_3d*(salt_bnd_3d - solver_obj.fields.salt_3d)
+options.momentum_source_3d = mask_uv_relax_3d*(uv_bnd_3d - solver_obj.fields.uv_3d)
 
 solver_obj.create_equations()
 
