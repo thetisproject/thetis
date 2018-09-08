@@ -192,14 +192,19 @@ atm_interp = ATMInterpolator(
 atm_interp.set_fields(0.0)
 
 # ocean initial conditions
-salt_bnd_3d = Function(solver_obj.function_spaces.P1, name='NCOM salinity')
-temp_bnd_3d = Function(solver_obj.function_spaces.P1, name='NCOM temperature')
-uvel_bnd_3d = Function(solver_obj.function_spaces.P1, name='NCOM u velocity')
-vvel_bnd_3d = Function(solver_obj.function_spaces.P1, name='NCOM v velocity')
-uv_bnd_3d = as_vector((uvel_bnd_3d, vvel_bnd_3d, 0))
+# FIXME these should be CG fields
+# NOTE velocity splitting fails with CG fields?
+salt_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM salinity')
+temp_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM temperature')
+uvel_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM u velocity')
+vvel_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM v velocity')
+
+uv_bnd_3d = Function(solver_obj.function_spaces.P1DGv, name='NCOM velocity')
+uv_bnd_2d = Function(solver_obj.function_spaces.P1DGv_2d, name='NCOM velocity')
+uv_bnd_dav_3d = Function(solver_obj.function_spaces.P1DGv, name='NCOM depth averaged velocity')
 
 oce_bnd_interp = NCOMInterpolator(
-    solver_obj.function_spaces.P1,
+    solver_obj.function_spaces.P1DG,
     [salt_bnd_3d, temp_bnd_3d, uvel_bnd_3d, vvel_bnd_3d],
     ['Salinity', 'Temperature', 'U_Velocity', 'V_Velocity'],
     ['s3d', 't3d', 'u3d', 'v3d'],
@@ -231,7 +236,7 @@ river_temp_interp = interpolation.NetCDFTimeSeriesInterpolator(
 river_temp_const = Constant(river_temp_interp(0)[0])
 
 river_swe_funcs = {'flux': river_flux_const}
-tide_elev_funcs = {'elev': elev_bnd_expr}
+tide_elev_funcs = {'elev': elev_bnd_expr, 'uv': uv_bnd_2d}
 open_uv_funcs = {'symm': None}
 bnd_river_salt = {'value': Constant(salt_river)}
 ocean_salt_funcs = {'value': salt_bnd_3d}
@@ -328,6 +333,28 @@ temp_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), river_temp_const, temp_
 uvel_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), 0.0, uvel_bnd_3d))
 vvel_bnd_3d.interpolate(conditional(ge(xyz[0], 427500.), 0.0, vvel_bnd_3d))
 
+# construct bnd velocity splitter
+uv_bnd_averager = VerticalIntegrator(uv_bnd_3d,
+                                     uv_bnd_dav_3d,
+                                     bottom_to_top=True,
+                                     bnd_value=Constant((0.0, 0.0, 0.0)),
+                                     average=True,
+                                     bathymetry=solver_obj.fields.bathymetry_3d,
+                                     elevation=solver_obj.fields.elev_cg_3d)
+extract_uv_bnd = SubFunctionExtractor(uv_bnd_dav_3d, uv_bnd_2d)
+copy_uv_bnd_dav_to_3d = ExpandFunctionTo3d(uv_bnd_2d, uv_bnd_dav_3d)
+
+
+def split_3d_bnd_velocity():
+    uv_bnd_3d.dat.data_with_halos[:, 0] = uvel_bnd_3d.dat.data_with_halos[:]
+    uv_bnd_3d.dat.data_with_halos[:, 1] = vvel_bnd_3d.dat.data_with_halos[:]
+    uv_bnd_averager.solve()  # uv_bnd_3d -> uv_bnd_dav_3d
+    extract_uv_bnd.solve()  # uv_bnd_dav_3d -> uv_bnd_2d
+    copy_uv_bnd_dav_to_3d.solve()  # uv_bnd_2d -> uv_bnd_dav_3d
+    uv_bnd_3d.assign(uv_bnd_3d - uv_bnd_dav_3d)  # rm depth av
+    
+
+
 # add custom exporters
 # extract and export surface salinity
 surf_salt_2d = Function(solver_obj.function_spaces.H_2d, name='surf salinity')
@@ -379,8 +406,9 @@ solver_obj.exporters['vtk'].add_export(
     'wind_stress_2d', wind_stress_2d, export_type='vtk',
     shortname='Wind stress', filename='WindStress2d')
 
+split_3d_bnd_velocity()
 solver_obj.assign_initial_conditions(salt=salt_bnd_3d, temp=temp_bnd_3d,
-                                     uv_3d=uv_bnd_3d)
+                                     uv_2d=uv_bnd_2d, uv_3d=uv_bnd_3d)
 
 
 def update_forcings(t):
@@ -389,6 +417,7 @@ def update_forcings(t):
     river_flux_const.assign(river_flux_interp(t)[0])
     river_temp_const.assign(river_temp_interp(t)[0])
     oce_bnd_interp.set_fields(t)
+    split_3d_bnd_velocity()
     atm_interp.set_fields(t)
     copy_wind_stress_to_3d.solve()
 
