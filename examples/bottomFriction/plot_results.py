@@ -47,9 +47,9 @@ ana_data = {'uv_3d': (z, u_log),
 
 # plot instantaneous profiles
 export_ix = 100
-varlist = ['uv_3d', 'shear_freq_3d', 'tke_3d', 'eps_3d', 'len_3d', 'eddy_visc_3d']
+varlist = ['uv_3d', 'tke_3d', 'eps_3d', 'eddy_visc_3d']
 nplots = len(varlist)
-fig, axlist = plt.subplots(nrows=1, ncols=nplots, sharey=True, figsize=(nplots*2.0, 6))
+fig, axlist = plt.subplots(nrows=1, ncols=nplots, sharey=True, figsize=(nplots*2.3, 6))
 for v, ax in zip(varlist, axlist):
     func = load_function(v, export_ix)
     arr = numpy.array(func.at(tuple(xyz)))
