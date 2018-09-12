@@ -85,7 +85,8 @@ options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d', 'uv_bottom_2d',
 turbulence_model_options = options.turbulence_model_options
 turbulence_model_options.apply_defaults('k-omega')
 turbulence_model_options.stability_function_name = 'Canuto B'
-odir = '_'.join([outputdir, turbulence_model_options.closure_name, turbulence_model_options.stability_function_name.replace(' ', '-')])
+layer_str = 'nz{:}'.format(layers)
+odir = '_'.join([outputdir, layer_str, turbulence_model_options.closure_name, turbulence_model_options.stability_function_name.replace(' ', '-')])
 options.output_directory = odir
 print_output('Exporting to ' + options.output_directory)
 

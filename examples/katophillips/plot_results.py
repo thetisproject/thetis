@@ -53,6 +53,7 @@ target = 1.05*u_s*np.sqrt(time/N0)
 
 import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams['font.size'] = 16
 
 # plot mixed layer depth
 plt.plot(time/3600.0, ml_depth)
@@ -88,4 +89,4 @@ for v, ax in zip(varlist, axlist):
     ax.xaxis.set_major_formatter(fmt)
 axlist[0].set_ylabel('z [m]')
 axlist[0].set_ylim([-depth*1.005, 0])
-plt.savefig('profiles.png', bbox_inches='tight')
+plt.savefig('profiles.png', bbox_inches='tight', dpi=200)
