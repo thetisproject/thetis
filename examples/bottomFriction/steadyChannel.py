@@ -32,7 +32,7 @@ fast_convergence = False
 outputdir = 'outputs'
 # set mesh resolution
 dx = 2500.0
-layers = 250
+layers = 25
 depth = 15.0
 
 nx = 3  # nb elements in flow direction

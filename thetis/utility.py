@@ -624,50 +624,6 @@ def compute_baroclinic_head(solver):
         solver.int_pg_calculator.solve()
 
 
-class VelocityMagnitudeSolver(object):
-    """
-    Computes magnitude of (u[0],u[1],w) and stores it in solution
-    """
-    def __init__(self, solution, u=None, w=None, min_val=1e-6,
-                 solver_parameters={}):
-        """
-        :arg solution: scalar field for velocity magnitude scalar :class:`Function`
-        :type solution: :class:`Function`
-        :kwarg u: horizontal velocity
-        :type u: :class:`Function`
-        :kwarg w: vertical velocity
-        :type w: :class:`Function`
-        :kwarg float min_val: minimum value of magnitude. Minimum value of solution
-            will be clipped to this value
-        :kwarg dict solver_parameters: PETSc solver options
-
-
-        If ``u`` is None computes magnitude of (0,0,w).
-
-        If ``w`` is None computes magnitude of (u[0],u[1],0).
-        """
-        self.solution = solution
-        self.min_val = min_val
-        function_space = solution.function_space()
-        test = TestFunction(function_space)
-        tri = TrialFunction(function_space)
-
-        a = test*tri*dx
-        s = 0
-        if u is not None:
-            s += u[0]**2 + u[1]**2
-        if w is not None:
-            s += w**2
-        l = test*sqrt(s)*dx
-        self.prob = LinearVariationalProblem(a, l, solution)
-        self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
-
-    def solve(self):
-        """Compute the magnitude"""
-        self.solver.solve()
-        np.maximum(self.solution.dat.data, self.min_val, self.solution.dat.data)
-
-
 class Mesh3DConsistencyCalculator(object):
     r"""
     Computes a hydrostatic consistency criterion metric on the 3D mesh.
@@ -1117,6 +1073,7 @@ def compute_bottom_friction(solver, uv_3d, uv_bottom_2d,
     """
     # TODO all input fields could be just fetched from solver.fields ...
     # compute velocity at middle of bottom element
+    # FIXME make sure this works for DG uv
     solver.extract_uv_bottom.solve()
     solver.extract_z_bottom.solve()
     z_bottom_2d.assign((z_bottom_2d + bathymetry_2d))
