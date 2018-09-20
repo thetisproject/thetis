@@ -6,7 +6,8 @@ from thetis.limiter import VertexBasedP1DGLimiter
 import pytest
 
 
-def vertex_limiter_test(dim=3, type='linear', direction='x', export=False):
+def vertex_limiter_test(dim=3, type='linear', direction='x',
+                        elem_type='triangle', export=False):
     """
     type == 'linear': Tests that a linear field is not altered by the limiter.
         Tracer is a linear field in x|y|z|xz direction, projected to p1dg.
@@ -14,7 +15,7 @@ def vertex_limiter_test(dim=3, type='linear', direction='x', export=False):
         Tracer is a jump in x|y|z|xz direction, projected to p1dg.
 
     """
-    mesh2d = UnitSquareMesh(5, 5)
+    mesh2d = UnitSquareMesh(5, 5, quadrilateral=elem_type == 'quadrilateral')
     if dim == 3:
         nlayers = 5
         mesh = ExtrudedMesh(mesh2d, nlayers, 1.0/nlayers)
@@ -78,12 +79,17 @@ def type(request):
     return request.param
 
 
-def test_limiter_2d(type, direction_2d):
-    vertex_limiter_test(dim=2, type=type, direction=direction_2d)
+@pytest.fixture(params=['triangle', 'quadrilateral'])
+def elem_type(request):
+    return request.param
 
 
-def test_limiter_3d(type, direction_3d):
-    vertex_limiter_test(dim=3, type=type, direction=direction_3d)
+def test_limiter_2d(type, direction_2d, elem_type):
+    vertex_limiter_test(dim=2, type=type, direction=direction_2d, elem_type=elem_type)
+
+
+def test_limiter_3d(type, direction_3d, elem_type):
+    vertex_limiter_test(dim=3, type=type, direction=direction_3d, elem_type=elem_type)
 
 
 if __name__ == '__main__':
