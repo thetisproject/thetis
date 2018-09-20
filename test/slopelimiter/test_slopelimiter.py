@@ -23,10 +23,15 @@ def vertex_limiter_test(dim=3, type='linear', direction='x', export=False):
         xyz.dat.data[:, 2] *= 1.0 + 0.25 - 0.5*xyz.dat.data[:, 0]
         p1dg = get_functionspace(mesh, 'DP', 1, vfamily='DP', vdegree=1)
         x, y, z = SpatialCoordinate(mesh)
+        z_func = Function(p1dg)
+        z_func.interpolate(z)
+        elem_height = Function(p1dg)
+        compute_elem_height(z_func, elem_height)
     else:
         p1dg = get_functionspace(mesh2d, 'DP', 1)
         x, y = SpatialCoordinate(mesh2d)
         z = Constant(0)
+        elem_height = None
 
     coord_expr = {'x': x, 'y': y, 'xy': x + 0.5*y - 0.25, 'z': z, 'xz': x * z}
 
@@ -42,7 +47,7 @@ def vertex_limiter_test(dim=3, type='linear', direction='x', export=False):
         tracer_file = File('tracer.pvd')
         tracer_file.write(tracer)
 
-    limiter = VertexBasedP1DGLimiter(p1dg)
+    limiter = VertexBasedP1DGLimiter(p1dg, elem_height)
     limiter.apply(tracer)
     if export:
         tracer_file.write(tracer)
@@ -54,7 +59,7 @@ def vertex_limiter_test(dim=3, type='linear', direction='x', export=False):
         mass_orig = assemble(tracer_original*dx)
         mass = assemble(tracer*dx)
         assert abs(mass - mass_orig) < 1e-12
-        assert tracer.dat.data.min() > -2e-5
+        assert tracer.dat.data.min() > -1e-6
 
 
 @pytest.fixture(params=['x', 'y', pytest.param('xy', marks=pytest.mark.xfail(reason='corner elements will be limited'))])

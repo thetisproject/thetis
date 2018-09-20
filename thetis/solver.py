@@ -619,13 +619,14 @@ class FlowSolver(FrozenClass):
         if self.options.use_smagorinsky_viscosity:
             self.fields.smag_visc_3d = Function(self.function_spaces.P1)
         if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
-            self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H)
+            self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H, self.fields.v_elem_size_3d)
         else:
             self.tracer_limiter = None
         if (self.options.use_limiter_for_velocity
                 and self.options.polynomial_degree > 0
                 and self.options.element_family == 'dg-dg'):
             self.uv_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.U)
+            self.uv_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.U, self.fields.v_elem_size_3d)
         else:
             self.uv_limiter = None
         if self.options.use_turbulence:
