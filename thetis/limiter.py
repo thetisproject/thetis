@@ -58,7 +58,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
     and Applied Mathematics, 233(12):3077-3085.
     http://dx.doi.org/10.1016/j.cam.2009.05.028
     """
-    def __init__(self, p1dg_space, time_dependent_mesh=True):
+    def __init__(self, p1dg_space, elem_height=None, time_dependent_mesh=True):
         """
         :arg p1dg_space: P1DG function space
         """
@@ -73,6 +73,9 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         self.mesh = self.P0.mesh()
         self.is_2d = self.mesh.geometric_dimension() == 2
         self.time_dependent_mesh = time_dependent_mesh
+        self.elem_height = elem_height
+        if not self.is_2d:
+            assert self.elem_height is not None, 'Element height field must be provided'
 
     def _construct_centroid_solver(self):
         """
@@ -113,37 +116,62 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         # This is OK for P1DG triangles, but not exact for the extruded case (quad facets)
         from finat.finiteelementbase import entity_support_dofs
 
-        if self.is_2d:
-            entity_dim = 1  # get 1D facets
-        else:
-            entity_dim = (1, 1)  # get vertical facets
+        entity_dim = 1 if self.is_2d else (1, 1)  # get 1D or vertical facets
         boundary_dofs = entity_support_dofs(self.P1DG.finat_element, entity_dim)
         local_facet_nodes = np.array([boundary_dofs[e] for e in sorted(boundary_dofs.keys())])
         n_bnd_nodes = local_facet_nodes.shape[1]
         local_facet_idx = op2.Global(local_facet_nodes.shape, local_facet_nodes, dtype=np.int32, name='local_facet_idx')
-        code = """
-            void my_kernel(double **qmax, double **qmin, double **field, unsigned int *facet, unsigned int *local_facet_idx)
-            {
-                double face_mean = 0.0;
-                for (int i = 0; i < %(nnodes)d; i++) {
-                    unsigned int idx = local_facet_idx[facet[0]*%(nnodes)d + i];
-                    face_mean += field[idx][0];
-                }
-                face_mean /= %(nnodes)d;
-                for (int i = 0; i < %(nnodes)d; i++) {
-                    unsigned int idx = local_facet_idx[facet[0]*%(nnodes)d + i];
-                    qmax[idx][0] = fmax(qmax[idx][0], face_mean);
-                    qmin[idx][0] = fmin(qmin[idx][0], face_mean);
-                }
-            }"""
-        bnd_kernel = op2.Kernel(code % {'nnodes': n_bnd_nodes}, 'my_kernel')
-        op2.par_loop(bnd_kernel,
-                     self.P1DG.mesh().exterior_facets.set,
-                     self.max_field.dat(op2.RW, self.max_field.exterior_facet_node_map()),
-                     self.min_field.dat(op2.RW, self.min_field.exterior_facet_node_map()),
-                     field.dat(op2.RW, field.exterior_facet_node_map()),
-                     self.P1DG.mesh().exterior_facets.local_facet_dat(op2.READ),
-                     local_facet_idx(op2.READ))
+        if self.is_2d:
+            code = """
+                void my_kernel(double **qmax, double **qmin, double **field, unsigned int *facet, unsigned int *local_facet_idx)
+                {
+                    double face_mean = 0.0;
+                    for (int i = 0; i < %(nnodes)d; i++) {
+                        unsigned int idx = local_facet_idx[facet[0]*%(nnodes)d + i];
+                        face_mean += field[idx][0];
+                    }
+                    face_mean /= %(nnodes)d;
+                    for (int i = 0; i < %(nnodes)d; i++) {
+                        unsigned int idx = local_facet_idx[facet[0]*%(nnodes)d + i];
+                        qmax[idx][0] = fmax(qmax[idx][0], face_mean);
+                        qmin[idx][0] = fmin(qmin[idx][0], face_mean);
+                    }
+                }"""
+            bnd_kernel = op2.Kernel(code % {'nnodes': n_bnd_nodes}, 'my_kernel')
+            op2.par_loop(bnd_kernel,
+                         self.P1DG.mesh().exterior_facets.set,
+                         self.max_field.dat(op2.RW, self.max_field.exterior_facet_node_map()),
+                         self.min_field.dat(op2.RW, self.min_field.exterior_facet_node_map()),
+                         field.dat(op2.RW, field.exterior_facet_node_map()),
+                         self.P1DG.mesh().exterior_facets.local_facet_dat(op2.READ),
+                         local_facet_idx(op2.READ))
+        else:
+            code = """
+                void my_kernel(double **qmax, double **qmin, double **field, double **height, unsigned int *facet, unsigned int *local_facet_idx)
+                {
+                    double face_mean = 0.0;
+                    double area = 0.0;
+                    for (int i = 0; i < %(nnodes)d; i++) {
+                        unsigned int idx = local_facet_idx[facet[0]*%(nnodes)d + i];
+                        face_mean += field[idx][0]*height[idx][0];
+                        area += height[idx][0];
+                    }
+                    face_mean /= area;
+                    for (int i = 0; i < %(nnodes)d; i++) {
+                        unsigned int idx = local_facet_idx[facet[0]*%(nnodes)d + i];
+                        qmax[idx][0] = fmax(qmax[idx][0], face_mean);
+                        qmin[idx][0] = fmin(qmin[idx][0], face_mean);
+                    }
+                }"""
+            bnd_kernel = op2.Kernel(code % {'nnodes': n_bnd_nodes}, 'my_kernel')
+            op2.par_loop(bnd_kernel,
+                         self.P1DG.mesh().exterior_facets.set,
+                         self.max_field.dat(op2.RW, self.max_field.exterior_facet_node_map()),
+                         self.min_field.dat(op2.RW, self.min_field.exterior_facet_node_map()),
+                         field.dat(op2.RW, field.exterior_facet_node_map()),
+                         self.elem_height.dat(op2.RW, self.elem_height.exterior_facet_node_map()),
+                         self.P1DG.mesh().exterior_facets.local_facet_dat(op2.READ),
+                         local_facet_idx(op2.READ))
         if not self.is_2d:
             # Add nodal values from surface/bottom boundaries
             # NOTE calling firedrake par_loop with measure=ds_t raises an error
