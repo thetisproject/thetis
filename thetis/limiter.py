@@ -68,14 +68,24 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         if self.is_vector:
             p1dg_scalar_space = FunctionSpace(p1dg_space.mesh(), 'DG', 1)
             super(VertexBasedP1DGLimiter, self).__init__(p1dg_scalar_space)
+            self.detJ = Function(p1dg_scalar_space, name='detJ')
         else:
             super(VertexBasedP1DGLimiter, self).__init__(p1dg_space)
+            self.detJ = Function(p1dg_space, name='detJ')
         self.mesh = self.P0.mesh()
         self.is_2d = self.mesh.geometric_dimension() == 2
         self.time_dependent_mesh = time_dependent_mesh
         self.elem_height = elem_height
         if not self.is_2d:
             assert self.elem_height is not None, 'Element height field must be provided'
+
+    def _compute_detJ(self):
+        """
+        Computes detJ of the current mesh
+        """
+        J = Jacobian(self.mesh)
+        f = abs(det(J))
+        self.detJ.interpolate(f)
 
     def _construct_centroid_solver(self):
         """
@@ -209,6 +219,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
 
     def _apply(self, field):
         self.compute_bounds(field)
+        self._compute_detJ()
         self._limit_kernel = """
 double alpha = 1.0;
 double qavg = qbar[0][0];
@@ -224,40 +235,45 @@ for (int i=0; i<q.dofs; i++) {
                              """
         self._optimal_kernel = """
 double qavg = qbar[0][0];
-double diff = 0.0;
+bool fixed[q.dofs] = {0};
 for (int iter=0; iter < 10; iter++) {
-bool is_violation = 0;
-for (int i=0; i < q.dofs; i++) {
-    // test if violates
-    diff = 0.0;
-    bool bad_i = 0;
-    if (q[i][0] > qmax[i][0]) {
-        diff = q[i][0] - qmax[i][0];
-        bad_i = 1;
-    }
-    else if (q[i][0] < qmin[i][0]) {
-        diff = q[i][0] - qmin[i][0];
-        bad_i = 1;
-    }
-    is_violation = is_violation || bad_i;
-    if (bad_i) {
-        // fix this node
-        q[i][0] -= diff;
-        // distribute on other nodes
-        for (int j=0; j < q.dofs; j++) {
-            if (i == j)
-                continue;
-            q[j][0] += diff/(q.dofs - 1);
+    bool no_violation = 1;
+    double deviation = 0.0;
+    // check violations
+    for (int i=0; i < q.dofs; i++) {
+        if (q[i][0] > qmax[i][0]) {
+            double new_val = fmax(qmax[i][0], qavg);
+            deviation += (q[i][0] - new_val)*detJ[i][0];
+            q[i][0] = new_val;
+            fixed[i] = 1;
+            no_violation = 0;
+        }
+        else if (q[i][0] < qmin[i][0]) {
+            double new_val = fmin(qmin[i][0], qavg);
+            deviation += (q[i][0] - new_val)*detJ[i][0];
+            q[i][0] = new_val;
+            fixed[i] = 1;
+            no_violation = 0;
         }
     }
-    if (i == q.dofs-1 && is_violation == 0)
+    if (no_violation)
         break;
-}
+    // redistribute
+    int nfree = q.dofs;
+    for (int i=0; i < q.dofs; i++) {
+        nfree -= (int)fixed[i];
+    }
+    for (int i=0; i < q.dofs; i++) {
+        if (fixed[i])
+            continue;
+        q[i][0] += deviation/nfree/detJ[i][0];
+    }
 }
                              """
         par_loop(self._optimal_kernel, dx,
                  {"qbar": (self.centroids, READ),
                   "q": (field, RW),
+                  "detJ": (self.detJ, READ),
                   "qmax": (self.max_field, READ),
                   "qmin": (self.min_field, READ)})
 
