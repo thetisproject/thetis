@@ -48,10 +48,12 @@ def assert_function_space(fs, family, degree):
 
 class VertexBasedP1DGLimiter(VertexBasedLimiter):
     """
-    Vertex based limiter for P1DG tracer fields, see Kuzmin (2010)
+    Vertex based limiter for P1DG fields, see Kuzmin (2010)
 
-    .. note::
-        Currently only scalar fields are supported
+    This limiter solves the inequality constrained optimization problem by
+    finding a single :math:`\alpha` scaling parameter for each element.
+    The parameter scales the solution between the original solution and a
+    fully-mixed P0 solution.
 
     Kuzmin (2010). A vertex-based hierarchical slope limiter
     for p-adaptive discontinuous Galerkin methods. Journal of Computational
@@ -110,9 +112,6 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         super(VertexBasedP1DGLimiter, self).compute_bounds(field)
 
         # Add the average of lateral boundary facets to min/max fields
-        # NOTE this just computes the arithmetic mean of nodal values on the facet,
-        # which in general is not equivalent to the mean of the field over the bnd facet.
-        # This is OK for P1DG triangles, but not exact for the extruded case (quad facets)
         from finat.finiteelementbase import entity_support_dofs
 
         entity_dim = 1 if self.is_2d else (1, 1)  # get 1D or vertical facets
@@ -245,8 +244,95 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
                 fs = field.function_space()
                 for i in range(fs.value_size):
                     tmp_func.dat.data_with_halos[:] = field.dat.data_with_halos[:, i]
-                    super(VertexBasedP1DGLimiter, self).apply(tmp_func)
-                    field.dat.data_with_halos[:, i] = tmp_func.dat.data_with_halos[:]
+                    super().apply(tmp_func)
                 self.P1DG.restore_work_function(tmp_func)
             else:
-                super(VertexBasedP1DGLimiter, self).apply(field)
+                super().apply(field)
+
+
+class OptimalP1DGLimiter(VertexBasedP1DGLimiter):
+    """
+    Optimal vertex based limiter for P1DG fields
+
+    In this version the inequality constrained optimization problem is solved
+    more accurately trying to minimize the change in each nodal value. This
+    leads to lower numerical mixng.
+
+    """
+    def __init__(self, p1dg_space, elem_height=None, time_dependent_mesh=True):
+        super().__init__(p1dg_space, elem_height=elem_height,
+                         time_dependent_mesh=time_dependent_mesh)
+
+    def _apply_limiter(self, field):
+        """
+        Only applies limiting loop on the given field
+        """
+        self._optimal_kernel = """
+        double qavg = qbar[0];
+        // check if solution is feasible
+        int no_solution = 0;
+        for (int i=0; i < q.dofs; i++) {
+            if ((qavg > qmax[i]) || (qavg < qmin[i]))
+                no_solution = 1;
+        }
+        if (no_solution) {
+            for (int i=0; i < q.dofs; i++) {
+                q[i] = qavg;
+            }
+            return;
+        }
+        for (int iter=0; iter < q.dofs; iter++) {
+            int no_violation = 1;
+            double dev_over = 0.0;
+            double dev_under = 0.0;
+            int ix_over[q.dofs] = {0};
+            int ix_under[q.dofs] = {0};
+            // check violations
+            for (int i=0; i < q.dofs; i++) {
+                if (q[i] > qmax[i]) {       // overshoot
+                    dev_over += (q[i] - qmax[i]);
+                    ix_over[i] = 1;
+                    no_violation = 0;
+                }
+                else if (q[i] < qmin[i]) {  // undershoot
+                    dev_under += (q[i] - qmin[i]);
+                    ix_under[i] = 1;
+                    no_violation = 0;
+                }
+            }
+            if (no_violation)
+                break;
+            double deviation = dev_over + dev_under;
+            // redistribute
+            int nfree = q.dofs;
+            if (deviation > 0.0) {
+                for (int i=0; i < q.dofs; i++) {
+                    nfree -= (int)ix_over[i];
+                }
+                for (int i=0; i < q.dofs; i++) {
+                    if (ix_over[i] == 1) {
+                        q[i] = qmax[i];
+                    } else {
+                        q[i] += dev_over/nfree;
+                    }
+                }
+            } else {
+                for (int i=0; i < q.dofs; i++) {
+                    nfree -= (int)ix_under[i];
+                }
+                for (int i=0; i < q.dofs; i++) {
+                    if (ix_under[i] == 1) {
+                        q[i] = qmin[i];
+                    } else {
+                        q[i] += dev_under/nfree;
+                    }
+                }
+            }
+        }
+        """
+
+        par_loop(self._optimal_kernel, dx,
+                 {"qbar": (self.centroids, READ),
+                  "q": (field, RW),
+                  "qmax": (self.max_field, READ),
+                  "qmin": (self.min_field, READ)})
