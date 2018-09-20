@@ -34,7 +34,7 @@ import matplotlib.pyplot as plt
 
 # compute analytical log profiles
 u_max = 0.9  # max velocity in [2] Fig 2.
-kappa = solver_obj.gls_model.options.kappa
+kappa = solver_obj.turbulence_model.options.kappa
 z_0 = physical_constants['z0_friction'].dat.data[0]
 u_b = u_max * kappa / numpy.log((depth + z_0)/z_0)
 u_log = u_b / kappa * numpy.log((z + depth + z_0)/z_0)
