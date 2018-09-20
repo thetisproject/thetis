@@ -207,6 +207,60 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
                          top_idx(op2.READ),
                          iterate=op2.ON_TOP)
 
+    def _apply(self, field):
+        self.compute_bounds(field)
+        self._limit_kernel = """
+double alpha = 1.0;
+double qavg = qbar[0][0];
+for (int i=0; i < q.dofs; i++) {
+    if (q[i][0] > qavg)
+        alpha = fmin(alpha, fmin(1, (qmax[i][0] - qavg)/(q[i][0] - qavg)));
+    else if (q[i][0] < qavg)
+        alpha = fmin(alpha, fmin(1, (qavg - qmin[i][0])/(qavg - q[i][0])));
+}
+for (int i=0; i<q.dofs; i++) {
+    q[i][0] = qavg + alpha*(q[i][0] - qavg);
+}
+                             """
+        self._optimal_kernel = """
+double qavg = qbar[0][0];
+double diff = 0.0;
+for (int iter=0; iter < 10; iter++) {
+bool is_violation = 0;
+for (int i=0; i < q.dofs; i++) {
+    // test if violates
+    diff = 0.0;
+    bool bad_i = 0;
+    if (q[i][0] > qmax[i][0]) {
+        diff = q[i][0] - qmax[i][0];
+        bad_i = 1;
+    }
+    else if (q[i][0] < qmin[i][0]) {
+        diff = q[i][0] - qmin[i][0];
+        bad_i = 1;
+    }
+    is_violation = is_violation || bad_i;
+    if (bad_i) {
+        // fix this node
+        q[i][0] -= diff;
+        // distribute on other nodes
+        for (int j=0; j < q.dofs; j++) {
+            if (i == j)
+                continue;
+            q[j][0] += diff/(q.dofs - 1);
+        }
+    }
+    if (i == q.dofs-1 && is_violation == 0)
+        break;
+}
+}
+                             """
+        par_loop(self._optimal_kernel, dx,
+                 {"qbar": (self.centroids, READ),
+                  "q": (field, RW),
+                  "qmax": (self.max_field, READ),
+                  "qmin": (self.min_field, READ)})
+
     def apply(self, field):
         """
         Applies the limiter on the given field (in place)
@@ -219,8 +273,10 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
                 fs = field.function_space()
                 for i in range(fs.value_size):
                     tmp_func.dat.data_with_halos[:] = field.dat.data_with_halos[:, i]
-                    super(VertexBasedP1DGLimiter, self).apply(tmp_func)
+                    #super(VertexBasedP1DGLimiter, self).apply(tmp_func)
+                    self._apply(tmp_func)
                     field.dat.data_with_halos[:, i] = tmp_func.dat.data_with_halos[:]
                 self.P1DG.restore_work_function(tmp_func)
             else:
-                super(VertexBasedP1DGLimiter, self).apply(field)
+                #super(VertexBasedP1DGLimiter, self).apply(field)
+                self._apply(field)
