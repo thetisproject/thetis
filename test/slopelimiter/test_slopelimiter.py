@@ -21,8 +21,11 @@ def vertex_limiter_test(dim=3, type='linear', direction='x',
         mesh = ExtrudedMesh(mesh2d, nlayers, 1.0/nlayers)
         # slanted prisms
         xyz = mesh.coordinates
-        xyz.dat.data[:, 2] *= 1.0 + 0.25 - 0.5*xyz.dat.data[:, 0]
+        if type == 'jump':
+            xyz.dat.data[:, 1] *= 1.0 + 0.5*xyz.dat.data[:, 0]
+        xyz.dat.data[:, 2] *= 1.25 - 0.5*np.sin(3*(xyz.dat.data[:, 0] + 0.25)) - 0.3*np.cos(2*xyz.dat.data[:, 1])
         p1dg = FunctionSpace(mesh, 'DP', 1, vfamily='DP', vdegree=1)
+        p0 = FunctionSpace(mesh, 'DP', 0, vfamily='DP', vdegree=0)
         x, y, z = SpatialCoordinate(mesh)
         z_func = Function(p1dg)
         z_func.interpolate(z)
@@ -30,11 +33,12 @@ def vertex_limiter_test(dim=3, type='linear', direction='x',
         compute_elem_height(z_func, elem_height)
     else:
         p1dg = FunctionSpace(mesh2d, 'DP', 1)
+        p0 = FunctionSpace(mesh2d, 'DP', 0)
         x, y = SpatialCoordinate(mesh2d)
         z = Constant(0)
         elem_height = None
 
-    coord_expr = {'x': x, 'y': y, 'xy': x + 0.5*y - 0.25, 'z': z, 'xz': x * z}
+    coord_expr = {'x': x, 'y': y, 'xy': x + 0.3*y - 0.15, 'z': z, 'xz': x * z}
 
     tracer = Function(p1dg, name='tracer')
     tracer_original = Function(p1dg, name='tracer original')
@@ -59,6 +63,9 @@ def vertex_limiter_test(dim=3, type='linear', direction='x',
     if type == 'jump':
         mass_orig = assemble(tracer_original*dx)
         mass = assemble(tracer*dx)
+        elem_diff = Function(p0, name='elem mass diff')
+        elem_diff.project(tracer - tracer_original)
+        assert abs(elem_diff.dat.data).max() < 1e-12
         assert abs(mass - mass_orig) < 1e-12
         assert tracer.dat.data.min() > -1e-6
 
@@ -93,5 +100,7 @@ def test_limiter_3d(type, direction_3d, elem_type):
 
 
 if __name__ == '__main__':
-    vertex_limiter_test(dim=2, type='linear', direction='x', export=True)
-    vertex_limiter_test(dim=3, type='linear', direction='x', export=True)
+    # vertex_limiter_test(dim=2, type='linear', direction='x', export=True)
+    #vertex_limiter_test(dim=3, type='jump', direction='x', export=True, elem_type='triangle')
+    #vertex_limiter_test(dim=3, type='jump', direction='x', export=True, elem_type='quadrilateral')
+    vertex_limiter_test(dim=3, type='linear', direction='y', export=True, elem_type='triangle')
