@@ -50,8 +50,10 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
     """
     Vertex based limiter for P1DG tracer fields, see Kuzmin (2010)
 
-    .. note::
-        Currently only scalar fields are supported
+    This limiter solves the inequality constrained optimization problem by
+    finding a single :math:`\alpha` scaling parameter for each element.
+    The parameter scales the solution between the original solution and a
+    fully-mixed P0 solution.
 
     Kuzmin (2010). A vertex-based hierarchical slope limiter
     for p-adaptive discontinuous Galerkin methods. Journal of Computational
@@ -111,9 +113,6 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         super(VertexBasedP1DGLimiter, self).compute_bounds(field)
 
         # Add the average of lateral boundary facets to min/max fields
-        # NOTE this just computes the arithmetic mean of nodal values on the facet,
-        # which in general is not equivalent to the mean of the field over the bnd facet.
-        # This is OK for P1DG triangles, but not exact for the extruded case (quad facets)
         from finat.finiteelementbase import entity_support_dofs
 
         entity_dim = 1 if self.is_2d else (1, 1)  # get 1D or vertical facets
@@ -207,22 +206,63 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
                          top_idx(op2.READ),
                          iterate=op2.ON_TOP)
 
-    def _apply(self, field):
-        self.compute_bounds(field)
+    def apply(self, field):
+        """
+        Applies the limiter on the given field (in place)
+
+        :arg field: :class:`Function` to limit
+        """
+        with timed_stage('limiter'):
+            if self.is_vector:
+                tmp_func = self.P1DG.get_work_function()
+                fs = field.function_space()
+                for i in range(fs.value_size):
+                    tmp_func.dat.data_with_halos[:] = field.dat.data_with_halos[:, i]
+                    super(VertexBasedP1DGLimiter, self).apply(tmp_func)
+                    field.dat.data_with_halos[:, i] = tmp_func.dat.data_with_halos[:]
+                self.P1DG.restore_work_function(tmp_func)
+            else:
+                super(VertexBasedP1DGLimiter, self).apply(field)
+
+
+class OptimalP1DGLimiter(VertexBasedLimiter):
+    """
+    Vertex based limiter for P1DG tracer fields, see Kuzmin (2010)
+
+    In this version the inequality constrained optimization problem is solved
+    more accurately trying to minimize the change in each nodal value. This
+    leads into lower numerical mixng.
+
+    .. note::
+        This limiter does not implement any special treatment at boundaries.
+        Thus the solution is generally strongly limited at the boundaries.
+
+    Kuzmin (2010). A vertex-based hierarchical slope limiter
+    for p-adaptive discontinuous Galerkin methods. Journal of Computational
+    and Applied Mathematics, 233(12):3077-3085.
+    http://dx.doi.org/10.1016/j.cam.2009.05.028
+    """
+    def __init__(self, p1dg_space, elem_height=None, time_dependent_mesh=True):
+        """
+        :arg p1dg_space: P1DG function space
+        """
+
+        assert_function_space(p1dg_space, ['Discontinuous Lagrange', 'DQ'], 1)
+        self.is_vector = p1dg_space.value_size > 1
+        if self.is_vector:
+            p1dg_scalar_space = FunctionSpace(p1dg_space.mesh(), 'DG', 1)
+            super(OptimalP1DGLimiter, self).__init__(p1dg_scalar_space)
+        else:
+            super(OptimalP1DGLimiter, self).__init__(p1dg_space)
+        self.mesh = self.P0.mesh()
+        self.is_2d = self.mesh.geometric_dimension() == 2
+        self.time_dependent_mesh = time_dependent_mesh
+        self.elem_height = elem_height
+        if not self.is_2d:
+            assert self.elem_height is not None, 'Element height field must be provided'
+
+        # override kernel, solves the optimization problem in each element
         self._limit_kernel = """
-double alpha = 1.0;
-double qavg = qbar[0][0];
-for (int i=0; i < q.dofs; i++) {
-    if (q[i][0] > qavg)
-        alpha = fmin(alpha, fmin(1, (qmax[i][0] - qavg)/(q[i][0] - qavg)));
-    else if (q[i][0] < qavg)
-        alpha = fmin(alpha, fmin(1, (qavg - qmin[i][0])/(qavg - q[i][0])));
-}
-for (int i=0; i<q.dofs; i++) {
-    q[i][0] = qavg + alpha*(q[i][0] - qavg);
-}
-                             """
-        self._optimal_kernel = """
 double qavg = qbar[0][0];
 bool fixed_max[q.dofs] = {0};
 bool fixed_min[q.dofs] = {0};
@@ -265,11 +305,30 @@ for (int iter=0; iter < 10; iter++) {
     }
 }
                              """
-        par_loop(self._optimal_kernel, dx,
-                 {"qbar": (self.centroids, READ),
-                  "q": (field, RW),
-                  "qmax": (self.max_field, READ),
-                  "qmin": (self.min_field, READ)})
+
+    def _construct_centroid_solver(self):
+        """
+        Constructs a linear problem for computing the centroids
+
+        :return: LinearSolver instance
+        """
+        u = TrialFunction(self.P0)
+        v = TestFunction(self.P0)
+        self.a_form = u * v * dx
+        a = assemble(self.a_form)
+        return LinearSolver(a, solver_parameters={'ksp_type': 'preonly',
+                                                  'pc_type': 'bjacobi',
+                                                  'sub_pc_type': 'ilu'})
+
+    def _update_centroids(self, field):
+        """
+        Update centroid values
+        """
+        b = assemble(TestFunction(self.P0) * field * dx)
+        if self.time_dependent_mesh:
+            assemble(self.a_form, self.centroid_solver.A)
+            self.centroid_solver.A.force_evaluation()
+        self.centroid_solver.solve(self.centroids, b)
 
     def apply(self, field):
         """
@@ -283,10 +342,8 @@ for (int iter=0; iter < 10; iter++) {
                 fs = field.function_space()
                 for i in range(fs.value_size):
                     tmp_func.dat.data_with_halos[:] = field.dat.data_with_halos[:, i]
-                    #super(VertexBasedP1DGLimiter, self).apply(tmp_func)
-                    self._apply(tmp_func)
+                    super(OptimalP1DGLimiter, self).apply(tmp_func)
                     field.dat.data_with_halos[:, i] = tmp_func.dat.data_with_halos[:]
                 self.P1DG.restore_work_function(tmp_func)
             else:
-                #super(VertexBasedP1DGLimiter, self).apply(field)
-                self._apply(field)
+                super(OptimalP1DGLimiter, self).apply(field)

@@ -2,11 +2,12 @@
 Tests slope limiters
 """
 from thetis import *
-from thetis.limiter import VertexBasedP1DGLimiter
+from thetis.limiter import VertexBasedP1DGLimiter, OptimalP1DGLimiter
 import pytest
 
 
 def vertex_limiter_test(dim=3, type='linear', direction='x',
+                        limiter_type='default',
                         elem_type='triangle', export=False):
     """
     type == 'linear': Tests that a linear field is not altered by the limiter.
@@ -52,7 +53,8 @@ def vertex_limiter_test(dim=3, type='linear', direction='x',
         tracer_file = File('tracer.pvd')
         tracer_file.write(tracer)
 
-    limiter = VertexBasedP1DGLimiter(p1dg, elem_height)
+    limiter_class = OptimalP1DGLimiter if limiter_type == 'optimal' else VertexBasedP1DGLimiter
+    limiter = limiter_class(p1dg, elem_height)
     limiter.apply(tracer)
     if export:
         tracer_file.write(tracer)
@@ -67,7 +69,7 @@ def vertex_limiter_test(dim=3, type='linear', direction='x',
         elem_diff.project(tracer - tracer_original)
         assert abs(elem_diff.dat.data).max() < 1e-12
         assert abs(mass - mass_orig) < 1e-12
-        assert tracer.dat.data.min() > -1e-6
+        assert tracer.dat.data.min() > -5e-5
 
 
 @pytest.fixture(params=['x', 'y', pytest.mark.xfail(reason='corner elements will be limited')('xy')])
@@ -80,27 +82,28 @@ def direction_2d(request):
 def direction_3d(request):
     return request.param
 
-
-@pytest.fixture(params=['linear', 'jump'])
-def type(request):
+@pytest.fixture(params=[('default', 'linear'),
+                        ('default', 'jump'),
+                        ('optimal', 'jump'),
+                        ], ids=['default-linear', 'default-jump', 'optimal-jump'])
+def limiter(request):
     return request.param
-
 
 @pytest.fixture(params=['triangle', 'quadrilateral'])
 def elem_type(request):
     return request.param
 
 
-def test_limiter_2d(type, direction_2d, elem_type):
-    vertex_limiter_test(dim=2, type=type, direction=direction_2d, elem_type=elem_type)
+def test_limiter_2d(direction_2d, elem_type, limiter):
+    limiter_type, type = limiter
+    vertex_limiter_test(dim=2, type=type, direction=direction_2d, elem_type=elem_type, limiter_type=limiter_type)
 
 
-def test_limiter_3d(type, direction_3d, elem_type):
-    vertex_limiter_test(dim=3, type=type, direction=direction_3d, elem_type=elem_type)
+def test_limiter_3d(direction_3d, elem_type, limiter):
+    limiter_type, type = limiter
+    vertex_limiter_test(dim=3, type=type, direction=direction_3d, elem_type=elem_type, limiter_type=limiter_type)
 
 
 if __name__ == '__main__':
-    # vertex_limiter_test(dim=2, type='linear', direction='x', export=True)
-    #vertex_limiter_test(dim=3, type='jump', direction='x', export=True, elem_type='triangle')
-    #vertex_limiter_test(dim=3, type='jump', direction='x', export=True, elem_type='quadrilateral')
+    vertex_limiter_test(dim=2, type='linear', direction='x', export=True)
     vertex_limiter_test(dim=3, type='linear', direction='y', export=True, elem_type='triangle')
