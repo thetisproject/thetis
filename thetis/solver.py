@@ -552,14 +552,16 @@ class FlowSolver(FrozenClass):
         self.fields.max_h_diff = Function(self.function_spaces.P1)
         if self.options.use_smagorinsky_viscosity:
             self.fields.smag_visc_3d = Function(self.function_spaces.P1)
+        # self.limiter_class = limiter.VertexBasedP1DGLimiter
+        self.limiter_class = limiter.OptimalP1DGLimiter
         if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
-            self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H, self.fields.v_elem_size_3d)
+            self.tracer_limiter = self.limiter_class(self.function_spaces.H, self.fields.v_elem_size_3d)
         else:
             self.tracer_limiter = None
         if (self.options.use_limiter_for_velocity and
                 self.options.polynomial_degree > 0 and
                 self.options.element_family == 'dg-dg'):
-            self.uv_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.U, self.fields.v_elem_size_3d)
+            self.uv_limiter = self.limiter_class(self.function_spaces.U, self.fields.v_elem_size_3d)
         else:
             self.uv_limiter = None
         if self.options.use_turbulence:
