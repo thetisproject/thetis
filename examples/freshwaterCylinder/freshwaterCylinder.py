@@ -159,14 +159,15 @@ physical_constants['rho0'].assign(rho0)
 reso = 'coarse'
 
 outputdir = 'outputs_{:}'.format(reso)
-layers = 7 if reso == 'coarse' else 30
+layers = 20 if reso == 'coarse' else 30
+z_stretch_fact = 1.8
 mesh2d = Mesh('mesh_{:}.msh'.format(reso))
 print_output('Loaded mesh ' + mesh2d.name)
-dt = 25.0
+dt = 30.0 if reso == 'coarse' else 20.0
 t_end = 360 * 3600
 t_export = 900.0
 depth = 20.0
-reynolds_number = 75.
+reynolds_number = 400.
 viscosity = 'const'
 
 temp_const = 10.0
@@ -196,7 +197,8 @@ w_max = 1.2e-2
 
 
 # create solver
-solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
+solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers,
+                               extrude_options={'z_stretch_fact': z_stretch_fact})
 options = solver_obj.options
 options.element_family = 'dg-dg'
 options.timestepper_type = 'SSPRK22'
@@ -212,11 +214,11 @@ options.use_baroclinic_formulation = True
 options.coriolis_frequency = coriolis_2d
 options.use_lax_friedrichs_velocity = False
 options.use_lax_friedrichs_tracer = False
-# options.horizontal_diffusivity = Constant(50.0)
-# options.horizontal_viscosity = Constant(50.0)
+options.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
+options.use_limiter_for_tracers = True
+options.use_limiter_for_velocity = True
 options.vertical_viscosity = Constant(1.3e-6)  # background value
 options.vertical_diffusivity = Constant(1.4e-7)  # background value
-options.use_limiter_for_tracers = True
 if viscosity == 'smag':
     options.use_smagorinsky_viscosity = True
     options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
@@ -224,6 +226,9 @@ elif viscosity == 'const':
     options.horizontal_viscosity = Constant(nu_scale)
 else:
     raise Exception('Unknow viscosity type {:}'.format(viscosity))
+if dt is not None:
+    options.timestepper_options.use_automatic_timestep = False
+    options.timestep = dt
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
 options.output_directory = outputdir
