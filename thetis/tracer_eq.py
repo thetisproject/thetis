@@ -172,12 +172,14 @@ class HorizontalAdvectionTerm(TracerTerm):
                     else:
                         c_in = solution
                         c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                        # add interior tracer flux
+                        f += c_in*(uv[0]*self.normal[0] +
+                                   uv[1]*self.normal[1])*self.test*ds_bnd
+                        # add boundary contribution if inflow
                         uv_av = 0.5*(uv + uv_ext)
                         un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
                         s = 0.5*(sign(un_av) + 1.0)
-                        c_up = c_in*s + c_ext*(1-s)
-                        f += c_up*(uv_av[0]*self.normal[0] +
-                                   uv_av[1]*self.normal[1])*self.test*ds_bnd
+                        f += (1-s)*(c_ext - c_in)*un_av*self.test*ds_bnd
 
         if self.use_symmetric_surf_bnd:
             f += solution*(uv[0]*self.normal[0] + uv[1]*self.normal[1])*self.test*ds_surf
