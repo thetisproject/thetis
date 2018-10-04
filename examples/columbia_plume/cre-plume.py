@@ -128,8 +128,9 @@ options.use_turbulence_advection = False  # not simple_barotropic
 options.use_smooth_eddy_viscosity = False
 options.turbulence_model_type = 'gls'
 options.use_baroclinic_formulation = not simple_barotropic
+options.use_lax_friedrichs_velocity = True
+options.use_lax_friedrichs_tracer = False
 options.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
-options.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
 options.vertical_viscosity = Constant(2e-5)
 options.vertical_diffusivity = Constant(2e-5)
 options.horizontal_viscosity = Constant(1.0)
@@ -176,7 +177,7 @@ viscosity_bnd_2d.assign(viscosity_bnd_2d + options.horizontal_viscosity)
 ExpandFunctionTo3d(viscosity_bnd_2d, viscosity_bnd_3d).solve()
 # File('bnd_visc.pvd').write(viscosity_bnd_2d)
 solver_obj.function_spaces.P1_2d.restore_work_function(viscosity_bnd_2d)
-options.horizontal_viscosity = viscosity_bnd_3d
+# options.horizontal_viscosity = viscosity_bnd_3d
 
 # atm forcing
 wind_stress_3d = Function(solver_obj.function_spaces.P1v, name='wind stress')
@@ -240,13 +241,13 @@ tide_elev_funcs = {'elev': elev_bnd_expr, 'uv': uv_bnd_2d}
 south_elev_funcs = {'elev': elev_bnd_expr}
 open_uv_funcs = {'symm': None}
 bnd_river_salt = {'value': Constant(salt_river)}
-ocean_salt_funcs = {'value': salt_bnd_3d}
+ocean_salt_funcs = {'value': salt_bnd_3d, 'uv': uv_bnd_3d + uv_bnd_dav_3d}
 bnd_river_temp = {'value': river_temp_const}
-ocean_temp_funcs = {'value': temp_bnd_3d}
-ocean_uv_funcs = {'uv': uv_bnd_3d}
+ocean_temp_funcs = {'value': temp_bnd_3d, 'uv': uv_bnd_3d + uv_bnd_dav_3d}
+ocean_uv_funcs = {'uv': uv_bnd_3d + uv_bnd_dav_3d}
 solver_obj.bnd_functions['shallow_water'] = {
     river_bnd_id: river_swe_funcs,
-    south_bnd_id: south_elev_funcs,
+    south_bnd_id: tide_elev_funcs,
     north_bnd_id: tide_elev_funcs,
     west_bnd_id: tide_elev_funcs,
 }
@@ -290,9 +291,9 @@ get_boundary_relaxation_field(mask_tmp_2d,
 ExpandFunctionTo3d(mask_tmp_2d, mask_uv_relax_3d).solve()
 solver_obj.function_spaces.P1_2d.restore_work_function(mask_tmp_2d)
 # File('mask.pvd').write(mask_tracer_relax_3d)
-options.temperature_source_3d = mask_tracer_relax_3d*(temp_bnd_3d - solver_obj.fields.temp_3d)
-options.salinity_source_3d = mask_tracer_relax_3d*(salt_bnd_3d - solver_obj.fields.salt_3d)
-options.momentum_source_3d = mask_uv_relax_3d*(uv_bnd_3d - solver_obj.fields.uv_3d)
+# options.temperature_source_3d = mask_tracer_relax_3d*(temp_bnd_3d - solver_obj.fields.temp_3d)
+# options.salinity_source_3d = mask_tracer_relax_3d*(salt_bnd_3d - solver_obj.fields.salt_3d)
+# options.momentum_source_3d = mask_uv_relax_3d*(uv_bnd_3d - solver_obj.fields.uv_3d)
 
 solver_obj.create_equations()
 
