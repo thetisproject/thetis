@@ -237,8 +237,9 @@ river_temp_interp = interpolation.NetCDFTimeSeriesInterpolator(
 river_temp_const = Constant(river_temp_interp(0)[0])
 
 river_swe_funcs = {'flux': river_flux_const}
-tide_elev_funcs = {'elev': elev_bnd_expr, 'uv': uv_bnd_2d}
-south_elev_funcs = {'elev': elev_bnd_expr}
+ocean_tide_funcs = {'elev': elev_bnd_expr, 'uv': uv_bnd_2d}
+south_tide_funcs = {'elev': elev_bnd_expr}
+west_tide_funcs = {'uv': uv_bnd_2d}
 open_uv_funcs = {'symm': None}
 bnd_river_salt = {'value': Constant(salt_river)}
 ocean_salt_funcs = {'value': salt_bnd_3d, 'uv': uv_bnd_3d + uv_bnd_dav_3d}
@@ -247,9 +248,9 @@ ocean_temp_funcs = {'value': temp_bnd_3d, 'uv': uv_bnd_3d + uv_bnd_dav_3d}
 ocean_uv_funcs = {'uv': uv_bnd_3d + uv_bnd_dav_3d}
 solver_obj.bnd_functions['shallow_water'] = {
     river_bnd_id: river_swe_funcs,
-    south_bnd_id: tide_elev_funcs,
-    north_bnd_id: tide_elev_funcs,
-    west_bnd_id: tide_elev_funcs,
+    south_bnd_id: ocean_tide_funcs,
+    north_bnd_id: ocean_tide_funcs,
+    west_bnd_id: west_tide_funcs,
 }
 solver_obj.bnd_functions['momentum'] = {
     river_bnd_id: open_uv_funcs,
