@@ -292,9 +292,9 @@ get_boundary_relaxation_field(mask_tmp_2d,
 ExpandFunctionTo3d(mask_tmp_2d, mask_uv_relax_3d).solve()
 solver_obj.function_spaces.P1_2d.restore_work_function(mask_tmp_2d)
 # File('mask.pvd').write(mask_tracer_relax_3d)
-# options.temperature_source_3d = mask_tracer_relax_3d*(temp_bnd_3d - solver_obj.fields.temp_3d)
-# options.salinity_source_3d = mask_tracer_relax_3d*(salt_bnd_3d - solver_obj.fields.salt_3d)
-# options.momentum_source_3d = mask_uv_relax_3d*(uv_bnd_3d - solver_obj.fields.uv_3d)
+options.temperature_source_3d = mask_tracer_relax_3d*(temp_bnd_3d - solver_obj.fields.temp_3d)
+options.salinity_source_3d = mask_tracer_relax_3d*(salt_bnd_3d - solver_obj.fields.salt_3d)
+options.momentum_source_3d = mask_uv_relax_3d*(uv_bnd_3d - solver_obj.fields.uv_3d)
 
 solver_obj.create_equations()
 
