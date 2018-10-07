@@ -159,7 +159,7 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'eddy_visc_3d', 'shear_freq_3d',
                             'buoy_freq_3d', 'tke_3d', 'psi_3d',
                             'eps_3d', 'len_3d',
-                            'int_pg_3d']
+                            'int_pg_3d', 'baroc_head_3d']
 options.fields_to_export_hdf5 = []
 options.equation_of_state_type = 'full'
 
