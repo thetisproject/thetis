@@ -199,6 +199,8 @@ salt_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM salinity')
 temp_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM temperature')
 uvel_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM u velocity')
 vvel_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM v velocity')
+density_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM density')
+baroc_head_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM baroclinic head')
 
 uv_bnd_3d = Function(solver_obj.function_spaces.P1DGv, name='NCOM velocity')
 uv_bnd_2d = Function(solver_obj.function_spaces.P1DGv_2d, name='NCOM velocity')
@@ -245,7 +247,8 @@ bnd_river_salt = {'value': Constant(salt_river)}
 ocean_salt_funcs = {'value': salt_bnd_3d, 'uv': uv_bnd_3d + uv_bnd_dav_3d}
 bnd_river_temp = {'value': river_temp_const}
 ocean_temp_funcs = {'value': temp_bnd_3d, 'uv': uv_bnd_3d + uv_bnd_dav_3d}
-ocean_uv_funcs = {'uv': uv_bnd_3d + uv_bnd_dav_3d}
+ocean_uv_funcs = {'uv': uv_bnd_3d + uv_bnd_dav_3d,
+                  'baroc_head': baroc_head_bnd_3d}
 solver_obj.bnd_functions['shallow_water'] = {
     river_bnd_id: river_swe_funcs,
     south_bnd_id: ocean_tide_funcs,
@@ -333,6 +336,15 @@ print_output('Resolution: {:}'.format(reso_str))
 print_output('Reynolds number: {:}'.format(reynolds_number))
 print_output('Horizontal viscosity: {:}'.format(nu_scale))
 print_output('Exporting to {:}'.format(outputdir))
+
+bnd_density_solver = DensitySolver(salt_bnd_3d, temp_bnd_3d, density_bnd_3d,
+                                   solver_obj.equation_of_state)
+bnd_rho_integrator = VerticalIntegrator(density_bnd_3d,
+                                        baroc_head_bnd_3d,
+                                        bottom_to_top=False,
+                                        average=False,
+                                        bathymetry=solver_obj.fields.bathymetry_3d,
+                                        elevation=solver_obj.fields.elev_cg_3d)
 
 # set initial conditions in the estuary
 xyz = solver_obj.mesh.coordinates
@@ -426,6 +438,8 @@ def update_forcings(t):
     river_temp_const.assign(river_temp_interp(t)[0])
     oce_bnd_interp.set_fields(t)
     split_3d_bnd_velocity()
+    bnd_density_solver.solve()
+    bnd_rho_integrator.solve()
     atm_interp.set_fields(t)
     copy_wind_stress_to_3d.solve()
 
