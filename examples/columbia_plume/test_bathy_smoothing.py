@@ -11,7 +11,7 @@ physical_constants['rho0'].assign(1000.0)
 physical_constants['z0_friction'].assign(0.005)
 
 nlayers = 15
-mesh2d = Mesh('mesh_cre-plume_02.msh')
+mesh2d = Mesh('mesh_cre-plume_03_normal.msh')
 print_output('Loaded mesh ' + mesh2d.name)
 
 nnodes = comm.allreduce(mesh2d.topology.num_vertices(), MPI.SUM)
@@ -23,7 +23,7 @@ t_end = 10*24*3600.
 t_export = 900.
 
 # bathymetry
-bathymetry_2d = get_bathymetry('bathymetry_utm.nc', mesh2d, project=False)
+bathymetry_2d = get_bathymetry('bathymetry_utm_large.nc', mesh2d, project=False)
 print('bath min: {:} max: {:}'.format(bathymetry_2d.dat.data.min(), bathymetry_2d.dat.data.max()))
 
 new_bathymetry_2d = smooth_bathymetry(

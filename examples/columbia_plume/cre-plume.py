@@ -43,8 +43,8 @@ physical_constants['z0_friction'].assign(0.005)
 
 reso_str = 'coarse'
 meshfile = {
-    'coarse': 'mesh_cre-plume_02_coarse.msh',
-    'normal': 'mesh_cre-plume_02_normal.msh',
+    'coarse': 'mesh_cre-plume_03_coarse.msh',
+    'normal': 'mesh_cre-plume_03_normal.msh',
 }
 dt_select = {
     'coarse': 30.,
@@ -83,7 +83,7 @@ t_end = 52*24*3600.
 t_export = 900.
 
 # interpolate bathymetry and smooth it
-bathymetry_2d = get_bathymetry('bathymetry_utm.nc', mesh2d, project=False)
+bathymetry_2d = get_bathymetry('bathymetry_utm_large.nc', mesh2d, project=False)
 bathymetry_2d = smooth_bathymetry(
     bathymetry_2d, delta_sigma=1.0, bg_diff=0,
     alpha=1e2, exponent=2.5,
