@@ -41,12 +41,19 @@ from plotting import *
 
 def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
                      reynolds_number=1.0, use_limiter=True, dt=None,
-                     viscosity='const', laxfriedrichs=0.0,
+                     viscosity='const', laxfriedrichs_vel=0.0,
+                     laxfriedrichs_trc=0.0,
+                     elem_type='tri',
                      load_export_ix=None, iterate=True, **custom_options):
     """
     Runs lock exchange problem with a bunch of user defined options.
     """
     comm = COMM_WORLD
+
+    if laxfriedrichs_vel is None:
+        laxfriedrichs_vel = 0.0
+    if laxfriedrichs_trc is None:
+        laxfriedrichs_trc = 0.0
 
     depth = 20.0
     refinement = {'huge': 0.6, 'coarse': 1, 'coarse2': 2, 'medium': 4,
@@ -66,7 +73,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     x_max = 32.0e3
     x_min = -32.0e3
     n_x = (x_max - x_min)/delta_x
-    mesh2d = UnitSquareMesh(n_x, 2)
+    mesh2d = UnitSquareMesh(n_x, 2, quadrilateral=(elem_type == 'quad'))
     coords = mesh2d.coordinates
     # x in [x_min, x_max], y in [-dx, dx]
     coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min
@@ -83,6 +90,10 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     uscale = 0.5
     nu_scale = uscale * delta_x / reynolds_number
 
+    if reynolds_number < 0:
+        reynolds_number = float("inf")
+        nu_scale = 0.0
+
     u_max = 1.0
     w_max = 1.2e-2
 
@@ -92,10 +103,12 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     lim_str = '_lim' if use_limiter else ''
     options_str = '_'.join([reso_str,
                             element_family,
+                            elem_type,
                             'p{:}'.format(poly_order),
                             'visc-{:}'.format(viscosity),
                             'Re{:}'.format(reynolds_number),
-                            'lf{:.1f}'.format(laxfriedrichs),
+                            'lf-vel{:.1f}'.format(laxfriedrichs_vel),
+                            'lf-trc{:.1f}'.format(laxfriedrichs_trc),
                             ]) + lim_str
     outputdir = 'outputs_' + options_str
 
@@ -117,14 +130,10 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.use_bottom_friction = False
     options.use_ale_moving_mesh = True
     options.use_baroclinic_formulation = True
-    if laxfriedrichs is None or laxfriedrichs == 0.0:
-        options.use_lax_friedrichs_velocity = False
-        options.use_lax_friedrichs_tracer = False
-    else:
-        options.use_lax_friedrichs_velocity = True
-        options.use_lax_friedrichs_tracer = True
-        options.lax_friedrichs_velocity_scaling_factor = Constant(laxfriedrichs)
-        options.lax_friedrichs_tracer_scaling_factor = Constant(laxfriedrichs)
+    options.use_lax_friedrichs_velocity = laxfriedrichs_vel > 0.0
+    options.use_lax_friedrichs_tracer = laxfriedrichs_trc > 0.0
+    options.lax_friedrichs_velocity_scaling_factor = Constant(laxfriedrichs_vel)
+    options.lax_friedrichs_tracer_scaling_factor = Constant(laxfriedrichs_trc)
     options.use_limiter_for_tracers = use_limiter
     options.use_limiter_for_velocity = use_limiter
     # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
@@ -175,7 +184,8 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     print_output('Reynolds number: {:}'.format(reynolds_number))
     print_output('Use slope limiters: {:}'.format(use_limiter))
     print_output('Horizontal viscosity: {:}'.format(nu_scale))
-    print_output('Lax-Friedrichs factor: {:}'.format(laxfriedrichs))
+    print_output('Lax-Friedrichs factor vel: {:}'.format(laxfriedrichs_vel))
+    print_output('Lax-Friedrichs factor trc: {:}'.format(laxfriedrichs_trc))
     print_output('Exporting to {:}'.format(outputdir))
 
     esize = solver_obj.fields.h_elem_size_2d
@@ -225,9 +235,15 @@ def get_argparser():
                         help='Type of horizontal viscosity',
                         default='const',
                         choices=['const', 'smag'])
-    parser.add_argument('-lf', '--laxfriedrichs', type=float,
-                        help='Lax-Friedrichs flux factor for uv and temperature',
+    parser.add_argument('-lf-trc', '--laxfriedrichs-trc', type=float,
+                        help='Lax-Friedrichs flux factor for tracers',
                         default=0.0)
+    parser.add_argument('-lf-vel', '--laxfriedrichs-vel', type=float,
+                        help='Lax-Friedrichs flux factor for velocity',
+                        default=0.0)
+    parser.add_argument('-e', '--elem-type', type=str,
+                        help='Type of 2D element, either "tri" or "quad"',
+                        default='tri')
     return parser
 
 

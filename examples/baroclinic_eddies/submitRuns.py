@@ -23,7 +23,7 @@ options:
 
 Depends on hpclauncher package: https://github.com/tkarna/hpclauncher
 """
-import lockExchange as thetistestcase
+import baroclinic_eddies as thetistestcase
 from collections import OrderedDict
 import argparse
 import itertools

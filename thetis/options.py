@@ -372,9 +372,9 @@ class CommonModelOptions(FrozenConfigurable):
     use_lax_friedrichs_velocity = Bool(
         True, help="use Lax Friedrichs stabilisation in horizontal momentum advection.").tag(config=True)
     lax_friedrichs_velocity_scaling_factor = FiredrakeConstantTraitlet(
-        Constant(1.0), help="Scaling factor for Lax Friedrichs stabilisation term in horiozonal momentum advection.").tag(config=True)
+        Constant(1.0), help="Scaling factor for Lax Friedrichs stabilisation term in horizontal momentum advection.").tag(config=True)
     use_lax_friedrichs_tracer = Bool(
-        True, help="Use Lax Friedrichs stabilisation in tracer advection.").tag(config=True)
+        False, help="Use Lax Friedrichs stabilisation in tracer advection.").tag(config=True)
     lax_friedrichs_tracer_scaling_factor = FiredrakeConstantTraitlet(
         Constant(1.0), help="Scaling factor for tracer Lax Friedrichs stability term.").tag(config=True)
     use_limiter_for_tracers = Bool(
@@ -584,10 +584,6 @@ class ModelOptions3d(CommonModelOptions):
 
     use_limiter_for_velocity = Bool(
         True, help="Apply P1DG limiter for 3D horizontal velocity field").tag(config=True)
-    use_lax_friedrichs_tracer = Bool(
-        True, help="Use Lax Friedrichs stabilisation in tracer advection.").tag(config=True)
-    lax_friedrichs_tracer_scaling_factor = FiredrakeConstantTraitlet(
-        Constant(1.0), help="Scaling factor for tracer Lax Friedrichs stability term.").tag(config=True)
     check_volume_conservation_3d = Bool(
         False, help="""
         Compute volume of the 3D domain at every export

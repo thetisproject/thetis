@@ -20,6 +20,9 @@ def assert_function_space(fs, family, degree):
     :arg string family: name of element family
     :arg int degree: polynomial degree of the function space
     """
+    fam_list = family
+    if not isinstance(family, list):
+        fam_list = [family]
     ufl_elem = fs.ufl_element()
     if isinstance(ufl_elem, ufl.VectorElement):
         ufl_elem = ufl_elem.sub_elements()[0]
@@ -27,18 +30,18 @@ def assert_function_space(fs, family, degree):
     if ufl_elem.family() == 'TensorProductElement':
         # extruded mesh
         A, B = ufl_elem.sub_elements()
-        assert A.family() == family,\
-            'horizontal space must be {0:s}'.format(family)
-        assert B.family() == family,\
-            'vertical space must be {0:s}'.format(family)
+        assert A.family() in fam_list,\
+            'horizontal space must be one of {0:s}'.format(fam_list)
+        assert B.family() in fam_list,\
+            'vertical space must be {0:s}'.format(fam_list)
         assert A.degree() == degree,\
             'degree of horizontal space must be {0:d}'.format(degree)
         assert B.degree() == degree,\
             'degree of vertical space must be {0:d}'.format(degree)
     else:
         # assume 2D mesh
-        assert ufl_elem.family() == family,\
-            'function space must be {0:s}'.format(family)
+        assert ufl_elem.family() in fam_list,\
+            'function space must be one of {0:s}'.format(fam_list)
         assert ufl_elem.degree() == degree,\
             'degree of function space must be {0:d}'.format(degree)
 
@@ -60,7 +63,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         :arg p1dg_space: P1DG function space
         """
 
-        assert_function_space(p1dg_space, 'Discontinuous Lagrange', 1)
+        assert_function_space(p1dg_space, ['Discontinuous Lagrange', 'DQ'], 1)
         self.is_vector = p1dg_space.value_size > 1
         if self.is_vector:
             p1dg_scalar_space = FunctionSpace(p1dg_space.mesh(), 'DG', 1)
