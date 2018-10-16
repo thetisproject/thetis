@@ -1,7 +1,7 @@
 """
 Launches simulations on HPC machines.
 
-Run paramenters are inherited from the master test case. However, here all
+Run parameters are inherited from the master test case. However, here all
 the parameters can take multiple values. All combinations of parameter values are
 executed:
 
@@ -17,11 +17,11 @@ python mytestcase.py -r medium -dt 50
 
 In addition to the options defined in the test case itself this script defines
 options:
---test    - print job submission scirpts without launching them
+--test    - print job submission scripts without launching them
 --dev     - run simulation in development queue for a short time for debugging
 --verbose - print job submission scirpts and debug information
 
-Depends on batchScriptLib
+Depends on hpclauncher package: https://github.com/tkarna/hpclauncher
 """
 import lockExchange as thetistestcase
 from collections import OrderedDict
