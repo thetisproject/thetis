@@ -78,8 +78,9 @@ nprisms = ntriangles*nlayers
 
 sim_tz = timezone.FixedTimeZone(-8, 'PST')
 init_date = datetime.datetime(2006, 5, 1, tzinfo=sim_tz)
+end_date = datetime.datetime(2006, 7, 2, tzinfo=sim_tz)
 
-t_end = 52*24*3600.
+t_end = (end_date - init_date).total_seconds()
 t_export = 900.
 
 # interpolate bathymetry and smooth it
@@ -195,8 +196,6 @@ atm_interp.set_fields(0.0)
 solver_obj.create_fields()
 
 # ocean initial conditions
-# FIXME these should be CG fields
-# NOTE velocity splitting fails with CG fields?
 salt_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM salinity')
 temp_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM temperature')
 uvel_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM u velocity')
@@ -223,7 +222,7 @@ def interp_ocean_bnd(time):
     oce_bnd_interp.set_fields(time)
     uvel_bnd_3d.assign(uvel_bnd_3d*ncom_vel_mask_3d)
     vvel_bnd_3d.assign(vvel_bnd_3d*ncom_vel_mask_3d)
-    
+
 
 # tides
 elev_tide_2d = Function(solver_obj.function_spaces.P1_2d, name='Tidal elevation')
@@ -390,6 +389,7 @@ def split_3d_bnd_velocity():
     copy_uv_bnd_dav_to_3d.solve()  # uv_bnd_2d -> uv_bnd_dav_3d
     uv_bnd_3d.assign(uv_bnd_3d - uv_bnd_dav_3d)  # rm depth av
 
+
 # compute density and baroclinic head at boundary
 bnd_density_solver = DensitySolver(salt_bnd_3d, temp_bnd_3d, density_bnd_3d,
                                    solver_obj.equation_of_state)
@@ -400,10 +400,12 @@ bnd_rho_integrator = VerticalIntegrator(density_bnd_3d,
                                         bathymetry=solver_obj.fields.bathymetry_3d,
                                         elevation=solver_obj.fields.elev_cg_3d)
 
+
 def compute_bnd_baroclinicity():
     bnd_density_solver.solve()
     bnd_rho_integrator.solve()
     baroc_head_bnd_3d.assign(-physical_constants['rho0_inv']*baroc_head_bnd_3d)
+
 
 # add custom exporters
 # extract and export surface salinity
