@@ -86,10 +86,12 @@ class VTKExporter(ExporterBase):
         self.project_output = project_output
         self.coords_dg = coords_dg
         suffix = '.pvd'
+        path = os.path.join(outputdir, filename)
         # append suffix if missing
         if (len(filename) < len(suffix)+1 or filename[:len(suffix)] != suffix):
             self.filename += suffix
-        self.outfile = File(os.path.join(outputdir, self.filename))
+        path = os.path.join(path, self.filename)
+        self.outfile = File(path)
         self.cast_operators = {}
 
     def set_next_export_ix(self, next_export_ix):
