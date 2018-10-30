@@ -25,7 +25,6 @@ physical_constants['rho0'].assign(1000.0)
 physical_constants['z0_friction'].assign(0.005)
 
 reso_str = 'coarse'
-outputdir = 'outputs_' + reso_str
 refinement = {'coarse': 1, 'normal': 2}
 lx = 100.0e3
 ly = 1000.0/refinement[reso_str]
@@ -34,9 +33,7 @@ delta_x = lx/nx
 ny = 2
 layers = int(round(10*refinement[reso_str]))
 mesh2d = RectangleMesh(nx, ny, lx, ly)
-print_output('Exporting to ' + outputdir)
-dt = 25.0  # 25.0/refinement[reso_str]  # TODO tune dt
-t_end = 1.5*24*3600
+t_end = 18*24*3600
 # export every 9 min, day 16 is export 2720
 t_export = 9*60.0
 
@@ -88,25 +85,22 @@ options.horizontal_viscosity = Constant(nu_scale)
 options.horizontal_diffusivity = Constant(5.0)
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
-options.output_directory = outputdir
 options.horizontal_velocity_scale = Constant(2.0)
 options.horizontal_viscosity_scale = Constant(nu_scale)
 options.check_salinity_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
-                            'w_3d', 'w_mesh_3d', 'salt_3d', 'density_3d',
-                            'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                            'smag_visc_3d',
+                            'w_3d', 'salt_3d', 'density_3d',
                             'eddy_visc_3d', 'shear_freq_3d',
                             'buoy_freq_3d', 'tke_3d', 'psi_3d',
                             'eps_3d', 'len_3d']
-options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
-                                 'w_3d', 'salt_3d', 'smag_visc_3d',
-                                 'eddy_visc_3d', 'shear_freq_3d',
-                                 'buoy_freq_3d', 'tke_3d', 'psi_3d',
-                                 'eps_3d', 'len_3d']
+options.fields_to_export_hdf5 = []
 turbulence_model_options = options.turbulence_model_options
-turbulence_model_options.apply_defaults('k-omega')
-turbulence_model_options.stability_function_name = 'Canuto B'
+turbulence_model_options.apply_defaults('k-epsilon')
+turbulence_model_options.stability_function_name = 'Canuto A'
+outputdir = 'outputs'
+odir = '_'.join([outputdir, reso_str, turbulence_model_options.closure_name, turbulence_model_options.stability_function_name.replace(' ', '-')])
+options.output_directory = odir
+print_output('Exporting to ' + options.output_directory)
 
 solverobj.create_function_spaces()
 
