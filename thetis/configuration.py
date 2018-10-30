@@ -30,7 +30,7 @@ def rst_all_options(cls, nspace=0, prefix=None):
         if trait.name in slaved_options:
             continue
         _prefix = prefix if prefix is not None else classname
-        termline = "{prefix:}.\ **{suffix:}**".format(prefix=_prefix, suffix=trait.name)
+        termline = r"{prefix:}.\ **{suffix:}**".format(prefix=_prefix, suffix=trait.name)
 
         if 'Enum' in typ:
             termline += ' : ' + '|'.join(repr(x) for x in trait.values)
@@ -171,8 +171,8 @@ class FiredrakeScalarExpression(TraitType):
     info_text = 'a scalar UFL expression'
 
     def validate(self, obj, value):
-        if (isinstance(value, ufl.core.expr.Expr) and
-                ufl.checks.is_ufl_scalar(value)):
+        if (isinstance(value, ufl.core.expr.Expr)
+                and ufl.checks.is_ufl_scalar(value)):
             return value
         self.error(obj, value)
 
@@ -189,8 +189,8 @@ class FiredrakeVectorExpression(TraitType):
     info_text = 'a vector UFL expression'
 
     def validate(self, obj, value):
-        if (isinstance(value, ufl.core.expr.Expr) and
-                not ufl.checks.is_ufl_scalar(value)):
+        if (isinstance(value, ufl.core.expr.Expr)
+                and not ufl.checks.is_ufl_scalar(value)):
             return value
         self.error(obj, value)
 

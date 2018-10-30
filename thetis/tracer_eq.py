@@ -150,21 +150,21 @@ class HorizontalAdvectionTerm(TracerTerm):
         if self.horizontal_dg:
             # add interface term
             uv_av = avg(uv)
-            un_av = (uv_av[0]*self.normal('-')[0] +
-                     uv_av[1]*self.normal('-')[1])
+            un_av = (uv_av[0]*self.normal('-')[0]
+                     + uv_av[1]*self.normal('-')[1])
             s = 0.5*(sign(un_av) + 1.0)
             c_up = solution('-')*s + solution('+')*(1-s)
-            f += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
-                       uv_av[1]*jump(self.test, self.normal[1]) +
-                       uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_v)
-            f += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
-                       uv_av[1]*jump(self.test, self.normal[1]) +
-                       uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_h)
+            f += c_up*(uv_av[0]*jump(self.test, self.normal[0])
+                       + uv_av[1]*jump(self.test, self.normal[1])
+                       + uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_v)
+            f += c_up*(uv_av[0]*jump(self.test, self.normal[0])
+                       + uv_av[1]*jump(self.test, self.normal[1])
+                       + uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_h)
             # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
                 if uv_p1 is not None:
-                    gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
-                                     avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
+                    gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0]
+                                     + avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
                 elif uv_mag is not None:
                     gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
                 else:
@@ -183,8 +183,8 @@ class HorizontalAdvectionTerm(TracerTerm):
                         un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
                         s = 0.5*(sign(un_av) + 1.0)
                         c_up = c_in*s + c_ext*(1-s)
-                        f += c_up*(uv_av[0]*self.normal[0] +
-                                   uv_av[1]*self.normal[1])*self.test*ds_bnd
+                        f += c_up*(uv_av[0]*self.normal[0]
+                                   + uv_av[1]*self.normal[1])*self.test*ds_bnd
 
         if self.use_symmetric_surf_bnd:
             f += solution*(uv[0]*self.normal[0] + uv[1]*self.normal[1])*self.test*ds_surf
@@ -290,9 +290,9 @@ class HorizontalDiffusionTerm(TracerTerm):
             degree_h, degree_v = self.function_space.ufl_element().degree()
             # TODO compute elemsize as CellVolume/FacetArea
             # h = n.D.n where D = diag(h_h, h_h, h_v)
-            elemsize = (self.h_elem_size*(self.normal[0]**2 +
-                                          self.normal[1]**2) +
-                        self.v_elem_size*self.normal[2]**2)
+            elemsize = (self.h_elem_size*(self.normal[0]**2
+                                          + self.normal[1]**2)
+                        + self.v_elem_size*self.normal[2]**2)
             sigma = 5.0*degree_h*(degree_h + 1)/elemsize
             if degree_h == 0:
                 sigma = 1.5/elemsize
@@ -354,9 +354,9 @@ class VerticalDiffusionTerm(TracerTerm):
             degree_h, degree_v = self.function_space.ufl_element().degree()
             # TODO compute elemsize as CellVolume/FacetArea
             # h = n.D.n where D = diag(h_h, h_h, h_v)
-            elemsize = (self.h_elem_size*(self.normal[0]**2 +
-                                          self.normal[1]**2) +
-                        self.v_elem_size*self.normal[2]**2)
+            elemsize = (self.h_elem_size*(self.normal[0]**2
+                                          + self.normal[1]**2)
+                        + self.v_elem_size*self.normal[2]**2)
             sigma = 5.0*degree_v*(degree_v + 1)/elemsize
             if degree_v == 0:
                 sigma = 1.0/elemsize
@@ -373,7 +373,7 @@ class VerticalDiffusionTerm(TracerTerm):
 
 
 class SourceTerm(TracerTerm):
-    """
+    r"""
     Generic source term
 
     The weak form reads

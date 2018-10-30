@@ -70,8 +70,8 @@ flux_river = ly*depth_min*un_river
 t = 0.0
 t_ramp = 12*3600.0  # use linear ramp up for boundary forcings
 # python function that returns time dependent boundary values
-ocean_flux_func = lambda t: (flux_amp*sin(2 * pi * t / t_tide) -
-                             flux_river)*min(t/t_ramp, 1.0)
+ocean_flux_func = lambda t: (flux_amp*sin(2 * pi * t / t_tide)
+                             - flux_river)*min(t/t_ramp, 1.0)
 river_flux_func = lambda t: flux_river*min(t/t_ramp, 1.0)
 # Constants that will be fed to the model
 ocean_flux = Constant(ocean_flux_func(t))

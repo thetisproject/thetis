@@ -122,24 +122,24 @@ class HorizontalAdvectionTerm(TracerTerm):
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
 
         f = 0
-        f += -(Dx(uv[0] * self.test, 0) * solution +
-               Dx(uv[1] * self.test, 1) * solution) * self.dx
+        f += -(Dx(uv[0] * self.test, 0) * solution
+               + Dx(uv[1] * self.test, 1) * solution) * self.dx
 
         if self.horizontal_dg:
             # add interface term
             uv_av = avg(uv)
-            un_av = (uv_av[0]*self.normal('-')[0] +
-                     uv_av[1]*self.normal('-')[1])
+            un_av = (uv_av[0]*self.normal('-')[0]
+                     + uv_av[1]*self.normal('-')[1])
             s = 0.5*(sign(un_av) + 1.0)
             c_up = solution('-')*s + solution('+')*(1-s)
 
-            f += c_up*(jump(self.test, uv[0] * self.normal[0]) +
-                       jump(self.test, uv[1] * self.normal[1])) * self.dS
+            f += c_up*(jump(self.test, uv[0] * self.normal[0])
+                       + jump(self.test, uv[1] * self.normal[1])) * self.dS
             # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
                 if uv_p1 is not None:
-                    gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
-                                     avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
+                    gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0]
+                                     + avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
                 elif uv_mag is not None:
                     gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
                 else:
@@ -151,16 +151,16 @@ class HorizontalAdvectionTerm(TracerTerm):
                     ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                     c_in = solution
                     if funcs is None:
-                        f += c_in * (uv[0]*self.normal[0] +
-                                     uv[1]*self.normal[1])*self.test*ds_bnd
+                        f += c_in * (uv[0]*self.normal[0]
+                                     + uv[1]*self.normal[1])*self.test*ds_bnd
                     else:
                         c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
                         uv_av = 0.5*(uv + uv_ext)
                         un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
                         s = 0.5*(sign(un_av) + 1.0)
                         c_up = c_in*s + c_ext*(1-s)
-                        f += c_up*(uv_av[0]*self.normal[0] +
-                                   uv_av[1]*self.normal[1])*self.test*ds_bnd
+                        f += c_up*(uv_av[0]*self.normal[0]
+                                   + uv_av[1]*self.normal[1])*self.test*ds_bnd
 
         return -f
 
@@ -228,7 +228,7 @@ class HorizontalDiffusionTerm(TracerTerm):
 
 
 class SourceTerm(TracerTerm):
-    """
+    r"""
     Generic source term
 
     The weak form reads

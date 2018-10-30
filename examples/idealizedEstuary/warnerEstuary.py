@@ -125,8 +125,8 @@ flux_river = u_river*depth_river*ly
 
 t = 0.0
 t_ramp = 3600.0  # NOTE use ramp to avoid stading waves
-ocean_flux_func = lambda t: (flux_ocean*sin(2 * pi * t / t_tide) -
-                             flux_river)*min(t/t_ramp, 1.0)
+ocean_flux_func = lambda t: (flux_ocean*sin(2 * pi * t / t_tide)
+                             - flux_river)*min(t/t_ramp, 1.0)
 ocean_flux = Constant(ocean_flux_func(t))
 river_flux_func = lambda t: flux_river*min(t/t_ramp, 1.0)
 river_flux = Constant(river_flux_func(t))

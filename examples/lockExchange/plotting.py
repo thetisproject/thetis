@@ -10,7 +10,7 @@ try:
     import matplotlib.pyplot as plt
     from mpl_toolkits.axes_grid1 import make_axes_locatable
     MATPLOTLIB_INSTALLED = True
-except ImportError as e:
+except ImportError:
     print('Warning: matplotlib is not intalled: plotting is disabled')
     MATPLOTLIB_INSTALLED = False
 
