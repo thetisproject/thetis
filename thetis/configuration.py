@@ -179,7 +179,7 @@ class FiredrakeScalarExpression(TraitType):
     def default_value_repr(self):
         if isinstance(self.default_value, FiredrakeConstant):
             return 'Constant({:})'.format(self.default_value.dat.data[0])
-        if isinstance(self.default_value, Function):
+        if isinstance(self.default_value, FiredrakeFunction):
             return 'Function'
         return 'UFL scalar expression'
 
@@ -197,7 +197,7 @@ class FiredrakeVectorExpression(TraitType):
     def default_value_repr(self):
         if isinstance(self.default_value, FiredrakeConstant):
             return 'Constant({:})'.format(self.default_value.dat.data[0])
-        if isinstance(self.default_value, Function):
+        if isinstance(self.default_value, FiredrakeFunction):
             return 'Function'
         return 'UFL vector expression'
 
