@@ -188,31 +188,31 @@ class HorizontalAdvectionTerm(MomentumTerm):
             uv = solution
             uv_old = solution_old
 
-        f = -(Dx(self.test[0], 0)*uv[0]*uv_old[0] +
-              Dx(self.test[0], 1)*uv[0]*uv_old[1] +
-              Dx(self.test[1], 0)*uv[1]*uv_old[0] +
-              Dx(self.test[1], 1)*uv[1]*uv_old[1])*self.dx
+        f = -(Dx(self.test[0], 0)*uv[0]*uv_old[0]
+              + Dx(self.test[0], 1)*uv[0]*uv_old[1]
+              + Dx(self.test[1], 0)*uv[1]*uv_old[0]
+              + Dx(self.test[1], 1)*uv[1]*uv_old[1])*self.dx
         uv_av = avg(uv_old)
-        un_av = (uv_av[0]*self.normal('-')[0] +
-                 uv_av[1]*self.normal('-')[1])
+        un_av = (uv_av[0]*self.normal('-')[0]
+                 + uv_av[1]*self.normal('-')[1])
         s = 0.5*(sign(un_av) + 1.0)
         uv_up = uv('-')*s + uv('+')*(1-s)
         if self.horizontal_continuity in ['dg', 'hdiv']:
-            f += (uv_up[0]*uv_av[0]*jump(self.test[0], self.normal[0]) +
-                  uv_up[0]*uv_av[1]*jump(self.test[0], self.normal[1]) +
-                  uv_up[1]*uv_av[0]*jump(self.test[1], self.normal[0]) +
-                  uv_up[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_v + self.dS_h)
+            f += (uv_up[0]*uv_av[0]*jump(self.test[0], self.normal[0])
+                  + uv_up[0]*uv_av[1]*jump(self.test[0], self.normal[1])
+                  + uv_up[1]*uv_av[0]*jump(self.test[1], self.normal[0])
+                  + uv_up[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_v + self.dS_h)
             # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
                 if uv_p1 is not None:
-                    gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
-                                     avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
+                    gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0]
+                                     + avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
                 elif uv_mag is not None:
                     gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
                 else:
                     raise Exception('either uv_p1 or uv_mag must be given')
-                f += gamma*(jump(self.test[0])*jump(uv[0]) +
-                            jump(self.test[1])*jump(uv[1]))*(self.dS_v + self.dS_h)
+                f += gamma*(jump(self.test[0])*jump(uv[0])
+                            + jump(self.test[1])*jump(uv[1]))*(self.dS_v + self.dS_h)
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
@@ -221,8 +221,8 @@ class HorizontalAdvectionTerm(MomentumTerm):
                     uv_ext = uv - 2*un*self.normal
                     if self.use_lax_friedrichs:
                         gamma = 0.5*abs(un)*lax_friedrichs_factor
-                        f += gamma*(self.test[0]*(uv[0] - uv_ext[0]) +
-                                    self.test[1]*(uv[1] - uv_ext[1]))*ds_bnd
+                        f += gamma*(self.test[0]*(uv[0] - uv_ext[0])
+                                    + self.test[1]*(uv[1] - uv_ext[1]))*ds_bnd
                 else:
                     uv_in = uv
                     use_lf = True
@@ -253,22 +253,22 @@ class HorizontalAdvectionTerm(MomentumTerm):
                         un_av = uv_av[0]*self.normal[0] + uv_av[1]*self.normal[1]
                         s = 0.5*(sign(un_av) + 1.0)
                         uv_up = uv_in*s + uv_ext*(1-s)
-                        f += (uv_up[0]*self.test[0]*self.normal[0]*uv_av[0] +
-                              uv_up[0]*self.test[0]*self.normal[1]*uv_av[1] +
-                              uv_up[1]*self.test[1]*self.normal[0]*uv_av[0] +
-                              uv_up[1]*self.test[1]*self.normal[1]*uv_av[1])*ds_bnd
+                        f += (uv_up[0]*self.test[0]*self.normal[0]*uv_av[0]
+                              + uv_up[0]*self.test[0]*self.normal[1]*uv_av[1]
+                              + uv_up[1]*self.test[1]*self.normal[0]*uv_av[0]
+                              + uv_up[1]*self.test[1]*self.normal[1]*uv_av[1])*ds_bnd
                         if use_lf:
                             # Lax-Friedrichs stabilization
                             if self.use_lax_friedrichs:
                                 gamma = 0.5*abs(un_av)*lax_friedrichs_factor
-                                f += gamma*(self.test[0]*(uv_in[0] - uv_ext[0]) +
-                                            self.test[1]*(uv_in[1] - uv_ext[1]))*ds_bnd
+                                f += gamma*(self.test[0]*(uv_in[0] - uv_ext[0])
+                                            + self.test[1]*(uv_in[1] - uv_ext[1]))*ds_bnd
 
         # surf/bottom boundary conditions: closed at bed, symmetric at surf
-        f += (uv_old[0]*uv[0]*self.test[0]*self.normal[0] +
-              uv_old[0]*uv[1]*self.test[0]*self.normal[1] +
-              uv_old[1]*uv[0]*self.test[1]*self.normal[0] +
-              uv_old[1]*uv[1]*self.test[1]*self.normal[1])*(self.ds_surf)
+        f += (uv_old[0]*uv[0]*self.test[0]*self.normal[0]
+              + uv_old[0]*uv[1]*self.test[0]*self.normal[1]
+              + uv_old[1]*uv[0]*self.test[1]*self.normal[0]
+              + uv_old[1]*uv[1]*self.test[1]*self.normal[1])*(self.ds_surf)
         return -f
 
 
@@ -300,22 +300,22 @@ class VerticalAdvectionTerm(MomentumTerm):
         vertvelo = w[2]
         if w_mesh is not None:
             vertvelo = w[2]-w_mesh
-        adv_v = -(Dx(self.test[0], 2)*uv[0]*vertvelo +
-                  Dx(self.test[1], 2)*uv[1]*vertvelo)
+        adv_v = -(Dx(self.test[0], 2)*uv[0]*vertvelo
+                  + Dx(self.test[1], 2)*uv[1]*vertvelo)
         f += adv_v * self.dx
         if self.vertical_continuity in ['dg', 'hdiv']:
             w_av = avg(vertvelo)
             s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
             uv_up = uv('-')*s + uv('+')*(1-s)
-            f += (uv_up[0]*w_av*jump(self.test[0], self.normal[2]) +
-                  uv_up[1]*w_av*jump(self.test[1], self.normal[2]))*self.dS_h
+            f += (uv_up[0]*w_av*jump(self.test[0], self.normal[2])
+                  + uv_up[1]*w_av*jump(self.test[1], self.normal[2]))*self.dS_h
             if self.use_lax_friedrichs:
                 # Lax-Friedrichs
                 gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
-                f += gamma*(jump(self.test[0])*jump(uv[0]) +
-                            jump(self.test[1])*jump(uv[1]))*self.dS_h
-        f += (uv[0]*vertvelo*self.test[0]*self.normal[2] +
-              uv[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
+                f += gamma*(jump(self.test[0])*jump(uv[0])
+                            + jump(self.test[1])*jump(uv[1]))*self.dS_h
+        f += (uv[0]*vertvelo*self.test[0]*self.normal[2]
+              + uv[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
         # NOTE bottom impermeability condition is naturally satisfied by the defition of w
         return -f
 
@@ -379,9 +379,8 @@ class HorizontalViscosityTerm(MomentumTerm):
             degree_h, degree_v = self.function_space.ufl_element().degree()
             # TODO compute elemsize as CellVolume/FacetArea
             # h = n.D.n where D = diag(h_h, h_h, h_v)
-            elemsize = (self.h_elem_size*(self.normal[0]**2 +
-                                          self.normal[1]**2) +
-                        self.v_elem_size*self.normal[2]**2)
+            elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2)
+                        + self.v_elem_size*self.normal[2]**2)
             sigma = 5.0*degree_h*(degree_h + 1)/elemsize
             if degree_h == 0:
                 sigma = 1.5/elemsize
@@ -441,9 +440,8 @@ class VerticalViscosityTerm(MomentumTerm):
             degree_h, degree_v = self.function_space.ufl_element().degree()
             # TODO compute elemsize as CellVolume/FacetArea
             # h = n.D.n where D = diag(h_h, h_h, h_v)
-            elemsize = (self.h_elem_size*(self.normal[0]**2 +
-                                          self.normal[1]**2) +
-                        self.v_elem_size*self.normal[2]**2)
+            elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2)
+                        + self.v_elem_size*self.normal[2]**2)
             sigma = 5.0*degree_v*(degree_v + 1)/elemsize
             if degree_v == 0:
                 sigma = 1.0/elemsize
@@ -510,8 +508,8 @@ class BottomFrictionTerm(MomentumTerm):
             uv_bot_old = uv_old + Dx(uv_old, 2)*z_bot
             uv_bot_mag = sqrt(uv_bot_old[0]**2 + uv_bot_old[1]**2)
             stress = drag*uv_bot_mag*uv_bot
-            bot_friction = (stress[0]*self.test[0] +
-                            stress[1]*self.test[1])*self.ds_bottom
+            bot_friction = (stress[0]*self.test[0]
+                            + stress[1]*self.test[1])*self.ds_bottom
             f += bot_friction
         return -f
 
@@ -545,8 +543,8 @@ class CoriolisTerm(MomentumTerm):
         coriolis = fields_old.get('coriolis')
         f = 0
         if coriolis is not None:
-            f += coriolis*(-solution[1]*self.test[0] +
-                           solution[0]*self.test[1])*self.dx
+            f += coriolis*(-solution[1]*self.test[0]
+                           + solution[0]*self.test[1])*self.dx
         return -f
 
 
@@ -581,8 +579,8 @@ class SourceTerm(MomentumTerm):
         if viscosity_v is not None:
             # wind stress
             if wind_stress is not None:
-                f -= (wind_stress[0]*self.test[0] +
-                      wind_stress[1]*self.test[1])/rho_0*self.ds_surf
+                f -= (wind_stress[0]*self.test[0]
+                      + wind_stress[1]*self.test[1])/rho_0*self.ds_surf
         if source is not None:
             f += - inner(source, self.test)*self.dx
         return -f
@@ -683,11 +681,11 @@ class InternalPressureGradientCalculator(MomentumTerm):
             div_test = (Dx(self.test[0], 0) + Dx(self.test[1], 1))
             f = -g_grav*bhead*div_test*self.dx
             head_star = avg(bhead)
-            jump_n_dot_test = (jump(self.test[0], self.normal[0]) +
-                               jump(self.test[1], self.normal[1]))
+            jump_n_dot_test = (jump(self.test[0], self.normal[0])
+                               + jump(self.test[1], self.normal[1]))
             f += g_grav*head_star*jump_n_dot_test*(self.dS_v + self.dS_h)
-            n_dot_test = (self.normal[0]*self.test[0] +
-                          self.normal[1]*self.test[1])
+            n_dot_test = (self.normal[0]*self.test[0]
+                          + self.normal[1]*self.test[1])
             f += g_grav*bhead*n_dot_test*(self.ds_bottom + self.ds_surf)
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
@@ -703,8 +701,8 @@ class InternalPressureGradientCalculator(MomentumTerm):
                     f += g_grav*head_star*n_dot_test*ds_bnd
 
         else:
-            grad_head_dot_test = (Dx(bhead, 0)*self.test[0] +
-                                  Dx(bhead, 1)*self.test[1])
+            grad_head_dot_test = (Dx(bhead, 0)*self.test[0]
+                                  + Dx(bhead, 1)*self.test[1])
             f = g_grav * grad_head_dot_test * self.dx
 
         return -f

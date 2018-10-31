@@ -36,8 +36,8 @@ def input_predefined_barrage_specs(turbine_number, sluice_number, operation='two
                       "eta": [0.93, 0.83], "options": 0}
 
     Coed_t = turbine_parametrisation(turbine_params["h_min"],
-                                     turbine_params)[1] / ((math.pi * (turbine_params["t_d"] / 2)**2) *
-                                                           math.sqrt(2 * turbine_params["g"] * turbine_params["h_min"]))
+                                     turbine_params)[1] / ((math.pi * (turbine_params["t_d"] / 2)**2)
+                                                           * math.sqrt(2 * turbine_params["g"] * turbine_params["h_min"]))
 
     sluice_params = {"a_s": 100, "c_d": 1.0, "c_t": Coed_t, "g": turbine_params["g"]}
 
