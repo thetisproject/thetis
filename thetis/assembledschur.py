@@ -86,4 +86,4 @@ class AssembledSchurPC(PCBase):
         viewer.popASCIITab()
 
     def applyTranspose(self, pc, X, Y):
-        raise NotImplemented("applyTranspose not implemented for AssembledSchurPC")
+        raise NotImplementedError("applyTranspose not implemented for AssembledSchurPC")

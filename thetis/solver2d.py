@@ -172,8 +172,8 @@ class FlowSolver2d(FrozenClass):
 
         :kwarg float alpha: CFL number scaling factor
         """
-        automatic_timestep = (hasattr(self.options.timestepper_options, 'use_automatic_timestep') and
-                              self.options.timestepper_options.use_automatic_timestep)
+        automatic_timestep = (hasattr(self.options.timestepper_options, 'use_automatic_timestep')
+                              and self.options.timestepper_options.use_automatic_timestep)
         # TODO revisit math alpha is OBSOLETE
         if automatic_timestep:
             mesh2d_dt = self.compute_time_step(u_scale=self.options.horizontal_velocity_scale)

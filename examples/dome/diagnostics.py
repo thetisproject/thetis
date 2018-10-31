@@ -70,7 +70,7 @@ class VerticalProfileCallback(DiagnosticCallback):
 
 
 class TracerHistogramCallback(DiagnosticCallback):
-    """
+    r"""
     Evaluates a 2D (x, rho) histogram of tracer volume field.
 
     For every (x, rho) bin we compute the integral

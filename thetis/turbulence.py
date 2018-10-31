@@ -371,8 +371,8 @@ class ShearFrequencySolver(object):
             for i_comp, solver in enumerate(self.var_solvers):
                 solver.solve()
                 gamma = self.relaxation if not init_solve else 1.0
-                mu_comp[i_comp].assign(gamma*self.mu_tmp +
-                                       (1.0 - gamma)*mu_comp[i_comp])
+                mu_comp[i_comp].assign(gamma*self.mu_tmp
+                                       + (1.0 - gamma)*mu_comp[i_comp])
                 self.m2 += mu_comp[i_comp]*mu_comp[i_comp]
             # crop small/negative values
             set_func_min_val(self.m2, self.minval)
@@ -427,8 +427,8 @@ class BuoyFrequencySolver(object):
             if not self._no_op:
                 self.var_solver.solve()
                 gamma = self.relaxation if not init_solve else 1.0
-                self.n2.assign(gamma*self.n2_tmp +
-                               (1.0 - gamma)*self.n2)
+                self.n2.assign(gamma*self.n2_tmp
+                               + (1.0 - gamma)*self.n2)
 
 
 class TurbulenceModel(object):
@@ -553,8 +553,7 @@ class GenericLengthScaleModel(TurbulenceModel):
         elif stability_function_name == 'Cheng':
             self.stability_func = StabilityFunctionCheng(**stab_args)
         else:
-            raise Exception('Unknown stability function type: ' +
-                            stability_function_name)
+            raise Exception('Unknown stability function type: ' + stability_function_name)
 
         if o.compute_cmu0:
             o.cmu0 = self.stability_func.compute_cmu0()
@@ -842,14 +841,14 @@ class PsiSourceTerm(TracerTerm):
             raise Exception('v_elem_size required')
         # bottom condition
         z_b = 0.5*self.v_elem_size + z0_friction
-        diff_flux = (n*diffusivity_v*(cmu0)**p *
-                     k**m * kappa**n * z_b**(n - 1.0))
+        diff_flux = (n*diffusivity_v*(cmu0)**p
+                     * k**m * kappa**n * z_b**(n - 1.0))
         f += diff_flux*self.test*self.normal[2]*ds_bottom
         # surface condition
         z0_surface = 0.5*self.v_elem_size + Constant(0.02)  # TODO generalize
         z_s = self.v_elem_size + z0_surface
-        diff_flux = -(n*diffusivity_v*(cmu0)**p *
-                      k**m * kappa**n * z_s**(n - 1.0))
+        diff_flux = -(n*diffusivity_v*(cmu0)**p
+                      * k**m * kappa**n * z_s**(n - 1.0))
         f += diff_flux*self.test*self.normal[2]*ds_surf
 
         return f
@@ -914,7 +913,7 @@ class TKEEquation(Equation):
 
 
 class PsiEquation(Equation):
-    """
+    r"""
     Generic length scale equation :eq:`turb_psi_eq` without advection terms.
 
     Advection of :math:`\psi` is implemented using the standard tracer equation.

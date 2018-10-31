@@ -122,7 +122,7 @@ class AngularMomentumCalculator(DiagnosticCallback):
 
 
 class KineticEnergyCalculator(DiagnosticCallback):
-    """
+    r"""
     Computes the total kinetic energy of the horizontal velocity field.
 
     Ke = 1/2 \int \rho * |u|**2 dx
@@ -256,8 +256,8 @@ solver_obj.create_equations()
 # impose rho' = rho - 1025.0
 salt_init3d = Function(solver_obj.function_spaces.P1, name='initial salinity')
 x, y, z = SpatialCoordinate(solver_obj.mesh)
-salt_expr = salt_center + 1.1*pow((sqrt(x*x + y*y)/1000/3 +
-                                   (1.0-tanh(10*(z + 10.0)))*0.5), 8)
+salt_expr = salt_center + 1.1*pow((sqrt(x*x + y*y)/1000/3
+                                   + (1.0-tanh(10*(z + 10.0)))*0.5), 8)
 salt_init3d.interpolate(salt_expr)
 # crop bad values
 ix = salt_init3d.dat.data[:] > salt_outside

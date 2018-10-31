@@ -147,8 +147,8 @@ def lagoon_operation(h_i, h_o, t, status, control, turbine_specs, sluice_specs, 
         status["Q_t"] = - max(
             status["f_r"] * control["N_t"] * turbine_parametrisation(control["h_p"], turbine_specs)[1],
             0)  # Re-formulate the discharge coefficient for turbines! Introduce cd_t
-        status["P"] = -(abs(status["Q_t"]) * turbine_specs["dens"] * turbine_specs["g"] *
-                        abs(status["DZ"]) / (10 ** 6)) / min(max(0.4, 0.28409853 * np.log(abs(status["DZ"])) + 0.60270881), 0.9)
+        status["P"] = -(abs(status["Q_t"]) * turbine_specs["dens"] * turbine_specs["g"]
+                        * abs(status["DZ"]) / (10 ** 6)) / min(max(0.4, 0.28409853 * np.log(abs(status["DZ"])) + 0.60270881), 0.9)
         status["Q_s"] = 0.0
 
     if status["m"] == 7:  # Generating             LW -> HW
