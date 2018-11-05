@@ -40,6 +40,9 @@ t_end = 47 * 24 * 3600
 t_export = 3 * 3600
 outputdir = 'outputs_' + reso_str
 
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 1*t_export
+
 delta_x = delta_x_dict[reso_str]
 
 # bathymetry

@@ -23,6 +23,9 @@ print_output('Exporting to ' + outputdir)
 t_end = 24 * 3600
 t_export = 900.0
 
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
+
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')

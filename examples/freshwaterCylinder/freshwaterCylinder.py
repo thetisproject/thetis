@@ -169,6 +169,9 @@ depth = 20.0
 reynolds_number = 75.
 viscosity = 'const'
 
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 1*t_export
+
 temp_const = 10.0
 salt_center = 33.75
 salt_outside = 34.85

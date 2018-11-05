@@ -100,6 +100,9 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     t_end = 25 * 3600
     t_export = 15*60.0
 
+    if os.getenv('THETIS_REGRESSION_TEST') is not None:
+        t_end = 5*t_export
+
     lim_str = '_lim' if use_limiter else ''
     options_str = '_'.join([reso_str,
                             element_family,
