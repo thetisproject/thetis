@@ -7,9 +7,6 @@ More information about the tidal range algorithms can be found in:
 
 Angeloudis A, Kramer SC, Avdis A & Piggott MD, Optimising tidal range power plant operation,
 Applied Energy,212,680-690, 212, https://doi.org/10.1016/j.apenergy.2017.12.052
-
-Updated by Athanasios Angeloudis, 05/2018
-
 """
 from thetis import *
 

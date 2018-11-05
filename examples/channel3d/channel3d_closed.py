@@ -1,21 +1,19 @@
-# Idealised channel flow in 3D
-# ============================
-#
-# Solves shallow water equations in closed rectangular domain
-# with sloping bathymetry.
-#
-# Initially water elevation is set to a piecewise linear function
-# with a slope in the deeper (left) end of the domain. This results
-# in a wave that develops a shock as it reaches shallower end of the domain.
-# This example tests the integrity of the coupled 2D-3D model and stability
-# of momentum advection.
-#
-# This test is also useful for testing tracer conservation and consistency
-# by advecting a constant passive tracer.
-#
-#
-# Tuomas Karna 2015-03-03
+"""
+Idealised channel flow in 3D
+============================
 
+Solves shallow water equations in closed rectangular domain
+with sloping bathymetry.
+
+Initially water elevation is set to a piecewise linear function
+with a slope in the deeper (left) end of the domain. This results
+in a wave that develops a shock as it reaches shallower end of the domain.
+This example tests the integrity of the coupled 2D-3D model and stability
+of momentum advection.
+
+This test is also useful for testing tracer conservation and consistency
+by advecting a constant passive tracer.
+"""
 from thetis import *
 
 n_layers = 6

@@ -1,39 +1,38 @@
-# Lock Exchange Test case
-# =======================
-#
-# Solves hydrostatic flow in a closed rectangular channel.
-#
-# Dianeutral mixing depends on mesh Reynolds number [1]
-# Re_h = U dx / nu
-# U = 0.5 m/s characteristic velocity ~ 0.5*sqrt(g_h drho/rho_0)
-# dx = horizontal mesh size
-# nu = background viscosity
-#
-#
-# Smagorinsky factor should be C_s = 1/sqrt(Re_h)
-#
-# Mesh resolutions:
-# - ilicak [1]:  dx =  500 m,  20 layers
-# COMODO lock exchange benchmark [2]:
-# - coarse:      dx = 2000 m,  10 layers
-# - coarse2 (*): dx = 1000 m,  20 layers
-# - medium:      dx =  500 m,  40 layers
-# - medium2 (*): dx =  250 m,  80 layers
-# - fine:        dx =  125 m, 160 layers
-# (*) not part of the original benchmark
-#
-# [1] Ilicak et al. (2012). Spurious dianeutral mixing and the role of
-#     momentum closure. Ocean Modelling, 45-46(0):37-58.
-#     http://dx.doi.org/10.1016/j.ocemod.2011.10.003
-# [2] COMODO Lock Exchange test.
-#     http://indi.imag.fr/wordpress/?page_id=446
-# [3] Petersen et al. (2015). Evaluation of the arbitrary Lagrangian-Eulerian
-#     vertical coordinate method in the MPAS-Ocean model. Ocean Modelling,
-#     86:93-113.
-#     http://dx.doi.org/10.1016/j.ocemod.2014.12.004
-#
-# Tuomas Karna 2015-03-03
+"""
+Lock Exchange Test case
+=======================
 
+Solves hydrostatic flow in a closed rectangular channel.
+
+Dianeutral mixing depends on mesh Reynolds number [1]
+Re_h = U dx / nu
+U = 0.5 m/s characteristic velocity ~ 0.5*sqrt(g_h drho/rho_0)
+dx = horizontal mesh size
+nu = background viscosity
+
+
+Smagorinsky factor should be C_s = 1/sqrt(Re_h)
+
+Mesh resolutions:
+- ilicak [1]:  dx =  500 m,  20 layers
+COMODO lock exchange benchmark [2]:
+- coarse:      dx = 2000 m,  10 layers
+- coarse2 (*): dx = 1000 m,  20 layers
+- medium:      dx =  500 m,  40 layers
+- medium2 (*): dx =  250 m,  80 layers
+- fine:        dx =  125 m, 160 layers
+(*) not part of the original benchmark
+
+[1] Ilicak et al. (2012). Spurious dianeutral mixing and the role of
+    momentum closure. Ocean Modelling, 45-46(0):37-58.
+    http://dx.doi.org/10.1016/j.ocemod.2011.10.003
+[2] COMODO Lock Exchange test.
+    http://indi.imag.fr/wordpress/?page_id=446
+[3] Petersen et al. (2015). Evaluation of the arbitrary Lagrangian-Eulerian
+    vertical coordinate method in the MPAS-Ocean model. Ocean Modelling,
+    86:93-113.
+    http://dx.doi.org/10.1016/j.ocemod.2014.12.004
+"""
 from thetis import *
 from diagnostics import *
 from plotting import *

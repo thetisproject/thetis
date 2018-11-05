@@ -1,7 +1,5 @@
 """
 Tests convergence of div(uv) in 2D
-
-Tuomas Karna 2015-12-08
 """
 from firedrake import *
 import numpy

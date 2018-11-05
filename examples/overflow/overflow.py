@@ -1,22 +1,22 @@
-# Overflow Test case
-# =======================
-#
-# Overflow test case from Haidvogel and Beckmann (1999)
-#
-# 200 km long channel with sloping bathymetry from 200 m to 4 km depth.
-# Initially dense water is located on top of the slope.
-#
-# Horizontal resolution: 1 km
-# Vertical layers: 40, 66, or 100 (Ilicak, 2012)
-# Baroclinic/barotropic time steps: 10.0 s / 1.0 s
-#
-# Dianeutral mixing depends on mesh Reynolds number (Ilicak et al. 2012)
-# Re_h = U dx / nu
-# U = 0.5 m/s characteristic velocity ~ 0.5*sqrt(g_h drho/rho_0)
-# dx = horizontal mesh size
-# nu = background viscosity
-#
+"""
+Overflow Test case
+=======================
 
+Overflow test case from Haidvogel and Beckmann (1999)
+
+200 km long channel with sloping bathymetry from 200 m to 4 km depth.
+Initially dense water is located on top of the slope.
+
+Horizontal resolution: 1 km
+Vertical layers: 40, 66, or 100 (Ilicak, 2012)
+Baroclinic/barotropic time steps: 10.0 s / 1.0 s
+
+Dianeutral mixing depends on mesh Reynolds number (Ilicak et al. 2012)
+Re_h = U dx / nu
+U = 0.5 m/s characteristic velocity ~ 0.5*sqrt(g_h drho/rho_0)
+dx = horizontal mesh size
+nu = background viscosity
+"""
 from thetis import *
 
 physical_constants['rho0'] = 999.7

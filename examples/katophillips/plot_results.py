@@ -3,8 +3,6 @@ Plot Kato-Phillips test case results:
 
 - Mixed layer depth versus time
 - Vertical profiles of variables at the end of the simulation
-
-Tuomas Karna 2016-03-05
 """
 from katophillips import *
 solver_obj.create_equations()

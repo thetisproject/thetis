@@ -19,8 +19,6 @@ momentum equation.
     marine model with a finite difference turbulence closure model.
     Ocean Modelling, 47:55-64.
     http://dx.doi.org/10.1016/j.ocemod.2012.01.001
-
-Tuomas Karna 2016-03-10
 """
 from thetis import *
 import numpy

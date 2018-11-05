@@ -1,19 +1,19 @@
-# Stommel gyre test case in 2D
-# ============================
-#
-# Wind-driven geostrophic gyre in large basin.
-# Setup is according to [1].
-#
-# [1] Comblen, R., Lambrechts, J., Remacle, J.-F., and Legat, V. (2010).
-#     Practical evaluation of five partly discontinuous finite element pairs
-#     for the non-conservative shallow water equations. International Journal
-#     for Numerical Methods in Fluids, 63(6):701-724.
-#
-# Tuomas Karna 2015-04-28
+"""
+Stommel gyre test case in 2D
+============================
 
-# This is a version that runs much faster using much larger timesteps (2 hr instead of 45s.)
-# using an implicit time integration scheme (PressureProjectionPicard)
+Wind-driven geostrophic gyre in large basin.
+Setup is according to [1].
 
+This is a version that runs much faster using much larger timesteps (2 hr
+instead of 45 s) using an implicit time integration scheme
+(PressureProjectionPicard).
+
+[1] Comblen, R., Lambrechts, J., Remacle, J.-F., and Legat, V. (2010).
+    Practical evaluation of five partly discontinuous finite element pairs
+    for the non-conservative shallow water equations. International Journal
+    for Numerical Methods in Fluids, 63(6):701-724.
+"""
 from thetis import *
 
 lx = 1.0e6
