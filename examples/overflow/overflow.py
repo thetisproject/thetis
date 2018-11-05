@@ -16,26 +16,22 @@
 # dx = horizontal mesh size
 # nu = background viscosity
 #
-# For coarse mesh:
-# Re_h = 0.5 2000 / 100 = 10
-#
-# TODO run medium for Re_h = 250
-# => nu = 0.5 500 / 250 = 1.0
-#
-# Smagorinsky factor should be C_s = 1/sqrt(Re_h)
-#
-# Tuomas Karna 2015-06-10
 
 from thetis import *
 
 physical_constants['rho0'] = 999.7
 
-reso_str = 'medium'
-refinement = {'medium': 1}
-layers = int(round(50*refinement[reso_str])/2)
-mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
-print_output('Loaded mesh '+mesh2d.name)
-dt = 5.0/refinement[reso_str]
+reso_str = 'coarse'
+refinement = {'medium': 4, 'coarse': 1}
+lx = 200.0e3
+delta_x = 4000./refinement[reso_str]
+nx = int(lx/delta_x)
+ny = 2
+ly = ny*delta_x
+mesh2d = RectangleMesh(nx, ny, lx, ly)
+layers = 10 if reso_str == 'coarse' else 25
+
+dt = 20.0/refinement[reso_str]
 t_end = 25 * 3600
 t_export = 15*60.0
 depth = 20.0
