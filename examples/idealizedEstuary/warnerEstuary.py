@@ -40,6 +40,9 @@ t_end = 1.5*24*3600
 # export every 9 min, day 16 is export 2720
 t_export = 9*60.0
 
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
+
 depth_ocean = 10
 u_tide = 0.4
 t_tide = 12*3600

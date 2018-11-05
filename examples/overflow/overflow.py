@@ -42,6 +42,9 @@ depth = 20.0
 Re_h = 10.0
 outputdir = 'outputs_' + reso_str + '_Re' + str(int(Re_h))
 
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 1*t_export
+
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')

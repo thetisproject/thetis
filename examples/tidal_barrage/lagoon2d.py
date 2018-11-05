@@ -28,6 +28,9 @@ t_end = 48 * 3600.  # total duration in seconds
 t_export = 200.0    # export interval in seconds
 Dt = 25             # timestep
 
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
+
 # Omega for amplitude of seaward boundary - assumed to be a sinusoidal function with a given amplitude
 amplitude = 4.0
 period = 12.42 * 3600

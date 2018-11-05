@@ -27,6 +27,9 @@ t_end = 6 * 3600.  # total duration in seconds
 u_mag = Constant(6.0)  # estimate of max velocity to compute time step
 t_export = 100.0  # export interval in seconds
 
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
+
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')

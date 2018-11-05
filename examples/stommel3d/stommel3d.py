@@ -26,6 +26,9 @@ layers = 6
 t_end = 75*12*2*3600.
 t_export = 3600.*2
 
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
+
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 P1v_2d = VectorFunctionSpace(mesh2d, 'CG', 1)

@@ -39,6 +39,9 @@ t_end = 2*24*3600.
 # export interval in seconds
 t_export = 600.
 
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
+
 # bathymetry: uniform slope with gradient 1/2760
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry = Function(P1_2d, name='Bathymetry')

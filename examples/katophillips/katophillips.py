@@ -46,6 +46,9 @@ t_end = 30 * 3600.0
 t_export = 5*60.0
 u_mag = 1.0
 
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
+
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
 bathymetry2d = Function(P1_2d, name='Bathymetry')
