@@ -6,6 +6,7 @@ import os
 import subprocess
 import glob
 import sys
+import shutil
 
 # set environment flag
 # can be used in examples to reduce cpu cost
@@ -51,6 +52,10 @@ def example_file(request):
 
 def test_examples(example_file, tmpdir, monkeypatch):
     assert os.path.isfile(example_file), 'File not found {:}'.format(example_file)
+    # copy mesh files
+    source = os.path.dirname(example_file)
+    for f in glob.glob(os.path.join(source, '*.msh')):
+        shutil.copy(f, tmpdir)
     # change workdir to temporary dir
     monkeypatch.chdir(tmpdir)
     subprocess.check_call([sys.executable, example_file])
