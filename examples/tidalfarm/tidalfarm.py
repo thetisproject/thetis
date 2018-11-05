@@ -1,22 +1,25 @@
-# Tidal farm optimisation example
-# =======================================
-#
-# This example is based on the OpenTidalFarm example:
-# http://opentidalfarm.readthedocs.io/en/latest/examples/headland-optimization/headland-optimization.html
-#
-# It optimises the layout of a tidalfarm using the so called continuous approach where
-# the density of turbines within a farm (n/o turbines per unit area) is optimised. This
-# allows a.o to include a cost term based on the number of turbines which is computed as
-# the integral of the density. For more details, see:
-#   S.W. Funke, S.C. Kramer, and M.D. Piggott, "Design optimisation and resource assessment
-#   for tidal-stream renewable energy farms using a new continuous turbine approach",
-#   Renewable Energy 99 (2016), pp. 1046-1061, http://doi.org/10.1016/j.renene.2016.07.039
+"""
+Tidal farm optimisation example
+=======================================
 
-# to enable a gradient-based optimisation using the adjoint to compute gradients,
-# we need to import from thetis_adjoint instead of thetis. This ensure all firedrake
-# operations in the Thetis model are annotated automatically, in such a way that we
-# can rerun the model with different input parameters, and also derive the adjoint-based
-# gradient of a specified input (the functional) with respect to a specified input (the control)
+This example is based on the OpenTidalFarm example:
+http://opentidalfarm.readthedocs.io/en/latest/examples/headland-optimization/headland-optimization.html
+
+It optimises the layout of a tidalfarm using the so called continuous approach where
+the density of turbines within a farm (n/o turbines per unit area) is optimised. This
+allows a.o to include a cost term based on the number of turbines which is computed as
+the integral of the density. For more details, see:
+  S.W. Funke, S.C. Kramer, and M.D. Piggott, "Design optimisation and resource assessment
+  for tidal-stream renewable energy farms using a new continuous turbine approach",
+  Renewable Energy 99 (2016), pp. 1046-1061, http://doi.org/10.1016/j.renene.2016.07.039
+"""
+
+# to enable a gradient-based optimisation using the adjoint to compute
+# gradients, we need to import from thetis_adjoint instead of thetis. This
+# ensure all firedrake operations in the Thetis model are annotated
+# automatically, in such a way that we can rerun the model with different input
+# parameters, and also derive the adjoint-based gradient of a specified input
+# (the functional) with respect to a specified input (the control)
 from thetis_adjoint import *
 from pyadjoint.optimization.optimization import minimise
 import numpy

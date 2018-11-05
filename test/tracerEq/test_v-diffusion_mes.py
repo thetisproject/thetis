@@ -1,7 +1,5 @@
 """
 Testing 3D vertical diffusion of tracers against analytical solution.
-
-Tuomas Karna 2015-12-14
 """
 from thetis import *
 import numpy

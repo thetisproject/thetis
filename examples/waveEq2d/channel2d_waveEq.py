@@ -1,16 +1,16 @@
-# Wave equation in 2D
-# ===================
-#
-# Solves a standing wave in a rectangular basin using wave equation.
-#
-# Initial condition for elevation corresponds to a standing wave.
-# Time step and export interval are chosen based on theorethical
-# oscillation frequency. Initial condition repeats every 20 exports.
-#
-# This example tests dispersion of surface waves and dissipation of time
-# integrators.
-#
-# Tuomas Karna 2015-03-11
+"""
+Wave equation in 2D
+===================
+
+Solves a standing wave in a rectangular basin using wave equation.
+
+Initial condition for elevation corresponds to a standing wave.
+Time step and export interval are chosen based on theorethical
+oscillation frequency. Initial condition repeats every 20 exports.
+
+This example tests dispersion of surface waves and dissipation of time
+integrators.
+"""
 from thetis import *
 
 lx = 44294.46

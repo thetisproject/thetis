@@ -1,15 +1,15 @@
-# Idealised channel flow in 3D
-# ============================
-#
-# Solves shallow water equations in rectangular domain
-# with sloping bathymetry.
-#
-# Flow is forced with tidal volume flux in the deep (ocean) end of the
-# channel, and a constant volume flux in the shallow (river) end.
-#
-# This example demonstrates how to set up time dependent boundary conditions.
-#
-# Tuomas Karna 2015-03-03
+"""
+Idealised channel flow in 3D
+============================
+
+Solves shallow water equations in rectangular domain
+with sloping bathymetry.
+
+Flow is forced with tidal volume flux in the deep (ocean) end of the
+channel, and a constant volume flux in the shallow (river) end.
+
+This example demonstrates how to set up time dependent boundary conditions.
+"""
 from thetis import *
 
 n_layers = 6

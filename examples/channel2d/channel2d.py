@@ -1,19 +1,20 @@
-# 2D shallow water equations in a closed channel
-# ==============================================
-#
-# Solves shallow water equations in closed rectangular domain
-# with sloping bathymetry.
-#
-# Initially water elevation is set to a piecewise linear function
-# with a slope in the deeper (left) end of the domain. This results
-# in a wave that develops a shock as it reaches shallower end of the domain.
-# This example tests the integrity of the 2D mode and stability of momentum
-# advection.
-#
-# Setting
-# solver_obj.nonlin = False
-# uses linear wave equation instead, and no shock develops.
-#
+"""
+2D shallow water equations in a closed channel
+==============================================
+
+Solves shallow water equations in closed rectangular domain
+with sloping bathymetry.
+
+Initially water elevation is set to a piecewise linear function
+with a slope in the deeper (left) end of the domain. This results
+in a wave that develops a shock as it reaches shallower end of the domain.
+This example tests the integrity of the 2D mode and stability of momentum
+advection.
+
+Setting
+solver_obj.nonlin = False
+uses linear wave equation instead, and no shock develops.
+"""
 from thetis import *
 
 # generate mesh

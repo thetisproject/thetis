@@ -1,16 +1,11 @@
-# Geostrophic gyre test case in 2D
-# ================================
-#
-# Stationary gyre test case according to [1].
-# Initial condition for elevation is Gaussian bell funcition.
-# initial velocity is obtained from analytical solution corresponding to
-# geostrophic balance. The model should retain the initial solution
-# indefinitely long time.
-#
-#
-#
-# Tuomas Karna 2015-04-28
+"""
+Geostrophic gyre test case in 2D
+================================
 
+Stationary gyre test case. Initial condition for elevation is Gaussian bell
+function. Initial velocity is obtained from analytical solution corresponding
+to geostrophic balance.
+"""
 from thetis import *
 
 # set physical constants
