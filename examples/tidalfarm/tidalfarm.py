@@ -36,12 +36,16 @@ tidal_period = 12.42*60*60
 H = 40
 timestep = 800.
 
+t_end = tidal_period
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 10*timestep
+
 # create solver and set options
 solver_obj = solver2d.FlowSolver2d(mesh2d, Constant(H))
 options = solver_obj.options
 options.timestep = timestep
 options.simulation_export_time = timestep
-options.simulation_end_time = tidal_period
+options.simulation_end_time = t_end
 options.output_directory = 'outputs'
 options.check_volume_conservation_2d = True
 options.element_family = 'dg-cg'
@@ -52,7 +56,7 @@ options.timestepper_options.solver_parameters = {'snes_monitor': True,
                                                  'snes_rtol': 1e-9,
                                                  'ksp_type': 'preonly',
                                                  'pc_type': 'lu',
-                                                 'pc_factor_mat_solver_package': 'mumps',
+                                                 'pc_factor_mat_solver_type': 'mumps',
                                                  'mat_type': 'aij'
                                                  }
 options.horizontal_viscosity = Constant(100.0)
