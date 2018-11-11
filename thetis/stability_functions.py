@@ -135,29 +135,32 @@ class StabilityFunction(object):
         self.nb2 = 9.0*self.a1*self.ab3*(self.ab1 - self.ab2)*self.nn**2 +\
             (6.0*self.a1*(self.a2 - 3.0*self.a3) - 4.0*(self.a2**2 - 3.0*self.a3**2))*self.ab3*self.nn*self.nb
 
-    def compute_alpha_shear_steady(self, ri_st):
-        # A) solve numerically
-        # use equilibrium equation (Umlauf and Buchard, 2005, eq A.15)
-        # s_m*a_shear - s_h*a_shear*ri_st = 1.0
-        # to solve a_shear at equilibrium
-        from scipy.optimize import minimize
+    def compute_alpha_shear_steady(self, ri_st, analytical=True):
+        if not analytical:
+            # A) solve numerically
+            # use equilibrium equation (Umlauf and Buchard, 2005, eq A.15)
+            # s_m*a_shear - s_h*a_shear*ri_st = 1.0
+            # to solve a_shear at equilibrium
+            # NOTE may fail/return incorrect solution for ri_st < -4
+            from scipy.optimize import minimize
 
-        def cost(a_shear):
-            a_buoy = ri_st*a_shear
-            s_m, s_h = self.eval_funcs(a_buoy, a_shear)
-            res = s_m*a_shear - s_h*a_buoy - 1.0
-            return res**2
-        p = minimize(cost, 1.0)
-        assert p.success, 'solving alpha_shear failed'
-        a_shear = p.x[0]
-
-        # # B) solve analytically
-        # # compute alpha_shear for equilibrium condition (Umlauf and Buchard, 2005, eq A.19)
-        # # aM^2 (-d5 + n2 - (d3 - n1 + nb2 )Ri - (d4 + nb1)Ri^2) + aM (-d2 + n0 - (d1 + nb0)Ri) - d0 = 0
-        # a = -self.d5 + self.n2 - (self.d3 - self.n1 + self.nb2)*ri_st - (self.d4 + self.nb1)*ri_st**2
-        # b = -self.d2 + self.n0 - (self.d1 + self.nb0)*ri_st
-        # c = -self.d0
-        # a_shear = (-b + np.sqrt(b**2 - 4*a*c))/2/a
+            def cost(a_shear):
+                a_buoy = ri_st*a_shear
+                s_m, s_h = self.eval_funcs(a_buoy, a_shear)
+                res = s_m*a_shear - s_h*a_buoy - 1.0
+                return res**2
+            p = minimize(cost, 1.0)
+            assert p.success, 'solving alpha_shear failed, Ri_st={:}'.format(ri_st)
+            a_shear = p.x[0]
+        else:
+            # B) solve analytically
+            # compute alpha_shear for equilibrium condition (Umlauf and Buchard, 2005, eq A.19)
+            # aM^2 (-d5 + n2 - (d3 - n1 + nb2 )Ri - (d4 + nb1)Ri^2) + aM (-d2 + n0 - (d1 + nb0)Ri) - d0 = 0
+            # NOTE this is more robust method
+            a = -self.d5 + self.n2 - (self.d3 - self.n1 + self.nb2)*ri_st - (self.d4 + self.nb1)*ri_st**2
+            b = -self.d2 + self.n0 - (self.d1 + self.nb0)*ri_st
+            c = -self.d0
+            a_shear = (-b + np.sqrt(b**2 - 4*a*c))/2/a
 
         return a_shear
 
