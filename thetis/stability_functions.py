@@ -130,24 +130,12 @@ class StabilityFunction(object):
             8.0*self.a5*self.ab3*(6.0*self.a1 - self.a2 - 3.0*self.a3)*self.nn*self.nb +\
             36.0*self.a1*self.ab5*self.nn**2*self.nb
         self.n2 = 9.0*self.a1*(self.ab2**2 - self.ab1**2)*self.nn**2
-        self.nb0 = 12.0*self.ab3*self.nn**3*self.nb  # NOTE ab3 is not squared!
+        self.nb0 = 12.0*self.ab3*self.nn**3*self.nb
         self.nb1 = 12.0*self.a5*self.ab3**2*self.nn**2
         self.nb2 = 9.0*self.a1*self.ab3*(self.ab1 - self.ab2)*self.nn**2 +\
             (6.0*self.a1*(self.a2 - 3.0*self.a3) - 4.0*(self.a2**2 - 3.0*self.a3**2))*self.ab3*self.nn*self.nb
 
-    def compute_c3_minus(self, c1, c2, ri_st):
-        r"""
-        Compute c3_minus parameter from c1, c2 and stability functions.
-
-        c3_minus is solved from equation
-
-        .. math::
-            Ri_{st} = \frac{s_m}{s_h} \frac{c2 - c1}{c2 - c3_minus}
-
-        where :math:`Ri_{st}` is the steady state gradient Richardson number.
-        (see Burchard and Bolding, 2001, eq 32)
-        """
-
+    def compute_alpha_shear_steady(self, ri_st):
         # A) solve numerically
         # use equilibrium equation (Umlauf and Buchard, 2005, eq A.15)
         # s_m*a_shear - s_h*a_shear*ri_st = 1.0
@@ -157,7 +145,7 @@ class StabilityFunction(object):
         def cost(a_shear):
             a_buoy = ri_st*a_shear
             s_m, s_h = self.eval_funcs(a_buoy, a_shear)
-            res = s_m*a_shear - s_h*a_shear*ri_st - 1.0
+            res = s_m*a_shear - s_h*a_buoy - 1.0
             return res**2
         p = minimize(cost, 1.0)
         assert p.success, 'solving alpha_shear failed'
@@ -171,8 +159,25 @@ class StabilityFunction(object):
         # c = -self.d0
         # a_shear = (-b + np.sqrt(b**2 - 4*a*c))/2/a
 
+        return a_shear
+
+    def compute_c3_minus(self, c1, c2, ri_st):
+        r"""
+        Compute c3_minus parameter from c1, c2 and stability functions.
+
+        c3_minus is solved from equation
+
+        .. math::
+            Ri_{st} = \frac{s_m}{s_h} \frac{c2 - c1}{c2 - c3_minus}
+
+        where :math:`Ri_{st}` is the steady state gradient Richardson number.
+        (see Burchard and Bolding, 2001, eq 32)
+        """
+        a_shear = self.compute_alpha_shear_steady(ri_st)
+
         # compute aN from Ri_st and aM, Ri_st = aN/aM
         a_buoy = ri_st*a_shear
+
         # evaluate stability functions for equilibrium conditions
         s_m, s_h = self.eval_funcs(a_buoy, a_shear)
 
@@ -204,6 +209,18 @@ class StabilityFunction(object):
         """
         kappa = np.sqrt(sigma_psi * self.compute_cmu0()**2 * (c2 - c1)/(n**2))
         return kappa
+
+    def compute_length_clim(self, cm0, ri_st):
+        """
+        Computes the Galpering lenght scale limit.
+        """
+        a_shear = self.compute_alpha_shear_steady(ri_st)
+
+        # compute aN from Ri_st and aM, Ri_st = aN/aM
+        a_buoy = ri_st*a_shear
+
+        clim = cm0**6.0 * a_buoy
+        return clim
 
     def get_alpha_buoy_min(self):
         """

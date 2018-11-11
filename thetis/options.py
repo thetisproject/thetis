@@ -218,6 +218,8 @@ class GLSModelOptions(TurbulenceModelOptions):
     eps_min = PositiveFloat(1.0e-10, help='float: minimum value for epsilon').tag(config=True)
     len_min = PositiveFloat(1.0e-10,
                             help='float: minimum value for turbulent lenght scale').tag(config=True)
+    compute_galperin_clim = Bool(True,
+                           help='bool: compute c_lim lenght scale limiting factor').tag(config=True)
     compute_len_min = Bool(True,
                            help='bool: compute min_len from k_min and psi_min').tag(config=True)
     compute_psi_min = Bool(True,

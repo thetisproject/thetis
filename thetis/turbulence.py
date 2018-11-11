@@ -571,6 +571,8 @@ class GenericLengthScaleModel(TurbulenceModel):
         # minimum length scale
         if o.compute_len_min:
             o.len_min = o.cmu0**3 * o.k_min**1.5 / o.eps_min
+        if o.compute_galperin_clim:
+            o.galperin_lim = self.stability_func.compute_length_clim(o.cmu0, o.ri_st)
 
         self.shear_frequency_solver = ShearFrequencySolver(self.uv, self.m2,
                                                            self.mu, self.mv,
