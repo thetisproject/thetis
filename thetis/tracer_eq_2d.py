@@ -92,6 +92,32 @@ class TracerTerm(Term):
 
         return c_ext, uv_ext, elev_ext
 
+    def wd_bathymetry_displacement(self, eta):
+        """
+        Returns wetting and drying bathymetry displacement as described in:
+        Karna et al.,  2011.
+        """
+        H = self.bathymetry + eta
+        return 0.5 * (sqrt(H ** 2 + self.options.wetting_and_drying_alpha ** 2) - H)
+
+    def get_total_depth(self, eta):
+        """
+        Returns total water column depth
+        """
+        if self.options.use_nonlinear_equations:
+            total_h = self.bathymetry + eta
+            if hasattr(self.options, 'use_wetting_and_drying') and self.options.use_wetting_and_drying:
+                total_h += self.wd_bathymetry_displacement(eta)
+        else:
+            total_h = self.bathymetry
+        return total_h
+
+    def get_depth_or_one(self, fields):
+        if self.options.use_tracer_conservative_form:
+            return get_total_depth(fields["elev_2d"])
+        else:
+            return 1
+
 
 class HorizontalAdvectionTerm(TracerTerm):
     r"""
@@ -120,46 +146,67 @@ class HorizontalAdvectionTerm(TracerTerm):
         uv_mag = fields_old.get('uv_mag')
         # FIXME is this an option?
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
+        H = self.get_depth_or_one(fields)
 
         f = 0
-        f += -(Dx(uv[0] * self.test, 0) * solution
-               + Dx(uv[1] * self.test, 1) * solution) * self.dx
+        if self.options.use_tracer_conservative_form:
+            f += -(Dx(self.test, 0) * H * uv[0] * solution 
+                  + Dx(self.test,1) * H * uv[1] * solution) * self.dx
 
-        if self.horizontal_dg:
-            # add interface term
-            uv_av = avg(uv)
-            un_av = (uv_av[0]*self.normal('-')[0]
-                     + uv_av[1]*self.normal('-')[1])
-            s = 0.5*(sign(un_av) + 1.0)
-            c_up = solution('-')*s + solution('+')*(1-s)
+            if self.horizontal_dg:
+                # add interface term
 
-            f += c_up*(jump(self.test, uv[0] * self.normal[0])
-                       + jump(self.test, uv[1] * self.normal[1])) * self.dS
-            # Lax-Friedrichs stabilization
-            if self.use_lax_friedrichs:
-                if uv_p1 is not None:
-                    gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0]
-                                     + avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
-                elif uv_mag is not None:
-                    gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
-                else:
-                    gamma = 0.5*abs(un_av)*lax_friedrichs_factor
-                f += gamma*dot(jump(self.test), jump(solution))*self.dS
-            if bnd_conditions is not None:
-                for bnd_marker in self.boundary_markers:
-                    funcs = bnd_conditions.get(bnd_marker)
-                    ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                    c_in = solution
-                    if funcs is None:
-                        f += c_in * (uv[0]*self.normal[0]
-                                     + uv[1]*self.normal[1])*self.test*ds_bnd
+        else:
+
+            f += -(Dx(uv[0] * self.test, 0) * solution
+                   + Dx(uv[1] * self.test, 1) * solution) * self.dx
+
+                uv_av = avg(uv)
+                un_av = (uv_av[0]*self.normal('-')[0]
+                         + uv_av[1]*self.normal('-')[1])
+                s = 0.5*(sign(un_av) + 1.0)
+                f_up = H('-') * solution('-') * uv('-') * s + 
+                       H('+') * solution('+') * uv('+') * (1-s)
+                f += dot(f_up, (jump(self.test, self.normal)) * self.dS
+                if self.use_lax_friedrichs:
+                     raise NotImplementedError("Lax-Friedrichs not implented for conservative tracers.")
+
+            if self.horizontal_dg:
+                # add interface term
+                uv_av = avg(uv)
+                un_av = (uv_av[0]*self.normal('-')[0]
+                         + uv_av[1]*self.normal('-')[1])
+                s = 0.5*(sign(un_av) + 1.0)
+                c_up = solution('-')*s + solution('+')*(1-s)
+
+                f += c_up*(jump(self.test, uv[0] * self.normal[0])
+                           + jump(self.test, uv[1] * self.normal[1])) * self.dS
+                # Lax-Friedrichs stabilization
+                if self.use_lax_friedrichs:
+                    if uv_p1 is not None:
+                        gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0]
+                                         + avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
+                    elif uv_mag is not None:
+                        gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
                     else:
-                        c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
-                        uv_av = 0.5*(uv + uv_ext)
-                        un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
-                        s = 0.5*(sign(un_av) + 1.0)
-                        c_up = c_in*s + c_ext*(1-s)
-                        f += c_up*(uv_av[0]*self.normal[0]
+                        gamma = 0.5*abs(un_av)*lax_friedrichs_factor
+                    f += gamma*dot(jump(self.test), jump(solution))*self.dS
+
+        if bnd_conditions is not None:
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                c_in = solution
+                if funcs is None:
+                    f += H * c_in * (uv[0]*self.normal[0]
+                                     + uv[1]*self.normal[1])*self.test*ds_bnd
+                else:
+                    c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                    uv_av = 0.5*(uv + uv_ext)
+                    un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
+                    s = 0.5*(sign(un_av) + 1.0)
+                    c_up = c_in*s + c_ext*(1-s)
+                    f += H * c_up*(uv_av[0]*self.normal[0]
                                    + uv_av[1]*self.normal[1])*self.test*ds_bnd
 
         return -f
@@ -192,14 +239,16 @@ class HorizontalDiffusionTerm(TracerTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_h') is None:
             return 0
+        
+        H = self.get_depth_or_one(fields)
         diffusivity_h = fields_old['diffusivity_h']
-        diff_tensor = as_matrix([[diffusivity_h, 0, ],
+        diff_tensor = H * as_matrix([[diffusivity_h, 0, ],
                                  [0, diffusivity_h, ]])
         grad_test = grad(self.test)
         diff_flux = dot(diff_tensor, grad(solution))
 
         f = 0
-        f += inner(grad_test, diff_flux)*self.dx
+        f += inner(grad_test, diff_flux )*self.dx
 
         if self.horizontal_dg:
             # Interior Penalty method by
@@ -240,10 +289,11 @@ class SourceTerm(TracerTerm):
 
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        f = 0
+        f = 0 
+        H = self.get_depth_or_one(fields)
         source = fields_old.get('source')
         if source is not None:
-            f += -inner(source, self.test)*self.dx
+            f += H*inner(source, self.test)*self.dx
         return -f
 
 
