@@ -155,12 +155,6 @@ class HorizontalAdvectionTerm(TracerTerm):
 
             if self.horizontal_dg:
                 # add interface term
-
-        else:
-
-            f += -(Dx(uv[0] * self.test, 0) * solution
-                   + Dx(uv[1] * self.test, 1) * solution) * self.dx
-
                 uv_av = avg(uv)
                 un_av = (uv_av[0]*self.normal('-')[0]
                          + uv_av[1]*self.normal('-')[1])
@@ -170,6 +164,12 @@ class HorizontalAdvectionTerm(TracerTerm):
                 f += dot(f_up, (jump(self.test, self.normal)) * self.dS
                 if self.use_lax_friedrichs:
                      raise NotImplementedError("Lax-Friedrichs not implented for conservative tracers.")
+
+
+        else:
+
+            f += -(Dx(uv[0] * self.test, 0) * solution
+                   + Dx(uv[1] * self.test, 1) * solution) * self.dx
 
             if self.horizontal_dg:
                 # add interface term
