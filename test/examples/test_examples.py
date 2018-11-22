@@ -56,7 +56,7 @@ def test_examples(example_file, tmpdir, monkeypatch):
     # copy mesh files
     source = os.path.dirname(example_file)
     for f in glob.glob(os.path.join(source, '*.msh')):
-        shutil.copy(f, tmpdir)
+        shutil.copy(f, str(tmpdir))
     # change workdir to temporary dir
     monkeypatch.chdir(tmpdir)
     subprocess.check_call([sys.executable, example_file])
