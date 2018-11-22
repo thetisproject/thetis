@@ -12,8 +12,8 @@
     <https://github.com/thetisproject/thetis/>`__ and is being
     continually tested using `Jenkins <https://jenkins.io/>`__.
 
-    .. |thetisbuild| image:: https://jenkins.ese.ic.ac.uk/job/thetisproject/job/thetis/job/master/badge/icon
-                             :target: https://jenkins.ese.ic.ac.uk/blue/organizations/jenkins/thetisproject%2Fthetis/branches/
+    .. |thetisbuild| image:: https://jenkins.ese.ic.ac.uk/buildStatus/icon?job=thetis/master
+                             :target: https://jenkins.ese.ic.ac.uk/blue/organizations/jenkins/thetis/branches/
                              :align: top
 
 The Thetis project
