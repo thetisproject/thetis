@@ -1,16 +1,16 @@
-# Wave equation in 2D
-# ===================
-#
-# Solves a standing wave in a rectangular basin using wave equation.
-#
-# Initial condition for elevation corresponds to a standing wave.
-# Time step and export interval are chosen based on theorethical
-# oscillation frequency. Initial condition repeats every 20 exports.
-#
-# This example tests dispersion of surface waves and dissipation of time
-# integrators.
-#
-# Tuomas Karna 2015-03-11
+"""
+Wave equation in 2D
+===================
+
+Solves a standing wave in a rectangular basin using wave equation.
+
+Initial condition for elevation corresponds to a standing wave.
+Time step and export interval are chosen based on theorethical
+oscillation frequency. Initial condition repeats every 20 exports.
+
+This example tests dispersion of surface waves and dissipation of time
+integrators.
+"""
 from thetis import *
 
 lx = 44294.46
@@ -37,6 +37,9 @@ n_steps = 20
 dt = round(float(T_cycle/n_steps))
 t_export = dt
 t_end = 10*T_cycle + 1e-3
+
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
 
 # --- create solver ---
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)

@@ -1,23 +1,23 @@
-# Idealized estuary test case
-# ===========================
-#
-# Tidal flow in a rectangual channel with a density gradient.
-# Setup according to [1].
-#
-# Bathymetry varies between 10 m (ocean boundary) and 5 m (river boundary).
-# At the ocean boundary tidal flux is prescribed, while a constant influx is
-# used at the river boundary.
-# Initial salinity field is a linear ramp from 32 psu (at x=30 km) to 0 psu
-# (at x=80 km).
-# Temperature is fixed to 10 deg Celcius.
-# This corresponds to density 1023.05 kg/m3 in the ocean and 999.70 kg/m3
-# in the river.
-#
-# [1] Warner, J. C., Sherwood, C. R., Arango, H. G., and Signell, R. P.
-#     (2005). Performance of four turbulence closure models implemented
-#     using a generic length scale method. Ocean Modelling, 8(1-2):81-113.
-#
-# Tuomas Karna 2016-02-17
+"""
+Idealized estuary test case
+===========================
+
+Tidal flow in a rectangual channel with a density gradient.
+Setup according to [1].
+
+Bathymetry varies between 10 m (ocean boundary) and 5 m (river boundary).
+At the ocean boundary tidal flux is prescribed, while a constant influx is
+used at the river boundary.
+Initial salinity field is a linear ramp from 32 psu (at x=30 km) to 0 psu
+(at x=80 km).
+Temperature is fixed to 10 deg Celcius.
+This corresponds to density 1023.05 kg/m3 in the ocean and 999.70 kg/m3
+in the river.
+
+[1] Warner, J. C., Sherwood, C. R., Arango, H. G., and Signell, R. P.
+    (2005). Performance of four turbulence closure models implemented
+    using a generic length scale method. Ocean Modelling, 8(1-2):81-113.
+"""
 from thetis import *
 
 # set physical constants
@@ -39,6 +39,9 @@ dt = 25.0  # 25.0/refinement[reso_str]  # TODO tune dt
 t_end = 1.5*24*3600
 # export every 9 min, day 16 is export 2720
 t_export = 9*60.0
+
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
 
 depth_ocean = 10
 u_tide = 0.4

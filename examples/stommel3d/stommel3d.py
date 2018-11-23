@@ -1,19 +1,16 @@
-# Stommel gyre test case in 3D
-# ============================
-#
-# Wind-driven geostrophic gyre in large basin.
-# Setup is according to [1]. This version us for 3D equations. As the problem
-# is purely baroclinic the solution is the same as in 2D.
-#
-# [1] Comblen, R., Lambrechts, J., Remacle, J.-F., and Legat, V. (2010).
-#     Practical evaluation of five partly discontinuous finite element pairs
-#     for the non-conservative shallow water equations. International Journal
-#     for Numerical Methods in Fluids, 63(6):701-724.
-#
-# Tuomas Karna 2015-04-28
+"""
+Stommel gyre test case in 3D
+============================
 
-# NOTE this example is currently broken and must be fixed upstream
+Wind-driven geostrophic gyre in large basin.
+Setup is according to [1]. This version us for 3D equations. As the problem
+is purely baroclinic the solution is the same as in 2D.
 
+[1] Comblen, R., Lambrechts, J., Remacle, J.-F., and Legat, V. (2010).
+    Practical evaluation of five partly discontinuous finite element pairs
+    for the non-conservative shallow water equations. International Journal
+    for Numerical Methods in Fluids, 63(6):701-724.
+"""
 from thetis import *
 
 lx = 1.0e6
@@ -25,6 +22,9 @@ depth = 1000.0
 layers = 6
 t_end = 75*12*2*3600.
 t_export = 3600.*2
+
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)

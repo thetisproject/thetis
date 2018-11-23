@@ -17,8 +17,6 @@ Initially buoyancy frequency is constant N = 0.01 s-1.
     marine model with a finite difference turbulence closure model.
     Ocean Modelling, 47:55-64.
     http://dx.doi.org/10.1016/j.ocemod.2012.01.001
-
-Tuomas Karna 2016-03-05
 """
 from thetis import *
 
@@ -45,6 +43,9 @@ dt = 60.0
 t_end = 30 * 3600.0
 t_export = 5*60.0
 u_mag = 1.0
+
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)

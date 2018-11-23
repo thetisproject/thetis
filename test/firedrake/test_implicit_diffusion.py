@@ -3,8 +3,6 @@ Tests implicit vertical diffusion on a DG vector field
 ======================================================
 
 Intended to be executed with pytest.
-
-Tuomas Karna 2015-09-16
 """
 from firedrake import *
 import numpy as np

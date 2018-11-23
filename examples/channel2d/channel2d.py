@@ -1,19 +1,20 @@
-# 2D shallow water equations in a closed channel
-# ==============================================
-#
-# Solves shallow water equations in closed rectangular domain
-# with sloping bathymetry.
-#
-# Initially water elevation is set to a piecewise linear function
-# with a slope in the deeper (left) end of the domain. This results
-# in a wave that develops a shock as it reaches shallower end of the domain.
-# This example tests the integrity of the 2D mode and stability of momentum
-# advection.
-#
-# Setting
-# solver_obj.nonlin = False
-# uses linear wave equation instead, and no shock develops.
-#
+"""
+2D shallow water equations in a closed channel
+==============================================
+
+Solves shallow water equations in closed rectangular domain
+with sloping bathymetry.
+
+Initially water elevation is set to a piecewise linear function
+with a slope in the deeper (left) end of the domain. This results
+in a wave that develops a shock as it reaches shallower end of the domain.
+This example tests the integrity of the 2D mode and stability of momentum
+advection.
+
+Setting
+solver_obj.nonlin = False
+uses linear wave equation instead, and no shock develops.
+"""
 from thetis import *
 
 # generate mesh
@@ -26,6 +27,9 @@ mesh2d = RectangleMesh(nx, ny, lx, ly)
 t_end = 6 * 3600.  # total duration in seconds
 u_mag = Constant(6.0)  # estimate of max velocity to compute time step
 t_export = 100.0  # export interval in seconds
+
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
