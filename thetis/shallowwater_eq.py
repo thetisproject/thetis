@@ -355,7 +355,7 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
         if grad_eta_by_parts:
             f = -g_grav*head*nabla_div(self.u_test)*self.dx
             if uv is not None:
-                head_star = avg(head) + 0.5*sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
+                head_star = avg(head) + sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
             else:
                 head_star = avg(head)
             f += g_grav*head_star*jump(self.u_test, self.normal)*self.dS
