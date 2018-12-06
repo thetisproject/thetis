@@ -167,9 +167,9 @@ class PacanowskiPhilanderModelOptions(TurbulenceModelOptions):
 
 class GLSModelOptions(TurbulenceModelOptions):
     """Options for Generic Length Scale turbulence model"""
-    name = 'Generic Lenght Scale turbulence closure model'
+    name = 'Generic Length Scale turbulence closure model'
     closure_name = Enum(
-        ['k-epsilon', 'k-omega', 'Generic Lenght Scale'],
+        ['k-epsilon', 'k-omega', 'Generic Length Scale'],
         default_value='k-epsilon',
         help='Name of two-equation closure').tag(config=True)
     stability_function_name = Enum(
@@ -298,7 +298,7 @@ class GLSModelOptions(TurbulenceModelOptions):
                'k_min': 3.7e-8,
                'eps_min': 1.0e-10,
                'psi_min': 2.0e-7,
-               'closure_name': 'gen',
+               'closure_name': 'Generic Length Scale',
                }
         # GLS model A defaults, from tables 1 and 2 in [3]
 
@@ -306,7 +306,7 @@ class GLSModelOptions(TurbulenceModelOptions):
             self.update(kepsilon)
         elif closure_name == 'k-omega':
             self.update(komega)
-        elif closure_name == 'gen':
+        elif closure_name == 'Generic Length Scale':
             self.update(gen)
 
 
