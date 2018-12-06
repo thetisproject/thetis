@@ -228,8 +228,8 @@ class GLSModelOptions(TurbulenceModelOptions):
                              help='float: minimum value for eddy viscosity').tag(config=True)
     diff_min = PositiveFloat(1.0e-8,
                              help='float: minimum value for eddy diffusivity').tag(config=True)
-    galperin_lim = PositiveFloat(0.56,
-                                 help='float: Galperin lenght scale limitation parameter').tag(config=True)
+    galperin_clim = PositiveFloat(0.30,
+                                  help='float: Galperin lenght scale limitation parameter').tag(config=True)
 
     limit_len = Bool(False, help='bool: apply Galperin lenght scale limit').tag(config=True)
     limit_psi = Bool(False,
