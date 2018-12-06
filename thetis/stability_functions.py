@@ -222,7 +222,7 @@ class StabilityFunction(object):
         # compute aN from Ri_st and aM, Ri_st = aN/aM
         a_buoy = ri_st*a_shear
 
-        clim = cm0**6.0 * a_buoy
+        clim = cm0**3.0 * np.sqrt(a_buoy/2)
         return clim
 
     def get_alpha_buoy_min(self):

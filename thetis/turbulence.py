@@ -572,7 +572,7 @@ class GenericLengthScaleModel(TurbulenceModel):
         if o.compute_len_min:
             o.len_min = o.cmu0**3 * o.k_min**1.5 / o.eps_min
         if o.compute_galperin_clim:
-            o.galperin_lim = self.stability_func.compute_length_clim(o.cmu0, o.ri_st)
+            o.galperin_clim = self.stability_func.compute_length_clim(o.cmu0, o.ri_st)
 
         self.shear_frequency_solver = ShearFrequencySolver(self.uv, self.m2,
                                                            self.mu, self.mv,
@@ -631,11 +631,11 @@ class GenericLengthScaleModel(TurbulenceModel):
             k_arr = self.k.dat.data[:]
             n2_pos = self.n2_pos.dat.data[:]
             n2_pos_eps = 1e-12
-            galp = o.galperin_lim
+            galp_clim = o.galperin_clim
             if o.limit_psi:
                 # impose Galperin limit on psi
                 # psi^(1/n) <= sqrt(0.56)* (cmu0)^(p/n) *k^(m/n+0.5)* n2^(-0.5)
-                val = (np.sqrt(galp) * (cmu0)**(p / n) * k_arr**(m / n + 0.5) * (n2_pos + n2_pos_eps)**(-0.5))**n
+                val = (np.sqrt(2)*galp_clim * (cmu0)**(p / n) * k_arr**(m / n + 0.5) * (n2_pos + n2_pos_eps)**(-0.5))**n
                 if n > 0:
                     # impose max value
                     np.minimum(self.psi.dat.data, val, self.psi.dat.data)
@@ -648,7 +648,7 @@ class GenericLengthScaleModel(TurbulenceModel):
             self.epsilon.assign(cmu0**(3.0 + p/n)*self.k**(3.0/2.0 + m/n)*self.psi**(-1.0/n))
             if o.limit_eps:
                 # impose Galperin limit on eps
-                eps_min = cmu0**3.0/np.sqrt(galp)*np.sqrt(n2_pos)*k_arr
+                eps_min = cmu0**3.0/(np.sqrt(2)*galp_clim)*np.sqrt(n2_pos)*k_arr
                 np.maximum(self.epsilon.dat.data, eps_min, self.epsilon.dat.data)
             # impose minimum value
             # FIXME this should not be need because psi is limited
@@ -660,7 +660,7 @@ class GenericLengthScaleModel(TurbulenceModel):
                 set_func_min_val(self.l, o.len_min)
             if o.limit_len:
                 # Galperin length scale limitation
-                len_max = np.sqrt(galp*k_arr/(n2_pos + n2_pos_eps))
+                len_max = galp_clim*np.sqrt(2*k_arr/(n2_pos + n2_pos_eps))
                 np.minimum(self.l.dat.data, len_max, self.l.dat.data)
             if self.l.dat.data.max() > 10.0:
                 warning(' * large L: {:f}'.format(self.l.dat.data.max()))
