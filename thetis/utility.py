@@ -1331,8 +1331,8 @@ def beta_plane_coriolis_function(latitude, out_function, y_offset=0.0):
     """
     # NOTE assumes that mesh y coordinate spans [-L_y, L_y]
     f0, beta = beta_plane_coriolis_params(latitude)
-    out_function.interpolate(
-        Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=y_offset))
+    coords = SpatialCoordinate(out_function.function_space().mesh())
+    out_function.interpolate(f0 + beta * (coords[1] - y_offset))
 
 
 class SmagorinskyViscosity(object):
