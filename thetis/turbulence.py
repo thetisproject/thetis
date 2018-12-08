@@ -558,10 +558,12 @@ class GenericLengthScaleModel(TurbulenceModel):
         if o.compute_cmu0:
             o.cmu0 = self.stability_func.compute_cmu0()
         if o.compute_kappa:
-            kappa = self.stability_func.compute_kappa(o.schmidt_nb_psi, o.n, o.c1, o.c2)
+            kappa = self.stability_func.compute_kappa(o.schmidt_nb_psi, o.cmu0, o.n, o.c1, o.c2)
             o.kappa = kappa
             # update mean flow model value as well
             physical_constants['von_karman'].assign(kappa)
+        elif o.compute_schmidt_nb_psi:
+            o.schmidt_nb_psi = self.stability_func.compute_sigma_psi(o.kappa, o.cmu0, o.n, o.c1, o.c2)
         if o.compute_c3_minus:
             o.c3_minus = self.stability_func.compute_c3_minus(o.c1, o.c2, o.ri_st)
         if o.compute_psi_min:

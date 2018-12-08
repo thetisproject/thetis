@@ -212,14 +212,16 @@ class GLSModelOptions(TurbulenceModelOptions):
         If :attr:`compute_kappa` is True this value will be overriden""").tag(config=True)
     compute_kappa = Bool(True,
                          help='bool: compute von Karman constant from :attr:`schmidt_nb_psi`').tag(config=True)
+    compute_schmidt_nb_psi = Bool(True,
+                                  help='bool: compute psi Schmidt number').tag(config=True)
     k_min = PositiveFloat(3.7e-8,
                           help='float: minimum value for turbulent kinetic energy').tag(config=True)
     psi_min = PositiveFloat(1.0e-10, help='float: minimum value for psi').tag(config=True)
     eps_min = PositiveFloat(1.0e-10, help='float: minimum value for epsilon').tag(config=True)
     len_min = PositiveFloat(1.0e-10,
-                            help='float: minimum value for turbulent lenght scale').tag(config=True)
+                            help='float: minimum value for turbulent length scale').tag(config=True)
     compute_galperin_clim = Bool(True,
-                           help='bool: compute c_lim lenght scale limiting factor').tag(config=True)
+                                 help='bool: compute c_lim length scale limiting factor').tag(config=True)
     compute_len_min = Bool(True,
                            help='bool: compute min_len from k_min and psi_min').tag(config=True)
     compute_psi_min = Bool(True,
@@ -229,13 +231,13 @@ class GLSModelOptions(TurbulenceModelOptions):
     diff_min = PositiveFloat(1.0e-8,
                              help='float: minimum value for eddy diffusivity').tag(config=True)
     galperin_clim = PositiveFloat(0.30,
-                                  help='float: Galperin lenght scale limitation parameter').tag(config=True)
+                                  help='float: Galperin length scale limitation parameter').tag(config=True)
 
-    limit_len = Bool(False, help='bool: apply Galperin lenght scale limit').tag(config=True)
+    limit_len = Bool(False, help='bool: apply Galperin length scale limit').tag(config=True)
     limit_psi = Bool(False,
-                     help='bool: apply Galperin lenght scale limit on psi').tag(config=True)
+                     help='bool: apply Galperin length scale limit on psi').tag(config=True)
     limit_eps = Bool(False,
-                     help='bool: apply Galperin lenght scale limit on epsilon').tag(config=True)
+                     help='bool: apply Galperin length scale limit on epsilon').tag(config=True)
     limit_len_min = Bool(True,
                          help='bool: limit minimum turbulent length scale to len_min').tag(config=True)
 

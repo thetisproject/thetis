@@ -202,7 +202,7 @@ class StabilityFunction(object):
         cm0 = ((self.a2**2 - 3*self.a3**2 + 3*self.a1*self.nn)/(3 * self.nn**2))**0.25
         return cm0
 
-    def compute_kappa(self, sigma_psi, n, c1, c2):
+    def compute_kappa(self, sigma_psi, cmu0, n, c1, c2):
         """
         Computes von Karman constant from the Psi Schmidt number.
 
@@ -210,8 +210,17 @@ class StabilityFunction(object):
 
         from Umlauf and Burchard (2003) eq (14)
         """
-        kappa = np.sqrt(sigma_psi * self.compute_cmu0()**2 * (c2 - c1)/(n**2))
-        return kappa
+        return cmu0 / np.abs(n) * np.sqrt(sigma_psi * (c2 - c1))
+
+    def compute_sigma_psi(self, kappa, cmu0, n, c1, c2):
+        """
+        Computes the Psi Schmidt number.
+
+        n, c1, c2 are GLS model parameters.
+
+        from Umlauf and Burchard (2003) eq (14)
+        """
+        return (n * kappa)**2 / (cmu0**2 * (c2 - c1))
 
     def compute_length_clim(self, cm0, ri_st):
         """
