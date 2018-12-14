@@ -107,7 +107,8 @@ def replace_path_in_xml(filename, outputfile, new_path):
         fnameprop = reader.findall("Property[@name='FileName']/Element")[0]
         old_fname = fnameprop.attrib['value']
         path, file = os.path.split(old_fname)
-        new_fname = os.path.join(new_path, file)
+        field, ext = os.path.splitext(file)
+        new_fname = os.path.join(new_path, field, file)
         fnameprop.attrib['value'] = new_fname
     tree.write(outputfile)
 

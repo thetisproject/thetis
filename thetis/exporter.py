@@ -86,10 +86,12 @@ class VTKExporter(ExporterBase):
         self.project_output = project_output
         self.coords_dg = coords_dg
         suffix = '.pvd'
+        path = os.path.join(outputdir, filename)
         # append suffix if missing
         if (len(filename) < len(suffix)+1 or filename[:len(suffix)] != suffix):
             self.filename += suffix
-        self.outfile = File(os.path.join(outputdir, self.filename))
+        path = os.path.join(path, self.filename)
+        self.outfile = File(path)
         self.cast_operators = {}
 
     def set_next_export_ix(self, next_export_ix):
@@ -232,31 +234,69 @@ class ExportManager(object):
         """
         self.outputdir = outputdir
         self.fields_to_export = fields_to_export
-        self.functions = functions
+        # functions dict must be mutable for custom exports
+        self.functions = {}
+        self.functions.update(functions)
         self.field_metadata = field_metadata
         self.verbose = verbose
         # allocate dg coord field to avoid creating one in File
         self.coords_dg_2d = None
         self.coords_dg_3d = None
+        self.preproc_callbacks = {}
         # for each field create an exporter
         self.exporters = OrderedDict()
         for key in fields_to_export:
-            shortname = self.field_metadata[key]['shortname']
-            fn = self.field_metadata[key]['filename']
             field = self.functions.get(key)
             if field is not None and isinstance(field, FiredrakeFunction):
-                native_space = field.function_space()
-                visu_space = get_visu_space(native_space)
-                coords_dg = self._get_dg_coordinates(visu_space)
-                if export_type.lower() == 'vtk':
-                    self.exporters[key] = VTKExporter(visu_space, shortname,
-                                                      outputdir, fn,
-                                                      coords_dg=coords_dg,
-                                                      next_export_ix=next_export_ix)
-                elif export_type.lower() == 'hdf5':
-                    self.exporters[key] = HDF5Exporter(native_space,
-                                                       outputdir, fn,
-                                                       next_export_ix=next_export_ix)
+                self.add_export(key, field, export_type,
+                                next_export_ix=next_export_ix)
+
+    def add_export(self, fieldname, function,
+                   export_type='vtk', next_export_ix=0, outputdir=None,
+                   shortname=None, filename=None, preproc_func=None):
+        """
+        Adds a new field exporter in the manager.
+
+        This method allows exporting both default Thetis fields and user
+        defined fields. In the latter case the user must provide sufficient
+        metadata, i.e. fieldname, shortname and filename.
+
+        :arg string fieldname: canonical field name
+        :arg function: Firedrake function to export
+        :kwarg str export_type: export format, either 'vtk' or 'hdf5'
+        :kwarg int next_export_ix: index for next export (default 0)
+        :kwarg string outputdir: optional directory where files are stored
+        :kwarg string shortname: override shortname defined in field_metadata
+        :kwarg string filename: override filename defined in field_metadata
+        :kwarg preproc_func: optional funtion that will be called prior to
+            exporting. E.g. for computing diagnostic fields.
+        """
+        if outputdir is None:
+            outputdir = self.outputdir
+        self.functions[fieldname] = function
+        if shortname is None or filename is None:
+            assert fieldname in self.field_metadata, \
+                'Unknown field "{:}". For custom fields shortname and filename must be defined.'.format(fieldname)
+        if shortname is None:
+            shortname = self.field_metadata[fieldname]['shortname']
+        if filename is None:
+            filename = self.field_metadata[fieldname]['filename']
+        field = self.functions.get(fieldname)
+        if preproc_func is not None:
+            self.preproc_callbacks[fieldname] = preproc_func
+        if field is not None and isinstance(field, FiredrakeFunction):
+            native_space = field.function_space()
+            visu_space = get_visu_space(native_space)
+            coords_dg = self._get_dg_coordinates(visu_space)
+            if export_type.lower() == 'vtk':
+                self.exporters[fieldname] = VTKExporter(visu_space, shortname,
+                                                        outputdir, filename,
+                                                        coords_dg=coords_dg,
+                                                        next_export_ix=next_export_ix)
+            elif export_type.lower() == 'hdf5':
+                self.exporters[fieldname] = HDF5Exporter(native_space,
+                                                         outputdir, filename,
+                                                         next_export_ix=next_export_ix)
 
     def _get_dg_coordinates(self, fs):
         """
@@ -293,6 +333,8 @@ class ExportManager(object):
                 if self.verbose and COMM_WORLD.rank == 0:
                     sys.stdout.write(key+' ')
                     sys.stdout.flush()
+                if key in self.preproc_callbacks:
+                    self.preproc_callbacks[key]()
                 self.exporters[key].export(field)
         if self.verbose and COMM_WORLD.rank == 0:
             sys.stdout.write('\n')
