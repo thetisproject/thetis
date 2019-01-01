@@ -4,6 +4,7 @@ Module for 2D depth averaged solver
 from __future__ import absolute_import
 from .utility import *
 from . import shallowwater_eq
+from . import conservative_sw_eq
 from . import timeintegrator
 from . import rungekutta
 from . import implicitexplicit
@@ -296,7 +297,12 @@ class FlowSolver2d(FrozenClass):
                                      wetting_and_drying_alpha=self.options.wetting_and_drying_alpha)
 
         # ----- Equations
-        self.eq_sw = shallowwater_eq.ShallowWaterEquations(
+        # self.eq_sw = shallowwater_eq.ShallowWaterEquations(
+        #     self.fields.solution_2d.function_space(),
+        #     self.fields.bathymetry_2d,
+        #     self.options
+        # )
+        self.eq_sw = conservative_sw_eq.CShallowWaterEquations(
             self.fields.solution_2d.function_space(),
             self.depth,
             self.options
