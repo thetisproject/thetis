@@ -297,16 +297,18 @@ class FlowSolver2d(FrozenClass):
                                      wetting_and_drying_alpha=self.options.wetting_and_drying_alpha)
 
         # ----- Equations
-        # self.eq_sw = shallowwater_eq.ShallowWaterEquations(
-        #     self.fields.solution_2d.function_space(),
-        #     self.fields.bathymetry_2d,
-        #     self.options
-        # )
-        self.eq_sw = conservative_sw_eq.CShallowWaterEquations(
-            self.fields.solution_2d.function_space(),
-            self.depth,
-            self.options
-        )
+        if self.options.conservative_formulation:
+            self.eq_sw = conservative_sw_eq.CShallowWaterEquations(
+                self.fields.solution_2d.function_space(),
+                self.depth,
+                self.options
+            )
+        else:
+            self.eq_sw = shallowwater_eq.ShallowWaterEquations(
+                self.fields.solution_2d.function_space(),
+                self.depth,
+                self.options
+            )
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         if self.options.solve_tracer:
             self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
@@ -506,11 +508,20 @@ class FlowSolver2d(FrozenClass):
         """
         if not self._initialized:
             self.initialize()
-        uv_2d, elev_2d = self.fields.solution_2d.split()
-        if elev is not None:
-            elev_2d.project(elev)
-        if uv is not None:
-            uv_2d.project(uv)
+        if self.options.conservative_formulation:
+            hu_2d, h_2d = self.fields.solution_2d.split()
+            if elev is not None:
+                h_2d.project(elev + self.fields.bathymetry_2d)
+            else:
+                h_2d.project(self.fields.bathymetry_2d)
+            if uv is not None:
+                hu_2d.project(h_2d * uv)
+        else:
+            uv_2d, elev_2d = self.fields.solution_2d.split()
+            if elev is not None:
+                elev_2d.project(elev)
+            if uv is not None:
+                uv_2d.project(uv)
         if tracer is not None and self.options.solve_tracer:
             self.fields.tracer_2d.project(tracer)
 

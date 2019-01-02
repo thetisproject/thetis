@@ -567,6 +567,11 @@ class ModelOptions2d(CommonModelOptions):
         Advects tracer in the associated (constant) velocity field.
         """).tag(config=True)
 
+    conservative_formulation = Bool(
+        False, help="""
+        Use conservative formulation of the shallow water equations.
+        """).tag(config=True)
+
 
 @attach_paired_options("timestepper_type",
                        PairedEnum([('LeapFrog', ExplicitTimestepperOptions3d),
