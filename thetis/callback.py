@@ -596,10 +596,10 @@ class ErrorEstimateCallback(DiagnosticCallback):
                 dc.close()
         self.ix += 1
 
-        if isinstance(f, FiredrakeFunction):        # TODO: Why can't we just have one output?
-            return norm(f), 0                       # TODO: Not really the right thing to output for ExplicitErrorCallback
+        if isinstance(f, FiredrakeFunction):
+            return [norm(f)]  # TODO: Not always a useful quantity
         else:
-            return sqrt(assemble(sum(inner(fi, fi) for fi in f) * dx)), 0.
+            return [sqrt(assemble(sum(inner(fi, fi) for fi in f) * dx))]
 
     def message_str(self, *args):
         line = '{0:s} error estimate {1:11.4e}'.format(self.name, args[0])
@@ -691,13 +691,12 @@ class ExplicitErrorCallback(ErrorEstimateCallback):
     Estimate error using an a posteriori error indicator [Ainsworth and Oden, 1997], given by
 
     .. math::
-        \|\textbf{R}(\textbf{q}_h)\|_{\mathcal{L}_2(K)}
-            + h_K^{-1}\|\textbf{r}(\textbf{q}_h)\|_{\mathcal{L}_2(\partial K)},
+        \|R(q_h)\|_{L_2(K)} + h_K^{-1}\|r(q_h)\|_{L_2(\partial K)},
 
     where
-    :math:`\textbf{q}_h` is the approximation to the PDE solution,
-    :math:`\textbf{R}` denotes the strong residual on cells (element interiors),
-    :math:`\textbf{r}` denotes the strong residual on edges,
+    :math:`q_h` is the approximate PDE solution, attained using Thetis.
+    :math:`R` denotes the strong residual on cells (element interiors).
+    :math:`r` denotes the residual on edges, contributed by the integration by parts.
     :math:`h_K` is the size of mesh element `K`.
     """
     name = 'explicit'
@@ -721,18 +720,28 @@ class ExplicitErrorCallback(ErrorEstimateCallback):
             ee = Function(P0, name="explicit error")
             h = CellSize(mesh)
 
-            # Take a weighted sum of residual contributions from element cells and element edges
             if solver_obj.options.tracer_only:
+                # Norm of cell residual
                 res = solver_obj.timestepper.tracer_integrator.cell_residual()
-                bres = solver_obj.timestepper.tracer_integrator.edge_residual()
+                cell_residual = v * res * res * dx
+
+                # Norm of edge residual
+                e_res = solver_obj.timestepper.tracer_integrator.edge_residual()
+                edge_residual = avg(v) * e_res * e_res * dS
+
             else:
+                # Norm of cell residual
                 res_u, res_e = solver_obj.timestepper.cell_residual()
-                res = inner(res_u, res_u) + res_e * res_e
-                bres_u1, bres_u2, bres_e = solver_obj.timestepper.edge_residual()
-                bres = bres_u1 * bres_u1 + bres_u2 * bres_u2 + bres_e * bres_e
+                cell_residual = v * (inner(res_u, res_u) + res_e * res_e) * dx
+
+                # Norm of edge residual
+                e_res = solver_obj.timestepper.edge_residual()
+                edge_residual = avg(v) * sum(e_res[i] * e_res[i] for i in range(3)) * dS
+
+            # Take a weighted sum of residual contributions
             print("cell residual norm = {i:.4e}".format(i=norm(res)))
             print("edge residual norm = {b:.4e}".format(b=norm(bres)))
-            ee.interpolate(assemble(v * sqrt(assemble(v * (res + bres / h) * dx)) * dx))
+            ee.interpolate(sqrt(assemble(v * (cell_residual + edge_residual / h) * dx)))
 
             return ee
 
