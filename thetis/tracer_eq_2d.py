@@ -343,16 +343,20 @@ class TracerResidual2D(Equation):
 
     def cell_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         f = 0
+        print("\nCell residual norm contributions:")
         for term in self.select_terms(label):
             r = term.residual_cell(solution, solution_old, fields, fields_old, bnd_conditions)
             if r is not None:
                 f += r
+                print("    {name:30s} {norm:.4e}".format(name=term.name, norm=norm(r)))
         return f
 
     def edge_residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         f = 0
+        print("\nEdge residual norm contributions:")
         for term in self.select_terms(label):
             r = term.residual_edge(solution, solution_old, fields, fields_old, bnd_conditions)
             if r is not None:
                 f += r
+                print("    {name:30s} {norm:.4e}".format(name=term.name, norm=norm(r)))
         return f

@@ -1080,15 +1080,15 @@ class HUDivResidual(ShallowWaterContinuityResidualTerm):
             funcs = bnd_conditions.get(bnd_marker)
             ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
             if 'un' in funcs:
-               f += -total_h*dot(uv - funcs['un'], self.normal)*p0_test*ds_bnd
-               slip = True
+                f += -total_h*dot(uv - funcs['un'], self.normal)*p0_test*ds_bnd
+                slip = True
             else:
-               f += -total_h*dot(uv, self.normal)*p0_test*ds_bnd
+                f += -total_h*dot(uv, self.normal)*p0_test*ds_bnd
         if slip:
             f += Constant(0.5) * jump(-total_h*uv, self.normal) * (p0_test('+') + p0_test('-')) * dS
             return Function(P0).interpolate(assemble(-f))
         else:
-            raise NotImplementedError	# TODO: consider other BCs
+            raise NotImplementedError  # TODO: consider other BCs
 
 
 class HorizontalAdvectionResidual(ShallowWaterMomentumResidualTerm):
@@ -1403,7 +1403,7 @@ class BaseShallowWaterResidual(Equation):
             r = term.residual_cell(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
             if r is not None:
                 f += r
-                print("    {name:30s} : {norm:.4e}".format(name=term.name, norm=norm(r)))
+                print("    {name:30s} {norm:.4e}".format(name=term.name, norm=norm(r)))
         return f
 
     def residual_edge(self, label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
@@ -1413,7 +1413,7 @@ class BaseShallowWaterResidual(Equation):
             r = term.residual_edge(uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
             if r is not None:
                 f += r
-                print("    {name:30s} : {norm:.4e}".format(name=term.name, norm=norm(r)))
+                print("    {name:30s} {norm:.4e}".format(name=term.name, norm=norm(r)))
         return f
 
 
