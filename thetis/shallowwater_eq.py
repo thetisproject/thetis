@@ -1051,7 +1051,7 @@ class ExternalPressureGradientResidual(ShallowWaterMomentumResidualTerm):
         return -f
 
     def residual_edge(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
-        return None
+        raise NotImplementedError  # FIXME
 
 
 class HUDivResidual(ShallowWaterContinuityResidualTerm):
@@ -1068,27 +1068,7 @@ class HUDivResidual(ShallowWaterContinuityResidualTerm):
         return -f
 
     def residual_edge(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
-        total_h = self.get_total_depth(eta_old)
-
-        f = 0
-        slip = False
-        mesh = uv.function_space().mesh()
-        P0 = FunctionSpace(mesh, "DG", 0)
-        p0_test = TestFunction(P0)
-
-        for bnd_marker in self.boundary_markers:
-            funcs = bnd_conditions.get(bnd_marker)
-            ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-            if 'un' in funcs:
-                f += -total_h*dot(uv - funcs['un'], self.normal)*p0_test*ds_bnd
-                slip = True
-            else:
-                f += -total_h*dot(uv, self.normal)*p0_test*ds_bnd
-        if slip:
-            f += Constant(0.5) * jump(-total_h*uv, self.normal) * (p0_test('+') + p0_test('-')) * dS
-            return Function(P0).interpolate(assemble(-f))
-        else:
-            raise NotImplementedError  # TODO: consider other BCs
+        raise NotImplementedError  # FIXME
 
 
 class HorizontalAdvectionResidual(ShallowWaterMomentumResidualTerm):
@@ -1105,7 +1085,7 @@ class HorizontalAdvectionResidual(ShallowWaterMomentumResidualTerm):
             return -f
 
     def residual_edge(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
-        return None
+        raise NotImplementedError  # FIXME
 
 
 class HorizontalViscosityResidual(ShallowWaterMomentumResidualTerm):
@@ -1147,7 +1127,7 @@ class HorizontalViscosityResidual(ShallowWaterMomentumResidualTerm):
             return -f
 
     def residual_edge(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions):
-        return None
+        raise NotImplementedError  # FIXME
 
 
 class CoriolisResidual(ShallowWaterMomentumResidualTerm):

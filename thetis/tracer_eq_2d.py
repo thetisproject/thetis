@@ -283,7 +283,7 @@ class HorizontalAdvectionResidual(TracerTerm):
             return -f
 
     def residual_edge(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        return None
+        raise NotImplementedError  # FIXME
 
 
 class HorizontalDiffusionResidual(TracerTerm):
@@ -307,7 +307,7 @@ class HorizontalDiffusionResidual(TracerTerm):
             return -f
 
     def residual_edge(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        return None
+        raise NotImplementedError  # FIXME
 
 
 class SourceResidual(TracerTerm):

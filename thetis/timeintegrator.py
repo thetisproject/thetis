@@ -183,7 +183,7 @@ class ForwardEuler(TimeIntegrator):
             res += -self.residual.cell_residual(label, self.solution, self.solution_old, self.fields, self.fields_old, self.bnd_conditions)
 
         else:
-            raise NotImplementedError
+            raise NotImplementedError  # FIXME
 
             return res
 
@@ -203,7 +203,7 @@ class ForwardEuler(TimeIntegrator):
             return res
 
         else:
-            raise NotImplementedError
+            raise NotImplementedError  # FIXME
 
 
 class CrankNicolson(TimeIntegrator):
@@ -337,7 +337,7 @@ class CrankNicolson(TimeIntegrator):
             return res
 
         else:
-            raise NotImplementedError
+            raise NotImplementedError  # FIXME
 
     def edge_residual(self, label='all'):
         """
@@ -367,7 +367,7 @@ class CrankNicolson(TimeIntegrator):
             return res
 
         else:
-            raise NotImplementedError
+            raise NotImplementedError  # FIXME
 
 
 class SteadyState(TimeIntegrator):
@@ -431,13 +431,13 @@ class SteadyState(TimeIntegrator):
 
             return mom_res, cty_res
 
-        elif self.equation.__class__.__name__ ==  "TracerEquation2D":
+        elif self.equation.__class__.__name__ == "TracerEquation2D":
             res = -self.residual.cell_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
 
             return res
 
         else:
-            raise NotImplementedError
+            raise NotImplementedError  # FIXME
 
     def edge_residual(self, label='all'):
         """
@@ -454,13 +454,13 @@ class SteadyState(TimeIntegrator):
 
             return mom_res0, mom_res1, cty_res
 
-        elif self.equation.__class__.__name__ ==  "TracerEquation2D":
+        elif self.equation.__class__.__name__ == "TracerEquation2D":
             res = -self.residual.edge_residual(label, solution, solution_old, fields, fields_old, self.bnd_conditions)
 
             return res
 
         else:
-            raise NotImplementedError
+            raise NotImplementedError  # FIXME
 
 
 class PressureProjectionPicard(TimeIntegrator):
@@ -630,10 +630,10 @@ class PressureProjectionPicard(TimeIntegrator):
             self.fields_old[k].assign(self.fields[k])
 
     def cell_residual(self, label='all'):
-        raise NotImplementedError
+        raise NotImplementedError  # FIXME
 
     def edge_residual(self, label='all'):
-        raise NotImplementedError
+        raise NotImplementedError  # FIXME
 
 
 class LeapFrogAM3(TimeIntegrator):
@@ -784,10 +784,10 @@ class LeapFrogAM3(TimeIntegrator):
             self.correct()
 
     def cell_residual(self, label='all'):
-        raise NotImplementedError
+        raise NotImplementedError  # FIXME
 
     def edge_residual(self, label='all'):
-        raise NotImplementedError
+        raise NotImplementedError  # FIXME
 
 
 class SSPRK22ALE(TimeIntegrator):
@@ -947,7 +947,7 @@ class SSPRK22ALE(TimeIntegrator):
             self.solve_stage(i_stage)
 
     def cell_residual(self, label='all'):
-        raise NotImplementedError
+        raise NotImplementedError  # FIXME
 
     def edge_residual(self, label='all'):
-        raise NotImplementedError
+        raise NotImplementedError  # FIXME
