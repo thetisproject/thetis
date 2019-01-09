@@ -32,7 +32,7 @@ class TracerTerm(Term):
     boundary functions.
     """
     def __init__(self, function_space,
-                 bathymetry=None, use_lax_friedrichs=True):
+                 bathymetry=None, use_lax_friedrichs=True, options=None):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -40,6 +40,7 @@ class TracerTerm(Term):
         """
         super(TracerTerm, self).__init__(function_space)
         self.bathymetry = bathymetry
+        self.options = options
         self.cellsize = CellSize(self.mesh)
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
@@ -100,21 +101,16 @@ class TracerTerm(Term):
         H = self.bathymetry + eta
         return 0.5 * (sqrt(H ** 2 + self.options.wetting_and_drying_alpha ** 2) - H)
 
-    def get_total_depth(self, eta):
-        """
-        Returns total water column depth
-        """
-        if self.options.use_nonlinear_equations:
-            total_h = self.bathymetry + eta
-            if hasattr(self.options, 'use_wetting_and_drying') and self.options.use_wetting_and_drying:
-                total_h += self.wd_bathymetry_displacement(eta)
-        else:
-            total_h = self.bathymetry
-        return total_h
-
     def get_depth_or_one(self, fields):
         if self.options.use_tracer_conservative_form:
-            return get_total_depth(fields["elev_2d"])
+            eta = fields["elev_2d"]
+            if self.options.use_nonlinear_equations:
+                total_h = self.bathymetry + eta
+                if hasattr(self.options, 'use_wetting_and_drying') and self.options.use_wetting_and_drying:
+                    total_h += self.wd_bathymetry_displacement(eta)
+            else:
+                total_h = self.bathymetry
+            return total_h
         else:
             return 1
 
@@ -150,8 +146,8 @@ class HorizontalAdvectionTerm(TracerTerm):
 
         f = 0
         if self.options.use_tracer_conservative_form:
-            f += -(Dx(self.test, 0) * H * uv[0] * solution 
-                  + Dx(self.test,1) * H * uv[1] * solution) * self.dx
+            f += -(Dx(self.test, 0) * H * uv[0] * solution
+                   + Dx(self.test, 1) * H * uv[1] * solution) * self.dx
 
             if self.horizontal_dg:
                 # add interface term
@@ -159,12 +155,11 @@ class HorizontalAdvectionTerm(TracerTerm):
                 un_av = (uv_av[0]*self.normal('-')[0]
                          + uv_av[1]*self.normal('-')[1])
                 s = 0.5*(sign(un_av) + 1.0)
-                f_up = H('-') * solution('-') * uv('-') * s  \
-                       + H('+') * solution('+') * uv('+') * (1-s)
+                f_up = H('-') * solution('-') * uv('-') * s\
+                    + H('+') * solution('+') * uv('+') * (1-s)
                 f += dot(f_up, (jump(self.test, self.normal))) * self.dS
                 if self.use_lax_friedrichs:
-                     raise NotImplementedError("Lax-Friedrichs not implented for conservative tracers.")
-
+                    raise NotImplementedError("Lax-Friedrichs not implented for conservative tracers.")
 
         else:
 
@@ -239,16 +234,16 @@ class HorizontalDiffusionTerm(TracerTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_h') is None:
             return 0
-        
+
         H = self.get_depth_or_one(fields)
         diffusivity_h = fields_old['diffusivity_h']
         diff_tensor = H * as_matrix([[diffusivity_h, 0, ],
-                                 [0, diffusivity_h, ]])
+                                    [0, diffusivity_h, ]])
         grad_test = grad(self.test)
         diff_flux = dot(diff_tensor, grad(solution))
 
         f = 0
-        f += inner(grad_test, diff_flux )*self.dx
+        f += inner(grad_test, diff_flux)*self.dx
 
         if self.horizontal_dg:
             # Interior Penalty method by
@@ -289,7 +284,7 @@ class SourceTerm(TracerTerm):
 
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        f = 0 
+        f = 0
         H = self.get_depth_or_one(fields)
         source = fields_old.get('source')
         if source is not None:
@@ -303,6 +298,7 @@ class TracerEquation2D(Equation):
     """
     def __init__(self, function_space,
                  bathymetry=None,
+                 options=None,
                  use_lax_friedrichs=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
@@ -314,7 +310,7 @@ class TracerEquation2D(Equation):
         """
         super(TracerEquation2D, self).__init__(function_space)
 
-        args = (function_space, bathymetry, use_lax_friedrichs)
+        args = (function_space, bathymetry, use_lax_friedrichs, options)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
