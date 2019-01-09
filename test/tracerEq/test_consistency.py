@@ -1,16 +1,15 @@
-# Tracer box in 3D
-# ================
-#
-# Solves a standing wave in a rectangular basin using wave equation.
-#
-# This version uses a constant tracer to check local/global conservation of tracers.
-#
-# Initial condition for elevation corresponds to a standing wave.
-# Time step and export interval are chosen based on theoretical
-# oscillation frequency. Initial condition repeats every 20 exports.
-#
-#
-# Tuomas Karna 2015-03-11
+"""
+Tracer box in 3D
+================
+
+Solves a standing wave in a rectangular basin using wave equation.
+
+This version uses a constant tracer to check local/global conservation of tracers.
+
+Initial condition for elevation corresponds to a standing wave.
+Time step and export interval are chosen based on theoretical
+oscillation frequency. Initial condition repeats every 20 exports.
+"""
 from thetis import *
 import pytest
 

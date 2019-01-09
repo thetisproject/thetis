@@ -19,8 +19,6 @@ momentum equation.
     marine model with a finite difference turbulence closure model.
     Ocean Modelling, 47:55-64.
     http://dx.doi.org/10.1016/j.ocemod.2012.01.001
-
-Tuomas Karna 2016-03-10
 """
 from thetis import *
 import numpy
@@ -47,6 +45,9 @@ if fast_convergence:
     t_end = 5 * 3600.0
 t_export = 400.0
 u_mag = 1.0
+
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
 
 # bathymetry
 p1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -108,22 +109,23 @@ if fast_convergence:
 if __name__ == '__main__':
     solver_obj.iterate()
 
-    # compare against logarithmic velocity profile
-    # u = u_b / kappa * log((z + bath + z_0)/z_0)
-    # estimate bottom friction velocity from maximal u
-    u_max = 0.9  # max velocity in [2] Fig 2.
-    l2_tol = 0.05
-    kappa = solver_obj.options.turbulence_model_options.kappa
-    z_0 = physical_constants['z0_friction'].dat.data[0]
-    u_b = u_max * kappa / np.log((depth + z_0)/z_0)
-    log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')
-    log_uv.project(as_vector((u_b / kappa * ln((xyz[2] + depth + z_0)/z_0), 0, 0)))
-    out = File(options.output_directory + '/log_uv.pvd')
-    out.write(log_uv)
+    if os.getenv('THETIS_REGRESSION_TEST') is None:
+        # compare against logarithmic velocity profile
+        # u = u_b / kappa * log((z + bath + z_0)/z_0)
+        # estimate bottom friction velocity from maximal u
+        u_max = 0.9  # max velocity in [2] Fig 2.
+        l2_tol = 0.05
+        kappa = solver_obj.options.turbulence_model_options.kappa
+        z_0 = physical_constants['z0_friction'].dat.data[0]
+        u_b = u_max * kappa / np.log((depth + z_0)/z_0)
+        log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')
+        log_uv.project(as_vector((u_b / kappa * ln((xyz[2] + depth + z_0)/z_0), 0, 0)))
+        out = File(options.output_directory + '/log_uv.pvd')
+        out.write(log_uv)
 
-    uv_p1_dg = Function(solver_obj.function_spaces.P1DGv, name='velocity p1dg')
-    uv_p1_dg.project(solver_obj.fields.uv_3d + solver_obj.fields.uv_dav_3d)
-    volume = lx*ly*depth
-    uv_l2_err = errornorm(log_uv, uv_p1_dg)/numpy.sqrt(volume)
-    assert uv_l2_err < l2_tol, 'L2 error is too large: {:} > {:}'.format(uv_l2_err, l2_tol)
-    print_output('L2 error {:.4f} PASSED'.format(uv_l2_err))
+        uv_p1_dg = Function(solver_obj.function_spaces.P1DGv, name='velocity p1dg')
+        uv_p1_dg.project(solver_obj.fields.uv_3d + solver_obj.fields.uv_dav_3d)
+        volume = lx*ly*depth
+        uv_l2_err = errornorm(log_uv, uv_p1_dg)/numpy.sqrt(volume)
+        assert uv_l2_err < l2_tol, 'L2 error is too large: {:} > {:}'.format(uv_l2_err, l2_tol)
+        print_output('L2 error {:.4f} PASSED'.format(uv_l2_err))

@@ -1,7 +1,5 @@
 """
 Testing 3D horizontal viscosity of momemtum against analytical solution.
-
-Tuomas Karna 2015-12-11
 """
 from thetis import *
 import numpy
@@ -200,7 +198,7 @@ def warped(request):
 @pytest.mark.parametrize(('family', 'polynomial_degree'),
                          [('dg-dg', 0),
                           ('dg-dg', 1),
-                          pytest.mark.skip(reason='rt-0 still broken')(('rt-dg', 0)),
+                          pytest.param('rt-dg', 0, marks=pytest.mark.skip(reason='rt-0 still broken')),
                           ('rt-dg', 1)])
 def test_horizontal_viscosity(warped, polynomial_degree, family, stepper, use_ale):
     run_convergence([1, 2, 3], polynomial_degree=polynomial_degree, warped_mesh=warped,

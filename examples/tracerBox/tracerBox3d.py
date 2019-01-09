@@ -1,17 +1,16 @@
-# Tracer box in 3D
-# ================
-#
-# Solves a standing wave in a rectangular basin using wave equation.
-#
-# This version uses the ALE moving mesh and a constant tracer to check
-# tracer local/global tracer conservation.
-#
-# Initial condition for elevation corresponds to a standing wave.
-# Time step and export interval are chosen based on theorethical
-# oscillation frequency. Initial condition repeats every 20 exports.
-#
-#
-# Tuomas Karna 2015-03-11
+"""
+Tracer box in 3D
+================
+
+Solves a standing wave in a rectangular basin using wave equation.
+
+This version uses the ALE moving mesh and a constant tracer to check
+tracer local/global tracer conservation.
+
+Initial condition for elevation corresponds to a standing wave.
+Time step and export interval are chosen based on theorethical
+oscillation frequency. Initial condition repeats every 20 exports.
+"""
 from thetis import *
 
 lx = 44294.46
@@ -54,6 +53,9 @@ dt = round(float(T_cycle/n_steps))
 t_export = dt
 t_export = 100.0
 t_end = 10*T_cycle + 1e-3
+
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
 
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)

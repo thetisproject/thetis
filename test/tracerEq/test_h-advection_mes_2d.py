@@ -1,7 +1,5 @@
 """
 Testing 2D horizontal advection of tracers
-
-Tuomas Karna, edited by Athanasios Angeloudis
 """
 from thetis import *
 import numpy

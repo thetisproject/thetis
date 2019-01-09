@@ -1,21 +1,20 @@
-# Rhine ROFI test case
-# ====================
-#
-# Idealized Rhine river plume test case according to [2].
-#
-# Salinity ranges from 32 psu in ocean to 0 in river.
-# Temperature is constant 10 deg Celcius. This corresponds to density
-# values 1024.611 kg/m3 in the ocean and 999.702 in the river.
-#
-# [1] de Boer, G., Pietrzak, J., and Winterwerp, J. (2006). On the vertical
-#     structure of the Rhine region of freshwater influence. Ocean Dynamics,
-#     56(3):198-216.
-# [2] Fischer, E., Burchard, H., and Hetland, R. (2009). Numerical
-#     investigations of the turbulent kinetic energy dissipation rate in the
-#     Rhine region of freshwater influence. Ocean Dynamics, 59:629-641.
-#
-# Tuomas Karna 2015-06-24
+"""
+Rhine ROFI test case
+====================
 
+Idealized Rhine river plume test case according to [2].
+
+Salinity ranges from 32 psu in ocean to 0 in river.
+Temperature is constant 10 deg Celcius. This corresponds to density
+values 1024.611 kg/m3 in the ocean and 999.702 in the river.
+
+[1] de Boer, G., Pietrzak, J., and Winterwerp, J. (2006). On the vertical
+    structure of the Rhine region of freshwater influence. Ocean Dynamics,
+    56(3):198-216.
+[2] Fischer, E., Burchard, H., and Hetland, R. (2009). Numerical
+    investigations of the turbulent kinetic energy dissipation rate in the
+    Rhine region of freshwater influence. Ocean Dynamics, 59:629-641.
+"""
 from thetis import *
 
 reso = 'coarse'
@@ -51,6 +50,9 @@ kelvin_m = (coriolis_f/c)  # [-] Cross-shore variation
 dt = 8.0
 t_end = 32*44714
 t_export = 900.0  # 44714/12
+
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 1*t_export
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)

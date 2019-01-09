@@ -1,7 +1,5 @@
 """
 Plot result velocity etc profiles at steady state
-
-Tuomas Karna 2016-03-10
 """
 from steadyChannel import *
 

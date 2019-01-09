@@ -75,13 +75,13 @@ class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
             'pc_python_type': 'thetis.AssembledSchurPC',
             'schur_ksp_type': 'gmres',
             'schur_ksp_max_it': 100,
-            'schur_ksp_converged_reason': True,
+            'schur_ksp_converged_reason': False,
             'schur_pc_type': 'gamg',
         },
     }).tag(config=True)
     solver_parameters_momentum = PETScSolverParameters({
         'ksp_type': 'gmres',
-        'ksp_converged_reason': True,
+        'ksp_converged_reason': False,
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'sor',
@@ -428,11 +428,11 @@ class CommonModelOptions(FrozenConfigurable):
     export_diagnostics = Bool(
         True, help="Store diagnostic variables to disk in HDF5 format").tag(config=True)
     fields_to_export = List(
-        trait=Unicode,
+        trait=Unicode(),
         default_value=['elev_2d', 'uv_2d', 'uv_3d', 'w_3d'],
         help="Fields to export in VTK format").tag(config=True)
     fields_to_export_hdf5 = List(
-        trait=Unicode,
+        trait=Unicode(),
         default_value=[],
         help="Fields to export in HDF5 format").tag(config=True)
     verbose = Integer(0, help="Verbosity level").tag(config=True)
@@ -506,7 +506,7 @@ class ModelOptions2d(CommonModelOptions):
 
         Used in bathymetry displacement function that ensures positive water depths. Unit is meters.
         """).tag(config=True)
-    tidal_turbine_farms = Dict(trait=TidalTurbineFarmOptions,
+    tidal_turbine_farms = Dict(trait=TidalTurbineFarmOptions(),
                                default_value={}, help='Dictionary mapping subdomain ids to the options of the corresponding farm')
 
     check_tracer_conservation = Bool(

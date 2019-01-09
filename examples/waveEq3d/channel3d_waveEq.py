@@ -1,16 +1,16 @@
-# Wave equation in 3D
-# ===================
-#
-# Solves a standing wave in a rectangular basin using wave equation.
-#
-# Initial condition for elevation corresponds to a standing wave.
-# Time step and export interval are chosen based on theorethical
-# oscillation frequency. Initial condition repeats every 20 exports.
-#
-# This example tests dispersion of surface waves and dissipation of time
-# integrators, as well as barotropic 2D-3D coupling.
-#
-# Tuomas Karna 2015-03-11
+"""
+Wave equation in 3D
+===================
+
+Solves a standing wave in a rectangular basin using wave equation.
+
+Initial condition for elevation corresponds to a standing wave.
+Time step and export interval are chosen based on theorethical
+oscillation frequency. Initial condition repeats every 20 exports.
+
+This example tests dispersion of surface waves and dissipation of time
+integrators, as well as barotropic 2D-3D coupling.
+"""
 from thetis import *
 
 lx = 44294.46
@@ -39,6 +39,9 @@ n_steps = 20
 dt = round(float(T_cycle/n_steps))
 t_export = dt
 t_end = 10*T_cycle + 1e-3
+
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
 
 # create solver
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
