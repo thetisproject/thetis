@@ -474,10 +474,10 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
 
         if horiz_advection_by_parts:
             # f = -inner(nabla_div(outer(uv, self.u_test)), uv)
-            f = -(Dx(uv_old[0]*self.u_test[0], 0)*uv[0] +
-                  Dx(uv_old[0]*self.u_test[1], 0)*uv[1] +
-                  Dx(uv_old[1]*self.u_test[0], 1)*uv[0] +
-                  Dx(uv_old[1]*self.u_test[1], 1)*uv[1])*self.dx
+            f = -(Dx(uv_old[0]*self.u_test[0], 0)*uv[0]
+                  + Dx(uv_old[0]*self.u_test[1], 0)*uv[1]
+                  + Dx(uv_old[1]*self.u_test[0], 1)*uv[0]
+                  + Dx(uv_old[1]*self.u_test[1], 1)*uv[1])*self.dx
             if self.u_continuity in ['dg', 'hdiv']:
                 un_av = dot(avg(uv_old), self.normal('-'))
                 # NOTE solver can stagnate
@@ -487,10 +487,10 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
                 # uv_up = uv('-')*s + uv('+')*(1-s)
                 # NOTE mean flux
                 uv_up = avg(uv)
-                f += (uv_up[0]*jump(self.u_test[0], uv_old[0]*self.normal[0]) +
-                      uv_up[1]*jump(self.u_test[1], uv_old[0]*self.normal[0]) +
-                      uv_up[0]*jump(self.u_test[0], uv_old[1]*self.normal[1]) +
-                      uv_up[1]*jump(self.u_test[1], uv_old[1]*self.normal[1]))*self.dS
+                f += (uv_up[0]*jump(self.u_test[0], uv_old[0]*self.normal[0])
+                      + uv_up[1]*jump(self.u_test[1], uv_old[0]*self.normal[0])
+                      + uv_up[0]*jump(self.u_test[0], uv_old[1]*self.normal[1])
+                      + uv_up[1]*jump(self.u_test[1], uv_old[1]*self.normal[1]))*self.dS
                 # Lax-Friedrichs stabilization
                 if self.options.use_lax_friedrichs_velocity:
                     uv_lax_friedrichs = fields_old.get('lax_friedrichs_velocity_scaling_factor')
@@ -516,8 +516,8 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
                     total_h = self.get_total_depth(eta_old)
                     un_rie = 0.5*inner(uv_old + uv_ext_old, self.normal) + sqrt(g_grav/total_h)*eta_jump
                     uv_av = 0.5*(uv_ext + uv)
-                    f += (uv_av[0]*self.u_test[0]*un_rie +
-                          uv_av[1]*self.u_test[1]*un_rie)*ds_bnd
+                    f += (uv_av[0]*self.u_test[0]*un_rie
+                          + uv_av[1]*self.u_test[1]*un_rie)*ds_bnd
         return -f
 
 

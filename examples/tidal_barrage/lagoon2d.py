@@ -44,8 +44,8 @@ x, y = SpatialCoordinate(mesh2d)
 depth_oce = 20.0
 depth_riv = -10.0
 mi, sigma = 0, 2000
-bathymetry_2d.interpolate(-2 * 1e5 * (-1 / (sigma * sqrt(2 * pi)) * exp(-(y - 3000 - mi)**2 / (2 * sigma**2))) +
-                          (depth_riv - depth_oce) * x/16e3)
+bathymetry_2d.interpolate(-2 * 1e5 * (-1 / (sigma * sqrt(2 * pi)) * exp(-(y - 3000 - mi)**2 / (2 * sigma**2)))
+                          + (depth_riv - depth_oce) * x/16e3)
 
 # Viscosity sponge at the seaward boundary
 viscosity_2d.interpolate(conditional(le(x, 2e3), 1e3 * (2e3+1 - x)/2e3, 1))

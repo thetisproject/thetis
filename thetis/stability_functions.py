@@ -226,13 +226,13 @@ class StabilityFunction(object):
         :arg alpha_buoy: normalized buoyancy frequency :math:`\alpha_N`
         :arg alpha_shear: normalized shear frequency :math:`\alpha_M`
         """
-        as_max_n = (self.d0*self.n0 +
-                    (self.d0*self.n1 + self.d1*self.n0)*alpha_buoy +
-                    (self.d1*self.n1 + self.d4*self.n0)*alpha_buoy**2 +
-                    self.d4*self.n1*alpha_buoy**3)
-        as_max_d = (self.d2*self.n0 +
-                    (self.d2*self.n1 + self.d3*self.n0)*alpha_buoy +
-                    self.d3*self.n1*alpha_buoy**2)
+        as_max_n = (self.d0*self.n0
+                    + (self.d0*self.n1 + self.d1*self.n0)*alpha_buoy
+                    + (self.d1*self.n1 + self.d4*self.n0)*alpha_buoy**2
+                    + self.d4*self.n1*alpha_buoy**3)
+        as_max_d = (self.d2*self.n0
+                    + (self.d2*self.n1 + self.d3*self.n0)*alpha_buoy
+                    + self.d3*self.n1*alpha_buoy**2)
         return as_max_n/as_max_d
 
     def get_alpha_buoy_smooth_min(self, alpha_buoy):

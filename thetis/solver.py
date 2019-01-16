@@ -316,8 +316,8 @@ class FlowSolver(FrozenClass):
         Once the time step is determined, will adjust it to be an integer
         fraction of export interval ``options.simulation_export_time``.
         """
-        automatic_timestep = (hasattr(self.options.timestepper_options, 'use_automatic_timestep') and
-                              self.options.timestepper_options.use_automatic_timestep)
+        automatic_timestep = (hasattr(self.options.timestepper_options, 'use_automatic_timestep')
+                              and self.options.timestepper_options.use_automatic_timestep)
 
         cfl2d = self.timestepper.cfl_coeff_2d
         cfl3d = self.timestepper.cfl_coeff_3d
@@ -558,9 +558,9 @@ class FlowSolver(FrozenClass):
             self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H)
         else:
             self.tracer_limiter = None
-        if (self.options.use_limiter_for_velocity and
-                self.options.polynomial_degree > 0 and
-                self.options.element_family == 'dg-dg'):
+        if (self.options.use_limiter_for_velocity
+                and self.options.polynomial_degree > 0
+                and self.options.element_family == 'dg-dg'):
             self.uv_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.U)
         else:
             self.uv_limiter = None

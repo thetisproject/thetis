@@ -89,9 +89,9 @@ class FieldDict(AttrDict):
             if not isinstance(value, (FiredrakeFunction, FiredrakeConstant)):
                 raise TypeError('Value must be a Function or Constant object')
             fs = value.function_space()
-            is_mixed = (isinstance(fs, MixedFunctionSpace) or
-                        (isinstance(fs, WithGeometry) and
-                         isinstance(fs.topological, MixedFunctionSpace)))
+            is_mixed = (isinstance(fs, MixedFunctionSpace)
+                        or (isinstance(fs, WithGeometry)
+                            and isinstance(fs.topological, MixedFunctionSpace)))
             if not is_mixed and key not in field_metadata:
                 msg = 'Trying to add a field "{:}" that has no metadata. ' \
                       'Add field_metadata entry to field_defs.py'.format(key)
@@ -383,20 +383,16 @@ class VerticalVelocitySolver(object):
         # NOTE weak div(uv)
         uv_star = avg(uv)
         # NOTE in the case of mimetic uv the div must be taken over all components
-        l = (inner(uv, nabla_grad(test[2]))*self.dx -
-             (uv_star[0]*jump(test[2], normal[0]) +
-              uv_star[1]*jump(test[2], normal[1]) +
-              uv_star[2]*jump(test[2], normal[2])
-              )*(self.dS_v) -
-             (uv_star[0]*jump(test[2], normal[0]) +
-              uv_star[1]*jump(test[2], normal[1]) +
-              uv_star[2]*jump(test[2], normal[2])
-              )*(self.dS_h) -
-             (uv[0]*normal[0] +
-              uv[1]*normal[1] +
-              uv[2]*normal[2]
-              )*test[2]*self.ds_surf
-             )
+        l_v_facet = (uv_star[0]*jump(test[2], normal[0])
+                     + uv_star[1]*jump(test[2], normal[1])
+                     + uv_star[2]*jump(test[2], normal[2]))*self.dS_v
+        l_h_facet = (uv_star[0]*jump(test[2], normal[0])
+                     + uv_star[1]*jump(test[2], normal[1])
+                     + uv_star[2]*jump(test[2], normal[2]))*self.dS_h
+        l_surf = (uv[0]*normal[0]
+                  + uv[1]*normal[1] + uv[2]*normal[2])*test[2]*self.ds_surf
+        l_vol = inner(uv, nabla_grad(test[2]))*self.dx
+        l = l_vol - l_v_facet - l_h_facet - l_surf
         for bnd_marker in sorted(mesh.exterior_facets.unique_markers):
             funcs = boundary_funcs.get(bnd_marker)
             ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
@@ -1335,8 +1331,8 @@ def beta_plane_coriolis_function(latitude, out_function, y_offset=0.0):
     """
     # NOTE assumes that mesh y coordinate spans [-L_y, L_y]
     f0, beta = beta_plane_coriolis_params(latitude)
-    out_function.interpolate(
-        Expression('f0+beta*(x[1]-y_0)', f0=f0, beta=beta, y_0=y_offset))
+    coords = SpatialCoordinate(out_function.function_space().mesh())
+    out_function.interpolate(f0 + beta * (coords[1] - y_offset))
 
 
 class SmagorinskyViscosity(object):
@@ -1547,13 +1543,13 @@ class JackettEquationOfState(EquationOfState):
     def eval(self, s, th, p, rho0=0.0):
         a = self.a
         b = self.b
-        pn = (a[0] + th*a[1] + th*th*a[2] + th*th*th*a[3] + s*a[4] +
-              th*s*a[5] + s*s*a[6] + p*a[7] + p*th * th*a[8] + p*s*a[9] +
-              p*p*a[10] + p*p*th*th * a[11])
-        pd = (b[0] + th*b[1] + th*th*b[2] + th*th*th*b[3] +
-              th*th*th*th*b[4] + s*b[5] + s*th*b[6] + s*th*th*th*b[7] +
-              pow(s, 1.5)*b[8] + pow(s, 1.5)*th*th*b[9] + p*b[10] +
-              p*p*th*th*th*b[11] + p*p*p*th*b[12])
+        pn = (a[0] + th*a[1] + th*th*a[2] + th*th*th*a[3] + s*a[4]
+              + th*s*a[5] + s*s*a[6] + p*a[7] + p*th * th*a[8] + p*s*a[9]
+              + p*p*a[10] + p*p*th*th * a[11])
+        pd = (b[0] + th*b[1] + th*th*b[2] + th*th*th*b[3]
+              + th*th*th*th*b[4] + s*b[5] + s*th*b[6] + s*th*th*th*b[7]
+              + pow(s, 1.5)*b[8] + pow(s, 1.5)*th*th*b[9] + p*b[10]
+              + p*p*th*th*th*b[11] + p*p*p*th*b[12])
         rho = pn/pd - rho0
         return rho
 
@@ -1596,9 +1592,9 @@ class LinearEquationOfState(EquationOfState):
 
         Pressure is ingored in this equation of state.
         """
-        rho = (self.rho_ref - rho0 -
-               self.alpha*(th - self.th_ref) +
-               self.beta*(s - self.S_ref))
+        rho = (self.rho_ref - rho0
+               - self.alpha*(th - self.th_ref)
+               + self.beta*(s - self.S_ref))
         return rho
 
     def eval(self, s, th, p, rho0=0.0):

@@ -201,8 +201,9 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     # temp_init3d.interpolate(conditional(x > 0.0, temp_right, temp_left))
     # smooth condition
     sigma = 10.0
-    temp_init3d.interpolate(temp_left -
-                            (temp_left - temp_right)*0.5*(tanh(x/sigma) + 1.0))
+    temp_init3d.interpolate(
+        temp_left - (temp_left - temp_right)*0.5*(tanh(x/sigma) + 1.0)
+    )
 
     if load_export_ix is None:
         solver_obj.assign_initial_conditions(temp=temp_init3d)

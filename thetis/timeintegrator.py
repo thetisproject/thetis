@@ -132,8 +132,8 @@ class ForwardEuler(TimeIntegrator):
         u_old = self.solution_old
         u_tri = self.equation.trial
         self.A = self.equation.mass_term(u_tri)
-        self.L = (self.equation.mass_term(u_old) +
-                  self.dt_const*self.equation.residual('all', u_old, u_old, self.fields_old, self.fields_old, self.bnd_conditions)
+        self.L = (self.equation.mass_term(u_old)
+                  + self.dt_const*self.equation.residual('all', u_old, u_old, self.fields_old, self.fields_old, bnd_conditions)
                   )
 
         self.update_solver()
@@ -256,10 +256,9 @@ class CrankNicolson(TimeIntegrator):
 
         # Crank-Nicolson
         theta_const = Constant(theta)
-        self.F = (self.equation.mass_term(u) - self.equation.mass_term(u_old) -
-                  self.dt_const*(theta_const*self.equation.residual('all', u, u_nl, f, f, self.bnd_conditions) +
-                                 (1-theta_const)*self.equation.residual('all', u_old, u_old, f_old, f_old, self.bnd_conditions)
-                                 )
+        self.F = (self.equation.mass_term(u) - self.equation.mass_term(u_old)
+                  - self.dt_const*(theta_const*self.equation.residual('all', u, u_nl, f, f, bnd)
+                                   + (1-theta_const)*self.equation.residual('all', u_old, u_old, f_old, f_old, bnd))
                   )
 
         self.update_solver()
@@ -556,8 +555,8 @@ class PressureProjectionPicard(TimeIntegrator):
         # form for mom. eqn.:
         theta_const = Constant(theta)
         self.F_mom = (
-            self.equation_mom.mass_term(self.uv_star)-self.equation_mom.mass_term(uv_old) -
-            self.dt_const*(
+            self.equation_mom.mass_term(self.uv_star)-self.equation_mom.mass_term(uv_old)
+            - self.dt_const*(
                 theta_const*self.equation_mom.residual('all', self.uv_star, uv_star_nl, fields_mom, fields_mom, bnd_conditions)
                 + (1-theta_const)*self.equation_mom.residual('all', uv_old, uv_old, fields_mom_old, fields_mom_old, bnd_conditions)
             )
@@ -571,8 +570,8 @@ class PressureProjectionPicard(TimeIntegrator):
         uv_test, eta_test = split(self.equation.test)
         mass_term_star = inner(uv_test, self.uv_star)*dx + inner(eta_test, eta_old)*dx
         self.F = (
-            self.equation.mass_term(self.solution) - mass_term_star -
-            self.dt_const*(
+            self.equation.mass_term(self.solution) - mass_term_star
+            - self.dt_const*(
                 theta_const*self.equation.residual('implicit', self.solution, solution_nl, self.fields, self.fields, bnd_conditions)
                 + (1-theta_const)*self.equation.residual('implicit', self.solution_old, self.solution_old, self.fields_old, self.fields_old, bnd_conditions)
             )
