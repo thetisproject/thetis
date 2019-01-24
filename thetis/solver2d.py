@@ -297,7 +297,7 @@ class FlowSolver2d(FrozenClass):
                                      wetting_and_drying_alpha=self.options.wetting_and_drying_alpha)
 
         # ----- Equations
-        if self.options.conservative_formulation:
+        if self.options.use_conservative_swe:
             self.eq_sw = conservative_sw_eq.CShallowWaterEquations(
                 self.fields.solution_2d.function_space(),
                 self.depth,
@@ -508,7 +508,7 @@ class FlowSolver2d(FrozenClass):
         """
         if not self._initialized:
             self.initialize()
-        if self.options.conservative_formulation:
+        if self.options.use_conservative_swe:
             hu_2d, h_2d = self.fields.solution_2d.split()
             if elev is not None:
                 h_2d.project(elev + self.fields.bathymetry_2d)
@@ -545,7 +545,7 @@ class FlowSolver2d(FrozenClass):
         Also evaluates all callbacks set to 'export' interval.
         """
         self.callbacks.evaluate(mode='export')
-        if self.options.conservative_formulation:
+        if self.options.use_conservative_swe:
             # compute elevation and uv
             h_tmp = Function(self.function_spaces.H_2d)
             h_tmp.assign(self.fields.elev_2d)
@@ -555,7 +555,7 @@ class FlowSolver2d(FrozenClass):
             self.fields.elev_2d.interpolate(self.fields.elev_2d - self.fields.bathymetry_2d)
         for e in self.exporters.values():
             e.export()
-        if self.options.conservative_formulation:
+        if self.options.use_conservative_swe:
             self.fields.elev_2d.assign(h_tmp)
             self.fields.uv_2d.assign(hu_tmp)
     def load_state(self, i_export, outputdir=None, t=None, iteration=None):
