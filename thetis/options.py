@@ -310,6 +310,8 @@ class GLSModelOptions(TurbulenceModelOptions):
             self.update(komega)
         elif closure_name == 'Generic Length Scale':
             self.update(gen)
+        else:
+            raise ValueError('Unknown closure name "{:}"'.format(closure_name))
 
 
 class EquationOfStateOptions(FrozenHasTraits):
