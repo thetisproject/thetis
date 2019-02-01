@@ -861,6 +861,10 @@ class FlowSolver(FrozenClass):
         self._initialized = True
         self._isfrozen = True
 
+        # Avoid additional nonlinear iterations if linear equations are used
+        if not self.options.use_nonlinear_equations:
+            self.options.timestepper_options.solver_parameters['snes_type'] = 'ksponly'
+
     def assign_initial_conditions(self, elev=None, salt=None, temp=None,
                                   uv_2d=None, uv_3d=None, tke=None, psi=None):
         """

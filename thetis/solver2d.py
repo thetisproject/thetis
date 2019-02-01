@@ -357,6 +357,10 @@ class FlowSolver2d(FrozenClass):
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
         self._isfrozen = True  # disallow creating new attributes
 
+        # Avoid additional nonlinear iterations if linear equations are used
+        if not self.options.use_nonlinear_equations:
+            self.options.timestepper_options.solver_parameters['snes_type'] = 'ksponly'
+
     def create_exporters(self):
         """
         Creates file exporters
