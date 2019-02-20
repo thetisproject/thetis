@@ -36,14 +36,19 @@ http://dx.doi.org/10.1357/002224003322005087
 """
 from __future__ import absolute_import
 import numpy as np
+from abc import ABC, abstractmethod
 
-__all__ = ('StabilityFunction',
-           'StabilityFunctionCanutoA',
-           'StabilityFunctionCanutoB',
-           'StabilityFunctionKanthaClayson',
-           'StabilityFunctionCheng',
-           'compute_normalized_frequencies'
-           )
+
+__all__ = [
+    'StabilityFunctionCanutoA',
+    'StabilityFunctionCanutoB',
+    'StabilityFunctionCheng',
+    'GOTMStabilityFunctionCanutoA',
+    'GOTMStabilityFunctionCanutoB',
+    'GOTMStabilityFunctionCheng',
+    'GOTMStabilityFunctionKanthaClayson',
+    'compute_normalized_frequencies'
+]
 
 
 def compute_normalized_frequencies(shear2, buoy2, k, eps):
@@ -70,8 +75,15 @@ def compute_normalized_frequencies(shear2, buoy2, k, eps):
     return alpha_buoy, alpha_shear
 
 
-class StabilityFunction(object):
-    """Base class for all stability functions"""
+class StabilityFunctionBase(ABC):
+    """
+    Base class for all stability functions
+    """
+    @property
+    @abstractmethod
+    def name(self):
+        pass
+
     def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
                  smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
         r"""
@@ -99,41 +111,23 @@ class StabilityFunction(object):
                 self.description += ['ac'+str(self.alpha_buoy_crit)]
         self.description = ' '.join(self.description)
 
-        # Umlauf and Buchard (2005) eq A.10
-        self.a1 = 2.0/3.0 - 0.5*self.cc2
-        self.a2 = 1.0 - 0.5*self.cc3
-        self.a3 = 1.0 - 0.5*self.cc4
-        self.a4 = 0.5*self.cc5
-        self.a5 = 0.5 - 0.5*self.cc6
+        # denominator
+        self.d0 = 1.0
+        self.d1 = 1.0
+        self.d2 = 1.0
+        self.d3 = 1.0
+        self.d4 = 1.0
+        self.d5 = 1.0
 
-        self.ab1 = 1.0 - self.cb2
-        self.ab2 = 1.0 - self.cb3
-        self.ab3 = 2.0*(1.0 - self.cb4)
-        self.ab4 = 2.0*(1.0 - self.cb5)
-        self.ab5 = 2.0*self.cbb*(1.0 - self.cb5)
+        # c_mu
+        self.n0 = 0.0
+        self.n1 = 0.0
+        self.n2 = 0.0
 
-        # Umlauf and Buchard (2005) eq A.12
-        self.nn = 0.5*self.cc1
-        self.nb = self.cb1
-
-        # Umlauf and Buchard (2005) eq A.9
-        self.d0 = 36.0*self.nn**3*self.nb**2
-        self.d1 = 84.0*self.a5*self.ab3*self.nn**2*self.nb + 36.0*self.ab5*self.nn**3*self.nb
-        self.d2 = 9.0*(self.ab2**2 - self.ab1**2)*self.nn**3 - 12.0*(self.a2**2 - 3.0*self.a3**2)*self.nn*self.nb**2
-        self.d3 = 12.0*self.a5*self.ab3*(self.a2*self.ab1 - 3.0*self.a3*self.ab2)*self.nn +\
-            12.0*self.a5*self.ab3*(self.a3**2 - self.a2**2)*self.nb +\
-            12.0*self.ab5*(3.0*self.a3**2 - self.a2**2)*self.nn*self.nb
-        self.d4 = 48.0*self.a5**2*self.ab3**2*self.nn + 36.0*self.a5*self.ab3*self.ab5*self.nn**2
-        self.d5 = 3.0*(self.a2**2 - 3.0*self.a3**2)*(self.ab1**2 - self.ab2**2)*self.nn
-        self.n0 = 36.0*self.a1*self.nn**2*self.nb**2
-        self.n1 = -12.0*self.a5*self.ab3*(self.ab1 + self.ab2)*self.nn**2 +\
-            8.0*self.a5*self.ab3*(6.0*self.a1 - self.a2 - 3.0*self.a3)*self.nn*self.nb +\
-            36.0*self.a1*self.ab5*self.nn**2*self.nb
-        self.n2 = 9.0*self.a1*(self.ab2**2 - self.ab1**2)*self.nn**2
-        self.nb0 = 12.0*self.ab3*self.nn**3*self.nb
-        self.nb1 = 12.0*self.a5*self.ab3**2*self.nn**2
-        self.nb2 = 9.0*self.a1*self.ab3*(self.ab1 - self.ab2)*self.nn**2 +\
-            (6.0*self.a1*(self.a2 - 3.0*self.a3) - 4.0*(self.a2**2 - 3.0*self.a3**2))*self.ab3*self.nn*self.nb
+        # c_mu_p
+        self.nb0 = 0.0
+        self.nb1 = 0.0
+        self.nb2 = 0.0
 
     def compute_alpha_shear_steady(self, ri_st, analytical=True):
         if not analytical:
@@ -176,7 +170,7 @@ class StabilityFunction(object):
         where :math:`Ri_{st}` is the steady state gradient Richardson number.
         (see Burchard and Bolding, 2001, eq 32)
         """
-        a_shear = self.compute_alpha_shear_steady(ri_st)
+        a_shear = self.compute_alpha_shear_steady(ri_st, analytical=False)
 
         # compute aN from Ri_st and aM, Ri_st = aN/aM
         a_buoy = ri_st*a_shear
@@ -199,7 +193,32 @@ class StabilityFunction(object):
 
         Umlauf and Buchard (2005) eq A.22
         """
-        cm0 = ((self.a2**2 - 3*self.a3**2 + 3*self.a1*self.nn)/(3 * self.nn**2))**0.25
+        from scipy.optimize import minimize
+        a_buoy = 0.0
+
+        def cost(a_shear):
+            s_m, s_h = self.eval_funcs(a_buoy, a_shear)
+            res = s_m*a_shear - 1.0
+            return res**2
+        p = minimize(cost, 1.0)
+        assert p.success, 'solving alpha_shear failed'
+        a_shear = p.x[0]
+        print(a_shear)
+        s_m, s_h = self.eval_funcs(a_buoy, a_shear)
+        cm0 = s_m**0.25
+        print(cm0)
+
+        a = self.d5 - self.n2
+        b = self.d2 - self.n0
+        c = self.d0
+        alpha_shear = (-b + np.sqrt(b**2 - 4*a*c))/2/a
+        print(a_shear)
+        s_m, s_h = self.eval_funcs(a_buoy, a_shear)
+        cm0 = s_m**0.25
+        print(cm0)
+
+        #cm0 = ((self.a2**2 - 3*self.a3**2 + 3*self.a1*self.nn)/(3 * self.nn**2))**0.25
+        #print(cm0)
         return cm0
 
     def compute_kappa(self, sigma_psi, cmu0, n, c1, c2):
@@ -318,117 +337,464 @@ class StabilityFunction(object):
         return self.eval_funcs(alpha_buoy, alpha_shear)
 
 
-class StabilityFunctionCanutoA(StabilityFunction):
+class GOTMStabilityFunctionBase(StabilityFunctionBase, ABC):
+    """
+    Base class for stability functions defined in Umlauf and Buchard (2005)
+    """
+    @property
+    @abstractmethod
+    def cc1(self):
+        pass
+
+    @property
+    @abstractmethod
+    def cc2(self):
+        pass
+
+    @property
+    @abstractmethod
+    def cc3(self):
+        pass
+
+    @property
+    @abstractmethod
+    def cc4(self):
+        pass
+
+    @property
+    @abstractmethod
+    def cc5(self):
+        pass
+
+    @property
+    @abstractmethod
+    def cc6(self):
+        pass
+
+    @property
+    @abstractmethod
+    def cb1(self):
+        pass
+
+    @property
+    @abstractmethod
+    def cb2(self):
+        pass
+
+    @property
+    @abstractmethod
+    def cb3(self):
+        pass
+
+    @property
+    @abstractmethod
+    def cb4(self):
+        pass
+
+    @property
+    @abstractmethod
+    def cb5(self):
+        pass
+
+    @property
+    @abstractmethod
+    def cbb(self):
+        pass
+
+    def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
+                 smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
+        r"""
+        :kwarg bool lim_alpha_shear: limit maximum :math:`\alpha_M` values
+            (see Umlauf and Burchard (2005) eq. 44)
+        :kwarg bool lim_alpha_buoy: limit minimum (negative) :math:`\alpha_N` values
+            (see Umlauf and Burchard (2005))
+        :kwarg bool smooth_alpha_buoy_lim: if :math:`\alpha_N` is limited, apply a
+            smooth limiter (see Burchard and Bolding (2001) eq. 19). Otherwise
+            :math:`\alpha_N` is clipped at minimum value.
+        :kwarg float alpha_buoy_crit: parameter for :math:`\alpha_N` smooth limiter
+        """
+        super().__init__(lim_alpha_shear, lim_alpha_buoy,
+                         smooth_alpha_buoy_lim, alpha_buoy_crit)
+
+        # Umlauf and Buchard (2005) eq A.10
+        self.a1 = 2.0/3.0 - 0.5*self.cc2
+        self.a2 = 1.0 - 0.5*self.cc3
+        self.a3 = 1.0 - 0.5*self.cc4
+        self.a4 = 0.5*self.cc5
+        self.a5 = 0.5 - 0.5*self.cc6
+
+        self.ab1 = 1.0 - self.cb2
+        self.ab2 = 1.0 - self.cb3
+        self.ab3 = 2.0*(1.0 - self.cb4)
+        self.ab4 = 2.0*(1.0 - self.cb5)
+        self.ab5 = 2.0*self.cbb*(1.0 - self.cb5)
+
+        # Umlauf and Buchard (2005) eq A.12
+        self.nn = 0.5*self.cc1
+        self.nb = self.cb1
+
+        # Umlauf and Buchard (2005) eq A.9
+        self.d0 = 36.0*self.nn**3*self.nb**2
+        self.d1 = 84.0*self.a5*self.ab3*self.nn**2*self.nb + 36.0*self.ab5*self.nn**3*self.nb
+        self.d2 = 9.0*(self.ab2**2 - self.ab1**2)*self.nn**3 - 12.0*(self.a2**2 - 3.0*self.a3**2)*self.nn*self.nb**2
+        self.d3 = 12.0*self.a5*self.ab3*(self.a2*self.ab1 - 3.0*self.a3*self.ab2)*self.nn +\
+            12.0*self.a5*self.ab3*(self.a3**2 - self.a2**2)*self.nb +\
+            12.0*self.ab5*(3.0*self.a3**2 - self.a2**2)*self.nn*self.nb
+        self.d4 = 48.0*self.a5**2*self.ab3**2*self.nn + 36.0*self.a5*self.ab3*self.ab5*self.nn**2
+        self.d5 = 3.0*(self.a2**2 - 3.0*self.a3**2)*(self.ab1**2 - self.ab2**2)*self.nn
+        self.n0 = 36.0*self.a1*self.nn**2*self.nb**2
+        self.n1 = -12.0*self.a5*self.ab3*(self.ab1 + self.ab2)*self.nn**2 +\
+            8.0*self.a5*self.ab3*(6.0*self.a1 - self.a2 - 3.0*self.a3)*self.nn*self.nb +\
+            36.0*self.a1*self.ab5*self.nn**2*self.nb
+        self.n2 = 9.0*self.a1*(self.ab2**2 - self.ab1**2)*self.nn**2
+        self.nb0 = 12.0*self.ab3*self.nn**3*self.nb
+        self.nb1 = 12.0*self.a5*self.ab3**2*self.nn**2
+        self.nb2 = 9.0*self.a1*self.ab3*(self.ab1 - self.ab2)*self.nn**2 +\
+            (6.0*self.a1*(self.a2 - 3.0*self.a3) - 4.0*(self.a2**2 - 3.0*self.a3**2))*self.ab3*self.nn*self.nb
+
+
+class CanutoStabilityFunctionBase(StabilityFunctionBase, ABC):
+    """
+    Base class for original Canuto stability function.
+    """
+    @property
+    @abstractmethod
+    def l1(self):
+        pass
+
+    @property
+    @abstractmethod
+    def l2(self):
+        pass
+
+    @property
+    @abstractmethod
+    def l3(self):
+        pass
+
+    @property
+    @abstractmethod
+    def l4(self):
+        pass
+
+    @property
+    @abstractmethod
+    def l5(self):
+        pass
+
+    @property
+    @abstractmethod
+    def l6(self):
+        pass
+
+    @property
+    @abstractmethod
+    def l7(self):
+        pass
+
+    @property
+    @abstractmethod
+    def l8(self):
+        pass
+
+    def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
+                 smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
+        r"""
+        :kwarg bool lim_alpha_shear: limit maximum :math:`\alpha_M` values
+            (see Umlauf and Burchard (2005) eq. 44)
+        :kwarg bool lim_alpha_buoy: limit minimum (negative) :math:`\alpha_N` values
+            (see Umlauf and Burchard (2005))
+        :kwarg bool smooth_alpha_buoy_lim: if :math:`\alpha_N` is limited, apply a
+            smooth limiter (see Burchard and Bolding (2001) eq. 19). Otherwise
+            :math:`\alpha_N` is clipped at minimum value.
+        :kwarg float alpha_buoy_crit: parameter for :math:`\alpha_N` smooth limiter
+        """
+        super().__init__(lim_alpha_shear, lim_alpha_buoy,
+                         smooth_alpha_buoy_lim, alpha_buoy_crit)
+
+        self.s0 = 1.5*self.l1*self.l5**2
+        self.s1 = -self.l4*(self.l6 + self.l7) + 2*self.l4*self.l5*(self.l1 - self.l2/3.0 - self.l3) + 1.5*self.l1*self.l5*self.l8
+        self.s2 = -3.0/8*self.l1*(self.l6**2 - self.l7**2)
+        self.s4 = 2*self.l5
+        self.s5 = 2*self.l4
+        self.s6 = 2.0/3*self.l5*(3*self.l3**2 - self.l2**2) - 0.5*self.l5*self.l1*(3*self.l3 - self.l2) + 0.75*self.l1*(self.l6 - self.l7)
+
+        self.dd0 = 3*self.l5**2
+        self.dd1 = self.l5*(7*self.l4 + 3*self.l8)
+        self.dd2 = self.l5**2*(3*self.l3**2 - self.l2**2) - 0.75*(self.l6**2 - self.l7**2)
+        self.dd3 = self.l4*(4*self.l4 + 3*self.l8)
+        self.dd5 = 0.25*(self.l2**2 - 3*self.l3**2)*(self.l6**2 - self.l7**2)
+        self.dd4 = self.l4*(self.l2*self.l6 - 3*self.l3*self.l7 - self.l5*(self.l2**2 - self.l3**2)) + self.l5*self.l8*(3*self.l3**2 - self.l2**2)
+
+        # unit conversion
+        self.alpha_scalar = 4
+        self.cu_scalar = 2
+
+        self.d0 = self.dd0
+        self.d1 = self.alpha_scalar*self.dd1
+        self.d2 = self.alpha_scalar*self.dd2
+        self.d3 = self.alpha_scalar**2*self.dd4
+        self.d4 = self.alpha_scalar**2*self.dd3
+        self.d5 = self.alpha_scalar**2*self.dd5
+        self.n0 = self.cu_scalar*self.s0
+        self.n1 = self.cu_scalar*self.alpha_scalar*self.s1
+        self.n2 = self.cu_scalar*self.alpha_scalar*self.s2
+        self.nb0 = self.cu_scalar*self.s4
+        self.nb1 = self.cu_scalar*self.alpha_scalar*self.s5
+        self.nb2 = self.cu_scalar*self.alpha_scalar*self.s6
+
+    def eval_funcs_new(self, alpha_buoy, alpha_shear):
+        r"""
+        Evaluate (unlimited) stability functions
+
+        From Canuto et al (2001)
+
+        :arg alpha_buoy: normalized buoyancy frequency :math:`\alpha_N`
+        :arg alpha_shear: normalized shear frequency :math:`\alpha_M`
+        """
+        tN2 = self.alpha_scalar*alpha_buoy
+        tS2 = self.alpha_scalar*alpha_shear
+        dsm = self.s0 + self.s1*tN2 + self.s2*tS2
+        dsh = self.s4 + self.s5*tN2 + self.s6*tS2
+        den = self.dd0 + self.dd1*tN2 + self.dd2*tS2 + self.dd3*tN2**2 + self.dd4*tN2*tS2 + self.dd5*tS2**2
+        sm = self.cu_scalar*dsm/den
+        sh = self.cu_scalar*dsh/den
+        return sm, sh
+
+
+class ChengStabilityFunctionBase(StabilityFunctionBase):
+    """
+    Base class for original Cheng stability function.
+    """
+    @property
+    @abstractmethod
+    def l1(self):
+        pass
+
+    @property
+    @abstractmethod
+    def l2(self):
+        pass
+
+    @property
+    @abstractmethod
+    def l3(self):
+        pass
+
+    @property
+    @abstractmethod
+    def l4(self):
+        pass
+
+    @property
+    @abstractmethod
+    def l5(self):
+        pass
+
+    @property
+    @abstractmethod
+    def l6(self):
+        pass
+
+    @property
+    @abstractmethod
+    def l7(self):
+        pass
+
+    @property
+    @abstractmethod
+    def l8(self):
+        pass
+
+    def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
+                 smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
+        r"""
+        :kwarg bool lim_alpha_shear: limit maximum :math:`\alpha_M` values
+            (see Umlauf and Burchard (2005) eq. 44)
+        :kwarg bool lim_alpha_buoy: limit minimum (negative) :math:`\alpha_N` values
+            (see Umlauf and Burchard (2005))
+        :kwarg bool smooth_alpha_buoy_lim: if :math:`\alpha_N` is limited, apply a
+            smooth limiter (see Burchard and Bolding (2001) eq. 19). Otherwise
+            :math:`\alpha_N` is clipped at minimum value.
+        :kwarg float alpha_buoy_crit: parameter for :math:`\alpha_N` smooth limiter
+        """
+        super().__init__(lim_alpha_shear, lim_alpha_buoy,
+                         smooth_alpha_buoy_lim, alpha_buoy_crit)
+
+        self.s0 = 0.5*self.l1
+        self.s1 = -1.0/3*self.l4*self.l5**-2*(self.l6 + self.l7) + 2.0/3*self.l4/self.l5*(self.l1 - 1.0/3*self.l2 - self.l3) + 0.5*self.l1/self.l5*self.l8
+        self.s2 = 1.0/8*self.l1*self.l5**-2*(self.l6**2 - self.l7**2)
+        self.s4 = 2.0/3/self.l5
+        self.s5 = 2.0/3*self.l4*self.l5**-2
+        self.s6 = 2.0/3/self.l5*(self.l3**2 - 1.0/3*self.l2**2) - 0.5*self.l1/self.l5*(self.l3 - 1.0/3*self.l2)
+
+        self.dd0 = 1
+        self.dd1 = (7.0/3*self.l4 + self.l8)/self.l5
+        self.dd2 = (self.l3**2 - 1.0/3*self.l2**2) - 0.25*self.l5**-2*(self.l6**2 - self.l7**2)
+        self.dd3 = 1.0/3*self.l4*self.l5**-2*(4*self.l4 + 3*self.l8)
+        self.dd4 = 1.0/3*self.l4*self.l5**-2*(self.l2*self.l6 - 3*self.l3*self.l7 - self.l5*(self.l2**2 - self.l3**2)) + self.l8*(self.l3**2 - 1.0/3*self.l2**2)/self.l5
+        self.dd5 = -1.0/4*self.l5**-2*(self.l3**2 - 1.0/3*self.l2**2)*(self.l6**2 - self.l7**2)
+
+        # unit conversion
+        self.alpha_scalar = 4
+        self.cu_scalar = 2
+
+        self.d0 = self.dd0
+        self.d1 = self.alpha_scalar*self.dd1
+        self.d2 = self.alpha_scalar*self.dd2
+        self.d3 = self.alpha_scalar**2*self.dd4
+        self.d4 = self.alpha_scalar**2*self.dd3
+        self.d5 = self.alpha_scalar**2*self.dd5
+        self.n0 = self.cu_scalar*self.s0
+        self.n1 = self.cu_scalar*self.alpha_scalar*self.s1
+        self.n2 = self.cu_scalar*self.alpha_scalar*self.s2
+        self.nb0 = self.cu_scalar*self.s4
+        self.nb1 = self.cu_scalar*self.alpha_scalar*self.s5
+        self.nb2 = self.cu_scalar*self.alpha_scalar*self.s6
+
+    def eval_funcs_new(self, alpha_buoy, alpha_shear):
+        r"""
+        Evaluate (unlimited) stability functions
+
+        From Canuto et al (2001)
+
+        :arg alpha_buoy: normalized buoyancy frequency :math:`\alpha_N`
+        :arg alpha_shear: normalized shear frequency :math:`\alpha_M`
+        """
+        tN2 = self.alpha_scalar*alpha_buoy
+        tS2 = self.alpha_scalar*alpha_shear
+        dsm = self.s0 + self.s1*tN2 + self.s2*tS2
+        dsh = self.s4 + self.s5*tN2 + self.s6*tS2
+        den = self.dd0 + self.dd1*tN2 + self.dd2*tS2 + self.dd3*tN2**2 + self.dd4*tN2*tS2 + self.dd5*tS2**2
+        sm = self.cu_scalar*dsm/den
+        sh = self.cu_scalar*dsh/den
+        return sm, sh
+
+
+class StabilityFunctionCanutoA(CanutoStabilityFunctionBase):
+    """
+    Canuto A stability function as defined in the Canuto (2001) paper.
+    """
+    l1 = 0.107
+    l2 = 0.0032
+    l3 = 0.0864
+    l4 = 0.12
+    l5 = 11.9
+    l6 = 0.4
+    l7 = 0
+    l8 = 0.48
+    name = 'Canuto A'
+
+
+class StabilityFunctionCanutoB(CanutoStabilityFunctionBase):
+    """
+    Canuto B stability function as defined in the Canuto (2001) paper.
+    """
+    l1 = 0.127
+    l2 = 0.00336
+    l3 = 0.0906
+    l4 = 0.101
+    l5 = 11.2
+    l6 = 0.4
+    l7 = 0
+    l8 = 0.318
+    name = 'Canuto B'
+
+
+class StabilityFunctionCheng(ChengStabilityFunctionBase):
+    """
+    Cheng stability function as defined in the Cheng et al (2002) paper.
+    """
+    l1 = 0.107
+    l2 = 0.0032
+    l3 = 0.0864
+    l4 = 0.1
+    l5 = 11.04
+    l6 = 0.786
+    l7 = 0.643
+    l8 = 0.547
+    name = 'Cheng'
+
+
+class GOTMStabilityFunctionCanutoA(GOTMStabilityFunctionBase):
     """
     Canuto et al. (2001) version A stability functions
 
     Parameters are from Umlauf and Buchard (2005), Table 1
     """
-    def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
-                 smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
-        self.cc1 = 5.0000
-        self.cc2 = 0.8000
-        self.cc3 = 1.9680
-        self.cc4 = 1.1360
-        self.cc5 = 0.0000
-        self.cc6 = 0.4000
-
-        self.cb1 = 5.9500
-        self.cb2 = 0.6000
-        self.cb3 = 1.0000
-        self.cb4 = 0.0000
-        self.cb5 = 0.3333
-        self.cbb = 0.7200
-
-        self.alpha_buoy_min = -2.324    # (table 3 in Umlauf and Burchard, 2005)
-        self.name = 'Canuto A'
-
-        super(StabilityFunctionCanutoA, self).__init__(lim_alpha_shear, lim_alpha_buoy,
-                                                       smooth_alpha_buoy_lim, alpha_buoy_crit)
+    cc1 = 5.0000
+    cc2 = 0.8000
+    cc3 = 1.9680
+    cc4 = 1.1360
+    cc5 = 0.0000
+    cc6 = 0.4000
+    cb1 = 5.9500
+    cb2 = 0.6000
+    cb3 = 1.0000
+    cb4 = 0.0000
+    cb5 = 0.3333
+    cbb = 0.7200
+    name = 'Canuto A'
 
 
-class StabilityFunctionCanutoB(StabilityFunction):
+class GOTMStabilityFunctionCanutoB(GOTMStabilityFunctionBase):
     """
     Canuto et al. (2001) version B stability functions
 
     Parameters are from Umlauf and Buchard (2005), Table 1
     """
-    def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
-                 smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
-        self.cc1 = 5.0000
-        self.cc2 = 0.6983
-        self.cc3 = 1.9664
-        self.cc4 = 1.0940
-        self.cc5 = 0.0000
-        self.cc6 = 0.4950
-
-        self.cb1 = 5.6000
-        self.cb2 = 0.6000
-        self.cb3 = 1.0000
-        self.cb4 = 0.0000
-        self.cb5 = 0.3333
-        self.cbb = 0.4770
-
-        self.alpha_buoy_min = -3.093    # (table 3 in Umlauf and Burchard, 2005)
-        self.name = 'Canuto B'
-
-        super(StabilityFunctionCanutoB, self).__init__(lim_alpha_shear, lim_alpha_buoy,
-                                                       smooth_alpha_buoy_lim, alpha_buoy_crit)
+    cc1 = 5.0000
+    cc2 = 0.6983
+    cc3 = 1.9664
+    cc4 = 1.0940
+    cc5 = 0.0000
+    cc6 = 0.4950
+    cb1 = 5.6000
+    cb2 = 0.6000
+    cb3 = 1.0000
+    cb4 = 0.0000
+    cb5 = 0.3333
+    cbb = 0.4770
+    name = 'Canuto B'
 
 
-class StabilityFunctionKanthaClayson(StabilityFunction):
+class GOTMStabilityFunctionKanthaClayson(GOTMStabilityFunctionBase):
     """
     Kantha and Clayson (1994) quasi-equilibrium stability functions
 
     Parameters are from Umlauf and Buchard (2005), Table 1
     """
-    def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
-                 smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
-        self.cc1 = 6.0000
-        self.cc2 = 0.3200
-        self.cc3 = 0.0000
-        self.cc4 = 0.0000
-        self.cc5 = 0.0000
-        self.cc6 = 0.0000
-
-        self.cb1 = 3.7280
-        self.cb2 = 0.7000
-        self.cb3 = 0.7000
-        self.cb4 = 0.0000
-        self.cb5 = 0.2000
-        self.cbb = 0.6102
-
-        self.alpha_buoy_min = -1.312  # (table 3 in Umlauf and Burchard, 2005)
-        self.name = 'Kantha Clayson'
-
-        super(StabilityFunctionKanthaClayson, self).__init__(lim_alpha_shear, lim_alpha_buoy,
-                                                             smooth_alpha_buoy_lim, alpha_buoy_crit)
+    cc1 = 6.0000
+    cc2 = 0.3200
+    cc3 = 0.0000
+    cc4 = 0.0000
+    cc5 = 0.0000
+    cc6 = 0.0000
+    cb1 = 3.7280
+    cb2 = 0.7000
+    cb3 = 0.7000
+    cb4 = 0.0000
+    cb5 = 0.2000
+    cbb = 0.6102
+    name = 'Kantha Clayson'
 
 
-class StabilityFunctionCheng(StabilityFunction):
+class GOTMStabilityFunctionCheng(GOTMStabilityFunctionBase):
     """
     Cheng et al. (2002) quasi-equilibrium stability functions
 
     Parameters are from Umlauf and Buchard (2005), Table 1
     """
-    def __init__(self, lim_alpha_shear=True, lim_alpha_buoy=True,
-                 smooth_alpha_buoy_lim=True, alpha_buoy_crit=-1.2):
-        self.cc1 = 5.0000
-        self.cc2 = 0.7983
-        self.cc3 = 1.9680
-        self.cc4 = 1.1360
-        self.cc5 = 0.0000
-        self.cc6 = 0.5000
-
-        self.cb1 = 5.5200
-        self.cb2 = 0.2134
-        self.cb3 = 0.3570
-        self.cb4 = 0.0000
-        self.cb5 = 0.3333
-        self.cbb = 0.8200
-
-        self.alpha_buoy_min = -2.029  # (table 3 in Umlauf and Burchard, 2005)
-        self.name = 'Cheng'
-
-        super(StabilityFunctionCheng, self).__init__(lim_alpha_shear, lim_alpha_buoy,
-                                                     smooth_alpha_buoy_lim, alpha_buoy_crit)
+    cc1 = 5.0000
+    cc2 = 0.7983
+    cc3 = 1.9680
+    cc4 = 1.1360
+    cc5 = 0.0000
+    cc6 = 0.5000
+    cb1 = 5.5200
+    cb2 = 0.2134
+    cb3 = 0.3570
+    cb4 = 0.0000
+    cb5 = 0.3333
+    cbb = 0.8200
+    name = 'Cheng'
