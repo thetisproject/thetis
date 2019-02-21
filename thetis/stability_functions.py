@@ -37,6 +37,7 @@ http://dx.doi.org/10.1357/002224003322005087
 from __future__ import absolute_import
 import numpy as np
 from abc import ABC, abstractmethod
+from scipy.optimize import minimize
 
 
 __all__ = [
@@ -136,7 +137,6 @@ class StabilityFunctionBase(ABC):
             # s_m*a_shear - s_h*a_shear*ri_st = 1.0
             # to solve a_shear at equilibrium
             # NOTE may fail/return incorrect solution for ri_st < -4
-            from scipy.optimize import minimize
 
             def cost(a_shear):
                 a_buoy = ri_st*a_shear
@@ -187,38 +187,31 @@ class StabilityFunctionBase(ABC):
 
         return c3_minus
 
-    def compute_cmu0(self):
+    def compute_cmu0(self, analytical=True):
         """
         Computes the paramenter c_mu_0 from stability function parameters
 
         Umlauf and Buchard (2005) eq A.22
         """
-        from scipy.optimize import minimize
         a_buoy = 0.0
-
-        def cost(a_shear):
+        if analytical:
+            a = self.d5 - self.n2
+            b = self.d2 - self.n0
+            c = self.d0
+            a_shear = (-b - np.sqrt(b**2 - 4*a*c))/2/a
             s_m, s_h = self.eval_funcs(a_buoy, a_shear)
-            res = s_m*a_shear - 1.0
-            return res**2
-        p = minimize(cost, 1.0)
-        assert p.success, 'solving alpha_shear failed'
-        a_shear = p.x[0]
-        print(a_shear)
-        s_m, s_h = self.eval_funcs(a_buoy, a_shear)
-        cm0 = s_m**0.25
-        print(cm0)
+            cm0 = s_m**0.25
+        else:
 
-        a = self.d5 - self.n2
-        b = self.d2 - self.n0
-        c = self.d0
-        alpha_shear = (-b + np.sqrt(b**2 - 4*a*c))/2/a
-        print(a_shear)
-        s_m, s_h = self.eval_funcs(a_buoy, a_shear)
-        cm0 = s_m**0.25
-        print(cm0)
-
-        #cm0 = ((self.a2**2 - 3*self.a3**2 + 3*self.a1*self.nn)/(3 * self.nn**2))**0.25
-        #print(cm0)
+            def cost(a_shear):
+                s_m, s_h = self.eval_funcs(a_buoy, a_shear)
+                res = s_m*a_shear - 1.0
+                return res**2
+            p = minimize(cost, 1.0)
+            assert p.success, 'solving alpha_shear failed'
+            a_shear = p.x[0]
+            s_m, s_h = self.eval_funcs(a_buoy, a_shear)
+            cm0 = s_m**0.25
         return cm0
 
     def compute_kappa(self, sigma_psi, cmu0, n, c1, c2):
