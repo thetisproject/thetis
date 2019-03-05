@@ -38,7 +38,7 @@ def test_thacker(n, dt, alpha, max_err):
     options.timestepper_options.implicitness_theta = 0.5
     options.timestepper_options.solver_parameters = {
         'snes_type': 'newtonls',
-        'snes_monitor': True,
+        'snes_monitor': None,
         'ksp_type': 'gmres',
         'pc_type': 'fieldsplit',
     }

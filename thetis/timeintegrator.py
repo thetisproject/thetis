@@ -152,7 +152,6 @@ class CrankNicolson(TimeIntegrator):
         :kwarg bool semi_implicit: If True use a linearized semi-implicit scheme
         """
         super(CrankNicolson, self).__init__(equation, solution, fields, dt, solver_parameters)
-        self.solver_parameters.setdefault('snes_monitor', False)
         if semi_implicit:
             self.solver_parameters.setdefault('snes_type', 'ksponly')
         else:
@@ -238,7 +237,6 @@ class SteadyState(TimeIntegrator):
         :kwarg dict solver_parameters: PETSc solver options
         """
         super(SteadyState, self).__init__(equation, solution, fields, dt, solver_parameters)
-        self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
         self.F = self.equation.residual('all', solution, solution, fields, fields, bnd_conditions)
         self.update_solver()

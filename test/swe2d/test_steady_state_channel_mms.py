@@ -62,7 +62,6 @@ def test_steady_state_channel_mms(options):
             'ksp_type': 'preonly',
             'pc_type': 'lu',
             'pc_factor_mat_solver_type': 'mumps',
-            'snes_monitor': False,
             'snes_type': 'newtonls',
         }
         if hasattr(solver_obj.options.timestepper_options, 'use_automatic_timestep'):

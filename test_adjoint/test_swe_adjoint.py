@@ -14,8 +14,8 @@ velocity_u = 2.0
 def basic_setup():
     lx = 100.0
     ly = 50.0
-    nx = 20.0
-    ny = 10.0
+    nx = 20
+    ny = 10
     mesh2d = RectangleMesh(nx, ny, lx, ly)
 
     # export interval in seconds
@@ -74,7 +74,6 @@ def setup_steady():
         'ksp_type': 'preonly',
         'pc_type': 'lu',
         'pc_factor_mat_solver_type': 'mumps',
-        'snes_monitor': False,
         'snes_type': 'newtonls',
     }
     solver_obj.create_equations()
@@ -91,7 +90,6 @@ def setup_unsteady():
         'ksp_type': 'preonly',
         'pc_type': 'lu',
         'pc_factor_mat_solver_type': 'mumps',
-        'snes_monitor': False,
         'snes_type': 'newtonls',
     }
     solver_obj.create_equations()
