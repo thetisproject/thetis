@@ -176,7 +176,7 @@ def test_callbacks(tmp_outputdir):
         value = h5file['value'][:]
         correct_value = np.zeros((11, 4))
         for row in range(11):
-            t = correct_time[row]
+            t = correct_time[row, 0]
             correct_value[row, :] = np.linspace(t, 2*t + 1, 4)
         assert np.allclose(time, correct_time)
         assert np.allclose(value, correct_value)
