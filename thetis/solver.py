@@ -968,6 +968,7 @@ class FlowSolver(FrozenClass):
             self.create_equations()
         if outputdir is None:
             outputdir = self.options.output_directory
+        self._simulation_continued = True
         # create new ExportManager with desired outputdir
         state_fields = ['uv_2d', 'elev_2d', 'uv_3d',
                         'salt_3d', 'temp_3d', 'tke_3d', 'psi_3d']
@@ -1023,8 +1024,6 @@ class FlowSolver(FrozenClass):
         self.next_export_t += self.options.simulation_export_time
         for e in self.exporters.values():
             e.set_next_export_ix(self.i_export + offset)
-
-        self._simulation_continued = True
 
     def print_state(self, cputime):
         """

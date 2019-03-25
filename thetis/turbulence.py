@@ -33,7 +33,7 @@ where :math:`M` and :math:`N` are the shear and buoyancy frequencies
         + \left(\frac{\partial v}{\partial z}\right)^2 \\
     N^2 &= -\frac{g}{\rho_0}\frac{\partial \rho}{\partial z}
 
-The generic lenght scale variable is defined as
+The generic length scale variable is defined as
 
 .. math::
     \psi = (c_\mu^0)^p k^m l^n
@@ -520,9 +520,9 @@ class GenericLengthScaleModel(TurbulenceModel):
                                name='negative buoyancy frequency')
 
         if self.solver.options.use_smooth_eddy_viscosity:
-            self.viscosity_native = Function(self.n2.function_space(),
+            self.viscosity_native = Function(self.k.function_space(),
                                              name='GLS viscosity')
-            self.diffusivity_native = Function(self.n2.function_space(),
+            self.diffusivity_native = Function(self.k.function_space(),
                                                name='GLS diffusivity')
             self.p1_averager = P1Average(solver.function_spaces.P0,
                                          solver.function_spaces.P1,
@@ -568,8 +568,6 @@ class GenericLengthScaleModel(TurbulenceModel):
             o.c3_minus = self.stability_func.compute_c3_minus(o.c1, o.c2, o.ri_st)
         if o.compute_psi_min:
             o.psi_min = (o.cmu0**(3.0 + o.p/o.n)*o.k_min**(3.0/2.0 + o.m/o.n)*o.eps_min**(-1.0))**o.n
-        else:
-            o.eps_min = o.cmu0**(3.0 + o.p/o.n)*o.k_min**(3.0/2.0 + o.m/o.n)*o.psi_min**(-1.0/o.n)
         # minimum length scale
         if o.compute_len_min:
             o.len_min = o.cmu0**3 * o.k_min**1.5 / o.eps_min
@@ -582,15 +580,29 @@ class GenericLengthScaleModel(TurbulenceModel):
         if self.rho is not None:
             self.buoy_frequency_solver = BuoyFrequencySolver(self.rho, self.n2,
                                                              self.n2_tmp)
-
-        self.initialize()
         print_output(self.options)
+        self._initialized = False
 
-    def initialize(self):
-        """Initializes fields"""
+    def initialize(self, l_init=0.01):
+        """
+        Initialize turbulent fields.
+
+        k is set to k_min value. epsilon and psi are set to a value that
+        corresponds to l_init length scale.
+
+        :arg l_init: initial value for turbulent length scale.
+        """
+        if not self.solver._simulation_continued:
+            o = self.options
+            eps_init = o.cmu0**3.0 * o.k_min**(3.0/2.0) / l_init
+            psi_init = (o.cmu0**(3.0 + o.p/o.n)*o.k_min**(3.0/2.0 + o.m/o.n)*eps_init**(-1.0))**o.n
+            self.k.assign(self.options.k_min)
+            self.psi.assign(psi_init)
+            self.epsilon.assign(eps_init)
         self.n2.assign(1e-12)
         self.n2_pos.assign(1e-12)
         self.n2_neg.assign(0.0)
+        self._initialized = True
         self.preprocess(init_solve=True)
         self.postprocess()
 
@@ -601,6 +613,9 @@ class GenericLengthScaleModel(TurbulenceModel):
 
         To be called before updating the turbulence PDEs.
         """
+
+        if self._initialized == False:
+            self.initialize()
 
         self.shear_frequency_solver.solve(init_solve=init_solve)
 
@@ -646,6 +661,7 @@ class GenericLengthScaleModel(TurbulenceModel):
                     np.maximum(self.psi.dat.data, val, self.psi.dat.data)
             set_func_min_val(self.psi, o.psi_min)
 
+
             # udpate epsilon
             self.epsilon.assign(cmu0**(3.0 + p/n)*self.k**(3.0/2.0 + m/n)*self.psi**(-1.0/n))
             if o.limit_eps:
@@ -653,7 +669,6 @@ class GenericLengthScaleModel(TurbulenceModel):
                 eps_min = cmu0**3.0/(np.sqrt(2)*galp_clim)*np.sqrt(n2_pos)*k_arr
                 np.maximum(self.epsilon.dat.data, eps_min, self.epsilon.dat.data)
             # impose minimum value
-            # FIXME this should not be need because psi is limited
             set_func_min_val(self.epsilon, o.eps_min)
 
             # update L
@@ -686,7 +701,9 @@ class GenericLengthScaleModel(TurbulenceModel):
             set_func_min_val(self.viscosity, o.visc_min)
             set_func_min_val(self.diffusivity, o.diff_min)
 
+            # print_output(' -----')
             # print_output('{:8s} {:10.3e} {:10.3e}'.format('k', self.k.dat.data.min(), self.k.dat.data.max()))
+            # print_output('{:8s} {:10.3e} {:10.3e}'.format('psi', self.psi.dat.data.min(), self.psi.dat.data.max()))
             # print_output('{:8s} {:10.3e} {:10.3e}'.format('eps', self.epsilon.dat.data.min(), self.epsilon.dat.data.max()))
             # print_output('{:8s} {:10.3e} {:10.3e}'.format('L', self.l.dat.data.min(), self.l.dat.data.max()))
             # print_output('{:8s} {:10.3e} {:10.3e}'.format('M2', self.m2.dat.data.min(), self.m2.dat.data.max()))
@@ -850,6 +867,7 @@ class PsiSourceTerm(TracerTerm):
                      * k**m * kappa**n * z_b**(n - 1.0))
         f += diff_flux*self.test*self.normal[2]*ds_bottom
         # surface condition
+        elem_frac = Constant(0.5)
         z0_surface = Constant(0.05)  # TODO generalize
         z_s = elem_frac*self.v_elem_size + z0_surface
         diff_flux = -(n*diffusivity_v*(cmu0)**p
