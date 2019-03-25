@@ -214,17 +214,17 @@ class GLSModelOptions(TurbulenceModelOptions):
                          help='bool: compute von Karman constant from :attr:`schmidt_nb_psi`').tag(config=True)
     compute_schmidt_nb_psi = Bool(True,
                                   help='bool: compute psi Schmidt number').tag(config=True)
-    k_min = PositiveFloat(1.0e-10,
+    k_min = PositiveFloat(1.0e-6,
                           help='float: minimum value for turbulent kinetic energy').tag(config=True)
     psi_min = PositiveFloat(1.0e-14, help='float: minimum value for psi').tag(config=True)
     eps_min = PositiveFloat(1.0e-14, help='float: minimum value for epsilon').tag(config=True)
-    len_min = PositiveFloat(1.0e-14,
+    len_min = PositiveFloat(1.0e-12,
                             help='float: minimum value for turbulent length scale').tag(config=True)
     compute_galperin_clim = Bool(True,
                                  help='bool: compute c_lim length scale limiting factor').tag(config=True)
-    compute_len_min = Bool(True,
+    compute_len_min = Bool(False,
                            help='bool: compute min_len from k_min and psi_min').tag(config=True)
-    compute_psi_min = Bool(True,
+    compute_psi_min = Bool(False,
                            help='bool: compute psi_len from k_min and eps_min').tag(config=True)
     visc_min = PositiveFloat(1.0e-8,
                              help='float: minimum value for eddy viscosity').tag(config=True)
@@ -264,7 +264,7 @@ class GLSModelOptions(TurbulenceModelOptions):
                     'c3_plus': 1.0,
                     'c3_minus': -0.52,
                     'f_wall': 1.0,
-                    'k_min': 1.0e-10,
+                    'k_min': 1.0e-6,
                     'eps_min': 1.0e-14,
                     'psi_min': 1.0e-14,
                     'closure_name': 'k-epsilon',
@@ -281,9 +281,9 @@ class GLSModelOptions(TurbulenceModelOptions):
                   'c3_plus': 1.0,
                   'c3_minus': -0.52,
                   'f_wall': 1.0,
-                  'k_min': 1.0e-10,
+                  'k_min': 7.6e-6,
                   'eps_min': 1.0e-14,
-                  'psi_min': 0.001,
+                  'psi_min': 1.0e-14,
                   'closure_name': 'k-omega',
                   }
         # k-omega defaults, from tables 1 and 2 in [3]
@@ -298,9 +298,9 @@ class GLSModelOptions(TurbulenceModelOptions):
                'c3_plus': 1.0,
                'c3_minus': 0.05,
                'f_wall': 1.0,
-               'k_min': 1.0e-10,
+               'k_min': 1.0e-6,
                'eps_min': 1.0e-14,
-               'psi_min': 4.7e-10,
+               'psi_min': 1.0e-14,
                'closure_name': 'Generic Length Scale',
                }
         # GLS model A defaults, from tables 1 and 2 in [3]
