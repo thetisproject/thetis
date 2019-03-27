@@ -53,10 +53,11 @@ def generate_pvd_file(outdir, fieldname, timesteps, usepvtu=False):
     :arg timesteps: list of time indices of vtu files to include in the pvd file
     :type timesteps: list of int
     """
-    template_header = """<?xml version="1.0"?>\n"""
-    template_openblock = """<VTKFile byte_order="LittleEndian" version="0.1" type="Collection">\n<Collection>\n"""
+
+    template_header = """<?xml version="1.0" ?>\n"""
+    template_openblock = """<VTKFile type="Collection" version="0.1" byte_order="LittleEndian">\n<Collection>\n"""
     template_closeblock = """</Collection>\n</VTKFile>\n"""
-    template_entry = """<DataSet timestep="{i}" part="0" group="" file="{name}_{i}.{ext}"/>\n"""
+    template_entry = """<DataSet timestep="{i}" file="{name}_{i}.{ext}" />"""
     extension = 'pvtu' if usepvtu else 'vtu'
 
     content = template_header
@@ -124,12 +125,12 @@ def process_args(outputdir, state_file, regenerate_pvd=True, timesteps=None,
     static_pvd_files = ['bath']  # outputs that are not time dependent
     # regenerate all existing PVD files
     if regenerate_pvd:
-        pvd_files = glob.glob(os.path.join(outputdir, '*.pvd'))
+        pvd_files = glob.glob(os.path.join(outputdir, '*/*.pvd'))
         for f in pvd_files:
             path, fname = os.path.split(f)
             fieldName, extension = os.path.splitext(fname)
             if fieldName not in static_pvd_files:
-                generate_pvd_file(outputdir, fieldName, timesteps, usepvtu=parallel_vtu)
+                generate_pvd_file(path, fieldName, timesteps, usepvtu=parallel_vtu)
     # read state file, replace directory with new one
     replace_path_in_xml(state_file, temp_state_file, outputdir)
     # lauch paraview with new independent thread
