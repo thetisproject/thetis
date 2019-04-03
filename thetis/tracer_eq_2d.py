@@ -181,7 +181,8 @@ class HorizontalDiffusionTerm(TracerTerm):
         - \int_{\mathcal{I}_h\cup\mathcal{I}_v} \text{jump}(T \textbf{n}_h)
         \cdot \text{avg}(\mu_h  \nabla \phi) dS \\
         &+ \int_{\mathcal{I}_h\cup\mathcal{I}_v} \sigma \text{avg}(\mu_h) \text{jump}(T \textbf{n}_h) \cdot
-            \text{jump}(\phi \textbf{n}_h) dS
+            \text{jump}(\phi \textbf{n}_h) dS \\
+        &- \int_\Gamma \mu_h (\nabla_h \phi) \cdot \textbf{n}_h ds
 
     where :math:`\sigma` is a penalty parameter,
     see Epshteyn and Riviere (2007).
@@ -225,6 +226,13 @@ class HorizontalDiffusionTerm(TracerTerm):
                         jump(solution, self.normal))*ds_interior
             f += -inner(jump(self.test, self.normal),
                         avg(dot(diff_tensor, grad(solution))))*ds_interior
+
+        if bnd_conditions is not None:
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                if funcs is None:
+                    f += -self.test*dot(diff_flux, self.normal)*ds_bnd
 
         return -f
 
