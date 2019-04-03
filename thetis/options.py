@@ -123,7 +123,6 @@ class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
         'sub_pc_type': 'ilu',
     }).tag(config=True)
     solver_parameters_momentum_implicit = PETScSolverParameters({
-        'snes_monitor': False,
         'snes_type': 'ksponly',
         'ksp_type': 'preonly',
         'pc_type': 'bjacobi',
@@ -138,7 +137,6 @@ class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
         'sub_pc_type': 'ilu',
     }).tag(config=True)
     solver_parameters_tracer_implicit = PETScSolverParameters({
-        'snes_monitor': False,
         'snes_type': 'ksponly',
         'ksp_type': 'preonly',
         'pc_type': 'bjacobi',

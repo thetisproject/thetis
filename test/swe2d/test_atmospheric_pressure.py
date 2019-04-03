@@ -38,7 +38,7 @@ def test_pressure_forcing(element_family, timestepper):
     eta_errs = []
 
     n_tests = 3
-    ns = [2.0**(i+1) for i in range(n_tests)]
+    ns = [2**(i+1) for i in range(n_tests)]
     if timestepper == 'CrankNicolson':
         dts = [2400.0/(2**i) for i in range(n_tests)]
     else:

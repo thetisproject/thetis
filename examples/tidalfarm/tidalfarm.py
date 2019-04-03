@@ -52,7 +52,7 @@ options.element_family = 'dg-cg'
 options.timestepper_type = 'CrankNicolson'
 options.timestepper_options.implicitness_theta = 0.6
 # using direct solver as PressurePicard does not work with dolfin-adjoint (due to .split() not being annotated correctly)
-options.timestepper_options.solver_parameters = {'snes_monitor': True,
+options.timestepper_options.solver_parameters = {'snes_monitor': None,
                                                  'snes_rtol': 1e-9,
                                                  'ksp_type': 'preonly',
                                                  'pc_type': 'lu',

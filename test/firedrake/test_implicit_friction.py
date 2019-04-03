@@ -102,15 +102,6 @@ def test_implicit_friction(do_export=False, do_assert=True):
     # ----- define solver
 
     sp = {}
-    # sp['mat_type'] = 'aij',
-    # sp['ksp_type'] = 'cg'
-    # sp['pc_type'] = 'lu'
-    # sp['snes_rtol'] = 1.0e-12
-    # sp['snes_monitor'] = True
-    # #sp['ksp_monitor'] = True
-    # sp['ksp_monitor_true_residual'] = True
-    # sp['snes_converged_reason'] = True
-    # sp['ksp_converged_reason'] = True
 
     dt = 3600.0
     time_steps = 13
