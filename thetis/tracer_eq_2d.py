@@ -32,7 +32,7 @@ class TracerTerm(Term):
     boundary functions.
     """
     def __init__(self, function_space, depth,
-                 use_lax_friedrichs=True, sipg_factor=Constant(1.0)):
+                 use_lax_friedrichs=True, sipg_factor=Constant(1.0), use_su=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
@@ -41,11 +41,12 @@ class TracerTerm(Term):
         """
         super(TracerTerm, self).__init__(function_space)
         self.depth = depth
-        self.cellsize = CellSize(self.mesh)
+        self.cellsize = CellSize(self.mesh)  # TODO: Account for anisotropy
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
         self.use_lax_friedrichs = use_lax_friedrichs
         self.sipg_factor = sipg_factor
+        self.use_su = use_su
 
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
@@ -110,6 +111,12 @@ class HorizontalAdvectionTerm(TracerTerm):
     :math:`\textbf{n}` is the unit normal of
     the element interfaces, and :math:`\text{jump}` and :math:`\text{avg}` denote the
     jump and average operators across the interface.
+
+    For the continuous Galerkin method we use
+
+    .. math::
+        \int_\Omega \bar{\textbf{u}} \cdot \boldsymbol{\psi} \cdot \nabla T  dx
+        = - \int_\Omega \nabla_h \cdot (\bar{\textbf{u}} \boldsymbol{\psi}) \cdot T dx.
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('uv_2d') is None:
@@ -139,22 +146,32 @@ class HorizontalAdvectionTerm(TracerTerm):
             if self.use_lax_friedrichs:
                 gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                 f += gamma*dot(jump(self.test), jump(solution))*self.dS
-            if bnd_conditions is not None:
-                for bnd_marker in self.boundary_markers:
-                    funcs = bnd_conditions.get(bnd_marker)
-                    ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                    c_in = solution
-                    if funcs is not None:
-                        c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
-                        uv_av = 0.5*(uv + uv_ext)
-                        un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
-                        s = 0.5*(sign(un_av) + 1.0)
-                        c_up = c_in*s + c_ext*(1-s)
-                        f += c_up*(uv_av[0]*self.normal[0]
-                                   + uv_av[1]*self.normal[1])*self.test*ds_bnd
-                    else:
-                        f += c_in * (uv[0]*self.normal[0]
-                                     + uv[1]*self.normal[1])*self.test*ds_bnd
+
+        elif self.use_su:
+            # SU stabilization
+            unorm = sqrt(inner(uv, uv))
+            tau = 0.5*self.cellsize/unorm
+            if fields_old.get('diffusivity_h') is not None:
+                Pe = 0.5*unorm*self.cellsize/fields_old['diffusivity_h']
+                tau = min_value(tau, Pe/3)
+            f += tau*inner(uv, grad(self.test))*dot(uv, grad(solution))*dx
+
+        if bnd_conditions is not None:
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                c_in = solution
+                if funcs is not None:
+                    c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                    uv_av = 0.5*(uv + uv_ext)
+                    un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
+                    s = 0.5*(sign(un_av) + 1.0)
+                    c_up = c_in*s + c_ext*(1-s)
+                    f += c_up*(uv_av[0]*self.normal[0]
+                               + uv_av[1]*self.normal[1])*self.test*ds_bnd
+                else:
+                    f += c_in * (uv[0]*self.normal[0]
+                                 + uv[1]*self.normal[1])*self.test*ds_bnd
 
         return -f
 
@@ -177,6 +194,11 @@ class HorizontalDiffusionTerm(TracerTerm):
         &- \int_\Gamma \mu_h (\nabla_h \phi) \cdot \textbf{n}_h ds
 
     where :math:`\sigma` is a penalty parameter, see Hillewaert (2013).
+
+    For the continuous Galerkin method we use
+    .. math::
+        -\int_\Omega \nabla_h \cdot (\mu_h \nabla_h T) \phi dx
+        = \int_\Omega \mu_h (\nabla_h \phi) \cdot (\nabla_h T) dx.
 
     Hillewaert, Koen (2013). Development of the discontinuous Galerkin method
     for high-resolution, large scale CFD and acoustics in industrial
@@ -264,7 +286,8 @@ class TracerEquation2D(Equation):
     """
     def __init__(self, function_space, depth,
                  use_lax_friedrichs=False,
-                 sipg_factor=Constant(1.0)):
+                 sipg_factor=Constant(1.0),
+                 use_su=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
@@ -273,7 +296,7 @@ class TracerEquation2D(Equation):
         """
         super(TracerEquation2D, self).__init__(function_space)
 
-        args = (function_space, depth, use_lax_friedrichs, sipg_factor)
+        args = (function_space, depth, use_lax_friedrichs, sipg_factor, use_su)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
