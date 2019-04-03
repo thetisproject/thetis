@@ -32,7 +32,7 @@ class TracerTerm(Term):
     boundary functions.
     """
     def __init__(self, function_space,
-                 bathymetry=None, use_lax_friedrichs=True):
+                 bathymetry=None, use_lax_friedrichs=True, use_su=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -44,6 +44,7 @@ class TracerTerm(Term):
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
         self.use_lax_friedrichs = use_lax_friedrichs
+        self.use_su = use_su
 
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
@@ -164,6 +165,16 @@ class HorizontalAdvectionTerm(TracerTerm):
                         f += c_up*(uv_av[0]*self.normal[0]
                                    + uv_av[1]*self.normal[1])*self.test*ds_bnd
 
+        if self.use_su:
+
+            # Here CellSize is the measure of element size used.
+            # TODO: In the presence of anisotropic elements, it may be important to also consider
+            # shape and orientation.
+            tau = 0.5*self.cellsize/norm(uv)
+
+            # Add stabilisation term
+            f += tau*inner(uv, grad(self.test))*dot(uv, grad(solution))*dx
+
         return -f
 
 
@@ -255,7 +266,8 @@ class TracerEquation2D(Equation):
     """
     def __init__(self, function_space,
                  bathymetry=None,
-                 use_lax_friedrichs=False):
+                 use_lax_friedrichs=False,
+                 use_su=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -266,7 +278,7 @@ class TracerEquation2D(Equation):
         """
         super(TracerEquation2D, self).__init__(function_space)
 
-        args = (function_space, bathymetry, use_lax_friedrichs)
+        args = (function_space, bathymetry, use_lax_friedrichs, use_su)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')

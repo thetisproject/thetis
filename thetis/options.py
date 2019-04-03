@@ -384,6 +384,8 @@ class CommonModelOptions(FrozenConfigurable):
         Constant(1.0), help="Scaling factor for tracer Lax Friedrichs stability term.").tag(config=True)
     use_limiter_for_tracers = Bool(
         True, help="Apply P1DG limiter for tracer fields").tag(config=True)
+    use_su_tracer = Bool(
+        False, help="Use SU stabilisation in tracer advection").tag(config=True)
 
     check_volume_conservation_2d = Bool(
         False, help="""
@@ -532,6 +534,12 @@ class ModelOptions2d(CommonModelOptions):
 
         Advects tracer in the associated (constant) velocity field.
         """).tag(config=True)
+    tracer_element_family = Enum(
+        ['dg', 'cg'],
+        default_value='dg',
+        help="""Finite element family for tracer transport
+
+        2D solver supports 'dg' or 'cg'.""").tag(config=True)
 
 
 @attach_paired_options("timestepper_type",
