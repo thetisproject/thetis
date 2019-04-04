@@ -170,7 +170,7 @@ class HorizontalAdvectionTerm(TracerTerm):
             # Here CellSize is the measure of element size used.
             # TODO: In the presence of anisotropic elements, it may be important to also consider
             # shape and orientation.
-            tau = 0.5*self.cellsize/sqrt(inner(uv,uv))
+            tau = 0.5*self.cellsize/sqrt(inner(uv, uv))
 
             # Add stabilisation term
             f += tau*inner(uv, grad(self.test))*dot(uv, grad(solution))*dx
