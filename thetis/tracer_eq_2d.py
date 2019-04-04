@@ -192,7 +192,13 @@ class HorizontalAdvectionTerm(TracerTerm):
             # Here CellSize is the measure of element size used in the stabilisation parameter.
             # TODO: In the presence of anisotropic elements, it may be important to also consider
             # shape and orientation.
-            tau = 0.5*self.cellsize/sqrt(inner(uv, uv))
+            unorm = sqrt(inner(uv, uv))
+            diffusivity_h = fields_old['diffusivity_h']
+            if diffusivity_h is not None:
+                Pe = unorm*self.cellsize/(2*diffusivity_h)
+                tau = min_value(0.5*self.cellsize/unorm, Pe/3)
+            else:
+                tau = 0.5*self.cellsize/unorm
 
             # Add stabilisation term
             f += tau*inner(uv, grad(self.test))*dot(uv, grad(solution))*dx
