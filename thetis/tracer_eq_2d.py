@@ -164,10 +164,26 @@ class HorizontalAdvectionTerm(TracerTerm):
                         c_up = c_in*s + c_ext*(1-s)
                         f += c_up*(uv_av[0]*self.normal[0]
                                    + uv_av[1]*self.normal[1])*self.test*ds_bnd
+        else:
+            if bnd_conditions is not None:
+                for bnd_marker in self.boundary_markers:
+                    funcs = bnd_conditions.get(bnd_marker)
+                    ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                    c_in = solution
+                    if funcs is None:
+                        f += c_in * (uv[0]*self.normal[0]
+                                     + uv[1]*self.normal[1])*self.test*ds_bnd
+                    else:
+                        c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                        s = 0.5*(sign(uv[0]*self.normal[0]
+                                      + uv[1]*self.normal[1]) + 1.0)
+                        c_up = c_in*s + c_ext*(1-s)
+                        f += c_up*(uv[0]*self.normal[0]
+                                   + uv[1]*self.normal[1])*self.test*ds_bnd
 
         if self.use_su:
 
-            # Here CellSize is the measure of element size used.
+            # Here CellSize is the measure of element size used in the stabilisation parameter.
             # TODO: In the presence of anisotropic elements, it may be important to also consider
             # shape and orientation.
             tau = 0.5*self.cellsize/sqrt(inner(uv, uv))
