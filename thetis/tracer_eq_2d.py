@@ -110,6 +110,12 @@ class HorizontalAdvectionTerm(TracerTerm):
     :math:`\textbf{n}` is the unit normal of
     the element interfaces, and :math:`\text{jump}` and :math:`\text{avg}` denote the
     jump and average operators across the interface.
+
+    For the continuous Galerkin method we use
+
+    .. math::
+        \int_\Omega \bar{\textbf{u}} \cdot \boldsymbol{\psi} \cdot \nabla T  dx
+        = - \int_\Omega \nabla_h \cdot (\bar{\textbf{u}} \boldsymbol{\psi}) \cdot T dx.
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('uv_2d') is None:
@@ -217,6 +223,10 @@ class HorizontalDiffusionTerm(TracerTerm):
     interior penalty Galerkin methods. Journal of Computational and Applied
     Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
 
+    For the continuous Galerkin method we use
+    .. math::
+        -\int_\Omega \nabla_h \cdot (\mu_h \nabla_h T) \phi dx
+        = \int_\Omega \mu_h (\nabla_h \phi) \cdot (\nabla_h T) dx.
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_h') is None:
