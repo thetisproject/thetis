@@ -468,6 +468,13 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
     horizontal_diffusivity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
+    use_smagorinsky_viscosity = Bool(
+        False, help="Use Smagorinsky horisontal viscosity parametrization").tag(config=True)
+    smagorinsky_coefficient = FiredrakeConstantTraitlet(
+        Constant(0.1),
+        help="""Smagorinsky viscosity coefficient :math:`C_S`
+
+        See :class:`.SmagorinskyViscosity`.""").tag(config=True)
 
 
 # NOTE all parameters are now case sensitive
@@ -572,13 +579,6 @@ class ModelOptions3d(CommonModelOptions):
         False, help="Advect TKE and Psi in the GLS turbulence model").tag(config=True)
     use_smooth_eddy_viscosity = Bool(
         False, help="Cast eddy viscosity to p1 space instead of p0").tag(config=True)
-    use_smagorinsky_viscosity = Bool(
-        False, help="Use Smagorinsky horisontal viscosity parametrization").tag(config=True)
-    smagorinsky_coefficient = FiredrakeConstantTraitlet(
-        Constant(0.1),
-        help="""Smagorinsky viscosity coefficient :math:`C_S`
-
-        See :class:`.SmagorinskyViscosity`.""").tag(config=True)
 
     use_limiter_for_velocity = Bool(
         True, help="Apply P1DG limiter for 3D horizontal velocity field").tag(config=True)

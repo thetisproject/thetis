@@ -256,6 +256,12 @@ field_metadata['smag_visc_3d'] = {
     'unit': 'm2 s-1',
     'filename': 'SmagViscosity3d',
 }
+field_metadata['smag_visc_2d'] = {
+    'name': 'Smagorinsky viscosity',
+    'shortname': 'Smagorinsky viscosity',
+    'unit': 'm2 s-1',
+    'filename': 'SmagViscosity2d',
+}
 field_metadata['max_h_diff'] = {
     'name': 'Maximum stable horizontal diffusivity',
     'shortname': 'Maximum horizontal diffusivity',

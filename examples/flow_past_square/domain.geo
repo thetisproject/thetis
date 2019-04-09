@@ -1,0 +1,27 @@
+d = 0.04;
+dx = d/4;
+Point (1) = {0.,0.,0., dx};
+Point (2) = {24.5*d, 0., 0., dx};
+Point (3) = {24.5*d, 14.*d, 0., dx};
+Point (4) = {0., 14.*d, 0., dx};
+Point (5) = {4.5*d, 6.5*d, 0., dx};
+Point (6) = {5.5*d, 6.5*d, 0., dx};
+Point (7) = {5.5*d, 7.5*d, 0., dx};
+Point (8) = {4.5*d, 7.5*d, 0., dx};
+Line (1) = {1, 2};
+Line (2) = {2, 3};
+Line (3) = {3, 4};
+Line (4) = {4, 1};
+Line (5) = {5, 6};
+Line (6) = {6, 7};
+Line (7) = {7, 8};
+Line (8) = {8, 5};
+Physical Line (1) = {4}; // Inflow
+Physical Line (2) = {2}; // Outflow
+Physical Line (3) = {1,3}; // Sides
+Physical Line (4) = {5,6,7,8}; // Square sides
+
+Line Loop(9) = {4, 1, 2, 3};
+Line Loop(10) = {8, 5, 6, 7};
+Plane Surface(11) = {9, 10};
+Physical Surface(1) = {11};

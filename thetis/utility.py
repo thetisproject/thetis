@@ -1417,9 +1417,15 @@ class SmagorinskyViscosity(object):
                 for j in range(2):
                     a = inner(tri_grad, test_grad)*dx
                     # l = inner(Dx(uv[0], 0), test_grad)*dx
+
                     l = -inner(Dx(test_grad, j), uv[icomp])*dx
-                    l += inner(avg(uv[icomp]), jump(test_grad, normal[j]))*dS_v
-                    l += inner(uv[icomp], test_grad*normal[j])*ds_v
+                    if output.function_space().cell_dimension() == 2:
+                        l += inner(avg(uv[icomp]), jump(test_grad, normal[j]))*dS
+                        l += inner(uv[icomp], test_grad*normal[j])*ds
+                    else:
+                        l += inner(avg(uv[icomp]), jump(test_grad, normal[j]))*dS_v
+                        l += inner(uv[icomp], test_grad*normal[j])*ds_v
+
                     prob = LinearVariationalProblem(a, l, self.grad[icomp][j])
                     self.solver_grad[icomp][j] = LinearVariationalSolver(prob, solver_parameters=solver_parameters)
 

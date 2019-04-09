@@ -265,12 +265,24 @@ class FlowSolver2d(FrozenClass):
             filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
             output_logger.addHandler(filehandler)
 
+        if self.options.use_smagorinsky_viscosity:
+            self.fields.smag_visc_2d = Function(self.function_spaces.P1_2d, name='Smagorinsky viscosity')
+            max_visc = Function(self.function_spaces.P1_2d, name='maximum viscosity')
+            max_visc.assign(1e10)  # FIXME
+            uv_2d, elev_2d = self.fields.solution_2d.split()
+            self.smagorinsky_diff_solver = SmagorinskyViscosity(uv_2d, self.fields.smag_visc_2d,
+                                                                self.options.smagorinsky_coefficient, self.fields.h_elem_size_2d,
+                                                                max_visc, weak_form=self.options.polynomial_degree == 0)
+            viscosity_h = self.options.horizontal_viscosity + self.fields.smag_visc_2d
+        else:
+            viscosity_h = self.options.horizontal_viscosity
+
         # ----- Time integrators
         fields = {
             'linear_drag_coefficient': self.options.linear_drag_coefficient,
             'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
             'manning_drag_coefficient': self.options.manning_drag_coefficient,
-            'viscosity_h': self.options.horizontal_viscosity,
+            'viscosity_h': viscosity_h,
             'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
             'coriolis': self.options.coriolis_frequency,
             'wind_stress': self.options.wind_stress,
@@ -585,6 +597,9 @@ class FlowSolver2d(FrozenClass):
         internal_iteration = 0
 
         while self.simulation_time <= self.options.simulation_end_time + t_epsilon:
+
+            if self.options.use_smagorinsky_viscosity:
+                self.smagorinsky_diff_solver.solve()
 
             self.timestepper.advance(self.simulation_time, update_forcings)
 
