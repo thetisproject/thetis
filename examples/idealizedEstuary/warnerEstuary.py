@@ -98,7 +98,9 @@ turbulence_model_options = options.turbulence_model_options
 turbulence_model_options.apply_defaults('k-epsilon')
 turbulence_model_options.stability_function_name = 'Canuto A'
 outputdir = 'outputs'
-odir = '_'.join([outputdir, reso_str, turbulence_model_options.closure_name, turbulence_model_options.stability_function_name.replace(' ', '-')])
+odir = '_'.join([outputdir, reso_str,
+                 turbulence_model_options.closure_name.replace(' ', '-'),
+                 turbulence_model_options.stability_function_name.replace(' ', '-')])
 options.output_directory = odir
 print_output('Exporting to ' + options.output_directory)
 
