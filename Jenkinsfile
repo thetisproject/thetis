@@ -1,6 +1,11 @@
 pipeline {
     agent {
-        label 'linux'
+      docker {
+        image 'firedrakeproject/firedrake-vanilla:latest'
+        label 'firedrakeproject'
+        args '-v /var/run/docker.sock:/var/run/docker.sock'
+        alwaysPull true
+      }
     }
     environment {
         PATH = "/usr/local/bin:/usr/bin:/bin"
@@ -15,13 +20,16 @@ pipeline {
                 }
             }
         }
-        stage('Install Firedrake') {
+        stage('Install Pyadjoint') {
             steps {
                 sh 'mkdir build'
                 dir('build') {
                     timestamps {
-                        sh 'curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install || (cat firedrake-install.log && /bin/false)'
-                        sh 'python3 ./firedrake-install --disable-ssh --minimal-petsc --install pyadjoint'
+                        sh 'sudo chown -R jenkins /home/firedrake/firedrake/bin'
+                        sh '''
+. /home/firedrake/firedrake/bin/activate
+firedrake-update --install pyadjoint
+'''
                     }
                 }
             }
@@ -30,7 +38,7 @@ pipeline {
             steps {
                 timestamps {
                     sh '''
-. build/firedrake/bin/activate
+. /home/firedrake/firedrake/bin/activate
 python -m pip install -r requirements.txt
 python -m pip install -e .
 '''
@@ -41,7 +49,7 @@ python -m pip install -e .
             steps {
                 timestamps {
                     sh '''
-. build/firedrake/bin/activate
+. /home/firedrake/firedrake/bin/activate
 make lint
 '''
                 }
@@ -51,9 +59,9 @@ make lint
             steps {
                 timestamps {
                     sh '''
-. build/firedrake/bin/activate
+. /home/firedrake/firedrake/bin/activate
 python $(which firedrake-clean)
-python -mpytest -v test/ -n 4
+python -mpytest -v test/ -n 12
 '''
                 }
             }
@@ -62,7 +70,7 @@ python -mpytest -v test/ -n 4
             steps {
                 timestamps {
                     sh '''
-. build/firedrake/bin/activate
+. /home/firedrake/firedrake/bin/activate
 python $(which firedrake-clean)
 python -mpytest -v test_adjoint/
 '''
