@@ -193,9 +193,8 @@ class HorizontalAdvectionTerm(TracerTerm):
             # TODO: In the presence of anisotropic elements, it may be important to also consider
             # shape and orientation.
             unorm = sqrt(inner(uv, uv))
-            diffusivity_h = fields_old['diffusivity_h']
-            if diffusivity_h is not None:
-                Pe = unorm*self.cellsize/(2*diffusivity_h)
+            if fields_old.get('diffusivity_h') is not None:
+                Pe = 0.5*unorm*self.cellsize/fields_old['diffusivity_h']
                 tau = min_value(0.5*self.cellsize/unorm, Pe/3)
             else:
                 tau = 0.5*self.cellsize/unorm
