@@ -50,6 +50,8 @@ def run(refinement, **model_options):
     options.horizontal_diffusivity = Constant(horizontal_diffusivity)
     options.horizontal_viscosity_scale = Constant(horizontal_diffusivity)
     options.update(model_options)
+    if options.tracer_element_family == 'cg':
+        options.use_limiter_for_tracers = False
 
     solverobj.create_equations()
 
@@ -107,6 +109,7 @@ def run(refinement, **model_options):
 def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
     polynomial_degree = options.get('polynomial_degree', 1)
+    family = options.get('tracer_element_family', 'dg')
     l2_err = []
     for r in ref_list:
         l2_err.append(run(r, **options))
@@ -135,10 +138,10 @@ def run_convergence(ref_list, saveplot=False, **options):
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
             ax.set_ylabel('log10(L2 error)')
-            ax.set_title(' '.join([setup_name, field_str, 'degree={:}'.format(polynomial_degree)]))
+            ax.set_title(' '.join([setup_name, field_str, 'degree={:}'.format(polynomial_degree), family]))
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
             degree_str = 'o{:}'.format(polynomial_degree)
-            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, degree_str])
+            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, degree_str, family])
             imgfile += '.png'
             imgdir = create_directory('plots')
             imgfile = os.path.join(imgdir, imgfile)
@@ -160,10 +163,17 @@ def run_convergence(ref_list, saveplot=False, **options):
 
 @pytest.mark.parametrize(('stepper'),
                          [('CrankNicolson')])
+
+
+@pytest.fixture(params=['cg', 'dg'])
+def tracer_element_family(request):
+    return request.param
+
+
 def test_horizontal_diffusion(stepper):
     run_convergence([1, 2, 3], polynomial_degree=1,
                     timestepper_type=stepper,
-                    )
+                    tracer_element_family=tracer_element_family)
 # ---------------------------
 # run individual setup for debugging
 # ---------------------------
@@ -172,4 +182,5 @@ def test_horizontal_diffusion(stepper):
 if __name__ == '__main__':
     run_convergence([1, 2, 4, 6, 8], polynomial_degree=1,
                     timestepper_type='CrankNicolson',
+                    tracer_element_family='dg',
                     no_exports=False, saveplot=True)

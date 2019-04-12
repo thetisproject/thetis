@@ -54,6 +54,8 @@ def run(refinement, **model_options):
     options.use_limiter_for_tracers = True
     options.fields_to_export = ['tracer_2d']
     options.update(model_options)
+    if options.tracer_element_family == 'cg':
+        options.use_limiter_for_tracers = False
     uv_expr = as_vector((u, 0))
     bnd_salt_2d = {'value': Constant(0.0), 'uv': uv_expr}
     bnd_uv_2d = {'uv': uv_expr}
@@ -126,12 +128,13 @@ def run_convergence(ref_list, saveplot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
 
     polynomial_degree = options.get('polynomial_degree', 1)
+    family = options.get('tracer_element_family', 'dg')
     l2_err = []
     for r in ref_list:
         l2_err.append(run(r, **options))
     x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
     y_log = numpy.log10(numpy.array(l2_err))
-    setup_name = 'h-diffusion'
+    setup_name = 'h-advection'
 
     def check_convergence(x_log, y_log, expected_slope, field_str, saveplot):
         slope_rtol = 0.20
@@ -154,10 +157,10 @@ def run_convergence(ref_list, saveplot=False, **options):
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
             ax.set_ylabel('log10(L2 error)')
-            ax.set_title(' '.join([setup_name, field_str, 'degree={:}'.format(polynomial_degree)]))
+            ax.set_title(' '.join([setup_name, field_str, 'degree={:}'.format(polynomial_degree), family]))
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
             degree_str = 'o{:}'.format(polynomial_degree)
-            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, degree_str])
+            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, degree_str, family])
             imgfile += '.png'
             imgdir = create_directory('plots')
             imgfile = os.path.join(imgdir, imgfile)
@@ -186,9 +189,14 @@ def polynomial_degree(request):
 @pytest.mark.parametrize(('stepper'),
                          [('CrankNicolson')])
 
-def test_horizontal_advection(polynomial_degree, stepper, ):
+@pytest.fixture(params=['dg', 'cg'])
+def tracer_element_family(request):
+    return request.param
+
+
+def test_horizontal_advection(polynomial_degree, stepper, tracer_element_family):
     run_convergence([1, 2, 3], polynomial_degree=polynomial_degree,
-                    timestepper_type=stepper)
+                    timestepper_type=stepper, tracer_element_family=tracer_element_family)
 
 # ---------------------------
 # run individual setup for debugging
@@ -198,4 +206,5 @@ def test_horizontal_advection(polynomial_degree, stepper, ):
 if __name__ == '__main__':
     run_convergence([1, 2, 3, 4], polynomial_degree=1,
                     timestepper_type='CrankNicolson',
+                    tracer_element_family='dg',
                     no_exports=False, saveplot=True)

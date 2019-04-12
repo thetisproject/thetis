@@ -136,7 +136,7 @@ def run_convergence(ref_list, saveplot=False, **options):
         l2_err.append(run(r, **options))
     x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
     y_log = numpy.log10(numpy.array(l2_err))
-    setup_name = 'h-diffusion'
+    setup_name = 'h-advection'
 
     def check_convergence(x_log, y_log, expected_slope, field_str, saveplot):
         slope_rtol = 0.20

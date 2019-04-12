@@ -97,6 +97,8 @@ def run(setup, refinement, do_export=True, **options):
     solver_obj.options.fields_to_export = ['tracer_2d', 'uv_2d',]
     solver_obj.options.horizontal_viscosity_scale = Constant(50.0)
     solver_obj.options.update(options)
+    if solver_obj.options.tracer_element_family == 'cg':
+        solver_obj.options.use_limiter_for_tracers = False
     solver_obj.options.solve_tracer = True
     solver_obj.options.timestepper_options.implicitness_theta = 1.0
     solver_obj.create_function_spaces()
@@ -141,6 +143,7 @@ def run(setup, refinement, do_export=True, **options):
 
 def run_convergence(setup, ref_list, do_export=False, save_plot=False, **options):
     """Runs test for a list of refinements and computes error convergence rate"""
+    family = options.get('tracer_element_family', 'dg')
     l2_err = []
     for r in ref_list:
         l2_err.append(run(setup, r,  do_export=do_export, **options))
@@ -169,10 +172,10 @@ def run_convergence(setup, ref_list, do_export=False, save_plot=False, **options
                     horizontalalignment='left')
             ax.set_xlabel('log10(dx)')
             ax.set_ylabel('log10(L2 error)')
-            ax.set_title('tracer adv-diff MMS DG ')
+            ax.set_title('tracer adv-diff MMS {:s}'.format(family))
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
 
-            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str,])
+            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, family])
             imgfile += '.png'
             img_dir = create_directory('plots')
             imgfile = os.path.join(img_dir, imgfile)
@@ -205,9 +208,14 @@ def setup(request):
     return request.param
 
 
-def test_convergence(setup, timestepper_type):
-    run_convergence(setup, [1, 2, 3], save_plot=False, timestepper_type=timestepper_type)
+@pytest.fixture(params=['dg', 'cg'])
+def tracer_element_family(request):
+    return request.param
+
+
+def test_convergence(setup, timestepper_type, tracer_element_family):
+    run_convergence(setup, [1, 2, 3], save_plot=False, timestepper_type=timestepper_type, tracer_element_family=tracer_element_family)
 
 
 if __name__ == '__main__':
-    run_convergence(Setup1, [1, 2, 3], save_plot=True, timestepper_type='CrankNicolson')
+    run_convergence(Setup1, [1, 2, 3], save_plot=True, timestepper_type='CrankNicolson', tracer_element_family='dg')
