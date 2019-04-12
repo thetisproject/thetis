@@ -198,14 +198,14 @@ class P1Average(object):
         assert source.function_space() == self.p0 or source.function_space() == self.p1dg
         source_is_p0 = source.function_space() == self.p0
 
-        source_str = 'source[0][c]' if source_is_p0 else 'source[d][c]'
+        source_str = 'source[c]' if source_is_p0 else 'source[%(func_dim)d*d + c]'
         solution.assign(0.0)
         fs_source = source.function_space()
         self.kernel = op2.Kernel("""
-            void my_kernel(double **p1_average, double **source, double **vol_p1, double **vol_p1dg) {
+            void my_kernel(double *p1_average, double *source, double *vol_p1, double *vol_p1dg) {
                 for ( int d = 0; d < %(nodes)d; d++ ) {
                     for ( int c = 0; c < %(func_dim)d; c++ ) {
-                        p1_average[d][c] += %(source_str)s * vol_p1dg[d][c] / vol_p1[d][c];
+                        p1_average[%(func_dim)d*d + c] += %(source_str)s * vol_p1dg[%(func_dim)d*d + c] / vol_p1[%(func_dim)d*d + c];
                     }
                 }
             }""" % {'nodes': solution.cell_node_map().arity,
@@ -295,8 +295,8 @@ class SmoothVerticalGradSolver(object):
         self.grad_solver = VerticalGradSolver(self.source, self.gradient_p0)
 
         self.p0_copy_kernel = op2.Kernel("""
-            void my_kernel(double **gradient, double **source) {
-                gradient[0][0] = source[0][0];
+            void my_kernel(double *gradient, double *source) {
+                gradient[0] = source[0];
             }""", 'my_kernel')
 
     def solve(self):

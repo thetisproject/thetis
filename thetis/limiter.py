@@ -122,18 +122,18 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         n_bnd_nodes = local_facet_nodes.shape[1]
         local_facet_idx = op2.Global(local_facet_nodes.shape, local_facet_nodes, dtype=np.int32, name='local_facet_idx')
         code = """
-            void my_kernel(double **qmax, double **qmin, double **field, unsigned int *facet, unsigned int *local_facet_idx)
+            void my_kernel(double *qmax, double *qmin, double *field, unsigned int *facet, unsigned int *local_facet_idx)
             {
                 double face_mean = 0.0;
                 for (int i = 0; i < %(nnodes)d; i++) {
                     unsigned int idx = local_facet_idx[facet[0]*%(nnodes)d + i];
-                    face_mean += field[idx][0];
+                    face_mean += field[idx];
                 }
                 face_mean /= %(nnodes)d;
                 for (int i = 0; i < %(nnodes)d; i++) {
                     unsigned int idx = local_facet_idx[facet[0]*%(nnodes)d + i];
-                    qmax[idx][0] = fmax(qmax[idx][0], face_mean);
-                    qmin[idx][0] = fmin(qmin[idx][0], face_mean);
+                    qmax[idx] = fmax(qmax[idx], face_mean);
+                    qmin[idx] = fmin(qmin[idx], face_mean);
                 }
             }"""
         bnd_kernel = op2.Kernel(code % {'nnodes': n_bnd_nodes}, 'my_kernel')
@@ -152,15 +152,15 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
             bottom_idx = op2.Global(len(bottom_nodes), bottom_nodes, dtype=np.int32, name='node_idx')
             top_idx = op2.Global(len(top_nodes), top_nodes, dtype=np.int32, name='node_idx')
             code = """
-                void my_kernel(double **qmax, double **qmin, double **field, int *idx) {
+                void my_kernel(double *qmax, double *qmin, double *field, int *idx) {
                     double face_mean = 0;
                     for (int i=0; i<%(nnodes)d; i++) {
-                        face_mean += field[idx[i]][0];
+                        face_mean += field[idx[i]];
                     }
                     face_mean /= %(nnodes)d;
                     for (int i=0; i<%(nnodes)d; i++) {
-                        qmax[idx[i]][0] = fmax(qmax[idx[i]][0], face_mean);
-                        qmin[idx[i]][0] = fmin(qmin[idx[i]][0], face_mean);
+                        qmax[idx[i]] = fmax(qmax[idx[i]], face_mean);
+                        qmin[idx[i]] = fmin(qmin[idx[i]], face_mean);
                     }
                 }"""
             kernel = op2.Kernel(code % {'nnodes': len(bottom_nodes)}, 'my_kernel')
