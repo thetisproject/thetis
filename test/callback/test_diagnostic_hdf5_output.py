@@ -13,6 +13,7 @@ def tmp_outputdir(tmpdir_factory):
     return str(fn)
 
 
+@pytest.mark.xfail
 def test_callbacks(tmp_outputdir):
 
     lx = 45000.0
