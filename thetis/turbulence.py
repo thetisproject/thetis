@@ -215,7 +215,7 @@ class P1Average(object):
 
         op2.par_loop(
             self.kernel, self.p1.mesh().cell_set,
-            solution.dat(op2.WRITE, self.p1.cell_node_map()),
+            solution.dat(op2.INC, self.p1.cell_node_map()),
             source.dat(op2.READ, fs_source.cell_node_map()),
             self.vol_p1.dat(op2.READ, self.p1.cell_node_map()),
             self.vol_p1dg.dat(op2.READ, self.p1dg.cell_node_map()),

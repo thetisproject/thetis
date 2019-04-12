@@ -139,9 +139,9 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         bnd_kernel = op2.Kernel(code % {'nnodes': n_bnd_nodes}, 'my_kernel')
         op2.par_loop(bnd_kernel,
                      self.P1DG.mesh().exterior_facets.set,
-                     self.max_field.dat(op2.RW, self.max_field.exterior_facet_node_map()),
-                     self.min_field.dat(op2.RW, self.min_field.exterior_facet_node_map()),
-                     field.dat(op2.RW, field.exterior_facet_node_map()),
+                     self.max_field.dat(op2.MAX, self.max_field.exterior_facet_node_map()),
+                     self.min_field.dat(op2.MIN, self.min_field.exterior_facet_node_map()),
+                     field.dat(op2.READ, field.exterior_facet_node_map()),
                      self.P1DG.mesh().exterior_facets.local_facet_dat(op2.READ),
                      local_facet_idx(op2.READ))
         if not self.is_2d:
@@ -166,15 +166,15 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
             kernel = op2.Kernel(code % {'nnodes': len(bottom_nodes)}, 'my_kernel')
 
             op2.par_loop(kernel, self.mesh.cell_set,
-                         self.max_field.dat(op2.WRITE, self.max_field.function_space().cell_node_map()),
-                         self.min_field.dat(op2.WRITE, self.min_field.function_space().cell_node_map()),
+                         self.max_field.dat(op2.MAX, self.max_field.function_space().cell_node_map()),
+                         self.min_field.dat(op2.MIN, self.min_field.function_space().cell_node_map()),
                          field.dat(op2.READ, field.function_space().cell_node_map()),
                          bottom_idx(op2.READ),
                          iterate=op2.ON_BOTTOM)
 
             op2.par_loop(kernel, self.mesh.cell_set,
-                         self.max_field.dat(op2.WRITE, self.max_field.function_space().cell_node_map()),
-                         self.min_field.dat(op2.WRITE, self.min_field.function_space().cell_node_map()),
+                         self.max_field.dat(op2.MAX, self.max_field.function_space().cell_node_map()),
+                         self.min_field.dat(op2.MIN, self.min_field.function_space().cell_node_map()),
                          field.dat(op2.READ, field.function_space().cell_node_map()),
                          top_idx(op2.READ),
                          iterate=op2.ON_TOP)
