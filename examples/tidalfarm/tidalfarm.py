@@ -38,7 +38,7 @@ timestep = 800.
 
 t_end = tidal_period
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
-    t_end = 10*timestep
+    t_end = 5*timestep
 
 # create solver and set options
 solver_obj = solver2d.FlowSolver2d(mesh2d, Constant(H))
@@ -81,10 +81,14 @@ x = SpatialCoordinate(mesh2d)
 g = 9.81
 omega = 2 * pi / tidal_period
 
+t_const = Constant(0.0)
+tidal_elev_expr = tidal_amplitude*sin(omega*t_const + omega/pow(g*H, 0.5)*x[0])
+
 
 def update_forcings(t):
     print_output("Updating tidal elevation at t = {}".format(t))
-    tidal_elev.project(tidal_amplitude*sin(omega*t + omega/pow(g*H, 0.5)*x[0]))
+    t_const.assign(t)
+    tidal_elev.project(tidal_elev_expr)
 
 
 # a density function (to be optimised below) that specifies the number of turbines per unit area
@@ -196,8 +200,8 @@ if optimise:
     # with a gradient based optimisation algorithm using the reduced functional
     # to replay the model, and computing its derivative via the adjoint
     # By default scipy's implementation of L-BFGS-B is used, see
-    #   https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_l_bfgs_b.html
-    # options, such as maxiter and pgtol can be passed on.
+    #   https://docs.scipy.org/doc/scipy/reference/optimize.minimize-lbfgsb.html
+    # options, such as maxiter, ftol and gtol can be passed on.
     td_opt = minimise(rf, bounds=[0, max_density],
-                      options={'maxiter': 100, 'pgtol': 1e-3})
+                      options={'maxiter': 100, 'ftol': 1e-2})
     File('optimal_density.pvd').write(td_opt)
