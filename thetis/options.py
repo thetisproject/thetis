@@ -538,7 +538,7 @@ class ModelOptions2d(CommonModelOptions):
         help="""Finite element family for tracer transport
 
         2D solver supports 'dg' or 'cg'.""").tag(config=True)
-    use_su_tracer = Bool(
+    use_su_stabilization_tracer = Bool(
         False, help="Use SU stabilisation in tracer advection").tag(config=True)
 
 
