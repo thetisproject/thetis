@@ -54,8 +54,6 @@ def run(refinement, **model_options):
     options.use_limiter_for_tracers = True
     options.fields_to_export = ['tracer_2d']
     options.update(model_options)
-    if options.tracer_element_family == 'cg':
-        options.use_limiter_for_tracers = False
     uv_expr = as_vector((u, 0))
     bnd_salt_2d = {'value': Constant(0.0), 'uv': uv_expr}
     bnd_uv_2d = {'uv': uv_expr}

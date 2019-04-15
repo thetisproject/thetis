@@ -50,8 +50,6 @@ def run(refinement, **model_options):
     options.horizontal_diffusivity = Constant(horizontal_diffusivity)
     options.horizontal_viscosity_scale = Constant(horizontal_diffusivity)
     options.update(model_options)
-    if options.tracer_element_family == 'cg':
-        options.use_limiter_for_tracers = False
 
     solverobj.create_equations()
 
