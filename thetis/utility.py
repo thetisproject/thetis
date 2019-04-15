@@ -231,18 +231,18 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, z_stretch_fact=1.0,
     idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
     min_depth_op2 = op2.Global(len(min_depth_arr), min_depth_arr, name='min_depth')
     kernel = op2.Kernel("""
-        void my_kernel(double **new_coords, double **old_coords, double **bath2d, double **z_stretch, int *idx, double *min_depth) {
+        void my_kernel(double *new_coords, double *old_coords, double *bath2d, double *z_stretch, int *idx, double *min_depth) {
             for ( int d = 0; d < %(nodes)d; d++ ) {
-                double s_fact = z_stretch[d][0];
+                double s_fact = z_stretch[d];
                 for ( int e = 0; e < %(v_nodes)d; e++ ) {
-                    new_coords[idx[d]+e][0] = old_coords[idx[d]+e][0];
-                    new_coords[idx[d]+e][1] = old_coords[idx[d]+e][1];
-                    double sigma = 1.0 - old_coords[idx[d]+e][2]; // top 0, bot 1
-                    double new_z = -bath2d[d][0] * pow(sigma, s_fact) ;
+                    new_coords[3*(idx[d]+e) + 0] = old_coords[3*(idx[d]+e) + 0];
+                    new_coords[3*(idx[d]+e) + 1] = old_coords[3*(idx[d]+e) + 1];
+                    double sigma = 1.0 - old_coords[3*(idx[d]+e) + 2]; // top 0, bot 1
+                    double new_z = -bath2d[d] * pow(sigma, s_fact) ;
                     int layer = fmin(fmax(round(sigma*(%(n_layers)d + 1) - 1.0), 0.0), %(n_layers)d);
                     double max_z = -min_depth[layer];
                     new_z = fmax(new_z, max_z);
-                    new_coords[idx[d]+e][2] = new_z;
+                    new_coords[3*(idx[d]+e) + 2] = new_z;
                 }
             }
         }""" % {'nodes': fs_2d.finat_element.space_dimension(),
@@ -713,7 +713,7 @@ class Mesh3DConsistencyCalculator(object):
         nodes = get_facet_mask(self.fs_3d, 'geometric', 'bottom')
         self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
         self.kernel = op2.Kernel("""
-            void my_kernel(double **output, double **z_field, int *idx) {
+            void my_kernel(double *output, double *z_field, int *idx) {
                 // compute max delta z on top and bottom facets
                 double z_top_max = -1e20;
                 double z_top_min = 1e20;
@@ -722,8 +722,8 @@ class Mesh3DConsistencyCalculator(object):
                 int i_top = 1;
                 int i_bot = 0;
                 for ( int d = 0; d < %(nodes)d; d++ ) {
-                    double z_top = z_field[idx[d] + i_top][0];
-                    double z_bot = z_field[idx[d] + i_bot][0];
+                    double z_top = z_field[idx[d] + i_top];
+                    double z_bot = z_field[idx[d] + i_bot];
                     z_top_max = fmax(z_top, z_top_max);
                     z_top_min = fmin(z_top, z_top_min);
                     z_bot_max = fmax(z_bot, z_bot_max);
@@ -733,11 +733,11 @@ class Mesh3DConsistencyCalculator(object):
                 double delta_z_bot = z_bot_max - z_bot_min;
                 // compute R ratio
                 for ( int d = 0; d < %(nodes)d; d++ ) {
-                    double z_top = z_field[idx[d] + i_top][0];
-                    double z_bot = z_field[idx[d] + i_bot][0];
+                    double z_top = z_field[idx[d] + i_top];
+                    double z_bot = z_field[idx[d] + i_bot];
                     double h = z_top - z_bot;
-                    output[idx[d] + i_top][0] = delta_z_top/h;
-                    output[idx[d] + i_bot][0] = delta_z_bot/h;
+                    output[idx[d] + i_top] = delta_z_top/h;
+                    output[idx[d] + i_bot] = delta_z_bot/h;
                 }
             }""" % {'nodes': len(nodes)},
             'my_kernel')
@@ -813,16 +813,17 @@ class ExpandFunctionTo3d(object):
         nodes = get_facet_mask(self.fs_3d, 'geometric', 'bottom')
         self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
         self.kernel = op2.Kernel("""
-            void my_kernel(double **func, double **func2d, int *idx) {
+            void my_kernel(double *func, double *func2d, int *idx) {
                 for ( int d = 0; d < %(nodes)d; d++ ) {
-                    for ( int c = 0; c < %(func_dim)d; c++ ) {
+                    for ( int c = 0; c < %(func2d_dim)d; c++ ) {
                         for ( int e = 0; e < %(v_nodes)d; e++ ) {
-                            func[idx[d]+e][c] = func2d[d][c];
+                            func[%(func3d_dim)d*(idx[d]+e) + c] = func2d[%(func2d_dim)d*d + c];
                         }
                     }
                 }
             }""" % {'nodes': self.fs_2d.finat_element.space_dimension(),
-                    'func_dim': self.input_2d.function_space().value_size,
+                    'func2d_dim': self.input_2d.function_space().value_size,
+                    'func3d_dim': self.fs_3d.value_size,
                     'v_nodes': n_vert_nodes},
             'my_kernel')
 
@@ -952,27 +953,29 @@ class SubFunctionExtractor(object):
         if elem_facet == 'average':
             # compute average of top and bottom elem nodes
             self.kernel = op2.Kernel("""
-                void my_kernel(double **func, double **func3d, int *idx) {
+                void my_kernel(double *func, double *func3d, int *idx) {
                     int nnodes = %(nodes)d;
                     for ( int d = 0; d < nnodes; d++ ) {
-                        for ( int c = 0; c < %(func_dim)d; c++ ) {
-                            func[d][c] = 0.5*(func3d[idx[d]][c] +
-                                              func3d[idx[d + nnodes]][c]);
+                        for ( int c = 0; c < %(func2d_dim)d; c++ ) {
+                            func[%(func2d_dim)d*d + c] = 0.5*(func3d[%(func3d_dim)d*idx[d] + c] +
+                                              func3d[%(func3d_dim)d*idx[d + nnodes] + c]);
                         }
                     }
                 }""" % {'nodes': self.output_2d.cell_node_map().arity,
-                        'func_dim': self.output_2d.function_space().value_size},
+                        'func2d_dim': self.output_2d.function_space().value_size,
+                        'func3d_dim': self.fs_3d.value_size},
                 'my_kernel')
         else:
             self.kernel = op2.Kernel("""
-                void my_kernel(double **func, double **func3d, int *idx) {
+                void my_kernel(double *func, double *func3d, int *idx) {
                     for ( int d = 0; d < %(nodes)d; d++ ) {
-                        for ( int c = 0; c < %(func_dim)d; c++ ) {
-                            func[d][c] = func3d[idx[d]][c];
+                        for ( int c = 0; c < %(func2d_dim)d; c++ ) {
+                            func[%(func2d_dim)d*d + c] = func3d[%(func3d_dim)d*idx[d] + c];
                         }
                     }
                 }""" % {'nodes': self.output_2d.cell_node_map().arity,
-                        'func_dim': self.output_2d.function_space().value_size},
+                        'func2d_dim': self.output_2d.function_space().value_size,
+                        'func3d_dim': self.fs_3d.value_size},
                 'my_kernel')
 
         if self.do_rt_scaling:
@@ -1053,16 +1056,17 @@ def compute_elem_height(zcoord, output):
 
     # NOTE height maybe <0 if mesh was extruded like that
     kernel = op2.Kernel("""
-        void my_kernel(double **func, double **zcoord) {
+        void my_kernel(double *func, double *zcoord) {
             for ( int d = 0; d < %(nodes)d/2; d++ ) {
                 for ( int c = 0; c < %(func_dim)d; c++ ) {
-                    double dz = fabs(zcoord[2*d+1][c] - zcoord[2*d][c]);
-                    func[2*d][c] = dz;
-                    func[2*d+1][c] = dz;
+                    double dz = fabs(zcoord[%(func_dim)d*(2*d+1) + c] - zcoord[%(func_dim)d*2*d + c]);
+                    func[%(output_dim)d*2*d + c] = dz;
+                    func[%(output_dim)d*(2*d+1) + c] = dz;
                 }
             }
         }""" % {'nodes': zcoord.cell_node_map().arity,
-                'func_dim': zcoord.function_space().value_size},
+                'func_dim': zcoord.function_space().value_size,
+                'output_dim': output.function_space().value_size},
         'my_kernel')
     op2.par_loop(
         kernel, fs_out.mesh().cell_set,
