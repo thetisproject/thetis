@@ -27,7 +27,6 @@ class BaseTurbine(object):
         # http://www.wolframalpha.com/input/?i=integrate+e%5E%28-1%2F%281-x**2%29-1%2F%281-y**2%29%2B2%29+dx+dy%2C+x%3D-0.999..0.999%2C+y%3D-0.999..0.999
         self._unit_bump_int = 1.45661
 
-
     @property
     def diameter(self):
         """The diameter of a turbine.
@@ -38,7 +37,6 @@ class BaseTurbine(object):
             raise ValueError("Diameter has not been set!")
         return self._diameter
 
-
     @property
     def radius(self):
         """The radius of a turbine.
@@ -46,7 +44,6 @@ class BaseTurbine(object):
         :rtype: float
         """
         return self.diameter*0.5
-
 
     @property
     def integral(self):
@@ -75,10 +72,10 @@ class ThrustTurbine(BaseTurbine):
                  minimum_distance=None):
 
         # Check for a given minimum distance.
-        if minimum_distance is None: minimum_distance=diameter*1.5
+        if minimum_distance is None:
+            minimum_distance = diameter*1.5
         # Initialize the base class.
-        super(ThrustTurbine, self).__init__(diameter=diameter,
-                                            minimum_distance=minimum_distance)
+        super(ThrustTurbine, self).__init__(diameter=diameter, minimum_distance=minimum_distance)
 
         # To parametrise a square 2D plan-view turbine to characterise a
         # realistic tidal turbine with a circular swept area in the section
@@ -115,7 +112,7 @@ class TurbineOperation2DCallback(DiagnosticCallback):
         :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
         """
 
-        super(TurbineOperation2DCallback,self).__init__(solver_obj)
+        super(TurbineOperation2DCallback, self).__init__(solver_obj)
         kwargs.setdefault('append_to_log', False)
         kwargs.setdefault('export_to_hdf5', False)
 
@@ -159,10 +156,10 @@ class TurbineOperation2DCallback(DiagnosticCallback):
         psi_y = Function(self.functionspace)
         radius = self.turbine_specifications.swept_diameter * 0.5
         for coord in self.coordinates:
-            psi_x.interpolate(conditional(lt(abs((x[0]-coord[0])/radius),1),
-                                          exp(1-1/(1-pow(abs((x[0]-coord[0])/radius),2))),0))
-            psi_y.interpolate(conditional(lt(abs((x[1]-coord[1])/radius),1),
-                                          exp(1-1/(1-pow(abs((x[1]-coord[1])/radius),2))),0))
+            psi_x.interpolate(conditional(lt(abs((x[0]-coord[0])/radius), 1),
+                                          exp(1-1/(1-pow(abs((x[0]-coord[0])/radius), 2))), 0))
+            psi_y.interpolate(conditional(lt(abs((x[1]-coord[1])/radius), 1),
+                                          exp(1-1/(1-pow(abs((x[1]-coord[1])/radius), 2))), 0))
             projection_integral = assemble(Function(self.functionspace).
                                            interpolate(psi_x * psi_y / (self.turbine_specifications._unit_bump_int * radius**2)) * dx)
 
@@ -171,9 +168,8 @@ class TurbineOperation2DCallback(DiagnosticCallback):
             else:
                 density_correction = 1 / projection_integral
                 # Update density function
-                self.farm_density.interpolate(self.farm_density + density_correction * psi_x * psi_y /
-                                              (self.turbine_specifications._unit_bump_int * radius **2))
-                
+                self.farm_density.interpolate(self.farm_density + density_correction * psi_x * psi_y
+                                              / (self.turbine_specifications._unit_bump_int * radius ** 2))
 
     def wd_bathymetry_displacement(self):
         """
@@ -185,15 +181,14 @@ class TurbineOperation2DCallback(DiagnosticCallback):
             interpolate(0.5 * (sqrt(H ** 2 + self.solver.options.wetting_and_drying_alpha ** 2) - H))
         return disp
 
-
     def compute_total_depth(self):
         """
         Returns effective depth by accounting for the wetting and drying algorithm
         """
         if hasattr(self.solver.options, 'use_wetting_and_drying') and self.solver.options.use_wetting_and_drying:
             return Function(self.functionspace). \
-                interpolate(self.solver.fields["bathymetry_2d"] + self.solver.fields["elev_2d"] +
-                            self.wd_bathymetry_displacement())
+                interpolate(self.solver.fields["bathymetry_2d"] + self.solver.fields["elev_2d"]
+                            + self.wd_bathymetry_displacement())
         else:
             return Function(self.functionspace). \
                 interpolate(self.solver.fields["bathymetry_2d"] + self.solver.fields["elev_2d"])
@@ -204,29 +199,29 @@ class TurbineOperation2DCallback(DiagnosticCallback):
         """
 
         self.thrust_coefficient.interpolate(
-            conditional(le(uv_mag,self.turbine_specifications.cut_in_speed), 0,
-                        conditional(le(uv_mag,self.turbine_specifications.cut_out_speed), self.turbine_specifications.c_t_design,
-                                    self.turbine_specifications.c_t_design * self.turbine_specifications.cut_out_speed ** 3 /
-                                    uv_mag ** 3)))
+            conditional(le(uv_mag, self.turbine_specifications.cut_in_speed), 0,
+                        conditional(le(uv_mag, self.turbine_specifications.cut_out_speed), self.turbine_specifications.c_t_design,
+                                    self.turbine_specifications.c_t_design * self.turbine_specifications.cut_out_speed ** 3
+                                    / uv_mag ** 3)))
 
-        self.power_coefficient.interpolate(1/2 * (1 + sqrt(1 - self.thrust_coefficient)) *
-                                           self.thrust_coefficient * self.farm_density)
+        self.power_coefficient.interpolate(1/2 * (1 + sqrt(1 - self.thrust_coefficient))
+                                           * self.thrust_coefficient * self.farm_density)
 
         if self.upwind_correction is None:
-            self.turbine_drag.interpolate(self.thrust_coefficient * self.turbine_specifications.turbine_area / 2 *
-                                          self.farm_density)
+            self.turbine_drag.interpolate(self.thrust_coefficient * self.turbine_specifications.turbine_area / 2
+                                          * self.farm_density)
         else:
             # Implementation of turbine correction (Kramer & Piggott, Renewable Energy, 2016)
             H = self.compute_total_depth()
             effective_area = Function(self.functionspace).interpolate(self.turbine_specifications.swept_diameter * H)
 
-            self.turbine_drag.interpolate(self.thrust_coefficient * self.turbine_specifications.turbine_area / 2 *
-                                          self.farm_density * 4./(1.+ sqrt(1 - self.turbine_specifications.turbine_area/
-                                                                           effective_area * self.thrust_coefficient))**2)
+            self.turbine_drag.interpolate(self.thrust_coefficient * self.turbine_specifications.turbine_area / 2
+                                          * self.farm_density * 4. / (1. + sqrt(1 - self.turbine_specifications.turbine_area
+                                                                      / effective_area * self.thrust_coefficient)) ** 2)
 
     def __call__(self):
         uv, elev = self.solver.timestepper.solution.split()
-        uv_norm = sqrt(dot(uv,uv))
+        uv_norm = sqrt(dot(uv, uv))
 
         self.calculate_turbine_coefficients(uv_norm)
 
