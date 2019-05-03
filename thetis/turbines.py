@@ -8,6 +8,235 @@ from .optimisation import DiagnosticOptimisationCallback
 import numpy
 
 
+class BaseTurbine(object):
+    """A base turbine class from which others are derived."""
+    def __init__(self, diameter=None, minimum_distance=None,
+                 controls=None, bump=False, projection_diameter=None):
+        # Possible turbine parameters.
+        self._diameter = diameter
+        self._minimum_distance = minimum_distance
+        self._controls = controls
+        self._projection_diameter = projection_diameter
+
+        # Possible parameterisations.
+        self._bump = bump
+
+        # The integral of the unit bump function computed with Wolfram Alpha:
+        # "integrate e^(-1/(1-x**2)-1/(1-y**2)+2) dx dy,
+        #  x=-0.999..0.999, y=-0.999..0.999"
+        # http://www.wolframalpha.com/input/?i=integrate+e%5E%28-1%2F%281-x**2%29-1%2F%281-y**2%29%2B2%29+dx+dy%2C+x%3D-0.999..0.999%2C+y%3D-0.999..0.999
+        self._unit_bump_int = 1.45661
+
+
+    @property
+    def diameter(self):
+        """The diameter of a turbine.
+        :returns: The diameter of a turbine.
+        :rtype: float
+        """
+        if self._diameter is None:
+            raise ValueError("Diameter has not been set!")
+        return self._diameter
+
+
+    @property
+    def radius(self):
+        """The radius of a turbine.
+        :returns: The radius of a turbine.
+        :rtype: float
+        """
+        return self.diameter*0.5
+
+
+    @property
+    def integral(self):
+        """The integral of the turbine bump function.
+        :returns: The integral of the turbine bump function.
+        :rtype: float
+        """
+        return self._unit_bump_int*self._diameter/4.
+
+    @property
+    def bump(self):
+        return self._bump
+
+
+class ThrustTurbine(BaseTurbine):
+    """ Create a turbine that is modelled as a bump of bottom friction.
+        In addition this turbine implements cut in and out speeds for the
+        power production.
+        This turbine introduces a non-linearity, which is handled explicitly. """
+    def __init__(self,
+                 diameter=20.,
+                 swept_diameter=20.,
+                 c_t_design=0.6,
+                 cut_in_speed=1,
+                 cut_out_speed=2.5,
+                 minimum_distance=None):
+
+        # Check for a given minimum distance.
+        if minimum_distance is None: minimum_distance=diameter*1.5
+        # Initialize the base class.
+        super(ThrustTurbine, self).__init__(diameter=diameter,
+                                            minimum_distance=minimum_distance)
+
+        # To parametrise a square 2D plan-view turbine to characterise a
+        # realistic tidal turbine with a circular swept area in the section
+        # plane we assume that the specified 2D turbine diameter is equal to the
+        # circular swept diameter
+        self.swept_diameter = swept_diameter
+        self.c_t_design = c_t_design
+        self.cut_in_speed = cut_in_speed
+        self.cut_out_speed = cut_out_speed
+        self.turbine_area = pi * self.diameter ** 2 / 4
+
+        self.swept_area = pi * (swept_diameter) ** 2 / 4
+        # Check that the parameter choices make some sense - these won't break
+        # the simulation but may give unexpected results if the choice isn't
+        # understood.
+        if self.swept_diameter != self.diameter:
+            log(INFO, 'Warning - swept_diameter and plan_diameter are not equal')
+
+
+class TurbineOperation2DCallback(DiagnosticCallback):
+    """Callback that can be used for the following:
+    a) The addition of turbines in the turbine density field
+    b) As a callback to extract information about the turbine operation of a particular farm
+    """
+
+    def __init__(self, solver_obj, turbine, coordinates, turbine_density, name="Turbines2d",
+                 upwind_correction=None, **kwargs):
+        """
+        :arg turbine: turbine characteristics
+        :type turbine: object : a :class:`ThrustTurbine`
+        :arg solver_obj: Thetis solver object
+        :arg coordinates: Turbine coordinates array
+        :arg turbine_density: turbine distribution density field
+        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
+        """
+
+        super(TurbineOperation2DCallback,self).__init__(solver_obj)
+        kwargs.setdefault('append_to_log', False)
+        kwargs.setdefault('export_to_hdf5', False)
+
+        # Preliminaries
+        self.solver = solver_obj
+        self.turbine_specifications = turbine
+        self.coordinates = coordinates
+        self.farm_density = turbine_density
+        self.functionspace = FunctionSpace(solver_obj.mesh2d, 'CG', 1)
+
+        # Adding turbine distribution in the domain
+        self.add_turbines()
+
+        # Initialising turbine related fields
+        self.thrust_coefficient = Function(self.functionspace, name="Thrust coefficient")
+        self.power_coefficient = Function(self.functionspace, name="Power coefficient")
+        self.turbine_drag = Function(self.functionspace, name="Turbine friction")
+        self.upwind_correction = upwind_correction
+        self._name = name
+        self._variable_names = ["Power"]
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def variable_names(self):
+        return self._variable_names
+
+    def add_turbines(self):
+        """
+        :param coords: Array with turbine coordinates to be positioned
+        :param function: turbine density function to be adapted
+        :param mesh: computational mesh domain
+        :param radius: radius where the bump will be applied
+        :return: updated turbine density field
+        """
+        self.farm_density.assign(0.0)
+        x = SpatialCoordinate(self.solver.mesh2d)
+        psi_x = Function(self.functionspace)
+        psi_y = Function(self.functionspace)
+        radius = self.turbine_specifications.swept_diameter * 0.5
+        for coord in self.coordinates:
+            psi_x.interpolate(conditional(lt(abs((x[0]-coord[0])/radius),1),
+                                          exp(1-1/(1-pow(abs((x[0]-coord[0])/radius),2))),0))
+            psi_y.interpolate(conditional(lt(abs((x[1]-coord[1])/radius),1),
+                                          exp(1-1/(1-pow(abs((x[1]-coord[1])/radius),2))),0))
+            projection_integral = assemble(Function(self.functionspace).
+                                           interpolate(psi_x * psi_y / (self.turbine_specifications._unit_bump_int * radius**2)) * dx)
+
+            if projection_integral == 0.0:
+                print_output("Could not place turbine due to low resolution. Either increase resolution or radius")
+            else:
+                density_correction = 1 / projection_integral
+                # Update density function
+                self.farm_density.interpolate(self.farm_density + density_correction * psi_x * psi_y /
+                                              (self.turbine_specifications._unit_bump_int * radius **2))
+                
+
+    def wd_bathymetry_displacement(self):
+        """
+        Returns wetting and drying bathymetry displacement as described in:
+        Karna et al.,  2011.
+        """
+        H = self.solver.fields["bathymetry_2d"]+self.solver.fields["elev_2d"]
+        disp = Function(self.functionspace). \
+            interpolate(0.5 * (sqrt(H ** 2 + self.solver.options.wetting_and_drying_alpha ** 2) - H))
+        return disp
+
+
+    def compute_total_depth(self):
+        """
+        Returns effective depth by accounting for the wetting and drying algorithm
+        """
+        if hasattr(self.solver.options, 'use_wetting_and_drying') and self.solver.options.use_wetting_and_drying:
+            return Function(self.functionspace). \
+                interpolate(self.solver.fields["bathymetry_2d"] + self.solver.fields["elev_2d"] +
+                            self.wd_bathymetry_displacement())
+        else:
+            return Function(self.functionspace). \
+                interpolate(self.solver.fields["bathymetry_2d"] + self.solver.fields["elev_2d"])
+
+    def calculate_turbine_coefficients(self, uv_mag):
+        """
+        :return: returns the thrust and power coefficient fields and updates the turbine drag fields
+        """
+
+        self.thrust_coefficient.interpolate(
+            conditional(le(uv_mag,self.turbine_specifications.cut_in_speed), 0,
+                        conditional(le(uv_mag,self.turbine_specifications.cut_out_speed), self.turbine_specifications.c_t_design,
+                                    self.turbine_specifications.c_t_design * self.turbine_specifications.cut_out_speed ** 3 /
+                                    uv_mag ** 3)))
+
+        self.power_coefficient.interpolate(1/2 * (1 + sqrt(1 - self.thrust_coefficient)) *
+                                           self.thrust_coefficient * self.farm_density)
+
+        if self.upwind_correction is None:
+            self.turbine_drag.interpolate(self.thrust_coefficient * self.turbine_specifications.turbine_area / 2 *
+                                          self.farm_density)
+        else:
+            # Implementation of turbine correction (Kramer & Piggott, Renewable Energy, 2016)
+            H = self.compute_total_depth()
+            effective_area = Function(self.functionspace).interpolate(self.turbine_specifications.swept_diameter * H)
+
+            self.turbine_drag.interpolate(self.thrust_coefficient * self.turbine_specifications.turbine_area / 2 *
+                                          self.farm_density * 4./(1.+ sqrt(1 - self.turbine_specifications.turbine_area/
+                                                                           effective_area * self.thrust_coefficient))**2)
+
+    def __call__(self):
+        uv, elev = self.solver.timestepper.solution.split()
+        uv_norm = sqrt(dot(uv,uv))
+
+        self.calculate_turbine_coefficients(uv_norm)
+
+        return [assemble(0.5 * 1025 * self.power_coefficient * self.turbine_specifications.turbine_area * uv_norm ** 3 * dx)]
+
+    def message_str(self, *args):
+        line = 'Tidal turbine power generated {:f} MW'.format(args[0] / 1e6,)
+        return line
+
+
 class TurbineFarm(object):
     """
     Evaluates power output, costs and profit of tidal turbine farm
