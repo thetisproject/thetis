@@ -771,31 +771,12 @@ class DiscreteTurbineDragTerm(ShallowWaterMomentumTerm):
     Thanasis comment: needs to be updated once complete
     """
 
-    def calculate_turbine_coefficients(self, farm_options, unorm, total_h):
-        """
-        :return: returns the thrust and power coefficient fields and updates the turbine drag fields
-        """
-        turbine = farm_options.turbine_options
-        c_t = farm_options.thrust_coefficient.\
-            interpolate(conditional(le(unorm, turbine.cut_in_speed), 0,
-                                    conditional(le(unorm, turbine.cut_out_speed), turbine.c_t_design,
-                                                turbine.c_t_design * turbine.cut_out_speed ** 3 / unorm ** 3)))
-
-        farm_options.power_coefficient.interpolate(1/2 * (1 + sqrt(1 - c_t)) * c_t * farm_options.turbine_density)
-
-        if farm_options.upwind_correction is None:
-            return farm_options.turbine_drag.interpolate(c_t * turbine.turbine_area / 2 * farm_options.turbine_density)
-        else:
-            return farm_options.turbine_drag.\
-                interpolate(c_t * turbie.turbine_area / 2 * farm_options.turbine_density * 4.
-                            / (1. + sqrt(1 - turbine.turbine_area / (turbine.swept_deiameter * total_h) * c_t)) ** 2)
-
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
         f = 0
         for subdomain_id, farm_options in self.options.discrete_tidal_turbine_farms.items():
-            C_D = self.calculate_turbine_coefficients(farm_options, unorm, total_h)
             unorm = sqrt(dot(uv_old, uv_old))
+            C_D = farm_options.turbine_drag
             f += C_D * unorm * inner(self.u_test, uv) / total_h * self.dx(subdomain_id)
         return -f
 
@@ -887,6 +868,7 @@ class BaseShallowWaterEquation(Equation):
         self.add_term(LinearDragTerm(*args), 'explicit')
         self.add_term(BottomDrag3DTerm(*args), 'source')
         self.add_term(TurbineDragTerm(*args), 'implicit')
+        self.add_term(DiscreteTurbineDragTerm(*args), 'implicit')
         self.add_term(MomentumSourceTerm(*args), 'source')
 
     def add_continuity_terms(self, *args):

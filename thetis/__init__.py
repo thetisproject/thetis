@@ -13,7 +13,8 @@ import thetis.turbines  # NOQA
 import thetis.optimisation  # NOQA
 from thetis._version import get_versions
 from thetis.assembledschur import AssembledSchurPC  # NOQA
-from thetis.options import TidalTurbineFarmOptions  # NOQA
+from thetis.options import TidalTurbineFarmOptions, DiscreteTidalTurbineFarmOptions  # NOQA
+from thetis.turbines import DiscreteTidalfarm, ThrustTurbine, DiscreteTurbineOperation # NOQA
 import os  # NOQA
 
 __version__ = get_versions()['version']
