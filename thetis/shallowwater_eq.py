@@ -788,6 +788,51 @@ class TurbineDragTerm(ShallowWaterMomentumTerm):
         return -f
 
 
+class DiscreteTurbineDragTerm(ShallowWaterMomentumTerm):
+    r"""
+    Turbine drag parameterisation implemented through quadratic drag term bumps
+    :math:`c_t \| \bar{\textbf{u}} \| \bar{\textbf{u}}`
+
+    where the turbine drag :math:`c_t` is related to the turbine thrust coefficient
+    :math:`c_t`, the turbine diameter :math:`A_T`, and the turbine density :math:`d`
+    (n/o turbines per unit area), by:
+
+
+    .. math::
+        c_t = (C_T A_T d)/2
+
+    Thanasis comment: needs to be updated once complete
+    """
+
+    def calculate_turbine_coefficients(self, farm_options, unorm, total_h):
+        """
+        :return: returns the thrust and power coefficient fields and updates the turbine drag fields
+        """
+        turbine = farm_options.turbine_options
+        c_t = farm_options.thrust_coefficient.\
+            interpolate(conditional(le(unorm, turbine.cut_in_speed), 0,
+                                    conditional(le(unorm, turbine.cut_out_speed), turbine.c_t_design,
+                                                turbine.c_t_design * turbine.cut_out_speed ** 3 / unorm ** 3)))
+
+        farm_options.power_coefficient.interpolate(1/2 * (1 + sqrt(1 - c_t)) * c_t * farm_options.turbine_density)
+
+        if farm_options.upwind_correction is None:
+            return farm_options.turbine_drag.interpolate(c_t * turbine.turbine_area / 2 * farm_options.turbine_density)
+        else:
+            return farm_options.turbine_drag.\
+                interpolate(c_t * turbie.turbine_area / 2 * farm_options.turbine_density * 4.
+                            / (1. + sqrt(1 - turbine.turbine_area / (turbine.swept_deiameter * total_h) * c_t)) ** 2)
+
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        total_h = self.get_total_depth(eta_old)
+        f = 0
+        for subdomain_id, farm_options in self.options.discrete_tidal_turbine_farms.items():
+            C_D = self.calculate_turbine_coefficients(farm_options, unorm, total_h)
+            unorm = sqrt(dot(uv_old, uv_old))
+            f += C_D * unorm * inner(self.u_test, uv) / total_h * self.dx(subdomain_id)
+        return -f
+
+
 class MomentumSourceTerm(ShallowWaterMomentumTerm):
     r"""
     Generic source term in the shallow water momentum equation
