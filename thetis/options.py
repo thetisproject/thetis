@@ -352,8 +352,8 @@ class TidalTurbineFarmOptions(FrozenHasTraits, TraitType):
 
 class DiscreteTidalTurbineFarmOptions(FrozenHasTraits, TraitType):
     """Discrete Tidal turbine farm options - defaults to 0 turbines in the field"""
-    from thetis.turbines import BaseTurbine, ThrustTurbine, TurbineOperation2DCallback
-    name = 'Farm options'
+    from thetis.turbines import BaseTurbine, ThrustTurbine
+    name = 'Discrete Farm options'
     turbine_options = ThrustTurbine()
     turbine_density = FiredrakeScalarExpression(
         Constant(0.0), help='Density of turbines within the farm expressed as bumps representing individual turbines')
