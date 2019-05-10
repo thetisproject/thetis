@@ -30,7 +30,10 @@ sudo -u firedrake /bin/bash << Here
 whoami
 cd /home/firedrake
 . /home/firedrake/firedrake/bin/activate
-firedrake-update --install pyadjoint --package-branch firedrake default_spectral --package-branch tsfc default_spectral --package-branch ufl reconstruct_fix|| (cat firedrake-update.log && /bin/false)
+pushd src/firedrake; git checkout default_spectral; popd
+pushd src/tsfc; git checkout default_spectral; popd
+pushd src/ufl; git checkout reconstruct_fix; popd
+firedrake-update --install pyadjoint || (cat firedrake-update.log && /bin/false)
 chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages
 chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages/easy-install.pth
 chmod a+rwx /home/firedrake/firedrake/bin
