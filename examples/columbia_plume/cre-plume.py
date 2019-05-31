@@ -32,8 +32,27 @@ from thetis import *
 from bathymetry import *
 from tidal_forcing import TPXOTidalBoundaryForcing
 from ncom_forcing import NCOMInterpolator
-from atm_forcing import *
+from thetis.forcing3d import *
 comm = COMM_WORLD
+
+# define model coordinate system
+COORDSYS = coordsys.UTM_ZONE10
+
+
+def to_latlon(x, y, positive_lon=False):
+    """
+    Method to convert model coordinates to (lat, lon)
+    """
+    lon, lat = coordsys.convert_coords(COORDSYS,
+                                       coordsys.LL_WGS84, x, y)
+    if positive_lon:
+        if isinstance(lon, np.ndarray):
+            ix = lon < 0.0
+            lon[ix] += 360.
+        else:  # assume float
+            lon += 360.
+    return lat, lon
+
 
 rho0 = 1000.0
 # set physical constants
@@ -189,7 +208,8 @@ copy_wind_stress_to_3d = ExpandFunctionTo3d(wind_stress_2d, wind_stress_3d)
 atm_pattern = 'forcings/atm/nam/nam_air.local.{year}_*_*.nc'.format(year=init_date.year)
 atm_interp = ATMInterpolator(
     solver_obj.function_spaces.P1_2d,
-    wind_stress_2d, atm_pressure_2d, atm_pattern, init_date)
+    wind_stress_2d, atm_pressure_2d, to_latlon, atm_pattern, init_date,
+    COORDSYS)
 atm_interp.set_fields(0.0)
 
 solver_obj.create_fields()
