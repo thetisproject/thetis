@@ -31,7 +31,6 @@ The forcing data are loaded from subdirectories:
 from thetis import *
 from bathymetry import *
 from tidal_forcing import TPXOTidalBoundaryForcing
-from diagnostics import *
 from ncom_forcing import NCOMInterpolator
 from atm_forcing import *
 comm = COMM_WORLD
