@@ -1,7 +1,7 @@
 from thetis import *
 from atm_forcing import to_latlon, COORDSYS
 from thetis.timezone import *
-from thetis.forcing3d import *
+from thetis.forcing import *
 
 
 def test():

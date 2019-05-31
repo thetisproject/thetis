@@ -10,7 +10,7 @@ import thetis.coordsys as coordsys
 from thetis.log import *
 import datetime
 import netCDF4
-from thetis.forcing3d import *
+from thetis.forcing import *
 
 # define model coordinate system
 COORDSYS = coordsys.UTM_ZONE10

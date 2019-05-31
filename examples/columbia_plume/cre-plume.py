@@ -32,7 +32,7 @@ from thetis import *
 from bathymetry import *
 from tidal_forcing import TPXOTidalBoundaryForcing
 from ncom_forcing import NCOMInterpolator
-from thetis.forcing3d import *
+from thetis.forcing import *
 comm = COMM_WORLD
 
 # define model coordinate system
