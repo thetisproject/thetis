@@ -259,7 +259,7 @@ tide_uv_expr_2d = elev_ramp*UV_tide_2d/depth_2d
 tide_uv_expr_3d = elev_ramp*UV_tide_3d/depth_3d
 
 tide_bnd_interp = TPXOTidalBoundaryForcing(
-    elev_tide_2d, init_date,
+    elev_tide_2d, init_date, to_latlon, COORDSYS,
     uv_field=UV_tide_2d, data_dir='forcings',
     boundary_ids=[north_bnd_id, west_bnd_id, south_bnd_id])
 

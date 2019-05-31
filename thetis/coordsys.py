@@ -93,12 +93,17 @@ class VectorCoordSysRotation(object):
         self.rotation_sin = np.sin(theta)
         self.rotation_cos = np.cos(theta)
 
-    def __call__(self, v_x, v_y):
+    def __call__(self, v_x, v_y, i_node=None):
         """
-        Rotate vectors defined by the `v_x` and `v_y` components
+        Rotate vectors defined by the `v_x` and `v_y` components.
+
+        :arg v_x, v_y: vector x, y components
+        :kwarg ix_node: If not None, rotate the i-th vector instead of the
+            whole array
         """
         # | c -s | | v_x |
         # | s  c | | v_y |
-        u = v_x * self.rotation_cos - v_y * self.rotation_sin
-        v = v_x * self.rotation_sin + v_y * self.rotation_cos
+        f = [i_node] if i_node is not None else slice(None, None, None)
+        u = v_x * self.rotation_cos[f] - v_y * self.rotation_sin[f]
+        v = v_x * self.rotation_sin[f] + v_y * self.rotation_cos[f]
         return u, v
