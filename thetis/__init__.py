@@ -17,6 +17,7 @@ from thetis._version import get_versions
 from thetis.assembledschur import AssembledSchurPC  # NOQA
 from thetis.options import TidalTurbineFarmOptions  # NOQA
 import os  # NOQA
+import datetime  # NOQA
 
 __version__ = get_versions()['version']
 del get_versions

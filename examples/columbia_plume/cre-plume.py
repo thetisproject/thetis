@@ -232,8 +232,9 @@ oce_bnd_interp = NCOMInterpolator(
     [salt_bnd_3d, temp_bnd_3d, uvel_bnd_3d, vvel_bnd_3d],
     ['Salinity', 'Temperature', 'U_Velocity', 'V_Velocity'],
     ['s3d', 't3d', 'u3d', 'v3d'],
-    'forcings/ncom/{year:04d}/{fieldstr:}/{fieldstr:}.glb8_2f_{year:04d}{month:02d}{day:02d}00.nc',
-    init_date
+    to_latlon, 'forcings/ncom',
+    '{year:04d}/{fieldstr:}/{fieldstr:}.glb8_2f_{year:04d}{month:02d}{day:02d}00.nc',
+    init_date, COORDSYS
 )
 
 
