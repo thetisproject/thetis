@@ -148,9 +148,9 @@ class ATMInterpolator(object):
         self.atm_pressure_field.dat.data_with_halos[:] = prmsl
 
 
-class SpatialInterpolatorNCOM3d(interpolation.SpatialInterpolator):
+class SpatialInterpolatorNCOMBase(interpolation.SpatialInterpolator):
     """
-    Spatial interpolator class for interpolatin NCOM ocean model 3D fields.
+    Base class for 2D and 3D NCOM spatial interpolators.
     """
     def __init__(self, function_space, to_latlon, grid_path):
         """
@@ -163,37 +163,13 @@ class SpatialInterpolatorNCOM3d(interpolation.SpatialInterpolator):
         """
         self.function_space = function_space
         self.grid_path = grid_path
-
-        # construct local coordinates
-        xyz = SpatialCoordinate(self.function_space.mesh())
-        tmp_func = self.function_space.get_work_function()
-        xyz_array = np.zeros((tmp_func.dat.data_with_halos.shape[0], 3))
-        for i in range(3):
-            tmp_func.interpolate(xyz[i])
-            xyz_array[:, i] = tmp_func.dat.data_with_halos[:]
-        self.function_space.restore_work_function(tmp_func)
-
-        self.latlonz_array = np.zeros_like(xyz_array)
-        lat, lon = to_latlon(xyz_array[:, 0], xyz_array[:, 1], positive_lon=True)
-        self.latlonz_array[:, 0] = lat
-        self.latlonz_array[:, 1] = lon
-        self.latlonz_array[:, 2] = xyz_array[:, 2]
-
         self._initialized = False
 
-    def _get_forcing_grid(self, filename, varname):
+    def _create_2d_mapping(self, ncfile):
         """
-        Helper function to load NCOM grid files.
+        Create map for 2D nodes.
         """
-        v = None
-        with netCDF4.Dataset(os.path.join(self.grid_path, filename), 'r') as ncfile:
-            v = ncfile[varname][:]
-        return v
-
-    def _create_interpolator(self, ncfile):
-        """
-        Create a compact interpolator by finding the minimal necessary support
-        """
+        # read source lat lon grid
         lat_full = self._get_forcing_grid('model_lat.nc', 'Lat')
         lon_full = self._get_forcing_grid('model_lon.nc', 'Long')
         x_ind = ncfile['X_Index'][:].astype(int)
@@ -208,8 +184,9 @@ class SpatialInterpolatorNCOM3d(interpolation.SpatialInterpolator):
                 varkey = k
                 break
         assert varkey is not None, 'Could not find variable in file'
-        vals = ncfile[varkey][:]  # shape nz, lat, lon
-        land_mask = np.all(vals.mask, axis=0)
+        vals = ncfile[varkey][:]  # shape (nz, lat, lon) or (lat, lon)
+        is3d = len(vals.shape) == 3
+        land_mask = np.all(vals.mask, axis=0) if is3d else vals.mask
 
         # build 2d mask
         mask_good_values = ~land_mask
@@ -243,15 +220,63 @@ class SpatialInterpolatorNCOM3d(interpolation.SpatialInterpolator):
         self.nodes = np.nonzero(mask.ravel())[0]
         self.ind_lat, self.ind_lon = np.unravel_index(self.nodes, lat.shape)
 
-        # find 3d mask where data is not defined
-        vals = vals[:, self.ind_lat, self.ind_lon]
-        self.good_mask_3d = ~vals.mask
-
         lat_subset = lat[self.ind_lat, self.ind_lon]
         lon_subset = lon[self.ind_lat, self.ind_lon]
 
         assert len(lat_subset) > 0, 'rank {:} has no source lat points'
         assert len(lon_subset) > 0, 'rank {:} has no source lon points'
+
+        return lon_subset, lat_subset, x_ind, y_ind, vals
+
+    def _get_forcing_grid(self, filename, varname):
+        """
+        Helper function to load NCOM grid files.
+        """
+        v = None
+        with netCDF4.Dataset(os.path.join(self.grid_path, filename), 'r') as ncfile:
+            v = ncfile[varname][:]
+        return v
+
+
+class SpatialInterpolatorNCOM3d(SpatialInterpolatorNCOMBase):
+    """
+    Spatial interpolator class for interpolatin NCOM ocean model 3D fields.
+    """
+    def __init__(self, function_space, to_latlon, grid_path):
+        """
+        :arg function_space: Target (scalar) :class:`FunctionSpace` object onto
+            which data will be interpolated.
+        :arg to_latlon: Python function that converts local mesh coordinates to
+            latitude and longitude: 'lat, lon = to_latlon(x, y)'
+        :arg grid_path: File path where the NCOM model grid files
+            ('model_lat.nc', 'model_lon.nc', 'model_zm.nc') are located.
+        """
+        super().__init__(function_space, to_latlon, grid_path)
+
+        # construct local coordinates
+        xyz = SpatialCoordinate(self.function_space.mesh())
+        tmp_func = self.function_space.get_work_function()
+        xyz_array = np.zeros((tmp_func.dat.data_with_halos.shape[0], 3))
+        for i in range(3):
+            tmp_func.interpolate(xyz[i])
+            xyz_array[:, i] = tmp_func.dat.data_with_halos[:]
+        self.function_space.restore_work_function(tmp_func)
+
+        self.latlonz_array = np.zeros_like(xyz_array)
+        lat, lon = to_latlon(xyz_array[:, 0], xyz_array[:, 1], positive_lon=True)
+        self.latlonz_array[:, 0] = lat
+        self.latlonz_array[:, 1] = lon
+        self.latlonz_array[:, 2] = xyz_array[:, 2]
+
+    def _create_interpolator(self, ncfile):
+        """
+        Create a compact interpolator by finding the minimal necessary support
+        """
+        lon_subset, lat_subset, x_ind, y_ind, vals = self._create_2d_mapping(ncfile)
+
+        # find 3d mask where data is not defined
+        vals = vals[:, self.ind_lat, self.ind_lon]
+        self.good_mask_3d = ~vals.mask
 
         # construct vertical grid
         zm = self._get_forcing_grid('model_zm.nc', 'zm')
@@ -293,8 +318,72 @@ class SpatialInterpolatorNCOM3d(interpolation.SpatialInterpolator):
             output = []
             for var in variable_list:
                 assert var in ncfile.variables
-                # TODO generalize data dimensions, sniff from netcdf file
                 grid_data = ncfile[var][:][:, self.ind_lat, self.ind_lon][self.good_mask_3d]
+                data = self.interpolator(grid_data)
+                output.append(data)
+        return output
+
+
+class SpatialInterpolatorNCOM2d(SpatialInterpolatorNCOMBase):
+    """
+    Spatial interpolator class for interpolatin NCOM ocean model 2D fields.
+    """
+    def __init__(self, function_space, to_latlon, grid_path):
+        """
+        :arg function_space: Target (scalar) :class:`FunctionSpace` object onto
+            which data will be interpolated.
+        :arg to_latlon: Python function that converts local mesh coordinates to
+            latitude and longitude: 'lat, lon = to_latlon(x, y)'
+        :arg grid_path: File path where the NCOM model grid files
+            ('model_lat.nc', 'model_lon.nc', 'model_zm.nc') are located.
+        """
+        super().__init__(function_space, to_latlon, grid_path)
+        # construct local coordinates
+        xyz = SpatialCoordinate(self.function_space.mesh())
+        tmp_func = self.function_space.get_work_function()
+        xy_array = np.zeros((tmp_func.dat.data_with_halos.shape[0], 2))
+        for i in range(2):
+            tmp_func.interpolate(xyz[i])
+            xy_array[:, i] = tmp_func.dat.data_with_halos[:]
+        self.function_space.restore_work_function(tmp_func)
+
+        self.latlonz_array = np.zeros_like(xy_array)
+        lat, lon = to_latlon(xy_array[:, 0], xy_array[:, 1], positive_lon=True)
+        self.latlonz_array[:, 0] = lat
+        self.latlonz_array[:, 1] = lon
+
+    def _create_interpolator(self, ncfile):
+        """
+        Create a compact interpolator by finding the minimal necessary support
+        """
+        lon_subset, lat_subset, x_ind, y_ind, vals = self._create_2d_mapping(ncfile)
+
+        grid_lat = lat_subset
+        grid_lon = lon_subset
+        if np.ma.isMaskedArray(grid_lat):
+            grid_lat = grid_lat.filled(0.0)
+        if np.ma.isMaskedArray(grid_lon):
+            grid_lon = grid_lon.filled(0.0)
+        grid_latlon = np.vstack((grid_lat, grid_lon)).T
+
+        # building 3D interpolator, this can take a long time (minutes)
+        self.interpolator = interpolation.GridInterpolator(
+            grid_latlon, self.latlonz_array,
+            normalize=False, fill_mode='nearest', dont_raise=True
+        )
+        self._initialized = True
+
+    def interpolate(self, nc_filename, variable_list, itime):
+        """
+        Calls the interpolator object
+        """
+        with netCDF4.Dataset(nc_filename, 'r') as ncfile:
+            if not self._initialized:
+                self._create_interpolator(ncfile)
+            output = []
+            for var in variable_list:
+                assert var in ncfile.variables
+                grid_data = ncfile[var][:][self.ind_lat, self.ind_lon]
                 data = self.interpolator(grid_data)
                 output.append(data)
         return output
@@ -322,12 +411,14 @@ class NCOMInterpolator(object):
         ./forcings/ncom/2006/ssh/ssh.glb8_2f_2006041900.nc
         ./forcings/ncom/2006/ssh/ssh.glb8_2f_2006042000.nc
     """
-    def __init__(self, function_space, fields, field_names, field_fnstr,
+    def __init__(self, function_space_2d, function_space_3d, fields, field_names, field_fnstr,
                  to_latlon, basedir,
                  file_pattern, init_date, target_coordsys, verbose=False):
         """
-        :arg function_space: Target (scalar) :class:`FunctionSpace` object onto
-            which data will be interpolated.
+        :arg function_space_2d: Target (scalar) :class:`FunctionSpace` object onto
+            which 2D data will be interpolated.
+        :arg function_space_3d: Target (scalar) :class:`FunctionSpace` object onto
+            which 3D data will be interpolated.
         :arg fields: list of :class:`Function` objects where data will be
             stored.
         :arg field_names: List of netCDF variable names for the fields. E.g.
@@ -348,21 +439,24 @@ class NCOMInterpolator(object):
             defined. This is used to rotate vectors to local coordinates.
         :kwarg bool verbose: Se True to print debug information.
         """
-        self.function_space = function_space
+        self.function_space_2d = function_space_2d
+        self.function_space_3d = function_space_3d
         for f in fields:
-            assert f.function_space() == self.function_space, 'field \'{:}\' does not belong to given function space {:}.'.format(f.name(), self.function_space.name)
+            assert f.function_space() in [self.function_space_2d, self.function_space_3d], 'field \'{:}\' does not belong to given function space.'.format(f.name())
         assert len(fields) == len(field_names)
         assert len(fields) == len(field_fnstr)
         self.field_names = field_names
         self.fields = dict(zip(self.field_names, fields))
 
         # construct interpolators
-        self.grid_interpolator = SpatialInterpolatorNCOM3d(self.function_space, to_latlon, basedir)
+        self.grid_interpolator_2d = SpatialInterpolatorNCOM2d(self.function_space_2d, to_latlon, basedir)
+        self.grid_interpolator_3d = SpatialInterpolatorNCOM3d(self.function_space_3d, to_latlon, basedir)
         # each field is in different file
         # construct time search and interp objects separately for each
         self.time_interpolator = {}
         for ncvarname, fnstr in zip(field_names, field_fnstr):
-            r = interpolation.NetCDFSpatialInterpolator(self.grid_interpolator, [ncvarname])
+            gi = self.grid_interpolator_2d if fnstr == 'ssh' else self.grid_interpolator_3d
+            r = interpolation.NetCDFSpatialInterpolator(gi, [ncvarname])
             pat = file_pattern.replace('{fieldstr:}', fnstr)
             pat = os.path.join(basedir, pat)
             ts = interpolation.DailyFileTimeSearch(pat, init_date, verbose=verbose)
@@ -375,8 +469,8 @@ class NCOMInterpolator(object):
         if self.rotate_velocity:
             self.scalar_field_names.remove('U_Velocity')
             self.scalar_field_names.remove('V_Velocity')
-            lat = self.grid_interpolator.latlonz_array[:, 0]
-            lon = self.grid_interpolator.latlonz_array[:, 1]
+            lat = self.grid_interpolator_3d.latlonz_array[:, 0]
+            lon = self.grid_interpolator_3d.latlonz_array[:, 1]
             self.vect_rotator = coordsys.VectorCoordSysRotation(
                 coordsys.LL_WGS84, target_coordsys, lon, lat)
 

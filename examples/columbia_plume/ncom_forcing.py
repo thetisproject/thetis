@@ -92,6 +92,7 @@ def test_interpolator():
     }
     mesh = extrude_mesh_sigma(mesh2d, nlayers, bathymetry_2d,
                               **extrude_options)
+    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
     p1 = FunctionSpace(mesh, 'CG', 1)
 
     # make functions
@@ -99,13 +100,14 @@ def test_interpolator():
     temp = Function(p1, name='temperature')
     uvel = Function(p1, name='u-velocity')
     vvel = Function(p1, name='v-velocity')
+    elev = Function(p1_2d, name='elevation')
 
     sim_tz = timezone.FixedTimeZone(-8, 'PST')
     init_date = datetime.datetime(2006, 5, 1, tzinfo=sim_tz)
     interp = NCOMInterpolator(
-        p1, [salt, temp, uvel, vvel],
-        ['Salinity', 'Temperature', 'U_Velocity', 'V_Velocity'],
-        ['s3d', 't3d', 'u3d', 'v3d'],
+        p1_2d, p1, [salt, temp, uvel, vvel, elev],
+        ['Salinity', 'Temperature', 'U_Velocity', 'V_Velocity', 'Surface_Elevation'],
+        ['s3d', 't3d', 'u3d', 'v3d', 'ssh'],
         to_latlon, 'forcings/ncom',
         '{year:04d}/{fieldstr:}/{fieldstr:}.glb8_2f_{year:04d}{month:02d}{day:02d}00.nc',
         init_date, COORDSYS, verbose=True
@@ -115,18 +117,21 @@ def test_interpolator():
     temp_fn = 'tmp/temp.pvd'
     uvel_fn = 'tmp/uvel.pvd'
     vvel_fn = 'tmp/vvel.pvd'
-    print('Saving output to {:} {:} {:} {:}'.format(salt_fn, temp_fn, uvel_fn, vvel_fn))
+    elev_fn = 'tmp/elev.pvd'
+    print('Saving output to {:} {:} {:} {:} {:}'.format(salt_fn, temp_fn, uvel_fn, vvel_fn, elev_fn))
     out_salt = File(salt_fn)
     out_temp = File(temp_fn)
     out_uvel = File(uvel_fn)
     out_vvel = File(vvel_fn)
+    out_elev = File(elev_fn)
 
     out_salt.write(salt)
     out_temp.write(temp)
     out_uvel.write(uvel)
     out_vvel.write(vvel)
+    out_elev.write(elev)
 
-    dt = 900.
+    dt = 3*3600.
     for i in range(8):
         print('Time step {:}'.format(i))
         interp.set_fields(i*dt)
@@ -134,6 +139,7 @@ def test_interpolator():
         out_temp.write(temp)
         out_uvel.write(uvel)
         out_vvel.write(vvel)
+        out_elev.write(elev)
 
 
 if __name__ == '__main__':

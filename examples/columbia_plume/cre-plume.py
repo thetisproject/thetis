@@ -219,6 +219,7 @@ salt_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM salinity')
 temp_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM temperature')
 uvel_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM u velocity')
 vvel_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM v velocity')
+elev_bnd_2d = Function(solver_obj.function_spaces.P1DG_2d, name='NCOM water elevation')
 density_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM density')
 baroc_head_bnd_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM baroclinic head')
 ncom_vel_mask_3d = Function(solver_obj.function_spaces.P1DG, name='NCOM velocity mask')
@@ -228,10 +229,10 @@ uv_bnd_2d = Function(solver_obj.function_spaces.P1DGv_2d, name='NCOM velocity')
 uv_bnd_dav_3d = Function(solver_obj.function_spaces.P1DGv, name='NCOM depth averaged velocity')
 
 oce_bnd_interp = NCOMInterpolator(
-    solver_obj.function_spaces.P1DG,
-    [salt_bnd_3d, temp_bnd_3d, uvel_bnd_3d, vvel_bnd_3d],
-    ['Salinity', 'Temperature', 'U_Velocity', 'V_Velocity'],
-    ['s3d', 't3d', 'u3d', 'v3d'],
+    solver_obj.function_spaces.P1DG_2d, solver_obj.function_spaces.P1DG,
+    [salt_bnd_3d, temp_bnd_3d, uvel_bnd_3d, vvel_bnd_3d, elev_bnd_2d],
+    ['Salinity', 'Temperature', 'U_Velocity', 'V_Velocity', 'Surface_Elevation'],
+    ['s3d', 't3d', 'u3d', 'v3d', 'ssh'],
     to_latlon, 'forcings/ncom',
     '{year:04d}/{fieldstr:}/{fieldstr:}.glb8_2f_{year:04d}{month:02d}{day:02d}00.nc',
     init_date, COORDSYS
@@ -252,7 +253,7 @@ bnd_time = Constant(0)
 
 ramp_t = 12*3600.
 elev_ramp = conditional(le(bnd_time, ramp_t), bnd_time/ramp_t, 1.0)
-tide_elev_expr_2d = elev_ramp*elev_tide_2d
+bnd_elev_expr_2d = elev_ramp*(elev_tide_2d + elev_bnd_2d)
 depth_2d = solver_obj.fields.bathymetry_2d + solver_obj.fields.elev_cg_2d
 depth_3d = solver_obj.fields.bathymetry_3d + solver_obj.fields.elev_cg_3d
 tide_uv_expr_2d = elev_ramp*UV_tide_2d/depth_2d
@@ -277,8 +278,8 @@ river_temp_interp = interpolation.NetCDFTimeSeriesInterpolator(
 river_temp_const = Constant(river_temp_interp(0)[0])
 
 river_swe_funcs = {'flux': river_flux_const}
-ocean_tide_funcs = {'elev': tide_elev_expr_2d, 'uv': uv_bnd_2d + tide_uv_expr_2d}
-west_tide_funcs = {'elev': tide_elev_expr_2d, 'uv': tide_uv_expr_2d}
+ocean_tide_funcs = {'elev': bnd_elev_expr_2d, 'uv': uv_bnd_2d + tide_uv_expr_2d}
+west_tide_funcs = {'elev': bnd_elev_expr_2d, 'uv': tide_uv_expr_2d}
 open_uv_funcs = {'symm': None}
 bnd_river_salt = {'value': Constant(salt_river)}
 uv_bnd_sum_3d = uv_bnd_3d + uv_bnd_dav_3d + tide_uv_expr_3d
