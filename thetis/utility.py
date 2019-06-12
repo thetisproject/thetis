@@ -774,6 +774,34 @@ class Mesh3DConsistencyCalculator(object):
         print_output('HCC: {:} .. {:}'.format(r_min, r_max))
 
 
+class ExtrudedFunction(Function):
+    """
+    A 3D view of a 2D function.
+
+    The 3D function resides in V x R function space, where V is the function
+    space of the source function. The 3D function shares the data of the 2D
+    function.
+    """
+    def __init__(self, source_function_2d, mesh_3d):
+        """
+        Create a 3D view of a 2D :class:`Function`.
+
+        :arg source_function_2d: Source 2D :class:`Function` object
+        :arg mesh_3d: The extruded 3D mesh where the function will be extenede
+            to.
+        """
+        fs = source_function_2d.function_space()
+        assert fs.mesh().geometric_dimension() == 2, 'Source Function must be in 2D space'
+        ufl_elem = fs.ufl_element()
+        family = ufl_elem.family()
+        degree = ufl_elem.degree()
+        name = source_function_2d.name()
+        fs_extended = FunctionSpace(mesh_3d, family, degree, vfamily='R', vdegree=0)
+
+        super().__init__(fs_extended, name=name, val=source_function_2d.dat)
+        self.source = source_function_2d
+
+
 class ExpandFunctionTo3d(object):
     """
     Copy a 2D field to 3D
@@ -1247,13 +1275,15 @@ class ALEMeshUpdater(object):
             # continous elevation
             self.elev_cg_2d = Function(self.solver.function_spaces.P1_2d,
                                        name='elev cg 2d')
+            self.elev_cg_3d = Function(self.solver.function_spaces.P1,
+                                       name='elev cg 3d')
             # elevation in coordinate space
             self.proj_elev_to_cg_2d = Projector(self.fields.elev_2d,
                                                 self.elev_cg_2d)
             self.proj_elev_cg_to_coords_2d = Projector(self.elev_cg_2d,
                                                        self.fields.elev_cg_2d)
             self.cp_elev_2d_to_3d = ExpandFunctionTo3d(self.fields.elev_cg_2d,
-                                                       self.fields.elev_cg_3d)
+                                                       self.elev_cg_3d)
             self.cp_w_mesh_surf_2d_to_3d = ExpandFunctionTo3d(self.fields.w_mesh_surf_2d,
                                                               self.fields.w_mesh_surf_3d)
         self.cp_v_elem_size_to_2d = SubFunctionExtractor(self.fields.v_elem_size_3d,
@@ -1310,7 +1340,9 @@ class ALEMeshUpdater(object):
         self.proj_elev_cg_to_coords_2d.project()
         self.cp_elev_2d_to_3d.solve()
 
-        eta = self.fields.elev_cg_3d.dat.data[:]
+        # FIXME find another way for doing this so that
+        # 3D elev/bath fields are not needed
+        eta = self.elev_cg_3d.dat.data[:]
         z_ref = self.fields.z_coord_ref_3d.dat.data[:]
         bath = self.fields.bathymetry_3d.dat.data[:]
         new_z = eta*(z_ref + bath)/bath + z_ref
