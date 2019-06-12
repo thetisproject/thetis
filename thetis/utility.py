@@ -845,7 +845,7 @@ class ExpandFunctionTo3d(object):
             # a normal tensorproduct element
             family_3dh = ufl_elem.sub_elements()[0].family()
             if family_2d != family_3dh:
-                raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
+                raise Exception('2D and 3D spaces do not match: "{0:s}" != "{1:s}"'.format(family_2d, family_3dh))
         if family_2d == 'Raviart-Thomas' and elem_height is None:
             raise Exception('elem_height must be provided for Raviart-Thomas spaces')
         self.do_rt_scaling = family_2d == 'Raviart-Thomas'
@@ -1282,7 +1282,7 @@ class ALEMeshUpdater(object):
                                                 self.elev_cg_2d)
             self.proj_elev_cg_to_coords_2d = Projector(self.elev_cg_2d,
                                                        self.fields.elev_cg_2d)
-            self.cp_elev_2d_to_3d = ExpandFunctionTo3d(self.fields.elev_cg_2d,
+            self.cp_elev_2d_to_3d = ExpandFunctionTo3d(self.elev_cg_2d,
                                                        self.elev_cg_3d)
             self.cp_w_mesh_surf_2d_to_3d = ExpandFunctionTo3d(self.fields.w_mesh_surf_2d,
                                                               self.fields.w_mesh_surf_3d)
