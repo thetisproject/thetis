@@ -68,7 +68,6 @@ def bottom_friction_test(layers=25, gls_closure='k-omega',
     options.use_implicit_vertical_diffusion = True
     options.use_bottom_friction = True
     options.use_turbulence = True
-    options.use_parabolic_viscosity = False
     options.vertical_viscosity = Constant(1.3e-6)  # background value
     options.vertical_diffusivity = Constant(1.4e-7)  # background value
     # options.use_ale_moving_mesh = False

@@ -27,13 +27,10 @@ import pytest
 import numpy
 
 
-def run_bottom_friction(parabolic_visosity=False,
-                        do_assert=True, do_export=False, **model_options):
+def run_bottom_friction(do_assert=True, do_export=False, **model_options):
     physical_constants['z0_friction'].assign(1.5e-3)
 
     outputdir = 'outputs'
-    if parabolic_visosity:
-        outputdir += '_parabolic'
     # set mesh resolution
     dx = 2500.0
     layers = 20
@@ -64,8 +61,7 @@ def run_bottom_friction(parabolic_visosity=False,
     options.solve_temperature = False
     options.use_implicit_vertical_diffusion = True
     options.use_bottom_friction = True
-    options.use_turbulence = not parabolic_visosity
-    options.use_parabolic_viscosity = parabolic_visosity
+    options.use_turbulence = True
     options.vertical_viscosity = Constant(1.3e-6)  # background value
     options.vertical_diffusivity = Constant(1.4e-7)  # background value
     options.use_ale_moving_mesh = False
@@ -78,7 +74,7 @@ def run_bottom_friction(parabolic_visosity=False,
     options.horizontal_velocity_scale = Constant(u_mag)
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                                 'uv_dav_2d', 'uv_bottom_2d',
-                                'parab_visc_3d', 'eddy_visc_3d', 'shear_freq_3d',
+                                'eddy_visc_3d', 'shear_freq_3d',
                                 'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
     options.update(model_options)
     if options.timestepper_type == 'LeapFrog':
@@ -107,12 +103,8 @@ def run_bottom_friction(parabolic_visosity=False,
         # u = u_b / kappa * log((z + bath + z_0)/z_0)
         # estimate bottom friction velocity from maximal u
         u_max = 0.9  # max velocity in [2] Fig 2.
-        if parabolic_visosity:
-            kappa = physical_constants['von_karman']
-            l2_tol = 0.12
-        else:
-            kappa = solver_obj.options.turbulence_model_options.kappa
-            l2_tol = 0.05
+        kappa = solver_obj.options.turbulence_model_options.kappa
+        l2_tol = 0.05
         z_0 = physical_constants['z0_friction'].dat.data[0]
         u_b = u_max * kappa / np.log((depth + z_0)/z_0)
         log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')
@@ -132,11 +124,6 @@ def run_bottom_friction(parabolic_visosity=False,
         print_output('L2 error {:.4f} PASSED'.format(uv_l2_err))
 
 
-@pytest.fixture(params=[True, False], ids=['parabolic_visosity', 'gls_model'])
-def parabolic_visosity(request):
-    return request.param
-
-
 @pytest.fixture(params=['rt-dg', 'dg-dg'])
 def element_family(request):
     return request.param
@@ -147,12 +134,12 @@ def timestepper_type(request):
     return request.param
 
 
-def test_bottom_friction(parabolic_visosity, element_family, timestepper_type):
-    run_bottom_friction(do_assert=True, do_export=False, parabolic_visosity=parabolic_visosity,
-                        element_family=element_family, timestepper_type=timestepper_type)
+def test_bottom_friction(element_family, timestepper_type):
+    run_bottom_friction(do_assert=True, do_export=False,
+                        element_family=element_family,
+                        timestepper_type=timestepper_type)
 
 
 if __name__ == '__main__':
-    run_bottom_friction(parabolic_visosity=False,
-                        element_family='dg-dg', timestepper_type='SSPRK22',
+    run_bottom_friction(element_family='dg-dg', timestepper_type='SSPRK22',
                         do_assert=True, do_export=True)

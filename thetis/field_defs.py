@@ -52,12 +52,6 @@ field_metadata['bottom_drag_2d'] = {
     'unit': '',
     'filename': 'BottomDrag2d',
 }
-field_metadata['bottom_drag_3d'] = {
-    'name': 'Bottom drag coefficient',
-    'shortname': 'Bottom drag coefficient',
-    'unit': '',
-    'filename': 'BottomDrag3d',
-}
 field_metadata['uv_2d'] = {
     'name': 'Depth averaged velocity',
     'shortname': 'Depth averaged velocity',
@@ -87,12 +81,6 @@ field_metadata['uv_bottom_2d'] = {
     'shortname': 'Bottom velocity',
     'unit': 'm s-1',
     'filename': 'BottomVelo2d',
-}
-field_metadata['uv_bottom_3d'] = {
-    'name': 'Bottom velocity',
-    'shortname': 'Bottom velocity',
-    'unit': 'm s-1',
-    'filename': 'BottomVelo3d',
 }
 field_metadata['uv_dav_3d'] = {
     'name': 'Depth averaged velocity',
@@ -183,12 +171,6 @@ field_metadata['density_3d'] = {
     'shortname': 'Density',
     'unit': 'kg m-3',
     'filename': 'Density3d',
-}
-field_metadata['parab_visc_3d'] = {
-    'name': 'Parabolic Viscosity',
-    'shortname': 'Parabolic Viscosity',
-    'unit': 'm2 s-1',
-    'filename': 'ParabVisc3d',
 }
 field_metadata['eddy_visc_3d'] = {
     'name': 'Eddy Viscosity',

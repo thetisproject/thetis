@@ -572,9 +572,6 @@ class FlowSolver(FrozenClass):
         self.fields.elev_cg_3d = Function(coord_fs)
         self.fields.elev_cg_2d = Function(coord_fs_2d)
         self.fields.uv_3d = Function(self.function_spaces.U)
-        if self.options.use_bottom_friction:
-            self.fields.uv_bottom_3d = Function(self.function_spaces.P1v)
-            self.fields.bottom_drag_3d = Function(coord_fs)
         self.fields.bathymetry_2d = Function(coord_fs_2d)
         self.fields.bathymetry_3d = Function(coord_fs)
         # z coordinate in the strecthed mesh
@@ -596,8 +593,6 @@ class FlowSolver(FrozenClass):
             self.fields.salt_3d = Function(self.function_spaces.H, name='Salinity')
         if self.options.solve_temperature:
             self.fields.temp_3d = Function(self.function_spaces.H, name='Temperature')
-        if self.options.use_implicit_vertical_diffusion and self.options.use_parabolic_viscosity:
-            self.fields.parab_visc_3d = Function(self.function_spaces.P1)
         if self.options.use_baroclinic_formulation:
             if self.options.use_quadratic_density:
                 self.fields.density_3d = Function(self.function_spaces.P2DGxP2, name='Density')
@@ -689,7 +684,6 @@ class FlowSolver(FrozenClass):
         self.tot_v_visc = SumFunction()
         self.tot_v_visc.add(self.options.vertical_viscosity)
         self.tot_v_visc.add(self.fields.get('eddy_visc_3d'))
-        self.tot_v_visc.add(self.fields.get('parab_visc_3d'))
         self.tot_h_diff = SumFunction()
         self.tot_h_diff.add(self.options.horizontal_diffusivity)
         self.tot_v_diff = SumFunction()
@@ -903,13 +897,6 @@ class FlowSolver(FrozenClass):
             self.extract_z_bottom = SubFunctionExtractor(self.fields.z_coord_3d, self.fields.z_bottom_2d,
                                                          boundary='bottom', elem_facet='average',
                                                          elem_height=self.fields.v_elem_size_2d)
-            if self.options.use_parabolic_viscosity:
-                self.copy_uv_bottom_to_3d = ExpandFunctionTo3d(self.fields.uv_bottom_2d,
-                                                               self.fields.uv_bottom_3d,
-                                                               elem_height=self.fields.v_elem_size_3d)
-                self.copy_bottom_drag_to_3d = ExpandFunctionTo3d(self.fields.bottom_drag_2d,
-                                                                 self.fields.bottom_drag_3d,
-                                                                 elem_height=self.fields.v_elem_size_3d)
         self.mesh_updater = ALEMeshUpdater(self)
 
         if self.options.use_smagorinsky_viscosity:
@@ -917,11 +904,6 @@ class FlowSolver(FrozenClass):
                                                                 self.options.smagorinsky_coefficient, self.fields.h_elem_size_3d,
                                                                 self.fields.max_h_diff,
                                                                 weak_form=self.options.polynomial_degree == 0)
-        if self.options.use_parabolic_viscosity:
-            self.parabolic_viscosity_solver = ParabolicViscosity(self.fields.uv_bottom_3d,
-                                                                 self.fields.bottom_drag_3d,
-                                                                 self.fields.bathymetry_3d,
-                                                                 self.fields.parab_visc_3d)
         self.uv_p1_projector = Projector(self.fields.uv_3d, self.fields.uv_p1_3d)
         self.elev_3d_to_cg_projector = Projector(self.fields.elev_3d, self.fields.elev_cg_3d)
         self.elev_2d_to_cg_projector = Projector(self.fields.elev_2d, self.fields.elev_cg_2d)
