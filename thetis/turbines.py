@@ -115,7 +115,7 @@ class DiscreteTidalfarm(object):
         self.coordinates = coordinates
         self.farm_density = turbine_density
         self.functionspace = FunctionSpace(solver_obj.mesh2d, 'CG', 1)
-        self.farm_identifier = subdomain
+        self.subdomain_id = subdomain
 
         # Adding turbine distribution in the domain
         self.add_turbines()
@@ -140,7 +140,7 @@ class DiscreteTidalfarm(object):
                                           exp(1-1/(1-pow(abs((x[1]-coord[1])/radius), 2))), 0))
             projection_integral = assemble(Function(self.functionspace).
                                            interpolate(psi_x * psi_y / (self.turbine._unit_bump_int * radius**2))
-                                           * dx(self.farm_identifier))
+                                           * dx(self.subdomain_id))
 
             if projection_integral == 0.0:
                 print_output("Could not place turbine due to low resolution. Either increase resolution or radius")
@@ -157,7 +157,9 @@ class DiscreteTurbineOperation(DiagnosticCallback):
     b) Extract information about the turbine operation of a particular farm
     """
 
-    def __init__(self, solver_obj, subdomain, farm_options, name="Turbines2d", **kwargs):
+    def __init__(self, solver_obj, subdomain, farm_options,
+                 name="Turbines2d",
+                 support_structure={"C_sup": 0.6, "A_sup": None}, **kwargs):
         """
         :arg turbine: turbine characteristics
         :type turbine: object : a :class:`ThrustTurbine`
@@ -165,6 +167,7 @@ class DiscreteTurbineOperation(DiagnosticCallback):
         :arg coordinates: Turbine coordinates array
         :arg turbine_density: turbine distribution density field
         :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
+        :arg support_structure: support structure characteristics. Add "A_sup" = None to use the total_depth
         """
 
         super(DiscreteTurbineOperation, self).__init__(solver_obj)
@@ -173,11 +176,13 @@ class DiscreteTurbineOperation(DiagnosticCallback):
 
         # Preliminaries
         self.solver = solver_obj
-        self.farm_identifier = subdomain
+        self.subdomain_id = subdomain
         self.farm_options = farm_options
         self.turbine = farm_options.turbine_options
+        self.support_structure = support_structure
         self.uv = self.solver.timestepper.solution.split()[0]
         self.functionspace = FunctionSpace(solver_obj.mesh2d, 'CG', 1)
+        self.uv_ambient_correction = Function(self.functionspace, name='expected_ambient')
 
         # Initialising turbine related fields
         self._name = name
@@ -227,25 +232,33 @@ class DiscreteTurbineOperation(DiagnosticCallback):
             interpolate(1/2 * (1 + sqrt(1 - self.farm_options.thrust_coefficient)) * self.farm_options.thrust_coefficient
                         * self.farm_options.turbine_density)
 
+        H = self.compute_total_depth()
+        if self.support_structure["A_sup"] == None:
+            self.support_structure["A_sup"] = 1.0 * H
         if self.farm_options.upwind_correction is False:
-            self.farm_options.turbine_drag.interpolate(self.farm_options.thrust_coefficient * self.turbine.turbine_area
+            self.farm_options.turbine_drag.interpolate((self.farm_options.thrust_coefficient * self.turbine.turbine_area +
+                                                        self.support_structure["C_sup"] * self.support_structure["A_sup"])
                                                        / 2 * self.farm_options.turbine_density)
+            self.uv_ambient_correction.interpolate(uv_mag)
         else:
-            H = self.compute_total_depth()
             self.farm_options.turbine_drag.\
-                interpolate(self.farm_options.thrust_coefficient
-                            * self.turbine.turbine_area / 2 * self.farm_options.turbine_density
-                            * 4. / (1. + sqrt(1 - self.turbine.turbine_area / (self.turbine.swept_diameter * H)
-                                              * self.farm_options.thrust_coefficient)) ** 2)
+                interpolate(self.farm_options.thrust_coefficient * self.turbine.turbine_area / 2 * self.farm_options.turbine_density
+                            * 4. / ((1. + sqrt(1 - self.turbine.turbine_area / (self.turbine.swept_diameter * H)
+                            * self.farm_options.thrust_coefficient)) ** 2)
+                            + self.support_structure["C_sup"] * self.support_structure["A_sup"] / 2 * self.farm_options.turbine_density)
+        
+            self.uv_ambient_correction.interpolate((1+1/4 * self.turbine.turbine_area/(self.turbine.swept_diameter * H) *
+                                                   self.farm_options.thrust_coefficient) * uv_mag)            
 
     def __call__(self):
         uv_norm = sqrt(dot(self.uv, self.uv))
         self.calculate_turbine_coefficients(uv_norm)
-        return [assemble(0.5 * 1025 * self.farm_options.power_coefficient * self.turbine.turbine_area * uv_norm ** 3
-                         * dx(self.farm_identifier))]
+
+        return [assemble(0.5 * 1025 * self.farm_options.power_coefficient * self.turbine.turbine_area *
+                         (self.uv_ambient_correction) ** 3 * dx(self.subdomain_id))]
 
     def message_str(self, *args):
-        line = 'Tidal turbine power generated {:f} MW'.format(args[0] / 1e6,)
+        line = 'Tidal turbine power generated {:f} MW'.format(args[0] / 1e6)
         return line
 
 
