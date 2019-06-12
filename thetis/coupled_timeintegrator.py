@@ -27,7 +27,7 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
     def _update_3d_elevation(self):
         """Projects elevation to 3D"""
         with timed_stage('aux_elev_3d'):
-            self.solver.copy_elev_to_3d.solve()  # at t_{n+1}
+            self.solver.fields.elev_3d.source.assign(self.solver.fields.elev_2d)
 
     def _update_vertical_velocity(self):
         """Solve vertical velocity"""
@@ -500,7 +500,7 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
         # set 3D elevation to half step
         gamma = self.timesteppers.mom_expl.gamma
         self.elev_old_3d.assign(self.fields.elev_3d)
-        self.solver.copy_elev_to_3d.solve()
+        self.solver.fields.elev_3d.source.assign(self.solver.fields.elev_2d)
         self.fields.elev_3d *= (0.5 + 2*gamma)
         self.fields.elev_3d += (0.5 - 2*gamma)*self.elev_old_3d
 
