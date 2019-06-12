@@ -233,29 +233,28 @@ class DiscreteTurbineOperation(DiagnosticCallback):
                         * self.farm_options.turbine_density)
 
         H = self.compute_total_depth()
-        if self.support_structure["A_sup"] == None:
+        if self.support_structure["A_sup"] is None:
             self.support_structure["A_sup"] = 1.0 * H
         if self.farm_options.upwind_correction is False:
-            self.farm_options.turbine_drag.interpolate((self.farm_options.thrust_coefficient * self.turbine.turbine_area +
-                                                        self.support_structure["C_sup"] * self.support_structure["A_sup"])
+            self.farm_options.turbine_drag.interpolate((self.farm_options.thrust_coefficient * self.turbine.turbine_area
+                                                       + self.support_structure["C_sup"] * self.support_structure["A_sup"])
                                                        / 2 * self.farm_options.turbine_density)
             self.uv_ambient_correction.interpolate(uv_mag)
         else:
             self.farm_options.turbine_drag.\
                 interpolate(self.farm_options.thrust_coefficient * self.turbine.turbine_area / 2 * self.farm_options.turbine_density
                             * 4. / ((1. + sqrt(1 - self.turbine.turbine_area / (self.turbine.swept_diameter * H)
-                            * self.farm_options.thrust_coefficient)) ** 2)
-                            + self.support_structure["C_sup"] * self.support_structure["A_sup"] / 2 * self.farm_options.turbine_density)
+                                               * self.farm_options.thrust_coefficient)) ** 2) + self.support_structure["C_sup"]
+                            * self.support_structure["A_sup"] / 2 * self.farm_options.turbine_density)
 
-            self.uv_ambient_correction.interpolate((1+1/4 * self.turbine.turbine_area/(self.turbine.swept_diameter * H) *
-                                                   self.farm_options.thrust_coefficient) * uv_mag)
+            self.uv_ambient_correction.interpolate((1+1/4 * self.turbine.turbine_area/(self.turbine.swept_diameter * H)
+                                                    * self.farm_options.thrust_coefficient) * uv_mag)
 
     def __call__(self):
         uv_norm = sqrt(dot(self.uv, self.uv))
         self.calculate_turbine_coefficients(uv_norm)
-
-        return [assemble(0.5 * 1025 * self.farm_options.power_coefficient * self.turbine.turbine_area *
-                         (self.uv_ambient_correction) ** 3 * dx(self.subdomain_id))]
+        return [assemble(0.5 * 1025 * self.farm_options.power_coefficient * self.turbine.turbine_area
+                         * (self.uv_ambient_correction) ** 3 * dx(self.subdomain_id))]
 
     def message_str(self, *args):
         line = 'Tidal turbine power generated {:f} MW'.format(args[0] / 1e6)
