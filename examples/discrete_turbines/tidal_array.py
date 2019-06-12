@@ -23,7 +23,7 @@ farm_options.turbine_drag = Function(FunctionSpace(mesh2d, "CG", 1), name='turbi
 
 # Add viscosity sponge (depending on condition)
 x = SpatialCoordinate(mesh2d)
-h_viscosity = Function(P1_2d).interpolate(conditional(le(x[0],50),54-x[0],1.0))
+h_viscosity = Function(P1_2d).interpolate(conditional(le(x[0], 50), 54-x[0], 1.0))
 bathymetry_2d.assign(Constant(50.0))
 
 # --- create solver ---
@@ -56,8 +56,8 @@ options.timestepper_options.solver_parameters = {
 # Boundary conditions - Steady state case
 tidal_elev = Function(P1_2d).assign(0.0)
 tidal_vel = Function(P1_2d).assign(0.0)
-solver_obj.bnd_functions['shallow_water'] = { 1: {'un': tidal_vel},
-                                              3: {'elev': tidal_elev}}
+solver_obj.bnd_functions['shallow_water'] = {1: {'un': tidal_vel},
+                                             3: {'elev': tidal_elev}}
 
 # initial conditions, piecewise linear function
 elev_init = Function(P1_2d)
@@ -68,17 +68,19 @@ turbine = ThrustTurbine(diameter=20, swept_diameter=20)
 farm_options.turbine_options = turbine
 
 turbine_coordinates = np.load("mesh/Turbine_coords.npy")
-turbine_farm = DiscreteTidalfarm(solver_obj,turbine,turbine_coordinates,farm_options.turbine_density,1)
+turbine_farm = DiscreteTidalfarm(solver_obj, turbine, turbine_coordinates, farm_options.turbine_density, 1)
 
 solver_obj.assign_initial_conditions(elev=elev_init, uv=(as_vector((1e-3, 0.0))))
 
 # Operation of tidal turbine farm through a callback
-cb = DiscreteTurbineOperation(solver_obj,1,farm_options, support_structure={"C_sup": 0.6, "A_sup": 10 * 3.5})
+cb = DiscreteTurbineOperation(solver_obj, 1, farm_options, support_structure={"C_sup": 0.6, "A_sup": 10 * 3.5})
 solver_obj.add_callback(cb, 'timestep')
+
 
 def update_forcings(t_new):
     ramp = tanh(t_new / 2000.)
-    tidal_vel.project( Constant(ramp * 3.5))
+    tidal_vel.project(Constant(ramp * 3.5))
+
 
 # No update_forcings for steady state case
 solver_obj.iterate(update_forcings=update_forcings)
