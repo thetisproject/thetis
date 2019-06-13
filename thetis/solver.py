@@ -564,14 +564,14 @@ class FlowSolver(FrozenClass):
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = eta2d
         # elevation field seen by the 3D mode, different from elev_2d
-        self.fields.elev_domain_2d = Function(self.function_spaces.H_2d)
-        self.fields.elev_domain_3d = ExtrudedFunction(self.fields.elev_domain_2d, self.mesh)
-        self.fields.elev_cg_2d = Function(coord_fs_2d)
+        self.fields.elev_domain_2d = ExtrudedFunction(self.function_spaces.H_2d, mesh_3d=self.mesh)
+        self.fields.elev_domain_3d = self.fields.elev_domain_2d.view_3d
+        self.fields.elev_cg_2d = ExtrudedFunction(coord_fs_2d, mesh_3d=self.mesh)
         # FIXME elev_cg_3d can potentially be removed
-        self.fields.elev_cg_3d = ExtrudedFunction(self.fields.elev_cg_2d, self.mesh)
+        self.fields.elev_cg_3d = self.fields.elev_cg_2d.view_3d
         self.fields.uv_3d = Function(self.function_spaces.U)
-        self.fields.bathymetry_2d = Function(coord_fs_2d)
-        self.bathymetry_3d = ExtrudedFunction(self.fields.bathymetry_2d, self.mesh)
+        self.fields.bathymetry_2d = ExtrudedFunction(coord_fs_2d, mesh_3d=self.mesh)
+        self.bathymetry_3d = self.fields.bathymetry_2d.view_3d
         # z coordinate in the strecthed mesh
         self.fields.z_coord_3d = Function(coord_fs)
         # z coordinate in the reference mesh (eta=0)
@@ -600,7 +600,8 @@ class FlowSolver(FrozenClass):
             if isinstance(self.options.coriolis_frequency, Constant):
                 self.fields.coriolis_3d = self.options.coriolis_frequency
             else:
-                self.fields.coriolis_3d = utility.ExtrudedFunction(self.options.coriolis_frequency, self.mesh)
+
+                self.fields.coriolis_3d = extend_function_to_3d(self.options.coriolis_frequency, self.mesh)
         if self.options.wind_stress is not None:
             if isinstance(self.options.wind_stress, Function):
                 assert self.options.wind_stress.function_space().mesh().geometric_dimension() == 3, \
