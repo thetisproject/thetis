@@ -584,8 +584,6 @@ class FlowSolver(FrozenClass):
         self.fields.hcc_metric_3d = Function(self.function_spaces.P1DG, name='mesh consistency')
         if self.options.use_ale_moving_mesh:
             self.fields.w_mesh_3d = Function(coord_fs)
-            self.fields.w_mesh_surf_3d = Function(coord_fs)
-            self.fields.w_mesh_surf_2d = Function(coord_fs_2d)
         if self.options.solve_salinity:
             self.fields.salt_3d = Function(self.function_spaces.H, name='Salinity')
         if self.options.solve_temperature:

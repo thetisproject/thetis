@@ -629,14 +629,8 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
             else:
                 # compute w_mesh at surface as (2*elev^{n+1} - elev^{(1)} - elev^{n})/dt
                 w_s = (2*current_elev - self.elev_fields[1] - self.elev_fields[0])/self.solver.dt
-            self.fields.w_mesh_surf_2d.assign(w_s)
-            # use that to compute w_mesh in whole domain
-            self.solver.mesh_updater.cp_w_mesh_surf_2d_to_3d.solve()
-            # solve w_mesh at nodes
-            w_mesh_surf = self.fields.w_mesh_surf_3d.dat.data[:]
-            z_ref = self.fields.z_coord_ref_3d.dat.data[:]
-            h = self.fields.bathymetry_3d.dat.data[:]
-            self.fields.w_mesh_3d.dat.data[:] = w_mesh_surf * (z_ref + h)/h
+            self.solver.mesh_updater.compute_mesh_velocity_finalize(
+                w_mesh_surf_expr=w_s)
 
     def advance(self, t, update_forcings=None, update_forcings3d=None):
         """

@@ -124,18 +124,6 @@ field_metadata['w_mesh_3d'] = {
     'unit': 'm s-1',
     'filename': 'MeshVelo3d',
 }
-field_metadata['w_mesh_surf_3d'] = {
-    'name': 'Surface mesh velocity',
-    'shortname': 'Surface mesh velocity',
-    'unit': 'm s-1',
-    'filename': 'SurfMeshVelo3d',
-}
-field_metadata['w_mesh_surf_2d'] = {
-    'name': 'Surface mesh velocity',
-    'shortname': 'Surface mesh velocity',
-    'unit': 'm s-1',
-    'filename': 'SurfMeshVelo3d',
-}
 field_metadata['salt_3d'] = {
     'name': 'Water salinity',
     'shortname': 'Salinity',
