@@ -178,7 +178,7 @@ def compute_depth_av_inflow(uv_inflow_3d, uv_inflow_2d):
                                          bottom_to_top=True,
                                          bnd_value=Constant((0.0, 0.0, 0.0)),
                                          average=True,
-                                         bathymetry=solver_obj.fields.bathymetry_3d,
+                                         bathymetry=solver_obj.fields.bathymetry_2d.view_3d,
                                          elevation=solver_obj.fields.elev_cg_3d)
     inflow_extract = SubFunctionExtractor(tmp_inflow_3d,
                                           uv_inflow_2d,
