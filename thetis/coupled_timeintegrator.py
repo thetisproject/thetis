@@ -211,7 +211,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         solver = self.solver
         impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
 
-        fields = {'eta': self.fields.elev_domain_3d,  # FIXME rename elev
+        fields = {'eta': self.fields.elev_domain_2d.view_3d,  # FIXME rename elev
                   'int_pg': self.fields.get('int_pg_3d'),
                   'uv_depth_av': self.fields.get('uv_dav_3d'),
                   'w': self.fields.w_3d,
@@ -254,7 +254,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
 
         if self.solver.options.solve_salinity:
-            fields = {'elev_3d': self.fields.elev_domain_3d,
+            fields = {'elev_3d': self.fields.elev_domain_2d.view_3d,
                       'uv_3d': self.fields.uv_3d,
                       'uv_depth_av': self.fields.get('uv_dav_3d'),
                       'w': self.fields.w_3d,
@@ -271,7 +271,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 bnd_conditions=solver.bnd_functions['salt'],
                 solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
             if self.solver.options.use_implicit_vertical_diffusion:
-                fields = {'elev_3d': self.fields.elev_domain_3d,
+                fields = {'elev_3d': self.fields.elev_domain_2d.view_3d,
                           'diffusivity_v': impl_v_diff,
                           }
                 self.timesteppers.salt_impl = self.integrator_vert_3d(
@@ -287,7 +287,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
 
         if self.solver.options.solve_temperature:
-            fields = {'elev_3d': self.fields.elev_domain_3d,
+            fields = {'elev_3d': self.fields.elev_domain_2d.view_3d,
                       'uv_3d': self.fields.uv_3d,
                       'uv_depth_av': self.fields.get('uv_dav_3d'),
                       'w': self.fields.w_3d,
@@ -304,7 +304,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 bnd_conditions=solver.bnd_functions['temp'],
                 solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
             if self.solver.options.use_implicit_vertical_diffusion:
-                fields = {'elev_3d': self.fields.elev_domain_3d,
+                fields = {'elev_3d': self.fields.elev_domain_2d.view_3d,
                           'diffusivity_v': impl_v_diff,
                           }
                 self.timesteppers.temp_impl = self.integrator_vert_3d(
@@ -340,7 +340,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 eq_psi_diff, solver.fields.psi_3d, fields, solver.dt,
                 solver_parameters=self.options.timestepper_options.solver_parameters_tracer_implicit)
             if eq_tke_adv is not None and eq_psi_adv is not None:
-                fields = {'elev_3d': self.fields.elev_domain_3d,
+                fields = {'elev_3d': self.fields.elev_domain_2d.view_3d,
                           'uv_3d': self.fields.uv_3d,
                           'uv_depth_av': self.fields.get('uv_dav_3d'),
                           'w': self.fields.w_3d,
@@ -434,7 +434,7 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
 
     def __init__(self, solver):
         super(CoupledLeapFrogAM3, self).__init__(solver)
-        self.elev_old_3d = Function(self.fields.elev_domain_3d)
+        self.elev_domain_old_2d = Function(self.fields.elev_domain_2d)
         self.uv_old_2d = Function(self.fields.uv_2d)
         self.uv_new_2d = Function(self.fields.uv_2d)
 
@@ -499,10 +499,10 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
 
         # set 3D elevation to half step
         gamma = self.timesteppers.mom_expl.gamma
-        self.elev_old_3d.assign(self.fields.elev_domain_3d)
-        self.solver.fields.elev_domain_3d.source.assign(self.solver.fields.elev_2d)
-        self.fields.elev_domain_3d *= (0.5 + 2*gamma)
-        self.fields.elev_domain_3d += (0.5 - 2*gamma)*self.elev_old_3d
+        self.elev_domain_old_2d.assign(self.fields.elev_domain_2d)
+        self.solver.fields.elev_domain_2d.assign(self.solver.fields.elev_2d)
+        self.fields.elev_domain_2d *= (0.5 + 2*gamma)
+        self.fields.elev_domain_2d += (0.5 - 2*gamma)*self.elev_domain_old_2d
 
         # correct uv_3d to uv_2d at t_{n+1/2}
         self.fields.uv_2d *= (0.5 + 2*gamma)
