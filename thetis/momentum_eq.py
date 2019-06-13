@@ -627,7 +627,7 @@ class InternalPressureGradientCalculator(MomentumTerm):
     .. note ::
         Due to the :class:`Term` sign convention this term is assembled on the right-hand-side.
     """
-    def __init__(self, fields, options, bnd_functions, solver_parameters=None):
+    def __init__(self, fields, bathymetry, options, bnd_functions, solver_parameters=None):
         """
         :arg solver: `class`FlowSolver` object
         :kwarg dict solver_parameters: PETSc solver options
@@ -637,7 +637,6 @@ class InternalPressureGradientCalculator(MomentumTerm):
         self.fields = fields
         self.options = options
         function_space = self.fields.int_pg_3d.function_space()
-        bathymetry = self.fields.bathymetry_3d
         super(InternalPressureGradientCalculator, self).__init__(
             function_space, bathymetry=bathymetry)
 
