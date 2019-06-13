@@ -565,7 +565,6 @@ class FlowSolver(FrozenClass):
         self.fields.elev_2d = eta2d
         # elevation field seen by the 3D mode, different from elev_2d
         self.fields.elev_domain_2d = ExtrudedFunction(self.function_spaces.H_2d, mesh_3d=self.mesh)
-        self.fields.elev_domain_3d = self.fields.elev_domain_2d.view_3d
         self.fields.elev_cg_2d = ExtrudedFunction(coord_fs_2d, mesh_3d=self.mesh)
         # FIXME elev_cg_3d can potentially be removed
         self.fields.elev_cg_3d = self.fields.elev_cg_2d.view_3d
