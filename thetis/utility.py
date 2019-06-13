@@ -774,32 +774,46 @@ class Mesh3DConsistencyCalculator(object):
         print_output('HCC: {:} .. {:}'.format(r_min, r_max))
 
 
-class ExtrudedFunction(Function):
+def extend_function_to_3d(func, mesh_extruded):
     """
-    A 3D view of a 2D function.
+    Returns a 3D view of a 2D :class:`Function` on the extruded domain.
 
     The 3D function resides in V x R function space, where V is the function
     space of the source function. The 3D function shares the data of the 2D
     function.
     """
-    def __init__(self, source_function_2d, mesh_3d):
-        """
-        Create a 3D view of a 2D :class:`Function`.
+    fs = func.function_space()
+    assert fs.mesh().geometric_dimension() == 2, 'Function must be in 2D space'
+    ufl_elem = fs.ufl_element()
+    family = ufl_elem.family()
+    degree = ufl_elem.degree()
+    name = func.name()
+    fs_extended = FunctionSpace(mesh_extruded, family, degree, vfamily='R', vdegree=0)
+    func_extended = Function(fs_extended, name=name, val=func.dat)
+    func_extended.source = func
+    return func_extended
 
-        :arg source_function_2d: Source 2D :class:`Function` object
-        :arg mesh_3d: The extruded 3D mesh where the function will be extenede
-            to.
-        """
-        fs = source_function_2d.function_space()
-        assert fs.mesh().geometric_dimension() == 2, 'Source Function must be in 2D space'
-        ufl_elem = fs.ufl_element()
-        family = ufl_elem.family()
-        degree = ufl_elem.degree()
-        name = source_function_2d.name()
-        fs_extended = FunctionSpace(mesh_3d, family, degree, vfamily='R', vdegree=0)
 
-        super().__init__(fs_extended, name=name, val=source_function_2d.dat)
-        self.source = source_function_2d
+class ExtrudedFunction(Function):
+    """
+    A 2D :class:`Function` that provides a 3D view on the extruded domain.
+
+    The 3D function can be accessed as `ExtrudedFunction.view_3d`.
+    The 3D function resides in V x R function space, where V is the function
+    space of the source function. The 3D function shares the data of the 2D
+    function.
+    """
+    def __init__(self, *args, mesh_3d=None, **kwargs):
+        """
+        Create a 2D :class:`Function` with a 3D view on extruded mesh.
+
+        :arg mesh_3d: Extruded 3D mesh where the function will be extended to.
+        """
+        # create the 2d function
+        super().__init__(*args, **kwargs)
+
+        if mesh_3d is not None:
+            self.view_3d = extend_function_to_3d(self, mesh_3d)
 
 
 class ExpandFunctionTo3d(object):
