@@ -22,12 +22,6 @@ field_metadata['bathymetry_2d'] = {
     'unit': 'm',
     'filename': 'bathymetry2d',
 }
-field_metadata['bathymetry_3d'] = {
-    'name': 'Bathymetry',
-    'shortname': 'Bathymetry',
-    'unit': 'm',
-    'filename': 'bathymetry3d',
-}
 field_metadata['z_coord_3d'] = {
     'name': 'Mesh z coordinates',
     'shortname': 'Z coordinates',
