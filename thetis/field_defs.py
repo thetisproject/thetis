@@ -82,11 +82,17 @@ field_metadata['elev_2d'] = {
     'unit': 'm',
     'filename': 'Elevation2d',
 }
-field_metadata['elev_3d'] = {
-    'name': 'Water elevation',
+field_metadata['elev_domain_2d'] = {
+    'name': 'Surface elevation of domain',
     'shortname': 'Elevation',
     'unit': 'm',
-    'filename': 'Elevation3d',
+    'filename': 'ElevationDomain2d',
+}
+field_metadata['elev_domain_3d'] = {
+    'name': 'Surface elevation of domain',
+    'shortname': 'Elevation',
+    'unit': 'm',
+    'filename': 'ElevationDomain3d',
 }
 field_metadata['elev_cg_3d'] = {
     'name': 'Water elevation CG',
