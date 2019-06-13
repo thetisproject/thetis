@@ -563,8 +563,9 @@ class FlowSolver(FrozenClass):
         uv_2d, eta2d = self.fields.solution_2d.split()
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = eta2d
-        elev_3d_source = Function(self.function_spaces.H_2d)
-        self.fields.elev_3d = ExtrudedFunction(elev_3d_source, self.mesh)
+        # elevation field seen by the 3D mode, different from elev_2d
+        self.fields.elev_domain_2d = Function(self.function_spaces.H_2d)
+        self.fields.elev_domain_3d = ExtrudedFunction(self.fields.elev_domain_2d, self.mesh)
         self.fields.elev_cg_2d = Function(coord_fs_2d)
         # FIXME elev_cg_3d can potentially be removed
         self.fields.elev_cg_3d = ExtrudedFunction(self.fields.elev_cg_2d, self.mesh)
@@ -1113,8 +1114,7 @@ class FlowSolver(FrozenClass):
         """
 
         field_list = [
-            'elev_2d', 'uv_2d', 'elev_cg_2d',
-            'elev_3d', 'uv_3d',
+            'elev_2d', 'uv_2d', 'elev_domain_2d', 'elev_cg_2d', 'uv_3d',
             'w_3d', 'uv_dav_3d', 'w_mesh_3d',
             'salt_3d', 'temp_3d', 'density_3d',
             'baroc_head_3d', 'int_pg_3d',
