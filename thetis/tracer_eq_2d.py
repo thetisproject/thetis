@@ -83,7 +83,7 @@ class TracerTerm(Term):
         elif 'flux' in funcs:
             assert self.bathymetry is not None
             h_ext = elev_ext + self.bathymetry
-            area = h_ext*self.boundary_len  # NOTE using external data only
+            area = h_ext*self.boundary_len[bnd_id]  # NOTE using external data only
             uv_ext = funcs['flux']/area*self.normal
         elif 'un' in funcs:
             uv_ext = funcs['un']*self.normal
@@ -198,8 +198,11 @@ class HorizontalDiffusionTerm(TracerTerm):
         grad_test = grad(self.test)
         diff_flux = dot(diff_tensor, grad(solution))
 
+        degree_h = self.function_space.ufl_element().degree()
+
         f = 0
-        f += inner(grad_test, diff_flux)*self.dx
+        if degree_h>0:
+            f += inner(diffusivity_h*grad_test, diff_flux)*self.dx
 
         if self.horizontal_dg:
             # Interior Penalty method by
@@ -211,7 +214,6 @@ class HorizontalDiffusionTerm(TracerTerm):
             # assuming k_max/k_min=2, Theta=pi/3
             # sigma = 6.93 = 3.5*p*(p+1)
 
-            degree_h = self.function_space.ufl_element().degree()
             sigma = 5.0*degree_h*(degree_h + 1)/self.cellsize
             if degree_h == 0:
                 sigma = 1.5 / self.cellsize

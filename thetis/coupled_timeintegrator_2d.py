@@ -4,6 +4,7 @@ Time integrators for solving coupled shallow water equations with one tracer.
 from __future__ import absolute_import
 from .utility import *
 from . import timeintegrator
+from . import rungekutta
 from .log import *
 from abc import ABCMeta, abstractproperty
 
@@ -48,7 +49,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
             'linear_drag_coefficient': self.options.linear_drag_coefficient,
             'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
             'manning_drag_coefficient': self.options.manning_drag_coefficient,
-            'viscosity_h': self.options.horizontal_viscosity,
+            'viscosity_h': self.options.horizontal_viscosity+self.fields.rans_eddy_viscosity,
             'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
             'coriolis': self.options.coriolis_frequency,
             'wind_stress': self.options.wind_stress,
@@ -77,11 +78,15 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         solver = self.solver
 
         if self.solver.options.solve_tracer:
+            diffusivity = self.options.horizontal_diffusivity or Constant(0.0)
+            diffusivity = diffusivity + self.solver.fields['rans_eddy_viscosity']
             uv, elev = self.fields.solution_2d.split()
             fields = {'elev_2d': elev,
                       'uv_2d': uv,
-                      'diffusivity_h': self.options.horizontal_diffusivity,
+                      'diffusivity_h': diffusivity,
                       'source': self.options.tracer_source_2d,
+                      'production': self.solver.fields.get('production'),
+                      'eddy_viscosity': self.solver.fields.get('rans_eddy_viscosity'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                       }
             if issubclass(self.tracer_integrator, timeintegrator.CrankNicolson):
@@ -95,6 +100,10 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
                 self.timesteppers.tracer = self.tracer_integrator(solver.eq_tracer, solver.fields.tracer_2d, fields, solver.dt,
                                                                   bnd_conditions=solver.bnd_functions['tracer'],
                                                                   solver_parameters=self.options.timestepper_options.solver_parameters_tracer,)
+        if self.options.rans_model:
+            self.solver.rans_model._create_integrators( self.tracer_integrator, solver.dt, solver.bnd_functions,
+                                                        self.options.timestepper_options.solver_parameters_tracer)
+
 
     def _create_integrators(self):
         """
@@ -102,7 +111,10 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         """
         self._create_swe_integrator()
         self._create_tracer_integrator()
-        self.cfl_coeff_2d = min(self.timesteppers.swe2d.cfl_coeff, self.timesteppers.tracer.cfl_coeff)
+        if self.options.solve_tracer:
+            self.cfl_coeff_2d = min(self.timesteppers.swe2d.cfl_coeff, self.timesteppers.tracer.cfl_coeff)
+        else:
+            self.timesteppers.swe2d.cfl_coeff
 
     def set_dt(self, dt):
         """
@@ -127,16 +139,20 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self.timesteppers.swe2d.initialize(self.fields.solution_2d)
         if self.options.solve_tracer:
             self.timesteppers.tracer.initialize(self.fields.tracer_2d)
+        if self.solver.rans_model:
+            self.solver.rans_model.initialize(self.fields.rans_tke, self.fields.rans_psi)
 
         self._initialized = True
 
     def advance(self, t, update_forcings=None):
         if not self.options.tracer_only:
             self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
-        self.timesteppers.tracer.advance(t, update_forcings=update_forcings)
-        if self.options.use_limiter_for_tracers:
-            self.solver.tracer_limiter.apply(self.fields.tracer_2d)
-
+        if self.options.solve_tracer:
+            self.timesteppers.tracer.advance(t, update_forcings=update_forcings)
+            if self.options.use_limiter_for_tracers:
+                self.solver.tracer_limiter.apply(self.fields.tracer_2d)
+        if self.solver.rans_model:
+            self.solver.rans_model.advance(t, update_forcings)
 
 class CoupledCrankNicolson2D(CoupledTimeIntegrator2D):
     swe_integrator = timeintegrator.CrankNicolson
@@ -146,3 +162,13 @@ class CoupledCrankNicolson2D(CoupledTimeIntegrator2D):
 class CoupledCrankEuler2D(CoupledTimeIntegrator2D):
     swe_integrator = timeintegrator.CrankNicolson
     tracer_integrator = timeintegrator.ForwardEuler
+
+
+class CoupledForwardEuler2D(CoupledTimeIntegrator2D):
+    swe_integrator = timeintegrator.ForwardEuler
+    tracer_integrator = timeintegrator.ForwardEuler
+
+
+class CoupledBackwardEuler2D(CoupledTimeIntegrator2D):
+    swe_integrator = rungekutta.BackwardEuler
+    tracer_integrator = rungekutta.BackwardEuler

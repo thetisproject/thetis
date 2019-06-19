@@ -310,3 +310,42 @@ field_metadata['hcc_metric_3d'] = {
     'unit': '-',
     'filename': 'HCCMetric3d',
 }
+
+
+field_metadata['rans_tke'] = {
+    'name': 'RANS Turbulent Kinetic Energy',
+    'shortname': 'RANS Turbulent Kinetic Energy',
+    'unit': 'm2 s-2',
+    'filename': 'RANS_TKE',
+}
+
+field_metadata['rans_psi'] = {
+    'name': 'RANS 2nd parameter',
+    'shortname': 'RANS 2nd parameter',
+    'unit': 'm2 s-2',
+    'filename': 'RANS_Psi',
+}
+
+
+field_metadata['rans_eddy_viscosity'] = {
+    'name': 'RANS eddy viscosity',
+    'shortname': 'RANS eddy viscosity',
+    'unit': 'm2 s=1',
+    'filename': 'RANSEddyViscosity',
+}
+
+
+field_metadata['gamma'] = {
+    'name': 'RANS linearization',
+    'shortname': 'RANS linearization',
+    'unit': 's-1',
+    'filename': 'RANSLinearization',
+}
+
+
+field_metadata['rans_mixing_length'] = {
+    'name': 'RANS mixing lenght',
+    'shortname': 'RANS mixing length',
+    'unit': 'm',
+    'filename': 'RANSMixingLength',
+}

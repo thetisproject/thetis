@@ -19,6 +19,7 @@ from . import callback
 from .log import *
 from collections import OrderedDict
 import thetis.limiter as limiter
+from .rans import RANSModel
 
 
 class FlowSolver2d(FrozenClass):
@@ -128,7 +129,7 @@ class FlowSolver2d(FrozenClass):
         self.export_initial_state = True
         """Do export initial state. False if continuing a simulation"""
 
-        self.bnd_functions = {'shallow_water': {}, 'tracer': {}}
+        self.bnd_functions = {'shallow_water': {}, 'tracer': {}, 'tke':{}}
 
         self._isfrozen = True
 
@@ -198,6 +199,7 @@ class FlowSolver2d(FrozenClass):
         self._isfrozen = False
         # ----- function spaces: elev in H, uv in U, mixed is W
         self.function_spaces.P0_2d = FunctionSpace(self.mesh2d, 'DG', 0, name='P0_2d')
+        self.function_spaces.P0_2dT = TensorFunctionSpace(self.mesh2d, 'DG', 0,name='P0_2dT')
         self.function_spaces.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1, name='P1_2d')
         self.function_spaces.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1, name='P1v_2d')
         self.function_spaces.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1, name='P1DG_2d')
@@ -248,6 +250,12 @@ class FlowSolver2d(FrozenClass):
             else:
                 self.tracer_limiter = None
 
+        if self.options.rans_model:
+            self.rans_model = RANSModel(weakref.proxy(self), self.fields)
+        else:
+            self.rans_model = None
+            self.fields.rans_eddy_viscosity = Constant(0.0)
+
         self._isfrozen = True  # disallow creating new attributes
 
     def create_timestepper(self):
@@ -270,7 +278,7 @@ class FlowSolver2d(FrozenClass):
             'linear_drag_coefficient': self.options.linear_drag_coefficient,
             'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
             'manning_drag_coefficient': self.options.manning_drag_coefficient,
-            'viscosity_h': self.options.horizontal_viscosity,
+            'viscosity_h': self.options.horizontal_viscosity+self.fields.get('rans_eddy_viscosity'),
             'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
             'coriolis': self.options.coriolis_frequency,
             'wind_stress': self.options.wind_stress,
@@ -289,12 +297,15 @@ class FlowSolver2d(FrozenClass):
                                                            bnd_conditions=self.bnd_functions['shallow_water'],
                                                            solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type == 'BackwardEuler':
-            self.timestepper = rungekutta.BackwardEuler(self.eq_sw, self.fields.solution_2d,
+            if self.options.solve_tracer or self.options.rans_model:
+                self.timestepper = coupled_timeintegrator_2d.CoupledBackwardEuler2D(weakref.proxy(self))
+            else:
+                self.timestepper = rungekutta.BackwardEuler(self.eq_sw, self.fields.solution_2d,
                                                         fields, self.dt,
                                                         bnd_conditions=self.bnd_functions['shallow_water'],
                                                         solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type == 'CrankNicolson':
-            if self.options.solve_tracer:
+            if self.options.solve_tracer or self.options.rans_model:
                 self.timestepper = coupled_timeintegrator_2d.CoupledCrankNicolson2D(weakref.proxy(self))
             else:
                 self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
@@ -402,7 +413,7 @@ class FlowSolver2d(FrozenClass):
             self.create_exporters()
         self._initialized = True
 
-    def assign_initial_conditions(self, elev=None, uv=None, tracer=None):
+    def assign_initial_conditions(self, elev=None, uv=None, tracer=None, **kwargs):
         """
         Assigns initial conditions
 
@@ -420,6 +431,8 @@ class FlowSolver2d(FrozenClass):
             uv_2d.project(uv)
         if tracer is not None and self.options.solve_tracer:
             self.fields.tracer_2d.project(tracer)
+        if self.rans_model:
+            self.rans_model.initialize(**kwargs)
 
         self.timestepper.initialize(self.fields.solution_2d)
 

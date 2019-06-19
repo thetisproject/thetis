@@ -324,6 +324,15 @@ class LinearEquationOfStateOptions(EquationOfStateOptions):
     alpha = Float(0.2, help='Thermal expansion coefficient of ocean water').tag(config=True)
     beta = Float(0.77, help='Saline contraction coefficient of ocean water').tag(config=True)
 
+    
+class RANSModelOptions(TurbulenceModelOptions):
+    """Options for RANS turbulence model"""
+    name = 'RANS turbulence closure model'
+    closure_name = Enum(
+        ['k-epsilon', 'k-omega', 'Generic Lenght Scale'],
+        default_value='k-epsilon',
+        help='Name of two-equation closure').tag(config=True)
+
 
 class TidalTurbineOptions(FrozenHasTraits):
     """Tidal turbine parameters"""
@@ -491,6 +500,7 @@ class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
     name = 'Depth-averaged 2D model'
     solve_tracer = Bool(False, help='Solve tracer transport').tag(config=True)
+    rans_model = Bool(False, help='Add RANS turbulence model').tag(config=True)
     use_wetting_and_drying = Bool(
         False, help=r"""bool: Turn on wetting and drying
 
