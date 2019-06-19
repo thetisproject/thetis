@@ -352,6 +352,26 @@ class TidalTurbineFarmOptions(FrozenHasTraits, TraitType):
         0.0, help='Average power production per turbine required to break even')
 
 
+class DiscreteTidalTurbineFarmOptions(FrozenHasTraits, TraitType):
+    """Discrete Tidal turbine farm options - defaults to 0 turbines in the field"""
+    from thetis.turbines import BaseTurbine, ThrustTurbine
+    name = 'Discrete Farm options'
+    turbine_options = ThrustTurbine()
+    turbine_density = FiredrakeScalarExpression(
+        Constant(0.0), help='Density of turbines within the farm expressed as bumps representing individual turbines')
+    thrust_coefficient = FiredrakeScalarExpression(
+        Constant(turbine_options.c_t_design), help='Turbine thrust coefficient')
+    power_coefficient = FiredrakeScalarExpression(
+        Constant(turbine_options.c_t_design * turbine_options.turbine_area / 2), help='Turbine_power_coefficient')
+    turbine_drag = FiredrakeScalarExpression(
+        Constant(0.0), help='Turbine_drag_coefficient')
+    turbine_coordinates = List(default_value=[], help="Coordinates for turbines").tag(config=True)
+    upwind_correction = Bool(True,
+                             help='bool: Apply flow correction to correct for upwind velocity').tag(config=True)
+    break_even_wattage = NonNegativeFloat(
+        0.0, help='Average power production per turbine required to break even')
+
+
 class CommonModelOptions(FrozenConfigurable):
     """Options that are common for both 2d and 3d models"""
     name = 'Model options'
@@ -515,6 +535,10 @@ class ModelOptions2d(CommonModelOptions):
         """).tag(config=True)
     tidal_turbine_farms = Dict(trait=TidalTurbineFarmOptions(),
                                default_value={}, help='Dictionary mapping subdomain ids to the options of the corresponding farm')
+
+    discrete_tidal_turbine_farms = Dict(trait=DiscreteTidalTurbineFarmOptions(),
+                                        default_value={},
+                                        help='Dictionary mapping subdomain ids to the options of the corresponding farm')
 
     check_tracer_conservation = Bool(
         False, help="""

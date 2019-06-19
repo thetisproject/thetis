@@ -225,12 +225,10 @@ class HorizontalAdvectionTerm(MomentumTerm):
                                     + self.test[1]*(uv[1] - uv_ext[1]))*ds_bnd
                 else:
                     uv_in = uv
-                    use_lf = True
                     if 'symm' in funcs:
                         # use internal normal velocity
                         # NOTE should this be symmetric normal velocity?
                         uv_ext = uv_in
-                        use_lf = False
                     elif 'uv' in funcs:
                         # prescribe external velocity
                         uv_ext = funcs['uv']
@@ -249,20 +247,19 @@ class HorizontalAdvectionTerm(MomentumTerm):
                     else:
                         raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
                     if self.use_nonlinear_equations:
+                        # add interior flux
+                        f += (uv_in[0]*self.test[0]*self.normal[0]*uv_in[0]
+                              + uv_in[0]*self.test[0]*self.normal[1]*uv_in[1]
+                              + uv_in[1]*self.test[1]*self.normal[0]*uv_in[0]
+                              + uv_in[1]*self.test[1]*self.normal[1]*uv_in[1])*ds_bnd
+                        # add boundary contribution if inflow
                         uv_av = 0.5*(uv_in + uv_ext)
                         un_av = uv_av[0]*self.normal[0] + uv_av[1]*self.normal[1]
                         s = 0.5*(sign(un_av) + 1.0)
-                        uv_up = uv_in*s + uv_ext*(1-s)
-                        f += (uv_up[0]*self.test[0]*self.normal[0]*uv_av[0]
-                              + uv_up[0]*self.test[0]*self.normal[1]*uv_av[1]
-                              + uv_up[1]*self.test[1]*self.normal[0]*uv_av[0]
-                              + uv_up[1]*self.test[1]*self.normal[1]*uv_av[1])*ds_bnd
-                        if use_lf:
-                            # Lax-Friedrichs stabilization
-                            if self.use_lax_friedrichs:
-                                gamma = 0.5*abs(un_av)*lax_friedrichs_factor
-                                f += gamma*(self.test[0]*(uv_in[0] - uv_ext[0])
-                                            + self.test[1]*(uv_in[1] - uv_ext[1]))*ds_bnd
+                        f += (1-s)*((uv_ext - uv_in)[0]*self.test[0]*self.normal[0]*uv_av[0]
+                                    + (uv_ext - uv_in)[0]*self.test[0]*self.normal[1]*uv_av[1]
+                                    + (uv_ext - uv_in)[1]*self.test[1]*self.normal[0]*uv_av[0]
+                                    + (uv_ext - uv_in)[1]*self.test[1]*self.normal[1]*uv_av[1])*ds_bnd
 
         # surf/bottom boundary conditions: closed at bed, symmetric at surf
         f += (uv_old[0]*uv[0]*self.test[0]*self.normal[0]

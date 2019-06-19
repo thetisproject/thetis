@@ -755,6 +755,32 @@ class TurbineDragTerm(ShallowWaterMomentumTerm):
         return -f
 
 
+class DiscreteTurbineDragTerm(ShallowWaterMomentumTerm):
+    r"""
+    Turbine drag parameterisation implemented through quadratic drag term bumps
+    :math:`c_t \| \bar{\textbf{u}} \| \bar{\textbf{u}}`
+
+    where the turbine drag :math:`c_t` is related to the turbine thrust coefficient
+    :math:`c_t`, the turbine diameter :math:`A_T`, and the turbine density :math:`d`
+    (n/o turbines per unit area), by:
+
+
+    .. math::
+        c_t = (C_T A_T d)/2
+
+    Thanasis comment: needs to be updated once complete
+    """
+
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
+        total_h = self.get_total_depth(eta_old)
+        f = 0
+        for subdomain_id, farm_options in self.options.discrete_tidal_turbine_farms.items():
+            unorm = sqrt(dot(uv_old, uv_old))
+            C_D = farm_options.turbine_drag
+            f += C_D * unorm * inner(self.u_test, uv) / total_h * self.dx(subdomain_id)
+        return -f
+
+
 class MomentumSourceTerm(ShallowWaterMomentumTerm):
     r"""
     Generic source term in the shallow water momentum equation
@@ -842,6 +868,7 @@ class BaseShallowWaterEquation(Equation):
         self.add_term(LinearDragTerm(*args), 'explicit')
         self.add_term(BottomDrag3DTerm(*args), 'source')
         self.add_term(TurbineDragTerm(*args), 'implicit')
+        self.add_term(DiscreteTurbineDragTerm(*args), 'implicit')
         self.add_term(MomentumSourceTerm(*args), 'source')
 
     def add_continuity_terms(self, *args):
