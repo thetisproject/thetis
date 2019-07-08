@@ -70,6 +70,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
                                                           fields, solver.dt,
                                                           bnd_conditions=solver.bnd_functions['shallow_water'],
                                                           solver_parameters=self.options.timestepper_options.solver_parameters)
+        self.solution = self.timesteppers.swe2d.solution
 
     def _create_tracer_integrator(self):
         """
@@ -100,7 +101,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
                 self.timesteppers.tracer = self.tracer_integrator(solver.eq_tracer, solver.fields.tracer_2d, fields, solver.dt,
                                                                   bnd_conditions=solver.bnd_functions['tracer'],
                                                                   solver_parameters=self.options.timestepper_options.solver_parameters_tracer,)
-        if self.options.rans_model:
+        if self.options.solve_rans_model:
             self.solver.rans_model._create_integrators( self.tracer_integrator, solver.dt, solver.bnd_functions,
                                                         self.options.timestepper_options.solver_parameters_tracer)
 
@@ -139,7 +140,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self.timesteppers.swe2d.initialize(self.fields.solution_2d)
         if self.options.solve_tracer:
             self.timesteppers.tracer.initialize(self.fields.tracer_2d)
-        if self.solver.rans_model:
+        if self.options.solve_rans_model:
             self.solver.rans_model.initialize(self.fields.rans_tke, self.fields.rans_psi)
 
         self._initialized = True
@@ -151,7 +152,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
             self.timesteppers.tracer.advance(t, update_forcings=update_forcings)
             if self.options.use_limiter_for_tracers:
                 self.solver.tracer_limiter.apply(self.fields.tracer_2d)
-        if self.solver.rans_model:
+        if self.options.solve_rans_model:
             self.solver.rans_model.advance(t, update_forcings)
 
 class CoupledCrankNicolson2D(CoupledTimeIntegrator2D):

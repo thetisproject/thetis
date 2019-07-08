@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from .utility import *
 
 from .tracer_eq_2d import *
+from . import timeintegrator
 from .equation import Equation
 from .turbulence import P1Average
 
@@ -42,7 +43,7 @@ class RateOfStrainSolver(object):
         stress_jump = sym(tensor_jump(uv, normal))
         l = inner(test, stress)*dx
         l += -inner(avg(test), stress_jump)*dS
-#        l += -inner(avg(test),sym(outer(uv, normal)))*(ds_t + ds_b)
+        #l += -inner(avg(test),sym(outer(uv, normal)))*(ds_t + ds_b)
         prob = LinearVariationalProblem(a, l, self.solution, constant_jacobian=True)
         self.weak_grad_solver = LinearVariationalSolver(prob, solver_parameters=solver_parameters)
 
@@ -131,8 +132,8 @@ class RANSTKESourceTerm(TracerTerm):
         nu_t = fields['eddy_viscosity']
         production = fields['production']
         
-        f = 2.0*inner(production[0,0]**2+production[0,1]**2
-                  +production[1,0]**2+production[1,1]**2, nu_t*self.test)*dx
+        f = 2.0*inner(production[0,0]**2+2*production[0,1]**2
+                  +production[1,1]**2, nu_t*self.test)*dx
         
         return f
 
@@ -153,7 +154,7 @@ class RANSTKEDestructionTerm(TracerTerm):
     with :math:`B_{source} \ge 0` and :math:`B_{sink} < 0`.
     """
     def __init__(self, function_space,
-                 bathymetry=None, v_elem_size=None, h_elem_size=None):
+                 bathymetry=None, v_elem_size=None, h_elem_size=None, C_0=1.0):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg gls_model: :class:`.GenericLengthScaleModel` object
@@ -168,11 +169,13 @@ class RANSTKEDestructionTerm(TracerTerm):
         super(RANSTKEDestructionTerm, self).__init__(function_space, 
                                             bathymetry, h_elem_size)
 
+        self.C_0 = C_0
+
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
 
-        gamma = fields['gamma']
+        gamma = fields['gamma1']
         
-        f = -inner(gamma*solution,self.test)*dx
+        f = -inner(gamma*solution, self.C_0*self.test)*dx
         
         return f
 
@@ -193,7 +196,7 @@ class RANSPsiSourceTerm(TracerTerm):
     with :math:`B_{source} \ge 0` and :math:`B_{sink} < 0`.
     """
     def __init__(self, function_space,
-                 bathymetry=None, v_elem_size=None, h_elem_size=None):
+                 bathymetry=None, v_elem_size=None, h_elem_size=None, C_1=1.44):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg gls_model: :class:`.GenericLengthScaleModel` object
@@ -206,7 +209,9 @@ class RANSPsiSourceTerm(TracerTerm):
         """
         
         super(RANSPsiSourceTerm, self).__init__(function_space, 
-                                            bathymetry, h_elem_size)
+                                                bathymetry, h_elem_size)
+
+        self.C_1 = C_1
 
         self.test = TestFunction(function_space)
 
@@ -214,12 +219,10 @@ class RANSPsiSourceTerm(TracerTerm):
 
         nu_t = fields['eddy_viscosity']
         production = fields['production']
-        gamma = fields['gamma']
-
-        C_1 = 1.44
+        gamma = fields['gamma2']
         
-        f = 2.0*C_1*inner(production[0,0]**2+production[0,1]**2
-                  +production[1,0]**2+production[1,1]**2, gamma*nu_t*self.test)*dx
+        f = 2.0*self.C_1*inner(production[0,0]**2+2*production[0,1]**2
+                  +production[1,1]**2, gamma*nu_t*self.test)*dx
         
         return f
 
@@ -240,7 +243,8 @@ class RANSPsiDestructionTerm(TracerTerm):
     with :math:`B_{source} \ge 0` and :math:`B_{sink} < 0`.
     """
     def __init__(self, function_space,
-                 bathymetry=None, v_elem_size=None, h_elem_size=None):
+                 bathymetry=None, v_elem_size=None, h_elem_size=None,
+                 C_2=1.92):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg gls_model: :class:`.GenericLengthScaleModel` object
@@ -253,15 +257,16 @@ class RANSPsiDestructionTerm(TracerTerm):
         """
         
         super(RANSPsiDestructionTerm, self).__init__(function_space, 
-                                            bathymetry, h_elem_size)
+                                                     bathymetry, h_elem_size)
+
+        self.C_2 = C_2
 
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
 
-        gamma = fields['gamma']
+        gamma = fields['gamma1']
 
-        C_2 = 1.92
         
-        f = -C_2*inner(gamma*solution,self.test)*dx
+        f = -self.C_2*inner(gamma*solution, self.test)*dx
         
         return f
 
@@ -295,12 +300,46 @@ class TurbulenceModel(object):
 
 class RANSModel(TurbulenceModel):
 
-    def __init__(self, solver, fields):
+    def __init__(self, model, solver, fields):
 
         self.solver = solver
         self.fields = fields
         self.options = solver.options
         self.timesteppers = AttrDict()
+
+        opts = solver.options.rans_model_options
+
+        self.nu_0 = Constant(opts.nu_0)
+        self.l_max = Constant(opts.l_max)
+
+        
+        if model.closure_name == 'k-epsilon':
+            
+            self.n0 = Constant(3)
+            self.n1 = Constant(2)
+            self.n2 = Constant(2)
+
+            self.C_mu = Constant(opts.C_mu or 0.09)
+            self.C_0 = Constant(opts.C_0 or 1.0)
+            self.C_1 = Constant(opts.C_1 or 1.44)
+            self.C_2 = Constant(opts.C_2 or 1.92)
+
+            self.schmidt_tke = opts.schmidt_tke or 1.0
+            self.schmidt_psi = opts.schmidt_psi or 1.3
+            
+        elif model.closure_name == 'k-omega':
+            
+            self.n0 = Constant(1)
+            self.n1 = Constant(2)
+            self.n2 = Constant(0)
+
+            self.C_mu = Constant(opts.C_mu or 1.0)
+            self.C_0 = Constant(opts.C_0 or 0.09)
+            self.C_1 = Constant(opts.C_1 or 5.0/9.0)
+            self.C_2 = Constant(opts.C_2 or 0.075)
+
+            self.schmidt_tke = opts.schmidt_tke or 2.0
+            self.schmidt_psi = opts.schmidt_psi or 2.0
         
 
         P0_2d = self.solver.function_spaces.P0_2d
@@ -308,7 +347,8 @@ class RANSModel(TurbulenceModel):
         P1_2d = self.solver.function_spaces.P1_2d
 
         self.fields.rans_mixing_length = Function(P0_2d, name='rans_mixing_length')
-        self.fields.gamma = Function(P0_2d, name='rans_linea')
+        self.gamma1 = Function(P0_2d, name='rans_linearization_1')
+        self.gamma2 = Function(P0_2d, name='rans_linearization_2')
         self.fields.rans_eddy_viscosity = Function(P1_2d, name='rans_eddy_viscosity')
         self.fields.rans_tke = Function(P0_2d, name='rans_tke')
         self.fields.rans_psi = Function(P0_2d, name='rans_psi')
@@ -318,13 +358,15 @@ class RANSModel(TurbulenceModel):
 
         self.solver.eq_rans_tke = RANSTKEEquation2D(P0_2d, self.production,
                                                  bathymetry=self.fields.bathymetry_2d,
-                                                 use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
+                                                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                                                    C_0=self.C_0)
         self.solver.eq_rans_psi = RANSPsiEquation2D(P0_2d, self.production,
                                                  bathymetry=self.fields.bathymetry_2d,
-                                                 use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
+                                                 use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                                                 C_1=self.C_1, C_2=self.C_2)
         
         self.uv, self.elev_2d = self.fields.solution_2d.split()
-        self.eddy_viscosity = Function(self.solver.function_spaces.P0_2d, name='P0 eddy viscosity')
+        self.eddy_viscosity = Function(P0_2d, name='P0 eddy viscosity')
         self.psi = fields.rans_psi
         self.tke = fields.rans_tke
 
@@ -333,28 +375,23 @@ class RANSModel(TurbulenceModel):
                                          solver.function_spaces.P1_2d,
                                          solver.function_spaces.P1DG_2d)
 
-        self.C_mu = Constant(0.09)
-        self.nu_0 = Constant(1.0e-6)
-
     def preprocess(self, init_solve=False):
         self.production_solver.var_solver.source.assign(self.uv)
         self.production_solver.solve()
 
-        l_max = Constant(1.0)
+        self.sqrt_tke.project(conditional(self.tke>0, sqrt(self.tke), Constant(0.0)))
 
-        self.sqrt_tke.assign(conditional(self.tke>0, sqrt(self.tke), Constant(0.0)))
-
-        self.fields.rans_mixing_length.assign(conditional(self.psi*l_max>self.C_mu*self.tke*self.sqrt_tke,
-                                                self.C_mu*self.tke*self.sqrt_tke/self.psi,
-                                                l_max))
+        self.fields.rans_mixing_length.project(conditional(self.psi*self.l_max>self.C_mu*(self.sqrt_tke**self.n0),
+                                                self.C_mu*self.sqrt_tke**self.n0/self.psi,
+                                                self.l_max))
         
-        self.eddy_viscosity.assign(conditional(self.nu_0>self.fields.rans_mixing_length*self.sqrt_tke,
+        self.eddy_viscosity.project(conditional(self.nu_0>self.fields.rans_mixing_length*self.sqrt_tke,
                                                self.nu_0,
                                                self.fields.rans_mixing_length*self.sqrt_tke))
 
-        
-        
-        self.fields.gamma.assign(self.C_mu*self.tke/self.eddy_viscosity)
+        self.gamma1.project(conditional(self.psi>0, self.psi, Constant(0.0)))
+        #self.gamma1.project(self.C_mu*self.sqrt_tke**self.n1/self.eddy_viscosity)
+        self.gamma2.project(self.C_mu*self.sqrt_tke**self.n2/self.eddy_viscosity)
 
     def postprocess(self):
 
@@ -364,24 +401,54 @@ class RANSModel(TurbulenceModel):
         
         uv, elev = self.fields.solution_2d.split()
         diffusivity = (self.options.horizontal_diffusivity or Constant(0.0))
-        diffusivity = diffusivity + self.solver.fields['rans_eddy_viscosity']
-        fields = {'elev_2d': elev,
+        diffusivity_tke = diffusivity + self.solver.fields['rans_eddy_viscosity']/self.schmidt_tke
+        diffusivity_psi = diffusivity + self.solver.fields['rans_eddy_viscosity']/self.schmidt_psi
+        fields_tke = {'elev_2d': elev,
                   'uv_2d': uv,
-                  'diffusivity_h': diffusivity,
+                  'diffusivity_h': diffusivity_tke,
                   'source': self.options.tracer_source_2d,
                   'production': self.production,
-                  'eddy_viscosity': self.solver.fields.get('rans_eddy_viscosity'),
-                  'gamma': self.solver.fields.get('gamma'),
+                  'eddy_viscosity': self.eddy_viscosity,
+                  'gamma1': self.gamma1,
+                  'gamma2': self.gamma2,
                   'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                   }
-        
-        self.timesteppers.rans_tke = integrator(self.solver.eq_rans_tke, self.tke, fields, dt,
-                                           bnd_conditions  = bnd_conditions['rans_tke'],
-                                           solver_parameters=self.options.timestepper_options.solver_parameters_tracer)
+        fields_psi = {'elev_2d': elev,
+                  'uv_2d': uv,
+                  'diffusivity_h': diffusivity_psi,
+                  'source': self.options.tracer_source_2d,
+                  'production': self.production,
+                  'eddy_viscosity': self.eddy_viscosity,
+                  'gamma1': self.gamma1,
+                  'gamma2': self.gamma2,
+                  'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
+                  }
 
-        self.timesteppers.rans_psi = integrator(self.solver.eq_rans_tke, self.psi, fields, dt,
-                                           bnd_conditions  = bnd_conditions['rans_psi'],
-                                           solver_parameters=self.options.timestepper_options.solver_parameters_tracer)
+
+        tso = self.options.timestepper_options.solver_parameters_tracer
+        
+        if issubclass(integrator, timeintegrator.CrankNicolson):
+            self.timesteppers.rans_tke = integrator(
+                    self.solver.eq_rans_tke, self.tke, fields_tke, dt,
+                    bnd_conditions=self.solver.bnd_functions['rans_tke'],
+                    solver_parameters=self.options.timestepper_options.solver_parameters_tracer,
+                    semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+                    theta=self.options.timestepper_options.implicitness_theta)
+
+            self.timesteppers.rans_psi = integrator(
+                    self.solver.eq_rans_psi, self.psi, fields_psi, dt,
+                    bnd_conditions=self.solver.bnd_functions['rans_psi'],
+                    solver_parameters=self.options.timestepper_options.solver_parameters_tracer,
+                    semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+                    theta=self.options.timestepper_options.implicitness_theta)
+        else:
+            self.timesteppers.rans_tke = integrator(self.solver.eq_rans_tke, self.tke, fields_tke, dt,
+                                                    bnd_conditions  = bnd_conditions['rans_tke'],
+                                                    solver_parameters=tso)
+
+            self.timesteppers.rans_psi = integrator(self.solver.eq_rans_tke, self.psi, fields_psi, dt,
+                                                    bnd_conditions  = bnd_conditions['rans_psi'],
+                                                    solver_parameters=tso)
 
     def initialize(self, rans_tke=Constant(0.0), rans_psi=Constant(0.0), **kwargs):
         self.tke.project(rans_tke)
@@ -401,7 +468,7 @@ class RANSTKEEquation2D(Equation):
     """
     def __init__(self, function_space, production,
                  bathymetry=None,
-                 use_lax_friedrichs=False):
+                 use_lax_friedrichs=False, C_0=1.0):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -412,13 +479,13 @@ class RANSTKEEquation2D(Equation):
         """
         super(RANSTKEEquation2D, self).__init__(function_space)
 
-        args = (function_space, bathymetry, use_lax_friedrichs)
+        args = [function_space, bathymetry, use_lax_friedrichs]
         
         self.source = RANSTKESourceTerm(*args)
 
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
-        self.add_term(RANSTKEDestructionTerm(*args), 'implicit')
+        self.add_term(RANSTKEDestructionTerm(*args, C_0), 'implicit')
         self.add_term(self.source, 'source')
 
 class RANSPsiEquation2D(Equation):
@@ -427,7 +494,7 @@ class RANSPsiEquation2D(Equation):
     """
     def __init__(self, function_space, production,
                  bathymetry=None,
-                 use_lax_friedrichs=False):
+                 use_lax_friedrichs=False, C_1=1.44, C_2=1.92):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -438,12 +505,12 @@ class RANSPsiEquation2D(Equation):
         """
         super(RANSPsiEquation2D, self).__init__(function_space)
 
-        args = (function_space, bathymetry, use_lax_friedrichs)
+        args = [function_space, bathymetry, use_lax_friedrichs]
         
-        self.source = RANSPsiSourceTerm(*args)
+        self.source = RANSPsiSourceTerm(*args, C_1=C_1)
 
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
-        self.add_term(RANSPsiDestructionTerm(*args), 'implicit')
+        self.add_term(RANSPsiDestructionTerm(*args, C_2=C_2), 'implicit')
         self.add_term(self.source, 'source')        
         

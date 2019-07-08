@@ -308,6 +308,22 @@ class GLSModelOptions(TurbulenceModelOptions):
             self.update(gen)
 
 
+class RANSModelOptions(FrozenHasTraits, TraitType):
+    """Abstract base class for all turbulence model options"""
+    name = 'RANS turbulence closure model options'
+    closure_name = Enum(
+        ['k-epsilon', 'k-omega'],
+        default_value='k-epsilon',
+        help='Name of two-equation closure').tag(config=True)
+    nu_0 = PositiveFloat(1.0e-6, help="float: minimum permissible eddy viscosity").tag(config=True)
+    l_max = PositiveFloat(1.0, help="float: maximum permissible mixing length").tag(config=True)
+    C_mu = PositiveFloatOrNone(None, help="float or None (for model default): Constant in defintion of nu_t").tag(config=True)
+    C_0 = PositiveFloatOrNone(None, help="float: Constant in TKE destruction").tag(config=True)
+    C_1 = PositiveFloatOrNone(None, help="float: Constant in 2nd variable production").tag(config=True)
+    C_2 = PositiveFloatOrNone(None, help="float: Constant in 2nd variable destruction").tag(config=True)
+    schmidt_tke = PositiveFloatOrNone(None, help="float or None (for model default): Schmidt coefficient for TKE").tag(config=True)
+    schmidt_psi = PositiveFloatOrNone(None, help="float or None (for model default): Schmidt coefficient for TKE").tag(config=True)
+
 class EquationOfStateOptions(FrozenHasTraits):
     """Base class of equation of state options"""
     name = 'Equation of State'
@@ -323,15 +339,6 @@ class LinearEquationOfStateOptions(EquationOfStateOptions):
     th_ref = Float(15.0, help='Reference water temperature').tag(config=True)
     alpha = Float(0.2, help='Thermal expansion coefficient of ocean water').tag(config=True)
     beta = Float(0.77, help='Saline contraction coefficient of ocean water').tag(config=True)
-
-    
-class RANSModelOptions(TurbulenceModelOptions):
-    """Options for RANS turbulence model"""
-    name = 'RANS turbulence closure model'
-    closure_name = Enum(
-        ['k-epsilon', 'k-omega', 'Generic Lenght Scale'],
-        default_value='k-epsilon',
-        help='Name of two-equation closure').tag(config=True)
 
 
 class TidalTurbineOptions(FrozenHasTraits):
@@ -501,6 +508,13 @@ class CommonModelOptions(FrozenConfigurable):
 
 # NOTE all parameters are now case sensitive
 # TODO rename time stepper types? Allow capitals and spaces?
+@attach_paired_options("rans_model_type",
+    PairedEnum([('rans', RANSModelOptions)
+                ],
+              "rans_model_options",
+                                  default_value='rans',
+                                  help='Turbulence model').tag(config=True),
+                       Instance(RANSModelOptions, args=()).tag(config=True))
 @attach_paired_options("timestepper_type",
                        PairedEnum([('SSPRK33', ExplicitTimestepperOptions2d),
                                    ('ForwardEuler', ExplicitTimestepperOptions2d),
@@ -520,7 +534,7 @@ class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
     name = 'Depth-averaged 2D model'
     solve_tracer = Bool(False, help='Solve tracer transport').tag(config=True)
-    rans_model = Bool(False, help='Add RANS turbulence model').tag(config=True)
+    solve_rans_model = Bool(False, help='Solve rans-style 2d turbulence').tag(config=True)
     use_wetting_and_drying = Bool(
         False, help=r"""bool: Turn on wetting and drying
 
@@ -694,3 +708,4 @@ class ModelOptions3d(CommonModelOptions):
         Constant(10.0), help="Constant temperature if temperature is not solved").tag(config=True)
     constant_salinity = FiredrakeConstantTraitlet(
         Constant(0.0), help="Constant salinity if salinity is not solved").tag(config=True)
+       

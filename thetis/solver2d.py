@@ -250,8 +250,8 @@ class FlowSolver2d(FrozenClass):
             else:
                 self.tracer_limiter = None
 
-        if self.options.rans_model:
-            self.rans_model = RANSModel(weakref.proxy(self), self.fields)
+        if self.options.solve_rans_model:
+            self.rans_model = RANSModel(self.options.rans_model_options, weakref.proxy(self), self.fields)
         else:
             self.rans_model = None
             self.fields.rans_eddy_viscosity = Constant(0.0)
@@ -297,7 +297,7 @@ class FlowSolver2d(FrozenClass):
                                                            bnd_conditions=self.bnd_functions['shallow_water'],
                                                            solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type == 'BackwardEuler':
-            if self.options.solve_tracer or self.options.rans_model:
+            if self.options.solve_tracer or self.options.solve_rans_model:
                 self.timestepper = coupled_timeintegrator_2d.CoupledBackwardEuler2D(weakref.proxy(self))
             else:
                 self.timestepper = rungekutta.BackwardEuler(self.eq_sw, self.fields.solution_2d,
@@ -305,7 +305,7 @@ class FlowSolver2d(FrozenClass):
                                                         bnd_conditions=self.bnd_functions['shallow_water'],
                                                         solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type == 'CrankNicolson':
-            if self.options.solve_tracer or self.options.rans_model:
+            if self.options.solve_tracer or self.options.solve_rans_model:
                 self.timestepper = coupled_timeintegrator_2d.CoupledCrankNicolson2D(weakref.proxy(self))
             else:
                 self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,

@@ -86,6 +86,18 @@ class PositiveFloat(Float):
         return proposal
 
 
+class PositiveFloatOrNone(Float):
+    def info(self):
+        return u'a positive float or a None'
+
+    def validate(self, obj, proposal):
+        if proposal is None:
+            return proposal
+        super(PositiveFloatOrNone, self).validate(obj, proposal)
+        assert proposal > 0.0, self.error(obj, proposal)
+        return proposal
+
+
 class NonNegativeInteger(Integer):
     def info(self):
         return u'a non-negative integer'
