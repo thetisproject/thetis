@@ -38,6 +38,7 @@ from __future__ import absolute_import
 import numpy as np
 from abc import ABC, abstractmethod
 from scipy.optimize import minimize
+from .log import print_output
 
 
 __all__ = [
@@ -53,7 +54,7 @@ __all__ = [
 ]
 
 
-def compute_normalized_frequencies(shear2, buoy2, k, eps):
+def compute_normalized_frequencies(shear2, buoy2, k, eps, verbose=False):
     r"""
     Computes normalized buoyancy and shear frequency squared.
 
@@ -70,10 +71,11 @@ def compute_normalized_frequencies(shear2, buoy2, k, eps):
     """
     alpha_buoy = k**2/eps**2*buoy2
     alpha_shear = k**2/eps**2*shear2
-    # print_output('{:8s} {:8.3e} {:8.3e}'.format('M2', shear2.min(), shear2.max()))
-    # print_output('{:8s} {:8.3e} {:8.3e}'.format('N2', buoy2.min(), buoy2.max()))
-    # print_output('{:8s} {:10.3e} {:10.3e}'.format('a_buoy', alpha_buoy.min(), alpha_buoy.max()))
-    # print_output('{:8s} {:10.3e} {:10.3e}'.format('a_shear', alpha_shear.min(), alpha_shear.max()))
+    if verbose:
+        print_output('{:8s} {:8.3e} {:8.3e}'.format('M2', shear2.min(), shear2.max()))
+        print_output('{:8s} {:8.3e} {:8.3e}'.format('N2', buoy2.min(), buoy2.max()))
+        print_output('{:8s} {:10.3e} {:10.3e}'.format('a_buoy', alpha_buoy.min(), alpha_buoy.max()))
+        print_output('{:8s} {:10.3e} {:10.3e}'.format('a_shear', alpha_shear.min(), alpha_shear.max()))
     return alpha_buoy, alpha_shear
 
 

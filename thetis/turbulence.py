@@ -227,7 +227,6 @@ class VerticalGradSolver(object):
     Computes vertical gradient in the weak sense.
 
     """
-    # TODO add weak form of the problem
     def __init__(self, source, solution, solver_parameters=None):
         """
         :arg source: A :class:`Function` or expression to differentiate.
@@ -345,7 +344,6 @@ class ShearFrequencySolver(object):
             M2 = relaxation*M2_new + (1-relaxation)*M2_old
         :kwarg float minval: minimum value for :math:`M^2`
         """
-        # TODO store the tmp etc fields in this class
         self.mu = mu
         self.mv = mv
         self.m2 = m2
@@ -364,7 +362,6 @@ class ShearFrequencySolver(object):
         :kwarg bool init_solve: Set to True if solving for the first time, skips
             relaxation
         """
-        # TODO init_solve can be omitted with a boolean property
         with timed_stage('shear_freq_solv'):
             mu_comp = [self.mu, self.mv]
             self.m2.assign(0.0)
@@ -398,7 +395,6 @@ class BuoyFrequencySolver(object):
             values N2 = relaxation*N2_new + (1-relaxation)*N2_old
         :kwarg float minval: minimum value for :math:`N^2`
         """
-        # TODO store the tmp etc fields in this class
         self._no_op = False
         if rho is None:
             self._no_op = True
@@ -422,7 +418,6 @@ class BuoyFrequencySolver(object):
         :kwarg bool init_solve: Set to True if solving for the first time, skips
             relaxation
         """
-        # TODO init_solve can be omitted with a boolean property
         with timed_stage('buoy_freq_solv'):
             if not self._no_op:
                 self.var_solver.solve()
@@ -492,7 +487,6 @@ class GenericLengthScaleModel(TurbulenceModel):
         :type m2: :class:`Function`
         :kwarg options: GLS model options
         """
-        # TODO this could be simplified by getting fields from solver.fields
         self.solver = solver
         # 3d model fields
         self.uv = uv_field
@@ -700,20 +694,24 @@ class GenericLengthScaleModel(TurbulenceModel):
             set_func_min_val(self.viscosity, o.visc_min)
             set_func_min_val(self.diffusivity, o.diff_min)
 
-            # print_output(' -----')
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('k', self.k.dat.data.min(), self.k.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('psi', self.psi.dat.data.min(), self.psi.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('eps', self.epsilon.dat.data.min(), self.epsilon.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('L', self.l.dat.data.min(), self.l.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('M2', self.m2.dat.data.min(), self.m2.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('N2', self.n2.dat.data.min(), self.n2.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('N2+', self.n2_pos.dat.data.min(), self.n2_pos.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('N2-', self.n2_neg.dat.data.min(), self.n2_neg.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('s_h', s_h.min(), s_h.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('s_m', s_m.min(), s_m.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('muv', self.diffusivity.dat.data.min(), self.diffusivity.dat.data.max()))
-            # TODO refactor to print_diag function, add an option to activate
+    def print_debug(self):
+        """
+        Print diagnostic field values for debugging.
+        """
+        fmt = '{:8s} {:10.3e} {:10.3e}'
+        print_output(' -----')
+        print_output(fmt.format('k', self.k.dat.data.min(), self.k.dat.data.max()))
+        print_output(fmt.format('psi', self.psi.dat.data.min(), self.psi.dat.data.max()))
+        print_output(fmt.format('eps', self.epsilon.dat.data.min(), self.epsilon.dat.data.max()))
+        print_output(fmt.format('L', self.l.dat.data.min(), self.l.dat.data.max()))
+        print_output(fmt.format('M2', self.m2.dat.data.min(), self.m2.dat.data.max()))
+        print_output(fmt.format('N2', self.n2.dat.data.min(), self.n2.dat.data.max()))
+        print_output(fmt.format('N2+', self.n2_pos.dat.data.min(), self.n2_pos.dat.data.max()))
+        print_output(fmt.format('N2-', self.n2_neg.dat.data.min(), self.n2_neg.dat.data.max()))
+        print_output(fmt.format('s_h', s_h.min(), s_h.max()))
+        print_output(fmt.format('s_m', s_m.min(), s_m.max()))
+        print_output(fmt.format('nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max()))
+        print_output(fmt.format('muv', self.diffusivity.dat.data.min(), self.diffusivity.dat.data.max()))
 
 
 class TKESourceTerm(TracerTerm):
@@ -1085,9 +1083,3 @@ class PacanowskiPhilanderModel(TurbulenceModel):
         if self.solver.options.use_smooth_eddy_viscosity:
             self.p1_averager.apply(self.viscosity_native, self.viscosity)
             self.p1_averager.apply(self.diffusivity_native, self.diffusivity)
-
-        # print_output('{:8s} {:10.3e} {:10.3e}'.format('M2', self.m2.dat.data.min(), self.m2.dat.data.max()))
-        # print_output('{:8s} {:10.3e} {:10.3e}'.format('N2', self.n2.dat.data.min(), self.n2.dat.data.max()))
-        # print_output('{:8s} {:10.3e} {:10.3e}'.format('N2+', self.n2_pos.dat.data.min(), self.n2_pos.dat.data.max()))
-        # print_output('{:8s} {:10.3e} {:10.3e}'.format('nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max()))
-        # print_output('{:8s} {:10.3e} {:10.3e}'.format('muv', self.diffusivity.dat.data.min(), self.diffusivity.dat.data.max()))
