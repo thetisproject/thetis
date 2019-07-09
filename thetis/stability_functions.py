@@ -41,6 +41,7 @@ from scipy.optimize import minimize
 
 
 __all__ = [
+    'StabilityFunctionBase',
     'StabilityFunctionCanutoA',
     'StabilityFunctionCanutoB',
     'StabilityFunctionCheng',
@@ -131,6 +132,22 @@ class StabilityFunctionBase(ABC):
         self.nb2 = 0.0
 
     def compute_alpha_shear_steady(self, ri_st, analytical=True):
+        r"""
+        Compute the steady-state :math:`\alpha_M`.
+
+        Under steady-state conditions, the stability functions satisfy:
+
+        .. math::
+            S_m \alpha_M - S_\rho \alpha_M Ri_{st} = 1.0
+
+        (Umlauf and Buchard, 2005, eq A.15) from which :math:`\alpha_M` can be
+        solved for given gradient Richardson number :math:`Ri_{st}`.
+
+        :arg float ri_st: Gradient Richardson number
+        :kwarg bool analytical: If True (default), solve analytically using the
+            coefficients of the stability function. Otherwise, solve
+            :math:`\alpha_M` numerically from the equilibrium condition.
+        """
         if not analytical:
             # A) solve numerically
             # use equilibrium equation (Umlauf and Buchard, 2005, eq A.15)
@@ -160,12 +177,12 @@ class StabilityFunctionBase(ABC):
 
     def compute_c3_minus(self, c1, c2, ri_st):
         r"""
-        Compute c3_minus parameter from c1, c2 and stability functions.
+        Compute c3_minus parameter from c1 and c2 parameters.
 
         c3_minus is solved from equation
 
         .. math::
-            Ri_{st} = \frac{s_m}{s_h} \frac{c2 - c1}{c2 - c3_minus}
+            Ri_{st} = \frac{s_m}{s_h} \frac{c2 - c1}{c2 - c3_{-}}
 
         where :math:`Ri_{st}` is the steady state gradient Richardson number.
         (see Burchard and Bolding, 2001, eq 32)
@@ -188,10 +205,14 @@ class StabilityFunctionBase(ABC):
         return c3_minus
 
     def compute_cmu0(self, analytical=True):
-        """
-        Computes the paramenter c_mu_0 from stability function parameters
+        r"""
+        Compute parameter :math:`c_\mu^0`
 
-        Umlauf and Buchard (2005) eq A.22
+        See: Umlauf and Buchard (2005) eq A.22
+
+        :kwarg bool analytical: If True (default), solve analytically using the
+            coefficients of the stability function. Otherwise, solve
+            :math:`\alpha_M` numerically from the equilibrium condition.
         """
         a_buoy = 0.0
         if analytical:
@@ -215,42 +236,47 @@ class StabilityFunctionBase(ABC):
         return cm0
 
     def compute_kappa(self, sigma_psi, cmu0, n, c1, c2):
-        """
+        r"""
         Computes von Karman constant from the Psi Schmidt number.
 
-        n, c1, c2 are GLS model parameters.
+        See: Umlauf and Burchard (2003) eq (14)
 
-        from Umlauf and Burchard (2003) eq (14)
+        :arg sigma_psi: Psi Schmidt number
+        :arg cmu0, n, c1, c2: GLS model parameters
         """
         return cmu0 / np.abs(n) * np.sqrt(sigma_psi * (c2 - c1))
 
     def compute_sigma_psi(self, kappa, cmu0, n, c1, c2):
-        """
-        Computes the Psi Schmidt number.
+        r"""
+        Computes the Psi Schmidt number from von Karman constant.
 
-        n, c1, c2 are GLS model parameters.
+        See: Umlauf and Burchard (2003) eq (14)
 
-        from Umlauf and Burchard (2003) eq (14)
+        :arg kappa: von Karman constant
+        :arg cmu0, n, c1, c2: GLS model parameters
         """
         return (n * kappa)**2 / (cmu0**2 * (c2 - c1))
 
-    def compute_length_clim(self, cm0, ri_st):
-        """
-        Computes the Galpering lenght scale limit.
+    def compute_length_clim(self, cmu0, ri_st):
+        r"""
+        Computes the Galpering length scale limit.
+
+        :arg cmu0: parameter :math:`c_\mu^0`
+        :arg ri_st: gradient Richardson number
         """
         a_shear = self.compute_alpha_shear_steady(ri_st)
 
         # compute aN from Ri_st and aM, Ri_st = aN/aM
         a_buoy = ri_st*a_shear
 
-        clim = cm0**3.0 * np.sqrt(a_buoy/2)
+        clim = cmu0**3.0 * np.sqrt(a_buoy/2)
         return clim
 
     def get_alpha_buoy_min(self):
-        """
-        Compute minimum alpha buoy
+        r"""
+        Compute minimum normalized buoyancy frequency :math:`\alpha_N`
 
-        from Umlauf and Buchard (2005) table 3
+        See: Umlauf and Buchard (2005), Table 3
         """
         # G = epsilon case, this is used in GOTM
         an_min = 0.5*(np.sqrt((self.d1 + self.nb0)**2. - 4.*self.d0*(self.d4 + self.nb1)) - (self.d1 + self.nb0))/(self.d4 + self.nb1)
@@ -260,7 +286,7 @@ class StabilityFunctionBase(ABC):
 
     def get_alpha_shear_max(self, alpha_buoy, alpha_shear):
         r"""
-        Compute maximum alpha shear
+        Compute maximum normalized shear frequency :math:`\alpha_M`
 
         from Umlauf and Buchard (2005) eq (44)
 
@@ -278,9 +304,9 @@ class StabilityFunctionBase(ABC):
 
     def get_alpha_buoy_smooth_min(self, alpha_buoy):
         r"""
-        Compute smoothed alpha_buoy minimum
+        Compute smoothed minimum for normalized buoyancy frequency
 
-        from Burchard and Petersen (1999) eq (19)
+        See: Burchard and Petersen (1999), eq (19)
 
         :arg alpha_buoy: normalized buoyancy frequency :math:`\alpha_N`
         """
@@ -290,10 +316,11 @@ class StabilityFunctionBase(ABC):
         r"""
         Evaluate (unlimited) stability functions
 
-        from Burchard and Petersen (1999) eqns (30) and (31)
+        See: Burchard and Petersen (1999) eqns (30) and (31)
 
         :arg alpha_buoy: normalized buoyancy frequency :math:`\alpha_N`
         :arg alpha_shear: normalized shear frequency :math:`\alpha_M`
+        :returns: :math:`S_m`, :math:`S_\rho`
         """
         den = self.d0 + self.d1*alpha_buoy + self.d2*alpha_shear + self.d3*alpha_buoy*alpha_shear + self.d4*alpha_buoy**2 + self.d5*alpha_shear**2
         c_mu = (self.n0 + self.n1*alpha_buoy + self.n2*alpha_shear) / den
@@ -301,13 +328,15 @@ class StabilityFunctionBase(ABC):
         return c_mu, c_mu_p
 
     def evaluate(self, shear2, buoy2, k, eps):
-        """
-        Evaluates stability functions. Applies limiters on alpha_buoy and alpha_shear.
+        r"""
+        Evaluate stability functions from dimensional variables.
 
-        :arg shear2: :math:`M^2`
-        :arg buoy2: :math:`N^2`
-        :arg k: turbulent kinetic energy
-        :arg eps: TKE dissipation rate
+        Applies limiters on :math:`\alpha_N` and :math:`\alpha_M`.
+
+        :arg shear2: shear frequency squared, :math:`M^2`
+        :arg buoy2: buoyancy frequency squared,:math:`N^2`
+        :arg k: turbulent kinetic energy, :math:`k`
+        :arg eps: TKE dissipation rate, :math:`\varepsilon`
         """
         alpha_buoy, alpha_shear = compute_normalized_frequencies(shear2, buoy2, k, eps)
         if self.lim_alpha_buoy:

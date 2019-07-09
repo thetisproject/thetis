@@ -878,7 +878,7 @@ class FlowSolver(FrozenClass):
         :type uv_3d: vector valued 3D :class:`Function`, :class:`Constant`, or an expression
         :kwarg tke: Initial condition for turbulent kinetic energy field
         :type tke: scalar 3D :class:`Function`, :class:`Constant`, or an expression
-        :kwarg psi: Initial condition for turbulence generic lenght scale field
+        :kwarg psi: Initial condition for turbulence generic length scale field
         :type psi: scalar 3D :class:`Function`, :class:`Constant`, or an expression
         """
         if not self._initialized:
