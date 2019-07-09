@@ -161,67 +161,6 @@ def set_func_max_val(f, maxval):
     f.dat.data[f.dat.data > maxval] = maxval
 
 
-class P1Average(object):
-    """
-    Takes a discontinuous field and computes a P1 field by averaging around
-    nodes
-
-    Source must be either a P0 or P1DG :class:`Function`.
-    The averaging operation is both mass conservative and positivity preserving.
-    """
-    def __init__(self, p0, p1, p1dg):
-        """
-        :arg p0: P0 function space
-        :arg p1: P1 function space
-        :arg p1dg: P1DG function space
-        """
-        self.p0 = p0
-        self.p1 = p1
-        self.p1dg = p1dg
-        self.vol_p1 = Function(self.p1, name='nodal volume p1')
-        self.vol_p1dg = Function(self.p1dg, name='nodal volume p1dg')
-        self.update_volumes()
-
-    def update_volumes(self):
-        """Computes nodal volume of the P1 and P1DG function function_spaces
-
-        This must be called when the mesh geometry is updated"""
-        assemble(TestFunction(self.p1)*dx, self.vol_p1)
-        assemble(TestFunction(self.p1dg)*dx, self.vol_p1dg)
-
-    def apply(self, source, solution):
-        """
-        Averages discontinuous :class:`Function` :attr:`source` on P1
-        :class:`Function` :attr:`solution`
-        """
-        assert solution.function_space() == self.p1
-        assert source.function_space() == self.p0 or source.function_space() == self.p1dg
-        source_is_p0 = source.function_space() == self.p0
-
-        source_str = 'source[c]' if source_is_p0 else 'source[%(func_dim)d*d + c]'
-        solution.assign(0.0)
-        fs_source = source.function_space()
-        self.kernel = op2.Kernel("""
-            void my_kernel(double *p1_average, double *source, double *vol_p1, double *vol_p1dg) {
-                for ( int d = 0; d < %(nodes)d; d++ ) {
-                    for ( int c = 0; c < %(func_dim)d; c++ ) {
-                        p1_average[%(func_dim)d*d + c] += %(source_str)s * vol_p1dg[%(func_dim)d*d + c] / vol_p1[%(func_dim)d*d + c];
-                    }
-                }
-            }""" % {'nodes': solution.cell_node_map().arity,
-                    'func_dim': solution.function_space().value_size,
-                    'source_str': source_str},
-            'my_kernel')
-
-        op2.par_loop(
-            self.kernel, self.p1.mesh().cell_set,
-            solution.dat(op2.INC, self.p1.cell_node_map()),
-            source.dat(op2.READ, fs_source.cell_node_map()),
-            self.vol_p1.dat(op2.READ, self.p1.cell_node_map()),
-            self.vol_p1dg.dat(op2.READ, self.p1dg.cell_node_map()),
-            iterate=op2.ALL)
-
-
 class VerticalGradSolver(object):
     """
     Computes vertical gradient in the weak sense.
@@ -263,60 +202,6 @@ class VerticalGradSolver(object):
     def solve(self):
         """Computes the gradient"""
         self.weak_grad_solver.solve()
-
-
-class SmoothVerticalGradSolver(object):
-    """
-    Computes vertical gradient in a smooth(er) way.
-
-    The source is first interpolated on P0 field. The gradient is computed as
-    :math:`G = (G_{P0} + G_{P1DG})/2`.
-    """
-    def __init__(self, source, solution):
-        """
-        :arg source: A :class:`Function` or expression to differentiate.
-        :arg solution: A :class:`Function` where the solution will be stored.
-        """
-        self.source = source
-        self.solution = solution
-
-        self.fs = self.solution.function_space()
-        self.mesh = self.fs.mesh()
-
-        p0 = FunctionSpace(self.mesh, 'DP', 0, vfamily='DP', vdegree=0)
-        assert self.solution.function_space() == p0, 'solution must be in p0'
-
-        self.source_p0 = Function(p0, name='p0 source')
-        self.gradient_p0 = Function(p0, name='p0 gradient')
-
-        self.p0_interpolator = Interpolator(self.source, self.source_p0)
-        self.p0_grad_solver = VerticalGradSolver(self.source_p0, self.solution)
-        self.grad_solver = VerticalGradSolver(self.source, self.gradient_p0)
-
-        self.p0_copy_kernel = op2.Kernel("""
-            void my_kernel(double *gradient, double *source) {
-                gradient[0] = source[0];
-            }""", 'my_kernel')
-
-    def solve(self):
-        """Computes the gradient"""
-        # interpolate p1dg to prism centers
-        self.p0_interpolator.interpolate()
-        # compute weak gradine from source_p0
-        self.p0_grad_solver.solve()
-        # compute weak gradient directly
-        self.grad_solver.solve()
-        # compute mean of the two
-        self.solution.assign(0.5*(self.solution + self.gradient_p0))
-        # replace top/bottom values with weak gradient
-        op2.par_loop(self.p0_copy_kernel, self.mesh.cell_set,
-                     self.solution.dat(op2.WRITE, self.fs.cell_node_map()),
-                     self.gradient_p0.dat(op2.READ, self.fs.cell_node_map()),
-                     iterate=op2.ON_TOP)
-        op2.par_loop(self.p0_copy_kernel, self.mesh.cell_set,
-                     self.solution.dat(op2.WRITE, self.fs.cell_node_map()),
-                     self.gradient_p0.dat(op2.READ, self.fs.cell_node_map()),
-                     iterate=op2.ON_BOTTOM)
 
 
 class ShearFrequencySolver(object):
@@ -513,18 +398,6 @@ class GenericLengthScaleModel(TurbulenceModel):
         self.n2_neg = Function(self.n2.function_space(),
                                name='negative buoyancy frequency')
 
-        if self.solver.options.use_smooth_eddy_viscosity:
-            self.viscosity_native = Function(self.k.function_space(),
-                                             name='GLS viscosity')
-            self.diffusivity_native = Function(self.k.function_space(),
-                                               name='GLS diffusivity')
-            self.p1_averager = P1Average(solver.function_spaces.P0,
-                                         solver.function_spaces.P1,
-                                         solver.function_spaces.P1DG)
-        else:
-            self.viscosity_native = self.viscosity
-            self.diffusivity_native = self.diffusivity
-
         # parameter to mix old and new viscosity values (1 => new only)
         self.relaxation = 1.0
 
@@ -685,12 +558,9 @@ class GenericLengthScaleModel(TurbulenceModel):
             lam = self.relaxation
             new_visc = b*s_m/cmu0**3
             new_diff = b*s_h/cmu0**3
-            self.viscosity_native.dat.data[:] = lam*new_visc + (1.0 - lam)*self.viscosity_native.dat.data[:]
-            self.diffusivity_native.dat.data[:] = lam*new_diff + (1.0 - lam)*self.diffusivity_native.dat.data[:]
+            self.viscosity.dat.data[:] = lam*new_visc + (1.0 - lam)*self.viscosity.dat.data[:]
+            self.diffusivity.dat.data[:] = lam*new_diff + (1.0 - lam)*self.diffusivity.dat.data[:]
 
-            if self.solver.options.use_smooth_eddy_viscosity:
-                self.p1_averager.apply(self.viscosity_native, self.viscosity)
-                self.p1_averager.apply(self.diffusivity_native, self.diffusivity)
             set_func_min_val(self.viscosity, o.visc_min)
             set_func_min_val(self.diffusivity, o.diff_min)
 
@@ -1018,18 +888,6 @@ class PacanowskiPhilanderModel(TurbulenceModel):
         self.n2_pos = Function(self.n2.function_space(),
                                name='positive buoyancy frequency')
 
-        if self.solver.options.use_smooth_eddy_viscosity:
-            self.viscosity_native = Function(self.n2.function_space(),
-                                             name='eddy viscosity')
-            self.diffusivity_native = Function(self.n2.function_space(),
-                                               name='eddy diffusivity')
-            self.p1_averager = P1Average(solver.function_spaces.P0,
-                                         solver.function_spaces.P1,
-                                         solver.function_spaces.P1DG)
-        else:
-            self.viscosity_native = self.viscosity
-            self.diffusivity_native = self.diffusivity
-
         self.options = PacanowskiPhilanderModelOptions()
         if options is not None:
             self.options.update(options)
@@ -1077,9 +935,5 @@ class PacanowskiPhilanderModel(TurbulenceModel):
         """
         ri = self.n2_pos.dat.data[:]/self.m2.dat.data[:]
         denom = 1.0 + self.options.alpha*ri
-        self.viscosity_native.dat.data[:] = self.options.max_viscosity/denom**self.options.exponent
-        self.diffusivity_native.dat.data[:] = self.viscosity_native.dat.data[:]/denom
-
-        if self.solver.options.use_smooth_eddy_viscosity:
-            self.p1_averager.apply(self.viscosity_native, self.viscosity)
-            self.p1_averager.apply(self.diffusivity_native, self.diffusivity)
+        self.viscosity.dat.data[:] = self.options.max_viscosity/denom**self.options.exponent
+        self.diffusivity.dat.data[:] = self.viscosity.dat.data[:]/denom

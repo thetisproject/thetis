@@ -577,8 +577,6 @@ class ModelOptions3d(CommonModelOptions):
 
     use_turbulence_advection = Bool(
         False, help="Advect TKE and Psi in the GLS turbulence model").tag(config=True)
-    use_smooth_eddy_viscosity = Bool(
-        False, help="Cast eddy viscosity to p1 space instead of p0").tag(config=True)
     use_smagorinsky_viscosity = Bool(
         False, help="Use Smagorinsky horisontal viscosity parametrization").tag(config=True)
     smagorinsky_coefficient = FiredrakeConstantTraitlet(

@@ -77,7 +77,6 @@ options.use_implicit_vertical_diffusion = True
 options.use_bottom_friction = True
 options.use_turbulence = True
 options.turbulence_model_type = 'pacanowski'
-options.use_smooth_eddy_viscosity = True
 options.use_ale_moving_mesh = True
 options.use_baroclinic_formulation = True
 options.use_lax_friedrichs_velocity = False

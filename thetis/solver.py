@@ -572,12 +572,8 @@ class FlowSolver(FrozenClass):
                 # NOTE other turb. quantities should share the same nodes ??
                 self.fields.eps_3d = Function(self.function_spaces.turb_space)
                 self.fields.len_3d = Function(self.function_spaces.turb_space)
-                if self.options.use_smooth_eddy_viscosity:
-                    self.fields.eddy_visc_3d = Function(self.function_spaces.P1)
-                    self.fields.eddy_diff_3d = Function(self.function_spaces.P1)
-                else:
-                    self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
-                    self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
+                self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
+                self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
                 # NOTE M2 and N2 depend on d(.)/dz -> use CG in vertical ?
                 self.fields.shear_freq_3d = Function(self.function_spaces.turb_space)
                 self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)
@@ -595,12 +591,8 @@ class FlowSolver(FrozenClass):
                     self.fields.shear_freq_3d,
                     options=self.options.turbulence_model_options)
             elif self.options.turbulence_model_type == 'pacanowski':
-                if self.options.use_smooth_eddy_viscosity:
-                    self.fields.eddy_visc_3d = Function(self.function_spaces.P1)
-                    self.fields.eddy_diff_3d = Function(self.function_spaces.P1)
-                else:
-                    self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
-                    self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
+                self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
+                self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
                 self.fields.shear_freq_3d = Function(self.function_spaces.turb_space)
                 self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)
                 self.turbulence_model = turbulence.PacanowskiPhilanderModel(

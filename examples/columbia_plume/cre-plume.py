@@ -144,7 +144,6 @@ options.use_implicit_vertical_diffusion = True  # not simple_barotropic
 options.use_bottom_friction = True  # not simple_barotropic
 options.use_turbulence = True  # not simple_barotropic
 options.use_turbulence_advection = False  # not simple_barotropic
-options.use_smooth_eddy_viscosity = False
 options.turbulence_model_type = 'gls'
 options.use_baroclinic_formulation = not simple_barotropic
 options.use_lax_friedrichs_velocity = True
