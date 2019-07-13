@@ -16,7 +16,6 @@ from .field_defs import field_metadata
 from .log import *
 from firedrake import Function as FiredrakeFunction
 from firedrake import Constant as FiredrakeConstant
-from firedrake import Expression as FiredrakeExpression
 from abc import ABCMeta, abstractmethod
 
 ds_surf = ds_t
@@ -204,7 +203,10 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, z_stretch_fact=1.0,
         (the depth of the domain; positive downwards)
     """
     mesh = ExtrudedMesh(mesh2d, layers=n_layers, layer_height=1.0/n_layers)
-
+    if mesh.geometric_dimension() == 2:
+        vert_ind = 1
+    else:
+        vert_ind = 2
     coordinates = mesh.coordinates
     fs_3d = coordinates.function_space()
     fs_2d = bathymetry_2d.function_space()
@@ -235,17 +237,18 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, z_stretch_fact=1.0,
                 for ( int e = 0; e < %(v_nodes)d; e++ ) {
                     new_coords[idx[d]+e][0] = old_coords[idx[d]+e][0];
                     new_coords[idx[d]+e][1] = old_coords[idx[d]+e][1];
-                    double sigma = 1.0 - old_coords[idx[d]+e][2]; // top 0, bot 1
+                    double sigma = 1.0 - old_coords[idx[d]+e][%(vert_ind)d]; // top 0, bot 1
                     double new_z = -bath2d[d][0] * pow(sigma, s_fact) ;
                     int layer = fmin(fmax(round(sigma*(%(n_layers)d + 1) - 1.0), 0.0), %(n_layers)d);
                     double max_z = -min_depth[layer];
                     new_z = fmax(new_z, max_z);
-                    new_coords[idx[d]+e][2] = new_z;
+                    new_coords[idx[d]+e][%(vert_ind)d] = new_z;
                 }
             }
         }""" % {'nodes': fs_2d.finat_element.space_dimension(),
                 'v_nodes': n_vert_nodes,
-                'n_layers': n_layers},
+                'n_layers': n_layers,
+                'vert_ind': vert_ind},
         'my_kernel')
 
     op2.par_loop(kernel, mesh.cell_set,
@@ -278,8 +281,8 @@ def comp_volume_3d(mesh):
 def comp_tracer_mass_2d(eta, bath, scalar_func):
     """
     Computes total tracer mass in the 2D domain
-    :arg eta: elevation :class:`Function`
-    :arg bath: bathymetry :class:`Function`
+    :arg eta: elevation :class: 'Function'
+    :arg bath: bathymetry :class: 'Function'
     :arg scalar_func: scalar :class:`Function` to integrate
     """
 
@@ -306,11 +309,15 @@ def get_zcoord_from_mesh(zcoord, solver_parameters={}):
     # TODO coordinates should probably be interpolated instead
     solver_parameters.setdefault('ksp_atol', 1e-12)
     solver_parameters.setdefault('ksp_rtol', 1e-16)
+
     fs = zcoord.function_space()
     tri = TrialFunction(fs)
     test = TestFunction(fs)
     a = tri*test*dx
-    l = fs.mesh().coordinates[2]*test*dx
+    if fs.mesh().geometric_dimension() == 2:
+        l = fs.mesh().coordinates[1]*test*dx
+    else:
+        l = fs.mesh().coordinates[2]*test*dx
     solve(a == l, zcoord, solver_parameters=solver_parameters)
     return zcoord
 
@@ -366,6 +373,11 @@ class VerticalVelocitySolver(object):
         tri = TrialFunction(fs)
         normal = FacetNormal(mesh)
 
+        if mesh.geometric_dimension() == 2:
+            vert_ind = 1
+        else:
+            vert_ind = 2
+
         # define measures with a reasonable quadrature degree
         p, q = fs.ufl_element().degree()
         self.quad_degree = (2*p, 2*q)
@@ -375,13 +387,26 @@ class VerticalVelocitySolver(object):
         self.ds_surf = ds_surf(degree=self.quad_degree)
 
         # NOTE weak dw/dz
-        a = tri[2]*test[2]*normal[2]*ds_surf + \
-            avg(tri[2])*jump(test[2], normal[2])*dS_h - Dx(test[2], 2)*tri[2]*self.dx
+        a = tri[vert_ind]*test[vert_ind]*normal[vert_ind]*ds_surf + \
+            avg(tri[vert_ind])*jump(test[vert_ind], normal[vert_ind])*dS_h - Dx(test[vert_ind], vert_ind)*tri[vert_ind]*self.dx
 
         # NOTE weak div(uv)
         uv_star = avg(uv)
         # NOTE in the case of mimetic uv the div must be taken over all components
-        l = (inner(uv, nabla_grad(test[2]))*self.dx -
+        if mesh.geometric_dimension() == 2:
+            l = (inner(uv, nabla_grad(test[vert_ind]))*self.dx -
+             (uv_star[0]*jump(test[vert_ind], normal[0]) +
+              uv_star[1]*jump(test[vert_ind], normal[1])
+              )*(self.dS_v) -
+             (uv_star[0]*jump(test[vert_ind], normal[0]) +
+              uv_star[1]*jump(test[vert_ind], normal[1])
+              )*(self.dS_h) -
+             (uv[0]*normal[0] +
+              uv[1]*normal[1]
+              )*test[vert_ind]*self.ds_surf
+             )
+        else:
+            l = (inner(uv, nabla_grad(test[2]))*self.dx -
              (uv_star[0]*jump(test[2], normal[0]) +
               uv_star[1]*jump(test[2], normal[1]) +
               uv_star[2]*jump(test[2], normal[2])
@@ -403,7 +428,10 @@ class VerticalVelocitySolver(object):
                 continue
             else:
                 # use symmetry condition
-                l += -(uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_bnd
+                if mesh.geometric_dimension() == 2:
+                    l += -(uv[0]*normal[0])*test[vert_ind]*ds_bnd
+                else:
+                    l += -(uv[0]*normal[0] + uv[1]*normal[1])*test[vert_ind]*ds_bnd
 
         # NOTE For ALE mesh constant_jacobian should be False
         # however the difference is very small as A is nearly independent of
@@ -450,6 +478,11 @@ class VerticalIntegrator(object):
         phi = TestFunction(space)
         normal = FacetNormal(mesh)
 
+        if mesh.geometric_dimension() == 2:
+            vert_ind = 1
+        else:
+            vert_ind = 2
+
         # define measures with a reasonable quadrature degree
         p, q = space.ufl_element().degree()
         p_in, q_in = input.function_space().ufl_element().degree()
@@ -460,13 +493,13 @@ class VerticalIntegrator(object):
         self.ds_bottom = ds_bottom(degree=self.quad_degree)
 
         if bottom_to_top:
-            bnd_term = normal[2]*inner(bnd_value, phi)*self.ds_bottom
-            mass_bnd_term = normal[2]*inner(tri, phi)*self.ds_surf
+            bnd_term = normal[vert_ind]*inner(bnd_value, phi)*self.ds_bottom
+            mass_bnd_term = normal[vert_ind]*inner(tri, phi)*self.ds_surf
         else:
-            bnd_term = normal[2]*inner(bnd_value, phi)*self.ds_surf
-            mass_bnd_term = normal[2]*inner(tri, phi)*self.ds_bottom
+            bnd_term = normal[vert_ind]*inner(bnd_value, phi)*self.ds_surf
+            mass_bnd_term = normal[vert_ind]*inner(tri, phi)*self.ds_bottom
 
-        self.a = -inner(Dx(phi, 2), tri)*self.dx + mass_bnd_term
+        self.a = -inner(Dx(phi, vert_ind), tri)*self.dx + mass_bnd_term
         if bottom_to_top:
             up_value = tri('+')
         else:
@@ -475,14 +508,14 @@ class VerticalIntegrator(object):
             if len(input.ufl_shape) > 0:
                 dim = input.ufl_shape[0]
                 for i in range(dim):
-                    self.a += up_value[i]*jump(phi[i], normal[2])*self.dS_h
+                    self.a += up_value[i]*jump(phi[i], normal[vert_ind])*self.dS_h
             else:
-                self.a += up_value*jump(phi, normal[2])*self.dS_h
+                self.a += up_value*jump(phi, normal[vert_ind])*self.dS_h
         if average:
             source = input/(elevation + bathymetry)
         else:
             source = input
-        self.l = inner(source, phi)*self.dx + bnd_term
+        self.l = inner(source, phi)*self.dx + bnd_term #TODO check if 'minus bnd_term' is more suitable
         self.prob = LinearVariationalProblem(self.a, self.l, output, constant_jacobian=average)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
@@ -938,6 +971,7 @@ class SubFunctionExtractor(object):
                                get_facet_mask(self.fs_3d, 'geometric', 'top')))
         else:
             nodes = get_facet_mask(self.fs_3d, 'geometric', elem_facet)
+
         if boundary == 'top':
             self.iter_domain = op2.ON_TOP
         elif boundary == 'bottom':
@@ -997,46 +1031,8 @@ class SubFunctionExtractor(object):
                          self.input_3d.dat(op2.READ, self.fs_3d.cell_node_map()),
                          self.idx(op2.READ),
                          iterate=self.iter_domain)
-
             if self.do_rt_scaling:
                 self.rt_scale_solver.solve()
-
-
-class SubdomainProjector(object):
-    """Projector that projects the restriction of an expression to the specified subdomain."""
-    def __init__(self, v, v_out, subdomain_id, solver_parameters=None, constant_jacobian=True):
-
-        if isinstance(v, FiredrakeExpression) or \
-           not isinstance(v, (ufl.core.expr.Expr, FiredrakeFunction)):
-            raise ValueError("Can only project UFL expression or Functions not '%s'" % type(v))
-
-        self.v = v
-        self.v_out = v_out
-
-        V = v_out.function_space()
-
-        p = TestFunction(V)
-        q = TrialFunction(V)
-
-        a = inner(p, q)*dx
-        L = inner(p, v)*dx(subdomain_id)
-
-        problem = LinearVariationalProblem(a, L, v_out,
-                                           constant_jacobian=constant_jacobian)
-
-        if solver_parameters is None:
-            solver_parameters = {}
-
-        solver_parameters.setdefault("ksp_type", "cg")
-
-        self.solver = LinearVariationalSolver(problem,
-                                              solver_parameters=solver_parameters)
-
-    def project(self):
-        """
-        Apply the projection.
-        """
-        self.solver.solve()
 
 
 def compute_elem_height(zcoord, output):
@@ -1127,7 +1123,6 @@ def compute_bottom_friction(solver, uv_3d, uv_bottom_2d,
 def get_horizontal_elem_size_2d(sol2d):
     """
     Computes horizontal element size from the 2D mesh
-
     :arg sol2d: 2D :class:`Function` where result is stored
     """
     p1_2d = sol2d.function_space()
@@ -1179,6 +1174,9 @@ class ALEMeshUpdater(object):
                                                 self.elev_cg_2d)
             self.proj_elev_cg_to_coords_2d = Projector(self.elev_cg_2d,
                                                        self.fields.elev_cg_2d)
+            ###
+            self.proj_elev_to_coords_2d = Projector(self.fields.elev_2d, self.fields.elev_cg_2d)
+            ###
             self.cp_elev_2d_to_3d = ExpandFunctionTo3d(self.fields.elev_cg_2d,
                                                        self.fields.elev_cg_3d)
             self.cp_w_mesh_surf_2d_to_3d = ExpandFunctionTo3d(self.fields.w_mesh_surf_2d,
@@ -1233,15 +1231,19 @@ class ALEMeshUpdater(object):
         elev_2d is first projected to continous space
         """
         assert self.solver.options.use_ale_moving_mesh
-        self.proj_elev_to_cg_2d.project()
-        self.proj_elev_cg_to_coords_2d.project()
+       # self.proj_elev_to_cg_2d.project()
+       # self.proj_elev_cg_to_coords_2d.project()
+        self.proj_elev_to_coords_2d.project()
         self.cp_elev_2d_to_3d.solve()
 
         eta = self.fields.elev_cg_3d.dat.data[:]
         z_ref = self.fields.z_coord_ref_3d.dat.data[:]
         bath = self.fields.bathymetry_3d.dat.data[:]
         new_z = eta*(z_ref + bath)/bath + z_ref
-        self.solver.mesh.coordinates.dat.data[:, 2] = new_z
+        if self.solver.mesh.geometric_dimension() == 2:
+            self.solver.mesh.coordinates.dat.data[:, 1] = new_z
+        else:
+            self.solver.mesh.coordinates.dat.data[:, 2] = new_z
         self.fields.z_coord_3d.dat.data[:] = new_z
         self.update_elem_height()
 

@@ -310,3 +310,108 @@ field_metadata['hcc_metric_3d'] = {
     'unit': '-',
     'filename': 'HCCMetric3d',
 }
+#############################
+##### Wei defined below #####
+#############################
+field_metadata['q_3d'] = {
+    'name': 'Non-hydrostatic pressure',
+    'shortname': 'NH pressure',
+    'unit': 'Pa',
+    'filename': 'q_NH_3d',
+}
+field_metadata['q_2d'] = {
+    'name': 'Non-hydrostatic pressure',
+    'shortname': 'NH pressure',
+    'unit': 'Pa',
+    'filename': 'q_NH_2d',
+}
+field_metadata['w_nh'] = {
+    'name': 'Vertical velocity for Non-hydrostatic solver',
+    'shortname': 'Vertical velocity for NH',
+    'unit': 'm s-1',
+    'filename': 'VertVelo_NH',
+}
+field_metadata['uv_nh'] = {
+    'name': 'Horizontal velocity for Non-hydrostatic solver',
+    'shortname': 'Horizontal velocity for NH',
+    'unit': 'm s-1',
+    'filename': 'HoriVelo_NH',
+}
+field_metadata['elev_nh'] = {
+    'name': 'Water elevation for Non-hydrostatic solver',
+    'shortname': 'Elevation for NH',
+    'unit': 'm',
+    'filename': 'Elevation_NH',
+}
+field_metadata['ext_pg_3d'] = {
+    'name': 'External pressure gradient for Non-hydrostatic solver',
+    'shortname': 'Ext. Pressure gradient for NH',
+    'unit': 'm s-2',
+    'filename': 'ExtPG_NH',
+}
+field_metadata['uv_delta'] = {
+    'name': 'Layer velocity difference',
+    'shortname': 'Layer velocity difference',
+    'unit': 'm s-1',
+    'filename': 'VelocityDiff',
+}
+field_metadata['uv_delta_2'] = {
+    'name': 'Layer velocity difference 2',
+    'shortname': 'Layer velocity difference 2',
+    'unit': 'm s-1',
+    'filename': 'VelocityDiff_2',
+}
+field_metadata['uv_delta_3'] = {
+    'name': 'Layer velocity difference 3',
+    'shortname': 'Layer velocity difference 3',
+    'unit': 'm s-1',
+    'filename': 'VelocityDiff_3',
+}
+field_metadata['uv_ls'] = {
+    'name': 'Velocity of landslide',
+    'shortname': 'Velocity of landslide',
+    'unit': 'm s-1',
+    'filename': 'Velocity2d_ls',
+}
+field_metadata['elev_ls'] = {
+    'name': 'Elevation of landslide',
+    'shortname': 'Upper surface of slide',
+    'unit': 'm',
+    'filename': 'Elevation2d_ls',
+}
+field_metadata['slide_source'] = {
+    'name': '2D slide source for displacement',
+    'shortname': '2D slide source for displacement',
+    'unit': 'm/s',
+    'filename': 'SlideSource_2d',
+}
+field_metadata['slide_source_3d'] = {
+    'name': '3D slide source for displacement',
+    'shortname': '3D slide source for displacement',
+    'unit': 'm/s',
+    'filename': 'SlideSource_3d',
+}
+field_metadata['bed_slope'] = {
+    'name': 'Bed slope for granular slide modelling',
+    'shortname': 'Bed slope for granular slide modelling',
+    'unit': '-',
+    'filename': 'BedSlope_ls',
+}
+field_metadata['sigma_dt'] = {
+    'name': 'Time derivative of z in sigma mesh',
+    'shortname': 'Time derivative of z in sigma mesh',
+    'unit': '-',
+    'filename': 'Sigma_dt',
+}
+field_metadata['sigma_dx'] = {
+    'name': 'Hori x-derivative of z in sigma mesh',
+    'shortname': 'Hori x-derivative of z in sigma mesh',
+    'unit': '-',
+    'filename': 'Sigma_dx',
+}
+field_metadata['omega'] = {
+    'name': 'Vertical velocity in sigma mesh',
+    'shortname': 'Vertical velocity in sigma mesh',
+    'unit': '-',
+    'filename': 'Omega',
+}

@@ -4,8 +4,8 @@ Thetis options for the 2D and 3D model
 All options are type-checked and they are stored in traitlets Configurable
 objects.
 """
+from thetis import FiredrakeConstant as Constant
 from .configuration import *
-from .firedrake import Constant
 
 
 class TimeStepperOptions(FrozenHasTraits):
@@ -28,6 +28,14 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
     solver_parameters_tracer = PETScSolverParameters({
         'ksp_type': 'gmres',
         'pc_type': 'sor',
+    }).tag(config=True)
+    solver_parameters_momentum = PETScSolverParameters({
+        'snes_monitor': False,
+        'snes_type': 'ksponly',
+        'ksp_type': 'preonly',
+        'pc_type': 'bjacobi',
+        'sub_ksp_type': 'preonly',
+        'sub_pc_type': 'ilu',
     }).tag(config=True)
 
 
@@ -327,24 +335,6 @@ class LinearEquationOfStateOptions(EquationOfStateOptions):
     beta = Float(0.77, help='Saline contraction coefficient of ocean water').tag(config=True)
 
 
-class TidalTurbineOptions(FrozenHasTraits):
-    """Tidal turbine parameters"""
-    thrust_coefficient = PositiveFloat(
-        0.8, help='Thrust coefficient C_T').tag(config=True)
-    diameter = PositiveFloat(
-        18., help='Turbine diameter').tag(config=True)
-
-
-class TidalTurbineFarmOptions(FrozenHasTraits, TraitType):
-    """Tidal turbine farm options"""
-    name = 'Farm options'
-    turbine_options = TidalTurbineOptions()
-    turbine_density = FiredrakeScalarExpression(
-        Constant(0.0), help='Density of turbines within the farm')
-    break_even_wattage = NonNegativeFloat(
-        0.0, help='Average power production per turbine required to break even')
-
-
 class CommonModelOptions(FrozenConfigurable):
     """Options that are common for both 2d and 3d models"""
     name = 'Model options'
@@ -371,14 +361,14 @@ class CommonModelOptions(FrozenConfigurable):
 
     use_lax_friedrichs_velocity = Bool(
         True, help="use Lax Friedrichs stabilisation in horizontal momentum advection.").tag(config=True)
-    lax_friedrichs_velocity_scaling_factor = FiredrakeConstantTraitlet(
+    lax_friedrichs_velocity_scaling_factor = FiredrakeConstant(
         Constant(1.0), help="Scaling factor for Lax Friedrichs stabilisation term in horiozonal momentum advection.").tag(config=True)
     use_lax_friedrichs_tracer = Bool(
         True, help="Use Lax Friedrichs stabilisation in tracer advection.").tag(config=True)
-    lax_friedrichs_tracer_scaling_factor = FiredrakeConstantTraitlet(
+    lax_friedrichs_tracer_scaling_factor = FiredrakeConstant(
         Constant(1.0), help="Scaling factor for tracer Lax Friedrichs stability term.").tag(config=True)
     use_limiter_for_tracers = Bool(
-        True, help="Apply P1DG limiter for tracer fields").tag(config=True)
+        False, help="Apply P1DG limiter for tracer fields").tag(config=True)
 
     check_volume_conservation_2d = Bool(
         False, help="""
@@ -404,13 +394,13 @@ class CommonModelOptions(FrozenConfigurable):
         """).tag(config=True)
     simulation_end_time = PositiveFloat(
         1000.0, help="Simulation duration in seconds").tag(config=True)
-    horizontal_velocity_scale = FiredrakeConstantTraitlet(
+    horizontal_velocity_scale = FiredrakeConstant(
         Constant(0.1), help="""
         Maximum horizontal velocity magnitude
 
         Used to compute max stable advection time step.
         """).tag(config=True)
-    horizontal_viscosity_scale = FiredrakeConstantTraitlet(
+    horizontal_viscosity_scale = FiredrakeConstant(
         Constant(1.0), help="""
         Maximum horizontal viscosity
 
@@ -471,6 +461,71 @@ class CommonModelOptions(FrozenConfigurable):
     horizontal_diffusivity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
 
+    # for the non-hydrostatic solver
+    use_wetting_and_drying = Bool(
+        False, help=r"""bool: Turn on wetting and drying
+
+        Uses the wetting and drying scheme from Karna et al (2011).
+        If ``True``, one should also set :attr:`wetting_and_drying_alpha` to control the bathymetry displacement.
+        """).tag(config=True)
+    wetting_and_drying_alpha = FiredrakeConstant(
+        Constant(0.5), help=r"""
+        Coefficient: Wetting and drying parameter :math:`\alpha`.
+
+        Used in bathymetry displacement function that ensures positive water depths. Unit is meters.
+        """).tag(config=True)
+    constant_mindep = Bool(
+        True, help=r"""
+        If False, alpha is varied, based on wd_mindep; if True, alpha equals to wd_mindep
+        """).tag(config=True)
+    thin_film = Bool(
+        False, help=r"""
+        If True, thin-film wetting-drying scheme is used
+        """).tag(config=True)
+    depth_wd_interface = FiredrakeConstant(
+        Constant(1E-8), help=r"""
+        Coefficient or None: Intermediate wetting-drying parameter :math:`\alpha`
+
+        Used to ensure artificial positive water depths. Unit is meters.
+        Default is None, controlled by wd_mindep; facilitate users' understanding and prescription
+        """).tag(config=True)
+    wd_mindep = NonNegativeFloat(0.01, help="Min depth parameter of the wetting-drying scheme.").tag(config=True)
+    n_layers = NonNegativeInteger(1, help="Number of vertical layers.").tag(config=True)
+    alpha_nh = List(
+        default_value=[], help=r"""
+        Coefficient: Multi-layer parameter :math:`\alpha_nh`.
+
+        Used in non-hydrostatic solver to control the thickness of layer.
+        """).tag(config=True)
+    beta_nh = FiredrakeConstant(
+        Constant(1.), help=r"""
+        Coefficient: Multi-layer approximation parameter :math:`\beta_nh`.
+
+        Used in non-hydrostatic solver to control the non-hydrostatic pressure at bottom.
+        """).tag(config=True)
+    set_vertical_2d = Bool(
+        False, help=r"""bool: Turn on 1D horizontal, i.e. 2D including vertical dimension
+
+        If ``True``, the y-direction velocity of uv_2d is set as zero.
+        """).tag(config=True)
+    sponge_layer_length = List(
+        default_value=[0., 0.], help=r"""
+        Length of sponge layer; if not None, sponge layer adopted to absorb relected wave, in which:
+
+        2D linear damping parameter in the set-up sponge layer technique :math:`D`
+        Bottom stress is :math:`\tau_b/\rho_0 = -D \mathbf{u} H`
+        """).tag(config=True)
+    sponge_layer_xstart = List(
+        default_value=[0., 0.], help=r"""
+        Position of start point of sponge layer's X-direction. Unit is meters.
+        """).tag(config=True)
+    landslide = Bool(False, help=r"""bool: if True, landslide motion solved""").tag(config=True)
+    slide_is_rigid = Bool(True, help=r"""bool: if True, slide is rigid, not deformable slide""").tag(config=True)
+    slide_is_granular = Bool(True, help=r"""bool: if True, granular slide flow, else: laminar fluid""").tag(config=True)
+    rho_water = NonNegativeFloat(1000.0, help="Density of water. Unit is kg/m^3").tag(config=True)
+    rho_slide = NonNegativeFloat(2000.0, help="Density of slide. Unit is kg/m^3").tag(config=True)
+    slide_viscosity = NonNegativeFloat(0.01, help="Horizontal viscosity for landslide motion equations").tag(config=True)
+    t_landslide = PositiveFloat(1000.0, help="Slide motion only for a limited time in seconds").tag(config=True)
 
 # NOTE all parameters are now case sensitive
 # TODO rename time stepper types? Allow capitals and spaces?
@@ -499,14 +554,12 @@ class ModelOptions2d(CommonModelOptions):
         Uses the wetting and drying scheme from Karna et al (2011).
         If ``True``, one should also set :attr:`wetting_and_drying_alpha` to control the bathymetry displacement.
         """).tag(config=True)
-    wetting_and_drying_alpha = FiredrakeConstantTraitlet(
+    wetting_and_drying_alpha = FiredrakeConstant(
         Constant(0.5), help=r"""
         Coefficient: Wetting and drying parameter :math:`\alpha`.
 
         Used in bathymetry displacement function that ensures positive water depths. Unit is meters.
         """).tag(config=True)
-    tidal_turbine_farms = Dict(trait=TidalTurbineFarmOptions,
-                               default_value={}, help='Dictionary mapping subdomain ids to the options of the corresponding farm')
 
     check_tracer_conservation = Bool(
         False, help="""
@@ -520,11 +573,6 @@ class ModelOptions2d(CommonModelOptions):
         Compute tracer overshoots at every export
 
         Prints overshoot values that exceed the initial range to stdout.
-        """).tag(config=True)
-    tracer_only = Bool(
-        False, help="""Hold shallow water variables in initial state
-
-        Advects tracer in the associated (constant) velocity field.
         """).tag(config=True)
 
 
@@ -576,17 +624,17 @@ class ModelOptions3d(CommonModelOptions):
         False, help="Cast eddy viscosity to p1 space instead of p0").tag(config=True)
     use_smagorinsky_viscosity = Bool(
         False, help="Use Smagorinsky horisontal viscosity parametrization").tag(config=True)
-    smagorinsky_coefficient = FiredrakeConstantTraitlet(
+    smagorinsky_coefficient = FiredrakeConstant(
         Constant(0.1),
         help="""Smagorinsky viscosity coefficient :math:`C_S`
 
         See :class:`.SmagorinskyViscosity`.""").tag(config=True)
 
     use_limiter_for_velocity = Bool(
-        True, help="Apply P1DG limiter for 3D horizontal velocity field").tag(config=True)
+        False, help="Apply P1DG limiter for 3D horizontal velocity field").tag(config=True)
     use_lax_friedrichs_tracer = Bool(
         True, help="Use Lax Friedrichs stabilisation in tracer advection.").tag(config=True)
-    lax_friedrichs_tracer_scaling_factor = FiredrakeConstantTraitlet(
+    lax_friedrichs_tracer_scaling_factor = FiredrakeConstant(
         Constant(1.0), help="Scaling factor for tracer Lax Friedrichs stability term.").tag(config=True)
     check_volume_conservation_3d = Bool(
         False, help="""
@@ -625,7 +673,7 @@ class ModelOptions3d(CommonModelOptions):
         This option is only used in the 3d solver, if 2d mode is solved
         explicitly.
         """).tag(config=True)
-    vertical_velocity_scale = FiredrakeConstantTraitlet(
+    vertical_velocity_scale = FiredrakeConstant(
         Constant(1e-4), help="""
         Maximum vertical velocity magnitude
 
@@ -662,7 +710,7 @@ class ModelOptions3d(CommonModelOptions):
         None, allow_none=True, help="Source term for salinity equation").tag(config=True)
     temperature_source_3d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for temperature equation").tag(config=True)
-    constant_temperature = FiredrakeConstantTraitlet(
+    constant_temperature = FiredrakeConstant(
         Constant(10.0), help="Constant temperature if temperature is not solved").tag(config=True)
-    constant_salinity = FiredrakeConstantTraitlet(
+    constant_salinity = FiredrakeConstant(
         Constant(0.0), help="Constant salinity if salinity is not solved").tag(config=True)
