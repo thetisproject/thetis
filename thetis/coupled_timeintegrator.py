@@ -603,7 +603,7 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
     """
     integrator_2d = rungekutta.ESDIRKTrapezoid
     integrator_3d = timeintegrator.SSPRK22ALE
-    integrator_vert_3d = rungekutta.BackwardEuler
+    integrator_vert_3d = rungekutta.DIRK22
 
     def __init__(self, solver):
         super(CoupledTwoStageRK, self).__init__(solver)

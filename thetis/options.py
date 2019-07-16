@@ -167,9 +167,9 @@ class PacanowskiPhilanderModelOptions(TurbulenceModelOptions):
 
 class GLSModelOptions(TurbulenceModelOptions):
     """Options for Generic Length Scale turbulence model"""
-    name = 'Generic Lenght Scale turbulence closure model'
+    name = 'Generic Length Scale turbulence closure model'
     closure_name = Enum(
-        ['k-epsilon', 'k-omega', 'Generic Lenght Scale'],
+        ['k-epsilon', 'k-omega', 'Generic Length Scale'],
         default_value='k-epsilon',
         help='Name of two-equation closure').tag(config=True)
     stability_function_name = Enum(
@@ -210,30 +210,34 @@ class GLSModelOptions(TurbulenceModelOptions):
         0.4, help="""float: von Karman constant
 
         If :attr:`compute_kappa` is True this value will be overriden""").tag(config=True)
-    compute_kappa = Bool(True,
+    compute_kappa = Bool(False,
                          help='bool: compute von Karman constant from :attr:`schmidt_nb_psi`').tag(config=True)
-    k_min = PositiveFloat(3.7e-8,
+    compute_schmidt_nb_psi = Bool(True,
+                                  help='bool: compute psi Schmidt number').tag(config=True)
+    k_min = PositiveFloat(1.0e-6,
                           help='float: minimum value for turbulent kinetic energy').tag(config=True)
-    psi_min = PositiveFloat(1.0e-10, help='float: minimum value for psi').tag(config=True)
-    eps_min = PositiveFloat(1.0e-10, help='float: minimum value for epsilon').tag(config=True)
-    len_min = PositiveFloat(1.0e-10,
-                            help='float: minimum value for turbulent lenght scale').tag(config=True)
-    compute_len_min = Bool(True,
+    psi_min = PositiveFloat(1.0e-14, help='float: minimum value for psi').tag(config=True)
+    eps_min = PositiveFloat(1.0e-14, help='float: minimum value for epsilon').tag(config=True)
+    len_min = PositiveFloat(1.0e-12,
+                            help='float: minimum value for turbulent length scale').tag(config=True)
+    compute_galperin_clim = Bool(True,
+                                 help='bool: compute c_lim length scale limiting factor').tag(config=True)
+    compute_len_min = Bool(False,
                            help='bool: compute min_len from k_min and psi_min').tag(config=True)
-    compute_psi_min = Bool(True,
+    compute_psi_min = Bool(False,
                            help='bool: compute psi_len from k_min and eps_min').tag(config=True)
     visc_min = PositiveFloat(1.0e-8,
                              help='float: minimum value for eddy viscosity').tag(config=True)
     diff_min = PositiveFloat(1.0e-8,
                              help='float: minimum value for eddy diffusivity').tag(config=True)
-    galperin_lim = PositiveFloat(0.56,
-                                 help='float: Galperin lenght scale limitation parameter').tag(config=True)
+    galperin_clim = PositiveFloat(0.30,
+                                  help='float: Galperin length scale limitation parameter').tag(config=True)
 
-    limit_len = Bool(False, help='bool: apply Galperin lenght scale limit').tag(config=True)
-    limit_psi = Bool(False,
-                     help='bool: apply Galperin lenght scale limit on psi').tag(config=True)
+    limit_len = Bool(False, help='bool: apply Galperin length scale limit').tag(config=True)
+    limit_psi = Bool(True,
+                     help='bool: apply Galperin length scale limit on psi').tag(config=True)
     limit_eps = Bool(False,
-                     help='bool: apply Galperin lenght scale limit on epsilon').tag(config=True)
+                     help='bool: apply Galperin length scale limit on epsilon').tag(config=True)
     limit_len_min = Bool(True,
                          help='bool: limit minimum turbulent length scale to len_min').tag(config=True)
 
@@ -260,8 +264,9 @@ class GLSModelOptions(TurbulenceModelOptions):
                     'c3_plus': 1.0,
                     'c3_minus': -0.52,
                     'f_wall': 1.0,
-                    'k_min': 3.7e-8,
-                    'psi_min': 1.0e-10,
+                    'k_min': 1.0e-6,
+                    'eps_min': 1.0e-14,
+                    'psi_min': 1.0e-14,
                     'closure_name': 'k-epsilon',
                     }
         # k-epsilon defaults, from tables 1 and 2 in [3]
@@ -276,9 +281,9 @@ class GLSModelOptions(TurbulenceModelOptions):
                   'c3_plus': 1.0,
                   'c3_minus': -0.52,
                   'f_wall': 1.0,
-                  'k_min': 3.7e-8,
-                  'eps_min': 1.0e-10,
-                  'psi_min': 1.0e-10,
+                  'k_min': 7.6e-6,
+                  'eps_min': 1.0e-14,
+                  'psi_min': 1.0e-14,
                   'closure_name': 'k-omega',
                   }
         # k-omega defaults, from tables 1 and 2 in [3]
@@ -293,10 +298,10 @@ class GLSModelOptions(TurbulenceModelOptions):
                'c3_plus': 1.0,
                'c3_minus': 0.05,
                'f_wall': 1.0,
-               'k_min': 3.7e-8,
-               'eps_min': 1.0e-10,
-               'psi_min': 2.0e-7,
-               'closure_name': 'gen',
+               'k_min': 1.0e-6,
+               'eps_min': 1.0e-14,
+               'psi_min': 1.0e-14,
+               'closure_name': 'Generic Length Scale',
                }
         # GLS model A defaults, from tables 1 and 2 in [3]
 
@@ -304,8 +309,10 @@ class GLSModelOptions(TurbulenceModelOptions):
             self.update(kepsilon)
         elif closure_name == 'k-omega':
             self.update(komega)
-        elif closure_name == 'gen':
+        elif closure_name == 'Generic Length Scale':
             self.update(gen)
+        else:
+            raise ValueError('Unknown closure name "{:}"'.format(closure_name))
 
 
 class EquationOfStateOptions(FrozenHasTraits):
@@ -570,8 +577,6 @@ class ModelOptions3d(CommonModelOptions):
 
     use_turbulence_advection = Bool(
         False, help="Advect TKE and Psi in the GLS turbulence model").tag(config=True)
-    use_smooth_eddy_viscosity = Bool(
-        False, help="Cast eddy viscosity to p1 space instead of p0").tag(config=True)
     use_smagorinsky_viscosity = Bool(
         False, help="Use Smagorinsky horisontal viscosity parametrization").tag(config=True)
     smagorinsky_coefficient = FiredrakeConstantTraitlet(

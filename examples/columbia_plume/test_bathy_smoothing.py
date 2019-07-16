@@ -68,3 +68,24 @@ hcc = compute_hcc(bathymetry_2d, nlayers)
 out.write(hcc)
 hcc = compute_hcc(new_bathymetry_2d, nlayers)
 out.write(hcc)
+
+
+def write_npz(outfile, func):
+    fs = bathymetry_2d.function_space()
+    mesh = fs.mesh()
+    connectivity = fs.cell_node_map().values
+    x, y = SpatialCoordinate(mesh)
+
+    f = Function(fs, name='test')
+
+    f.interpolate(x)
+    x_arr = f.dat.data.copy()
+    f.interpolate(y)
+    y_arr = f.dat.data.copy()
+    data = bathymetry_2d.dat.data
+
+    np.savez('bath.npz', x=x_arr, y=y_arr, data=data, connectivity=connectivity)
+
+
+# write final bathymetry out as numpy array
+write_npz('bath.npz', bathymetry_2d)
