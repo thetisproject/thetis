@@ -572,12 +572,8 @@ class FlowSolver(FrozenClass):
                 # NOTE other turb. quantities should share the same nodes ??
                 self.fields.eps_3d = Function(self.function_spaces.turb_space)
                 self.fields.len_3d = Function(self.function_spaces.turb_space)
-                if self.options.use_smooth_eddy_viscosity:
-                    self.fields.eddy_visc_3d = Function(self.function_spaces.P1)
-                    self.fields.eddy_diff_3d = Function(self.function_spaces.P1)
-                else:
-                    self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
-                    self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
+                self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
+                self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
                 # NOTE M2 and N2 depend on d(.)/dz -> use CG in vertical ?
                 self.fields.shear_freq_3d = Function(self.function_spaces.turb_space)
                 self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)
@@ -595,12 +591,8 @@ class FlowSolver(FrozenClass):
                     self.fields.shear_freq_3d,
                     options=self.options.turbulence_model_options)
             elif self.options.turbulence_model_type == 'pacanowski':
-                if self.options.use_smooth_eddy_viscosity:
-                    self.fields.eddy_visc_3d = Function(self.function_spaces.P1)
-                    self.fields.eddy_diff_3d = Function(self.function_spaces.P1)
-                else:
-                    self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
-                    self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
+                self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
+                self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
                 self.fields.shear_freq_3d = Function(self.function_spaces.turb_space)
                 self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)
                 self.turbulence_model = turbulence.PacanowskiPhilanderModel(
@@ -878,7 +870,7 @@ class FlowSolver(FrozenClass):
         :type uv_3d: vector valued 3D :class:`Function`, :class:`Constant`, or an expression
         :kwarg tke: Initial condition for turbulent kinetic energy field
         :type tke: scalar 3D :class:`Function`, :class:`Constant`, or an expression
-        :kwarg psi: Initial condition for turbulence generic lenght scale field
+        :kwarg psi: Initial condition for turbulence generic length scale field
         :type psi: scalar 3D :class:`Function`, :class:`Constant`, or an expression
         """
         if not self._initialized:
@@ -968,6 +960,7 @@ class FlowSolver(FrozenClass):
             self.create_equations()
         if outputdir is None:
             outputdir = self.options.output_directory
+        self._simulation_continued = True
         # create new ExportManager with desired outputdir
         state_fields = ['uv_2d', 'elev_2d', 'uv_3d',
                         'salt_3d', 'temp_3d', 'tke_3d', 'psi_3d']
@@ -1024,8 +1017,6 @@ class FlowSolver(FrozenClass):
         for e in self.exporters.values():
             e.set_next_export_ix(self.i_export + offset)
 
-        self._simulation_continued = True
-
     def print_state(self, cputime):
         """
         Print a summary of the model state on stdout
@@ -1041,6 +1032,45 @@ class FlowSolver(FrozenClass):
                                  t=self.simulation_time, e=norm_h,
                                  u=norm_u, cpu=cputime))
         sys.stdout.flush()
+
+    def _print_field(self, field):
+        """
+        Prints min/max values of a field for debugging.
+
+        :arg field: a :class:`Function` or a field string, e.g. 'salt_3d'
+        """
+        if isinstance(field, str):
+            _field = self.fields[field]
+        else:
+            _field = field
+        minval = float(_field.dat.data.min())
+        minval = self.comm.allreduce(minval, op=MPI.MIN)
+        maxval = float(_field.dat.data.max())
+        maxval = self.comm.allreduce(maxval, op=MPI.MAX)
+        print_output('    {:}: {:.4f} {:.4f}'.format(_field.name(), minval, maxval))
+
+    def print_state_debug(self):
+        """
+        Print min/max values of prognostic/diagnostic fields for debugging.
+        """
+
+        field_list = [
+            'elev_2d', 'uv_2d', 'elev_cg_2d',
+            'elev_3d', 'uv_3d',
+            'w_3d', 'uv_dav_3d', 'w_mesh_3d',
+            'salt_3d', 'temp_3d', 'density_3d',
+            'baroc_head_3d', 'int_pg_3d',
+            'psi_3d', 'eps_3d', 'eddy_visc_3d',
+            'shear_freq_3d', 'buoy_freq_3d',
+            'coriolis_2d', 'coriolis_3d',
+            'wind_stress_3d',
+        ]
+        print_output('{:06} T={:10.2f}'.format(self.iteration, self.simulation_time))
+        for fieldname in field_list:
+            if (fieldname in self.fields
+                    and isinstance(self.fields[fieldname], Function)):
+                self._print_field(self.fields[fieldname])
+        self.comm.barrier()
 
     def iterate(self, update_forcings=None, update_forcings3d=None,
                 export_func=None):
