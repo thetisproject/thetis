@@ -519,7 +519,8 @@ class ModelOptions2d(CommonModelOptions):
 
         Prints deviation from the initial mass to stdout.
         """).tag(config=True)
-
+    tracer_advective_velocity = FiredrakeVectorExpression(None, allow_none=True,
+                                                          help="Custom function to be used for the velocity variable in tracer advection equation").tag(config=True)
     check_tracer_overshoot = Bool(
         False, help="""
         Compute tracer overshoots at every export
