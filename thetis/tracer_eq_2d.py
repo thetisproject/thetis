@@ -226,6 +226,16 @@ class HorizontalDiffusionTerm(TracerTerm):
             f += -inner(jump(self.test, self.normal),
                         avg(dot(diff_tensor, grad(solution))))*ds_interior
 
+
+            if bnd_conditions is not None:
+                for bnd_marker in self.boundary_markers:
+                    funcs = bnd_conditions.get(bnd_marker)
+                    if funcs is None:
+                        continue
+                    ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                    if 'wall_law' in funcs:
+                        f += inner(self.test, funcs['wall_flux'])*ds_bnd
+
         return -f
 
 

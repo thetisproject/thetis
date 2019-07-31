@@ -317,6 +317,7 @@ class RANSModelOptions(FrozenHasTraits, TraitType):
         help='Name of two-equation closure').tag(config=True)
     nu_0 = PositiveFloat(1.0e-6, help="float: minimum permissible eddy viscosity").tag(config=True)
     l_max = PositiveFloat(1.0, help="float: maximum permissible mixing length").tag(config=True)
+    delta = PositiveFloat(1.0e-3, help="float: width of excluded region for law of the wall boundaries.").tag(config=True)
     C_mu = PositiveFloatOrNone(None, help="float or None (for model default): Constant in defintion of nu_t").tag(config=True)
     C_0 = PositiveFloatOrNone(None, help="float: Constant in TKE destruction").tag(config=True)
     C_1 = PositiveFloatOrNone(None, help="float: Constant in 2nd variable production").tag(config=True)

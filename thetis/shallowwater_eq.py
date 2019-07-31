@@ -264,6 +264,15 @@ class ShallowWaterTerm(Term):
             h_ext = eta_ext + bath
             area = h_ext*bnd_len  # NOTE using internal elevation
             uv_ext = funcs['flux']/area*self.normal
+        elif 'drag' in funcs:
+            eta_ext = eta_in  # assume symmetry
+            uv_ext = uv_in
+        elif 'wall_law' in funcs:
+            eta_ext = eta_in  # assume symmetry
+            uv_ext = uv_in-dot(uv_in, self.normal)*self.normal
+        elif 'stress' in funcs:
+            eta_ext = -eta_in  # assume symmetry
+            uv_ext = conditional(dot(uv_in, self.normal)>0, uv_in, 0*uv_in)
         else:
             raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
         return eta_ext, uv_ext
@@ -440,7 +449,7 @@ class HUDivTerm(ShallowWaterContinuityTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is None or 'un' in funcs:
+                if funcs is None or 'un' in funcs or 'wall_law' in funcs:
                     f += -total_h*dot(uv, self.normal)*self.eta_test*ds_bnd
         return -f
 
@@ -561,7 +570,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.get_total_depth(eta_old)
-
+        
         nu = fields_old.get('viscosity_h')
         if nu is None:
             return 0
@@ -598,8 +607,18 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if funcs is not None:
+                    if 'drag' in funcs:
+                        f +=  funcs['drag']*sqrt(dot(uv_old,uv_old))*inner(self.u_test,uv)*ds_bnd
+                    if 'wall_law' in funcs:
+                        f +=  funcs['wall_law_drag_coefficient']*inner(self.u_test,uv)*ds_bnd
                     if 'un' in funcs:
                         delta_uv = (dot(uv, n) - funcs['un'])*n
+                    elif 'drag' in funcs:
+                        delta_uv = (dot(uv, n))*n
+                    elif 'wall_law' in funcs:
+                        delta_uv = (dot(uv, n))*n
+                    elif 'stress' in funcs:
+                        continue
                     else:
                         eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
                         if uv_ext is uv:

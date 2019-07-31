@@ -6,6 +6,61 @@ from . import timeintegrator
 from .equation import Equation
 from .turbulence import P1Average
 
+class WallSolver(object):
+
+    def __init__(self, bnd_marker, delta, viscosity):
+        
+        self.bnd_marker = bnd_marker
+        self.delta = delta
+        self.viscosity = viscosity
+
+    def apply(self, solution, u_plus, y_plus, uv):
+
+        if self.bnd_marker:
+            bnd_set = solution.function_space().boundary_nodes(self.bnd_marker, "topological")
+        else:
+            bnd_set = []
+
+        fs_source = uv.function_space()
+        muv = Function(solution.function_space())
+        muv.dat.data[:] = np.sum(uv.dat.data*uv.dat.data,axis=1)
+
+        solution.project(sqrt(self.viscosity*muv/self.delta))
+        
+        self.kernel = op2.Kernel("""
+
+            double f(double y_plus){ 
+                 if (y_plus<20) y_plus=20;
+                 return 1.0/0.4*log(y_plus) + 5.5;
+            }
+
+            void newton_loop(double *solution, double*y_plus, double* muv) {
+
+                printf("hello! %%f\\n", *muv);
+
+                *y_plus = (*solution)*%(delta)f/%(viscosity)f;
+                if (*y_plus<20.0) return;
+
+                for ( int i = 0; i < 100; i++ ) {
+                     *y_plus = (*solution)*%(delta)f/%(viscosity)f;
+                     double fval = f(*y_plus);
+                     *solution += (*muv-fval*(*solution))/(1.0/0.4+fval);
+                }
+            }""" % {'delta': self.delta,
+                    'viscosity': self.viscosity},
+            'newton_loop')
+
+        op2.par_loop(
+            self.kernel, solution.function_space().node_set(bnd_set),
+            solution.dat(op2.INC),
+            y_plus.dat(op2.INC),
+            muv.dat(op2.READ),
+            iterate=op2.ALL)
+        
+        u_plus.project(muv/solution)
+        u_plus.dat.data[np.isnan(u_plus.dat.data)] = 1.0e-16
+        u_plus.dat.data[u_plus.dat.data<1.e-16] = 1.0e-16
+
 class RateOfStrainSolver(object):
     """
     Computes vertical gradient in the weak sense.
@@ -60,7 +115,7 @@ class ProductionSolver(object):
         M^2 = \left(\frac{\partial u}{\partial z}\right)^2
             + \left(\frac{\partial v}{\partial z}\right)^2
     """
-    def __init__(self, uv, production, relaxation=1.0, minval=1e-12):
+    def __init__(self, uv, production, rate_of_strain, eddy_viscosity, relaxation=1.0, minval=1e-12):
         """
         :arg uv: horizontal velocity field
         :type uv: :class:`Function`
@@ -77,10 +132,12 @@ class ProductionSolver(object):
         :kwarg float minval: minimum value for :math:`M^2`
         """
         self.production = production
+        self.rate_of_strain = rate_of_strain
+        self.eddy_viscosity = eddy_viscosity
         self.minval = minval
         self.relaxation = relaxation
 
-        self.var_solver = RateOfStrainSolver(uv, self.production)
+        self.var_solver = RateOfStrainSolver(uv, self.rate_of_strain)
 
     def solve(self, init_solve=False):
         """
@@ -92,6 +149,8 @@ class ProductionSolver(object):
         # TODO init_solve can be omitted with a boolean property
         with timed_stage('shear_freq_solv'):
             self.var_solver.solve()
+
+        self.production.dat.data[:] = 2.0*self.eddy_viscosity.dat.data*np.sum(np.sum(self.rate_of_strain.dat.data**2,2),1)
 
 class RANSTKESourceTerm(TracerTerm):
     r"""
@@ -129,11 +188,9 @@ class RANSTKESourceTerm(TracerTerm):
 
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
 
-        nu_t = fields['eddy_viscosity']
         production = fields['production']
         
-        f = 2.0*inner(production[0,0]**2+2*production[0,1]**2
-                  +production[1,1]**2, nu_t*self.test)*dx
+        f = 2.0*production*self.test*dx
         
         return f
 
@@ -217,12 +274,10 @@ class RANSPsiSourceTerm(TracerTerm):
 
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
 
-        nu_t = fields['eddy_viscosity']
         production = fields['production']
         gamma = fields['gamma2']
         
-        f = 2.0*self.C_1*inner(production[0,0]**2+2*production[0,1]**2
-                  +production[1,1]**2, gamma*nu_t*self.test)*dx
+        f = self.C_1*production*self.test*dx
         
         return f
 
@@ -302,6 +357,7 @@ class RANSModel(TurbulenceModel):
 
     def __init__(self, model, solver, fields):
 
+        self.model = model
         self.solver = solver
         self.fields = fields
         self.options = solver.options
@@ -311,6 +367,8 @@ class RANSModel(TurbulenceModel):
 
         self.nu_0 = Constant(opts.nu_0)
         self.l_max = Constant(opts.l_max)
+
+        self.delta = opts.delta
 
         
         if model.closure_name == 'k-epsilon':
@@ -354,7 +412,8 @@ class RANSModel(TurbulenceModel):
         self.fields.rans_psi = Function(P0_2d, name='rans_psi')
 
         self.sqrt_tke = Function(P0_2d, name='eddy_viscosity')
-        self.production = Function(P0_2dT, name='production')
+        self.production = Function(P0_2d, name='production')
+        self.rate_of_strain = Function(P0_2dT, name='rate of strain')
 
         self.solver.eq_rans_tke = RANSTKEEquation2D(P0_2d, self.production,
                                                  bathymetry=self.fields.bathymetry_2d,
@@ -369,8 +428,38 @@ class RANSModel(TurbulenceModel):
         self.eddy_viscosity = Function(P0_2d, name='P0 eddy viscosity')
         self.psi = fields.rans_psi
         self.tke = fields.rans_tke
+        self.u_tau = Function(FunctionSpace(self.uv.function_space().mesh(),
+                                            self.uv.function_space().ufl_element().family(),
+                                            self.uv.function_space().ufl_element().degree()),
+                              name='u_t')
+        self.u_plus = Function(self.u_tau.function_space(),
+                               name='u plus')
+        self.y_plus = Function(self.u_tau.function_space(),
+                               name='y plus')
 
-        self.production_solver = ProductionSolver(self.uv, self.production)
+                               
+
+
+        self.walls = set()
+
+        for key in ('rans_tke', 'rans_psi', 'shallow_water'):
+            bnd_function = self.solver.bnd_functions.get(key, {})
+            for bnd_marker, funcs in bnd_function.items():
+                if 'wall_law' in funcs:
+                    self.walls.add(bnd_marker)
+                    funcs['u_tau'] = self.u_tau
+                    funcs['wall_law_drag_coefficient'] = self.u_tau/self.u_plus
+                    if key == 'rans_tke':
+                        funcs['wall_flux'] = Constant(0.0)
+                    if key == 'rans_psi':
+                        if model.closure_name == 'k-epsilon':
+                            funcs['wall_flux'] = -self.u_tau**3/self.delta**2/0.4
+                        elif model.closure_name == 'k-omega':
+                            funcs['wall_flux'] = -self.u_tau/self.delta**2/0.4/sqrt(self.C_0)
+
+        self.wall_solver = WallSolver(self.walls, self.delta, 1.0e-6)
+
+        self.production_solver = ProductionSolver(self.uv, self.production, self.rate_of_strain, self.eddy_viscosity)
         self.p1_averager = P1Average(solver.function_spaces.P0_2d,
                                          solver.function_spaces.P1_2d,
                                          solver.function_spaces.P1DG_2d)
@@ -378,7 +467,7 @@ class RANSModel(TurbulenceModel):
     def preprocess(self, init_solve=False):
         self.production_solver.var_solver.source.assign(self.uv)
         self.production_solver.solve()
-
+        
         self.sqrt_tke.project(conditional(self.tke>0, sqrt(self.tke), Constant(0.0)))
 
         self.fields.rans_mixing_length.project(conditional(self.psi*self.l_max>self.C_mu*(self.sqrt_tke**self.n0),
@@ -389,9 +478,17 @@ class RANSModel(TurbulenceModel):
                                                self.nu_0,
                                                self.fields.rans_mixing_length*self.sqrt_tke))
 
-        self.gamma1.project(conditional(self.psi>0, self.psi, Constant(0.0)))
-        #self.gamma1.project(self.C_mu*self.sqrt_tke**self.n1/self.eddy_viscosity)
+
+        if self.model.closure_name == 'k-epsilon':
+            self.gamma1.project(self.C_mu*self.sqrt_tke**self.n1/self.eddy_viscosity)
+            bnd_set = self.production.function_space().boundary_nodes(self.walls, "geometric")
+            self.production.dat.data[bnd_set] = 0.0
+            self.gamma1.dat.data[bnd_set] = 0.0
+            
+        elif self.model.closure_name == 'k-omega':
+            self.gamma1.project(conditional(self.psi>0, self.psi, Constant(0.0)))            
         self.gamma2.project(self.C_mu*self.sqrt_tke**self.n2/self.eddy_viscosity)
+        self.wall_solver.apply(self.u_tau, self.u_plus, self.y_plus, self.uv)
 
     def postprocess(self):
 
@@ -453,6 +550,7 @@ class RANSModel(TurbulenceModel):
     def initialize(self, rans_tke=Constant(0.0), rans_psi=Constant(0.0), **kwargs):
         self.tke.project(rans_tke)
         self.psi.project(rans_psi)
+        self.wall_solver.apply(self.u_tau, self.u_plus, self.y_plus, self.uv)
         self.timesteppers.rans_tke.initialize(self.tke)
         self.timesteppers.rans_psi.initialize(self.psi)
 
