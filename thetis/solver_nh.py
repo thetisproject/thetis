@@ -2375,7 +2375,7 @@ class FlowSolver(FrozenClass):
                 solve_elevation_outside = False
                 solve_q_inside = False
                 solve_mom_with_old_pressure = False
-                rigid_free_surface = not False # e.g. lock exchange case without free surface
+                rigid_free_surface = False # e.g. lock exchange case without free surface
 
                 # solve external pressure gradient term first
                 if solve_elevation_outside and (not rigid_free_surface):

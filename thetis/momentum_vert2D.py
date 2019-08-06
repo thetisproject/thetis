@@ -223,11 +223,10 @@ class HorizontalAdvectionTerm(MomentumTerm):
         uv_p1 = fields_old.get('uv_p1')
         uv_mag = fields_old.get('uv_mag')
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
-        huv_over_h = fields.get('huv_over_h')
 
         # modified for operator-splitting method used in Telemac3D
         uv = solution
-        uv_old = solution_old/(self.bathymetry+fields.get('eta'))#huv_over_h
+        uv_old = solution_old
         #
         f = -(Dx(self.test[0], 0)*uv[0]*uv_old[0])*self.dx
         uv_av = avg(uv_old)
@@ -325,7 +324,7 @@ class VerticalAdvectionTerm(MomentumTerm):
         sigma_dx = fields_old.get('sigma_dx')
         omega = fields_old.get('omega')
         ###
-        vertvelo = omega#sigma_dt + uv_3d[0]*sigma_dx + w[1]/(eta + bath)
+       # vertvelo = omega#sigma_dt + uv_3d[0]*sigma_dx + w[1]/(eta + bath)
         ###
         f = 0
         adv_v = -(Dx(self.test[0], 1)*uv_3d[0]*vertvelo)
@@ -859,8 +858,7 @@ class HorizontalAdvectionTerm_in_VertMom(VertMomentumTerm):
         if fields_old.get('uv_3d') is None:
             return 0
         elev = fields_old['eta']
-        uv = fields_old['uv_3d']/(self.bathymetry+fields.get('eta'))#fields.get('huv_over_h')#fields_old['uv_3d']
-
+        uv = fields_old['uv_3d']
        # cut for operator-splitting method in NH modelling
        # uv_depth_av = fields_old['uv_depth_av']
        # if uv_depth_av is not None:
@@ -947,7 +945,7 @@ class VerticalAdvectionTerm_in_VertMom(VertMomentumTerm):
         sigma_dx = fields_old.get('sigma_dx')
         omega = fields_old.get('omega')
         ###
-        vertvelo = omega#sigma_dt + uv_3d[0]*sigma_dx + w[1]/(eta + bath)
+       # vertvelo = omega#sigma_dt + uv_3d[0]*sigma_dx + w[1]/(eta + bath)
         ###
         f = 0
         f += -solution[1]*vertvelo*Dx(self.test[1], 1)*self.dx

@@ -1,5 +1,5 @@
 """
-Module for layer averaged solver
+Module for layer averaged solver in 1d mesh
 """
 from __future__ import absolute_import
 from .utility import *

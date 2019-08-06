@@ -241,7 +241,9 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                   'coriolis': self.fields.get('coriolis_3d'),
                  # 'sigma_dt': self.fields.sigma_dt,
                  # 'sigma_dx': self.fields.sigma_dt,
-                 # 'omega': self.fields.omega,
+                  'omega': self.fields.omega,
+                 # 'huv_over_h': self.fields.uv_over_h,
+                 # 'hw_over_h': self.fields.w_over_h,
                   }
         friction_fields = {
             'linear_drag_coefficient': self.options.linear_drag_coefficient,

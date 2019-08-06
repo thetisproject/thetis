@@ -8,6 +8,7 @@ import thetis.solver_nh as solver_nh
 import thetis.solver2d_nh as solver2d_nh  # NOQA
 import thetis.solver1d_nh as solver1d_nh  # NOQA
 import thetis.solver_sigma as solver_sigma # NOQA
+import thetis.solver_vert2D as solver_vert2D # NOQA
 from thetis.callback import DiagnosticCallback, DetectorsCallback  # NOQA
 import thetis.limiter as limiter      # NOQA
 import thetis.interpolation as interpolation      # NOQA

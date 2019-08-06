@@ -382,13 +382,13 @@ field_metadata['elev_ls'] = {
 field_metadata['slide_source'] = {
     'name': '2D slide source for displacement',
     'shortname': '2D slide source for displacement',
-    'unit': 'm/s',
+    'unit': 'm s-1',
     'filename': 'SlideSource_2d',
 }
 field_metadata['slide_source_3d'] = {
     'name': '3D slide source for displacement',
     'shortname': '3D slide source for displacement',
-    'unit': 'm/s',
+    'unit': 'm s-1',
     'filename': 'SlideSource_3d',
 }
 field_metadata['bed_slope'] = {
@@ -414,4 +414,16 @@ field_metadata['omega'] = {
     'shortname': 'Vertical velocity in sigma mesh',
     'unit': '-',
     'filename': 'Omega',
+}
+field_metadata['uv_over_h'] = {
+    'name': 'Horizontal velocity in sigma mesh',
+    'shortname': 'Horizontal velocity in sigma mesh',
+    'unit': 'm s-1',
+    'filename': 'huv_over_h',
+}
+field_metadata['w_over_h'] = {
+    'name': 'Vertical velocity in sigma mesh',
+    'shortname': 'Vertical velocity in sigma mesh',
+    'unit': 'm s-1',
+    'filename': 'hw_over_h',
 }
