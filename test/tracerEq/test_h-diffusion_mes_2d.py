@@ -159,16 +159,15 @@ def run_convergence(ref_list, saveplot=False, **options):
 # standard tests for pytest
 # ---------------------------
 
-@pytest.mark.parametrize(('stepper'),
-                         [('CrankNicolson')])
-
 
 @pytest.fixture(params=['cg', 'dg'])
 def tracer_element_family(request):
     return request.param
 
 
-def test_horizontal_diffusion(stepper):
+@pytest.mark.parametrize(('stepper'),
+                         [('CrankNicolson')])
+def test_horizontal_diffusion(stepper, tracer_element_family):
     run_convergence([1, 2, 3], polynomial_degree=1,
                     timestepper_type=stepper,
                     tracer_element_family=tracer_element_family)

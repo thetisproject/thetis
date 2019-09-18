@@ -184,14 +184,13 @@ def polynomial_degree(request):
     return request.param
 
 
-@pytest.mark.parametrize(('stepper'),
-                         [('CrankNicolson')])
-
 @pytest.fixture(params=['dg', 'cg'])
 def tracer_element_family(request):
     return request.param
 
 
+@pytest.mark.parametrize(('stepper'),
+                         [('CrankNicolson')])
 def test_horizontal_advection(polynomial_degree, stepper, tracer_element_family):
     run_convergence([1, 2, 3], polynomial_degree=polynomial_degree,
                     timestepper_type=stepper, tracer_element_family=tracer_element_family)
