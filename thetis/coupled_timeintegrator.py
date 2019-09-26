@@ -239,11 +239,9 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                   'uv_p1': self.fields.get('uv_p1_3d'),
                   'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
                   'coriolis': self.fields.get('coriolis_3d'),
-                 # 'sigma_dt': self.fields.sigma_dt,
-                 # 'sigma_dx': self.fields.sigma_dt,
+                  'sigma_dt': self.fields.sigma_dt,
+                  'sigma_dx': self.fields.sigma_dt,
                   'omega': self.fields.omega,
-                 # 'huv_over_h': self.fields.uv_over_h,
-                 # 'hw_over_h': self.fields.w_over_h,
                   }
         friction_fields = {
             'linear_drag_coefficient': self.options.linear_drag_coefficient,
@@ -285,6 +283,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       # 'uv_mag': self.fields.uv_mag_3d,
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
+                  'omega': self.fields.omega,
                       }
             self.timesteppers.salt_expl = self.integrator_3d(
                 solver.eq_salt, solver.fields.salt_3d, fields, solver.dt,
@@ -318,6 +317,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       # 'uv_mag': self.fields.uv_mag_3d,
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
+                  'omega': self.fields.omega,
                       }
             self.timesteppers.temp_expl = self.integrator_3d(
                 solver.eq_temp, solver.fields.temp_3d, fields, solver.dt,

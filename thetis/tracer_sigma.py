@@ -147,7 +147,8 @@ class HorizontalAdvectionTerm(TracerTerm):
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
 
         f = 0
-        f += -solution*inner(uv[0], Dx(self.test, 0))*self.dx
+       # f += -solution*inner(uv[0], Dx(self.test, 0))*self.dx
+        f += -solution*Dx(uv[0]*self.test, 0)*self.dx # non-conservative form
         if self.horizontal_dg:
             # add interface term
             uv_av = avg(uv)
@@ -155,6 +156,7 @@ class HorizontalAdvectionTerm(TracerTerm):
             s = 0.5*(sign(un_av) + 1.0)
             c_up = solution('-')*s + solution('+')*(1-s)
             f += c_up*(uv_av[0]*jump(self.test, self.normal[0]))*(self.dS_v + self.dS_h)
+           # f += c_up*(jump(self.test, uv[0]*self.normal[0]))*(self.dS_v + self.dS_h) # non-conservative form
             # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
                 if uv_p1 is not None:
@@ -215,13 +217,20 @@ class VerticalAdvectionTerm(TracerTerm):
         vertvelo = w[1]
         if w_mesh is not None:
             vertvelo = w[1] - w_mesh
+
+        omega = fields_old.get('omega')
+        ###
+        vertvelo = omega#sigma_dt + uv_3d[0]*sigma_dx + w[1]/(eta + bath)
+        ###
         f = 0
-        f += -solution*vertvelo*Dx(self.test, 1)*self.dx
+       # f += -solution*vertvelo*Dx(self.test, 1)*self.dx
+        f += -solution*Dx(vertvelo*self.test, 1)*self.dx # non-conservative form
         if self.vertical_dg:
             w_av = avg(vertvelo)
             s = 0.5*(sign(w_av*self.normal[1]('-')) + 1.0)
             c_up = solution('-')*s + solution('+')*(1-s)
             f += c_up*w_av*jump(self.test, self.normal[1])*self.dS_h
+           # f += c_up*jump(self.test, vertvelo*self.normal[1])*self.dS_h # non-conservative form
             if self.use_lax_friedrichs:
                 # Lax-Friedrichs
                 gamma = 0.5*abs(w_av*self.normal('-')[1])*lax_friedrichs_factor
@@ -324,12 +333,13 @@ class VerticalDiffusionTerm(TracerTerm):
     Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        if fields_old.get('diffusivity_v') is None:
+        diffusivity_v = fields_old['diffusivity_v']
+        if diffusivity_v is None:
             return 0
 
-        diffusivity_v = fields_old['diffusivity_v']
-
-        grad_test = Dx(self.test, 1)
+        total_h = fields_old.get('elev_3d') + self.bathymetry
+        const = 1./total_h**2
+        grad_test = Dx(const*self.test, 1)
         diff_flux = dot(diffusivity_v, Dx(solution, 1))
 
         f = 0
@@ -350,11 +360,11 @@ class VerticalDiffusionTerm(TracerTerm):
                 sigma = 1.0/elemsize
             alpha = avg(sigma)
             ds_interior = (self.dS_h)
-            f += alpha*inner(jump(self.test, self.normal[1]),
+            f += alpha*inner(jump(const*self.test, self.normal[1]),
                              dot(avg(diffusivity_v), jump(solution, self.normal[1])))*ds_interior
-            f += -inner(avg(dot(diffusivity_v, Dx(self.test, 1))),
+            f += -inner(avg(dot(diffusivity_v, Dx(const*self.test, 1))),
                         jump(solution, self.normal[1]))*ds_interior
-            f += -inner(jump(self.test, self.normal[1]),
+            f += -inner(jump(const*self.test, self.normal[1]),
                         avg(dot(diffusivity_v, Dx(solution, 1))))*ds_interior
 
         return -f

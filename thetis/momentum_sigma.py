@@ -188,7 +188,8 @@ class PressureGradientTerm(MomentumTerm):
         int_pg = fields.get('int_pg')
         f = 0
         if int_pg is not None:
-            f += (int_pg[0]*self.test[0])*self.dx
+            total_h = fields_old.get('eta') + self.bathymetry #TODO move this to InternalPressureGradientCalculator or baroc_head_3d solver
+            f += (total_h*int_pg[0]*self.test[0])*self.dx
 
         #f = (int_pg[0]*self.test[0] + int_pg[1]*self.test[1])*self.dx
 
@@ -227,15 +228,17 @@ class HorizontalAdvectionTerm(MomentumTerm):
 
         # modified for operator-splitting method used in Telemac3D
         uv = solution
-        uv_old = solution_old/(self.bathymetry+fields.get('eta'))#huv_over_h
+        uv_old = solution_old
         #
-        f = -(Dx(self.test[0], 0)*uv[0]*uv_old[0])*self.dx
+       # f = -(Dx(self.test[0], 0)*uv[0]*uv_old[0])*self.dx
+        f = -(Dx(uv_old[0]*self.test[0], 0)*uv[0])*self.dx # non-conservative form
         uv_av = avg(uv_old)
         un_av = (uv_av[0]*self.normal('-')[0])
         s = 0.5*(sign(un_av) + 1.0)
         uv_up = uv('-')*s + uv('+')*(1-s)
         if self.horizontal_continuity in ['dg', 'hdiv']:
-            f += (uv_up[0]*uv_av[0]*jump(self.test[0], self.normal[0]))*(self.dS_v + self.dS_h)
+           # f += (uv_up[0]*uv_av[0]*jump(self.test[0], self.normal[0]))*(self.dS_v + self.dS_h)
+            f += (avg(uv)[0]*jump(self.test[0], uv_old[0]*self.normal[0]))*(self.dS_v + self.dS_h) # non-conservative form
             # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
                 if uv_p1 is not None:
@@ -328,17 +331,19 @@ class VerticalAdvectionTerm(MomentumTerm):
         vertvelo = omega#sigma_dt + uv_3d[0]*sigma_dx + w[1]/(eta + bath)
         ###
         f = 0
-        adv_v = -(Dx(self.test[0], 1)*uv_3d[0]*vertvelo)
+       # adv_v = -(Dx(self.test[0], 1)*uv_3d[0]*vertvelo)
+        adv_v = -(Dx(vertvelo*self.test[0], 1)*uv_3d[0]) # non-conservative form
         f += adv_v * self.dx
         if self.vertical_continuity in ['dg', 'hdiv']:
             w_av = avg(vertvelo)
             s = 0.5*(sign(w_av*self.normal[1]('-')) + 1.0)
             uv_up = uv_3d('-')*s + uv_3d('+')*(1-s)
-            f += (uv_up[0]*w_av*jump(self.test[0], self.normal[1]))*self.dS_h
+           # f += (uv_up[0]*w_av*jump(self.test[0], self.normal[1]))*self.dS_h
+            f += (avg(uv_3d)[0]*jump(self.test[0], vertvelo*self.normal[1]))*self.dS_h # non-conservative form
             if self.use_lax_friedrichs:
                 # Lax-Friedrichs
                 gamma = 0.5*abs(w_av*self.normal('-')[1])*lax_friedrichs_factor
-                f += gamma*(jump(self.test[0])*jump(uv_3d[0]))*self.dS_h
+                f += gamma*dot(jump(self.test[0]), jump(uv_3d[0]))*self.dS_h
         f += (uv_3d[0]*vertvelo*self.test[0]*self.normal[1])*(self.ds_surf)
         # NOTE bottom impermeability condition is naturally satisfied by the defition of w
         return -f
@@ -443,7 +448,9 @@ class VerticalViscosityTerm(MomentumTerm):
         if viscosity_v is None:
             return 0
         f = 0
-        grad_test = Dx(self.test[0], 1)
+        total_h = fields_old.get('eta') + self.bathymetry
+        const = 1./total_h**2
+        grad_test = Dx(const*self.test[0], 1)
         diff_flux = viscosity_v*Dx(solution[0], 1)
         f += inner(grad_test, diff_flux)*self.dx
 
@@ -462,11 +469,11 @@ class VerticalViscosityTerm(MomentumTerm):
                 sigma = 1.0/elemsize
             alpha = avg(sigma)
             ds_interior = (self.dS_h)
-            f += alpha*inner(tensor_jump(self.normal[1], self.test[0]),
+            f += alpha*inner(tensor_jump(self.normal[1], const*self.test[0]),
                              avg(viscosity_v)*tensor_jump(self.normal[1], solution[0]))*ds_interior
-            f += -inner(avg(viscosity_v*Dx(self.test[0], 1)),
+            f += -inner(avg(viscosity_v*Dx(const*self.test[0], 1)),
                         tensor_jump(self.normal[1], solution[0]))*ds_interior
-            f += -inner(tensor_jump(self.normal[1], self.test[0]),
+            f += -inner(tensor_jump(self.normal[1], const*self.test[0]),
                         avg(viscosity_v*Dx(solution[0], 1)))*ds_interior
         return -f
 
@@ -859,7 +866,7 @@ class HorizontalAdvectionTerm_in_VertMom(VertMomentumTerm):
         if fields_old.get('uv_3d') is None:
             return 0
         elev = fields_old['eta']
-        uv = fields_old['uv_3d']/(self.bathymetry+fields.get('eta'))#fields.get('huv_over_h')#fields_old['uv_3d']
+        uv = fields_old['uv_3d']
 
        # cut for operator-splitting method in NH modelling
        # uv_depth_av = fields_old['uv_depth_av']
@@ -872,14 +879,16 @@ class HorizontalAdvectionTerm_in_VertMom(VertMomentumTerm):
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
 
         f = 0
-        f += -solution[1]*inner(uv[0], Dx(self.test[1], 0))*self.dx
+       # f += -solution[1]*inner(uv[0], Dx(self.test[1], 0))*self.dx
+        f += -solution[1]*Dx(uv[0]*self.test[1], 0)*self.dx # non-conservative form
         if self.horizontal_dg:
             # add interface term
             uv_av = avg(uv)
             un_av = (uv_av[0]*self.normal('-')[0])
             s = 0.5*(sign(un_av) + 1.0)
-            c_up = solution[1]('-')*s + solution[1]('+')*(1-s)
-            f += c_up*(uv_av[0]*jump(self.test[1], self.normal[0]))*(self.dS_v + self.dS_h)
+            c_up = solution('-')*s + solution('+')*(1-s)
+           # f += c_up[1]*(uv_av[0]*jump(self.test[1], self.normal[0]))*(self.dS_v + self.dS_h)
+            f += avg(solution)[1]*jump(self.test[1], uv[0]*self.normal[0])*(self.dS_v + self.dS_h) # non-conservative form
             # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
                 if uv_p1 is not None:
@@ -896,13 +905,13 @@ class HorizontalAdvectionTerm_in_VertMom(VertMomentumTerm):
                     if funcs is None:
                         continue
                     else:
-                        c_in = solution[1]
+                        c_in = solution
                         c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
                         uv_av = 0.5*(uv + uv_ext)
                         un_av = self.normal[0]*uv_av[0]
                         s = 0.5*(sign(un_av) + 1.0)
                         c_up = c_in*s + c_ext*(1-s)
-                        f += c_up*(uv_av[0]*self.normal[0])*self.test[1]*ds_bnd
+                        f += c_up[1]*(uv_av[0]*self.normal[0])*self.test[1]*ds_bnd
 
         if self.use_symmetric_surf_bnd:
             f += solution[1]*(uv[0]*self.normal[0])*self.test[1]*ds_surf
@@ -950,12 +959,14 @@ class VerticalAdvectionTerm_in_VertMom(VertMomentumTerm):
         vertvelo = omega#sigma_dt + uv_3d[0]*sigma_dx + w[1]/(eta + bath)
         ###
         f = 0
-        f += -solution[1]*vertvelo*Dx(self.test[1], 1)*self.dx
+       # f += -solution[1]*vertvelo*Dx(self.test[1], 1)*self.dx
+        f += -solution[1]*Dx(vertvelo*self.test[1], 1)*self.dx # non-conservative form
         if self.vertical_dg:
             w_av = avg(vertvelo)
             s = 0.5*(sign(w_av*self.normal[1]('-')) + 1.0)
-            c_up = solution[1]('-')*s + solution[1]('+')*(1-s)
-            f += c_up*w_av*jump(self.test[1], self.normal[1])*self.dS_h
+            c_up = solution('-')*s + solution('+')*(1-s)
+           # f += c_up[1]*w_av*jump(self.test[1], self.normal[1])*self.dS_h
+            f += avg(solution)[1]*jump(self.test[1], vertvelo*self.normal[1])*self.dS_h # non-conservative form
             if self.use_lax_friedrichs:
                 # Lax-Friedrichs
                 gamma = 0.5*abs(w_av*self.normal('-')[1])*lax_friedrichs_factor
@@ -963,7 +974,7 @@ class VerticalAdvectionTerm_in_VertMom(VertMomentumTerm):
 
         # NOTE Bottom impermeability condition is naturally satisfied by the definition of w
         # NOTE imex solver fails with this in tracerBox example, also in bb_bar case
-        #f += solution[2]*vertvelo*self.normal[2]*self.test[2]*self.ds_surf
+       # f += solution[1]*vertvelo*self.normal[1]*self.test[1]*self.ds_surf
         return -f
 
 
@@ -1059,12 +1070,13 @@ class VerticalViscosityTerm_in_VertMom(VertMomentumTerm):
     Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        if fields_old.get('viscosity_v') is None:
+        viscosity_v = fields_old.get('viscosity_v')
+        if viscosity_v is None:
             return 0
 
-        viscosity_v = fields_old.get('viscosity_v')
-
-        grad_test = Dx(self.test[1], 1)
+        total_h = fields_old.get('eta') + self.bathymetry
+        const = 1./total_h**2
+        grad_test = Dx(const*self.test[1], 1)
         diff_flux = dot(viscosity_v, Dx(solution[1], 1))
 
         f = 0
@@ -1085,11 +1097,11 @@ class VerticalViscosityTerm_in_VertMom(VertMomentumTerm):
                 sigma = 1.0/elemsize
             alpha = avg(sigma)
             ds_interior = (self.dS_h)
-            f += alpha*inner(jump(self.test[1], self.normal[1]),
+            f += alpha*inner(jump(const*self.test[1], self.normal[1]),
                              dot(avg(viscosity_v), jump(solution[1], self.normal[1])))*ds_interior
-            f += -inner(avg(dot(viscosity_v, Dx(self.test[1], 1))),
+            f += -inner(avg(dot(viscosity_v, Dx(const*self.test[1], 1))),
                         jump(solution[1], self.normal[1]))*ds_interior
-            f += -inner(jump(self.test[1], self.normal[1]),
+            f += -inner(jump(const*self.test[1], self.normal[1]),
                         avg(dot(viscosity_v, Dx(solution[1], 1))))*ds_interior
 
         return -f

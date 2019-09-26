@@ -3,11 +3,11 @@ Module for vertical two dimensional solver in extruded mesh
 """
 from __future__ import absolute_import
 from .utility import *
-from . import shallowwater_vert2D
+from . import shallowwater_vert2d
 from . import landslide_motion
 from . import momentum_nh
-from . import momentum_vert2D
-from . import tracer_vert2D
+from . import momentum_vert2d
+from . import tracer_vert2d
 from . import turbulence
 from . import coupled_timeintegrator
 from . import timeintegrator
@@ -423,11 +423,11 @@ class FlowSolver(FrozenClass):
             self.function_spaces.W = FunctionSpace(self.mesh, w_elt, name='W')  # w
         elif self.options.element_family == 'dg-dg':
             self.function_spaces.U = VectorFunctionSpace(self.mesh, 'DG', self.options.polynomial_degree,
-                                                         vfamily='DG', vdegree=self.options.polynomial_degree,
+                                                         vfamily='DG', vdegree=0,#self.options.polynomial_degree,
                                                          name='U')
             # NOTE for tracer consistency W should be equivalent to tracer space H
             self.function_spaces.W = VectorFunctionSpace(self.mesh, 'DG', self.options.polynomial_degree,
-                                                         vfamily='DG', vdegree=self.options.polynomial_degree,
+                                                         vfamily='DG', vdegree=0,#self.options.polynomial_degree,
                                                          name='W')
         else:
             raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
@@ -437,7 +437,7 @@ class FlowSolver(FrozenClass):
         self.function_spaces.Uint = self.function_spaces.U  # vertical integral of uv
         # tracers
         self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.polynomial_degree, vfamily='DG', vdegree=max(0, self.options.polynomial_degree), name='H')
-       # self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.polynomial_degree, vfamily='DG', vdegree=0, name='H')
+        self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.polynomial_degree, vfamily='DG', vdegree=0, name='H')
         self.function_spaces.turb_space = self.function_spaces.P0
 
         # 2D spaces
@@ -680,7 +680,7 @@ class FlowSolver(FrozenClass):
         self.w_surface = Function(self.function_spaces.H_2d)
         self.w_interface = Function(self.function_spaces.H_2d)
         self.fields.w_nh = Function(self.function_spaces.H_2d)
-        self.fields.q_3d = Function(self.function_spaces.P2)
+        self.fields.q_3d = Function(FunctionSpace(self.mesh, 'CG', self.options.polynomial_degree+1))
         self.fields.q_2d = Function(self.function_spaces.P2_2d)
         self.q_2d_mid = Function(self.fields.q_2d.function_space())
         self.q_2d_old = Function(self.function_spaces.P2_2d)
@@ -763,24 +763,24 @@ class FlowSolver(FrozenClass):
             filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
             output_logger.addHandler(filehandler)
 
-        self.eq_sw = shallowwater_vert2D.ModeSplit2DEquations(
+        self.eq_sw = shallowwater_vert2d.ModeSplit2DEquations(
             self.fields.solution_2d.function_space(),
             self.bathymetry_dg,
             self.options)
 
-        self.eq_sw_nh = shallowwater_vert2D.ShallowWaterEquations(
+        self.eq_sw_nh = shallowwater_vert2d.ShallowWaterEquations(
             self.fields.solution_2d.function_space(),
             self.bathymetry_dg,
             self.options)
 
-        self.eq_sw_mom = shallowwater_vert2D.ShallowWaterMomentumEquation(
+        self.eq_sw_mom = shallowwater_vert2d.ShallowWaterMomentumEquation(
             TestFunction(self.function_spaces.U_2d),
             self.function_spaces.U_2d,
             self.function_spaces.H_2d,
             self.bathymetry_dg,
             self.options)
 
-        self.eq_free_surface = shallowwater_vert2D.FreeSurfaceEquation(
+        self.eq_free_surface = shallowwater_vert2d.FreeSurfaceEquation(
             TestFunction(self.function_spaces.H_2d),
             self.function_spaces.H_2d,
             self.function_spaces.U_2d,
@@ -801,7 +801,7 @@ class FlowSolver(FrozenClass):
 
         # solve vertical momentum equation
         ##################################
-        self.eq_momentum_vert = momentum_vert2D.VertMomentumEquation(self.fields.w_3d.function_space(),
+        self.eq_momentum_vert = momentum_vert2d.VertMomentumEquation(self.fields.w_3d.function_space(),
                                                                  bathymetry=self.fields.bathymetry_3d,
                                                                  v_elem_size=self.fields.v_elem_size_3d,
                                                                  h_elem_size=self.fields.h_elem_size_3d,
@@ -810,7 +810,7 @@ class FlowSolver(FrozenClass):
         ##################################
 
         expl_bottom_friction = self.options.use_bottom_friction and not self.options.use_implicit_vertical_diffusion
-        self.eq_momentum = momentum_vert2D.MomentumEquation(self.fields.uv_3d.function_space(),
+        self.eq_momentum = momentum_vert2d.MomentumEquation(self.fields.uv_3d.function_space(),
                                                         bathymetry=self.fields.bathymetry_3d,
                                                         v_elem_size=self.fields.v_elem_size_3d,
                                                         h_elem_size=self.fields.h_elem_size_3d,
@@ -819,7 +819,7 @@ class FlowSolver(FrozenClass):
                                                         use_bottom_friction=expl_bottom_friction)
 
         if self.options.use_implicit_vertical_diffusion:
-            self.eq_vertmomentum = momentum_vert2D.MomentumEquation(self.fields.uv_3d.function_space(),
+            self.eq_vertmomentum = momentum_vert2d.MomentumEquation(self.fields.uv_3d.function_space(),
                                                                 bathymetry=self.fields.bathymetry_3d,
                                                                 v_elem_size=self.fields.v_elem_size_3d,
                                                                 h_elem_size=self.fields.h_elem_size_3d,
@@ -827,28 +827,28 @@ class FlowSolver(FrozenClass):
                                                                 use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
                                                                 use_bottom_friction=self.options.use_bottom_friction)
         if self.options.solve_salinity:
-            self.eq_salt = tracer_vert2D.TracerEquation(self.fields.salt_3d.function_space(),
+            self.eq_salt = tracer_vert2d.TracerEquation(self.fields.salt_3d.function_space(),
                                                     bathymetry=self.fields.bathymetry_3d,
                                                     v_elem_size=self.fields.v_elem_size_3d,
                                                     h_elem_size=self.fields.h_elem_size_3d,
                                                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
                                                     use_symmetric_surf_bnd=self.options.element_family == 'dg-dg')
             if self.options.use_implicit_vertical_diffusion:
-                self.eq_salt_vdff = tracer_vert2D.TracerEquation(self.fields.salt_3d.function_space(),
+                self.eq_salt_vdff = tracer_vert2d.TracerEquation(self.fields.salt_3d.function_space(),
                                                              bathymetry=self.fields.bathymetry_3d,
                                                              v_elem_size=self.fields.v_elem_size_3d,
                                                              h_elem_size=self.fields.h_elem_size_3d,
                                                              use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
 
         if self.options.solve_temperature:
-            self.eq_temp = tracer_vert2D.TracerEquation(self.fields.temp_3d.function_space(),
+            self.eq_temp = tracer_vert2d.TracerEquation(self.fields.temp_3d.function_space(),
                                                     bathymetry=self.fields.bathymetry_3d,
                                                     v_elem_size=self.fields.v_elem_size_3d,
                                                     h_elem_size=self.fields.h_elem_size_3d,
                                                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
                                                     use_symmetric_surf_bnd=self.options.element_family == 'dg-dg')
             if self.options.use_implicit_vertical_diffusion:
-                self.eq_temp_vdff = tracer_vert2D.TracerEquation(self.fields.temp_3d.function_space(),
+                self.eq_temp_vdff = tracer_vert2d.TracerEquation(self.fields.temp_3d.function_space(),
                                                              bathymetry=self.fields.bathymetry_3d,
                                                              v_elem_size=self.fields.v_elem_size_3d,
                                                              h_elem_size=self.fields.h_elem_size_3d,
@@ -864,12 +864,12 @@ class FlowSolver(FrozenClass):
         if self.options.use_turbulence and self.options.turbulence_model_type == 'gls':
             if self.options.use_turbulence_advection:
                 # explicit advection equations
-                self.eq_tke_adv = tracer_vert2D.TracerEquation(self.fields.tke_3d.function_space(),
+                self.eq_tke_adv = tracer_vert2d.TracerEquation(self.fields.tke_3d.function_space(),
                                                            bathymetry=self.fields.bathymetry_3d,
                                                            v_elem_size=self.fields.v_elem_size_3d,
                                                            h_elem_size=self.fields.h_elem_size_3d,
                                                            use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
-                self.eq_psi_adv = tracer_vert2D.TracerEquation(self.fields.psi_3d.function_space(),
+                self.eq_psi_adv = tracer_vert2d.TracerEquation(self.fields.psi_3d.function_space(),
                                                            bathymetry=self.fields.bathymetry_3d,
                                                            v_elem_size=self.fields.v_elem_size_3d,
                                                            h_elem_size=self.fields.h_elem_size_3d,
@@ -960,7 +960,7 @@ class FlowSolver(FrozenClass):
                                                      average=False,
                                                      bathymetry=self.fields.bathymetry_3d,
                                                      elevation=self.fields.elev_cg_3d)
-            self.int_pg_calculator = momentum_vert2D.InternalPressureGradientCalculator(
+            self.int_pg_calculator = momentum_vert2d.InternalPressureGradientCalculator(
                 self.fields, self.options,
                 self.bnd_functions['momentum'],
                 solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
@@ -1831,7 +1831,7 @@ class FlowSolver(FrozenClass):
                 # if false, solving in sigma mesh; 
                 # note to change setting about self.mesh, vertvelo and self.uv_averager(average=True)
                 solve_q_in_extruded_mesh = True
-                rigid_free_surface = False # e.g. lock exchange case without free surface
+                rigid_free_surface = not False # e.g. lock exchange case without free surface
 
                 # solve external pressure gradient term first
                 if solve_elevation_outside and (not rigid_free_surface):
