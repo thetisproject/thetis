@@ -76,6 +76,8 @@ class TracerTerm(Term):
             elev_ext = elev_in
         if 'value' in funcs:
             c_ext = funcs['value']
+        elif 'neumann' in funcs:
+            c_ext = funcs['neumann']
         else:
             c_ext = c_in
         if 'uv' in funcs:
@@ -231,7 +233,9 @@ class HorizontalDiffusionTerm(TracerTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is None:
+                if funcs is not None and 'neumann' in funcs:
+                    f += -self.test*funcs['neumann']*ds_bnd
+                else:
                     f += -self.test*dot(diff_flux, self.normal)*ds_bnd
 
         return -f
