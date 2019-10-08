@@ -558,6 +558,136 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         self.update_solution(i_stage)
 
 
+class DIRKGenericUForm(RungeKuttaTimeIntegrator):
+    cfl_coeff = CFL_UNCONDITIONALLY_STABLE
+
+    def __init__(self, equation, solution, fields, dt,
+                 bnd_conditions=None, solver_parameters={}, terms_to_add='all',
+                 semi_implicit=False):
+        """
+        :arg equation: the equation to solve
+        :type equation: :class:`Equation` object
+        :arg solution: :class:`Function` where solution will be stored
+        :arg fields: Dictionary of fields that are passed to the equation
+        :type fields: dict of :class:`Function` or :class:`Constant` objects
+        :arg float dt: time step in seconds
+        :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
+        :kwarg dict solver_parameters: PETSc solver options
+        :kwarg terms_to_add: Defines which terms of the equation are to be
+            added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
+        :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
+        :kwarg bool semi_implicit: If True use a linearized semi-implicit scheme
+        """
+        super().__init__(equation, solution, fields, dt, solver_parameters)
+        if semi_implicit:
+            self.solver_parameters.setdefault('snes_type', 'ksponly')
+        else:
+            self.solver_parameters.setdefault('snes_type', 'newtonls')
+        self._initialized = False
+
+        self.solution_old = Function(self.equation.function_space, name='solution_old')
+
+        self.n_stages = len(self.b)
+
+        # assume final stage is trivial
+        assert np.array_equal(self.a[-1, :], self.b)
+
+        fs = self.equation.function_space
+        test = self.equation.test
+
+        # Allocate tendency fields
+        self.k = []
+        for i in range(self.n_stages - 1):
+            fname = '{:}_k{:}'.format(self.name, i)
+            self.k.append(Function(fs, name=fname))
+
+        u = self.solution
+        u_old = self.solution_old
+        if semi_implicit:
+            # linearize around last timestep using the fact that all terms are
+            # written in the form A(u_nl) u
+            u_nl = u_old
+        else:
+            # solve the full nonlinear residual form
+            u_nl = u
+        bnd = bnd_conditions
+        fields = self.fields
+
+        # construct variational problems for each stage
+        self.F = []
+        for i in range(self.n_stages):
+            mass = self.equation.mass_term(u) - self.equation.mass_term(u_old)
+            rhs = self.dt_const*self.a[i][i]*self.equation.residual('all', u, u_nl, fields, fields, bnd)
+            for j in range(i):
+                rhs += self.dt_const*self.a[i][j]*inner(self.k[j], test)*dx
+            self.F.append(mass - rhs)
+
+        # construct variational problems to evaluate tendencies
+        self.k_form = []
+        for i in range(self.n_stages - 1):
+            kf = self.dt_const*self.a[i][i]*inner(self.k[i], test)*dx - (self.equation.mass_term(u) - self.equation.mass_term(u_old))
+            for j in range(i):
+                kf += self.dt_const*self.a[i][j]*inner(self.k[j], test)*dx
+            self.k_form.append(kf)
+
+        self.update_solver()
+
+    def update_solver(self):
+        """Create solver objects"""
+        # Ensure LU assembles monolithic matrices
+        if self.solver_parameters.get('pc_type') == 'lu':
+            self.solver_parameters['mat_type'] = 'aij'
+        self.solver = []
+        for i in range(self.n_stages):
+            p = NonlinearVariationalProblem(self.F[i], self.solution)
+            sname = '{:}_stage{:}_'.format(self.name, i)
+            s = NonlinearVariationalSolver(
+                p, solver_parameters=self.solver_parameters,
+                options_prefix=sname)
+            self.solver.append(s)
+        self.k_solver = []
+        k_solver_parameters = {
+            'snes_type': 'ksponly',
+            'ksp_type': 'cg',
+            'ksp_rtol': 1e-8,
+        }
+        for i in range(self.n_stages - 1):
+            p = NonlinearVariationalProblem(self.k_form[i], self.k[i])
+            sname = '{:}_k_stage{:}_'.format(self.name, i)
+            s = NonlinearVariationalSolver(
+                p, solver_parameters=k_solver_parameters,
+                options_prefix=sname)
+            self.k_solver.append(s)
+
+    def initialize(self, init_cond):
+        """Assigns initial conditions to all required fields."""
+        self.solution_old.assign(init_cond)
+        self._initialized = True
+
+    def get_final_solution(self, additive=False):
+        """
+        Evaluates the final solution
+        """
+        pass
+
+    def solve_stage(self, i_stage, t, update_forcings=None):
+        """
+        Solves a single stage of step from t to t+dt.
+        All functions that the equation depends on must be at right state
+        corresponding to each sub-step.
+        """
+        if i_stage == 0:
+            # NOTE solution may have changed in coupled system
+            self.solution_old.assign(self.solution)
+        if not self._initialized:
+            error('Time integrator {:} is not initialized'.format(self.name))
+        if update_forcings is not None:
+            update_forcings(t + self.c[i_stage]*self.dt)
+        self.solver[i_stage].solve()
+        if i_stage < self.n_stages - 1:
+            self.k_solver[i_stage].solve()
+
+
 class BackwardEuler(DIRKGeneric, BackwardEulerAbstract):
     pass
 
@@ -591,6 +721,18 @@ class DIRKLSPUM2(DIRKGeneric, DIRKLSPUM2Abstract):
 
 
 class DIRKLPUM2(DIRKGeneric, DIRKLPUM2Abstract):
+    pass
+
+
+class BackwardEulerUForm(DIRKGenericUForm, BackwardEulerAbstract):
+    pass
+
+
+class DIRK22UForm(DIRKGenericUForm, DIRK22Abstract):
+    pass
+
+
+class DIRK33UForm(DIRKGenericUForm, DIRK33Abstract):
     pass
 
 

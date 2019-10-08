@@ -29,6 +29,8 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
         'ksp_type': 'gmres',
         'pc_type': 'sor',
     }).tag(config=True)
+    use_semi_implicit_linearization = Bool(
+        False, help="Use linearized semi-implicit time integration").tag(config=True)
 
 
 class SteadyStateTimestepperOptions2d(TimeStepperOptions):
