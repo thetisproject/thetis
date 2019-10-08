@@ -625,9 +625,7 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
         # construct variational problems to evaluate tendencies
         self.k_form = []
         for i in range(self.n_stages - 1):
-            kf = self.dt_const*self.a[i][i]*inner(self.k[i], test)*dx - (self.equation.mass_term(u) - self.equation.mass_term(u_old))
-            for j in range(i):
-                kf += self.dt_const*self.a[i][j]*inner(self.k[j], test)*dx
+            kf = inner(self.k[i], test)*dx - self.equation.residual('all', u, u_nl, fields, fields, bnd)
             self.k_form.append(kf)
 
         self.update_solver()
@@ -648,8 +646,6 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
         self.k_solver = []
         k_solver_parameters = {
             'snes_type': 'ksponly',
-            'ksp_type': 'cg',
-            'ksp_rtol': 1e-8,
         }
         for i in range(self.n_stages - 1):
             p = NonlinearVariationalProblem(self.k_form[i], self.k[i])
