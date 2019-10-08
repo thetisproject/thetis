@@ -5,8 +5,28 @@ from thetis import *
 import pytest
 
 
-@pytest.mark.parametrize("n,dt,alpha,max_err", [(25, 300., 4., 0.009), (10, 600., 8., 0.071)], ids=['fine', 'coarse'])
-def test_thacker(n, dt, alpha, max_err):
+@pytest.mark.parametrize("stepper,n,dt,alpha,max_err",
+                         [
+                             ('BackwardEuler', 10, 600., 2., 0.22),
+                             ('BackwardEuler', 25, 300., 2., 0.14),
+                             ('CrankNicolson', 10, 600., 2., 0.07),
+                             ('CrankNicolson', 25, 300., 2., 0.007),
+                             ('DIRK22', 10, 600., 2., 0.025),
+                             ('DIRK22', 25, 300., 2., 0.006),
+                             ('DIRK33', 10, 600., 2., 0.07),
+                             ('DIRK33', 25, 300., 2., 0.007),
+                         ],
+                         ids=[
+                             'BackwardEuler-coarse',
+                             'BackwardEuler-fine',
+                             'CrankNicolson-coarse',
+                             'CrankNicolson-fine',
+                             'DIRK22-coarse',
+                             'DIRK22-fine',
+                             'DIRK33-coarse',
+                             'DIRK33-fine',
+                             ])
+def test_thacker(stepper, n, dt, alpha, max_err):
     # Domain size
     l_mesh = 951646.46
     # Mesh
@@ -29,19 +49,12 @@ def test_thacker(n, dt, alpha, max_err):
     options = solverObj.options
 
     options.timestep = dt
-    options.simulation_end_time = 43200 - 0.1*options.timestep
+    options.simulation_end_time = 43200
     options.simulation_export_time = options.timestep
     options.no_exports = True
-    options.timestepper_type = 'CrankNicolson'
+    options.timestepper_type = stepper
     options.use_wetting_and_drying = True
     options.wetting_and_drying_alpha = Constant(alpha)
-    options.timestepper_options.implicitness_theta = 0.5
-    options.timestepper_options.solver_parameters = {
-        'snes_type': 'newtonls',
-        'snes_monitor': None,
-        'ksp_type': 'gmres',
-        'pc_type': 'fieldsplit',
-    }
 
     # Initial conditions
     x = SpatialCoordinate(mesh2d)
