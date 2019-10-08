@@ -95,7 +95,6 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         b = assemble(TestFunction(self.P0) * field * dx)
         if self.time_dependent_mesh:
             assemble(self.a_form, self.centroid_solver.A)
-            self.centroid_solver.A.force_evaluation()
         self.centroid_solver.solve(self.centroids, b)
 
     def compute_bounds(self, field):

@@ -511,7 +511,6 @@ class LeapFrogAM3(TimeIntegrator):
         if self.fs_is_dg:
             with self.solution.dat.vec as x:
                 with self.rhs_func.dat.vec_ro as b:
-                    self.mass_matrix.force_evaluation()
                     self.mass_matrix.petscmat.mult(b, x)
         else:
             self.lin_solver.solve(self.solution, self.rhs_func)
@@ -564,7 +563,6 @@ class LeapFrogAM3(TimeIntegrator):
                 self.rhs_func += self.msolution_old
             with timed_region('lf_cor_asmb_mat'):
                 assemble(self.a, self.mass_matrix, inverse=self.fs_is_dg)
-                self.mass_matrix.force_evaluation()
             with timed_region('lf_cor_solve'):
                 self._solve_system()
 
@@ -669,7 +667,6 @@ class SSPRK22ALE(TimeIntegrator):
             # Solve $u = M^{-1}q$
             with timed_region('sol1_assemble_A'):
                 assemble(self.a, self.lin_solver.A)
-                self.lin_solver.A.force_evaluation()
             with timed_region('sol1_solve'):
                 self.lin_solver.solve(self.solution, self.mu)
 
@@ -702,7 +699,6 @@ class SSPRK22ALE(TimeIntegrator):
             # Solve $u = M^{-1}q$
             with timed_region('sol2_assemble_A'):
                 assemble(self.a, self.lin_solver.A)
-                self.lin_solver.A.force_evaluation()
             with timed_region('sol2_solve'):
                 self.lin_solver.solve(self.solution, self.mu)
 
