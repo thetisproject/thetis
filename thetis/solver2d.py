@@ -130,7 +130,7 @@ class FlowSolver2d(FrozenClass):
 
         self.bnd_functions = {'shallow_water': {}, 'tracer': {}}
         for i in sorted(self.mesh2d.exterior_facets.unique_markers):
-            self.bnd_functions['tracer'][i] = {'neumann': Constant(0.)}
+            self.bnd_functions['tracer'][i] = {'diff_flux': Constant(0.)}
 
         self._isfrozen = True
 
