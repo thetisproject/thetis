@@ -76,6 +76,8 @@ class TracerTerm(Term):
             elev_ext = elev_in
         if 'value' in funcs:
             c_ext = funcs['value']
+            if 'neumann' in funcs:
+                c_ext = (c_ext, funcs['neumann'])
         elif 'neumann' in funcs:
             c_ext = funcs['neumann']
         else:
@@ -156,6 +158,8 @@ class HorizontalAdvectionTerm(TracerTerm):
                     c_in = solution
                     if funcs is not None and 'value' in funcs:
                         c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                        if isinstance(c_ext, tuple):
+                            c_ext = c_ext[0]
                         uv_av = 0.5*(uv + uv_ext)
                         un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
                         s = 0.5*(sign(un_av) + 1.0)
@@ -239,6 +243,8 @@ class HorizontalDiffusionTerm(TracerTerm):
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                if isinstance(c_ext, tuple):
+                    c_ext = c_ext[1]
                 if funcs is not None and 'neumann' in funcs:
                     f += -self.test*c_ext*ds_bnd
                 else:
