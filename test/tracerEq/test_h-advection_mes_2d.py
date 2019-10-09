@@ -55,7 +55,7 @@ def run(refinement, **model_options):
     options.fields_to_export = ['tracer_2d']
     options.update(model_options)
     uv_expr = as_vector((u, 0))
-    bnd_salt_2d = {'value': Constant(0.0), 'uv': uv_expr, 'neumann': Constant(0.0)}
+    bnd_salt_2d = {'value': Constant(0.0), 'uv': uv_expr}
     bnd_uv_2d = {'uv': uv_expr}
     solverobj.bnd_functions['tracer'] = {
         1: bnd_salt_2d,

@@ -111,7 +111,7 @@ def run(setup, refinement, do_export=True, **options):
     # analytical solution
     trac_ana = setup_obj.tracer(x, y, lx, ly)
 
-    bnd_tracer = {'value': trac_ana, 'diff_flux': Constant(0.0)}
+    bnd_tracer = {'value': trac_ana}
     solver_obj.bnd_functions['tracer'] = {1: bnd_tracer, 2: bnd_tracer,
                                           3: bnd_tracer, 4: bnd_tracer}
 
