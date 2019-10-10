@@ -248,8 +248,8 @@ class FlowSolver2d(FrozenClass):
             self.options.use_limiter_for_tracers &= self.options.tracer_element_family == 'dg'
             self.options.use_lax_friedrichs_tracer &= self.options.tracer_element_family == 'dg'
             self.options.use_su_stabilization_tracer &= self.options.tracer_element_family == 'cg'
-            #if self.options.tracer_element_family == 'cg':  # TODO: Temporary measure until SUPG is implemented
-            #    self.options.use_su_stabilization_tracer = True
+            if self.options.tracer_element_family == 'cg':
+                self.options.use_su_stabilization_tracer = True
 
             self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
             self.eq_tracer = tracer_eq_2d.TracerEquation2D(self.function_spaces.Q_2d, bathymetry=self.fields.bathymetry_2d,
