@@ -590,7 +590,7 @@ class FlowSolver2d(FrozenClass):
         initial_simulation_time = self.simulation_time
         internal_iteration = 0
 
-        while self.simulation_time <= self.options.simulation_end_time + t_epsilon:
+        while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
 
             self.timestepper.advance(self.simulation_time, update_forcings)
 
