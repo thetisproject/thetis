@@ -236,18 +236,20 @@ class HorizontalDiffusionTerm(TracerTerm):
                 uv = fields_old.get('tracer_advective_velocity')
                 if uv is None:
                     uv = fields_old['uv_2d']
-                if funcs is not None and 'value' in funcs:
-                    c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
-                    uv_av = 0.5*(uv + uv_ext)
-                    un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
-                    s = 0.5*(sign(un_av) + 1.0)
-                    c_up = c_in*s + c_ext*(1-s)
-                    diff_flux_up = dot(diff_tensor, grad(c_up))
-                    f += -self.test*dot(diff_flux_up, self.normal)*ds_bnd
-                elif funcs is not None and 'diff_flux' in funcs:
-                    f += -self.test*funcs['diff_flux']*ds_bnd
-                else:
-                    f += -self.test*dot(diff_flux, self.normal)*ds_bnd
+                if funcs is not None:
+                    if 'value' in funcs:
+                        c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                        uv_av = 0.5*(uv + uv_ext)
+                        un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
+                        s = 0.5*(sign(un_av) + 1.0)
+                        c_up = c_in*s + c_ext*(1-s)
+                        diff_flux_up = dot(diff_tensor, grad(c_up))
+                        f += -self.test*dot(diff_flux_up, self.normal)*ds_bnd
+                    elif 'diff_flux' in funcs:
+                        f += -self.test*funcs['diff_flux']*ds_bnd
+                    else:
+                        # Open boundary case
+                        f += -self.test*dot(diff_flux, self.normal)*ds_bnd
 
         return -f
 

@@ -129,8 +129,6 @@ class FlowSolver2d(FrozenClass):
         """Do export initial state. False if continuing a simulation"""
 
         self.bnd_functions = {'shallow_water': {}, 'tracer': {}}
-        for i in sorted(self.mesh2d.exterior_facets.unique_markers):
-            self.bnd_functions['tracer'][i] = {'diff_flux': Constant(0.)}
 
         self._isfrozen = True
 
