@@ -11,6 +11,8 @@ pipeline {
         PATH = "/usr/local/bin:/usr/bin:/bin"
         PETSC_CONFIGURE_OPTIONS="--download-mumps --download-scalapack --download-parmetis --download-metis"
         CC = "mpicc"
+        PYOP2_CACHE_DIR = "/home/jenkins/.firedrake_cache/pyop2"
+        FIREDRAKE_TSFC_KERNEL_CACHE_DIR = "/home/jenkins/.firedrake_cache/tsfc"
     }
     stages {
         stage('Clean') {
