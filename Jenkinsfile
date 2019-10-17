@@ -20,6 +20,8 @@ pipeline {
                 dir('build') {
                     deleteDir()
                 }
+                sh 'ls -l /home'
+                sh 'ls -la /home/jenkins'
             }
         }
         stage('Install Pyadjoint') {
