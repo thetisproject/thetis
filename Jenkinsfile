@@ -22,6 +22,7 @@ pipeline {
                 }
                 sh 'ls -l /home'
                 sh 'ls -la /home/jenkins'
+                sh 'whoami'
             }
         }
         stage('Install Pyadjoint') {
