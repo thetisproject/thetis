@@ -5,20 +5,34 @@ import numpy as np
 
 def fourier_series_solution(mesh, time):
     """
-    We have a diffusion problem with inhomogeneous Neumann conditions and zero initial condition.
+    Consider a diffusion problem with a inhomogeneous Neumann condition and zero initial condition:
+       c_t = nu * c_xx, c_x(0, t) = diff_flux, c_x(l, t) = 0, c(x, 0) = 0
+
     In order to solve it analytically, we decompose it into two diffusion problems:
-     - A diffusion problem with homogeneous Neumann conditions and a nonzero initial condition;
-     - A diffusion problem with homogeneous Neumann conditions and a nonzero source term.
-    Solving the inhomogeneous problem amounts to summing the solutions of the homogeneous problems.
+     - a diffusion problem with homogeneous Neumann conditions and a nonzero initial condition,
+           z_t = nu * z_xx, z_x(0, t) = 0, z_x(l, t) = 0, z(x, 0) = -ic;
+     - and a diffusion problem with homogeneous Neumann conditions and a nonzero source term,
+           w_t = nu * w_xx + s, w_x(0, t) = 0, w_x(l, t) = 0, w(x, 0) = 0.
+
+    Here ic = ic(x) is set as phi(x) = alpha(x) * diff_flux, where alpha(x) = -(l - x)**2 / (2l).
+    The source term s = s(x, t) is given by ic_t - nu*ic_xx = -nu*diff_flux/l
+
+    Solving the inhomogeneous problem amounts to summing the solutions of the homogeneous problems
+    and subtracting ic.
+
+    The exact solution takes the form of a Fourier series, which we truncate appropriately.
     """
     lx = 10
     x, y = SpatialCoordinate(mesh)
+
+    # Diffusivity and diffusive flux BC to impose
     nu = 0.1
     diff_flux = 0.2
-    dt = 0.02
+
+    # Initial condition and source term for two homogeneous Neumann problems
     P1 = FunctionSpace(mesh, 'CG', 1)
     ic = Function(P1).interpolate(diff_flux*0.5*(lx - x)*(lx - x)/lx)
-    source = Constant(-diff_flux/lx, domain=mesh)
+    source = Constant(-nu*diff_flux/lx, domain=mesh)
 
     # The solution uses truncated Fourier expansions, meaning we need the following...
 
@@ -32,8 +46,10 @@ def fourier_series_solution(mesh, time):
         return assemble(2/lx*source*phi(n)*dx)
 
     def source_term(n, time):
+        """Simple quadrature is used to approximate time integral."""
         I = 0
         tau = 0
+        dt = 0.05
         while tau < time - 0.5*dt:
             I += exp(-nu*(n*pi/lx)**2*(t-tau))
             tau += dt
@@ -64,13 +80,13 @@ def run(refinement, **model_options):
     # Domain
     lx = 10
     ly = 1
-    nx = 50*refinement
+    nx = 40*refinement
     ny = 4
     mesh2d = RectangleMesh(nx, ny, lx, ly)
     depth = 40.0
 
     # Time interval
-    dt = 0.01/refinement
+    dt = 0.1/refinement
     t_end = 1.0
     t_export = 0.1
 
@@ -79,16 +95,17 @@ def run(refinement, **model_options):
     bathy_2d = Function(P1_2d, name='Bathymetry')
     bathy_2d.assign(depth)
 
-    # Diffusivity
+    # Diffusivity and diffusive flux BC to impose
     nu = Constant(0.1)
+    diff_flux = 0.2
 
     # Solver
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathy_2d)
     options = solver_obj.options
     options.output_directory = 'outputs'
-    #options.no_exports = True
+    options.no_exports = True
     options.timestep = dt
-    options.simulation_end_time = t_end
+    options.simulation_end_time = t_end - 0.5*dt
     options.simulation_export_time = t_export
     options.solve_tracer = True
     options.tracer_only = True
@@ -98,7 +115,7 @@ def run(refinement, **model_options):
     options.update(model_options)
 
     # Boundary conditions
-    solver_obj.bnd_functions['tracer'] = {1: {'diff_flux': 0.2*nu}}
+    solver_obj.bnd_functions['tracer'] = {1: {'diff_flux': diff_flux*nu}}
     # NOTE: Zero diff_flux boundaries are enforced elsewhere by default
 
     # Run model
@@ -108,18 +125,21 @@ def run(refinement, **model_options):
 
     # Get truncated Fourier series solution
     fsol = fourier_series_solution(mesh2d, t_end)
+    if not options.no_exports:
+        File('outputs/fourier_series_solution.pvd').write(fsol)
 
-    File('outputs/compare{:d}.pvd'.format(refinement)).write(sol, fsol)
-    return errornorm(sol, fsol))
+    return errornorm(sol, fsol)
 
 
 def run_convergence(**model_options):
     errors = []
     for refinement in (1, 2, 4):
         errors.append(run(refinement, **model_options))
-    print(errors)
-    # FIXME: why does the Fourier series solution not decay to zero?
-    # TODO: convergence test
+    msg = "Wrong convergence rate {:.4f}, expected 2.0000."
+    slope = errors[0]/errors[1]
+    assert slope > 2, msg.format(slope)
+    slope = errors[1]/errors[2]
+    assert slope > 2, msg.format(slope)
 
 
 @pytest.fixture(params=[1, 2])
@@ -131,10 +151,11 @@ def polynomial_degree(request):
                          [('CrankNicolson')])
 
 def test_horizontal_advection(polynomial_degree, stepper):
-    run(polynomial_degree=polynomial_degree,
-        timestepper_type=stepper)
+    run_convergence(polynomial_degree=polynomial_degree,
+                    timestepper_type=stepper)
 
 
 if __name__ == '__main__':
     run_convergence(polynomial_degree=1,
-                    timestepper_type='CrankNicolson')
+                    timestepper_type='CrankNicolson',
+                    no_exports=False)
