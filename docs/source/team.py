@@ -5,10 +5,11 @@ team = OrderedDict([
     ("Tuomas Kärnä", "https://www.tuomaskarna.com"),
     ("David Ham", "http://www.imperial.ac.uk/people/david.ham"),
     ("Lawrence Mitchell",
-     "http://www.imperial.ac.uk/people/lawrence.mitchell"),
+     "https://www.dur.ac.uk/computer.science/staff/profile/?id=17243"),
     ("Stephan Kramer", "http://www.imperial.ac.uk/people/s.kramer"),
     ("Matthew Piggott", "http://www.imperial.ac.uk/people/m.d.piggott"),
-    ("Athanasios Angeloudis","http://www.imperial.ac.uk/people/a.angeloudis06")
+    ("Athanasios Angeloudis",
+     "https://www.eng.ed.ac.uk/about/people/dr-athanasios-angeloudis")
 ])
 
 cols = 4
