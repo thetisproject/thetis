@@ -29,6 +29,8 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
         'ksp_type': 'gmres',
         'pc_type': 'sor',
     }).tag(config=True)
+    use_semi_implicit_linearization = Bool(
+        False, help="Use linearized semi-implicit time integration").tag(config=True)
 
 
 class SteadyStateTimestepperOptions2d(TimeStepperOptions):
@@ -45,8 +47,6 @@ class CrankNicolsonTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
     implicitness_theta = BoundedFloat(
         default_value=0.5, bounds=[0.5, 1.0],
         help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.').tag(config=True)
-    use_semi_implicit_linearization = Bool(
-        False, help="Use linearized semi-implicit time integration").tag(config=True)
 
 
 class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
