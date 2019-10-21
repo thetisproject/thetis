@@ -4,7 +4,7 @@ import numpy as np
 
 
 def fourier_series_solution(mesh, lx, diff_flux, **model_options):
-    """
+    r"""
     Consider a diffusion problem with a inhomogeneous Neumann condition and zero initial condition:
 
     .. math::
