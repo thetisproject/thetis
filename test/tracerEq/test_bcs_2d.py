@@ -6,19 +6,29 @@ import numpy as np
 def fourier_series_solution(mesh, lx, diff_flux, **model_options):
     """
     Consider a diffusion problem with a inhomogeneous Neumann condition and zero initial condition:
-       c_t = nu * c_xx, c_x(0, t) = diff_flux, c_x(l, t) = 0, c(x, 0) = 0
+
+    .. math::
+       c_t = \nu c_{xx}, c_x(0, t) = D, c_x(l, t) = 0, c(x, 0) = 0
+
+    where :math:`D` is the diffusive flux boundary condition imposed, `diff_flux`.
 
     In order to solve it analytically, we decompose it into two diffusion problems:
      - a diffusion problem with homogeneous Neumann conditions and a nonzero initial condition,
-           z_t = nu * z_xx, z_x(0, t) = 0, z_x(l, t) = 0, z(x, 0) = -ic;
-     - and a diffusion problem with homogeneous Neumann conditions and a nonzero source term,
-           w_t = nu * w_xx + s, w_x(0, t) = 0, w_x(l, t) = 0, w(x, 0) = 0.
 
-    Here ic = ic(x) is set as phi(x) = alpha(x) * diff_flux, where alpha(x) = -(l - x)**2 / (2l).
-    The source term s = s(x, t) is given by ic_t - nu*ic_xx = -nu*diff_flux/l
+    .. math::
+           z_t = \nu z_{xx}, z_x(0, t) = 0, z_x(l, t) = 0, z(x, 0) = -I;
+
+     - and a diffusion problem with homogeneous Neumann conditions and a nonzero source term,
+
+    .. math::
+           w_t = \nu w_{xx} + S, w_x(0, t) = 0, w_x(l, t) = 0, w(x, 0) = 0.
+
+    Here :math:`I = I(x)` is set as :math:`I(x) = \alpha(x) D`, where
+    :math:`\alpha(x) = -\frac{(l - x)^2}{2l}` and :math:`l` is the horizontal length of the domain.
+    The source term :math:`S = S(x, t)` is given by :math:`S = I_t - \nu I_xx = -\nu\frac Dl`.
 
     Solving the inhomogeneous problem amounts to summing the solutions of the homogeneous problems
-    and subtracting ic.
+    and subtracting :math:`I`.
 
     The exact solution takes the form of a Fourier series, which we truncate appropriately.
     """
