@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 
 
-def fourier_series_solution(mesh, time):
+def fourier_series_solution(mesh, lx, diff_flux, **model_options):
     """
     Consider a diffusion problem with a inhomogeneous Neumann condition and zero initial condition:
        c_t = nu * c_xx, c_x(0, t) = diff_flux, c_x(l, t) = 0, c(x, 0) = 0
@@ -22,12 +22,9 @@ def fourier_series_solution(mesh, time):
 
     The exact solution takes the form of a Fourier series, which we truncate appropriately.
     """
-    lx = 10
     x, y = SpatialCoordinate(mesh)
-
-    # Diffusivity and diffusive flux BC to impose
-    nu = 0.1
-    diff_flux = 0.2
+    nu = model_options['horizontal_diffusivity']
+    time = model_options['simulation_end_time']
 
     # Initial condition and source term for two homogeneous Neumann problems
     P1 = FunctionSpace(mesh, 'CG', 1)
@@ -45,7 +42,7 @@ def fourier_series_solution(mesh, time):
     def source_fourier_coeff(n):
         return assemble(2/lx*source*phi(n)*dx)
 
-    def source_term(n, time):
+    def source_term(n):
         """Simple quadrature is used to approximate time integral."""
         I = 0
         tau = 0
@@ -56,7 +53,7 @@ def fourier_series_solution(mesh, time):
         I *= source_fourier_coeff(n)
         return I*phi(n)
 
-    def ic_term(n, time):
+    def ic_term(n):
         return ic_fourier_coeff(n)*exp(-nu*(n*pi/lx)**2*time)*phi(n)
 
     # Assemble truncated Fourier expansion
@@ -66,9 +63,9 @@ def fourier_series_solution(mesh, time):
     expr = Constant(0.5*source_fourier_coeff(0)*time)
     expr = expr + Constant(0.5*ic_fourier_coeff(0))
     for k in range(1, num_terms_source):
-        expr = expr + source_term(k, time)
+        expr = expr + source_term(k)
     for k in range(1, num_terms_ic):
-        expr = expr + ic_term(k, time)
+        expr = expr + ic_term(k)
     expr -= ic
     sol.interpolate(-expr)
 
@@ -89,6 +86,7 @@ def run(refinement, **model_options):
     dt = 0.1/refinement
     t_end = 1.0
     t_export = 0.1
+    model_options['simulation_end_time'] = t_end
 
     # Bathymetry
     P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -105,7 +103,6 @@ def run(refinement, **model_options):
     options.output_directory = 'outputs'
     options.no_exports = True
     options.timestep = dt
-    options.simulation_end_time = t_end - 0.5*dt
     options.simulation_export_time = t_export
     options.solve_tracer = True
     options.tracer_only = True
@@ -113,6 +110,7 @@ def run(refinement, **model_options):
     options.use_limiter_for_tracers = True
     options.fields_to_export = ['tracer_2d']
     options.update(model_options)
+    options.simulation_end_time = t_end - 0.5*dt
 
     # Boundary conditions
     solver_obj.bnd_functions['tracer'] = {1: {'diff_flux': diff_flux*nu}}
@@ -124,7 +122,7 @@ def run(refinement, **model_options):
     sol = solver_obj.fields.tracer_2d
 
     # Get truncated Fourier series solution
-    fsol = fourier_series_solution(mesh2d, t_end)
+    fsol = fourier_series_solution(mesh2d, lx, diff_flux, **model_options)
     if not options.no_exports:
         File('outputs/fourier_series_solution.pvd').write(fsol)
 
@@ -150,12 +148,17 @@ def polynomial_degree(request):
 @pytest.mark.parametrize(('stepper'),
                          [('CrankNicolson')])
 
-def test_horizontal_advection(polynomial_degree, stepper):
+@pytest.mark.parametrize(('diffusivity'),
+                         [(Constant(0.1))])
+
+def test_horizontal_advection(polynomial_degree, stepper, diffusivity):
     run_convergence(polynomial_degree=polynomial_degree,
-                    timestepper_type=stepper)
+                    timestepper_type=stepper,
+                    horizontal_diffusivity=diffusivity)
 
 
 if __name__ == '__main__':
     run_convergence(polynomial_degree=1,
                     timestepper_type='CrankNicolson',
+                    horizontal_diffusivity=Constant(0.1),
                     no_exports=False)
