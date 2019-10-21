@@ -289,10 +289,12 @@ class FlowSolver2d(FrozenClass):
                                                            bnd_conditions=self.bnd_functions['shallow_water'],
                                                            solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type == 'BackwardEuler':
-            self.timestepper = rungekutta.BackwardEuler(self.eq_sw, self.fields.solution_2d,
-                                                        fields, self.dt,
-                                                        bnd_conditions=self.bnd_functions['shallow_water'],
-                                                        solver_parameters=self.options.timestepper_options.solver_parameters)
+            self.timestepper = rungekutta.BackwardEulerUForm(
+                self.eq_sw, self.fields.solution_2d, fields, self.dt,
+                bnd_conditions=self.bnd_functions['shallow_water'],
+                solver_parameters=self.options.timestepper_options.solver_parameters,
+                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+            )
         elif self.options.timestepper_type == 'CrankNicolson':
             if self.options.solve_tracer:
                 self.timestepper = coupled_timeintegrator_2d.CoupledCrankNicolson2D(weakref.proxy(self))
@@ -304,15 +306,19 @@ class FlowSolver2d(FrozenClass):
                                                                 semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
                                                                 theta=self.options.timestepper_options.implicitness_theta)
         elif self.options.timestepper_type == 'DIRK22':
-            self.timestepper = rungekutta.DIRK22(self.eq_sw, self.fields.solution_2d,
-                                                 fields, self.dt,
-                                                 bnd_conditions=self.bnd_functions['shallow_water'],
-                                                 solver_parameters=self.options.timestepper_options.solver_parameters)
+            self.timestepper = rungekutta.DIRK22UForm(
+                self.eq_sw, self.fields.solution_2d, fields, self.dt,
+                bnd_conditions=self.bnd_functions['shallow_water'],
+                solver_parameters=self.options.timestepper_options.solver_parameters,
+                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+            )
         elif self.options.timestepper_type == 'DIRK33':
-            self.timestepper = rungekutta.DIRK33(self.eq_sw, self.fields.solution_2d,
-                                                 fields, self.dt,
-                                                 bnd_conditions=self.bnd_functions['shallow_water'],
-                                                 solver_parameters=self.options.timestepper_options.solver_parameters)
+            self.timestepper = rungekutta.DIRK33UForm(
+                self.eq_sw, self.fields.solution_2d, fields, self.dt,
+                bnd_conditions=self.bnd_functions['shallow_water'],
+                solver_parameters=self.options.timestepper_options.solver_parameters,
+                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+            )
         elif self.options.timestepper_type == 'SteadyState':
             self.timestepper = timeintegrator.SteadyState(self.eq_sw, self.fields.solution_2d,
                                                           fields, self.dt,
@@ -584,7 +590,7 @@ class FlowSolver2d(FrozenClass):
         initial_simulation_time = self.simulation_time
         internal_iteration = 0
 
-        while self.simulation_time <= self.options.simulation_end_time + t_epsilon:
+        while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
 
             self.timestepper.advance(self.simulation_time, update_forcings)
 

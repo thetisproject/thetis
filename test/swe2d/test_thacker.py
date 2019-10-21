@@ -1,62 +1,88 @@
-# Test for wetting-drying scheme functionality, using Thacker test case
-# Test case details in Gourgue et al (2009)
+"""
+Thacker wetting-drying test case.
 
+The analytical test case is defined in [1]; the model setup is derived from
+[2].
+
+[1] Thacker (1981). Some exact solutions to the nonlinear shallow-water
+    wave equations. Journal of Fluid Mechanics. doi:10.1017/S0022112081001882
+[2] Gourgue et al. (2009). A flux-limiting wetting-drying method for
+    finite-element shallow-water models, with application to the Scheldt
+    Estuary. Advances in Water Resources.DOI: 10.1016/j.advwatres.2009.09.005
+"""
 from thetis import *
 import pytest
 
 
-@pytest.mark.parametrize("n,dt,alpha,max_err", [(25, 300., 4., 0.009), (10, 600., 8., 0.071)], ids=['fine', 'coarse'])
-def test_thacker(n, dt, alpha, max_err):
-    # Domain size
-    l_mesh = 951646.46
-    # Mesh
+@pytest.mark.parametrize("stepper,n,dt,alpha,max_err",
+                         [
+                             ('BackwardEuler', 10, 600., 2., 0.33),
+                             ('BackwardEuler', 25, 300., 2., 0.19),
+                             ('CrankNicolson', 10, 600., 2., 0.26),
+                             ('CrankNicolson', 25, 300., 2., 0.15),
+                             ('DIRK22', 10, 600., 2., 0.26),
+                             ('DIRK22', 25, 300., 2., 0.15),
+                             ('DIRK33', 10, 600., 2., 0.26),
+                             ('DIRK33', 25, 300., 2., 0.15),
+                         ],
+                         ids=[
+                             'BackwardEuler-coarse',
+                             'BackwardEuler-fine',
+                             'CrankNicolson-coarse',
+                             'CrankNicolson-fine',
+                             'DIRK22-coarse',
+                             'DIRK22-fine',
+                             'DIRK33-coarse',
+                             'DIRK33-fine',
+                         ])
+def test_thacker(stepper, n, dt, alpha, max_err):
+    """
+    Run Thacker wetting-drying test case
+    """
+    l_mesh = 951646.46  # domain size
     mesh2d = SquareMesh(n, n, l_mesh)
 
-    # Bathymetry and initial condition parameters
+    # bathymetry and initial condition parameters
     D0 = 50.
     L = 430620.
     eta0 = 2.
     A = ((D0+eta0)**2-D0**2)/((D0+eta0)**2+D0**2)
     X0 = Y0 = l_mesh/2  # Domain offset
 
-    # Bathymetry
+    # bathymetry
     bathymetry = Function(FunctionSpace(mesh2d, "CG", 1), name='bathymetry')
-    x = SpatialCoordinate(mesh2d)
-    bathymetry.interpolate(D0*(1-((x[0]-X0)*(x[0]-X0)+(x[1]-Y0)*(x[1]-Y0))/(L*L)))
+    x, y = SpatialCoordinate(mesh2d)
+    bath_expr = D0*(1-((x-X0)**2+(y-Y0)**2)/L**2)
+    bathymetry.interpolate(bath_expr)
 
-    # Solver
+    # solver
     solverObj = solver2d.FlowSolver2d(mesh2d, bathymetry)
     options = solverObj.options
 
     options.timestep = dt
-    options.simulation_end_time = 43200 - 0.1*options.timestep
-    options.simulation_export_time = options.timestep
+    options.simulation_end_time = 43200
+    options.simulation_export_time = 600.
     options.no_exports = True
-    options.timestepper_type = 'CrankNicolson'
+    options.timestepper_type = stepper
     options.use_wetting_and_drying = True
     options.wetting_and_drying_alpha = Constant(alpha)
-    options.timestepper_options.implicitness_theta = 0.5
-    options.timestepper_options.solver_parameters = {
-        'snes_type': 'newtonls',
-        'snes_monitor': None,
-        'ksp_type': 'gmres',
-        'pc_type': 'fieldsplit',
-    }
 
-    # Initial conditions
-    x = SpatialCoordinate(mesh2d)
-    elev_init = D0*(sqrt(1-A*A)/(1-A) - 1 - ((x[0]-X0)*(x[0]-X0)+(x[1]-Y0)*(x[1]-Y0))*((1+A)/(1-A)-1)/(L*L))
+    # initial conditions
+    elev_init = D0*(sqrt(1-A*A)/(1-A) - 1
+                    - ((x-X0)**2+(y-Y0)**2)*((1+A)/(1-A)-1)/L**2)
     solverObj.assign_initial_conditions(elev=elev_init)
 
-    # Iterate solver
+    # run for one cycle
     solverObj.iterate()
-
-    # Extract final fields
     uv, eta = solverObj.fields.solution_2d.split()
 
-    # Calculate relative error at domain centre
-    rel_err = abs((eta.at(X0, Y0) - eta0)/eta0)
+    # mask out dry areas with a smooth function
+    r = sqrt((x-X0)**2 + (y-Y0)**2)
+    mask = 0.5*(1 - tanh((r - 420000.)/1000.))
+    correct = mask * elev_init
+    eta.project(mask * eta)  # mask ~= 1.0 in the center
 
-    print_output(rel_err)
-    assert(rel_err < max_err)
-    print_output("PASSED")
+    # compute L2 error
+    l2_err = errornorm(correct, eta)/l_mesh
+    print_output('elev L2 error {:.12f}'.format(l2_err))
+    assert(l2_err < max_err)
