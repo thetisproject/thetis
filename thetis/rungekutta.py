@@ -204,7 +204,7 @@ class DIRK22Abstract(AbstractRKScheme):
                 &       1/2 &     1/2
         \end{array}
 
-    with :math:`\gamma = (2 + \sqrt{2})/2`.
+    with :math:`\gamma = (2 - \sqrt{2})/2`.
 
     From DIRK(2,3,2) IMEX scheme in Ascher et al. (1997)
 
@@ -212,7 +212,7 @@ class DIRK22Abstract(AbstractRKScheme):
     time-dependent partial differential equations. Applied Numerical
     Mathematics, 25:151-167. http://dx.doi.org/10.1137/0732037
     """
-    gamma = (2.0 + np.sqrt(2.0))/2.0
+    gamma = (2.0 - np.sqrt(2.0))/2.0
     a = [[gamma, 0],
          [1-gamma, gamma]]
     b = [1-gamma, gamma]
