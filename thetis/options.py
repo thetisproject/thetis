@@ -533,6 +533,17 @@ class ModelOptions2d(CommonModelOptions):
         Advects tracer in the associated (constant) velocity field.
         """).tag(config=True)
 
+    sipg_parameter = FiredrakeScalarExpression(None, allow_none=True, help="""
+        Parameter used in Symmetric Interior Penalty Galerkin method of Epshteyn and
+        Riviere (2007). For anisotropic meshes, it is advisable to use a larger value
+        than the default.
+
+        Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
+        interior penalty Galerkin methods. Journal of Computational and Applied
+        Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
+
+        """).tag(config=True)
+
 
 @attach_paired_options("timestepper_type",
                        PairedEnum([('LeapFrog', ExplicitTimestepperOptions3d),

@@ -581,12 +581,15 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
         if self.u_continuity in ['dg', 'hdiv']:
             # from Epshteyn et al. 2007 (http://dx.doi.org/10.1016/j.cam.2006.08.029)
             # the scheme is stable for alpha > 3*X*p*(p+1)*cot(theta), where X is the
-            # maximum ratio of viscosity within a triangle, p the degree, and theta
+            # maximum ratio of viscosity within a triangle, p the degree, and theta is
+            # the minimum angle within a triangle
             # with X=2, theta=6: cot(theta)~10, 3*X*cot(theta)~60
-            p = self.u_space.ufl_element().degree()
-            alpha = 5.*p*(p+1)
-            if p == 0:
-                alpha = 1.5
+            alpha = fields_old.get('sipg_parameter')
+            if alpha is None:
+                p = self.u_space.ufl_element().degree()
+                alpha = 5.*p*(p+1)
+                if p == 0:
+                    alpha = 1.5
             f += (
                 + alpha/avg(h)*inner(tensor_jump(self.u_test, n), stress_jump)*self.dS
                 - inner(avg(grad(self.u_test)), stress_jump)*self.dS
