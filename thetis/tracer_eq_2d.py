@@ -215,9 +215,11 @@ class HorizontalDiffusionTerm(TracerTerm):
             # sigma = 6.93 = 3.5*p*(p+1)
 
             degree_h = self.function_space.ufl_element().degree()
-            sigma = 5.0*degree_h*(degree_h + 1)/self.cellsize
-            if degree_h == 0:
-                sigma = 1.5 / self.cellsize
+            sigma = fields_old.get('sipg_parameter')
+            if sigma is None:
+                sigma = 5.0*degree_h*(degree_h + 1)/self.cellsize
+                if degree_h == 0:
+                    sigma = 1.5 / self.cellsize
             alpha = avg(sigma)
             ds_interior = self.dS
             f += alpha*inner(jump(self.test, self.normal),
