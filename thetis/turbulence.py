@@ -1,84 +1,61 @@
 r"""
 Generic Length Scale Turbulence Closure model
 =============================================
-
 This model solves two dynamic equations, for turbulent kinetic energy
 (TKE, :math:`k`) and one for an additional variable, the generic length scale
 :math:`\psi` [1]:
-
 .. math::
     \frac{\partial k}{\partial t} + \nabla_h \cdot (\textbf{u} k)
         + \frac{\partial (w k)}{\partial z}
         = \frac{\partial}{\partial z}\left(\frac{\nu}{\sigma_k} \frac{\partial k}{\partial z}\right)
         + P + B - \varepsilon
     :label: turb_tke_eq
-
 .. math::
     \frac{\partial \psi}{\partial t} + \nabla_h \cdot (\textbf{u} \psi)
         + \frac{\partial (w \psi)}{\partial z}
         = \frac{\partial}{\partial z}\left(\frac{\nu}{\sigma_\psi} \frac{\partial \psi}{\partial z}\right)
         + \frac{\psi}{k} (c_1 P + c_3 B - c_2 \varepsilon f_{wall})
     :label: turb_psi_eq
-
 with the production :math:`P` and buoyancy production :math:`B` are
-
 .. math::
     P &= \nu M^2 \\
     B &= -\mu N^2
-
 where :math:`M` and :math:`N` are the shear and buoyancy frequencies
-
 .. math::
     M^2 &= \left(\frac{\partial u}{\partial z}\right)^2
         + \left(\frac{\partial v}{\partial z}\right)^2 \\
     N^2 &= -\frac{g}{\rho_0}\frac{\partial \rho}{\partial z}
-
-The generic lenght scale variable is defined as
-
+The generic length scale variable is defined as
 .. math::
     \psi = (c_\mu^0)^p k^m l^n
-
 where :math:`p, m, n` are parameters and :math:`c_\mu^0` is an empirical constant.
-
 The parameters :math:`c_1,c_2,c_3,f_{wall}` depend on the chosen closure.
 The parameter :math:`c_3` takes two values: :math:`c_3^-` in stably stratified
 regime, and :math:`c_3^+` in unstably stratified cases.
-
 Turbulent length scale :math:`l`, and the TKE dissipation rate
 :math:`\varepsilon` are obtained diagnostically as
-
 .. math::
     l &= (c_\mu^0)^3 k^{3/2} \varepsilon^{-1} \\
     \varepsilon &= (c_\mu^0)^{3+p/n} k^{3/2 + m/n} \psi^{-1/n}
-
 Finally the vertical eddy viscosity and diffusivity are also computed
 diagnostically
-
 .. math::
     \nu &= \sqrt{2k} l S_m \\
     \mu &= \sqrt{2k} l S_\rho
-
 Stability functions :math:`S_m` and :math:`S_\rho` are defined in [2] or [3].
 Implementation follows [4].
-
 Supported closures
 ------------------
-
 The GLS model parameters are controlled via the :class:`.GLSModelOptions` class.
-
 The parameters can be accessed from the solver object:
-
 .. code-block:: python
-
     solver = FlowSolver(...)
     solver.options.turbulence_model_type = 'gls'  # activate GLS model (default)
     turbulence_model_options = solver.options.turbulence_model_options
     turbulence_model_options.closure_name = 'k-omega'
     turbulence_model_options.stability_function_name = 'CB'
     turbulence_model_options.compute_c3_minus = True
-
 Currently the following closures have been implemented:
-
 - :math:`k-\varepsilon` model
     This closure is obtained with :math:`p=3, m=3/2, n=-1`, resulting in
     :math:`\psi=\varepsilon`.
@@ -91,9 +68,7 @@ Currently the following closures have been implemented:
     This closure is obtained with :math:`p=2, m=1, n=-2/3`, resulting in
     :math:`\psi=\omega`.
     To use this option set ``closure_name = gen``
-
 The following stability functions have been implemented
-
 - Canuto A [3]
     To use this option set ``closure_name = CA``
 - Canuto B [3]
@@ -102,37 +77,29 @@ The following stability functions have been implemented
     To use this option set ``closure_name = KC``
 - Cheng [6]
     To use this option set ``closure_name = CH``
-
 See :mod:`.stability_functions` for more information.
-
 [1] Umlauf, L. and Burchard, H. (2003). A generic length-scale equation for
     geophysical turbulence models. Journal of Marine Research, 61:235--265(31).
     http://dx.doi.org/10.1357/002224003322005087
-
 [2] Kantha, L. H. and Clayson, C. A. (1994). An improved mixed layer model for
     geophysical applications. Journal of Geophysical Research: Oceans,
     99(C12):25235--25266.
     http://dx.doi.org/10.1029/94JC02257
-
 [3] Canuto et al. (2001). Ocean Turbulence. Part I: One-Point Closure Model -
     Momentum and Heat Vertical Diffusivities. Journal of Physical Oceanography,
     31(6):1413-1426.
     http://dx.doi.org/10.1175/1520-0485(2001)031
-
 [4] Warner et al. (2005). Performance of four turbulence closure models
     implemented using a generic length scale method. Ocean Modelling,
     8(1-2):81--113.
     http://dx.doi.org/10.1016/j.ocemod.2003.12.003
-
 [5] Umlauf, L. and Burchard, H. (2005). Second-order turbulence closure models
     for geophysical boundary layers. A review of recent work. Continental Shelf
     Research, 25(7-8):795--827.
     http://dx.doi.org/10.1016/j.csr.2004.08.004
-
 [6] Cheng et al. (2002). An improved model for the turbulent PBL.
     J. Atmos. Sci., 59:1550-1565.
     http://dx.doi.org/10.1175/1520-0469(2002)059%3C1550:AIMFTT%3E2.0.CO;2
-
 [7] Burchard and Petersen (1999). Models of turbulence in the marine
     environment - a comparative study of two-equation turbulence models.
     Journal of Marine Systems, 21(1-4):29-53.
@@ -161,73 +128,10 @@ def set_func_max_val(f, maxval):
     f.dat.data[f.dat.data > maxval] = maxval
 
 
-class P1Average(object):
-    """
-    Takes a discontinuous field and computes a P1 field by averaging around
-    nodes
-
-    Source must be either a P0 or P1DG :class:`Function`.
-    The averaging operation is both mass conservative and positivity preserving.
-    """
-    def __init__(self, p0, p1, p1dg):
-        """
-        :arg p0: P0 function space
-        :arg p1: P1 function space
-        :arg p1dg: P1DG function space
-        """
-        self.p0 = p0
-        self.p1 = p1
-        self.p1dg = p1dg
-        self.vol_p1 = Function(self.p1, name='nodal volume p1')
-        self.vol_p1dg = Function(self.p1dg, name='nodal volume p1dg')
-        self.update_volumes()
-
-    def update_volumes(self):
-        """Computes nodal volume of the P1 and P1DG function function_spaces
-
-        This must be called when the mesh geometry is updated"""
-        assemble(TestFunction(self.p1)*dx, self.vol_p1)
-        assemble(TestFunction(self.p1dg)*dx, self.vol_p1dg)
-
-    def apply(self, source, solution):
-        """
-        Averages discontinuous :class:`Function` :attr:`source` on P1
-        :class:`Function` :attr:`solution`
-        """
-        assert solution.function_space() == self.p1
-        assert source.function_space() == self.p0 or source.function_space() == self.p1dg
-        source_is_p0 = source.function_space() == self.p0
-
-        source_str = 'source[0][c]' if source_is_p0 else 'source[d][c]'
-        solution.assign(0.0)
-        fs_source = source.function_space()
-        self.kernel = op2.Kernel("""
-            void my_kernel(double **p1_average, double **source, double **vol_p1, double **vol_p1dg) {
-                for ( int d = 0; d < %(nodes)d; d++ ) {
-                    for ( int c = 0; c < %(func_dim)d; c++ ) {
-                        p1_average[d][c] += %(source_str)s * vol_p1dg[d][c] / vol_p1[d][c];
-                    }
-                }
-            }""" % {'nodes': solution.cell_node_map().arity,
-                    'func_dim': solution.function_space().value_size,
-                    'source_str': source_str},
-            'my_kernel')
-
-        op2.par_loop(
-            self.kernel, self.p1.mesh().cell_set,
-            solution.dat(op2.WRITE, self.p1.cell_node_map()),
-            source.dat(op2.READ, fs_source.cell_node_map()),
-            self.vol_p1.dat(op2.READ, self.p1.cell_node_map()),
-            self.vol_p1dg.dat(op2.READ, self.p1dg.cell_node_map()),
-            iterate=op2.ALL)
-
-
 class VerticalGradSolver(object):
     """
     Computes vertical gradient in the weak sense.
-
     """
-    # TODO add weak form of the problem
     def __init__(self, source, solution, solver_parameters=None):
         """
         :arg source: A :class:`Function` or expression to differentiate.
@@ -266,65 +170,10 @@ class VerticalGradSolver(object):
         self.weak_grad_solver.solve()
 
 
-class SmoothVerticalGradSolver(object):
-    """
-    Computes vertical gradient in a smooth(er) way.
-
-    The source is first interpolated on P0 field. The gradient is computed as
-    :math:`G = (G_{P0} + G_{P1DG})/2`.
-    """
-    def __init__(self, source, solution):
-        """
-        :arg source: A :class:`Function` or expression to differentiate.
-        :arg solution: A :class:`Function` where the solution will be stored.
-        """
-        self.source = source
-        self.solution = solution
-
-        self.fs = self.solution.function_space()
-        self.mesh = self.fs.mesh()
-
-        p0 = FunctionSpace(self.mesh, 'DP', 0, vfamily='DP', vdegree=0)
-        assert self.solution.function_space() == p0, 'solution must be in p0'
-
-        self.source_p0 = Function(p0, name='p0 source')
-        self.gradient_p0 = Function(p0, name='p0 gradient')
-
-        self.p0_interpolator = Interpolator(self.source, self.source_p0)
-        self.p0_grad_solver = VerticalGradSolver(self.source_p0, self.solution)
-        self.grad_solver = VerticalGradSolver(self.source, self.gradient_p0)
-
-        self.p0_copy_kernel = op2.Kernel("""
-            void my_kernel(double **gradient, double **source) {
-                gradient[0][0] = source[0][0];
-            }""", 'my_kernel')
-
-    def solve(self):
-        """Computes the gradient"""
-        # interpolate p1dg to prism centers
-        self.p0_interpolator.interpolate()
-        # compute weak gradine from source_p0
-        self.p0_grad_solver.solve()
-        # compute weak gradient directly
-        self.grad_solver.solve()
-        # compute mean of the two
-        self.solution.assign(0.5*(self.solution + self.gradient_p0))
-        # replace top/bottom values with weak gradient
-        op2.par_loop(self.p0_copy_kernel, self.mesh.cell_set,
-                     self.solution.dat(op2.WRITE, self.fs.cell_node_map()),
-                     self.gradient_p0.dat(op2.READ, self.fs.cell_node_map()),
-                     iterate=op2.ON_TOP)
-        op2.par_loop(self.p0_copy_kernel, self.mesh.cell_set,
-                     self.solution.dat(op2.WRITE, self.fs.cell_node_map()),
-                     self.gradient_p0.dat(op2.READ, self.fs.cell_node_map()),
-                     iterate=op2.ON_BOTTOM)
-
-
 class ShearFrequencySolver(object):
     r"""
     Computes vertical shear frequency squared form the given horizontal
     velocity field.
-
     .. math::
         M^2 = \left(\frac{\partial u}{\partial z}\right)^2
             + \left(\frac{\partial v}{\partial z}\right)^2
@@ -345,7 +194,6 @@ class ShearFrequencySolver(object):
             M2 = relaxation*M2_new + (1-relaxation)*M2_old
         :kwarg float minval: minimum value for :math:`M^2`
         """
-        # TODO store the tmp etc fields in this class
         self.mu = mu
         self.mv = mv
         self.m2 = m2
@@ -360,19 +208,17 @@ class ShearFrequencySolver(object):
     def solve(self, init_solve=False):
         """
         Computes buoyancy frequency
-
         :kwarg bool init_solve: Set to True if solving for the first time, skips
             relaxation
         """
-        # TODO init_solve can be omitted with a boolean property
         with timed_stage('shear_freq_solv'):
             mu_comp = [self.mu, self.mv]
             self.m2.assign(0.0)
             for i_comp, solver in enumerate(self.var_solvers):
                 solver.solve()
                 gamma = self.relaxation if not init_solve else 1.0
-                mu_comp[i_comp].assign(gamma*self.mu_tmp +
-                                       (1.0 - gamma)*mu_comp[i_comp])
+                mu_comp[i_comp].assign(gamma*self.mu_tmp
+                                       + (1.0 - gamma)*mu_comp[i_comp])
                 self.m2 += mu_comp[i_comp]*mu_comp[i_comp]
             # crop small/negative values
             set_func_min_val(self.m2, self.minval)
@@ -382,7 +228,6 @@ class BuoyFrequencySolver(object):
     r"""
     Computes buoyancy frequency squared form the given horizontal
     velocity field.
-
     .. math::
         N^2 = -\frac{g}{\rho_0}\frac{\partial \rho}{\partial z}
     """
@@ -398,7 +243,6 @@ class BuoyFrequencySolver(object):
             values N2 = relaxation*N2_new + (1-relaxation)*N2_old
         :kwarg float minval: minimum value for :math:`N^2`
         """
-        # TODO store the tmp etc fields in this class
         self._no_op = False
         if rho is None:
             self._no_op = True
@@ -418,17 +262,15 @@ class BuoyFrequencySolver(object):
     def solve(self, init_solve=False):
         """
         Computes buoyancy frequency
-
         :kwarg bool init_solve: Set to True if solving for the first time, skips
             relaxation
         """
-        # TODO init_solve can be omitted with a boolean property
         with timed_stage('buoy_freq_solv'):
             if not self._no_op:
                 self.var_solver.solve()
                 gamma = self.relaxation if not init_solve else 1.0
-                self.n2.assign(gamma*self.n2_tmp +
-                               (1.0 - gamma)*self.n2)
+                self.n2.assign(gamma*self.n2_tmp
+                               + (1.0 - gamma)*self.n2)
 
 
 class TurbulenceModel(object):
@@ -444,7 +286,6 @@ class TurbulenceModel(object):
         """
         Computes all diagnostic variables that depend on the mean flow model
         variables.
-
         To be called before updating the turbulence PDEs.
         """
         pass
@@ -454,7 +295,6 @@ class TurbulenceModel(object):
         """
         Updates all diagnostic variables that depend on the turbulence state
         variables.
-
         To be called after updating the turbulence PDEs.
         """
         pass
@@ -492,7 +332,6 @@ class GenericLengthScaleModel(TurbulenceModel):
         :type m2: :class:`Function`
         :kwarg options: GLS model options
         """
-        # TODO this could be simplified by getting fields from solver.fields
         self.solver = solver
         # 3d model fields
         self.uv = uv_field
@@ -519,18 +358,6 @@ class GenericLengthScaleModel(TurbulenceModel):
         self.n2_neg = Function(self.n2.function_space(),
                                name='negative buoyancy frequency')
 
-        if self.solver.options.use_smooth_eddy_viscosity:
-            self.viscosity_native = Function(self.n2.function_space(),
-                                             name='GLS viscosity')
-            self.diffusivity_native = Function(self.n2.function_space(),
-                                               name='GLS diffusivity')
-            self.p1_averager = P1Average(solver.function_spaces.P0,
-                                         solver.function_spaces.P1,
-                                         solver.function_spaces.P1DG)
-        else:
-            self.viscosity_native = self.viscosity
-            self.diffusivity_native = self.diffusivity
-
         # parameter to mix old and new viscosity values (1 => new only)
         self.relaxation = 1.0
 
@@ -553,25 +380,26 @@ class GenericLengthScaleModel(TurbulenceModel):
         elif stability_function_name == 'Cheng':
             self.stability_func = StabilityFunctionCheng(**stab_args)
         else:
-            raise Exception('Unknown stability function type: ' +
-                            stability_function_name)
+            raise Exception('Unknown stability function type: ' + stability_function_name)
 
         if o.compute_cmu0:
             o.cmu0 = self.stability_func.compute_cmu0()
         if o.compute_kappa:
-            kappa = self.stability_func.compute_kappa(o.schmidt_nb_psi, o.n, o.c1, o.c2)
+            kappa = self.stability_func.compute_kappa(o.schmidt_nb_psi, o.cmu0, o.n, o.c1, o.c2)
             o.kappa = kappa
             # update mean flow model value as well
             physical_constants['von_karman'].assign(kappa)
+        elif o.compute_schmidt_nb_psi:
+            o.schmidt_nb_psi = self.stability_func.compute_sigma_psi(o.kappa, o.cmu0, o.n, o.c1, o.c2)
         if o.compute_c3_minus:
             o.c3_minus = self.stability_func.compute_c3_minus(o.c1, o.c2, o.ri_st)
         if o.compute_psi_min:
             o.psi_min = (o.cmu0**(3.0 + o.p/o.n)*o.k_min**(3.0/2.0 + o.m/o.n)*o.eps_min**(-1.0))**o.n
-        else:
-            o.eps_min = o.cmu0**(3.0 + o.p/o.n)*o.k_min**(3.0/2.0 + o.m/o.n)*o.psi_min**(-1.0/o.n)
         # minimum length scale
         if o.compute_len_min:
             o.len_min = o.cmu0**3 * o.k_min**1.5 / o.eps_min
+        if o.compute_galperin_clim:
+            o.galperin_clim = self.stability_func.compute_length_clim(o.cmu0, o.ri_st)
 
         self.shear_frequency_solver = ShearFrequencySolver(self.uv, self.m2,
                                                            self.mu, self.mv,
@@ -579,15 +407,27 @@ class GenericLengthScaleModel(TurbulenceModel):
         if self.rho is not None:
             self.buoy_frequency_solver = BuoyFrequencySolver(self.rho, self.n2,
                                                              self.n2_tmp)
-
-        self.initialize()
         print_output(self.options)
+        self._initialized = False
 
-    def initialize(self):
-        """Initializes fields"""
+    def initialize(self, l_init=0.01):
+        """
+        Initialize turbulent fields.
+        k is set to k_min value. epsilon and psi are set to a value that
+        corresponds to l_init length scale.
+        :arg l_init: initial value for turbulent length scale.
+        """
+        if not self.solver._simulation_continued:
+            o = self.options
+            eps_init = o.cmu0**3.0 * o.k_min**(3.0/2.0) / l_init
+            psi_init = (o.cmu0**(3.0 + o.p/o.n)*o.k_min**(3.0/2.0 + o.m/o.n)*eps_init**(-1.0))**o.n
+            self.k.assign(self.options.k_min)
+            self.psi.assign(psi_init)
+            self.epsilon.assign(eps_init)
         self.n2.assign(1e-12)
         self.n2_pos.assign(1e-12)
         self.n2_neg.assign(0.0)
+        self._initialized = True
         self.preprocess(init_solve=True)
         self.postprocess()
 
@@ -595,9 +435,11 @@ class GenericLengthScaleModel(TurbulenceModel):
         """
         Computes all diagnostic variables that depend on the mean flow model
         variables.
-
         To be called before updating the turbulence PDEs.
         """
+
+        if self._initialized is False:
+            self.initialize()
 
         self.shear_frequency_solver.solve(init_solve=init_solve)
 
@@ -614,7 +456,6 @@ class GenericLengthScaleModel(TurbulenceModel):
         r"""
         Updates all diagnostic variables that depend on the turbulence state
         variables :math:`k,\psi`.
-
         To be called after updating the turbulence PDEs.
         """
         with timed_stage('turb_postproc'):
@@ -630,11 +471,11 @@ class GenericLengthScaleModel(TurbulenceModel):
             k_arr = self.k.dat.data[:]
             n2_pos = self.n2_pos.dat.data[:]
             n2_pos_eps = 1e-12
-            galp = o.galperin_lim
+            galp_clim = o.galperin_clim
             if o.limit_psi:
                 # impose Galperin limit on psi
                 # psi^(1/n) <= sqrt(0.56)* (cmu0)^(p/n) *k^(m/n+0.5)* n2^(-0.5)
-                val = (np.sqrt(galp) * (cmu0)**(p / n) * k_arr**(m / n + 0.5) * (n2_pos + n2_pos_eps)**(-0.5))**n
+                val = (np.sqrt(2)*galp_clim * (cmu0)**(p / n) * k_arr**(m / n + 0.5) * (n2_pos + n2_pos_eps)**(-0.5))**n
                 if n > 0:
                     # impose max value
                     np.minimum(self.psi.dat.data, val, self.psi.dat.data)
@@ -647,10 +488,9 @@ class GenericLengthScaleModel(TurbulenceModel):
             self.epsilon.assign(cmu0**(3.0 + p/n)*self.k**(3.0/2.0 + m/n)*self.psi**(-1.0/n))
             if o.limit_eps:
                 # impose Galperin limit on eps
-                eps_min = cmu0**3.0/np.sqrt(galp)*np.sqrt(n2_pos)*k_arr
+                eps_min = cmu0**3.0/(np.sqrt(2)*galp_clim)*np.sqrt(n2_pos)*k_arr
                 np.maximum(self.epsilon.dat.data, eps_min, self.epsilon.dat.data)
             # impose minimum value
-            # FIXME this should not be need because psi is limited
             set_func_min_val(self.epsilon, o.eps_min)
 
             # update L
@@ -659,7 +499,7 @@ class GenericLengthScaleModel(TurbulenceModel):
                 set_func_min_val(self.l, o.len_min)
             if o.limit_len:
                 # Galperin length scale limitation
-                len_max = np.sqrt(galp*k_arr/(n2_pos + n2_pos_eps))
+                len_max = galp_clim*np.sqrt(2*k_arr/(n2_pos + n2_pos_eps))
                 np.minimum(self.l.dat.data, len_max, self.l.dat.data)
             if self.l.dat.data.max() > 10.0:
                 warning(' * large L: {:f}'.format(self.l.dat.data.max()))
@@ -674,43 +514,42 @@ class GenericLengthScaleModel(TurbulenceModel):
             lam = self.relaxation
             new_visc = b*s_m/cmu0**3
             new_diff = b*s_h/cmu0**3
-            self.viscosity_native.dat.data[:] = lam*new_visc + (1.0 - lam)*self.viscosity_native.dat.data[:]
-            self.diffusivity_native.dat.data[:] = lam*new_diff + (1.0 - lam)*self.diffusivity_native.dat.data[:]
+            self.viscosity.dat.data[:] = lam*new_visc + (1.0 - lam)*self.viscosity.dat.data[:]
+            self.diffusivity.dat.data[:] = lam*new_diff + (1.0 - lam)*self.diffusivity.dat.data[:]
 
-            if self.solver.options.use_smooth_eddy_viscosity:
-                self.p1_averager.apply(self.viscosity_native, self.viscosity)
-                self.p1_averager.apply(self.diffusivity_native, self.diffusivity)
             set_func_min_val(self.viscosity, o.visc_min)
             set_func_min_val(self.diffusivity, o.diff_min)
 
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('k', self.k.dat.data.min(), self.k.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('eps', self.epsilon.dat.data.min(), self.epsilon.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('L', self.l.dat.data.min(), self.l.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('M2', self.m2.dat.data.min(), self.m2.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('N2', self.n2.dat.data.min(), self.n2.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('N2+', self.n2_pos.dat.data.min(), self.n2_pos.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('N2-', self.n2_neg.dat.data.min(), self.n2_neg.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('s_h', s_h.min(), s_h.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('s_m', s_m.min(), s_m.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max()))
-            # print_output('{:8s} {:10.3e} {:10.3e}'.format('muv', self.diffusivity.dat.data.min(), self.diffusivity.dat.data.max()))
-            # TODO refactor to print_diag function, add an option to activate
+    def print_debug(self):
+        """
+        Print diagnostic field values for debugging.
+        """
+        fmt = '{:8s} {:10.3e} {:10.3e}'
+        print_output(' -----')
+        print_output(fmt.format('k', self.k.dat.data.min(), self.k.dat.data.max()))
+        print_output(fmt.format('psi', self.psi.dat.data.min(), self.psi.dat.data.max()))
+        print_output(fmt.format('eps', self.epsilon.dat.data.min(), self.epsilon.dat.data.max()))
+        print_output(fmt.format('L', self.l.dat.data.min(), self.l.dat.data.max()))
+        print_output(fmt.format('M2', self.m2.dat.data.min(), self.m2.dat.data.max()))
+        print_output(fmt.format('N2', self.n2.dat.data.min(), self.n2.dat.data.max()))
+        print_output(fmt.format('N2+', self.n2_pos.dat.data.min(), self.n2_pos.dat.data.max()))
+        print_output(fmt.format('N2-', self.n2_neg.dat.data.min(), self.n2_neg.dat.data.max()))
+        print_output(fmt.format('s_h', s_h.min(), s_h.max()))
+        print_output(fmt.format('s_m', s_m.min(), s_m.max()))
+        print_output(fmt.format('nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max()))
+        print_output(fmt.format('muv', self.diffusivity.dat.data.min(), self.diffusivity.dat.data.max()))
 
 
 class TKESourceTerm(TracerTerm):
     r"""
     Production and destruction terms of the TKE equation :eq:`turb_tke_eq`
-
     .. math::
         F_k = P + B - \varepsilon
-
     To ensure positivity we use Patankar-type time discretization: all source
     terms are treated explicitly and sink terms are treated implicitly.
     To this end the buoyancy production term :math:`B` is split in two:
-
     .. math::
         F_k = P + B_{source} + \frac{k^{n+1}}{k^n}(B_{sink} - \varepsilon)
-
     with :math:`B_{source} \ge 0` and :math:`B_{sink} < 0`.
     """
     def __init__(self, function_space, gls_model,
@@ -755,26 +594,19 @@ class TKESourceTerm(TracerTerm):
 class PsiSourceTerm(TracerTerm):
     r"""
     Production and destruction terms of the Psi equation :eq:`turb_psi_eq`
-
     .. math::
         F_\psi = \frac{\psi}{k} (c_1 P + c_3 B - c_2 \varepsilon f_{wall})
-
     To ensure positivity we use Patankar-type time discretization: all source
     terms are treated explicitly and sink terms are treated implicitly.
     To this end the buoyancy production term :math:`c_3 B` is split in two:
-
     .. math::
         F_\psi = \frac{\psi^n}{k^n} (c_1 P + B_{source})
             + \frac{\psi^{n+1}}{k^n} (B_{sink} - c_2 \varepsilon f_{wall})
-
     with :math:`B_{source} \ge 0` and :math:`B_{sink} < 0`.
-
     Also implements Neumann boundary condition at top and bottom [7]
-
     .. math::
         \left( \frac{\nu}{\sigma_\psi} \frac{\psi}{z} \right)\Big|_{\Gamma_b} =
         n_z \frac{\nu}{\sigma_\psi} (c_\mu^0)^p k^m \kappa^n (z_b + z_0)^{n-1}
-
     where :math:`z_b` is the distance from boundary, and :math:`z_0` is the
     roughness length.
     """
@@ -841,15 +673,17 @@ class PsiSourceTerm(TracerTerm):
         if self.v_elem_size is None:
             raise Exception('v_elem_size required')
         # bottom condition
-        z_b = 0.5*self.v_elem_size + z0_friction
-        diff_flux = (n*diffusivity_v*(cmu0)**p *
-                     k**m * kappa**n * z_b**(n - 1.0))
+        elem_frac = Constant(0.5)
+        z_b = elem_frac*self.v_elem_size + z0_friction
+        diff_flux = (n*diffusivity_v*(cmu0)**p
+                     * k**m * kappa**n * z_b**(n - 1.0))
         f += diff_flux*self.test*self.normal[2]*ds_bottom
         # surface condition
-        z0_surface = 0.5*self.v_elem_size + Constant(0.02)  # TODO generalize
-        z_s = self.v_elem_size + z0_surface
-        diff_flux = -(n*diffusivity_v*(cmu0)**p *
-                      k**m * kappa**n * z_s**(n - 1.0))
+        elem_frac = Constant(0.5)
+        z0_surface = Constant(0.05)  # TODO generalize
+        z_s = elem_frac*self.v_elem_size + z0_surface
+        diff_flux = -(n*diffusivity_v*(cmu0)**p
+                      * k**m * kappa**n * z_s**(n - 1.0))
         f += diff_flux*self.test*self.normal[2]*ds_surf
 
         return f
@@ -886,7 +720,6 @@ class GLSVerticalDiffusionTerm(VerticalDiffusionTerm):
 class TKEEquation(Equation):
     """
     Turbulent kinetic energy equation :eq:`turb_tke_eq` without advection terms.
-
     Advection of TKE is implemented using the standard tracer equation.
     """
     def __init__(self, function_space, gls_model,
@@ -914,9 +747,8 @@ class TKEEquation(Equation):
 
 
 class PsiEquation(Equation):
-    """
+    r"""
     Generic length scale equation :eq:`turb_psi_eq` without advection terms.
-
     Advection of :math:`\psi` is implemented using the standard tracer equation.
     """
     def __init__(self, function_space, gls_model,
@@ -946,17 +778,13 @@ class PsiEquation(Equation):
 class PacanowskiPhilanderModel(TurbulenceModel):
     r"""
     Gradient Richardson number based model by Pacanowski and Philander (1981).
-
     Given the gradient Richardson number :math:`Ri` the eddy viscosity and
     diffusivity are computed diagnostically as
-
     .. math::
         \nu &= \frac{\nu_{max}}{(1 + \alpha Ri)^n} \\
         \mu &= \frac{\nu}{1 + \alpha Ri}
-
     where :math:`\nu_{max},\alpha,n` are constant parameters.
     In unstably stratified cases where :math:`Ri<0`, value :math:`Ri=0` is used.
-
     Pacanowski and Philander (1981). Parameterization of vertical mixing in
     numerical models of tropical oceans. Journal of Physical Oceanography,
     11(11):1443-1451.
@@ -999,18 +827,6 @@ class PacanowskiPhilanderModel(TurbulenceModel):
         self.n2_pos = Function(self.n2.function_space(),
                                name='positive buoyancy frequency')
 
-        if self.solver.options.use_smooth_eddy_viscosity:
-            self.viscosity_native = Function(self.n2.function_space(),
-                                             name='eddy viscosity')
-            self.diffusivity_native = Function(self.n2.function_space(),
-                                               name='eddy diffusivity')
-            self.p1_averager = P1Average(solver.function_spaces.P0,
-                                         solver.function_spaces.P1,
-                                         solver.function_spaces.P1DG)
-        else:
-            self.viscosity_native = self.viscosity
-            self.diffusivity_native = self.diffusivity
-
         self.options = PacanowskiPhilanderModelOptions()
         if options is not None:
             self.options.update(options)
@@ -1036,7 +852,6 @@ class PacanowskiPhilanderModel(TurbulenceModel):
         """
         Computes all diagnostic variables that depend on the mean flow model
         variables.
-
         To be called before updating the turbulence PDEs.
         """
 
@@ -1053,20 +868,9 @@ class PacanowskiPhilanderModel(TurbulenceModel):
         """
         Updates all diagnostic variables that depend on the turbulence state
         variables.
-
         To be called after evaluating the equations.
         """
         ri = self.n2_pos.dat.data[:]/self.m2.dat.data[:]
         denom = 1.0 + self.options.alpha*ri
-        self.viscosity_native.dat.data[:] = self.options.max_viscosity/denom**self.options.exponent
-        self.diffusivity_native.dat.data[:] = self.viscosity_native.dat.data[:]/denom
-
-        if self.solver.options.use_smooth_eddy_viscosity:
-            self.p1_averager.apply(self.viscosity_native, self.viscosity)
-            self.p1_averager.apply(self.diffusivity_native, self.diffusivity)
-
-        # print_output('{:8s} {:10.3e} {:10.3e}'.format('M2', self.m2.dat.data.min(), self.m2.dat.data.max()))
-        # print_output('{:8s} {:10.3e} {:10.3e}'.format('N2', self.n2.dat.data.min(), self.n2.dat.data.max()))
-        # print_output('{:8s} {:10.3e} {:10.3e}'.format('N2+', self.n2_pos.dat.data.min(), self.n2_pos.dat.data.max()))
-        # print_output('{:8s} {:10.3e} {:10.3e}'.format('nuv', self.viscosity.dat.data.min(), self.viscosity.dat.data.max()))
-        # print_output('{:8s} {:10.3e} {:10.3e}'.format('muv', self.diffusivity.dat.data.min(), self.diffusivity.dat.data.max()))
+        self.viscosity.dat.data[:] = self.options.max_viscosity/denom**self.options.exponent
+        self.diffusivity.dat.data[:] = self.viscosity.dat.data[:]/denom

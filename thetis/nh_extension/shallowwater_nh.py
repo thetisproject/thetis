@@ -173,8 +173,8 @@ The free surface and momentum equations then become:
 
 """
 from __future__ import absolute_import
-from .utility import *
-from .equation import Term, Equation
+from thetis.utility import *
+from thetis.equation import Term, Equation
 
 __all__ = [
     'BaseShallowWaterEquation',
@@ -225,6 +225,8 @@ class ShallowWaterTerm(Term):
                      domain=self.function_space.ufl_domain())
         self.dS = dS(degree=self.quad_degree,
                      domain=self.function_space.ufl_domain())
+
+        self.horizontal_domain_is_2d = self.mesh.geometric_dimension() == 2
 
     def get_bnd_functions(self, eta_in, uv_in, bnd_id, bnd_conditions):
         """
@@ -349,62 +351,74 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
 
         head = eta
 
-        uv_2d = fields.get('uv_2d_for_layer_difference')
-        uv_delta = fields.get('uv_delta_for_depth_integrated')
-        uv_delta_2 = fields.get('uv_delta_2_for_depth_integrated')
-        if len(self.options.alpha_nh) >= 1:
-            alpha = self.options.alpha_nh[0]
-        else:
-            alpha = 0.5
-        if len(self.options.alpha_nh) >= 2:
-            alpha_1 = self.options.alpha_nh[0]
-            alpha_2 = self.options.alpha_nh[1]
-        else:
-            alpha_1 = 1./3.
-            alpha_2 = 1./3.
-        alpha_3 = 1 - alpha_1 - alpha_2
-        if uv_2d is not None:
-            head = (2*alpha - 1)*head
-        if uv_2d is not None and uv_delta_2 is not None:
-            head = (alpha_1 - alpha_2 - alpha_3)*eta
-        elif uv_2d is not None and uv_delta is not None:
-            head = (alpha_1 - alpha_2 + alpha_3)*eta
+        if self.horizontal_domain_is_2d:
+            uv_2d = fields.get('uv_2d_for_layer_difference')
+            uv_delta = fields.get('uv_delta_for_depth_integrated')
+            uv_delta_2 = fields.get('uv_delta_2_for_depth_integrated')
+            if len(self.options.alpha_nh) >= 1:
+                alpha = self.options.alpha_nh[0]
+            else:
+                alpha = 0.5
+            if len(self.options.alpha_nh) >= 2:
+                alpha_1 = self.options.alpha_nh[0]
+                alpha_2 = self.options.alpha_nh[1]
+            else:
+                alpha_1 = 1./3.
+                alpha_2 = 1./3.
+            alpha_3 = 1 - alpha_1 - alpha_2
+            if uv_2d is not None:
+                head = (2*alpha - 1)*head
+            if uv_2d is not None and uv_delta_2 is not None:
+                head = (alpha_1 - alpha_2 - alpha_3)*eta
+            elif uv_2d is not None and uv_delta is not None:
+                head = (alpha_1 - alpha_2 + alpha_3)*eta
 
         grad_eta_by_parts = self.eta_is_dg
 
+        if self.horizontal_domain_is_2d:
+            normal = self.normal
+        else:
+            normal = self.normal[0]
+
         if grad_eta_by_parts:
-            f = -g_grav*head*nabla_div(self.u_test)*self.dx
+            if self.horizontal_domain_is_2d:
+                f = -g_grav*head*nabla_div(self.u_test)*self.dx
+            else:
+                f = -g_grav*head*Dx(self.u_test, 0)*self.dx
             if uv is not None:
-                head_star = avg(head) + 0.5*sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
+                head_star = avg(head) + 0.5*sqrt(avg(total_h)/g_grav)*jump(uv, normal)
             else:
                 head_star = avg(head)
-            f += g_grav*head_star*jump(self.u_test, self.normal)*self.dS
+            f += g_grav*head_star*jump(self.u_test, normal)*self.dS
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if funcs is not None:
                     eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
-                    un_jump = inner(uv - uv_ext, self.normal)
+                    un_jump = inner(uv - uv_ext, normal)
                     eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
-                    f += g_grav*eta_rie*dot(self.u_test, self.normal)*ds_bnd
+                    f += g_grav*eta_rie*dot(self.u_test, normal)*ds_bnd
                 if funcs is None or 'symm' in funcs:
                     # assume land boundary
                     # impermeability implies external un=0
-                    un_jump = inner(uv, self.normal)
+                    un_jump = inner(uv, normal)
                     head_rie = head + sqrt(total_h/g_grav)*un_jump
-                    f += g_grav*head_rie*dot(self.u_test, self.normal)*ds_bnd
+                    f += g_grav*head_rie*dot(self.u_test, normal)*ds_bnd
         else:
-            f = g_grav*inner(grad(head), self.u_test) * self.dx
+            if self.horizontal_domain_is_2d:
+                f = g_grav*inner(grad(head), self.u_test) * self.dx
+            else:
+                f = g_grav*inner(Dx(head, 0), self.u_test) * self.dx
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if funcs is not None:
                     eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
-                    un_jump = inner(uv - uv_ext, self.normal)
+                    un_jump = inner(uv - uv_ext, normal)
                     eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
-                    f += g_grav*(eta_rie-head)*dot(self.u_test, self.normal)*ds_bnd
+                    f += g_grav*(eta_rie-head)*dot(self.u_test, normal)*ds_bnd
         return -f
 
 
@@ -494,13 +508,21 @@ class HUDivTerm(ShallowWaterContinuityTerm):
 
         hu_by_parts = self.u_continuity in ['dg', 'hdiv']
 
+        if self.horizontal_domain_is_2d:
+            normal = self.normal
+        else:
+            normal = self.normal[0]
+
         if hu_by_parts:
-            f = -inner(grad(self.eta_test), total_h*uv)*self.dx
+            if self.horizontal_domain_is_2d:
+                f = -inner(grad(self.eta_test), total_h*uv)*self.dx
+            else:
+                f = -inner(Dx(self.eta_test, 0), total_h*uv)*self.dx
             if self.eta_is_dg:
                 h = avg(total_h)
-                uv_rie = avg(uv) + sqrt(g_grav/h)*jump(eta, self.normal)
+                uv_rie = avg(uv) + sqrt(g_grav/h)*jump(eta, normal)
                 hu_star = h*uv_rie
-                f += inner(jump(self.eta_test, self.normal), hu_star)*self.dS
+                f += inner(jump(self.eta_test, normal), hu_star)*self.dS
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
@@ -511,18 +533,21 @@ class HUDivTerm(ShallowWaterContinuityTerm):
                     total_h_ext = self.get_total_depth(eta_ext_old)
                     h_av = 0.5*(total_h + total_h_ext)
                     eta_jump = eta - eta_ext
-                    un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h_av)*eta_jump
-                    un_jump = inner(uv_old - uv_ext_old, self.normal)
+                    un_rie = 0.5*inner(uv + uv_ext, normal) + sqrt(g_grav/h_av)*eta_jump
+                    un_jump = inner(uv_old - uv_ext_old, normal)
                     eta_rie = 0.5*(eta_old + eta_ext_old) + sqrt(h_av/g_grav)*un_jump
                     h_rie = self.bathymetry + eta_rie
                     f += h_rie*un_rie*self.eta_test*ds_bnd
         else:
-            f = div(total_h*uv)*self.eta_test*self.dx
+            if self.horizontal_domain_is_2d:
+                f = div(total_h*uv)*self.eta_test*self.dx
+            else:
+                f = Dx(total_h*uv, 0)*self.eta_test*self.dx
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if funcs is None or 'un' in funcs:
-                    f += -total_h*dot(uv, self.normal)*self.eta_test*ds_bnd
+                    f += -total_h*dot(uv, normal)*self.eta_test*ds_bnd
         return -f
 
 
@@ -550,137 +575,188 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
 
         horiz_advection_by_parts = True
 
-        if len(self.options.alpha_nh) >= 1:
-            alpha = self.options.alpha_nh[0]
-        else:
-            alpha = 0.5
-        if len(self.options.alpha_nh) >= 2:
-            alpha_1 = self.options.alpha_nh[0]
-            alpha_2 = self.options.alpha_nh[1]
-        else:
-            alpha_1 = 1./3.
-            alpha_2 = 1./3.
-        alpha_3 = 1 - alpha_1 - alpha_2
-        uv_2d = fields.get('uv_2d_for_layer_difference')
-        uv_delta = fields.get('uv_delta_for_depth_integrated')
-        uv_delta_2 = fields.get('uv_delta_2_for_depth_integrated')
-        head_old = uv_old
-        head = uv
-        stage = 2
-        if uv_delta is not None:
-            var = uv_delta
-        elif uv_2d is not None:
-            var = uv_2d
-        else:
-            stage = 1
-        if uv_delta_2 is not None or (uv_2d is not None and uv_delta is not None): # i.e. three_layer_solver
-            stage = 3
-            
-        f = 0
-        for i in range(stage):
-            if uv_2d is not None or uv_delta is not None:
-                if i == 0:
-                    huv_old = head_old + var
-                    huv = head + var
-                    const = 1./(4.*alpha)
-                else:
-                    huv_old = head_old - var
-                    huv = head - var
-                    const = 1./(4.*(1. - alpha))
-                    if uv_2d is not None:
-                        huv_old *= -1
-                        huv *= -1
-                        const = -1./(4.*(1. - alpha))
+        if self.horizontal_domain_is_2d:
+            if len(self.options.alpha_nh) >= 1:
+                alpha = self.options.alpha_nh[0]
             else:
-                huv_old = head_old
-                huv = head
-                const = 1.
+                alpha = 0.5
+            if len(self.options.alpha_nh) >= 2:
+                alpha_1 = self.options.alpha_nh[0]
+                alpha_2 = self.options.alpha_nh[1]
+            else:
+                alpha_1 = 1./3.
+                alpha_2 = 1./3.
+            alpha_3 = 1 - alpha_1 - alpha_2
+            uv_2d = fields.get('uv_2d_for_layer_difference')
+            uv_delta = fields.get('uv_delta_for_depth_integrated')
+            uv_delta_2 = fields.get('uv_delta_2_for_depth_integrated')
+            head_old = uv_old
+            head = uv
+            stage = 2
+            if uv_delta is not None:
+                var = uv_delta
+            elif uv_2d is not None:
+                var = uv_2d
+            else:
+                stage = 1
             if uv_delta_2 is not None or (uv_2d is not None and uv_delta is not None): # i.e. three_layer_solver
-                if uv_2d is None and uv_delta is not None and uv_delta_2 is not None: # depth integrated, i.e layer sum
+                stage = 3
+
+            f = 0
+            for i in range(stage):
+                if uv_2d is not None or uv_delta is not None:
                     if i == 0:
-                        huv_old = uv_delta
-                        huv = uv_delta
-                        const = alpha_1
-                    elif i == 1:
-                        huv_old = uv_delta_2
-                        huv = uv_delta_2
-                        const = alpha_2
+                        huv_old = head_old + var
+                        huv = head + var
+                        const = 1./(4.*alpha)
                     else:
-                        huv_old = 1/alpha_3*(head_old - (alpha_1*uv_delta + alpha_2*uv_delta_2)) #uv_delta_2 - uv_delta
-                        huv = 1/alpha_3*(head - (alpha_1*uv_delta + alpha_2*uv_delta_2))
-                        const = alpha_3
-                elif uv_delta is None and uv_2d is not None and uv_delta_2 is not None:
-                    if i == 0:
-                        huv_old = head_old + uv_2d
-                        huv = head + uv_2d
-                        const = 1./(4.*alpha_1)
-                    elif i == 1:
-                        huv_old = uv_2d - uv_delta_2
-                        huv = uv_2d - uv_delta_2
-                        const = -1./(4.*alpha_2)
-                    else:
-                        huv_old = head_old - uv_delta_2
-                        huv = head - uv_delta_2
-                        const = -1./(4.*alpha_3)
-                elif uv_delta_2 is None and uv_2d is not None and uv_delta is not None:
-                    if i == 0:
-                        huv_old = uv_2d + uv_delta
-                        huv = uv_2d + uv_delta
-                        const = 1./(4.*alpha_1)
-                    elif i == 1:
-                        huv_old = head_old - uv_2d
-                        huv = head - uv_2d
-                        const = -1./(4.*alpha_2)
-                    else:
-                        huv_old = head_old - uv_delta
-                        huv = head - uv_delta
-                        const = 1./(4.*alpha_3)
-            if horiz_advection_by_parts:
-                # f = -inner(nabla_div(outer(uv, self.u_test)), uv)
-                f += -const*(Dx(huv_old[0]*self.u_test[0], 0)*huv[0] +
-                  Dx(huv_old[0]*self.u_test[1], 0)*huv[1] +
-                  Dx(huv_old[1]*self.u_test[0], 1)*huv[0] +
-                  Dx(huv_old[1]*self.u_test[1], 1)*huv[1])*self.dx
-                if self.u_continuity in ['dg', 'hdiv']:
-                    un_av = dot(avg(huv_old), self.normal('-'))
-                    # NOTE solver can stagnate
-                    # s = 0.5*(sign(un_av) + 1.0)
-                    # NOTE smooth sign change between [-0.02, 0.02], slow
-                    # s = 0.5*tanh(100.0*un_av) + 0.5
-                    # uv_up = uv('-')*s + uv('+')*(1-s)
-                    # NOTE mean flux
-                    uv_up = avg(huv)
-                    f += const*(uv_up[0]*jump(self.u_test[0], huv_old[0]*self.normal[0]) +
-                      uv_up[1]*jump(self.u_test[1], huv_old[0]*self.normal[0]) +
-                      uv_up[0]*jump(self.u_test[0], huv_old[1]*self.normal[1]) +
-                      uv_up[1]*jump(self.u_test[1], huv_old[1]*self.normal[1]))*self.dS
-                    # Lax-Friedrichs stabilization
-                    if self.options.use_lax_friedrichs_velocity:
-                        uv_lax_friedrichs = fields_old.get('lax_friedrichs_velocity_scaling_factor')
-                        gamma = 0.5*abs(un_av)*uv_lax_friedrichs
-                        f += const*gamma*dot(jump(self.u_test), jump(huv))*self.dS
-                        for bnd_marker in self.boundary_markers:
-                            funcs = bnd_conditions.get(bnd_marker)
-                            ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                            if funcs is None:
-                                # impose impermeability with mirror velocity
-                                n = self.normal
-                                uv_ext = huv - 2*dot(huv, n)*n
-                                gamma = 0.5*abs(dot(huv_old, n))*uv_lax_friedrichs
-                                f += const*gamma*dot(self.u_test, huv-uv_ext)*ds_bnd
-                for bnd_marker in self.boundary_markers:
-                    funcs = bnd_conditions.get(bnd_marker)
-                    ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                    if funcs is not None:
-                        eta_ext, uv_ext = self.get_bnd_functions(eta, huv, bnd_marker, bnd_conditions)
-                        eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, huv_old, bnd_marker, bnd_conditions)
-                        # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
-                        eta_jump = eta_old - eta_ext_old
-                        total_h = self.get_total_depth(eta_old)
-                        un_rie = 0.5*inner(huv_old + uv_ext_old, self.normal) + sqrt(g_grav/total_h)*eta_jump
-                        uv_av = 0.5*(uv_ext + huv)
-                        f += const*(uv_av[0]*self.u_test[0]*un_rie +
-                          uv_av[1]*self.u_test[1]*un_rie)*ds_bnd
+                        huv_old = head_old - var
+                        huv = head - var
+                        const = 1./(4.*(1. - alpha))
+                        if uv_2d is not None:
+                            huv_old *= -1
+                            huv *= -1
+                            const = -1./(4.*(1. - alpha))
+                else:
+                    huv_old = head_old
+                    huv = head
+                    const = 1.
+                if uv_delta_2 is not None or (uv_2d is not None and uv_delta is not None): # i.e. three_layer_solver
+                    if uv_2d is None and uv_delta is not None and uv_delta_2 is not None: # depth integrated, i.e layer sum
+                        if i == 0:
+                            huv_old = uv_delta
+                            huv = uv_delta
+                            const = alpha_1
+                        elif i == 1:
+                            huv_old = uv_delta_2
+                            huv = uv_delta_2
+                            const = alpha_2
+                        else:
+                            huv_old = 1/alpha_3*(head_old - (alpha_1*uv_delta + alpha_2*uv_delta_2)) #uv_delta_2 - uv_delta
+                            huv = 1/alpha_3*(head - (alpha_1*uv_delta + alpha_2*uv_delta_2))
+                            const = alpha_3
+                    elif uv_delta is None and uv_2d is not None and uv_delta_2 is not None:
+                        if i == 0:
+                            huv_old = head_old + uv_2d
+                            huv = head + uv_2d
+                            const = 1./(4.*alpha_1)
+                        elif i == 1:
+                            huv_old = uv_2d - uv_delta_2
+                            huv = uv_2d - uv_delta_2
+                            const = -1./(4.*alpha_2)
+                        else:
+                            huv_old = head_old - uv_delta_2
+                            huv = head - uv_delta_2
+                            const = -1./(4.*alpha_3)
+                    elif uv_delta_2 is None and uv_2d is not None and uv_delta is not None:
+                        if i == 0:
+                            huv_old = uv_2d + uv_delta
+                            huv = uv_2d + uv_delta
+                            const = 1./(4.*alpha_1)
+                        elif i == 1:
+                            huv_old = head_old - uv_2d
+                            huv = head - uv_2d
+                            const = -1./(4.*alpha_2)
+                        else:
+                            huv_old = head_old - uv_delta
+                            huv = head - uv_delta
+                            const = 1./(4.*alpha_3)
+                if horiz_advection_by_parts:
+                    # f = -inner(nabla_div(outer(uv, self.u_test)), uv)
+                    f += -const*(Dx(huv_old[0]*self.u_test[0], 0)*huv[0] +
+                      Dx(huv_old[0]*self.u_test[1], 0)*huv[1] +
+                      Dx(huv_old[1]*self.u_test[0], 1)*huv[0] +
+                      Dx(huv_old[1]*self.u_test[1], 1)*huv[1])*self.dx
+                    if self.u_continuity in ['dg', 'hdiv']:
+                        un_av = dot(avg(huv_old), self.normal('-'))
+                        # NOTE solver can stagnate
+                        # s = 0.5*(sign(un_av) + 1.0)
+                        # NOTE smooth sign change between [-0.02, 0.02], slow
+                        # s = 0.5*tanh(100.0*un_av) + 0.5
+                        # uv_up = uv('-')*s + uv('+')*(1-s)
+                        # NOTE mean flux
+                        uv_up = avg(huv)
+                        f += const*(uv_up[0]*jump(self.u_test[0], huv_old[0]*self.normal[0]) +
+                          uv_up[1]*jump(self.u_test[1], huv_old[0]*self.normal[0]) +
+                          uv_up[0]*jump(self.u_test[0], huv_old[1]*self.normal[1]) +
+                          uv_up[1]*jump(self.u_test[1], huv_old[1]*self.normal[1]))*self.dS
+                        # Lax-Friedrichs stabilization
+                        if self.options.use_lax_friedrichs_velocity:
+                            uv_lax_friedrichs = fields_old.get('lax_friedrichs_velocity_scaling_factor')
+                            gamma = 0.5*abs(un_av)*uv_lax_friedrichs
+                            f += const*gamma*dot(jump(self.u_test), jump(huv))*self.dS
+                            for bnd_marker in self.boundary_markers:
+                                funcs = bnd_conditions.get(bnd_marker)
+                                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                                if funcs is None:
+                                    # impose impermeability with mirror velocity
+                                    n = self.normal
+                                    uv_ext = huv - 2*dot(huv, n)*n
+                                    gamma = 0.5*abs(dot(huv_old, n))*uv_lax_friedrichs
+                                    f += const*gamma*dot(self.u_test, huv-uv_ext)*ds_bnd
+                    for bnd_marker in self.boundary_markers:
+                        funcs = bnd_conditions.get(bnd_marker)
+                        ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                        if funcs is not None:
+                            eta_ext, uv_ext = self.get_bnd_functions(eta, huv, bnd_marker, bnd_conditions)
+                            eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, huv_old, bnd_marker, bnd_conditions)
+                            # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                            eta_jump = eta_old - eta_ext_old
+                            total_h = self.get_total_depth(eta_old)
+                            un_rie = 0.5*inner(huv_old + uv_ext_old, self.normal) + sqrt(g_grav/total_h)*eta_jump
+                            uv_av = 0.5*(uv_ext + huv)
+                            f += const*(uv_av[0]*self.u_test[0]*un_rie +
+                              uv_av[1]*self.u_test[1]*un_rie)*ds_bnd
+            return -f
+
+        # below for horizontal 1D domain
+        if horiz_advection_by_parts:
+            # f = -inner(nabla_div(outer(uv, self.u_test)), uv)
+           # f = -(Dx(uv_old[0]*self.u_test[0], 0)*uv[0] +
+           #       Dx(uv_old[0]*self.u_test[1], 0)*uv[1] +
+           #       Dx(uv_old[1]*self.u_test[0], 1)*uv[0] +
+           #       Dx(uv_old[1]*self.u_test[1], 1)*uv[1])*self.dx
+            f = -(Dx(uv_old*self.u_test, 0)*uv)*self.dx
+            if self.u_continuity in ['dg', 'hdiv']:
+                un_av = dot(avg(uv_old), self.normal[0]('-'))
+                # NOTE solver can stagnate
+                # s = 0.5*(sign(un_av) + 1.0)
+                # NOTE smooth sign change between [-0.02, 0.02], slow
+                # s = 0.5*tanh(100.0*un_av) + 0.5
+                # uv_up = uv('-')*s + uv('+')*(1-s)
+                # NOTE mean flux
+                uv_up = avg(uv)
+               # f += (uv_up[0]*jump(self.u_test[0], uv_old[0]*self.normal[0]) +
+               #       uv_up[1]*jump(self.u_test[1], uv_old[0]*self.normal[0]) +
+               #       uv_up[0]*jump(self.u_test[0], uv_old[1]*self.normal[1]) +
+               #       uv_up[1]*jump(self.u_test[1], uv_old[1]*self.normal[1]))*self.dS
+                f += (uv_up*jump(self.u_test, uv_old*self.normal[0]))*self.dS
+                # Lax-Friedrichs stabilization
+                if self.options.use_lax_friedrichs_velocity:
+                    uv_lax_friedrichs = fields_old.get('lax_friedrichs_velocity_scaling_factor')
+                    gamma = 0.5*abs(un_av)*uv_lax_friedrichs
+                    f += gamma*dot(jump(self.u_test), jump(uv))*self.dS
+                    for bnd_marker in self.boundary_markers:
+                        funcs = bnd_conditions.get(bnd_marker)
+                        ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                        if funcs is None:
+                            # impose impermeability with mirror velocity
+                            n = self.normal[0]
+                            uv_ext = uv - 2*dot(uv, n)*n
+                            gamma = 0.5*abs(dot(uv_old, n))*uv_lax_friedrichs
+                            f += gamma*dot(self.u_test, uv-uv_ext)*ds_bnd
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                if funcs is not None:
+                    eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
+                    eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
+                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                    eta_jump = eta_old - eta_ext_old
+                    total_h = self.get_total_depth(eta_old)
+                    un_rie = 0.5*inner(uv_old + uv_ext_old, self.normal[0]) + sqrt(g_grav/total_h)*eta_jump
+                    uv_av = 0.5*(uv_ext + uv)
+                    f += (uv_av*self.u_test*un_rie)*ds_bnd
         return -f
 
 class HorizontalAdvectionTermxx(ShallowWaterMomentumTerm): # for back-up
@@ -804,17 +880,28 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
         if nu is None:
             return 0
 
-        n = self.normal
+        if self.horizontal_domain_is_2d:
+            n = self.normal
+        else:
+            n = self.normal[0]
         h = self.cellsize
 
         if self.options.use_grad_div_viscosity_term:
-            stress = nu*2.*sym(grad(uv))
+            if self.horizontal_domain_is_2d:
+                stress = nu*2.*sym(grad(uv))
+            else:
+                stress = nu*2.*sym(Dx(uv, 0))
             stress_jump = avg(nu)*2.*sym(tensor_jump(uv, n))
         else:
-            stress = nu*grad(uv)
+            if self.horizontal_domain_is_2d:
+                stress = nu*grad(uv)
+            else:
+                stress = nu*Dx(uv, 0)
             stress_jump = avg(nu)*tensor_jump(uv, n)
-
-        f = inner(grad(self.u_test), stress)*self.dx
+        if self.horizontal_domain_is_2d:
+            f = inner(grad(self.u_test), stress)*self.dx
+        else:
+            f = inner(Dx(self.u_test, 0), stress)*self.dx
 
         if self.u_continuity in ['dg', 'hdiv']:
             # from Epshteyn et al. 2007 (http://dx.doi.org/10.1016/j.cam.2006.08.029)
@@ -825,11 +912,18 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
             alpha = 5.*p*(p+1)
             if p == 0:
                 alpha = 1.5
-            f += (
-                + alpha/avg(h)*inner(tensor_jump(self.u_test, n), stress_jump)*self.dS
-                - inner(avg(grad(self.u_test)), stress_jump)*self.dS
-                - inner(tensor_jump(self.u_test, n), avg(stress))*self.dS
-            )
+            if self.horizontal_domain_is_2d:
+                f += (
+                    + alpha/avg(h)*inner(tensor_jump(self.u_test, n), stress_jump)*self.dS
+                    - inner(avg(grad(self.u_test)), stress_jump)*self.dS
+                    - inner(tensor_jump(self.u_test, n), avg(stress))*self.dS
+                )
+            else:
+                f += (
+                    + alpha/avg(h)*inner(tensor_jump(self.u_test, n), stress_jump)*self.dS
+                    - inner(avg(Dx(self.u_test, 0)), stress_jump)*self.dS
+                    - inner(tensor_jump(self.u_test, n), avg(stress))*self.dS
+                )
 
             # Dirichlet bcs only for DG
             for bnd_marker in self.boundary_markers:
@@ -848,16 +942,24 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
                         stress_jump = nu*2.*sym(outer(delta_uv, n))
                     else:
                         stress_jump = nu*outer(delta_uv, n)
-
-                    f += (
-                        alpha/h*inner(outer(self.u_test, n), stress_jump)*ds_bnd
-                        - inner(grad(self.u_test), stress_jump)*ds_bnd
-                        - inner(outer(self.u_test, n), stress)*ds_bnd
-                    )
+                    if self.horizontal_domain_is_2d:
+                        f += (
+                            alpha/h*inner(outer(self.u_test, n), stress_jump)*ds_bnd
+                            - inner(grad(self.u_test), stress_jump)*ds_bnd
+                            - inner(outer(self.u_test, n), stress)*ds_bnd
+                        )
+                    else:
+                         f += (
+                            alpha/h*inner(outer(self.u_test, n), stress_jump)*ds_bnd
+                            - inner(Dx(self.u_test, 0), stress_jump)*ds_bnd
+                            - inner(outer(self.u_test, n), stress)*ds_bnd
+                        )
 
         if self.options.use_grad_depth_viscosity_term:
-            f += -dot(self.u_test, dot(grad(total_h)/total_h, stress))*self.dx
-
+            if self.horizontal_domain_is_2d:
+                f += -dot(self.u_test, dot(grad(total_h)/total_h, stress))*self.dx
+            else:
+                f += -dot(self.u_test, dot(Dx(total_h, 0)/total_h, stress))*self.dx
         return -f
 
 
@@ -868,6 +970,8 @@ class CoriolisTerm(ShallowWaterMomentumTerm):
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         coriolis = fields_old.get('coriolis')
         f = 0
+        if not self.horizontal_domain_is_2d:
+            return -f # TODO check if coriolis force is omitted in orizontal 1d domain?
         if coriolis is not None:
             f += coriolis*(-uv[1]*self.u_test[0] + uv[0]*self.u_test[1])*self.dx
         return -f
@@ -898,7 +1002,10 @@ class AtmosphericPressureTerm(ShallowWaterMomentumTerm):
         atmospheric_pressure = fields_old.get('atmospheric_pressure')
         f = 0
         if atmospheric_pressure is not None:
-            f += dot(grad(atmospheric_pressure), self.u_test)/rho_0*self.dx
+            if self.horizontal_domain_is_2d:
+                f += dot(grad(atmospheric_pressure), self.u_test)/rho_0*self.dx
+            else:
+                f += dot(Dx(atmospheric_pressure, 0), self.u_test)/rho_0*self.dx
         return -f
 
 
@@ -938,7 +1045,7 @@ class LinearDragTerm(ShallowWaterMomentumTerm):
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         linear_drag_coefficient = fields_old.get('linear_drag_coefficient')
-        sponge_damping = fields_old.get('sponge_damping')
+        sponge_damping = fields_old.get('sponge_damping_2d')
         f = 0
         if linear_drag_coefficient is not None:
             bottom_fri = linear_drag_coefficient*inner(self.u_test, uv)*self.dx
@@ -1117,7 +1224,69 @@ class LandslideTerm(ShallowWaterContinuityTerm):
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if funcs is None or 'un' in funcs: # probably for 'None', on wall, dot(uv, self.normal) absolutely = 0, so 'None' can be cancelled, Wei; maybe 'uv' also should be added 
                     f += -const*total_h*dot(uv, self.normal)*self.eta_test*ds_bnd
+
+        if self.horizontal_domain_is_2d:
+            return -f
+        else:
+            warning('Temporarily horizontal 1d is not supported for fluid-layer landslide terms ... ')
+            return 0
+
+
+class HorizontalAdvectionTerm_vert(ShallowWaterContinuityTerm):
+    r"""
+    Horizontal advection term in vertical momentum equation
+    """
+    def residual(self, uv, w, uv_old, w_old, fields, fields_old, bnd_conditions=None):
+
+        if not self.options.use_nonlinear_equations:
+            return 0
+
+        horiz_advection_by_parts = True
+
+        if horiz_advection_by_parts:
+            # f = -inner(nabla_div(outer(uv, self.u_test)), uv)
+            f = -(Dx(uv_old[0]*self.eta_test, 0)*w +
+                  Dx(uv_old[1]*self.eta_test, 1)*w)*self.dx
+            if self.u_continuity in ['dg', 'hdiv']:
+                un_av = dot(avg(uv_old), self.normal('-'))
+                # NOTE solver can stagnate
+                # s = 0.5*(sign(un_av) + 1.0)
+                # NOTE smooth sign change between [-0.02, 0.02], slow
+                # s = 0.5*tanh(100.0*un_av) + 0.5
+                # uv_up = uv('-')*s + uv('+')*(1-s)
+                # NOTE mean flux
+                w_up = avg(w)
+                f += (w_up*jump(self.eta_test, uv_old[0]*self.normal[0]) +
+                      w_up*jump(self.eta_test, uv_old[1]*self.normal[1]))*self.dS
+                # Lax-Friedrichs stabilization
+                if self.options.use_lax_friedrichs_velocity:
+                    uv_lax_friedrichs = fields_old.get('lax_friedrichs_velocity_scaling_factor')
+                    gamma = 0.5*abs(un_av)*uv_lax_friedrichs
+                    f += gamma*dot(jump(self.eta_test), jump(w))*self.dS
+
+            # TODO add boundary condition terms?
+
         return -f
+
+
+class MomentumSourceTerm_vert(ShallowWaterContinuityTerm):
+    r"""
+    Generic source term in the shallow water momentum equation
+
+    The weak form reads
+
+    .. math::
+        F_s = \int_\Omega \boldsymbol{\tau} \cdot \boldsymbol{\psi} dx
+
+    where :math:`\boldsymbol{\tau}` is a user defined vector valued :class:`Function`.
+    """
+    def residual(self, uv, w, uv_old, w_old, fields, fields_old, bnd_conditions=None):
+        f = 0
+        momentum_source_vert = fields_old.get('momentum_source_vert')
+
+        if momentum_source_vert is not None:
+            f += inner(momentum_source_vert, self.eta_test)*self.dx
+        return f
 
 
 class BaseShallowWaterEquation(Equation):
@@ -1147,7 +1316,7 @@ class BaseShallowWaterEquation(Equation):
         self.add_term(BottomDrag3DTerm(*args), 'source')
         self.add_term(MomentumSourceTerm(*args), 'source')
         #TODO set options.pressure_projection to control add_term(NonHydro...)?
-        self.add_term(NonHydrostaticPressureTerm(*args), 'implicit')
+       # self.add_term(NonHydrostaticPressureTerm(*args), 'implicit')
 
     def add_continuity_terms(self, *args):
         self.add_term(HUDivTerm(*args), 'implicit')
@@ -1313,6 +1482,70 @@ class ShallowWaterMomentumEquation(BaseShallowWaterEquation):
         super(ShallowWaterMomentumEquation, self).__init__(u_space, bathymetry, options)
         self.add_momentum_terms(u_test, u_space, eta_space,
                                 bathymetry, options)
+
+    def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
+        uv = solution
+        uv_old = solution_old
+        eta = fields['eta']
+        eta_old = fields_old['eta']
+        return self.residual_uv_eta(label, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions)
+
+
+class ShallowWaterMomentumEquation_vert(BaseShallowWaterEquation):
+    """
+    2D depth averaged momentum equation :eq:`swe_momentum` in non-conservative
+    form.
+    """
+    def __init__(self, eta_test, eta_space, u_space, # note 'eta_test' actually refers to the test function of w
+                 bathymetry,
+                 options):
+        """
+        :arg u_test: test function of the velocity function space
+        :arg u_space: velocity function space
+        :arg eta_space: elevation function space
+        :arg bathymetry: bathymetry of the domain
+        :type bathymetry: :class:`Function` or :class:`Constant`
+        :arg options: :class:`.AttrDict` object containing all circulation model options
+        """
+        super(ShallowWaterMomentumEquation_vert, self).__init__(eta_space, bathymetry, options)
+        self.add_advection_terms(eta_test, eta_space, u_space, bathymetry, options)
+
+    def add_advection_terms(self, *args):
+        self.add_term(HorizontalAdvectionTerm_vert(*args), 'explicit')
+        self.add_term(MomentumSourceTerm_vert(*args), 'source')
+        # TODO add other terms, e.g. viscosity
+
+    def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
+        w = solution
+        w_old = solution_old
+        uv = fields['uv_la']
+        uv_old = fields_old['uv_la']
+        return self.residual_uv_eta(label, uv, w, uv_old, w_old, fields, fields_old, bnd_conditions)
+
+
+class MomentumEquation2D(BaseShallowWaterEquation):
+
+    def __init__(self, u_test, u_space, eta_space,
+                 bathymetry,
+                 options):
+        """
+        :arg u_test: test function of the velocity function space
+        :arg u_space: velocity function space
+        :arg eta_space: elevation function space
+        :arg bathymetry: bathymetry of the domain
+        :type bathymetry: :class:`Function` or :class:`Constant`
+        :arg options: :class:`.AttrDict` object containing all circulation model options
+        """
+        super(MomentumEquation2D, self).__init__(u_space, bathymetry, options)
+        self.add_momentum_terms(u_test, u_space, eta_space,
+                                bathymetry, options)
+
+    def add_momentum_terms(self, *args): # Note Wei adds
+        self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
+       # self.add_term(CoriolisTerm(*args), 'explicit')
+       # self.add_term(MomentumSourceTerm(*args), 'source')
+       # self.add_term(AtmosphericPressureTerm(*args), 'source')
+       # self.add_term(LinearDragTerm(*args), 'explicit')
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         uv = solution

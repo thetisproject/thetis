@@ -2,24 +2,21 @@
 Module for layer averaged solver in 1d mesh
 """
 from __future__ import absolute_import
-from .utility import *
-from . import shallowwater_eq
-from . import shallowwater_sigma
+from ..utility import *
 from . import shallowwater_nh
-from . import momentum2d_nh
-from . import timeintegrator
-from . import rungekutta
-from . import implicitexplicit
-from . import coupled_timeintegrator_2d
-from . import tracer_eq_2d
+from .. import timeintegrator
+from .. import rungekutta
+from .. import implicitexplicit
+from .. import coupled_timeintegrator_2d
+from .. import tracer_eq_2d
 import weakref
 import time as time_mod
 from mpi4py import MPI
-from . import exporter
-from .field_defs import field_metadata
-from .options import ModelOptions2d
-from . import callback
-from .log import *
+from .. import exporter
+from ..field_defs import field_metadata
+from ..options import ModelOptions2d
+from .. import callback
+from ..log import *
 from collections import OrderedDict
 import thetis.limiter as limiter
 
@@ -287,24 +284,24 @@ class FlowSolver(FrozenClass):
         self.create_functions()
 
         # ----- Equations
-        self.eq_sw = shallowwater_sigma.ShallowWaterEquations(
+        self.eq_sw = shallowwater_nh.ShallowWaterEquations(
             self.fields.solution_2d.function_space(),
             self.bathymetry_dg, #self.fields.bathymetry_2d,
             self.options)
         #self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
-        self.eq_uv_mom = shallowwater_sigma.ShallowWaterMomentumEquation(
+        self.eq_uv_mom = shallowwater_nh.ShallowWaterMomentumEquation(
             TestFunction(self.function_spaces.U_2d),
             self.function_spaces.U_2d,
             self.function_spaces.H_2d,
             self.bathymetry_dg,
             self.options)
-        self.eq_w_mom = shallowwater_sigma.ShallowWaterMomentumEquation(
+        self.eq_w_mom = shallowwater_nh.ShallowWaterMomentumEquation(
             TestFunction(self.function_spaces.H_2d),
             self.function_spaces.H_2d,
             self.function_spaces.U_2d,
             self.bathymetry_dg,
             self.options)
-        self.eq_free_surface = shallowwater_sigma.FreeSurfaceEquation(
+        self.eq_free_surface = shallowwater_nh.FreeSurfaceEquation(
             TestFunction(self.function_spaces.H_2d),
             self.function_spaces.H_2d,
             self.function_spaces.U_2d,
@@ -351,7 +348,7 @@ class FlowSolver(FrozenClass):
             'uv': self.fields.solution_2d.sub(0),
             'uv_la': self.fields.uv_nh,
             'eta': self.fields.solution_2d.sub(1),
-            'sponge_damping': self.set_sponge_damping(self.options.sponge_layer_length, self.options.sponge_layer_xstart, alpha = 10.),}
+            'sponge_damping_2d': self.set_sponge_damping(self.options.sponge_layer_length, self.options.sponge_layer_xstart, alpha = 10.),}
         fields = self.field_dic
         self.set_time_step()
         if self.options.timestepper_type == 'SSPRK33':
@@ -397,7 +394,7 @@ class FlowSolver(FrozenClass):
         elif self.options.timestepper_type == 'PressureProjectionPicard':
 
             u_test = TestFunction(self.function_spaces.U_2d)
-            self.eq_mom = shallowwater_eq.ShallowWaterMomentumEquation(
+            self.eq_mom = shallowwater_nh.ShallowWaterMomentumEquation(
                 u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
                 self.fields.bathymetry_2d,
                 options=self.options
@@ -602,6 +599,8 @@ class FlowSolver(FrozenClass):
         damping_coeff = Function(self.function_spaces.P1_2d)
         mesh1d = damping_coeff.ufl_domain()
         xvector = mesh1d.coordinates.dat.data
+        damp_vector = damping_coeff.dat.data
+
         if mesh1d.coordinates.sub(0).dat.data.max() <= x_start[0] + length[0]:
             length[0] = xvector.max() - x_start[0]
             #if length[0] < 0:
@@ -612,7 +611,7 @@ class FlowSolver(FrozenClass):
             #if length[1] < 0:
                 #print('Start point of the second sponge layer is out of computational domain!')
                 #raise ValueError('Start point of the second sponge layer is out of computational domain!')
-        damp_vector = damping_coeff.dat.data
+
         assert xvector.shape[0] == damp_vector.shape[0]
         for i, xy in enumerate(xvector):
             pi = 4*np.arctan(1.)
@@ -812,23 +811,26 @@ class FlowSolver(FrozenClass):
                                 timestepper_dic['w_layer_'+str(k+1)].update_solver()
 
         # solver for the mixed Poisson equation
-        solve_q_in_extruded_mesh = not True
+        solve_q_in_extruded_mesh = False
         if not solve_q_in_extruded_mesh:
             if True:
-                if True:
-                    q_test = TestFunctions(self.function_spaces.q_mixed)
-                    q_tuple = split(self.q_mixed)
-                    if n_layers == 1:
-                        q_test = [TestFunction(self.fields.q_2d.function_space())]
-                        q_tuple = [self.fields.q_2d]
-                    # re-arrange the list of q
-                    q = []
-                    for k in range(n_layers):
-                        q.append(q_tuple[k])
-                        if k == n_layers - 1:
-                            # free-surface NH pressure
-                            q.append(0.)
-                    f = 0.
+                # # #
+                use_w_to_construct_poisson = True
+                # # #
+                q_test = TestFunctions(self.function_spaces.q_mixed)
+                q_tuple = split(self.q_mixed)
+                if n_layers == 1:
+                    q_test = [TestFunction(self.fields.q_2d.function_space())]
+                    q_tuple = [self.fields.q_2d]
+                # re-arrange the list of q
+                q = []
+                for k in range(n_layers):
+                    q.append(q_tuple[k])
+                    if k == n_layers - 1:
+                        # free-surface NH pressure
+                        q.append(0.)
+                f = 0.
+                if use_w_to_construct_poisson:
                     for k in range(n_layers):
                         # weak form of div(h_{k+1}*uv_av_{k+1})
                         div_hu_term = Dx((alpha[k]*h_tot)*u_list[k], 0)*q_test[k]*dx + \
@@ -928,15 +930,131 @@ class FlowSolver(FrozenClass):
                                                       dot(grad_2_layerk, self.normal_2d)*(q[k]+q[k+1]) +
                                                       dot(grad_3_layerk, self.normal_2d)*(q[k+1]+q[k+2]))*q_test[k]*ds_bnd + w_bot_bnd
 
-                    prob = NonlinearVariationalProblem(f, self.q_mixed)
-                    if n_layers == 1:
-                        prob = NonlinearVariationalProblem(f, self.fields.q_2d)
-                    solver_q = NonlinearVariationalSolver(prob,
-                                                        solver_parameters={'snes_type': 'ksponly', # ksponly, newtonls
-                                                               'ksp_type': 'preonly', # gmres, preonly
-                                                               'mat_type': 'aij',
-                                                               'snes_monitor': False,
-                                                               'pc_type': 'lu'})
+
+                else: # i.e. use div(hu) to construct Poisson equation
+                    for k in range(n_layers):
+                        # weak form of div(h_{k+1}*uv_av_{k+1})
+                        div_hu_term = Dx((alpha[k]*h_tot)*u_list[k], 0)*q_test[k]*dx + \
+                                      0.5*self.dt*(alpha[k]*h_tot)*dot(Dx(q[k]+q[k+1], 0), Dx(q_test[k], 0))*dx + \
+                                      0.5*self.dt*(q[k]-q[k+1])*dot(Dx(fields['z_'+str(k)+str(k+1)], 0), Dx(q_test[k], 0))*dx
+                        if k >= 1:
+                            for i in range(k):
+                                div_hu_term += 2.*(Dx((alpha[i]*h_tot)*u_list[i], 0)*q_test[k]*dx + \
+                                               0.5*self.dt*(alpha[i]*h_tot)*dot(Dx(q[i]+q[i+1], 0), Dx(q_test[k], 0))*dx + \
+                                               0.5*self.dt*(q[i]-q[i+1])*dot(Dx(fields['z_'+str(i)+str(i+1)], 0), Dx(q_test[k], 0))*dx)
+
+                        # weak form of w_{k}{k+1}
+                        vert_vel_term = 2.*(w_list[k] + self.dt*(q[k] - q[k+1])/(alpha[k]*h_tot))*q_test[k]*dx
+                       # for i in range(k+1):
+                       #     vert_vel_term += 4.*(-1)**i*(w_list[k-i] + self.dt*(q[k-i] - q[k+1-i])/(alpha[k-i]*h_tot))*q_test[k]*dx
+                        consider_vert_adv = False#True
+                        if consider_vert_adv: # TODO if make sure that considering vertical advection is benefitial, delete this logical variable
+                            #vert_vel_term += -2.*self.dt*dot(getattr(self, 'uv_av_'+str(k+1)), grad(getattr(self, 'w_'+str(k)+str(k+1))))*q_test[k]*dx
+                            vert_vel_term += 2.*self.dt*(Dx(u_list[k]*q_test[k], 0)*w_list[k]*dx -
+                                                         avg(w_list[k])*jump(q_test[k], inner(u_list[k], self.normal_2d))*dS)
+                            if consider_vertical_mass_flux:
+                                vert_vel_term += -2.*self.dt/(alpha[k]*h_tot)*inner(m_dic['z_'+str(k+1)]*(w_dic['z_'+str(k+1)] - w_list[k]) -
+                                                                                m_dic['z_'+str(k)]*(w_dic['z_'+str(k)] - w_list[k]), q_test[k])*dx
+                        # weak form of RHS terms
+                        grad_1_bot = -2.*(-1)**(k+1)*(2.-alpha[1]/(alpha[0] + alpha[1]))*Dx(fields['z_'+str(0)], 0)
+                        grad_2_bot = -2.*(-1)**(k+1)*(-alpha[0]/(alpha[0] + alpha[1]))*Dx(fields['z_'+str(0)], 0)
+                        w_bot_term = (dot(grad_1_bot, u_list[0]) + dot(grad_2_bot, u_list[1]))*q_test[k]*dx - \
+                                                 0.5*self.dt*(-Dx(grad_1_bot*q_test[k], 0)*(q[0]+q[1]) - Dx(grad_2_bot*q_test[k], 0)*(q[1]+q[2]))*dx - \
+                                                 0.5*self.dt*(1./(alpha[0]*h_tot)*dot(grad_1_bot, Dx(fields['z_'+str(0)+str(1)], 0))*(q[0]-q[1]) + 
+                                                          1./(alpha[1]*h_tot)*dot(grad_2_bot, Dx(fields['z_'+str(1)+str(2)], 0))*(q[1]-q[2]))*q_test[k]*dx
+                        if k == 0: # i.e. the layer adjacent to the bottom
+                            if n_layers == 1:
+                                grad_1_layer1 = Dx(fields['z_'+str(k)+str(k+1)], 0)
+                                grad_1_layer1 = 0.5*Dx(fields['z_'+str(k)+str(k+1)], 0)
+                                interface_term = dot(grad_1_layer1, u_list[k])*q_test[k]*dx - \
+                                                 0.5*self.dt*(-Dx(grad_1_layer1*q_test[k], 0)*(q[k]+q[k+1]))*dx - \
+                                                 0.5*self.dt*(1./(alpha[k]*h_tot)*dot(grad_1_layer1, Dx(fields['z_'+str(k)+str(k+1)], 0))*(q[k]-q[k+1]))*q_test[k]*dx
+                            else:
+                                grad_1_layer1 = -(2.-alpha[k+1]/(alpha[k] + alpha[k+1]))*Dx(fields['z_'+str(k)], 0) + \
+                                                alpha[k+1]/(alpha[k] + alpha[k+1])*Dx(fields['z_'+str(k)], 0)
+                                grad_2_layer1 = Dx(alpha[k]/(alpha[k] + alpha[k+1])*(fields['z_'+str(k)+str(k+1)]), 0)
+
+                                grad_1_layer1 = Dx(2.*fields['z_'+str(k)] + (alpha[k]*h_tot)*alpha[k+1]/(alpha[k] + alpha[k+1]), 0)
+                                grad_2_layer1 = Dx((alpha[k]*h_tot)*alpha[k]/(alpha[k] + alpha[k+1]), 0)
+
+                                interface_term = (dot(grad_1_layer1, u_list[k]) + dot(grad_2_layer1, u_list[k+1]))*q_test[k]*dx - \
+                                                 0.5*self.dt*(-Dx(grad_1_layer1*q_test[k], 0)*(q[k]+q[k+1]) - Dx(grad_2_layer1*q_test[k], 0)*(q[k+1]+q[k+2]))*dx - \
+                                                 0.5*self.dt*(1./(alpha[k]*h_tot)*dot(grad_1_layer1, Dx(fields['z_'+str(k)+str(k+1)], 0))*(q[k]-q[k+1]) + 
+                                                          1./(alpha[k+1]*h_tot)*dot(grad_2_layer1, Dx(fields['z_'+str(k+1)+str(k+2)], 0))*(q[k+1]-q[k+2]))*q_test[k]*dx
+
+                        elif k == n_layers - 1: # i.e. the layer adjacent to the free surface
+                            grad_1_layern = -alpha[k-1]/(alpha[k-1] + alpha[k])*Dx(fields['z_'+str(k)], 0) + \
+                                            (2.-alpha[k-1]/(alpha[k-1] + alpha[k]))*Dx(fields['z_'+str(k+1)], 0)
+                            grad_2_layern = Dx(2.*fields['z_'+str(k+1)] - alpha[k]/(alpha[k-1] + alpha[k])*(alpha[k-1]*h_tot), 0)
+
+                            grad_1_layern = Dx(-(alpha[k]*h_tot)*alpha[k]/(alpha[k-1] + alpha[k]), 0)
+                            grad_2_layern = Dx(2.*fields['z_'+str(k+1)] - (alpha[k-1]*h_tot)*alpha[k]/(alpha[k-1] + alpha[k]), 0)
+
+                            interface_term = (dot(grad_1_layern, u_list[k-1]) + dot(grad_2_layern, u_list[k]))*q_test[k]*dx - \
+                                             0.5*self.dt*(-Dx(grad_1_layern*q_test[k], 0)*(q[k-1]+q[k]) - Dx(grad_2_layern*q_test[k], 0)*(q[k]+q[k+1]))*dx - \
+                                             0.5*self.dt*(1./(alpha[k-1]*h_tot)*dot(grad_1_layern, Dx(fields['z_'+str(k-1)+str(k)], 0))*(q[k-1]-q[k]) + 
+                                                      1./(alpha[k]*h_tot)*dot(grad_2_layern, Dx(fields['z_'+str(k)+str(k+1)], 0))*(q[k]-q[k+1]))*q_test[k]*dx
+
+                        else:
+                            grad_1_layerk = -alpha[k]/(alpha[k-1] + alpha[k])*Dx(fields['z_'+str(k)], 0)
+                            grad_2_layerk = -alpha[k-1]/(alpha[k-1] + alpha[k])*Dx(fields['z_'+str(k)], 0) + \
+                                            alpha[k+1]/(alpha[k] + alpha[k+1])*Dx(fields['z_'+str(k+1)], 0)
+                            grad_3_layerk = alpha[k]/(alpha[k] + alpha[k+1])*Dx(fields['z_'+str(k+1)], 0)
+
+                            grad_1_layerk = alpha[k]/(alpha[k-1] + alpha[k])*Dx(fields['z_'+str(k)], 0)
+                            grad_2_layerk = alpha[k-1]/(alpha[k-1] + alpha[k])*Dx(fields['z_'+str(k)], 0) + \
+                                            alpha[k+1]/(alpha[k] + alpha[k+1])*Dx(fields['z_'+str(k+1)], 0)
+                            grad_3_layerk = alpha[k]/(alpha[k] + alpha[k+1])*Dx(fields['z_'+str(k+1)], 0)
+
+                            interface_term = (dot(grad_1_layerk, u_list[k-1]) + dot(grad_2_layerk, u_list[k]) + dot(grad_3_layerk, u_list[k+1]))*q_test[k]*dx - \
+                                             0.5*self.dt*(-Dx(grad_1_layerk*q_test[k], 0)*(q[k-1]+q[k]) - 
+                                                          Dx(grad_2_layerk*q_test[k], 0)*(q[k]+q[k+1]) - 
+                                                          Dx(grad_3_layerk*q_test[k], 0)*(q[k+1]+q[k+2]))*dx - \
+                                             0.5*self.dt*(1./(alpha[k-1]*h_tot)*dot(grad_1_layerk, Dx(fields['z_'+str(k-1)+str(k)], 0))*(q[k-1]-q[k]) + 
+                                                      1./(alpha[k]*h_tot)*dot(grad_2_layerk, Dx(fields['z_'+str(k)+str(k+1)], 0))*(q[k]-q[k+1]) + 
+                                                      1./(alpha[k+1]*h_tot)*dot(grad_3_layerk, Dx(fields['z_'+str(k+1)+str(k+2)], 0))*(q[k+1]-q[k+2]))*q_test[k]*dx
+
+                        # weak form of slide source term
+                        if self.options.landslide:
+                            slide_source_term = -2.*self.fields.slide_source*q_test[k]*dx #TODO check if 2. is correct
+                            f += slide_source_term
+                        f += div_hu_term + vert_vel_term - interface_term# - w_bot_term
+
+                        for bnd_marker in self.boundary_markers:
+                            func = self.bnd_functions['shallow_water'].get(bnd_marker)
+                            ds_bnd = ds(int(bnd_marker))
+                            if self.bnd_functions['shallow_water'] == {}:#func is None or 'q' not in func:
+                                # bnd terms of div(h_{k+1}*uv_av_{k+1})
+                                f += -0.5*self.dt*(q[k]-q[k+1])*dot(Dx(fields['z_'+str(k)+str(k+1)], 0), self.normal_2d)*q_test[k]*ds_bnd
+                                if k >= 1:
+                                    for i in range(k):
+                                        f += -self.dt*(q[i]-q[i+1])*dot(Dx(fields['z_'+str(i)+str(i+1)], 0), self.normal_2d)*q_test[k]*ds_bnd
+                                # bnd terms of RHS terms about interface connection
+                                w_bot_bnd = 0.5*self.dt*(dot(grad_1_bot, self.normal_2d)*(q[0]+q[1]) + 
+                                                         dot(grad_2_bot, self.normal_2d)*(q[1]+q[2]))*q_test[k]*ds_bnd
+                                if k == 0:
+                                    if n_layers == 1:
+                                        f += 0.5*self.dt*dot(grad_1_layer1, self.normal_2d)*(q[k]+q[k+1])*q_test[k]*ds_bnd
+                                    else:
+                                        f += 0.5*self.dt*(dot(grad_1_layer1, self.normal_2d)*(q[k]+q[k+1]) + 
+                                                          dot(grad_2_layer1, self.normal_2d)*(q[k+1]+q[k+2]))*q_test[k]*ds_bnd #+ w_bot_bnd
+                                elif k == n_layers - 1:
+                                    f += 0.5*self.dt*(dot(grad_1_layern, self.normal_2d)*(q[k-1]+q[k]) + 
+                                                      dot(grad_2_layern, self.normal_2d)*(q[k]+q[k+1]))*q_test[k]*ds_bnd #+ w_bot_bnd
+                                else:
+                                    f += 0.5*self.dt*(dot(grad_1_layerk, self.normal_2d)*(q[k-1]+q[k]) +
+                                                      dot(grad_2_layerk, self.normal_2d)*(q[k]+q[k+1]) +
+                                                      dot(grad_3_layerk, self.normal_2d)*(q[k+1]+q[k+2]))*q_test[k]*ds_bnd #+ w_bot_bnd
+
+                prob = NonlinearVariationalProblem(f, self.q_mixed)
+                if n_layers == 1:
+                    prob = NonlinearVariationalProblem(f, self.fields.q_2d)
+                solver_q = NonlinearVariationalSolver(prob, solver_parameters={'snes_type': 'ksponly', # ksponly, newtonls
+                                                                               'ksp_type': 'preonly', # gmres, preonly
+                                                                               'mat_type': 'aij',
+                                                                               'snes_monitor': False,
+                                                                               'pc_type': 'lu'})
+
         else:
             # for uniform vertical layers, i.e. alpha[k] = 1/n_layers
             mesh = ExtrudedMesh(self.mesh2d, layers=n_layers, layer_height=1.0/n_layers)
@@ -1069,9 +1187,8 @@ class FlowSolver(FrozenClass):
                 self.fields.uv_2d.project(sum_uv_av)
 
                 # update water level elev_2d
-                update_water_level = True
                 solving_free_surface_eq = True
-                if self.simulation_time <= t_epsilon and update_water_level and not solving_free_surface_eq:
+                if self.simulation_time <= t_epsilon and self.options.update_free_surface and not solving_free_surface_eq:
                     # update layer thickness and z-coordinate
                     h_tot_spl = self.bathymetry_dg + split(self.fields.solution_2d)[1]
                     z_dic_spl = {}
@@ -1085,15 +1202,13 @@ class FlowSolver(FrozenClass):
                     prob_n_layers_int = NonlinearVariationalProblem(self.timestepper.F, self.fields.solution_2d)
                     solver_n_layers_int = NonlinearVariationalSolver(prob_n_layers_int,
                                                                      solver_parameters=self.options.timestepper_options.solver_parameters)
-                if update_water_level:
+                if self.options.update_free_surface:
                     if not solving_free_surface_eq:
                         solver_n_layers_int.solve()
                         #uv_2d.assign(self.uv_2d_mid)
                     else:
                         timestepper_free_surface.advance(self.simulation_time, update_forcings)
                         self.fields.elev_2d.assign(self.elev_2d_old)
-
-
 
             # Move to next time step
             self.iteration += 1

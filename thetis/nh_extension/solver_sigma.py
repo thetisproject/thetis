@@ -1,26 +1,25 @@
 """
-Module for vertical two dimensional solver in extruded mesh
+Module for vertical two dimensional solver in sigma mesh
 """
 from __future__ import absolute_import
-from .utility import *
-from . import shallowwater_vert2d
+from ..utility import *
+from . import shallowwater_nh
 from . import landslide_motion
-from . import momentum_nh
-from . import momentum_vert2d
-from . import tracer_vert2d
-from . import turbulence
-from . import coupled_timeintegrator
-from . import timeintegrator
-from . import rungekutta
+from . import momentum_sigma
+from . import tracer_sigma
+from .. import turbulence
+from .. import coupled_timeintegrator
+from .. import timeintegrator
+from .. import rungekutta
 import thetis.limiter as limiter
 import time as time_mod
 from mpi4py import MPI
-from . import exporter
+from .. import exporter
 import weakref
-from .field_defs import field_metadata
-from .options import ModelOptions3d
-from . import callback
-from .log import *
+from ..field_defs import field_metadata
+from ..options import ModelOptions3d
+from .. import callback
+from ..log import *
 from collections import OrderedDict
 
 g_grav = physical_constants['g_grav']
@@ -102,8 +101,9 @@ class FlowSolver(FrozenClass):
         """2D :class`Mesh`"""
         if extrude_options is None:
             extrude_options = {}
-        self.mesh = extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, **extrude_options)
-       # self.mesh = ExtrudedMesh(mesh2d, layers=n_layers, layer_height=1.0/n_layers)
+       # self.mesh = extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, **extrude_options)
+        self.mesh = ExtrudedMesh(mesh2d, layers=n_layers, layer_height=1.0/n_layers) # for sigma mesh formulation
+        self.horizontal_domain_is_2d = self.mesh2d.geometric_dimension() == 2
 
         self.normal_2d = FacetNormal(self.mesh2d)
         self.normal = FacetNormal(self.mesh)
@@ -423,11 +423,11 @@ class FlowSolver(FrozenClass):
             self.function_spaces.W = FunctionSpace(self.mesh, w_elt, name='W')  # w
         elif self.options.element_family == 'dg-dg':
             self.function_spaces.U = VectorFunctionSpace(self.mesh, 'DG', self.options.polynomial_degree,
-                                                         vfamily='DG', vdegree=0,#self.options.polynomial_degree,
+                                                         vfamily='DG', vdegree=self.options.polynomial_degree,
                                                          name='U')
             # NOTE for tracer consistency W should be equivalent to tracer space H
             self.function_spaces.W = VectorFunctionSpace(self.mesh, 'DG', self.options.polynomial_degree,
-                                                         vfamily='DG', vdegree=0,#self.options.polynomial_degree,
+                                                         vfamily='DG', vdegree=self.options.polynomial_degree,
                                                          name='W')
         else:
             raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
@@ -437,7 +437,7 @@ class FlowSolver(FrozenClass):
         self.function_spaces.Uint = self.function_spaces.U  # vertical integral of uv
         # tracers
         self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.polynomial_degree, vfamily='DG', vdegree=max(0, self.options.polynomial_degree), name='H')
-        self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.polynomial_degree, vfamily='DG', vdegree=0, name='H')
+       # self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.polynomial_degree, vfamily='DG', vdegree=0, name='H')
         self.function_spaces.turb_space = self.function_spaces.P0
 
         # 2D spaces
@@ -450,7 +450,10 @@ class FlowSolver(FrozenClass):
         if self.options.element_family == 'rt-dg':
             self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.polynomial_degree+1)
         elif self.options.element_family == 'dg-dg':
-            self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d')
+            if self.horizontal_domain_is_2d:
+                self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d')
+            else:
+                self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d')
         self.function_spaces.Uproj_2d = self.function_spaces.U_2d
         self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='H_2d')
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d], name='V_2d')
@@ -662,10 +665,12 @@ class FlowSolver(FrozenClass):
         self.bathymetry_dg = Function(self.function_spaces.H_2d).project(self.bathymetry_cg_2d)
         self.bathymetry_ls = Function(self.function_spaces.H_2d).project(self.bathymetry_cg_2d)
         self.bathymetry_wd = Function(self.function_spaces.P1_2d).project(self.bathymetry_cg_2d) # for wetting-drying use of 3D, temporarily
+        self.bathymetry_3d_old = Function(self.fields.bathymetry_3d.function_space())
         self.elev_2d_old = Function(self.function_spaces.H_2d)
         self.elev_2d_mid = Function(self.function_spaces.H_2d)
         self.elev_3d_old = Function(self.function_spaces.H)
         self.elev_3d_mid = Function(self.function_spaces.H)
+        self.elev_3d_star = Function(self.function_spaces.H)
 
         self.uv_2d_dg = Function(self.function_spaces.P1DGv_2d)
         self.uv_2d_old = Function(self.function_spaces.U_2d)
@@ -681,6 +686,8 @@ class FlowSolver(FrozenClass):
         self.w_interface = Function(self.function_spaces.H_2d)
         self.fields.w_nh = Function(self.function_spaces.H_2d)
         self.fields.q_3d = Function(FunctionSpace(self.mesh, 'CG', self.options.polynomial_degree+1))
+        self.q_3d_mid = Function(self.fields.q_3d.function_space())
+        self.q_3d_dq = Function(self.fields.q_3d.function_space())
         self.fields.q_2d = Function(self.function_spaces.P2_2d)
         self.q_2d_mid = Function(self.fields.q_2d.function_space())
         self.q_2d_old = Function(self.function_spaces.P2_2d)
@@ -737,17 +744,29 @@ class FlowSolver(FrozenClass):
         self.q_mixed_n_layers = Function(self.function_spaces.q_mixed_n_layers)
 
         coord_fs = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=1)
-        self.sigma_coord = Function(coord_fs).project(self.mesh.coordinates[1])
+        if self.horizontal_domain_is_2d:
+            self.sigma_coord = Function(coord_fs).project(self.mesh.coordinates[2])
+        else:
+            self.sigma_coord = Function(coord_fs).project(self.mesh.coordinates[1])
+
         self.z_in_sigma = Function(coord_fs)
         self.z_in_sigma_old = Function(coord_fs)
         self.fields.sigma_dt = Function(coord_fs)
         self.fields.sigma_dx = Function(coord_fs)
-        self.fields.omega = Function(coord_fs)
+        self.fields.sigma_dy = Function(coord_fs)
        # self.fields.sigma_dz = Function(coord_fs)
+        self.fields.omega = Function(coord_fs)
 
         # p1dg 3d functions
         self.uv_3d_p1dg = Function(self.function_spaces.P1DGv)
         self.tracer_3d_p1dg = Function(self.function_spaces.P1DG)
+
+        if self.options.solve_salinity:
+            self.salt_3d_old = Function(self.function_spaces.H)
+            self.salt_3d_mid = Function(self.function_spaces.H)
+        if self.options.solve_temperature:
+            self.temp_3d_old = Function(self.function_spaces.H)
+            self.temp_3d_mid = Function(self.function_spaces.H)
 
     def create_equations(self):
         """
@@ -763,24 +782,24 @@ class FlowSolver(FrozenClass):
             filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
             output_logger.addHandler(filehandler)
 
-        self.eq_sw = shallowwater_vert2d.ModeSplit2DEquations(
+        self.eq_sw = shallowwater_nh.ModeSplit2DEquations(
             self.fields.solution_2d.function_space(),
             self.bathymetry_dg,
             self.options)
 
-        self.eq_sw_nh = shallowwater_vert2d.ShallowWaterEquations(
+        self.eq_sw_nh = shallowwater_nh.ShallowWaterEquations(
             self.fields.solution_2d.function_space(),
             self.bathymetry_dg,
             self.options)
 
-        self.eq_sw_mom = shallowwater_vert2d.ShallowWaterMomentumEquation(
+        self.eq_sw_mom = shallowwater_nh.ShallowWaterMomentumEquation(
             TestFunction(self.function_spaces.U_2d),
             self.function_spaces.U_2d,
             self.function_spaces.H_2d,
             self.bathymetry_dg,
             self.options)
 
-        self.eq_free_surface = shallowwater_vert2d.FreeSurfaceEquation(
+        self.eq_free_surface = shallowwater_nh.FreeSurfaceEquation(
             TestFunction(self.function_spaces.H_2d),
             self.function_spaces.H_2d,
             self.function_spaces.U_2d,
@@ -799,18 +818,8 @@ class FlowSolver(FrozenClass):
             self.options)
         self.eq_ls.bnd_functions = self.bnd_functions['landslide_motion']
 
-        # solve vertical momentum equation
-        ##################################
-        self.eq_momentum_vert = momentum_vert2d.VertMomentumEquation(self.fields.w_3d.function_space(),
-                                                                 bathymetry=self.fields.bathymetry_3d,
-                                                                 v_elem_size=self.fields.v_elem_size_3d,
-                                                                 h_elem_size=self.fields.h_elem_size_3d,
-                                                                 use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
-                                                                 use_symmetric_surf_bnd=False) # seems False is better for bb_bar case, but not significant
-        ##################################
-
         expl_bottom_friction = self.options.use_bottom_friction and not self.options.use_implicit_vertical_diffusion
-        self.eq_momentum = momentum_vert2d.MomentumEquation(self.fields.uv_3d.function_space(),
+        self.eq_momentum = momentum_sigma.MomentumEquation(self.fields.uv_3d.function_space(),
                                                         bathymetry=self.fields.bathymetry_3d,
                                                         v_elem_size=self.fields.v_elem_size_3d,
                                                         h_elem_size=self.fields.h_elem_size_3d,
@@ -819,7 +828,7 @@ class FlowSolver(FrozenClass):
                                                         use_bottom_friction=expl_bottom_friction)
 
         if self.options.use_implicit_vertical_diffusion:
-            self.eq_vertmomentum = momentum_vert2d.MomentumEquation(self.fields.uv_3d.function_space(),
+            self.eq_vertmomentum = momentum_sigma.MomentumEquation(self.fields.uv_3d.function_space(),
                                                                 bathymetry=self.fields.bathymetry_3d,
                                                                 v_elem_size=self.fields.v_elem_size_3d,
                                                                 h_elem_size=self.fields.h_elem_size_3d,
@@ -827,28 +836,28 @@ class FlowSolver(FrozenClass):
                                                                 use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
                                                                 use_bottom_friction=self.options.use_bottom_friction)
         if self.options.solve_salinity:
-            self.eq_salt = tracer_vert2d.TracerEquation(self.fields.salt_3d.function_space(),
+            self.eq_salt = tracer_sigma.TracerEquation(self.fields.salt_3d.function_space(),
                                                     bathymetry=self.fields.bathymetry_3d,
                                                     v_elem_size=self.fields.v_elem_size_3d,
                                                     h_elem_size=self.fields.h_elem_size_3d,
                                                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
                                                     use_symmetric_surf_bnd=self.options.element_family == 'dg-dg')
             if self.options.use_implicit_vertical_diffusion:
-                self.eq_salt_vdff = tracer_vert2d.TracerEquation(self.fields.salt_3d.function_space(),
+                self.eq_salt_vdff = tracer_sigma.TracerEquation(self.fields.salt_3d.function_space(),
                                                              bathymetry=self.fields.bathymetry_3d,
                                                              v_elem_size=self.fields.v_elem_size_3d,
                                                              h_elem_size=self.fields.h_elem_size_3d,
                                                              use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
 
         if self.options.solve_temperature:
-            self.eq_temp = tracer_vert2d.TracerEquation(self.fields.temp_3d.function_space(),
+            self.eq_temp = tracer_sigma.TracerEquation(self.fields.temp_3d.function_space(),
                                                     bathymetry=self.fields.bathymetry_3d,
                                                     v_elem_size=self.fields.v_elem_size_3d,
                                                     h_elem_size=self.fields.h_elem_size_3d,
                                                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
                                                     use_symmetric_surf_bnd=self.options.element_family == 'dg-dg')
             if self.options.use_implicit_vertical_diffusion:
-                self.eq_temp_vdff = tracer_vert2d.TracerEquation(self.fields.temp_3d.function_space(),
+                self.eq_temp_vdff = tracer_sigma.TracerEquation(self.fields.temp_3d.function_space(),
                                                              bathymetry=self.fields.bathymetry_3d,
                                                              v_elem_size=self.fields.v_elem_size_3d,
                                                              h_elem_size=self.fields.h_elem_size_3d,
@@ -856,7 +865,6 @@ class FlowSolver(FrozenClass):
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         self.eq_momentum.bnd_functions = self.bnd_functions['momentum']
-        self.eq_momentum_vert.bnd_functions = self.bnd_functions['momentum']
         if self.options.solve_salinity:
             self.eq_salt.bnd_functions = self.bnd_functions['salt']
         if self.options.solve_temperature:
@@ -864,12 +872,12 @@ class FlowSolver(FrozenClass):
         if self.options.use_turbulence and self.options.turbulence_model_type == 'gls':
             if self.options.use_turbulence_advection:
                 # explicit advection equations
-                self.eq_tke_adv = tracer_vert2d.TracerEquation(self.fields.tke_3d.function_space(),
+                self.eq_tke_adv = tracer_sigma.TracerEquation(self.fields.tke_3d.function_space(),
                                                            bathymetry=self.fields.bathymetry_3d,
                                                            v_elem_size=self.fields.v_elem_size_3d,
                                                            h_elem_size=self.fields.h_elem_size_3d,
                                                            use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
-                self.eq_psi_adv = tracer_vert2d.TracerEquation(self.fields.psi_3d.function_space(),
+                self.eq_psi_adv = tracer_sigma.TracerEquation(self.fields.psi_3d.function_space(),
                                                            bathymetry=self.fields.bathymetry_3d,
                                                            v_elem_size=self.fields.v_elem_size_3d,
                                                            h_elem_size=self.fields.h_elem_size_3d,
@@ -923,11 +931,15 @@ class FlowSolver(FrozenClass):
                                                tot_uv_3d,
                                                self.fields.bathymetry_3d,
                                                self.eq_momentum.bnd_functions)
+        if self.horizontal_domain_is_2d:
+            zero_bnd_value = Constant((0.0, 0.0, 0.0))
+        else:
+            zero_bnd_value = Constant((0.0, 0.0))
         self.uv_averager = VerticalIntegrator(self.fields.uv_3d,
                                               self.fields.uv_dav_3d,
                                               bottom_to_top=True,
-                                              bnd_value=Constant((0.0, 0.0)),
-                                              average=True,
+                                              bnd_value=zero_bnd_value,
+                                              average=False,
                                               bathymetry=self.fields.bathymetry_3d,
                                               elevation=self.fields.elev_cg_3d)
         if self.options.use_baroclinic_formulation:
@@ -960,7 +972,7 @@ class FlowSolver(FrozenClass):
                                                      average=False,
                                                      bathymetry=self.fields.bathymetry_3d,
                                                      elevation=self.fields.elev_cg_3d)
-            self.int_pg_calculator = momentum_vert2d.InternalPressureGradientCalculator(
+            self.int_pg_calculator = momentum_sigma.InternalPressureGradientCalculator(
                 self.fields, self.options,
                 self.bnd_functions['momentum'],
                 solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
@@ -1212,38 +1224,6 @@ class FlowSolver(FrozenClass):
                                  u=norm_u, cpu=cputime))
         sys.stdout.flush()
 
-    def update_mid_uv(self, uv_3d, elev=None):
-        """
-        Average vertically 3D function, extract to 2d and expand to 3d
-
-        :arg uv_3d: Input horizontal velocity
-        :type uv_3d: vector valued 3D :class:`Function`
-        :kwarg elev: Depth used for depth-averaged operator
-        :type elev: scalar valued 3D :class:`CG Function`
-        """
-        self.uv_3d_mid.assign(uv_3d)
-        if self.options.use_ale_moving_mesh:
-            self.elev_3d_to_cg_projector.project()
-        elevation = self.fields.elev_cg_3d
-        if elev is not None:
-            elevtion = elev
-        mid_uv_averager = VerticalIntegrator(self.uv_3d_mid,
-                                             self.uv_dav_3d_mid,
-                                             bottom_to_top=True,
-                                             bnd_value=Constant((0.0, 0.0, 0.0)),
-                                             average=True,
-                                             bathymetry=self.fields.bathymetry_3d,
-                                             elevation=elevation)
-        mid_extract_surf_dav_uv = SubFunctionExtractor(self.uv_dav_3d_mid,
-                                                       self.uv_dav_2d_mid,
-                                                       boundary='top', elem_facet='top',
-                                                       elem_height=self.fields.v_elem_size_2d)
-        mid_copy_uv_dav_to_uv_dav_3d = ExpandFunctionTo3d(self.uv_dav_2d_mid, self.uv_dav_3d_mid,
-                                                          elem_height=self.fields.v_elem_size_3d)
-        mid_uv_averager.solve()
-        mid_extract_surf_dav_uv.solve()
-        mid_copy_uv_dav_to_uv_dav_3d.solve()
-
     def solve_poisson_eq(self, q, uv_3d, w_3d, A=None, B=None, C=None, multi_layers=True):
         """
         Solve Poisson equation in two modes controlled by parameter `multi_layers'.
@@ -1351,7 +1331,7 @@ class FlowSolver(FrozenClass):
                           self.normal[1]*test[1])
             f += g_grav*eta*n_dot_test*(ds_bottom + ds_surf)
             for bnd_marker in self.boundary_markers:
-                funcs = self.bnd_functions['shallow_water'].get(bnd_marker)
+                funcs = self.bnd_functions['momentum'].get(bnd_marker)
                 ds_bnd = ds_v(int(bnd_marker), degree=quad_degree)
                 if eta is not None:
                     if funcs is not None and 'elev3dxx' in funcs:
@@ -1383,37 +1363,45 @@ class FlowSolver(FrozenClass):
             a = g_grav*inner(trial, test) * dx
             l = f
         #####
-        #a = inner(trial, test) * dx
-        #l = g_grav*(Dx(eta, 0)*test[0] + Dx(eta, 1)*test[1]) * dx
-        #l = dot(grad(eta), test)*dx
-        #solve(a == l, self.fields.ext_pg_3d)
+        a = inner(trial, test) * dx
+        l = g_grav * (eta + self.fields.bathymetry_3d) * (Dx(eta, 0)*test[0]) * dx
+        l = g_grav*dot(grad(eta), test)*dx
+        solve(a == l, self.fields.ext_pg_3d)
         #####
-        prob = LinearVariationalProblem(a, l, self.fields.ext_pg_3d)
-        lin_solver = LinearVariationalSolver(prob, solver_parameters= \
-                     self.options.timestepper_options.solver_parameters_momentum_explicit)
+       # prob = LinearVariationalProblem(a, l, self.fields.ext_pg_3d)
+       # lin_solver = LinearVariationalSolver(prob, solver_parameters= \
+       #              self.options.timestepper_options.solver_parameters_momentum_explicit)
+#
+       # lin_solver.solve()
 
-        lin_solver.solve()
-
-    def set_sponge_damping(self, length, x_start, y_start = None, alpha = 10.):
+    def set_sponge_damping(self, length, x_start, y_start =None, alpha=10., sponge_is_2d=True):
         """
         Set damping terms to reduce the reflection on solid boundaries.
         """
         if length == [0., 0.]:
             return None
-        damping_coeff = Function(self.function_spaces.P1_2d)
-        mesh2d = damping_coeff.ufl_domain()
-        xvector = mesh2d.coordinates.dat.data
-        if mesh2d.coordinates.sub(0).dat.data.max() <= x_start[0] + length[0]:
+        if sponge_is_2d is True:
+            damping_coeff = Function(self.function_spaces.P1_2d)
+        else:
+            damping_coeff = Function(self.function_spaces.P1)
+        damp_vector = damping_coeff.dat.data[:]
+        mesh = damping_coeff.ufl_domain()
+        if (not self.horizontal_domain_is_2d) and sponge_is_2d:
+            xvector = mesh.coordinates.dat.data[:]
+        else:
+            xvector = mesh.coordinates.dat.data[:, 0]
+
+        if mesh.coordinates.sub(0).dat.data.max() <= x_start[0] + length[0]:
             length[0] = xvector.max() - x_start[0]
             #if length[0] < 0:
                 #print('Start point of the first sponge layer is out of computational domain!')
                 #raise ValueError('Start point of the first sponge layer is out of computational domain!')
-        if mesh2d.coordinates.sub(0).dat.data.max() <= x_start[1] + length[1]:
+        if mesh.coordinates.sub(0).dat.data.max() <= x_start[1] + length[1]:
             length[1] = xvector.max() - x_start[1]
             #if length[1] < 0:
                 #print('Start point of the second sponge layer is out of computational domain!')
                 #raise ValueError('Start point of the second sponge layer is out of computational domain!')
-        damp_vector = damping_coeff.dat.data
+
         assert xvector.shape[0] == damp_vector.shape[0]
         for i, xy in enumerate(xvector):
             pi = 4*np.arctan(1.)
@@ -1516,33 +1504,6 @@ class FlowSolver(FrozenClass):
 
         return hs
 
-    def update_terms_in_omega(self, elev, bath, solver_parameters={}):
-        """
-        z_in_sigma = Function(fs_hw) = z(t) = sigma*h_tot - d
-        sigma_dz = 1./h_tot
-        sigma_dt = Function(fs_hw) = -sigma_dz*z(t)_t
-        sigma_dx = Function(fs_hw) = -sigma_dz*z(t)_x
-        """
-        solver_parameters.setdefault('ksp_atol', 1e-12)
-        solver_parameters.setdefault('ksp_rtol', 1e-16)
-        h_tot = elev + bath
-        sigma_dz = 1./h_tot
-        tri = TrialFunction(self.z_in_sigma.function_space())
-        test = TestFunction(self.z_in_sigma.function_space())
-        a = tri*test*dx
-        l = (self.sigma_coord*h_tot - bath)*test*dx
-        solve(a == l, self.z_in_sigma, solver_parameters=solver_parameters)
-
-   #     z_in_sigma.project(self.sigma_coord*h_tot - bath)
-        l = -sigma_dz*(self.z_in_sigma - self.z_in_sigma_old)/self.dt*test*dx
-        solve(a == l, self.fields.sigma_dt, solver_parameters=solver_parameters)
-
-        l = -sigma_dz*Dx(self.z_in_sigma, 0)*test*dx
-        solve(a == l, self.fields.sigma_dx, solver_parameters=solver_parameters)
-
-        l = (self.fields.sigma_dt + self.fields.uv_3d[0]*self.fields.sigma_dx + self.fields.w_3d[1]*sigma_dz)*test*dx
-        solve(a == l, self.fields.omega)
-
     def iterate(self, update_forcings=None, update_forcings3d=None,
                 export_func=None):
         """
@@ -1621,24 +1582,24 @@ class FlowSolver(FrozenClass):
         # split solution to facilitate the following
         uv_2d_old, elev_2d_old = self.solution_2d_old.split()
         uv_2d, elev_2d = self.fields.solution_2d.split()
-        uta_old, eta_old = split(self.solution_2d_old) # note: not '.split()'
-        uta, eta = split(self.fields.solution_2d)
+        uta_2d_old, eta_2d_old = split(self.solution_2d_old) # note: not '.split()'
+        uta_2d, eta_2d = split(self.fields.solution_2d)
         # functions associated with landslide
         uv_ls_old, elev_ls_old = self.solution_ls_old.split()
         uv_ls, elev_ls = self.fields.solution_ls.split()
         uta_ls_old, eta_ls_old = split(self.solution_ls_old) # note: not '.split()'
         uta_ls, eta_ls = split(self.fields.solution_ls)
         # trial and test functions used to update
-        uv_tri = TrialFunction(self.function_spaces.U_2d)
-        uv_test = TestFunction(self.function_spaces.U_2d)
-        w_tri = TrialFunction(self.function_spaces.H_2d)
-        w_test = TestFunction(self.function_spaces.H_2d)
-        uta_test, eta_test = TestFunctions(self.fields.solution_2d.function_space())
+        tri_uv_2d = TrialFunction(self.function_spaces.U_2d)
+        test_uv_2d = TestFunction(self.function_spaces.U_2d)
+        tri_elev_2d = TrialFunction(self.function_spaces.H_2d)
+        test_elev_2d = TestFunction(self.function_spaces.H_2d)
+        test_uta_2d, test_eta_2d = TestFunctions(self.fields.solution_2d.function_space())
         # for 3d velocities
-        uv_tri_3d = TrialFunction(self.fields.uv_3d.function_space())
-        uv_test_3d = TestFunction(self.fields.uv_3d.function_space())
-        w_tri_3d = TrialFunction(self.fields.w_3d.function_space())
-        w_test_3d = TestFunction(self.fields.w_3d.function_space())
+        tri_uv_3d = TrialFunction(self.function_spaces.U)
+        test_uv_3d = TestFunction(self.function_spaces.U)
+        tri_h_3d = TrialFunction(self.function_spaces.H)
+        test_h_3d = TestFunction(self.function_spaces.H)
 
         # initial export
         self.print_state(0.0)
@@ -1650,6 +1611,11 @@ class FlowSolver(FrozenClass):
                 self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
         while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
+
+            hydrostatic_solver_2d = False #TODO use more common set control
+            hydrostatic_solver_3d = False
+            conventional_3d_NH_solver = True
+
             # Original mode-splitting method
             #self.timestepper.advance(self.simulation_time,
             #                         update_forcings, update_forcings3d)
@@ -1662,8 +1628,12 @@ class FlowSolver(FrozenClass):
             self.solution_2d_old.assign(self.fields.solution_2d)
             self.solution_ls_old.assign(self.fields.solution_ls)
             self.bathymetry_dg_old.assign(self.bathymetry_dg)
+            self.bathymetry_3d_old.assign(self.fields.bathymetry_3d)
 
-            self.z_in_sigma_old.assign(self.z_in_sigma)
+            if self.options.solve_salinity:
+                self.salt_3d_old.assign(self.fields.salt_3d)
+            if self.options.solve_temperature:
+                self.temp_3d_old.assign(self.fields.temp_3d)
 
             # ----- Self-defined time integrator for layer-integrated NH solver
             fields_dav = {
@@ -1675,7 +1645,7 @@ class FlowSolver(FrozenClass):
                     'coriolis': self.options.coriolis_frequency,
                     'wind_stress': self.options.wind_stress,
                     'atmospheric_pressure': self.options.atmospheric_pressure,
-                    'momentum_source': self.options.momentum_source_2d,
+                    'momentum_source': self.fields.split_residual_2d,#self.options.momentum_source_2d,
                     'volume_source': self.options.volume_source_2d,
                     'w_nh': self.fields.w_nh,
                     'uv_nh': self.fields.uv_nh,
@@ -1688,7 +1658,8 @@ class FlowSolver(FrozenClass):
                     'ext_pressure': self.fields.q_2d + self.options.rho_water*g_grav*(self.bathymetry_dg + self.fields.elev_2d),
                     'dudy': self.dudy,
                     'dvdx': self.dvdx,
-                    'sponge_damping': self.set_sponge_damping(self.options.sponge_layer_length, self.options.sponge_layer_xstart, alpha = 10.),}
+                    'sponge_damping_2d': self.set_sponge_damping(self.options.sponge_layer_length, self.options.sponge_layer_xstart, alpha=10., sponge_is_2d=True),
+                         }
 
             solver_parameters = {'snes_type': 'newtonls', # ksponly, newtonls
                                  'ksp_type': 'gmres', # gmres, preonly
@@ -1697,11 +1668,20 @@ class FlowSolver(FrozenClass):
 
             if self.simulation_time <= t_epsilon:
                 # timestepper for operator splitting in 3D NH solver
+                if hydrostatic_solver_3d or self.options.use_operator_splitting:
+                    theta_os = 0.5
+                else:
+                    theta_os = 1.0
                 timestepper_operator_splitting = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
                                                               fields_dav, self.dt, bnd_conditions=self.bnd_functions['shallow_water'],
                                                               solver_parameters=solver_parameters,
                                                               semi_implicit=False,
-                                                              theta=0.5)
+                                                              theta=theta_os)
+                timestepper_operator_splitting_explicit = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
+                                                              fields_dav, self.dt, bnd_conditions=self.bnd_functions['shallow_water'],
+                                                              solver_parameters=solver_parameters,
+                                                              semi_implicit=False,
+                                                              theta=0.)
                 # timestepper for depth-integrated NH solver
                 timestepper_depth_integrated = timeintegrator.CrankNicolson(self.eq_sw_nh, self.fields.solution_2d,
                                                               fields_dav, self.dt,
@@ -1709,59 +1689,26 @@ class FlowSolver(FrozenClass):
                                                               solver_parameters=solver_parameters,
                                                               semi_implicit=False,
                                                               theta=0.5)
+
                 # timestepper for free surface equation
-                timestepper_free_surface = timeintegrator.CrankNicolson(self.eq_free_surface, self.elev_2d_old,
+                if self.options.use_operator_splitting:
+                    theta_fs = 0.5
+                else:
+                    theta_fs = 1.0
+                timestepper_free_surface = timeintegrator.CrankNicolson(self.eq_free_surface, self.elev_2d_mid,
                                                               fields_dav, self.dt,
                                                               bnd_conditions=self.bnd_functions['shallow_water'],
                                                               # solver_parameters=solver_parameters,
                                                               semi_implicit=False,
-                                                              theta=0.5)
+                                                              theta=theta_fs)
 
-                fields_mom = {'eta': self.fields.elev_3d,
-                          'int_pg': self.fields.get('int_pg_3d'),
-                          'ext_pg': self.fields.get('ext_pg_3d'),
-                          'uv_3d': self.fields.uv_3d,
-                          'uv_depth_av': self.fields.get('uv_dav_3d'),
-                          'w': self.fields.w_3d,
-                          'w_mesh': self.fields.get('w_mesh_3d'),
-                          'viscosity_h': self.tot_h_visc.get_sum(),
-                          'viscosity_v': self.tot_v_visc.get_sum(), # for not self.options.use_implicit_vertical_diffusion
-                          'source': self.options.momentum_source_3d,
-                          # 'uv_mag': self.fields.uv_mag_3d,
-                          'uv_p1': self.fields.get('uv_p1_3d'),
-                          'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
-                          'coriolis': self.fields.get('coriolis_3d'),
-                          'sigma_dt': self.fields.sigma_dt,
-                          'sigma_dx': self.fields.sigma_dt,
-                          'omega': self.fields.omega,
-                              }
-                # timestepper for horizontal momentum equation
-                timestepper_momentum_hori_crank = timeintegrator.CrankNicolson(self.eq_momentum, self.fields.uv_3d, 
-                                                              fields_mom, self.dt,
-                                                              bnd_conditions=self.bnd_functions['momentum'],
-                                                              solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
-                # timestepper for vertical momentum equation
-                timestepper_momentum_vert_ssprk = timeintegrator.SSPRK22ALE(self.eq_momentum_vert, self.fields.w_3d, 
-                                                              fields_mom, self.dt,
-                                                              bnd_conditions=self.bnd_functions['momentum'],
-                                                              solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
-                timestepper_momentum_vert_crank = timeintegrator.CrankNicolson(self.eq_momentum_vert, self.fields.w_3d, 
-                                                              fields_mom, self.dt,
-                                                              bnd_conditions=self.bnd_functions['momentum'],
-                                                              solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
-
-                print_output('Using time integrator scheme: {:}'.format(timestepper_depth_integrated.__class__.__name__))
-                timestepper_operator_splitting.initialize(self.fields.solution_2d)
-                timestepper_depth_integrated.initialize(self.fields.solution_2d)
-                timestepper_free_surface.initialize(self.elev_2d_old)
-                timestepper_momentum_hori_crank.initialize(self.fields.uv_3d)
-                timestepper_momentum_vert_ssprk.initialize(self.fields.w_3d)
-                timestepper_momentum_vert_crank.initialize(self.fields.w_3d)
-
-            hydrostatic_solver_2d = False
-            hydrostatic_solver_3d = False
-            conventional_3d_NH_solver = True
-
+                # timestepper for only elevation gradient term
+                timestepper_mom_2d = timeintegrator.CrankNicolson(self.eq_sw_mom, self.uv_2d_mid,
+                                                              fields_dav, self.dt,
+                                                              bnd_conditions=self.bnd_functions['shallow_water'],
+                                                              # solver_parameters=solver_parameters,
+                                                              semi_implicit=False,
+                                                              theta=0.)
 
             # --- Hydrostatic solver ---
             if hydrostatic_solver_2d:
@@ -1820,54 +1767,33 @@ class FlowSolver(FrozenClass):
             # Two-stage second-order nonlinear Strong Stability-Preserving (SSP) Runge\A8CKutta scheme
             # Gottlieb et al., 2001. doi: https://doi.org/10.1137/S003614450036757X
             elif conventional_3d_NH_solver:
-                self.bathymetry_cg_2d.project(self.bathymetry_dg)
-                ExpandFunctionTo3d(self.bathymetry_cg_2d, self.fields.bathymetry_3d).solve() # for landslide
 
-                n_stages = 2
-                use_ssprk_time_integrator = True
-                solve_elevation_outside = False
-                solve_q_inside = False
-                solve_mom_with_old_pressure = False
-                # if false, solving in sigma mesh; 
-                # note to change setting about self.mesh, vertvelo and self.uv_averager(average=True)
-                solve_q_in_extruded_mesh = True
-                rigid_free_surface = not False # e.g. lock exchange case without free surface
+                if self.options.landslide:
+                    self.bathymetry_cg_2d.project(self.bathymetry_dg)
+                    ExpandFunctionTo3d(self.bathymetry_cg_2d, self.fields.bathymetry_3d).solve() # for landslide
 
-                # solve external pressure gradient term first
-                if solve_elevation_outside and (not rigid_free_surface):
-                    self.uv_averager.solve()
-                    self.extract_surf_dav_uv.solve()
-                    self.fields.uv_2d.assign(self.fields.uv_dav_2d)
-                    self.copy_uv_dav_to_uv_dav_3d.solve()
-                    self.uv_dav_3d_mid.assign(self.fields.uv_dav_3d)
-                    self.timestepper.store_elevation(0)
-                    timestepper_operator_splitting.advance(self.simulation_time, update_forcings)
-                    # update mesh velocity
-                    self.timestepper.compute_mesh_velocity(0)
-                    # update uv_3d
-                    self.copy_uv_to_uv_dav_3d.solve()
-                    self.fields.uv_3d.project(self.fields.uv_3d - (self.uv_dav_3d_mid - self.fields.uv_dav_3d))
-                    # update mesh
-                    self.copy_elev_to_3d.solve()
-                    if self.options.use_ale_moving_mesh:
-                        self.mesh_updater.update_mesh_coordinates()
-                    solve_mom_with_old_pressure = False
-
-                if solve_mom_with_old_pressure:
-                    self.calculate_external_pressure_gradient(pressure='elevation') # update self.fields.ext_pg_3d
-                    solve_elevation_outside = True
-
-                # set solvers for terms in omega
                 if self.simulation_time <= t_epsilon:
-                    tri = TrialFunction(self.z_in_sigma.function_space())
-                    test = TestFunction(self.z_in_sigma.function_space())
-                    sigma_dz = 1./(self.fields.elev_3d + self.fields.bathymetry_3d)
-                    a_omega = tri*test*dx
-                    l_sigma_dt = -sigma_dz*(self.z_in_sigma - self.z_in_sigma_old)/self.dt*test*dx
-                    l_sigma_dx = -sigma_dz*Dx(self.z_in_sigma, 0)*test*dx
-                    l_omega = -sigma_dz*(self.z_in_sigma - self.z_in_sigma_old)/self.dt*test*dx + \
-                               self.fields.uv_3d[0]*(-sigma_dz)*Dx(self.z_in_sigma, 0)*test*dx + \
-                               self.fields.w_3d[1]*sigma_dz*test*dx
+                    uv_3d = self.fields.uv_3d
+                    sigma_coord = self.sigma_coord
+                    z_in_sigma = sigma_coord*self.fields.elev_3d + (sigma_coord - 1.)*self.fields.bathymetry_3d
+                    z_in_sigma_old = sigma_coord*self.elev_3d_old + (sigma_coord - 1.)*self.bathymetry_3d_old
+                    h_total = self.fields.elev_3d + self.fields.bathymetry_3d
+
+                    # solvers for terms in omega
+                    tri_omega = TrialFunction(self.z_in_sigma.function_space())
+                    test_omega = TestFunction(self.z_in_sigma.function_space())
+                    sigma_dz = 1./h_total
+                    sigma_dx = -sigma_dz*Dx(z_in_sigma, 0)
+                    a_omega = tri_omega*test_omega*dx
+                    l_sigma_dt = -sigma_dz*(z_in_sigma - z_in_sigma_old)/self.dt*test_omega*dx
+                    l_sigma_dx = sigma_dx*test_omega*dx
+                    l_omega = (self.fields.sigma_dt + uv_3d[0]*self.fields.sigma_dx + sigma_dz*uv_3d[1])*test_omega*dx
+                    if self.horizontal_domain_is_2d:
+                        l_omega = (self.fields.sigma_dt + uv_3d[0]*self.fields.sigma_dx + uv_3d[1]*self.fields.sigma_dy + sigma_dz*uv_3d[2])*test_omega*dx
+                        sigma_dy = -sigma_dz*Dx(z_in_sigma, 1)
+                        l_sigma_dy = sigma_dy*test_omega*dx
+                        prob_sigma_dy = LinearVariationalProblem(a_omega, l_sigma_dy, self.fields.sigma_dy)
+                        solver_sigma_dy = LinearVariationalSolver(prob_sigma_dy)
                     prob_sigma_dt = LinearVariationalProblem(a_omega, l_sigma_dt, self.fields.sigma_dt)
                     prob_sigma_dx = LinearVariationalProblem(a_omega, l_sigma_dx, self.fields.sigma_dx)
                     prob_omega = LinearVariationalProblem(a_omega, l_omega, self.fields.omega)
@@ -1875,90 +1801,210 @@ class FlowSolver(FrozenClass):
                     solver_sigma_dx = LinearVariationalSolver(prob_sigma_dx)
                     solver_omega = LinearVariationalSolver(prob_omega)
 
-                if use_ssprk_time_integrator:
+                    # solver for the Poisson equation
+                    q_3d = self.fields.q_3d
+                    if self.options.use_pressure_correction:
+                        q_3d = self.q_3d_dq
+                    test_q = TestFunction(q_3d.function_space())
+                    if self.horizontal_domain_is_2d:
+                        lhs = -Dx(test_q, 0)*(Dx(q_3d, 0) + Dx(q_3d, 2)*sigma_dx)*dx - Dx(test_q, 1)*(Dx(q_3d, 1) + Dx(q_3d, 2)*sigma_dy)*dx - \
+                              (sigma_dx**2 + sigma_dy**2 + sigma_dz**2)*Dx(test_q, 2)*Dx(q_3d, 2)*dx - \
+                              Dx(sigma_dx*test_q, 2)*Dx(q_3d, 0)*dx - Dx(sigma_dy*test_q, 2)*Dx(q_3d, 1)*dx - \
+                              sigma_dz*(Dx(h_total, 0)*sigma_dx + Dx(h_total, 1)*sigma_dy)*Dx(q_3d, 2)*test_q*dx
+                       # lhs = -Dx(test_q, 0)*Dx(q_3d, 0)*dx - Dx(test_q, 1)*Dx(q_3d, 1)*dx - (sigma_dx**2 + sigma_dy**2 + sigma_dz**2)*Dx(test_q, 2)*Dx(q_3d, 2)*dx - \
+                       #        sigma_dx*(Dx(test_q, 0)*Dx(q_3d, 2) + Dx(test_q, 2)*Dx(q_3d, 0))*dx - \
+                       #        sigma_dy*(Dx(test_q, 1)*Dx(q_3d, 2) + Dx(test_q, 2)*Dx(q_3d, 1))*dx - \
+                       #        Dx(test_q*(Dx(sigma_dx, 0) + Dx(sigma_dx, 2)*sigma_dx + Dx(sigma_dy, 0) + Dx(sigma_dy, 2)*sigma_dy), 2)*q_3d*dx
+                        rhs = -rho_0/self.dt*(Dx(test_q, 0)*uv_3d[0] + Dx(sigma_dx*test_q, 2)*uv_3d[0] +
+                                              Dx(test_q, 1)*uv_3d[1] + Dx(sigma_dy*test_q, 2)*uv_3d[1] + 
+                                              Dx(sigma_dz*test_q, 2)*uv_3d[2])*dx
+                    else:
+                        lhs = -Dx(test_q, 0)*(Dx(q_3d, 0) + Dx(q_3d, 1)*sigma_dx)*dx - \
+                              (sigma_dx**2 + sigma_dz**2)*Dx(test_q, 1)*Dx(q_3d, 1)*dx - \
+                              Dx(sigma_dx*test_q, 1)*Dx(q_3d, 0)*dx - \
+                              sigma_dz*(Dx(h_total, 0)*sigma_dx)*Dx(q_3d, 1)*test_q*dx
+                        rhs = -rho_0/self.dt*(Dx(test_q, 0)*uv_3d[0] + Dx(sigma_dx*test_q, 1)*uv_3d[0] +
+                                              Dx(sigma_dz*test_q, 1)*uv_3d[1])*dx
+                       # old version below
+                       # lhs = -Dx(test_q, 0)*Dx(q_3d, 0)*dx - (sigma_dx**2 + sigma_dz**2)*Dx(test_q, 1)*Dx(q_3d, 1)*dx - \
+                       #        sigma_dx*(Dx(test_q, 0)*Dx(q_3d, 1) + Dx(test_q, 1)*Dx(q_3d, 0))*dx - \
+                       #        Dx(test_q*(Dx(sigma_dx, 0) + Dx(sigma_dx, 1)*sigma_dx), 1)*q_3d*dx
+                       # rhs = -rho_0/self.dt*(Dx(test_q, 0)*uv_3d[0] + Dx(sigma_dx*test_q, 1)*uv_3d[0] + Dx(sigma_dz*test_q, 1)*uv_3d[1])*dx
+                    F = lhs - rhs
+                    # boundary conditions: to refer to the top and bottom use "top" and "bottom"
+                    # for other boundaries use the normal numbers (ids) from the horizontal mesh
+                    # (UnitSquareMesh automatically defines 1,2,3, and 4)
+                    bc_top = DirichletBC(q_3d.function_space(), 0., "top")
+                    bcs = [bc_top]
+                    if not self.options.update_free_surface:
+                        bcs = []
+                    for bnd_marker in self.boundary_markers:
+                        func = self.bnd_functions['shallow_water'].get(bnd_marker)
+                        if func is not None: #TODO set more general and accurate conditional statement
+                            bc = DirichletBC(q_3d.function_space(), 0., int(bnd_marker))
+                            bcs.append(bc)
+                    prob = NonlinearVariationalProblem(F, q_3d, bcs=bcs)
+                    solver_q = NonlinearVariationalSolver(prob,
+                                                    solver_parameters={'snes_type': 'ksponly',#'newtonls''ksponly', final: 'ksponly'
+                                                                       'ksp_type': 'gmres',#'gmres''preonly',              'gmres'
+                                                                       'pc_type': 'gamg'},#'ilu''gamg',                     'ilu'
+                                                    bcs=bcs,
+                                                    options_prefix='poisson_solver')
+
+                    # solver for updating uv_3d
+                    a_u = dot(tri_uv_3d, test_uv_3d)*dx
+                    if self.horizontal_domain_is_2d:
+                        l_u = dot(uv_3d, test_uv_3d)*dx - self.dt/rho_0*((Dx(q_3d, 0) + Dx(q_3d, 2)*sigma_dx)*test_uv_3d[0] +
+                                                                         (Dx(q_3d, 1) + Dx(q_3d, 2)*sigma_dy)*test_uv_3d[1] +
+                                                                         (Dx(q_3d, 2)*sigma_dz)*test_uv_3d[2])*dx
+                    else:
+                        l_u = dot(uv_3d, test_uv_3d)*dx - self.dt/rho_0*((Dx(q_3d, 0) + Dx(q_3d, 1)*sigma_dx)*test_uv_3d[0] +
+                                                                         (Dx(q_3d, 1)*sigma_dz)*test_uv_3d[1])*dx
+                    prob_u = LinearVariationalProblem(a_u, l_u, uv_3d)
+                    solver_u = LinearVariationalSolver(prob_u)
+
+                    # solver for advancing the momentum equation
+                    fields_3d = {'eta': self.fields.elev_3d,
+                          'int_pg': self.fields.get('int_pg_3d'),
+                          'ext_pg': self.fields.get('ext_pg_3d'),
+                          'uv_3d': self.fields.uv_3d,
+                          'uv_depth_av': self.fields.get('uv_dav_3d'),
+                          'w': self.fields.w_3d,
+                          'w_mesh': self.fields.get('w_mesh_3d'),
+                          'viscosity_h': self.tot_h_visc.get_sum(),
+                          'viscosity_v': self.tot_v_visc.get_sum(), # for not self.options.use_implicit_vertical_diffusion
+                          'source_mom': self.options.momentum_source_3d,
+                          # 'uv_mag': self.fields.uv_mag_3d,
+                          'uv_p1': self.fields.get('uv_p1_3d'),
+                          'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
+                          'coriolis': self.fields.get('coriolis_3d'),
+                          'sigma_dt': self.fields.sigma_dt,
+                          'sigma_dx': self.fields.sigma_dx,
+                          'omega': self.fields.omega,
+                          'q_3d': self.fields.q_3d,
+                          'use_pressure_correction': self.options.use_pressure_correction,
+                          'solve_elevation_gradient_separately': self.options.solve_elevation_gradient_separately,
+                          'sponge_damping_3d': self.set_sponge_damping(self.options.sponge_layer_length, self.options.sponge_layer_xstart, alpha=10., sponge_is_2d=False),
+                              }
+                    a_mom = dot(tri_uv_3d, test_uv_3d)*dx
+                    l_mom = dot(uv_3d, test_uv_3d)*dx + self.dt*self.eq_momentum.residual('all', uv_3d, uv_3d, fields_3d, fields_3d, self.bnd_functions['momentum'])
+                    prob_mom_ssprk = LinearVariationalProblem(a_mom, l_mom, self.uv_3d_mid)
+                    solver_mom_ssprk = LinearVariationalSolver(prob_mom_ssprk, solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
+
+                    # solver for advancing the tracer equation
+                    fields_3d.update({'elev_3d': self.fields.elev_3d,
+                          'diffusivity_h': self.tot_h_diff.get_sum(),
+                          'diffusivity_v': self.tot_v_diff.get_sum(), # for not self.options.use_implicit_vertical_diffusion
+                          'source_tracer': self.options.salinity_source_3d,
+                          'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
+                              })
+                    a_tracer = dot(tri_h_3d, test_h_3d)*dx
+                    if self.options.solve_salinity:
+                        l_salt = dot(self.fields.salt_3d, test_h_3d)*dx + \
+                                   self.dt*self.eq_salt.residual('all', self.fields.salt_3d, self.fields.salt_3d, fields_3d, fields_3d, self.bnd_functions['salt'])
+                        prob_salt_ssprk = LinearVariationalProblem(a_tracer, l_salt, self.salt_3d_mid)
+                        solver_salt_ssprk = LinearVariationalSolver(prob_salt_ssprk, solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
+                    if self.options.solve_temperature:
+                        l_temp = dot(self.fields.temp_3d, test_h_3d)*dx + \
+                                   self.dt*self.eq_temp.residual('all', self.fields.temp_3d, self.fields.temp_3d, fields_3d, fields_3d, self.bnd_functions['temp'])
+                        prob_temp_ssprk = LinearVariationalProblem(a_tracer, l_temp, self.temp_3d_mid)
+                        solver_temp_ssprk = LinearVariationalSolver(prob_temp_ssprk, solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
+
+                    # solver for the pressure gradient
+                    a_grad_q = dot(tri_h_3d, test_h_3d)*dx
+                    l_grad_q = 1./rho_0*(Dx(q_3d, 0) + Dx(q_3d, 1)*sigma_dx)*test_h_3d*dx
+                    prob_grad_q = LinearVariationalProblem(a_grad_q, l_grad_q, self.q_3d_mid)
+                    solver_grad_q = LinearVariationalSolver(prob_grad_q)
+
+                    # solver for updating free surface
+                    a_fs = dot(tri_elev_2d, test_elev_2d)*dx
+                    l_fs = dot(elev_2d, test_elev_2d)*dx + self.dt*self.eq_free_surface.residual('all', elev_2d, elev_2d, fields_dav, fields_dav, self.bnd_functions['shallow_water'])
+                    prob_fs_ssprk = LinearVariationalProblem(a_fs, l_fs, self.elev_2d_mid)
+                    solver_fs_ssprk = LinearVariationalSolver(prob_fs_ssprk, solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
+
+                    # solver for calculating 2D external pressure gradient
+                    a_pg = dot(tri_uv_2d, test_uv_2d)*dx
+                    l_pg = -self.eq_sw_mom.residual('all', uv_2d, uv_2d, fields_dav, fields_dav, self.bnd_functions['shallow_water'])
+                    prob_pg_ssprk = LinearVariationalProblem(a_pg, l_pg, self.uv_2d_mid)
+                    solver_pg_ssprk = LinearVariationalSolver(prob_pg_ssprk)
+
+                    # integrate q_3d in vertical
+                 #   q_integrator = VerticalIntegrator(q_3d,
+                  #                                self.q_3d_mid,
+                   #                               bottom_to_top=False,
+                    #                              average=False,
+                     #                             bathymetry=self.fields.bathymetry_3d,
+                      #                            elevation=self.fields.elev_cg_3d)
+                 #   extract_int_q = SubFunctionExtractor(self.q_3d_mid,
+                  #                                   self.q_2d_mid,
+                   #                                  boundary='bottom', elem_facet='bottom',
+                    #                                 elem_height=self.fields.v_elem_size_2d)
+                 #   extract_bottom_q = SubFunctionExtractor(self.fields.q_3d,
+                  #                                      self.fields.q_2d,
+                   #                                     boundary='bottom', elem_facet='bottom',
+                    #                                    elem_height=self.fields.v_elem_size_2d)
+
+                   # h_mid = eta_2d + self.bathymetry_dg
+                   # timestepper_depth_integrated.F += (self.dt/rho_0*1./h_mid*inner(Dx(self.q_2d_mid*h_mid, 0) - self.fields.q_2d*Dx(self.bathymetry_dg, 0), test_uta_2d)*dx)
+                   # prob_with_int_q = NonlinearVariationalProblem(timestepper_depth_integrated.F, self.fields.solution_2d)
+                   # solver_with_int_q = NonlinearVariationalSolver(prob_with_int_q, solver_parameters=solver_parameters)
+                   # timestepper_depth_integrated.update_solver()
+
+                    # update solver for correcting eta
+                   # timestepper_operator_splitting.F += -self.dt*g_grav*inner(Dx(self.elev_2d_mid, 0), test_uta_2d)*dx
+                   # timestepper_operator_splitting.update_solver()
+
+                n_stages = 2
+                if self.options.use_operator_splitting:
                     for i_stage in range(n_stages):
-                        ## 2D advance
-                        if i_stage == 1 and (not solve_elevation_outside) and (not rigid_free_surface):
-                            self.timestepper.store_elevation(i_stage - 1)
-                            self.uv_averager.solve()
-                            self.extract_surf_dav_uv.solve()
-                            self.fields.uv_2d.assign(self.fields.uv_dav_2d)
-                            self.copy_uv_dav_to_uv_dav_3d.solve()
-                            self.uv_dav_3d_mid.assign(self.fields.uv_dav_3d)
-                            timestepper_operator_splitting.advance(self.simulation_time, update_forcings)
-                            #self.timestepper.timesteppers.swe2d.solve_stage(i_stage, self.simulation_time, update_forcings)
-                            # compute mesh velocity
-                            self.timestepper.compute_mesh_velocity(i_stage - 1)
-                            if not solve_q_in_extruded_mesh:
+                        # 2d advance
+                        advancing_elev_once = True
+                        if self.options.update_free_surface:
+                            if i_stage == 0 and (not advancing_elev_once):
+                                self.copy_uv_to_uv_dav_3d.solve()
+                                self.uv_dav_3d_mid.assign(self.fields.uv_dav_3d)
+                                timestepper_operator_splitting_explicit.advance(self.simulation_time, update_forcings)
                                 self.copy_elev_to_3d.solve()
-                                self.z_in_sigma.project(self.sigma_coord*(self.fields.elev_3d + self.fields.bathymetry_3d) - self.fields.bathymetry_3d)
-                               # solver_sigma_dt.solve()
-                               # solver_sigma_dx.solve()
-                                solver_omega.solve()
+                                solver_sigma_dt.solve()
+                                solver_sigma_dx.solve()
+                                if self.horizontal_domain_is_2d:
+                                    solver_sigma_dy.solve()
+                            elif i_stage == 1:
+                               # self.uv_3d_mid.assign(self.fields.uv_3d)
+                               # self.fields.uv_3d.assign(self.uv_3d_old)
+                                self.uv_averager.solve()
+                                self.extract_surf_dav_uv.solve()
+                                self.fields.uv_2d.assign(self.fields.uv_dav_2d)
+                                self.fields.elev_2d.assign(self.elev_2d_old)
+                                self.copy_uv_dav_to_uv_dav_3d.solve()
+                                self.uv_dav_3d_mid.assign(self.fields.uv_dav_3d)
+                               # self.fields.uv_3d.assign(self.uv_3d_mid)
+                                timestepper_operator_splitting.advance(self.simulation_time, update_forcings)
+                                self.copy_elev_to_3d.solve()
+                                solver_sigma_dt.solve()
+                                solver_sigma_dx.solve()
+                                if self.horizontal_domain_is_2d:
+                                    solver_sigma_dy.solve()
 
-                        ## 3D advance in old mesh
-                        # salt_eq
-                        if self.options.solve_salinity:
-                            self.timestepper.timesteppers.salt_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
-                        # tmp_eq
-                        if self.options.solve_temperature:
-                            self.timestepper.timesteppers.temp_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
-                        # turb_advection
-                        if 'psi_expl' in self.timestepper.timesteppers:
-                            self.timestepper.timesteppers.psi_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
-                        if 'tke_expl' in self.timestepper.timesteppers:
-                            self.timestepper.timesteppers.tke_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
-                        # momentum_eq
-                        self.timestepper.timesteppers.mom_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
-                        timestepper_momentum_vert_ssprk.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
-
-                        ## update mesh
-                        if i_stage == 1 and (not solve_elevation_outside) and (not rigid_free_surface):
-                            self.copy_elev_to_3d.solve()
-                            if self.options.use_ale_moving_mesh:
-                                self.mesh_updater.update_mesh_coordinates()
-
-                        ## solve 3D
-                        # salt_eq
-                        if self.options.solve_salinity:
-                            self.timestepper.timesteppers.salt_expl.solve_stage(i_stage)
-                            if self.options.use_limiter_for_tracers:
-                                self.tracer_limiter.apply(self.fields.salt_3d)
-                               # self.tracer_3d_p1dg.project(self.fields.salt_3d)
-                               # self.tracer_limiter.apply(self.tracer_3d_p1dg)
-                               # self.fields.salt_3d.project(self.tracer_3d_p1dg)
-                        # temp_eq
-                        if self.options.solve_temperature:
-                            self.timestepper.timesteppers.temp_expl.solve_stage(i_stage)
-                            if self.options.use_limiter_for_tracers:
-                                self.tracer_limiter.apply(self.fields.temp_3d)
-                        # turb_advection
-                        if 'psi_expl' in self.timestepper.timesteppers:
-                            self.timestepper.timesteppers.psi_expl.solve_stage(i_stage)
-                        if 'tke_expl' in self.timestepper.timesteppers:
-                            self.timestepper.timesteppers.tke_expl.solve_stage(i_stage)
-                        # momentum_eq
-                        self.timestepper.timesteppers.mom_expl.solve_stage(i_stage)
-                        timestepper_momentum_vert_ssprk.solve_stage(i_stage)
+                        # 3d advance
+                        solver_omega.solve()
+                        solver_mom_ssprk.solve()
+                        self.fields.uv_3d.assign(self.uv_3d_mid)
                         if self.options.use_limiter_for_velocity:
                             self.uv_limiter.apply(self.fields.uv_3d)
-                            self.uv_limiter.apply(self.fields.w_3d)
-                           # self.uv_3d_p1dg.project(self.fields.uv_3d)
-                           # self.uv_limiter.apply(self.uv_3d_p1dg)
-                           # self.fields.uv_3d.project(self.uv_3d_p1dg)
 
-                           # self.uv_3d_p1dg.project(self.fields.w_3d)
-                           # self.uv_limiter.apply(self.uv_3d_p1dg)
-                           # self.fields.w_3d.project(self.uv_3d_p1dg)
-
-                        last_stage = i_stage == n_stages - 1
-
-                        if last_stage:
-                            ## compute final prognostic variables
-                            # correct uv_3d
-                            if (not solve_elevation_outside) and (not rigid_free_surface):
+                        if i_stage == 0 and (not advancing_elev_once):
+                            # update 2d coupling, i.e. including the elevation gradient contribution
+                            if self.options.update_free_surface:
                                 self.copy_uv_to_uv_dav_3d.solve()
                                 self.fields.uv_3d.project(self.fields.uv_3d - (self.uv_dav_3d_mid - self.fields.uv_dav_3d))
+                        elif i_stage == 1:
+                            self.fields.uv_3d.assign(0.5*(self.uv_3d_old + self.fields.uv_3d))
+                            # update 2d coupling, i.e. including the elevation gradient contribution
+                            if self.options.update_free_surface:
+                                self.copy_uv_to_uv_dav_3d.solve()
+                                self.fields.uv_3d.project(self.fields.uv_3d - (self.uv_dav_3d_mid - self.fields.uv_dav_3d))
+
                             if self.options.use_implicit_vertical_diffusion:
                                 if self.options.solve_salinity:
                                     with timed_stage('impl_salt_vdiff'):
@@ -1968,183 +2014,126 @@ class FlowSolver(FrozenClass):
                                         self.timestepper.timesteppers.temp_impl.advance(self.simulation_time)
                                 with timed_stage('impl_mom_vvisc'):
                                     self.timestepper.timesteppers.mom_impl.advance(self.simulation_time)
-                            ## compute final diagnostic fields
-                            # update baroclinicity
-                            self.timestepper._update_baroclinicity()
-                            # update parametrizations
+
+                            solver_q.solve()
+                            solver_u.solve()
+                            if self.options.use_pressure_correction:
+                                self.fields.q_3d.assign(self.fields.q_3d + self.q_3d_dq)
                             self.timestepper._update_turbulence(self.simulation_time)
                             self.timestepper._update_bottom_friction()
                             self.timestepper._update_stabilization_params()
-                        else:
-                            ## update variables that explict solvers depend on
-                            # correct uv_3d
-                          #  self.copy_uv_to_uv_dav_3d.solve()
-                          #  self.fields.uv_3d.project(self.fields.uv_3d - (self.uv_dav_3d_mid - self.fields.uv_dav_3d))
-                            # update baroclinicity
-                            self.timestepper._update_baroclinicity()
 
-                        # non-hydrostatic update
-                        if solve_q_inside:
-                            self.solve_poisson_eq(self.fields.q_3d, self.fields.uv_3d, self.fields.w_3d, A=None, B=None, C=physical_constants['rho0']/self.dt, multi_layers=True)
-                            uv_tri_3d = TrialFunction(self.fields.uv_3d.function_space())
-                            uv_test_3d = TestFunction(self.fields.uv_3d.function_space())
-                            a = dot(uv_tri_3d, uv_test_3d)*dx
-                            self.fields.uv_3d.sub(2).assign(self.fields.w_3d.sub(2))
-                            l = dot(self.fields.uv_3d - self.dt/physical_constants['rho0']*grad(self.fields.q_3d), uv_test_3d)*dx
-                            solve(a == l, self.fields.uv_3d)
-                            self.fields.w_3d.sub(2).assign(self.fields.uv_3d.sub(2))
-                            self.fields.uv_3d.sub(2).assign(0.)
-                            #self.uv_averager.solve()
-                            #self.extract_surf_dav_uv.solve()
-                            #self.fields.uv_2d.assign(self.fields.uv_dav_2d)
-                            #timestepper_free_surface.solution.assign(self.elev_2d_mid)
-                            #timestepper_free_surface.advance(self.simulation_time, update_forcings)
-                            #self.fields.elev_2d.assign(self.elev_2d_old)
-                            #self.calculate_external_pressure_gradient(pressure='elevation') # update self.fields.ext_pg_3d
+                            # compute final free surface elevation
+                            if self.options.update_free_surface:
+                                self.uv_averager.solve()
+                                self.extract_surf_dav_uv.solve()
+                                self.fields.uv_2d.assign(self.fields.uv_dav_2d)
+                                timestepper_free_surface.solution.assign(self.elev_2d_old)
+                                timestepper_free_surface.advance(self.simulation_time, update_forcings)
+                                self.fields.elev_2d.assign(self.elev_2d_mid)
+                                self.copy_elev_to_3d.solve()
+                               # self.calculate_external_pressure_gradient(pressure='elevation')
+                                solver_sigma_dt.solve()
+                                solver_sigma_dx.solve()
+                                if self.horizontal_domain_is_2d:
+                                    solver_sigma_dy.solve()
+                                    if self.options.set_vertical_2d:
+                                        self.fields.uv_3d.dat.data[:, 1] = 0.
 
-                else: # use crank-nicolson timestepper
-                    timestepper_momentum_hori_crank.advance(self.simulation_time, update_forcings)
-                    timestepper_momentum_vert_crank.advance(self.simulation_time, update_forcings)
-                    if (not solve_elevation_outside) and (not rigid_free_surface):
-                        self.uv_averager.solve()
-                        self.extract_surf_dav_uv.solve()
-                        self.fields.uv_2d.assign(self.fields.uv_dav_2d)
-                        self.copy_uv_dav_to_uv_dav_3d.solve()
-                        self.uv_dav_3d_mid.assign(self.fields.uv_dav_3d)
-                        timestepper_operator_splitting.advance(self.simulation_time, update_forcings)
-                        # calculate terms in omega
-                        self.copy_elev_to_3d.solve()
-                        self.z_in_sigma.project(self.sigma_coord*(self.fields.elev_3d + self.fields.bathymetry_3d) - self.fields.bathymetry_3d)
-                       # solver_sigma_dt.solve()
-                       # solver_sigma_dx.solve()
-                        solver_omega.solve()
-                        self.copy_uv_to_uv_dav_3d.solve()
-                        self.fields.uv_3d.project(self.fields.uv_3d - (self.uv_dav_3d_mid - self.fields.uv_dav_3d))
-
-                # solve 3D Poisson equation for the non-hydrostatic pressure
-                #self.solve_poisson_eq(self.fields.q_3d, self.fields.uv_3d, self.fields.w_3d, A=None, B=None, C=physical_constants['rho0']/self.dt, multi_layers=True)
-
-                if self.simulation_time <= t_epsilon:
-
-                    q = self.fields.q_3d
-                    uv_3d = self.fields.uv_3d
-                    w_3d = self.fields.w_3d
-                    C = physical_constants['rho0']/self.dt
-                    q_test = TestFunction(q.function_space())
-
-                    h_tot = self.fields.elev_3d + self.fields.bathymetry_3d
-                    sigma_coord = self.sigma_coord
-                    sigma_x = -1./h_tot*(Dx(sigma_coord*h_tot - self.fields.bathymetry_3d, 0))
-                    sigma_z = 1./h_tot
-                    test_q = q_test
-
-                    lhs = -Dx(test_q, 0)*Dx(q, 0)*dx - (sigma_x**2 + sigma_z**2)*Dx(test_q, 1)*Dx(q, 1)*dx - \
-                           sigma_x*(Dx(test_q, 0)*Dx(q, 1) + Dx(test_q, 1)*Dx(q, 0))*dx- \
-                           Dx(test_q*(Dx(sigma_x, 0) + Dx(sigma_x, 1)*sigma_x), 1)*q*dx
-                    rhs = -C*(Dx(test_q, 0)*uv_3d[0] + Dx(sigma_x*test_q, 1)*uv_3d[0] + Dx(sigma_z*test_q, 1)*w_3d[1])*dx
-                    if solve_q_in_extruded_mesh:
-                        # nabla^2-term is integrated by parts
-                        lhs = -inner(grad(q_test), grad(q)) * dx #+ q_test*inner(grad(q), normal)*ds_surf
-                        rhs = -(Dx(C*q_test, 0) * uv_3d[0] + Dx(C*q_test, 1) * w_3d[1]) * dx # TODO add terms for open boundary?
-                    #C*dot(q_test, div(uv_3d) + Dx(w_3d[2], 2)) * dx
-                    F = lhs - rhs#forcing - laplace_term
-
-                    # boundary conditions: to refer to the top and bottom use "top" and "bottom"
-                    # for other boundaries use the normal numbers (ids) from the horizontal mesh
-                    # (UnitSquareMesh automatically defines 1,2,3, and 4)
-                    bc_top = DirichletBC(q.function_space(), 0., "top")
-                    bcs = [bc_top]
-                    if rigid_free_surface:
-                        bcs = []
-                    for bnd_marker in self.boundary_markers:
-                        func = self.bnd_functions['shallow_water'].get(bnd_marker)
-                        if func is not None: #TODO set more general and accurate conditional statement
-                            bc = DirichletBC(q.function_space(), 0., int(bnd_marker))
-                            bcs.append(bc)
-
-                    prob = NonlinearVariationalProblem(F, q, bcs=bcs)
-                    solver_q = NonlinearVariationalSolver(prob,
-                                                    solver_parameters={'snes_type': 'ksponly',#'newtonls''ksponly', final: 'ksponly'
-                                                                       'ksp_type': 'gmres',#'gmres''preonly',              'gmres'
-                                                                       'pc_type': 'gamg'},#'ilu''gamg',                     'ilu'
-                                                    bcs=bcs,
-                                                    options_prefix='poisson_solver')
-                if not solve_q_inside:
-                    solver_q.solve()
-
-                if self.simulation_time <= t_epsilon:
-                    # update uv_3d and w_3d
-                    a_u = dot(uv_tri_3d, uv_test_3d)*dx
-                    a_w = dot(w_tri_3d, w_test_3d)*dx
-                    if not solve_q_in_extruded_mesh:
-                        l_u = (self.fields.uv_3d[0] - self.dt/physical_constants['rho0']*(Dx(q, 0) + Dx(q, 1)*sigma_x))* uv_test_3d[0]*dx
-                        l_w = (self.fields.w_3d[1] - self.dt/physical_constants['rho0']*(Dx(q, 1)*sigma_z))*w_test_3d[1]*dx
-                        prob_w = LinearVariationalProblem(a_w, l_w, self.fields.w_3d)
-                        solver_w = LinearVariationalSolver(prob_w)
-                    else:
-                        #l_u = (self.fields.uv_3d[0] - self.dt/physical_constants['rho0']*Dx(q, 0))* uv_test_3d[0]*dx
-                        #l_w = (self.fields.w_3d[1] - self.dt/physical_constants['rho0']*Dx(q, 1))*w_test_3d[1]*dx
-                        l_u = dot(self.fields.uv_3d - self.dt/physical_constants['rho0']*grad(q), uv_test_3d) * dx
-                    prob_u = LinearVariationalProblem(a_u, l_u, self.fields.uv_3d)
-                    solver_u = LinearVariationalSolver(prob_u)
-
-                if not solve_q_in_extruded_mesh:
-                    solver_u.solve()
-                    solver_w.solve()
-                else:
-              #      self.fields.uv_3d.dat.data[:, 1] = self.fields.w_3d.dat.data[:, 1]
-              #     # self.fields.uv_3d.sub(1).assign(self.fields.w_3d.sub(1))
-              #      solver_u.solve()
-              #      self.fields.w_3d.dat.data[:, 1] = self.fields.uv_3d.dat.data[:, 1]
-              #     # self.fields.w_3d.sub(1).assign(self.fields.uv_3d.sub(1))
-              #      self.fields.uv_3d.dat.data[:, 1] = 0.
-              #     # self.fields.uv_3d.sub(1).assign(0.)
-
-                    a = dot(uv_tri_3d, uv_test_3d)*dx
-                    l = dot(self.fields.uv_3d - self.dt/physical_constants['rho0']*grad(q), uv_test_3d) * dx
-                    self.fields.uv_3d.sub(1).assign(self.fields.w_3d.sub(1))
-                    solve(a == l, self.fields.uv_3d)
-                    self.fields.w_3d.sub(1).assign(self.fields.uv_3d.sub(1))
-                    self.fields.uv_3d.sub(1).assign(0.)
-
-                # update final depth-averaged uv_2d
-                self.uv_averager.solve()
-                self.extract_surf_dav_uv.solve()
-                self.fields.uv_2d.assign(self.fields.uv_dav_2d)
-
-                # not necessary already, due to w updated by non-hydrostatic pressure gradient
-                # self.w_solver.solve()
-
-                # update water level elev_2d: two ways
-                update_water_level =  (not rigid_free_surface) # <-- TODO set control value in options
-                solving_free_surface_eq = True
-                if update_water_level:
-                    if not solving_free_surface_eq:
-                        # 1. based on 2D/3D difference in operator splitting
-                        self.update_mid_uv(self.fields.uv_3d - self.fields.uv_dav_3d)
-                        elev_tri = TrialFunction(self.function_spaces.H_2d)
-                        elev_test = TestFunction(self.function_spaces.H_2d)
-                        a = elev_tri*elev_test*dx
-                        l = (elev_2d - self.dt*div((elev_2d + self.bathymetry_dg)*self.uv_dav_2d_mid))*elev_test*dx
-                        solve(a == l, self.fields.elev_2d)
-                    else:
-                        # 2. based on solving free surface equation
-                        timestepper_free_surface.advance(self.simulation_time, update_forcings)
-                        self.fields.elev_2d.assign(self.elev_2d_old)
-
-                    ## update mesh
-                    self.copy_elev_to_3d.solve()
-                    if self.options.use_ale_moving_mesh:
-                        self.mesh_updater.update_mesh_coordinates()
-
-                if not solve_q_in_extruded_mesh:
-                    self.z_in_sigma.project(self.sigma_coord*(self.fields.elev_3d + self.fields.bathymetry_3d) - self.fields.bathymetry_3d)
-                   # solver_sigma_dt.solve()
-                   # solver_sigma_dx.solve()
+                    # TODO modify to use self-defined timestepper
                     solver_omega.solve()
+                    if self.options.solve_salinity:
+                        self.timestepper.timesteppers.salt_expl.advance(self.simulation_time, update_forcings)
+                        if self.options.use_limiter_for_tracers:
+                            self.tracer_limiter.apply(self.fields.salt_3d)
+                    # update baroclinicity
+                    self.timestepper._update_baroclinicity()
+                   
+                else: # i.e. ssprk used in NHWAVE
+                    for i_stage in range(n_stages):
+                        # mom advance
+                        solver_mom_ssprk.solve()
+                        self.fields.uv_3d.assign(self.uv_3d_mid)
+                        if self.options.use_limiter_for_velocity:
+                            self.uv_limiter.apply(self.fields.uv_3d)
 
+                        advancing_elev_implicitly = False
+                        # 2d advance
+                        if self.options.solve_elevation_gradient_separately and self.options.update_free_surface:
+                            self.uv_averager.solve()
+                            self.extract_surf_dav_uv.solve()
+                            self.copy_uv_dav_to_uv_dav_3d.solve()
+                            self.uv_dav_3d_mid.assign(self.fields.uv_dav_3d)
+                            if i_stage == 0 or (not advancing_elev_implicitly):
+                                self.uv_2d_mid.assign(self.fields.uv_dav_2d)
+                                timestepper_mom_2d.advance(self.simulation_time, update_forcings)
+                                self.fields.uv_2d.assign(self.uv_2d_mid)
+                            else:
+                                self.fields.uv_2d.assign(self.fields.uv_dav_2d)
+                                self.fields.elev_2d.assign(self.elev_2d_old)
+                                timestepper_operator_splitting.advance(self.simulation_time, update_forcings)
 
+                            # couple 2d (elevation gradient) into 3d
+                            self.copy_uv_to_uv_dav_3d.solve()
+                            self.fields.uv_3d.assign(self.fields.uv_3d + (self.fields.uv_dav_3d - self.uv_dav_3d_mid))
 
+                        # update non-hydrostatic pressure
+                        solver_q.solve()
+                        solver_u.solve()
+                        if self.options.use_pressure_correction:
+                            self.fields.q_3d.assign(self.fields.q_3d + self.q_3d_dq)
+
+                        if i_stage == 1:
+                            self.fields.uv_3d.assign(0.5*(self.uv_3d_old + self.fields.uv_3d))
+                            if self.options.use_implicit_vertical_diffusion:
+                                if self.options.solve_salinity:
+                                    with timed_stage('impl_salt_vdiff'):
+                                        self.timestepper.timesteppers.salt_impl.advance(self.simulation_time)
+                                if self.options.solve_temperature:
+                                    with timed_stage('impl_temp_vdiff'):
+                                        self.timestepper.timesteppers.temp_impl.advance(self.simulation_time)
+                                with timed_stage('impl_mom_vvisc'):
+                                    self.timestepper.timesteppers.mom_impl.advance(self.simulation_time)
+                            self.timestepper._update_turbulence(self.simulation_time)
+                            self.timestepper._update_bottom_friction()
+                            self.timestepper._update_stabilization_params()
+
+                        # update free surface elevation
+                        if self.options.update_free_surface:
+                            self.uv_averager.solve()
+                            self.extract_surf_dav_uv.solve()
+                            self.fields.uv_2d.assign(self.fields.uv_dav_2d)
+                            self.elev_2d_mid.assign(self.elev_2d_old)
+                            timestepper_free_surface.advance(self.simulation_time, update_forcings)
+                            self.fields.elev_2d.assign(self.elev_2d_mid)
+                            self.copy_elev_to_3d.solve()
+                            solver_sigma_dt.solve()
+                            solver_sigma_dx.solve()
+                            if self.horizontal_domain_is_2d:
+                                solver_sigma_dy.solve()
+                          #  solver_pg_ssprk.solve()
+                          #  self.fields.uv_dav_2d.assign(self.uv_2d_mid)
+                          #  self.copy_uv_dav_to_uv_dav_3d.solve()
+                          #  self.fields.ext_pg_3d.assign(self.fields.uv_dav_3d)
+
+                        # tracer advance
+                        solver_omega.solve()
+                        if self.options.solve_salinity:
+                            solver_salt_ssprk.solve()
+                            self.fields.salt_3d.assign(self.salt_3d_mid)
+                            if self.options.use_limiter_for_tracers:
+                                self.tracer_limiter.apply(self.fields.salt_3d)
+                            if i_stage == 1:
+                                self.fields.salt_3d.assign(0.5*(self.salt_3d_old + self.fields.salt_3d))
+                        if self.options.solve_temperature:
+                            solver_temp_ssprk.solve()
+                            self.fields.temp_3d.assign(self.temp_3d_mid)
+                            if self.options.use_limiter_for_tracers:
+                                self.tracer_limiter.apply(self.fields.temp_3d)
+                            if i_stage == 1:
+                                self.fields.temp_3d.assign(0.5*(self.temp_3d_old + self.fields.temp_3d))
+                        # update baroclinicity
+                        self.timestepper._update_baroclinicity()
 
             # Move to next time step
             self.simulation_time += self.dt

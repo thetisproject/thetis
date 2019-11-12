@@ -12,7 +12,6 @@ from abc import ABCMeta, abstractproperty
 class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
     """
     Base class for coupled 2D-3D time integrators
-
     Provides common functionality for updating diagnostic fields etc.
     """
     def __init__(self, solver):
@@ -90,7 +89,6 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
     def _update_turbulence(self, t):
         """
         Updates turbulence related fields
-
         :arg t: simulation time
         """
         if self.options.use_turbulence:
@@ -227,21 +225,24 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
 
         fields = {'eta': self.fields.elev_3d,  # FIXME rename elev
                   'int_pg': self.fields.get('int_pg_3d'),
-                  'ext_pg': self.fields.get('ext_pg_3d'),
-                  'uv_3d': self.fields.uv_3d,
                   'uv_depth_av': self.fields.get('uv_dav_3d'),
                   'w': self.fields.w_3d,
                   'w_mesh': self.fields.get('w_mesh_3d'),
                   'viscosity_v': expl_v_visc,
                   'viscosity_h': self.solver.tot_h_visc.get_sum(),
                   'source': self.options.momentum_source_3d,
-                  # 'uv_mag': self.fields.uv_mag_3d,
+                  # uv_mag': self.fields.uv_mag_3d,
                   'uv_p1': self.fields.get('uv_p1_3d'),
                   'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
                   'coriolis': self.fields.get('coriolis_3d'),
-                  'sigma_dt': self.fields.sigma_dt,
-                  'sigma_dx': self.fields.sigma_dt,
+                  # below for NH extension
+                  'ext_pg': self.fields.get('ext_pg_3d'),
+                  'uv_3d': self.fields.uv_3d,
+                 # 'sigma_dt': self.fields.sigma_dt,
+                 # 'sigma_dx': self.fields.sigma_dx,
                   'omega': self.fields.omega,
+                  'solve_elevation_gradient_separately': self.options.solve_elevation_gradient_separately,
+                  'sponge_damping_3d': self.solver.set_sponge_damping(self.options.sponge_layer_length, self.options.sponge_layer_xstart, alpha=10., sponge_is_2d=False),
                   }
         friction_fields = {
             'linear_drag_coefficient': self.options.linear_drag_coefficient,
@@ -280,9 +281,12 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'diffusivity_h': self.solver.tot_h_diff.get_sum(),
                       'diffusivity_v': expl_v_diff,
                       'source': self.options.salinity_source_3d,
-                      # 'uv_mag': self.fields.uv_mag_3d,
+                      # uv_mag': self.fields.uv_mag_3d,
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
+                  # below for NH extension
+                 # 'sigma_dt': self.fields.sigma_dt,
+                 # 'sigma_dx': self.fields.sigma_dx,
                   'omega': self.fields.omega,
                       }
             self.timesteppers.salt_expl = self.integrator_3d(
@@ -314,9 +318,12 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'diffusivity_h': self.solver.tot_h_diff.get_sum(),
                       'diffusivity_v': expl_v_diff,
                       'source': self.options.temperature_source_3d,
-                      # 'uv_mag': self.fields.uv_mag_3d,
+                      # uv_mag': self.fields.uv_mag_3d,
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
+                  # below for NH extension
+                 # 'sigma_dt': self.fields.sigma_dt,
+                 # 'sigma_dx': self.fields.sigma_dx,
                   'omega': self.fields.omega,
                       }
             self.timesteppers.temp_expl = self.integrator_3d(
@@ -391,7 +398,6 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
     def set_dt(self, dt, dt_2d):
         """
         Set time step for the coupled time integrator
-
         :arg float dt: Time step. This is the master (macro) time step used to
             march the 3D equations.
         :arg float dt_2d: Time step for 2D equations. For consistency
@@ -410,7 +416,6 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
     def initialize(self):
         """
         Assign initial conditions to all necessary fields
-
         Initial conditions are read from :attr:`fields` dictionary.
         """
         self.timesteppers.swe2d.initialize(self.fields.solution_2d)
@@ -439,10 +444,8 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
 class CoupledLeapFrogAM3(CoupledTimeIntegrator):
     """
     Leap-Frog Adams-Moulton 3 time integrator for coupled 2D-3D problem
-
     This is an ALE time integrator.
     Implementation follows the SLIM time integrator by Karna et al (2013)
-
     Karna, et al. (2013). A baroclinic discontinuous Galerkin finite element
     model for coastal flows. Ocean Modelling, 61(0):1-20.
     http://dx.doi.org/10.1016/j.ocemod.2012.09.009
@@ -460,7 +463,6 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
     def advance(self, t, update_forcings=None, update_forcings3d=None):
         """
         Advances the equations for one time step
-
         :arg float t: simulation time
         :kwarg update_forcings: Optional user-defined function that takes
             simulation time and updates time-dependent boundary conditions of
@@ -603,14 +605,13 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
 class CoupledTwoStageRK(CoupledTimeIntegrator):
     """
     Coupled time integrator based on SSPRK(2,2) scheme
-
     This ALE time integration method uses SSPRK(2,2) scheme to advance the 3D
     equations and a compatible implicit Trapezoid method to advance the 2D
     equations. Backward Euler scheme is used for vertical diffusion.
     """
     integrator_2d = rungekutta.ESDIRKTrapezoid
     integrator_3d = timeintegrator.SSPRK22ALE
-    integrator_vert_3d = rungekutta.BackwardEuler
+    integrator_vert_3d = rungekutta.DIRK22
 
     def __init__(self, solver):
         super(CoupledTwoStageRK, self).__init__(solver)
@@ -623,9 +624,7 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
     def store_elevation(self, istage):
         """
         Store current elevation field for computing mesh velocity
-
         Must be called before updating the 2D mode.
-
         :arg istage: stage of the Runge-Kutta iteration
         :type istage: int
         """
@@ -636,9 +635,7 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
     def compute_mesh_velocity(self, istage):
         """
         Computes mesh velocity for stage i
-
         Must be called after updating the 2D mode.
-
         :arg istage: stage of the Runge-Kutta iteration
         :type istage: int
         """
@@ -663,7 +660,6 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
     def advance(self, t, update_forcings=None, update_forcings3d=None):
         """
         Advances the equations for one time step
-
         :arg float t: simulation time
         :kwarg update_forcings: Optional user-defined function that takes
             simulation time and updates time-dependent boundary conditions of

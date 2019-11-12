@@ -2,13 +2,15 @@ from __future__ import absolute_import
 from thetis.utility import *
 from thetis.log import *
 import thetis.timeintegrator as timeintegrator  # NOQA
-import thetis.solver as solver  # NOQA
-import thetis.solver2d as solver2d  # NOQA
-import thetis.solver_nh as solver_nh
-import thetis.solver2d_nh as solver2d_nh  # NOQA
-import thetis.solver1d_nh as solver1d_nh  # NOQA
-import thetis.solver_sigma as solver_sigma # NOQA
-import thetis.solver_vert2d as solver_vert2d # NOQA
+import thetis.solver as solver  # NOQA # hydrostatic version
+import thetis.solver2d as solver2d  # NOQA # hydrostatic version
+
+# non-hydrostatic (nh) modelling
+import thetis.nh_extension.solver_nh as solver_nh # direct nh extension
+import thetis.nh_extension.solver_sigma as solver_sigma # sigma nh extension
+import thetis.nh_extension.solver_ml as solver_ml  # multi-layer nh extension (2d horizontal mesh)
+import thetis.nh_extension.solver2d_ml as solver2d_ml  # multi-layer nh extension (1d horizontal mesh)
+
 from thetis.callback import DiagnosticCallback, DetectorsCallback  # NOQA
 import thetis.limiter as limiter      # NOQA
 import thetis.interpolation as interpolation      # NOQA

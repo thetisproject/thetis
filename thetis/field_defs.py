@@ -409,21 +409,16 @@ field_metadata['sigma_dx'] = {
     'unit': '-',
     'filename': 'Sigma_dx',
 }
+field_metadata['sigma_dy'] = {
+    'name': 'Hori y-derivative of z in sigma mesh',
+    'shortname': 'Hori y-derivative of z in sigma mesh',
+    'unit': '-',
+    'filename': 'Sigma_dy',
+}
 field_metadata['omega'] = {
     'name': 'Vertical velocity in sigma mesh',
     'shortname': 'Vertical velocity in sigma mesh',
     'unit': '-',
     'filename': 'Omega',
 }
-field_metadata['uv_over_h'] = {
-    'name': 'Horizontal velocity in sigma mesh',
-    'shortname': 'Horizontal velocity in sigma mesh',
-    'unit': 'm s-1',
-    'filename': 'huv_over_h',
-}
-field_metadata['w_over_h'] = {
-    'name': 'Vertical velocity in sigma mesh',
-    'shortname': 'Vertical velocity in sigma mesh',
-    'unit': 'm s-1',
-    'filename': 'hw_over_h',
-}
+

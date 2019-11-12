@@ -3,8 +3,8 @@ calculation of the landslide motion to obtain the function D(x,y,t), i.e. the th
 ref: I.V. Fine, et al., 1998 & 2005. 
 """
 from __future__ import absolute_import
-from .utility import *
-from .equation import Term, Equation
+from thetis.utility import *
+from thetis.equation import Term, Equation
 
 __all__ = [
     'LandslideTerm',

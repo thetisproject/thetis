@@ -16,8 +16,8 @@ where :math:`\nabla_h` denotes horizontal gradient, :math:`\textbf{u}` and
 :math:`\mu_h` and :math:`\mu` denote horizontal and vertical diffusivity.
 """
 from __future__ import absolute_import
-from .utility import *
-from .equation import Term, Equation
+from thetis.utility import *
+from thetis.equation import Term, Equation
 
 __all__ = [
     'TracerEquation',
@@ -68,6 +68,8 @@ class TracerTerm(Term):
         self.ds = ds(degree=self.quad_degree)
         self.ds_surf = ds_surf(degree=self.quad_degree)
         self.ds_bottom = ds_bottom(degree=self.quad_degree)
+
+        self.horizontal_domain_is_2d = self.mesh.geometric_dimension() == 3
 
     def get_bnd_functions(self, c_in, uv_in, elev_in, bnd_id, bnd_conditions):
         """
@@ -136,18 +138,58 @@ class HorizontalAdvectionTerm(TracerTerm):
             return 0
         elev = fields_old['elev_3d']
         uv = fields_old['uv_3d']
-       # cut for operator-splitting method in NH modelling
-       # uv_depth_av = fields_old['uv_depth_av']
-       # if uv_depth_av is not None:
-       #     uv = uv + uv_depth_av
 
         uv_p1 = fields_old.get('uv_p1')
         uv_mag = fields_old.get('uv_mag')
         # FIXME is this an option?
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
 
-        f = 0
-        f += -solution*inner(uv[0], Dx(self.test, 0))*self.dx
+        if self.horizontal_domain_is_2d:
+           # f = -solution*inner(uv, nabla_grad(self.test))*self.dx
+            f = -solution*(Dx(uv[0]*self.test, 0) + Dx(uv[1]*self.test, 1))*self.dx # non-conservative form
+            if self.horizontal_dg:
+                # add interface term
+                uv_av = avg(uv)
+                un_av = (uv_av[0]*self.normal('-')[0] +
+                         uv_av[1]*self.normal('-')[1])
+                s = 0.5*(sign(un_av) + 1.0)
+                c_up = solution('-')*s + solution('+')*(1-s)
+                f += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
+                           uv_av[1]*jump(self.test, self.normal[1]))*(self.dS_v + self.dS_h)
+               # f += c_up*(jump(self.test, uv[0]*self.normal[0]) +
+               #            jump(self.test, uv[1]*self.normal[1]))*(self.dS_v + self.dS_h) # non-conservative form
+                # Lax-Friedrichs stabilization
+                if self.use_lax_friedrichs:
+                    if uv_p1 is not None:
+                        gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
+                                         avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
+                    elif uv_mag is not None:
+                        gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
+                    else:
+                        raise Exception('either uv_p1 or uv_mag must be given')
+                    f += gamma*dot(jump(self.test), jump(solution))*(self.dS_v + self.dS_h)
+                if bnd_conditions is not None:
+                    for bnd_marker in self.boundary_markers:
+                        funcs = bnd_conditions.get(bnd_marker)
+                        ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
+                        if funcs is None:
+                            continue
+                        else:
+                            c_in = solution
+                            c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                            uv_av = 0.5*(uv + uv_ext)
+                            un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
+                            s = 0.5*(sign(un_av) + 1.0)
+                            c_up = c_in*s + c_ext*(1-s)
+                            f += c_up*(uv_av[0]*self.normal[0] +
+                                       uv_av[1]*self.normal[1])*self.test*ds_bnd
+            if self.use_symmetric_surf_bnd:
+                f += solution*(uv[0]*self.normal[0] + uv[1]*self.normal[1])*self.test*ds_surf
+            return -f
+
+        # below for horizontal 1D domain
+       # f = -solution*inner(uv[0], Dx(self.test, 0))*self.dx
+        f = -solution*Dx(uv[0]*self.test, 0)*self.dx # non-conservative form
         if self.horizontal_dg:
             # add interface term
             uv_av = avg(uv)
@@ -155,6 +197,7 @@ class HorizontalAdvectionTerm(TracerTerm):
             s = 0.5*(sign(un_av) + 1.0)
             c_up = solution('-')*s + solution('+')*(1-s)
             f += c_up*(uv_av[0]*jump(self.test, self.normal[0]))*(self.dS_v + self.dS_h)
+           # f += c_up*(jump(self.test, uv[0]*self.normal[0]))*(self.dS_v + self.dS_h) # non-conservative form
             # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
                 if uv_p1 is not None:
@@ -211,22 +254,40 @@ class VerticalAdvectionTerm(TracerTerm):
             return 0
         w_mesh = fields_old.get('w_mesh')
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
+        omega = fields_old.get('omega')
+        ###
+        vertvelo = omega#sigma_dt + uv_3d[0]*sigma_dx + w[1]/(eta + bath)
+        ###
 
-        vertvelo = w[1]
-        if w_mesh is not None:
-            vertvelo = w[1] - w_mesh
-        f = 0
-        f += -solution*vertvelo*Dx(self.test, 1)*self.dx
+        if self.horizontal_domain_is_2d:
+           # f = -solution*vertvelo*Dx(self.test, 2)*self.dx
+            f = -solution*Dx(vertvelo*self.test, 2)*self.dx # non-conservative form
+            if self.vertical_dg:
+                w_av = avg(vertvelo)
+                s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
+                c_up = solution('-')*s + solution('+')*(1-s)
+                f += c_up*w_av*jump(self.test, self.normal[2])*self.dS_h
+               # f += c_up*jump(self.test, vertvelo*self.normal[2])*self.dS_h # non-conservative form
+                if self.use_lax_friedrichs:
+                    # Lax-Friedrichs
+                    gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
+                    f += gamma*dot(jump(self.test), jump(solution))*self.dS_h
+            f += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
+            return -f
+
+        # below for horizontal 1D domain
+       # f = -solution*vertvelo*Dx(self.test, 1)*self.dx
+        f = -solution*Dx(vertvelo*self.test, 1)*self.dx # non-conservative form
         if self.vertical_dg:
             w_av = avg(vertvelo)
             s = 0.5*(sign(w_av*self.normal[1]('-')) + 1.0)
             c_up = solution('-')*s + solution('+')*(1-s)
             f += c_up*w_av*jump(self.test, self.normal[1])*self.dS_h
+           # f += c_up*jump(self.test, vertvelo*self.normal[1])*self.dS_h # non-conservative form
             if self.use_lax_friedrichs:
                 # Lax-Friedrichs
                 gamma = 0.5*abs(w_av*self.normal('-')[1])*lax_friedrichs_factor
                 f += gamma*dot(jump(self.test), jump(solution))*self.dS_h
-
         # NOTE Bottom impermeability condition is naturally satisfied by the definition of w
         # NOTE imex solver fails with this in tracerBox example
         f += solution*vertvelo*self.normal[1]*self.test*self.ds_surf
@@ -260,12 +321,52 @@ class HorizontalDiffusionTerm(TracerTerm):
         if fields_old.get('diffusivity_h') is None:
             return 0
         diffusivity_h = fields_old['diffusivity_h']
+
+        if self.horizontal_domain_is_2d:
+            diff_tensor = as_matrix([[diffusivity_h, 0, 0],
+                                     [0, diffusivity_h, 0],
+                                     [0, 0, 0]])
+            grad_test = grad(self.test)
+            diff_flux = dot(diff_tensor, grad(solution))
+            f = inner(grad_test, diff_flux)*self.dx
+            if self.horizontal_dg:
+                assert self.h_elem_size is not None, 'h_elem_size must be defined'
+                assert self.v_elem_size is not None, 'v_elem_size must be defined'
+                # Interior Penalty method by
+                # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
+                # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
+                # k_max/k_min  - max/min diffusivity
+                # p            - polynomial degree
+                # Theta        - min angle of triangles
+                # assuming k_max/k_min=2, Theta=pi/3
+                # sigma = 6.93 = 3.5*p*(p+1)
+                degree_h, degree_v = self.function_space.ufl_element().degree()
+                # TODO compute elemsize as CellVolume/FacetArea
+                # h = n.D.n where D = diag(h_h, h_h, h_v)
+                elemsize = (self.h_elem_size*(self.normal[0]**2 +
+                                              self.normal[1]**2) +
+                            self.v_elem_size*self.normal[2]**2)
+                sigma = 5.0*degree_h*(degree_h + 1)/elemsize
+                if degree_h == 0:
+                    sigma = 1.5/elemsize
+                alpha = avg(sigma)
+                ds_interior = (self.dS_h + self.dS_v)
+                f += alpha*inner(jump(self.test, self.normal),
+                                 dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
+                f += -inner(avg(dot(diff_tensor, grad(self.test))),
+                            jump(solution, self.normal))*ds_interior
+                f += -inner(jump(self.test, self.normal),
+                            avg(dot(diff_tensor, grad(solution))))*ds_interior
+            # symmetric bottom boundary condition
+            # NOTE introduces a flux through the bed - breaks mass conservation
+            f += - inner(diff_flux, self.normal)*self.test*self.ds_bottom
+            f += - inner(diff_flux, self.normal)*self.test*self.ds_surf
+            return -f
+
+        # below for horizontal 1D domain
         grad_test = Dx(self.test, 0)
         diff_flux = dot(diffusivity_h, Dx(solution, 0))
-
-        f = 0
-        f += inner(grad_test, diff_flux)*self.dx
-
+        f = inner(grad_test, diff_flux)*self.dx
         if self.horizontal_dg:
             assert self.h_elem_size is not None, 'h_elem_size must be defined'
             assert self.v_elem_size is not None, 'v_elem_size must be defined'
@@ -293,12 +394,10 @@ class HorizontalDiffusionTerm(TracerTerm):
                         jump(solution, self.normal[0]))*ds_interior
             f += -inner(jump(self.test, self.normal[0]),
                         avg(dot(diffusivity_h, Dx(solution, 0))))*ds_interior
-
         # symmetric bottom boundary condition
         # NOTE introduces a flux through the bed - breaks mass conservation
         f += - inner(diff_flux, self.normal[0])*self.test*self.ds_bottom
         f += - inner(diff_flux, self.normal[0])*self.test*self.ds_surf
-
         return -f
 
 
@@ -324,17 +423,45 @@ class VerticalDiffusionTerm(TracerTerm):
     Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        if fields_old.get('diffusivity_v') is None:
+        diffusivity_v = fields_old['diffusivity_v']
+        if diffusivity_v is None:
             return 0
 
-        diffusivity_v = fields_old['diffusivity_v']
+        total_h = fields_old.get('elev_3d') + self.bathymetry
+        const = 1./total_h**2
 
-        grad_test = Dx(self.test, 1)
+        if self.horizontal_domain_is_2d:
+            grad_test = Dx(const*self.test, 2)
+            diff_flux = dot(diffusivity_v, Dx(solution, 2))
+            f = inner(grad_test, diff_flux)*self.dx
+            if self.vertical_dg:
+                assert self.h_elem_size is not None, 'h_elem_size must be defined'
+                assert self.v_elem_size is not None, 'v_elem_size must be defined'
+                # Interior Penalty method by
+                # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
+                degree_h, degree_v = self.function_space.ufl_element().degree()
+                # TODO compute elemsize as CellVolume/FacetArea
+                # h = n.D.n where D = diag(h_h, h_h, h_v)
+                elemsize = (self.h_elem_size*(self.normal[0]**2 +
+                                              self.normal[1]**2) +
+                            self.v_elem_size*self.normal[2]**2)
+                sigma = 5.0*degree_v*(degree_v + 1)/elemsize
+                if degree_v == 0:
+                    sigma = 1.0/elemsize
+                alpha = avg(sigma)
+                ds_interior = (self.dS_h)
+                f += alpha*inner(jump(const*self.test, self.normal[2]),
+                                 dot(avg(diffusivity_v), jump(solution, self.normal[2])))*ds_interior
+                f += -inner(avg(dot(diffusivity_v, Dx(const*self.test, 2))),
+                            jump(solution, self.normal[2]))*ds_interior
+                f += -inner(jump(const*self.test, self.normal[2]),
+                            avg(dot(diffusivity_v, Dx(solution, 2))))*ds_interior
+            return -f
+
+        # below for horizontal 1D domain
+        grad_test = Dx(const*self.test, 1)
         diff_flux = dot(diffusivity_v, Dx(solution, 1))
-
-        f = 0
-        f += inner(grad_test, diff_flux)*self.dx
-
+        f = inner(grad_test, diff_flux)*self.dx
         if self.vertical_dg:
             assert self.h_elem_size is not None, 'h_elem_size must be defined'
             assert self.v_elem_size is not None, 'v_elem_size must be defined'
@@ -350,11 +477,11 @@ class VerticalDiffusionTerm(TracerTerm):
                 sigma = 1.0/elemsize
             alpha = avg(sigma)
             ds_interior = (self.dS_h)
-            f += alpha*inner(jump(self.test, self.normal[1]),
+            f += alpha*inner(jump(const*self.test, self.normal[1]),
                              dot(avg(diffusivity_v), jump(solution, self.normal[1])))*ds_interior
-            f += -inner(avg(dot(diffusivity_v, Dx(self.test, 1))),
+            f += -inner(avg(dot(diffusivity_v, Dx(const*self.test, 1))),
                         jump(solution, self.normal[1]))*ds_interior
-            f += -inner(jump(self.test, self.normal[1]),
+            f += -inner(jump(const*self.test, self.normal[1]),
                         avg(dot(diffusivity_v, Dx(solution, 1))))*ds_interior
 
         return -f
