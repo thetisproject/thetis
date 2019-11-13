@@ -476,13 +476,17 @@ class CommonModelOptions(FrozenConfigurable):
     horizontal_diffusivity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
     sipg_parameter = FiredrakeScalarExpression(None, allow_none=True, help="""
-        Parameter used for `HorizontalViscosityTerm`s in Symmetric Interior Penalty
-        Galerkin method of Epshteyn and Riviere (2007). For anisotropic meshes, it
-        is advisable to use a larger value than the default.
+        Penalty parameter used for horizontal viscosity and diffusivity terms.
 
-        Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
-        interior penalty Galerkin methods. Journal of Computational and Applied
-        Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
+        By default, this value is set to
+
+        ..math::
+            \alpha = 5p(p+1),
+
+        where :math:`p` is the polynomial degree of the velocity space (or tracer space
+        if solving the tracer equations).
+
+        For anisotropic meshes, it is advisable to use a larger value than the default.
         """).tag(config=True)
 
 
@@ -676,12 +680,16 @@ class ModelOptions3d(CommonModelOptions):
     constant_salinity = FiredrakeConstantTraitlet(
         Constant(0.0), help="Constant salinity if salinity is not solved").tag(config=True)
 
-    sipg_parameter_vertical = FiredrakeScalarExpression(None, allow_none=True, help="""
-        Parameter used for `VerticalViscosityTerm`s in Symmetric Interior Penalty
-        Galerkin method of Epshteyn and Riviere (2007). For anisotropic meshes, it
-        is advisable to use a larger value than the default.
+    sipg_parameter_vertical = FiredrakeScalarExpression(None, allow_none=True, help=r"""
+        Penalty parameter used for vertical viscosity and diffusivity terms.
 
-        Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
-        interior penalty Galerkin methods. Journal of Computational and Applied
-        Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
+        By default, this value is set to
+
+        ..math::
+            \alpha = 5p(p+1),
+
+        where :math:`p` is the polynomial degree of the velocity space (or tracer space
+        if solving the tracer equations).
+
+        For anisotropic meshes, it is advisable to use a larger value than the default.
         """).tag(config=True)
