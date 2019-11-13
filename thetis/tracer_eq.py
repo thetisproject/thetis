@@ -295,14 +295,14 @@ class HorizontalDiffusionTerm(TracerTerm):
             elemsize = (self.h_elem_size*(self.normal[0]**2
                                           + self.normal[1]**2)
                         + self.v_elem_size*self.normal[2]**2)
-            sigma = fields_old.get('sipg_parameter')
-            if sigma is None:
-                sigma = 5.0*degree_h*(degree_h + 1)/elemsize
+            alpha = fields_old.get('sipg_parameter')
+            if alpha is None:
+                alpha = 5.0*degree_h*(degree_h + 1)
                 if degree_h == 0:
-                    sigma = 1.5/elemsize
-            alpha = avg(sigma)
+                    alpha = 1.5
+            sigma = avg(alpha/elemsize)
             ds_interior = (self.dS_h + self.dS_v)
-            f += alpha*inner(jump(self.test, self.normal),
+            f += sigma*inner(jump(self.test, self.normal),
                              dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
             f += -inner(avg(dot(diff_tensor, grad(self.test))),
                         jump(solution, self.normal))*ds_interior
