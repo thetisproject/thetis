@@ -210,6 +210,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             'momentum_source': momentum_source_2d,
             'volume_source': self.options.volume_source_2d,
             'atmospheric_pressure': self.options.atmospheric_pressure,
+            'sipg_parameter': self.options.sipg_parameter,
         }
 
         self.timesteppers.swe2d = self.integrator_2d(
@@ -237,6 +238,8 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                   'uv_p1': self.fields.get('uv_p1_3d'),
                   'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
                   'coriolis': self.fields.get('coriolis_3d'),
+                  'sipg_parameter': self.options.sipg_parameter,
+                  'sipg_parameter_vertical': self.options.sipg_parameter_vertical,
                   }
         friction_fields = {
             'linear_drag_coefficient': self.options.linear_drag_coefficient,
@@ -278,6 +281,8 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       # uv_mag': self.fields.uv_mag_3d,
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
+                      'sipg_parameter': self.options.sipg_parameter,
+                      'sipg_parameter_vertical': self.options.sipg_parameter_vertical,
                       }
             self.timesteppers.salt_expl = self.integrator_3d(
                 solver.eq_salt, solver.fields.salt_3d, fields, solver.dt,
@@ -311,6 +316,8 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       # uv_mag': self.fields.uv_mag_3d,
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
+                      'sipg_parameter': self.options.sipg_parameter,
+                      'sipg_parameter_vertical': self.options.sipg_parameter_vertical,
                       }
             self.timesteppers.temp_expl = self.integrator_3d(
                 solver.eq_temp, solver.fields.temp_3d, fields, solver.dt,
