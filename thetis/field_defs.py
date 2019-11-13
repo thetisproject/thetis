@@ -229,7 +229,7 @@ field_metadata['psi_3d'] = {
 field_metadata['eps_3d'] = {
     'name': 'TKE dissipation rate',
     'shortname': 'TKE dissipation rate',
-    'unit': 'm2 s-2',
+    'unit': 'm2 s-3',
     'filename': 'TurbEps3d',
 }
 field_metadata['len_3d'] = {
