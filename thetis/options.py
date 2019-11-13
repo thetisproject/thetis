@@ -475,6 +475,15 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
     horizontal_diffusivity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
+    sipg_parameter = FiredrakeScalarExpression(None, allow_none=True, help="""
+        Parameter used for `HorizontalViscosityTerm`s in Symmetric Interior Penalty
+        Galerkin method of Epshteyn and Riviere (2007). For anisotropic meshes, it
+        is advisable to use a larger value than the default.
+
+        Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
+        interior penalty Galerkin methods. Journal of Computational and Applied
+        Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
+        """).tag(config=True)
 
 
 # NOTE all parameters are now case sensitive
@@ -531,17 +540,6 @@ class ModelOptions2d(CommonModelOptions):
         False, help="""Hold shallow water variables in initial state
 
         Advects tracer in the associated (constant) velocity field.
-        """).tag(config=True)
-
-    sipg_parameter = FiredrakeScalarExpression(None, allow_none=True, help="""
-        Parameter used in Symmetric Interior Penalty Galerkin method of Epshteyn and
-        Riviere (2007). For anisotropic meshes, it is advisable to use a larger value
-        than the default.
-
-        Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
-        interior penalty Galerkin methods. Journal of Computational and Applied
-        Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
-
         """).tag(config=True)
 
 
@@ -677,3 +675,13 @@ class ModelOptions3d(CommonModelOptions):
         Constant(10.0), help="Constant temperature if temperature is not solved").tag(config=True)
     constant_salinity = FiredrakeConstantTraitlet(
         Constant(0.0), help="Constant salinity if salinity is not solved").tag(config=True)
+
+    sipg_parameter_vertical = FiredrakeScalarExpression(None, allow_none=True, help="""
+        Parameter used for `VerticalViscosityTerm`s in Symmetric Interior Penalty
+        Galerkin method of Epshteyn and Riviere (2007). For anisotropic meshes, it
+        is advisable to use a larger value than the default.
+
+        Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
+        interior penalty Galerkin methods. Journal of Computational and Applied
+        Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
+        """).tag(config=True)
