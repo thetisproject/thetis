@@ -36,6 +36,8 @@ def run(refinement, **model_options):
     bathymetry_2d = Function(P1_2d, name='Bathymetry')
     bathymetry_2d.assign(depth)
 
+    print("Minimum angle: {:.2f} deg".format(numpy.rad2deg(utility.get_minimum_angle_2d(mesh2d))))
+
     solverobj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     options = solverobj.options
     options.use_nonlinear_equations = False
@@ -182,6 +184,7 @@ def run_convergence(ref_list, saveplot=False, **options):
 def polynomial_degree(request):
     return request.param
 
+# TODO: parametrise for use_automatic_sipg_parameter
 
 @pytest.mark.parametrize(('stepper'),
                          [('CrankNicolson')])

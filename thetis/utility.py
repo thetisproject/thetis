@@ -5,6 +5,7 @@ from __future__ import absolute_import
 from .firedrake import *
 import os
 import numpy as np
+import numpy.linalg as la
 import sys
 from .physical_constants import physical_constants
 from pyop2.profiling import timed_region, timed_function, timed_stage  # NOQA
@@ -1151,6 +1152,55 @@ def get_horizontal_elem_size_3d(sol2d, sol3d):
     """
     get_horizontal_elem_size_2d(sol2d)
     ExpandFunctionTo3d(sol2d, sol3d).solve()
+
+
+def get_minimum_angle_2d(mesh2d):
+    """
+    Compute the minimum angle over all elements of `mesh2d`.
+    """
+    try:
+        assert mesh2d.topological_dimension() == 2
+    except:
+        raise NotImplementedError("Minimum angle only currently implemented in 2D.")
+
+    min_angle = pi
+    coords = mesh2d.coordinates.dat.data_ro_with_halos
+    vertices = np.array(mesh2d.cell_closure[:,:3]) - mesh2d.num_cells()
+    for c in mesh2d.cell_closure[:,6]:
+        endpoints = [coords[v] for v in vertices[c]]
+        dat = {0: {}, 1: {}, 2: {}}
+        dat[0]['vector'] = endpoints[1] - endpoints[0]
+        dat[0]['length'] = la.norm(dat[0]['vector'])
+        dat[1]['vector'] = endpoints[2] - endpoints[1]
+        dat[1]['length'] = la.norm(dat[1]['vector'])
+        dat[2]['vector'] = endpoints[0] - endpoints[2]
+        dat[2]['length'] = la.norm(dat[2]['vector'])
+        lmin = min(dat[0]['length'], dat[1]['length'], dat[2]['length'])
+        for i in dat:
+            if np.abs(dat[i]['length'] - lmin) < 1e-8:
+                dat.pop(i)
+                break
+        normalised = []
+        for i in dat:
+            normalised.append(dat[i]['vector']/dat[i]['length'])
+        min_angle = min(acos(np.abs(np.dot(normalised[0], normalised[1]))), min_angle)
+    return min_angle
+
+
+def compute_sipg_parameter(fs, nu):
+    """
+    Compute SIPG parameter for a given mesh and viscosity or diffusivity :math:`nu`.
+
+    :arg fs: velocity space or tracer space, as appropriate.
+    :arg nu: viscosity/diffusivity of problem, as appropriate.
+    """
+    min_angle = get_min_angle(fs.mesh())
+    p = fs.ufl_element().degree()
+    alpha = 5.0*p*(p+1)
+    if p > 0:
+        alpha = 1.5
+    nu_max = nu.values()[0] if isinstance(nu, Constant) else nu.vector().gather().max()
+    return Constant(nu_max/tan(min_angle))
 
 
 class ALEMeshUpdater(object):
