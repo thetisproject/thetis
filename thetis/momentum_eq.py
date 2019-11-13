@@ -378,12 +378,14 @@ class HorizontalViscosityTerm(MomentumTerm):
             # h = n.D.n where D = diag(h_h, h_h, h_v)
             elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2)
                         + self.v_elem_size*self.normal[2]**2)
-            sigma = 5.0*degree_h*(degree_h + 1)/elemsize
-            if degree_h == 0:
-                sigma = 1.5/elemsize
-            alpha = avg(sigma)
+            alpha = fields_old.get('sipg_parameter')
+            if alpha is None:
+                alpha = 5.0*degree_h*(degree_h + 1)
+                if degree_h == 0:
+                    alpha = 1.5
+            sigma = avg(alpha/elemsize)
             ds_interior = (self.dS_h + self.dS_v)
-            f += alpha*inner(tensor_jump(self.normal, self.test),
+            f += sigma*inner(tensor_jump(self.normal, self.test),
                              dot(avg(visc_tensor), tensor_jump(self.normal, uv)))*ds_interior
             f += -inner(avg(dot(visc_tensor, nabla_grad(self.test))),
                         tensor_jump(self.normal, uv))*ds_interior
@@ -439,12 +441,15 @@ class VerticalViscosityTerm(MomentumTerm):
             # h = n.D.n where D = diag(h_h, h_h, h_v)
             elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2)
                         + self.v_elem_size*self.normal[2]**2)
-            sigma = 5.0*degree_v*(degree_v + 1)/elemsize
-            if degree_v == 0:
-                sigma = 1.0/elemsize
-            alpha = avg(sigma)
+
+            alpha = fields_old.get('sipg_parameter_vertical')
+            if alpha is None:
+                alpha = 5.0*degree_v*(degree_v + 1)
+                if degree_v == 0:
+                    alpha = 1.0/elemsize
+            sigma = avg(alpha/cellsize)
             ds_interior = (self.dS_h)
-            f += alpha*inner(tensor_jump(self.normal[2], self.test),
+            f += sigma*inner(tensor_jump(self.normal[2], self.test),
                              avg(viscosity_v)*tensor_jump(self.normal[2], solution))*ds_interior
             f += -inner(avg(viscosity_v*Dx(self.test, 2)),
                         tensor_jump(self.normal[2], solution))*ds_interior

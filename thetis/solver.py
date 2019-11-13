@@ -551,6 +551,8 @@ class FlowSolver(FrozenClass):
         self.fields.h_elem_size_3d = Function(self.function_spaces.P1)
         self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
         get_horizontal_elem_size_3d(self.fields.h_elem_size_2d, self.fields.h_elem_size_3d)
+        self.fields.sipg_parameter = self.options.sipg_parameter
+        self.fields.sipg_parameter_vertical = self.options.sipg_parameter_vertical
         self.fields.max_h_diff = Function(self.function_spaces.P1)
         if self.options.use_smagorinsky_viscosity:
             self.fields.smag_visc_3d = Function(self.function_spaces.P1)
