@@ -188,6 +188,29 @@ class FlowSolver2d(FrozenClass):
             print_output('dt = {:}'.format(self.dt))
             sys.stdout.flush()
 
+    def set_sipg_parameter(self):
+        r"""
+        Compute a penalty parameter which ensures stability of the Interior Penalty method
+        used for viscosity and diffusivity terms, from Epshteyn et al. 2007
+        (http://dx.doi.org/10.1016/j.cam.2006.08.029).
+
+        The scheme is stable for
+
+        ..math::
+            \alpha > 3*X*p*(p+1)*\cot(\theta),
+
+        where :math:`X` is the maximum ratio of viscosity within a triangle, :math:`p` the
+        degree, and :math:`\theta` is the minimum angle within a triangle.
+        """
+        if self.options.use_automatic_sipg_parameter:
+            raise NotImplementedError  # TODO
+        else:
+            p = self.options.polynomial_degree
+            if self.options.element_family == 'rt-dg':
+                p += 1
+            alpha = 5.0*p*(p+1) if p != 0 else 1.5
+            self.options.sipg_parameter = Constant(alpha)
+
     def create_function_spaces(self):
         """
         Creates function spaces
@@ -276,9 +299,10 @@ class FlowSolver2d(FrozenClass):
             'wind_stress': self.options.wind_stress,
             'atmospheric_pressure': self.options.atmospheric_pressure,
             'momentum_source': self.options.momentum_source_2d,
-            'volume_source': self.options.volume_source_2d,
-            'sipg_parameter': self.options.sipg_parameter, }
+            'volume_source': self.options.volume_source_2d, }
         self.set_time_step()
+        self.set_sipg_parameter()
+        fields['sipg_parameter'] = self.options.sipg_parameter
         if self.options.timestepper_type == 'SSPRK33':
             self.timestepper = rungekutta.SSPRK33(self.eq_sw, self.fields.solution_2d,
                                                   fields, self.dt,

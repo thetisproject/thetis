@@ -460,6 +460,29 @@ class FlowSolver(FrozenClass):
 
         self._isfrozen = True
 
+    def set_sipg_parameter(self):
+        r"""
+        Compute a penalty parameter which ensures stability of the Interior Penalty method
+        used for viscosity and diffusivity terms, from Epshteyn et al. 2007
+        (http://dx.doi.org/10.1016/j.cam.2006.08.029).
+
+        The scheme is stable for
+
+        ..math::
+            \alpha > 3*X*p*(p+1)*\cot(\theta),
+
+        where :math:`X` is the maximum ratio of viscosity within a triangle, :math:`p` the
+        degree, and :math:`\theta` is the minimum angle within a triangle.
+        """
+        if self.options.use_automatic_sipg_parameter:
+            raise NotImplementedError  # TODO
+        else:
+            p = self.options.polynomial_degree
+            if self.options.element_family == 'rt-dg':
+                p += 1
+            alpha = 5.0*p*(p+1) if p != 0 else 1.5
+            self.options.sipg_parameter = Constant(alpha)
+
     def create_fields(self):
         """
         Creates all fields
@@ -551,6 +574,7 @@ class FlowSolver(FrozenClass):
         self.fields.h_elem_size_3d = Function(self.function_spaces.P1)
         self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
         get_horizontal_elem_size_3d(self.fields.h_elem_size_2d, self.fields.h_elem_size_3d)
+        self.set_sipg_parameter()
         self.fields.sipg_parameter = self.options.sipg_parameter
         self.fields.sipg_parameter_vertical = self.options.sipg_parameter_vertical
         self.fields.max_h_diff = Function(self.function_spaces.P1)
