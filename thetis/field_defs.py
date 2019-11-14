@@ -310,3 +310,27 @@ field_metadata['hcc_metric_3d'] = {
     'unit': '-',
     'filename': 'HCCMetric3d',
 }
+field_metadata['sipg_parameter'] = {
+    'name': 'SIPG parameter',
+    'shortname': 'SIPG',
+    'unit': '',
+    'filename': 'sipg_parameter',
+}
+field_metadata['sipg_parameter_vertical'] = {
+    'name': 'SIPG parameter in vertical',
+    'shortname': 'SIPG vertical',
+    'unit': '',
+    'filename': 'sipg_parameter_vertical',
+}
+field_metadata['sipg_parameter_tracer'] = {
+    'name': 'Tracer SIPG parameter',
+    'shortname': 'Tracer SIPG',
+    'unit': '',
+    'filename': 'sipg_parameter_tracer',
+}
+field_metadata['sipg_parameter_vertical_tracer'] = {
+    'name': 'Tracer SIPG parameter in vertical',
+    'shortname': 'Tracer SIPG vertical',
+    'unit': '',
+    'filename': 'sipg_parameter_vertical_tracer',
+}
