@@ -10,6 +10,7 @@ from . import turbulence
 from . import coupled_timeintegrator
 import thetis.limiter as limiter
 import time as time_mod
+import numpy as np
 from mpi4py import MPI
 from . import exporter
 import weakref
@@ -478,28 +479,45 @@ class FlowSolver(FrozenClass):
         if self.options.element_family == 'rt-dg':
             p += 1
         alpha = 5.0*p*(p+1) if p != 0 else 1.5
-        def get_max(nu):
-            return nu.values()[0] if isinstance(nu, Constant) else nu.vector().gather().max()
+
+        def get_ratio(nu):
+            """Note that we consider a global ratio, as opposed to an elemental one."""
+            if isinstance(nu, Constant):
+                return 1.0
+            else:
+                with nu.dat.vec_ro as v:
+                    maxval = v.max()
+                    minval = v.min()
+                return maxval/minval
+
         if self.options.use_automatic_sipg_parameter:
-            cot_theta = 1.0/tan(get_min_angle(self.mesh2d))
+            min_angle = get_min_angle(self.mesh2d)
+            print_output("Minimum angle in 2D mesh: {:.2f} degrees".format(np.rad2deg(min_angle)))
+            cot_theta = 1.0/tan(min_angle)
             nu = self.options.horizontal_viscosity
             if nu is not None:
-                alpha *= get_max(nu)*cot_theta
+                alpha *= get_ratio(nu)*cot_theta
+            print_output("SIPG parameter in horizontal: {:.2f}".format(alpha))
             self.options.sipg_parameter.assign(alpha)
-            nu = self.options.vertical_viscosity
             alpha = 5.0*p*(p+1) if p != 0 else 1.5
-            if nu is not None:
-                alpha *= get_max(nu)*cot_theta
+            # TODO: The min angle is wrong here
+            # nu = self.options.vertical_viscosity
+            # if nu is not None:
+            #     alpha *= get_ratio(nu)*cot_theta
+            print_output("SIPG parameter in vertical: {:.2f}".format(alpha))
             self.options.sipg_parameter_vertical.assign(alpha)
             alpha = 10.0
             nu = self.options.horizontal_diffusivity
             if nu is not None:
-                alpha *= get_max(nu)*cot_theta
+                alpha *= get_ratio(nu)*cot_theta
+            print_output("Tracer SIPG parameter in horizontal: {:.2f}".format(alpha))
             self.options.sipg_parameter_tracer.assign(alpha)
             alpha = 10.0
-            nu = self.options.vertical_diffusivity
-            if nu is not None:
-                alpha *= get_max(nu)*cot_theta
+            # TODO: The min angle is wrong here
+            # nu = self.options.vertical_diffusivity
+            # if nu is not None:
+            #     alpha *= get_ratio(nu)*cot_theta
+            print_output("Tracer SIPG parameter in vertical: {:.2f}".format(alpha))
             self.options.sipg_parameter_vertical_tracer.assign(alpha)
         else:
             self.options.sipg_parameter.assign(alpha)
@@ -600,6 +618,8 @@ class FlowSolver(FrozenClass):
         self.set_sipg_parameter()
         self.fields.sipg_parameter = self.options.sipg_parameter
         self.fields.sipg_parameter_vertical = self.options.sipg_parameter_vertical
+        self.fields.sipg_parameter_tracer = self.options.sipg_parameter_tracer
+        self.fields.sipg_parameter_vertical_tracer = self.options.sipg_parameter_vertical_tracer
         self.fields.max_h_diff = Function(self.function_spaces.P1)
         if self.options.use_smagorinsky_viscosity:
             self.fields.smag_visc_3d = Function(self.function_spaces.P1)

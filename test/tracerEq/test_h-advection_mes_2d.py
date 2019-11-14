@@ -36,8 +36,6 @@ def run(refinement, **model_options):
     bathymetry_2d = Function(P1_2d, name='Bathymetry')
     bathymetry_2d.assign(depth)
 
-    print("Minimum angle: {:.2f} deg".format(numpy.rad2deg(utility.get_minimum_angle_2d(mesh2d))))
-
     solverobj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     options = solverobj.options
     options.use_nonlinear_equations = False
@@ -201,5 +199,4 @@ def test_horizontal_advection(polynomial_degree, stepper, ):
 if __name__ == '__main__':
     run_convergence([1, 2, 3, 4], polynomial_degree=1,
                     timestepper_type='CrankNicolson',
-                    no_exports=False, saveplot=True,
-                    use_automatic_sipg_parameter=True)
+                    no_exports=False, saveplot=True)
