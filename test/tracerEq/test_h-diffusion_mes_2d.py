@@ -172,4 +172,5 @@ def test_horizontal_diffusion(stepper):
 if __name__ == '__main__':
     run_convergence([1, 2, 4, 6, 8], polynomial_degree=1,
                     timestepper_type='CrankNicolson',
-                    no_exports=False, saveplot=True)
+                    no_exports=False, saveplot=True,
+                    use_automatic_sipg_parameter=True)

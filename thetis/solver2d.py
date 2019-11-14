@@ -11,6 +11,7 @@ from . import coupled_timeintegrator_2d
 from . import tracer_eq_2d
 import weakref
 import time as time_mod
+import numpy as np
 from mpi4py import MPI
 from . import exporter
 from .field_defs import field_metadata
@@ -199,25 +200,38 @@ class FlowSolver2d(FrozenClass):
         ..math::
             \alpha > 3*X*p*(p+1)*\cot(\theta),
 
-        where :math:`X` is the maximum ratio of viscosity within a triangle, :math:`p` the
-        degree, and :math:`\theta` is the minimum angle within a triangle.
+        where :math:`X` is the maximum ratio of viscosity / diffusivity within a triangle,
+        :math:`p` the degree, and :math:`\theta` is the minimum angle within a triangle.
         """
         p = self.options.polynomial_degree
         if self.options.element_family == 'rt-dg':
             p += 1
         alpha = 5.0*p*(p+1) if p != 0 else 1.5
-        def get_max(nu):
-            return nu.values()[0] if isinstance(nu, Constant) else nu.vector().gather().max()
+
+        def get_ratio(nu):
+            """Note that we consider a global ratio, as opposed to an elemental one."""
+            if isinstance(nu, Constant):
+                return 1.0
+            else:
+                with nu.dat.vec_ro as v:
+                    maxval = v.max()
+                    minval = v.min()
+                return maxval/minval
+
         if self.options.use_automatic_sipg_parameter:
-            cot_theta = 1.0/tan(get_minimum_angle_2d(self.mesh2d))
+            min_angle = get_minimum_angle_2d(self.mesh2d)
+            print_output("Minimum angle in mesh: {:.2f} degrees".format(np.rad2deg(min_angle)))
+            cot_theta = 1.0/tan(min_angle)
             nu = self.options.horizontal_viscosity
             if nu is not None:
-                alpha *= get_max(nu)*cot_theta
+                alpha *= get_ratio(nu)*cot_theta
+            print_output("SIPG parameter: {:.2f}".format(alpha))
             self.options.sipg_parameter.assign(alpha)
             alpha = 10.0
             nu = self.options.horizontal_diffusivity
             if nu is not None:
-                alpha *= get_max(nu)*cot_theta
+                alpha *= get_ratio(nu)*cot_theta
+            print_output("Tracer SIPG parameter: {:.2f}".format(alpha))
             self.options.sipg_parameter_tracer.assign(alpha)
         else:
             self.options.sipg_parameter.assign(alpha)
@@ -314,6 +328,7 @@ class FlowSolver2d(FrozenClass):
         self.set_time_step()
         self.set_sipg_parameter()
         fields['sipg_parameter'] = self.options.sipg_parameter
+        fields['sipg_parameter_tracer'] = self.options.sipg_parameter_tracer
         if self.options.timestepper_type == 'SSPRK33':
             self.timestepper = rungekutta.SSPRK33(self.eq_sw, self.fields.solution_2d,
                                                   fields, self.dt,
