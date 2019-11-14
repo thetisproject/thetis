@@ -206,14 +206,20 @@ def warped(request):
     return request.param
 
 
+@pytest.fixture(params=[True, False])
+def auto_sipg(request):
+    return request.param
+
+
 @pytest.mark.parametrize(('stepper', 'use_ale'),
                          [('LeapFrog', True),
                           ('SSPRK22', True)])
-def test_horizontal_diffusion(warped, polynomial_degree, stepper, use_ale):
+def test_horizontal_diffusion(warped, polynomial_degree, stepper, use_ale, auto_sipg):
     run_convergence([1, 2, 3], polynomial_degree=polynomial_degree,
                     warped_mesh=warped,
                     timestepper_type=stepper,
-                    use_ale_moving_mesh=use_ale)
+                    use_ale_moving_mesh=use_ale,
+                    use_automatic_sipg_parameter=auto_sipg)
 
 # ---------------------------
 # run individual setup for debugging
