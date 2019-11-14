@@ -205,21 +205,8 @@ class HorizontalDiffusionTerm(TracerTerm):
         f += inner(grad_test, diff_flux)*self.dx
 
         if self.horizontal_dg:
-            # Interior Penalty method by
-            # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
-            # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
-            # k_max/k_min  - max/min diffusivity
-            # p            - polynomial degree
-            # Theta        - min angle of triangles
-            # assuming k_max/k_min=2, Theta=pi/3
-            # sigma = 6.93 = 3.5*p*(p+1)
-
-            degree_h = self.function_space.ufl_element().degree()
-            alpha = fields_old.get('sipg_parameter')
-            if alpha is None:
-                alpha = 5.0*degree_h*(degree_h + 1)
-                if degree_h == 0:
-                    sigma = 1.5
+            alpha = fields_old.get('sipg_parameter_tracer')
+            assert alpha is not None
             sigma = avg(alpha / self.cellsize)
             ds_interior = self.dS
             f += sigma*inner(jump(self.test, self.normal),

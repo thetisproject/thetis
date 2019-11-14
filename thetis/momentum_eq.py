@@ -365,24 +365,12 @@ class HorizontalViscosityTerm(MomentumTerm):
         if self.horizontal_continuity in ['dg', 'hdiv']:
             assert self.h_elem_size is not None, 'h_elem_size must be defined'
             assert self.v_elem_size is not None, 'v_elem_size must be defined'
-            # Interior Penalty method by
-            # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
-            # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
-            # k_max/k_min  - max/min diffusivity
-            # p            - polynomial degree
-            # Theta        - min angle of triangles
-            # assuming k_max/k_min=2, Theta=pi/3
-            # sigma = 6.93 = 3.5*p*(p+1)
-            degree_h, degree_v = self.function_space.ufl_element().degree()
             # TODO compute elemsize as CellVolume/FacetArea
             # h = n.D.n where D = diag(h_h, h_h, h_v)
             elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2)
                         + self.v_elem_size*self.normal[2]**2)
             alpha = fields_old.get('sipg_parameter')
-            if alpha is None:
-                alpha = 5.0*degree_h*(degree_h + 1)
-                if degree_h == 0:
-                    alpha = 1.5
+            assert alpha is not None
             sigma = avg(alpha/elemsize)
             ds_interior = (self.dS_h + self.dS_v)
             f += sigma*inner(tensor_jump(self.normal, self.test),
@@ -434,19 +422,13 @@ class VerticalViscosityTerm(MomentumTerm):
         if self.vertical_continuity in ['dg', 'hdiv']:
             assert self.h_elem_size is not None, 'h_elem_size must be defined'
             assert self.v_elem_size is not None, 'v_elem_size must be defined'
-            # Interior Penalty method by
-            # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
-            degree_h, degree_v = self.function_space.ufl_element().degree()
             # TODO compute elemsize as CellVolume/FacetArea
             # h = n.D.n where D = diag(h_h, h_h, h_v)
             elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2)
                         + self.v_elem_size*self.normal[2]**2)
 
             alpha = fields_old.get('sipg_parameter_vertical')
-            if alpha is None:
-                alpha = 5.0*degree_v*(degree_v + 1)
-                if degree_v == 0:
-                    alpha = 1.0/elemsize
+            assert alpha is not None
             sigma = avg(alpha/cellsize)
             ds_interior = (self.dS_h)
             f += sigma*inner(tensor_jump(self.normal[2], self.test),
