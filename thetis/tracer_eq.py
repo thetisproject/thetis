@@ -346,7 +346,7 @@ class VerticalDiffusionTerm(TracerTerm):
                         + self.v_elem_size*self.normal[2]**2)
             alpha = fields_old.get('sipg_parameter_vertical_tracer')
             assert alpha is not None
-            sigma = avg(alpha/cellsize)
+            sigma = avg(alpha/elemsize)
             ds_interior = (self.dS_h)
             f += sigma*inner(jump(self.test, self.normal[2]),
                              dot(avg(diffusivity_v), jump(solution, self.normal[2])))*ds_interior

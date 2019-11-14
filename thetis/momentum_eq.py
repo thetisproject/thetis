@@ -429,7 +429,7 @@ class VerticalViscosityTerm(MomentumTerm):
 
             alpha = fields_old.get('sipg_parameter_vertical')
             assert alpha is not None
-            sigma = avg(alpha/cellsize)
+            sigma = avg(alpha/elemsize)
             ds_interior = (self.dS_h)
             f += sigma*inner(tensor_jump(self.normal[2], self.test),
                              avg(viscosity_v)*tensor_jump(self.normal[2], solution))*ds_interior
