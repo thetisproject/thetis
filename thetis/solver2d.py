@@ -202,14 +202,25 @@ class FlowSolver2d(FrozenClass):
         where :math:`X` is the maximum ratio of viscosity within a triangle, :math:`p` the
         degree, and :math:`\theta` is the minimum angle within a triangle.
         """
+        p = self.options.polynomial_degree
+        if self.options.element_family == 'rt-dg':
+            p += 1
+        alpha = 5.0*p*(p+1) if p != 0 else 1.5
+        def get_max(nu):
+            return nu.values()[0] if isinstance(nu, Constant) else nu.vector().gather().max()
         if self.options.use_automatic_sipg_parameter:
-            raise NotImplementedError  # TODO
+            cot_theta = 1.0/tan(get_minimum_angle_2d(self.mesh2d))
+            nu = self.options.horizontal_viscosity
+            if nu is not None:
+                alpha *= get_max(nu)*cot_theta
+            self.options.sipg_parameter.assign(alpha)
+            alpha = 10.0
+            nu = self.options.horizontal_diffusivity
+            if nu is not None:
+                alpha *= get_max(nu)*cot_theta
+            self.options.sipg_parameter_tracer.assign(alpha)
         else:
-            p = self.options.polynomial_degree
-            if self.options.element_family == 'rt-dg':
-                p += 1
-            alpha = 5.0*p*(p+1) if p != 0 else 1.5
-            self.options.sipg_parameter = Constant(alpha)
+            self.options.sipg_parameter.assign(alpha)
 
     def create_function_spaces(self):
         """

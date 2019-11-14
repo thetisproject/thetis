@@ -474,14 +474,37 @@ class FlowSolver(FrozenClass):
         where :math:`X` is the maximum ratio of viscosity within a triangle, :math:`p` the
         degree, and :math:`\theta` is the minimum angle within a triangle.
         """
+        p = self.options.polynomial_degree
+        if self.options.element_family == 'rt-dg':
+            p += 1
+        alpha = 5.0*p*(p+1) if p != 0 else 1.5
+        def get_max(nu):
+            return nu.values()[0] if isinstance(nu, Constant) else nu.vector().gather().max()
         if self.options.use_automatic_sipg_parameter:
-            raise NotImplementedError  # TODO
-        else:
-            p = self.options.polynomial_degree
-            if self.options.element_family == 'rt-dg':
-                p += 1
+            cot_theta = 1.0/tan(get_min_angle(self.mesh2d))
+            nu = self.options.horizontal_viscosity
+            if nu is not None:
+                alpha *= get_max(nu)*cot_theta
+            self.options.sipg_parameter.assign(alpha)
+            nu = self.options.vertical_viscosity
             alpha = 5.0*p*(p+1) if p != 0 else 1.5
-            self.options.sipg_parameter = Constant(alpha)
+            if nu is not None:
+                alpha *= get_max(nu)*cot_theta
+            self.options.sipg_parameter_vertical.assign(alpha)
+            alpha = 10.0
+            nu = self.options.horizontal_diffusivity
+            if nu is not None:
+                alpha *= get_max(nu)*cot_theta
+            self.options.sipg_parameter_tracer.assign(alpha)
+            alpha = 10.0
+            nu = self.options.vertical_diffusivity
+            if nu is not None:
+                alpha *= get_max(nu)*cot_theta
+            self.options.sipg_parameter_vertical_tracer.assign(alpha)
+        else:
+            self.options.sipg_parameter.assign(alpha)
+            self.options.sipg_parameter_vertical.assign(alpha)
+
 
     def create_fields(self):
         """
