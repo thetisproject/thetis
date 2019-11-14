@@ -1187,22 +1187,6 @@ def get_minimum_angle_2d(mesh2d):
     return min_angle
 
 
-def compute_sipg_parameter(fs, nu):
-    """
-    Compute SIPG parameter for a given mesh and viscosity or diffusivity :math:`nu`.
-
-    :arg fs: velocity space or tracer space, as appropriate.
-    :arg nu: viscosity/diffusivity of problem, as appropriate.
-    """
-    min_angle = get_min_angle(fs.mesh())
-    p = fs.ufl_element().degree()
-    alpha = 5.0*p*(p+1)
-    if p > 0:
-        alpha = 1.5
-    nu_max = nu.values()[0] if isinstance(nu, Constant) else nu.vector().gather().max()
-    return Constant(nu_max/tan(min_angle))
-
-
 class ALEMeshUpdater(object):
     """
     Class that handles vertically moving ALE mesh
