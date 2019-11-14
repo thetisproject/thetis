@@ -16,7 +16,7 @@ import h5py
 # with nonlin=False further converge is possible
 @pytest.mark.parametrize("timestepper", [
     'CrankNicolson', 'PressureProjectionPicard', ])
-def test_standing_wave_channel(timesteps, max_rel_err, timestepper, do_export=False):
+def test_standing_wave_channel(timesteps, max_rel_err, timestepper, tmpdir, do_export=False):
 
     lx = 5e3
     ly = 1e3
@@ -46,6 +46,7 @@ def test_standing_wave_channel(timesteps, max_rel_err, timestepper, do_export=Fa
     solver_obj.options.simulation_end_time = t_end
     solver_obj.options.no_exports = not do_export
     solver_obj.options.timestepper_type = timestepper
+    solver_obj.options.output_directory = str(tmpdir)
 
     if timestepper == 'CrankNicolson':
         solver_obj.options.element_family = 'dg-dg'
@@ -94,13 +95,13 @@ def test_standing_wave_channel(timesteps, max_rel_err, timestepper, do_export=Fa
     assert(rel_err < max_rel_err)
     print_output("PASSED")
 
-    with h5py.File('outputs/diagnostic_set1.hdf5', 'r') as df:
+    with h5py.File(str(tmpdir) + '/diagnostic_set1.hdf5', 'r') as df:
         assert all(df.attrs['field_dims'][:]==[1,2])
         trange = np.arange(n+1)*dt
         np.testing.assert_almost_equal(df['time'][:,0], trange)
         x = lx/4.  # location of detector1
         np.testing.assert_allclose(df['detector1'][:][:,0], np.cos(pi*x/lx)*np.cos(2*pi*trange/period), atol=5e-2, rtol=0.5)
-    with h5py.File('outputs/diagnostic_set2.hdf5', 'r') as df:
+    with h5py.File(str(tmpdir) + '/diagnostic_set2.hdf5', 'r') as df:
         assert all(df.attrs['field_dims'][:]==[1,])
         x = lx/4.  # location of detector1
         np.testing.assert_allclose(df['one'][:][:,0], np.cos(pi*x/lx)*np.cos(2*pi*trange/period), atol=5e-2, rtol=0.5)

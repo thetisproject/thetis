@@ -1,15 +1,15 @@
-# Idealised channel flow in 3D
-# ============================
-#
-# Solves shallow water equations in rectangular domain
-# with sloping bathymetry.
-#
-# Flow is forced with tidal volume flux in the deep (ocean) end of the
-# channel, and a constant volume flux in the shallow (river) end.
-#
-# This example demonstrates how to set up time dependent boundary conditions.
-#
-# Tuomas Karna 2015-03-03
+"""
+Idealised channel flow in 3D
+============================
+
+Solves shallow water equations in rectangular domain
+with sloping bathymetry.
+
+Flow is forced with tidal volume flux in the deep (ocean) end of the
+channel, and a constant volume flux in the shallow (river) end.
+
+This example demonstrates how to set up time dependent boundary conditions.
+"""
 from thetis import *
 
 n_layers = 6
@@ -22,6 +22,9 @@ mesh2d = RectangleMesh(nx, ny, lx, ly)
 print_output('Exporting to ' + outputdir)
 t_end = 24 * 3600
 t_export = 900.0
+
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)
@@ -70,8 +73,8 @@ flux_river = ly*depth_min*un_river
 t = 0.0
 t_ramp = 12*3600.0  # use linear ramp up for boundary forcings
 # python function that returns time dependent boundary values
-ocean_flux_func = lambda t: (flux_amp*sin(2 * pi * t / t_tide) -
-                             flux_river)*min(t/t_ramp, 1.0)
+ocean_flux_func = lambda t: (flux_amp*sin(2 * pi * t / t_tide)
+                             - flux_river)*min(t/t_ramp, 1.0)
 river_flux_func = lambda t: flux_river*min(t/t_ramp, 1.0)
 # Constants that will be fed to the model
 ocean_flux = Constant(ocean_flux_func(t))

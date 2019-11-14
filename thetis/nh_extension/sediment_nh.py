@@ -20,7 +20,7 @@ from thetis.utility import *
 from thetis.equation import Term, Equation
 
 __all__ = [
-    'TracerEquation',
+    'SedimentEquation',
     'TracerTerm',
     'HorizontalAdvectionTerm',
     'VerticalAdvectionTerm',
@@ -253,11 +253,15 @@ class VerticalAdvectionTerm(TracerTerm):
         w_mesh = fields_old.get('w_mesh')
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
         settling_velocity = fields_old.get('settling_velocity')
+        if settling_velocity is not None:
+            vertvelo = - settling_velocity
+        else:
+            vertvelo = 0
 
         if self.horizontal_domain_is_2d:
-            vertvelo = w[2]
+            vertvelo += w[2]
             if w_mesh is not None:
-                vertvelo = w[2] - w_mesh
+                vertvelo += - w_mesh
             f = -solution*vertvelo*Dx(self.test, 2)*self.dx
             if self.vertical_dg:
                 w_av = avg(vertvelo)
@@ -268,13 +272,21 @@ class VerticalAdvectionTerm(TracerTerm):
                     # Lax-Friedrichs
                     gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
                     f += gamma*dot(jump(self.test), jump(solution))*self.dS_h
-            f += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
+            consider_vertical_flux = False
+            if consider_vertical_flux:
+                f += (D - E) * self.test * (self.ds_surf + self.ds_bottom)
+                # net sediment rate out of the water column,
+                # i.e. at both free surface and bottom,
+                # settling_velocity*C = diffusivity_v/sigma_v*Dx(C, 2) = D - E
+                # D and E are sediment deposition and entrainment rate
+            else:
+                f += solution*vertvelo*self.normal[2]*self.test*self.ds_surf
             return -f
 
         # below for horizontal 1D domain
-        vertvelo = w[1]
+        vertvelo += w[1]
         if w_mesh is not None:
-            vertvelo = w[1] - w_mesh
+            vertvelo += - w_mesh
         f = -solution*vertvelo*Dx(self.test, 1)*self.dx
         if self.vertical_dg:
             w_av = avg(vertvelo)
@@ -317,7 +329,7 @@ class HorizontalDiffusionTerm(TracerTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_h') is None:
             return 0
-        diffusivity_h = fields_old['diffusivity_h']
+        diffusivity_h = fields_old['diffusivity_h']/fields_old['sigma_h']
 
         if self.horizontal_domain_is_2d:
             diff_tensor = as_matrix([[diffusivity_h, 0, 0],
@@ -422,7 +434,7 @@ class VerticalDiffusionTerm(TracerTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('diffusivity_v') is None:
             return 0
-        diffusivity_v = fields_old['diffusivity_v']
+        diffusivity_v = fields_old['diffusivity_v']/fields_old['sigma_v']
 
         if self.horizontal_domain_is_2d:
             grad_test = Dx(self.test, 2)
@@ -499,7 +511,7 @@ class SourceTerm(TracerTerm):
         return f
 
 
-class TracerEquation(Equation):
+class SedimentEquation(Equation):
     """
     3D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
@@ -517,7 +529,7 @@ class TracerEquation(Equation):
         :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
             condition in the horizontal advection term
         """
-        super(TracerEquation, self).__init__(function_space)
+        super(SedimentEquation, self).__init__(function_space)
 
         args = (function_space, bathymetry,
                 v_elem_size, h_elem_size, use_symmetric_surf_bnd, use_lax_friedrichs)

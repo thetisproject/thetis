@@ -1,46 +1,45 @@
-# Overflow Test case
-# =======================
-#
-# Overflow test case from Haidvogel and Beckmann (1999)
-#
-# 200 km long channel with sloping bathymetry from 200 m to 4 km depth.
-# Initially dense water is located on top of the slope.
-#
-# Horizontal resolution: 1 km
-# Vertical layers: 40, 66, or 100 (Ilicak, 2012)
-# Baroclinic/barotropic time steps: 10.0 s / 1.0 s
-#
-# Dianeutral mixing depends on mesh Reynolds number (Ilicak et al. 2012)
-# Re_h = U dx / nu
-# U = 0.5 m/s characteristic velocity ~ 0.5*sqrt(g_h drho/rho_0)
-# dx = horizontal mesh size
-# nu = background viscosity
-#
-# For coarse mesh:
-# Re_h = 0.5 2000 / 100 = 10
-#
-# TODO run medium for Re_h = 250
-# => nu = 0.5 500 / 250 = 1.0
-#
-# Smagorinsky factor should be C_s = 1/sqrt(Re_h)
-#
-# Tuomas Karna 2015-06-10
+"""
+Overflow Test case
+=======================
 
+Overflow test case from Haidvogel and Beckmann (1999)
+
+200 km long channel with sloping bathymetry from 200 m to 4 km depth.
+Initially dense water is located on top of the slope.
+
+Horizontal resolution: 1 km
+Vertical layers: 40, 66, or 100 (Ilicak, 2012)
+Baroclinic/barotropic time steps: 10.0 s / 1.0 s
+
+Dianeutral mixing depends on mesh Reynolds number (Ilicak et al. 2012)
+Re_h = U dx / nu
+U = 0.5 m/s characteristic velocity ~ 0.5*sqrt(g_h drho/rho_0)
+dx = horizontal mesh size
+nu = background viscosity
+"""
 from thetis import *
 
 physical_constants['rho0'] = 999.7
 
-reso_str = 'medium'
-refinement = {'medium': 1}
-layers = int(round(50*refinement[reso_str])/2)
-mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
-print_output('Loaded mesh '+mesh2d.name)
-dt = 5.0/refinement[reso_str]
+reso_str = 'coarse'
+refinement = {'medium': 4, 'coarse': 1}
+lx = 200.0e3
+delta_x = 4000./refinement[reso_str]
+nx = int(lx/delta_x)
+ny = 2
+ly = ny*delta_x
+mesh2d = RectangleMesh(nx, ny, lx, ly)
+layers = 10 if reso_str == 'coarse' else 25
+
+dt = 20.0/refinement[reso_str]
 t_end = 25 * 3600
 t_export = 15*60.0
 depth = 20.0
 Re_h = 10.0
 outputdir = 'outputs_' + reso_str + '_Re' + str(int(Re_h))
+
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 1*t_export
 
 # bathymetry
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)

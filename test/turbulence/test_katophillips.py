@@ -17,8 +17,6 @@ Initially buoyancy frequency is constant N = 0.01 s-1.
     marine model with a finite difference turbulence closure model.
     Ocean Modelling, 47:55-64.
     http://dx.doi.org/10.1016/j.ocemod.2012.01.001
-
-Tuomas Karna 2016-03-05
 """
 from thetis import *
 import pytest

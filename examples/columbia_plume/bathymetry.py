@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import scipy.interpolate
+from netCDF4 import Dataset
 from firedrake import *
 
 
@@ -29,10 +30,12 @@ def retrieve_bath_file(bathfile):
 def get_bathymetry(bathymetry_file, mesh2d, minimum_depth=5.0, project=False):
     """Interpolates/projects bathymetry from a raster to P1 field."""
     retrieve_bath_file(bathymetry_file)
-    d = np.load(bathymetry_file)
-    x = d['x']
-    y = d['y']
-    bath = d['value']
+    d = Dataset(bathymetry_file)
+    x = d['x'][:]
+    y = d['y'][:]
+    bath = -d['bathymetry'][:]
+    if np.ma.isMaskedArray(bath):
+        bath = bath.filled(minimum_depth)
     bath[~np.isfinite(bath)] = minimum_depth
     interpolator = scipy.interpolate.RegularGridInterpolator((x, y), bath.T)
 
@@ -77,9 +80,9 @@ def smooth_bathymetry(bathymetry, delta_sigma=1.0, r_max=0.0, bg_diff=0.0,
     delta_x = sqrt(CellVolume(mesh))
     bath_grad = grad(tmp_bath)
     grad_h = sqrt(bath_grad[0]**2 + bath_grad[1]**2)
-    hcc = grad_h * delta_x / (tmp_bath * delta_sigma)
+    hcc = (grad_h * delta_x)**exponent / (tmp_bath**0.5 * delta_sigma)
 
-    cost = bg_diff + alpha*hcc**exponent
+    cost = bg_diff + alpha*hcc
     f = inner(solution - tmp_bath, test)*dx
     f += cost*inner(grad(solution), grad(test))*dx
 
@@ -102,23 +105,16 @@ def smooth_bathymetry_at_bnd(bathymetry, bnd_id, strength=8000.):
     fs = bathymetry.function_space()
     mesh = fs.mesh()
 
-    # step 1: created diffusivity field
     solution = Function(fs, name='bathymetry')
     diffusivity = Function(fs, name='diff')
 
+    # step 1: create diffusivity field
     delta_x = sqrt(CellVolume(mesh))
     distance = 2*delta_x
-
-    test = TestFunction(fs)
-    f = inner(diffusivity, test)*dx
-    f += distance**2*inner(grad(diffusivity), grad(test))*dx
-    bc = DirichletBC(fs, 1.0, bnd_id)
-
-    prob = NonlinearVariationalProblem(f, diffusivity, bcs=[bc])
-    solver = NonlinearVariationalSolver(prob)
-    solver.solve()
+    get_boundary_relaxation_field(diffusivity, bnd_id, distance)
 
     # step 2: solve diffusion eq
+    test = TestFunction(fs)
     f = inner(solution - bathymetry, test)*dx
     f += strength**2*diffusivity*inner(grad(solution), grad(test))*dx
 
@@ -128,3 +124,31 @@ def smooth_bathymetry_at_bnd(bathymetry, bnd_id, strength=8000.):
     solver.solve()
 
     return solution
+
+
+def get_boundary_relaxation_field(mask_func, bnd_id, dist_scale,
+                                  scalar=None):
+    """
+    Generate a smooth relaxation coefficient field near boundaries
+
+    Solution is a linear function ranging from 1.0 at the boundary to 0.0 at
+    approximately dist_scale from the boundary. Use `scalar` argument to scale the
+    field.
+    """
+    fs = mask_func.function_space()
+    test = TestFunction(fs)
+    f = inner(mask_func, test)*dx
+    f += (dist_scale**2 * inner(grad(mask_func), grad(test))*dx)
+    bc = DirichletBC(fs, 1.0, bnd_id)
+    prob = NonlinearVariationalProblem(f, mask_func, bcs=[bc])
+    solver = NonlinearVariationalSolver(prob)
+    solver.solve()
+    # solution is e^(-x), convert to -x
+    buff = 1e-7
+    mask_func.assign(ln(mask_func + buff) - buff + 1.0)
+    # remove negative values
+    mask_func.dat.data[mask_func.dat.data < 0.0] = 0.0
+    if scalar is not None:
+        mask_func.assign(mask_func*scalar)
+
+    return mask_func

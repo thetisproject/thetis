@@ -79,6 +79,7 @@ __all__ = [
 g_grav = physical_constants['g_grav']
 rho_0 = physical_constants['rho0']
 
+
 class MomentumTerm(Term):
     """
     Generic term for momentum equation that provides commonly used members and
@@ -121,45 +122,6 @@ class MomentumTerm(Term):
         self.horizontal_domain_is_2d = self.mesh.geometric_dimension() == 3
 
         # TODO add generic get_bnd_functions?
-    def get_bnd_functions(self, c_in, uv_in, elev_in, bnd_id, bnd_conditions):
-        """
-        Returns external values of w and uv for all supported
-        boundary conditions.
-
-        Volume flux (flux) and normal velocity (un) are defined positive out of
-        the domain.
-
-        :arg c_in: Internal value of vertical velocity
-        :arg uv_in: Internal value of horizontal velocity
-        :arg elev_in: Internal value of elevation
-        :arg bnd_id: boundary id
-        :type bnd_id: int
-        :arg bnd_conditions: dict of boundary conditions:
-            ``{bnd_id: {field: value, ...}, ...}``
-        """
-        funcs = bnd_conditions.get(bnd_id)
-
-        if 'elev' in funcs:
-            elev_ext = funcs['elev']
-        else:
-            elev_ext = elev_in
-        if 'value' in funcs:
-            c_ext = funcs['value']
-        else:
-            c_ext = c_in
-        if 'uv' in funcs:
-            uv_ext = funcs['uv']
-        elif 'flux' in funcs:
-            assert self.bathymetry is not None
-            h_ext = elev_ext + self.bathymetry
-            area = h_ext*self.boundary_len  # NOTE using external data only
-            uv_ext = funcs['flux']/area*self.normal
-        elif 'un' in funcs:
-            uv_ext = funcs['un']*self.normal
-        else:
-            uv_ext = uv_in
-
-        return c_ext, uv_ext, elev_ext
 
 
 class PressureGradientTerm(MomentumTerm):
@@ -268,12 +230,10 @@ class HorizontalAdvectionTerm(MomentumTerm):
                                         self.test[1]*(uv[1] - uv_ext[1]))*ds_bnd
                     else:
                         uv_in = uv
-                        use_lf = True
                         if 'symm' in funcs:
                             # use internal normal velocity
                             # NOTE should this be symmetric normal velocity?
                             uv_ext = uv_in
-                            use_lf = False
                         elif 'uv' in funcs:
                             # prescribe external velocity
                             uv_ext = funcs['uv']
@@ -285,7 +245,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
                         elif 'flux' in funcs:
                             # prescribe normal volume flux
                             sect_len = Constant(self.boundary_len[bnd_marker])
-                            eta = fields_old['eta']
+                            eta = fields_old['elev_3d']
                             total_h = self.bathymetry + eta
                             un_ext = funcs['flux'] / total_h / sect_len
                             uv_ext = self.normal*un_ext
@@ -295,20 +255,19 @@ class HorizontalAdvectionTerm(MomentumTerm):
                         else:
                             raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
                         if self.use_nonlinear_equations:
+                            # add interior flux
+                            f += (uv_in[0]*self.test[0]*self.normal[0]*uv_in[0]
+                                  + uv_in[0]*self.test[0]*self.normal[1]*uv_in[1]
+                                  + uv_in[1]*self.test[1]*self.normal[0]*uv_in[0]
+                                  + uv_in[1]*self.test[1]*self.normal[1]*uv_in[1])*ds_bnd
+                            # add boundary contribution if inflow
                             uv_av = 0.5*(uv_in + uv_ext)
                             un_av = uv_av[0]*self.normal[0] + uv_av[1]*self.normal[1]
                             s = 0.5*(sign(un_av) + 1.0)
-                            uv_up = uv_in*s + uv_ext*(1-s)
-                            f += (uv_up[0]*self.test[0]*self.normal[0]*uv_av[0] +
-                                  uv_up[0]*self.test[0]*self.normal[1]*uv_av[1] +
-                                  uv_up[1]*self.test[1]*self.normal[0]*uv_av[0] +
-                                  uv_up[1]*self.test[1]*self.normal[1]*uv_av[1])*ds_bnd
-                            if use_lf:
-                                # Lax-Friedrichs stabilization
-                                if self.use_lax_friedrichs:
-                                    gamma = 0.5*abs(un_av)*lax_friedrichs_factor
-                                    f += gamma*(self.test[0]*(uv_in[0] - uv_ext[0]) +
-                                                self.test[1]*(uv_in[1] - uv_ext[1]))*ds_bnd
+                            f += (1-s)*((uv_ext - uv_in)[0]*self.test[0]*self.normal[0]*uv_av[0]
+                                        + (uv_ext - uv_in)[0]*self.test[0]*self.normal[1]*uv_av[1]
+                                        + (uv_ext - uv_in)[1]*self.test[1]*self.normal[0]*uv_av[0]
+                                        + (uv_ext - uv_in)[1]*self.test[1]*self.normal[1]*uv_av[1])*ds_bnd
             # surf/bottom boundary conditions: closed at bed, symmetric at surf
             f += (uv_old[0]*uv[0]*self.test[0]*self.normal[0] +
                   uv_old[0]*uv[1]*self.test[0]*self.normal[1] +
@@ -344,12 +303,10 @@ class HorizontalAdvectionTerm(MomentumTerm):
                         f += gamma*(self.test[0]*(uv[0] - uv_ext[0]))*ds_bnd
                 else:
                     uv_in = uv
-                    use_lf = True
                     if 'symm' in funcs:
                         # use internal normal velocity
                         # NOTE should this be symmetric normal velocity?
                         uv_ext = uv_in
-                        use_lf = False
                     elif 'uv' in funcs:
                         # prescribe external velocity
                         uv_ext = funcs['uv']
@@ -361,7 +318,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
                     elif 'flux' in funcs:
                         # prescribe normal volume flux
                         sect_len = Constant(self.boundary_len[bnd_marker])
-                        eta = fields_old['eta']
+                        eta = fields_old['elev_3d']
                         total_h = self.bathymetry + eta
                         un_ext = funcs['flux'] / total_h / sect_len
                         uv_ext = self.normal*un_ext
@@ -371,16 +328,13 @@ class HorizontalAdvectionTerm(MomentumTerm):
                     else:
                         raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
                     if self.use_nonlinear_equations:
+                        # add interior flux
+                        f += (uv_in[0]*self.test[0]*self.normal[0]*uv_in[0])*ds_bnd
+                        # add boundary contribution if inflow
                         uv_av = 0.5*(uv_in + uv_ext)
                         un_av = uv_av[0]*self.normal[0]
                         s = 0.5*(sign(un_av) + 1.0)
-                        uv_up = uv_in*s + uv_ext*(1-s)
-                        f += (uv_up[0]*self.test[0]*self.normal[0]*uv_av[0])*ds_bnd
-                        if use_lf:
-                            # Lax-Friedrichs stabilization
-                            if self.use_lax_friedrichs:
-                                gamma = 0.5*abs(un_av)*lax_friedrichs_factor
-                                f += gamma*(self.test[0]*(uv_in[0] - uv_ext[0]))*ds_bnd
+                        f += (1-s)*((uv_ext - uv_in)[0]*self.test[0]*self.normal[0]*uv_av[0])*ds_bnd
         # surf/bottom boundary conditions: closed at bed, symmetric at surf
         f += (uv_old[0]*uv[0]*self.test[0]*self.normal[0])*(self.ds_surf)
         return -f
@@ -407,7 +361,7 @@ class VerticalAdvectionTerm(MomentumTerm):
         uv_3d = solution
 
         if self.horizontal_domain_is_2d:
-            vertvelo = solution_old[2]
+           # vertvelo = solution_old[2]
             vertvelo = w[2]
             if w_mesh is not None:
                 vertvelo -= w_mesh
@@ -808,7 +762,7 @@ class ElevationGradientTerm(MomentumTerm):
         if fields_old.get('solve_elevation_gradient_separately') is True:
             return 0
 
-        eta = fields_old.get('eta')
+        eta = fields_old.get('elev_3d')
        # uv_dav_3d = fields_old.get('uv_depth_av')
        # total_h = eta + self.bathymetry
        # uw = solution
@@ -1116,7 +1070,7 @@ class HorizontalAdvectionTerm_in_VertMom(VertMomentumTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if fields_old.get('uv_3d') is None:
             return 0
-        elev = fields_old['eta']
+        elev = fields_old['elev_3d']
         uv = fields_old['uv_3d']
 
         uv_p1 = fields_old.get('uv_p1')
@@ -1155,12 +1109,14 @@ class HorizontalAdvectionTerm_in_VertMom(VertMomentumTerm):
                         else:
                             c_in = solution[2]
                             c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                            # add interior tracer flux
+                            f += c_in*(uv[0]*self.normal[0]
+                                       + uv[1]*self.normal[1])*self.test[2]*ds_bnd
+                            # add boundary contribution if inflow
                             uv_av = 0.5*(uv + uv_ext)
                             un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
                             s = 0.5*(sign(un_av) + 1.0)
-                            c_up = c_in*s + c_ext*(1-s)
-                            f += c_up*(uv_av[0]*self.normal[0] +
-                                       uv_av[1]*self.normal[1])*self.test[2]*ds_bnd
+                            f += (1-s)*(c_ext - c_in)*un_av*self.test[2]*ds_bnd
             if self.use_symmetric_surf_bnd:
                 f += solution[2]*(uv[0]*self.normal[0] + uv[1]*self.normal[1])*self.test[2]*ds_surf
             return -f
@@ -1192,11 +1148,13 @@ class HorizontalAdvectionTerm_in_VertMom(VertMomentumTerm):
                     else:
                         c_in = solution[1]
                         c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                        # add interior tracer flux
+                        f += c_in*(uv[0]*self.normal[0])*self.test[1]*ds_bnd
+                        # add boundary contribution if inflow
                         uv_av = 0.5*(uv + uv_ext)
                         un_av = self.normal[0]*uv_av[0]
                         s = 0.5*(sign(un_av) + 1.0)
-                        c_up = c_in*s + c_ext*(1-s)
-                        f += c_up*(uv_av[0]*self.normal[0])*self.test[1]*ds_bnd
+                        f += (1-s)*(c_ext - c_in)*un_av*self.test[1]*ds_bnd
         if self.use_symmetric_surf_bnd:
             f += solution[1]*(uv[0]*self.normal[0])*self.test[1]*ds_surf
         return -f

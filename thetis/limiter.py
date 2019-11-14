@@ -20,6 +20,9 @@ def assert_function_space(fs, family, degree):
     :arg string family: name of element family
     :arg int degree: polynomial degree of the function space
     """
+    fam_list = family
+    if not isinstance(family, list):
+        fam_list = [family]
     ufl_elem = fs.ufl_element()
     if isinstance(ufl_elem, ufl.VectorElement):
         ufl_elem = ufl_elem.sub_elements()[0]
@@ -27,18 +30,18 @@ def assert_function_space(fs, family, degree):
     if ufl_elem.family() == 'TensorProductElement':
         # extruded mesh
         A, B = ufl_elem.sub_elements()
-        assert A.family() == family,\
-            'horizontal space must be {0:s}'.format(family)
-        assert B.family() == family,\
-            'vertical space must be {0:s}'.format(family)
+        assert A.family() in fam_list,\
+            'horizontal space must be one of {0:s}'.format(fam_list)
+        assert B.family() in fam_list,\
+            'vertical space must be {0:s}'.format(fam_list)
         assert A.degree() == degree,\
             'degree of horizontal space must be {0:d}'.format(degree)
         assert B.degree() == degree,\
             'degree of vertical space must be {0:d}'.format(degree)
     else:
         # assume 2D mesh
-        assert ufl_elem.family() == family,\
-            'function space must be {0:s}'.format(family)
+        assert ufl_elem.family() in fam_list,\
+            'function space must be one of {0:s}'.format(fam_list)
         assert ufl_elem.degree() == degree,\
             'degree of function space must be {0:d}'.format(degree)
 
@@ -60,7 +63,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         :arg p1dg_space: P1DG function space
         """
 
-        assert_function_space(p1dg_space, 'Discontinuous Lagrange', 1)
+        assert_function_space(p1dg_space, ['Discontinuous Lagrange', 'DQ'], 1)
         self.is_vector = p1dg_space.value_size > 1
         if self.is_vector:
             p1dg_scalar_space = FunctionSpace(p1dg_space.mesh(), 'DG', 1)
@@ -92,7 +95,6 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         b = assemble(TestFunction(self.P0) * field * dx)
         if self.time_dependent_mesh:
             assemble(self.a_form, self.centroid_solver.A)
-            self.centroid_solver.A.force_evaluation()
         self.centroid_solver.solve(self.centroids, b)
 
     def compute_bounds(self, field):
@@ -113,7 +115,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         if self.is_2d:
             entity_dim = 1  # get 1D facets
             # for vertical 2d
-            entity_dim = (1, 0)
+            entity_dim = (1, 0) # TODO separate horizontal 2d and vertical 2d properly
         else:
             entity_dim = (1, 1)  # get vertical facets
         boundary_dofs = entity_support_dofs(self.P1DG.finat_element, entity_dim)
@@ -121,26 +123,26 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         n_bnd_nodes = local_facet_nodes.shape[1]
         local_facet_idx = op2.Global(local_facet_nodes.shape, local_facet_nodes, dtype=np.int32, name='local_facet_idx')
         code = """
-            void my_kernel(double **qmax, double **qmin, double **field, unsigned int *facet, unsigned int *local_facet_idx)
+            void my_kernel(double *qmax, double *qmin, double *field, unsigned int *facet, unsigned int *local_facet_idx)
             {
                 double face_mean = 0.0;
                 for (int i = 0; i < %(nnodes)d; i++) {
                     unsigned int idx = local_facet_idx[facet[0]*%(nnodes)d + i];
-                    face_mean += field[idx][0];
+                    face_mean += field[idx];
                 }
                 face_mean /= %(nnodes)d;
                 for (int i = 0; i < %(nnodes)d; i++) {
                     unsigned int idx = local_facet_idx[facet[0]*%(nnodes)d + i];
-                    qmax[idx][0] = fmax(qmax[idx][0], face_mean);
-                    qmin[idx][0] = fmin(qmin[idx][0], face_mean);
+                    qmax[idx] = fmax(qmax[idx], face_mean);
+                    qmin[idx] = fmin(qmin[idx], face_mean);
                 }
             }"""
         bnd_kernel = op2.Kernel(code % {'nnodes': n_bnd_nodes}, 'my_kernel')
         op2.par_loop(bnd_kernel,
                      self.P1DG.mesh().exterior_facets.set,
-                     self.max_field.dat(op2.RW, self.max_field.exterior_facet_node_map()),
-                     self.min_field.dat(op2.RW, self.min_field.exterior_facet_node_map()),
-                     field.dat(op2.RW, field.exterior_facet_node_map()),
+                     self.max_field.dat(op2.MAX, self.max_field.exterior_facet_node_map()),
+                     self.min_field.dat(op2.MIN, self.min_field.exterior_facet_node_map()),
+                     field.dat(op2.READ, field.exterior_facet_node_map()),
                      self.P1DG.mesh().exterior_facets.local_facet_dat(op2.READ),
                      local_facet_idx(op2.READ))
         if not self.is_2d:
@@ -151,29 +153,29 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
             bottom_idx = op2.Global(len(bottom_nodes), bottom_nodes, dtype=np.int32, name='node_idx')
             top_idx = op2.Global(len(top_nodes), top_nodes, dtype=np.int32, name='node_idx')
             code = """
-                void my_kernel(double **qmax, double **qmin, double **field, int *idx) {
+                void my_kernel(double *qmax, double *qmin, double *field, int *idx) {
                     double face_mean = 0;
                     for (int i=0; i<%(nnodes)d; i++) {
-                        face_mean += field[idx[i]][0];
+                        face_mean += field[idx[i]];
                     }
                     face_mean /= %(nnodes)d;
                     for (int i=0; i<%(nnodes)d; i++) {
-                        qmax[idx[i]][0] = fmax(qmax[idx[i]][0], face_mean);
-                        qmin[idx[i]][0] = fmin(qmin[idx[i]][0], face_mean);
+                        qmax[idx[i]] = fmax(qmax[idx[i]], face_mean);
+                        qmin[idx[i]] = fmin(qmin[idx[i]], face_mean);
                     }
                 }"""
             kernel = op2.Kernel(code % {'nnodes': len(bottom_nodes)}, 'my_kernel')
 
             op2.par_loop(kernel, self.mesh.cell_set,
-                         self.max_field.dat(op2.WRITE, self.max_field.function_space().cell_node_map()),
-                         self.min_field.dat(op2.WRITE, self.min_field.function_space().cell_node_map()),
+                         self.max_field.dat(op2.MAX, self.max_field.function_space().cell_node_map()),
+                         self.min_field.dat(op2.MIN, self.min_field.function_space().cell_node_map()),
                          field.dat(op2.READ, field.function_space().cell_node_map()),
                          bottom_idx(op2.READ),
                          iterate=op2.ON_BOTTOM)
 
             op2.par_loop(kernel, self.mesh.cell_set,
-                         self.max_field.dat(op2.WRITE, self.max_field.function_space().cell_node_map()),
-                         self.min_field.dat(op2.WRITE, self.min_field.function_space().cell_node_map()),
+                         self.max_field.dat(op2.MAX, self.max_field.function_space().cell_node_map()),
+                         self.min_field.dat(op2.MIN, self.min_field.function_space().cell_node_map()),
                          field.dat(op2.READ, field.function_space().cell_node_map()),
                          top_idx(op2.READ),
                          iterate=op2.ON_TOP)

@@ -40,6 +40,9 @@ t_end = 47 * 24 * 3600
 t_export = 3 * 3600
 outputdir = 'outputs_' + reso_str
 
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 1*t_export
+
 delta_x = delta_x_dict[reso_str]
 
 # bathymetry
@@ -74,7 +77,6 @@ options.use_implicit_vertical_diffusion = True
 options.use_bottom_friction = True
 options.use_turbulence = True
 options.turbulence_model_type = 'pacanowski'
-options.use_smooth_eddy_viscosity = True
 options.use_ale_moving_mesh = True
 options.use_baroclinic_formulation = True
 options.use_lax_friedrichs_velocity = False

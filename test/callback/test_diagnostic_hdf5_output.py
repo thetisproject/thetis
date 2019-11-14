@@ -63,6 +63,7 @@ def test_callbacks(tmp_outputdir):
     options.check_volume_conservation_3d = True
     options.fields_to_export = []
     options.fields_to_export_hdf5 = []
+    options.output_directory = outputdir
 
     # need to call creator to create the function spaces
     solver_obj.create_equations()
@@ -76,8 +77,8 @@ def test_callbacks(tmp_outputdir):
         name = 'constintegral'
         variable_names = ['constant', 'integral']
 
-        def __init__(self, const_val, solver_obj, outputdir=None, export_to_hdf5=False,
-                     append_to_log=True):
+        def __init__(self, const_val, solver_obj, outputdir=None,
+                     export_to_hdf5=False, append_to_log=True):
             super(ConstCallback, self).__init__(
                 solver_obj,
                 outputdir=outputdir,
@@ -121,7 +122,8 @@ def test_callbacks(tmp_outputdir):
         def message_str(self, *args):
             minval = args[0].min()
             maxval = args[0].max()
-            line = 'Array value range: {0:11.4e} - {1:11.4e}'.format(minval, maxval)
+            line = 'Array value range: {0:11.4e} - {1:11.4e}'.format(minval,
+                                                                     maxval)
             return line
 
     # test call interface for ConstCallback
@@ -159,7 +161,10 @@ def test_callbacks(tmp_outputdir):
     correct_time = np.arange(11, dtype=float)[:, np.newaxis]
     correct_time *= solver_obj.options.simulation_export_time
 
-    with h5py.File('outputs/diagnostic_constintegral.hdf5', 'r') as h5file:
+    def diag_file(f):
+        return os.path.join(outputdir, f)
+
+    with h5py.File(diag_file('diagnostic_constintegral.hdf5'), 'r') as h5file:
         time = h5file['time'][:]
         value = h5file['constant'][:]
         integral = h5file['integral'][:]
@@ -171,12 +176,12 @@ def test_callbacks(tmp_outputdir):
         assert np.allclose(value, correct_value)
         assert np.allclose(integral, correct_integral)
 
-    with h5py.File('outputs/diagnostic_dummyvector.hdf5', 'r') as h5file:
+    with h5py.File(diag_file('diagnostic_dummyvector.hdf5'), 'r') as h5file:
         time = h5file['time'][:]
         value = h5file['value'][:]
         correct_value = np.zeros((11, 4))
         for row in range(11):
-            t = correct_time[row]
+            t = correct_time[row, 0]
             correct_value[row, :] = np.linspace(t, 2*t + 1, 4)
         assert np.allclose(time, correct_time)
         assert np.allclose(value, correct_value)
@@ -184,7 +189,7 @@ def test_callbacks(tmp_outputdir):
             assert a in h5file.attrs.keys()
             assert h5file.attrs[a] == attrs[a]
 
-    with h5py.File('outputs/diagnostic_volume2d.hdf5', 'r') as h5file:
+    with h5py.File(diag_file('diagnostic_volume2d.hdf5'), 'r') as h5file:
         time = h5file['time'][:]
         reldiff = h5file['relative_difference'][:]
         integral = h5file['integral'][:]
@@ -196,7 +201,7 @@ def test_callbacks(tmp_outputdir):
         assert np.allclose(reldiff, correct_reldiff)
         assert np.allclose(integral, correct_integral)
 
-    with h5py.File('outputs/diagnostic_salt_3d_mass.hdf5', 'r') as h5file:
+    with h5py.File(diag_file('diagnostic_salt_3d_mass.hdf5'), 'r') as h5file:
         time = h5file['time'][:]
         reldiff = h5file['relative_difference'][:]
         integral = h5file['integral'][:]

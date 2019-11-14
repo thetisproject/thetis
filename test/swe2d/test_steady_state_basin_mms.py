@@ -6,8 +6,6 @@ MMS test for 2d shallow water equations.
 - run function runs the MMS setup with a single mesh resolution, returning
   L2 errors.
 - run_convergence runs a scaling test, computes and asserts convergence rate.
-
-Tuomas Karna 2015-10-29
 """
 from thetis import *
 import numpy
@@ -342,7 +340,7 @@ def options(request):
 
 
 def test_steady_state_basin_convergence(setup, options):
-    sp = {'ksp_type': 'preonly', 'pc_type': 'lu', 'snes_monitor': True,
+    sp = {'ksp_type': 'preonly', 'pc_type': 'lu', 'snes_monitor': None,
           'mat_type': 'aij'}
     run_convergence(setup, [1, 2, 4, 6], 1, options=options,
                     solver_parameters=sp, save_plot=False)

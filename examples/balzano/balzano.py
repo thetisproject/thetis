@@ -1,31 +1,30 @@
-#  Balzano wetting-drying test case
-# ==============================================
-#
-# Solves shallow water equations with wetting and drying in
-# rectangular domain with sloping bathymetry, with periodic
-# free surface boundary condition applied at deep end.
-#
-# Initial water elevation and velocity are zero everywhere.
-#
-# Further details can be found in, e.g, [1]
-#
-# Demonstrates the use of wetting and drying within Thetis
-#
-# In addition to bathymetry, elevation and velocity fields,
-# user-specified outputs are used for the moving bathymetry
-# (h_tilde) and total water depth imposed on original
-# bathymetry (eta_tilde), the latter being useful for
-# comparisons with other WD models.
-#
-# [1] O. Gourgue, R. Comblen, J. Lambrechts, T. Karna, V.
-#     Legat, and E. Deleersnijder. A flux-limiting wetting-
-#     drying method for finite-element shallow-water models,
-#     with application to the scheldt estuary. Advances in
-#     Water Resources, 32:1726 - 1739, 2009.
-#     doi: 10.1016/j.advwatres.2009.09.005.
-#
-# Simon Warder 2017-03-21
+"""
+Balzano wetting-drying test case
+================================
 
+Solves shallow water equations with wetting and drying in
+rectangular domain with sloping bathymetry, with periodic
+free surface boundary condition applied at deep end.
+
+Initial water elevation and velocity are zero everywhere.
+
+Further details can be found in, e.g, [1]
+
+Demonstrates the use of wetting and drying within Thetis
+
+In addition to bathymetry, elevation and velocity fields,
+user-specified outputs are used for the moving bathymetry
+(h_tilde) and total water depth imposed on original
+bathymetry (eta_tilde), the latter being useful for
+comparisons with other WD models.
+
+[1] O. Gourgue, R. Comblen, J. Lambrechts, T. Karna, V.
+    Legat, and E. Deleersnijder. A flux-limiting wetting-
+    drying method for finite-element shallow-water models,
+    with application to the scheldt estuary. Advances in
+    Water Resources, 32:1726 - 1739, 2009.
+    doi: 10.1016/j.advwatres.2009.09.005.
+"""
 from thetis import *
 
 outputdir = 'outputs'
@@ -38,6 +37,9 @@ dt = 600.
 t_end = 2*24*3600.
 # export interval in seconds
 t_export = 600.
+
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
 
 # bathymetry: uniform slope with gradient 1/2760
 P1_2d = FunctionSpace(mesh2d, 'CG', 1)

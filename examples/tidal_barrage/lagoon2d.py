@@ -7,9 +7,6 @@ More information about the tidal range algorithms can be found in:
 
 Angeloudis A, Kramer SC, Avdis A & Piggott MD, Optimising tidal range power plant operation,
 Applied Energy,212,680-690, 212, https://doi.org/10.1016/j.apenergy.2017.12.052
-
-Updated by Athanasios Angeloudis, 05/2018
-
 """
 from thetis import *
 
@@ -28,6 +25,9 @@ t_end = 48 * 3600.  # total duration in seconds
 t_export = 200.0    # export interval in seconds
 Dt = 25             # timestep
 
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
+
 # Omega for amplitude of seaward boundary - assumed to be a sinusoidal function with a given amplitude
 amplitude = 4.0
 period = 12.42 * 3600
@@ -44,8 +44,8 @@ x, y = SpatialCoordinate(mesh2d)
 depth_oce = 20.0
 depth_riv = -10.0
 mi, sigma = 0, 2000
-bathymetry_2d.interpolate(-2 * 1e5 * (-1 / (sigma * sqrt(2 * pi)) * exp(-(y - 3000 - mi)**2 / (2 * sigma**2))) +
-                          (depth_riv - depth_oce) * x/16e3)
+bathymetry_2d.interpolate(-2 * 1e5 * (-1 / (sigma * sqrt(2 * pi)) * exp(-(y - 3000 - mi)**2 / (2 * sigma**2)))
+                          + (depth_riv - depth_oce) * x/16e3)
 
 # Viscosity sponge at the seaward boundary
 viscosity_2d.interpolate(conditional(le(x, 2e3), 1e3 * (2e3+1 - x)/2e3, 1))
@@ -96,28 +96,3 @@ def update_forcings(t_new,):
 
 # Solve the system
 solver_obj.iterate(update_forcings=update_forcings)
-
-# Example figure from output hdf5
-import h5py
-import matplotlib.pyplot as plt
-
-df = h5py.File('outputs/diagnostic_lagoon_1.hdf5', 'r')
-
-# Index library for output
-index_conv = {"t": 0, "h_o": 1, "h_i": 2, "DZ": 3, "P": 4, "E": 5,
-              "m": 6, "Q_t": 7, "Q_s": 8, "m_dt": 9, "m_t": 10, "f_r": 11}
-
-fig, ax = plt.subplots(2, figsize=(10, 4), sharex="all")
-
-# Plotting Elevations in time (black for outer water levels and red for inner)
-ax[0].plot(df["operation_output"][:, index_conv["t"]], df["operation_output"][:, index_conv["h_o"]], color="black")
-ax[0].plot(df["operation_output"][:, index_conv["t"]], df["operation_output"][:, index_conv["h_i"]], color="r")
-ax[0].set_ylabel("$\\eta$ (m)")
-
-# Plotting Power output in time
-ax[1].plot(df["operation_output"][:, index_conv["t"]], df["operation_output"][:, index_conv["P"]], color="black")
-ax[1].set_ylabel("$P$ (MW)")
-ax[1].set_xlabel("$t$ (sec)")
-
-fig.subplots_adjust(hspace=0)
-plt.show()

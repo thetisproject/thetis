@@ -1122,7 +1122,7 @@ class FlowSolver(FrozenClass):
             solver_w.append(LinearVariationalSolver(prob_w))
 
 
-        while self.simulation_time <= self.options.simulation_end_time + t_epsilon:
+        while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
 
             #self.timestepper.advance(self.simulation_time, update_forcings)
             self.uv_2d_old.assign(self.fields.uv_2d)

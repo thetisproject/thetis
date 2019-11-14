@@ -1,7 +1,5 @@
 """
 Testing 3D vertical diffusion of tracers against analytical solution.
-
-Tuomas Karna 2015-12-14
 """
 from thetis import *
 import numpy
@@ -27,19 +25,22 @@ def run(refinement, **model_options):
     mesh2d = RectangleMesh(nx, ny, lx, ly)
 
     # set time steps
-    # stable explicit time step for diffusion
-    dz = depth/n_layers
-    alpha = 1.0/200.0  # TODO theoretical alpha...
-    dt = alpha * dz**2/vertical_diffusivity
+    if implicit:
+        dt = 100.
+    else:
+        # stable explicit time step for diffusion
+        dz = depth/n_layers
+        alpha = 1.0/200.0
+        dt = alpha * dz**2/vertical_diffusivity
     # simulation run time
-    t_end = 3600.0/2
+    t_end = 1900.
     # initial time
     t_init = 100.0  # NOTE start from t > 0 for smoother init cond
     # eliminate reminder
     ndt = np.ceil((t_end-t_init)/dt)
     dt = (t_end-t_init)/ndt
     dt_2d = dt/2
-    t_export = (t_end-t_init)/20.0
+    t_export = (t_end-t_init)/6
 
     # outputs
     outputdir = 'outputs'

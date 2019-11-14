@@ -7,6 +7,8 @@ from . import shallowwater_nh
 from . import landslide_motion
 from . import momentum_nh
 from . import tracer_nh
+from . import sediment_nh
+
 from .. import turbulence
 from .. import coupled_timeintegrator
 from .. import timeintegrator
@@ -142,6 +144,7 @@ class FlowSolver(FrozenClass):
                               'momentum': {},
                               'salt': {},
                               'temp': {},
+                              'sediment': {},
                               }
 
         self.callbacks = callback.CallbackManager()
@@ -759,6 +762,10 @@ class FlowSolver(FrozenClass):
             if abs(x[1] - (-2)) <= 0.2 and abs(x[0] - 500) <= 250.2:
                 det[i] = 0.
 
+        # for sediment transport
+        if self.options.solve_sediment:
+            self.fields.c_3d = Function(self.function_spaces.H)
+
     def create_equations(self):
         """
         Creates all dynamic equations and time integrators
@@ -816,14 +823,27 @@ class FlowSolver(FrozenClass):
             self.options)
         self.eq_ls.bnd_functions = self.bnd_functions['landslide_motion']
 
-        # solve vertical momentum equation
         ##################################
+        # vertical momentum equation
         self.eq_momentum_vert = momentum_nh.VertMomentumEquation(self.fields.w_3d.function_space(),
                                                                  bathymetry=self.fields.bathymetry_3d,
                                                                  v_elem_size=self.fields.v_elem_size_3d,
                                                                  h_elem_size=self.fields.h_elem_size_3d,
                                                                  use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
                                                                  use_symmetric_surf_bnd=False) # seems False is better for bb_bar case, but not significant
+        # sediment transport equation
+        if self.options.solve_sediment:
+            assert self.options.solve_sediment == (not self.options.solve_salinity) and \
+                   self.options.solve_sediment == (not self.options.solve_temperature), \
+                   'Sediment transport equation is being solved... \
+                    Temporarily it is not supported to solve other tracers simultaneously.'
+        if self.options.solve_sediment:
+            self.eq_sediment = sediment_nh.SedimentEquation(self.fields.c_3d.function_space(),
+                                                            bathymetry=self.fields.bathymetry_3d,
+                                                            v_elem_size=self.fields.v_elem_size_3d,
+                                                            h_elem_size=self.fields.h_elem_size_3d,
+                                                            use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
+                                                            use_symmetric_surf_bnd=False)
         ##################################
 
         expl_bottom_friction = self.options.use_bottom_friction and not self.options.use_implicit_vertical_diffusion
@@ -874,6 +894,8 @@ class FlowSolver(FrozenClass):
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         self.eq_momentum.bnd_functions = self.bnd_functions['momentum']
         self.eq_momentum_vert.bnd_functions = self.bnd_functions['momentum']
+        if self.options.solve_sediment:
+            self.eq_sediment.bnd_functions = self.bnd_functions['sediment']
         if self.options.solve_salinity:
             self.eq_salt.bnd_functions = self.bnd_functions['salt']
         if self.options.solve_temperature:
@@ -969,7 +991,10 @@ class FlowSolver(FrozenClass):
                                                                eos_options.s_ref)
             else:
                 self.equation_of_state = JackettEquationOfState()
-            if self.options.use_quadratic_density:
+            if self.options.solve_sediment:
+                self.density_solver = DensitySolverSediment(self.fields.c_3d, self.fields.density_3d, 
+                                                    self.options.rho_slide, self.options.rho_water)
+            elif self.options.use_quadratic_density:
                 self.density_solver = DensitySolverWeak(s, t, self.fields.density_3d,
                                                         self.equation_of_state)
             else:
@@ -1046,7 +1071,7 @@ class FlowSolver(FrozenClass):
 
     def assign_initial_conditions(self, elev=None, salt=None, temp=None,
                                   uv_2d=None, uv_3d=None, tke=None, psi=None,
-                                  elev_slide=None, uv_slide=None):
+                                  elev_slide=None, uv_slide=None, sedi=None):
         """
         Assigns initial conditions
 
@@ -1080,6 +1105,9 @@ class FlowSolver(FrozenClass):
             elev_ls.project(elev_slide)
         if uv_slide is not None:
             uv_ls.project(uv_slide)
+
+        if sedi is not None and self.options.solve_sediment:
+            self.fields.c_3d.project(sedi)
 
         if uv_3d is not None:
             self.fields.uv_3d.project(uv_3d)
@@ -1233,38 +1261,6 @@ class FlowSolver(FrozenClass):
                                  u=norm_u, cpu=cputime))
         sys.stdout.flush()
 
-    def update_mid_uv(self, uv_3d, elev=None):
-        """
-        Average vertically 3D function, extract to 2d and expand to 3d
-
-        :arg uv_3d: Input horizontal velocity
-        :type uv_3d: vector valued 3D :class:`Function`
-        :kwarg elev: Depth used for depth-averaged operator
-        :type elev: scalar valued 3D :class:`CG Function`
-        """
-        self.uv_3d_mid.assign(uv_3d)
-        if self.options.use_ale_moving_mesh:
-            self.elev_3d_to_cg_projector.project()
-        elevation = self.fields.elev_cg_3d
-        if elev is not None:
-            elevtion = elev
-        mid_uv_averager = VerticalIntegrator(self.uv_3d_mid,
-                                             self.uv_dav_3d_mid,
-                                             bottom_to_top=True,
-                                             bnd_value=Constant((0.0, 0.0, 0.0)),
-                                             average=True,
-                                             bathymetry=self.fields.bathymetry_3d,
-                                             elevation=elevation)
-        mid_extract_surf_dav_uv = SubFunctionExtractor(self.uv_dav_3d_mid,
-                                                       self.uv_dav_2d_mid,
-                                                       boundary='top', elem_facet='top',
-                                                       elem_height=self.fields.v_elem_size_2d)
-        mid_copy_uv_dav_to_uv_dav_3d = ExpandFunctionTo3d(self.uv_dav_2d_mid, self.uv_dav_3d_mid,
-                                                          elem_height=self.fields.v_elem_size_3d)
-        mid_uv_averager.solve()
-        mid_extract_surf_dav_uv.solve()
-        mid_copy_uv_dav_to_uv_dav_3d.solve()
-
     def solve_poisson_eq(self, q, uv_3d, w_3d, A=None, B=None, C=None, multi_layers=True):
         """
         Solve Poisson equation in two modes controlled by parameter `multi_layers'.
@@ -1339,7 +1335,6 @@ class FlowSolver(FrozenClass):
                                             solver_parameters={'snes_type': 'ksponly', # ksponly, newtonls
                                                                'ksp_type': 'preonly', # gmres, preonly
                                                                'mat_type': 'aij',
-                                                               'snes_monitor': False,
                                                                'pc_type': 'lu', #'bjacobi', 'lu'
                                                                },
                                             options_prefix='poisson_solver')
@@ -1925,7 +1920,6 @@ class FlowSolver(FrozenClass):
 
             solver_parameters = {'snes_type': 'newtonls', # ksponly, newtonls
                                  'ksp_type': 'gmres', # gmres, preonly
-                                 'snes_monitor': False,
                                  'pc_type': 'fieldsplit'}
 
             fields_with_nh_terms = {'nonhydrostatic_pressure': self.fields.q_2d}
@@ -2007,7 +2001,7 @@ class FlowSolver(FrozenClass):
                                                               theta=0.5)
                     timestepper_granular_flow.initialize(self.fields.solution_ls)
                 # timestepper for vertical momentum equation
-                fields_3d = {'eta': self.fields.elev_3d,
+                fields_3d = {'elev_3d': self.fields.elev_3d,
                           'int_pg': self.fields.get('int_pg_3d'),
                           'ext_pg': self.fields.get('ext_pg_3d'),
                           'uv_3d': self.fields.uv_3d,
@@ -2025,12 +2019,28 @@ class FlowSolver(FrozenClass):
                           'use_pressure_correction': self.options.use_pressure_correction,
                           'solve_elevation_gradient_separately': self.options.solve_elevation_gradient_separately,
                           'sponge_damping_3d': self.set_sponge_damping(self.options.sponge_layer_length, self.options.sponge_layer_xstart, alpha=10., sponge_is_2d=False),
+                          'settling_velocity': self.options.settling_velocity,
+                          'sigma_h': self.options.sigma_h,
+                          'sigma_v': self.options.sigma_v,
                               }
                 timestepper_momentum_vert = timeintegrator.SSPRK22ALE(self.eq_momentum_vert, self.fields.w_3d, 
                                                               fields_3d, self.dt,
                                                               bnd_conditions=self.bnd_functions['momentum'],
                                                               solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
                 timestepper_momentum_vert.initialize(self.fields.w_3d)
+                assert not self.options.use_implicit_vertical_diffusion, 'Being implemented for NH version'
+                fields_3d.update({
+                          'diffusivity_h': self.tot_h_diff.get_sum(),
+                          'diffusivity_v': self.tot_v_diff.get_sum(), # for not self.options.use_implicit_vertical_diffusion
+                          'source_tracer': self.options.salinity_source_3d,
+                          'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
+                              })
+                if self.options.solve_sediment:
+                    timestepper_sediment = timeintegrator.SSPRK22ALE(self.eq_sediment, self.fields.c_3d, 
+                                                                     fields_3d, self.dt,
+                                                                     bnd_conditions=self.bnd_functions['sediment'],
+                                                                     solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
+                    timestepper_sediment.initialize(self.fields.c_3d)
 
             # ----- Construct depth-integrated landslide solver
             if self.options.landslide and (not self.options.slide_is_rigid):
@@ -2046,7 +2056,6 @@ class FlowSolver(FrozenClass):
                     solver_liquid_ls = NonlinearVariationalSolver(prob_liquid_ls,
                                                            solver_parameters={'snes_type': 'newtonls', # ksponly, newtonls
                                                                               'ksp_type': 'gmres', # gmres, preonly
-                                                                              'snes_monitor': True,
                                                                               'pc_type': 'fieldsplit'})
                 if update_forcings is not None:
                     update_forcings(self.simulation_time + self.dt)
@@ -2233,6 +2242,8 @@ class FlowSolver(FrozenClass):
                     uv_3d = self.fields.uv_3d
                     w_3d = self.fields.w_3d
                     Const = physical_constants['rho0']/self.dt
+                   # if self.fields.density_3d is not None:
+                   #     Const += self.fields.density_3d/self.dt
                     trial_q = TrialFunction(fs_q)
                     test_q = TestFunction(fs_q)
 
@@ -2365,6 +2376,10 @@ class FlowSolver(FrozenClass):
                             self.timestepper.timesteppers.psi_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
                         if 'tke_expl' in self.timestepper.timesteppers:
                             self.timestepper.timesteppers.tke_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
+
+                        if self.options.solve_sediment:
+                            timestepper_sediment.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
+
                         # momentum_eq
                         self.timestepper.timesteppers.mom_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
                         timestepper_momentum_vert.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
@@ -2391,6 +2406,12 @@ class FlowSolver(FrozenClass):
                             self.timestepper.timesteppers.psi_expl.solve_stage(i_stage)
                         if 'tke_expl' in self.timestepper.timesteppers:
                             self.timestepper.timesteppers.tke_expl.solve_stage(i_stage)
+
+                        if self.options.solve_sediment:
+                            timestepper_sediment.solve_stage(i_stage)
+                            if self.options.use_limiter_for_tracers:
+                                self.tracer_limiter.apply(self.fields.c_3d)
+
                         # momentum_eq
                         self.timestepper.timesteppers.mom_expl.solve_stage(i_stage)
                         timestepper_momentum_vert.solve_stage(i_stage)
@@ -2815,7 +2836,6 @@ class FlowSolver(FrozenClass):
                                                         solver_parameters={'snes_type': 'ksponly', # ksponly, newtonls
                                                                'ksp_type': 'preonly', # gmres, preonly
                                                                'mat_type': 'aij',
-                                                               'snes_monitor': False,
                                                                'pc_type': 'lu'})
                 solver.solve()
                 self.q_0, self.q_1 = self.q_mixed_two_layers.split()
@@ -2991,7 +3011,6 @@ class FlowSolver(FrozenClass):
                                                         solver_parameters={'snes_type': 'ksponly', # ksponly, newtonls
                                                                'ksp_type': 'preonly', # gmres, preonly
                                                                'mat_type': 'aij',
-                                                               'snes_monitor': False,
                                                                'pc_type': 'lu'})
                 solver.solve()
                 self.q_0, self.q_1, self.q_2 = self.q_mixed_three_layers.split()
@@ -3256,7 +3275,6 @@ class FlowSolver(FrozenClass):
                                                         solver_parameters={'snes_type': 'ksponly', # ksponly, newtonls
                                                                'ksp_type': 'preonly', # gmres, preonly
                                                                'mat_type': 'aij',
-                                                               'snes_monitor': False,
                                                                'pc_type': 'lu'})
                 if self.n_layers == 1:
                     self.uv_av_1.assign(uv_2d)
@@ -3476,7 +3494,6 @@ class FlowSolver(FrozenClass):
                                                         solver_parameters={'snes_type': 'ksponly', # ksponly, newtonls
                                                                'ksp_type': 'preonly', # gmres, preonly
                                                                'mat_type': 'aij',
-                                                               'snes_monitor': False,
                                                                'pc_type': 'lu', #'bjacobi', 'lu'
                                                                'pc_factor_mat_solver_package': "mumps",},)
                 if self.n_layers == 1:

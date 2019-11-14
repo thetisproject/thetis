@@ -229,7 +229,7 @@ field_metadata['psi_3d'] = {
 field_metadata['eps_3d'] = {
     'name': 'TKE dissipation rate',
     'shortname': 'TKE dissipation rate',
-    'unit': 'm2 s-2',
+    'unit': 'm2 s-3',
     'filename': 'TurbEps3d',
 }
 field_metadata['len_3d'] = {
@@ -311,7 +311,7 @@ field_metadata['hcc_metric_3d'] = {
     'filename': 'HCCMetric3d',
 }
 #############################
-##### Wei defined below #####
+# Below is for non-hydrostatic (nh) extension that Wei is adding
 #############################
 field_metadata['q_3d'] = {
     'name': 'Non-hydrostatic pressure',
@@ -420,5 +420,11 @@ field_metadata['omega'] = {
     'shortname': 'Vertical velocity in sigma mesh',
     'unit': '-',
     'filename': 'Omega',
+}
+field_metadata['c_3d'] = {
+    'name': 'Sediment volumetric concentration',
+    'shortname': 'Sediment volumetric concentration',
+    'unit': '-',
+    'filename': 'Concentration3d',
 }
 

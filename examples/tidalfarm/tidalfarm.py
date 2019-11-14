@@ -1,22 +1,25 @@
-# Tidal farm optimisation example
-# =======================================
-#
-# This example is based on the OpenTidalFarm example:
-# http://opentidalfarm.readthedocs.io/en/latest/examples/headland-optimization/headland-optimization.html
-#
-# It optimises the layout of a tidalfarm using the so called continuous approach where
-# the density of turbines within a farm (n/o turbines per unit area) is optimised. This
-# allows a.o to include a cost term based on the number of turbines which is computed as
-# the integral of the density. For more details, see:
-#   S.W. Funke, S.C. Kramer, and M.D. Piggott, "Design optimisation and resource assessment
-#   for tidal-stream renewable energy farms using a new continuous turbine approach",
-#   Renewable Energy 99 (2016), pp. 1046-1061, http://doi.org/10.1016/j.renene.2016.07.039
+"""
+Tidal farm optimisation example
+=======================================
 
-# to enable a gradient-based optimisation using the adjoint to compute gradients,
-# we need to import from thetis_adjoint instead of thetis. This ensure all firedrake
-# operations in the Thetis model are annotated automatically, in such a way that we
-# can rerun the model with different input parameters, and also derive the adjoint-based
-# gradient of a specified input (the functional) with respect to a specified input (the control)
+This example is based on the OpenTidalFarm example:
+http://opentidalfarm.readthedocs.io/en/latest/examples/headland-optimization/headland-optimization.html
+
+It optimises the layout of a tidalfarm using the so called continuous approach where
+the density of turbines within a farm (n/o turbines per unit area) is optimised. This
+allows a.o to include a cost term based on the number of turbines which is computed as
+the integral of the density. For more details, see:
+  S.W. Funke, S.C. Kramer, and M.D. Piggott, "Design optimisation and resource assessment
+  for tidal-stream renewable energy farms using a new continuous turbine approach",
+  Renewable Energy 99 (2016), pp. 1046-1061, http://doi.org/10.1016/j.renene.2016.07.039
+"""
+
+# to enable a gradient-based optimisation using the adjoint to compute
+# gradients, we need to import from thetis_adjoint instead of thetis. This
+# ensure all firedrake operations in the Thetis model are annotated
+# automatically, in such a way that we can rerun the model with different input
+# parameters, and also derive the adjoint-based gradient of a specified input
+# (the functional) with respect to a specified input (the control)
 from thetis_adjoint import *
 from pyadjoint.optimization.optimization import minimise
 import numpy
@@ -33,23 +36,27 @@ tidal_period = 12.42*60*60
 H = 40
 timestep = 800.
 
+t_end = tidal_period
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 10*timestep
+
 # create solver and set options
 solver_obj = solver2d.FlowSolver2d(mesh2d, Constant(H))
 options = solver_obj.options
 options.timestep = timestep
 options.simulation_export_time = timestep
-options.simulation_end_time = tidal_period
+options.simulation_end_time = t_end
 options.output_directory = 'outputs'
 options.check_volume_conservation_2d = True
 options.element_family = 'dg-cg'
 options.timestepper_type = 'CrankNicolson'
 options.timestepper_options.implicitness_theta = 0.6
 # using direct solver as PressurePicard does not work with dolfin-adjoint (due to .split() not being annotated correctly)
-options.timestepper_options.solver_parameters = {'snes_monitor': True,
+options.timestepper_options.solver_parameters = {'snes_monitor': None,
                                                  'snes_rtol': 1e-9,
                                                  'ksp_type': 'preonly',
                                                  'pc_type': 'lu',
-                                                 'pc_factor_mat_solver_package': 'mumps',
+                                                 'pc_factor_mat_solver_type': 'mumps',
                                                  'mat_type': 'aij'
                                                  }
 options.horizontal_viscosity = Constant(100.0)

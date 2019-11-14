@@ -1299,7 +1299,6 @@ class FlowSolver(FrozenClass):
                                             solver_parameters={'snes_type': 'ksponly', # ksponly, newtonls
                                                                'ksp_type': 'preonly', # gmres, preonly
                                                                'mat_type': 'aij',
-                                                               'snes_monitor': False,
                                                                'pc_type': 'lu', #'bjacobi', 'lu'
                                                                },
                                             options_prefix='poisson_solver')
@@ -1663,7 +1662,6 @@ class FlowSolver(FrozenClass):
 
             solver_parameters = {'snes_type': 'newtonls', # ksponly, newtonls
                                  'ksp_type': 'gmres', # gmres, preonly
-                                 'snes_monitor': False,
                                  'pc_type': 'fieldsplit'}
 
             if self.simulation_time <= t_epsilon:
@@ -1864,7 +1862,7 @@ class FlowSolver(FrozenClass):
                     solver_u = LinearVariationalSolver(prob_u)
 
                     # solver for advancing the momentum equation
-                    fields_3d = {'eta': self.fields.elev_3d,
+                    fields_3d = {'elev_3d': self.fields.elev_3d,
                           'int_pg': self.fields.get('int_pg_3d'),
                           'ext_pg': self.fields.get('ext_pg_3d'),
                           'uv_3d': self.fields.uv_3d,
@@ -1892,7 +1890,7 @@ class FlowSolver(FrozenClass):
                     solver_mom_ssprk = LinearVariationalSolver(prob_mom_ssprk, solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
 
                     # solver for advancing the tracer equation
-                    fields_3d.update({'elev_3d': self.fields.elev_3d,
+                    fields_3d.update({
                           'diffusivity_h': self.tot_h_diff.get_sum(),
                           'diffusivity_v': self.tot_v_diff.get_sum(), # for not self.options.use_implicit_vertical_diffusion
                           'source_tracer': self.options.salinity_source_3d,

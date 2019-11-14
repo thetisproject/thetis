@@ -57,13 +57,13 @@ def vertex_limiter_test(dim=3, type='linear', direction='x', export=False):
         assert tracer.dat.data.min() > -2e-5
 
 
-@pytest.fixture(params=['x', 'y', pytest.mark.xfail(reason='corner elements will be limited')('xy')])
+@pytest.fixture(params=['x', 'y', pytest.param('xy', marks=pytest.mark.xfail(reason='corner elements will be limited'))])
 def direction_2d(request):
     return request.param
 
 
-@pytest.fixture(params=['x', 'y', pytest.mark.xfail(reason='surface corner elements will be limited')('z'),
-                        pytest.mark.xfail(reason='corner elements will be limited')('xz')])
+@pytest.fixture(params=['x', 'y', pytest.param('z', marks=pytest.mark.xfail(reason='surface corner elements will be limited')),
+                        pytest.param('xz', marks=pytest.mark.xfail(reason='corner elements will be limited'))])
 def direction_3d(request):
     return request.param
 

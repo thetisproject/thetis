@@ -122,7 +122,7 @@ class AngularMomentumCalculator(DiagnosticCallback):
 
 
 class KineticEnergyCalculator(DiagnosticCallback):
-    """
+    r"""
     Computes the total kinetic energy of the horizontal velocity field.
 
     Ke = 1/2 \int \rho * |u|**2 dx
@@ -168,6 +168,9 @@ t_export = 900.0
 depth = 20.0
 reynolds_number = 75.
 viscosity = 'const'
+
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 1*t_export
 
 temp_const = 10.0
 salt_center = 33.75
@@ -256,8 +259,8 @@ solver_obj.create_equations()
 # impose rho' = rho - 1025.0
 salt_init3d = Function(solver_obj.function_spaces.P1, name='initial salinity')
 x, y, z = SpatialCoordinate(solver_obj.mesh)
-salt_expr = salt_center + 1.1*pow((sqrt(x*x + y*y)/1000/3 +
-                                   (1.0-tanh(10*(z + 10.0)))*0.5), 8)
+salt_expr = salt_center + 1.1*pow((sqrt(x*x + y*y)/1000/3
+                                   + (1.0-tanh(10*(z + 10.0)))*0.5), 8)
 salt_init3d.interpolate(salt_expr)
 # crop bad values
 ix = salt_init3d.dat.data[:] > salt_outside

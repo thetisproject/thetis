@@ -1,7 +1,5 @@
 """
 Testing 2D tracer advection-diffusion equation with method of manufactured solution (MMS).
-
-Tuomas Karna 2015-11-28
 """
 from thetis import *
 import numpy
