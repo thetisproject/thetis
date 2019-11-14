@@ -182,8 +182,6 @@ def run_convergence(ref_list, saveplot=False, **options):
 def polynomial_degree(request):
     return request.param
 
-# TODO: parametrise for use_automatic_sipg_parameter
-
 @pytest.mark.parametrize(('stepper'),
                          [('CrankNicolson')])
 

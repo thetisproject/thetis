@@ -139,6 +139,8 @@ def run_convergence(ref_list, saveplot=False, **options):
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
             degree_str = 'o{:}'.format(polynomial_degree)
             imgfile = '_'.join(['convergence', setup_name, field_str, ref_str, degree_str])
+            if options.get('use_automatic_sipg_parameter', False):
+                imgfile = '_'.join([imgfile, 'sipg_auto'])
             imgfile += '.png'
             imgdir = create_directory('plots')
             imgfile = os.path.join(imgdir, imgfile)
@@ -158,11 +160,16 @@ def run_convergence(ref_list, saveplot=False, **options):
 # standard tests for pytest
 # ---------------------------
 
+@pytest.fixture(params=[True, False])
+def auto_sipg(request):
+    return request.param
+
 @pytest.mark.parametrize(('stepper'),
                          [('CrankNicolson')])
-def test_horizontal_diffusion(stepper):
+def test_horizontal_diffusion(auto_sipg, stepper):
     run_convergence([1, 2, 3], polynomial_degree=1,
                     timestepper_type=stepper,
+                    use_automatic_sipg_parameter=auto_sipg,
                     )
 # ---------------------------
 # run individual setup for debugging
@@ -172,5 +179,4 @@ def test_horizontal_diffusion(stepper):
 if __name__ == '__main__':
     run_convergence([1, 2, 4, 6, 8], polynomial_degree=1,
                     timestepper_type='CrankNicolson',
-                    no_exports=False, saveplot=True,
-                    use_automatic_sipg_parameter=True)
+                    no_exports=False, saveplot=True)
