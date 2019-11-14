@@ -281,6 +281,9 @@ class HorizontalDiffusionTerm(TracerTerm):
         if self.horizontal_dg:
             assert self.h_elem_size is not None, 'h_elem_size must be defined'
             assert self.v_elem_size is not None, 'v_elem_size must be defined'
+            # TODO compute elemsize as CellVolume/FacetArea
+            # h = n.D.n where D = diag(h_h, h_h, h_v)
+
             elemsize = (self.h_elem_size*(self.normal[0]**2
                                           + self.normal[1]**2)
                         + self.v_elem_size*self.normal[2]**2)
