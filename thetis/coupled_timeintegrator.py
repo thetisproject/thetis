@@ -255,7 +255,6 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         if self.solver.options.use_implicit_vertical_diffusion:
             fields = {'viscosity_v': impl_v_visc,
                       'uv_depth_av': self.fields.get('uv_dav_3d'),
-                      'sipg_parameter': self.options.sipg_parameter,
                       'sipg_parameter_vertical': self.options.sipg_parameter_vertical,
                       }
             fields.update(friction_fields)
@@ -283,8 +282,6 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       # uv_mag': self.fields.uv_mag_3d,
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
-                      'sipg_parameter': self.options.sipg_parameter,
-                      'sipg_parameter_vertical': self.options.sipg_parameter_vertical,
                       'sipg_parameter_tracer': self.options.sipg_parameter_tracer,
                       'sipg_parameter_vertical_tracer': self.options.sipg_parameter_vertical_tracer,
                       }
@@ -321,8 +318,6 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       # uv_mag': self.fields.uv_mag_3d,
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
-                      'sipg_parameter': self.options.sipg_parameter,
-                      'sipg_parameter_vertical': self.options.sipg_parameter_vertical,
                       'sipg_parameter_tracer': self.options.sipg_parameter_tracer,
                       'sipg_parameter_vertical_tracer': self.options.sipg_parameter_vertical_tracer,
                       }
@@ -358,7 +353,8 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'epsilon': solver.turbulence_model.epsilon,
                       'shear_freq2': solver.turbulence_model.m2,
                       'buoy_freq2_neg': solver.turbulence_model.n2_neg,
-                      'buoy_freq2_pos': solver.turbulence_model.n2_pos
+                      'buoy_freq2_pos': solver.turbulence_model.n2_pos,
+                      'sipg_parameter_vertical_tracer': self.options.sipg_parameter_vertical_tracer,
                       }
             self.timesteppers.tke_impl = self.integrator_vert_3d(
                 eq_tke_diff, solver.fields.tke_3d, fields, solver.dt,
@@ -375,8 +371,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                           # uv_mag': self.fields.uv_mag_3d,
                           'uv_p1': self.fields.get('uv_p1_3d'),
                           'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
-                          'sipg_parameter': self.options.sipg_parameter,
-                          'sipg_parameter_vertical': self.options.sipg_parameter_vertical,
+                          'sipg_parameter_vertical_tracer': self.options.sipg_parameter_vertical_tracer,
                           }
                 self.timesteppers.tke_expl = self.integrator_3d(
                     eq_tke_adv, solver.fields.tke_3d, fields, solver.dt,
