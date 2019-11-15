@@ -476,8 +476,6 @@ class FlowSolver(FrozenClass):
         degree, and :math:`\theta` is the minimum angle within a triangle.
         """
         p = self.options.polynomial_degree
-        if self.options.element_family == 'rt-dg':
-            p += 1
         alpha = 5.0*p*(p+1) if p != 0 else 1.5
 
         def get_ratio(nu):
@@ -494,11 +492,17 @@ class FlowSolver(FrozenClass):
             min_angle = get_minimum_angle_2d(self.mesh2d)
             print_output("Minimum angle in 2D mesh: {:.2f} degrees".format(np.rad2deg(min_angle)))
             cot_theta = 1.0/tan(min_angle)
+
+            # Horizontal component
             nu = self.options.horizontal_viscosity
             if nu is not None:
                 alpha *= get_ratio(nu)*cot_theta
             print_output("SIPG parameter in horizontal: {:.2f}".format(alpha))
             self.options.sipg_parameter.assign(alpha)
+
+            # Vertical component
+            if self.options.element_family == 'rt-dg':
+                p += 1
             alpha = 5.0*p*(p+1) if p != 0 else 1.5
             # TODO: The min angle is wrong here
             # nu = self.options.vertical_viscosity
@@ -506,13 +510,19 @@ class FlowSolver(FrozenClass):
             #     alpha *= get_ratio(nu)*cot_theta
             print_output("SIPG parameter in vertical: {:.2f}".format(alpha))
             self.options.sipg_parameter_vertical.assign(alpha)
+
+            # Penalty parameter for tracers
             if self.options.solve_salinity or self.options.solve_temperature:
+
+                # Horizontal component
                 alpha = 10.0
                 nu = self.options.horizontal_diffusivity
                 if nu is not None:
                     alpha *= get_ratio(nu)*cot_theta
                 print_output("Tracer SIPG parameter in horizontal: {:.2f}".format(alpha))
                 self.options.sipg_parameter_tracer.assign(alpha)
+
+                # Vertical component
                 alpha = 10.0
                 # TODO: The min angle is wrong here
                 # nu = self.options.vertical_diffusivity
@@ -522,6 +532,9 @@ class FlowSolver(FrozenClass):
                 self.options.sipg_parameter_vertical_tracer.assign(alpha)
         else:
             self.options.sipg_parameter.assign(alpha)
+            if self.options.element_family == 'rt-dg':
+                p += 1
+            alpha = 5.0*p*(p+1) if p != 0 else 1.5
             self.options.sipg_parameter_vertical.assign(alpha)
 
 

@@ -221,13 +221,17 @@ class FlowSolver2d(FrozenClass):
         if self.options.use_automatic_sipg_parameter:
             min_angle = get_minimum_angle_2d(self.mesh2d)
             print_output("Minimum angle in mesh: {:.2f} degrees".format(np.rad2deg(min_angle)))
+            cot_theta = 1.0/tan(min_angle)
+
+            # Penalty parameter for shallow water
             if not self.options.tracer_only:
-                cot_theta = 1.0/tan(min_angle)
                 nu = self.options.horizontal_viscosity
                 if nu is not None:
                     alpha *= get_ratio(nu)*cot_theta
-                    print_output("SIPG parameter: {:.2f}".format(alpha))
+                print_output("SIPG parameter: {:.2f}".format(alpha))
                 self.options.sipg_parameter.assign(alpha)
+
+            # Penalty parameter for tracers
             if self.options.solve_tracer:
                 alpha = 10.0
                 nu = self.options.horizontal_diffusivity
