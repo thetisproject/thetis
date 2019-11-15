@@ -475,8 +475,9 @@ class FlowSolver(FrozenClass):
         where :math:`X` is the maximum ratio of viscosity within a triangle, :math:`p` the
         degree, and :math:`\theta` is the minimum angle within a triangle.
         """
-        p = self.options.polynomial_degree
-        alpha = 5.0*p*(p+1) if p != 0 else 1.5
+        degree_h, degree_v = self.function_spaces.U.ufl_element().degree()
+        alpha_h = 5.0*degree_h*(degree_h+1) if degree_h != 0 else 1.5
+        alpha_v = 5.0*degree_v*(degree_v+1) if degree_v != 0 else 1.5
 
         def get_ratio(nu):
             """Note that we consider a global ratio, as opposed to an elemental one."""  # FIXME
@@ -496,46 +497,40 @@ class FlowSolver(FrozenClass):
             # Horizontal component
             nu = self.options.horizontal_viscosity
             if nu is not None:
-                alpha *= get_ratio(nu)*cot_theta
-            print_output("SIPG parameter in horizontal: {:.2f}".format(alpha))
-            self.options.sipg_parameter.assign(alpha)
+                alpha_h *= get_ratio(nu)*cot_theta
+            print_output("SIPG parameter in horizontal: {:.2f}".format(alpha_h))
+            self.options.sipg_parameter.assign(alpha_h)
 
             # Vertical component
-            if self.options.element_family == 'rt-dg':
-                p += 1
-            alpha = 5.0*p*(p+1) if p != 0 else 1.5
             # TODO: The min angle is wrong here
             # nu = self.options.vertical_viscosity
             # if nu is not None:
-            #     alpha *= get_ratio(nu)*cot_theta
-            print_output("SIPG parameter in vertical: {:.2f}".format(alpha))
-            self.options.sipg_parameter_vertical.assign(alpha)
+            #     alpha_v *= get_ratio(nu)*cot_theta
+            print_output("SIPG parameter in vertical: {:.2f}".format(alpha_v))
+            self.options.sipg_parameter_vertical.assign(alpha_v)
 
             # Penalty parameter for tracers
             if self.options.solve_salinity or self.options.solve_temperature:
 
                 # Horizontal component
-                alpha = 10.0
+                alpha_h = 10.0
                 nu = self.options.horizontal_diffusivity
                 if nu is not None:
-                    alpha *= get_ratio(nu)*cot_theta
-                print_output("Tracer SIPG parameter in horizontal: {:.2f}".format(alpha))
-                self.options.sipg_parameter_tracer.assign(alpha)
+                    alpha_h *= get_ratio(nu)*cot_theta
+                print_output("Tracer SIPG parameter in horizontal: {:.2f}".format(alpha_h))
+                self.options.sipg_parameter_tracer.assign(alpha_h)
 
                 # Vertical component
-                alpha = 10.0
+                alpha_v = 10.0
                 # TODO: The min angle is wrong here
                 # nu = self.options.vertical_diffusivity
                 # if nu is not None:
-                #     alpha *= get_ratio(nu)*cot_theta
-                print_output("Tracer SIPG parameter in vertical: {:.2f}".format(alpha))
-                self.options.sipg_parameter_vertical_tracer.assign(alpha)
+                #     alpha_v *= get_ratio(nu)*cot_theta
+                print_output("Tracer SIPG parameter in vertical: {:.2f}".format(alpha_v))
+                self.options.sipg_parameter_vertical_tracer.assign(alpha_v)
         else:
-            self.options.sipg_parameter.assign(alpha)
-            if self.options.element_family == 'rt-dg':
-                p += 1
-            alpha = 5.0*p*(p+1) if p != 0 else 1.5
-            self.options.sipg_parameter_vertical.assign(alpha)
+            self.options.sipg_parameter.assign(alpha_h)
+            self.options.sipg_parameter_vertical.assign(alpha_v)
 
 
     def create_fields(self):
