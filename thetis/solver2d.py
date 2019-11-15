@@ -212,8 +212,8 @@ class FlowSolver2d(FrozenClass):
                 return 1.0
             else:
                 with nu.dat.vec_ro as v:
-                    maxval = v.max()
-                    minval = v.min()
+                    maxval = v.max()[1]
+                    minval = v.min()[1]
                 return maxval/minval
 
         if self.options.use_automatic_sipg_parameter:

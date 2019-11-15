@@ -1165,7 +1165,8 @@ def get_minimum_angle_2d(mesh2d):
 
     min_angle = pi
     coords = mesh2d.coordinates.dat.data_ro_with_halos
-    vertices = np.array(mesh2d.cell_closure[:,:3]) - mesh2d.num_cells()
+    vertices = np.array(mesh2d.cell_closure[:,:3])
+    vertices -= len(vertices)  # FIXME: It seems the numbering doesn't match
     for c in mesh2d.cell_closure[:,6]:
         endpoints = [coords[v] for v in vertices[c]]
         dat = {0: {}, 1: {}, 2: {}}
