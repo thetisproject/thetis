@@ -203,9 +203,7 @@ class FlowSolver2d(FrozenClass):
         where :math:`X` is the maximum ratio of viscosity / diffusivity within a triangle,
         :math:`p` the degree, and :math:`\theta` is the minimum angle within a triangle.
         """
-        p = self.options.polynomial_degree
-        if self.options.element_family == 'rt-dg':
-            p += 1
+        p = self.function_spaces.U_2d.ufl_element().degree()
         alpha = 5.0*p*(p+1) if p != 0 else 1.5
 
         def get_ratio(nu):
