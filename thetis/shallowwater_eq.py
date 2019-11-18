@@ -579,7 +579,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
         f = inner(grad(self.u_test), stress)*self.dx
 
         if self.u_continuity in ['dg', 'hdiv']:
-            alpha = fields_old.get('sipg_parameter')
+            alpha = self.options.sipg_parameter
             assert alpha is not None
             f += (
                 + alpha/avg(h)*inner(tensor_jump(self.u_test, n), stress_jump)*self.dS

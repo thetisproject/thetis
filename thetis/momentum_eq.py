@@ -87,7 +87,8 @@ class MomentumTerm(Term):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 use_nonlinear_equations=True, use_lax_friedrichs=True, use_bottom_friction=False):
+                 use_nonlinear_equations=True, use_lax_friedrichs=True, use_bottom_friction=False,
+                 sipg_parameter=Constant(10.0), sipg_parameter_vertical=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -109,6 +110,8 @@ class MomentumTerm(Term):
         self.use_nonlinear_equations = use_nonlinear_equations
         self.use_lax_friedrichs = use_lax_friedrichs
         self.use_bottom_friction = use_bottom_friction
+        self.sipg_parameter = sipg_parameter
+        self.sipg_parameter_vertical = sipg_parameter_vertical
 
         # define measures with a reasonable quadrature degree
         p, q = self.function_space.ufl_element().degree()
@@ -369,7 +372,7 @@ class HorizontalViscosityTerm(MomentumTerm):
             # h = n.D.n where D = diag(h_h, h_h, h_v)
             elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2)
                         + self.v_elem_size*self.normal[2]**2)
-            alpha = fields_old.get('sipg_parameter')
+            alpha = self.sipg_parameter
             assert alpha is not None
             sigma = avg(alpha/elemsize)
             ds_interior = (self.dS_h + self.dS_v)
@@ -427,7 +430,7 @@ class VerticalViscosityTerm(MomentumTerm):
             elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2)
                         + self.v_elem_size*self.normal[2]**2)
 
-            alpha = fields_old.get('sipg_parameter_vertical')
+            alpha = self.sipg_parameter_vertical
             assert alpha is not None
             sigma = avg(alpha/elemsize)
             ds_interior = (self.dS_h)
@@ -576,7 +579,8 @@ class MomentumEquation(Equation):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 use_nonlinear_equations=True, use_lax_friedrichs=True, use_bottom_friction=False):
+                 use_nonlinear_equations=True, use_lax_friedrichs=True, use_bottom_friction=False,
+                 sipg_parameter=Constant(10.0), sipg_parameter_vertical=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -592,7 +596,8 @@ class MomentumEquation(Equation):
         super(MomentumEquation, self).__init__(function_space)
 
         args = (function_space, bathymetry,
-                v_elem_size, h_elem_size, use_nonlinear_equations, use_lax_friedrichs, use_bottom_friction)
+                v_elem_size, h_elem_size, use_nonlinear_equations, use_lax_friedrichs, use_bottom_friction,
+                sipg_parameter, sipg_parameter_vertical)
         self.add_term(PressureGradientTerm(*args), 'source')
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')
