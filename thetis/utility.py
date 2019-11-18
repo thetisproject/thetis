@@ -1163,12 +1163,15 @@ def get_minimum_angle_2d(mesh2d):
     except:
         raise NotImplementedError("Minimum angle only currently implemented in 2D.")
 
+    # TODO: Better solution, suggested by David:
+    #  - Project FacetArea into HDiv trace, giving a Function containing the length of every edge in the mesh
+    #  - Write a ParLoop over cells which reads this field, and do trig operations on those edge lengths to give the three angles and take the minimum.
+
     min_angle = pi
     coords = mesh2d.coordinates.dat.data_ro_with_halos
-    vertices = np.array(mesh2d.cell_closure[:,:3])
-    vertices -= len(vertices)  # FIXME: It seems the numbering doesn't match
-    for c in mesh2d.cell_closure[:,6]:
-        endpoints = [coords[v] for v in vertices[c]]
+    cell_to_vertices = mesh2d.coordinates.cell_node_map().values_with_halo
+    for c in range(len(cell_to_vertices)):
+        endpoints = [coords[v] for v in cell_to_vertices[c]]
         dat = {0: {}, 1: {}, 2: {}}
         dat[0]['vector'] = endpoints[1] - endpoints[0]
         dat[0]['length'] = la.norm(dat[0]['vector'])
