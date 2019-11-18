@@ -766,8 +766,7 @@ class GLSVerticalDiffusionTerm(VerticalDiffusionTerm):
         self.schmidt_nb = schmidt_nb
 
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        d = {'diffusivity_v': fields_old['viscosity_v']/self.schmidt_nb,
-             'sipg_parameter_vertical_tracer': fields['sipg_parameter_vertical_tracer']}
+        d = {'diffusivity_v': fields_old['viscosity_v']/self.schmidt_nb}
         f = super(GLSVerticalDiffusionTerm, self).residual(solution, solution_old,
                                                            d, d, bnd_conditions=None)
         return f

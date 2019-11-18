@@ -37,7 +37,8 @@ class TracerTerm(Term):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 use_symmetric_surf_bnd=True, use_lax_friedrichs=True):
+                 use_symmetric_surf_bnd=True, use_lax_friedrichs=True,
+                 sipg_parameter=Constant(10.0), sipg_parameter_vertical=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -58,6 +59,8 @@ class TracerTerm(Term):
         self.vertical_dg = continuity.vertical == 'dg'
         self.use_symmetric_surf_bnd = use_symmetric_surf_bnd
         self.use_lax_friedrichs = use_lax_friedrichs
+        self.sipg_parameter = sipg_parameter
+        self.sipg_parameter_vertical = sipg_parameter_vertical
 
         # define measures with a reasonable quadrature degree
         p, q = self.function_space.ufl_element().degree()
@@ -287,7 +290,7 @@ class HorizontalDiffusionTerm(TracerTerm):
             elemsize = (self.h_elem_size*(self.normal[0]**2
                                           + self.normal[1]**2)
                         + self.v_elem_size*self.normal[2]**2)
-            alpha = fields_old.get('sipg_parameter_tracer')
+            alpha = self.sipg_parameter
             assert alpha is not None
             sigma = avg(alpha/elemsize)
             ds_interior = (self.dS_h + self.dS_v)
@@ -347,7 +350,7 @@ class VerticalDiffusionTerm(TracerTerm):
             elemsize = (self.h_elem_size*(self.normal[0]**2
                                           + self.normal[1]**2)
                         + self.v_elem_size*self.normal[2]**2)
-            alpha = fields_old.get('sipg_parameter_vertical_tracer')
+            alpha = self.sipg_parameter_vertical
             assert alpha is not None
             sigma = avg(alpha/elemsize)
             ds_interior = (self.dS_h)
@@ -386,7 +389,8 @@ class TracerEquation(Equation):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 use_symmetric_surf_bnd=True, use_lax_friedrichs=True):
+                 use_symmetric_surf_bnd=True, use_lax_friedrichs=True,
+                 sipg_parameter=Constant(10.0), sipg_parameter_vertical=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -401,7 +405,8 @@ class TracerEquation(Equation):
         super(TracerEquation, self).__init__(function_space)
 
         args = (function_space, bathymetry,
-                v_elem_size, h_elem_size, use_symmetric_surf_bnd, use_lax_friedrichs)
+                v_elem_size, h_elem_size, use_symmetric_surf_bnd, use_lax_friedrichs,
+                sipg_parameter, sipg_parameter_vertical)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')

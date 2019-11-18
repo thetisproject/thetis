@@ -182,6 +182,7 @@ def run_convergence(ref_list, saveplot=False, **options):
 def polynomial_degree(request):
     return request.param
 
+
 @pytest.mark.parametrize(('stepper'),
                          [('CrankNicolson')])
 
