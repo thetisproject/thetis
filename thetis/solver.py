@@ -479,15 +479,12 @@ class FlowSolver(FrozenClass):
         alpha_h = 5.0*degree_h*(degree_h+1) if degree_h != 0 else 1.5
         alpha_v = 5.0*degree_v*(degree_v+1) if degree_v != 0 else 1.5
 
-        def get_ratio(nu):
-            """Note that we consider a global ratio, as opposed to an elemental one."""  # FIXME
-            if isinstance(nu, Constant):
-                return 1.0
-            else:
-                with nu.dat.vec_ro as v:
-                    maxval = v.max()[1]
-                    minval = v.min()[1]
-                return maxval/minval
+        def max_ratio(nu):
+            try:
+                return get_maximum_ratio(nu)
+            except:
+                print_output("WARNING: Could not compute ratio of extrema in function space {:}. Assuming the ratio is 2.".format(nu.ufl_element()))
+                return 2.0
 
         if self.options.use_automatic_sipg_parameter:
             min_angle = get_minimum_angle_2d(self.mesh2d)
@@ -497,7 +494,7 @@ class FlowSolver(FrozenClass):
             # Horizontal component
             nu = self.options.horizontal_viscosity
             if nu is not None:
-                alpha_h *= get_ratio(nu)*cot_theta
+                alpha_h *= max_ratio(nu)*cot_theta
             print_output("SIPG parameter in horizontal: {:.2f}".format(alpha_h))
             self.options.sipg_parameter.assign(alpha_h)
 
@@ -505,7 +502,7 @@ class FlowSolver(FrozenClass):
             # TODO: The min angle is wrong here
             # nu = self.options.vertical_viscosity
             # if nu is not None:
-            #     alpha_v *= get_ratio(nu)*cot_theta
+            #     alpha_v *= max_ratio(nu)*cot_theta
             print_output("SIPG parameter in vertical: {:.2f}".format(alpha_v))
             self.options.sipg_parameter_vertical.assign(alpha_v)
 
@@ -516,7 +513,7 @@ class FlowSolver(FrozenClass):
                 alpha_h = 10.0
                 nu = self.options.horizontal_diffusivity
                 if nu is not None:
-                    alpha_h *= get_ratio(nu)*cot_theta
+                    alpha_h *= max_ratio(nu)*cot_theta
                 print_output("Tracer SIPG parameter in horizontal: {:.2f}".format(alpha_h))
                 self.options.sipg_parameter_tracer.assign(alpha_h)
 
@@ -525,7 +522,7 @@ class FlowSolver(FrozenClass):
                 # TODO: The min angle is wrong here
                 # nu = self.options.vertical_diffusivity
                 # if nu is not None:
-                #     alpha_v *= get_ratio(nu)*cot_theta
+                #     alpha_v *= max_ratio(nu)*cot_theta
                 print_output("Tracer SIPG parameter in vertical: {:.2f}".format(alpha_v))
                 self.options.sipg_parameter_vertical_tracer.assign(alpha_v)
         else:

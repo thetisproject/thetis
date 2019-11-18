@@ -1191,6 +1191,38 @@ def get_minimum_angle_2d(mesh2d):
     return min_angle
 
 
+def get_maximum_ratio(nu):
+    """
+    Take the maximum over ratios between the maximum and minimum of `nu` in each element.
+    """
+    if isinstance(nu, Constant) or nu.ufl_element().degree() == 0:
+        return 1.0
+    elif nu.ufl_element().degree() == 1:
+        fs = nu.function_space()
+        el = nu.ufl_element()
+        if el.cell() not in (triangle, tetrahedron) and el.variant() != 'equispaced':
+            fs = FunctionSpace(fs.mesh(), FiniteElement(el.family(), el.cell(), el.degree, variant='equispaced'))
+            tmp = Function(fs).interpolate(nu)
+        else:
+            tmp = nu.copy()
+        nu_max = Function(fs)
+        nu_min = Function(fs)
+        nu_max.assign(np.finfo(0.).min)
+        nu_min.assign(np.finfo(0.).min)
+        par_loop("""for (int i=0; i<nu.dofs; i++) {
+                      nu_max[0] = fmax(nu[i], nu_max[0]);
+                      nu_min[0] = fmin(nu[i], nu_min[0]);
+                    }""",
+                 dx, {'nu_max': (nu_max, RW), 'nu_min': (nu_min, RW), 'nu': (nu, READ)})
+        nu_max /= nu_min
+        return nu_max.vector().gather().max()
+    else:
+        raise NotImplementedError("Currently only implemented for DG0, DG1 and CG1 spaces.")
+        # TODO: For higher order elements, the extrema aren't necessarily achieved at the
+        #       vertices. Perhaps we could project or interpolate into a matching Bernstein
+        #       element and use the property that the Bernstein polynomials bound the solution.
+
+
 class ALEMeshUpdater(object):
     """
     Class that handles vertically moving ALE mesh

@@ -206,15 +206,12 @@ class FlowSolver2d(FrozenClass):
         p = self.function_spaces.U_2d.ufl_element().degree()
         alpha = 5.0*p*(p+1) if p != 0 else 1.5
 
-        def get_ratio(nu):
-            """Note that we consider a global ratio, as opposed to an elemental one."""  # FIXME
-            if isinstance(nu, Constant):
-                return 1.0
-            else:
-                with nu.dat.vec_ro as v:
-                    maxval = v.max()[1]
-                    minval = v.min()[1]
-                return maxval/minval
+        def max_ratio(nu):
+            try:
+                return get_maximum_ratio(nu)
+            except:
+                print_output("WARNING: Could not compute ratio of extrema in function space {:}. Assuming the ratio is 2.".format(nu.ufl_element()))
+                return 2.0
 
         if self.options.use_automatic_sipg_parameter:
             min_angle = get_minimum_angle_2d(self.mesh2d)
@@ -225,7 +222,7 @@ class FlowSolver2d(FrozenClass):
             if not self.options.tracer_only:
                 nu = self.options.horizontal_viscosity
                 if nu is not None:
-                    alpha *= get_ratio(nu)*cot_theta
+                    alpha *= max_ratio(nu)*cot_theta
                 print_output("SIPG parameter: {:.2f}".format(alpha))
                 self.options.sipg_parameter.assign(alpha)
 
@@ -234,7 +231,7 @@ class FlowSolver2d(FrozenClass):
                 alpha = 10.0
                 nu = self.options.horizontal_diffusivity
                 if nu is not None:
-                    alpha *= get_ratio(nu)*cot_theta
+                    alpha *= max_ratio(nu)*cot_theta
                 print_output("Tracer SIPG parameter: {:.2f}".format(alpha))
                 self.options.sipg_parameter_tracer.assign(alpha)
         else:
