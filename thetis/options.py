@@ -688,3 +688,7 @@ class ModelOptions3d(CommonModelOptions):
         Constant(10.0), help="Penalty parameter used for vertical viscosity terms.").tag(config=True)
     sipg_parameter_vertical_tracer = FiredrakeScalarExpression(
         Constant(10.0), help="Penalty parameter used for vertical diffusivity terms.").tag(config=True)
+    sipg_parameter_turb = FiredrakeScalarExpression(
+        Constant(10.0), help="Penalty parameter used for horizontal diffusivity terms of the turbulence model.").tag(config=True)
+    sipg_parameter_vertical_turb = FiredrakeScalarExpression(
+        Constant(10.0), help="Penalty parameter used for vertical diffusivity terms of the turbulence model.").tag(config=True)

@@ -477,25 +477,31 @@ class FlowSolver(FrozenClass):
         """
         degree_h, degree_v = self.function_spaces.U.ufl_element().degree()
         alpha_h = 5.0*degree_h*(degree_h+1) if degree_h != 0 else 1.5
-        alpha_v = 5.0*degree_v*(degree_v+1) if degree_v != 0 else 1.5
+        alpha_v = 5.0*degree_v*(degree_v+1) if degree_v != 0 else 1.0
+        degree_h_tracer, degree_v_tracer = self.function_spaces.H.ufl_element().degree()
+        alpha_h_tracer = 5.0*degree_h_tracer*(degree_h_tracer+1) if degree_h_tracer != 0 else 1.5
+        alpha_v_tracer = 5.0*degree_v_tracer*(degree_v_tracer+1) if degree_v_tracer != 0 else 1.0
+        degree_h_turb, degree_v_turb = self.function_spaces.turb_space.ufl_element().degree()
+        alpha_h_turb = 5.0*degree_h_turb*(degree_h_turb+1) if degree_h_turb != 0 else 1.5
+        alpha_v_turb = 5.0*degree_v_turb*(degree_v_turb+1) if degree_v_turb != 0 else 1.0
 
         def max_ratio(nu):
             try:
                 return get_maximum_ratio(nu)
             except:
-                print_output("WARNING: Could not compute ratio of extrema in function space {:}. Assuming the ratio is 2.".format(nu.ufl_element()))
-                return 2.0
+                print_output("WARNING: Could not compute ratio of extrema in function space {:}. Assuming constant.".format(nu.ufl_element()))
+                return 1.0
 
         if self.options.use_automatic_sipg_parameter:
             min_angle = get_minimum_angle_2d(self.mesh2d)
-            print_output("Minimum angle in 2D mesh: {:.2f} degrees".format(np.rad2deg(min_angle)))
+            print_output("Minimum angle in 2D mesh:                {:.2f} degrees".format(np.rad2deg(min_angle)))
             cot_theta = 1.0/tan(min_angle)
 
             # Horizontal component
             nu = self.options.horizontal_viscosity
             if nu is not None:
                 alpha_h *= max_ratio(nu)*cot_theta
-            print_output("SIPG parameter in horizontal: {:.2f}".format(alpha_h))
+            print_output("SIPG parameter in horizontal:            {:.2f}".format(alpha_h))
             self.options.sipg_parameter.assign(alpha_h)
 
             # Vertical component
@@ -503,31 +509,39 @@ class FlowSolver(FrozenClass):
             # nu = self.options.vertical_viscosity
             # if nu is not None:
             #     alpha_v *= max_ratio(nu)*cot_theta
-            print_output("SIPG parameter in vertical: {:.2f}".format(alpha_v))
+            print_output("SIPG parameter in vertical:              {:.2f}".format(alpha_v))
             self.options.sipg_parameter_vertical.assign(alpha_v)
 
             # Penalty parameter for tracers
             if self.options.solve_salinity or self.options.solve_temperature:
 
                 # Horizontal component
-                alpha_h = 10.0
                 nu = self.options.horizontal_diffusivity
                 if nu is not None:
-                    alpha_h *= max_ratio(nu)*cot_theta
-                print_output("Tracer SIPG parameter in horizontal: {:.2f}".format(alpha_h))
+                    scaling = max_ratio(nu)*cot_theta
+                    alpha_h_tracer *= scaling
+                    alpha_h_turb *= scaling
+                print_output("Tracer SIPG parameter in horizontal:     {:.2f}".format(alpha_h_tracer))
+                print_output("Turbulence SIPG parameter in horizontal: {:.2f}".format(alpha_h_turb))
                 self.options.sipg_parameter_tracer.assign(alpha_h)
 
                 # Vertical component
-                alpha_v = 10.0
                 # TODO: The min angle is wrong here
                 # nu = self.options.vertical_diffusivity
                 # if nu is not None:
-                #     alpha_v *= max_ratio(nu)*cot_theta
-                print_output("Tracer SIPG parameter in vertical: {:.2f}".format(alpha_v))
+                #     scaling = max_ratio(nu)*cot_theta
+                #     alpha_v_tracer *= scaling
+                #     alpha_v_turb *= scaling
+                print_output("Tracer SIPG parameter in vertical:        {:.2f}".format(alpha_v_tracer))
+                print_output("Turbulence SIPG parameter in vertical:    {:.2f}".format(alpha_v_turb))
                 self.options.sipg_parameter_vertical_tracer.assign(alpha_v)
         else:
             self.options.sipg_parameter.assign(alpha_h)
             self.options.sipg_parameter_vertical.assign(alpha_v)
+            self.options.sipg_parameter_tracer.assign(alpha_h_tracer)
+            self.options.sipg_parameter_vertical_tracer.assign(alpha_v_tracer)
+            self.options.sipg_parameter_turb.assign(alpha_h_turb)
+            self.options.sipg_parameter_vertical_turb.assign(alpha_v_turb)
 
 
     def create_fields(self):
