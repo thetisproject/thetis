@@ -1160,8 +1160,9 @@ def get_minimum_angle_2d(mesh2d):
     """
     try:
         assert mesh2d.topological_dimension() == 2
+        assert mesh2d.ufl_cell() == ufl.triangle
     except:
-        raise NotImplementedError("Minimum angle only currently implemented in 2D.")
+        raise NotImplementedError("Minimum angle only currently implemented for triangles.")
 
     # TODO: Better solution, suggested by David:
     #  - Project FacetArea into HDiv trace, giving a Function containing the length of every edge in the mesh
@@ -1200,8 +1201,8 @@ def get_maximum_ratio(nu):
     elif nu.ufl_element().degree() == 1:
         fs = nu.function_space()
         el = nu.ufl_element()
-        if el.cell() not in (triangle, tetrahedron) and el.variant() != 'equispaced':
-            fs = FunctionSpace(fs.mesh(), FiniteElement(el.family(), el.cell(), el.degree, variant='equispaced'))
+        if el.cell() not in (ufl.triangle, ufl.tetrahedron) and el.variant() != 'equispaced':
+            fs = FunctionSpace(fs.mesh(), ufl.FiniteElement(el.family(), el.cell(), el.degree, variant='equispaced'))
             tmp = Function(fs).interpolate(nu)
         else:
             tmp = nu.copy()
