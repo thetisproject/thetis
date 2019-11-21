@@ -208,9 +208,9 @@ class FlowSolver2d(FrozenClass):
         degree_tracer = self.function_spaces.Q_2d.ufl_element().degree()
         alpha_tracer = 5.0*degree_tracer*(degree_tracer+1) if degree_tracer != 0 else 1.5
 
-        def max_ratio(nu):
+        def sipg_ratio(nu):
             try:
-                return get_maximum_ratio(nu)
+                return get_sipg_ratio(nu)
             except:
                 print_output("WARNING: Could not compute ratio of extrema in function space {:}. Assuming constant.".format(nu.ufl_element()))
                 return 1.0
@@ -224,15 +224,15 @@ class FlowSolver2d(FrozenClass):
             if not self.options.tracer_only:
                 nu = self.options.horizontal_viscosity
                 if nu is not None:
-                    alpha *= max_ratio(nu)*cot_theta
-                print_output("SIPG parameter: {:.2f}".format(alpha))
+                    alpha *= sipg_ratio(nu)*cot_theta
+                print_output("SIPG parameter:        {:.2f}".format(alpha))
                 self.options.sipg_parameter.assign(alpha)
 
             # Penalty parameter for tracers
             if self.options.solve_tracer:
                 nu = self.options.horizontal_diffusivity
                 if nu is not None:
-                    alpha_tracer *= max_ratio(nu)*cot_theta
+                    alpha_tracer *= sipg_ratio(nu)*cot_theta
                 print_output("Tracer SIPG parameter: {:.2f}".format(alpha_tracer))
                 self.options.sipg_parameter_tracer.assign(alpha)
         else:

@@ -1192,29 +1192,34 @@ def get_minimum_angle_2d(mesh2d):
     return min_angle
 
 
-def get_maximum_ratio(nu):
+def get_sipg_ratio(nu):
     """
-    Take the maximum over ratios between the maximum and minimum of `nu` in each element.
+    Compute the ratio between the maximum of `nu` squared and the minimum of `nu` in each element.
+    Take the maximum over all such quantities.
     """
     if isinstance(nu, Constant) or nu.ufl_element().degree() == 0:
-        return 1.0
-    elif nu.ufl_element().degree() == 1:
+        return nu.values()[0]
+
+    el = nu.ufl_element()
+
+    if el.degree() == 1 and el.family() in ('Lagrange', 'Discontinuous Lagrange', 'CG', 'DG'):
         fs = nu.function_space()
-        el = nu.ufl_element()
         if el.cell() not in (ufl.triangle, ufl.tetrahedron) and el.variant() != 'equispaced':
             fs = FunctionSpace(fs.mesh(), ufl.FiniteElement(el.family(), el.cell(), el.degree, variant='equispaced'))
             tmp = Function(fs).interpolate(nu)
         else:
             tmp = nu.copy()
-        nu_max = Function(fs)
-        nu_min = Function(fs)
+        P0 = FunctionSpace(fs.mesh(), "DG", 0)
+        nu_max = Function(P0)
+        nu_min = Function(P0)
         nu_max.assign(np.finfo(0.).min)
         nu_min.assign(np.finfo(0.).min)
         par_loop("""for (int i=0; i<nu.dofs; i++) {
                       nu_max[0] = fmax(nu[i], nu_max[0]);
-                      nu_min[0] = fmin(nu[i], nu_min[0]);
+                      nu_min[0] = fmin(nu[i], nu_max[0]);
                     }""",
                  dx, {'nu_max': (nu_max, RW), 'nu_min': (nu_min, RW), 'nu': (nu, READ)})
+        nu_max *= nu_max
         nu_max /= nu_min
         return nu_max.vector().gather().max()
     else:

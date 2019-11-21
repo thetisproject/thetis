@@ -485,9 +485,9 @@ class FlowSolver(FrozenClass):
         alpha_h_turb = 5.0*degree_h_turb*(degree_h_turb+1) if degree_h_turb != 0 else 1.5
         alpha_v_turb = 5.0*degree_v_turb*(degree_v_turb+1) if degree_v_turb != 0 else 1.0
 
-        def max_ratio(nu):
+        def sipg_ratio(nu):
             try:
-                return get_maximum_ratio(nu)
+                return get_sipg_ratio(nu)
             except:
                 print_output("WARNING: Could not compute ratio of extrema in function space {:}. Assuming constant.".format(nu.ufl_element()))
                 return 1.0
@@ -500,7 +500,7 @@ class FlowSolver(FrozenClass):
             # Horizontal component
             nu = self.options.horizontal_viscosity
             if nu is not None:
-                alpha_h *= max_ratio(nu)*cot_theta
+                alpha_h *= sipg_ratio(nu)*cot_theta
             print_output("SIPG parameter in horizontal:            {:.2f}".format(alpha_h))
             self.options.sipg_parameter.assign(alpha_h)
 
@@ -508,7 +508,7 @@ class FlowSolver(FrozenClass):
             # TODO: The min angle is wrong here
             # nu = self.options.vertical_viscosity
             # if nu is not None:
-            #     alpha_v *= max_ratio(nu)*cot_theta
+            #     alpha_v *= sipg_ratio(nu)*cot_theta
             print_output("SIPG parameter in vertical:              {:.2f}".format(alpha_v))
             self.options.sipg_parameter_vertical.assign(alpha_v)
 
@@ -518,7 +518,7 @@ class FlowSolver(FrozenClass):
                 # Horizontal component
                 nu = self.options.horizontal_diffusivity
                 if nu is not None:
-                    scaling = max_ratio(nu)*cot_theta
+                    scaling = sipg_ratio(nu)*cot_theta
                     alpha_h_tracer *= scaling
                     alpha_h_turb *= scaling
                 print_output("Tracer SIPG parameter in horizontal:     {:.2f}".format(alpha_h_tracer))
@@ -529,7 +529,7 @@ class FlowSolver(FrozenClass):
                 # TODO: The min angle is wrong here
                 # nu = self.options.vertical_diffusivity
                 # if nu is not None:
-                #     scaling = max_ratio(nu)*cot_theta
+                #     scaling = sipg_ratio(nu)*cot_theta
                 #     alpha_v_tracer *= scaling
                 #     alpha_v_turb *= scaling
                 print_output("Tracer SIPG parameter in vertical:        {:.2f}".format(alpha_v_tracer))
