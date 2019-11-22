@@ -750,7 +750,8 @@ class GLSVerticalDiffusionTerm(VerticalDiffusionTerm):
     viscosity/Schmidt number.
     """
     def __init__(self, function_space, schmidt_nb,
-                 bathymetry=None, v_elem_size=None, h_elem_size=None):
+                 bathymetry=None, v_elem_size=None, h_elem_size=None,
+                 sipg_parameter=Constant(1.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg schmidt_nb: the Schmidt number of TKE or Psi
@@ -762,7 +763,8 @@ class GLSVerticalDiffusionTerm(VerticalDiffusionTerm):
             element size
         """
         super(GLSVerticalDiffusionTerm, self).__init__(function_space,
-                                                       bathymetry, v_elem_size, h_elem_size)
+                                                       bathymetry, v_elem_size, h_elem_size,
+                                                       sipg_parameter_vertical=sipg_parameter)
         self.schmidt_nb = schmidt_nb
 
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
