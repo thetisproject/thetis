@@ -467,13 +467,20 @@ class FlowSolver(FrozenClass):
         used for viscosity and diffusivity terms, from Epshteyn et al. 2007
         (http://dx.doi.org/10.1016/j.cam.2006.08.029).
 
-        The scheme is stable for
+        The scheme is stable if
 
         ..math::
-            \alpha > 3*X*p*(p+1)*\cot(\theta),
+            \alpha|_K > 3*X*p*(p+1)*\cot(\theta_K),
 
-        where :math:`X` is the maximum ratio of viscosity within a triangle, :math:`p` the
-        degree, and :math:`\theta` is the minimum angle within a triangle.
+        for all elements :math:`K`, where
+
+        ..math::
+            X = \frac{\max_{x\in K}(\nu)^2}{\min_{x\in K}(\nu)},
+
+        :math:`p` the degree, and :math:`\theta_K` is the minimum angle in the element.
+
+        In practice, we take the maximum value of :math:`X` and minimum value of
+        :math:`\alpha_K` over all elements.
         """
         degree_h, degree_v = self.function_spaces.U.ufl_element().degree()
         alpha_h = 5.0*degree_h*(degree_h+1) if degree_h != 0 else 1.5
@@ -505,15 +512,11 @@ class FlowSolver(FrozenClass):
             self.options.sipg_parameter.assign(alpha_h)
 
             # Vertical component
-            # TODO: The min angle is wrong here
-            # nu = self.options.vertical_viscosity
-            # if nu is not None:
-            #     alpha_v *= sipg_ratio(nu)*cot_theta
             print_output("SIPG parameter in vertical:              {:.2f}".format(alpha_v))
             self.options.sipg_parameter_vertical.assign(alpha_v)
 
-            # Penalty parameter for tracers
-            if self.options.solve_salinity or self.options.solve_temperature:
+            # Penalty parameter for tracers / turbulence model
+            if self.options.solve_salinity or self.options.solve_temperature or self.options.use_turbulence:
 
                 # Horizontal component
                 nu = self.options.horizontal_diffusivity
@@ -523,18 +526,14 @@ class FlowSolver(FrozenClass):
                     alpha_h_turb *= scaling
                 print_output("Tracer SIPG parameter in horizontal:     {:.2f}".format(alpha_h_tracer))
                 print_output("Turbulence SIPG parameter in horizontal: {:.2f}".format(alpha_h_turb))
-                self.options.sipg_parameter_tracer.assign(alpha_h)
+                self.options.sipg_parameter_tracer.assign(alpha_h_tracer)
+                self.options.sipg_parameter_turb.assign(alpha_h_turb)
 
                 # Vertical component
-                # TODO: The min angle is wrong here
-                # nu = self.options.vertical_diffusivity
-                # if nu is not None:
-                #     scaling = sipg_ratio(nu)*cot_theta
-                #     alpha_v_tracer *= scaling
-                #     alpha_v_turb *= scaling
-                print_output("Tracer SIPG parameter in vertical:        {:.2f}".format(alpha_v_tracer))
-                print_output("Turbulence SIPG parameter in vertical:    {:.2f}".format(alpha_v_turb))
-                self.options.sipg_parameter_vertical_tracer.assign(alpha_v)
+                print_output("Tracer SIPG parameter in vertical:       {:.2f}".format(alpha_v_tracer))
+                print_output("Turbulence SIPG parameter in vertical:   {:.2f}".format(alpha_v_turb))
+                self.options.sipg_parameter_vertical_tracer.assign(alpha_v_tracer)
+                self.options.sipg_parameter_vertical_turb.assign(alpha_v_turb)
         else:
             self.options.sipg_parameter.assign(alpha_h)
             self.options.sipg_parameter_vertical.assign(alpha_v)
@@ -798,15 +797,15 @@ class FlowSolver(FrozenClass):
                                                            v_elem_size=self.fields.v_elem_size_3d,
                                                            h_elem_size=self.fields.h_elem_size_3d,
                                                            use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                                                           sipg_parameter=self.options.sipg_parameter_tracer,
-                                                           sipg_parameter_vertical=self.options.sipg_parameter_vertical_tracer)
+                                                           sipg_parameter=self.options.sipg_parameter_turb,
+                                                           sipg_parameter_vertical=self.options.sipg_parameter_vertical_turb)
                 self.eq_psi_adv = tracer_eq.TracerEquation(self.fields.psi_3d.function_space(),
                                                            bathymetry=self.fields.bathymetry_3d,
                                                            v_elem_size=self.fields.v_elem_size_3d,
                                                            h_elem_size=self.fields.h_elem_size_3d,
                                                            use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                                                           sipg_parameter=self.options.sipg_parameter_tracer,
-                                                           sipg_parameter_vertical=self.options.sipg_parameter_vertical_tracer)
+                                                           sipg_parameter=self.options.sipg_parameter_turb,
+                                                           sipg_parameter_vertical=self.options.sipg_parameter_vertical_turb)
             # implicit vertical diffusion eqn with production terms
             self.eq_tke_diff = turbulence.TKEEquation(self.fields.tke_3d.function_space(),
                                                       self.turbulence_model,
