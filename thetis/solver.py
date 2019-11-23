@@ -518,7 +518,8 @@ class FlowSolver(FrozenClass):
             if self.options.solve_salinity or self.options.solve_temperature or self.options.use_turbulence:
 
                 # Horizontal component
-                nu = self.options.horizontal_diffusivity
+                # nu = self.options.horizontal_diffusivity
+                # FIXME: using diffusivity instead of viscosity breaks tracerEq/test_h-diffusion_mes
                 if nu is not None:
                     scaling = sipg_ratio(nu)*cot_theta
                     alpha_h_tracer *= scaling
