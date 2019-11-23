@@ -475,7 +475,7 @@ class FlowSolver(FrozenClass):
         for all elements :math:`K`, where
 
         ..math::
-            X = \frac{\max_{x\in K}(\nu)^2}{\min_{x\in K}(\nu)},
+            X = \frac{\max_{x\in K}(\nu(x))}{\min_{x\in K}(\nu(x))},
 
         :math:`p` the degree, and :math:`\theta_K` is the minimum angle in the element.
 
@@ -518,8 +518,7 @@ class FlowSolver(FrozenClass):
             if self.options.solve_salinity or self.options.solve_temperature or self.options.use_turbulence:
 
                 # Horizontal component
-                # nu = self.options.horizontal_diffusivity
-                # FIXME: using diffusivity instead of viscosity breaks tracerEq/test_h-diffusion_mes
+                nu = self.options.horizontal_diffusivity
                 if nu is not None:
                     scaling = sipg_ratio(nu)*cot_theta
                     alpha_h_tracer *= scaling

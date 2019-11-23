@@ -195,13 +195,20 @@ class FlowSolver2d(FrozenClass):
         used for viscosity and diffusivity terms, from Epshteyn et al. 2007
         (http://dx.doi.org/10.1016/j.cam.2006.08.029).
 
-        The scheme is stable for
+        The scheme is stable if
 
         ..math::
-            \alpha > 3*X*p*(p+1)*\cot(\theta),
+            \alpha|_K > 3*X*p*(p+1)*\cot(\theta_K),
 
-        where :math:`X` is the maximum ratio of viscosity / diffusivity within a triangle,
-        :math:`p` the degree, and :math:`\theta` is the minimum angle within a triangle.
+        for all elements :math:`K`, where
+
+        ..math::
+            X = \frac{\max_{x\in K}(\nu(x))}{\min_{x\in K}(\nu(x))},
+
+        :math:`p` the degree, and :math:`\theta_K` is the minimum angle in the element.
+
+        In practice, we take the maximum value of :math:`X` and minimum value of
+        :math:`\alpha_K` over all elements.
         """
         degree = self.function_spaces.U_2d.ufl_element().degree()
         alpha = 5.0*degree*(degree+1) if degree != 0 else 1.5

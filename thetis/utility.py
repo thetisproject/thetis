@@ -1194,11 +1194,12 @@ def get_minimum_angle_2d(mesh2d):
 
 def get_sipg_ratio(nu):
     """
-    Compute the ratio between the maximum of `nu` squared and the minimum of `nu` in each element.
+    Compute the ratio between the maximum of `nu` and the minimum of `nu` in each element.
     Take the maximum over all such quantities.
     """
     if isinstance(nu, Constant) or nu.ufl_element().degree() == 0:
-        return nu.values()[0]
+        # return nu.values()[0]
+        return 1.0
 
     el = nu.ufl_element()
 
@@ -1219,7 +1220,7 @@ def get_sipg_ratio(nu):
                       nu_min[0] = fmin(nu[i], nu_max[0]);
                     }""",
                  dx, {'nu_max': (nu_max, RW), 'nu_min': (nu_min, RW), 'nu': (nu, READ)})
-        nu_max *= nu_max
+        # nu_max *= nu_max
         nu_max /= nu_min
         return nu_max.vector().gather().max()
     else:
