@@ -236,6 +236,7 @@ class FlowSolver2d(FrozenClass):
                 print_output("Tracer SIPG parameter: {:.2f}".format(alpha_tracer))
                 self.options.sipg_parameter_tracer.assign(alpha)
         else:
+            print_output("Using default SIPG parameters")
             self.options.sipg_parameter.assign(alpha)
             self.options.sipg_parameter_tracer.assign(alpha_tracer)
 

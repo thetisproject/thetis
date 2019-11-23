@@ -513,7 +513,6 @@ class FlowSolver(FrozenClass):
 
             # Vertical component
             print_output("SIPG parameter in vertical:              {:.2f}".format(alpha_v))
-            self.options.sipg_parameter_vertical.assign(alpha_v)
 
             # Penalty parameter for tracers / turbulence model
             if self.options.solve_salinity or self.options.solve_temperature or self.options.use_turbulence:
@@ -532,15 +531,14 @@ class FlowSolver(FrozenClass):
                 # Vertical component
                 print_output("Tracer SIPG parameter in vertical:       {:.2f}".format(alpha_v_tracer))
                 print_output("Turbulence SIPG parameter in vertical:   {:.2f}".format(alpha_v_turb))
-                self.options.sipg_parameter_vertical_tracer.assign(alpha_v_tracer)
-                self.options.sipg_parameter_vertical_turb.assign(alpha_v_turb)
         else:
+            print_output("Using default SIPG parameters")
             self.options.sipg_parameter.assign(alpha_h)
-            self.options.sipg_parameter_vertical.assign(alpha_v)
             self.options.sipg_parameter_tracer.assign(alpha_h_tracer)
-            self.options.sipg_parameter_vertical_tracer.assign(alpha_v_tracer)
             self.options.sipg_parameter_turb.assign(alpha_h_turb)
-            self.options.sipg_parameter_vertical_turb.assign(alpha_v_turb)
+        self.options.sipg_parameter_vertical.assign(alpha_v)
+        self.options.sipg_parameter_vertical_tracer.assign(alpha_v_tracer)
+        self.options.sipg_parameter_vertical_turb.assign(alpha_v_turb)
 
 
     def create_fields(self):
