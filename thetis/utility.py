@@ -1161,7 +1161,7 @@ def get_minimum_angle_2d(mesh2d):
     try:
         assert mesh2d.topological_dimension() == 2
         assert mesh2d.ufl_cell() == ufl.triangle
-    except:
+    except NotImplementedError:
         raise NotImplementedError("Minimum angle only currently implemented for triangles.")
 
     # TODO: Better solution, suggested by David:
@@ -1219,7 +1219,7 @@ def get_sipg_ratio(nu):
                       nu_max[0] = fmax(nu[i], nu_max[0]);
                       nu_min[0] = fmin(nu[i], nu_max[0]);
                     }""",
-                 dx, {'nu_max': (nu_max, RW), 'nu_min': (nu_min, RW), 'nu': (nu, READ)})
+                 dx, {'nu_max': (nu_max, RW), 'nu_min': (nu_min, RW), 'nu': (tmp, READ)})
         # nu_max *= nu_max
         nu_max /= nu_min
         return nu_max.vector().gather().max()

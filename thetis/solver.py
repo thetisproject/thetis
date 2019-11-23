@@ -492,13 +492,6 @@ class FlowSolver(FrozenClass):
         alpha_h_turb = 5.0*degree_h_turb*(degree_h_turb+1) if degree_h_turb != 0 else 1.5
         alpha_v_turb = 5.0*degree_v_turb*(degree_v_turb+1) if degree_v_turb != 0 else 1.0
 
-        def sipg_ratio(nu):
-            try:
-                return get_sipg_ratio(nu)
-            except:
-                print_output("WARNING: Could not compute ratio of extrema in function space {:}. Assuming constant.".format(nu.ufl_element()))
-                return 1.0
-
         if self.options.use_automatic_sipg_parameter:
             min_angle = get_minimum_angle_2d(self.mesh2d)
             print_output("Minimum angle in 2D mesh:                {:.2f} degrees".format(np.rad2deg(min_angle)))
@@ -507,7 +500,7 @@ class FlowSolver(FrozenClass):
             # Horizontal component
             nu = self.options.horizontal_viscosity
             if nu is not None:
-                alpha_h *= sipg_ratio(nu)*cot_theta
+                alpha_h *= get_sipg_ratio(nu)*cot_theta
             print_output("SIPG parameter in horizontal:            {:.2f}".format(alpha_h))
             self.options.sipg_parameter.assign(alpha_h)
 
@@ -520,7 +513,7 @@ class FlowSolver(FrozenClass):
                 # Horizontal component
                 nu = self.options.horizontal_diffusivity
                 if nu is not None:
-                    scaling = sipg_ratio(nu)*cot_theta
+                    scaling = get_sipg_ratio(nu)*cot_theta
                     alpha_h_tracer *= scaling
                     alpha_h_turb *= scaling
                 print_output("Tracer SIPG parameter in horizontal:     {:.2f}".format(alpha_h_tracer))
@@ -539,7 +532,6 @@ class FlowSolver(FrozenClass):
         self.options.sipg_parameter_vertical.assign(alpha_v)
         self.options.sipg_parameter_vertical_tracer.assign(alpha_v_tracer)
         self.options.sipg_parameter_vertical_turb.assign(alpha_v_turb)
-
 
     def create_fields(self):
         """
