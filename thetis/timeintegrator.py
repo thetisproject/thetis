@@ -104,8 +104,8 @@ class ForwardEuler(TimeIntegrator):
 
         u_old = self.solution_old
         u_tri = self.equation.trial
-        self.A = self.equation.mass_term(u_tri)
-        self.L = (self.equation.mass_term(u_old)
+        self.A = self.equation.mass_term(u_tri, self.fields)
+        self.L = (self.equation.mass_term(u_old, self.fields_old)
                   + self.dt_const*self.equation.residual('all', u_old, u_old, self.fields_old, self.fields_old, bnd_conditions)
                   )
 
@@ -183,7 +183,7 @@ class CrankNicolson(TimeIntegrator):
 
         # Crank-Nicolson
         theta_const = Constant(theta)
-        self.F = (self.equation.mass_term(u) - self.equation.mass_term(u_old)
+        self.F = (self.equation.mass_term(u, fields=f) - self.equation.mass_term(u_old, fields=f_old)
                   - self.dt_const*(theta_const*self.equation.residual('all', u, u_nl, f, f, bnd)
                                    + (1-theta_const)*self.equation.residual('all', u_old, u_old, f_old, f_old, bnd))
                   )

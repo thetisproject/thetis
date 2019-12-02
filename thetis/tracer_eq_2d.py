@@ -93,6 +93,26 @@ class TracerTerm(Term):
 
         return c_ext, uv_ext, elev_ext
 
+    def wd_bathymetry_displacement(self, eta):
+        """
+        Returns wetting and drying bathymetry displacement as described in:
+        Karna et al.,  2011.
+        """
+        H = self.bathymetry + eta
+        return 0.5 * (sqrt(H ** 2 + self.options.wetting_and_drying_alpha ** 2) - H)
+
+    def get_total_depth(self, eta):
+        """
+        Returns total water column depth
+        """
+        if self.options.use_nonlinear_equations:
+            total_h = self.bathymetry + eta
+            if hasattr(self.options, 'use_wetting_and_drying') and self.options.use_wetting_and_drying:
+                total_h += self.wd_bathymetry_displacement(eta)
+        else:
+            total_h = self.bathymetry
+        return total_h
+
 
 class HorizontalAdvectionTerm(TracerTerm):
     r"""
@@ -116,6 +136,7 @@ class HorizontalAdvectionTerm(TracerTerm):
             return 0
         elev = fields_old['elev_2d']
         uv = fields_old.get('tracer_advective_velocity')
+        conservative = self.options.use_tracer_conservative_form
         if uv is None:
             uv = fields_old['uv_2d']
 
@@ -125,8 +146,13 @@ class HorizontalAdvectionTerm(TracerTerm):
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
 
         f = 0
-        f += -(Dx(uv[0] * self.test, 0) * solution
-               + Dx(uv[1] * self.test, 1) * solution) * self.dx
+        if conservative:
+            H = self.get_total_depth(fields["elev_2d"])
+            f += -(Dx(self.test, 0) * H* uv[0] * solution
+                   + Dx(self.test, 1) * H* uv[1] * solution) * self.dx
+        else:
+            f += -(Dx(uv[0] * self.test, 0) * solution
+                   + Dx(uv[1] * self.test, 1) * solution) * self.dx
 
         if self.horizontal_dg:
             # add interface term
@@ -134,14 +160,20 @@ class HorizontalAdvectionTerm(TracerTerm):
             un_av = (uv_av[0]*self.normal('-')[0]
                      + uv_av[1]*self.normal('-')[1])
             s = 0.5*(sign(un_av) + 1.0)
-            c_up = solution('-')*s + solution('+')*(1-s)
 
-            f += c_up*(jump(self.test, uv[0] * self.normal[0])
-                       + jump(self.test, uv[1] * self.normal[1])) * self.dS
+            if conservative:
+                Huvc_up = (H*uv*solution)('-')*s + (H*uv*solution)('+')*(1-s)
+                f += dot(Huvc_up, jump(self.test, self.normal)) * self.dS
+            else:
+                c_up = solution('-')*s + solution('+')*(1-s)
+                f += c_up*(jump(self.test, uv[0] * self.normal[0])
+                           + jump(self.test, uv[1] * self.normal[1])) * self.dS
             # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
+                if conservative:
+                    raise NotImplemented("Combination of Lax-Friedrichs with conservative form not implemented.")
                 if uv_p1 is not None:
-                    gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0]
+                    gamma = 0.5 * abs((avg(uv_p1)[0]*self.normal('-')[0]
                                      + avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
                 elif uv_mag is not None:
                     gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
@@ -155,12 +187,20 @@ class HorizontalAdvectionTerm(TracerTerm):
                     c_in = solution
                     if funcs is not None and 'value' in funcs:
                         c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
-                        uv_av = 0.5*(uv + uv_ext)
+                        if conservative:
+                            H_ext = self.get_total_depth(eta_ext)
+                            uv_ext = H_ext * uv_ext
+                            uv_av = 0.5*(H * uv + uv_ext)
+                        else:
+                            uv_av = 0.5*(uv + uv_ext)
                         un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
                         s = 0.5*(sign(un_av) + 1.0)
                         c_up = c_in*s + c_ext*(1-s)
                         f += c_up*(uv_av[0]*self.normal[0]
                                    + uv_av[1]*self.normal[1])*self.test*ds_bnd
+                    elif conservative:
+                        f += c_in * H * (uv[0]*self.normal[0]
+                                     + uv[1]*self.normal[1])*self.test*ds_bnd
                     else:
                         f += c_in * (uv[0]*self.normal[0]
                                      + uv[1]*self.normal[1])*self.test*ds_bnd
@@ -197,6 +237,9 @@ class HorizontalDiffusionTerm(TracerTerm):
         if fields_old.get('diffusivity_h') is None:
             return 0
         diffusivity_h = fields_old['diffusivity_h']
+        if self.options.use_tracer_conservative_form:
+            H = self.get_total_depth(fields["elev_2d"])
+            diffusivity_h = H * diffusivity_h
         diff_tensor = as_matrix([[diffusivity_h, 0, ],
                                  [0, diffusivity_h, ]])
         grad_test = grad(self.test)
@@ -260,8 +303,37 @@ class SourceTerm(TracerTerm):
         f = 0
         source = fields_old.get('source')
         if source is not None:
-            f += -inner(source, self.test)*self.dx
+            if self.options.use_tracer_conservative_form:
+                H = self.get_total_depth(fields["elev_2d"])
+                f += -inner(source * H, self.test) * self.dx
+            else:
+                f += -inner(source, self.test)*self.dx
         return -f
+
+
+class MassTerm(TracerTerm):
+    r"""
+    Mass term for 2d tracer equation.
+    
+    In the default form (non-conservative) this is just the standard mass term
+
+    .. math::
+        F_s = \int_\Omega T \phi
+
+    In the conservative form we multiply by a depth H
+
+    .. math::
+        F_s = \int_\Omega T H \phi
+
+    """
+    def residual(self, solution, fields):
+        """NOTE: the arguments to this method are not consistent
+        with the other terms."""
+        if self.options.use_tracer_conservative_form:
+            H = self.get_total_depth(fields["elev_2d"])
+            return solution * H * self.test * self.dx
+        else:
+            return solution * self.test * self.dx
 
 
 class TracerEquation2D(Equation):
@@ -286,3 +358,9 @@ class TracerEquation2D(Equation):
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
+        self._mass_term = MassTerm(*args)
+
+    def mass_term(self, solution, fields):
+        """
+        Mass term. For the conservative form fields needs to contain elev_2d at the old or new time level."""
+        return self._mass_term.residual(solution, fields)
