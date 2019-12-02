@@ -95,7 +95,7 @@ class Equation(object):
         self.xyz = SpatialCoordinate(self.mesh)
         self.e_x, self.e_y, self.e_y = unit_vectors(3)
 
-    def mass_term(self, solution):
+    def mass_term(self, solution, fields=None):
         """
         Returns default mass matrix term for the solution function space.
 
