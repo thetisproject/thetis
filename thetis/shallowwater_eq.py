@@ -876,7 +876,7 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
         self.add_continuity_terms(eta_test, eta_space, u_space, bathymetry, options)
         self.bathymetry_displacement_mass_term = BathymetryDisplacementMassTerm(eta_test, eta_space, u_space, bathymetry, options)
 
-    def mass_term(self, solution):
+    def mass_term(self, solution, fields=None):
         f = super(ShallowWaterEquations, self).mass_term(solution)
         f += -self.bathymetry_displacement_mass_term.residual(solution)
         return f
