@@ -195,3 +195,55 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
                 self.P1DG.restore_work_function(tmp_func)
             else:
                 super(VertexBasedP1DGLimiter, self).apply(field)
+
+
+class VertexBasedDepthIntegratedP1DGLimiter(VertexBasedP1DGLimiter):
+    def __init__(self, p1dg_space, bathymetry, elev_2d, solver2d_options):
+        self.bathymetry = bathymetry
+        self.elev_2d = elev_2d
+        self.options = solver2d_options
+        self.field = Function(p1dg_space)
+        super().__init__(p1dg_space)
+
+    def wd_bathymetry_displacement(self):
+        """
+        Returns wetting and drying bathymetry displacement as described in:
+        Karna et al.,  2011.
+        """
+        H = self.bathymetry + self.elev_2d
+        return 0.5 * (sqrt(H ** 2 + self.options.wetting_and_drying_alpha ** 2) - H)
+
+    def get_total_depth(self):
+        """
+        Returns total water column depth
+        """
+        if self.options.use_nonlinear_equations:
+            total_h = self.bathymetry + self.elev_2d
+            if hasattr(self.options, 'use_wetting_and_drying') and self.options.use_wetting_and_drying:
+                total_h += self.wd_bathymetry_displacement()
+        else:
+            total_h = self.bathymetry
+        return total_h
+
+    def _construct_centroid_solver(self):
+        """
+        Constructs a linear problem for computing the centroids
+
+        :return: LinearSolver instance
+        """
+        u = TrialFunction(self.P0)
+        v = TestFunction(self.P0)
+        H = self.get_total_depth()
+        self.a_form = H * u * v * dx
+        self.L_form = H * self.field * v * dx
+        problem = LinearVariationalProblem(self.a_form, self.L_form, self.centroids, constant_jacobian=False)
+        return LinearVariationalSolver(problem, solver_parameters={'ksp_type': 'preonly',
+                                                                   'pc_type': 'bjacobi',
+                                                                   'sub_pc_type': 'ilu'})
+
+    def _update_centroids(self, field):
+        """
+        Update centroid values
+        """
+        self.field.assign(field)
+        self.centroid_solver.solve()

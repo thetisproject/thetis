@@ -148,8 +148,8 @@ class HorizontalAdvectionTerm(TracerTerm):
         f = 0
         if conservative:
             H = self.get_total_depth(fields["elev_2d"])
-            f += -(Dx(self.test, 0) * H* uv[0] * solution
-                   + Dx(self.test, 1) * H* uv[1] * solution) * self.dx
+            f += -(Dx(self.test, 0) * H * uv[0] * solution
+                   + Dx(self.test, 1) * H * uv[1] * solution) * self.dx
         else:
             f += -(Dx(uv[0] * self.test, 0) * solution
                    + Dx(uv[1] * self.test, 1) * solution) * self.dx
@@ -171,10 +171,10 @@ class HorizontalAdvectionTerm(TracerTerm):
             # Lax-Friedrichs stabilization
             if self.options.use_lax_friedrichs_tracer:
                 if conservative:
-                    raise NotImplemented("Combination of Lax-Friedrichs with conservative form not implemented.")
+                    raise NotImplementedError("Combination of Lax-Friedrichs with conservative form not implemented.")
                 if uv_p1 is not None:
                     gamma = 0.5 * abs((avg(uv_p1)[0]*self.normal('-')[0]
-                                     + avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
+                                      + avg(uv_p1)[1]*self.normal('-')[1])) * lax_friedrichs_factor
                 elif uv_mag is not None:
                     gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
                 else:
@@ -197,11 +197,8 @@ class HorizontalAdvectionTerm(TracerTerm):
                         c_up = c_in*s + c_ext*(1-s)
                         f += c_up*(uv_av[0]*self.normal[0]
                                    + uv_av[1]*self.normal[1])*self.test*ds_bnd
-                    #TODO check the implementation below
-                    elif conservative:
-                        f += c_in * H * (uv[0]*self.normal[0]
-                                     + uv[1]*self.normal[1])*self.test*ds_bnd
-                    else:
+                    # TODO check the implementation below for conservative form
+                    elif not conservative:
                         f += c_in * (uv[0]*self.normal[0]
                                      + uv[1]*self.normal[1])*self.test*ds_bnd
 
@@ -314,7 +311,7 @@ class SourceTerm(TracerTerm):
 class MassTerm(TracerTerm):
     r"""
     Mass term for 2d tracer equation.
-    
+
     In the default form (non-conservative) this is just the standard mass term
 
     .. math::

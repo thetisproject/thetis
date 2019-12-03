@@ -57,6 +57,7 @@ def run_tracer_consistency(constant_c = True, **model_options):
     options.timestepper_type = 'CrankNicolson'
     options.output_directory = outputdir
     options.fields_to_export = ['uv_2d', 'elev_2d', 'tracer_2d']
+    options.use_tracer_conservative_form = False
     options.update(model_options)
 
     if not options.no_exports:
@@ -92,7 +93,6 @@ def run_tracer_consistency(constant_c = True, **model_options):
         assert max_abs_overshoot < overshoot_tol, msg
 
 
-
 def test_const_tracer():
     """
     Test CrankNicolson timeintegrator without slope limiters
@@ -105,7 +105,6 @@ def test_const_tracer():
                            no_exports=True)
 
 
-
 def test_nonconst_tracer():
     """
     Test CrankNicolson timeintegrator  with slope limiters
@@ -116,6 +115,19 @@ def test_nonconst_tracer():
                            solve_tracer=True,
                            use_limiter_for_tracers=True,
                            no_exports=True)
+
+
+def test_nonconst_tracer_conservative():
+    """
+    Test CrankNicolson timeintegrator  with slope limiters
+    Non-trivial tracer, should see no overshoots and be conserved
+    """
+    run_tracer_consistency(constant_c= True,
+                           use_nonlinear_equations=True,
+                           solve_tracer=True,
+                           use_limiter_for_tracers=False,
+                           no_exports=True,
+                           use_tracer_conservative_form=True)
 
 
 if __name__ == '__main__':
