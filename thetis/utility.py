@@ -1197,13 +1197,20 @@ def get_sipg_ratio(nu):
     Compute the ratio between the maximum of `nu` and the minimum of `nu` in each element.
     Take the maximum over all such quantities.
     """
-    if isinstance(nu, Constant) or nu.ufl_element().degree() == 0:
+    if isinstance(nu, Constant):
         # return nu.values()[0]
         return 1.0
-
+    else:
+        try:
+            assert isinstance(nu, Function)
+        except ValueError:
+            raise ValueError("Viscosity and diffusivity should be either a `Constant` or `Function`.")
     el = nu.ufl_element()
 
-    if el.degree() == 1 and el.family() in ('Lagrange', 'Discontinuous Lagrange', 'CG', 'DG'):
+    if el.degree() == 0:
+        # return nu.vector().gather().max()
+        return 1.0
+    elif el.degree() == 1 and el.family() in ('Lagrange', 'Discontinuous Lagrange', 'CG', 'DG'):
         fs = nu.function_space()
         if el.cell() not in (ufl.triangle, ufl.tetrahedron) and el.variant() != 'equispaced':
             fs = FunctionSpace(fs.mesh(), ufl.FiniteElement(el.family(), el.cell(), el.degree, variant='equispaced'))
