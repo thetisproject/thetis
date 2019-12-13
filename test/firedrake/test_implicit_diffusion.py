@@ -5,6 +5,7 @@ Tests implicit vertical diffusion on a DG vector field
 Intended to be executed with pytest.
 """
 from firedrake import *
+from thetis.utility import get_functionspace_3d
 import numpy as np
 
 op2.init(log_level=WARNING)
@@ -41,7 +42,7 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     # define function spaces
     fam = 'DG'
     deg = 1
-    fs = FunctionSpace(mesh, fam, degree=deg, vfamily=fam, vdegree=deg)
+    fs = get_functionspace_3d(mesh, fam, deg)
 
     solution = Function(fs, name='tracer')
     solution_new = Function(fs, name='new tracer')

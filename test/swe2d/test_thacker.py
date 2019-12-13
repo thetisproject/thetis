@@ -50,7 +50,7 @@ def test_thacker(stepper, n, dt, alpha, max_err):
     X0 = Y0 = l_mesh/2  # Domain offset
 
     # bathymetry
-    bathymetry = Function(FunctionSpace(mesh2d, "CG", 1), name='bathymetry')
+    bathymetry = Function(get_functionspace_2d(mesh2d, "CG", 1), name='bathymetry')
     x, y = SpatialCoordinate(mesh2d)
     bath_expr = D0*(1-((x-X0)**2+(y-Y0)**2)/L**2)
     bathymetry.interpolate(bath_expr)

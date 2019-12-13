@@ -39,13 +39,13 @@ def get_bathymetry(bathymetry_file, mesh2d, minimum_depth=5.0, project=False):
     bath[~np.isfinite(bath)] = minimum_depth
     interpolator = scipy.interpolate.RegularGridInterpolator((x, y), bath.T)
 
-    P1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    P1_2d = get_functionspace_2d(mesh2d, 'CG', 1)
     bathymetry2d = Function(P1_2d, name='bathymetry')
 
     if project:
         # interpolate on a high order mesh
-        P3_2d = FunctionSpace(mesh2d, 'CG', 3)
-        P3_2d_v = VectorFunctionSpace(mesh2d, 'CG', 3)
+        P3_2d = get_functionspace_2d(mesh2d, 'CG', 3)
+        P3_2d_v = get_functionspace_2d(mesh2d, 'CG', 3, vector=True)
         bathymetry2d_ho = Function(P3_2d, name='bathymetry')
         coords_ho = Function(P3_2d_v).interpolate(SpatialCoordinate(mesh2d))
         interpolate_onto(interpolator, bathymetry2d_ho, coords_ho, minimum_depth)
