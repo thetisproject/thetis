@@ -181,7 +181,7 @@ def test_copy_2d_field_to_3d_vec(uv_2d, uv_3d):
 
 def test_sipg_ratio_constant(c2d):
     if c2d.ufl_element().degree() == 1:
-        assert np.allclose(utility.get_sipg_ratio(c2d), 4.0)
+        assert np.allclose(utility.get_sipg_ratio(c2d), 1.0)
 
 
 def test_sipg_ratio_scalar(c2d_x):
@@ -189,7 +189,7 @@ def test_sipg_ratio_scalar(c2d_x):
     c += 1.0
     if c.ufl_element().degree() > 1:
         pytest.xfail("Only currently implemented for constant or linear elements")
-    assert np.allclose(utility.get_sipg_ratio(c), 9.0/2.6)
+    assert np.allclose(utility.get_sipg_ratio(c), 1.4)
 
 
 def test_minimum_angle(mesh2d):
