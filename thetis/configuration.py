@@ -1,10 +1,10 @@
 """
 Utility function and extensions to traitlets used for specifying Thetis options
 """
-from .utility import FiredrakeConstant, FiredrakeFunction
 from ipython_genutils.text import indent, dedent
 from traitlets.config.configurable import Configurable
 from traitlets import *
+from firedrake import Constant, Function
 
 import ufl
 
@@ -143,7 +143,7 @@ class FiredrakeConstantTraitlet(TraitType):
     info_text = 'a Firedrake Constant'
 
     def validate(self, obj, value):
-        if isinstance(value, FiredrakeConstant):
+        if isinstance(value, Constant):
             return value
         self.error(obj, value)
 
@@ -156,12 +156,12 @@ class FiredrakeCoefficient(TraitType):
     info_text = 'a Firedrake Constant or Function'
 
     def validate(self, obj, value):
-        if isinstance(value, (FiredrakeConstant, FiredrakeFunction)):
+        if isinstance(value, (Constant, Function)):
             return value
         self.error(obj, value)
 
     def default_value_repr(self):
-        if isinstance(self.default_value, FiredrakeConstant):
+        if isinstance(self.default_value, Constant):
             return 'Constant({:})'.format(self.default_value.dat.data[0])
         return 'Function'
 
@@ -177,9 +177,9 @@ class FiredrakeScalarExpression(TraitType):
         self.error(obj, value)
 
     def default_value_repr(self):
-        if isinstance(self.default_value, FiredrakeConstant):
+        if isinstance(self.default_value, Constant):
             return 'Constant({:})'.format(self.default_value.dat.data[0])
-        if isinstance(self.default_value, FiredrakeFunction):
+        if isinstance(self.default_value, Function):
             return 'Function'
         return 'UFL scalar expression'
 
@@ -195,9 +195,9 @@ class FiredrakeVectorExpression(TraitType):
         self.error(obj, value)
 
     def default_value_repr(self):
-        if isinstance(self.default_value, FiredrakeConstant):
+        if isinstance(self.default_value, Constant):
             return 'Constant({:})'.format(self.default_value.dat.data[0])
-        if isinstance(self.default_value, FiredrakeFunction):
+        if isinstance(self.default_value, Function):
             return 'Function'
         return 'UFL vector expression'
 
