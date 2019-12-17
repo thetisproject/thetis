@@ -22,6 +22,7 @@ the integral of the density. For more details, see:
 # (the functional) with respect to a specified input (the control)
 from thetis import *
 from pyadjoint.optimization.optimization import minimise
+from pyadjoint import continue_annotation, pause_annotation
 import numpy
 op2.init(log_level=INFO)
 
@@ -165,6 +166,8 @@ callback_list = optimisation.OptimisationCallbackList([
     optimisation.FunctionalOptimisationCallback(solver_obj),
     turbines.TurbineOptimisationCallback(solver_obj, cb),
 ])
+
+pause_annotation()
 
 # this reduces the functional J(u, td) to a function purely of the control td:
 # rf(td) = J(u(td), td) where the velocities u(td) of the entire simulation

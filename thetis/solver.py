@@ -228,7 +228,7 @@ class FlowSolver(FrozenClass):
         :type u_scale: float or :class:`Constant`
         """
         u = u_scale
-        if isinstance(u_scale, FiredrakeConstant):
+        if isinstance(u_scale, Constant):
             u = u_scale.dat.data[0]
         min_dx = self.fields.h_elem_size_2d.dat.data.min()
         # alpha = 0.5 if self.options.element_family == 'rt-dg' else 1.0
@@ -250,7 +250,7 @@ class FlowSolver(FrozenClass):
         :type w_scale: float or :class:`Constant`
         """
         w = w_scale
-        if isinstance(w_scale, FiredrakeConstant):
+        if isinstance(w_scale, Constant):
             w = w_scale.dat.data[0]
         min_dz = self.fields.v_elem_size_2d.dat.data.min()
         # alpha = 0.5 if self.options.element_family == 'rt-dg' else 1.0
@@ -269,7 +269,7 @@ class FlowSolver(FrozenClass):
         where :math:`\nu_{scale}` is estimated diffusivity scale.
         """
         nu = nu_scale
-        if isinstance(nu_scale, FiredrakeConstant):
+        if isinstance(nu_scale, Constant):
             nu = nu_scale.dat.data[0]
         min_dx = self.fields.h_elem_size_2d.dat.data.min()
         factor = 2.0
@@ -532,17 +532,17 @@ class FlowSolver(FrozenClass):
             self.fields.baroc_head_3d = Function(self.function_spaces.H_bhead)
             self.fields.int_pg_3d = Function(self.function_spaces.U_int_pg, name='int_pg_3d')
         if self.options.coriolis_frequency is not None:
-            if isinstance(self.options.coriolis_frequency, FiredrakeConstant):
+            if isinstance(self.options.coriolis_frequency, Constant):
                 self.fields.coriolis_3d = self.options.coriolis_frequency
             else:
                 self.fields.coriolis_3d = Function(self.function_spaces.P1)
                 ExpandFunctionTo3d(self.options.coriolis_frequency, self.fields.coriolis_3d).solve()
         if self.options.wind_stress is not None:
-            if isinstance(self.options.wind_stress, FiredrakeFunction):
+            if isinstance(self.options.wind_stress, Function):
                 assert self.options.wind_stress.function_space().mesh().geometric_dimension() == 3, \
                     'wind stress field must be a 3D function'
                 self.fields.wind_stress_3d = self.options.wind_stress
-            elif isinstance(self.options.wind_stress, FiredrakeConstant):
+            elif isinstance(self.options.wind_stress, Constant):
                 self.fields.wind_stress_3d = self.options.wind_stress
             else:
                 raise Exception('Unsupported wind stress type: {:}'.format(type(self.options.wind_stress)))

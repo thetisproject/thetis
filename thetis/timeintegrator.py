@@ -96,10 +96,10 @@ class ForwardEuler(TimeIntegrator):
         self.fields_old = {}
         for k in sorted(self.fields):
             if self.fields[k] is not None:
-                if isinstance(self.fields[k], FiredrakeFunction):
+                if isinstance(self.fields[k], Function):
                     self.fields_old[k] = Function(
                         self.fields[k].function_space())
-                elif isinstance(self.fields[k], FiredrakeConstant):
+                elif isinstance(self.fields[k], Constant):
                     self.fields_old[k] = Constant(self.fields[k])
 
         u_old = self.solution_old
@@ -162,10 +162,10 @@ class CrankNicolson(TimeIntegrator):
         self.fields_old = {}
         for k in sorted(self.fields):
             if self.fields[k] is not None:
-                if isinstance(self.fields[k], FiredrakeFunction):
+                if isinstance(self.fields[k], Function):
                     self.fields_old[k] = Function(
                         self.fields[k].function_space(), name=self.fields[k].name()+'_old')
-                elif isinstance(self.fields[k], FiredrakeConstant):
+                elif isinstance(self.fields[k], Constant):
                     self.fields_old[k] = Constant(self.fields[k])
 
         u = self.solution
@@ -333,10 +333,10 @@ class PressureProjectionPicard(TimeIntegrator):
         self.fields_old = {}
         for k in sorted(self.fields):
             if self.fields[k] is not None:
-                if isinstance(self.fields[k], FiredrakeFunction):
+                if isinstance(self.fields[k], Function):
                     self.fields_old[k] = Function(
                         self.fields[k].function_space())
-                elif isinstance(self.fields[k], FiredrakeConstant):
+                elif isinstance(self.fields[k], Constant):
                     self.fields_old[k] = Constant(self.fields[k])
         # for the mom. eqn. the 'eta' field is just one of the 'other' fields
         fields_mom = self.fields.copy()

@@ -19,6 +19,7 @@ from . import callback
 from .log import *
 from collections import OrderedDict
 import thetis.limiter as limiter
+from pyadjoint import stop_annotating
 
 
 class FlowSolver2d(FrozenClass):
@@ -371,7 +372,8 @@ class FlowSolver2d(FrozenClass):
             self.create_timestepper()
         self._isfrozen = False
         # correct treatment of the split 2d functions
-        uv_2d, elev_2d = self.fields.solution_2d.split()
+        with stop_annotating():
+            uv_2d, elev_2d = self.fields.solution_2d.split()
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = elev_2d
         self.exporters = OrderedDict()
@@ -419,7 +421,8 @@ class FlowSolver2d(FrozenClass):
         """
         if not self._initialized:
             self.initialize()
-        uv_2d, elev_2d = self.fields.solution_2d.split()
+        with stop_annotating():
+            uv_2d, elev_2d = self.fields.solution_2d.split()
         if elev is not None:
             elev_2d.project(elev)
         if uv is not None:
@@ -523,8 +526,9 @@ class FlowSolver2d(FrozenClass):
                                      t=self.simulation_time, q=norm_q,
                                      cpu=cputime))
         else:
-            norm_h = norm(self.fields.solution_2d.split()[1])
-            norm_u = norm(self.fields.solution_2d.split()[0])
+            with stop_annotating():
+                norm_h = norm(self.fields.solution_2d.split()[1])
+                norm_u = norm(self.fields.solution_2d.split()[0])
 
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')

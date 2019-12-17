@@ -7,6 +7,7 @@ Stephan Kramer 25-05-16
 """
 import pytest
 from thetis import *
+from pyadjoint import continue_annotation, Control, ReducedFunctional, taylor_test, pause_annotation
 op2.init(log_level=INFO)
 
 velocity_u = 2.0
@@ -109,6 +110,7 @@ def test_gradient_from_adjoint(setup):
     J0 = assemble(solver_obj.fields.solution_2d[0]*dx)
 
     drag_func = Control(solver_obj.options.quadratic_drag_coefficient)
+    pause_annotation()
     Jhat = ReducedFunctional(J0, drag_func)
 
     c = Function(solver_obj.options.quadratic_drag_coefficient)

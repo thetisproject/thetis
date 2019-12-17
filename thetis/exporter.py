@@ -247,7 +247,7 @@ class ExportManager(object):
         self.exporters = OrderedDict()
         for key in fields_to_export:
             field = self.functions.get(key)
-            if field is not None and isinstance(field, FiredrakeFunction):
+            if field is not None and isinstance(field, Function):
                 self.add_export(key, field, export_type,
                                 next_export_ix=next_export_ix)
 
@@ -284,7 +284,7 @@ class ExportManager(object):
         field = self.functions.get(fieldname)
         if preproc_func is not None:
             self.preproc_callbacks[fieldname] = preproc_func
-        if field is not None and isinstance(field, FiredrakeFunction):
+        if field is not None and isinstance(field, Function):
             native_space = field.function_space()
             visu_space = get_visu_space(native_space)
             coords_dg = self._get_dg_coordinates(visu_space)
