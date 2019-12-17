@@ -22,7 +22,7 @@ the integral of the density. For more details, see:
 # (the functional) with respect to a specified input (the control)
 from thetis import *
 from pyadjoint.optimization.optimization import minimise
-from pyadjoint import continue_annotation, pause_annotation
+from pyadjoint import continue_annotation, pause_annotation, Control, ReducedFunctional
 import numpy
 op2.init(log_level=INFO)
 
