@@ -20,10 +20,12 @@ the integral of the density. For more details, see:
 # automatically, in such a way that we can rerun the model with different input
 # parameters, and also derive the adjoint-based gradient of a specified input
 # (the functional) with respect to a specified input (the control)
-from thetis_adjoint import *
+from thetis import *
 from pyadjoint.optimization.optimization import minimise
 import numpy
 op2.init(log_level=INFO)
+
+continue_annotation()
 
 test_gradient = False  # whether to check the gradient computed by the adjoint (see note below)
 optimise = True

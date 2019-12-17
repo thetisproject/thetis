@@ -2,7 +2,7 @@
 Utility functions and classes for 3D hydrostatic ocean model
 """
 from __future__ import absolute_import
-from .firedrake import *
+from firedrake import *
 import os
 import numpy as np
 import sys
@@ -14,9 +14,6 @@ import coffee.base as ast  # NOQA
 from collections import OrderedDict, namedtuple  # NOQA
 from .field_defs import field_metadata
 from .log import *
-from firedrake import Function as FiredrakeFunction
-from firedrake import Constant as FiredrakeConstant
-from firedrake import Expression as FiredrakeExpression
 from abc import ABCMeta, abstractmethod
 
 ds_surf = ds_t
@@ -86,7 +83,7 @@ class FieldDict(AttrDict):
     def _check_inputs(self, key, value):
         if key != '__dict__':
             from firedrake.functionspaceimpl import MixedFunctionSpace, WithGeometry
-            if not isinstance(value, (FiredrakeFunction, FiredrakeConstant)):
+            if not isinstance(value, (Function, Constant)):
                 raise TypeError('Value must be a Function or Constant object')
             fs = value.function_space()
             is_mixed = (isinstance(fs, MixedFunctionSpace)
@@ -99,7 +96,7 @@ class FieldDict(AttrDict):
 
     def _set_functionname(self, key, value):
         """Set function.name to key to ensure consistent naming"""
-        if isinstance(value, FiredrakeFunction):
+        if isinstance(value, Function):
             value.rename(name=key)
 
     def __setitem__(self, key, value):
@@ -213,7 +210,7 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, z_stretch_fact=1.0,
     new_coordinates = Function(fs_3d)
 
     z_stretch_func = Function(fs_2d)
-    if isinstance(z_stretch_fact, FiredrakeFunction):
+    if isinstance(z_stretch_fact, Function):
         assert z_stretch_fact.function_space() == fs_2d
         z_stretch_func = z_stretch_fact
     else:
@@ -519,9 +516,9 @@ class DensitySolver(object):
         self.fs = density.function_space()
         self.eos = eos_class
 
-        if isinstance(salinity, FiredrakeFunction):
+        if isinstance(salinity, Function):
             assert self.fs == salinity.function_space()
-        if isinstance(temperature, FiredrakeFunction):
+        if isinstance(temperature, Function):
             assert self.fs == temperature.function_space()
 
         self.s = salinity
@@ -530,10 +527,10 @@ class DensitySolver(object):
 
     def _get_array(self, function):
         """Returns numpy data array from a :class:`Function`"""
-        if isinstance(function, FiredrakeFunction):
+        if isinstance(function, Function):
             assert self.fs == function.function_space()
             return function.dat.data[:]
-        if isinstance(function, FiredrakeConstant):
+        if isinstance(function, Constant):
             return function.dat.data[0]
         # assume that function is a float
         return function
@@ -575,8 +572,8 @@ class DensitySolverWeak(object):
         self.fs = density.function_space()
         self.eos = eos_class
 
-        assert isinstance(salinity, (FiredrakeFunction, FiredrakeConstant))
-        assert isinstance(temperature, (FiredrakeFunction, FiredrakeConstant))
+        assert isinstance(salinity, (Function, Constant))
+        assert isinstance(temperature, (Function, Constant))
 
         self.s = salinity
         self.t = temperature
@@ -1007,8 +1004,8 @@ class SubdomainProjector(object):
     """Projector that projects the restriction of an expression to the specified subdomain."""
     def __init__(self, v, v_out, subdomain_id, solver_parameters=None, constant_jacobian=True):
 
-        if isinstance(v, FiredrakeExpression) or \
-           not isinstance(v, (ufl.core.expr.Expr, FiredrakeFunction)):
+        if isinstance(v, Expression) or \
+           not isinstance(v, (ufl.core.expr.Expr, Function)):
             raise ValueError("Can only project UFL expression or Functions not '%s'" % type(v))
 
         self.v = v

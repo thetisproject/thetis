@@ -5,7 +5,7 @@ All options are type-checked and they are stored in traitlets Configurable
 objects.
 """
 from .configuration import *
-from .firedrake import Constant
+from firedrake import Constant
 
 
 class TimeStepperOptions(FrozenHasTraits):

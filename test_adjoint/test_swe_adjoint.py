@@ -6,7 +6,7 @@ via firedrake_adjoint.
 Stephan Kramer 25-05-16
 """
 import pytest
-from thetis_adjoint import *
+from thetis import *
 op2.init(log_level=INFO)
 
 velocity_u = 2.0
@@ -102,6 +102,7 @@ def setup(request):
 
 
 def test_gradient_from_adjoint(setup):
+    continue_annotation()
     solver_obj = setup()
     solver_obj.assign_initial_conditions(uv=as_vector((velocity_u, 0.0)), elev=Constant(0.0))
     solver_obj.iterate()

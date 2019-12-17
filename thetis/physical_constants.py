@@ -2,7 +2,7 @@
 Default values for physical constants and parameters
 """
 from __future__ import absolute_import
-from .firedrake import Constant
+from firedrake import Constant
 
 # TODO this module should only contain scalar variables
 # TODO all parameters that can be spatially varying should be in options
