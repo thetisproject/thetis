@@ -175,7 +175,7 @@ def run(setup, refinement, order, do_export=True, **options):
 
     # bathymetry
     x_2d, y_2d = SpatialCoordinate(mesh2d)
-    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    p1_2d = get_functionspace_2d(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     bathymetry_2d.project(setup_obj.bath(x_2d, y_2d, lx, ly))
 

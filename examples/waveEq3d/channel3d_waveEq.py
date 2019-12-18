@@ -28,7 +28,7 @@ outputdir = 'outputs'
 print_output('Exporting to ' + outputdir)
 
 # bathymetry
-P1_2d = FunctionSpace(mesh2d, 'CG', 1)
+P1_2d = get_functionspace_2d(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
 bathymetry_2d.assign(depth)
 
