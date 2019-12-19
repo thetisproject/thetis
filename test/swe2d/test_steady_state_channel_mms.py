@@ -44,11 +44,11 @@ def test_steady_state_channel_mms(options):
         eta_bcval = Constant(eta0)
 
         # bathymetry
-        p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+        p1_2d = get_functionspace_2d(mesh2d, 'CG', 1)
         bathymetry_2d = Function(p1_2d, name="bathymetry")
         bathymetry_2d.assign(H0)
 
-        source_space = VectorFunctionSpace(mesh2d, 'DG', order+2)
+        source_space = get_functionspace_2d(mesh2d, 'DG', order+2, vector=True)
         source_func = project(source_expr*xhat, source_space, name="Source")
 
         # --- create solver ---

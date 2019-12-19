@@ -21,25 +21,6 @@ from .log import *
 from collections import OrderedDict
 
 
-def get_functionspace_2d(mesh2d, family, degree, vector=False,
-                         variant='equispaced', **kwargs):
-    elt = FiniteElement(family, mesh2d.ufl_cell(), degree, variant=variant)
-    constructor = VectorFunctionSpace if vector else FunctionSpace
-    return constructor(mesh2d, elt, **kwargs)
-
-
-def get_functionspace_3d(mesh, h_family, h_degree, v_family, v_degree,
-                         vector=False, hdiv=False, variant='equispaced', **kwargs):
-    h_cell, v_cell = mesh.ufl_cell().sub_cells()
-    h_elt = FiniteElement(h_family, h_cell, h_degree, variant=variant)
-    v_elt = FiniteElement(v_family, v_cell, v_degree, variant=variant)
-    elt = TensorProductElement(h_elt, v_elt)
-    if hdiv:
-        elt = HDiv(elt)
-    constructor = VectorFunctionSpace if vector else FunctionSpace
-    return constructor(mesh, elt, **kwargs)
-
-
 class FlowSolver(FrozenClass):
     """
     Main object for 3D solver
@@ -446,7 +427,7 @@ class FlowSolver(FrozenClass):
             self.function_spaces.P2DGxP2 = get_functionspace_3d(self.mesh, 'DG', 2, 'CG', 2, name='P2DGxP2')
             self.function_spaces.P2DG_2d = get_functionspace_2d(self.mesh2d, 'DG', 2, name='P2DG_2d')
             if self.options.element_family == 'dg-dg':
-                self.function_spaces.P2DGxP1DGv = get_functionspace_3d(self.mesh, 'DG', 2, 'DG', 1, name='P2DGxP1DGv', dim=2)
+                self.function_spaces.P2DGxP1DGv = get_functionspace_3d(self.mesh, 'DG', 2, 'DG', 1, name='P2DGxP1DGv', vector=True, dim=2)
                 self.function_spaces.H_bhead = self.function_spaces.P2DGxP2
                 self.function_spaces.H_bhead_2d = self.function_spaces.P2DG_2d
                 self.function_spaces.U_int_pg = self.function_spaces.P2DGxP1DGv

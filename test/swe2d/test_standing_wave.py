@@ -35,7 +35,7 @@ def test_standing_wave_channel(timesteps, max_rel_err, timestepper, tmpdir, do_e
     elev_init = cos(pi*x[0]/lx)
 
     # bathymetry
-    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    p1_2d = get_functionspace_2d(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name="bathymetry")
     bathymetry_2d.assign(depth)
 

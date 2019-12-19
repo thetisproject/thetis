@@ -49,7 +49,7 @@ def run(refinement, **model_options):
     outputdir = 'outputs'
 
     # bathymetry
-    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    p1_2d = get_functionspace_2d(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     bathymetry_2d.assign(depth)
     x_2d, y_2d = SpatialCoordinate(mesh2d)
@@ -91,7 +91,7 @@ def run(refinement, **model_options):
     salt_ana = Function(solverobj.function_spaces.H, name='salt analytical')
     salt_ana_p1 = Function(solverobj.function_spaces.P1, name='salt analytical')
 
-    p1dg_ho = FunctionSpace(solverobj.mesh, 'DG', options.polynomial_degree + 2,
+    p1dg_ho = get_functionspace_3d(solverobj.mesh, 'DG', options.polynomial_degree + 2,
                             vfamily='DG', vdegree=options.polynomial_degree + 2)
     salt_ana_ho = Function(p1dg_ho, name='salt analytical')
 

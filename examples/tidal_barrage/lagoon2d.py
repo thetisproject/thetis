@@ -34,7 +34,7 @@ period = 12.42 * 3600
 omega = (2 * pi) / period
 
 # Bathymetry and viscosity field
-P1_2d = FunctionSpace(mesh2d, 'DG', 1)
+P1_2d = get_functionspace_2d(mesh2d, 'DG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
 viscosity_2d = Function(P1_2d, name='viscosity')
 

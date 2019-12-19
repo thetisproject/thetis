@@ -55,7 +55,7 @@ def test_pressure_forcing(element_family, timestepper):
         eta_expr = A*cos(pi*x[0]/lx)*cos(pi*x[1]/ly)
 
         # bathymetry
-        P1 = FunctionSpace(mesh2d, "DG", 1)
+        P1 = get_functionspace_2d(mesh2d, "DG", 1)
         bathymetry = Function(P1, name='bathymetry')
         bathymetry.interpolate(Constant(5.0))
 
