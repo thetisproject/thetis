@@ -195,25 +195,25 @@ class FlowSolver2d(FrozenClass):
         used for viscosity and diffusivity terms, from Epshteyn et al. 2007
         (http://dx.doi.org/10.1016/j.cam.2006.08.029).
 
-        The scheme is stable for
+        The scheme is stable if
 
         ..math::
-            \alpha > 3*X*p*(p+1)*\cot(\theta),
+            \alpha|_K > 3*X*p*(p+1)*\cot(\theta_K),
 
-        where :math:`X` is the maximum ratio of viscosity / diffusivity within a triangle,
-        :math:`p` the degree, and :math:`\theta` is the minimum angle within a triangle.
+        for all elements :math:`K`, where
+
+        ..math::
+            X = \frac{\max_{x\in K}(\nu(x))}{\min_{x\in K}(\nu(x))},
+
+        :math:`p` the degree, and :math:`\theta_K` is the minimum angle in the element.
+
+        In practice, we take the maximum value of :math:`X` and minimum value of
+        :math:`\alpha_K` over all elements.
         """
         degree = self.function_spaces.U_2d.ufl_element().degree()
         alpha = 5.0*degree*(degree+1) if degree != 0 else 1.5
         degree_tracer = self.function_spaces.Q_2d.ufl_element().degree()
         alpha_tracer = 5.0*degree_tracer*(degree_tracer+1) if degree_tracer != 0 else 1.5
-
-        def sipg_ratio(nu):
-            try:
-                return get_sipg_ratio(nu)
-            except:
-                print_output("WARNING: Could not compute ratio of extrema in function space {:}. Assuming constant.".format(nu.ufl_element()))
-                return 1.0
 
         if self.options.use_automatic_sipg_parameter:
             min_angle = get_minimum_angle_2d(self.mesh2d)
@@ -224,7 +224,7 @@ class FlowSolver2d(FrozenClass):
             if not self.options.tracer_only:
                 nu = self.options.horizontal_viscosity
                 if nu is not None:
-                    alpha *= sipg_ratio(nu)*cot_theta
+                    alpha *= get_sipg_ratio(nu)*cot_theta
                 print_output("SIPG parameter:        {:.2f}".format(alpha))
                 self.options.sipg_parameter.assign(alpha)
 
@@ -232,10 +232,11 @@ class FlowSolver2d(FrozenClass):
             if self.options.solve_tracer:
                 nu = self.options.horizontal_diffusivity
                 if nu is not None:
-                    alpha_tracer *= sipg_ratio(nu)*cot_theta
+                    alpha_tracer *= get_sipg_ratio(nu)*cot_theta
                 print_output("Tracer SIPG parameter: {:.2f}".format(alpha_tracer))
                 self.options.sipg_parameter_tracer.assign(alpha)
         else:
+            print_output("Using default SIPG parameters")
             self.options.sipg_parameter.assign(alpha)
             self.options.sipg_parameter_tracer.assign(alpha_tracer)
 
