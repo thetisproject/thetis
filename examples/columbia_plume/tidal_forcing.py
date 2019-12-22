@@ -6,8 +6,8 @@ from thetis.forcing import *
 
 def test():
     mesh2d = Mesh('mesh_cre-plume_03_normal.msh')
-    p1 = get_functionspace_2d(mesh2d, 'CG', 1)
-    p1v = get_functionspace_2d(mesh2d, 'CG', 1, vector=True)
+    p1 = get_functionspace(mesh2d, 'CG', 1)
+    p1v = get_functionspace(mesh2d, 'CG', 1, vector=True)
     elev_field = Function(p1, name='elevation')
     uv_field = Function(p1v, name='transport')
 

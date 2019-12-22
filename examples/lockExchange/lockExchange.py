@@ -115,7 +115,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     outputdir = 'outputs_' + options_str
 
     # bathymetry
-    p1_2d = get_functionspace_2d(mesh2d, 'CG', 1)
+    p1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     bathymetry_2d.assign(depth)
 

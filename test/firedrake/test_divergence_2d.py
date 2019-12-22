@@ -2,7 +2,7 @@
 Tests convergence of div(uv) in 2D
 """
 from firedrake import *
-from thetis.utility import get_functionspace_2d
+from thetis.utility import get_functionspace
 import numpy
 from scipy import stats
 import os
@@ -16,11 +16,11 @@ def compute(refinement=1, order=1, do_export=False):
     mesh = UnitSquareMesh(n, n)
 
     family = 'DG'
-    p0dg = get_functionspace_2d(mesh, family, order-1)
-    p1dg = get_functionspace_2d(mesh, family, order)
-    p1dg_v = get_functionspace_2d(mesh, family, order, vector=True)
-    p1dg_ho = get_functionspace_2d(mesh, family, order + 2)
-    p1dg_v_ho = get_functionspace_2d(mesh, family, order + 2, vector=True)
+    p0dg = get_functionspace(mesh, family, order-1)
+    p1dg = get_functionspace(mesh, family, order)
+    p1dg_v = get_functionspace(mesh, family, order, vector=True)
+    p1dg_ho = get_functionspace(mesh, family, order + 2)
+    p1dg_v_ho = get_functionspace(mesh, family, order + 2, vector=True)
 
     lx = 1.0
     x, y = SpatialCoordinate(mesh)

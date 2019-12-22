@@ -45,7 +45,7 @@ def run(refinement, **model_options):
     outputdir = 'outputs'
 
     # bathymetry
-    p1_2d = get_functionspace_2d(mesh2d, 'CG', 1)
+    p1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     bathymetry_2d.assign(depth)
 
@@ -85,7 +85,7 @@ def run(refinement, **model_options):
     uv_ana = Function(solverobj.function_spaces.U, name='uv analytical')
     uv_ana_p1 = Function(solverobj.function_spaces.P1v, name='uv analytical')
 
-    p1dg_v_ho = get_functionspace_3d(solverobj.mesh,
+    p1dg_v_ho = get_functionspace(solverobj.mesh,
         'DG', options.polynomial_degree + 2, vector=True)
     uv_ana_ho = Function(p1dg_v_ho, name='uv analytical')
     uv_ana.project(ana_uv_expr)
