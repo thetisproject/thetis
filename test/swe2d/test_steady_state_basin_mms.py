@@ -133,7 +133,7 @@ def run(setup, refinement, order, do_export=True, options=None,
     outputdir = 'outputs'
 
     # bathymetry
-    p1_2d = get_functionspace_2d(mesh2d, 'CG', 1)
+    p1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     bathymetry_2d.project(sdict['bath_expr'])
     if bathymetry_2d.dat.data.min() < 0.0:

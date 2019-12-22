@@ -42,7 +42,7 @@ out.write(new_bathymetry_2d)
 def compute_hcc(bathymetry_2d, nlayers):
     mesh = extrude_mesh_sigma(mesh2d, nlayers, bathymetry_2d)
 
-    P1DG = get_functionspace_3d(mesh, 'DG', 1)
+    P1DG = get_functionspace(mesh, 'DG', 1)
     f_hcc = Function(P1DG, name='hcc_metric_3d')
     xyz = SpatialCoordinate(mesh)
 
