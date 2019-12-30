@@ -3,6 +3,7 @@ import os
 import scipy.interpolate
 from netCDF4 import Dataset
 from firedrake import *
+from thetis.utility import get_functionspace
 
 
 def interpolate_onto(interp_func, output_func, coords, min_val):
