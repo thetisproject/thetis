@@ -14,10 +14,6 @@ nlayers = 15
 mesh2d = Mesh('mesh_cre-plume_03_normal.msh')
 print_output('Loaded mesh ' + mesh2d.name)
 
-nnodes = comm.allreduce(mesh2d.topology.num_vertices(), MPI.SUM)
-ntriangles = comm.allreduce(mesh2d.topology.num_cells(), MPI.SUM)
-nprisms = ntriangles*nlayers
-
 dt = 7.0
 t_end = 10*24*3600.
 t_export = 900.
