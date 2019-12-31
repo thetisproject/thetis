@@ -190,11 +190,6 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     print_output('Lax-Friedrichs factor trc: {:}'.format(laxfriedrichs_trc))
     print_output('Exporting to {:}'.format(outputdir))
 
-    esize = solver_obj.fields.h_elem_size_2d
-    min_elem_size = comm.allreduce(np.min(esize.dat.data), op=MPI.MIN)
-    max_elem_size = comm.allreduce(np.max(esize.dat.data), op=MPI.MAX)
-    print_output('Elem size: {:} {:}'.format(min_elem_size, max_elem_size))
-
     temp_init3d = Function(solver_obj.function_spaces.H, name='initial temperature')
     x, y, z = SpatialCoordinate(solver_obj.mesh)
     # vertical barrier
