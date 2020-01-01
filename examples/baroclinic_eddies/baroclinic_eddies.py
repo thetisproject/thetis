@@ -171,6 +171,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.equation_of_state_options.beta = 0.0
 
     solver_obj.add_callback(RPECalculator(solver_obj))
+    solver_obj.add_callback(KineticEnergyCalculator(solver_obj))
 
     solver_obj.create_equations()
 
