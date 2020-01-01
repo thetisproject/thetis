@@ -66,3 +66,31 @@ class RPECalculator(DiagnosticCallback):
     def message_str(self, *args):
         line = 'RPE: {:16.10e}, rel. RPE: {:14.8e}'.format(args[0], args[1])
         return line
+
+
+class KineticEnergyCalculator(DiagnosticCallback):
+    """
+    Computes kinetic energy from the velocity field.
+
+    E_kin = int( 1/2 u^2 )
+
+    """
+    name = 'ekin'
+    variable_names = ['ekin']
+
+    def _initialize(self):
+        self.uv = self.solver_obj.fields.uv_3d
+        self.uv_dav = self.solver_obj.fields.uv_dav_3d
+        self.w = self.solver_obj.fields.w_3d
+        self._initialized = True
+
+    def __call__(self):
+        if not hasattr(self, '_initialized') or self._initialized is False:
+            self._initialize()
+        u = self.uv + self.uv_dav + self.w
+        value = assemble(0.5*dot(u, u)*dx)
+        return (value, )
+
+    def message_str(self, *args):
+        line = 'Ekin: {:16.10e}'.format(args[0])
+        return line
