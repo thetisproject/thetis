@@ -325,7 +325,10 @@ class FlowSolver2d(FrozenClass):
         self.function_spaces.P1DGv_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1, name='P1DGv_2d')
         # 2D velocity space
         if self.options.element_family == 'rt-dg':
-            self.function_spaces.U_2d = get_functionspace(self.mesh2d, 'RT', self.options.polynomial_degree+1, name='U_2d')
+            h_family_alias = {'triangle': 'RTF', 'quadrilateral': 'RTCF'}
+            h_cell = self.mesh2d.ufl_cell().cellname()
+            hfam = h_family_alias[h_cell]
+            self.function_spaces.U_2d = get_functionspace(self.mesh2d, hfam, self.options.polynomial_degree+1, name='U_2d')
             self.function_spaces.H_2d = get_functionspace(self.mesh2d, 'DG', self.options.polynomial_degree, name='H_2d')
         elif self.options.element_family == 'dg-cg':
             self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d')

@@ -165,6 +165,7 @@ def element_continuity(ufl_element):
         'Discontinuous Lagrange': 'dg',
         'Lagrange': 'cg',
         'Raviart-Thomas': 'hdiv',
+        'RTCF': 'hdiv',
         'Q': 'cg',
         'DQ': 'dg',
     }
