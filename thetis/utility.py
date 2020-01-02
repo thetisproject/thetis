@@ -166,6 +166,8 @@ def element_continuity(ufl_element):
         'Lagrange': 'cg',
         'Raviart-Thomas': 'hdiv',
         'RTCF': 'hdiv',
+        'Brezzi-Douglas-Marini': 'hdiv',
+        'BDMCF': 'hdiv',
         'Q': 'cg',
         'DQ': 'dg',
     }
