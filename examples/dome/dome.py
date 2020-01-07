@@ -46,7 +46,7 @@ if os.getenv('THETIS_REGRESSION_TEST') is not None:
 delta_x = delta_x_dict[reso_str]
 
 # bathymetry
-P1_2d = FunctionSpace(mesh2d, 'CG', 1)
+P1_2d = get_functionspace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
 xy = SpatialCoordinate(mesh2d)
 lin_bath_expr = (setup.depth_lim[1] - setup.depth_lim[0])/(setup.y_slope[1] - setup.y_slope[0])*(xy[1] - setup.y_slope[0]) + setup.depth_lim[0]

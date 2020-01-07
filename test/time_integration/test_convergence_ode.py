@@ -102,7 +102,7 @@ def run(timeintegrator_class, refinement=1):
     bnd_len = compute_boundary_length(mesh)
     mesh.boundary_len = bnd_len
 
-    p1 = FunctionSpace(mesh, 'CG', 1)
+    p1 = get_functionspace(mesh, 'CG', 1)
     fs = MixedFunctionSpace([p1, p1])
 
     alpha = 2*np.pi

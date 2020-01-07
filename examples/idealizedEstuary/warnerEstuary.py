@@ -50,7 +50,7 @@ salt_river = 0.0
 temp_const = 10.0
 
 # bathymetry
-p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+p1_2d = get_functionspace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(p1_2d, name='Bathymetry')
 x, y = SpatialCoordinate(mesh2d)
 bathymetry_2d.interpolate(depth_ocean - (depth_ocean - depth_river)*x/lx)

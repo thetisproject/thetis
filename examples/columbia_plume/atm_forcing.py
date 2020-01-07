@@ -11,6 +11,7 @@ from thetis.log import *
 import datetime
 import netCDF4
 from thetis.forcing import *
+from thetis.utility import get_functionspace
 
 # define model coordinate system
 COORDSYS = coordsys.UTM_ZONE10
@@ -45,8 +46,8 @@ def test():
     """
     mesh2d = Mesh('mesh_cre-plume_03_normal.msh')
     comm = mesh2d.comm
-    p1 = FunctionSpace(mesh2d, 'CG', 1)
-    p1v = VectorFunctionSpace(mesh2d, 'CG', 1)
+    p1 = get_functionspace(mesh2d, 'CG', 1)
+    p1v = get_functionspace(mesh2d, 'CG', 1, vector=True)
     windstress_2d = Function(p1v, name='wind stress')
     atmpressure_2d = Function(p1, name='atm pressure')
 

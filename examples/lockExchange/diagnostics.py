@@ -42,7 +42,7 @@ class FrontLocationCalculator(DiagnosticCallback):
                                                   boundary='bottom',
                                                   elem_facet='bottom')
         # project to higher order cg for interpolation
-        fs_ho = FunctionSpace(mesh2d, 'CG', 2)
+        fs_ho = get_functionspace(mesh2d, 'CG', 2)
         self.rho_ho = Function(fs_ho, name='Density 2d ho')
         self.ho_projector = Projector(self.rho_2d, self.rho_ho)
         self._initialized = True

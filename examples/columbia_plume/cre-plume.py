@@ -90,10 +90,6 @@ if reso_str == 'coarse':
     south_bnd_id = 6
     river_bnd_id = 5
 
-nnodes = comm.allreduce(mesh2d.topology.num_vertices(), MPI.SUM)
-ntriangles = comm.allreduce(mesh2d.topology.num_cells(), MPI.SUM)
-nprisms = ntriangles*nlayers
-
 sim_tz = timezone.FixedTimeZone(-8, 'PST')
 init_date = datetime.datetime(2006, 5, 1, tzinfo=sim_tz)
 end_date = datetime.datetime(2006, 7, 2, tzinfo=sim_tz)

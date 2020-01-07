@@ -32,7 +32,7 @@ def run(refinement, **model_options):
     outputdir = 'outputs'
 
     # bathymetry
-    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    p1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     bathymetry_2d.assign(depth)
 
