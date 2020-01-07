@@ -37,7 +37,7 @@ def fourier_series_solution(mesh, lx, diff_flux, **model_options):
     time = model_options['simulation_end_time']
 
     # Initial condition and source term for two homogeneous Neumann problems
-    P1 = get_functionspace_2d(mesh, 'CG', 1)
+    P1 = get_functionspace(mesh, 'CG', 1)
     ic = Function(P1).interpolate(diff_flux*0.5*(lx - x)*(lx - x)/lx)
     source = Constant(-nu*diff_flux/lx, domain=mesh)
 
@@ -99,7 +99,7 @@ def run(refinement, **model_options):
     model_options['simulation_end_time'] = t_end
 
     # Bathymetry
-    P1_2d = get_functionspace_2d(mesh2d, 'CG', 1)
+    P1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathy_2d = Function(P1_2d, name='Bathymetry')
     bathy_2d.assign(depth)
 

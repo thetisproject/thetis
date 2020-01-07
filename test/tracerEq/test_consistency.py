@@ -45,7 +45,7 @@ def run_tracer_consistency(**model_options):
     outputdir = 'outputs' + suffix
 
     # bathymetry
-    p1_2d = get_functionspace_2d(mesh2d, 'CG', 1)
+    p1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     bathymetry_2d.assign(depth)
     x_2d, y_2d = SpatialCoordinate(mesh2d)

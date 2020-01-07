@@ -5,6 +5,7 @@ from thetis import *
 from atm_forcing import to_latlon, COORDSYS
 from thetis.timezone import *
 from thetis.forcing import *
+from thetis.utility import get_functionspace
 
 
 def test_time_search():
@@ -92,8 +93,8 @@ def test_interpolator():
     }
     mesh = extrude_mesh_sigma(mesh2d, nlayers, bathymetry_2d,
                               **extrude_options)
-    p1_2d = get_functionspace_2d(mesh2d, 'CG', 1)
-    p1 = get_functionspace_3d(mesh, 'CG', 1)
+    p1_2d = get_functionspace(mesh2d, 'CG', 1)
+    p1 = get_functionspace(mesh, 'CG', 1)
 
     # make functions
     salt = Function(p1, name='salinity')

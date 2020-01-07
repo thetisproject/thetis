@@ -33,7 +33,7 @@ def compute_l2_error(refinement=1, fs_type='P1DGxP1DG', no_exports=True):
     layers = 3*refinement
 
     # bathymetry
-    P1_2d = get_functionspace_2d(mesh2d, 'CG', 1)
+    P1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(P1_2d, name='Bathymetry')
 
     xy = SpatialCoordinate(mesh2d)
@@ -44,14 +44,14 @@ def compute_l2_error(refinement=1, fs_type='P1DGxP1DG', no_exports=True):
     mesh = extrude_mesh_sigma(mesh2d, layers, bathymetry_2d)
 
     # make function spaces and fields
-    p1 = get_functionspace_3d(mesh, 'CG', 1)
-    p1dg = get_functionspace_3d(mesh, 'DG', 1)
+    p1 = get_functionspace(mesh, 'CG', 1)
+    p1dg = get_functionspace(mesh, 'DG', 1)
     if fs_type == 'P2DGxP2':
-        fs_bhead = get_functionspace_3d(mesh, 'DG', 2, vfamily='CG', vdegree=2)
+        fs_bhead = get_functionspace(mesh, 'DG', 2, vfamily='CG', vdegree=2)
     elif fs_type == 'P1DGxP2':
-        fs_bhead = get_functionspace_3d(mesh, 'DG', 1, vfamily='CG', vdegree=2)
+        fs_bhead = get_functionspace(mesh, 'DG', 1, vfamily='CG', vdegree=2)
     elif fs_type == 'P1DGxP1DG':
-        fs_bhead = get_functionspace_3d(mesh, 'DG', 1, vfamily='DG', vdegree=1)
+        fs_bhead = get_functionspace(mesh, 'DG', 1, vfamily='DG', vdegree=1)
     else:
         raise Exception('Unsupported function space type {:}'.format(fs_type))
 

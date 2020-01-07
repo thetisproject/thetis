@@ -26,7 +26,7 @@ def test_closed_channel(**user_options):
     t_export = 900.0
 
     # bathymetry
-    P1_2d = get_functionspace_2d(mesh2d, 'CG', 1)
+    P1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(P1_2d, name='Bathymetry')
 
     depth_max = 20.0

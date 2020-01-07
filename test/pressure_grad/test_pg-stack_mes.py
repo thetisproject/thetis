@@ -37,7 +37,7 @@ def compute_l2_error(refinement=1, quadratic_pressure=False, quadratic_density=F
     layers = 3*refinement
 
     # bathymetry
-    P1_2d = get_functionspace_2d(mesh2d, 'CG', 1)
+    P1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(P1_2d, name='Bathymetry')
 
     elev_warp_fact = 0.3
@@ -53,22 +53,22 @@ def compute_l2_error(refinement=1, quadratic_pressure=False, quadratic_density=F
     mesh.boundary_len = bnd_len
 
     # make function spaces and fields
-    p1 = get_functionspace_3d(mesh, 'CG', 1)
-    p1dg = get_functionspace_3d(mesh, 'DG', 1)
+    p1 = get_functionspace(mesh, 'CG', 1)
+    p1dg = get_functionspace(mesh, 'DG', 1)
 
     if quadratic_density:
-        fs_density = get_functionspace_3d(mesh, 'DG', 2, vfamily='CG', vdegree=2)
+        fs_density = get_functionspace(mesh, 'DG', 2, vfamily='CG', vdegree=2)
     else:
         fs_density = p1dg
 
     if quadratic_pressure:
         # NOTE for 3rd order convergence both the scalar and grad must be p2
-        fs_bhead = get_functionspace_3d(mesh, 'DG', 2, vfamily='CG', vdegree=2)
-        fs_pg = get_functionspace_3d(mesh, 'DG', 2, 'CG', 2, vector=True, dim=2)
+        fs_bhead = get_functionspace(mesh, 'DG', 2, vfamily='CG', vdegree=2)
+        fs_pg = get_functionspace(mesh, 'DG', 2, 'CG', 2, vector=True, dim=2)
     else:
         # the default function spaces in Thetis
-        fs_bhead = get_functionspace_3d(mesh, 'DG', 1, vfamily='CG', vdegree=2)
-        fs_pg = get_functionspace_3d(mesh, 'DG', 1, 'CG', 2, vector=True, dim=2)
+        fs_bhead = get_functionspace(mesh, 'DG', 1, vfamily='CG', vdegree=2)
+        fs_pg = get_functionspace(mesh, 'DG', 1, 'CG', 2, vector=True, dim=2)
 
     temp_3d = Function(p1dg, name='temperature')
     density_3d = Function(fs_density, name='density')

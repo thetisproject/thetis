@@ -29,7 +29,7 @@ def run_tracer_consistency(constant_c = True, **model_options):
     outputdir = 'outputs'
 
     # bathymetry
-    p1_2d = get_functionspace_2d(mesh2d, 'CG', 1)
+    p1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     x_2d, y_2d = SpatialCoordinate(mesh2d)
     # non-trivial bathymetry, to properly test 2d tracer conservation
