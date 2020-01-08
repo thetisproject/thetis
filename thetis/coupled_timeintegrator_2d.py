@@ -87,22 +87,26 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
                       }
             if issubclass(self.tracer_integrator, timeintegrator.CrankNicolson):
                 self.timesteppers.tracer = self.tracer_integrator(solver.eq_tracer, solver.fields.tracer_2d,
-                                                                  fields, solver.dt, bnd_conditions=solver.bnd_functions['tracer'],
-                                                                  solver_parameters=self.options.timestepper_options.solver_parameters_tracer,
-                                                                  semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-                                                                  theta=self.options.timestepper_options.implicitness_theta)
+                                                                  fields, solver.dt, bnd_conditions=solver.bnd_functions['tracer'])#,
+#                                                                  solver_parameters=self.options.timestepper_options.solver_parameters_tracer,
+#                                                                  semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+#                                                                  theta=self.options.timestepper_options.implicitness_theta)
             else:
                 self.timesteppers.tracer = self.tracer_integrator(solver.eq_tracer,
                                                                   solver.fields.tracer_2d, fields, solver.dt,
-                                                                  bnd_conditions=solver.bnd_functions['tracer'],
-                                                                  solver_parameters=self.options.timestepper_options.solver_parameters_tracer,
-                                                                  )
+                                                                  bnd_conditions=solver.bnd_functions['tracer'])#,
+#                                                                  solver_parameters=self.options.timestepper_options.solver_parameters_tracer,
+#                                                                  )
 
     def _create_integrators(self):
         """
         Creates all time integrators with the correct arguments
         """
+        from thetis_adjoint import get_working_tape
         self._create_swe_integrator()
+        print("tape swe")
+        tape = get_working_tape()
+        #print(tape._blocks)
         self._create_tracer_integrator()
         self.cfl_coeff_2d = min(self.timesteppers.swe2d.cfl_coeff, self.timesteppers.tracer.cfl_coeff)
 
@@ -134,8 +138,19 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
 
     def advance(self, t, update_forcings=None):
         if not self.options.tracer_only:
+            #tape = get_working_tape()
+            #print(tape._blocks) 
+            #tape.clear_tape()
             self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
+            #print("tape swe")
+            #tape = get_working_tape()
+            #print(tape._blocks)    
+            #tape.clear_tape()
         self.timesteppers.tracer.advance(t, update_forcings=update_forcings)
+        #print("tape tracer")
+        #tape = get_working_tape()
+        #print(tape._blocks)  
+
         if self.options.use_limiter_for_tracers:
             self.solver.tracer_limiter.apply(self.fields.tracer_2d)
 

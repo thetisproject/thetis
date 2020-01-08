@@ -110,7 +110,9 @@ class HorizontalAdvectionTerm(TracerTerm):
     the element interfaces, and :math:`\text{jump}` and :math:`\text{avg}` denote the
     jump and average operators across the interface.
     """
+
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+
         if fields_old.get('uv_2d') is None:
             return 0
         elev = fields_old['elev_2d']
@@ -269,6 +271,10 @@ class SourceTerm(TracerTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
         source = fields_old.get('source')
+        print("source")
+        print(source.dat.data[:])
+        if min(source.dat.data[:]) == 0.0:
+            stop
         if source is not None:
             f += -inner(source, self.test)*self.dx
         return -f

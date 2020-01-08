@@ -463,7 +463,6 @@ class HorizontalAdvectionTerm(ShallowWaterMomentumTerm):
     jump and average operators across the interface.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
-
         if not self.options.use_nonlinear_equations:
             return 0
 
