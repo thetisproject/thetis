@@ -77,7 +77,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         solver = self.solver
 
         if self.solver.options.solve_tracer:
-            uv, elev = self.fields.solution_2d.split()
+            uv, elev = self.fields.solution_2d.split()     
             fields = {'elev_2d': elev,
                       'uv_2d': uv,
                       'diffusivity_h': self.options.horizontal_diffusivity,
@@ -102,11 +102,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         """
         Creates all time integrators with the correct arguments
         """
-        from thetis_adjoint import get_working_tape
+
         self._create_swe_integrator()
-        print("tape swe")
-        tape = get_working_tape()
-        #print(tape._blocks)
         self._create_tracer_integrator()
         self.cfl_coeff_2d = min(self.timesteppers.swe2d.cfl_coeff, self.timesteppers.tracer.cfl_coeff)
 
@@ -133,23 +130,13 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self.timesteppers.swe2d.initialize(self.fields.solution_2d)
         if self.options.solve_tracer:
             self.timesteppers.tracer.initialize(self.fields.tracer_2d)
-
         self._initialized = True
 
     def advance(self, t, update_forcings=None):
         if not self.options.tracer_only:
-            #tape = get_working_tape()
-            #print(tape._blocks) 
-            #tape.clear_tape()
             self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
-            #print("tape swe")
-            #tape = get_working_tape()
-            #print(tape._blocks)    
-            #tape.clear_tape()
         self.timesteppers.tracer.advance(t, update_forcings=update_forcings)
-        #print("tape tracer")
-        #tape = get_working_tape()
-        #print(tape._blocks)  
+
 
         if self.options.use_limiter_for_tracers:
             self.solver.tracer_limiter.apply(self.fields.tracer_2d)

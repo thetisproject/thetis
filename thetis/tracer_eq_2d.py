@@ -271,10 +271,6 @@ class SourceTerm(TracerTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
         source = fields_old.get('source')
-        print("source")
-        print(source.dat.data[:])
-        if min(source.dat.data[:]) == 0.0:
-            stop
         if source is not None:
             f += -inner(source, self.test)*self.dx
         return -f

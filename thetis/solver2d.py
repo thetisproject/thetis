@@ -370,7 +370,6 @@ class FlowSolver2d(FrozenClass):
         if not hasattr(self, 'timestepper'):
             self.create_timestepper()
         self._isfrozen = False
-        # correct treatment of the split 2d functions
         uv_2d, elev_2d = self.fields.solution_2d.split()
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = elev_2d
@@ -525,7 +524,6 @@ class FlowSolver2d(FrozenClass):
         else:
             norm_h = norm(self.fields.solution_2d.split()[1])
             norm_u = norm(self.fields.solution_2d.split()[0])
-
             line = ('{iexp:5d} {i:5d} T={t:10.2f} '
                     'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
             print_output(line.format(iexp=self.i_export, i=self.iteration,
