@@ -175,8 +175,19 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
 
     solver_obj.create_equations()
 
+    dofs_p13d = solver_obj.function_spaces.P1.dim()
+    dofs_elev2d = solver_obj.function_spaces.H_2d.dim()
+    dofs_u2d = solver_obj.function_spaces.U_2d.dim()
+    dofs_t3d = solver_obj.function_spaces.H.dim()
+    dofs_u3d = solver_obj.function_spaces.U.dim()
+
     print_output('Running eddy test case with options:')
     print_output('Mesh resolution dx={:} nlayers={:}'.format(delta_x, nlayers))
+    print_output('Number of 3D elements: {:}'.format(dofs_p13d))
+    print_output('2D pressure DOFs: {:}'.format(dofs_elev2d))
+    print_output('2D velocity DOFs: {:}'.format(dofs_u2d))
+    print_output('3D tracer DOFs: {:}'.format(dofs_t3d))
+    print_output('3D velocity DOFs: {:}'.format(dofs_u3d))
     print_output('Reynolds number: {:}'.format(reynolds_number))
     print_output('Horizontal viscosity: {:}'.format(nu_scale))
     print_output('Lax-Friedrichs factor vel: {:}'.format(laxfriedrichs_vel))
