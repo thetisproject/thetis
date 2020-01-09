@@ -53,8 +53,8 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
 
     lx = 160e3
     ly = 500e3
-    nx = int(lx/delta_x)
-    ny = int(ly/delta_x)
+    nx = int(np.round(lx/delta_x))
+    ny = int(np.round(ly/delta_x))
     delta_x = lx/nx
     mesh2d = PeriodicRectangleMesh(
         nx, ny, lx, ly, direction='x',
