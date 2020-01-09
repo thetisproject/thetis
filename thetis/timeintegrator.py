@@ -94,7 +94,7 @@ class ForwardEuler(TimeIntegrator):
 
         # create functions to hold the values of previous time step
         self.fields_old = {}
-        for k in self.fields:
+        for k in sorted(self.fields):
             if self.fields[k] is not None:
                 if isinstance(self.fields[k], FiredrakeFunction):
                     self.fields_old[k] = Function(
@@ -120,7 +120,7 @@ class ForwardEuler(TimeIntegrator):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
         # assign values to old functions
-        for k in self.fields_old:
+        for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
     def advance(self, t, update_forcings=None):
@@ -130,7 +130,7 @@ class ForwardEuler(TimeIntegrator):
         self.solution_old.assign(self.solution)
         self.solver.solve()
         # shift time
-        for k in self.fields_old:
+        for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
 
@@ -160,7 +160,7 @@ class CrankNicolson(TimeIntegrator):
         # create functions to hold the values of previous time step
         # TODO is this necessary? is self.fields sufficient?
         self.fields_old = {}
-        for k in self.fields:
+        for k in sorted(self.fields):
             if self.fields[k] is not None:
                 if isinstance(self.fields[k], FiredrakeFunction):
                     self.fields_old[k] = Function(
@@ -204,11 +204,8 @@ class CrankNicolson(TimeIntegrator):
         """Assigns initial conditions to all required fields."""
         self.solution_old.assign(solution)
         # assign values to old functions
-        for k in self.fields_old:
-            if type(self.fields_old) == Function:
-                self.fields_old[k].project(self.fields[k])
-            else:
-                self.fields_old[k].assign(self.fields[k])
+        for k in sorted(self.fields_old):
+            self.fields_old[k].assign(self.fields[k])
 
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
@@ -217,7 +214,7 @@ class CrankNicolson(TimeIntegrator):
         self.solution_old.assign(self.solution)
         self.solver.solve()
         # shift time
-        for k in self.fields_old:
+        for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
 
@@ -334,7 +331,7 @@ class PressureProjectionPicard(TimeIntegrator):
 
         # create functions to hold the values of previous time step
         self.fields_old = {}
-        for k in self.fields:
+        for k in sorted(self.fields):
             if self.fields[k] is not None:
                 if isinstance(self.fields[k], FiredrakeFunction):
                     self.fields_old[k] = Function(
@@ -411,7 +408,7 @@ class PressureProjectionPicard(TimeIntegrator):
         self.solution_old.assign(solution)
         self.solution_lagged.assign(solution)
         # assign values to old functions
-        for k in self.fields_old:
+        for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
     def advance(self, t, updateForcings=None):
@@ -429,7 +426,7 @@ class PressureProjectionPicard(TimeIntegrator):
                 self.solver.solve()
 
         # shift time
-        for k in self.fields_old:
+        for k in sorted(self.fields_old):
             self.fields_old[k].assign(self.fields[k])
 
 
