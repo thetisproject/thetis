@@ -1175,6 +1175,21 @@ def get_horizontal_elem_size_3d(sol2d, sol3d):
     get_horizontal_elem_size_2d(sol2d)
     ExpandFunctionTo3d(sol2d, sol3d).solve()
 
+def get_facet_area(mesh):
+    """
+    Compute facet areas of `mesh`, stored in a HDiv trace field.
+
+    NOTES:
+      * In the 2D case, this gives edge lengths.
+      * The plus sign is arbitrary and could equally well be chosen as minus.
+    """
+    HDivTrace = FunctionSpace(mesh, "HDiv Trace", 0)
+    v, u = TestFunction(HDivTrace), TrialFunction(HDivTrace)
+    facet_areas = Function(HDivTrace, name="Facet areas")
+    mass_term = v('+')*u('+')*dS + v*u*ds
+    rhs = v('+')*FacetArea(mesh)*dS + v*FacetArea(mesh)*ds
+    solve(mass_term == rhs, facet_areas)
+    return facet_areas
 
 def get_minimum_angle_2d(mesh2d):
     """
@@ -1187,8 +1202,7 @@ def get_minimum_angle_2d(mesh2d):
         raise NotImplementedError("Minimum angle only currently implemented for triangles.")
 
     # TODO: Better solution, suggested by David:
-    #  - Project FacetArea into HDiv trace, giving a Function containing the length of every edge in the mesh
-    #  - Write a ParLoop over cells which reads this field, and do trig operations on those edge lengths to give the three angles and take the minimum.
+    #  - Write a ParLoop over cells which reads facet areas and does trig operations on those edge lengths to give the three angles and take the minimum.
 
     min_angle = pi
     coords = mesh2d.coordinates.dat.data_ro_with_halos
