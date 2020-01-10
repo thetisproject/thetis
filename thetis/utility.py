@@ -1191,18 +1191,19 @@ def get_facet_area(mesh):
     solve(mass_term == rhs, facet_areas)
     return facet_areas
 
+# TODO: Do not take min, giving a spatially varying SIPG parameter
 def get_minimum_angle_2d(mesh2d):
     """
     Compute the minimum angle over all elements of a triangular mesh, `mesh2d`, using the
-    cosine rule..
+    cosine rule.
     """
     try:
         assert mesh2d.topological_dimension() == 2
         assert mesh2d.ufl_cell() == ufl.triangle
-    except NotImplementedError:
+    except AssertionError:
         raise NotImplementedError("Minimum angle only currently implemented for triangles.")
-    edge_lengths = get_facet_area(mesh)
-    min_angles = Function(FunctionSpace(mesh, "DG", 0))
+    edge_lengths = get_facet_area(mesh2d)
+    min_angles = Function(FunctionSpace(mesh2d, "DG", 0))
     par_loop("""for (int i=0; i<angle.dofs; i++) {
 
                   double min_edge = edges[0];
@@ -1219,18 +1220,18 @@ def get_minimum_angle_2d(mesh2d):
                   double denominator = 2.0;
 
                   for (int j=0; j<3; j++){
-                  if (j == min_index) {
-                    numerator -= edges[j]*edges[j];
-                  } else {
-                    numerator += edges[j]*edges[j];
-                    denominator *= edges[j];
+                    if (j == min_index) {
+                      numerator -= edges[j]*edges[j];
+                    } else {
+                      numerator += edges[j]*edges[j];
+                      denominator *= edges[j];
+                    }
                   }
-                }
-                angle[0] = acos(numerator/denominator);
-              }""", ds, {'edges': (edge_lengths, READ), 'angle': (min_angles, RW)})
-    return min_angles.vector().gather().max()  # TODO: Do not take max - spatially varying
+                  angle[0] = acos(numerator/denominator);
+                }""", dx, {'edges': (edge_lengths, READ), 'angle': (min_angles, RW)})
+    return min_angles.vector().gather().min()
 
-
+# TODO: Do not take max, giving a spatially varying SIPG parameter
 def get_sipg_ratio(nu):
     """
     Compute the ratio between the maximum of `nu` and the minimum of `nu` in each element.
@@ -1242,7 +1243,7 @@ def get_sipg_ratio(nu):
     else:
         try:
             assert isinstance(nu, Function)
-        except ValueError:
+        except AssertionError:
             raise ValueError("Viscosity and diffusivity should be either a `Constant` or `Function`.")
     el = nu.ufl_element()
 
