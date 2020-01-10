@@ -1195,21 +1195,17 @@ def get_minimum_angle_2d(mesh2d):
     cell_to_vertices = mesh2d.coordinates.cell_node_map().values_with_halo
     for c in range(len(cell_to_vertices)):
         endpoints = [coords[v] for v in cell_to_vertices[c]]
-        dat = {0: {}, 1: {}, 2: {}}
-        dat[0]['vector'] = endpoints[1] - endpoints[0]
-        dat[0]['length'] = la.norm(dat[0]['vector'])
-        dat[1]['vector'] = endpoints[2] - endpoints[1]
-        dat[1]['length'] = la.norm(dat[1]['vector'])
-        dat[2]['vector'] = endpoints[0] - endpoints[2]
-        dat[2]['length'] = la.norm(dat[2]['vector'])
-        lmin = min(dat[0]['length'], dat[1]['length'], dat[2]['length'])
-        for i in dat:
-            if np.abs(dat[i]['length'] - lmin) < 1e-8:
-                dat.pop(i)
-                break
+        vectors = []
+        lengths = []
+        indices = set(range(3))
+        for i in indices:
+            vector = endpoints[(i+1) % 3] - endpoints[i]
+            vectors.append(vector)
+            lengths.append(la.norm(vector))
+        indices -= set([np.argmin(lengths)])
         normalised = []
-        for i in dat:
-            normalised.append(dat[i]['vector']/dat[i]['length'])
+        for i in indices:
+            normalised.append(vectors[i]/lengths[i])
         min_angle = min(acos(np.abs(np.dot(normalised[0], normalised[1]))), min_angle)
     return min_angle
 
