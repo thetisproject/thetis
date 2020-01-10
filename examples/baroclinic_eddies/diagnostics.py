@@ -72,7 +72,7 @@ class KineticEnergyCalculator(DiagnosticCallback):
     """
     Computes kinetic energy from the velocity field.
 
-    E_kin = int( 1/2 u^2 )
+    E_kin = integral( 1/2 u^2 )
 
     """
     name = 'ekin'
@@ -93,4 +93,32 @@ class KineticEnergyCalculator(DiagnosticCallback):
 
     def message_str(self, *args):
         line = 'Ekin: {:16.10e}'.format(args[0])
+        return line
+
+
+class EnstrophyCalculator(DiagnosticCallback):
+    """
+    Computes enstrophy from horizontal velocity field.
+
+    E = integral( (-du/dy + dv/dx)^2 )
+
+    """
+    name = 'enstrophy'
+    variable_names = ['enstrophy']
+
+    def _initialize(self):
+        self.uv = self.solver_obj.fields.uv_3d
+        self.uv_dav = self.solver_obj.fields.uv_dav_3d
+        self._initialized = True
+
+    def __call__(self):
+        if not hasattr(self, '_initialized') or self._initialized is False:
+            self._initialize()
+        u = self.uv + self.uv_dav
+        omega = -Dx(u[0], 1) + Dx(u[1], 0)
+        value = assemble(omega**2 * dx)
+        return (value, )
+
+    def message_str(self, *args):
+        line = 'Enstrophy: {:16.10e}'.format(args[0])
         return line
