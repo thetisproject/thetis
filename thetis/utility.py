@@ -1193,35 +1193,42 @@ def get_facet_area(mesh):
 
 def get_minimum_angle_2d(mesh2d):
     """
-    Compute the minimum angle over all elements of `mesh2d`.
+    Compute the minimum angle over all elements of a triangular mesh, `mesh2d`, using the
+    cosine rule..
     """
     try:
         assert mesh2d.topological_dimension() == 2
         assert mesh2d.ufl_cell() == ufl.triangle
     except NotImplementedError:
         raise NotImplementedError("Minimum angle only currently implemented for triangles.")
+    edge_lengths = get_facet_area(mesh)
+    min_angles = Function(FunctionSpace(mesh, "DG", 0))
+    par_loop("""for (int i=0; i<angle.dofs; i++) {
 
-    # TODO: Better solution, suggested by David:
-    #  - Write a ParLoop over cells which reads facet areas and does trig operations on those edge lengths to give the three angles and take the minimum.
+                  double min_edge = edges[0];
+                  int min_index = 0;
 
-    min_angle = pi
-    coords = mesh2d.coordinates.dat.data_ro_with_halos
-    cell_to_vertices = mesh2d.coordinates.cell_node_map().values_with_halo
-    for c in range(len(cell_to_vertices)):
-        endpoints = [coords[v] for v in cell_to_vertices[c]]
-        vectors = []
-        lengths = []
-        indices = set(range(3))
-        for i in indices:
-            vector = endpoints[(i+1) % 3] - endpoints[i]
-            vectors.append(vector)
-            lengths.append(la.norm(vector))
-        indices -= set([np.argmin(lengths)])
-        normalised = []
-        for i in indices:
-            normalised.append(vectors[i]/lengths[i])
-        min_angle = min(acos(np.abs(np.dot(normalised[0], normalised[1]))), min_angle)
-    return min_angle
+                  for (int j=1; j<3; j++){
+                    if (edges[j] < min_edge) {
+                      min_edge = edges[j];
+                      min_index = j;
+                    }
+                  }
+
+                  double numerator = 0.0;
+                  double denominator = 2.0;
+
+                  for (int j=0; j<3; j++){
+                  if (j == min_index) {
+                    numerator -= edges[j]*edges[j];
+                  } else {
+                    numerator += edges[j]*edges[j];
+                    denominator *= edges[j];
+                  }
+                }
+                angle[0] = acos(numerator/denominator);
+              }""", ds, {'edges': (edge_lengths, READ), 'angle': (min_angles, RW)})
+    return min_angles.vector().gather().max()  # TODO: Do not take max - spatially varying
 
 
 def get_sipg_ratio(nu):
