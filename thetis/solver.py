@@ -474,8 +474,8 @@ class FlowSolver(FrozenClass):
         alpha_h_turb = 5.0*degree_h_turb*(degree_h_turb+1) if degree_h_turb != 0 else 1.5
         alpha_v_turb = 5.0*degree_v_turb*(degree_v_turb+1) if degree_v_turb != 0 else 1.0
 
-        if self.options.use_automatic_sipg_parameter:
-            min_angle = get_minimum_angle_2d(self.mesh2d)
+        if self.options.use_automatic_sipg_parameter:  # TODO: Spatially varying parameter
+            min_angle = get_minimum_angles_2d(self.mesh2d).vector().gather().min()
             print_output("Minimum angle in 2D mesh:                {:.2f} degrees".format(np.rad2deg(min_angle)))
             cot_theta = 1.0/tan(min_angle)
 
