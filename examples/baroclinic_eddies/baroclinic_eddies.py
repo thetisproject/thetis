@@ -173,6 +173,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     solver_obj.add_callback(RPECalculator(solver_obj))
     solver_obj.add_callback(KineticEnergyCalculator(solver_obj))
     solver_obj.add_callback(EnstrophyCalculator(solver_obj))
+    solver_obj.add_callback(SurfEnstrophyCalculator(solver_obj))
 
     solver_obj.create_equations()
 
