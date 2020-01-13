@@ -685,5 +685,7 @@ class InternalPressureGradientCalculator(MomentumTerm):
             grad_head_dot_test = (Dx(bhead, 0)*self.test[0]
                                   + Dx(bhead, 1)*self.test[1])
             f = g_grav * grad_head_dot_test * self.dx
+        if self.options.internal_pg_scalar is not None:
+            f = self.options.internal_pg_scalar*f
 
         return -f
