@@ -169,6 +169,12 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.equation_of_state_options.th_ref = 5.0
     options.equation_of_state_options.alpha = 0.2
     options.equation_of_state_options.beta = 0.0
+    # ramp up internal pressure gradient
+    t_sim = Constant(0.0)
+    t_ramp = Constant(5*24*3600)
+    ramp_expr = conditional(le(t_sim, t_ramp), t_sim/t_ramp, Constant(1.0))
+    int_pg_ramp = Constant(1.0)
+    options.internal_pg_scalar = int_pg_ramp
 
     solver_obj.add_callback(RPECalculator(solver_obj))
     solver_obj.add_callback(KineticEnergyCalculator(solver_obj))
@@ -225,34 +231,6 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     temp_init3d.interpolate(temp_expr)
     solver_obj.assign_initial_conditions(temp=temp_init3d)
 
-    # compute 2D baroclinic head and use it to initialize elevation field
-    # to remove fast 2D gravity wave caused by the initial density difference
-    elev_init = Function(solver_obj.function_spaces.H_bhead_2d)
-
-    def compute_2d_baroc_head(solver_obj, output):
-        """Computes vertical integral of baroc_head_3d"""
-        compute_baroclinic_head(solver_obj)
-        tmp_3d = Function(solver_obj.function_spaces.H_bhead)
-        bhead_av_op = VerticalIntegrator(
-            solver_obj.fields.baroc_head_3d,
-            tmp_3d,
-            bottom_to_top=True,
-            average=True,
-            elevation=solver_obj.fields.elev_cg_2d.view_3d,
-            bathymetry=solver_obj.fields.bathymetry_2d.view_3d)
-        bhead_surf_extract_op = SubFunctionExtractor(
-            tmp_3d,
-            output,
-            boundary='top', elem_facet='top')
-        bhead_av_op.solve()
-        bhead_surf_extract_op.solve()
-
-    compute_2d_baroc_head(solver_obj, elev_init)
-    elev_init *= -1  # flip sign => total pressure gradient is zero
-    mean_elev = assemble(elev_init*dx)/lx/ly
-    elev_init += -mean_elev  # remove mean
-    solver_obj.assign_initial_conditions(temp=temp_init3d, elev=elev_init)
-
     # custom export of surface temperature field
     surf_temp_2d = Function(solver_obj.function_spaces.H_2d, name='surf temperature')
     extract_surf_temp = SubFunctionExtractor(solver_obj.fields.temp_3d, surf_temp_2d)
@@ -285,7 +263,11 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
             shortname='Vertical velocity', filename='SurfVertVelo2d',
             preproc_func=prepare_surf_w)
 
-    solver_obj.iterate()
+    def update_forcings(t):
+        t_sim.assign(t)
+        int_pg_ramp.assign(ramp_expr)
+
+    solver_obj.iterate(update_forcings=update_forcings)
 
 
 def get_argparser():
