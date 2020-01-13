@@ -1175,9 +1175,9 @@ def get_horizontal_elem_size_3d(sol2d, sol3d):
     get_horizontal_elem_size_2d(sol2d)
     ExpandFunctionTo3d(sol2d, sol3d).solve()
 
-def get_facet_area(mesh):
+def get_facet_areas(mesh):
     """
-    Compute facet areas of `mesh`, stored in a HDiv trace field.
+    Compute area of each facet of `mesh`. The facet areas are stored as a HDiv trace field.
 
     NOTES:
       * In the 2D case, this gives edge lengths.
@@ -1191,18 +1191,17 @@ def get_facet_area(mesh):
     solve(mass_term == rhs, facet_areas)
     return facet_areas
 
-# TODO: Do not take min, giving a spatially varying SIPG parameter
-def get_minimum_angle_2d(mesh2d):
+def get_minimum_angles_2d(mesh2d):
     """
-    Compute the minimum angle over all elements of a triangular mesh, `mesh2d`, using the
-    cosine rule.
+    Compute the minimum angle in each element of a triangular mesh, `mesh2d`, using the
+    cosine rule. The minimum angles are outputted as a P0 field.
     """
     try:
         assert mesh2d.topological_dimension() == 2
         assert mesh2d.ufl_cell() == ufl.triangle
     except AssertionError:
         raise NotImplementedError("Minimum angle only currently implemented for triangles.")
-    edge_lengths = get_facet_area(mesh2d)
+    edge_lengths = get_facet_areas(mesh2d)
     min_angles = Function(FunctionSpace(mesh2d, "DG", 0))
     par_loop("""for (int i=0; i<angle.dofs; i++) {
 
@@ -1229,17 +1228,17 @@ def get_minimum_angle_2d(mesh2d):
                   }
                   angle[0] = acos(numerator/denominator);
                 }""", dx, {'edges': (edge_lengths, READ), 'angle': (min_angles, RW)})
-    return min_angles.vector().gather().min()
+    return min_angles
 
-# TODO: Do not take max, giving a spatially varying SIPG parameter
-def get_sipg_ratio(nu):
+def get_sipg_ratios(nu):
     """
-    Compute the ratio between the maximum of `nu` and the minimum of `nu` in each element.
-    Take the maximum over all such quantities.
+    Compute the ratio between the maximum of `nu` and the minimum of `nu` in each element. If `nu`
+    is P0 or a `Constant` then the resulting ratio is unity in each element. If `nu` varies linearly
+    in each element then the ratios are outputted as a P0 field.
     """
     if isinstance(nu, Constant):
-        # return nu.values()[0]
-        return 1.0
+        # return nu
+        return Constant(1.0)
     else:
         try:
             assert isinstance(nu, Function)
@@ -1248,8 +1247,8 @@ def get_sipg_ratio(nu):
     el = nu.ufl_element()
 
     if el.degree() == 0:
-        # return nu.vector().gather().max()
-        return 1.0
+        # return nu
+        return Constant(1.0)
     elif el.degree() == 1 and el.family() in ('Lagrange', 'Discontinuous Lagrange', 'CG', 'DG'):
         fs = nu.function_space()
         if el.cell() not in (ufl.triangle, ufl.tetrahedron) and el.variant() != 'equispaced':
@@ -1261,20 +1260,28 @@ def get_sipg_ratio(nu):
         nu_max = Function(P0)
         nu_min = Function(P0)
         nu_max.assign(np.finfo(0.).min)
-        nu_min.assign(np.finfo(0.).min)
+        nu_min.assign(np.finfo(0.).max)
         par_loop("""for (int i=0; i<nu.dofs; i++) {
                       nu_max[0] = fmax(nu[i], nu_max[0]);
-                      nu_min[0] = fmin(nu[i], nu_max[0]);
+                      nu_min[0] = fmin(nu[i], nu_min[0]);
                     }""",
                  dx, {'nu_max': (nu_max, RW), 'nu_min': (nu_min, RW), 'nu': (tmp, READ)})
         # nu_max *= nu_max
         nu_max /= nu_min
-        return nu_max.vector().gather().max()
+        return nu_max
     else:
-        raise NotImplementedError("Currently only implemented for DG0, DG1 and CG1 spaces.")
+        raise NotImplementedError("Currently only implemented for `Constant`s and DG0, DG1 and CG1 spaces.")
         # TODO: For higher order elements, the extrema aren't necessarily achieved at the
         #       vertices. Perhaps we could project or interpolate into a matching Bernstein
         #       element and use the property that the Bernstein polynomials bound the solution.
+
+# TODO: This becomes redundant once spatially varying SIPG parameter is implemented.
+def get_sipg_ratio(nu):
+    """
+    Take maximum over all elemental SIPG parameter ratios.
+    """
+    nu_max = get_sipg_ratios(nu)
+    return nu_max.values()[0] if isinstance(nu_max, Constant) else nu_max.vector().gather().max()
 
 
 class ALEMeshUpdater(object):

@@ -215,8 +215,8 @@ class FlowSolver2d(FrozenClass):
         degree_tracer = self.function_spaces.Q_2d.ufl_element().degree()
         alpha_tracer = 5.0*degree_tracer*(degree_tracer+1) if degree_tracer != 0 else 1.5
 
-        if self.options.use_automatic_sipg_parameter:
-            min_angle = get_minimum_angle_2d(self.mesh2d)
+        if self.options.use_automatic_sipg_parameter:  # TODO: Spatially varying case
+            min_angle = get_minimum_angles_2d(self.mesh2d).vector().gather().min()
             print_output("Minimum angle in mesh: {:.2f} degrees".format(np.rad2deg(min_angle)))
             cot_theta = 1.0/tan(min_angle)
 
