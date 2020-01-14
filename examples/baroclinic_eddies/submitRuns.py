@@ -34,28 +34,11 @@ def get_timerequest(options):
     """
     User defined function that will return time allocation based on run options
     """
-    default = hpclauncher.TimeRequest(2, 0, 0)
-    devel = hpclauncher.TimeRequest(0, 20, 0)
-    timedef = {
-        'coarse': hpclauncher.TimeRequest(4, 0, 0),
-        'coarse2': hpclauncher.TimeRequest(4, 0, 0),
-        'medium': hpclauncher.TimeRequest(8, 0, 0),
-        'medium2': hpclauncher.TimeRequest(8, 0, 0),
-        'fine': hpclauncher.TimeRequest(24, 0, 0),
-        'ilicak': hpclauncher.TimeRequest(8, 0, 0),
-        '2000-1': hpclauncher.TimeRequest(4, 0, 0),
-        '1000-1': hpclauncher.TimeRequest(4, 0, 0),
-        '1000-2': hpclauncher.TimeRequest(4, 0, 0),
-        '500-0.5': hpclauncher.TimeRequest(16, 0, 0),
-        '500-1': hpclauncher.TimeRequest(10, 0, 0),
-        '500-2': hpclauncher.TimeRequest(8, 0, 0),
-        '500-5': hpclauncher.TimeRequest(8, 0, 0),
-        '250-0.5': hpclauncher.TimeRequest(20, 0, 0),
-        '250-1': hpclauncher.TimeRequest(16, 0, 0),
-    }
+    default = hpclauncher.TimeRequest(144, 0, 0)
+    devel = hpclauncher.TimeRequest(1, 0, 0)
     if 'dev' in options and options['dev'] is True:
         return devel
-    return timedef.get(options['reso_str'], default)
+    return default
 
 
 def launch_run(scriptname, options, option_strings):
@@ -74,16 +57,16 @@ def launch_run(scriptname, options, option_strings):
     test_only = options.pop('test', False)
     verbose = options.pop('verbose', False)
     # generate command for running python script
-    optstrs = [' '.join([option_strings[k], str(v)]).strip() for
-               k, v in options.items()]
+    optstrs = [' '.join([option_strings[k], str(options[k])]).strip() for
+               k in sorted(options.keys())]
     cmd = ['{mpiexec}', 'python', scriptname] + optstrs
     cmd = ' '.join(cmd)
 
     # generate HPC job submission script
     if queue is None:
-        queue = 'normal'
-    job_name = ''.join([scriptname.split('.')[0]] + [s.replace(' ', '') for
-                                                     s in optstrs])
+        queue = 'fmi'
+    opt_str = [s.replace(' ', '').replace('-', '') for s in optstrs]
+    job_name = '-'.join([scriptname.split('.')[0]] + opt_str)
     if dev_test:
         # do shorter run in development queue instead
         queue = 'development'
