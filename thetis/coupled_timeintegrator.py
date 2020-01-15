@@ -232,9 +232,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             bnd_conditions=solver.bnd_functions['momentum'],
             solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
         if self.solver.options.use_implicit_vertical_diffusion:
-            fields = {'viscosity_v': impl_v_visc,
-                      'uv_depth_av': self.fields.get('uv_dav_3d'),
-                      }
+            fields = {'viscosity_v': impl_v_visc}
             fields.update(friction_fields)
             self.timesteppers.mom_impl = self.integrator_vert_3d(
                 solver.equations.vertmomentum, solver.fields.uv_3d, fields, solver.dt,
@@ -556,7 +554,9 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
                 with timed_stage('impl_temp_vdiff'):
                     self.timesteppers.temp_impl.advance(t)
             with timed_stage('impl_mom_vvisc'):
+                self.fields.uv_3d += self.fields.uv_dav_3d
                 self.timesteppers.mom_impl.advance(t)
+                self.fields.uv_3d -= self.fields.uv_dav_3d
             self._update_baroclinicity()
             self._update_vertical_velocity()
             self._update_stabilization_params()
@@ -687,7 +687,7 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
 
             if last_stage:
                 # compute final prognostic variables
-                self._update_2d_coupling()  # due before impl. viscosity
+                self._update_2d_coupling()
                 if self.options.use_implicit_vertical_diffusion:
                     if self.options.solve_salinity:
                         with timed_stage('impl_salt_vdiff'):
@@ -696,7 +696,10 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
                         with timed_stage('impl_temp_vdiff'):
                             self.timesteppers.temp_impl.advance(t)
                     with timed_stage('impl_mom_vvisc'):
+                        # compute full velocity
+                        self.fields.uv_3d += self.fields.uv_dav_3d
                         self.timesteppers.mom_impl.advance(t)
+                        self.fields.uv_3d -= self.fields.uv_dav_3d
                 # compute final diagnostic fields
                 self._update_baroclinicity()
                 self._update_vertical_velocity()
