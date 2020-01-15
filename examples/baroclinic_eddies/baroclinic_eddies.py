@@ -115,7 +115,6 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     physical_constants['rho0'].assign(rho_0)
 
     # create solver
-    use_bottom_friction = False
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, nlayers)
     options = solver_obj.options
     options.polynomial_degree = poly_order
@@ -124,8 +123,8 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.solve_salinity = False
     options.constant_salinity = Constant(salt_const)
     options.solve_temperature = True
-    options.use_implicit_vertical_diffusion = use_bottom_friction
-    options.use_bottom_friction = use_bottom_friction
+    options.use_implicit_vertical_diffusion = True
+    options.use_bottom_friction = True
     options.quadratic_drag_coefficient = Constant(bottom_drag)
     options.use_baroclinic_formulation = True
     options.coriolis_frequency = Constant(f_cori)
@@ -134,7 +133,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.lax_friedrichs_velocity_scaling_factor = Constant(laxfriedrichs_vel)
     options.lax_friedrichs_tracer_scaling_factor = Constant(laxfriedrichs_trc)
     options.use_limiter_for_tracers = True
-    options.vertical_viscosity = Constant(1.0e-4)
+    options.vertical_viscosity = Constant(1.0e-3)
     options.use_limiter_for_velocity = True
     if viscosity == 'smag':
         options.use_smagorinsky_viscosity = True
