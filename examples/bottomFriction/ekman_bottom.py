@@ -71,7 +71,8 @@ def bottom_ekman_test(layers=50, verify=True, iterate=True,
     solver_obj.create_function_spaces()
 
     # drive flow with momentum source term equivalent to constant surface slope
-    pressure_grad = -physical_constants['g_grav'] * surf_slope
+    g = physical_constants['g_grav'].dat.data[0]
+    pressure_grad = -g * surf_slope
     options.momentum_source_2d = Constant((pressure_grad, 0))
 
     solver_obj.create_equations()

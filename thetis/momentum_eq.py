@@ -480,22 +480,20 @@ class BottomFrictionTerm(MomentumTerm):
                 uv = solution
                 uv_old = solution_old
 
-            z_bot = Constant(0.5)*self.v_elem_size
             drag = fields_old.get('quadratic_drag_coefficient')
             if drag is None:
-                bfr_roughness = fields_old.get('bottom_roughness')
-                assert bfr_roughness is not None, \
+                z0 = fields_old.get('bottom_roughness')
+                assert z0 is not None, \
                     'if use_bottom_friction=True, either bottom_roughness or quadratic_drag_coefficient must be defined'
-                von_karman = physical_constants['von_karman']
-                drag = (von_karman / ln((z_bot + bfr_roughness)/bfr_roughness))**2
-            # compute uv_bottom implicitly
-            uv_bot_old = uv_old + Dx(uv_old, 2)*z_bot
-            uv_bot_mag = sqrt(uv_bot_old[0]**2 + uv_bot_old[1]**2)
-            stress = drag*uv_bot_mag**2
-            # Scale bottom stress by uv_{n+1}/|uv_{n} + eps| at bottom
+                assert self.v_elem_size is not None
+                kappa = physical_constants['von_karman']
+                h = self.v_elem_size
+                # compute drag coefficient from an analytical p1dg fit to the
+                # logarithmic velocity profile in the botton element
+                b = -7./4*h - 3./2*z0 + (h + 5./2*z0)*ln((h + z0)/z0)
+                drag = (kappa*h/b)**2
             uv_old_mag = sqrt(uv_old[0]**2 + uv_old[1]**2)
-            epsilon = Constant(1e-3)
-            bfr = stress / (uv_old_mag + epsilon)
+            bfr = drag * uv_old_mag
             f += bfr * (self.test[0]*uv[0] + self.test[1]*uv[1])*self.ds_bottom
         return -f
 
