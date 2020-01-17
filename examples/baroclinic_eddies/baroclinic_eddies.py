@@ -34,7 +34,7 @@ from diagnostics import *
 
 def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
                 reynolds_number=20.0, viscosity_scale=None, dt=None,
-                elem_type='tri',
+                elem_type='tri', orthogonal_mesh=False,
                 laxfriedrichs_vel=0.0, laxfriedrichs_trc=0.0,
                 number_of_z_levels=None, viscosity='const'):
     """
@@ -60,6 +60,11 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
         nx, ny, lx, ly, direction='x',
         quadrilateral=(elem_type == 'quad')
     )
+    if elem_type == 'tri' and orthogonal_mesh:
+        x = mesh2d.coordinates.dat.data[:, 0]
+        y = mesh2d.coordinates.dat.data[:, 1]
+        mesh2d.coordinates.dat.data[:, 0] = 1.0/np.sqrt(3)*(2*x + y)
+
     depth = 1000.
 
     u_max = 1.0
@@ -100,6 +105,8 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
                             'lf-vel{:.1f}'.format(laxfriedrichs_vel),
                             'lf-trc{:.1f}'.format(laxfriedrichs_trc),
                             ])
+    if elem_type == 'tri' and orthogonal_mesh:
+        options_str += '_ortho'
     outputdir = 'outputs_' + options_str
 
     # bathymetry
@@ -291,6 +298,8 @@ def get_argparser():
     parser.add_argument('-e', '--elem-type', type=str,
                         help='Type of 2D element, either "tri" or "quad"',
                         default='tri')
+    parser.add_argument('-O', '--orthogonal-mesh', action='store_true',
+                        help='Force orthogonal mesh (only for triangles)')
     return parser
 
 
