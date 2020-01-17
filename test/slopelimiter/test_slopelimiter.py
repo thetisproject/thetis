@@ -21,10 +21,10 @@ def vertex_limiter_test(dim=3, type='linear', direction='x', export=False):
         # slanted prisms
         xyz = mesh.coordinates
         xyz.dat.data[:, 2] *= 1.0 + 0.25 - 0.5*xyz.dat.data[:, 0]
-        p1dg = FunctionSpace(mesh, 'DP', 1, vfamily='DP', vdegree=1)
+        p1dg = get_functionspace(mesh, 'DP', 1, vfamily='DP', vdegree=1)
         x, y, z = SpatialCoordinate(mesh)
     else:
-        p1dg = FunctionSpace(mesh2d, 'DP', 1)
+        p1dg = get_functionspace(mesh2d, 'DP', 1)
         x, y = SpatialCoordinate(mesh2d)
         z = Constant(0)
 

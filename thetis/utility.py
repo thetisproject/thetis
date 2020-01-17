@@ -113,6 +113,28 @@ class FieldDict(AttrDict):
         super(FieldDict, self).__setattr__(key, value)
 
 
+def get_functionspace(mesh, h_family, h_degree, v_family=None, v_degree=None,
+                      vector=False, hdiv=False, variant='equispaced', **kwargs):
+    gdim = mesh.geometric_dimension()
+    assert gdim in [2, 3]
+    if gdim == 3:
+        if v_family is None:
+            v_family = h_family
+        if v_degree is None:
+            v_degree = h_degree
+        h_cell, v_cell = mesh.ufl_cell().sub_cells()
+        h_elt = FiniteElement(h_family, h_cell, h_degree, variant=variant)
+        v_elt = FiniteElement(v_family, v_cell, v_degree, variant=variant)
+        elt = TensorProductElement(h_elt, v_elt)
+        if hdiv:
+            elt = HDiv(elt)
+    else:
+        elt = FiniteElement(h_family, mesh.ufl_cell(), h_degree, variant=variant)
+
+    constructor = VectorFunctionSpace if vector else FunctionSpace
+    return constructor(mesh, elt, **kwargs)
+
+
 ElementContinuity = namedtuple("ElementContinuity", ["horizontal", "vertical"])
 """
 A named tuple describing the continuity of an element in the horizontal/vertical direction.

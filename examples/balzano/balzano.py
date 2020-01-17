@@ -42,7 +42,7 @@ if os.getenv('THETIS_REGRESSION_TEST') is not None:
     t_end = 5*t_export
 
 # bathymetry: uniform slope with gradient 1/2760
-P1_2d = FunctionSpace(mesh2d, 'CG', 1)
+P1_2d = get_functionspace(mesh2d, 'CG', 1)
 bathymetry = Function(P1_2d, name='Bathymetry')
 x = SpatialCoordinate(mesh2d)
 bathymetry.interpolate(x[0] / 2760.0)
