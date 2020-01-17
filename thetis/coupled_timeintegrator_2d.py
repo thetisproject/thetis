@@ -129,7 +129,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self.timesteppers.swe2d.initialize(self.fields.solution_2d)
         if self.options.solve_tracer:
             self.timesteppers.tracer.initialize(self.fields.tracer_2d)
-        
+
         self._initialized = True
 
     def advance(self, t, update_forcings=None):
