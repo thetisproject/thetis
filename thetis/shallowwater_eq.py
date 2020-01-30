@@ -682,7 +682,7 @@ class QuadraticDragTerm(ShallowWaterMomentumTerm):
             C_D = g_grav * manning_drag_coefficient**2 / total_h**(1./3.)
 
         if C_D is not None:
-            f += C_D * sqrt(dot(uv_old, uv_old) + (self.options.norm_smoother)**2) * inner(self.u_test, uv) / total_h * self.dx
+            f += C_D * sqrt(dot(uv_old, uv_old) + self.options.norm_smoother**2) * inner(self.u_test, uv) / total_h * self.dx
         return -f
 
 
