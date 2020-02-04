@@ -55,9 +55,6 @@ Here
                 timestamps {
                     sh '''
 . /home/firedrake/firedrake/bin/activate
-cd /home/firedrake/src/firedrake
-git fetch --all
-git checkout origin/fix_split_mcc
 python -m pip install -r requirements.txt
 python -m pip install -e .
 '''
