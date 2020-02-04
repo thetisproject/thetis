@@ -29,7 +29,8 @@ pipeline {
 sudo -u firedrake /bin/bash << Here
 whoami
 cd /home/firedrake/src/firedrake
-git checkout fix_split_mcc
+git fetch
+git checkout origin/fix_split_mcc
 cd /home/firedrake
 . /home/firedrake/firedrake/bin/activate
 firedrake-update --install pyadjoint || (cat firedrake-update.log && /bin/false)
