@@ -30,14 +30,15 @@ sudo -u firedrake /bin/bash << Here
 whoami
 cd /home/firedrake
 . /home/firedrake/firedrake/bin/activate
-git fetch --all
-git checkout fix_split_mcc
 firedrake-update --install pyadjoint || (cat firedrake-update.log && /bin/false)
 chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages
 chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages/easy-install.pth
 chmod a+rwx /home/firedrake/firedrake/bin
 install -d /home/firedrake/firedrake/.cache
 chmod -R a+rwx /home/firedrake/firedrake/.cache
+cd home/firedrake/src/firedrake
+git fetch --all
+git checkout fix_split_mcc
 firedrake-status
 Here
 '''
