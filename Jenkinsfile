@@ -36,7 +36,7 @@ chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages/easy-install.pth
 chmod a+rwx /home/firedrake/firedrake/bin
 install -d /home/firedrake/firedrake/.cache
 chmod -R a+rwx /home/firedrake/firedrake/.cache
-cd home/firedrake/src/firedrake
+cd home/firedrake/firedrake
 git fetch --all
 git checkout fix_split_mcc
 firedrake-status
