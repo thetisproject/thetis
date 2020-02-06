@@ -528,7 +528,7 @@ class ModelOptions2d(CommonModelOptions):
         Uses the wetting and drying scheme from Karna et al (2011).
         If ``True``, one should also set :attr:`wetting_and_drying_alpha` to control the bathymetry displacement.
         """).tag(config=True)
-    wetting_and_drying_alpha = FiredrakeConstantTraitlet(
+    wetting_and_drying_alpha = FiredrakeScalarExpression(
         Constant(0.5), help=r"""
         Coefficient: Wetting and drying parameter :math:`\alpha`.
 
