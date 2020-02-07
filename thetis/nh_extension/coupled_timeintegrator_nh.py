@@ -2,10 +2,10 @@
 Time integrators for solving coupled 2D-3D system of equations.
 """
 from __future__ import absolute_import
-from .utility import *
-from . import timeintegrator
-from .log import *
-from . import rungekutta
+from ..utility import *
+from .. import timeintegrator
+from ..log import *
+from .. import rungekutta
 from abc import ABCMeta, abstractproperty
 
 
@@ -225,18 +225,29 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         solver = self.solver
         impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
 
-        fields = {'eta': self.fields.elev_3d,  # FIXME rename elev
+        fields = {'elev_3d': self.fields.elev_3d,  # FIXME rename elev
                   'int_pg': self.fields.get('int_pg_3d'),
                   'uv_depth_av': self.fields.get('uv_dav_3d'),
                   'w': self.fields.w_3d,
                   'w_mesh': self.fields.get('w_mesh_3d'),
                   'viscosity_v': expl_v_visc,
                   'viscosity_h': self.solver.tot_h_visc.get_sum(),
-                  'source': self.options.momentum_source_3d,
+                  'source_mom': self.options.momentum_source_3d,
                   # uv_mag': self.fields.uv_mag_3d,
                   'uv_p1': self.fields.get('uv_p1_3d'),
                   'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
                   'coriolis': self.fields.get('coriolis_3d'),
+                  # below for NH extension
+                  'ext_pg': self.fields.get('ext_pg_3d'),
+                  'uv_3d': self.fields.uv_3d,
+                  'q_3d': self.fields.get('q_3d'),
+                  'use_pressure_correction': self.options.use_pressure_correction,
+                  'solve_elevation_gradient_separately': self.options.solve_elevation_gradient_separately,
+                  'sponge_damping_3d': self.solver.set_sponge_damping(self.options.sponge_layer_length, self.options.sponge_layer_xstart, 
+                                                                      alpha=10., sponge_is_2d=False),
+                 # 'sigma_dt': self.fields.sigma_dt,
+                 # 'sigma_dx': self.fields.sigma_dx,
+                  'omega': self.fields.omega,
                   }
         friction_fields = {
             'linear_drag_coefficient': self.options.linear_drag_coefficient,
@@ -259,6 +270,48 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 bnd_conditions=solver.bnd_functions['momentum'],
                 solver_parameters=self.options.timestepper_options.solver_parameters_momentum_implicit)
 
+    def _create_sediment_integrator(self): # note here added newly, Wei 2019-11-14
+        """
+        Create time integrator for sediment equation
+        """
+        solver = self.solver
+        impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
+
+        if self.solver.options.solve_sediment:
+            fields = {'elev_3d': self.fields.elev_3d,
+                      'uv_3d': self.fields.uv_3d,
+                      'uv_depth_av': self.fields.get('uv_dav_3d'),
+                      'w': self.fields.w_3d,
+                      'w_mesh': self.fields.get('w_mesh_3d'),
+                      'diffusivity_h': self.solver.tot_h_diff.get_sum(),
+                      'diffusivity_v': expl_v_diff,
+                      'source_tracer': self.options.salinity_source_3d,
+                      # uv_mag': self.fields.uv_mag_3d,
+                      'uv_p1': self.fields.get('uv_p1_3d'),
+                      'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
+                      # below for NH extension
+                     # 'sigma_dt': self.fields.sigma_dt,
+                     # 'sigma_dx': self.fields.sigma_dx,
+                      'omega': self.fields.omega,
+                      'settling_velocity': self.options.settling_velocity,
+                      'sigma_h': self.options.sigma_h,
+                      'sigma_v': self.options.sigma_v,
+                      }
+            self.timesteppers.sediment_expl = self.integrator_3d(
+                solver.eq_sediment, solver.fields.c_3d, fields, solver.dt,
+                bnd_conditions=solver.bnd_functions['sediment'],
+                solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
+            if self.solver.options.use_implicit_vertical_diffusion:
+                fields = {'elev_3d': self.fields.elev_3d,
+                          'diffusivity_v': impl_v_diff,
+                          # below for NH extension
+                          'sigma_v': self.options.sigma_v,
+                          }
+                self.timesteppers.sediment_impl = self.integrator_vert_3d(
+                    solver.eq_sediment_vdff, solver.fields.c_3d, fields, solver.dt,
+                    bnd_conditions=solver.bnd_functions['sediment'],
+                    solver_parameters=self.options.timestepper_options.solver_parameters_tracer_implicit)
+
     def _create_salt_integrator(self):
         """
         Create time integrator for salinity equation
@@ -274,10 +327,14 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'w_mesh': self.fields.get('w_mesh_3d'),
                       'diffusivity_h': self.solver.tot_h_diff.get_sum(),
                       'diffusivity_v': expl_v_diff,
-                      'source': self.options.salinity_source_3d,
+                      'source_tracer': self.options.salinity_source_3d,
                       # uv_mag': self.fields.uv_mag_3d,
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
+                      # below for NH extension
+                     # 'sigma_dt': self.fields.sigma_dt,
+                     # 'sigma_dx': self.fields.sigma_dx,
+                      'omega': self.fields.omega,
                       }
             self.timesteppers.salt_expl = self.integrator_3d(
                 solver.eq_salt, solver.fields.salt_3d, fields, solver.dt,
@@ -307,10 +364,14 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'w_mesh': self.fields.get('w_mesh_3d'),
                       'diffusivity_h': self.solver.tot_h_diff.get_sum(),
                       'diffusivity_v': expl_v_diff,
-                      'source': self.options.temperature_source_3d,
+                      'source_tracer': self.options.temperature_source_3d,
                       # uv_mag': self.fields.uv_mag_3d,
                       'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
+                      # below for NH extension
+                     # 'sigma_dt': self.fields.sigma_dt,
+                     # 'sigma_dx': self.fields.sigma_dx,
+                      'omega': self.fields.omega,
                       }
             self.timesteppers.temp_expl = self.integrator_3d(
                 solver.eq_temp, solver.fields.temp_3d, fields, solver.dt,
@@ -374,6 +435,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         """
         self._create_swe_integrator()
         self._create_mom_integrator()
+        self._create_sediment_integrator() # note here added newly, Wei 2019-11-14
         self._create_salt_integrator()
         self._create_temp_integrator()
         self._create_turb_integrator()
@@ -410,6 +472,10 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         self.timesteppers.mom_expl.initialize(self.fields.uv_3d)
         if self.options.use_implicit_vertical_diffusion:
             self.timesteppers.mom_impl.initialize(self.fields.uv_3d)
+        if self.options.solve_sediment: # note here added newly, Wei 2019-11-14
+            self.timesteppers.sediment_expl.initialize(self.fields.c_3d)
+            if self.options.use_implicit_vertical_diffusion:
+                self.timesteppers.sediment_impl.initialize(self.fields.c_3d)
         if self.options.solve_salinity:
             self.timesteppers.salt_expl.initialize(self.fields.salt_3d)
             if self.options.use_implicit_vertical_diffusion:

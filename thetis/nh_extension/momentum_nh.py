@@ -74,6 +74,11 @@ __all__ = [
     'LinearDragTerm',
     'SourceTerm',
     'InternalPressureGradientCalculator',
+    # terms in the vertical momentum equation
+    'HorizontalAdvectionTerm_in_VertMom',
+    'VerticalAdvectionTerm_in_VertMom',
+    'HorizontalViscosityTerm_in_VertMom',
+    'VerticalViscosityTerm_in_VertMom',
 ]
 
 g_grav = physical_constants['g_grav']
@@ -193,31 +198,29 @@ class HorizontalAdvectionTerm(MomentumTerm):
         uv_old = solution_old
 
         if self.horizontal_domain_is_2d:
-            f = -(Dx(self.test[0], 0)*uv[0]*uv_old[0] +
-                  Dx(self.test[0], 1)*uv[0]*uv_old[1] +
-                  Dx(self.test[1], 0)*uv[1]*uv_old[0] +
-                  Dx(self.test[1], 1)*uv[1]*uv_old[1])*self.dx
+            f = -(Dx(self.test[0], 0)*uv[0]*uv_old[0]
+                  + Dx(self.test[0], 1)*uv[0]*uv_old[1]
+                  + Dx(self.test[1], 0)*uv[1]*uv_old[0]
+                  + Dx(self.test[1], 1)*uv[1]*uv_old[1])*self.dx
             uv_av = avg(uv_old)
-            un_av = (uv_av[0]*self.normal('-')[0] +
-                     uv_av[1]*self.normal('-')[1])
+            un_av = dot_h(uv_av, self.normal('-'))
             s = 0.5*(sign(un_av) + 1.0)
             uv_up = uv('-')*s + uv('+')*(1-s)
             if self.horizontal_continuity in ['dg', 'hdiv']:
-                f += (uv_up[0]*uv_av[0]*jump(self.test[0], self.normal[0]) +
-                      uv_up[0]*uv_av[1]*jump(self.test[0], self.normal[1]) +
-                      uv_up[1]*uv_av[0]*jump(self.test[1], self.normal[0]) +
-                      uv_up[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_v + self.dS_h)
+                f += (uv_up[0]*uv_av[0]*jump(self.test[0], self.normal[0])
+                      + uv_up[0]*uv_av[1]*jump(self.test[0], self.normal[1])
+                      + uv_up[1]*uv_av[0]*jump(self.test[1], self.normal[0])
+                      + uv_up[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_v + self.dS_h)
                 # Lax-Friedrichs stabilization
                 if self.use_lax_friedrichs:
                     if uv_p1 is not None:
-                        gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
-                                         avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
+                        gamma = 0.5*abs(dot_h(avg(uv_p1), self.normal('-')))*lax_friedrichs_factor
                     elif uv_mag is not None:
                         gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
                     else:
                         raise Exception('either uv_p1 or uv_mag must be given')
-                    f += gamma*(jump(self.test[0])*jump(uv[0]) +
-                                jump(self.test[1])*jump(uv[1]))*(self.dS_v + self.dS_h)
+                    f += gamma*(jump(self.test[0])*jump(uv[0])
+                                + jump(self.test[1])*jump(uv[1]))*(self.dS_v + self.dS_h)
                 for bnd_marker in self.boundary_markers:
                     funcs = bnd_conditions.get(bnd_marker)
                     ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
@@ -226,8 +229,8 @@ class HorizontalAdvectionTerm(MomentumTerm):
                         uv_ext = uv - 2*un*self.normal
                         if self.use_lax_friedrichs:
                             gamma = 0.5*abs(un)*lax_friedrichs_factor
-                            f += gamma*(self.test[0]*(uv[0] - uv_ext[0]) +
-                                        self.test[1]*(uv[1] - uv_ext[1]))*ds_bnd
+                            f += gamma*(self.test[0]*(uv[0] - uv_ext[0])
+                                        + self.test[1]*(uv[1] - uv_ext[1]))*ds_bnd
                     else:
                         uv_in = uv
                         if 'symm' in funcs:
@@ -269,10 +272,10 @@ class HorizontalAdvectionTerm(MomentumTerm):
                                         + (uv_ext - uv_in)[1]*self.test[1]*self.normal[0]*uv_av[0]
                                         + (uv_ext - uv_in)[1]*self.test[1]*self.normal[1]*uv_av[1])*ds_bnd
             # surf/bottom boundary conditions: closed at bed, symmetric at surf
-            f += (uv_old[0]*uv[0]*self.test[0]*self.normal[0] +
-                  uv_old[0]*uv[1]*self.test[0]*self.normal[1] +
-                  uv_old[1]*uv[0]*self.test[1]*self.normal[0] +
-                  uv_old[1]*uv[1]*self.test[1]*self.normal[1])*(self.ds_surf)
+            f += (uv_old[0]*uv[0]*self.test[0]*self.normal[0]
+                  + uv_old[0]*uv[1]*self.test[0]*self.normal[1]
+                  + uv_old[1]*uv[0]*self.test[1]*self.normal[0]
+                  + uv_old[1]*uv[1]*self.test[1]*self.normal[1])*(self.ds_surf)
             return -f
 
         # below for horizontal 1D domain
@@ -337,6 +340,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
                         f += (1-s)*((uv_ext - uv_in)[0]*self.test[0]*self.normal[0]*uv_av[0])*ds_bnd
         # surf/bottom boundary conditions: closed at bed, symmetric at surf
         f += (uv_old[0]*uv[0]*self.test[0]*self.normal[0])*(self.ds_surf)
+       # f += (uv_old[0]*Constant(1e-6)*self.test[0]*self.normal[0])*(self.ds_bottom) # added for turbidity case
         return -f
 
 
@@ -361,32 +365,31 @@ class VerticalAdvectionTerm(MomentumTerm):
         uv_3d = solution
 
         if self.horizontal_domain_is_2d:
-           # vertvelo = solution_old[2]
-            vertvelo = w[2]
+            vertvelo = solution_old[2]
+           # vertvelo = w[2]
             if w_mesh is not None:
-                vertvelo -= w_mesh
-            adv_v = -(Dx(self.test[0], 2)*uv_3d[0]*vertvelo +
-                      Dx(self.test[1], 2)*uv_3d[1]*vertvelo)
+                vertvelo = vertvelo - w_mesh
+            adv_v = -vertvelo*dot_h(Dx(self.test, 2), uv_3d)
             f = adv_v * self.dx
             if self.vertical_continuity in ['dg', 'hdiv']:
                 w_av = avg(vertvelo)
                 s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
                 uv_up = uv_3d('-')*s + uv_3d('+')*(1-s)
-                f += (uv_up[0]*w_av*jump(self.test[0], self.normal[2]) +
-                      uv_up[1]*w_av*jump(self.test[1], self.normal[2]))*self.dS_h
+                f += (uv_up[0]*w_av*jump(self.test[0], self.normal[2])
+                      + uv_up[1]*w_av*jump(self.test[1], self.normal[2]))*self.dS_h
                 if self.use_lax_friedrichs:
                     # Lax-Friedrichs
                     gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
-                    f += gamma*(jump(self.test[0])*jump(uv_3d[0]) +
-                                jump(self.test[1])*jump(uv_3d[1]))*self.dS_h
-            f += (uv_3d[0]*vertvelo*self.test[0]*self.normal[2] +
-                  uv_3d[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
+                    f += gamma*(jump(self.test[0])*jump(uv_3d[0])
+                                + jump(self.test[1])*jump(uv_3d[1]))*self.dS_h
+            f += (uv_3d[0]*vertvelo*self.test[0]*self.normal[2]
+                  + uv_3d[1]*vertvelo*self.test[1]*self.normal[2])*(self.ds_surf)
             # NOTE bottom impermeability condition is naturally satisfied by the defition of w
             return -f
 
         # below for horizontal 1D domain
         vertvelo = solution_old[1]
-        vertvelo = w[1]
+       # vertvelo = w[1]
         if w_mesh is not None:
             vertvelo -= w_mesh
         adv_v = -(Dx(self.test[0], 1)*uv_3d[0]*vertvelo)
@@ -401,6 +404,7 @@ class VerticalAdvectionTerm(MomentumTerm):
                 gamma = 0.5*abs(w_av*self.normal('-')[1])*lax_friedrichs_factor
                 f += gamma*(jump(self.test[0])*jump(uv_3d[0]))*self.dS_h
         f += (uv_3d[0]*vertvelo*self.test[0]*self.normal[1])*(self.ds_surf)
+       # f += (uv_3d[0]*vertvelo*self.test[0]*self.normal[1])*(self.ds_bottom) # added for turbidity case
         # NOTE bottom impermeability condition is naturally satisfied by the defition of w
         return -f
 
@@ -459,8 +463,8 @@ class HorizontalViscosityTerm(MomentumTerm):
                 degree_h, degree_v = self.function_space.ufl_element().degree()
                 # TODO compute elemsize as CellVolume/FacetArea
                 # h = n.D.n where D = diag(h_h, h_h, h_v)
-                elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2) +
-                            self.v_elem_size*self.normal[2]**2)
+                elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2)
+                            + self.v_elem_size*self.normal[2]**2)
                 sigma = 5.0*degree_h*(degree_h + 1)/elemsize
                 if degree_h == 0:
                     sigma = 1.5/elemsize
@@ -502,11 +506,11 @@ class HorizontalViscosityTerm(MomentumTerm):
                 sigma = 1.5/elemsize
             alpha = avg(sigma)
             ds_interior = (self.dS_h + self.dS_v)
-            f += alpha*inner(tensor_jump(self.normal[0], self.test[0]),
-                             dot(avg(viscosity_h), tensor_jump(self.normal[0], uv[0])))*ds_interior
+            f += alpha*inner(jump(self.normal[0], self.test[0]),
+                             dot(avg(viscosity_h), jump(self.normal[0], uv[0])))*ds_interior
             f += -inner(avg(viscosity_h*Dx(self.test[0], 0)),
-                        tensor_jump(self.normal[0], uv[0]))*ds_interior
-            f += -inner(tensor_jump(self.normal[0], self.test[0]),
+                        jump(self.normal[0], uv[0]))*ds_interior
+            f += -inner(jump(self.normal[0], self.test[0]),
                         avg(viscosity_h*Dx(uv[0], 0)))*ds_interior
         # symmetric bottom boundary condition
         f += -(stress*self.test[0]*self.normal[0])*(self.ds_surf + self.ds_bottom)
@@ -544,7 +548,7 @@ class VerticalViscosityTerm(MomentumTerm):
         if self.horizontal_domain_is_2d:
             grad_test = Dx(self.test, 2)
             diff_flux = viscosity_v*Dx(solution, 2)
-            f = inner(grad_test, diff_flux)*self.dx
+            f = dot_h(grad_test, diff_flux)*self.dx
             if self.vertical_continuity in ['dg', 'hdiv']:
                 assert self.h_elem_size is not None, 'h_elem_size must be defined'
                 assert self.v_elem_size is not None, 'v_elem_size must be defined'
@@ -553,18 +557,18 @@ class VerticalViscosityTerm(MomentumTerm):
                 degree_h, degree_v = self.function_space.ufl_element().degree()
                 # TODO compute elemsize as CellVolume/FacetArea
                 # h = n.D.n where D = diag(h_h, h_h, h_v)
-                elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2) +
-                            self.v_elem_size*self.normal[2]**2)
+                elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2)
+                            + self.v_elem_size*self.normal[2]**2)
                 sigma = 5.0*degree_v*(degree_v + 1)/elemsize
                 if degree_v == 0:
                     sigma = 1.0/elemsize
                 alpha = avg(sigma)
                 ds_interior = (self.dS_h)
-                f += alpha*inner(tensor_jump(self.normal[2], self.test),
+                f += alpha*dot_h(tensor_jump(self.normal[2], self.test),
                                  avg(viscosity_v)*tensor_jump(self.normal[2], solution))*ds_interior
-                f += -inner(avg(viscosity_v*Dx(self.test, 2)),
+                f += -dot_h(avg(viscosity_v*Dx(self.test, 2)),
                             tensor_jump(self.normal[2], solution))*ds_interior
-                f += -inner(tensor_jump(self.normal[2], self.test),
+                f += -dot_h(tensor_jump(self.normal[2], self.test),
                             avg(viscosity_v*Dx(solution, 2)))*ds_interior
             return -f
 
@@ -587,11 +591,11 @@ class VerticalViscosityTerm(MomentumTerm):
                 sigma = 1.0/elemsize
             alpha = avg(sigma)
             ds_interior = (self.dS_h)
-            f += alpha*inner(tensor_jump(self.normal[1], self.test[0]),
-                             avg(viscosity_v)*tensor_jump(self.normal[1], solution[0]))*ds_interior
+            f += alpha*inner(jump(self.normal[1], self.test[0]),
+                             avg(viscosity_v)*jump(self.normal[1], solution[0]))*ds_interior
             f += -inner(avg(viscosity_v*Dx(self.test[0], 1)),
-                        tensor_jump(self.normal[1], solution[0]))*ds_interior
-            f += -inner(tensor_jump(self.normal[1], self.test[0]),
+                        jump(self.normal[1], solution[0]))*ds_interior
+            f += -inner(jump(self.normal[1], self.test[0]),
                         avg(viscosity_v*Dx(solution[0], 1)))*ds_interior
         return -f
 
@@ -643,8 +647,7 @@ class BottomFrictionTerm(MomentumTerm):
                 uv_bot_old = uv_old + Dx(uv_old, 2)*z_bot
                 uv_bot_mag = sqrt(uv_bot_old[0]**2 + uv_bot_old[1]**2)
                 stress = drag*uv_bot_mag*uv_bot
-                bot_friction = (stress[0]*self.test[0] +
-                                stress[1]*self.test[1])*self.ds_bottom
+                bot_friction = dot_h(stress, self.test)*self.ds_bottom
                 f += bot_friction
                 return -f
 
@@ -663,7 +666,7 @@ class BottomFrictionTerm(MomentumTerm):
             uv_bot_mag = sqrt(uv_bot_old**2)
             stress = drag*uv_bot_mag*uv_bot
             bot_friction = (stress*self.test[0])*self.ds_bottom
-            f = bot_friction
+            f += bot_friction
         return -f
 
 
@@ -678,12 +681,16 @@ class LinearDragTerm(MomentumTerm):
         sponge_damping_3d = fields_old.get('sponge_damping_3d')
         uv = solution
         f = 0
+        if self.horizontal_domain_is_2d:
+            uv_dot_test = dot_h(self.test, uv)
+        else:
+            uv_dot_test = self.test[0] * uv[0]
         # Linear drag (consistent with drag in 2D mode)
         if linear_drag_coefficient is not None:
-            bottom_fri = linear_drag_coefficient*inner(self.test, uv)*self.dx
+            bottom_fri = linear_drag_coefficient*uv_dot_test*self.dx
             f += bottom_fri
         if sponge_damping_3d is not None:
-            sponge_drag_3d = sponge_damping_3d*inner(self.test, uv)*self.dx
+            sponge_drag_3d = sponge_damping_3d*uv_dot_test*self.dx
             f += sponge_drag_3d
         return -f
 
@@ -698,8 +705,8 @@ class CoriolisTerm(MomentumTerm):
         if not self.horizontal_domain_is_2d:
             return -f
         if coriolis is not None:
-            f += coriolis*(-solution[1]*self.test[0] +
-                           solution[0]*self.test[1])*self.dx
+            f += coriolis*(-solution[1]*self.test[0]
+                           + solution[0]*self.test[1])*self.dx
         return -f
 
 
@@ -726,7 +733,7 @@ class SourceTerm(MomentumTerm):
     # TODO implement wind stress as a separate term
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
-        source = fields_old.get('source')
+        source = fields_old.get('source_mom')
         viscosity_v = fields_old.get('viscosity_v')
         wind_stress = fields_old.get('wind_stress')
         if wind_stress is not None and viscosity_v is None:
@@ -736,8 +743,7 @@ class SourceTerm(MomentumTerm):
             if viscosity_v is not None:
                 # wind stress
                 if wind_stress is not None:
-                    f -= (wind_stress[0]*self.test[0] +
-                          wind_stress[1]*self.test[1])/rho_0*self.ds_surf
+                    f -= dot_h(wind_stress, self.test)/rho_0*self.ds_surf
             if source is not None:
                 f += - inner(source, self.test)*self.dx
             return -f
@@ -748,7 +754,7 @@ class SourceTerm(MomentumTerm):
             if wind_stress is not None:
                 f = -(wind_stress[0]*self.test[0])/rho_0*self.ds_surf
         if source is not None:
-            f += - inner(source, self.test[0])*self.dx
+            f += - inner(source, self.test)*self.dx
         return -f
 
 
@@ -757,38 +763,46 @@ class ElevationGradientTerm(MomentumTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if not self.use_nonlinear_equations:
             return 0
-
-        # use operator splitting method, here not including the elevation gradient term
-        if fields_old.get('solve_elevation_gradient_separately') is True:
-            return 0
+        f = 0
+        f_q = 0
 
         eta = fields_old.get('elev_3d')
-       # uv_dav_3d = fields_old.get('uv_depth_av')
        # total_h = eta + self.bathymetry
        # uw = solution
 
+        # consider q_3d from previous time level
+        if fields_old.get('use_pressure_correction') is True:
+            q_3d = fields_old.get('q_3d')
+            if q_3d is not None:
+                f_q += 1./rho_0 * dot(grad(q_3d), self.test) * self.dx 
+        # use operator splitting method, here not including the elevation gradient term
+        if fields_old.get('solve_elevation_gradient_separately') is True:
+            return -f_q
+
         if self.horizontal_domain_is_2d:
-            f = -g_grav*eta*div(self.test)*dx
+            f += -g_grav*eta*div_h(self.test)*dx
             eta_star = avg(eta) #+ sqrt(avg(total_h)/g_grav)*jump(uv_dav_3d, self.normal)
-            f += g_grav*eta_star*jump(self.test, self.normal)*(self.dS_v + self.dS_h)
-            f += g_grav*eta*dot(self.test, self.normal)*(self.ds_bottom + self.ds_surf)
+            f += g_grav*eta_star*(jump(self.test[0], self.normal[0])
+                                  + jump(self.test[1], self.normal[1]))*(self.dS_v + self.dS_h)
+            f += g_grav*eta*dot_h(self.test, self.normal)*(self.ds_bottom + self.ds_surf)
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
                 if funcs is not None and 'elev3d' in funcs:
                     eta_ext = funcs['elev3d']
                     eta_rie = 0.5*(eta + eta_ext)
-                    f += g_grav*eta_rie*dot(self.test, self.normal)*ds_bnd
+                    f += g_grav*eta_rie*dot_h(self.test, self.normal)*ds_bnd
                 else:
                     # assume land boundary
-                    f += g_grav*eta*dot(self.test, self.normal)*ds_bnd
+                    f += g_grav*eta*dot_h(self.test, self.normal)*ds_bnd
             use_cg = False
             if use_cg:
-                f = g_grav*dot(grad(eta), self.test)*self.dx
+                f = g_grav*dot_h(grad_h(eta), self.test)*self.dx
+            f += f_q
             return -f
 
         # below for horizontal 1D domain
-        f = -g_grav*eta*Dx(self.test[0], 0)*dx
+        f += -g_grav*eta*Dx(self.test[0], 0)*dx
         eta_star = avg(eta) #+ sqrt(avg(total_h)/g_grav)*jump(uw[0], self.normal[0])
         f += g_grav*eta_star*jump(self.test[0], self.normal[0])*(self.dS_v + self.dS_h)
         f += g_grav*eta*(self.test[0]*self.normal[0])*(self.ds_bottom + ds_surf)
@@ -798,14 +812,449 @@ class ElevationGradientTerm(MomentumTerm):
             if funcs is not None and 'elev3d' in funcs:
                 eta_ext = funcs['elev3d']
                 eta_rie = 0.5*(eta + eta_ext)
-                f += g_grav*eta_rie*dot(self.test[0], self.normal[0])*ds_bnd
+                f += g_grav*eta_rie*(self.test[0] * self.normal[0])*ds_bnd
             else:
                 # assume land boundary
-                f += g_grav*eta*dot(self.test[0], self.normal[0])*ds_bnd
+                f += g_grav*eta*(self.test[0] * self.normal[0])*ds_bnd
         use_cg = False
         if use_cg:
-            f = g_grav*dot(Dx(eta, 0), self.test[0])*self.dx
+            f = g_grav*(Dx(eta, 0) * self.test[0])*self.dx
+        f += f_q
         return -f
+
+
+#################################################
+##                                             ##
+###                                           ###
+#### Terms in the vertical momentum equation ####
+###                                           ###
+##                                             ##
+#################################################
+############### below below below ###############
+
+
+class HorizontalAdvectionTerm_in_VertMom(MomentumTerm):
+    r"""
+    Horizontal advection term :math:`\nabla_h \cdot (\textbf{u} w)`
+
+    The weak formulation reads
+
+    .. math::
+        \int_\Omega \nabla_h \cdot (\textbf{u} w) \phi dx
+            = -\int_\Omega w\textbf{u} \cdot \nabla_h \phi dx
+            + \int_{\mathcal{I}_h\cup\mathcal{I}_v}
+                w^{\text{up}} \text{avg}(\textbf{u}) \cdot
+                \text{jump}(\phi \textbf{n}_h) dS
+
+    where the right hand side has been integrated by parts;
+    :math:`\mathcal{I}_h,\mathcal{I}_v` denote the set of horizontal and
+    vertical facets,
+    :math:`\textbf{n}_h` is the horizontal projection of the unit normal vector,
+    :math:`w^{\text{up}}` is the upwind value, and :math:`\text{jump}` and
+    :math:`\text{avg}` denote the jump and average operators across the
+    interface.
+    """
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        if not self.use_nonlinear_equations:
+            return 0
+        elev = fields_old['elev_3d']
+        uv = fields_old.get('uv_3d')#solution_old
+
+        uv_p1 = fields_old.get('uv_p1')
+        uv_mag = fields_old.get('uv_mag')
+        # FIXME is this an option?
+        lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
+
+        if self.horizontal_domain_is_2d:
+            f = -solution[2]*dot_h(uv, grad_h(self.test[2]))*self.dx
+            if self.horizontal_continuity in ['dg', 'hdiv']:
+                # add interface term
+                uv_av = avg(uv)
+                un_av = dot_h(uv_av, self.normal('-'))
+                s = 0.5*(sign(un_av) + 1.0)
+                c_up = solution[2]('-')*s + solution[2]('+')*(1-s)
+                f += c_up*(uv_av[0]*jump(self.test[2], self.normal[0]) 
+                           + uv_av[1]*jump(self.test[2], self.normal[1]))*(self.dS_v + self.dS_h)
+                # Lax-Friedrichs stabilization
+                if self.use_lax_friedrichs:
+                    if uv_p1 is not None:
+                        gamma = 0.5*abs(dot_h(avg(uv_p1), self.normal('-')))*lax_friedrichs_factor
+                    elif uv_mag is not None:
+                        gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
+                    else:
+                        raise Exception('either uv_p1 or uv_mag must be given')
+                    f += gamma*dot(jump(self.test[2]), jump(solution[2]))*(self.dS_v + self.dS_h)
+                for bnd_marker in self.boundary_markers:
+                    funcs = bnd_conditions.get(bnd_marker)
+                    ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
+                    if funcs is None:
+                        continue
+                    else:
+                        uv_in = solution_old
+                        w_in = solution[2]
+                        w_ext = w_in
+                        if 'symm' in funcs:
+                            # use internal normal velocity
+                            # NOTE should this be symmetric normal velocity?
+                            uv_ext = uv_in
+                        elif 'uv' in funcs:
+                            # prescribe external velocity
+                            uv_ext = funcs['uv']
+                            un_ext = dot(uv_ext, self.normal)
+                        elif 'un' in funcs:
+                            # prescribe normal velocity
+                            un_ext = funcs['un']
+                            uv_ext = self.normal*un_ext
+                        elif 'flux' in funcs:
+                            # prescribe normal volume flux
+                            sect_len = Constant(self.boundary_len[bnd_marker])
+                            eta = fields_old['elev_3d']
+                            total_h = self.bathymetry + eta
+                            un_ext = funcs['flux'] / total_h / sect_len
+                            uv_ext = self.normal*un_ext
+                        elif 'w' in funcs:
+                            w_ext = funcs['w']
+                        else:
+                            raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
+                        if self.use_nonlinear_equations:
+                            # add interior flux
+                            f += w_in*dot_h(uv_in, self.normal)*self.test[2]*ds_bnd
+                            # add boundary contribution if inflow
+                            uv_av = 0.5*(uv_in + uv_ext)
+                            un_av = dot_h(uv_av, self.normal)
+                            s = 0.5*(sign(un_av) + 1.0)
+                            f += (1-s)*(w_ext - w_in)*un_av*self.test[2]*ds_bnd
+            use_symmetric_surf_bnd = True
+            if use_symmetric_surf_bnd:
+                f += solution[2]*dot_h(uv, self.normal)*self.test[2]*ds_surf
+            return -f
+
+        # below for horizontal 1D domain
+        f = -solution[1]*inner(uv[0], Dx(self.test[1], 0))*self.dx
+        if self.horizontal_continuity in ['dg', 'hdiv']:
+            # add interface term
+            uv_av = avg(uv)
+            un_av = (uv_av[0]*self.normal('-')[0])
+            s = 0.5*(sign(un_av) + 1.0)
+            c_up = solution[1]('-')*s + solution[1]('+')*(1-s)
+            f += c_up*(uv_av[0]*jump(self.test[1], self.normal[0]))*(self.dS_v + self.dS_h)
+            # Lax-Friedrichs stabilization
+            if self.use_lax_friedrichs:
+                if uv_p1 is not None:
+                    gamma = 0.5*abs(avg(uv_p1)[0]*self.normal('-')[0])*lax_friedrichs_factor
+                elif uv_mag is not None:
+                    gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
+                else:
+                    raise Exception('either uv_p1 or uv_mag must be given')
+                f += gamma*dot(jump(self.test[1]), jump(solution[1]))*(self.dS_v + self.dS_h)
+            if bnd_conditions is not None:
+                for bnd_marker in self.boundary_markers:
+                    funcs = bnd_conditions.get(bnd_marker)
+                    ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
+                    if funcs is None:
+                        continue
+                    else:
+                        uv_in = solution_old
+                        w_in = solution[1]
+                        w_ext = w_in
+                        if 'symm' in funcs:
+                            # use internal normal velocity
+                            # NOTE should this be symmetric normal velocity?
+                            uv_ext = uv_in
+                        elif 'uv' in funcs:
+                            # prescribe external velocity
+                            uv_ext = funcs['uv']
+                            un_ext = dot(uv_ext, self.normal)
+                        elif 'un' in funcs:
+                            # prescribe normal velocity
+                            un_ext = funcs['un']
+                            uv_ext = self.normal*un_ext
+                        elif 'flux' in funcs:
+                            # prescribe normal volume flux
+                            sect_len = Constant(self.boundary_len[bnd_marker])
+                            eta = fields_old['elev_3d']
+                            total_h = self.bathymetry + eta
+                            un_ext = funcs['flux'] / total_h / sect_len
+                            uv_ext = self.normal*un_ext
+                        elif 'w' in funcs:
+                            w_ext = funcs['w']
+                        else:
+                            raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
+                        if self.use_nonlinear_equations:
+                            # add interior flux
+                            f += w_in*(uv_in[0]*self.normal[0])*self.test[1]*ds_bnd
+                            # add boundary contribution if inflow
+                            uv_av = 0.5*(uv_in + uv_ext)
+                            un_av = self.normal[0]*uv_av[0]
+                            s = 0.5*(sign(un_av) + 1.0)
+                            f += (1-s)*(w_ext - w_in)*un_av*self.test[1]*ds_bnd
+        use_symmetric_surf_bnd = True
+        if use_symmetric_surf_bnd:
+            f += solution[1]*(uv[0]*self.normal[0])*self.test[1]*ds_surf
+        return -f
+
+
+class VerticalAdvectionTerm_in_VertMom(MomentumTerm):
+    r"""
+    Vertical advection term :math:`\partial (w w)/(\partial z)`
+
+    The weak form reads
+
+    .. math::
+        \int_\Omega \frac{\partial (w w)}{\partial z} \phi dx
+        = - \int_\Omega w w \frac{\partial \phi}{\partial z} dx
+        + \int_{\mathcal{I}_v} w^{\text{up}} \text{avg}(w) \text{jump}(\phi n_z) dS
+
+    where the right hand side has been integrated by parts;
+    :math:`\mathcal{I}_v` denotes the set of vertical facets,
+    :math:`n_z` is the vertical projection of the unit normal vector,
+    :math:`w^{\text{up}}` is the
+    upwind value, and :math:`\text{jump}` and :math:`\text{avg}` denote the
+    jump and average operators across the interface.
+
+    In the case of ALE moving mesh we substitute :math:`w` with :math:`w - w_m`,
+    :math:`w_m` being the mesh velocity.
+    """
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        if not self.use_nonlinear_equations:
+            return 0
+        w = fields_old.get('uv_3d')
+        w_mesh = fields_old.get('w_mesh')
+        lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
+
+        if self.horizontal_domain_is_2d:
+            vertvelo = w[2]#solution_old[2]
+            if w_mesh is not None:
+                vertvelo -= w_mesh
+            f = 0
+            f += -solution[2]*vertvelo*Dx(self.test[2], 2)*self.dx
+            if self.vertical_continuity in ['dg', 'hdiv']:
+                w_av = avg(vertvelo)
+                s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
+                c_up = solution[2]('-')*s + solution[2]('+')*(1-s)
+                f += c_up*w_av*jump(self.test[2], self.normal[2])*self.dS_h
+                if self.use_lax_friedrichs:
+                    # Lax-Friedrichs
+                    gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
+                    f += gamma*dot(jump(self.test[2]), jump(solution[2]))*self.dS_h
+            return -f
+
+        # below for horizontal 1D domain
+        vertvelo = w[1]#solution_old[1]
+        if w_mesh is not None:
+            vertvelo -= w_mesh
+        f = -solution[1]*vertvelo*Dx(self.test[1], 1)*self.dx
+        if self.vertical_continuity in ['dg', 'hdiv']:
+            w_av = avg(vertvelo)
+            s = 0.5*(sign(w_av*self.normal[1]('-')) + 1.0)
+            c_up = solution[1]('-')*s + solution[1]('+')*(1-s)
+            f += c_up*w_av*jump(self.test[1], self.normal[1])*self.dS_h
+            if self.use_lax_friedrichs:
+                # Lax-Friedrichs
+                gamma = 0.5*abs(w_av*self.normal('-')[1])*lax_friedrichs_factor
+                f += gamma*dot(jump(self.test[1]), jump(solution[1]))*self.dS_h
+        # NOTE Bottom impermeability condition is naturally satisfied by the definition of w
+        # NOTE imex solver fails with this in tracerBox example, also in bb_bar case
+        #f += solution[2]*vertvelo*self.normal[2]*self.test[2]*self.ds_surf
+        return -f
+
+
+class HorizontalViscosityTerm_in_VertMom(MomentumTerm):
+    r"""
+    Horizontal Viscosity term :math:`-\nabla_h \cdot (\mu_h \nabla_h w)`
+
+    Using the symmetric interior penalty method the weak form becomes
+
+    .. math::
+        \int_\Omega \nabla_h \cdot (\mu_h \nabla_h T) \phi dx
+        =& -\int_\Omega \mu_h (\nabla_h \phi) \cdot (\nabla_h T) dx \\
+        &+ \int_{\mathcal{I}_h\cup\mathcal{I}_v} \text{jump}(\phi \textbf{n}_h)
+        \cdot \text{avg}(\mu_h \nabla_h T) dS
+        + \int_{\mathcal{I}_h\cup\mathcal{I}_v} \text{jump}(T \textbf{n}_h)
+        \cdot \text{avg}(\mu_h  \nabla \phi) dS \\
+        &- \int_{\mathcal{I}_h\cup\mathcal{I}_v} \sigma \text{avg}(\mu_h) \text{jump}(T \textbf{n}_h) \cdot
+            \text{jump}(\phi \textbf{n}_h) dS
+
+    where :math:`\sigma` is a penalty parameter,
+    see Epshteyn and Riviere (2007).
+
+    Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
+    interior penalty Galerkin methods. Journal of Computational and Applied
+    Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
+    """
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        if fields_old.get('viscosity_h') is None:
+            return 0
+
+        viscosity_h = fields_old.get('viscosity_h')
+
+        if self.horizontal_domain_is_2d:
+            diff_tensor = as_matrix([[viscosity_h, 0, 0],
+                                     [0, viscosity_h, 0],
+                                     [0, 0, 0]])
+            grad_test = grad_h(self.test[2])
+            diff_flux = dot(diff_tensor, grad_h(solution[2]))
+            f = inner(grad_test, diff_flux)*self.dx
+            if self.horizontal_continuity in ['dg', 'hdiv']:
+                assert self.h_elem_size is not None, 'h_elem_size must be defined'
+                assert self.v_elem_size is not None, 'v_elem_size must be defined'
+                # Interior Penalty method by
+                # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
+                # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
+                # k_max/k_min  - max/min diffusivity
+                # p            - polynomial degree
+                # Theta        - min angle of triangles
+                # assuming k_max/k_min=2, Theta=pi/3
+                # sigma = 6.93 = 3.5*p*(p+1)
+                degree_h, degree_v = self.function_space.ufl_element().degree()
+                # TODO compute elemsize as CellVolume/FacetArea
+                # h = n.D.n where D = diag(h_h, h_h, h_v)
+                elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2) +
+                            self.v_elem_size*self.normal[2]**2)
+                sigma = 5.0*degree_h*(degree_h + 1)/elemsize
+                if degree_h == 0:
+                    sigma = 1.5/elemsize
+                alpha = avg(sigma)
+                ds_interior = (self.dS_h + self.dS_v)
+                f += alpha*inner(jump(self.test[2], self.normal),
+                                 dot(avg(diff_tensor), jump(solution[2], self.normal)))*ds_interior
+                f += -inner(avg(dot(diff_tensor, grad_h(self.test[2]))),
+                            jump(solution[2], self.normal))*ds_interior
+                f += -inner(jump(self.test[2], self.normal),
+                            avg(dot(diff_tensor, grad_h(solution[2]))))*ds_interior
+            # symmetric bottom boundary condition
+            # NOTE introduces a flux through the bed - breaks mass conservation
+            f += - inner(diff_flux, self.normal)*self.test[2]*self.ds_bottom
+            f += - inner(diff_flux, self.normal)*self.test[2]*self.ds_surf
+            return -f
+
+        # below for horizontal 1D domain
+        grad_test = Dx(self.test[1], 0)
+        diff_flux = dot(viscosity_h, Dx(solution[1], 0))
+        f = inner(grad_test, diff_flux)*self.dx
+        if self.horizontal_continuity in ['dg', 'hdiv']:
+            assert self.h_elem_size is not None, 'h_elem_size must be defined'
+            assert self.v_elem_size is not None, 'v_elem_size must be defined'
+            # Interior Penalty method by
+            # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
+            # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
+            # k_max/k_min  - max/min diffusivity
+            # p            - polynomial degree
+            # Theta        - min angle of triangles
+            # assuming k_max/k_min=2, Theta=pi/3
+            # sigma = 6.93 = 3.5*p*(p+1)
+            degree_h, degree_v = self.function_space.ufl_element().degree()
+            # TODO compute elemsize as CellVolume/FacetArea
+            # h = n.D.n where D = diag(h_h, h_h, h_v)
+            elemsize = (self.h_elem_size*(self.normal[0]**2) +
+                        self.v_elem_size*self.normal[1]**2)
+            sigma = 5.0*degree_h*(degree_h + 1)/elemsize
+            if degree_h == 0:
+                sigma = 1.5/elemsize
+            alpha = avg(sigma)
+            ds_interior = (self.dS_h + self.dS_v)
+            f += alpha*inner(jump(self.test[1], self.normal[0]),
+                             dot(avg(viscosity_h), jump(solution[1], self.normal[0])))*ds_interior
+            f += -inner(avg(dot(viscosity_h, Dx(self.test[1], 0))),
+                        jump(solution[1], self.normal[0]))*ds_interior
+            f += -inner(jump(self.test[1], self.normal[0]),
+                        avg(dot(viscosity_h, Dx(solution[1], 0))))*ds_interior
+        # symmetric bottom boundary condition
+        # NOTE introduces a flux through the bed - breaks mass conservation
+        f += - inner(diff_flux, self.normal[0])*self.test[1]*(self.ds_bottom + self.ds_surf)
+        return -f
+
+
+class VerticalViscosityTerm_in_VertMom(MomentumTerm):
+    r"""
+    Vertical Viscosity term :math:`-\frac{\partial}{\partial z} \Big(\mu \frac{w}{\partial z}\Big)`
+
+    Using the symmetric interior penalty method the weak form becomes
+
+    .. math::
+        \int_\Omega \frac{\partial}{\partial z} \Big(\mu \frac{w}{\partial z}\Big) \phi dx
+        =& -\int_\Omega \mu \frac{\partial w}{\partial z} \frac{\partial \phi}{\partial z} dz \\
+        &+ \int_{\mathcal{I}_{h}} \text{jump}(\phi n_z) \text{avg}\Big(\mu \frac{\partial w}{\partial z}\Big) dS
+        + \int_{\mathcal{I}_{h}} \text{jump}(w n_z) \text{avg}\Big(\mu \frac{\partial \phi}{\partial z}\Big) dS \\
+        &- \int_{\mathcal{I}_{h}} \sigma \text{avg}(\mu) \text{jump}(w n_z) \cdot
+            \text{jump}(\phi n_z) dS
+
+    where :math:`\sigma` is a penalty parameter,
+    see Epshteyn and Riviere (2007).
+
+    Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
+    interior penalty Galerkin methods. Journal of Computational and Applied
+    Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
+    """
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        if fields_old.get('viscosity_v') is None:
+            return 0
+
+        viscosity_v = fields_old.get('viscosity_v')
+
+        if self.horizontal_domain_is_2d:
+            grad_test = Dx(self.test[2], 2)
+            diff_flux = dot(viscosity_v, Dx(solution[2], 2))
+            f = inner(grad_test, diff_flux)*self.dx
+            if self.vertical_continuity in ['dg', 'hdiv']:
+                assert self.h_elem_size is not None, 'h_elem_size must be defined'
+                assert self.v_elem_size is not None, 'v_elem_size must be defined'
+                # Interior Penalty method by
+                # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
+                degree_h, degree_v = self.function_space.ufl_element().degree()
+                # TODO compute elemsize as CellVolume/FacetArea
+                # h = n.D.n where D = diag(h_h, h_h, h_v)
+                elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2) +
+                            self.v_elem_size*self.normal[2]**2)
+                sigma = 5.0*degree_v*(degree_v + 1)/elemsize
+                if degree_v == 0:
+                    sigma = 1.0/elemsize
+                alpha = avg(sigma)
+                ds_interior = (self.dS_h)
+                f += alpha*inner(jump(self.test[2], self.normal[2]),
+                                 dot(avg(viscosity_v), jump(solution[2], self.normal[2])))*ds_interior
+                f += -inner(avg(dot(viscosity_v, Dx(self.test[2], 2))),
+                            jump(solution[2], self.normal[2]))*ds_interior
+                f += -inner(jump(self.test[2], self.normal[2]),
+                            avg(dot(viscosity_v, Dx(solution[2], 2))))*ds_interior
+            return -f
+
+        # below for horizontal 1D domain
+        grad_test = Dx(self.test[1], 1)
+        diff_flux = dot(viscosity_v, Dx(solution[1], 1))
+        f = inner(grad_test, diff_flux)*self.dx
+        if self.vertical_continuity in ['dg', 'hdiv']:
+            assert self.h_elem_size is not None, 'h_elem_size must be defined'
+            assert self.v_elem_size is not None, 'v_elem_size must be defined'
+            # Interior Penalty method by
+            # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
+            degree_h, degree_v = self.function_space.ufl_element().degree()
+            # TODO compute elemsize as CellVolume/FacetArea
+            # h = n.D.n where D = diag(h_h, h_h, h_v)
+            elemsize = (self.h_elem_size*(self.normal[0]**2) +
+                        self.v_elem_size*self.normal[1]**2)
+            sigma = 5.0*degree_v*(degree_v + 1)/elemsize
+            if degree_v == 0:
+                sigma = 1.0/elemsize
+            alpha = avg(sigma)
+            ds_interior = (self.dS_h)
+            f += alpha*inner(jump(self.test[1], self.normal[1]),
+                             dot(avg(viscosity_v), jump(solution[1], self.normal[1])))*ds_interior
+            f += -inner(avg(dot(viscosity_v, Dx(self.test[1], 1))),
+                        jump(solution[1], self.normal[1]))*ds_interior
+            f += -inner(jump(self.test[1], self.normal[1]),
+                        avg(dot(viscosity_v, Dx(solution[1], 1))))*ds_interior
+        return -f
+
+
+################### up up up ####################
+#################################################
+##                                             ##
+###                                           ###
+#### Terms in the vertical momentum equation ####
+###                                           ###
+##                                             ##
+#################################################
 
 
 class MomentumEquation(Equation):
@@ -841,6 +1290,13 @@ class MomentumEquation(Equation):
         self.add_term(CoriolisTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
         self.add_term(ElevationGradientTerm(*args), 'explicit')
+
+        consider_vertical_momentum = True
+        if consider_vertical_momentum:
+            self.add_term(HorizontalAdvectionTerm_in_VertMom(*args), 'explicit')
+            self.add_term(VerticalAdvectionTerm_in_VertMom(*args), 'explicit')
+            self.add_term(HorizontalViscosityTerm_in_VertMom(*args), 'explicit')
+            self.add_term(VerticalViscosityTerm_in_VertMom(*args), 'explicit')
 
 
 class InternalPressureGradientCalculator(MomentumTerm):
@@ -954,534 +1410,4 @@ class InternalPressureGradientCalculator(MomentumTerm):
             grad_head_dot_test = (Dx(bhead, 0)*self.test[0])
             f = g_grav * grad_head_dot_test * self.dx
         return -f
-
-####################################
-##                                ##
-###                              ###
-#### Vertical Momentum Equation #### <<<<####################################################### Alternatively #######################################################
-###                              ###
-##                                ##
-####################################
-
-
-class VertMomentumTerm(Term):
-    """
-    Generic vertical momentum term that provides commonly used members and mapping for
-    boundary functions.
-    """
-    def __init__(self, function_space,
-                 bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 use_symmetric_surf_bnd=True, use_lax_friedrichs=True):
-        """
-        :arg function_space: :class:`FunctionSpace` where the solution belongs
-        :kwarg bathymetry: bathymetry of the domain
-        :type bathymetry: 3D :class:`Function` or :class:`Constant`
-        :kwarg v_elem_size: scalar :class:`Function` that defines the vertical
-            element size
-        :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
-            element size
-        :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
-            condition in the horizontal advection term
-        """
-        super(VertMomentumTerm, self).__init__(function_space)
-        self.bathymetry = bathymetry
-        self.h_elem_size = h_elem_size
-        self.v_elem_size = v_elem_size
-        continuity = element_continuity(self.function_space.ufl_element())
-        self.horizontal_dg = continuity.horizontal == 'dg'
-        self.vertical_dg = continuity.vertical == 'dg'
-        self.use_symmetric_surf_bnd = use_symmetric_surf_bnd
-        self.use_lax_friedrichs = use_lax_friedrichs
-
-        # define measures with a reasonable quadrature degree
-        p, q = self.function_space.ufl_element().degree()
-        self.quad_degree = (2*p + 1, 2*q + 1)
-        self.dx = dx(degree=self.quad_degree)
-        self.dS_h = dS_h(degree=self.quad_degree)
-        self.dS_v = dS_v(degree=self.quad_degree)
-        self.ds = ds(degree=self.quad_degree)
-        self.ds_surf = ds_surf(degree=self.quad_degree)
-        self.ds_bottom = ds_bottom(degree=self.quad_degree)
-
-        self.horizontal_domain_is_2d = self.mesh.geometric_dimension() == 3
-
-    def get_bnd_functions(self, c_in, uv_in, elev_in, bnd_id, bnd_conditions):
-        """
-        Returns external values of w and uv for all supported
-        boundary conditions.
-
-        Volume flux (flux) and normal velocity (un) are defined positive out of
-        the domain.
-
-        :arg c_in: Internal value of vertical velocity
-        :arg uv_in: Internal value of horizontal velocity
-        :arg elev_in: Internal value of elevation
-        :arg bnd_id: boundary id
-        :type bnd_id: int
-        :arg bnd_conditions: dict of boundary conditions:
-            ``{bnd_id: {field: value, ...}, ...}``
-        """
-        funcs = bnd_conditions.get(bnd_id)
-
-        if 'elev' in funcs:
-            elev_ext = funcs['elev']
-        else:
-            elev_ext = elev_in
-        if 'value' in funcs:
-            c_ext = funcs['value']
-        else:
-            c_ext = c_in
-        if 'uv' in funcs:
-            uv_ext = funcs['uv']
-        elif 'flux' in funcs:
-            assert self.bathymetry is not None
-            h_ext = elev_ext + self.bathymetry
-            area = h_ext*self.boundary_len  # NOTE using external data only
-            uv_ext = funcs['flux']/area*self.normal
-        elif 'un' in funcs:
-            uv_ext = funcs['un']*self.normal
-        else:
-            uv_ext = uv_in
-
-        return c_ext, uv_ext, elev_ext
-
-
-class HorizontalAdvectionTerm_in_VertMom(VertMomentumTerm):
-    r"""
-    Horizontal advection term :math:`\nabla_h \cdot (\textbf{u} w)`
-
-    The weak formulation reads
-
-    .. math::
-        \int_\Omega \nabla_h \cdot (\textbf{u} w) \phi dx
-            = -\int_\Omega w\textbf{u} \cdot \nabla_h \phi dx
-            + \int_{\mathcal{I}_h\cup\mathcal{I}_v}
-                w^{\text{up}} \text{avg}(\textbf{u}) \cdot
-                \text{jump}(\phi \textbf{n}_h) dS
-
-    where the right hand side has been integrated by parts;
-    :math:`\mathcal{I}_h,\mathcal{I}_v` denote the set of horizontal and
-    vertical facets,
-    :math:`\textbf{n}_h` is the horizontal projection of the unit normal vector,
-    :math:`w^{\text{up}}` is the upwind value, and :math:`\text{jump}` and
-    :math:`\text{avg}` denote the jump and average operators across the
-    interface.
-    """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        if fields_old.get('uv_3d') is None:
-            return 0
-        elev = fields_old['elev_3d']
-        uv = fields_old['uv_3d']
-
-        uv_p1 = fields_old.get('uv_p1')
-        uv_mag = fields_old.get('uv_mag')
-        # FIXME is this an option?
-        lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
-
-        if self.horizontal_domain_is_2d:
-            f = -solution[2]*inner(uv, nabla_grad(self.test[2]))*self.dx
-            if self.horizontal_dg:
-                # add interface term
-                uv_av = avg(uv)
-                un_av = (uv_av[0]*self.normal('-')[0] +
-                         uv_av[1]*self.normal('-')[1])
-                s = 0.5*(sign(un_av) + 1.0)
-                c_up = solution[2]('-')*s + solution[2]('+')*(1-s)
-                f += c_up*(uv_av[0]*jump(self.test[2], self.normal[0]) +
-                           uv_av[1]*jump(self.test[2], self.normal[1]) +
-                           uv_av[2]*jump(self.test[2], self.normal[2]))*(self.dS_v + self.dS_h)
-                # Lax-Friedrichs stabilization
-                if self.use_lax_friedrichs:
-                    if uv_p1 is not None:
-                        gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
-                                         avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
-                    elif uv_mag is not None:
-                        gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
-                    else:
-                        raise Exception('either uv_p1 or uv_mag must be given')
-                    f += gamma*dot(jump(self.test[2]), jump(solution[2]))*(self.dS_v + self.dS_h)
-                if bnd_conditions is not None:
-                    for bnd_marker in self.boundary_markers:
-                        funcs = bnd_conditions.get(bnd_marker)
-                        ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
-                        if funcs is None:
-                            continue
-                        else:
-                            c_in = solution[2]
-                            c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
-                            # add interior tracer flux
-                            f += c_in*(uv[0]*self.normal[0]
-                                       + uv[1]*self.normal[1])*self.test[2]*ds_bnd
-                            # add boundary contribution if inflow
-                            uv_av = 0.5*(uv + uv_ext)
-                            un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
-                            s = 0.5*(sign(un_av) + 1.0)
-                            f += (1-s)*(c_ext - c_in)*un_av*self.test[2]*ds_bnd
-            if self.use_symmetric_surf_bnd:
-                f += solution[2]*(uv[0]*self.normal[0] + uv[1]*self.normal[1])*self.test[2]*ds_surf
-            return -f
-
-        # below for horizontal 1D domain
-        f = -solution[1]*inner(uv[0], Dx(self.test[1], 0))*self.dx
-        if self.horizontal_dg:
-            # add interface term
-            uv_av = avg(uv)
-            un_av = (uv_av[0]*self.normal('-')[0])
-            s = 0.5*(sign(un_av) + 1.0)
-            c_up = solution[1]('-')*s + solution[1]('+')*(1-s)
-            f += c_up*(uv_av[0]*jump(self.test[1], self.normal[0]))*(self.dS_v + self.dS_h)
-            # Lax-Friedrichs stabilization
-            if self.use_lax_friedrichs:
-                if uv_p1 is not None:
-                    gamma = 0.5*abs(avg(uv_p1)[0]*self.normal('-')[0])*lax_friedrichs_factor
-                elif uv_mag is not None:
-                    gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
-                else:
-                    raise Exception('either uv_p1 or uv_mag must be given')
-                f += gamma*dot(jump(self.test[1]), jump(solution[1]))*(self.dS_v + self.dS_h)
-            if bnd_conditions is not None:
-                for bnd_marker in self.boundary_markers:
-                    funcs = bnd_conditions.get(bnd_marker)
-                    ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
-                    if funcs is None:
-                        continue
-                    else:
-                        c_in = solution[1]
-                        c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
-                        # add interior tracer flux
-                        f += c_in*(uv[0]*self.normal[0])*self.test[1]*ds_bnd
-                        # add boundary contribution if inflow
-                        uv_av = 0.5*(uv + uv_ext)
-                        un_av = self.normal[0]*uv_av[0]
-                        s = 0.5*(sign(un_av) + 1.0)
-                        f += (1-s)*(c_ext - c_in)*un_av*self.test[1]*ds_bnd
-        if self.use_symmetric_surf_bnd:
-            f += solution[1]*(uv[0]*self.normal[0])*self.test[1]*ds_surf
-        return -f
-
-
-class VerticalAdvectionTerm_in_VertMom(VertMomentumTerm):
-    r"""
-    Vertical advection term :math:`\partial (w w)/(\partial z)`
-
-    The weak form reads
-
-    .. math::
-        \int_\Omega \frac{\partial (w w)}{\partial z} \phi dx
-        = - \int_\Omega w w \frac{\partial \phi}{\partial z} dx
-        + \int_{\mathcal{I}_v} w^{\text{up}} \text{avg}(w) \text{jump}(\phi n_z) dS
-
-    where the right hand side has been integrated by parts;
-    :math:`\mathcal{I}_v` denotes the set of vertical facets,
-    :math:`n_z` is the vertical projection of the unit normal vector,
-    :math:`w^{\text{up}}` is the
-    upwind value, and :math:`\text{jump}` and :math:`\text{avg}` denote the
-    jump and average operators across the interface.
-
-    In the case of ALE moving mesh we substitute :math:`w` with :math:`w - w_m`,
-    :math:`w_m` being the mesh velocity.
-    """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        w = fields_old.get('w')
-        if w is None:
-            return 0
-        w_mesh = fields_old.get('w_mesh')
-        lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
-
-        if self.horizontal_domain_is_2d:
-            vertvelo = w[2]
-            if w_mesh is not None:
-                vertvelo = w[2] - w_mesh
-            f = 0
-            f += -solution[2]*vertvelo*Dx(self.test[2], 2)*self.dx
-            if self.vertical_dg:
-                w_av = avg(vertvelo)
-                s = 0.5*(sign(w_av*self.normal[2]('-')) + 1.0)
-                c_up = solution[2]('-')*s + solution[2]('+')*(1-s)
-                f += c_up*w_av*jump(self.test[2], self.normal[2])*self.dS_h
-                if self.use_lax_friedrichs:
-                    # Lax-Friedrichs
-                    gamma = 0.5*abs(w_av*self.normal('-')[2])*lax_friedrichs_factor
-                    f += gamma*dot(jump(self.test[2]), jump(solution[2]))*self.dS_h
-            return -f
-
-        # below for horizontal 1D domain
-        vertvelo = w[1]
-        if w_mesh is not None:
-            vertvelo -= w_mesh
-        f = -solution[1]*vertvelo*Dx(self.test[1], 1)*self.dx
-        if self.vertical_dg:
-            w_av = avg(vertvelo)
-            s = 0.5*(sign(w_av*self.normal[1]('-')) + 1.0)
-            c_up = solution[1]('-')*s + solution[1]('+')*(1-s)
-            f += c_up*w_av*jump(self.test[1], self.normal[1])*self.dS_h
-            if self.use_lax_friedrichs:
-                # Lax-Friedrichs
-                gamma = 0.5*abs(w_av*self.normal('-')[1])*lax_friedrichs_factor
-                f += gamma*dot(jump(self.test[1]), jump(solution[1]))*self.dS_h
-        # NOTE Bottom impermeability condition is naturally satisfied by the definition of w
-        # NOTE imex solver fails with this in tracerBox example, also in bb_bar case
-        #f += solution[2]*vertvelo*self.normal[2]*self.test[2]*self.ds_surf
-        return -f
-
-
-class HorizontalViscosityTerm_in_VertMom(VertMomentumTerm):
-    r"""
-    Horizontal Viscosity term :math:`-\nabla_h \cdot (\mu_h \nabla_h w)`
-
-    Using the symmetric interior penalty method the weak form becomes
-
-    .. math::
-        \int_\Omega \nabla_h \cdot (\mu_h \nabla_h T) \phi dx
-        =& -\int_\Omega \mu_h (\nabla_h \phi) \cdot (\nabla_h T) dx \\
-        &+ \int_{\mathcal{I}_h\cup\mathcal{I}_v} \text{jump}(\phi \textbf{n}_h)
-        \cdot \text{avg}(\mu_h \nabla_h T) dS
-        + \int_{\mathcal{I}_h\cup\mathcal{I}_v} \text{jump}(T \textbf{n}_h)
-        \cdot \text{avg}(\mu_h  \nabla \phi) dS \\
-        &- \int_{\mathcal{I}_h\cup\mathcal{I}_v} \sigma \text{avg}(\mu_h) \text{jump}(T \textbf{n}_h) \cdot
-            \text{jump}(\phi \textbf{n}_h) dS
-
-    where :math:`\sigma` is a penalty parameter,
-    see Epshteyn and Riviere (2007).
-
-    Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
-    interior penalty Galerkin methods. Journal of Computational and Applied
-    Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
-    """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        if fields_old.get('viscosity_h') is None:
-            return 0
-
-        viscosity_h = fields_old.get('viscosity_h')
-
-        if self.horizontal_domain_is_2d:
-            diff_tensor = as_matrix([[viscosity_h, 0, 0],
-                                     [0, viscosity_h, 0],
-                                     [0, 0, 0]])
-            grad_test = grad(self.test[2])
-            diff_flux = dot(diff_tensor, grad(solution[2]))
-
-            f = inner(grad_test, diff_flux)*self.dx
-            if self.horizontal_dg:
-                assert self.h_elem_size is not None, 'h_elem_size must be defined'
-                assert self.v_elem_size is not None, 'v_elem_size must be defined'
-                # Interior Penalty method by
-                # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
-                # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
-                # k_max/k_min  - max/min diffusivity
-                # p            - polynomial degree
-                # Theta        - min angle of triangles
-                # assuming k_max/k_min=2, Theta=pi/3
-                # sigma = 6.93 = 3.5*p*(p+1)
-                degree_h, degree_v = self.function_space.ufl_element().degree()
-                # TODO compute elemsize as CellVolume/FacetArea
-                # h = n.D.n where D = diag(h_h, h_h, h_v)
-                elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2) +
-                            self.v_elem_size*self.normal[2]**2)
-                sigma = 5.0*degree_h*(degree_h + 1)/elemsize
-                if degree_h == 0:
-                    sigma = 1.5/elemsize
-                alpha = avg(sigma)
-                ds_interior = (self.dS_h + self.dS_v)
-                f += alpha*inner(jump(self.test[2], self.normal),
-                                 dot(avg(diff_tensor), jump(solution[2], self.normal)))*ds_interior
-                f += -inner(avg(dot(diff_tensor, grad(self.test[2]))),
-                            jump(solution[2], self.normal))*ds_interior
-                f += -inner(jump(self.test[2], self.normal),
-                            avg(dot(diff_tensor, grad(solution[2]))))*ds_interior
-            # symmetric bottom boundary condition
-            # NOTE introduces a flux through the bed - breaks mass conservation
-            f += - inner(diff_flux, self.normal)*self.test[2]*self.ds_bottom
-            f += - inner(diff_flux, self.normal)*self.test[2]*self.ds_surf
-            return -f
-
-        # below for horizontal 1D domain
-        grad_test = Dx(self.test[1], 0)
-        diff_flux = dot(viscosity_h, Dx(solution[1], 0))
-        f = inner(grad_test, diff_flux)*self.dx
-        if self.horizontal_dg:
-            assert self.h_elem_size is not None, 'h_elem_size must be defined'
-            assert self.v_elem_size is not None, 'v_elem_size must be defined'
-            # Interior Penalty method by
-            # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
-            # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
-            # k_max/k_min  - max/min diffusivity
-            # p            - polynomial degree
-            # Theta        - min angle of triangles
-            # assuming k_max/k_min=2, Theta=pi/3
-            # sigma = 6.93 = 3.5*p*(p+1)
-            degree_h, degree_v = self.function_space.ufl_element().degree()
-            # TODO compute elemsize as CellVolume/FacetArea
-            # h = n.D.n where D = diag(h_h, h_h, h_v)
-            elemsize = (self.h_elem_size*(self.normal[0]**2) +
-                        self.v_elem_size*self.normal[1]**2)
-            sigma = 5.0*degree_h*(degree_h + 1)/elemsize
-            if degree_h == 0:
-                sigma = 1.5/elemsize
-            alpha = avg(sigma)
-            ds_interior = (self.dS_h + self.dS_v)
-            f += alpha*inner(jump(self.test[1], self.normal[0]),
-                             dot(avg(viscosity_h), jump(solution[1], self.normal[0])))*ds_interior
-            f += -inner(avg(dot(viscosity_h, Dx(self.test[1], 0))),
-                        jump(solution[1], self.normal[0]))*ds_interior
-            f += -inner(jump(self.test[1], self.normal[0]),
-                        avg(dot(viscosity_h, Dx(solution[1], 0))))*ds_interior
-        # symmetric bottom boundary condition
-        # NOTE introduces a flux through the bed - breaks mass conservation
-        f += - inner(diff_flux, self.normal[0])*self.test[1]*(self.ds_bottom + self.ds_surf)
-        return -f
-
-
-class VerticalViscosityTerm_in_VertMom(VertMomentumTerm):
-    r"""
-    Vertical Viscosity term :math:`-\frac{\partial}{\partial z} \Big(\mu \frac{w}{\partial z}\Big)`
-
-    Using the symmetric interior penalty method the weak form becomes
-
-    .. math::
-        \int_\Omega \frac{\partial}{\partial z} \Big(\mu \frac{w}{\partial z}\Big) \phi dx
-        =& -\int_\Omega \mu \frac{\partial w}{\partial z} \frac{\partial \phi}{\partial z} dz \\
-        &+ \int_{\mathcal{I}_{h}} \text{jump}(\phi n_z) \text{avg}\Big(\mu \frac{\partial w}{\partial z}\Big) dS
-        + \int_{\mathcal{I}_{h}} \text{jump}(w n_z) \text{avg}\Big(\mu \frac{\partial \phi}{\partial z}\Big) dS \\
-        &- \int_{\mathcal{I}_{h}} \sigma \text{avg}(\mu) \text{jump}(w n_z) \cdot
-            \text{jump}(\phi n_z) dS
-
-    where :math:`\sigma` is a penalty parameter,
-    see Epshteyn and Riviere (2007).
-
-    Epshteyn and Riviere (2007). Estimation of penalty parameters for symmetric
-    interior penalty Galerkin methods. Journal of Computational and Applied
-    Mathematics, 206(2):843-872. http://dx.doi.org/10.1016/j.cam.2006.08.029
-    """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        if fields_old.get('viscosity_v') is None:
-            return 0
-
-        viscosity_v = fields_old.get('viscosity_v')
-
-        if self.horizontal_domain_is_2d:
-            grad_test = Dx(self.test[2], 2)
-            diff_flux = dot(viscosity_v, Dx(solution[2], 2))
-
-            f = inner(grad_test, diff_flux)*self.dx
-            if self.vertical_dg:
-                assert self.h_elem_size is not None, 'h_elem_size must be defined'
-                assert self.v_elem_size is not None, 'v_elem_size must be defined'
-                # Interior Penalty method by
-                # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
-                degree_h, degree_v = self.function_space.ufl_element().degree()
-                # TODO compute elemsize as CellVolume/FacetArea
-                # h = n.D.n where D = diag(h_h, h_h, h_v)
-                elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2) +
-                            self.v_elem_size*self.normal[2]**2)
-                sigma = 5.0*degree_v*(degree_v + 1)/elemsize
-                if degree_v == 0:
-                    sigma = 1.0/elemsize
-                alpha = avg(sigma)
-                ds_interior = (self.dS_h)
-                f += alpha*inner(jump(self.test[2], self.normal[2]),
-                                 dot(avg(viscosity_v), jump(solution[2], self.normal[2])))*ds_interior
-                f += -inner(avg(dot(viscosity_v, Dx(self.test[2], 2))),
-                            jump(solution[2], self.normal[2]))*ds_interior
-                f += -inner(jump(self.test[2], self.normal[2]),
-                            avg(dot(viscosity_v, Dx(solution[2], 2))))*ds_interior
-            return -f
-
-        # below for horizontal 1D domain
-        grad_test = Dx(self.test[1], 1)
-        diff_flux = dot(viscosity_v, Dx(solution[1], 1))
-        f = inner(grad_test, diff_flux)*self.dx
-        if self.vertical_dg:
-            assert self.h_elem_size is not None, 'h_elem_size must be defined'
-            assert self.v_elem_size is not None, 'v_elem_size must be defined'
-            # Interior Penalty method by
-            # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
-            degree_h, degree_v = self.function_space.ufl_element().degree()
-            # TODO compute elemsize as CellVolume/FacetArea
-            # h = n.D.n where D = diag(h_h, h_h, h_v)
-            elemsize = (self.h_elem_size*(self.normal[0]**2) +
-                        self.v_elem_size*self.normal[1]**2)
-            sigma = 5.0*degree_v*(degree_v + 1)/elemsize
-            if degree_v == 0:
-                sigma = 1.0/elemsize
-            alpha = avg(sigma)
-            ds_interior = (self.dS_h)
-            f += alpha*inner(jump(self.test[1], self.normal[1]),
-                             dot(avg(viscosity_v), jump(solution[1], self.normal[1])))*ds_interior
-            f += -inner(avg(dot(viscosity_v, Dx(self.test[1], 1))),
-                        jump(solution[1], self.normal[1]))*ds_interior
-            f += -inner(jump(self.test[1], self.normal[1]),
-                        avg(dot(viscosity_v, Dx(solution[1], 1))))*ds_interior
-        return -f
-
-
-class SourceTerm_in_VertMom(VertMomentumTerm):
-    """
-    Generic source term
-
-    The weak form reads
-
-    .. math::
-        F_s = \int_\Omega \sigma \phi dx
-
-    where :math:`\sigma` is a user defined scalar :class:`Function`.
-    """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        f = 0
-        source = fields_old.get('source')
-        if source is not None:
-            if self.horizontal_domain_is_2d:
-                f += inner(source, self.test[2])*self.dx
-            else:
-                f += inner(source, self.test[1])*self.dx
-        return f
-
-
-class VertMomentumEquation(Equation):
-    """
-    Vertical momentum equation in conservative form
-    """
-    def __init__(self, function_space,
-                 bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 use_symmetric_surf_bnd=True, use_lax_friedrichs=True):
-        """
-        :arg function_space: :class:`FunctionSpace` where the solution belongs
-        :kwarg bathymetry: bathymetry of the domain
-        :type bathymetry: 3D :class:`Function` or :class:`Constant`
-        :kwarg v_elem_size: scalar :class:`Function` that defines the vertical
-            element size
-        :kwarg h_elem_size: scalar :class:`Function` that defines the horizontal
-            element size
-        :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
-            condition in the horizontal advection term
-        """
-        super(VertMomentumEquation, self).__init__(function_space)
-
-        args = (function_space, bathymetry,
-                v_elem_size, h_elem_size, use_symmetric_surf_bnd, use_lax_friedrichs)
-        self.add_term(HorizontalAdvectionTerm_in_VertMom(*args), 'explicit')
-        self.add_term(VerticalAdvectionTerm_in_VertMom(*args), 'explicit')
-        self.add_term(HorizontalViscosityTerm_in_VertMom(*args), 'explicit')
-        self.add_term(VerticalViscosityTerm_in_VertMom(*args), 'explicit')
-        self.add_term(SourceTerm_in_VertMom(*args), 'source')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

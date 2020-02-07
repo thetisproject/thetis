@@ -2,15 +2,14 @@
 Module for three dimensional baroclinic solver
 """
 from __future__ import absolute_import
-from ..utility import *
 from . import shallowwater_nh
 from . import landslide_motion
 from . import momentum_nh
 from . import tracer_nh
 from . import sediment_nh
-
-from .. import turbulence
-from .. import coupled_timeintegrator
+from . import coupled_timeintegrator_nh
+from . import turbulence_nh
+from ..utility import *
 from .. import timeintegrator
 from .. import rungekutta
 import thetis.limiter as limiter
@@ -105,6 +104,10 @@ class FlowSolver(FrozenClass):
             extrude_options = {}
         self.mesh = extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, **extrude_options)
         self.horizontal_domain_is_2d = self.mesh2d.geometric_dimension() == 2
+        if self.horizontal_domain_is_2d:
+            self.vert_ind = 2
+        else:
+            self.vert_ind = 1
 
         self.normal_2d = FacetNormal(self.mesh2d)
         self.normal = FacetNormal(self.mesh)
@@ -588,6 +591,7 @@ class FlowSolver(FrozenClass):
         else:
             self.uv_limiter = None
         if self.options.use_turbulence:
+           # assert self.horizontal_domain_is_2d, 'Turbulence model does not support vertical 2D domain temporarily.'
             if self.options.turbulence_model_type == 'gls':
                 # NOTE tke and psi should be in H as tracers ??
                 self.fields.tke_3d = Function(self.function_spaces.turb_space)
@@ -595,16 +599,12 @@ class FlowSolver(FrozenClass):
                 # NOTE other turb. quantities should share the same nodes ??
                 self.fields.eps_3d = Function(self.function_spaces.turb_space)
                 self.fields.len_3d = Function(self.function_spaces.turb_space)
-                if self.options.use_smooth_eddy_viscosity:
-                    self.fields.eddy_visc_3d = Function(self.function_spaces.P1)
-                    self.fields.eddy_diff_3d = Function(self.function_spaces.P1)
-                else:
-                    self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
-                    self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
+                self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
+                self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
                 # NOTE M2 and N2 depend on d(.)/dz -> use CG in vertical ?
                 self.fields.shear_freq_3d = Function(self.function_spaces.turb_space)
                 self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)
-                self.turbulence_model = turbulence.GenericLengthScaleModel(
+                self.turbulence_model = turbulence_nh.GenericLengthScaleModel(
                     weakref.proxy(self),
                     self.fields.tke_3d,
                     self.fields.psi_3d,
@@ -618,15 +618,11 @@ class FlowSolver(FrozenClass):
                     self.fields.shear_freq_3d,
                     options=self.options.turbulence_model_options)
             elif self.options.turbulence_model_type == 'pacanowski':
-                if self.options.use_smooth_eddy_viscosity:
-                    self.fields.eddy_visc_3d = Function(self.function_spaces.P1)
-                    self.fields.eddy_diff_3d = Function(self.function_spaces.P1)
-                else:
-                    self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
-                    self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
+                self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
+                self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
                 self.fields.shear_freq_3d = Function(self.function_spaces.turb_space)
                 self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)
-                self.turbulence_model = turbulence.PacanowskiPhilanderModel(
+                self.turbulence_model = turbulence_nh.PacanowskiPhilanderModel(
                     weakref.proxy(self),
                     self.fields.uv_3d,
                     self.fields.get('density_3d'),
@@ -824,17 +820,9 @@ class FlowSolver(FrozenClass):
         self.eq_ls.bnd_functions = self.bnd_functions['landslide_motion']
 
         ##################################
-        # vertical momentum equation
-        self.eq_momentum_vert = momentum_nh.VertMomentumEquation(self.fields.w_3d.function_space(),
-                                                                 bathymetry=self.fields.bathymetry_3d,
-                                                                 v_elem_size=self.fields.v_elem_size_3d,
-                                                                 h_elem_size=self.fields.h_elem_size_3d,
-                                                                 use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
-                                                                 use_symmetric_surf_bnd=False) # seems False is better for bb_bar case, but not significant
         # sediment transport equation
         if self.options.solve_sediment:
-            assert self.options.solve_sediment == (not self.options.solve_salinity) and \
-                   self.options.solve_sediment == (not self.options.solve_temperature), \
+            assert (not self.options.solve_salinity) and (not self.options.solve_temperature), \
                    'Sediment transport equation is being solved... \
                     Temporarily it is not supported to solve other tracers simultaneously.'
         if self.options.solve_sediment:
@@ -843,7 +831,14 @@ class FlowSolver(FrozenClass):
                                                             v_elem_size=self.fields.v_elem_size_3d,
                                                             h_elem_size=self.fields.h_elem_size_3d,
                                                             use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
-                                                            use_symmetric_surf_bnd=False)
+                                                            use_symmetric_surf_bnd=self.options.element_family == 'dg-dg')
+            if self.options.use_implicit_vertical_diffusion:
+                self.eq_sediment_vdff = sediment_nh.SedimentEquation(self.fields.c_3d.function_space(),
+                                                             bathymetry=self.fields.bathymetry_3d,
+                                                             v_elem_size=self.fields.v_elem_size_3d,
+                                                             h_elem_size=self.fields.h_elem_size_3d,
+                                                             use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
+
         ##################################
 
         expl_bottom_friction = self.options.use_bottom_friction and not self.options.use_implicit_vertical_diffusion
@@ -893,7 +888,6 @@ class FlowSolver(FrozenClass):
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         self.eq_momentum.bnd_functions = self.bnd_functions['momentum']
-        self.eq_momentum_vert.bnd_functions = self.bnd_functions['momentum']
         if self.options.solve_sediment:
             self.eq_sediment.bnd_functions = self.bnd_functions['sediment']
         if self.options.solve_salinity:
@@ -914,12 +908,12 @@ class FlowSolver(FrozenClass):
                                                            h_elem_size=self.fields.h_elem_size_3d,
                                                            use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
             # implicit vertical diffusion eqn with production terms
-            self.eq_tke_diff = turbulence.TKEEquation(self.fields.tke_3d.function_space(),
+            self.eq_tke_diff = turbulence_nh.TKEEquation(self.fields.tke_3d.function_space(),
                                                       self.turbulence_model,
                                                       bathymetry=self.fields.bathymetry_3d,
                                                       v_elem_size=self.fields.v_elem_size_3d,
                                                       h_elem_size=self.fields.h_elem_size_3d)
-            self.eq_psi_diff = turbulence.PsiEquation(self.fields.psi_3d.function_space(),
+            self.eq_psi_diff = turbulence_nh.PsiEquation(self.fields.psi_3d.function_space(),
                                                       self.turbulence_model,
                                                       bathymetry=self.fields.bathymetry_3d,
                                                       v_elem_size=self.fields.v_elem_size_3d,
@@ -929,9 +923,9 @@ class FlowSolver(FrozenClass):
         self.dt_mode = '3d'  # 'split'|'2d'|'3d' use constant 2d/3d dt, or split
         if self.options.timestepper_type == 'LeapFrog':
             raise Exception('Not surpport this time integrator: '+str(self.options.timestepper_type))
-            self.timestepper = coupled_timeintegrator.CoupledLeapFrogAM3(weakref.proxy(self))
+            self.timestepper = coupled_timeintegrator_nh.CoupledLeapFrogAM3(weakref.proxy(self))
         elif self.options.timestepper_type == 'SSPRK22':
-            self.timestepper = coupled_timeintegrator.CoupledTwoStageRK(weakref.proxy(self))
+            self.timestepper = coupled_timeintegrator_nh.CoupledTwoStageRK(weakref.proxy(self))
         else:
             raise Exception('Unknown time integrator type: '+str(self.options.timestepper_type))
 
@@ -1894,7 +1888,7 @@ class FlowSolver(FrozenClass):
                 #print_output('alpha = {:}'.format(self.options.depth_wd_interface.dat.data))
 
             # ----- Self-defined time integrator for layer-integrated NH solver
-            fields = {
+            fields_2d = {
                     'linear_drag_coefficient': self.options.linear_drag_coefficient,
                     'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
                     'manning_drag_coefficient': self.options.manning_drag_coefficient,
@@ -1929,36 +1923,36 @@ class FlowSolver(FrozenClass):
             if self.simulation_time <= t_epsilon:
                 # timestepper for operator splitting in 3D NH solver
                 timestepper_operator_splitting = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
-                                                              fields, self.dt, bnd_conditions=self.bnd_functions['shallow_water'],
+                                                              fields_2d, self.dt, bnd_conditions=self.bnd_functions['shallow_water'],
                                                               solver_parameters=solver_parameters,
                                                               semi_implicit=False,
                                                               theta=0.5)
                 timestepper_operator_splitting_explicit = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
-                                                              fields, self.dt, bnd_conditions=self.bnd_functions['shallow_water'],
+                                                              fields_2d, self.dt, bnd_conditions=self.bnd_functions['shallow_water'],
                                                               solver_parameters=solver_parameters,
                                                               semi_implicit=False,
                                                               theta=0.)
                 timestepper_operator_splitting_implicit = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
-                                                              fields, self.dt, bnd_conditions=self.bnd_functions['shallow_water'],
+                                                              fields_2d, self.dt, bnd_conditions=self.bnd_functions['shallow_water'],
                                                               solver_parameters=solver_parameters,
                                                               semi_implicit=False,
                                                               theta=1.0)
                 # timestepper for depth-integrated NH solver
                 timestepper_depth_integrated = timeintegrator.CrankNicolson(self.eq_sw_nh, self.fields.solution_2d,
-                                                              fields, self.dt,
+                                                              fields_2d, self.dt,
                                                               bnd_conditions=self.bnd_functions['shallow_water'],
                                                               solver_parameters=solver_parameters,
                                                               semi_implicit=False,
                                                               theta=0.5)
                 # timestepper for two-layer NH solvers
-                fields_layer_integrated.update(fields)
+                fields_layer_integrated.update(fields_2d)
                 timestepper_layer_integrated = timeintegrator.CrankNicolson(self.eq_sw_nh, self.fields.solution_2d,
                                                               fields_layer_integrated, self.dt,
                                                               bnd_conditions=self.bnd_functions['shallow_water'],
                                                               solver_parameters=self.options.timestepper_options.solver_parameters_2d_swe,
                                                               semi_implicit=False,
                                                               theta=0.5)
-                fields_layer_difference.update(fields)
+                fields_layer_difference.update(fields_2d)
                 timestepper_layer_difference = timeintegrator.CrankNicolson(self.eq_sw_mom, self.fields.uv_delta,
                                                               fields_layer_difference, self.dt,
                                                               bnd_conditions=self.bnd_functions['shallow_water'],
@@ -1967,26 +1961,26 @@ class FlowSolver(FrozenClass):
                                                               theta=0.5)
                 # timestepper for free surface equation
                 timestepper_free_surface = timeintegrator.CrankNicolson(self.eq_free_surface, self.elev_2d_mid,
-                                                              fields, self.dt,
+                                                              fields_2d, self.dt,
                                                               bnd_conditions=self.bnd_functions['shallow_water'],
                                                               # solver_parameters=solver_parameters,
                                                               semi_implicit=False,
                                                               theta=0.5)
                 timestepper_free_surface_explicit = timeintegrator.CrankNicolson(self.eq_free_surface, self.elev_2d_mid,
-                                                              fields, self.dt,
+                                                              fields_2d, self.dt,
                                                               bnd_conditions=self.bnd_functions['shallow_water'],
                                                               # solver_parameters=solver_parameters,
                                                               semi_implicit=False,
                                                               theta=0.)
                 timestepper_free_surface_implicit = timeintegrator.CrankNicolson(self.eq_free_surface, self.elev_2d_mid,
-                                                              fields, self.dt,
+                                                              fields_2d, self.dt,
                                                               bnd_conditions=self.bnd_functions['shallow_water'],
                                                               # solver_parameters=solver_parameters,
                                                               semi_implicit=False,
                                                               theta=1.0)
                 # timestepper for only elevation gradient term
                 timestepper_mom_2d = timeintegrator.CrankNicolson(self.eq_mom_2d, self.uv_2d_mid,
-                                                              fields, self.dt,
+                                                              fields_2d, self.dt,
                                                               bnd_conditions=self.bnd_functions['shallow_water'],
                                                               # solver_parameters=solver_parameters,
                                                               semi_implicit=False,
@@ -1994,53 +1988,12 @@ class FlowSolver(FrozenClass):
                 # timestepper for granular flow
                 if self.options.landslide and self.options.slide_is_granular:
                     timestepper_granular_flow = timeintegrator.CrankNicolson(self.eq_ls, self.fields.solution_ls,
-                                                              fields, self.dt,
+                                                              fields_2d, self.dt,
                                                               bnd_conditions=self.bnd_functions['landslide_motion'],
                                                               solver_parameters=solver_parameters,
                                                               semi_implicit=False,
                                                               theta=0.5)
                     timestepper_granular_flow.initialize(self.fields.solution_ls)
-                # timestepper for vertical momentum equation
-                fields_3d = {'elev_3d': self.fields.elev_3d,
-                          'int_pg': self.fields.get('int_pg_3d'),
-                          'ext_pg': self.fields.get('ext_pg_3d'),
-                          'uv_3d': self.fields.uv_3d,
-                          'uv_depth_av': self.fields.get('uv_dav_3d'),
-                          'w': self.fields.w_3d,
-                          'w_mesh': self.fields.get('w_mesh_3d'),
-                          'viscosity_h': self.tot_h_visc.get_sum(),
-                          'viscosity_v': self.tot_v_visc.get_sum(), # for not self.options.use_implicit_vertical_diffusion
-                          'source_mom': self.options.momentum_source_3d,
-                          # 'uv_mag': self.fields.uv_mag_3d,
-                          'uv_p1': self.fields.get('uv_p1_3d'),
-                          'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
-                          'coriolis': self.fields.get('coriolis_3d'),
-                          'q_3d': self.fields.q_3d,
-                          'use_pressure_correction': self.options.use_pressure_correction,
-                          'solve_elevation_gradient_separately': self.options.solve_elevation_gradient_separately,
-                          'sponge_damping_3d': self.set_sponge_damping(self.options.sponge_layer_length, self.options.sponge_layer_xstart, alpha=10., sponge_is_2d=False),
-                          'settling_velocity': self.options.settling_velocity,
-                          'sigma_h': self.options.sigma_h,
-                          'sigma_v': self.options.sigma_v,
-                              }
-                timestepper_momentum_vert = timeintegrator.SSPRK22ALE(self.eq_momentum_vert, self.fields.w_3d, 
-                                                              fields_3d, self.dt,
-                                                              bnd_conditions=self.bnd_functions['momentum'],
-                                                              solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
-                timestepper_momentum_vert.initialize(self.fields.w_3d)
-                assert not self.options.use_implicit_vertical_diffusion, 'Being implemented for NH version'
-                fields_3d.update({
-                          'diffusivity_h': self.tot_h_diff.get_sum(),
-                          'diffusivity_v': self.tot_v_diff.get_sum(), # for not self.options.use_implicit_vertical_diffusion
-                          'source_tracer': self.options.salinity_source_3d,
-                          'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
-                              })
-                if self.options.solve_sediment:
-                    timestepper_sediment = timeintegrator.SSPRK22ALE(self.eq_sediment, self.fields.c_3d, 
-                                                                     fields_3d, self.dt,
-                                                                     bnd_conditions=self.bnd_functions['sediment'],
-                                                                     solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
-                    timestepper_sediment.initialize(self.fields.c_3d)
 
             # ----- Construct depth-integrated landslide solver
             if self.options.landslide and (not self.options.slide_is_rigid):
@@ -2127,34 +2080,113 @@ class FlowSolver(FrozenClass):
                 self.bathymetry_cg_2d.project(self.bathymetry_dg)
                 ExpandFunctionTo3d(self.bathymetry_cg_2d, self.fields.bathymetry_3d).solve()
                 n_stages = 2
-                for i_stage in range(n_stages):
-                    # 2D advance
-                    self.uv_averager.solve()
-                    self.extract_surf_dav_uv.solve()
-                    self.fields.uv_2d.assign(self.fields.uv_dav_2d)
-                    self.copy_uv_dav_to_uv_dav_3d.solve()
-                    self.uv_dav_3d_mid.assign(self.fields.uv_dav_3d)
-                    self.timestepper.store_elevation(i_stage)
-                    if i_stage == 1:
-                        timestepper_operator_splitting.advance(self.simulation_time, update_forcings)
-                    #self.timestepper.timesteppers.swe2d.solve_stage(i_stage, self.simulation_time, update_forcings)
-                    # compute mesh velocity
-                    self.timestepper.compute_mesh_velocity(i_stage)
-                    # 3D advance in old mesh
-                    self.timestepper.timesteppers.mom_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
-                    # update mesh
-                    self.copy_elev_to_3d.solve()
-                    if self.options.use_ale_moving_mesh:
-                        self.mesh_updater.update_mesh_coordinates()
-                    # solve 3D
-                    self.timestepper.timesteppers.mom_expl.solve_stage(i_stage)
-                    if self.options.use_limiter_for_velocity:
-                        self.uv_limiter.apply(self.fields.uv_3d)
-                    # correct uv_3d
-                    self.copy_uv_to_uv_dav_3d.solve()
-                    self.fields.uv_3d.project(self.fields.uv_3d - (self.uv_dav_3d_mid - self.fields.uv_dav_3d))
-                    # update w
-                    self.w_solver.solve()
+                if True:
+                    for i_stage in range(n_stages):
+                        ## 2D advance
+                        if i_stage == 1 and self.options.update_free_surface and self.options.solve_elevation_gradient_separately:
+                            self.timestepper.store_elevation(i_stage - 1)
+                            self.uv_averager.solve()
+                            self.extract_surf_dav_uv.solve()
+                            self.fields.uv_2d.assign(self.fields.uv_dav_2d)
+                            self.copy_uv_dav_to_uv_dav_3d.solve()
+                            self.uv_dav_3d_mid.assign(self.fields.uv_dav_3d)
+                            timestepper_operator_splitting.advance(self.simulation_time, update_forcings)
+                            #self.timestepper.timesteppers.swe2d.solve_stage(i_stage, self.simulation_time, update_forcings)
+                            # compute mesh velocity
+                            self.timestepper.compute_mesh_velocity(i_stage - 1)
+
+                        ## 3D advance in old mesh
+                        # salt_eq
+                        if self.options.solve_salinity:
+                            self.timestepper.timesteppers.salt_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
+                        # tmp_eq
+                        if self.options.solve_temperature:
+                            self.timestepper.timesteppers.temp_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
+                        # sediment_eq
+                        if self.options.solve_sediment:
+                            self.timestepper.timesteppers.sediment_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
+                        # turb_advection
+                        if 'psi_expl' in self.timestepper.timesteppers:
+                            self.timestepper.timesteppers.psi_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
+                        if 'tke_expl' in self.timestepper.timesteppers:
+                            self.timestepper.timesteppers.tke_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
+                        # momentum_eq
+                        self.timestepper.timesteppers.mom_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
+
+                        ## update mesh
+                        if self.options.update_free_surface:
+                            self.copy_elev_to_3d.solve()
+                            if self.options.use_ale_moving_mesh:
+                                self.mesh_updater.update_mesh_coordinates()
+
+                        ## solve 3D
+                        # salt_eq
+                        if self.options.solve_salinity:
+                            self.timestepper.timesteppers.salt_expl.solve_stage(i_stage)
+                            if self.options.use_limiter_for_tracers:
+                                self.tracer_limiter.apply(self.fields.salt_3d)
+                        # temp_eq
+                        if self.options.solve_temperature:
+                            self.timestepper.timesteppers.temp_expl.solve_stage(i_stage)
+                            if self.options.use_limiter_for_tracers:
+                                self.tracer_limiter.apply(self.fields.temp_3d)
+                        # sediment_eq
+                        if self.options.solve_sediment:
+                            self.timestepper.timesteppers.sediment_expl.solve_stage(i_stage)
+                            if self.options.use_limiter_for_tracers:
+                                self.tracer_limiter.apply(self.fields.c_3d)
+                        # turb_advection
+                        if 'psi_expl' in self.timestepper.timesteppers:
+                            self.timestepper.timesteppers.psi_expl.solve_stage(i_stage)
+                        if 'tke_expl' in self.timestepper.timesteppers:
+                            self.timestepper.timesteppers.tke_expl.solve_stage(i_stage)
+                        # momentum_eq
+                        self.timestepper.timesteppers.mom_expl.solve_stage(i_stage)
+                        if self.options.use_limiter_for_velocity:
+                            self.uv_limiter.apply(self.fields.uv_3d)
+
+                        last_stage = i_stage == n_stages - 1
+
+                        if last_stage:
+                            ## compute final prognostic variables
+                            # correct uv_3d
+                            if self.options.update_free_surface and self.options.solve_elevation_gradient_separately:
+                                self.copy_uv_to_uv_dav_3d.solve()
+                                self.fields.uv_3d.project(self.fields.uv_3d - (self.uv_dav_3d_mid - self.fields.uv_dav_3d))
+                            if self.options.use_implicit_vertical_diffusion:
+                                if self.options.solve_salinity:
+                                    with timed_stage('impl_salt_vdiff'):
+                                        self.timestepper.timesteppers.salt_impl.advance(self.simulation_time)
+                                if self.options.solve_temperature:
+                                    with timed_stage('impl_temp_vdiff'):
+                                        self.timestepper.timesteppers.temp_impl.advance(self.simulation_time)
+                                if self.options.solve_sediment:
+                                    with timed_stage('impl_sediment_vdiff'):
+                                        self.timestepper.timesteppers.sediment_impl.advance(self.simulation_time)
+                                with timed_stage('impl_mom_vvisc'):
+                                    self.timestepper.timesteppers.mom_impl.advance(self.simulation_time)
+                            ## compute final diagnostic fields
+                            # update baroclinicity
+                            self.timestepper._update_baroclinicity()
+                            # update w
+                            self.fields.uv_3d.dat.data[:, self.vert_ind] = 0. # TODO
+                            self.w_solver.solve()
+                            # update parametrizations
+                            self.timestepper._update_turbulence(self.simulation_time)
+                            self.timestepper._update_bottom_friction()
+                            self.timestepper._update_stabilization_params()
+                            self.fields.uv_3d.dat.data[:, self.vert_ind] = self.fields.w_3d.dat.data[:, self.vert_ind] # TODO
+                        else:
+                            ## update variables that explict solvers depend on
+                            # correct uv_3d
+                          #  self.copy_uv_to_uv_dav_3d.solve()
+                          #  self.fields.uv_3d.project(self.fields.uv_3d - (self.uv_dav_3d_mid - self.fields.uv_dav_3d))
+                            # update baroclinicity
+                            self.timestepper._update_baroclinicity()
+                            # update w
+                            self.fields.uv_3d.dat.data[:, self.vert_ind] = 0. # TODO
+                            self.w_solver.solve()
+                            self.fields.uv_3d.dat.data[:, self.vert_ind] = self.fields.w_3d.dat.data[:, self.vert_ind] # TODO
 
             # --- Non-hydrostatic solver ---
             elif extra_pressure_layer:
@@ -2235,6 +2267,8 @@ class FlowSolver(FrozenClass):
                     bath_2d_to_3d.solve()
 
                 if self.simulation_time <= t_epsilon:
+                    assert self.options.use_pressure_correction is False, \
+                        'Pressure correction method is temporarily implemented in only sigma model.'
                     # solver for the Poisson equation
                     q_3d = self.fields.q_3d
                     fs_q = q_3d.function_space()
@@ -2300,6 +2334,7 @@ class FlowSolver(FrozenClass):
                     bcs = [bc_top]
                     if not self.options.update_free_surface:
                         bcs = []
+                   # bcs.append(DirichletBC(fs_q, 0., 1)) # TODO delete after testing turbidity current case
                     for bnd_marker in self.boundary_markers:
                         func = self.bnd_functions['shallow_water'].get(bnd_marker)
                         ds_bnd = ds_v(int(bnd_marker))
@@ -2332,27 +2367,11 @@ class FlowSolver(FrozenClass):
                     prob_u = LinearVariationalProblem(a_u, l_u, uv_3d)
                     solver_u = LinearVariationalSolver(prob_u)
 
-                    # solver for advancing the momentum equation
-                    a_mom_hori = dot(tri_uv_3d, test_uv_3d)*dx
-                    l_mom_hori = dot(uv_3d, test_uv_3d)*dx + self.dt*self.eq_momentum.residual('all', uv_3d, uv_3d, fields_3d, fields_3d, self.bnd_functions['momentum'])
-                    prob_mom_hori_ssprk = LinearVariationalProblem(a_mom_hori, l_mom_hori, self.uv_3d_mid)
-                    solver_mom_hori_ssprk = LinearVariationalSolver(prob_mom_hori_ssprk, solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
-
-                    a_mom_vert = dot(tri_w_3d, test_w_3d)*dx
-                    l_mom_vert = dot(w_3d, test_w_3d)*dx + self.dt*self.eq_momentum_vert.residual('all', w_3d, w_3d, fields_3d, fields_3d, self.bnd_functions['momentum'])
-                    prob_mom_vert_ssprk = LinearVariationalProblem(a_mom_vert, l_mom_vert, self.w_3d_mid)
-                    solver_mom_vert_ssprk = LinearVariationalSolver(prob_mom_vert_ssprk, solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
-
                 n_stages = 2
-                solve_mom_with_old_pressure = False
-
-                if solve_mom_with_old_pressure:
-                    self.calculate_external_pressure_gradient(pressure='elevation') # update self.fields.ext_pg_3d
-
                 if self.options.use_operator_splitting:
                     for i_stage in range(n_stages):
                         ## 2D advance
-                        if i_stage == 1 and (not solve_mom_with_old_pressure) and self.options.update_free_surface:
+                        if i_stage == 1 and self.options.update_free_surface and self.options.solve_elevation_gradient_separately:
                             self.timestepper.store_elevation(i_stage - 1)
                             self.uv_averager.solve()
                             self.extract_surf_dav_uv.solve()
@@ -2371,18 +2390,16 @@ class FlowSolver(FrozenClass):
                         # tmp_eq
                         if self.options.solve_temperature:
                             self.timestepper.timesteppers.temp_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
+                        # sediment_eq
+                        if self.options.solve_sediment:
+                            self.timestepper.timesteppers.sediment_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
                         # turb_advection
                         if 'psi_expl' in self.timestepper.timesteppers:
                             self.timestepper.timesteppers.psi_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
                         if 'tke_expl' in self.timestepper.timesteppers:
                             self.timestepper.timesteppers.tke_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
-
-                        if self.options.solve_sediment:
-                            timestepper_sediment.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
-
                         # momentum_eq
                         self.timestepper.timesteppers.mom_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
-                        timestepper_momentum_vert.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
 
                         ## update mesh
                         if self.options.update_free_surface:
@@ -2401,30 +2418,27 @@ class FlowSolver(FrozenClass):
                             self.timestepper.timesteppers.temp_expl.solve_stage(i_stage)
                             if self.options.use_limiter_for_tracers:
                                 self.tracer_limiter.apply(self.fields.temp_3d)
+                        # sediment_eq
+                        if self.options.solve_sediment:
+                            self.timestepper.timesteppers.sediment_expl.solve_stage(i_stage)
+                            if self.options.use_limiter_for_tracers:
+                                self.tracer_limiter.apply(self.fields.c_3d)
                         # turb_advection
                         if 'psi_expl' in self.timestepper.timesteppers:
                             self.timestepper.timesteppers.psi_expl.solve_stage(i_stage)
                         if 'tke_expl' in self.timestepper.timesteppers:
                             self.timestepper.timesteppers.tke_expl.solve_stage(i_stage)
-
-                        if self.options.solve_sediment:
-                            timestepper_sediment.solve_stage(i_stage)
-                            if self.options.use_limiter_for_tracers:
-                                self.tracer_limiter.apply(self.fields.c_3d)
-
                         # momentum_eq
                         self.timestepper.timesteppers.mom_expl.solve_stage(i_stage)
-                        timestepper_momentum_vert.solve_stage(i_stage)
                         if self.options.use_limiter_for_velocity:
                             self.uv_limiter.apply(self.fields.uv_3d)
-                            self.uv_limiter.apply(self.fields.w_3d)
 
                         last_stage = i_stage == n_stages - 1
 
                         if last_stage:
                             ## compute final prognostic variables
                             # correct uv_3d
-                            if self.options.update_free_surface:
+                            if self.options.update_free_surface and self.options.solve_elevation_gradient_separately:
                                 self.copy_uv_to_uv_dav_3d.solve()
                                 self.fields.uv_3d.project(self.fields.uv_3d - (self.uv_dav_3d_mid - self.fields.uv_dav_3d))
                             if self.options.use_implicit_vertical_diffusion:
@@ -2434,6 +2448,9 @@ class FlowSolver(FrozenClass):
                                 if self.options.solve_temperature:
                                     with timed_stage('impl_temp_vdiff'):
                                         self.timestepper.timesteppers.temp_impl.advance(self.simulation_time)
+                                if self.options.solve_sediment:
+                                    with timed_stage('impl_sediment_vdiff'):
+                                        self.timestepper.timesteppers.sediment_impl.advance(self.simulation_time)
                                 with timed_stage('impl_mom_vvisc'):
                                     self.timestepper.timesteppers.mom_impl.advance(self.simulation_time)
                             ## compute final diagnostic fields
@@ -2454,22 +2471,18 @@ class FlowSolver(FrozenClass):
                         if last_stage:
                             if self.options.landslide:
                                 slide_source_2d_to_3d.solve()
-                            self.fields.uv_3d.dat.data[:, vert_ind] = self.fields.w_3d.dat.data[:, vert_ind]
                             # solve q_3d
                             solver_q.solve()
                            # solve(a_q==l_q, q_3d)
                             # update uv_3d
                             solver_u.solve()
-                            self.fields.w_3d.dat.data[:, vert_ind] = self.fields.uv_3d.dat.data[:, vert_ind]
-                            self.fields.uv_3d.dat.data[:, vert_ind] = 0.
-        
-                            # update final depth-averaged uv_2d
-                            self.uv_averager.solve()
-                            self.extract_surf_dav_uv.solve()
-                            self.fields.uv_2d.assign(self.fields.uv_dav_2d)
 
                             # update water level elev_2d
                             if self.options.update_free_surface:
+                                # update final depth-averaged uv_2d
+                                self.uv_averager.solve()
+                                self.extract_surf_dav_uv.solve()
+                                self.fields.uv_2d.assign(self.fields.uv_dav_2d)
                                 self.elev_2d_mid.assign(self.elev_2d_old)
                                 timestepper_free_surface.advance(self.simulation_time, update_forcings)
                                 self.fields.elev_2d.assign(self.elev_2d_mid)
@@ -2478,7 +2491,7 @@ class FlowSolver(FrozenClass):
                                 if self.options.use_ale_moving_mesh:
                                     self.mesh_updater.update_mesh_coordinates()
 
-                else: # ssprk in NHWAVE
+                else: # ssprk in NHWAVE TODO change something about ALE due to nh pressure updating free surface
                     for i_stage in range(n_stages):
                         advancing_elev_implicitly = False
                         # 2d advance
@@ -2503,6 +2516,7 @@ class FlowSolver(FrozenClass):
                                 self.fields.elev_2d.assign(self.elev_2d_old)
                                 timestepper_operator_splitting_explicit.advance(self.simulation_time, update_forcings)
                            # self.timestepper.compute_mesh_velocity(i_stage)
+
                         ## 3D advance in old mesh
                         # salt_eq
                         if self.options.solve_salinity:
@@ -2510,6 +2524,9 @@ class FlowSolver(FrozenClass):
                         # tmp_eq
                         if self.options.solve_temperature:
                             self.timestepper.timesteppers.temp_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
+                        # sediment_eq
+                        if self.options.solve_sediment:
+                            self.timestepper.timesteppers.sediment_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
                         # turb_advection
                         if 'psi_expl' in self.timestepper.timesteppers:
                             self.timestepper.timesteppers.psi_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
@@ -2517,7 +2534,6 @@ class FlowSolver(FrozenClass):
                             self.timestepper.timesteppers.tke_expl.prepare_stage(i_stage, self.simulation_time, update_forcings3d)
                         # momentum_eq
                         self.timestepper.timesteppers.mom_expl.prepare_stage_nh(i_stage, self.simulation_time, update_forcings3d)
-                        timestepper_momentum_vert.prepare_stage_nh(i_stage, self.simulation_time, update_forcings3d)
 
                         ## update mesh
                         if self.options.update_free_surface and i_stage == 1:
@@ -2530,10 +2546,6 @@ class FlowSolver(FrozenClass):
           #              self.fields.uv_3d.assign(self.uv_3d_mid)
            #             if self.options.use_limiter_for_velocity:
             #                self.uv_limiter.apply(self.fields.uv_3d)
-             #           solver_mom_vert_ssprk.solve()
-              #          self.fields.w_3d.assign(self.w_3d_mid)
-               #         if self.options.use_limiter_for_velocity:
-                #            self.uv_limiter.apply(self.fields.w_3d)
 
                         ## solve 3D
                         # salt_eq
@@ -2546,6 +2558,11 @@ class FlowSolver(FrozenClass):
                             self.timestepper.timesteppers.temp_expl.solve_stage(i_stage)
                             if self.options.use_limiter_for_tracers:
                                 self.tracer_limiter.apply(self.fields.temp_3d)
+                        # sediment_eq
+                        if self.options.solve_sediment:
+                            self.timestepper.timesteppers.sediment_expl.solve_stage(i_stage)
+                            if self.options.use_limiter_for_tracers:
+                                self.tracer_limiter.apply(self.fields.c_3d)
                         # turb_advection
                         if 'psi_expl' in self.timestepper.timesteppers:
                             self.timestepper.timesteppers.psi_expl.solve_stage(i_stage)
@@ -2553,7 +2570,6 @@ class FlowSolver(FrozenClass):
                             self.timestepper.timesteppers.tke_expl.solve_stage(i_stage)
                         # momentum_eq
                         self.timestepper.timesteppers.mom_expl.solve_stage_nh(i_stage)
-                        timestepper_momentum_vert.solve_stage_nh(i_stage)
                         if self.options.use_limiter_for_velocity:
                             self.uv_limiter.apply(self.fields.uv_3d)
                             self.uv_limiter.apply(self.fields.w_3d)
@@ -2566,18 +2582,14 @@ class FlowSolver(FrozenClass):
                         if self.options.landslide:
                             slide_source_2d_to_3d.solve()
                         # solve q_3d
-                        self.fields.uv_3d.dat.data[:, vert_ind] = self.fields.w_3d.dat.data[:, vert_ind]
                         solver_q.solve()
                        # solve(a_q==l_q, q_3d)
                         # update uv_3d
                         solver_u.solve()
-                        self.fields.w_3d.dat.data[:, vert_ind] = self.fields.uv_3d.dat.data[:, vert_ind]
-                        self.fields.uv_3d.dat.data[:, vert_ind] = 0.
 
                        # l_pg_u = -self.dt/physical_constants['rho0']*(Dx(q_3d, 0)*test_uv_3d[0] + Dx(q_3d, 1)*test_uv_3d[1])*dx
                        # l_pg_w = -self.dt/physical_constants['rho0']*dot(Dx(q_3d, 2), test_uv_3d[2])*dx
                         self.timestepper.timesteppers.mom_expl.solve_pg_nh(i_stage)
-                        timestepper_momentum_vert.solve_pg_nh(i_stage)
 
                         if i_stage == 1:
                            # self.fields.uv_3d.assign(0.5*(self.uv_3d_old + self.fields.uv_3d))
@@ -2589,6 +2601,9 @@ class FlowSolver(FrozenClass):
                                 if self.options.solve_temperature:
                                     with timed_stage('impl_temp_vdiff'):
                                         self.timestepper.timesteppers.temp_impl.advance(self.simulation_time)
+                                if self.options.solve_sediment:
+                                    with timed_stage('impl_sediment_vdiff'):
+                                        self.timestepper.timesteppers.sediment_impl.advance(self.simulation_time)
                                 with timed_stage('impl_mom_vvisc'):
                                     self.timestepper.timesteppers.mom_impl.advance(self.simulation_time)
                             self.timestepper._update_turbulence(self.simulation_time)

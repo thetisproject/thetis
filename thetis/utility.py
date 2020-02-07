@@ -318,10 +318,12 @@ def get_zcoord_from_mesh(zcoord, solver_parameters={}):
     test = TestFunction(fs)
     a = tri*test*dx
     if fs.mesh().geometric_dimension() == 2:
-        l = fs.mesh().coordinates[1]*test*dx
+        vert_ind = 1
     else:
-        l = fs.mesh().coordinates[2]*test*dx
-    solve(a == l, zcoord, solver_parameters=solver_parameters)
+        vert_ind = 2
+   # l = fs.mesh().coordinates[2]*test*dx
+   # solve(a == l, zcoord, solver_parameters=solver_parameters)
+    zcoord.interpolate(fs.mesh().coordinates[vert_ind]) # for mpi running properly, Wei
     return zcoord
 
 
@@ -585,7 +587,7 @@ class DensitySolverSediment(object):
     """
     def __init__(self, concentration, density_p, density_slide, density_water):
         """
-        :arg concentration: sediment volumetric concentration field
+        :arg concentration: sediment concentration field
         :type salinity: :class:`Function`
         :arg density: fluid density field
         :type density: :class:`Function`
@@ -1777,3 +1779,15 @@ def select_and_move_detectors(mesh, detector_locations, detector_names=None,
         return accepted_locations
     else:
         return accepted_locations, accepted_names
+
+
+# only valid for 2d horizontal domain
+def dot_h(a, b):
+    return a[0]*b[0] + a[1]*b[1]
+
+def div_h(a):
+    return Dx(a[0], 0) + Dx(a[1], 1)
+
+def grad_h(a):
+    return as_vector([Dx(a, 0), Dx(a, 1), 0])
+

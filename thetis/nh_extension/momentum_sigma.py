@@ -200,12 +200,12 @@ class PressureGradientTerm(MomentumTerm):
         f = 0
         if self.horizontal_domain_is_2d:
             if int_pg is not None:
-                f += total_h*(int_pg[0]*self.test[0] + int_pg[1]*self.test[1])*self.dx
+                f += (int_pg[0]*self.test[0] + int_pg[1]*self.test[1])*self.dx
             if ext_pg is not None:
                 f += (ext_pg[0]*self.test[0] + ext_pg[1]*self.test[1])*self.dx
         else:
             if int_pg is not None:
-                f += total_h*(int_pg[0]*self.test[0])*self.dx
+                f += (int_pg[0]*self.test[0])*self.dx
             if ext_pg is not None:
                 f += (ext_pg[0]*self.test[0])*self.dx
         return -f
@@ -790,7 +790,7 @@ class SourceTerm(MomentumTerm):
     # TODO implement wind stress as a separate term
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
-        source = fields_old.get('source')
+        source = fields_old.get('source_mom')
         viscosity_v = fields_old.get('viscosity_v')
         wind_stress = fields_old.get('wind_stress')
         if wind_stress is not None and viscosity_v is None:
@@ -835,33 +835,40 @@ class ElevationGradientTerm(MomentumTerm):
             sigma_dz = 1./ (eta + self.bathymetry)
             if q_3d is not None and sigma_dx is not None:
                 if self.horizontal_domain_is_2d:
-                    warning('Temporarily horizontal 1d is not supported for pressure correction method ... ')
+                    sigma_dy = fields_old.get('sigma_dy')
+                    f_q += 1./rho_0*((Dx(q_3d, 0) + Dx(q_3d, 2)*sigma_dx)*self.test[0]
+                                     + (Dx(q_3d, 1) + Dx(q_3d, 2)*sigma_dy)*self.test[1]
+                                     + (Dx(q_3d, 2)*sigma_dz)*self.test[2])*self.dx
                 else:
-                    f_q += 1./rho_0*((Dx(q_3d, 0) + Dx(q_3d, 1)*sigma_dx)*self.test[0] + (Dx(q_3d, 1)*sigma_dz)*self.test[1])*self.dx
-                    f += f_q
+                    f_q += 1./rho_0*((Dx(q_3d, 0) + Dx(q_3d, 1)*sigma_dx)*self.test[0]
+                                     + (Dx(q_3d, 1)*sigma_dz)*self.test[1])*self.dx
         # use operator splitting method, here not including the elevation gradient term
         if fields_old.get('solve_elevation_gradient_separately') is True:
-            return -f
+            return -f_q
 
         if self.horizontal_domain_is_2d:
-            f += -g_grav*eta*(Dx(self.test, 0) + Dx(self.test, 1))*dx
+            f += -g_grav*eta*(Dx(self.test[0], 0) + Dx(self.test[1], 1))*dx
             eta_star = avg(eta) #+ sqrt(avg(total_h)/g_grav)*jump(uv_dav_3d, self.normal)
-            f += g_grav*eta_star*jump(self.test, self.normal)*(self.dS_v + self.dS_h)
-            f += g_grav*eta*dot(self.test, self.normal)*(self.ds_bottom + self.ds_surf)
+            f += g_grav*eta_star*(jump(self.test[0], self.normal[0])
+                                  + jump(self.test[1], self.normal[1]))*(self.dS_v + self.dS_h)
+            f += g_grav*eta*(self.test[0] * self.normal[0] 
+                             + self.test[1] * self.normal[1])*(self.ds_bottom + self.ds_surf)
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
                 if funcs is not None and 'elev3d' in funcs:
                     eta_ext = funcs['elev3d']
                     eta_rie = 0.5*(eta + eta_ext)
-                    f += g_grav*eta_rie*dot(self.test, self.normal)*ds_bnd
+                    f += g_grav*eta_rie*(self.test[0] * self.normal[0] 
+                                         + self.test[1] * self.normal[1])*ds_bnd
                 else:
                     # assume land boundary
-                    f += g_grav*eta*dot(self.test, self.normal)*ds_bnd
+                    f += g_grav*eta*(self.test[0] * self.normal[0] 
+                                     + self.test[1] * self.normal[1])*ds_bnd
             use_cg = False
             if use_cg:
-                f = g_grav*dot(grad(eta), self.test)*self.dx
-                f += f_q
+                f = g_grav*(Dx(eta, 0) * self.test[0] + Dx(eta, 1) * self.test[1])*self.dx
+            f += f_q
             return -f
 
         # below for horizontal 1D domain
@@ -875,14 +882,14 @@ class ElevationGradientTerm(MomentumTerm):
             if funcs is not None and 'elev3d' in funcs:
                 eta_ext = funcs['elev3d']
                 eta_rie = 0.5*(eta + eta_ext)
-                f += g_grav*eta_rie*dot(self.test[0], self.normal[0])*ds_bnd
+                f += g_grav*eta_rie*(self.test[0] * self.normal[0])*ds_bnd
             else:
                 # assume land boundary
-                f += g_grav*eta*dot(self.test[0], self.normal[0])*ds_bnd
+                f += g_grav*eta*(self.test[0] * self.normal[0])*ds_bnd
         use_cg = False
         if use_cg:
-            f = g_grav*dot(Dx(eta, 0), self.test[0])*self.dx
-            f += f_q
+            f = g_grav*(Dx(eta, 0) * self.test[0])*self.dx
+        f += f_q
         return -f
 
 
@@ -918,7 +925,7 @@ class HorizontalAdvectionTerm_in_VertMom(MomentumTerm):
     interface.
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        if fields_old.get('uv_3d') is None:
+        if not self.use_nonlinear_equations:
             return 0
         elev = fields_old['elev_3d']
         uv = solution_old
@@ -946,8 +953,8 @@ class HorizontalAdvectionTerm_in_VertMom(MomentumTerm):
                 # Lax-Friedrichs stabilization
                 if self.use_lax_friedrichs:
                     if uv_p1 is not None:
-                        gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
-                                         avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
+                        gamma = 0.5*abs(avg(uv_p1)[0]*self.normal('-')[0] +
+                                         avg(uv_p1)[1]*self.normal('-')[1])*lax_friedrichs_factor
                     elif uv_mag is not None:
                         gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
                     else:
@@ -1039,10 +1046,11 @@ class VerticalAdvectionTerm_in_VertMom(MomentumTerm):
     :math:`w_m` being the mesh velocity.
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-
+        if not self.use_nonlinear_equations:
+            return 0
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
 
-        uv_3d = solution
+       # uv_3d = solution
        # w = fields_old.get('w')
        # eta = fields_old.get('elev_3d')
        # bath = self.bathymetry
@@ -1387,6 +1395,10 @@ class InternalPressureGradientCalculator(MomentumTerm):
         solution = self.fields.int_pg_3d
         fields = {
             'baroc_head': self.fields.baroc_head_3d,
+            'sigma_dx': self.fields.sigma_dx,
+            'sigma_dy': self.fields.sigma_dy,
+            'elev_3d': self.fields.elev_3d,
+            'bath_3d': self.fields.bathymetry_3d,
         }
         l = -self.residual(solution, solution, fields, fields,
                            bnd_conditions=bnd_functions)
@@ -1410,17 +1422,29 @@ class InternalPressureGradientCalculator(MomentumTerm):
 
         by_parts = element_continuity(bhead.function_space().ufl_element()).horizontal == 'dg'
 
+        sigma_dx = fields_old.get('sigma_dx')
+        eta = fields_old.get('elev_3d')
+        bath = fields_old.get('bath_3d')
+        total_h = eta + bath
+        bhead = bhead*total_h
+
         if self.horizontal_domain_is_2d:
+            sigma_dy = fields_old.get('sigma_dy')
             if by_parts:
                 div_test = (Dx(self.test[0], 0) + Dx(self.test[1], 1))
-                f = -g_grav*bhead*div_test*self.dx
+                div_test_sigma = (Dx(sigma_dx*self.test[0], 2) + Dx(sigma_dy*self.test[1], 2))
+                f = -g_grav*bhead*(div_test + div_test_sigma)*self.dx
                 head_star = avg(bhead)
-                jump_n_dot_test = (jump(self.test[0], self.normal[0]) +
-                                   jump(self.test[1], self.normal[1]))
-                f += g_grav*head_star*jump_n_dot_test*(self.dS_v + self.dS_h)
-                n_dot_test = (self.normal[0]*self.test[0] +
-                              self.normal[1]*self.test[1])
-                f += g_grav*bhead*n_dot_test*(self.ds_bottom + self.ds_surf)
+                jump_n_dot_test = (jump(self.test[0], self.normal[0])
+                                   + jump(self.test[1], self.normal[1]))
+                jump_n_dot_test_sigma = (jump(sigma_dx*self.test[0], self.normal[2])
+                                         + jump(sigma_dy*self.test[1], self.normal[2]))
+                f += g_grav*head_star*(jump_n_dot_test + jump_n_dot_test_sigma)*(self.dS_v + self.dS_h)
+                n_dot_test = (self.normal[0]*self.test[0]
+                              + self.normal[1]*self.test[1])
+                n_dot_test_sigma = (sigma_dx*self.normal[2]*self.test[0]
+                                    + sigma_dy*self.normal[2]*self.test[1])
+                f += g_grav*bhead*(n_dot_test + n_dot_test_sigma)*(self.ds_bottom + self.ds_surf)
                 for bnd_marker in self.boundary_markers:
                     funcs = bnd_conditions.get(bnd_marker)
                     ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
@@ -1432,22 +1456,24 @@ class InternalPressureGradientCalculator(MomentumTerm):
                             head_star = 0.5*(head_ext + head_in)
                         else:
                             head_star = bhead
-                        f += g_grav*head_star*n_dot_test*ds_bnd
+                        f += g_grav*head_star*(n_dot_test + n_dot_test_sigma)*ds_bnd
             else:
                 grad_head_dot_test = (Dx(bhead, 0)*self.test[0] +
                                       Dx(bhead, 1)*self.test[1])
-                f = g_grav * grad_head_dot_test * self.dx
+                grad_head_dot_test_sigma = (Dx(bhead, 2)*sigma_dx*self.test[0] +
+                                            Dx(bhead, 2)*sigma_dy*self.test[1])
+                f = g_grav * (grad_head_dot_test + grad_head_dot_test_sigma) * self.dx
             return -f
 
         # below for horizontal 1D domain
         if by_parts:
-            div_test = (Dx(self.test[0], 0))
-            f = -g_grav*bhead*div_test*self.dx
-            head_star = avg(bhead)
-            jump_n_dot_test = (jump(self.test[0], self.normal[0]))
-            f += g_grav*head_star*jump_n_dot_test*(self.dS_v + self.dS_h)
+            f = -g_grav*bhead*Dx(self.test[0], 0)*self.dx \
+                - g_grav*bhead*Dx(sigma_dx*self.test[0], 1)*self.dx
+            f += g_grav*avg(bhead)*jump(self.test[0], self.normal[0])*(self.dS_v + self.dS_h) \
+                 + g_grav*avg(bhead)*jump(sigma_dx*self.test[0], self.normal[1])*(self.dS_v + self.dS_h)
             n_dot_test = (self.normal[0]*self.test[0])
-            f += g_grav*bhead*n_dot_test*(self.ds_bottom + self.ds_surf)
+            n_dot_test_sigma = (sigma_dx*self.normal[1]*self.test[0])
+            f += g_grav*bhead*(n_dot_test + n_dot_test_sigma)*(self.ds_bottom + self.ds_surf)
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
@@ -1459,9 +1485,10 @@ class InternalPressureGradientCalculator(MomentumTerm):
                         head_star = 0.5*(head_ext + head_in)
                     else:
                         head_star = bhead
-                    f += g_grav*head_star*n_dot_test*ds_bnd
+                    f += g_grav*head_star*(n_dot_test + n_dot_test_sigma)*ds_bnd
         else:
             grad_head_dot_test = (Dx(bhead, 0)*self.test[0])
-            f = g_grav * grad_head_dot_test * self.dx
+            grad_head_dot_test_sigma = (Dx(bhead, 1)*sigma_dx*self.test[0])
+            f = g_grav * (grad_head_dot_test + grad_head_dot_test_sigma) * self.dx
         return -f
 

@@ -31,6 +31,14 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
     }).tag(config=True)
     use_semi_implicit_linearization = Bool(
         False, help="Use linearized semi-implicit time integration").tag(config=True)
+    # added by Wei, TODO find a clearer way
+    solver_parameters_momentum = PETScSolverParameters({
+        'snes_type': 'ksponly',
+        'ksp_type': 'preonly',
+        'pc_type': 'bjacobi',
+        'sub_ksp_type': 'preonly',
+        'sub_pc_type': 'ilu',
+    }).tag(config=True)
 
 
 class SteadyStateTimestepperOptions2d(TimeStepperOptions):
@@ -476,13 +484,15 @@ class CommonModelOptions(FrozenConfigurable):
     horizontal_diffusivity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
 
-    # Below is for non-hydrostatic (nh) extension that Wei is adding
+
+    # Below is for non-hydrostatic (nh) extension that Wei is adding 
+    # TODO move to a specific nh Options class
     use_pressure_correction = Bool(
         False, help=r"""bool: Use pressure correction method.
         If ``False``, pressure projection method is used.
         """).tag(config=True)
     use_operator_splitting = Bool(
-        not False, help=r"""bool: Use operator splitting method.
+        True, help=r"""bool: Use operator splitting method.
         If ``False``, switching to standard ssprk used in FUNWAVE.
         """).tag(config=True)
     solve_elevation_gradient_separately = Bool(
@@ -490,10 +500,9 @@ class CommonModelOptions(FrozenConfigurable):
         If ``False``, solving 3D equations with elevation gradient term included directly like NHWAVE does.
         """).tag(config=True)
     update_free_surface = Bool(
-        True, help=r"""bool: Solve free surface equation and update 2D elevation.
+        not True, help=r"""bool: Solve free surface equation and update 2D elevation.
         If ``False``, not solving free surface equation, e.g. rigid free surface in lock exchange case.
         """).tag(config=True)
-
     use_wetting_and_drying = Bool(
         False, help=r"""bool: Turn on wetting and drying
 
@@ -554,13 +563,13 @@ class CommonModelOptions(FrozenConfigurable):
     landslide = Bool(False, help=r"""bool: if True, landslide motion solved""").tag(config=True)
     slide_is_rigid = Bool(True, help=r"""bool: if True, slide is rigid, not deformable slide""").tag(config=True)
     slide_is_granular = Bool(True, help=r"""bool: if True, granular slide flow, else: laminar fluid""").tag(config=True)
-    rho_water = NonNegativeFloat(1000.0, help="Density of water. Unit is kg m-3").tag(config=True)
-    rho_slide = NonNegativeFloat(2000.0, help="Density of slide. Unit is kg m-3").tag(config=True)
+    rho_water = NonNegativeFloat(1000., help="Density of water. Unit is kg m-3").tag(config=True)
+    rho_slide = NonNegativeFloat(2650., help="Density of slide. Unit is kg m-3").tag(config=True)
     slide_viscosity = NonNegativeFloat(0.01, help="Horizontal viscosity for landslide motion equations").tag(config=True)
-    t_landslide = PositiveFloat(1000.0, help="Slide motion only for a limited time in seconds").tag(config=True)
+    t_landslide = PositiveFloat(1000., help="Slide motion only for a limited time in seconds").tag(config=True)
 
-    rho_1 = NonNegativeFloat(1.0, help="Density of lighter phase fluid. Unit is kg m-3").tag(config=True)
-    rho_2 = NonNegativeFloat(1000.0, help="Density of heavier phase fluid. Unit is kg m-3").tag(config=True)
+    rho_1 = NonNegativeFloat(1., help="Density of lighter phase fluid. Unit is kg m-3").tag(config=True)
+    rho_2 = NonNegativeFloat(1000., help="Density of heavier phase fluid. Unit is kg m-3").tag(config=True)
     nu_1 = NonNegativeFloat(1.E-6, help="Viscosity of lighter phase fluid. Unit is m2 s-1").tag(config=True)
     nu_2 = NonNegativeFloat(1.E-3, help="Viscosity of heavier phase fluid. Unit is m2 s-1").tag(config=True)
 
@@ -578,6 +587,8 @@ class CommonModelOptions(FrozenConfigurable):
         Constant(1.), help=r"""
         Vertical Schmidt numbers for sediment, taken as 0.5 ~ 1.0.
         """).tag(config=True)
+    sediment_source_3d = FiredrakeScalarExpression(
+        None, allow_none=True, help="Source term for sediment equation").tag(config=True)
 
 
 # NOTE all parameters are now case sensitive

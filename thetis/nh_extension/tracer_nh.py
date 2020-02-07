@@ -145,25 +145,19 @@ class HorizontalAdvectionTerm(TracerTerm):
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
 
         if self.horizontal_domain_is_2d:
-            f = -solution*inner(uv, nabla_grad(self.test))*self.dx
+            f = -solution*dot_h(uv, grad_h(self.test))*self.dx
             if self.horizontal_dg:
                 # add interface term
                 uv_av = avg(uv)
-                un_av = (uv_av[0]*self.normal('-')[0] +
-                         uv_av[1]*self.normal('-')[1])
+                un_av = dot_h(uv_av, self.normal('-'))
                 s = 0.5*(sign(un_av) + 1.0)
                 c_up = solution('-')*s + solution('+')*(1-s)
                 f += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
-                           uv_av[1]*jump(self.test, self.normal[1]) +
-                           uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_v)
-                f += c_up*(uv_av[0]*jump(self.test, self.normal[0]) +
-                           uv_av[1]*jump(self.test, self.normal[1]) +
-                           uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_h)
+                           uv_av[1]*jump(self.test, self.normal[1]))*(self.dS_v + self.dS_h)
                 # Lax-Friedrichs stabilization
                 if self.use_lax_friedrichs:
                     if uv_p1 is not None:
-                        gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
-                                         avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
+                        gamma = 0.5*abs(dot_h(avg(uv_p1), self.normal('-')))*lax_friedrichs_factor
                     elif uv_mag is not None:
                         gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
                     else:
@@ -251,7 +245,7 @@ class VerticalAdvectionTerm(TracerTerm):
     :math:`w_m` being the mesh velocity.
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        w = fields_old.get('w')
+        w = fields_old.get('uv_3d')
         if w is None:
             return 0
         w_mesh = fields_old.get('w_mesh')
@@ -326,8 +320,8 @@ class HorizontalDiffusionTerm(TracerTerm):
             diff_tensor = as_matrix([[diffusivity_h, 0, 0],
                                      [0, diffusivity_h, 0],
                                      [0, 0, 0]])
-            grad_test = grad(self.test)
-            diff_flux = dot(diff_tensor, grad(solution))
+            grad_test = grad_h(self.test)
+            diff_flux = dot(diff_tensor, grad_h(solution))
             f = inner(grad_test, diff_flux)*self.dx
             if self.horizontal_dg:
                 assert self.h_elem_size is not None, 'h_elem_size must be defined'
@@ -353,10 +347,10 @@ class HorizontalDiffusionTerm(TracerTerm):
                 ds_interior = (self.dS_h + self.dS_v)
                 f += alpha*inner(jump(self.test, self.normal),
                                  dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
-                f += -inner(avg(dot(diff_tensor, grad(self.test))),
+                f += -inner(avg(dot(diff_tensor, grad_h(self.test))),
                             jump(solution, self.normal))*ds_interior
                 f += -inner(jump(self.test, self.normal),
-                            avg(dot(diff_tensor, grad(solution))))*ds_interior
+                            avg(dot(diff_tensor, grad_h(solution))))*ds_interior
             # symmetric bottom boundary condition
             # NOTE introduces a flux through the bed - breaks mass conservation
             f += - inner(diff_flux, self.normal)*self.test*self.ds_bottom
@@ -496,7 +490,7 @@ class SourceTerm(TracerTerm):
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
-        source = fields_old.get('source')
+        source = fields_old.get('source_tracer')
         if source is not None:
             f += inner(source, self.test)*self.dx
         return f

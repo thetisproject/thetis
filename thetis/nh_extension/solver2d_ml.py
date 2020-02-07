@@ -1052,7 +1052,6 @@ class FlowSolver(FrozenClass):
                 solver_q = NonlinearVariationalSolver(prob, solver_parameters={'snes_type': 'ksponly', # ksponly, newtonls
                                                                                'ksp_type': 'preonly', # gmres, preonly
                                                                                'mat_type': 'aij',
-                                                                               'snes_monitor': False,
                                                                                'pc_type': 'lu'})
 
         else:

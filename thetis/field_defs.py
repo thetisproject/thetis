@@ -422,8 +422,8 @@ field_metadata['omega'] = {
     'filename': 'Omega',
 }
 field_metadata['c_3d'] = {
-    'name': 'Sediment volumetric concentration',
-    'shortname': 'Sediment volumetric concentration',
+    'name': 'Sediment concentration',
+    'shortname': 'Sediment',
     'unit': '-',
     'filename': 'Concentration3d',
 }

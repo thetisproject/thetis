@@ -2,13 +2,13 @@
 Module for vertical two dimensional solver in sigma mesh
 """
 from __future__ import absolute_import
-from ..utility import *
 from . import shallowwater_nh
 from . import landslide_motion
 from . import momentum_sigma
 from . import tracer_sigma
+from . import coupled_timeintegrator_nh
+from ..utility import *
 from .. import turbulence
-from .. import coupled_timeintegrator
 from .. import timeintegrator
 from .. import rungekutta
 import thetis.limiter as limiter
@@ -595,12 +595,8 @@ class FlowSolver(FrozenClass):
                 # NOTE other turb. quantities should share the same nodes ??
                 self.fields.eps_3d = Function(self.function_spaces.turb_space)
                 self.fields.len_3d = Function(self.function_spaces.turb_space)
-                if self.options.use_smooth_eddy_viscosity:
-                    self.fields.eddy_visc_3d = Function(self.function_spaces.P1)
-                    self.fields.eddy_diff_3d = Function(self.function_spaces.P1)
-                else:
-                    self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
-                    self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
+                self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
+                self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
                 # NOTE M2 and N2 depend on d(.)/dz -> use CG in vertical ?
                 self.fields.shear_freq_3d = Function(self.function_spaces.turb_space)
                 self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)
@@ -898,9 +894,9 @@ class FlowSolver(FrozenClass):
         self.dt_mode = '3d'  # 'split'|'2d'|'3d' use constant 2d/3d dt, or split
         if self.options.timestepper_type == 'LeapFrog':
             raise Exception('Not surpport this time integrator: '+str(self.options.timestepper_type))
-            self.timestepper = coupled_timeintegrator.CoupledLeapFrogAM3(weakref.proxy(self))
+            self.timestepper = coupled_timeintegrator_nh.CoupledLeapFrogAM3(weakref.proxy(self))
         elif self.options.timestepper_type == 'SSPRK22':
-            self.timestepper = coupled_timeintegrator.CoupledTwoStageRK(weakref.proxy(self))
+            self.timestepper = coupled_timeintegrator_nh.CoupledTwoStageRK(weakref.proxy(self))
         else:
             raise Exception('Unknown time integrator type: '+str(self.options.timestepper_type))
 
@@ -1878,6 +1874,7 @@ class FlowSolver(FrozenClass):
                           'coriolis': self.fields.get('coriolis_3d'),
                           'sigma_dt': self.fields.sigma_dt,
                           'sigma_dx': self.fields.sigma_dx,
+                          'sigma_dy': self.fields.sigma_dy,
                           'omega': self.fields.omega,
                           'q_3d': self.fields.q_3d,
                           'use_pressure_correction': self.options.use_pressure_correction,
@@ -1954,6 +1951,8 @@ class FlowSolver(FrozenClass):
 
                 n_stages = 2
                 if self.options.use_operator_splitting:
+                    assert self.options.solve_elevation_gradient_separately is True, \
+                        'Use operator splitting needs solving elevation gradient separately!'
                     for i_stage in range(n_stages):
                         # 2d advance
                         advancing_elev_once = True
