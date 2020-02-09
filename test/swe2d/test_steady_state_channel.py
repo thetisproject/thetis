@@ -10,7 +10,7 @@ def test_steady_state_channel(do_export=False):
     mesh2d = RectangleMesh(10, 1, lx, ly)
 
     # bathymetry
-    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    p1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name="bathymetry")
     bathymetry_2d.assign(100.0)
 

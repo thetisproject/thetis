@@ -173,7 +173,7 @@ The free surface and momentum equations then become:
 
 """
 from __future__ import absolute_import
-from thetis.utility import *
+from .utility_nh import *
 from thetis.equation import Term, Equation
 
 __all__ = [
@@ -275,7 +275,7 @@ class ShallowWaterTerm(Term):
         """
         H = self.bathymetry + eta
         #return 0.5 * (sqrt(H ** 2 + self.options.wetting_and_drying_alpha ** 2) - H)
-        return 2 * self.options.depth_wd_interface**2 / (2 * self.options.depth_wd_interface + abs(H)) + 0.5 * (abs(H) - H) # formulated newly, Wei
+        return 2 * self.options.depth_wd_interface**2 / (2 * self.options.depth_wd_interface + abs(H)) + 0.5 * (abs(H) - H) # formulated newly, WPan
 
     def get_total_depth(self, eta):
         """
@@ -1188,7 +1188,7 @@ class LandslideTerm(ShallowWaterContinuityTerm):
     r"""
     Divergence term, :math:`2/3 \nabla \cdot (D \bar{\textbf{u_s}})` 'H' is replaced by 'D', and '2/3' added
     """
-    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, total_h, bnd_conditions=None): # Wei
+    def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, total_h, bnd_conditions=None): # WPan
 
         const = 2./3.
 
@@ -1211,7 +1211,7 @@ class LandslideTerm(ShallowWaterContinuityTerm):
                     total_h_ext = self.get_total_depth(eta_ext_old)
                     h_av = 0.5*(total_h + total_h_ext)
                     eta_jump = eta - eta_ext
-                    un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h_av)*eta_jump # explore further? Wei. 
+                    un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h_av)*eta_jump # explore further? WPan. 
 
                     un_jump = inner(uv_old - uv_ext_old, self.normal)
                     eta_rie = 0.5*(eta_old + eta_ext_old) + sqrt(h_av/g_grav)*un_jump
@@ -1222,7 +1222,7 @@ class LandslideTerm(ShallowWaterContinuityTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is None or 'un' in funcs: # probably for 'None', on wall, dot(uv, self.normal) absolutely = 0, so 'None' can be cancelled, Wei; maybe 'uv' also should be added 
+                if funcs is None or 'un' in funcs: # probably for 'None', on wall, dot(uv, self.normal) absolutely = 0, so 'None' can be cancelled, WPan; maybe 'uv' also should be added 
                     f += -const*total_h*dot(uv, self.normal)*self.eta_test*ds_bnd
 
         if self.horizontal_domain_is_2d:
@@ -1540,7 +1540,7 @@ class MomentumEquation2D(BaseShallowWaterEquation):
         self.add_momentum_terms(u_test, u_space, eta_space,
                                 bathymetry, options)
 
-    def add_momentum_terms(self, *args): # Note Wei adds
+    def add_momentum_terms(self, *args): # Note WPan adds
         self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
        # self.add_term(CoriolisTerm(*args), 'explicit')
        # self.add_term(MomentumSourceTerm(*args), 'source')

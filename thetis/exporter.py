@@ -25,10 +25,10 @@ def get_visu_space(fs):
     family = 'Lagrange' if is_cg(fs) else 'Discontinuous Lagrange'
     if is_vector:
         dim = fs.ufl_element().value_shape()[0]
-        visu_fs = VectorFunctionSpace(mesh, family, 1,
-                                      vfamily=family, vdegree=1, dim=dim)
+        visu_fs = get_functionspace(mesh, family, 1, family, 1,
+                                    vector=True, dim=dim)
     else:
-        visu_fs = FunctionSpace(mesh, family, 1, vfamily=family, vdegree=1)
+        visu_fs = get_functionspace(mesh, family, 1, family, 1)
     # make sure that you always get the same temp work function
     visu_fs.max_work_functions = 1
     return visu_fs
@@ -305,12 +305,13 @@ class ExportManager(object):
         """
         if is_2d(fs):
             if self.coords_dg_2d is None:
-                coord_fs = VectorFunctionSpace(fs.mesh(), 'DG', 1, name='P1DGv_2d')
+                coord_fs = get_functionspace(fs.mesh(), 'DG', 1, vector=True,
+                                             name='P1DGv_2d')
                 self.coords_dg_2d = Function(coord_fs, name='coordinates 2d dg')
             return self.coords_dg_2d
         if self.coords_dg_3d is None:
-            coord_fs = VectorFunctionSpace(fs.mesh(), 'DG', 1,
-                                           vfamily='DG', vdegree=1, name='P1DGv')
+            coord_fs = get_functionspace(fs.mesh(), 'DG', 1, vector=True,
+                                         name='P1DGv')
             self.coords_dg_3d = Function(coord_fs, name='coords 3d dg')
         return self.coords_dg_3d
 

@@ -32,7 +32,7 @@ def run(refinement=1, ncycles=2, **kwargs):
     print_output('Number of layers {:}'.format(n_layers))
 
     # bathymetry
-    P1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    P1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(P1_2d, name='Bathymetry')
     bathymetry_2d.assign(depth)
 

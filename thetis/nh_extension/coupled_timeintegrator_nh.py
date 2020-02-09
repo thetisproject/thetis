@@ -270,7 +270,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 bnd_conditions=solver.bnd_functions['momentum'],
                 solver_parameters=self.options.timestepper_options.solver_parameters_momentum_implicit)
 
-    def _create_sediment_integrator(self): # note here added newly, Wei 2019-11-14
+    def _create_sediment_integrator(self): # WPan added, 2019-11-14
         """
         Create time integrator for sediment equation
         """
@@ -435,7 +435,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         """
         self._create_swe_integrator()
         self._create_mom_integrator()
-        self._create_sediment_integrator() # note here added newly, Wei 2019-11-14
+        self._create_sediment_integrator() # WPan added, 2019-11-14
         self._create_salt_integrator()
         self._create_temp_integrator()
         self._create_turb_integrator()
@@ -472,7 +472,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         self.timesteppers.mom_expl.initialize(self.fields.uv_3d)
         if self.options.use_implicit_vertical_diffusion:
             self.timesteppers.mom_impl.initialize(self.fields.uv_3d)
-        if self.options.solve_sediment: # note here added newly, Wei 2019-11-14
+        if self.options.solve_sediment: # WPan added, 2019-11-14
             self.timesteppers.sediment_expl.initialize(self.fields.c_3d)
             if self.options.use_implicit_vertical_diffusion:
                 self.timesteppers.sediment_impl.initialize(self.fields.c_3d)

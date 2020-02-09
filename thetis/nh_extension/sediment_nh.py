@@ -16,7 +16,7 @@ where :math:`\nabla_h` denotes horizontal gradient, :math:`\textbf{u}` and
 :math:`\mu_h` and :math:`\mu` denote horizontal and vertical diffusivity.
 """
 from __future__ import absolute_import
-from thetis.utility import *
+from .utility_nh import *
 from thetis.equation import Term, Equation
 
 __all__ = [

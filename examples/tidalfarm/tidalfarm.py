@@ -66,7 +66,7 @@ options.quadratic_drag_coefficient = Constant(0.0025)
 left_tag = 1
 right_tag = 2
 coasts_tag = 3
-tidal_elev = Function(FunctionSpace(mesh2d, "CG", 1), name='tidal_elev')
+tidal_elev = Function(get_functionspace(mesh2d, "CG", 1), name='tidal_elev')
 tidal_elev_bc = {'elev': tidal_elev}
 # noslip currently doesn't work (vector Constants are broken in firedrake_adjoint)
 freeslip_bc = {'un': Constant(0.0)}
@@ -88,7 +88,7 @@ def update_forcings(t):
 
 
 # a density function (to be optimised below) that specifies the number of turbines per unit area
-turbine_density = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_density')
+turbine_density = Function(get_functionspace(mesh2d, "CG", 1), name='turbine_density')
 # associate subdomain_id 2 (as in dx(2)) with a tidal turbine farm
 # (implemented via a drag term) with specified turbine density
 # Turbine characteristic can be specified via:
@@ -115,7 +115,7 @@ turbine_density.assign(0.0)
 # These nonzero values outside the farm itself do not contribute in any of the
 # computations. For visualisation purposes we therefore project to a DG field
 # restricted to the farm.
-farm_density = Function(FunctionSpace(mesh2d, "DG", 1), name='farm_density')
+farm_density = Function(get_functionspace(mesh2d, "DG", 1), name='farm_density')
 projector = SubdomainProjector(turbine_density, farm_density, 2)
 projector.project()
 

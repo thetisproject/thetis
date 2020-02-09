@@ -310,9 +310,8 @@ field_metadata['hcc_metric_3d'] = {
     'unit': '-',
     'filename': 'HCCMetric3d',
 }
-#############################
-# Below is for non-hydrostatic (nh) extension that Wei is adding
-#############################
+
+# Below is for non-hydrostatic (nh) extension that WPan is adding
 field_metadata['q_3d'] = {
     'name': 'Non-hydrostatic pressure',
     'shortname': 'NH pressure',

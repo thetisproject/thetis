@@ -34,7 +34,7 @@ def compute_l2_error(refinement=1, quadratic=False, no_exports=True):
     layers = 3*refinement
 
     # bathymetry
-    P1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    P1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(P1_2d, name='Bathymetry')
 
     xy = SpatialCoordinate(mesh2d)
@@ -48,15 +48,15 @@ def compute_l2_error(refinement=1, quadratic=False, no_exports=True):
     mesh.boundary_len = bnd_len
 
     # make function spaces and fields
-    p1 = FunctionSpace(mesh, 'CG', 1)
+    p1 = get_functionspace(mesh, 'CG', 1)
     if quadratic:
         # NOTE for 3rd order convergence both the scalar and grad must be p2
-        fs_pg = VectorFunctionSpace(mesh, 'DG', 2, vfamily='CG', vdegree=2, dim=2)
-        fs_scalar = FunctionSpace(mesh, 'DG', 2, vfamily='CG', vdegree=2)
+        fs_pg = get_functionspace(mesh, 'DG', 2, 'CG', 2, vector=True, dim=2)
+        fs_scalar = get_functionspace(mesh, 'DG', 2, vfamily='CG', vdegree=2)
     else:
         # the default function spaces in Thetis
-        fs_pg = VectorFunctionSpace(mesh, 'DG', 1, vfamily='CG', vdegree=2, dim=2)
-        fs_scalar = FunctionSpace(mesh, 'DG', 1, vfamily='CG', vdegree=2)
+        fs_pg = get_functionspace(mesh, 'DG', 1, 'CG', 2, vector=True, dim=2)
+        fs_scalar = get_functionspace(mesh, 'DG', 1, vfamily='CG', vdegree=2)
 
     density_3d = Function(fs_scalar, name='density')
     baroc_head_3d = Function(fs_scalar, name='baroclinic head')

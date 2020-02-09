@@ -31,7 +31,7 @@ if os.getenv('THETIS_REGRESSION_TEST') is not None:
     t_end = 5*t_export
 
 # bathymetry
-P1_2d = FunctionSpace(mesh2d, 'CG', 1)
+P1_2d = get_functionspace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
 
 depth_max = 20.0

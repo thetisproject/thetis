@@ -113,6 +113,29 @@ class FieldDict(AttrDict):
         super(FieldDict, self).__setattr__(key, value)
 
 
+def get_functionspace(mesh, h_family, h_degree, v_family=None, v_degree=None,
+                      vector=False, hdiv=False, variant='equispaced', **kwargs):
+    gdim = mesh.geometric_dimension()
+    mesh_is_extruded = (mesh.ufl_cell() not in (ufl.Cell('triangle'), ufl.Cell('interval')))
+    assert gdim in [1, 2, 3] # vertical 2D case is considered, WPan 2020-02-09
+    if gdim == 3 or (gdim == 2 and mesh_is_extruded):
+        if v_family is None:
+            v_family = h_family
+        if v_degree is None:
+            v_degree = h_degree
+        h_cell, v_cell = mesh.ufl_cell().sub_cells()
+        h_elt = FiniteElement(h_family, h_cell, h_degree, variant=variant)
+        v_elt = FiniteElement(v_family, v_cell, v_degree, variant=variant)
+        elt = TensorProductElement(h_elt, v_elt)
+        if hdiv:
+            elt = HDiv(elt)
+    else:
+        elt = FiniteElement(h_family, mesh.ufl_cell(), h_degree, variant=variant)
+
+    constructor = VectorFunctionSpace if vector else FunctionSpace
+    return constructor(mesh, elt, **kwargs)
+
+
 ElementContinuity = namedtuple("ElementContinuity", ["horizontal", "vertical"])
 """
 A named tuple describing the continuity of an element in the horizontal/vertical direction.
@@ -206,10 +229,6 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, z_stretch_fact=1.0,
         (the depth of the domain; positive downwards)
     """
     mesh = ExtrudedMesh(mesh2d, layers=n_layers, layer_height=1.0/n_layers)
-    if mesh.geometric_dimension() == 2:
-        vert_ind = 1
-    else:
-        vert_ind = 2
 
     coordinates = mesh.coordinates
     fs_3d = coordinates.function_space()
@@ -239,20 +258,19 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, z_stretch_fact=1.0,
             for ( int d = 0; d < %(nodes)d; d++ ) {
                 double s_fact = z_stretch[d];
                 for ( int e = 0; e < %(v_nodes)d; e++ ) {
-                    new_coords[(%(vert_ind)d+1)*(idx[d]+e) + 0] = old_coords[(%(vert_ind)d+1)*(idx[d]+e) + 0];
-                    new_coords[(%(vert_ind)d+1)*(idx[d]+e) + 1] = old_coords[(%(vert_ind)d+1)*(idx[d]+e) + 1];
-                    double sigma = 1.0 - old_coords[(%(vert_ind)d+1)*(idx[d]+e) + %(vert_ind)d]; // top 0, bot 1
+                    new_coords[3*(idx[d]+e) + 0] = old_coords[3*(idx[d]+e) + 0];
+                    new_coords[3*(idx[d]+e) + 1] = old_coords[3*(idx[d]+e) + 1];
+                    double sigma = 1.0 - old_coords[3*(idx[d]+e) + 2]; // top 0, bot 1
                     double new_z = -bath2d[d] * pow(sigma, s_fact) ;
                     int layer = fmin(fmax(round(sigma*(%(n_layers)d + 1) - 1.0), 0.0), %(n_layers)d);
                     double max_z = -min_depth[layer];
                     new_z = fmax(new_z, max_z);
-                    new_coords[(%(vert_ind)d+1)*(idx[d]+e) + %(vert_ind)d] = new_z;
+                    new_coords[3*(idx[d]+e) + 2] = new_z;
                 }
             }
         }""" % {'nodes': fs_2d.finat_element.space_dimension(),
                 'v_nodes': n_vert_nodes,
-                'n_layers': n_layers,
-                'vert_ind': vert_ind},
+                'n_layers': n_layers},
         'my_kernel')
 
     op2.par_loop(kernel, mesh.cell_set,
@@ -317,13 +335,8 @@ def get_zcoord_from_mesh(zcoord, solver_parameters={}):
     tri = TrialFunction(fs)
     test = TestFunction(fs)
     a = tri*test*dx
-    if fs.mesh().geometric_dimension() == 2:
-        vert_ind = 1
-    else:
-        vert_ind = 2
-   # l = fs.mesh().coordinates[2]*test*dx
-   # solve(a == l, zcoord, solver_parameters=solver_parameters)
-    zcoord.interpolate(fs.mesh().coordinates[vert_ind]) # for mpi running properly, Wei
+    l = fs.mesh().coordinates[2]*test*dx
+    solve(a == l, zcoord, solver_parameters=solver_parameters)
     return zcoord
 
 
@@ -374,10 +387,6 @@ class VerticalVelocitySolver(object):
         solver_parameters.setdefault('sub_pc_type', 'ilu')
         fs = solution.function_space()
         mesh = fs.mesh()
-        if mesh.geometric_dimension() == 2:
-            vert_ind = 1
-        else:
-            vert_ind = 2
         test = TestFunction(fs)
         tri = TrialFunction(fs)
         normal = FacetNormal(mesh)
@@ -391,25 +400,22 @@ class VerticalVelocitySolver(object):
         self.ds_surf = ds_surf(degree=self.quad_degree)
 
         # NOTE weak dw/dz
-        a = tri[vert_ind]*test[vert_ind]*normal[vert_ind]*ds_surf + \
-            avg(tri[vert_ind])*jump(test[vert_ind], normal[vert_ind])*dS_h - Dx(test[vert_ind], vert_ind)*tri[vert_ind]*self.dx
+        a = tri[2]*test[2]*normal[2]*ds_surf + \
+            avg(tri[2])*jump(test[2], normal[2])*dS_h - Dx(test[2], 2)*tri[2]*self.dx
 
         # NOTE weak div(uv)
         uv_star = avg(uv)
         # NOTE in the case of mimetic uv the div must be taken over all components
-        if mesh.geometric_dimension() == 2:
-            l_facet = (uv_star[0]*jump(test[vert_ind], normal[0])
-                       + uv_star[1]*jump(test[vert_ind], normal[1]))*(self.dS_v + self.dS_h)
-            l_surf = (uv[0]*normal[0] + uv[1]*normal[1])*test[vert_ind]*self.ds_surf
-            l_vol = inner(uv, nabla_grad(test[vert_ind]))*self.dx
-        else:
-            l_facet = (uv_star[0]*jump(test[2], normal[0])
-                       + uv_star[1]*jump(test[2], normal[1])
-                       + uv_star[2]*jump(test[2], normal[2]))*(self.dS_v + self.dS_h)
-            l_surf = (uv[0]*normal[0]
-                      + uv[1]*normal[1] + uv[2]*normal[2])*test[2]*self.ds_surf
-            l_vol = inner(uv, nabla_grad(test[2]))*self.dx
-        l = l_vol - l_facet - l_surf
+        l_v_facet = (uv_star[0]*jump(test[2], normal[0])
+                     + uv_star[1]*jump(test[2], normal[1])
+                     + uv_star[2]*jump(test[2], normal[2]))*self.dS_v
+        l_h_facet = (uv_star[0]*jump(test[2], normal[0])
+                     + uv_star[1]*jump(test[2], normal[1])
+                     + uv_star[2]*jump(test[2], normal[2]))*self.dS_h
+        l_surf = (uv[0]*normal[0]
+                  + uv[1]*normal[1] + uv[2]*normal[2])*test[2]*self.ds_surf
+        l_vol = inner(uv, nabla_grad(test[2]))*self.dx
+        l = l_vol - l_v_facet - l_h_facet - l_surf
         for bnd_marker in sorted(mesh.exterior_facets.unique_markers):
             funcs = boundary_funcs.get(bnd_marker)
             ds_bnd = ds_v(int(bnd_marker), degree=self.quad_degree)
@@ -418,10 +424,7 @@ class VerticalVelocitySolver(object):
                 continue
             else:
                 # use symmetry condition
-                if mesh.geometric_dimension() == 2:
-                    l += -(uv[0]*normal[0])*test[vert_ind]*ds_bnd
-                else:
-                    l += -(uv[0]*normal[0] + uv[1]*normal[1])*test[vert_ind]*ds_bnd
+                l += -(uv[0]*normal[0] + uv[1]*normal[1])*test[2]*ds_bnd
 
         # NOTE For ALE mesh constant_jacobian should be False
         # however the difference is very small as A is nearly independent of
@@ -463,10 +466,6 @@ class VerticalIntegrator(object):
         self.output = output
         space = output.function_space()
         mesh = space.mesh()
-        if mesh.geometric_dimension() == 2:
-            vert_ind = 1
-        else:
-            vert_ind = 2
         vertical_is_dg = element_continuity(space.ufl_element()).vertical in ['dg', 'hdiv']
         tri = TrialFunction(space)
         phi = TestFunction(space)
@@ -482,13 +481,13 @@ class VerticalIntegrator(object):
         self.ds_bottom = ds_bottom(degree=self.quad_degree)
 
         if bottom_to_top:
-            bnd_term = normal[vert_ind]*inner(bnd_value, phi)*self.ds_bottom
-            mass_bnd_term = normal[vert_ind]*inner(tri, phi)*self.ds_surf
+            bnd_term = normal[2]*inner(bnd_value, phi)*self.ds_bottom
+            mass_bnd_term = normal[2]*inner(tri, phi)*self.ds_surf
         else:
-            bnd_term = normal[vert_ind]*inner(bnd_value, phi)*self.ds_surf
-            mass_bnd_term = normal[vert_ind]*inner(tri, phi)*self.ds_bottom
+            bnd_term = normal[2]*inner(bnd_value, phi)*self.ds_surf
+            mass_bnd_term = normal[2]*inner(tri, phi)*self.ds_bottom
 
-        self.a = -inner(Dx(phi, vert_ind), tri)*self.dx + mass_bnd_term
+        self.a = -inner(Dx(phi, 2), tri)*self.dx + mass_bnd_term
         if bottom_to_top:
             up_value = tri('+')
         else:
@@ -497,14 +496,14 @@ class VerticalIntegrator(object):
             if len(input.ufl_shape) > 0:
                 dim = input.ufl_shape[0]
                 for i in range(dim):
-                    self.a += up_value[i]*jump(phi[i], normal[vert_ind])*self.dS_h
+                    self.a += up_value[i]*jump(phi[i], normal[2])*self.dS_h
             else:
-                self.a += up_value*jump(phi, normal[vert_ind])*self.dS_h
+                self.a += up_value*jump(phi, normal[2])*self.dS_h
         if average:
             source = input/(elevation + bathymetry)
         else:
             source = input
-        self.l = inner(source, phi)*self.dx + bnd_term #TODO check if 'minus bnd_term' is more suitable
+        self.l = inner(source, phi)*self.dx + bnd_term
         self.prob = LinearVariationalProblem(self.a, self.l, output, constant_jacobian=average)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
@@ -569,54 +568,6 @@ class DensitySolver(object):
         p = 0.0  # NOTE ignore pressure for now
         rho0 = self._get_array(physical_constants['rho0'])
         self.rho.dat.data[:] = self.eos.compute_rho(s, th, p, rho0)
-
-
-class DensitySolverSediment(object):
-    r"""
-    Computes density from salinity and temperature using the equation of state.
-
-    Water density is defined as
-
-    .. math::
-        \rho = \rho'(T, S, p) + \rho_0
-
-    This method computes the density anomaly :math:`\rho'`.
-
-    Density is computed point-wise assuming that temperature, salinity and
-    density are in the same function space.
-    """
-    def __init__(self, concentration, density_p, density_slide, density_water):
-        """
-        :arg concentration: sediment concentration field
-        :type salinity: :class:`Function`
-        :arg density: fluid density field
-        :type density: :class:`Function`
-        """
-        self.fs = density_p.function_space()
-
-        if isinstance(concentration, FiredrakeFunction):
-            assert self.fs == concentration.function_space()
-
-        self.c = concentration
-        self.rho_p = density_p
-        self.rho_s = density_slide
-        self.rho_w = density_water
-
-    def _get_array(self, function):
-        """Returns numpy data array from a :class:`Function`"""
-        if isinstance(function, FiredrakeFunction):
-            assert self.fs == function.function_space()
-            return function.dat.data[:]
-        if isinstance(function, FiredrakeConstant):
-            return function.dat.data[0]
-        # assume that function is a float
-        return function
-
-    def solve(self):
-        """Compute density"""
-        c = self._get_array(self.c)
-        rho0 = self._get_array(physical_constants['rho0'])
-        self.rho_p.dat.data[:] = c * self.rho_s + (1 - c) * self.rho_w - rho0
 
 
 class DensitySolverWeak(object):
@@ -1315,10 +1266,7 @@ class ALEMeshUpdater(object):
         z_ref = self.fields.z_coord_ref_3d.dat.data[:]
         bath = self.fields.bathymetry_3d.dat.data[:]
         new_z = eta*(z_ref + bath)/bath + z_ref
-        if self.solver.mesh.geometric_dimension() == 2:
-            self.solver.mesh.coordinates.dat.data[:, 1] = new_z
-        else:
-            self.solver.mesh.coordinates.dat.data[:, 2] = new_z
+        self.solver.mesh.coordinates.dat.data[:, 2] = new_z
         self.fields.z_coord_3d.dat.data[:] = new_z
         self.update_elem_height()
         self.solver.mesh.clear_spatial_index()
@@ -1779,15 +1727,3 @@ def select_and_move_detectors(mesh, detector_locations, detector_names=None,
         return accepted_locations
     else:
         return accepted_locations, accepted_names
-
-
-# only valid for 2d horizontal domain
-def dot_h(a, b):
-    return a[0]*b[0] + a[1]*b[1]
-
-def div_h(a):
-    return Dx(a[0], 0) + Dx(a[1], 1)
-
-def grad_h(a):
-    return as_vector([Dx(a, 0), Dx(a, 1), 0])
-

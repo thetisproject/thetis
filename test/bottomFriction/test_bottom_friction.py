@@ -52,7 +52,7 @@ def run_bottom_friction(parabolic_visosity=False,
     u_mag = 1.0
 
     # bathymetry
-    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    p1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry2d = Function(p1_2d, name='Bathymetry')
     bathymetry2d.assign(depth)
 

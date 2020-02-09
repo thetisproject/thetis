@@ -3,7 +3,7 @@ calculation of the landslide motion to obtain the function D(x,y,t), i.e. the th
 ref: I.V. Fine, et al., 1998 & 2005. 
 """
 from __future__ import absolute_import
-from thetis.utility import *
+from .utility_nh import *
 from thetis.equation import Term, Equation
 
 __all__ = [
@@ -219,7 +219,7 @@ class LiquidSlideHUDivTerm(LandslideContinuityTerm):
                     total_h_ext = BaseLiquidSlideEquation(self.function_space, self.bathymetry, self.options).update_depth_wd(eta_ext_old)
                     h_av = 0.5*(total_h + total_h_ext)
                     eta_jump = eta - eta_ext
-                    un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h_av)*eta_jump # explore further? Wei. 
+                    un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h_av)*eta_jump # explore further? WPan. 
 
                     un_jump = inner(uv_old - uv_ext_old, self.normal)
                     eta_rie = 0.5*(eta_old + eta_ext_old) + sqrt(h_av/g_grav)*un_jump
@@ -230,7 +230,7 @@ class LiquidSlideHUDivTerm(LandslideContinuityTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is None or 'un' in funcs: # probably for 'None', on wall, dot(uv, self.normal) absolutely = 0, so 'None' can be cancelled, Wei; maybe 'uv' also should be added 
+                if funcs is None or 'un' in funcs: # probably for 'None', on wall, dot(uv, self.normal) absolutely = 0, so 'None' can be cancelled, WPan; maybe 'uv' also should be added 
                     f += -const*total_h*dot(uv, self.normal)*self.eta_test*ds_bnd
         return -f
 
@@ -275,7 +275,7 @@ class LiquidSlideHorizontalAdvectionTerm(LandslideMomentumTerm):
                             n = self.normal
                             uv_ext = uv - 2*dot(uv, n)*n
                             gamma = 0.5*abs(dot(uv_old, n))*uv_lax_friedrichs
-                            f += const*gamma*dot(self.u_test, uv-uv_ext)*ds_bnd # for two vectors, dot() is equivalent to inner(), Wei
+                            f += const*gamma*dot(self.u_test, uv-uv_ext)*ds_bnd # for two vectors, dot() is equivalent to inner(), WPan
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
@@ -322,7 +322,7 @@ class LiquidSlideHorizontalViscosityTerm(LandslideMomentumTerm):
             if p == 0:
                 alpha = 1.5
             f += (
-                + alpha/avg(h)*inner(tensor_jump(self.u_test, n), stress_jump)*self.dS # in the math provided, sigma = alpha/avg(h), Wei
+                + alpha/avg(h)*inner(tensor_jump(self.u_test, n), stress_jump)*self.dS # in the math provided, sigma = alpha/avg(h), WPan
                 - inner(avg(grad(self.u_test)), stress_jump)*self.dS
                 - inner(tensor_jump(self.u_test, n), avg(stress))*self.dS
             )
@@ -382,7 +382,7 @@ class LiquidSlideQuadraticDragTerm(LandslideMomentumTerm):
             C_D = g_grav * manning_drag_coefficient**2 / total_h**(1./3.)
 
         if C_D is not None:
-            f += C_D * sqrt(dot(uv_old, uv_old)) * inner(self.u_test, uv) / total_h * self.dx # in the math provided, extra '/h' should be added, Wei
+            f += C_D * sqrt(dot(uv_old, uv_old)) * inner(self.u_test, uv) / total_h * self.dx # in the math provided, extra '/h' should be added, WPan
         return -f
 
 
@@ -536,7 +536,7 @@ class LiquidSlideMomDivTerm(LandslideMomentumTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is None or 'un' in funcs: # probably for 'None', on wall, dot(uv, self.normal) absolutely = 0, so 'None' can be cancelled, Wei; maybe 'uv' also should be added 
+                if funcs is None or 'un' in funcs: # probably for 'None', on wall, dot(uv, self.normal) absolutely = 0, so 'None' can be cancelled, WPan; maybe 'uv' also should be added 
                     f += -const*inner(uv, self.u_test)*dot(uv, self.normal)*ds_bnd
         return -f
 
@@ -624,7 +624,7 @@ class GranularSlideHUDivTerm(LandslideContinuityTerm):
                     total_h_ext = BaseLiquidSlideEquation(self.function_space, self.bathymetry, self.options).update_depth_wd(eta_ext_old)
                     h_av = 0.5*(total_h + total_h_ext)
                     eta_jump = eta - eta_ext
-                    un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h_av)*eta_jump # explore further? Wei. 
+                    un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h_av)*eta_jump # explore further? WPan. 
 
                     un_jump = inner(uv_old - uv_ext_old, self.normal)
                     eta_rie = 0.5*(eta_old + eta_ext_old) + sqrt(h_av/g_grav)*un_jump
@@ -635,7 +635,7 @@ class GranularSlideHUDivTerm(LandslideContinuityTerm):
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
-                if funcs is None or 'un' in funcs: # probably for 'None', on wall, dot(uv, self.normal) absolutely = 0, so 'None' can be cancelled, Wei; maybe 'uv' also should be added 
+                if funcs is None or 'un' in funcs: # probably for 'None', on wall, dot(uv, self.normal) absolutely = 0, so 'None' can be cancelled, WPan; maybe 'uv' also should be added 
                     f += -const*total_h*dot(uv, self.normal)*self.eta_test*ds_bnd
         return -f
 
@@ -680,7 +680,7 @@ class GranularSlideHorizontalAdvectionTerm(LandslideMomentumTerm):
                             n = self.normal
                             uv_ext = uv - 2*dot(uv, n)*n
                             gamma = 0.5*abs(dot(uv_old, n))*uv_lax_friedrichs
-                            f += const*gamma*dot(self.u_test, uv-uv_ext)*ds_bnd # for two vectors, dot() is equivalent to inner(), Wei
+                            f += const*gamma*dot(self.u_test, uv-uv_ext)*ds_bnd # for two vectors, dot() is equivalent to inner(), WPan
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
@@ -729,7 +729,7 @@ class GranularSlideHorizontalViscosityTerm(LandslideMomentumTerm):
             if p == 0:
                 alpha = 1.5
             f += const*(
-                + alpha/avg(h)*inner(tensor_jump(self.u_test, n), stress_jump)*self.dS # in the math provided, sigma = alpha/avg(h), Wei
+                + alpha/avg(h)*inner(tensor_jump(self.u_test, n), stress_jump)*self.dS # in the math provided, sigma = alpha/avg(h), WPan
                 - inner(avg(grad(self.u_test)), stress_jump)*self.dS
                 - inner(tensor_jump(self.u_test, n), avg(stress))*self.dS
             )
@@ -788,7 +788,7 @@ class GranularSlideQuadraticDragTerm(LandslideMomentumTerm):
             C_D = g_grav * manning_drag_coefficient**2 / total_h**(1./3.)
 
         if C_D is not None:
-            f += C_D * sqrt(dot(uv_old, uv_old)) * inner(self.u_test, uv) / total_h * self.dx # in the math provided, extra '/h' should be added, Wei
+            f += C_D * sqrt(dot(uv_old, uv_old)) * inner(self.u_test, uv) / total_h * self.dx # in the math provided, extra '/h' should be added, WPan
         return -f
 
 
@@ -974,7 +974,7 @@ class BaseLiquidSlideEquation(Equation):
         Karna et al.,  2011.
         """ 
         H = self.bathymetry + eta
-        return 2 * self.options.depth_wd_interface**2 / (2 * self.options.depth_wd_interface + abs(H)) + 0.5 * (abs(H) - H) # new formulated function, Wei
+        return 2 * self.options.depth_wd_interface**2 / (2 * self.options.depth_wd_interface + abs(H)) + 0.5 * (abs(H) - H) # new formulated function, WPan
         #return conditional(H < self.options.depth_wd_interface, self.options.depth_wd_interface**2 / (2 * self.options.depth_wd_interface - H) - H, 0.) # artificial porosity method
         #return 0.5 * (sqrt(H**2 + self.options.depth_wd_interface**2) - H) # original bathymetry changed method
 
@@ -1101,7 +1101,7 @@ class BaseGranularSlideEquation(Equation):
         Karna et al.,  2011.
         """ 
         H = self.bathymetry + eta
-        return 2 * self.options.depth_wd_interface**2 / (2 * self.options.depth_wd_interface + abs(H)) + 0.5 * (abs(H) - H) # new formulated function, Wei
+        return 2 * self.options.depth_wd_interface**2 / (2 * self.options.depth_wd_interface + abs(H)) + 0.5 * (abs(H) - H) # new formulated function, WPan
         #return conditional(H < self.options.depth_wd_interface, self.options.depth_wd_interface**2 / (2 * self.options.depth_wd_interface - H) - H, 0.) # artificial porosity method
         #return 0.5 * (sqrt(H**2 + self.options.depth_wd_interface**2) - H) # original bathymetry changed method
 

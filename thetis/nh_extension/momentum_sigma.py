@@ -58,7 +58,7 @@ Circulation Modeling. Journal of Computational Physics, 135(1):30-53.
 http://dx.doi.org/10.1006/jcph.1997.5733
 """
 from __future__ import absolute_import
-from thetis.utility import *
+from .utility_nh import *
 from thetis.equation import Term, Equation
 
 __all__ = [

@@ -7,7 +7,7 @@ from . import landslide_motion
 from . import momentum_sigma
 from . import tracer_sigma
 from . import coupled_timeintegrator_nh
-from ..utility import *
+from .utility_nh import *
 from .. import turbulence
 from .. import timeintegrator
 from .. import rungekutta
@@ -400,70 +400,52 @@ class FlowSolver(FrozenClass):
         """
         self._isfrozen = False
         # ----- function spaces: elev in H, uv in U, mixed is W
-        self.function_spaces.P0 = FunctionSpace(self.mesh, 'DG', 0, vfamily='DG', vdegree=0, name='P0')
-        self.function_spaces.P1 = FunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1, name='P1')
-        self.function_spaces.P2 = FunctionSpace(self.mesh, 'CG', 2, vfamily='CG', vdegree=2, name='P2')
-        self.function_spaces.P1v = VectorFunctionSpace(self.mesh, 'CG', 1, vfamily='CG', vdegree=1, name='P1v')
-        self.function_spaces.P1DG = FunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1, name='P1DG')
-        self.function_spaces.P1DGv = VectorFunctionSpace(self.mesh, 'DG', 1, vfamily='DG', vdegree=1, name='P1DGv')
+        self.function_spaces.P0 = get_functionspace(self.mesh, 'DG', 0, 'DG', 0, name='P0')
+        self.function_spaces.P1 = get_functionspace(self.mesh, 'CG', 1, 'CG', 1, name='P1')
+        self.function_spaces.P2 = get_functionspace(self.mesh, 'CG', 2, 'CG', 2, name='P2')
+        self.function_spaces.P1v = get_functionspace(self.mesh, 'CG', 1, 'CG', 1, name='P1v', vector=True)
+        self.function_spaces.P1DG = get_functionspace(self.mesh, 'DG', 1, 'DG', 1, name='P1DG')
+        self.function_spaces.P1DGv = get_functionspace(self.mesh, 'DG', 1, 'DG', 1, name='P1DGv', vector=True)
 
-        # Construct HDiv TensorProductElements
-        # for horizontal velocity component
-        u_h_elt = FiniteElement('RT', triangle, self.options.polynomial_degree+1)
-        u_v_elt = FiniteElement('DG', interval, self.options.polynomial_degree)
-        u_elt = HDiv(TensorProductElement(u_h_elt, u_v_elt))
-        # for vertical velocity component
-        w_h_elt = FiniteElement('DG', triangle, self.options.polynomial_degree)
-        w_v_elt = FiniteElement('CG', interval, self.options.polynomial_degree+1)
-        w_elt = HDiv(TensorProductElement(w_h_elt, w_v_elt))
-        # final spaces
+        # function spaces for (u,v) and w
         if self.options.element_family == 'rt-dg':
-            # self.U = FunctionSpace(self.mesh, UW_elt)  # uv
-            self.function_spaces.U = FunctionSpace(self.mesh, u_elt, name='U')  # uv
-            self.function_spaces.W = FunctionSpace(self.mesh, w_elt, name='W')  # w
+            self.function_spaces.U = get_functionspace(self.mesh, 'RT', self.options.polynomial_degree+1, 'DG', self.options.polynomial_degree, name='U', hdiv=True)
+            self.function_spaces.W = get_functionspace(self.mesh, 'DG', self.options.polynomial_degree, 'CG', self.options.polynomial_degree+1, name='W', hdiv=True)
         elif self.options.element_family == 'dg-dg':
-            self.function_spaces.U = VectorFunctionSpace(self.mesh, 'DG', self.options.polynomial_degree,
-                                                         vfamily='DG', vdegree=self.options.polynomial_degree,
-                                                         name='U')
-            # NOTE for tracer consistency W should be equivalent to tracer space H
-            self.function_spaces.W = VectorFunctionSpace(self.mesh, 'DG', self.options.polynomial_degree,
-                                                         vfamily='DG', vdegree=self.options.polynomial_degree,
-                                                         name='W')
+            self.function_spaces.U = get_functionspace(self.mesh, 'DG', self.options.polynomial_degree, 'DG', self.options.polynomial_degree, name='U', vector=True)
+            self.function_spaces.W = get_functionspace(self.mesh, 'DG', self.options.polynomial_degree, 'DG', self.options.polynomial_degree, name='W', vector=True)
         else:
             raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
-        # auxiliary function space that will be used to transfer data between 2d/3d modes
-        self.function_spaces.Uproj = self.function_spaces.U
 
         self.function_spaces.Uint = self.function_spaces.U  # vertical integral of uv
         # tracers
-        self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.polynomial_degree, vfamily='DG', vdegree=max(0, self.options.polynomial_degree), name='H')
-       # self.function_spaces.H = FunctionSpace(self.mesh, 'DG', self.options.polynomial_degree, vfamily='DG', vdegree=0, name='H')
+        self.function_spaces.H = get_functionspace(self.mesh, 'DG', self.options.polynomial_degree, 'DG', self.options.polynomial_degree, name='H')
+       # self.function_spaces.H = get_functionspace(self.mesh, 'DG', self.options.polynomial_degree, 'DG', 0, name='H')
         self.function_spaces.turb_space = self.function_spaces.P0
 
         # 2D spaces
-        self.function_spaces.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1, name='P1_2d')
-        self.function_spaces.P2_2d = FunctionSpace(self.mesh2d, 'CG', 2, name='P2_2d')
-        self.function_spaces.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1, name='P1v_2d')
-        self.function_spaces.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1, name='P1DG_2d')
-        self.function_spaces.P1DGv_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1, name='P1DGv_2d')
+        self.function_spaces.P1_2d = get_functionspace(self.mesh2d, 'CG', 1, name='P1_2d')
+        self.function_spaces.P2_2d = get_functionspace(self.mesh2d, 'CG', 1, name='P2_2d')
+        self.function_spaces.P1v_2d = get_functionspace(self.mesh2d, 'CG', 1, name='P1v_2d', vector=True)
+        self.function_spaces.P1DG_2d = get_functionspace(self.mesh2d, 'DG', 1, name='P1DG_2d')
+        self.function_spaces.P1DGv_2d = get_functionspace(self.mesh2d, 'DG', 1, name='P1DGv_2d', vector=True)
         # 2D velocity space
         if self.options.element_family == 'rt-dg':
-            self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.polynomial_degree+1)
+            self.function_spaces.U_2d = get_functionspace(self.mesh2d, 'RT', self.options.polynomial_degree+1, name='U_2d')
         elif self.options.element_family == 'dg-dg':
             if self.horizontal_domain_is_2d:
-                self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d')
+                self.function_spaces.U_2d = get_functionspace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d', vector=True)
             else:
-                self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d')
-        self.function_spaces.Uproj_2d = self.function_spaces.U_2d
-        self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='H_2d')
+                self.function_spaces.U_2d = get_functionspace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d')
+        self.function_spaces.H_2d = get_functionspace(self.mesh2d, 'DG', self.options.polynomial_degree, name='H_2d')
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d], name='V_2d')
 
         # define function spaces for baroclinic head and internal pressure gradient
-        if self.options.use_quadratic_pressure: # default is faulse
-            self.function_spaces.P2DGxP2 = FunctionSpace(self.mesh, 'DG', 2, vfamily='CG', vdegree=2, name='P2DGxP2')
-            self.function_spaces.P2DG_2d = FunctionSpace(self.mesh2d, 'DG', 2, name='P2DG_2d')
+        if self.options.use_quadratic_pressure:
+            self.function_spaces.P2DGxP2 = get_functionspace(self.mesh, 'DG', 2, 'CG', 2, name='P2DGxP2')
+            self.function_spaces.P2DG_2d = get_functionspace(self.mesh2d, 'DG', 2, name='P2DG_2d')
             if self.options.element_family == 'dg-dg':
-                self.function_spaces.P2DGxP1DGv = VectorFunctionSpace(self.mesh, 'DG', 2, vfamily='DG', vdegree=1, name='P2DGxP1DGv', dim=2)
+                self.function_spaces.P2DGxP1DGv = get_functionspace(self.mesh, 'DG', 2, 'DG', 1, name='P2DGxP1DGv', vector=True, dim=2)
                 self.function_spaces.H_bhead = self.function_spaces.P2DGxP2
                 self.function_spaces.H_bhead_2d = self.function_spaces.P2DG_2d
                 self.function_spaces.U_int_pg = self.function_spaces.P2DGxP1DGv
@@ -472,7 +454,7 @@ class FlowSolver(FrozenClass):
                 self.function_spaces.H_bhead_2d = self.function_spaces.P2DG_2d
                 self.function_spaces.U_int_pg = self.function_spaces.U
         else:
-            self.function_spaces.P1DGxP2 = FunctionSpace(self.mesh, 'DG', 1, vfamily='CG', vdegree=2, name='P1DGxP2')
+            self.function_spaces.P1DGxP2 = get_functionspace(self.mesh, 'DG', 1, 'CG', 2, name='P1DGxP2')
             self.function_spaces.H_bhead = self.function_spaces.P1DGxP2
             self.function_spaces.H_bhead_2d = self.function_spaces.P1DG_2d
             self.function_spaces.U_int_pg = self.function_spaces.U
@@ -526,9 +508,9 @@ class FlowSolver(FrozenClass):
         self.fields.z_coord_3d = Function(coord_fs)
         # z coordinate in the reference mesh (eta=0)
         self.fields.z_coord_ref_3d = Function(coord_fs)
-        self.fields.uv_dav_3d = Function(self.function_spaces.Uproj)
-        self.fields.uv_dav_2d = Function(self.function_spaces.Uproj_2d)
-        self.fields.split_residual_2d = Function(self.function_spaces.Uproj_2d)
+        self.fields.uv_dav_3d = Function(self.function_spaces.U)
+        self.fields.uv_dav_2d = Function(self.function_spaces.U_2d)
+        self.fields.split_residual_2d = Function(self.function_spaces.U_2d)
         self.fields.uv_mag_3d = Function(self.function_spaces.P0)
         self.fields.uv_p1_3d = Function(self.function_spaces.P1v)
         self.fields.w_3d = Function(self.function_spaces.W)
@@ -551,7 +533,7 @@ class FlowSolver(FrozenClass):
             self.fields.baroc_head_3d = Function(self.function_spaces.H_bhead)
             self.fields.int_pg_3d = Function(self.function_spaces.U_int_pg, name='int_pg_3d')
         else:
-            self.fields.density_3d = Function(self.function_spaces.H, name='Density').assign(self.options.rho_water)
+            self.fields.density_3d = Function(self.function_spaces.H, name='Density').assign(self.options.rho_water) # WPan added.
         if self.options.coriolis_frequency is not None:
             if isinstance(self.options.coriolis_frequency, FiredrakeConstant):
                 self.fields.coriolis_3d = self.options.coriolis_frequency
@@ -576,15 +558,13 @@ class FlowSolver(FrozenClass):
         if self.options.use_smagorinsky_viscosity:
             self.fields.smag_visc_3d = Function(self.function_spaces.P1)
         if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
-           # self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H) ###### TODO restore
-            self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.P1DG)
+            self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H)
         else:
             self.tracer_limiter = None
-        if (self.options.use_limiter_for_velocity and
-                self.options.polynomial_degree > 0 and
-                self.options.element_family == 'dg-dg'):
-           # self.uv_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.U) ###### TODO restore
-            self.uv_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.P1DGv)
+        if (self.options.use_limiter_for_velocity
+                and self.options.polynomial_degree > 0
+                and self.options.element_family == 'dg-dg'):
+            self.uv_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.U)
         else:
             self.uv_limiter = None
         if self.options.use_turbulence:
@@ -600,7 +580,7 @@ class FlowSolver(FrozenClass):
                 # NOTE M2 and N2 depend on d(.)/dz -> use CG in vertical ?
                 self.fields.shear_freq_3d = Function(self.function_spaces.turb_space)
                 self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)
-                self.turbulence_model = turbulence.GenericLengthScaleModel(
+                self.turbulence_model = turbulence_nh.GenericLengthScaleModel(
                     weakref.proxy(self),
                     self.fields.tke_3d,
                     self.fields.psi_3d,
@@ -614,15 +594,11 @@ class FlowSolver(FrozenClass):
                     self.fields.shear_freq_3d,
                     options=self.options.turbulence_model_options)
             elif self.options.turbulence_model_type == 'pacanowski':
-                if self.options.use_smooth_eddy_viscosity:
-                    self.fields.eddy_visc_3d = Function(self.function_spaces.P1)
-                    self.fields.eddy_diff_3d = Function(self.function_spaces.P1)
-                else:
-                    self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
-                    self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
+                self.fields.eddy_visc_3d = Function(self.function_spaces.turb_space)
+                self.fields.eddy_diff_3d = Function(self.function_spaces.turb_space)
                 self.fields.shear_freq_3d = Function(self.function_spaces.turb_space)
                 self.fields.buoy_freq_3d = Function(self.function_spaces.turb_space)
-                self.turbulence_model = turbulence.PacanowskiPhilanderModel(
+                self.turbulence_model = turbulence_nh.PacanowskiPhilanderModel(
                     weakref.proxy(self),
                     self.fields.uv_3d,
                     self.fields.get('density_3d'),
@@ -649,7 +625,7 @@ class FlowSolver(FrozenClass):
         self.tot_v_diff.add(self.options.vertical_diffusivity)
         self.tot_v_diff.add(self.fields.get('eddy_diff_3d'))
 
-        self.create_functions()
+        self.create_functions() # WPan added.
 
         self._isfrozen = True
 
@@ -674,8 +650,8 @@ class FlowSolver(FrozenClass):
         self.uv_3d_old = Function(self.function_spaces.U)
         self.uv_3d_mid = Function(self.function_spaces.U)
         self.uv_3d_tmp = Function(self.function_spaces.U)
-        self.uv_dav_3d_mid = Function(self.function_spaces.Uproj)
-        self.uv_dav_2d_mid = Function(self.function_spaces.Uproj_2d)
+        self.uv_dav_3d_mid = Function(self.function_spaces.U)
+        self.uv_dav_2d_mid = Function(self.function_spaces.U_2d)
         self.w_3d_old = Function(self.function_spaces.U)
 
         self.w_surface = Function(self.function_spaces.H_2d)
@@ -1433,7 +1409,7 @@ class FlowSolver(FrozenClass):
         if H0 > 1.0E-5:
             return 0.
         elif not self.options.constant_mindep:
-            return np.sqrt(0.25*self.options.wd_mindep**2 - 0.5*self.options.wd_mindep*H0) + 0.5*self.options.wd_mindep # new formulated function, Wei
+            return np.sqrt(0.25*self.options.wd_mindep**2 - 0.5*self.options.wd_mindep*H0) + 0.5*self.options.wd_mindep # new formulated function, WPan
             #return np.sqrt(self.options.wd_mindep**2 - self.options.wd_mindep*H0) + self.options.wd_mindep # artificial porosity method
             #return np.sqrt(4*self.options.wd_mindep*(self.options.wd_mindep-H0)) # original bathymetry changed method
         else:

@@ -114,7 +114,7 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
 
         if self.is_2d:
             entity_dim = 1  # get 1D facets
-            # for vertical 2d
+            # for vertical 2d in non-hydrostatic (nh) extension
             entity_dim = (1, 0) # TODO separate horizontal 2d and vertical 2d properly
         else:
             entity_dim = (1, 1)  # get vertical facets

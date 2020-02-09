@@ -93,7 +93,7 @@ def test_interpolator():
     }
     mesh = extrude_mesh_sigma(mesh2d, nlayers, bathymetry_2d,
                               **extrude_options)
-    p1 = FunctionSpace(mesh, 'CG', 1)
+    p1 = get_functionspace(mesh, 'CG', 1)
 
     # make functions
     salt = Function(p1, name='salinity')

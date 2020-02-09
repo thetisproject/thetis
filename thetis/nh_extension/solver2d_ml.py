@@ -2,7 +2,7 @@
 Module for layer averaged solver in 1d mesh
 """
 from __future__ import absolute_import
-from ..utility import *
+from .utility_nh import *
 from . import shallowwater_nh
 from .. import timeintegrator
 from .. import rungekutta
@@ -199,27 +199,27 @@ class FlowSolver(FrozenClass):
         """
         self._isfrozen = False
         # ----- function spaces: elev in H, uv in U, mixed is W
-        self.function_spaces.P0_2d = FunctionSpace(self.mesh2d, 'DG', 0, name='P0_2d')
-        self.function_spaces.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1, name='P1_2d')
-        self.function_spaces.P2_2d = FunctionSpace(self.mesh2d, 'CG', 2, name='P2_2d')
+        self.function_spaces.P0_2d = get_functionspace(self.mesh2d, 'DG', 0, name='P0_2d')
+        self.function_spaces.P1_2d = get_functionspace(self.mesh2d, 'CG', 1, name='P1_2d')
+        self.function_spaces.P2_2d = get_functionspace(self.mesh2d, 'CG', 2, name='P2_2d')
         self.function_spaces.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1, name='P1v_2d')
-        self.function_spaces.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1, name='P1DG_2d')
+        self.function_spaces.P1DG_2d = get_functionspace(self.mesh2d, 'DG', 1, name='P1DG_2d')
         self.function_spaces.P1DGv_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1, name='P1DGv_2d')
         # 2D velocity space
         if self.options.element_family == 'rt-dg':
-            self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.polynomial_degree+1, name='U_2d')
-            self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='H_2d')
+            self.function_spaces.U_2d = get_functionspace(self.mesh2d, 'RT', self.options.polynomial_degree+1, name='U_2d')
+            self.function_spaces.H_2d = get_functionspace(self.mesh2d, 'DG', self.options.polynomial_degree, name='H_2d')
         elif self.options.element_family == 'dg-cg':
-            self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d')
-            self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'CG', self.options.polynomial_degree+1, name='H_2d')
+            self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d') # not vector for 1d case
+            self.function_spaces.H_2d = get_functionspace(self.mesh2d, 'CG', self.options.polynomial_degree+1, name='H_2d')
         elif self.options.element_family == 'dg-dg':
-            self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d')
-            self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='H_2d')
+            self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d') # not vector for 1d case
+            self.function_spaces.H_2d = get_functionspace(self.mesh2d, 'DG', self.options.polynomial_degree, name='H_2d')
         else:
             raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d])
 
-        self.function_spaces.Q_2d = FunctionSpace(self.mesh2d, 'DG', 1, name='Q_2d')
+        self.function_spaces.Q_2d = get_functionspace(self.mesh2d, 'DG', 1, name='Q_2d')
 
         self._isfrozen = True
 
@@ -1057,9 +1057,9 @@ class FlowSolver(FrozenClass):
         else:
             # for uniform vertical layers, i.e. alpha[k] = 1/n_layers
             mesh = ExtrudedMesh(self.mesh2d, layers=n_layers, layer_height=1.0/n_layers)
-            fs_dg1 = FunctionSpace(mesh, 'DG', self.options.polynomial_degree, vfamily='DG', vdegree=1)
-            fs_u = FunctionSpace(mesh, 'DG', self.options.polynomial_degree, vfamily='DG', vdegree=0)
-            fs_q = FunctionSpace(mesh, 'CG', 2, vfamily='CG', vdegree=1)
+            fs_dg1 = get_functionspace(mesh, 'DG', self.options.polynomial_degree, 'DG', 1)
+            fs_u = get_functionspace(mesh, 'DG', self.options.polynomial_degree, 'DG', 0)
+            fs_q = get_functionspace(mesh, 'CG', 2, 'CG', 1)
             uv_3d = Function(fs_u)
             w_3d = Function(fs_u)
             sigma_dg0 = Function(fs_u).project(mesh.coordinates[1])

@@ -31,7 +31,7 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
     }).tag(config=True)
     use_semi_implicit_linearization = Bool(
         False, help="Use linearized semi-implicit time integration").tag(config=True)
-    # added by Wei, TODO find a clearer way
+    # added by WPan, TODO find a clearer way
     solver_parameters_momentum = PETScSolverParameters({
         'snes_type': 'ksponly',
         'ksp_type': 'preonly',
@@ -485,7 +485,7 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
 
 
-    # Below is for non-hydrostatic (nh) extension that Wei is adding 
+    # Below is for non-hydrostatic (nh) extension that WPan is adding 
     # TODO move to a specific nh Options class
     use_pressure_correction = Bool(
         False, help=r"""bool: Use pressure correction method.
@@ -500,7 +500,7 @@ class CommonModelOptions(FrozenConfigurable):
         If ``False``, solving 3D equations with elevation gradient term included directly like NHWAVE does.
         """).tag(config=True)
     update_free_surface = Bool(
-        not True, help=r"""bool: Solve free surface equation and update 2D elevation.
+        True, help=r"""bool: Solve free surface equation and update 2D elevation.
         If ``False``, not solving free surface equation, e.g. rigid free surface in lock exchange case.
         """).tag(config=True)
     use_wetting_and_drying = Bool(

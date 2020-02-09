@@ -229,7 +229,7 @@ def run(setup, refinement, polynomial_degree, do_export=True, **options):
     mesh2d = RectangleMesh(nx, ny, lx, ly)
 
     # bathymetry
-    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    p1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     bathymetry_2d.project(bath_expr)
 

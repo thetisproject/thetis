@@ -5,6 +5,7 @@ Tests implicit bottom friction formulation
 Intended to be executed with pytest.
 """
 from firedrake import *
+from thetis.utility import get_functionspace
 import numpy as np
 import time as time_mod
 
@@ -35,14 +36,14 @@ def test_implicit_friction(do_export=False, do_assert=True):
 
     # ----- define function spaces
     deg = 1
-    p1dg = FunctionSpace(mesh, 'DG', degree=1, vfamily='DG', vdegree=1)
-    p1dgv = VectorFunctionSpace(mesh, 'DG', degree=1, vfamily='DG', vdegree=1)
-    u_h_elt = FiniteElement('RT', triangle, deg + 1)
-    u_v_elt = FiniteElement('DG', interval, deg)
+    p1dg = get_functionspace(mesh, 'DG', 1)
+    p1dgv = get_functionspace(mesh, 'DG', 1, vector=True)
+    u_h_elt = FiniteElement('RT', triangle, deg + 1, variant='equispaced')
+    u_v_elt = FiniteElement('DG', interval, deg, variant='equispaced')
     u_elt = HDiv(TensorProductElement(u_h_elt, u_v_elt))
     # for vertical velocity component
-    w_h_elt = FiniteElement('DG', triangle, deg)
-    w_v_elt = FiniteElement('CG', interval, deg + 1)
+    w_h_elt = FiniteElement('DG', triangle, deg, variant='equispaced')
+    w_v_elt = FiniteElement('CG', interval, deg + 1, variant='equispaced')
     w_elt = HDiv(TensorProductElement(w_h_elt, w_v_elt))
     # in deformed mesh horiz. velocity must actually live in U + W
     uw_elt = EnrichedElement(u_elt, w_elt)
