@@ -864,7 +864,7 @@ class TransectCallback(DiagnosticCallback):
     name = 'transect'
     variable_names = ['z_coord', 'value']
 
-    def __init__(self, solver_obj, fieldname, x, y,
+    def __init__(self, solver_obj, fieldnames, x, y,
                  location_name,
                  n_points_z=48,
                  z_min=None, z_max=None,
@@ -872,14 +872,16 @@ class TransectCallback(DiagnosticCallback):
                  append_to_log=True):
         """
         :arg solver_obj: Thetis :class:`FlowSolver` object
-        :arg fieldname: Field to extract
-        :arg x, y: list of location coordinates in model coordinate system
+        :arg fieldnames: List of fields to extract
+        :arg x, y: location coordinates in model coordinate system.
         :arg location_name: Unique name for this location. This
             determines the name of the output h5 file (prefixed with
             `diagnostic_`).
-        :arg int npoints: Number of points along the vertical axis. The 3D
+        :arg int n_points_z: Number of points along the vertical axis. The 3D
             field will be interpolated on these points, ranging from the bottom
             to the (time dependent) free surface.
+        :kwarg float z_min, zmax: Force min/max value of z coordinate extent.
+            By default, transect will cover entire depth from bed to surface.
         :kwarg str outputdir: Custom directory where hdf5 files will be stored.
             By default solver's output directory is used.
         :kwarg bool export_to_hdf5: If True, diagnostics will be stored in hdf5
@@ -888,10 +890,12 @@ class TransectCallback(DiagnosticCallback):
             printed in log
         """
         assert export_to_hdf5 is True
-        self.fieldname = fieldname
+        self.fieldnames = fieldnames
         self.location_name = location_name
+        field_short_names = [f.split('_')[0] for f in self.fieldnames]
+        field_str = '-'.join(field_short_names)
         self.name += '_' + self.location_name
-        self.name += '_' + self.fieldname
+        self.name += '_' + field_str
 
         self.x = np.array([x]).ravel()
         self.y = np.array([y]).ravel()
@@ -910,12 +914,19 @@ class TransectCallback(DiagnosticCallback):
         self.force_z_min = z_min
         self.force_z_max = z_max
 
-        self.field = solver_obj.fields[self.fieldname]
-        self.field_dim = self.field.function_space().value_size
-        if self.field_dim == 2:
-            self.variable_names = ['z_coord', 'value_x', 'value_y']
-        if self.field_dim == 3:
-            self.variable_names = ['z_coord', 'value_x', 'value_y', 'value_z']
+        self.field_dims = {}
+        for f in self.fieldnames:
+            func = solver_obj.fields[f]
+            self.field_dims[f] = func.function_space().value_size
+        self.variable_names = ['z_coord']
+        for f, f_short in zip(fieldnames, field_short_names):
+            if self.field_dims[f] == 1:
+                self.variable_names.append(f_short)
+            else:
+                coords = ['x', 'y', 'z']
+                for k in range(self.field_dims[f]):
+                    f_comp_name = f_short + '_' + coords[k]
+                    self.variable_names.append(f_comp_name)
 
         super().__init__(
             solver_obj,
@@ -961,25 +972,32 @@ class TransectCallback(DiagnosticCallback):
             self._initialize()
         self._update_coords()
 
-        # evaluate function on regular grid
-        func = self.field
-        try:
-            vals = func.at(tuple(self.xyz))
-        except PointNotInDomainError as e:
-            error('{:}: Cannot evaluate data on transect {:}'.format(self.__class__.__name__, self.location_name))
-            raise e
-        shape = list(self.value_shape) + [self.field_dim]
-        arr = np.array(vals).reshape(shape)
-        if self.field_dim == 3:
-            return (self.trans_z, arr[..., 0], arr[..., 1], arr[..., 2])
-        if self.field_dim == 2:
-            return (self.trans_z, arr[..., 0], arr[..., 1])
-        return (self.trans_z, arr[..., 0])
+        outvals = [self.trans_z]
+        for fieldname in self.fieldnames:
+            field = self.solver_obj.fields[fieldname]
+            field_dim = self.field_dims[fieldname]
+            try:
+                vals = field.at(tuple(self.xyz))
+                arr = np.array(vals)
+            except PointNotInDomainError as e:
+                error('{:}: Cannot evaluate data on transect {:}'.format(self.__class__.__name__, self.location_name))
+                raise e
+            shape = list(self.value_shape) + [field_dim]
+            arr = np.array(vals).reshape(shape)
+            if field_dim == 3:
+                outvals.extend([arr[..., 0], arr[..., 1], arr[..., 2]])
+            elif field_dim == 2:
+                outvals.extend([arr[..., 0], arr[..., 1]])
+            else:
+                outvals.extend([arr[..., 0]])
+        return tuple(outvals)
 
     def message_str(self, *args):
-        minval = args[1].min()
-        maxval = args[1].max()
-
-        line = 'Evaluated {:} profile, value range: {:.3g} - {:.3g}'.format(
-            self.fieldname, minval, maxval)
-        return line
+        out = 'Evaluated transect "{:}":\n'.format(self.location_name)
+        for fieldname, arr in zip(self.variable_names[1:], args[1:]):
+            minval = arr.min()
+            maxval = arr.max()
+            out += '  {:} range: {:.3g} - {:.3g}\n'.format(
+                fieldname, minval, maxval)
+        out = out[:-1]  # suppress last line break
+        return out
