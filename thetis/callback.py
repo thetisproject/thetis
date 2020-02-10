@@ -71,7 +71,8 @@ class DiagnosticHDF5(object):
         :arg str filename: Full filename of the HDF5 file.
         :arg varnames: List of variable names that the diagnostic callback
             provides
-        :kwarg int array_dim: Dimension of the output array. 1 for scalars.
+        :kwarg array_dim: Dimension of the output array.
+            Can be a tuple for multi-dimensional output. Use "1" for scalars.
         :kwarg dict attrs: Additional attributes to be saved in the hdf5 file.
         :kwarg comm: MPI communicator
         :kwarg bool new_file: Define whether to create a new hdf5 file or
@@ -90,20 +91,27 @@ class DiagnosticHDF5(object):
                     hdf5file.create_dataset('time', (0, 1),
                                             maxshape=(None, 1), dtype=dtype)
                 for var in self.varnames:
-                    hdf5file.create_dataset(var, (0, array_dim),
-                                            maxshape=(None, array_dim), dtype=dtype)
+                    dim_list = array_dim
+                    if isinstance(dim_list, tuple):
+                        dim_list = list(array_dim)
+                    elif not isinstance(dim_list, list):
+                        dim_list = list([array_dim])
+                    shape = tuple([0] + dim_list)
+                    max_shape = tuple([None] + dim_list)
+                    hdf5file.create_dataset(var, shape,
+                                            maxshape=max_shape, dtype=dtype)
                 if attrs is not None:
                     hdf5file.attrs.update(attrs)
 
     def _expand_array(self, hdf5file, varname):
         """Expands array varname by 1 entry"""
         arr = hdf5file[varname]
-        shape = arr.shape
-        arr.resize((shape[0] + 1, shape[1]))
+        new_shape = list(arr.shape)
+        new_shape[0] += 1
+        arr.resize(tuple(new_shape))
 
     def _expand(self, hdf5file):
         """Expands data arrays by 1 entry"""
-        # TODO is there an easier way for doing this?
         for var in self.varnames:
             self._expand_array(hdf5file, var)
         if self.include_time:
@@ -157,7 +165,8 @@ class DiagnosticCallback(ABC):
         :arg solver_obj: Thetis solver object
         :kwarg str outputdir: Custom directory where hdf5 files will be stored.
             By default solver's output directory is used.
-        :kwarg int array_dim: Dimension of the output array. 1 for scalars.
+        :kwarg array_dim: Dimension of the output array.
+            Can be a tuple for multi-dimensional output. Use "1" for scalars.
         :kwarg dict attrs: Additional attributes to be saved in the hdf5 file.
         :kwarg bool export_to_hdf5: If True, diagnostics will be stored in hdf5
             format
