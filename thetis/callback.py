@@ -871,3 +871,133 @@ class VerticalProfileCallback(DiagnosticCallback):
                 fieldname, self.location_name, minval, maxval)
         out = out[:-1]  # suppress last line break
         return out
+
+
+class TransectCallback(DiagnosticCallback):
+    """
+    Extract a vertical transect of a 3D field at a given (x,y) locations.
+
+    Only for the 3D model.
+    """
+    name = 'transect'
+    variable_names = ['z_coord', 'value']
+
+    def __init__(self, solver_obj, fieldname, x, y,
+                 location_name,
+                 n_points_z=48,
+                 z_min=None, z_max=None,
+                 outputdir=None, export_to_hdf5=True,
+                 append_to_log=True):
+        """
+        :arg solver_obj: Thetis :class:`FlowSolver` object
+        :arg fieldname: Field to extract
+        :arg x, y: list of location coordinates in model coordinate system
+        :arg location_name: Unique name for this location. This
+            determines the name of the output h5 file (prefixed with
+            `diagnostic_`).
+        :arg int npoints: Number of points along the vertical axis. The 3D
+            field will be interpolated on these points, ranging from the bottom
+            to the (time dependent) free surface.
+        :kwarg str outputdir: Custom directory where hdf5 files will be stored.
+            By default solver's output directory is used.
+        :kwarg bool export_to_hdf5: If True, diagnostics will be stored in hdf5
+            format
+        :kwarg bool append_to_log: If True, callback output messages will be
+            printed in log
+        """
+        assert export_to_hdf5 is True
+        self.fieldname = fieldname
+        self.location_name = location_name
+        self.name += '_' + self.location_name
+        self.name += '_' + self.fieldname
+
+        self.x = np.array([x]).ravel()
+        self.y = np.array([y]).ravel()
+        if len(self.x) == 1:
+            self.x = np.ones_like(self.y) * self.x
+        if len(self.y) == 1:
+            self.y = np.ones_like(self.x) * self.y
+
+        attrs = {'x': self.x, 'y': self.y}
+        attrs['location_name'] = self.location_name
+
+        assert len(self.y) == len(self.x)
+        self.n_points_xy = len(self.x)
+        self.n_points_z = n_points_z
+        self.value_shape = (self.n_points_z, self.n_points_xy)
+        self.force_z_min = z_min
+        self.force_z_max = z_max
+
+        self.field = solver_obj.fields[self.fieldname]
+        self.field_dim = self.field.function_space().value_size
+        if self.field_dim == 2:
+            self.variable_names = ['z_coord', 'value_x', 'value_y']
+        if self.field_dim == 3:
+            self.variable_names = ['z_coord', 'value_x', 'value_y', 'value_z']
+
+        super().__init__(
+            solver_obj,
+            outputdir=outputdir,
+            array_dim=self.value_shape,
+            attrs=attrs,
+            export_to_hdf5=export_to_hdf5,
+            append_to_log=append_to_log)
+        self._initialized = False
+
+    def _initialize(self):
+        outputdir = self.outputdir
+        if outputdir is None:
+            outputdir = self.solver_obj.options.outputdir
+
+        # construct mesh points for evaluation
+        self.xy = list(zip(self.x, self.y))
+        self.trans_x = np.tile(self.x[np.newaxis, :], (self.n_points_z, 1))
+        self.trans_y = np.tile(self.y[np.newaxis, :], (self.n_points_z, 1))
+
+    def _update_coords(self):
+        try:
+            depth = np.array(self.solver_obj.fields.bathymetry_2d.at(self.xy))
+            elev = np.array(self.solver_obj.fields.elev_cg_2d.at(self.xy))
+        except PointNotInDomainError as e:
+            error('{:}: Transect "{:}" point out of horizontal domain'.format(self.__class__.__name__, self.location_name))
+            raise e
+        epsilon = 1e-5  # nudge points to avoid libspatialindex errors
+        z_min = -(depth - epsilon)
+        z_max = elev - epsilon
+        if self.force_z_min is not None:
+            z_min = np.maximum(z_min, self.force_z_min)
+        if self.force_z_max is not None:
+            z_max = np.minimum(z_max, self.force_z_max)
+        self.trans_z = np.linspace(z_max, z_min, self.n_points_z)
+        self.trans_z = self.trans_z.reshape(self.value_shape)
+        self.xyz = np.vstack((self.trans_x.ravel(),
+                              self.trans_y.ravel(),
+                              self.trans_z.ravel())).T
+
+    def __call__(self):
+        if not self._initialized:
+            self._initialize()
+        self._update_coords()
+
+        # evaluate function on regular grid
+        func = self.field
+        try:
+            vals = func.at(tuple(self.xyz))
+        except PointNotInDomainError as e:
+            error('{:}: Cannot evaluate data on transect {:}'.format(self.__class__.__name__, self.location_name))
+            raise e
+        shape = list(self.value_shape) + [self.field_dim]
+        arr = np.array(vals).reshape(shape)
+        if self.field_dim == 3:
+            return (self.trans_z, arr[..., 0], arr[..., 1], arr[..., 2])
+        if self.field_dim == 2:
+            return (self.trans_z, arr[..., 0], arr[..., 1])
+        return (self.trans_z, arr[..., 0])
+
+    def message_str(self, *args):
+        minval = args[1].min()
+        maxval = args[1].max()
+
+        line = 'Evaluated {:} profile, value range: {:.3g} - {:.3g}'.format(
+            self.fieldname, minval, maxval)
+        return line
