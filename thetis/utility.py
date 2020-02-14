@@ -5,7 +5,6 @@ from __future__ import absolute_import
 from .firedrake import *
 import os
 import numpy as np
-import numpy.linalg as la
 import sys
 from .physical_constants import physical_constants
 from pyop2.profiling import timed_region, timed_function, timed_stage  # NOQA
@@ -1175,6 +1174,7 @@ def get_horizontal_elem_size_3d(sol2d, sol3d):
     get_horizontal_elem_size_2d(sol2d)
     ExpandFunctionTo3d(sol2d, sol3d).solve()
 
+
 def get_facet_areas(mesh):
     """
     Compute area of each facet of `mesh`. The facet areas are stored as a HDiv trace field.
@@ -1190,6 +1190,7 @@ def get_facet_areas(mesh):
     rhs = v('+')*FacetArea(mesh)*dS + v*FacetArea(mesh)*ds
     solve(mass_term == rhs, facet_areas)
     return facet_areas
+
 
 def get_minimum_angles_2d(mesh2d):
     """
@@ -1229,6 +1230,7 @@ def get_minimum_angles_2d(mesh2d):
                   angle[0] = acos(numerator/denominator);
                 }""", dx, {'edges': (edge_lengths, READ), 'angle': (min_angles, RW)})
     return min_angles
+
 
 def get_sipg_ratios(nu):
     """
@@ -1274,6 +1276,7 @@ def get_sipg_ratios(nu):
         # TODO: For higher order elements, the extrema aren't necessarily achieved at the
         #       vertices. Perhaps we could project or interpolate into a matching Bernstein
         #       element and use the property that the Bernstein polynomials bound the solution.
+
 
 # TODO: This becomes redundant once spatially varying SIPG parameter is implemented.
 def get_sipg_ratio(nu):
