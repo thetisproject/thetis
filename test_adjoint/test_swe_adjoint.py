@@ -66,6 +66,7 @@ def basic_setup():
 
 
 def setup_steady():
+    pytest.xfail("This test is currently broken")  # FIXME
     solver_obj = basic_setup()
     solver_obj.options.timestepper_type = 'SteadyState'
     solver_obj.options.simulation_end_time = 0.499
@@ -81,6 +82,7 @@ def setup_steady():
 
 
 def setup_unsteady():
+    pytest.xfail("Function.split is currently broken in Firedrake")  # FIXME
     solver_obj = basic_setup()
     solver_obj.options.timestepper_type = 'CrankNicolson'
     solver_obj.options.simulation_end_time = 2.0
