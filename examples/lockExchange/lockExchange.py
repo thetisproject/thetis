@@ -36,6 +36,7 @@ COMODO lock exchange benchmark [2]:
 from thetis import *
 from diagnostics import *
 from plotting import *
+from thetis.callback import TransectCallback
 
 
 def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
@@ -174,12 +175,17 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.equation_of_state_options.beta = 0.0
     options.update(custom_options)
 
+    solver_obj.create_equations()
+
     if comm.size == 1:
         solver_obj.add_callback(RPECalculator(solver_obj))
         solver_obj.add_callback(FrontLocationCalculator(solver_obj))
-        # solver_obj.add_callback(PlotCallback(solver_obj, append_to_log=False))
-
-    solver_obj.create_equations()
+        solver_obj.add_callback(PlotCallback(solver_obj, append_to_log=False))
+        trans_x = np.linspace(-10e3, 30e3, 100)
+        trans_y = 10.0
+        tcp = TransectCallback(solver_obj, ['temp_3d', 'uv_3d'],
+                               trans_x, trans_y, 'along', append_to_log=True)
+        solver_obj.add_callback(tcp)
 
     print_output('Running lock exchange problem with options:')
     print_output('Resolution: {:}'.format(reso_str))
