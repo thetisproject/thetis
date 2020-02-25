@@ -10,6 +10,7 @@ from . import turbulence
 from . import coupled_timeintegrator
 import thetis.limiter as limiter
 import time as time_mod
+import numpy as np
 from mpi4py import MPI
 from . import exporter
 import weakref
@@ -442,6 +443,78 @@ class FlowSolver(FrozenClass):
 
         self._isfrozen = True
 
+    def set_sipg_parameter(self):
+        r"""
+        Compute a penalty parameter which ensures stability of the Interior Penalty method
+        used for viscosity and diffusivity terms, from Epshteyn et al. 2007
+        (http://dx.doi.org/10.1016/j.cam.2006.08.029).
+
+        The scheme is stable if
+
+        ..math::
+            \alpha|_K > 3*X*p*(p+1)*\cot(\theta_K),
+
+        for all elements :math:`K`, where
+
+        ..math::
+            X = \frac{\max_{x\in K}(\nu(x))}{\min_{x\in K}(\nu(x))},
+
+        :math:`p` the degree, and :math:`\theta_K` is the minimum angle in the element.
+
+        In practice, we take the maximum value of :math:`X` and minimum value of
+        :math:`\alpha_K` over all elements.
+        """
+        degree_h, degree_v = self.function_spaces.U.ufl_element().degree()
+        alpha_h = 5.0*degree_h*(degree_h+1) if degree_h != 0 else 1.5
+        alpha_v = 5.0*degree_v*(degree_v+1) if degree_v != 0 else 1.0
+        degree_h_tracer, degree_v_tracer = self.function_spaces.H.ufl_element().degree()
+        alpha_h_tracer = 5.0*degree_h_tracer*(degree_h_tracer+1) if degree_h_tracer != 0 else 1.5
+        alpha_v_tracer = 5.0*degree_v_tracer*(degree_v_tracer+1) if degree_v_tracer != 0 else 1.0
+        degree_h_turb, degree_v_turb = self.function_spaces.turb_space.ufl_element().degree()
+        alpha_h_turb = 5.0*degree_h_turb*(degree_h_turb+1) if degree_h_turb != 0 else 1.5
+        alpha_v_turb = 5.0*degree_v_turb*(degree_v_turb+1) if degree_v_turb != 0 else 1.0
+
+        if self.options.use_automatic_sipg_parameter:  # TODO: Spatially varying parameter
+            min_angle = get_minimum_angles_2d(self.mesh2d).vector().gather().min()
+            print_output("Minimum angle in 2D mesh:                {:.2f} degrees".format(np.rad2deg(min_angle)))
+            cot_theta = 1.0/tan(min_angle)
+
+            # Horizontal component
+            nu = self.options.horizontal_viscosity
+            if nu is not None:
+                alpha_h *= get_sipg_ratio(nu)*cot_theta
+            print_output("SIPG parameter in horizontal:            {:.2f}".format(alpha_h))
+            self.options.sipg_parameter.assign(alpha_h)
+
+            # Vertical component
+            print_output("SIPG parameter in vertical:              {:.2f}".format(alpha_v))
+
+            # Penalty parameter for tracers / turbulence model
+            if self.options.solve_salinity or self.options.solve_temperature or self.options.use_turbulence:
+
+                # Horizontal component
+                nu = self.options.horizontal_diffusivity
+                if nu is not None:
+                    scaling = get_sipg_ratio(nu)*cot_theta
+                    alpha_h_tracer *= scaling
+                    alpha_h_turb *= scaling
+                print_output("Tracer SIPG parameter in horizontal:     {:.2f}".format(alpha_h_tracer))
+                print_output("Turbulence SIPG parameter in horizontal: {:.2f}".format(alpha_h_turb))
+                self.options.sipg_parameter_tracer.assign(alpha_h_tracer)
+                self.options.sipg_parameter_turb.assign(alpha_h_turb)
+
+                # Vertical component
+                print_output("Tracer SIPG parameter in vertical:       {:.2f}".format(alpha_v_tracer))
+                print_output("Turbulence SIPG parameter in vertical:   {:.2f}".format(alpha_v_turb))
+        else:
+            print_output("Using default SIPG parameters")
+            self.options.sipg_parameter.assign(alpha_h)
+            self.options.sipg_parameter_tracer.assign(alpha_h_tracer)
+            self.options.sipg_parameter_turb.assign(alpha_h_turb)
+        self.options.sipg_parameter_vertical.assign(alpha_v)
+        self.options.sipg_parameter_vertical_tracer.assign(alpha_v_tracer)
+        self.options.sipg_parameter_vertical_turb.assign(alpha_v_turb)
+
     def create_fields(self):
         """
         Creates all fields
@@ -619,6 +692,7 @@ class FlowSolver(FrozenClass):
             filehandler = logging.logging.FileHandler(logfile, mode='w')
             filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
             output_logger.addHandler(filehandler)
+        self.set_sipg_parameter()
 
         self.eq_sw = shallowwater_eq.ModeSplit2DEquations(
             self.fields.solution_2d.function_space(),
@@ -632,7 +706,9 @@ class FlowSolver(FrozenClass):
                                                         h_elem_size=self.fields.h_elem_size_3d,
                                                         use_nonlinear_equations=self.options.use_nonlinear_equations,
                                                         use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
-                                                        use_bottom_friction=expl_bottom_friction)
+                                                        use_bottom_friction=expl_bottom_friction,
+                                                        sipg_parameter=self.options.sipg_parameter,
+                                                        sipg_parameter_vertical=self.options.sipg_parameter_vertical)
         if self.options.use_implicit_vertical_diffusion:
             self.eq_vertmomentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
                                                                 bathymetry=self.fields.bathymetry_3d,
@@ -640,20 +716,26 @@ class FlowSolver(FrozenClass):
                                                                 h_elem_size=self.fields.h_elem_size_3d,
                                                                 use_nonlinear_equations=False,
                                                                 use_lax_friedrichs=self.options.use_lax_friedrichs_velocity,
-                                                                use_bottom_friction=self.options.use_bottom_friction)
+                                                                use_bottom_friction=self.options.use_bottom_friction,
+                                                                sipg_parameter=self.options.sipg_parameter,
+                                                                sipg_parameter_vertical=self.options.sipg_parameter_vertical)
         if self.options.solve_salinity:
             self.eq_salt = tracer_eq.TracerEquation(self.fields.salt_3d.function_space(),
                                                     bathymetry=self.fields.bathymetry_3d,
                                                     v_elem_size=self.fields.v_elem_size_3d,
                                                     h_elem_size=self.fields.h_elem_size_3d,
                                                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                                                    use_symmetric_surf_bnd=self.options.element_family == 'dg-dg')
+                                                    use_symmetric_surf_bnd=self.options.element_family == 'dg-dg',
+                                                    sipg_parameter=self.options.sipg_parameter_tracer,
+                                                    sipg_parameter_vertical=self.options.sipg_parameter_vertical_tracer)
             if self.options.use_implicit_vertical_diffusion:
                 self.eq_salt_vdff = tracer_eq.TracerEquation(self.fields.salt_3d.function_space(),
                                                              bathymetry=self.fields.bathymetry_3d,
                                                              v_elem_size=self.fields.v_elem_size_3d,
                                                              h_elem_size=self.fields.h_elem_size_3d,
-                                                             use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
+                                                             use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                                                             sipg_parameter=self.options.sipg_parameter_tracer,
+                                                             sipg_parameter_vertical=self.options.sipg_parameter_vertical_tracer)
 
         if self.options.solve_temperature:
             self.eq_temp = tracer_eq.TracerEquation(self.fields.temp_3d.function_space(),
@@ -661,13 +743,17 @@ class FlowSolver(FrozenClass):
                                                     v_elem_size=self.fields.v_elem_size_3d,
                                                     h_elem_size=self.fields.h_elem_size_3d,
                                                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                                                    use_symmetric_surf_bnd=self.options.element_family == 'dg-dg')
+                                                    use_symmetric_surf_bnd=self.options.element_family == 'dg-dg',
+                                                    sipg_parameter=self.options.sipg_parameter_tracer,
+                                                    sipg_parameter_vertical=self.options.sipg_parameter_vertical_tracer)
             if self.options.use_implicit_vertical_diffusion:
                 self.eq_temp_vdff = tracer_eq.TracerEquation(self.fields.temp_3d.function_space(),
                                                              bathymetry=self.fields.bathymetry_3d,
                                                              v_elem_size=self.fields.v_elem_size_3d,
                                                              h_elem_size=self.fields.h_elem_size_3d,
-                                                             use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
+                                                             use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                                                             sipg_parameter=self.options.sipg_parameter_tracer,
+                                                             sipg_parameter_vertical=self.options.sipg_parameter_vertical_tracer)
 
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         self.eq_momentum.bnd_functions = self.bnd_functions['momentum']
@@ -682,12 +768,16 @@ class FlowSolver(FrozenClass):
                                                            bathymetry=self.fields.bathymetry_3d,
                                                            v_elem_size=self.fields.v_elem_size_3d,
                                                            h_elem_size=self.fields.h_elem_size_3d,
-                                                           use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
+                                                           use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                                                           sipg_parameter=self.options.sipg_parameter_turb,
+                                                           sipg_parameter_vertical=self.options.sipg_parameter_vertical_turb)
                 self.eq_psi_adv = tracer_eq.TracerEquation(self.fields.psi_3d.function_space(),
                                                            bathymetry=self.fields.bathymetry_3d,
                                                            v_elem_size=self.fields.v_elem_size_3d,
                                                            h_elem_size=self.fields.h_elem_size_3d,
-                                                           use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
+                                                           use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                                                           sipg_parameter=self.options.sipg_parameter_turb,
+                                                           sipg_parameter_vertical=self.options.sipg_parameter_vertical_turb)
             # implicit vertical diffusion eqn with production terms
             self.eq_tke_diff = turbulence.TKEEquation(self.fields.tke_3d.function_space(),
                                                       self.turbulence_model,

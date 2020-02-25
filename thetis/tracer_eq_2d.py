@@ -32,7 +32,7 @@ class TracerTerm(Term):
     boundary functions.
     """
     def __init__(self, function_space,
-                 bathymetry=None, use_lax_friedrichs=True):
+                 bathymetry=None, use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -44,6 +44,7 @@ class TracerTerm(Term):
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
         self.use_lax_friedrichs = use_lax_friedrichs
+        self.sipg_parameter = sipg_parameter
 
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
@@ -205,22 +206,11 @@ class HorizontalDiffusionTerm(TracerTerm):
         f += inner(grad_test, diff_flux)*self.dx
 
         if self.horizontal_dg:
-            # Interior Penalty method by
-            # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
-            # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
-            # k_max/k_min  - max/min diffusivity
-            # p            - polynomial degree
-            # Theta        - min angle of triangles
-            # assuming k_max/k_min=2, Theta=pi/3
-            # sigma = 6.93 = 3.5*p*(p+1)
-
-            degree_h = self.function_space.ufl_element().degree()
-            sigma = 5.0*degree_h*(degree_h + 1)/self.cellsize
-            if degree_h == 0:
-                sigma = 1.5 / self.cellsize
-            alpha = avg(sigma)
+            alpha = self.sipg_parameter
+            assert alpha is not None
+            sigma = avg(alpha / self.cellsize)
             ds_interior = self.dS
-            f += alpha*inner(jump(self.test, self.normal),
+            f += sigma*inner(jump(self.test, self.normal),
                              dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
             f += -inner(avg(dot(diff_tensor, grad(self.test))),
                         jump(solution, self.normal))*ds_interior
@@ -280,7 +270,8 @@ class TracerEquation2D(Equation):
     """
     def __init__(self, function_space,
                  bathymetry=None,
-                 use_lax_friedrichs=False):
+                 use_lax_friedrichs=False,
+                 sipg_parameter=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -291,7 +282,7 @@ class TracerEquation2D(Equation):
         """
         super(TracerEquation2D, self).__init__(function_space)
 
-        args = (function_space, bathymetry, use_lax_friedrichs)
+        args = (function_space, bathymetry, use_lax_friedrichs, sipg_parameter)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')

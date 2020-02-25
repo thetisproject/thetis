@@ -5,9 +5,11 @@ import pytest
 
 
 @pytest.mark.parametrize("options", [
-    {"no_exports": True, "element_family": "rt-dg"},
-    {"no_exports": True, "element_family": "dg-cg"},
-], ids=["rt-dg", "dg-cg"])
+    {"no_exports": True, "element_family": "rt-dg", "use_automatic_sipg_parameter": False},
+    {"no_exports": True, "element_family": "rt-dg", "use_automatic_sipg_parameter": True},
+    {"no_exports": True, "element_family": "dg-cg", "use_automatic_sipg_parameter": False},
+    {"no_exports": True, "element_family": "dg-cg", "use_automatic_sipg_parameter": True},
+], ids=["rt-dg", "dg-cg", "rt-dg_auto", "dg-cg_auto"])
 def test_steady_state_channel_mms(options):
     lx = 5e3
     ly = 1e3
