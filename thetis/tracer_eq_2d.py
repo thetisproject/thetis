@@ -148,10 +148,8 @@ class HorizontalAdvectionTerm(TracerTerm):
         f = 0
         if conservative:
             H = self.get_total_depth(fields["elev_2d"])
-            #f += -(Dx(self.test, 0) * H * uv[0] * solution
-            #       + Dx(self.test, 1) * H * uv[1] * solution) * self.dx
-            f += -(Dx(self.test*uv[0], 0) * H * solution
-                   + Dx(self.test*uv[1], 1) * H * solution) * self.dx                            
+            f += -(Dx(self.test, 0) * H * uv[0] * solution
+                   + Dx(self.test, 1) * H * uv[1] * solution) * self.dx                          
         else:
             f += -(Dx(uv[0] * self.test, 0) * solution
                    + Dx(uv[1] * self.test, 1) * solution) * self.dx
@@ -211,7 +209,7 @@ class HorizontalAdvectionTerm(TracerTerm):
                             else:
                                 c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
                                 H_ext = self.get_total_depth(eta_ext)
-                                uv_av = H*uv#0.5*(H * uv + H_ext * uv_ext)
+                                uv_av = 0.5*(H * uv + H_ext * uv_ext)
                                 f += c_in*(uv_av[0]*self.normal[0]
                                    + uv_av[1]*self.normal[1])*self.test*ds_bnd
                         else:
@@ -370,8 +368,8 @@ class TracerEquation2D(Equation):
 
         args = (function_space, bathymetry, sipg_parameter, options)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
-        self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
-        self.add_term(SourceTerm(*args), 'source')
+        #self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
+        #self.add_term(SourceTerm(*args), 'source')
         self._mass_term = MassTerm(*args)
 
     def mass_term(self, solution, fields):
