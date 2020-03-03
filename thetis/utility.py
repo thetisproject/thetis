@@ -308,6 +308,42 @@ def comp_tracer_mass_2d(eta, bath, scalar_func):
     """
 
     val = assemble((eta+bath)*scalar_func*dx)
+
+    return val
+
+def comp_tracer_bed_mass_2d(var, tracer_name):
+    eta = var.solver_obj.fields.elev_2d
+    vel = var.solver_obj.fields.uv_2d 
+
+    #initial_bath = var.initial_bath
+    scalar_func = var.solver_obj.fields[tracer_name]
+    """
+    Computes total tracer mass in the 2D domain
+    :arg eta: elevation :class:`Function`
+    :arg bath: bathymetry :class:`Function`
+    :arg scalar_func: scalar :class:`Function` to integrate
+    """
+    n = FacetNormal(var.solver_obj.mesh2d)
+
+    boundary_terms = 0
+    term = var.solver_obj.eq_tracer.terms['HorizontalAdvectionTerm']
+
+    H = term.get_total_depth(eta)
+        
+    for bnd_marker in term.boundary_markers:
+        ds_bnd = ds(int(bnd_marker), degree=term.quad_degree)
+        a = -(n[0]*vel[0] + n[1]*vel[1])*H*scalar_func*ds_bnd
+
+        boundary_terms += assemble(a)
+
+
+    if var.initial_value is None:
+        var.initial_value = assemble(H*scalar_func*dx) 
+    else:
+        var.initial_value += var.solver_obj.options.simulation_export_time*(boundary_terms + assemble(var.solver_obj.options.tracer_source_2d*H*dx))
+
+    val = assemble(H*scalar_func*dx)
+
     return val
 
 

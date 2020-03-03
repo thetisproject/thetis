@@ -84,7 +84,7 @@ class TracerTerm(Term):
         elif 'flux' in funcs:
             assert self.bathymetry is not None
             h_ext = elev_ext + self.bathymetry
-            area = h_ext*self.boundary_len  # NOTE using external data only
+            area = h_ext*self.boundary_len[bnd_id]  # NOTE using external data only
             uv_ext = funcs['flux']/area*self.normal
         elif 'un' in funcs:
             uv_ext = funcs['un']*self.normal
@@ -147,9 +147,12 @@ class HorizontalAdvectionTerm(TracerTerm):
 
         f = 0
         if conservative:
+            print("one wrong")
             H = self.get_total_depth(fields["elev_2d"])
-            f += -(Dx(self.test, 0) * H * uv[0] * solution
-                   + Dx(self.test, 1) * H * uv[1] * solution) * self.dx
+            #f += -(Dx(self.test, 0) * H * uv[0] * solution
+            #       + Dx(self.test, 1) * H * uv[1] * solution) * self.dx
+            f += -(Dx(H*uv[0]*self.test, 0) * solution
+                   + Dx(self.test * H * uv[1], 1) * solution) * self.dx            
         else:
             f += -(Dx(uv[0] * self.test, 0) * solution
                    + Dx(uv[1] * self.test, 1) * solution) * self.dx
@@ -162,8 +165,10 @@ class HorizontalAdvectionTerm(TracerTerm):
             s = 0.5*(sign(un_av) + 1.0)
 
             if conservative:
+                
                 Huvc_up = (H*uv*solution)('-')*s + (H*uv*solution)('+')*(1-s)
                 f += dot(Huvc_up, jump(self.test, self.normal)) * self.dS
+
             else:
                 c_up = solution('-')*s + solution('+')*(1-s)
                 f += c_up*(jump(self.test, uv[0] * self.normal[0])
@@ -181,6 +186,7 @@ class HorizontalAdvectionTerm(TracerTerm):
                     gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                 f += gamma*dot(jump(self.test), jump(solution))*self.dS
             if bnd_conditions is not None:
+
                 for bnd_marker in self.boundary_markers:
                     funcs = bnd_conditions.get(bnd_marker)
                     ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
@@ -197,10 +203,22 @@ class HorizontalAdvectionTerm(TracerTerm):
                         c_up = c_in*s + c_ext*(1-s)
                         f += c_up*(uv_av[0]*self.normal[0]
                                    + uv_av[1]*self.normal[1])*self.test*ds_bnd
-                    # TODO check the implementation below for conservative form
-                    elif not conservative:
-                        f += c_in * (uv[0]*self.normal[0]
+                    
+                    else:
+                        if conservative:
+                            if funcs is None:
+                                f += c_in * H*(uv[0]*self.normal[0]
+                                     + uv[1]*self.normal[1])*self.test*ds_bnd 
+                            else:
+                                c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                                H_ext = self.get_total_depth(eta_ext)
+                                uv_av = H*uv#0.5*(H * uv + H_ext * uv_ext)
+                                f += c_in*(uv_av[0]*self.normal[0]
+                                   + uv_av[1]*self.normal[1])*self.test*ds_bnd
+                        else:
+                            f += c_in * (uv[0]*self.normal[0]
                                      + uv[1]*self.normal[1])*self.test*ds_bnd
+                    
 
         return -f
 
