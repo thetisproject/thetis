@@ -291,13 +291,45 @@ class ScalarConservationCallback(DiagnosticCallback):
         value = self.scalar_callback()
         if self.initial_value is None:
             self.initial_value = value
+
         rel_diff = (value - self.initial_value)/self.initial_value
+   
         return value, rel_diff
 
     def message_str(self, *args):
         line = '{0:s} rel. error {1:11.4e}'.format(self.name, args[1])
         return line
 
+class TracerScalarConservationCallback(DiagnosticCallback):
+    """Base class for callbacks that check conservation of a scalar quantity"""
+    variable_names = ['integral', 'relative_difference']
+
+    def __init__(self, scalar_callback, solver_obj, **kwargs):
+        """
+        Creates scalar conservation check callback object
+
+        :arg scalar_callback: Python function that takes the solver object as
+            an argument and returns a scalar quantity of interest
+        :arg solver_obj: Thetis solver object
+        :arg kwargs: any additional keyword arguments, see
+            :class:`.DiagnosticCallback`.
+        """
+        super(TracerScalarConservationCallback, self).__init__(solver_obj, **kwargs)
+        self.scalar_callback = scalar_callback
+        #self.initial_value = None
+
+    def __call__(self):
+        value = self.scalar_callback()
+        if self.initial_value is None:
+            self.initial_value = value
+
+        rel_diff = (value - self.initial_value)/self.initial_value
+
+        return value, rel_diff
+
+    def message_str(self, *args):
+        line = '{0:s} rel. error {1:11.4e}'.format(self.name, args[1])
+        return line
 
 class VolumeConservation3DCallback(ScalarConservationCallback):
     """Checks conservation of 3D volume (volume of 3D mesh)"""
@@ -331,7 +363,7 @@ class VolumeConservation2DCallback(ScalarConservationCallback):
         super(VolumeConservation2DCallback, self).__init__(vol2d, solver_obj, **kwargs)
 
 
-class TracerMassConservation2DCallback(ScalarConservationCallback):
+class TracerMassConservation2DCallback(TracerScalarConservationCallback):
     """
     Checks conservation of depth-averaged tracer mass
 
@@ -351,9 +383,15 @@ class TracerMassConservation2DCallback(ScalarConservationCallback):
         self.name = tracer_name + ' mass'  # override name for given tracer
 
         def mass():
-            return comp_tracer_mass_2d(self.solver_obj.fields.elev_2d,
-                                       self.solver_obj.fields.bathymetry_2d,
-                                       self.solver_obj.fields[tracer_name])
+            #return comp_tracer_mass_2d(self.solver_obj.fields.elev_2d,
+            #                           self.solver_obj.fields.bathymetry_2d,
+            #                           self.solver_obj.fields[tracer_name])
+            if not hasattr(self, 'initial_bath'):
+                self.initial_bath = self.solver_obj.fields.bathymetry_2d.copy(deepcopy = True)
+            if not hasattr(self, 'initial_value'):
+                self.initial_value = None
+
+            return comp_tracer_bed_mass_2d(self, tracer_name)            
         super(TracerMassConservation2DCallback, self).__init__(mass, solver_obj, **kwargs)
 
 
