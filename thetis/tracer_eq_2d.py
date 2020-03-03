@@ -147,12 +147,11 @@ class HorizontalAdvectionTerm(TracerTerm):
 
         f = 0
         if conservative:
-            print("one wrong")
             H = self.get_total_depth(fields["elev_2d"])
             #f += -(Dx(self.test, 0) * H * uv[0] * solution
             #       + Dx(self.test, 1) * H * uv[1] * solution) * self.dx
-            f += -(Dx(H*uv[0]*self.test, 0) * solution
-                   + Dx(self.test * H * uv[1], 1) * solution) * self.dx            
+            f += -(Dx(self.test*uv[0], 0) * H * solution
+                   + Dx(self.test*uv[1], 1) * H * solution) * self.dx                            
         else:
             f += -(Dx(uv[0] * self.test, 0) * solution
                    + Dx(uv[1] * self.test, 1) * solution) * self.dx
