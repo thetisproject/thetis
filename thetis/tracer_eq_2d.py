@@ -189,6 +189,7 @@ class HorizontalAdvectionTerm(TracerTerm):
                     ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                     c_in = solution
                     if funcs is not None and 'value' in funcs:
+
                         c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
                         if conservative:
                             H_ext = self.get_total_depth(eta_ext)
@@ -368,8 +369,8 @@ class TracerEquation2D(Equation):
 
         args = (function_space, bathymetry, sipg_parameter, options)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
-        #self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
-        #self.add_term(SourceTerm(*args), 'source')
+        self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
+        self.add_term(SourceTerm(*args), 'source')
         self._mass_term = MassTerm(*args)
 
     def mass_term(self, solution, fields):
