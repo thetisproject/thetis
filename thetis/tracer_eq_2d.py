@@ -137,9 +137,7 @@ class HorizontalAdvectionTerm(TracerTerm):
         elev = fields_old['elev_2d']
         self.corr_factor = fields_old.get('tracer_advective_velocity_factor')
         conservative = self.options.use_tracer_conservative_form
-        uv = self.corr_factor * fields_old['uv_2d']
-            
-        import ipdb; ipdb.set_trace()    
+        uv = self.corr_factor * fields_old['uv_2d']  
             
         uv_p1 = fields_old.get('uv_p1')
         uv_mag = fields_old.get('uv_mag')
@@ -280,9 +278,8 @@ class HorizontalDiffusionTerm(TracerTerm):
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 c_in = solution
                 elev = fields_old['elev_2d']
-                uv = fields_old.get('tracer_advective_velocity')
-                if uv is None:
-                    uv = fields_old['uv_2d']
+                self.corr_factor = fields_old.get('tracer_advective_velocity_factor')
+                uv = self.corr_factor * fields_old['uv_2d']  
                 if funcs is not None:
                     if 'value' in funcs:
                         c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
