@@ -80,16 +80,16 @@ class TracerTerm(Term):
         else:
             c_ext = c_in
         if 'uv' in funcs:
-            uv_ext = funcs['uv']
+            uv_ext = self.corr_factor * funcs['uv']
         elif 'flux' in funcs:
             assert self.bathymetry is not None
             h_ext = elev_ext + self.bathymetry
-            area = h_ext*self.boundary_len  # NOTE using external data only
-            uv_ext = funcs['flux']/area*self.normal
+            area = h_ext*self.boundary_len[bnd_id]  # NOTE using external data only
+            uv_ext = self.corr_factor * funcs['flux']/area*self.normal
         elif 'un' in funcs:
             uv_ext = funcs['un']*self.normal
         else:
-            uv_ext = uv_in
+            uv_ext = self.corr_factor * uv_in
 
         return c_ext, uv_ext, elev_ext
 
@@ -115,10 +115,9 @@ class HorizontalAdvectionTerm(TracerTerm):
         if fields_old.get('uv_2d') is None:
             return 0
         elev = fields_old['elev_2d']
-        uv = fields_old.get('tracer_advective_velocity')
-        if uv is None:
-            uv = fields_old['uv_2d']
-
+        self.corr_factor = fields_old.get('tracer_advective_velocity_factor')
+        conservative = self.options.use_tracer_conservative_form
+        uv = self.corr_factor * fields_old['uv_2d']
         uv_p1 = fields_old.get('uv_p1')
         uv_mag = fields_old.get('uv_mag')
         # FIXME is this an option?
