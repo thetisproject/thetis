@@ -291,9 +291,7 @@ class ScalarConservationCallback(DiagnosticCallback):
         value = self.scalar_callback()
         if self.initial_value is None:
             self.initial_value = value
-
         rel_diff = (value - self.initial_value)/self.initial_value
-   
         return value, rel_diff
 
     def message_str(self, *args):
@@ -316,20 +314,35 @@ class TracerScalarConservationCallback(DiagnosticCallback):
         """
         super(TracerScalarConservationCallback, self).__init__(solver_obj, **kwargs)
         self.scalar_callback = scalar_callback
-        #self.initial_value = None
 
     def __call__(self):
         value = self.scalar_callback()
         if self.initial_value is None:
             self.initial_value = value
 
-        rel_diff = (value - self.initial_value)/self.initial_value
+        rel_diff = (value - self.initial_value)/self.initial_initial_value
 
         return value, rel_diff
 
     def message_str(self, *args):
         line = '{0:s} rel. error {1:11.4e}'.format(self.name, args[1])
         return line
+    
+    def evaluate(self, index=None):
+        """
+        Evaluates callback and pushes values to log and hdf file (if enabled)
+        """
+        values = self.__call__()
+        time = self.solver_obj.simulation_time
+        if hasattr(self, "next_export_t_callback") == False:
+            self.next_export_t_callback = 0
+        if time >= self.next_export_t_callback - 10**(-5):
+            if self.append_to_log:
+                self.push_to_log(time, values)              
+            self.next_export_t_callback += self.solver_obj.options.simulation_export_time
+                
+        if self.append_to_hdf5:
+            self.push_to_hdf5(time, values, index=index)
 
 class VolumeConservation3DCallback(ScalarConservationCallback):
     """Checks conservation of 3D volume (volume of 3D mesh)"""
@@ -383,15 +396,10 @@ class TracerMassConservation2DCallback(TracerScalarConservationCallback):
         self.name = tracer_name + ' mass'  # override name for given tracer
 
         def mass():
-            #return comp_tracer_mass_2d(self.solver_obj.fields.elev_2d,
-            #                           self.solver_obj.fields.bathymetry_2d,
-            #                           self.solver_obj.fields[tracer_name])
-            if not hasattr(self, 'initial_bath'):
-                self.initial_bath = self.solver_obj.fields.bathymetry_2d.copy(deepcopy = True)
             if not hasattr(self, 'initial_value'):
                 self.initial_value = None
 
-            return comp_tracer_bed_mass_2d(self, tracer_name)            
+            return comp_tracer_mass_2d(self, tracer_name)        
         super(TracerMassConservation2DCallback, self).__init__(mass, solver_obj, **kwargs)
 
 

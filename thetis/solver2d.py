@@ -626,7 +626,7 @@ class FlowSolver2d(FrozenClass):
                                                           self,
                                                           export_to_hdf5=dump_hdf5,
                                                           append_to_log=True)
-            self.add_callback(c, eval_interval='export')
+            self.add_callback(c, eval_interval='timestep')
 
         if self.options.check_tracer_overshoot:
             c = callback.TracerOvershootCallBack('tracer_2d',
