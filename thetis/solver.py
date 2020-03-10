@@ -970,8 +970,9 @@ class FlowSolver(FrozenClass):
             self.fields.elev_2d.project(elev)
         if uv_2d is not None:
             self.fields.uv_2d.project(uv_2d)
+            self.fields.uv_dav_2d.project(uv_2d)
             if uv_3d is None:
-                ExpandFunctionTo3d(self.fields.uv_2d, self.fields.uv_3d,
+                ExpandFunctionTo3d(self.fields.uv_2d, self.fields.uv_dav_3d,
                                    elem_height=self.fields.v_elem_size_3d).solve()
         if uv_3d is not None:
             self.fields.uv_3d.project(uv_3d)
