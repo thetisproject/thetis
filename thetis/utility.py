@@ -312,11 +312,14 @@ def comp_tracer_mass_2d(eta, bath, scalar_func):
     return val
 
 def comp_tracer_bed_mass_2d(var, tracer_name):
-    eta = var.solver_obj.fields.elev_2d
-    vel = var.solver_obj.fields.uv_2d 
+    eta = var.solver_obj.fields.elev_2d.copy(deepcopy = True)
+    vel = var.solver_obj.fields.uv_2d.copy(deepcopy = True)
+
+    ero = var.solver_obj.options.tracer_depth_integ_source_erosion#.copy(deepcopy = True)
+    depo = var.solver_obj.options.tracer_depth_integ_source_deposition#.copy(deepcopy = True)
 
     #initial_bath = var.initial_bath
-    scalar_func = var.solver_obj.fields[tracer_name]
+    scalar_func = var.solver_obj.fields[tracer_name].copy(deepcopy = True)
     """
     Computes total tracer mass in the 2D domain
     :arg eta: elevation :class:`Function`
@@ -328,7 +331,7 @@ def comp_tracer_bed_mass_2d(var, tracer_name):
     boundary_terms = 0
     term = var.solver_obj.eq_tracer.terms['HorizontalAdvectionTerm']
 
-    H = term.get_total_depth(eta)
+    H = Function(eta.function_space()).interpolate(term.get_total_depth(eta)).copy(deepcopy = True)
         
     for bnd_marker in term.boundary_markers:
         ds_bnd = ds(int(bnd_marker), degree=term.quad_degree)
@@ -340,9 +343,15 @@ def comp_tracer_bed_mass_2d(var, tracer_name):
     if var.initial_value is None:
         var.initial_value = assemble(H*scalar_func*dx) 
     else:
-        var.initial_value += var.solver_obj.options.simulation_export_time*(boundary_terms + assemble(var.solver_obj.options.tracer_source_2d*H*dx))
+
+        if var.solver_obj.options.use_tracer_conservative_form:
+            var.initial_value += var.solver_obj.options.simulation_export_time*(boundary_terms + assemble((-depo*scalar_func+ero)*dx))
+        else:
+            var.initial_value += var.solver_obj.options.simulation_export_time*(boundary_terms + assemble(var.solver_obj.options.tracer_source_2d*H*dx))
 
     val = assemble(H*scalar_func*dx)
+    print(var.initial_value)
+    print(val)
 
     return val
 
