@@ -310,13 +310,27 @@ class SourceTerm(TracerTerm):
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
-        source = fields_old.get('source')
-        if source is not None:
-            if self.options.use_tracer_conservative_form:
-                H = self.get_total_depth(fields["elev_2d"])
-                f += -inner(source * H, self.test) * self.dx
+
+        if self.options.use_tracer_conservative_form:
+            
+            depth_int_source = fields_old.get('depth_integrated_source')
+            ero = fields_old.get('erosion')
+            depo = fields_old.get('deposition')
+            #H = self.get_total_depth(fields["elev_2d"])
+            
+            if depth_int_source is not None:       
+                f += -inner(depth_int_source, self.test) * self.dx
+            elif ero or depo is not None:
+                f += -inner(-depo*solution + ero, self.test) * self.dx
             else:
+                print("Warning no source term")
+
+            
+        else:
+            source = fields_old.get('source')
+            if source is not None:            
                 f += -inner(source, self.test)*self.dx
+                
         return -f
 
 
