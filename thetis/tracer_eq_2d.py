@@ -314,20 +314,18 @@ class SourceTerm(TracerTerm):
         f = 0
 
         if self.options.use_tracer_conservative_form:
-            
             depth_int_source = fields_old.get('depth_integrated_source')
             ero = fields_old.get('erosion')
             depo = fields_old.get('deposition')
-            #H = self.get_total_depth(fields["elev_2d"])
             
             if depth_int_source is not None:       
                 f += -inner(depth_int_source, self.test) * self.dx
             elif ero or depo is not None:
                 f += -inner(-depo*solution + ero, self.test) * self.dx
             else:
-                print("Warning no source term")
-
-            
+                if fields_old.get('source') is not None:
+                    assert(fields_old.get('source') == None,\
+                    "Source term not being implemented. Implement tracer_depth_integ_source instead")
         else:
             source = fields_old.get('source')
             if source is not None:            
