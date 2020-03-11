@@ -462,8 +462,8 @@ class CommonModelOptions(FrozenConfigurable):
     norm_smoother = FiredrakeConstantTraitlet(
         Constant(0.0), help=r"""
         Coefficient used to avoid non-differentiable functions in the continuous formulation of the velocity norm in
-        the quadratic bottom drag term in the momentum equation. This replaces the velocity norm in the quadratic 
-	bottom drag term with :math:`\|u\| \approx \sqrt{\|u\|^2 + \alpha^2}`
+        the quadratic bottom drag term in the momentum equation. This replaces the velocity norm in the quadratic
+        bottom drag term with :math:`\|u\| \approx \sqrt{\|u\|^2 + \alpha^2}`
         """).tag(config=True)
     horizontal_viscosity = FiredrakeScalarExpression(
         None, allow_none=True, help="Horizontal viscosity").tag(config=True)
