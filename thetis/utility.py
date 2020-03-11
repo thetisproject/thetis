@@ -300,7 +300,6 @@ def comp_volume_3d(mesh):
 
 
 def comp_tracer_mass_2d(var, tracer_name):
-
     """
     Computes total tracer mass in the 2D domain
     :arg var: class:`DiagnosticCallback`; callback object used to input values and
