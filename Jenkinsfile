@@ -33,7 +33,6 @@ git fetch --all
 git checkout origin/fix_split_mcc
 cd /home/firedrake
 . /home/firedrake/firedrake/bin/activate
-cd src/firedrake; git checkout fix_split_mcc
 firedrake-update --install pyadjoint || (cat firedrake-update.log && /bin/false)
 chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages
 chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages/easy-install.pth
