@@ -32,7 +32,7 @@ class TracerTerm(Term):
     boundary functions.
     """
     def __init__(self, function_space,
-                 bathymetry=None, use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
+                 bathymetry=None, sipg_parameter=Constant(10.0), options=None):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -43,8 +43,8 @@ class TracerTerm(Term):
         self.cellsize = CellSize(self.mesh)
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
-        self.use_lax_friedrichs = use_lax_friedrichs
         self.sipg_parameter = sipg_parameter
+        self.options = options
 
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
@@ -166,7 +166,7 @@ class HorizontalAdvectionTerm(TracerTerm):
                 f += c_up*(jump(self.test, uv[0] * self.normal[0])
                            + jump(self.test, uv[1] * self.normal[1])) * self.dS
             # Lax-Friedrichs stabilization
-            if self.use_lax_friedrichs:
+            if self.options.use_lax_friedrichs_tracer:
                 if conservative:
                     raise NotImplemented("Combination of Lax-Friedrichs with conservative form not implemented.")
                 if uv_p1 is not None:
@@ -186,8 +186,7 @@ class HorizontalAdvectionTerm(TracerTerm):
                         c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
                         if conservative:
                             H_ext = self.get_total_depth(eta_ext)
-                            uv_ext = H_ext * uv_ext
-                            uv_av = 0.5*(H * uv + uv_ext)
+                            uv_av = 0.5*(H * uv + H_ext * uv_ext)
                         else:
                             uv_av = 0.5*(uv + uv_ext)
                         un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
@@ -195,6 +194,7 @@ class HorizontalAdvectionTerm(TracerTerm):
                         c_up = c_in*s + c_ext*(1-s)
                         f += c_up*(uv_av[0]*self.normal[0]
                                    + uv_av[1]*self.normal[1])*self.test*ds_bnd
+                    #TODO check the implementation below
                     elif conservative:
                         f += c_in * H * (uv[0]*self.normal[0]
                                      + uv[1]*self.normal[1])*self.test*ds_bnd
@@ -338,8 +338,8 @@ class TracerEquation2D(Equation):
     """
     def __init__(self, function_space,
                  bathymetry=None,
-                 use_lax_friedrichs=False,
-                 sipg_parameter=Constant(10.0)):
+                 sipg_parameter=Constant(10.0),
+                 options=None):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -350,7 +350,7 @@ class TracerEquation2D(Equation):
         """
         super(TracerEquation2D, self).__init__(function_space)
 
-        args = (function_space, bathymetry, use_lax_friedrichs, sipg_parameter)
+        args = (function_space, bathymetry, sipg_parameter, options)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
