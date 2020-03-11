@@ -26,11 +26,11 @@ pipeline {
                 dir('build') {
                     timestamps {
                         sh '''
-sudo -u firedrake /bin/bash << Here
-whoami
 cd /home/firedrake/src/firedrake
 git fetch --all
 git checkout origin/fix_split_mcc
+sudo -u firedrake /bin/bash << Here
+whoami
 cd /home/firedrake
 . /home/firedrake/firedrake/bin/activate
 firedrake-update --install pyadjoint || (cat firedrake-update.log && /bin/false)
