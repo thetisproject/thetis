@@ -299,8 +299,6 @@ def comp_volume_3d(mesh):
     return val
 
 
-
-
 def comp_tracer_mass_2d(var, tracer_name):
     """
     Computes total tracer mass in the 2D domain
@@ -310,18 +308,18 @@ def comp_tracer_mass_2d(var, tracer_name):
     """
 
     # read in necessary variables from solver object
-    eta = var.solver_obj.fields.elev_2d.copy(deepcopy = True)
-    vel = var.solver_obj.fields.uv_2d.copy(deepcopy = True)
+    eta = var.solver_obj.fields.elev_2d.copy(deepcopy=True)
+    vel = var.solver_obj.fields.uv_2d.copy(deepcopy=True)
     ero = var.solver_obj.options.tracer_depth_integ_source_erosion
     depo = var.solver_obj.options.tracer_depth_integ_source_deposition
-    
-    scalar_func = var.solver_obj.fields[tracer_name].copy(deepcopy = True)  
-    
+
+    scalar_func = var.solver_obj.fields[tracer_name].copy(deepcopy=True)
+
     # calculate total depth
     term = var.solver_obj.eq_tracer.terms['HorizontalAdvectionTerm']
-    H = term.get_total_depth(eta)   
- 
-    # normal   
+    H = term.get_total_depth(eta)
+
+    # normal
     n = FacetNormal(var.solver_obj.mesh2d)
 
     # calculate contribution from tracer leaving boundary
@@ -335,27 +333,25 @@ def comp_tracer_mass_2d(var, tracer_name):
 
     # record the initial scalar value in the domain
     if var.initial_value is None:
-        var.initial_value = assemble(H*scalar_func*dx) 
+        var.initial_value = assemble(H*scalar_func*dx)
         var.initial_initial_value = assemble(H*scalar_func*dx)
     else:
-        # alter the initial value to record tracer transitioning through source term 
+        # alter the initial value to record tracer transitioning through source term
         # and boundary terms
         if var.solver_obj.options.use_tracer_conservative_form:
-            var.initial_value += var.solver_obj.options.timestep* \
-            (boundary_terms + assemble((-depo*scalar_func+ero)*dx))
+            var.initial_value += var.solver_obj.options.timestep * \
+                (boundary_terms + assemble((-depo*scalar_func+ero)*dx))
         else:
-            var.initial_value += var.solver_obj.options.timestep* \
-            (boundary_terms + assemble(var.solver_obj.options.tracer_source_2d*H*dx))
+            var.initial_value += var.solver_obj.options.timestep * \
+                (boundary_terms + assemble(var.solver_obj.options.tracer_source_2d*H*dx))
 
     # find the current scalar value in the domain
     val = assemble(H*scalar_func*dx)
 
-    # initialise to first non-zero value to avoid division by 0 
+    # initialise to first non-zero value to avoid division by 0
     if var.initial_initial_value == 0:
         if var.initial_value != 0:
             var.initial_initial_value = var.inital_value
-            
-            
     return val
 
 

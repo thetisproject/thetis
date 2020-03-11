@@ -298,6 +298,7 @@ class ScalarConservationCallback(DiagnosticCallback):
         line = '{0:s} rel. error {1:11.4e}'.format(self.name, args[1])
         return line
 
+
 class TracerScalarConservationCallback(DiagnosticCallback):
     """Base class for callbacks that check conservation of a scalar quantity"""
     variable_names = ['integral', 'relative_difference']
@@ -327,22 +328,23 @@ class TracerScalarConservationCallback(DiagnosticCallback):
     def message_str(self, *args):
         line = '{0:s} rel. error {1:11.4e}'.format(self.name, args[1])
         return line
-    
+
     def evaluate(self, index=None):
         """
         Evaluates callback and pushes values to log and hdf file (if enabled)
         """
         values = self.__call__()
         time = self.solver_obj.simulation_time
-        if hasattr(self, "next_export_t_callback") == False:
+        if hasattr(self, "next_export_t_callback") is False:
             self.next_export_t_callback = 0
         if time >= self.next_export_t_callback - 10**(-5):
             if self.append_to_log:
-                self.push_to_log(time, values)              
+                self.push_to_log(time, values)
             self.next_export_t_callback += self.solver_obj.options.simulation_export_time
-                
+
         if self.append_to_hdf5:
             self.push_to_hdf5(time, values, index=index)
+
 
 class VolumeConservation3DCallback(ScalarConservationCallback):
     """Checks conservation of 3D volume (volume of 3D mesh)"""
@@ -399,7 +401,7 @@ class TracerMassConservation2DCallback(TracerScalarConservationCallback):
             if not hasattr(self, 'initial_value'):
                 self.initial_value = None
 
-            return comp_tracer_mass_2d(self, tracer_name)        
+            return comp_tracer_mass_2d(self, tracer_name)
         super(TracerMassConservation2DCallback, self).__init__(mass, solver_obj, **kwargs)
 
 

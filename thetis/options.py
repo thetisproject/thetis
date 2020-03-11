@@ -480,11 +480,11 @@ class CommonModelOptions(FrozenConfigurable):
     tracer_source_2d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
     tracer_depth_integ_source = FiredrakeScalarExpression(
-        None, allow_none=True, help="Depth integrated source term for 2D tracer equation").tag(config=True)    
+        None, allow_none=True, help="Depth integrated source term for 2D tracer equation").tag(config=True)
     tracer_depth_integ_source_erosion = FiredrakeScalarExpression(
-        None, allow_none=True, help="Erosion component of depth integrated source term for 2D tracer equation").tag(config=True)    
+        None, allow_none=True, help="Erosion component of depth integrated source term for 2D tracer equation").tag(config=True)
     tracer_depth_integ_source_deposition = FiredrakeScalarExpression(
-        None, allow_none=True, help="Deposition component of depth integrated source term for 2D tracer equation").tag(config=True)        
+        None, allow_none=True, help="Deposition component of depth integrated source term for 2D tracer equation").tag(config=True)
     horizontal_diffusivity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
     use_automatic_sipg_parameter = Bool(False, help=r"""
@@ -550,8 +550,8 @@ class ModelOptions2d(CommonModelOptions):
 
         Prints deviation from the initial mass to stdout.
         """).tag(config=True)
-    tracer_advective_velocity_factor = FiredrakeScalarExpression(Constant(1.0), 
-                                                          help="Custom factor which is multiplied to the velocity variable in tracer advection equation").tag(config=True)
+    tracer_advective_velocity_factor = FiredrakeScalarExpression(Constant(1.0),
+        help="Custom factor which is multiplied to the velocity variable in tracer advection equation").tag(config=True)
     check_tracer_overshoot = Bool(
         False, help="""
         Compute tracer overshoots at every export
