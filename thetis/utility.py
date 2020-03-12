@@ -302,9 +302,9 @@ def comp_volume_3d(mesh):
 def comp_tracer_mass_2d(var, tracer_name):
     """
     Computes total tracer mass in the 2D domain
-    :arg eta: elevation :class:`Function`
-    :arg bath: bathymetry :class:`Function`
-    :arg scalar_func: scalar :class:`Function` to integrate
+    :arg var: class:`DiagnosticCallback`; callback object used to input values and
+                                          record output values
+    :arg tracer_name :class:`string` of function name of interest
     """
 
     # read in necessary variables from solver object

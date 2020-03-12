@@ -375,8 +375,8 @@ class TracerEquation2D(Equation):
 
         args = (function_space, bathymetry, sipg_parameter, options)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
-        #self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
-        #self.add_term(SourceTerm(*args), 'source')
+        self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
+        self.add_term(SourceTerm(*args), 'source')
         self._mass_term = MassTerm(*args)
 
     def mass_term(self, solution, fields):
