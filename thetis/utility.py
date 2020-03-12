@@ -338,12 +338,17 @@ def comp_tracer_mass_2d(var, tracer_name):
     else:
         # alter the initial value to record tracer transitioning through source term
         # and boundary terms
+        var.initial_value += var.solver_obj.options.timestep * boundary_terms
+        
         if var.solver_obj.options.use_tracer_conservative_form:
-            var.initial_value += var.solver_obj.options.timestep * \
-                (boundary_terms + assemble((-depo*scalar_func+ero)*dx))
+            if ero is not None:
+                var.initial_value += var.solver_obj.options.timestep * assemble(ero*dx)
+            if depo is not None:
+                var.initial_value += var.solver_obj.options.timestep * assemble(-depo*scalar_func*dx)
         else:
-            var.initial_value += var.solver_obj.options.timestep * \
-                (boundary_terms + assemble(var.solver_obj.options.tracer_source_2d*H*dx))
+            if var.solver_obj.options.tracer_source_2d is not None:
+                var.initial_value += var.solver_obj.options.timestep * \
+                    assemble(var.solver_obj.options.tracer_source_2d*H*dx)                
 
     # find the current scalar value in the domain
     val = assemble(H*scalar_func*dx)
