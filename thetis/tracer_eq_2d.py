@@ -187,7 +187,6 @@ class HorizontalAdvectionTerm(TracerTerm):
                     ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                     c_in = solution
                     if funcs is not None and 'value' in funcs:
-
                         c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
                         if conservative:
                             H_ext = self.get_total_depth(eta_ext)
@@ -203,16 +202,16 @@ class HorizontalAdvectionTerm(TracerTerm):
                         if conservative:
                             if funcs is None:
                                 f += c_in * H*(uv[0]*self.normal[0]
-                                     + uv[1]*self.normal[1])*self.test*ds_bnd
+                                               + uv[1]*self.normal[1])*self.test*ds_bnd
                             else:
                                 c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
                                 H_ext = self.get_total_depth(eta_ext)
                                 uv_av = 0.5*(H * uv + H_ext * uv_ext)
                                 f += c_in*(uv_av[0]*self.normal[0]
-                                   + uv_av[1]*self.normal[1])*self.test*ds_bnd
+                                           + uv_av[1]*self.normal[1])*self.test*ds_bnd
                         else:
                             f += c_in * (uv[0]*self.normal[0]
-                                     + uv[1]*self.normal[1])*self.test*ds_bnd
+                                         + uv[1]*self.normal[1])*self.test*ds_bnd
 
         return -f
 
@@ -322,7 +321,7 @@ class SourceTerm(TracerTerm):
             else:
                 if fields_old.get('source') is not None:
                     assert(fields_old.get('source') is None,
-                        "Source term not being implemented. Implement tracer_depth_integ_source instead")
+                           "Source term not being implemented. Implement tracer_depth_integ_source instead")
         else:
             source = fields_old.get('source')
             if source is not None:
@@ -376,8 +375,8 @@ class TracerEquation2D(Equation):
 
         args = (function_space, bathymetry, sipg_parameter, options)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
-        self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
-        self.add_term(SourceTerm(*args), 'source')
+        #self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
+        #self.add_term(SourceTerm(*args), 'source')
         self._mass_term = MassTerm(*args)
 
     def mass_term(self, solution, fields):

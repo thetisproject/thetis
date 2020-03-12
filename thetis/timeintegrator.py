@@ -183,7 +183,6 @@ class CrankNicolson(TimeIntegrator):
 
         # Crank-Nicolson
         theta_const = Constant(theta)
-
         self.F = (self.equation.mass_term(u, fields=f) - self.equation.mass_term(u_old, fields=f_old)
                   - self.dt_const*(theta_const*self.equation.residual('all', u, u_nl, f, f, bnd)
                                    + (1-theta_const)*self.equation.residual('all', u_old, u_old, f_old, f_old, bnd))

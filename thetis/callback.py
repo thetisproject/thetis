@@ -300,7 +300,7 @@ class ScalarConservationCallback(DiagnosticCallback):
 
 
 class TracerScalarConservationCallback(DiagnosticCallback):
-    """Base class for callbacks that check conservation of the tracer scalar quantity"""
+    """Base class for callbacks that check conservation of a scalar quantity"""
     variable_names = ['integral', 'relative_difference']
 
     def __init__(self, scalar_callback, solver_obj, **kwargs):
