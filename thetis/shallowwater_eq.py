@@ -579,14 +579,8 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
         f = inner(grad(self.u_test), stress)*self.dx
 
         if self.u_continuity in ['dg', 'hdiv']:
-            # from Epshteyn et al. 2007 (http://dx.doi.org/10.1016/j.cam.2006.08.029)
-            # the scheme is stable for alpha > 3*X*p*(p+1)*cot(theta), where X is the
-            # maximum ratio of viscosity within a triangle, p the degree, and theta
-            # with X=2, theta=6: cot(theta)~10, 3*X*cot(theta)~60
-            p = self.u_space.ufl_element().degree()
-            alpha = 5.*p*(p+1)
-            if p == 0:
-                alpha = 1.5
+            alpha = self.options.sipg_parameter
+            assert alpha is not None
             f += (
                 + alpha/avg(h)*inner(tensor_jump(self.u_test, n), stress_jump)*self.dS
                 - inner(avg(grad(self.u_test)), stress_jump)*self.dS
@@ -688,7 +682,7 @@ class QuadraticDragTerm(ShallowWaterMomentumTerm):
             C_D = g_grav * manning_drag_coefficient**2 / total_h**(1./3.)
 
         if C_D is not None:
-            f += C_D * sqrt(dot(uv_old, uv_old)) * inner(self.u_test, uv) / total_h * self.dx
+            f += C_D * sqrt(dot(uv_old, uv_old) + self.options.norm_smoother**2) * inner(self.u_test, uv) / total_h * self.dx
         return -f
 
 

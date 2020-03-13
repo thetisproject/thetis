@@ -11,6 +11,7 @@ from . import coupled_timeintegrator_2d
 from . import tracer_eq_2d
 import weakref
 import time as time_mod
+import numpy as np
 from mpi4py import MPI
 from . import exporter
 from .field_defs import field_metadata
@@ -188,6 +189,57 @@ class FlowSolver2d(FrozenClass):
             print_output('dt = {:}'.format(self.dt))
             sys.stdout.flush()
 
+    def set_sipg_parameter(self):
+        r"""
+        Compute a penalty parameter which ensures stability of the Interior Penalty method
+        used for viscosity and diffusivity terms, from Epshteyn et al. 2007
+        (http://dx.doi.org/10.1016/j.cam.2006.08.029).
+
+        The scheme is stable if
+
+        ..math::
+            \alpha|_K > 3*X*p*(p+1)*\cot(\theta_K),
+
+        for all elements :math:`K`, where
+
+        ..math::
+            X = \frac{\max_{x\in K}(\nu(x))}{\min_{x\in K}(\nu(x))},
+
+        :math:`p` the degree, and :math:`\theta_K` is the minimum angle in the element.
+
+        In practice, we take the maximum value of :math:`X` and minimum value of
+        :math:`\alpha_K` over all elements.
+        """
+        degree = self.function_spaces.U_2d.ufl_element().degree()
+        alpha = 5.0*degree*(degree+1) if degree != 0 else 1.5
+        degree_tracer = self.function_spaces.Q_2d.ufl_element().degree()
+        alpha_tracer = 5.0*degree_tracer*(degree_tracer+1) if degree_tracer != 0 else 1.5
+
+        if self.options.use_automatic_sipg_parameter:  # TODO: Spatially varying case
+            min_angle = get_minimum_angles_2d(self.mesh2d).vector().gather().min()
+            print_output("Minimum angle in mesh: {:.2f} degrees".format(np.rad2deg(min_angle)))
+            cot_theta = 1.0/tan(min_angle)
+
+            # Penalty parameter for shallow water
+            if not self.options.tracer_only:
+                nu = self.options.horizontal_viscosity
+                if nu is not None:
+                    alpha *= get_sipg_ratio(nu)*cot_theta
+                print_output("SIPG parameter:        {:.2f}".format(alpha))
+                self.options.sipg_parameter.assign(alpha)
+
+            # Penalty parameter for tracers
+            if self.options.solve_tracer:
+                nu = self.options.horizontal_diffusivity
+                if nu is not None:
+                    alpha_tracer *= get_sipg_ratio(nu)*cot_theta
+                print_output("Tracer SIPG parameter: {:.2f}".format(alpha_tracer))
+                self.options.sipg_parameter_tracer.assign(alpha)
+        else:
+            print_output("Using default SIPG parameters")
+            self.options.sipg_parameter.assign(alpha)
+            self.options.sipg_parameter_tracer.assign(alpha_tracer)
+
     def create_function_spaces(self):
         """
         Creates function spaces
@@ -231,6 +283,7 @@ class FlowSolver2d(FrozenClass):
         self.fields.solution_2d = Function(self.function_spaces.V_2d, name='solution_2d')
         self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
         get_horizontal_elem_size_2d(self.fields.h_elem_size_2d)
+        self.set_sipg_parameter()
 
         # ----- Equations
         self.eq_sw = shallowwater_eq.ShallowWaterEquations(
@@ -242,7 +295,8 @@ class FlowSolver2d(FrozenClass):
         if self.options.solve_tracer:
             self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
             self.eq_tracer = tracer_eq_2d.TracerEquation2D(self.function_spaces.Q_2d, bathymetry=self.fields.bathymetry_2d,
-                                                           use_lax_friedrichs=self.options.use_lax_friedrichs_tracer)
+                                                           use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                                                           sipg_parameter=self.options.sipg_parameter_tracer)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:

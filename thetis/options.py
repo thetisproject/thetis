@@ -459,6 +459,12 @@ class CommonModelOptions(FrozenConfigurable):
 
         Bottom stress is :math:`\tau_b/\rho_0 = -g \mu^2 |\mathbf{u}|\mathbf{u}/H^{1/3}`
         """).tag(config=True)
+    norm_smoother = FiredrakeConstantTraitlet(
+        Constant(0.0), help=r"""
+        Coefficient used to avoid non-differentiable functions in the continuous formulation of the velocity norm in
+        the quadratic bottom drag term in the momentum equation. This replaces the velocity norm in the quadratic
+        bottom drag term with :math:`\|u\| \approx \sqrt{\|u\|^2 + \alpha^2}`
+        """).tag(config=True)
     horizontal_viscosity = FiredrakeScalarExpression(
         None, allow_none=True, help="Horizontal viscosity").tag(config=True)
     coriolis_frequency = FiredrakeScalarExpression(
@@ -475,6 +481,24 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
     horizontal_diffusivity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
+    use_automatic_sipg_parameter = Bool(False, help=r"""
+        Toggle automatic computation of the SIPG penalty parameter used in viscosity and
+        diffusivity terms.
+
+        By default, this parameter is set to
+
+        ..math::
+            \alpha = 5p(p+1),
+
+        where :math:`p` is the polynomial degree of the velocity space.
+
+        For anisotropic meshes, it is advisable to use the automatic SIPG parameter,
+        rather than the default.
+        """).tag(config=True)
+    sipg_parameter = FiredrakeScalarExpression(
+        Constant(10.0), help="Penalty parameter used for horizontal viscosity terms.").tag(config=True)
+    sipg_parameter_tracer = FiredrakeScalarExpression(
+        Constant(10.0), help="Penalty parameter used for horizontal diffusivity terms.").tag(config=True)
 
 
 # NOTE all parameters are now case sensitive
@@ -504,7 +528,7 @@ class ModelOptions2d(CommonModelOptions):
         Uses the wetting and drying scheme from Karna et al (2011).
         If ``True``, one should also set :attr:`wetting_and_drying_alpha` to control the bathymetry displacement.
         """).tag(config=True)
-    wetting_and_drying_alpha = FiredrakeConstantTraitlet(
+    wetting_and_drying_alpha = FiredrakeScalarExpression(
         Constant(0.5), help=r"""
         Coefficient: Wetting and drying parameter :math:`\alpha`.
 
@@ -666,3 +690,11 @@ class ModelOptions3d(CommonModelOptions):
         Constant(10.0), help="Constant temperature if temperature is not solved").tag(config=True)
     constant_salinity = FiredrakeConstantTraitlet(
         Constant(0.0), help="Constant salinity if salinity is not solved").tag(config=True)
+    sipg_parameter_vertical = FiredrakeScalarExpression(
+        Constant(10.0), help="Penalty parameter used for vertical viscosity terms.").tag(config=True)
+    sipg_parameter_vertical_tracer = FiredrakeScalarExpression(
+        Constant(10.0), help="Penalty parameter used for vertical diffusivity terms.").tag(config=True)
+    sipg_parameter_turb = FiredrakeScalarExpression(
+        Constant(1.5), help="Penalty parameter used for horizontal diffusivity terms of the turbulence model.").tag(config=True)
+    sipg_parameter_vertical_turb = FiredrakeScalarExpression(
+        Constant(1.0), help="Penalty parameter used for vertical diffusivity terms of the turbulence model.").tag(config=True)
