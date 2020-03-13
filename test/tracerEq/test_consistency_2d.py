@@ -84,7 +84,7 @@ def run_tracer_consistency(constant_c = True, **model_options):
     vol2d, vol2d_rerr = solver_obj.callbacks['export']['volume2d']()
     assert vol2d_rerr < 1e-10, '2D volume is not conserved'
     if options.solve_tracer:
-        tracer_int, tracer_int_rerr = solver_obj.callbacks['export']['tracer_2d mass']()
+        tracer_int, tracer_int_rerr = solver_obj.callbacks['timestep']['tracer_2d mass']()
         assert abs(tracer_int_rerr) < 1e-4, 'tracer is not conserved'
         smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['tracer_2d overshoot']()
         max_abs_overshoot = max(abs(undershoot), abs(overshoot))

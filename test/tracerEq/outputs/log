@@ -1,0 +1,179 @@
+dt = 10.0
+Coupled time integrator: CoupledCrankNicolson2D
+  Shallow Water time integrator: CrankNicolson
+  Tracer time integrator: CrankNicolson
+Using time integrator: CoupledCrankNicolson2D
+    0     0 T=      0.00 eta norm: 16302.2555 u norm:     0.0000  0.00
+tracer_2d overshoot 0 0
+volume2d rel. error  0.0000e+00
+tracer_2d mass rel. error  0.0000e+00
+tracer_2d mass rel. error  3.5280e-05
+    1    25 T=    250.00 eta norm: 11223.6579 u norm:  5068.4613  2.16
+tracer_2d overshoot -0.0905187 1.00445
+volume2d rel. error  6.7483e-16
+tracer_2d mass rel. error  5.5412e-05
+    2    50 T=    500.00 eta norm:   842.1429 u norm:  6982.4042  1.02
+tracer_2d overshoot -0.848737 3.22259
+volume2d rel. error  1.3497e-15
+tracer_2d mass rel. error  3.3819e-05
+    3    75 T=    750.00 eta norm: 12389.3167 u norm:  4539.3902  0.79
+tracer_2d overshoot -1.9595 5.01046
+volume2d rel. error  1.3497e-15
+tracer_2d mass rel. error -1.4317e-05
+    4   100 T=   1000.00 eta norm: 16185.6834 u norm:   791.8793  0.91
+tracer_2d overshoot -2.36801 5.55556
+volume2d rel. error  1.8895e-15
+tracer_2d mass rel. error -4.9189e-05
+    5   125 T=   1250.00 eta norm:  9944.7919 u norm:  5527.3845  0.76
+tracer_2d overshoot -2.30133 5.01464
+volume2d rel. error  1.2147e-15
+tracer_2d mass rel. error -5.7213e-05
+    6   150 T=   1500.00 eta norm:  2544.9360 u norm:  6890.1671  0.75
+tracer_2d overshoot -2.12118 2.8119
+volume2d rel. error  2.6993e-16
+tracer_2d mass rel. error -4.5541e-05
+    7   175 T=   1750.00 eta norm: 13426.7066 u norm:  3959.5200  0.76
+tracer_2d overshoot -1.92952 0.988344
+volume2d rel. error -5.3986e-16
+tracer_2d mass rel. error -1.7295e-05
+    8   200 T=   2000.00 eta norm: 15870.4538 u norm:  1535.0334  0.97
+tracer_2d overshoot -1.84452 0.833107
+volume2d rel. error -4.0490e-16
+tracer_2d mass rel. error  3.0624e-05
+    9   225 T=   2250.00 eta norm:  8613.6016 u norm:  5925.6965  1.01
+tracer_2d overshoot -1.42954 1.04494
+volume2d rel. error -4.0490e-16
+tracer_2d mass rel. error  5.5605e-05
+   10   250 T=   2500.00 eta norm:  4237.1457 u norm:  6750.4071  0.83
+tracer_2d overshoot -1.56114 3.29492
+volume2d rel. error  2.6993e-16
+tracer_2d mass rel. error -9.0054e-07
+   11   275 T=   2750.00 eta norm: 14280.3751 u norm:  3343.8309  0.85
+tracer_2d overshoot -2.12492 4.89942
+volume2d rel. error  6.7483e-16
+tracer_2d mass rel. error -4.7501e-05
+   12   300 T=   3000.00 eta norm: 15381.3017 u norm:  2264.7027  0.82
+tracer_2d overshoot -2.29413 5.25024
+volume2d rel. error  2.6993e-16
+tracer_2d mass rel. error -6.2470e-05
+   13   325 T=   3250.00 eta norm:  7208.8034 u norm:  6237.1498  0.95
+tracer_2d overshoot -2.33503 4.08333
+volume2d rel. error -1.3497e-16
+tracer_2d mass rel. error -6.3034e-05
+   14   350 T=   3500.00 eta norm:  5952.2590 u norm:  6474.5248  1.05
+tracer_2d overshoot -2.29185 1.5406
+volume2d rel. error -1.3497e-15
+tracer_2d mass rel. error -5.4501e-05
+   15   375 T=   3750.00 eta norm: 14928.9132 u norm:  2782.6599  0.97
+tracer_2d overshoot -2.20925 1.07885
+volume2d rel. error -1.4846e-15
+tracer_2d mass rel. error -3.2258e-05
+   16   400 T=   4000.00 eta norm: 14756.6019 u norm:  2887.6579  0.95
+tracer_2d overshoot -2.09108 0.99685
+volume2d rel. error -2.0245e-15
+tracer_2d mass rel. error  3.4278e-05
+   17   425 T=   4250.00 eta norm:  5759.3270 u norm:  6530.1412  0.97
+tracer_2d overshoot -1.57617 1.26185
+volume2d rel. error -9.4476e-16
+tracer_2d mass rel. error  4.3149e-05
+   18   450 T=   4500.00 eta norm:  7621.0809 u norm:  6166.2421  0.95
+tracer_2d overshoot -1.68039 3.20866
+volume2d rel. error -1.0797e-15
+tracer_2d mass rel. error -4.5396e-05
+   19   475 T=   4750.00 eta norm: 15346.3313 u norm:  2268.9567  1.04
+tracer_2d overshoot -2.08768 4.63132
+volume2d rel. error -5.3986e-16
+tracer_2d mass rel. error -6.9576e-05
+   20   500 T=   5000.00 eta norm: 14018.4801 u norm:  3496.6436  0.97
+tracer_2d overshoot -2.22624 4.7118
+volume2d rel. error -1.4846e-15
+Using default SIPG parameters
+dt = 10.0
+Coupled time integrator: CoupledCrankNicolson2D
+  Shallow Water time integrator: CrankNicolson
+  Tracer time integrator: CrankNicolson
+Using time integrator: CoupledCrankNicolson2D
+    0     0 T=      0.00 eta norm: 16302.2555 u norm:     0.0000  0.00
+tracer_2d overshoot 0 0
+volume2d rel. error  0.0000e+00
+tracer_2d mass rel. error  0.0000e+00
+tracer_2d mass rel. error  6.8607e-05
+    1    25 T=    250.00 eta norm: 11223.6579 u norm:  5068.4613  2.01
+tracer_2d overshoot -2.66454e-15 1.77636e-15
+volume2d rel. error  6.7483e-16
+tracer_2d mass rel. error  1.1008e-04
+    2    50 T=    500.00 eta norm:   842.1429 u norm:  6982.4042  0.84
+tracer_2d overshoot -3.55271e-15 2.66454e-15
+volume2d rel. error  1.3497e-15
+tracer_2d mass rel. error  7.4712e-05
+    3    75 T=    750.00 eta norm: 12389.3167 u norm:  4539.3902  0.82
+tracer_2d overshoot -5.32907e-15 4.44089e-15
+volume2d rel. error  1.3497e-15
+tracer_2d mass rel. error -1.2904e-05
+    4   100 T=   1000.00 eta norm: 16185.6834 u norm:   791.8793  0.73
+tracer_2d overshoot -5.32907e-15 4.44089e-15
+volume2d rel. error  1.8895e-15
+tracer_2d mass rel. error -8.1109e-05
+    5   125 T=   1250.00 eta norm:  9944.7919 u norm:  5527.3845  0.86
+tracer_2d overshoot -5.32907e-15 4.44089e-15
+volume2d rel. error  1.2147e-15
+tracer_2d mass rel. error -1.0217e-04
+    6   150 T=   1500.00 eta norm:  2544.9360 u norm:  6890.1671  0.70
+tracer_2d overshoot -3.55271e-15 4.44089e-15
+volume2d rel. error  2.6993e-16
+tracer_2d mass rel. error -8.0923e-05
+    7   175 T=   1750.00 eta norm: 13426.7066 u norm:  3959.5200  0.73
+tracer_2d overshoot -4.44089e-15 3.55271e-15
+volume2d rel. error -5.3986e-16
+tracer_2d mass rel. error -2.3333e-05
+    8   200 T=   2000.00 eta norm: 15870.4538 u norm:  1535.0334  0.68
+tracer_2d overshoot -4.44089e-15 4.44089e-15
+volume2d rel. error -4.0490e-16
+tracer_2d mass rel. error  6.5267e-05
+    9   225 T=   2250.00 eta norm:  8613.6016 u norm:  5925.6965  0.76
+tracer_2d overshoot -4.44089e-15 4.44089e-15
+volume2d rel. error -4.0490e-16
+tracer_2d mass rel. error  1.0986e-04
+   10   250 T=   2500.00 eta norm:  4237.1457 u norm:  6750.4071  0.69
+tracer_2d overshoot -4.44089e-15 4.44089e-15
+volume2d rel. error  2.6993e-16
+tracer_2d mass rel. error  1.9112e-05
+   11   275 T=   2750.00 eta norm: 14280.3751 u norm:  3343.8309  0.73
+tracer_2d overshoot -6.21725e-15 5.32907e-15
+volume2d rel. error  6.7483e-16
+tracer_2d mass rel. error -6.7424e-05
+   12   300 T=   3000.00 eta norm: 15381.3017 u norm:  2264.7027  0.67
+tracer_2d overshoot -6.21725e-15 5.32907e-15
+volume2d rel. error  2.6993e-16
+tracer_2d mass rel. error -1.0448e-04
+   13   325 T=   3250.00 eta norm:  7208.8034 u norm:  6237.1498  1.00
+tracer_2d overshoot -5.32907e-15 5.32907e-15
+volume2d rel. error -1.3497e-16
+tracer_2d mass rel. error -1.1001e-04
+   14   350 T=   3500.00 eta norm:  5952.2590 u norm:  6474.5248  0.68
+tracer_2d overshoot -5.32907e-15 5.32907e-15
+volume2d rel. error -1.3497e-15
+tracer_2d mass rel. error -9.1674e-05
+   15   375 T=   3750.00 eta norm: 14928.9132 u norm:  2782.6599  0.67
+tracer_2d overshoot -7.99361e-15 6.21725e-15
+volume2d rel. error -1.4846e-15
+tracer_2d mass rel. error -4.1041e-05
+   16   400 T=   4000.00 eta norm: 14756.6019 u norm:  2887.6579  0.66
+tracer_2d overshoot -7.99361e-15 7.10543e-15
+volume2d rel. error -2.0245e-15
+tracer_2d mass rel. error  7.3674e-05
+   17   425 T=   4250.00 eta norm:  5759.3270 u norm:  6530.1412  0.63
+tracer_2d overshoot -6.21725e-15 7.10543e-15
+volume2d rel. error -9.4476e-16
+tracer_2d mass rel. error  8.9564e-05
+   18   450 T=   4500.00 eta norm:  7621.0809 u norm:  6166.2421  0.83
+tracer_2d overshoot -7.10543e-15 7.10543e-15
+volume2d rel. error -1.0797e-15
+tracer_2d mass rel. error -5.0657e-05
+   19   475 T=   4750.00 eta norm: 15346.3313 u norm:  2268.9567  0.88
+tracer_2d overshoot -7.99361e-15 7.99361e-15
+volume2d rel. error -5.3986e-16
+tracer_2d mass rel. error -1.0526e-04
+   20   500 T=   5000.00 eta norm: 14018.4801 u norm:  3496.6436  0.78
+tracer_2d overshoot -7.99361e-15 7.99361e-15
+volume2d rel. error -1.4846e-15
