@@ -78,14 +78,10 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
 
         if self.solver.options.solve_tracer:
             uv, elev = self.fields.solution_2d.split()
-
             fields = {'elev_2d': elev,
                       'uv_2d': uv,
                       'diffusivity_h': self.options.horizontal_diffusivity,
                       'source': self.options.tracer_source_2d,
-                      'depth_integrated_source': self.options.tracer_depth_integ_source,
-                      'erosion': self.options.tracer_depth_integ_source_erosion, 
-                      'deposition': self.options.tracer_depth_integ_source_deposition,
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                       'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
                       }

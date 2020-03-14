@@ -298,8 +298,9 @@ class ScalarConservationCallback(DiagnosticCallback):
         line = '{0:s} rel. error {1:11.4e}'.format(self.name, args[1])
         return line
 
+
 class TracerScalarConservationCallback(DiagnosticCallback):
-    """Base class for callbacks that check conservation of a scalar quantity"""
+    """Base class for callbacks that check conservation of the tracer scalar quantity"""
     variable_names = ['integral', 'relative_difference']
 
     def __init__(self, scalar_callback, solver_obj, **kwargs):
@@ -315,34 +316,22 @@ class TracerScalarConservationCallback(DiagnosticCallback):
         super(TracerScalarConservationCallback, self).__init__(solver_obj, **kwargs)
         self.scalar_callback = scalar_callback
 
+        # printing all detector output to log is probably not a useful default:
+        kwargs.setdefault('append_to_log', False)
+
     def __call__(self):
         value = self.scalar_callback()
         if self.initial_value is None:
             self.initial_value = value
 
-        rel_diff = (value - self.initial_value)/self.initial_initial_value
+        rel_diff = (value - self.update_value)/self.initial_value
 
         return value, rel_diff
 
     def message_str(self, *args):
         line = '{0:s} rel. error {1:11.4e}'.format(self.name, args[1])
         return line
-    
-    def evaluate(self, index=None):
-        """
-        Evaluates callback and pushes values to log and hdf file (if enabled)
-        """
-        values = self.__call__()
-        time = self.solver_obj.simulation_time
-        if hasattr(self, "next_export_t_callback") == False:
-            self.next_export_t_callback = 0
-        if time >= self.next_export_t_callback - 10**(-5):
-            if self.append_to_log:
-                self.push_to_log(time, values)              
-            self.next_export_t_callback += self.solver_obj.options.simulation_export_time
-                
-        if self.append_to_hdf5:
-            self.push_to_hdf5(time, values, index=index)
+
 
 class VolumeConservation3DCallback(ScalarConservationCallback):
     """Checks conservation of 3D volume (volume of 3D mesh)"""
@@ -376,7 +365,35 @@ class VolumeConservation2DCallback(ScalarConservationCallback):
         super(VolumeConservation2DCallback, self).__init__(vol2d, solver_obj, **kwargs)
 
 
-class TracerMassConservation2DCallback(TracerScalarConservationCallback):
+class TracerTotalMassConservation2DCallback(TracerScalarConservationCallback):
+    """
+    Checks conservation of depth-averaged tracer mass accounting for tracer leaving
+    through boundary and source terms.
+
+    Depth-averaged tracer mass is defined as the integral of 2D tracer
+    multiplied by total depth, subtracting tracer leaving through boundary and through source term.
+    """
+    name = 'tracer mass'
+
+    def __init__(self, tracer_name, solver_obj, **kwargs):
+        """
+        :arg tracer_name: Name of the tracer. Use canonical field names as in
+            :class:`.FieldDict`.
+        :arg solver_obj: Thetis solver object
+        :arg kwargs: any additional keyword arguments, see
+            :class:`.DiagnosticCallback`.
+        """
+        self.name = tracer_name + ' total mass'  # override name for given tracer
+
+        def mass():
+            if not hasattr(self, 'initial_value'):
+                self.initial_value = None
+
+            return comp_tracer_total_mass_2d(self, tracer_name)
+        super(TracerTotalMassConservation2DCallback, self).__init__(mass, solver_obj, **kwargs)
+
+
+class TracerMassConservation2DCallback(ScalarConservationCallback):
     """
     Checks conservation of depth-averaged tracer mass
 
@@ -396,10 +413,9 @@ class TracerMassConservation2DCallback(TracerScalarConservationCallback):
         self.name = tracer_name + ' mass'  # override name for given tracer
 
         def mass():
-            if not hasattr(self, 'initial_value'):
-                self.initial_value = None
-
-            return comp_tracer_mass_2d(self, tracer_name)        
+            return comp_tracer_mass_2d(self.solver_obj.fields.elev_2d,
+                                       self.solver_obj.fields.bathymetry_2d,
+                                       self.solver_obj.fields[tracer_name])
         super(TracerMassConservation2DCallback, self).__init__(mass, solver_obj, **kwargs)
 
 

@@ -297,11 +297,7 @@ class FlowSolver2d(FrozenClass):
             self.eq_tracer = tracer_eq_2d.TracerEquation2D(self.function_spaces.Q_2d, bathymetry=self.fields.bathymetry_2d,
                                                            sipg_parameter=self.options.sipg_parameter_tracer, options=self.options)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
-                if self.options.use_tracer_conservative_form:
-                    uv_2d, elev_2d = split(self.fields.solution_2d)
-                    self.tracer_limiter = limiter.VertexBasedDepthIntegratedP1DGLimiter(self.function_spaces.Q_2d, self.fields.bathymetry_2d, elev_2d, self.options)
-                else:
-                    self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
+                self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
                 self.tracer_limiter = None
 
@@ -626,7 +622,7 @@ class FlowSolver2d(FrozenClass):
                                                           self,
                                                           export_to_hdf5=dump_hdf5,
                                                           append_to_log=True)
-            self.add_callback(c, eval_interval='timestep')
+            self.add_callback(c, eval_interval='export')
 
         if self.options.check_tracer_overshoot:
             c = callback.TracerOvershootCallBack('tracer_2d',

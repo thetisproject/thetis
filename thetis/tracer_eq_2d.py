@@ -89,8 +89,7 @@ class TracerTerm(Term):
         elif 'un' in funcs:
             uv_ext = funcs['un']*self.normal
         else:
-            uv_ext = self.corr_factor * uv_in
-
+            uv_ext = uv_in
         return c_ext, uv_ext, elev_ext
 
     def wd_bathymetry_displacement(self, eta):
@@ -136,7 +135,9 @@ class HorizontalAdvectionTerm(TracerTerm):
             return 0
         elev = fields_old['elev_2d']
         self.corr_factor = fields_old.get('tracer_advective_velocity_factor')
+        conservative = self.options.use_tracer_conservative_form
         uv = self.corr_factor * fields_old['uv_2d']
+
         uv_p1 = fields_old.get('uv_p1')
         uv_mag = fields_old.get('uv_mag')
         # FIXME is this an option?
@@ -146,7 +147,7 @@ class HorizontalAdvectionTerm(TracerTerm):
         if conservative:
             H = self.get_total_depth(fields["elev_2d"])
             f += -(Dx(self.test, 0) * H * uv[0] * solution
-                   + Dx(self.test, 1) * H * uv[1] * solution) * self.dx                          
+                   + Dx(self.test, 1) * H * uv[1] * solution) * self.dx
         else:
             f += -(Dx(uv[0] * self.test, 0) * solution
                    + Dx(uv[1] * self.test, 1) * solution) * self.dx
@@ -159,7 +160,6 @@ class HorizontalAdvectionTerm(TracerTerm):
             s = 0.5*(sign(un_av) + 1.0)
 
             if conservative:
-                
                 Huvc_up = (H*uv*solution)('-')*s + (H*uv*solution)('+')*(1-s)
                 f += dot(Huvc_up, jump(self.test, self.normal)) * self.dS
 
@@ -186,7 +186,6 @@ class HorizontalAdvectionTerm(TracerTerm):
                     ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                     c_in = solution
                     if funcs is not None and 'value' in funcs:
-
                         c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
                         if conservative:
                             H_ext = self.get_total_depth(eta_ext)
@@ -198,22 +197,20 @@ class HorizontalAdvectionTerm(TracerTerm):
                         c_up = c_in*s + c_ext*(1-s)
                         f += c_up*(uv_av[0]*self.normal[0]
                                    + uv_av[1]*self.normal[1])*self.test*ds_bnd
-                    
                     else:
                         if conservative:
                             if funcs is None:
                                 f += c_in * H*(uv[0]*self.normal[0]
-                                     + uv[1]*self.normal[1])*self.test*ds_bnd 
+                                               + uv[1]*self.normal[1])*self.test*ds_bnd
                             else:
                                 c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
                                 H_ext = self.get_total_depth(eta_ext)
                                 uv_av = 0.5*(H * uv + H_ext * uv_ext)
                                 f += c_in*(uv_av[0]*self.normal[0]
-                                   + uv_av[1]*self.normal[1])*self.test*ds_bnd
+                                           + uv_av[1]*self.normal[1])*self.test*ds_bnd
                         else:
                             f += c_in * (uv[0]*self.normal[0]
-                                     + uv[1]*self.normal[1])*self.test*ds_bnd
-                    
+                                         + uv[1]*self.normal[1])*self.test*ds_bnd
 
         return -f
 
@@ -311,24 +308,15 @@ class SourceTerm(TracerTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
 
-        if self.options.use_tracer_conservative_form:
-            depth_int_source = fields_old.get('depth_integrated_source')
-            ero = fields_old.get('erosion')
-            depo = fields_old.get('deposition')
-            
-            if depth_int_source is not None:       
-                f += -inner(depth_int_source, self.test) * self.dx
-            elif ero or depo is not None:
-                f += -inner(-depo*solution + ero, self.test) * self.dx
+        source = fields_old.get('source')
+
+        if source is not None:
+            if self.options.use_tracer_conservative_form:
+                H = self.get_total_depth(fields["elev_2d"])
+                f += -inner(H * source, self.test)*self.dx
             else:
-                if fields_old.get('source') is not None:
-                    assert(fields_old.get('source') == None,\
-                    "Source term not being implemented. Implement tracer_depth_integ_source instead")
-        else:
-            source = fields_old.get('source')
-            if source is not None:            
                 f += -inner(source, self.test)*self.dx
-                
+
         return -f
 
 
