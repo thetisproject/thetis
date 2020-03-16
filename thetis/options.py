@@ -545,7 +545,10 @@ class ModelOptions2d(CommonModelOptions):
         """).tag(config=True)
     tracer_advective_velocity_factor = FiredrakeScalarExpression(
         Constant(1.0), help="""
-        Custom factor which is multiplied to the velocity variable in tracer advection equation
+        Custom factor multiplied to the velocity variable in tracer advection equation.
+
+        Used to account for mismatch between depth-averaged product of velocity with tracer
+        and product of depth-averaged velocity with depth-averaged tracer
         """).tag(config=True)
     check_tracer_overshoot = Bool(
         False, help="""
