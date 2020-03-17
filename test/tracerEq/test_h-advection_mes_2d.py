@@ -48,8 +48,8 @@ def run(refinement, **model_options):
     options.simulation_end_time = t_end
     options.simulation_export_time = t_export
     solverobj.create_function_spaces()
-    uv_tracer = Function(solverobj.function_spaces.U_2d, name='uv tracer')
-    options.tracer_advective_velocity = uv_tracer
+    corr_factor = Function(solverobj.function_spaces.H_2d, name='uv tracer factor').interpolate(Constant(1.0))
+    options.tracer_advective_velocity_factor = corr_factor
     options.solve_tracer = True
     options.use_limiter_for_tracers = True
     options.fields_to_export = ['tracer_2d']
@@ -96,8 +96,6 @@ def run(refinement, **model_options):
 
     # custom time loop that solves tracer equation only
     ti = solverobj.timestepper.timesteppers.tracer
-
-    uv_tracer.assign(uv_init)
 
     i = 0
     iexport = 1
