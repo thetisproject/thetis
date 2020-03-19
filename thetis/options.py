@@ -674,6 +674,8 @@ class ModelOptions3d(CommonModelOptions):
         equation of state.
         If False, density is computed point-wise in the tracer space.
         """).tag(config=True)
+    bottom_roughness = FiredrakeScalarExpression(
+        None, allow_none=True, help="Bottom roughness length in meters.").tag(config=True)
     horizontal_diffusivity = FiredrakeScalarExpression(
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
     vertical_diffusivity = FiredrakeScalarExpression(

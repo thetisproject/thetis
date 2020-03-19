@@ -49,7 +49,8 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
                     self.solver,
                     self.fields.uv_p1_3d, self.fields.uv_bottom_2d,
                     self.fields.z_bottom_2d, self.fields.bathymetry_2d,
-                    self.fields.bottom_drag_2d)
+                    self.fields.bottom_drag_2d,
+                    self.options.bottom_roughness)
 
     def _update_2d_coupling(self):
         """Does 2D-3D coupling for the velocity field"""
@@ -240,6 +241,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             'linear_drag_coefficient': self.options.linear_drag_coefficient,
             'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
             'wind_stress': self.fields.get('wind_stress_3d'),
+            'bottom_roughness': self.options.bottom_roughness,
         }
         if not self.solver.options.use_implicit_vertical_diffusion:
             fields.update(friction_fields)
@@ -341,7 +343,8 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'epsilon': solver.turbulence_model.epsilon,
                       'shear_freq2': solver.turbulence_model.m2,
                       'buoy_freq2_neg': solver.turbulence_model.n2_neg,
-                      'buoy_freq2_pos': solver.turbulence_model.n2_pos
+                      'buoy_freq2_pos': solver.turbulence_model.n2_pos,
+                      'bottom_roughness': self.options.bottom_roughness,
                       }
             self.timesteppers.tke_impl = self.integrator_vert_3d(
                 eq_tke_diff, solver.fields.tke_3d, fields, solver.dt,

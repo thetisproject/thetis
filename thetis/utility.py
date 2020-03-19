@@ -1099,7 +1099,7 @@ def compute_elem_height(zcoord, output):
     return output
 
 
-def compute_bottom_drag(h_b, drag):
+def compute_bottom_drag(h_b, drag, bfr_roughness):
     r"""
     Computes bottom drag coefficient (Cd) from the law-of-the wall
 
@@ -1111,17 +1111,16 @@ def compute_bottom_drag(h_b, drag):
     :type h_b: :class:`Function`
     :arg drag: field where C_D is stored
     :type drag: :class:`Function`
+    :arg bfr_roughness: bottom roughness field
     """
-    # FIXME z0 should be a field, i.e. an argument to this function
     von_karman = physical_constants['von_karman']
-    z0_friction = physical_constants['z0_friction']
-    drag.assign((von_karman / ln((h_b + z0_friction)/z0_friction))**2)
+    drag.assign((von_karman / ln((h_b + bfr_roughness)/bfr_roughness))**2)
     return drag
 
 
 def compute_bottom_friction(solver, uv_3d, uv_bottom_2d,
                             z_bottom_2d, bathymetry_2d,
-                            bottom_drag_2d):
+                            bottom_drag_2d, bfr_roughness):
     """
     Updates bottom friction related fields for the 3D model
 
@@ -1136,13 +1135,13 @@ def compute_bottom_friction(solver, uv_3d, uv_bottom_2d,
     :type bathymetry_2d: 2D scalar :class:`Function`
     :arg bottom_drag_2d: Bottom grad field
     :type bottom_drag_2d: 2D scalar :class:`Function`
+    :arg bfr_roughness: bottom roughness field
     """
-    # TODO all input fields could be just fetched from solver.fields ...
     # compute velocity at middle of bottom element
     solver.extract_uv_bottom.solve()
     solver.extract_z_bottom.solve()
     z_bottom_2d.assign((z_bottom_2d + bathymetry_2d))
-    compute_bottom_drag(z_bottom_2d, bottom_drag_2d)
+    compute_bottom_drag(z_bottom_2d, bottom_drag_2d, bfr_roughness)
 
 
 def get_horizontal_elem_size_2d(sol2d):

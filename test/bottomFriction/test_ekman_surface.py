@@ -12,8 +12,6 @@ import pytest
 
 
 def run_test(layers=25, tolerance=0.05, verify=True, **model_options):
-    physical_constants['z0_friction'].assign(1e-3)
-
     depth = 20.0
 
     # set mesh resolution

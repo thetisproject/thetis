@@ -78,7 +78,7 @@ def katophillips_test(layers=25, gls_closure='k-omega',
     options.solve_temperature = False
     options.constant_temperature = Constant(10.0)
     options.use_implicit_vertical_diffusion = True
-    options.use_bottom_friction = True
+    options.use_bottom_friction = False
     options.use_turbulence = True
     options.use_ale_moving_mesh = False
     options.use_baroclinic_formulation = True

@@ -12,8 +12,6 @@ import pytest
 
 
 def run_test(layers=25, tolerance=0.05, verify=True, **model_options):
-    physical_constants['z0_friction'].assign(1e-3)
-
     depth = 20.0
     surf_slope = -5.0e-6  # d elev/dx
 
@@ -48,6 +46,7 @@ def run_test(layers=25, tolerance=0.05, verify=True, **model_options):
     options.solve_temperature = False
     options.use_implicit_vertical_diffusion = True
     options.use_bottom_friction = True
+    options.bottom_roughness = Constant(1e-3)
     options.use_turbulence = False
     options.coriolis_frequency = Constant(f_coriolis)
     options.vertical_viscosity = Constant(nu_v)

@@ -57,7 +57,6 @@ def to_latlon(x, y, positive_lon=False):
 rho0 = 1000.0
 # set physical constants
 physical_constants['rho0'].assign(rho0)
-physical_constants['z0_friction'].assign(0.005)
 
 reso_str = 'coarse'
 meshfile = {
@@ -138,6 +137,7 @@ options.solve_salinity = not simple_barotropic
 options.solve_temperature = not simple_barotropic
 options.use_implicit_vertical_diffusion = True  # not simple_barotropic
 options.use_bottom_friction = True  # not simple_barotropic
+options.bottom_roughness = Constant(0.005)
 options.use_turbulence = True  # not simple_barotropic
 options.use_turbulence_advection = False  # not simple_barotropic
 options.turbulence_model_type = 'gls'

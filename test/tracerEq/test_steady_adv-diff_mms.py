@@ -183,6 +183,7 @@ def run(setup, refinement, order, do_export=True, **options):
     solver_obj.options.element_family = 'dg-dg'
     solver_obj.options.polynomial_degree = order
     solver_obj.options.horizontal_velocity_scale = Constant(1.0)
+    solver_obj.options.use_bottom_friction = False
     solver_obj.options.no_exports = not do_export
     solver_obj.options.output_directory = outputdir
     solver_obj.options.simulation_end_time = t_end

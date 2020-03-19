@@ -22,7 +22,6 @@ from thetis import *
 
 # set physical constants
 physical_constants['rho0'].assign(1000.0)
-physical_constants['z0_friction'].assign(0.005)
 
 reso_str = 'coarse'
 refinement = {'coarse': 1, 'normal': 2}
@@ -67,6 +66,7 @@ options.solve_temperature = False
 options.constant_temperature = Constant(temp_const)
 options.use_implicit_vertical_diffusion = not simple_barotropic
 options.use_bottom_friction = not simple_barotropic
+options.bottom_roughness = Constant(0.005)
 options.use_turbulence = not simple_barotropic
 options.use_turbulence_advection = not simple_barotropic
 options.use_baroclinic_formulation = not simple_barotropic

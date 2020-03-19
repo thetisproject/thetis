@@ -51,6 +51,7 @@ def run(refinement, **model_options):
     options.simulation_export_time = t_export
     options.solve_salinity = True
     options.use_implicit_vertical_diffusion = False
+    options.use_bottom_friction = False
     options.use_limiter_for_tracers = True
     options.fields_to_export = ['salt_3d']
     options.update(model_options)
