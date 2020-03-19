@@ -72,8 +72,7 @@ def run_bottom_friction(do_assert=True, do_export=False, **model_options):
     options.output_directory = outputdir
     options.horizontal_velocity_scale = Constant(u_mag)
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
-                                'uv_dav_2d', 'uv_bottom_2d',
-                                'eddy_visc_3d', 'shear_freq_3d',
+                                'uv_dav_2d', 'eddy_visc_3d', 'shear_freq_3d',
                                 'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
     options.update(model_options)
     if options.timestepper_type == 'LeapFrog':

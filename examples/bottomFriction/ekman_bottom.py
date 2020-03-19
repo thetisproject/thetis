@@ -61,7 +61,7 @@ def bottom_ekman_test(layers=50, verify=True, iterate=True,
     options.simulation_end_time = t_end
     options.horizontal_velocity_scale = Constant(u_mag)
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
-                                'uv_dav_2d', 'uv_bottom_2d']
+                                'uv_dav_2d']
     options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d']
     options.update(model_options)
     layer_str = 'nz{:}'.format(layers)

@@ -563,11 +563,6 @@ class FlowSolver(FrozenClass):
         uv_2d, eta2d = self.fields.solution_2d.split()
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = eta2d
-        if self.options.use_bottom_friction:
-            self.fields.uv_bottom_2d = Function(self.function_spaces.P1v_2d)
-            self.fields.z_bottom_2d = Function(coord_fs_2d)
-            self.fields.bottom_drag_2d = Function(coord_fs_2d)
-
         self.fields.elev_3d = Function(self.function_spaces.H)
         self.fields.elev_cg_3d = Function(coord_fs)
         self.fields.elev_cg_2d = Function(coord_fs_2d)
@@ -890,13 +885,6 @@ class FlowSolver(FrozenClass):
         self.copy_uv_to_uv_dav_3d = ExpandFunctionTo3d(self.fields.uv_2d, self.fields.uv_dav_3d,
                                                        elem_height=self.fields.v_elem_size_3d)
         self.uv_mag_solver = VelocityMagnitudeSolver(self.fields.uv_mag_3d, u=self.fields.uv_3d)
-        if self.options.use_bottom_friction:
-            self.extract_uv_bottom = SubFunctionExtractor(self.fields.uv_p1_3d, self.fields.uv_bottom_2d,
-                                                          boundary='bottom', elem_facet='average',
-                                                          elem_height=self.fields.v_elem_size_2d)
-            self.extract_z_bottom = SubFunctionExtractor(self.fields.z_coord_3d, self.fields.z_bottom_2d,
-                                                         boundary='bottom', elem_facet='average',
-                                                         elem_height=self.fields.v_elem_size_2d)
         self.mesh_updater = ALEMeshUpdater(self)
 
         if self.options.use_smagorinsky_viscosity:

@@ -1099,51 +1099,6 @@ def compute_elem_height(zcoord, output):
     return output
 
 
-def compute_bottom_drag(h_b, drag, bfr_roughness):
-    r"""
-    Computes bottom drag coefficient (Cd) from the law-of-the wall
-
-    .. math::
-        C_D = \left( \frac{\kappa}{\ln (h_b + z_0)/z_0} \right)^2
-
-    :arg h_b: the height above bed where the bottom velocity is evaluated in
-        the law-of-the-wall fit
-    :type h_b: :class:`Function`
-    :arg drag: field where C_D is stored
-    :type drag: :class:`Function`
-    :arg bfr_roughness: bottom roughness field
-    """
-    von_karman = physical_constants['von_karman']
-    drag.assign((von_karman / ln((h_b + bfr_roughness)/bfr_roughness))**2)
-    return drag
-
-
-def compute_bottom_friction(solver, uv_3d, uv_bottom_2d,
-                            z_bottom_2d, bathymetry_2d,
-                            bottom_drag_2d, bfr_roughness):
-    """
-    Updates bottom friction related fields for the 3D model
-
-    :arg solver: :class:`FlowSolver` object
-    :arg uv_3d: horizontal velocity
-    :type uv_3d: 3D vector :class:`Function`
-    :arg uv_bottom_2d: 2D bottom velocity field
-    :type uv_bottom_2d: 2D vector :class:`Function`
-    :arg z_bottom_2d: Bottom element z coordinate
-    :type z_bottom_2d: 2D scalar :class:`Function`
-    :arg bathymetry_2d: Bathymetry field
-    :type bathymetry_2d: 2D scalar :class:`Function`
-    :arg bottom_drag_2d: Bottom grad field
-    :type bottom_drag_2d: 2D scalar :class:`Function`
-    :arg bfr_roughness: bottom roughness field
-    """
-    # compute velocity at middle of bottom element
-    solver.extract_uv_bottom.solve()
-    solver.extract_z_bottom.solve()
-    z_bottom_2d.assign((z_bottom_2d + bathymetry_2d))
-    compute_bottom_drag(z_bottom_2d, bottom_drag_2d, bfr_roughness)
-
-
 def get_horizontal_elem_size_2d(sol2d):
     """
     Computes horizontal element size from the 2D mesh

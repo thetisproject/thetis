@@ -34,23 +34,11 @@ field_metadata['z_coord_3d'] = {
     'unit': 'm',
     'filename': 'ZCoord3d',
 }
-field_metadata['z_bottom_2d'] = {
-    'name': 'Bottom cell z coordinates',
-    'shortname': 'Bottom cell z coordinates',
-    'unit': 'm',
-    'filename': 'ZBottom2d',
-}
 field_metadata['z_coord_ref_3d'] = {
     'name': 'Static mesh z coordinates',
     'shortname': 'Z coordinates',
     'unit': 'm',
     'filename': 'ZCoordRef3d',
-}
-field_metadata['bottom_drag_2d'] = {
-    'name': 'Bottom drag coefficient',
-    'shortname': 'Bottom drag coefficient',
-    'unit': '',
-    'filename': 'BottomDrag2d',
 }
 field_metadata['uv_2d'] = {
     'name': 'Depth averaged velocity',
@@ -75,12 +63,6 @@ field_metadata['split_residual_2d'] = {
     'shortname': 'Momentum residual',
     'unit': 'm s-2',
     'filename': 'SplitResidual2d',
-}
-field_metadata['uv_bottom_2d'] = {
-    'name': 'Bottom velocity',
-    'shortname': 'Bottom velocity',
-    'unit': 'm s-1',
-    'filename': 'BottomVelo2d',
 }
 field_metadata['uv_dav_3d'] = {
     'name': 'Depth averaged velocity',
