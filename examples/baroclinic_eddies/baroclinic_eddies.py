@@ -222,7 +222,7 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
             tmp_3d,
             bottom_to_top=True,
             average=True,
-            elevation=solver_obj.fields.elev_cg_3d,
+            elevation=solver_obj.fields.elev_cg_2d.view_3d,
             bathymetry=solver_obj.fields.bathymetry_2d.view_3d)
         bhead_surf_extract_op = SubFunctionExtractor(
             tmp_3d,
