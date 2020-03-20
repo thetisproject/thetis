@@ -64,18 +64,6 @@ field_metadata['uv_dav_3d'] = {
     'unit': 'm s-1',
     'filename': 'DAVelocity3d',
 }
-field_metadata['uv_mag_3d'] = {
-    'name': 'Magnitude of horizontal velocity',
-    'shortname': 'Velocity magnitude',
-    'unit': 'm s-1',
-    'filename': 'VeloMag3d',
-}
-field_metadata['uv_p1_3d'] = {
-    'name': 'P1 projection of horizontal velocity',
-    'shortname': 'P1 Velocity',
-    'unit': 'm s-1',
-    'filename': 'VeloCG3d',
-}
 field_metadata['elev_2d'] = {
     'name': 'Water elevation',
     'shortname': 'Elevation',

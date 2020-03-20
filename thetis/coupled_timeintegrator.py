@@ -95,9 +95,6 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
         Computes Smagorinsky viscosity etc fields
         """
         with timed_stage('aux_stability'):
-            self.solver.uv_mag_solver.solve()
-            # update P1 velocity field
-            self.solver.uv_p1_projector.project()
             if self.options.use_smagorinsky_viscosity:
                 self.solver.smagorinsky_diff_solver.solve()
 
@@ -219,8 +216,6 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                   'viscosity_v': expl_v_visc,
                   'viscosity_h': self.solver.tot_h_visc.get_sum(),
                   'source': self.options.momentum_source_3d,
-                  # uv_mag': self.fields.uv_mag_3d,
-                  'uv_p1': self.fields.get('uv_p1_3d'),
                   'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
                   'coriolis': self.fields.get('coriolis_3d'),
                   }
@@ -262,8 +257,6 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'diffusivity_h': self.solver.tot_h_diff.get_sum(),
                       'diffusivity_v': expl_v_diff,
                       'source': self.options.salinity_source_3d,
-                      # uv_mag': self.fields.uv_mag_3d,
-                      'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                       }
             self.timesteppers.salt_expl = self.integrator_3d(
@@ -295,8 +288,6 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'diffusivity_h': self.solver.tot_h_diff.get_sum(),
                       'diffusivity_v': expl_v_diff,
                       'source': self.options.temperature_source_3d,
-                      # uv_mag': self.fields.uv_mag_3d,
-                      'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                       }
             self.timesteppers.temp_expl = self.integrator_3d(
@@ -345,8 +336,6 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                           'uv_depth_av': self.fields.get('uv_dav_3d'),
                           'w': self.fields.w_3d,
                           'w_mesh': self.fields.get('w_mesh_3d'),
-                          # uv_mag': self.fields.uv_mag_3d,
-                          'uv_p1': self.fields.get('uv_p1_3d'),
                           'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                           }
                 self.timesteppers.tke_expl = self.integrator_3d(
