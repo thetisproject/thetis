@@ -566,8 +566,6 @@ class FlowSolver(FrozenClass):
         # elevation field seen by the 3D mode, different from elev_2d
         self.fields.elev_domain_2d = ExtrudedFunction(self.function_spaces.H_2d, mesh_3d=self.mesh)
         self.fields.elev_cg_2d = ExtrudedFunction(coord_fs_2d, mesh_3d=self.mesh)
-        # FIXME elev_cg_3d can potentially be removed
-        self.fields.elev_cg_3d = self.fields.elev_cg_2d.view_3d
         self.fields.uv_3d = Function(self.function_spaces.U)
         self.fields.bathymetry_2d = ExtrudedFunction(coord_fs_2d, mesh_3d=self.mesh)
         # z coordinate in the strecthed mesh
@@ -840,7 +838,7 @@ class FlowSolver(FrozenClass):
                                               bnd_value=Constant((0.0, 0.0, 0.0)),
                                               average=True,
                                               bathymetry=self.fields.bathymetry_2d.view_3d,
-                                              elevation=self.fields.elev_cg_3d)
+                                              elevation=self.fields.elev_cg_2d.view_3d)
         if self.options.use_baroclinic_formulation:
             if self.options.solve_salinity:
                 s = self.fields.salt_3d
@@ -870,7 +868,7 @@ class FlowSolver(FrozenClass):
                                                      bottom_to_top=False,
                                                      average=False,
                                                      bathymetry=self.fields.bathymetry_2d.view_3d,
-                                                     elevation=self.fields.elev_cg_3d)
+                                                     elevation=self.fields.elev_cg_2d.view_3d)
             self.int_pg_calculator = momentum_eq.InternalPressureGradientCalculator(
                 self.fields, self.fields.bathymetry_2d.view_3d, self.options,
                 self.bnd_functions['momentum'],
