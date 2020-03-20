@@ -179,8 +179,6 @@ class HorizontalAdvectionTerm(MomentumTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if not self.use_nonlinear_equations:
             return 0
-        uv_p1 = fields_old.get('uv_p1')
-        uv_mag = fields_old.get('uv_mag')
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
 
         uv_depth_av = fields_old.get('uv_depth_av')
@@ -207,13 +205,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
                   + uv_up[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_v + self.dS_h)
             # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
-                if uv_p1 is not None:
-                    gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0]
-                                     + avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
-                elif uv_mag is not None:
-                    gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
-                else:
-                    raise Exception('either uv_p1 or uv_mag must be given')
+                gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                 f += gamma*(jump(self.test[0])*jump(uv[0])
                             + jump(self.test[1])*jump(uv[1]))*(self.dS_v + self.dS_h)
             for bnd_marker in self.boundary_markers:

@@ -575,8 +575,6 @@ class FlowSolver(FrozenClass):
         self.fields.uv_dav_3d = Function(self.function_spaces.U)
         self.fields.uv_dav_2d = Function(self.function_spaces.U_2d)
         self.fields.split_residual_2d = Function(self.function_spaces.U_2d)
-        self.fields.uv_mag_3d = Function(self.function_spaces.P0)
-        self.fields.uv_p1_3d = Function(self.function_spaces.P1v)
         self.fields.w_3d = Function(self.function_spaces.W)
         self.fields.hcc_metric_3d = Function(self.function_spaces.P1DG, name='mesh consistency')
         if self.options.use_ale_moving_mesh:
@@ -881,15 +879,13 @@ class FlowSolver(FrozenClass):
                                                            elem_height=self.fields.v_elem_size_3d)
         self.copy_uv_to_uv_dav_3d = ExpandFunctionTo3d(self.fields.uv_2d, self.fields.uv_dav_3d,
                                                        elem_height=self.fields.v_elem_size_3d)
-        self.uv_mag_solver = VelocityMagnitudeSolver(self.fields.uv_mag_3d, u=self.fields.uv_3d)
         self.mesh_updater = ALEMeshUpdater(self)
 
         if self.options.use_smagorinsky_viscosity:
-            self.smagorinsky_diff_solver = SmagorinskyViscosity(self.fields.uv_p1_3d, self.fields.smag_visc_3d,
+            self.smagorinsky_diff_solver = SmagorinskyViscosity(self.fields.uv_3d, self.fields.smag_visc_3d,
                                                                 self.options.smagorinsky_coefficient, self.fields.h_elem_size_3d,
                                                                 self.fields.max_h_diff,
                                                                 weak_form=self.options.polynomial_degree == 0)
-        self.uv_p1_projector = Projector(self.fields.uv_3d, self.fields.uv_p1_3d)
 
         # ----- set initial values
         self.fields.bathymetry_2d.project(self.bathymetry_cg_2d)
