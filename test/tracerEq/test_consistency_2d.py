@@ -68,7 +68,7 @@ def run_tracer_consistency(constant_c = True, **model_options):
         print_output('Exporting to {:}'.format(options.output_directory))
         
     c = callback.TracerTotalMassConservation2DCallback('tracer_2d',
-                                         solver_obj, export_to_hdf5=True, append_to_log=False)
+                                         solver_obj, export_to_hdf5=False, append_to_log=False)
     solver_obj.add_callback(c, eval_interval='timestep')        
 
     solver_obj.create_function_spaces()
