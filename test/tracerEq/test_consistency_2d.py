@@ -96,7 +96,7 @@ def run_tracer_consistency(constant_c = True, **model_options):
         smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['tracer_2d overshoot']()
         max_abs_overshoot = max(abs(undershoot), abs(overshoot))
         overshoot_tol = 1e-12
-        if options.use_tracer_conservative_form == False:
+        if not options.use_tracer_conservative_form:
             msg = 'Tracer overshoots are too large: {:}'.format(max_abs_overshoot)
             assert max_abs_overshoot < overshoot_tol, msg
 
@@ -141,4 +141,4 @@ if __name__ == '__main__':
                            use_nonlinear_equations=True,
                            solve_tracer=True,
                            use_limiter_for_tracers=False,
-                           no_exports=True)
+                           no_exports=False)
