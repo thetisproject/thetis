@@ -320,10 +320,10 @@ def comp_tracer_total_mass_2d(var, tracer_name):
     """
 
     # read in necessary variables from solver object
-    eta = var.solver_obj.fields.elev_2d.copy(deepcopy=True)
-    vel = var.solver_obj.fields.uv_2d.copy(deepcopy=True)
+    eta = var.solver_obj.fields.elev_2d
+    vel = var.solver_obj.fields.uv_2d
 
-    scalar_func = var.solver_obj.fields[tracer_name].copy(deepcopy=True)
+    scalar_func = var.solver_obj.fields[tracer_name]
 
     # calculate total depth
     term = var.solver_obj.eq_tracer.terms['HorizontalAdvectionTerm']

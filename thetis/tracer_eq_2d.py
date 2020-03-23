@@ -15,7 +15,8 @@ velocities, and
 """
 from __future__ import absolute_import
 from .utility import *
-from .equation import Term, Equation
+from .equation import Equation
+from .shallowwater_eq import ShallowWaterTerm
 
 __all__ = [
     'TracerEquation2D',
@@ -26,7 +27,7 @@ __all__ = [
 ]
 
 
-class TracerTerm(Term):
+class TracerTerm(ShallowWaterTerm):
     """
     Generic tracer term that provides commonly used members and mapping for
     boundary functions.
@@ -91,26 +92,6 @@ class TracerTerm(Term):
         else:
             uv_ext = uv_in
         return c_ext, uv_ext, elev_ext
-
-    def wd_bathymetry_displacement(self, eta):
-        """
-        Returns wetting and drying bathymetry displacement as described in:
-        Karna et al.,  2011.
-        """
-        H = self.bathymetry + eta
-        return 0.5 * (sqrt(H ** 2 + self.options.wetting_and_drying_alpha ** 2) - H)
-
-    def get_total_depth(self, eta):
-        """
-        Returns total water column depth
-        """
-        if self.options.use_nonlinear_equations:
-            total_h = self.bathymetry + eta
-            if hasattr(self.options, 'use_wetting_and_drying') and self.options.use_wetting_and_drying:
-                total_h += self.wd_bathymetry_displacement(eta)
-        else:
-            total_h = self.bathymetry
-        return total_h
 
 
 class HorizontalAdvectionTerm(TracerTerm):
