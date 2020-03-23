@@ -126,8 +126,8 @@ def test_nonconst_tracer():
 
 def test_nonconst_tracer_conservative():
     """
-    Test CrankNicolson timeintegrator with no slope limiters
-    Non-trivial tracer, should see no overshoots and be conserved
+    Test CrankNicolson timeintegrator without slope limiters
+    Non-trivial tracer, should be conserved
     """
     run_tracer_consistency(constant_c=False,
                            use_nonlinear_equations=True,
