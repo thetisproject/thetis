@@ -89,7 +89,7 @@ class TracerTerm(Term):
         elif 'un' in funcs:
             uv_ext = funcs['un']*self.normal
         else:
-            uv_ext = self.corr_factor * uv_in
+            uv_ext = uv_in
 
         return c_ext, uv_ext, elev_ext
 
