@@ -205,7 +205,6 @@ def test_horizontal_diffusion(polynomial_degree, stepper, warped,
                     polynomial_degree=polynomial_degree,
                     warped_mesh=warped, timestepper_type=stepper)
 
-
 # ---------------------------
 # run individual setup for debugging
 # ---------------------------

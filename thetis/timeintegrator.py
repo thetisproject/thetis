@@ -449,6 +449,7 @@ class LeapFrogAM3(TimeIntegrator):
     http://dx.doi.org/10.1016/S1570-8659(08)01202-0
     """
     cfl_coeff = 1.5874
+    n_stages = 2
 
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
                  solver_parameters=None, terms_to_add='all'):

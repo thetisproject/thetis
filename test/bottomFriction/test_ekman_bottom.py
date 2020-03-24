@@ -102,7 +102,7 @@ def element_family(request):
     return request.param
 
 
-@pytest.fixture(params=['LeapFrog', 'SSPRK22'])
+@pytest.fixture(params=['LeapFrog', 'SSPRK22', 'ExSSPRK22'])
 def timestepper_type(request):
     return request.param
 
