@@ -74,7 +74,7 @@ class TracerTerm(Term,ShallowWaterTermMixin):
             c_ext = funcs['value']
         else:
             c_ext = c_in
-        uv_ext, elev_ext = super().get_bnd_functions(elev_in, uv_in, bnd_id, bnd_conditions)
+        elev_ext, uv_ext = super().get_bnd_functions(elev_in, uv_in, bnd_id, bnd_conditions)
         return c_ext, uv_ext, elev_ext
 
 
