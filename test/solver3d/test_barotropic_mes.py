@@ -18,7 +18,7 @@ def run(refinement=1, ncycles=2, **kwargs):
     depth = 100.0
     c_wave = np.sqrt(g_grav*depth)
 
-    n_base = 20
+    n_base = 15 # 7
     nx = n_base*refinement
     ny = 1
     lx = 60000.
@@ -109,26 +109,32 @@ def run_convergence(ref_list, saveplot=False, **options):
     y_log_uv = np.log10(np.array([v[1] for v in l2_err]))
     setup_name = 'standingwave'
 
-    def check_convergence(x_log, y_log, expected_slope, field_str, saveplot, ax):
-        slope_rtol = 0.07
+    def linear_fit(x_log, y_log):
         slope, intercept, r_value, p_value, std_err = stats.linregress(x_log, y_log)
-        if saveplot:
-            # plot points
-            ax.plot(x_log, y_log, 'k.')
-            x_min = x_log.min()
-            x_max = x_log.max()
-            offset = 0.05*(x_max - x_min)
-            npoints = 50
-            xx = np.linspace(x_min - offset, x_max + offset, npoints)
-            yy = intercept + slope*xx
-            # plot line
-            ax.plot(xx, yy, linestyle='--', linewidth=0.5, color='k')
-            ax.text(xx[2*int(npoints/3)], yy[2*int(npoints/3)], '{:4.2f}'.format(slope),
-                    verticalalignment='top',
-                    horizontalalignment='left')
-            ax.set_xlabel('log10(dx)')
-            ax.set_ylabel('log10(L2 error)')
-            ax.set_title(field_str)
+        return slope, intercept
+
+    slope_elev, intercept_elev = linear_fit(x_log, y_log_elev)
+    slope_uv, intercept_uv = linear_fit(x_log, y_log_uv)
+
+    def plot_convergence(ax, x_log, y_log, slope, intercept, field_str):
+        # plot points
+        ax.plot(x_log, y_log, 'k.')
+        # plot line
+        x_min = x_log.min()
+        x_max = x_log.max()
+        offset = 0.05*(x_max - x_min)
+        npoints = 50
+        xx = np.linspace(x_min - offset, x_max + offset, npoints)
+        yy = intercept + slope*xx
+        ax.plot(xx, yy, linestyle='--', linewidth=0.5, color='k')
+        ax.text(xx[2*int(npoints/3)], yy[2*int(npoints/3)], '{:4.2f}'.format(slope),
+                verticalalignment='top',
+                horizontalalignment='left')
+        ax.set_xlabel('log10(dx)')
+        ax.set_ylabel('log10(L2 error)')
+        ax.set_title(field_str)
+
+    def check_convergence(slope, expected_slope, field_str, slope_rtol = 0.07):
         if expected_slope is not None:
             err_msg = '{:}: Wrong {:} convergence rate {:.4f}, expected {:.4f}'.format(setup_name, field_str, slope, expected_slope)
             assert slope > expected_slope*(1 - slope_rtol), err_msg
@@ -137,21 +143,11 @@ def run_convergence(ref_list, saveplot=False, **options):
             print_output('{:}: {:} convergence rate {:.4f}'.format(setup_name, field_str, slope))
         return slope
 
-    ax_list = [None, None]
     if saveplot:
         import matplotlib.pyplot as plt
         fig, ax_list = plt.subplots(nrows=1, ncols=2, figsize=(10.5, 4))
-
-    try:
-        check_convergence(x_log, y_log_elev, polynomial_degree+1, 'Elevation', saveplot, ax_list[0])
-    except Exception as e1:
-        print(e1)
-    try:
-        check_convergence(x_log, y_log_uv, polynomial_degree+1, 'Velocity', saveplot, ax_list[1])
-    except Exception as e2:
-        print(e2)
-
-    if saveplot:
+        plot_convergence(ax_list[0], x_log, y_log_elev, slope_elev, intercept_elev, 'Elevation')
+        plot_convergence(ax_list[1], x_log, y_log_uv, slope_uv, intercept_uv, 'Velocity')
         ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
         degree_str = 'o{:}'.format(polynomial_degree)
         imgfile = '_'.join(['convergence', setup_name, ref_str, degree_str, space_str])
@@ -161,13 +157,16 @@ def run_convergence(ref_list, saveplot=False, **options):
         print_output('saving figure {:}'.format(imgfile))
         plt.savefig(imgfile, dpi=200, bbox_inches='tight')
 
+    check_convergence(slope_elev, polynomial_degree+1, 'Elevation')
+    check_convergence(slope_uv, polynomial_degree+1, 'Velocity')
+
 
 @pytest.fixture(params=['rt-dg', 'dg-dg'])
 def element_family(request):
     return request.param
 
 
-@pytest.fixture(params=['LeapFrog', 'SSPRK22', 'ExSSPRK22'])
+@pytest.fixture(params=['LeapFrog', 'SSPRK22'])
 def timestepper_type(request):
     return request.param
 
@@ -180,6 +179,6 @@ def test_standing_wave(element_family, timestepper_type):
 
 
 if __name__ == '__main__':
-    run_convergence([1, 2, 4, 6, 8, 10],
-                    polynomial_degree=1, element_family='dg-dg',
+    run_convergence([1, 2, 4, 8],
+                    polynomial_degree=1, element_family='rt-dg',
                     saveplot=True, no_exports=True)
