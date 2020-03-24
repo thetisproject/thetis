@@ -218,7 +218,8 @@ def implicit(request):
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
                          [('LeapFrog', True),
-                          ('SSPRK22', True)])
+                          ('SSPRK22', True),
+                          ('ExSSPRK22', True)])
 def test_vertical_viscosity(polynomial_degree, implicit, element_family, stepper, use_ale):
     run_convergence([1, 2, 3], polynomial_degree=polynomial_degree, implicit=implicit,
                     element_family=element_family,

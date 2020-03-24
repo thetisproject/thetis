@@ -64,7 +64,7 @@ def run_katophillips(**model_options):
     options.use_implicit_vertical_diffusion = True
     options.use_bottom_friction = False
     options.use_turbulence = True
-    options.use_ale_moving_mesh = False
+    options.use_ale_moving_mesh = True
     options.use_baroclinic_formulation = True
     options.use_limiter_for_tracers = False
     options.vertical_viscosity = Constant(1.3e-6)  # background value
@@ -84,8 +84,6 @@ def run_katophillips(**model_options):
                                 'shear_freq_3d', 'buoy_freq_3d',
                                 'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
     options.update(model_options)
-    if options.timestepper_type in ['LeapFrog', 'SSPRK22']:
-        options.use_ale_moving_mesh = True
     if hasattr(options.timestepper_options, 'use_automatic_timestep'):
         options.timestepper_options.use_automatic_timestep = False
 
@@ -136,7 +134,7 @@ def element_family(request):
     return request.param
 
 
-@pytest.fixture(params=['LeapFrog', 'SSPRK22'])
+@pytest.fixture(params=['LeapFrog', 'SSPRK22', 'ExSSPRK22'])
 def timestepper_type(request):
     return request.param
 

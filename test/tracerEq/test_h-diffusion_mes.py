@@ -210,7 +210,8 @@ def warped(request):
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
                          [('LeapFrog', True),
-                          ('SSPRK22', True)])
+                          ('SSPRK22', True),
+                          ('ExSSPRK22', True)])
 def test_horizontal_diffusion(warped, polynomial_degree, stepper, use_ale):
     run_convergence([1, 2, 3], polynomial_degree=polynomial_degree,
                     warped_mesh=warped,

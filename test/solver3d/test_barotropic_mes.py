@@ -5,6 +5,7 @@ tracers.
 """
 from thetis import *
 from scipy import stats
+import pytest
 
 
 def run(refinement=1, ncycles=2, **kwargs):
@@ -161,9 +162,20 @@ def run_convergence(ref_list, saveplot=False, **options):
         plt.savefig(imgfile, dpi=200, bbox_inches='tight')
 
 
-def test_standing_wave():
+@pytest.fixture(params=['rt-dg', 'dg-dg'])
+def element_family(request):
+    return request.param
+
+
+@pytest.fixture(params=['LeapFrog', 'SSPRK22', 'ExSSPRK22'])
+def timestepper_type(request):
+    return request.param
+
+
+def test_standing_wave(element_family, timestepper_type):
     run_convergence([1, 2, 4, 8],
-                    polynomial_degree=1, element_family='dg-dg',
+                    polynomial_degree=1, element_family=element_family,
+                    timestepper_type=timestepper_type,
                     saveplot=False, no_exports=True)
 
 

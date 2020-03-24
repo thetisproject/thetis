@@ -192,7 +192,8 @@ def warped(request):
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
                          [('LeapFrog', True),
-                          ('SSPRK22', True)])
+                          ('SSPRK22', True),
+                          ('ExSSPRK22', True)])
 @pytest.mark.parametrize(('family', 'polynomial_degree'),
                          [('dg-dg', 0),
                           ('dg-dg', 1),

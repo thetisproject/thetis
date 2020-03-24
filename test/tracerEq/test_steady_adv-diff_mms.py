@@ -302,7 +302,7 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False, **
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=['LeapFrog', 'SSPRK22'])
+@pytest.fixture(params=['LeapFrog', 'SSPRK22', 'ExSSPRK22'])
 def timestepper_type(request):
     return request.param
 
