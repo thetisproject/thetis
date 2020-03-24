@@ -349,6 +349,28 @@ class SSPRK33Abstract(AbstractRKScheme):
     cfl_coeff = 1.0
 
 
+class SSPRK22Abstract(AbstractRKScheme):
+    r"""
+    2nd order Strong Stability Preserving Runge-Kutta scheme, SSP(2,2).
+
+    This scheme has Butcher tableau
+
+    .. math::
+        \begin{array}{c|ccc}
+            0 &                 \\
+            1 & 1               \\ \hline
+              & 1/2 & 1/2
+        \end{array}
+
+    CFL coefficient is 1.0
+    """
+    a = [[0, 0],
+         [1.0, 0]]
+    b = [0.5, 0.5]
+    c = [0, 1.0]
+    cfl_coeff = 1.0
+
+
 class ERKLSPUM2Abstract(AbstractRKScheme):
     """
     ERKLSPUM2, 3-stage, 2nd order Explicit Runge Kutta method
@@ -915,6 +937,10 @@ class ERKGenericShuOsher(TimeIntegrator):
         """Advances equations for one time step."""
         for i in range(self.n_stages):
             self.solve_stage(i, t, update_forcings)
+
+
+class SSPRK22(ERKGenericShuOsher, SSPRK22Abstract):
+    pass
 
 
 class SSPRK33(ERKGenericShuOsher, SSPRK33Abstract):

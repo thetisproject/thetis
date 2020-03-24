@@ -124,13 +124,8 @@ class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
     }).tag(config=True)
 
 
-class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
+class TimestepperOptions3d(ExplicitTimestepperOptions):
     """Base class for all 3d time stepper options"""
-    solver_parameters_2d_swe = PETScSolverParameters({
-        'ksp_type': 'gmres',
-        'pc_type': 'fieldsplit',
-        'pc_fieldsplit_type': 'multiplicative',
-    }).tag(config=True)
     solver_parameters_momentum_explicit = PETScSolverParameters({
         'snes_type': 'ksponly',
         'ksp_type': 'cg',
@@ -161,11 +156,25 @@ class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
     }).tag(config=True)
 
 
-class SemiImplicitTimestepperOptions3d(ExplicitTimestepperOptions3d):
-    """Class for all 3d time steppers that have a configurable semi-implicit 2D solver"""
-    implicitness_theta_2d = BoundedFloat(
-        default_value=0.5, bounds=[0.5, 1.0],
-        help='implicitness parameter theta for 2D solver. Value 1.0 implies fully implicit formulation.').tag(config=True)
+class SplitExplicitTimestepperOptions3d(TimestepperOptions3d):
+    """Options for split-explicit 3d time steppers"""
+    solver_parameters_2d_swe = PETScSolverParameters({
+        'snes_type': 'ksponly',
+        'ksp_type': 'cg',
+        'pc_type': 'bjacobi',
+        'sub_ksp_type': 'preonly',
+        'sub_pc_type': 'ilu',
+        'mat_type': 'aij',
+    }).tag(config=True)
+
+
+class SplitImplicitTimestepperOptions3d(TimestepperOptions3d):
+    """Options for split-implicit 3d time steppers"""
+    solver_parameters_2d_swe = PETScSolverParameters({
+        'ksp_type': 'gmres',
+        'pc_type': 'fieldsplit',
+        'pc_fieldsplit_type': 'multiplicative',
+    }).tag(config=True)
 
 
 class TurbulenceModelOptions(FrozenHasTraits):
@@ -739,8 +748,9 @@ class ModelOptions2d(CommonModelOptions):
 
 
 @attach_paired_options("timestepper_type",
-                       PairedEnum([('LeapFrog', ExplicitTimestepperOptions3d),
-                                   ('SSPRK22', ExplicitTimestepperOptions3d),
+                       PairedEnum([('LeapFrog', SplitImplicitTimestepperOptions3d),
+                                   ('SSPRK22', SplitImplicitTimestepperOptions3d),
+                                   ('ExSSPRK22', SplitExplicitTimestepperOptions3d),
                                    ],
                                   "timestepper_options",
                                   default_value='SSPRK22',

@@ -831,6 +831,9 @@ class FlowSolver(FrozenClass):
             self.timestepper = coupled_timeintegrator.CoupledLeapFrogAM3(weakref.proxy(self))
         elif self.options.timestepper_type == 'SSPRK22':
             self.timestepper = coupled_timeintegrator.CoupledTwoStageRK(weakref.proxy(self))
+        elif self.options.timestepper_type == 'ExSSPRK22':
+            self.timestepper = coupled_timeintegrator.CoupledExplicitTwoStageRK(weakref.proxy(self))
+            self.dt_mode = 'split'
         else:
             raise Exception('Unknown time integrator type: '+str(self.options.timestepper_type))
 
