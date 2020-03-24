@@ -161,7 +161,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         self._initialized = False
 
         self._create_integrators()
-        self.n_stages = self.timesteppers.swe2d.n_stages
+        self.n_stages = self.timesteppers.mom_expl.n_stages
 
     def _get_vert_diffusivity_functions(self):
         """
@@ -371,10 +371,8 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         assert np.isclose(dt/dt_2d, np.round(dt/dt_2d)), \
             'dt_2d is not integer fraction of dt'
 
-        if dt != dt_2d:
-            raise NotImplementedError('Case dt_2d < dt is not implemented yet')
-
-        for stepper in sorted(self.timesteppers):
+        self.timesteppers['swe2d'].set_dt(dt_2d)
+        for stepper in sorted([s for s in self.timesteppers if s != 'swe2d']):
             self.timesteppers[stepper].set_dt(dt)
 
     def initialize(self):
@@ -569,7 +567,7 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
 
 class CoupledTwoStageRK(CoupledTimeIntegrator):
     """
-    Coupled time integrator based on SSPRK(2,2) scheme
+    Coupled split-implict time integrator based on SSPRK(2,2) scheme
 
     This ALE time integration method uses SSPRK(2,2) scheme to advance the 3D
     equations and a compatible implicit Trapezoid method to advance the 2D
@@ -641,6 +639,188 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
             self.store_elevation(i_stage)
             with timed_stage('mode2d'):
                 self.timesteppers.swe2d.solve_stage(i_stage, t, update_forcings)
+            self.compute_mesh_velocity(i_stage)
+
+            # solve 3D mode: preprocess in old mesh
+            with timed_stage('salt_eq'):
+                if self.options.solve_salinity:
+                    self.timesteppers.salt_expl.prepare_stage(i_stage, t, update_forcings3d)
+            with timed_stage('temp_eq'):
+                if self.options.solve_temperature:
+                    self.timesteppers.temp_expl.prepare_stage(i_stage, t, update_forcings3d)
+            with timed_stage('turb_advection'):
+                if 'psi_expl' in self.timesteppers:
+                    self.timesteppers.psi_expl.prepare_stage(i_stage, t, update_forcings3d)
+                if 'tke_expl' in self.timesteppers:
+                    self.timesteppers.tke_expl.prepare_stage(i_stage, t, update_forcings3d)
+            with timed_stage('momentum_eq'):
+                self.timesteppers.mom_expl.prepare_stage(i_stage, t, update_forcings3d)
+
+            # update mesh
+            self._update_3d_elevation()
+            self._update_moving_mesh()
+
+            # solve 3D mode
+            with timed_stage('salt_eq'):
+                if self.options.solve_salinity:
+                    self.timesteppers.salt_expl.solve_stage(i_stage)
+                    if self.options.use_limiter_for_tracers:
+                        self.solver.tracer_limiter.apply(self.fields.salt_3d)
+            with timed_stage('temp_eq'):
+                if self.options.solve_temperature:
+                    self.timesteppers.temp_expl.solve_stage(i_stage)
+                    if self.options.use_limiter_for_tracers:
+                        self.solver.tracer_limiter.apply(self.fields.temp_3d)
+            with timed_stage('turb_advection'):
+                if 'psi_expl' in self.timesteppers:
+                    self.timesteppers.psi_expl.solve_stage(i_stage)
+                if 'tke_expl' in self.timesteppers:
+                    self.timesteppers.tke_expl.solve_stage(i_stage)
+            with timed_stage('momentum_eq'):
+                self.timesteppers.mom_expl.solve_stage(i_stage)
+                if self.options.use_limiter_for_velocity:
+                    self.solver.uv_limiter.apply(self.fields.uv_3d)
+
+            last_stage = i_stage == self.n_stages - 1
+
+            if last_stage:
+                # compute final prognostic variables
+                self._update_2d_coupling()  # due before impl. viscosity
+                if self.options.use_implicit_vertical_diffusion:
+                    if self.options.solve_salinity:
+                        with timed_stage('impl_salt_vdiff'):
+                            self.timesteppers.salt_impl.advance(t)
+                    if self.options.solve_temperature:
+                        with timed_stage('impl_temp_vdiff'):
+                            self.timesteppers.temp_impl.advance(t)
+                    with timed_stage('impl_mom_vvisc'):
+                        self.timesteppers.mom_impl.advance(t)
+                # compute final diagnostic fields
+                self._update_baroclinicity()
+                self._update_vertical_velocity()
+                # update parametrizations
+                self._update_turbulence(t)
+                self._update_stabilization_params()
+            else:
+                # update variables that explict solvers depend on
+                self._update_2d_coupling()
+                self._update_baroclinicity()
+                self._update_vertical_velocity()
+
+
+def gauss_weights(n_bins):
+    """
+    Generates Gaussian weights for time averaging
+    """
+    from scipy.special import erf
+    span = np.exp(1)
+    bounds = np.linspace(-span, span, n_bins+1)
+    weights = [erf(bounds[i+1]) - erf(bounds[i]) for i in range(n_bins)]
+    weights = np.array(weights)
+    weights /= np.sum(weights)
+    weights = [Constant(w) for w in weights]
+    return weights
+
+
+class CoupledExplicitTwoStageRK(CoupledTimeIntegrator):
+    """
+    Coupled split-explicit time integrator based on SSPRK(2,2) scheme
+
+    This ALE time integration method uses SSPRK(2,2) scheme to advance the 3D
+    equations and an explicit, sub-iterated method to advance the 2D
+    equations. Backward Euler scheme is used for vertical diffusion.
+    """
+    integrator_2d = rungekutta.SSPRK22
+    integrator_3d = timeintegrator.SSPRK22ALE
+    integrator_vert_3d = rungekutta.BackwardEuler
+
+    def __init__(self, solver):
+        super().__init__(solver)
+        # allocate CG elevation fields for storing mesh geometry
+        self.elev_fields = []
+        for i in range(self.n_stages):
+            e = Function(self.fields.elev_cg_2d)
+            self.elev_fields.append(e)
+        # allocate fields for holding time-averaged 2d elevation and velocity
+        self.solution_tav_2d = []
+        for i in range(self.n_stages):
+            self.solution_tav_2d.append(Function(self.fields.solution_2d))
+
+    def store_elevation(self, istage):
+        """
+        Store current elevation field for computing mesh velocity
+
+        Must be called before updating the 2D mode.
+
+        :arg istage: stage of the Runge-Kutta iteration
+        :type istage: int
+        """
+        if self.options.use_ale_moving_mesh:
+            self.solver.mesh_updater.compute_mesh_velocity_begin()
+            self.elev_fields[istage].assign(self.fields.elev_cg_2d)
+
+    def compute_mesh_velocity(self, istage):
+        """
+        Computes mesh velocity for stage i
+
+        Must be called after updating the 2D mode.
+
+        :arg istage: stage of the Runge-Kutta iteration
+        :type istage: int
+        """
+        if self.options.use_ale_moving_mesh:
+            self.solver.mesh_updater.compute_mesh_velocity_begin()
+            current_elev = self.fields.elev_cg_2d
+            if istage == 0:
+                # compute w_mesh at surface as (elev^{(1)} - elev^{n})/dt
+                w_s = (current_elev - self.elev_fields[0])/self.solver.dt
+            else:
+                # compute w_mesh at surface as (2*elev^{n+1} - elev^{(1)} - elev^{n})/dt
+                w_s = (2*current_elev - self.elev_fields[1] - self.elev_fields[0])/self.solver.dt
+            self.solver.mesh_updater.compute_mesh_velocity_finalize(
+                w_mesh_surf_expr=w_s)
+
+    def initialize(self):
+        super().initialize()
+        self.solution_tav_2d[0].assign(self.fields.solution_2d)
+        # generate time average filter
+        self.n_steps_2d = 2*self.solver.M_modesplit
+        self.dt_2d = self.timesteppers['swe2d'].dt
+        self.weights_2d = gauss_weights(self.n_steps_2d+1)
+
+    def advance(self, t, update_forcings=None, update_forcings3d=None):
+        """
+        Advances the equations for one time step
+
+        :arg float t: simulation time
+        :kwarg update_forcings: Optional user-defined function that takes
+            simulation time and updates time-dependent boundary conditions of
+            the 2D equations.
+        :kwarg update_forcings3d: Optional user defined function that updates
+            boundary conditions of the 3D equations
+        """
+        if not self._initialized:
+            self.initialize()
+
+        for i_stage in range(self.n_stages):
+
+            # solve 2D mode
+            self.store_elevation(i_stage)
+            with timed_stage('mode2d'):
+                # reset 2D time integrator to time averaged values
+                self.fields.solution_2d.assign(self.solution_tav_2d[0])
+                # sub-iterate 2d equations t_{n} -> t_{2n}
+                # compute time average
+                self.solution_tav_2d[1].assign(self.weights_2d[0]*self.solution_tav_2d[0])
+                for i_2d in range(self.n_steps_2d):
+                    self.timesteppers.swe2d.advance(t + i_2d*self.dt_2d,
+                                                    update_forcings)
+                    self.solution_tav_2d[1] += self.weights_2d[i_2d+1]*self.fields.solution_2d
+                # set 2d fields to time average
+                self.fields.solution_2d.assign(self.solution_tav_2d[1])
+                if i_stage == 1:  # update old value
+                    self.solution_tav_2d[0].assign(self.solution_tav_2d[1])
+
             self.compute_mesh_velocity(i_stage)
 
             # solve 3D mode: preprocess in old mesh
