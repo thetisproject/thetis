@@ -183,6 +183,7 @@ __all__ = [
     'ModeSplit2DEquations',
     'ShallowWaterMomentumEquation',
     'FreeSurfaceEquation',
+    'ShallowWaterTermMixin',
     'ShallowWaterTerm',
     'ShallowWaterMomentumTerm',
     'ShallowWaterContinuityTerm',
@@ -204,29 +205,31 @@ g_grav = physical_constants['g_grav']
 rho_0 = physical_constants['rho0']
 
 
-class ShallowWaterTerm(Term):
+class ShallowWaterTermMixin:
     """
-    Generic term in the shallow water equations that provides commonly used
-    members and mapping for boundary functions.
-    """
-    def __init__(self, space,
-                 bathymetry=None,
-                 options=None):
-        super(ShallowWaterTerm, self).__init__(space)
+    Mixin class that provides methods in common to
+    ShallowWaterTerm and (Conservative)TracerTerm. Requires self.bathymetry
+    and self.options attributes."""
 
-        self.bathymetry = bathymetry
-        self.options = options
+    def wd_bathymetry_displacement(self, eta):
+        """
+        Returns wetting and drying bathymetry displacement as described in:
+        Karna et al.,  2011.
+        """
+        H = self.bathymetry + eta
+        return 0.5 * (sqrt(H ** 2 + self.options.wetting_and_drying_alpha ** 2) - H)
 
-        # mesh dependent variables
-        self.cellsize = CellSize(self.mesh)
-
-        # define measures with a reasonable quadrature degree
-        p = self.function_space.ufl_element().degree()
-        self.quad_degree = 2*p + 1
-        self.dx = dx(degree=self.quad_degree,
-                     domain=self.function_space.ufl_domain())
-        self.dS = dS(degree=self.quad_degree,
-                     domain=self.function_space.ufl_domain())
+    def get_total_depth(self, eta):
+        """
+        Returns total water column depth
+        """
+        if self.options.use_nonlinear_equations:
+            total_h = self.bathymetry + eta
+            if hasattr(self.options, 'use_wetting_and_drying') and self.options.use_wetting_and_drying:
+                total_h = self.bathymetry + eta + self.wd_bathymetry_displacement(eta)
+        else:
+            total_h = self.bathymetry
+        return total_h
 
     def get_bnd_functions(self, eta_in, uv_in, bnd_id, bnd_conditions):
         """
@@ -268,25 +271,31 @@ class ShallowWaterTerm(Term):
             raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
         return eta_ext, uv_ext
 
-    def wd_bathymetry_displacement(self, eta):
-        """
-        Returns wetting and drying bathymetry displacement as described in:
-        Karna et al.,  2011.
-        """
-        H = self.bathymetry + eta
-        return 0.5 * (sqrt(H ** 2 + self.options.wetting_and_drying_alpha ** 2) - H)
 
-    def get_total_depth(self, eta):
-        """
-        Returns total water column depth
-        """
-        if self.options.use_nonlinear_equations:
-            total_h = self.bathymetry + eta
-            if hasattr(self.options, 'use_wetting_and_drying') and self.options.use_wetting_and_drying:
-                total_h = self.bathymetry + eta + self.wd_bathymetry_displacement(eta)
-        else:
-            total_h = self.bathymetry
-        return total_h
+class ShallowWaterTerm(Term, ShallowWaterTermMixin):
+    """
+    Generic term in the shallow water equations that provides commonly used
+    members and mapping for boundary functions.
+    """
+    def __init__(self, space,
+                 bathymetry=None,
+                 options=None):
+        super(ShallowWaterTerm, self).__init__(space)
+
+        self.bathymetry = bathymetry
+        self.options = options
+
+        # mesh dependent variables
+        self.cellsize = CellSize(self.mesh)
+
+        # define measures with a reasonable quadrature degree
+        p = self.function_space.ufl_element().degree()
+        self.quad_degree = 2*p + 1
+        self.dx = dx(degree=self.quad_degree,
+                     domain=self.function_space.ufl_domain())
+        self.dS = dS(degree=self.quad_degree,
+                     domain=self.function_space.ufl_domain())
+
 
 
 class ShallowWaterMomentumTerm(ShallowWaterTerm):

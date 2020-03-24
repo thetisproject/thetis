@@ -16,6 +16,7 @@ velocities, and
 from __future__ import absolute_import
 from .utility import *
 from .equation import Term, Equation
+from .shallowwater_eq import ShallowWaterTermMixin
 
 __all__ = [
     'TracerEquation2D',
@@ -26,13 +27,12 @@ __all__ = [
 ]
 
 
-class TracerTerm(Term):
+class TracerTerm(Term,ShallowWaterTermMixin):
     """
     Generic tracer term that provides commonly used members and mapping for
     boundary functions.
     """
-    def __init__(self, function_space,
-                 bathymetry=None, use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
+    def __init__(self, function_space, bathymetry=None, options=None):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -43,8 +43,7 @@ class TracerTerm(Term):
         self.cellsize = CellSize(self.mesh)
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
-        self.use_lax_friedrichs = use_lax_friedrichs
-        self.sipg_parameter = sipg_parameter
+        self.options = options
 
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
@@ -71,26 +70,11 @@ class TracerTerm(Term):
         """
         funcs = bnd_conditions.get(bnd_id)
 
-        if 'elev' in funcs:
-            elev_ext = funcs['elev']
-        else:
-            elev_ext = elev_in
         if 'value' in funcs:
             c_ext = funcs['value']
         else:
             c_ext = c_in
-        if 'uv' in funcs:
-            uv_ext = self.corr_factor * funcs['uv']
-        elif 'flux' in funcs:
-            assert self.bathymetry is not None
-            h_ext = elev_ext + self.bathymetry
-            area = h_ext*self.boundary_len[bnd_id]  # NOTE using external data only
-            uv_ext = self.corr_factor * funcs['flux']/area*self.normal
-        elif 'un' in funcs:
-            uv_ext = funcs['un']*self.normal
-        else:
-            uv_ext = uv_in
-
+        uv_ext, elev_ext = super().get_bnd_functions(elev_in, uv_in, bnd_id, bnd_conditions)
         return c_ext, uv_ext, elev_ext
 
 
@@ -138,7 +122,7 @@ class HorizontalAdvectionTerm(TracerTerm):
             f += c_up*(jump(self.test, uv[0] * self.normal[0])
                        + jump(self.test, uv[1] * self.normal[1])) * self.dS
             # Lax-Friedrichs stabilization
-            if self.use_lax_friedrichs:
+            if self.options.use_lax_friedrichs_tracer:
                 if uv_p1 is not None:
                     gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0]
                                      + avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
@@ -205,7 +189,7 @@ class HorizontalDiffusionTerm(TracerTerm):
         f += inner(grad_test, diff_flux)*self.dx
 
         if self.horizontal_dg:
-            alpha = self.sipg_parameter
+            alpha = self.soptions.sipg_parameter_tracer
             assert alpha is not None
             sigma = avg(alpha / self.cellsize)
             ds_interior = self.dS
@@ -266,10 +250,7 @@ class TracerEquation2D(Equation):
     """
     2D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
-    def __init__(self, function_space,
-                 bathymetry=None,
-                 use_lax_friedrichs=False,
-                 sipg_parameter=Constant(10.0)):
+    def __init__(self, function_space, bathymetry=None, options=None):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -280,7 +261,7 @@ class TracerEquation2D(Equation):
         """
         super(TracerEquation2D, self).__init__(function_space)
 
-        args = (function_space, bathymetry, use_lax_friedrichs, sipg_parameter)
+        args = (function_space, bathymetry, options)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
