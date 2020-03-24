@@ -189,7 +189,7 @@ class HorizontalDiffusionTerm(TracerTerm):
         f += inner(grad_test, diff_flux)*self.dx
 
         if self.horizontal_dg:
-            alpha = self.soptions.sipg_parameter_tracer
+            alpha = self.options.sipg_parameter_tracer
             assert alpha is not None
             sigma = avg(alpha / self.cellsize)
             ds_interior = self.dS
