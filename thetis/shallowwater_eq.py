@@ -297,7 +297,6 @@ class ShallowWaterTerm(Term, ShallowWaterTermMixin):
                      domain=self.function_space.ufl_domain())
 
 
-
 class ShallowWaterMomentumTerm(ShallowWaterTerm):
     """
     Generic term in the shallow water momentum equation that provides commonly used

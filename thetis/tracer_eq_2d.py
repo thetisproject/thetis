@@ -27,7 +27,7 @@ __all__ = [
 ]
 
 
-class TracerTerm(Term,ShallowWaterTermMixin):
+class TracerTerm(Term, ShallowWaterTermMixin):
     """
     Generic tracer term that provides commonly used members and mapping for
     boundary functions.
@@ -74,7 +74,8 @@ class TracerTerm(Term,ShallowWaterTermMixin):
             c_ext = funcs['value']
         else:
             c_ext = c_in
-        elev_ext, uv_ext = super().get_bnd_functions(elev_in, uv_in, bnd_id, bnd_conditions)
+        elev_ext, uv_ext_tmp = super().get_bnd_functions(elev_in, uv_in, bnd_id, bnd_conditions)
+        uv_ext = self.corr_factor*uv_ext_tmp
         return c_ext, uv_ext, elev_ext
 
 
@@ -102,6 +103,7 @@ class HorizontalAdvectionTerm(TracerTerm):
         self.corr_factor = fields_old.get('tracer_advective_velocity_factor')
 
         uv = self.corr_factor * fields_old['uv_2d']
+        uv_bnd = fields_old['uv_2d']
         uv_p1 = fields_old.get('uv_p1')
         uv_mag = fields_old.get('uv_mag')
         # FIXME is this an option?
@@ -137,7 +139,7 @@ class HorizontalAdvectionTerm(TracerTerm):
                     ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                     c_in = solution
                     if funcs is not None and 'value' in funcs:
-                        c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                        c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv_bnd, elev, bnd_marker, bnd_conditions)
                         uv_av = 0.5*(uv + uv_ext)
                         un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
                         s = 0.5*(sign(un_av) + 1.0)
@@ -208,9 +210,10 @@ class HorizontalDiffusionTerm(TracerTerm):
                 elev = fields_old['elev_2d']
                 self.corr_factor = fields_old.get('tracer_advective_velocity_factor')
                 uv = self.corr_factor * fields_old['uv_2d']
+                uv_bnd = fields_old['uv_2d']
                 if funcs is not None:
                     if 'value' in funcs:
-                        c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
+                        c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv_bnd, elev, bnd_marker, bnd_conditions)
                         uv_av = 0.5*(uv + uv_ext)
                         un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
                         s = 0.5*(sign(un_av) + 1.0)

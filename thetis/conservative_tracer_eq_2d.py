@@ -15,9 +15,9 @@ velocities, and
 """
 from __future__ import absolute_import
 from .utility import *
-from .equation import Term, Equation
+from .equation import Equation
 from .shallowwater_eq import ShallowWaterTermMixin
-from .tracer_eq_2d import HorizontalDiffusionTerm
+from .tracer_eq_2d import HorizontalDiffusionTerm, TracerTerm
 
 __all__ = [
     'ConservativeTracerEquation2D',
@@ -36,7 +36,6 @@ class ConservativeTracerTerm(TracerTerm, ShallowWaterTermMixin):
         :type bathymetry: 2D :class:`Function` or :class:`Constant`
         """
         super().__init__(function_space, bathymetry=bathymetry, options=options)
-
 
     # TODO: at the moment this is the same as TracerTerm, but we probably want to overload its
     # get_bnd_functions method
@@ -82,8 +81,8 @@ class ConservativeHorizontalAdvectionTerm(ConservativeTracerTerm):
             s = 0.5*(sign(un_av) + 1.0)
             flux_up = solution('-')*uv('-')*s + solution('+')*uv('+')*(1-s)
 
-            f += (flux_up[0] * jump(self.test, self.normal[0]) +
-                  flux_up[1] * jump(self.test, self.normal[1])) * self.dS
+            f += (flux_up[0] * jump(self.test, self.normal[0])
+                  + flux_up[1] * jump(self.test, self.normal[1])) * self.dS
             # Lax-Friedrichs stabilization
             if self.options.use_lax_friedrichs_tracer:
                 if uv_p1 is not None:
@@ -105,8 +104,8 @@ class ConservativeHorizontalAdvectionTerm(ConservativeTracerTerm):
                         un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
                         s = 0.5*(sign(un_av) + 1.0)
                         flux_up = c_in*uv*s + c_ext*uv_ext*(1-s)
-                        f += (flux_up[0]*self.normal[0] +
-                              flux_up[1]*self.normal[1])*self.test*ds_bnd
+                        f += (flux_up[0]*self.normal[0]
+                              + flux_up[1]*self.normal[1])*self.test*ds_bnd
                     else:
                         f += c_in * (uv[0]*self.normal[0]
                                      + uv[1]*self.normal[1])*self.test*ds_bnd
@@ -114,7 +113,7 @@ class ConservativeHorizontalAdvectionTerm(ConservativeTracerTerm):
         return -f
 
 
-class ConverservativeHorizontalDiffusionTerm(ConservativeTracerTerm, HorizontalDiffusionTerm):
+class ConservativeHorizontalDiffusionTerm(ConservativeTracerTerm, HorizontalDiffusionTerm):
     r"""
     Horizontal diffusion term :math:`-\nabla_h \cdot (\mu_h \nabla_h q)`
 
@@ -143,6 +142,7 @@ class ConverservativeHorizontalDiffusionTerm(ConservativeTracerTerm, HorizontalD
     # do we need additional H-derivative term?
     # would also become different if ConservativeTracerTerm gets different bc options
 
+
 class ConservativeSourceTerm(ConservativeTracerTerm):
     r"""
     Generic source term
@@ -159,7 +159,7 @@ class ConservativeSourceTerm(ConservativeTracerTerm):
         f = 0
         source = fields_old.get('source')
         if source is not None:
-            H = self.get_total_depth(fields_old['elev'])
+            H = self.get_total_depth(fields_old['elev_2d'])
             f += -inner(H*source, self.test)*self.dx
         return -f
 
@@ -177,8 +177,7 @@ class ConservativeTracerEquation2D(Equation):
         :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
             condition in the horizontal advection term
         """
-        super(TracerEquation2D, self).__init__(function_space)
-
+        super(ConservativeTracerEquation2D, self).__init__(function_space)
         args = (function_space, bathymetry, options)
         self.add_term(ConservativeHorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(ConservativeHorizontalDiffusionTerm(*args), 'explicit')
