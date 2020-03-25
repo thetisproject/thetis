@@ -711,16 +711,22 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
                 self._update_vertical_velocity()
 
 
-def gauss_weights(n_bins):
+def gauss_weights(n_bins, truncate=False, truncate_tol=1e-6):
     """
     Generates Gaussian weights for time averaging
     """
     from scipy.special import erf
-    span = np.exp(1)
+    span = 3*np.exp(1)
     bounds = np.linspace(-span, span, n_bins+1)
     weights = [erf(bounds[i+1]) - erf(bounds[i]) for i in range(n_bins)]
     weights = np.array(weights)
     weights /= np.sum(weights)
+    if truncate:
+        # truncate trailing steps with small weights
+        ix = np.nonzero(weights > truncate_tol)[0].max() + 1
+        ix = min([ix, len(weights)])
+        weights = weights[:ix]
+        weights[weights < truncate_tol] = 0
     weights = [Constant(w) for w in weights]
     return weights
 
@@ -787,9 +793,12 @@ class CoupledExplicitTwoStageRK(CoupledTimeIntegrator):
         super().initialize()
         self.solution_tav_2d[0].assign(self.fields.solution_2d)
         # generate time average filter
-        self.n_steps_2d = 2*self.solver.M_modesplit
         self.dt_2d = self.timesteppers['swe2d'].dt
-        self.weights_2d = gauss_weights(self.n_steps_2d+1)
+        n_filter = 2*self.solver.M_modesplit + 1
+        self.weights_2d = gauss_weights(n_filter, truncate=True)
+        self.n_steps_2d = len(self.weights_2d) - 1
+        print_output('Original time filter length: {:} '
+                     'truncated to {:}'.format(n_filter, len(self.weights_2d)))
 
     def advance(self, t, update_forcings=None, update_forcings3d=None):
         """
@@ -814,11 +823,17 @@ class CoupledExplicitTwoStageRK(CoupledTimeIntegrator):
                 self.fields.solution_2d.assign(self.solution_tav_2d[0])
                 # sub-iterate 2d equations t_{n} -> t_{2n}
                 # compute time average
-                self.solution_tav_2d[1].assign(self.weights_2d[0]*self.solution_tav_2d[0])
+                self.solution_tav_2d[1].assign(0)
+                w = self.weights_2d[0]
+                if w.dat.data[0] > 1e-30:
+                    self.solution_tav_2d[1] += w*self.solution_tav_2d[0]
                 for i_2d in range(self.n_steps_2d):
                     self.timesteppers.swe2d.advance(t + i_2d*self.dt_2d,
                                                     update_forcings)
-                    self.solution_tav_2d[1] += self.weights_2d[i_2d+1]*self.fields.solution_2d
+                    w = self.weights_2d[i_2d+1]
+                    if w.dat.data[0] > 1e-30:
+                        self.solution_tav_2d[1] += w*self.fields.solution_2d
+
                 # set 2d fields to time average
                 self.fields.solution_2d.assign(self.solution_tav_2d[1])
                 if i_stage == 1:  # update old value
