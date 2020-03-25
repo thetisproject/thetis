@@ -37,9 +37,11 @@ class ConservativeTracerTerm(TracerTerm):
         :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
         :kwarg sipg_parameter: :class: `Constant` or :class: `Function` penalty parameter for SIPG
         """
+
         super().__init__(function_space, depth,
                          use_lax_friedrichs=use_lax_friedrichs,
                          sipg_parameter=sipg_parameter)
+
 
     # TODO: at the moment this is the same as TracerTerm, but we probably want to overload its
     # get_bnd_functions method
