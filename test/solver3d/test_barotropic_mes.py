@@ -15,10 +15,10 @@ def run(refinement=1, ncycles=2, **kwargs):
     conservation_check = kwargs.pop('conservation_check', False)
 
     g_grav = physical_constants['g_grav'].dat.data[0]
-    depth = 100.0
+    depth = 50.0
     c_wave = np.sqrt(g_grav*depth)
 
-    n_base = 15 # 7
+    n_base = 6
     nx = n_base*refinement
     ny = 1
     lx = 60000.
@@ -26,9 +26,9 @@ def run(refinement=1, ncycles=2, **kwargs):
     mesh2d = RectangleMesh(nx, ny, lx, ly)
 
     elev_amp = 10.0 if conservation_check else 0.01
-    n_layers = 2*refinement
-    # estimate of max advective velocity used to estimate time step
-    u_mag = Constant(0.5)
+    n_layers = 6
+    # max advective velocity to restrict 3D time step
+    u_mag = Constant(2.0)
     print_output('Triangle edge length {:} m'.format(lx/nx))
     print_output('Number of layers {:}'.format(n_layers))
 
@@ -134,7 +134,7 @@ def run_convergence(ref_list, saveplot=False, **options):
         ax.set_ylabel('log10(L2 error)')
         ax.set_title(field_str)
 
-    def check_convergence(slope, expected_slope, field_str, slope_rtol = 0.07):
+    def check_convergence(slope, expected_slope, field_str, slope_rtol=0.07):
         if expected_slope is not None:
             err_msg = '{:}: Wrong {:} convergence rate {:.4f}, expected {:.4f}'.format(setup_name, field_str, slope, expected_slope)
             assert slope > expected_slope*(1 - slope_rtol), err_msg
@@ -161,18 +161,18 @@ def run_convergence(ref_list, saveplot=False, **options):
     check_convergence(slope_uv, polynomial_degree+1, 'Velocity')
 
 
-@pytest.fixture(params=['rt-dg', 'dg-dg'])
+@pytest.fixture(params=['dg-dg'])
 def element_family(request):
     return request.param
 
 
-@pytest.fixture(params=['LeapFrog', 'SSPRK22'])
+@pytest.fixture(params=['LeapFrog', 'SSPRK22', 'ExSSPRK22'])
 def timestepper_type(request):
     return request.param
 
 
 def test_standing_wave(element_family, timestepper_type):
-    run_convergence([1, 2, 4, 8],
+    run_convergence([1, 2, 4],
                     polynomial_degree=1, element_family=element_family,
                     timestepper_type=timestepper_type,
                     saveplot=False, no_exports=True)
@@ -180,5 +180,6 @@ def test_standing_wave(element_family, timestepper_type):
 
 if __name__ == '__main__':
     run_convergence([1, 2, 4, 8],
-                    polynomial_degree=1, element_family='rt-dg',
+                    polynomial_degree=1, element_family='dg-dg',
+                    timestepper_type='ExSSPRK22',
                     saveplot=True, no_exports=True)
