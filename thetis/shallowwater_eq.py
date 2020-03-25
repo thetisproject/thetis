@@ -276,6 +276,7 @@ class ShallowWaterTermMixin:
             raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
         return eta_ext, uv_ext
 
+
 class ShallowWaterMomentumTerm(ShallowWaterTerm):
     """
     Generic term in the shallow water momentum equation that provides commonly used
