@@ -9,6 +9,7 @@ from . import rungekutta
 from . import implicitexplicit
 from . import coupled_timeintegrator_2d
 from . import tracer_eq_2d
+from . import conservative_tracer_eq_2d
 import weakref
 import time as time_mod
 import numpy as np
