@@ -511,14 +511,14 @@ class FlowSolver(FrozenClass):
                         max_sipg = self.options.sipg_parameter_turb.vector().gather().max()
                         print_output("Maximum turbulence SIPG value in horizontal: {:.2f}".format(max_sipg))
                 else:
-                    if self.options.solve_salinity or self.options.solve_temperature
+                    if self.options.solve_salinity or self.options.solve_temperature:
                         print_output("Tracer SIPG parameter in horizontal: {:.2f}".format(alpha_h_tracer))
 
                     if self.options.use_turbulence:
                         print_output("Turbulence SIPG parameter in horizontal: {:.2f}".format(alpha_h_turb))
 
                 # Vertical component
-                if self.options.solve_salinity or self.options.solve_temperature
+                if self.options.solve_salinity or self.options.solve_temperature:
                     print_output("Tracer SIPG parameter in vertical: {:.2f}".format(alpha_v_tracer))
                 if self.options.use_turbulence:
                     print_output("Turbulence SIPG parameter in vertical: {:.2f}".format(alpha_v_turb))
