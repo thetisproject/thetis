@@ -316,10 +316,7 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, convectiveve
     print(t_end)
     print(morfac)
     # export interval in seconds
-    if t_end > 90:
-        t_export = np.round(t_end/45, 0)
-    else:
-        t_export = 1
+    t_export = t_end
     
     
     print_output('Exporting to '+outputdir)
@@ -335,21 +332,6 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, convectiveve
     v = TestFunction(V)
     z_n1 = Function(V, name ="z^{n+1}")
     z_n = Function(V, name="z^{n}")
-
-
-    # define original bathymetry before bedlevel changes
-    orig_bathymetry = Function(V).interpolate(bathymetry_2d).copy(deepcopy = True)
-
-    # calculate bed evolution
-    diff_bathy = Function(V).interpolate(-bathymetry_2d + orig_bathymetry)
-
-
-    # define output file for bed evolution
-    bathy_file = File(outputdir + "/bathy_mc.pvd")
-    bathy_file.write(bathymetry_2d)
-    
-    diff_bathy_file = File(outputdir + "/diff_bathy.pvd")
-    diff_bathy_file.write(diff_bathy)
 
     # define parameters
     g = Constant(9.81)

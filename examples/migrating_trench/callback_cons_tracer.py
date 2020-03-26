@@ -71,7 +71,7 @@ def comp_tracer_total_mass_2d_cons(var, tracer_name):
                                           record output values
     :arg tracer_name :class:`string` of function name of interest
     """
-    print('cons')
+
     # read in necessary variables from solver object
     eta = var.solver_obj.fields.elev_2d
     vel = var.solver_obj.fields.uv_2d
