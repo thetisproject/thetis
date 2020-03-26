@@ -312,7 +312,24 @@ def run_convergence(ref_list, solve=True, reference_refinement_level=50, **optio
             print_output("{:s}: error metric {:s} index {:d} PASSED".format(setup_name, m, i))
 
 def generate_table():
-    raise NotImplementedError  # TODO
+    head = "|Model   |    dx    |    dt    |    h+    |    h-    |    c+    |    c-    |    rms    |"
+    rule = "|--------|----------|----------|----------|----------|----------|----------|-----------|"
+    out = '\n'.join([head, rule])
+    msg = "|{:7s} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:10.3e} |"
+    msg_roms = "|{:7s} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |           |"
+    for model in ('FVCOM', 'ROMS', 'Thetis'):
+        with open(os.path.join('data', model+'.json'), 'r') as f:
+            data = json.load(f)
+            for i in range(len(data['dx'])):
+                vals = (model, data['dx'][i], data['dt'][i],)
+                vals += (data['h+'][i], data['h-'][i], data['c+'][i], data['c-'][i],)
+                m = msg
+                if model == 'ROMS':
+                    m = msg_roms
+                else:
+                    vals += (data['rms'][i],)
+                out = '\n'.join([out, m.format(*vals)])
+    return out+'\n'
 
 # ---------------------------
 # standard tests for pytest
