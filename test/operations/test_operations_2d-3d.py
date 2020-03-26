@@ -181,7 +181,9 @@ def test_copy_2d_field_to_3d_vec(uv_2d, uv_3d):
 def test_sipg_ratio_constant(c2d):
     if c2d.ufl_element().degree() > 1:
         pytest.xfail("Only currently implemented for constant or linear elements")
-    assert np.allclose(utility.get_sipg_ratio(c2d), 1.0)
+    with utility.get_sipg_ratio(c2d).dat.vec_ro as v:
+        assert np.allclose(v.max()[1], 1.0)
+        assert np.allclose(v.min()[1], 1.0)
 
 
 def test_sipg_ratio_scalar(c2d_x):
