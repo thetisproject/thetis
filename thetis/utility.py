@@ -299,15 +299,20 @@ def comp_volume_3d(mesh):
     return val
 
 
-def comp_tracer_mass_2d(eta, bath, scalar_func):
+def comp_tracer_mass_2d(eta, tracer_terms, opt_cons, scalar_func):
     """
     Computes total tracer mass in the 2D domain
     :arg eta: elevation :class:`Function`
-    :arg bath: bathymetry :class:`Function`
+    :arg tracer_terms: terms from tracer equation :class: 'Dictionary'
+    :opt_cons switch for conservative or non-conservative tracer
     :arg scalar_func: scalar :class:`Function` to integrate
     """
-
-    val = assemble((eta+bath)*scalar_func*dx)
+    if opt_cons:
+        val = assemble(scalar_func*dx)
+    else:
+        keys = [i for i in tracer_terms.keys()]
+        H = tracer_terms[keys[0]].get_total_depth(eta)
+        val = assemble(H*scalar_func*dx)
     return val
 
 

@@ -352,7 +352,8 @@ class TracerMassConservation2DCallback(ScalarConservationCallback):
 
         def mass():
             return comp_tracer_mass_2d(self.solver_obj.fields.elev_2d,
-                                       self.solver_obj.fields.bathymetry_2d,
+                                       self.solver_obj.eq_tracer.terms,
+                                       self.solver_obj.options.use_tracer_conservative_form,
                                        self.solver_obj.fields[tracer_name])
         super(TracerMassConservation2DCallback, self).__init__(mass, solver_obj, **kwargs)
 
