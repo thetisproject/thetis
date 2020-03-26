@@ -1232,7 +1232,7 @@ def get_minimum_angles_2d(mesh2d):
     return min_angles
 
 
-def get_sipg_ratios(nu):
+def get_sipg_ratio(nu):
     """
     Compute the ratio between the maximum of `nu` and the minimum of `nu` in each element. If `nu`
     is P0 or a `Constant` then the resulting ratio is unity in each element. If `nu` varies linearly
@@ -1276,15 +1276,6 @@ def get_sipg_ratios(nu):
         # TODO: For higher order elements, the extrema aren't necessarily achieved at the
         #       vertices. Perhaps we could project or interpolate into a matching Bernstein
         #       element and use the property that the Bernstein polynomials bound the solution.
-
-
-# TODO: This becomes redundant once spatially varying SIPG parameter is implemented.
-def get_sipg_ratio(nu):
-    """
-    Take maximum over all elemental SIPG parameter ratios.
-    """
-    nu_max = get_sipg_ratios(nu)
-    return nu_max.values()[0] if isinstance(nu_max, Constant) else nu_max.vector().gather().max()
 
 
 class ALEMeshUpdater(object):

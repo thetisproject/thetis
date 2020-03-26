@@ -211,30 +211,38 @@ class FlowSolver2d(FrozenClass):
         :math:`\alpha_K` over all elements.
         """
         degree = self.function_spaces.U_2d.ufl_element().degree()
-        alpha = 5.0*degree*(degree+1) if degree != 0 else 1.5
+        alpha = Constant(5.0*degree*(degree+1) if degree != 0 else 1.5)
         degree_tracer = self.function_spaces.Q_2d.ufl_element().degree()
-        alpha_tracer = 5.0*degree_tracer*(degree_tracer+1) if degree_tracer != 0 else 1.5
+        alpha_tracer = Constant(5.0*degree_tracer*(degree_tracer+1) if degree_tracer != 0 else 1.5)
 
-        if self.options.use_automatic_sipg_parameter:  # TODO: Spatially varying case
-            min_angle = get_minimum_angles_2d(self.mesh2d).vector().gather().min()
+        if self.options.use_automatic_sipg_parameter:
+            P0 = self.function_spaces.P0_2d
+            theta = get_minimum_angles_2d(self.mesh2d)
+            min_angle = theta.vector().gather().min()
             print_output("Minimum angle in mesh: {:.2f} degrees".format(np.rad2deg(min_angle)))
-            cot_theta = 1.0/tan(min_angle)
+            cot_theta = 1.0/tan(theta)
 
             # Penalty parameter for shallow water
             if not self.options.tracer_only:
                 nu = self.options.horizontal_viscosity
                 if nu is not None:
-                    alpha *= get_sipg_ratio(nu)*cot_theta
-                print_output("SIPG parameter:        {:.2f}".format(alpha))
-                self.options.sipg_parameter.assign(alpha)
+                    alpha = alpha*get_sipg_ratio(nu)*cot_theta
+                    self.options.sipg_parameter = interpolate(alpha, P0)
+                    max_sipg = self.options.sipg_parameter.vector().gather().max()
+                    print_output("Maximum SIPG value:        {:.2f}".format(max_sipg))
+                else:
+                    print_output("Using default SIPG parameter for shallow water equations")
 
             # Penalty parameter for tracers
             if self.options.solve_tracer:
                 nu = self.options.horizontal_diffusivity
                 if nu is not None:
-                    alpha_tracer *= get_sipg_ratio(nu)*cot_theta
-                print_output("Tracer SIPG parameter: {:.2f}".format(alpha_tracer))
-                self.options.sipg_parameter_tracer.assign(alpha)
+                    alpha_tracer = alpha_tracer*get_sipg_ratio(nu)*cot_theta
+                    self.options.sipg_parameter_tracer = interpolate(alpha_tracer, P0)
+                    max_sipg = self.options.sipg_parameter_tracer.vector().gather().max()
+                    print_output("Maximum tracer SIPG value: {:.2f}".format(max_sipg))
+                else:
+                    print_output("Using default SIPG parameter for tracer equation")
         else:
             print_output("Using default SIPG parameters")
             self.options.sipg_parameter.assign(alpha)
