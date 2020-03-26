@@ -13,6 +13,7 @@ import morphological_hydro_fns_comb as morph
 import numpy as np
 import pandas as pd
 import pylab as plt
+import time
 
 def boundary_conditions_fn_trench(morfac = 1, t_new = 0, state = 'initial'):
 
@@ -68,7 +69,7 @@ trench = conditional(x<3, depth_riv, conditional(x<7.6, ((depth_diff/2)/(tanh(7.
 conditional(x < 8.4, depth_trench, conditional(x<13, ((depth_diff/2)/(tanh(8.4-10.7)))*tanh((x-10.7))+ (depth_diff/2),depth_riv))))
 bathymetry_2d.interpolate(-trench)
 
-
+"""
 # define initial elevation
 elev_init = Function(P1_2d).interpolate(Constant(0.4))
 uv_init = as_vector((0.51, 0.0))
@@ -81,9 +82,9 @@ solver_obj.iterate(update_forcings = update_forcings_hydrodynamics)
 
 uv, elev = solver_obj.fields.solution_2d.split()
 morph.export_final_state("hydrodynamics_trench", uv, elev)
-
-
-conservative = False
+"""
+t1 = time.time()
+conservative = True
 wd_fn = Constant(0.015)
 
 solver_obj, update_forcings_tracer, outputdir = morph.morphological(boundary_conditions_fn = boundary_conditions_fn_trench, morfac = 100, morfac_transport = True, convectivevel = True,\
@@ -91,7 +92,7 @@ solver_obj, update_forcings_tracer, outputdir = morph.morphological(boundary_con
 
 # run model
 solver_obj.iterate(update_forcings = update_forcings_tracer)
-
+t2 = time.time()
 # record final tracer
 
 xaxisthetis1 = []
