@@ -410,7 +410,6 @@ class FlowSolver(FrozenClass):
         self.function_spaces.turb_space = self.function_spaces.P0
 
         # 2D spaces
-        self.function_spaces.P0_2d = get_functionspace(self.mesh2d, 'DG', 0, name='P0_2d')
         self.function_spaces.P1_2d = get_functionspace(self.mesh2d, 'CG', 1, name='P1_2d')
         self.function_spaces.P1v_2d = get_functionspace(self.mesh2d, 'CG', 1, name='P1v_2d', vector=True)
         self.function_spaces.P1DG_2d = get_functionspace(self.mesh2d, 'DG', 1, name='P1DG_2d')
@@ -473,10 +472,16 @@ class FlowSolver(FrozenClass):
         alpha_v_turb = 5.0*degree_v_turb*(degree_v_turb+1) if degree_v_turb != 0 else 1.0
 
         if self.options.use_automatic_sipg_parameter:
-            P0 = self.function_spaces.P0_2d
-            theta = get_minimum_angles_2d(self.mesh2d)
-            min_angle = theta.vector().gather().min()
+
+            # Compute minimum angle in 2d mesh
+            theta2d = get_minimum_angles_2d(self.mesh2d)
+            min_angle = theta2d.vector().gather().min()
             print_output("Minimum angle in 2D mesh: {:.2f} degrees".format(np.rad2deg(min_angle)))
+
+            # Expand minimum angle field to extruded mesh
+            P0 = self.function_spaces.P0
+            theta = Function(P0)
+            ExpandFunctionTo3d(theta2d, theta).solve()
             cot_theta = 1.0/tan(theta)
 
             # Horizontal component
@@ -504,7 +509,6 @@ class FlowSolver(FrozenClass):
                         self.options.sipg_parameter_tracer.interpolate(alpha_h_tracer*scaling)
                         max_sipg = self.options.sipg_parameter_tracer.vector().gather().max()
                         print_output("Maximum tracer SIPG value in horizontal: {:.2f}".format(max_sipg))
-
                     if self.options.use_turbulence:
                         self.options.sipg_parameter_turb = Function(P0)
                         self.options.sipg_parameter_turb.interpolate(alpha_h_turb*scaling)
@@ -513,7 +517,6 @@ class FlowSolver(FrozenClass):
                 else:
                     if self.options.solve_salinity or self.options.solve_temperature:
                         print_output("Tracer SIPG parameter in horizontal: {:.2f}".format(alpha_h_tracer))
-
                     if self.options.use_turbulence:
                         print_output("Turbulence SIPG parameter in horizontal: {:.2f}".format(alpha_h_turb))
 
