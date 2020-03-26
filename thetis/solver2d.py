@@ -206,9 +206,6 @@ class FlowSolver2d(FrozenClass):
             X = \frac{\max_{x\in K}(\nu(x))}{\min_{x\in K}(\nu(x))},
 
         :math:`p` the degree, and :math:`\theta_K` is the minimum angle in the element.
-
-        In practice, we take the maximum value of :math:`X` and minimum value of
-        :math:`\alpha_K` over all elements.
         """
         degree = self.function_spaces.U_2d.ufl_element().degree()
         alpha = Constant(5.0*degree*(degree+1) if degree != 0 else 1.5)
