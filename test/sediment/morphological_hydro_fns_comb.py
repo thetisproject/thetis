@@ -150,7 +150,7 @@ def hydrodynamics_only(boundary_conditions_fn, mesh2d, bathymetry_2d, uv_init, e
 
 
 def morphological(boundary_conditions_fn, morfac, morfac_transport, convectivevel, \
-                 mesh2d, bathymetry_2d, input_dir, ks, average_size, dt, final_time, viscosity_hydro = 10**(-6), viscosity_morph = 10**(-6), wetting_and_drying = False, wetting_alpha = 0.1, rhos = 2650, cons_tracer = False, friction = 'nikuradse', friction_coef = 0, diffusivity = 0.15, tracer_init = None):
+                 mesh2d, bathymetry_2d, ks, average_size, dt, final_time, viscosity_hydro = 10**(-6), viscosity_morph = 10**(-6), wetting_and_drying = False, wetting_alpha = 0.1, rhos = 2650, cons_tracer = False, friction = 'nikuradse', friction_coef = 0, diffusivity = 0.15, tracer_init = None):
     """
     Set up a full morphological model simulation using as an initial condition the results of a hydrodynamic only model.    
     
@@ -161,7 +161,6 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, convectiveve
     convectivevel - switch on convective velocity correction factor in sediment concentration equation
     mesh2d - define mesh working on
     bathymetry2d - define bathymetry of problem
-    input_dir - folder containing results of hydrodynamics model which are used as initial conditions here
     ks - bottom friction coefficient for quadratic drag coefficient
     average_size - average sediment size
     dt - timestep
@@ -374,7 +373,7 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, convectiveve
     
     
     # initialise velocity, elevation and depth
-    elev_init, uv_init = initialise_fields(mesh2d, input_dir, outputdir)
+    elev_init, uv_init = initialise_fields(mesh2d)
 
     uv_cg = Function(vector_cg).interpolate(uv_init)
 
@@ -584,21 +583,20 @@ def export_final_state(inputdir, uv, elev,):
  
     
     
-def initialise_fields(mesh2d, inputdir, outputdir,):
+def initialise_fields(mesh2d):
     """
     Initialise simulation with results from a previous simulation
     """
     DG_2d = FunctionSpace(mesh2d, 'DG', 1)
-    path = os.getcwd() + '/' + inputdir
     # elevation
     with timed_stage('initialising elevation'):
-        chk = DumbCheckpoint(path + "/elevation", mode=FILE_READ)
+        chk = DumbCheckpoint("elevation", mode=FILE_READ)
         elev_init = Function(DG_2d, name="elevation")
         chk.load(elev_init)
         chk.close()
     # velocity
     with timed_stage('initialising velocity'):
-        chk = DumbCheckpoint(path + "/velocity" , mode=FILE_READ)
+        chk = DumbCheckpoint("velocity" , mode=FILE_READ)
         V = VectorFunctionSpace(mesh2d, 'DG', 1)
         uv_init = Function(V, name="velocity")
         chk.load(uv_init)

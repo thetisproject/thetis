@@ -47,7 +47,7 @@ def boundary_conditions_fn_trench(morfac = 1, t_new = 0, state = 'initial'):
     outflow_constant = [elev_constant2]#, -flux_constant]
     return swe_bnd, left_bnd_id, right_bnd_id, inflow_constant, outflow_constant, left_string, right_string
 
-def run_migrating_trench(conservative, hydro):
+def run_migrating_trench(conservative):
     # define mesh
     lx = 16
     ly = 1.1
@@ -74,28 +74,10 @@ def run_migrating_trench(conservative, hydro):
     
     bathymetry_2d.interpolate(-trench)
 
-    if hydro:
-        # simulate initial hydrodynamics
-        
-        # define initial elevation
-        elev_init = Function(P1_2d).interpolate(Constant(0.4))
-        uv_init = as_vector((0.51, 0.0))
-
-        solver_obj, update_forcings_hydrodynamics, outputdir = morph.hydrodynamics_only(boundary_conditions_fn_trench, mesh2d, bathymetry_2d, uv_init, elev_init, average_size = 160 * (10**(-6)), dt=0.25, t_end=500)
-
-        # run model
-        solver_obj.iterate(update_forcings = update_forcings_hydrodynamics)
-
-
-        uv, elev = solver_obj.fields.solution_2d.split()
-        morph.export_final_state("hydrodynamics_trench", uv, elev)
-
-
-
     wd_fn = Constant(0.015)
 
     solver_obj, update_forcings_tracer, outputdir = morph.morphological(boundary_conditions_fn = boundary_conditions_fn_trench, morfac = 300, morfac_transport = True, convectivevel = True,\
-                    mesh2d = mesh2d, bathymetry_2d = bathymetry_2d, input_dir = 'hydrodynamics_trench', ks = 0.025, average_size = 160 * (10**(-6)), dt = 0.2, final_time = 1.5*3600, cons_tracer = conservative, wetting_alpha = wd_fn)
+                    mesh2d = mesh2d, bathymetry_2d = bathymetry_2d, ks = 0.025, average_size = 160 * (10**(-6)), dt = 0.2, final_time = 1.5*3600, cons_tracer = conservative, wetting_alpha = wd_fn)
 
     # run model
     solver_obj.iterate(update_forcings = update_forcings_tracer)
@@ -132,11 +114,11 @@ def run_migrating_trench(conservative, hydro):
 
     assert max([abs((bed_solution[i][1] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.0015, "error in bed level"
 
-def test_conservative(hydro = False):
-    run_migrating_trench(True, hydro)
+def test_conservative():
+    run_migrating_trench(True)
     
-def test_non_conservative(hydro = False):
-    run_migrating_trench(False, hydro)    
+def test_non_conservative():
+    run_migrating_trench(False)    
 
 if __name__ == '__main__':
     test_non_conservative()
