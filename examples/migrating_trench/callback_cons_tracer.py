@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Wed Mar 25 17:40:41 2020
-
-@author: mc4117
+Callback functions used to test if tracer is conserved in test cases with a 
+changing morphology
 """
 
 from firedrake import *

@@ -1,153 +1,21 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Wednesday March 25 15:05:02 2019
+Base functions used to when modelling morphological changes.
 
-@author: mc4117
+For more details on equations see
+
+[1] Clare et al. 2020. “Hydro-morphodynamics 2D Modelling Using a Discontinuous 
+    Galerkin Discretisation.” EarthArXiv. January 9. doi:10.31223/osf.io/tpqvy.
+    
 """
 
 from thetis import *
-import time
-import datetime
-import numpy as np
 from firedrake import *
-import os
 import callback_cons_tracer as call
 
 
-def hydrodynamics_only(boundary_conditions_fn, mesh2d, bathymetry_2d, uv_init, elev_init, average_size, dt, t_end, wetting_and_drying = False, wetting_alpha = 0.1, friction = 'nikuradse', friction_coef = 0, viscosity = 10**(-6)):
-    """
-    Sets up a simulation with only hydrodynamics until a quasi-steady state when it can be used as an initial
-    condition for the full morphological model. We update the bed friction at each time step.
-    The actual run of the model are done outside the function
-    
-    Inputs:
-    boundary_consditions_fn - function defining boundary conditions for problem 
-    mesh2d - define mesh working on
-    bathymetry2d - define bathymetry of problem
-    uv_init - initial velocity of problem
-    elev_init - initial elevation of problem
-    average_size - average sediment size
-    dt - timestep
-    t_end - end time
-    wetting_and_drying - wetting and drying switch
-    wetting_alpha - wetting and drying parameter
-    friction - choice of friction formulation - nikuradse and manning
-    friction_coef - value of friction coefficient used in manning    
-    viscosity - viscosity of hydrodynamics. The default value should be 10**(-6)
-    
-    Outputs:
-    solver_obj - solver which we need to run to solve the problem
-    update_forcings_hydrodynamics - function defining the updates to the model performed at each timestep
-    outputdir - directory of outputs
-    """
-    def update_forcings_hydrodynamics(t_new):
-        # update bed friction
-        if friction == 'nikuradse':
-            uv1, elev1 = solver_obj.fields.solution_2d.split()
-            
-            if wetting_and_drying == True:
-                wd_bath_displacement = solver_obj.eq_sw.bathymetry_displacement_mass_term.wd_bathymetry_displacement
-                depth.project(elev1 + wd_bath_displacement(elev1) + bathymetry_2d)        
-            else:
-                depth.interpolate(elev1 + bathymetry_2d)       
-   
-            # calculate skin friction coefficient
-            cfactor.interpolate(2*(0.4**2)/((ln(11.036*depth/(ksp)))**2))
-
-    # choose directory to output results
-    ts = time.time()
-    st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
-    outputdir = 'outputs'+ st
-
-    # export interval in seconds
-    
-    if t_end < 100:
-        t_export = 0.1
-    else:
-        t_export = np.round(t_end/200,0)
-
-    print_output('Exporting to '+outputdir)
-
-    # define function spaces
-    V = FunctionSpace(mesh2d, 'CG', 1)
-    P1_2d = FunctionSpace(mesh2d, 'DG', 1)
-
-    # define parameters
-    ksp = Constant(3*average_size)
-
-    # define depth
-
-    depth = Function(V).interpolate(elev_init + bathymetry_2d)
-
-    # define bed friction
-    cfactor = Function(P1_2d).interpolate(2*(0.4**2)/((ln(11.036*depth/(ksp)))**2))
-    
-    # set up solver 
-    solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
-    options = solver_obj.options
-    options.simulation_export_time = t_export
-    options.simulation_end_time = t_end
-    options.output_directory = outputdir
-
-    options.check_volume_conservation_2d = True
-
-    options.fields_to_export = ['uv_2d', 'elev_2d']
-    options.solve_tracer = False
-    options.use_lax_friedrichs_tracer = False
-    if friction == 'nikuradse':
-        options.quadratic_drag_coefficient = cfactor
-    elif friction == 'manning':
-        if friction_coef == 0:
-            friction_coef = 0.02
-        options.manning_drag_coefficient = Constant(friction_coef)
-    else:
-        print('Undefined friction')
-    options.horizontal_viscosity = Constant(viscosity)
-
-    # crank-nicholson used to integrate in time system of ODEs resulting from application of galerkin FEM
-    options.timestepper_type = 'CrankNicolson'
-    options.timestepper_options.implicitness_theta = 1.0
-    options.use_wetting_and_drying = wetting_and_drying
-    options.wetting_and_drying_alpha = Constant(wetting_alpha)  
-    options.norm_smoother = Constant(wetting_alpha)
-
-    if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
-        options.timestep = dt
-
-    # set boundary conditions
-
-    swe_bnd, left_bnd_id, right_bnd_id, in_constant, out_constant, left_string, right_string = boundary_conditions_fn(state = "initial")
-    
-    for j in range(len(in_constant)):
-        exec('constant_in' + str(j) + ' = Constant(' + str(in_constant[j]) + ')', globals())
-
-    str1 = '{'
-    if len(left_string) > 0:
-        for i in range(len(left_string)):
-            str1 += "'"+ str(left_string[i]) + "': constant_in" + str(i) + ","
-        str1 = str1[0:len(str1)-1] + "}"
-        exec('swe_bnd[left_bnd_id] = ' + str1)
-
-    for k in range(len(out_constant)):
-        exec('constant_out' + str(k) + '= Constant(' + str(out_constant[k]) + ')', globals())
-
-    str2 = '{'
-    if len(right_string) > 0:
-        for i in range(len(right_string)):
-            str2 += "'"+ str(right_string[i]) + "': constant_out" + str(i) + ","
-        str2 = str2[0:len(str2)-1] + "}"
-        exec('swe_bnd[right_bnd_id] = ' + str2)
-   
-    solver_obj.bnd_functions['shallow_water'] = swe_bnd
-  
-    solver_obj.assign_initial_conditions(uv = uv_init, elev= elev_init)
-    
-    return solver_obj, update_forcings_hydrodynamics, outputdir
-
-
 def morphological(boundary_conditions_fn, morfac, morfac_transport, convectivevel, \
-                 mesh2d, bathymetry_2d, input_dir, ks, average_size, dt, final_time, viscosity_hydro = 10**(-6), viscosity_morph = 10**(-6), wetting_and_drying = False, wetting_alpha = 0.1, rhos = 2650, cons_tracer = False, friction = 'nikuradse', friction_coef = 0, diffusivity = 0.15, tracer_init = None):
+                  mesh2d, bathymetry_2d, ks, average_size, dt, final_time, elev_init = None, uv_init = None,\
+                  viscosity_hydro = 10**(-6), viscosity_morph = 10**(-6), wetting_and_drying = False, wetting_alpha = 0.1, rhos = 2650, cons_tracer = False, friction = 'nikuradse', friction_coef = 0, diffusivity = 0.15, tracer_init = None):
     """
     Set up a full morphological model simulation using as an initial condition the results of a hydrodynamic only model.    
     
@@ -158,7 +26,6 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, convectiveve
     convectivevel - switch on convective velocity correction factor in sediment concentration equation
     mesh2d - define mesh working on
     bathymetry2d - define bathymetry of problem
-    input_dir - folder containing results of hydrodynamics model which are used as initial conditions here
     ks - bottom friction coefficient for quadratic drag coefficient
     average_size - average sediment size
     dt - timestep
@@ -304,20 +171,12 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, convectiveve
                 bathymetry_2d.assign(z_n1)
 
 
-    # choose directory to output results
-    ts = time.time()
-    st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
-    outputdir = 'outputs'+ st
-
-
     # final time of simulation
     t_end = final_time/morfac
 
     # export interval in seconds
     t_export = t_end
-    
-    
-    print_output('Exporting to '+outputdir)
+
     
     x, y = SpatialCoordinate(mesh2d)
     
@@ -371,7 +230,8 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, convectiveve
     
     
     # initialise velocity, elevation and depth
-    elev_init, uv_init = initialise_fields(mesh2d, input_dir, outputdir)
+    if elev_init is None and uv_init is None:
+        elev_init, uv_init = initialise_fields(mesh2d)
 
     uv_cg = Function(vector_cg).interpolate(uv_init)
 
@@ -473,9 +333,9 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, convectiveve
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     
     options = solver_obj.options
+    options.no_exports = True
     options.simulation_export_time = t_export
     options.simulation_end_time = t_end
-    options.output_directory = outputdir
     options.check_volume_conservation_2d = True
     
     # switch on tracer calculation if using sediment transport component
@@ -509,7 +369,7 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, convectiveve
         options.timestep = dt
      
     c = call.TracerTotalMassConservation2DCallback('tracer_2d',
-                                         solver_obj, export_to_hdf5=True, append_to_log=False)
+                                         solver_obj, export_to_hdf5=False, append_to_log=False)
     solver_obj.add_callback(c, eval_interval='timestep')            
         
     # set boundary conditions
@@ -560,44 +420,4 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, convectiveve
             solver_obj.assign_initial_conditions(elev= elev_init, uv = uv_init, tracer = tracer_init_int)
         else:
             solver_obj.assign_initial_conditions(elev= elev_init, uv = uv_init, tracer = tracer_init)            
-    return solver_obj, update_forcings_tracer, outputdir
-
-def export_final_state(inputdir, uv, elev,):
-    """
-    Export fields to be used in a subsequent simulation
-    """
-    if not os.path.exists(inputdir):
-        os.makedirs(inputdir)
-    print_output("Exporting fields for subsequent simulation")
-    chk = DumbCheckpoint(inputdir + "/velocity", mode=FILE_CREATE)
-    chk.store(uv, name="velocity")
-    File(inputdir + '/velocityout.pvd').write(uv)
-    chk.close()
-    chk = DumbCheckpoint(inputdir + "/elevation", mode=FILE_CREATE)
-    chk.store(elev, name="elevation")
-    File(inputdir + '/elevationout.pvd').write(elev)
-    chk.close()
- 
-    
-    
-def initialise_fields(mesh2d, inputdir, outputdir,):
-    """
-    Initialise simulation with results from a previous simulation
-    """
-    DG_2d = FunctionSpace(mesh2d, 'DG', 1)
-    # elevation
-    with timed_stage('initialising elevation'):
-        chk = DumbCheckpoint(inputdir + "/elevation", mode=FILE_READ)
-        elev_init = Function(DG_2d, name="elevation")
-        chk.load(elev_init)
-        File(outputdir + "/elevation_imported.pvd").write(elev_init)
-        chk.close()
-    # velocity
-    with timed_stage('initialising velocity'):
-        chk = DumbCheckpoint(inputdir + "/velocity" , mode=FILE_READ)
-        V = VectorFunctionSpace(mesh2d, 'DG', 1)
-        uv_init = Function(V, name="velocity")
-        chk.load(uv_init)
-        File(outputdir + "/velocity_imported.pvd").write(uv_init)
-        chk.close()
-        return  elev_init, uv_init,
+    return solver_obj, update_forcings_tracer

@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Wed Mar 25 17:40:41 2020
-
-@author: mc4117
+Callback functions used to test if tracer is conserved in test cases with a 
+changing morphology
 """
 
 from firedrake import *
@@ -145,12 +142,12 @@ class TracerTotalMassConservation2DCallback(DiagnosticCallback):
                 return comp_tracer_total_mass_2d_cons(self, tracer_name)
             else:
                 return comp_tracer_total_mass_2d(self, tracer_name)
-        
-        super(TracerTotalMassConservation2DCallback, self).__init__(solver_obj, **kwargs)
+
+        # printing all detector output to log is probably not a useful default:       
+        super(TracerTotalMassConservation2DCallback, self).__init__(solver_obj, append_to_log = False, export_to_hdf5 = False)
         self.scalar_callback = mass
         
-        # printing all detector output to log is probably not a useful default:
-        kwargs.setdefault('append_to_log', False)
+
         
     def __call__(self):
         value = self.scalar_callback()
