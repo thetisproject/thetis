@@ -4,6 +4,8 @@ Migrating Trench Test case
 
 Solves the test case of a migrating trench with suspended sediment transport only.
 
+Tests the implementation of the source term, conservative tracer and corrective_velocity_factor
+
 [1] Clare et al. 2020. “Hydro-morphodynamics 2D Modelling Using a Discontinuous 
     Galerkin Discretisation.” EarthArXiv. January 9. doi:10.31223/osf.io/tpqvy.
 
@@ -13,7 +15,7 @@ from thetis import *
 import morphological_hydro_fns_comb as morph
 
 import numpy as np
-import pandas as pd
+import pylab as plt
 
 
 def boundary_conditions_fn_trench(morfac = 1, t_new = 0, state = 'initial'):
@@ -44,7 +46,6 @@ def boundary_conditions_fn_trench(morfac = 1, t_new = 0, state = 'initial'):
     inflow_constant = [flux_constant]
     outflow_constant = [elev_constant2]#, -flux_constant]
     return swe_bnd, left_bnd_id, right_bnd_id, inflow_constant, outflow_constant, left_string, right_string
-
 
 def run_migrating_trench(conservative, hydro):
     # define mesh
@@ -93,12 +94,11 @@ def run_migrating_trench(conservative, hydro):
 
     wd_fn = Constant(0.015)
 
-    solver_obj, update_forcings_tracer, outputdir = morph.morphological(boundary_conditions_fn = boundary_conditions_fn_trench, morfac = 100, morfac_transport = True, convectivevel = True,\
-                    mesh2d = mesh2d, bathymetry_2d = bathymetry_2d, input_dir = 'hydrodynamics_trench', ks = 0.025, average_size = 160 * (10**(-6)), dt = 0.2, final_time = 5*3600, cons_tracer = conservative, wetting_alpha = wd_fn)
+    solver_obj, update_forcings_tracer, outputdir = morph.morphological(boundary_conditions_fn = boundary_conditions_fn_trench, morfac = 300, morfac_transport = True, convectivevel = True,\
+                    mesh2d = mesh2d, bathymetry_2d = bathymetry_2d, input_dir = 'hydrodynamics_trench', ks = 0.025, average_size = 160 * (10**(-6)), dt = 0.2, final_time = 1.5*3600, cons_tracer = conservative, wetting_alpha = wd_fn)
 
     # run model
     solver_obj.iterate(update_forcings = update_forcings_tracer)
-
 
     # record final tracer and final bathymetry
     xaxisthetis1 = []
@@ -120,24 +120,23 @@ def run_migrating_trench(conservative, hydro):
     print("Tracer total mass error: %11.4e" %(tracer_mass_int_rerr))
 
     if conservative:
-        assert abs(tracer_mass_int_rerr) < 8e-2, 'tracer is not conserved'
+        assert abs(tracer_mass_int_rerr) < 1.4e-2, 'tracer is not conserved'
     else:
-        assert abs(tracer_mass_int_rerr) < 5e-1, 'tracer is not conserved'
-    
-    # check tracer and bathymetry values using previous runs
-    tracer_solution = pd.read_csv('tracer.csv')
-    bed_solution = pd.read_csv('bed.csv')
+        assert abs(tracer_mass_int_rerr) < 5e-2, 'tracer is not conserved'
 
-    assert max([abs((tracer_solution['Tracer'][i] - tracerthetis1[i])/tracer_solution['Tracer'][i]) for i in range(len(tracerthetis1))]) < 0.1, "error in tracer"
-    
-    assert max([abs((bed_solution['Bathymetry'][i] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.005, "error in bed level"
+    # check tracer and bathymetry values using previous runs    
+    tracer_solution = np.loadtxt('tracer_test.csv', delimiter = ",", skiprows = 1)
+    bed_solution = np.loadtxt('bed_test.csv', delimiter = ",", skiprows = 1)
 
+    assert max([abs((tracer_solution[i][1] - tracerthetis1[i])/tracer_solution[i][1]) for i in range(len(tracerthetis1))]) < 0.075, "error in tracer"
 
-def conservative_case(hydro = False):
+    assert max([abs((bed_solution[i][1] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.0015, "error in bed level"
+
+def test_conservative(hydro = False):
     run_migrating_trench(True, hydro)
     
-def non_conservative_case(hydro = False):
+def test_non_conservative(hydro = False):
     run_migrating_trench(False, hydro)    
 
 if __name__ == '__main__':
-    non_conservative_case()
+    test_non_conservative()

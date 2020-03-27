@@ -1,9 +1,11 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Wednesday March 25 15:05:02 2019
+Base functions used to when modelling morphological changes.
 
-@author: mc4117
+For more details on equations see
+
+[1] Clare et al. 2020. “Hydro-morphodynamics 2D Modelling Using a Discontinuous 
+    Galerkin Discretisation.” EarthArXiv. January 9. doi:10.31223/osf.io/tpqvy.
+    
 """
 
 from thetis import *
@@ -86,6 +88,7 @@ def hydrodynamics_only(boundary_conditions_fn, mesh2d, bathymetry_2d, uv_init, e
     # set up solver 
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     options = solver_obj.options
+    options.no_exports = True
     options.simulation_export_time = t_export
     options.simulation_end_time = t_end
     options.output_directory = outputdir
@@ -473,6 +476,7 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, convectiveve
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     
     options = solver_obj.options
+    options.no_exports = True
     options.simulation_export_time = t_export
     options.simulation_end_time = t_end
     options.output_directory = outputdir
