@@ -255,6 +255,35 @@ class FlowSolver2d(FrozenClass):
             self.options.sipg_parameter.assign(alpha)
             self.options.sipg_parameter_tracer.assign(alpha_tracer)
 
+    def set_wetting_and_drying_alpha(self, max_val=7.5):  # TODO: This value could be tweaked
+        r"""
+        Compute a wetting and drying parameter :math:`\alpha` which ensures positive water
+        depth using the approximate method suggested by Karna et al. (2011).
+
+        This method takes
+
+      ..math::
+            \alpha \approx |L_x \nabla h|,
+
+        where :math:`L_x` is the horizontal length scale of the mesh elements at the wet-dry
+        front and :math:`h` is the bathymetry profile.
+
+        :kwarg max_val: maximum value at which to cap the alpha parameter.
+        """
+        if not self.options.use_wetting_and_drying:
+            return
+        if self.options.use_automatic_wetting_and_drying_alpha:
+            alpha = dot(get_cell_widths_2d(self.mesh2d), abs(grad(self.fields.bathymetry_2d)))
+            self.options.wetting_and_drying_alpha = Function(self.function_spaces.P0_2d)
+            self.options.wetting_and_drying_alpha.interpolate(min_value(max_val, alpha))
+
+            msg = "Using automatic wetting and drying parameter (min {:.2f} max {:.2f})"
+            with self.options.wetting_and_drying_alpha.dat.vec_ro as v:
+                print_output(msg.format(v.min()[1], v.max()[1]))
+        else:
+            alpha = self.options.wetting_and_drying_alpha.values()[0]
+            print_output("Using user-specified wetting and drying parameter {:.2f}".format(alpha))
+
     def create_function_spaces(self):
         """
         Creates function spaces
@@ -299,6 +328,7 @@ class FlowSolver2d(FrozenClass):
         self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
         get_horizontal_elem_size_2d(self.fields.h_elem_size_2d)
         self.set_sipg_parameter()
+        self.set_wetting_and_drying_alpha()
         self.depth = DepthExpression(self.fields.bathymetry_2d,
                                      use_nonlinear_equations=self.options.use_nonlinear_equations,
                                      use_wetting_and_drying=self.options.use_wetting_and_drying,

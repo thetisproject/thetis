@@ -1253,7 +1253,6 @@ def get_cell_widths_2d(mesh2d):
     return cell_widths
 
 
-# TODO: Could also consider maximum variation of nu in each coordinate direction
 def get_sipg_ratio(nu):
     """
     Compute the ratio between the maximum of `nu` and the minimum of `nu` in each element. If `nu`

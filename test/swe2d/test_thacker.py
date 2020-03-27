@@ -14,16 +14,16 @@ from thetis import *
 import pytest
 
 
-@pytest.mark.parametrize("stepper,n,dt,alpha,max_err",
+@pytest.mark.parametrize("stepper,n,dt,max_err",
                          [
-                             ('BackwardEuler', 10, 600., 2., 0.33),
-                             ('BackwardEuler', 25, 300., 2., 0.19),
-                             ('CrankNicolson', 10, 600., 2., 0.26),
-                             ('CrankNicolson', 25, 300., 2., 0.15),
-                             ('DIRK22', 10, 600., 2., 0.26),
-                             ('DIRK22', 25, 300., 2., 0.15),
-                             ('DIRK33', 10, 600., 2., 0.26),
-                             ('DIRK33', 25, 300., 2., 0.15),
+                             ('BackwardEuler', 10, 600., 0.33),
+                             ('BackwardEuler', 25, 300., 0.19),
+                             ('CrankNicolson', 10, 600., 0.26),
+                             ('CrankNicolson', 25, 300., 0.15),
+                             ('DIRK22', 10, 600., 0.26),
+                             ('DIRK22', 25, 300., 0.15),
+                             ('DIRK33', 10, 600., 0.26),
+                             ('DIRK33', 25, 300., 0.15),
                          ],
                          ids=[
                              'BackwardEuler-coarse',
@@ -35,7 +35,7 @@ import pytest
                              'DIRK33-coarse',
                              'DIRK33-fine',
                          ])
-def test_thacker(stepper, n, dt, alpha, max_err):
+def test_thacker(stepper, n, dt, max_err):
     """
     Run Thacker wetting-drying test case
     """
@@ -65,7 +65,7 @@ def test_thacker(stepper, n, dt, alpha, max_err):
     options.no_exports = True
     options.timestepper_type = stepper
     options.use_wetting_and_drying = True
-    options.wetting_and_drying_alpha = Constant(alpha)
+    options.use_automatic_wetting_and_drying_alpha = True
 
     # initial conditions
     elev_init = D0*(sqrt(1-A*A)/(1-A) - 1
