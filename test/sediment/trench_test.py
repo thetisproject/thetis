@@ -13,7 +13,7 @@ import morphological_hydro_fns_comb as morph
 import numpy as np
 import pandas as pd
 import pylab as plt
-import time
+
 
 def boundary_conditions_fn_trench(morfac = 1, t_new = 0, state = 'initial'):
 
@@ -83,18 +83,17 @@ solver_obj.iterate(update_forcings = update_forcings_hydrodynamics)
 uv, elev = solver_obj.fields.solution_2d.split()
 morph.export_final_state("hydrodynamics_trench", uv, elev)
 """
-t1 = time.time()
+
 conservative = True
 wd_fn = Constant(0.015)
 
-solver_obj, update_forcings_tracer, outputdir = morph.morphological(boundary_conditions_fn = boundary_conditions_fn_trench, morfac = 100, morfac_transport = True, convectivevel = True,\
-                    mesh2d = mesh2d, bathymetry_2d = bathymetry_2d, input_dir = 'hydrodynamics_trench', ks = 0.025, average_size = 160 * (10**(-6)), dt = 0.2, final_time = 5*3600, cons_tracer = conservative, wetting_alpha = wd_fn)
+solver_obj, update_forcings_tracer, outputdir = morph.morphological(boundary_conditions_fn = boundary_conditions_fn_trench, morfac = 300, morfac_transport = True, convectivevel = True,\
+                    mesh2d = mesh2d, bathymetry_2d = bathymetry_2d, input_dir = 'hydrodynamics_trench', ks = 0.025, average_size = 160 * (10**(-6)), dt = 0.2, final_time = 1.5*3600, cons_tracer = conservative, wetting_alpha = wd_fn)
 
 # run model
 solver_obj.iterate(update_forcings = update_forcings_tracer)
-t2 = time.time()
-# record final tracer
 
+# record final tracer and final bathymetry
 xaxisthetis1 = []
 tracerthetis1 = []
 baththetis1 = []
@@ -112,14 +111,15 @@ for i in np.linspace(0,15.8, 80):
 tracer_mass_int, tracer_mass_int_rerr = solver_obj.callbacks['timestep']['tracer_2d total mass']()    
 print("Tracer total mass error: %11.4e" %(tracer_mass_int_rerr))
 
+
 if conservative:
-    assert abs(tracer_mass_int_rerr) < 8e-2, 'tracer is not conserved'
+    assert abs(tracer_mass_int_rerr) < 1.4e-2, 'tracer is not conserved'
 else:
-    assert abs(tracer_mass_int_rerr) < 5e-1, 'tracer is not conserved'
+    assert abs(tracer_mass_int_rerr) < 5e-2, 'tracer is not conserved'
     
-tracer_solution = pd.read_csv('tracer.csv')
-bed_solution = pd.read_csv('bed.csv')
+tracer_solution = pd.read_csv('tracer_test.csv')
+bed_solution = pd.read_csv('bed_test.csv')
 
-assert max([abs((tracer_solution['Tracer'][i] - tracerthetis1[i])/tracer_solution['Tracer'][i]) for i in range(len(tracerthetis1))]) < 0.1, "error in tracer"
+assert max([abs((tracer_solution['Tracer'][i] - tracerthetis1[i])/tracer_solution['Tracer'][i]) for i in range(len(tracerthetis1))]) < 0.075, "error in tracer"
 
-assert max([abs((bed_solution['Bathymetry'][i] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.005, "error in bed level"
+assert max([abs((bed_solution['Bathymetry'][i] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.0015, "error in bed level"
