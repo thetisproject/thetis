@@ -589,19 +589,18 @@ def initialise_fields(mesh2d, inputdir, outputdir,):
     Initialise simulation with results from a previous simulation
     """
     DG_2d = FunctionSpace(mesh2d, 'DG', 1)
+    path = os.getcwd() + '/' + inputdir
     # elevation
     with timed_stage('initialising elevation'):
-        chk = DumbCheckpoint(inputdir + "/elevation", mode=FILE_READ)
+        chk = DumbCheckpoint(path + "/elevation", mode=FILE_READ)
         elev_init = Function(DG_2d, name="elevation")
         chk.load(elev_init)
-        File(outputdir + "/elevation_imported.pvd").write(elev_init)
         chk.close()
     # velocity
     with timed_stage('initialising velocity'):
-        chk = DumbCheckpoint(inputdir + "/velocity" , mode=FILE_READ)
+        chk = DumbCheckpoint(path + "/velocity" , mode=FILE_READ)
         V = VectorFunctionSpace(mesh2d, 'DG', 1)
         uv_init = Function(V, name="velocity")
         chk.load(uv_init)
-        File(outputdir + "/velocity_imported.pvd").write(uv_init)
         chk.close()
         return  elev_init, uv_init,
