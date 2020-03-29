@@ -33,49 +33,49 @@ def asymptotic_expansion_uv(U_2d, order=1, time=0.0, soliton_amplitude=0.395):
         assert order == 1
         modon_propagation_speed -= 0.395*B*B
     c = Constant(modon_propagation_speed)
-    ξ = x - c*t
-    Ψ = exp(-0.5*y*y)
-    φ = 0.771*(B/cosh(B*ξ))**2
-    dφdx = -2*B*φ*tanh(B*ξ)
+    xi = x - c*t
+    psi = exp(-0.5*y*y)
+    phi = 0.771*(B/cosh(B*xi))**2
+    dphidx = -2*B*phi*tanh(B*xi)
     C = -0.395*B*B
 
     # Zeroth order terms
-    u_terms = φ*0.25*(-9 + 6*y*y)*Ψ
-    v_terms = 2*y*dφdx*Ψ
+    u_terms = phi*0.25*(-9 + 6*y*y)*psi
+    v_terms = 2*y*dphidx*psi
     if order == 0:
         return interpolate(as_vector([u_terms, v_terms]), U_2d)
 
     # Unnormalised Hermite series coefficients for u
     u = np.zeros(28)
-    u[0]    =  1.7892760e+00
-    u[2]    =  0.1164146e+00
-    u[4]    = -0.3266961e-03
-    u[6]    = -0.1274022e-02
-    u[8]    =  0.4762876e-04
-    u[10]   = -0.1120652e-05
-    u[12]   =  0.1996333e-07
-    u[14]   = -0.2891698e-09
-    u[16]   =  0.3543594e-11
-    u[18]   = -0.3770130e-13
-    u[20]   =  0.3547600e-15
-    u[22]   = -0.2994113e-17
-    u[24]   =  0.2291658e-19
-    u[26]   = -0.1178252e-21
+    u[0] = 1.7892760e+00
+    u[2] = 0.1164146e+00
+    u[4] = -0.3266961e-03
+    u[6] = -0.1274022e-02
+    u[8] = 0.4762876e-04
+    u[10] = -0.1120652e-05
+    u[12] = 0.1996333e-07
+    u[14] = -0.2891698e-09
+    u[16] = 0.3543594e-11
+    u[18] = -0.3770130e-13
+    u[20] = 0.3547600e-15
+    u[22] = -0.2994113e-17
+    u[24] = 0.2291658e-19
+    u[26] = -0.1178252e-21
 
     # Unnormalised Hermite series coefficients for v
     v = np.zeros(28)
-    v[3]    = -0.6697824e-01
-    v[5]    = -0.2266569e-02
-    v[7]    =  0.9228703e-04
-    v[9]    = -0.1954691e-05
-    v[11]   =  0.2925271e-07
-    v[13]   = -0.3332983e-09
-    v[15]   =  0.2916586e-11
-    v[17]   = -0.1824357e-13
-    v[19]   =  0.4920951e-16
-    v[21]   =  0.6302640e-18
-    v[23]   = -0.1289167e-19
-    v[25]   =  0.1471189e-21
+    v[3] = -0.6697824e-01
+    v[5] = -0.2266569e-02
+    v[7] = 0.9228703e-04
+    v[9] = -0.1954691e-05
+    v[11] = 0.2925271e-07
+    v[13] = -0.3332983e-09
+    v[15] = 0.2916586e-11
+    v[17] = -0.1824357e-13
+    v[19] = 0.4920951e-16
+    v[21] = 0.6302640e-18
+    v[23] = -0.1289167e-19
+    v[25] = 0.1471189e-21
 
     # Hermite polynomials
     polynomials = [Constant(1.0), 2*y]
@@ -83,11 +83,12 @@ def asymptotic_expansion_uv(U_2d, order=1, time=0.0, soliton_amplitude=0.395):
         polynomials.append(2*y*polynomials[i-1] - 2*(i-1)*polynomials[i-2])
 
     # First order terms
-    u_terms += C*φ*0.5625*(3 + 2*y*y)*Ψ
-    u_terms += φ*φ*Ψ*sum(u[i]*polynomials[i] for i in range(28))
-    v_terms += dφdx*φ*Ψ*sum(v[i]*polynomials[i] for i in range(28))
+    u_terms += C*phi*0.5625*(3 + 2*y*y)*psi
+    u_terms += phi*phi*psi*sum(u[i]*polynomials[i] for i in range(28))
+    v_terms += dphidx*phi*psi*sum(v[i]*polynomials[i] for i in range(28))
 
     return interpolate(as_vector([u_terms, v_terms]), U_2d)
+
 
 def asymptotic_expansion_elev(H_2d, order=1, time=0.0, soliton_amplitude=0.395):
     x, y = SpatialCoordinate(H_2d.mesh())
@@ -100,32 +101,31 @@ def asymptotic_expansion_elev(H_2d, order=1, time=0.0, soliton_amplitude=0.395):
         assert order == 1
         modon_propagation_speed -= 0.395*B*B
     c = Constant(modon_propagation_speed)
-    ξ = x - c*t
-    Ψ = exp(-0.5*y*y)
-    φ = 0.771*(B/cosh(B*ξ))**2
-    dφdx = -2*B*φ*tanh(B*ξ)
+    xi = x - c*t
+    psi = exp(-0.5*y*y)
+    phi = 0.771*(B/cosh(B*xi))**2
     C = -0.395*B*B
 
     # Zeroth order terms
-    eta_terms = φ*0.25*(3 + 6*y*y)*Ψ
+    eta_terms = phi*0.25*(3 + 6*y*y)*psi
     if order == 0:
         return interpolate(eta_terms, H_2d)
 
     # Unnormalised Hermite series coefficients for eta
     eta = np.zeros(28)
-    eta[0]  = -3.0714300e+00
-    eta[2]  = -0.3508384e-01
-    eta[4]  = -0.1861060e-01
-    eta[6]  = -0.2496364e-03
-    eta[8]  =  0.1639537e-04
+    eta[0] = -3.0714300e+00
+    eta[2] = -0.3508384e-01
+    eta[4] = -0.1861060e-01
+    eta[6] = -0.2496364e-03
+    eta[8] = 0.1639537e-04
     eta[10] = -0.4410177e-06
-    eta[12] =  0.8354759e-09
+    eta[12] = 0.8354759e-09
     eta[14] = -0.1254222e-09
-    eta[16] =  0.1573519e-11
+    eta[16] = 0.1573519e-11
     eta[18] = -0.1702300e-13
-    eta[20] =  0.1621976e-15
+    eta[20] = 0.1621976e-15
     eta[22] = -0.1382304e-17
-    eta[24] =  0.1066277e-19
+    eta[24] = 0.1066277e-19
     eta[26] = -0.1178252e-21
 
     # Hermite polynomials
@@ -134,13 +134,13 @@ def asymptotic_expansion_elev(H_2d, order=1, time=0.0, soliton_amplitude=0.395):
         polynomials.append(2*y*polynomials[i-1] - 2*(i-1)*polynomials[i-2])
 
     # First order terms
-    eta_terms += C*φ*0.5625*(-5 + 2*y*y)*Ψ
-    eta_terms += φ*φ*Ψ*sum(eta[i]*polynomials[i] for i in range(28))
+    eta_terms += C*phi*0.5625*(-5 + 2*y*y)*psi
+    eta_terms += phi*phi*psi*sum(eta[i]*polynomials[i] for i in range(28))
 
     return interpolate(eta_terms, H_2d)
 
 
-def run(refinement_level, reference_refinement_level=384, **model_options):
+def run(refinement_level, **model_options):
     print_output("--- running refinement level {:}".format(refinement_level))
     order = model_options.pop('expansion_order')
 
@@ -186,34 +186,30 @@ def run(refinement_level, reference_refinement_level=384, **model_options):
     with DumbCheckpoint(os.path.join(di, fname), mode=FILE_CREATE) as chk:
         chk.store(solver_obj.fields.elev_2d)
 
-    physical_constants['g_grav'].assign(9.81)  # TODO: Is this needed?
 
 def compute_error_metrics(ref_list, reference_refinement_level, **options):
     order = options.pop('expansion_order')
     degree = options.get('polynomial_degree')
     family = options.get('element_family')
-    uv_family = 'Discontinuous Lagrange'
-    uv_degree = degree
-    if family == 'dg-dg':
-        elev_family = 'Discontinuous Lagrange'
-        elev_degree = degree
+    if family in ('dg-dg', 'rt-dg'):
+        family = 'Discontinuous Lagrange'
     elif family == 'dg-cg':
-        elev_family = 'Lagrange'
-        elev_degree = degree+1
+        family = 'Lagrange'
+        degree += 1
     else:
-        raise NotImplementedError
+        raise ValueError("Element pair {:s} not recognised.".format(family))
 
-    # Build reference mesh and spaces defined upon it
+    # Build reference mesh
     lx, ly = 48, 24
     nx_fine, ny_fine = 2*reference_refinement_level, reference_refinement_level
     params = {'partition': True, 'overlap_type': (DistributedMeshOverlapType.VERTEX, 10)}
     ref_mesh = PeriodicRectangleMesh(nx_fine, ny_fine, lx, ly, distribution_parameters=params)
     x_fine, y_fine = SpatialCoordinate(ref_mesh)
     ref_mesh.coordinates.interpolate(as_vector([x_fine-lx/2, y_fine-ly/2]))
-    H_2d_ref = FunctionSpace(ref_mesh, elev_family, elev_degree)
 
     # Get asymptotic solution at final time on a reference mesh
-    elev_a = asymptotic_expansion_elev(H_2d_ref, order=order)
+    P1_2d_ref = FunctionSpace(ref_mesh, "CG", 1)
+    elev_a = asymptotic_expansion_elev(P1_2d_ref, order=order)
 
     # Compute metrics for each refinement level
     dx = [24/r for r in ref_list]
@@ -226,9 +222,9 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
         mesh = PeriodicRectangleMesh(nx, ny, lx, ly, distribution_parameters=params)
         x, y = SpatialCoordinate(mesh)
         mesh.coordinates.interpolate(as_vector([x-lx/2, y-ly/2]))
-        H_2d = FunctionSpace(mesh, elev_family, elev_degree)
 
-        # Read solution from HDF5 and project into reference space
+        # Read solution from HDF5
+        H_2d = FunctionSpace(mesh, family, degree)
         elev = Function(H_2d, name='elev_2d')
         fname = "{:d}_{:d}".format(r, mesh.comm.size)
         try:
@@ -237,9 +233,11 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
         except ValueError:
             print_output("WARNING: Could not find simulation data for refinement level {:d} on {:d} processors.".format(r, mesh.comm.size))
             continue
+
+        # Project solution into reference space
         ref_mesh._parallel_compatible = {weakref.ref(mesh)}
-        elev_ref = project(elev, H_2d_ref)
-        xcoords = project(ref_mesh.coordinates[0], H_2d_ref)
+        elev_ref = project(elev, P1_2d_ref)
+        xcoords = project(ref_mesh.coordinates[0], P1_2d_ref)
 
         # Calculate RMS error
         elev_diff = elev_a.vector().gather()
@@ -285,6 +283,7 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
         print_output(msg)
     return metrics
 
+
 def run_convergence(ref_list, solve=True, reference_refinement_level=50, **options):
     """Runs test for a list of refinements and computes error convergence rate."""
     setup_name = 'rossby-soliton'
@@ -311,6 +310,7 @@ def run_convergence(ref_list, solve=True, reference_refinement_level=50, **optio
             assert slope > 1.0 - slope_rtol, msg.format(setup_name, m, slope)
             print_output("{:s}: error metric {:s} index {:d} PASSED".format(setup_name, m, i))
 
+
 def generate_table():
     head = "|Model   |    dx    |    dt    |    h+    |    h-    |    c+    |    c-    |    rms    |"
     rule = "|--------|----------|----------|----------|----------|----------|----------|-----------|"
@@ -331,6 +331,7 @@ def generate_table():
                 out = '\n'.join([out, m.format(*vals)])
     return out+'\n'
 
+
 # ---------------------------
 # standard tests for pytest
 # ---------------------------
@@ -345,6 +346,7 @@ def test_convergence(stepper):
 # --------------------------------------------
 # run individual setup for model comparison
 # --------------------------------------------
+
 
 if __name__ == "__main__":
     run_convergence([96, 192, 480], reference_refinement_level=1200,
