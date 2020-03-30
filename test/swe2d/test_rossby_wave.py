@@ -140,7 +140,7 @@ def asymptotic_expansion_elev(H_2d, order=1, time=0.0, soliton_amplitude=0.395):
     return interpolate(eta_terms, H_2d)
 
 
-def run(refinement_level, **model_options):
+def run(refinement_level, reference_solution, **model_options):
     print_output("--- running refinement level {:}".format(refinement_level))
     order = model_options.pop('expansion_order')
 
@@ -179,16 +179,57 @@ def run(refinement_level, **model_options):
     elev_a = asymptotic_expansion_elev(solver_obj.function_spaces.H_2d, order=order)
     solver_obj.assign_initial_conditions(uv=uv_a, elev=elev_a)
 
-    # Solve PDE and save to HDF5
+    # Solve PDE
     solver_obj.iterate()
-    fname = "{:d}_{:d}".format(refinement_level, mesh2d.comm.size)
-    di = create_directory(os.path.join(os.path.dirname(__file__), 'outputs'))
-    with DumbCheckpoint(os.path.join(di, fname), mode=FILE_CREATE) as chk:
-        chk.store(solver_obj.fields.elev_2d)
+
+    # Project solution into reference space
+    ref_mesh = reference_solution.function_space().mesh()
+    x, y = SpatialCoordinate(ref_mesh)
+    ref_mesh._parallel_compatible = {weakref.ref(mesh2d)}
+    P1_2d_ref = FunctionSpace(ref_mesh, "CG", 1)
+    elev_ref = project(solver_obj.fields.elev_2d, P1_2d_ref)
+    xcoords = project(ref_mesh.coordinates[0], P1_2d_ref)
+
+    # Calculate RMS error
+    elev_diff = reference_solution.vector().gather()
+    elev_diff -= elev_ref.vector().gather()
+    elev_diff *= elev_diff
+    rms = np.sqrt(elev_diff.sum()/elev_diff.size)
+
+    # Get mean peak heights
+    elev_ref.interpolate(sign(y)*elev_ref)  # Flip sign in southern hemisphere
+    with elev_ref.dat.vec_ro as v:
+        i_n, h_n = v.max()
+        i_s, h_s = v.min()
+
+        # Find ranks which own peaks
+        ownership_range = v.getOwnershipRanges()
+        for j in range(mesh2d.comm.size):
+            if i_n >= ownership_range[j] and i_n < ownership_range[j+1]:
+                rank_with_n_peak = j
+            if i_s >= ownership_range[j] and i_s < ownership_range[j+1]:
+                rank_with_s_peak = j
+
+    # Get mean phase speeds
+    x_n, x_s = None, None
+    with xcoords.dat.vec_ro as xdat:
+        if mesh2d.comm.rank == rank_with_n_peak:
+            x_n = xdat[i_n]
+        if mesh2d.comm.rank == rank_with_s_peak:
+            x_s = xdat[i_s]
+    x_n = mesh2d.comm.bcast(x_n, root=rank_with_n_peak)
+    x_s = mesh2d.comm.bcast(x_s, root=rank_with_s_peak)
+
+    # Get relative versions of metrics using high resolution FVCOM data
+    h_n /= 0.1567020
+    h_s /= -0.1567020  # Flip sign back
+    c_n = (48.0 - x_n)/47.18
+    c_s = (48.0 - x_s)/47.18
+    return h_n, h_s, c_n, c_s, rms
 
 
 def compute_error_metrics(ref_list, reference_refinement_level, **options):
-    order = options.pop('expansion_order')
+    order = options.get('expansion_order')
     degree = options.get('polynomial_degree')
     family = options.get('element_family')
     if family in ('dg-dg', 'rt-dg'):
@@ -212,94 +253,32 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
     elev_a = asymptotic_expansion_elev(P1_2d_ref, order=order)
 
     # Compute metrics for each refinement level
-    dx = [24/r for r in ref_list]
-    dt = [0.96/r for r in ref_list]
-    metrics = {'h+': [], 'h-': [], 'c+': [], 'c-': [], 'rms': [], 'dx': dx, 'dt': dt}
+    labels = ('h+', 'h-', 'c+', 'c-', 'rms')
     formats = {'h+': '{:6.4f}', 'h-': '{:6.4f}', 'c+': '{:6.4f}', 'c-': '{:6.4f}', 'rms': '{:6.4e}'}
-    di = create_directory(os.path.join(os.path.dirname(__file__), 'outputs'))
+    metrics = {'dx': [24/r for r in ref_list], 'dt': [0.96/r for r in ref_list]}
+    for metric in labels:
+        metrics[metric] = []
+    msg = "Error metrics for refinement level {:d}:\n"
     for r in ref_list:
-        nx, ny = 2*r, r
-        mesh = PeriodicRectangleMesh(nx, ny, lx, ly, distribution_parameters=params)
-        x, y = SpatialCoordinate(mesh)
-        mesh.coordinates.interpolate(as_vector([x-lx/2, y-ly/2]))
-
-        # Read solution from HDF5
-        H_2d = FunctionSpace(mesh, family, degree)
-        elev = Function(H_2d, name='elev_2d')
-        fname = "{:d}_{:d}".format(r, mesh.comm.size)
-        try:
-            with DumbCheckpoint(os.path.join(di, fname), mode=FILE_READ) as chk:
-                chk.load(elev)
-        except ValueError:
-            print_output("WARNING: Could not find simulation data for refinement level {:d} on {:d} processors.".format(r, mesh.comm.size))
-            continue
-
-        # Project solution into reference space
-        ref_mesh._parallel_compatible = {weakref.ref(mesh)}
-        elev_ref = project(elev, P1_2d_ref)
-        xcoords = project(ref_mesh.coordinates[0], P1_2d_ref)
-
-        # Calculate RMS error
-        elev_diff = elev_a.vector().gather()
-        elev_diff -= elev_ref.vector().gather()
-        elev_diff *= elev_diff
-        rms = np.sqrt(elev_diff.sum()/elev_diff.size)
-
-        # Get mean peak heights
-        elev_ref.interpolate(sign(y_fine)*elev_ref)  # Flip sign in southern hemisphere
-        with elev_ref.dat.vec_ro as v:
-            i_n, h_n = v.max()
-            i_s, h_s = v.min()
-
-            # Find ranks which own peaks
-            ownership_range = v.getOwnershipRanges()
-            for j in range(mesh.comm.size):
-                if i_n >= ownership_range[j] and i_n < ownership_range[j+1]:
-                    rank_with_n_peak = j
-                if i_s >= ownership_range[j] and i_s < ownership_range[j+1]:
-                    rank_with_s_peak = j
-
-        # Get mean phase speeds
-        x_n, x_s = None, None
-        with xcoords.dat.vec_ro as xdat:
-            if mesh.comm.rank == rank_with_n_peak:
-                x_n = xdat[i_n]
-            if mesh.comm.rank == rank_with_s_peak:
-                x_s = xdat[i_s]
-        x_n = mesh.comm.bcast(x_n, root=rank_with_n_peak)
-        x_s = mesh.comm.bcast(x_s, root=rank_with_s_peak)
-
-        # Get relative versions of metrics using high resolution FVCOM data
-        h_n /= 0.1567020
-        h_s /= -0.1567020  # Flip sign back
-        c_n = (48.0 - x_n)/47.18
-        c_s = (48.0 - x_s)/47.18
-
-        # Gather outputs and print to screen
-        msg = "Error metrics for refinement level {:d}:\n".format(r)
-        for metric, value in zip(('h+', 'h-', 'c+', 'c-', 'rms'), (h_n, h_s, c_n, c_s, rms)):
+        for metric, value in zip(labels, run(r, elev_a, **options)):
             metrics[metric].append(value)
-            msg = ' '.join([msg, ' '.join([metric, formats[metric].format(value)])])
+            msg = ' '.join([msg.format(r), ' '.join([metric, formats[metric].format(value)])])
         print_output(msg)
     return metrics
 
 
-def run_convergence(ref_list, solve=True, reference_refinement_level=50, **options):
+def run_convergence(ref_list, reference_refinement_level=50, **options):
     """Runs test for a list of refinements and computes error convergence rate."""
     setup_name = 'rossby-soliton'
-
-    # Run model on increasingly refined meshes
-    if solve:
-        for r in ref_list:
-            run(r, **options)
 
     # Evaluate error metrics
     metrics = compute_error_metrics(ref_list, reference_refinement_level, **options)
 
     # Save metrics to .json file for model comparison
-    di = create_directory(os.path.join(os.path.dirname(__file__), 'data'))
-    with open(os.path.join(di, 'Thetis.json'), 'w+') as f:
-        json.dump(metrics, f, ensure_ascii=False)
+    if not options.get('no_exports'):
+        di = create_directory(os.path.join(os.path.dirname(__file__), 'data'))
+        with open(os.path.join(di, 'Thetis.json'), 'w+') as f:
+            json.dump(metrics, f, ensure_ascii=False)
 
     # Check convergence of relative mean peak height and phase speed
     slope_rtol = 0.01
