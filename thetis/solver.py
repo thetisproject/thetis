@@ -462,14 +462,14 @@ class FlowSolver(FrozenClass):
         :math:`p` the degree, and :math:`\theta_K` is the minimum angle in the element.
         """
         degree_h, degree_v = self.function_spaces.U.ufl_element().degree()
-        alpha_h = 5.0*degree_h*(degree_h+1) if degree_h != 0 else 1.5
-        alpha_v = 5.0*degree_v*(degree_v+1) if degree_v != 0 else 1.0
+        alpha_h = Constant(5.0*degree_h*(degree_h+1) if degree_h != 0 else 1.5)
+        alpha_v = Constant(5.0*degree_v*(degree_v+1) if degree_v != 0 else 1.0)
         degree_h_tracer, degree_v_tracer = self.function_spaces.H.ufl_element().degree()
-        alpha_h_tracer = 5.0*degree_h_tracer*(degree_h_tracer+1) if degree_h_tracer != 0 else 1.5
-        alpha_v_tracer = 5.0*degree_v_tracer*(degree_v_tracer+1) if degree_v_tracer != 0 else 1.0
+        alpha_h_tracer = Constant(5.0*degree_h_tracer*(degree_h_tracer+1) if degree_h_tracer != 0 else 1.5)
+        alpha_v_tracer = Constant(5.0*degree_v_tracer*(degree_v_tracer+1) if degree_v_tracer != 0 else 1.0)
         degree_h_turb, degree_v_turb = self.function_spaces.turb_space.ufl_element().degree()
-        alpha_h_turb = 5.0*degree_h_turb*(degree_h_turb+1) if degree_h_turb != 0 else 1.5
-        alpha_v_turb = 5.0*degree_v_turb*(degree_v_turb+1) if degree_v_turb != 0 else 1.0
+        alpha_h_turb = Constant(5.0*degree_h_turb*(degree_h_turb+1) if degree_h_turb != 0 else 1.5)
+        alpha_v_turb = Constant(5.0*degree_v_turb*(degree_v_turb+1) if degree_v_turb != 0 else 1.0)
 
         if self.options.use_automatic_sipg_parameter:
 
@@ -492,10 +492,10 @@ class FlowSolver(FrozenClass):
                 max_sipg = self.options.sipg_parameter.vector().gather().max()
                 print_output("Maximum SIPG value in horizontal: {:.2f}".format(max_sipg))
             else:
-                print_output("SIPG parameter in horizontal: {:.2f}".format(alpha_h))
+                print_output("SIPG parameter in horizontal: {:.2f}".format(alpha_h.values()[0]))
 
             # Vertical component
-            print_output("SIPG parameter in vertical: {:.2f}".format(alpha_v))
+            print_output("SIPG parameter in vertical: {:.2f}".format(alpha_v.values()[0]))
 
             # Penalty parameter for tracers / turbulence model
             if self.options.solve_salinity or self.options.solve_temperature or self.options.use_turbulence:
@@ -516,15 +516,15 @@ class FlowSolver(FrozenClass):
                         print_output("Maximum turbulence SIPG value in horizontal: {:.2f}".format(max_sipg))
                 else:
                     if self.options.solve_salinity or self.options.solve_temperature:
-                        print_output("Tracer SIPG parameter in horizontal: {:.2f}".format(alpha_h_tracer))
+                        print_output("Tracer SIPG parameter in horizontal: {:.2f}".format(alpha_h_tracer.values()[0]))
                     if self.options.use_turbulence:
-                        print_output("Turbulence SIPG parameter in horizontal: {:.2f}".format(alpha_h_turb))
+                        print_output("Turbulence SIPG parameter in horizontal: {:.2f}".format(alpha_h_turb.values()[0]))
 
                 # Vertical component
                 if self.options.solve_salinity or self.options.solve_temperature:
-                    print_output("Tracer SIPG parameter in vertical: {:.2f}".format(alpha_v_tracer))
+                    print_output("Tracer SIPG parameter in vertical: {:.2f}".format(alpha_v_tracer.values()[0]))
                 if self.options.use_turbulence:
-                    print_output("Turbulence SIPG parameter in vertical: {:.2f}".format(alpha_v_turb))
+                    print_output("Turbulence SIPG parameter in vertical: {:.2f}".format(alpha_v_turb.values()[0]))
         else:
             print_output("Using default SIPG parameters")
             self.options.sipg_parameter.assign(alpha_h)
