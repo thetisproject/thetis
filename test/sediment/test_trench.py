@@ -15,6 +15,7 @@ from thetis import *
 import morphological_hydro_fns_comb as morph
 
 import numpy as np
+import os
 
 def boundary_conditions_fn_trench(morfac = 1, t_new = 0, state = 'initial'):
 
@@ -105,9 +106,13 @@ def run_migrating_trench(conservative):
     else:
         assert abs(tracer_mass_int_rerr) < 7e-3, 'tracer is not conserved'
 
+    test_root = os.path.abspath(os.path.dirname(__file__))  # abs path to current file
+    tracer_csv_file = os.path.join(test_root, 'tracer_test.csv')
+    bed_csv_file = os.path.join(test_root, 'bed_test.csv')
+
     # check tracer and bathymetry values using previous runs    
-    tracer_solution = np.loadtxt('tracer_test.csv', delimiter = ",", skiprows = 1)
-    bed_solution = np.loadtxt('bed_test.csv', delimiter = ",", skiprows = 1)
+    tracer_solution = np.loadtxt(tracer_csv_file, delimiter = ",", skiprows = 1)
+    bed_solution = np.loadtxt(bed_csv_file, delimiter = ",", skiprows = 1)
     
     assert max([abs((tracer_solution[i][1] - tracerthetis1[i])/tracer_solution[i][1]) for i in range(len(tracerthetis1))]) < 0.8, "error in tracer"
     assert max([abs((bed_solution[i][1] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.002, "error in bed level"
