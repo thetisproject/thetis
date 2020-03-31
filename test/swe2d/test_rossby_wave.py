@@ -162,6 +162,7 @@ def run(refinement_level, reference_solution, **model_options):
         raise NotImplementedError("Domain periodicity not accounted for in asymptotic expansion.")
 
     # Physics
+    g = physical_constants['g_grav'].values()[0]
     physical_constants['g_grav'].assign(1.0)
     P1_2d = FunctionSpace(mesh2d, "CG", 1)
     bathymetry2d = Function(P1_2d).assign(1.0)
@@ -192,6 +193,7 @@ def run(refinement_level, reference_solution, **model_options):
 
     # Solve PDE
     solver_obj.iterate()
+    physical_constants['g_grav'].assign(g)  # Revert g_grav value
 
     # Project solution into reference space
     ref_mesh = reference_solution.function_space().mesh()
