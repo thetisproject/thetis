@@ -153,7 +153,13 @@ def run(refinement_level, reference_solution, **model_options):
     mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, distribution_parameters=params)
     x, y = SpatialCoordinate(mesh2d)
     mesh2d.coordinates.interpolate(as_vector([x-lx/2, y-ly/2]))
-    T = 120.0
+
+    # Get simulation end time
+    T = model_options.get('simulation_end_time')
+    try:
+        assert T > 0.0 and T % 120 < 40.0
+    except AssertionError:  # TODO
+        raise NotImplementedError("Domain periodicity not accounted for in asymptotic expansion.")
 
     # Physics
     physical_constants['g_grav'].assign(1.0)
@@ -257,7 +263,7 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
 
     # Get asymptotic solution at final time on a reference mesh
     P1_2d_ref = FunctionSpace(ref_mesh, "CG", 1)
-    elev_a = asymptotic_expansion_elev(P1_2d_ref, order=order)
+    elev_a = asymptotic_expansion_elev(P1_2d_ref, order=order, time=(T % 120))
 
     # Compute metrics for each refinement level
     labels = ('h+', 'h-', 'c+', 'c-', 'rms')
@@ -343,8 +349,8 @@ def generate_table(family):
                          ])
 def test_convergence(stepper, family):
     run_convergence([12, 24], reference_refinement_level=768, timestepper_type=stepper,
-                    polynomial_degree=1, element_family=family, no_exports=True,
-                    expansion_order=1, model_comparison=False)
+                    simulation_end_time=30.0, polynomial_degree=1, element_family=family,
+                    no_exports=True, expansion_order=1, model_comparison=False)
 
 # --------------------------------------------
 # run individual setup for model comparison
@@ -354,9 +360,9 @@ def test_convergence(stepper, family):
 if __name__ == "__main__":
     family = 'dg-dg'
     run_convergence([96, 192, 480], reference_refinement_level=1200,
-                    timestepper_type='CrankNicolson', polynomial_degree=1,
-                    element_family=family, no_exports=False,
-                    expansion_order=1, model_comparison=True)
+                    timestepper_type='CrankNicolson', simulation_end_time=120.0,
+                    polynomial_degree=1, element_family=family,
+                    no_exports=False, expansion_order=1, model_comparison=True)
 
     # Compare results against FVCOM and ROMS given in [1].
     table = generate_table(family)
