@@ -582,7 +582,7 @@ class HorizontalViscosityTerm(ShallowWaterMomentumTerm):
             alpha = self.options.sipg_parameter
             assert alpha is not None
             f += (
-                + alpha/avg(h)*inner(tensor_jump(self.u_test, n), stress_jump)*self.dS
+                + avg(alpha/h)*inner(tensor_jump(self.u_test, n), stress_jump)*self.dS
                 - inner(avg(grad(self.u_test)), stress_jump)*self.dS
                 - inner(tensor_jump(self.u_test, n), avg(stress))*self.dS
             )
