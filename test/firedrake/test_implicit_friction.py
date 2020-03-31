@@ -80,8 +80,8 @@ def test_implicit_friction(do_export=False, do_assert=True):
         f += -viscosity_v*inner(Dx(solution, 2), Dx(test, 2)) * dx
         # interface term
         diff_flux = viscosity_v*Dx(solution, 2)
-        f += (dot(avg(diff_flux), test('+'))*normal[2]('+') +
-              dot(avg(diff_flux), test('-'))*normal[2]('-')) * dS_h
+        f += (dot(avg(diff_flux), test('+'))*normal[2]('+')
+              + dot(avg(diff_flux), test('-'))*normal[2]('-')) * dS_h
         # symmetric interior penalty stabilization
         l = Constant(depth/layers)
         nb_neigh = 2
@@ -109,8 +109,8 @@ def test_implicit_friction(do_export=False, do_assert=True):
     dt_const = Constant(dt)
 
     # Backward Euler
-    f = (inner(solution_new, test)*dx - inner(solution, test)*dx -
-         dt_const*rhs(solution_new, solution))
+    f = (inner(solution_new, test)*dx - inner(solution, test)*dx
+         - dt_const*rhs(solution_new, solution))
     prob = NonlinearVariationalProblem(f, solution_new)
     solver = LinearVariationalSolver(prob, solver_parameters=sp)
 

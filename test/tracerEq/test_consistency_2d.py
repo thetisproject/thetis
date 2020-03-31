@@ -12,7 +12,8 @@ oscillation frequency. Initial condition repeats every 20 exports.
 """
 from thetis import *
 
-def run_tracer_consistency(constant_c = True, **model_options):
+
+def run_tracer_consistency(constant_c=True, **model_options):
 
     t_cycle = 2000.0  # standing wave period
     depth = 50.0  # average depth
@@ -34,7 +35,6 @@ def run_tracer_consistency(constant_c = True, **model_options):
     x_2d, y_2d = SpatialCoordinate(mesh2d)
     # non-trivial bathymetry, to properly test 2d tracer conservation
     bathymetry_2d.interpolate(depth + depth/10.*sin(x_2d/lx*pi))
-
 
     # set time step, export interval and run duration
     n_steps = 8
@@ -76,7 +76,7 @@ def run_tracer_consistency(constant_c = True, **model_options):
         tracer_r = 30.0
         tracer_init2d.interpolate(tracer_l + (tracer_r - tracer_l)*0.5*(1.0 + sign(x_2d - lx/4)))
 
-    solver_obj.assign_initial_conditions(elev=elev_init, tracer=tracer_init2d )
+    solver_obj.assign_initial_conditions(elev=elev_init, tracer=tracer_init2d)
     solver_obj.iterate()
 
     # TODO do these checks every export ...
@@ -92,18 +92,16 @@ def run_tracer_consistency(constant_c = True, **model_options):
         assert max_abs_overshoot < overshoot_tol, msg
 
 
-
 def test_const_tracer():
     """
     Test CrankNicolson timeintegrator without slope limiters
     Constant tracer, should remain constant
     """
-    run_tracer_consistency(constant_c= True,
+    run_tracer_consistency(constant_c=True,
                            use_nonlinear_equations=True,
                            solve_tracer=True,
                            use_limiter_for_tracers=False,
                            no_exports=True)
-
 
 
 def test_nonconst_tracer():
@@ -111,7 +109,7 @@ def test_nonconst_tracer():
     Test CrankNicolson timeintegrator  with slope limiters
     Non-trivial tracer, should see no overshoots and be conserved
     """
-    run_tracer_consistency(constant_c= False,
+    run_tracer_consistency(constant_c=False,
                            use_nonlinear_equations=True,
                            solve_tracer=True,
                            use_limiter_for_tracers=True,
@@ -119,7 +117,7 @@ def test_nonconst_tracer():
 
 
 if __name__ == '__main__':
-    run_tracer_consistency(constant_c= False,
+    run_tracer_consistency(constant_c=False,
                            use_nonlinear_equations=True,
                            solve_tracer=True,
                            use_limiter_for_tracers=False,

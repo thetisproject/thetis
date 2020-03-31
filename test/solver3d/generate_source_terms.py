@@ -143,12 +143,12 @@ def evaluate_swe_source(eta, u, v, bath, f, nu, nonlin=True):
     cori_v = f*u
     pg_u = g*sympy.diff(eta, x)
     pg_v = g*sympy.diff(eta, y)
-    visc_u = -(2*sympy.diff(nu*sympy.diff(u, x), x) +
-               sympy.diff(nu*sympy.diff(u, y), y) +
-               sympy.diff(nu*sympy.diff(v, x), y))
-    visc_v = -(2*sympy.diff(nu*sympy.diff(v, y), y) +
-               sympy.diff(nu*sympy.diff(v, x), x) +
-               sympy.diff(nu*sympy.diff(u, y), x))
+    visc_u = -(2*sympy.diff(nu*sympy.diff(u, x), x)
+               + sympy.diff(nu*sympy.diff(u, y), y)
+               + sympy.diff(nu*sympy.diff(v, x), y))
+    visc_v = -(2*sympy.diff(nu*sympy.diff(v, y), y)
+               + sympy.diff(nu*sympy.diff(v, x), x)
+               + sympy.diff(nu*sympy.diff(u, y), x))
     visc_u += -sympy.diff(tot_depth, x)/tot_depth * nu * 2 * sympy.diff(u, x)
     visc_v += -sympy.diff(tot_depth, y)/tot_depth * nu * 2 * sympy.diff(v, y)
     # NOTE in the coupled system 2d mom eq has no advection/diffusion terms

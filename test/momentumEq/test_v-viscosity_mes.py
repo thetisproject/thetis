@@ -85,8 +85,8 @@ def run(refinement, **model_options):
     uv_ana = Function(solverobj.function_spaces.U, name='uv analytical')
     uv_ana_p1 = Function(solverobj.function_spaces.P1v, name='uv analytical')
 
-    p1dg_v_ho = get_functionspace(solverobj.mesh,
-        'DG', options.polynomial_degree + 2, vector=True)
+    p1dg_v_ho = get_functionspace(solverobj.mesh, 'DG',
+                                  options.polynomial_degree + 2, vector=True)
     uv_ana_ho = Function(p1dg_v_ho, name='uv analytical')
     uv_ana.project(ana_uv_expr)
 

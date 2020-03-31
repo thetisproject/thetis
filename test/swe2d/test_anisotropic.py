@@ -3,6 +3,7 @@ from firedrake.petsc import PETSc
 import pytest
 import os
 
+
 def run_steady_turbine(**model_options):
     """
     Consider a simple test case with two turbines positioned in a channel. The mesh has been adapted
@@ -61,7 +62,7 @@ def run_steady_turbine(**model_options):
             y0 = locs[j][1]
             r = locs[j][2]
             expr1 = (x-x0)*(x-x0) + (y-y0)*(y-y0)
-            expr2 = scale*exp(1 -1/(1 - (x-x0)*(x-x0)/r**2))*exp(1 - 1/(1 - (y-y0)*(y-y0)/r**2))
+            expr2 = scale*exp(1 - 1/(1 - (x-x0)*(x-x0)/r**2))*exp(1 - 1/(1 - (y-y0)*(y-y0)/r**2))
             i += conditional(lt(expr1, r*r), expr2, 0)
         return i
 
