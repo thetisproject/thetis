@@ -479,6 +479,12 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Source term for 2D continuity equation").tag(config=True)
     tracer_source_2d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
+    tracer_depth_integ_source = FiredrakeScalarExpression(
+        None, allow_none=True, help="Depth integrated source term for 2D tracer equation").tag(config=True)
+    tracer_sink_2d = FiredrakeScalarExpression(
+        None, allow_none=True, help="Sink term for 2D tracer equation to be multiplied by tracer").tag(config=True)
+    tracer_depth_integ_sink = FiredrakeScalarExpression(
+        None, allow_none=True, help="Depth integrated sink term for 2D tracer equation to be multiplied by tracer").tag(config=True)
     horizontal_diffusivity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
     use_automatic_sipg_parameter = Bool(False, help=r"""

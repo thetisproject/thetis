@@ -24,6 +24,7 @@ __all__ = [
     'HorizontalAdvectionTerm',
     'HorizontalDiffusionTerm',
     'SourceTerm',
+    'SinkTerm',
 ]
 
 
@@ -259,6 +260,22 @@ class SourceTerm(TracerTerm):
             f += -inner(source, self.test)*self.dx
         return -f
 
+class SinkTerm(TracerTerm):
+    r"""
+    Linear Sink term
+    
+    The weak form reads
+    
+    .. math::
+        F_s = \int_\Omega \sigma solution \phi dx
+    where :math:`\sigma` is a user defined scalar :class:`Function`.    
+    """
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        f = 0
+        sink = fields_old.get('sink')
+        if sink is not None:            
+            f += -inner(-sink*solution, self.test)*self.dx
+        return -f 
 
 class TracerEquation2D(Equation):
     """
@@ -279,3 +296,4 @@ class TracerEquation2D(Equation):
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
+        self.add_term(SinkTerm(*args), 'sink')        
