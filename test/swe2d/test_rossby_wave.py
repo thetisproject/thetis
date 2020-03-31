@@ -283,7 +283,7 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
     return metrics
 
 
-def run_convergence(ref_list, reference_refinement_level=50, **options):
+def run_convergence(ref_list, rms_list=None, reference_refinement_level=50, **options):
     """Runs test for a list of refinements and computes error convergence rate."""
     setup_name = 'rossby-soliton'
     family = options.get('element_family')
@@ -299,13 +299,22 @@ def run_convergence(ref_list, reference_refinement_level=50, **options):
         # TODO: Plot convergence of error metrics
 
     # Check convergence of relative mean peak height and phase speed
-    slope_rtol = 0.01
+    rtol = 0.01
     for m in ('h+', 'h-', 'c+', 'c-', 'rms'):
         for i in range(1, len(ref_list)):
             slope = metrics[m][i-1]/metrics[m][i] if m == 'rms' else metrics[m][i]/metrics[m][i-1]
             msg = "{:s}: Divergence of error metric {:s}, expected {:.4f} > 1"
-            assert slope > 1.0 - slope_rtol, msg.format(setup_name, m, slope)
+            assert slope > 1.0 - rtol, msg.format(setup_name, m, slope)
             print_output("{:s}: error metric {:s} index {:d} PASSED".format(setup_name, m, i))
+
+    # Check magnitude of RMS errors
+    if rms_list is not None:
+        assert len(ref_list) == len(rms_list)
+        for i in range(len(ref_list)):
+            msg = "{:s}: RMS error {:.4e} does not match recorded value, expected {:.4e}"
+            calc, rec = metrics['rms'][i], rms_list[i]
+            assert np.allclose(calc, rec, rtol=rtol), msg.format(setup_name, calc, rec)
+            print_output("{:s}: rms magnitude index {:d} PASSED".format(setup_name, i))
 
 
 def generate_table(family):
@@ -336,19 +345,19 @@ def generate_table(family):
 # standard tests for pytest
 # ---------------------------
 
-@pytest.mark.parametrize('stepper,family',  # TODO: Consider different time integrators
+@pytest.mark.parametrize('stepper,family,rms',  # TODO: Consider different time integrators
                          [
-                             ('CrankNicolson', 'dg-dg'),
-                             ('CrankNicolson', 'dg-cg'),
-                             ('CrankNicolson', 'rt-dg'),
+                             ('CrankNicolson', 'dg-dg', [1.1522e-02, 4.3892e-03]),
+                             ('CrankNicolson', 'dg-cg', [8.2279e-03, 3.8402e-03]),
+                             ('CrankNicolson', 'rt-dg', [1.1779e-02, 4.2643e-03]),
                          ],
                          ids=[
                              'CrankNicolson-dg-dg',
                              'CrankNicolson-dg-cg',
                              'CrankNicolson-rt-dg',
                          ])
-def test_convergence(stepper, family):
-    run_convergence([12, 24], reference_refinement_level=768, timestepper_type=stepper,
+def test_convergence(stepper, family, rms):
+    run_convergence([12, 24], rms_list=rms, reference_refinement_level=768, timestepper_type=stepper,
                     simulation_end_time=30.0, polynomial_degree=1, element_family=family,
                     no_exports=True, expansion_order=1, model_comparison=False)
 
