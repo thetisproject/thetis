@@ -160,9 +160,11 @@ def run_convergence(ref_list, saveplot=False, **options):
 # standard tests for pytest
 # ---------------------------
 
+
 @pytest.fixture(params=[True, False])
 def auto_sipg(request):
     return request.param
+
 
 @pytest.mark.parametrize(('stepper'),
                          [('CrankNicolson')])

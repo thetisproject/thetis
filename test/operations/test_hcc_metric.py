@@ -15,12 +15,14 @@ def compute_hcc_metric(nelem, nlayers, slope, deform='uniform'):
     xyz = SpatialCoordinate(mesh)
     if deform == 'uniform':
         mesh.coordinates.dat.data[:, 2] = (
-            mesh.coordinates.dat.data[:, 2] +
-            slope*mesh.coordinates.dat.data[:, 0])
+            mesh.coordinates.dat.data[:, 2]
+            + slope*mesh.coordinates.dat.data[:, 0]
+        )
     else:
         mesh.coordinates.dat.data[:, 2] = (
-            mesh.coordinates.dat.data[:, 2] +
-            slope*mesh.coordinates.dat.data[:, 0]*mesh.coordinates.dat.data[:, 2])
+            mesh.coordinates.dat.data[:, 2]
+            + slope*mesh.coordinates.dat.data[:, 0]*mesh.coordinates.dat.data[:, 2]
+        )
 
     P1DG = utility.get_functionspace(mesh, 'DG', 1)
     f_hcc = Function(P1DG, name='hcc_metric_3d')

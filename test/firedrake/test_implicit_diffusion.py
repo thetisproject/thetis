@@ -156,19 +156,19 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     solution_2 = Function(fs, name='tracer K2')
     gamma = Constant((2.0 + np.sqrt(2.0))/2.0)
 
-    f1 = (inner(solution_1, test)*dx - inner(solution, test)*dx -
-          gamma*dt_const*rhs(solution_1))
+    f1 = (inner(solution_1, test)*dx - inner(solution, test)*dx
+          - gamma*dt_const*rhs(solution_1))
     prob1 = NonlinearVariationalProblem(f1, solution_1)
     solver1 = LinearVariationalSolver(prob1, solver_parameters=sp)
 
-    f2 = (inner(solution_2, test)*dx - inner(solution, test)*dx -
-          (1.0-gamma)*dt_const*rhs(solution_1) -
-          (gamma)*dt_const*rhs(solution_2))
+    f2 = (inner(solution_2, test)*dx - inner(solution, test)*dx
+          - (1.0-gamma)*dt_const*rhs(solution_1)
+          - (gamma)*dt_const*rhs(solution_2))
     prob2 = NonlinearVariationalProblem(f2, solution_2)
     solver2 = LinearVariationalSolver(prob2, solver_parameters=sp)
 
-    f = (inner(solution_new, test)*dx - inner(solution, test)*dx -
-         dt_const*(0.5*rhs(solution_1) + 0.5*rhs(solution_2)))
+    f = (inner(solution_new, test)*dx - inner(solution, test)*dx
+         - dt_const*(0.5*rhs(solution_1) + 0.5*rhs(solution_2)))
     prob = NonlinearVariationalProblem(f, solution_new)
     solver = LinearVariationalSolver(prob, solver_parameters=sp)
 

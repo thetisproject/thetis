@@ -88,13 +88,13 @@ def run(setup, refinement, do_export=True, **options):
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     bathymetry_2d.project(setup_obj.bath(x_2d, y_2d, lx, ly))
 
-    solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d, )
+    solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     solver_obj.options.element_family = 'dg-dg'
     solver_obj.options.horizontal_velocity_scale = Constant(1.0)
     solver_obj.options.no_exports = not do_export
     solver_obj.options.output_directory = outputdir
     solver_obj.options.simulation_end_time = t_end
-    solver_obj.options.fields_to_export = ['tracer_2d', 'uv_2d',]
+    solver_obj.options.fields_to_export = ['tracer_2d', 'uv_2d', ]
     solver_obj.options.horizontal_viscosity_scale = Constant(50.0)
     solver_obj.options.update(options)
     solver_obj.options.solve_tracer = True
@@ -102,11 +102,11 @@ def run(setup, refinement, do_export=True, **options):
     solver_obj.create_function_spaces()
 
     # functions for source terms
-    x, y= SpatialCoordinate(solver_obj.mesh2d)
-    solver_obj.options.tracer_source_2d = setup_obj.residual(x, y,  lx, ly)
+    x, y = SpatialCoordinate(solver_obj.mesh2d)
+    solver_obj.options.tracer_source_2d = setup_obj.residual(x, y, lx, ly)
 
     # diffusivuty
-    solver_obj.options.horizontal_diffusivity = setup_obj.kappa(x, y,  lx, ly)
+    solver_obj.options.horizontal_diffusivity = setup_obj.kappa(x, y, lx, ly)
 
     # analytical solution
     trac_ana = setup_obj.tracer(x, y, lx, ly)
@@ -116,16 +116,16 @@ def run(setup, refinement, do_export=True, **options):
                                           3: bnd_tracer, 4: bnd_tracer}
 
     solver_obj.create_equations()
-    solver_obj.assign_initial_conditions(elev = setup_obj.elev(x, y, lx, ly),
-                                         uv = setup_obj.uv(x, y, lx, ly),
-                                         tracer = setup_obj.tracer(x, y, lx, ly))
+    solver_obj.assign_initial_conditions(elev=setup_obj.elev(x, y, lx, ly),
+                                         uv=setup_obj.uv(x, y, lx, ly),
+                                         tracer=setup_obj.tracer(x, y, lx, ly))
 
     # solve tracer advection-diffusion equation with residual source term
     ti = solver_obj.timestepper
     ti.timesteppers.tracer.initialize(ti.fields.tracer_2d)
 
     t = 0
-    while t < t_end :
+    while t < t_end:
         ti.timesteppers.tracer.advance(t)
         if ti.options.use_limiter_for_tracers:
             ti.solver.tracer_limiter.apply(ti.fields.tracer_2d)
@@ -143,7 +143,7 @@ def run_convergence(setup, ref_list, do_export=False, save_plot=False, **options
     """Runs test for a list of refinements and computes error convergence rate"""
     l2_err = []
     for r in ref_list:
-        l2_err.append(run(setup, r,  do_export=do_export, **options))
+        l2_err.append(run(setup, r, do_export=do_export, **options))
     x_log = numpy.log10(numpy.array(ref_list, dtype=float)**-1)
     y_log = numpy.log10(numpy.array(l2_err))
 
@@ -172,7 +172,7 @@ def run_convergence(setup, ref_list, do_export=False, save_plot=False, **options
             ax.set_title('tracer adv-diff MMS DG ')
             ref_str = 'ref-' + '-'.join([str(r) for r in ref_list])
 
-            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str,])
+            imgfile = '_'.join(['convergence', setup_name, field_str, ref_str])
             imgfile += '.png'
             img_dir = create_directory('plots')
             imgfile = os.path.join(img_dir, imgfile)
@@ -198,9 +198,8 @@ def timestepper_type(request):
     return request.param
 
 
-@pytest.fixture(params=[Setup1,
-                        Setup2,],
-                ids=['setup1', 'setup2',])
+@pytest.fixture(params=[Setup1, Setup2, ],
+                ids=['setup1', 'setup2', ])
 def setup(request):
     return request.param
 

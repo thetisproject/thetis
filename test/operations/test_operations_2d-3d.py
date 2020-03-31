@@ -51,7 +51,7 @@ def u_2d(mesh2d, spaces):
 def u(mesh, spaces):
     (name, order), (vname, vorder) = spaces
     return utility.get_functionspace(mesh, name, order, vname, vorder,
-                                        vector=True)
+                                     vector=True)
 
 
 @pytest.fixture
