@@ -141,9 +141,10 @@ def asymptotic_expansion_elev(H_2d, order=1, time=0.0, soliton_amplitude=0.395):
 
 
 def run(refinement_level, reference_solution, **model_options):
-    print_output("--- running refinement level {:}".format(refinement_level))
     order = model_options.pop('expansion_order')
+    family = model_options.get('element_family')
     model_comparison = model_options.pop('model_comparison')
+    print_output("--- running refinement level {:d} in {:s} space".format(refinement_level, family))
 
     # Set up domain
     lx, ly = 48, 24
@@ -267,11 +268,11 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
     }
     for metric in labels:
         metrics[metric] = []
-    msg = "Error metrics for refinement level {:d}:\n"
     for r in ref_list:
+        msg = "Error metrics:"
         for metric, value in zip(labels, run(r, elev_a, **options)):
             metrics[metric].append(value)
-            msg = ' '.join([msg.format(r), ' '.join([metric, formats[metric].format(value)])])
+            msg = ' '.join([msg, metric, formats[metric].format(value)])
         print_output(msg)
     return metrics
 
@@ -279,15 +280,17 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
 def run_convergence(ref_list, reference_refinement_level=50, **options):
     """Runs test for a list of refinements and computes error convergence rate."""
     setup_name = 'rossby-soliton'
+    family = options.get('element_family')
 
     # Evaluate error metrics
     metrics = compute_error_metrics(ref_list, reference_refinement_level, **options)
 
     # Save metrics to .json file for model comparison
-    if not options.get('no_exports'):
+    if options.get('model_comparison'):
         di = create_directory(os.path.join(os.path.dirname(__file__), 'data'))
-        with open(os.path.join(di, 'Thetis.json'), 'w+') as f:
+        with open(os.path.join(di, 'Thetis_{:s}.json'.format(family)), 'w+') as f:
             json.dump(metrics, f, ensure_ascii=False)
+        # TODO: Plot convergence of error metrics
 
     # Check convergence of relative mean peak height and phase speed
     slope_rtol = 0.01
@@ -299,14 +302,17 @@ def run_convergence(ref_list, reference_refinement_level=50, **options):
             print_output("{:s}: error metric {:s} index {:d} PASSED".format(setup_name, m, i))
 
 
-def generate_table():
+def generate_table(family):
     head = "|Model   |    dx    |    dt    |    h+    |    h-    |    c+    |    c-    |    rms    |"
     rule = "|--------|----------|----------|----------|----------|----------|----------|-----------|"
     out = '\n'.join([head, rule])
     msg = "|{:7s} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:10.3e} |"
     msg_roms = "|{:7s} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |           |"
     for model in ('FVCOM', 'ROMS', 'Thetis'):
-        with open(os.path.join('data', model+'.json'), 'r') as f:
+        fname = os.path.join('data', model)
+        if model == 'Thetis':
+            fname = '_'.join([fname, family])
+        with open(fname+'.json', 'r') as f:
             data = json.load(f)
             for i in range(len(data['dx'])):
                 vals = (model, data['dx'][i], data['dt'][i],)
@@ -324,11 +330,20 @@ def generate_table():
 # standard tests for pytest
 # ---------------------------
 
-@pytest.mark.parametrize(('stepper'),
-                         [('CrankNicolson')])
-def test_convergence(stepper):
-    run_convergence([12, 24, 48], reference_refinement_level=768, timestepper_type=stepper,
-                    polynomial_degree=1, element_family='dg-dg', no_exports=True,
+@pytest.mark.parametrize('stepper,family',  # TODO: Consider different time integrators
+                         [
+                             ('CrankNicolson', 'dg-dg'),
+                             ('CrankNicolson', 'dg-cg'),
+                             ('CrankNicolson', 'rt-dg'),
+                         ],
+                         ids=[
+                             'CrankNicolson-dg-dg',
+                             'CrankNicolson-dg-cg',
+                             'CrankNicolson-rt-dg',
+                         ])
+def test_convergence(stepper, family):
+    run_convergence([12, 24], reference_refinement_level=768, timestepper_type=stepper,
+                    polynomial_degree=1, element_family=family, no_exports=True,
                     expansion_order=1, model_comparison=False)
 
 # --------------------------------------------
@@ -337,14 +352,15 @@ def test_convergence(stepper):
 
 
 if __name__ == "__main__":
+    family = 'dg-dg'
     run_convergence([96, 192, 480], reference_refinement_level=1200,
                     timestepper_type='CrankNicolson', polynomial_degree=1,
-                    element_family='dg-dg', no_exports=False,
+                    element_family=family, no_exports=False,
                     expansion_order=1, model_comparison=True)
 
     # Compare results against FVCOM and ROMS given in [1].
-    table = generate_table()
+    table = generate_table(family)
     print_output(table)
     di = create_directory(os.path.join(os.path.dirname(__file__), 'outputs'))
-    with open(os.path.join(di, 'model_comparison.md'), 'w+') as md:
+    with open(os.path.join(di, 'model_comparison_{:s}.md'.format(family)), 'w+') as md:
         md.write(table)
