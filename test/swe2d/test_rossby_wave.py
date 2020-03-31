@@ -143,6 +143,7 @@ def asymptotic_expansion_elev(H_2d, order=1, time=0.0, soliton_amplitude=0.395):
 def run(refinement_level, reference_solution, **model_options):
     print_output("--- running refinement level {:}".format(refinement_level))
     order = model_options.pop('expansion_order')
+    model_comparison = model_options.pop('model_comparison')
 
     # Set up domain
     lx, ly = 48, 24
@@ -153,13 +154,16 @@ def run(refinement_level, reference_solution, **model_options):
     mesh2d.coordinates.interpolate(as_vector([x-lx/2, y-ly/2]))
     T = 120.0
 
+    # Physics
     physical_constants['g_grav'].assign(1.0)
+    P1_2d = FunctionSpace(mesh2d, "CG", 1)
+    bathymetry2d = Function(P1_2d).assign(1.0)
 
     # Create solver object
-    solver_obj = solver2d.FlowSolver2d(mesh2d, Constant(1.0))
+    solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
     options = solver_obj.options
     options.timestepper_type = 'CrankNicolson'
-    options.timestep = 0.96/refinement_level
+    options.timestep = 0.96/refinement_level if model_comparison else 9.6/refinement_level
     options.simulation_export_time = 5.0
     options.simulation_end_time = T
     options.use_grad_div_viscosity_term = False
@@ -232,6 +236,8 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
     order = options.get('expansion_order')
     degree = options.get('polynomial_degree')
     family = options.get('element_family')
+    model_comparison = options.get('model_comparison')
+    T = options.get('simulation_end_time')
     if family in ('dg-dg', 'rt-dg'):
         family = 'Discontinuous Lagrange'
     elif family == 'dg-cg':
@@ -255,7 +261,10 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
     # Compute metrics for each refinement level
     labels = ('h+', 'h-', 'c+', 'c-', 'rms')
     formats = {'h+': '{:6.4f}', 'h-': '{:6.4f}', 'c+': '{:6.4f}', 'c-': '{:6.4f}', 'rms': '{:6.4e}'}
-    metrics = {'dx': [24/r for r in ref_list], 'dt': [0.96/r for r in ref_list]}
+    metrics = {
+        'dx': [24/r for r in ref_list],
+        'dt': [0.96/r for r in ref_list] if model_comparison else [9.6/r for r in ref_list],
+    }
     for metric in labels:
         metrics[metric] = []
     msg = "Error metrics for refinement level {:d}:\n"
@@ -318,9 +327,9 @@ def generate_table():
 @pytest.mark.parametrize(('stepper'),
                          [('CrankNicolson')])
 def test_convergence(stepper):
-    run_convergence([12, 24], reference_refinement_level=768,
-                    polynomial_degree=1, element_family='dg-dg', expansion_order=1,
-                    timestepper_type=stepper, no_exports=True)
+    run_convergence([12, 24, 48], reference_refinement_level=768, timestepper_type=stepper,
+                    polynomial_degree=1, element_family='dg-dg', no_exports=True,
+                    expansion_order=1, model_comparison=False)
 
 # --------------------------------------------
 # run individual setup for model comparison
@@ -329,8 +338,9 @@ def test_convergence(stepper):
 
 if __name__ == "__main__":
     run_convergence([96, 192, 480], reference_refinement_level=1200,
-                    polynomial_degree=1, element_family='dg-dg', expansion_order=1,
-                    timestepper_type='CrankNicolson', no_exports=False)
+                    timestepper_type='CrankNicolson', polynomial_degree=1,
+                    element_family='dg-dg', no_exports=False,
+                    expansion_order=1, model_comparison=True)
 
     # Compare results against FVCOM and ROMS given in [1].
     table = generate_table()
