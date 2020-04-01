@@ -144,12 +144,13 @@ def run(refinement_level, reference_solution, **model_options):
     order = model_options.pop('expansion_order')
     family = model_options.get('element_family')
     model_comparison = model_options.pop('model_comparison')
+    overlap = model_options.pop('overlap')
     print_output("--- running refinement level {:d} in {:s} space".format(refinement_level, family))
 
     # Set up domain
     lx, ly = 48, 24
     nx, ny = 2*refinement_level, refinement_level
-    params = {'partition': True, 'overlap_type': (DistributedMeshOverlapType.VERTEX, 10)}
+    params = {'partition': True, 'overlap_type': (DistributedMeshOverlapType.VERTEX, overlap)}
     mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x', distribution_parameters=params)
     x, y = SpatialCoordinate(mesh2d)
     mesh2d.coordinates.interpolate(as_vector([x-lx/2, y-ly/2]))
@@ -243,22 +244,14 @@ def run(refinement_level, reference_solution, **model_options):
 
 def compute_error_metrics(ref_list, reference_refinement_level, **options):
     order = options.get('expansion_order')
-    degree = options.get('polynomial_degree')
-    family = options.get('element_family')
     model_comparison = options.get('model_comparison')
+    overlap = options.get('overlap')
     T = options.get('simulation_end_time')
-    if family in ('dg-dg', 'rt-dg'):
-        family = 'Discontinuous Lagrange'
-    elif family == 'dg-cg':
-        family = 'Lagrange'
-        degree += 1
-    else:
-        raise ValueError("Element pair {:s} not recognised.".format(family))
 
     # Build reference mesh
     lx, ly = 48, 24
     nx_fine, ny_fine = 2*reference_refinement_level, reference_refinement_level
-    params = {'partition': True, 'overlap_type': (DistributedMeshOverlapType.VERTEX, 10)}
+    params = {'partition': True, 'overlap_type': (DistributedMeshOverlapType.VERTEX, overlap)}
     ref_mesh = PeriodicRectangleMesh(nx_fine, ny_fine, lx, ly, direction='x', distribution_parameters=params)
     x_fine, y_fine = SpatialCoordinate(ref_mesh)
     ref_mesh.coordinates.interpolate(as_vector([x_fine-lx/2, y_fine-ly/2]))
@@ -266,6 +259,10 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
     # Get asymptotic solution at final time on a reference mesh
     P1_2d_ref = FunctionSpace(ref_mesh, "CG", 1)
     elev_a = asymptotic_expansion_elev(P1_2d_ref, order=order, time=(T % 120))
+
+    def out_str(m, v):
+        msg = ' {:s} {:6.4e}' if m == 'rms' else ' {:s} {:6.4f}'
+        return msg.format(m, v)
 
     # Compute metrics for each refinement level
     labels = ('h+', 'h-', 'c+', 'c-', 'rms')
@@ -280,7 +277,7 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
         msg = "Error metrics:"
         for metric, value in zip(labels, run(r, elev_a, **options)):
             metrics[metric].append(value)
-            msg = ' '.join([msg, metric, formats[metric].format(value)])
+            msg += out_str(metric, value)
         print_output(msg)
     return metrics
 
@@ -361,7 +358,7 @@ def generate_table(family):
 def test_convergence(stepper, family, rms):
     run_convergence([12, 24], rms_list=rms, reference_refinement_level=768, timestepper_type=stepper,
                     simulation_end_time=30.0, polynomial_degree=1, element_family=family,
-                    no_exports=True, expansion_order=1, model_comparison=False)
+                    no_exports=True, expansion_order=1, model_comparison=False, overlap=20)
 
 # --------------------------------------------
 # run individual setup for model comparison
@@ -373,7 +370,7 @@ if __name__ == "__main__":
     run_convergence([96, 192, 480], reference_refinement_level=1200,
                     timestepper_type='CrankNicolson', simulation_end_time=120.0,
                     polynomial_degree=1, element_family=family,
-                    no_exports=False, expansion_order=1, model_comparison=True)
+                    no_exports=False, expansion_order=1, model_comparison=True, overlap=1200)
 
     # Compare results against FVCOM and ROMS given in [1].
     table = generate_table(family)
