@@ -467,12 +467,10 @@ class BottomFrictionTerm(MomentumTerm):
     .. math::
         C_D = \left( \frac{\kappa}{\ln (h_b + z_0)/z_0} \right)^2
 
-    where :math:`z_0` is the bottom roughness length, read from ``z0_friction``
-    field.
+    where :math:`z_0` is the bottom roughness length field.
     The user can override the :math:`C_D` value by providing ``quadratic_drag_coefficient``
     field.
     """
-    # TODO z_0 should be a field in the options dict, remove from physical_constants
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
         if self.use_bottom_friction:
@@ -484,20 +482,23 @@ class BottomFrictionTerm(MomentumTerm):
                 uv = solution
                 uv_old = solution_old
 
-            z_bot = 0.5*self.v_elem_size
+            z_bot = Constant(0.5)*self.v_elem_size
             drag = fields_old.get('quadratic_drag_coefficient')
             if drag is None:
-                z0_friction = physical_constants['z0_friction']
+                bfr_roughness = fields_old.get('bottom_roughness')
+                assert bfr_roughness is not None, \
+                    'if use_bottom_friction=True, either bottom_roughness or quadratic_drag_coefficient must be defined'
                 von_karman = physical_constants['von_karman']
-                drag = (von_karman / ln((z_bot + z0_friction)/z0_friction))**2
+                drag = (von_karman / ln((z_bot + bfr_roughness)/bfr_roughness))**2
             # compute uv_bottom implicitly
-            uv_bot = uv + Dx(uv, 2)*z_bot
             uv_bot_old = uv_old + Dx(uv_old, 2)*z_bot
             uv_bot_mag = sqrt(uv_bot_old[0]**2 + uv_bot_old[1]**2)
-            stress = drag*uv_bot_mag*uv_bot
-            bot_friction = (stress[0]*self.test[0]
-                            + stress[1]*self.test[1])*self.ds_bottom
-            f += bot_friction
+            stress = drag*uv_bot_mag**2
+            # Scale bottom stress by uv_{n+1}/|uv_{n} + eps| at bottom
+            uv_old_mag = sqrt(uv_old[0]**2 + uv_old[1]**2)
+            epsilon = Constant(1e-3)
+            bfr = stress / (uv_old_mag + epsilon)
+            f += bfr * (self.test[0]*uv[0] + self.test[1]*uv[1])*self.ds_bottom
         return -f
 
 

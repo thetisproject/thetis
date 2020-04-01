@@ -723,13 +723,15 @@ class PsiSourceTerm(TracerTerm):
         p = self.gls_model.options.p
         m = self.gls_model.options.m
         n = self.gls_model.options.n
-        z0_friction = physical_constants['z0_friction']
+        bfr_roughness = fields_old.get('bottom_roughness')
+        if bfr_roughness is None:
+            bfr_roughness = Constant(0)
         kappa = physical_constants['von_karman']
         if self.v_elem_size is None:
             raise Exception('v_elem_size required')
         # bottom condition
         elem_frac = Constant(0.5)
-        z_b = elem_frac*self.v_elem_size + z0_friction
+        z_b = elem_frac*self.v_elem_size + bfr_roughness
         diff_flux = (n*diffusivity_v*(cmu0)**p
                      * k**m * kappa**n * z_b**(n - 1.0))
         f += diff_flux*self.test*self.normal[2]*ds_bottom

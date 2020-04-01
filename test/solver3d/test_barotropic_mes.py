@@ -68,7 +68,7 @@ def run(refinement=1, ncycles=2, **kwargs):
     options.check_temperature_overshoot = conservation_check
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'salt_3d', 'temp_3d',
-                                'uv_dav_2d', 'uv_bottom_2d']
+                                'uv_dav_2d']
     options.fields_to_export_hdf5 = []
     options.update(kwargs)
 

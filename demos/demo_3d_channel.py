@@ -50,7 +50,7 @@ options.simulation_export_time = 900.0
 options.simulation_end_time = 24 * 3600
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d', 'baroc_head_3d',
-                            'uv_dav_2d', 'uv_bottom_2d']
+                            'uv_dav_2d']
 
 # We set this simulation to be barotropic (i.e. salinity and temperature do not
 # affect water density), but we still wish to simulate salinity as a passive

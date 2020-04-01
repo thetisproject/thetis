@@ -40,19 +40,6 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
             with timed_stage('aux_mesh_ale'):
                 self.solver.mesh_updater.update_mesh_coordinates()
 
-    def _update_bottom_friction(self):
-        """Computes bottom friction related fields"""
-        if self.options.use_bottom_friction:
-            with timed_stage('aux_friction'):
-                self.solver.uv_p1_projector.project()
-                compute_bottom_friction(
-                    self.solver,
-                    self.fields.uv_p1_3d, self.fields.uv_bottom_2d,
-                    self.fields.z_bottom_2d, self.fields.bathymetry_2d,
-                    self.fields.bottom_drag_2d)
-        if self.options.use_parabolic_viscosity:
-            self.solver.parabolic_viscosity_solver.solve()
-
     def _update_2d_coupling(self):
         """Does 2D-3D coupling for the velocity field"""
         with timed_stage('aux_uv_coupling'):
@@ -127,7 +114,6 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
         if do_2d_coupling:
             self._update_2d_coupling()
         self._update_vertical_velocity()
-        self._update_bottom_friction()
         self._update_baroclinicity()
         if do_turbulence:
             self._update_turbulence(t)
@@ -242,6 +228,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             'linear_drag_coefficient': self.options.linear_drag_coefficient,
             'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
             'wind_stress': self.fields.get('wind_stress_3d'),
+            'bottom_roughness': self.options.bottom_roughness,
         }
         if not self.solver.options.use_implicit_vertical_diffusion:
             fields.update(friction_fields)
@@ -343,7 +330,8 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'epsilon': solver.turbulence_model.epsilon,
                       'shear_freq2': solver.turbulence_model.m2,
                       'buoy_freq2_neg': solver.turbulence_model.n2_neg,
-                      'buoy_freq2_pos': solver.turbulence_model.n2_pos
+                      'buoy_freq2_pos': solver.turbulence_model.n2_pos,
+                      'bottom_roughness': self.options.bottom_roughness,
                       }
             self.timesteppers.tke_impl = self.integrator_vert_3d(
                 eq_tke_diff, solver.fields.tke_3d, fields, solver.dt,
@@ -498,7 +486,6 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
         # dependencies for 2D update
         self._update_2d_coupling()
         self._update_baroclinicity()
-        self._update_bottom_friction()
 
         # update 2D
         if self.options.use_ale_moving_mesh:
@@ -572,7 +559,6 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
         if self.options.use_implicit_vertical_diffusion:
             self._update_2d_coupling()
             self._update_baroclinicity()
-            self._update_bottom_friction()
             self._update_turbulence(t)
             if self.options.solve_salinity:
                 with timed_stage('impl_salt_vdiff'):
@@ -588,7 +574,6 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
         else:
             self._update_2d_coupling()
             self._update_baroclinicity()
-            self._update_bottom_friction()
             self._update_vertical_velocity()
             self._update_stabilization_params()
 
@@ -734,7 +719,6 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
                 self._update_vertical_velocity()
                 # update parametrizations
                 self._update_turbulence(t)
-                self._update_bottom_friction()
                 self._update_stabilization_params()
             else:
                 # update variables that explict solvers depend on

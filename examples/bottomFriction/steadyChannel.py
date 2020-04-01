@@ -23,8 +23,6 @@ momentum equation.
 from thetis import *
 import numpy
 
-physical_constants['z0_friction'].assign(1.5e-3)
-
 depth = 15.0
 surf_slope = -1.0e-5  # d elev/dx
 
@@ -67,8 +65,8 @@ def bottom_friction_test(layers=25, gls_closure='k-omega',
     options.solve_temperature = False
     options.use_implicit_vertical_diffusion = True
     options.use_bottom_friction = True
+    options.bottom_roughness = Constant(1.5e-3)
     options.use_turbulence = True
-    options.use_parabolic_viscosity = False
     options.vertical_viscosity = Constant(1.3e-6)  # background value
     options.vertical_diffusivity = Constant(1.4e-7)  # background value
     # options.use_ale_moving_mesh = False
@@ -79,10 +77,10 @@ def bottom_friction_test(layers=25, gls_closure='k-omega',
     options.simulation_end_time = t_end
     options.horizontal_velocity_scale = Constant(u_mag)
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
-                                'uv_dav_2d', 'uv_bottom_2d',
-                                'parab_visc_3d', 'eddy_visc_3d', 'shear_freq_3d',
+                                'uv_dav_2d',
+                                'eddy_visc_3d', 'shear_freq_3d',
                                 'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
-    options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d', 'uv_bottom_2d',
+    options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
                                      'eddy_visc_3d', 'eddy_diff_3d',
                                      'shear_freq_3d',
                                      'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
@@ -123,7 +121,7 @@ def bottom_friction_test(layers=25, gls_closure='k-omega',
             u_max = 0.9  # max velocity in [2] Fig 2.
             l2_tol = 0.05
             kappa = solver_obj.options.turbulence_model_options.kappa
-            z_0 = physical_constants['z0_friction'].dat.data[0]
+            z_0 = options.bottom_roughness.dat.data[0]
             u_b = u_max * kappa / np.log((depth + z_0)/z_0)
             log_uv = Function(solver_obj.function_spaces.P1DGv, name='log velocity')
             log_uv.project(as_vector((u_b / kappa * ln((xyz[2] + depth + z_0)/z_0), 0, 0)))

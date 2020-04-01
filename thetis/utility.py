@@ -1099,55 +1099,6 @@ def compute_elem_height(zcoord, output):
     return output
 
 
-def compute_bottom_drag(h_b, drag):
-    r"""
-    Computes bottom drag coefficient (Cd) from the law-of-the wall
-
-    .. math::
-        C_D = \left( \frac{\kappa}{\ln (h_b + z_0)/z_0} \right)^2
-
-    :arg h_b: the height above bed where the bottom velocity is evaluated in
-        the law-of-the-wall fit
-    :type h_b: :class:`Function`
-    :arg drag: field where C_D is stored
-    :type drag: :class:`Function`
-    """
-    # FIXME z0 should be a field, i.e. an argument to this function
-    von_karman = physical_constants['von_karman']
-    z0_friction = physical_constants['z0_friction']
-    drag.assign((von_karman / ln((h_b + z0_friction)/z0_friction))**2)
-    return drag
-
-
-def compute_bottom_friction(solver, uv_3d, uv_bottom_2d,
-                            z_bottom_2d, bathymetry_2d,
-                            bottom_drag_2d):
-    """
-    Updates bottom friction related fields for the 3D model
-
-    :arg solver: :class:`FlowSolver` object
-    :arg uv_3d: horizontal velocity
-    :type uv_3d: 3D vector :class:`Function`
-    :arg uv_bottom_2d: 2D bottom velocity field
-    :type uv_bottom_2d: 2D vector :class:`Function`
-    :arg z_bottom_2d: Bottom element z coordinate
-    :type z_bottom_2d: 2D scalar :class:`Function`
-    :arg bathymetry_2d: Bathymetry field
-    :type bathymetry_2d: 2D scalar :class:`Function`
-    :arg bottom_drag_2d: Bottom grad field
-    :type bottom_drag_2d: 2D scalar :class:`Function`
-    """
-    # TODO all input fields could be just fetched from solver.fields ...
-    # compute velocity at middle of bottom element
-    solver.extract_uv_bottom.solve()
-    solver.extract_z_bottom.solve()
-    z_bottom_2d.assign((z_bottom_2d + bathymetry_2d))
-    compute_bottom_drag(z_bottom_2d, bottom_drag_2d)
-    if solver.options.use_parabolic_viscosity:
-        solver.copy_uv_bottom_to_3d.solve()
-        solver.copy_bottom_drag_to_3d.solve()
-
-
 def get_horizontal_elem_size_2d(sol2d):
     """
     Computes horizontal element size from the 2D mesh
@@ -1372,60 +1323,6 @@ class ALEMeshUpdater(object):
         self.fields.z_coord_3d.dat.data[:] = new_z
         self.update_elem_height()
         self.solver.mesh.clear_spatial_index()
-
-
-class ParabolicViscosity(object):
-    r"""
-    Computes parabolic eddy viscosity profile assuming log layer flow
-
-    .. math::
-        \nu = \kappa u_{bf}  \frac{(-z)(h + z_0 + z)}{h + z_0}
-
-    with
-
-    .. math::
-        u_{bf} = \sqrt{C_D} |\mathbf{u}_b|
-
-    """
-    def __init__(self, uv_bottom, bottom_drag, bathymetry, nu,
-                 solver_parameters={}):
-        """
-        :arg uv_bottom: bottom velocity
-        :type uv_bottom: 3D :class:`Function`
-        :arg bottom_drag: bottom drag field
-        :type bottom_drag: 3D :class:`Function`
-        :arg bathymetry: bathymetry field
-        :type bathymetry: 3D :class:`Function`
-        :arg nu: eddy viscosity field
-        :type nu: 3D :class:`Function`
-        :kwarg dict solver_parameters: PETSc solver options
-        """
-        solver_parameters.setdefault('ksp_atol', 1e-12)
-        solver_parameters.setdefault('ksp_rtol', 1e-16)
-        self.min_val = 1e-10
-        self.solution = nu
-
-        kappa = physical_constants['von_karman']
-        z0 = physical_constants['z0_friction']
-        fs = nu.function_space()
-        x = fs.mesh().coordinates
-        test = TestFunction(fs)
-        tri = TrialFunction(fs)
-        a = tri*test*dx
-        uv_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
-        parabola = -x[2]*(bathymetry + z0 + x[2])/(bathymetry + z0)
-        l = kappa*sqrt(bottom_drag)*uv_mag*parabola*test*dx
-        self.prob = LinearVariationalProblem(a, l, nu)
-        self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
-
-    def solve(self):
-        """
-        Computes viscosity and stores it in nu field
-        """
-        self.solver.solve()
-        # remove negative values
-        ix = self.solution.dat.data[:] < self.min_val
-        self.solution.dat.data[ix] = self.min_val
 
 
 def beta_plane_coriolis_params(latitude):

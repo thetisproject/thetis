@@ -593,11 +593,6 @@ class ModelOptions3d(CommonModelOptions):
     solve_temperature = Bool(True, help='Solve temperature transport').tag(config=True)
     use_implicit_vertical_diffusion = Bool(True, help='Solve vertical diffusion and viscosity implicitly').tag(config=True)
     use_bottom_friction = Bool(True, help='Apply log layer bottom stress in the 3D model').tag(config=True)
-    use_parabolic_viscosity = Bool(
-        False,
-        help="""Use idealized parabolic eddy viscosity
-
-        See :class:`.ParabolicViscosity`""").tag(config=True)
     use_ale_moving_mesh = Bool(
         True, help="Use ALE formulation where 3D mesh tracks free surface").tag(config=True)
     use_baroclinic_formulation = Bool(
@@ -679,6 +674,8 @@ class ModelOptions3d(CommonModelOptions):
         equation of state.
         If False, density is computed point-wise in the tracer space.
         """).tag(config=True)
+    bottom_roughness = FiredrakeScalarExpression(
+        None, allow_none=True, help="Bottom roughness length in meters.").tag(config=True)
     horizontal_diffusivity = FiredrakeScalarExpression(
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
     vertical_diffusivity = FiredrakeScalarExpression(
