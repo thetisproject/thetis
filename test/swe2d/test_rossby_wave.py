@@ -150,7 +150,7 @@ def run(refinement_level, reference_solution, **model_options):
     lx, ly = 48, 24
     nx, ny = 2*refinement_level, refinement_level
     params = {'partition': True, 'overlap_type': (DistributedMeshOverlapType.VERTEX, 10)}
-    mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, distribution_parameters=params)
+    mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x', distribution_parameters=params)
     x, y = SpatialCoordinate(mesh2d)
     mesh2d.coordinates.interpolate(as_vector([x-lx/2, y-ly/2]))
 
@@ -259,7 +259,7 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
     lx, ly = 48, 24
     nx_fine, ny_fine = 2*reference_refinement_level, reference_refinement_level
     params = {'partition': True, 'overlap_type': (DistributedMeshOverlapType.VERTEX, 10)}
-    ref_mesh = PeriodicRectangleMesh(nx_fine, ny_fine, lx, ly, distribution_parameters=params)
+    ref_mesh = PeriodicRectangleMesh(nx_fine, ny_fine, lx, ly, direction='x', distribution_parameters=params)
     x_fine, y_fine = SpatialCoordinate(ref_mesh)
     ref_mesh.coordinates.interpolate(as_vector([x_fine-lx/2, y_fine-ly/2]))
 
