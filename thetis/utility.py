@@ -299,20 +299,13 @@ def comp_volume_3d(mesh):
     return val
 
 
-def comp_tracer_mass_2d(eta, tracer_terms, opt_cons, scalar_func):
+def comp_tracer_mass_2d(scalar_func, total_depth):
     """
     Computes total tracer mass in the 2D domain
-    :arg eta: elevation :class:`Function`
-    :arg tracer_terms: terms from tracer equation :class: 'Dictionary'
-    :opt_cons switch for conservative or non-conservative tracer
-    :arg scalar_func: scalar :class:`Function` to integrate
+    :arg scalar_func: depth-averaged scalar :class:`Function` to integrate
+    :arg total_depth: scalar UFL expression (e.g. from get_total_depth())
     """
-    if opt_cons:
-        val = assemble(scalar_func*dx)
-    else:
-        keys = [i for i in tracer_terms.keys()]
-        H = tracer_terms[keys[0]].get_total_depth(eta)
-        val = assemble(H*scalar_func*dx)
+    val = assemble(scalar_func*total_depth*dx)
     return val
 
 
@@ -1731,3 +1724,40 @@ def select_and_move_detectors(mesh, detector_locations, detector_names=None,
         return accepted_locations
     else:
         return accepted_locations, accepted_names
+
+class DepthExpression:
+    """
+    Construct expression for depth depending on options
+    """
+
+    def __init__(self, bathymetry_2d, use_nonlinear_equations=True,
+                 use_wetting_and_drying=False, wetting_and_drying_alpha=0.5):
+        self.bathymetry_2d = bathymetry_2d
+        self.use_nonlinear_equations = use_nonlinear_equations
+        self.use_wetting_and_drying = use_wetting_and_drying
+        self.wetting_and_drying_alpha = wetting_and_drying_alpha
+
+    def wd_bathymetry_displacement(self, eta):
+        """
+        Returns wetting and drying bathymetry displacement as described in:
+        Karna et al.,  2011.
+        :arg eta: current elevation as UFL expression
+        """
+        if self.use_wetting_and_drying:
+            H = self.bathymetry_2d + eta
+            return 0.5 * (sqrt(H ** 2 + self.wetting_and_drying_alpha ** 2) - H)
+        else:
+            return 0
+
+    def get_total_depth(self, eta):
+        """
+        Returns total water column depth based on options:
+        * use_nonlinear_equations
+        * use_wetting_and_drying
+        :arg eta: current elevation as UFL expression
+        """
+        if self.use_nonlinear_equations:
+            total_h = self.bathymetry_2d + eta + self.wd_bathymetry_displacement(eta)
+        else:
+            total_h = self.bathymetry_2d
+        return total_h

@@ -16,7 +16,6 @@ velocities, and
 from __future__ import absolute_import
 from .utility import *
 from .equation import Equation
-from .shallowwater_eq import ShallowWaterTermMixin
 from .tracer_eq_2d import HorizontalDiffusionTerm, TracerTerm
 
 __all__ = [
@@ -24,18 +23,18 @@ __all__ = [
 ]
 
 
-class ConservativeTracerTerm(TracerTerm, ShallowWaterTermMixin):
+class ConservativeTracerTerm(TracerTerm):
     """
     Generic depth-integrated tracer term that provides commonly used members and mapping for
     boundary functions.
     """
-    def __init__(self, function_space, bathymetry=None, options=None):
+    def __init__(self, function_space, depth, options=None):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
-        :kwarg bathymetry: bathymetry of the domain
-        :type bathymetry: 2D :class:`Function` or :class:`Constant`
+        :arg depth: :class: `DepthExpression` containing depth info
+        :arg options: :class:`.AttrDict` object containing all circulation model options
         """
-        super().__init__(function_space, bathymetry=bathymetry, options=options)
+        super().__init__(function_space, depth, options=options)
 
     # TODO: at the moment this is the same as TracerTerm, but we probably want to overload its
     # get_bnd_functions method
@@ -159,7 +158,7 @@ class ConservativeSourceTerm(ConservativeTracerTerm):
         f = 0
         source = fields_old.get('source')
         if source is not None:
-            H = self.get_total_depth(fields_old['elev_2d'])
+            H = self.depth.get_total_depth(fields_old['elev_2d'])
             f += -inner(H*source, self.test)*self.dx
         return -f
 
@@ -168,17 +167,14 @@ class ConservativeTracerEquation2D(Equation):
     """
     2D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
-    def __init__(self, function_space, bathymetry=None, options=None):
+    def __init__(self, function_space, depth, options=None):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
-        :kwarg bathymetry: bathymetry of the domain
-        :type bathymetry: 2D :class:`Function` or :class:`Constant`
-
-        :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
-            condition in the horizontal advection term
+        :arg depth: :class: `DepthExpression` containing depth info
+        :arg options: :class:`.AttrDict` object containing all circulation model options
         """
         super(ConservativeTracerEquation2D, self).__init__(function_space)
-        args = (function_space, bathymetry, options)
+        args = (function_space, depth, options)
         self.add_term(ConservativeHorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(ConservativeHorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(ConservativeSourceTerm(*args), 'source')
