@@ -145,6 +145,7 @@ def run(refinement_level, reference_solution, **model_options):
     family = model_options.get('element_family')
     model_comparison = model_options.pop('model_comparison')
     overlap = model_options.pop('overlap')
+    stepper = model_options.get('timestepper_type')
     print_output("--- running refinement level {:d} in {:s} space".format(refinement_level, family))
 
     # Set up domain
@@ -171,8 +172,8 @@ def run(refinement_level, reference_solution, **model_options):
     # Create solver object
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
     options = solver_obj.options
-    options.timestepper_type = 'CrankNicolson'
-    options.timestep = 0.96/refinement_level if model_comparison else 9.6/refinement_level
+    options.timestepper_type = stepper
+    options.timestep = 0.96/refinement_level if model_comparison or stepper == 'SSPRK33' else 9.6/refinement_level
     options.simulation_export_time = 5.0
     options.simulation_end_time = T
     options.use_grad_div_viscosity_term = False
@@ -182,6 +183,9 @@ def run(refinement_level, reference_solution, **model_options):
     solver_obj.create_function_spaces()
     options.coriolis_frequency = interpolate(y, solver_obj.function_spaces.P1_2d)
     options.update(model_options)
+    options.timestepper_options.solver_parameters['ksp_rtol'] = 1.0e-04
+    if hasattr(options.timestepper_options, 'use_automatic_timestep'):
+        options.timestepper_options.use_automatic_timestep = False
 
     # Apply boundary conditions
     for tag in mesh2d.exterior_facets.unique_markers:
@@ -197,6 +201,7 @@ def run(refinement_level, reference_solution, **model_options):
     physical_constants['g_grav'].assign(g)  # Revert g_grav value
 
     # Project solution into reference space
+    print_output("--- computing metrics for refinement level {:d} in {:s} space".format(refinement_level, family))
     ref_mesh = reference_solution.function_space().mesh()
     x, y = SpatialCoordinate(ref_mesh)
     ref_mesh._parallel_compatible = {weakref.ref(mesh2d)}
@@ -249,6 +254,7 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
     T = options.get('simulation_end_time')
 
     # Build reference mesh
+    print_output("Building reference space...")
     lx, ly = 48, 24
     nx_fine, ny_fine = 2*reference_refinement_level, reference_refinement_level
     params = {'partition': True, 'overlap_type': (DistributedMeshOverlapType.VERTEX, overlap)}
@@ -258,6 +264,7 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
 
     # Get asymptotic solution at final time on a reference mesh
     P1_2d_ref = FunctionSpace(ref_mesh, "CG", 1)
+    print_output("Assembling reference solution...")
     elev_a = asymptotic_expansion_elev(P1_2d_ref, order=order, time=(T % 120))
 
     def out_str(m, v):
@@ -266,7 +273,6 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
 
     # Compute metrics for each refinement level
     labels = ('h+', 'h-', 'c+', 'c-', 'rms')
-    formats = {'h+': '{:6.4f}', 'h-': '{:6.4f}', 'c+': '{:6.4f}', 'c-': '{:6.4f}', 'rms': '{:6.4e}'}
     metrics = {
         'dx': [24/r for r in ref_list],
         'dt': [0.96/r for r in ref_list] if model_comparison else [9.6/r for r in ref_list],
@@ -286,6 +292,7 @@ def run_convergence(ref_list, rms_list=None, reference_refinement_level=50, **op
     """Runs test for a list of refinements and computes error convergence rate."""
     setup_name = 'rossby-soliton'
     family = options.get('element_family')
+    stepper = options.get('timestepper_type')
 
     # Evaluate error metrics
     metrics = compute_error_metrics(ref_list, reference_refinement_level, **options)
@@ -293,7 +300,7 @@ def run_convergence(ref_list, rms_list=None, reference_refinement_level=50, **op
     # Save metrics to .json file for model comparison
     if options.get('model_comparison'):
         di = create_directory(os.path.join(os.path.dirname(__file__), 'data'))
-        with open(os.path.join(di, 'Thetis_{:s}.json'.format(family)), 'w+') as f:
+        with open(os.path.join(di, 'Thetis_{:s}_{:s}.json'.format(family, stepper)), 'w+') as f:
             json.dump(metrics, f, ensure_ascii=False)
         # TODO: Plot convergence of error metrics
 
@@ -316,16 +323,16 @@ def run_convergence(ref_list, rms_list=None, reference_refinement_level=50, **op
             print_output("{:s}: rms magnitude index {:d} PASSED".format(setup_name, i))
 
 
-def generate_table(family):
-    head = "|Model   |    dx    |    dt    |    h+    |    h-    |    c+    |    c-    |    rms    |"
-    rule = "|--------|----------|----------|----------|----------|----------|----------|-----------|"
+def generate_table(family, stepper):
+    head = "|Model  |    dx    |    dt    |    h+    |    h-    |    c+    |    c-    |     rms    |"
+    rule = "|-------|----------|----------|----------|----------|----------|----------|------------|"
     out = '\n'.join([head, rule])
-    msg = "|{:7s} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:10.3e} |"
-    msg_roms = "|{:7s} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |           |"
+    msg = "|{:6s} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} | {:10.4e} |"
+    msg_roms = "|{:6s} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |            |"
     for model in ('FVCOM', 'ROMS', 'Thetis'):
         fname = os.path.join('data', model)
         if model == 'Thetis':
-            fname = '_'.join([fname, family])
+            fname = '_'.join([fname, family, stepper])
         with open(fname+'.json', 'r') as f:
             data = json.load(f)
             for i in range(len(data['dx'])):
@@ -344,21 +351,33 @@ def generate_table(family):
 # standard tests for pytest
 # ---------------------------
 
-@pytest.mark.parametrize('stepper,family,rms',  # TODO: Consider different time integrators
+@pytest.mark.parametrize('stepper,family,rms',
                          [
                              ('CrankNicolson', 'dg-dg', [1.1522e-02, 4.3892e-03]),
                              ('CrankNicolson', 'dg-cg', [8.2279e-03, 3.8402e-03]),
                              ('CrankNicolson', 'rt-dg', [1.1779e-02, 4.2643e-03]),
+                             ('SSPRK33', 'dg-dg', [1.1685e-02, 4.3531e-03]),
+                             ('SSPRK33', 'dg-cg', [8.1540e-03, 3.8005e-03]),
+                             ('SSPRK33', 'rt-dg', [1.1960e-02, 4.2581e-03]),
+                             ('DIRK22', 'dg-dg', [1.1513e-02, 4.3528e-03]),
+                             ('DIRK22', 'dg-cg', [8.0205e-03, 3.6810e-03]),
+                             ('DIRK22', 'rt-dg', [1.1786e-02, 4.2588e-03]),
                          ],
                          ids=[
                              'CrankNicolson-dg-dg',
                              'CrankNicolson-dg-cg',
                              'CrankNicolson-rt-dg',
+                             'SSPRK33-dg-dg',
+                             'SSPRK33-dg-cg',
+                             'SSPRK33-rt-dg',
+                             'DIRK22-dg-dg',
+                             'DIRK22-dg-cg',
+                             'DIRK22-rt-dg',
                          ])
 def test_convergence(stepper, family, rms):
     run_convergence([12, 24], rms_list=rms, reference_refinement_level=768, timestepper_type=stepper,
                     simulation_end_time=30.0, polynomial_degree=1, element_family=family,
-                    no_exports=True, expansion_order=1, model_comparison=False, overlap=20)
+                    no_exports=True, expansion_order=1, model_comparison=False, overlap=1)
 
 # --------------------------------------------
 # run individual setup for model comparison
@@ -367,14 +386,15 @@ def test_convergence(stepper, family, rms):
 
 if __name__ == "__main__":
     family = 'dg-dg'
+    stepper = 'SSPRK33'
     run_convergence([96, 192, 480], reference_refinement_level=1200,
-                    timestepper_type='CrankNicolson', simulation_end_time=120.0,
+                    timestepper_type=stepper, simulation_end_time=30.0,
                     polynomial_degree=1, element_family=family,
                     no_exports=False, expansion_order=1, model_comparison=True, overlap=1200)
 
     # Compare results against FVCOM and ROMS given in [1].
-    table = generate_table(family)
+    table = generate_table(family, stepper)
     print_output(table)
     di = create_directory(os.path.join(os.path.dirname(__file__), 'outputs'))
-    with open(os.path.join(di, 'model_comparison_{:s}.md'.format(family)), 'w+') as md:
+    with open(os.path.join(di, 'model_comparison_{:s}_{:s}.md'.format(family, stepper)), 'w+') as md:
         md.write(table)

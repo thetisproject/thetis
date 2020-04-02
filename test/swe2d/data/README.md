@@ -6,8 +6,8 @@ same test case. The test case is described on p.3-6 of [1], where the error metr
 in Table 1.
 
 Exectuting `python3 test_rossby_wave.py` will run the test case using Thetis for the same timesteps
-and meshes considered in [1], outputting a file `Thetis_dg-dg.json`, where `'dg-dg'` indicates
-that an equal-order DG space was used.
+and meshes considered in [1], outputting a file `Thetis_dg-cg_SSPRK33.json`, where `'dg-cg'` and
+`'SSPRK33'` indicate the element pair and time integration scheme used.
 
 [1] H. Huang, C. Chen, G.W. Cowles, C.D. Winant, R.C. Beardsley, K.S. Hedstrom and D.B. Haidvogel,
 "FVCOM validation experiments: Comparisons with ROMS for three idealized barotropic test problems"
