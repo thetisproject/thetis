@@ -16,7 +16,6 @@ velocities, and
 from __future__ import absolute_import
 from .utility import *
 from .equation import Term, Equation
-from .shallowwater_eq import ShallowWaterTermMixin
 
 __all__ = [
     'TracerEquation2D',
@@ -27,19 +26,19 @@ __all__ = [
 ]
 
 
-class TracerTerm(Term, ShallowWaterTermMixin):
+class TracerTerm(Term):
     """
     Generic tracer term that provides commonly used members and mapping for
     boundary functions.
     """
-    def __init__(self, function_space, bathymetry=None, options=None):
+    def __init__(self, function_space, depth, options=None):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
-        :kwarg bathymetry: bathymetry of the domain
-        :type bathymetry: 2D :class:`Function` or :class:`Constant`
+        :arg depth: :class: `DepthExpression` containing depth info
+        :arg options: :class:`.AttrDict` object containing all circulation model options
         """
         super(TracerTerm, self).__init__(function_space)
-        self.bathymetry = bathymetry
+        self.depth = depth
         self.cellsize = CellSize(self.mesh)
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
@@ -70,12 +69,26 @@ class TracerTerm(Term, ShallowWaterTermMixin):
         """
         funcs = bnd_conditions.get(bnd_id)
 
+        if 'elev' in funcs:
+            elev_ext = funcs['elev']
+        else:
+            elev_ext = elev_in
         if 'value' in funcs:
             c_ext = funcs['value']
         else:
             c_ext = c_in
-        elev_ext, uv_ext_tmp = super().get_bnd_functions(elev_in, uv_in, bnd_id, bnd_conditions)
-        uv_ext = self.corr_factor*uv_ext_tmp
+        if 'uv' in funcs:
+            uv_ext = self.corr_factor * funcs['uv']
+        elif 'flux' in funcs:
+            assert self.bathymetry is not None
+            h_ext = elev_ext + self.bathymetry
+            area = h_ext*self.boundary_len[bnd_id]  # NOTE using external data only
+            uv_ext = self.corr_factor * funcs['flux']/area*self.normal
+        elif 'un' in funcs:
+            uv_ext = funcs['un']*self.normal
+        else:
+            uv_ext = uv_in
+
         return c_ext, uv_ext, elev_ext
 
 
@@ -253,18 +266,15 @@ class TracerEquation2D(Equation):
     """
     2D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
-    def __init__(self, function_space, bathymetry=None, options=None):
+    def __init__(self, function_space, depth, options=None):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
-        :kwarg bathymetry: bathymetry of the domain
-        :type bathymetry: 2D :class:`Function` or :class:`Constant`
-
-        :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
-            condition in the horizontal advection term
+        :arg depth: :class: `DepthExpression` containing depth info
+        :arg options: :class:`.AttrDict` object containing all circulation model options
         """
         super(TracerEquation2D, self).__init__(function_space)
 
-        args = (function_space, bathymetry, options)
+        args = (function_space, depth, options)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
