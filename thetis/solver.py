@@ -707,7 +707,7 @@ class FlowSolver(FrozenClass):
 
         self.eq_sw = shallowwater_eq.ModeSplit2DEquations(
             self.fields.solution_2d.function_space(),
-            depth, self.options)
+            self.depth, self.options)
 
         expl_bottom_friction = self.options.use_bottom_friction and not self.options.use_implicit_vertical_diffusion
         self.eq_momentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),

@@ -83,7 +83,7 @@ class TracerTerm(Term):
         if 'uv' in funcs:
             uv_ext = self.corr_factor * funcs['uv']
         elif 'flux' in funcs:
-            h_ext = self.depth.get_entire_depth(elev_ext)
+            h_ext = self.depth.get_total_depth(elev_ext)
             area = h_ext*self.boundary_len[bnd_id]  # NOTE using external data only
             uv_ext = self.corr_factor * funcs['flux']/area*self.normal
         elif 'un' in funcs:
