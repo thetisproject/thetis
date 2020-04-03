@@ -61,6 +61,59 @@ class Setup2:
         return 3.0*pi*cos(3*pi*x/lx)/lx - 450.0*pi**2*sin(3*pi*x/lx)/lx**2
 
 
+class Setup3:
+    """
+    Jump in bathymetry and velocity. Zero diffusion.
+    """
+    def bath(self, x, y, lx, ly):
+        return conditional(x > lx/2, Constant(40.), Constant(20.))
+
+    def elev(self, x, y, lx, ly):
+        return Constant(0.0)
+
+    def uv(self, x, y, lx, ly):
+        return conditional(x > lx/2, Constant(1.), Constant(2.)) * as_vector((1.0, 0.5))
+
+    def kappa(self, x, y, lx, ly):
+        return Constant(0.0)
+
+    def tracer(self, x, y, lx, ly):
+        return exp(1.25*x/lx) * exp(-2.5*y/lx)
+
+    def residual(self, x, y, lx, ly):
+        return Constant(0.0)
+
+
+class Setup4:
+    """
+    Jump in tracer and velocity. Constant bathymetry and zero diffusion.
+
+    NOTE: uv and elev are not a steady solution for the SWE. This case is only
+    valid for conservative, as the jump conditions are now different:
+    * for nonconservative the jump condition is [c]=0 (assuming all terms other
+      than advection are zero)
+    * for conservative where we solve for q=Hc, it is [uq]=[uHc]=0
+    For steady state SWE, [uH]=0 which means that the jump conditions are equivalent.
+    """
+    def bath(self, x, y, lx, ly):
+        return Constant(40.)
+
+    def elev(self, x, y, lx, ly):
+        return Constant(0.0)
+
+    def uv(self, x, y, lx, ly):
+        return conditional(x > lx/2, Constant(1.), Constant(2.)) * as_vector((1.0, 0.5))
+
+    def kappa(self, x, y, lx, ly):
+        return Constant(0.0)
+
+    def tracer(self, x, y, lx, ly):
+        return conditional(x > lx/2, Constant(2.), Constant(1.)) * exp(1.25*x/lx) * exp(-2.5*y/lx)
+
+    def residual(self, x, y, lx, ly):
+        return Constant(0.0)
+
+
 def run(setup, refinement, do_export=True, **options):
     """Run single test and return L2 error"""
     print_output('--- running {:} refinement {:}'.format(setup.__name__, refinement))
@@ -78,7 +131,7 @@ def run(setup, refinement, do_export=True, **options):
     mesh2d = RectangleMesh(nx, ny, lx, ly)
 
     # outputs
-    outputdir = 'outputs'
+    outputdir = 'outputs_{}'.format(refinement)
     if do_export:
         out_2 = File(os.path.join(outputdir, 'Tracer.pvd'))
 
@@ -110,6 +163,11 @@ def run(setup, refinement, do_export=True, **options):
 
     # analytical solution
     trac_ana = setup_obj.tracer(x, y, lx, ly)
+    if solver_obj.options.use_tracer_conservative_form:
+        # the tracer in the setups is depth-averaged
+        # with conservative form we solve for the depth-integrated variable
+        H = setup_obj.bath(x, y, lx, ly) + setup_obj.elev(x, y, lx, ly)
+        trac_ana = trac_ana * H
 
     bnd_tracer = {'value': trac_ana}
     solver_obj.bnd_functions['tracer'] = {1: bnd_tracer, 2: bnd_tracer,
@@ -118,11 +176,13 @@ def run(setup, refinement, do_export=True, **options):
     solver_obj.create_equations()
     solver_obj.assign_initial_conditions(elev=setup_obj.elev(x, y, lx, ly),
                                          uv=setup_obj.uv(x, y, lx, ly),
-                                         tracer=setup_obj.tracer(x, y, lx, ly))
+                                         tracer=trac_ana)
 
     # solve tracer advection-diffusion equation with residual source term
     ti = solver_obj.timestepper
     ti.timesteppers.tracer.initialize(ti.fields.tracer_2d)
+    if do_export:
+        out_2.write(ti.fields.tracer_2d)
 
     t = 0
     while t < t_end:
@@ -198,20 +258,36 @@ def timestepper_type(request):
     return request.param
 
 
-@pytest.fixture(params=[Setup1, Setup2, ],
-                ids=['setup1', 'setup2', ])
+@pytest.fixture(params=[Setup1, Setup2, Setup3],
+                ids=['setup1', 'setup2', 'setup3'])
 def setup(request):
     return request.param
 
 
-@pytest.fixture(params=[True, False])
-def auto_sipg(request):
+@pytest.fixture(params=[True, False],
+                ids=['conservative', 'nonconservative'])
+def conservative_form(request):
     return request.param
 
 
-def test_convergence(setup, timestepper_type, auto_sipg):
+def test_convergence(setup, timestepper_type, conservative_form):
     run_convergence(setup, [1, 2, 3], save_plot=False, timestepper_type=timestepper_type,
-                    use_automatic_sipg_parameter=auto_sipg)
+                    use_automatic_sipg_parameter=False,
+                    use_tracer_conservative_form=conservative_form)
+
+
+# only setup2 has nonzero diffusion:
+def test_consergence_auto_sipg(timestepper_type, conservative_form):
+    run_convergence(Setup2, [1, 2, 3], save_plot=False, timestepper_type=timestepper_type,
+                    use_automatic_sipg_parameter=True,
+                    use_tracer_conservative_form=conservative_form)
+
+
+# setup4 is valid for conservative only
+def test_consergence_conservative_only(timestepper_type):
+    run_convergence(Setup4, [1, 2, 3], save_plot=False, timestepper_type=timestepper_type,
+                    use_automatic_sipg_parameter=False,
+                    use_tracer_conservative_form=True)
 
 
 if __name__ == '__main__':
