@@ -170,11 +170,11 @@ class ConservativeSourceTerm(ConservativeTracerTerm):
         elif source is not None:
             H = self.get_total_depth(fields_old['elev_2d'])
             f += -inner(H*source, self.test)*self.dx
-            
+
         if source is not None and depth_int_source is not None:
             raise AttributeError("Assigned both a source term and a depth-integrated source term\
                                  but only one can be implemented. Choose the most appropriate for your case")
-            
+
         return -f
 
 
@@ -199,10 +199,10 @@ class ConservativeSinkTerm(ConservativeTracerTerm):
         elif sink is not None:
             H = self.get_total_depth(fields_old['elev_2d'])
             f += -inner(-H*sink*solution, self.test)*self.dx
-        
+
         if sink is not None and depth_int_sink is not None:
             raise AttributeError("Assigned both a sink term and a depth-integrated sink term\
-                                 but only one can be implemented. Choose the most appropriate for your case")            
+                                 but only one can be implemented. Choose the most appropriate for your case")
         return -f
 
 
@@ -224,4 +224,4 @@ class ConservativeTracerEquation2D(Equation):
         self.add_term(ConservativeHorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(ConservativeHorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(ConservativeSourceTerm(*args), 'source')
-        self.add_term(ConservativeSinkTerm(*args), 'sink')
+        self.add_term(ConservativeSinkTerm(*args), 'source')

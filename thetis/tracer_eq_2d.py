@@ -256,26 +256,39 @@ class SourceTerm(TracerTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
         source = fields_old.get('source')
+        depth_int_source = fields_old.get('depth_integrated_source')
+
         if source is not None:
             f += -inner(source, self.test)*self.dx
+
+        if depth_int_source is not None:
+            raise NotImplementedError("Depth-integrated source term not implemented for non-conservative case")
+
         return -f
+
 
 class SinkTerm(TracerTerm):
     r"""
     Linear Sink term
-    
+
     The weak form reads
-    
+
     .. math::
         F_s = \int_\Omega \sigma solution \phi dx
-    where :math:`\sigma` is a user defined scalar :class:`Function`.    
+    where :math:`\sigma` is a user defined scalar :class:`Function`.
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
         sink = fields_old.get('sink')
-        if sink is not None:            
+        depth_int_sink = fields_old.get('depth_integrated_sink')
+
+        if sink is not None:
             f += -inner(-sink*solution, self.test)*self.dx
-        return -f 
+
+        if depth_int_sink is not None:
+            raise NotImplementedError("Depth-integrated sink term not implemented for non-conservative case")
+        return -f
+
 
 class TracerEquation2D(Equation):
     """
@@ -296,4 +309,4 @@ class TracerEquation2D(Equation):
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
-        self.add_term(SinkTerm(*args), 'sink')        
+        self.add_term(SinkTerm(*args), 'source')
