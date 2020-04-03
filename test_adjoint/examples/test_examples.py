@@ -32,7 +32,6 @@ def example_file(request):
 
 
 def test_examples(example_file, tmpdir, monkeypatch):
-    pytest.xfail("This test is currently broken")  # FIXME
     assert os.path.isfile(example_file), 'File not found {:}'.format(example_file)
     # copy mesh files
     source = os.path.dirname(example_file)

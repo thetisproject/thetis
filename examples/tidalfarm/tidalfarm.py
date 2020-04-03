@@ -25,9 +25,6 @@ from pyadjoint.optimization.optimization import minimise
 import numpy
 op2.init(log_level=INFO)
 
-test_gradient = False  # whether to check the gradient computed by the adjoint (see note below)
-optimise = True
-
 # setup the Thetis solver obj as usual:
 mesh2d = Mesh('headland.msh')
 
@@ -38,7 +35,15 @@ timestep = 800.
 
 t_end = tidal_period
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
-    t_end = 10*timestep
+    # when run as a pytest test, only run 5 timesteps
+    # and test the gradient
+    t_end = 5*timestep
+    test_gradient = True  # test gradient using Taylor test (see below)
+    optimise = False  # skip actual gradient based optimisation
+else:
+    test_gradient = False
+    optimise = True
+
 
 # create solver and set options
 solver_obj = solver2d.FlowSolver2d(mesh2d, Constant(H))
