@@ -60,6 +60,7 @@ def comp_tracer_total_mass_2d(var, tracer_name):
             var.initial_value = var.update_value
     return val
 
+
 def comp_tracer_total_mass_2d_cons(var, tracer_name):
     """
     Computes total tracer mass in the 2D domain for the conservative form of the tracer
@@ -112,6 +113,7 @@ def comp_tracer_total_mass_2d_cons(var, tracer_name):
         if var.update_value > 10**(-14):
             var.initial_value = var.update_value
     return val
+
 
 class TracerTotalMassConservation2DCallback(DiagnosticCallback):
     """
