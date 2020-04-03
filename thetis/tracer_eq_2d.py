@@ -31,18 +31,21 @@ class TracerTerm(Term):
     Generic tracer term that provides commonly used members and mapping for
     boundary functions.
     """
-    def __init__(self, function_space, depth, options=None):
+    def __init__(self, function_space, depth,
+                 use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
-        :arg options: :class:`.AttrDict` object containing all circulation model options
+        :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
+        :kwarg sipg_parameter: :class: `Constant` or :class: `Function` penalty parameter for SIPG
         """
         super(TracerTerm, self).__init__(function_space)
         self.depth = depth
         self.cellsize = CellSize(self.mesh)
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
-        self.options = options
+        self.use_lax_friedrichs = use_lax_friedrichs
+        self.sipg_parameter = sipg_parameter
 
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
@@ -116,7 +119,6 @@ class HorizontalAdvectionTerm(TracerTerm):
         self.corr_factor = fields_old.get('tracer_advective_velocity_factor')
 
         uv = self.corr_factor * fields_old['uv_2d']
-        uv_bnd = fields_old['uv_2d']
         uv_p1 = fields_old.get('uv_p1')
         uv_mag = fields_old.get('uv_mag')
         # FIXME is this an option?
@@ -137,7 +139,7 @@ class HorizontalAdvectionTerm(TracerTerm):
             f += c_up*(jump(self.test, uv[0] * self.normal[0])
                        + jump(self.test, uv[1] * self.normal[1])) * self.dS
             # Lax-Friedrichs stabilization
-            if self.options.use_lax_friedrichs_tracer:
+            if self.use_lax_friedrichs:
                 if uv_p1 is not None:
                     gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0]
                                      + avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
@@ -152,7 +154,7 @@ class HorizontalAdvectionTerm(TracerTerm):
                     ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                     c_in = solution
                     if funcs is not None and 'value' in funcs:
-                        c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv_bnd, elev, bnd_marker, bnd_conditions)
+                        c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
                         uv_av = 0.5*(uv + uv_ext)
                         un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
                         s = 0.5*(sign(un_av) + 1.0)
@@ -204,7 +206,7 @@ class HorizontalDiffusionTerm(TracerTerm):
         f += inner(grad_test, diff_flux)*self.dx
 
         if self.horizontal_dg:
-            alpha = self.options.sipg_parameter_tracer
+            alpha = self.sipg_parameter
             assert alpha is not None
             sigma = avg(alpha / self.cellsize)
             ds_interior = self.dS
@@ -223,10 +225,9 @@ class HorizontalDiffusionTerm(TracerTerm):
                 elev = fields_old['elev_2d']
                 self.corr_factor = fields_old.get('tracer_advective_velocity_factor')
                 uv = self.corr_factor * fields_old['uv_2d']
-                uv_bnd = fields_old['uv_2d']
                 if funcs is not None:
                     if 'value' in funcs:
-                        c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv_bnd, elev, bnd_marker, bnd_conditions)
+                        c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
                         uv_av = 0.5*(uv + uv_ext)
                         un_av = self.normal[0]*uv_av[0] + self.normal[1]*uv_av[1]
                         s = 0.5*(sign(un_av) + 1.0)
@@ -266,15 +267,18 @@ class TracerEquation2D(Equation):
     """
     2D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
-    def __init__(self, function_space, depth, options=None):
+    def __init__(self, function_space, depth,
+                 use_lax_friedrichs=False,
+                 sipg_parameter=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
-        :arg options: :class:`.AttrDict` object containing all circulation model options
+        :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
+        :kwarg sipg_parameter: :class: `Constant` or :class: `Function` penalty parameter for SIPG
         """
         super(TracerEquation2D, self).__init__(function_space)
 
-        args = (function_space, depth, options)
+        args = (function_space, depth, use_lax_friedrichs, sipg_parameter)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
