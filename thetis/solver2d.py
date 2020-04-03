@@ -291,9 +291,9 @@ class FlowSolver2d(FrozenClass):
         get_horizontal_elem_size_2d(self.fields.h_elem_size_2d)
         self.set_sipg_parameter()
         self.depth = DepthExpression(self.fields.bathymetry_2d,
-                use_nonlinear_equations=self.options.use_nonlinear_equations,
-                use_wetting_and_drying=self.options.use_wetting_and_drying,
-                wetting_and_drying_alpha=self.options.wetting_and_drying_alpha)
+                                     use_nonlinear_equations=self.options.use_nonlinear_equations,
+                                     use_wetting_and_drying=self.options.use_wetting_and_drying,
+                                     wetting_and_drying_alpha=self.options.wetting_and_drying_alpha)
 
         # ----- Equations
         self.eq_sw = shallowwater_eq.ShallowWaterEquations(
