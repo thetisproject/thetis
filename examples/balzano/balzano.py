@@ -89,7 +89,7 @@ eta_tilde = Function(P1_2d, name="eta_tilde")
 
 # user-specified export function
 def export_func():
-    wd_bath_displacement = solverObj.eq_sw.bathymetry_displacement_mass_term.depth.wd_bathymetry_displacement
+    wd_bath_displacement = solverObj.depth.wd_bathymetry_displacement
     eta = solverObj.fields.elev_2d
     moving_bath.project(bathymetry + wd_bath_displacement(eta))
     wd_bathfile.write(moving_bath)
