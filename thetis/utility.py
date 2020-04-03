@@ -299,20 +299,13 @@ def comp_volume_3d(mesh):
     return val
 
 
-def comp_tracer_mass_2d(eta, tracer_terms, opt_cons, scalar_func):
+def comp_tracer_mass_2d(scalar_func, total_depth):
     """
     Computes total tracer mass in the 2D domain
-    :arg eta: elevation :class:`Function`
-    :arg tracer_terms: terms from tracer equation :class: 'Dictionary'
-    :opt_cons switch for conservative or non-conservative tracer
-    :arg scalar_func: scalar :class:`Function` to integrate
+    :arg scalar_func: depth-averaged scalar :class:`Function` to integrate
+    :arg total_depth: scalar UFL expression (e.g. from get_total_depth())
     """
-    if opt_cons:
-        val = assemble(scalar_func*dx)
-    else:
-        keys = [i for i in tracer_terms.keys()]
-        H = tracer_terms[keys[0]].get_total_depth(eta)
-        val = assemble(H*scalar_func*dx)
+    val = assemble(scalar_func*total_depth*dx)
     return val
 
 

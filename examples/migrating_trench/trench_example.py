@@ -20,7 +20,7 @@ def boundary_conditions_fn_trench(morfac = 1, t_new = 0, state = 'initial'):
 
     """
     Define boundary conditions for problem to be used in morphological section.
-    
+
     Inputs:
     morfac - morphological scale factor used when calculating time dependent boundary conditions
     t_new - timestep model currently at used when calculating time dependent boundary conditions
@@ -31,16 +31,14 @@ def boundary_conditions_fn_trench(morfac = 1, t_new = 0, state = 'initial'):
     right_bnd_id = 2
     left_string = ['flux']
     right_string = ['elev']
-    
-    
+
     # set boundary conditions
 
     swe_bnd = {}
-    
 
     flux_constant = -0.22
     elev_constant2 = 0.397
-        
+
     inflow_constant = [flux_constant]
     outflow_constant = [elev_constant2]#, -flux_constant]
     return swe_bnd, left_bnd_id, right_bnd_id, inflow_constant, outflow_constant, left_string, right_string
@@ -69,13 +67,11 @@ def run_migrating_trench(conservative, hydro):
     depth_diff = depth_trench - depth_riv
 
     trench = conditional(x<3, depth_riv, conditional(x<7.6, ((depth_diff/2)/(tanh(7.6-5.3)))*tanh((x-5.3))+(depth_diff/2),\
-             conditional(x < 8.4, depth_trench, conditional(x<13, ((depth_diff/2)/(tanh(8.4-10.7)))*tanh((x-10.7))+ (depth_diff/2),depth_riv))))
-    
+             conditional(x < 8.4, depth_trench, conditional(x<13, ((depth_diff/2)/(tanh(8.4-10.7)))*tanh((x-10.7))+ (depth_diff/2),depth_riv)))) 
     bathymetry_2d.interpolate(-trench)
 
     if hydro:
         # simulate initial hydrodynamics
-        
         # define initial elevation
         elev_init = Function(P1_2d).interpolate(Constant(0.4))
         uv_init = as_vector((0.51, 0.0))
@@ -113,31 +109,31 @@ def run_migrating_trench(conservative, hydro):
             baththetis1.append(solver_obj.fields.bathymetry_2d.at([i, 0.55]))
         else:
             tracerthetis1.append(solver_obj.fields.tracer_2d.at([i, 0.55]))
-            baththetis1.append(solver_obj.fields.bathymetry_2d.at([i, 0.55]))        
+            baththetis1.append(solver_obj.fields.bathymetry_2d.at([i, 0.55]))
 
     # check tracer conservation
-    tracer_mass_int, tracer_mass_int_rerr = solver_obj.callbacks['timestep']['tracer_2d total mass']()    
+    tracer_mass_int, tracer_mass_int_rerr = solver_obj.callbacks['timestep']['tracer_2d total mass']()
     print("Tracer total mass error: %11.4e" %(tracer_mass_int_rerr))
 
     if conservative:
         assert abs(tracer_mass_int_rerr) < 8e-2, 'tracer is not conserved'
     else:
         assert abs(tracer_mass_int_rerr) < 5e-1, 'tracer is not conserved'
-    
+
     # check tracer and bathymetry values using previous runs
     tracer_solution = pd.read_csv('tracer.csv')
     bed_solution = pd.read_csv('bed.csv')
 
     assert max([abs((tracer_solution['Tracer'][i] - tracerthetis1[i])/tracer_solution['Tracer'][i]) for i in range(len(tracerthetis1))]) < 0.1, "error in tracer"
-    
+
     assert max([abs((bed_solution['Bathymetry'][i] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.005, "error in bed level"
 
 
 def conservative_case(hydro = False):
     run_migrating_trench(True, hydro)
-    
+
 def non_conservative_case(hydro = False):
-    run_migrating_trench(False, hydro)    
+    run_migrating_trench(False, hydro)
 
 if __name__ == '__main__':
     non_conservative_case()
