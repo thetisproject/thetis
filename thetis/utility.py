@@ -1725,6 +1725,7 @@ def select_and_move_detectors(mesh, detector_locations, detector_names=None,
     else:
         return accepted_locations, accepted_names
 
+
 class DepthExpression:
     """
     Construct expression for depth depending on options

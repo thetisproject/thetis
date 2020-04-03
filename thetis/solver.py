@@ -703,7 +703,7 @@ class FlowSolver(FrozenClass):
         self.set_sipg_parameter()
 
         self.depth = DepthExpression(self.fields.bathymetry_2d,
-                use_nonlinear_equations=self.options.use_nonlinear_equations)
+                                     use_nonlinear_equations=self.options.use_nonlinear_equations)
 
         self.eq_sw = shallowwater_eq.ModeSplit2DEquations(
             self.fields.solution_2d.function_space(),
