@@ -255,7 +255,7 @@ class FlowSolver2d(FrozenClass):
             self.options.sipg_parameter.assign(alpha)
             self.options.sipg_parameter_tracer.assign(alpha_tracer)
 
-    def set_wetting_and_drying_alpha(self, max_val=7.5):  # TODO: This value could be tweaked
+    def set_wetting_and_drying_alpha(self):
         r"""
         Compute a wetting and drying parameter :math:`\alpha` which ensures positive water
         depth using the approximate method suggested by Karna et al. (2011).
@@ -268,14 +268,16 @@ class FlowSolver2d(FrozenClass):
         where :math:`L_x` is the horizontal length scale of the mesh elements at the wet-dry
         front and :math:`h` is the bathymetry profile.
 
-        :kwarg max_val: maximum value at which to cap the alpha parameter.
+        NOTE: The maximum value at which to cap the alpha parameter may be specified via
+        :attr:`ModelOptions2d.wetting_and_drying_alpha_max`.
         """
         if not self.options.use_wetting_and_drying:
             return
         if self.options.use_automatic_wetting_and_drying_alpha:
             alpha = dot(get_cell_widths_2d(self.mesh2d), abs(grad(self.fields.bathymetry_2d)))
+            max_alpha = self.options.wetting_and_drying_alpha_max
             self.options.wetting_and_drying_alpha = Function(self.function_spaces.P0_2d)
-            self.options.wetting_and_drying_alpha.interpolate(min_value(max_val, alpha))
+            self.options.wetting_and_drying_alpha.interpolate(min_value(max_alpha, alpha))
 
             msg = "Using automatic wetting and drying parameter (min {:.2f} max {:.2f})"
             with self.options.wetting_and_drying_alpha.dat.vec_ro as v:

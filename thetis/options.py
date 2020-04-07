@@ -625,6 +625,12 @@ class ModelOptions2d(CommonModelOptions):
         For problems whose bathymetry varies wildly in coastal regions, it is advisable to use the
         automatic wetting and drying parameter, rather than the default.
         """).tag(config=True)
+    wetting_and_drying_alpha_max = FiredrakeScalarExpression(
+        Constant(2.0), help=r"""
+        Maximum value to be taken by wetting and drying parameter :math:`\alpha`.
+
+        Note this is only relevant if `use_automatic_wetting_and_drying_alpha` is set to ``True``.
+        """).tag(config=True)
     tidal_turbine_farms = Dict(trait=TidalTurbineFarmOptions(),
                                default_value={}, help='Dictionary mapping subdomain ids to the options of the corresponding farm')
     check_tracer_conservation = Bool(
