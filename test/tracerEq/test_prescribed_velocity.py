@@ -55,6 +55,8 @@ def run(refinement_level, velocity_type, **model_options):
 
 
 def run_convergence(ref_list, velocity_type, **options):
+    """Runs test for a list of refinements and computes error convergence rate."""
+    setup_name = 'prescribed-velocity'
     l2_err = []
     for r in ref_list:
         l2_err.append(run(r, velocity_type, **options))
@@ -62,12 +64,20 @@ def run_convergence(ref_list, velocity_type, **options):
     def check_convergence(ref_list, l2_err, field_str):
         slope_rtol = 0.2
         setup_name = 'prescribed-velocity'
+
+        # Check convergence of L2 errors
         for i in range(1, len(l2_err)):
             slope = l2_err[i-1]/l2_err[i]
             expected_slope = ref_list[i]/ref_list[i-1]
             err_msg = '{:s}: Wrong convergence rate {:.4f}, expected {:.4f}'
             assert slope > expected_slope*(1 - slope_rtol), err_msg.format(setup_name, slope, expected_slope)
             print_output('{:s}: {:s} convergence rate {:.4f}'.format(setup_name, field_str, slope))
+
+        # Check magnitude of L2 errors
+        for i in range(len(l2_err)):
+            msg = "{:s}: L2 error {:.4e} does not match recorded value, expected < 0.7"
+            assert l2_err[i] < 0.7, msg.format(setup_name, l2_err[i])
+            print_output("{:s}: L2 error magnitude index {:d} PASSED".format(setup_name, i))
 
     check_convergence(ref_list, l2_err, 'tracer')
 
