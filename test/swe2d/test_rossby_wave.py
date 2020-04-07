@@ -179,7 +179,6 @@ def run(refinement_level, reference_solution, **model_options):
     options.use_grad_div_viscosity_term = False
     options.use_grad_depth_viscosity_term = False
     options.horizontal_viscosity = None
-    options.no_exports = True and refinement_level <= 48
     solver_obj.create_function_spaces()
     options.coriolis_frequency = interpolate(y, solver_obj.function_spaces.P1_2d)
     options.update(model_options)
@@ -288,7 +287,7 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
     return metrics
 
 
-def run_convergence(ref_list, rms_list=None, reference_refinement_level=50, **options):
+def run_convergence(ref_list, reference_refinement_level=50, **options):
     """Runs test for a list of refinements and computes error convergence rate."""
     setup_name = 'rossby-soliton'
     family = options.get('element_family')
@@ -314,13 +313,11 @@ def run_convergence(ref_list, rms_list=None, reference_refinement_level=50, **op
             print_output("{:s}: error metric {:s} index {:d} PASSED".format(setup_name, m, i))
 
     # Check magnitude of RMS errors
-    if rms_list is not None:
-        assert len(ref_list) == len(rms_list)
-        for i in range(len(ref_list)):
-            msg = "{:s}: RMS error {:.4e} does not match recorded value, expected {:.4e}"
-            calc, rec = metrics['rms'][i], rms_list[i]
-            assert np.allclose(calc, rec, rtol=rtol), msg.format(setup_name, calc, rec)
-            print_output("{:s}: rms magnitude index {:d} PASSED".format(setup_name, i))
+    for i in range(len(ref_list)):
+        msg = "{:s}: RMS error {:.4e} does not match recorded value, expected < 1.30e-02"
+        m = metrics['rms'][i]
+        assert m < 1.30e-02, msg.format(setup_name, m)
+        print_output("{:s}: rms magnitude index {:d} PASSED".format(setup_name, i))
 
 
 def generate_table(family, stepper):
@@ -351,31 +348,18 @@ def generate_table(family, stepper):
 # standard tests for pytest
 # ---------------------------
 
-@pytest.mark.parametrize('stepper,family,rms',
-                         [
-                             ('CrankNicolson', 'dg-dg', [1.1522e-02, 4.3892e-03]),
-                             ('CrankNicolson', 'dg-cg', [8.2279e-03, 3.8402e-03]),
-                             ('CrankNicolson', 'rt-dg', [1.1779e-02, 4.2643e-03]),
-                             ('SSPRK33', 'dg-dg', [1.1685e-02, 4.3531e-03]),
-                             ('SSPRK33', 'dg-cg', [8.1540e-03, 3.8005e-03]),
-                             ('SSPRK33', 'rt-dg', [1.1960e-02, 4.2581e-03]),
-                             ('DIRK22', 'dg-dg', [1.1513e-02, 4.3528e-03]),
-                             ('DIRK22', 'dg-cg', [8.0205e-03, 3.6810e-03]),
-                             ('DIRK22', 'rt-dg', [1.1786e-02, 4.2588e-03]),
-                         ],
-                         ids=[
-                             'CrankNicolson-dg-dg',
-                             'CrankNicolson-dg-cg',
-                             'CrankNicolson-rt-dg',
-                             'SSPRK33-dg-dg',
-                             'SSPRK33-dg-cg',
-                             'SSPRK33-rt-dg',
-                             'DIRK22-dg-dg',
-                             'DIRK22-dg-cg',
-                             'DIRK22-rt-dg',
-                         ])
-def test_convergence(stepper, family, rms):
-    run_convergence([12, 24], rms_list=rms, reference_refinement_level=768, timestepper_type=stepper,
+@pytest.fixture(params=['CrankNicolson', 'SSPRK33', 'DIRK22'])
+def stepper(request):
+    return request.param
+
+
+@pytest.fixture(params=['dg-dg', 'dg-cg', 'rt-dg'])
+def family(request):
+    return request.param
+
+
+def test_convergence(stepper, family):
+    run_convergence([12, 24], reference_refinement_level=768, timestepper_type=stepper,
                     simulation_end_time=30.0, polynomial_degree=1, element_family=family,
                     no_exports=True, expansion_order=1, model_comparison=False, overlap=1)
 
@@ -385,16 +369,16 @@ def test_convergence(stepper, family, rms):
 
 
 if __name__ == "__main__":
-    family = 'dg-dg'
-    stepper = 'SSPRK33'
+    element_family = 'dg-dg'
+    timestepper = 'SSPRK33'
     run_convergence([96, 192, 480], reference_refinement_level=1200,
-                    timestepper_type=stepper, simulation_end_time=30.0,
-                    polynomial_degree=1, element_family=family,
+                    timestepper_type=timestepper, simulation_end_time=30.0,
+                    polynomial_degree=1, element_family=element_family,
                     no_exports=False, expansion_order=1, model_comparison=True, overlap=1200)
 
     # Compare results against FVCOM and ROMS given in [1].
-    table = generate_table(family, stepper)
+    table = generate_table(element_family, timestepper)
     print_output(table)
     di = create_directory(os.path.join(os.path.dirname(__file__), 'outputs'))
-    with open(os.path.join(di, 'model_comparison_{:s}_{:s}.md'.format(family, stepper)), 'w+') as md:
+    with open(os.path.join(di, 'model_comparison_{:s}_{:s}.md'.format(element_family, timestepper)), 'w+') as md:
         md.write(table)
