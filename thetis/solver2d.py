@@ -276,8 +276,8 @@ class FlowSolver2d(FrozenClass):
         if self.options.use_automatic_wetting_and_drying_alpha:
             alpha = dot(get_cell_widths_2d(self.mesh2d), abs(grad(self.fields.bathymetry_2d)))
             max_alpha = self.options.wetting_and_drying_alpha_max
-            self.options.wetting_and_drying_alpha = Function(self.function_spaces.P0_2d)
-            self.options.wetting_and_drying_alpha.interpolate(min_value(max_alpha, alpha))
+            self.options.wetting_and_drying_alpha = Function(self.function_spaces.P1_2d)
+            self.options.wetting_and_drying_alpha.project(min_value(max_alpha, alpha))
 
             msg = "Using automatic wetting and drying parameter (min {:.2f} max {:.2f})"
             with self.options.wetting_and_drying_alpha.dat.vec_ro as v:
