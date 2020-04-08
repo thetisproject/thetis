@@ -306,13 +306,15 @@ class FlowSolver2d(FrozenClass):
             self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
             if self.options.timestepper_type == 'CrankNicolson':
                 if self.options.use_tracer_conservative_form:
-                    self.eq_tracer = conservative_tracer_eq_2d.ConservativeTracerEquation2D(self.function_spaces.Q_2d, self.depth,
-                                                                                            use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                                                                                            sipg_parameter=self.options.sipg_parameter_tracer)
+                    self.eq_tracer = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
+                        self.function_spaces.Q_2d, self.depth,
+                        use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                        sipg_parameter=self.options.sipg_parameter_tracer)
                 else:
-                    self.eq_tracer = tracer_eq_2d.TracerEquation2D(self.function_spaces.Q_2d, self.depth,
-                                                                   use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                                                                   sipg_parameter=self.options.sipg_parameter_tracer)
+                    self.eq_tracer = tracer_eq_2d.TracerEquation2D(
+                        self.function_spaces.Q_2d, self.depth,
+                        use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                        sipg_parameter=self.options.sipg_parameter_tracer)
                 if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                     self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
                 else:

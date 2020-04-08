@@ -1727,8 +1727,30 @@ def select_and_move_detectors(mesh, detector_locations, detector_names=None,
 
 
 class DepthExpression:
-    """
+    r"""
     Construct expression for depth depending on options
+
+
+    If `not use_nonlinear_equations`, then the depth is simply the bathymetry:
+        :math:`H = h`
+    Otherwise we include the free surface elevation:
+        :math:`H = h + \eta`
+    and if `use_wetting_and_drying`, includes a bathymetry displacement term
+    to ensure a positive depth (see Karna et al. 2011):
+        :math:`H = h + f(h+\eta) + \eta`
+    where
+        :math:`f(h+\eta) = (\sqrt{(h+\eta)^2 +\alpha^2} - (h+\eta))/2
+    This introduces a wetting-drying parameter :math:`\alpha`, with dimensions
+    of length. The value for :math:`\alpha` is specified by
+    `wetting_and_drying_alpha`, in units of meters. The default value is 0.5,
+    but the appropriate value is problem specific and should be set by the user.
+
+    An approximate method for selecting a suitable value for :math:`\alpha` is suggested
+    by Karna et al. (2011). Defining :math:`L_x` as the horizontal length scale of the
+    mesh elements at the wet-dry front, it can be reasoned that :math:`\alpha \approx |L_x
+    \nabla h|` yields a suitable choice. Smaller :math:`\alpha` leads to a more accurate
+    solution to the shallow water equations in wet regions, but if :math:`\alpha` is too
+    small the simulation will become unstable.
     """
 
     def __init__(self, bathymetry_2d, use_nonlinear_equations=True,
@@ -1752,9 +1774,7 @@ class DepthExpression:
 
     def get_total_depth(self, eta):
         """
-        Returns total water column depth based on options:
-        * use_nonlinear_equations
-        * use_wetting_and_drying
+        Returns total water column depth based on options
         :arg eta: current elevation as UFL expression
         """
         if self.use_nonlinear_equations:
