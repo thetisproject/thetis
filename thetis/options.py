@@ -16,6 +16,10 @@ class TimeStepperOptions(FrozenHasTraits):
 class ExplicitTimestepperOptions(TimeStepperOptions):
     """Options for explicit time integrator"""
     use_automatic_timestep = Bool(True, help='Set time step automatically based on local CFL conditions.').tag(config=True)
+    solver_parameters_tracer = PETScSolverParameters({
+        'ksp_type': 'gmres',
+        'pc_type': 'sor',
+    }).tag(config=True)
 
 
 class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
@@ -508,6 +512,7 @@ class CommonModelOptions(FrozenConfigurable):
                                    ('ForwardEuler', ExplicitTimestepperOptions2d),
                                    ('BackwardEuler', SemiImplicitTimestepperOptions2d),
                                    ('CrankNicolson', CrankNicolsonTimestepperOptions2d),
+                                   ('CrankEuler', CrankNicolsonTimestepperOptions2d),
                                    ('DIRK22', SemiImplicitTimestepperOptions2d),
                                    ('DIRK33', SemiImplicitTimestepperOptions2d),
                                    ('SteadyState', SteadyStateTimestepperOptions2d),
