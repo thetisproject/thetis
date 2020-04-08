@@ -181,7 +181,7 @@ def polynomial_degree(request):
     return request.param
 
 
-@pytest.fixture(params=['CrankNicolson', 'ForwardEuler', 'SSPRK33'])
+@pytest.fixture(params=['CrankNicolson', 'ForwardEuler', 'SSPRK33', 'DIRK22', 'DIRK33'])
 def stepper(request):
     return request.param
 

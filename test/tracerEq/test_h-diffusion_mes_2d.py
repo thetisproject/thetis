@@ -166,7 +166,7 @@ def auto_sipg(request):
     return request.param
 
 
-@pytest.fixture(params=['CrankNicolson', 'ForwardEuler', 'SSPRK33'])
+@pytest.fixture(params=['CrankNicolson', 'SSPRK33', 'ForwardEuler', 'BackwardEuler', 'DIRK22', 'DIRK33'])
 def stepper(request):
     return request.param
 

@@ -105,8 +105,15 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
                     bnd_conditions=solver.bnd_functions['tracer'],
                     solver_parameters=self.options.timestepper_options.solver_parameters_tracer,
                 )
+            elif issubclass(self.tracer_integrator, rungekutta.DIRKGenericUForm):
+                self.timesteppers.tracer = self.tracer_integrator(
+                    solver.eq_tracer, solver.fields.tracer_2d, fields, solver.dt,
+                    bnd_conditions=solver.bnd_functions['tracer'],
+                    solver_parameters=self.options.timestepper_options.solver_parameters_tracer,
+                    semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+                )
             else:
-                raise NotImplementedError("Tracer equation is currently only implemented for the CrankNicolson, ForwardEuler and SSPRK33 timestepper schemes")
+                raise NotImplementedError("Tracer equation is currently only implemented for the CrankNicolson, SSPRK33, ForwardEuler, BackwardEuler, DIRK22 and DIRK33 timestepper schemes")
 
     def _create_integrators(self):
         """
@@ -160,11 +167,26 @@ class CoupledCrankEuler2D(CoupledTimeIntegrator2D):
     tracer_integrator = timeintegrator.ForwardEuler
 
 
+class CoupledSSPRK332D(CoupledTimeIntegrator2D):
+    swe_integrator = rungekutta.SSPRK33
+    tracer_integrator = rungekutta.SSPRK33
+
+
 class CoupledForwardEuler2D(CoupledTimeIntegrator2D):
     swe_integrator = timeintegrator.ForwardEuler
     tracer_integrator = timeintegrator.ForwardEuler
 
 
-class CoupledSSPRK332D(CoupledTimeIntegrator2D):
-    swe_integrator = rungekutta.SSPRK33
-    tracer_integrator = rungekutta.SSPRK33
+class CoupledBackwardEuler2D(CoupledTimeIntegrator2D):
+    swe_integrator = rungekutta.BackwardEulerUForm
+    tracer_integrator = rungekutta.BackwardEulerUForm
+
+
+class CoupledDIRK222D(CoupledTimeIntegrator2D):
+    swe_integrator = rungekutta.DIRK22UForm
+    tracer_integrator = rungekutta.DIRK22UForm
+
+
+class CoupledDIRK332D(CoupledTimeIntegrator2D):
+    swe_integrator = rungekutta.DIRK33UForm
+    tracer_integrator = rungekutta.DIRK33UForm

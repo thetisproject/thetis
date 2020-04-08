@@ -299,7 +299,7 @@ class FlowSolver2d(FrozenClass):
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         if self.options.solve_tracer:
             self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
-            if self.options.timestepper_type in ('CrankNicolson', 'ForwardEuler', 'SSPRK33', 'CrankEuler'):
+            if self.options.timestepper_type in ('CrankNicolson', 'SSPRK33', 'ForwardEuler', 'BackwardEuler', 'DIRK22', 'DIRK33', 'CrankEuler'):
                 self.eq_tracer = tracer_eq_2d.TracerEquation2D(self.function_spaces.Q_2d, bathymetry=self.fields.bathymetry_2d,
                                                                use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
                                                                sipg_parameter=self.options.sipg_parameter_tracer)
@@ -308,7 +308,7 @@ class FlowSolver2d(FrozenClass):
                 else:
                     self.tracer_limiter = None
             else:
-                raise NotImplementedError("Tracer equation is currently only implemented for the CrankNicolson, ForwardEuler and SSPRK33 timestepper schemes")
+                raise NotImplementedError("Tracer equation is currently only implemented for the CrankNicolson, ForwardEuler, SSPRK33, DIRK22 and DIRK33 timestepper schemes")
 
         self._isfrozen = True  # disallow creating new attributes
 
@@ -361,12 +361,15 @@ class FlowSolver2d(FrozenClass):
                     solver_parameters=self.options.timestepper_options.solver_parameters,
                 )
         elif self.options.timestepper_type == 'BackwardEuler':
-            self.timestepper = rungekutta.BackwardEulerUForm(
-                self.eq_sw, self.fields.solution_2d, fields, self.dt,
-                bnd_conditions=self.bnd_functions['shallow_water'],
-                solver_parameters=self.options.timestepper_options.solver_parameters,
-                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-            )
+            if self.options.solve_tracer:
+                self.timestepper = coupled_timeintegrator_2d.CoupledBackwardEuler2D(weakref.proxy(self))
+            else:
+                self.timestepper = rungekutta.BackwardEulerUForm(
+                    self.eq_sw, self.fields.solution_2d, fields, self.dt,
+                    bnd_conditions=self.bnd_functions['shallow_water'],
+                    solver_parameters=self.options.timestepper_options.solver_parameters,
+                    semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+                )
         elif self.options.timestepper_type == 'CrankEuler':
             self.timestepper = coupled_timeintegrator_2d.CoupledCrankEuler2D(weakref.proxy(self))
         elif self.options.timestepper_type == 'CrankNicolson':
@@ -381,19 +384,25 @@ class FlowSolver2d(FrozenClass):
                     theta=self.options.timestepper_options.implicitness_theta,
                 )
         elif self.options.timestepper_type == 'DIRK22':
-            self.timestepper = rungekutta.DIRK22UForm(
-                self.eq_sw, self.fields.solution_2d, fields, self.dt,
-                bnd_conditions=self.bnd_functions['shallow_water'],
-                solver_parameters=self.options.timestepper_options.solver_parameters,
-                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-            )
+            if self.options.solve_tracer:
+                self.timestepper = coupled_timeintegrator_2d.CoupledDIRK222D(weakref.proxy(self))
+            else:
+                self.timestepper = rungekutta.DIRK22UForm(
+                    self.eq_sw, self.fields.solution_2d, fields, self.dt,
+                    bnd_conditions=self.bnd_functions['shallow_water'],
+                    solver_parameters=self.options.timestepper_options.solver_parameters,
+                    semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+                )
         elif self.options.timestepper_type == 'DIRK33':
-            self.timestepper = rungekutta.DIRK33UForm(
-                self.eq_sw, self.fields.solution_2d, fields, self.dt,
-                bnd_conditions=self.bnd_functions['shallow_water'],
-                solver_parameters=self.options.timestepper_options.solver_parameters,
-                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-            )
+            if self.options.solve_tracer:
+                self.timestepper = coupled_timeintegrator_2d.CoupledDIRK332D(weakref.proxy(self))
+            else:
+                self.timestepper = rungekutta.DIRK33UForm(
+                    self.eq_sw, self.fields.solution_2d, fields, self.dt,
+                    bnd_conditions=self.bnd_functions['shallow_water'],
+                    solver_parameters=self.options.timestepper_options.solver_parameters,
+                    semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+                )
         elif self.options.timestepper_type == 'SteadyState':
             self.timestepper = timeintegrator.SteadyState(
                 self.eq_sw, self.fields.solution_2d, fields, self.dt,

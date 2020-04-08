@@ -194,7 +194,7 @@ def run_convergence(setup, ref_list, do_export=False, save_plot=False, **options
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=['CrankNicolson'])
+@pytest.fixture(params=['CrankNicolson', 'DIRK22', 'DIRK33', 'BackwardEuler'])
 def timestepper_type(request):
     return request.param
 

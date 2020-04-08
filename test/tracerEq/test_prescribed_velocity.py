@@ -94,7 +94,7 @@ def run_convergence(ref_list, velocity_type, **options):
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=['CrankNicolson', 'ForwardEuler', 'SSPRK33'])
+@pytest.fixture(params=['CrankNicolson', 'SSPRK33', 'ForwardEuler', 'DIRK22', 'DIRK33'])
 def stepper(request):
     return request.param
 
