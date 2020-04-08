@@ -149,13 +149,15 @@ def run_convergence(**model_options):
     assert slope > 2, msg.format(slope)
 
 
-@pytest.fixture(params=[1, 2])
+@pytest.fixture(params=[1])
 def polynomial_degree(request):
     return request.param
 
 
-@pytest.mark.parametrize(('stepper'),
-                         [('CrankNicolson')])
+@pytest.fixture(params=['CrankNicolson', 'ForwardEuler', 'SSPRK33'])
+def stepper(request):
+    return request.param
+
 @pytest.mark.parametrize(('diffusivity'),
                          [(Constant(0.1))])
 def test_horizontal_advection(polynomial_degree, stepper, diffusivity):

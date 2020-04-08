@@ -181,9 +181,12 @@ def polynomial_degree(request):
     return request.param
 
 
-@pytest.mark.parametrize(('stepper'),
-                         [('CrankNicolson')])
-def test_horizontal_advection(polynomial_degree, stepper, ):
+@pytest.fixture(params=['CrankNicolson', 'ForwardEuler', 'SSPRK33'])
+def stepper(request):
+    return request.param
+
+
+def test_horizontal_advection(polynomial_degree, stepper):
     run_convergence([1, 2, 3], polynomial_degree=polynomial_degree,
                     timestepper_type=stepper)
 
