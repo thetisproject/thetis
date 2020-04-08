@@ -55,7 +55,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
             'wind_stress': self.options.wind_stress,
             'atmospheric_pressure': self.options.atmospheric_pressure,
             'momentum_source': self.options.momentum_source_2d,
-            'volume_source': self.options.volume_source_2d, }
+            'volume_source': self.options.volume_source_2d,
+        }
 
         if issubclass(self.swe_integrator, timeintegrator.CrankNicolson):
             self.timesteppers.swe2d = self.swe_integrator(
@@ -64,12 +65,14 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
                 bnd_conditions=solver.bnd_functions['shallow_water'],
                 solver_parameters=self.options.timestepper_options.solver_parameters,
                 semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-                theta=self.options.timestepper_options.implicitness_theta)
+                theta=self.options.timestepper_options.implicitness_theta,
+            )
         else:
-            self.timesteppers.swe2d = self.swe_integrator(solver.eq_sw, self.fields.solution_2d,
-                                                          fields, solver.dt,
-                                                          bnd_conditions=solver.bnd_functions['shallow_water'],
-                                                          solver_parameters=self.options.timestepper_options.solver_parameters)
+            self.timesteppers.swe2d = self.swe_integrator(
+                solver.eq_sw, self.fields.solution_2d, fields, solver.dt,
+                bnd_conditions=solver.bnd_functions['shallow_water'],
+                solver_parameters=self.options.timestepper_options.solver_parameters,
+            )
 
     def _create_tracer_integrator(self):
         """
@@ -79,23 +82,29 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
 
         if self.solver.options.solve_tracer:
             uv, elev = self.fields.solution_2d.split()
-            fields = {'elev_2d': elev,
-                      'uv_2d': uv,
-                      'diffusivity_h': self.options.horizontal_diffusivity,
-                      'source': self.options.tracer_source_2d,
-                      'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
-                      'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
-                      }
+            fields = {
+                'elev_2d': elev,
+                'uv_2d': uv,
+                'diffusivity_h': self.options.horizontal_diffusivity,
+                'source': self.options.tracer_source_2d,
+                'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
+                'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
+            }
             if issubclass(self.tracer_integrator, timeintegrator.CrankNicolson):
-                self.timesteppers.tracer = self.tracer_integrator(solver.eq_tracer, solver.fields.tracer_2d,
-                                                                  fields, solver.dt, bnd_conditions=solver.bnd_functions['tracer'],
-                                                                  solver_parameters=self.options.timestepper_options.solver_parameters_tracer,
-                                                                  semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-                                                                  theta=self.options.timestepper_options.implicitness_theta)
-            elif issubclass(self.tracer_integrator, timeintegrator.ForwardEuler) or issubclass(self.tracer_integrator, rungekutta.SSPRK33):
-                self.timesteppers.tracer = self.tracer_integrator(solver.eq_tracer, solver.fields.tracer_2d,
-                                                                  fields, solver.dt, bnd_conditions=solver.bnd_functions['tracer'],
-                                                                  solver_parameters=self.options.timestepper_options.solver_parameters_tracer)
+                self.timesteppers.tracer = self.tracer_integrator(
+                    solver.eq_tracer, solver.fields.tracer_2d, fields, solver.dt,
+                    bnd_conditions=solver.bnd_functions['tracer'],
+                    solver_parameters=self.options.timestepper_options.solver_parameters_tracer,
+                    semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+                    theta=self.options.timestepper_options.implicitness_theta,
+                )
+            elif issubclass(self.tracer_integrator, rungekutta.SSPRK33) or \
+                    issubclass(self.tracer_integrator, timeintegrator.ForwardEuler):
+                self.timesteppers.tracer = self.tracer_integrator(
+                    solver.eq_tracer, solver.fields.tracer_2d, fields, solver.dt,
+                    bnd_conditions=solver.bnd_functions['tracer'],
+                    solver_parameters=self.options.timestepper_options.solver_parameters_tracer,
+                )
             else:
                 raise NotImplementedError("Tracer equation is currently only implemented for the CrankNicolson, ForwardEuler and SSPRK33 timestepper schemes")
 
