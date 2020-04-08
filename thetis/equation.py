@@ -202,11 +202,11 @@ class ErrorEstimatorTerm(object):
     .. note::
         Sign convention as in :class:`Term`.
     """
-    def __init__(self, function_space):
+    def __init__(self, mesh):
         """
         :arg function_space: the :class:`FunctionSpace` the solution belongs to
         """
-        self.P0 = FunctionSpace(function_space.mesh(), "DG", 0)
+        self.P0 = FunctionSpace(mesh, "DG", 0)
         self.p0test = TestFunction(self.P0)
         self.p0trial = TrialFunction(self.P0)
 
@@ -219,15 +219,21 @@ class ErrorEstimatorTerm(object):
         raise NotImplementedError('Must be implemented in the derived class')
 
 
-class ErrorEstimator(Equation):
+class ErrorEstimator(object):
     """
     Implements an error estimator, comprised of the corresponding terms from the underlying equation.
     """
+    SUPPORTED_LABELS = frozenset(['source', 'explicit', 'implicit', 'nonlinear'])
     def __init__(self, function_space):
         """
         :arg function_space: the :class:`FunctionSpace` the solution belongs to
         """
-        super(ErrorEstimator, self).__init__(function_space)
+        self.terms = OrderedDict()
+        self.labels = {}
+        self.function_space = function_space
+        self.mesh = function_space.mesh()
+        self.normal = FacetNormal(self.mesh)
+        self.xyz = SpatialCoordinate(self.mesh)
         self.P0 = FunctionSpace(self.mesh, "DG", 0)
         self.p0test = TestFunction(self.P0)
         self.p0trial = TrialFunction(self.P0)
@@ -235,6 +241,51 @@ class ErrorEstimator(Equation):
     def mass_term(self, solution, arg):
         # TODO: doc
         return self.p0test*inner(solution, arg)*dx
+
+    def add_term(self, term, label):
+        """
+        Adds a term in the error estimator
+
+        :arg term: :class:`.ErrorEstimatorTerm` object to add_term
+        :arg string label: Assign a label to the term. Valid labels are given by
+            :attr:`.SUPPORTED_LABELS`.
+        """
+        key = term.__class__.__name__
+        self.terms[key] = term
+        self.label_term(key, label)
+
+    def label_term(self, term, label):
+        """
+        Assings a label to the given term(s).
+
+        :arg term: :class:`.ErrorEstimatorTerm` object, or a tuple of terms
+        :arg label: string label to assign
+        """
+        if isinstance(term, str):
+            assert term in self.terms, 'Unknown term, add it to the equation'
+            assert label in self.SUPPORTED_LABELS, 'bad label: {:}'.format(label)
+            self.labels[term] = label
+        else:
+            for k in iter(term):
+                self.label_term(k, label)
+
+    def select_terms(self, label):
+        """
+        Generator function that selects terms by label(s).
+
+        label can be a single label (e.g. 'explicit'), 'all' or a tuple of
+        labels.
+        """
+        if isinstance(label, str):
+            if label == 'all':
+                labels = self.SUPPORTED_LABELS
+            else:
+                labels = frozenset([label])
+        else:
+            labels = frozenset(label)
+        for key, value in self.terms.items():
+            if self.labels[key] in labels:
+                yield value
 
     def residual(self, label, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
         # TODO: doc
@@ -254,5 +305,3 @@ class ErrorEstimator(Equation):
         flux = Function(self.P0, name="Flux and boundary terms")
         solve(mass_term == flux_term, flux)  # TODO: Solver parameters?
         return flux
-
-    # TODO: I do not want jacobian method
