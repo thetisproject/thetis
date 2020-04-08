@@ -328,6 +328,15 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
 
         grad_eta_by_parts = self.eta_is_dg
 
+        total_h_new = self.depth.get_total_depth(eta)
+        hmin = Constant(0.05)
+        hmax = Constant(0.4)
+        #a = ln
+        a = lambda x: x
+        scalar = 0.5*erf(-5*((a(total_h_new) - a(hmin))/(a(hmax) - a(hmin)) - 0.5)) + 0.5
+
+        # head = eta + scalar*self.depth.bathymetry_2d  # NOTE does not work
+
         if grad_eta_by_parts:
             f = -g_grav*head*nabla_div(self.u_test)*self.dx
             if uv is not None:
@@ -361,6 +370,9 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
                     un_jump = inner(uv - uv_ext, self.normal)
                     eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
                     f += g_grav*(eta_rie-head)*dot(self.u_test, self.normal)*ds_bnd
+
+        f += scalar*g_grav*inner(grad(self.depth.bathymetry_2d), self.u_test) * self.dx
+
         return -f
 
 
