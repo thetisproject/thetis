@@ -208,7 +208,7 @@ class ShallowWaterTerm(Term):
     """
     Generic term in the shallow water equations that provides commonly used
     members and mapping for boundary functions.
-        """
+    """
     def __init__(self, space,
                  depth, options=None):
         super(ShallowWaterTerm, self).__init__(space)
@@ -843,7 +843,8 @@ class ShallowWaterEquations(BaseShallowWaterEquation):
         self.add_momentum_terms(u_test, u_space, eta_space, depth, options)
 
         self.add_continuity_terms(eta_test, eta_space, u_space, depth, options)
-        self.bathymetry_displacement_mass_term = BathymetryDisplacementMassTerm(eta_test, eta_space, u_space, depth, options)
+        self.bathymetry_displacement_mass_term = BathymetryDisplacementMassTerm(
+            eta_test, eta_space, u_space, depth, options)
 
     def mass_term(self, solution):
         f = super(ShallowWaterEquations, self).mass_term(solution)
@@ -912,7 +913,8 @@ class FreeSurfaceEquation(BaseShallowWaterEquation):
         """
         super(FreeSurfaceEquation, self).__init__(eta_space, depth, options)
         self.add_continuity_terms(eta_test, eta_space, u_space, depth, options)
-        self.bathymetry_displacement_mass_term = BathymetryDisplacementMassTerm(eta_test, eta_space, u_space, depth, options)
+        self.bathymetry_displacement_mass_term = BathymetryDisplacementMassTerm(
+            eta_test, eta_space, u_space, depth, options)
 
     def mass_term(self, solution):
         f = super(ShallowWaterEquations, self).mass_term(solution)
