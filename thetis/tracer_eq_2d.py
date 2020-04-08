@@ -83,7 +83,7 @@ class TracerTerm(Term):
             uv_ext = self.corr_factor * funcs['uv']
         elif 'flux' in funcs:
             assert self.bathymetry is not None
-            h_ext = elev_ext + self.bathymetry
+            h_ext = self.get_total_depth(elev_ext)
             area = h_ext*self.boundary_len[bnd_id]  # NOTE using external data only
             uv_ext = self.corr_factor * funcs['flux']/area*self.normal
         elif 'un' in funcs:

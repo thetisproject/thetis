@@ -236,7 +236,6 @@ class ShallowWaterTerm(Term):
         Volume flux (flux) and normal velocity (un) are defined positive out of
         the domain.
         """
-        bath = self.bathymetry
         bnd_len = self.boundary_len[bnd_id]
         funcs = bnd_conditions.get(bnd_id)
         if 'elev' in funcs and 'uv' in funcs:
@@ -247,7 +246,7 @@ class ShallowWaterTerm(Term):
             uv_ext = funcs['un']*self.normal
         elif 'elev' in funcs and 'flux' in funcs:
             eta_ext = funcs['elev']
-            h_ext = eta_ext + bath
+            h_ext = self.get_total_depth(eta_ext)
             area = h_ext*bnd_len  # NOTE using external data only
             uv_ext = funcs['flux']/area*self.normal
         elif 'elev' in funcs:
@@ -261,7 +260,7 @@ class ShallowWaterTerm(Term):
             uv_ext = funcs['un']*self.normal
         elif 'flux' in funcs:
             eta_ext = eta_in  # assume symmetry
-            h_ext = eta_ext + bath
+            h_ext = self.get_total_depth(eta_ext)
             area = h_ext*bnd_len  # NOTE using internal elevation
             uv_ext = funcs['flux']/area*self.normal
         else:
@@ -433,7 +432,7 @@ class HUDivTerm(ShallowWaterContinuityTerm):
                     un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h_av)*eta_jump
                     un_jump = inner(uv_old - uv_ext_old, self.normal)
                     eta_rie = 0.5*(eta_old + eta_ext_old) + sqrt(h_av/g_grav)*un_jump
-                    h_rie = self.bathymetry + eta_rie
+                    h_rie = self.get_total_depth(eta_rie)
                     f += h_rie*un_rie*self.eta_test*ds_bnd
         else:
             f = div(total_h*uv)*self.eta_test*self.dx
