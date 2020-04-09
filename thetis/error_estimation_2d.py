@@ -41,16 +41,25 @@ class TracerErrorEstimatorTerm(ErrorEstimatorTerm, TracerTerm):
 class ExternalPressureGradientErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     # TODO: doc
     def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
-        raise NotImplementedError  # TODO
+        uv, elev = split(solution)
+        z, zeta = split(arg)
+
+        return -self.p0test*g_grav*inner(z, grad(elev))*self.dx
 
     def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+        uv, elev = split(solution)
         raise NotImplementedError  # TODO
 
 
 class HUDivErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     # TODO: doc
     def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
-        raise NotImplementedError  # TODO
+        uv, elev = split(solution)
+        uv_old, elev_old = split(solution_old)
+        z, zeta = split(arg)
+        total_h = self.get_total_depth(elev_old)
+
+        return -self.p0test*zeta*div(total_h*uv)*self.dx
 
     def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
         raise NotImplementedError  # TODO
@@ -59,7 +68,12 @@ class HUDivErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
 class HorizontalAdvectionErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     # TODO: doc
     def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
-        raise NotImplementedError  # TODO
+        if not self.options.use_nonlinear_equations:
+            return 0
+        uv, elev = split(solution)
+        z, zeta = split(arg)
+
+        return -self.p0test*inner(z, dot(uv, nabla_grad(uv)))*self.dx  # TODO: Maybe should use uv_old for one
 
     def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
         raise NotImplementedError  # TODO
@@ -68,7 +82,23 @@ class HorizontalAdvectionErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
 class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     # TODO: doc
     def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
-        raise NotImplementedError  # TODO
+        nu = fields_old.get('viscosity_h')
+        if nu is None:
+            return 0
+        uv, elev = split(solution)
+        uv_old, elev_old = split(solution_old)
+        total_h = self.get_total_depth(elev_old)
+
+        if self.options.use_grad_div_viscosity_term:
+            stress = 2.0*nu*sym(grad(uv))
+        else:
+            stress = nu*grad(uv)
+
+        f = self.p0test*inner(z, div(stress))*self.dx
+        if self.options.use_grad_depth_viscosity_term:
+            f += self.p0test*inner(z, dot(grad(total_h)/total_h))*self.dx
+
+        return f
 
     def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
         raise NotImplementedError  # TODO
@@ -77,7 +107,15 @@ class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
 class CoriolisErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     # TODO: doc
     def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
-        raise NotImplementedError  # TODO
+        uv, elev = split(solution)
+        z, zeta = split(arg)
+        coriolis = fields_old.get('coriolis')
+
+        f = 0
+        if coriolis is not None:
+            f += self.p0test*coriolis*(-uv[1]*z[0] + uv[0]*z[1])*self.dx
+
+        return -f
 
     def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
         raise NotImplementedError  # TODO
@@ -86,16 +124,50 @@ class CoriolisErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
 class QuadraticDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     # TODO: doc
     def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
-        raise NotImplementedError  # TODO
+        uv, elev = split(solution)
+        uv_old, elev_old = split(solution_old)
+        z, zeta = split(arg)
+        total_h = self.get_total_depth(elev_old)
+        manning_drag_coefficient = fields_old.get('manning_drag_coefficient')
+        C_D = fields_old.get('quadratic_drag_coefficient')
+
+        f = 0
+        if manning_drag_coefficient is not None:
+            if C_D is not None:
+                raise Exception('Cannot set both dimensionless and Manning drag parameter')
+            C_D = g_grav * manning_drag_coefficient**2 / total_h**(1./3.)
+
+        if C_D is not None:
+            # unorm = sqrt(dot(uv_old, uv_old) + self.options.norm_smoother**2)
+            unorm = sqrt(dot(uv, uv) + self.options.norm_smoother**2)
+            f += self.p0test*C_D*unorm*inner(z, uv)/total_h*self.dx
+
+        return -f
 
     def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
         raise NotImplementedError  # TODO
 
 
+
 class TurbineDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     # TODO: doc
     def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
-        raise NotImplementedError  # TODO
+        uv, elev = split(solution)
+        uv_old, elev_old = split(solution_old)
+        z, zeta = split(arg)
+        total_h = self.get_total_depth(elev_old)
+
+        f = 0
+        for subdomain_id, farm_options in self.options.tidal_turbine_farms.items():
+            density = farm_options.turbine_density
+            C_T = farm_options.turbine_options.thrust_coefficient
+            A_T = pi * (farm_options.turbine_options.diameter/2.)**2
+            C_D = (C_T * A_T * density)/2.
+            # unorm = sqrt(dot(uv_old, uv_old))
+            unorm = sqrt(dot(uv, uv))
+            f += C_D * unorm * inner(z, uv) / total_h * dx(subdomain_id)
+
+        return -f
 
     def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
         raise NotImplementedError  # TODO

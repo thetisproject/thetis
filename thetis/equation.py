@@ -292,8 +292,10 @@ class ErrorEstimator(object):
         cell_residual_terms = 0
         for term in self.select_terms(label):
             cell_residual_terms += term.residual(solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions)
-        cell_residual = Function(self.P0, name="Cell residual")
-        cell_residual.interpolate(assemble(cell_residual_terms))
+        # cell_residual = Function(self.P0, name="Cell residual")
+        # cell_residual.interpolate(assemble(cell_residual_terms))
+        cell_residual = assemble(cell_residual_terms)
+        cell_residual.rename("Cell residual")
         return cell_residual
 
     def flux(self, label, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
