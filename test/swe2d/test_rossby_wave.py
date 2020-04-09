@@ -19,7 +19,6 @@ import os
 import json
 import numpy as np
 import pytest
-import weakref
 
 
 def asymptotic_expansion_uv(U_2d, order=1, time=0.0, soliton_amplitude=0.395):
@@ -144,15 +143,13 @@ def run(refinement_level, reference_solution, **model_options):
     order = model_options.pop('expansion_order')
     family = model_options.get('element_family')
     model_comparison = model_options.pop('model_comparison')
-    overlap = model_options.pop('overlap')
     stepper = model_options.get('timestepper_type')
     print_output("--- running refinement level {:d} in {:s} space".format(refinement_level, family))
 
     # Set up domain
     lx, ly = 48, 24
     nx, ny = 2*refinement_level, refinement_level
-    params = {'partition': True, 'overlap_type': (DistributedMeshOverlapType.VERTEX, overlap)}
-    mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x', distribution_parameters=params)
+    mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x')
     x, y = SpatialCoordinate(mesh2d)
     mesh2d.coordinates.interpolate(as_vector([x-lx/2, y-ly/2]))
 
@@ -203,7 +200,6 @@ def run(refinement_level, reference_solution, **model_options):
     print_output("--- computing metrics for refinement level {:d} in {:s} space".format(refinement_level, family))
     ref_mesh = reference_solution.function_space().mesh()
     x, y = SpatialCoordinate(ref_mesh)
-    ref_mesh._parallel_compatible = {weakref.ref(mesh2d)}
     P1_2d_ref = FunctionSpace(ref_mesh, "CG", 1)
     elev_ref = project(solver_obj.fields.elev_2d, P1_2d_ref)
     xcoords = project(ref_mesh.coordinates[0], P1_2d_ref)
@@ -220,23 +216,10 @@ def run(refinement_level, reference_solution, **model_options):
         i_n, h_n = v.max()
         i_s, h_s = v.min()
 
-        # Find ranks which own peaks
-        ownership_range = v.getOwnershipRanges()
-        for j in range(mesh2d.comm.size):
-            if i_n >= ownership_range[j] and i_n < ownership_range[j+1]:
-                rank_with_n_peak = j
-            if i_s >= ownership_range[j] and i_s < ownership_range[j+1]:
-                rank_with_s_peak = j
-
     # Get mean phase speeds
-    x_n, x_s = None, None
     with xcoords.dat.vec_ro as xdat:
-        if mesh2d.comm.rank == rank_with_n_peak:
-            x_n = xdat[i_n]
-        if mesh2d.comm.rank == rank_with_s_peak:
-            x_s = xdat[i_s]
-    x_n = mesh2d.comm.bcast(x_n, root=rank_with_n_peak)
-    x_s = mesh2d.comm.bcast(x_s, root=rank_with_s_peak)
+        x_n = xdat[i_n]
+        x_s = xdat[i_s]
 
     # Get relative versions of metrics using high resolution FVCOM data
     h_n /= 0.1567020
@@ -249,15 +232,13 @@ def run(refinement_level, reference_solution, **model_options):
 def compute_error_metrics(ref_list, reference_refinement_level, **options):
     order = options.get('expansion_order')
     model_comparison = options.get('model_comparison')
-    overlap = options.get('overlap')
     T = options.get('simulation_end_time')
 
     # Build reference mesh
     print_output("Building reference space...")
     lx, ly = 48, 24
     nx_fine, ny_fine = 2*reference_refinement_level, reference_refinement_level
-    params = {'partition': True, 'overlap_type': (DistributedMeshOverlapType.VERTEX, overlap)}
-    ref_mesh = PeriodicRectangleMesh(nx_fine, ny_fine, lx, ly, direction='x', distribution_parameters=params)
+    ref_mesh = PeriodicRectangleMesh(nx_fine, ny_fine, lx, ly, direction='x')
     x_fine, y_fine = SpatialCoordinate(ref_mesh)
     ref_mesh.coordinates.interpolate(as_vector([x_fine-lx/2, y_fine-ly/2]))
 
@@ -361,7 +342,7 @@ def family(request):
 def test_convergence(stepper, family):
     run_convergence([12, 24], reference_refinement_level=96, timestepper_type=stepper,
                     simulation_end_time=30.0, polynomial_degree=1, element_family=family,
-                    no_exports=True, expansion_order=1, model_comparison=False, overlap=1)
+                    no_exports=True, expansion_order=1, model_comparison=False)
 
 # --------------------------------------------
 # run individual setup for model comparison
@@ -372,9 +353,9 @@ if __name__ == "__main__":
     element_family = 'dg-dg'
     timestepper = 'SSPRK33'
     run_convergence([96, 192, 480], reference_refinement_level=1200,
-                    timestepper_type=timestepper, simulation_end_time=30.0,
+                    timestepper_type=timestepper, simulation_end_time=120.0,
                     polynomial_degree=1, element_family=element_family,
-                    no_exports=False, expansion_order=1, model_comparison=True, overlap=1200)
+                    no_exports=False, expansion_order=1, model_comparison=True)
 
     # Compare results against FVCOM and ROMS given in [1].
     table = generate_table(element_family, timestepper)
