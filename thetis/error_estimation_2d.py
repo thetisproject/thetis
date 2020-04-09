@@ -10,6 +10,7 @@ __all__ = [
 ]
 
 g_grav = physical_constants['g_grav']
+rho_0 = physical_constants['rho0']
 
 
 class ShallowWaterErrorEstimatorTerm(ErrorEstimatorTerm, ShallowWaterTerm):
@@ -92,9 +93,10 @@ class HorizontalAdvectionErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         if not self.options.use_nonlinear_equations:
             return 0
         uv, elev = split(solution)
+        uv_old, elev_old = split(solution_old)
         z, zeta = split(arg)
 
-        return -self.p0test*inner(z, dot(uv, nabla_grad(uv)))*self.dx  # TODO: Maybe should use uv_old for one
+        return -self.p0test*inner(z, dot(uv_old, nabla_grad(uv)))*self.dx
 
     def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
         raise NotImplementedError  # TODO
@@ -114,6 +116,7 @@ class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
             return 0
         uv, elev = split(solution)
         uv_old, elev_old = split(solution_old)
+        z, zeta = split(arg)
         total_h = self.get_total_depth(elev_old)
 
         if self.options.use_grad_div_viscosity_term:
@@ -157,6 +160,53 @@ class CoriolisErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return 0
 
 
+class WindStressErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+    """
+    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`WindStressTerm` term
+    of the shallow water model.
+    """
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        uv, elev = split(solution)
+        uv_old, elev_old = split(solution_old)
+        z, zeta = split(arg)
+
+        wind_stress = fields_old.get('wind_stress')
+        total_h = self.get_total_depth(elev_old)
+        f = 0
+        if wind_stress is not None:
+            f += self.p0test*dot(wind_stress, z)/total_h/rho_0*self.dx
+        return f
+
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        return 0
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
+        return 0
+
+
+class AtmosphericPressureErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+    """
+    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`AtmosphericPressureTerm` term
+    of the shallow water model.
+    """
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        uv, elev = split(solution)
+        uv_old, elev_old = split(solution_old)
+        z, zeta = split(arg)
+
+        atmospheric_pressure = fields_old.get('atmospheric_pressure')
+        f = 0
+        if atmospheric_pressure is not None:
+            f += self.p0test*dot(grad(atmospheric_pressure), z)/rho_0*self.dx
+        return -f
+
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        return 0
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
+        return 0
+
+
 class QuadraticDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     """
     :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`QuadraticDragTerm`
@@ -177,8 +227,7 @@ class QuadraticDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
             C_D = g_grav * manning_drag_coefficient**2 / total_h**(1./3.)
 
         if C_D is not None:
-            # unorm = sqrt(dot(uv_old, uv_old) + self.options.norm_smoother**2)
-            unorm = sqrt(dot(uv, uv) + self.options.norm_smoother**2)
+            unorm = sqrt(dot(uv_old, uv_old) + self.options.norm_smoother**2)
             f += self.p0test*C_D*unorm*inner(z, uv)/total_h*self.dx
 
         return -f
@@ -189,6 +238,54 @@ class QuadraticDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
         return 0
 
+
+class LinearDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+    """
+    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`LinearDragTerm`
+    term of the shallow water model.
+    """
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        uv, elev = split(solution)
+        z, zeta = split(arg)
+
+        linear_drag_coefficient = fields_old.get('linear_drag_coefficient')
+        f = 0
+        if linear_drag_coefficient is not None:
+            f += self.p0test*linear_drag_coefficient*inner(z, uv)*self.dx
+        return -f
+
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        return 0
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
+        return 0
+
+
+class BottomDrag3DErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+    """
+    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`BottomDrag3DTerm`
+    term of the shallow water model.
+    """
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        uv, elev = split(solution)
+        uv_old, elev_old = split(solution_old)
+        z, zeta = split(arg)
+
+        total_h = self.get_total_depth(elev_old)
+        bottom_drag = fields_old.get('bottom_drag')
+        uv_bottom = fields_old.get('uv_bottom')
+        f = 0
+        if bottom_drag is not None and uv_bottom is not None:
+            uvb_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
+            stress = bottom_drag*uvb_mag*uv_bottom/total_h
+            f += self.p0test*dot(stress, z)*self.dx
+        return -f
+
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        return 0
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
+        return 0
 
 
 class TurbineDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
@@ -208,10 +305,74 @@ class TurbineDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
             C_T = farm_options.turbine_options.thrust_coefficient
             A_T = pi * (farm_options.turbine_options.diameter/2.)**2
             C_D = (C_T * A_T * density)/2.
-            # unorm = sqrt(dot(uv_old, uv_old))
-            unorm = sqrt(dot(uv, uv))
-            f += C_D * unorm * inner(z, uv) / total_h * dx(subdomain_id)
+            unorm = sqrt(dot(uv_old, uv_old))
+            f += self.p0test*C_D*unorm*inner(z, uv)/total_h*self.dx(subdomain_id)
 
+        return -f
+
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        return 0
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
+        return 0
+
+
+class MomentumSourceErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+    """
+    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`MomentumSourceTerm`
+    term of the shallow water model.
+    """
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        z, zeta = split(arg)
+
+        f = 0
+        momentum_source = fields_old.get('momentum_source')
+
+        if momentum_source is not None:
+            f += self.p0test*inner(momentum_source, z)*self.dx
+        return f
+
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        return 0
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
+        return 0
+
+
+class ContinuitySourceErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+    """
+    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`ContinuitySourceTerm`
+    term of the shallow water model.
+    """
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        z, zeta = split(arg)
+
+        f = 0
+        volume_source = fields_old.get('volume_source')
+
+        if volume_source is not None:
+            f += self.p0test*inner(volume_source, zeta)*self.dx
+        return f
+
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        return 0
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
+        return 0
+
+
+class BathymetryDisplacementErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+    """
+    :class:`ShallowWaterErrorEstimatorTerm` object associated with the
+    :class:`BathymetryDisplacementTerm` term of the shallow water model.
+    """
+    def element_residual(self, solution, arg):
+        uv, elev = split(solution)
+        z, zeta = split(arg)
+
+        f = 0
+        if self.options.use_wetting_and_drying:
+            f += self.p0test*inner(self.wd_bathymetry_displacement(elev), zeta)*self.dx
         return -f
 
     def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -229,7 +390,6 @@ class TracerHorizontalAdvectionErrorEstimatorTerm(TracerErrorEstimatorTerm):
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         if fields_old.get('uv_2d') is None:
             return 0
-        elev = fields_old['elev_2d']
         self.corr_factor = fields_old.get('tracer_advective_velocity_factor')
 
         uv = self.corr_factor * fields_old['uv_2d']
@@ -298,18 +458,18 @@ class ShallowWaterErrorEstimator(ErrorEstimator):
         self.add_term(HorizontalAdvectionErrorEstimatorTerm(*args), 'explicit')
         self.add_term(HorizontalViscosityErrorEstimatorTerm(*args), 'explicit')
         self.add_term(CoriolisErrorEstimatorTerm(*args), 'explicit')
-        # self.add_term(WindStressErrorEstimatorTerm(*args), 'source')  # TODO
-        # self.add_term(AtmosphericPressureErrorEstimatorTerm(*args), 'source')  # TODO
+        self.add_term(WindStressErrorEstimatorTerm(*args), 'source')
+        self.add_term(AtmosphericPressureErrorEstimatorTerm(*args), 'source')
         self.add_term(QuadraticDragErrorEstimatorTerm(*args), 'explicit')
-        # self.add_term(LinearDragErrorEstimatorTerm(*args), 'explicit')  # TODO
-        # self.add_term(BottomDrag3DErrorEstimatorTerm(*args), 'source')  # TODO
+        self.add_term(LinearDragErrorEstimatorTerm(*args), 'explicit')
+        self.add_term(BottomDrag3DErrorEstimatorTerm(*args), 'source')
         self.add_term(TurbineDragErrorEstimatorTerm(*args), 'implicit')
-        # self.add_term(MomentumSourceErrorEstimatorTerm(*args), 'source')  # TODO
+        self.add_term(MomentumSourceErrorEstimatorTerm(*args), 'source')
 
         # Continuity terms
         args = (function_space.sub(1), bathymetry, options)
         self.add_term(HUDivErrorEstimatorTerm(*args), 'implicit')
-        # self.add_term(ContinuitySourceErrorEstimatorTerm(*args), 'source')  # TODO
+        self.add_term(ContinuitySourceErrorEstimatorTerm(*args), 'source')
 
 
 class TracerErrorEstimator(ErrorEstimator):
