@@ -1730,7 +1730,6 @@ class DepthExpression:
     r"""
     Construct expression for depth depending on options
 
-
     If `not use_nonlinear_equations`, then the depth is simply the bathymetry:
         :math:`H = h`
     Otherwise we include the free surface elevation:
@@ -1739,18 +1738,12 @@ class DepthExpression:
     to ensure a positive depth (see Karna et al. 2011):
         :math:`H = h + f(h+\eta) + \eta`
     where
-        :math:`f(h+\eta) = (\sqrt{(h+\eta)^2 +\alpha^2} - (h+\eta))/2
+        :math:`f(h+\eta) = (\sqrt{(h+\eta)^2 +\alpha^2} - (h+\eta))/2`
     This introduces a wetting-drying parameter :math:`\alpha`, with dimensions
     of length. The value for :math:`\alpha` is specified by
-    `wetting_and_drying_alpha`, in units of meters. The default value is 0.5,
-    but the appropriate value is problem specific and should be set by the user.
-
-    An approximate method for selecting a suitable value for :math:`\alpha` is suggested
-    by Karna et al. (2011). Defining :math:`L_x` as the horizontal length scale of the
-    mesh elements at the wet-dry front, it can be reasoned that :math:`\alpha \approx |L_x
-    \nabla h|` yields a suitable choice. Smaller :math:`\alpha` leads to a more accurate
-    solution to the shallow water equations in wet regions, but if :math:`\alpha` is too
-    small the simulation will become unstable.
+    :attr:`.ModelOptions.wetting_and_drying_alpha`, in units of meters. The
+    default value is 0.5, but the appropriate value is problem specific and
+    should be set by the user.
     """
 
     def __init__(self, bathymetry_2d, use_nonlinear_equations=True,
