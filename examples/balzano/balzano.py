@@ -29,7 +29,9 @@ from thetis import *
 
 outputdir = 'outputs'
 mesh2d = RectangleMesh(12, 6, 13800, 7200)
-print_output('Exporting to '+outputdir)
+
+# Balzano testcase 3 with isolated lake
+lake_test = False
 
 # time step in seconds
 dt = 600.
@@ -41,16 +43,27 @@ t_export = 600.
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
     t_end = 5*t_export
 
+if lake_test:
+    outputdir += '_lake'
+
+print_output('Exporting to '+outputdir)
+
+
 # bathymetry: uniform slope with gradient 1/2760
 P1_2d = get_functionspace(mesh2d, 'CG', 1)
 bathymetry = Function(P1_2d, name='Bathymetry')
-x = SpatialCoordinate(mesh2d)
-bathymetry.interpolate(x[0] / 2760.0)
+x, y = SpatialCoordinate(mesh2d)
+bath_expr = x / 2760.
+if lake_test:
+    bath_expr = conditional(x < 3600, bath_expr, -x / 2760. + 60./23)
+    bath_expr = conditional(x < 4800, bath_expr, x / 920. - 100./23)
+    bath_expr = conditional(x < 6000, bath_expr, x / 2760.)
+
+bathymetry.interpolate(bath_expr)
 
 # bottom friction suppresses reflection from wet-dry front
 manning_drag_coefficient = Constant(0.02)
 # wetting-drying options
-use_wetting_and_drying = True
 wetting_and_drying_alpha = Constant(0.4)
 
 # --- create solver ---
@@ -59,51 +72,61 @@ options = solverObj.options
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
 options.output_directory = outputdir
-options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
-options.timestepper_type = 'CrankNicolson'
-options.timestepper_options.implicitness_theta = 0.5
-options.use_wetting_and_drying = use_wetting_and_drying
+#options.timestepper_type = 'SSPRK33'
+#options.timestepper_options.use_automatic_timestep = False
+#options.timestep = 10.0
+#options.timestepper_type = 'CrankNicolson'
+options.timestepper_type = 'DIRK22'
+options.timestep = dt
+options.horizontal_viscosity = Constant(1000.)
+options.use_lax_friedrichs_velocity = False
+options.use_wetting_and_drying = False
 options.wetting_and_drying_alpha = wetting_and_drying_alpha
 options.manning_drag_coefficient = manning_drag_coefficient
-options.timestep = dt
+options.horizontal_velocity_scale = Constant(1.0)
 
-# boundary conditions
-h_amp = -2.0      # ocean boundary forcing amplitude
-h_T = 12*3600.    # ocean boundary forcing period
-ocean_elev_func = lambda t: h_amp * sin(2 * pi * t / h_T)
-solverObj.create_function_spaces()
-H_2d = solverObj.function_spaces.H_2d
-ocean_elev = Function(H_2d, name="ocean boundary elevation").assign(ocean_elev_func(0.))
-ocean_funcs = {'elev': ocean_elev}
+# elevation at open boundary
+bnd_time = Constant(0)
+h_amp = 2.0
+h_T = 12*3600.
+
+if lake_test:
+    ramp_t = 6*3600.
+    f = h_amp * cos(2 * pi * bnd_time / h_T)
+    ocean_elev_expr = conditional(le(bnd_time, ramp_t), f, -h_amp)
+else:
+    ocean_elev_expr = -h_amp * sin(2 * pi * bnd_time / h_T)
+
 solverObj.bnd_functions['shallow_water'] = {
-    2: ocean_funcs
+    2: {'elev': ocean_elev_expr}
 }
 
-# User-defined output: moving bathymetry and eta_tilde
-wd_bathfile = File(os.path.join(outputdir, 'moving_bath.pvd'))
-moving_bath = Function(P1_2d, name="moving_bath")
-eta_tildefile = File(os.path.join(outputdir, 'eta_tilde.pvd'))
-eta_tilde = Function(P1_2d, name="eta_tilde")
-
-
-# user-specified export function
-def export_func():
-    wd_bath_displacement = solverObj.depth.wd_bathymetry_displacement
-    eta = solverObj.fields.elev_2d
-    moving_bath.project(bathymetry + wd_bath_displacement(eta))
-    wd_bathfile.write(moving_bath)
-    eta_tilde.project(eta+wd_bath_displacement(eta))
-    eta_tildefile.write(eta_tilde)
+# # User-defined output: moving bathymetry and eta_tilde
+# wd_bathfile = File(os.path.join(outputdir, 'moving_bath.pvd'))
+# moving_bath = Function(P1_2d, name="moving_bath")
+# eta_tildefile = File(os.path.join(outputdir, 'eta_tilde.pvd'))
+# eta_tilde = Function(P1_2d, name="eta_tilde")
+#
+#
+# def export_func():
+#     wd_bath_displacement = solverObj.eq_sw.bathymetry_displacement_mass_term.wd_bathymetry_displacement
+#     eta = solverObj.fields.elev_2d
+#     moving_bath.project(bathymetry + wd_bath_displacement(eta))
+#     wd_bathfile.write(moving_bath)
+#     eta_tilde.project(eta+wd_bath_displacement(eta))
+#     eta_tildefile.write(eta_tilde)
 
 
 # callback function to update boundary forcing
 def update_forcings(t):
-    print_output("Updating boundary condition at t={}".format(t))
-    ocean_elev.assign(ocean_elev_func(t))
+    bnd_time.assign(t)
 
 
 # initial condition: assign non-zero velocity
-solverObj.assign_initial_conditions(uv=Constant((1e-7, 0.)))
+elev_init = Constant(0.10)
+if lake_test:
+    elev_init = Constant(2.0)
+solverObj.assign_initial_conditions(uv=Constant((1e-7, 0.)), elev=elev_init)
 
-solverObj.iterate(update_forcings=update_forcings, export_func=export_func)
+solverObj.iterate(update_forcings=update_forcings)
