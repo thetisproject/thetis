@@ -5,7 +5,7 @@ from .tracer_eq_2d import TracerTerm
 from .shallowwater_eq import ShallowWaterTerm
 
 __all__ = [
-    'TracerErrorEstimator2D',
+    'TracerErrorEstimator',
     'ShallowWaterErrorEstimator',
 ]
 
@@ -118,7 +118,7 @@ class CoriolisErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return -f
 
     def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
-        raise NotImplementedError  # TODO
+        return 0
 
 
 class QuadraticDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
@@ -145,7 +145,7 @@ class QuadraticDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return -f
 
     def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
-        raise NotImplementedError  # TODO
+        return 0
 
 
 
@@ -170,13 +170,20 @@ class TurbineDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return -f
 
     def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
-        raise NotImplementedError  # TODO
+        return 0
 
 
 class TracerHorizontalAdvectionErrorEstimatorTerm(TracerErrorEstimatorTerm):
     # TODO: doc
     def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
-        raise NotImplementedError  # TODO
+        if fields_old.get('uv_2d') is None:
+            return 0
+        elev = fields_old['elev_2d']
+        self.corr_factor = fields_old.get('tracer_advective_velocity_factor')
+
+        uv = self.corr_factor * fields_old['uv_2d']
+
+        return -self.p0test*arg*inner(uv, grad(solution))*self.dx
 
     def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
         raise NotImplementedError  # TODO
@@ -185,7 +192,13 @@ class TracerHorizontalAdvectionErrorEstimatorTerm(TracerErrorEstimatorTerm):
 class TracerHorizontalDiffusionErrorEstimatorTerm(TracerErrorEstimatorTerm):
     # TODO: doc
     def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
-        raise NotImplementedError  # TODO
+        if fields_old.get('diffusivity_h') is None:
+            return 0
+        diffusivity_h = fields_old['diffusivity_h']
+        diff_tensor = as_matrix([[diffusivity_h, 0, ],
+                                 [0, diffusivity_h, ]])
+
+        return self.p0test*arg*div(dot(diff_tensor, grad(solution)))*self.dx
 
     def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
         raise NotImplementedError  # TODO
@@ -194,16 +207,20 @@ class TracerHorizontalDiffusionErrorEstimatorTerm(TracerErrorEstimatorTerm):
 class TracerSourceErrorEstimatorTerm(TracerErrorEstimatorTerm):
     # TODO: doc
     def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
-        raise NotImplementedError  # TODO
+        f = 0
+        source = fields_old.get('source')
+        if source is not None:
+            f += -self.p0test*inner(source, self.test)*self.dx
+        return -f
 
     def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
-        raise NotImplementedError  # TODO
+        return 0
 
 
-class ShallowWaterEstimator(ErrorEstimator):
+class ShallowWaterErrorEstimator(ErrorEstimator):
     # TODO: doc
     def __init__(self, function_space, bathymetry, options):
-        super(ShallowWaterEstimator, self).__init__(function_space)
+        super(ShallowWaterErrorEstimator, self).__init__(function_space)
         self.bathymetry = bathymetry
         self.options = options
 
@@ -227,11 +244,11 @@ class ShallowWaterEstimator(ErrorEstimator):
         # self.add_term(ContinuitySourceErrorEstimatorTerm(*args), 'source')  # TODO
 
 
-class TracerErrorEstimator2D(ErrorEstimator):
+class TracerErrorEstimator(ErrorEstimator):
     # TODO: doc
     def __init__(self, function_space,
                  bathymetry=None, use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
-        super(TracerErrorEstimator2D, self).__init__(function_space)
+        super(TracerErrorEstimator, self).__init__(function_space)
 
         args = (function_space, bathymetry, use_lax_friedrichs, sipg_parameter)
         self.add_term(TracerHorizontalAdvectionErrorEstimatorTerm(*args), 'explicit')
