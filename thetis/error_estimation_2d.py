@@ -13,7 +13,10 @@ g_grav = physical_constants['g_grav']
 
 
 class ShallowWaterErrorEstimatorTerm(ErrorEstimatorTerm, ShallowWaterTerm):
-    # TODO: doc
+    """
+    Generic :class:`ErrorEstimatorTerm` in the shallow water model which provides the contribution
+    to the total error estimator.
+    """
     def __init__(self, function_space, bathymetry=None, options=None):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
@@ -26,7 +29,10 @@ class ShallowWaterErrorEstimatorTerm(ErrorEstimatorTerm, ShallowWaterTerm):
 
 
 class TracerErrorEstimatorTerm(ErrorEstimatorTerm, TracerTerm):
-    # TODO: doc
+    """
+    Generic :class:`ErrorEstimatorTerm` in the 2D tracer model which provides the contribution
+    to the total error estimator.
+    """
     def __init__(self, function_space,
                  bathymetry=None, use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
         """
@@ -39,7 +45,10 @@ class TracerErrorEstimatorTerm(ErrorEstimatorTerm, TracerTerm):
 
 
 class ExternalPressureGradientErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
-    # TODO: doc
+    """
+    :class:`ShallowWaterErrorEstimatorTerm` object associated with the
+    :class:`ExternalPressureGradientTerm` term of the shallow water model.
+    """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         uv, elev = split(solution)
         z, zeta = split(arg)
@@ -55,7 +64,10 @@ class ExternalPressureGradientErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm)
 
 
 class HUDivErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
-    # TODO: doc
+    """
+    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`HUDivTerm` term of
+    the shallow water model.
+    """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         uv, elev = split(solution)
         uv_old, elev_old = split(solution_old)
@@ -72,7 +84,10 @@ class HUDivErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
 
 
 class HorizontalAdvectionErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
-    # TODO: doc
+    """
+    :class:`ShallowWaterErrorEstimatorTerm` object associated with the
+    :class:`HorizontalAdvectionTerm` term of the shallow water model.
+    """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         if not self.options.use_nonlinear_equations:
             return 0
@@ -89,7 +104,10 @@ class HorizontalAdvectionErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
 
 
 class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
-    # TODO: doc
+    """
+    :class:`ShallowWaterErrorEstimatorTerm` object associated with the
+    :class:`HorizontalViscosityTerm` term of the shallow water model.
+    """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         nu = fields_old.get('viscosity_h')
         if nu is None:
@@ -117,7 +135,10 @@ class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
 
 
 class CoriolisErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
-    # TODO: doc
+    """
+    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`CoriolisTerm` term
+    of the shallow water model.
+    """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         uv, elev = split(solution)
         z, zeta = split(arg)
@@ -137,7 +158,10 @@ class CoriolisErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
 
 
 class QuadraticDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
-    # TODO: doc
+    """
+    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`QuadraticDragTerm`
+    term of the shallow water model.
+    """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         uv, elev = split(solution)
         uv_old, elev_old = split(solution_old)
@@ -168,7 +192,10 @@ class QuadraticDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
 
 
 class TurbineDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
-    # TODO: doc
+    """
+    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`TurbineDragTerm`
+    term of the shallow water model.
+    """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         uv, elev = split(solution)
         uv_old, elev_old = split(solution_old)
@@ -195,7 +222,10 @@ class TurbineDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
 
 
 class TracerHorizontalAdvectionErrorEstimatorTerm(TracerErrorEstimatorTerm):
-    # TODO: doc
+    """
+    :class:`TracerErrorEstimatorTerm` object associated with the :class:`HorizontalAdvectionTerm`
+    term of the 2D tracer model.
+    """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         if fields_old.get('uv_2d') is None:
             return 0
@@ -214,7 +244,10 @@ class TracerHorizontalAdvectionErrorEstimatorTerm(TracerErrorEstimatorTerm):
 
 
 class TracerHorizontalDiffusionErrorEstimatorTerm(TracerErrorEstimatorTerm):
-    # TODO: doc
+    """
+    :class:`TracerErrorEstimatorTerm` object associated with the :class:`HorizontalDiffusionTerm`
+    term of the 2D tracer model.
+    """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         if fields_old.get('diffusivity_h') is None:
             return 0
@@ -232,7 +265,10 @@ class TracerHorizontalDiffusionErrorEstimatorTerm(TracerErrorEstimatorTerm):
 
 
 class TracerSourceErrorEstimatorTerm(TracerErrorEstimatorTerm):
-    # TODO: doc
+    """
+    :class:`TracerErrorEstimatorTerm` object associated with the :class:`SourceTerm` term of the
+    2D tracer model.
+    """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         f = 0
         source = fields_old.get('source')
@@ -248,7 +284,9 @@ class TracerSourceErrorEstimatorTerm(TracerErrorEstimatorTerm):
 
 
 class ShallowWaterErrorEstimator(ErrorEstimator):
-    # TODO: doc
+    """
+    :class:`ErrorEstimator` for the shallow water model.
+    """
     def __init__(self, function_space, bathymetry, options):
         super(ShallowWaterErrorEstimator, self).__init__(function_space)
         self.bathymetry = bathymetry
@@ -275,7 +313,9 @@ class ShallowWaterErrorEstimator(ErrorEstimator):
 
 
 class TracerErrorEstimator(ErrorEstimator):
-    # TODO: doc
+    """
+    :class:`ErrorEstimator` for the 2D tracer model.
+    """
     def __init__(self, function_space,
                  bathymetry=None, use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
         super(TracerErrorEstimator, self).__init__(function_space)
