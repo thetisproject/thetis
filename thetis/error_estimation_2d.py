@@ -40,20 +40,23 @@ class TracerErrorEstimatorTerm(ErrorEstimatorTerm, TracerTerm):
 
 class ExternalPressureGradientErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     # TODO: doc
-    def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         uv, elev = split(solution)
         z, zeta = split(arg)
 
         return -self.p0test*g_grav*inner(z, grad(elev))*self.dx
 
-    def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
         uv, elev = split(solution)
+        raise NotImplementedError  # TODO
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
         raise NotImplementedError  # TODO
 
 
 class HUDivErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     # TODO: doc
-    def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         uv, elev = split(solution)
         uv_old, elev_old = split(solution_old)
         z, zeta = split(arg)
@@ -61,13 +64,16 @@ class HUDivErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
 
         return -self.p0test*zeta*div(total_h*uv)*self.dx
 
-    def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        raise NotImplementedError  # TODO
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
         raise NotImplementedError  # TODO
 
 
 class HorizontalAdvectionErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     # TODO: doc
-    def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         if not self.options.use_nonlinear_equations:
             return 0
         uv, elev = split(solution)
@@ -75,13 +81,16 @@ class HorizontalAdvectionErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
 
         return -self.p0test*inner(z, dot(uv, nabla_grad(uv)))*self.dx  # TODO: Maybe should use uv_old for one
 
-    def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        raise NotImplementedError  # TODO
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
         raise NotImplementedError  # TODO
 
 
 class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     # TODO: doc
-    def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         nu = fields_old.get('viscosity_h')
         if nu is None:
             return 0
@@ -100,13 +109,16 @@ class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
 
         return f
 
-    def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        raise NotImplementedError  # TODO
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
         raise NotImplementedError  # TODO
 
 
 class CoriolisErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     # TODO: doc
-    def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         uv, elev = split(solution)
         z, zeta = split(arg)
         coriolis = fields_old.get('coriolis')
@@ -117,13 +129,16 @@ class CoriolisErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
 
         return -f
 
-    def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        return 0
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
         return 0
 
 
 class QuadraticDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     # TODO: doc
-    def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         uv, elev = split(solution)
         uv_old, elev_old = split(solution_old)
         z, zeta = split(arg)
@@ -144,14 +159,17 @@ class QuadraticDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
 
         return -f
 
-    def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        return 0
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
         return 0
 
 
 
 class TurbineDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     # TODO: doc
-    def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         uv, elev = split(solution)
         uv_old, elev_old = split(solution_old)
         z, zeta = split(arg)
@@ -169,13 +187,16 @@ class TurbineDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
 
         return -f
 
-    def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        return 0
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
         return 0
 
 
 class TracerHorizontalAdvectionErrorEstimatorTerm(TracerErrorEstimatorTerm):
     # TODO: doc
-    def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         if fields_old.get('uv_2d') is None:
             return 0
         elev = fields_old['elev_2d']
@@ -185,13 +206,16 @@ class TracerHorizontalAdvectionErrorEstimatorTerm(TracerErrorEstimatorTerm):
 
         return -self.p0test*arg*inner(uv, grad(solution))*self.dx
 
-    def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        raise NotImplementedError  # TODO
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
         raise NotImplementedError  # TODO
 
 
 class TracerHorizontalDiffusionErrorEstimatorTerm(TracerErrorEstimatorTerm):
     # TODO: doc
-    def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         if fields_old.get('diffusivity_h') is None:
             return 0
         diffusivity_h = fields_old['diffusivity_h']
@@ -200,20 +224,26 @@ class TracerHorizontalDiffusionErrorEstimatorTerm(TracerErrorEstimatorTerm):
 
         return self.p0test*arg*div(dot(diff_tensor, grad(solution)))*self.dx
 
-    def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        raise NotImplementedError  # TODO
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
         raise NotImplementedError  # TODO
 
 
 class TracerSourceErrorEstimatorTerm(TracerErrorEstimatorTerm):
     # TODO: doc
-    def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         f = 0
         source = fields_old.get('source')
         if source is not None:
             f += -self.p0test*inner(source, self.test)*self.dx
         return -f
 
-    def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions=None):
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        return 0
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
         return 0
 
 

@@ -210,11 +210,15 @@ class ErrorEstimatorTerm(object):
         self.p0test = TestFunction(self.P0)
         self.p0trial = TrialFunction(self.P0)
 
-    def residual(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
+    def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         # TODO: doc
         raise NotImplementedError('Must be implemented in the derived class')
 
-    def flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
+    def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
+        # TODO: doc
+        raise NotImplementedError('Must be implemented in the derived class')
+
+    def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
         # TODO: doc
         raise NotImplementedError('Must be implemented in the derived class')
 
@@ -287,23 +291,31 @@ class ErrorEstimator(object):
             if self.labels[key] in labels:
                 yield value
 
-    def residual(self, label, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
+    def element_residual(self, label, *args):
         # TODO: doc
-        cell_residual_terms = 0
+        residual_terms = 0
         for term in self.select_terms(label):
-            cell_residual_terms += term.residual(solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions)
-        # cell_residual = Function(self.P0, name="Cell residual")
-        # cell_residual.interpolate(assemble(cell_residual_terms))
-        cell_residual = assemble(cell_residual_terms)
-        cell_residual.rename("Cell residual")
-        return cell_residual
+            residual_terms += term.element_residual(*args)
+        residual = assemble(residual_terms)
+        residual.rename("Element residual")
+        return residual
 
-    def flux(self, label, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
+    def inter_element_flux(self, label, *args):
         # TODO: doc
         mass_term = self.p0test*self.p0trial*dx
         flux_terms = 0
         for term in self.select_terms(label):
-            flux_terms += term.flux(solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions)
-        flux = Function(self.P0, name="Flux and boundary terms")
+            flux_terms += term.inter_element_flux(*args)
+        flux = Function(self.P0, name="Inter-element flux terms")
+        solve(mass_term == flux_term, flux)  # TODO: Solver parameters?
+        return flux
+
+    def inter_element_flux(self, label, *args):
+        # TODO: doc
+        mass_term = self.p0test*self.p0trial*dx
+        flux_terms = 0
+        for term in self.select_terms(label):
+            flux_terms += term.boundary_flux(*args)
+        flux = Function(self.P0, name="Boundary flux terms")
         solve(mass_term == flux_term, flux)  # TODO: Solver parameters?
         return flux
