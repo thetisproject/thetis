@@ -307,15 +307,15 @@ class ErrorEstimator(object):
         for term in self.select_terms(label):
             flux_terms += term.inter_element_flux(*args)
         flux = Function(self.P0, name="Inter-element flux terms")
-        solve(mass_term == flux_term, flux)  # TODO: Solver parameters?
+        solve(mass_term == flux_terms, flux)  # TODO: Solver parameters?
         return flux
 
-    def inter_element_flux(self, label, *args):
+    def boundary_flux(self, label, *args):
         # TODO: doc
         mass_term = self.p0test*self.p0trial*dx
-        flux_terms = 0
+        bnd_flux_terms = 0
         for term in self.select_terms(label):
-            flux_terms += term.boundary_flux(*args)
-        flux = Function(self.P0, name="Boundary flux terms")
-        solve(mass_term == flux_term, flux)  # TODO: Solver parameters?
-        return flux
+            bnd_flux_terms += term.boundary_flux(*args)
+        bnd_flux = Function(self.P0, name="Boundary flux terms")
+        solve(mass_term == bnd_flux_terms, bnd_flux)  # TODO: Solver parameters?
+        return bnd_flux

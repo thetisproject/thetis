@@ -28,6 +28,12 @@ class ShallowWaterErrorEstimatorTerm(ErrorEstimatorTerm, ShallowWaterTerm):
         ShallowWaterTerm.__init__(self, function_space, bathymetry, options)
         ErrorEstimatorTerm.__init__(self, function_space.mesh())
 
+        # self.eta_is_dg = element_continuity(function_space.sub(1).ufl_element()).horizontal == 'dg'
+        # self.u_continuity = element_continuity(function_space.sub(0).ufl_element()).horizontal
+        # TODO: TEMPORARY. Should instead split into momentum and continuity terms
+        self.eta_is_dg = options.element_family in ('dg-dg', 'rt-dg')
+        self.u_continuity = 'hdiv' if options.element_family == 'rt-dg' else 'dg'
+
 
 class TracerErrorEstimatorTerm(ErrorEstimatorTerm, TracerTerm):
     """
@@ -51,17 +57,55 @@ class ExternalPressureGradientErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm)
     :class:`ExternalPressureGradientTerm` term of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
-        uv, elev = split(solution)
+        uv, eta = split(solution)
         z, zeta = split(arg)
 
-        return -self.p0test*g_grav*inner(z, grad(elev))*self.dx
+        return -self.p0test*g_grav*inner(z, grad(eta))*self.dx
 
     def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
-        uv, elev = split(solution)
-        raise NotImplementedError  # TODO
+        uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
+        z, zeta = split(arg)
+
+        total_h = self.get_total_depth(eta_old)
+        head = eta
+        grad_eta_by_parts = self.eta_is_dg
+
+        flux_terms = 0
+        if grad_eta_by_parts:
+
+            # Terms arising from DG discretisation
+            if uv is not None:
+                head_star = avg(head) + sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
+            else:
+                head_star = avg(head)
+            loc = -self.p0test*g_grav*dot(z, self.normal)
+            flux_terms += head_star*(loc('+') + loc('-'))*self.dS
+
+            # Term arising from integration by parts
+            loc = self.p0test*g_grav*eta*dot(z, self.normal)
+            flux_terms += (loc('+') + loc('-'))*self.dS
+
+        return flux_terms
 
     def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
-        raise NotImplementedError  # TODO
+        uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
+        z, zeta = split(arg)
+
+        total_h = self.get_total_depth(eta_old)
+        head = eta
+        grad_eta_by_parts = self.eta_is_dg
+
+        flux_terms = 0
+        if grad_eta_by_parts:
+
+            # Term arising from integration by parts
+            loc = self.p0test*g_grav*eta*dot(z, self.normal)
+            flux_terms += loc*ds
+
+            # TODO: Terms arising from boundary conditions
+        raise NotImplementedError
 
 
 class HUDivErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
@@ -70,17 +114,54 @@ class HUDivErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
-        uv, elev = split(solution)
-        uv_old, elev_old = split(solution_old)
+        uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
-        total_h = self.get_total_depth(elev_old)
+        total_h = self.get_total_depth(eta_old)
 
         return -self.p0test*zeta*div(total_h*uv)*self.dx
 
     def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
-        raise NotImplementedError  # TODO
+        uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
+        z, zeta = split(arg)
+
+        total_h = self.get_total_depth(eta_old)
+        hu_by_parts = self.u_continuity in ['dg', 'hdiv']
+
+        flux_terms = 0
+        if hu_by_parts:
+
+            # Terms arising from DG discretisation
+            if self.eta_is_dg:
+                h = avg(total_h)
+                uv_rie = avg(uv) + sqrt(g_grav/h)*jump(eta, self.normal)
+                hu_star = h*uv_rie
+                loc = -self.p0test*zeta*self.normal
+                f += inner(loc('+') + loc('-'), hu_star)*self.dS
+
+            # Term arising from integration by parts
+            loc = self.p0test*zeta*dot(total_h*uv, self.normal)
+            flux_terms += (loc('+') + loc('-'))*self.dS
+
+        return flux_terms
 
     def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
+        uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
+        z, zeta = split(arg)
+
+        total_h = self.get_total_depth(eta_old)
+        hu_by_parts = self.u_continuity in ['dg', 'hdiv']
+
+        flux_terms = 0
+        if hu_by_parts:
+
+            # Term arising from integration by parts
+            loc = self.p0test*zeta*dot(total_h*uv, self.normal)
+            flux_terms += loc*self.ds
+
+            # TODO: Terms arising from boundary conditions
         raise NotImplementedError  # TODO
 
 
@@ -92,17 +173,54 @@ class HorizontalAdvectionErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         if not self.options.use_nonlinear_equations:
             return 0
-        uv, elev = split(solution)
-        uv_old, elev_old = split(solution_old)
+        uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
 
         return -self.p0test*inner(z, dot(uv_old, nabla_grad(uv)))*self.dx
 
     def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
-        raise NotImplementedError  # TODO
+        if not self.options.use_nonlinear_equations:
+            return 0
+        uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
+        z, zeta = split(arg)
+
+        if self.u_continuity in ['dg', 'hdiv']:
+
+            # Terms arising from DG discretisation
+            un_av = dot(avg(uv_old), self.normal('-'))
+            uv_up = avg(uv)
+            loc = -self.p0test*z[0]
+            flux_terms = jump(uv[0], self.normal[0])*dot(uv_up[0], loc('+') + loc('-'))*self.dS
+            flux_terms += jump(uv[1], self.normal[1])*dot(uv_up[0], loc('+') + loc('-'))*self.dS
+            loc = -self.p0test*z[1]
+            flux_terms += jump(uv[0], self.normal[0])*dot(uv_up[1], loc('+') + loc('-'))*self.dS
+            flux_terms += jump(uv[1], self.normal[1])*dot(uv_up[1], loc('+') + loc('-'))*self.dS
+            if self.options.use_lax_friedrichs_velocity:
+                uv_lax_friedrichs = fields_old.get('lax_friedrichs_velocity_scaling_factor')
+                gamma = 0.5*abs(un_av)*uv_lax_friedrichs
+                local_jump = -self.p0test('+')*z('+') + self.p0test('-')*z('-')
+                flux_terms += gamma*dot(local_jump, jump(uv))*dS
+
+        # Term arising from integration by parts
+        loc = self.p0test*inner(dot(outer(uv, z), uv), self.normal)
+        flux_terms += (loc('+') + loc('-'))*self.dS
+
+        return flux_terms
 
     def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
-        raise NotImplementedError  # TODO
+        if not self.options.use_nonlinear_equations:
+            return 0
+        uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
+        z, zeta = split(arg)
+
+        # Term arising from integration by parts
+        flux_terms += self.p0test*inner(dot(outer(uv, z), vu), self.normal)*self.ds
+
+        # TODO: Terms arising from boundary conditions
+        raise NotImplementedError
 
 
 class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
@@ -114,10 +232,10 @@ class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         nu = fields_old.get('viscosity_h')
         if nu is None:
             return 0
-        uv, elev = split(solution)
-        uv_old, elev_old = split(solution_old)
+        uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
-        total_h = self.get_total_depth(elev_old)
+        total_h = self.get_total_depth(eta_old)
 
         if self.options.use_grad_div_viscosity_term:
             stress = 2.0*nu*sym(grad(uv))
@@ -131,10 +249,70 @@ class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return f
 
     def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
-        raise NotImplementedError  # TODO
+        nu = fields_old.get('viscosity_h')
+        if nu is None:
+            return 0
+        uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
+        z, zeta = split(arg)
+        total_h = self.get_total_depth(eta_old)
+
+        h = self.cellsize
+        n = self.normal
+
+        if self.options.use_grad_div_viscosity_term:
+            stress = 2.0*nu*sym(grad(uv))
+            stress_jump = 2.0*avg(nu)*sym(tensor_jump(uv, n))
+        else:
+            stress = nu*grad(uv)
+            stress_jump = avg(nu)*tensor_jump(uv, n)
+
+        flux_terms = 0
+        if self.u_continuity in ['dg', 'hdiv']:
+
+            # Terms arising from DG discretisation
+            alpha = self.options.sipg_parameter
+            assert alpha is not None
+            loc = self.p0test*outer(z, n)
+            flux_terms += -avg(alpha/h)*inner(loc('+') + loc('-'), stress_jump)*self.dS
+            flux_terms += inner(loc('+') + loc('-'), avg(stress))*self.dS
+            loc = self.p0test*grad(z)
+            flux_terms += 0.5*inner(loc('+') + loc('-'), stress_jump)*self.dS
+
+            # Term arising from integration by parts
+            loc = -self.p0test*inner(dot(z, stress), n)
+            flux_terms += (loc('+') + loc('-'))*self.dS
+
+        return flux_terms
 
     def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
-        raise NotImplementedError  # TODO
+        nu = fields_old.get('viscosity_h')
+        if nu is None:
+            return 0
+        uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
+        z, zeta = split(arg)
+        total_h = self.get_total_depth(eta_old)
+
+        h = self.cellsize
+        n = self.normal
+
+        if self.options.use_grad_div_viscosity_term:
+            stress = 2.0*nu*sym(grad(uv))
+            stress_jump = 2.0*avg(nu)*sym(tensor_jump(uv, n))
+        else:
+            stress = nu*grad(uv)
+            stress_jump = avg(nu)*tensor_jump(uv, n)
+
+        flux_terms = 0
+        if self.u_continuity in ['dg', 'hdiv']:
+
+            # Term arising from integration by parts
+            loc = -self.p0test*inner(dot(z, stress), n)
+            flux_terms += loc*ds
+
+            # TODO: Terms arising from boundary conditions
+        raise NotImplementedError
 
 
 class CoriolisErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
@@ -143,7 +321,7 @@ class CoriolisErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
-        uv, elev = split(solution)
+        uv, eta = split(solution)
         z, zeta = split(arg)
         coriolis = fields_old.get('coriolis')
 
@@ -166,12 +344,12 @@ class WindStressErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
-        uv, elev = split(solution)
-        uv_old, elev_old = split(solution_old)
+        uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
 
         wind_stress = fields_old.get('wind_stress')
-        total_h = self.get_total_depth(elev_old)
+        total_h = self.get_total_depth(eta_old)
         f = 0
         if wind_stress is not None:
             f += self.p0test*dot(wind_stress, z)/total_h/rho_0*self.dx
@@ -190,8 +368,8 @@ class AtmosphericPressureErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
-        uv, elev = split(solution)
-        uv_old, elev_old = split(solution_old)
+        uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
 
         atmospheric_pressure = fields_old.get('atmospheric_pressure')
@@ -213,10 +391,10 @@ class QuadraticDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     term of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
-        uv, elev = split(solution)
-        uv_old, elev_old = split(solution_old)
+        uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
-        total_h = self.get_total_depth(elev_old)
+        total_h = self.get_total_depth(eta_old)
         manning_drag_coefficient = fields_old.get('manning_drag_coefficient')
         C_D = fields_old.get('quadratic_drag_coefficient')
 
@@ -245,7 +423,7 @@ class LinearDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     term of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
-        uv, elev = split(solution)
+        uv, eta = split(solution)
         z, zeta = split(arg)
 
         linear_drag_coefficient = fields_old.get('linear_drag_coefficient')
@@ -267,11 +445,11 @@ class BottomDrag3DErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     term of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
-        uv, elev = split(solution)
-        uv_old, elev_old = split(solution_old)
+        uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
 
-        total_h = self.get_total_depth(elev_old)
+        total_h = self.get_total_depth(eta_old)
         bottom_drag = fields_old.get('bottom_drag')
         uv_bottom = fields_old.get('uv_bottom')
         f = 0
@@ -294,10 +472,10 @@ class TurbineDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     term of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
-        uv, elev = split(solution)
-        uv_old, elev_old = split(solution_old)
+        uv, eta = split(solution)
+        uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
-        total_h = self.get_total_depth(elev_old)
+        total_h = self.get_total_depth(eta_old)
 
         f = 0
         for subdomain_id, farm_options in self.options.tidal_turbine_farms.items():
@@ -367,12 +545,12 @@ class BathymetryDisplacementErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
     :class:`BathymetryDisplacementTerm` term of the shallow water model.
     """
     def element_residual(self, solution, arg):
-        uv, elev = split(solution)
+        uv, eta = split(solution)
         z, zeta = split(arg)
 
         f = 0
         if self.options.use_wetting_and_drying:
-            f += self.p0test*inner(self.wd_bathymetry_displacement(elev), zeta)*self.dx
+            f += self.p0test*inner(self.wd_bathymetry_displacement(eta), zeta)*self.dx
         return -f
 
     def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
