@@ -303,6 +303,22 @@ class ShallowWaterContinuityTerm(ShallowWaterTerm):
         self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
 
+def sigmoid_erf(x):
+    """
+    Function that varies from f(0)=0 to f(1)=1.
+    """
+    return 0.5*erf(5*(x - 0.5)) + 0.5
+
+
+def sigmoid_lin(x):
+    """
+    Function that varies from f(0)=0 to f(1)=1.
+    """
+    a = conditional(x < 0, 0, x)
+    b = conditional(x < 1, a, 1)
+    return b
+
+
 class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
     r"""
     External pressure gradient term, :math:`g \nabla \eta`
@@ -330,10 +346,18 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
 
         total_h_new = self.depth.get_total_depth(eta)
         hmin = Constant(0.05)
-        hmax = Constant(0.4)
-        #a = ln
-        a = lambda x: x
-        scalar = 0.5*erf(-5*((a(total_h_new) - a(hmin))/(a(hmax) - a(hmin)) - 0.5)) + 0.5
+        hmax = Constant(0.8)
+
+        #bath_grad = grad(self.depth.bathymetry_2d)
+        #bath_grad_mag = sqrt(bath_grad[0]**2 + bath_grad[1]**2) + Constant(1e-8)
+        #p = 2*dot(grad(eta), bath_grad)/bath_grad_mag**2
+        #flood_detector = sigmoid_lin(-p)
+
+        s = ln(total_h_new/hmin)/ln(hmax/hmin)
+        scalar = 1.0 - sigmoid_erf(s)
+
+        s = (total_h_new - hmin)/(hmax - hmin)
+        scalar = (1.0 - sigmoid_lin(s))
 
         # head = eta + scalar*self.depth.bathymetry_2d  # NOTE does not work
 
