@@ -344,23 +344,6 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
 
         grad_eta_by_parts = self.eta_is_dg
 
-        total_h_new = self.depth.get_total_depth(eta)
-        hmin = Constant(0.05)
-        hmax = Constant(0.8)
-
-        #bath_grad = grad(self.depth.bathymetry_2d)
-        #bath_grad_mag = sqrt(bath_grad[0]**2 + bath_grad[1]**2) + Constant(1e-8)
-        #p = 2*dot(grad(eta), bath_grad)/bath_grad_mag**2
-        #flood_detector = sigmoid_lin(-p)
-
-        s = ln(total_h_new/hmin)/ln(hmax/hmin)
-        scalar = 1.0 - sigmoid_erf(s)
-
-        s = (total_h_new - hmin)/(hmax - hmin)
-        scalar = (1.0 - sigmoid_lin(s))
-
-        # head = eta + scalar*self.depth.bathymetry_2d  # NOTE does not work
-
         if grad_eta_by_parts:
             f = -g_grav*head*nabla_div(self.u_test)*self.dx
             if uv is not None:
@@ -395,7 +378,41 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
                     eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
                     f += g_grav*(eta_rie-head)*dot(self.u_test, self.normal)*ds_bnd
 
-        f += scalar*g_grav*inner(grad(self.depth.bathymetry_2d), self.u_test) * self.dx
+        from ufl.averaging import CellAvg
+        total_h_p0 = CellAvg(eta) + CellAvg(self.depth.bathymetry_2d)
+
+        total_h_new = self.depth.get_total_depth(eta)
+
+        hmin = Constant(0.05)
+        hmid = Constant(0.20)
+        hmax = Constant(0.80)
+
+        s = (total_h_new - hmin)/(hmid - hmin)
+        scalar = (1.0 - sigmoid_lin(s))
+        f += scalar*g_grav*inner(grad(total_h_new), self.u_test) * self.dx
+
+        #bath_grad = grad(self.depth.bathymetry_2d)
+        #bath_grad_mag = sqrt(bath_grad[0]**2 + bath_grad[1]**2) + Constant(1e-8)
+        ## p = dot(grad(eta), bath_grad)/bath_grad_mag**2
+        #lx = Constant(1000)
+        #h_dam = Constant(0.10)
+        #p = lx / h_dam * dot(grad(eta), bath_grad)/bath_grad_mag
+        #not_dam_detector = 1.0 - sigmoid_lin(p)
+
+        #bath_grad = grad(self.depth.bathymetry_2d)
+        #bath_grad_mag = sqrt(bath_grad[0]**2 + bath_grad[1]**2)
+        #eta_grad = grad(eta)
+        #eta_grad_mag = sqrt(eta_grad[0]**2 + eta_grad[1]**2)
+        #t = total_h_p0 + (eta_grad_mag - bath_grad_mag)/2*Constant(1000)
+        #s = (t - hmid)/(hmax - hmid)
+        s = (total_h_new - hmid)/(hmax - hmid)
+        pg_cancel = (1.0 - sigmoid_lin(s))
+        f += -pg_cancel*g_grav*inner(grad(head), self.u_test) * self.dx
+
+        s = (total_h_new - hmin)/(0.5*(hmax + hmid) - hmin)
+        lin_friction = (1.0 - sigmoid_lin(s))
+        wd_t_relax = Constant(10.)
+        f += lin_friction/wd_t_relax*inner(uv, self.u_test) * self.dx
 
         return -f
 
@@ -454,6 +471,20 @@ class HUDivTerm(ShallowWaterContinuityTerm):
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 if funcs is None or 'un' in funcs:
                     f += -total_h*dot(uv, self.normal)*self.eta_test*ds_bnd
+
+        total_h_new = self.depth.get_total_depth(eta)
+        hmin = Constant(0.05)
+        hmax = Constant(0.4)
+
+        s = (total_h_new - hmin)/(hmax - hmin)
+        wd_h_diffusion = (1.0 - sigmoid_lin(s))
+        diffusivity_h = wd_h_diffusion * Constant(50.)
+        diff_tensor = as_matrix([[diffusivity_h, 0, ],
+                                 [0, diffusivity_h, ]])
+        grad_test = grad(self.eta_test)
+        diff_flux = dot(diff_tensor, grad(total_h_new))
+        #f += inner(grad_test, diff_flux)*self.dx
+
         return -f
 
 
