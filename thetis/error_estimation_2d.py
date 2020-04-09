@@ -104,8 +104,35 @@ class ExternalPressureGradientErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm)
             loc = self.p0test*g_grav*eta*dot(z, self.normal)
             flux_terms += loc*ds
 
-            # TODO: Terms arising from boundary conditions
-        raise NotImplementedError
+            # Terms arising from boundary conditions
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                if funcs is not None:
+                    eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
+                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                    un_jump = inner(uv - uv_ext, self.normal)
+                    eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
+                    flux_terms += -self.p0test*g_grav*eta_rie*dot(z, self.normal)*ds_bnd
+                if funcs is None or 'symm' in funcs:
+                    # assume land boundary
+                    # impermeability implies external un=0
+                    un_jump = inner(uv, self.normal)
+                    head_rie = head + sqrt(total_h/g_grav)*un_jump
+                    flux_terms += -self.p0test*g_grav*head_rie*dot(z, self.normal)*ds_bnd
+        else:
+            # Terms arising from boundary conditions
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                if funcs is not None:
+                    eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
+                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                    un_jump = inner(uv - uv_ext, self.normal)
+                    eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
+                    flux_terms += -self.p0test*g_grav*(eta_rie-head)*dot(z, self.normal)*ds_bnd
+
+        return flux_terms
 
 
 class HUDivErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
@@ -138,7 +165,7 @@ class HUDivErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
                 uv_rie = avg(uv) + sqrt(g_grav/h)*jump(eta, self.normal)
                 hu_star = h*uv_rie
                 loc = -self.p0test*zeta*self.normal
-                f += inner(loc('+') + loc('-'), hu_star)*self.dS
+                flux_terms += inner(loc('+') + loc('-'), hu_star)*self.dS
 
             # Term arising from integration by parts
             loc = self.p0test*zeta*dot(total_h*uv, self.normal)
@@ -158,11 +185,33 @@ class HUDivErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         if hu_by_parts:
 
             # Term arising from integration by parts
-            loc = self.p0test*zeta*dot(total_h*uv, self.normal)
-            flux_terms += loc*self.ds
+            flux_terms += self.p0test*zeta*dot(total_h*uv, self.normal)*ds
 
-            # TODO: Terms arising from boundary conditions
-        raise NotImplementedError  # TODO
+            # Terms arising from boundary conditions
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                if funcs is not None:
+                    eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
+                    eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
+                    # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                    total_h_ext = self.get_total_depth(eta_ext_old)
+                    h_av = 0.5*(total_h + total_h_ext)
+                    eta_jump = eta - eta_ext
+                    un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h_av)*eta_jump
+                    un_jump = inner(uv_old - uv_ext_old, self.normal)
+                    eta_rie = 0.5*(eta_old + eta_ext_old) + sqrt(h_av/g_grav)*un_jump
+                    h_rie = self.bathymetry + eta_rie
+                    flux_terms += -self.p0test*h_rie*un_rie*zeta*ds_bnd
+        else:
+            # Terms arising from boundary conditions
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                if funcs is None or 'un' in funcs:
+                    flux_terms += self.p0test*total_h*dot(uv, self.normal)*zeta*ds_bnd
+
+        return flux_terms
 
 
 class HorizontalAdvectionErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
@@ -217,10 +266,34 @@ class HorizontalAdvectionErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         z, zeta = split(arg)
 
         # Term arising from integration by parts
-        flux_terms += self.p0test*inner(dot(outer(uv, z), vu), self.normal)*self.ds
+        flux_terms = self.p0test*inner(dot(outer(uv, z), uv), self.normal)*ds
 
-        # TODO: Terms arising from boundary conditions
-        raise NotImplementedError
+        # Terms arising from boundary conditions
+        for bnd_marker in self.boundary_markers:
+            funcs = bnd_conditions.get(bnd_marker)
+            ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+            un_av = dot(avg(uv_old), self.normal('-'))
+            if funcs is not None:
+                eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
+                eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
+                # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
+                eta_jump = eta_old - eta_ext_old
+                total_h = self.get_total_depth(eta_old)
+                un_rie = 0.5*inner(uv_old + uv_ext_old, self.normal) + sqrt(g_grav/total_h)*eta_jump
+                uv_av = 0.5*(uv_ext + uv)
+                flux_terms += -self.p0test*(uv_av[0]*z[0]*un_rie + uv_av[1]*z[1]*un_rie)*ds_bnd
+
+            if self.options.use_lax_friedrichs_velocity:
+                uv_lax_friedrichs = fields_old.get('lax_friedrichs_velocity_scaling_factor')
+                gamma = 0.5*abs(un_av)*uv_lax_friedrichs
+                if funcs is None:
+                    # impose impermeability with mirror velocity
+                    n = self.normal
+                    uv_ext = uv - 2*dot(uv, n)*n
+                    gamma = 0.5*abs(dot(uv_old, n))*uv_lax_friedrichs
+                    flux_terms += -self.p0test*gamma*dot(z, uv-uv_ext)*ds_bnd
+
+        return flux_terms
 
 
 class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
@@ -255,7 +328,6 @@ class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         uv, eta = split(solution)
         uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
-        total_h = self.get_total_depth(eta_old)
 
         h = self.cellsize
         n = self.normal
@@ -292,7 +364,6 @@ class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         uv, eta = split(solution)
         uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
-        total_h = self.get_total_depth(eta_old)
 
         h = self.cellsize
         n = self.normal
@@ -308,11 +379,33 @@ class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         if self.u_continuity in ['dg', 'hdiv']:
 
             # Term arising from integration by parts
-            loc = -self.p0test*inner(dot(z, stress), n)
-            flux_terms += loc*ds
+            flux_terms += -self.p0test*inner(dot(z, stress), n)*ds
 
-            # TODO: Terms arising from boundary conditions
-        raise NotImplementedError
+            # Terms arising from boundary conditions
+            alpha = self.options.sipg_parameter
+            assert alpha is not None
+            for bnd_marker in self.boundary_markers:
+                funcs = bnd_conditions.get(bnd_marker)
+                ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
+                if funcs is not None:
+                    if 'un' in funcs:
+                        delta_uv = (dot(uv, n) - funcs['un'])*n
+                    else:
+                        eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
+                        if uv_ext is uv:
+                            continue
+                        delta_uv = uv - uv_ext
+
+                    if self.options.use_grad_div_viscosity_term:
+                        stress_jump = 2.0*nu*sym(outer(delta_uv, n))
+                    else:
+                        stress_jump = nu*outer(delta_uv, n)
+
+                    flux_terms += -self.p0test*alpha/h*inner(outer(z, n), stress_jump)*ds_bnd
+                    flux_terms += self.p0test*inner(grad(z), stress_jump)*ds_bnd
+                    flux_terms += self.p0test*inner(outer(z, n), stress)*ds_bnd
+
+        return flux_terms
 
 
 class CoriolisErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
