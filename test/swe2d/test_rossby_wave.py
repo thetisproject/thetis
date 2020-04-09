@@ -359,7 +359,7 @@ def family(request):
 
 
 def test_convergence(stepper, family):
-    run_convergence([12, 24], reference_refinement_level=768, timestepper_type=stepper,
+    run_convergence([12, 24], reference_refinement_level=96, timestepper_type=stepper,
                     simulation_end_time=30.0, polynomial_degree=1, element_family=family,
                     no_exports=True, expansion_order=1, model_comparison=False, overlap=1)
 
