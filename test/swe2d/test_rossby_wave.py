@@ -15,8 +15,6 @@ compute the error metrics, we project onto the same high resolution mesh used fo
 (2008), Journal of Geophysical Research: Oceans, 113(C7).
 """
 from thetis import *
-import os
-import json
 import numpy as np
 import pytest
 
@@ -142,7 +140,6 @@ def asymptotic_expansion_elev(H_2d, order=1, time=0.0, soliton_amplitude=0.395):
 def run(refinement_level, reference_solution, **model_options):
     order = model_options.pop('expansion_order')
     family = model_options.get('element_family')
-    model_comparison = model_options.pop('model_comparison')
     stepper = model_options.get('timestepper_type')
     print_output("--- running refinement level {:d} in {:s} space".format(refinement_level, family))
 
@@ -170,7 +167,7 @@ def run(refinement_level, reference_solution, **model_options):
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
     options = solver_obj.options
     options.timestepper_type = stepper
-    options.timestep = 0.96/refinement_level if model_comparison or stepper == 'SSPRK33' else 9.6/refinement_level
+    options.timestep = 0.96/refinement_level if stepper == 'SSPRK33' else 9.6/refinement_level
     options.simulation_export_time = 5.0
     options.simulation_end_time = T
     options.use_grad_div_viscosity_term = False
@@ -231,7 +228,7 @@ def run(refinement_level, reference_solution, **model_options):
 
 def compute_error_metrics(ref_list, reference_refinement_level, **options):
     order = options.get('expansion_order')
-    model_comparison = options.get('model_comparison')
+    stepper = options.get('timestepper_type')
     T = options.get('simulation_end_time')
 
     # Build reference mesh
@@ -255,7 +252,7 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
     labels = ('h+', 'h-', 'c+', 'c-', 'rms')
     metrics = {
         'dx': [24/r for r in ref_list],
-        'dt': [0.96/r for r in ref_list] if model_comparison else [9.6/r for r in ref_list],
+        'dt': [0.96/r for r in ref_list] if stepper == 'SSPRK33' else [9.6/r for r in ref_list],
     }
     for metric in labels:
         metrics[metric] = []
@@ -271,18 +268,9 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
 def run_convergence(ref_list, reference_refinement_level=50, **options):
     """Runs test for a list of refinements and computes error convergence rate."""
     setup_name = 'rossby-soliton'
-    family = options.get('element_family')
-    stepper = options.get('timestepper_type')
 
     # Evaluate error metrics
     metrics = compute_error_metrics(ref_list, reference_refinement_level, **options)
-
-    # Save metrics to .json file for model comparison
-    if options.get('model_comparison'):
-        di = create_directory(os.path.join(os.path.dirname(__file__), 'data'))
-        with open(os.path.join(di, 'Thetis_{:s}_{:s}.json'.format(family, stepper)), 'w+') as f:
-            json.dump(metrics, f, ensure_ascii=False)
-        # TODO: Plot convergence of error metrics
 
     # Check convergence of relative mean peak height and phase speed
     rtol = 0.01
@@ -300,29 +288,7 @@ def run_convergence(ref_list, reference_refinement_level=50, **options):
         assert m < 1.30e-02, msg.format(setup_name, m)
         print_output("{:s}: rms magnitude index {:d} PASSED".format(setup_name, i))
 
-
-def generate_table(family, stepper):
-    head = "|Model  |    dx    |    dt    |    h+    |    h-    |    c+    |    c-    |     rms    |"
-    rule = "|-------|----------|----------|----------|----------|----------|----------|------------|"
-    out = '\n'.join([head, rule])
-    msg = "|{:6s} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} | {:10.4e} |"
-    msg_roms = "|{:6s} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |{:9.3f} |            |"
-    for model in ('FVCOM', 'ROMS', 'Thetis'):
-        fname = os.path.join('data', model)
-        if model == 'Thetis':
-            fname = '_'.join([fname, family, stepper])
-        with open(fname+'.json', 'r') as f:
-            data = json.load(f)
-            for i in range(len(data['dx'])):
-                vals = (model, data['dx'][i], data['dt'][i],)
-                vals += (data['h+'][i], data['h-'][i], data['c+'][i], data['c-'][i],)
-                m = msg
-                if model == 'ROMS':
-                    m = msg_roms
-                else:
-                    vals += (data['rms'][i],)
-                out = '\n'.join([out, m.format(*vals)])
-    return out+'\n'
+    # TODO: Plot convergence of error metrics
 
 
 # ---------------------------
@@ -342,24 +308,4 @@ def family(request):
 def test_convergence(stepper, family):
     run_convergence([12, 24], reference_refinement_level=96, timestepper_type=stepper,
                     simulation_end_time=30.0, polynomial_degree=1, element_family=family,
-                    no_exports=True, expansion_order=1, model_comparison=False)
-
-# --------------------------------------------
-# run individual setup for model comparison
-# --------------------------------------------
-
-
-if __name__ == "__main__":
-    element_family = 'dg-dg'
-    timestepper = 'SSPRK33'
-    run_convergence([96, 192, 480], reference_refinement_level=1200,
-                    timestepper_type=timestepper, simulation_end_time=120.0,
-                    polynomial_degree=1, element_family=element_family,
-                    no_exports=False, expansion_order=1, model_comparison=True)
-
-    # Compare results against FVCOM and ROMS given in [1].
-    table = generate_table(element_family, timestepper)
-    print_output(table)
-    di = create_directory(os.path.join(os.path.dirname(__file__), 'outputs'))
-    with open(os.path.join(di, 'model_comparison_{:s}_{:s}.md'.format(element_family, timestepper)), 'w+') as md:
-        md.write(table)
+                    no_exports=True, expansion_order=1)
