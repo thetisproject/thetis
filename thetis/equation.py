@@ -207,9 +207,9 @@ class GOErrorEstimatorTerm(object):
         """
         :arg function_space: the :class:`FunctionSpace` the solution belongs to
         """
-        self.P0 = FunctionSpace(mesh, "DG", 0)
-        self.p0test = TestFunction(self.P0)
-        self.p0trial = TrialFunction(self.P0)
+        self.P0_2d = FunctionSpace(mesh, "DG", 0)
+        self.p0test = TestFunction(self.P0_2d)
+        self.p0trial = TrialFunction(self.P0_2d)
 
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
         # TODO: doc
@@ -230,6 +230,7 @@ class GOErrorEstimator(object):
     underlying equation.
     """
     SUPPORTED_LABELS = frozenset(['source', 'explicit', 'implicit', 'nonlinear'])
+
     def __init__(self, function_space):
         """
         :arg function_space: the :class:`FunctionSpace` the solution belongs to
@@ -240,9 +241,9 @@ class GOErrorEstimator(object):
         self.mesh = function_space.mesh()
         self.normal = FacetNormal(self.mesh)
         self.xyz = SpatialCoordinate(self.mesh)
-        self.P0 = FunctionSpace(self.mesh, "DG", 0)
-        self.p0test = TestFunction(self.P0)
-        self.p0trial = TrialFunction(self.P0)
+        self.P0_2d = FunctionSpace(self.mesh, "DG", 0)
+        self.p0test = TestFunction(self.P0_2d)
+        self.p0trial = TrialFunction(self.P0_2d)
 
     def mass_term(self, solution, arg):
         # TODO: doc
@@ -308,7 +309,7 @@ class GOErrorEstimator(object):
         flux_terms = 0
         for term in self.select_terms(label):
             flux_terms += term.inter_element_flux(*args)
-        flux = Function(self.P0, name="Inter-element flux terms")
+        flux = Function(self.P0_2d, name="Inter-element flux terms")
         solve(mass_term == flux_terms, flux)  # TODO: Solver parameters?
         return flux
 
@@ -318,6 +319,6 @@ class GOErrorEstimator(object):
         bnd_flux_terms = 0
         for term in self.select_terms(label):
             bnd_flux_terms += term.boundary_flux(*args)
-        bnd_flux = Function(self.P0, name="Boundary flux terms")
+        bnd_flux = Function(self.P0_2d, name="Boundary flux terms")
         solve(mass_term == bnd_flux_terms, bnd_flux)  # TODO: Solver parameters?
         return bnd_flux

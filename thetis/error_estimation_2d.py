@@ -879,6 +879,33 @@ class ShallowWaterGOErrorEstimator(GOErrorEstimator):
         self.add_term(HUDivGOErrorEstimatorTerm(*args), 'implicit')
         self.add_term(ContinuitySourceGOErrorEstimatorTerm(*args), 'source')
 
+    def strong_residual(self, label, solution, solution_old, fields, fields_old):
+        """Compute strong residual of shallow water equations."""
+        P0P0 = VectorFunctionSpace(self.mesh, "DG", 0)*self.P0_2d
+        residual = Function(P0P0, name="Strong residual for shallow water equations")
+        residual_u, residual_eta = residual.split()
+        residual_u.rename("Strong residual for momentum equation")
+        residual_eta.rename("Strong residual for continuity equation")
+        arg = Function(P0P0)
+        arg_u, arg_eta = arg.split()
+
+        # Strong residual for momentum equation
+        arg_u.interpolate(as_vector([1.0, 0.0]))
+        args = (label, solution, solution_old, arg, arg, fields, fields_old)
+        x_component = self.element_residual(*args)
+        arg_u.interpolate(as_vector([0.0, 1.0]))
+        args = (label, solution, solution_old, arg, arg, fields, fields_old)
+        y_component = self.element_residual(*args)
+        residual_u.interpolate(as_vector([abs(x_component), abs(y_component)]))
+        arg_u.assign(0.0)
+
+        # Strong residual for continuity equation
+        arg_eta.assign(1.0)
+        args = (label, solution, solution_old, arg, arg, fields, fields_old)
+        residual_eta.interpolate(abs(self.element_residual(*args)))
+
+        return residual
+
 
 class TracerGOErrorEstimator(GOErrorEstimator):
     """
@@ -892,3 +919,11 @@ class TracerGOErrorEstimator(GOErrorEstimator):
         self.add_term(TracerHorizontalAdvectionGOErrorEstimatorTerm(*args), 'explicit')
         self.add_term(TracerHorizontalDiffusionGOErrorEstimatorTerm(*args), 'explicit')
         self.add_term(TracerSourceGOErrorEstimatorTerm(*args), 'source')
+
+    def strong_residual(self, label, solution, solution_old, fields, fields_old):
+        """Compute strong residual of 2D tracer equation."""
+        arg = Function(self.P0_2d).assign(1.0)
+        args = (label, solution, solution_old, arg, arg, fields, fields_old)
+        residual = self.element_residual(*args)
+        residual.rename("Strong residual for 2D tracer equation")
+        return residual
