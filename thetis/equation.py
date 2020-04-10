@@ -212,15 +212,30 @@ class GOErrorEstimatorTerm(object):
         self.p0trial = TrialFunction(self.P0_2d)
 
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
-        # TODO: doc
+        """
+        Returns an UFL form of the dx terms.
+
+        :arg arg: argument :class:`.Function` to take inner product with.
+        :arg arg_old: a time lagged solution :class:`.Function`
+        """
         raise NotImplementedError('Must be implemented in the derived class')
 
     def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
-        # TODO: doc
+        """
+        Returns an UFL form of the dS terms.
+
+        :arg arg: argument :class:`.Function` to take inner product with.
+        :arg arg_old: a time lagged solution :class:`.Function`
+        """
         raise NotImplementedError('Must be implemented in the derived class')
 
     def boundary_flux(self, solution, solution_old, arg, arg_old, fields, fields_old, bnd_conditions):
-        # TODO: doc
+        """
+        Returns an UFL form of the ds terms.
+
+        :arg arg: argument :class:`.Function` to take inner product with.
+        :arg arg_old: a time lagged solution :class:`.Function`
+        """
         raise NotImplementedError('Must be implemented in the derived class')
 
 
@@ -246,7 +261,11 @@ class GOErrorEstimator(object):
         self.p0trial = TrialFunction(self.P0_2d)
 
     def mass_term(self, solution, arg):
-        # TODO: doc
+        """
+        Returns an UFL form of the solution weighted by the argument.
+
+        :arg arg: argument :class:`.Function` to take inner product with.
+        """
         return self.p0test*inner(solution, arg)*dx
 
     def add_term(self, term, label):
@@ -295,7 +314,9 @@ class GOErrorEstimator(object):
                 yield value
 
     def element_residual(self, label, *args):
-        # TODO: doc
+        """
+        Compute contribution of dx terms to the error estimator as element-wise indicator functions.
+        """
         residual_terms = 0
         for term in self.select_terms(label):
             residual_terms += term.element_residual(*args)
@@ -304,7 +325,9 @@ class GOErrorEstimator(object):
         return residual
 
     def inter_element_flux(self, label, *args):
-        # TODO: doc
+        """
+        Compute contribution of dS terms to the error estimator as element-wise indicator functions.
+        """
         mass_term = self.p0test*self.p0trial*dx
         flux_terms = 0
         for term in self.select_terms(label):
@@ -314,7 +337,9 @@ class GOErrorEstimator(object):
         return flux
 
     def boundary_flux(self, label, *args):
-        # TODO: doc
+        """
+        Compute contribution of ds terms to the error estimator as element-wise indicator functions.
+        """
         mass_term = self.p0test*self.p0trial*dx
         bnd_flux_terms = 0
         for term in self.select_terms(label):
@@ -322,3 +347,18 @@ class GOErrorEstimator(object):
         bnd_flux = Function(self.P0_2d, name="Boundary flux terms")
         solve(mass_term == bnd_flux_terms, bnd_flux)  # TODO: Solver parameters?
         return bnd_flux
+
+    def weighted_residual(self, label, *args, bnd_conditions=None):
+        """
+        Sum the element residual, inter-element flux and boundary flux terms to give the total
+        weighted residual.
+
+        If evaluated at the adjoint solution (and time-lagged adjoint solution), yields the so-called
+        'Dual Weighted Residual'.
+        """
+        wr = self.element_residual(label, *args)
+        wr += self.inter_element_flux(label, *args)
+        args += (bnd_conditions,)
+        wr += self.boundary_flux(label, *args)
+        wr.rename("Weighted residual")
+        return wr

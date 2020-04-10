@@ -180,24 +180,27 @@ indicator_coarse = Function(solver_obj_coarse.function_spaces.P0_2d)
 inject(interpolate(abs(residual), error_estimator.P0_2d), indicator_coarse)
 indicator_coarse.rename("Element residual in modulus")
 File('outputs/element_residual.pvd').write(indicator_coarse)
-dwr_fine = residual.copy(deepcopy=True)
+# dwr_fine = residual.copy(deepcopy=True)
 
 # Compute inter-element flux
 flux = error_estimator.inter_element_flux(*args)
 inject(interpolate(abs(flux), error_estimator.P0_2d), indicator_coarse)
 indicator_coarse.rename("Inter-element flux in modulus")
 File('outputs/inter_element_flux.pvd').write(indicator_coarse)
-dwr_fine += flux
+# dwr_fine += flux
 
 # Compute boundary flux
-args += (solver_obj_fine.bnd_functions['shallow_water'],)
+bcs = solver_obj_fine.bnd_functions['shallow_water']
+args += (bcs,)
 bnd_flux = error_estimator.boundary_flux(*args)
 inject(interpolate(abs(bnd_flux), error_estimator.P0_2d), indicator_coarse)
 indicator_coarse.rename("Boundary flux in modulus")
 File('outputs/boundary_flux.pvd').write(indicator_coarse)
-dwr_fine += bnd_flux
+# dwr_fine += bnd_flux
 
 # Assemble total error indicator
+args = ('all', fwd_proj, fwd_proj, adj_error, adj_error, fields, fields)
+dwr_fine = error_estimator.weighted_residual(*args, bnd_conditions=bcs)
 dwr_coarse = Function(solver_obj_coarse.function_spaces.P0_2d, name="Dual weighted residual")
 inject(interpolate(abs(dwr_fine), error_estimator.P0_2d), dwr_coarse)
 File('outputs/dwr.pvd').write(dwr_coarse)
