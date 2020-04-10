@@ -347,7 +347,7 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
         if grad_eta_by_parts:
             f = -g_grav*head*nabla_div(self.u_test)*self.dx
             if uv is not None:
-                head_star = avg(head) + sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
+                head_star = avg(head) # + sqrt(avg(total_h)/g_grav)*jump(uv, self.normal)
             else:
                 head_star = avg(head)
             f += g_grav*head_star*jump(self.u_test, self.normal)*self.dS
@@ -358,13 +358,13 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
                     eta_ext, uv_ext = self.get_bnd_functions(head, uv, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                     un_jump = inner(uv - uv_ext, self.normal)
-                    eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
+                    eta_rie = 0.5*(head + eta_ext) #+ sqrt(total_h/g_grav)*un_jump
                     f += g_grav*eta_rie*dot(self.u_test, self.normal)*ds_bnd
                 if funcs is None or 'symm' in funcs:
                     # assume land boundary
                     # impermeability implies external un=0
                     un_jump = inner(uv, self.normal)
-                    head_rie = head + sqrt(total_h/g_grav)*un_jump
+                    head_rie = head #+ sqrt(total_h/g_grav)*un_jump
                     f += g_grav*head_rie*dot(self.u_test, self.normal)*ds_bnd
         else:
             f = g_grav*inner(grad(head), self.u_test) * self.dx
@@ -412,8 +412,8 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
         #s = (total_h_new - hmid)/(hmax - hmid)
         #pg_cancel = (1.0 - sigmoid_lin(s))
 
-        #hmid = Constant(0.10)
-        #hmax = Constant(0.20)
+        hmid = Constant(0.03)
+        hmax = Constant(0.15)
 
         s = (h_wd - hmid)/(hmax - hmid)
         pg_cancel = (1.0 - sigmoid_lin(s)) # * not_dam_detector
