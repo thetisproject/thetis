@@ -1,23 +1,23 @@
 from __future__ import absolute_import
 from .utility import *
-from .equation import ErrorEstimatorTerm, ErrorEstimator
+from .equation import GOErrorEstimatorTerm, GOErrorEstimator
 from .tracer_eq_2d import TracerTerm
 from .shallowwater_eq import ShallowWaterTerm
 
 
 __all__ = [
-    'TracerErrorEstimator',
-    'ShallowWaterErrorEstimator',
+    'TracerGOErrorEstimator',
+    'ShallowWaterGOErrorEstimator',
 ]
 
 g_grav = physical_constants['g_grav']
 rho_0 = physical_constants['rho0']
 
 
-class ShallowWaterErrorEstimatorTerm(ErrorEstimatorTerm, ShallowWaterTerm):
+class ShallowWaterGOErrorEstimatorTerm(GOErrorEstimatorTerm, ShallowWaterTerm):
     """
-    Generic :class:`ErrorEstimatorTerm` in the shallow water model which provides the contribution
-    to the total error estimator.
+    Generic :class:`GOErrorEstimatorTerm` term in a goal-oriented error estimator for the shallow
+    water model.
     """
     def __init__(self, function_space, bathymetry=None, options=None):
         """
@@ -27,16 +27,16 @@ class ShallowWaterErrorEstimatorTerm(ErrorEstimatorTerm, ShallowWaterTerm):
         :kwarg options: :class:`ModelOptions2d` parameter object
         """
         ShallowWaterTerm.__init__(self, function_space, bathymetry, options)
-        ErrorEstimatorTerm.__init__(self, function_space.mesh())
+        GOErrorEstimatorTerm.__init__(self, function_space.mesh())
 
 
-class ShallowWaterErrorEstimatorMomentumTerm(ShallowWaterErrorEstimatorTerm):
+class ShallowWaterGOErrorEstimatorMomentumTerm(ShallowWaterGOErrorEstimatorTerm):
     """
-    Generic :class:`ShallowWaterErrorEstimatorTerm` term that provides commonly used members and
+    Generic :class:`ShallowWaterGOErrorEstimatorTerm` term that provides commonly used members and
     mapping for boundary functions.
     """
     def __init__(self, u_space, eta_space, bathymetry=None, options=None):
-        super(ShallowWaterErrorEstimatorMomentumTerm, self).__init__(u_space, bathymetry, options)
+        super(ShallowWaterGOErrorEstimatorMomentumTerm, self).__init__(u_space, bathymetry, options)
 
         self.options = options
 
@@ -47,13 +47,13 @@ class ShallowWaterErrorEstimatorMomentumTerm(ShallowWaterErrorEstimatorTerm):
         self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
 
-class ShallowWaterErrorEstimatorContinuityTerm(ShallowWaterErrorEstimatorTerm):
+class ShallowWaterGOErrorEstimatorContinuityTerm(ShallowWaterGOErrorEstimatorTerm):
     """
-    Generic :class:`ShallowWaterErrorEstimatorTerm` term that provides commonly used members and
+    Generic :class:`ShallowWaterGOErrorEstimatorTerm` term that provides commonly used members and
     mapping for boundary functions.
     """
     def __init__(self, eta_space, u_space, bathymetry=None, options=None):
-        super(ShallowWaterErrorEstimatorContinuityTerm, self).__init__(eta_space, bathymetry, options)
+        super(ShallowWaterGOErrorEstimatorContinuityTerm, self).__init__(eta_space, bathymetry, options)
 
         self.eta_space = eta_space
         self.u_space = u_space
@@ -62,10 +62,10 @@ class ShallowWaterErrorEstimatorContinuityTerm(ShallowWaterErrorEstimatorTerm):
         self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
 
-class TracerErrorEstimatorTerm(ErrorEstimatorTerm, TracerTerm):
+class TracerGOErrorEstimatorTerm(GOErrorEstimatorTerm, TracerTerm):
     """
-    Generic :class:`ErrorEstimatorTerm` in the 2D tracer model which provides the contribution
-    to the total error estimator.
+    Generic :class:`GOErrorEstimatorTerm` term in a goal-oriented error estimator for the 2D tracer
+    model.
     """
     def __init__(self, function_space,
                  bathymetry=None, use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
@@ -75,12 +75,12 @@ class TracerErrorEstimatorTerm(ErrorEstimatorTerm, TracerTerm):
         :type bathymetry: 2D :class:`Function` or :class:`Constant`
         """
         TracerTerm.__init__(self, function_space, bathymetry, use_lax_friedrichs, sipg_parameter)
-        ErrorEstimatorTerm.__init__(self, function_space.mesh())
+        GOErrorEstimatorTerm.__init__(self, function_space.mesh())
 
 
-class ExternalPressureGradientErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
+class ExternalPressureGradientGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMomentumTerm):
     """
-    :class:`ShallowWaterErrorEstimatorTerm` object associated with the
+    :class:`ShallowWaterGOErrorEstimatorTerm` object associated with the
     :class:`ExternalPressureGradientTerm` term of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -162,9 +162,9 @@ class ExternalPressureGradientErrorEstimatorTerm(ShallowWaterErrorEstimatorMomen
         return flux_terms
 
 
-class HUDivErrorEstimatorTerm(ShallowWaterErrorEstimatorContinuityTerm):
+class HUDivGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorContinuityTerm):
     """
-    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`HUDivTerm` term of
+    :class:`ShallowWaterGOErrorEstimatorTerm` object associated with the :class:`HUDivTerm` term of
     the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -241,9 +241,9 @@ class HUDivErrorEstimatorTerm(ShallowWaterErrorEstimatorContinuityTerm):
         return flux_terms
 
 
-class HorizontalAdvectionErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
+class HorizontalAdvectionGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMomentumTerm):
     """
-    :class:`ShallowWaterErrorEstimatorTerm` object associated with the
+    :class:`ShallowWaterGOErrorEstimatorTerm` object associated with the
     :class:`HorizontalAdvectionTerm` term of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -323,9 +323,9 @@ class HorizontalAdvectionErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTe
         return flux_terms
 
 
-class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
+class HorizontalViscosityGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMomentumTerm):
     """
-    :class:`ShallowWaterErrorEstimatorTerm` object associated with the
+    :class:`ShallowWaterGOErrorEstimatorTerm` object associated with the
     :class:`HorizontalViscosityTerm` term of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -435,9 +435,9 @@ class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTe
         return flux_terms
 
 
-class CoriolisErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
+class CoriolisGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMomentumTerm):
     """
-    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`CoriolisTerm` term
+    :class:`ShallowWaterGOErrorEstimatorTerm` object associated with the :class:`CoriolisTerm` term
     of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -458,9 +458,9 @@ class CoriolisErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
         return 0
 
 
-class WindStressErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
+class WindStressGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMomentumTerm):
     """
-    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`WindStressTerm` term
+    :class:`ShallowWaterGOErrorEstimatorTerm` object associated with the :class:`WindStressTerm` term
     of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -482,9 +482,9 @@ class WindStressErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
         return 0
 
 
-class AtmosphericPressureErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
+class AtmosphericPressureGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMomentumTerm):
     """
-    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`AtmosphericPressureTerm` term
+    :class:`ShallowWaterGOErrorEstimatorTerm` object associated with the :class:`AtmosphericPressureTerm` term
     of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -505,9 +505,9 @@ class AtmosphericPressureErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTe
         return 0
 
 
-class QuadraticDragErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
+class QuadraticDragGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMomentumTerm):
     """
-    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`QuadraticDragTerm`
+    :class:`ShallowWaterGOErrorEstimatorTerm` object associated with the :class:`QuadraticDragTerm`
     term of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -537,9 +537,9 @@ class QuadraticDragErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
         return 0
 
 
-class LinearDragErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
+class LinearDragGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMomentumTerm):
     """
-    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`LinearDragTerm`
+    :class:`ShallowWaterGOErrorEstimatorTerm` object associated with the :class:`LinearDragTerm`
     term of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -559,9 +559,9 @@ class LinearDragErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
         return 0
 
 
-class BottomDrag3DErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
+class BottomDrag3DGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMomentumTerm):
     """
-    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`BottomDrag3DTerm`
+    :class:`ShallowWaterGOErrorEstimatorTerm` object associated with the :class:`BottomDrag3DTerm`
     term of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -586,9 +586,9 @@ class BottomDrag3DErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
         return 0
 
 
-class TurbineDragErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
+class TurbineDragGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMomentumTerm):
     """
-    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`TurbineDragTerm`
+    :class:`ShallowWaterGOErrorEstimatorTerm` object associated with the :class:`TurbineDragTerm`
     term of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -615,9 +615,9 @@ class TurbineDragErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
         return 0
 
 
-class MomentumSourceErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
+class MomentumSourceGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMomentumTerm):
     """
-    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`MomentumSourceTerm`
+    :class:`ShallowWaterGOErrorEstimatorTerm` object associated with the :class:`MomentumSourceTerm`
     term of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -637,9 +637,9 @@ class MomentumSourceErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
         return 0
 
 
-class ContinuitySourceErrorEstimatorTerm(ShallowWaterErrorEstimatorContinuityTerm):
+class ContinuitySourceGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorContinuityTerm):
     """
-    :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`ContinuitySourceTerm`
+    :class:`ShallowWaterGOErrorEstimatorTerm` object associated with the :class:`ContinuitySourceTerm`
     term of the shallow water model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -659,9 +659,9 @@ class ContinuitySourceErrorEstimatorTerm(ShallowWaterErrorEstimatorContinuityTer
         return 0
 
 
-class BathymetryDisplacementErrorEstimatorTerm(ShallowWaterErrorEstimatorContinuityTerm):
+class BathymetryDisplacementGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorContinuityTerm):
     """
-    :class:`ShallowWaterErrorEstimatorTerm` object associated with the
+    :class:`ShallowWaterGOErrorEstimatorTerm` object associated with the
     :class:`BathymetryDisplacementTerm` term of the shallow water model.
     """
     def element_residual(self, solution, arg):
@@ -680,9 +680,9 @@ class BathymetryDisplacementErrorEstimatorTerm(ShallowWaterErrorEstimatorContinu
         return 0
 
 
-class TracerHorizontalAdvectionErrorEstimatorTerm(TracerErrorEstimatorTerm):
+class TracerHorizontalAdvectionGOErrorEstimatorTerm(TracerGOErrorEstimatorTerm):
     """
-    :class:`TracerErrorEstimatorTerm` object associated with the :class:`HorizontalAdvectionTerm`
+    :class:`TracerGOErrorEstimatorTerm` object associated with the :class:`HorizontalAdvectionTerm`
     term of the 2D tracer model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -760,9 +760,9 @@ class TracerHorizontalAdvectionErrorEstimatorTerm(TracerErrorEstimatorTerm):
         return flux_terms
 
 
-class TracerHorizontalDiffusionErrorEstimatorTerm(TracerErrorEstimatorTerm):
+class TracerHorizontalDiffusionGOErrorEstimatorTerm(TracerGOErrorEstimatorTerm):
     """
-    :class:`TracerErrorEstimatorTerm` object associated with the :class:`HorizontalDiffusionTerm`
+    :class:`TracerGOErrorEstimatorTerm` object associated with the :class:`HorizontalDiffusionTerm`
     term of the 2D tracer model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -830,9 +830,9 @@ class TracerHorizontalDiffusionErrorEstimatorTerm(TracerErrorEstimatorTerm):
                         f += self.p0test*arg*dot(diff_flux, self.normal)*ds_bnd
 
 
-class TracerSourceErrorEstimatorTerm(TracerErrorEstimatorTerm):
+class TracerSourceGOErrorEstimatorTerm(TracerGOErrorEstimatorTerm):
     """
-    :class:`TracerErrorEstimatorTerm` object associated with the :class:`SourceTerm` term of the
+    :class:`TracerGOErrorEstimatorTerm` object associated with the :class:`SourceTerm` term of the
     2D tracer model.
     """
     def element_residual(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -849,12 +849,12 @@ class TracerSourceErrorEstimatorTerm(TracerErrorEstimatorTerm):
         return 0
 
 
-class ShallowWaterErrorEstimator(ErrorEstimator):
+class ShallowWaterGOErrorEstimator(GOErrorEstimator):
     """
-    :class:`ErrorEstimator` for the shallow water model.
+    :class:`GOErrorEstimator` for the shallow water model.
     """
     def __init__(self, function_space, bathymetry, options):
-        super(ShallowWaterErrorEstimator, self).__init__(function_space)
+        super(ShallowWaterGOErrorEstimator, self).__init__(function_space)
         self.bathymetry = bathymetry
         self.options = options
 
@@ -863,32 +863,32 @@ class ShallowWaterErrorEstimator(ErrorEstimator):
         self.add_continuity_terms(u_space, eta_space, bathymetry, options)
 
     def add_momentum_terms(self, *args):
-        self.add_term(ExternalPressureGradientErrorEstimatorTerm(*args), 'implicit')
-        self.add_term(HorizontalAdvectionErrorEstimatorTerm(*args), 'explicit')
-        self.add_term(HorizontalViscosityErrorEstimatorTerm(*args), 'explicit')
-        self.add_term(CoriolisErrorEstimatorTerm(*args), 'explicit')
-        self.add_term(WindStressErrorEstimatorTerm(*args), 'source')
-        self.add_term(AtmosphericPressureErrorEstimatorTerm(*args), 'source')
-        self.add_term(QuadraticDragErrorEstimatorTerm(*args), 'explicit')
-        self.add_term(LinearDragErrorEstimatorTerm(*args), 'explicit')
-        self.add_term(BottomDrag3DErrorEstimatorTerm(*args), 'source')
-        self.add_term(TurbineDragErrorEstimatorTerm(*args), 'implicit')
-        self.add_term(MomentumSourceErrorEstimatorTerm(*args), 'source')
+        self.add_term(ExternalPressureGradientGOErrorEstimatorTerm(*args), 'implicit')
+        self.add_term(HorizontalAdvectionGOErrorEstimatorTerm(*args), 'explicit')
+        self.add_term(HorizontalViscosityGOErrorEstimatorTerm(*args), 'explicit')
+        self.add_term(CoriolisGOErrorEstimatorTerm(*args), 'explicit')
+        self.add_term(WindStressGOErrorEstimatorTerm(*args), 'source')
+        self.add_term(AtmosphericPressureGOErrorEstimatorTerm(*args), 'source')
+        self.add_term(QuadraticDragGOErrorEstimatorTerm(*args), 'explicit')
+        self.add_term(LinearDragGOErrorEstimatorTerm(*args), 'explicit')
+        self.add_term(BottomDrag3DGOErrorEstimatorTerm(*args), 'source')
+        self.add_term(TurbineDragGOErrorEstimatorTerm(*args), 'implicit')
+        self.add_term(MomentumSourceGOErrorEstimatorTerm(*args), 'source')
 
     def add_continuity_terms(self, *args):
-        self.add_term(HUDivErrorEstimatorTerm(*args), 'implicit')
-        self.add_term(ContinuitySourceErrorEstimatorTerm(*args), 'source')
+        self.add_term(HUDivGOErrorEstimatorTerm(*args), 'implicit')
+        self.add_term(ContinuitySourceGOErrorEstimatorTerm(*args), 'source')
 
 
-class TracerErrorEstimator(ErrorEstimator):
+class TracerGOErrorEstimator(GOErrorEstimator):
     """
-    :class:`ErrorEstimator` for the 2D tracer model.
+    :class:`GOErrorEstimator` for the 2D tracer model.
     """
     def __init__(self, function_space,
                  bathymetry=None, use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
-        super(TracerErrorEstimator, self).__init__(function_space)
+        super(TracerGOErrorEstimator, self).__init__(function_space)
 
         args = (function_space, bathymetry, use_lax_friedrichs, sipg_parameter)
-        self.add_term(TracerHorizontalAdvectionErrorEstimatorTerm(*args), 'explicit')
-        self.add_term(TracerHorizontalDiffusionErrorEstimatorTerm(*args), 'explicit')
-        self.add_term(TracerSourceErrorEstimatorTerm(*args), 'source')
+        self.add_term(TracerHorizontalAdvectionGOErrorEstimatorTerm(*args), 'explicit')
+        self.add_term(TracerHorizontalDiffusionGOErrorEstimatorTerm(*args), 'explicit')
+        self.add_term(TracerSourceGOErrorEstimatorTerm(*args), 'source')

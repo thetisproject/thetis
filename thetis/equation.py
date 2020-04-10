@@ -195,9 +195,10 @@ class Equation(object):
         return f
 
 
-class ErrorEstimatorTerm(object):
+class GOErrorEstimatorTerm(object):
     """
-    Implements the component of an error estimator from a single term of the underlying equation.
+    Implements the component of a goal-oriented error estimator from a single term of the underlying
+    equation.
 
     .. note::
         Sign convention as in :class:`Term`.
@@ -223,9 +224,10 @@ class ErrorEstimatorTerm(object):
         raise NotImplementedError('Must be implemented in the derived class')
 
 
-class ErrorEstimator(object):
+class GOErrorEstimator(object):
     """
-    Implements an error estimator, comprised of the corresponding terms from the underlying equation.
+    Implements a goal-oriented error estimator, comprised of the corresponding terms from the
+    underlying equation.
     """
     SUPPORTED_LABELS = frozenset(['source', 'explicit', 'implicit', 'nonlinear'])
     def __init__(self, function_space):
@@ -250,7 +252,7 @@ class ErrorEstimator(object):
         """
         Adds a term in the error estimator
 
-        :arg term: :class:`.ErrorEstimatorTerm` object to add_term
+        :arg term: :class:`.GOErrorEstimatorTerm` object to add_term
         :arg string label: Assign a label to the term. Valid labels are given by
             :attr:`.SUPPORTED_LABELS`.
         """
@@ -262,7 +264,7 @@ class ErrorEstimator(object):
         """
         Assings a label to the given term(s).
 
-        :arg term: :class:`.ErrorEstimatorTerm` object, or a tuple of terms
+        :arg term: :class:`.GOErrorEstimatorTerm` object, or a tuple of terms
         :arg label: string label to assign
         """
         if isinstance(term, str):

@@ -158,7 +158,7 @@ fields = solver_obj_fine.timestepper.fields
 V_2d = solver_obj_fine.function_spaces.V_2d
 bathymetry = solver_obj_fine.fields.bathymetry_2d
 options = solver_obj_fine.options
-error_estimator = error_estimation_2d.ShallowWaterErrorEstimator(V_2d, bathymetry, options)
+error_estimator = error_estimation_2d.ShallowWaterGOErrorEstimator(V_2d, bathymetry, options)
 args = ('all', fwd_proj, fwd_proj, adj_error, adj_error, fields, fields)
 
 # Compute element residual
