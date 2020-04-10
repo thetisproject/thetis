@@ -4,6 +4,7 @@ from .equation import ErrorEstimatorTerm, ErrorEstimator
 from .tracer_eq_2d import TracerTerm
 from .shallowwater_eq import ShallowWaterTerm
 
+
 __all__ = [
     'TracerErrorEstimator',
     'ShallowWaterErrorEstimator',
@@ -28,11 +29,37 @@ class ShallowWaterErrorEstimatorTerm(ErrorEstimatorTerm, ShallowWaterTerm):
         ShallowWaterTerm.__init__(self, function_space, bathymetry, options)
         ErrorEstimatorTerm.__init__(self, function_space.mesh())
 
-        # self.eta_is_dg = element_continuity(function_space.sub(1).ufl_element()).horizontal == 'dg'
-        # self.u_continuity = element_continuity(function_space.sub(0).ufl_element()).horizontal
-        # TODO: TEMPORARY. Should instead split into momentum and continuity terms
-        self.eta_is_dg = options.element_family in ('dg-dg', 'rt-dg')
-        self.u_continuity = 'hdiv' if options.element_family == 'rt-dg' else 'dg'
+
+class ShallowWaterErrorEstimatorMomentumTerm(ShallowWaterErrorEstimatorTerm):
+    """
+    Generic :class:`ShallowWaterErrorEstimatorTerm` term that provides commonly used members and
+    mapping for boundary functions.
+    """
+    def __init__(self, u_space, eta_space, bathymetry=None, options=None):
+        super(ShallowWaterErrorEstimatorMomentumTerm, self).__init__(u_space, bathymetry, options)
+
+        self.options = options
+
+        self.u_space = u_space
+        self.eta_space = eta_space
+
+        self.u_continuity = element_continuity(self.u_space.ufl_element()).horizontal
+        self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
+
+
+class ShallowWaterErrorEstimatorContinuityTerm(ShallowWaterErrorEstimatorTerm):
+    """
+    Generic :class:`ShallowWaterErrorEstimatorTerm` term that provides commonly used members and
+    mapping for boundary functions.
+    """
+    def __init__(self, eta_space, u_space, bathymetry=None, options=None):
+        super(ShallowWaterErrorEstimatorContinuityTerm, self).__init__(eta_space, bathymetry, options)
+
+        self.eta_space = eta_space
+        self.u_space = u_space
+
+        self.u_continuity = element_continuity(self.u_space.ufl_element()).horizontal
+        self.eta_is_dg = element_continuity(self.eta_space.ufl_element()).horizontal == 'dg'
 
 
 class TracerErrorEstimatorTerm(ErrorEstimatorTerm, TracerTerm):
@@ -51,7 +78,7 @@ class TracerErrorEstimatorTerm(ErrorEstimatorTerm, TracerTerm):
         ErrorEstimatorTerm.__init__(self, function_space.mesh())
 
 
-class ExternalPressureGradientErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+class ExternalPressureGradientErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
     """
     :class:`ShallowWaterErrorEstimatorTerm` object associated with the
     :class:`ExternalPressureGradientTerm` term of the shallow water model.
@@ -135,7 +162,7 @@ class ExternalPressureGradientErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm)
         return flux_terms
 
 
-class HUDivErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+class HUDivErrorEstimatorTerm(ShallowWaterErrorEstimatorContinuityTerm):
     """
     :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`HUDivTerm` term of
     the shallow water model.
@@ -214,7 +241,7 @@ class HUDivErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return flux_terms
 
 
-class HorizontalAdvectionErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+class HorizontalAdvectionErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
     """
     :class:`ShallowWaterErrorEstimatorTerm` object associated with the
     :class:`HorizontalAdvectionTerm` term of the shallow water model.
@@ -296,7 +323,7 @@ class HorizontalAdvectionErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return flux_terms
 
 
-class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
     """
     :class:`ShallowWaterErrorEstimatorTerm` object associated with the
     :class:`HorizontalViscosityTerm` term of the shallow water model.
@@ -408,7 +435,7 @@ class HorizontalViscosityErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return flux_terms
 
 
-class CoriolisErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+class CoriolisErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
     """
     :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`CoriolisTerm` term
     of the shallow water model.
@@ -431,7 +458,7 @@ class CoriolisErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return 0
 
 
-class WindStressErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+class WindStressErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
     """
     :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`WindStressTerm` term
     of the shallow water model.
@@ -455,7 +482,7 @@ class WindStressErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return 0
 
 
-class AtmosphericPressureErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+class AtmosphericPressureErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
     """
     :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`AtmosphericPressureTerm` term
     of the shallow water model.
@@ -478,7 +505,7 @@ class AtmosphericPressureErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return 0
 
 
-class QuadraticDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+class QuadraticDragErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
     """
     :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`QuadraticDragTerm`
     term of the shallow water model.
@@ -510,7 +537,7 @@ class QuadraticDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return 0
 
 
-class LinearDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+class LinearDragErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
     """
     :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`LinearDragTerm`
     term of the shallow water model.
@@ -532,7 +559,7 @@ class LinearDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return 0
 
 
-class BottomDrag3DErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+class BottomDrag3DErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
     """
     :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`BottomDrag3DTerm`
     term of the shallow water model.
@@ -559,7 +586,7 @@ class BottomDrag3DErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return 0
 
 
-class TurbineDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+class TurbineDragErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
     """
     :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`TurbineDragTerm`
     term of the shallow water model.
@@ -588,7 +615,7 @@ class TurbineDragErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return 0
 
 
-class MomentumSourceErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+class MomentumSourceErrorEstimatorTerm(ShallowWaterErrorEstimatorMomentumTerm):
     """
     :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`MomentumSourceTerm`
     term of the shallow water model.
@@ -610,7 +637,7 @@ class MomentumSourceErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return 0
 
 
-class ContinuitySourceErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+class ContinuitySourceErrorEstimatorTerm(ShallowWaterErrorEstimatorContinuityTerm):
     """
     :class:`ShallowWaterErrorEstimatorTerm` object associated with the :class:`ContinuitySourceTerm`
     term of the shallow water model.
@@ -632,7 +659,7 @@ class ContinuitySourceErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
         return 0
 
 
-class BathymetryDisplacementErrorEstimatorTerm(ShallowWaterErrorEstimatorTerm):
+class BathymetryDisplacementErrorEstimatorTerm(ShallowWaterErrorEstimatorContinuityTerm):
     """
     :class:`ShallowWaterErrorEstimatorTerm` object associated with the
     :class:`BathymetryDisplacementTerm` term of the shallow water model.
@@ -831,8 +858,11 @@ class ShallowWaterErrorEstimator(ErrorEstimator):
         self.bathymetry = bathymetry
         self.options = options
 
-        # Momentum terms
-        args = (function_space.sub(0), bathymetry, options)
+        u_space, eta_space = function_space.split()
+        self.add_momentum_terms(u_space, eta_space, bathymetry, options)
+        self.add_continuity_terms(u_space, eta_space, bathymetry, options)
+
+    def add_momentum_terms(self, *args):
         self.add_term(ExternalPressureGradientErrorEstimatorTerm(*args), 'implicit')
         self.add_term(HorizontalAdvectionErrorEstimatorTerm(*args), 'explicit')
         self.add_term(HorizontalViscosityErrorEstimatorTerm(*args), 'explicit')
@@ -845,8 +875,7 @@ class ShallowWaterErrorEstimator(ErrorEstimator):
         self.add_term(TurbineDragErrorEstimatorTerm(*args), 'implicit')
         self.add_term(MomentumSourceErrorEstimatorTerm(*args), 'source')
 
-        # Continuity terms
-        args = (function_space.sub(1), bathymetry, options)
+    def add_continuity_terms(self, *args):
         self.add_term(HUDivErrorEstimatorTerm(*args), 'implicit')
         self.add_term(ContinuitySourceErrorEstimatorTerm(*args), 'source')
 
