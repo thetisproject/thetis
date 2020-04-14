@@ -137,7 +137,7 @@ def asymptotic_expansion_elev(H_2d, order=1, time=0.0, soliton_amplitude=0.395):
     return interpolate(eta_terms, H_2d)
 
 
-def run(refinement_level, reference_solution, **model_options):
+def run(refinement_level, **model_options):
     order = model_options.pop('expansion_order')
     family = model_options.get('element_family')
     stepper = model_options.get('timestepper_type')
@@ -149,13 +149,6 @@ def run(refinement_level, reference_solution, **model_options):
     mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x')
     x, y = SpatialCoordinate(mesh2d)
     mesh2d.coordinates.interpolate(as_vector([x-lx/2, y-ly/2]))
-
-    # Get simulation end time
-    T = model_options.get('simulation_end_time')
-    try:
-        assert T > 0.0 and T % 120 < 40.0
-    except AssertionError:  # TODO
-        raise NotImplementedError("Domain periodicity not accounted for in asymptotic expansion.")
 
     # Physics
     g = physical_constants['g_grav'].values()[0]
@@ -169,7 +162,7 @@ def run(refinement_level, reference_solution, **model_options):
     options.timestepper_type = stepper
     options.timestep = 0.96/refinement_level if stepper == 'SSPRK33' else 9.6/refinement_level
     options.simulation_export_time = 5.0
-    options.simulation_end_time = T
+    options.simulation_end_time = model_options.get('simulation_end_time')
     options.use_grad_div_viscosity_term = False
     options.use_grad_depth_viscosity_term = False
     options.horizontal_viscosity = None
@@ -193,23 +186,10 @@ def run(refinement_level, reference_solution, **model_options):
     solver_obj.iterate()
     physical_constants['g_grav'].assign(g)  # Revert g_grav value
 
-    # Project solution into reference space
-    print_output("--- computing metrics for refinement level {:d} in {:s} space".format(refinement_level, family))
-    ref_mesh = reference_solution.function_space().mesh()
-    x, y = SpatialCoordinate(ref_mesh)
-    P1_2d_ref = FunctionSpace(ref_mesh, "CG", 1)
-    elev_ref = project(solver_obj.fields.elev_2d, P1_2d_ref)
-    xcoords = project(ref_mesh.coordinates[0], P1_2d_ref)
-
-    # Calculate RMS error
-    elev_diff = reference_solution.vector().gather()
-    elev_diff -= elev_ref.vector().gather()
-    elev_diff *= elev_diff
-    rms = np.sqrt(elev_diff.sum()/elev_diff.size)
-
     # Get mean peak heights
-    elev_ref.interpolate(sign(y)*elev_ref)  # Flip sign in southern hemisphere
-    with elev_ref.dat.vec_ro as v:
+    elev = interpolate(sign(y)*solver_obj.fields.elev_2d, P1_2d)  # Flip sign in southern hemisphere
+    xcoords = interpolate(mesh2d.coordinates[0], P1_2d)
+    with elev.dat.vec_ro as v:
         i_n, h_n = v.max()
         i_s, h_s = v.min()
 
@@ -223,33 +203,16 @@ def run(refinement_level, reference_solution, **model_options):
     h_s /= -0.1567020  # Flip sign back
     c_n = (48.0 - x_n)/47.18
     c_s = (48.0 - x_s)/47.18
-    return h_n, h_s, c_n, c_s, rms
+    return h_n, h_s, c_n, c_s
 
 
-def compute_error_metrics(ref_list, reference_refinement_level, **options):
-    order = options.get('expansion_order')
+def run_convergence(ref_list, **options):
+    """Runs test for a list of refinements and computes error convergence rate."""
+    setup_name = 'rossby-soliton'
     stepper = options.get('timestepper_type')
-    T = options.get('simulation_end_time')
-
-    # Build reference mesh
-    print_output("Building reference space...")
-    lx, ly = 48, 24
-    nx_fine, ny_fine = 2*reference_refinement_level, reference_refinement_level
-    ref_mesh = PeriodicRectangleMesh(nx_fine, ny_fine, lx, ly, direction='x')
-    x_fine, y_fine = SpatialCoordinate(ref_mesh)
-    ref_mesh.coordinates.interpolate(as_vector([x_fine-lx/2, y_fine-ly/2]))
-
-    # Get asymptotic solution at final time on a reference mesh
-    P1_2d_ref = FunctionSpace(ref_mesh, "CG", 1)
-    print_output("Assembling reference solution...")
-    elev_a = asymptotic_expansion_elev(P1_2d_ref, order=order, time=(T % 120))
-
-    def out_str(m, v):
-        msg = ' {:s} {:6.4e}' if m == 'rms' else ' {:s} {:6.4f}'
-        return msg.format(m, v)
 
     # Compute metrics for each refinement level
-    labels = ('h+', 'h-', 'c+', 'c-', 'rms')
+    labels = ('h+', 'h-', 'c+', 'c-')
     metrics = {
         'dx': [24/r for r in ref_list],
         'dt': [0.96/r for r in ref_list] if stepper == 'SSPRK33' else [9.6/r for r in ref_list],
@@ -258,37 +221,19 @@ def compute_error_metrics(ref_list, reference_refinement_level, **options):
         metrics[metric] = []
     for r in ref_list:
         msg = "Error metrics:"
-        for metric, value in zip(labels, run(r, elev_a, **options)):
+        for metric, value in zip(labels, run(r, **options)):
             metrics[metric].append(value)
-            msg += out_str(metric, value)
+            msg += ' {:s} {:6.4f}'.format(metric, value)
         print_output(msg)
-    return metrics
-
-
-def run_convergence(ref_list, reference_refinement_level=50, **options):
-    """Runs test for a list of refinements and computes error convergence rate."""
-    setup_name = 'rossby-soliton'
-
-    # Evaluate error metrics
-    metrics = compute_error_metrics(ref_list, reference_refinement_level, **options)
 
     # Check convergence of relative mean peak height and phase speed
     rtol = 0.01
-    for m in ('h+', 'h-', 'c+', 'c-', 'rms'):
+    for m in ('h+', 'h-', 'c+', 'c-'):
         for i in range(1, len(ref_list)):
-            slope = metrics[m][i-1]/metrics[m][i] if m == 'rms' else metrics[m][i]/metrics[m][i-1]
+            slope = metrics[m][i]/metrics[m][i-1]
             msg = "{:s}: Divergence of error metric {:s}, expected {:.4f} > 1"
             assert slope > 1.0 - rtol, msg.format(setup_name, m, slope)
             print_output("{:s}: error metric {:s} index {:d} PASSED".format(setup_name, m, i))
-
-    # Check magnitude of RMS errors
-    for i in range(len(ref_list)):
-        msg = "{:s}: RMS error {:.4e} does not match recorded value, expected < 1.30e-02"
-        m = metrics['rms'][i]
-        assert m < 1.30e-02, msg.format(setup_name, m)
-        print_output("{:s}: rms magnitude index {:d} PASSED".format(setup_name, i))
-
-    # TODO: Plot convergence of error metrics
 
 
 # ---------------------------
@@ -306,6 +251,6 @@ def family(request):
 
 
 def test_convergence(stepper, family):
-    run_convergence([12, 24], reference_refinement_level=96, timestepper_type=stepper,
+    run_convergence([12, 24], timestepper_type=stepper,
                     simulation_end_time=30.0, polynomial_degree=1, element_family=family,
                     no_exports=True, expansion_order=1)
