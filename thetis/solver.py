@@ -702,10 +702,12 @@ class FlowSolver(FrozenClass):
             output_logger.addHandler(filehandler)
         self.set_sipg_parameter()
 
+        self.depth = DepthExpression(self.fields.bathymetry_2d,
+                                     use_nonlinear_equations=self.options.use_nonlinear_equations)
+
         self.eq_sw = shallowwater_eq.ModeSplit2DEquations(
             self.fields.solution_2d.function_space(),
-            self.fields.bathymetry_2d,
-            self.options)
+            self.depth, self.options)
 
         expl_bottom_friction = self.options.use_bottom_friction and not self.options.use_implicit_vertical_diffusion
         self.eq_momentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),

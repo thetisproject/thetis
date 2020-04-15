@@ -299,15 +299,13 @@ def comp_volume_3d(mesh):
     return val
 
 
-def comp_tracer_mass_2d(eta, bath, scalar_func):
+def comp_tracer_mass_2d(scalar_func, total_depth):
     """
     Computes total tracer mass in the 2D domain
-    :arg eta: elevation :class:`Function`
-    :arg bath: bathymetry :class:`Function`
-    :arg scalar_func: scalar :class:`Function` to integrate
+    :arg scalar_func: depth-averaged scalar :class:`Function` to integrate
+    :arg total_depth: scalar UFL expression (e.g. from get_total_depth())
     """
-
-    val = assemble((eta+bath)*scalar_func*dx)
+    val = assemble(scalar_func*total_depth*dx)
     return val
 
 
@@ -1726,3 +1724,54 @@ def select_and_move_detectors(mesh, detector_locations, detector_names=None,
         return accepted_locations
     else:
         return accepted_locations, accepted_names
+
+
+class DepthExpression:
+    r"""
+    Construct expression for depth depending on options
+
+    If `not use_nonlinear_equations`, then the depth is simply the bathymetry:
+        :math:`H = h`
+    Otherwise we include the free surface elevation:
+        :math:`H = h + \eta`
+    and if `use_wetting_and_drying`, includes a bathymetry displacement term
+    to ensure a positive depth (see Karna et al. 2011):
+        :math:`H = h + f(h+\eta) + \eta`
+    where
+        :math:`f(h+\eta) = (\sqrt{(h+\eta)^2 +\alpha^2} - (h+\eta))/2`
+    This introduces a wetting-drying parameter :math:`\alpha`, with dimensions
+    of length. The value for :math:`\alpha` is specified by
+    :attr:`.ModelOptions.wetting_and_drying_alpha`, in units of meters. The
+    default value is 0.5, but the appropriate value is problem specific and
+    should be set by the user.
+    """
+
+    def __init__(self, bathymetry_2d, use_nonlinear_equations=True,
+                 use_wetting_and_drying=False, wetting_and_drying_alpha=0.5):
+        self.bathymetry_2d = bathymetry_2d
+        self.use_nonlinear_equations = use_nonlinear_equations
+        self.use_wetting_and_drying = use_wetting_and_drying
+        self.wetting_and_drying_alpha = wetting_and_drying_alpha
+
+    def wd_bathymetry_displacement(self, eta):
+        """
+        Returns wetting and drying bathymetry displacement as described in:
+        Karna et al.,  2011.
+        :arg eta: current elevation as UFL expression
+        """
+        if self.use_wetting_and_drying:
+            H = self.bathymetry_2d + eta
+            return 0.5 * (sqrt(H ** 2 + self.wetting_and_drying_alpha ** 2) - H)
+        else:
+            return 0
+
+    def get_total_depth(self, eta):
+        """
+        Returns total water column depth based on options
+        :arg eta: current elevation as UFL expression
+        """
+        if self.use_nonlinear_equations:
+            total_h = self.bathymetry_2d + eta + self.wd_bathymetry_displacement(eta)
+        else:
+            total_h = self.bathymetry_2d
+        return total_h

@@ -9,6 +9,7 @@ from . import rungekutta
 from . import implicitexplicit
 from . import coupled_timeintegrator_2d
 from . import tracer_eq_2d
+from . import conservative_tracer_eq_2d
 import weakref
 import time as time_mod
 import numpy as np
@@ -289,20 +290,31 @@ class FlowSolver2d(FrozenClass):
         self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
         get_horizontal_elem_size_2d(self.fields.h_elem_size_2d)
         self.set_sipg_parameter()
+        self.depth = DepthExpression(self.fields.bathymetry_2d,
+                                     use_nonlinear_equations=self.options.use_nonlinear_equations,
+                                     use_wetting_and_drying=self.options.use_wetting_and_drying,
+                                     wetting_and_drying_alpha=self.options.wetting_and_drying_alpha)
 
         # ----- Equations
         self.eq_sw = shallowwater_eq.ShallowWaterEquations(
             self.fields.solution_2d.function_space(),
-            self.fields.bathymetry_2d,
+            self.depth,
             self.options
         )
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         if self.options.solve_tracer:
             self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
             if self.options.timestepper_type == 'CrankNicolson':
-                self.eq_tracer = tracer_eq_2d.TracerEquation2D(self.function_spaces.Q_2d, bathymetry=self.fields.bathymetry_2d,
-                                                               use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                                                               sipg_parameter=self.options.sipg_parameter_tracer)
+                if self.options.use_tracer_conservative_form:
+                    self.eq_tracer = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
+                        self.function_spaces.Q_2d, self.depth,
+                        use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                        sipg_parameter=self.options.sipg_parameter_tracer)
+                else:
+                    self.eq_tracer = tracer_eq_2d.TracerEquation2D(
+                        self.function_spaces.Q_2d, self.depth,
+                        use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                        sipg_parameter=self.options.sipg_parameter_tracer)
                 if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                     self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
                 else:
@@ -391,7 +403,7 @@ class FlowSolver2d(FrozenClass):
             u_test = TestFunction(self.function_spaces.U_2d)
             self.eq_mom = shallowwater_eq.ShallowWaterMomentumEquation(
                 u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
-                self.fields.bathymetry_2d,
+                self.depth,
                 options=self.options
             )
             self.eq_mom.bnd_functions = self.bnd_functions['shallow_water']

@@ -31,15 +31,16 @@ class TracerTerm(Term):
     Generic tracer term that provides commonly used members and mapping for
     boundary functions.
     """
-    def __init__(self, function_space,
-                 bathymetry=None, use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
+    def __init__(self, function_space, depth,
+                 use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
-        :kwarg bathymetry: bathymetry of the domain
-        :type bathymetry: 2D :class:`Function` or :class:`Constant`
+        :arg depth: :class: `DepthExpression` containing depth info
+        :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
+        :kwarg sipg_parameter: :class: `Constant` or :class: `Function` penalty parameter for SIPG
         """
         super(TracerTerm, self).__init__(function_space)
-        self.bathymetry = bathymetry
+        self.depth = depth
         self.cellsize = CellSize(self.mesh)
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
@@ -82,8 +83,7 @@ class TracerTerm(Term):
         if 'uv' in funcs:
             uv_ext = self.corr_factor * funcs['uv']
         elif 'flux' in funcs:
-            assert self.bathymetry is not None
-            h_ext = elev_ext + self.bathymetry
+            h_ext = self.depth.get_total_depth(elev_ext)
             area = h_ext*self.boundary_len[bnd_id]  # NOTE using external data only
             uv_ext = self.corr_factor * funcs['flux']/area*self.normal
         elif 'un' in funcs:
@@ -266,21 +266,18 @@ class TracerEquation2D(Equation):
     """
     2D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
-    def __init__(self, function_space,
-                 bathymetry=None,
+    def __init__(self, function_space, depth,
                  use_lax_friedrichs=False,
                  sipg_parameter=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
-        :kwarg bathymetry: bathymetry of the domain
-        :type bathymetry: 2D :class:`Function` or :class:`Constant`
-
-        :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
-            condition in the horizontal advection term
+        :arg depth: :class: `DepthExpression` containing depth info
+        :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
+        :kwarg sipg_parameter: :class: `Constant` or :class: `Function` penalty parameter for SIPG
         """
         super(TracerEquation2D, self).__init__(function_space)
 
-        args = (function_space, bathymetry, use_lax_friedrichs, sipg_parameter)
+        args = (function_space, depth, use_lax_friedrichs, sipg_parameter)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
