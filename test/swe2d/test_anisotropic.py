@@ -15,8 +15,7 @@ def run_steady_turbine(**model_options):
 
     # Load an anisotropic mesh from file
     plex = PETSc.DMPlex().create()
-    abspath = os.path.realpath(__file__)
-    plex.createFromFile(abspath.replace('test_anisotropic.py', 'anisotropic_plex.h5'))
+    plex.createFromFile(os.path.join(os.path.dirname(__file__), 'anisotropic_plex.h5'))
     mesh2d = Mesh(plex)
     x, y = SpatialCoordinate(mesh2d)
 
