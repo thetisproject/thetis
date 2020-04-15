@@ -46,9 +46,9 @@ def run_tracer_consistency(constant_c=True, **model_options):
     # create solver
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     options = solver_obj.options
+    options.use_limiter_for_tracers = not constant_c
     options.use_nonlinear_equations = True
     options.solve_tracer = True
-    options.use_limiter_for_tracers = not constant_c
     options.simulation_export_time = t_export
     options.simulation_end_time = t_end
     options.horizontal_velocity_scale = Constant(u_mag)
