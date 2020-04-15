@@ -11,8 +11,9 @@ of [1]. The main contributions of [1] are the derivation of a goal-oriented erro
 shallow water modelling and subsequent implementation of mesh adaptation algorithms. An adapted mesh
 resulting from this process is used in this test. The mesh is anisotropic in the flow direction.
 
-If the default SIPG parameter is used, this steady state problem fails to converge. However, using
-the automatic SIPG parameter functionality, it should converge.
+If the default SIPG parameter is used, this steady state problem fails to converge under some
+finite element pairs. The automatic SIPG parameter functionality provided by Thetis should ensure
+converge where it was not attained and reduce the number of nonlinear solver iterations otherwise.
 
 [1] J.G. Wallwork, N. Barral, S.C. Kramer, D.A. Ham, M.D. Piggott, "Goal-Oriented Error Estimation
     and Mesh Adaptation in Shallow Water Modelling" (2020), Springer Nature Applied Sciences (to
@@ -26,20 +27,20 @@ import os
 
 def run(**model_options):
 
-    # Load an anisotropic mesh from file
+    # load an anisotropic mesh from file
     plex = PETSc.DMPlex().create()
     plex.createFromFile(os.path.join(os.path.dirname(__file__), 'anisotropic_plex.h5'))
     mesh2d = Mesh(plex)
     P1_2d = FunctionSpace(mesh2d, "CG", 1)
 
-    # Physics
+    # physics
     viscosity = Constant(0.5)
     inflow_velocity = Constant(as_vector([0.5, 0.0]))
     depth = 40.0
     drag_coefficient = Constant(0.0025)
     bathymetry2d = Function(P1_2d).assign(depth)
 
-    # Create steady state solver object
+    # create steady state solver object
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry2d)
     options = solver_obj.options
     options.timestep = 20.0
@@ -71,12 +72,23 @@ def run(**model_options):
     options.update(model_options)
     solver_obj.create_equations()
 
-    # Apply boundary conditions
+    # apply boundary conditions
     solver_obj.bnd_functions['shallow_water'] = {
         1: {'uv': inflow_velocity},  # inflow condition used upstream
         2: {'elev': Constant(0.0)},  # Dirichlet condition at outflow to close system
         3: {'un': Constant(0.0)},    # freeslip on channel walls
     }
+
+    # --- setup turbine array
+
+    L = 1200.0       # domain length
+    W = 500.0        # domain width
+    D = 18.0         # turbine diameter
+    A = pi*(D/2)**2  # turbine area
+    S = 8            # turbine separation in x-direction
+
+    # turbine locations
+    locs = [(L/2-S*D, W/2, D/2), (L/2+S*D, W/2, D/2)]
 
     def bump(mesh, locs, scale=1.0):
         """
@@ -91,20 +103,9 @@ def run(**model_options):
         i = 0
         for j in range(len(locs)):
             x0, y0, r = locs[j]
-            expr = scale*exp(1.0 - 1.0/(1.0- ((x-x0)/r)**2))*exp(1.0 - 1.0/(1.0 - ((y-y0)/r)**2))
+            expr = scale*exp(1.0 - 1.0/(1.0 - ((x-x0)/r)**2))*exp(1.0 - 1.0/(1.0 - ((y-y0)/r)**2))
             i += conditional(lt((x-x0)**2 + (y-y0)**2, r*r), expr, 0)
         return i
-
-    ### SETUP TURBINE ARRAY
-
-    L = 1200.0       # domain length
-    W = 500.0        # domain width
-    D = 18.0         # turbine diameter
-    A = pi*(D/2)**2  # turbine area
-    S = 8            # turbine separation in x-direction
-
-    # Turbine locations
-    locs = [(L/2-S*D, W/2, D/2), (L/2+S*D, W/2, D/2)]
 
     thrust_coefficient = 0.8
     # NOTE: We include a correction to account for the fact that the thrust coefficient is based
@@ -118,28 +119,33 @@ def run(**model_options):
     farm_options.turbine_options.thrust_coefficient = thrust_coefficient*correction
     solver_obj.options.tidal_turbine_farms['everywhere'] = farm_options
 
-    # Apply initial guess of inflow velocity and solve
+    # apply initial guess of inflow velocity, solve and return number of nonlinear solver iterations
     solver_obj.assign_initial_conditions(uv=inflow_velocity)
     solver_obj.iterate()
+    return solver_obj.timestepper.solver.snes.getIterationNumber()
 
 
 # ---------------------------
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=[True, False])
-def auto_sipg(request):
+@pytest.fixture(params=['dg-cg', 'dg-dg', 'rt-dg'])
+def family(request):
     return request.param
 
 
-def test_sipg(auto_sipg):
-    if not auto_sipg:
-        pytest.xfail("The default SIPG parameter is not sufficient for this problem.")
-    run(use_automatic_sipg_parameter=auto_sipg, no_exports=True)
-
-# FIXME: Using default SIPG parameters actually passes under this configuration (and the previous
-#        one). Perhaps we could instead show that using automatic SIPG parameter means fewer
-#        nonlinear iterations. (I get 7 iterations for default and 4 for automatic.)
+def test_sipg(family):
+    options = {'element_family': family, 'no_exports': True}
+    snes_it_auto = run(use_automatic_sipg_parameter=True, **options)
+    try:
+        snes_it_default = run(use_automatic_sipg_parameter=False, **options)
+        msg = "auto-sipg: snes iterations was not reduced, expected {:d} < {:d}"
+        assert snes_it_auto < snes_it_default, msg.format(snes_it_auto, snes_it_default)
+        msg = "auto-sipg: snes iterations reduced from {:d} to {:d} for {:s} PASSED"
+        print_output(msg.format(snes_it_default, snes_it_auto, family))
+    except ConvergenceError:
+        msg = "auto-sipg: snes converged where it diverged under default for {:s} PASSED"
+        print_output(msg.format(family))
 
 # ---------------------------
 # run individual setup for debugging
@@ -147,4 +153,4 @@ def test_sipg(auto_sipg):
 
 
 if __name__ == '__main__':
-    run(use_automatic_sipg_parameter=False, no_exports=False)
+    print_output(run(use_automatic_sipg_parameter=False, no_exports=False, element_family='rt-dg'))
