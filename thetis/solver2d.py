@@ -304,23 +304,20 @@ class FlowSolver2d(FrozenClass):
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         if self.options.solve_tracer:
             self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
-            if self.options.timestepper_type == 'CrankNicolson':
-                if self.options.use_tracer_conservative_form:
-                    self.eq_tracer = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
-                        self.function_spaces.Q_2d, self.depth,
-                        use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                        sipg_parameter=self.options.sipg_parameter_tracer)
-                else:
-                    self.eq_tracer = tracer_eq_2d.TracerEquation2D(
-                        self.function_spaces.Q_2d, self.depth,
-                        use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                        sipg_parameter=self.options.sipg_parameter_tracer)
-                if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
-                    self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
-                else:
-                    self.tracer_limiter = None
+            if self.options.use_tracer_conservative_form:
+                self.eq_tracer = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
+                    self.function_spaces.Q_2d, self.depth,
+                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                    sipg_parameter=self.options.sipg_parameter_tracer)
             else:
-                raise NotImplementedError("Tracer equation is currently only implemented for the CrankNicolson timestepper scheme")
+                self.eq_tracer = tracer_eq_2d.TracerEquation2D(
+                    self.function_spaces.Q_2d, self.depth,
+                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                    sipg_parameter=self.options.sipg_parameter_tracer)
+            if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
+                self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
+            else:
+                self.tracer_limiter = None
 
         self._isfrozen = True  # disallow creating new attributes
 
@@ -352,6 +349,12 @@ class FlowSolver2d(FrozenClass):
             'momentum_source': self.options.momentum_source_2d,
             'volume_source': self.options.volume_source_2d, }
         self.set_time_step()
+        if self.options.solve_tracer:
+            implemented = ['CrankNicolson', ]
+            try:
+                assert self.options.timestepper_type in implemented
+            except AssertionError:
+                raise NotImplementedError("Tracer model currently only supports {:s} time integration.".format(', '.join(implemented)))
         if self.options.timestepper_type == 'SSPRK33':
             self.timestepper = rungekutta.SSPRK33(self.eq_sw, self.fields.solution_2d,
                                                   fields, self.dt,
