@@ -106,6 +106,10 @@ class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
         'sub_pc_type': 'ilu',
         'mat_type': 'aij',
     }).tag(config=True)
+    solver_parameters_tracer = PETScSolverParameters({
+        'ksp_type': 'gmres',
+        'pc_type': 'sor',
+    }).tag(config=True)
 
 
 class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):

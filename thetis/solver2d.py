@@ -323,7 +323,7 @@ class FlowSolver2d(FrozenClass):
 
     def get_swe_timestepper(self, integrator):
         """
-        Gets timestepper object with appropriate parameters
+        Gets shallow water timestepper object with appropriate parameters
         """
         fields = {
             'linear_drag_coefficient': self.options.linear_drag_coefficient,
@@ -374,6 +374,31 @@ class FlowSolver2d(FrozenClass):
             }
         return integrator(*args, **kwargs)
 
+    def get_tracer_timestepper(self, integrator):
+        """
+        Gets tracer timestepper object with appropriate parameters
+        """
+        uv, elev = self.fields.solution_2d.split()
+        fields = {
+            'elev_2d': elev,
+            'uv_2d': uv,
+            'diffusivity_h': self.options.horizontal_diffusivity,
+            'source': self.options.tracer_source_2d,
+            'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
+            'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
+        }
+
+        args = (self.eq_tracer, self.fields.tracer_2d, fields, self.dt, )
+        kwargs = {
+            'bnd_conditions': self.bnd_functions['tracer'],
+            'solver_parameters': self.options.timestepper_options.solver_parameters_tracer,
+        }
+        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
+            kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
+        if hasattr(self.options.timestepper_options, 'implicitness_theta'):
+            kwargs['theta'] = self.options.timestepper_options.implicitness_theta
+        return integrator(*args, **kwargs)
+
     def create_timestepper(self):
         """
         Creates time stepper instance
@@ -392,7 +417,7 @@ class FlowSolver2d(FrozenClass):
         self.set_time_step()
 
         # ----- Time integrators
-        self.steppers = {
+        steppers = {
             'SSPRK33': rungekutta.SSPRK33,
             'ForwardEuler': timeintegrator.ForwardEuler,
             'SteadyState': timeintegrator.SteadyState,
@@ -404,19 +429,19 @@ class FlowSolver2d(FrozenClass):
             'SSPIMEX': implicitexplicit.IMEXLPUM2,
         }
         try:
-            assert self.options.timestepper_type in self.steppers
+            assert self.options.timestepper_type in steppers
         except AssertionError:
             raise Exception('Unknown time integrator type: {:s}'.format(self.options.timestepper_type))
         if self.options.solve_tracer:
             try:
-                assert self.options.timestepper_type == 'CrankNicolson'
+                assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX')
             except AssertionError:
-                raise NotImplementedError("Tracer model currently only supports CrankNicolson time integration.")  # TODO
+                raise NotImplementedError("2D tracer model currently only supports SSPRK33, ForwardEuler, SteadyState, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
             self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
-                weakref.proxy(self), self.steppers[self.options.timestepper_type],
+                weakref.proxy(self), steppers[self.options.timestepper_type],
             )
         else:
-            self.timestepper = self.get_swe_timestepper(self.steppers[self.options.timestepper_type])
+            self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
         self._isfrozen = True  # disallow creating new attributes
 
