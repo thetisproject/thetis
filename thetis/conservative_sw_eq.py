@@ -140,6 +140,51 @@ class CShallowWaterContinuityTerm(CShallowWaterTerm):
         self.h_is_dg = element_continuity(h_elem).horizontal == 'dg'
 
 
+def flux_hll_wave_speed(hu, h, bath, normal):
+    """
+    Compute left/right wave speeds.
+    """
+    uv_minus = hu('-')/h('-')
+    uv_plus = hu('+')/h('+')
+
+    # wave speeds
+    # FIXME simplified wave speeds
+    s_minus = dot(uv_minus, normal('-')) - sqrt(g_grav * h('-'))
+    s_plus = dot(uv_plus, normal('-')) + sqrt(g_grav * h('+'))
+
+    return s_minus, s_plus
+
+
+def flux_hll_penalty_scalar(hu, h, bath, normal):
+    """
+    Return scaling factor for variable jump term.
+    """
+    s_minus, s_plus = flux_hll_wave_speed(hu, h, bath, normal)
+    return s_minus * s_plus / (s_plus - s_minus)
+
+
+def flux_hll_pg(hu, h, bath, normal):
+    """
+    Compute HLL flux
+    """
+    # flux
+    f_minus = 0.5 * g_grav * h('-')**2
+    f_plus = 0.5 * g_grav * h('+')**2
+    s_minus, s_plus = flux_hll_wave_speed(hu, h, bath, normal)
+    return (s_plus * f_minus - s_minus * f_plus)/(s_plus - s_minus)
+
+
+def flux_hll_hu(hu, h, bath, normal):
+    """
+    Compute HLL flux
+    """
+    # flux
+    f_minus = hu('-')
+    f_plus = hu('+')
+    s_minus, s_plus = flux_hll_wave_speed(hu, h, bath, normal)
+    return (s_plus * f_minus - s_minus * f_plus)/(s_plus - s_minus)
+
+
 class ExternalPressureGradientTerm(CShallowWaterMomentumTerm):
     r"""
     External pressure gradient term, ...
@@ -152,12 +197,10 @@ class ExternalPressureGradientTerm(CShallowWaterMomentumTerm):
         flux = 0.5 * g_grav * h_old * h
         if grad_h_by_parts:
             f = - flux * nabla_div(self.hu_test) * self.dx
-            hu_av = avg(hu_old)
-            hu_mag = sqrt(hu_av[0]*hu_av[0] + hu_av[1]*hu_av[1])
-            u = sqrt(avg(h_old)*g_grav) + hu_mag/avg(h_old)
-            # edge_flux = avg(flux)
-            edge_flux = avg(flux) + u*jump(hu, self.normal)
+            edge_flux = flux_hll_pg(hu, h, self.depth.bathymetry_2d, self.normal)
             f += edge_flux * jump(self.hu_test, self.normal) * self.dS
+            edge_penalty = flux_hll_penalty_scalar(hu, h, self.depth.bathymetry_2d, self.normal)
+            f += -edge_penalty * inner(jump(hu), jump(self.hu_test)) * self.dS
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
@@ -181,11 +224,10 @@ class HUDivTerm(CShallowWaterContinuityTerm):
     def residual(self, hu, h, hu_old, h_old, fields, fields_old, bnd_conditions=None):
         f = -inner(grad(self.h_test), hu) * self.dx
         if self.h_is_dg:
-            hu_av = avg(hu_old)
-            hu_mag = sqrt(hu_av[0]*hu_av[0] + hu_av[1]*hu_av[1])
-            u = sqrt(avg(h_old)*g_grav) + hu_mag/avg(h_old)
-            hu_star = avg(hu) + u*jump(h, self.normal)
-            f += inner(jump(self.h_test, self.normal), hu_star)*self.dS
+            edge_flux = flux_hll_hu(hu, h, self.depth.bathymetry_2d, self.normal)
+            f += inner(jump(self.h_test, self.normal), edge_flux) * self.dS
+            edge_penalty = flux_hll_penalty_scalar(hu, h, self.depth.bathymetry_2d, self.normal)
+            f += -edge_penalty * jump(h) * jump(self.h_test) * self.dS
         for bnd_marker in self.boundary_markers:
             funcs = bnd_conditions.get(bnd_marker)
             ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
@@ -208,7 +250,7 @@ class HorizontalAdvectionTerm(CShallowWaterMomentumTerm):
         flux_y = hu_old[1] * hu / h_old
 
         f = -(inner(flux_x, grad(self.hu_test[0]))
-             + inner(flux_y, grad(self.hu_test[1]))) * self.dx
+              + inner(flux_y, grad(self.hu_test[1]))) * self.dx
         edge_flux_x = avg(flux_x)
         edge_flux_y = avg(flux_y)
         f += inner(jump(self.hu_test[0], self.normal), edge_flux_x) * self.dS
@@ -313,12 +355,12 @@ class BaseCShallowWaterEquation(Equation):
 
     def add_momentum_terms(self, *args):
         self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
-        self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
-        self.add_term(CoriolisTerm(*args), 'explicit')
-        self.add_term(WindStressTerm(*args), 'source')
-        self.add_term(AtmosphericPressureTerm(*args), 'source')
-        self.add_term(QuadraticDragTerm(*args), 'explicit')
-        self.add_term(LinearDragTerm(*args), 'explicit')
+        #self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
+        #self.add_term(CoriolisTerm(*args), 'explicit')
+        #self.add_term(WindStressTerm(*args), 'source')
+        #self.add_term(AtmosphericPressureTerm(*args), 'source')
+        #self.add_term(QuadraticDragTerm(*args), 'explicit')
+        #self.add_term(LinearDragTerm(*args), 'explicit')
 
     def add_continuity_terms(self, *args):
         self.add_term(HUDivTerm(*args), 'implicit')
