@@ -339,10 +339,7 @@ class FlowSolver2d(FrozenClass):
         }
 
         args = (self.eq_sw, self.fields.solution_2d, fields, self.dt, )
-        kwargs = {
-            'bnd_conditions': self.bnd_functions['shallow_water'],
-            'solver_parameters': self.options.timestepper_options.solver_parameters,
-        }
+        kwargs = {'bnd_conditions': self.bnd_functions['shallow_water']}
         if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
             kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
         if hasattr(self.options.timestepper_options, 'implicitness_theta'):
@@ -352,7 +349,7 @@ class FlowSolver2d(FrozenClass):
             u_test = TestFunction(self.function_spaces.U_2d)
             self.eq_mom = shallowwater_eq.ShallowWaterMomentumEquation(
                 u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
-                self.fields.bathymetry_2d,
+                self.depth,
                 options=self.options
             )
             self.eq_mom.bnd_functions = self.bnd_functions['shallow_water']
@@ -372,6 +369,8 @@ class FlowSolver2d(FrozenClass):
                 'pc_type': 'fieldsplit',
                 'pc_fieldsplit_type': 'multiplicative',
             }
+        else:
+            kwargs['solver_parameters'] = self.options.timestepper_options.solver_parameters
         return integrator(*args, **kwargs)
 
     def get_tracer_timestepper(self, integrator):
