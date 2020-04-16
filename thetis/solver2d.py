@@ -350,38 +350,43 @@ class FlowSolver2d(FrozenClass):
             'volume_source': self.options.volume_source_2d,
         }
         self.set_time_step()
-        expl = {
+
+        steppers = {
             'SSPRK33': rungekutta.SSPRK33,
             'ForwardEuler': timeintegrator.ForwardEuler,
             'SteadyState': timeintegrator.SteadyState,
-        }
-        dirk = {
             'BackwardEuler': rungekutta.BackwardEulerUForm,
             'DIRK22': rungekutta.DIRK22UForm,
             'DIRK33': rungekutta.DIRK33UForm,
+            'CrankNicolson': timeintegrator.CrankNicolson,
+            'PressureProjectionPicard': timeintegrator.PressureProjectionPicard,
+            'SSPIMEX': implicitexplicit.IMEXLPUM2,
         }
+        ts = self.options.timestepper_type
+        try:
+            assert ts in steppers
+        except AssertionError:
+            raise Exception('Unknown time integrator type: {:s}'.format(ts))
+
         if self.options.solve_tracer:
             try:
-                assert self.options.timestepper_type == 'CrankNicolson'
+                assert ts == 'CrankNicolson'
             except AssertionError:
                 raise NotImplementedError("Tracer model currently only supports CrankNicolson time integration.")  # TODO
-            self.timestepper = coupled_timeintegrator_2d.CoupledCrankNicolson2D(weakref.proxy(self))
+            self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
+                weakref.proxy(self), steppers[ts],
+            )
         else:
             args = (self.eq_sw, self.fields.solution_2d, fields, self.dt, )
             kwargs = {
                 'bnd_conditions': self.bnd_functions['shallow_water'],
                 'solver_parameters': self.options.timestepper_options.solver_parameters,
             }
-            if self.options.timestepper_type in expl:
-                self.timestepper = expl[self.options.timestepper_type](*args, **kwargs)
-            elif self.options.timestepper_type in dirk:
+            if ts in ('BackwardEuler', 'DIRK22', 'DIRK33', 'CrankNicolson', 'PressureProjectionPicard'):
                 kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
-                self.timestepper = dirk[self.options.timestepper_type](*args, **kwargs)
-            elif self.options.timestepper_type == 'CrankNicolson':
-                kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
+            if ts in ('CrankNicolson', 'PressureProjectionPicard'):
                 kwargs['theta'] = self.options.timestepper_options.implicitness_theta
-                self.timestepper = timeintegrator.CrankNicolson(*args, **kwargs)
-            elif self.options.timestepper_type == 'PressureProjectionPicard':
+            if ts == 'PressureProjectionPicard':
 
                 u_test = TestFunction(self.function_spaces.U_2d)
                 self.eq_mom = shallowwater_eq.ShallowWaterMomentumEquation(
@@ -390,16 +395,12 @@ class FlowSolver2d(FrozenClass):
                     options=self.options
                 )
                 self.eq_mom.bnd_functions = self.bnd_functions['shallow_water']
-                self.timestepper = timeintegrator.PressureProjectionPicard(
-                    self.eq_sw, self.eq_mom, self.fields.solution_2d, fields, self.dt,
-                    bnd_conditions=self.bnd_functions['shallow_water'],
-                    solver_parameters=self.options.timestepper_options.solver_parameters_pressure,
-                    solver_parameters_mom=self.options.timestepper_options.solver_parameters_momentum,
-                    semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-                    theta=self.options.timestepper_options.implicitness_theta,
-                    iterations=self.options.timestepper_options.picard_iterations)
+                args = (self.eq_sw, self.eq_mom, self.fields.solution_2d, fields, self.dt, )
+                kwargs['solver_parameters'] = self.options.timestepper_options.solver_parameters_pressure
+                kwargs['solver_parameters_mom'] = self.options.timestepper_options.solver_parameters_momentum
+                kwargs['iterations'] = self.options.timestepper_options.picard_iterations
 
-            elif self.options.timestepper_type == 'SSPIMEX':
+            elif ts == 'SSPIMEX':
                 # TODO meaningful solver params
                 kwargs['solver_parameters'] = {
                     'ksp_type': 'gmres',
@@ -411,9 +412,7 @@ class FlowSolver2d(FrozenClass):
                     'pc_type': 'fieldsplit',
                     'pc_fieldsplit_type': 'multiplicative',
                 }
-                self.timestepper = implicitexplicit.IMEXLPUM2(*args, **kwargs)
-            else:
-                raise Exception('Unknown time integrator type: '+str(self.options.timestepper_type))
+            self.timestepper = steppers[ts](*args, **kwargs)
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
         self._isfrozen = True  # disallow creating new attributes
 

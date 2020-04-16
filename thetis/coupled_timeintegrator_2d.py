@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from .utility import *
 from . import timeintegrator
 from .log import *
-from abc import ABCMeta, abstractproperty
+from abc import ABCMeta
 
 
 class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
@@ -14,12 +14,10 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
     """
     __metaclass__ = ABCMeta
 
-    @abstractproperty
     def swe_integrator(self):
         """time integrator for the shallow water equations"""
         pass
 
-    @abstractproperty
     def tracer_integrator(self):
         """time integrator for the tracer equation"""
         pass
@@ -136,9 +134,11 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
             self.solver.tracer_limiter.apply(self.fields.tracer_2d)
 
 
-class CoupledCrankNicolson2D(CoupledTimeIntegrator2D):
-    swe_integrator = timeintegrator.CrankNicolson
-    tracer_integrator = timeintegrator.CrankNicolson
+class CoupledMatchingTimeIntegrator2D(CoupledTimeIntegrator2D):
+    def __init__(self, solver, integrator):
+        self.swe_integrator = integrator
+        self.tracer_integrator = integrator
+        super(CoupledMatchingTimeIntegrator2D, self).__init__(solver)
 
 
 class CoupledCrankEuler2D(CoupledTimeIntegrator2D):
