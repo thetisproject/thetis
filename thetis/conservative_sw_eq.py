@@ -165,22 +165,10 @@ def flux_hll_penalty_scalar(hu, h, bath, normal):
 
 def flux_hll_pg(hu, h, bath, normal):
     """
-    Compute HLL flux
+    External pressure gradient flux
     """
-    # flux
     f_minus = 0.5 * g_grav * h('-')**2
     f_plus = 0.5 * g_grav * h('+')**2
-    s_minus, s_plus = flux_hll_wave_speed(hu, h, bath, normal)
-    return (s_plus * f_minus - s_minus * f_plus)/(s_plus - s_minus)
-
-
-def flux_hll_hu(hu, h, bath, normal):
-    """
-    Compute HLL flux
-    """
-    # flux
-    f_minus = hu('-')
-    f_plus = hu('+')
     s_minus, s_plus = flux_hll_wave_speed(hu, h, bath, normal)
     return (s_plus * f_minus - s_minus * f_plus)/(s_plus - s_minus)
 
@@ -198,7 +186,7 @@ class ExternalPressureGradientTerm(CShallowWaterMomentumTerm):
         if grad_h_by_parts:
             f = - flux * nabla_div(self.hu_test) * self.dx
             edge_flux = flux_hll_pg(hu, h, self.depth.bathymetry_2d, self.normal)
-            f += edge_flux * jump(self.hu_test, self.normal) * self.dS
+            f += inner(jump(self.hu_test, self.normal), edge_flux) * self.dS
             edge_penalty = flux_hll_penalty_scalar(hu, h, self.depth.bathymetry_2d, self.normal)
             f += -edge_penalty * inner(jump(hu), jump(self.hu_test)) * self.dS
             for bnd_marker in self.boundary_markers:
@@ -216,6 +204,16 @@ class ExternalPressureGradientTerm(CShallowWaterMomentumTerm):
         return -f
 
 
+def flux_hll_divhu(hu, h, bath, normal):
+    """
+    div(hu) flux
+    """
+    f_minus = hu('-')
+    f_plus = hu('+')
+    s_minus, s_plus = flux_hll_wave_speed(hu, h, bath, normal)
+    return (s_plus * f_minus - s_minus * f_plus)/(s_plus - s_minus)
+
+
 class HUDivTerm(CShallowWaterContinuityTerm):
     r"""
     Divergence term, ...
@@ -224,10 +222,10 @@ class HUDivTerm(CShallowWaterContinuityTerm):
     def residual(self, hu, h, hu_old, h_old, fields, fields_old, bnd_conditions=None):
         f = -inner(grad(self.h_test), hu) * self.dx
         if self.h_is_dg:
-            edge_flux = flux_hll_hu(hu, h, self.depth.bathymetry_2d, self.normal)
+            edge_flux = flux_hll_divhu(hu, h, self.depth.bathymetry_2d, self.normal)
             f += inner(jump(self.h_test, self.normal), edge_flux) * self.dS
             edge_penalty = flux_hll_penalty_scalar(hu, h, self.depth.bathymetry_2d, self.normal)
-            f += -edge_penalty * jump(h) * jump(self.h_test) * self.dS
+            f += -edge_penalty * inner(jump(h), jump(self.h_test)) * self.dS
         for bnd_marker in self.boundary_markers:
             funcs = bnd_conditions.get(bnd_marker)
             ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
