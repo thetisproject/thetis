@@ -349,7 +349,7 @@ class TracerMassConservation2DCallback(ScalarConservationCallback):
             :class:`.DiagnosticCallback`.
         """
         self.name = tracer_name + ' mass'  # override name for given tracer
-        
+
         if solver_obj.options.use_tracer_conservative_form:
             def mass():
                 # tracer is depth-integrated already, so just integrate over domain
@@ -358,7 +358,6 @@ class TracerMassConservation2DCallback(ScalarConservationCallback):
             def mass():
                 H = solver_obj.depth.get_total_depth(solver_obj.fields.elev_2d)
                 return comp_tracer_mass_2d(solver_obj.fields[tracer_name], H)
-
         super(TracerMassConservation2DCallback, self).__init__(mass, solver_obj, **kwargs)
 
 

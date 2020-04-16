@@ -1,5 +1,5 @@
 """
-Callback functions used to test if tracer is conserved in test cases with a 
+Callback functions used to test if tracer is conserved in test cases with a
 changing morphology
 """
 
@@ -24,7 +24,7 @@ def comp_tracer_total_mass_2d(var, tracer_name):
 
     # calculate total depth
     term = term = var.solver_obj.eq_tracer.terms['HorizontalAdvectionTerm']
-    H = term.get_total_depth(eta)
+    H = term.depth.get_total_depth(eta)
 
     # normal
     n = FacetNormal(var.solver_obj.mesh2d)
@@ -60,6 +60,7 @@ def comp_tracer_total_mass_2d(var, tracer_name):
             var.initial_value = var.update_value
     return val
 
+
 def comp_tracer_total_mass_2d_cons(var, tracer_name):
     """
     Computes total tracer mass in the 2D domain for the conservative form of the tracer
@@ -74,10 +75,10 @@ def comp_tracer_total_mass_2d_cons(var, tracer_name):
     vel = var.solver_obj.fields.uv_2d
 
     scalar_func = var.solver_obj.fields[tracer_name]
-    
+
     # calculate total depth
     term = var.solver_obj.eq_tracer.terms['ConservativeHorizontalAdvectionTerm']
-    H = term.get_total_depth(eta)
+    H = term.depth.get_total_depth(eta)
 
     # normal
     n = FacetNormal(var.solver_obj.mesh2d)
@@ -113,6 +114,7 @@ def comp_tracer_total_mass_2d_cons(var, tracer_name):
             var.initial_value = var.update_value
     return val
 
+
 class TracerTotalMassConservation2DCallback(DiagnosticCallback):
     """
     Checks conservation of depth-averaged tracer mass accounting for tracer leaving
@@ -143,12 +145,12 @@ class TracerTotalMassConservation2DCallback(DiagnosticCallback):
             else:
                 return comp_tracer_total_mass_2d(self, tracer_name)
 
-        # printing all detector output to log is probably not a useful default:       
-        super(TracerTotalMassConservation2DCallback, self).__init__(solver_obj, append_to_log = False, export_to_hdf5 = False)
+        super(TracerTotalMassConservation2DCallback, self).__init__(solver_obj, **kwargs)
         self.scalar_callback = mass
-        
 
-        
+        # printing all detector output to log is probably not a useful default:
+        kwargs.setdefault('append_to_log', False)
+
     def __call__(self):
         value = self.scalar_callback()
         if self.initial_value is None:
