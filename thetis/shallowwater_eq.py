@@ -742,7 +742,7 @@ class DiscreteTurbineDragTerm(ShallowWaterMomentumTerm):
     """
 
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
-        total_h = self.get_total_depth(eta_old)
+        total_h = self.depth.get_total_depth(eta_old)
         f = 0
         for subdomain_id, farm_options in self.options.discrete_tidal_turbine_farms.items():
             unorm = sqrt(dot(uv_old, uv_old))
