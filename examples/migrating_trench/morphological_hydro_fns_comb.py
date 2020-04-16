@@ -49,7 +49,7 @@ def hydrodynamics_only(boundary_conditions_fn, mesh2d, bathymetry_2d, uv_init, e
             uv1, elev1 = solver_obj.fields.solution_2d.split()
 
             if wetting_and_drying:
-                wd_bath_displacement = solver_obj.eq_sw.bathymetry_displacement_mass_term.wd_bathymetry_displacement
+                wd_bath_displacement = solver_obj.depth.wd_bathymetry_displacement
                 depth.project(elev1 + wd_bath_displacement(elev1) + bathymetry_2d)
             else:
                 depth.interpolate(elev1 + bathymetry_2d)
@@ -192,7 +192,7 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, convectiveve
         uv_cg.project(uv1)
 
         if wetting_and_drying:
-            wd_bath_displacement = solver_obj.eq_sw.bathymetry_displacement_mass_term.wd_bathymetry_displacement
+            wd_bath_displacement = solver_obj.depth.wd_bathymetry_displacement
             depth.project(elev1 + wd_bath_displacement(elev1) + old_bathymetry_2d)
             elev_cg.project(elev1 + wd_bath_displacement(elev1))
         else:

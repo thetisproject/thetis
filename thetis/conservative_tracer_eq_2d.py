@@ -167,7 +167,7 @@ class ConservativeSourceTerm(ConservativeTracerTerm):
         if depth_int_source is not None:
             f += -inner(depth_int_source, self.test) * self.dx
         elif source is not None:
-            H = self.get_total_depth(fields_old['elev_2d'])
+            H = self.depth.get_total_depth(fields_old['elev_2d'])
             f += -inner(H*source, self.test)*self.dx
 
         if source is not None and depth_int_source is not None:
@@ -196,7 +196,7 @@ class ConservativeSinkTerm(ConservativeTracerTerm):
         if depth_int_sink is not None:
             f += -inner(-depth_int_sink*solution, self.test) * self.dx
         elif sink is not None:
-            H = self.get_total_depth(fields_old['elev_2d'])
+            H = self.depth.get_total_depth(fields_old['elev_2d'])
             f += -inner(-H*sink*solution, self.test)*self.dx
 
         if sink is not None and depth_int_sink is not None:
