@@ -34,11 +34,11 @@ class CShallowWaterTerm(Term):
     members and mapping for boundary functions.
     """
     def __init__(self, space,
-                 bathymetry=None,
+                 depth,
                  options=None):
         super(CShallowWaterTerm, self).__init__(space)
 
-        self.bathymetry = bathymetry
+        self.depth = depth
         self.options = options
 
         # mesh dependent variables
@@ -61,7 +61,7 @@ class CShallowWaterTerm(Term):
         the domain.
         """
         # FIXME
-        bath = self.bathymetry
+        bath = self.depth.bathymetry_2d
         bnd_len = self.boundary_len[bnd_id]
         funcs = bnd_conditions.get(bnd_id)
         if 'elev' in funcs and 'uv' in funcs:
@@ -91,7 +91,7 @@ class CShallowWaterTerm(Term):
             uv_ext = funcs['flux']/area*self.normal
         else:
             raise Exception('Unsupported bnd type: {:}'.format(funcs.keys()))
-        h_ext = eta_ext + self.bathymetry
+        h_ext = eta_ext + bath
         hu_ext = h_ext * uv_ext  # FIXME generalize this
         return h_ext, hu_ext
 
@@ -102,10 +102,10 @@ class CShallowWaterMomentumTerm(CShallowWaterTerm):
     used members and mapping for boundary functions.
     """
     def __init__(self, hu_test, hu_space, h_space,
-                 bathymetry=None,
+                 depth,
                  options=None):
         super(CShallowWaterMomentumTerm, self).__init__(hu_space,
-                                                        bathymetry, options)
+                                                        depth, options)
 
         self.options = options
 
@@ -125,10 +125,10 @@ class CShallowWaterContinuityTerm(CShallowWaterTerm):
     commonly used members and mapping for boundary functions.
     """
     def __init__(self, h_test, h_space, hu_space,
-                 bathymetry=None,
+                 depth,
                  options=None):
         super(CShallowWaterContinuityTerm, self).__init__(h_space,
-                                                          bathymetry, options)
+                                                          depth, options)
 
         self.h_test = h_test
         self.h_space = h_space
@@ -167,7 +167,7 @@ class ExternalPressureGradientTerm(CShallowWaterMomentumTerm):
                 else:
                     f += flux * inner(self.hu_test, self.normal) * ds_bnd
             # bathymetry source term
-            f += -inner(g_grav * h * grad(self.bathymetry), self.hu_test) * self.dx
+            f += -inner(g_grav * h * grad(self.depth.bathymetry_2d), self.hu_test) * self.dx
         else:
             raise NotImplementedError('only flux form of pressure gradient is implemented')
         return -f
@@ -306,11 +306,9 @@ class BaseCShallowWaterEquation(Equation):
     Provides common functionality to compute time steps and add either momentum
     or continuity terms.
     """
-    def __init__(self, function_space,
-                 bathymetry,
-                 options):
+    def __init__(self, function_space, depth, options):
         super(BaseCShallowWaterEquation, self).__init__(function_space)
-        self.bathymetry = bathymetry
+        self.depth = depth
         self.options = options
 
     def add_momentum_terms(self, *args):
@@ -338,24 +336,21 @@ class CShallowWaterEquations(BaseCShallowWaterEquation):
 
     """
     # FIXME documentation
-    def __init__(self, function_space,
-                 bathymetry,
-                 options):
+    def __init__(self, function_space, depth, options):
         """
         :arg function_space: Mixed function space where the solution belongs
-        :arg bathymetry: bathymetry of the domain
-        :type bathymetry: :class:`Function` or :class:`Constant`
+        :arg depth: :class: `DepthExpression` containing depth info
         :arg options: :class:`.AttrDict` object containing all circulation model options
         """
-        super(CShallowWaterEquations, self).__init__(function_space, bathymetry, options)
+        super(CShallowWaterEquations, self).__init__(function_space, depth, options)
 
         hu_test, h_test = TestFunctions(function_space)
         hu_space, h_space = function_space.split()
 
         self.add_momentum_terms(hu_test, hu_space, h_space,
-                                bathymetry, options)
+                                depth, options)
 
-        self.add_continuity_terms(h_test, h_space, hu_space, bathymetry, options)
+        self.add_continuity_terms(h_test, h_space, hu_space, depth, options)
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         if isinstance(solution, list):
