@@ -147,12 +147,28 @@ def flux_hll_wave_speed(hu, h, bath, normal):
     uv_minus = hu('-')/h('-')
     uv_plus = hu('+')/h('+')
 
+    un_minus = dot(uv_minus, normal('-'))
+    un_plus = dot(uv_plus, normal('-'))
+
+    c_minus = sqrt(g_grav * h('-'))
+    c_plus = sqrt(g_grav * h('+'))
+
+    u_star = 0.5 * (un_minus + un_plus) + c_minus - c_plus
+    h_star = (0.5*(c_minus + c_plus) + 0.25*(un_minus - un_plus))**2 / g_grav
+    c_star = sqrt(g_grav * h_star)
+
+    s_star_minus = u_star - c_star
+    s_star_plus = u_star + c_star
+
     # wave speeds
     # FIXME simplified wave speeds
-    s_minus = dot(uv_minus, normal('-')) - sqrt(g_grav * h('-'))
-    s_plus = dot(uv_plus, normal('-')) + sqrt(g_grav * h('+'))
+    s_minus = un_minus - sqrt(g_grav * h('-'))
+    s_plus = un_plus + sqrt(g_grav * h('+'))
 
-    return s_minus, s_plus
+    s_low = conditional(s_minus < s_star_minus, s_minus, s_star_minus)
+    s_hi = conditional(s_plus > s_star_plus, s_plus, s_star_plus)
+
+    return s_low, s_hi
 
 
 def flux_hll_penalty_scalar(hu, h, bath, normal):
@@ -236,6 +252,31 @@ class HUDivTerm(CShallowWaterContinuityTerm):
         return -f
 
 
+def flux_hll_adv(hu, h, bath, normal):
+    """
+    advection flux
+    """
+
+    hun_minus = dot(hu('-'), normal('-'))
+    hun_plus = dot(hu('+'), normal('-'))
+
+    un_minus = hun_minus / h('-')
+    un_plus = hun_plus / h('+')
+
+    ut_minus = (hu('-') - hun_minus * normal('-')) / h('-')
+    ut_plus = (hu('+') - hun_plus * normal('-')) / h('+')
+
+    s_minus, s_plus = flux_hll_wave_speed(hu, h, bath, normal)
+
+    s_mean = 0.5 * (s_minus + s_plus)  # FIXME this is wrong
+    ut_upwind = conditional(s_mean > 0, ut_minus, ut_plus)
+
+    f_minus = hun_minus * un_minus * normal('-') + ut_minus * hun_minus
+    f_plus = hun_plus * un_plus * normal('-') + ut_plus * hun_plus
+
+    return (s_plus * f_minus - s_minus * f_plus)/(s_plus - s_minus)
+
+
 class HorizontalAdvectionTerm(CShallowWaterMomentumTerm):
     r"""
     Advection of momentum term ...
@@ -249,10 +290,8 @@ class HorizontalAdvectionTerm(CShallowWaterMomentumTerm):
 
         f = -(inner(flux_x, grad(self.hu_test[0]))
               + inner(flux_y, grad(self.hu_test[1]))) * self.dx
-        edge_flux_x = avg(flux_x)
-        edge_flux_y = avg(flux_y)
-        f += inner(jump(self.hu_test[0], self.normal), edge_flux_x) * self.dS
-        f += inner(jump(self.hu_test[1], self.normal), edge_flux_y) * self.dS
+        edge_flux = flux_hll_adv(hu, h, self.depth.bathymetry_2d, self.normal)
+        f += -inner(jump(self.hu_test), edge_flux) * self.dS
 
         return -f
 
@@ -353,7 +392,7 @@ class BaseCShallowWaterEquation(Equation):
 
     def add_momentum_terms(self, *args):
         self.add_term(ExternalPressureGradientTerm(*args), 'implicit')
-        #self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
+        self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         #self.add_term(CoriolisTerm(*args), 'explicit')
         #self.add_term(WindStressTerm(*args), 'source')
         #self.add_term(AtmosphericPressureTerm(*args), 'source')
