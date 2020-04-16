@@ -41,32 +41,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         """
         Create time integrator for 2D system
         """
-        solver = self.solver
-        fields = {
-            'linear_drag_coefficient': self.options.linear_drag_coefficient,
-            'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
-            'manning_drag_coefficient': self.options.manning_drag_coefficient,
-            'viscosity_h': self.options.horizontal_viscosity,
-            'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
-            'coriolis': self.options.coriolis_frequency,
-            'wind_stress': self.options.wind_stress,
-            'atmospheric_pressure': self.options.atmospheric_pressure,
-            'momentum_source': self.options.momentum_source_2d,
-            'volume_source': self.options.volume_source_2d, }
-
-        if issubclass(self.swe_integrator, timeintegrator.CrankNicolson):
-            self.timesteppers.swe2d = self.swe_integrator(
-                solver.eq_sw, self.fields.solution_2d,
-                fields, solver.dt,
-                bnd_conditions=solver.bnd_functions['shallow_water'],
-                solver_parameters=self.options.timestepper_options.solver_parameters,
-                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-                theta=self.options.timestepper_options.implicitness_theta)
-        else:
-            self.timesteppers.swe2d = self.swe_integrator(solver.eq_sw, self.fields.solution_2d,
-                                                          fields, solver.dt,
-                                                          bnd_conditions=solver.bnd_functions['shallow_water'],
-                                                          solver_parameters=self.options.timestepper_options.solver_parameters)
+        self.timesteppers.swe2d = self.solver.get_swe_timestepper(self.swe_integrator)
 
     def _create_tracer_integrator(self):
         """
