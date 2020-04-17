@@ -433,9 +433,9 @@ class FlowSolver2d(FrozenClass):
             raise Exception('Unknown time integrator type: {:s}'.format(self.options.timestepper_type))
         if self.options.solve_tracer:
             try:
-                assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX')
+                assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState')
             except AssertionError:
-                raise NotImplementedError("2D tracer model currently only supports SSPRK33, ForwardEuler, SteadyState, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
+                raise NotImplementedError("2D tracer model currently only supports SSPRK33, ForwardEuler, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
             self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
                 weakref.proxy(self), steppers[self.options.timestepper_type],
             )
