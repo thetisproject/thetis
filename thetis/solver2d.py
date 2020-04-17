@@ -12,6 +12,7 @@ from . import tracer_eq_2d
 from . import conservative_tracer_eq_2d
 from . import sediment_eq_2d
 from . import exner_eq
+from . import error_estimation_2d
 import weakref
 import time as time_mod
 import numpy as np
@@ -395,6 +396,26 @@ class FlowSolver2d(FrozenClass):
                     depth_integrated_sediment=sediment_options.use_sediment_conservative_form, sediment_model=self.sediment_model)
             else:
                 raise NotImplementedError("Exner equation can currently only be implemented if the bathymetry is defined on a continuous space")
+
+        # ----- Error estimators
+        self.error_estimator_sw = None
+        self.error_estimator_tracer = None
+        if self.options.estimate_error:
+            self.error_estimator_sw = error_estimation_2d.ShallowWaterGOErrorEstimator(
+                self.fields.solution_2d.function_space(),
+                self.fields.bathymetry_2d,
+                self.options
+            )
+            if self.options.solve_tracer:
+                self.error_estimator_tracer = error_estimation_2d.TracerGOErrorEstimator(
+                    self.function_spaces.Q_2d,
+                    bathymetry=self.fields.bathymetry_2d,
+                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                    sipg_parameter=self.options.sipg_parameter_tracer
+                )
+            if self.options.solve_sediment or self.options.solve_exner:
+                raise NotImplementedError
+
         self._isfrozen = True  # disallow creating new attributes
 
     def get_swe_timestepper(self, integrator):
@@ -416,7 +437,10 @@ class FlowSolver2d(FrozenClass):
         }
 
         args = (self.equations.sw, self.fields.solution_2d, fields, self.dt, )
-        kwargs = {'bnd_conditions': self.bnd_functions['shallow_water']}
+        kwargs = {
+            'bnd_conditions': self.bnd_functions['shallow_water'],
+            'error_estimator': self.error_estimator_sw,
+        }
         if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
             kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
         if hasattr(self.options.timestepper_options, 'implicitness_theta'):
@@ -465,7 +489,10 @@ class FlowSolver2d(FrozenClass):
         }
 
         args = (self.equations[label], self.fields[label], fields, self.dt, )
-        kwargs = dict(solver_parameters=self.options.timestepper_options.solver_parameters_tracer)
+        kwargs = {
+            'solver_parameters': self.options.timestepper_options.solver_parameters_tracer,
+            'error_estimator': self.error_estimator_tracer,
+        }
         if label in self.bnd_functions:
             kwargs['bnd_conditions'] = self.bnd_functions[label]
         elif label[:-3] in self.bnd_functions:

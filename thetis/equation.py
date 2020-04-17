@@ -313,42 +313,56 @@ class GOErrorEstimator(object):
             if self.labels[key] in labels:
                 yield value
 
-    def element_residual(self, label, *args):
-        """
-        Compute contribution of dx terms to the error estimator as element-wise indicator functions.
-        """
-        residual_terms = 0
+    def _create_element_residual(self, label, *args):
+        self.residual_terms = 0
         for term in self.select_terms(label):
-            residual_terms += term.element_residual(*args)
-        residual = assemble(residual_terms)
-        residual.rename("Element residual")
-        return residual
+            self.residual_terms += term.element_residual(*args)
+        self.residual = Function(self.P0_2d, name="Element residual")
 
-    def inter_element_flux(self, label, *args):
+    def _create_inter_element_flux(self, label, *args):
+        self.inter_element_flux_terms = 0
+        for term in self.select_terms(label):
+            self.inter_element_flux_terms += term.inter_element_flux(*args)
+        self.flux = Function(self.P0_2d, name="Inter-element flux terms")
+
+    def _create_boundary_flux(self, label, *args):
+        self.bnd_flux_terms = 0
+        for term in self.select_terms(label):
+            self.bnd_flux_terms += term.boundary_flux(*args)
+        self.bnd = Function(self.P0_2d, name="Boundary flux terms")
+
+    def setup_components(self, *args):
         """
-        Compute contribution of dS terms to the error estimator as element-wise indicator functions.
+        Set up dx, dS and ds components of the error estimator as element-wise indicator functions.
+        """
+        self._create_element_residual(*args[:-1])
+        self._create_inter_element_flux(*args[:-1])
+        self._create_boundary_flux(*args)
+
+    def element_residual(self):
+        """
+        Evaluate contribution of dx terms to the error estimator as element-wise indicator functions.
+        """
+        self.residual.assign(assemble(self.residual_terms))
+        return self.residual
+
+    def inter_element_flux(self):
+        """
+        Evaluate contribution of dS terms to the error estimator as element-wise indicator functions.
         """
         mass_term = self.p0test*self.p0trial*dx
-        flux_terms = 0
-        for term in self.select_terms(label):
-            flux_terms += term.inter_element_flux(*args)
-        flux = Function(self.P0_2d, name="Inter-element flux terms")
-        solve(mass_term == flux_terms, flux)  # TODO: Solver parameters?
-        return flux
+        solve(mass_term == self.inter_element_flux_terms, self.flux)  # TODO: Solver parameters?
+        return self.flux
 
-    def boundary_flux(self, label, *args):
+    def boundary_flux(self):
         """
-        Compute contribution of ds terms to the error estimator as element-wise indicator functions.
+        Evaluate contribution of ds terms to the error estimator as element-wise indicator functions.
         """
         mass_term = self.p0test*self.p0trial*dx
-        bnd_flux_terms = 0
-        for term in self.select_terms(label):
-            bnd_flux_terms += term.boundary_flux(*args)
-        bnd_flux = Function(self.P0_2d, name="Boundary flux terms")
-        solve(mass_term == bnd_flux_terms, bnd_flux)  # TODO: Solver parameters?
-        return bnd_flux
+        solve(mass_term == self.bnd_flux_terms, self.bnd)  # TODO: Solver parameters?
+        return self.bnd
 
-    def weighted_residual(self, label, *args, bnd_conditions=None):
+    def weighted_residual(self):
         """
         Sum the element residual, inter-element flux and boundary flux terms to give the total
         weighted residual.
@@ -356,9 +370,8 @@ class GOErrorEstimator(object):
         If evaluated at the adjoint solution (and time-lagged adjoint solution), yields the so-called
         'Dual Weighted Residual'.
         """
-        wr = self.element_residual(label, *args)
-        wr += self.inter_element_flux(label, *args)
-        args += (bnd_conditions,)
-        wr += self.boundary_flux(label, *args)
+        wr = self.element_residual()
+        wr += self.inter_element_flux()
+        wr += self.boundary_flux()
         wr.rename("Weighted residual")
         return wr
