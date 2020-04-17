@@ -670,6 +670,12 @@ class ModelOptions2d(CommonModelOptions):
     use_supg_tracer = Bool(
         False, help="Use SUPG stabilisation in tracer advection").tag(config=True)
 
+    estimate_error = Bool(
+        False, help="""Evaluate goal-oriented error estimators.
+
+        Only currently implemented for shallow water and 2D tracer models.
+        """).tag(config=True)
+
     def __init__(self, *args, **kwargs):
         self.tracer_metadata = {}
         super(ModelOptions2d, self).__init__(*args, **kwargs)
