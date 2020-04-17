@@ -250,12 +250,17 @@ class SteadyState(TimeIntegrator):
         :kwarg dict solver_parameters: PETSc solver options
         :kwarg error_estimator: optional :class:`GOErrorEstimator` object
         """
-        if error_estimator is not None:
-            raise NotImplementedError  # TODO
         super(SteadyState, self).__init__(equation, solution, fields, dt, solver_parameters, error_estimator)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
         self.F = self.equation.residual('all', solution, solution, fields, fields, bnd_conditions)
         self.update_solver()
+        if self.error_estimator is not None:
+            if hasattr(self.error_estimator, 'setup_strong_residual'):
+                self.error_estimator.setup_strong_residual('all', solution, solution, fields, fields)
+
+    def setup_error_estimator(self, solution, adjoint, bnd_conditions):
+        assert self.error_estimator is not None
+        self.error_estimator.setup_components('all', solution, solution, adjoint, adjoint, self.fields, self.fields, bnd_conditions)
 
     def update_solver(self):
         """Create solver objects"""
