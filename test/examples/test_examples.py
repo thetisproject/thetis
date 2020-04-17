@@ -30,6 +30,7 @@ exclude_files = [
     'dome/diagnostics.py',
     'dome/dome_setup.py',
     'dome/plot_histogram.py',
+    'goal_based/steady_turbine.py',
     'katophillips/plot_results.py',
     'lockExchange/diagnostics.py',
     'lockExchange/plotting.py',
