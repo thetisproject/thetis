@@ -508,7 +508,8 @@ class CommonModelOptions(FrozenConfigurable):
 # NOTE all parameters are now case sensitive
 # TODO rename time stepper types? Allow capitals and spaces?
 @attach_paired_options("timestepper_type",
-                       PairedEnum([('SSPRK33', ExplicitTimestepperOptions2d),
+                       PairedEnum([('SSPRK22', ExplicitTimestepperOptions2d),
+                                   ('SSPRK33', ExplicitTimestepperOptions2d),
                                    ('ForwardEuler', ExplicitTimestepperOptions2d),
                                    ('BackwardEuler', SemiImplicitTimestepperOptions2d),
                                    ('CrankNicolson', CrankNicolsonTimestepperOptions2d),

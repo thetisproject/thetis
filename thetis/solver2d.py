@@ -435,6 +435,7 @@ class FlowSolver2d(FrozenClass):
 
         # ----- Time integrators
         steppers = {
+            'SSPRK22': rungekutta.SSPRK22,
             'SSPRK33': rungekutta.SSPRK33,
             'ForwardEuler': timeintegrator.ForwardEuler,
             'SteadyState': timeintegrator.SteadyState,
