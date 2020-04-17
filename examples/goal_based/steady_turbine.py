@@ -93,6 +93,9 @@ def solve_adjoint(solution, J, solver_obj):
     dFdu_form = adjoint(dFdu)
     dJdu = derivative(J(solution, solver_obj.options), solution, TestFunction(V))
     solve(dFdu_form == dJdu, adjoint_solution, solver_parameters=ts.solver_parameters)
+    z, zeta = adjoint_solution.split()
+    z.rename("Adjoint fluid speed")
+    zeta.rename("Adjoint elevation")
     return adjoint_solution
 
 
@@ -119,40 +122,25 @@ refined_mesh = mh[1]
 
 # Solve forward
 solver_obj_coarse = solve_forward(mesh, element_family='dg-cg', polynomial_degree=1,
-                                  output_directory='outputs/coarse')
+                                  output_directory='outputs/coarse', estimate_error=True)
 fwd_coarse = solver_obj_coarse.fields.solution_2d
 
-# Set up error estimator in coarse space
-fields = solver_obj_coarse.timestepper.fields
-V_2d = solver_obj_coarse.function_spaces.V_2d
-bathymetry = solver_obj_coarse.fields.bathymetry_2d
-options = solver_obj_coarse.options
-error_estimator = error_estimation_2d.ShallowWaterGOErrorEstimator(V_2d, bathymetry, options)
-
-# Compute strong residual
-args = ('all', fwd_coarse, fwd_coarse, fields, fields)
-residual = error_estimator.strong_residual(*args)
-res_u, res_eta = residual.split()
-File('outputs/strong_residual.pvd').write(res_u, res_eta)
+# Evaluate strong residual
+residual = solver_obj_coarse.timestepper.error_estimator.evaluate_strong_residual()
+File('outputs/strong_residual.pvd').write(*residual.split())
 
 # Solve adjoint
 adj_coarse = solve_adjoint(fwd_coarse, power_functional, solver_obj_coarse)
-z, zeta = adj_coarse.split()
-z.rename("Adjoint fluid speed")
-zeta.rename("Adjoint elevation")
-File('outputs/coarse/adjoint.pvd').write(z, zeta)
+File('outputs/coarse/adjoint.pvd').write(*adj_coarse.split())
 
 # Solve forward in refined space
 solver_obj_fine = solve_forward(refined_mesh, element_family='dg-cg', polynomial_degree=1,
-                                output_directory='outputs/fine')
+                                output_directory='outputs/fine', estimate_error=True)
 fwd_fine = solver_obj_fine.fields.solution_2d
 
 # Solve adjoint in refined space
 adj_fine = solve_adjoint(fwd_fine, power_functional, solver_obj_fine)
-z, zeta = adj_fine.split()
-z.rename("Adjoint fluid speed")
-zeta.rename("Adjoint elevation")
-File('outputs/fine/adjoint.pvd').write(z, zeta)
+File('outputs/fine/adjoint.pvd').write(*adj_fine.split())
 
 # Prolong into refined space
 fwd_proj = Function(solver_obj_fine.function_spaces.V_2d)
@@ -162,45 +150,32 @@ prolong(adj_coarse, adj_proj)
 adj_error = adj_fine.copy(deepcopy=True)
 adj_error -= adj_proj
 z, zeta = adj_error.split()
-z.rename("Adjoint fluid speed")
-zeta.rename("Adjoint elevation")
+z.rename("Adjoint fluid speed error")
+zeta.rename("Adjoint elevation error")
 File('outputs/fine/adjoint_error.pvd').write(z, zeta)
 
 # Set up error estimator in fine space
 fields = solver_obj_fine.timestepper.fields
-V_2d = solver_obj_fine.function_spaces.V_2d
-bathymetry = solver_obj_fine.fields.bathymetry_2d
-options = solver_obj_fine.options
-error_estimator = error_estimation_2d.ShallowWaterGOErrorEstimator(V_2d, bathymetry, options)
-args = ('all', fwd_proj, fwd_proj, adj_error, adj_error, fields, fields)
+solver_obj_fine.timestepper.setup_error_estimator(fwd_proj, adj_error, solver_obj_fine.bnd_functions['shallow_water'])
+error_estimator = solver_obj_fine.timestepper.error_estimator
 
-# Compute element residual
-residual = error_estimator.element_residual(*args)
+# Evaluate element residual
 indicator_coarse = Function(solver_obj_coarse.function_spaces.P0_2d)
-inject(interpolate(abs(residual), error_estimator.P0_2d), indicator_coarse)
+inject(interpolate(abs(error_estimator.element_residual()), error_estimator.P0_2d), indicator_coarse)
 indicator_coarse.rename("Element residual in modulus")
 File('outputs/element_residual.pvd').write(indicator_coarse)
-# dwr_fine = residual.copy(deepcopy=True)
 
-# Compute inter-element flux
-flux = error_estimator.inter_element_flux(*args)
-inject(interpolate(abs(flux), error_estimator.P0_2d), indicator_coarse)
+# Evaluate inter-element flux
+inject(interpolate(abs(error_estimator.inter_element_flux()), error_estimator.P0_2d), indicator_coarse)
 indicator_coarse.rename("Inter-element flux in modulus")
 File('outputs/inter_element_flux.pvd').write(indicator_coarse)
-# dwr_fine += flux
 
-# Compute boundary flux
-bcs = solver_obj_fine.bnd_functions['shallow_water']
-args += (bcs,)
-bnd_flux = error_estimator.boundary_flux(*args)
-inject(interpolate(abs(bnd_flux), error_estimator.P0_2d), indicator_coarse)
+# Evaluate boundary flux
+inject(interpolate(abs(error_estimator.boundary_flux()), error_estimator.P0_2d), indicator_coarse)
 indicator_coarse.rename("Boundary flux in modulus")
 File('outputs/boundary_flux.pvd').write(indicator_coarse)
-# dwr_fine += bnd_flux
 
 # Assemble total error indicator
-args = ('all', fwd_proj, fwd_proj, adj_error, adj_error, fields, fields)
-dwr_fine = error_estimator.weighted_residual(*args, bnd_conditions=bcs)
-dwr_coarse = Function(solver_obj_coarse.function_spaces.P0_2d, name="Dual weighted residual")
-inject(interpolate(abs(dwr_fine), error_estimator.P0_2d), dwr_coarse)
-File('outputs/dwr.pvd').write(dwr_coarse)
+dwr = Function(solver_obj_coarse.function_spaces.P0_2d, name="Dual weighted residual")
+inject(interpolate(abs(error_estimator.weighted_residual()), error_estimator.P0_2d), dwr)
+File('outputs/dwr.pvd').write(dwr)
