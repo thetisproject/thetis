@@ -447,7 +447,7 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
     :attr:`b`, :attr:`c`.
     """
     def __init__(self, equation, solution, fields, dt,
-                 bnd_conditions=None, solver_parameters=None, terms_to_add='all'):
+                 bnd_conditions=None, solver_parameters={}, terms_to_add='all', error_estimator=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -460,8 +460,11 @@ class DIRKGeneric(RungeKuttaTimeIntegrator):
         :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
+        :kwarg error_estimator: optional :class:`GOErrorEstimator` object
         """
-        super(DIRKGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
+        if error_estimator is not None:
+            raise NotImplementedError  # TODO
+        super(DIRKGeneric, self).__init__(equation, solution, fields, dt, solver_parameters, error_estimator)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
         self._initialized = False
 
@@ -562,8 +565,8 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
     def __init__(self, equation, solution, fields, dt,
-                 bnd_conditions=None, solver_parameters=None, terms_to_add='all',
-                 semi_implicit=False):
+                 bnd_conditions=None, solver_parameters={}, terms_to_add='all',
+                 semi_implicit=False, error_estimator=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -577,8 +580,11 @@ class DIRKGenericUForm(RungeKuttaTimeIntegrator):
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
         :kwarg bool semi_implicit: If True use a linearized semi-implicit scheme
+        :kwarg error_estimator: optional :class:`GOErrorEstimator` object
         """
-        super().__init__(equation, solution, fields, dt, solver_parameters)
+        if error_estimator is not None:
+            raise NotImplementedError  # TODO
+        super().__init__(equation, solution, fields, dt, solver_parameters, error_estimator)
         if semi_implicit:
             self.solver_parameters.setdefault('snes_type', 'ksponly')
         else:
@@ -743,7 +749,7 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
     Implements the Butcher form. All terms in the equation are treated explicitly.
     """
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
-                 solver_parameters=None, terms_to_add='all'):
+                 solver_parameters={}, terms_to_add='all', error_estimator=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -756,8 +762,11 @@ class ERKGeneric(RungeKuttaTimeIntegrator):
         :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
+        :kwarg error_estimator: optional :class:`GOErrorEstimator` object
         """
-        super(ERKGeneric, self).__init__(equation, solution, fields, dt, solver_parameters)
+        if error_estimator is not None:
+            raise NotImplementedError  # TODO
+        super(ERKGeneric, self).__init__(equation, solution, fields, dt, solver_parameters, error_estimator)
         self._initialized = False
         self.solution_old = Function(self.equation.function_space, name='old solution')
 
@@ -843,7 +852,8 @@ class ERKGenericShuOsher(TimeIntegrator):
 
     Implements the Shu-Osher form.
     """
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters=None, terms_to_add='all'):
+    def __init__(self, equation, solution, fields, dt,
+                 bnd_conditions=None, solver_parameters={}, terms_to_add='all', error_estimator=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -856,8 +866,11 @@ class ERKGenericShuOsher(TimeIntegrator):
         :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
+        :kwarg error_estimator: optional :class:`GOErrorEstimator` object
         """
-        super(ERKGenericShuOsher, self).__init__(equation, solution, fields, dt, solver_parameters)
+        if error_estimator is not None:
+            raise NotImplementedError  # TODO
+        super(ERKGenericShuOsher, self).__init__(equation, solution, fields, dt, solver_parameters, error_estimator)
 
         self.tendency = Function(self.equation.function_space, name='tendency')
         self.stage_sol = []

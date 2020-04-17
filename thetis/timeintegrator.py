@@ -44,7 +44,7 @@ class TimeIntegrator(TimeIntegratorBase):
     """
     Base class for all time integrator objects that march a single equation
     """
-    def __init__(self, equation, solution, fields, dt, solver_parameters=None):
+    def __init__(self, equation, solution, fields, dt, solver_parameters={}, error_estimator=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -53,6 +53,7 @@ class TimeIntegrator(TimeIntegratorBase):
         :type fields: dict of :class:`Function` or :class:`Constant` objects
         :arg float dt: time step in seconds
         :kwarg dict solver_parameters: PETSc solver options
+        :kwarg error_estimator: optional :class:`GOErrorEstimator` object
         """
         super(TimeIntegrator, self).__init__()
 
@@ -69,6 +70,8 @@ class TimeIntegrator(TimeIntegratorBase):
         if solver_parameters is not None:
             self.solver_parameters.update(solver_parameters)
 
+        self.error_estimator = error_estimator
+
     def set_dt(self, dt):
         """Update time step"""
         self.dt = dt
@@ -79,7 +82,8 @@ class ForwardEuler(TimeIntegrator):
     """Standard forward Euler time integration scheme."""
     cfl_coeff = 1.0
 
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters=None):
+    def __init__(self, equation, solution, fields, dt,
+                 bnd_conditions=None, solver_parameters={}, error_estimator=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -89,8 +93,11 @@ class ForwardEuler(TimeIntegrator):
         :arg float dt: time step in seconds
         :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
         :kwarg dict solver_parameters: PETSc solver options
+        :kwarg error_estimator: optional :class:`GOErrorEstimator` object
         """
-        super(ForwardEuler, self).__init__(equation, solution, fields, dt, solver_parameters)
+        if error_estimator is not None:
+            raise NotImplementedError  # TODO
+        super(ForwardEuler, self).__init__(equation, solution, fields, dt, solver_parameters, error_estimator)
         self.solution_old = Function(self.equation.function_space)
 
         # create functions to hold the values of previous time step
@@ -139,7 +146,8 @@ class CrankNicolson(TimeIntegrator):
     """Standard Crank-Nicolson time integration scheme."""
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters=None, theta=0.5, semi_implicit=False):
+    def __init__(self, equation, solution, fields, dt,
+                 bnd_conditions=None, solver_parameters={}, theta=0.5, semi_implicit=False, error_estimator=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -151,8 +159,11 @@ class CrankNicolson(TimeIntegrator):
         :kwarg dict solver_parameters: PETSc solver options
         :kwarg float theta: Implicitness parameter, default 0.5
         :kwarg bool semi_implicit: If True use a linearized semi-implicit scheme
+        :kwarg error_estimator: optional :class:`GOErrorEstimator` object
         """
-        super(CrankNicolson, self).__init__(equation, solution, fields, dt, solver_parameters)
+        if error_estimator is not None:
+            raise NotImplementedError  # TODO
+        super(CrankNicolson, self).__init__(equation, solution, fields, dt, solver_parameters, error_estimator)
         if semi_implicit:
             self.solver_parameters.setdefault('snes_type', 'ksponly')
         else:
@@ -226,7 +237,8 @@ class SteadyState(TimeIntegrator):
     """
     cfl_coeff = CFL_UNCONDITIONALLY_STABLE
 
-    def __init__(self, equation, solution, fields, dt, bnd_conditions=None, solver_parameters=None):
+    def __init__(self, equation, solution, fields, dt,
+                 bnd_conditions=None, solver_parameters={}, error_estimator=None):
         """
         :arg equation: the equation to solve
         :type equation: :class:`Equation` object
@@ -236,8 +248,11 @@ class SteadyState(TimeIntegrator):
         :arg float dt: time step in seconds
         :kwarg dict bnd_conditions: Dictionary of boundary conditions passed to the equation
         :kwarg dict solver_parameters: PETSc solver options
+        :kwarg error_estimator: optional :class:`GOErrorEstimator` object
         """
-        super(SteadyState, self).__init__(equation, solution, fields, dt, solver_parameters)
+        if error_estimator is not None:
+            raise NotImplementedError  # TODO
+        super(SteadyState, self).__init__(equation, solution, fields, dt, solver_parameters, error_estimator)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
         self.F = self.equation.residual('all', solution, solution, fields, fields, bnd_conditions)
         self.update_solver()
@@ -274,9 +289,9 @@ class PressureProjectionPicard(TimeIntegrator):
 
     # TODO add more documentation
     def __init__(self, equation, equation_mom, solution, fields, dt,
-                 bnd_conditions=None, solver_parameters=None,
-                 solver_parameters_mom=None, theta=0.5, semi_implicit=False,
-                 iterations=2):
+                 bnd_conditions=None, solver_parameters={},
+                 solver_parameters_mom={}, theta=0.5, semi_implicit=False,
+                 iterations=2, error_estimator=None):
         """
         :arg equation: free surface equation
         :type equation: :class:`Equation` object
@@ -292,8 +307,11 @@ class PressureProjectionPicard(TimeIntegrator):
         :kwarg float theta: Implicitness parameter, default 0.5
         :kwarg bool semi_implicit: If True use a linearized semi-implicit scheme
         :kwarg int iterations: Number of Picard iterations
+        :kwarg error_estimator: optional :class:`GOErrorEstimator` object
         """
-        super(PressureProjectionPicard, self).__init__(equation, solution, fields, dt, solver_parameters)
+        if error_estimator is not None:
+            raise NotImplementedError  # TODO
+        super(PressureProjectionPicard, self).__init__(equation, solution, fields, dt, solver_parameters, error_estimator)
 
         self.equation_mom = equation_mom
         self.solver_parameters_mom = {}
@@ -451,7 +469,7 @@ class LeapFrogAM3(TimeIntegrator):
     cfl_coeff = 1.5874
 
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
-                 solver_parameters=None, terms_to_add='all'):
+                 solver_parameters={}, terms_to_add='all', error_estimator=None):
         """
         :arg equation: equation to solve
         :type equation: :class:`Equation` object
@@ -464,8 +482,11 @@ class LeapFrogAM3(TimeIntegrator):
         :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
+        :kwarg error_estimator: optional :class:`GOErrorEstimator` object
         """
-        super(LeapFrogAM3, self).__init__(equation, solution, fields, dt, solver_parameters)
+        if error_estimator is not None:
+            raise NotImplementedError  # TODO
+        super(LeapFrogAM3, self).__init__(equation, solution, fields, dt, solver_parameters, error_estimator)
 
         self.gamma = 1./12.
         self.gamma_const = Constant(self.gamma)
@@ -586,7 +607,7 @@ class SSPRK22ALE(TimeIntegrator):
     cfl_coeff = 1.0
 
     def __init__(self, equation, solution, fields, dt, bnd_conditions=None,
-                 solver_parameters=None, terms_to_add='all'):
+                 solver_parameters={}, terms_to_add='all', error_estimator=None):
         """
         :arg equation: equation to solve
         :type equation: :class:`Equation` object
@@ -599,8 +620,11 @@ class SSPRK22ALE(TimeIntegrator):
         :kwarg terms_to_add: Defines which terms of the equation are to be
             added to this solver. Default 'all' implies ['implicit', 'explicit', 'source'].
         :type terms_to_add: 'all' or list of 'implicit', 'explicit', 'source'.
+        :kwarg error_estimator: optional :class:`GOErrorEstimator` object
         """
-        super(SSPRK22ALE, self).__init__(equation, solution, fields, dt, solver_parameters)
+        if error_estimator is not None:
+            raise NotImplementedError  # TODO
+        super(SSPRK22ALE, self).__init__(equation, solution, fields, dt, solver_parameters, error_estimator)
 
         fs = self.equation.function_space
         self.mu = Function(fs, name='dual solution')
