@@ -296,6 +296,15 @@ class FlowSolver2d(FrozenClass):
                                      use_wetting_and_drying=self.options.use_wetting_and_drying,
                                      wetting_and_drying_alpha=self.options.wetting_and_drying_alpha)
 
+        # TODO add limiter options: elev and uv
+        fs_bath = self.fields.bathymetry_2d.function_space()
+        assert element_continuity(fs_bath.ufl_element()).horizontal == 'dg', \
+            'bathymetry must be in DG space if elevation slope limiter is used'
+        assert element_continuity(self.function_spaces.H_2d.ufl_element()).horizontal == 'dg'
+        self.elev_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.H_2d)
+        assert element_continuity(self.function_spaces.U_2d.ufl_element()).horizontal == 'dg'
+        self.uv_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.U_2d)
+
         # ----- Equations
         if self.options.use_conservative_swe:
             self.eq_sw = conservative_sw_eq.CShallowWaterEquations(
@@ -323,6 +332,7 @@ class FlowSolver2d(FrozenClass):
                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
                     sipg_parameter=self.options.sipg_parameter_tracer)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
+                assert element_continuity(self.function_spaces.Q_2d.ufl_element()).horizontal == 'dg'
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
                 self.tracer_limiter = None
@@ -558,6 +568,7 @@ class FlowSolver2d(FrozenClass):
         if self.options.use_conservative_swe:
             self.fields.elev_2d.assign(h_tmp)
             self.fields.uv_2d.assign(hu_tmp)
+
     def load_state(self, i_export, outputdir=None, t=None, iteration=None):
         """
         Loads simulation state from hdf5 outputs.
@@ -700,7 +711,16 @@ class FlowSolver2d(FrozenClass):
 
         while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
 
-            self.timestepper.advance(self.simulation_time, update_forcings)
+            # self.timestepper.advance(self.simulation_time, update_forcings)
+            for k in range(self.timestepper.n_stages):
+                self.timestepper.solve_stage(k, self.simulation_time, update_forcings=update_forcings)
+                self.fields.elev_2d.dat.data[:] -= self.fields.bathymetry_2d.dat.data
+                self.elev_limiter.apply(self.fields.elev_2d)
+                self.fields.elev_2d.dat.data[:] += self.fields.bathymetry_2d.dat.data
+                self.uv_limiter.apply(self.fields.uv_2d)
+
+                if k < self.timestepper.n_stages - 1:
+                    self.timestepper.stage_sol[k + 1].assign(self.timestepper.solution)
 
             # Move to next time step
             self.iteration += 1
