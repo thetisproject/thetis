@@ -1,7 +1,7 @@
 from thetis import *
 
 outputdir = 'outputs_plot'
-mesh2d = Mesh('mesh/tidal_mesh_plot.msh')
+mesh2d = Mesh('tidal_mesh_plot.msh')
 print_output('Loaded mesh ' + mesh2d.name)
 print_output('Exporting to ' + outputdir)
 
