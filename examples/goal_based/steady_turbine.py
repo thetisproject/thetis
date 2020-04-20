@@ -140,12 +140,19 @@ with timed_stage('fwd_c'):
 fwd_c = solver_c.fields.solution_2d
 
 # Evaluate strong residual
-residual = solver_c.timestepper.error_estimator.evaluate_strong_residual()
-File(os.path.join('strong_residual.pvd')).write(*residual.split())
+error_estimator_c = solver_c.timestepper.error_estimator
+residual = error_estimator_c.evaluate_strong_residual()
+File(os.path.join(di, 'strong_residual.pvd')).write(*residual.split())
 
 # Solve adjoint
 adj_c = solve_adjoint(fwd_c, power_functional, solver_c, label='adj_c')
 File(os.path.join(di, 'coarse', 'adjoint.pvd')).write(*adj_c.split())
+
+# Evaluate difference quotient  # TODO: Account for flux term
+flux_jump = error_estimator_c.evaluate_flux_jump(adj_c)
+diff_quotient = assemble(error_estimator_c.p0test*inner(abs(residual), abs(flux_jump))*dx)
+diff_quotient.rename("Difference quotient")
+File(os.path.join(di, 'difference_quotient.pvd')).write(diff_quotient)
 
 # Solve/prolong forward in iso-P2 refined space
 solver_f = setup_forward(mesh_f, output_directory=os.path.join(di, 'fine'), **kwargs)

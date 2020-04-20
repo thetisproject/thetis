@@ -921,6 +921,24 @@ class ShallowWaterGOErrorEstimator(GOErrorEstimator):
         residual_eta.interpolate(abs(assemble(self.strong_residual_terms_eta)))
         return self.strong_residual
 
+    def evaluate_flux_jump(self, sol):
+        """Evaluate flux jump as element-wise indicator functions."""
+        sol_u, sol_eta = sol.split()
+        flux_jump = Function(VectorFunctionSpace(self.mesh, "DG", 0)*self.P0_2d)
+        flux_jump_1 = Function(self.P0_2d)
+        flux_jump_2 = Function(self.P0_2d)
+        flux_jump_3 = Function(self.P0_2d)
+
+        mass_term = self.p0test*self.p0trial*dx
+        solve(mass_term == jump(self.p0test*sol_u[0])*dS, flux_jump_1)  # TODO: Solver parameters?
+        solve(mass_term == jump(self.p0test*sol_u[1])*dS, flux_jump_2)
+        solve(mass_term == jump(self.p0test*sol_eta)*dS, flux_jump_3)
+
+        flux_jump_u, flux_jump_eta = flux_jump.split()
+        flux_jump_u.interpolate(as_vector([flux_jump_1, flux_jump_2]))
+        flux_jump_eta.assign(flux_jump_3)
+        return flux_jump
+
 
 class TracerGOErrorEstimator(GOErrorEstimator):
     """
@@ -947,3 +965,9 @@ class TracerGOErrorEstimator(GOErrorEstimator):
         """Evaluate strong residual of 2D tracer equation."""
         self.strong_residual.assign(assemble(self.strong_residual_terms))
         return self.strong_residual
+
+    def evaluate_flux_jump(self, sol):
+        """Evaluate flux jump as element-wise indicator functions."""
+        flux_jump = Function(VectorFunctionSpace(self.mesh, "DG", 0)*self.P0_2d)
+        solve(self.p0test*self.p0trial*dx == jump(self.p0test*sol)*dS, flux_jump)
+        return flux_jump
