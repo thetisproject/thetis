@@ -5,7 +5,7 @@ mesh2d = Mesh('mesh/tidal_mesh.msh')
 print_output('Loaded mesh ' + mesh2d.name)
 print_output('Exporting to ' + outputdir)
 
-t_end = 20 * 3600
+t_end = 3 * 3600
 t_export = 200.0
 
 # bathymetry
