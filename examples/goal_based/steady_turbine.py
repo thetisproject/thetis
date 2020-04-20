@@ -17,7 +17,7 @@ def bump(fs, locs, scale=1.0):
     return i
 
 
-def solve_forward(mesh2d, **model_options):
+def setup_forward(mesh2d, **model_options):
     """
     Consider a simple test case with two turbines positioned in a channel. The mesh has been adapted
     with respect to fluid speed and so has strong anisotropy in the direction of flow.
@@ -81,18 +81,18 @@ def solve_forward(mesh2d, **model_options):
 
     # Apply initial guess of inflow velocity and solve
     solver_obj.assign_initial_conditions(uv=Constant([3.0, 0.0]))
-    solver_obj.iterate()
     return solver_obj
 
 
-def solve_adjoint(solution, J, solver_obj):
+def solve_adjoint(solution, J, solver_obj, label='adj'):
     ts = solver_obj.timestepper
     V = solution.function_space()
     adjoint_solution = Function(V)
     dFdu = derivative(ts.F, solution, TrialFunction(V))
     dFdu_form = adjoint(dFdu)
     dJdu = derivative(J(solution, solver_obj.options), solution, TestFunction(V))
-    solve(dFdu_form == dJdu, adjoint_solution, solver_parameters=ts.solver_parameters)
+    with timed_stage(label):
+        solve(dFdu_form == dJdu, adjoint_solution, solver_parameters=ts.solver_parameters)
     z, zeta = adjoint_solution.split()
     z.rename("Adjoint fluid speed")
     zeta.rename("Adjoint elevation")
@@ -114,68 +114,92 @@ def power_functional(solution, options):
 
 
 # Load an anisotropic mesh from file
+abspath = os.path.dirname(__file__)
 plex = PETSc.DMPlex().create()
-plex.createFromFile(os.path.join(os.path.dirname(__file__), 'anisotropic_plex.h5'))
+plex.createFromFile(os.path.join(abspath, 'anisotropic_plex.h5'))
+
+# Construct base mesh and an iso-P2 refined space, along with transfer operators
 mh = MeshHierarchy(Mesh(plex), 1)
-mesh = mh[0]
-refined_mesh = mh[1]
+mesh_c, mesh_f = mh
+prolong, restrict, inject = dmhooks.get_transfer_operators(plex)
+
+# Discretisation parameters, etc.
+kwargs = {
+    'element_family': 'dg-cg',
+    'polynomial_degree': 1,
+    'estimate_error': True,
+}
+di = os.path.join(abspath, 'outputs')
+solve_fwd_f = True
+# solve_fwd_f = False
 
 # Solve forward
-solver_obj_coarse = solve_forward(mesh, element_family='dg-cg', polynomial_degree=1,
-                                  output_directory='outputs/coarse', estimate_error=True)
-fwd_coarse = solver_obj_coarse.fields.solution_2d
+solver_c = setup_forward(mesh_c, output_directory=os.path.join(di, 'coarse'), **kwargs)
+with timed_stage('fwd_c'):
+    solver_c.iterate()
+fwd_c = solver_c.fields.solution_2d
 
 # Evaluate strong residual
-residual = solver_obj_coarse.timestepper.error_estimator.evaluate_strong_residual()
-File('outputs/strong_residual.pvd').write(*residual.split())
+residual = solver_c.timestepper.error_estimator.evaluate_strong_residual()
+File(os.path.join('strong_residual.pvd')).write(*residual.split())
 
 # Solve adjoint
-adj_coarse = solve_adjoint(fwd_coarse, power_functional, solver_obj_coarse)
-File('outputs/coarse/adjoint.pvd').write(*adj_coarse.split())
+adj_c = solve_adjoint(fwd_c, power_functional, solver_c, label='adj_c')
+File(os.path.join(di, 'coarse', 'adjoint.pvd')).write(*adj_c.split())
 
-# Solve forward in refined space
-solver_obj_fine = solve_forward(refined_mesh, element_family='dg-cg', polynomial_degree=1,
-                                output_directory='outputs/fine', estimate_error=True)
-fwd_fine = solver_obj_fine.fields.solution_2d
+# Solve/prolong forward in iso-P2 refined space
+solver_f = setup_forward(mesh_f, output_directory=os.path.join(di, 'fine'), **kwargs)
+fwd_f = solver_f.fields.solution_2d
+with timed_stage('fwd_f'):
+    if solve_fwd_f:
+        solver_f.iterate()     # Solve forward in refined space, or ...
+    else:
+        prolong(fwd_c, fwd_f)  # ... simply prolong coarse forward solution
 
 # Solve adjoint in refined space
-adj_fine = solve_adjoint(fwd_fine, power_functional, solver_obj_fine)
-File('outputs/fine/adjoint.pvd').write(*adj_fine.split())
+adj_f = solve_adjoint(fwd_f, power_functional, solver_f, label='adj_f')
+File(os.path.join(di, 'fine', 'adjoint.pvd')).write(*adj_f.split())
 
 # Prolong into refined space
-fwd_proj = Function(solver_obj_fine.function_spaces.V_2d)
-adj_proj = Function(solver_obj_fine.function_spaces.V_2d)
-prolong(fwd_coarse, fwd_proj)
-prolong(adj_coarse, adj_proj)
-adj_error = adj_fine.copy(deepcopy=True)
+fwd_proj = Function(solver_f.function_spaces.V_2d)
+adj_proj = Function(solver_f.function_spaces.V_2d)
+if solve_fwd_f:
+    prolong(fwd_c, fwd_proj)
+else:
+    fwd_proj.assign(fwd_f)
+prolong(adj_c, adj_proj)
+
+# Take difference to approximate adjoint error
+adj_error = adj_f.copy(deepcopy=True)
 adj_error -= adj_proj
 z, zeta = adj_error.split()
 z.rename("Adjoint fluid speed error")
 zeta.rename("Adjoint elevation error")
-File('outputs/fine/adjoint_error.pvd').write(z, zeta)
+File(os.path.join(di, 'fine', 'adjoint_error.pvd')).write(z, zeta)
 
 # Set up error estimator in fine space
-fields = solver_obj_fine.timestepper.fields
-solver_obj_fine.timestepper.setup_error_estimator(fwd_proj, adj_error, solver_obj_fine.bnd_functions['shallow_water'])
-error_estimator = solver_obj_fine.timestepper.error_estimator
+bcs = solver_f.bnd_functions['shallow_water']
+solver_f.timestepper.setup_error_estimator(fwd_proj, adj_error, bcs)
+error_estimator = solver_f.timestepper.error_estimator
+P0_f = error_estimator.P0_2d
 
 # Evaluate element residual
-indicator_coarse = Function(solver_obj_coarse.function_spaces.P0_2d)
-inject(interpolate(abs(error_estimator.element_residual()), error_estimator.P0_2d), indicator_coarse)
-indicator_coarse.rename("Element residual in modulus")
-File('outputs/element_residual.pvd').write(indicator_coarse)
+indicator_c = Function(solver_c.function_spaces.P0_2d)
+inject(interpolate(abs(error_estimator.element_residual()), P0_f), indicator_c)
+indicator_c.rename("Element residual in modulus")
+File(os.path.join(di, 'element_residual.pvd')).write(indicator_c)
 
 # Evaluate inter-element flux
-inject(interpolate(abs(error_estimator.inter_element_flux()), error_estimator.P0_2d), indicator_coarse)
-indicator_coarse.rename("Inter-element flux in modulus")
-File('outputs/inter_element_flux.pvd').write(indicator_coarse)
+inject(interpolate(abs(error_estimator.inter_element_flux()), P0_f), indicator_c)
+indicator_c.rename("Inter-element flux in modulus")
+File(os.path.join(di, 'inter_element_flux.pvd')).write(indicator_c)
 
 # Evaluate boundary flux
-inject(interpolate(abs(error_estimator.boundary_flux()), error_estimator.P0_2d), indicator_coarse)
-indicator_coarse.rename("Boundary flux in modulus")
-File('outputs/boundary_flux.pvd').write(indicator_coarse)
+inject(interpolate(abs(error_estimator.boundary_flux()), P0_f), indicator_c)
+indicator_c.rename("Boundary flux in modulus")
+File(os.path.join(di, 'boundary_flux.pvd')).write(indicator_c)
 
 # Assemble total error indicator
-dwr = Function(solver_obj_coarse.function_spaces.P0_2d, name="Dual weighted residual")
-inject(interpolate(abs(error_estimator.weighted_residual()), error_estimator.P0_2d), dwr)
-File('outputs/dwr.pvd').write(dwr)
+inject(interpolate(abs(error_estimator.weighted_residual()), P0), indicator_c)
+indicator_c.rename("Dual weighted residual")
+File(os.path.join(di, 'dwr.pvd')).write(indicator_c)
