@@ -523,43 +523,39 @@ class DetectorsCallback(DiagnosticCallback):
 
 class AccumulatorCallback(DiagnosticCallback):
     """
-    Callback that evaluates a (scalar) functional involving integrals in both
-    time and space.
+    Callback that performs sums values of time-dependent functionals
+    contributed at each timestep.
 
-    This callback can also be used to assemble time dependent objective
-    functionals for adjoint simulations. Time integration is achieved using
-    the trapezium rule.
+    This callback can also be used to express time-dependent objective
+    functionals for adjoint simulations.
     """
     variable_names = ['spatial integral at current timestep']
 
-    def __init__(self, scalar_callback, solver_obj, **kwargs):
+    def __init__(self, functional_callback, solver_obj, **kwargs):
         """
-        :arg scalar_callback: Python function that returns a list of values of an objective functional.
+        :arg functional_callback: Python function that returns an integral in time and space
         :arg solver_obj: Thetis solver object
-        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
+        :arg kwargs: any additional keyword arguments, see DiagnosticCallback
         """
         kwargs.setdefault('export_to_hdf5', False)
         kwargs.setdefault('append_to_log', False)
         super(AccumulatorCallback, self).__init__(solver_obj, **kwargs)
-        self.scalar_callback = scalar_callback      # Evaluate functional
-        self.dt = solver_obj.options.timestep
-        self.integrant = 0.
-        self.old_value = None
+        self.callback = functional_callback
 
     def __call__(self):
-        scalar_value = self.scalar_callback()
-        if self.old_value is not None:
-            self.integrant += 0.5 * (self.old_value + scalar_value) * self.dt
-        self.old_value = scalar_value
+        integrant_timestep = self.callback()
+        if not hasattr(self, 'integrant'):
+            self.integrant = integrant_timestep
+        else:
+            self.integrant += integrant_timestep
 
-        return scalar_value
+        return [integrant_timestep, ]
 
-    def get_val(self):
+    def get_value(self):
         return self.integrant
 
     def message_str(self, *args):
-        line = '{0:s} value {1:11.4e}'.format(self.name, args[0])
-        return line
+        return '{:s} value {:11.4e}'.format(self.name, args[0])
 
 
 class TimeSeriesCallback2D(DiagnosticCallback):
