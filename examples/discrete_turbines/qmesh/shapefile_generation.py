@@ -4,12 +4,7 @@ import fiona.crs
 import pyproj
 from shapely.geometry.point import Point
 
-UTM_ZONE30 = pyproj.Proj(
-    proj='utm',
-    zone=30,
-    datum='WGS84',
-    units='m',
-    errcheck=True)
+UTM_ZONE30 = pyproj.Proj(proj='utm', zone=30, datum='WGS84', units='m', errcheck=True)
 schema = {'geometry': 'LineString', 'properties': {'PhysID': 'int'}}
 crs = fiona.crs.from_string(UTM_ZONE30.srs)
 
@@ -20,8 +15,8 @@ features = \
      shapely.geometry.LineString([(x1, y1), (x0, y1)]),
      shapely.geometry.LineString([(x0, y1), (x0, y0)])]
 with fiona.collection("outline_2.shp", "w", "ESRI Shapefile", schema, crs=crs) as output:
-        for i in range(len(features)):
-            output.write({'geometry': shapely.geometry.mapping(features[i]), 'properties': {'PhysID': i}})
+    for i in range(len(features)):
+        output.write({'geometry': shapely.geometry.mapping(features[i]), 'properties': {'PhysID': i}})
 
 # Array coordinates
 array_list = np.zeros((7, 2))
