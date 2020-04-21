@@ -489,10 +489,8 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Horizontal viscosity").tag(config=True)
     use_smagorinsky_viscosity = Bool(
         False, help="Use Smagorinsky horisontal viscosity parametrization").tag(config=True)
-    smagorinsky_coefficient = FiredrakeConstant(
-        Constant(0.1),
-        help="""Smagorinsky viscosity coefficient :math:`C_S`
-
+    smagorinsky_coefficient = FiredrakeScalarExpression(
+        Constant(0.1),help="""Smagorinsky viscosity coefficient :math:`C_S`
         See :class:`.SmagorinskyViscosity`.""").tag(config=True)
     coriolis_frequency = FiredrakeScalarExpression(
         None, allow_none=True, help="2D Coriolis parameter").tag(config=True)
