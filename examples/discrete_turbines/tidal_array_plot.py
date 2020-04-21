@@ -25,7 +25,7 @@ farm_options.turbine_drag = Function(FunctionSpace(mesh2d, "CG", 1), name='turbi
 
 # Add viscosity sponge (depending on condition)
 x = SpatialCoordinate(mesh2d)
-h_viscosity = Function(P1_2d).interpolate(conditional(le(x[0], 50), 54-x[0], 1.0))
+h_viscosity = Function(P1_2d).interpolate(conditional(le(x[0], 50), 50.5-x[0], 0.5))
 bathymetry_2d.assign(Constant(50.0))
 
 # --- create solver ---
@@ -38,10 +38,12 @@ else:
     options.simulation_end_time = t_end
 options.output_directory = outputdir
 options.check_volume_conservation_2d = True
-options.fields_to_export = ['uv_2d', 'elev_2d']
+options.fields_to_export = ['uv_2d', 'elev_2d', 'smag_visc_2d']
 options.quadratic_drag_coefficient = Constant(0.0025)
 options.timestepper_type = 'CrankNicolson'
 options.horizontal_viscosity = h_viscosity
+options.use_smagorinsky_viscosity = True
+options.smagorinsky_coefficient = Constant(0.2)
 options.use_wetting_and_drying = True
 options.wetting_and_drying_alpha = Constant(0.5)
 options.discrete_tidal_turbine_farms[2] = farm_options
@@ -76,6 +78,9 @@ turbine_farm = DiscreteTidalfarm(solver_obj, turbine, turbine_coordinates, farm_
 
 File(outputdir+'/Farm.pvd').write(turbine_farm.farm_density)
 
+viscosity_vtk_output = File(outputdir + '/viscosity.pvd')
+smag_viscosity_vtk_output = File(outputdir + '/smag_viscosity.pvd')
+
 solver_obj.assign_initial_conditions(elev=elev_init, uv=(as_vector((1e-3, 0.0))))
 
 # Operation of tidal turbine farm through a callback
@@ -86,6 +91,9 @@ solver_obj.add_callback(cb, 'timestep')
 def update_forcings(t_new):
     ramp = tanh(t_new / 2000.)
     tidal_vel.project(Constant(ramp * 3.5))
+
+    viscosity_vtk_output.write(Function(P1_2d).interpolate(solver_obj.fields.get('viscosity_h')))
+    smag_viscosity_vtk_output.write(solver_obj.fields.smag_visc_2d)
 
 
 # No update_forcings for steady state case
