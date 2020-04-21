@@ -66,7 +66,6 @@ elev_init.assign(0.0)
 #  Addition of turbines in the domain
 turbine = ThrustTurbine(diameter=20, swept_diameter=20)
 farm_options.turbine_options = turbine
-
 turbine_coordinates = np.load("Turbine_coords.npy")
 turbine_farm = DiscreteTidalfarm(solver_obj, turbine, turbine_coordinates, farm_options.turbine_density, 2)
 
