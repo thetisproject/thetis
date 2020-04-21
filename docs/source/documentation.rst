@@ -1,16 +1,3 @@
-.. only:: html
-
-  .. sidebar:: Current development information.
-
-     Thetis is continually tested using `Jenkins <https://jenkins.io/>`__.
-
-     Latest Thetis status: |thetisbuild|
-
-     .. |thetisbuild| image:: https://jenkins.ese.ic.ac.uk:1080/job/thetisproject/job/thetis/job/master/badge/icon
-                                 :target: https://jenkins.ese.ic.ac.uk:1080/blue/organizations/jenkins/thetisproject%2Fthetis/branches/
-
-     Thetis is developed on `Github
-     <https://github.com/thetisproject/thetis/>`__.
 
 ======================
  Thetis documentation

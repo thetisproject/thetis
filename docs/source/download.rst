@@ -14,7 +14,8 @@ Install Firedrake and Thetis
 
 You can install both Firedrake and Thetis by running::
 
-    python firedrake-install --install thetis
+    curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install
+    python3 firedrake-install --install thetis
 
 See  `Firedrake website <http://firedrakeproject.org/download.html>`_ for more
 information on the installation procedure. Note that the install proceduce may

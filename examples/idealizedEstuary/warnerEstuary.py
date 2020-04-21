@@ -1,43 +1,43 @@
-# Idealized estuary test case
-# ===========================
-#
-# Tidal flow in a rectangual channel with a density gradient.
-# Setup according to [1].
-#
-# Bathymetry varies between 10 m (ocean boundary) and 5 m (river boundary).
-# At the ocean boundary tidal flux is prescribed, while a constant influx is
-# used at the river boundary.
-# Initial salinity field is a linear ramp from 32 psu (at x=30 km) to 0 psu
-# (at x=80 km).
-# Temperature is fixed to 10 deg Celcius.
-# This corresponds to density 1023.05 kg/m3 in the ocean and 999.70 kg/m3
-# in the river.
-#
-# [1] Warner, J. C., Sherwood, C. R., Arango, H. G., and Signell, R. P.
-#     (2005). Performance of four turbulence closure models implemented
-#     using a generic length scale method. Ocean Modelling, 8(1-2):81-113.
-#
-# Tuomas Karna 2016-02-17
+"""
+Idealized estuary test case
+===========================
+
+Tidal flow in a rectangual channel with a density gradient.
+Setup according to [1].
+
+Bathymetry varies between 10 m (ocean boundary) and 5 m (river boundary).
+At the ocean boundary tidal flux is prescribed, while a constant influx is
+used at the river boundary.
+Initial salinity field is a linear ramp from 32 psu (at x=30 km) to 0 psu
+(at x=80 km).
+Temperature is fixed to 10 deg Celcius.
+This corresponds to density 1023.05 kg/m3 in the ocean and 999.70 kg/m3
+in the river.
+
+[1] Warner, J. C., Sherwood, C. R., Arango, H. G., and Signell, R. P.
+    (2005). Performance of four turbulence closure models implemented
+    using a generic length scale method. Ocean Modelling, 8(1-2):81-113.
+"""
 from thetis import *
 
 # set physical constants
 physical_constants['rho0'].assign(1000.0)
-physical_constants['z0_friction'].assign(0.005)
 
 reso_str = 'coarse'
-outputdir = 'outputs_' + reso_str
 refinement = {'coarse': 1, 'normal': 2}
 lx = 100.0e3
 ly = 1000.0/refinement[reso_str]
 nx = int(round(100*refinement[reso_str]))
+delta_x = lx/nx
 ny = 2
 layers = int(round(10*refinement[reso_str]))
 mesh2d = RectangleMesh(nx, ny, lx, ly)
-print_output('Exporting to ' + outputdir)
-dt = 25.0  # 25.0/refinement[reso_str]  # TODO tune dt
-t_end = 20*24*3600
+t_end = 18*24*3600
 # export every 9 min, day 16 is export 2720
 t_export = 9*60.0
+
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
 
 depth_ocean = 10
 u_tide = 0.4
@@ -49,9 +49,10 @@ salt_river = 0.0
 temp_const = 10.0
 
 # bathymetry
-p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+p1_2d = get_functionspace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(p1_2d, name='Bathymetry')
-bathymetry_2d.interpolate(Expression('h_oce - (h_oce - h_riv)*x[0]/lx', h_oce=depth_ocean, h_riv=depth_river, lx=lx))
+x, y = SpatialCoordinate(mesh2d)
+bathymetry_2d.interpolate(depth_ocean - (depth_ocean - depth_river)*x/lx)
 
 simple_barotropic = False  # for testing flux boundary conditions
 
@@ -65,6 +66,7 @@ options.solve_temperature = False
 options.constant_temperature = Constant(temp_const)
 options.use_implicit_vertical_diffusion = not simple_barotropic
 options.use_bottom_friction = not simple_barotropic
+options.bottom_roughness = Constant(0.005)
 options.use_turbulence = not simple_barotropic
 options.use_turbulence_advection = not simple_barotropic
 options.use_baroclinic_formulation = not simple_barotropic
@@ -75,40 +77,42 @@ options.use_lax_friedrichs_tracer = True
 options.vertical_viscosity = Constant(1.3e-6)  # background value
 options.vertical_diffusivity = Constant(1.4e-7)  # background value
 options.use_limiter_for_tracers = True
-Re_h = 5.0
-options.use_smagorinsky_viscosity = True
-options.smagorinsky_coefficient = Constant(1.0/np.sqrt(Re_h))
+Re_h = 10.0
+uscale = 1.0
+nu_scale = uscale * delta_x / Re_h
+print_output('Horizontal viscosity {:}'.format(nu_scale))
+options.horizontal_viscosity = Constant(nu_scale)
+options.horizontal_diffusivity = Constant(5.0)
 options.simulation_export_time = t_export
 options.simulation_end_time = t_end
-options.output_directory = outputdir
 options.horizontal_velocity_scale = Constant(2.0)
+options.horizontal_viscosity_scale = Constant(nu_scale)
 options.check_salinity_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
-                            'w_3d', 'w_mesh_3d', 'salt_3d', 'density_3d',
-                            'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                            'smag_visc_3d',
+                            'w_3d', 'salt_3d', 'density_3d',
                             'eddy_visc_3d', 'shear_freq_3d',
                             'buoy_freq_3d', 'tke_3d', 'psi_3d',
                             'eps_3d', 'len_3d']
-options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
-                                 'w_3d', 'salt_3d', 'smag_visc_3d',
-                                 'eddy_visc_3d', 'shear_freq_3d',
-                                 'buoy_freq_3d', 'tke_3d', 'psi_3d',
-                                 'eps_3d', 'len_3d']
+options.fields_to_export_hdf5 = []
 turbulence_model_options = options.turbulence_model_options
-turbulence_model_options.apply_defaults('k-omega')
-turbulence_model_options.stability_function_name = 'Canuto B'
+turbulence_model_options.apply_defaults('k-epsilon')
+turbulence_model_options.stability_function_name = 'Canuto A'
+outputdir = 'outputs'
+odir = '_'.join([outputdir, reso_str,
+                 turbulence_model_options.closure_name.replace(' ', '-'),
+                 turbulence_model_options.stability_function_name.replace(' ', '-')])
+options.output_directory = odir
+print_output('Exporting to ' + options.output_directory)
 
 solverobj.create_function_spaces()
 
 # initial conditions
 salt_init3d = Function(solverobj.function_spaces.H, name='initial salinity')
 # original vertically uniform initial condition
-salt_init3d.interpolate(Expression('s_oce - (s_oce - s_riv)*(x[0] - 30000 + 10*x[2])/50000 ',
-                                   s_oce=salt_ocean, s_riv=salt_river))
+x, y, z = SpatialCoordinate(solverobj.mesh)
+salt_init3d.interpolate(salt_ocean - (salt_ocean - salt_river)*(x - 30e3)/50e3)
 # start from idealized salt wedge
-# salt_init3d.interpolate(Expression('(s_riv + (s_riv - s_oce)*(x[0] - 80000)/50000 * (0.5 - 0.5*tanh(4*(x[2] + 2.0))) )',
-#                                    s_oce=salt_ocean, s_riv=salt_river))
+# salt_init3d.interpolate(salt_river + (salt_river - salt_ocean)*(x - 80e3)/50e3 * (0.5 - 0.5*tanh(4*(z + 2.0))))
 min_ix = salt_init3d.dat.data < salt_river
 salt_init3d.dat.data[min_ix] = salt_river
 max_ix = salt_init3d.dat.data > salt_ocean
@@ -120,8 +124,8 @@ flux_river = u_river*depth_river*ly
 
 t = 0.0
 t_ramp = 3600.0  # NOTE use ramp to avoid stading waves
-ocean_flux_func = lambda t: (flux_ocean*sin(2 * pi * t / t_tide) -
-                             flux_river)*min(t/t_ramp, 1.0)
+ocean_flux_func = lambda t: (flux_ocean*sin(2 * pi * t / t_tide)
+                             - flux_river)*min(t/t_ramp, 1.0)
 ocean_flux = Constant(ocean_flux_func(t))
 river_flux_func = lambda t: flux_river*min(t/t_ramp, 1.0)
 river_flux = Constant(river_flux_func(t))

@@ -6,8 +6,6 @@ MMS test for 2d shallow water equations.
 - run function runs the MMS setup with a single mesh resolution, returning
   L2 errors.
 - run_convergence runs a scaling test, computes and asserts convergence rate.
-
-Tuomas Karna 2015-10-29
 """
 from thetis import *
 import numpy
@@ -135,7 +133,7 @@ def run(setup, refinement, order, do_export=True, options=None,
     outputdir = 'outputs'
 
     # bathymetry
-    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    p1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     bathymetry_2d.project(sdict['bath_expr'])
     if bathymetry_2d.dat.data.min() < 0.0:
@@ -322,9 +320,7 @@ def run_convergence(setup, ref_list, order, do_export=False, save_plot=False,
 # ---------------------------
 
 
-@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')(setup7),
-                        setup8,
-                        pytest.mark.not_travis(reason='travis timeout')(setup9)],
+@pytest.fixture(params=[setup7, setup8, setup9],
                 ids=["Setup7", "Setup8", "Setup9"])
 def setup(request):
     return request.param
@@ -333,10 +329,10 @@ def setup(request):
 @pytest.fixture(params=[
     {'element_family': 'dg-dg',
      'timestepper_type': 'CrankNicolson'},
-    pytest.mark.not_travis(reason='travis timeout')({'element_family': 'rt-dg',
-                                                     'timestepper_type': 'CrankNicolson'}),
-    pytest.mark.not_travis(reason='travis timeout')({'element_family': 'dg-cg',
-                                                     'timestepper_type': 'CrankNicolson'})],
+    {'element_family': 'rt-dg',
+     'timestepper_type': 'CrankNicolson'},
+    {'element_family': 'dg-cg',
+     'timestepper_type': 'CrankNicolson'}],
     ids=["dg-dg", "rt-dg", "dg-cg"]
 )
 def options(request):
@@ -344,7 +340,7 @@ def options(request):
 
 
 def test_steady_state_basin_convergence(setup, options):
-    sp = {'ksp_type': 'preonly', 'pc_type': 'lu', 'snes_monitor': True,
+    sp = {'ksp_type': 'preonly', 'pc_type': 'lu', 'snes_monitor': None,
           'mat_type': 'aij'}
     run_convergence(setup, [1, 2, 4, 6], 1, options=options,
                     solver_parameters=sp, save_plot=False)

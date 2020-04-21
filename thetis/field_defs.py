@@ -34,35 +34,23 @@ field_metadata['z_coord_3d'] = {
     'unit': 'm',
     'filename': 'ZCoord3d',
 }
-field_metadata['z_bottom_2d'] = {
-    'name': 'Bottom cell z coordinates',
-    'shortname': 'Bottom cell z coordinates',
-    'unit': 'm',
-    'filename': 'ZBottom2d',
-}
 field_metadata['z_coord_ref_3d'] = {
     'name': 'Static mesh z coordinates',
     'shortname': 'Z coordinates',
     'unit': 'm',
     'filename': 'ZCoordRef3d',
 }
-field_metadata['bottom_drag_2d'] = {
-    'name': 'Bottom drag coefficient',
-    'shortname': 'Bottom drag coefficient',
-    'unit': '',
-    'filename': 'BottomDrag2d',
-}
-field_metadata['bottom_drag_3d'] = {
-    'name': 'Bottom drag coefficient',
-    'shortname': 'Bottom drag coefficient',
-    'unit': '',
-    'filename': 'BottomDrag3d',
-}
 field_metadata['uv_2d'] = {
     'name': 'Depth averaged velocity',
     'shortname': 'Depth averaged velocity',
     'unit': 'm s-1',
     'filename': 'Velocity2d',
+}
+field_metadata['tracer_2d'] = {
+    'name': 'Depth averaged tracer',
+    'shortname': 'Tracer',
+    'unit': '',
+    'filename': 'Tracer2d',
 }
 field_metadata['uv_dav_2d'] = {
     'name': 'Depth averaged velocity',
@@ -75,18 +63,6 @@ field_metadata['split_residual_2d'] = {
     'shortname': 'Momentum residual',
     'unit': 'm s-2',
     'filename': 'SplitResidual2d',
-}
-field_metadata['uv_bottom_2d'] = {
-    'name': 'Bottom velocity',
-    'shortname': 'Bottom velocity',
-    'unit': 'm s-1',
-    'filename': 'BottomVelo2d',
-}
-field_metadata['uv_bottom_3d'] = {
-    'name': 'Bottom velocity',
-    'shortname': 'Bottom velocity',
-    'unit': 'm s-1',
-    'filename': 'BottomVelo3d',
 }
 field_metadata['uv_dav_3d'] = {
     'name': 'Depth averaged velocity',
@@ -184,12 +160,6 @@ field_metadata['density_3d'] = {
     'unit': 'kg m-3',
     'filename': 'Density3d',
 }
-field_metadata['parab_visc_3d'] = {
-    'name': 'Parabolic Viscosity',
-    'shortname': 'Parabolic Viscosity',
-    'unit': 'm2 s-1',
-    'filename': 'ParabVisc3d',
-}
 field_metadata['eddy_visc_3d'] = {
     'name': 'Eddy Viscosity',
     'shortname': 'Eddy Viscosity',
@@ -229,7 +199,7 @@ field_metadata['psi_3d'] = {
 field_metadata['eps_3d'] = {
     'name': 'TKE dissipation rate',
     'shortname': 'TKE dissipation rate',
-    'unit': 'm2 s-2',
+    'unit': 'm2 s-3',
     'filename': 'TurbEps3d',
 }
 field_metadata['len_3d'] = {

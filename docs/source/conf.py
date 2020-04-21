@@ -50,7 +50,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Thetis'
-copyright = u'2016, Tuomas Karna et al.'
+copyright = u'2016-2019, Tuomas Karna et al.'
 author = u'Tuomas Karna et al.'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -100,7 +100,7 @@ html_theme_path = ['_themes']
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = []
 
 
 # -- Options for HTMLHelp output ------------------------------------------
@@ -155,7 +155,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'Thetis', u'Thetis Documentation',
-     author, 'Thetis', 'One line description of project.',
+     author, 'Thetis', 'Thetis - an unstructured grid coastal ocean model',
      'Miscellaneous'),
 ]
 

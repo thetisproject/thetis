@@ -1,15 +1,15 @@
-# Idealised channel flow in 3D
-# ============================
-#
-# Solves shallow water equations in closed rectangular domain
-# with sloping bathymetry.
-#
-# Flow is forced with tidal volume flux in the deep (ocean) end of the
-# channel, and a constant volume flux in the shallow (river) end.
-#
-# This test is useful for testing open boundary conditions.
-#
-# Tuomas Karna 2015-03-03
+"""
+Idealised channel flow in 3D
+============================
+
+Solves shallow water equations in closed rectangular domain
+with sloping bathymetry.
+
+Flow is forced with tidal volume flux in the deep (ocean) end of the
+channel, and a constant volume flux in the shallow (river) end.
+
+This test is useful for testing open boundary conditions.
+"""
 from thetis import *
 
 
@@ -26,7 +26,7 @@ def test_closed_channel(**user_options):
     t_export = 900.0
 
     # bathymetry
-    P1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    P1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(P1_2d, name='Bathymetry')
 
     depth_max = 20.0
@@ -61,7 +61,7 @@ def test_closed_channel(**user_options):
     options.check_salinity_overshoot = True
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'salt_3d',
-                                'uv_dav_2d', 'uv_bottom_2d']
+                                'uv_dav_2d']
     options.update(user_options)
 
     # initial elevation, piecewise linear function

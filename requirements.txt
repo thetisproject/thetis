@@ -1,3 +1,5 @@
 scipy
 netCDF4
 pyproj
+uptide
+pytz

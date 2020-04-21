@@ -1,9 +1,8 @@
 """
 Tests convergence of div(uv) in 2D
-
-Tuomas Karna 2015-12-08
 """
 from firedrake import *
+from thetis.utility import get_functionspace
 import numpy
 from scipy import stats
 import os
@@ -17,19 +16,17 @@ def compute(refinement=1, order=1, do_export=False):
     mesh = UnitSquareMesh(n, n)
 
     family = 'DG'
-    p0dg = FunctionSpace(mesh, family, order-1)
-    p1dg = FunctionSpace(mesh, family, order)
-    p1dg_v = VectorFunctionSpace(mesh, family, order)
-    p1dg_ho = FunctionSpace(mesh, family, order + 2)
-    p1dg_v_ho = VectorFunctionSpace(mesh, family, order + 2)
+    p0dg = get_functionspace(mesh, family, order-1)
+    p1dg = get_functionspace(mesh, family, order)
+    p1dg_v = get_functionspace(mesh, family, order, vector=True)
+    p1dg_ho = get_functionspace(mesh, family, order + 2)
+    p1dg_v_ho = get_functionspace(mesh, family, order + 2, vector=True)
 
-    uv_expr = Expression(
-        ('sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)',
-         '0.2*sin(0.2*pi*(1.0*x[0] + 3.0*x[1])/lx)', ),
-        lx=1.0)
-    div_expr = Expression(
-        '0.12*pi*cos(0.2*pi*(1.0*x[0] + 3.0*x[1])/lx)/lx + 0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx',
-        lx=1.0)
+    lx = 1.0
+    x, y = SpatialCoordinate(mesh)
+    uv_expr = as_vector((sin(0.2*pi*(3.0*x + 1.0*y)/lx),
+                         0.2*sin(0.2*pi*(1.0*x + 3.0*y)/lx)))
+    div_expr = 0.12*pi*cos(0.2*pi*(1.0*x + 3.0*y)/lx)/lx + 0.6*pi*cos(0.2*pi*(3.0*x + 1.0*y)/lx)/lx
 
     div_uv = Function(p1dg, name='div')
     div_uv.project(div_expr)

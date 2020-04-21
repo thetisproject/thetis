@@ -3,14 +3,24 @@ from petsc4py import PETSc
 
 
 class AssembledSchurPC(PCBase):
-    """Preconditioner for the Schur complement, where the preconditioner
-    matrix is assembled by explicitly matrix multiplying A10*Minv*A10. Here:
-    A01, A10 are the assembled sub-blocks of the saddle point system. The form
-        of this system needs to be supplied in the appctx to the solver as appctx['a']
-    Minv is the inverse of the mass-matrix which is assembled as
-        assemble(v*u*dx, inverse=True), i.e. the element-wise inverse, where
-        v and u are the test and trial of the 00 block. This gives the exact
-        inverse of the mass matrix for a DG discretisation."""
+    """
+    Preconditioner for the Schur complement
+
+    The preconditioner matrix is assembled by explicitly matrix multiplying
+    :math:`A10*Minv*A10`.
+
+    Here:
+
+    - :math:`A01`, :math:`A10` are the assembled sub-blocks of the saddle point
+        system. The form of this system needs to be supplied in the
+        :code:`appctx` argument to the solver as :code:`appctx['a']`.
+
+    - :math:`Minv` is the inverse of the mass-matrix which is assembled as
+        :code:`assemble(v*u*dx, inverse=True)`, i.e. the element-wise inverse,
+        where :math:`v` and :math:`u` are the test and trial of the :math:`A00`
+        block. This gives the exact inverse of the mass matrix for a DG
+        discretisation.
+    """
     def initialize(self, pc):
         _, P = pc.getOperators()
         ctx = P.getPythonContext()
@@ -76,4 +86,4 @@ class AssembledSchurPC(PCBase):
         viewer.popASCIITab()
 
     def applyTranspose(self, pc, X, Y):
-        raise NotImplemented("applyTranspose not implemented for AssembledSchurPC")
+        raise NotImplementedError("applyTranspose not implemented for AssembledSchurPC")

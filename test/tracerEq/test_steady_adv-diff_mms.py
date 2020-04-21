@@ -1,7 +1,5 @@
 """
 Testing 3D tracer advection-diffusion equation with method of manufactured solution (MMS).
-
-Tuomas Karna 2015-11-28
 """
 from thetis import *
 import numpy
@@ -9,116 +7,148 @@ from scipy import stats
 import pytest
 
 
-def setup1(lx, ly, h0, kappa0):
+class Setup1:
     """
     Constant bathymetry and u velocty, zero diffusivity, non-trivial tracer
     """
-    out = {}
-    out['bath_expr'] = Expression('h0', h0=h0)
-    out['elev_expr'] = Expression('0.0')
-    out['uv_expr'] = Expression(
-        ('1.0',
-         '0.0',
-         '0.0', ))
-    out['w_expr'] = Expression(
-        ('0.0',
-         '0.0',
-         '0', ))
-    out['tracer_expr'] = Expression(
-        'sin(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)',
-        lx=lx)
-    out['kappa_expr'] = Expression('0.0')
-    out['res_expr'] = Expression(
-        '0.6*pi*cos(0.2*pi*(3.0*x[0] + 1.0*x[1])/lx)/lx',
-        lx=lx)
-    out['options'] = {}
-    return out
+    def bath(self, x, y, lx, ly):
+        return Constant(40.0)
+
+    def elev(self, x, y, lx, ly):
+        return Constant(0.0)
+
+    def uv(self, x, y, z, lx, ly):
+        return as_vector(
+            [
+                Constant(1.0),
+                Constant(0.0),
+                Constant(0),
+            ])
+
+    def w(self, x, y, z, lx, ly):
+        return as_vector(
+            [
+                Constant(0),
+                Constant(0),
+                Constant(0),
+            ])
+
+    def kappa(self, x, y, z, lx, ly):
+        return Constant(0.0)
+
+    def tracer(self, x, y, z, lx, ly):
+        return sin(0.2*pi*(3.0*x + 1.0*y)/lx)
+
+    def residual(self, x, y, z, lx, ly):
+        return 0.6*pi*cos(0.2*pi*(3.0*x + 1.0*y)/lx)/lx
 
 
-def setup2(lx, ly, h0, kappa0):
+class Setup2:
     """
-    constant bathymetry, zero velocity, constant kappa, x-varying T
+    Constant bathymetry, zero velocity, constant kappa, x-varying T
     """
-    out = {}
-    out['bath_expr'] = Expression('h0', h0=h0)
-    out['elev_expr'] = Expression('0.0')
-    out['uv_expr'] = Expression(
-        ('0.0',
-         '0.0',
-         '0.0', ))
-    out['w_expr'] = Expression(
-        ('0.0',
-         '0.0',
-         '0', ))
-    out['tracer_expr'] = Expression(
-        'sin(3*pi*x[0]/lx)',
-        lx=lx)
-    out['kappa_expr'] = Expression(
-        'kappa0',
-        kappa0=kappa0)
-    out['res_expr'] = Expression(
-        '9*(pi*pi)*kappa0*sin(3*pi*x[0]/lx)/(lx*lx)',
-        kappa0=kappa0, lx=lx)
-    out['options'] = {}
-    return out
+    def bath(self, x, y, lx, ly):
+        return Constant(40.0)
+
+    def elev(self, x, y, lx, ly):
+        return Constant(0.0)
+
+    def uv(self, x, y, z, lx, ly):
+        return as_vector(
+            [
+                Constant(1.0),
+                Constant(0.0),
+                Constant(0),
+            ])
+
+    def w(self, x, y, z, lx, ly):
+        return as_vector(
+            [
+                Constant(0),
+                Constant(0),
+                Constant(0),
+            ])
+
+    def kappa(self, x, y, z, lx, ly):
+        return Constant(50.0)
+
+    def tracer(self, x, y, z, lx, ly):
+        return sin(3*pi*x/lx)
+
+    def residual(self, x, y, z, lx, ly):
+        return 3.0*pi*cos(3*pi*x/lx)/lx - 450.0*pi**2*sin(3*pi*x/lx)/lx**2
 
 
-def setup3(lx, ly, h0, kappa0):
+class Setup3:
     """
-    constant bathymetry, zero kappa, non-trivial velocity and T
+    Constant bathymetry, zero kappa, non-trivial velocity and T
     """
-    out = {}
-    out['bath_expr'] = Expression('h0', h0=h0)
-    out['elev_expr'] = Expression('0.0')
-    out['uv_expr'] = Expression(
-        ('sin(pi*(x[1]/ly + 2*x[0]/lx))*sin(pi*x[2]/h0)',
-         'sin(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))*sin(pi*x[2]/h0)',
-         '0.0', ),
-        h0=h0, lx=lx, ly=ly)
-    out['w_expr'] = Expression(
-        ('0.0',
-         '0.0',
-         '0.3*h0*cos(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))*cos(pi*x[2]/h0)/ly + 0.3*h0*cos(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))/ly + 2*h0*cos(pi*(x[1]/ly + 2*x[0]/lx))*cos(pi*x[2]/h0)/lx + 2*h0*cos(pi*(x[1]/ly + 2*x[0]/lx))/lx', ),
-        h0=h0, lx=lx, ly=ly)
-    out['tracer_expr'] = Expression(
-        '(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*cos(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))',
-        h0=h0, lx=lx, ly=ly)
-    out['kappa_expr'] = Expression('0.0')
-    out['res_expr'] = Expression(
-        '-0.4*pi*(0.3*h0*cos(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))*cos(pi*x[2]/h0)/ly + 0.3*h0*cos(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))/ly + 2*h0*cos(pi*(x[1]/ly + 2*x[0]/lx))*cos(pi*x[2]/h0)/lx + 2*h0*cos(pi*(x[1]/ly + 2*x[0]/lx))/lx)*sin(0.5*pi*x[2]/h0)*cos(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))/h0 - 0.75*pi*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*sin(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))*sin(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))*sin(pi*x[2]/h0)/ly - 1.5*pi*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*sin(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))*sin(pi*(x[1]/ly + 2*x[0]/lx))*sin(pi*x[2]/h0)/lx',
-        h0=h0, lx=lx, ly=ly)
-    out['options'] = {}
-    return out
+    def bath(self, x, y, lx, ly):
+        return Constant(40.0)
+
+    def elev(self, x, y, lx, ly):
+        return Constant(0.0)
+
+    def uv(self, x, y, z, lx, ly):
+        return as_vector(
+            [
+                sin(pi*z/40)*sin(pi*(y/ly + 2*x/lx)),
+                sin(pi*z/40)*sin(pi*(0.3*y/ly + 0.3*x/lx)),
+                Constant(0),
+            ])
+
+    def w(self, x, y, z, lx, ly):
+        return as_vector(
+            [
+                Constant(0),
+                Constant(0),
+                12.0*cos(pi*z/40)*cos(pi*(0.3*y/ly + 0.3*x/lx))/ly + 12.0*cos(pi*(0.3*y/ly + 0.3*x/lx))/ly + 80*cos(pi*z/40)*cos(pi*(y/ly + 2*x/lx))/lx + 80*cos(pi*(y/ly + 2*x/lx))/lx,
+            ])
+
+    def kappa(self, x, y, z, lx, ly):
+        return Constant(0.0)
+
+    def tracer(self, x, y, z, lx, ly):
+        return (0.8*cos(0.0125*pi*z) + 0.2)*cos(pi*(0.75*y/ly + 1.5*x/lx))
+
+    def residual(self, x, y, z, lx, ly):
+        return (-0.3*pi*sin(pi*z/40)*cos(pi*(0.3*y/ly + 0.3*x/lx))/ly - 2*pi*sin(pi*z/40)*cos(pi*(y/ly + 2*x/lx))/lx)*(0.8*cos(0.0125*pi*z) + 0.2)*cos(pi*(0.75*y/ly + 1.5*x/lx)) - 0.01*pi*(12.0*cos(pi*z/40)*cos(pi*(0.3*y/ly + 0.3*x/lx))/ly + 12.0*cos(pi*(0.3*y/ly + 0.3*x/lx))/ly + 80*cos(pi*z/40)*cos(pi*(y/ly + 2*x/lx))/lx + 80*cos(pi*(y/ly + 2*x/lx))/lx)*sin(0.0125*pi*z)*cos(pi*(0.75*y/ly + 1.5*x/lx)) - 0.75*pi*(0.8*cos(0.0125*pi*z) + 0.2)*sin(pi*z/40)*sin(pi*(0.3*y/ly + 0.3*x/lx))*sin(pi*(0.75*y/ly + 1.5*x/lx))/ly + 0.3*pi*(0.8*cos(0.0125*pi*z) + 0.2)*sin(pi*z/40)*cos(pi*(0.3*y/ly + 0.3*x/lx))*cos(pi*(0.75*y/ly + 1.5*x/lx))/ly - 1.5*pi*(0.8*cos(0.0125*pi*z) + 0.2)*sin(pi*z/40)*sin(pi*(0.75*y/ly + 1.5*x/lx))*sin(pi*(y/ly + 2*x/lx))/lx + 2*pi*(0.8*cos(0.0125*pi*z) + 0.2)*sin(pi*z/40)*cos(pi*(0.75*y/ly + 1.5*x/lx))*cos(pi*(y/ly + 2*x/lx))/lx
 
 
-def setup4(lx, ly, h0, kappa0):
+class Setup4:
     """
-    constant bathymetry, constant kappa, non-trivial velocity and T
+    Constant bathymetry, constant kappa, non-trivial velocity and T
     """
-    out = {}
-    out['bath_expr'] = Expression('h0', h0=h0)
-    out['elev_expr'] = Expression('0.0')
-    out['uv_expr'] = Expression(
-        ('sin(pi*(x[1]/ly + 2*x[0]/lx))*sin(pi*x[2]/h0)',
-         'sin(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))*sin(pi*x[2]/h0)',
-         '0.0', ),
-        h0=h0, lx=lx, ly=ly)
-    out['w_expr'] = Expression(
-        ('0.0',
-         '0.0',
-         '0.3*h0*cos(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))*cos(pi*x[2]/h0)/ly + 0.3*h0*cos(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))/ly + 2*h0*cos(pi*(x[1]/ly + 2*x[0]/lx))*cos(pi*x[2]/h0)/lx + 2*h0*cos(pi*(x[1]/ly + 2*x[0]/lx))/lx', ),
-        h0=h0, lx=lx, ly=ly)
-    out['tracer_expr'] = Expression(
-        '(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*cos(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))',
-        h0=h0, lx=lx, ly=ly)
-    out['kappa_expr'] = Expression(
-        'kappa0',
-        kappa0=kappa0)
-    out['res_expr'] = Expression(
-        '-0.4*pi*(0.3*h0*cos(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))*cos(pi*x[2]/h0)/ly + 0.3*h0*cos(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))/ly + 2*h0*cos(pi*(x[1]/ly + 2*x[0]/lx))*cos(pi*x[2]/h0)/lx + 2*h0*cos(pi*(x[1]/ly + 2*x[0]/lx))/lx)*sin(0.5*pi*x[2]/h0)*cos(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))/h0 - 0.75*pi*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*sin(pi*(0.3*x[1]/ly + 0.3*x[0]/lx))*sin(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))*sin(pi*x[2]/h0)/ly - 0.5625*(pi*pi)*kappa0*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*cos(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))/(ly*ly) - 1.5*pi*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*sin(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))*sin(pi*(x[1]/ly + 2*x[0]/lx))*sin(pi*x[2]/h0)/lx + 2.25*(pi*pi)*kappa0*(0.8*cos(0.5*pi*x[2]/h0) + 0.2)*cos(pi*(0.75*x[1]/ly + 1.5*x[0]/lx))/(lx*lx)',
-        h0=h0, kappa0=kappa0, lx=lx, ly=ly)
-    out['options'] = {}
-    return out
+    def bath(self, x, y, lx, ly):
+        return Constant(40.0)
+
+    def elev(self, x, y, lx, ly):
+        return Constant(0.0)
+
+    def uv(self, x, y, z, lx, ly):
+        return as_vector(
+            [
+                sin(pi*z/40)*sin(pi*(y/ly + 2*x/lx)),
+                sin(pi*z/40)*sin(pi*(0.3*y/ly + 0.3*x/lx)),
+                Constant(0),
+            ])
+
+    def w(self, x, y, z, lx, ly):
+        return as_vector(
+            [
+                Constant(0),
+                Constant(0),
+                12.0*cos(pi*z/40)*cos(pi*(0.3*y/ly + 0.3*x/lx))/ly + 12.0*cos(pi*(0.3*y/ly + 0.3*x/lx))/ly + 80*cos(pi*z/40)*cos(pi*(y/ly + 2*x/lx))/lx + 80*cos(pi*(y/ly + 2*x/lx))/lx,
+            ])
+
+    def kappa(self, x, y, z, lx, ly):
+        return Constant(50.0)
+
+    def tracer(self, x, y, z, lx, ly):
+        return (0.8*cos(0.0125*pi*z) + 0.2)*cos(pi*(0.75*y/ly + 1.5*x/lx))
+
+    def residual(self, x, y, z, lx, ly):
+        return (-0.3*pi*sin(pi*z/40)*cos(pi*(0.3*y/ly + 0.3*x/lx))/ly - 2*pi*sin(pi*z/40)*cos(pi*(y/ly + 2*x/lx))/lx)*(0.8*cos(0.0125*pi*z) + 0.2)*cos(pi*(0.75*y/ly + 1.5*x/lx)) - 0.01*pi*(12.0*cos(pi*z/40)*cos(pi*(0.3*y/ly + 0.3*x/lx))/ly + 12.0*cos(pi*(0.3*y/ly + 0.3*x/lx))/ly + 80*cos(pi*z/40)*cos(pi*(y/ly + 2*x/lx))/lx + 80*cos(pi*(y/ly + 2*x/lx))/lx)*sin(0.0125*pi*z)*cos(pi*(0.75*y/ly + 1.5*x/lx)) - 0.75*pi*(0.8*cos(0.0125*pi*z) + 0.2)*sin(pi*z/40)*sin(pi*(0.3*y/ly + 0.3*x/lx))*sin(pi*(0.75*y/ly + 1.5*x/lx))/ly + 0.3*pi*(0.8*cos(0.0125*pi*z) + 0.2)*sin(pi*z/40)*cos(pi*(0.3*y/ly + 0.3*x/lx))*cos(pi*(0.75*y/ly + 1.5*x/lx))/ly - 28.125*pi**2*(0.8*cos(0.0125*pi*z) + 0.2)*cos(pi*(0.75*y/ly + 1.5*x/lx))/ly**2 - 1.5*pi*(0.8*cos(0.0125*pi*z) + 0.2)*sin(pi*z/40)*sin(pi*(0.75*y/ly + 1.5*x/lx))*sin(pi*(y/ly + 2*x/lx))/lx + 2*pi*(0.8*cos(0.0125*pi*z) + 0.2)*sin(pi*z/40)*cos(pi*(0.75*y/ly + 1.5*x/lx))*cos(pi*(y/ly + 2*x/lx))/lx - 112.5*pi**2*(0.8*cos(0.0125*pi*z) + 0.2)*cos(pi*(0.75*y/ly + 1.5*x/lx))/(lx*ly) - 112.5*pi**2*(0.8*cos(0.0125*pi*z) + 0.2)*cos(pi*(0.75*y/ly + 1.5*x/lx))/lx**2
 
 
 def run(setup, refinement, order, do_export=True, **options):
@@ -128,11 +158,9 @@ def run(setup, refinement, order, do_export=True, **options):
     lx = 15e3
     ly = 10e3
     area = lx*ly
-    depth = 40.0
-    kappa0 = 50.0
     t_end = 200.0
 
-    sdict = setup(lx, ly, depth, kappa0)
+    setup_obj = setup()
 
     # mesh
     n_layers = 4*refinement
@@ -146,41 +174,34 @@ def run(setup, refinement, order, do_export=True, **options):
         out_t = File(os.path.join(outputdir, 'T.pvd'))
 
     # bathymetry
-    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    x_2d, y_2d = SpatialCoordinate(mesh2d)
+    p1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
-    bathymetry_2d.project(sdict['bath_expr'])
+    bathymetry_2d.project(setup_obj.bath(x_2d, y_2d, lx, ly))
 
     solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, n_layers)
     solver_obj.options.element_family = 'dg-dg'
     solver_obj.options.polynomial_degree = order
     solver_obj.options.horizontal_velocity_scale = Constant(1.0)
+    solver_obj.options.use_bottom_friction = False
     solver_obj.options.no_exports = not do_export
     solver_obj.options.output_directory = outputdir
     solver_obj.options.simulation_end_time = t_end
     solver_obj.options.fields_to_export = ['salt_3d', 'uv_3d', 'w_3d']
-    solver_obj.options.update(sdict['options'])
-    solver_obj.options.horizontal_viscosity_scale = Constant(kappa0)
+    solver_obj.options.horizontal_viscosity_scale = Constant(50.0)
     solver_obj.options.update(options)
 
     solver_obj.create_function_spaces()
 
     # functions for source terms
-    source_salt = Function(solver_obj.function_spaces.H, name='salinity source')
-    source_salt.project(sdict['res_expr'])
-    solver_obj.options.salinity_source_3d = source_salt
+    x, y, z = SpatialCoordinate(solver_obj.mesh)
+    solver_obj.options.salinity_source_3d = setup_obj.residual(x, y, z, lx, ly)
 
     # diffusivuty
-    kappa = Function(solver_obj.function_spaces.P1, name='diffusivity')
-    kappa.project(sdict['kappa_expr'])
-    solver_obj.options.horizontal_diffusivity = kappa
+    solver_obj.options.horizontal_diffusivity = setup_obj.kappa(x, y, z, lx, ly)
 
-    # analytical solution in high-order space for computing L2 norms
-    h_ho = FunctionSpace(solver_obj.mesh, 'DG', order+3)
-    trac_ana_ho = Function(h_ho, name='Analytical T')
-    trac_ana_ho.project(sdict['tracer_expr'])
     # analytical solution
-    trac_ana = Function(solver_obj.function_spaces.H, name='Analytical T')
-    trac_ana.project(sdict['tracer_expr'])
+    trac_ana = setup_obj.tracer(x, y, z, lx, ly)
 
     bnd_salt = {'value': trac_ana}
     solver_obj.bnd_functions['salt'] = {1: bnd_salt, 2: bnd_salt,
@@ -193,14 +214,14 @@ def run(setup, refinement, order, do_export=True, **options):
     solver_obj.create_equations()
     dt = solver_obj.dt
     # elevation field
-    solver_obj.fields.elev_2d.project(sdict['elev_expr'])
+    solver_obj.fields.elev_2d.project(setup_obj.elev(x_2d, y_2d, lx, ly))
     # update mesh and fields
     solver_obj.mesh_updater.update_mesh_coordinates()
 
     # salinity field
-    solver_obj.fields.salt_3d.project(sdict['tracer_expr'])
+    solver_obj.fields.salt_3d.project(setup_obj.tracer(x, y, z, lx, ly))
     # velocity field
-    solver_obj.fields.uv_3d.project(sdict['uv_expr'])
+    solver_obj.fields.uv_3d.project(setup_obj.uv(x, y, z, lx, ly))
     solver_obj.w_solver.solve()
 
     if do_export:
@@ -221,7 +242,7 @@ def run(setup, refinement, order, do_export=True, **options):
         out_t.write(trac_ana)
         solver_obj.export()
 
-    l2_err = errornorm(trac_ana_ho, solver_obj.fields.salt_3d)/numpy.sqrt(area)
+    l2_err = errornorm(trac_ana, solver_obj.fields.salt_3d)/numpy.sqrt(area)
     print_output('L2 error {:.12f}'.format(l2_err))
 
     return l2_err
@@ -286,29 +307,24 @@ def timestepper_type(request):
     return request.param
 
 
-@pytest.fixture(params=[pytest.mark.not_travis(reason='travis will timeout')(setup1),
-                        pytest.mark.not_travis(reason='travis will timeout')(setup2),
-                        setup3,
-                        setup4],
+@pytest.fixture(params=[Setup1,
+                        Setup2,
+                        Setup3,
+                        Setup4],
                 ids=['setup1', 'setup2', 'setup3', 'setup4'])
 def setup(request):
     return request.param
 
 
-def test_convergence(setup, timestepper_type):
-    run_convergence(setup, [1, 2, 3], 1, save_plot=False, timestepper_type=timestepper_type)
+@pytest.fixture(params=[True, False])
+def auto_sipg(request):
+    return request.param
 
 
-# ---------------------------
-# run individual setup for debugging
-# ---------------------------
-
-# run(setup3, 3, 1)
-
-# ---------------------------
-# run individual scaling test
-# ---------------------------
+def test_convergence(setup, timestepper_type, auto_sipg):
+    run_convergence(setup, [1, 2, 3], 1, save_plot=False, timestepper_type=timestepper_type,
+                    use_automatic_sipg_parameter=auto_sipg)
 
 
 if __name__ == '__main__':
-    run_convergence(setup4, [1, 2, 3], 1, save_plot=True, timestepper_type='SSPRK22')
+    run_convergence(Setup4, [1, 2, 3], 1, save_plot=True, timestepper_type='SSPRK22')

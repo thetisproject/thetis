@@ -7,7 +7,12 @@ from . import shallowwater_eq
 from . import timeintegrator
 from . import rungekutta
 from . import implicitexplicit
+from . import coupled_timeintegrator_2d
+from . import tracer_eq_2d
+from . import conservative_tracer_eq_2d
+import weakref
 import time as time_mod
+import numpy as np
 from mpi4py import MPI
 from . import exporter
 from .field_defs import field_metadata
@@ -15,6 +20,7 @@ from .options import ModelOptions2d
 from . import callback
 from .log import *
 from collections import OrderedDict
+import thetis.limiter as limiter
 
 
 class FlowSolver2d(FrozenClass):
@@ -124,7 +130,7 @@ class FlowSolver2d(FrozenClass):
         self.export_initial_state = True
         """Do export initial state. False if continuing a simulation"""
 
-        self.bnd_functions = {'shallow_water': {}}
+        self.bnd_functions = {'shallow_water': {}, 'tracer': {}}
 
         self._isfrozen = True
 
@@ -168,8 +174,8 @@ class FlowSolver2d(FrozenClass):
 
         :kwarg float alpha: CFL number scaling factor
         """
-        automatic_timestep = (hasattr(self.options.timestepper_options, 'use_automatic_timestep') and
-                              self.options.timestepper_options.use_automatic_timestep)
+        automatic_timestep = (hasattr(self.options.timestepper_options, 'use_automatic_timestep')
+                              and self.options.timestepper_options.use_automatic_timestep)
         # TODO revisit math alpha is OBSOLETE
         if automatic_timestep:
             mesh2d_dt = self.compute_time_step(u_scale=self.options.horizontal_velocity_scale)
@@ -184,6 +190,62 @@ class FlowSolver2d(FrozenClass):
             print_output('dt = {:}'.format(self.dt))
             sys.stdout.flush()
 
+    def set_sipg_parameter(self):
+        r"""
+        Compute a penalty parameter which ensures stability of the Interior Penalty method
+        used for viscosity and diffusivity terms, from Epshteyn et al. 2007
+        (http://dx.doi.org/10.1016/j.cam.2006.08.029).
+
+        The scheme is stable if
+
+        ..math::
+            \alpha|_K > 3*X*p*(p+1)*\cot(\theta_K),
+
+        for all elements :math:`K`, where
+
+        ..math::
+            X = \frac{\max_{x\in K}(\nu(x))}{\min_{x\in K}(\nu(x))},
+
+        :math:`p` the degree, and :math:`\theta_K` is the minimum angle in the element.
+        """
+        degree = self.function_spaces.U_2d.ufl_element().degree()
+        alpha = Constant(5.0*degree*(degree+1) if degree != 0 else 1.5)
+        degree_tracer = self.function_spaces.Q_2d.ufl_element().degree()
+        alpha_tracer = Constant(5.0*degree_tracer*(degree_tracer+1) if degree_tracer != 0 else 1.5)
+
+        if self.options.use_automatic_sipg_parameter:
+            P0 = self.function_spaces.P0_2d
+            theta = get_minimum_angles_2d(self.mesh2d)
+            min_angle = theta.vector().gather().min()
+            print_output("Minimum angle in mesh: {:.2f} degrees".format(np.rad2deg(min_angle)))
+            cot_theta = 1.0/tan(theta)
+
+            # Penalty parameter for shallow water
+            if not self.options.tracer_only:
+                nu = self.options.horizontal_viscosity
+                if nu is not None:
+                    alpha = alpha*get_sipg_ratio(nu)*cot_theta
+                    self.options.sipg_parameter = interpolate(alpha, P0)
+                    max_sipg = self.options.sipg_parameter.vector().gather().max()
+                    print_output("Maximum SIPG value:        {:.2f}".format(max_sipg))
+                else:
+                    print_output("Using default SIPG parameter for shallow water equations")
+
+            # Penalty parameter for tracers
+            if self.options.solve_tracer:
+                nu = self.options.horizontal_diffusivity
+                if nu is not None:
+                    alpha_tracer = alpha_tracer*get_sipg_ratio(nu)*cot_theta
+                    self.options.sipg_parameter_tracer = interpolate(alpha_tracer, P0)
+                    max_sipg = self.options.sipg_parameter_tracer.vector().gather().max()
+                    print_output("Maximum tracer SIPG value: {:.2f}".format(max_sipg))
+                else:
+                    print_output("Using default SIPG parameter for tracer equation")
+        else:
+            print_output("Using default SIPG parameters")
+            self.options.sipg_parameter.assign(alpha)
+            self.options.sipg_parameter_tracer.assign(alpha_tracer)
+
     def create_function_spaces(self):
         """
         Creates function spaces
@@ -193,24 +255,26 @@ class FlowSolver2d(FrozenClass):
         """
         self._isfrozen = False
         # ----- function spaces: elev in H, uv in U, mixed is W
-        self.function_spaces.P0_2d = FunctionSpace(self.mesh2d, 'DG', 0, name='P0_2d')
-        self.function_spaces.P1_2d = FunctionSpace(self.mesh2d, 'CG', 1, name='P1_2d')
+        self.function_spaces.P0_2d = get_functionspace(self.mesh2d, 'DG', 0, name='P0_2d')
+        self.function_spaces.P1_2d = get_functionspace(self.mesh2d, 'CG', 1, name='P1_2d')
         self.function_spaces.P1v_2d = VectorFunctionSpace(self.mesh2d, 'CG', 1, name='P1v_2d')
-        self.function_spaces.P1DG_2d = FunctionSpace(self.mesh2d, 'DG', 1, name='P1DG_2d')
+        self.function_spaces.P1DG_2d = get_functionspace(self.mesh2d, 'DG', 1, name='P1DG_2d')
         self.function_spaces.P1DGv_2d = VectorFunctionSpace(self.mesh2d, 'DG', 1, name='P1DGv_2d')
         # 2D velocity space
         if self.options.element_family == 'rt-dg':
-            self.function_spaces.U_2d = FunctionSpace(self.mesh2d, 'RT', self.options.polynomial_degree+1, name='U_2d')
-            self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='H_2d')
+            self.function_spaces.U_2d = get_functionspace(self.mesh2d, 'RT', self.options.polynomial_degree+1, name='U_2d')
+            self.function_spaces.H_2d = get_functionspace(self.mesh2d, 'DG', self.options.polynomial_degree, name='H_2d')
         elif self.options.element_family == 'dg-cg':
             self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d')
-            self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'CG', self.options.polynomial_degree+1, name='H_2d')
+            self.function_spaces.H_2d = get_functionspace(self.mesh2d, 'CG', self.options.polynomial_degree+1, name='H_2d')
         elif self.options.element_family == 'dg-dg':
             self.function_spaces.U_2d = VectorFunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='U_2d')
-            self.function_spaces.H_2d = FunctionSpace(self.mesh2d, 'DG', self.options.polynomial_degree, name='H_2d')
+            self.function_spaces.H_2d = get_functionspace(self.mesh2d, 'DG', self.options.polynomial_degree, name='H_2d')
         else:
             raise Exception('Unsupported finite element family {:}'.format(self.options.element_family))
         self.function_spaces.V_2d = MixedFunctionSpace([self.function_spaces.U_2d, self.function_spaces.H_2d])
+
+        self.function_spaces.Q_2d = get_functionspace(self.mesh2d, 'DG', 1, name='Q_2d')
 
         self._isfrozen = True
 
@@ -225,14 +289,39 @@ class FlowSolver2d(FrozenClass):
         self.fields.solution_2d = Function(self.function_spaces.V_2d, name='solution_2d')
         self.fields.h_elem_size_2d = Function(self.function_spaces.P1_2d)
         get_horizontal_elem_size_2d(self.fields.h_elem_size_2d)
+        self.set_sipg_parameter()
+        self.depth = DepthExpression(self.fields.bathymetry_2d,
+                                     use_nonlinear_equations=self.options.use_nonlinear_equations,
+                                     use_wetting_and_drying=self.options.use_wetting_and_drying,
+                                     wetting_and_drying_alpha=self.options.wetting_and_drying_alpha)
 
         # ----- Equations
         self.eq_sw = shallowwater_eq.ShallowWaterEquations(
             self.fields.solution_2d.function_space(),
-            self.fields.bathymetry_2d,
+            self.depth,
             self.options
         )
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
+        if self.options.solve_tracer:
+            self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
+            if self.options.timestepper_type == 'CrankNicolson':
+                if self.options.use_tracer_conservative_form:
+                    self.eq_tracer = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
+                        self.function_spaces.Q_2d, self.depth,
+                        use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                        sipg_parameter=self.options.sipg_parameter_tracer)
+                else:
+                    self.eq_tracer = tracer_eq_2d.TracerEquation2D(
+                        self.function_spaces.Q_2d, self.depth,
+                        use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                        sipg_parameter=self.options.sipg_parameter_tracer)
+                if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
+                    self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
+                else:
+                    self.tracer_limiter = None
+            else:
+                raise NotImplementedError("Tracer equation is currently only implemented for the CrankNicolson timestepper scheme")
+
         self._isfrozen = True  # disallow creating new attributes
 
     def create_timestepper(self):
@@ -284,41 +373,42 @@ class FlowSolver2d(FrozenClass):
                                                   fields, self.dt,
                                                   bnd_conditions=self.bnd_functions['shallow_water'],
                                                   solver_parameters=self.options.timestepper_options.solver_parameters)
-        elif self.options.timestepper_type == 'SSPRK33Semi':
-            self.timestepper = rungekutta.SSPRK33SemiImplicit(self.eq_sw, self.fields.solution_2d,
-                                                              fields, self.dt,
-                                                              bnd_conditions=self.bnd_functions['shallow_water'],
-                                                              solver_parameters=self.options.timestepper_options.solver_parameters,
-                                                              semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-                                                              theta=self.options.timestepper_options.implicitness_theta)
-
         elif self.options.timestepper_type == 'ForwardEuler':
             self.timestepper = timeintegrator.ForwardEuler(self.eq_sw, self.fields.solution_2d,
                                                            fields, self.dt,
                                                            bnd_conditions=self.bnd_functions['shallow_water'],
                                                            solver_parameters=self.options.timestepper_options.solver_parameters)
         elif self.options.timestepper_type == 'BackwardEuler':
-            self.timestepper = rungekutta.BackwardEuler(self.eq_sw, self.fields.solution_2d,
-                                                        fields, self.dt,
-                                                        bnd_conditions=self.bnd_functions['shallow_water'],
-                                                        solver_parameters=self.options.timestepper_options.solver_parameters)
+            self.timestepper = rungekutta.BackwardEulerUForm(
+                self.eq_sw, self.fields.solution_2d, fields, self.dt,
+                bnd_conditions=self.bnd_functions['shallow_water'],
+                solver_parameters=self.options.timestepper_options.solver_parameters,
+                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+            )
         elif self.options.timestepper_type == 'CrankNicolson':
-            self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
-                                                            fields, self.dt,
-                                                            bnd_conditions=self.bnd_functions['shallow_water'],
-                                                            solver_parameters=self.options.timestepper_options.solver_parameters,
-                                                            semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-                                                            theta=self.options.timestepper_options.implicitness_theta)
+            if self.options.solve_tracer:
+                self.timestepper = coupled_timeintegrator_2d.CoupledCrankNicolson2D(weakref.proxy(self))
+            else:
+                self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
+                                                                fields, self.dt,
+                                                                bnd_conditions=self.bnd_functions['shallow_water'],
+                                                                solver_parameters=self.options.timestepper_options.solver_parameters,
+                                                                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+                                                                theta=self.options.timestepper_options.implicitness_theta)
         elif self.options.timestepper_type == 'DIRK22':
-            self.timestepper = rungekutta.DIRK22(self.eq_sw, self.fields.solution_2d,
-                                                 fields, self.dt,
-                                                 bnd_conditions=self.bnd_functions['shallow_water'],
-                                                 solver_parameters=self.options.timestepper_options.solver_parameters)
+            self.timestepper = rungekutta.DIRK22UForm(
+                self.eq_sw, self.fields.solution_2d, fields, self.dt,
+                bnd_conditions=self.bnd_functions['shallow_water'],
+                solver_parameters=self.options.timestepper_options.solver_parameters,
+                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+            )
         elif self.options.timestepper_type == 'DIRK33':
-            self.timestepper = rungekutta.DIRK33(self.eq_sw, self.fields.solution_2d,
-                                                 fields, self.dt,
-                                                 bnd_conditions=self.bnd_functions['shallow_water'],
-                                                 solver_parameters=self.options.timestepper_options.solver_parameters)
+            self.timestepper = rungekutta.DIRK33UForm(
+                self.eq_sw, self.fields.solution_2d, fields, self.dt,
+                bnd_conditions=self.bnd_functions['shallow_water'],
+                solver_parameters=self.options.timestepper_options.solver_parameters,
+                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
+            )
         elif self.options.timestepper_type == 'SteadyState':
             self.timestepper = timeintegrator.SteadyState(self.eq_sw, self.fields.solution_2d,
                                                           fields, self.dt,
@@ -329,7 +419,7 @@ class FlowSolver2d(FrozenClass):
             u_test = TestFunction(self.function_spaces.U_2d)
             self.eq_mom = shallowwater_eq.ShallowWaterMomentumEquation(
                 u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
-                self.fields.bathymetry_2d,
+                self.depth,
                 options=self.options
             )
             self.eq_mom.bnd_functions = self.bnd_functions['shallow_water']
@@ -408,7 +498,7 @@ class FlowSolver2d(FrozenClass):
             self.create_exporters()
         self._initialized = True
 
-    def assign_initial_conditions(self, elev=None, uv=None):
+    def assign_initial_conditions(self, elev=None, uv=None, tracer=None):
         """
         Assigns initial conditions
 
@@ -424,6 +514,8 @@ class FlowSolver2d(FrozenClass):
             elev_2d.project(elev)
         if uv is not None:
             uv_2d.project(uv)
+        if tracer is not None and self.options.solve_tracer:
+            self.fields.tracer_2d.project(tracer)
 
         self.timestepper.initialize(self.fields.solution_2d)
 
@@ -511,14 +603,24 @@ class FlowSolver2d(FrozenClass):
 
         :arg float cputime: Measured CPU time
         """
-        norm_h = norm(self.fields.solution_2d.split()[1])
-        norm_u = norm(self.fields.solution_2d.split()[0])
+        if self.options.tracer_only:
+            norm_q = norm(self.fields.tracer_2d)
 
-        line = ('{iexp:5d} {i:5d} T={t:10.2f} '
-                'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
-        print_output(line.format(iexp=self.i_export, i=self.iteration,
-                                 t=self.simulation_time, e=norm_h,
-                                 u=norm_u, cpu=cputime))
+            line = ('{iexp:5d} {i:5d} T={t:10.2f} '
+                    'tracer norm: {q:10.4f} {cpu:5.2f}')
+
+            print_output(line.format(iexp=self.i_export, i=self.iteration,
+                                     t=self.simulation_time, q=norm_q,
+                                     cpu=cputime))
+        else:
+            norm_h = norm(self.fields.solution_2d.split()[1])
+            norm_u = norm(self.fields.solution_2d.split()[0])
+
+            line = ('{iexp:5d} {i:5d} T={t:10.2f} '
+                    'eta norm: {e:10.4f} u norm: {u:10.4f} {cpu:5.2f}')
+            print_output(line.format(iexp=self.i_export, i=self.iteration,
+                                     t=self.simulation_time, e=norm_h,
+                                     u=norm_u, cpu=cputime))
         sys.stdout.flush()
 
     def iterate(self, update_forcings=None,
@@ -539,6 +641,8 @@ class FlowSolver2d(FrozenClass):
         if not self._initialized:
             self.initialize()
 
+        self.options.use_limiter_for_tracers &= self.options.polynomial_degree > 0
+
         t_epsilon = 1.0e-5
         cputimestamp = time_mod.clock()
         next_export_t = self.simulation_time + self.options.simulation_export_time
@@ -550,16 +654,33 @@ class FlowSolver2d(FrozenClass):
                                                       append_to_log=True)
             self.add_callback(c)
 
+        if self.options.check_tracer_conservation:
+            c = callback.TracerMassConservation2DCallback('tracer_2d',
+                                                          self,
+                                                          export_to_hdf5=dump_hdf5,
+                                                          append_to_log=True)
+            self.add_callback(c, eval_interval='export')
+
+        if self.options.check_tracer_overshoot:
+            c = callback.TracerOvershootCallBack('tracer_2d',
+                                                 self,
+                                                 export_to_hdf5=dump_hdf5,
+                                                 append_to_log=True)
+            self.add_callback(c, eval_interval='export')
+
         # initial export
         self.print_state(0.0)
         if self.export_initial_state:
             self.export()
             if export_func is not None:
                 export_func()
-            if 'vtk' in self.exporters:
+            if 'vtk' in self.exporters and isinstance(self.fields.bathymetry_2d, Function):
                 self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
-        while self.simulation_time <= self.options.simulation_end_time + t_epsilon:
+        initial_simulation_time = self.simulation_time
+        internal_iteration = 0
+
+        while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
 
             if self.options.use_smagorinsky_viscosity:
                 self.uv_p1_projector.project()
@@ -570,7 +691,8 @@ class FlowSolver2d(FrozenClass):
 
             # Move to next time step
             self.iteration += 1
-            self.simulation_time = self.iteration*self.dt
+            internal_iteration += 1
+            self.simulation_time = initial_simulation_time + internal_iteration*self.dt
 
             self.callbacks.evaluate(mode='timestep')
 

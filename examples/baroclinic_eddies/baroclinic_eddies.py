@@ -33,52 +33,75 @@ from diagnostics import *
 
 
 def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
-                reynolds_number=20.0, dt=None,
-                viscosity='const', laxfriedrichs=0.0):
+                reynolds_number=20.0, viscosity_scale=None, dt=None,
+                elem_type='tri',
+                laxfriedrichs_vel=0.0, laxfriedrichs_trc=0.0,
+                number_of_z_levels=None, viscosity='const'):
     """
     Runs problem with a bunch of user defined options.
     """
-    delta_x = reso_dx*1.e3
-    nlayers = 20
 
-    comm = COMM_WORLD
+    def get_nlayers(dx):
+        # compute number of vertical layers
+        return int(60./dx*1000. + 20)
+
+    delta_x = reso_dx*1.e3
+    if number_of_z_levels is not None:
+        nlayers = number_of_z_levels
+    else:
+        nlayers = get_nlayers(delta_x)
 
     lx = 160e3
     ly = 500e3
     nx = int(lx/delta_x)
     ny = int(ly/delta_x)
     delta_x = lx/nx
-    mesh2d = PeriodicRectangleMesh(nx, ny, lx, ly, direction='x')
+    mesh2d = PeriodicRectangleMesh(
+        nx, ny, lx, ly, direction='x',
+        quadrilateral=(elem_type == 'quad')
+    )
     depth = 1000.
 
     u_max = 1.0
     w_max = 1e-3
     # compute horizontal viscosity
     uscale = 0.1
-    nu_scale = uscale * delta_x / reynolds_number
+    if viscosity_scale is None:
+        # compute viscosity scale from mesh Reynolds number
+        nu_scale = uscale * delta_x / reynolds_number
+        visc_str = 'Re{:}'.format(reynolds_number)
+    else:
+        # compute mesh Reynolds number from viscosity scale
+        nu_scale = viscosity_scale
+        reynolds_number = uscale * delta_x / nu_scale
+        visc_str = 'nu{:}'.format(nu_scale)
 
     f_cori = -1.2e-4
     bottom_drag = 0.01
-    t_end = 200*24*3600.  # 365*24*3600.
+    t_end = 320*24*3600.  # 365*24*3600.
     t_export = 3*3600.
 
-    nnodes = mesh2d.topology.num_vertices()
-    ntriangles = mesh2d.topology.num_cells()
-    nprisms = ntriangles * nlayers
-    ndofs = nprisms * 6 if poly_order == 1 else nprisms
+    if os.getenv('THETIS_REGRESSION_TEST') is not None:
+        t_end = 1*t_export
 
     reso_str = 'dx' + str(np.round(delta_x/1000., decimals=1))
+    reso_str += '_nz' + str(nlayers)
+    if dt is not None:
+        reso_str += '_dt{:}'.format(np.round(dt, 1))
+
     options_str = '_'.join([reso_str,
                             element_family,
+                            elem_type,
                             'p{:}'.format(poly_order),
                             'visc-{:}'.format(viscosity),
-                            'Re{:}'.format(reynolds_number),
-                            'lf{:.1f}'.format(laxfriedrichs),
+                            visc_str,
+                            'lf-vel{:.1f}'.format(laxfriedrichs_vel),
+                            'lf-trc{:.1f}'.format(laxfriedrichs_trc),
                             ])
     outputdir = 'outputs_' + options_str
 
     # bathymetry
-    P1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    P1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(P1_2d, name='Bathymetry')
     bathymetry_2d.assign(depth)
 
@@ -103,16 +126,13 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     options.quadratic_drag_coefficient = Constant(bottom_drag)
     options.use_baroclinic_formulation = True
     options.coriolis_frequency = Constant(f_cori)
-    if laxfriedrichs > 0.0:
-        options.use_lax_friedrichs_velocity = True
-        options.use_lax_friedrichs_tracer = True
-        options.lax_friedrichs_velocity_scaling_factor = Constant(laxfriedrichs)
-        options.lax_friedrichs_tracer_scaling_factor = Constant(laxfriedrichs)
-    else:
-        options.use_lax_friedrichs_velocity = False
-        options.use_lax_friedrichs_tracer = False
+    options.use_lax_friedrichs_velocity = laxfriedrichs_vel > 0.0
+    options.use_lax_friedrichs_tracer = laxfriedrichs_trc > 0.0
+    options.lax_friedrichs_velocity_scaling_factor = Constant(laxfriedrichs_vel)
+    options.lax_friedrichs_tracer_scaling_factor = Constant(laxfriedrichs_trc)
     options.use_limiter_for_tracers = True
     options.vertical_viscosity = Constant(1.0e-4)
+    options.use_limiter_for_velocity = True
     if viscosity == 'smag':
         options.use_smagorinsky_viscosity = True
         options.smagorinsky_coefficient = Constant(1.0/np.sqrt(reynolds_number))
@@ -139,6 +159,8 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
                                 'w_3d', 'w_mesh_3d', 'temp_3d', 'salt_3d', 'density_3d',
                                 'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
                                 'smag_visc_3d']
+    options.fields_to_export_hdf5 = ['uv_2d', 'elev_2d', 'uv_3d',
+                                     'salt_3d', 'temp_3d', 'tke_3d', 'psi_3d']
     options.equation_of_state_type = 'linear'
     options.equation_of_state_options.rho_ref = rho_0
     options.equation_of_state_options.s_ref = salt_const
@@ -154,7 +176,8 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     print_output('Mesh resolution dx={:} nlayers={:}'.format(delta_x, nlayers))
     print_output('Reynolds number: {:}'.format(reynolds_number))
     print_output('Horizontal viscosity: {:}'.format(nu_scale))
-    print_output('Lax-Friedrichs factor: {:}'.format(laxfriedrichs))
+    print_output('Lax-Friedrichs factor vel: {:}'.format(laxfriedrichs_vel))
+    print_output('Lax-Friedrichs factor trc: {:}'.format(laxfriedrichs_trc))
     print_output('Exporting to {:}'.format(outputdir))
 
     xyz = SpatialCoordinate(solver_obj.mesh)
@@ -214,7 +237,16 @@ def run_problem(reso_dx=10.0, poly_order=1, element_family='dg-dg',
     elev_init += -mean_elev  # remove mean
     solver_obj.assign_initial_conditions(temp=temp_init3d, elev=elev_init)
 
-    solver_obj.iterate()
+    # custom export of surface temperature field
+    surf_temp_2d = Function(solver_obj.function_spaces.H_2d, name='Temperature')
+    extract_surf_temp = SubFunctionExtractor(solver_obj.fields.temp_3d, surf_temp_2d)
+    surf_temp_file = File(options.output_directory + '/SurfTemperature2d.pvd')
+
+    def export_func():
+        extract_surf_temp.solve()
+        surf_temp_file.write(surf_temp_2d)
+
+    solver_obj.iterate(export_func=export_func)
 
 
 def get_argparser():
@@ -230,15 +262,25 @@ def get_argparser():
                         help='finite element family', default='dg-dg')
     parser.add_argument('-re', '--reynolds-number', type=float, default=1.0,
                         help='mesh Reynolds number for Smagorinsky scheme')
+    parser.add_argument('-nu', '--viscosity-scale', type=float,
+                        help='constant viscosity scale (optional, use instead of Re)')
     parser.add_argument('-dt', '--dt', type=float,
                         help='force value for 3D time step')
+    parser.add_argument('-nz', '--number-of-z-levels', type=int,
+                        help='force number of vertical levels')
     parser.add_argument('-visc', '--viscosity', type=str,
                         help='Type of horizontal viscosity',
                         default='const',
                         choices=['const', 'smag', 'none'])
-    parser.add_argument('-lf', '--laxfriedrichs', type=float,
-                        help='Lax-Friedrichs flux factor for uv and temperature',
+    parser.add_argument('-lf-trc', '--laxfriedrichs-trc', type=float,
+                        help='Lax-Friedrichs flux factor for tracers',
                         default=0.0)
+    parser.add_argument('-lf-vel', '--laxfriedrichs-vel', type=float,
+                        help='Lax-Friedrichs flux factor for velocity',
+                        default=1.0)
+    parser.add_argument('-e', '--elem-type', type=str,
+                        help='Type of 2D element, either "tri" or "quad"',
+                        default='tri')
     return parser
 
 

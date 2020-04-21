@@ -38,7 +38,7 @@ def test_pressure_forcing(element_family, timestepper):
     eta_errs = []
 
     n_tests = 3
-    ns = [2.0**(i+1) for i in range(n_tests)]
+    ns = [2**(i+1) for i in range(n_tests)]
     if timestepper == 'CrankNicolson':
         dts = [2400.0/(2**i) for i in range(n_tests)]
     else:
@@ -55,7 +55,7 @@ def test_pressure_forcing(element_family, timestepper):
         eta_expr = A*cos(pi*x[0]/lx)*cos(pi*x[1]/ly)
 
         # bathymetry
-        P1 = FunctionSpace(mesh2d, "DG", 1)
+        P1 = get_functionspace(mesh2d, "DG", 1)
         bathymetry = Function(P1, name='bathymetry')
         bathymetry.interpolate(Constant(5.0))
 

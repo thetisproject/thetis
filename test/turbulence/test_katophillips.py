@@ -17,8 +17,6 @@ Initially buoyancy frequency is constant N = 0.01 s-1.
     marine model with a finite difference turbulence closure model.
     Ocean Modelling, 47:55-64.
     http://dx.doi.org/10.1016/j.ocemod.2012.01.001
-
-Tuomas Karna 2016-03-05
 """
 from thetis import *
 import pytest
@@ -49,7 +47,7 @@ def run_katophillips(**model_options):
     u_mag = 1.0
 
     # bathymetry
-    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    p1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry2d = Function(p1_2d, name='Bathymetry')
     bathymetry2d.assign(depth)
 
@@ -64,7 +62,7 @@ def run_katophillips(**model_options):
     options.solve_temperature = False
     options.constant_temperature = Constant(10.0)
     options.use_implicit_vertical_diffusion = True
-    options.use_bottom_friction = True
+    options.use_bottom_friction = False
     options.use_turbulence = True
     options.use_ale_moving_mesh = False
     options.use_baroclinic_formulation = True
@@ -82,9 +80,7 @@ def run_katophillips(**model_options):
     options.check_salinity_overshoot = True
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'salt_3d',
-                                'baroc_head_3d',
-                                'uv_dav_2d', 'uv_bottom_2d',
-                                'parab_visc_3d', 'eddy_visc_3d',
+                                'baroc_head_3d', 'uv_dav_2d', 'eddy_visc_3d',
                                 'shear_freq_3d', 'buoy_freq_3d',
                                 'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
     options.update(model_options)
@@ -101,7 +97,8 @@ def run_katophillips(**model_options):
     beta = 0.7865  # haline contraction coefficient [kg m-3 psu-1]
     salt_grad = rho_grad/beta
     salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
-    salt_init_expr = Expression('dsdz*x[2]', dsdz=salt_grad)
+    x, y, z = SpatialCoordinate(solver_obj.mesh)
+    salt_init_expr = salt_grad*z
     salt_init3d.interpolate(salt_init_expr)
 
     solver_obj.assign_initial_conditions(salt=salt_init3d)
@@ -134,15 +131,12 @@ def run_katophillips(**model_options):
     print_output('Mixed layer depth: {:.2f} (target: {:.2f}) PASSED'.format(ml_depth, target))
 
 
-@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')('rt-dg'),
-                        'dg-dg'])
+@pytest.fixture(params=['rt-dg', 'dg-dg'])
 def element_family(request):
     return request.param
 
 
-@pytest.fixture(params=[pytest.mark.not_travis(reason='travis timeout')('SSPRK33'),
-                        'LeapFrog',
-                        'SSPRK22'])
+@pytest.fixture(params=['LeapFrog', 'SSPRK22'])
 def timestepper_type(request):
     return request.param
 

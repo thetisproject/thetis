@@ -1,52 +1,55 @@
-# Overflow Test case
-# =======================
-#
-# Overflow test case from Haidvogel and Beckmann (1999)
-#
-# 200 km long channel with sloping bathymetry from 200 m to 4 km depth.
-# Initially dense water is located on top of the slope.
-#
-# Horizontal resolution: 1 km
-# Vertical layers: 40, 66, or 100 (Ilicak, 2012)
-# Baroclinic/barotropic time steps: 10.0 s / 1.0 s
-#
-# Dianeutral mixing depends on mesh Reynolds number (Ilicak et al. 2012)
-# Re_h = U dx / nu
-# U = 0.5 m/s characteristic velocity ~ 0.5*sqrt(g_h drho/rho_0)
-# dx = horizontal mesh size
-# nu = background viscosity
-#
-# For coarse mesh:
-# Re_h = 0.5 2000 / 100 = 10
-#
-# TODO run medium for Re_h = 250
-# => nu = 0.5 500 / 250 = 1.0
-#
-# Smagorinsky factor should be C_s = 1/sqrt(Re_h)
-#
-# Tuomas Karna 2015-06-10
+"""
+Overflow Test case
+=======================
 
+Overflow test case from Haidvogel and Beckmann (1999)
+
+200 km long channel with sloping bathymetry from 200 m to 4 km depth.
+Initially dense water is located on top of the slope.
+
+Horizontal resolution: 1 km
+Vertical layers: 40, 66, or 100 (Ilicak, 2012)
+Baroclinic/barotropic time steps: 10.0 s / 1.0 s
+
+Dianeutral mixing depends on mesh Reynolds number (Ilicak et al. 2012)
+Re_h = U dx / nu
+U = 0.5 m/s characteristic velocity ~ 0.5*sqrt(g_h drho/rho_0)
+dx = horizontal mesh size
+nu = background viscosity
+"""
 from thetis import *
 
 physical_constants['rho0'] = 999.7
 
-reso_str = 'medium'
-refinement = {'medium': 1}
-layers = int(round(50*refinement[reso_str]))/2
-mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
-print_output('Loaded mesh '+mesh2d.name)
-dt = 5.0/refinement[reso_str]
+reso_str = 'coarse'
+refinement = {'medium': 4, 'coarse': 1}
+lx = 200.0e3
+delta_x = 4000./refinement[reso_str]
+nx = int(lx/delta_x)
+ny = 2
+ly = ny*delta_x
+mesh2d = RectangleMesh(nx, ny, lx, ly)
+layers = 10 if reso_str == 'coarse' else 25
+
+dt = 20.0/refinement[reso_str]
 t_end = 25 * 3600
 t_export = 15*60.0
 depth = 20.0
 Re_h = 10.0
 outputdir = 'outputs_' + reso_str + '_Re' + str(int(Re_h))
 
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 1*t_export
+
 # bathymetry
-P1_2d = FunctionSpace(mesh2d, 'CG', 1)
+P1_2d = get_functionspace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
-bathymetry_2d.interpolate(Expression('hmin + 0.5*(hmax - hmin)*(1 + tanh((x[0] - x0)/Ls))',
-                          hmin=500.0, hmax=2000.0, Ls=10.0e3, x0=40.0e3))
+hmin = 500.0
+hmax = 2000.0
+Ls = 10.0e3
+x0 = 40.0e3
+x, y = SpatialCoordinate(mesh2d)
+bathymetry_2d.interpolate(hmin + 0.5*(hmax - hmin)*(1 + tanh((x - x0)/Ls)))
 
 # temperature and salinity, results in 2.0 kg/m3 density difference
 salt_left = 2.5489
@@ -57,8 +60,7 @@ temp_const = 10.0
 solver_obj = solver.FlowSolver(mesh2d, bathymetry_2d, layers)
 options = solver_obj.options
 options.element_family = 'dg-dg'
-options.timestepper_type = 'LeapFrog'
-# options.timestepper_type = 'SSPRK33'
+options.timestepper_type = 'SSPRK22'
 options.solve_salinity = True
 options.solve_temperature = False
 options.constant_temperature = Constant(temp_const)
@@ -90,12 +92,13 @@ options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
 
 solver_obj.create_equations()
 salt_init3d = Function(solver_obj.function_spaces.H, name='initial salinity')
+x, y, z = SpatialCoordinate(solver_obj.mesh)
+x0 = 20.0e3
 # vertical barrier
-# salt_init3d.interpolate(Expression('(x[0] > 20.0e3) ? s_r : s_l',
-#                                    s_l=salt_left, s_r=salt_right))
+salt_init3d.interpolate(conditional(le(x, x0), salt_left, salt_right))
 # smooth condition
-salt_init3d.interpolate(Expression('s_l + (s_r - s_l)*0.5*(1.0 + tanh((x[0] - x0)/sigma))',
-                                   s_l=salt_left, s_r=salt_right, x0=20.0e3, sigma=1000.0))
+# sigma = 1000.0
+# salt_init3d.interpolate(salt_left + (salt_right - salt_left)*0.5*(1.0 + tanh((x - x0)/sigma)))
 
 solver_obj.assign_initial_conditions(salt=salt_init3d)
 solver_obj.iterate()

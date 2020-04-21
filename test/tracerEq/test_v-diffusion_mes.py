@@ -1,7 +1,5 @@
 """
 Testing 3D vertical diffusion of tracers against analytical solution.
-
-Tuomas Karna 2015-12-14
 """
 from thetis import *
 import numpy
@@ -27,25 +25,28 @@ def run(refinement, **model_options):
     mesh2d = RectangleMesh(nx, ny, lx, ly)
 
     # set time steps
-    # stable explicit time step for diffusion
-    dz = depth/n_layers
-    alpha = 1.0/200.0  # TODO theoretical alpha...
-    dt = alpha * dz**2/vertical_diffusivity
+    if implicit:
+        dt = 100.
+    else:
+        # stable explicit time step for diffusion
+        dz = depth/n_layers
+        alpha = 1.0/200.0
+        dt = alpha * dz**2/vertical_diffusivity
     # simulation run time
-    t_end = 3600.0/2
+    t_end = 1900.
     # initial time
     t_init = 100.0  # NOTE start from t > 0 for smoother init cond
     # eliminate reminder
     ndt = np.ceil((t_end-t_init)/dt)
     dt = (t_end-t_init)/ndt
     dt_2d = dt/2
-    t_export = (t_end-t_init)/20.0
+    t_export = (t_end-t_init)/6
 
     # outputs
     outputdir = 'outputs'
 
     # bathymetry
-    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    p1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     bathymetry_2d.assign(depth)
 
@@ -63,6 +64,7 @@ def run(refinement, **model_options):
     options.timestep_2d = dt_2d
     options.solve_salinity = True
     options.use_implicit_vertical_diffusion = implicit
+    options.use_bottom_friction = False
     options.fields_to_export = ['salt_3d']
     options.vertical_diffusivity = Constant(vertical_diffusivity)
     options.update(model_options)
@@ -73,15 +75,19 @@ def run(refinement, **model_options):
 
     t = t_init  # simulation time
 
-    ana_sol_expr = '0.5*(u_max + u_min) - 0.5*(u_max - u_min)*erf((x[2] - z0)/sqrt(4*D*t))'
     t_const = Constant(t)
-    ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, z0=-depth/2.0, D=vertical_diffusivity, t=t_const)
+    u_max = 1.0
+    u_min = -1.0
+    z0 = -depth/2.0
+    x, y, z = SpatialCoordinate(solverobj.mesh)
+    ana_salt_expr = 0.5*(u_max + u_min) - 0.5*(u_max - u_min)*erf((z - z0)/sqrt(4*vertical_diffusivity*t_const))
 
     salt_ana = Function(solverobj.function_spaces.H, name='salt analytical')
     salt_ana_p1 = Function(solverobj.function_spaces.P1, name='salt analytical')
 
-    p1dg_ho = FunctionSpace(solverobj.mesh, 'DG', options.polynomial_degree + 2,
-                            vfamily='DG', vdegree=options.polynomial_degree + 2)
+    p1dg_ho = get_functionspace(solverobj.mesh, 'DG',
+                                options.polynomial_degree + 2, vfamily='DG',
+                                vdegree=options.polynomial_degree + 2)
     salt_ana_ho = Function(p1dg_ho, name='salt analytical')
 
     solverobj.assign_initial_conditions(salt=ana_salt_expr)
@@ -95,7 +101,6 @@ def run(refinement, **model_options):
             solverobj.export()
             # update analytical solution to correct time
             t_const.assign(t)
-            ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, z0=-depth/2.0, D=vertical_diffusivity, t=t_const)
             salt_ana.project(ana_salt_expr)
             out_salt_ana.write(salt_ana_p1.project(salt_ana))
 
@@ -122,7 +127,6 @@ def run(refinement, **model_options):
 
     # project analytical solultion on high order mesh
     t_const.assign(t)
-    ana_salt_expr = Expression(ana_sol_expr, u_max=1.0, u_min=-1.0, z0=-depth/2.0, D=vertical_diffusivity, t=t_const)
     salt_ana_ho.project(ana_salt_expr)
     # compute L2 norm
     l2_err = errornorm(salt_ana_ho, solverobj.fields.salt_3d)/numpy.sqrt(area)
@@ -197,8 +201,7 @@ def implicit(request):
 
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
-                         [('SSPRK33', False),
-                          ('LeapFrog', True),
+                         [('LeapFrog', True),
                           ('SSPRK22', True)])
 def test_vertical_diffusion(polynomial_degree, implicit, stepper, use_ale):
     run_convergence([1, 2, 4], polynomial_degree=polynomial_degree, implicit=implicit,

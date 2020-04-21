@@ -11,7 +11,7 @@ def mesh2d():
 
 @pytest.fixture(scope="module")
 def mesh(mesh2d):
-    fs = FunctionSpace(mesh2d, 'CG', 1)
+    fs = utility.get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(fs).assign(1.0)
     n_layers = 10
     return utility.extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d)
@@ -32,71 +32,79 @@ def spaces(request):
 @pytest.fixture
 def p1_2d(mesh2d, spaces):
     (name, order), (vname, vorder) = spaces
-    return FunctionSpace(mesh2d, name, order)
+    return utility.get_functionspace(mesh2d, name, order)
 
 
 @pytest.fixture
 def p1(mesh, spaces):
     (name, order), (vname, vorder) = spaces
-    return FunctionSpace(mesh, name, order,
-                         vfamily=vname, vdegree=vorder)
+    return utility.get_functionspace(mesh, name, order, vname, vorder)
 
 
 @pytest.fixture
 def u_2d(mesh2d, spaces):
     (name, order), (vname, vorder) = spaces
-    return VectorFunctionSpace(mesh2d, name, order)
+    return utility.get_functionspace(mesh2d, name, order, vector=True)
 
 
 @pytest.fixture
 def u(mesh, spaces):
     (name, order), (vname, vorder) = spaces
-    return VectorFunctionSpace(mesh, name, order,
-                               vfamily=vname, vdegree=vorder)
+    return utility.get_functionspace(mesh, name, order, vname, vorder,
+                                     vector=True)
 
 
 @pytest.fixture
 def c3d(p1):
-    return Function(p1, name="Tracer").interpolate(Expression("x[2] + 2.0"))
+    x, y, z = SpatialCoordinate(p1.mesh())
+    return Function(p1, name="Tracer").interpolate(z + 2.0)
 
 
 @pytest.fixture
 def c3d_x(p1):
-    return Function(p1, name="Tracer").interpolate(Expression("x[0] + 2.0"))
+    x, y, z = SpatialCoordinate(p1.mesh())
+    return Function(p1, name="Tracer").interpolate(x + 2.0)
 
 
 @pytest.fixture
 def c2d(p1_2d):
-    return Function(p1_2d, name="Tracer").interpolate(Expression("4.0"))
+    x, y = SpatialCoordinate(p1_2d.mesh())
+    return Function(p1_2d, name="Tracer").interpolate(Constant(4.0))
 
 
 @pytest.fixture
 def c2d_x(p1_2d):
-    return Function(p1_2d, name="Tracer").interpolate(Expression("2*x[0]"))
+    x, y = SpatialCoordinate(p1_2d.mesh())
+    return Function(p1_2d, name="Tracer").interpolate(2*x)
 
 
 @pytest.fixture
 def uv_3d(u):
-    return Function(u, name="Velocity").interpolate(Expression(('x[2] + 1.0',
-                                                                '2.0*x[2] + 4.0',
-                                                                '3.0*x[2] + 6.0')))
+    x, y, z = SpatialCoordinate(u.mesh())
+    return Function(u, name="Velocity").interpolate(as_vector((z + 1.0,
+                                                               2.0*z + 4.0,
+                                                               3.0*z + 6.0)))
 
 
 @pytest.fixture
 def uv_3d_x(u):
-    return Function(u, name="Velocity").interpolate(Expression(('x[0] + 1.0',
-                                                                '2.0*x[1] + 4.0',
-                                                                '3.0*x[0]*x[2] + 6.0')))
+    x, y, z = SpatialCoordinate(u.mesh())
+    return Function(u, name="Velocity").interpolate(as_vector((x + 1.0,
+                                                               2.0*y + 4.0,
+                                                               3.0*x*z + 6.0)))
 
 
 @pytest.fixture
 def uv_2d(u_2d):
-    return Function(u_2d, name="Velocity").interpolate(Expression(('4.0', '8.0')))
+    x, y = SpatialCoordinate(u_2d.mesh())
+    return Function(u_2d, name="Velocity").interpolate(Constant((4.0, 8.0)))
 
 
 @pytest.fixture
 def uv_2d_x(u_2d):
-    return Function(u_2d, name="Velocity").interpolate(Expression(('4.0*x[0]', '8.0*x[1]')))
+    x, y = SpatialCoordinate(u_2d.mesh())
+    return Function(u_2d, name="Velocity").interpolate(as_vector((4.0*x,
+                                                                  8.0*y)))
 
 
 @pytest.mark.parametrize('params',
@@ -168,6 +176,29 @@ def test_copy_2d_field_to_3d_vec(uv_2d, uv_3d):
     utility.ExpandFunctionTo3d(uv_2d, uv_3d).solve()
     assert np.allclose(uv_3d.dat.data_ro[:, 0], 4.0)
     assert np.allclose(uv_3d.dat.data_ro[:, 1], 8.0)
+
+
+def test_sipg_ratio_constant(c2d):
+    if c2d.ufl_element().degree() > 1:
+        pytest.xfail("Only currently implemented for constant or linear elements")
+    with utility.get_sipg_ratio(c2d).dat.vec_ro as v:
+        assert np.allclose(v.max()[1], 1.0)
+        assert np.allclose(v.min()[1], 1.0)
+
+
+def test_sipg_ratio_scalar(c2d_x):
+    c = c2d_x.copy()
+    c += 1.0
+    if c.ufl_element().degree() > 1:
+        pytest.xfail("Only currently implemented for constant or linear elements")
+    with utility.get_sipg_ratio(c).dat.vec_ro as v:
+        assert np.allclose(v.max()[1], 1.4/1.0)
+        assert np.allclose(v.min()[1], 3.0/2.6)
+
+
+def test_minimum_angle(mesh2d):
+    min_angle = utility.get_minimum_angles_2d(mesh2d).vector().gather().min()
+    assert np.allclose(min_angle, pi/4)
 
 
 if __name__ == '__main__':

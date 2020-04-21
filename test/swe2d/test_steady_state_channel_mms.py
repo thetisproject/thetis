@@ -5,9 +5,11 @@ import pytest
 
 
 @pytest.mark.parametrize("options", [
-    {"no_exports": True, "element_family": "rt-dg"},
-    {"no_exports": True, "element_family": "dg-cg"},
-], ids=["rt-dg", "dg-cg"])
+    {"no_exports": True, "element_family": "rt-dg", "use_automatic_sipg_parameter": False},
+    {"no_exports": True, "element_family": "rt-dg", "use_automatic_sipg_parameter": True},
+    {"no_exports": True, "element_family": "dg-cg", "use_automatic_sipg_parameter": False},
+    {"no_exports": True, "element_family": "dg-cg", "use_automatic_sipg_parameter": True},
+], ids=["rt-dg", "dg-cg", "rt-dg_auto", "dg-cg_auto"])
 def test_steady_state_channel_mms(options):
     lx = 5e3
     ly = 1e3
@@ -42,11 +44,11 @@ def test_steady_state_channel_mms(options):
         eta_bcval = Constant(eta0)
 
         # bathymetry
-        p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+        p1_2d = get_functionspace(mesh2d, 'CG', 1)
         bathymetry_2d = Function(p1_2d, name="bathymetry")
         bathymetry_2d.assign(H0)
 
-        source_space = VectorFunctionSpace(mesh2d, 'DG', order+2)
+        source_space = get_functionspace(mesh2d, 'DG', order+2, vector=True)
         source_func = project(source_expr*xhat, source_space, name="Source")
 
         # --- create solver ---
@@ -61,8 +63,7 @@ def test_steady_state_channel_mms(options):
         solver_obj.options.timestepper_options.solver_parameters = {
             'ksp_type': 'preonly',
             'pc_type': 'lu',
-            'pc_factor_mat_solver_package': 'mumps',
-            'snes_monitor': False,
+            'pc_factor_mat_solver_type': 'mumps',
             'snes_type': 'newtonls',
         }
         if hasattr(solver_obj.options.timestepper_options, 'use_automatic_timestep'):
@@ -88,7 +89,7 @@ def test_steady_state_channel_mms(options):
         solver_obj.create_timestepper()
         solver_obj.timestepper.name = 'test_steady_state_channel_mms'
         solver_obj.timestepper.update_solver()
-        solver_obj.assign_initial_conditions(uv=Expression(("1.0", "0.0")))
+        solver_obj.assign_initial_conditions(uv=Constant((1.0, 0.0)))
 
         if do_exports:
             File('source_{}.pvd'.format(i)).write(source_func)

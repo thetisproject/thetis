@@ -10,17 +10,18 @@
  */
 
 @import url("basic.css");
-@import url("nobile-fontfacekit/stylesheet.css");
-@import url("neuton-fontfacekit/stylesheet.css");
+@import url("open-sans-fontfacekit/stylesheet.css");
+@import url("pt-serif-fontfacekit/stylesheet.css");
 
 /* -- page layout ----------------------------------------------------------- */
 
 body {
-    font-family: "Nobile", sans-serif;
+    font-family: "open_sansregular", sans-serif;
     font-size: 14px;
     background-color: #ffffff;
     color: #ffffff;
-    margin: 0;    padding: 0;
+    margin: 0;
+    padding: 0;
 }
 
 div.documentwrapper {
@@ -29,7 +30,7 @@ div.documentwrapper {
 }
 
 div.bodywrapper {
-    width: 950px;
+    width: 900px;
     margin-left: auto;
     margin-right: auto;
 }
@@ -40,6 +41,7 @@ hr {
 
 div.document {
     background-color: #fff;
+    min-height: 765px;
 }
 
 div.header{
@@ -68,18 +70,21 @@ div.logo-small {
 div.body {
     background-color: #ffffff;
     color: #3E4349;
-    padding: 0 30px 30px 30px;
+    padding: 5px 20px 30px 20px;
+    margin: 0 0 0 0;
+    max-width: 1500px;
     font-size: 14px;
     overflow: auto;
 }
 
 div.footer {
     color: #aaa;
-    width: 100%;
-    padding: 13px 0;
+    margin: 10px auto 0;
+    width: 900px;
+    padding: 23px 0px 30px 0px;
     text-align: center;
     font-size: 13px;
-    background: #000;
+    background: #fbf8f0;
     clear:both;
 }
 
@@ -118,17 +123,19 @@ td.label {
     font-weight: normal;
     text-shadow: none;
 }
+
 /* -- sidebars -------------------------------------------------------------- */
 
 div.sidebar {
-    margin: 0 0 0.5em 1em;
-    border: 2px solid #8c1b1e;
+    margin: 15px -10px 0em 5px;
+    border-style: solid;
+    border-width: 2px;
+    border-color: #888;
     background-color: #eee;
-    width: 300px;
+    width: 250px;
     float: right;
-    border-right-style: none;
-    border-left-style: none;
-    padding: 0px 0px;
+    padding: 6px 6px 6px 6px;
+    border-radius: 8px;
 }
 
 div.latest-commit {
@@ -188,7 +195,7 @@ div.body h3,
 div.body h4,
 div.body h5,
 div.body h6 {
-    font-family: "NeutonRegular", sans-serif;
+    font-family: "pt_serifregular", sans-serif;
     background-color: #ffffff;
     font-weight: normal;
     color: #222;
@@ -197,17 +204,17 @@ div.body h6 {
 }
 
 div.body h1 {
-    font-size: 2.2em;
+    font-size: 2.3em;
     line-height: 1;
     margin-bottom: 0.4em;
 }
 div.body h2 {
-    font-size: 1.6em;
+    font-size: 1.7em;
     line-height: 1;
     margin-bottom: 0.6em;
 }
 div.body h3 {
-    font-size: 1.2em;
+    font-size: 1.3em;
     line-height: 1;
     margin-bottom: 0.8em;
 }
@@ -250,6 +257,11 @@ div.highlight{
     background-color: white;
 }
 
+div.buildstatus {
+    margin-top: -36px;
+    float: right;
+}
+
 div.note {
     border: 2px solid #7a9eec;
     border-right-style: none;
@@ -275,7 +287,7 @@ div.warning div.last {
 }
 
 #thetis-package h2 {
-    background-color: #fafafa;                   
+    background-color: #fafafa;
     border: 2px solid #8c1b1e;
     border-right-style: none;
     border-left-style: none;
@@ -369,8 +381,13 @@ table.imagegrid td{
     text-align: center;
 }
 
+table.docutils {
+    margin: 10px -5px 10px -5px;
+}
+
 table.docutils td {
-    padding: 0.5em;
+    text-align: center;
+    padding: 20px 10px 15px 10px;
 }
 
 table.highlighttable {
@@ -677,3 +694,8 @@ div.last {
 .round-corners {
     border-radius: 6px;
 }
+
+.field-list ul {
+    text-align: left;
+}
+

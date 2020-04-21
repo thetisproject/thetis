@@ -1,21 +1,19 @@
-# Idealised channel flow in 3D
-# ============================
-#
-# Solves shallow water equations in closed rectangular domain
-# with sloping bathymetry.
-#
-# Initially water elevation is set to a piecewise linear function
-# with a slope in the deeper (left) end of the domain. This results
-# in a wave that develops a shock as it reaches shallower end of the domain.
-# This example tests the integrity of the coupled 2D-3D model and stability
-# of momentum advection.
-#
-# This test is also useful for testing tracer conservation and consistency
-# by advecting a constant passive tracer.
-#
-#
-# Tuomas Karna 2015-03-03
+"""
+Idealised channel flow in 3D
+============================
 
+Solves shallow water equations in closed rectangular domain
+with sloping bathymetry.
+
+Initially water elevation is set to a piecewise linear function
+with a slope in the deeper (left) end of the domain. This results
+in a wave that develops a shock as it reaches shallower end of the domain.
+This example tests the integrity of the coupled 2D-3D model and stability
+of momentum advection.
+
+This test is also useful for testing tracer conservation and consistency
+by advecting a constant passive tracer.
+"""
 from thetis import *
 
 n_layers = 6
@@ -29,8 +27,11 @@ print_output('Exporting to ' + outputdir)
 t_end = 6 * 3600
 t_export = 900.0
 
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 5*t_export
+
 # bathymetry
-P1_2d = FunctionSpace(mesh2d, 'CG', 1)
+P1_2d = get_functionspace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
 
 depth_max = 20.0
@@ -64,7 +65,7 @@ options.check_salinity_conservation = True
 options.check_salinity_overshoot = True
 options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
-                            'uv_dav_2d', 'uv_bottom_2d']
+                            'uv_dav_2d']
 
 # initial elevation, piecewise linear function
 elev_init_2d = Function(P1_2d, name='elev_2d_init')

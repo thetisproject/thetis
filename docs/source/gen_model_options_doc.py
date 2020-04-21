@@ -17,7 +17,7 @@ with open('model_options_2d.rst', 'w') as f:
 This page lists all available options for the 2D model.
 
 """
-    content += rst_all_options(CommonModelOptions)
+    content += rst_all_options(CommonModelOptions) + "\n"
     content += rst_all_options(ModelOptions2d)
     f.write(content)
 
@@ -34,7 +34,7 @@ This page lists all available options for the 3D model.
 See also :ref:`turbulence_options` and :ref:`eos_options`.
 
 """
-    content += rst_all_options(CommonModelOptions)
+    content += rst_all_options(CommonModelOptions) + "\n"
     content += rst_all_options(ModelOptions3d)
     f.write(content)
 

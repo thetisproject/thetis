@@ -3,10 +3,9 @@ Tests implicit vertical diffusion on a DG vector field
 ======================================================
 
 Intended to be executed with pytest.
-
-Tuomas Karna 2015-09-16
 """
 from firedrake import *
+from thetis.utility import get_functionspace
 import numpy as np
 
 op2.init(log_level=WARNING)
@@ -43,7 +42,7 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     # define function spaces
     fam = 'DG'
     deg = 1
-    fs = FunctionSpace(mesh, fam, degree=deg, vfamily=fam, vdegree=deg)
+    fs = get_functionspace(mesh, fam, deg)
 
     solution = Function(fs, name='tracer')
     solution_new = Function(fs, name='new tracer')
@@ -67,12 +66,12 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     dt_const = Constant(dt)
 
     # analytical solution
-    ana_sol_str = '0.5*(u_max + u_min) - ' \
-                  '0.5*(u_max - u_min)*erf((x[2] - z0)/sqrt(4*D*t))'
-    ana_sol_expr = Expression(ana_sol_str,
-                              D=diffusivity_v, t=t_const,
-                              u_max=1.0, u_min=-1.0,
-                              z0=-depth/2.0)
+    u_max = 1.0
+    u_min = -1.0
+    z0 = -depth/2.0
+    x, y, z = SpatialCoordinate(mesh)
+    ana_sol_expr = 0.5*(u_max + u_min) - 0.5*(u_max - u_min)*erf((z - z0)/sqrt(4*diffusivity_v*t_const))
+
     # initial condition
     solution.project(ana_sol_expr)
     ana_sol.project(ana_sol_expr)
@@ -157,19 +156,19 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
     solution_2 = Function(fs, name='tracer K2')
     gamma = Constant((2.0 + np.sqrt(2.0))/2.0)
 
-    f1 = (inner(solution_1, test)*dx - inner(solution, test)*dx -
-          gamma*dt_const*rhs(solution_1))
+    f1 = (inner(solution_1, test)*dx - inner(solution, test)*dx
+          - gamma*dt_const*rhs(solution_1))
     prob1 = NonlinearVariationalProblem(f1, solution_1)
     solver1 = LinearVariationalSolver(prob1, solver_parameters=sp)
 
-    f2 = (inner(solution_2, test)*dx - inner(solution, test)*dx -
-          (1.0-gamma)*dt_const*rhs(solution_1) -
-          (gamma)*dt_const*rhs(solution_2))
+    f2 = (inner(solution_2, test)*dx - inner(solution, test)*dx
+          - (1.0-gamma)*dt_const*rhs(solution_1)
+          - (gamma)*dt_const*rhs(solution_2))
     prob2 = NonlinearVariationalProblem(f2, solution_2)
     solver2 = LinearVariationalSolver(prob2, solver_parameters=sp)
 
-    f = (inner(solution_new, test)*dx - inner(solution, test)*dx -
-         dt_const*(0.5*rhs(solution_1) + 0.5*rhs(solution_2)))
+    f = (inner(solution_new, test)*dx - inner(solution, test)*dx
+         - dt_const*(0.5*rhs(solution_1) + 0.5*rhs(solution_2)))
     prob = NonlinearVariationalProblem(f, solution_new)
     solver = LinearVariationalSolver(prob, solver_parameters=sp)
 
@@ -189,10 +188,6 @@ def test_implicit_diffusion(do_export=False, do_assert=True):
 
     # update analytical solution
     t_const.assign(t)
-    ana_sol_expr = Expression(ana_sol_str,
-                              D=diffusivity_v, t=t_const,
-                              u_max=1.0, u_min=-1.0,
-                              z0=-depth/2.0)
     ana_sol.project(ana_sol_expr)
     if do_export:
         sol_file.write(solution)

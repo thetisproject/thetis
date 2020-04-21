@@ -1,7 +1,7 @@
 """
 Launches simulations on HPC machines.
 
-Run paramenters are inherited from the master test case. However, here all
+Run parameters are inherited from the master test case. However, here all
 the parameters can take multiple values. All combinations of parameter values are
 executed:
 
@@ -17,11 +17,11 @@ python mytestcase.py -r medium -dt 50
 
 In addition to the options defined in the test case itself this script defines
 options:
---test    - print job submission scirpts without launching them
+--test    - print job submission scripts without launching them
 --dev     - run simulation in development queue for a short time for debugging
 --verbose - print job submission scirpts and debug information
 
-Depends on batchScriptLib
+Depends on hpclauncher package: https://github.com/tkarna/hpclauncher
 """
 import lockExchange as thetistestcase
 from collections import OrderedDict
@@ -75,7 +75,7 @@ def launch_run(scriptname, options, option_strings):
     verbose = options.pop('verbose', False)
     # generate command for running python script
     optstrs = [' '.join([option_strings[k], str(v)]).strip() for
-               k, v in options.iteritems()]
+               k, v in options.items()]
     cmd = ['{mpiexec}', 'python', scriptname] + optstrs
     cmd = ' '.join(cmd)
 
@@ -142,7 +142,7 @@ def parse_options():
     batchparser.add_argument('--verbose', action='store_true',
                              help='Print generated job script and debug info')
     # copy conventional arguments, but enable setting lists
-    for label, action in store_opts.iteritems():
+    for label, action in store_opts.items():
         batchparser.add_argument(*action.option_strings, type=action.type,
                                  help=action.help,
                                  dest=action.dest,
@@ -150,14 +150,14 @@ def parse_options():
                                  nargs='+',
                                  choices=action.choices)
     # store true/false arguments will be morphed into list of 0|1
-    for label, action in store_true_opts.iteritems():
+    for label, action in store_true_opts.items():
         batchparser.add_argument(*action.option_strings, type=int,
                                  help=action.help,
                                  dest=action.dest,
                                  default=0,
                                  nargs='+',
                                  choices=[0, 1])
-    for label, action in store_false_opts.iteritems():
+    for label, action in store_false_opts.items():
         batchparser.add_argument(*action.option_strings, type=int,
                                  help=action.help,
                                  dest=action.dest,
@@ -185,13 +185,13 @@ def parse_options():
         value_list = listify(args_dict[label])
         value_list = list(OrderedDict.fromkeys(value_list))  # rm duplicates
         nargs = len(value_list)
-        if label in store_true_opts.keys() + store_false_opts.keys():
+        if label in store_true_opts.keys() | store_false_opts.keys():
             # if 1 use (label, ''), if 0 use ('', '')
             label_list = [label if i == 1 else '' for i in value_list]
             value_list = ['']*nargs
         else:
             label_list = [label]*nargs
-        pairs = zip(label_list, value_list)
+        pairs = list(zip(label_list, value_list))
         all_args.append(listify(pairs))
     # get all combinations of options
     combinations_tuples = itertools.product(*all_args)

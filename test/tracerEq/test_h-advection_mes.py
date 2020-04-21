@@ -1,7 +1,5 @@
 """
 Testing 3D horizontal advection of tracers
-
-Tuomas Karna
 """
 from thetis import *
 import numpy
@@ -35,7 +33,7 @@ def run(refinement, **model_options):
     outputdir = 'outputs'
 
     # bathymetry
-    p1_2d = FunctionSpace(mesh2d, 'CG', 1)
+    p1_2d = get_functionspace(mesh2d, 'CG', 1)
     bathymetry_2d = Function(p1_2d, name='Bathymetry')
     bathymetry_2d.assign(depth)
 
@@ -53,6 +51,7 @@ def run(refinement, **model_options):
     options.simulation_export_time = t_export
     options.solve_salinity = True
     options.use_implicit_vertical_diffusion = False
+    options.use_bottom_friction = False
     options.use_limiter_for_tracers = True
     options.fields_to_export = ['salt_3d']
     options.update(model_options)
@@ -82,8 +81,9 @@ def run(refinement, **model_options):
     salt_ana = Function(solverobj.function_spaces.H, name='salt analytical')
     salt_ana_p1 = Function(solverobj.function_spaces.P1, name='salt analytical')
 
-    p1dg_ho = FunctionSpace(solverobj.mesh, 'DG', options.polynomial_degree + 2,
-                            vfamily='DG', vdegree=options.polynomial_degree + 2)
+    p1dg_ho = get_functionspace(solverobj.mesh, 'DG',
+                                options.polynomial_degree + 2, vfamily='DG',
+                                vdegree=options.polynomial_degree + 2)
     salt_ana_ho = Function(p1dg_ho, name='salt analytical')
 
     uv_init = Function(solverobj.function_spaces.U, name='initial uv')
@@ -120,7 +120,7 @@ def run(refinement, **model_options):
             next_export_t += solverobj.options.simulation_export_time
             iexport += 1
 
-    # project analytical solultion on high order mesh
+    # project analytical solution on high order mesh
     t_const.assign(t)
     salt_ana_ho.project(ana_salt_expr)
     # compute L2 norm
@@ -191,8 +191,7 @@ def polynomial_degree(request):
 
 
 @pytest.mark.parametrize(('stepper', 'use_ale'),
-                         [('SSPRK33', False),
-                          ('LeapFrog', True),
+                         [('LeapFrog', True),
                           ('SSPRK22', True)])
 def test_horizontal_advection(polynomial_degree, stepper, use_ale):
     run_convergence([1, 2, 3], polynomial_degree=polynomial_degree,

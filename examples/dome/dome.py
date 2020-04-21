@@ -32,7 +32,7 @@ physical_constants['rho0'] = setup.rho_0
 
 reso_str = 'coarse'
 delta_x_dict = {'normal': 6e3, 'coarse': 20e3}
-n_layers_dict = {'normal': 16, 'coarse': 7}
+n_layers_dict = {'normal': 24, 'coarse': 7}
 n_layers = n_layers_dict[reso_str]
 mesh2d = Mesh('mesh_{0:s}.msh'.format(reso_str))
 print_output('Loaded mesh '+mesh2d.name)
@@ -40,10 +40,13 @@ t_end = 47 * 24 * 3600
 t_export = 3 * 3600
 outputdir = 'outputs_' + reso_str
 
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    t_end = 1*t_export
+
 delta_x = delta_x_dict[reso_str]
 
 # bathymetry
-P1_2d = FunctionSpace(mesh2d, 'CG', 1)
+P1_2d = get_functionspace(mesh2d, 'CG', 1)
 bathymetry_2d = Function(P1_2d, name='Bathymetry')
 xy = SpatialCoordinate(mesh2d)
 lin_bath_expr = (setup.depth_lim[1] - setup.depth_lim[0])/(setup.y_slope[1] - setup.y_slope[0])*(xy[1] - setup.y_slope[0]) + setup.depth_lim[0]
@@ -74,13 +77,17 @@ options.use_implicit_vertical_diffusion = True
 options.use_bottom_friction = True
 options.use_turbulence = True
 options.turbulence_model_type = 'pacanowski'
-options.use_smooth_eddy_viscosity = True
 options.use_ale_moving_mesh = True
 options.use_baroclinic_formulation = True
 options.use_lax_friedrichs_velocity = False
 options.use_lax_friedrichs_tracer = False
 options.coriolis_frequency = Constant(setup.f_0)
 options.use_limiter_for_tracers = True
+options.use_limiter_for_velocity = True
+options.use_lax_friedrichs_tracer = True
+options.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
+options.use_lax_friedrichs_velocity = True
+options.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
 options.quadratic_drag_coefficient = Constant(0.002)
 options.vertical_viscosity = Constant(2e-5)
 options.horizontal_viscosity = Constant(nu_scale)
@@ -142,9 +149,7 @@ mask_temp_relax_3d.dat.data[:] = np.maximum(mask_numpy_x0, mask_numpy_x1)
 ix = mask_temp_relax_3d.dat.data < 0
 mask_temp_relax_3d.dat.data[ix] = 0.0
 # File('mask.pvd').write(mask_temp_relax_3d)
-temp_source_3d = Function(solver_obj.function_spaces.H, name='temperature_relax')
-temp_source_3d.interpolate(mask_temp_relax_3d/t_temp_relax*(temp_relax - solver_obj.fields.temp_3d))
-options.temperature_source_3d = temp_source_3d
+options.temperature_source_3d = mask_temp_relax_3d/t_temp_relax*(temp_relax - solver_obj.fields.temp_3d)
 
 # use salinity field as a passive tracer for tracking inflowing waters
 salt_init_3d = Function(solver_obj.function_spaces.H, name='inflow salinity')
@@ -246,12 +251,18 @@ print_output('Total 2D inflow: {:.3f} Sv'.format(tot_inflow_2d/1e6))
 print_output('Exporting to {:}'.format(outputdir))
 
 
-def show_uv_mag():
-    uv = solver_obj.fields.uv_3d.dat.data
-    print_output('uv: {:9.2e} .. {:9.2e}'.format(uv.min(), uv.max()))
+# Export bottom salinity
+bot_salt_2d = Function(solver_obj.function_spaces.H_2d, name='Salinity')
+extract_bot_salt = SubFunctionExtractor(solver_obj.fields.salt_3d, bot_salt_2d, boundary='bottom')
+bot_salt_file = File(options.output_directory + '/BotSalinity2d.pvd')
+
+
+def export_func():
+    extract_bot_salt.solve()
+    bot_salt_file.write(bot_salt_2d)
 
 
 solver_obj.assign_initial_conditions(temp=temp_init_3d, salt=salt_init_3d)
 # use initial baroclinic head on the boundary
 bhead_init_3d.assign(solver_obj.fields.baroc_head_3d)
-solver_obj.iterate(export_func=show_uv_mag)
+solver_obj.iterate(export_func=export_func)

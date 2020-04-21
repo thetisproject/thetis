@@ -1,6 +1,11 @@
 pipeline {
     agent {
-        label 'linux'
+      docker {
+        image 'firedrakeproject/firedrake-vanilla:latest'
+        label 'firedrakeproject'
+        args '-v /var/run/docker.sock:/var/run/docker.sock'
+        alwaysPull true
+      }
     }
     environment {
         PATH = "/usr/local/bin:/usr/bin:/bin"
@@ -15,13 +20,25 @@ pipeline {
                 }
             }
         }
-        stage('Install Firedrake') {
+        stage('Install Pyadjoint') {
             steps {
                 sh 'mkdir build'
                 dir('build') {
                     timestamps {
-                        sh 'curl -O https://raw.githubusercontent.com/firedrakeproject/firedrake/master/scripts/firedrake-install || (cat firedrake-install.log && /bin/false)'
-                        sh 'python3 ./firedrake-install --disable-ssh --minimal-petsc --adjoint'
+                        sh '''
+sudo -u firedrake /bin/bash << Here
+whoami
+cd /home/firedrake
+. /home/firedrake/firedrake/bin/activate
+firedrake-update --install pyadjoint || (cat firedrake-update.log && /bin/false)
+chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages
+chmod a+rwx /home/firedrake/firedrake/lib/python*/site-packages/easy-install.pth
+chmod a+rwx /home/firedrake/firedrake/bin
+install -d /home/firedrake/firedrake/.cache
+chmod -R a+rwx /home/firedrake/firedrake/.cache
+firedrake-status
+Here
+'''
                     }
                 }
             }
@@ -30,10 +47,34 @@ pipeline {
             steps {
                 timestamps {
                     sh '''
-. build/firedrake/bin/activate
+. /home/firedrake/firedrake/bin/activate
 python -m pip install -r requirements.txt
 python -m pip install -e .
 '''
+                }
+            }
+        }
+        stage('Test') {
+            parallel {
+                stage('Forward Test') {
+                    steps {
+                        timestamps {
+                            sh '''
+. /home/firedrake/firedrake/bin/activate
+python -mpytest -v test/ -n 11
+'''
+                       }
+                    }
+                }
+                stage('Test Adjoint') {
+                    steps {
+                        timestamps {
+                            sh '''
+. /home/firedrake/firedrake/bin/activate
+python -mpytest -v test_adjoint/
+'''
+                        }
+                    }
                 }
             }
         }
@@ -41,30 +82,8 @@ python -m pip install -e .
             steps {
                 timestamps {
                     sh '''
-. build/firedrake/bin/activate
+. /home/firedrake/firedrake/bin/activate
 make lint
-'''
-                }
-            }
-        }
-        stage('Test') {
-            steps {
-                timestamps {
-                    sh '''
-. build/firedrake/bin/activate
-python $(which firedrake-clean)
-python -mpytest -v test/ -n 4
-'''
-                }
-            }
-        }
-        stage('Test Adjoint') {
-            steps {
-                timestamps {
-                    sh '''
-. build/firedrake/bin/activate
-python $(which firedrake-clean)
-python -mpytest -v test_adjoint/
 '''
                 }
             }

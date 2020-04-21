@@ -55,6 +55,8 @@ import scipy.spatial.qhull as qhull
 import netCDF4
 from abc import ABCMeta, abstractmethod
 from firedrake import *
+import re
+import string
 
 TIMESEARCH_TOL = 1e-6
 
@@ -87,14 +89,31 @@ class GridInterpolator(object):
     Based on
     http://stackoverflow.com/questions/20915502/speedup-scipy-griddata-for-multiple-interpolations-between-two-irregular-grids
     """
-    def __init__(self, grid_xyz, target_xyz, fill_mode=None, fill_value=np.nan, normalize=False):
+    def __init__(self, grid_xyz, target_xyz, fill_mode=None, fill_value=np.nan,
+                 normalize=False, dont_raise=False):
         """
-        :arg grid_xyz: Array of source grid coordinates, shape (npoints, 2) or  (npoints, 3)
-        :arg target_xyz: Array of target grid coordinates, shape (n, 2) or  (n, 3)
+        :arg grid_xyz: Array of source grid coordinates, shape (npoints, 2) or
+            (npoints, 3)
+        :arg target_xyz: Array of target grid coordinates, shape (n, 2) or
+            (n, 3)
+        :kwarg fill_mode: Determines how points outside the source grid will be
+            treated. If 'nearest', value of the nearest source point will be
+            used. Otherwise a constant fill value will be used (default).
+        :kwarg float fill_value: Set the fill value (default: NaN)
+        :kwarg bool normalize: If true the data is scaled to unit cube before
+            interpolation. Default: False.
+        :kwarg bool dont_raise: Do not raise a Qhull error if triangulation
+            fails. In this case the data will be set to fill value or nearest
+            neighbor value.
         """
-        self.fill_value = np.nan
+        self.fill_value = fill_value
         self.fill_mode = fill_mode
         self.normalize = normalize
+        self.fill_nearest = self.fill_mode == 'nearest'
+        self.shape = (target_xyz.shape[0], )
+        ngrid_points = grid_xyz.shape[0]
+        if self.fill_nearest:
+            assert ngrid_points > 0, 'at least one source point is needed'
         if self.normalize:
 
             def get_norm_params(x, scale=None):
@@ -118,23 +137,36 @@ class GridInterpolator(object):
             ngrid_xyz = grid_xyz
             ntarget_xyz = target_xyz
 
-        d = ngrid_xyz.shape[1]
-        tri = qhull.Delaunay(ngrid_xyz)
-        # NOTE this becomes expensive in 3D for npoints > 10k
-        simplex = tri.find_simplex(ntarget_xyz)
-        vertices = np.take(tri.simplices, simplex, axis=0)
-        temp = np.take(tri.transform, simplex, axis=0)
-        delta = ntarget_xyz - temp[:, d]
-        bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
-        self.vtx = vertices
-        self.wts = np.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
-        self.outside = np.nonzero(np.any(self.wts < 0, axis=1))[0]
-        self.fill_nearest = self.fill_mode == 'nearest' and len(self.outside) > 0
-        if self.fill_nearest:
-            # find nearest neighbor in the data set
-            from scipy.spatial import cKDTree
-            dist, ix = cKDTree(ngrid_xyz).query(ntarget_xyz[self.outside])
-            self.outside_to_nearest = ix
+        self.cannot_interpolate = False
+        try:
+            d = ngrid_xyz.shape[1]
+            tri = qhull.Delaunay(ngrid_xyz)
+            # NOTE this becomes expensive in 3D for npoints > 10k
+            simplex = tri.find_simplex(ntarget_xyz)
+            vertices = np.take(tri.simplices, simplex, axis=0)
+            temp = np.take(tri.transform, simplex, axis=0)
+            delta = ntarget_xyz - temp[:, d]
+            bary = np.einsum('njk,nk->nj', temp[:, :d, :], delta)
+            self.vtx = vertices
+            self.wts = np.hstack((bary, 1 - bary.sum(axis=1, keepdims=True)))
+            self.outside = np.any(~np.isfinite(self.wts), axis=1)
+            self.outside += np.any(self.wts < 0, axis=1)
+            self.outside = np.nonzero(self.outside)[0]
+            self.fill_nearest *= len(self.outside) > 0
+            if self.fill_nearest:
+                # find nearest neighbor in the data set
+                from scipy.spatial import cKDTree
+                dist, ix = cKDTree(ngrid_xyz).query(ntarget_xyz[self.outside])
+                self.outside_to_nearest = ix
+        except qhull.QhullError as e:
+            if not dont_raise:
+                raise e
+            self.cannot_interpolate = True
+            if self.fill_nearest:
+                # find nearest neighbor in the data set
+                from scipy.spatial import cKDTree
+                dist, ix = cKDTree(ngrid_xyz).query(ntarget_xyz)
+                self.outside_to_nearest = ix
 
     def __call__(self, values):
         """
@@ -143,11 +175,17 @@ class GridInterpolator(object):
         :arg values: Array of source values to interpolate, shape (npoints, )
         :kwarg float fill_value: Fill value to use outside the source grid (default: NaN)
         """
-        ret = np.einsum('nj,nj->n', np.take(values, self.vtx), self.wts)
-        if self.fill_mode is None:
-            ret[self.outside] = self.fill_value
-        elif self.fill_nearest:
-            ret[self.outside] = values[self.outside_to_nearest]
+        if self.cannot_interpolate:
+            if self.fill_nearest:
+                ret = values[self.outside_to_nearest]
+            else:
+                ret = np.ones(self.shape)*self.fill_value
+        else:
+            ret = np.einsum('nj,nj->n', np.take(values, self.vtx), self.wts)
+            if self.fill_nearest:
+                ret[self.outside] = values[self.outside_to_nearest]
+            else:
+                ret[self.outside] = self.fill_value
         return ret
 
 
@@ -331,6 +369,7 @@ class NetCDFLatLonInterpolator2d(SpatialInterpolator2d):
     Usage:
 
     .. code-block:: python
+
         fs = FunctionSpace(...)
         myfunc = Function(fs, ...)
         ncinterp2d = NetCDFLatLonInterpolator2d(fs, to_latlon, nc_filename)
@@ -411,15 +450,16 @@ class NetCDFTimeParser(TimeParser):
         'days': 24*3600.0,
     }
 
-    def __init__(self, filename, time_variable_name='time', allow_gaps=False):
+    def __init__(self, filename, time_variable_name='time', allow_gaps=False,
+                 verbose=False):
         """
         Construct a new object by scraping data from the given netcdf file.
 
         :arg str filename: name of the netCDF file to read
         :kwarg str time_variable_name: name of the time variable in the netCDF
             file (default: 'time')
-        :kwarg bool allow_gaps: if False, an error is raised if time step is not
-            constant.
+        :kwarg bool allow_gaps: if False, an error is raised if time step is
+            not constant.
         """
         self.filename = filename
         self.time_variable_name = time_variable_name
@@ -462,6 +502,14 @@ class NetCDFTimeParser(TimeParser):
             self.time_array = datetime_to_epoch(self.basetime) + np.array(time_var[:]*self.time_scalar, dtype=float)
             self.start_time = epoch_to_datetime(float(self.time_array[0]))
             self.end_time = epoch_to_datetime(float(self.time_array[-1]))
+            self.time_step = np.mean(np.diff(self.time_array))
+            self.nb_steps = len(self.time_array)
+            if verbose:
+                print_output('Parsed file {:}'.format(filename))
+                print_output('  Time span: {:} -> {:}'.format(self.start_time, self.end_time))
+                print_output('  Number of time steps: {:}'.format(self.nb_steps))
+                if self.nb_steps > 1:
+                    print_output('  Time step: {:} h'.format(self.time_step/3600.))
 
     def get_start_time(self):
         return self.start_time
@@ -510,7 +558,7 @@ class NetCDFTimeSearch(TimeSearch):
         self.netcdf_class = netcdf_class
         self.init_date = init_date
         self.sim_start_time = datetime_to_epoch(self.init_date)
-        self.verbose = kwargs.pop('verbose', False)
+        self.verbose = kwargs.get('verbose', False)
         dates = []
         ncfiles = []
         for fn in all_files:
@@ -527,6 +575,12 @@ class NetCDFTimeSearch(TimeSearch):
             print_output('{:}: Found time index:'.format(self.__class__.__name__))
             for i in range(len(self.files)):
                 print_output('{:} {:} {:}'.format(i, self.files[i], self.start_times[i]))
+                nc = self.ncfiles[i]
+                print_output('  {:} -> {:}'.format(nc.start_time, nc.end_time))
+                if nc.nb_steps > 1:
+                    print_output('  {:} time steps, dt = {:} s'.format(nc.nb_steps, nc.time_step))
+                else:
+                    print_output('  {:} time steps'.format(nc.nb_steps))
 
     def simulation_time_to_datetime(self, t):
         return epoch_to_datetime(datetime_to_epoch(self.init_date) + t).astimezone(self.init_date.tzinfo)
@@ -559,6 +613,95 @@ class NetCDFTimeSearch(TimeSearch):
                 pass
         if itime is None:
             raise Exception(err_msg)
+        return self.files[i], itime, time
+
+
+class DailyFileTimeSearch(TimeSearch):
+    """
+    Treats a list of daily files as a time series.
+
+    File name pattern must be given as a string where the 4-digit year is
+    tagged with "{year:04d}", and 2-digit zero-padded month and year are tagged
+    with "{month:02d}" and "{day:02d}", respectively. The tags can be used
+    multiple times.
+
+    Example pattern:
+        'ncom/{year:04d}/s3d.glb8_2f_{year:04d}{month:02d}{day:02d}00.nc'
+
+    In this time search method the time stamps are parsed solely from the
+    filename, no other metadata is used. By default the data is assumed to be
+    centered at 12:00 UTC every day.
+    """
+    def __init__(self, file_pattern, init_date, verbose=False,
+                 center_hour=12, center_timezone=pytz.utc):
+        self.file_pattern = file_pattern
+
+        self.init_date = init_date
+        self.sim_start_time = datetime_to_epoch(self.init_date)
+        self.verbose = verbose
+
+        all_files = self._find_files()
+        dates = []
+        for fn in all_files:
+            d = self._parse_date(fn)
+            timestamp = datetime.datetime(d['year'], d['month'], d['day'],
+                                          center_hour, tzinfo=center_timezone)
+            dates.append(timestamp)
+        sort_ix = np.argsort(dates)
+        self.files = np.array(all_files)[sort_ix]
+        self.start_datetime = np.array(dates)[sort_ix]
+        self.start_times = [(s - self.init_date).total_seconds() for s in self.start_datetime]
+        self.start_times = np.array(self.start_times)
+        if self.verbose:
+            print_output('{:}: Found time index:'.format(self.__class__.__name__))
+            for i in range(len(self.files)):
+                print_output('{:} {:} {:}'.format(i, self.files[i], self.start_times[i]))
+                print_output('  {:}'.format(self.start_datetime[i]))
+
+    def _find_files(self):
+        """Finds all files that match the given pattern."""
+        search_pattern = str(self.file_pattern)
+        search_pattern = search_pattern.replace(':02d}', ':}')
+        search_pattern = search_pattern.replace(':04d}', ':}')
+        search_pattern = search_pattern.format(year='*', month='*', day='*')
+        all_files = glob.glob(search_pattern)
+        assert len(all_files) > 0, 'No files found: {:}'.format(search_pattern)
+        return all_files
+
+    def _parse_date(self, filename):
+        """
+        Parse year, month, day from filename using the given pattern.
+        """
+        re_pattern = str(self.file_pattern)
+        re_pattern = re_pattern.replace('{year:04d}', r'(\d{4,4})')
+        re_pattern = re_pattern.replace('{month:02d}', r'(\d{2,2})')
+        re_pattern = re_pattern.replace('{day:02d}', r'(\d{2,2})')
+        o = re.findall(re_pattern, filename)
+        assert len(o) == 1, 'parsing date from filename failed\n  {:}'.format(filename)
+        values = [int(v) for v in o[0]]
+        fmt = string.Formatter()
+        labels = [s[1] for s in fmt.parse(self.file_pattern) if s[1] is not None]
+        return dict(zip(labels, values))
+
+    def simulation_time_to_datetime(self, t):
+        return epoch_to_datetime(datetime_to_epoch(self.init_date) + t).astimezone(self.init_date.tzinfo)
+
+    def find(self, simulation_time, previous=False):
+        """
+        Find file that contains the given simulation time
+
+        :arg float simulation_time: simulation time in seconds
+        :kwarg bool previous: if True finds previous existing time stamp instead
+            of next (default False).
+        :return: (filename, time index, simulation time) of found data
+        """
+        err_msg = 'No file found for time {:}'.format(self.simulation_time_to_datetime(simulation_time))
+        ix = np.searchsorted(self.start_times, simulation_time + TIMESEARCH_TOL)
+        i = ix - 1 if previous else ix
+        assert i >= 0, err_msg
+        assert i < len(self.start_times), err_msg
+        itime = 0
+        time = self.start_times[i]
         return self.files[i], itime, time
 
 
@@ -633,9 +776,10 @@ class NetCDFTimeSeriesInterpolator(object):
         :arg variable_list: list if netCDF variable names to read
         :arg datetime.datetime init_date: simulation start time
         :kwarg scalars: (optional) list of scalars; scale output variables by
-        a factor.
+            a factor.
 
-        .. note:
+        .. note::
+
             All the variables must have the same dimensions in the netCDF files.
             If the shapes differ, create separate interpolator instances.
         """

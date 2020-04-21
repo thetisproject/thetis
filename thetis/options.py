@@ -4,8 +4,8 @@ Thetis options for the 2D and 3D model
 All options are type-checked and they are stored in traitlets Configurable
 objects.
 """
-from thetis import FiredrakeConstant as Constant
 from .configuration import *
+from .firedrake import Constant
 
 
 class TimeStepperOptions(FrozenHasTraits):
@@ -25,6 +25,12 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
         'pc_type': 'fieldsplit',
         'pc_fieldsplit_type': 'multiplicative',
     }).tag(config=True)
+    solver_parameters_tracer = PETScSolverParameters({
+        'ksp_type': 'gmres',
+        'pc_type': 'sor',
+    }).tag(config=True)
+    use_semi_implicit_linearization = Bool(
+        False, help="Use linearized semi-implicit time integration").tag(config=True)
 
 
 class SteadyStateTimestepperOptions2d(TimeStepperOptions):
@@ -41,8 +47,6 @@ class CrankNicolsonTimestepperOptions2d(SemiImplicitTimestepperOptions2d):
     implicitness_theta = BoundedFloat(
         default_value=0.5, bounds=[0.5, 1.0],
         help='implicitness parameter theta. Value 0.5 implies Crank-Nicolson scheme, 1.0 implies fully implicit formulation.').tag(config=True)
-    use_semi_implicit_linearization = Bool(
-        False, help="Use linearized semi-implicit time integration").tag(config=True)
 
 
 class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
@@ -71,13 +75,13 @@ class PressureProjectionTimestepperOptions2d(TimeStepperOptions):
             'pc_python_type': 'thetis.AssembledSchurPC',
             'schur_ksp_type': 'gmres',
             'schur_ksp_max_it': 100,
-            'schur_ksp_converged_reason': True,
+            'schur_ksp_converged_reason': False,
             'schur_pc_type': 'gamg',
         },
     }).tag(config=True)
     solver_parameters_momentum = PETScSolverParameters({
         'ksp_type': 'gmres',
-        'ksp_converged_reason': True,
+        'ksp_converged_reason': False,
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'sor',
@@ -119,7 +123,6 @@ class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
         'sub_pc_type': 'ilu',
     }).tag(config=True)
     solver_parameters_momentum_implicit = PETScSolverParameters({
-        'snes_monitor': False,
         'snes_type': 'ksponly',
         'ksp_type': 'preonly',
         'pc_type': 'bjacobi',
@@ -134,7 +137,6 @@ class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
         'sub_pc_type': 'ilu',
     }).tag(config=True)
     solver_parameters_tracer_implicit = PETScSolverParameters({
-        'snes_monitor': False,
         'snes_type': 'ksponly',
         'ksp_type': 'preonly',
         'pc_type': 'bjacobi',
@@ -165,9 +167,9 @@ class PacanowskiPhilanderModelOptions(TurbulenceModelOptions):
 
 class GLSModelOptions(TurbulenceModelOptions):
     """Options for Generic Length Scale turbulence model"""
-    name = 'Generic Lenght Scale turbulence closure model'
+    name = 'Generic Length Scale turbulence closure model'
     closure_name = Enum(
-        ['k-epsilon', 'k-omega', 'Generic Lenght Scale'],
+        ['k-epsilon', 'k-omega', 'Generic Length Scale'],
         default_value='k-epsilon',
         help='Name of two-equation closure').tag(config=True)
     stability_function_name = Enum(
@@ -208,30 +210,34 @@ class GLSModelOptions(TurbulenceModelOptions):
         0.4, help="""float: von Karman constant
 
         If :attr:`compute_kappa` is True this value will be overriden""").tag(config=True)
-    compute_kappa = Bool(True,
+    compute_kappa = Bool(False,
                          help='bool: compute von Karman constant from :attr:`schmidt_nb_psi`').tag(config=True)
-    k_min = PositiveFloat(3.7e-8,
+    compute_schmidt_nb_psi = Bool(True,
+                                  help='bool: compute psi Schmidt number').tag(config=True)
+    k_min = PositiveFloat(1.0e-6,
                           help='float: minimum value for turbulent kinetic energy').tag(config=True)
-    psi_min = PositiveFloat(1.0e-10, help='float: minimum value for psi').tag(config=True)
-    eps_min = PositiveFloat(1.0e-10, help='float: minimum value for epsilon').tag(config=True)
-    len_min = PositiveFloat(1.0e-10,
-                            help='float: minimum value for turbulent lenght scale').tag(config=True)
-    compute_len_min = Bool(True,
+    psi_min = PositiveFloat(1.0e-14, help='float: minimum value for psi').tag(config=True)
+    eps_min = PositiveFloat(1.0e-14, help='float: minimum value for epsilon').tag(config=True)
+    len_min = PositiveFloat(1.0e-12,
+                            help='float: minimum value for turbulent length scale').tag(config=True)
+    compute_galperin_clim = Bool(True,
+                                 help='bool: compute c_lim length scale limiting factor').tag(config=True)
+    compute_len_min = Bool(False,
                            help='bool: compute min_len from k_min and psi_min').tag(config=True)
-    compute_psi_min = Bool(True,
+    compute_psi_min = Bool(False,
                            help='bool: compute psi_len from k_min and eps_min').tag(config=True)
     visc_min = PositiveFloat(1.0e-8,
                              help='float: minimum value for eddy viscosity').tag(config=True)
     diff_min = PositiveFloat(1.0e-8,
                              help='float: minimum value for eddy diffusivity').tag(config=True)
-    galperin_lim = PositiveFloat(0.56,
-                                 help='float: Galperin lenght scale limitation parameter').tag(config=True)
+    galperin_clim = PositiveFloat(0.30,
+                                  help='float: Galperin length scale limitation parameter').tag(config=True)
 
-    limit_len = Bool(False, help='bool: apply Galperin lenght scale limit').tag(config=True)
-    limit_psi = Bool(False,
-                     help='bool: apply Galperin lenght scale limit on psi').tag(config=True)
+    limit_len = Bool(False, help='bool: apply Galperin length scale limit').tag(config=True)
+    limit_psi = Bool(True,
+                     help='bool: apply Galperin length scale limit on psi').tag(config=True)
     limit_eps = Bool(False,
-                     help='bool: apply Galperin lenght scale limit on epsilon').tag(config=True)
+                     help='bool: apply Galperin length scale limit on epsilon').tag(config=True)
     limit_len_min = Bool(True,
                          help='bool: limit minimum turbulent length scale to len_min').tag(config=True)
 
@@ -258,8 +264,9 @@ class GLSModelOptions(TurbulenceModelOptions):
                     'c3_plus': 1.0,
                     'c3_minus': -0.52,
                     'f_wall': 1.0,
-                    'k_min': 3.7e-8,
-                    'psi_min': 1.0e-10,
+                    'k_min': 1.0e-6,
+                    'eps_min': 1.0e-14,
+                    'psi_min': 1.0e-14,
                     'closure_name': 'k-epsilon',
                     }
         # k-epsilon defaults, from tables 1 and 2 in [3]
@@ -274,9 +281,9 @@ class GLSModelOptions(TurbulenceModelOptions):
                   'c3_plus': 1.0,
                   'c3_minus': -0.52,
                   'f_wall': 1.0,
-                  'k_min': 3.7e-8,
-                  'eps_min': 1.0e-10,
-                  'psi_min': 1.0e-10,
+                  'k_min': 7.6e-6,
+                  'eps_min': 1.0e-14,
+                  'psi_min': 1.0e-14,
                   'closure_name': 'k-omega',
                   }
         # k-omega defaults, from tables 1 and 2 in [3]
@@ -291,10 +298,10 @@ class GLSModelOptions(TurbulenceModelOptions):
                'c3_plus': 1.0,
                'c3_minus': 0.05,
                'f_wall': 1.0,
-               'k_min': 3.7e-8,
-               'eps_min': 1.0e-10,
-               'psi_min': 2.0e-7,
-               'closure_name': 'gen',
+               'k_min': 1.0e-6,
+               'eps_min': 1.0e-14,
+               'psi_min': 1.0e-14,
+               'closure_name': 'Generic Length Scale',
                }
         # GLS model A defaults, from tables 1 and 2 in [3]
 
@@ -302,8 +309,10 @@ class GLSModelOptions(TurbulenceModelOptions):
             self.update(kepsilon)
         elif closure_name == 'k-omega':
             self.update(komega)
-        elif closure_name == 'gen':
+        elif closure_name == 'Generic Length Scale':
             self.update(gen)
+        else:
+            raise ValueError('Unknown closure name "{:}"'.format(closure_name))
 
 
 class EquationOfStateOptions(FrozenHasTraits):
@@ -321,6 +330,24 @@ class LinearEquationOfStateOptions(EquationOfStateOptions):
     th_ref = Float(15.0, help='Reference water temperature').tag(config=True)
     alpha = Float(0.2, help='Thermal expansion coefficient of ocean water').tag(config=True)
     beta = Float(0.77, help='Saline contraction coefficient of ocean water').tag(config=True)
+
+
+class TidalTurbineOptions(FrozenHasTraits):
+    """Tidal turbine parameters"""
+    thrust_coefficient = PositiveFloat(
+        0.8, help='Thrust coefficient C_T').tag(config=True)
+    diameter = PositiveFloat(
+        18., help='Turbine diameter').tag(config=True)
+
+
+class TidalTurbineFarmOptions(FrozenHasTraits, TraitType):
+    """Tidal turbine farm options"""
+    name = 'Farm options'
+    turbine_options = TidalTurbineOptions()
+    turbine_density = FiredrakeScalarExpression(
+        Constant(0.0), help='Density of turbines within the farm')
+    break_even_wattage = NonNegativeFloat(
+        0.0, help='Average power production per turbine required to break even')
 
 
 class CommonModelOptions(FrozenConfigurable):
@@ -349,8 +376,15 @@ class CommonModelOptions(FrozenConfigurable):
 
     use_lax_friedrichs_velocity = Bool(
         True, help="use Lax Friedrichs stabilisation in horizontal momentum advection.").tag(config=True)
-    lax_friedrichs_velocity_scaling_factor = FiredrakeConstant(
-        Constant(1.0), help="Scaling factor for Lax Friedrichs stabilisation term in horiozonal momentum advection.").tag(config=True)
+    lax_friedrichs_velocity_scaling_factor = FiredrakeConstantTraitlet(
+        Constant(1.0), help="Scaling factor for Lax Friedrichs stabilisation term in horizontal momentum advection.").tag(config=True)
+    use_lax_friedrichs_tracer = Bool(
+        False, help="Use Lax Friedrichs stabilisation in tracer advection.").tag(config=True)
+    lax_friedrichs_tracer_scaling_factor = FiredrakeConstantTraitlet(
+        Constant(1.0), help="Scaling factor for tracer Lax Friedrichs stability term.").tag(config=True)
+    use_limiter_for_tracers = Bool(
+        True, help="Apply P1DG limiter for tracer fields").tag(config=True)
+
     check_volume_conservation_2d = Bool(
         False, help="""
         Compute volume of the 2D mode at every export
@@ -375,13 +409,13 @@ class CommonModelOptions(FrozenConfigurable):
         """).tag(config=True)
     simulation_end_time = PositiveFloat(
         1000.0, help="Simulation duration in seconds").tag(config=True)
-    horizontal_velocity_scale = FiredrakeConstant(
+    horizontal_velocity_scale = FiredrakeConstantTraitlet(
         Constant(0.1), help="""
         Maximum horizontal velocity magnitude
 
         Used to compute max stable advection time step.
         """).tag(config=True)
-    horizontal_viscosity_scale = FiredrakeConstant(
+    horizontal_viscosity_scale = FiredrakeConstantTraitlet(
         Constant(1.0), help="""
         Maximum horizontal viscosity
 
@@ -399,33 +433,39 @@ class CommonModelOptions(FrozenConfigurable):
     export_diagnostics = Bool(
         True, help="Store diagnostic variables to disk in HDF5 format").tag(config=True)
     fields_to_export = List(
-        trait=Unicode,
+        trait=Unicode(),
         default_value=['elev_2d', 'uv_2d', 'uv_3d', 'w_3d'],
         help="Fields to export in VTK format").tag(config=True)
     fields_to_export_hdf5 = List(
-        trait=Unicode,
+        trait=Unicode(),
         default_value=[],
         help="Fields to export in HDF5 format").tag(config=True)
     verbose = Integer(0, help="Verbosity level").tag(config=True)
-    linear_drag_coefficient = FiredrakeCoefficient(
+    linear_drag_coefficient = FiredrakeScalarExpression(
         None, allow_none=True, help=r"""
         2D linear drag parameter :math:`L`
 
         Bottom stress is :math:`\tau_b/\rho_0 = -L \mathbf{u} H`
         """).tag(config=True)
-    quadratic_drag_coefficient = FiredrakeCoefficient(
+    quadratic_drag_coefficient = FiredrakeScalarExpression(
         None, allow_none=True, help=r"""
         Dimensionless 2D quadratic drag parameter :math:`C_D`
 
         Bottom stress is :math:`\tau_b/\rho_0 = -C_D |\mathbf{u}|\mathbf{u}`
         """).tag(config=True)
-    manning_drag_coefficient = FiredrakeCoefficient(
+    manning_drag_coefficient = FiredrakeScalarExpression(
         None, allow_none=True, help=r"""
         Manning-Strickler 2D quadratic drag parameter :math:`\mu`
 
         Bottom stress is :math:`\tau_b/\rho_0 = -g \mu^2 |\mathbf{u}|\mathbf{u}/H^{1/3}`
         """).tag(config=True)
-    horizontal_viscosity = FiredrakeCoefficient(
+    norm_smoother = FiredrakeConstantTraitlet(
+        Constant(0.0), help=r"""
+        Coefficient used to avoid non-differentiable functions in the continuous formulation of the velocity norm in
+        the quadratic bottom drag term in the momentum equation. This replaces the velocity norm in the quadratic
+        bottom drag term with :math:`\|u\| \approx \sqrt{\|u\|^2 + \alpha^2}`
+        """).tag(config=True)
+    horizontal_viscosity = FiredrakeScalarExpression(
         None, allow_none=True, help="Horizontal viscosity").tag(config=True)
     use_smagorinsky_viscosity = Bool(
         False, help="Use Smagorinsky horisontal viscosity parametrization").tag(config=True)
@@ -434,23 +474,44 @@ class CommonModelOptions(FrozenConfigurable):
         help="""Smagorinsky viscosity coefficient :math:`C_S`
 
         See :class:`.SmagorinskyViscosity`.""").tag(config=True)
-    coriolis_frequency = FiredrakeCoefficient(
+    coriolis_frequency = FiredrakeScalarExpression(
         None, allow_none=True, help="2D Coriolis parameter").tag(config=True)
-    wind_stress = FiredrakeCoefficient(
+    wind_stress = FiredrakeVectorExpression(
         None, allow_none=True, help="Stress at free surface (2D vector function)").tag(config=True)
-    atmospheric_pressure = FiredrakeCoefficient(
+    atmospheric_pressure = FiredrakeScalarExpression(
         None, allow_none=True, help="Atmospheric pressure at free surface, in pascals").tag(config=True)
-    momentum_source_2d = FiredrakeCoefficient(
+    momentum_source_2d = FiredrakeVectorExpression(
         None, allow_none=True, help="Source term for 2D momentum equation").tag(config=True)
-    volume_source_2d = FiredrakeCoefficient(
+    volume_source_2d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for 2D continuity equation").tag(config=True)
+    tracer_source_2d = FiredrakeScalarExpression(
+        None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
+    horizontal_diffusivity = FiredrakeCoefficient(
+        None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
+    use_automatic_sipg_parameter = Bool(False, help=r"""
+        Toggle automatic computation of the SIPG penalty parameter used in viscosity and
+        diffusivity terms.
+
+        By default, this parameter is set to
+
+        ..math::
+            \alpha = 5p(p+1),
+
+        where :math:`p` is the polynomial degree of the velocity space.
+
+        For anisotropic meshes, it is advisable to use the automatic SIPG parameter,
+        rather than the default.
+        """).tag(config=True)
+    sipg_parameter = FiredrakeScalarExpression(
+        Constant(10.0), help="Penalty parameter used for horizontal viscosity terms.").tag(config=True)
+    sipg_parameter_tracer = FiredrakeScalarExpression(
+        Constant(10.0), help="Penalty parameter used for horizontal diffusivity terms.").tag(config=True)
 
 
 # NOTE all parameters are now case sensitive
 # TODO rename time stepper types? Allow capitals and spaces?
 @attach_paired_options("timestepper_type",
                        PairedEnum([('SSPRK33', ExplicitTimestepperOptions2d),
-                                   ('SSPRK33Semi', CrankNicolsonTimestepperOptions2d),
                                    ('ForwardEuler', ExplicitTimestepperOptions2d),
                                    ('BackwardEuler', SemiImplicitTimestepperOptions2d),
                                    ('CrankNicolson', CrankNicolsonTimestepperOptions2d),
@@ -467,26 +528,52 @@ class CommonModelOptions(FrozenConfigurable):
 class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
     name = 'Depth-averaged 2D model'
+    solve_tracer = Bool(False, help='Solve tracer transport').tag(config=True)
+    use_tracer_conservative_form = Bool(False, help='Solve 2D tracer transport in the conservative form').tag(config=True)
     use_wetting_and_drying = Bool(
         False, help=r"""bool: Turn on wetting and drying
 
         Uses the wetting and drying scheme from Karna et al (2011).
         If ``True``, one should also set :attr:`wetting_and_drying_alpha` to control the bathymetry displacement.
         """).tag(config=True)
-    wetting_and_drying_alpha = FiredrakeConstant(
+    wetting_and_drying_alpha = FiredrakeScalarExpression(
         Constant(0.5), help=r"""
         Coefficient: Wetting and drying parameter :math:`\alpha`.
 
         Used in bathymetry displacement function that ensures positive water depths. Unit is meters.
         """).tag(config=True)
+    tidal_turbine_farms = Dict(trait=TidalTurbineFarmOptions(),
+                               default_value={}, help='Dictionary mapping subdomain ids to the options of the corresponding farm')
+
+    check_tracer_conservation = Bool(
+        False, help="""
+        Compute total tracer mass at every export
+
+        Prints deviation from the initial mass to stdout.
+        """).tag(config=True)
+    tracer_advective_velocity_factor = FiredrakeScalarExpression(
+        Constant(1.0), help="""
+        Custom factor multiplied to the velocity variable in tracer advection equation.
+
+        Used to account for mismatch between depth-averaged product of velocity with tracer
+        and product of depth-averaged velocity with depth-averaged tracer
+        """).tag(config=True)
+    check_tracer_overshoot = Bool(
+        False, help="""
+        Compute tracer overshoots at every export
+
+        Prints overshoot values that exceed the initial range to stdout.
+        """).tag(config=True)
+    tracer_only = Bool(
+        False, help="""Hold shallow water variables in initial state
+
+        Advects tracer in the associated (constant) velocity field.
+        """).tag(config=True)
 
 
 @attach_paired_options("timestepper_type",
-                       PairedEnum([('SSPRK33', SemiImplicitTimestepperOptions3d),
-                                   ('LeapFrog', ExplicitTimestepperOptions3d),
+                       PairedEnum([('LeapFrog', ExplicitTimestepperOptions3d),
                                    ('SSPRK22', ExplicitTimestepperOptions3d),
-                                   ('IMEXALE', ExplicitTimestepperOptions3d),
-                                   ('ERKALE', ExplicitTimestepperOptions3d),
                                    ],
                                   "timestepper_options",
                                   default_value='SSPRK22',
@@ -514,11 +601,6 @@ class ModelOptions3d(CommonModelOptions):
     solve_temperature = Bool(True, help='Solve temperature transport').tag(config=True)
     use_implicit_vertical_diffusion = Bool(True, help='Solve vertical diffusion and viscosity implicitly').tag(config=True)
     use_bottom_friction = Bool(True, help='Apply log layer bottom stress in the 3D model').tag(config=True)
-    use_parabolic_viscosity = Bool(
-        False,
-        help="""Use idealized parabolic eddy viscosity
-
-        See :class:`.ParabolicViscosity`""").tag(config=True)
     use_ale_moving_mesh = Bool(
         True, help="Use ALE formulation where 3D mesh tracks free surface").tag(config=True)
     use_baroclinic_formulation = Bool(
@@ -531,14 +613,8 @@ class ModelOptions3d(CommonModelOptions):
     use_smooth_eddy_viscosity = Bool(
         False, help="Cast eddy viscosity to p1 space instead of p0").tag(config=True)
 
-    use_limiter_for_tracers = Bool(
-        False, help="Apply P1DG limiter for tracer fields").tag(config=True)
     use_limiter_for_velocity = Bool(
-        False, help="Apply P1DG limiter for 3D horizontal velocity field").tag(config=True)
-    use_lax_friedrichs_tracer = Bool(
-        True, help="Use Lax Friedrichs stabilisation in tracer advection.").tag(config=True)
-    lax_friedrichs_tracer_scaling_factor = FiredrakeConstant(
-        Constant(1.0), help="Scaling factor for tracer Lax Friedrichs stability term.").tag(config=True)
+        True, help="Apply P1DG limiter for 3D horizontal velocity field").tag(config=True)
     check_volume_conservation_3d = Bool(
         False, help="""
         Compute volume of the 3D domain at every export
@@ -576,7 +652,7 @@ class ModelOptions3d(CommonModelOptions):
         This option is only used in the 3d solver, if 2d mode is solved
         explicitly.
         """).tag(config=True)
-    vertical_velocity_scale = FiredrakeConstant(
+    vertical_velocity_scale = FiredrakeConstantTraitlet(
         Constant(1e-4), help="""
         Maximum vertical velocity magnitude
 
@@ -601,19 +677,29 @@ class ModelOptions3d(CommonModelOptions):
         equation of state.
         If False, density is computed point-wise in the tracer space.
         """).tag(config=True)
-    horizontal_diffusivity = FiredrakeCoefficient(
+    bottom_roughness = FiredrakeScalarExpression(
+        None, allow_none=True, help="Bottom roughness length in meters.").tag(config=True)
+    horizontal_diffusivity = FiredrakeScalarExpression(
         None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
-    vertical_diffusivity = FiredrakeCoefficient(
+    vertical_diffusivity = FiredrakeScalarExpression(
         None, allow_none=True, help="Vertical diffusivity for tracers").tag(config=True)
-    vertical_viscosity = FiredrakeCoefficient(
+    vertical_viscosity = FiredrakeScalarExpression(
         None, allow_none=True, help="Vertical viscosity").tag(config=True)
-    momentum_source_3d = FiredrakeCoefficient(
+    momentum_source_3d = FiredrakeVectorExpression(
         None, allow_none=True, help="Source term for 3D momentum equation").tag(config=True)
-    salinity_source_3d = FiredrakeCoefficient(
+    salinity_source_3d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for salinity equation").tag(config=True)
-    temperature_source_3d = FiredrakeCoefficient(
+    temperature_source_3d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for temperature equation").tag(config=True)
-    constant_temperature = FiredrakeConstant(
+    constant_temperature = FiredrakeConstantTraitlet(
         Constant(10.0), help="Constant temperature if temperature is not solved").tag(config=True)
-    constant_salinity = FiredrakeConstant(
+    constant_salinity = FiredrakeConstantTraitlet(
         Constant(0.0), help="Constant salinity if salinity is not solved").tag(config=True)
+    sipg_parameter_vertical = FiredrakeScalarExpression(
+        Constant(10.0), help="Penalty parameter used for vertical viscosity terms.").tag(config=True)
+    sipg_parameter_vertical_tracer = FiredrakeScalarExpression(
+        Constant(10.0), help="Penalty parameter used for vertical diffusivity terms.").tag(config=True)
+    sipg_parameter_turb = FiredrakeScalarExpression(
+        Constant(1.5), help="Penalty parameter used for horizontal diffusivity terms of the turbulence model.").tag(config=True)
+    sipg_parameter_vertical_turb = FiredrakeScalarExpression(
+        Constant(1.0), help="Penalty parameter used for vertical diffusivity terms of the turbulence model.").tag(config=True)

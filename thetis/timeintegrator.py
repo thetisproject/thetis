@@ -105,8 +105,8 @@ class ForwardEuler(TimeIntegrator):
         u_old = self.solution_old
         u_tri = self.equation.trial
         self.A = self.equation.mass_term(u_tri)
-        self.L = (self.equation.mass_term(u_old) +
-                  self.dt_const*self.equation.residual('all', u_old, u_old, self.fields_old, self.fields_old, bnd_conditions)
+        self.L = (self.equation.mass_term(u_old)
+                  + self.dt_const*self.equation.residual('all', u_old, u_old, self.fields_old, self.fields_old, bnd_conditions)
                   )
 
         self.update_solver()
@@ -125,7 +125,6 @@ class ForwardEuler(TimeIntegrator):
 
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
-        self.dt_const.assign(dt)
         if update_forcings is not None:
             update_forcings(t + self.dt)
         self.solution_old.assign(self.solution)
@@ -153,7 +152,6 @@ class CrankNicolson(TimeIntegrator):
         :kwarg bool semi_implicit: If True use a linearized semi-implicit scheme
         """
         super(CrankNicolson, self).__init__(equation, solution, fields, dt, solver_parameters)
-        self.solver_parameters.setdefault('snes_monitor', False)
         if semi_implicit:
             self.solver_parameters.setdefault('snes_type', 'ksponly')
         else:
@@ -185,10 +183,9 @@ class CrankNicolson(TimeIntegrator):
 
         # Crank-Nicolson
         theta_const = Constant(theta)
-        self.F = (self.equation.mass_term(u) - self.equation.mass_term(u_old) -
-                  self.dt_const*(theta_const*self.equation.residual('all', u, u_nl, f, f, bnd) +
-                                 (1-theta_const)*self.equation.residual('all', u_old, u_old, f_old, f_old, bnd)
-                                 )
+        self.F = (self.equation.mass_term(u) - self.equation.mass_term(u_old)
+                  - self.dt_const*(theta_const*self.equation.residual('all', u, u_nl, f, f, bnd)
+                                   + (1-theta_const)*self.equation.residual('all', u_old, u_old, f_old, f_old, bnd))
                   )
 
         self.update_solver()
@@ -240,7 +237,6 @@ class SteadyState(TimeIntegrator):
         :kwarg dict solver_parameters: PETSc solver options
         """
         super(SteadyState, self).__init__(equation, solution, fields, dt, solver_parameters)
-        self.solver_parameters.setdefault('snes_monitor', False)
         self.solver_parameters.setdefault('snes_type', 'newtonls')
         self.F = self.equation.residual('all', solution, solution, fields, fields, bnd_conditions)
         self.update_solver()
@@ -337,10 +333,10 @@ class PressureProjectionPicard(TimeIntegrator):
         self.fields_old = {}
         for k in sorted(self.fields):
             if self.fields[k] is not None:
-                if isinstance(self.fields[k], Function):
+                if isinstance(self.fields[k], FiredrakeFunction):
                     self.fields_old[k] = Function(
                         self.fields[k].function_space())
-                elif isinstance(self.fields[k], Constant):
+                elif isinstance(self.fields[k], FiredrakeConstant):
                     self.fields_old[k] = Constant(self.fields[k])
         # for the mom. eqn. the 'eta' field is just one of the 'other' fields
         fields_mom = self.fields.copy()
@@ -360,8 +356,8 @@ class PressureProjectionPicard(TimeIntegrator):
         # form for mom. eqn.:
         theta_const = Constant(theta)
         self.F_mom = (
-            self.equation_mom.mass_term(self.uv_star)-self.equation_mom.mass_term(uv_old) -
-            self.dt_const*(
+            self.equation_mom.mass_term(self.uv_star)-self.equation_mom.mass_term(uv_old)
+            - self.dt_const*(
                 theta_const*self.equation_mom.residual('all', self.uv_star, uv_star_nl, fields_mom, fields_mom, bnd_conditions)
                 + (1-theta_const)*self.equation_mom.residual('all', uv_old, uv_old, fields_mom_old, fields_mom_old, bnd_conditions)
             )
@@ -375,8 +371,8 @@ class PressureProjectionPicard(TimeIntegrator):
         uv_test, eta_test = split(self.equation.test)
         mass_term_star = inner(uv_test, self.uv_star)*dx + inner(eta_test, eta_old)*dx
         self.F = (
-            self.equation.mass_term(self.solution) - mass_term_star -
-            self.dt_const*(
+            self.equation.mass_term(self.solution) - mass_term_star
+            - self.dt_const*(
                 theta_const*self.equation.residual('implicit', self.solution, solution_nl, self.fields, self.fields, bnd_conditions)
                 + (1-theta_const)*self.equation.residual('implicit', self.solution_old, self.solution_old, self.fields_old, self.fields_old, bnd_conditions)
             )
@@ -515,7 +511,6 @@ class LeapFrogAM3(TimeIntegrator):
         if self.fs_is_dg:
             with self.solution.dat.vec as x:
                 with self.rhs_func.dat.vec_ro as b:
-                    self.mass_matrix.force_evaluation()
                     self.mass_matrix.petscmat.mult(b, x)
         else:
             self.lin_solver.solve(self.solution, self.rhs_func)
@@ -568,7 +563,6 @@ class LeapFrogAM3(TimeIntegrator):
                 self.rhs_func += self.msolution_old
             with timed_region('lf_cor_asmb_mat'):
                 assemble(self.a, self.mass_matrix, inverse=self.fs_is_dg)
-                self.mass_matrix.force_evaluation()
             with timed_region('lf_cor_solve'):
                 self._solve_system()
 
@@ -629,6 +623,7 @@ class SSPRK22ALE(TimeIntegrator):
                                                       bnd_conditions)
         self.mu_form = inner(self.solution, self.equation.test)*dx
         self._nontrivial = self.l != 0
+        self._initialized = False
 
         self.n_stages = 2
         self.c = [0, 1]
@@ -640,6 +635,7 @@ class SSPRK22ALE(TimeIntegrator):
         mass_matrix = assemble(self.a)
         self.lin_solver = LinearSolver(mass_matrix,
                                        solver_parameters=self.solver_parameters)
+        self._initialized = True
 
     def stage_one_prep(self):
         """
@@ -671,7 +667,6 @@ class SSPRK22ALE(TimeIntegrator):
             # Solve $u = M^{-1}q$
             with timed_region('sol1_assemble_A'):
                 assemble(self.a, self.lin_solver.A)
-                self.lin_solver.A.force_evaluation()
             with timed_region('sol1_solve'):
                 self.lin_solver.solve(self.solution, self.mu)
 
@@ -704,7 +699,6 @@ class SSPRK22ALE(TimeIntegrator):
             # Solve $u = M^{-1}q$
             with timed_region('sol2_assemble_A'):
                 assemble(self.a, self.lin_solver.A)
-                self.lin_solver.A.force_evaluation()
             with timed_region('sol2_solve'):
                 self.lin_solver.solve(self.solution, self.mu)
 
@@ -730,6 +724,8 @@ class SSPRK22ALE(TimeIntegrator):
 
     def advance(self, t, update_forcings=None):
         """Advances equations for one time step."""
+        if not self._initialized:
+            self.initialize(self.solution)
         for i_stage in range(self.n_stages):
             self.prepare_stage(i_stage, t, update_forcings)
             self.solve_stage(i_stage)
