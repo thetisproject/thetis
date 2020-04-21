@@ -1,11 +1,13 @@
 from thetis import *
+import os
 
 outputdir = 'outputs_plot'
 mesh2d = Mesh('tidal_mesh_plot.msh')
 print_output('Loaded mesh ' + mesh2d.name)
 print_output('Exporting to ' + outputdir)
 
-t_end = 3 * 3600
+# Simulation duration
+t_end = 10 * 3600
 t_export = 200.0
 
 # bathymetry
@@ -30,7 +32,10 @@ bathymetry_2d.assign(Constant(50.0))
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
 options.simulation_export_time = t_export
-options.simulation_end_time = t_end
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    options.simulation_end_time = 1000.
+else:
+    options.simulation_end_time = t_end
 options.output_directory = outputdir
 options.check_volume_conservation_2d = True
 options.fields_to_export = ['uv_2d', 'elev_2d']
