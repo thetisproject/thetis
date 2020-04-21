@@ -351,6 +351,22 @@ class FlowSolver2d(FrozenClass):
             'atmospheric_pressure': self.options.atmospheric_pressure,
             'momentum_source': self.options.momentum_source_2d,
             'volume_source': self.options.volume_source_2d, }
+
+        if self.options.use_smagorinsky_viscosity:
+            self.fields.smag_visc_2d = Function(self.function_spaces.P1_2d, name='smag_visc_2d')
+            fields['smag_visc_2d'] = self.fields.smag_visc_2d
+            self.tot_h_visc = self.options.horizontal_viscosity + self.fields.smag_visc_2d
+            fields['viscosity_h'] = self.tot_h_visc
+            self.fields.uv_p1_2d = Function(self.function_spaces.P1v_2d, name='uv_p1_2d')
+            uv, eta = self.fields.solution_2d.split()
+            self.uv_p1_projector = Projector(uv, self.fields.uv_p1_2d)
+
+            self.smagorinsky_diff_solver = SmagorinskyViscosity(self.fields.uv_p1_2d, self.fields.smag_visc_2d,
+                                                                self.options.smagorinsky_coefficient, self.fields.h_elem_size_2d,
+                                                                weak_form=False,
+                                                                c_f=self.options.quadratic_drag_coefficient,
+                                                                depth=self.fields.bathymetry_2d)
+
         self.set_time_step()
         if self.options.timestepper_type == 'SSPRK33':
             self.timestepper = rungekutta.SSPRK33(self.eq_sw, self.fields.solution_2d,
@@ -666,7 +682,12 @@ class FlowSolver2d(FrozenClass):
 
         while self.simulation_time <= self.options.simulation_end_time - t_epsilon:
 
+            if self.options.use_smagorinsky_viscosity:
+                self.uv_p1_projector.project()
+                self.smagorinsky_diff_solver.solve()
+
             self.timestepper.advance(self.simulation_time, update_forcings)
+
 
             # Move to next time step
             self.iteration += 1

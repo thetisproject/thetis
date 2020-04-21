@@ -82,6 +82,12 @@ field_metadata['uv_p1_3d'] = {
     'unit': 'm s-1',
     'filename': 'VeloCG3d',
 }
+field_metadata['uv_p1_2d'] = {
+    'name': 'P1 projection of horizontal velocity',
+    'shortname': 'P1 Velocity',
+    'unit': 'm s-1',
+    'filename': 'VeloCG3d',
+}
 field_metadata['elev_2d'] = {
     'name': 'Water elevation',
     'shortname': 'Elevation',
@@ -219,6 +225,12 @@ field_metadata['smag_visc_3d'] = {
     'shortname': 'Smagorinsky viscosity',
     'unit': 'm2 s-1',
     'filename': 'SmagViscosity3d',
+}
+field_metadata['smag_visc_2d'] = {
+    'name': 'Smagorinsky viscosity',
+    'shortname': 'Smagorinsky viscosity',
+    'unit': 'm2 s-1',
+    'filename': 'SmagViscosity2d',
 }
 field_metadata['max_h_diff'] = {
     'name': 'Maximum stable horizontal diffusivity',
