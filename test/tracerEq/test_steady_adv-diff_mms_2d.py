@@ -151,7 +151,8 @@ def run(setup, refinement, do_export=True, **options):
     solver_obj.options.horizontal_viscosity_scale = Constant(50.0)
     solver_obj.options.update(options)
     solver_obj.options.solve_tracer = True
-    solver_obj.options.timestepper_options.implicitness_theta = 1.0
+    if hasattr(solver_obj.options.timestepper_options, 'implicitness_theta'):
+        solver_obj.options.timestepper_options.implicitness_theta = 1.0
     solver_obj.create_function_spaces()
 
     # functions for source terms
@@ -253,7 +254,7 @@ def run_convergence(setup, ref_list, do_export=False, save_plot=False, **options
 # standard tests for pytest
 # ---------------------------
 
-@pytest.fixture(params=['CrankNicolson'])
+@pytest.fixture(params=['CrankNicolson', 'DIRK22', 'DIRK33', 'BackwardEuler'])
 def timestepper_type(request):
     return request.param
 

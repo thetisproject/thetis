@@ -304,25 +304,99 @@ class FlowSolver2d(FrozenClass):
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         if self.options.solve_tracer:
             self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
-            if self.options.timestepper_type == 'CrankNicolson':
-                if self.options.use_tracer_conservative_form:
-                    self.eq_tracer = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
-                        self.function_spaces.Q_2d, self.depth,
-                        use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                        sipg_parameter=self.options.sipg_parameter_tracer)
-                else:
-                    self.eq_tracer = tracer_eq_2d.TracerEquation2D(
-                        self.function_spaces.Q_2d, self.depth,
-                        use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                        sipg_parameter=self.options.sipg_parameter_tracer)
-                if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
-                    self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
-                else:
-                    self.tracer_limiter = None
+            if self.options.use_tracer_conservative_form:
+                self.eq_tracer = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
+                    self.function_spaces.Q_2d, self.depth,
+                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                    sipg_parameter=self.options.sipg_parameter_tracer)
             else:
-                raise NotImplementedError("Tracer equation is currently only implemented for the CrankNicolson timestepper scheme")
+                self.eq_tracer = tracer_eq_2d.TracerEquation2D(
+                    self.function_spaces.Q_2d, self.depth,
+                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                    sipg_parameter=self.options.sipg_parameter_tracer)
+            if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
+                self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
+            else:
+                self.tracer_limiter = None
 
         self._isfrozen = True  # disallow creating new attributes
+
+    def get_swe_timestepper(self, integrator):
+        """
+        Gets shallow water timestepper object with appropriate parameters
+        """
+        fields = {
+            'linear_drag_coefficient': self.options.linear_drag_coefficient,
+            'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
+            'manning_drag_coefficient': self.options.manning_drag_coefficient,
+            'viscosity_h': self.options.horizontal_viscosity,
+            'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
+            'coriolis': self.options.coriolis_frequency,
+            'wind_stress': self.options.wind_stress,
+            'atmospheric_pressure': self.options.atmospheric_pressure,
+            'momentum_source': self.options.momentum_source_2d,
+            'volume_source': self.options.volume_source_2d,
+        }
+
+        args = (self.eq_sw, self.fields.solution_2d, fields, self.dt, )
+        kwargs = {'bnd_conditions': self.bnd_functions['shallow_water']}
+        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
+            kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
+        if hasattr(self.options.timestepper_options, 'implicitness_theta'):
+            kwargs['theta'] = self.options.timestepper_options.implicitness_theta
+        if self.options.timestepper_type == 'PressureProjectionPicard':
+            # TODO: Probably won't work in coupled mode
+            u_test = TestFunction(self.function_spaces.U_2d)
+            self.eq_mom = shallowwater_eq.ShallowWaterMomentumEquation(
+                u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
+                self.depth,
+                options=self.options
+            )
+            self.eq_mom.bnd_functions = self.bnd_functions['shallow_water']
+            args = (self.eq_sw, self.eq_mom, self.fields.solution_2d, fields, self.dt, )
+            kwargs['solver_parameters'] = self.options.timestepper_options.solver_parameters_pressure
+            kwargs['solver_parameters_mom'] = self.options.timestepper_options.solver_parameters_momentum
+            kwargs['iterations'] = self.options.timestepper_options.picard_iterations
+        elif self.options.timestepper_type == 'SSPIMEX':
+            # TODO meaningful solver params
+            kwargs['solver_parameters'] = {
+                'ksp_type': 'gmres',
+                'pc_type': 'fieldsplit',
+                'pc_fieldsplit_type': 'multiplicative',
+            }
+            kwargs['solver_parameters_dirk'] = {
+                'ksp_type': 'gmres',
+                'pc_type': 'fieldsplit',
+                'pc_fieldsplit_type': 'multiplicative',
+            }
+        else:
+            kwargs['solver_parameters'] = self.options.timestepper_options.solver_parameters
+        return integrator(*args, **kwargs)
+
+    def get_tracer_timestepper(self, integrator):
+        """
+        Gets tracer timestepper object with appropriate parameters
+        """
+        uv, elev = self.fields.solution_2d.split()
+        fields = {
+            'elev_2d': elev,
+            'uv_2d': uv,
+            'diffusivity_h': self.options.horizontal_diffusivity,
+            'source': self.options.tracer_source_2d,
+            'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
+            'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
+        }
+
+        args = (self.eq_tracer, self.fields.tracer_2d, fields, self.dt, )
+        kwargs = {
+            'bnd_conditions': self.bnd_functions['tracer'],
+            'solver_parameters': self.options.timestepper_options.solver_parameters_tracer,
+        }
+        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
+            kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
+        if hasattr(self.options.timestepper_options, 'implicitness_theta'):
+            kwargs['theta'] = self.options.timestepper_options.implicitness_theta
+        return integrator(*args, **kwargs)
 
     def create_timestepper(self):
         """
@@ -339,101 +413,34 @@ class FlowSolver2d(FrozenClass):
             filehandler.setFormatter(logging.logging.Formatter('%(message)s'))
             output_logger.addHandler(filehandler)
 
-        # ----- Time integrators
-        fields = {
-            'linear_drag_coefficient': self.options.linear_drag_coefficient,
-            'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
-            'manning_drag_coefficient': self.options.manning_drag_coefficient,
-            'viscosity_h': self.options.horizontal_viscosity,
-            'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
-            'coriolis': self.options.coriolis_frequency,
-            'wind_stress': self.options.wind_stress,
-            'atmospheric_pressure': self.options.atmospheric_pressure,
-            'momentum_source': self.options.momentum_source_2d,
-            'volume_source': self.options.volume_source_2d, }
         self.set_time_step()
-        if self.options.timestepper_type == 'SSPRK33':
-            self.timestepper = rungekutta.SSPRK33(self.eq_sw, self.fields.solution_2d,
-                                                  fields, self.dt,
-                                                  bnd_conditions=self.bnd_functions['shallow_water'],
-                                                  solver_parameters=self.options.timestepper_options.solver_parameters)
-        elif self.options.timestepper_type == 'ForwardEuler':
-            self.timestepper = timeintegrator.ForwardEuler(self.eq_sw, self.fields.solution_2d,
-                                                           fields, self.dt,
-                                                           bnd_conditions=self.bnd_functions['shallow_water'],
-                                                           solver_parameters=self.options.timestepper_options.solver_parameters)
-        elif self.options.timestepper_type == 'BackwardEuler':
-            self.timestepper = rungekutta.BackwardEulerUForm(
-                self.eq_sw, self.fields.solution_2d, fields, self.dt,
-                bnd_conditions=self.bnd_functions['shallow_water'],
-                solver_parameters=self.options.timestepper_options.solver_parameters,
-                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-            )
-        elif self.options.timestepper_type == 'CrankNicolson':
-            if self.options.solve_tracer:
-                self.timestepper = coupled_timeintegrator_2d.CoupledCrankNicolson2D(weakref.proxy(self))
-            else:
-                self.timestepper = timeintegrator.CrankNicolson(self.eq_sw, self.fields.solution_2d,
-                                                                fields, self.dt,
-                                                                bnd_conditions=self.bnd_functions['shallow_water'],
-                                                                solver_parameters=self.options.timestepper_options.solver_parameters,
-                                                                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-                                                                theta=self.options.timestepper_options.implicitness_theta)
-        elif self.options.timestepper_type == 'DIRK22':
-            self.timestepper = rungekutta.DIRK22UForm(
-                self.eq_sw, self.fields.solution_2d, fields, self.dt,
-                bnd_conditions=self.bnd_functions['shallow_water'],
-                solver_parameters=self.options.timestepper_options.solver_parameters,
-                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-            )
-        elif self.options.timestepper_type == 'DIRK33':
-            self.timestepper = rungekutta.DIRK33UForm(
-                self.eq_sw, self.fields.solution_2d, fields, self.dt,
-                bnd_conditions=self.bnd_functions['shallow_water'],
-                solver_parameters=self.options.timestepper_options.solver_parameters,
-                semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-            )
-        elif self.options.timestepper_type == 'SteadyState':
-            self.timestepper = timeintegrator.SteadyState(self.eq_sw, self.fields.solution_2d,
-                                                          fields, self.dt,
-                                                          bnd_conditions=self.bnd_functions['shallow_water'],
-                                                          solver_parameters=self.options.timestepper_options.solver_parameters)
-        elif self.options.timestepper_type == 'PressureProjectionPicard':
 
-            u_test = TestFunction(self.function_spaces.U_2d)
-            self.eq_mom = shallowwater_eq.ShallowWaterMomentumEquation(
-                u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
-                self.depth,
-                options=self.options
+        # ----- Time integrators
+        steppers = {
+            'SSPRK33': rungekutta.SSPRK33,
+            'ForwardEuler': timeintegrator.ForwardEuler,
+            'SteadyState': timeintegrator.SteadyState,
+            'BackwardEuler': rungekutta.BackwardEulerUForm,
+            'DIRK22': rungekutta.DIRK22UForm,
+            'DIRK33': rungekutta.DIRK33UForm,
+            'CrankNicolson': timeintegrator.CrankNicolson,
+            'PressureProjectionPicard': timeintegrator.PressureProjectionPicard,
+            'SSPIMEX': implicitexplicit.IMEXLPUM2,
+        }
+        try:
+            assert self.options.timestepper_type in steppers
+        except AssertionError:
+            raise Exception('Unknown time integrator type: {:s}'.format(self.options.timestepper_type))
+        if self.options.solve_tracer:
+            try:
+                assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState')
+            except AssertionError:
+                raise NotImplementedError("2D tracer model currently only supports SSPRK33, ForwardEuler, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
+            self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
+                weakref.proxy(self), steppers[self.options.timestepper_type],
             )
-            self.eq_mom.bnd_functions = self.bnd_functions['shallow_water']
-            self.timestepper = timeintegrator.PressureProjectionPicard(self.eq_sw, self.eq_mom, self.fields.solution_2d,
-                                                                       fields, self.dt,
-                                                                       bnd_conditions=self.bnd_functions['shallow_water'],
-                                                                       solver_parameters=self.options.timestepper_options.solver_parameters_pressure,
-                                                                       solver_parameters_mom=self.options.timestepper_options.solver_parameters_momentum,
-                                                                       semi_implicit=self.options.timestepper_options.use_semi_implicit_linearization,
-                                                                       theta=self.options.timestepper_options.implicitness_theta,
-                                                                       iterations=self.options.timestepper_options.picard_iterations)
-
-        elif self.options.timestepper_type == 'SSPIMEX':
-            # TODO meaningful solver params
-            sp_impl = {
-                'ksp_type': 'gmres',
-                'pc_type': 'fieldsplit',
-                'pc_fieldsplit_type': 'multiplicative',
-            }
-            sp_expl = {
-                'ksp_type': 'gmres',
-                'pc_type': 'fieldsplit',
-                'pc_fieldsplit_type': 'multiplicative',
-            }
-            self.timestepper = implicitexplicit.IMEXLPUM2(self.eq_sw, self.fields.solution_2d, fields, self.dt,
-                                                          bnd_conditions=self.bnd_functions['shallow_water'],
-                                                          solver_parameters=sp_expl,
-                                                          solver_parameters_dirk=sp_impl)
         else:
-            raise Exception('Unknown time integrator type: '+str(self.options.timestepper_type))
+            self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
         self._isfrozen = True  # disallow creating new attributes
 

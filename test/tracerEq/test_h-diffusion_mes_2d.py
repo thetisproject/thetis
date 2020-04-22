@@ -166,13 +166,17 @@ def auto_sipg(request):
     return request.param
 
 
-@pytest.mark.parametrize(('stepper'),
-                         [('CrankNicolson')])
+@pytest.fixture(params=['CrankNicolson', 'SSPRK33', 'ForwardEuler', 'BackwardEuler', 'DIRK22', 'DIRK33'])
+def stepper(request):
+    return request.param
+
+
 def test_horizontal_diffusion(auto_sipg, stepper):
     run_convergence([1, 2, 3], polynomial_degree=1,
                     timestepper_type=stepper,
                     use_automatic_sipg_parameter=auto_sipg,
                     )
+
 # ---------------------------
 # run individual setup for debugging
 # ---------------------------

@@ -11,6 +11,7 @@ Time step and export interval are chosen based on theoretical
 oscillation frequency. Initial condition repeats every 20 exports.
 """
 from thetis import *
+import pytest
 
 
 def run_tracer_consistency(constant_c=True, **model_options):
@@ -85,42 +86,53 @@ def run_tracer_consistency(constant_c=True, **model_options):
     assert vol2d_rerr < 1e-10, '2D volume is not conserved'
     if options.solve_tracer:
         tracer_int, tracer_int_rerr = solver_obj.callbacks['export']['tracer_2d mass']()
-        assert abs(tracer_int_rerr) < 1e-4, 'tracer is not conserved'
+        assert abs(tracer_int_rerr) < 1.2e-4, 'tracer is not conserved'
         smin, smax, undershoot, overshoot = solver_obj.callbacks['export']['tracer_2d overshoot']()
         max_abs_overshoot = max(abs(undershoot), abs(overshoot))
-        overshoot_tol = 1e-12
+        overshoot_tol = 1e-11
         if not options.use_tracer_conservative_form:
             msg = 'Tracer overshoots are too large: {:}'.format(max_abs_overshoot)
             assert max_abs_overshoot < overshoot_tol, msg
 
+# ---------------------------
+# standard tests for pytest
+# ---------------------------
 
-def test_const_tracer():
+
+@pytest.fixture(params=['CrankNicolson', 'SSPRK33', 'ForwardEuler', 'BackwardEuler', 'DIRK22', 'DIRK33'])
+def stepper(request):
+    return request.param
+
+
+def test_const_tracer(stepper):
     """
-    Test CrankNicolson timeintegrator without slope limiters
+    Test timeintegrator without slope limiters
     Constant tracer, should remain constant
     """
     run_tracer_consistency(constant_c=True,
                            use_nonlinear_equations=True,
                            solve_tracer=True,
                            use_limiter_for_tracers=False,
-                           no_exports=True)
+                           no_exports=True,
+                           timestepper_type=stepper)
 
 
-def test_nonconst_tracer():
+def test_nonconst_tracer(stepper):
     """
-    Test CrankNicolson timeintegrator  with slope limiters
+    Test timeintegrator with slope limiters
     Non-trivial tracer, should see no overshoots and be conserved
     """
     run_tracer_consistency(constant_c=False,
                            use_nonlinear_equations=True,
                            solve_tracer=True,
                            use_limiter_for_tracers=True,
-                           no_exports=True)
+                           no_exports=True,
+                           timestepper_type=stepper)
 
 
-def test_nonconst_tracer_conservative():
+def test_nonconst_tracer_conservative(stepper):
     """
-    Test CrankNicolson timeintegrator without slope limiters
+    Test timeintegrator without slope limiters
     Non-trivial tracer, should be conserved
     """
     run_tracer_consistency(constant_c=False,
@@ -128,7 +140,13 @@ def test_nonconst_tracer_conservative():
                            solve_tracer=True,
                            use_limiter_for_tracers=False,
                            no_exports=True,
-                           use_tracer_conservative_form=True)
+                           use_tracer_conservative_form=True,
+                           timestepper_type=stepper)
+
+
+# ---------------------------
+# run individual setup for debugging
+# ---------------------------
 
 
 if __name__ == '__main__':
@@ -136,4 +154,5 @@ if __name__ == '__main__':
                            use_nonlinear_equations=True,
                            solve_tracer=True,
                            use_limiter_for_tracers=False,
-                           no_exports=False)
+                           no_exports=False,
+                           timestepper_type='CrankNicolson')
