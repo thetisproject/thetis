@@ -35,8 +35,7 @@ exclude_files = [
     'lockExchange/plotting.py',
     'lockExchange/submitRuns.py',
     'tidalfarm/tidalfarm.py',
-    'tidal_barrage/plotting.py',
-    'discrete_turbines/tidal_array_plot.py']
+    'tidal_barrage/plotting.py']
 
 cwd = os.path.abspath(os.path.dirname(__file__))
 examples_dir = os.path.abspath(os.path.join(cwd, '..', '..', 'examples'))
