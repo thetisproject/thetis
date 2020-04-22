@@ -1,7 +1,7 @@
 """
 Classes related to tidal turbine farms in Thetis.
 """
-from .firedrake import *
+from firedrake import *
 from .log import *
 from .callback import DiagnosticCallback
 from .optimisation import DiagnosticOptimisationCallback
