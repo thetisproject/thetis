@@ -6,7 +6,9 @@ via firedrake_adjoint.
 Stephan Kramer 25-05-16
 """
 import pytest
-from thetis_adjoint import *
+from thetis import *
+from firedrake_adjoint import *
+
 op2.init(log_level=INFO)
 
 velocity_u = 2.0
@@ -50,7 +52,7 @@ def basic_setup():
     x0 = lx/2
     y0 = ly/2
     sigma = 20.0
-    drag_func.project(drag_center*exp(-((x[0]-x0)**2 + (x[1]-y0)**2)/sigma**2) + drag_bg, annotate=False)
+    drag_func.project(drag_center*exp(-((x[0]-x0)**2 + (x[1]-y0)**2)/sigma**2) + drag_bg)
     # assign fiction field
     options.quadratic_drag_coefficient = drag_func
 

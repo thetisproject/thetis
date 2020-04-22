@@ -8,7 +8,7 @@ from abc import ABC, abstractproperty, abstractmethod
 import h5py
 from collections import defaultdict
 from .log import *
-from .firedrake import *
+from firedrake import *
 import numpy as np
 
 

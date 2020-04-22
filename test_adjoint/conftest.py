@@ -6,7 +6,7 @@ def pytest_runtest_teardown(item, nextitem):
     from firedrake.tsfc_interface import TSFCKernel
     from pyop2.op2 import Kernel
     from pyop2.base import JITModule
-    from firedrake_adjoint import get_working_tape
+    from pyadjoint import get_working_tape
 
     # disgusting hack, clear the Class-Cached objects in PyOP2 and
     # Firedrake, otherwise these will never be collected.  The Kernels
