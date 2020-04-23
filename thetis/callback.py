@@ -558,6 +558,30 @@ class AccumulatorCallback(DiagnosticCallback):
         return '{:s} value {:11.4e}'.format(self.name, args[0])
 
 
+class TimeIntegralCallback(AccumulatorCallback):
+    # TODO: doc
+    name = 'time integral'
+    variable_names = ['value']
+
+    def __init__(self, spatial_integral, solver_obj, timestepper, **kwargs):
+        """
+        :arg spatial_integral: Python function that returns an integral in space only
+        :arg solver_obj: Thetis solver object
+        :arg timestepper: Thetis timeintegrator object
+        :arg kwargs: any additional keyword arguments, see DiagnosticCallback
+        """
+
+        def time_integral_callback():  # FIXME: Generalise
+            dt = timestepper.dt
+            solution_old = timestepper.solution_old
+            solution = timestepper.solution
+            time_integral = 0.5*dt*spatial_integral(solution_old)
+            time_integral += 0.5*dt*spatial_integral(solution)
+            return time_integral
+
+        super(TimeIntegralCallback, self).__init__(time_integral_callback, solver_obj, **kwargs)
+
+
 class TimeSeriesCallback2D(DiagnosticCallback):
     """
     Extract a time series of a 2D field at a given (x,y) location
