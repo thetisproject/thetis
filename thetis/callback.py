@@ -48,6 +48,8 @@ class CallbackManager(defaultdict):
         :arg str mode: register callback under this mode
         """
         key = callback.name
+        if isinstance(callback, TimeIntegralCallback):
+            assert mode == 'timestep'
         self[mode][key] = callback
 
     def evaluate(self, mode, index=None):
@@ -525,7 +527,7 @@ class DetectorsCallback(DiagnosticCallback):
 
 class AccumulatorCallback(DiagnosticCallback):
     """
-    Callback that performs sums values of time-dependent functionals
+    Callback that sums values of time-dependent functionals
     contributed at each timestep.
 
     This callback can also be used to express time-dependent objective
@@ -560,7 +562,6 @@ class AccumulatorCallback(DiagnosticCallback):
         return '{:s} value {:11.4e}'.format(self.name, args[0])
 
 
-# TODO: Enforce 'timestep' rather than 'export'
 class TimeIntegralCallback(AccumulatorCallback):
     """
     Callback that evaluates time-dependent functionals on a single timestep using the appropriate
