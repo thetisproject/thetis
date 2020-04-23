@@ -529,15 +529,13 @@ class AccumulatorCallback(DiagnosticCallback):
     """
     Callback that sums values of time-dependent functionals
     contributed at each timestep.
-
-    This callback can also be used to express time-dependent objective
-    functionals for adjoint simulations.
     """
-    variable_names = ['spatial integral at current timestep']
+    variable_names = ['integral over current timestep']
 
     def __init__(self, functional_callback, solver_obj, **kwargs):
         """
-        :arg functional_callback: Python function that returns an integral in time and space
+        :arg functional_callback: Python function with a single argument that evaluates an integral
+            of the prognostic solution in space
         :arg solver_obj: Thetis solver object
         :arg kwargs: any additional keyword arguments, see DiagnosticCallback
         """
@@ -545,14 +543,11 @@ class AccumulatorCallback(DiagnosticCallback):
         kwargs.setdefault('append_to_log', False)
         super(AccumulatorCallback, self).__init__(solver_obj, **kwargs)
         self.callback = functional_callback
+        self.integrant = 0
 
     def __call__(self):
         integrant_timestep = self.callback()
-        if not hasattr(self, 'integrant'):
-            self.integrant = integrant_timestep
-        else:
-            self.integrant += integrant_timestep
-
+        self.integrant += integrant_timestep
         return [integrant_timestep, ]
 
     def get_value(self):
@@ -564,23 +559,28 @@ class AccumulatorCallback(DiagnosticCallback):
 
 class TimeIntegralCallback(AccumulatorCallback):
     """
-    Callback that evaluates time-dependent functionals on a single timestep using the appropriate
-    quadrature scheme associated with the time integrator used.
+    Callback that evaluates time-dependent functionals over a single timestep using
+    the appropriate quadrature scheme for the time integrator used.
+
+    This callback can also be used to express time-dependent objective
+    functionals for adjoint simulations.
     """
     name = 'time integral'
     variable_names = ['value']
 
-    def __init__(self, spatial_integral, solver_obj, timestepper, **kwargs):
+    def __init__(self, spatial_integral, solver_obj, timestepper, name=None, **kwargs):
         """
         :arg spatial_integral: Python function that returns an integral in space only
         :arg solver_obj: Thetis solver object
-        :arg timestepper: Thetis timeintegrator object
+        :arg timestepper: Thetis TimeIntegrator object
+        :kwarg name: name of integrated quantity
         :arg kwargs: any additional keyword arguments, see DiagnosticCallback
         """
-        options = solver_obj.options
+        if name is not None:
+            self.name = name
         dt = timestepper.dt
 
-        # Check if implemented
+        # Check if implemented then collect quadrature weights and update values at nodes
         to_do = (
             timeintegrator.PressureProjectionPicard,
             timeintegrator.LeapFrogAM3,
@@ -615,19 +615,19 @@ class TimeIntegralCallback(AccumulatorCallback):
             updates = [timestepper.solution, ]
 
         elif isinstance(timestepper, timeintegrator.CrankNicolson):
-            theta = options.timestepper_options.implicitness_theta
+            theta = solver_obj.options.timestepper_options.implicitness_theta
             weights = [1 - theta, theta]
             updates = [timestepper.solution_old, timestepper.solution]
 
         else:
-            raise ValueError("Timestepper {:s} not regognised.".format(timestepper.__class__.__name__))
+            raise ValueError("Timestepper {:s} not recognised.".format(timestepper.__class__.__name__))
 
         num_updates = len(updates)
         num_weights = len(weights)
         try:
             assert num_updates == num_weights
         except AssertionError:
-            msg = "Update and weight vectors have different lengths ({:d} vs {:d})"
+            msg = "Update and weight vectors have different lengths ({:d} vs. {:d})"
             raise ValueError(msg.format(num_updates, num_weights))
 
         def time_integral_callback():
