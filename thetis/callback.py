@@ -4,6 +4,8 @@ Defines custom callback functions used to compute various metrics at runtime.
 """
 from __future__ import absolute_import
 from .utility import *
+from . import timeintegrator
+from . import rungekutta
 from abc import ABC, abstractproperty, abstractmethod
 import h5py
 from collections import defaultdict
@@ -558,8 +560,12 @@ class AccumulatorCallback(DiagnosticCallback):
         return '{:s} value {:11.4e}'.format(self.name, args[0])
 
 
+# TODO: Enforce 'timestep' rather than 'export'
 class TimeIntegralCallback(AccumulatorCallback):
-    # TODO: doc
+    """
+    Callback that evaluates time-dependent functionals on a single timestep using the appropriate
+    quadrature scheme associated with the time integrator used.
+    """
     name = 'time integral'
     variable_names = ['value']
 
@@ -570,14 +576,62 @@ class TimeIntegralCallback(AccumulatorCallback):
         :arg timestepper: Thetis timeintegrator object
         :arg kwargs: any additional keyword arguments, see DiagnosticCallback
         """
+        options = solver_obj.options
+        dt = timestepper.dt
 
-        def time_integral_callback():  # FIXME: Generalise
-            dt = timestepper.dt
-            solution_old = timestepper.solution_old
-            solution = timestepper.solution
-            time_integral = 0.5*dt*spatial_integral(solution_old)
-            time_integral += 0.5*dt*spatial_integral(solution)
-            return time_integral
+        # Check if implemented
+        to_do = (
+            timeintegrator.PressureProjectionPicard,
+            timeintegrator.LeapFrogAM3,
+            timeintegrator.SSPRK22ALE,
+        )
+        if isinstance(timestepper, to_do):
+            raise NotImplementedError  # TODO
+
+        elif issubclass(timestepper.__class__, rungekutta.ERKGeneric):
+            weights = timestepper.b
+            updates = timestepper.tendency
+
+        elif issubclass(timestepper.__class__, rungekutta.ERKGenericShuOsher):
+            weights = timestepper.b
+            updates = timestepper.stage_sol
+
+        elif issubclass(timestepper.__class__, rungekutta.DIRKGeneric):
+            weights = timestepper.b
+            updates = timestepper.k
+
+        elif issubclass(timestepper.__class__, rungekutta.DIRKGenericUForm):
+            weights = timestepper.b
+            updates = timestepper.k.copy()
+            updates.insert(0, timestepper.solution_old)
+
+        elif isinstance(timestepper, timeintegrator.ForwardEuler):
+            weights = [1.0, ]
+            updates = [timestepper.solution_old, ]
+
+        elif isinstance(timestepper, timeintegrator.SteadyState):
+            weights = [1.0, ]
+            updates = [timestepper.solution, ]
+
+        elif isinstance(timestepper, timeintegrator.CrankNicolson):
+            theta = options.timestepper_options.implicitness_theta
+            weights = [1 - theta, theta]
+            updates = [timestepper.solution_old, timestepper.solution]
+
+        else:
+            raise ValueError("Timestepper {:s} not regognised.".format(timestepper.__class__.__name__))
+
+        num_updates = len(updates)
+        num_weights = len(weights)
+        try:
+            assert num_updates == num_weights
+        except AssertionError:
+            msg = "Update and weight vectors have different lengths ({:d} vs {:d})"
+            raise ValueError(msg.format(num_updates, num_weights))
+
+        def time_integral_callback():
+            """Time integrate spatial integral over a single timestep"""
+            return dt*sum(weights[i]*spatial_integral(updates[i]) for i in range(num_weights))
 
         super(TimeIntegralCallback, self).__init__(time_integral_callback, solver_obj, **kwargs)
 
