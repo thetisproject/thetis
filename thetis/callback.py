@@ -632,7 +632,13 @@ class TimeIntegralCallback(AccumulatorCallback):
 
         def time_integral_callback():
             """Time integrate spatial integral over a single timestep"""
-            return dt*sum(weights[i]*spatial_integral(updates[i]) for i in range(num_weights))
+            integral = 0
+            for i in range(num_weights):
+                stored = i == 0 and hasattr(self, 'previous_update')
+                update_integral = self.previous_update if stored else spatial_integral(updates[i])
+                integral += weights[i]*update_integral
+            self.previous_update = update_integral
+            return dt*integral
 
         super(TimeIntegralCallback, self).__init__(time_integral_callback, solver_obj, **kwargs)
 
