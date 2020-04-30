@@ -75,7 +75,7 @@ def run(**model_options):
     # apply boundary conditions
     solver_obj.bnd_functions['shallow_water'] = {
         1: {'uv': inflow_velocity},  # inflow condition used upstream
-        2: {'elev': Constant(0.0)},  # Dirichlet condition at outflow to close system
+        2: {'elev': Constant(0.0)},  # we need to impose a condition on elevation to close system
         3: {'un': Constant(0.0)},    # freeslip on channel walls
     }
 
