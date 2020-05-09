@@ -13,7 +13,6 @@ UTM_ZONE10 = pyproj.Proj(
     datum='WGS84',
     units='m',
     errcheck=True)
-SPCS_N_OR = pyproj.Proj(init='nad27:3601', errcheck=True)
 LL_WGS84 = pyproj.Proj(proj='latlong', datum='WGS84', errcheck=True)
 
 
