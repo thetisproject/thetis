@@ -378,51 +378,17 @@ class ExternalPressureGradientTerm(ShallowWaterMomentumTerm):
                     eta_rie = 0.5*(head + eta_ext) + sqrt(total_h/g_grav)*un_jump
                     f += g_grav*(eta_rie-head)*dot(self.u_test, self.normal)*ds_bnd
 
-        from ufl.averaging import CellAvg
-        total_h_p0 = CellAvg(eta) + CellAvg(self.depth.bathymetry_2d)
-
-        total_h_new = self.depth.get_total_depth(eta)
-
+        # element-wise calcellation of pg term
         eta_max = fields['elev_max']
         bath_min = fields['bath_min']
         h_wd = eta_max + bath_min
-
-        hmin = Constant(0.05)
-        hmid = Constant(0.15)
-        hmax = Constant(0.40)
-
-        s = (total_h_new - hmin)/(hmid - hmin)
-        scalar = (1.0 - sigmoid_lin(s))
-        #f += scalar*g_grav*inner(grad(total_h_new), self.u_test) * self.dx
-
-        bath_grad = grad(self.depth.bathymetry_2d)
-        bath_grad_mag = sqrt(bath_grad[0]**2 + bath_grad[1]**2) + Constant(1e-8)
-        #p = dot(grad(eta), bath_grad)/bath_grad_mag**2
-        lx = Constant(1000)
-        h_dam = Constant(0.0001)
-        p = lx / h_dam * dot(grad(eta), bath_grad)/bath_grad_mag
-        not_dam_detector = 1.0 - sigmoid_lin(p)
-
-        #bath_grad = grad(self.depth.bathymetry_2d)
-        #bath_grad_mag = sqrt(bath_grad[0]**2 + bath_grad[1]**2)
-        #eta_grad = grad(eta)
-        #eta_grad_mag = sqrt(eta_grad[0]**2 + eta_grad[1]**2)
-        #t = total_h_p0 + (eta_grad_mag - bath_grad_mag)/2*Constant(1000)
-        #s = (t - hmid)/(hmax - hmid)
-        #s = (total_h_new - hmid)/(hmax - hmid)
-        #pg_cancel = (1.0 - sigmoid_lin(s))
 
         hmid = Constant(0.03)
         hmax = Constant(0.15)
 
         s = (h_wd - hmid)/(hmax - hmid)
-        pg_cancel = (1.0 - sigmoid_lin(s)) # * not_dam_detector
+        pg_cancel = (1.0 - sigmoid_lin(s))
         f += -pg_cancel*g_grav*inner(grad(head), self.u_test) * self.dx
-
-        s = (total_h_new - hmin)/(0.5*(hmax + hmid) - hmin)
-        lin_friction = (1.0 - sigmoid_lin(s))
-        wd_t_relax = Constant(10.)
-        #f += lin_friction/wd_t_relax*inner(uv, self.u_test) * self.dx
 
         return -f
 
