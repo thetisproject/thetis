@@ -31,7 +31,7 @@ outputdir = 'outputs'
 mesh2d = RectangleMesh(12, 6, 13800, 7200)
 
 # Balzano testcase 3 with isolated lake
-lake_test = False
+lake_test = True
 
 # time step in seconds
 dt = 600.
@@ -79,8 +79,8 @@ options.fields_to_export = ['uv_2d', 'elev_2d']
 #options.timestepper_type = 'CrankNicolson'
 options.timestepper_type = 'DIRK22'
 options.timestep = dt
-options.horizontal_viscosity = Constant(1000.)
-options.use_lax_friedrichs_velocity = False
+#options.horizontal_viscosity = Constant(1000.)
+#options.use_lax_friedrichs_velocity = False
 options.use_wetting_and_drying = False
 options.wetting_and_drying_alpha = wetting_and_drying_alpha
 options.manning_drag_coefficient = manning_drag_coefficient
