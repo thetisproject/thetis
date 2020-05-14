@@ -262,6 +262,20 @@ class OptimalP1DGLimiter(VertexBasedP1DGLimiter):
     def __init__(self, p1dg_space, elem_height=None, time_dependent_mesh=True):
         super().__init__(p1dg_space, elem_height=elem_height,
                          time_dependent_mesh=time_dependent_mesh)
+        test_p1dg = TestFunction(self.P1DG)
+        self.nodal_vol_expression = test_p1dg*dx
+        self.nodal_volume = Function(self.P1DG)
+        assemble(self.nodal_vol_expression, self.nodal_volume)
+
+    def _update_centroids(self, field):
+        """
+        Update centroid values
+        """
+        b = assemble(TestFunction(self.P0) * field * dx)
+        if self.time_dependent_mesh:
+            assemble(self.a_form, self.centroid_solver.A)
+            assemble(self.nodal_vol_expression, self.nodal_volume)
+        self.centroid_solver.solve(self.centroids, b)
 
     def _apply_limiter(self, field):
         """
@@ -290,12 +304,12 @@ class OptimalP1DGLimiter(VertexBasedP1DGLimiter):
             // check violations
             for (int i=0; i < q.dofs; i++) {
                 if (q[i] > qmax[i]) {       // overshoot
-                    dev_over += (q[i] - qmax[i]);
+                    dev_over += (q[i] - qmax[i])*w[i];
                     ix_over[i] = 1;
                     no_violation = 0;
                 }
                 else if (q[i] < qmin[i]) {  // undershoot
-                    dev_under += (q[i] - qmin[i]);
+                    dev_under += (q[i] - qmin[i])*w[i];
                     ix_under[i] = 1;
                     no_violation = 0;
                 }
@@ -304,27 +318,27 @@ class OptimalP1DGLimiter(VertexBasedP1DGLimiter):
                 break;
             double deviation = dev_over + dev_under;
             // redistribute
-            int nfree = q.dofs;
+            double vol_scalar = 0;
             if (deviation > 0.0) {
                 for (int i=0; i < q.dofs; i++) {
-                    nfree -= (int)ix_over[i];
+                    vol_scalar += (1 - ix_over[i])*w[i];
                 }
                 for (int i=0; i < q.dofs; i++) {
                     if (ix_over[i] == 1) {
                         q[i] = qmax[i];
                     } else {
-                        q[i] += dev_over/nfree;
+                        q[i] += dev_over/vol_scalar;
                     }
                 }
             } else {
                 for (int i=0; i < q.dofs; i++) {
-                    nfree -= (int)ix_under[i];
+                    vol_scalar += (1 - ix_under[i])*w[i];
                 }
                 for (int i=0; i < q.dofs; i++) {
                     if (ix_under[i] == 1) {
                         q[i] = qmin[i];
                     } else {
-                        q[i] += dev_under/nfree;
+                        q[i] += dev_under/vol_scalar;
                     }
                 }
             }
@@ -335,4 +349,5 @@ class OptimalP1DGLimiter(VertexBasedP1DGLimiter):
                  {"qbar": (self.centroids, READ),
                   "q": (field, RW),
                   "qmax": (self.max_field, READ),
-                  "qmin": (self.min_field, READ)})
+                  "qmin": (self.min_field, READ),
+                  "w": (self.nodal_volume, READ)})
