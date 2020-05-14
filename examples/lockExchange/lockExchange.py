@@ -42,7 +42,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
                      reynolds_number=1.0, use_limiter=True, dt=None,
                      viscosity='const', laxfriedrichs_vel=0.0,
                      laxfriedrichs_trc=0.0,
-                     elem_type='tri',
+                     elem_type='tri', use_optimal_limiter=False,
                      load_export_ix=None, iterate=True, **custom_options):
     """
     Runs lock exchange problem with a bunch of user defined options.
@@ -102,7 +102,11 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     if os.getenv('THETIS_REGRESSION_TEST') is not None:
         t_end = 5*t_export
 
-    lim_str = '_lim' if use_limiter else ''
+    lim_str = ''
+    if use_limiter:
+        lim_str = '_lim'
+        if use_optimal_limiter:
+            lim_str += '-opt'
     options_str = '_'.join([reso_str,
                             element_family,
                             elem_type,
@@ -138,6 +142,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.lax_friedrichs_tracer_scaling_factor = Constant(laxfriedrichs_trc)
     options.use_limiter_for_tracers = use_limiter
     options.use_limiter_for_velocity = use_limiter
+    options.use_optimal_limiter = use_optimal_limiter
     # To keep const grid Re_h, viscosity scales with grid: nu = U dx / Re_h
     if viscosity == 'smag':
         options.use_smagorinsky_viscosity = True
@@ -220,7 +225,9 @@ def get_argparser():
                         help='mesh resolution string. A named mesh  or "dx-dz" string',
                         default='coarse')
     parser.add_argument('--no-limiter', action='store_false', dest='use_limiter',
-                        help='do not use slope limiter for tracers')
+                        help='do not use slope limiter for tracers/velocity')
+    parser.add_argument('--opt-limiter', action='store_true', dest='use_optimal_limiter',
+                        help='use optimal p1dg limiter')
     parser.add_argument('-p', '--poly_order', type=int, default=1,
                         help='order of finite element space')
     parser.add_argument('-f', '--element-family', type=str,
