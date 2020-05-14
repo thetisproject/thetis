@@ -314,8 +314,12 @@ class FlowSolver2d(FrozenClass):
                     self.function_spaces.Q_2d, self.depth,
                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
                     sipg_parameter=self.options.sipg_parameter_tracer)
+            if self.options.use_optimal_limiter:
+                limiter_class = limiter.OptimalP1DGLimiter
+            else:
+                limiter_class = limiter.VertexBasedP1DGLimiter
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
-                self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
+                self.tracer_limiter = limiter_class(self.function_spaces.Q_2d)
             else:
                 self.tracer_limiter = None
 
