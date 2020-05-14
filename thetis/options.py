@@ -388,6 +388,10 @@ class CommonModelOptions(FrozenConfigurable):
         Constant(1.0), help="Scaling factor for tracer Lax Friedrichs stability term.").tag(config=True)
     use_limiter_for_tracers = Bool(
         True, help="Apply P1DG limiter for tracer fields").tag(config=True)
+    use_optimal_limiter = Bool(
+        False, help=r"""Use optimal P1DG limiter
+
+        This limiter applies minimal change to the nodal values, reducing numerical mixing.""").tag(config=True)
 
     check_volume_conservation_2d = Bool(
         False, help="""
