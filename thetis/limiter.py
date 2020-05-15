@@ -267,6 +267,9 @@ class OptimalP1DGLimiter(VertexBasedP1DGLimiter):
         self.nodal_volume = Function(self.P1DG)
         assemble(self.nodal_vol_expression, self.nodal_volume)
 
+    def compute_bounds(self, field):
+        super(VertexBasedP1DGLimiter, self).compute_bounds(field)
+
     def _update_centroids(self, field):
         """
         Update centroid values
@@ -277,7 +280,7 @@ class OptimalP1DGLimiter(VertexBasedP1DGLimiter):
             assemble(self.nodal_vol_expression, self.nodal_volume)
         self.centroid_solver.solve(self.centroids, b)
 
-    def _apply_limiter(self, field):
+    def apply_limiter(self, field):
         """
         Only applies limiting loop on the given field
         """
@@ -302,13 +305,14 @@ class OptimalP1DGLimiter(VertexBasedP1DGLimiter):
             int ix_over[q.dofs] = {0};
             int ix_under[q.dofs] = {0};
             // check violations
+            double tol = 1e-6;
             for (int i=0; i < q.dofs; i++) {
-                if (q[i] > qmax[i]) {       // overshoot
+                if (q[i] + tol > qmax[i]) {       // overshoot
                     dev_over += (q[i] - qmax[i])*w[i];
                     ix_over[i] = 1;
                     no_violation = 0;
                 }
-                else if (q[i] < qmin[i]) {  // undershoot
+                else if (q[i] - tol < qmin[i]) {  // undershoot
                     dev_under += (q[i] - qmin[i])*w[i];
                     ix_under[i] = 1;
                     no_violation = 0;
