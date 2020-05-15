@@ -71,12 +71,16 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     # generate unit mesh and transform its coords
     x_max = 32.0e3
     x_min = -32.0e3
-    n_x = (x_max - x_min)/delta_x
-    mesh2d = UnitSquareMesh(int(n_x), 2, quadrilateral=(elem_type == 'quad'))
+    n_x = int((x_max - x_min)/delta_x)
+    n_y = 3
+    mesh2d = PeriodicUnitSquareMesh(
+        n_x, n_y, quadrilateral=(elem_type == 'quad'), direction='y'
+    )
     coords = mesh2d.coordinates
     # x in [x_min, x_max], y in [-dx, dx]
     coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min
-    coords.dat.data[:, 1] = coords.dat.data[:, 1]*2*delta_x - delta_x
+    l_y = n_y*delta_x
+    coords.dat.data[:, 1] = (coords.dat.data[:, 1] - 0.5)*l_y
 
     # temperature and salinity, for linear eq. of state (from Petersen, 2015)
     temp_left = 5.0
@@ -167,9 +171,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     options.check_temperature_conservation = True
     options.check_temperature_overshoot = True
     options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
-                                'w_3d', 'w_mesh_3d', 'temp_3d', 'density_3d',
-                                'uv_dav_2d', 'uv_dav_3d', 'baroc_head_3d',
-                                'smag_visc_3d']
+                                'w_3d', 'temp_3d']
     options.fields_to_export_hdf5 = list(options.fields_to_export)
     options.equation_of_state_type = 'linear'
     options.equation_of_state_options.rho_ref = rho_0
