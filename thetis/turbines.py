@@ -133,19 +133,19 @@ class DiscreteTidalfarm(object):
         psi_y = Function(self.functionspace)
         radius = self.turbine.swept_diameter * 0.5
         for coord in self.coordinates:
-            psi_x.interpolate(conditional(lt(abs((x[0]-coord[0])/radius), 1),
+            psi_x.project(conditional(lt(abs((x[0]-coord[0])/radius), 1),
                                           exp(1-1/(1-pow(abs((x[0]-coord[0])/radius), 2))), 0))
-            psi_y.interpolate(conditional(lt(abs((x[1]-coord[1])/radius), 1),
+            psi_y.project(conditional(lt(abs((x[1]-coord[1])/radius), 1),
                                           exp(1-1/(1-pow(abs((x[1]-coord[1])/radius), 2))), 0))
             projection_integral = assemble(Function(self.functionspace).
-                                           interpolate(psi_x * psi_y / (self.turbine._unit_bump_int * radius**2))
+                                           project(psi_x * psi_y / (self.turbine._unit_bump_int * radius**2))
                                            * dx(self.subdomain_id))
 
             if projection_integral == 0.0:
                 print_output("Could not place turbine due to low resolution. Either increase resolution or radius")
             else:
                 density_correction = 1 / projection_integral
-                self.farm_density.interpolate(self.farm_density + density_correction * psi_x * psi_y
+                self.farm_density.project(self.farm_density +  psi_x * psi_y
                                               / (self.turbine._unit_bump_int * radius ** 2))
 
 
@@ -202,7 +202,7 @@ class DiscreteTurbineOperation(DiagnosticCallback):
         """
         H = self.solver.fields["bathymetry_2d"]+self.solver.fields["elev_2d"]
         disp = Function(self.functionspace). \
-            interpolate(0.5 * (sqrt(H ** 2 + self.solver.options.wetting_and_drying_alpha ** 2) - H))
+            project(0.5 * (sqrt(H ** 2 + self.solver.options.wetting_and_drying_alpha ** 2) - H))
         return disp
 
     def compute_total_depth(self):
@@ -211,42 +211,43 @@ class DiscreteTurbineOperation(DiagnosticCallback):
         """
         if hasattr(self.solver.options, 'use_wetting_and_drying') and self.solver.options.use_wetting_and_drying:
             return Function(self.functionspace). \
-                interpolate(self.solver.fields["bathymetry_2d"] + self.solver.fields["elev_2d"]
+                project(self.solver.fields["bathymetry_2d"] + self.solver.fields["elev_2d"]
                             + self.wd_bathymetry_displacement())
         else:
             return Function(self.functionspace). \
-                interpolate(self.solver.fields["bathymetry_2d"] + self.solver.fields["elev_2d"])
+                project(self.solver.fields["bathymetry_2d"] + self.solver.fields["elev_2d"])
 
     def calculate_turbine_coefficients(self, uv_mag):
         """
         :return: returns the thrust and power coefficient fields and updates the turbine drag fields
         """
 
-        self.farm_options.thrust_coefficient.interpolate(
-            conditional(le(uv_mag, self.turbine.cut_in_speed), 0,
-                        conditional(le(uv_mag, self.turbine.cut_out_speed), self.turbine.c_t_design,
-                                    self.turbine.c_t_design * self.turbine.cut_out_speed ** 3 / uv_mag ** 3)))
+        #self.farm_options.thrust_coefficient.project(
+        #    conditional(le(uv_mag, self.turbine.cut_in_speed), 0,
+        #                conditional(le(uv_mag, self.turbine.cut_out_speed), self.turbine.c_t_design,
+        #                            self.turbine.c_t_design * self.turbine.cut_out_speed ** 3 / uv_mag ** 3)))
+        self.farm_options.thrust_coefficient = Constant(self.turbine.c_t_design)
 
         self.farm_options.power_coefficient.\
-            interpolate(1/2 * (1 + sqrt(1 - self.farm_options.thrust_coefficient)) * self.farm_options.thrust_coefficient
+            project(1/2 * (1 + sqrt(1 - self.farm_options.thrust_coefficient)) * self.farm_options.thrust_coefficient
                         * self.farm_options.turbine_density)
 
         H = self.compute_total_depth()
         if self.support_structure["A_sup"] is None:
             self.support_structure["A_sup"] = 1.0 * H
         if self.farm_options.upwind_correction is False:
-            self.farm_options.turbine_drag.interpolate((self.farm_options.thrust_coefficient * self.turbine.turbine_area
+            self.farm_options.turbine_drag.project((self.farm_options.thrust_coefficient * self.turbine.turbine_area
                                                        + self.support_structure["C_sup"] * self.support_structure["A_sup"])
                                                        / 2 * self.farm_options.turbine_density)
-            self.uv_ambient_correction.interpolate(uv_mag)
+            self.uv_ambient_correction.project(uv_mag)
         else:
             self.farm_options.turbine_drag.\
-                interpolate(self.farm_options.thrust_coefficient * self.turbine.turbine_area / 2 * self.farm_options.turbine_density
+                project(self.farm_options.thrust_coefficient * self.turbine.turbine_area / 2 * self.farm_options.turbine_density
                             * 4. / ((1. + sqrt(1 - self.turbine.turbine_area / (self.turbine.swept_diameter * H)
                                                * self.farm_options.thrust_coefficient)) ** 2) + self.support_structure["C_sup"]
                             * self.support_structure["A_sup"] / 2 * self.farm_options.turbine_density)
 
-            self.uv_ambient_correction.interpolate((1+1/4 * self.turbine.turbine_area/(self.turbine.swept_diameter * H)
+            self.uv_ambient_correction.project((1+1/4 * self.turbine.turbine_area/(self.turbine.swept_diameter * H)
                                                     * self.farm_options.thrust_coefficient) * uv_mag)
 
     def __call__(self):
