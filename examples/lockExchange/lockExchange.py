@@ -93,7 +93,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     uscale = 0.5
     nu_scale = uscale * delta_x / reynolds_number
 
-    if reynolds_number < 0:
+    if reynolds_number < 0 or viscosity == 'zero':
         reynolds_number = float("inf")
         nu_scale = 0.0
 
@@ -111,12 +111,12 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
         lim_str = '_lim'
         if use_optimal_limiter:
             lim_str += '-opt'
+    re_str = '' if viscosity == 'zero' else '-Re{:}'.format(reynolds_number)
     options_str = '_'.join([reso_str,
                             element_family,
                             elem_type,
                             'p{:}'.format(poly_order),
-                            'visc-{:}'.format(viscosity),
-                            'Re{:}'.format(reynolds_number),
+                            'visc-{:}'.format(viscosity) + re_str,
                             'lf-vel{:.1f}'.format(laxfriedrichs_vel),
                             'lf-trc{:.1f}'.format(laxfriedrichs_trc),
                             ]) + lim_str
@@ -154,9 +154,13 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     elif viscosity == 'const':
         options.horizontal_viscosity = Constant(nu_scale)
     else:
-        raise Exception('Unknow viscosity type {:}'.format(viscosity))
-    options.vertical_viscosity = Constant(1e-4)
+        options.horizontal_viscosity = None
+    if viscosity != 'zero':
+        options.vertical_viscosity = Constant(1e-4)
+    else:
+        options.vertical_viscosity = None
     options.horizontal_diffusivity = None
+    options.vertical_diffusivity = None
     options.horizontal_viscosity_scale = Constant(nu_scale)
     options.horizontal_velocity_scale = Constant(u_max)
     options.vertical_velocity_scale = Constant(w_max)
@@ -190,9 +194,11 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
 
     print_output('Running lock exchange problem with options:')
     print_output('Resolution: {:}'.format(reso_str))
-    print_output('Reynolds number: {:}'.format(reynolds_number))
     print_output('Use slope limiters: {:}'.format(use_limiter))
-    print_output('Horizontal viscosity: {:}'.format(nu_scale))
+    print_output('Viscosity type: {:}'.format(viscosity))
+    if viscosity != 'zero':
+        print_output('Reynolds number: {:}'.format(reynolds_number))
+        print_output('Horizontal viscosity: {:}'.format(nu_scale))
     print_output('Lax-Friedrichs factor vel: {:}'.format(laxfriedrichs_vel))
     print_output('Lax-Friedrichs factor trc: {:}'.format(laxfriedrichs_trc))
     print_output('Exporting to {:}'.format(outputdir))
@@ -241,7 +247,7 @@ def get_argparser():
     parser.add_argument('-visc', '--viscosity', type=str,
                         help='Type of horizontal viscosity',
                         default='const',
-                        choices=['const', 'smag'])
+                        choices=['const', 'smag', 'zero'])
     parser.add_argument('-lf-trc', '--laxfriedrichs-trc', type=float,
                         help='Lax-Friedrichs flux factor for tracers',
                         default=0.0)
