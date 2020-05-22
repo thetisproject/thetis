@@ -305,7 +305,7 @@ class OptimalP1DGLimiter(VertexBasedP1DGLimiter):
             int ix_over[q.dofs] = {0};
             int ix_under[q.dofs] = {0};
             // check violations
-            double tol = 1e-6;
+            double tol = 1e-12;
             for (int i=0; i < q.dofs; i++) {
                 if (q[i] + tol > qmax[i]) {       // overshoot
                     dev_over += (q[i] - qmax[i])*w[i];
