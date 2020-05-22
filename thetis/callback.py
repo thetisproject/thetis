@@ -892,7 +892,8 @@ class TransectCallback(DiagnosticCallback):
         assert export_to_hdf5 is True
         self.fieldnames = fieldnames
         self.location_name = location_name
-        field_short_names = [f.split('_')[0] for f in self.fieldnames]
+        field_short_names = [f.replace('_3d', '').replace('_2d', '')
+                             for f in self.fieldnames]
         field_str = '-'.join(field_short_names)
         self.name += '_' + self.location_name
         self.name += '_' + field_str
