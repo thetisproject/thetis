@@ -44,6 +44,8 @@ def boundary_conditions_fn_trench(morfac=1, t_new=0, state='initial'):
     return swe_bnd, left_bnd_id, right_bnd_id, inflow_constant, outflow_constant, left_string, right_string
 
 
+## Note it is necessary to run trench_hydro first to get the hydrodynamics simulation
+
 def run_migrating_trench(conservative, hydro):
     # define mesh
     lx = 16
@@ -69,22 +71,6 @@ def run_migrating_trench(conservative, hydro):
                                                              conditional(le(x, 9.5), depth_trench, conditional(le(x, 11), -(1/1.5)*depth_diff*(x-11) + depth_riv,
                                                                                                                           depth_riv))))
     bathymetry_2d.interpolate(-trench)
-
-    if hydro:
-        # simulate initial hydrodynamics
-        # define initial elevation
-        elev_init = Function(P1_2d).interpolate(Constant(0.4))
-        uv_init = as_vector((0.51, 0.0))
-
-        solver_obj, update_forcings_hydrodynamics, outputdir = morph.hydrodynamics_only(boundary_conditions_fn_trench, mesh2d, bathymetry_2d, uv_init, elev_init, average_size=160 * (10**(-6)), dt=0.25, t_end=500)
-
-        # run model
-        solver_obj.iterate(update_forcings=update_forcings_hydrodynamics)
-
-        uv, elev = solver_obj.fields.solution_2d.split()
-        morph.export_final_state("hydrodynamics_trench", uv, elev)
-
-    wd_fn = Constant(0.015)
 
     solver_obj, update_forcings_tracer, outputdir = morph.morphological(boundary_conditions_fn=boundary_conditions_fn_trench, morfac=100, morfac_transport=True, suspendedload=True, convectivevel=True,
                   bedload=True, angle_correction=False, slope_eff=True, seccurrent=False, wetting_and_drying = False,
@@ -123,7 +109,7 @@ def run_migrating_trench(conservative, hydro):
 
     assert max([abs((tracer_solution['Tracer'][i] - tracerthetis1[i])/tracer_solution['Tracer'][i]) for i in range(len(tracerthetis1))]) < 0.1, "error in tracer"
 
-    assert max([abs((bed_solution['Bathymetry'][i] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.005, "error in bed level"
+    assert max([abs((bed_solution['Bathymetry'][i] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.007, "error in bed level"
 
 
 def conservative_case(hydro=False):

@@ -650,12 +650,22 @@ class QuadraticDragTerm(ShallowWaterMomentumTerm):
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
         total_h = self.depth.get_total_depth(eta_old)
         manning_drag_coefficient = fields_old.get('manning_drag_coefficient')
+        nikuradse_bed_roughness = fields_old.get('nikuradse_bed_roughness')
         C_D = fields_old.get('quadratic_drag_coefficient')
         f = 0
         if manning_drag_coefficient is not None:
             if C_D is not None:
                 raise Exception('Cannot set both dimensionless and Manning drag parameter')
             C_D = g_grav * manning_drag_coefficient**2 / total_h**(1./3.)
+
+        if nikuradse_bed_roughness is not None:
+            if manning_drag_coefficient is not None:
+                raise Exception('Cannot set both Nikuradse drag and Manning drag parameter')
+            if C_D is not None:
+                raise Exception('Cannot set both dimensionless and Nikuradse drag parameter')
+
+            kappa = physical_constants['von_karman']
+            C_D = 2*(kappa**2)/(ln(11.036*total_h/nikuradse_bed_roughness)**2)
 
         if C_D is not None:
             f += C_D * sqrt(dot(uv_old, uv_old) + self.options.norm_smoother**2) * inner(self.u_test, uv) / total_h * self.dx

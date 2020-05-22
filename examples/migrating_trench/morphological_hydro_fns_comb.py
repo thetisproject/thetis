@@ -17,141 +17,10 @@ import os
 import callback_cons_tracer as call
 
 
-def hydrodynamics_only(boundary_conditions_fn, mesh2d, bathymetry_2d, uv_init, elev_init, average_size, dt, t_end, wetting_and_drying=False, wetting_alpha=0.1, friction='nikuradse', friction_coef=0, viscosity=10**(-6)):
-    """
-    Sets up a simulation with only hydrodynamics until a quasi-steady state when it can be used as an initial
-    condition for the full morphological model. We update the bed friction at each time step.
-    The actual run of the model are done outside the function
-
-    Inputs:
-    boundary_conditions_fn - function defining boundary conditions for problem
-    mesh2d - define mesh working on
-    bathymetry2d - define bathymetry of problem
-    uv_init - initial velocity of problem
-    elev_init - initial elevation of problem
-    average_size - average sediment size
-    dt - timestep
-    t_end - end time
-    wetting_and_drying - wetting and drying switch
-    wetting_alpha - wetting and drying parameter
-    friction - choice of friction formulation - nikuradse and manning
-    friction_coef - value of friction coefficient used in manning
-    viscosity - viscosity of hydrodynamics. The default value should be 10**(-6)
-
-    Outputs:
-    solver_obj - solver which we need to run to solve the problem
-    update_forcings_hydrodynamics - function defining the updates to the model performed at each timestep
-    outputdir - directory of outputs
-    """
-    def update_forcings_hydrodynamics(t_new):
-        # update bed friction
-        if friction == 'nikuradse':
-            uv1, elev1 = solver_obj.fields.solution_2d.split()
-
-            if wetting_and_drying:
-                wd_bath_displacement = solver_obj.eq_sw.bathymetry_displacement_mass_term.wd_bathymetry_displacement
-                depth.project(elev1 + wd_bath_displacement(elev1) + bathymetry_2d)
-            else:
-                depth.interpolate(elev1 + bathymetry_2d)
-
-            # calculate skin friction coefficient
-            cfactor.interpolate(2*(0.4**2)/((ln(11.036*depth/(ksp)))**2))
-
-    # choose directory to output results
-    ts = time.time()
-    st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
-    outputdir = 'outputs' + st
-
-    # export interval in seconds
-
-    if t_end < 40:
-        t_export = 1
-    else:
-        t_export = np.round(t_end/40, 0)
-
-    print_output('Exporting to '+outputdir)
-
-    # define function spaces
-    V = FunctionSpace(mesh2d, 'CG', 1)
-    P1_2d = FunctionSpace(mesh2d, 'DG', 1)
-
-    # define parameters
-    ksp = Constant(3*average_size)
-
-    # define depth
-
-    depth = Function(V).interpolate(elev_init + bathymetry_2d)
-
-    # define bed friction
-    cfactor = Function(P1_2d).interpolate(2*(0.4**2)/((ln(11.036*depth/(ksp)))**2))
-
-    # set up solver
-    solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
-    options = solver_obj.options
-    options.simulation_export_time = t_export
-    options.simulation_end_time = t_end
-    options.output_directory = outputdir
-
-    options.check_volume_conservation_2d = True
-
-    options.fields_to_export = ['uv_2d', 'elev_2d']
-    options.solve_tracer = False
-    options.use_lax_friedrichs_tracer = False
-    if friction == 'nikuradse':
-        options.quadratic_drag_coefficient = cfactor
-    elif friction == 'manning':
-        if friction_coef == 0:
-            friction_coef = 0.02
-        options.manning_drag_coefficient = Constant(friction_coef)
-    else:
-        print('Undefined friction')
-    options.horizontal_viscosity = Constant(viscosity)
-
-    # crank-nicholson used to integrate in time system of ODEs resulting from application of galerkin FEM
-    options.timestepper_type = 'CrankNicolson'
-    options.timestepper_options.implicitness_theta = 1.0
-    options.use_wetting_and_drying = wetting_and_drying
-    options.wetting_and_drying_alpha = Constant(wetting_alpha)
-    options.norm_smoother = Constant(wetting_alpha)
-
-    if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
-        options.timestep = dt
-
-    # set boundary conditions
-
-    swe_bnd, left_bnd_id, right_bnd_id, in_constant, out_constant, left_string, right_string = boundary_conditions_fn(state="initial")
-
-    for j in range(len(in_constant)):
-        exec('constant_in' + str(j) + ' = Constant(' + str(in_constant[j]) + ')', globals())
-
-    str1 = '{'
-    if len(left_string) > 0:
-        for i in range(len(left_string)):
-            str1 += "'" + str(left_string[i]) + "': constant_in" + str(i) + ","
-        str1 = str1[0:len(str1)-1] + "}"
-        exec('swe_bnd[left_bnd_id] = ' + str1)
-
-    for k in range(len(out_constant)):
-        exec('constant_out' + str(k) + ' = Constant(' + str(out_constant[k]) + ')', globals())
-
-    str2 = '{'
-    if len(right_string) > 0:
-        for i in range(len(right_string)):
-            str2 += "'" + str(right_string[i]) + "': constant_out" + str(i) + ","
-        str2 = str2[0:len(str2)-1] + "}"
-        exec('swe_bnd[right_bnd_id] = ' + str2)
-
-    solver_obj.bnd_functions['shallow_water'] = swe_bnd
-
-    solver_obj.assign_initial_conditions(uv=uv_init, elev=elev_init)
-
-    return solver_obj, update_forcings_hydrodynamics, outputdir
-
-
 def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedload, convectivevel,
                   bedload, angle_correction, slope_eff, seccurrent,
                   mesh2d, bathymetry_2d, input_dir, ks, average_size, dt, final_time,
-                  beta_fn = 1.3, surbeta2_fn = 1/1.5, alpha_secc_fn = 0.75, viscosity_hydro=10**(-6), viscosity_morph=10**(-6),
+                  beta_fn = 1.3, surbeta2_fn = 1/1.5, alpha_secc_fn = 0.75, viscosity_hydro=1e-6, viscosity_morph=1e-6,
                   wetting_and_drying=False, wetting_alpha=0.1, rhos=2650, cons_tracer=False, friction='nikuradse', friction_coef=0, diffusivity=0.15, tracer_init=None):
     """
     Set up a full morphological model simulation using as an initial condition the results of a hydrodynamic only model.
@@ -214,13 +83,13 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
         vertical_velocity.interpolate(uv_cg[1])
 
         # update bedfriction
-        hc.interpolate(conditional(depth > 0.001, depth, 0.001))
-        aux.assign(conditional(11.036*hc/ks > 1.001, 11.036*hc/ks, 1.001))
-        qfc.assign(2/(ln(aux)/0.4)**2)
+        hc.interpolate(conditional(depth > Constant(0.001), depth, Constant(0.001)))
+        aux.assign(conditional(11.036*hc/ks > Constant(1.001), 11.036*hc/ks, Constant(1.001)))
+        qfc.assign(Constant(2)/(ln(aux)/kappa)**2)
 
         # calculate skin friction coefficient
         hclip.interpolate(conditional(ksp > depth, ksp, depth))
-        cfactor.interpolate(conditional(depth > ksp, 2*((2.5*ln(11.036*hclip/ksp))**(-2)), Constant(0.0)))
+        cfactor.interpolate(conditional(depth > ksp, 2*(((1/kappa)*ln(11.036*hclip/ksp))**(-2)), Constant(0.0)))
 
         if morfac_transport:
 
@@ -240,11 +109,11 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
                 z_n.assign(old_bathymetry_2d)
 
                 # mu - ratio between skin friction and normal friction
-                mu.assign(conditional(qfc > 0, cfactor/qfc, 0))
+                mu.assign(conditional(qfc > Constant(0), cfactor/qfc, Constant(0)))
 
                 # bed shear stress
                 unorm.interpolate((horizontal_velocity**2) + (vertical_velocity**2))
-                TOB.interpolate(1000*0.5*qfc*unorm)
+                TOB.interpolate(rhow*0.5*qfc*unorm)
 
                 # calculate gradient of bed (noting bathymetry is -bed)
                 dzdx.interpolate(old_bathymetry_2d.dx(0))
@@ -256,13 +125,13 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
                     # deposition flux - calculating coefficient to account for stronger conc at bed
                     B.interpolate(conditional(a > depth, a/a, a/depth))
                     ustar.interpolate(sqrt(0.5*qfc*unorm))
-                    exp1.assign(conditional((conditional((settling_velocity/(0.4*ustar)) - 1 > 0, (settling_velocity/(0.4*ustar)) - 1, -(settling_velocity/(0.4*ustar)) + 1)) > 10**(-4), conditional((settling_velocity/(0.4*ustar)) - 1 > 3, 3, (settling_velocity/(0.4*ustar))-1), 0))
-                    coefftest.assign(conditional((conditional((settling_velocity/(0.4*ustar)) - 1 > 0, (settling_velocity/(0.4*ustar)) - 1, -(settling_velocity/(0.4*ustar)) + 1)) > 10**(-4), B*(1-B**exp1)/exp1, -B*ln(B)))
-                    coeff.assign(conditional(coefftest > 0, 1/coefftest, 0))
+                    exp1.assign(conditional((conditional((settling_velocity/(kappa*ustar)) - Constant(1) > Constant(0), (settling_velocity/(kappa*ustar)) - Constant(1), -(settling_velocity/(kappa*ustar)) + Constant(1))) > Constant(1e-4), conditional((settling_velocity/(kappa*ustar)) - Constant(1) > Constant(3), Constant(3), (settling_velocity/(kappa*ustar))-Constant(1)), Constant(0)))
+                    coefftest.assign(conditional((conditional((settling_velocity/(kappa*ustar)) - Constant(1) > Constant(0), (settling_velocity/(kappa*ustar)) - Constant(1), -(settling_velocity/(kappa*ustar)) + Constant(1))) > Constant(1e-4), B*(Constant(1)-B**exp1)/exp1, -B*ln(B)))
+                    coeff.assign(conditional(coefftest > Constant(0), Constant(1)/coefftest, Constant(0)))
 
                     # erosion flux - above critical velocity bed is eroded
-                    s0.assign((conditional(1000*0.5*qfc*unorm*mu > 0, 1000*0.5*qfc*unorm*mu, 0) - taucr)/taucr)
-                    ceq.assign(0.015*(average_size/a) * ((conditional(s0 < 0, 0, s0))**(1.5))/(dstar**0.3))
+                    s0.assign((conditional(rhow*Constant(0.5)*qfc*unorm*mu > Constant(0), rhow*Constant(0.5)*qfc*unorm*mu, Constant(0)) - taucr)/taucr)
+                    ceq.assign(Constant(0.015)*(average_size/a) * ((conditional(s0 < Constant(0), Constant(0), s0))**(1.5))/(dstar**0.3))
 
                     # calculate depth-averaged source term for sediment concentration equation
                     depo.interpolate(settling_velocity*coeff)
@@ -277,22 +146,22 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
 
                     if convectivevel:
                         # correction factor to advection velocity in sediment concentration equation
-                        Bconv.interpolate(conditional(depth > 1.1*ksp, ksp/depth, ksp/(1.1*ksp)))
-                        Aconv.interpolate(conditional(depth > 1.1*a, a/depth, a/(1.1*a)))
+                        Bconv.interpolate(conditional(depth > Constant(1.1)*ksp, ksp/depth, Constant(1/1.1)))
+                        Aconv.interpolate(conditional(depth > Constant(1.1)*a, a/depth, Constant(1/1.1)))
 
                         # take max of value calculated either by ksp or depth
                         Amax.assign(conditional(Aconv > Bconv, Aconv, Bconv))
 
-                        r1conv.assign(1 - (1/0.4)*conditional(settling_velocity/ustar < 1, settling_velocity/ustar, 1))
+                        r1conv.assign(Constant(1) - Constant(1/kappa)*conditional(settling_velocity/ustar < Constant(1), settling_velocity/ustar, Constant(1)))
 
-                        Ione.assign(conditional(r1conv > 10**(-8), (1 - Amax**r1conv)/r1conv, conditional(r1conv < - 10**(-8), (1 - Amax**r1conv)/r1conv, ln(Amax))))
+                        Ione.assign(conditional(r1conv > Constant(1e-8), (Constant(1) - Amax**r1conv)/r1conv, conditional(r1conv < Constant(- 1e-8), (Constant(1) - Amax**r1conv)/r1conv, ln(Amax))))
 
-                        Itwo.assign(conditional(r1conv > 10**(-8), -(Ione + (ln(Amax)*(Amax**r1conv)))/r1conv, conditional(r1conv < - 10**(-8), -(Ione + (ln(Amax)*(Amax**r1conv)))/r1conv, -0.5*ln(Amax)**2)))
+                        Itwo.assign(conditional(r1conv > Constant(1e-8), -(Ione + (ln(Amax)*(Amax**r1conv)))/r1conv, conditional(r1conv < - Constant(1e-8), -(Ione + (ln(Amax)*(Amax**r1conv)))/r1conv, -Constant(0.5)*ln(Amax)**2)))
 
-                        alpha.assign(-(Itwo - (ln(Amax) - ln(30))*Ione)/(Ione * ((ln(Amax) - ln(30)) + 1)))
+                        alpha.assign(-(Itwo - (ln(Amax) - Constant(ln(30)))*Ione)/(Ione * ((ln(Amax) - Constant(ln(30))) + Constant(1))))
 
                         # final correction factor
-                        alphatest2.assign(conditional(conditional(alpha > 1, 1, alpha) < 0, 0, conditional(alpha > 1, 1, alpha)))
+                        alphatest2.assign(conditional(conditional(alpha > Constant(1), Constant(1), alpha) < Constant(0), Constant(0), conditional(alpha > Constant(1), Constant(1), alpha)))
 
                     else:
                         alphatest2.assign(Constant(1.0))
@@ -313,17 +182,17 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
                     if slope_eff:
                         # slope effect magnitude correction due to gravity where beta is a parameter normally set to 1.3
                         # we use z_n1 and equals so that we can use an implicit method in Exner
-                        slopecoef = (1 + beta*(z_n1.dx(0)*calfa + z_n1.dx(1)*salfa))
+                        slopecoef = (Constant(1) + beta*(z_n1.dx(0)*calfa + z_n1.dx(1)*salfa))
                     else:
                         slopecoef = Constant(1.0)
 
                     if angle_correction:
                         # slope effect angle correction due to gravity
-                        tt1.interpolate(conditional(1000*0.5*qfc*unorm > 10**(-10), sqrt(cparam/(1000*0.5*qfc*unorm)), sqrt(cparam/(10**(-10)))))
+                        tt1.interpolate(conditional(rhow*Constant(0.5)*qfc*unorm > Constant(1e-10), sqrt(cparam/(rhow*Constant(0.5)*qfc*unorm)), sqrt(cparam/Constant(1e-10))))
                         # add on a factor of the bed gradient to the normal
                         aa.assign(salfa + tt1*dzdy)
                         bb.assign(calfa + tt1*dzdx)
-                        norm.assign(conditional(sqrt(aa**2 + bb**2) > 10**(-10), sqrt(aa**2 + bb**2), 10**(-10)))
+                        norm.assign(conditional(sqrt(aa**2 + bb**2) > Constant(1e-10), sqrt(aa**2 + bb**2), Constant(1e-10)))
                         # we use z_n1 and equals so that we can use an implicit method in Exner
                         calfamod = (calfa + (tt1*z_n1.dx(0)))/norm
                         salfamod = (salfa + (tt1*z_n1.dx(1)))/norm
@@ -337,7 +206,7 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
 
                         velocity_slide = (horizontal_velocity*free_surface_dy)-(vertical_velocity*free_surface_dx)
 
-                        tandelta_factor.interpolate(7*9.81*1000*depth*qfc/(2*alpha_secc*((horizontal_velocity**2) + (vertical_velocity**2))))
+                        tandelta_factor.interpolate(Constant(7)*g*rhow*depth*qfc/(Constant(2)*alpha_secc*((horizontal_velocity**2) + (vertical_velocity**2))))
 
                         if angle_correction:
                             # if angle has already been corrected we must alter the corrected angle to obtain the corrected secondary current angle
@@ -357,16 +226,16 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
                         salfanew = t_2/t4
 
                     # implement meyer-peter-muller bedload transport formula
-                    thetaprime.interpolate(mu*(1000*0.5*qfc*unorm)/((2650-1000)*9.81*average_size))
+                    thetaprime.interpolate(mu*(rhow*Constant(0.5)*qfc*unorm)/((rhos-rhow)*g*average_size))
 
                     # if velocity above a certain critical value then transport occurs
-                    phi.assign(conditional(thetaprime < thetacr, 0, 8*(thetaprime-thetacr)**1.5))
+                    phi.assign(conditional(thetaprime < thetacr, Constant(0), Constant(8)*(thetaprime-thetacr)**1.5))
 
                     # bedload transport flux with magnitude correction
-                    qb_total = slopecoef*phi*sqrt(g*(2650/1000 - 1)*average_size**3)
+                    qb_total = slopecoef*phi*sqrt(g*R*average_size**3)
 
                     # add time derivative to exner equation with a morphological scale factor
-                    f = (((1-porosity)*(z_n1 - z_n)/(dt*morfac)) * v)*dx
+                    f = (((Constant(1)-porosity)*(z_n1 - z_n)/(dt*morfac)) * v)*dx
 
                     # formulate bedload transport flux with correct angle depending on corrections implemented
                     if angle_correction and seccurrent is False:
@@ -384,7 +253,7 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
 
                 else:
                     # if no bedload transport component initialise exner equation with time derivative
-                    f = (((1-porosity)*(z_n1 - z_n)/(dt*morfac)) * v)*dx
+                    f = (((Constant(1)-porosity)*(z_n1 - z_n)/(dt*morfac)) * v)*dx
 
                 if suspendedload:
                     # add suspended sediment transport to exner equation multiplied by depth as the exner equation is not depth-averaged
@@ -425,7 +294,9 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
     z_n = Function(V, name="z^{n}")
 
     # define parameters
-    g = Constant(9.81)
+    g = physical_constants['g_grav']
+    rhow = physical_constants['rho0']
+    kappa = physical_constants['von_karman']
     porosity = Constant(0.4)
 
     ksp = Constant(3*average_size)
@@ -436,12 +307,12 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
     beta = Constant(beta_fn)
     # angle correction slope effect parameters
     surbeta2 = Constant(surbeta2_fn)
-    cparam = Constant((2650-1000)*9.81*average_size*(surbeta2**2))
+    cparam = Constant((rhos-rhow)*g*average_size*(surbeta2**2))
     # secondary current parameter
     alpha_secc = Constant(alpha_secc_fn)
 
     # calculate critical shields parameter thetacr
-    R = Constant(rhos/1000 - 1)
+    R = Constant(rhos/rhow - 1)
 
     dstar = Constant(average_size*((g*R)/(viscosity**2))**(1/3))
     if max(dstar.dat.data[:] < 1):
@@ -458,15 +329,15 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
         thetacr = Constant(0.055)
 
     # critical bed shear stress
-    taucr = Constant((rhos-1000)*g*average_size*thetacr)
+    taucr = Constant((rhos-rhow)*g*average_size*thetacr)
 
     # calculate settling velocity
-    if average_size <= 100*(10**(-6)):
-        settling_velocity = Constant(9.81*(average_size**2)*((rhos/1000)-1)/(18*viscosity))
-    elif average_size <= 1000*(10**(-6)):
-        settling_velocity = Constant((10*viscosity/average_size)*(sqrt(1 + 0.01*((((rhos/1000) - 1)*9.81*(average_size**3))/(viscosity**2)))-1))
+    if average_size <= 1e-04:
+        settling_velocity = Constant(g*(average_size**2)*R/(18*viscosity))
+    elif average_size <= 1e-03:
+        settling_velocity = Constant((10*viscosity/average_size)*(sqrt(1 + 0.01*((R*g*(average_size**3))/(viscosity**2)))-1))
     else:
-        settling_velocity = Constant(1.1*sqrt(9.81*average_size*((rhos/1000) - 1)))
+        settling_velocity = Constant(1.1*sqrt(g*average_size*R))
 
     # initialise velocity, elevation and depth
     elev_init, uv_init = initialise_fields(mesh2d, input_dir, outputdir)
@@ -477,7 +348,7 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
 
     if wetting_and_drying:
         H = Function(V).project(elev_cg + bathymetry_2d)
-        depth = Function(V).project(H + (0.5 * (sqrt(H ** 2 + wetting_alpha ** 2) - H)))
+        depth = Function(V).project(H + (Constant(0.5) * (sqrt(H ** 2 + wetting_alpha ** 2) - H)))
     else:
         depth = Function(V).project(elev_cg + bathymetry_2d)
 
@@ -487,18 +358,18 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
     vertical_velocity = Function(V).interpolate(uv_cg[1])
 
     # define bed friction
-    hc = Function(P1_2d).interpolate(conditional(depth > 0.001, depth, 0.001))
-    aux = Function(P1_2d).interpolate(conditional(11.036*hc/ks > 1.001, 11.036*hc/ks, 1.001))
-    qfc = Function(P1_2d).interpolate(2/(ln(aux)/0.4)**2)
+    hc = Function(P1_2d).interpolate(conditional(depth > Constant(0.001), depth, Constant(0.001)))
+    aux = Function(P1_2d).interpolate(conditional(11.036*hc/ks > Constant(1.001), 11.036*hc/ks, Constant(1.001)))
+    qfc = Function(P1_2d).interpolate(Constant(2)/(ln(aux)/kappa)**2)
     # skin friction coefficient
     hclip = Function(P1_2d).interpolate(conditional(ksp > depth, ksp, depth))
-    cfactor = Function(P1_2d).interpolate(conditional(depth > ksp, 2*((2.5*ln(11.036*hclip/ksp))**(-2)), Constant(0.0)))
+    cfactor = Function(P1_2d).interpolate(conditional(depth > ksp, Constant(2)*(((1/kappa)*ln(11.036*hclip/ksp))**(-2)), Constant(0.0)))
     # mu - ratio between skin friction and normal friction
-    mu = Function(P1_2d).interpolate(conditional(qfc > 0, cfactor/qfc, 0))
+    mu = Function(P1_2d).interpolate(conditional(qfc > Constant(0), cfactor/qfc, Constant(0)))
 
     # calculate bed shear stress
     unorm = Function(P1_2d).interpolate((horizontal_velocity**2) + (vertical_velocity**2))
-    TOB = Function(V).interpolate(1000*0.5*qfc*unorm)
+    TOB = Function(V).interpolate(rhow*Constant(0.5)*qfc*unorm)
 
     # define bed gradient
     dzdx = Function(V).interpolate(old_bathymetry_2d.dx(0))
@@ -507,34 +378,34 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
     if suspendedload:
         # deposition flux - calculating coefficient to account for stronger conc at bed
         B = Function(P1_2d).interpolate(conditional(a > depth, a/a, a/depth))
-        ustar = Function(P1_2d).interpolate(sqrt(0.5*qfc*unorm))
-        exp1 = Function(P1_2d).interpolate(conditional((conditional((settling_velocity/(0.4*ustar)) - 1 > 0, (settling_velocity/(0.4*ustar)) - 1, -(settling_velocity/(0.4*ustar)) + 1)) > 10**(-4), conditional((settling_velocity/(0.4*ustar)) - 1 > 3, 3, (settling_velocity/(0.4*ustar))-1), 0))
-        coefftest = Function(P1_2d).interpolate(conditional((conditional((settling_velocity/(0.4*ustar)) - 1 > 0, (settling_velocity/(0.4*ustar)) - 1, -(settling_velocity/(0.4*ustar)) + 1)) > 10**(-4), B*(1-B**exp1)/exp1, -B*ln(B)))
-        coeff = Function(P1_2d).interpolate(conditional(conditional(coefftest > 10**(-12), 1/coefftest, 10**12) > 1, conditional(coefftest > 10**(-12), 1/coefftest, 10**12), 1))
+        ustar = Function(P1_2d).interpolate(sqrt(Constant(0.5)*qfc*unorm))
+        exp1 = Function(P1_2d).interpolate(conditional((conditional((settling_velocity/(kappa*ustar)) - Constant(1) > Constant(0), (settling_velocity/(kappa*ustar)) - Constant(1), -(settling_velocity/(kappa*ustar)) + Constant(1))) > Constant(1e-04), conditional((settling_velocity/(kappa*ustar)) - Constant(1) > Constant(3), Constant(3), (settling_velocity/(kappa*ustar))-Constant(1)), Constant(0)))
+        coefftest = Function(P1_2d).interpolate(conditional((conditional((settling_velocity/(kappa*ustar)) - Constant(1) > Constant(0), (settling_velocity/(kappa*ustar)) - Constant(1), -(settling_velocity/(kappa*ustar)) + Constant(1))) > Constant(1e-04), B*(Constant(1)-B**exp1)/exp1, -B*ln(B)))
+        coeff = Function(P1_2d).interpolate(conditional(conditional(coefftest > Constant(1e-12), Constant(1)/coefftest, Constant(1e12)) > Constant(1), conditional(coefftest > Constant(1e-12), Constant(1)/coefftest, Constant(1e12)), Constant(1)))
 
         # erosion flux - above critical velocity bed is eroded
-        s0 = Function(P1_2d).interpolate((conditional(1000*0.5*qfc*unorm*mu > 0, 1000*0.5*qfc*unorm*mu, 0) - taucr)/taucr)
-        ceq = Function(P1_2d).interpolate(0.015*(average_size/a) * ((conditional(s0 < 0, 0, s0))**(1.5))/(dstar**0.3))
+        s0 = Function(P1_2d).interpolate((conditional(rhow*Constant(0.5)*qfc*unorm*mu > Constant(0), rhow*Constant(0.5)*qfc*unorm*mu, Constant(0)) - taucr)/taucr)
+        ceq = Function(P1_2d).interpolate(Constant(0.015)*(average_size/a) * ((conditional(s0 < Constant(0), Constant(0), s0))**(1.5))/(dstar**0.3))
 
         if convectivevel:
             # correction factor to advection velocity in sediment concentration equation
 
-            Bconv = Function(P1_2d).interpolate(conditional(depth > 1.1*ksp, ksp/depth, ksp/(1.1*ksp)))
-            Aconv = Function(P1_2d).interpolate(conditional(depth > 1.1*a, a/depth, a/(1.1*a)))
+            Bconv = Function(P1_2d).interpolate(conditional(depth > Constant(1.1)*ksp, ksp/depth, Constant(1/1.1)))
+            Aconv = Function(P1_2d).interpolate(conditional(depth > Constant(1.1)*a, a/depth, Constant(1/1.1)))
 
             # take max of value calculated either by ksp or depth
             Amax = Function(P1_2d).interpolate(conditional(Aconv > Bconv, Aconv, Bconv))
 
-            r1conv = Function(P1_2d).interpolate(1 - (1/0.4)*conditional(settling_velocity/ustar < 1, settling_velocity/ustar, 1))
+            r1conv = Function(P1_2d).interpolate(Constant(1) - (1/kappa)*conditional(settling_velocity/ustar < Constant(1), settling_velocity/ustar, Constant(1)))
 
-            Ione = Function(P1_2d).interpolate(conditional(r1conv > 10**(-8), (1 - Amax**r1conv)/r1conv, conditional(r1conv < - 10**(-8), (1 - Amax**r1conv)/r1conv, ln(Amax))))
+            Ione = Function(P1_2d).interpolate(conditional(r1conv > Constant(1e-8), (Constant(1) - Amax**r1conv)/r1conv, conditional(r1conv < Constant(- 1e-8), (Constant(1) - Amax**r1conv)/r1conv, ln(Amax))))
 
-            Itwo = Function(P1_2d).interpolate(conditional(r1conv > 10**(-8), -(Ione + (ln(Amax)*(Amax**r1conv)))/r1conv, conditional(r1conv < - 10**(-8), -(Ione + (ln(Amax)*(Amax**r1conv)))/r1conv, -0.5*ln(Amax)**2)))
+            Itwo = Function(P1_2d).interpolate(conditional(r1conv > Constant(1e-8), -(Ione + (ln(Amax)*(Amax**r1conv)))/r1conv, conditional(r1conv < Constant(- 1e-8), -(Ione + (ln(Amax)*(Amax**r1conv)))/r1conv, Constant(-0.5)*ln(Amax)**2)))
 
-            alpha = Function(P1_2d).interpolate(-(Itwo - (ln(Amax) - ln(30))*Ione)/(Ione * ((ln(Amax) - ln(30)) + 1)))
+            alpha = Function(P1_2d).interpolate(-(Itwo - (ln(Amax) - ln(30))*Ione)/(Ione * ((ln(Amax) - ln(30)) + Constant(1))))
 
             # final correction factor
-            alphatest2 = Function(P1_2d).interpolate(conditional(conditional(alpha > 1, 1, alpha) < 0, 0, conditional(alpha > 1, 1, alpha)))
+            alphatest2 = Function(P1_2d).interpolate(conditional(conditional(alpha > Constant(1), Constant(1), alpha) < Constant(0), Constant(0), conditional(alpha > Constant(1), Constant(1), alpha)))
 
         else:
             alphatest2 = Function(P1_2d).interpolate(Constant(1.0))
@@ -575,17 +446,17 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
 
         if slope_eff:
             # slope effect magnitude correction due to gravity where beta is a parameter normally set to 1.3
-            slopecoef = Function(V).interpolate(1 + beta*(dzdx*calfa + dzdy*salfa))
+            slopecoef = Function(V).interpolate(Constant(1) + beta*(dzdx*calfa + dzdy*salfa))
         else:
             slopecoef = Function(V).interpolate(Constant(1.0))
 
         if angle_correction:
             # slope effect angle correction due to gravity
-            tt1 = Function(V).interpolate(conditional(1000*0.5*qfc*unorm > 10**(-10), sqrt(cparam/(1000*0.5*qfc*unorm)), sqrt(cparam/(10**(-10)))))
+            tt1 = Function(V).interpolate(conditional(rhow*Constant(0.5)*qfc*unorm > Constant(1e-10), sqrt(cparam/(rhow*Constant(0.5)*qfc*unorm)), sqrt(cparam/Constant(1e-10))))
             # add on a factor of the bed gradient to the normal
             aa = Function(V).interpolate(salfa + tt1*dzdy)
             bb = Function(V).interpolate(calfa + tt1*dzdx)
-            norm = Function(V).interpolate(conditional(sqrt(aa**2 + bb**2) > 10**(-10), sqrt(aa**2 + bb**2), 10**(-10)))
+            norm = Function(V).interpolate(conditional(sqrt(aa**2 + bb**2) > Constant(1e-10), sqrt(aa**2 + bb**2), Constant(1e-10)))
 
         if seccurrent:
             # accounts for helical flow effect in a curver channel
@@ -594,7 +465,7 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
 
             velocity_slide = (horizontal_velocity*free_surface_dy)-(vertical_velocity*free_surface_dx)
 
-            tandelta_factor = Function(V).interpolate(7*9.81*1000*depth*qfc/(2*alpha_secc*((horizontal_velocity**2) + (vertical_velocity**2))))
+            tandelta_factor = Function(V).interpolate(Constant(7)*g*rhow*depth*qfc/(Constant(2)*alpha_secc*((horizontal_velocity**2) + (vertical_velocity**2))))
 
             t_1 = (TOB*slopecoef*calfa) + (vertical_velocity*tandelta_factor*velocity_slide)
             t_2 = ((TOB*slopecoef*salfa) - (horizontal_velocity*tandelta_factor*velocity_slide))
@@ -606,10 +477,10 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
             slopecoef = t4/TOB
 
         # implement meyer-peter-muller bedload transport formula
-        thetaprime = Function(V).interpolate(mu*(1000*0.5*qfc*unorm)/((2650-1000)*9.81*average_size))
+        thetaprime = Function(V).interpolate(mu*(rhow*Constant(0.5)*qfc*unorm)/((rhos-rhow)*g*average_size))
 
         # if velocity above a certain critical value then transport occurs
-        phi = Function(V).interpolate(conditional(thetaprime < thetacr, 0, 8*(thetaprime-thetacr)**1.5))
+        phi = Function(V).interpolate(conditional(thetaprime < thetacr, 0, Constant(8)*(thetaprime-thetacr)**1.5))
 
     # set up solver
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
@@ -632,15 +503,10 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
     else:
         options.solve_tracer = False
         options.fields_to_export = ['uv_2d', 'elev_2d', 'bathymetry_2d']
-    # set bed friction
-    if friction == 'nikuradse':
-        options.quadratic_drag_coefficient = cfactor
-    elif friction == 'manning':
-        if friction_coef == 0:
-            friction_coef = 0.02
-        options.manning_drag_coefficient = Constant(friction_coef)
-    else:
-        print('Undefined friction')
+
+    # using nikuradse friction
+    options.nikuradse_bed_roughness = ksp
+
     # set horizontal diffusivity parameter
     options.horizontal_diffusivity = Constant(diffusivity)
     options.horizontal_viscosity = Constant(viscosity_hydro)
@@ -707,23 +573,6 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
         solver_obj.assign_initial_conditions(uv=uv_init, elev=elev_init)
 
     return solver_obj, update_forcings_tracer, outputdir
-
-
-def export_final_state(inputdir, uv, elev,):
-    """
-    Export fields to be used in a subsequent simulation
-    """
-    if not os.path.exists(inputdir):
-        os.makedirs(inputdir)
-    print_output("Exporting fields for subsequent simulation")
-    chk = DumbCheckpoint(inputdir + "/velocity", mode=FILE_CREATE)
-    chk.store(uv, name="velocity")
-    File(inputdir + '/velocityout.pvd').write(uv)
-    chk.close()
-    chk = DumbCheckpoint(inputdir + "/elevation", mode=FILE_CREATE)
-    chk.store(elev, name="elevation")
-    File(inputdir + '/elevationout.pvd').write(elev)
-    chk.close()
 
 
 def initialise_fields(mesh2d, inputdir, outputdir,):
