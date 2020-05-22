@@ -978,10 +978,10 @@ class FlowSolver(FrozenClass):
 
         Also evaluates all callbacks set to 'export' interval.
         """
-        self.callbacks.evaluate(mode='export', index=self.i_export)
         # set uv to total uv instead of deviation from depth average
         # TODO find a cleaner way of doing this ...
         self.fields.uv_3d += self.fields.uv_dav_3d
+        self.callbacks.evaluate(mode='export', index=self.i_export)
         for e in self.exporters.values():
             e.export()
         # restore uv_3d
