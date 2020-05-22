@@ -463,6 +463,12 @@ class CommonModelOptions(FrozenConfigurable):
 
         Bottom stress is :math:`\tau_b/\rho_0 = -g \mu^2 |\mathbf{u}|\mathbf{u}/H^{1/3}`
         """).tag(config=True)
+    nikuradse_bed_roughness = FiredrakeScalarExpression(
+        None, allow_none=True, help=r"""
+        Nikuradse bed roughness length used to construct the 2D quadratic drag parameter :math:`C_D`.
+        
+        In sediment transport this term is usually three times the average sediment diameter size.
+        """).tag(config = True)
     norm_smoother = FiredrakeConstantTraitlet(
         Constant(0.0), help=r"""
         Coefficient used to avoid non-differentiable functions in the continuous formulation of the velocity norm in

@@ -329,6 +329,7 @@ class FlowSolver2d(FrozenClass):
             'linear_drag_coefficient': self.options.linear_drag_coefficient,
             'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
             'manning_drag_coefficient': self.options.manning_drag_coefficient,
+            'nikuradse_bed_roughness': self.options.nikuradse_bed_roughness,
             'viscosity_h': self.options.horizontal_viscosity,
             'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
             'coriolis': self.options.coriolis_frequency,
