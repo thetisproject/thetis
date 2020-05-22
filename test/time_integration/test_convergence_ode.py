@@ -117,8 +117,9 @@ def run(timeintegrator_class, refinement=1):
         mode = 'imex'
     equation = SimpleODEEquation(fs, alpha, mode=mode)
 
-    init_solution = [0, 1]
-    solution = Function(fs, name='solution').assign(Constant(init_solution))
+    solution = Function(fs, name='solution')
+    solution.sub(0).assign(Constant(0))
+    solution.sub(1).assign(Constant(1))
     fields = {}
 
     end_time = 1.0
