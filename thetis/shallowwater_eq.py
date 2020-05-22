@@ -665,7 +665,7 @@ class QuadraticDragTerm(ShallowWaterMomentumTerm):
                 raise Exception('Cannot set both dimensionless and Nikuradse drag parameter')
 
             kappa = physical_constants['von_karman']
-            C_D = 2*(kappa**2)/(ln(11.036*total_h/nikuradse_bed_roughness)**2)
+            C_D = conditional(total_h > nikuradse_bed_roughness, 2*(kappa**2)/(ln(11.036*total_h/nikuradse_bed_roughness)**2), Constant(0.0))
 
         if C_D is not None:
             f += C_D * sqrt(dot(uv_old, uv_old) + self.options.norm_smoother**2) * inner(self.u_test, uv) / total_h * self.dx

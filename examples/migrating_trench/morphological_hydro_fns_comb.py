@@ -267,10 +267,17 @@ def morphological(boundary_conditions_fn, morfac, morfac_transport, suspendedloa
                 # update bed
                 bathymetry_2d.assign(z_n1)
 
+                if round(t_new, 2)%t_export == 0:
+                    bathy_file.write(bathymetry_2d)                
+
     # choose directory to output results
     ts = time.time()
     st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
     outputdir = 'outputs' + st
+
+    # define bathymetry_file
+    bathy_file = File(outputdir + "/bathy.pvd")
+    bathy_file.write(bathymetry_2d)    
 
     # final time of simulation
     t_end = final_time/morfac
