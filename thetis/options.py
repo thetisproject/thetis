@@ -705,3 +705,11 @@ class ModelOptions3d(CommonModelOptions):
         Constant(1.5), help="Penalty parameter used for horizontal diffusivity terms of the turbulence model.").tag(config=True)
     sipg_parameter_vertical_turb = FiredrakeScalarExpression(
         Constant(1.0), help="Penalty parameter used for vertical diffusivity terms of the turbulence model.").tag(config=True)
+    no_tracer_diffusion = Bool(
+        False, help="""
+        If True, tracer diffusion operators are omitted.
+
+        This applies to both horizontal and vertical diffusion. All diffusion
+        operators are omitted regardless of other options, e.g. possible
+        turbulence closure.
+        """).tag(config=True)

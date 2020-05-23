@@ -247,14 +247,16 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         """
         solver = self.solver
         impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
-
+        expl_h_diff = self.solver.tot_h_diff.get_sum()
+        if self.options.no_tracer_diffusion:
+            impl_v_diff = expl_v_diff = expl_h_diff = None
         if self.solver.options.solve_salinity:
             fields = {'elev_3d': self.fields.elev_domain_2d.view_3d,
                       'uv_3d': self.fields.uv_3d,
                       'uv_depth_av': self.fields.get('uv_dav_3d'),
                       'w': self.fields.w_3d,
                       'w_mesh': self.fields.get('w_mesh_3d'),
-                      'diffusivity_h': self.solver.tot_h_diff.get_sum(),
+                      'diffusivity_h': expl_h_diff,
                       'diffusivity_v': expl_v_diff,
                       'source': self.options.salinity_source_3d,
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
@@ -278,14 +280,16 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         """
         solver = self.solver
         impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
-
+        expl_h_diff = self.solver.tot_h_diff.get_sum()
+        if self.options.no_tracer_diffusion:
+            impl_v_diff = expl_v_diff = expl_h_diff = None
         if self.solver.options.solve_temperature:
             fields = {'elev_3d': self.fields.elev_domain_2d.view_3d,
                       'uv_3d': self.fields.uv_3d,
                       'uv_depth_av': self.fields.get('uv_dav_3d'),
                       'w': self.fields.w_3d,
                       'w_mesh': self.fields.get('w_mesh_3d'),
-                      'diffusivity_h': self.solver.tot_h_diff.get_sum(),
+                      'diffusivity_h': expl_h_diff,
                       'diffusivity_v': expl_v_diff,
                       'source': self.options.temperature_source_3d,
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
