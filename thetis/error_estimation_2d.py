@@ -19,14 +19,13 @@ class ShallowWaterGOErrorEstimatorTerm(GOErrorEstimatorTerm, ShallowWaterTerm):
     Generic :class:`GOErrorEstimatorTerm` term in a goal-oriented error estimator for the shallow
     water model.
     """
-    def __init__(self, function_space, bathymetry=None, options=None):
+    def __init__(self, function_space, depth=None, options=None):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
-        :kwarg bathymetry: bathymetry of the domain
-        :type bathymetry: 2D :class:`Function` or :class:`Constant`
+        :kwarg depth: DepthExpression for the domain
         :kwarg options: :class:`ModelOptions2d` parameter object
         """
-        ShallowWaterTerm.__init__(self, function_space, bathymetry, options)
+        ShallowWaterTerm.__init__(self, function_space, depth, options)
         GOErrorEstimatorTerm.__init__(self, function_space.mesh())
 
 
@@ -35,8 +34,8 @@ class ShallowWaterGOErrorEstimatorMomentumTerm(ShallowWaterGOErrorEstimatorTerm)
     Generic :class:`ShallowWaterGOErrorEstimatorTerm` term that provides commonly used members and
     mapping for boundary functions.
     """
-    def __init__(self, u_space, eta_space, bathymetry=None, options=None):
-        super(ShallowWaterGOErrorEstimatorMomentumTerm, self).__init__(u_space, bathymetry, options)
+    def __init__(self, u_space, eta_space, depth=None, options=None):
+        super(ShallowWaterGOErrorEstimatorMomentumTerm, self).__init__(u_space, depth, options)
 
         self.options = options
 
@@ -52,8 +51,8 @@ class ShallowWaterGOErrorEstimatorContinuityTerm(ShallowWaterGOErrorEstimatorTer
     Generic :class:`ShallowWaterGOErrorEstimatorTerm` term that provides commonly used members and
     mapping for boundary functions.
     """
-    def __init__(self, eta_space, u_space, bathymetry=None, options=None):
-        super(ShallowWaterGOErrorEstimatorContinuityTerm, self).__init__(eta_space, bathymetry, options)
+    def __init__(self, eta_space, u_space, depth=None, options=None):
+        super(ShallowWaterGOErrorEstimatorContinuityTerm, self).__init__(eta_space, depth, options)
 
         self.eta_space = eta_space
         self.u_space = u_space
@@ -68,13 +67,12 @@ class TracerGOErrorEstimatorTerm(GOErrorEstimatorTerm, TracerTerm):
     model.
     """
     def __init__(self, function_space,
-                 bathymetry=None, use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
+                 depth=None, use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
-        :kwarg bathymetry: bathymetry of the domain
-        :type bathymetry: 2D :class:`Function` or :class:`Constant`
+        :kwarg depth: DepthExpression for the domain
         """
-        TracerTerm.__init__(self, function_space, bathymetry, use_lax_friedrichs, sipg_parameter)
+        TracerTerm.__init__(self, function_space, depth, use_lax_friedrichs, sipg_parameter)
         GOErrorEstimatorTerm.__init__(self, function_space.mesh())
 
 
@@ -94,7 +92,7 @@ class ExternalPressureGradientGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorM
         uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
 
-        total_h = self.get_total_depth(eta_old)
+        total_h = self.depth.get_total_depth(eta_old)
         head = eta
         grad_eta_by_parts = self.eta_is_dg
 
@@ -120,7 +118,7 @@ class ExternalPressureGradientGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorM
         uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
 
-        total_h = self.get_total_depth(eta_old)
+        total_h = self.depth.get_total_depth(eta_old)
         head = eta
         grad_eta_by_parts = self.eta_is_dg
 
@@ -171,7 +169,7 @@ class HUDivGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorContinuityTerm):
         uv, eta = split(solution)
         uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
-        total_h = self.get_total_depth(eta_old)
+        total_h = self.depth.get_total_depth(eta_old)
 
         return -self.p0test*zeta*div(total_h*uv)*self.dx
 
@@ -180,7 +178,7 @@ class HUDivGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorContinuityTerm):
         uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
 
-        total_h = self.get_total_depth(eta_old)
+        total_h = self.depth.get_total_depth(eta_old)
         hu_by_parts = self.u_continuity in ['dg', 'hdiv']
 
         flux_terms = 0
@@ -205,7 +203,7 @@ class HUDivGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorContinuityTerm):
         uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
 
-        total_h = self.get_total_depth(eta_old)
+        total_h = self.depth.get_total_depth(eta_old)
         hu_by_parts = self.u_continuity in ['dg', 'hdiv']
 
         flux_terms = 0
@@ -222,13 +220,13 @@ class HUDivGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorContinuityTerm):
                     eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
                     eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
-                    total_h_ext = self.get_total_depth(eta_ext_old)
+                    total_h_ext = self.depth.get_total_depth(eta_ext_old)
                     h_av = 0.5*(total_h + total_h_ext)
                     eta_jump = eta - eta_ext
                     un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h_av)*eta_jump
                     un_jump = inner(uv_old - uv_ext_old, self.normal)
                     eta_rie = 0.5*(eta_old + eta_ext_old) + sqrt(h_av/g_grav)*un_jump
-                    h_rie = self.bathymetry + eta_rie
+                    h_rie = self.depth.bathymetry_2d + eta_rie
                     flux_terms += -self.p0test*h_rie*un_rie*zeta*ds_bnd
         else:
             # Terms arising from boundary conditions
@@ -305,7 +303,7 @@ class HorizontalAdvectionGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMoment
                 eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
                 # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
                 eta_jump = eta_old - eta_ext_old
-                total_h = self.get_total_depth(eta_old)
+                total_h = self.depth.get_total_depth(eta_old)
                 un_rie = 0.5*inner(uv_old + uv_ext_old, self.normal) + sqrt(g_grav/total_h)*eta_jump
                 uv_av = 0.5*(uv_ext + uv)
                 flux_terms += -self.p0test*(uv_av[0]*z[0]*un_rie + uv_av[1]*z[1]*un_rie)*ds_bnd
@@ -335,7 +333,7 @@ class HorizontalViscosityGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMoment
         uv, eta = split(solution)
         uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
-        total_h = self.get_total_depth(eta_old)
+        total_h = self.depth.get_total_depth(eta_old)
 
         if self.options.use_grad_div_viscosity_term:
             stress = 2.0*nu*sym(grad(uv))
@@ -469,7 +467,7 @@ class WindStressGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMomentumTerm):
         z, zeta = split(arg)
 
         wind_stress = fields_old.get('wind_stress')
-        total_h = self.get_total_depth(eta_old)
+        total_h = self.depth.get_total_depth(eta_old)
         f = 0
         if wind_stress is not None:
             f += self.p0test*dot(wind_stress, z)/total_h/rho_0*self.dx
@@ -514,7 +512,7 @@ class QuadraticDragGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMomentumTerm
         uv, eta = split(solution)
         uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
-        total_h = self.get_total_depth(eta_old)
+        total_h = self.depth.get_total_depth(eta_old)
         manning_drag_coefficient = fields_old.get('manning_drag_coefficient')
         C_D = fields_old.get('quadratic_drag_coefficient')
 
@@ -569,7 +567,7 @@ class BottomDrag3DGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMomentumTerm)
         uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
 
-        total_h = self.get_total_depth(eta_old)
+        total_h = self.depth.get_total_depth(eta_old)
         bottom_drag = fields_old.get('bottom_drag')
         uv_bottom = fields_old.get('uv_bottom')
         f = 0
@@ -595,7 +593,7 @@ class TurbineDragGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorMomentumTerm):
         uv, eta = split(solution)
         uv_old, eta_old = split(solution_old)
         z, zeta = split(arg)
-        total_h = self.get_total_depth(eta_old)
+        total_h = self.depth.get_total_depth(eta_old)
 
         f = 0
         for subdomain_id, farm_options in self.options.tidal_turbine_farms.items():
@@ -670,7 +668,7 @@ class BathymetryDisplacementGOErrorEstimatorTerm(ShallowWaterGOErrorEstimatorCon
 
         f = 0
         if self.options.use_wetting_and_drying:
-            f += self.p0test*inner(self.wd_bathymetry_displacement(eta), zeta)*self.dx
+            f += self.p0test*inner(self.depth.wd_bathymetry_displacement(eta), zeta)*self.dx
         return -f
 
     def inter_element_flux(self, solution, solution_old, arg, arg_old, fields, fields_old):
@@ -853,14 +851,14 @@ class ShallowWaterGOErrorEstimator(GOErrorEstimator):
     """
     :class:`GOErrorEstimator` for the shallow water model.
     """
-    def __init__(self, function_space, bathymetry, options):
+    def __init__(self, function_space, depth, options):
         super(ShallowWaterGOErrorEstimator, self).__init__(function_space)
-        self.bathymetry = bathymetry
+        self.depth = depth
         self.options = options
 
         u_space, eta_space = function_space.split()
-        self.add_momentum_terms(u_space, eta_space, bathymetry, options)
-        self.add_continuity_terms(u_space, eta_space, bathymetry, options)
+        self.add_momentum_terms(u_space, eta_space, depth, options)
+        self.add_continuity_terms(u_space, eta_space, depth, options)
 
     def add_momentum_terms(self, *args):
         self.add_term(ExternalPressureGradientGOErrorEstimatorTerm(*args), 'implicit')
@@ -945,10 +943,10 @@ class TracerGOErrorEstimator(GOErrorEstimator):
     :class:`GOErrorEstimator` for the 2D tracer model.
     """
     def __init__(self, function_space,
-                 bathymetry=None, use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
+                 depth=None, use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
         super(TracerGOErrorEstimator, self).__init__(function_space)
 
-        args = (function_space, bathymetry, use_lax_friedrichs, sipg_parameter)
+        args = (function_space, depth, use_lax_friedrichs, sipg_parameter)
         self.add_term(TracerHorizontalAdvectionGOErrorEstimatorTerm(*args), 'explicit')
         self.add_term(TracerHorizontalDiffusionGOErrorEstimatorTerm(*args), 'explicit')
         self.add_term(TracerSourceGOErrorEstimatorTerm(*args), 'source')

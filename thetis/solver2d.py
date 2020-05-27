@@ -403,13 +403,13 @@ class FlowSolver2d(FrozenClass):
         if self.options.estimate_error:
             self.error_estimator_sw = error_estimation_2d.ShallowWaterGOErrorEstimator(
                 self.fields.solution_2d.function_space(),
-                self.fields.bathymetry_2d,
+                self.depth,
                 self.options
             )
             if self.options.solve_tracer:
                 self.error_estimator_tracer = error_estimation_2d.TracerGOErrorEstimator(
                     self.function_spaces.Q_2d,
-                    bathymetry=self.fields.bathymetry_2d,
+                    bathymetry=self.depth,
                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
                     sipg_parameter=self.options.sipg_parameter_tracer
                 )
