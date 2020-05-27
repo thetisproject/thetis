@@ -158,6 +158,7 @@ def polynomial_degree(request):
 def stepper(request):
     return request.param
 
+
 @pytest.mark.parametrize(('diffusivity'),
                          [(Constant(0.1))])
 def test_horizontal_advection(polynomial_degree, stepper, diffusivity):

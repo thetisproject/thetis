@@ -77,7 +77,7 @@ def compute(refinement=1, order=1, do_export=False):
     l2err_uv = errornorm(uv_ana, uv)
     l2err_div = errornorm(div_ana, div_uv)
     print('L2 norm uv {:}'.format(l2err_uv))
-    print('L2 norm div'.format(l2err_div))
+    print('L2 norm div {:}'.format(l2err_div))
     return l2err_uv, l2err_div
 
 
