@@ -67,7 +67,7 @@ def test_implicit_friction(do_export=False, do_assert=True):
     viscosity_v.project(kappa * u_bf * -z * (depth + z + z0) / (depth + z0))
     print('Cd {:}'.format(drag))
     print('u_bf {:}'.format(u_bf))
-    print('nu {:}'.format(viscosity_v.dat.data.min(), viscosity_v.dat.data.max()))
+    print('nu {:} - {:}'.format(viscosity_v.dat.data.min(), viscosity_v.dat.data.max()))
 
     # --- solve mom eq
     test = TestFunction(v)
