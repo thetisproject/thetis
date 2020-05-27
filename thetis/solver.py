@@ -885,7 +885,7 @@ class FlowSolver(FrozenClass):
             self.smagorinsky_diff_solver = SmagorinskyViscosity(self.fields.uv_3d, self.fields.smag_visc_3d,
                                                                 self.options.smagorinsky_coefficient, self.fields.h_elem_size_3d,
                                                                 self.fields.max_h_diff,
-                                                                weak_form=self.options.polynomial_degree == 0)
+                                                                weak_form=True)
 
         # ----- set initial values
         self.fields.bathymetry_2d.project(self.bathymetry_cg_2d)
