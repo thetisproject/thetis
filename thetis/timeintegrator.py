@@ -161,9 +161,9 @@ class CrankNicolson(TimeIntegrator):
         :kwarg bool semi_implicit: If True use a linearized semi-implicit scheme
         :kwarg error_estimator: optional :class:`GOErrorEstimator` object
         """
-        if error_estimator is not None:
-            raise NotImplementedError  # TODO
         super(CrankNicolson, self).__init__(equation, solution, fields, dt, solver_parameters, error_estimator)
+        self.theta = theta
+        self.semi_implicit = semi_implicit
         if semi_implicit:
             self.solver_parameters.setdefault('snes_type', 'ksponly')
         else:
@@ -201,6 +201,46 @@ class CrankNicolson(TimeIntegrator):
                   )
 
         self.update_solver()
+        if self.error_estimator is not None:
+            print_output("#### TODO: Setup strong residual for Crank-Nicolson")  # TODO
+        #     raise NotImplementedError
+
+    def setup_error_estimator(self, solution, solution_old, adjoint, bnd_conditions):
+        ee = self.error_estimator
+        assert ee is not None
+        u = solution
+        u_old = solution_old
+        u_nl = u_old if self.semi_implicit else u
+        f = self.fields
+        f_old = self.fields_old
+        bnd = bnd_conditions
+        theta_const = Constant(self.theta)
+
+        # The three forms
+        residual_terms = 0
+        inter_element_flux_terms = 0
+        bnd_flux_terms = 0
+
+        # Time derivative
+        residual_terms += ee.mass_term(u, adjoint)
+        residual_terms += -ee.mass_term(u_old, adjoint)
+
+        # Term from current timestep
+        ee.setup_components('all', u, u_nl, adjoint, adjoint, f, f, bnd)
+        residual_terms += -self.dt_const*theta_const*ee.residual_terms
+        inter_element_flux_terms += -self.dt_const*theta_const*ee.inter_element_flux_terms
+        bnd_flux_terms += -self.dt_const*theta_const*ee.bnd_flux_terms
+
+        # Term from previous timestep
+        ee.setup_components('all', u_old, u_old, adjoint, adjoint, f_old, f_old, bnd)
+        residual_terms += -self.dt_const*(1-theta_const)*ee.residual_terms
+        inter_element_flux_terms += -self.dt_const*(1-theta_const)*ee.inter_element_flux_terms
+        bnd_flux_terms += -self.dt_const*(1-theta_const)*ee.bnd_flux_terms
+
+        # Pass forms back to error estimator
+        ee.residual_terms = residual_terms
+        ee.inter_element_flux_terms = inter_element_flux_terms
+        ee.bnd_flux_terms = bnd_flux_terms
 
     def update_solver(self):
         """Create solver objects"""
