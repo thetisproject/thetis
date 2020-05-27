@@ -207,6 +207,6 @@ indicator_c.rename("Boundary flux in modulus")
 File(os.path.join(di, 'boundary_flux.pvd')).write(indicator_c)
 
 # Assemble total error indicator
-tm.inject(interpolate(abs(error_estimator.weighted_residual()), P0), indicator_c)
+tm.inject(interpolate(abs(error_estimator.weighted_residual()), P0_f), indicator_c)
 indicator_c.rename("Dual weighted residual")
 File(os.path.join(di, 'dwr.pvd')).write(indicator_c)
