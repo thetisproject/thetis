@@ -121,7 +121,7 @@ plex.createFromFile(os.path.join(abspath, 'anisotropic_plex.h5'))
 # Construct base mesh and an iso-P2 refined space, along with transfer operators
 mh = MeshHierarchy(Mesh(plex), 1)
 mesh_c, mesh_f = mh
-prolong, restrict, inject = dmhooks.get_transfer_operators(plex)
+tm = dmhooks.get_transfer_manager(plex)
 
 # Discretisation parameters, etc.
 kwargs = {
@@ -161,7 +161,7 @@ with timed_stage('fwd_f'):
     if solve_fwd_f:
         solver_f.iterate()     # Solve forward in refined space, or ...
     else:
-        prolong(fwd_c, fwd_f)  # ... simply prolong coarse forward solution
+        tm.prolong(fwd_c, fwd_f)  # ... simply prolong coarse forward solution
 
 # Solve adjoint in refined space
 adj_f = solve_adjoint(fwd_f, power_functional, solver_f, label='adj_f')
@@ -171,10 +171,10 @@ File(os.path.join(di, 'fine', 'adjoint.pvd')).write(*adj_f.split())
 fwd_proj = Function(solver_f.function_spaces.V_2d)
 adj_proj = Function(solver_f.function_spaces.V_2d)
 if solve_fwd_f:
-    prolong(fwd_c, fwd_proj)
+    tm.prolong(fwd_c, fwd_proj)
 else:
     fwd_proj.assign(fwd_f)
-prolong(adj_c, adj_proj)
+tm.prolong(adj_c, adj_proj)
 
 # Take difference to approximate adjoint error
 adj_error = adj_f.copy(deepcopy=True)
@@ -192,21 +192,21 @@ P0_f = error_estimator.P0_2d
 
 # Evaluate element residual
 indicator_c = Function(solver_c.function_spaces.P0_2d)
-inject(interpolate(abs(error_estimator.element_residual()), P0_f), indicator_c)
+tm.inject(interpolate(abs(error_estimator.element_residual()), P0_f), indicator_c)
 indicator_c.rename("Element residual in modulus")
 File(os.path.join(di, 'element_residual.pvd')).write(indicator_c)
 
 # Evaluate inter-element flux
-inject(interpolate(abs(error_estimator.inter_element_flux()), P0_f), indicator_c)
+tm.inject(interpolate(abs(error_estimator.inter_element_flux()), P0_f), indicator_c)
 indicator_c.rename("Inter-element flux in modulus")
 File(os.path.join(di, 'inter_element_flux.pvd')).write(indicator_c)
 
 # Evaluate boundary flux
-inject(interpolate(abs(error_estimator.boundary_flux()), P0_f), indicator_c)
+tm.inject(interpolate(abs(error_estimator.boundary_flux()), P0_f), indicator_c)
 indicator_c.rename("Boundary flux in modulus")
 File(os.path.join(di, 'boundary_flux.pvd')).write(indicator_c)
 
 # Assemble total error indicator
-inject(interpolate(abs(error_estimator.weighted_residual()), P0), indicator_c)
+tm.inject(interpolate(abs(error_estimator.weighted_residual()), P0), indicator_c)
 indicator_c.rename("Dual weighted residual")
 File(os.path.join(di, 'dwr.pvd')).write(indicator_c)
