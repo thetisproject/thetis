@@ -349,17 +349,29 @@ class GOErrorEstimator(object):
     def inter_element_flux(self):
         """
         Evaluate contribution of dS terms to the error estimator as element-wise indicator functions.
+
+        NOTE: The mass matrix is diagonal in P0 space so applying a Jacobi PC is an exact solve!
         """
-        mass_term = self.p0test*self.p0trial*dx
-        solve(mass_term == self.inter_element_flux_terms, self.flux)  # TODO: Solver parameters?
+        if self.inter_element_flux_terms == 0:
+            self.flux.assign(0.0)
+        else:
+            mass_term = self.p0test*self.p0trial*dx
+            params = {"ksp_type": "preonly", "pc_type": "jacobi"}
+            solve(mass_term == self.inter_element_flux_terms, self.flux, solver_parameters=params)
         return self.flux
 
     def boundary_flux(self):
         """
         Evaluate contribution of ds terms to the error estimator as element-wise indicator functions.
+
+        NOTE: The mass matrix is diagonal in P0 space so applying a Jacobi PC is an exact solve!
         """
-        mass_term = self.p0test*self.p0trial*dx
-        solve(mass_term == self.bnd_flux_terms, self.bnd)  # TODO: Solver parameters?
+        if self.bnd_flux_terms == 0:
+            self.bnd.assign(0.0)
+        else:
+            mass_term = self.p0test*self.p0trial*dx
+            params = {"ksp_type": "preonly", "pc_type": "jacobi"}
+            solve(mass_term == self.bnd_flux_terms, self.bnd, solver_parameters=params)
         return self.bnd
 
     def weighted_residual(self):
