@@ -22,6 +22,10 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         """time integrator for the tracer equation"""
         pass
 
+    def exner_integrator(self):
+        """time integrator for the tracer equation"""
+        pass
+
     def __init__(self, solver):
         """
         :arg solver: :class:`.FlowSolver` object
@@ -33,6 +37,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         print_output('Coupled time integrator: {:}'.format(self.__class__.__name__))
         print_output('  Shallow Water time integrator: {:}'.format(self.swe_integrator.__name__))
         print_output('  Tracer time integrator: {:}'.format(self.tracer_integrator.__name__))
+        print_output('  Exner time integrator: {:}'.format(self.exner_integrator.__name__))
         self._initialized = False
 
         self._create_integrators()
@@ -44,6 +49,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self.timesteppers.swe2d = self.solver.get_swe_timestepper(self.swe_integrator)
         if self.solver.options.solve_tracer:
             self.timesteppers.tracer = self.solver.get_tracer_timestepper(self.tracer_integrator)
+        if True:
+            self.timesteppers.exner = self.solver.get_exner_timestepper(self.exner_integrator)
         self.cfl_coeff_2d = min(self.timesteppers.swe2d.cfl_coeff, self.timesteppers.tracer.cfl_coeff)
 
     def set_dt(self, dt):
@@ -69,6 +76,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self.timesteppers.swe2d.initialize(self.fields.solution_2d)
         if self.options.solve_tracer:
             self.timesteppers.tracer.initialize(self.fields.tracer_2d)
+        if True:
+            self.timesteppers.exner.initialize(self.fields.bathymetry_2d)
 
         self._initialized = True
 
@@ -78,15 +87,19 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self.timesteppers.tracer.advance(t, update_forcings=update_forcings)
         if self.options.use_limiter_for_tracers:
             self.solver.tracer_limiter.apply(self.fields.tracer_2d)
+        # self.sediment.update()
+        self.timesteppers.exner.advance(t, update_forcings=update_forcings)
 
 
 class CoupledMatchingTimeIntegrator2D(CoupledTimeIntegrator2D):
     def __init__(self, solver, integrator):
         self.swe_integrator = integrator
         self.tracer_integrator = integrator
+        self.exner_integrator = integrator
         super(CoupledMatchingTimeIntegrator2D, self).__init__(solver)
 
 
 class CoupledCrankEuler2D(CoupledTimeIntegrator2D):
     swe_integrator = timeintegrator.CrankNicolson
     tracer_integrator = timeintegrator.ForwardEuler
+    exner_integrator = timeintegrator.BackwardEuler

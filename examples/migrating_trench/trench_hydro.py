@@ -10,10 +10,8 @@ Solves the initial hydrodynamics simulation of a migrating trench.
 """
 
 from thetis import *
-import morphological_hydro_fns_comb as morph
 
 import numpy as np
-import pandas as pd
 import time
 
 def export_final_state(inputdir, uv, elev,):
@@ -43,8 +41,8 @@ mesh2d = RectangleMesh(nx, ny, lx, ly)
 x, y = SpatialCoordinate(mesh2d)
 
 # define function spaces
-V = FunctionSpace(mesh2d, 'CG', 1)
-P1_2d = FunctionSpace(mesh2d, 'DG', 1)
+V = get_function_space(mesh2d, "CG", 1)
+P1_2d = get_function_space(mesh2d, "DG", 1)
 
 # define underlying bathymetry
 bathymetry_2d = Function(V, name='Bathymetry')
