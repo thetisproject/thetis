@@ -858,7 +858,7 @@ class ShallowWaterGOErrorEstimator(GOErrorEstimator):
 
         u_space, eta_space = function_space.split()
         self.add_momentum_terms(u_space, eta_space, depth, options)
-        self.add_continuity_terms(u_space, eta_space, depth, options)
+        self.add_continuity_terms(eta_space, u_space, depth, options)
 
     def add_momentum_terms(self, *args):
         self.add_term(ExternalPressureGradientGOErrorEstimatorTerm(*args), 'implicit')
