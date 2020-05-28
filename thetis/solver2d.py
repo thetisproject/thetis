@@ -318,6 +318,9 @@ class FlowSolver2d(FrozenClass):
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
                 self.tracer_limiter = None
+                
+        if True:  # if sediment
+            self.eq_exner = exner_eq.ExnerEquation()
 
         self._isfrozen = True  # disallow creating new attributes
 
@@ -392,6 +395,25 @@ class FlowSolver2d(FrozenClass):
         kwargs = {
             'bnd_conditions': self.bnd_functions['tracer'],
             'solver_parameters': self.options.timestepper_options.solver_parameters_tracer,
+        }
+        if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
+            kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
+        if hasattr(self.options.timestepper_options, 'implicitness_theta'):
+            kwargs['theta'] = self.options.timestepper_options.implicitness_theta
+        return integrator(*args, **kwargs)
+
+    def get_exner_timestepper(self, integrator):
+        """
+        Gets exner timestepper object with appropriate parameters
+        """
+        uv, elev = self.fields.solution_2d.split()
+        fields = {
+                #...
+        }
+
+        args = (self.eq_exner, self.fields.bathymetry_2d, fields, self.dt, )
+        kwargs = {
+            'solver_parameters': self.options.timestepper_options.solver_parameters_exner,
         }
         if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
             kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
