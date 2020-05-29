@@ -1539,12 +1539,8 @@ class SmagorinskyViscosity(object):
         if self.weak_form:
             # solve grad(u) weakly
             mesh = output.function_space().mesh()
-            fs_grad = get_functionspace(mesh, 'DP', 1, 'DP', 1)
-            self.grad = []
-            for icomp in range(2):
-                self.grad[icomp] = []
-                for j in range(2):
-                    self.grad[icomp][j] = Function(fs_grad, name='uv_grad({:},{:})'.format(icomp, j))
+            fs_grad = get_functionspace(mesh, 'DP', 1, 'DP', 1, vector=True, dim=4)
+            self.grad = Function(fs_grad, name='uv_grad')
 
             tri_grad = TrialFunction(fs_grad)
             test_grad = TestFunction(fs_grad)
@@ -1552,29 +1548,30 @@ class SmagorinskyViscosity(object):
             normal = FacetNormal(mesh)
             a = inner(tri_grad, test_grad)*dx
 
-            self.solver_grad = []
-            for icomp in range(2):
-                self.solver_grad[icomp] = []
-                for j in range(2):
-                    a = inner(tri_grad, test_grad)*dx
-                    # l = inner(Dx(uv[0], 0), test_grad)*dx
-                    l = -inner(Dx(test_grad, j), uv[icomp])*dx
-                    l += inner(avg(uv[icomp]), jump(test_grad, normal[j]))*dS_v
-                    l += inner(uv[icomp], test_grad*normal[j])*ds_v
-                    prob = LinearVariationalProblem(a, l, self.grad[icomp][j])
-                    self.solver_grad[icomp][j] = LinearVariationalSolver(prob, solver_parameters=solver_parameters)
+            rhs_terms = []
+            for iuv in range(2):
+                for ix in range(2):
+                    i = 2*iuv + ix
+                    vol_term = -inner(Dx(test_grad[i], ix), uv[iuv])*dx
+                    int_term = inner(avg(uv[iuv]), jump(test_grad[i], normal[ix]))*dS_v
+                    ext_term = inner(uv[iuv], test_grad[i]*normal[ix])*ds_v
+                    rhs_terms.extend([vol_term, int_term, ext_term])
+            l = sum(rhs_terms)
+            prob = LinearVariationalProblem(a, l, self.grad)
+            self.weak_grad_solver = LinearVariationalSolver(prob, solver_parameters=solver_parameters)
+
+            # rate of strain tensor
+            d_t = self.grad[0] - self.grad[3]
+            d_s = self.grad[1] + self.grad[2]
+        else:
+            # rate of strain tensor
+            d_t = Dx(uv[0], 0) - Dx(uv[1], 1)
+            d_s = Dx(uv[0], 1) + Dx(uv[1], 0)
 
         fs = output.function_space()
         tri = TrialFunction(fs)
         test = TestFunction(fs)
 
-        # rate of strain tensor
-        if self.weak_form:
-            d_t = self.grad[(0, 0)] - self.grad[(1, 1)]
-            d_s = self.grad[(0, 1)] + self.grad[(1, 0)]
-        else:
-            d_t = Dx(uv[0], 0) - Dx(uv[1], 1)
-            d_s = Dx(uv[0], 1) + Dx(uv[1], 0)
         nu = c_s**2*h_elem_size**2 * sqrt(d_t**2 + d_s**2)
 
         a = test*tri*dx
@@ -1585,9 +1582,7 @@ class SmagorinskyViscosity(object):
     def solve(self):
         """Compute viscosity"""
         if self.weak_form:
-            for icomp in range(2):
-                for j in range(2):
-                    self.solver_grad[icomp][j].solve()
+            self.weak_grad_solver.solve()
         self.solver.solve()
         # remove negative values
         ix = self.output.dat.data < self.min_val
