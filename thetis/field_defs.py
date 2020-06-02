@@ -22,12 +22,6 @@ field_metadata['bathymetry_2d'] = {
     'unit': 'm',
     'filename': 'bathymetry2d',
 }
-field_metadata['bathymetry_3d'] = {
-    'name': 'Bathymetry',
-    'shortname': 'Bathymetry',
-    'unit': 'm',
-    'filename': 'bathymetry3d',
-}
 field_metadata['z_coord_3d'] = {
     'name': 'Mesh z coordinates',
     'shortname': 'Z coordinates',
@@ -70,35 +64,17 @@ field_metadata['uv_dav_3d'] = {
     'unit': 'm s-1',
     'filename': 'DAVelocity3d',
 }
-field_metadata['uv_mag_3d'] = {
-    'name': 'Magnitude of horizontal velocity',
-    'shortname': 'Velocity magnitude',
-    'unit': 'm s-1',
-    'filename': 'VeloMag3d',
-}
-field_metadata['uv_p1_3d'] = {
-    'name': 'P1 projection of horizontal velocity',
-    'shortname': 'P1 Velocity',
-    'unit': 'm s-1',
-    'filename': 'VeloCG3d',
-}
 field_metadata['elev_2d'] = {
     'name': 'Water elevation',
     'shortname': 'Elevation',
     'unit': 'm',
     'filename': 'Elevation2d',
 }
-field_metadata['elev_3d'] = {
-    'name': 'Water elevation',
+field_metadata['elev_domain_2d'] = {
+    'name': 'Surface elevation of domain',
     'shortname': 'Elevation',
     'unit': 'm',
-    'filename': 'Elevation3d',
-}
-field_metadata['elev_cg_3d'] = {
-    'name': 'Water elevation CG',
-    'shortname': 'Elevation',
-    'unit': 'm',
-    'filename': 'ElevationCG3d',
+    'filename': 'ElevationDomain2d',
 }
 field_metadata['elev_cg_2d'] = {
     'name': 'Water elevation CG',
@@ -123,18 +99,6 @@ field_metadata['w_mesh_3d'] = {
     'shortname': 'Mesh velocity',
     'unit': 'm s-1',
     'filename': 'MeshVelo3d',
-}
-field_metadata['w_mesh_surf_3d'] = {
-    'name': 'Surface mesh velocity',
-    'shortname': 'Surface mesh velocity',
-    'unit': 'm s-1',
-    'filename': 'SurfMeshVelo3d',
-}
-field_metadata['w_mesh_surf_2d'] = {
-    'name': 'Surface mesh velocity',
-    'shortname': 'Surface mesh velocity',
-    'unit': 'm s-1',
-    'filename': 'SurfMeshVelo3d',
 }
 field_metadata['salt_3d'] = {
     'name': 'Water salinity',

@@ -563,12 +563,11 @@ class FlowSolver(FrozenClass):
         uv_2d, eta2d = self.fields.solution_2d.split()
         self.fields.uv_2d = uv_2d
         self.fields.elev_2d = eta2d
-        self.fields.elev_3d = Function(self.function_spaces.H)
-        self.fields.elev_cg_3d = Function(coord_fs)
-        self.fields.elev_cg_2d = Function(coord_fs_2d)
+        # elevation field seen by the 3D mode, different from elev_2d
+        self.fields.elev_domain_2d = ExtrudedFunction(self.function_spaces.H_2d, mesh_3d=self.mesh)
+        self.fields.elev_cg_2d = ExtrudedFunction(coord_fs_2d, mesh_3d=self.mesh)
         self.fields.uv_3d = Function(self.function_spaces.U)
-        self.fields.bathymetry_2d = Function(coord_fs_2d)
-        self.fields.bathymetry_3d = Function(coord_fs)
+        self.fields.bathymetry_2d = ExtrudedFunction(coord_fs_2d, mesh_3d=self.mesh)
         # z coordinate in the strecthed mesh
         self.fields.z_coord_3d = Function(coord_fs)
         # z coordinate in the reference mesh (eta=0)
@@ -576,14 +575,10 @@ class FlowSolver(FrozenClass):
         self.fields.uv_dav_3d = Function(self.function_spaces.U)
         self.fields.uv_dav_2d = Function(self.function_spaces.U_2d)
         self.fields.split_residual_2d = Function(self.function_spaces.U_2d)
-        self.fields.uv_mag_3d = Function(self.function_spaces.P0)
-        self.fields.uv_p1_3d = Function(self.function_spaces.P1v)
         self.fields.w_3d = Function(self.function_spaces.W)
         self.fields.hcc_metric_3d = Function(self.function_spaces.P1DG, name='mesh consistency')
         if self.options.use_ale_moving_mesh:
             self.fields.w_mesh_3d = Function(coord_fs)
-            self.fields.w_mesh_surf_3d = Function(coord_fs)
-            self.fields.w_mesh_surf_2d = Function(coord_fs_2d)
         if self.options.solve_salinity:
             self.fields.salt_3d = Function(self.function_spaces.H, name='Salinity')
         if self.options.solve_temperature:
@@ -599,8 +594,8 @@ class FlowSolver(FrozenClass):
             if isinstance(self.options.coriolis_frequency, Constant):
                 self.fields.coriolis_3d = self.options.coriolis_frequency
             else:
-                self.fields.coriolis_3d = Function(self.function_spaces.P1)
-                ExpandFunctionTo3d(self.options.coriolis_frequency, self.fields.coriolis_3d).solve()
+
+                self.fields.coriolis_3d = extend_function_to_3d(self.options.coriolis_frequency, self.mesh)
         if self.options.wind_stress is not None:
             if isinstance(self.options.wind_stress, Function):
                 assert self.options.wind_stress.function_space().mesh().geometric_dimension() == 3, \
@@ -711,7 +706,7 @@ class FlowSolver(FrozenClass):
 
         expl_bottom_friction = self.options.use_bottom_friction and not self.options.use_implicit_vertical_diffusion
         self.eq_momentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
-                                                        bathymetry=self.fields.bathymetry_3d,
+                                                        bathymetry=self.fields.bathymetry_2d.view_3d,
                                                         v_elem_size=self.fields.v_elem_size_3d,
                                                         h_elem_size=self.fields.h_elem_size_3d,
                                                         use_nonlinear_equations=self.options.use_nonlinear_equations,
@@ -721,7 +716,7 @@ class FlowSolver(FrozenClass):
                                                         sipg_parameter_vertical=self.options.sipg_parameter_vertical)
         if self.options.use_implicit_vertical_diffusion:
             self.eq_vertmomentum = momentum_eq.MomentumEquation(self.fields.uv_3d.function_space(),
-                                                                bathymetry=self.fields.bathymetry_3d,
+                                                                bathymetry=self.fields.bathymetry_2d.view_3d,
                                                                 v_elem_size=self.fields.v_elem_size_3d,
                                                                 h_elem_size=self.fields.h_elem_size_3d,
                                                                 use_nonlinear_equations=False,
@@ -731,7 +726,7 @@ class FlowSolver(FrozenClass):
                                                                 sipg_parameter_vertical=self.options.sipg_parameter_vertical)
         if self.options.solve_salinity:
             self.eq_salt = tracer_eq.TracerEquation(self.fields.salt_3d.function_space(),
-                                                    bathymetry=self.fields.bathymetry_3d,
+                                                    bathymetry=self.fields.bathymetry_2d.view_3d,
                                                     v_elem_size=self.fields.v_elem_size_3d,
                                                     h_elem_size=self.fields.h_elem_size_3d,
                                                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
@@ -740,7 +735,7 @@ class FlowSolver(FrozenClass):
                                                     sipg_parameter_vertical=self.options.sipg_parameter_vertical_tracer)
             if self.options.use_implicit_vertical_diffusion:
                 self.eq_salt_vdff = tracer_eq.TracerEquation(self.fields.salt_3d.function_space(),
-                                                             bathymetry=self.fields.bathymetry_3d,
+                                                             bathymetry=self.fields.bathymetry_2d.view_3d,
                                                              v_elem_size=self.fields.v_elem_size_3d,
                                                              h_elem_size=self.fields.h_elem_size_3d,
                                                              use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
@@ -749,7 +744,7 @@ class FlowSolver(FrozenClass):
 
         if self.options.solve_temperature:
             self.eq_temp = tracer_eq.TracerEquation(self.fields.temp_3d.function_space(),
-                                                    bathymetry=self.fields.bathymetry_3d,
+                                                    bathymetry=self.fields.bathymetry_2d.view_3d,
                                                     v_elem_size=self.fields.v_elem_size_3d,
                                                     h_elem_size=self.fields.h_elem_size_3d,
                                                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
@@ -758,7 +753,7 @@ class FlowSolver(FrozenClass):
                                                     sipg_parameter_vertical=self.options.sipg_parameter_vertical_tracer)
             if self.options.use_implicit_vertical_diffusion:
                 self.eq_temp_vdff = tracer_eq.TracerEquation(self.fields.temp_3d.function_space(),
-                                                             bathymetry=self.fields.bathymetry_3d,
+                                                             bathymetry=self.fields.bathymetry_2d.view_3d,
                                                              v_elem_size=self.fields.v_elem_size_3d,
                                                              h_elem_size=self.fields.h_elem_size_3d,
                                                              use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
@@ -775,14 +770,14 @@ class FlowSolver(FrozenClass):
             if self.options.use_turbulence_advection:
                 # explicit advection equations
                 self.eq_tke_adv = tracer_eq.TracerEquation(self.fields.tke_3d.function_space(),
-                                                           bathymetry=self.fields.bathymetry_3d,
+                                                           bathymetry=self.fields.bathymetry_2d.view_3d,
                                                            v_elem_size=self.fields.v_elem_size_3d,
                                                            h_elem_size=self.fields.h_elem_size_3d,
                                                            use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
                                                            sipg_parameter=self.options.sipg_parameter_turb,
                                                            sipg_parameter_vertical=self.options.sipg_parameter_vertical_turb)
                 self.eq_psi_adv = tracer_eq.TracerEquation(self.fields.psi_3d.function_space(),
-                                                           bathymetry=self.fields.bathymetry_3d,
+                                                           bathymetry=self.fields.bathymetry_2d.view_3d,
                                                            v_elem_size=self.fields.v_elem_size_3d,
                                                            h_elem_size=self.fields.h_elem_size_3d,
                                                            use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
@@ -791,12 +786,12 @@ class FlowSolver(FrozenClass):
             # implicit vertical diffusion eqn with production terms
             self.eq_tke_diff = turbulence.TKEEquation(self.fields.tke_3d.function_space(),
                                                       self.turbulence_model,
-                                                      bathymetry=self.fields.bathymetry_3d,
+                                                      bathymetry=self.fields.bathymetry_2d.view_3d,
                                                       v_elem_size=self.fields.v_elem_size_3d,
                                                       h_elem_size=self.fields.h_elem_size_3d)
             self.eq_psi_diff = turbulence.PsiEquation(self.fields.psi_3d.function_space(),
                                                       self.turbulence_model,
-                                                      bathymetry=self.fields.bathymetry_3d,
+                                                      bathymetry=self.fields.bathymetry_2d.view_3d,
                                                       v_elem_size=self.fields.v_elem_size_3d,
                                                       h_elem_size=self.fields.h_elem_size_3d)
 
@@ -833,15 +828,15 @@ class FlowSolver(FrozenClass):
         tot_uv_3d = self.fields.uv_3d + self.fields.uv_dav_3d
         self.w_solver = VerticalVelocitySolver(self.fields.w_3d,
                                                tot_uv_3d,
-                                               self.fields.bathymetry_3d,
+                                               self.fields.bathymetry_2d.view_3d,
                                                self.eq_momentum.bnd_functions)
         self.uv_averager = VerticalIntegrator(self.fields.uv_3d,
                                               self.fields.uv_dav_3d,
                                               bottom_to_top=True,
                                               bnd_value=Constant((0.0, 0.0, 0.0)),
                                               average=True,
-                                              bathymetry=self.fields.bathymetry_3d,
-                                              elevation=self.fields.elev_cg_3d)
+                                              bathymetry=self.fields.bathymetry_2d.view_3d,
+                                              elevation=self.fields.elev_cg_2d.view_3d)
         if self.options.use_baroclinic_formulation:
             if self.options.solve_salinity:
                 s = self.fields.salt_3d
@@ -870,37 +865,30 @@ class FlowSolver(FrozenClass):
                                                      self.fields.baroc_head_3d,
                                                      bottom_to_top=False,
                                                      average=False,
-                                                     bathymetry=self.fields.bathymetry_3d,
-                                                     elevation=self.fields.elev_cg_3d)
+                                                     bathymetry=self.fields.bathymetry_2d.view_3d,
+                                                     elevation=self.fields.elev_cg_2d.view_3d)
             self.int_pg_calculator = momentum_eq.InternalPressureGradientCalculator(
-                self.fields, self.options,
+                self.fields, self.fields.bathymetry_2d.view_3d, self.options,
                 self.bnd_functions['momentum'],
                 solver_parameters=self.options.timestepper_options.solver_parameters_momentum_explicit)
         self.extract_surf_dav_uv = SubFunctionExtractor(self.fields.uv_dav_3d,
                                                         self.fields.uv_dav_2d,
                                                         boundary='top', elem_facet='top',
                                                         elem_height=self.fields.v_elem_size_2d)
-        self.copy_elev_to_3d = ExpandFunctionTo3d(self.fields.elev_2d, self.fields.elev_3d)
-        self.copy_elev_cg_to_3d = ExpandFunctionTo3d(self.fields.elev_cg_2d, self.fields.elev_cg_3d)
         self.copy_uv_dav_to_uv_dav_3d = ExpandFunctionTo3d(self.fields.uv_dav_2d, self.fields.uv_dav_3d,
                                                            elem_height=self.fields.v_elem_size_3d)
         self.copy_uv_to_uv_dav_3d = ExpandFunctionTo3d(self.fields.uv_2d, self.fields.uv_dav_3d,
                                                        elem_height=self.fields.v_elem_size_3d)
-        self.uv_mag_solver = VelocityMagnitudeSolver(self.fields.uv_mag_3d, u=self.fields.uv_3d)
         self.mesh_updater = ALEMeshUpdater(self)
 
         if self.options.use_smagorinsky_viscosity:
-            self.smagorinsky_diff_solver = SmagorinskyViscosity(self.fields.uv_p1_3d, self.fields.smag_visc_3d,
+            self.smagorinsky_diff_solver = SmagorinskyViscosity(self.fields.uv_3d, self.fields.smag_visc_3d,
                                                                 self.options.smagorinsky_coefficient, self.fields.h_elem_size_3d,
                                                                 self.fields.max_h_diff,
-                                                                weak_form=self.options.polynomial_degree == 0)
-        self.uv_p1_projector = Projector(self.fields.uv_3d, self.fields.uv_p1_3d)
-        self.elev_3d_to_cg_projector = Projector(self.fields.elev_3d, self.fields.elev_cg_3d)
-        self.elev_2d_to_cg_projector = Projector(self.fields.elev_2d, self.fields.elev_cg_2d)
+                                                                weak_form=True)
 
         # ----- set initial values
         self.fields.bathymetry_2d.project(self.bathymetry_cg_2d)
-        ExpandFunctionTo3d(self.fields.bathymetry_2d, self.fields.bathymetry_3d).solve()
         self.mesh_updater.initialize()
         self.compute_mesh_stats()
         self.set_time_step()
@@ -1119,8 +1107,7 @@ class FlowSolver(FrozenClass):
         """
 
         field_list = [
-            'elev_2d', 'uv_2d', 'elev_cg_2d',
-            'elev_3d', 'uv_3d',
+            'elev_2d', 'uv_2d', 'elev_domain_2d', 'elev_cg_2d', 'uv_3d',
             'w_3d', 'uv_dav_3d', 'w_mesh_3d',
             'salt_3d', 'temp_3d', 'density_3d',
             'baroc_head_3d', 'int_pg_3d',

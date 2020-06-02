@@ -774,6 +774,53 @@ class Mesh3DConsistencyCalculator(object):
         print_output('HCC: {:} .. {:}'.format(r_min, r_max))
 
 
+def extend_function_to_3d(func, mesh_extruded):
+    """
+    Returns a 3D view of a 2D :class:`Function` on the extruded domain.
+
+    The 3D function resides in V x R function space, where V is the function
+    space of the source function. The 3D function shares the data of the 2D
+    function.
+    """
+    fs = func.function_space()
+    assert fs.mesh().geometric_dimension() == 2, 'Function must be in 2D space'
+    ufl_elem = fs.ufl_element()
+    family = ufl_elem.family()
+    degree = ufl_elem.degree()
+    name = func.name()
+    if isinstance(ufl_elem, ufl.VectorElement):
+        # vector function space
+        fs_extended = get_functionspace(mesh_extruded, family, degree, 'R', 0,
+                                        dim=2, vector=True)
+    else:
+        fs_extended = get_functionspace(mesh_extruded, family, degree, 'R', 0)
+    func_extended = Function(fs_extended, name=name, val=func.dat._data)
+    func_extended.source = func
+    return func_extended
+
+
+class ExtrudedFunction(Function):
+    """
+    A 2D :class:`Function` that provides a 3D view on the extruded domain.
+
+    The 3D function can be accessed as `ExtrudedFunction.view_3d`.
+    The 3D function resides in V x R function space, where V is the function
+    space of the source function. The 3D function shares the data of the 2D
+    function.
+    """
+    def __init__(self, *args, mesh_3d=None, **kwargs):
+        """
+        Create a 2D :class:`Function` with a 3D view on extruded mesh.
+
+        :arg mesh_3d: Extruded 3D mesh where the function will be extended to.
+        """
+        # create the 2d function
+        super().__init__(*args, **kwargs)
+
+        if mesh_3d is not None:
+            self.view_3d = extend_function_to_3d(self, mesh_3d)
+
+
 class ExpandFunctionTo3d(object):
     """
     Copy a 2D field to 3D
@@ -817,7 +864,7 @@ class ExpandFunctionTo3d(object):
             # a normal tensorproduct element
             family_3dh = ufl_elem.sub_elements()[0].family()
             if family_2d != family_3dh:
-                raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
+                raise Exception('2D and 3D spaces do not match: "{0:s}" != "{1:s}"'.format(family_2d, family_3dh))
         if family_2d == 'Raviart-Thomas' and elem_height is None:
             raise Exception('elem_height must be provided for Raviart-Thomas spaces')
         self.do_rt_scaling = family_2d == 'Raviart-Thomas'
@@ -1247,18 +1294,77 @@ class ALEMeshUpdater(object):
             # continous elevation
             self.elev_cg_2d = Function(self.solver.function_spaces.P1_2d,
                                        name='elev cg 2d')
+            # w_mesh at surface
+            self.w_mesh_surf_2d = Function(
+                self.fields.bathymetry_2d.function_space(), name='w mesh surf 2d')
             # elevation in coordinate space
             self.proj_elev_to_cg_2d = Projector(self.fields.elev_2d,
                                                 self.elev_cg_2d)
             self.proj_elev_cg_to_coords_2d = Projector(self.elev_cg_2d,
                                                        self.fields.elev_cg_2d)
-            self.cp_elev_2d_to_3d = ExpandFunctionTo3d(self.fields.elev_cg_2d,
-                                                       self.fields.elev_cg_3d)
-            self.cp_w_mesh_surf_2d_to_3d = ExpandFunctionTo3d(self.fields.w_mesh_surf_2d,
-                                                              self.fields.w_mesh_surf_3d)
         self.cp_v_elem_size_to_2d = SubFunctionExtractor(self.fields.v_elem_size_3d,
                                                          self.fields.v_elem_size_2d,
                                                          boundary='top', elem_facet='top')
+
+        self.fs_3d = self.fields.z_coord_ref_3d.function_space()
+        self.fs_2d = self.fields.elev_cg_2d.function_space()
+
+        family_2d = self.fs_2d.ufl_element().family()
+        ufl_elem = self.fs_3d.ufl_element()
+        if isinstance(ufl_elem, ufl.VectorElement):
+            # Unwind vector
+            ufl_elem = ufl_elem.sub_elements()[0]
+        if isinstance(ufl_elem, ufl.HDivElement):
+            # RT case
+            ufl_elem = ufl_elem._element
+        if ufl_elem.family() == 'TensorProductElement':
+            # a normal tensorproduct element
+            family_3dh = ufl_elem.sub_elements()[0].family()
+            if family_2d != family_3dh:
+                raise Exception('2D and 3D spaces do not match: "{0:s}" != "{1:s}"'.format(family_2d, family_3dh))
+
+        # number of nodes in vertical direction
+        n_vert_nodes = self.fs_3d.finat_element.space_dimension() / self.fs_2d.finat_element.space_dimension()
+
+        nodes = get_facet_mask(self.fs_3d, 'geometric', 'bottom')
+        self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
+        self.kernel_z_coord = op2.Kernel("""
+            void my_kernel(double *z_coord_3d, double *z_ref_3d, double *elev_2d, double *bath_2d, int *idx) {
+                for ( int d = 0; d < %(nodes)d; d++ ) {
+                    for ( int c = 0; c < %(func2d_dim)d; c++ ) {
+                        for ( int e = 0; e < %(v_nodes)d; e++ ) {
+                            double eta = elev_2d[%(func2d_dim)d*d + c];
+                            double bath = bath_2d[%(func2d_dim)d*d + c];
+                            double z_ref = z_ref_3d[%(func3d_dim)d*(idx[d]+e) + c];
+                            double new_z = eta*(z_ref + bath)/bath + z_ref;
+                            z_coord_3d[%(func3d_dim)d*(idx[d]+e) + c] = new_z;
+                        }
+                    }
+                }
+            }""" % {'nodes': self.fs_2d.finat_element.space_dimension(),
+                    'func2d_dim': self.fs_2d.value_size,
+                    'func3d_dim': self.fs_3d.value_size,
+                    'v_nodes': n_vert_nodes},
+            'my_kernel')
+
+        self.kernel_w_mesh = op2.Kernel("""
+            void my_kernel(double *w_mesh_3d, double *z_ref_3d, double *w_mesh_surf_2d, double *bath_2d, int *idx) {
+                for ( int d = 0; d < %(nodes)d; d++ ) {
+                    for ( int c = 0; c < %(func2d_dim)d; c++ ) {
+                        for ( int e = 0; e < %(v_nodes)d; e++ ) {
+                            double w_mesh_surf = w_mesh_surf_2d[%(func2d_dim)d*d + c];
+                            double bath = bath_2d[%(func2d_dim)d*d + c];
+                            double z_ref = z_ref_3d[%(func3d_dim)d*(idx[d]+e) + c];
+                            double new_w = w_mesh_surf * (z_ref + bath)/bath;
+                            w_mesh_3d[%(func3d_dim)d*(idx[d]+e) + c] = new_w;
+                        }
+                    }
+                }
+            }""" % {'nodes': self.fs_2d.finat_element.space_dimension(),
+                    'func2d_dim': self.fs_2d.value_size,
+                    'func3d_dim': self.fs_3d.value_size,
+                    'v_nodes': n_vert_nodes},
+            'my_kernel')
 
     def initialize(self):
         """Set values for initial mesh (elevation at rest)"""
@@ -1277,27 +1383,35 @@ class ALEMeshUpdater(object):
         self.proj_elev_to_cg_2d.project()
         self.proj_elev_cg_to_coords_2d.project()
 
-    def compute_mesh_velocity_finalize(self, c=1.0):
+    def compute_mesh_velocity_finalize(self, c=1.0, w_mesh_surf_expr=None):
         """
         Computes mesh velocity from the elevation difference
 
         Stores the current 2D elevation state as the "new" field,
         and computes w_mesh using the given time step factor ``c``.
         """
-        # compute w_mesh_surf = (elev_new - elev_old)/dt/c
         assert self.solver.options.use_ale_moving_mesh
-        self.fields.w_mesh_surf_2d.assign(self.fields.elev_cg_2d)
-        self.proj_elev_to_cg_2d.project()
-        self.proj_elev_cg_to_coords_2d.project()
-        self.fields.w_mesh_surf_2d += -self.fields.elev_cg_2d
-        self.fields.w_mesh_surf_2d *= -1.0/self.solver.dt/c
-        # use that to compute w_mesh in whole domain
-        self.cp_w_mesh_surf_2d_to_3d.solve()
-        # solve w_mesh at nodes
-        w_mesh_surf = self.fields.w_mesh_surf_3d.dat.data[:]
-        z_ref = self.fields.z_coord_ref_3d.dat.data[:]
-        h = self.fields.bathymetry_3d.dat.data[:]
-        self.fields.w_mesh_3d.dat.data[:] = w_mesh_surf * (z_ref + h)/h
+        # compute w_mesh at surface
+        if w_mesh_surf_expr is None:
+            # default formulation
+            # w_mesh_surf = (elev_new - elev_old)/dt/c
+            self.w_mesh_surf_2d.assign(self.fields.elev_cg_2d)
+            self.proj_elev_to_cg_2d.project()
+            self.proj_elev_cg_to_coords_2d.project()
+            self.w_mesh_surf_2d += -self.fields.elev_cg_2d
+            self.w_mesh_surf_2d *= -1.0/self.solver.dt/c
+        else:
+            # user-defined formulation
+            self.w_mesh_surf_2d.assign(w_mesh_surf_expr)
+        op2.par_loop(
+            self.kernel_w_mesh, self.fs_3d.mesh().cell_set,
+            self.fields.w_mesh_3d.dat(op2.WRITE, self.fs_3d.cell_node_map()),
+            self.fields.z_coord_ref_3d.dat(op2.READ, self.fs_3d.cell_node_map()),
+            self.w_mesh_surf_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
+            self.fields.bathymetry_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
+            self.idx(op2.READ),
+            iterate=op2.ALL
+        )
 
     def update_mesh_coordinates(self):
         """
@@ -1308,14 +1422,19 @@ class ALEMeshUpdater(object):
         assert self.solver.options.use_ale_moving_mesh
         self.proj_elev_to_cg_2d.project()
         self.proj_elev_cg_to_coords_2d.project()
-        self.cp_elev_2d_to_3d.solve()
 
-        eta = self.fields.elev_cg_3d.dat.data[:]
-        z_ref = self.fields.z_coord_ref_3d.dat.data[:]
-        bath = self.fields.bathymetry_3d.dat.data[:]
-        new_z = eta*(z_ref + bath)/bath + z_ref
-        self.solver.mesh.coordinates.dat.data[:, 2] = new_z
-        self.fields.z_coord_3d.dat.data[:] = new_z
+        # compute new z coordinates -> self.fields.z_coord_3d
+        op2.par_loop(
+            self.kernel_z_coord, self.fs_3d.mesh().cell_set,
+            self.fields.z_coord_3d.dat(op2.WRITE, self.fs_3d.cell_node_map()),
+            self.fields.z_coord_ref_3d.dat(op2.READ, self.fs_3d.cell_node_map()),
+            self.fields.elev_cg_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
+            self.fields.bathymetry_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
+            self.idx(op2.READ),
+            iterate=op2.ALL
+        )
+
+        self.solver.mesh.coordinates.dat.data[:, 2] = self.fields.z_coord_3d.dat.data[:]
         self.update_elem_height()
         self.solver.mesh.clear_spatial_index()
 
@@ -1420,12 +1539,8 @@ class SmagorinskyViscosity(object):
         if self.weak_form:
             # solve grad(u) weakly
             mesh = output.function_space().mesh()
-            fs_grad = FunctionSpace(mesh, 'DP', 1, vfamily='DP', vdegree=1)
-            self.grad = []
-            for icomp in range(2):
-                self.grad[icomp] = []
-                for j in range(2):
-                    self.grad[icomp][j] = Function(fs_grad, name='uv_grad({:},{:})'.format(icomp, j))
+            fs_grad = get_functionspace(mesh, 'DP', 1, 'DP', 1, vector=True, dim=4)
+            self.grad = Function(fs_grad, name='uv_grad')
 
             tri_grad = TrialFunction(fs_grad)
             test_grad = TestFunction(fs_grad)
@@ -1433,29 +1548,30 @@ class SmagorinskyViscosity(object):
             normal = FacetNormal(mesh)
             a = inner(tri_grad, test_grad)*dx
 
-            self.solver_grad = []
-            for icomp in range(2):
-                self.solver_grad[icomp] = []
-                for j in range(2):
-                    a = inner(tri_grad, test_grad)*dx
-                    # l = inner(Dx(uv[0], 0), test_grad)*dx
-                    l = -inner(Dx(test_grad, j), uv[icomp])*dx
-                    l += inner(avg(uv[icomp]), jump(test_grad, normal[j]))*dS_v
-                    l += inner(uv[icomp], test_grad*normal[j])*ds_v
-                    prob = LinearVariationalProblem(a, l, self.grad[icomp][j])
-                    self.solver_grad[icomp][j] = LinearVariationalSolver(prob, solver_parameters=solver_parameters)
+            rhs_terms = []
+            for iuv in range(2):
+                for ix in range(2):
+                    i = 2*iuv + ix
+                    vol_term = -inner(Dx(test_grad[i], ix), uv[iuv])*dx
+                    int_term = inner(avg(uv[iuv]), jump(test_grad[i], normal[ix]))*dS_v
+                    ext_term = inner(uv[iuv], test_grad[i]*normal[ix])*ds_v
+                    rhs_terms.extend([vol_term, int_term, ext_term])
+            l = sum(rhs_terms)
+            prob = LinearVariationalProblem(a, l, self.grad)
+            self.weak_grad_solver = LinearVariationalSolver(prob, solver_parameters=solver_parameters)
+
+            # rate of strain tensor
+            d_t = self.grad[0] - self.grad[3]
+            d_s = self.grad[1] + self.grad[2]
+        else:
+            # rate of strain tensor
+            d_t = Dx(uv[0], 0) - Dx(uv[1], 1)
+            d_s = Dx(uv[0], 1) + Dx(uv[1], 0)
 
         fs = output.function_space()
         tri = TrialFunction(fs)
         test = TestFunction(fs)
 
-        # rate of strain tensor
-        if self.weak_form:
-            d_t = self.grad[(0, 0)] - self.grad[(1, 1)]
-            d_s = self.grad[(0, 1)] + self.grad[(1, 0)]
-        else:
-            d_t = Dx(uv[0], 0) - Dx(uv[1], 1)
-            d_s = Dx(uv[0], 1) + Dx(uv[1], 0)
         nu = c_s**2*h_elem_size**2 * sqrt(d_t**2 + d_s**2)
 
         a = test*tri*dx
@@ -1466,9 +1582,7 @@ class SmagorinskyViscosity(object):
     def solve(self):
         """Compute viscosity"""
         if self.weak_form:
-            for icomp in range(2):
-                for j in range(2):
-                    self.solver_grad[icomp][j].solve()
+            self.weak_grad_solver.solve()
         self.solver.solve()
         # remove negative values
         ix = self.output.dat.data < self.min_val
@@ -1641,7 +1755,7 @@ def compute_boundary_length(mesh2d):
     """
     Computes the length of the boundary segments in given 2d mesh
     """
-    p1 = FunctionSpace(mesh2d, 'CG', 1)
+    p1 = get_functionspace(mesh2d, 'CG', 1)
     boundary_markers = sorted(mesh2d.exterior_facets.unique_markers)
     boundary_len = OrderedDict()
     for i in boundary_markers:

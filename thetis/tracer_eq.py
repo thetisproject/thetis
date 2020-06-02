@@ -143,8 +143,6 @@ class HorizontalAdvectionTerm(TracerTerm):
         if uv_depth_av is not None:
             uv = uv + uv_depth_av
 
-        uv_p1 = fields_old.get('uv_p1')
-        uv_mag = fields_old.get('uv_mag')
         # FIXME is this an option?
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
 
@@ -165,13 +163,7 @@ class HorizontalAdvectionTerm(TracerTerm):
                        + uv_av[2]*jump(self.test, self.normal[2]))*(self.dS_h)
             # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
-                if uv_p1 is not None:
-                    gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0]
-                                     + avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
-                elif uv_mag is not None:
-                    gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
-                else:
-                    raise Exception('either uv_p1 or uv_mag must be given')
+                gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                 f += gamma*dot(jump(self.test), jump(solution))*(self.dS_v + self.dS_h)
             if bnd_conditions is not None:
                 for bnd_marker in self.boundary_markers:
