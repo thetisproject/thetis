@@ -17,13 +17,13 @@ import numpy as np
 import pandas as pd
 import time
 
-conservative = False
+conservative = True
 
 def initialise_fields(mesh2d, inputdir, outputdir,):
     """
     Initialise simulation with results from a previous simulation
     """
-    DG_2d = get_function_space(mesh2d, "DG", 1)
+    DG_2d = get_functionspace(mesh2d, "DG", 1)
     # elevation
     with timed_stage('initialising elevation'):
         chk = DumbCheckpoint(inputdir + "/elevation", mode=FILE_READ)
@@ -34,7 +34,7 @@ def initialise_fields(mesh2d, inputdir, outputdir,):
     # velocity
     with timed_stage('initialising velocity'):
         chk = DumbCheckpoint(inputdir + "/velocity", mode=FILE_READ)
-        V = get_function_space(mesh2d, "DG", 1, vector = True)
+        V = VectorFunctionSpace(mesh2d, "DG", 1)
         uv_init = Function(V, name="velocity")
         chk.load(uv_init)
         File(outputdir + "/velocity_imported.pvd").write(uv_init)
@@ -57,8 +57,8 @@ mesh2d = RectangleMesh(nx, ny, lx, ly)
 x, y = SpatialCoordinate(mesh2d)
 
 # define function spaces
-V = get_function_space(mesh2d, "CG", 1)
-P1_2d = get_function_space(mesh2d, "DG", 1)
+V = get_functionspace(mesh2d, "CG", 1)
+P1_2d = get_functionspace(mesh2d, "DG", 1)
 
 # define underlying bathymetry
 bathymetry_2d = Function(V, name = 'bathymetry_2d')
@@ -89,7 +89,7 @@ viscosity_hydro = Constant(1e-6)
 elev, uv = initialise_fields(mesh2d, 'hydrodynamics_trench', outputdir)
 
 s = SedimentModel(morfac=mor_fac, suspendedload=True, convectivevel=True,
-                  bedload=True, angle_correction=True, slope_eff=True, seccurrent=True,
+                  bedload=True, angle_correction=True, slope_eff=True, seccurrent=False,
                   mesh2d=mesh2d, bathymetry_2d=bathymetry_2d, uv_init = uv, elev_init = elev,
                   outputdir=outputdir, ks=0.025, average_size=160 * (10**(-6)), dt=0.3, final_time=end_time, cons_tracer = conservative, wetting_and_drying = False, wetting_alpha = 0.1)
 
@@ -111,16 +111,21 @@ options.check_volume_conservation_2d = True
 if s.suspendedload:
     # switch on tracer calculation if using sediment transport component
     options.solve_tracer = True
+    options.solve_sediment = True
     options.use_tracer_conservative_form = s.cons_tracer
     options.fields_to_export = ['tracer_2d', 'uv_2d', 'elev_2d']
     options.tracer_advective_velocity_factor = s.corr_factor_model.corr_vel_factor
-    options.tracer_source_2d = s.source
+    options.tracer_source_2d = s.ero_term
+    options.tracer_sink_2d = s.depo_term
+    #options.tracer_depth_integ_source = s.ero
+    #options.tracer_depth_integ_sink = s.depo_term
     options.check_tracer_conservation = True
     options.use_lax_friedrichs_tracer = False
 else:
     options.solve_tracer = False
     options.fields_to_export = ['uv_2d', 'elev_2d', 'bathymetry_2d']        
 
+options.morphological_acceleration_factor = Constant(mor_fac)
 # using nikuradse friction
 options.nikuradse_bed_roughness = s.ksp
 
@@ -189,6 +194,7 @@ print("Tracer total mass error: %11.4e" % (tracer_mass_int_rerr))
 tracer_solution = pd.read_csv('tracer.csv')
 bed_solution = pd.read_csv('bed.csv')
 
-assert max([abs((tracer_solution['Tracer'][i] - tracerthetis1[i])/tracer_solution['Tracer'][i]) for i in range(len(tracerthetis1))]) < 0.1, "error in tracer"
+
+assert max([abs((tracer_solution['Tracer'][i] - tracerthetis1[i])/tracer_solution['Tracer'][i]) for i in range(len(tracerthetis1))]) < 0.12, "error in tracer"
 
 assert max([abs((bed_solution['Bathymetry'][i] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.007, "error in bed level"

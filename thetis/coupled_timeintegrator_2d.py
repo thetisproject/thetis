@@ -88,7 +88,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         if self.options.use_limiter_for_tracers:
             self.solver.tracer_limiter.apply(self.fields.tracer_2d)
         # self.sediment.update()
-        self.timesteppers.exner.advance(t, update_forcings=update_forcings)
+        self.timesteppers.exner.advance(t) #, update_forcings=update_forcings)
 
 
 class CoupledMatchingTimeIntegrator2D(CoupledTimeIntegrator2D):
@@ -102,4 +102,4 @@ class CoupledMatchingTimeIntegrator2D(CoupledTimeIntegrator2D):
 class CoupledCrankEuler2D(CoupledTimeIntegrator2D):
     swe_integrator = timeintegrator.CrankNicolson
     tracer_integrator = timeintegrator.ForwardEuler
-    exner_integrator = timeintegrator.BackwardEuler
+    exner_integrator = timeintegrator.CrankNicolson

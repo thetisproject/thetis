@@ -10,6 +10,8 @@ from . import implicitexplicit
 from . import coupled_timeintegrator_2d
 from . import tracer_eq_2d
 from . import conservative_tracer_eq_2d
+from . import sediment_eq_2d
+from . import exner_eq
 import weakref
 import time as time_mod
 import numpy as np
@@ -304,23 +306,32 @@ class FlowSolver2d(FrozenClass):
         self.eq_sw.bnd_functions = self.bnd_functions['shallow_water']
         if self.options.solve_tracer:
             self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
-            if self.options.use_tracer_conservative_form:
-                self.eq_tracer = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
-                    self.function_spaces.Q_2d, self.depth,
-                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                    sipg_parameter=self.options.sipg_parameter_tracer)
+            if not self.options.solve_sediment:
+                if self.options.use_tracer_conservative_form:
+                    self.eq_tracer = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
+                        self.function_spaces.Q_2d, self.depth,
+                        use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                        sipg_parameter=self.options.sipg_parameter_tracer)
+                else:
+                    self.eq_tracer = tracer_eq_2d.TracerEquation2D(
+                        self.function_spaces.Q_2d, self.depth,
+                        use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                        sipg_parameter=self.options.sipg_parameter_tracer)
             else:
-                self.eq_tracer = tracer_eq_2d.TracerEquation2D(
+                self.eq_tracer = sediment_eq_2d.SedimentEquation2D(
                     self.function_spaces.Q_2d, self.depth,
                     use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                    sipg_parameter=self.options.sipg_parameter_tracer)
+                    sipg_parameter=self.options.sipg_parameter_tracer,
+                    conservative = self.options.use_tracer_conservative_form)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
                 self.tracer_limiter = None
                 
         if True:  # if sediment
-            self.eq_exner = exner_eq.ExnerEquation()
+            self.eq_exner = exner_eq.ExnerEquation(
+                self.fields.bathymetry_2d.function_space(), self.depth,
+                    conservative = self.options.use_tracer_conservative_form)
 
         self._isfrozen = True  # disallow creating new attributes
 
@@ -387,6 +398,9 @@ class FlowSolver2d(FrozenClass):
             'uv_2d': uv,
             'diffusivity_h': self.options.horizontal_diffusivity,
             'source': self.options.tracer_source_2d,
+            'depth_integrated_source': self.options.tracer_depth_integ_source,
+            'sink': self.options.tracer_sink_2d,
+            'depth_integrated_sink': self.options.tracer_depth_integ_sink,
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }
@@ -407,8 +421,16 @@ class FlowSolver2d(FrozenClass):
         Gets exner timestepper object with appropriate parameters
         """
         uv, elev = self.fields.solution_2d.split()
+
         fields = {
-                #...
+            'elev_2d': elev,
+            'source': self.options.tracer_source_2d,
+            'depth_integrated_source': self.options.tracer_depth_integ_source,
+            'sink': self.options.tracer_sink_2d,
+            'depth_integrated_sink': self.options.tracer_depth_integ_sink,
+            'tracer': self.fields.tracer_2d,
+            'morfac': self.options.morphological_acceleration_factor,
+            'porosity': self.options.porosity,
         }
 
         args = (self.eq_exner, self.fields.bathymetry_2d, fields, self.dt, )
