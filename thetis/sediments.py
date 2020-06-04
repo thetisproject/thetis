@@ -100,9 +100,9 @@ class SedimentModel(object):
         self.t_old = Constant(0.0)
 
         # define function spaces
-        self.P1_2d = get_function_space(mesh2d, "DG", 1)
-        self.V = get_function_space(mesh2d, "CG", 1)
-        self.vector_cg = get_function_space(mesh, "CG", 1, vector=True)
+        self.P1_2d = get_functionspace(mesh2d, "DG", 1)
+        self.V = get_functionspace(mesh2d, "CG", 1)
+        self.vector_cg = VectorFunctionSpace(mesh2d, "CG", 1)
 
         # define test functions on mesh
         self.v = TestFunction(self.V)
@@ -115,6 +115,8 @@ class SedimentModel(object):
         self.rhow = physical_constants['rho0']
         self.kappa = physical_constants['von_karman']
         self.porosity = Constant(0.4)
+
+        self.fac = Constant(self.dt*self.morfac/(1.0-self.porosity))
 
         self.ksp = Constant(3*self.average_size)
         self.a = Constant(self.ks/2)
@@ -211,7 +213,10 @@ class SedimentModel(object):
 
             # get individual terms
             self.depo = self.settling_velocity*self.coeff
-            self.ero = self.settling_velocity*self.ceq
+            self.ero = Function(self.P1_2d).interpolate(self.settling_velocity*self.ceq)
+
+            self.depo_term = Function(self.P1_2d).interpolate(self.depo/self.depth)
+            self.ero_term = Function(self.P1_2d).interpolate(self.ero/self.depth)
 
             # calculate depth-averaged source term for sediment concentration equation
             if self.cons_tracer:
@@ -255,6 +260,7 @@ class SedimentModel(object):
 
                 self.tandelta_factor = Constant(7)*self.g*self.rhow*self.depth*self.qfc/(Constant(2)*self.alpha_secc*((self.horizontal_velocity**2) + (self.vertical_velocity**2)))
 
+                # accounts for helical flow effect in a curver channel
                 if self.angle_correction:
                     # if angle has already been corrected we must alter the corrected angle to obtain the corrected secondary current angle
                     self.t_1 = (self.TOB*self.slopecoef*self.calfamod) + (self.vertical_velocity*self.tandelta_factor*self.velocity_slide)
@@ -285,9 +291,6 @@ class SedimentModel(object):
             else:
                 self.qb_total = self.slopecoef*self.phi*sqrt(self.g*self.R*self.average_size**3)
 
-            # add time derivative to exner equation with a morphological scale factor
-            self.f = (((Constant(1)-self.porosity)*(self.z_n1 - self.z_n)/(self.dt*self.morfac)) * self.v)*dx
-
             # formulate bedload transport flux with correct angle depending on corrections implemented
             if self.angle_correction and self.seccurrent is False:
                 self.qbx = self.qb_total*self.calfamod
@@ -299,16 +302,16 @@ class SedimentModel(object):
                 self.qbx = self.qb_total*self.calfa
                 self.qby = self.qb_total*self.salfa
 
-            # add bedload transport to exner equation
-            self.f += -(self.v*((self.qbx*self.n[0]) + (self.qby*self.n[1])))*ds(1) - (self.v*((self.qbx*self.n[0]) + (self.qby*self.n[1])))*ds(2) + (self.qbx*(self.v.dx(0)) + self.qby*(self.v.dx(1)))*dx
-        else:
-            # if no bedload transport component initialise exner equation with time derivative
-            self.f = (((Constant(1)-self.porosity)*(self.z_n1 - self.z_n)/(self.dt*self.morfac)) * self.v)*dx
-
-        if self.suspendedload:
-            # add suspended sediment transport to exner equation multiplied by depth as the exner equation is not depth-averaged
-            self.f += - (self.qbsourcedepth*self.v)*dx
-
+            # formulate bedload transport flux with correct angle depending on corrections implemented
+            if self.angle_correction and self.seccurrent is False:
+                self.qbx = self.qb_total*self.calfamod
+                self.qby = self.qb_total*self.salfamod
+            elif self.seccurrent:
+                self.qbx = self.qb_total*self.calfanew
+                self.qby = self.qb_total*self.salfanew
+            else:
+                self.qbx = self.qb_total*self.calfa
+                self.qby = self.qb_total*self.salfa
 
     def update(self, t_new, solver_obj):
         # update bathymetry
@@ -339,6 +342,9 @@ class SedimentModel(object):
 
             self.TOB.interpolate(self.rhow*Constant(0.5)*self.qfc*self.unorm)
 
+            # add time derivative to exner equation with a morphological scale factor
+            self.f = ((self.z_n1 - self.z_n) * self.v)*dx
+
             if self.suspendedload:
                 # source term
 
@@ -347,6 +353,10 @@ class SedimentModel(object):
 
                 # erosion flux - above critical velocity bed is eroded
                 self.ceq.interpolate(Constant(0.015)*(self.average_size/self.a) * ((conditional(self.s0 < Constant(0), Constant(0), self.s0))**(1.5))/(self.dstar**0.3))
+
+                self.ero.interpolate(self.settling_velocity*self.ceq)
+                self.ero_term.interpolate(self.ero/self.depth)
+                self.depo_term.interpolate(self.depo/self.depth)
 
                 # calculate depth-averaged source term for sediment concentration equation
                 if self.cons_tracer:
@@ -374,12 +384,19 @@ class SedimentModel(object):
                 if self.angle_correction:
                     self.norm.interpolate(conditional(sqrt(self.aa**2 + self.bb**2) > Constant(1e-10), sqrt(self.aa**2 + self.bb**2), Constant(1e-10)))
 
+                # add bedload transport to exner equation
+                self.f += (-(self.v*((self.fac*self.qbx*self.n[0]) + (self.fac*self.qby*self.n[1])))*ds(1) - (self.v*((self.fac*self.qbx*self.n[0]) + (self.fac*self.qby*self.n[1])))*ds(2) + (self.fac*self.qbx*(self.v.dx(0)) + self.fac*self.qby*(self.v.dx(1)))*dx)
+
+            if self.suspendedload:
+                # add suspended sediment transport to exner equation multiplied by depth as the exner equation is not depth-averaged
+                self.f += - (self.fac*self.qbsourcedepth*self.v)*dx
+
             # solve exner equation using finite element methods
-            solve(self.f == 0, self.z_n1)
+            #solve(self.f == 0, self.z_n1)
 
             # update bed
-            self.bathymetry_2d.assign(self.z_n1)
+            #self.bathymetry_2d.assign(self.z_n1)
 
-            if round(t_new, 2)%solver_obj.options.simulation_export_time == 0:
-                self.bathy_file.write(self.bathymetry_2d)
+            #if round(t_new, 2)%solver_obj.options.simulation_export_time == 0:
+            #    self.bathy_file.write(self.bathymetry_2d)
         self.t_old.assign(t_new)
