@@ -1153,7 +1153,7 @@ class FlowSolver(FrozenClass):
         self.options.use_limiter_for_velocity &= self.options.element_family == 'dg-dg'
 
         t_epsilon = 1.0e-5
-        cputimestamp = time_mod.clock()
+        cputimestamp = time_mod.perf_counter()
 
         dump_hdf5 = self.options.export_diagnostics and not self.options.no_exports
         if self.options.check_volume_conservation_2d:
@@ -1226,8 +1226,8 @@ class FlowSolver(FrozenClass):
                 self.i_export += 1
                 self.next_export_t += self.options.simulation_export_time
 
-                cputime = time_mod.clock() - cputimestamp
-                cputimestamp = time_mod.clock()
+                cputime = time_mod.perf_counter() - cputimestamp
+                cputimestamp = time_mod.perf_counter()
                 self.print_state(cputime)
 
                 self.export()

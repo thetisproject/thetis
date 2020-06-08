@@ -635,7 +635,7 @@ class FlowSolver2d(FrozenClass):
         self.options.use_limiter_for_tracers &= self.options.polynomial_degree > 0
 
         t_epsilon = 1.0e-5
-        cputimestamp = time_mod.clock()
+        cputimestamp = time_mod.perf_counter()
         next_export_t = self.simulation_time + self.options.simulation_export_time
 
         dump_hdf5 = self.options.export_diagnostics and not self.options.no_exports
@@ -687,8 +687,8 @@ class FlowSolver2d(FrozenClass):
                 self.i_export += 1
                 next_export_t += self.options.simulation_export_time
 
-                cputime = time_mod.clock() - cputimestamp
-                cputimestamp = time_mod.clock()
+                cputime = time_mod.perf_counter() - cputimestamp
+                cputimestamp = time_mod.perf_counter()
                 self.print_state(cputime)
 
                 self.export()
