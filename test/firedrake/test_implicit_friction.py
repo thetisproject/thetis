@@ -120,10 +120,10 @@ def test_implicit_friction(do_export=False, do_assert=True):
     t = 0
     for it in range(1, time_steps + 1):
         t = it*dt
-        t0 = time_mod.clock()
+        t0 = time_mod.perf_counter()
         solver.solve()
         solution.assign(solution_new)
-        t1 = time_mod.clock()
+        t1 = time_mod.perf_counter()
 
         if do_export:
             out_file.write(solution)
