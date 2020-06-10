@@ -64,7 +64,8 @@ class VTKExporter(ExporterBase):
     """Class that handles Paraview VTK file exports"""
     def __init__(self, fs_visu, func_name, outputdir, filename,
                  next_export_ix=0, project_output=False,
-                 coords_dg=None, verbose=False):
+                 add_subdir=True,
+                 coord_func=None, verbose=False):
         """
         :arg fs_visu: function space where input function will be cast
             before exporting
@@ -74,9 +75,10 @@ class VTKExporter(ExporterBase):
         :kwarg int next_export_ix: index for next export (default 0)
         :kwarg bool project_output: project function to output space instead of
             interpolating
-        :kwarg bool coords_dg: Discontinuous coordinate field. Needed to avoid
-            allocating new coordinate field in case of discontinuous export
-            functions.
+        :kwarg bool add_subdir: Store each field in separate sub-directory
+        :kwarg bool coord_func: Custom coordinate field. Needed to avoid
+            allocating new coordinate field in the File object in case the mesh
+            coordinate function is incompatible.
         :kwarg bool verbose: print debug info to stdout
         """
         super(VTKExporter, self).__init__(filename, outputdir, next_export_ix,
@@ -84,11 +86,14 @@ class VTKExporter(ExporterBase):
         self.fs_visu = fs_visu
         self.func_name = func_name
         self.project_output = project_output
-        self.coords_dg = coords_dg
+        self.coord_func = coord_func
         suffix = '.pvd'
-        path = os.path.join(outputdir, filename)
+        if add_subdir:
+            path = os.path.join(outputdir, filename)
+        else:
+            path = outputdir
         # append suffix if missing
-        if (len(filename) < len(suffix)+1 or filename[:len(suffix)] != suffix):
+        if os.path.splitext(filename)[1] != suffix:
             self.filename += suffix
         path = os.path.join(path, self.filename)
         self.outfile = File(path)
@@ -118,9 +123,9 @@ class VTKExporter(ExporterBase):
                 self.cast_operators[function] = op
             op.interpolate()
         coordfunc = function.function_space().mesh().coordinates
-        if coordfunc not in self.outfile._output_functions and self.coords_dg is not None:
-            # hacky workaround to avoid allocating dg coord function in each File object
-            self.outfile._output_functions[coordfunc] = self.coords_dg
+        if coordfunc not in self.outfile._output_functions and self.coord_func is not None:
+            # workaround to avoid allocating coordinate function in File object
+            self.outfile._output_functions[coordfunc] = self.coord_func
         # ensure correct output function name
         old_name = tmp_proj_func.name()
         tmp_proj_func.rename(name=self.func_name)
@@ -203,6 +208,62 @@ class HDF5Exporter(ExporterBase):
             f.load(function)
 
 
+class CoordinateFunctionCache:
+    """
+    Stores custom coordinate functions in for different function spaces.
+    """
+    def __init__(self):
+        self.functions = {}
+        self.interpolators = {}
+
+    def _fs_kind(self, function_space):
+        """
+        Return function space identifier: (is_2d, is_cg)
+        """
+        return is_2d(function_space), is_cg(function_space)
+
+    def get(self, function_space):
+        """
+        Return compatible coordinate function.
+
+        Returns mesh coordinate function if it is in the right function space.
+        Otherwise, returns a separate coordinate function in the appropriate
+        function space. If it does not exits, it will be created.
+        """
+        fs_type = self._fs_kind(function_space)
+
+        mesh = function_space.mesh()
+        mesh_coordinates = mesh.coordinates
+        mesh_coord_fs_type = self._fs_kind(mesh_coordinates.function_space())
+        if fs_type == mesh_coord_fs_type:
+            return mesh_coordinates
+
+        coord_func = self.functions.get(fs_type)
+        if coord_func is None:
+            family = 'CG' if fs_type[1] else 'DG'
+            coord_fs = get_functionspace(mesh, family, 1, vector=True)
+            coord_func = Function(coord_fs, name=f'Coordinates {family}')
+            interpolator = Interpolator(mesh_coordinates, coord_func)
+            interpolator.interpolate()
+            self.functions[fs_type] = coord_func
+            self.interpolators[fs_type] = interpolator
+        return coord_func
+
+    def update_coordinates(self, only_3d=False):
+        """
+        Re-interpolates mesh coordinates on custom coordinate functions.
+
+        This is needed if mesh is moving in time.
+
+        :kwarg bool only_3d: If true, updates only 3D coordinate functions.
+            Useful when 2D mesh is static.
+        """
+        for fs_type in self.interpolators:
+            fs_is_3d = not fs_type[0]
+            if not only_3d or fs_is_3d:
+                self.interpolators[fs_type].interpolate()
+
+
 class ExportManager(object):
     """
     Helper object for exporting multiple fields simultaneously
@@ -239,9 +300,7 @@ class ExportManager(object):
         self.functions.update(functions)
         self.field_metadata = field_metadata
         self.verbose = verbose
-        # allocate dg coord field to avoid creating one in File
-        self.coords_dg_2d = None
-        self.coords_dg_3d = None
+        self.coord_func_cache = CoordinateFunctionCache()
         self.preproc_callbacks = {}
         # for each field create an exporter
         self.exporters = OrderedDict()
@@ -286,34 +345,17 @@ class ExportManager(object):
             self.preproc_callbacks[fieldname] = preproc_func
         if field is not None and isinstance(field, Function):
             native_space = field.function_space()
-            visu_space = get_visu_space(native_space)
-            coords_dg = self._get_dg_coordinates(visu_space)
             if export_type.lower() == 'vtk':
+                visu_space = get_visu_space(native_space)
+                coord_func = self.coord_func_cache.get(visu_space)
                 self.exporters[fieldname] = VTKExporter(visu_space, shortname,
                                                         outputdir, filename,
-                                                        coords_dg=coords_dg,
+                                                        coord_func=coord_func,
                                                         next_export_ix=next_export_ix)
             elif export_type.lower() == 'hdf5':
                 self.exporters[fieldname] = HDF5Exporter(native_space,
                                                          outputdir, filename,
                                                          next_export_ix=next_export_ix)
-
-    def _get_dg_coordinates(self, fs):
-        """
-        Get a cached dg function to be used as dg coordinate field in VTK
-        output objects
-        """
-        if is_2d(fs):
-            if self.coords_dg_2d is None:
-                coord_fs = get_functionspace(fs.mesh(), 'DG', 1, vector=True,
-                                             name='P1DGv_2d')
-                self.coords_dg_2d = Function(coord_fs, name='coordinates 2d dg')
-            return self.coords_dg_2d
-        if self.coords_dg_3d is None:
-            coord_fs = get_functionspace(fs.mesh(), 'DG', 1, vector=True,
-                                         name='P1DGv')
-            self.coords_dg_3d = Function(coord_fs, name='coords 3d dg')
-        return self.coords_dg_3d
 
     def set_next_export_ix(self, next_export_ix):
         """Set export index to all child exporters"""
@@ -326,6 +368,7 @@ class ExportManager(object):
 
         Increments export index by 1.
         """
+        self.coord_func_cache.update_coordinates(only_3d=True)
         if self.verbose and COMM_WORLD.rank == 0:
             sys.stdout.write('Exporting: ')
         for key in self.exporters:
@@ -349,5 +392,10 @@ class ExportManager(object):
 
         :arg bathymetry_2d: 2D bathymetry :class:`Function`
         """
-        bathfile = File(os.path.join(self.outputdir, 'bath.pvd'))
-        bathfile.write(bathymetry_2d)
+        native_space = bathymetry_2d.function_space()
+        visu_space = get_visu_space(native_space)
+        coord_func = self.coord_func_cache.get(visu_space)
+        e = VTKExporter(visu_space, 'Bathymetry', self.outputdir, 'bath.pvd',
+                        coord_func=coord_func, next_export_ix=0,
+                        add_subdir=False)
+        e.export(bathymetry_2d)
