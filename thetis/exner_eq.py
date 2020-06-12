@@ -1,4 +1,6 @@
 r"""
+Exner equation
+
 2D conservation of mass equation describing bed evolution due to sediment transport
 
 The equation reads
@@ -18,12 +20,13 @@ and :math:'T' for non-conservative, :math:`\nabla_h` denotes horizontal gradient
 from __future__ import absolute_import
 from .equation import Term, Equation
 from .utility import *
+from .sediments import SedimentModel
 
 __all__ = [
     'ExnerEquation',
     'ExnerTerm',
     'ExnerSourceTerm',
-    'ExnerBedlevelTerm'
+    'ExnerBedloadTerm'
 ]
 
 
@@ -32,21 +35,25 @@ class ExnerTerm(Term):
     Generic term that provides commonly used members and mapping for
     boundary functions.
     """
-    def __init__(self, function_space, depth, conservative = False):
+    def __init__(self, function_space, depth, sed_model, conservative = False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
+        :arg sed_model: :class: `SedimentModel` containing sediment info
+        :kwarg bool conservative: whether to use conservative tracer
         """
         super(ExnerTerm, self).__init__(function_space)
         self.n = FacetNormal(self.mesh)
         self.depth = depth
 
+        self.sed_model = sed_model
+
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
         self.quad_degree = 2*p + 1
-        self.dx = dx() #degree=self.quad_degree)
-        self.dS = dS() #degree=self.quad_degree)
-        self.ds = ds() #degree=self.quad_degree)
+        self.dx = dx(degree=self.quad_degree)
+        self.dS = dS(degree=self.quad_degree)
+        self.ds = ds(degree=self.quad_degree)
         self.conservative = conservative
 
 
@@ -57,9 +64,10 @@ class ExnerSourceTerm(ExnerTerm):
     The weak form reads
 
     .. math::
-        F_s = \int_\Omega \sigma * depth \phi dx
+        F_s = \int_\Omega (\sigma - tracer * \phi) * depth \psi dx
 
-    where :math:`\sigma` is a user defined source scalar field :class:`Function`.
+    where :math:`\sigma` is a user defined source scalar field :class:`Function`
+    and :math:`\phi` is a user defined source scalar field :class:`Function`.
 
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
@@ -114,33 +122,54 @@ class ExnerSourceTerm(ExnerTerm):
 
         return -f
 
-class ExnerBedlevelTerm(ExnerTerm):
+class ExnerBedloadTerm(ExnerTerm):
     r"""
-    some maths
+    Bedload transport term, \nabla_h \cdot \textbf{qb}
+
+    The weak form is
+
+    .. math::
+        \int_\Omega  \nabla_h \cdot \textbf{qb} \psi  dx
+        = - \int_\Omega (\textbf{qb} \cdot \nabla) \psi dx
+        + \int_\Gamma \psi \textbf{qb} \cdot \textbf{n} dS
+
+    where :math:`\textbf{n}` is the unit normal of the element interfaces.
+
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
-        qbx = fields.get('bedload_x')
-        qby = fields.get('bedload_y')
+
+        qbx, qby = self.sed_model.get_bedload_term(solution)
 
         morfac = fields.get('morfac')
         porosity = fields.get('porosity')
 
         fac = Constant(morfac/(1.0-porosity))
 
-        f += -(self.test*((qbx*self.n[0]) + (qby*self.n[1])))*ds(1) - (self.test*((qbx*self.n[0]) + (qby*self.n[1])))*ds(2) + (qbx*(self.test.dx(0)) + self.qby*(self.test.dx(1)))*dx
+        f += -(self.test*((fac*qbx*self.n[0]) + (fac*qby*self.n[1])))*self.ds(1) - (self.test*((fac*qbx*self.n[0]) + (fac*qby*self.n[1])))*self.ds(2) + (fac*qbx*(self.test.dx(0)) + fac*qby*(self.test.dx(1)))*self.dx
 
-        return 0#-f
+        return -f
 
 class ExnerEquation(Equation):
     """
+    Exner equation
+
+    2D conservation of mass equation describing bed evolution due to sediment transport
     """
-    def __init__(self, function_space, depth, conservative):
+    def __init__(self, function_space, depth, sed_model, conservative):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
+        :arg depth: :class: `DepthExpression` containing depth info
+        :arg sed_model: :class: `SedimentModel` containing sediment info
+        :kwarg bool conservative: whether to use conservative tracer
         """
         super().__init__(function_space)
 
-        args = (function_space, depth, conservative)
-        self.add_term(ExnerSourceTerm(*args), 'source')
-        #self.add_term(ExnerBedlevelTerm(*args), 'implicit')
+        if sed_model is None:
+            raise ValueError('To use the exner equation must define a sediment model')
+
+        args = (function_space, depth, sed_model, conservative)
+        if sed_model.suspendedload:
+            self.add_term(ExnerSourceTerm(*args), 'source')
+        if sed_model.bedload:
+            self.add_term(ExnerBedloadTerm(*args), 'implicit')

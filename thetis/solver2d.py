@@ -132,6 +132,9 @@ class FlowSolver2d(FrozenClass):
         self.export_initial_state = True
         """Do export initial state. False if continuing a simulation"""
 
+        self.sediment_model = None
+        """set up option for sediment model"""
+
         self.bnd_functions = {'shallow_water': {}, 'tracer': {}}
 
         self._isfrozen = True
@@ -328,10 +331,10 @@ class FlowSolver2d(FrozenClass):
             else:
                 self.tracer_limiter = None
 
-        if True:  # if sediment
+        if self.options.solve_exner:
             self.eq_exner = exner_eq.ExnerEquation(
                 self.fields.bathymetry_2d.function_space(), self.depth,
-                    conservative = self.options.use_tracer_conservative_form)
+                    conservative = self.options.use_tracer_conservative_form, sed_model = self.sediment_model)
 
         self._isfrozen = True  # disallow creating new attributes
 
@@ -711,7 +714,7 @@ class FlowSolver2d(FrozenClass):
             if export_func is not None:
                 export_func()
             if 'vtk' in self.exporters and isinstance(self.fields.bathymetry_2d, Function):
-                self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
+                self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d, self.options.solve_exner)
 
         initial_simulation_time = self.simulation_time
         internal_iteration = 0

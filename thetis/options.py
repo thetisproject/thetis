@@ -32,8 +32,8 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
     use_semi_implicit_linearization = Bool(
         False, help="Use linearized semi-implicit time integration").tag(config=True)
     solver_parameters_exner = PETScSolverParameters({
-        #'ksp_type': 'gmres',
-        #'pc_type': 'sor',
+        'ksp_type': 'gmres',
+        'pc_type': 'sor',
     }).tag(config=True)
 
 
@@ -550,6 +550,7 @@ class ModelOptions2d(CommonModelOptions):
     name = 'Depth-averaged 2D model'
     solve_tracer = Bool(False, help='Solve tracer transport').tag(config=True)
     solve_sediment = Bool(False, help='Solve sediment transport - note solve_tracer must also be true').tag(config=True)
+    solve_exner = Bool(False, help='Solve exner equation for bed morphology').tag(config=True)
     use_tracer_conservative_form = Bool(False, help='Solve 2D tracer transport in the conservative form').tag(config=True)
     use_wetting_and_drying = Bool(
         False, help=r"""bool: Turn on wetting and drying

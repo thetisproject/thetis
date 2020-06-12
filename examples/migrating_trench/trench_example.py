@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import time
 
-conservative = True
+conservative = False
 
 def initialise_fields(mesh2d, inputdir, outputdir,):
     """
@@ -41,11 +41,11 @@ def initialise_fields(mesh2d, inputdir, outputdir,):
         chk.close()
         return elev_init, uv_init,
 
-def update_forcings_tracer(t_new):
-    s.update(t_new, solver_obj)
-
-
 ## Note it is necessary to run trench_hydro first to get the hydrodynamics simulation
+
+# exporting bathymetry
+def export_bath_func():
+    bathy_file.write(sed_mod.bathymetry_2d)
 
 # define mesh
 lx = 16
@@ -79,7 +79,11 @@ outputdir = 'outputs' + st
 
 print_output('Exporting to '+outputdir)
 
-mor_fac = 100
+# define bathymetry_file
+bathy_file = File(outputdir + "/bathy.pvd")
+
+morfac = 100
+dt = 0.3
 end_time = 15*3600
 
 diffusivity = 0.15
@@ -88,59 +92,52 @@ viscosity_hydro = Constant(1e-6)
 # initialise velocity, elevation and depth
 elev, uv = initialise_fields(mesh2d, 'hydrodynamics_trench', outputdir)
 
-s = SedimentModel(morfac=mor_fac, suspendedload=True, convectivevel=True,
-                  bedload=True, angle_correction=True, slope_eff=True, seccurrent=False,
-                  mesh2d=mesh2d, bathymetry_2d=bathymetry_2d, uv_init = uv, elev_init = elev,
-                  outputdir=outputdir, ks=0.025, average_size=160 * (10**(-6)), dt=0.3, final_time=end_time, cons_tracer = conservative, wetting_and_drying = False, wetting_alpha = 0.1)
-
-# final time of simulation
-t_end = end_time/mor_fac
-
-# export interval in seconds
-t_export = t_end/45
-
 # set up solver
-solver_obj = solver2d.FlowSolver2d(mesh2d, s.bathymetry_2d)
-
+solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
-options.simulation_export_time = t_export
-options.simulation_end_time = t_end
+
+sed_mod = SedimentModel(options, suspendedload=True, convectivevel=True,
+                        bedload=True, angle_correction=True, slope_eff=True, seccurrent=False,
+                        mesh2d=mesh2d, bathymetry_2d=solver_obj.fields.bathymetry_2d,
+                        uv_init = uv, elev_init = elev, ks=0.025, average_size=160 * (10**(-6)),
+                        cons_tracer = conservative, wetting_and_drying = False, wetting_alpha = 0.1)
+
+solver_obj.sediment_model = sed_mod
+
+options.update(sed_mod.options)
+
+options.simulation_end_time = end_time/morfac
+options.simulation_export_time = options.simulation_end_time/45
+
 options.output_directory = outputdir
 options.check_volume_conservation_2d = True
 
-if s.suspendedload:
-    # switch on tracer calculation if using sediment transport component
-    options.solve_tracer = True
-    options.solve_sediment = True
-    options.use_tracer_conservative_form = s.cons_tracer
-    options.fields_to_export = ['tracer_2d', 'uv_2d', 'elev_2d']
-    options.tracer_advective_velocity_factor = s.corr_factor_model.corr_vel_factor
-    options.tracer_source_2d = s.ero_term
-    options.tracer_sink_2d = s.depo_term
-    #options.tracer_depth_integ_source = s.ero
-    #options.tracer_depth_integ_sink = s.depo_term
+if sed_mod.suspendedload:
+    options.fields_to_export = ['tracer_2d', 'uv_2d', 'elev_2d'] #note exporting bathymetry must be done through export func
+    options.tracer_source_2d = sed_mod.ero_term
+    options.tracer_sink_2d = sed_mod.depo_term
+    #options.tracer_depth_integ_source = sed_mod.ero
+    #options.tracer_depth_integ_sink = sed_mod.depo_term
     options.check_tracer_conservation = True
-    options.use_lax_friedrichs_tracer = False
 else:
-    options.solve_tracer = False
-    options.fields_to_export = ['uv_2d', 'elev_2d', 'bathymetry_2d']
+    options.fields_to_export = ['uv_2d', 'elev_2d'] #note exporting bathymetry must be done through export func
 
-options.morphological_acceleration_factor = Constant(mor_fac)
+options.solve_exner = True
+options.morphological_acceleration_factor = Constant(morfac)
 # using nikuradse friction
-options.nikuradse_bed_roughness = s.ksp
+options.nikuradse_bed_roughness = sed_mod.ksp
 
 # set horizontal diffusivity parameter
 options.horizontal_diffusivity = Constant(diffusivity)
 options.horizontal_viscosity = Constant(viscosity_hydro)
+
 # crank-nicholson used to integrate in time system of ODEs resulting from application of galerkin FEM
 options.timestepper_type = 'CrankNicolson'
 options.timestepper_options.implicitness_theta = 1.0
-options.use_wetting_and_drying = s.wetting_and_drying
-options.wetting_and_drying_alpha = Constant(s.wetting_alpha)
-options.norm_smoother = Constant(s.wetting_alpha)
+options.norm_smoother = Constant(sed_mod.wetting_alpha)
 
 if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
-    options.timestep = s.dt
+    options.timestep = dt
 
 c = call.TracerTotalMassConservation2DCallback('tracer_2d',
                                                solver_obj, export_to_hdf5=True, append_to_log=False)
@@ -158,18 +155,18 @@ swe_bnd[right_bnd_id] = {'elev': Constant(0.397)}
 
 solver_obj.bnd_functions['shallow_water'] = swe_bnd
 
-if s.suspendedload:
-    solver_obj.bnd_functions['tracer'] = {left_bnd_id: {'value': s.sediment_rate, 'flux': Constant(-0.22)}, right_bnd_id: {'elev': Constant(0.397)} }
+if sed_mod.suspendedload:
+    solver_obj.bnd_functions['tracer'] = {left_bnd_id: {'value': sed_mod.sediment_rate, 'flux': Constant(-0.22)}, right_bnd_id: {'elev': Constant(0.397)} }
 
     # set initial conditions
-    solver_obj.assign_initial_conditions(uv=s.uv_init, elev=s.elev_init, tracer=s.testtracer)
+    solver_obj.assign_initial_conditions(uv=sed_mod.uv_init, elev=sed_mod.elev_init, tracer=sed_mod.testtracer)
 
 else:
     # set initial conditions
-    solver_obj.assign_initial_conditions(uv=s.uv_init, elev=s.elev_init)
+    solver_obj.assign_initial_conditions(uv=sed_mod.uv_init, elev=sed_mod.elev_init)
 
 # run model
-solver_obj.iterate(update_forcings=update_forcings_tracer)
+solver_obj.iterate(export_func = export_bath_func)
 
 # record final tracer and final bathymetry
 xaxisthetis1 = []
