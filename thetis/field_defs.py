@@ -52,6 +52,12 @@ field_metadata['tracer_2d'] = {
     'unit': '',
     'filename': 'Tracer2d',
 }
+field_metadata['sediment_2d'] = {
+    'name': 'Depth averaged sediment',
+    'shortname': 'Sediment',
+    'unit': '',
+    'filename': 'Sediment2d',
+}
 field_metadata['uv_dav_2d'] = {
     'name': 'Depth averaged velocity',
     'shortname': 'Depth averaged velocity',
