@@ -23,7 +23,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         pass
 
     def exner_integrator(self):
-        """time integrator for the tracer equation"""
+        """time integrator for the exner equation"""
         pass
 
     def __init__(self, solver):
@@ -49,7 +49,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self.timesteppers.swe2d = self.solver.get_swe_timestepper(self.swe_integrator)
         if self.solver.options.solve_tracer:
             self.timesteppers.tracer = self.solver.get_tracer_timestepper(self.tracer_integrator)
-        if True:
+        if self.solver.options.solve_exner:
             self.timesteppers.exner = self.solver.get_exner_timestepper(self.exner_integrator)
         self.cfl_coeff_2d = min(self.timesteppers.swe2d.cfl_coeff, self.timesteppers.tracer.cfl_coeff)
 
@@ -76,7 +76,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self.timesteppers.swe2d.initialize(self.fields.solution_2d)
         if self.options.solve_tracer:
             self.timesteppers.tracer.initialize(self.fields.tracer_2d)
-        if True:
+        if self.options.solve_exner:
             self.timesteppers.exner.initialize(self.fields.bathymetry_2d)
 
         self._initialized = True
@@ -84,11 +84,12 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
     def advance(self, t, update_forcings=None):
         if not self.options.tracer_only:
             self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
+        self.solver.sediment_model.update(t, self.solver) ### TODO make sure runs when only bedload as well
         self.timesteppers.tracer.advance(t, update_forcings=update_forcings)
         if self.options.use_limiter_for_tracers:
             self.solver.tracer_limiter.apply(self.fields.tracer_2d)
-        # self.sediment.update()
-        self.timesteppers.exner.advance(t) #, update_forcings=update_forcings)
+        if self.options.solve_exner:
+            self.timesteppers.exner.advance(t, update_forcings=update_forcings)
 
 
 class CoupledMatchingTimeIntegrator2D(CoupledTimeIntegrator2D):

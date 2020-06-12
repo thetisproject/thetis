@@ -71,6 +71,8 @@ class SedimentSourceTerm(SedimentTerm):
                 f += -inner(H*source, self.test)*self.dx
             else:
                 f += -inner(source, self.test)*self.dx
+        else:
+            warning("no source term implemented")
 
         if source is not None and depth_int_source is not None:
             raise AttributeError("Assigned both a source term and a depth-integrated source term\
@@ -102,6 +104,8 @@ class SedimentSinkTerm(SedimentTerm):
                 raise NotImplementedError("Depth-integrated sink term not implemented for non-conservative case")
         elif sink is not None:
             f += -inner(-sink*solution, self.test)*self.dx
+        else:
+            warning("no sink term implemented")            
         if sink is not None and depth_int_sink is not None:
             raise AttributeError("Assigned both a sink term and a depth-integrated sink term\
                                  but only one can be implemented. Choose the most appropriate for your case")
