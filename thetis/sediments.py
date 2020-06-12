@@ -207,13 +207,10 @@ class SedimentModel(object):
 
             # calculate depth-averaged source term for sediment concentration equation
             if self.cons_tracer:
-                self.source = Function(self.P1_2d).interpolate(-(self.depo*self.sediment_rate/(self.depth**2)) + (self.ero/self.depth))
-                self.qbsourcedepth = -(self.depo*self.sediment_rate/self.depth) + self.ero
+                self.source_exp = Function(self.P1_2d).interpolate(-(self.depo*self.testtracer/(self.depth**2)) + (self.ero/self.depth))
             else:
-                self.source = Function(self.P1_2d).interpolate(-(self.depo*self.sediment_rate/self.depth) + (self.ero/self.depth))
-                self.qbsourcedepth = -(self.depo*self.sediment_rate) + self.ero
+                self.source_exp = Function(self.P1_2d).interpolate(-(self.depo*self.testtracer/self.depth) + (self.ero/self.depth))
 
-            self.options.solve_tracer = True
             self.options.solve_sediment = True
             self.options.use_tracer_conservative_form = self.cons_tracer
             if self.convectivevel:
@@ -336,11 +333,9 @@ class SedimentModel(object):
 
             # calculate depth-averaged source term for sediment concentration equation
             if self.cons_tracer:
-                self.source.interpolate(-(self.depo*solver_obj.fields.tracer_2d/(self.depth**2)) + (self.ero/self.depth))
-                self.qbsourcedepth = (-(self.depo*solver_obj.fields.tracer_2d/self.depth) + self.ero)
+                self.source_exp.interpolate(-(self.depo*solver_obj.fields.sediment_2d/(self.depth**2)) + (self.ero/self.depth))
             else:
-                self.source.interpolate(-(self.depo*solver_obj.fields.tracer_2d/self.depth) + (self.ero/self.depth))
-                self.qbsourcedepth = -(self.depo*solver_obj.fields.tracer_2d) + self.ero
+                self.source_exp.interpolate(-(self.depo*solver_obj.fields.sediment_2d/self.depth) + (self.ero/self.depth))
 
             if self.convectivevel:
                 self.corr_factor_model.update()

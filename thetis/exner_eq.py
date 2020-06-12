@@ -64,7 +64,7 @@ class ExnerSourceTerm(ExnerTerm):
     The weak form reads
 
     .. math::
-        F_s = \int_\Omega (\sigma - tracer * \phi) * depth \psi dx
+        F_s = \int_\Omega (\sigma - sediment * \phi) * depth \psi dx
 
     where :math:`\sigma` is a user defined source scalar field :class:`Function`
     and :math:`\phi` is a user defined source scalar field :class:`Function`.
@@ -73,7 +73,7 @@ class ExnerSourceTerm(ExnerTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
 
         f = 0
-        tracer = fields.get('tracer')
+        sediment = fields.get('sediment')
         source = fields.get('source')
         depth_int_source = fields.get('depth_integrated_source')
         sink = fields.get('sink')
@@ -114,11 +114,11 @@ class ExnerSourceTerm(ExnerTerm):
                 sink_dep = sink*H
 
         if source_dep is not None and sink_dep is not None:
-            f += -inner(fac*(source_dep-tracer*sink_dep), self.test)*self.dx
+            f += -inner(fac*(source_dep-sediment*sink_dep), self.test)*self.dx
         elif source_dep is not None and sink_dep is None:
             f += -inner((fac*source_dep), self.test)*self.dx
         elif source_dep is None and sink_dep is not None:
-            f += -inner(-fac*tracer*sink_dep, self.test)*self.dx
+            f += -inner(-fac*sediment*sink_dep, self.test)*self.dx
 
         return -f
 

@@ -44,6 +44,45 @@ class SedimentTerm(TracerTerm):
         super(SedimentTerm, self).__init__(function_space, depth)
         self.conservative = conservative
 
+    def get_bnd_functions(self, c_in, uv_in, elev_in, bnd_id, bnd_conditions):
+        """
+        Returns external values of tracer and uv for all supported
+        boundary conditions.
+
+        Volume flux (flux) and normal velocity (un) are defined positive out of
+        the domain.
+
+        :arg c_in: Internal value of tracer
+        :arg uv_in: Internal value of horizontal velocity
+        :arg elev_in: Internal value of elevation
+        :arg bnd_id: boundary id
+        :type bnd_id: int
+        :arg bnd_conditions: dict of boundary conditions:
+            ``{bnd_id: {field: value, ...}, ...}``
+        """
+        funcs = bnd_conditions.get(bnd_id)
+
+        if 'elev' in funcs:
+            elev_ext = funcs['elev']
+        else:
+            elev_ext = elev_in
+        if 'value' in funcs:
+            c_ext = funcs['value']
+        else:
+            c_ext = c_in #FIXME_mc - put equilibrium sediment option
+        if 'uv' in funcs:
+            uv_ext = self.corr_factor * funcs['uv']
+        elif 'flux' in funcs:
+            h_ext = self.depth.get_total_depth(elev_ext)
+            area = h_ext*self.boundary_len[bnd_id]  # NOTE using external data only
+            uv_ext = self.corr_factor * funcs['flux']/area*self.normal
+        elif 'un' in funcs:
+            uv_ext = funcs['un']*self.normal
+        else:
+            uv_ext = uv_in
+
+        return c_ext, uv_ext, elev_ext
+
 class SedimentSourceTerm(SedimentTerm):
     r"""
     Generic source term

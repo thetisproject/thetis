@@ -113,12 +113,12 @@ options.output_directory = outputdir
 options.check_volume_conservation_2d = True
 
 if sed_mod.suspendedload:
-    options.fields_to_export = ['tracer_2d', 'uv_2d', 'elev_2d'] #note exporting bathymetry must be done through export func
+    options.fields_to_export = ['sediment_2d', 'uv_2d', 'elev_2d'] #note exporting bathymetry must be done through export func
     options.tracer_source_2d = sed_mod.ero_term
     options.tracer_sink_2d = sed_mod.depo_term
     #options.tracer_depth_integ_source = sed_mod.ero
     #options.tracer_depth_integ_sink = sed_mod.depo_term
-    options.check_tracer_conservation = True
+    options.check_tracer_conservation = False
 else:
     options.fields_to_export = ['uv_2d', 'elev_2d'] #note exporting bathymetry must be done through export func
 
@@ -139,9 +139,9 @@ options.norm_smoother = Constant(sed_mod.wetting_alpha)
 if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
     options.timestep = dt
 
-c = call.TracerTotalMassConservation2DCallback('tracer_2d',
-                                               solver_obj, export_to_hdf5=True, append_to_log=False)
-solver_obj.add_callback(c, eval_interval='timestep')
+#c = call.TracerTotalMassConservation2DCallback('tracer_2d',
+#                                               solver_obj, export_to_hdf5=True, append_to_log=False)
+#solver_obj.add_callback(c, eval_interval='timestep') #FIXME
 
 # set boundary conditions
 
@@ -156,10 +156,10 @@ swe_bnd[right_bnd_id] = {'elev': Constant(0.397)}
 solver_obj.bnd_functions['shallow_water'] = swe_bnd
 
 if sed_mod.suspendedload:
-    solver_obj.bnd_functions['tracer'] = {left_bnd_id: {'value': sed_mod.sediment_rate, 'flux': Constant(-0.22)}, right_bnd_id: {'elev': Constant(0.397)} }
+    solver_obj.bnd_functions['sediment'] = {left_bnd_id: {'value': sed_mod.sediment_rate, 'flux': Constant(-0.22)}, right_bnd_id: {'elev': Constant(0.397)} }
 
     # set initial conditions
-    solver_obj.assign_initial_conditions(uv=sed_mod.uv_init, elev=sed_mod.elev_init, tracer=sed_mod.testtracer)
+    solver_obj.assign_initial_conditions(uv=sed_mod.uv_init, elev=sed_mod.elev_init, sediment=sed_mod.testtracer)
 
 else:
     # set initial conditions
