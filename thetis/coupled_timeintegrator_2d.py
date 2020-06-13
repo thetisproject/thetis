@@ -60,7 +60,6 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         if self.solver.options.solve_exner:
             self.timesteppers.exner = self.solver.get_exner_timestepper(self.exner_integrator)
 
-
     def set_dt(self, dt):
         """
         Set time step for the coupled time integrator

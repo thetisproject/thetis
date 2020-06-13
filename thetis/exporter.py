@@ -310,7 +310,7 @@ class ExportManager(object):
             sys.stdout.write('\n')
             sys.stdout.flush()
 
-    def export_bathymetry(self, bathymetry_2d, solve_exner = False):
+    def export_bathymetry(self, bathymetry_2d, solve_exner=False):
         """
         Special function to export 2D bathymetry data to disk
 

@@ -20,7 +20,6 @@ and :math:'T' for non-conservative, :math:`\nabla_h` denotes horizontal gradient
 from __future__ import absolute_import
 from .equation import Term, Equation
 from .utility import *
-from .sediments import SedimentModel
 
 __all__ = [
     'ExnerEquation',
@@ -35,7 +34,7 @@ class ExnerTerm(Term):
     Generic term that provides commonly used members and mapping for
     boundary functions.
     """
-    def __init__(self, function_space, depth, sed_model, conservative = False):
+    def __init__(self, function_space, depth, sed_model, conservative=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
@@ -97,6 +96,8 @@ class ExnerSourceTerm(ExnerTerm):
                     source_dep = depth_int_source
         elif source is not None:
             source_dep = source*H
+        else:
+            source_dep = None
 
         if depth_int_sink is not None:
             if not self.conservative:
@@ -112,6 +113,8 @@ class ExnerSourceTerm(ExnerTerm):
                 sink_dep = sink
             else:
                 sink_dep = sink*H
+        else:
+            sink_dep = None
 
         if source_dep is not None and sink_dep is not None:
             f += -inner(fac*(source_dep-sediment*sink_dep), self.test)*self.dx
@@ -121,6 +124,7 @@ class ExnerSourceTerm(ExnerTerm):
             f += -inner(-fac*sediment*sink_dep, self.test)*self.dx
 
         return -f
+
 
 class ExnerBedloadTerm(ExnerTerm):
     r"""
@@ -149,6 +153,7 @@ class ExnerBedloadTerm(ExnerTerm):
         f += -(self.test*((fac*qbx*self.n[0]) + (fac*qby*self.n[1])))*self.ds(1) - (self.test*((fac*qbx*self.n[0]) + (fac*qby*self.n[1])))*self.ds(2) + (fac*qbx*(self.test.dx(0)) + fac*qby*(self.test.dx(1)))*self.dx
 
         return -f
+
 
 class ExnerEquation(Equation):
     """

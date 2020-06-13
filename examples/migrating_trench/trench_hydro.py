@@ -14,6 +14,7 @@ from thetis import *
 import numpy as np
 import time
 
+
 def export_final_state(inputdir, uv, elev,):
     """
     Export fields to be used in a subsequent simulation
@@ -52,8 +53,7 @@ depth_trench = Constant(depth_riv - 0.15)
 depth_diff = depth_trench - depth_riv
 
 trench = conditional(le(x, 5), depth_riv, conditional(le(x, 6.5), (1/1.5)*depth_diff*(x-6.5) + depth_trench,
-                                                             conditional(le(x, 9.5), depth_trench, conditional(le(x, 11), -(1/1.5)*depth_diff*(x-11) + depth_riv,
-                                                                                                                          depth_riv))))
+                     conditional(le(x, 9.5), depth_trench, conditional(le(x, 11), -(1/1.5)*depth_diff*(x-11) + depth_riv, depth_riv))))
 bathymetry_2d.interpolate(-trench)
 
 
@@ -75,7 +75,7 @@ t_end = 500
 t_export = np.round(t_end/40, 0)
 
 # define parameters
-average_size=160 * (10**(-6))
+average_size = 160*(10**(-6))
 ksp = Constant(3*average_size)
 
 # set up solver
