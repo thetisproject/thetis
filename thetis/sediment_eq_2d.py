@@ -10,7 +10,7 @@ for a separate source and sink term. The equation reads
     = \nabla_h \cdot (\mu_h \nabla_h S) + Source - (Sink S)
     :label: sediment_eq_2d
 
-where :math:'S' is :math:'q' for conservative and :math:'T' for non-conservative, 
+where :math:'S' is :math:'q' for conservative and :math:'T' for non-conservative,
 :math:`\nabla_h` denotes horizontal gradient, :math:`\textbf{u}` are the horizontal
 velocities, and :math:`\mu_h` denotes horizontal diffusivity.
 """
@@ -33,7 +33,7 @@ class SedimentTerm(TracerTerm):
     Generic sediment term that provides commonly used members.
     """
     def __init__(self, function_space, depth,
-                 use_lax_friedrichs=True, sipg_parameter=Constant(10.0), conservative = False):
+                 use_lax_friedrichs=True, sipg_parameter=Constant(10.0), conservative=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
@@ -43,45 +43,7 @@ class SedimentTerm(TracerTerm):
         """
         super(SedimentTerm, self).__init__(function_space, depth)
         self.conservative = conservative
-        
-    def get_bnd_functions(self, c_in, uv_in, elev_in, bnd_id, bnd_conditions):
-        """
-        Returns external values of tracer and uv for all supported
-        boundary conditions.
 
-        Volume flux (flux) and normal velocity (un) are defined positive out of
-        the domain.
-
-        :arg c_in: Internal value of tracer
-        :arg uv_in: Internal value of horizontal velocity
-        :arg elev_in: Internal value of elevation
-        :arg bnd_id: boundary id
-        :type bnd_id: int
-        :arg bnd_conditions: dict of boundary conditions:
-            ``{bnd_id: {field: value, ...}, ...}``
-        """
-        funcs = bnd_conditions.get(bnd_id)
-
-        if 'elev' in funcs:
-            elev_ext = funcs['elev']
-        else:
-            elev_ext = elev_in
-        if 'value' in funcs:
-            c_ext = funcs['value']
-        else:
-            c_ext = c_in #FIXME_mc - put equilibrium sediment option
-        if 'uv' in funcs:
-            uv_ext = self.corr_factor * funcs['uv']
-        elif 'flux' in funcs:
-            h_ext = self.depth.get_total_depth(elev_ext)
-            area = h_ext*self.boundary_len[bnd_id]  # NOTE using external data only
-            uv_ext = self.corr_factor * funcs['flux']/area*self.normal
-        elif 'un' in funcs:
-            uv_ext = funcs['un']*self.normal
-        else:
-            uv_ext = uv_in
-
-        return c_ext, uv_ext, elev_ext
 
 class SedimentSourceTerm(SedimentTerm):
     r"""
@@ -144,7 +106,7 @@ class SedimentSinkTerm(SedimentTerm):
         elif sink is not None:
             f += -inner(-sink*solution, self.test)*self.dx
         else:
-            warning("no sink term implemented")            
+            warning("no sink term implemented")
         if sink is not None and depth_int_sink is not None:
             raise AttributeError("Assigned both a sink term and a depth-integrated sink term\
                                  but only one can be implemented. Choose the most appropriate for your case")
@@ -153,13 +115,13 @@ class SedimentSinkTerm(SedimentTerm):
 
 class SedimentEquation2D(Equation):
     """
-    2D sediment advection-diffusion equation: eq:`tracer_eq` or `conservative_tracer_eq` 
+    2D sediment advection-diffusion equation: eq:`tracer_eq` or `conservative_tracer_eq`
     with sediment source and sink term
     """
     def __init__(self, function_space, depth,
                  use_lax_friedrichs=False,
                  sipg_parameter=Constant(10.0),
-                 conservative = False):
+                 conservative=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info

@@ -1,18 +1,19 @@
 from thetis import *
 
+
 class Corrective_Velocity_Factor:
     def __init__(self, depth, ksp, ks, settling_velocity, ustar):
-        self.ksp = ksp 
+        self.ksp = ksp
         self.ks = ks
         self.settling_velocity = settling_velocity
-        
+
         self.a = Constant(self.ks/2)
-        
+
         self.kappa = physical_constants['von_karman']
-        
+
         self.depth = depth
         self.ustar = ustar
-        
+
         # correction factor to advection velocity in sediment concentration equation
         self.Bconv = conditional(self.depth > Constant(1.1)*self.ksp, self.ksp/self.depth, Constant(1/1.1))
         self.Aconv = conditional(self.depth > Constant(1.1)*self.a, self.a/self.depth, Constant(1/1.1))
@@ -30,7 +31,7 @@ class Corrective_Velocity_Factor:
 
         # final correction factor
         self.corr_vel_factor = Function(depth.function_space()).interpolate(conditional(conditional(self.alpha > Constant(1), Constant(1), self.alpha) < Constant(0), Constant(0), conditional(self.alpha > Constant(1), Constant(1), self.alpha)))
-    
+
     def update(self):
 
         # final correction factor
@@ -39,11 +40,11 @@ class Corrective_Velocity_Factor:
 
 class SedimentModel(object):
     def __init__(self, options, suspendedload, convectivevel,
-                  bedload, angle_correction, slope_eff, seccurrent,
-                  mesh2d, bathymetry_2d, uv_init, elev_init, ks, average_size,
-                  beta_fn = 1.3, surbeta2_fn = 1/1.5, alpha_secc_fn = 0.75, viscosity_morph=1e-6,
-                  wetting_and_drying=False, wetting_alpha=0.1, rhos=2650, cons_tracer=False):
-        
+                 bedload, angle_correction, slope_eff, seccurrent,
+                 mesh2d, bathymetry_2d, uv_init, elev_init, ks, average_size,
+                 beta_fn=1.3, surbeta2_fn=1/1.5, alpha_secc_fn=0.75, viscosity_morph=1e-6,
+                 wetting_and_drying=False, wetting_alpha=0.1, rhos=2650, cons_tracer=False):
+
         """
         Set up a full morphological model simulation using as an initial condition the results of a hydrodynamic only model.
 
@@ -54,7 +55,7 @@ class SedimentModel(object):
         bedload - switch to turn on bedload transport
         angle_correction - switch on slope effect angle correction
         slope_eff - switch on slope effect magnitude correction
-        seccurrent - switch on secondary current for helical flow effect    
+        seccurrent - switch on secondary current for helical flow effect
         mesh2d - define mesh working on
         bathymetry2d - define bathymetry of problem
         uv_init - initial velocity
@@ -63,14 +64,14 @@ class SedimentModel(object):
         average_size - average sediment size
         beta_fn - magnitude slope effect parameter
         surbeta2_fn - angle correction slope effect parameter
-        alpha_secc_fn - secondary current parameter    
+        alpha_secc_fn - secondary current parameter
         viscosity_morph - viscosity value in morphodynamic equations
         wetting_and_drying - wetting and drying switch
         wetting_alpha - wetting and drying parameter
         rhos - sediment density
         cons_tracer - conservative tracer switch
 
-        """        
+        """
 
         self.suspendedload = suspendedload
         self.cons_tracer = cons_tracer
@@ -79,7 +80,7 @@ class SedimentModel(object):
         self.angle_correction = angle_correction
         self.slope_eff = slope_eff
         self.seccurrent = seccurrent
-        self.wetting_and_drying = wetting_and_drying        
+        self.wetting_and_drying = wetting_and_drying
 
         self.average_size = average_size
         self.ks = ks
@@ -87,9 +88,8 @@ class SedimentModel(object):
         self.rhos = rhos
         self.uv_init = uv_init
         self.elev_init = elev_init
-        
-        self.options = options    
-        
+
+        self.options = options
         self.bathymetry_2d = bathymetry_2d
 
         self.t_old = Constant(0.0)
@@ -103,7 +103,7 @@ class SedimentModel(object):
         self.g = physical_constants['g_grav']
         self.rhow = physical_constants['rho0']
         self.kappa = physical_constants['von_karman']
-        
+
         self.ksp = Constant(3*self.average_size)
         self.a = Constant(self.ks/2)
         self.viscosity = Constant(viscosity_morph)
@@ -114,7 +114,7 @@ class SedimentModel(object):
         self.surbeta2 = Constant(surbeta2_fn)
         self.cparam = Constant((self.rhos-self.rhow)*self.g*self.average_size*(self.surbeta2**2))
         # secondary current parameter
-        self.alpha_secc = Constant(alpha_secc_fn)    
+        self.alpha_secc = Constant(alpha_secc_fn)
 
         # calculate critical shields parameter thetacr
         self.R = Constant(self.rhos/self.rhow - 1)
@@ -176,6 +176,8 @@ class SedimentModel(object):
         self.dzdx = self.old_bathymetry_2d.dx(0)
         self.dzdy = self.old_bathymetry_2d.dx(1)
 
+        options.solve_exner = True
+
         if self.suspendedload:
             # deposition flux - calculating coefficient to account for stronger conc at bed
             self.B = conditional(self.a > self.depth, Constant(1.0), self.a/self.depth)
@@ -193,31 +195,31 @@ class SedimentModel(object):
             # update sediment rate to ensure equilibrium at inflow
             if self.cons_tracer:
                 self.sediment_rate = Constant(self.depth.at([0, 0])*self.ceq.at([0, 0])/(self.coeff.at([0, 0])))
-                self.testtracer = Function(self.P1_2d).interpolate(self.depth*self.ceq/self.coeff)
+                self.equiltracer = Function(self.P1_2d).interpolate(self.depth*self.ceq/self.coeff)
             else:
                 self.sediment_rate = Constant(self.ceq.at([0, 0])/(self.coeff.at([0, 0])))
-                self.testtracer = Function(self.P1_2d).interpolate(self.ceq/self.coeff)
+                self.equiltracer = Function(self.P1_2d).interpolate(self.ceq/self.coeff)
 
             # get individual terms
             self.depo = self.settling_velocity*self.coeff
             self.ero = Function(self.P1_2d).interpolate(self.settling_velocity*self.ceq)
-            
+
             self.depo_term = Function(self.P1_2d).interpolate(self.depo/self.depth)
             self.ero_term = Function(self.P1_2d).interpolate(self.ero/self.depth)
 
             # calculate depth-averaged source term for sediment concentration equation
             if self.cons_tracer:
-                self.source_exp = Function(self.P1_2d).interpolate(-(self.depo*self.testtracer/(self.depth**2)) + (self.ero/self.depth))
+                self.source_exp = Function(self.P1_2d).interpolate(-(self.depo*self.equiltracer/(self.depth**2)) + (self.ero/self.depth))
             else:
-                self.source_exp = Function(self.P1_2d).interpolate(-(self.depo*self.testtracer/self.depth) + (self.ero/self.depth))
+                self.source_exp = Function(self.P1_2d).interpolate(-(self.depo*self.equiltracer/self.depth) + (self.ero/self.depth))
 
-            self.options.solve_sediment = True   
+            self.options.solve_sediment = True
             self.options.use_tracer_conservative_form = self.cons_tracer
             if self.convectivevel:
                 self.options.tracer_advective_velocity_factor = self.corr_factor_model.corr_vel_factor
         else:
             self.options.solve_tracer = False
-            
+
         if self.bedload:
             # calculate angle of flow
             self.calfa = Function(self.V).interpolate(self.horizontal_velocity/sqrt(self.unorm))
@@ -237,16 +239,15 @@ class SedimentModel(object):
 
         if self.angle_correction:
             # slope effect angle correction due to gravity
-                
             self.tt1 = conditional(self.stress > Constant(1e-10), sqrt(self.cparam/self.stress), sqrt(self.cparam/Constant(1e-10)))
-                
+
             # add on a factor of the bed gradient to the normal
             self.aa = self.salfa + self.tt1*self.dzdy
             self.bb = self.calfa + self.tt1*self.dzdx
-                
+
             self.comb = sqrt(self.aa**2 + self.bb**2)
             self.norm = conditional(self.comb > Constant(1e-10), self.comb, Constant(1e-10))
-            
+
             # we use z_n1 and equals so that we can use an implicit method in Exner
             self.calfamod = (self.calfa + (self.tt1*solution.dx(0)))/self.norm
             self.salfamod = (self.salfa + (self.tt1*solution.dx(1)))/self.norm
@@ -275,9 +276,9 @@ class SedimentModel(object):
 
             # updated magnitude correction and angle corrections
             self.slopecoef_secc = self.t4/self.TOB
-            
+
             self.calfanew = self.t_1/self.t4
-            self.salfanew = self.t_2/self.t4                
+            self.salfanew = self.t_2/self.t4
 
         # implement meyer-peter-muller bedload transport formula
         self.thetaprime = self.mu*(self.rhow*Constant(0.5)*self.qfc*self.unorm)/((self.rhos-self.rhow)*self.g*self.average_size)
@@ -290,7 +291,7 @@ class SedimentModel(object):
             self.qb_total = self.slopecoef_secc*self.phi*sqrt(self.g*self.R*self.average_size**3)
         else:
             self.qb_total = self.slopecoef*self.phi*sqrt(self.g*self.R*self.average_size**3)
-            
+
         # formulate bedload transport flux with correct angle depending on corrections implemented
         if self.angle_correction and self.seccurrent is False:
             self.qbx = self.qb_total*self.calfamod
@@ -306,17 +307,16 @@ class SedimentModel(object):
 
     def update(self, t_new, solver_obj):
         # update bathymetry
-        self.old_bathymetry_2d.assign(self.bathymetry_2d)
+        self.old_bathymetry_2d.interpolate(self.bathymetry_2d)
 
         # extract new elevation and velocity and project onto CG space
         self.uv1, self.elev1 = solver_obj.fields.solution_2d.split()
         self.uv_cg.project(self.uv1)
 
-
         if self.wetting_and_drying:
             self.depth.project(self.elev1 + solver_obj.depth.wd_bathymetry_displacement(self.elev1) + self.old_bathymetry_2d)
         else:
-            self.depth.project(self.elev1 + self.old_bathymetry_2d) 
+            self.depth.project(self.elev1 + self.old_bathymetry_2d)
 
         if self.suspendedload:
             # source term
@@ -343,5 +343,7 @@ class SedimentModel(object):
             # update sediment rate to ensure equilibrium at inflow
             if self.cons_tracer:
                 self.sediment_rate.assign(self.depth.at([0, 0])*self.ceq.at([0, 0])/(self.coeff.at([0, 0])))
+                self.equiltracer.interpolate(self.depth*self.ceq/self.coeff)
             else:
                 self.sediment_rate.assign(self.ceq.at([0, 0])/(self.coeff.at([0, 0])))
+                self.equiltracer.interpolate(self.ceq/self.coeff)
