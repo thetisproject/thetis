@@ -2,7 +2,7 @@
 Migrating Trench Test case
 =======================
 
-Solves the test case of a migrating trench with suspended sediment transport only.
+Solves the test case of a migrating trench.
 
 [1] Clare et al. 2020. “Hydro-morphodynamics 2D Modelling Using a Discontinuous
     Galerkin Discretisation.” EarthArXiv. January 9. doi:10.31223/osf.io/tpqvy.
@@ -10,127 +10,192 @@ Solves the test case of a migrating trench with suspended sediment transport onl
 """
 
 from thetis import *
-import morphological_hydro_fns_comb as morph
+import callback_cons_tracer as call
+from thetis.sediments import SedimentModel
 
 import numpy as np
 import pandas as pd
+import time
 
+conservative = False
 
-def boundary_conditions_fn_trench(morfac=1, t_new=0, state='initial'):
-
+def initialise_fields(mesh2d, inputdir, outputdir,):
     """
-    Define boundary conditions for problem to be used in morphological section.
-
-    Inputs:
-    morfac - morphological scale factor used when calculating time dependent boundary conditions
-    t_new - timestep model currently at used when calculating time dependent boundary conditions
-    state - when 'initial' this is the initial boundary condition set; when 'update' these are the boundary
-            conditions set during update forcings (ie. if fluc_bcs = True, this will be called)
+    Initialise simulation with results from a previous simulation
     """
-    left_bnd_id = 1
-    right_bnd_id = 2
-    left_string = ['flux']
-    right_string = ['elev']
+    DG_2d = get_functionspace(mesh2d, "DG", 1)
+    # elevation
+    with timed_stage('initialising elevation'):
+        chk = DumbCheckpoint(inputdir + "/elevation", mode=FILE_READ)
+        elev_init = Function(DG_2d, name="elevation")
+        chk.load(elev_init)
+        File(outputdir + "/elevation_imported.pvd").write(elev_init)
+        chk.close()
+    # velocity
+    with timed_stage('initialising velocity'):
+        chk = DumbCheckpoint(inputdir + "/velocity", mode=FILE_READ)
+        V = VectorFunctionSpace(mesh2d, "DG", 1)
+        uv_init = Function(V, name="velocity")
+        chk.load(uv_init)
+        File(outputdir + "/velocity_imported.pvd").write(uv_init)
+        chk.close()
+        return elev_init, uv_init,  
 
-    # set boundary conditions
+## Note it is necessary to run trench_hydro first to get the hydrodynamics simulation
 
-    swe_bnd = {}
+# exporting bathymetry
+def export_bath_func():
+    bathy_file.write(sed_mod.bathymetry_2d)
 
-    flux_constant = -0.22
-    elev_constant2 = 0.397
+# define mesh
+lx = 16
+ly = 1.1
+nx = lx*5
+ny = 5
+mesh2d = RectangleMesh(nx, ny, lx, ly)
 
-    inflow_constant = [flux_constant]
-    outflow_constant = [elev_constant2]
-    return swe_bnd, left_bnd_id, right_bnd_id, inflow_constant, outflow_constant, left_string, right_string
+x, y = SpatialCoordinate(mesh2d)
+
+# define function spaces
+V = get_functionspace(mesh2d, "CG", 1)
+P1_2d = get_functionspace(mesh2d, "DG", 1)
+
+# define underlying bathymetry
+bathymetry_2d = Function(V, name = 'bathymetry_2d')
+initialdepth = Constant(0.397)
+depth_riv = Constant(initialdepth - 0.397)
+depth_trench = Constant(depth_riv - 0.15)
+depth_diff = depth_trench - depth_riv
+
+trench = conditional(le(x, 5), depth_riv, conditional(le(x, 6.5), (1/1.5)*depth_diff*(x-6.5) + depth_trench,
+                                                             conditional(le(x, 9.5), depth_trench, conditional(le(x, 11), -(1/1.5)*depth_diff*(x-11) + depth_riv,
+                                                                                                                          depth_riv))))
+bathymetry_2d.interpolate(-trench)
+
+# choose directory to output results
+ts = time.time()
+st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+outputdir = 'outputs' + st
+
+print_output('Exporting to '+outputdir)
+
+# define bathymetry_file
+bathy_file = File(outputdir + "/bathy.pvd")
+
+morfac = 100
+dt = 0.3
+end_time = 15*3600
+
+diffusivity = 0.15
+viscosity_hydro = Constant(1e-6)
+
+# initialise velocity, elevation and depth
+elev, uv = initialise_fields(mesh2d, 'hydrodynamics_trench', outputdir)
+
+# set up solver
+solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
+options = solver_obj.options
+
+sed_mod = SedimentModel(options, suspendedload=True, convectivevel=True,
+                        bedload=True, angle_correction=True, slope_eff=True, seccurrent=False,
+                        mesh2d=mesh2d, bathymetry_2d=solver_obj.fields.bathymetry_2d, 
+                        uv_init = uv, elev_init = elev, ks=0.025, average_size=160 * (10**(-6)), 
+                        cons_tracer = conservative, wetting_and_drying = False, wetting_alpha = 0.1)
+
+solver_obj.sediment_model = sed_mod
+
+options.update(sed_mod.options)
+
+options.simulation_end_time = end_time/morfac
+options.simulation_export_time = options.simulation_end_time/45
+
+options.output_directory = outputdir
+options.check_volume_conservation_2d = True
+
+if sed_mod.suspendedload:
+    options.fields_to_export = ['sediment_2d', 'uv_2d', 'elev_2d'] #note exporting bathymetry must be done through export func
+    options.tracer_source_2d = sed_mod.ero_term
+    options.tracer_sink_2d = sed_mod.depo_term
+    #options.tracer_depth_integ_source = sed_mod.ero
+    #options.tracer_depth_integ_sink = sed_mod.depo_term
+    ### FIXME - should these be renamed?? especially because only apply in sediment case
+    options.check_tracer_conservation = False
+else:
+    options.fields_to_export = ['uv_2d', 'elev_2d'] #note exporting bathymetry must be done through export func   
+
+options.solve_exner = True
+options.morphological_acceleration_factor = Constant(morfac)  
+# using nikuradse friction
+options.nikuradse_bed_roughness = sed_mod.ksp
+
+# set horizontal diffusivity parameter
+options.horizontal_diffusivity = Constant(diffusivity)
+options.horizontal_viscosity = Constant(viscosity_hydro)
+
+# crank-nicholson used to integrate in time system of ODEs resulting from application of galerkin FEM
+options.timestepper_type = 'CrankNicolson'
+options.timestepper_options.implicitness_theta = 1.0
+options.norm_smoother = Constant(sed_mod.wetting_alpha)
+
+if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
+    options.timestep = dt
 
 
-def run_migrating_trench(conservative, hydro):
-    # define mesh
-    lx = 16
-    ly = 1.1
-    nx = lx*5
-    ny = 5
-    mesh2d = RectangleMesh(nx, ny, lx, ly)
+#c = call.TracerTotalMassConservation2DCallback('tracer_2d',
+#                                               solver_obj, export_to_hdf5=True, append_to_log=False)
+#solver_obj.add_callback(c, eval_interval='timestep') #FIXME
 
-    x, y = SpatialCoordinate(mesh2d)
+# set boundary conditions
 
-    # define function spaces
-    V = FunctionSpace(mesh2d, 'CG', 1)
-    P1_2d = FunctionSpace(mesh2d, 'DG', 1)
+left_bnd_id = 1
+right_bnd_id = 2
 
-    # define underlying bathymetry
-    bathymetry_2d = Function(V, name='Bathymetry')
-    initialdepth = Constant(0.397)
-    depth_riv = Constant(initialdepth - 0.397)
-    depth_trench = Constant(depth_riv - 0.15)
-    depth_diff = depth_trench - depth_riv
+options.equilibrium_sediment_bd_ids = {left_bnd_id}
 
-    trench = conditional(x < 3, depth_riv, conditional(x < 7.6, ((depth_diff/2)/(tanh(7.6-5.3)))*tanh((x-5.3))+(depth_diff/2),
-                         conditional(x < 8.4, depth_trench, conditional(x < 13, ((depth_diff/2)/(tanh(8.4-10.7)))*tanh((x-10.7)) + (depth_diff/2), depth_riv))))
-    bathymetry_2d.interpolate(-trench)
+swe_bnd = {}
 
-    if hydro:
-        # simulate initial hydrodynamics
-        # define initial elevation
-        elev_init = Function(P1_2d).interpolate(Constant(0.4))
-        uv_init = as_vector((0.51, 0.0))
+swe_bnd[left_bnd_id] = {'flux': Constant(-0.22)}
+swe_bnd[right_bnd_id] = {'elev': Constant(0.397)}    
 
-        solver_obj, update_forcings_hydrodynamics, outputdir = morph.hydrodynamics_only(boundary_conditions_fn_trench, mesh2d, bathymetry_2d, uv_init, elev_init, average_size=160 * (10**(-6)), dt=0.25, t_end=500)
+solver_obj.bnd_functions['shallow_water'] = swe_bnd
 
-        # run model
-        solver_obj.iterate(update_forcings=update_forcings_hydrodynamics)
+if sed_mod.suspendedload:
+    solver_obj.bnd_functions['sediment'] = {left_bnd_id: {'flux': Constant(-0.22)}, right_bnd_id: {'elev': Constant(0.397)} }
 
-        uv, elev = solver_obj.fields.solution_2d.split()
-        morph.export_final_state("hydrodynamics_trench", uv, elev)
+    # set initial conditions
+    solver_obj.assign_initial_conditions(uv=sed_mod.uv_init, elev=sed_mod.elev_init, sediment=sed_mod.equiltracer)
 
-    wd_fn = Constant(0.015)
+else:
+    # set initial conditions
+    solver_obj.assign_initial_conditions(uv=sed_mod.uv_init, elev=sed_mod.elev_init)
 
-    solver_obj, update_forcings_tracer, outputdir = morph.morphological(boundary_conditions_fn=boundary_conditions_fn_trench, morfac=100, morfac_transport=True, convectivevel=True,
-                                                                        mesh2d=mesh2d, bathymetry_2d=bathymetry_2d, input_dir='hydrodynamics_trench', ks=0.025, average_size=160 * (10**(-6)), dt=0.2, final_time=5*3600, cons_tracer=conservative, wetting_alpha=wd_fn)
+# run model
+solver_obj.iterate(export_func = export_bath_func)
 
-    # run model
-    solver_obj.iterate(update_forcings=update_forcings_tracer)
+# record final sediment and final bathymetry
+xaxisthetis1 = []
+sedimentthetis1 = []
+baththetis1 = []
 
-    # record final tracer and final bathymetry
-    xaxisthetis1 = []
-    tracerthetis1 = []
-    baththetis1 = []
-
-    for i in np.linspace(0, 15.8, 80):
-        xaxisthetis1.append(i)
-        if conservative:
-            d = solver_obj.fields.bathymetry_2d.at([i, 0.55]) + solver_obj.fields.elev_2d.at([i, 0.55])
-            tracerthetis1.append(solver_obj.fields.tracer_2d.at([i, 0.55])/d)
-            baththetis1.append(solver_obj.fields.bathymetry_2d.at([i, 0.55]))
-        else:
-            tracerthetis1.append(solver_obj.fields.tracer_2d.at([i, 0.55]))
-            baththetis1.append(solver_obj.fields.bathymetry_2d.at([i, 0.55]))
-
-    # check tracer conservation
-    tracer_mass_int, tracer_mass_int_rerr = solver_obj.callbacks['timestep']['tracer_2d total mass']()
-    print("Tracer total mass error: %11.4e" % (tracer_mass_int_rerr))
-
+for i in np.linspace(0, 15.8, 80):
+    xaxisthetis1.append(i)
     if conservative:
-        assert abs(tracer_mass_int_rerr) < 8e-2, 'tracer is not conserved'
+        d = solver_obj.fields.bathymetry_2d.at([i, 0.55]) + solver_obj.fields.elev_2d.at([i, 0.55])
+        sedimentthetis1.append(solver_obj.fields.sediment_2d.at([i, 0.55])/d)
+        baththetis1.append(solver_obj.fields.bathymetry_2d.at([i, 0.55]))
     else:
-        assert abs(tracer_mass_int_rerr) < 5e-1, 'tracer is not conserved'
+        sedimentthetis1.append(solver_obj.fields.sediment_2d.at([i, 0.55]))
+        baththetis1.append(solver_obj.fields.bathymetry_2d.at([i, 0.55]))
 
-    # check tracer and bathymetry values using previous runs
-    tracer_solution = pd.read_csv('tracer.csv')
-    bed_solution = pd.read_csv('bed.csv')
+# check sediment conservation
+#tracer_mass_int, tracer_mass_int_rerr = solver_obj.callbacks['timestep']['tracer_2d total mass']()
+#print("Tracer total mass error: %11.4e" % (tracer_mass_int_rerr))
 
-    assert max([abs((tracer_solution['Tracer'][i] - tracerthetis1[i])/tracer_solution['Tracer'][i]) for i in range(len(tracerthetis1))]) < 0.1, "error in tracer"
-
-    assert max([abs((bed_solution['Bathymetry'][i] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.005, "error in bed level"
-
-
-def conservative_case(hydro=False):
-    run_migrating_trench(True, hydro)
+# check sediment and bathymetry values using previous runs
+sediment_solution = pd.read_csv('sediment.csv')
+bed_solution = pd.read_csv('bed.csv')
 
 
-def non_conservative_case(hydro=False):
-    run_migrating_trench(False, hydro)
+assert max([abs((sediment_solution['Sediment'][i] - sedimentthetis1[i])/sediment_solution['Sediment'][i]) for i in range(len(sedimentthetis1))]) < 0.12, "error in sediment"
 
-
-if __name__ == '__main__':
-    non_conservative_case()
+assert max([abs((bed_solution['Bathymetry'][i] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.007, "error in bed level"
