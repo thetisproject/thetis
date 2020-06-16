@@ -1,4 +1,4 @@
-from thetis import *
+from thetis_adjoint import *
 
 class Corrective_Velocity_Factor:
     def __init__(self, depth, ksp, ks, settling_velocity, ustar):
@@ -29,12 +29,12 @@ class Corrective_Velocity_Factor:
         self.alpha = -(self.Itwo - (ln(self.Amax) - ln(30))*self.Ione)/(self.Ione * ((ln(self.Amax) - ln(30)) + Constant(1)))
 
         # final correction factor
-        self.corr_vel_factor = Function(depth.function_space()).interpolate(conditional(conditional(self.alpha > Constant(1), Constant(1), self.alpha) < Constant(0), Constant(0), conditional(self.alpha > Constant(1), Constant(1), self.alpha)))
+        self.corr_vel_factor = Function(depth.function_space()).project(conditional(conditional(self.alpha > Constant(1), Constant(1), self.alpha) < Constant(0), Constant(0), conditional(self.alpha > Constant(1), Constant(1), self.alpha)))
     
     def update(self):
 
         # final correction factor
-        self.corr_vel_factor.interpolate(conditional(conditional(self.alpha > Constant(1), Constant(1), self.alpha) < Constant(0), Constant(0), conditional(self.alpha > Constant(1), Constant(1), self.alpha)))
+        self.corr_vel_factor.project(conditional(conditional(self.alpha > Constant(1), Constant(1), self.alpha) < Constant(0), Constant(0), conditional(self.alpha > Constant(1), Constant(1), self.alpha)))
 
 
 class SedimentModel(object):
@@ -144,7 +144,7 @@ class SedimentModel(object):
         else:
             self.settling_velocity = Constant(1.1*sqrt(self.g*self.average_size*self.R))
 
-        self.uv_cg = Function(self.vector_cg).interpolate(self.uv_init)
+        self.uv_cg = Function(self.vector_cg).project(self.uv_init)
 
         if self.wetting_and_drying:
             self.options.use_wetting_and_drying = self.wetting_and_drying
@@ -154,7 +154,7 @@ class SedimentModel(object):
         else:
             self.depth = Function(self.V).project(self.elev_init + self.bathymetry_2d)
 
-        self.old_bathymetry_2d = Function(self.V).interpolate(self.bathymetry_2d)
+        self.old_bathymetry_2d = Function(self.V).project(self.bathymetry_2d)
 
         self.horizontal_velocity = self.uv_cg[0]
         self.vertical_velocity = self.uv_cg[1]
@@ -170,7 +170,7 @@ class SedimentModel(object):
 
         # calculate bed shear stress
         self.unorm = (self.horizontal_velocity**2) + (self.vertical_velocity**2)
-        self.TOB = Function(self.V).interpolate(self.rhow*Constant(0.5)*self.qfc*self.unorm)
+        self.TOB = Function(self.V).project(self.rhow*Constant(0.5)*self.qfc*self.unorm)
 
         # define bed gradient
         self.dzdx = self.old_bathymetry_2d.dx(0)
@@ -184,34 +184,34 @@ class SedimentModel(object):
             self.ustar = sqrt(Constant(0.5)*self.qfc*self.unorm)
             self.exp1 = conditional((conditional((self.settling_velocity/(self.kappa*self.ustar)) - Constant(1) > Constant(0), (self.settling_velocity/(self.kappa*self.ustar)) - Constant(1), -(self.settling_velocity/(self.kappa*self.ustar)) + Constant(1))) > Constant(1e-04), conditional((self.settling_velocity/(self.kappa*self.ustar)) - Constant(1) > Constant(3), Constant(3), (self.settling_velocity/(self.kappa*self.ustar))-Constant(1)), Constant(0))
             self.coefftest = conditional((conditional((self.settling_velocity/(self.kappa*self.ustar)) - Constant(1) > Constant(0), (self.settling_velocity/(self.kappa*self.ustar)) - Constant(1), -(self.settling_velocity/(self.kappa*self.ustar)) + Constant(1))) > Constant(1e-04), self.B*(Constant(1)-self.B**self.exp1)/self.exp1, -self.B*ln(self.B))
-            self.coeff = Function(self.P1_2d).interpolate(conditional(conditional(self.coefftest > Constant(1e-12), Constant(1)/self.coefftest, Constant(1e12)) > Constant(1), conditional(self.coefftest > Constant(1e-12), Constant(1)/self.coefftest, Constant(1e12)), Constant(1)))
+            self.coeff = Function(self.P1_2d).project(conditional(conditional(self.coefftest > Constant(1e-12), Constant(1)/self.coefftest, Constant(1e12)) > Constant(1), conditional(self.coefftest > Constant(1e-12), Constant(1)/self.coefftest, Constant(1e12)), Constant(1)))
 
             # erosion flux - above critical velocity bed is eroded
             self.s0 = (conditional(self.rhow*Constant(0.5)*self.qfc*self.unorm*self.mu > Constant(0), self.rhow*Constant(0.5)*self.qfc*self.unorm*self.mu, Constant(0)) - self.taucr)/self.taucr
-            self.ceq = Function(self.P1_2d).interpolate(Constant(0.015)*(self.average_size/self.a) * ((conditional(self.s0 < Constant(0), Constant(0), self.s0))**(1.5))/(self.dstar**0.3))
+            self.ceq = Function(self.P1_2d).project(Constant(0.015)*(self.average_size/self.a) * ((conditional(self.s0 < Constant(0), Constant(0), self.s0))**(1.5))/(self.dstar**0.3))
 
             if self.convectivevel:
                 self.corr_factor_model = Corrective_Velocity_Factor(self.depth, self.ksp, self.ks, self.settling_velocity, self.ustar)
             # update sediment rate to ensure equilibrium at inflow
             if self.cons_tracer:
                 self.sediment_rate = Constant(self.depth.at([0, 0])*self.ceq.at([0, 0])/(self.coeff.at([0, 0])))
-                self.equiltracer = Function(self.P1_2d).interpolate(self.depth*self.ceq/self.coeff)
+                self.equiltracer = Function(self.P1_2d).project(self.depth*self.ceq/self.coeff)
             else:
                 self.sediment_rate = Constant(self.ceq.at([0, 0])/(self.coeff.at([0, 0])))
-                self.equiltracer = Function(self.P1_2d).interpolate(self.ceq/self.coeff)
+                self.equiltracer = Function(self.P1_2d).project(self.ceq/self.coeff)
 
             # get individual terms
             self.depo = self.settling_velocity*self.coeff
-            self.ero = Function(self.P1_2d).interpolate(self.settling_velocity*self.ceq)
+            self.ero = Function(self.P1_2d).project(self.settling_velocity*self.ceq)
             
-            self.depo_term = Function(self.P1_2d).interpolate(self.depo/self.depth)
-            self.ero_term = Function(self.P1_2d).interpolate(self.ero/self.depth)
+            self.depo_term = Function(self.P1_2d).project(self.depo/self.depth)
+            self.ero_term = Function(self.P1_2d).project(self.ero/self.depth)
 
             # calculate depth-averaged source term for sediment concentration equation
             if self.cons_tracer:
-                self.source_exp = Function(self.P1_2d).interpolate(-(self.depo*self.equiltracer/(self.depth**2)) + (self.ero/self.depth))
+                self.source_exp = Function(self.P1_2d).project(-(self.depo*self.equiltracer/(self.depth**2)) + (self.ero/self.depth))
             else:
-                self.source_exp = Function(self.P1_2d).interpolate(-(self.depo*self.equiltracer/self.depth) + (self.ero/self.depth))
+                self.source_exp = Function(self.P1_2d).project(-(self.depo*self.equiltracer/self.depth) + (self.ero/self.depth))
 
             self.options.solve_sediment = True   
             self.options.use_tracer_conservative_form = self.cons_tracer
@@ -222,11 +222,11 @@ class SedimentModel(object):
             
         if self.bedload:
             # calculate angle of flow
-            self.calfa = Function(self.V).interpolate(self.horizontal_velocity/sqrt(self.unorm))
-            self.salfa = Function(self.V).interpolate(self.vertical_velocity/sqrt(self.unorm))
+            self.calfa = Function(self.V).project(self.horizontal_velocity/sqrt(self.unorm))
+            self.salfa = Function(self.V).project(self.vertical_velocity/sqrt(self.unorm))
             if self.angle_correction:
                 # slope effect angle correction due to gravity
-                self.stress = Function(self.V).interpolate(self.rhow*Constant(0.5)*self.qfc*self.unorm)
+                self.stress = Function(self.V).project(self.rhow*Constant(0.5)*self.qfc*self.unorm)
 
     def get_bedload_term(self, solution):
 
@@ -308,7 +308,7 @@ class SedimentModel(object):
 
     def update(self, t_new, solver_obj):
         # update bathymetry
-        self.old_bathymetry_2d.interpolate(self.bathymetry_2d)
+        self.old_bathymetry_2d.project(self.bathymetry_2d)
 
         # extract new elevation and velocity and project onto CG space
         self.uv1, self.elev1 = solver_obj.fields.solution_2d.split()
@@ -324,20 +324,20 @@ class SedimentModel(object):
             # source term
 
             # deposition flux - calculating coefficient to account for stronger conc at bed
-            self.coeff.interpolate(conditional(self.coefftest > Constant(0), Constant(1)/self.coefftest, Constant(0)))
+            self.coeff.project(conditional(self.coefftest > Constant(0), Constant(1)/self.coefftest, Constant(0)))
 
             # erosion flux - above critical velocity bed is eroded
-            self.ceq.interpolate(Constant(0.015)*(self.average_size/self.a) * ((conditional(self.s0 < Constant(0), Constant(0), self.s0))**(1.5))/(self.dstar**0.3))
+            self.ceq.project(Constant(0.015)*(self.average_size/self.a) * ((conditional(self.s0 < Constant(0), Constant(0), self.s0))**(1.5))/(self.dstar**0.3))
 
-            self.ero.interpolate(self.settling_velocity*self.ceq)
-            self.ero_term.interpolate(self.ero/self.depth)
-            self.depo_term.interpolate(self.depo/self.depth)
+            self.ero.project(self.settling_velocity*self.ceq)
+            self.ero_term.project(self.ero/self.depth)
+            self.depo_term.project(self.depo/self.depth)
 
             # calculate depth-averaged source term for sediment concentration equation
             if self.cons_tracer:
-                self.source_exp.interpolate(-(self.depo*solver_obj.fields.sediment_2d/(self.depth**2)) + (self.ero/self.depth))
+                self.source_exp.project(-(self.depo*solver_obj.fields.sediment_2d/(self.depth**2)) + (self.ero/self.depth))
             else:
-                self.source_exp.interpolate(-(self.depo*solver_obj.fields.sediment_2d/self.depth) + (self.ero/self.depth))
+                self.source_exp.project(-(self.depo*solver_obj.fields.sediment_2d/self.depth) + (self.ero/self.depth))
 
             if self.convectivevel:
                 self.corr_factor_model.update()
@@ -345,7 +345,7 @@ class SedimentModel(object):
             # update sediment rate to ensure equilibrium at inflow
             if self.cons_tracer:
                 self.sediment_rate.assign(self.depth.at([0, 0])*self.ceq.at([0, 0])/(self.coeff.at([0, 0])))
-                self.equiltracer.interpolate(self.depth*self.ceq/self.coeff)
+                self.equiltracer.project(self.depth*self.ceq/self.coeff)
             else:
                 self.sediment_rate.assign(self.ceq.at([0, 0])/(self.coeff.at([0, 0])))
-                self.equiltracer.interpolate(self.ceq/self.coeff)
+                self.equiltracer.project(self.ceq/self.coeff)

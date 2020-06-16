@@ -131,7 +131,7 @@ class FlowSolver2d(FrozenClass):
 
         self.export_initial_state = True
         """Do export initial state. False if continuing a simulation"""
-
+        
         self.sediment_model = None
         """set up option for sediment model"""
 
@@ -344,7 +344,7 @@ class FlowSolver2d(FrozenClass):
         if self.options.solve_exner:
             self.eq_exner = exner_eq.ExnerEquation(
                 self.fields.bathymetry_2d.function_space(), self.depth,
-                    conservative = self.options.use_tracer_conservative_form, sed_model = self.sediment_model)                
+                    conservative = self.options.use_tracer_conservative_form, sed_model = self.sediment_model)
 
         self._isfrozen = True  # disallow creating new attributes
 
@@ -425,7 +425,7 @@ class FlowSolver2d(FrozenClass):
         if hasattr(self.options.timestepper_options, 'implicitness_theta'):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta
         return integrator(*args, **kwargs)
-
+    
     def get_sediment_timestepper(self, integrator):
         """
         Gets sediment timestepper object with appropriate parameters
@@ -529,9 +529,7 @@ class FlowSolver2d(FrozenClass):
             self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
                 weakref.proxy(self), steppers[self.options.timestepper_type],
             )
-        else:
-            self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])
-        if self.options.solve_sediment:
+        elif self.options.solve_sediment:
             try:
                 assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState')
             except AssertionError:
@@ -540,8 +538,7 @@ class FlowSolver2d(FrozenClass):
                 weakref.proxy(self), steppers[self.options.timestepper_type],
             )
         else:
-            if not hasattr(self, "timestepper"):
-                self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])
+            self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])       
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
         self._isfrozen = True  # disallow creating new attributes
 
@@ -593,6 +590,7 @@ class FlowSolver2d(FrozenClass):
     def assign_initial_conditions(self, elev=None, uv=None, tracer=None, sediment = None):
         """
         Assigns initial conditions
+
         :kwarg elev: Initial condition for water elevation
         :type elev: scalar :class:`Function`, :class:`Constant`, or an expression
         :kwarg uv: Initial condition for depth averaged velocity
