@@ -131,7 +131,7 @@ class FlowSolver2d(FrozenClass):
 
         self.export_initial_state = True
         """Do export initial state. False if continuing a simulation"""
-        
+
         self.sediment_model = None
         """set up option for sediment model"""
 
@@ -315,36 +315,36 @@ class FlowSolver2d(FrozenClass):
             self.fields.tracer_2d = Function(self.function_spaces.Q_2d, name='tracer_2d')
             if self.options.use_tracer_conservative_form:
                 self.eq_tracer = conservative_tracer_eq_2d.ConservativeTracerEquation2D(
-                        self.function_spaces.Q_2d, self.depth,
-                        use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                        sipg_parameter=self.options.sipg_parameter_tracer)
+                    self.function_spaces.Q_2d, self.depth,
+                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                    sipg_parameter=self.options.sipg_parameter_tracer)
             else:
                 self.eq_tracer = tracer_eq_2d.TracerEquation2D(
-                        self.function_spaces.Q_2d, self.depth,
-                        use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                        sipg_parameter=self.options.sipg_parameter_tracer)
+                    self.function_spaces.Q_2d, self.depth,
+                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                    sipg_parameter=self.options.sipg_parameter_tracer)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
-                self.tracer_limiter = None                
+                self.tracer_limiter = None
         if self.options.solve_sediment:
             if self.options.solve_tracer:
                 raise ValueError("Solve tracer and solve sediment cannot both be true")
             self.fields.sediment_2d = Function(self.function_spaces.Q_2d, name='sediment_2d')
             self.eq_sediment = sediment_eq_2d.SedimentEquation2D(
-                    self.function_spaces.Q_2d, self.depth,
-                    use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
-                    sipg_parameter=self.options.sipg_parameter_tracer,
-                    conservative = self.options.use_tracer_conservative_form)
+                self.function_spaces.Q_2d, self.depth,
+                use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
+                sipg_parameter=self.options.sipg_parameter_tracer,
+                conservative=self.options.use_tracer_conservative_form)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
                 self.tracer_limiter = None
-                
+
         if self.options.solve_exner:
             self.eq_exner = exner_eq.ExnerEquation(
                 self.fields.bathymetry_2d.function_space(), self.depth,
-                    conservative = self.options.use_tracer_conservative_form, sed_model = self.sediment_model)
+                conservative=self.options.use_tracer_conservative_form, sed_model=self.sediment_model)
 
         self._isfrozen = True  # disallow creating new attributes
 
@@ -425,7 +425,7 @@ class FlowSolver2d(FrozenClass):
         if hasattr(self.options.timestepper_options, 'implicitness_theta'):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta
         return integrator(*args, **kwargs)
-    
+
     def get_sediment_timestepper(self, integrator):
         """
         Gets sediment timestepper object with appropriate parameters
@@ -444,10 +444,10 @@ class FlowSolver2d(FrozenClass):
         }
 
         args = (self.eq_sediment, self.fields.sediment_2d, fields, self.dt, )
-        
+
         for i in self.options.equilibrium_sediment_bd_ids:
             if i in self.bnd_functions['sediment'].keys() and 'value' in self.bnd_functions['sediment'][i].keys():
-                    raise ValueError('Cannot set both value boundary condition and equilibrium sedment boundary condition. Choose the most appropriate one')
+                raise ValueError('Cannot set both value boundary condition and equilibrium sedment boundary condition. Choose the most appropriate one')
             else:
                 self.bnd_functions['sediment'][i]['value'] = self.sediment_model.equiltracer
 
@@ -459,7 +459,7 @@ class FlowSolver2d(FrozenClass):
             kwargs['semi_implicit'] = self.options.timestepper_options.use_semi_implicit_linearization
         if hasattr(self.options.timestepper_options, 'implicitness_theta'):
             kwargs['theta'] = self.options.timestepper_options.implicitness_theta
-        return integrator(*args, **kwargs)    
+        return integrator(*args, **kwargs)
 
     def get_exner_timestepper(self, integrator):
         """
@@ -538,7 +538,7 @@ class FlowSolver2d(FrozenClass):
                 weakref.proxy(self), steppers[self.options.timestepper_type],
             )
         else:
-            self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])       
+            self.timestepper = self.get_swe_timestepper(steppers[self.options.timestepper_type])
         print_output('Using time integrator: {:}'.format(self.timestepper.__class__.__name__))
         self._isfrozen = True  # disallow creating new attributes
 
@@ -587,7 +587,7 @@ class FlowSolver2d(FrozenClass):
             self.create_exporters()
         self._initialized = True
 
-    def assign_initial_conditions(self, elev=None, uv=None, tracer=None, sediment = None):
+    def assign_initial_conditions(self, elev=None, uv=None, tracer=None, sediment=None):
         """
         Assigns initial conditions
 

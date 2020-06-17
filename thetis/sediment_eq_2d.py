@@ -10,7 +10,7 @@ for a separate source and sink term. The equation reads
     = \nabla_h \cdot (\mu_h \nabla_h S) + Source - (Sink S)
     :label: sediment_eq_2d
 
-where :math:'S' is :math:'q' for conservative and :math:'T' for non-conservative, 
+where :math:'S' is :math:'q' for conservative and :math:'T' for non-conservative,
 :math:`\nabla_h` denotes horizontal gradient, :math:`\textbf{u}` are the horizontal
 velocities, and :math:`\mu_h` denotes horizontal diffusivity.
 """
@@ -33,7 +33,7 @@ class SedimentTerm(TracerTerm):
     Generic sediment term that provides commonly used members.
     """
     def __init__(self, function_space, depth,
-                 use_lax_friedrichs=True, sipg_parameter=Constant(10.0), conservative = False):
+                 use_lax_friedrichs=True, sipg_parameter=Constant(10.0), conservative=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
@@ -106,7 +106,7 @@ class SedimentSinkTerm(SedimentTerm):
         elif sink is not None:
             f += -inner(-sink*solution, self.test)*self.dx
         else:
-            warning("no sink term implemented")            
+            warning("no sink term implemented")
         if sink is not None and depth_int_sink is not None:
             raise AttributeError("Assigned both a sink term and a depth-integrated sink term\
                                  but only one can be implemented. Choose the most appropriate for your case")
@@ -115,13 +115,13 @@ class SedimentSinkTerm(SedimentTerm):
 
 class SedimentEquation2D(Equation):
     """
-    2D sediment advection-diffusion equation: eq:`tracer_eq` or `conservative_tracer_eq` 
+    2D sediment advection-diffusion equation: eq:`tracer_eq` or `conservative_tracer_eq`
     with sediment source and sink term
     """
     def __init__(self, function_space, depth,
                  use_lax_friedrichs=False,
                  sipg_parameter=Constant(10.0),
-                 conservative = False):
+                 conservative=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info

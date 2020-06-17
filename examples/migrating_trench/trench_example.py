@@ -10,7 +10,7 @@ Solves the test case of a migrating trench.
 """
 
 from thetis import *
-import callback_cons_tracer as call
+# import callback_cons_tracer as call
 from thetis.sediments import SedimentModel
 
 import numpy as np
@@ -18,6 +18,7 @@ import pandas as pd
 import time
 
 conservative = False
+
 
 def initialise_fields(mesh2d, inputdir, outputdir,):
     """
@@ -39,13 +40,15 @@ def initialise_fields(mesh2d, inputdir, outputdir,):
         chk.load(uv_init)
         File(outputdir + "/velocity_imported.pvd").write(uv_init)
         chk.close()
-        return elev_init, uv_init,  
+        return elev_init, uv_init,
 
-## Note it is necessary to run trench_hydro first to get the hydrodynamics simulation
+
+# Note it is necessary to run trench_hydro first to get the hydrodynamics simulation
 
 # exporting bathymetry
 def export_bath_func():
     bathy_file.write(sed_mod.bathymetry_2d)
+
 
 # define mesh
 lx = 16
@@ -61,15 +64,14 @@ V = get_functionspace(mesh2d, "CG", 1)
 P1_2d = get_functionspace(mesh2d, "DG", 1)
 
 # define underlying bathymetry
-bathymetry_2d = Function(V, name = 'bathymetry_2d')
+bathymetry_2d = Function(V, name='bathymetry_2d')
 initialdepth = Constant(0.397)
 depth_riv = Constant(initialdepth - 0.397)
 depth_trench = Constant(depth_riv - 0.15)
 depth_diff = depth_trench - depth_riv
 
 trench = conditional(le(x, 5), depth_riv, conditional(le(x, 6.5), (1/1.5)*depth_diff*(x-6.5) + depth_trench,
-                                                             conditional(le(x, 9.5), depth_trench, conditional(le(x, 11), -(1/1.5)*depth_diff*(x-11) + depth_riv,
-                                                                                                                          depth_riv))))
+                     conditional(le(x, 9.5), depth_trench, conditional(le(x, 11), -(1/1.5)*depth_diff*(x-11) + depth_riv, depth_riv))))
 bathymetry_2d.interpolate(-trench)
 
 # choose directory to output results
@@ -98,9 +100,9 @@ options = solver_obj.options
 
 sed_mod = SedimentModel(options, suspendedload=True, convectivevel=True,
                         bedload=True, angle_correction=True, slope_eff=True, seccurrent=False,
-                        mesh2d=mesh2d, bathymetry_2d=solver_obj.fields.bathymetry_2d, 
-                        uv_init = uv, elev_init = elev, ks=0.025, average_size=160 * (10**(-6)), 
-                        cons_tracer = conservative, wetting_and_drying = False, wetting_alpha = 0.1)
+                        mesh2d=mesh2d, bathymetry_2d=solver_obj.fields.bathymetry_2d,
+                        uv_init=uv, elev_init=elev, ks=0.025, average_size=160*(10**(-6)),
+                        cons_tracer=conservative, wetting_and_drying=False, wetting_alpha=0.1)
 
 solver_obj.sediment_model = sed_mod
 
@@ -113,18 +115,18 @@ options.output_directory = outputdir
 options.check_volume_conservation_2d = True
 
 if sed_mod.suspendedload:
-    options.fields_to_export = ['sediment_2d', 'uv_2d', 'elev_2d'] #note exporting bathymetry must be done through export func
+    options.fields_to_export = ['sediment_2d', 'uv_2d', 'elev_2d']  # note exporting bathymetry must be done through export func
     options.tracer_source_2d = sed_mod.ero_term
     options.tracer_sink_2d = sed_mod.depo_term
-    #options.tracer_depth_integ_source = sed_mod.ero
-    #options.tracer_depth_integ_sink = sed_mod.depo_term
-    ### FIXME - should these be renamed?? especially because only apply in sediment case
+    # options.tracer_depth_integ_source = sed_mod.ero
+    # options.tracer_depth_integ_sink = sed_mod.depo_term
+    # FIXME - should these be renamed?? especially because only apply in sediment case
     options.check_tracer_conservation = False
 else:
-    options.fields_to_export = ['uv_2d', 'elev_2d'] #note exporting bathymetry must be done through export func   
+    options.fields_to_export = ['uv_2d', 'elev_2d']  # note exporting bathymetry must be done through export func
 
 options.solve_exner = True
-options.morphological_acceleration_factor = Constant(morfac)  
+options.morphological_acceleration_factor = Constant(morfac)
 # using nikuradse friction
 options.nikuradse_bed_roughness = sed_mod.ksp
 
@@ -141,9 +143,9 @@ if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
     options.timestep = dt
 
 
-#c = call.TracerTotalMassConservation2DCallback('tracer_2d',
+# c = call.TracerTotalMassConservation2DCallback('tracer_2d',
 #                                               solver_obj, export_to_hdf5=True, append_to_log=False)
-#solver_obj.add_callback(c, eval_interval='timestep') #FIXME
+# solver_obj.add_callback(c, eval_interval='timestep') #FIXME
 
 # set boundary conditions
 
@@ -155,12 +157,12 @@ options.equilibrium_sediment_bd_ids = {left_bnd_id}
 swe_bnd = {}
 
 swe_bnd[left_bnd_id] = {'flux': Constant(-0.22)}
-swe_bnd[right_bnd_id] = {'elev': Constant(0.397)}    
+swe_bnd[right_bnd_id] = {'elev': Constant(0.397)}
 
 solver_obj.bnd_functions['shallow_water'] = swe_bnd
 
 if sed_mod.suspendedload:
-    solver_obj.bnd_functions['sediment'] = {left_bnd_id: {'flux': Constant(-0.22)}, right_bnd_id: {'elev': Constant(0.397)} }
+    solver_obj.bnd_functions['sediment'] = {left_bnd_id: {'flux': Constant(-0.22)}, right_bnd_id: {'elev': Constant(0.397)}}
 
     # set initial conditions
     solver_obj.assign_initial_conditions(uv=sed_mod.uv_init, elev=sed_mod.elev_init, sediment=sed_mod.equiltracer)
@@ -170,7 +172,7 @@ else:
     solver_obj.assign_initial_conditions(uv=sed_mod.uv_init, elev=sed_mod.elev_init)
 
 # run model
-solver_obj.iterate(export_func = export_bath_func)
+solver_obj.iterate(export_func=export_bath_func)
 
 # record final sediment and final bathymetry
 xaxisthetis1 = []
@@ -188,8 +190,8 @@ for i in np.linspace(0, 15.8, 80):
         baththetis1.append(solver_obj.fields.bathymetry_2d.at([i, 0.55]))
 
 # check sediment conservation
-#tracer_mass_int, tracer_mass_int_rerr = solver_obj.callbacks['timestep']['tracer_2d total mass']()
-#print("Tracer total mass error: %11.4e" % (tracer_mass_int_rerr))
+# tracer_mass_int, tracer_mass_int_rerr = solver_obj.callbacks['timestep']['tracer_2d total mass']()
+# print("Tracer total mass error: %11.4e" % (tracer_mass_int_rerr))
 
 # check sediment and bathymetry values using previous runs
 sediment_solution = pd.read_csv('sediment.csv')

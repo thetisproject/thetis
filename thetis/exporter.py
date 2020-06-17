@@ -341,10 +341,10 @@ class ExportManager(object):
             sys.stdout.write('\n')
             sys.stdout.flush()
 
-    def export_bathymetry(self, bathymetry_2d, solve_exner = False):
+    def export_bathymetry(self, bathymetry_2d, solve_exner=False):
         """
         Special function to export 2D bathymetry data to disk
-        If exner equation not used then bathymetry does not vary in time so this 
+        If exner equation not used then bathymetry does not vary in time so this
         only needs to be called once.
         :arg bathymetry_2d: 2D bathymetry :class:`Function`
         """

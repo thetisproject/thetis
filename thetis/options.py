@@ -32,13 +32,13 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
     solver_parameters_sediment = PETScSolverParameters({
         'ksp_type': 'gmres',
         'pc_type': 'sor',
-    }).tag(config=True)    
+    }).tag(config=True)
     use_semi_implicit_linearization = Bool(
         False, help="Use linearized semi-implicit time integration").tag(config=True)
     solver_parameters_exner = PETScSolverParameters({
         'ksp_type': 'gmres',
         'pc_type': 'sor',
-    }).tag(config=True)    
+    }).tag(config=True)
 
 
 class SteadyStateTimestepperOptions2d(TimeStepperOptions):
@@ -474,9 +474,9 @@ class CommonModelOptions(FrozenConfigurable):
     nikuradse_bed_roughness = FiredrakeScalarExpression(
         None, allow_none=True, help=r"""
         Nikuradse bed roughness length used to construct the 2D quadratic drag parameter :math:`C_D`.
-        
+
         In sediment transport this term is usually three times the average sediment diameter size.
-        """).tag(config = True)
+        """).tag(config=True)
     norm_smoother = FiredrakeConstantTraitlet(
         Constant(0.0), help=r"""
         Coefficient used to avoid non-differentiable functions in the continuous formulation of the velocity norm in
@@ -509,9 +509,9 @@ class CommonModelOptions(FrozenConfigurable):
         Constant(0.4), help="Bed porosity for exner equation").tag(config=True)
     morphological_acceleration_factor = FiredrakeConstantTraitlet(
         Constant(1), help="""Rate at which timestep in exner equation is accelerated compared to timestep for model
-        
+
         timestep in exner = morphological_acceleration_factor * timestep
-        """).tag(config = True)
+        """).tag(config=True)
     use_automatic_sipg_parameter = Bool(False, help=r"""
         Toggle automatic computation of the SIPG penalty parameter used in viscosity and
         diffusivity terms.
