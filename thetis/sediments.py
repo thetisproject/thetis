@@ -39,60 +39,46 @@ class Corrective_Velocity_Factor:
 
 
 class SedimentModel(object):
-    def __init__(self, options, suspendedload, convectivevel,
-                 bedload, angle_correction, slope_eff, seccurrent,
-                 mesh2d, bathymetry_2d, uv_init, elev_init, ks, average_size,
-                 beta_fn=1.3, surbeta2_fn=1/1.5, alpha_secc_fn=0.75, viscosity_morph=1e-6,
-                 wetting_and_drying=False, wetting_alpha=0.1, rhos=2650, cons_tracer=False):
+    def __init__(self, options, mesh2d, erosion, deposition, uv_init, elev_init, bathymetry_2d,
+                 beta_fn, surbeta2_fn, alpha_secc_fn, viscosity_morph, rhos):
 
         """
         Set up a full morphological model simulation using as an initial condition the results of a hydrodynamic only model.
 
         Inputs:
         options - solver_obj options
-        suspendedload - switch to turn on suspended sediment transport
-        convectivevel - switch on convective velocity correction factor in sediment concentration equation
-        bedload - switch to turn on bedload transport
-        angle_correction - switch on slope effect angle correction
-        slope_eff - switch on slope effect magnitude correction
-        seccurrent - switch on secondary current for helical flow effect
         mesh2d - define mesh working on
-        bathymetry2d - define bathymetry of problem
+        erosion - choose whether to use model defined, user defined or none
+        deposition - choose whether to use model defined, depth_integrated, user defined or none
         uv_init - initial velocity
-        elev_init - initial elevation
-        ks - bottom friction coefficient for quadratic drag coefficient
-        average_size - average sediment size
+        elev_init - initial elevation        
+        bathymetry2d - define bathymetry of problem
         beta_fn - magnitude slope effect parameter
         surbeta2_fn - angle correction slope effect parameter
         alpha_secc_fn - secondary current parameter
         viscosity_morph - viscosity value in morphodynamic equations
-        wetting_and_drying - wetting and drying switch
-        wetting_alpha - wetting and drying parameter
         rhos - sediment density
-        cons_tracer - conservative tracer switch
 
         """
 
-        self.suspendedload = suspendedload
-        self.cons_tracer = cons_tracer
-        self.convectivevel = convectivevel
-        self.bedload = bedload
-        self.angle_correction = angle_correction
-        self.slope_eff = slope_eff
-        self.seccurrent = seccurrent
-        self.wetting_and_drying = wetting_and_drying
+        self.options = options
+        self.suspendedload = options.sediment_model_options.solve_suspended
+        self.cons_tracer = options.sediment_model_options.use_sediment_conservative_form
+        self.convectivevel = options.sediment_model_options.use_advective_velocity
+        self.bedload = options.sediment_model_options.solve_bedload
+        self.angle_correction = options.sediment_model_options.use_angle_correction
+        self.slope_eff = options.sediment_model_options.use_slope_mag_correction
+        self.seccurrent = options.sediment_model_options.use_secondary_current
+        self.wetting_and_drying = options.use_wetting_and_drying
 
-        self.average_size = average_size
-        self.ks = ks
-        self.wetting_alpha = wetting_alpha
+        self.average_size = options.sediment_model_options.average_sediment_size
+        self.ks = options.sediment_model_options.ks
+        self.wetting_alpha = options.wetting_and_drying_alpha
         self.rhos = rhos
         self.uv_init = uv_init
         self.elev_init = elev_init
 
-        self.options = options
-        self.bathymetry_2d = bathymetry_2d
-
-        self.t_old = Constant(0.0)
+        self.bathymetry_2d = bathymetry_2d    
 
         # define function spaces
         self.P1_2d = get_functionspace(mesh2d, "DG", 1)
@@ -147,8 +133,6 @@ class SedimentModel(object):
         self.uv_cg = Function(self.vector_cg).interpolate(self.uv_init)
 
         if self.wetting_and_drying:
-            self.options.use_wetting_and_drying = self.wetting_and_drying
-            self.options.wetting_and_drying_alpha = Constant(self.wetting_alpha)
             H = self.elev_init + self.bathymetry_2d
             self.depth = Function(self.V).project(H + (Constant(0.5) * (sqrt(H ** 2 + self.wetting_alpha ** 2) - H)))
         else:
@@ -176,7 +160,7 @@ class SedimentModel(object):
         self.dzdx = self.old_bathymetry_2d.dx(0)
         self.dzdy = self.old_bathymetry_2d.dx(1)
 
-        options.solve_exner = True
+        options.sediment_model_options.solve_exner = True
 
         if self.suspendedload:
             # deposition flux - calculating coefficient to account for stronger conc at bed
@@ -213,12 +197,26 @@ class SedimentModel(object):
             else:
                 self.source_exp = Function(self.P1_2d).interpolate(-(self.depo*self.equiltracer/self.depth) + (self.ero/self.depth))
 
-            self.options.solve_sediment = True
-            self.options.use_tracer_conservative_form = self.cons_tracer
+            if erosion == 'model_def':
+                options.sediment_model_options.sediment_ero = self.ero_term
+            elif erosion == 'depth_integrated':
+                options.sediment_model_options.sediment_depth_integ_ero = self.ero
+            elif not erosion == 'None' or 'user_defined':
+                raise ValueError("Unrecognised string. Erosion must be 'model_def', 'depth_integrated', 'None' or 'user_defined'")
+
+            if deposition == 'model_def':
+                options.sediment_model_options.sediment_depo = self.depo_term
+            elif deposition == 'depth_integrated':
+                options.sediment_model_options.sediment_depth_integ_depo = self.depo_term
+            elif not deposition == 'None' or 'user_defined':
+                raise ValueError("Unrecognised string. Deposition must be 'model_def', 'depth_integrated', 'None' or 'user_defined'")
+
+            self.options.sediment_model_options.solve_sediment = True
+            self.options.sediment_model_options.use_sediment_conservative_form = self.cons_tracer
             if self.convectivevel:
-                self.options.tracer_advective_velocity_factor = self.corr_factor_model.corr_vel_factor
+                self.options.sediment_model_options.sediment_advective_velocity_factor = self.corr_factor_model.corr_vel_factor
         else:
-            self.options.solve_tracer = False
+            self.options.sediment_model_options.solve_sediment = False
 
         if self.bedload:
             # calculate angle of flow
