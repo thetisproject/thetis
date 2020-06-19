@@ -51,7 +51,7 @@ class SedimentModel(object):
         erosion - choose whether to use model defined, user defined or none
         deposition - choose whether to use model defined, depth_integrated, user defined or none
         uv_init - initial velocity
-        elev_init - initial elevation        
+        elev_init - initial elevation
         bathymetry2d - define bathymetry of problem
         beta_fn - magnitude slope effect parameter
         surbeta2_fn - angle correction slope effect parameter
@@ -78,7 +78,7 @@ class SedimentModel(object):
         self.uv_init = uv_init
         self.elev_init = elev_init
 
-        self.bathymetry_2d = bathymetry_2d    
+        self.bathymetry_2d = bathymetry_2d
 
         # define function spaces
         self.P1_2d = get_functionspace(mesh2d, "DG", 1)
@@ -132,6 +132,7 @@ class SedimentModel(object):
 
         self.uv_cg = Function(self.vector_cg).interpolate(self.uv_init)
 
+        self.elev_cg = Function(self.V).interpolate(self.elev_init)
         if self.wetting_and_drying:
             H = self.elev_init + self.bathymetry_2d
             self.depth = Function(self.V).project(H + (Constant(0.5) * (sqrt(H ** 2 + self.wetting_alpha ** 2) - H)))
@@ -310,9 +311,10 @@ class SedimentModel(object):
         # extract new elevation and velocity and project onto CG space
         self.uv1, self.elev1 = solver_obj.fields.solution_2d.split()
         self.uv_cg.project(self.uv1)
+        self.elev_cg.project(self.elev1)
 
         if self.wetting_and_drying:
-            self.depth.project(self.elev1 + solver_obj.depth.wd_bathymetry_displacement(self.elev1) + self.old_bathymetry_2d)
+            self.depth.project(self.elev_cg + solver_obj.depth.wd_bathymetry_displacement(self.elev1) + self.old_bathymetry_2d)
         else:
             self.depth.project(self.elev1 + self.old_bathymetry_2d)
 

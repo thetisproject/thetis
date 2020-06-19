@@ -10,14 +10,12 @@ Solves the test case of a migrating trench.
 """
 
 from thetis import *
-# import callback_cons_tracer as call
-from thetis.sediments import SedimentModel
 
 import numpy as np
 import pandas as pd
 import time
 
-conservative = True
+conservative = False
 
 
 def initialise_fields(mesh2d, inputdir, outputdir,):
@@ -111,7 +109,7 @@ options.check_volume_conservation_2d = True
 
 if options.sediment_model_options.solve_suspended:
     options.fields_to_export = ['sediment_2d', 'uv_2d', 'elev_2d']  # note exporting bathymetry must be done through export func
-    options.check_tracer_conservation = False
+    options.sediment_model_options.check_sediment_conservation = True
 else:
     options.fields_to_export = ['uv_2d', 'elev_2d']  # note exporting bathymetry must be done through export func
 
@@ -130,12 +128,12 @@ options.norm_smoother = Constant(0.1)
 if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
     options.timestep = dt
 
-# make sure all options set before creating model
-solver_obj.create_sediment_model(uv_init = uv, elev_init = elev, 
-                                 erosion = 'depth_integrated', deposition = 'depth_integrated')
-# c = call.TracerTotalMassConservation2DCallback('tracer_2d',
-#                                               solver_obj, export_to_hdf5=True, append_to_log=False)
-# solver_obj.add_callback(c, eval_interval='timestep') #FIXME
+# make sure set all hydrodynamic and sediment flags before creating model
+solver_obj.create_sediment_model(uv_init=uv, elev_init=elev,
+                                 erosion='model_def', deposition='model_def')
+c = callback.SedimentTotalMassConservation2DCallback('sediment_2d',
+                                                     solver_obj, export_to_hdf5=True, append_to_log=False)
+solver_obj.add_callback(c, eval_interval='timestep')
 
 # set boundary conditions
 
@@ -180,8 +178,8 @@ for i in np.linspace(0, 15.8, 80):
         baththetis1.append(solver_obj.fields.bathymetry_2d.at([i, 0.55]))
 
 # check sediment conservation
-# tracer_mass_int, tracer_mass_int_rerr = solver_obj.callbacks['timestep']['tracer_2d total mass']()
-# print("Tracer total mass error: %11.4e" % (tracer_mass_int_rerr))
+sediment_mass_int, sediment_mass_int_rerr = solver_obj.callbacks['timestep']['sediment_2d total mass']()
+print("Sediment total mass error: %11.4e" % (sediment_mass_int_rerr))
 
 # check sediment and bathymetry values using previous runs
 sediment_solution = pd.read_csv('sediment.csv')
