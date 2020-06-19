@@ -244,3 +244,9 @@ field_metadata['hcc_metric_3d'] = {
     'unit': '-',
     'filename': 'HCCMetric3d',
 }
+field_metadata['turbine_density_2d'] = {
+    'name': 'Turbine density',
+    'shortname': 'Turbine density',
+    'unit': 'm-2',
+    'filename': 'turbine_density_2d'
+}
