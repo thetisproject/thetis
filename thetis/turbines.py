@@ -7,119 +7,147 @@ from .callback import DiagnosticCallback
 from .optimisation import DiagnosticOptimisationCallback
 
 
-class BaseTurbine(object):
-    """A base turbine class from which others are derived."""
-    def __init__(self, diameter=None, minimum_distance=None,
-                 controls=None, bump=False, projection_diameter=None):
-        # Possible turbine parameters.
-        self._diameter = diameter
-        self._minimum_distance = minimum_distance
-        self._controls = controls
-        self._projection_diameter = projection_diameter
+class TidalTurbine:
+    def __init__(self, diameter, C_support=None, A_support=None, correct_velocity=False):
+        self.diameter = diameter
+        self.C_support = C_support
+        self.A_support = A_support
+        self.correct_velocity = correct_velocity
 
-        # Possible parameterisations.
-        self._bump = bump
+    def velocity_correction(thrust_area, depth):
+        if self.correct_velocity:
+            return 0.5*(1+sqrt(1-thrust_area/(self.diameter*depth)))
+        else:
+            return 1
 
-        # The integral of the unit bump function computed with Wolfram Alpha:
-        # "integrate e^(-1/(1-x**2)-1/(1-y**2)+2) dx dy,
-        #  x=-0.999..0.999, y=-0.999..0.999"
-        # http://www.wolframalpha.com/input/?i=integrate+e%5E%28-1%2F%281-x**2%29-1%2F%281-y**2%29%2B2%29+dx+dy%2C+x%3D-0.999..0.999%2C+y%3D-0.999..0.999
-        self._unit_bump_int = 1.45661
-
-    @property
-    def diameter(self):
-        """The diameter of a turbine.
-        :returns: The diameter of a turbine.
-        :rtype: float
-        """
-        if self._diameter is None:
-            raise ValueError("Diameter has not been set!")
-        return self._diameter
-
-    @property
-    def radius(self):
-        """The radius of a turbine.
-        :returns: The radius of a turbine.
-        :rtype: float
-        """
-        return self.diameter*0.5
-
-    @property
-    def integral(self):
-        """The integral of the turbine bump function.
-        :returns: The integral of the turbine bump function.
-        :rtype: float
-        """
-        return self._unit_bump_int*self._diameter/4.
-
-    @property
-    def bump(self):
-        return self._bump
+    def friction_coefficient(self, uv, depth):
+        C_T = self.thrust_coefficient(uv)
+        A_T = pi * self.diameter**2 / 4
+        fric = C_T * A_T
+        if self.C_support:
+            fric += self.C_support * self.A_support
+        alpha = self.velocity_correction(thrust_area, depth)
+        return thrust_area/2./alpha**2
 
 
-class ThrustTurbine(BaseTurbine):
-    """ Create a turbine that is modelled as a bump of bottom friction.
-        In addition this turbine implements cut in and out speeds for the
-        power production.
-        This turbine introduces a non-linearity, which is handled explicitly. """
-    def __init__(self,
-                 diameter=20.,
-                 swept_diameter=20.,
-                 c_t_design=0.6,
-                 cut_in_speed=1,
-                 cut_out_speed=2.5,
-                 minimum_distance=None):
+class ConstantThrustTurbine(TidalTurbine):
+    def __init__(self, diameter, C_T, C_T_support=None, A_support=None):
+        super().__init__(diameter, C_T_support=C_T_support, A_support=A_support)
+        self.C_T = C_T
 
-        # Check for a given minimum distance.
-        if minimum_distance is None:
-            minimum_distance = diameter*1.5
-        # Initialize the base class.
-        super(ThrustTurbine, self).__init__(diameter=diameter, minimum_distance=minimum_distance)
+    def thrust_coefficient(uv):
+        return self.C_T
 
-        # To parametrise a square 2D plan-view turbine to characterise a
-        # realistic tidal turbine with a circular swept area in the section
-        # plane we assume that the specified 2D turbine diameter is equal to the
-        # circular swept diameter
-        self.swept_diameter = swept_diameter
-        self.c_t_design = c_t_design
+
+class RatedThrustTurbine(TidalTurbine):
+    def __init__(self, diameter, C_T, rated_speed, cut_in_speed, cut_out_speed, **kwargs):
+        super().__init__(diameter, **kwargs)
+        self.C_T = C_T
+        self.rated_speed = rated_speed
         self.cut_in_speed = cut_in_speed
         self.cut_out_speed = cut_out_speed
-        self.turbine_area = pi * self.diameter ** 2 / 4
 
-        self.swept_area = pi * (swept_diameter) ** 2 / 4
-        # Check that the parameter choices make some sense - these won't break
-        # the simulation but may give unexpected results if the choice isn't
-        # understood.
-        if self.swept_diameter != self.diameter:
-            log(INFO, 'Warning - swept_diameter and plan_diameter are not equal')
+    def thrust_coefficient(uv):
+        umag = dot(uv, uv)**0.5
+        # C_P for |u|>u_rated:
+        y = self.C_T * (1+sqrt(1-self.C_T))/2 * self.cut_out_speed**3 / umag**3
+        # from this compute C_T s.t. C_P=C_T*(1+sqrt(1-C_T)/2, or
+        # equivalently: 4*C_P^2 - 4*C_T*C_P + C_T^3 = 0
+        # a cube root from this cubic equation is obtained using Cardano's formula
+        d = 4*y**4-64/27*y**3
+        C = (-d+4*y**4)**(1/6)
+        # the additiona 4pi/3 ensures we obtained the "right" cube with 0<C_T<0.85
+        C_T_rated = (C+4*y/(3*C)) * cos(atan2(sqrt(-d), -2*y**2)/3 + 4*pi/3)
+
+        return conditional(umag < self.cut_in_speed, 0,
+                           conditional(umag < self.rated, self.C_T,
+                                       conditional(umag < self.cut_out, C_T_rated, 0)))
 
 
-class DiscreteTidalfarm(object):
+def linearly_interpolate_table(x_list, y_list, y_final, x):
+    """Return UFL expression that linearly interpolates between y-values in x-points
+
+    :param x_list: (1D) x-points
+    :param y_list: y-values in those points
+    :param y_final: value for x>x_list[-1]
+    :param x: point to interpolate (assumed x>x_list[0])
+    """
+    # below x1, interpolate between x0 and x1:
+    below_x1 = ((x_list[1]-x)*y_list[0] + (x-x_list[0])*y_list[1])/(y_list[1]-y_list[0])
+    # above x1, interpolate from rest of the table, or take final value:
+    if len(x_list) > 2:
+        above_x1 = linearly_interpolate(x_list[1:], y_list[1:], y_final, x)
+    else:
+        above_x1 = y_final
+
+    return conditional(x < x_list[1], below_x1, above_x1)
+
+
+class TabulatedThrustTurbine(TidalTurbine):
+    def __init__(self, diameter, C_T, speeds, **kwargs):
+        super().__init__(diameter, **kwargs)
+        if not len(C_T) == len(speeds):
+            raise ValueError("In tabulated thrust curve the number of thrust coefficients and speed values should be the same.")
+        self.C_T = C_T
+        self.speeds = speeds
+
+    def thrust_coefficient(uv):
+        umag = dot(uv, uv)**0.5
+        return conditional(umag < self.speeds[0], 0, linearly_interpolate_table(self.speeds, self.C_T, 0, umag))
+
+
+def _create_turbine_from_options(velocity_correction, options):
+    diameter = options.diameter
+    turbine_kwargs = dict((key, options[key]) for key in ['C_support', 'A_spport'])
+    if options.turbine_type == 'constant':
+        C_T = options.thrust_coefficient
+        turbine = ConstantThrustTurbine(diameter, C_T, **turbine_kwargs)
+    elif options.turbine_type == 'rated':
+        turbine_args = (options[key] for key in ['C_T', 'rated_speed', 'cut_in_speed', 'cut_out_speed'])
+        turbine = RatedThrustTurbine(diameter, *turbine_args, **turbine_kwargs)
+    elif options == 'table':
+        turbine = TabulatedThrustTurbine(diameter, options.thrust_coefficients, options.thrust_speeds, **turbine_kwargs)
+    return turbine
+
+
+class TidalTurbineFarm:
+    def __init__(self, turbine_density, subdomain, options, velocity_correction=False):
+        """
+        :arg turbine_density: turbine distribution density field
+        :arg subdomain: subdomain where this farm is applied
+        :arg options: a :class:`TidalTurbineFarmOptions` options dictionary
+        """
+        self.turbine = _create_turbine_from_options(velocity_correction, options.turbine_options)
+        self.subdomain = subdomain
+        self.dx = dx(subdomain)
+        self.turbine_density = turbine_density
+
+    def number_of_turbines(self):
+        return assemble(self.turbine_density * self.dx)
+
+    def friction_coefficient(self, uv):
+        return self.turbine.friction_coefficient(uv)
+
+
+class DiscreteTidalTurbineFarm(TidalTurbineFarm):
     """
     Class that can be used for the addition of turbines in the turbine density field
     """
 
-    def __init__(self, solver_obj, turbine, coordinates, turbine_density, subdomain, **kwargs):
+    def __init__(self, turbine_density, subdomain, options, velocity_correction=False):
         """
-        :arg turbine: turbine characteristics
-        :type turbine: object : a :class:`ThrustTurbine`
-        :arg solver_obj: Thetis solver object
-        :arg coordinates: Turbine coordinates array
         :arg turbine_density: turbine distribution density field
+        :arg subdomain: subdomain where this farm is applied
+        :arg options: a :class:`TidalTurbineFarmOptions` options dictionary
         """
 
         # Preliminaries
-        self.solver = solver_obj
-        self.turbine = turbine
-        self.coordinates = coordinates
-        self.farm_density = turbine_density
-        self.functionspace = FunctionSpace(solver_obj.mesh2d, 'CG', 1)
-        self.subdomain_id = subdomain
+        super().__init__(turbine, subdomain, options, velocity_correction=velocity_correction)
 
         # Adding turbine distribution in the domain
-        self.add_turbines()
+        self.add_turbines(options.turbine_coordinates)
 
-    def add_turbines(self):
+    def add_turbines(self, coordinates):
         """
         :param coords: Array with turbine coordinates to be positioned
         :param function: turbine density function to be adapted
@@ -127,26 +155,22 @@ class DiscreteTidalfarm(object):
         :param radius: radius where the bump will be applied
         :return: updated turbine density field
         """
-        self.farm_density.assign(0.0)
-        x = SpatialCoordinate(self.solver.mesh2d)
-        psi_x = Function(self.functionspace)
-        psi_y = Function(self.functionspace)
-        radius = self.turbine.swept_diameter * 0.5
+        x = SpatialCoordinate(self.turbine_density.ufl_domain())
+        V = self.turbine_density.function_space()
+        radius = self.turbine.diameter * 0.5
         for coord in self.coordinates:
-            psi_x.project(conditional(lt(abs((x[0]-coord[0])/radius), 1),
-                                          exp(1-1/(1-pow(abs((x[0]-coord[0])/radius), 2))), 0))
-            psi_y.project(conditional(lt(abs((x[1]-coord[1])/radius), 1),
-                                          exp(1-1/(1-pow(abs((x[1]-coord[1])/radius), 2))), 0))
-            projection_integral = assemble(Function(self.functionspace).
-                                           project(psi_x * psi_y / (self.turbine._unit_bump_int * radius**2))
-                                           * dx(self.subdomain_id))
+            dx = (x-coord)/radius
+            psi_x = conditional(lt(abs(dx[0]), 1), exp(1-1/(1-dx[0]**2)), 0)
+            psi_x = conditional(lt(abs(dx[1]), 1), exp(1-1/(1-dx[1]**2)), 0)
+            bump = psi_x * psi_y
+            discrete_integral = assemble(interpolate(bump, V) * self.dx)
 
-            if projection_integral == 0.0:
-                print_output("Could not place turbine due to low resolution. Either increase resolution or radius")
-            else:
-                density_correction = 1 / projection_integral
-                self.farm_density.project(self.farm_density +  psi_x * psi_y
-                                              / (self.turbine._unit_bump_int * radius ** 2))
+            unit_bump_integral = 1.45661  # integral of bump function for radius=1 (copied from OpenTidalFarm who used Wolfram)
+            minimum_integral_frac = 0.9  # error if discrete integral falls below this fraction of the analytical integral
+            if projection_integral < radius**2 * unit_bump_integral * minimum_integral_frac:
+                raise ValueError("Could not place turbine due to low resolution. Either increase resolution or radius")
+
+            self.turbine_density.interpolate(self.turbine_density + bump/discrete_integral)
 
 
 class DiscreteTurbineOperation(DiagnosticCallback):

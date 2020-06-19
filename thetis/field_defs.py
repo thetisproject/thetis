@@ -250,3 +250,9 @@ field_metadata['w_2d'] = {
     'unit': 'm s-1',
     'filename': 'VertVelo2d',
 }
+field_metadata['turbine_density_2d'] = {
+    'name': 'Turbine density',
+    'shortname': 'Turbine density',
+    'unit': 'm-2',
+    'filename': 'turbine_density_2d'
+}

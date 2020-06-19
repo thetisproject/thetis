@@ -374,12 +374,27 @@ class FlowSolver2d(FrozenClass):
                                      use_wetting_and_drying=self.options.use_wetting_and_drying,
                                      wetting_and_drying_alpha=self.options.wetting_and_drying_alpha)
 
+        # ---- tidal farms, if any
+        if len(self.options.tidal_turbine_farms) + len(self.options.discrete_tidal_turbine_farms) > 0:
+            self.tidal_farms = []
+            for subdomain, farm_options in self.options.tidal_turbine_farms.items():
+                self.tidal_farms.append(TidalTurbineFarm(farm_options.turbine_density),
+                                        subdomain, farm_options)
+            if self.options.discrete_tidal_turbine_farms:
+                self.fields.turbine_density = Function(self.function_spaces.P1_2d, name='turbine_density_2d')
+            for subdomain, farm_options in self.options.discrete_tidal_turbine_farms.items():
+                self.tidal_farms.append(DiscreteTidalTurbineFarm(self.fields.turbine_density),
+                                        subdomain, farm_options, velocity_correction=True)
+        else:
+            self.tidal_farms = None
+
         # ----- Equations
         self.equations = AttrDict()
         self.equations.sw = shallowwater_eq.ShallowWaterEquations(
             self.fields.solution_2d.function_space(),
             self.depth,
             self.options,
+            tidal_farms=self.tidal_farms
         )
         self.equations.sw.bnd_functions = self.bnd_functions['shallow_water']
         uv_2d, elev_2d = self.fields.solution_2d.split()
@@ -470,7 +485,8 @@ class FlowSolver2d(FrozenClass):
             self.equations.mom = shallowwater_eq.ShallowWaterMomentumEquation(
                 u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
                 self.depth,
-                options=self.options
+                options=self.options,
+                tidalfarms=self.tidal_farms
             )
             self.equations.mom.bnd_functions = self.bnd_functions['shallow_water']
             return integrator(self.equations.sw, self.equations.mom, self.fields.solution_2d,

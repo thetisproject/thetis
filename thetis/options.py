@@ -366,40 +366,64 @@ class LinearEquationOfStateOptions(EquationOfStateOptions):
 
 class TidalTurbineOptions(FrozenHasTraits):
     """Tidal turbine parameters"""
-    thrust_coefficient = PositiveFloat(
-        0.8, help='Thrust coefficient C_T').tag(config=True)
+    name = 'Tidal turbine options'
     diameter = PositiveFloat(
         18., help='Turbine diameter').tag(config=True)
 
 
+class ConstantTidalTurbineOptions(TidalTurbineOptions):
+    """Options for tidal turbine with constant thrust"""
+    name = 'Constant tidal turbine options'
+    thrust_coefficient = PositiveFloat(
+        0.8, help='Thrust coefficient C_T').tag(config=True)
+
+
+class RatedTidalTurbineOptions(TidalTurbineOptions):
+    """Options for tidal turbine with analytical thrust based on rated speed"""
+    name = 'Rated tidal turbine options'
+    rated_speed = PositiveFloat(
+        3.0, help='Rated speed').tag(config=True)
+    cut_in_speed = NonNegativeFloat(
+            0.0, help='Cut-in speed').tag(config=True)
+    # a high default, so it's not normally applied
+    cut_out_speed = NonNegativeFloat(
+            100.0, help='Cut-out speed').tag(config=True)
+
+
+class TabulatedTidalTurbineOptions(TidalTurbineOptions):
+    """Options for tidal turbine with tabulated thrust coefficient"""
+    name = 'Tabulated tidal turbine options'
+    thrust_coefficients = List([3.0],
+            help='Table of thrust coefficients')
+    thrust_speeds = List([0.8, 0.8],
+            help="""List of speeds at which thrust_coefficients are applied.
+            First and last entry function as cut-in and cut-out speeds respectively""")
+
+
+@attach_paired_options("turbine_type",
+                       PairedEnum([('constant', ConstantTidalTurbineOptions),
+                                   ('rated', RatedTidalTurbineOptions),
+                                   ('table', TabulatedTidalTurbineOptions),
+                                   ],
+                                  "turbine_options",
+                                  default_value='constant',
+                                  help='Type of turbine thrust specification').tag(config=True),
+                       Instance(TidalTurbineOptions, args=()).tag(config=True))
 class TidalTurbineFarmOptions(FrozenHasTraits, TraitType):
     """Tidal turbine farm options"""
     name = 'Farm options'
-    turbine_options = TidalTurbineOptions()
     turbine_density = FiredrakeScalarExpression(
         Constant(0.0), help='Density of turbines within the farm')
     break_even_wattage = NonNegativeFloat(
         0.0, help='Average power production per turbine required to break even')
 
 
-class DiscreteTidalTurbineFarmOptions(FrozenHasTraits, TraitType):
+class DiscreteTidalTurbineFarmOptions(TidalTurbineFarmOptions):
     """Discrete Tidal turbine farm options - defaults to 0 turbines in the field"""
-    from thetis.turbines import BaseTurbine, ThrustTurbine
     name = 'Discrete Farm options'
-    turbine_options = ThrustTurbine()
-    turbine_density = FiredrakeScalarExpression(
-        Constant(0.0), help='Density of turbines within the farm expressed as bumps representing individual turbines')
-    thrust_coefficient = FiredrakeScalarExpression(
-        Constant(turbine_options.c_t_design), help='Turbine thrust coefficient')
-    power_coefficient = FiredrakeScalarExpression(
-        Constant(turbine_options.c_t_design * turbine_options.turbine_area / 2), help='Turbine_power_coefficient')
-    turbine_drag = FiredrakeScalarExpression(
-        Constant(0.0), help='Turbine_drag_coefficient')
     turbine_coordinates = List(default_value=[], help="Coordinates for turbines").tag(config=True)
     upwind_correction = Bool(True,
                              help='bool: Apply flow correction to correct for upwind velocity').tag(config=True)
-    break_even_wattage = NonNegativeFloat(
-        0.0, help='Average power production per turbine required to break even')
 
 
 class TracerFieldOptions(FrozenHasTraits):
