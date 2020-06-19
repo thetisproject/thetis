@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import time
 
-conservative = False
+conservative = True
 
 
 def initialise_fields(mesh2d, inputdir, outputdir,):
@@ -47,7 +47,7 @@ def initialise_fields(mesh2d, inputdir, outputdir,):
 
 # exporting bathymetry
 def export_bath_func():
-    bathy_file.write(sed_mod.bathymetry_2d)
+    bathy_file.write(solver_obj.sediment_model.bathymetry_2d)
 
 
 # define mesh
@@ -98,15 +98,10 @@ elev, uv = initialise_fields(mesh2d, 'hydrodynamics_trench', outputdir)
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
 
-sed_mod = SedimentModel(options, suspendedload=True, convectivevel=True,
-                        bedload=True, angle_correction=True, slope_eff=True, seccurrent=False,
-                        mesh2d=mesh2d, bathymetry_2d=solver_obj.fields.bathymetry_2d,
-                        uv_init=uv, elev_init=elev, ks=0.025, average_size=160*(10**(-6)),
-                        cons_tracer=conservative, wetting_and_drying=False, wetting_alpha=0.1)
-
-solver_obj.sediment_model = sed_mod
-
-options.update(sed_mod.options)
+options.sediment_model_options.use_sediment_conservative_form = conservative
+options.sediment_model_options.average_sediment_size = 160*(10**(-6))
+options.sediment_model_options.ks = 0.025
+options.sediment_model_options.morphological_acceleration_factor = Constant(morfac)
 
 options.simulation_end_time = end_time/morfac
 options.simulation_export_time = options.simulation_end_time/45
@@ -114,21 +109,14 @@ options.simulation_export_time = options.simulation_end_time/45
 options.output_directory = outputdir
 options.check_volume_conservation_2d = True
 
-if sed_mod.suspendedload:
+if options.sediment_model_options.solve_suspended:
     options.fields_to_export = ['sediment_2d', 'uv_2d', 'elev_2d']  # note exporting bathymetry must be done through export func
-    options.tracer_source_2d = sed_mod.ero_term
-    options.tracer_sink_2d = sed_mod.depo_term
-    # options.tracer_depth_integ_source = sed_mod.ero
-    # options.tracer_depth_integ_sink = sed_mod.depo_term
-    # FIXME - should these be renamed?? especially because only apply in sediment case
     options.check_tracer_conservation = False
 else:
     options.fields_to_export = ['uv_2d', 'elev_2d']  # note exporting bathymetry must be done through export func
 
-options.solve_exner = True
-options.morphological_acceleration_factor = Constant(morfac)
 # using nikuradse friction
-options.nikuradse_bed_roughness = sed_mod.ksp
+options.nikuradse_bed_roughness = Constant(3*options.sediment_model_options.average_sediment_size)
 
 # set horizontal diffusivity parameter
 options.horizontal_diffusivity = Constant(diffusivity)
@@ -137,12 +125,14 @@ options.horizontal_viscosity = Constant(viscosity_hydro)
 # crank-nicholson used to integrate in time system of ODEs resulting from application of galerkin FEM
 options.timestepper_type = 'CrankNicolson'
 options.timestepper_options.implicitness_theta = 1.0
-options.norm_smoother = Constant(sed_mod.wetting_alpha)
+options.norm_smoother = Constant(0.1)
 
 if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
     options.timestep = dt
 
-
+# make sure all options set before creating model
+solver_obj.create_sediment_model(uv_init = uv, elev_init = elev,
+                                 erosion = 'depth_integrated', deposition = 'depth_integrated')
 # c = call.TracerTotalMassConservation2DCallback('tracer_2d',
 #                                               solver_obj, export_to_hdf5=True, append_to_log=False)
 # solver_obj.add_callback(c, eval_interval='timestep') #FIXME
@@ -152,7 +142,7 @@ if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
 left_bnd_id = 1
 right_bnd_id = 2
 
-options.equilibrium_sediment_bd_ids = {left_bnd_id}
+options.sediment_model_options.equilibrium_sediment_bd_ids = {left_bnd_id}
 
 swe_bnd = {}
 
@@ -161,15 +151,15 @@ swe_bnd[right_bnd_id] = {'elev': Constant(0.397)}
 
 solver_obj.bnd_functions['shallow_water'] = swe_bnd
 
-if sed_mod.suspendedload:
+if options.sediment_model_options.solve_suspended:
     solver_obj.bnd_functions['sediment'] = {left_bnd_id: {'flux': Constant(-0.22)}, right_bnd_id: {'elev': Constant(0.397)}}
 
     # set initial conditions
-    solver_obj.assign_initial_conditions(uv=sed_mod.uv_init, elev=sed_mod.elev_init, sediment=sed_mod.equiltracer)
+    solver_obj.assign_initial_conditions(uv=uv, elev=elev, sediment=solver_obj.sediment_model.equiltracer)
 
 else:
     # set initial conditions
-    solver_obj.assign_initial_conditions(uv=sed_mod.uv_init, elev=sed_mod.elev_init)
+    solver_obj.assign_initial_conditions(uv=uv, elev=elev)
 
 # run model
 solver_obj.iterate(export_func=export_bath_func)

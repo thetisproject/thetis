@@ -12,6 +12,7 @@ from . import tracer_eq_2d
 from . import conservative_tracer_eq_2d
 from . import sediment_eq_2d
 from . import exner_eq
+from .sediments import SedimentModel
 import weakref
 import time as time_mod
 import numpy as np
@@ -327,7 +328,7 @@ class FlowSolver2d(FrozenClass):
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
                 self.tracer_limiter = None
-        if self.options.solve_sediment:
+        if self.options.sediment_model_options.solve_sediment:
             if self.options.solve_tracer:
                 raise ValueError("Solve tracer and solve sediment cannot both be true")
             self.fields.sediment_2d = Function(self.function_spaces.Q_2d, name='sediment_2d')
@@ -335,18 +336,27 @@ class FlowSolver2d(FrozenClass):
                 self.function_spaces.Q_2d, self.depth,
                 use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
                 sipg_parameter=self.options.sipg_parameter_tracer,
-                conservative=self.options.use_tracer_conservative_form)
+                conservative=self.options.sediment_model_options.use_sediment_conservative_form)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
                 self.tracer_limiter = None
 
-        if self.options.solve_exner:
+        if self.options.sediment_model_options.solve_exner:
             self.eq_exner = exner_eq.ExnerEquation(
                 self.fields.bathymetry_2d.function_space(), self.depth,
-                conservative=self.options.use_tracer_conservative_form, sed_model=self.sediment_model)
+                conservative=self.options.sediment_model_options.use_sediment_conservative_form, sed_model=self.sediment_model)
 
         self._isfrozen = True  # disallow creating new attributes
+
+    def create_sediment_model(self, uv_init, elev_init, erosion, deposition,
+                              beta=1.3, surbeta=1/1.5, alpha_secc=0.75, vis_morph=1e-6, sed_dens=2650):
+
+        self.sediment_model = SedimentModel(self.options, self.mesh2d, erosion, deposition, uv_init, elev_init,
+                                     bathymetry_2d=self.fields.bathymetry_2d, beta_fn = beta,
+                                     surbeta2_fn = surbeta, alpha_secc_fn = alpha_secc,
+                                     viscosity_morph = vis_morph, rhos = sed_dens)
+
 
     def get_swe_timestepper(self, integrator):
         """
@@ -412,7 +422,7 @@ class FlowSolver2d(FrozenClass):
             'diffusivity_h': self.options.horizontal_diffusivity,
             'source': self.options.tracer_source_2d,
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
-            'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
+            'tracer_advective_velocity_factor': self.options.sediment_model_options.sediment_advective_velocity_factor,
         }
 
         args = (self.eq_tracer, self.fields.tracer_2d, fields, self.dt, )
@@ -435,17 +445,17 @@ class FlowSolver2d(FrozenClass):
             'elev_2d': elev,
             'uv_2d': uv,
             'diffusivity_h': self.options.horizontal_diffusivity,
-            'source': self.options.tracer_source_2d,
-            'depth_integrated_source': self.options.tracer_depth_integ_source,
-            'sink': self.options.tracer_sink_2d,
-            'depth_integrated_sink': self.options.tracer_depth_integ_sink,
+            'source': self.options.sediment_model_options.sediment_ero,
+            'depth_integrated_source': self.options.sediment_model_options.sediment_depth_integ_ero,
+            'sink': self.options.sediment_model_options.sediment_depo,
+            'depth_integrated_sink': self.options.sediment_model_options.sediment_depth_integ_depo,
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
-            'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
+            'tracer_advective_velocity_factor': self.options.sediment_model_options.sediment_advective_velocity_factor,
         }
 
         args = (self.eq_sediment, self.fields.sediment_2d, fields, self.dt, )
 
-        for i in self.options.equilibrium_sediment_bd_ids:
+        for i in self.options.sediment_model_options.equilibrium_sediment_bd_ids:
             if i in self.bnd_functions['sediment'].keys() and 'value' in self.bnd_functions['sediment'][i].keys():
                 raise ValueError('Cannot set both value boundary condition and equilibrium sedment boundary condition. Choose the most appropriate one')
             else:
@@ -469,13 +479,13 @@ class FlowSolver2d(FrozenClass):
 
         fields = {
             'elev_2d': elev,
-            'source': self.options.tracer_source_2d,
-            'depth_integrated_source': self.options.tracer_depth_integ_source,
-            'sink': self.options.tracer_sink_2d,
-            'depth_integrated_sink': self.options.tracer_depth_integ_sink,
+            'source': self.options.sediment_model_options.sediment_ero,
+            'depth_integrated_source': self.options.sediment_model_options.sediment_depth_integ_ero,
+            'sink': self.options.sediment_model_options.sediment_depo,
+            'depth_integrated_sink': self.options.sediment_model_options.sediment_depth_integ_depo,
             'sediment': self.fields.sediment_2d,
-            'morfac': self.options.morphological_acceleration_factor,
-            'porosity': self.options.porosity,
+            'morfac': self.options.sediment_model_options.morphological_acceleration_factor,
+            'porosity': self.options.sediment_model_options.porosity,
         }
 
         args = (self.eq_exner, self.fields.bathymetry_2d, fields, self.dt, )
@@ -529,7 +539,7 @@ class FlowSolver2d(FrozenClass):
             self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
                 weakref.proxy(self), steppers[self.options.timestepper_type],
             )
-        elif self.options.solve_sediment:
+        elif self.options.sediment_model_options.solve_sediment:
             try:
                 assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState')
             except AssertionError:
@@ -605,9 +615,9 @@ class FlowSolver2d(FrozenClass):
             uv_2d.project(uv)
         if tracer is not None and self.options.solve_tracer:
             self.fields.tracer_2d.project(tracer)
-        if sediment is not None and self.options.solve_sediment:
+        if sediment is not None and self.options.sediment_model_options.solve_sediment:
             self.fields.sediment_2d.project(sediment)
-        elif sediment is None and self.options.solve_sediment:
+        elif sediment is None and self.options.sediment_model_options.solve_sediment:
             self.fields.sediment_2d.project(self.sediment_model.equiltracer)
 
         self.timestepper.initialize(self.fields.solution_2d)
@@ -768,7 +778,7 @@ class FlowSolver2d(FrozenClass):
             if export_func is not None:
                 export_func()
             if 'vtk' in self.exporters and isinstance(self.fields.bathymetry_2d, Function):
-                self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d, self.options.solve_exner)
+                self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d, self.options.sediment_model_options.solve_exner)
 
         initial_simulation_time = self.simulation_time
         internal_iteration = 0

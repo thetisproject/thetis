@@ -497,21 +497,8 @@ class CommonModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Source term for 2D continuity equation").tag(config=True)
     tracer_source_2d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
-    tracer_depth_integ_source = FiredrakeScalarExpression(
-        None, allow_none=True, help="Depth integrated source term for 2D tracer equation").tag(config=True)
-    tracer_sink_2d = FiredrakeScalarExpression(
-        None, allow_none=True, help="Sink term for 2D tracer equation to be multiplied by tracer").tag(config=True)
-    tracer_depth_integ_sink = FiredrakeScalarExpression(
-        None, allow_none=True, help="Depth integrated sink term for 2D tracer equation to be multiplied by tracer").tag(config=True)
     horizontal_diffusivity = FiredrakeCoefficient(
         None, allow_none=True, help="Horizontal diffusivity for tracers and sediment").tag(config=True)
-    porosity = FiredrakeCoefficient(
-        Constant(0.4), help="Bed porosity for exner equation").tag(config=True)
-    morphological_acceleration_factor = FiredrakeConstantTraitlet(
-        Constant(1), help="""Rate at which timestep in exner equation is accelerated compared to timestep for model
-
-        timestep in exner = morphological_acceleration_factor * timestep
-        """).tag(config=True)
     use_automatic_sipg_parameter = Bool(False, help=r"""
         Toggle automatic computation of the SIPG penalty parameter used in viscosity and
         diffusivity terms.
@@ -531,6 +518,42 @@ class CommonModelOptions(FrozenConfigurable):
     sipg_parameter_tracer = FiredrakeScalarExpression(
         Constant(10.0), help="Penalty parameter used for horizontal diffusivity terms.").tag(config=True)
 
+
+class SedimentModelOptions(FrozenConfigurable):
+    solve_sediment = Bool(True, help='Solve sediment transport - note solve_tracer must also be true').tag(config=True)
+    use_sediment_conservative_form = Bool(False, help='Solve 2D sediment transport in the conservative form').tag(config=True)
+    solve_exner = Bool(True, help='Solve exner equation for bed morphology').tag(config=True)
+    solve_suspended = Bool(True, help='Solve suspended sediment transport').tag(config=True)
+    solve_bedload = Bool(True, help='Solve bedload transport').tag(config=True)
+    use_angle_correction = Bool(True, help='Switch to use slope effect angle correction').tag(config=True)
+    use_slope_mag_correction = Bool(True, help='Switch to use slope effect magnitude correction').tag(config=True)
+    use_secondary_current = Bool(False, help='Switch to use secondary current for helical flow effect').tag(config=True)
+    sediment_ero = FiredrakeScalarExpression(
+        None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
+    sediment_depth_integ_ero = FiredrakeScalarExpression(
+        None, allow_none=True, help="Depth integrated source term for 2D tracer equation").tag(config=True)
+    sediment_depo = FiredrakeScalarExpression(
+        None, allow_none=True, help="Deposition term for 2D sediment equation to be multiplied by sediment").tag(config=True)
+    sediment_depth_integ_depo = FiredrakeScalarExpression(
+        None, allow_none=True, help="Depth integrated deposition term for 2D sediment equation to be multiplied by sediment").tag(config=True)
+    average_sediment_size = NonNegativeFloat(allow_none = False, help='Average sediment size').tag(config=True)
+    ks = NonNegativeFloat(allow_none = False, help='Bottom bed reference height').tag(config=True)
+    use_advective_velocity = Bool(True, help='Switch on sediment_advective_velocity_factor').tag(config=True)
+    sediment_advective_velocity_factor = FiredrakeScalarExpression(
+        Constant(1.0), help="""
+        Custom factor multiplied to the velocity variable in sediment equation.
+
+        Used to account for mismatch between depth-averaged product of velocity with sediment
+        and product of depth-averaged velocity with depth-averaged sediment
+        """).tag(config=True)
+    porosity = FiredrakeCoefficient(
+        Constant(0.4), help="Bed porosity for exner equation").tag(config=True)
+    morphological_acceleration_factor = FiredrakeConstantTraitlet(
+        Constant(1), help="""Rate at which timestep in exner equation is accelerated compared to timestep for model
+
+        timestep in exner = morphological_acceleration_factor * timestep
+        """).tag(config=True)
+    equilibrium_sediment_bd_ids = Set(set(), help='Set listing boundary ids where equilibrium sediment rate should be set')
 
 # NOTE all parameters are now case sensitive
 # TODO rename time stepper types? Allow capitals and spaces?
@@ -552,9 +575,8 @@ class CommonModelOptions(FrozenConfigurable):
 class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
     name = 'Depth-averaged 2D model'
+    sediment_model_options = SedimentModelOptions()
     solve_tracer = Bool(False, help='Solve tracer transport').tag(config=True)
-    solve_sediment = Bool(False, help='Solve sediment transport - note solve_tracer must also be true').tag(config=True)
-    solve_exner = Bool(False, help='Solve exner equation for bed morphology').tag(config=True)
     use_tracer_conservative_form = Bool(False, help='Solve 2D tracer transport in the conservative form').tag(config=True)
     use_wetting_and_drying = Bool(
         False, help=r"""bool: Turn on wetting and drying
@@ -577,14 +599,6 @@ class ModelOptions2d(CommonModelOptions):
 
         Prints deviation from the initial mass to stdout.
         """).tag(config=True)
-    tracer_advective_velocity_factor = FiredrakeScalarExpression(
-        Constant(1.0), help="""
-        Custom factor multiplied to the velocity variable in tracer advection equation.
-
-        Used to account for mismatch between depth-averaged product of velocity with tracer
-        and product of depth-averaged velocity with depth-averaged tracer
-        """).tag(config=True)
-    equilibrium_sediment_bd_ids = Set(set(), help='Set listing boundary ids where equilibrium sediment rate should be set')
     check_tracer_overshoot = Bool(
         False, help="""
         Compute tracer overshoots at every export
