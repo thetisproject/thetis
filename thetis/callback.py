@@ -350,15 +350,88 @@ class TracerMassConservation2DCallback(ScalarConservationCallback):
         """
         self.name = tracer_name + ' mass'  # override name for given tracer
 
-        if solver_obj.options.use_tracer_conservative_form:
-            def mass():
-                # tracer is depth-integrated already, so just integrate over domain
-                return assemble(solver_obj.fields[tracer_name]*dx)
-        else:
-            def mass():
-                H = solver_obj.depth.get_total_depth(solver_obj.fields.elev_2d)
-                return comp_tracer_mass_2d(solver_obj.fields[tracer_name], H)
+        def mass():
+            H = solver_obj.depth.get_total_depth(solver_obj.fields.elev_2d)
+            return comp_tracer_mass_2d(solver_obj.fields[tracer_name], H)
         super(TracerMassConservation2DCallback, self).__init__(mass, solver_obj, **kwargs)
+
+
+class ConservativeTracerMassConservation2DCallback(ScalarConservationCallback):
+    """
+    Checks conservation of conservative tracer mass which is depth_integrated.
+    """
+    name = 'tracer mass'
+
+    def __init__(self, tracer_name, solver_obj, **kwargs):
+        """
+        :arg tracer_name: Name of the tracer. Use canonical field names as in
+            :class:`.FieldDict`.
+        :arg solver_obj: Thetis solver object
+        :arg kwargs: any additional keyword arguments, see
+            :class:`.DiagnosticCallback`.
+        """
+        self.name = tracer_name + ' mass'  # override name for given tracer
+
+        def mass():
+            # tracer is depth-integrated already, so just integrate over domain
+            return assemble(solver_obj.fields[tracer_name]*dx)
+
+        super(ConservativeTracerMassConservation2DCallback, self).__init__(mass, solver_obj, **kwargs)
+
+
+class SedimentTotalMassConservation2DCallback(DiagnosticCallback):
+    """
+    Checks conservation of depth-averaged sediment mass for non-conservative and
+    depth-integrated sediment mass for conservative, accounting for sediment leaving
+    through boundary and source terms.
+
+    Depth-averaged sediment mass is defined as the integral of 2D sediment
+    multiplied by total depth, subtracting sediment leaving through boundary and through source term.
+
+    Depth-integrated sediment mass is defined as the integral of 2D sediment
+    subtracting sediment leaving through boundary and through source term.
+    """
+    name = 'sediment mass'
+    variable_names = ['integral', 'relative_difference']
+
+    def __init__(self, sediment_name, solver_obj, **kwargs):
+        """
+        :arg sediment_name: Name of the sediment. Use canonical field names as in
+            :class:`.FieldDict`.
+        :arg solver_obj: Thetis solver object
+        :arg kwargs: any additional keyword arguments, see
+            :class:`.DiagnosticCallback`.
+        """
+
+        self.name = sediment_name + ' total mass'  # override name for given sediment
+
+        def mass():
+            if not hasattr(self, 'initial_value'):
+                self.initial_value = None
+
+            if solver_obj.options.sediment_model_options.use_sediment_conservative_form:
+                return comp_sediment_total_mass_2d_cons(self, sediment_name)
+            else:
+                return comp_sediment_total_mass_2d(self, sediment_name)
+
+        super(SedimentTotalMassConservation2DCallback, self).__init__(solver_obj, **kwargs)
+        self.scalar_callback = mass
+
+        # printing all detector output to log is probably not a useful default:
+        kwargs.setdefault('append_to_log', False)
+
+    def __call__(self):
+        value = self.scalar_callback()
+        if self.initial_value is None:
+            self.initial_value = value
+
+        rel_diff = (value - self.update_value)/self.initial_value
+
+        return value, rel_diff
+
+    def message_str(self, *args):
+        line = '{0:s} rel. error {1:11.4e}'.format(self.name, args[1])
+        return line
 
 
 class TracerMassConservationCallback(ScalarConservationCallback):

@@ -519,10 +519,10 @@ class CommonModelOptions(FrozenConfigurable):
         Constant(10.0), help="Penalty parameter used for horizontal diffusivity terms.").tag(config=True)
 
 
-class SedimentModelOptions(FrozenConfigurable):
-    solve_sediment = Bool(True, help='Solve sediment transport - note solve_tracer must also be true').tag(config=True)
+class SedimentModelOptions(FrozenHasTraits):
+    solve_sediment = Bool(False, help='Solve sediment transport - note solve_tracer must also be true').tag(config=True)
     use_sediment_conservative_form = Bool(False, help='Solve 2D sediment transport in the conservative form').tag(config=True)
-    solve_exner = Bool(True, help='Solve exner equation for bed morphology').tag(config=True)
+    solve_exner = Bool(False, help='Solve exner equation for bed morphology').tag(config=True)
     solve_suspended = Bool(True, help='Solve suspended sediment transport').tag(config=True)
     solve_bedload = Bool(True, help='Solve bedload transport').tag(config=True)
     use_angle_correction = Bool(True, help='Switch to use slope effect angle correction').tag(config=True)
@@ -536,8 +536,8 @@ class SedimentModelOptions(FrozenConfigurable):
         None, allow_none=True, help="Deposition term for 2D sediment equation to be multiplied by sediment").tag(config=True)
     sediment_depth_integ_depo = FiredrakeScalarExpression(
         None, allow_none=True, help="Depth integrated deposition term for 2D sediment equation to be multiplied by sediment").tag(config=True)
-    average_sediment_size = NonNegativeFloat(allow_none = False, help='Average sediment size').tag(config=True)
-    ks = NonNegativeFloat(allow_none = False, help='Bottom bed reference height').tag(config=True)
+    average_sediment_size = NonNegativeFloat(allow_none=False, help='Average sediment size').tag(config=True)
+    ks = NonNegativeFloat(allow_none=False, help='Bottom bed reference height').tag(config=True)
     use_advective_velocity = Bool(True, help='Switch on sediment_advective_velocity_factor').tag(config=True)
     sediment_advective_velocity_factor = FiredrakeScalarExpression(
         Constant(1.0), help="""
@@ -554,6 +554,19 @@ class SedimentModelOptions(FrozenConfigurable):
         timestep in exner = morphological_acceleration_factor * timestep
         """).tag(config=True)
     equilibrium_sediment_bd_ids = Set(set(), help='Set listing boundary ids where equilibrium sediment rate should be set')
+    check_sediment_conservation = Bool(
+        False, help="""
+        Compute total sediment mass at every export
+
+        Prints deviation from the initial mass to stdout.
+        """).tag(config=True)
+    check_sediment_overshoot = Bool(
+        False, help="""
+        Compute sediment overshoots at every export
+
+        Prints overshoot values that exceed the initial range to stdout.
+        """).tag(config=True)
+
 
 # NOTE all parameters are now case sensitive
 # TODO rename time stepper types? Allow capitals and spaces?
@@ -575,7 +588,7 @@ class SedimentModelOptions(FrozenConfigurable):
 class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
     name = 'Depth-averaged 2D model'
-    sediment_model_options = SedimentModelOptions()
+    sediment_model_options = Instance(SedimentModelOptions, args=()).tag(config=True)
     solve_tracer = Bool(False, help='Solve tracer transport').tag(config=True)
     use_tracer_conservative_form = Bool(False, help='Solve 2D tracer transport in the conservative form').tag(config=True)
     use_wetting_and_drying = Bool(
@@ -592,7 +605,6 @@ class ModelOptions2d(CommonModelOptions):
         """).tag(config=True)
     tidal_turbine_farms = Dict(trait=TidalTurbineFarmOptions(),
                                default_value={}, help='Dictionary mapping subdomain ids to the options of the corresponding farm')
-
     check_tracer_conservation = Bool(
         False, help="""
         Compute total tracer mass at every export

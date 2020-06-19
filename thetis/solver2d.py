@@ -238,10 +238,10 @@ class FlowSolver2d(FrozenClass):
                     print_output("Using default SIPG parameter for shallow water equations")
 
             # Penalty parameter for tracers
-            if self.options.solve_tracer or self.options.solve_sediment:
+            if self.options.solve_tracer or self.options.sediment_model_options.solve_sediment:
                 if self.options.solve_tracer:
                     print_str = 'tracer'
-                elif self.options.solve_sediment:
+                elif self.options.sediment_model_options.solve_sediment:
                     print_str = 'sediment'
                 nu = self.options.horizontal_diffusivity
                 if nu is not None:
@@ -353,10 +353,9 @@ class FlowSolver2d(FrozenClass):
                               beta=1.3, surbeta=1/1.5, alpha_secc=0.75, vis_morph=1e-6, sed_dens=2650):
 
         self.sediment_model = SedimentModel(self.options, self.mesh2d, erosion, deposition, uv_init, elev_init,
-                                     bathymetry_2d=self.fields.bathymetry_2d, beta_fn = beta,
-                                     surbeta2_fn = surbeta, alpha_secc_fn = alpha_secc,
-                                     viscosity_morph = vis_morph, rhos = sed_dens)
-
+                                            bathymetry_2d=self.fields.bathymetry_2d, beta_fn=beta,
+                                            surbeta2_fn=surbeta, alpha_secc_fn=alpha_secc,
+                                            viscosity_morph=vis_morph, rhos=sed_dens)
 
     def get_swe_timestepper(self, integrator):
         """
@@ -758,14 +757,38 @@ class FlowSolver2d(FrozenClass):
             self.add_callback(c)
 
         if self.options.check_tracer_conservation:
-            c = callback.TracerMassConservation2DCallback('tracer_2d',
-                                                          self,
-                                                          export_to_hdf5=dump_hdf5,
-                                                          append_to_log=True)
+            if self.options.use_tracer_conservative_form:
+                c = callback.ConservativeTracerMassConservation2DCallback('tracer_2d',
+                                                                          self,
+                                                                          export_to_hdf5=dump_hdf5,
+                                                                          append_to_log=True)
+            else:
+                c = callback.TracerMassConservation2DCallback('tracer_2d',
+                                                              self,
+                                                              export_to_hdf5=dump_hdf5,
+                                                              append_to_log=True)
+            self.add_callback(c, eval_interval='export')
+        if self.options.sediment_model_options.check_sediment_conservation:
+            if self.options.sediment_model_options.use_sediment_conservative_form:
+                c = callback.ConservativeTracerMassConservation2DCallback('sediment_2d',
+                                                                          self,
+                                                                          export_to_hdf5=dump_hdf5,
+                                                                          append_to_log=True)
+            else:
+                c = callback.TracerMassConservation2DCallback('sediment_2d',
+                                                              self,
+                                                              export_to_hdf5=dump_hdf5,
+                                                              append_to_log=True)
             self.add_callback(c, eval_interval='export')
 
         if self.options.check_tracer_overshoot:
             c = callback.TracerOvershootCallBack('tracer_2d',
+                                                 self,
+                                                 export_to_hdf5=dump_hdf5,
+                                                 append_to_log=True)
+            self.add_callback(c, eval_interval='export')
+        if self.options.sediment_model_options.check_sediment_overshoot:
+            c = callback.TracerOvershootCallBack('sediment_2d',
                                                  self,
                                                  export_to_hdf5=dump_hdf5,
                                                  append_to_log=True)
