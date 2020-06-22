@@ -164,6 +164,7 @@ class ConservativeSourceTerm(ConservativeTracerTerm):
         f = 0
         source = fields_old.get('source')
         depth_int_source = fields_old.get('depth_integrated_source')
+
         if depth_int_source is not None:
             f += -inner(depth_int_source, self.test) * self.dx
         elif source is not None:
@@ -193,6 +194,7 @@ class ConservativeSinkTerm(ConservativeTracerTerm):
         f = 0
         sink = fields_old.get('sink')
         depth_int_sink = fields_old.get('depth_integrated_sink')
+
         if depth_int_sink is not None:
             f += -inner(-depth_int_sink*solution, self.test) * self.dx
         elif sink is not None:
