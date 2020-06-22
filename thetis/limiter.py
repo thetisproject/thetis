@@ -106,77 +106,77 @@ class VertexBasedP1DGLimiter(VertexBasedLimiter):
         # Call general-purpose bound computation.
         super(VertexBasedP1DGLimiter, self).compute_bounds(field)
 
-        # Add the average of lateral boundary facets to min/max fields
-        # NOTE this just computes the arithmetic mean of nodal values on the facet,
-        # which in general is not equivalent to the mean of the field over the bnd facet.
-        # This is OK for P1DG triangles, but not exact for the extruded case (quad facets)
-        from finat.finiteelementbase import entity_support_dofs
-
-        if self.is_2d:
-            entity_dim = 1  # get 1D facets
-        else:
-            entity_dim = (1, 1)  # get vertical facets
-        boundary_dofs = entity_support_dofs(self.P1DG.finat_element, entity_dim)
-        local_facet_nodes = np.array([boundary_dofs[e] for e in sorted(boundary_dofs.keys())])
-        n_bnd_nodes = local_facet_nodes.shape[1]
-        local_facet_idx = op2.Global(local_facet_nodes.shape, local_facet_nodes, dtype=np.int32, name='local_facet_idx')
-        code = """
-            void my_kernel(double *qmax, double *qmin, double *field, unsigned int *facet, unsigned int *local_facet_idx)
-            {
-                double face_mean = 0.0;
-                for (int i = 0; i < %(nnodes)d; i++) {
-                    unsigned int idx = local_facet_idx[facet[0]*%(nnodes)d + i];
-                    face_mean += field[idx];
-                }
-                face_mean /= %(nnodes)d;
-                for (int i = 0; i < %(nnodes)d; i++) {
-                    unsigned int idx = local_facet_idx[facet[0]*%(nnodes)d + i];
-                    qmax[idx] = fmax(qmax[idx], face_mean);
-                    qmin[idx] = fmin(qmin[idx], face_mean);
-                }
-            }"""
-        bnd_kernel = op2.Kernel(code % {'nnodes': n_bnd_nodes}, 'my_kernel')
-        op2.par_loop(bnd_kernel,
-                     self.P1DG.mesh().exterior_facets.set,
-                     self.max_field.dat(op2.MAX, self.max_field.exterior_facet_node_map()),
-                     self.min_field.dat(op2.MIN, self.min_field.exterior_facet_node_map()),
-                     field.dat(op2.READ, field.exterior_facet_node_map()),
-                     self.P1DG.mesh().exterior_facets.local_facet_dat(op2.READ),
-                     local_facet_idx(op2.READ))
-        if not self.is_2d:
-            # Add nodal values from surface/bottom boundaries
-            # NOTE calling firedrake par_loop with measure=ds_t raises an error
-            bottom_nodes = get_facet_mask(self.P1CG, 'geometric', 'bottom')
-            top_nodes = get_facet_mask(self.P1CG, 'geometric', 'top')
-            bottom_idx = op2.Global(len(bottom_nodes), bottom_nodes, dtype=np.int32, name='node_idx')
-            top_idx = op2.Global(len(top_nodes), top_nodes, dtype=np.int32, name='node_idx')
-            code = """
-                void my_kernel(double *qmax, double *qmin, double *field, int *idx) {
-                    double face_mean = 0;
-                    for (int i=0; i<%(nnodes)d; i++) {
-                        face_mean += field[idx[i]];
-                    }
-                    face_mean /= %(nnodes)d;
-                    for (int i=0; i<%(nnodes)d; i++) {
-                        qmax[idx[i]] = fmax(qmax[idx[i]], face_mean);
-                        qmin[idx[i]] = fmin(qmin[idx[i]], face_mean);
-                    }
-                }"""
-            kernel = op2.Kernel(code % {'nnodes': len(bottom_nodes)}, 'my_kernel')
-
-            op2.par_loop(kernel, self.mesh.cell_set,
-                         self.max_field.dat(op2.MAX, self.max_field.function_space().cell_node_map()),
-                         self.min_field.dat(op2.MIN, self.min_field.function_space().cell_node_map()),
-                         field.dat(op2.READ, field.function_space().cell_node_map()),
-                         bottom_idx(op2.READ),
-                         iterate=op2.ON_BOTTOM)
-
-            op2.par_loop(kernel, self.mesh.cell_set,
-                         self.max_field.dat(op2.MAX, self.max_field.function_space().cell_node_map()),
-                         self.min_field.dat(op2.MIN, self.min_field.function_space().cell_node_map()),
-                         field.dat(op2.READ, field.function_space().cell_node_map()),
-                         top_idx(op2.READ),
-                         iterate=op2.ON_TOP)
+        # # Add the average of lateral boundary facets to min/max fields
+        # # NOTE this just computes the arithmetic mean of nodal values on the facet,
+        # # which in general is not equivalent to the mean of the field over the bnd facet.
+        # # This is OK for P1DG triangles, but not exact for the extruded case (quad facets)
+        # from finat.finiteelementbase import entity_support_dofs
+        #
+        # if self.is_2d:
+        #     entity_dim = 1  # get 1D facets
+        # else:
+        #     entity_dim = (1, 1)  # get vertical facets
+        # boundary_dofs = entity_support_dofs(self.P1DG.finat_element, entity_dim)
+        # local_facet_nodes = np.array([boundary_dofs[e] for e in sorted(boundary_dofs.keys())])
+        # n_bnd_nodes = local_facet_nodes.shape[1]
+        # local_facet_idx = op2.Global(local_facet_nodes.shape, local_facet_nodes, dtype=np.int32, name='local_facet_idx')
+        # code = """
+        #     void my_kernel(double *qmax, double *qmin, double *field, unsigned int *facet, unsigned int *local_facet_idx)
+        #     {
+        #         double face_mean = 0.0;
+        #         for (int i = 0; i < %(nnodes)d; i++) {
+        #             unsigned int idx = local_facet_idx[facet[0]*%(nnodes)d + i];
+        #             face_mean += field[idx];
+        #         }
+        #         face_mean /= %(nnodes)d;
+        #         for (int i = 0; i < %(nnodes)d; i++) {
+        #             unsigned int idx = local_facet_idx[facet[0]*%(nnodes)d + i];
+        #             qmax[idx] = fmax(qmax[idx], face_mean);
+        #             qmin[idx] = fmin(qmin[idx], face_mean);
+        #         }
+        #     }"""
+        # bnd_kernel = op2.Kernel(code % {'nnodes': n_bnd_nodes}, 'my_kernel')
+        # op2.par_loop(bnd_kernel,
+        #              self.P1DG.mesh().exterior_facets.set,
+        #              self.max_field.dat(op2.MAX, self.max_field.exterior_facet_node_map()),
+        #              self.min_field.dat(op2.MIN, self.min_field.exterior_facet_node_map()),
+        #              field.dat(op2.READ, field.exterior_facet_node_map()),
+        #              self.P1DG.mesh().exterior_facets.local_facet_dat(op2.READ),
+        #              local_facet_idx(op2.READ))
+        # if not self.is_2d:
+        #     # Add nodal values from surface/bottom boundaries
+        #     # NOTE calling firedrake par_loop with measure=ds_t raises an error
+        #     bottom_nodes = get_facet_mask(self.P1CG, 'geometric', 'bottom')
+        #     top_nodes = get_facet_mask(self.P1CG, 'geometric', 'top')
+        #     bottom_idx = op2.Global(len(bottom_nodes), bottom_nodes, dtype=np.int32, name='node_idx')
+        #     top_idx = op2.Global(len(top_nodes), top_nodes, dtype=np.int32, name='node_idx')
+        #     code = """
+        #         void my_kernel(double *qmax, double *qmin, double *field, int *idx) {
+        #             double face_mean = 0;
+        #             for (int i=0; i<%(nnodes)d; i++) {
+        #                 face_mean += field[idx[i]];
+        #             }
+        #             face_mean /= %(nnodes)d;
+        #             for (int i=0; i<%(nnodes)d; i++) {
+        #                 qmax[idx[i]] = fmax(qmax[idx[i]], face_mean);
+        #                 qmin[idx[i]] = fmin(qmin[idx[i]], face_mean);
+        #             }
+        #         }"""
+        #     kernel = op2.Kernel(code % {'nnodes': len(bottom_nodes)}, 'my_kernel')
+        #
+        #     op2.par_loop(kernel, self.mesh.cell_set,
+        #                  self.max_field.dat(op2.MAX, self.max_field.function_space().cell_node_map()),
+        #                  self.min_field.dat(op2.MIN, self.min_field.function_space().cell_node_map()),
+        #                  field.dat(op2.READ, field.function_space().cell_node_map()),
+        #                  bottom_idx(op2.READ),
+        #                  iterate=op2.ON_BOTTOM)
+        #
+        #     op2.par_loop(kernel, self.mesh.cell_set,
+        #                  self.max_field.dat(op2.MAX, self.max_field.function_space().cell_node_map()),
+        #                  self.min_field.dat(op2.MIN, self.min_field.function_space().cell_node_map()),
+        #                  field.dat(op2.READ, field.function_space().cell_node_map()),
+        #                  top_idx(op2.READ),
+        #                  iterate=op2.ON_TOP)
 
     def apply(self, field):
         """
