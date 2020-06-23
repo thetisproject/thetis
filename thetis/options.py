@@ -461,6 +461,10 @@ class TidalTurbineOptions(FrozenHasTraits):
     name = 'Tidal turbine options'
     diameter = PositiveFloat(
         18., help='Turbine diameter').tag(config=True)
+    C_support = NonNegativeFloat(
+        0., help='Thrust coefficient for support structure').tag(config=True)
+    A_support = NonNegativeFloat(
+        0., help='Cross section of support structure').tag(config=True)
 
 
 class ConstantTidalTurbineOptions(TidalTurbineOptions):

@@ -14,6 +14,7 @@ import weakref
 import time as time_mod
 from mpi4py import MPI
 from . import exporter
+from .turbines import TidalTurbineFarm, DiscreteTidalTurbineFarm
 from .field_defs import field_metadata
 from .options import ModelOptions2d
 from . import callback
@@ -461,13 +462,13 @@ class FlowSolver2d(FrozenClass):
         if len(self.options.tidal_turbine_farms) + len(self.options.discrete_tidal_turbine_farms) > 0:
             self.tidal_farms = []
             for subdomain, farm_options in self.options.tidal_turbine_farms.items():
-                self.tidal_farms.append(TidalTurbineFarm(farm_options.turbine_density),
-                                        subdomain, farm_options)
+                self.tidal_farms.append(TidalTurbineFarm(farm_options.turbine_density,
+                                                         subdomain, farm_options))
             if self.options.discrete_tidal_turbine_farms:
                 self.fields.turbine_density = Function(self.function_spaces.P1_2d, name='turbine_density_2d')
             for subdomain, farm_options in self.options.discrete_tidal_turbine_farms.items():
-                self.tidal_farms.append(DiscreteTidalTurbineFarm(self.fields.turbine_density),
-                                        subdomain, farm_options, velocity_correction=True)
+                self.tidal_farms.append(DiscreteTidalTurbineFarm(self.fields.turbine_density,
+                                                                 subdomain, farm_options))
         else:
             self.tidal_farms = None
 
