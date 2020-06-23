@@ -9,14 +9,14 @@ import numpy
 
 
 class TidalTurbine:
-    def __init__(self, diameter, C_support=None, A_support=None, correct_velocity=False):
-        self.diameter = diameter
-        self.C_support = C_support
-        self.A_support = A_support
-        self.correct_velocity = correct_velocity
+    def __init__(self, options, upwind_correction=False):
+        self.diameter = options.diameter
+        self.C_support = options.C_support
+        self.A_support = options.A_support
+        self.upwind_correction = upwind_correction
 
-    def velocity_correction(thrust_area, depth):
-        if self.correct_velocity:
+    def velocity_correction(self, thrust_area, depth):
+        if self.upwind_correction:
             return 0.5*(1+sqrt(1-thrust_area/(self.diameter*depth)))
         else:
             return 1
@@ -27,28 +27,28 @@ class TidalTurbine:
         fric = C_T * A_T
         if self.C_support:
             fric += self.C_support * self.A_support
-        alpha = self.velocity_correction(thrust_area, depth)
-        return thrust_area/2./alpha**2
+        alpha = self.velocity_correction(fric, depth)
+        return fric/2./alpha**2
 
 
 class ConstantThrustTurbine(TidalTurbine):
-    def __init__(self, diameter, C_T, C_T_support=None, A_support=None):
-        super().__init__(diameter, C_T_support=C_T_support, A_support=A_support)
-        self.C_T = C_T
+    def __init__(self, options, upwind_correction=False):
+        super().__init__(options, upwind_correction=upwind_correction)
+        self.C_T = options.thrust_coefficient
 
-    def thrust_coefficient(uv):
+    def thrust_coefficient(self, uv):
         return self.C_T
 
 
 class RatedThrustTurbine(TidalTurbine):
-    def __init__(self, diameter, C_T, rated_speed, cut_in_speed, cut_out_speed, **kwargs):
-        super().__init__(diameter, **kwargs)
-        self.C_T = C_T
-        self.rated_speed = rated_speed
-        self.cut_in_speed = cut_in_speed
-        self.cut_out_speed = cut_out_speed
+    def __init__(self, options, upwind_correction=False):
+        super().__init__(options, upwind_correction=upwind_correction)
+        self.C_T = options.thrust_coefficient
+        self.rated_speed = options.rated_speed
+        self.cut_in_speed = options.cut_in_speed
+        self.cut_out_speed = options.cut_out_speed
 
-    def thrust_coefficient(uv):
+    def thrust_coefficient(self, uv):
         umag = dot(uv, uv)**0.5
         # C_P for |u|>u_rated:
         y = self.C_T * (1+sqrt(1-self.C_T))/2 * self.cut_out_speed**3 / umag**3
@@ -85,40 +85,32 @@ def linearly_interpolate_table(x_list, y_list, y_final, x):
 
 
 class TabulatedThrustTurbine(TidalTurbine):
-    def __init__(self, diameter, C_T, speeds, **kwargs):
-        super().__init__(diameter, **kwargs)
-        if not len(C_T) == len(speeds):
+    def __init__(self, options, upwind_correction=False):
+        super().__init__(options, upwind_correction=upwind_correction)
+        self.C_T = options.thrust_coefficients
+        self.speeds = options.thrust_speeds
+        if not len(self.C_T) == len(self.speeds):
             raise ValueError("In tabulated thrust curve the number of thrust coefficients and speed values should be the same.")
-        self.C_T = C_T
-        self.speeds = speeds
 
-    def thrust_coefficient(uv):
+    def thrust_coefficient(self, uv):
         umag = dot(uv, uv)**0.5
         return conditional(umag < self.speeds[0], 0, linearly_interpolate_table(self.speeds, self.C_T, 0, umag))
 
 
-def _create_turbine_from_options(velocity_correction, options):
-    diameter = options.diameter
-    turbine_kwargs = dict((key, options[key]) for key in ['C_support', 'A_spport'])
-    if options.turbine_type == 'constant':
-        C_T = options.thrust_coefficient
-        turbine = ConstantThrustTurbine(diameter, C_T, **turbine_kwargs)
-    elif options.turbine_type == 'rated':
-        turbine_args = (options[key] for key in ['C_T', 'rated_speed', 'cut_in_speed', 'cut_out_speed'])
-        turbine = RatedThrustTurbine(diameter, *turbine_args, **turbine_kwargs)
-    elif options == 'table':
-        turbine = TabulatedThrustTurbine(diameter, options.thrust_coefficients, options.thrust_speeds, **turbine_kwargs)
-    return turbine
-
-
 class TidalTurbineFarm:
-    def __init__(self, turbine_density, subdomain, options, velocity_correction=False):
+    def __init__(self, turbine_density, subdomain, options):
         """
         :arg turbine_density: turbine distribution density field
         :arg subdomain: subdomain where this farm is applied
         :arg options: a :class:`TidalTurbineFarmOptions` options dictionary
         """
-        self.turbine = _create_turbine_from_options(velocity_correction, options.turbine_options)
+        upwind_correction = getattr(options, 'upwind_correction', False)
+        if options.turbine_type == 'constant':
+            self.turbine = ConstantThrustTurbine(options.turbine_options, upwind_correction=upwind_correction)
+        elif options.turbine_type == 'rated':
+            self.turbine = RatedThrustTurbine(options.turbine_options, upwind_correction=upwind_correction)
+        elif options.turbine_type == 'table':
+            self.turbine = TabulatedThrustTurbine(options.turbine_options, upwind_correction=upwind_correction)
         self.subdomain = subdomain
         self.dx = dx(subdomain)
         self.turbine_density = turbine_density
@@ -126,8 +118,8 @@ class TidalTurbineFarm:
     def number_of_turbines(self):
         return assemble(self.turbine_density * self.dx)
 
-    def friction_coefficient(self, uv):
-        return self.turbine.friction_coefficient(uv)
+    def friction_coefficient(self, uv, depth):
+        return self.turbine.friction_coefficient(uv, depth)
 
 
 class DiscreteTidalTurbineFarm(TidalTurbineFarm):
@@ -135,7 +127,7 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
     Class that can be used for the addition of turbines in the turbine density field
     """
 
-    def __init__(self, turbine_density, subdomain, options, velocity_correction=False):
+    def __init__(self, turbine_density, subdomain, options):
         """
         :arg turbine_density: turbine distribution density field
         :arg subdomain: subdomain where this farm is applied
@@ -143,7 +135,7 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
         """
 
         # Preliminaries
-        super().__init__(turbine, subdomain, options, velocity_correction=velocity_correction)
+        super().__init__(turbine, subdomain, options)
 
         # Adding turbine distribution in the domain
         self.add_turbines(options.turbine_coordinates)

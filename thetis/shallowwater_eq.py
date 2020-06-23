@@ -724,8 +724,7 @@ class TurbineDragTerm(ShallowWaterMomentumTerm):
     """
     def __init__(self, u_test, u_space, eta_space,
                  depth, options=None, tidal_farms=None):
-        super().__init__(self, u_test, u_space, eta_space,
-                         depth, options=options)
+        super().__init__(u_test, u_space, eta_space, depth, options=options)
         self.tidal_farms = tidal_farms
 
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
@@ -733,7 +732,7 @@ class TurbineDragTerm(ShallowWaterMomentumTerm):
         f = 0
         for farm in self.tidal_farms:
             density = farm.turbine_density
-            c_t = farm.friction_coefficient(uv_old)
+            c_t = farm.friction_coefficient(uv_old, total_h)
             subdomain = farm.subdomain
             unorm = sqrt(dot(uv_old, uv_old))
             f += c_t * density * unorm * inner(self.u_test, uv) / total_h * self.dx(subdomain)
