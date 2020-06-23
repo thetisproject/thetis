@@ -65,7 +65,7 @@ def run(**model_options):
     options.use_grad_depth_viscosity_term = False
     options.no_exports = True
     options.update(model_options)
-    solver_obj.create_equations()
+    solver_obj.create_function_spaces()
 
     # apply boundary conditions
     solver_obj.bnd_functions['shallow_water'] = {
