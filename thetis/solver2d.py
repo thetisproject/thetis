@@ -382,9 +382,9 @@ class FlowSolver2d(FrozenClass):
                 self.tidal_farms.append(TidalTurbineFarm(farm_options.turbine_density,
                                                          subdomain, farm_options))
             if self.options.discrete_tidal_turbine_farms:
-                self.fields.turbine_density = Function(self.function_spaces.P1_2d, name='turbine_density_2d')
+                self.fields.turbine_density_2d = Function(self.function_spaces.P1_2d, name='turbine_density_2d')
             for subdomain, farm_options in self.options.discrete_tidal_turbine_farms.items():
-                self.tidal_farms.append(DiscreteTidalTurbineFarm(self.fields.turbine_density,
+                self.tidal_farms.append(DiscreteTidalTurbineFarm(self.fields.turbine_density_2d,
                                                                  subdomain, farm_options))
         else:
             self.tidal_farms = None

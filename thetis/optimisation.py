@@ -56,14 +56,14 @@ class UserExportManager(ExportManager):
         for field_name, function in zip(field_name_list, functions_to_export):
             field_dict[field_name] = function
             if shortnames is None and field_name in field_defs.field_metadata:
-                field_metadata[field_name] = {'shortname': field_defs.field_metadata[field_name]}
+                field_metadata[field_name] = {'shortname': field_defs.field_metadata[field_name]['shortname']}
             else:
                 field_metadata[field_name] = {'shortname': field_name}
 
         if filenames is None:
             for field_name in field_name_list:
                 if field_name in field_defs.field_metadata:
-                    field_metadata[field_name]['filename'] = field_defs.field_metadata['filename']
+                    field_metadata[field_name]['filename'] = field_defs.field_metadata[field_name]['filename']
                 else:
                     field_metadata[field_name]['filename'] = filename_prefix + field_name
         else:

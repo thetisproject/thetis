@@ -14,20 +14,34 @@ class TidalTurbine:
         self.A_support = options.A_support
         self.upwind_correction = upwind_correction
 
-    def velocity_correction(self, thrust_area, depth):
-        if self.upwind_correction:
-            return 0.5*(1+sqrt(1-thrust_area/(self.diameter*depth)))
-        else:
-            return 1
-
-    def friction_coefficient(self, uv, depth):
+    def _thrust_area(self, uv):
         C_T = self.thrust_coefficient(uv)
         A_T = pi * self.diameter**2 / 4
         fric = C_T * A_T
         if self.C_support:
             fric += self.C_support * self.A_support
-        alpha = self.velocity_correction(fric, depth)
-        return fric/2./alpha**2
+        return fric
+
+    def velocity_correction(self, uv, depth):
+        fric = self._thrust_area(uv)
+        if self.upwind_correction:
+            return 0.5*(1+sqrt(1-fric/(self.diameter*depth)))
+        else:
+            return 1
+
+    def friction_coefficient(self, uv, depth):
+        thrust_area = self._thrust_area(uv)
+        alpha = self.velocity_correction(uv, depth)
+        return thrust_area/2./alpha**2
+
+    def power(self, uv, depth):
+        # ratio of discrete to upstream velocity (NOTE: should include support drag!)
+        alpha = self.velocity_correction(uv, depth)
+        C_T = self.thrust_coefficient(uv)
+        A_T = pi * self.diameter**2 / 4
+        uv3 = dot(uv, uv)**1.5 / alpha**3  # upwind cubed velocity
+        # this assumes the velocity through the turbine does not change due to the support (is this correct?)
+        return 0.25*C_T*A_T*(1+sqrt(1-C_T))*uv3
 
 
 class ConstantThrustTurbine(TidalTurbine):
@@ -117,6 +131,9 @@ class TidalTurbineFarm:
     def number_of_turbines(self):
         return assemble(self.turbine_density * self.dx)
 
+    def power_output(self, uv, depth):
+        return assemble(self.turbine.power(uv, depth) * self.turbine_density * self.dx)
+
     def friction_coefficient(self, uv, depth):
         return self.turbine.friction_coefficient(uv, depth)
 
@@ -134,7 +151,7 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
         """
 
         # Preliminaries
-        super().__init__(turbine, subdomain, options)
+        super().__init__(turbine_density, subdomain, options)
 
         # Adding turbine distribution in the domain
         self.add_turbines(options.turbine_coordinates)
@@ -149,132 +166,25 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
         """
         x = SpatialCoordinate(self.turbine_density.ufl_domain())
         V = self.turbine_density.function_space()
+
         radius = self.turbine.diameter * 0.5
-        for coord in self.coordinates:
-            dx = (x-coord)/radius
-            psi_x = conditional(lt(abs(dx[0]), 1), exp(1-1/(1-dx[0]**2)), 0)
-            psi_x = conditional(lt(abs(dx[1]), 1), exp(1-1/(1-dx[1]**2)), 0)
+        for coord in coordinates:
+            dx0 = (x[0] - coord[0])/radius
+            dx1 = (x[1] - coord[1])/radius
+            psi_x = conditional(lt(abs(dx0), 1), exp(1-1/(1-dx0**2)), 0)
+            psi_y = conditional(lt(abs(dx1), 1), exp(1-1/(1-dx1**2)), 0)
             bump = psi_x * psi_y
             discrete_integral = assemble(interpolate(bump, V) * self.dx)
 
             unit_bump_integral = 1.45661  # integral of bump function for radius=1 (copied from OpenTidalFarm who used Wolfram)
             minimum_integral_frac = 0.9  # error if discrete integral falls below this fraction of the analytical integral
-            if projection_integral < radius**2 * unit_bump_integral * minimum_integral_frac:
+            if discrete_integral < radius**2 * unit_bump_integral * minimum_integral_frac:
                 raise ValueError("Could not place turbine due to low resolution. Either increase resolution or radius")
 
-            self.turbine_density.interpolate(self.turbine_density + bump/discrete_integral)
-
-
-class DiscreteTurbineOperation(DiagnosticCallback):
-    """
-    Callback that can be used for the following:
-    a) Updating thrust and power coefficients for the solver
-    b) Extract information about the turbine operation of a particular farm
-    """
-
-    def __init__(self, solver_obj, subdomain, farm_options,
-                 name="Turbines2d",
-                 support_structure={"C_sup": 0.6, "A_sup": None}, **kwargs):
-        """
-        :arg turbine: turbine characteristics
-        :type turbine: object : a :class:`ThrustTurbine`
-        :arg solver_obj: Thetis solver object
-        :arg coordinates: Turbine coordinates array
-        :arg turbine_density: turbine distribution density field
-        :arg **kwargs: any additional keyword arguments, see DiagnosticCallback
-        :arg support_structure: support structure characteristics. Add "A_sup" = None to use the total_depth
-        """
-
-        super(DiscreteTurbineOperation, self).__init__(solver_obj)
-        kwargs.setdefault('append_to_log', False)
-        kwargs.setdefault('export_to_hdf5', False)
-
-        # Preliminaries
-        self.solver = solver_obj
-        self.subdomain_id = subdomain
-        self.farm_options = farm_options
-        self.turbine = farm_options.turbine_options
-        self.support_structure = support_structure
-        self.uv = self.solver.timestepper.solution.split()[0]
-        self.functionspace = FunctionSpace(solver_obj.mesh2d, 'CG', 1)
-        self.uv_ambient_correction = Function(self.functionspace, name='expected_ambient')
-
-        # Initialising turbine related fields
-        self._name = name
-        self._variable_names = ["Power"]
-
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def variable_names(self):
-        return self._variable_names
-
-    def wd_bathymetry_displacement(self):
-        """
-        Returns wetting and drying bathymetry displacement as described in:
-        Karna et al.,  2011.
-        """
-        H = self.solver.fields["bathymetry_2d"]+self.solver.fields["elev_2d"]
-        disp = Function(self.functionspace). \
-            project(0.5 * (sqrt(H ** 2 + self.solver.options.wetting_and_drying_alpha ** 2) - H))
-        return disp
-
-    def compute_total_depth(self):
-        """
-        Returns effective depth by accounting for the wetting and drying algorithm
-        """
-        if hasattr(self.solver.options, 'use_wetting_and_drying') and self.solver.options.use_wetting_and_drying:
-            return Function(self.functionspace). \
-                project(self.solver.fields["bathymetry_2d"] + self.solver.fields["elev_2d"]
-                            + self.wd_bathymetry_displacement())
-        else:
-            return Function(self.functionspace). \
-                project(self.solver.fields["bathymetry_2d"] + self.solver.fields["elev_2d"])
-
-    def calculate_turbine_coefficients(self, uv_mag):
-        """
-        :return: returns the thrust and power coefficient fields and updates the turbine drag fields
-        """
-
-        #self.farm_options.thrust_coefficient.project(
-        #    conditional(le(uv_mag, self.turbine.cut_in_speed), 0,
-        #                conditional(le(uv_mag, self.turbine.cut_out_speed), self.turbine.c_t_design,
-        #                            self.turbine.c_t_design * self.turbine.cut_out_speed ** 3 / uv_mag ** 3)))
-        self.farm_options.thrust_coefficient = Constant(self.turbine.c_t_design)
-
-        self.farm_options.power_coefficient.\
-            project(1/2 * (1 + sqrt(1 - self.farm_options.thrust_coefficient)) * self.farm_options.thrust_coefficient
-                        * self.farm_options.turbine_density)
-
-        H = self.compute_total_depth()
-        if self.support_structure["A_sup"] is None:
-            self.support_structure["A_sup"] = 1.0 * H
-        if self.farm_options.upwind_correction is False:
-            self.farm_options.turbine_drag.project((self.farm_options.thrust_coefficient * self.turbine.turbine_area
-                                                       + self.support_structure["C_sup"] * self.support_structure["A_sup"])
-                                                       / 2 * self.farm_options.turbine_density)
-            self.uv_ambient_correction.project(uv_mag)
-        else:
-            self.farm_options.turbine_drag.\
-                project(self.farm_options.thrust_coefficient * self.turbine.turbine_area / 2 * self.farm_options.turbine_density
-                            * 4. / ((1. + sqrt(1 - self.turbine.turbine_area / (self.turbine.swept_diameter * H)
-                                               * self.farm_options.thrust_coefficient)) ** 2) + self.support_structure["C_sup"]
-                            * self.support_structure["A_sup"] / 2 * self.farm_options.turbine_density)
-
-            self.uv_ambient_correction.project((1+1/4 * self.turbine.turbine_area/(self.turbine.swept_diameter * H)
-                                                    * self.farm_options.thrust_coefficient) * uv_mag)
-
-    def __call__(self):
-        uv_norm = sqrt(dot(self.uv, self.uv))
-        self.calculate_turbine_coefficients(uv_norm)
-        return [assemble(0.5 * 1025 * self.farm_options.power_coefficient * self.turbine.turbine_area
-                         * (self.uv_ambient_correction) ** 3 * dx(self.subdomain_id))]
-
-    def message_str(self, *args):
-        line = 'Tidal turbine power generated {:f} MW'.format(args[0] / 1e6)
-        return line
+            # FIXME: pyadjoint workaround #22
+            dic = Constant(0)
+            dic.assign(discrete_integral)
+            self.turbine_density.interpolate(self.turbine_density + bump/dic)
 
 
 class TurbineFarm(object):
@@ -344,40 +254,44 @@ class TurbineFunctionalCallback(DiagnosticCallback):
         """
         :arg solver_obj: a :class:`.FlowSolver2d` object containing the tidal_turbine_farms
         :arg kwargs: see :class:`DiagnosticCallback`"""
-        nfarms = len(solver_obj.options.tidal_turbine_farms)
+        if not hasattr(solver_obj, 'tidal_farms'):
+            solver_obj.create_equations()
+        self.farms = solver_obj.tidal_farms
+        nfarms = len(self.farms)
         super().__init__(solver_obj, array_dim=nfarms, **kwargs)
 
-        solver_obj.create_equations()
-        # TODO: was u, eta = split(solution)
-        u, v, eta = solver_obj.fields.solution_2d
-        dt = solver_obj.options.timestep
+        self.uv, eta = split(solver_obj.fields.solution_2d)
+        self.dt = solver_obj.options.timestep
+        self.depth = solver_obj.fields.bathymetry_2d
 
-        self.farms = [TurbineFarm(farm_options, subdomain_id, u, v, dt) for subdomain_id, farm_options in solver_obj.options.tidal_turbine_farms.items()]
-        """The sum of the number of turbines in all farms"""
-        self.cost = sum(farm.cost for farm in self.farms)
+        self.cost = [farm.number_of_turbines() for farm in self.farms]
         if self.append_to_log:
-            print_output('Number of turbines = {}'.format(self.cost))
+            print_output('Number of turbines = {}'.format(sum(self.cost)))
+        self.break_even_wattage = [getattr(farm, 'break_even_wattage', 0) for farm in self.farms]
+
+        # time-integrated quantities:
+        self.integrated_power = [0] * nfarms
+        self.average_power = [0] * nfarms
+        self.average_profit = [0] * nfarms
+        self.time_period = 0.
+
+    def _evaluate_timestep(self):
+        """Perform time integration and return current power and time-averaged power and profit."""
+        self.time_period = self.time_period + self.dt
+        current_power = []
+        for i, farm in enumerate(self.farms):
+            power = farm.power_output(self.uv, self.depth)
+            current_power.append(power)
+            self.integrated_power[i] += power * self.dt
+            self.average_power[i] = self.integrated_power[i] / self.time_period
+            self.average_profit[i] = self.average_power[i] - self.break_even_wattage[i] * self.cost[i]
+        return current_power, self.average_power, self.average_profit
 
     def __call__(self):
-        return np.transpose([farm.evaluate_timestep() for farm in self.farms])
+        return self._evaluate_timestep()
 
     def message_str(self, current_power, average_power, average_profit):
         return 'Current power, average power and profit for each farm: {}, {}, {}'.format(current_power, average_power, average_profit)
-
-    @property
-    def average_profit(self):
-        """The sum of the time-averaged profit output of all farms"""
-        return sum(farm.average_profit for farm in self.farms)
-
-    @property
-    def average_power(self):
-        """The sum of the time-averaged power output of all farms"""
-        return sum(farm.average_power for farm in self.farms)
-
-    @property
-    def integrated_power(self):
-        """The sum of the time-integrated power output of all farms"""
-        return sum(farm.integrated_power for farm in self.farms)
 
 
 class TurbineOptimisationCallback(DiagnosticOptimisationCallback):
