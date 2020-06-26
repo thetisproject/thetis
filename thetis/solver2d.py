@@ -411,6 +411,9 @@ class FlowSolver2d(FrozenClass):
             'uv_2d': uv,
             'diffusivity_h': self.options.horizontal_diffusivity,
             'source': self.options.tracer_source_2d,
+            'depth_integrated_source': self.options.tracer_depth_integ_source,
+            'sink': self.options.tracer_sink_2d,
+            'depth_integrated_sink': self.options.tracer_depth_integ_sink,
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }

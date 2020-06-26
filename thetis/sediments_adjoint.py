@@ -146,16 +146,20 @@ class SedimentModel(object):
             self.settling_velocity = Constant(1.1*sqrt(self.g*self.average_size*self.R))
 
         self.uv_cg = Function(self.vector_cg).project(self.uv_init)
+        
+        # define bed gradient
+        self.old_bathymetry_2d = Function(self.V).project(self.bathymetry_2d)        
+        self.dzdx = self.old_bathymetry_2d.dx(0)
+        self.dzdy = self.old_bathymetry_2d.dx(1)        
 
         if self.wetting_and_drying:
             self.options.use_wetting_and_drying = self.wetting_and_drying
-            self.options.wetting_and_drying_alpha = Constant(self.wetting_alpha)
+            self.wetting_alpha_fn = Function(self.V).interpolate(abs(self.dzdx))
+            self.options.wetting_and_drying_alpha = self.wetting_alpha_fn
             H = self.elev_init + self.bathymetry_2d
-            self.depth = Function(self.V).project(H + (Constant(0.5) * (sqrt(H ** 2 + self.wetting_alpha ** 2) - H)))
+            self.depth = Function(self.V).project(H + (Constant(0.5) * (sqrt(H ** 2 + self.options.wetting_and_drying_alpha ** 2) - H)))
         else:
             self.depth = Function(self.V).project(self.elev_init + self.bathymetry_2d)
-
-        self.old_bathymetry_2d = Function(self.V).project(self.bathymetry_2d)
 
         self.horizontal_velocity = self.uv_cg[0]
         self.vertical_velocity = self.uv_cg[1]
@@ -173,9 +177,7 @@ class SedimentModel(object):
         self.unorm = (self.horizontal_velocity**2) + (self.vertical_velocity**2)
         self.TOB = Function(self.V).project(self.rhow*Constant(0.5)*self.qfc*self.unorm)
 
-        # define bed gradient
-        self.dzdx = self.old_bathymetry_2d.dx(0)
-        self.dzdy = self.old_bathymetry_2d.dx(1)
+
 
         options.solve_exner = True
 
@@ -316,6 +318,7 @@ class SedimentModel(object):
         self.uv_cg.project(self.uv1)
 
         if self.wetting_and_drying:
+            self.wetting_alpha_fn.interpolate(abs(self.dzdx))
             self.depth.project(self.elev1 + solver_obj.depth.wd_bathymetry_displacement(self.elev1) + self.old_bathymetry_2d)
         else:
             self.depth.project(self.elev1 + self.old_bathymetry_2d)
