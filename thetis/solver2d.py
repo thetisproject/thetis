@@ -453,7 +453,7 @@ class FlowSolver2d(FrozenClass):
                 raise ValueError('Cannot set both value boundary condition and equilibrium sedment boundary condition. Choose the most appropriate one')
             else:
                 self.bnd_functions['sediment'][i]['value'] = self.sediment_model.equiltracer
-        print(self.bnd_functions)
+
         kwargs = {
             'bnd_conditions': self.bnd_functions['sediment'],
             'solver_parameters': self.options.timestepper_options.solver_parameters_sediment,
