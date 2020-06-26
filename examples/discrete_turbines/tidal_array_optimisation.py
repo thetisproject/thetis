@@ -29,8 +29,8 @@ else:
     test_gradient = False
     optimise = True
 '''
-test_gradient = False
-optimise = True
+test_gradient = True
+optimise = False
 
 ### set up the Thetis solver obj as usual ###
 mesh2d = Mesh('headland2.msh')
@@ -99,24 +99,15 @@ def update_forcings(t):
     tidal_elev.project(tidal_amplitude*sin(omega*t + omega/pow(g*H, 0.5)*x[0]))
 
 
-
 # Initialise Discrete turbine farm characteristics
 farm_options = DiscreteTidalTurbineFarmOptions()
-farm_options.turbine_density = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_density').assign(0.0)
-farm_options.thrust_coefficient = Function(FunctionSpace(mesh2d, "CG", 1), name='thrust_coefficient').assign(0.6)
-farm_options.power_coefficient = Function(FunctionSpace(mesh2d, "CG", 1), name='power_coefficient').assign(0.0)
-farm_options.turbine_drag = Function(FunctionSpace(mesh2d, "CG", 1), name='turbine_drag_coefficient').assign(0.0)
+farm_options.turbine_type = 'constant'
+farm_options.turbine_options.thrust_coefficient = 0.6
+farm_options.turbine_options.diameter = 20
 farm_options.upwind_correction = False
 
-# Addition of turbines in the domain
-turbine = ThrustTurbine(diameter=20, swept_diameter=20,cut_in_speed=1.0)
-farm_options.turbine_options = turbine
-
 # a list contains the coordinates of all turbines
-turbine_coordinates = [[Constant(900.), Constant(300.)], [Constant(1000.), Constant(300.)]]
-turbine_farm = DiscreteTidalfarm(solver_obj, turbine, turbine_coordinates, farm_options.turbine_density, 2)
-
-File('outputs/Farm.pvd').write(turbine_farm.farm_density)
+farm_options.turbine_coordinates = [[Constant(950.), Constant(300.)], [Constant(998.), Constant(300.)]]
 
 #add turbines to SW_equations
 options.discrete_tidal_turbine_farms[2] = farm_options
@@ -125,7 +116,7 @@ options.discrete_tidal_turbine_farms[2] = farm_options
 solver_obj.assign_initial_conditions(elev=tidal_elev, uv=(as_vector((x[1]/1e5, 0.0))))
 
 # Operation of tidal turbine farm through a callback
-cb = DiscreteTurbineOperation(solver_obj, 2, farm_options, support_structure={"C_sup": 0.0, "A_sup": None})
+cb = turbines.TurbineFunctionalCallback(solver_obj)
 solver_obj.add_callback(cb, 'timestep')
 
 # start computer forward model
@@ -134,14 +125,11 @@ solver_obj.iterate(update_forcings=update_forcings)
 
 
 ###set up interest functional and control###
-#power_output= assemble(0.5 * 1025 * cb.farm_options.power_coefficient * cb.turbine.turbine_area
-#                    * (cb.uv_ambient_correction) ** 3 * dx(cb.subdomain_id))
-u, v, eta = solver_obj.fields.solution_2d
-power_output= assemble(farm_options.turbine_density * (u*u + v*v)**1.5 * dx(cb.subdomain_id))
+power_output= sum(cb.integrated_power)
 interest_functional = power_output
 
 # specifies the control we want to vary in the optimisation
-c = [Control(x) for xy in turbine_farm.coordinates for x in xy]
+c = [Control(x) for xy in farm_options.turbine_coordinates for x in xy]
 
 # a number of callbacks to provide output during the optimisation iterations:
 # - ControlsExportOptimisationCallback export the turbine_friction values (the control)
@@ -158,7 +146,7 @@ c = [Control(x) for xy in turbine_farm.coordinates for x in xy]
 callback_list = optimisation.OptimisationCallbackList([
     #optimisation.ControlsExportOptimisationCallback(solver_obj),
     #optimisation.DerivativesExportOptimisationCallback(solver_obj),
-    optimisation.UserExportOptimisationCallback(solver_obj, [farm_options.turbine_density]),
+    optimisation.UserExportOptimisationCallback(solver_obj, [solver_obj.fields.turbine_density_2d]),
     optimisation.FunctionalOptimisationCallback(solver_obj),
     #turbines.TurbineOptimisationCallback(solver_obj, cb),
 ])
@@ -183,7 +171,9 @@ if test_gradient:
     # values between 0 and 1 and choose a random direction dtd to vary it in
 
     # this tests whether the above Taylor series residual indeed converges to zero at 2nd order in h as h->0
-    minconv = taylor_test(rf, [Constant(1000.), Constant(300.)], [Constant(10.), Constant(10.)])
+    m0 = [Constant(950), Constant(320), Constant(1080), Constant(300)]
+    h0 = [Constant(10.), Constant(10.), Constant(10.), Constant(10.)]
+    minconv = taylor_test(rf, m0, h0)
     print_output("Order of convergence with taylor test (should be 2) = {}".format(minconv))
 
     assert minconv > 1.95
