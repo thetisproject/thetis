@@ -487,7 +487,7 @@ class FlowSolver2d(FrozenClass):
                 u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
                 self.depth,
                 options=self.options,
-                tidalfarms=self.tidal_farms
+                tidal_farms=self.tidal_farms
             )
             self.equations.mom.bnd_functions = self.bnd_functions['shallow_water']
             return integrator(self.equations.sw, self.equations.mom, self.fields.solution_2d,
