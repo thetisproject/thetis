@@ -16,7 +16,7 @@ class AssembledSchurPC(PCBase):
         :code:`appctx` argument to the solver as :code:`appctx['a']`.
 
     - :math:`Minv` is the inverse of the mass-matrix which is assembled as
-        :code:`assemble(v*u*dx, inverse=True)`, i.e. the element-wise inverse,
+        :code:`assemble(Tensor(v*u*dx).inv)`, i.e. the element-wise inverse,
         where :math:`v` and :math:`u` are the test and trial of the :math:`A00`
         block. This gives the exact inverse of the mass matrix for a DG
         discretisation.
@@ -33,7 +33,7 @@ class AssembledSchurPC(PCBase):
         v = TestFunction(V)
         u = TrialFunction(V)
         mass = dot(v, u)*dx
-        self.A00_inv = assemble(mass, inverse=True, mat_type='aij').M.handle
+        self.A00_inv = assemble(Tensor(mass).inv, mat_type='aij').M.handle
         self.A10_A00_inv = None
         self.schur = None
         self.schur_plus = None
