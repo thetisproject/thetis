@@ -179,13 +179,16 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
 
             unit_bump_integral = 1.45661  # integral of bump function for radius=1 (copied from OpenTidalFarm who used Wolfram)
             minimum_integral_frac = 0.9  # error if discrete integral falls below this fraction of the analytical integral
-            if discrete_integral < radius**2 * unit_bump_integral * minimum_integral_frac:
+            min_discrete_integral = radius**2 * unit_bump_integral * minimum_integral_frac
+            print_output(f'Discrete integral: {discrete_integral}, {min_discrete_integral}')
+            if discrete_integral < min_discrete_integral:
                 raise ValueError("Could not place turbine due to low resolution. Either increase resolution or radius")
 
             # FIXME: pyadjoint workaround #22
             dic = Constant(0)
             dic.assign(discrete_integral)
-            self.turbine_density.interpolate(self.turbine_density + bump/dic)
+            # NOTE that we still cap the discrete integral for the adjoint
+            self.turbine_density.interpolate(self.turbine_density + bump/max_value(discrete_integral, min_discrete_integral))
 
 
 class TurbineFarm(object):
