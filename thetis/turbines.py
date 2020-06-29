@@ -180,7 +180,6 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
             unit_bump_integral = 1.45661  # integral of bump function for radius=1 (copied from OpenTidalFarm who used Wolfram)
             minimum_integral_frac = 0.9  # error if discrete integral falls below this fraction of the analytical integral
             min_discrete_integral = radius**2 * unit_bump_integral * minimum_integral_frac
-            print_output(f'Discrete integral: {discrete_integral}, {min_discrete_integral}')
             if discrete_integral < min_discrete_integral:
                 raise ValueError("Could not place turbine due to low resolution. Either increase resolution or radius")
 
