@@ -1,5 +1,5 @@
 """
-Diecrete turbines optimisation example
+Discrete turbines optimisation example
 =======================================
 Test 1: Forward example
 Test 2: Forward example (change interpolate to project)
@@ -29,16 +29,16 @@ else:
     test_gradient = False
     optimise = True
 '''
-test_gradient = True
-optimise = False
+test_gradient = False
+optimise = True
 
 ### set up the Thetis solver obj as usual ###
-mesh2d = Mesh('headland2.msh')
+mesh2d = Mesh('headland3.msh')
 
 tidal_amplitude = 5.
 tidal_period = 12.42*60*60
-timestep = 600.
-t_end = 1*timestep
+timestep = 100.
+t_end = 5*timestep
 #t_end = tidal_period
 
 #set up depth
@@ -62,7 +62,7 @@ options.output_directory = 'outputs'
 options.check_volume_conservation_2d = True
 options.element_family = 'dg-cg'
 options.timestepper_type = 'CrankNicolson'
-options.timestepper_options.implicitness_theta = 0.6
+options.timestepper_options.implicitness_theta = 1.0
 # using direct solver as PressurePicard does not work with dolfin-adjoint (due to .split() not being annotated correctly)
 options.timestepper_options.solver_parameters = {'snes_monitor': None,
                                                  'snes_rtol': 1e-9,
@@ -107,7 +107,7 @@ farm_options.turbine_options.diameter = 20
 farm_options.upwind_correction = False
 
 # a list contains the coordinates of all turbines
-farm_options.turbine_coordinates = [[Constant(950.), Constant(300.)], [Constant(998.), Constant(300.)]]
+farm_options.turbine_coordinates = [[Constant(x), Constant(y)] for x in numpy.arange(940, 1061, 60) for y in numpy.arange(260, 341, 40)]
 
 #add turbines to SW_equations
 options.discrete_tidal_turbine_farms[2] = farm_options
@@ -146,15 +146,25 @@ c = [Control(x) for xy in farm_options.turbine_coordinates for x in xy]
 callback_list = optimisation.OptimisationCallbackList([
     #optimisation.ControlsExportOptimisationCallback(solver_obj),
     #optimisation.DerivativesExportOptimisationCallback(solver_obj),
-    optimisation.UserExportOptimisationCallback(solver_obj, [solver_obj.fields.turbine_density_2d]),
+    optimisation.UserExportOptimisationCallback(solver_obj, [solver_obj.fields.turbine_density_2d, solver_obj.fields.uv_2d]),
     optimisation.FunctionalOptimisationCallback(solver_obj),
     #turbines.TurbineOptimisationCallback(solver_obj, cb),
 ])
 
+# callbacks to indicate start of forward and adjoint runs in log
+def eval_cb_pre(controls):
+    print_output("FORWARD RUN:")
+    print_output("positions: {}".format([float(c) for c in controls]))
+
+def derivative_cb_pre(controls):
+    print_output("ADJOINT RUN:")
+    print_output("positions: {}".format([float(c) for c in controls]))
+
 # this reduces the functional J(u, m) to a function purely of the control m:
 # rf(m) = J(u(m), m) where the velocities u(m) of the entire simulation
 # are computed by replaying the forward model for any provided turbine coordinates m
-rf = ReducedFunctional(-interest_functional, c, derivative_cb_post=callback_list)
+rf = ReducedFunctional(-interest_functional, c, derivative_cb_post=callback_list,
+        eval_cb_pre=eval_cb_pre, derivative_cb_pre=derivative_cb_pre)
 
 
 print(interest_functional)
@@ -185,6 +195,6 @@ if optimise:
     # By default scipy's implementation of L-BFGS-B is used, see
     #   https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_l_bfgs_b.html
     # options, such as maxiter and pgtol can be passed on.
-    td_opt = minimize(rf, #bounds=[0, max_density],
-                      options={'maxiter': 100, 'pgtol': 1e-3})
+    td_opt = minimize(rf,
+            options={'maxiter': 100, 'pgtol': 1e-3, 'iprint': 1000})
     File('optimal_density.pvd').write(farm_options.turbine_density)
