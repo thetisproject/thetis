@@ -63,7 +63,7 @@ class UserExportManager(ExportManager):
         if filenames is None:
             for field_name in field_name_list:
                 if field_name in field_defs.field_metadata:
-                    field_metadata[field_name]['filename'] = field_defs.field_metadata[field_name]['filename']
+                    field_metadata[field_name]['filename'] = filename_prefix + field_defs.field_metadata[field_name]['filename']
                 else:
                     field_metadata[field_name]['filename'] = filename_prefix + field_name
         else:
