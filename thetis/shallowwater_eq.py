@@ -949,7 +949,7 @@ class ShallowWaterMomentumEquation(BaseShallowWaterEquation):
     2D depth averaged momentum equation :eq:`swe_momentum` in non-conservative
     form.
     """
-    def __init__(self, u_test, u_space, eta_space, depth, options, tidalfarms=None):
+    def __init__(self, u_test, u_space, eta_space, depth, options, tidal_farms=None):
         """
         :arg u_test: test function of the velocity function space
         :arg u_space: velocity function space
@@ -958,7 +958,7 @@ class ShallowWaterMomentumEquation(BaseShallowWaterEquation):
         :arg options: :class:`.AttrDict` object containing all circulation model options
         """
         super(ShallowWaterMomentumEquation, self).__init__(u_space, depth, options)
-        self.add_momentum_terms(u_test, u_space, eta_space, depth, options, tidalfarms=tidalfarms)
+        self.add_momentum_terms(u_test, u_space, eta_space, depth, options, tidal_farms=tidal_farms)
 
     def residual(self, label, solution, solution_old, fields, fields_old, bnd_conditions):
         uv = solution

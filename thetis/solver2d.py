@@ -400,7 +400,7 @@ class FlowSolver2d(FrozenClass):
                 u_test, self.function_spaces.U_2d, self.function_spaces.H_2d,
                 self.depth,
                 options=self.options,
-                tidalfarms=self.tidal_farms
+                tidal_farms=self.tidal_farms
             )
             self.eq_mom.bnd_functions = self.bnd_functions['shallow_water']
             args = (self.eq_sw, self.eq_mom, self.fields.solution_2d, fields, self.dt, )
