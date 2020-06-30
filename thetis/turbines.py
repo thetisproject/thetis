@@ -5,6 +5,8 @@ from firedrake import *
 from .log import *
 from .callback import DiagnosticCallback
 from .optimisation import DiagnosticOptimisationCallback
+import pyadjoint
+import numpy
 
 
 class TidalTurbine:
@@ -320,3 +322,78 @@ class TurbineOptimisationCallback(DiagnosticOptimisationCallback):
 
     def message_str(self, cost, average_power, average_profit):
         return 'Costs, average power and profit for each farm: {}, {}, {}'.format(cost, average_power, average_profit)
+
+
+class MinimumDistanceConstraints(pyadjoint.InequalityConstraint):
+    """This class implements minimum distance constraints between turbines.
+
+    .. note:: This class subclasses `pyadjoint.InequalityConstraint`_. The
+        following methods must be implemented:
+
+        * ``length(self)``
+        * ``function(self, m)``
+        * ``jacobian(self, m)``
+    """
+    def __init__(self, turbine_positions, minimum_distance):
+        """Create MinimumDistanceConstraints
+
+        :param turbine_positions: list of [x,y] where x and y are either float or Constant
+        :param minimum_distance: The minimum distance allowed between turbines.
+        """
+        self._turbines = [float(xi) for xy in turbine_positions for xi in xy]
+        self._minimum_distance = minimum_distance
+        self._nturbines = len(turbine_positions)
+
+    def length(self):
+        """Returns the number of constraints ``len(function(m))``."""
+        return int(self._nturbines*(self._nturbines-1)/2)
+
+    def function(self, m):
+        """Return an object which must be positive for the point to be feasible.
+
+        :param m: The serialized paramaterisation of the turbines.
+        :type m: numpy.ndarray.
+        :returns: numpy.ndarray -- each entry must be positive for the positions to be
+            feasible.
+        """
+        print_output("Calculating minimum distance constraints.")
+        inequality_constraints = []
+        for i in range(self._nturbines):
+            for j in range(self._nturbines):
+                if i <= j:
+                    continue
+                inequality_constraints.append((m[2*i]-m[2*j])**2 + (m[2*i+1]-m[2*j+1])**2 - self._minimum_distance**2)
+
+        inequality_constraints = numpy.array(inequality_constraints)
+        if any(inequality_constraints <= 0):
+            print_output(
+                "Minimum distance inequality constraints (should all "
+                "be > 0): %s" % inequality_constraints)
+        return inequality_constraints
+
+    def jacobian(self, m):
+        """Returns the gradient of the constraint function.
+
+        Return a list of vector-like objects representing the gradient of the
+        constraint function with respect to the parameter m.
+
+        :param m: The serialized paramaterisation of the turbines.
+        :type m: numpy.ndarray.
+        :returns: numpy.ndarray -- the gradient of the constraint function with
+            respect to each input parameter m.
+        """
+        print_output("Calculating gradient of equality constraint")
+
+        grad_h = numpy.zeros((self.length(), self._nturbines*2))
+        row = 0
+        for i in range(self._nturbines):
+            for j in range(self._nturbines):
+                if i <= j:
+                    continue
+
+                grad_h[row, 2*i] = 2*(m[2*i] - m[2*j])
+                grad_h[row, 2*j] = -2*(m[2*i] - m[2*j])
+                grad_h[row, 2*i+1] = 2*(m[2*i+1] - m[2*j+1])
+                grad_h[row, 2*j+1] = -2*(m[2*i+1] - m[2*j+1])
+
+        return grad_h
