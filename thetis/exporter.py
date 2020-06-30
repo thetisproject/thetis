@@ -63,8 +63,7 @@ class ExporterBase(object):
 class VTKExporter(ExporterBase):
     """Class that handles Paraview VTK file exports"""
     def __init__(self, fs_visu, func_name, outputdir, filename,
-                 next_export_ix=0, project_output=False,
-                 coords_dg=None, verbose=False):
+                 next_export_ix=0, project_output=False, verbose=False):
         """
         :arg fs_visu: function space where input function will be cast
             before exporting
@@ -74,9 +73,6 @@ class VTKExporter(ExporterBase):
         :kwarg int next_export_ix: index for next export (default 0)
         :kwarg bool project_output: project function to output space instead of
             interpolating
-        :kwarg bool coords_dg: Discontinuous coordinate field. Needed to avoid
-            allocating new coordinate field in case of discontinuous export
-            functions.
         :kwarg bool verbose: print debug info to stdout
         """
         super(VTKExporter, self).__init__(filename, outputdir, next_export_ix,
@@ -84,7 +80,6 @@ class VTKExporter(ExporterBase):
         self.fs_visu = fs_visu
         self.func_name = func_name
         self.project_output = project_output
-        self.coords_dg = coords_dg
         suffix = '.pvd'
         path = os.path.join(outputdir, filename)
         # append suffix if missing
@@ -117,10 +112,6 @@ class VTKExporter(ExporterBase):
                 op = Interpolator(function, tmp_proj_func)
                 self.cast_operators[function] = op
             op.interpolate()
-        coordfunc = function.function_space().mesh().coordinates
-        if coordfunc not in self.outfile._output_functions and self.coords_dg is not None:
-            # hacky workaround to avoid allocating dg coord function in each File object
-            self.outfile._output_functions[coordfunc] = self.coords_dg
         # ensure correct output function name
         old_name = tmp_proj_func.name()
         tmp_proj_func.rename(name=self.func_name)
@@ -239,9 +230,6 @@ class ExportManager(object):
         self.functions.update(functions)
         self.field_metadata = field_metadata
         self.verbose = verbose
-        # allocate dg coord field to avoid creating one in File
-        self.coords_dg_2d = None
-        self.coords_dg_3d = None
         self.preproc_callbacks = {}
         # for each field create an exporter
         self.exporters = OrderedDict()
@@ -287,33 +275,14 @@ class ExportManager(object):
         if field is not None and isinstance(field, Function):
             native_space = field.function_space()
             visu_space = get_visu_space(native_space)
-            coords_dg = self._get_dg_coordinates(visu_space)
             if export_type.lower() == 'vtk':
                 self.exporters[fieldname] = VTKExporter(visu_space, shortname,
                                                         outputdir, filename,
-                                                        coords_dg=coords_dg,
                                                         next_export_ix=next_export_ix)
             elif export_type.lower() == 'hdf5':
                 self.exporters[fieldname] = HDF5Exporter(native_space,
                                                          outputdir, filename,
                                                          next_export_ix=next_export_ix)
-
-    def _get_dg_coordinates(self, fs):
-        """
-        Get a cached dg function to be used as dg coordinate field in VTK
-        output objects
-        """
-        if is_2d(fs):
-            if self.coords_dg_2d is None:
-                coord_fs = get_functionspace(fs.mesh(), 'DG', 1, vector=True,
-                                             name='P1DGv_2d')
-                self.coords_dg_2d = Function(coord_fs, name='coordinates 2d dg')
-            return self.coords_dg_2d
-        if self.coords_dg_3d is None:
-            coord_fs = get_functionspace(fs.mesh(), 'DG', 1, vector=True,
-                                         name='P1DGv')
-            self.coords_dg_3d = Function(coord_fs, name='coords 3d dg')
-        return self.coords_dg_3d
 
     def set_next_export_ix(self, next_export_ix):
         """Set export index to all child exporters"""
