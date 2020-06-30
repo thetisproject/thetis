@@ -195,6 +195,7 @@ if optimise:
     # By default scipy's implementation of L-BFGS-B is used, see
     #   https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_l_bfgs_b.html
     # options, such as maxiter and pgtol can be passed on.
-    td_opt = minimize(rf,
+    mdc = turbines.MinimumDistanceConstraints(farm_options.turbine_coordinates, 40.)
+    td_opt = minimize(rf, method='SLSQP', constraints=mdc,
             options={'maxiter': 100, 'pgtol': 1e-3, 'iprint': 1000})
     File('optimal_density.pvd').write(farm_options.turbine_density)
