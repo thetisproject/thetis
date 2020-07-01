@@ -398,5 +398,6 @@ class MinimumDistanceConstraints(pyadjoint.InequalityConstraint):
                 grad_h[row, 2*j] = -2*(m[2*i] - m[2*j])
                 grad_h[row, 2*i+1] = 2*(m[2*i+1] - m[2*j+1])
                 grad_h[row, 2*j+1] = -2*(m[2*i+1] - m[2*j+1])
+                row += 1
 
         return grad_h
