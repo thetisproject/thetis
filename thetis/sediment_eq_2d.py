@@ -84,7 +84,7 @@ class SedimentSourceTerm(SedimentTerm):
 
 class SedimentSinkTerm(SedimentTerm):
     r"""
-    Liner sink term
+    Linear sink term
 
     The weak form reads
 
@@ -139,4 +139,4 @@ class SedimentEquation2D(Equation):
             self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
             self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SedimentSourceTerm(*args_sediment), 'source')
-        self.add_term(SedimentSinkTerm(*args_sediment), 'source')
+        self.add_term(SedimentSinkTerm(*args_sediment), 'implicit')

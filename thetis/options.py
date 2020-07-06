@@ -537,7 +537,7 @@ class SedimentModelOptions(FrozenHasTraits):
     sediment_depth_integ_depo = FiredrakeScalarExpression(
         None, allow_none=True, help="Depth integrated deposition term for 2D sediment equation to be multiplied by sediment").tag(config=True)
     average_sediment_size = NonNegativeFloat(allow_none=False, help='Average sediment size').tag(config=True)
-    ks = NonNegativeFloat(allow_none=False, help='Bottom bed reference height').tag(config=True)
+    bed_reference_height = NonNegativeFloat(allow_none=False, help='Bottom bed reference height').tag(config=True)
     use_advective_velocity = Bool(True, help='Switch on sediment_advective_velocity_factor').tag(config=True)
     sediment_advective_velocity_factor = FiredrakeScalarExpression(
         Constant(1.0), help="""

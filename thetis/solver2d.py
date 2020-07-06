@@ -240,17 +240,17 @@ class FlowSolver2d(FrozenClass):
             # Penalty parameter for tracers
             if self.options.solve_tracer or self.options.sediment_model_options.solve_sediment:
                 if self.options.solve_tracer:
-                    print_str = 'tracer'
+                    tracer_kind = 'tracer'
                 elif self.options.sediment_model_options.solve_sediment:
-                    print_str = 'sediment'
+                    tracer_kind = 'sediment'
                 nu = self.options.horizontal_diffusivity
                 if nu is not None:
                     alpha_tracer = alpha_tracer*get_sipg_ratio(nu)*cot_theta
                     self.options.sipg_parameter_tracer = interpolate(alpha_tracer, P0)
                     max_sipg = self.options.sipg_parameter_tracer.vector().gather().max()
-                    print_output("Maximum {} SIPG value: {:.2f}".format(print_str, max_sipg))
+                    print_output("Maximum {} SIPG value: {:.2f}".format(tracer_kind, max_sipg))
                 else:
-                    print_output("Using default SIPG parameter for {} equation".format(print_str))
+                    print_output("Using default SIPG parameter for {} equation".format(tracer_kind))
         else:
             print_output("Using default SIPG parameters")
             self.options.sipg_parameter.assign(alpha)

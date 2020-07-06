@@ -10,10 +10,10 @@ The equation reads
     = (morfac/(1-p)) H ((Sink S) - Source)
     :label: exner_eq
 
-where :math:'z_b' is the bedlevel, :math:'S' is :math:'q=HT' for conservative
-and :math:'T' for non-conservative, :math:`\nabla_h` denotes horizontal gradient,
-:math:'morfac' is the morphological scale factor, :math:'p' is the porosity and
-:math:'Q_b' is the bedload transport vector
+where :math:'z_b' is the bedlevel, :math:'S' is :math:'q=HT' for conservative (where H is depth
+and T is the sediment field) and :math:'T' for non-conservative (where T is the sediment field),
+:math:`\nabla_h` denotes horizontal gradient, :math:'morfac' is the morphological scale factor,
+:math:'p' is the porosity and :math:'Q_b' is the bedload transport vector
 
 """
 
