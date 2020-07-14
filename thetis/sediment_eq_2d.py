@@ -18,13 +18,15 @@ from __future__ import absolute_import
 from .utility import *
 from .equation import Equation
 from .tracer_eq_2d import HorizontalDiffusionTerm, HorizontalAdvectionTerm, TracerTerm
-from .conservative_tracer_eq_2d import ConservativeHorizontalAdvectionTerm, ConservativeHorizontalDiffusionTerm
+from .conservative_tracer_eq_2d import ConservativeHorizontalAdvectionTerm
 
 __all__ = [
     'SedimentEquation2D',
     'SedimentTerm',
-    'SedimentSourceTerm',
-    'SedimentSinkTerm',
+    'ConservativeSedimentAdvectionTerm',
+    'SedimentAdvectionTerm',
+    'SedimentErosionTerm',
+    'SedimentDepositionTerm',
 ]
 
 
@@ -32,7 +34,7 @@ class SedimentTerm(TracerTerm):
     """
     Generic sediment term that provides commonly used members.
     """
-    def __init__(self, function_space, depth,
+    def __init__(self, function_space, depth, sediment_model,
                  use_lax_friedrichs=True, sipg_parameter=Constant(10.0), conservative=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
@@ -42,75 +44,69 @@ class SedimentTerm(TracerTerm):
         :kwarg bool conservative: whether to use conservative tracer
         """
         super(SedimentTerm, self).__init__(function_space, depth)
+        self.sediment_model = sediment_model
         self.conservative = conservative
 
+    def get_bnd_functions(self, c_in, uv_in, elev_in, bnd_id, bnd_conditions):
+        funcs = bnd_conditions.get(bnd_id)
+        c_ext, uv_ext, elev_ext = super().get_bnd_functions(c_in, uv_in, elev_in, bnd_id, bnd_conditions)
+        if 'equilibrium' in funcs:
+            if 'value' in funcs:
+                raise ValueError("Cannot specify both equilibrium and value for sediment bcs.")
+            c_ext = self.sediment_model.get_equilibrium_tracer()
+            if self.conservative:
+                c_ext = c_ext * self.depth.get_total_depth(elev_ext)
+        return c_ext, uv_ext, elev_ext
 
-class SedimentSourceTerm(SedimentTerm):
-    r"""
-    Generic source term
 
-    The weak form reads
-
-    .. math::
-        F_s = \int_\Omega \sigma \phi dx
-
-    where :math:`\sigma` is a user defined scalar :class:`Function`.
-
+class ConservativeSedimentAdvectionTerm(SedimentTerm, ConservativeHorizontalAdvectionTerm):
     """
-    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        f = 0
-        source = fields.get('source')
-        depth_int_source = fields.get('depth_integrated_source')
-        if depth_int_source is not None:
-            if self.conservative:
-                f += -inner(depth_int_source, self.test) * self.dx
-            else:
-                raise NotImplementedError("Depth-integrated source term not implemented for non-conservative case")
-        elif source is not None:
-            if self.conservative:
-                H = self.depth.get_total_depth(fields['elev_2d'])
-                f += -inner(H*source, self.test)*self.dx
-            else:
-                f += -inner(source, self.test)*self.dx
-        else:
-            warning("no source term implemented")
+    Advection term for sediment equation
 
-        if source is not None and depth_int_source is not None:
-            raise AttributeError("Assigned both a source term and a depth-integrated source term\
-                                 but only one can be implemented. Choose the most appropriate for your case")
-
-        return -f
+    Same as :class:`ConservativeHorizontalAdvectionTerm` but allows for equilibrium boundary condition
+    through get_bnd_conditions() inherited from :class:`SedimentTerm`."""
+    pass
 
 
-class SedimentSinkTerm(SedimentTerm):
-    r"""
-    Linear sink term
-
-    The weak form reads
-
-    .. math::
-        F_s = - \int_\Omega \sigma solution \phi dx
-
-    where :math:`\sigma` is a user defined scalar :class:`Function`.
-
+class SedimentAdvectionTerm(SedimentTerm, HorizontalAdvectionTerm):
     """
+    Advection term for sediment equation
+
+    Same as :class:`HorizontalAdvectionTerm` but allows for equilibrium boundary condition
+    through get_bnd_conditions() inherited from :class:`SedimentTerm`."""
+    pass
+
+
+class SedimentDiffusionTerm(SedimentTerm, HorizontalDiffusionTerm):
+    """
+    Diffusion term for sediment equation
+
+    Same as :class:`HorizontalDiffusionTerm` but allows for equilibrium boundary condition
+    through get_bnd_conditions() inherited from :class:`SedimentTerm`."""
+    pass
+
+
+class SedimentErosionTerm(SedimentTerm):
+    """
+    Erosion term for sediment equation"""
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        f = 0
-        sink = fields.get('sink')
-        depth_int_sink = fields.get('depth_integrated_sink')
-        if depth_int_sink is not None:
-            if self.conservative:
-                f += -inner(-depth_int_sink*solution, self.test) * self.dx
-            else:
-                raise NotImplementedError("Depth-integrated sink term not implemented for non-conservative case")
-        elif sink is not None:
-            f += -inner(-sink*solution, self.test)*self.dx
-        else:
-            warning("no sink term implemented")
-        if sink is not None and depth_int_sink is not None:
-            raise AttributeError("Assigned both a sink term and a depth-integrated sink term\
-                                 but only one can be implemented. Choose the most appropriate for your case")
-        return -f
+        ero = self.sediment_model.get_erosion_term()
+        if not self.conservative:
+            elev = fields['elev_2d']
+            ero = ero / self.depth.get_total_depth(elev)
+        f = self.test * ero * self.dx
+        return f
+
+
+class SedimentDepositionTerm(SedimentTerm):
+    """
+    Deposition term for sediment equation"""
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        depo = self.sediment_model.get_deposition_coefficient()
+        elev = fields['elev_2d']
+        H = self.depth.get_total_depth(elev)
+        f = -self.test * depo/H * solution * self.dx
+        return f
 
 
 class SedimentEquation2D(Equation):
@@ -118,7 +114,7 @@ class SedimentEquation2D(Equation):
     2D sediment advection-diffusion equation: eq:`tracer_eq` or `conservative_tracer_eq`
     with sediment source and sink term
     """
-    def __init__(self, function_space, depth,
+    def __init__(self, function_space, depth, sediment_model,
                  use_lax_friedrichs=False,
                  sipg_parameter=Constant(10.0),
                  conservative=False):
@@ -130,13 +126,11 @@ class SedimentEquation2D(Equation):
         :kwarg bool conservative: whether to use conservative tracer
         """
         super(SedimentEquation2D, self).__init__(function_space)
-        args = (function_space, depth, use_lax_friedrichs, sipg_parameter)
-        args_sediment = (function_space, depth, use_lax_friedrichs, sipg_parameter, conservative)
+        args = (function_space, depth, sediment_model, use_lax_friedrichs, sipg_parameter, conservative)
         if conservative:
-            self.add_term(ConservativeHorizontalAdvectionTerm(*args), 'explicit')
-            self.add_term(ConservativeHorizontalDiffusionTerm(*args), 'explicit')
+            self.add_term(ConservativeSedimentAdvectionTerm(*args), 'explicit')
         else:
-            self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
-            self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
-        self.add_term(SedimentSourceTerm(*args_sediment), 'source')
-        self.add_term(SedimentSinkTerm(*args_sediment), 'implicit')
+            self.add_term(SedimentAdvectionTerm(*args), 'explicit')
+        self.add_term(SedimentDiffusionTerm(*args), 'explicit')
+        self.add_term(SedimentErosionTerm(*args), 'source')
+        self.add_term(SedimentDepositionTerm(*args), 'implicit')

@@ -528,14 +528,6 @@ class SedimentModelOptions(FrozenHasTraits):
     use_angle_correction = Bool(True, help='Switch to use slope effect angle correction').tag(config=True)
     use_slope_mag_correction = Bool(True, help='Switch to use slope effect magnitude correction').tag(config=True)
     use_secondary_current = Bool(False, help='Switch to use secondary current for helical flow effect').tag(config=True)
-    sediment_ero = FiredrakeScalarExpression(
-        None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
-    sediment_depth_integ_ero = FiredrakeScalarExpression(
-        None, allow_none=True, help="Depth integrated source term for 2D tracer equation").tag(config=True)
-    sediment_depo = FiredrakeScalarExpression(
-        None, allow_none=True, help="Deposition term for 2D sediment equation to be multiplied by sediment").tag(config=True)
-    sediment_depth_integ_depo = FiredrakeScalarExpression(
-        None, allow_none=True, help="Depth integrated deposition term for 2D sediment equation to be multiplied by sediment").tag(config=True)
     average_sediment_size = NonNegativeFloat(allow_none=False, help='Average sediment size').tag(config=True)
     bed_reference_height = NonNegativeFloat(allow_none=False, help='Bottom bed reference height').tag(config=True)
     use_advective_velocity = Bool(True, help='Switch on sediment_advective_velocity_factor').tag(config=True)
@@ -553,7 +545,6 @@ class SedimentModelOptions(FrozenHasTraits):
 
         timestep in exner = morphological_acceleration_factor * timestep
         """).tag(config=True)
-    equilibrium_sediment_bd_ids = Set(set(), help='Set listing boundary ids where equilibrium sediment rate should be set')
     check_sediment_conservation = Bool(
         False, help="""
         Compute total sediment mass at every export

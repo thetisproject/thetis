@@ -129,8 +129,7 @@ if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
     options.timestep = dt
 
 # make sure set all hydrodynamic and sediment flags before creating model
-solver_obj.create_sediment_model(uv_init=uv, elev_init=elev,
-                                 erosion='model_def', deposition='model_def')
+solver_obj.create_sediment_model(uv_init=uv, elev_init=elev)
 c = callback.SedimentTotalMassConservation2DCallback('sediment_2d',
                                                      solver_obj, export_to_hdf5=True, append_to_log=False)
 solver_obj.add_callback(c, eval_interval='timestep')

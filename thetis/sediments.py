@@ -42,7 +42,7 @@ class Corrective_Velocity_Factor:
 
 
 class SedimentModel(object):
-    def __init__(self, options, mesh2d, erosion, deposition, uv_init, elev_init, bathymetry_2d,
+    def __init__(self, options, mesh2d, uv_init, elev_init, bathymetry_2d,
                  beta_fn, surbeta2_fn, alpha_secc_fn, viscosity_morph, rhos):
 
         """
@@ -52,8 +52,6 @@ class SedimentModel(object):
         :arg options: Model options.
         :type options: :class:`.ModelOptions2d` instance
         :arg mesh2d: :class:`Mesh` object of the 2D mesh
-        :arg erosion: string to choose whether use model defined, user defined or none
-        :arg deposition: string to choose whether use model defined, user defined or none
         :arg uv_init: Initial velocity for the simulation.
         :type uv_init: :class:`Function`
         :arg elev_init: Initial velocity for the simulation.
@@ -71,7 +69,6 @@ class SedimentModel(object):
 
         self.options = options
         self.solve_suspended = options.sediment_model_options.solve_suspended
-        self.use_conservative = options.sediment_model_options.use_sediment_conservative_form
         self.use_advective_velocity = options.sediment_model_options.use_advective_velocity
         self.solve_bedload = options.sediment_model_options.solve_bedload
         self.use_angle_correction = options.sediment_model_options.use_angle_correction
@@ -196,32 +193,11 @@ class SedimentModel(object):
             if self.use_advective_velocity:
                 self.corr_factor_model = Corrective_Velocity_Factor(self.depth, ksp,
                                                                     self.bed_reference_height, self.settling_velocity, ustar)
-            # update sediment rate to ensure equilibrium at inflow
-            if self.use_conservative:
-                self.equiltracer = Function(self.P1_2d).interpolate(self.depth*self.ceq/self.coeff)
-            else:
-                self.equiltracer = Function(self.P1_2d).interpolate(self.ceq/self.coeff)
+            self._equilibrium_tracer = Function(self.P1_2d).interpolate(self.ceq/self.coeff)
 
             # get individual terms
-            self.depo = self.settling_velocity*self.coeff
-            self.ero = Function(self.P1_2d).interpolate(self.settling_velocity*self.ceq)
-
-            self.depo_term = Function(self.P1_2d).interpolate(self.depo/self.depth)
-            self.ero_term = Function(self.P1_2d).interpolate(self.ero/self.depth)
-
-            if erosion == 'model_def':
-                options.sediment_model_options.sediment_ero = self.ero_term
-            elif erosion == 'depth_integrated':
-                options.sediment_model_options.sediment_depth_integ_ero = self.ero
-            elif not erosion == 'None' or 'user_defined':
-                raise ValueError("Unrecognised string. Erosion must be 'model_def', 'depth_integrated', 'None' or 'user_defined'")
-
-            if deposition == 'model_def':
-                options.sediment_model_options.sediment_depo = self.depo_term
-            elif deposition == 'depth_integrated':
-                options.sediment_model_options.sediment_depth_integ_depo = self.depo_term
-            elif not deposition == 'None' or 'user_defined':
-                raise ValueError("Unrecognised string. Deposition must be 'model_def', 'depth_integrated', 'None' or 'user_defined'")
+            self._deposition = self.settling_velocity*self.coeff
+            self._erosion = Function(self.P1_2d).interpolate(self.settling_velocity*self.ceq)
 
             self.options.sediment_model_options.solve_sediment = True
             if self.use_advective_velocity:
@@ -320,6 +296,18 @@ class SedimentModel(object):
 
         return qbx, qby
 
+    def get_deposition_coefficient(self):
+        """Returns coefficient C such that C/H*sediment is deposition."""
+        return self._deposition
+
+    def get_erosion_term(self):
+        """Returns expression for (depth-integrated) erosion."""
+        return self._erosion
+
+    def get_equilibrium_tracer(self):
+        """Returns expression for (depth-averaged) equilibrium tracer."""
+        return self._equilibrium_tracer
+
     def update(self, t_new, solution_2d):
         # update bathymetry
         self.old_bathymetry_2d.interpolate(self.bathymetry_2d)
@@ -343,18 +331,13 @@ class SedimentModel(object):
                                  ((conditional(self.s0 < Constant(0), Constant(0),
                                                self.s0))**(1.5))/(self.dstar**0.3))
 
-            self.ero.interpolate(self.settling_velocity*self.ceq)
-            self.ero_term.interpolate(self.ero/self.depth)
-            self.depo_term.interpolate(self.depo/self.depth)
+            self._erosion.interpolate(self.settling_velocity*self.ceq)
 
             if self.use_advective_velocity:
                 self.corr_factor_model.update()
 
             # update sediment rate to ensure equilibrium at inflow
-            if self.use_conservative:
-                self.equiltracer.interpolate(self.depth*self.ceq/self.coeff)
-            else:
-                self.equiltracer.interpolate(self.ceq/self.coeff)
+            self._equilibrium_tracer.interpolate(self.ceq/self.coeff)
 
         if self.solve_bedload:
             # calculate angle of flow

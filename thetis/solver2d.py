@@ -333,7 +333,7 @@ class FlowSolver2d(FrozenClass):
                 raise ValueError("Solve tracer and solve sediment cannot both be true")
             self.fields.sediment_2d = Function(self.function_spaces.Q_2d, name='sediment_2d')
             self.eq_sediment = sediment_eq_2d.SedimentEquation2D(
-                self.function_spaces.Q_2d, self.depth,
+                self.function_spaces.Q_2d, self.depth, self.sediment_model,
                 use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
                 sipg_parameter=self.options.sipg_parameter_tracer,
                 conservative=self.options.sediment_model_options.use_sediment_conservative_form)
@@ -345,14 +345,14 @@ class FlowSolver2d(FrozenClass):
         if self.options.sediment_model_options.solve_exner:
             self.eq_exner = exner_eq.ExnerEquation(
                 self.fields.bathymetry_2d.function_space(), self.depth,
-                conservative=self.options.sediment_model_options.use_sediment_conservative_form, sed_model=self.sediment_model)
+                depth_integrated_sediment=self.options.sediment_model_options.use_sediment_conservative_form, sediment_model=self.sediment_model)
 
         self._isfrozen = True  # disallow creating new attributes
 
-    def create_sediment_model(self, uv_init, elev_init, erosion, deposition,
+    def create_sediment_model(self, uv_init, elev_init,
                               beta=1.3, surbeta=1/1.5, alpha_secc=0.75, vis_morph=1e-6, sed_dens=2650):
 
-        self.sediment_model = SedimentModel(self.options, self.mesh2d, erosion, deposition, uv_init, elev_init,
+        self.sediment_model = SedimentModel(self.options, self.mesh2d, uv_init, elev_init,
                                             bathymetry_2d=self.fields.bathymetry_2d, beta_fn=beta,
                                             surbeta2_fn=surbeta, alpha_secc_fn=alpha_secc,
                                             viscosity_morph=vis_morph, rhos=sed_dens)
@@ -444,22 +444,11 @@ class FlowSolver2d(FrozenClass):
             'elev_2d': elev,
             'uv_2d': uv,
             'diffusivity_h': self.options.horizontal_diffusivity,
-            'source': self.options.sediment_model_options.sediment_ero,
-            'depth_integrated_source': self.options.sediment_model_options.sediment_depth_integ_ero,
-            'sink': self.options.sediment_model_options.sediment_depo,
-            'depth_integrated_sink': self.options.sediment_model_options.sediment_depth_integ_depo,
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
             'tracer_advective_velocity_factor': self.options.sediment_model_options.sediment_advective_velocity_factor,
         }
 
         args = (self.eq_sediment, self.fields.sediment_2d, fields, self.dt, )
-
-        for i in self.options.sediment_model_options.equilibrium_sediment_bd_ids:
-            if i in self.bnd_functions['sediment'].keys() and 'value' in self.bnd_functions['sediment'][i].keys():
-                raise ValueError('Cannot set both value boundary condition and equilibrium sedment boundary condition. Choose the most appropriate one')
-            else:
-                self.bnd_functions['sediment'][i]['value'] = self.sediment_model.equiltracer
-
         kwargs = {
             'bnd_conditions': self.bnd_functions['sediment'],
             'solver_parameters': self.options.timestepper_options.solver_parameters_sediment,
@@ -478,10 +467,6 @@ class FlowSolver2d(FrozenClass):
 
         fields = {
             'elev_2d': elev,
-            'source': self.options.sediment_model_options.sediment_ero,
-            'depth_integrated_source': self.options.sediment_model_options.sediment_depth_integ_ero,
-            'sink': self.options.sediment_model_options.sediment_depo,
-            'depth_integrated_sink': self.options.sediment_model_options.sediment_depth_integ_depo,
             'sediment': self.fields.sediment_2d,
             'morfac': self.options.sediment_model_options.morphological_acceleration_factor,
             'porosity': self.options.sediment_model_options.porosity,
@@ -617,7 +602,10 @@ class FlowSolver2d(FrozenClass):
         if sediment is not None and self.options.sediment_model_options.solve_sediment:
             self.fields.sediment_2d.project(sediment)
         elif sediment is None and self.options.sediment_model_options.solve_sediment:
-            self.fields.sediment_2d.project(self.sediment_model.equiltracer)
+            sediment = self.sediment_model.get_equilibrium_tracer()
+            if self.options.sediment_model_options.use_sediment_conservative_form:
+                sediment = sediment * self.depth.get_total_depth(elev_2d)
+            self.fields.sediment_2d.project(sediment)
 
         self.timestepper.initialize(self.fields.solution_2d)
 

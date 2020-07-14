@@ -364,12 +364,10 @@ def comp_sediment_total_mass_2d(var, sediment_name):
         # and boundary terms
         var.update_value += var.solver_obj.options.timestep * boundary_terms
 
-        if var.solver_obj.options.sediment_model_options.sediment_ero is not None:
-            var.update_value += var.solver_obj.options.timestep * \
-                assemble(var.solver_obj.options.sediment_model_options.sediment_ero*H*dx)
-        if var.solver_obj.options.sediment_model_options.sediment_depo is not None:
-            var.update_value -= var.solver_obj.options.timestep * \
-                assemble(var.solver_obj.options.sediment_model_options.sediment_depo*scalar_func*H*dx)
+        var.update_value += var.solver_obj.options.timestep * \
+                assemble(var.solver_obj.sediment_model.get_erosion_term()*dx)
+        var.update_value -= var.solver_obj.options.timestep * \
+                assemble(var.solver_obj.sediment_model.get_deposition_coefficient()*scalar_func*dx)
 
     # find the current scalar value in the domain
     val = assemble(H*scalar_func*dx)
@@ -421,18 +419,10 @@ def comp_sediment_total_mass_2d_cons(var, sediment_name):
         # and boundary terms
         var.update_value += var.solver_obj.options.timestep * boundary_terms
 
-        if var.solver_obj.options.sediment_model_options.sediment_ero is not None:
-            var.update_value += var.solver_obj.options.timestep * \
-                assemble(var.solver_obj.options.sediment_model_options.sediment_ero*H*dx)
-        elif var.solver_obj.options.sediment_model_options.sediment_depth_integ_ero is not None:
-            var.update_value += var.solver_obj.options.timestep * \
-                assemble(var.solver_obj.options.sediment_model_options.sediment_depth_integ_ero*dx)
-        if var.solver_obj.options.sediment_model_options.sediment_depo is not None:
-            var.update_value -= var.solver_obj.options.timestep * \
-                assemble(var.solver_obj.options.sediment_model_options.sediment_depo*scalar_func*dx)
-        elif var.solver_obj.options.sediment_model_options.sediment_depth_integ_depo is not None:
-            var.update_value -= var.solver_obj.options.timestep * \
-                assemble(var.solver_obj.options.sediment_model_options.sediment_depth_integ_depo*scalar_func*dx)
+        var.update_value += var.solver_obj.options.timestep * \
+                assemble(var.solver_obj.sediment_model.get_erosion_term()*dx)
+        var.update_value -= var.solver_obj.options.timestep * \
+                assemble(var.solver_obj.sediment_model.get_deposition_coefficient()*scalar_func/H*dx)
 
     # find the current scalar value in the domain
     val = assemble(scalar_func*dx)

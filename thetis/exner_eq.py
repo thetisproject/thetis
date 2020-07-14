@@ -34,18 +34,18 @@ class ExnerTerm(Term):
     Generic term that provides commonly used members and mapping for
     boundary functions.
     """
-    def __init__(self, function_space, depth, sed_model, conservative=False):
+    def __init__(self, function_space, depth, sediment_model, depth_integrated_sediment=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
-        :arg sed_model: :class: `SedimentModel` containing sediment info
-        :kwarg bool conservative: whether to use conservative tracer
+        :arg sediment_model: :class: `SedimentModel` containing sediment info
+        :kwarg bool depth_integrated_sediment: whether the sediment field is depth-integrated
         """
         super(ExnerTerm, self).__init__(function_space)
         self.n = FacetNormal(self.mesh)
         self.depth = depth
 
-        self.sed_model = sed_model
+        self.sediment_model = sediment_model
 
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
@@ -53,7 +53,7 @@ class ExnerTerm(Term):
         self.dx = dx(degree=self.quad_degree)
         self.dS = dS(degree=self.quad_degree)
         self.ds = ds(degree=self.quad_degree)
-        self.conservative = conservative
+        self.depth_integrated_sediment = depth_integrated_sediment
 
 
 class ExnerSourceTerm(ExnerTerm):
@@ -73,10 +73,6 @@ class ExnerSourceTerm(ExnerTerm):
 
         f = 0
         sediment = fields.get('sediment')
-        source = fields.get('source')
-        depth_int_source = fields.get('depth_integrated_source')
-        sink = fields.get('sink')
-        depth_int_sink = fields.get('depth_integrated_sink')
         morfac = fields.get('morfac')
         porosity = fields.get('porosity')
 
@@ -85,45 +81,13 @@ class ExnerSourceTerm(ExnerTerm):
         fac = Constant(morfac/(1.0-porosity))
         H = self.depth.get_total_depth(fields_old['elev_2d'])
 
-        if depth_int_source is not None:
-            if not self.conservative:
-                raise NotImplementedError("Depth-integrated source term not implemented for non-conservative case")
-            else:
-                if source is not None:
-                    raise AttributeError("Assigned both a source term and a depth-integrated source term\
-                                 but only one can be implemented. Choose the most appropriate for your case")
-                else:
-                    source_dep = depth_int_source
-        elif source is not None:
-            source_dep = source*H
-        else:
-            source_dep = None
+        erosion = self.sediment_model.get_erosion_term()
+        deposition = self.sediment_model.get_deposition_coefficient() * sediment
+        if self.depth_integrated_sediment:
+            deposition = deposition/H
+        f = self.test*fac*(erosion - deposition)*self.dx
 
-        if depth_int_sink is not None:
-            if not self.conservative:
-                raise NotImplementedError("Depth-integrated sink term not implemented for non-conservative case")
-            else:
-                if sink is not None:
-                    raise AttributeError("Assigned both a sink term and a depth-integrated sink term\
-                                 but only one can be implemented. Choose the most appropriate for your case")
-                else:
-                    sink_dep = depth_int_sink
-        elif sink is not None:
-            if self.conservative:
-                sink_dep = sink
-            else:
-                sink_dep = sink*H
-        else:
-            sink_dep = None
-
-        if source_dep is not None and sink_dep is not None:
-            f += -inner(fac*(source_dep-sediment*sink_dep), self.test)*self.dx
-        elif source_dep is not None and sink_dep is None:
-            f += -inner((fac*source_dep), self.test)*self.dx
-        elif source_dep is None and sink_dep is not None:
-            f += -inner(-fac*sediment*sink_dep, self.test)*self.dx
-
-        return -f
+        return f
 
 
 class ExnerBedloadTerm(ExnerTerm):
@@ -143,7 +107,7 @@ class ExnerBedloadTerm(ExnerTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
 
-        qbx, qby = self.sed_model.get_bedload_term(solution)
+        qbx, qby = self.sediment_model.get_bedload_term(solution)
 
         morfac = fields.get('morfac')
         porosity = fields.get('porosity')
@@ -161,20 +125,20 @@ class ExnerEquation(Equation):
 
     2D conservation of mass equation describing bed evolution due to sediment transport
     """
-    def __init__(self, function_space, depth, sed_model, conservative):
+    def __init__(self, function_space, depth, sediment_model, depth_integrated_sediment):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :arg depth: :class: `DepthExpression` containing depth info
-        :arg sed_model: :class: `SedimentModel` containing sediment info
-        :kwarg bool conservative: whether to use conservative tracer
+        :arg sediment_model: :class: `SedimentModel` containing sediment info
+        :kwarg bool depth_integrated_sediment: whether to use conservative tracer
         """
         super().__init__(function_space)
 
-        if sed_model is None:
+        if sediment_model is None:
             raise ValueError('To use the exner equation must define a sediment model')
 
-        args = (function_space, depth, sed_model, conservative)
-        if sed_model.solve_suspended:
+        args = (function_space, depth, sediment_model, depth_integrated_sediment)
+        if sediment_model.solve_suspended:
             self.add_term(ExnerSourceTerm(*args), 'source')
-        if sed_model.solve_bedload:
+        if sediment_model.solve_bedload:
             self.add_term(ExnerBedloadTerm(*args), 'implicit')

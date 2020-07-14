@@ -86,15 +86,12 @@ def run_migrating_trench(conservative):
         options.timestep = dt
 
     # make sure set all hydrodynamic and sediment flags before creating model
-    solver_obj.create_sediment_model(uv_init=uv, elev_init=elev,
-                                     erosion='model_def', deposition='model_def')
+    solver_obj.create_sediment_model(uv_init=uv, elev_init=elev)
 
     # set boundary conditions
 
     left_bnd_id = 1
     right_bnd_id = 2
-
-    options.sediment_model_options.equilibrium_sediment_bd_ids = {left_bnd_id}
 
     swe_bnd = {}
 
@@ -103,10 +100,12 @@ def run_migrating_trench(conservative):
 
     solver_obj.bnd_functions['shallow_water'] = swe_bnd
 
-    solver_obj.bnd_functions['sediment'] = {left_bnd_id: {'flux': Constant(-0.22)}, right_bnd_id: {'elev': Constant(0.397)}}
+    solver_obj.bnd_functions['sediment'] = {
+        left_bnd_id: {'flux': Constant(-0.22), 'equilibrium': None},
+        right_bnd_id: {'elev': Constant(0.397)}}
 
     # set initial conditions
-    solver_obj.assign_initial_conditions(uv=uv, elev=elev, sediment=solver_obj.sediment_model.equiltracer)
+    solver_obj.assign_initial_conditions(uv=uv, elev=elev)
 
     # run model
     solver_obj.iterate()
