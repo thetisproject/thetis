@@ -12,7 +12,7 @@ from . import tracer_eq_2d
 from . import conservative_tracer_eq_2d
 from . import sediment_eq_2d
 from . import exner_eq
-from .sediments import SedimentModel
+from .sediment_model import SedimentModel
 import weakref
 import time as time_mod
 import numpy as np

@@ -98,7 +98,7 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
             if self.options.use_limiter_for_tracers:
                 self.solver.tracer_limiter.apply(self.fields.tracer_2d)
         if self.options.sediment_model_options.solve_sediment:
-            self.solver.sediment_model.update(t, self.solver.fields.solution_2d)
+            self.solver.sediment_model.update(t, self.solver.fields.uv_2d)
             self.timesteppers.sediment.advance(t, update_forcings=update_forcings)
             if self.options.use_limiter_for_tracers:
                 self.solver.tracer_limiter.apply(self.fields.sediment_2d)

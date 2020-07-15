@@ -130,16 +130,14 @@ if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
 
 # make sure set all hydrodynamic and sediment flags before creating model
 solver_obj.create_sediment_model(uv_init=uv, elev_init=elev)
-c = callback.SedimentTotalMassConservation2DCallback('sediment_2d',
-                                                     solver_obj, export_to_hdf5=True, append_to_log=False)
-solver_obj.add_callback(c, eval_interval='timestep')
+#c = callback.SedimentTotalMassConservation2DCallback('sediment_2d',
+#                                                     solver_obj, export_to_hdf5=True, append_to_log=False)
+#solver_obj.add_callback(c, eval_interval='timestep')
 
 # set boundary conditions
 
 left_bnd_id = 1
 right_bnd_id = 2
-
-options.sediment_model_options.equilibrium_sediment_bd_ids = {left_bnd_id}
 
 swe_bnd = {}
 
@@ -149,10 +147,12 @@ swe_bnd[right_bnd_id] = {'elev': Constant(0.397)}
 solver_obj.bnd_functions['shallow_water'] = swe_bnd
 
 if options.sediment_model_options.solve_suspended:
-    solver_obj.bnd_functions['sediment'] = {left_bnd_id: {'flux': Constant(-0.22)}, right_bnd_id: {'elev': Constant(0.397)}}
+    solver_obj.bnd_functions['sediment'] = {
+        left_bnd_id: {'flux': Constant(-0.22), 'equilibrium': None},
+        right_bnd_id: {'elev': Constant(0.397)}}
 
     # set initial conditions
-    solver_obj.assign_initial_conditions(uv=uv, elev=elev, sediment=solver_obj.sediment_model.equiltracer)
+    solver_obj.assign_initial_conditions(uv=uv, elev=elev, sediment=solver_obj.sediment_model.get_equilibrium_tracer())
 
 else:
     # set initial conditions
@@ -177,8 +177,8 @@ for i in np.linspace(0, 15.8, 80):
         baththetis1.append(solver_obj.fields.bathymetry_2d.at([i, 0.55]))
 
 # check sediment conservation
-sediment_mass_int, sediment_mass_int_rerr = solver_obj.callbacks['timestep']['sediment_2d total mass']()
-print("Sediment total mass error: %11.4e" % (sediment_mass_int_rerr))
+#sediment_mass_int, sediment_mass_int_rerr = solver_obj.callbacks['timestep']['sediment_2d total mass']()
+#print("Sediment total mass error: %11.4e" % (sediment_mass_int_rerr))
 
 # check sediment and bathymetry values using previous runs
 sediment_solution = pd.read_csv('sediment.csv')
