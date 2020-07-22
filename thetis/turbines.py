@@ -116,7 +116,7 @@ class TabulatedThrustTurbine(TidalTurbine):
 class TidalTurbineFarm:
     def __init__(self, turbine_density, subdomain, options):
         """
-        :arg turbine_density: turbine distribution density field
+        :arg turbine_density: turbine distribution density field or expression
         :arg subdomain: subdomain where this farm is applied
         :arg options: a :class:`TidalTurbineFarmOptions` options dictionary
         """
@@ -146,18 +146,21 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
     Class that can be used for the addition of turbines in the turbine density field
     """
 
-    def __init__(self, turbine_density, subdomain, options):
+    def __init__(self, mesh, subdomain, options):
         """
-        :arg turbine_density: turbine distribution density field
+        :arg mesh: mesh domain
         :arg subdomain: subdomain where this farm is applied
         :arg options: a :class:`TidalTurbineFarmOptions` options dictionary
         """
 
         # Preliminaries
-        super().__init__(turbine_density, subdomain, options)
+        self.mesh = mesh
+        # this sets self.turbine_expr=0
+        super().__init__(0, subdomain, options)
 
         # Adding turbine distribution in the domain
         self.add_turbines(options.turbine_coordinates)
+
 
     def add_turbines(self, coordinates):
         """
@@ -167,8 +170,7 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
         :param radius: radius where the bump will be applied
         :return: updated turbine density field
         """
-        x = SpatialCoordinate(self.turbine_density.ufl_domain())
-        V = self.turbine_density.function_space()
+        x = SpatialCoordinate(self.mesh)
 
         radius = self.turbine.diameter * 0.5
         for coord in coordinates:
@@ -177,19 +179,9 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
             psi_x = conditional(lt(abs(dx0), 1), exp(1-1/(1-dx0**2)), 0)
             psi_y = conditional(lt(abs(dx1), 1), exp(1-1/(1-dx1**2)), 0)
             bump = psi_x * psi_y
-            discrete_integral = assemble(interpolate(bump, V) * self.dx)
 
             unit_bump_integral = 1.45661  # integral of bump function for radius=1 (copied from OpenTidalFarm who used Wolfram)
-            minimum_integral_frac = 0.9  # error if discrete integral falls below this fraction of the analytical integral
-            min_discrete_integral = radius**2 * unit_bump_integral * minimum_integral_frac
-            if discrete_integral < min_discrete_integral:
-                raise ValueError("Could not place turbine due to low resolution. Either increase resolution or radius")
-
-            # FIXME: pyadjoint workaround #22
-            dic = Constant(0)
-            dic.assign(discrete_integral)
-            # NOTE that we still cap the discrete integral for the adjoint
-            self.turbine_density.interpolate(self.turbine_density + bump/max_value(discrete_integral, min_discrete_integral))
+            self.turbine_density = self.turbine_density + bump/(radius**2 * unit_bump_integral)
 
 
 class TurbineFarm(object):
