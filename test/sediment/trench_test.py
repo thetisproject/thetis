@@ -57,6 +57,11 @@ def run_migrating_trench(conservative):
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     options = solver_obj.options
 
+    options.sediment_model_options.use_sediment_model = True
+    options.sediment_model_options.solve_suspended_sediment = True
+    options.sediment_model_options.use_bedload = True
+    options.sediment_model_options.solve_exner = True
+
     options.sediment_model_options.use_sediment_conservative_form = conservative
     options.sediment_model_options.average_sediment_size = 160*(10**(-6))
     options.sediment_model_options.bed_reference_height = 0.025

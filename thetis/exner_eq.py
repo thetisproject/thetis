@@ -138,7 +138,7 @@ class ExnerEquation(Equation):
             raise ValueError('To use the exner equation must define a sediment model')
 
         args = (function_space, depth, sediment_model, depth_integrated_sediment)
-        if sediment_model.solve_suspended:
+        if sediment_model.solve_suspended_sediment:
             self.add_term(ExnerSourceTerm(*args), 'source')
-        if sediment_model.solve_bedload:
+        if sediment_model.use_bedload:
             self.add_term(ExnerBedloadTerm(*args), 'implicit')

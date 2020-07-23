@@ -10,6 +10,7 @@ Solves the test case of a migrating trench.
 """
 
 from thetis import *
+from sediment_callback import SedimentTotalMassConservation2DCallback
 
 import numpy as np
 import pandas as pd
@@ -96,6 +97,11 @@ elev, uv = initialise_fields(mesh2d, 'hydrodynamics_trench', outputdir)
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
 options = solver_obj.options
 
+options.sediment_model_options.use_sediment_model = True
+options.sediment_model_options.solve_suspended_sediment = True
+options.sediment_model_options.use_bedload = True
+options.sediment_model_options.solve_exner = True
+
 options.sediment_model_options.use_sediment_conservative_form = conservative
 options.sediment_model_options.average_sediment_size = 160*(10**(-6))
 options.sediment_model_options.bed_reference_height = 0.025
@@ -107,7 +113,7 @@ options.simulation_export_time = options.simulation_end_time/45
 options.output_directory = outputdir
 options.check_volume_conservation_2d = True
 
-if options.sediment_model_options.solve_suspended:
+if options.sediment_model_options.solve_suspended_sediment:
     options.fields_to_export = ['sediment_2d', 'uv_2d', 'elev_2d']  # note exporting bathymetry must be done through export func
     options.sediment_model_options.check_sediment_conservation = True
 else:
@@ -130,9 +136,9 @@ if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
 
 # make sure set all hydrodynamic and sediment flags before creating model
 solver_obj.create_sediment_model(uv_init=uv, elev_init=elev)
-#c = callback.SedimentTotalMassConservation2DCallback('sediment_2d',
-#                                                     solver_obj, export_to_hdf5=True, append_to_log=False)
-#solver_obj.add_callback(c, eval_interval='timestep')
+c = SedimentTotalMassConservation2DCallback('sediment_2d',
+                                            solver_obj, export_to_hdf5=True, append_to_log=False)
+solver_obj.add_callback(c, eval_interval='timestep')
 
 # set boundary conditions
 
@@ -146,7 +152,7 @@ swe_bnd[right_bnd_id] = {'elev': Constant(0.397)}
 
 solver_obj.bnd_functions['shallow_water'] = swe_bnd
 
-if options.sediment_model_options.solve_suspended:
+if options.sediment_model_options.solve_suspended_sediment:
     solver_obj.bnd_functions['sediment'] = {
         left_bnd_id: {'flux': Constant(-0.22), 'equilibrium': None},
         right_bnd_id: {'elev': Constant(0.397)}}
@@ -177,14 +183,14 @@ for i in np.linspace(0, 15.8, 80):
         baththetis1.append(solver_obj.fields.bathymetry_2d.at([i, 0.55]))
 
 # check sediment conservation
-#sediment_mass_int, sediment_mass_int_rerr = solver_obj.callbacks['timestep']['sediment_2d total mass']()
-#print("Sediment total mass error: %11.4e" % (sediment_mass_int_rerr))
+sediment_mass_int, sediment_mass_int_rerr = solver_obj.callbacks['timestep']['sediment_2d total mass']()
+print("Sediment total mass error: %11.4e" % (sediment_mass_int_rerr))
 
 # check sediment and bathymetry values using previous runs
 sediment_solution = pd.read_csv('sediment.csv')
 bed_solution = pd.read_csv('bed.csv')
 
 
-assert max([abs((sediment_solution['Sediment'][i] - sedimentthetis1[i])/sediment_solution['Sediment'][i]) for i in range(len(sedimentthetis1))]) < 0.12, "error in sediment"
+assert max([abs((sediment_solution['Sediment'][i] - sedimentthetis1[i])/sediment_solution['Sediment'][i]) for i in range(len(sedimentthetis1))]) < 0.15, "error in sediment"
 
-assert max([abs((bed_solution['Bathymetry'][i] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.007, "error in bed level"
+assert max([abs((bed_solution['Bathymetry'][i] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.01, "error in bed level"

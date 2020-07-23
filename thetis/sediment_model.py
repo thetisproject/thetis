@@ -1,11 +1,27 @@
 from .utility import *
+from .log import warning
 
 
 class CorrectiveVelocityFactor:
-    # FIXME: docstrings
-    # explain how the interface works, at the moment a reader of the code only sees an __init__ and a update()
-    # where's the output?
     def __init__(self, depth, ksp, bed_reference_height, settling_velocity, ustar):
+        """
+        Set up advective velocity factor `self.velocity_correction_factor`
+        which accounts for mismatch between depth-averaged product of
+        velocity with sediment and product of depth-averaged velocity
+        with depth-averaged sediment.
+
+        :arg depth: Depth of fluid
+        :type depth: :class:`Function`
+        :arg ksp: Grain roughness coefficient
+        :type ksp: :class:`Constant`
+        :arg bed_reference_height: Bottom bed reference height
+        :type bed_reference_height: :class:`Constant`
+        :arg settling_velocity: Settling velocity of the sediment particles
+        :type settling_velocity: :class:`Constant`
+        :arg ustar: Shear velocity
+        :type ustar: :class:`Expression of functions`
+
+        """
 
         a = Constant(bed_reference_height/2)
 
@@ -36,13 +52,15 @@ class CorrectiveVelocityFactor:
         self.update()
 
     def update(self):
-
+        """
+        Update `self.velocity_correction_factor` using the updated values for velocity
+        """
         # final correction factor
         self.velocity_correction_factor.interpolate(self.velocity_correction_factor_expr)
 
+
 class SedimentModel(object):
-    def __init__(self, options, mesh2d, uv_init, elev_init, bathymetry_2d,
-                 beta_fn, surbeta2_fn, alpha_secc_fn, viscosity_morph, rhos):
+    def __init__(self, options, mesh2d, uv_init, elev_init, bathymetry_2d):
 
         """
         Set up a full morphological model simulation using as an initial condition the results of a hydrodynamic only model.
@@ -55,34 +73,37 @@ class SedimentModel(object):
         :arg elev_init: Initial velocity for the simulation.
         :type elev_init: :class:`Function`
         :arg bathymetry_2d: Bathymetry of the domain. Bathymetry stands for
-            the mean water depth (positive downwards).
+            the bedlevel (positive downwards).
         :type bathymetry_2d: :class:`Function`
-        :arg beta_fn: slope effect magnitude parameter
-        :arg surbeta2_fn: slope effect angle correction parameter
-        :arg alpha_secc_fn: secondary current parameter
-        :arg viscosity_morph: viscosity value in morphodynamic equations
-        :arg rhos: sediment density
 
         """
 
         self.options = options
-        self.solve_suspended = options.sediment_model_options.solve_suspended
+        self.solve_suspended_sediment = options.sediment_model_options.solve_suspended_sediment
         self.use_advective_velocity = options.sediment_model_options.use_advective_velocity
-        self.solve_bedload = options.sediment_model_options.solve_bedload
+        self.use_bedload = options.sediment_model_options.use_bedload
         self.use_angle_correction = options.sediment_model_options.use_angle_correction
         self.use_slope_mag_correction = options.sediment_model_options.use_slope_mag_correction
         self.use_secondary_current = options.sediment_model_options.use_secondary_current
         self.use_wetting_and_drying = options.use_wetting_and_drying
 
+        if not self.use_bedload:
+            if self.use_angle_correction:
+                warning('Slope effect angle correction only applies to bedload transport which is not used in this simulation')
+            if self.use_slope_mag_correction:
+                warning('Slope effect magnitude correction only applies to bedload transport which is not used in this simulation')
+            if self.use_secondary_current:
+                warning('Secondary current only applies to bedload transport which is not used in this simulation')
+
         self.average_size = options.sediment_model_options.average_sediment_size
         self.bed_reference_height = options.sediment_model_options.bed_reference_height
         self.wetting_alpha = options.wetting_and_drying_alpha
-        self.rhos = rhos
+        self.rhos = options.sediment_model_options.sediment_density
 
         self.bathymetry_2d = bathymetry_2d
 
         # define function spaces
-        self.P1_2d = get_functionspace(mesh2d, "DG", 1)
+        self.P1DG = get_functionspace(mesh2d, "DG", 1)
         self.V = get_functionspace(mesh2d, "CG", 1)
         self.vector_cg = VectorFunctionSpace(mesh2d, "CG", 1)
 
@@ -93,14 +114,17 @@ class SedimentModel(object):
 
         ksp = Constant(3*self.average_size)
         self.a = Constant(self.bed_reference_height/2)
-        self.viscosity = Constant(viscosity_morph)
+        if self.options.sediment_model_options.morphological_viscosity is None:
+            self.viscosity = self.options.horizontal_viscosity
+        else:
+            self.viscosity = self.options.sediment_model_options.morphological_viscosity
 
         # magnitude slope effect parameter
-        self.beta = Constant(beta_fn)
+        self.beta = self.options.sediment_model_options.slope_effect_parameter
         # angle correction slope effect parameters
-        self.surbeta2 = Constant(surbeta2_fn)
+        self.surbeta2 = self.options.sediment_model_options.slope_effect_angle_parameter
         # secondary current parameter
-        self.alpha_secc = Constant(alpha_secc_fn)
+        self.alpha_secc = self.options.sediment_model_options.secondary_current_parameter
 
         # calculate critical shields parameter thetacr
         self.R = Constant(self.rhos/self.rhow - 1)
@@ -160,70 +184,46 @@ class SedimentModel(object):
 
         # calculate bed shear stress
         self.unorm = (self.u**2) + (self.v**2)
-        # FIXME: bad name TOB
-        self._add_interpolation_step('TOB', self.rhow*Constant(0.5)*self.qfc*self.unorm)
 
-        # FIXME: to be discussed, we shouldn't be setting user options
-        options.sediment_model_options.solve_exner = True
+        self._add_interpolation_step('bed_stress', self.rhow*Constant(0.5)*self.qfc*self.unorm)
 
-        if self.solve_suspended:
+        if self.solve_suspended_sediment:
             # deposition flux - calculating coefficient to account for stronger conc at bed
             B = conditional(self.a > self.fields.depth, Constant(1.0), self.a/self.fields.depth)
             ustar = sqrt(Constant(0.5)*self.qfc*self.unorm)
-            # FIXME: I can't make heads nor tails of this, the second conditional (first nested) seems to just try to implement abs
-            # then then outside conditional check whether that's positive (?)
-            # then the third conditional seems to be a cap, which you can better do with max_value()
-            exp1 = conditional((conditional((self.settling_velocity/(kappa*ustar)) - Constant(1) >
-                                            Constant(0), (self.settling_velocity/(kappa*ustar)) - Constant(1),
-                                            -(self.settling_velocity/(kappa*ustar)) + Constant(1))) > Constant(1e-04),
-                               conditional((self.settling_velocity/(kappa*ustar)) - Constant(1) > Constant(3), Constant(3),
-                                                (self.settling_velocity/(kappa*ustar))-Constant(1)), Constant(0))
-            # FIXME:same issue here
-            self.coefftest = conditional((conditional((self.settling_velocity/(kappa*ustar))
-                                                      - Constant(1) > Constant(0), (self.settling_velocity/(kappa*ustar))
-                                                      - Constant(1), -(self.settling_velocity/(kappa*ustar))
-                                                      + Constant(1))) > Constant(1e-04), B *
-                                         (Constant(1)-B**exp1)/exp1, -B*ln(B))
-            # FIXME: why is this different than what was in update?
-            # FIXME: coeff is a bad name
-            self._add_interpolation_step('coeff',
-                    conditional(conditional(self.coefftest >
-                        Constant(1e-12), Constant(1)/self.coefftest,
-                        Constant(1e12)) > Constant(1),
-                        conditional(self.coefftest > Constant(1e-12),
-                            Constant(1)/self.coefftest, Constant(1e12)),
-                        Constant(1)), V=self.P1_2d)
+            rouse_number = (self.settling_velocity/(kappa*ustar)) - Constant(1)
+
+            intermediate_step = conditional(abs(rouse_number) > Constant(1e-04),
+                                            B*(Constant(1)-B**min_value(rouse_number, Constant(3)))/min_value(rouse_number, Constant(3)), -B*ln(B))
+
+            self._add_interpolation_step('integrated_rouse',
+                                         max_value(conditional(intermediate_step > Constant(1e-12), Constant(1)/intermediate_step,
+                                                               Constant(1e12)), Constant(1)), V=self.P1DG)
 
             # erosion flux - above critical velocity bed is eroded
-            # FIXME:same issue here
-            self.s0 = (conditional(self.rhow*Constant(0.5)*self.qfc*self.unorm*self.mu > Constant(0),
-                                   self.rhow*Constant(0.5)*self.qfc*self.unorm*self.mu,
-                                   Constant(0)) - self.taucr)/self.taucr
-            # FIXME:same issue here
-            self._add_interpolation_step('ceq',Constant(0.015)*(self.average_size/self.a)
-                                                        * ((conditional(self.s0 < Constant(0),
-                                                                        Constant(0), self.s0))**(1.5))
-                                                        / (self.dstar**0.3),
-                                                        V=self.P1_2d)
+            transport_stage_param = conditional(self.rhow*Constant(0.5)*self.qfc*self.unorm*self.mu > Constant(0),
+                                                (self.rhow*Constant(0.5)*self.qfc*self.unorm*self.mu - self.taucr)/self.taucr,
+                                                Constant(-1))
+
+            self._add_interpolation_step('erosion_concentration', Constant(0.015)*(self.average_size/self.a)
+                                         * ((max_value(transport_stage_param, Constant(0)))**1.5)
+                                         / (self.dstar**0.3), V=self.P1DG)
 
             if self.use_advective_velocity:
                 self.corr_factor_model = CorrectiveVelocityFactor(self.fields.depth, ksp,
-                                                                    self.bed_reference_height, self.settling_velocity, ustar)
+                                                                  self.bed_reference_height, self.settling_velocity, ustar)
                 self.update_steps['correction_factor'] = self.corr_factor_model.update
                 self.fields.velocity_correction_factor = self.corr_factor_model.velocity_correction_factor
-            self._add_interpolation_step('equilibrium_tracer', self.fields.ceq/self.fields.coeff, V=self.P1_2d)
+            self._add_interpolation_step('equilibrium_tracer', self.fields.erosion_concentration/self.fields.integrated_rouse, V=self.P1DG)
 
             # get individual terms
-            self._deposition = self.settling_velocity*self.fields.coeff
-            self._add_interpolation_step('erosion', self.settling_velocity*self.fields.ceq, V=self.P1_2d)
+            self._deposition = self.settling_velocity*self.fields.integrated_rouse
+            self._erosion = self.settling_velocity*self.fields.erosion_concentration
 
-            self.options.sediment_model_options.solve_sediment = True
             if self.use_advective_velocity:
                 self.options.sediment_model_options.sediment_advective_velocity_factor = self.fields.velocity_correction_factor
-        else:
-            self.options.sediment_model_options.solve_sediment = False
 
-        if self.solve_bedload:
+        if self.use_bedload:
             # calculate angle of flow
             self._add_interpolation_step('calfa', self.u/sqrt(self.unorm))
             self._add_interpolation_step('salfa', self.v/sqrt(self.unorm))
@@ -241,14 +241,20 @@ class SedimentModel(object):
         self.fields[field_name] = Function(V or self.V, name=field_name)
         self.update_steps[field_name] = Interpolator(expr, self.fields[field_name]).interpolate
 
-    def get_bedload_term(self, solution):
-        # FIXME: needs docstring
-        # FIXME: bad name solution, means nothing in this context
+    def get_bedload_term(self, bathymetry):
+        """
+        Set up a term in the exner equation which solves for bedload transport.
+        Note bathymetry is the function which is solved for in the exner equation.
+
+        :arg bathymetry: Bathymetry of the domain. Bathymetry stands for
+            the bedlevel (positive downwards).
+
+        """
 
         if self.use_slope_mag_correction:
             # slope effect magnitude correction due to gravity where beta is a parameter normally set to 1.3
             # we use z_n1 and equals so that we can use an implicit method in Exner
-            slopecoef = Constant(1) + self.beta*(solution.dx(0)*self.fields.calfa + solution.dx(1)*self.fields.salfa)
+            slopecoef = Constant(1) + self.beta*(bathymetry.dx(0)*self.fields.calfa + bathymetry.dx(1)*self.fields.salfa)
         else:
             slopecoef = Constant(1.0)
 
@@ -269,14 +275,14 @@ class SedimentModel(object):
             angle_norm = conditional(comb > Constant(1e-10), comb, Constant(1e-10))
 
             # we use z_n1 and equals so that we can use an implicit method in Exner
-            calfamod = (self.fields.calfa + (tt1*solution.dx(0)))/angle_norm
-            salfamod = (self.fields.salfa + (tt1*solution.dx(1)))/angle_norm
+            calfamod = (self.fields.calfa + (tt1*bathymetry.dx(0)))/angle_norm
+            salfamod = (self.fields.salfa + (tt1*bathymetry.dx(1)))/angle_norm
 
         if self.use_secondary_current:
             # accounts for helical flow effect in a curver channel
             # use z_n1 and equals so can use an implicit method in Exner
-            free_surface_dx = self.fields.depth.dx(0) - solution.dx(0)
-            free_surface_dy = self.fields.depth.dx(1) - solution.dx(1)
+            free_surface_dx = self.fields.depth.dx(0) - bathymetry.dx(0)
+            free_surface_dy = self.fields.depth.dx(1) - bathymetry.dx(1)
 
             velocity_slide = (self.u*free_surface_dy)-(self.v*free_surface_dx)
 
@@ -286,17 +292,17 @@ class SedimentModel(object):
             # accounts for helical flow effect in a curver channel
             if self.use_angle_correction:
                 # if angle has already been corrected we must alter the corrected angle to obtain the corrected secondary current angle
-                t_1 = (self.fields.TOB*slopecoef*calfamod) + (self.v*tandelta_factor*velocity_slide)
-                t_2 = (self.fields.TOB*slopecoef*salfamod) - (self.u*tandelta_factor*velocity_slide)
+                t_1 = (self.fields.bed_stress*slopecoef*calfamod) + (self.v*tandelta_factor*velocity_slide)
+                t_2 = (self.fields.bed_stress*slopecoef*salfamod) - (self.u*tandelta_factor*velocity_slide)
             else:
-                t_1 = (self.fields.TOB*slopecoef*self.fields.calfa) + (self.v*tandelta_factor*velocity_slide)
-                t_2 = ((self.fields.TOB*slopecoef*self.fields.salfa) - (self.u*tandelta_factor*velocity_slide))
+                t_1 = (self.fields.bed_stress*slopecoef*self.fields.calfa) + (self.v*tandelta_factor*velocity_slide)
+                t_2 = ((self.fields.bed_stress*slopecoef*self.fields.salfa) - (self.u*tandelta_factor*velocity_slide))
 
             # calculated to normalise the new angles
             t4 = sqrt((t_1**2) + (t_2**2))
 
             # updated magnitude correction and angle corrections
-            slopecoef_secc = t4/self.fields.TOB
+            slopecoef_secc = t4/self.fields.bed_stress
 
             calfanew = t_1/t4
             salfanew = t_2/t4
@@ -338,14 +344,13 @@ class SedimentModel(object):
 
     def get_erosion_term(self):
         """Returns expression for (depth-integrated) erosion."""
-        return self.fields.erosion
+        return self._erosion
 
     def get_equilibrium_tracer(self):
         """Returns expression for (depth-averaged) equilibrium tracer."""
         return self.fields.equilibrium_tracer
 
     def update(self, t_new, uv):
-
         # velocity used in all expressions via self.u, self.v and self.unorm:
         self.uv_cg.project(uv)
 

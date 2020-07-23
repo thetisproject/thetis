@@ -520,11 +520,13 @@ class CommonModelOptions(FrozenConfigurable):
 
 
 class SedimentModelOptions(FrozenHasTraits):
-    solve_sediment = Bool(False, help='Solve sediment transport - note solve_tracer must also be true').tag(config=True)
+    use_sediment_model = Bool(False, help='Use sediment model').tag(config=True)
     use_sediment_conservative_form = Bool(False, help='Solve 2D sediment transport in the conservative form').tag(config=True)
     solve_exner = Bool(False, help='Solve exner equation for bed morphology').tag(config=True)
-    solve_suspended = Bool(True, help='Solve suspended sediment transport').tag(config=True)
-    solve_bedload = Bool(True, help='Solve bedload transport').tag(config=True)
+    solve_suspended_sediment = Bool(False, help="""Solve suspended sediment transport
+
+                                    This option creates the sediment equation""").tag(config=True)
+    use_bedload = Bool(False, help='Use bedload transport in sediment model').tag(config=True)
     use_angle_correction = Bool(True, help='Switch to use slope effect angle correction').tag(config=True)
     use_slope_mag_correction = Bool(True, help='Switch to use slope effect magnitude correction').tag(config=True)
     use_secondary_current = Bool(False, help='Switch to use secondary current for helical flow effect').tag(config=True)
@@ -544,6 +546,22 @@ class SedimentModelOptions(FrozenHasTraits):
         Constant(1), help="""Rate at which timestep in exner equation is accelerated compared to timestep for model
 
         timestep in exner = morphological_acceleration_factor * timestep
+        """).tag(config=True)
+    morphological_viscosity = FiredrakeScalarExpression(
+        None, allow_none=True, help="""Viscosity used to derive morphology terms.
+
+        Usually equal to horizontal viscosity but can be set to have a different value""").tag(config=True)
+    sediment_density = FiredrakeConstantTraitlet(
+        Constant(2650), help="""Density of sediment
+        """).tag(config=True)
+    secondary_current_parameter = FiredrakeConstantTraitlet(
+        Constant(0.75), help="""Parameter controlling secondary current
+        """).tag(config=True)
+    slope_effect_parameter = FiredrakeConstantTraitlet(
+        Constant(1.3), help="""Parameter controlling magnitude of slope effect
+        """).tag(config=True)
+    slope_effect_angle_parameter = FiredrakeConstantTraitlet(
+        Constant(2/3), help="""Parameter controlling angle of slope effect
         """).tag(config=True)
     check_sediment_conservation = Bool(
         False, help="""
@@ -651,7 +669,6 @@ class ModelOptions3d(CommonModelOptions):
         False, help="Compute internal pressure gradient in momentum equation").tag(config=True)
     use_turbulence = Bool(
         False, help="Activate turbulence model in the 3D model").tag(config=True)
-
     use_turbulence_advection = Bool(
         False, help="Advect TKE and Psi in the GLS turbulence model").tag(config=True)
     use_smagorinsky_viscosity = Bool(
