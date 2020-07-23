@@ -38,7 +38,7 @@ def test_implicit_friction(do_export=False, do_assert=True):
     deg = 1
     p1dg = get_functionspace(mesh, 'DG', 1)
     p1dgv = get_functionspace(mesh, 'DG', 1, vector=True)
-    u_h_elt = FiniteElement('RT', triangle, deg + 1, variant='equispaced')
+    u_h_elt = FiniteElement('RT', triangle, deg + 1, variant='point')
     u_v_elt = FiniteElement('DG', interval, deg, variant='equispaced')
     u_elt = HDiv(TensorProductElement(u_h_elt, u_v_elt))
     # for vertical velocity component
