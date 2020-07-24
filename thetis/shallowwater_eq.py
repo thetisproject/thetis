@@ -786,9 +786,8 @@ class TurbineDragTerm(ShallowWaterMomentumTerm):
         for farm in self.tidal_farms:
             density = farm.turbine_density
             c_t = farm.friction_coefficient(uv_old, total_h)
-            subdomain = farm.subdomain
             unorm = sqrt(dot(uv_old, uv_old))
-            f += c_t * density * unorm * inner(self.u_test, uv) / total_h * self.dx(subdomain)
+            f += c_t * density * unorm * inner(self.u_test, uv) / total_h * farm.dx
         return -f
 
 class DiscreteTurbineDragTerm(ShallowWaterMomentumTerm):
