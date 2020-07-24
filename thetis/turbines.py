@@ -113,10 +113,10 @@ class TabulatedThrustTurbine(TidalTurbine):
 
 
 class TidalTurbineFarm:
-    def __init__(self, turbine_density, subdomain, options):
+    def __init__(self, turbine_density, dx, options):
         """
         :arg turbine_density: turbine distribution density field or expression
-        :arg subdomain: subdomain where this farm is applied
+        :arg dx: measure to integrate power output, n/o turbines
         :arg options: a :class:`TidalTurbineFarmOptions` options dictionary
         """
         upwind_correction = getattr(options, 'upwind_correction', False)
@@ -126,8 +126,7 @@ class TidalTurbineFarm:
             self.turbine = RatedThrustTurbine(options.turbine_options, upwind_correction=upwind_correction)
         elif options.turbine_type == 'table':
             self.turbine = TabulatedThrustTurbine(options.turbine_options, upwind_correction=upwind_correction)
-        self.subdomain = subdomain
-        self.dx = dx(subdomain)
+        self.dx = dx
         self.turbine_density = turbine_density
 
     def number_of_turbines(self):
@@ -145,17 +144,17 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
     Class that can be used for the addition of turbines in the turbine density field
     """
 
-    def __init__(self, mesh, subdomain, options):
+    def __init__(self, mesh, dx, options):
         """
         :arg mesh: mesh domain
-        :arg subdomain: subdomain where this farm is applied
+        :arg dx: measure to integrate power output, n/o turbines
         :arg options: a :class:`TidalTurbineFarmOptions` options dictionary
         """
 
         # Preliminaries
         self.mesh = mesh
         # this sets self.turbine_expr=0
-        super().__init__(0, subdomain, options)
+        super().__init__(0, dx, options)
 
         # Adding turbine distribution in the domain
         self.add_turbines(options.turbine_coordinates)
@@ -181,62 +180,6 @@ class DiscreteTidalTurbineFarm(TidalTurbineFarm):
 
             unit_bump_integral = 1.45661  # integral of bump function for radius=1 (copied from OpenTidalFarm who used Wolfram)
             self.turbine_density = self.turbine_density + bump/(radius**2 * unit_bump_integral)
-
-
-class TurbineFarm(object):
-    """
-    Evaluates power output, costs and profit of tidal turbine farm
-
-    Cost is simply the number of turbines evaluated as the integral of the
-    turbine density.
-
-    Power output is calculated as the amount of energy
-    taken out of the flow by the turbine drag term. This is in general
-    an over-estimate of the 'usefully extractable' energy. Furthermore no
-    density is included, so that assuming a density of 1000 kg/m^3 and
-    all further quantities in SI, the power is measured in kW.
-
-    Profit is calculated as:
-
-      Profit = Power - break_even_wattage * Cost
-
-    With the above assumptions, break_even_wattage should be specified in
-    kW and can be interpreted as the average power per turbine required
-    to 'break even', i.e. Profit=0.
-
-    Power output and profit are time-integrated (simple first order) and
-    time-averages are available as average_power and average_profit.
-    """
-    def __init__(self, farm_options, subdomain_id, u, v, dt):
-        """
-        :arg farm_options: a :class:`TidalTurbineFarmOptions` object that define the farm and the turbines used
-        :arg int subdomain_id: the farm is restricted to this subdomain
-        :arg u,v: the depth-averaged velocity field
-        :arg float dt: used for time-integration."""
-        turbine_density = farm_options.turbine_density
-        C_T = farm_options.turbine_options.thrust_coefficient
-        A_T = pi*(farm_options.turbine_options.diameter/2.)**2
-        C_D = C_T*A_T/2.*turbine_density
-        self.power_integral = C_D * (u*u + v*v)**1.5 * dx(subdomain_id)
-        # cost integral is n/o turbines = \int turbine_density
-        self.cost = assemble(turbine_density * dx(subdomain_id))
-        self.break_even_wattage = farm_options.break_even_wattage
-        self.dt = dt
-
-        # time-integrated quantities:
-        self.integrated_power = 0.
-        self.average_power = 0.
-        self.average_profit = 0.
-        self.time_period = 0.
-
-    def evaluate_timestep(self):
-        """Perform time integration and return current power and time-averaged power and profit."""
-        self.time_period = self.time_period + self.dt
-        current_power = assemble(self.power_integral)
-        self.integrated_power = self.integrated_power + current_power * self.dt
-        self.average_power = self.integrated_power / self.time_period
-        self.average_profit = self.average_power - self.break_even_wattage * self.cost
-        return current_power, self.average_power, self.average_profit
 
 
 class TurbineFunctionalCallback(DiagnosticCallback):
