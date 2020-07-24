@@ -6,6 +6,7 @@ from thetis import *
 from firedrake_adjoint import *
 from pyadjoint import minimize
 import numpy
+import random
 op2.init(log_level=INFO)
 
 test_gradient = False
@@ -35,7 +36,7 @@ options.timestepper_type = 'SteadyState'
 # (this is partly the default, just switching on mumps here (TODO: which should probaly be added to defaults?)
 #  and a snes monitor that displays the residual of the Newton iteration)
 options.timestepper_options.solver_parameters = {'snes_monitor': None,
-                                                 'snes_rtol': 1e-5,
+                                                 'snes_rtol': 1e-12,
                                                  'ksp_type': 'preonly',
                                                  'pc_type': 'lu',
                                                  'pc_factor_mat_solver_type': 'mumps',
@@ -179,7 +180,7 @@ if test_gradient:
 
     # the perturbation over which we test the Taylor approximation
     # (the taylor test below starts with a 1/100th of that, followed by a series of halvings
-    h0 = [Constant(random.random(-1, 1)) for xy in farm_options.turbine_coordinates for x in xy]
+    h0 = [Constant(random.uniform(-1, 1)) for xy in farm_options.turbine_coordinates for x in xy]
 
     # this tests whether the above Taylor series residual indeed converges to zero at 2nd order in h as h->0
     minconv = taylor_test(rf, m0, h0)
