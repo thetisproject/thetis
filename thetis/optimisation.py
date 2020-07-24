@@ -273,8 +273,8 @@ class ConstantControlOptimisationCallback(DiagnosticOptimisationCallback):
 class DerivativeConstantControlOptimisationCallback(DiagnosticOptimisationCallback):
     """
     OptimisationCallback that records the derivatives with respect to the controls, assumed to be a list of Constants, in the log and/or hdf5 file."""
-    variable_names = ['controls']
-    name = 'controls'
+    variable_names = ['derivatives']
+    name = 'derivatives'
 
     def compute_values(self, *args):
         if len(args) != 3:
