@@ -308,11 +308,15 @@ class FlowSolver2d(FrozenClass):
         # ---- tidal farms, if any
         if len(self.options.tidal_turbine_farms) + len(self.options.discrete_tidal_turbine_farms) > 0:
             self.tidal_farms = []
+            p = self.function_spaces.U_2d.ufl_element().degree()
+            quad_degree = 2*p + 1
             for subdomain, farm_options in self.options.tidal_turbine_farms.items():
+                fdx = dx(subdomain, degree=quad_degree)
                 self.tidal_farms.append(TidalTurbineFarm(farm_options.turbine_density,
-                                                         subdomain, farm_options))
+                                                         fdx, farm_options))
             for subdomain, farm_options in self.options.discrete_tidal_turbine_farms.items():
-                self.tidal_farms.append(DiscreteTidalTurbineFarm(self.mesh2d, subdomain, farm_options))
+                fdx = dx(subdomain, degree=quad_degree)
+                self.tidal_farms.append(DiscreteTidalTurbineFarm(self.mesh2d, fdx, farm_options))
         else:
             self.tidal_farms = None
 
