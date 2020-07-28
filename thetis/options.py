@@ -532,12 +532,10 @@ class SedimentModelOptions(FrozenHasTraits):
     use_secondary_current = Bool(False, help='Switch to use secondary current for helical flow effect').tag(config=True)
     average_sediment_size = NonNegativeFloat(allow_none=False, help='Average sediment size').tag(config=True)
     bed_reference_height = NonNegativeFloat(allow_none=False, help='Bottom bed reference height').tag(config=True)
-    use_advective_velocity = Bool(True, help='Switch on sediment_advective_velocity_factor').tag(config=True)
-    sediment_advective_velocity_factor = FiredrakeScalarExpression(
-        Constant(1.0), help="""
-        Custom factor multiplied to the velocity variable in sediment equation.
+    use_advective_velocity_correction = Bool(True, help="""
+        Switch to apply correction to advective velocity used in sediment equation
 
-        Used to account for mismatch between depth-averaged product of velocity with sediment
+        Accounts for mismatch between depth-averaged product of velocity with sediment
         and product of depth-averaged velocity with depth-averaged sediment
         """).tag(config=True)
     porosity = FiredrakeCoefficient(
@@ -619,6 +617,13 @@ class ModelOptions2d(CommonModelOptions):
         Compute total tracer mass at every export
 
         Prints deviation from the initial mass to stdout.
+        """).tag(config=True)
+    tracer_advective_velocity_factor = FiredrakeScalarExpression(
+        Constant(1.0), help="""
+        Custom factor multiplied to the velocity variable in tracer advection equation.
+
+        Used to account for mismatch between depth-averaged product of velocity with tracer
+        and product of depth-averaged velocity with depth-averaged tracer
         """).tag(config=True)
     check_tracer_overshoot = Bool(
         False, help="""

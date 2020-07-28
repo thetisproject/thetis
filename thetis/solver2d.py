@@ -418,7 +418,7 @@ class FlowSolver2d(FrozenClass):
             'diffusivity_h': self.options.horizontal_diffusivity,
             'source': self.options.tracer_source_2d,
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
-            'tracer_advective_velocity_factor': self.options.sediment_model_options.sediment_advective_velocity_factor,
+            'tracer_advective_velocity_factor': self.options.tracer_advective_velocity_factor,
         }
 
         args = (self.eq_tracer, self.fields.tracer_2d, fields, self.dt, )
@@ -442,7 +442,7 @@ class FlowSolver2d(FrozenClass):
             'uv_2d': uv,
             'diffusivity_h': self.options.horizontal_diffusivity,
             'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
-            'tracer_advective_velocity_factor': self.options.sediment_model_options.sediment_advective_velocity_factor,
+            'tracer_advective_velocity_factor': self.sediment_model.get_advective_velocity_correction_factor(),
         }
 
         args = (self.eq_sediment, self.fields.sediment_2d, fields, self.dt, )

@@ -80,10 +80,10 @@ class SedimentModel(object):
 
         self.options = options
         self.solve_suspended_sediment = options.sediment_model_options.solve_suspended_sediment
-        self.use_advective_velocity = options.sediment_model_options.use_advective_velocity
         self.use_bedload = options.sediment_model_options.use_bedload
         self.use_angle_correction = options.sediment_model_options.use_angle_correction
         self.use_slope_mag_correction = options.sediment_model_options.use_slope_mag_correction
+        self.use_advective_velocity_correction = options.sediment_model_options.use_advective_velocity_correction
         self.use_secondary_current = options.sediment_model_options.use_secondary_current
         self.use_wetting_and_drying = options.use_wetting_and_drying
 
@@ -209,19 +209,16 @@ class SedimentModel(object):
                                          * ((max_value(transport_stage_param, Constant(0)))**1.5)
                                          / (self.dstar**0.3), V=self.P1DG)
 
-            if self.use_advective_velocity:
-                self.corr_factor_model = CorrectiveVelocityFactor(self.fields.depth, ksp,
-                                                                  self.bed_reference_height, self.settling_velocity, ustar)
-                self.update_steps['correction_factor'] = self.corr_factor_model.update
-                self.fields.velocity_correction_factor = self.corr_factor_model.velocity_correction_factor
+            if self.use_advective_velocity_correction:
+                correction_factor_model = CorrectiveVelocityFactor(self.fields.depth, ksp,
+                                                                   self.bed_reference_height, self.settling_velocity, ustar)
+                self.update_steps['correction_factor'] = correction_factor_model.update
+                self.fields.velocity_correction_factor = correction_factor_model.velocity_correction_factor
             self._add_interpolation_step('equilibrium_tracer', self.fields.erosion_concentration/self.fields.integrated_rouse, V=self.P1DG)
 
             # get individual terms
             self._deposition = self.settling_velocity*self.fields.integrated_rouse
             self._erosion = self.settling_velocity*self.fields.erosion_concentration
-
-            if self.use_advective_velocity:
-                self.options.sediment_model_options.sediment_advective_velocity_factor = self.fields.velocity_correction_factor
 
         if self.use_bedload:
             # calculate angle of flow
@@ -349,6 +346,19 @@ class SedimentModel(object):
     def get_equilibrium_tracer(self):
         """Returns expression for (depth-averaged) equilibrium tracer."""
         return self.fields.equilibrium_tracer
+
+    def get_advective_velocity_correction_factor(self):
+        """Returns correction factor for the advective velocity in the sediment equations
+
+        With the use_advective_velocity_correction options, this applies a correction to
+        the supplied velocity solution `uv` to take into account the mismatch between
+        depth-averaged product of velocity with sediment and product of depth-averaged
+        velocity with depth-averaged sediment.
+        :arg uv: velocity solution."""
+        if self.use_advective_velocity_correction:
+            return self.fields.velocity_correction_factor
+        else:
+            return 1
 
     def update(self, t_new, uv):
         # velocity used in all expressions via self.u, self.v and self.unorm:
