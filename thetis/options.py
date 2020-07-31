@@ -428,6 +428,8 @@ class DiscreteTidalTurbineFarmOptions(TidalTurbineFarmOptions):
     turbine_coordinates = List(default_value=[], help="Coordinates for turbines").tag(config=True)
     upwind_correction = Bool(True,
                              help='bool: Apply flow correction to correct for upwind velocity').tag(config=True)
+    quadrature_degree = PositiveInteger(10,
+                                        help='Quadrature degree for thrust force and power output integral').tag(config=True)
 
 
 class TracerFieldOptions(FrozenHasTraits):

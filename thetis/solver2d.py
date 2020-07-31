@@ -385,7 +385,7 @@ class FlowSolver2d(FrozenClass):
                 self.tidal_farms.append(TidalTurbineFarm(farm_options.turbine_density,
                                                          fdx, farm_options))
             for subdomain, farm_options in self.options.discrete_tidal_turbine_farms.items():
-                fdx = dx(subdomain, degree=quad_degree)
+                fdx = dx(subdomain, degree=farm_options.quadrature_degree)
                 self.tidal_farms.append(DiscreteTidalTurbineFarm(self.mesh2d, fdx, farm_options))
         else:
             self.tidal_farms = None
