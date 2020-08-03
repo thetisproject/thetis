@@ -53,10 +53,8 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self.timesteppers.swe2d = self.solver.get_swe_timestepper(self.swe_integrator)
         if self.solver.options.solve_tracer:
             self.timesteppers.tracer = self.solver.get_tracer_timestepper(self.tracer_integrator)
-            self.cfl_coeff_2d = min(self.timesteppers.swe2d.cfl_coeff, self.timesteppers.tracer.cfl_coeff)
         if self.solver.options.sediment_model_options.solve_suspended_sediment:
             self.timesteppers.sediment = self.solver.get_sediment_timestepper(self.sediment_integrator)
-            self.cfl_coeff_2d = min(self.timesteppers.swe2d.cfl_coeff, self.timesteppers.sediment.cfl_coeff)
         if self.solver.options.sediment_model_options.solve_exner:
             self.timesteppers.exner = self.solver.get_exner_timestepper(self.exner_integrator)
 
