@@ -5,7 +5,7 @@
 Citing Thetis
 -------------
 
-If you publish results obtained with Thetis 3D, please cite the `2018 GMD paper <https://doi.org/10.5194/gmd-11-4359-2018>`_.
+If you publish results obtained with Thetis, please cite the `2018 GMD paper <https://doi.org/10.5194/gmd-11-4359-2018>`_.
 Also see `instructions for citing Firedrake <https://firedrakeproject.org/citing.html>`_.
 
 2020
