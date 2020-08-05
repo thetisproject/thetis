@@ -29,6 +29,8 @@ Wallwork, J. G., Barral, N., Kramer, S. C., Ham, D. A., and Piggott, M. D.: Goal
 
 Vouriot, C. V. M., Angeloudis, A., Kramer, S.C., and  Piggott, M. D.: Fate of large-scale vortices in idealized tidal lagoons, *Environ Fluid Mech*, 19:329–348, doi:`10.1007/s10652-018-9626-4 <https://doi.org/10.1007/s10652-018-9626-4>`_, 2019.
 
+Harcourt, F., Angeloudis A., and Piggott M. D.: Utilising the flexible generation potential of tidal range power plants to optimise economic value, *Applied Energy*, 237:873–884, doi:`10.1016/j.apenergy.2018.12.091 <https://doi.org/10.1016/j.apenergy.2018.12.091>`_, 2019.
+
 Pan, W., Kramer, S. C., and Piggott, M. D.: Multi-layer non-hydrostatic free surface modelling using the discontinuous Galerkin method, *Ocean Modelling*, 134:68–83, doi:`10.1016/j.ocemod.2019.01.003 <https://doi.org/10.1016/j.ocemod.2019.01.003>`_, 2019.
 
 2018
