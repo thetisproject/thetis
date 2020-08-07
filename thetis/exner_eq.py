@@ -14,7 +14,6 @@ where :math:'z_b' is the bedlevel, :math:'S' is :math:'q=HT' for conservative (w
 and T is the sediment field) and :math:'T' for non-conservative (where T is the sediment field),
 :math:`\nabla_h` denotes horizontal gradient, :math:'morfac' is the morphological scale factor,
 :math:'p' is the porosity and :math:'Q_b' is the bedload transport vector
-
 """
 
 from __future__ import absolute_import
@@ -31,8 +30,8 @@ __all__ = [
 
 class ExnerTerm(Term):
     """
-    Generic term that provides commonly used members and mapping for
-    boundary functions.
+    Generic term in the Exner equations that provides commonly used members
+    There are no boundary conditions for the Exner equation.
     """
     def __init__(self, function_space, depth, sediment_model, depth_integrated_sediment=False):
         """
@@ -67,7 +66,6 @@ class ExnerSourceTerm(ExnerTerm):
 
     where :math:`\sigma` is a user defined source scalar field :class:`Function`
     and :math:`\phi` is a user defined source scalar field :class:`Function`.
-
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
 
@@ -76,8 +74,6 @@ class ExnerSourceTerm(ExnerTerm):
         morfac = fields.get('morfac')
         porosity = fields.get('porosity')
 
-        if morfac.dat.data[:] <= 0:
-            raise ValueError("Morphological acceleration factor must be strictly positive")
         fac = Constant(morfac/(1.0-porosity))
         H = self.depth.get_total_depth(fields_old['elev_2d'])
 
@@ -102,7 +98,6 @@ class ExnerBedloadTerm(ExnerTerm):
         + \int_\Gamma \psi \textbf{qb} \cdot \textbf{n} dS
 
     where :math:`\textbf{n}` is the unit normal of the element interfaces.
-
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
@@ -114,7 +109,9 @@ class ExnerBedloadTerm(ExnerTerm):
 
         fac = Constant(morfac/(1.0-porosity))
 
-        f += -(self.test*((fac*qbx*self.n[0]) + (fac*qby*self.n[1])))*self.ds(1) - (self.test*((fac*qbx*self.n[0]) + (fac*qby*self.n[1])))*self.ds(2) + (fac*qbx*(self.test.dx(0)) + fac*qby*(self.test.dx(1)))*self.dx
+        f += -(self.test*((fac*qbx*self.n[0]) + (fac*qby*self.n[1])))*self.ds(1)
+        f += -(self.test*((fac*qbx*self.n[0]) + (fac*qby*self.n[1])))*self.ds(2)
+        f +=  (fac*qbx*(self.test.dx(0)) + fac*qby*(self.test.dx(1)))*self.dx
 
         return -f
 
