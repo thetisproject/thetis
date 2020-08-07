@@ -12,7 +12,6 @@ from . import tracer_eq_2d
 from . import conservative_tracer_eq_2d
 from . import sediment_eq_2d
 from . import exner_eq
-from .sediment_model import SedimentModel
 import weakref
 import time as time_mod
 import numpy as np
@@ -328,7 +327,18 @@ class FlowSolver2d(FrozenClass):
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
                 self.tracer_limiter = None
-        if self.options.sediment_model_options.solve_suspended_sediment:
+
+        sediment_options = self.options.sediment_model_options
+        if sediment_options.solve_suspended_sediment or sediment_options.solve_exner:
+            uv_2d, elev_2d = self.fields.solution_2d.split()
+            sediment_model_class = self.options.sediment_model_options.sediment_model_class
+            self.sediment_model = sediment_model_class(
+                self.options, self.mesh2d, uv_2d, elev_2d, self.depth)
+        elif sediment_options.solve_suspended_sediment or sediment_options.solve_exner:
+            raise ValueEror('Need a sediment model to solve for suspended sediment '
+                            'or Exner equation')
+
+        if sediment_options.solve_suspended_sediment:
             if self.options.solve_tracer:
                 raise ValueError("Solve tracer and solve sediment cannot both be true")
             self.fields.sediment_2d = Function(self.function_spaces.Q_2d, name='sediment_2d')
@@ -336,23 +346,18 @@ class FlowSolver2d(FrozenClass):
                 self.function_spaces.Q_2d, self.depth, self.sediment_model,
                 use_lax_friedrichs=self.options.use_lax_friedrichs_tracer,
                 sipg_parameter=self.options.sipg_parameter_tracer,
-                conservative=self.options.sediment_model_options.use_sediment_conservative_form)
+                conservative=sediment_options.use_sediment_conservative_form)
             if self.options.use_limiter_for_tracers and self.options.polynomial_degree > 0:
                 self.tracer_limiter = limiter.VertexBasedP1DGLimiter(self.function_spaces.Q_2d)
             else:
                 self.tracer_limiter = None
 
-        if self.options.sediment_model_options.solve_exner:
+        if sediment_options.solve_exner:
             self.eq_exner = exner_eq.ExnerEquation(
                 self.fields.bathymetry_2d.function_space(), self.depth,
-                depth_integrated_sediment=self.options.sediment_model_options.use_sediment_conservative_form, sediment_model=self.sediment_model)
+                depth_integrated_sediment=sediment_options.use_sediment_conservative_form, sediment_model=self.sediment_model)
 
         self._isfrozen = True  # disallow creating new attributes
-
-    def create_sediment_model(self, uv_init, elev_init):
-
-        self.sediment_model = SedimentModel(self.options, self.mesh2d, uv_init, elev_init,
-                                            bathymetry_2d=self.fields.bathymetry_2d)
 
     def get_swe_timestepper(self, integrator):
         """
@@ -605,13 +610,19 @@ class FlowSolver2d(FrozenClass):
             uv_2d.project(uv)
         if tracer is not None and self.options.solve_tracer:
             self.fields.tracer_2d.project(tracer)
-        if sediment is not None and self.options.sediment_model_options.solve_suspended_sediment:
-            self.fields.sediment_2d.project(sediment)
-        elif sediment is None and self.options.sediment_model_options.solve_suspended_sediment:
-            sediment = self.sediment_model.get_equilibrium_tracer()
-            if self.options.sediment_model_options.use_sediment_conservative_form:
-                sediment = sediment * self.depth.get_total_depth(elev_2d)
-            self.fields.sediment_2d.project(sediment)
+
+        sediment_options = self.options.sediment_model_options
+        if self.sediment_model is not None:
+            # update sediment model based on initial conditions for uv and elev
+            self.sediment_model.update()
+        if sediment_options.solve_suspended_sediment:
+            if sediment is not None:
+                self.fields.sediment_2d.project(sediment)
+            else:
+                sediment = self.sediment_model.get_equilibrium_tracer()
+                if sediment_options.use_sediment_conservative_form:
+                    sediment = sediment * self.depth.get_total_depth(elev_2d)
+                self.fields.sediment_2d.project(sediment)
 
         self.timestepper.initialize(self.fields.solution_2d)
 

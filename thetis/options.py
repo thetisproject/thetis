@@ -6,6 +6,7 @@ objects.
 """
 from .configuration import *
 from firedrake import Constant
+from .sediment_model import SedimentModel
 
 
 class TimeStepperOptions(FrozenHasTraits):
@@ -520,10 +521,9 @@ class CommonModelOptions(FrozenConfigurable):
 
 
 class SedimentModelOptions(FrozenHasTraits):
-    use_sediment_model = Bool(False, help='Use sediment model').tag(config=True)
-    use_sediment_conservative_form = Bool(False, help='Solve 2D sediment transport in the conservative form').tag(config=True)
     solve_exner = Bool(False, help='Solve exner equation for bed morphology').tag(config=True)
     solve_suspended_sediment = Bool(False, help='Solve suspended sediment transport equation').tag(config=True)
+    use_sediment_conservative_form = Bool(False, help='Solve 2D sediment transport in the conservative form').tag(config=True)
     use_bedload = Bool(False, help='Use bedload transport in sediment model').tag(config=True)
     use_angle_correction = Bool(True, help='Switch to use slope effect angle correction').tag(config=True)
     use_slope_mag_correction = Bool(True, help='Switch to use slope effect magnitude correction').tag(config=True)
@@ -567,6 +567,21 @@ class SedimentModelOptions(FrozenHasTraits):
 
         Prints overshoot values that exceed the initial range to stdout.
         """).tag(config=True)
+    sediment_model_class = Type(SedimentModel, help="""Class used to define the sediment model
+
+    This option can be used to provide a user-defined sediment model class that should
+    be a subclass of SedimentModel. For example:
+
+    .. code-block:: python
+
+        class UserSedimentModel(SedimentModel):
+           def __init__(options, mesh2d, uv, elev, depth, extra_term):
+              super().__init__(options, mesh2d, uv, elev, depth)
+              self.extra_term = extra_term
+
+           def get_bedloadterm(self, bathymetry):
+              return super().get_bedloadterm(bathymetry) + self.term
+    """)
 
 
 # NOTE all parameters are now case sensitive

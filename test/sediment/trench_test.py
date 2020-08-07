@@ -57,7 +57,6 @@ def run_migrating_trench(conservative):
     solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
     options = solver_obj.options
 
-    options.sediment_model_options.use_sediment_model = True
     options.sediment_model_options.solve_suspended_sediment = True
     options.sediment_model_options.use_bedload = True
     options.sediment_model_options.solve_exner = True
@@ -89,9 +88,6 @@ def run_migrating_trench(conservative):
 
     if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
         options.timestep = dt
-
-    # make sure set all hydrodynamic and sediment flags before creating model
-    solver_obj.create_sediment_model(uv_init=uv, elev_init=elev)
 
     # set boundary conditions
 

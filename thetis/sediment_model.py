@@ -60,24 +60,30 @@ class CorrectiveVelocityFactor:
 
 
 class SedimentModel(object):
-    def __init__(self, options, mesh2d, uv_init, elev_init, bathymetry_2d):
+    def __init__(self, options, mesh2d, uv, elev, depth):
 
         """
-        Set up a full morphological model simulation using as an initial condition the results of a hydrodynamic only model.
+        Set up a full morphological model simulation based on provided the velocity and elevation functions.
 
         :arg options: Model options.
         :type options: :class:`.ModelOptions2d` instance
         :arg mesh2d: :class:`Mesh` object of the 2D mesh
-        :arg uv_init: Initial velocity for the simulation.
-        :type uv_init: :class:`Function`
-        :arg elev_init: Initial velocity for the simulation.
-        :type elev_init: :class:`Function`
-        :arg bathymetry_2d: Bathymetry of the domain. Bathymetry stands for
-            the bedlevel (positive downwards).
-        :type bathymetry_2d: :class:`Function`
+        :arg uv: the velocity solution during the simulation
+        :type uv: :class:`Function`
+        :arg elev: the elevation solution during the simulation
+        :type elev: :class:`Function`
+        :arg depth: a :class:`DepthExpression` instance to evaluate the current depth
 
+        The sediment model provides various expressions to be used in a suspended sediment and/or
+        the Exner equation. NOTE that the functions used in these expressions need to be updated
+        with the current values of the uv and elev fields by calling update(). This is not done
+        in the initialisation of the sediment model, so that the sediment model can be created before
+        initial conditions have been assigned to uv and elev. After the initial conditions have been
+        assigned a call to update is required to ensure that the initial values are reflected in
+        the sediment model terms.
         """
 
+        self.depth = depth
         self.options = options
         self.solve_suspended_sediment = options.sediment_model_options.solve_suspended_sediment
         self.use_bedload = options.sediment_model_options.use_bedload
@@ -85,7 +91,6 @@ class SedimentModel(object):
         self.use_slope_mag_correction = options.sediment_model_options.use_slope_mag_correction
         self.use_advective_velocity_correction = options.sediment_model_options.use_advective_velocity_correction
         self.use_secondary_current = options.sediment_model_options.use_secondary_current
-        self.use_wetting_and_drying = options.use_wetting_and_drying
 
         if not self.use_bedload:
             if self.use_angle_correction:
@@ -97,10 +102,7 @@ class SedimentModel(object):
 
         self.average_size = options.sediment_model_options.average_sediment_size
         self.bed_reference_height = options.sediment_model_options.bed_reference_height
-        self.wetting_alpha = options.wetting_and_drying_alpha
         self.rhos = options.sediment_model_options.sediment_density
-
-        self.bathymetry_2d = bathymetry_2d
 
         # define function spaces
         self.P1DG = get_functionspace(mesh2d, "DG", 1)
@@ -156,20 +158,20 @@ class SedimentModel(object):
         else:
             self.settling_velocity = Constant(1.1*sqrt(self.g*self.average_size*self.R))
 
-        self.uv_cg = Function(self.vector_cg).interpolate(uv_init)
-
         # dictionary of steps (interpolate/project) to perform in order in update()
         self.update_steps = OrderedDict()
         # fields updated in these steps
         self.fields = AttrDict()
 
-        self._add_interpolation_step('old_bathymetry_2d', self.bathymetry_2d)
-        self._add_interpolation_step(
-            'depth',
-            DepthExpression(self.fields.old_bathymetry_2d, use_wetting_and_drying=self.use_wetting_and_drying, wetting_and_drying_alpha=self.wetting_alpha).get_total_depth(elev_init))
+        # first step: project velocity to CG
+        self.fields.uv_cg = Function(self.vector_cg)
+        self.update_steps['uv_cg'] = Projector(uv, self.fields.uv_cg).project
 
-        self.u = self.uv_cg[0]
-        self.v = self.uv_cg[1]
+        self._add_interpolation_step('old_bathymetry_2d', self.depth.bathymetry_2d)
+        self._add_interpolation_step('depth', self.depth.get_total_depth(elev))
+
+        self.u = self.fields.uv_cg[0]
+        self.v = self.fields.uv_cg[1]
 
         # define bed friction
         hc = conditional(self.fields.depth > Constant(0.001), self.fields.depth, Constant(0.001))
@@ -227,7 +229,6 @@ class SedimentModel(object):
             if self.use_angle_correction:
                 # slope effect angle correction due to gravity
                 self._add_interpolation_step('stress', self.rhow*Constant(0.5)*self.qfc*self.unorm)
-        self.update(0.0, uv_init)
 
     def _add_interpolation_step(self, field_name, expr, V=None):
         """Add interpolation step to update
@@ -360,9 +361,10 @@ class SedimentModel(object):
         else:
             return 1
 
-    def update(self, t_new, uv):
-        # velocity used in all expressions via self.u, self.v and self.unorm:
-        self.uv_cg.project(uv)
+    def update(self):
+        """Update all functions used by the sediment model
 
+        This repeats all projection and interpolations steps based on the current values
+        of the `uv` and `elev` functions, provided in __init__."""
         for step in self.update_steps.values():
             step()
