@@ -109,9 +109,12 @@ class ExnerBedloadTerm(ExnerTerm):
 
         fac = Constant(morfac/(1.0-porosity))
 
-        f += -(self.test*((fac*qbx*self.n[0]) + (fac*qby*self.n[1])))*self.ds(1)
-        f += -(self.test*((fac*qbx*self.n[0]) + (fac*qby*self.n[1])))*self.ds(2)
-        f +=  (fac*qbx*(self.test.dx(0)) + fac*qby*(self.test.dx(1)))*self.dx
+        # bnd_conditions are the shallow water bcs, any boundary for which
+        # nothing is specified is assumed closed
+        for bnd_marker in (bnd_conditions or []):
+            f += -self.test*(fac*qbx*self.n[0] + fac*qby*self.n[1])*self.ds(bnd_marker)
+
+        f +=  (fac*qbx*self.test.dx(0) + fac*qby*self.test.dx(1))*self.dx
 
         return -f
 

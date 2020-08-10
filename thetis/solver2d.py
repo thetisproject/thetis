@@ -477,6 +477,8 @@ class FlowSolver2d(FrozenClass):
 
         args = (self.eq_exner, self.fields.bathymetry_2d, fields, self.dt, )
         kwargs = {
+            # only pass SWE bcs, used to determine closed boundaries in bedload term
+            'bnd_conditions': self.bnd_functions['shallow_water'],
             'solver_parameters': self.options.timestepper_options.solver_parameters_exner,
         }
         if hasattr(self.options.timestepper_options, 'use_semi_implicit_linearization'):
