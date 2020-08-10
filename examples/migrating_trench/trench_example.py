@@ -18,36 +18,7 @@ import time
 
 conservative = False
 
-
-def initialise_fields(mesh2d, inputdir, outputdir,):
-    """
-    Initialise simulation with results from a previous simulation
-    """
-    DG_2d = get_functionspace(mesh2d, "DG", 1)
-    # elevation
-    with timed_stage('initialising elevation'):
-        chk = DumbCheckpoint(inputdir + "/elevation", mode=FILE_READ)
-        elev_init = Function(DG_2d, name="elevation")
-        chk.load(elev_init)
-        File(outputdir + "/elevation_imported.pvd").write(elev_init)
-        chk.close()
-    # velocity
-    with timed_stage('initialising velocity'):
-        chk = DumbCheckpoint(inputdir + "/velocity", mode=FILE_READ)
-        V = VectorFunctionSpace(mesh2d, "DG", 1)
-        uv_init = Function(V, name="velocity")
-        chk.load(uv_init)
-        File(outputdir + "/velocity_imported.pvd").write(uv_init)
-        chk.close()
-        return elev_init, uv_init,
-
-
 # Note it is necessary to run trench_hydro first to get the hydrodynamics simulation
-
-# exporting bathymetry
-def export_bath_func():
-    bathy_file.write(solver_obj.sediment_model.bathymetry_2d)
-
 
 # define mesh
 lx = 16
@@ -90,8 +61,16 @@ end_time = 15*3600
 diffusivity = 0.15
 viscosity_hydro = Constant(1e-6)
 
-# initialise velocity, elevation and depth
-elev, uv = initialise_fields(mesh2d, 'hydrodynamics_trench', outputdir)
+# initialise velocity and elevation
+chk = DumbCheckpoint("hydrodynamics_trench/elevation", mode=FILE_READ)
+elev = Function(DG_2d, name="elevation")
+chk.load(elev)
+chk.close()
+
+chk = DumbCheckpoint('hydrodynamics_trench/velocity', mode=FILE_READ)
+uv = Function(vector_dg, name="velocity")
+chk.load(uv)
+chk.close()
 
 # set up solver
 solver_obj = solver2d.FlowSolver2d(mesh2d, bathymetry_2d)
@@ -113,10 +92,10 @@ options.output_directory = outputdir
 options.check_volume_conservation_2d = True
 
 if options.sediment_model_options.solve_suspended_sediment:
-    options.fields_to_export = ['sediment_2d', 'uv_2d', 'elev_2d']  # note exporting bathymetry must be done through export func
+    options.fields_to_export = ['sediment_2d', 'uv_2d', 'elev_2d', 'bathymetry_2d']
     options.sediment_model_options.check_sediment_conservation = True
 else:
-    options.fields_to_export = ['uv_2d', 'elev_2d']  # note exporting bathymetry must be done through export func
+    options.fields_to_export = ['uv_2d', 'elev_2d', 'bathymetry_2d']
 
 # using nikuradse friction
 options.nikuradse_bed_roughness = Constant(3*options.sediment_model_options.average_sediment_size)
@@ -150,19 +129,21 @@ swe_bnd[right_bnd_id] = {'elev': Constant(0.397)}
 solver_obj.bnd_functions['shallow_water'] = swe_bnd
 
 if options.sediment_model_options.solve_suspended_sediment:
+    # setting an equilibrium boundary conditions results in the sediment value at the boundary
+    # being chosen so that erosion and deposition are equal here (ie. in equilibrium) and the bed is immobile at this boundary
     solver_obj.bnd_functions['sediment'] = {
         left_bnd_id: {'flux': Constant(-0.22), 'equilibrium': None},
         right_bnd_id: {'elev': Constant(0.397)}}
 
     # set initial conditions
-    solver_obj.assign_initial_conditions(uv=uv, elev=elev, sediment=solver_obj.sediment_model.get_equilibrium_tracer())
+    solver_obj.assign_initial_conditions(uv=uv, elev=elev)
 
 else:
     # set initial conditions
     solver_obj.assign_initial_conditions(uv=uv, elev=elev)
 
 # run model
-solver_obj.iterate(export_func=export_bath_func)
+solver_obj.iterate()
 
 # record final sediment and final bathymetry
 xaxisthetis1 = []

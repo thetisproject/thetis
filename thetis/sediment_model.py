@@ -63,7 +63,7 @@ class SedimentModel(object):
     def __init__(self, options, mesh2d, uv, elev, depth):
 
         """
-        Set up a full morphological model simulation based on provided the velocity and elevation functions.
+        Set up a full morphological model simulation based on provided velocity and elevation functions.
 
         :arg options: Model options.
         :type options: :class:`.ModelOptions2d` instance

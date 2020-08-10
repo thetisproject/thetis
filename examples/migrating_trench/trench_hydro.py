@@ -4,6 +4,10 @@ Migrating Trench Test case
 
 Solves the initial hydrodynamics simulation of a migrating trench.
 
+Note this is not the main run-file and is just used to create an initial checkpoint for
+the morphodynamic simulation.
+
+For more details of the test case set-up see
 [1] Clare et al. 2020. “Hydro-morphodynamics 2D Modelling Using a Discontinuous
     Galerkin Discretisation.” EarthArXiv. January 9. doi:10.31223/osf.io/tpqvy.
 
@@ -14,22 +18,6 @@ from thetis import *
 import numpy as np
 import time
 
-
-def export_final_state(inputdir, uv, elev,):
-    """
-    Export fields to be used in a subsequent simulation
-    """
-    if not os.path.exists(inputdir):
-        os.makedirs(inputdir)
-    print_output("Exporting fields for subsequent simulation")
-    chk = DumbCheckpoint(inputdir + "/velocity", mode=FILE_CREATE)
-    chk.store(uv, name="velocity")
-    File(inputdir + '/velocityout.pvd').write(uv)
-    chk.close()
-    chk = DumbCheckpoint(inputdir + "/elevation", mode=FILE_CREATE)
-    chk.store(elev, name="elevation")
-    File(inputdir + '/elevationout.pvd').write(elev)
-    chk.close()
 
 
 # define mesh
@@ -122,4 +110,14 @@ solver_obj.assign_initial_conditions(uv=uv_init, elev=elev_init)
 solver_obj.iterate()
 
 uv, elev = solver_obj.fields.solution_2d.split()
-export_final_state("hydrodynamics_trench", uv, elev)
+
+checkpoint_dir = "hydrodynamics_trench"
+
+if not os.path.exists(checkpoint_dir):
+    os.makedirs(checkpoint_dir)
+chk = DumbCheckpoint(checkpoint_dir + "/velocity", mode=FILE_CREATE)
+chk.store(uv, name="velocity")
+chk.close()
+chk = DumbCheckpoint(checkpoint_dir + "/elevation", mode=FILE_CREATE)
+chk.store(elev, name="elevation")
+chk.close()
