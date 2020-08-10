@@ -4,16 +4,21 @@ Migrating Trench Test case
 
 Solves the test case of a migrating trench.
 
+We use this test case to validate the implementation of the mathematical and
+numerical methods used in Thetis to model sediment transport and morphological changes.
+In the figure produced, we compare our results with experimental data from a lab study
+
+For more details, see
 [1] Clare et al. 2020. “Hydro-morphodynamics 2D Modelling Using a Discontinuous
     Galerkin Discretisation.” EarthArXiv. January 9. doi:10.31223/osf.io/tpqvy.
 
 """
 
 from thetis import *
-from sediment_callback import SedimentTotalMassConservation2DCallback
 
 import numpy as np
 import pandas as pd
+import pylab as plt
 import time
 
 conservative = False
@@ -30,8 +35,9 @@ mesh2d = RectangleMesh(nx, ny, lx, ly)
 x, y = SpatialCoordinate(mesh2d)
 
 # define function spaces
-V = get_functionspace(mesh2d, "CG", 1)
-P1_2d = get_functionspace(mesh2d, "DG", 1)
+V = FunctionSpace(mesh2d, "CG", 1)
+DG_2d = FunctionSpace(mesh2d, "DG", 1)
+vector_dg = VectorFunctionSpace(mesh2d, "DG", 1)
 
 # define underlying bathymetry
 bathymetry_2d = Function(V, name='bathymetry_2d')
@@ -92,10 +98,10 @@ options.output_directory = outputdir
 options.check_volume_conservation_2d = True
 
 if options.sediment_model_options.solve_suspended_sediment:
-    options.fields_to_export = ['sediment_2d', 'uv_2d', 'elev_2d', 'bathymetry_2d']
+    options.fields_to_export = ['sediment_2d', 'uv_2d', 'elev_2d', 'bathymetry_2d']  # note exporting bathymetry must be done through export func
     options.sediment_model_options.check_sediment_conservation = True
 else:
-    options.fields_to_export = ['uv_2d', 'elev_2d', 'bathymetry_2d']
+    options.fields_to_export = ['uv_2d', 'elev_2d', 'bathymetry_2d']  # note exporting bathymetry must be done through export func
 
 # using nikuradse friction
 options.nikuradse_bed_roughness = Constant(3*options.sediment_model_options.average_sediment_size)
@@ -111,10 +117,6 @@ options.norm_smoother = Constant(0.1)
 
 if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
     options.timestep = dt
-
-c = SedimentTotalMassConservation2DCallback('sediment_2d',
-                                            solver_obj, export_to_hdf5=True, append_to_log=False)
-solver_obj.add_callback(c, eval_interval='timestep')
 
 # set boundary conditions
 
@@ -145,30 +147,22 @@ else:
 # run model
 solver_obj.iterate()
 
-# record final sediment and final bathymetry
+# record final bathymetry for plotting
 xaxisthetis1 = []
-sedimentthetis1 = []
 baththetis1 = []
 
 for i in np.linspace(0, 15.8, 80):
     xaxisthetis1.append(i)
     if conservative:
-        d = solver_obj.fields.bathymetry_2d.at([i, 0.55]) + solver_obj.fields.elev_2d.at([i, 0.55])
-        sedimentthetis1.append(solver_obj.fields.sediment_2d.at([i, 0.55])/d)
-        baththetis1.append(solver_obj.fields.bathymetry_2d.at([i, 0.55]))
+        baththetis1.append(-solver_obj.fields.bathymetry_2d.at([i, 0.55]))
     else:
-        sedimentthetis1.append(solver_obj.fields.sediment_2d.at([i, 0.55]))
-        baththetis1.append(solver_obj.fields.bathymetry_2d.at([i, 0.55]))
+        baththetis1.append(-solver_obj.fields.bathymetry_2d.at([i, 0.55]))
 
-# check sediment conservation
-sediment_mass_int, sediment_mass_int_rerr = solver_obj.callbacks['timestep']['sediment_2d total mass']()
-print("Sediment total mass error: %11.4e" % (sediment_mass_int_rerr))
+# Compare model and experimental results
+data = pd.read_csv('experimental_data.csv', header=None)
 
-# check sediment and bathymetry values using previous runs
-sediment_solution = pd.read_csv('sediment.csv')
-bed_solution = pd.read_csv('bed.csv')
+plt.scatter(data[0], data[1], label='Experimental Data')
 
-
-assert max([abs((sediment_solution['Sediment'][i] - sedimentthetis1[i])/sediment_solution['Sediment'][i]) for i in range(len(sedimentthetis1))]) < 0.15, "error in sediment"
-
-assert max([abs((bed_solution['Bathymetry'][i] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.01, "error in bed level"
+plt.plot(xaxisthetis1, baththetis1, label='Thetis')
+plt.legend()
+plt.show()

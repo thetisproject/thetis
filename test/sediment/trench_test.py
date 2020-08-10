@@ -16,6 +16,8 @@ from thetis import *
 import numpy as np
 import os
 
+from sediment_callback import SedimentTotalMassConservation2DCallback
+
 
 def run_migrating_trench(conservative):
 
@@ -71,8 +73,7 @@ def run_migrating_trench(conservative):
 
     options.check_volume_conservation_2d = True
 
-    options.fields_to_export = ['sediment_2d', 'uv_2d', 'elev_2d']  # note exporting bathymetry must be done through export func
-    options.sediment_model_options.check_sediment_conservation = True
+    options.fields_to_export = ['sediment_2d', 'uv_2d', 'elev_2d', 'bathymetry_2d']
 
     # using nikuradse friction
     options.nikuradse_bed_roughness = Constant(3*options.sediment_model_options.average_sediment_size)
@@ -88,6 +89,10 @@ def run_migrating_trench(conservative):
 
     if not hasattr(options.timestepper_options, 'use_automatic_timestep'):
         options.timestep = dt
+
+    c = SedimentTotalMassConservation2DCallback('sediment_2d',
+                                                solver_obj, export_to_hdf5=True, append_to_log=False)
+    solver_obj.add_callback(c, eval_interval='timestep')
 
     # set boundary conditions
 
@@ -127,10 +132,13 @@ def run_migrating_trench(conservative):
             baththetis1.append(solver_obj.fields.bathymetry_2d.at([i, 0.55]))
 
     # check sediment conservation
-    sediment_mass_int, sediment_mass_int_rerr = solver_obj.callbacks['export']['sediment_2d mass']()
-    print_output("Sediment total mass error: %11.4e" % (sediment_mass_int_rerr))
+    sediment_mass_int, sediment_mass_int_rerr = solver_obj.callbacks['timestep']['sediment_2d total mass']()
+    print("Sediment total mass error: %11.4e" % (sediment_mass_int_rerr))
 
-    assert abs(sediment_mass_int_rerr) < 7e-1, 'sediment is not conserved'
+    if conservative:
+        assert abs(sediment_mass_int_rerr) < 3e-3, 'sediment is not conserved'
+    else:
+        assert abs(sediment_mass_int_rerr) < 3e-2, 'sediment is not conserved'
 
     test_root = os.path.abspath(os.path.dirname(__file__))  # abs path to current file
     sediment_csv_file = os.path.join(test_root, 'sediment.csv')

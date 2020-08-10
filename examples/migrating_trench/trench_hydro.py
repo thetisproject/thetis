@@ -18,8 +18,6 @@ from thetis import *
 import numpy as np
 import time
 
-
-
 # define mesh
 lx = 16
 ly = 1.1
