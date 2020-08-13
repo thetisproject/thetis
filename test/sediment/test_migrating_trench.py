@@ -8,10 +8,10 @@ Tests the implementation of the sediment model and corrective_velocity_factor
 
 [1] Clare et al. 2020. “Hydro-morphodynamics 2D Modelling Using a Discontinuous
     Galerkin Discretisation.” EarthArXiv. January 9. doi:10.31223/osf.io/tpqvy.
-
 """
 
 from thetis import *
+import pytest
 
 import numpy as np
 import os
@@ -117,12 +117,10 @@ def run_migrating_trench(conservative):
     solver_obj.iterate()
 
     # record final sediment and final bathymetry
-    xaxisthetis1 = []
     sedimentthetis1 = []
     baththetis1 = []
 
     for i in np.linspace(0, 15.8, 80):
-        xaxisthetis1.append(i)
         if conservative:
             d = solver_obj.fields.bathymetry_2d.at([i, 0.55]) + solver_obj.fields.elev_2d.at([i, 0.55])
             sedimentthetis1.append(solver_obj.fields.sediment_2d.at([i, 0.55])/d)
@@ -152,13 +150,14 @@ def run_migrating_trench(conservative):
     assert max([abs((bed_solution[i][1] - baththetis1[i])) for i in range(len(baththetis1))]) < 0.003, "error in bed level"
 
 
-def test_conservative():
-    run_migrating_trench(True)
+@pytest.fixture(params=[True, False], ids=['cons', 'noncons'])
+def conservative(request):
+    return request.param
 
 
-def test_non_conservative():
-    run_migrating_trench(False)
+def test_trench(conservative):
+    run_migrating_trench(conservative)
 
 
 if __name__ == '__main__':
-    test_non_conservative()
+    test_trench(False)

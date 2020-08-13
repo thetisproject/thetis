@@ -358,7 +358,7 @@ class TracerMassConservation2DCallback(ScalarConservationCallback):
 
 class ConservativeTracerMassConservation2DCallback(ScalarConservationCallback):
     """
-    Checks conservation of conservative tracer mass which is depth_integrated.
+    Checks conservation of conservative tracer mass which is depth integrated.
     """
     name = 'tracer mass'
 

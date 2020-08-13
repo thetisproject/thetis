@@ -1,16 +1,16 @@
 r"""
 2D advection diffusion equation for sediment transport.
 
-This can be either conservative :math:`q=HT` or non-conservative :math:`T` and allows
+This can be either conservative :math:`q=HT` or non-conservative :math:`T` sediment and allows
 for a separate source and sink term. The equation reads
 
 .. math::
     \frac{\partial S}{\partial t}
     + \nabla_h \cdot (\textbf{u} S)
-    = \nabla_h \cdot (\mu_h \nabla_h S) + Source - (Sink S)
+    = \nabla_h \cdot (\mu_h \nabla_h S) + F_{source} - (F_{sink} S)
     :label: sediment_eq_2d
 
-where :math:'S' is :math:'q' for conservative and :math:'T' for non-conservative,
+where :math:`S` is :math:`q` for conservative and :math:`T` for non-conservative,
 :math:`\nabla_h` denotes horizontal gradient, :math:`\textbf{u}` are the horizontal
 velocities, and :math:`\mu_h` denotes horizontal diffusivity.
 """
@@ -38,9 +38,9 @@ class SedimentTerm(TracerTerm):
                  use_lax_friedrichs=True, sipg_parameter=Constant(10.0), conservative=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
-        :arg depth: :class: `DepthExpression` containing depth info
+        :arg depth: :class:`DepthExpression` containing depth info
         :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
-        :kwarg sipg_parameter: :class: `Constant` or :class: `Function` penalty parameter for SIPG
+        :kwarg sipg_parameter: :class:`Constant` or :class:`Function` penalty parameter for SIPG
         :kwarg bool conservative: whether to use conservative tracer
         """
         super(SedimentTerm, self).__init__(function_space, depth)
@@ -111,7 +111,7 @@ class SedimentDepositionTerm(SedimentTerm):
 
 class SedimentEquation2D(Equation):
     """
-    2D sediment advection-diffusion equation: eq:`tracer_eq` or `conservative_tracer_eq`
+    2D sediment advection-diffusion equation: :eq:`tracer_eq_2d` or :eq:`conservative_tracer_eq_2d`
     with sediment source and sink term
     """
     def __init__(self, function_space, depth, sediment_model,
@@ -120,9 +120,9 @@ class SedimentEquation2D(Equation):
                  conservative=False):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
-        :arg depth: :class: `DepthExpression` containing depth info
+        :arg depth: :class:`DepthExpression` containing depth info
         :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
-        :kwarg sipg_parameter: :class: `Constant` or :class: `Function` penalty parameter for SIPG
+        :kwarg sipg_parameter: :class:`Constant` or :class:`Function` penalty parameter for SIPG
         :kwarg bool conservative: whether to use conservative tracer
         """
         super(SedimentEquation2D, self).__init__(function_space)

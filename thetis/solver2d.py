@@ -334,13 +334,7 @@ class FlowSolver2d(FrozenClass):
             sediment_model_class = self.options.sediment_model_options.sediment_model_class
             self.sediment_model = sediment_model_class(
                 self.options, self.mesh2d, uv_2d, elev_2d, self.depth)
-        elif sediment_options.solve_suspended_sediment or sediment_options.solve_exner:
-            raise ValueEror('Need a sediment model to solve for suspended sediment '
-                            'or Exner equation')
-
         if sediment_options.solve_suspended_sediment:
-            if self.options.solve_tracer:
-                raise ValueError("Solve tracer and solve sediment cannot both be true")
             self.fields.sediment_2d = Function(self.function_spaces.Q_2d, name='sediment_2d')
             self.eq_sediment = sediment_eq_2d.SedimentEquation2D(
                 self.function_spaces.Q_2d, self.depth, self.sediment_model,
@@ -528,15 +522,7 @@ class FlowSolver2d(FrozenClass):
             self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
                 weakref.proxy(self), steppers[self.options.timestepper_type],
             )
-        elif self.options.sediment_model_options.solve_suspended_sediment:
-            try:
-                assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState')
-            except AssertionError:
-                raise NotImplementedError("2D sediment model currently only supports SSPRK33, ForwardEuler, BackwardEuler, DIRK22, DIRK33 and CrankNicolson time integrators.")
-            self.timestepper = coupled_timeintegrator_2d.CoupledMatchingTimeIntegrator2D(
-                weakref.proxy(self), steppers[self.options.timestepper_type],
-            )
-        elif self.options.sediment_model_options.solve_exner:
+        elif self.options.sediment_model_options.solve_suspended_sediment or self.options.sediment_model_options.solve_exner:
             try:
                 assert self.options.timestepper_type not in ('PressureProjectionPicard', 'SSPIMEX', 'SteadyState')
             except AssertionError:
@@ -808,7 +794,7 @@ class FlowSolver2d(FrozenClass):
             if export_func is not None:
                 export_func()
             if 'vtk' in self.exporters and isinstance(self.fields.bathymetry_2d, Function):
-                self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d, self.options.sediment_model_options.solve_exner)
+                self.exporters['vtk'].export_bathymetry(self.fields.bathymetry_2d)
 
         initial_simulation_time = self.simulation_time
         internal_iteration = 0

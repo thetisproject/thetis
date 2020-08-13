@@ -11,15 +11,12 @@ In the figure produced, we compare our results with experimental data from a lab
 For more details, see
 [1] Clare et al. 2020. “Hydro-morphodynamics 2D Modelling Using a Discontinuous
     Galerkin Discretisation.” EarthArXiv. January 9. doi:10.31223/osf.io/tpqvy.
-
 """
 
 from thetis import *
 
 import numpy as np
-import pandas as pd
 import pylab as plt
-import time
 
 conservative = False
 
@@ -51,14 +48,9 @@ trench = conditional(le(x, 5), depth_riv, conditional(le(x, 6.5), (1/1.5)*depth_
 bathymetry_2d.interpolate(-trench)
 
 # choose directory to output results
-ts = time.time()
-st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
-outputdir = 'outputs' + st
+outputdir = 'outputs'
 
 print_output('Exporting to '+outputdir)
-
-# define bathymetry_file
-bathy_file = File(outputdir + "/bathy.pvd")
 
 morfac = 100
 dt = 0.3
@@ -159,9 +151,9 @@ for i in np.linspace(0, 15.8, 80):
         baththetis1.append(-solver_obj.fields.bathymetry_2d.at([i, 0.55]))
 
 # Compare model and experimental results
-data = pd.read_csv('experimental_data.csv', header=None)
+data = np.genfromtxt('experimental_data.csv', delimiter=',')
 
-plt.scatter(data[0], data[1], label='Experimental Data')
+plt.scatter([i[0] for i in data], [i[1] for i in data], label='Experimental Data')
 
 plt.plot(xaxisthetis1, baththetis1, label='Thetis')
 plt.legend()

@@ -20,7 +20,6 @@ class CorrectiveVelocityFactor:
         :type settling_velocity: :class:`Constant`
         :arg ustar: Shear velocity
         :type ustar: :class:`Expression of functions`
-
         """
 
         a = Constant(bed_reference_height/2)
@@ -74,13 +73,13 @@ class SedimentModel(object):
         :type elev: :class:`Function`
         :arg depth: a :class:`DepthExpression` instance to evaluate the current depth
 
-        The sediment model provides various expressions to be used in a suspended sediment and/or
+        The :class:`.SedimentModel` provides various expressions to be used in a suspended sediment and/or
         the Exner equation. NOTE that the functions used in these expressions need to be updated
-        with the current values of the uv and elev fields by calling update(). This is not done
-        in the initialisation of the sediment model, so that the sediment model can be created before
+        with the current values of the uv and elev fields by calling :func:`.SedimentModel.update`. This is not done
+        in the initialisation of the sediment model, so that the :class:`.SedimentModel` can be created before
         initial conditions have been assigned to uv and elev. After the initial conditions have been
         assigned a call to update is required to ensure that the initial values are reflected in
-        the sediment model terms.
+        the :class:`.SedimentModel` terms.
         """
 
         self.depth = depth
@@ -105,9 +104,9 @@ class SedimentModel(object):
         self.rhos = options.sediment_model_options.sediment_density
 
         # define function spaces
-        self.P1DG = get_functionspace(mesh2d, "DG", 1)
-        self.V = get_functionspace(mesh2d, "CG", 1)
-        self.vector_cg = VectorFunctionSpace(mesh2d, "CG", 1)
+        self.P1DG_2d = get_functionspace(mesh2d, "DG", 1)
+        self.P1_2d = get_functionspace(mesh2d, "CG", 1)
+        self.P1v_2d = VectorFunctionSpace(mesh2d, "CG", 1)
 
         # define parameters
         self.g = physical_constants['g_grav']
@@ -133,7 +132,7 @@ class SedimentModel(object):
 
         self.dstar = Constant(self.average_size*((self.g*self.R)/(self.viscosity**2))**(1/3))
         if max(self.dstar.dat.data[:] < 1):
-            print('ERROR: dstar value less than 1')
+            raise ValueError('dstar value less than 1')
         elif max(self.dstar.dat.data[:] < 4):
             self.thetacr = Constant(0.24*(self.dstar**(-1)))
         elif max(self.dstar.dat.data[:] < 10):
@@ -164,7 +163,7 @@ class SedimentModel(object):
         self.fields = AttrDict()
 
         # first step: project velocity to CG
-        self.fields.uv_cg = Function(self.vector_cg)
+        self.fields.uv_cg = Function(self.P1v_2d)
         self.update_steps['uv_cg'] = Projector(uv, self.fields.uv_cg).project
 
         self._add_interpolation_step('old_bathymetry_2d', self.depth.bathymetry_2d)
@@ -200,7 +199,7 @@ class SedimentModel(object):
 
             self._add_interpolation_step('integrated_rouse',
                                          max_value(conditional(intermediate_step > Constant(1e-12), Constant(1)/intermediate_step,
-                                                               Constant(1e12)), Constant(1)), V=self.P1DG)
+                                                               Constant(1e12)), Constant(1)), V=self.P1DG_2d)
 
             # erosion flux - above critical velocity bed is eroded
             transport_stage_param = conditional(self.rhow*Constant(0.5)*self.qfc*self.unorm*self.mu > Constant(0),
@@ -209,14 +208,14 @@ class SedimentModel(object):
 
             self._add_interpolation_step('erosion_concentration', Constant(0.015)*(self.average_size/self.a)
                                          * ((max_value(transport_stage_param, Constant(0)))**1.5)
-                                         / (self.dstar**0.3), V=self.P1DG)
+                                         / (self.dstar**0.3), V=self.P1DG_2d)
 
             if self.use_advective_velocity_correction:
                 correction_factor_model = CorrectiveVelocityFactor(self.fields.depth, ksp,
                                                                    self.bed_reference_height, self.settling_velocity, ustar)
                 self.update_steps['correction_factor'] = correction_factor_model.update
                 self.fields.velocity_correction_factor = correction_factor_model.velocity_correction_factor
-            self._add_interpolation_step('equilibrium_tracer', self.fields.erosion_concentration/self.fields.integrated_rouse, V=self.P1DG)
+            self._add_interpolation_step('equilibrium_tracer', self.fields.erosion_concentration/self.fields.integrated_rouse, V=self.P1DG_2d)
 
             # get individual terms
             self._deposition = self.settling_velocity*self.fields.integrated_rouse
@@ -235,18 +234,17 @@ class SedimentModel(object):
 
         :arg field_name: str name of new field to project into, stored in self.fields
         :arg expr: UFL expression to interpolate
-        :kwarg V: FunctionSpace for new field (default is self.V)"""
-        self.fields[field_name] = Function(V or self.V, name=field_name)
+        :kwarg V: FunctionSpace for new field (default is self.P1_2d)"""
+        self.fields[field_name] = Function(V or self.P1_2d, name=field_name)
         self.update_steps[field_name] = Interpolator(expr, self.fields[field_name]).interpolate
 
     def get_bedload_term(self, bathymetry):
         """
-        Set up a term in the exner equation which solves for bedload transport.
+        Returns expression for bedload transport :math:`(qbx, qby)` to be used in the Exner equation.
         Note bathymetry is the function which is solved for in the exner equation.
 
         :arg bathymetry: Bathymetry of the domain. Bathymetry stands for
             the bedlevel (positive downwards).
-
         """
 
         if self.use_slope_mag_correction:
@@ -331,12 +329,12 @@ class SedimentModel(object):
         return qbx, qby
 
     def get_deposition_coefficient(self):
-        """Returns coefficient C such that C/H*sediment is deposition term in sediment equation
+        """Returns coefficient :math:`C` such that :math:`C/H*sediment` is deposition term in sediment equation
 
-        If sediment field is depth-averaged, C*sediment is (total) deposition (over the column)
+        If sediment field is depth-averaged, :math:`C*sediment` is (total) deposition (over the column)
         as it appears in the Exner equation, but deposition term in sediment equation needs
-        averaging: C*sediment/H
-        If sediment field is depth-itnegrated, C*sediment/H is (total) deposition (over the column)
+        averaging: :math:`C*sediment/H`
+        If sediment field is depth-integrated, :math:`C*sediment/H` is (total) deposition (over the column)
         as it appears in the Exner equation, and is the same in the sediment equation."""
         return self._deposition
 
@@ -351,18 +349,18 @@ class SedimentModel(object):
     def get_advective_velocity_correction_factor(self):
         """Returns correction factor for the advective velocity in the sediment equations
 
-        With the use_advective_velocity_correction options, this applies a correction to
+        With :attr:`.SedimentModelOptions.use_advective_velocity_correction`, this applies a correction to
         the supplied velocity solution `uv` to take into account the mismatch between
         depth-averaged product of velocity with sediment and product of depth-averaged
         velocity with depth-averaged sediment.
-        :arg uv: velocity solution."""
+        """
         if self.use_advective_velocity_correction:
             return self.fields.velocity_correction_factor
         else:
             return 1
 
     def update(self):
-        """Update all functions used by the sediment model
+        """Update all functions used by :class:`.SedimentModel`
 
         This repeats all projection and interpolations steps based on the current values
         of the `uv` and `elev` functions, provided in __init__."""

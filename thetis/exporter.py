@@ -310,18 +310,12 @@ class ExportManager(object):
             sys.stdout.write('\n')
             sys.stdout.flush()
 
-    def export_bathymetry(self, bathymetry_2d, solve_exner=False):
+    def export_bathymetry(self, bathymetry_2d):
         """
         Special function to export 2D bathymetry data to disk
 
-        If exner equation not used then bathymetry does not vary in time so this
-        only needs to be called once.
-
         :arg bathymetry_2d: 2D bathymetry :class:`Function`
         """
-        if not solve_exner:
-            bathfile = File(os.path.join(self.outputdir, 'bath.pvd'))
-        else:
-            bathfile = File(os.path.join(self.outputdir, 'init_bath.pvd'))
+        bathfile = File(os.path.join(self.outputdir, 'init_bathymetry_2d/init_bathymetry_2d.pvd'))
 
         bathfile.write(bathymetry_2d)
