@@ -28,8 +28,8 @@ mesh2d = RectangleMesh(nx, ny, lx, ly)
 x, y = SpatialCoordinate(mesh2d)
 
 # define function spaces
-V = get_function_space(mesh2d, "CG", 1)
-P1_2d = get_function_space(mesh2d, "DG", 1)
+V = get_functionspace(mesh2d, "CG", 1)
+P1_2d = get_functionspace(mesh2d, "DG", 1)
 
 # define underlying bathymetry
 bathymetry_2d = Function(V, name='Bathymetry')
@@ -56,6 +56,10 @@ outputdir = 'outputs' + st
 print_output('Exporting to '+outputdir)
 
 t_end = 500
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    # run as tests, not sufficient for proper spin up
+    # but we simply want a run-through-without-error test
+    t_end = 50
 
 # export interval in seconds
 t_export = np.round(t_end/40, 0)

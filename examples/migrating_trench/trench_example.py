@@ -16,7 +16,7 @@ For more details, see
 from thetis import *
 
 import numpy as np
-import pylab as plt
+import matplotlib.pyplot as plt
 
 conservative = False
 
@@ -58,6 +58,12 @@ end_time = 15*3600
 
 diffusivity = 0.15
 viscosity_hydro = Constant(1e-6)
+
+if os.getenv('THETIS_REGRESSION_TEST') is not None:
+    # the example is being run as a test
+    # run the spin-up by importing it
+    import trench_hydro
+    end_time = 3600.
 
 # initialise velocity and elevation
 chk = DumbCheckpoint("hydrodynamics_trench/elevation", mode=FILE_READ)
@@ -150,11 +156,13 @@ for i in np.linspace(0, 15.8, 80):
     else:
         baththetis1.append(-solver_obj.fields.bathymetry_2d.at([i, 0.55]))
 
-# Compare model and experimental results
-data = np.genfromtxt('experimental_data.csv', delimiter=',')
+if os.getenv('THETIS_REGRESSION_TEST') is None:
+    # Compare model and experimental results
+    # (this part is skipped when run as a test)
+    data = np.genfromtxt('experimental_data.csv', delimiter=',')
 
-plt.scatter([i[0] for i in data], [i[1] for i in data], label='Experimental Data')
+    plt.scatter([i[0] for i in data], [i[1] for i in data], label='Experimental Data')
 
-plt.plot(xaxisthetis1, baththetis1, label='Thetis')
-plt.legend()
-plt.show()
+    plt.plot(xaxisthetis1, baththetis1, label='Thetis')
+    plt.legend()
+    plt.show()
