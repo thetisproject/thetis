@@ -653,6 +653,70 @@ class SedimentModelOptions(FrozenHasTraits):
     """)
 
 
+class SedimentModelOptions(FrozenHasTraits):
+    solve_exner = Bool(False, help='Solve exner equation for bed morphology').tag(config=True)
+    solve_suspended_sediment = Bool(False, help='Solve suspended sediment transport equation').tag(config=True)
+    use_sediment_conservative_form = Bool(False, help='Solve 2D sediment transport in the conservative form').tag(config=True)
+    use_bedload = Bool(False, help='Use bedload transport in sediment model').tag(config=True)
+    use_angle_correction = Bool(True, help='Switch to use slope effect angle correction').tag(config=True)
+    use_slope_mag_correction = Bool(True, help='Switch to use slope effect magnitude correction').tag(config=True)
+    use_secondary_current = Bool(False, help='Switch to use secondary current for helical flow effect').tag(config=True)
+    average_sediment_size = NonNegativeFloat(allow_none=False, help='Average sediment size').tag(config=True)
+    bed_reference_height = NonNegativeFloat(allow_none=False, help='Bottom bed reference height').tag(config=True)
+    use_advective_velocity_correction = Bool(True, help="""
+        Switch to apply correction to advective velocity used in sediment equation
+
+        Accounts for mismatch between depth-averaged product of velocity with sediment
+        and product of depth-averaged velocity with depth-averaged sediment
+        """).tag(config=True)
+    porosity = FiredrakeCoefficient(
+        Constant(0.4), help="Bed porosity for exner equation").tag(config=True)
+    morphological_acceleration_factor = FiredrakeConstantTraitlet(
+        Constant(1), help="""Rate at which timestep in exner equation is accelerated compared to timestep for model
+
+        timestep in exner = morphological_acceleration_factor * timestep
+        """).tag(config=True)
+    morphological_viscosity = FiredrakeScalarExpression(
+        None, allow_none=True, help="""Viscosity used to derive morphology terms.
+
+        Usually equal to horizontal viscosity but can be set to have a different value""").tag(config=True)
+    sediment_density = FiredrakeConstantTraitlet(
+        Constant(2650), help='Density of sediment').tag(config=True)
+    secondary_current_parameter = FiredrakeConstantTraitlet(
+        Constant(0.75), help='Parameter controlling secondary current').tag(config=True)
+    slope_effect_parameter = FiredrakeConstantTraitlet(
+        Constant(1.3), help='Parameter controlling magnitude of slope effect').tag(config=True)
+    slope_effect_angle_parameter = FiredrakeConstantTraitlet(
+        Constant(2/3), help='Parameter controlling angle of slope effect').tag(config=True)
+    check_sediment_conservation = Bool(
+        False, help="""
+        Compute total sediment mass at every export
+
+        Prints deviation from the initial mass to stdout.
+        """).tag(config=True)
+    check_sediment_overshoot = Bool(
+        False, help="""
+        Compute sediment overshoots at every export
+
+        Prints overshoot values that exceed the initial range to stdout.
+        """).tag(config=True)
+    sediment_model_class = Type(SedimentModel, help="""Class used to define the sediment model
+
+    This option can be used to provide a user-defined sediment model class that should
+    be a subclass of SedimentModel. For example:
+
+    .. code-block:: python
+
+        class UserSedimentModel(SedimentModel):
+           def __init__(options, mesh2d, uv, elev, depth, extra_term):
+              super().__init__(options, mesh2d, uv, elev, depth)
+              self.extra_term = extra_term
+
+           def get_bedloadterm(self, bathymetry):
+              return super().get_bedloadterm(bathymetry) + self.term
+    """)
+
+
 # NOTE all parameters are now case sensitive
 # TODO rename time stepper types? Allow capitals and spaces?
 @attach_paired_options("timestepper_type",
