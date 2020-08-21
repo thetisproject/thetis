@@ -40,6 +40,14 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
         'ksp_type': 'gmres',
         'pc_type': 'sor',
     }).tag(config=True)
+    # added for nh extensions, TODO find a clearer way
+    solver_parameters_momentum = PETScSolverParameters({
+        'snes_type': 'ksponly',
+        'ksp_type': 'preonly',
+        'pc_type': 'bjacobi',
+        'sub_ksp_type': 'preonly',
+        'sub_pc_type': 'ilu',
+    }).tag(config=True)
 
 
 class SteadyStateTimestepperOptions2d(TimeStepperOptions):
@@ -155,6 +163,15 @@ class ExplicitTimestepperOptions3d(ExplicitTimestepperOptions):
         'pc_type': 'bjacobi',
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
+    }).tag(config=True)
+    # added for nh extensions, TODO find a clearer way
+    solver_parameters_granular_explicit = PETScSolverParameters({
+        'snes_type': 'ksponly',
+        'ksp_type': 'cg',
+        'pc_type': 'bjacobi',
+        'sub_ksp_type': 'preonly',
+        'sub_pc_type': 'ilu',
+        'mat_type': 'aij',
     }).tag(config=True)
 
 
@@ -505,22 +522,6 @@ class CommonModelOptions(FrozenConfigurable):
         diffusivity terms.
 
         By default, this parameter is set to
-<<<<<<< HEAD
-=======
-
-        ..math::
-            \alpha = 5p(p+1),
-
-        where :math:`p` is the polynomial degree of the velocity space.
-
-        For anisotropic meshes, it is advisable to use the automatic SIPG parameter,
-        rather than the default.
-        """).tag(config=True)
-    sipg_parameter = FiredrakeScalarExpression(
-        Constant(10.0), help="Penalty parameter used for horizontal viscosity terms.").tag(config=True)
-    sipg_parameter_tracer = FiredrakeScalarExpression(
-        Constant(10.0), help="Penalty parameter used for horizontal diffusivity terms.").tag(config=True)
->>>>>>> master
 
         ..math::
             \alpha = 5p(p+1),
@@ -535,6 +536,58 @@ class CommonModelOptions(FrozenConfigurable):
     sipg_parameter_tracer = FiredrakeScalarExpression(
         Constant(10.0), help="Penalty parameter used for horizontal diffusivity terms.").tag(config=True)
 
+    # Below is for non-hydrostatic (nh) extensions
+    # TODO move to a specific nh Options class
+    use_pressure_correction = Bool(False, help="Use pressure correction method").tag(config=True)
+    solve_separate_elevation_gradient = Bool(True, help="Solve elevation gradient term separately").tag(config=True)
+    update_free_surface = Bool(True, help="Update free surface equation at each time step").tag(config=True)
+    # wetting and drying
+    use_wetting_and_drying = Bool(False, help="Use wetting and drying").tag(config=True)
+    wetting_and_drying_alpha = FiredrakeConstantTraitlet(Constant(0.5), help="Wetting and drying parameter").tag(config=True)
+    thin_film = Bool(False, help="Use thin-film wetting and drying scheme").tag(config=True)
+    depth_wd_interface = NonNegativeFloat(1e-6, help="Wetting and drying parameter in porous medium method").tag(config=True)
+    wetting_and_drying_threshold = NonNegativeFloat(1e-6, help="Wetting and drying threshold in runge-kutta scheme").tag(config=True)
+    n_layers = NonNegativeInteger(1, help="Number of vertical layers").tag(config=True)
+    alpha_nh = List(default_value=[], help="Used in multi-layer solver to control the thickness of layer").tag(config=True)
+    beta_nh = FiredrakeConstantTraitlet(Constant(1.0), help="Set non-hydrostatic pressure at bottom").tag(config=True)
+    set_vertical_2d = Bool(False, help="""Set y-direction velocity of uv_2d as zero""").tag(config=True)
+    sponge_layer_length = List(default_value=[0., 0.], help="Length of sponge layer absorbing relected wave").tag(config=True)
+    sponge_layer_start = List(default_value=[0., 0.], help="Start point of sponge layer").tag(config=True)
+    # for landslide in the form of rigid, visco-plastic, sediment or granular
+    landslide = Bool(False, help="Solve landslide motion").tag(config=True)
+    slide_is_rigid = Bool(False, help="Rigid slide motion").tag(config=True)
+    slide_is_viscous_fluid = Bool(False, help="Treat slide as a viscous fluid").tag(config=True)
+    slide_viscosity = NonNegativeFloat(0.01, help="Horizontal landslide viscosity").tag(config=True)
+    t_landslide = PositiveFloat(1000., help="Slide motion time").tag(config=True)
+    rho_1 = NonNegativeFloat(1.0, help="Density of lighter phase fluid. Unit is kg m-3").tag(config=True)
+    rho_2 = NonNegativeFloat(1000., help="Density of heavier phase fluid. Unit is kg m-3").tag(config=True)
+    nu_1 = NonNegativeFloat(1.E-6, help="Viscosity of lighter phase fluid. Unit is m2 s-1").tag(config=True)
+    nu_2 = NonNegativeFloat(1.E-3, help="Viscosity of heavier phase fluid. Unit is m2 s-1").tag(config=True)
+    # for granular flow
+    flow_is_granular = Bool(False, help="granular slide flow").tag(config=True)
+    no_wave_flow = Bool(False, help="Do not use wave flow solver").tag(config=True)
+    rho_fluid = NonNegativeFloat(1000., help="Density of water").tag(config=True)
+    rho_slide = NonNegativeFloat(2650., help="Density of slide").tag(config=True)
+    phi_i = NonNegativeFloat(0., help="Internal friction angle of the granular solid").tag(config=True)
+    phi_b = NonNegativeFloat(0., help="Bed friction angle of grains").tag(config=True)
+    lamda = Float(1.0, help="Parameter to be calibrated using laboratory measurements in granular flow").tag(config=True)
+    kap = FiredrakeScalarExpression(None, allow_none=True, help="Earth pressure coefficient").tag(config=True)
+    bed_slope = FiredrakeVectorExpression(Constant((0., 0., 1.0)), allow_none=True, help="Bed slope for granular flow solver").tag(config=True)
+    n_dt = NonNegativeInteger(1, help="Number of granular time step in a wave flow time step").tag(config=True)
+    # for sediment transport
+    solve_sediment = Bool(False, help="Solve sediment transport").tag(config=True)
+    settling_velocity = FiredrakeConstantTraitlet(Constant(0.), help="Settling velocity of sediments").tag(config=True)
+    sigma_h = FiredrakeConstantTraitlet(Constant(1.0), help="Horizontal Schmidt numbers, taken as 0.5 ~ 1.0").tag(config=True)
+    sigma_v = FiredrakeConstantTraitlet(Constant(1.0), help="Vertical Schmidt numbers, taken as 0.5 ~ 1.0").tag(config=True)
+    sediment_source_3d = FiredrakeScalarExpression(None, allow_none=True, help="Source term in sediment equation").tag(config=True)
+    # for solver in conservative form
+    use_hllc_flux = Bool(False, help="Use hllc flux in conservative form; if False, roe average flux").tag(config=True)
+    use_limiter_for_elevation = Bool(False, help="Apply P1DG limiter for 2D elevation field").tag(config=True)
+    use_limiter_for_multi_layer = Bool(False, help="Apply P1DG limiter for 2D layered field").tag(config=True)
+    use_limiter_for_granular = Bool(False, help="Apply P1DG limiter for 2D granular flow").tag(config=True)
+    solve_conservative_momentum = Bool(True, help="Solve momentum equations in conservative form").tag(config=True)
+    # for sigma coordinate
+    use_vert_dg0 = Bool(False, help="Use P0 DG approximation in the vertical").tag(config=True)
 
 class SedimentModelOptions(FrozenHasTraits):
     solve_exner = Bool(False, help='Solve exner equation for bed morphology').tag(config=True)
