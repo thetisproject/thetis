@@ -72,21 +72,19 @@ def run(refinement, **model_options):
 
     x, y, z = SpatialCoordinate(solverobj.mesh)
     t_const = Constant(t)
-    ana_sol_expr_2d = 0.5*(u_max + u_min) - 0.5*(u_max - u_min)*erf((x_2d - x0)/sqrt(4*horizontal_viscosity*t_const))
     ana_sol_expr_3d = 0.5*(u_max + u_min) - 0.5*(u_max - u_min)*erf((x - x0)/sqrt(4*horizontal_viscosity*t_const))
     ana_uv_expr = as_vector((ana_sol_expr_3d, 0.0, 0.0))
-    ana_uv_expr_2d = as_vector((ana_sol_expr_2d, 0.0))
 
     uv_ana = Function(solverobj.function_spaces.U, name='uv analytical')
     uv_ana_p1 = Function(solverobj.function_spaces.P1v, name='uv analytical')
 
-    p1dg_v_ho = get_functionspace(solverobj.mesh,
-        'DG', options.polynomial_degree + 2, vector=True)
+    p1dg_v_ho = get_functionspace(solverobj.mesh, 'DG',
+                                  options.polynomial_degree + 2, vector=True)
     uv_ana_ho = Function(p1dg_v_ho, name='uv analytical')
     uv_ana.project(ana_uv_expr)
 
     elev_init = Function(solverobj.function_spaces.H_2d, name='elev init')
-    solverobj.assign_initial_conditions(elev=elev_init, uv_2d=ana_uv_expr_2d)
+    solverobj.assign_initial_conditions(elev=elev_init, uv_3d=ana_uv_expr)
 
     # export analytical solution
     if not options.no_exports:

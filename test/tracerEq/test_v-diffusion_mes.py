@@ -64,6 +64,7 @@ def run(refinement, **model_options):
     options.timestep_2d = dt_2d
     options.solve_salinity = True
     options.use_implicit_vertical_diffusion = implicit
+    options.use_bottom_friction = False
     options.fields_to_export = ['salt_3d']
     options.vertical_diffusivity = Constant(vertical_diffusivity)
     options.update(model_options)
@@ -84,8 +85,9 @@ def run(refinement, **model_options):
     salt_ana = Function(solverobj.function_spaces.H, name='salt analytical')
     salt_ana_p1 = Function(solverobj.function_spaces.P1, name='salt analytical')
 
-    p1dg_ho = get_functionspace(solverobj.mesh, 'DG', options.polynomial_degree + 2,
-                            vfamily='DG', vdegree=options.polynomial_degree + 2)
+    p1dg_ho = get_functionspace(solverobj.mesh, 'DG',
+                                options.polynomial_degree + 2, vfamily='DG',
+                                vdegree=options.polynomial_degree + 2)
     salt_ana_ho = Function(p1dg_ho, name='salt analytical')
 
     solverobj.assign_initial_conditions(salt=ana_salt_expr)

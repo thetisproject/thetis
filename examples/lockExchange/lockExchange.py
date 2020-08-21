@@ -72,7 +72,7 @@ def run_lockexchange(reso_str='coarse', poly_order=1, element_family='dg-dg',
     x_max = 32.0e3
     x_min = -32.0e3
     n_x = (x_max - x_min)/delta_x
-    mesh2d = UnitSquareMesh(n_x, 2, quadrilateral=(elem_type == 'quad'))
+    mesh2d = UnitSquareMesh(int(n_x), 2, quadrilateral=(elem_type == 'quad'))
     coords = mesh2d.coordinates
     # x in [x_min, x_max], y in [-dx, dx]
     coords.dat.data[:, 0] = coords.dat.data[:, 0]*(x_max - x_min) + x_min

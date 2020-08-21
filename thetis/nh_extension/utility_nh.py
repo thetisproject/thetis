@@ -2,7 +2,7 @@
 Utility functions and classes for 3D hydrostatic/non-hydrostatic coastal ocean model
 """
 from __future__ import absolute_import
-from ..firedrake import *
+from firedrake import *
 import os
 import numpy as np
 import sys
@@ -345,7 +345,7 @@ def get_zcoord_from_mesh(zcoord, solver_parameters={}):
         vert_ind = 1
     else:
         vert_ind = 2
-   # l = fs.mesh().coordinates[2]*test*dx
+   # l = fs.mesh().coordinates[vert_ind]*test*dx
    # solve(a == l, zcoord, solver_parameters=solver_parameters)
     zcoord.interpolate(fs.mesh().coordinates[vert_ind]) # for mpi running properly, WPan
     return zcoord
@@ -467,7 +467,8 @@ class VerticalIntegrator(object):
     """
     def __init__(self, input, output, bottom_to_top=True,
                  bnd_value=Constant(0.0), average=False,
-                 bathymetry=None, elevation=None, solver_parameters={}):
+                 bathymetry=None, elevation=None, 
+                 use_in_sigma=False, solver_parameters={}):
         """
         :arg input: 3D field to integrate
         :arg output: 3D field where the integral is stored
@@ -528,7 +529,9 @@ class VerticalIntegrator(object):
             source = input/(elevation + bathymetry)
         else:
             source = input
-        self.l = inner(source, phi)*self.dx + bnd_term #TODO check if 'minus bnd_term' is more suitable
+        if use_in_sigma: # NOTE this is only for sigma coordinate
+            source = input*(elevation + bathymetry)
+        self.l = inner(source, phi)*self.dx + bnd_term # TODO check if 'minus bnd_term' is more suitable
         self.prob = LinearVariationalProblem(self.a, self.l, output, constant_jacobian=average)
         self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
 
@@ -1814,3 +1817,254 @@ class DensitySolverSediment(object):
         c = self._get_array(self.c)
         rho0 = self._get_array(physical_constants['rho0'])
         self.rho_p.dat.data[:] = c * self.rho_s + (1 - c) * self.rho_w - rho0
+
+class wetting_and_drying_modification(object):
+    """
+    Treats wetting and drying for the prevention of non-negative flows from the idea of Ern et al (2011)
+    """
+    def __init__(self, space):
+        """
+        Initialise wetting and drying treatment and limiter
+
+        :param space : FunctionSpace instance
+        """
+        from .limiter_nh import VertexBasedP1DGLimiter
+        self.limiter = VertexBasedP1DGLimiter(space, time_dependent_mesh=False)
+        if space.ufl_element().degree() != 1:
+            raise ValueError('Wetting and drying treatment only supports equal order P1DG temporarily')
+        self.P1DG = space
+        self.P1CG = FunctionSpace(self.P1DG.mesh(), 'CG', 1)  # for min/max limits
+        self.P0 = FunctionSpace(self.P1DG.mesh(), 'DG', 0)  # for centroids
+        self.P1DG_mix = MixedFunctionSpace([self.P1DG, self.P1DG, self.P1DG])
+        # Storage containers for wd_solution, cell means, max and mins
+        self.wd_solution = Function(self.P1DG_mix)
+        self.centroids_list = []
+        self.max_field_list = []
+        self.min_field_list = []
+        for i in range(3):
+            self.centroids_list.append(Function(self.P0))
+            self.max_field_list.append(Function(self.P1CG))
+            self.min_field_list.append(Function(self.P1CG))
+        self.wd_kernel = self.wd_kernel()
+
+    def wd_kernel(self):
+        """
+        Defines wetting and drying treatment kernel
+        """ 
+        # this easy treatment is also ok for dam break case TODO benchmark more complicated cases
+        wd_treatment_kernel = """ 
+            double h_avg = 0; const double E = %(epsilon)s;
+            int a = 0, n1, n2, n3, a1 = 0, a3 = 0, flag1, flag2, flag3, deltau, deltav, npos, dofs;
+            #define STEP(X) (((X) <= 0) ? 0 : 1)
+            dofs = h_vertex.dofs;
+            for (int i = 0; i < dofs; i++) {
+                h_avg += h_vertex[i];
+            }
+            h_avg = h_avg / dofs;
+            for (int i = 0; i < dofs; i++) {
+                if (h_vertex[i] > E) {
+                    a += 1;
+                }
+            }
+            for (int i = 0; i < dofs; i++) {
+                if (h_vertex[i] <= E) {
+                    h_wd_vertex[i] = E;
+                    hu_wd_vertex[i] = 0.;
+                    hv_wd_vertex[i] = 0.;
+                }else{
+                    h_wd_vertex[i] = h_vertex[i];
+                    hu_wd_vertex[i] = hu_vertex[i];
+                    hv_wd_vertex[i] = hv_vertex[i];
+                }
+            }
+            """
+
+        wd_treatment_kernel = """
+            const double E = %(epsilon)s; const int L = %(label)s;
+            double h_avg = 0.; double alpha_h = 1., alpha_hu = 1., alpha_hv = 1.;
+            int a = 0, a1 = 0, a3 = 0, n1, n2, n3, flag1, flag2, flag3, deltau, deltav, npos, dofs;
+            #define STEP(X) (((X) <= 0) ? 0 : 1)
+            dofs = h_vertex.dofs;
+            for (int i = 0; i < dofs; i++) {
+                if (h_vertex[i] > E) {
+                    a += 1;
+                }
+            }
+            if (L != 0) {
+                for (int i = 0; i < dofs; i++) {
+                    // limiter for h
+                    if (h_vertex[i] > h_bar[0]) {
+                        alpha_h = fmin(alpha_h, fmin(1, (h_max[i] - h_bar[0])/(h_vertex[i] - h_bar[0])));
+                    }
+                    else if (h_vertex[i] < h_bar[0]) {
+                        alpha_h = fmin(alpha_h, fmin(1, (h_bar[0] - h_min[i])/(h_bar[0] - h_vertex[i])));
+                    }
+                    // limiter for hu
+                    if (hu_vertex[i] > hu_bar[0]) {
+                        alpha_hu = fmin(alpha_hu, fmin(1, (hu_max[i] - hu_bar[0])/(hu_vertex[i] - hu_bar[0])));
+                    }
+                    else if (hu_vertex[i] < hu_bar[0]) {
+                        alpha_hu = fmin(alpha_hu, fmin(1, (hu_bar[0] - hu_min[i])/(hu_bar[0] - hu_vertex[i])));
+                    }
+                    // limiter for hv
+                    if (hv_vertex[i] > hv_bar[0]) {
+                        alpha_hv = fmin(alpha_hv, fmin(1, (hv_max[i] - hv_bar[0])/(hv_vertex[i] - hv_bar[0])));
+                    }
+                    else if (hv_vertex[i] < hv_bar[0]) {
+                        alpha_hv = fmin(alpha_hv, fmin(1, (hv_bar[0] - hv_min[i])/(hv_bar[0] - hv_vertex[i])));
+                    }
+                }
+                for (int i = 0; i < dofs; i++) {
+                    if (a != L) {
+                        h_vertex[i] = h_bar[0] + alpha_h*(h_vertex[i] - h_bar[0]);
+                        hu_vertex[i] = hu_bar[0] + alpha_hu*(hu_vertex[i] - hu_bar[0]);
+                        hv_vertex[i] = hv_bar[0] + alpha_hv*(hv_vertex[i] - hv_bar[0]);
+                    }
+                }
+            }
+
+            for (int i = 0; i < dofs; i++) {
+                h_avg += h_vertex[i] / dofs;
+            }
+            if (a == dofs) {
+                for (int i = 0; i < dofs; i++) {
+                    h_wd_vertex[i] = h_vertex[i];
+                }
+            }
+            if (h_avg <= E) {
+                for (int i = 0; i < dofs; i++) {
+                    h_wd_vertex[i] = h_avg;
+                }
+            } else{
+                if (a < dofs) {
+                    for (int i = 1; i < dofs; i++) {
+                        if (h_vertex[0] >= h_vertex[i]) {
+                            a1 += 1;
+                        }
+                    }
+                    for (int i = 0; i < dofs - 1; i++) {
+                        if (h_vertex[2] >= h_vertex[i]) {
+                            a3 += 1;
+                        }
+                    }
+                    if (a1 == 2) {
+                        n3 = 0;
+                        if (a3 > 0) {
+                            n2 = 2;
+                            n1 = 1;
+                        }
+                        if (a3 == 0) {
+                            n1 = 2;
+                            n2 = 1;
+                        }
+                    }
+                    if (a1 == 0) {
+                        n1 = 0;
+                        if (a3 == 2) {
+                            n3 = 2;
+                            n2 = 1;
+                        }
+                        if (a3 < 2) {
+                            n2 = 2;
+                            n3 = 1;
+                        }
+                    }
+                    if (a1 == 1) {
+                        n2 = 0;
+                        if (h_vertex[1] >= h_vertex[2]) {
+                            n3 = 1;
+                            n1 = 2;
+                        } else{
+                            n3 = 2;
+                            n1 = 1;
+                        }
+                    }
+                    h_wd_vertex[n1] = E;
+                    h_wd_vertex[n2] = fmax(E, h_vertex[n2] - (h_wd_vertex[n1] - h_vertex[n1]) / 2.);
+                    h_wd_vertex[n3] = h_vertex[n3] - (h_wd_vertex[n1] - h_vertex[n1]) - (h_wd_vertex[n2] - h_vertex[n2]);
+
+                    if (a == 1) {
+                        h_wd_vertex[n1] = E;
+                        h_wd_vertex[n2] = E;
+                        h_wd_vertex[n3] = h_vertex[n3] - (h_wd_vertex[n1] - h_vertex[n1]) - (h_wd_vertex[n2] - h_vertex[n2]);
+                    } else{
+                        h_wd_vertex[n1] = E;
+                        h_wd_vertex[n2] = fmax(E, h_vertex[n2] - (h_wd_vertex[n1] - h_vertex[n1]) / 2.);
+                        h_wd_vertex[n3] = h_vertex[n3] - (h_wd_vertex[n1] - h_vertex[n1]) / 2.;
+                    }
+
+                    h_wd_vertex[n1] = h_vertex[n1];
+                    h_wd_vertex[n2] = h_vertex[n2];
+                    h_wd_vertex[n3] = h_vertex[n3]-(h_wd_vertex[n1] - h_vertex[n1]) - (h_wd_vertex[n2] - h_vertex[n2]);
+                }
+            }
+            flag1 = STEP(h_wd_vertex[0] - E);
+            flag2 = STEP(h_wd_vertex[1] - E);
+            flag3 = STEP(h_wd_vertex[2] - E);
+            npos = flag1 + flag2 + flag3;
+            deltau = 0 * (hu_vertex[0]*(1 - flag1) + hu_vertex[1]*(1 - flag2) + hu_vertex[2]*(1 - flag3));
+            deltav = 0 * (hv_vertex[0]*(1 - flag1) + hv_vertex[1]*(1 - flag2) + hv_vertex[2]*(1 - flag3));
+            if (npos > 0) {
+                hu_wd_vertex[0] = flag1*(hu_vertex[0] + deltau/npos);
+                hu_wd_vertex[1] = flag2*(hu_vertex[1] + deltau/npos);
+                hu_wd_vertex[2] = flag3*(hu_vertex[2] + deltau/npos);
+                hv_wd_vertex[0] = flag1*(hv_vertex[0] + deltav/npos);
+                hv_wd_vertex[1] = flag2*(hv_vertex[1] + deltav/npos);
+                hv_wd_vertex[2] = flag3*(hv_vertex[2] + deltav/npos);
+            }
+            if (npos == 0) {
+                hu_wd_vertex[0] = 0.;
+                hu_wd_vertex[1] = 0.;
+                hu_wd_vertex[2] = 0.;
+                hv_wd_vertex[0] = 0.;
+                hv_wd_vertex[1] = 0.;
+                hv_wd_vertex[2] = 0.;
+            }
+            for (int i = 0; i < dofs; i++) {
+                if  (h_wd_vertex[i] <= 0.) {
+                    h_wd_vertex[i] = 0.;
+                }
+            }
+            """
+        return wd_treatment_kernel
+
+    def apply(self, solution, wd_threshold=1e-4, use_limiter=True, use_eta_solution=False, bathymetry=None):
+        """
+        Re-computes centroids and applies wetting and drying treatment and limiter to given field
+        """
+        self.wd_solution.assign(0.)
+
+        h_wd, hu_wd, hv_wd = self.wd_solution.split()
+        h, hu, hv = solution.split()
+
+        if use_eta_solution:
+            assert bathymetry is not None and element_continuity(bathymetry.function_space().ufl_element()).horizontal == 'dg'
+            h.dat.data[:] += bathymetry.dat.data[:]
+
+        # calculate cell average
+        limiter_label = 0
+        if use_limiter:
+            # parameter controlling limiter use
+            # '0': no limiter used; '3': not limiting wet domain; '>3': limiting all TODO improve
+            limiter_label = 3333
+            if limiter_label != 0:
+                for i in range(3):
+                    self.limiter.compute_bounds(solution.sub(i))
+                    self.centroids_list[i].dat.data[:] = self.limiter.centroids.dat.data[:]
+                    self.max_field_list[i].dat.data[:] = self.limiter.max_field.dat.data[:]
+                    self.min_field_list[i].dat.data[:] = self.limiter.min_field.dat.data[:]
+                   # self.limiter.apply(solution.sub(i))
+
+        wd_treatment_kernel = self.wd_kernel % {"epsilon": wd_threshold, "label": limiter_label}
+        args = {
+                "h_wd_vertex": (h_wd, RW), "hu_wd_vertex": (hu_wd, RW), "hv_wd_vertex": (hv_wd, RW),
+                "h_vertex": (h, READ), "hu_vertex": (hu, READ), "hv_vertex": (hv, READ),
+                "h_max": (self.max_field_list[0], READ), "hu_max": (self.max_field_list[1], READ), "hv_max": (self.max_field_list[2], READ),
+                "h_min": (self.min_field_list[0], READ), "hu_min": (self.min_field_list[1], READ), "hv_min": (self.min_field_list[2], READ),
+                "h_bar": (self.centroids_list[0], READ), "hu_bar": (self.centroids_list[1], READ), "hv_bar": (self.centroids_list[2], READ),
+               }
+        par_loop(wd_treatment_kernel, dx, args)
+
+        solution.assign(self.wd_solution)
+        if use_eta_solution:
+            h.dat.data[:] += -bathymetry.dat.data[:]

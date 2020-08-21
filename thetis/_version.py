@@ -24,8 +24,8 @@ def get_keywords():
     # each be defined on a line of their own. _version.py will just call
     # get_keywords().
     git_refnames = " (HEAD -> master)"
-    git_full = "6fab9c077633675445e258eb8dcc5943d79c1c27"
-    git_date = "2020-01-07 12:01:18 +0200"
+    git_full = "ce988c6b8978b06c83329812092f6173e93e3cca"
+    git_date = "2020-08-06 12:35:09 +0300"
     keywords = {"refnames": git_refnames, "full": git_full, "date": git_date}
     return keywords
 

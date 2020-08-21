@@ -38,7 +38,7 @@ def test_implicit_friction(do_export=False, do_assert=True):
     deg = 1
     p1dg = get_functionspace(mesh, 'DG', 1)
     p1dgv = get_functionspace(mesh, 'DG', 1, vector=True)
-    u_h_elt = FiniteElement('RT', triangle, deg + 1, variant='equispaced')
+    u_h_elt = FiniteElement('RT', triangle, deg + 1, variant='point')
     u_v_elt = FiniteElement('DG', interval, deg, variant='equispaced')
     u_elt = HDiv(TensorProductElement(u_h_elt, u_v_elt))
     # for vertical velocity component
@@ -67,7 +67,7 @@ def test_implicit_friction(do_export=False, do_assert=True):
     viscosity_v.project(kappa * u_bf * -z * (depth + z + z0) / (depth + z0))
     print('Cd {:}'.format(drag))
     print('u_bf {:}'.format(u_bf))
-    print('nu {:}'.format(viscosity_v.dat.data.min(), viscosity_v.dat.data.max()))
+    print('nu {:} - {:}'.format(viscosity_v.dat.data.min(), viscosity_v.dat.data.max()))
 
     # --- solve mom eq
     test = TestFunction(v)
@@ -80,8 +80,8 @@ def test_implicit_friction(do_export=False, do_assert=True):
         f += -viscosity_v*inner(Dx(solution, 2), Dx(test, 2)) * dx
         # interface term
         diff_flux = viscosity_v*Dx(solution, 2)
-        f += (dot(avg(diff_flux), test('+'))*normal[2]('+') +
-              dot(avg(diff_flux), test('-'))*normal[2]('-')) * dS_h
+        f += (dot(avg(diff_flux), test('+'))*normal[2]('+')
+              + dot(avg(diff_flux), test('-'))*normal[2]('-')) * dS_h
         # symmetric interior penalty stabilization
         l = Constant(depth/layers)
         nb_neigh = 2
@@ -109,8 +109,8 @@ def test_implicit_friction(do_export=False, do_assert=True):
     dt_const = Constant(dt)
 
     # Backward Euler
-    f = (inner(solution_new, test)*dx - inner(solution, test)*dx -
-         dt_const*rhs(solution_new, solution))
+    f = (inner(solution_new, test)*dx - inner(solution, test)*dx
+         - dt_const*rhs(solution_new, solution))
     prob = NonlinearVariationalProblem(f, solution_new)
     solver = LinearVariationalSolver(prob, solver_parameters=sp)
 
@@ -120,10 +120,10 @@ def test_implicit_friction(do_export=False, do_assert=True):
     t = 0
     for it in range(1, time_steps + 1):
         t = it*dt
-        t0 = time_mod.clock()
+        t0 = time_mod.perf_counter()
         solver.solve()
         solution.assign(solution_new)
-        t1 = time_mod.clock()
+        t1 = time_mod.perf_counter()
 
         if do_export:
             out_file.write(solution)

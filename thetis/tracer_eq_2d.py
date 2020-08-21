@@ -31,19 +31,21 @@ class TracerTerm(Term):
     Generic tracer term that provides commonly used members and mapping for
     boundary functions.
     """
-    def __init__(self, function_space,
-                 bathymetry=None, use_lax_friedrichs=True):
+    def __init__(self, function_space, depth,
+                 use_lax_friedrichs=True, sipg_parameter=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
-        :kwarg bathymetry: bathymetry of the domain
-        :type bathymetry: 2D :class:`Function` or :class:`Constant`
+        :arg depth: :class: `DepthExpression` containing depth info
+        :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
+        :kwarg sipg_parameter: :class: `Constant` or :class: `Function` penalty parameter for SIPG
         """
         super(TracerTerm, self).__init__(function_space)
-        self.bathymetry = bathymetry
+        self.depth = depth
         self.cellsize = CellSize(self.mesh)
         continuity = element_continuity(self.function_space.ufl_element())
         self.horizontal_dg = continuity.horizontal == 'dg'
         self.use_lax_friedrichs = use_lax_friedrichs
+        self.sipg_parameter = sipg_parameter
 
         # define measures with a reasonable quadrature degree
         p = self.function_space.ufl_element().degree()
@@ -79,12 +81,11 @@ class TracerTerm(Term):
         else:
             c_ext = c_in
         if 'uv' in funcs:
-            uv_ext = funcs['uv']
+            uv_ext = self.corr_factor * funcs['uv']
         elif 'flux' in funcs:
-            assert self.bathymetry is not None
-            h_ext = elev_ext + self.bathymetry
-            area = h_ext*self.boundary_len  # NOTE using external data only
-            uv_ext = funcs['flux']/area*self.normal
+            h_ext = self.depth.get_total_depth(elev_ext)
+            area = h_ext*self.boundary_len[bnd_id]  # NOTE using external data only
+            uv_ext = self.corr_factor * funcs['flux']/area*self.normal
         elif 'un' in funcs:
             uv_ext = funcs['un']*self.normal
         else:
@@ -114,12 +115,9 @@ class HorizontalAdvectionTerm(TracerTerm):
         if fields_old.get('uv_2d') is None:
             return 0
         elev = fields_old['elev_2d']
-        uv = fields_old.get('tracer_advective_velocity')
-        if uv is None:
-            uv = fields_old['uv_2d']
+        self.corr_factor = fields_old.get('tracer_advective_velocity_factor')
 
-        uv_p1 = fields_old.get('uv_p1')
-        uv_mag = fields_old.get('uv_mag')
+        uv = self.corr_factor * fields_old['uv_2d']
         # FIXME is this an option?
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
 
@@ -139,13 +137,7 @@ class HorizontalAdvectionTerm(TracerTerm):
                        + jump(self.test, uv[1] * self.normal[1])) * self.dS
             # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
-                if uv_p1 is not None:
-                    gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0]
-                                     + avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
-                elif uv_mag is not None:
-                    gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
-                else:
-                    gamma = 0.5*abs(un_av)*lax_friedrichs_factor
+                gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                 f += gamma*dot(jump(self.test), jump(solution))*self.dS
             if bnd_conditions is not None:
                 for bnd_marker in self.boundary_markers:
@@ -205,22 +197,11 @@ class HorizontalDiffusionTerm(TracerTerm):
         f += inner(grad_test, diff_flux)*self.dx
 
         if self.horizontal_dg:
-            # Interior Penalty method by
-            # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
-            # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
-            # k_max/k_min  - max/min diffusivity
-            # p            - polynomial degree
-            # Theta        - min angle of triangles
-            # assuming k_max/k_min=2, Theta=pi/3
-            # sigma = 6.93 = 3.5*p*(p+1)
-
-            degree_h = self.function_space.ufl_element().degree()
-            sigma = 5.0*degree_h*(degree_h + 1)/self.cellsize
-            if degree_h == 0:
-                sigma = 1.5 / self.cellsize
-            alpha = avg(sigma)
+            alpha = self.sipg_parameter
+            assert alpha is not None
+            sigma = avg(alpha / self.cellsize)
             ds_interior = self.dS
-            f += alpha*inner(jump(self.test, self.normal),
+            f += sigma*inner(jump(self.test, self.normal),
                              dot(avg(diff_tensor), jump(solution, self.normal)))*ds_interior
             f += -inner(avg(dot(diff_tensor, grad(self.test))),
                         jump(solution, self.normal))*ds_interior
@@ -233,9 +214,8 @@ class HorizontalDiffusionTerm(TracerTerm):
                 ds_bnd = ds(int(bnd_marker), degree=self.quad_degree)
                 c_in = solution
                 elev = fields_old['elev_2d']
-                uv = fields_old.get('tracer_advective_velocity')
-                if uv is None:
-                    uv = fields_old['uv_2d']
+                self.corr_factor = fields_old.get('tracer_advective_velocity_factor')
+                uv = self.corr_factor * fields_old['uv_2d']
                 if funcs is not None:
                     if 'value' in funcs:
                         c_ext, uv_ext, eta_ext = self.get_bnd_functions(c_in, uv, elev, bnd_marker, bnd_conditions)
@@ -278,20 +258,18 @@ class TracerEquation2D(Equation):
     """
     2D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
-    def __init__(self, function_space,
-                 bathymetry=None,
-                 use_lax_friedrichs=False):
+    def __init__(self, function_space, depth,
+                 use_lax_friedrichs=False,
+                 sipg_parameter=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
-        :kwarg bathymetry: bathymetry of the domain
-        :type bathymetry: 2D :class:`Function` or :class:`Constant`
-
-        :kwarg bool use_symmetric_surf_bnd: If True, use symmetric surface boundary
-            condition in the horizontal advection term
+        :arg depth: :class: `DepthExpression` containing depth info
+        :kwarg bool use_lax_friedrichs: whether to use Lax Friedrichs stabilisation
+        :kwarg sipg_parameter: :class: `Constant` or :class: `Function` penalty parameter for SIPG
         """
         super(TracerEquation2D, self).__init__(function_space)
 
-        args = (function_space, bathymetry, use_lax_friedrichs)
+        args = (function_space, depth, use_lax_friedrichs, sipg_parameter)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')

@@ -2,7 +2,7 @@
 Utility functions and classes for 3D hydrostatic ocean model
 """
 from __future__ import absolute_import
-from .firedrake import *
+from firedrake import *
 import os
 import numpy as np
 import sys
@@ -14,9 +14,6 @@ import coffee.base as ast  # NOQA
 from collections import OrderedDict, namedtuple  # NOQA
 from .field_defs import field_metadata
 from .log import *
-from firedrake import Function as FiredrakeFunction
-from firedrake import Constant as FiredrakeConstant
-from firedrake import Expression as FiredrakeExpression
 from abc import ABCMeta, abstractmethod
 
 ds_surf = ds_t
@@ -86,7 +83,7 @@ class FieldDict(AttrDict):
     def _check_inputs(self, key, value):
         if key != '__dict__':
             from firedrake.functionspaceimpl import MixedFunctionSpace, WithGeometry
-            if not isinstance(value, (FiredrakeFunction, FiredrakeConstant)):
+            if not isinstance(value, (Function, Constant)):
                 raise TypeError('Value must be a Function or Constant object')
             fs = value.function_space()
             is_mixed = (isinstance(fs, MixedFunctionSpace)
@@ -99,7 +96,7 @@ class FieldDict(AttrDict):
 
     def _set_functionname(self, key, value):
         """Set function.name to key to ensure consistent naming"""
-        if isinstance(value, FiredrakeFunction):
+        if isinstance(value, Function):
             value.rename(name=key)
 
     def __setitem__(self, key, value):
@@ -114,18 +111,28 @@ class FieldDict(AttrDict):
 
 
 def get_functionspace(mesh, h_family, h_degree, v_family=None, v_degree=None,
-                      vector=False, hdiv=False, variant='equispaced', **kwargs):
+                      vector=False, hdiv=False, variant=None, **kwargs):
     gdim = mesh.geometric_dimension()
-    mesh_is_extruded = (mesh.ufl_cell() not in (ufl.Cell('triangle'), ufl.Cell('interval')))
-    assert gdim in [1, 2, 3] # vertical 2D case is considered, WPan 2020-02-09
-    if gdim == 3 or (gdim == 2 and mesh_is_extruded):
+    #assert gdim in [2, 3] # previously for hydrostatic thetis
+    mesh_is_extruded = (mesh.ufl_cell() not in (ufl.Cell('triangle'), ufl.Cell('interval'))) # TODO check
+    assert gdim in [1, 2, 3] # vertical 2D case (gdim=1) is considered, WPan 2020-02-09
+    if variant is None:
+        if h_family.upper() == 'RT' or h_family.lower() == 'raviart-thomas':
+            variant = 'point'
+        else:
+            variant = 'equispaced'
+        v_variant = 'equispaced'
+    else:
+        v_variant = variant
+    #if gdim == 3: # previously for hydrostatic thetis
+    if gdim == 3 or (gdim == 2 and mesh_is_extruded): # TODO check
         if v_family is None:
             v_family = h_family
         if v_degree is None:
             v_degree = h_degree
         h_cell, v_cell = mesh.ufl_cell().sub_cells()
         h_elt = FiniteElement(h_family, h_cell, h_degree, variant=variant)
-        v_elt = FiniteElement(v_family, v_cell, v_degree, variant=variant)
+        v_elt = FiniteElement(v_family, v_cell, v_degree, variant=v_variant)
         elt = TensorProductElement(h_elt, v_elt)
         if hdiv:
             elt = HDiv(elt)
@@ -236,7 +243,7 @@ def extrude_mesh_sigma(mesh2d, n_layers, bathymetry_2d, z_stretch_fact=1.0,
     new_coordinates = Function(fs_3d)
 
     z_stretch_func = Function(fs_2d)
-    if isinstance(z_stretch_fact, FiredrakeFunction):
+    if isinstance(z_stretch_fact, Function):
         assert z_stretch_fact.function_space() == fs_2d
         z_stretch_func = z_stretch_fact
     else:
@@ -300,15 +307,13 @@ def comp_volume_3d(mesh):
     return val
 
 
-def comp_tracer_mass_2d(eta, bath, scalar_func):
+def comp_tracer_mass_2d(scalar_func, total_depth):
     """
     Computes total tracer mass in the 2D domain
-    :arg eta: elevation :class:`Function`
-    :arg bath: bathymetry :class:`Function`
-    :arg scalar_func: scalar :class:`Function` to integrate
+    :arg scalar_func: depth-averaged scalar :class:`Function` to integrate
+    :arg total_depth: scalar UFL expression (e.g. from get_total_depth())
     """
-
-    val = assemble((eta+bath)*scalar_func*dx)
+    val = assemble(scalar_func*total_depth*dx)
     return val
 
 
@@ -542,9 +547,9 @@ class DensitySolver(object):
         self.fs = density.function_space()
         self.eos = eos_class
 
-        if isinstance(salinity, FiredrakeFunction):
+        if isinstance(salinity, Function):
             assert self.fs == salinity.function_space()
-        if isinstance(temperature, FiredrakeFunction):
+        if isinstance(temperature, Function):
             assert self.fs == temperature.function_space()
 
         self.s = salinity
@@ -553,10 +558,10 @@ class DensitySolver(object):
 
     def _get_array(self, function):
         """Returns numpy data array from a :class:`Function`"""
-        if isinstance(function, FiredrakeFunction):
+        if isinstance(function, Function):
             assert self.fs == function.function_space()
             return function.dat.data[:]
-        if isinstance(function, FiredrakeConstant):
+        if isinstance(function, Constant):
             return function.dat.data[0]
         # assume that function is a float
         return function
@@ -598,8 +603,8 @@ class DensitySolverWeak(object):
         self.fs = density.function_space()
         self.eos = eos_class
 
-        assert isinstance(salinity, (FiredrakeFunction, FiredrakeConstant))
-        assert isinstance(temperature, (FiredrakeFunction, FiredrakeConstant))
+        assert isinstance(salinity, (Function, Constant))
+        assert isinstance(temperature, (Function, Constant))
 
         self.s = salinity
         self.t = temperature
@@ -780,6 +785,53 @@ class Mesh3DConsistencyCalculator(object):
         print_output('HCC: {:} .. {:}'.format(r_min, r_max))
 
 
+def extend_function_to_3d(func, mesh_extruded):
+    """
+    Returns a 3D view of a 2D :class:`Function` on the extruded domain.
+
+    The 3D function resides in V x R function space, where V is the function
+    space of the source function. The 3D function shares the data of the 2D
+    function.
+    """
+    fs = func.function_space()
+    assert fs.mesh().geometric_dimension() == 2, 'Function must be in 2D space'
+    ufl_elem = fs.ufl_element()
+    family = ufl_elem.family()
+    degree = ufl_elem.degree()
+    name = func.name()
+    if isinstance(ufl_elem, ufl.VectorElement):
+        # vector function space
+        fs_extended = get_functionspace(mesh_extruded, family, degree, 'R', 0,
+                                        dim=2, vector=True)
+    else:
+        fs_extended = get_functionspace(mesh_extruded, family, degree, 'R', 0)
+    func_extended = Function(fs_extended, name=name, val=func.dat._data)
+    func_extended.source = func
+    return func_extended
+
+
+class ExtrudedFunction(Function):
+    """
+    A 2D :class:`Function` that provides a 3D view on the extruded domain.
+
+    The 3D function can be accessed as `ExtrudedFunction.view_3d`.
+    The 3D function resides in V x R function space, where V is the function
+    space of the source function. The 3D function shares the data of the 2D
+    function.
+    """
+    def __init__(self, *args, mesh_3d=None, **kwargs):
+        """
+        Create a 2D :class:`Function` with a 3D view on extruded mesh.
+
+        :arg mesh_3d: Extruded 3D mesh where the function will be extended to.
+        """
+        # create the 2d function
+        super().__init__(*args, **kwargs)
+
+        if mesh_3d is not None:
+            self.view_3d = extend_function_to_3d(self, mesh_3d)
+
+
 class ExpandFunctionTo3d(object):
     """
     Copy a 2D field to 3D
@@ -823,7 +875,7 @@ class ExpandFunctionTo3d(object):
             # a normal tensorproduct element
             family_3dh = ufl_elem.sub_elements()[0].family()
             if family_2d != family_3dh:
-                raise Exception('2D and 3D spaces do not match: {0:s} {1:s}'.format(family_2d, family_3dh))
+                raise Exception('2D and 3D spaces do not match: "{0:s}" != "{1:s}"'.format(family_2d, family_3dh))
         if family_2d == 'Raviart-Thomas' and elem_height is None:
             raise Exception('elem_height must be provided for Raviart-Thomas spaces')
         self.do_rt_scaling = family_2d == 'Raviart-Thomas'
@@ -1030,8 +1082,8 @@ class SubdomainProjector(object):
     """Projector that projects the restriction of an expression to the specified subdomain."""
     def __init__(self, v, v_out, subdomain_id, solver_parameters=None, constant_jacobian=True):
 
-        if isinstance(v, FiredrakeExpression) or \
-           not isinstance(v, (ufl.core.expr.Expr, FiredrakeFunction)):
+        if isinstance(v, Expression) or \
+           not isinstance(v, (ufl.core.expr.Expr, Function)):
             raise ValueError("Can only project UFL expression or Functions not '%s'" % type(v))
 
         self.v = v
@@ -1100,55 +1152,6 @@ def compute_elem_height(zcoord, output):
     return output
 
 
-def compute_bottom_drag(h_b, drag):
-    r"""
-    Computes bottom drag coefficient (Cd) from the law-of-the wall
-
-    .. math::
-        C_D = \left( \frac{\kappa}{\ln (h_b + z_0)/z_0} \right)^2
-
-    :arg h_b: the height above bed where the bottom velocity is evaluated in
-        the law-of-the-wall fit
-    :type h_b: :class:`Function`
-    :arg drag: field where C_D is stored
-    :type drag: :class:`Function`
-    """
-    # FIXME z0 should be a field, i.e. an argument to this function
-    von_karman = physical_constants['von_karman']
-    z0_friction = physical_constants['z0_friction']
-    drag.assign((von_karman / ln((h_b + z0_friction)/z0_friction))**2)
-    return drag
-
-
-def compute_bottom_friction(solver, uv_3d, uv_bottom_2d,
-                            z_bottom_2d, bathymetry_2d,
-                            bottom_drag_2d):
-    """
-    Updates bottom friction related fields for the 3D model
-
-    :arg solver: :class:`FlowSolver` object
-    :arg uv_3d: horizontal velocity
-    :type uv_3d: 3D vector :class:`Function`
-    :arg uv_bottom_2d: 2D bottom velocity field
-    :type uv_bottom_2d: 2D vector :class:`Function`
-    :arg z_bottom_2d: Bottom element z coordinate
-    :type z_bottom_2d: 2D scalar :class:`Function`
-    :arg bathymetry_2d: Bathymetry field
-    :type bathymetry_2d: 2D scalar :class:`Function`
-    :arg bottom_drag_2d: Bottom grad field
-    :type bottom_drag_2d: 2D scalar :class:`Function`
-    """
-    # TODO all input fields could be just fetched from solver.fields ...
-    # compute velocity at middle of bottom element
-    solver.extract_uv_bottom.solve()
-    solver.extract_z_bottom.solve()
-    z_bottom_2d.assign((z_bottom_2d + bathymetry_2d))
-    compute_bottom_drag(z_bottom_2d, bottom_drag_2d)
-    if solver.options.use_parabolic_viscosity:
-        solver.copy_uv_bottom_to_3d.solve()
-        solver.copy_bottom_drag_to_3d.solve()
-
-
 def get_horizontal_elem_size_2d(sol2d):
     """
     Computes horizontal element size from the 2D mesh
@@ -1176,6 +1179,109 @@ def get_horizontal_elem_size_3d(sol2d, sol3d):
     ExpandFunctionTo3d(sol2d, sol3d).solve()
 
 
+def get_facet_areas(mesh):
+    """
+    Compute area of each facet of `mesh`. The facet areas are stored as a HDiv trace field.
+
+    NOTES:
+      * In the 2D case, this gives edge lengths.
+      * The plus sign is arbitrary and could equally well be chosen as minus.
+    """
+    HDivTrace = FunctionSpace(mesh, "HDiv Trace", 0)
+    v, u = TestFunction(HDivTrace), TrialFunction(HDivTrace)
+    facet_areas = Function(HDivTrace, name="Facet areas")
+    mass_term = v('+')*u('+')*dS + v*u*ds
+    rhs = v('+')*FacetArea(mesh)*dS + v*FacetArea(mesh)*ds
+    solve(mass_term == rhs, facet_areas)
+    return facet_areas
+
+
+def get_minimum_angles_2d(mesh2d):
+    """
+    Compute the minimum angle in each element of a triangular mesh, `mesh2d`, using the
+    cosine rule. The minimum angles are outputted as a P0 field.
+    """
+    try:
+        assert mesh2d.topological_dimension() == 2
+        assert mesh2d.ufl_cell() == ufl.triangle
+    except AssertionError:
+        raise NotImplementedError("Minimum angle only currently implemented for triangles.")
+    edge_lengths = get_facet_areas(mesh2d)
+    min_angles = Function(FunctionSpace(mesh2d, "DG", 0))
+    par_loop("""for (int i=0; i<angle.dofs; i++) {
+
+                  double min_edge = edges[0];
+                  int min_index = 0;
+
+                  for (int j=1; j<3; j++){
+                    if (edges[j] < min_edge) {
+                      min_edge = edges[j];
+                      min_index = j;
+                    }
+                  }
+
+                  double numerator = 0.0;
+                  double denominator = 2.0;
+
+                  for (int j=0; j<3; j++){
+                    if (j == min_index) {
+                      numerator -= edges[j]*edges[j];
+                    } else {
+                      numerator += edges[j]*edges[j];
+                      denominator *= edges[j];
+                    }
+                  }
+                  angle[0] = acos(numerator/denominator);
+                }""", dx, {'edges': (edge_lengths, READ), 'angle': (min_angles, RW)})
+    return min_angles
+
+
+def get_sipg_ratio(nu):
+    """
+    Compute the ratio between the maximum of `nu` and the minimum of `nu` in each element. If `nu`
+    is P0 or a `Constant` then the resulting ratio is unity in each element. If `nu` varies linearly
+    in each element then the ratios are outputted as a P0 field.
+    """
+    if isinstance(nu, Constant):
+        # return nu
+        return Constant(1.0)
+    else:
+        try:
+            assert isinstance(nu, Function)
+        except AssertionError:
+            raise ValueError("Viscosity and diffusivity should be either a `Constant` or `Function`.")
+    el = nu.ufl_element()
+
+    if el.degree() == 0:
+        # return nu
+        return Constant(1.0)
+    elif el.degree() == 1 and el.family() in ('Lagrange', 'Discontinuous Lagrange', 'CG', 'DG'):
+        fs = nu.function_space()
+        if el.cell() not in (ufl.triangle, ufl.tetrahedron) and el.variant() != 'equispaced':
+            fs = FunctionSpace(fs.mesh(), ufl.FiniteElement(el.family(), el.cell(), el.degree, variant='equispaced'))
+            tmp = Function(fs).interpolate(nu)
+        else:
+            tmp = nu.copy()
+        P0 = FunctionSpace(fs.mesh(), "DG", 0)
+        nu_max = Function(P0)
+        nu_min = Function(P0)
+        nu_max.assign(np.finfo(0.).min)
+        nu_min.assign(np.finfo(0.).max)
+        par_loop("""for (int i=0; i<nu.dofs; i++) {
+                      nu_max[0] = fmax(nu[i], nu_max[0]);
+                      nu_min[0] = fmin(nu[i], nu_min[0]);
+                    }""",
+                 dx, {'nu_max': (nu_max, RW), 'nu_min': (nu_min, RW), 'nu': (tmp, READ)})
+        # nu_max *= nu_max
+        nu_max /= nu_min
+        return nu_max
+    else:
+        raise NotImplementedError("Currently only implemented for `Constant`s and DG0, DG1 and CG1 spaces.")
+        # TODO: For higher order elements, the extrema aren't necessarily achieved at the
+        #       vertices. Perhaps we could project or interpolate into a matching Bernstein
+        #       element and use the property that the Bernstein polynomials bound the solution.
+
+
 class ALEMeshUpdater(object):
     """
     Class that handles vertically moving ALE mesh
@@ -1199,18 +1305,77 @@ class ALEMeshUpdater(object):
             # continous elevation
             self.elev_cg_2d = Function(self.solver.function_spaces.P1_2d,
                                        name='elev cg 2d')
+            # w_mesh at surface
+            self.w_mesh_surf_2d = Function(
+                self.fields.bathymetry_2d.function_space(), name='w mesh surf 2d')
             # elevation in coordinate space
             self.proj_elev_to_cg_2d = Projector(self.fields.elev_2d,
                                                 self.elev_cg_2d)
             self.proj_elev_cg_to_coords_2d = Projector(self.elev_cg_2d,
                                                        self.fields.elev_cg_2d)
-            self.cp_elev_2d_to_3d = ExpandFunctionTo3d(self.fields.elev_cg_2d,
-                                                       self.fields.elev_cg_3d)
-            self.cp_w_mesh_surf_2d_to_3d = ExpandFunctionTo3d(self.fields.w_mesh_surf_2d,
-                                                              self.fields.w_mesh_surf_3d)
         self.cp_v_elem_size_to_2d = SubFunctionExtractor(self.fields.v_elem_size_3d,
                                                          self.fields.v_elem_size_2d,
                                                          boundary='top', elem_facet='top')
+
+        self.fs_3d = self.fields.z_coord_ref_3d.function_space()
+        self.fs_2d = self.fields.elev_cg_2d.function_space()
+
+        family_2d = self.fs_2d.ufl_element().family()
+        ufl_elem = self.fs_3d.ufl_element()
+        if isinstance(ufl_elem, ufl.VectorElement):
+            # Unwind vector
+            ufl_elem = ufl_elem.sub_elements()[0]
+        if isinstance(ufl_elem, ufl.HDivElement):
+            # RT case
+            ufl_elem = ufl_elem._element
+        if ufl_elem.family() == 'TensorProductElement':
+            # a normal tensorproduct element
+            family_3dh = ufl_elem.sub_elements()[0].family()
+            if family_2d != family_3dh:
+                raise Exception('2D and 3D spaces do not match: "{0:s}" != "{1:s}"'.format(family_2d, family_3dh))
+
+        # number of nodes in vertical direction
+        n_vert_nodes = self.fs_3d.finat_element.space_dimension() / self.fs_2d.finat_element.space_dimension()
+
+        nodes = get_facet_mask(self.fs_3d, 'geometric', 'bottom')
+        self.idx = op2.Global(len(nodes), nodes, dtype=np.int32, name='node_idx')
+        self.kernel_z_coord = op2.Kernel("""
+            void my_kernel(double *z_coord_3d, double *z_ref_3d, double *elev_2d, double *bath_2d, int *idx) {
+                for ( int d = 0; d < %(nodes)d; d++ ) {
+                    for ( int c = 0; c < %(func2d_dim)d; c++ ) {
+                        for ( int e = 0; e < %(v_nodes)d; e++ ) {
+                            double eta = elev_2d[%(func2d_dim)d*d + c];
+                            double bath = bath_2d[%(func2d_dim)d*d + c];
+                            double z_ref = z_ref_3d[%(func3d_dim)d*(idx[d]+e) + c];
+                            double new_z = eta*(z_ref + bath)/bath + z_ref;
+                            z_coord_3d[%(func3d_dim)d*(idx[d]+e) + c] = new_z;
+                        }
+                    }
+                }
+            }""" % {'nodes': self.fs_2d.finat_element.space_dimension(),
+                    'func2d_dim': self.fs_2d.value_size,
+                    'func3d_dim': self.fs_3d.value_size,
+                    'v_nodes': n_vert_nodes},
+            'my_kernel')
+
+        self.kernel_w_mesh = op2.Kernel("""
+            void my_kernel(double *w_mesh_3d, double *z_ref_3d, double *w_mesh_surf_2d, double *bath_2d, int *idx) {
+                for ( int d = 0; d < %(nodes)d; d++ ) {
+                    for ( int c = 0; c < %(func2d_dim)d; c++ ) {
+                        for ( int e = 0; e < %(v_nodes)d; e++ ) {
+                            double w_mesh_surf = w_mesh_surf_2d[%(func2d_dim)d*d + c];
+                            double bath = bath_2d[%(func2d_dim)d*d + c];
+                            double z_ref = z_ref_3d[%(func3d_dim)d*(idx[d]+e) + c];
+                            double new_w = w_mesh_surf * (z_ref + bath)/bath;
+                            w_mesh_3d[%(func3d_dim)d*(idx[d]+e) + c] = new_w;
+                        }
+                    }
+                }
+            }""" % {'nodes': self.fs_2d.finat_element.space_dimension(),
+                    'func2d_dim': self.fs_2d.value_size,
+                    'func3d_dim': self.fs_3d.value_size,
+                    'v_nodes': n_vert_nodes},
+            'my_kernel')
 
     def initialize(self):
         """Set values for initial mesh (elevation at rest)"""
@@ -1229,27 +1394,35 @@ class ALEMeshUpdater(object):
         self.proj_elev_to_cg_2d.project()
         self.proj_elev_cg_to_coords_2d.project()
 
-    def compute_mesh_velocity_finalize(self, c=1.0):
+    def compute_mesh_velocity_finalize(self, c=1.0, w_mesh_surf_expr=None):
         """
         Computes mesh velocity from the elevation difference
 
         Stores the current 2D elevation state as the "new" field,
         and computes w_mesh using the given time step factor ``c``.
         """
-        # compute w_mesh_surf = (elev_new - elev_old)/dt/c
         assert self.solver.options.use_ale_moving_mesh
-        self.fields.w_mesh_surf_2d.assign(self.fields.elev_cg_2d)
-        self.proj_elev_to_cg_2d.project()
-        self.proj_elev_cg_to_coords_2d.project()
-        self.fields.w_mesh_surf_2d += -self.fields.elev_cg_2d
-        self.fields.w_mesh_surf_2d *= -1.0/self.solver.dt/c
-        # use that to compute w_mesh in whole domain
-        self.cp_w_mesh_surf_2d_to_3d.solve()
-        # solve w_mesh at nodes
-        w_mesh_surf = self.fields.w_mesh_surf_3d.dat.data[:]
-        z_ref = self.fields.z_coord_ref_3d.dat.data[:]
-        h = self.fields.bathymetry_3d.dat.data[:]
-        self.fields.w_mesh_3d.dat.data[:] = w_mesh_surf * (z_ref + h)/h
+        # compute w_mesh at surface
+        if w_mesh_surf_expr is None:
+            # default formulation
+            # w_mesh_surf = (elev_new - elev_old)/dt/c
+            self.w_mesh_surf_2d.assign(self.fields.elev_cg_2d)
+            self.proj_elev_to_cg_2d.project()
+            self.proj_elev_cg_to_coords_2d.project()
+            self.w_mesh_surf_2d += -self.fields.elev_cg_2d
+            self.w_mesh_surf_2d *= -1.0/self.solver.dt/c
+        else:
+            # user-defined formulation
+            self.w_mesh_surf_2d.assign(w_mesh_surf_expr)
+        op2.par_loop(
+            self.kernel_w_mesh, self.fs_3d.mesh().cell_set,
+            self.fields.w_mesh_3d.dat(op2.WRITE, self.fs_3d.cell_node_map()),
+            self.fields.z_coord_ref_3d.dat(op2.READ, self.fs_3d.cell_node_map()),
+            self.w_mesh_surf_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
+            self.fields.bathymetry_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
+            self.idx(op2.READ),
+            iterate=op2.ALL
+        )
 
     def update_mesh_coordinates(self):
         """
@@ -1260,70 +1433,21 @@ class ALEMeshUpdater(object):
         assert self.solver.options.use_ale_moving_mesh
         self.proj_elev_to_cg_2d.project()
         self.proj_elev_cg_to_coords_2d.project()
-        self.cp_elev_2d_to_3d.solve()
 
-        eta = self.fields.elev_cg_3d.dat.data[:]
-        z_ref = self.fields.z_coord_ref_3d.dat.data[:]
-        bath = self.fields.bathymetry_3d.dat.data[:]
-        new_z = eta*(z_ref + bath)/bath + z_ref
-        self.solver.mesh.coordinates.dat.data[:, 2] = new_z
-        self.fields.z_coord_3d.dat.data[:] = new_z
+        # compute new z coordinates -> self.fields.z_coord_3d
+        op2.par_loop(
+            self.kernel_z_coord, self.fs_3d.mesh().cell_set,
+            self.fields.z_coord_3d.dat(op2.WRITE, self.fs_3d.cell_node_map()),
+            self.fields.z_coord_ref_3d.dat(op2.READ, self.fs_3d.cell_node_map()),
+            self.fields.elev_cg_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
+            self.fields.bathymetry_2d.dat(op2.READ, self.fs_2d.cell_node_map()),
+            self.idx(op2.READ),
+            iterate=op2.ALL
+        )
+
+        self.solver.mesh.coordinates.dat.data[:, 2] = self.fields.z_coord_3d.dat.data[:]
         self.update_elem_height()
         self.solver.mesh.clear_spatial_index()
-
-
-class ParabolicViscosity(object):
-    r"""
-    Computes parabolic eddy viscosity profile assuming log layer flow
-
-    .. math::
-        \nu = \kappa u_{bf}  \frac{(-z)(h + z_0 + z)}{h + z_0}
-
-    with
-
-    .. math::
-        u_{bf} = \sqrt{C_D} |\mathbf{u}_b|
-
-    """
-    def __init__(self, uv_bottom, bottom_drag, bathymetry, nu,
-                 solver_parameters={}):
-        """
-        :arg uv_bottom: bottom velocity
-        :type uv_bottom: 3D :class:`Function`
-        :arg bottom_drag: bottom drag field
-        :type bottom_drag: 3D :class:`Function`
-        :arg bathymetry: bathymetry field
-        :type bathymetry: 3D :class:`Function`
-        :arg nu: eddy viscosity field
-        :type nu: 3D :class:`Function`
-        :kwarg dict solver_parameters: PETSc solver options
-        """
-        solver_parameters.setdefault('ksp_atol', 1e-12)
-        solver_parameters.setdefault('ksp_rtol', 1e-16)
-        self.min_val = 1e-10
-        self.solution = nu
-
-        kappa = physical_constants['von_karman']
-        z0 = physical_constants['z0_friction']
-        fs = nu.function_space()
-        x = fs.mesh().coordinates
-        test = TestFunction(fs)
-        tri = TrialFunction(fs)
-        a = tri*test*dx
-        uv_mag = sqrt(uv_bottom[0]**2 + uv_bottom[1]**2)
-        parabola = -x[2]*(bathymetry + z0 + x[2])/(bathymetry + z0)
-        l = kappa*sqrt(bottom_drag)*uv_mag*parabola*test*dx
-        self.prob = LinearVariationalProblem(a, l, nu)
-        self.solver = LinearVariationalSolver(self.prob, solver_parameters=solver_parameters)
-
-    def solve(self):
-        """
-        Computes viscosity and stores it in nu field
-        """
-        self.solver.solve()
-        # remove negative values
-        ix = self.solution.dat.data[:] < self.min_val
-        self.solution.dat.data[ix] = self.min_val
 
 
 def beta_plane_coriolis_params(latitude):
@@ -1426,12 +1550,8 @@ class SmagorinskyViscosity(object):
         if self.weak_form:
             # solve grad(u) weakly
             mesh = output.function_space().mesh()
-            fs_grad = FunctionSpace(mesh, 'DP', 1, vfamily='DP', vdegree=1)
-            self.grad = []
-            for icomp in range(2):
-                self.grad[icomp] = []
-                for j in range(2):
-                    self.grad[icomp][j] = Function(fs_grad, name='uv_grad({:},{:})'.format(icomp, j))
+            fs_grad = get_functionspace(mesh, 'DP', 1, 'DP', 1, vector=True, dim=4)
+            self.grad = Function(fs_grad, name='uv_grad')
 
             tri_grad = TrialFunction(fs_grad)
             test_grad = TestFunction(fs_grad)
@@ -1439,29 +1559,30 @@ class SmagorinskyViscosity(object):
             normal = FacetNormal(mesh)
             a = inner(tri_grad, test_grad)*dx
 
-            self.solver_grad = []
-            for icomp in range(2):
-                self.solver_grad[icomp] = []
-                for j in range(2):
-                    a = inner(tri_grad, test_grad)*dx
-                    # l = inner(Dx(uv[0], 0), test_grad)*dx
-                    l = -inner(Dx(test_grad, j), uv[icomp])*dx
-                    l += inner(avg(uv[icomp]), jump(test_grad, normal[j]))*dS_v
-                    l += inner(uv[icomp], test_grad*normal[j])*ds_v
-                    prob = LinearVariationalProblem(a, l, self.grad[icomp][j])
-                    self.solver_grad[icomp][j] = LinearVariationalSolver(prob, solver_parameters=solver_parameters)
+            rhs_terms = []
+            for iuv in range(2):
+                for ix in range(2):
+                    i = 2*iuv + ix
+                    vol_term = -inner(Dx(test_grad[i], ix), uv[iuv])*dx
+                    int_term = inner(avg(uv[iuv]), jump(test_grad[i], normal[ix]))*dS_v
+                    ext_term = inner(uv[iuv], test_grad[i]*normal[ix])*ds_v
+                    rhs_terms.extend([vol_term, int_term, ext_term])
+            l = sum(rhs_terms)
+            prob = LinearVariationalProblem(a, l, self.grad)
+            self.weak_grad_solver = LinearVariationalSolver(prob, solver_parameters=solver_parameters)
+
+            # rate of strain tensor
+            d_t = self.grad[0] - self.grad[3]
+            d_s = self.grad[1] + self.grad[2]
+        else:
+            # rate of strain tensor
+            d_t = Dx(uv[0], 0) - Dx(uv[1], 1)
+            d_s = Dx(uv[0], 1) + Dx(uv[1], 0)
 
         fs = output.function_space()
         tri = TrialFunction(fs)
         test = TestFunction(fs)
 
-        # rate of strain tensor
-        if self.weak_form:
-            d_t = self.grad[(0, 0)] - self.grad[(1, 1)]
-            d_s = self.grad[(0, 1)] + self.grad[(1, 0)]
-        else:
-            d_t = Dx(uv[0], 0) - Dx(uv[1], 1)
-            d_s = Dx(uv[0], 1) + Dx(uv[1], 0)
         nu = c_s**2*h_elem_size**2 * sqrt(d_t**2 + d_s**2)
 
         a = test*tri*dx
@@ -1472,9 +1593,7 @@ class SmagorinskyViscosity(object):
     def solve(self):
         """Compute viscosity"""
         if self.weak_form:
-            for icomp in range(2):
-                for j in range(2):
-                    self.solver_grad[icomp][j].solve()
+            self.weak_grad_solver.solve()
         self.solver.solve()
         # remove negative values
         ix = self.output.dat.data < self.min_val
@@ -1647,7 +1766,7 @@ def compute_boundary_length(mesh2d):
     """
     Computes the length of the boundary segments in given 2d mesh
     """
-    p1 = FunctionSpace(mesh2d, 'CG', 1)
+    p1 = get_functionspace(mesh2d, 'CG', 1)
     boundary_markers = sorted(mesh2d.exterior_facets.unique_markers)
     boundary_len = OrderedDict()
     for i in boundary_markers:
@@ -1727,3 +1846,54 @@ def select_and_move_detectors(mesh, detector_locations, detector_names=None,
         return accepted_locations
     else:
         return accepted_locations, accepted_names
+
+
+class DepthExpression:
+    r"""
+    Construct expression for depth depending on options
+
+    If `not use_nonlinear_equations`, then the depth is simply the bathymetry:
+        :math:`H = h`
+    Otherwise we include the free surface elevation:
+        :math:`H = h + \eta`
+    and if `use_wetting_and_drying`, includes a bathymetry displacement term
+    to ensure a positive depth (see Karna et al. 2011):
+        :math:`H = h + f(h+\eta) + \eta`
+    where
+        :math:`f(h+\eta) = (\sqrt{(h+\eta)^2 +\alpha^2} - (h+\eta))/2`
+    This introduces a wetting-drying parameter :math:`\alpha`, with dimensions
+    of length. The value for :math:`\alpha` is specified by
+    :attr:`.ModelOptions.wetting_and_drying_alpha`, in units of meters. The
+    default value is 0.5, but the appropriate value is problem specific and
+    should be set by the user.
+    """
+
+    def __init__(self, bathymetry_2d, use_nonlinear_equations=True,
+                 use_wetting_and_drying=False, wetting_and_drying_alpha=0.5):
+        self.bathymetry_2d = bathymetry_2d
+        self.use_nonlinear_equations = use_nonlinear_equations
+        self.use_wetting_and_drying = use_wetting_and_drying
+        self.wetting_and_drying_alpha = wetting_and_drying_alpha
+
+    def wd_bathymetry_displacement(self, eta):
+        """
+        Returns wetting and drying bathymetry displacement as described in:
+        Karna et al.,  2011.
+        :arg eta: current elevation as UFL expression
+        """
+        if self.use_wetting_and_drying:
+            H = self.bathymetry_2d + eta
+            return 0.5 * (sqrt(H ** 2 + self.wetting_and_drying_alpha ** 2) - H)
+        else:
+            return 0
+
+    def get_total_depth(self, eta):
+        """
+        Returns total water column depth based on options
+        :arg eta: current elevation as UFL expression
+        """
+        if self.use_nonlinear_equations:
+            total_h = self.bathymetry_2d + eta + self.wd_bathymetry_displacement(eta)
+        else:
+            total_h = self.bathymetry_2d
+        return total_h

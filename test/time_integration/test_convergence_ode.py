@@ -6,7 +6,7 @@ from thetis.equation import Term, Equation
 from thetis.timeintegrator import *
 from thetis.rungekutta import *
 from thetis.implicitexplicit import *
-from abc import ABCMeta, abstractproperty, abstractmethod
+from abc import ABCMeta
 from scipy import stats
 import pytest
 
@@ -16,6 +16,7 @@ class MixedODETerm(Term):
     Abstract base class for ODE term in mixed space
     """
     __metaclass__ = ABCMeta
+
     def __init__(self, subspace, test_func, alpha):
         super(MixedODETerm, self).__init__(subspace)
         self.test_func = test_func
@@ -41,7 +42,7 @@ class TermB(MixedODETerm):
 
 
 class SimpleODEEquation(Equation):
-    """
+    r"""
     A simple ODE for testing time integrators.
 
     Defines a linear, time-dependent, ODE
@@ -64,7 +65,7 @@ class SimpleODEEquation(Equation):
         self.a_space, self.b_space = function_space.split()
         self.a_test, self.b_test = TestFunctions(function_space)
         self.alpha = alpha
-        if mode=='imex':
+        if mode == 'imex':
             # solve one term implicitly, the other explicitly
             self.add_term_a('explicit')
             self.add_term_b('implicit')
@@ -109,15 +110,16 @@ def run(timeintegrator_class, refinement=1):
 
     mode = 'explicit'
     cfl_coeff = timeintegrator_class.cfl_coeff if hasattr(timeintegrator_class, 'cfl_coeff') else None
-    if (cfl_coeff==CFL_UNCONDITIONALLY_STABLE or
-            isinstance(timeintegrator_class, DIRKGeneric)):
+    if (cfl_coeff == CFL_UNCONDITIONALLY_STABLE
+            or isinstance(timeintegrator_class, DIRKGeneric)):
         mode = 'implicit'
     if (IMEXGeneric in timeintegrator_class.__bases__):
         mode = 'imex'
     equation = SimpleODEEquation(fs, alpha, mode=mode)
 
-    init_solution = [0, 1]
-    solution = Function(fs, name='solution').assign(Constant(init_solution))
+    solution = Function(fs, name='solution')
+    solution.sub(0).assign(Constant(0))
+    solution.sub(1).assign(Constant(1))
     fields = {}
 
     end_time = 1.0
@@ -136,7 +138,6 @@ def run(timeintegrator_class, refinement=1):
     for i in range(ntimesteps):
         simulation_time = (i+1)*dt
         ti.advance(simulation_time)
-        #print('{:.4f} {:.4f} {:.4f}'.format(simulation_time, sol_a.dat.data[0], sol_b.dat.data[0]))
         times[i+1] = simulation_time
         values[i+1, :] = sol_a.dat.data[0], sol_b.dat.data[0]
 
@@ -144,7 +145,7 @@ def run(timeintegrator_class, refinement=1):
 
     exact_sol = np.vstack((np.sin(alpha*times), np.cos(alpha*times))).T
     l2_err = np.sqrt(np.mean((values - exact_sol)**2))
-    return  l2_err
+    return l2_err
 
 
 def run_convergence(timeintegrator_class, ref_list,
@@ -166,32 +167,31 @@ def run_convergence(timeintegrator_class, ref_list,
     return slope
 
 
-@pytest.mark.parametrize(('ti_class', 'convergence_rate'),
-                         [
-                             (ForwardEuler, 1.0),
-                             (CrankNicolson, 2.0),
-                             (SSPRK22ALE, 2.0),
-                             (LeapFrogAM3, 2.0),
-                             (BackwardEuler, 1.0),
-                             (ImplicitMidpoint, 2.0),
-                             (CrankNicolsonRK, 2.0),
-                             (DIRK22, 2.0),
-                             (DIRK23, 3.0),
-                             (DIRK33, 3.0),
-                             (DIRK43, 3.0),
-                             (DIRKLSPUM2, 2.0),
-                             (DIRKLPUM2, 2.0),
-                             (ERKLSPUM2, 2.0),
-                             (SSPRK33, 3.0),
-                             (ERKLSPUM2, 2.0),
-                             (ERKLPUM2, 2.0),
-                             (ERKMidpoint, 2.0),
-                             (ESDIRKMidpoint, 2.0),
-                             (ESDIRKTrapezoid, 2.0),
-                             (IMEXLPUM2, 2.0),
-                             (IMEXLSPUM2, 2.0),
-                             (IMEXMidpoint, 2.0),
-                             (IMEXEuler, 1.0),
-                         ])
+@pytest.mark.parametrize(('ti_class', 'convergence_rate'), [
+    (ForwardEuler, 1.0),
+    (CrankNicolson, 2.0),
+    (SSPRK22ALE, 2.0),
+    (LeapFrogAM3, 2.0),
+    (BackwardEuler, 1.0),
+    (ImplicitMidpoint, 2.0),
+    (CrankNicolsonRK, 2.0),
+    (DIRK22, 2.0),
+    (DIRK23, 3.0),
+    (DIRK33, 3.0),
+    (DIRK43, 3.0),
+    (DIRKLSPUM2, 2.0),
+    (DIRKLPUM2, 2.0),
+    (ERKLSPUM2, 2.0),
+    (SSPRK33, 3.0),
+    (ERKLSPUM2, 2.0),
+    (ERKLPUM2, 2.0),
+    (ERKMidpoint, 2.0),
+    (ESDIRKMidpoint, 2.0),
+    (ESDIRKTrapezoid, 2.0),
+    (IMEXLPUM2, 2.0),
+    (IMEXLSPUM2, 2.0),
+    (IMEXMidpoint, 2.0),
+    (IMEXEuler, 1.0),
+])
 def test_timeintegrator_convergence(ti_class, convergence_rate):
     run_convergence(ti_class, [1, 2, 3, 4], convergence_rate)

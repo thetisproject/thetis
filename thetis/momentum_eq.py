@@ -87,7 +87,8 @@ class MomentumTerm(Term):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 use_nonlinear_equations=True, use_lax_friedrichs=True, use_bottom_friction=False):
+                 use_nonlinear_equations=True, use_lax_friedrichs=True, use_bottom_friction=False,
+                 sipg_parameter=Constant(10.0), sipg_parameter_vertical=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -109,6 +110,8 @@ class MomentumTerm(Term):
         self.use_nonlinear_equations = use_nonlinear_equations
         self.use_lax_friedrichs = use_lax_friedrichs
         self.use_bottom_friction = use_bottom_friction
+        self.sipg_parameter = sipg_parameter
+        self.sipg_parameter_vertical = sipg_parameter_vertical
 
         # define measures with a reasonable quadrature degree
         p, q = self.function_space.ufl_element().degree()
@@ -176,8 +179,6 @@ class HorizontalAdvectionTerm(MomentumTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if not self.use_nonlinear_equations:
             return 0
-        uv_p1 = fields_old.get('uv_p1')
-        uv_mag = fields_old.get('uv_mag')
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
 
         uv_depth_av = fields_old.get('uv_depth_av')
@@ -204,13 +205,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
                   + uv_up[1]*uv_av[1]*jump(self.test[1], self.normal[1]))*(self.dS_v + self.dS_h)
             # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
-                if uv_p1 is not None:
-                    gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0]
-                                     + avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
-                elif uv_mag is not None:
-                    gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
-                else:
-                    raise Exception('either uv_p1 or uv_mag must be given')
+                gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                 f += gamma*(jump(self.test[0])*jump(uv[0])
                             + jump(self.test[1])*jump(uv[1]))*(self.dS_v + self.dS_h)
             for bnd_marker in self.boundary_markers:
@@ -365,25 +360,15 @@ class HorizontalViscosityTerm(MomentumTerm):
         if self.horizontal_continuity in ['dg', 'hdiv']:
             assert self.h_elem_size is not None, 'h_elem_size must be defined'
             assert self.v_elem_size is not None, 'v_elem_size must be defined'
-            # Interior Penalty method by
-            # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
-            # sigma = 3*k_max**2/k_min*p*(p+1)*cot(Theta)
-            # k_max/k_min  - max/min diffusivity
-            # p            - polynomial degree
-            # Theta        - min angle of triangles
-            # assuming k_max/k_min=2, Theta=pi/3
-            # sigma = 6.93 = 3.5*p*(p+1)
-            degree_h, degree_v = self.function_space.ufl_element().degree()
             # TODO compute elemsize as CellVolume/FacetArea
             # h = n.D.n where D = diag(h_h, h_h, h_v)
             elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2)
                         + self.v_elem_size*self.normal[2]**2)
-            sigma = 5.0*degree_h*(degree_h + 1)/elemsize
-            if degree_h == 0:
-                sigma = 1.5/elemsize
-            alpha = avg(sigma)
+            alpha = self.sipg_parameter
+            assert alpha is not None
+            sigma = avg(alpha/elemsize)
             ds_interior = (self.dS_h + self.dS_v)
-            f += alpha*inner(tensor_jump(self.normal, self.test),
+            f += sigma*inner(tensor_jump(self.normal, self.test),
                              dot(avg(visc_tensor), tensor_jump(self.normal, uv)))*ds_interior
             f += -inner(avg(dot(visc_tensor, nabla_grad(self.test))),
                         tensor_jump(self.normal, uv))*ds_interior
@@ -432,19 +417,16 @@ class VerticalViscosityTerm(MomentumTerm):
         if self.vertical_continuity in ['dg', 'hdiv']:
             assert self.h_elem_size is not None, 'h_elem_size must be defined'
             assert self.v_elem_size is not None, 'v_elem_size must be defined'
-            # Interior Penalty method by
-            # Epshteyn (2007) doi:10.1016/j.cam.2006.08.029
-            degree_h, degree_v = self.function_space.ufl_element().degree()
             # TODO compute elemsize as CellVolume/FacetArea
             # h = n.D.n where D = diag(h_h, h_h, h_v)
             elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2)
                         + self.v_elem_size*self.normal[2]**2)
-            sigma = 5.0*degree_v*(degree_v + 1)/elemsize
-            if degree_v == 0:
-                sigma = 1.0/elemsize
-            alpha = avg(sigma)
+
+            alpha = self.sipg_parameter_vertical
+            assert alpha is not None
+            sigma = avg(alpha/elemsize)
             ds_interior = (self.dS_h)
-            f += alpha*inner(tensor_jump(self.normal[2], self.test),
+            f += sigma*inner(tensor_jump(self.normal[2], self.test),
                              avg(viscosity_v)*tensor_jump(self.normal[2], solution))*ds_interior
             f += -inner(avg(viscosity_v*Dx(self.test, 2)),
                         tensor_jump(self.normal[2], solution))*ds_interior
@@ -477,12 +459,10 @@ class BottomFrictionTerm(MomentumTerm):
     .. math::
         C_D = \left( \frac{\kappa}{\ln (h_b + z_0)/z_0} \right)^2
 
-    where :math:`z_0` is the bottom roughness length, read from ``z0_friction``
-    field.
+    where :math:`z_0` is the bottom roughness length field.
     The user can override the :math:`C_D` value by providing ``quadratic_drag_coefficient``
     field.
     """
-    # TODO z_0 should be a field in the options dict, remove from physical_constants
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         f = 0
         if self.use_bottom_friction:
@@ -494,20 +474,23 @@ class BottomFrictionTerm(MomentumTerm):
                 uv = solution
                 uv_old = solution_old
 
-            z_bot = 0.5*self.v_elem_size
+            z_bot = Constant(0.5)*self.v_elem_size
             drag = fields_old.get('quadratic_drag_coefficient')
             if drag is None:
-                z0_friction = physical_constants['z0_friction']
+                bfr_roughness = fields_old.get('bottom_roughness')
+                assert bfr_roughness is not None, \
+                    'if use_bottom_friction=True, either bottom_roughness or quadratic_drag_coefficient must be defined'
                 von_karman = physical_constants['von_karman']
-                drag = (von_karman / ln((z_bot + z0_friction)/z0_friction))**2
+                drag = (von_karman / ln((z_bot + bfr_roughness)/bfr_roughness))**2
             # compute uv_bottom implicitly
-            uv_bot = uv + Dx(uv, 2)*z_bot
             uv_bot_old = uv_old + Dx(uv_old, 2)*z_bot
             uv_bot_mag = sqrt(uv_bot_old[0]**2 + uv_bot_old[1]**2)
-            stress = drag*uv_bot_mag*uv_bot
-            bot_friction = (stress[0]*self.test[0]
-                            + stress[1]*self.test[1])*self.ds_bottom
-            f += bot_friction
+            stress = drag*uv_bot_mag**2
+            # Scale bottom stress by uv_{n+1}/|uv_{n} + eps| at bottom
+            uv_old_mag = sqrt(uv_old[0]**2 + uv_old[1]**2)
+            epsilon = Constant(1e-3)
+            bfr = stress / (uv_old_mag + epsilon)
+            f += bfr * (self.test[0]*uv[0] + self.test[1]*uv[1])*self.ds_bottom
         return -f
 
 
@@ -589,7 +572,8 @@ class MomentumEquation(Equation):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 use_nonlinear_equations=True, use_lax_friedrichs=True, use_bottom_friction=False):
+                 use_nonlinear_equations=True, use_lax_friedrichs=True, use_bottom_friction=False,
+                 sipg_parameter=Constant(10.0), sipg_parameter_vertical=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -605,7 +589,8 @@ class MomentumEquation(Equation):
         super(MomentumEquation, self).__init__(function_space)
 
         args = (function_space, bathymetry,
-                v_elem_size, h_elem_size, use_nonlinear_equations, use_lax_friedrichs, use_bottom_friction)
+                v_elem_size, h_elem_size, use_nonlinear_equations, use_lax_friedrichs, use_bottom_friction,
+                sipg_parameter, sipg_parameter_vertical)
         self.add_term(PressureGradientTerm(*args), 'source')
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')
@@ -634,7 +619,7 @@ class InternalPressureGradientCalculator(MomentumTerm):
     .. note ::
         Due to the :class:`Term` sign convention this term is assembled on the right-hand-side.
     """
-    def __init__(self, fields, options, bnd_functions, solver_parameters=None):
+    def __init__(self, fields, bathymetry, options, bnd_functions, solver_parameters=None):
         """
         :arg solver: `class`FlowSolver` object
         :kwarg dict solver_parameters: PETSc solver options
@@ -644,7 +629,6 @@ class InternalPressureGradientCalculator(MomentumTerm):
         self.fields = fields
         self.options = options
         function_space = self.fields.int_pg_3d.function_space()
-        bathymetry = self.fields.bathymetry_3d
         super(InternalPressureGradientCalculator, self).__init__(
             function_space, bathymetry=bathymetry)
 

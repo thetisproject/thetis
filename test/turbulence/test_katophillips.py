@@ -62,7 +62,7 @@ def run_katophillips(**model_options):
     options.solve_temperature = False
     options.constant_temperature = Constant(10.0)
     options.use_implicit_vertical_diffusion = True
-    options.use_bottom_friction = True
+    options.use_bottom_friction = False
     options.use_turbulence = True
     options.use_ale_moving_mesh = False
     options.use_baroclinic_formulation = True
@@ -80,9 +80,7 @@ def run_katophillips(**model_options):
     options.check_salinity_overshoot = True
     options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
                                 'w_3d', 'w_mesh_3d', 'salt_3d',
-                                'baroc_head_3d',
-                                'uv_dav_2d', 'uv_bottom_2d',
-                                'parab_visc_3d', 'eddy_visc_3d',
+                                'baroc_head_3d', 'uv_dav_2d', 'eddy_visc_3d',
                                 'shear_freq_3d', 'buoy_freq_3d',
                                 'tke_3d', 'psi_3d', 'eps_3d', 'len_3d', ]
     options.update(model_options)

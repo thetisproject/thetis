@@ -60,6 +60,7 @@ def load_model(output_dir):
         'nz': layers,
         'gls_closure': gls_closure,
         'stability_func': stability_func,
+        'bottom_roughness': solver_obj.options.bottom_roughness
     }
     return entry
 
@@ -88,7 +89,7 @@ z = numpy.linspace(0 - offset, -depth + offset, layers)
 # compute analytical log profiles
 u_max = 0.9  # max velocity in [2] Fig 2.
 kappa = 0.4
-z_0 = physical_constants['z0_friction'].dat.data[0]
+z_0 = data[0]['bottom_roughness'].dat.data[0]
 # bottom friction velocity from u_max
 u_b = u_max * kappa / numpy.log((depth + z_0)/z_0)
 # analytical bottom friction velocity

@@ -95,12 +95,12 @@ def evaluate_source_term(eta, u, v, h, f, nu, nonlin=True):
     cori_v = f*u
     pg_u = g*sympy.diff(eta, x)
     pg_v = g*sympy.diff(eta, y)
-    visc_u = -(2*sympy.diff(nu*sympy.diff(u, x), x) +
-               sympy.diff(nu*sympy.diff(u, y), y) +
-               sympy.diff(nu*sympy.diff(v, x), y))
-    visc_v = -(2*sympy.diff(nu*sympy.diff(v, y), y) +
-               sympy.diff(nu*sympy.diff(v, x), x) +
-               sympy.diff(nu*sympy.diff(u, y), x))
+    visc_u = -(2*sympy.diff(nu*sympy.diff(u, x), x)
+               + sympy.diff(nu*sympy.diff(u, y), y)
+               + sympy.diff(nu*sympy.diff(v, x), y))
+    visc_v = -(2*sympy.diff(nu*sympy.diff(v, y), y)
+               + sympy.diff(nu*sympy.diff(v, x), x)
+               + sympy.diff(nu*sympy.diff(u, y), x))
     visc_u += -sympy.diff(depth, x)/depth * nu * 2 * sympy.diff(u, x)
     visc_v += -sympy.diff(depth, y)/depth * nu * 2 * sympy.diff(v, y)
     res_u = sympy.diff(u, t) + adv_u + cori_u + pg_u + visc_u

@@ -1,61 +1,6 @@
 r"""
-3D momentum equation for hydrostatic Boussinesq flow.
+3D sigma-coordinate non-hydrostatic momentum equations
 
-The three dimensional momentum equation reads
-
-.. math::
-    \frac{\partial \textbf{u}}{\partial t}
-        + \nabla_h \cdot (\textbf{u} \textbf{u})
-        + \frac{\partial \left(w\textbf{u} \right)}{\partial z}
-        + f\textbf{e}_z\wedge\textbf{u} + g\nabla_h \eta + g\nabla_h r
-        = \nabla_h \cdot \left( \nu_h \nabla_h \textbf{u} \right)
-        + \frac{\partial }{\partial z}\left( \nu \frac{\partial \textbf{u}}{\partial z}\right)
-    :label: mom_eq
-
-where :math:`\textbf{u}` and :math:`w` denote horizontal and vertical velocity,
-:math:`\nabla_h` is the horizontal gradient,
-:math:`\wedge` denotes the cross product,
-:math:`g` is the gravitational acceleration, :math:`f` is the Coriolis
-frequency, :math:`\textbf{e}_z` is a vertical unit vector, and
-:math:`\nu_h, \nu` stand for horizontal and vertical viscosity.
-Water density is given by :math:`\rho = \rho'(T, S, p) + \rho_0`,
-where :math:`\rho_0` is a constant reference density.
-Above :math:`r` denotes the baroclinic head
-
-.. math::
-    r = \frac{1}{\rho_0} \int_{z}^\eta  \rho' d\zeta.
-    :label: baroc_head
-
-The internal pressure gradient is computed as a separate diagnostic field:
-
-.. math::
-    \mathbf{F}_{pg} = g\nabla_h r.
-    :label: int_pg_eq
-
-In the case of purely barotropic problems the :math:`r` and
-:math:`\mathbf{F}_{pg}` fields are omitted.
-
-When using mode splitting we split the velocity field into a depth average and
-a deviation, :math:`\textbf{u} = \bar{\textbf{u}} + \textbf{u}'`.
-Following Higdon and de Szoeke (1997) we write an equation for the deviation
-:math:`\textbf{u}'`:
-
-.. math::
-    \frac{\partial \textbf{u}'}{\partial t} =
-        + \nabla_h \cdot (\textbf{u} \textbf{u})
-        + \frac{\partial \left(w\textbf{u} \right)}{\partial z}
-        + f\textbf{e}_z\wedge\textbf{u}' + g\nabla_h r
-        = \nabla_h \cdot \left( \nu_h \nabla_h \textbf{u} \right)
-        + \frac{\partial }{\partial z}\left( \nu  \frac{\partial \textbf{u}}{\partial z}\right)
-    :label: mom_eq_split
-
-In :eq:`mom_eq_split` the external pressure gradient :math:`g\nabla_h \eta` vanishes and the
-Coriolis term only contains the deviation :math:`\textbf{u}'`.
-Advection and diffusion terms are not changed.
-
-Higdon and de Szoeke (1997). Barotropic-Baroclinic Time Splitting for Ocean
-Circulation Modeling. Journal of Computational Physics, 135(1):30-53.
-http://dx.doi.org/10.1006/jcph.1997.5733
 """
 from __future__ import absolute_import
 from .utility_nh import *
@@ -195,8 +140,7 @@ class PressureGradientTerm(MomentumTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         int_pg = fields.get('int_pg')
         ext_pg = fields.get('ext_pg')
-        eta = fields.get('elev_3d')
-        total_h = eta + self.bathymetry #TODO move to InternalPressureGradientCalculator or baroc_head_3d solver
+
         f = 0
         if self.horizontal_domain_is_2d:
             if int_pg is not None:
@@ -232,8 +176,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
         if not self.use_nonlinear_equations:
             return 0
-        uv_p1 = fields_old.get('uv_p1')
-        uv_mag = fields_old.get('uv_mag')
+
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
 
         uv = solution
@@ -264,13 +207,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
                       uv_up[1]*jump(self.test[1], uv_old[1]*self.normal[1]))*(self.dS_v + self.dS_h) # non-conservative form
                 # Lax-Friedrichs stabilization
                 if self.use_lax_friedrichs:
-                    if uv_p1 is not None:
-                        gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
-                                         avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
-                    elif uv_mag is not None:
-                        gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
-                    else:
-                        raise Exception('either uv_p1 or uv_mag must be given')
+                    gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                     f += gamma*(jump(self.test[0])*jump(uv[0]) +
                                 jump(self.test[1])*jump(uv[1]))*(self.dS_v + self.dS_h)
                 for bnd_marker in self.boundary_markers:
@@ -342,12 +279,7 @@ class HorizontalAdvectionTerm(MomentumTerm):
             f += (avg(uv)[0]*jump(self.test[0], uv_old[0]*self.normal[0]))*(self.dS_v + self.dS_h) # non-conservative form
             # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
-                if uv_p1 is not None:
-                    gamma = 0.5*abs(avg(uv_p1)[0]*self.normal('-')[0])*lax_friedrichs_factor
-                elif uv_mag is not None:
-                    gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
-                else:
-                    raise Exception('either uv_p1 or uv_mag must be given')
+                gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                 f += gamma*(jump(self.test[0])*jump(uv[0]))*(self.dS_v + self.dS_h)
             for bnd_marker in self.boundary_markers:
                 funcs = bnd_conditions.get(bnd_marker)
@@ -414,14 +346,7 @@ class VerticalAdvectionTerm(MomentumTerm):
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
 
         uv_3d = solution
-       # w = fields_old.get('w')
-       # eta = fields_old.get('elev_3d')
-       # bath = self.bathymetry
-       # sigma_dt = fields_old.get('sigma_dt')
-       # sigma_dx = fields_old.get('sigma_dx')
-        ###
         vertvelo = fields_old.get('omega')#sigma_dt + uv_3d[0]*sigma_dx + w[1]/(eta + bath)
-        ###
 
         if self.horizontal_domain_is_2d:
            # adv_v = -(Dx(self.test[0], 2)*uv_3d[0]*vertvelo +
@@ -843,7 +768,7 @@ class ElevationGradientTerm(MomentumTerm):
                     f_q += 1./rho_0*((Dx(q_3d, 0) + Dx(q_3d, 1)*sigma_dx)*self.test[0]
                                      + (Dx(q_3d, 1)*sigma_dz)*self.test[1])*self.dx
         # use operator splitting method, here not including the elevation gradient term
-        if fields_old.get('solve_elevation_gradient_separately') is True:
+        if fields_old.get('solve_separate_elevation_gradient') is True:
             return -f_q
 
         if self.horizontal_domain_is_2d:
@@ -930,8 +855,6 @@ class HorizontalAdvectionTerm_in_VertMom(MomentumTerm):
         elev = fields_old['elev_3d']
         uv = solution_old
 
-        uv_p1 = fields_old.get('uv_p1')
-        uv_mag = fields_old.get('uv_mag')
         # FIXME is this an option?
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
 
@@ -952,13 +875,7 @@ class HorizontalAdvectionTerm_in_VertMom(MomentumTerm):
                            jump(self.test[2], uv[1]*self.normal[1]))*(self.dS_v + self.dS_h) # non-conservative form
                 # Lax-Friedrichs stabilization
                 if self.use_lax_friedrichs:
-                    if uv_p1 is not None:
-                        gamma = 0.5*abs(avg(uv_p1)[0]*self.normal('-')[0] +
-                                         avg(uv_p1)[1]*self.normal('-')[1])*lax_friedrichs_factor
-                    elif uv_mag is not None:
-                        gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
-                    else:
-                        raise Exception('either uv_p1 or uv_mag must be given')
+                    gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                     f += gamma*dot(jump(self.test[2]), jump(solution[2]))*(self.dS_v + self.dS_h)
                 if bnd_conditions is not None:
                     for bnd_marker in self.boundary_markers:
@@ -995,12 +912,7 @@ class HorizontalAdvectionTerm_in_VertMom(MomentumTerm):
             f += avg(solution)[1]*jump(self.test[1], uv[0]*self.normal[0])*(self.dS_v + self.dS_h) # non-conservative form
             # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
-                if uv_p1 is not None:
-                    gamma = 0.5*abs(avg(uv_p1)[0]*self.normal('-')[0])*lax_friedrichs_factor
-                elif uv_mag is not None:
-                    gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
-                else:
-                    raise Exception('either uv_p1 or uv_mag must be given')
+                gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                 f += gamma*dot(jump(self.test[1]), jump(solution[1]))*(self.dS_v + self.dS_h)
             if bnd_conditions is not None: # TODO modify below to be consistent with 'HorizontalAdvectionTerm(MomentumTerm)'
                 for bnd_marker in self.boundary_markers:
@@ -1050,15 +962,7 @@ class VerticalAdvectionTerm_in_VertMom(MomentumTerm):
             return 0
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_velocity_scaling_factor')
 
-       # uv_3d = solution
-       # w = fields_old.get('w')
-       # eta = fields_old.get('elev_3d')
-       # bath = self.bathymetry
-       # sigma_dt = fields_old.get('sigma_dt')
-       # sigma_dx = fields_old.get('sigma_dx')
-        ###
         vertvelo = fields_old.get('omega')#sigma_dt + uv_3d[0]*sigma_dx + w[1]/(eta + bath)
-        ###
 
         if self.horizontal_domain_is_2d:
             f = 0
@@ -1319,6 +1223,185 @@ class SourceTerm_in_VertMom(MomentumTerm):
 #################################################
 
 
+class SigmaViscosityTerm(MomentumTerm):
+
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+
+        if self.horizontal_domain_is_2d:
+            # viscous terms
+            def vis(i, mom):
+                F = 0
+                F += (
+                      viscosity_h*Dx(mom[i], 0)*Dx(self.test[i], 0)*self.dx
+                      + viscosity_h*Dx(mom[i], 1)*Dx(self.test[i], 1)*self.dx
+                      + viscosity_v*Dx(mom[i], 2)*Dx(sigma_dxyz*self.test[i], 2)*self.dx
+                     )
+                F += (
+                      -jump(self.normal[0], self.test[i])*avg(viscosity_h*Dx(mom[i], 0))*ds_interior
+                      - jump(self.normal[1], self.test[i])*avg(viscosity_h*Dx(mom[i], 1))*ds_interior
+                      - avg(sigma_dxyz)*jump(self.normal[2], self.test[i])*avg(Dx(mom[i], 2))*ds_interior
+                     )
+                # SIPG terms
+                F += (
+                      alpha_h*avg(viscosity_h)*jump(mom[i], self.normal[0])*jump(self.test[i], self.normal[0])*ds_interior
+                      + alpha_h*avg(viscosity_h)*jump(mom[i], self.normal[1])*jump(self.test[i], self.normal[1])*ds_interior
+                      + avg(sigma_dxyz)*alpha_v*jump(mom[i], self.normal[2])*jump(self.test[i], self.normal[2])*ds_interior
+                     )
+                F += (
+                      -jump(mom[i], self.normal[0])*avg(viscosity_h*Dx(self.test[i], 0))*ds_interior
+                      - jump(mom[i], self.normal[1])*avg(viscosity_h*Dx(self.test[i], 1))*ds_interior
+                      - avg(sigma_dxyz)*jump(mom[i], self.normal[2])*avg(Dx(self.test[i], 2))*ds_interior
+                     )
+
+                # terms from sigma transformation
+                F += (
+                      2*viscosity_h*Dx(mom[i], 2)*Dx(self.test[i]*sigma_dx, 0)*self.dx
+                      + 2*viscosity_h*Dx(mom[i], 2)*Dx(self.test[i]*sigma_dy, 1)*self.dx
+                     )
+                F += (
+                      -2*avg(sigma_dx*viscosity_h*Dx(mom[i], 2))*jump(self.test[i], self.normal[0])*ds_interior
+                      - 2*avg(sigma_dy*viscosity_h*Dx(mom[i], 2))*jump(self.test[i], self.normal[1])*ds_interior
+                     )
+                F += -viscosity_h*(Dx(sigma_dx, 0) + Dx(sigma_dy, 1))*Dx(mom[i], 2)*self.test[i]*self.dx #TODO note here no integration by parts
+                # SIPG terms
+                F += (
+                      2*avg(sigma_dx)*alpha_h*avg(viscosity_h)*jump(mom[i], self.normal[2])*jump(self.test[i], self.normal[0])*ds_interior
+                      + 2*avg(sigma_dy)*alpha_h*avg(viscosity_h)*jump(mom[i], self.normal[2])*jump(self.test[i], self.normal[1])*ds_interior
+                     )
+                F += (
+                      -2*avg(sigma_dx)*jump(mom[i], self.normal[2])*avg(viscosity_h*Dx(self.test[i], 0))*ds_interior
+                      - 2*avg(sigma_dy)*jump(mom[i], self.normal[2])*avg(viscosity_h*Dx(self.test[i], 1))*ds_interior
+                     )
+
+                # symmetric bottom boundary condition
+                # NOTE introduces a flux through the bed - breaks mass conservation
+                F += (
+                      - viscosity_h*Dx(mom[i], 0)*self.normal[0]*self.test[i]*(self.ds_bottom + self.ds_surf)
+                      - viscosity_h*Dx(mom[i], 1)*self.normal[1]*self.test[i]*(self.ds_bottom + self.ds_surf)
+                     ) # TODO add more?
+
+                return F
+
+            if True:
+                f = 0
+                viscosity_h = fields_old['viscosity_h']
+                viscosity_v = fields_old['viscosity_v']
+                if viscosity_h is None and viscosity_v is None:
+                    return 0
+                if viscosity_h is None:
+                    viscosity_h = Constant(0)
+                if viscosity_v is None:
+                    viscosity_v = Constant(0)
+                sigma_dx = fields.get('sigma_dx')
+                sigma_dy = fields.get('sigma_dy')
+               # sigma_dxyz = fields.get('sigma_dxyz')
+                h_total = self.bathymetry + fields.get('elev_3d')
+                sigma_dz = 1./h_total
+                assert self.h_elem_size is not None, 'h_elem_size must be defined'
+                assert self.v_elem_size is not None, 'v_elem_size must be defined'
+                degree_h, degree_v = self.function_space.ufl_element().degree()
+                elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2)
+                            + self.v_elem_size*self.normal[2]**2)
+                sigma_h = 5.0*degree_h*(degree_h + 1)/elemsize
+                sigma_v = 5.0*degree_v*(degree_v + 1)/elemsize
+                if degree_h == 0:
+                    sigma_h = 1.5/elemsize
+                if degree_v == 0:
+                    sigma_v = 1.0/elemsize
+                alpha_h = avg(sigma_h)
+                alpha_v = avg(sigma_v)
+
+                ds_interior = (self.dS_h + self.dS_v)
+                sigma_dxyz = viscosity_h*(sigma_dx**2 + sigma_dy**2) + viscosity_v*sigma_dz**2
+
+                for i in range(3):
+                    f += vis(i, solution)
+
+            return -f
+
+        else:
+            # viscous terms
+            def vis(i, mom):
+                F = 0
+                F += (
+                      viscosity_h*Dx(mom[i], 0)*Dx(self.test[i], 0)*self.dx
+                      + viscosity_v*Dx(mom[i], 1)*Dx(sigma_dxyz*self.test[i], 1)*self.dx
+                     )
+                F += (
+                      -jump(self.normal[0], self.test[i])*avg(viscosity_h*Dx(mom[i], 0))*ds_interior
+                      - avg(sigma_dxyz)*jump(self.normal[1], self.test[i])*avg(Dx(mom[i], 1))*ds_interior
+                     )
+                # SIPG terms
+                F += (
+                      alpha_h*avg(viscosity_h)*jump(mom[i], self.normal[0])*jump(self.test[i], self.normal[0])*ds_interior
+                      + avg(sigma_dxyz)*alpha_v*jump(mom[i], self.normal[1])*jump(self.test[i], self.normal[1])*ds_interior
+                     )
+                F += (
+                      -jump(mom[i], self.normal[0])*avg(viscosity_h*Dx(self.test[i], 0))*ds_interior
+                      - avg(sigma_dxyz)*jump(mom[i], self.normal[1])*avg(Dx(self.test[i], 1))*ds_interior
+                     )
+
+                # terms from sigma transformation
+                F += (
+                      2*viscosity_h*Dx(mom[i], 1)*Dx(self.test[i]*sigma_dx, 0)*self.dx
+                     )
+                F += (
+                      -2*avg(sigma_dx*viscosity_h*Dx(mom[i], 1))*jump(self.test[i], self.normal[0])*ds_interior
+                     )
+                F += -viscosity_h*(Dx(sigma_dx, 0))*Dx(mom[i], 1)*self.test[i]*self.dx #TODO note here no integration by parts
+                # SIPG terms
+                F += (
+                      2*avg(sigma_dx)*alpha_h*avg(viscosity_h)*jump(mom[i], self.normal[1])*jump(self.test[i], self.normal[0])*ds_interior
+                     )
+                F += (
+                      -2*avg(sigma_dx)*jump(mom[i], self.normal[1])*avg(viscosity_h*Dx(self.test[i], 0))*ds_interior
+                     )
+
+                # symmetric bottom boundary condition
+                # NOTE introduces a flux through the bed - breaks mass conservation
+                F += (
+                      - viscosity_h*Dx(mom[i], 0)*self.normal[0]*self.test[i]*(self.ds_bottom + self.ds_surf)
+                     ) # TODO add more?
+
+                return F
+
+            if True:
+                f = 0
+                viscosity_h = fields_old['viscosity_h']
+                viscosity_v = fields_old['viscosity_v']
+                if viscosity_h is None and viscosity_v is None:
+                    return 0
+                if viscosity_h is None:
+                    viscosity_h = Constant(0)
+                if viscosity_v is None:
+                    viscosity_v = Constant(0)
+                sigma_dx = fields.get('sigma_dx')
+               # sigma_dxyz = fields.get('sigma_dxyz')
+                h_total = self.bathymetry + fields.get('elev_3d')
+                sigma_dz = 1./h_total
+                assert self.h_elem_size is not None, 'h_elem_size must be defined'
+                assert self.v_elem_size is not None, 'v_elem_size must be defined'
+                degree_h, degree_v = self.function_space.ufl_element().degree()
+                elemsize = (self.h_elem_size*(self.normal[0]**2)
+                            + self.v_elem_size*self.normal[1]**2)
+                sigma_h = 5.0*degree_h*(degree_h + 1)/elemsize
+                sigma_v = 5.0*degree_v*(degree_v + 1)/elemsize
+                if degree_h == 0:
+                    sigma_h = 1.5/elemsize
+                if degree_v == 0:
+                    sigma_v = 1.0/elemsize
+                alpha_h = avg(sigma_h)
+                alpha_v = avg(sigma_v)
+
+                ds_interior = (self.dS_h + self.dS_v)
+                sigma_dxyz = viscosity_h*(sigma_dx**2) + viscosity_v*sigma_dz**2
+
+                for i in range(2):
+                    f += vis(i, solution)
+
+            return -f
+
+
 class MomentumEquation(Equation):
     """
     Hydrostatic 3D momentum equation :eq:`mom_eq_split` for mode split models
@@ -1345,8 +1428,8 @@ class MomentumEquation(Equation):
         self.add_term(PressureGradientTerm(*args), 'source')
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')
-        self.add_term(HorizontalViscosityTerm(*args), 'explicit')
-        self.add_term(VerticalViscosityTerm(*args), 'explicit')
+      #  self.add_term(HorizontalViscosityTerm(*args), 'explicit')
+      #  self.add_term(VerticalViscosityTerm(*args), 'explicit')
         self.add_term(BottomFrictionTerm(*args), 'explicit')
         self.add_term(LinearDragTerm(*args), 'explicit')
         self.add_term(CoriolisTerm(*args), 'explicit')
@@ -1356,9 +1439,11 @@ class MomentumEquation(Equation):
         # add terms in the vertical momentum equation
         self.add_term(HorizontalAdvectionTerm_in_VertMom(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm_in_VertMom(*args), 'explicit')
-        self.add_term(HorizontalViscosityTerm_in_VertMom(*args), 'explicit')
-        self.add_term(VerticalViscosityTerm_in_VertMom(*args), 'explicit')
+       # self.add_term(HorizontalViscosityTerm_in_VertMom(*args), 'explicit')
+       # self.add_term(VerticalViscosityTerm_in_VertMom(*args), 'explicit')
         self.add_term(SourceTerm_in_VertMom(*args), 'explicit')
+
+        self.add_term(SigmaViscosityTerm(*args), 'explicit') # account for sigma transformation
 
 
 class InternalPressureGradientCalculator(MomentumTerm):

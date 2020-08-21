@@ -1,6 +1,5 @@
 from thetis import *
 import pytest
-import numpy as np
 
 
 def fourier_series_solution(mesh, lx, diff_flux, **model_options):
@@ -150,17 +149,18 @@ def run_convergence(**model_options):
     assert slope > 2, msg.format(slope)
 
 
-@pytest.fixture(params=[1, 2])
+@pytest.fixture(params=[1])
 def polynomial_degree(request):
     return request.param
 
 
-@pytest.mark.parametrize(('stepper'),
-                         [('CrankNicolson')])
+@pytest.fixture(params=['CrankNicolson', 'SSPRK33', 'ForwardEuler', 'BackwardEuler', 'DIRK22', 'DIRK33'])
+def stepper(request):
+    return request.param
+
 
 @pytest.mark.parametrize(('diffusivity'),
                          [(Constant(0.1))])
-
 def test_horizontal_advection(polynomial_degree, stepper, diffusivity):
     run_convergence(polynomial_degree=polynomial_degree,
                     timestepper_type=stepper,

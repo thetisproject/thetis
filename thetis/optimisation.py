@@ -11,7 +11,7 @@ OptimisationCallbacks that (can) use controls, functional and derivative informa
 what is provided by the number of arguments: current control values are always in the last argument;
 if more than 2 arguments are provided, the first is the latest evaluated functional value.
 """
-from .firedrake import *
+from firedrake import *
 from .callback import DiagnosticCallback
 from .exporter import ExportManager
 import thetis.field_defs as field_defs

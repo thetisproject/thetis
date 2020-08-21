@@ -37,7 +37,8 @@ class TracerTerm(Term):
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 use_symmetric_surf_bnd=True, use_lax_friedrichs=True):
+                 use_symmetric_surf_bnd=True, use_lax_friedrichs=True,
+                 sipg_parameter=Constant(10.0), sipg_parameter_vertical=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -58,6 +59,8 @@ class TracerTerm(Term):
         self.vertical_dg = continuity.vertical == 'dg'
         self.use_symmetric_surf_bnd = use_symmetric_surf_bnd
         self.use_lax_friedrichs = use_lax_friedrichs
+        self.sipg_parameter = sipg_parameter
+        self.sipg_parameter_vertical = sipg_parameter_vertical
 
         # define measures with a reasonable quadrature degree
         p, q = self.function_space.ufl_element().degree()
@@ -139,9 +142,6 @@ class HorizontalAdvectionTerm(TracerTerm):
         elev = fields_old['elev_3d']
         uv = fields_old['uv_3d']
 
-        uv_p1 = fields_old.get('uv_p1')
-        uv_mag = fields_old.get('uv_mag')
-        # FIXME is this an option?
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
 
         if self.horizontal_domain_is_2d:
@@ -160,13 +160,7 @@ class HorizontalAdvectionTerm(TracerTerm):
                #            jump(self.test, uv[1]*self.normal[1]))*(self.dS_v + self.dS_h) # non-conservative form
                 # Lax-Friedrichs stabilization
                 if self.use_lax_friedrichs:
-                    if uv_p1 is not None:
-                        gamma = 0.5*abs((avg(uv_p1)[0]*self.normal('-')[0] +
-                                         avg(uv_p1)[1]*self.normal('-')[1]))*lax_friedrichs_factor
-                    elif uv_mag is not None:
-                        gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
-                    else:
-                        raise Exception('either uv_p1 or uv_mag must be given')
+                    gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                     f += gamma*dot(jump(self.test), jump(solution))*(self.dS_v + self.dS_h)
                 if bnd_conditions is not None:
                     for bnd_marker in self.boundary_markers:
@@ -202,12 +196,7 @@ class HorizontalAdvectionTerm(TracerTerm):
            # f += c_up*(jump(self.test, uv[0]*self.normal[0]))*(self.dS_v + self.dS_h) # non-conservative form
             # Lax-Friedrichs stabilization
             if self.use_lax_friedrichs:
-                if uv_p1 is not None:
-                    gamma = 0.5*abs(avg(uv_p1)[0]*self.normal('-')[0])*lax_friedrichs_factor
-                elif uv_mag is not None:
-                    gamma = 0.5*avg(uv_mag)*lax_friedrichs_factor
-                else:
-                    raise Exception('either uv_p1 or uv_mag must be given')
+                gamma = 0.5*abs(un_av)*lax_friedrichs_factor
                 f += gamma*dot(jump(self.test), jump(solution))*(self.dS_v + self.dS_h)
             if bnd_conditions is not None:
                 for bnd_marker in self.boundary_markers:
@@ -252,10 +241,7 @@ class VerticalAdvectionTerm(TracerTerm):
     :math:`w_m` being the mesh velocity.
     """
     def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
-        w = fields_old.get('w')
-        if w is None:
-            return 0
-        w_mesh = fields_old.get('w_mesh')
+
         lax_friedrichs_factor = fields_old.get('lax_friedrichs_tracer_scaling_factor')
         omega = fields_old.get('omega')
         ###
@@ -509,13 +495,165 @@ class SourceTerm(TracerTerm):
         return f
 
 
+class SigmaDiffusionTerm(TracerTerm):
+
+    def residual(self, solution, solution_old, fields, fields_old, bnd_conditions=None):
+        diffusivity_h = fields_old['diffusivity_h']
+        diffusivity_v = fields_old['diffusivity_v']
+        if diffusivity_h is None and diffusivity_v is None:
+            return 0
+        if diffusivity_h is None:
+            diffusivity_h = Constant(0)
+        if diffusivity_v is None:
+            diffusivity_v = Constant(0)
+
+        if self.horizontal_domain_is_2d:
+            def vis(mom):
+                viscosity_h = diffusivity_h
+                viscosity_v = diffusivity_v
+                F = 0
+                F += (
+                      viscosity_h*Dx(mom, 0)*Dx(self.test, 0)*self.dx
+                      + viscosity_h*Dx(mom, 1)*Dx(self.test, 1)*self.dx
+                      + viscosity_v*Dx(mom, 2)*Dx(sigma_dxyz*self.test, 2)*self.dx
+                     )
+                F += (
+                      -jump(self.normal[0], self.test)*avg(viscosity_h*Dx(mom, 0))*ds_interior
+                      - jump(self.normal[1], self.test)*avg(viscosity_h*Dx(mom, 1))*ds_interior
+                      - avg(sigma_dxyz)*jump(self.normal[2], self.test)*avg(Dx(mom, 2))*ds_interior
+                     )
+                # SIPG terms
+                F += (
+                      alpha_h*avg(viscosity_h)*jump(mom, self.normal[0])*jump(self.test, self.normal[0])*ds_interior
+                      + alpha_h*avg(viscosity_h)*jump(mom, self.normal[1])*jump(self.test, self.normal[1])*ds_interior
+                      + avg(sigma_dxyz)*alpha_v*jump(mom, self.normal[2])*jump(self.test, self.normal[2])*ds_interior
+                     )
+                F += (
+                      -jump(mom, self.normal[0])*avg(viscosity_h*Dx(self.test, 0))*ds_interior
+                      - jump(mom, self.normal[1])*avg(viscosity_h*Dx(self.test, 1))*ds_interior
+                      - avg(sigma_dxyz)*jump(mom, self.normal[2])*avg(Dx(self.test, 2))*ds_interior
+                     )
+
+                # terms from sigma transformation
+                F += (
+                      2*viscosity_h*Dx(mom, 2)*Dx(self.test*sigma_dx, 0)*self.dx
+                      + 2*viscosity_h*Dx(mom, 2)*Dx(self.test*sigma_dy, 1)*self.dx
+                     )
+                F += (
+                      -2*avg(sigma_dx*viscosity_h*Dx(mom, 2))*jump(self.test, self.normal[0])*ds_interior
+                      - 2*avg(sigma_dy*viscosity_h*Dx(mom, 2))*jump(self.test, self.normal[1])*ds_interior
+                     )
+                F += -viscosity_h*(Dx(sigma_dx, 0) + Dx(sigma_dy, 1))*Dx(mom, 2)*self.test*self.dx #TODO note here no integration by parts
+                # SIPG terms
+                F += (
+                      2*avg(sigma_dx)*alpha_h*avg(viscosity_h)*jump(mom, self.normal[2])*jump(self.test, self.normal[0])*ds_interior
+                      + 2*avg(sigma_dy)*alpha_h*avg(viscosity_h)*jump(mom, self.normal[2])*jump(self.test, self.normal[1])*ds_interior
+                     )
+                F += (
+                      -2*avg(sigma_dx)*jump(mom, self.normal[2])*avg(viscosity_h*Dx(self.test, 0))*ds_interior
+                      - 2*avg(sigma_dy)*jump(mom, self.normal[2])*avg(viscosity_h*Dx(self.test, 1))*ds_interior
+                     )
+
+                # symmetric bottom boundary condition
+                # NOTE introduces a flux through the bed - breaks mass conservation
+                F += (
+                      - viscosity_h*Dx(mom, 0)*self.normal[0]*self.test*(self.ds_bottom + self.ds_surf)
+                      - viscosity_h*Dx(mom, 1)*self.normal[1]*self.test*(self.ds_bottom + self.ds_surf)
+                     ) # TODO add more?
+
+                return F
+
+            if True:
+                sigma_dx = fields.get('sigma_dx')
+                sigma_dy = fields.get('sigma_dy')
+               # sigma_dxyz = fields.get('sigma_dxyz')
+                h_total = self.bathymetry + fields.get('elev_3d')
+                sigma_dz = 1./h_total
+                assert self.h_elem_size is not None, 'h_elem_size must be defined'
+                assert self.v_elem_size is not None, 'v_elem_size must be defined'
+                elemsize = (self.h_elem_size*(self.normal[0]**2 + self.normal[1]**2)
+                            + self.v_elem_size*self.normal[2]**2)
+                assert self.sipg_parameter is not None and self.sipg_parameter_vertical is not None
+                alpha_h = avg(self.sipg_parameter/elemsize)
+                alpha_v = avg(self.sipg_parameter_vertical/elemsize)
+                ds_interior = (self.dS_h + self.dS_v)
+                sigma_dxyz = diffusivity_h*(sigma_dx**2 + sigma_dy**2) + diffusivity_v*sigma_dz**2
+                f = vis(solution)
+
+        else:
+            def vis(mom):
+                viscosity_h = diffusivity_h
+                viscosity_v = diffusivity_v
+                F = 0
+                F += (
+                      viscosity_h*Dx(mom, 0)*Dx(self.test, 0)*self.dx
+                      + viscosity_v*Dx(mom, 1)*Dx(sigma_dxyz*self.test, 1)*self.dx
+                     )
+                F += (
+                      -jump(self.normal[0], self.test)*avg(viscosity_h*Dx(mom, 0))*ds_interior
+                      - avg(sigma_dxyz)*jump(self.normal[1], self.test)*avg(Dx(mom, 1))*ds_interior
+                     )
+                # SIPG terms
+                F += (
+                      alpha_h*avg(viscosity_h)*jump(mom, self.normal[0])*jump(self.test, self.normal[0])*ds_interior
+                      + avg(sigma_dxyz)*alpha_v*jump(mom, self.normal[1])*jump(self.test, self.normal[1])*ds_interior
+                     )
+                F += (
+                      -jump(mom, self.normal[0])*avg(viscosity_h*Dx(self.test, 0))*ds_interior
+                      - avg(sigma_dxyz)*jump(mom, self.normal[1])*avg(Dx(self.test, 1))*ds_interior
+                     )
+
+                # terms from sigma transformation
+                F += (
+                      2*viscosity_h*Dx(mom, 1)*Dx(self.test*sigma_dx, 0)*self.dx
+                     )
+                F += (
+                      -2*avg(sigma_dx*viscosity_h*Dx(mom, 1))*jump(self.test, self.normal[0])*ds_interior
+                     )
+                F += -viscosity_h*(Dx(sigma_dx, 0))*Dx(mom, 1)*self.test*self.dx #TODO note here no integration by parts
+                # SIPG terms
+                F += (
+                      2*avg(sigma_dx)*alpha_h*avg(viscosity_h)*jump(mom, self.normal[1])*jump(self.test, self.normal[0])*ds_interior
+                     )
+                F += (
+                      -2*avg(sigma_dx)*jump(mom, self.normal[1])*avg(viscosity_h*Dx(self.test, 0))*ds_interior
+                     )
+
+                # symmetric bottom boundary condition
+                # NOTE introduces a flux through the bed - breaks mass conservation
+                F += (
+                      - viscosity_h*Dx(mom, 0)*self.normal[0]*self.test*(self.ds_bottom + self.ds_surf)
+                     ) # TODO add more?
+
+                return F
+
+            if True:
+                sigma_dx = fields.get('sigma_dx')
+               # sigma_dxyz = fields.get('sigma_dxyz')
+                h_total = self.bathymetry + fields.get('elev_3d')
+                sigma_dz = 1./h_total
+                assert self.h_elem_size is not None, 'h_elem_size must be defined'
+                assert self.v_elem_size is not None, 'v_elem_size must be defined'
+                elemsize = (self.h_elem_size*(self.normal[0]**2)
+                            + self.v_elem_size*self.normal[1]**2)
+                assert self.sipg_parameter is not None and self.sipg_parameter_vertical is not None
+                alpha_h = avg(self.sipg_parameter/elemsize)
+                alpha_v = avg(self.sipg_parameter_vertical/elemsize)
+                ds_interior = (self.dS_h + self.dS_v)
+                sigma_dxyz = diffusivity_h*(sigma_dx**2) + diffusivity_v*sigma_dz**2
+                f = vis(solution)
+
+        return -f
+
+
 class TracerEquation(Equation):
     """
     3D tracer advection-diffusion equation :eq:`tracer_eq` in conservative form
     """
     def __init__(self, function_space,
                  bathymetry=None, v_elem_size=None, h_elem_size=None,
-                 use_symmetric_surf_bnd=True, use_lax_friedrichs=True):
+                 use_symmetric_surf_bnd=True, use_lax_friedrichs=True,
+                 sipg_parameter=Constant(10.0), sipg_parameter_vertical=Constant(10.0)):
         """
         :arg function_space: :class:`FunctionSpace` where the solution belongs
         :kwarg bathymetry: bathymetry of the domain
@@ -533,6 +671,9 @@ class TracerEquation(Equation):
                 v_elem_size, h_elem_size, use_symmetric_surf_bnd, use_lax_friedrichs)
         self.add_term(HorizontalAdvectionTerm(*args), 'explicit')
         self.add_term(VerticalAdvectionTerm(*args), 'explicit')
-        self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
-        self.add_term(VerticalDiffusionTerm(*args), 'explicit')
+       # self.add_term(HorizontalDiffusionTerm(*args), 'explicit')
+       # self.add_term(VerticalDiffusionTerm(*args), 'explicit')
         self.add_term(SourceTerm(*args), 'source')
+
+        self.add_term(SigmaDiffusionTerm(*args), 'explicit') # account for sigma transformation
+

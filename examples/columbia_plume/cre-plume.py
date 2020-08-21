@@ -57,7 +57,6 @@ def to_latlon(x, y, positive_lon=False):
 rho0 = 1000.0
 # set physical constants
 physical_constants['rho0'].assign(rho0)
-physical_constants['z0_friction'].assign(0.005)
 
 reso_str = 'coarse'
 meshfile = {
@@ -138,6 +137,7 @@ options.solve_salinity = not simple_barotropic
 options.solve_temperature = not simple_barotropic
 options.use_implicit_vertical_diffusion = True  # not simple_barotropic
 options.use_bottom_friction = True  # not simple_barotropic
+options.bottom_roughness = Constant(0.005)
 options.use_turbulence = True  # not simple_barotropic
 options.use_turbulence_advection = False  # not simple_barotropic
 options.turbulence_model_type = 'gls'
@@ -250,7 +250,7 @@ ramp_t = 12*3600.
 elev_ramp = conditional(le(bnd_time, ramp_t), bnd_time/ramp_t, 1.0)
 bnd_elev_expr_2d = elev_ramp*(elev_tide_2d + elev_bnd_2d)
 depth_2d = solver_obj.fields.bathymetry_2d + solver_obj.fields.elev_cg_2d
-depth_3d = solver_obj.fields.bathymetry_3d + solver_obj.fields.elev_cg_3d
+depth_3d = solver_obj.fields.bathymetry_3d + solver_obj.fields.elev_cg_2d.view_3d
 tide_uv_expr_2d = elev_ramp*UV_tide_2d/depth_2d
 tide_uv_expr_3d = elev_ramp*UV_tide_3d/depth_3d
 
@@ -391,7 +391,7 @@ uv_bnd_averager = VerticalIntegrator(uv_bnd_3d,
                                      bnd_value=Constant((0.0, 0.0, 0.0)),
                                      average=True,
                                      bathymetry=solver_obj.fields.bathymetry_3d,
-                                     elevation=solver_obj.fields.elev_cg_3d)
+                                     elevation=solver_obj.fields.elev_cg_2d.view_3d)
 extract_uv_bnd = SubFunctionExtractor(uv_bnd_dav_3d, uv_bnd_2d)
 copy_uv_bnd_dav_to_3d = ExpandFunctionTo3d(uv_bnd_2d, uv_bnd_dav_3d)
 copy_uv_tide_to_3d = ExpandFunctionTo3d(UV_tide_2d, UV_tide_3d)
@@ -414,7 +414,7 @@ bnd_rho_integrator = VerticalIntegrator(density_bnd_3d,
                                         bottom_to_top=False,
                                         average=False,
                                         bathymetry=solver_obj.fields.bathymetry_3d,
-                                        elevation=solver_obj.fields.elev_cg_3d)
+                                        elevation=solver_obj.fields.elev_cg_2d.view_3d)
 
 
 def compute_bnd_baroclinicity():

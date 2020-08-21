@@ -19,6 +19,13 @@ from thetis.options import TidalTurbineFarmOptions  # NOQA
 import os  # NOQA
 import datetime  # NOQA
 
+# non-hydrostatic (nh) extension
+import thetis.nh_extension.nhsolver_ale as nhsolver_ale # direct nh extension based upon ale
+import thetis.nh_extension.nhsolver_sigma as nhsolver_sigma # nh solver in sigma coordinate
+import thetis.nh_extension.nhsolver_ml as nhsolver_ml  # multi-layer nh extension
+import thetis.nh_extension.nhsolver_cf as nhsolver_cf  # sigma solver in conservative form, w.r.t granular landslise
+import thetis.nh_extension.nhsolver2d_cf as nhsolver2d_cf  # multi-layer solver in conservative form, w.r.t granular landslise
+
 __version__ = get_versions()['version']
 del get_versions
 
@@ -27,9 +34,3 @@ parameters['pyop2_options']['lazy_evaluation'] = False
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
-
-# Below is for non-hydrostatic (nh) extension that WPan is adding
-import thetis.nh_extension.solver_nh as solver_nh # direct nh extension
-import thetis.nh_extension.solver_sigma as solver_sigma # sigma nh extension
-import thetis.nh_extension.solver_ml as solver_ml  # multi-layer nh extension (2d horizontal mesh)
-import thetis.nh_extension.solver2d_ml as solver2d_ml  # multi-layer nh extension (1d horizontal mesh)

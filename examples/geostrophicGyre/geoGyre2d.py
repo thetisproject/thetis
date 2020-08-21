@@ -8,10 +8,6 @@ to geostrophic balance.
 """
 from thetis import *
 
-# set physical constants
-physical_constants['z0_friction'].assign(0.0)
-g_grav = physical_constants['g_grav']
-
 lx = 1.0e6
 nx = 20
 mesh2d = RectangleMesh(nx, nx, lx, lx)
@@ -57,6 +53,7 @@ elev_init.project(elev_expr)
 
 # initial velocity: u = -g/f deta/dy, v = g/f deta/dx
 uv_init = Function(solver_obj.function_spaces.U_2d)
+g_grav = physical_constants['g_grav']
 uv_init.project(as_vector((g_grav/f0*2*(y-y_0)/sigma**2*elev_expr,
                            -g_grav/f0*2*(x-x_0)/sigma**2*elev_expr)))
 

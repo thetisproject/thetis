@@ -12,21 +12,18 @@ the integral of the density. For more details, see:
   S.W. Funke, S.C. Kramer, and M.D. Piggott, "Design optimisation and resource assessment
   for tidal-stream renewable energy farms using a new continuous turbine approach",
   Renewable Energy 99 (2016), pp. 1046-1061, http://doi.org/10.1016/j.renene.2016.07.039
+
+The optimisation is performed using a gradient-based optimisation algorithm (L-BFGS-B)
+where the gradient is computed using the adjoint method. The adjoint is implemented, in
+firedrake, via the dolfin-adjoint approach (http://http://www.dolfin-adjoint.org) which annotates
+the forward model and automatically derives the adjoint.
 """
 
-# to enable a gradient-based optimisation using the adjoint to compute
-# gradients, we need to import from thetis_adjoint instead of thetis. This
-# ensure all firedrake operations in the Thetis model are annotated
-# automatically, in such a way that we can rerun the model with different input
-# parameters, and also derive the adjoint-based gradient of a specified input
-# (the functional) with respect to a specified input (the control)
-from thetis_adjoint import *
-from pyadjoint.optimization.optimization import minimise
+from thetis import *
+# this import automatically starts the annotation:
+from firedrake_adjoint import *
 import numpy
 op2.init(log_level=INFO)
-
-test_gradient = False  # whether to check the gradient computed by the adjoint (see note below)
-optimise = True
 
 # setup the Thetis solver obj as usual:
 mesh2d = Mesh('headland.msh')
@@ -38,7 +35,15 @@ timestep = 800.
 
 t_end = tidal_period
 if os.getenv('THETIS_REGRESSION_TEST') is not None:
-    t_end = 10*timestep
+    # when run as a pytest test, only run 5 timesteps
+    # and test the gradient
+    t_end = 5*timestep
+    test_gradient = True  # test gradient using Taylor test (see below)
+    optimise = False  # skip actual gradient based optimisation
+else:
+    test_gradient = False
+    optimise = True
+
 
 # create solver and set options
 solver_obj = solver2d.FlowSolver2d(mesh2d, Constant(H))
@@ -164,6 +169,9 @@ callback_list = optimisation.OptimisationCallbackList([
     turbines.TurbineOptimisationCallback(solver_obj, cb),
 ])
 
+# anything that follows, is no longer annotated:
+pause_annotation()
+
 # this reduces the functional J(u, td) to a function purely of the control td:
 # rf(td) = J(u(td), td) where the velocities u(td) of the entire simulation
 # are computed by replaying the forward model for any provided turbine density td
@@ -182,6 +190,7 @@ if test_gradient:
     # values between 0 and 1 and choose a random direction dtd to vary it in
     td0 = Function(turbine_density)
     dtd = Function(turbine_density)
+    numpy.random.seed(42)  # set seed to make test deterministic
     td0.dat.data[:] = numpy.random.random(td0.dat.data.shape)
     dtd.dat.data[:] = numpy.random.random(dtd.dat.data.shape)
 

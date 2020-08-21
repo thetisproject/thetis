@@ -8,7 +8,6 @@ comm = COMM_WORLD
 
 # set physical constants
 physical_constants['rho0'].assign(1000.0)
-physical_constants['z0_friction'].assign(0.005)
 
 nlayers = 15
 mesh2d = Mesh('mesh_cre-plume_03_normal.msh')

@@ -63,9 +63,9 @@ options.check_volume_conservation_2d = True
 options.check_volume_conservation_3d = True
 options.check_salinity_conservation = True
 options.check_salinity_overshoot = True
-options.fields_to_export = ['uv_2d', 'elev_2d', 'elev_3d', 'uv_3d',
+options.fields_to_export = ['uv_2d', 'elev_2d', 'uv_3d',
                             'w_3d', 'w_mesh_3d', 'salt_3d',
-                            'uv_dav_2d', 'uv_bottom_2d']
+                            'uv_dav_2d']
 
 # initial elevation, piecewise linear function
 elev_init_2d = Function(P1_2d, name='elev_2d_init')

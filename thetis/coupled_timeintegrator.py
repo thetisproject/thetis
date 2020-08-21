@@ -27,7 +27,7 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
     def _update_3d_elevation(self):
         """Projects elevation to 3D"""
         with timed_stage('aux_elev_3d'):
-            self.solver.copy_elev_to_3d.solve()  # at t_{n+1}
+            self.solver.fields.elev_domain_2d.assign(self.solver.fields.elev_2d)
 
     def _update_vertical_velocity(self):
         """Solve vertical velocity"""
@@ -39,19 +39,6 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
         if self.options.use_ale_moving_mesh:
             with timed_stage('aux_mesh_ale'):
                 self.solver.mesh_updater.update_mesh_coordinates()
-
-    def _update_bottom_friction(self):
-        """Computes bottom friction related fields"""
-        if self.options.use_bottom_friction:
-            with timed_stage('aux_friction'):
-                self.solver.uv_p1_projector.project()
-                compute_bottom_friction(
-                    self.solver,
-                    self.fields.uv_p1_3d, self.fields.uv_bottom_2d,
-                    self.fields.z_bottom_2d, self.fields.bathymetry_2d,
-                    self.fields.bottom_drag_2d)
-        if self.options.use_parabolic_viscosity:
-            self.solver.parabolic_viscosity_solver.solve()
 
     def _update_2d_coupling(self):
         """Does 2D-3D coupling for the velocity field"""
@@ -108,9 +95,6 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
         Computes Smagorinsky viscosity etc fields
         """
         with timed_stage('aux_stability'):
-            self.solver.uv_mag_solver.solve()
-            # update P1 velocity field
-            self.solver.uv_p1_projector.project()
             if self.options.use_smagorinsky_viscosity:
                 self.solver.smagorinsky_diff_solver.solve()
 
@@ -127,7 +111,6 @@ class CoupledTimeIntegratorBase(timeintegrator.TimeIntegratorBase):
         if do_2d_coupling:
             self._update_2d_coupling()
         self._update_vertical_velocity()
-        self._update_bottom_friction()
         self._update_baroclinicity()
         if do_turbulence:
             self._update_turbulence(t)
@@ -225,7 +208,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         solver = self.solver
         impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
 
-        fields = {'eta': self.fields.elev_3d,  # FIXME rename elev
+        fields = {'eta': self.fields.elev_domain_2d.view_3d,  # FIXME rename elev
                   'int_pg': self.fields.get('int_pg_3d'),
                   'uv_depth_av': self.fields.get('uv_dav_3d'),
                   'w': self.fields.w_3d,
@@ -233,8 +216,6 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                   'viscosity_v': expl_v_visc,
                   'viscosity_h': self.solver.tot_h_visc.get_sum(),
                   'source': self.options.momentum_source_3d,
-                  # uv_mag': self.fields.uv_mag_3d,
-                  'uv_p1': self.fields.get('uv_p1_3d'),
                   'lax_friedrichs_velocity_scaling_factor': self.options.lax_friedrichs_velocity_scaling_factor,
                   'coriolis': self.fields.get('coriolis_3d'),
                   }
@@ -242,6 +223,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
             'linear_drag_coefficient': self.options.linear_drag_coefficient,
             'quadratic_drag_coefficient': self.options.quadratic_drag_coefficient,
             'wind_stress': self.fields.get('wind_stress_3d'),
+            'bottom_roughness': self.options.bottom_roughness,
         }
         if not self.solver.options.use_implicit_vertical_diffusion:
             fields.update(friction_fields)
@@ -267,7 +249,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
 
         if self.solver.options.solve_salinity:
-            fields = {'elev_3d': self.fields.elev_3d,
+            fields = {'elev_3d': self.fields.elev_domain_2d.view_3d,
                       'uv_3d': self.fields.uv_3d,
                       'uv_depth_av': self.fields.get('uv_dav_3d'),
                       'w': self.fields.w_3d,
@@ -275,8 +257,6 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'diffusivity_h': self.solver.tot_h_diff.get_sum(),
                       'diffusivity_v': expl_v_diff,
                       'source': self.options.salinity_source_3d,
-                      # uv_mag': self.fields.uv_mag_3d,
-                      'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                       }
             self.timesteppers.salt_expl = self.integrator_3d(
@@ -284,7 +264,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 bnd_conditions=solver.bnd_functions['salt'],
                 solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
             if self.solver.options.use_implicit_vertical_diffusion:
-                fields = {'elev_3d': self.fields.elev_3d,
+                fields = {'elev_3d': self.fields.elev_domain_2d.view_3d,
                           'diffusivity_v': impl_v_diff,
                           }
                 self.timesteppers.salt_impl = self.integrator_vert_3d(
@@ -300,7 +280,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
         impl_v_visc, expl_v_visc, impl_v_diff, expl_v_diff = self._get_vert_diffusivity_functions()
 
         if self.solver.options.solve_temperature:
-            fields = {'elev_3d': self.fields.elev_3d,
+            fields = {'elev_3d': self.fields.elev_domain_2d.view_3d,
                       'uv_3d': self.fields.uv_3d,
                       'uv_depth_av': self.fields.get('uv_dav_3d'),
                       'w': self.fields.w_3d,
@@ -308,8 +288,6 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'diffusivity_h': self.solver.tot_h_diff.get_sum(),
                       'diffusivity_v': expl_v_diff,
                       'source': self.options.temperature_source_3d,
-                      # uv_mag': self.fields.uv_mag_3d,
-                      'uv_p1': self.fields.get('uv_p1_3d'),
                       'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                       }
             self.timesteppers.temp_expl = self.integrator_3d(
@@ -317,7 +295,7 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 bnd_conditions=solver.bnd_functions['temp'],
                 solver_parameters=self.options.timestepper_options.solver_parameters_tracer_explicit)
             if self.solver.options.use_implicit_vertical_diffusion:
-                fields = {'elev_3d': self.fields.elev_3d,
+                fields = {'elev_3d': self.fields.elev_domain_2d.view_3d,
                           'diffusivity_v': impl_v_diff,
                           }
                 self.timesteppers.temp_impl = self.integrator_vert_3d(
@@ -343,7 +321,8 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                       'epsilon': solver.turbulence_model.epsilon,
                       'shear_freq2': solver.turbulence_model.m2,
                       'buoy_freq2_neg': solver.turbulence_model.n2_neg,
-                      'buoy_freq2_pos': solver.turbulence_model.n2_pos
+                      'buoy_freq2_pos': solver.turbulence_model.n2_pos,
+                      'bottom_roughness': self.options.bottom_roughness,
                       }
             self.timesteppers.tke_impl = self.integrator_vert_3d(
                 eq_tke_diff, solver.fields.tke_3d, fields, solver.dt,
@@ -352,13 +331,11 @@ class CoupledTimeIntegrator(CoupledTimeIntegratorBase):
                 eq_psi_diff, solver.fields.psi_3d, fields, solver.dt,
                 solver_parameters=self.options.timestepper_options.solver_parameters_tracer_implicit)
             if eq_tke_adv is not None and eq_psi_adv is not None:
-                fields = {'elev_3d': self.fields.elev_3d,
+                fields = {'elev_3d': self.fields.elev_domain_2d.view_3d,
                           'uv_3d': self.fields.uv_3d,
                           'uv_depth_av': self.fields.get('uv_dav_3d'),
                           'w': self.fields.w_3d,
                           'w_mesh': self.fields.get('w_mesh_3d'),
-                          # uv_mag': self.fields.uv_mag_3d,
-                          'uv_p1': self.fields.get('uv_p1_3d'),
                           'lax_friedrichs_tracer_scaling_factor': self.options.lax_friedrichs_tracer_scaling_factor,
                           }
                 self.timesteppers.tke_expl = self.integrator_3d(
@@ -446,7 +423,7 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
 
     def __init__(self, solver):
         super(CoupledLeapFrogAM3, self).__init__(solver)
-        self.elev_old_3d = Function(self.fields.elev_3d)
+        self.elev_domain_old_2d = Function(self.fields.elev_domain_2d)
         self.uv_old_2d = Function(self.fields.uv_2d)
         self.uv_new_2d = Function(self.fields.uv_2d)
 
@@ -498,7 +475,6 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
         # dependencies for 2D update
         self._update_2d_coupling()
         self._update_baroclinicity()
-        self._update_bottom_friction()
 
         # update 2D
         if self.options.use_ale_moving_mesh:
@@ -512,10 +488,10 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
 
         # set 3D elevation to half step
         gamma = self.timesteppers.mom_expl.gamma
-        self.elev_old_3d.assign(self.fields.elev_3d)
-        self.solver.copy_elev_to_3d.solve()
-        self.fields.elev_3d *= (0.5 + 2*gamma)
-        self.fields.elev_3d += (0.5 - 2*gamma)*self.elev_old_3d
+        self.elev_domain_old_2d.assign(self.fields.elev_domain_2d)
+        self.solver.fields.elev_domain_2d.assign(self.solver.fields.elev_2d)
+        self.fields.elev_domain_2d *= (0.5 + 2*gamma)
+        self.fields.elev_domain_2d += (0.5 - 2*gamma)*self.elev_domain_old_2d
 
         # correct uv_3d to uv_2d at t_{n+1/2}
         self.fields.uv_2d *= (0.5 + 2*gamma)
@@ -572,7 +548,6 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
         if self.options.use_implicit_vertical_diffusion:
             self._update_2d_coupling()
             self._update_baroclinicity()
-            self._update_bottom_friction()
             self._update_turbulence(t)
             if self.options.solve_salinity:
                 with timed_stage('impl_salt_vdiff'):
@@ -588,7 +563,6 @@ class CoupledLeapFrogAM3(CoupledTimeIntegrator):
         else:
             self._update_2d_coupling()
             self._update_baroclinicity()
-            self._update_bottom_friction()
             self._update_vertical_velocity()
             self._update_stabilization_params()
 
@@ -644,14 +618,8 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
             else:
                 # compute w_mesh at surface as (2*elev^{n+1} - elev^{(1)} - elev^{n})/dt
                 w_s = (2*current_elev - self.elev_fields[1] - self.elev_fields[0])/self.solver.dt
-            self.fields.w_mesh_surf_2d.assign(w_s)
-            # use that to compute w_mesh in whole domain
-            self.solver.mesh_updater.cp_w_mesh_surf_2d_to_3d.solve()
-            # solve w_mesh at nodes
-            w_mesh_surf = self.fields.w_mesh_surf_3d.dat.data[:]
-            z_ref = self.fields.z_coord_ref_3d.dat.data[:]
-            h = self.fields.bathymetry_3d.dat.data[:]
-            self.fields.w_mesh_3d.dat.data[:] = w_mesh_surf * (z_ref + h)/h
+            self.solver.mesh_updater.compute_mesh_velocity_finalize(
+                w_mesh_surf_expr=w_s)
 
     def advance(self, t, update_forcings=None, update_forcings3d=None):
         """
@@ -734,7 +702,6 @@ class CoupledTwoStageRK(CoupledTimeIntegrator):
                 self._update_vertical_velocity()
                 # update parametrizations
                 self._update_turbulence(t)
-                self._update_bottom_friction()
                 self._update_stabilization_params()
             else:
                 # update variables that explict solvers depend on

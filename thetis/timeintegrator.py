@@ -96,10 +96,10 @@ class ForwardEuler(TimeIntegrator):
         self.fields_old = {}
         for k in sorted(self.fields):
             if self.fields[k] is not None:
-                if isinstance(self.fields[k], FiredrakeFunction):
+                if isinstance(self.fields[k], Function):
                     self.fields_old[k] = Function(
                         self.fields[k].function_space())
-                elif isinstance(self.fields[k], FiredrakeConstant):
+                elif isinstance(self.fields[k], Constant):
                     self.fields_old[k] = Constant(self.fields[k])
 
         u_old = self.solution_old
@@ -162,10 +162,10 @@ class CrankNicolson(TimeIntegrator):
         self.fields_old = {}
         for k in sorted(self.fields):
             if self.fields[k] is not None:
-                if isinstance(self.fields[k], FiredrakeFunction):
+                if isinstance(self.fields[k], Function):
                     self.fields_old[k] = Function(
                         self.fields[k].function_space(), name=self.fields[k].name()+'_old')
-                elif isinstance(self.fields[k], FiredrakeConstant):
+                elif isinstance(self.fields[k], Constant):
                     self.fields_old[k] = Constant(self.fields[k])
 
         u = self.solution
@@ -333,10 +333,10 @@ class PressureProjectionPicard(TimeIntegrator):
         self.fields_old = {}
         for k in sorted(self.fields):
             if self.fields[k] is not None:
-                if isinstance(self.fields[k], FiredrakeFunction):
+                if isinstance(self.fields[k], Function):
                     self.fields_old[k] = Function(
                         self.fields[k].function_space())
-                elif isinstance(self.fields[k], FiredrakeConstant):
+                elif isinstance(self.fields[k], Constant):
                     self.fields_old[k] = Constant(self.fields[k])
         # for the mom. eqn. the 'eta' field is just one of the 'other' fields
         fields_mom = self.fields.copy()
@@ -472,9 +472,6 @@ class LeapFrogAM3(TimeIntegrator):
         self.msolution_old = Function(fs, name='dual solution')
         self.rhs_func = Function(fs, name='rhs linear form')
 
-        continuity = element_continuity(fs.ufl_element())
-        self.fs_is_dg = continuity.horizontal == 'dg' and continuity.vertical == 'dg'
-
         # fully explicit evaluation
         self.a = self.equation.mass_term(self.equation.trial)
         self.l = self.dt_const*self.equation.residual(terms_to_add,
@@ -494,12 +491,11 @@ class LeapFrogAM3(TimeIntegrator):
 
     def initialize(self, solution):
         """Assigns initial conditions to all required fields."""
-        self.mass_matrix = assemble(self.a, inverse=self.fs_is_dg)
+        self.mass_matrix = assemble(self.a)
         self.solution.assign(solution)
         self.solution_old.assign(solution)
         assemble(self.mass_new, self.msolution_old)
-        if not self.fs_is_dg:
-            self.lin_solver = LinearSolver(self.mass_matrix)
+        self.lin_solver = LinearSolver(self.mass_matrix)
 
     def _solve_system(self):
         """
@@ -508,12 +504,7 @@ class LeapFrogAM3(TimeIntegrator):
         If the function space is fully discontinuous, the mass matrix is
         inverted in place for efficiency.
         """
-        if self.fs_is_dg:
-            with self.solution.dat.vec as x:
-                with self.rhs_func.dat.vec_ro as b:
-                    self.mass_matrix.petscmat.mult(b, x)
-        else:
-            self.lin_solver.solve(self.solution, self.rhs_func)
+        self.lin_solver.solve(self.solution, self.rhs_func)
 
     def predict(self):
         r"""
@@ -562,7 +553,7 @@ class LeapFrogAM3(TimeIntegrator):
             with timed_region('lf_cor_incr_rhs'):
                 self.rhs_func += self.msolution_old
             with timed_region('lf_cor_asmb_mat'):
-                assemble(self.a, self.mass_matrix, inverse=self.fs_is_dg)
+                assemble(self.a, self.mass_matrix)
             with timed_region('lf_cor_solve'):
                 self._solve_system()
 
