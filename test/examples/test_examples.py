@@ -34,6 +34,7 @@ exclude_files = [
     'lockExchange/diagnostics.py',
     'lockExchange/plotting.py',
     'lockExchange/submitRuns.py',
+    'migrating_trench/trench_hydro.py',
     'tidalfarm/tidalfarm.py',
     'tidal_barrage/plotting.py',
 ]

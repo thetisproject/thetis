@@ -6,6 +6,7 @@ objects.
 """
 from .configuration import *
 from firedrake import Constant
+from .sediment_model import SedimentModel
 
 
 class TimeStepperOptions(FrozenHasTraits):
@@ -29,8 +30,16 @@ class SemiImplicitTimestepperOptions2d(TimeStepperOptions):
         'ksp_type': 'gmres',
         'pc_type': 'sor',
     }).tag(config=True)
+    solver_parameters_sediment = PETScSolverParameters({
+        'ksp_type': 'gmres',
+        'pc_type': 'sor',
+    }).tag(config=True)
     use_semi_implicit_linearization = Bool(
         False, help="Use linearized semi-implicit time integration").tag(config=True)
+    solver_parameters_exner = PETScSolverParameters({
+        'ksp_type': 'gmres',
+        'pc_type': 'sor',
+    }).tag(config=True)
 
 
 class SteadyStateTimestepperOptions2d(TimeStepperOptions):
@@ -463,6 +472,12 @@ class CommonModelOptions(FrozenConfigurable):
 
         Bottom stress is :math:`\tau_b/\rho_0 = -g \mu^2 |\mathbf{u}|\mathbf{u}/H^{1/3}`
         """).tag(config=True)
+    nikuradse_bed_roughness = FiredrakeScalarExpression(
+        None, allow_none=True, help=r"""
+        Nikuradse bed roughness length used to construct the 2D quadratic drag parameter :math:`C_D`.
+
+        In sediment transport this term is usually three times the average sediment diameter size.
+        """).tag(config=True)
     norm_smoother = FiredrakeConstantTraitlet(
         Constant(0.0), help=r"""
         Coefficient used to avoid non-differentiable functions in the continuous formulation of the velocity norm in
@@ -484,7 +499,7 @@ class CommonModelOptions(FrozenConfigurable):
     tracer_source_2d = FiredrakeScalarExpression(
         None, allow_none=True, help="Source term for 2D tracer equation").tag(config=True)
     horizontal_diffusivity = FiredrakeCoefficient(
-        None, allow_none=True, help="Horizontal diffusivity for tracers").tag(config=True)
+        None, allow_none=True, help="Horizontal diffusivity for tracers and sediment").tag(config=True)
     use_automatic_sipg_parameter = Bool(False, help=r"""
         Toggle automatic computation of the SIPG penalty parameter used in viscosity and
         diffusivity terms.
@@ -503,6 +518,70 @@ class CommonModelOptions(FrozenConfigurable):
         Constant(10.0), help="Penalty parameter used for horizontal viscosity terms.").tag(config=True)
     sipg_parameter_tracer = FiredrakeScalarExpression(
         Constant(10.0), help="Penalty parameter used for horizontal diffusivity terms.").tag(config=True)
+
+
+class SedimentModelOptions(FrozenHasTraits):
+    solve_exner = Bool(False, help='Solve exner equation for bed morphology').tag(config=True)
+    solve_suspended_sediment = Bool(False, help='Solve suspended sediment transport equation').tag(config=True)
+    use_sediment_conservative_form = Bool(False, help='Solve 2D sediment transport in the conservative form').tag(config=True)
+    use_bedload = Bool(False, help='Use bedload transport in sediment model').tag(config=True)
+    use_angle_correction = Bool(True, help='Switch to use slope effect angle correction').tag(config=True)
+    use_slope_mag_correction = Bool(True, help='Switch to use slope effect magnitude correction').tag(config=True)
+    use_secondary_current = Bool(False, help='Switch to use secondary current for helical flow effect').tag(config=True)
+    average_sediment_size = NonNegativeFloat(allow_none=False, help='Average sediment size').tag(config=True)
+    bed_reference_height = NonNegativeFloat(allow_none=False, help='Bottom bed reference height').tag(config=True)
+    use_advective_velocity_correction = Bool(True, help="""
+        Switch to apply correction to advective velocity used in sediment equation
+
+        Accounts for mismatch between depth-averaged product of velocity with sediment
+        and product of depth-averaged velocity with depth-averaged sediment
+        """).tag(config=True)
+    porosity = FiredrakeCoefficient(
+        Constant(0.4), help="Bed porosity for exner equation").tag(config=True)
+    morphological_acceleration_factor = FiredrakeConstantTraitlet(
+        Constant(1), help="""Rate at which timestep in exner equation is accelerated compared to timestep for model
+
+        timestep in exner = morphological_acceleration_factor * timestep
+        """).tag(config=True)
+    morphological_viscosity = FiredrakeScalarExpression(
+        None, allow_none=True, help="""Viscosity used to derive morphology terms.
+
+        Usually equal to horizontal viscosity but can be set to have a different value""").tag(config=True)
+    sediment_density = FiredrakeConstantTraitlet(
+        Constant(2650), help='Density of sediment').tag(config=True)
+    secondary_current_parameter = FiredrakeConstantTraitlet(
+        Constant(0.75), help='Parameter controlling secondary current').tag(config=True)
+    slope_effect_parameter = FiredrakeConstantTraitlet(
+        Constant(1.3), help='Parameter controlling magnitude of slope effect').tag(config=True)
+    slope_effect_angle_parameter = FiredrakeConstantTraitlet(
+        Constant(2/3), help='Parameter controlling angle of slope effect').tag(config=True)
+    check_sediment_conservation = Bool(
+        False, help="""
+        Compute total sediment mass at every export
+
+        Prints deviation from the initial mass to stdout.
+        """).tag(config=True)
+    check_sediment_overshoot = Bool(
+        False, help="""
+        Compute sediment overshoots at every export
+
+        Prints overshoot values that exceed the initial range to stdout.
+        """).tag(config=True)
+    sediment_model_class = Type(SedimentModel, help="""Class used to define the sediment model
+
+    This option can be used to provide a user-defined sediment model class that should
+    be a subclass of SedimentModel. For example:
+
+    .. code-block:: python
+
+        class UserSedimentModel(SedimentModel):
+           def __init__(options, mesh2d, uv, elev, depth, extra_term):
+              super().__init__(options, mesh2d, uv, elev, depth)
+              self.extra_term = extra_term
+
+           def get_bedloadterm(self, bathymetry):
+              return super().get_bedloadterm(bathymetry) + self.term
+    """)
 
 
 # NOTE all parameters are now case sensitive
@@ -525,6 +604,7 @@ class CommonModelOptions(FrozenConfigurable):
 class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
     name = 'Depth-averaged 2D model'
+    sediment_model_options = Instance(SedimentModelOptions, args=()).tag(config=True)
     solve_tracer = Bool(False, help='Solve tracer transport').tag(config=True)
     use_tracer_conservative_form = Bool(False, help='Solve 2D tracer transport in the conservative form').tag(config=True)
     use_wetting_and_drying = Bool(
@@ -541,7 +621,6 @@ class ModelOptions2d(CommonModelOptions):
         """).tag(config=True)
     tidal_turbine_farms = Dict(trait=TidalTurbineFarmOptions(),
                                default_value={}, help='Dictionary mapping subdomain ids to the options of the corresponding farm')
-
     check_tracer_conservation = Bool(
         False, help="""
         Compute total tracer mass at every export
@@ -604,7 +683,6 @@ class ModelOptions3d(CommonModelOptions):
         False, help="Compute internal pressure gradient in momentum equation").tag(config=True)
     use_turbulence = Bool(
         False, help="Activate turbulence model in the 3D model").tag(config=True)
-
     use_turbulence_advection = Bool(
         False, help="Advect TKE and Psi in the GLS turbulence model").tag(config=True)
     use_smagorinsky_viscosity = Bool(

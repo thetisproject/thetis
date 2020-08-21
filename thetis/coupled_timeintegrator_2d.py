@@ -1,5 +1,5 @@
 """
-Time integrators for solving coupled shallow water equations with one tracer.
+Time integrators for solving coupled shallow water equations with one tracer or sediment.
 """
 from __future__ import absolute_import
 from .utility import *
@@ -10,7 +10,7 @@ from abc import ABCMeta
 
 class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
     """
-    Base class of time integrator for coupled shallow water and tracer equations
+    Base class of time integrator for coupled shallow water and tracer/sediment equations and exner equation
     """
     __metaclass__ = ABCMeta
 
@@ -20,6 +20,10 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
 
     def tracer_integrator(self):
         """time integrator for the tracer equation"""
+        pass
+
+    def exner_integrator(self):
+        """time integrator for the exner equation"""
         pass
 
     def __init__(self, solver):
@@ -32,7 +36,12 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self.timesteppers = AttrDict()
         print_output('Coupled time integrator: {:}'.format(self.__class__.__name__))
         print_output('  Shallow Water time integrator: {:}'.format(self.swe_integrator.__name__))
-        print_output('  Tracer time integrator: {:}'.format(self.tracer_integrator.__name__))
+        if self.options.solve_tracer:
+            print_output('  Tracer time integrator: {:}'.format(self.tracer_integrator.__name__))
+        if self.options.sediment_model_options.solve_suspended_sediment:
+            print_output('  Sediment time integrator: {:}'.format(self.sediment_integrator.__name__))
+        if self.options.sediment_model_options.solve_exner:
+            print_output('  Exner time integrator: {:}'.format(self.exner_integrator.__name__))
         self._initialized = False
 
         self._create_integrators()
@@ -44,7 +53,10 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self.timesteppers.swe2d = self.solver.get_swe_timestepper(self.swe_integrator)
         if self.solver.options.solve_tracer:
             self.timesteppers.tracer = self.solver.get_tracer_timestepper(self.tracer_integrator)
-        self.cfl_coeff_2d = min(self.timesteppers.swe2d.cfl_coeff, self.timesteppers.tracer.cfl_coeff)
+        if self.solver.options.sediment_model_options.solve_suspended_sediment:
+            self.timesteppers.sediment = self.solver.get_sediment_timestepper(self.sediment_integrator)
+        if self.solver.options.sediment_model_options.solve_exner:
+            self.timesteppers.exner = self.solver.get_exner_timestepper(self.exner_integrator)
 
     def set_dt(self, dt):
         """
@@ -69,24 +81,44 @@ class CoupledTimeIntegrator2D(timeintegrator.TimeIntegratorBase):
         self.timesteppers.swe2d.initialize(self.fields.solution_2d)
         if self.options.solve_tracer:
             self.timesteppers.tracer.initialize(self.fields.tracer_2d)
+        if self.options.sediment_model_options.solve_suspended_sediment:
+            self.timesteppers.sediment.initialize(self.fields.sediment_2d)
+        if self.options.sediment_model_options.solve_exner:
+            self.timesteppers.exner.initialize(self.fields.bathymetry_2d)
 
         self._initialized = True
 
     def advance(self, t, update_forcings=None):
         if not self.options.tracer_only:
             self.timesteppers.swe2d.advance(t, update_forcings=update_forcings)
-        self.timesteppers.tracer.advance(t, update_forcings=update_forcings)
-        if self.options.use_limiter_for_tracers:
-            self.solver.tracer_limiter.apply(self.fields.tracer_2d)
+        if self.options.solve_tracer:
+            self.timesteppers.tracer.advance(t, update_forcings=update_forcings)
+            if self.options.use_limiter_for_tracers:
+                self.solver.tracer_limiter.apply(self.fields.tracer_2d)
+        if self.solver.sediment_model is not None:
+            self.solver.sediment_model.update()
+        if self.options.sediment_model_options.solve_suspended_sediment:
+            self.timesteppers.sediment.advance(t, update_forcings=update_forcings)
+            if self.options.use_limiter_for_tracers:
+                self.solver.tracer_limiter.apply(self.fields.sediment_2d)
+        if self.options.sediment_model_options.solve_exner:
+            self.timesteppers.exner.advance(t, update_forcings=update_forcings)
 
 
 class CoupledMatchingTimeIntegrator2D(CoupledTimeIntegrator2D):
     def __init__(self, solver, integrator):
         self.swe_integrator = integrator
-        self.tracer_integrator = integrator
+        if solver.options.solve_tracer:
+            self.tracer_integrator = integrator
+        if solver.options.sediment_model_options.solve_suspended_sediment:
+            self.sediment_integrator = integrator
+        if solver.options.sediment_model_options.solve_exner:
+            self.exner_integrator = integrator
         super(CoupledMatchingTimeIntegrator2D, self).__init__(solver)
 
 
 class CoupledCrankEuler2D(CoupledTimeIntegrator2D):
     swe_integrator = timeintegrator.CrankNicolson
     tracer_integrator = timeintegrator.ForwardEuler
+    sediment_integrator = timeintegrator.ForwardEuler
+    exner_integrator = timeintegrator.CrankNicolson
