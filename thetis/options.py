@@ -507,6 +507,22 @@ class CommonModelOptions(FrozenConfigurable):
         diffusivity terms.
 
         By default, this parameter is set to
+<<<<<<< HEAD
+=======
+
+        ..math::
+            \alpha = 5p(p+1),
+
+        where :math:`p` is the polynomial degree of the velocity space.
+
+        For anisotropic meshes, it is advisable to use the automatic SIPG parameter,
+        rather than the default.
+        """).tag(config=True)
+    sipg_parameter = FiredrakeScalarExpression(
+        Constant(10.0), help="Penalty parameter used for horizontal viscosity terms.").tag(config=True)
+    sipg_parameter_tracer = FiredrakeScalarExpression(
+        Constant(10.0), help="Penalty parameter used for horizontal diffusivity terms.").tag(config=True)
+>>>>>>> master
 
         ..math::
             \alpha = 5p(p+1),
